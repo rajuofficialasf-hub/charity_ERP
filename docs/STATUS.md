@@ -2,8 +2,8 @@
 
 - Last updated: 2026-10-10
 - Current phase: 0 (Requirement & Architecture Freeze) - IN PROGRESS
-- Last completed task: T0.7 - Owner decisions. All 23 open questions of T0.1 answered on 2026-10-10 and recorded as O-01..O-23 in docs/DECISION_LOG.md section 5; stack D-050..D-053 approved (O-01); dependent documents updated. (T0.1 done the same day; T0.2..T0.6 delivered inside T0.1.)
-- Next task: T0.8 - System architecture and ADRs (docs/architecture/SYSTEM_ARCHITECTURE.md, ADR-001..006).
+- Last completed task: T0.8 - System architecture and ADRs: docs/architecture/SYSTEM_ARCHITECTURE.md complete; ADR-001..006 written; ADR index renumbered (007..011 planned). Design choices made in T0.8 and approved with the document: pg-boss consumers run in a separate worker process from the same image (JOBS_INLINE=true only in dev/test); zod is the single validation library (no class-validator); Caddy as reverse proxy; logs + health + Prometheus-format metrics, error tracker optional (T3.0). (T0.1 and T0.7 done the same day; T0.2..T0.6 delivered inside T0.1.)
+- Next task: T0.9 - Authentication and sessions (docs/architecture/AUTH.md) using O-05.
 - Blocking items: none.
 
 ## Deliverables of T0.1 (complete vs outline)
@@ -15,8 +15,10 @@ Complete:
 - docs/DECISION_LOG.md (Q-01..Q-47, BD-01..BD-49, D-050..D-053 proposed, UX-01..UX-13 approved, Open 1..23)
 - docs/NON_FUNCTIONAL_REQUIREMENTS.md (NFR-01..NFR-59, PROPOSAL rows need approval)
 
+- docs/architecture/SYSTEM_ARCHITECTURE.md and ADR/ADR-001..006 (T0.8)
+
 Outlines (headings plus one line per section; completed in the task named in each file):
-- docs/architecture/SYSTEM_ARCHITECTURE.md (T0.8), AUTH.md (T0.9), WORKFLOW_ENGINE.md (T0.11), OFFLINE_SYNC.md (T0.12), FILES_AND_DOCUMENTS.md (T0.13), NOTIFICATIONS.md (T0.14), ADR/README.md (T0.8), workflow-templates/README.md (T0.11)
+- docs/architecture/AUTH.md (T0.9), WORKFLOW_ENGINE.md (T0.11), OFFLINE_SYNC.md (T0.12), FILES_AND_DOCUMENTS.md (T0.13), NOTIFICATIONS.md (T0.14), workflow-templates/README.md (T0.11)
 - docs/database/ERD.md (T0.15), DATABASE_SCHEMA.md (T0.16)
 - docs/api/API_STANDARDS.md (T0.17), openapi.yaml skeleton (T0.18)
 - docs/security/RBAC.md and permissions.yaml skeleton (T0.10), SECURITY_POLICY.md (T0.21)
@@ -44,7 +46,7 @@ Outlines (headings plus one line per section; completed in the task named in eac
 - docs/api/openapi.yaml and docs/security/permissions.yaml were checked visually only; no YAML parser is installed on this machine (PyYAML missing). They are parsed in CI from T1.1.
 
 ## Last test run
-- none (Phase 0, documents only). Verification done on 2026-10-10 after T0.7: 230 unique BR ids with no duplicates; DECISION_LOG row counts Q 47 / BD 49 / D 4 / UX 13 / O 23; every constitution section 3 path exists; git working tree clean.
+- none (Phase 0, documents only). Verification done on 2026-10-10 after T0.8: SYSTEM_ARCHITECTURE has 13 sections with the deployment diagram and the request-check order; six ADR files plus README exist; 230 unique BR ids; DECISION_LOG row counts Q 47 / BD 49 / D 4 / UX 13 / O 23; git working tree clean.
 
 ## Notes for the next session
 - The model and effort level for every task are in docs/MODEL_GUIDE.md. It is the owner's reference; Claude Code does not switch models by itself. The rows marked ছাড় নেই (no downgrade) must not be run on a lower model when a usage limit runs out.

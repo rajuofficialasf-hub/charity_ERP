@@ -1,18 +1,22 @@
 # Architecture decision records
 
-Status: index created in task T0.1 (2026-10-10); records written from task T0.8 onward. One file per technical decision, named `ADR-nnn-short-title.md`, with sections Context, Decision, Alternatives, Consequences, Status (proposed / approved / superseded) and the DECISION_LOG id it corresponds to.
+Index created in task T0.1; ADR-001…006 written in task T0.8 (2026-10-10). One file per technical decision, named `ADR-nnn-short-title.md`, with sections Status, Context, Decision, Alternatives considered, Consequences, Related. A superseded ADR keeps its file with status "superseded by ADR-mmm".
 
-Planned records (titles only; each is written when its decision is confirmed):
+| ADR | Title | DECISION_LOG id | Status |
+|---|---|---|---|
+| [ADR-001](ADR-001-monorepo-pnpm-workspaces.md) | Monorepo with pnpm workspaces | D-050 | approved 2026-10-10 |
+| [ADR-002](ADR-002-nestjs-backend.md) | NestJS for the backend | D-051 | approved 2026-10-10 |
+| [ADR-003](ADR-003-prisma-with-down-sql.md) | Prisma on PostgreSQL 16 with hand-written down.sql | D-051 | approved 2026-10-10 |
+| [ADR-004](ADR-004-pg-boss-background-jobs.md) | pg-boss background jobs in a separate worker process | D-053 | approved 2026-10-10 |
+| [ADR-005](ADR-005-minio-object-storage.md) | MinIO object storage with presigned URLs, filesystem adapter for tests | D-053 | approved 2026-10-10 |
+| [ADR-006](ADR-006-nextjs-pwa-stack.md) | Next.js PWA stack: App Router, Serwist, Dexie, Tailwind tokens, next-intl | D-052 | approved 2026-10-10 |
+
+Planned (written when the decision is designed):
 
 | ADR | Title | DECISION_LOG id | Written in |
 |---|---|---|---|
-| ADR-001 | Monorepo with pnpm workspaces | D-050 | T0.8 |
-| ADR-002 | NestJS, Prisma and PostgreSQL 16 with reversible migrations | D-051 | T0.8 |
-| ADR-003 | Next.js PWA with Serwist and Dexie outbox | D-052 | T0.8 |
-| ADR-004 | pg-boss for background jobs | D-053 | T0.8 |
-| ADR-005 | MinIO object storage with presigned URLs | D-053 | T0.8 |
-| ADR-006 | Provider-agnostic email and SMS adapters | D-053 | T0.8 |
-| ADR-007 | Workflow templates as YAML with named guards | Q-35, BD-11 | T0.11 |
-| ADR-008 | Form definitions as JSON with a shared evaluator | BD-12 | T0.11 / T2.3 |
-| ADR-009 | Offline outbox and conflict rules | BD-48 | T0.12 |
-| ADR-010 | Identifier formats (BEN-ID = UUID v7, application id = project code + year + sequence) | O-03 | T0.15 |
+| ADR-007 | Provider-agnostic email and SMS adapters | D-053, Q-11 | T0.14 |
+| ADR-008 | Workflow templates as YAML with named guards | Q-35, BD-11 | T0.11 |
+| ADR-009 | Form definitions as JSON with a shared evaluator | BD-12 | T0.11 / T2.3 |
+| ADR-010 | Offline outbox and conflict rules | BD-48, O-07, O-13 | T0.12 |
+| ADR-011 | Identifier formats (BEN-ID = UUID v7, application id = project code + year + sequence) | O-03 | T0.15 |
