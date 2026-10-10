@@ -24,6 +24,7 @@
 - none yet
 
 ## Notes for the next session
+- The model and effort level for every task are in docs/MODEL_GUIDE.md. It is the owner's reference; Claude Code does not switch models by itself. The rows marked ছাড় নেই (no downgrade) must not be run on a lower model when a usage limit runs out.
 - Brand assets are in docs/ui/brand/: colors.md, logo.png, logo.svg and fonts/ with licence texts (copied from the website on 2026-10-10).
 - Design interview held on 2026-10-10: owner decisions UX-01 to UX-13 are in docs/ui/DESIGN_BRIEF.md. Import them into docs/DECISION_LOG.md in tasks T0.1 and T0.5. There is no Figma file; clickable HTML mockups are built in task T0.19b.
 - Git remote: origin is https://github.com/rajuofficialasf-hub/charity_ERP.git, branch main.
