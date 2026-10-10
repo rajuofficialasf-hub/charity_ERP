@@ -1,29 +1,1256 @@
-# permissions.yaml - single source of truth for permission names, defaults and scopes.
-# Status: skeleton written in task T0.1 (2026-10-10); filled in task T0.10 from blueprint A4 and B4.
+# permissions.yaml - single source of truth for permission names, default grants and scopes.
+# Status: complete, task T0.10 (2026-10-10). Loaded by the implementation (T1.8) and used to generate the
+# authorization-matrix test. The matrix in docs/security/RBAC.md is verified against this file.
 #
-# Schema (to be validated in CI from task T1.8):
-#   version: integer
-#   scopes: list of scope names in order of breadth
-#   roles: map of role key -> { name_en, name_bn, kind: official | volunteer }
-#   permissions: list of { name, description, module, default: [ { role, scope, condition? } ], sensitive_fields? }
-# Permission names are dotted, lower-case, module.action[.qualifier], e.g. application.approve, volunteer.rating.view.
-# "condition" records matrix entries such as "if RPM grants" or "house construction only".
-version: 0
+# Schema
+#   version            integer, bumped on any structural change
+#   scopes             scope names from broad to narrow (blueprint B4)
+#   conditions         named conditions used in default grants; the implementation maps each to a check
+#   roles              role key -> name_en, name_bn, kind (official | volunteer), global_scope (true = holds
+#                      every permission at GLOBAL unless a permission lists `global_roles_excluded`)
+#   permission_sets    the three project-level sets of blueprint A5, assigned to volunteers per project
+#   sensitive_fields   protected field classes (constitution s5, s13; BR-183) and the roles that may see them;
+#                      serializers and exports apply the same list
+#   permissions        list of { name, description, module, sensitive, default: [ { role, scope, condition? } ],
+#                      global_roles_excluded? }
+# Naming: resource.action[.qualifier], lower-case, dotted. Module ids are those of docs/MODULE_CATALOG.md.
+# Default deny: a permission not granted by role default, permission set, project grant or panel override is denied.
+version: 1
+
 scopes: [GLOBAL, PROGRAM, PROJECT, REGION, DISTRICT, UPAZILA, UNION, ASSIGNED, SELF]
+
+conditions:
+  if_rpm_grants: "Not held by default; the RPM may grant it per project (blueprint A4 'RM দিলে')"
+  house_construction_only: "Only on projects whose workflow template is Construction (BD-24)"
+  safe_water_only: "Only on projects whose workflow template is Advance + construction + voucher (A8.4)"
+  house_construction_project: "Only on house-construction projects the team is attached to (Q-46)"
+  own_created: "Only records the user created (team members, BR-041)"
+  own_or_paid_volunteer_issues: "Only issues raised by the Procurement Team itself or by paid volunteers (Q-46)"
+  own_region: "Limited to the user's region inside the project (A4 'নিজ রিজিওন')"
+  own_part: "Only the team's own data (Media: stories and media; Procurement: issues) (A4 second table)"
+  type_both_only: "Only Local daees of type Both (A4 'উভয় ধরন হলে')"
+  tree_planting_only: "Only on projects whose workflow template is Open application + visit (A8.5)"
+  no_open_applications: "Only when the target volunteer has no open applications (O-25)"
+
 roles:
-  department_head: { name_en: Department Head, name_bn: "ডিপার্টমেন্ট হেড", kind: official }
-  monitoring_team: { name_en: Monitoring Team, name_bn: "মনিটরিং টিম", kind: official }
-  program_manager: { name_en: Program Manager, name_bn: "প্রোগ্রাম ম্যানেজার", kind: official }
-  regional_program_manager: { name_en: Regional Program Manager, name_bn: "রিজিওনাল প্রোগ্রাম ম্যানেজার", kind: official }
-  project_executive: { name_en: Project Executive, name_bn: "প্রজেক্ট এক্সিকিউটিভ", kind: official }
-  implementer: { name_en: Implementer, name_bn: "বাস্তবায়নকারী", kind: official }
-  official_daee: { name_en: "Official দায়ী", name_bn: "অফিসিয়াল দায়ী", kind: official }
-  procurement_team: { name_en: Procurement Team, name_bn: "প্রকিউরমেন্ট টিম", kind: official }
-  media_team: { name_en: Media Team, name_bn: "মিডিয়া টিম", kind: official }
-  finance_team: { name_en: Finance Team, name_bn: "ফাইন্যান্স টিম", kind: official }
-  volunteer_general: { name_en: General Volunteer, name_bn: "জেনারেল স্বেচ্ছাসেবক", kind: volunteer }
-  volunteer_local_daee: { name_en: "Local দায়ী", name_bn: "স্থানীয় দায়ী", kind: volunteer }
-  volunteer_both: { name_en: "Both (দাঈ-স্বেচ্ছাসেবক)", name_bn: "দাঈ-স্বেচ্ছাসেবক", kind: volunteer }
-  volunteer_team_member: { name_en: Team Member, name_bn: "টিম মেম্বার", kind: volunteer }
-  volunteer_paid: { name_en: Paid Volunteer, name_bn: "পেইড ভলান্টিয়ার", kind: volunteer }
-permissions: []   # filled in T0.10
+  department_head: { name_en: Department Head, name_bn: "ডিপার্টমেন্ট হেড", kind: official, global_scope: true }
+  monitoring_team: { name_en: Monitoring Team, name_bn: "মনিটরিং টিম", kind: official, global_scope: true }
+  program_manager: { name_en: Program Manager, name_bn: "প্রোগ্রাম ম্যানেজার", kind: official, global_scope: false }
+  regional_program_manager: { name_en: Regional Program Manager, name_bn: "রিজিওনাল প্রোগ্রাম ম্যানেজার", kind: official, global_scope: false }
+  project_executive: { name_en: Project Executive, name_bn: "প্রজেক্ট এক্সিকিউটিভ", kind: official, global_scope: false }
+  implementer: { name_en: Implementer, name_bn: "বাস্তবায়নকারী", kind: official, global_scope: false }
+  official_daee: { name_en: "Official দায়ী", name_bn: "অফিসিয়াল দায়ী", kind: official, global_scope: false }
+  procurement_team: { name_en: Procurement Team, name_bn: "প্রকিউরমেন্ট টিম", kind: official, global_scope: false }
+  media_team: { name_en: Media Team, name_bn: "মিডিয়া টিম", kind: official, global_scope: false }
+  finance_team: { name_en: Finance Team, name_bn: "ফাইন্যান্স টিম", kind: official, global_scope: false }
+  volunteer_general: { name_en: General Volunteer, name_bn: "জেনারেল স্বেচ্ছাসেবক", kind: volunteer, global_scope: false }
+  volunteer_local_daee: { name_en: "Local দায়ী", name_bn: "স্থানীয় দায়ী", kind: volunteer, global_scope: false }
+  volunteer_both: { name_en: "Both (দাঈ-স্বেচ্ছাসেবক)", name_bn: "দাঈ-স্বেচ্ছাসেবক", kind: volunteer, global_scope: false }
+  volunteer_team_member: { name_en: Team Member, name_bn: "টিম মেম্বার", kind: volunteer, global_scope: false }
+  volunteer_paid: { name_en: Paid Volunteer, name_bn: "পেইড ভলান্টিয়ার", kind: volunteer, global_scope: false }
+
+# Project-level permission sets (blueprint A5). Assigned on project_volunteers.permission_set; scope SELF unless noted.
+permission_sets:
+  application_distribution:
+    for: [volunteer_general, volunteer_both]
+    permissions:
+      - application.create
+      - application.submit
+      - application.edit_draft
+      - application.edit_pending
+      - application.delete_pending
+      - application.view
+      - application.update_unlocked_field
+      - beneficiary.lookup
+      - stock.receive
+      - distribution.update
+      - site_verification.record
+      - voucher.submit
+      - expense.claim.submit
+      - issue.raise
+      - volunteer.team.manage
+      - file.upload
+      - sync.batch
+      - session.revoke_own
+  application_distribution_dawah:
+    for: [volunteer_local_daee, volunteer_both]
+    extends: application_distribution
+    permissions:
+      - class.record
+      - exam.record            # condition if_rpm_grants (A4 'স্থানীয় দায়ী RM দিলে')
+  work_progress:
+    for: [volunteer_paid]
+    permissions:
+      - application.view        # scope PROJECT, read only (A8.2)
+      - progress.update         # scope ASSIGNED
+      - issue.raise
+      - expense.claim.submit
+      - file.upload
+      - sync.batch
+      - session.revoke_own
+
+# Protected field classes. visible_to lists the roles that may receive the field on screens and in exports.
+# global_scope roles (department_head, monitoring_team) are always included.
+sensitive_fields:
+  - key: beneficiary.nid
+    fields: [beneficiaries.nid, beneficiaries.birth_reg, beneficiaries.nid_photo]
+    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee]
+    source: "B8: NID number and photo visible to all official staff who do project work, never to volunteers, Media, Finance, Procurement"
+  - key: volunteer.identity
+    fields: [volunteers.nid, volunteers.nid_photo]
+    visible_to: [program_manager, regional_program_manager, project_executive]
+    source: "A5, B8"
+  - key: volunteer.bank
+    fields: [volunteers.bank_name, volunteers.account_name, volunteers.account_number, volunteers.routing_number]
+    visible_to: [program_manager, regional_program_manager, project_executive, finance_team]
+    source: "A5 (used when paying operational expenses), B8"
+  - key: volunteer.rating
+    fields: [ratings.*, volunteers.category, category_changes.comment]
+    visible_to: [program_manager, regional_program_manager, project_executive]
+    source: "A4, A5, BD-40: never to volunteers; not to Media, Finance, Procurement"
+  - key: donor.data
+    fields: [donors.*, animal_shares.donor_id]
+    visible_to: [program_manager, regional_program_manager, project_executive]
+    source: "A4 second table, B8"
+  - key: application.official_section
+    fields: [form sections with visibility official_only, application_scores.*]
+    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee, procurement_team, media_team]
+    source: "B3, B4: never returned to volunteers; Procurement and Media read applications (A4)"
+  - key: blocklist.reason
+    fields: [blocklist.reason, blocklist.blocked_by]
+    visible_to: [program_manager, regional_program_manager, project_executive, official_daee]
+    source: "A5, A7: reasons visible to officials only"
+  - key: audit.detail
+    fields: [audit_log.old, audit_log.new, audit_log.ip]
+    visible_to: [program_manager, regional_program_manager]
+    source: "A10: audit viewer for monitoring and management"
+
+permissions:
+  # ---- M01 Auth & Sessions -------------------------------------------------------------------------
+  - name: session.revoke_own
+    description: Revoke one of the user's own device sessions
+    module: M01
+    sensitive: false
+    default:
+      - { role: program_manager, scope: SELF }
+      - { role: regional_program_manager, scope: SELF }
+      - { role: project_executive, scope: SELF }
+      - { role: implementer, scope: SELF }
+      - { role: official_daee, scope: SELF }
+      - { role: procurement_team, scope: SELF }
+      - { role: media_team, scope: SELF }
+      - { role: finance_team, scope: SELF }
+      - { role: volunteer_general, scope: SELF }
+      - { role: volunteer_local_daee, scope: SELF }
+      - { role: volunteer_both, scope: SELF }
+      - { role: volunteer_team_member, scope: SELF }
+      - { role: volunteer_paid, scope: SELF }
+  - name: session.revoke_user
+    description: List and revoke another user's device sessions (lost phone), with reason
+    module: M01
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION, condition: own_region }   # volunteers in own region (O-25)
+  - name: user.state.change
+    description: Change an account state (pending/active/blocked/deactivated) with reason; blocklist uses volunteer.block
+    module: M01
+    sensitive: false
+    default: []
+  - name: user.deactivate_volunteer
+    description: Deactivate a volunteer who has no open applications
+    module: M01
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM, condition: no_open_applications }
+      - { role: regional_program_manager, scope: REGION, condition: no_open_applications }
+  - name: user.handover
+    description: Run the staff handover and deactivate an official's account
+    module: M01
+    sensitive: false
+    default: []
+  - name: system.owner.transfer
+    description: Transfer the Main Admin (system owner) flag to another official
+    module: M01
+    sensitive: false
+    default:
+      - { role: department_head, scope: GLOBAL }
+    global_roles_excluded: [monitoring_team]
+
+  # ---- M02 Users, Roles & Permissions --------------------------------------------------------------
+  - name: permission.panel.manage
+    description: Grant or revoke any permission for any user at a chosen scope (permission panel)
+    module: M02
+    sensitive: false
+    default: []
+  - name: permission.view
+    description: View a user's effective permissions
+    module: M02
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+  - name: project.staff_access.manage
+    description: Give staff under the RPM view/edit/delete access on a project
+    module: M02
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+  - name: project.volunteer_grant.manage
+    description: Grant 'if RPM grants' extras (approve, add volunteers, transfer, exam, site decision) to own team members and volunteers per project
+    module: M02
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+
+  # ---- M03 Registration & Approval -----------------------------------------------------------------
+  - name: registration.approve
+    description: Approve a volunteer registration
+    module: M03
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+  - name: registration.request_correction
+    description: Send a field-level correction request on a pending registration
+    module: M03
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+  - name: staff.registration.approve
+    description: Approve a staff registration and assign the role
+    module: M03
+    sensitive: false
+    default: []
+  - name: edit_request.approve
+    description: Approve a volunteer's profile edit request and open the field
+    module: M03
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+  - name: edit_request.submit
+    description: Submit an edit request on own profile
+    module: M03
+    sensitive: false
+    default:
+      - { role: volunteer_general, scope: SELF }
+      - { role: volunteer_local_daee, scope: SELF }
+      - { role: volunteer_both, scope: SELF }
+      - { role: volunteer_team_member, scope: SELF }
+      - { role: volunteer_paid, scope: SELF }
+
+  # ---- M04 Volunteer Management --------------------------------------------------------------------
+  - name: volunteer.view_all
+    description: Nationwide volunteer tab with filters and statistics (sensitive fields masked per sensitive_fields)
+    module: M04
+    sensitive: false
+    default:
+      - { role: program_manager, scope: GLOBAL }
+      - { role: regional_program_manager, scope: GLOBAL }
+      - { role: project_executive, scope: GLOBAL }
+      - { role: official_daee, scope: GLOBAL }
+      - { role: implementer, scope: GLOBAL }
+  - name: volunteer.view_sensitive
+    description: See volunteer NID, NID photo and bank details
+    module: M04
+    sensitive: true
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+  - name: volunteer.assign_project
+    description: Add volunteers, Local daees and paid volunteers to a project with a permission set
+    module: M04
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION, condition: if_rpm_grants }
+  - name: volunteer.mark_paid
+    description: Mark a volunteer as paid on a project
+    module: M04
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+  - name: volunteer.team.manage
+    description: Add or remove own team members on a project (volunteers registered with the user's NID as reference)
+    module: M04
+    sensitive: false
+    default:
+      - { role: volunteer_general, scope: SELF }
+      - { role: volunteer_both, scope: SELF }
+      - { role: volunteer_local_daee, scope: SELF, condition: type_both_only }
+  - name: volunteer.team.transfer
+    description: Decide whether a replaced volunteer's team moves to the new volunteer
+    module: M04
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+  - name: volunteer.rating.view
+    description: View volunteer ratings and categories with comments
+    module: M04
+    sensitive: true
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+  - name: volunteer.rating.set
+    description: Finalize ratings proposed at project close
+    module: M04
+    sensitive: true
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+  - name: volunteer.category.set
+    description: Set or change a volunteer category (comment mandatory) and the inactive flag
+    module: M04
+    sensitive: true
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+  - name: volunteer.block
+    description: Put a volunteer on the blocklist with reason
+    module: M04
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+  - name: volunteer.unblock
+    description: Lift a volunteer block with reason
+    module: M04
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+  - name: application.transfer
+    description: Transfer all or selected applications from one volunteer to another
+    module: M04
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION, condition: if_rpm_grants }
+  - name: volunteer.consent.accept
+    description: Accept the project rules and consent texts for own assignment
+    module: M04
+    sensitive: false
+    default:
+      - { role: volunteer_general, scope: SELF }
+      - { role: volunteer_local_daee, scope: SELF }
+      - { role: volunteer_both, scope: SELF }
+      - { role: volunteer_team_member, scope: SELF }
+      - { role: volunteer_paid, scope: SELF }
+
+  # ---- M05 Beneficiary Master ----------------------------------------------------------------------
+  - name: beneficiary.view_all
+    description: Nationwide beneficiary tab and 360 profiles (sensitive fields masked per sensitive_fields)
+    module: M05
+    sensitive: false
+    default:
+      - { role: program_manager, scope: GLOBAL }
+      - { role: regional_program_manager, scope: GLOBAL }
+      - { role: project_executive, scope: GLOBAL }
+      - { role: official_daee, scope: GLOBAL }
+      - { role: implementer, scope: GLOBAL }
+      - { role: media_team, scope: GLOBAL }
+      - { role: procurement_team, scope: PROJECT, condition: house_construction_project }
+  - name: beneficiary.view_nid
+    description: See beneficiary NID / birth-registration number and NID photo
+    module: M05
+    sensitive: true
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: implementer, scope: REGION, condition: safe_water_only }
+      - { role: official_daee, scope: REGION }
+  - name: beneficiary.lookup
+    description: Look up a beneficiary by NID or birth-registration number for auto-fill (returns only the auto-fill fields)
+    module: M05
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: implementer, scope: REGION, condition: safe_water_only }
+      - { role: volunteer_general, scope: PROJECT }
+      - { role: volunteer_both, scope: PROJECT }
+      - { role: volunteer_team_member, scope: PROJECT }
+  - name: beneficiary.correction.request
+    description: Request correction of a locked beneficiary field (name, father/husband name, identity number)
+    module: M05
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+  - name: beneficiary.correction.approve
+    description: Approve a profile correction request and change the locked field
+    module: M05
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+  - name: beneficiary.merge.propose
+    description: Propose a merge of two beneficiary profiles
+    module: M05
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+  - name: beneficiary.merge
+    description: Merge two beneficiary profiles
+    module: M05
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+  - name: beneficiary.merge.revert
+    description: Revert a profile merge
+    module: M05
+    sensitive: false
+    default: []
+  - name: beneficiary.block
+    description: Put a beneficiary on the blocklist with reason
+    module: M05
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+  - name: beneficiary.unblock
+    description: Lift a beneficiary block with reason
+    module: M05
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+  - name: beneficiary.consent.record
+    description: Record or change media consent on a beneficiary profile
+    module: M05
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+  - name: beneficiary.consent.view
+    description: View media-consent status
+    module: M05
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: media_team, scope: GLOBAL }
+  - name: beneficiary.status.change
+    description: Change a beneficiary profile status (active, deceased, relocated) with reason
+    module: M05
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+
+  # ---- M06 Programs & Projects ---------------------------------------------------------------------
+  - name: program.create
+    description: Create a program
+    module: M06
+    sensitive: false
+    default: []
+  - name: program.assign_pm
+    description: Assign the Program Manager of a program
+    module: M06
+    sensitive: false
+    default: []
+  - name: program.view
+    description: View the program list and program details
+    module: M06
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: PROGRAM }
+      - { role: project_executive, scope: PROGRAM }
+      - { role: official_daee, scope: PROGRAM }
+      - { role: implementer, scope: PROGRAM }
+      - { role: finance_team, scope: GLOBAL }
+      - { role: media_team, scope: GLOBAL }
+  - name: project.create
+    description: Create a project in own program (from template or copy)
+    module: M06
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+  - name: project.configure
+    description: Configure components, form, budget, deadlines, rules, syllabus, rating criteria, photo rule, limits, stages, settings
+    module: M06
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+  - name: project.activate
+    description: Move a project from Draft to Active
+    module: M06
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+  - name: project.deadline.extend
+    description: Extend the application deadline with reason
+    module: M06
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+  - name: project.close
+    description: Move a project to Closing and to Closed
+    module: M06
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+  - name: project.reopen
+    description: Reopen a closed project with reason
+    module: M06
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+  - name: project.area.assign
+    description: Assign areas and RPMs; split districts among RPMs
+    module: M06
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+  - name: project.template.manage
+    description: Create and edit master project templates; save a project as template
+    module: M06
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+  - name: project.quota.manage
+    description: Set district and union quotas and scoring criteria
+    module: M06
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+  - name: project.view
+    description: View project configuration and status
+    module: M06
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: official_daee, scope: REGION }
+      - { role: implementer, scope: REGION }
+      - { role: procurement_team, scope: PROJECT, condition: house_construction_project }
+      - { role: finance_team, scope: GLOBAL }
+      - { role: media_team, scope: GLOBAL }
+      - { role: volunteer_general, scope: PROJECT }
+      - { role: volunteer_local_daee, scope: PROJECT }
+      - { role: volunteer_both, scope: PROJECT }
+      - { role: volunteer_team_member, scope: PROJECT }
+      - { role: volunteer_paid, scope: PROJECT }
+
+  # ---- M07 Form Platform ---------------------------------------------------------------------------
+  - name: form.build
+    description: Edit a project's form draft (sections, fields, logic)
+    module: M07
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+  - name: form.publish
+    description: Publish a form version
+    module: M07
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+  - name: form.public_link.manage
+    description: Enable, disable and configure the public application link
+    module: M07
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+  - name: form.library.manage
+    description: Edit the section and field libraries
+    module: M07
+    sensitive: false
+    default: []
+
+  # ---- M08 Application Workflow --------------------------------------------------------------------
+  - name: application.create
+    description: Create an application (draft)
+    module: M08
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: implementer, scope: REGION, condition: safe_water_only }
+      - { role: volunteer_general, scope: SELF }
+      - { role: volunteer_both, scope: SELF }
+      - { role: volunteer_team_member, scope: SELF }
+  - name: application.submit
+    description: Submit a draft to the office
+    module: M08
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: implementer, scope: REGION, condition: safe_water_only }
+      - { role: volunteer_general, scope: SELF }
+      - { role: volunteer_both, scope: SELF }
+  - name: application.edit_draft
+    description: Edit a draft before submission
+    module: M08
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: volunteer_general, scope: SELF }
+      - { role: volunteer_both, scope: SELF }
+      - { role: volunteer_team_member, scope: SELF, condition: own_created }
+  - name: application.edit_pending
+    description: Edit a submitted (pending) application before review starts
+    module: M08
+    sensitive: false
+    default:
+      - { role: volunteer_general, scope: SELF }
+      - { role: volunteer_both, scope: SELF }
+  - name: application.delete_pending
+    description: Delete a draft or pending application (soft delete)
+    module: M08
+    sensitive: false
+    default:
+      - { role: volunteer_general, scope: SELF }
+      - { role: volunteer_both, scope: SELF }
+  - name: application.view
+    description: View applications (basic data for volunteers; official section needs application.view_official_section)
+    module: M08
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: implementer, scope: REGION, condition: safe_water_only }
+      - { role: official_daee, scope: ASSIGNED }
+      - { role: procurement_team, scope: PROJECT, condition: house_construction_project }
+      - { role: media_team, scope: GLOBAL }
+      - { role: volunteer_general, scope: SELF }
+      - { role: volunteer_both, scope: SELF }
+      - { role: volunteer_team_member, scope: SELF, condition: own_created }
+      - { role: volunteer_local_daee, scope: ASSIGNED }
+      - { role: volunteer_paid, scope: PROJECT }
+  - name: application.view_official_section
+    description: See official-only form sections, scores and reviewer comments
+    module: M08
+    sensitive: true
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: implementer, scope: REGION, condition: safe_water_only }
+      - { role: official_daee, scope: ASSIGNED }
+      - { role: procurement_team, scope: PROJECT, condition: house_construction_project }
+      - { role: media_team, scope: GLOBAL }
+  - name: application.review
+    description: Take an application under review and edit the whole form
+    module: M08
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: implementer, scope: REGION, condition: safe_water_only }
+  - name: application.approve
+    description: Approve a reviewed application
+    module: M08
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM, condition: house_construction_only }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION, condition: if_rpm_grants }
+  - name: application.reject
+    description: Reject a reviewed application with reason
+    module: M08
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM, condition: house_construction_only }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION, condition: if_rpm_grants }
+  - name: application.waitlist
+    description: Put a reviewed application on the waitlist or pull it from the waitlist
+    module: M08
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM, condition: house_construction_only }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION, condition: if_rpm_grants }
+  - name: application.unlock_field
+    description: Unlock one field of an approved application and approve the update
+    module: M08
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+  - name: application.update_unlocked_field
+    description: Update a field the official unlocked
+    module: M08
+    sensitive: false
+    default:
+      - { role: volunteer_general, scope: SELF }
+      - { role: volunteer_both, scope: SELF }
+  - name: application.verify_needs_verification
+    description: Resolve a 'needs verification' record (NID collision at sync, public form) by linking or rejecting
+    module: M08
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+  - name: site_verification.record
+    description: Record a site visit with comment, photos and recommendation
+    module: M08
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: volunteer_general, scope: ASSIGNED }
+      - { role: volunteer_both, scope: ASSIGNED }
+  - name: site_verification.decide
+    description: Decide approve/reject directly from a site verification (tree planting)
+    module: M08
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: volunteer_general, scope: ASSIGNED, condition: if_rpm_grants }
+      - { role: volunteer_both, scope: ASSIGNED, condition: if_rpm_grants }
+
+  # ---- M09 Project Activities ----------------------------------------------------------------------
+  - name: stock.dispatch
+    description: Record goods sent to a volunteer
+    module: M09
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+  - name: stock.receive
+    description: Confirm receipt of goods and set the distribution date
+    module: M09
+    sensitive: false
+    default:
+      - { role: volunteer_general, scope: SELF }
+      - { role: volunteer_both, scope: SELF }
+  - name: stock.reconcile
+    description: Enter remaining and damaged quantities and verify the reconciliation
+    module: M09
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: volunteer_general, scope: SELF }
+      - { role: volunteer_both, scope: SELF }
+  - name: distribution.update
+    description: Today's distribution bulk update with photos and edge states
+    module: M09
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: volunteer_general, scope: SELF }
+      - { role: volunteer_both, scope: SELF }
+  - name: progress.update
+    description: Stage-based construction or work progress update with photos
+    module: M09
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: implementer, scope: REGION, condition: safe_water_only }
+      - { role: volunteer_general, scope: SELF, condition: safe_water_only }
+      - { role: volunteer_both, scope: SELF, condition: safe_water_only }
+      - { role: volunteer_paid, scope: ASSIGNED }
+  - name: issue.raise
+    description: Raise an issue in the issue log with photos
+    module: M09
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: procurement_team, scope: PROJECT, condition: house_construction_project }
+      - { role: volunteer_general, scope: SELF }
+      - { role: volunteer_both, scope: SELF }
+      - { role: volunteer_local_daee, scope: ASSIGNED }
+      - { role: volunteer_paid, scope: ASSIGNED }
+  - name: issue.assign
+    description: Assign an issue to a person
+    module: M09
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+  - name: issue.resolve
+    description: Resolve an issue and post the resolution
+    module: M09
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: procurement_team, scope: PROJECT, condition: own_or_paid_volunteer_issues }
+  - name: voucher.submit
+    description: Submit vouchers and evidence photos (self-reliance, safe water, Qurbani)
+    module: M09
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: volunteer_general, scope: SELF }
+      - { role: volunteer_both, scope: SELF }
+  - name: voucher.verify
+    description: Verify vouchers and evidence; locks them
+    module: M09
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: implementer, scope: REGION, condition: safe_water_only }
+  - name: payment.record
+    description: Record a payment (beneficiary support, advance, volunteer reimbursement) with date, amount, method, transaction id and optional copy
+    module: M09
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+  - name: expense.claim.submit
+    description: Submit own operational expense claim with vouchers
+    module: M09
+    sensitive: false
+    default:
+      - { role: volunteer_general, scope: SELF }
+      - { role: volunteer_both, scope: SELF }
+      - { role: volunteer_local_daee, scope: SELF }
+      - { role: volunteer_paid, scope: SELF }
+  - name: expense.claim.verify
+    description: Verify an expense claim
+    module: M09
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+  - name: followup.record
+    description: Add a follow-up evaluation, also after project close
+    module: M09
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: official_daee, scope: REGION }
+
+  # ---- M10 Budget & Ledger -------------------------------------------------------------------------
+  - name: budget.view
+    description: View project budget cards and buckets
+    module: M10
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: finance_team, scope: GLOBAL }
+  - name: ledger.view
+    description: View ledger rows, payments, vouchers and expense accounts
+    module: M10
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: finance_team, scope: GLOBAL }
+  - name: fund_source.manage
+    description: Set fund-source tags and amounts on a project budget
+    module: M10
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+
+  # ---- M11 Qurbani ---------------------------------------------------------------------------------
+  - name: donor.import
+    description: Import the SSL donor sheet
+    module: M11
+    sensitive: true
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+  - name: donor.manage
+    description: Enter and approve cash donors on the system form
+    module: M11
+    sensitive: true
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+  - name: donor.view
+    description: View donor data and shares
+    module: M11
+    sensitive: true
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+  - name: animal.allocate
+    description: Allocate an animal to a volunteer on the volunteer profile
+    module: M11
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+  - name: animal.deallocate
+    description: Cancel an animal allocation
+    module: M11
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+  - name: animal.photo.upload
+    description: Upload the three photos of an animal (animal, meat, packet)
+    module: M11
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: volunteer_general, scope: ASSIGNED }
+      - { role: volunteer_both, scope: ASSIGNED }
+  - name: donor.message.send
+    description: Send pre-notification and photo emails/SMS to donors
+    module: M11
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+
+  # ---- M12 Dawah -----------------------------------------------------------------------------------
+  - name: daee.assign
+    description: Assign Local daees to beneficiaries (gender split)
+    module: M12
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: official_daee, scope: REGION }
+  - name: class.record
+    description: Today's class: attendance, absence reasons, topics taught
+    module: M12
+    sensitive: false
+    default:
+      - { role: volunteer_local_daee, scope: ASSIGNED }
+      - { role: volunteer_both, scope: ASSIGNED }
+  - name: exam.record
+    description: Record initial and final exam results
+    module: M12
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: official_daee, scope: REGION }
+      - { role: volunteer_local_daee, scope: ASSIGNED, condition: if_rpm_grants }
+      - { role: volunteer_both, scope: ASSIGNED, condition: if_rpm_grants }
+  - name: exam.delegate
+    description: Delegate exam duty to Local daees
+    module: M12
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+  - name: zakat.decide
+    description: Finalize zakat eligibility as the approving alem
+    module: M12
+    sensitive: false
+    default:
+      - { role: official_daee, scope: REGION }
+  - name: call_log.record
+    description: Record a follow-up call to a beneficiary
+    module: M12
+    sensitive: false
+    default:
+      - { role: official_daee, scope: REGION }
+  - name: dawah.tracking.view
+    description: Official daee tracking view of Local daees and classes
+    module: M12
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: official_daee, scope: REGION }
+
+  # ---- M13 Documents (SOP) -------------------------------------------------------------------------
+  - name: document.register.view
+    description: View the document register and checklists
+    module: M13
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: implementer, scope: REGION }
+  - name: document.submit
+    description: Submit, verify, approve or archive a document in the register
+    module: M13
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: implementer, scope: REGION }
+  - name: document.deadline.extend
+    description: Extend a document deadline with reason
+    module: M13
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+  - name: deficiency.report
+    description: File a deficiency report
+    module: M13
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: implementer, scope: REGION }
+  - name: document.audit.run
+    description: Produce the quarterly audit report
+    module: M13
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+
+  # ---- M14 Monitoring & Follow-up ------------------------------------------------------------------
+  - name: monitoring.view
+    description: Monitoring control centre and alerts
+    module: M14
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+  - name: alert.settings.manage
+    description: Change alert thresholds
+    module: M14
+    sensitive: false
+    default: []
+  - name: work_summary.view
+    description: Work summaries of staff and volunteers with CSV/PDF export
+    module: M14
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION, condition: own_region }
+
+  # ---- M15 Audit Log -------------------------------------------------------------------------------
+  - name: audit.view
+    description: View the audit log by project, beneficiary or person
+    module: M15
+    sensitive: true
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+  - name: audit.export
+    description: Export audit log entries
+    module: M15
+    sensitive: true
+    default: []
+
+  # ---- M16 Dashboards, Reports & Exports -----------------------------------------------------------
+  - name: dashboard.project.view
+    description: Project dashboard
+    module: M16
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: finance_team, scope: GLOBAL }
+  - name: dashboard.program.view
+    description: Program dashboard
+    module: M16
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: finance_team, scope: GLOBAL }
+  - name: dashboard.central.view
+    description: Central dashboard
+    module: M16
+    sensitive: false
+    default: []
+  - name: dashboard.dawah.view
+    description: Dawah dashboard
+    module: M16
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: official_daee, scope: REGION }
+  - name: export.list
+    description: Export any filtered list the user may view (masks applied)
+    module: M16
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: implementer, scope: REGION }
+      - { role: official_daee, scope: REGION }
+      - { role: finance_team, scope: GLOBAL }
+      - { role: media_team, scope: GLOBAL, condition: own_part }
+      - { role: procurement_team, scope: PROJECT, condition: own_part }
+  - name: export.beneficiaries
+    description: Export beneficiary data including identity fields (audited as a sensitive export)
+    module: M16
+    sensitive: true
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+  - name: export.volunteers
+    description: Export volunteer data including identity and bank fields (audited as a sensitive export)
+    module: M16
+    sensitive: true
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+  - name: export.finance
+    description: Export budgets, payments, vouchers and expense accounts
+    module: M16
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: finance_team, scope: GLOBAL }
+  - name: export.forms
+    description: Export all form data of a project (volunteer and official sections)
+    module: M16
+    sensitive: true
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+  - name: report.beneficiary_journey
+    description: Beneficiary 360 / journey report as PDF
+    module: M16
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: official_daee, scope: REGION }
+
+  # ---- M17 Notifications ---------------------------------------------------------------------------
+  - name: notification.read_own
+    description: Read own in-app notifications
+    module: M17
+    sensitive: false
+    default:
+      - { role: program_manager, scope: SELF }
+      - { role: regional_program_manager, scope: SELF }
+      - { role: project_executive, scope: SELF }
+      - { role: implementer, scope: SELF }
+      - { role: official_daee, scope: SELF }
+      - { role: procurement_team, scope: SELF }
+      - { role: media_team, scope: SELF }
+      - { role: finance_team, scope: SELF }
+      - { role: volunteer_general, scope: SELF }
+      - { role: volunteer_local_daee, scope: SELF }
+      - { role: volunteer_both, scope: SELF }
+      - { role: volunteer_team_member, scope: SELF }
+      - { role: volunteer_paid, scope: SELF }
+  - name: notification.template.manage
+    description: Edit notification templates
+    module: M17
+    sensitive: false
+    default: []
+
+  # ---- M18 Files & Media ---------------------------------------------------------------------------
+  - name: file.upload
+    description: Upload photos, vouchers and documents within the user's permitted actions
+    module: M18
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
+      - { role: implementer, scope: REGION }
+      - { role: official_daee, scope: REGION }
+      - { role: media_team, scope: GLOBAL, condition: own_part }
+      - { role: procurement_team, scope: PROJECT, condition: own_part }
+      - { role: volunteer_general, scope: SELF }
+      - { role: volunteer_local_daee, scope: ASSIGNED }
+      - { role: volunteer_both, scope: SELF }
+      - { role: volunteer_paid, scope: ASSIGNED }
+  - name: story.manage
+    description: Read, write and edit media stories and the publication tracker
+    module: M18
+    sensitive: false
+    default:
+      - { role: media_team, scope: GLOBAL }
+  - name: story.view
+    description: Read media stories
+    module: M18
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: media_team, scope: GLOBAL }
+  - name: media.publishable.manage
+    description: Collect photos and videos into the publishable list (consent-gated)
+    module: M18
+    sensitive: false
+    default:
+      - { role: media_team, scope: GLOBAL }
+
+  # ---- M19 Locations -------------------------------------------------------------------------------
+  - name: location.manage
+    description: Add, rename and deactivate divisions, districts, upazilas and unions
+    module: M19
+    sensitive: false
+    default: []
+
+  # ---- M21 Admin & Settings ------------------------------------------------------------------------
+  - name: settings.manage
+    description: Edit system settings (thresholds, photo defaults, payment methods, expense categories)
+    module: M21
+    sensitive: false
+    default: []
+  - name: nisab.set
+    description: Add a nisab version
+    module: M21
+    sensitive: false
+    default:
+      - { role: program_manager, scope: GLOBAL }
+  - name: holiday.manage
+    description: Maintain the holiday calendar
+    module: M21
+    sensitive: false
+    default: []
+  - name: provider.settings.manage
+    description: Configure SMTP and SMS provider settings
+    module: M21
+    sensitive: false
+    default: []
+  - name: template.checklist.manage
+    description: Edit document checklist templates
+    module: M21
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+
+  # ---- M20 i18n ------------------------------------------------------------------------------------
+  - name: i18n.manage
+    description: Edit translations of bilingual data and message overrides
+    module: M20
+    sensitive: false
+    default: []
+
+  # ---- M22 Offline Sync ----------------------------------------------------------------------------
+  - name: sync.batch
+    description: Submit offline records and photos for own assignments
+    module: M22
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: SELF }
+      - { role: project_executive, scope: SELF }
+      - { role: official_daee, scope: SELF }
+      - { role: volunteer_general, scope: SELF }
+      - { role: volunteer_local_daee, scope: SELF }
+      - { role: volunteer_both, scope: SELF }
+      - { role: volunteer_team_member, scope: SELF }
+      - { role: volunteer_paid, scope: SELF }

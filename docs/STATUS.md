@@ -4,7 +4,8 @@
 - Current phase: 0 (Requirement & Architecture Freeze) - IN PROGRESS
 - Last completed task: T0.8 - System architecture and ADRs: docs/architecture/SYSTEM_ARCHITECTURE.md complete; ADR-001..006 written; ADR index renumbered (007..011 planned). Design choices made in T0.8 were approved by the owner on 2026-10-10 as D-054..D-057 with implementation requirements (see DECISION_LOG section 3 and SYSTEM_ARCHITECTURE sections 2.1 and 10). (T0.1 and T0.7 done the same day; T0.2..T0.6 delivered inside T0.1.)
 - T0.9 done (2026-10-10): docs/architecture/AUTH.md complete (registration with two OTPs and the dummy-OTP path, password rules, tokens and device sessions, lockout, account states, remote revocation and local wipe, permission-version refresh, handover, Main Admin protection, rate limits, audit events). Values not covered by O-05 were proposed in AUTH.md section 14 and approved the same day as O-25 (BR-231..233).
-- Next task: T0.10 - RBAC.md and permissions.yaml.
+- T0.10 done (2026-10-10): docs/security/permissions.yaml is the machine-readable source of truth (roles, scopes, conditions, three permission sets, sensitive-field catalogue, permissions with default grants); docs/security/RBAC.md explains the model, resolves scopes, shows the default matrix for A4's two tables plus Official daee and Implementer, and specifies enforcement and tests. Name consistency between the two files checked with a script. Six interpretations listed in RBAC.md section 11 (not blocking).
+- Next task: T0.11 - Workflow engine and the six workflow templates.
 - Blocking items: none.
 
 ## Deliverables of T0.1 (complete vs outline)
@@ -18,12 +19,13 @@ Complete:
 
 - docs/architecture/SYSTEM_ARCHITECTURE.md and ADR/ADR-001..006 (T0.8)
 - docs/architecture/AUTH.md (T0.9)
+- docs/security/RBAC.md and permissions.yaml (T0.10)
 
 Outlines (headings plus one line per section; completed in the task named in each file):
 - docs/architecture/WORKFLOW_ENGINE.md (T0.11), OFFLINE_SYNC.md (T0.12), FILES_AND_DOCUMENTS.md (T0.13), NOTIFICATIONS.md (T0.14), workflow-templates/README.md (T0.11)
 - docs/database/ERD.md (T0.15), DATABASE_SCHEMA.md (T0.16)
 - docs/api/API_STANDARDS.md (T0.17), openapi.yaml skeleton (T0.18)
-- docs/security/RBAC.md and permissions.yaml skeleton (T0.10), SECURITY_POLICY.md (T0.21)
+- docs/security/SECURITY_POLICY.md (T0.21)
 - docs/ui/DESIGN_SYSTEM.md and SCREENS.md (T0.19), I18N.md (T0.20)
 - docs/testing/TEST_STRATEGY.md (T0.21), testing/uat/README.md, gates/README.md
 - docs/ops/DEPLOYMENT.md and RUNBOOK.md (T3.0, T6.5)
