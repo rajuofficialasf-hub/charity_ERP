@@ -10,9 +10,9 @@
 - T0.13 done (2026-10-10): docs/architecture/FILES_AND_DOCUMENTS.md complete (file kinds and metadata model, signed-URL access, upload pipeline with 256 KB chunks and virus-scan hook, validation table, image handling with EXIF/GPS capture and pHash duplicate warning, per-project photo source setting with the web realisation and its trade-offs, bucket and key layout per SOP 10, SOP document register with status chain, hard-copy codes and retention, working-day deadline countdown and non-compliance, deficiency reports with escalation and legacy marking, quarterly audit report, media consent gating, locks, storage growth, tests). Proposals decided the same day as O-30 with changes (BR-239..241); hard-copy code segments and the 11 deficiency fields wait for the SOP text.
 - T0.14 done (2026-10-10): docs/architecture/NOTIFICATIONS.md complete (principles, channels, recipient resolution by scope, full event matrix with recipients/channels/template keys/phases, mandatory vs optional and preferences, bilingual templates, transactional outbox with retries and status, rate limits and coalescing, OTP path, Qurbani donor messages, Web Push evaluation with a "yes, optional, later" recommendation, privacy, tests); ADR-007 written. Proposals accepted the same day as O-35.
 - T0.15 done (2026-10-10): docs/database/ERD.md complete (90 entities in 12 clusters with keys, relationships and cardinality, classification master/configuration/transaction/log/platform, JSONB usages, constraints and idempotency keys, naming map, additions and ambiguities) and docs/database/erd.mermaid (one erDiagram, same entities). Physical names follow the T0.15 prompt; earlier documents were swept to them (MASTER_SPEC keeps blueprint names with a pointer). Ambiguities resolved as recommended by O-37.
-- T0.16 done (2026-10-10): docs/database/DATABASE_SCHEMA.md complete (91 tables with columns, types, nullability, defaults, comments, keys, uniques, checks and indexes; code lists instead of PostgreSQL enums; application number counter `id_sequences` per O-03, no BEN- sequence because O-03 made the BEN-ID the UUID v7; BD-03 enforced by deferred constraint triggers; index catalogue; JSON Schemas in docs/database/json-schemas/ (10 files); soft-delete policy; retention and partitioning; database roles). ERD updated with id_sequences. Proposals = open question 30.
+- T0.16 done (2026-10-10): docs/database/DATABASE_SCHEMA.md complete (91 tables with columns, types, nullability, defaults, comments, keys, uniques, checks and indexes; code lists instead of PostgreSQL enums; application number counter `id_sequences` per O-03, no BEN- sequence because O-03 made the BEN-ID the UUID v7; BD-03 enforced by deferred constraint triggers; index catalogue; JSON Schemas in docs/database/json-schemas/ (10 files); soft-delete policy; retention and partitioning; database roles). ERD updated with id_sequences. Proposals accepted the same day (O-38, O-39).
 - Next task: T0.17 - API standards (docs/api/API_STANDARDS.md).
-- Blocking items: none (question 30 does not block T0.17).
+- Blocking items: none.
 - Git: the owner pushed main to origin on 2026-10-10 up to ceb4e50 (verified: main...origin/main in sync); later commits are local until the next push.
 
 ## Deliverables of T0.1 (complete vs outline)
@@ -42,9 +42,9 @@ Outlines (headings plus one line per section; completed in the task named in eac
 - docs/ops/DEPLOYMENT.md and RUNBOOK.md (T3.0, T6.5)
 
 ## Open decisions waiting on the owner
-- Open question 30 items 1–5 (DATABASE_SCHEMA.md section 24): pg_trgm, audit_log partitioning, GPS storage, mobile format check, no row-level security; recommendations in DECISION_LOG section 6. Item 6 (seed values of gender, marital status, education, relationship) answered by O-38.
+- None. Question 30 answered by O-38 (reference list seeds) and O-39 (pg_trgm, audit_log partitioning, GPS columns, mobile check, no row-level security).
 - Remaining PROPOSAL rows of docs/NON_FUNCTIONAL_REQUIREMENTS.md (section 13) are confirmed in T0.21.
-- Questions 1..29 are answered (O-01..O-37; full list in DECISION_LOG section 5). Interpretations recorded in O-03, O-09, O-16 and O-22 stand unless the owner corrects them. Architecture choices of T0.8 are D-054..D-057.
+- Questions 1..30 are answered (O-01..O-39; full list in DECISION_LOG section 5). Interpretations recorded in O-03, O-09, O-16 and O-22 stand unless the owner corrects them. Architecture choices of T0.8 are D-054..D-057.
 
 ## Prerequisites still open (checked 2026-10-10)
 Needed for development (before T1.1):

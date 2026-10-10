@@ -1,6 +1,6 @@
 # DATABASE SCHEMA AND DATA DICTIONARY (PostgreSQL 16)
 
-Status: complete, task T0.16 (2026-10-10). Documents only: the Prisma schema, SQL migrations with hand-written `down.sql` and seeds are written in task T1.2 after the Phase 0 sign-off (ADR-003). This dictionary is the physical form of `docs/database/ERD.md` (91 tables: the 90 entities of T0.15 plus `id_sequences`); every table, column, constraint and index here must appear in the migrations, and a change here is a change there in the same commit (PROJECT_RULES §5). JSON Schemas for JSONB columns: `docs/database/json-schemas/`. Values that need the owner are marked PROPOSAL and listed in section 24 (DECISION_LOG open question 30).
+Status: complete, task T0.16 (2026-10-10). Documents only: the Prisma schema, SQL migrations with hand-written `down.sql` and seeds are written in task T1.2 after the Phase 0 sign-off (ADR-003). This dictionary is the physical form of `docs/database/ERD.md` (91 tables: the 90 entities of T0.15 plus `id_sequences`); every table, column, constraint and index here must appear in the migrations, and a change here is a change there in the same commit (PROJECT_RULES §5). JSON Schemas for JSONB columns: `docs/database/json-schemas/`. The proposals of the first draft were accepted by the owner on 2026-10-10 (O-38, O-39); where the text says PROPOSAL the value is decided as listed in section 24.
 
 Note on human ids: the T0.16 prompt mentions "BEN-" ids "per DECISION_LOG". DECISION_LOG O-03 decided that the BEN-ID **is** the beneficiary's UUID v7; there is no `BEN-` sequence. Only applications carry a human id. This dictionary follows O-03.
 
@@ -1648,11 +1648,12 @@ Machine-readable schemas live in `docs/database/json-schemas/` (JSON Schema 2020
 
 Row-level security is not used: authorization and scope filtering are enforced in the API (RBAC.md §8), with one application role, which keeps the model simple; this is a deliberate choice and can be revisited if direct database access by other departments is ever granted.
 
-## 24. Open items (DECISION_LOG open question 30)
+## 24. Decided items (O-38, O-39, 2026-10-10)
 
-1. Enable the `pg_trgm` extension for name search and duplicate-candidate detection (BR-012).
-2. Partition `audit_log` by month from the first migration; partition notifications, outbound_messages and field_changes later at about 20 million rows or 20 GB.
-3. Store GPS as numeric latitude/longitude/accuracy columns without PostGIS.
+Every PROPOSAL in this document is now decided:
+1. The `pg_trgm` extension is enabled for name search and duplicate-candidate detection (BR-012).
+2. `audit_log` is partitioned by month from the first migration; notifications, outbound_messages and field_changes are partitioned later at about 20 million rows or 20 GB.
+3. GPS is stored as numeric latitude/longitude/accuracy columns without PostGIS.
 4. Mobile number format check `^01[3-9][0-9]{8}$` (Bangladesh 11-digit mobile) for users, beneficiaries and volunteers' WhatsApp.
 5. No row-level security; one application role with authorization in the API.
 6. Resolved 2026-10-10 (O-38): seed values of the `gender`, `marital_status`, `education_level` and `relationship` lists (section 5.2).
