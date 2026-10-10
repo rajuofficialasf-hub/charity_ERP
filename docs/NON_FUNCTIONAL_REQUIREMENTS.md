@@ -102,7 +102,9 @@ Status: complete first draft, task T0.1 (2026-10-10). Sources: blueprint B7 (off
 | NFR-49 | Four environments: development, test, staging, production; secrets never committed; production data never used in tests; dummy OTP and seed data never in production | §9, BD-49 | decided |
 | NFR-50 | One deployable backend, one database, one PWA frontend; background jobs in the same deployment | §2, §9 | decided |
 | NFR-51 | Deployment pipeline with smoke tests exists before the Phase 3 pilot (PLAN T3.0); `docs/ops/DEPLOYMENT.md` and `RUNBOOK.md` describe deploy, rollback, backup and restore | §14, PLAN | decided (timing from the plan) |
-| NFR-52 | Observability: structured logs without personal data, request ids, error tracking, basic metrics (request rate, latency, queue depth, sync failures) on an admin screen | §13 | PROPOSAL |
+| NFR-52 | Observability from launch: structured JSON logs without secrets or personal data, request ids, liveness and readiness health checks, a protected Prometheus-format `/metrics` endpoint (request rate, latency, queue depth, sync failures, storage), job states on an admin screen, and essential error alerting (failed jobs, elevated 5xx rate, readiness failures → in-app alert to the Monitoring Team and email to IT); a dedicated error-tracking service may be added later (T3.0) | §13, D-057 | decided (D-057) |
+| NFR-60 | Production workers support retries with backoff, per-job timeouts, graceful shutdown on SIGTERM and idempotent handlers; `JOBS_INLINE=true` is impossible in production | D-054 | decided (D-054) |
+| NFR-61 | Network exposure: only ports 80 and 443 are public; HTTPS enforced with redirect and HSTS; PostgreSQL, MinIO admin API and the worker are reachable only on the Docker internal network | D-056 | decided (D-056) |
 
 ## 11. Maintainability and quality
 
@@ -127,4 +129,4 @@ Status: complete first draft, task T0.1 (2026-10-10). Sources: blueprint B7 (off
 |---|---|
 | 5, 6, 7: answered 2026-10-10 (O-05, O-06, O-07) | NFR-40, NFR-35, NFR-22 now decided |
 | IT team approval of availability, sizing, network rules and the backup targets' feasibility | NFR-31, NFR-33, NFR-35, NFR-42 |
-| All other PROPOSAL rows: owner confirms or changes in T0.21 (test strategy and security policy) | NFR-02, 04–10, 14–16, 22 (50 MB part), 25, 27, 28, 30, 41, 46, 47, 52 |
+| All other PROPOSAL rows: owner confirms or changes in T0.21 (test strategy and security policy) | NFR-02, 04–10, 14–16, 22 (50 MB part), 25, 27, 28, 30, 41, 46, 47 |

@@ -235,7 +235,7 @@ All "Needs decision" references to open questions 1–23 in the module entries a
 
 | Module | Open item |
 |---|---|
-| M10, M02 | Open question 24: may the accounts (Finance) team enter payment records themselves (today viewer) |
+| M10, M02 | Question 24 answered by O-24 (2026-10-10): officials enter payment records manually; the accounts team does not use the ERP for now |
 | M17 | Web Push and PWA short name (DESIGN_BRIEF open items, T0.14) |
 | M11, M17 | SMS provider before Qurbani (C3 item 10) |
 | M13 | SOP v2.3 text (input dependency) |

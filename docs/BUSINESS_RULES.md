@@ -187,7 +187,7 @@ Module codes refer to `docs/MODULE_CATALOG.md` (M01…M22).
 | BR-135 | There are no approval thresholds for payments | §7 | BD-31 | M10 | — | policy | manual | approved |
 | BR-136 | Payments to volunteers are made by the accounts team, mostly by mobile banking (bKash and similar), and recorded in the ERP with date, amount, method and transaction id after the expense claim is verified; the payment method is chosen from an admin-editable list (defaults bKash, Nagad, Rocket, bank transfer) | A8.1, B6, O-22 | BD-31 | M10, M09 | payments, expense_claims | service | API | approved (O-22) |
 | BR-137 | Volunteer expense claims are itemized by category with vouchers; default categories decoration, vehicle hire, food, photocopy, banner, editable per project; submitted by volunteers, Local দায়ীs and paid volunteers; verification (Project Executive or RPM) and the payment record are separate steps; several claims per volunteer per project are allowed, each paid at most once; no amount cap | A8.1, A4 matrix, B6, O-14 | BD-31 | M09, M10 | expense_claims, expense_items | workflow + permission | E2E | approved (O-14) |
-| BR-138 | Payment records (beneficiary support, advance, volunteer reimbursement: date, amount, method, transaction id, optional copy of the confirmation) are entered by PM, RPM or Project Executive only; the Finance Team views them | A4 matrix, O-22 | BD-31 | M10, M02 | payments | permission | API | approved (whether the accounts team may enter them directly: open question 24) |
+| BR-138 | Payment records (beneficiary support, advance, volunteer reimbursement: date, amount, method, transaction id, optional copy of the confirmation) are entered by PM, RPM or Project Executive only; the Finance Team views them | A4 matrix, O-22, O-24 | BD-31 | M10, M02 | payments | permission | API | approved (O-24: officials enter manually; the accounts team does not use the ERP for now) |
 | BR-139 | The Finance Team views budgets, payments, vouchers and expense accounts and downloads CSV/PDF; it never enters, edits or approves anything | A4 (second table) | BD-31 | M02, M10 | — | permission | API | approved |
 | BR-140 | Applications closed as "not distributed" carry no cost in the budget | A8.1 (edge table) | BD-23 | M10 | budget_ledger | ledger service | unit | approved |
 | BR-141 | The budget card shows planned, used and remaining amounts; a budget alert fires above a configured percentage of use | B6, A10 | BD-42 | M10, M14 | — | report + job | unit | approved (O-04: 90%, editable) |
@@ -344,11 +344,11 @@ Every rule above starts with test status "not yet". When a test exists, record i
 
 ## 20. Gaps and ambiguities
 
-Items where the blueprint is silent or inconsistent. Numbers refer to the open questions in `docs/DECISION_LOG.md` (section 6) and `docs/MASTER_SPEC.md` (final section). **Items 2–23 were resolved on 2026-10-10 by decisions O-02…O-23** and the affected rules now carry the O-id; the rows stay for traceability. Item 24 is open.
+Items where the blueprint is silent or inconsistent. Numbers refer to the open questions in `docs/DECISION_LOG.md` (section 6) and `docs/MASTER_SPEC.md` (final section). **Items 2–24 were resolved on 2026-10-10 by decisions O-02…O-24** and the affected rules now carry the O-id; the rows stay for traceability.
 
 | # | Gap | Rules affected |
 |---|---|---|
-| 24 | Whether the accounts (Finance) team may enter payment records themselves (today a viewer per A4 and BD-31) | BR-138, BR-139 |
+| 24 | Whether the accounts (Finance) team may enter payment records themselves (today a viewer per A4 and BD-31) — resolved by O-24: officials enter manually | BR-138, BR-139 |
 | 2 | B3 layer table and diagram image4 say the beneficiary mobile is unique; B3 rules, Q-21 and BD-01 say it is contact data and may repeat | BR-004, BR-009 |
 | 3 | No rule for BEN-ID and application id formats | BR-105 |
 | 4 | Alert thresholds (days, budget percentage) not set | BR-141, BR-173, BR-213 |

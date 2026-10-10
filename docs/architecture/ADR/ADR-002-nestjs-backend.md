@@ -13,7 +13,7 @@ NestJS on Node.js 24 LTS with TypeScript:
 - One NestJS module per core domain module and per cross-cutting service (SYSTEM_ARCHITECTURE §4.1); module boundaries enforced through module imports.
 - Guards and interceptors implement the request lifecycle order of SYSTEM_ARCHITECTURE §6: rate limit, authentication, role, permission (declared per handler with a decorator carrying the permission name from `permissions.yaml`), scope resolution, object-level check, validation pipe, serializer with field-level masks.
 - OpenAPI generated with `@nestjs/swagger` from the controllers and DTOs, and a CI test that fails when the generated document differs from `docs/api/openapi.yaml` (NFR-54); the file in `docs/api` is the contract, the code must match it.
-- One validation library for DTOs: zod, through the schemas in `packages/shared`, so that the PWA validates offline with the same schema; `class-validator` is not used, to avoid two sources of truth.
+- One validation library for DTOs: zod, through the schemas in `packages/shared`, so that the PWA validates offline with the same schema; `class-validator` is not used, to avoid two sources of truth. Approved as D-055 with the requirement that every request is validated on the backend regardless of client validation and that data integrity is additionally enforced by database constraints (ADR-003).
 - Two entry points from one build: HTTP (`main.ts`) and worker (`worker.ts`, see ADR-004).
 
 ## Alternatives considered

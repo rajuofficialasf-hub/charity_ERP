@@ -1,6 +1,6 @@
 # SYSTEM ARCHITECTURE
 
-Status: complete, task T0.8 (2026-10-10). Stack approved by the owner on 2026-10-10 (DECISION_LOG D-050…D-053, O-01). Design choices made inside this document (separate worker process, module map, request-check order, logging and monitoring tooling, storage-growth mechanism) are proposed in T0.8 and become approved with the owner's acceptance of this document; each is also recorded in the ADRs of `docs/architecture/ADR/`. Business rules referenced as BR-nnn (`docs/BUSINESS_RULES.md`); requirements as NFR-nn (`docs/NON_FUNCTIONAL_REQUIREMENTS.md`).
+Status: complete, task T0.8 (2026-10-10). Stack approved by the owner on 2026-10-10 (DECISION_LOG D-050…D-053, O-01). The design choices made inside this document were approved by the owner on 2026-10-10 with implementation requirements, recorded as D-054 (separate worker process), D-055 (zod as the sole validation library plus database constraints), D-056 (Caddy with HTTPS enforcement and network hardening) and D-057 (monitoring from launch; error-tracking service deferred to T3.0), subject to verification during testing and the production-readiness review. Each is also recorded in the ADRs of `docs/architecture/ADR/`. Business rules referenced as BR-nnn (`docs/BUSINESS_RULES.md`); requirements as NFR-nn (`docs/NON_FUNCTIONAL_REQUIREMENTS.md`).
 
 ## 1. Context, goals and constraints
 
@@ -50,7 +50,7 @@ Components and why each exists:
 
 | Component | Role | Why this and not less |
 |---|---|---|
-| Caddy | TLS termination, routing, compression, basic request limits | Automatic certificate renewal removes a recurring operations task; one process in front of two apps |
+| Caddy | TLS termination, routing, compression, basic request limits; HTTPS enforced (HTTP → HTTPS redirect, HSTS); only ports 80 and 443 are public; PostgreSQL, the MinIO admin API and the worker stay on the Docker internal network and are never exposed (D-056) | Automatic certificate renewal removes a recurring operations task; one process in front of two apps |
 | web (Next.js) | Serves the PWA shell, server-rendered official screens, static assets, service worker | One codebase for desktop and phone (Q-15, D-052) |
 | api (NestJS) | REST under `/api/v1`, all authorization, domain logic, audit | Modules mirror the ten B1 core modules (D-051) |
 | worker | pg-boss consumers for background jobs | Separate process; see 2.1 |
@@ -71,6 +71,13 @@ Reasons:
 - Still one deployable unit. Same image, same code, same configuration; the only difference is the entry point. This keeps the "one backend" rule of constitution §2 while separating runtime concerns.
 
 Trade-off: two containers to monitor instead of one, and jobs must be written so that they never depend on in-process state of the API (they already must, because pg-boss persists jobs in PostgreSQL). For development and automated tests the flag `JOBS_INLINE=true` runs the consumers inside the API process so that a single `pnpm dev` is enough; the flag refuses to activate when `NODE_ENV=production`.
+
+Implementation requirements for production workers (D-054):
+
+- Retries: every queue declares a retry limit and backoff; a job that exhausts its retries is marked failed with the reason and raises an alert.
+- Graceful shutdown: on SIGTERM the worker stops taking new jobs, finishes or releases in-flight jobs within a bounded grace period, then exits; the deploy script waits for it.
+- Timeouts: every job type has an expiry so that a hung job is released and retried instead of blocking the queue.
+- No duplicate side effects: handlers are idempotent, keyed by entity id or `client_uuid`; outbound messages and emails are sent through the outbox with a delivery record checked before sending, so an at-least-once redelivery never sends twice.
 
 ## 3. Layering
 
@@ -265,7 +272,8 @@ Release flow (detailed in `docs/ops/DEPLOYMENT.md`, written in T3.0): CI builds 
 | Health | `GET /health/live` (process up) and `GET /health/ready` (database, MinIO, queue reachable) used by Caddy and by the IT team's uptime check |
 | Metrics | `GET /metrics` in Prometheus text format from api and worker: request rate and latency per route class, error rate, pg-boss queue depth and failures per queue, sync batch outcomes, active device sessions, storage bytes; the IT team may scrape it with Prometheus/Grafana (optional, not required for go-live) |
 | Jobs | pg-boss job states visible on an admin screen (queued, active, failed with reason, retries); failed jobs alert the Monitoring Team in-app |
-| Errors | Unhandled errors logged with stack traces server-side only (never returned to clients, BR-210); a self-hosted error tracker is optional and decided in T3.0 (proposal) |
+| Errors and alerting (from launch, D-057) | Unhandled errors logged with stack traces server-side only (never returned to clients, BR-210); essential alerting is available at go-live without any extra service: failed jobs after retries, an elevated 5xx rate over a window, and readiness failures raise an in-app alert to the Monitoring Team and an email to the IT address configured in settings. A dedicated error-tracking service (for example self-hosted Sentry) may be added later; decided in T3.0 |
+| Protection of monitoring endpoints (D-057) | `/metrics` and the detailed `/health/ready` payload are reachable only from the Docker internal network or the IT team's allowlisted addresses through Caddy (or with a bearer token); `/health/live` returns only up/down; no secret or personal data appears in metrics or logs |
 | Audit | The audit log is the business-level trail; it is not a substitute for logs and logs are not a substitute for it |
 
 ## 11. Storage growth reporting

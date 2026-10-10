@@ -2,7 +2,7 @@
 
 - Last updated: 2026-10-10
 - Current phase: 0 (Requirement & Architecture Freeze) - IN PROGRESS
-- Last completed task: T0.8 - System architecture and ADRs: docs/architecture/SYSTEM_ARCHITECTURE.md complete; ADR-001..006 written; ADR index renumbered (007..011 planned). Design choices made in T0.8 and approved with the document: pg-boss consumers run in a separate worker process from the same image (JOBS_INLINE=true only in dev/test); zod is the single validation library (no class-validator); Caddy as reverse proxy; logs + health + Prometheus-format metrics, error tracker optional (T3.0). (T0.1 and T0.7 done the same day; T0.2..T0.6 delivered inside T0.1.)
+- Last completed task: T0.8 - System architecture and ADRs: docs/architecture/SYSTEM_ARCHITECTURE.md complete; ADR-001..006 written; ADR index renumbered (007..011 planned). Design choices made in T0.8 were approved by the owner on 2026-10-10 as D-054..D-057 with implementation requirements (see DECISION_LOG section 3 and SYSTEM_ARCHITECTURE sections 2.1 and 10). (T0.1 and T0.7 done the same day; T0.2..T0.6 delivered inside T0.1.)
 - Next task: T0.9 - Authentication and sessions (docs/architecture/AUTH.md) using O-05.
 - Blocking items: none.
 
@@ -27,7 +27,7 @@ Outlines (headings plus one line per section; completed in the task named in eac
 - docs/ops/DEPLOYMENT.md and RUNBOOK.md (T3.0, T6.5)
 
 ## Open decisions waiting on the owner
-- Open question 24 (docs/DECISION_LOG.md section 6): may the accounts (Finance) team enter payment records themselves? Recommendation: keep entry with PM/RPM/Executive for now; add a grantable `payment.record` permission later if needed.
+- None from T0.1..T0.8. Question 24 answered by O-24 (officials enter payment records manually). The T0.8 architecture choices are approved as D-054..D-057 with implementation requirements (worker retries/graceful shutdown/timeouts/idempotency; zod + DB constraints; Caddy with HTTPS and network hardening; monitoring and essential alerting from launch, error-tracking service deferred to T3.0).
 - Interpretations recorded in O-03 (BEN-ID = UUID v7, no short display form), O-09 (initial load from an open dataset), O-16 (admin holiday calendar for public holidays) and O-22 (entry stays with officials) stand unless the owner corrects them.
 - PWA short name for the phone home screen (open item of UX-09, proposal CSS) and whether to add Web Push (decide in task T0.14).
 - Confirm with the web developer where the Bornomala font comes from (UX-13). The files declare the SIL Open Font License 1.0 and name Codepotro as vendor, but no public page confirms it.

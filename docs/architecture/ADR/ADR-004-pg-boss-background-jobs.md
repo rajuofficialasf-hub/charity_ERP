@@ -1,6 +1,6 @@
 # ADR-004: pg-boss for background jobs, consumed by a separate worker process
 
-Status: approved 2026-10-10 (DECISION_LOG D-053, confirmed by the owner in O-01); the separate-worker-process choice is proposed in T0.8 and approved with `SYSTEM_ARCHITECTURE.md`. Written in task T0.8.
+Status: approved 2026-10-10 (DECISION_LOG D-053, confirmed by the owner in O-01); the separate-worker-process choice was approved by the owner on 2026-10-10 as D-054 with implementation requirements: retries, graceful shutdown, per-job timeouts, protection against duplicate side effects; `JOBS_INLINE=true` only in development and test. Written in task T0.8.
 
 ## Context
 
@@ -12,7 +12,8 @@ Background work is required for sync processing, notification delivery (email, S
 - Named queues with their own retry and concurrency settings: `sync`, `notify`, `alerts`, `exports`, `photos`, `storage-stats`, `scores`. Scheduled jobs (nightly stats, deadline checks) use pg-boss's cron scheduling.
 - Consumers run in a separate `worker` process started from the same `apps/api` image (`worker.ts`). The HTTP process only enqueues. Reason: long or bursty jobs (exports, photo hashing, Qurbani donor emails, alert computation) must not share the event loop with field requests; the worker can be restarted or scaled without touching the API; one image keeps deployment simple.
 - `JOBS_INLINE=true` runs the consumers inside the API process for development and automated tests; the flag refuses to activate in production.
-- Every job handler is idempotent (keyed by the entity id or `client_uuid`) because pg-boss guarantees at-least-once delivery; failures after the retry budget are visible on an admin screen and raise an in-app alert to the Monitoring Team.
+- Every job handler is idempotent (keyed by the entity id or `client_uuid`) because pg-boss guarantees at-least-once delivery; failures after the retry budget are visible on an admin screen and raise an in-app alert to the Monitoring Team and an email to the IT address.
+- Production requirements (D-054): each queue declares retry limit and backoff; each job type has an expiry (timeout) after which it is released and retried; the worker handles SIGTERM by stopping intake and finishing or releasing in-flight jobs within a bounded grace period; outbound side effects (email, SMS) go through the outbox with a delivery record so that redelivery never sends twice. These are verified in testing (T1.6 unit and integration tests, T3.4 load test) and in the production-readiness review (T6.5).
 
 ## Alternatives considered
 
