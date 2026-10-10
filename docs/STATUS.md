@@ -12,7 +12,7 @@
 ## Prerequisites still open (checked 2026-10-10)
 - pnpm is not installed on the owner's machine; needed from T1.1 (`npm install -g pnpm`).
 - Docker Desktop was not running; needed from T1.1 (postgres, minio, mailpit via Docker Compose).
-- No Git remote yet (plan section 3, M3); the CI provider is to be named in T1.1.
+- The CI provider is to be named in T1.1.
 - Input files not yet supplied: see docs/source/README.md.
 
 ## Known issues / risks
@@ -22,5 +22,6 @@
 - none yet
 
 ## Notes for the next session
+- Git remote: origin is https://github.com/rajuofficialasf-hub/charity_ERP.git, branch main.
 - The repository contains only docs/, CLAUDE.md, .claude/, README.md and the git configuration files. No application code until Phase 0 is signed off.
 - docs/source/ERP_BLUEPRINT_BN.md was machine-converted from the owner's docx and verified paragraph by paragraph against it on 2026-10-10.

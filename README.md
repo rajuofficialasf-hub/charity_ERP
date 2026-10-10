@@ -2,6 +2,8 @@
 
 ERP for the Charity & Social Service Department of As-Sunnah Foundation: volunteers, beneficiaries, applications, distribution and construction projects, dawah, budgets, SOP documents and monitoring, with an offline-first mobile PWA for field volunteers. It is built with Claude Code under a written project constitution.
 
+Repository: https://github.com/rajuofficialasf-hub/charity_ERP
+
 ## Where things are
 
 | Path | What it is |
