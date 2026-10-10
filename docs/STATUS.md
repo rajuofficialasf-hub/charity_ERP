@@ -53,7 +53,7 @@ Outlines (headings plus one line per section; completed in the task named in eac
 
 ## Open decisions waiting on the owner
 - None. Question 30 answered by O-38 (reference list seeds) and O-39 (pg_trgm, audit_log partitioning, GPS columns, mobile check, no row-level security).
-- NFR PROPOSAL rows confirmed by O-47 (T0.21); NFR-31, NFR-33, NFR-35 feasibility and the NFR-42 network rule wait for the IT team.
+- NFR PROPOSAL rows confirmed by O-47 (T0.21). Deferred to production preparation by O-48 (not blocking): IT team approval of NFR-31, NFR-33, NFR-35 and NFR-42; incident contacts in RUNBOOK.md; CI provider (T1.1).
 - Questions 1..30 are answered (O-01..O-39; full list in DECISION_LOG section 5). Interpretations recorded in O-03, O-09, O-16 and O-22 stand unless the owner corrects them. Architecture choices of T0.8 are D-054..D-057.
 
 ## Prerequisites still open (checked 2026-10-10)
