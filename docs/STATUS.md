@@ -3,9 +3,9 @@
 - Last updated: 2026-10-10
 - Current phase: 0 (Requirement & Architecture Freeze) - IN PROGRESS
 - Last completed task: T0.8 - System architecture and ADRs: docs/architecture/SYSTEM_ARCHITECTURE.md complete; ADR-001..006 written; ADR index renumbered (007..011 planned). Design choices made in T0.8 were approved by the owner on 2026-10-10 as D-054..D-057 with implementation requirements (see DECISION_LOG section 3 and SYSTEM_ARCHITECTURE sections 2.1 and 10). (T0.1 and T0.7 done the same day; T0.2..T0.6 delivered inside T0.1.)
-- T0.9 done (2026-10-10): docs/architecture/AUTH.md complete (registration with two OTPs and the dummy-OTP path, password rules, tokens and device sessions, lockout, account states, remote revocation and local wipe, permission-version refresh, handover, Main Admin protection, rate limits, audit events). Values not covered by O-05 are proposals in AUTH.md section 14 = open question 25.
+- T0.9 done (2026-10-10): docs/architecture/AUTH.md complete (registration with two OTPs and the dummy-OTP path, password rules, tokens and device sessions, lockout, account states, remote revocation and local wipe, permission-version refresh, handover, Main Admin protection, rate limits, audit events). Values not covered by O-05 were proposed in AUTH.md section 14 and approved the same day as O-25 (BR-231..233).
 - Next task: T0.10 - RBAC.md and permissions.yaml.
-- Blocking items: none (open question 25 does not block T0.10).
+- Blocking items: none.
 
 ## Deliverables of T0.1 (complete vs outline)
 Complete:
@@ -29,8 +29,7 @@ Outlines (headings plus one line per section; completed in the task named in eac
 - docs/ops/DEPLOYMENT.md and RUNBOOK.md (T3.0, T6.5)
 
 ## Open decisions waiting on the owner
-- Open question 25 (AUTH.md section 14): OTP parameters, idle timeout, device limit, stronger password for GLOBAL-scope officials, who revokes volunteer sessions, auto-deactivation of unapproved registrations, lockout alert thresholds; recommendations in DECISION_LOG section 6.
-- Question 24 answered by O-24 (officials enter payment records manually). The T0.8 architecture choices are approved as D-054..D-057 with implementation requirements (worker retries/graceful shutdown/timeouts/idempotency; zod + DB constraints; Caddy with HTTPS and network hardening; monitoring and essential alerting from launch, error-tracking service deferred to T3.0).
+- None from T0.1..T0.9. Question 25 answered by O-25 (all seven authentication proposals accepted). Question 24 answered by O-24 (officials enter payment records manually). The T0.8 architecture choices are approved as D-054..D-057 with implementation requirements (worker retries/graceful shutdown/timeouts/idempotency; zod + DB constraints; Caddy with HTTPS and network hardening; monitoring and essential alerting from launch, error-tracking service deferred to T3.0).
 - Interpretations recorded in O-03 (BEN-ID = UUID v7, no short display form), O-09 (initial load from an open dataset), O-16 (admin holiday calendar for public holidays) and O-22 (entry stays with officials) stand unless the owner corrects them.
 - PWA short name for the phone home screen (open item of UX-09, proposal CSS) and whether to add Web Push (decide in task T0.14).
 - Confirm with the web developer where the Bornomala font comes from (UX-13). The files declare the SIL Open Font License 1.0 and name Codepotro as vendor, but no public page confirms it.

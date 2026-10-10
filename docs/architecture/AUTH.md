@@ -1,6 +1,6 @@
 # AUTHENTICATION AND SESSIONS
 
-Status: complete, task T0.9 (2026-10-10). Design only; no code. Inputs: blueprint A5 (registration), B8 (session and login), B10 (account security); constitution §5 (Main Admin), §13; decisions BD-08, BD-44, BD-47, BD-49, O-05 (password, tokens, lockout, OTP scope), D-055 (zod validation), D-056 (network), D-057 (monitoring); rules BR-023…035, BR-047, BR-201, BR-203, BR-209; NFR-36, NFR-40, NFR-41. Values the owner has not decided are marked PROPOSAL and listed in section 14 (DECISION_LOG open question 25).
+Status: complete, task T0.9 (2026-10-10); all proposals approved by the owner the same day as O-25. Design only; no code. Inputs: blueprint A5 (registration), B8 (session and login), B10 (account security); constitution §5 (Main Admin), §13; decisions BD-08, BD-44, BD-47, BD-49, O-05 (password, tokens, lockout, OTP scope), O-25 (OTP parameters, idle timeout, device limit, stronger password for GLOBAL-scope officials, RPM revocation, auto-deactivation, alert thresholds), D-055 (zod validation), D-056 (network), D-057 (monitoring); rules BR-023…035, BR-047, BR-201, BR-203, BR-209; NFR-36, NFR-40, NFR-41. The word PROPOSAL below marks values that were proposals in the first draft and are now decided by O-25, except the password hashing algorithm (Argon2id), the common-password list and the rate-limit values of NFR-41, which remain implementation proposals to confirm in T0.21.
 
 ## 1. Identities and accounts
 
@@ -167,9 +167,9 @@ Every event below is written to `audit_log` (BR-179) with actor, target user, de
 
 Security monitoring (D-057): login failures, lockouts, refresh reuse and revocations are also counted on the metrics endpoint; thresholds raise in-app alerts to the Monitoring Team.
 
-## 14. Open items (DECISION_LOG open question 25)
+## 14. Values decided by O-25 (2026-10-10)
 
-Values not covered by O-05, proposed here and awaiting the owner:
+The following were proposed in T0.9 and approved by the owner as O-25; they are binding:
 
 1. OTP parameters: 6 digits, 5-minute validity, 5 verification attempts, 5 requests per hour; partial registration resumable for 24 hours.
 2. Idle timeout for official desktop sessions: 12 hours of inactivity ends silent refresh; none for volunteer phones. Hard session limit 180 days.
@@ -179,7 +179,7 @@ Values not covered by O-05, proposed here and awaiting the owner:
 6. Unapproved registrations auto-deactivated after 90 days; volunteers with no open applications may be deactivated directly by RPM or above.
 7. Alert thresholds: 10 lockouts of one account per day; repeated 429s per IP.
 
-Everything else in this document follows approved decisions and needs no further answer.
+Still implementation proposals (confirmed in T0.21 with the security policy): Argon2id as the password hash, the bundled common-password list, and the exact rate-limit numbers of section 12 (NFR-41). A second factor for GLOBAL-scope officials is a later option, not planned now.
 
 ## 15. Related documents
 
