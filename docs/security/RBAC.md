@@ -18,7 +18,7 @@ permission: { name, description, module, sensitive, default: [ { role, scope, co
 
 - Names are `resource.action[.qualifier]`, lower-case, dotted, unique.
 - `module` is the MODULE_CATALOG id (M01…M22).
-- `sensitive: true` marks permissions that expose a protected field class or export it; such actions are always audited (BR-179, BR-223).
+- `sensitive: true` marks permissions that expose a protected field class or export it; such actions are always audited (BR-179, BR-224).
 - `conditions` are named checks implemented once in the `access` module (for example `house_construction_only` reads the project's workflow template; `if_rpm_grants` means the default is absent and the grant must come from `project.volunteer_grant.manage`).
 - Loading (T1.8): the API validates the file against a zod schema at start (fail fast), builds an in-memory permission registry, and refuses to boot if any `@Permission()` decorator in the code references a name not in the file, or if any YAML permission is referenced by no endpoint and no UI capability (dead permission). The authorization-matrix test generates one test per (endpoint × role × scope) from the YAML.
 - The matrix tables in section 5 are a human view of the same data. When the two disagree, the YAML wins and this document is corrected.
@@ -47,9 +47,9 @@ permission: { name, description, module, sensitive, default: [ { role, scope, co
 | PROGRAM | All projects of the programs the user manages | `programs.pm_user_id` (and panel grants naming a program) |
 | PROJECT | A specific project | `project_volunteers` rows, `project_staff` rows, Procurement attachment to house-construction projects |
 | REGION | Own region (division) inside assigned projects | `project_areas` rows where the user is RPM; staff under an RPM inherit the RPM's region through `project_staff`; Official দায়ী and Implementer through their project assignment |
-| DISTRICT / UPAZILA / UNION | When the PM split districts among RPMs, or by assignment | `project_areas.district_ids` for the RPM; Local দায়ী and Paid Volunteer assignments carry location ids |
+| DISTRICT / UPAZILA / UNION | When the PM split districts among RPMs, or by assignment | `project_areas.location_id` (district rows when the PM split districts) for the RPM; Local দায়ী and Paid Volunteer assignments carry location ids |
 | ASSIGNED | Only own assigned beneficiaries or applications | `work_assignments` (Local দায়ী), paid-volunteer assignments, site-verification assignments, Official দায়ী's area |
-| SELF | Own created applications, own profile, own sessions | `applications.submitted_by`, `created_by`, `users.id` |
+| SELF | Own created applications, own profile, own sessions | `applications.owner_volunteer_id`, `applications.created_by_user_id` (team members, `own_created`), `users.id` |
 
 Resolution rules:
 
@@ -67,7 +67,7 @@ Legend: ✓ default · G = if RPM grants · H = house construction only · W = s
 
 | Permission | PM | RPM | Executive | Volunteer (General/Both) | Team Member | Local দায়ী | Paid Vol. |
 |---|---|---|---|---|---|---|---|
-| project.create / configure / activate / quota.manage / template.manage / fund_source.manage | ✓ | — | — | — | — | — | — |
+| project.create, project.configure, project.activate, project.quota.manage, project.template.manage, fund_source.manage | ✓ | — | — | — | — | — | — |
 | project.deadline.extend / close / reopen | ✓ | — | — | — | — | — | — |
 | project.area.assign | ✓ | — | — | — | — | — | — |
 | form.build / publish / public_link.manage | ✓ | — | — | — | — | — | — |
@@ -145,7 +145,7 @@ Rows of the blueprint's first table and the permissions that implement them: row
 |---|---|---|---|
 | application.view, beneficiary.view_all | ✓ [GLOBAL] | — | ✓ [PROJECT, house construction] |
 | application.view_official_section | ✓ [GLOBAL] | — | ✓ [PROJECT, house construction] |
-| application.create / edit / delete, any beneficiary or project write | — | — | — |
+| application.create, application.edit_draft, application.edit_pending, application.delete_pending, any beneficiary or project write | — | — | — |
 | media.subject.manage (Media tab: add beneficiaries to the media work list, set media status; O-28), story.manage, story.view, media.publishable.manage | ✓ | — | — |
 | beneficiary.consent.view | ✓ | — | — |
 | file.upload | own part | — | own part |
@@ -204,7 +204,7 @@ Stock reconciliation and the Qurbani animal photos are not in the base sets beca
 4. **Object-level checks for ASSIGNED and SELF.** Single-record routes load the record through the scoped repository; a record outside the scope is "not found" (404), never 403, so existence is not leaked. SELF compares `submitted_by`/owner to the user; ASSIGNED requires an assignment row. Team members additionally require `created_by = user` (`own_created`).
 5. **IDOR prevention.** All ids are UUIDs (O-03), never sequential; list endpoints always filter by scope; batch endpoints (sync, bulk update) check each record's scope individually and report per-record results; file downloads go through the permission check before a signed URL is issued (BR-204).
 6. **Field-level protection.** The `sensitive_fields` catalogue of the YAML drives one serializer mask used for JSON responses, exports (CSV/XLSX/PDF) and PDF reports alike (BR-183). Protected classes: beneficiary NID/birth number and NID photo; volunteer NID and NID photo; volunteer bank details; ratings, categories and their comments; donor data; official form sections and scores; blocklist reasons; audit detail. Masking is by removal, not by blanking, so a volunteer client never learns the field exists.
-7. **Sensitive exports** (`sensitive: true` permissions, `export.*` of identity fields) write an audit entry with the filter used and the row count (BR-223).
+7. **Sensitive exports** (`sensitive: true` permissions, `export.*` of identity fields) write an audit entry with the filter used and the row count (BR-224, BR-179).
 8. **Default deny** at every layer: a missing grant, an unknown permission name, an unresolved scope or a failed condition all deny.
 
 ## 9. Special cases
@@ -244,8 +244,8 @@ Generated on 2026-10-10 by the T0.10 check script from `permissions.yaml`; regen
 | `session.revoke_own` | M01 | no | Revoke one of the user's own device sessions | program_manager@SELF; regional_program_manager@SELF; project_executive@SELF; implementer@SELF; official_daee@SELF; procurement_team@SELF; media_team@SELF; finance_team@SELF; volunteer_general@SELF; volunteer_local_daee@SELF; volunteer_both@SELF; volunteer_team_member@SELF; volunteer_paid@SELF |
 | `session.revoke_user` | M01 | no | List and revoke another user's device sessions (lost phone), with reason | regional_program_manager@REGION (own_region) |
 | `user.state.change` | M01 | no | Change an account state (pending/active/blocked/deactivated) with reason; blocklist uses volunteer.block | none (global roles only) |
-| `user.deactivate_volunteer` | M01 | no | Deactivate a volunteer who has no open applications | program_manager@PROGRAM (no_open_applications); regional_program_manager@REGION (no_open_applications) |
-| `user.handover` | M01 | no | Run the staff handover and deactivate an official's account | none (global roles only) |
+| `user.deactivate_volunteer` | M03 | no | Deactivate a volunteer who has no open applications | program_manager@PROGRAM (no_open_applications); regional_program_manager@REGION (no_open_applications) |
+| `user.handover` | M03 | no | Run the staff handover and deactivate an official's account | none (global roles only) |
 | `system.owner.transfer` | M01 | no | Transfer the Main Admin (system owner) flag to another official | department_head@GLOBAL |
 | `permission.panel.manage` | M02 | no | Grant or revoke any permission for any user at a chosen scope (permission panel) | none (global roles only) |
 | `permission.view` | M02 | no | View a user's effective permissions | program_manager@PROGRAM; regional_program_manager@REGION |
@@ -258,7 +258,7 @@ Generated on 2026-10-10 by the T0.10 check script from `permissions.yaml`; regen
 | `edit_request.submit` | M03 | no | Submit an edit request on own profile | volunteer_general@SELF; volunteer_local_daee@SELF; volunteer_both@SELF; volunteer_team_member@SELF; volunteer_paid@SELF |
 | `volunteer.view_all` | M04 | no | Nationwide volunteer tab with filters and statistics (sensitive fields masked per sensitive_fields) | program_manager@GLOBAL; regional_program_manager@GLOBAL; project_executive@GLOBAL; official_daee@GLOBAL; implementer@GLOBAL |
 | `volunteer.view_sensitive` | M04 | yes | See volunteer NID, NID photo and bank details | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION |
-| `volunteer.assign_project` | M04 | no | Add volunteers, Local daees and paid volunteers to a project with a permission set | regional_program_manager@REGION; project_executive@REGION (if_rpm_grants) |
+| `volunteer.assign_project` | M04 | no | Add volunteers, Local দায়ীs and paid volunteers to a project with a permission set | regional_program_manager@REGION; project_executive@REGION (if_rpm_grants) |
 | `volunteer.mark_paid` | M04 | no | Mark a volunteer as paid on a project | regional_program_manager@REGION |
 | `volunteer.team.manage` | M04 | no | Add or remove own team members on a project (volunteers registered with the user's NID as reference) | volunteer_general@SELF; volunteer_both@SELF; volunteer_local_daee@SELF (type_both_only) |
 | `volunteer.team.transfer` | M04 | no | Decide whether a replaced volunteer's team moves to the new volunteer | regional_program_manager@REGION |
@@ -313,8 +313,8 @@ Generated on 2026-10-10 by the T0.10 check script from `permissions.yaml`; regen
 | `application.unlock_field` | M08 | no | Unlock one field of an approved application and approve the update | regional_program_manager@REGION; project_executive@REGION |
 | `application.update_unlocked_field` | M08 | no | Update a field the official unlocked | volunteer_general@SELF; volunteer_both@SELF |
 | `application.verify_needs_verification` | M08 | no | Resolve a 'needs verification' record (NID collision at sync, public form) by linking or rejecting | regional_program_manager@REGION; project_executive@REGION |
-| `site_verification.record` | M08 | no | Record a site visit with comment, photos and recommendation | regional_program_manager@REGION; project_executive@REGION; volunteer_general@ASSIGNED; volunteer_both@ASSIGNED |
-| `site_verification.decide` | M08 | no | Decide approve/reject directly from a site verification (tree planting) | regional_program_manager@REGION; project_executive@REGION; volunteer_general@ASSIGNED (if_rpm_grants); volunteer_both@ASSIGNED (if_rpm_grants) |
+| `site_verification.record` | M09 | no | Record a site visit with comment, photos and recommendation | regional_program_manager@REGION; project_executive@REGION; volunteer_general@ASSIGNED; volunteer_both@ASSIGNED |
+| `site_verification.decide` | M09 | no | Decide approve/reject directly from a site verification (tree planting) | regional_program_manager@REGION; project_executive@REGION; volunteer_general@ASSIGNED (if_rpm_grants); volunteer_both@ASSIGNED (if_rpm_grants) |
 | `stock.dispatch` | M09 | no | Record goods sent to a volunteer | regional_program_manager@REGION; project_executive@REGION |
 | `stock.receive` | M09 | no | Confirm receipt of goods and set the distribution date | volunteer_general@SELF; volunteer_both@SELF |
 | `stock.reconcile` | M09 | no | Enter remaining and damaged quantities and verify the reconciliation | regional_program_manager@REGION; project_executive@REGION; volunteer_general@SELF; volunteer_both@SELF |
@@ -328,7 +328,7 @@ Generated on 2026-10-10 by the T0.10 check script from `permissions.yaml`; regen
 | `payment.record` | M09 | no | Record a payment (beneficiary support, advance, volunteer reimbursement) with date, amount, method, transaction id and optional copy | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION |
 | `expense.claim.submit` | M09 | no | Submit own operational expense claim with vouchers | volunteer_general@SELF; volunteer_both@SELF; volunteer_local_daee@SELF; volunteer_paid@SELF |
 | `expense.claim.verify` | M09 | no | Verify an expense claim | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION |
-| `followup.record` | M09 | no | Add a follow-up evaluation, also after project close | regional_program_manager@REGION; project_executive@REGION; official_daee@REGION |
+| `followup.record` | M14 | no | Add a follow-up evaluation, also after project close | regional_program_manager@REGION; project_executive@REGION; official_daee@REGION |
 | `budget.view` | M10 | no | View project budget cards and buckets | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; finance_team@GLOBAL |
 | `ledger.view` | M10 | no | View ledger rows, payments, vouchers and expense accounts | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; finance_team@GLOBAL |
 | `fund_source.manage` | M10 | no | Set fund-source tags and amounts on a project budget | program_manager@PROGRAM |
@@ -339,13 +339,13 @@ Generated on 2026-10-10 by the T0.10 check script from `permissions.yaml`; regen
 | `animal.deallocate` | M11 | no | Cancel an animal allocation | program_manager@PROGRAM; regional_program_manager@REGION |
 | `animal.photo.upload` | M11 | no | Upload the three photos of an animal (animal, meat, packet) | regional_program_manager@REGION; project_executive@REGION; volunteer_general@ASSIGNED; volunteer_both@ASSIGNED |
 | `donor.message.send` | M11 | no | Send pre-notification and photo emails/SMS to donors | program_manager@PROGRAM; regional_program_manager@REGION |
-| `daee.assign` | M12 | no | Assign Local daees to beneficiaries (gender split) | regional_program_manager@REGION; official_daee@REGION |
+| `daee.assign` | M12 | no | Assign Local দায়ীs to beneficiaries (gender split) | regional_program_manager@REGION; official_daee@REGION |
 | `class.record` | M12 | no | Today's class: attendance, absence reasons, topics taught | volunteer_local_daee@ASSIGNED; volunteer_both@ASSIGNED |
 | `exam.record` | M12 | no | Record initial and final exam results | regional_program_manager@REGION; official_daee@REGION; volunteer_local_daee@ASSIGNED (if_rpm_grants); volunteer_both@ASSIGNED (if_rpm_grants) |
-| `exam.delegate` | M12 | no | Delegate exam duty to Local daees | regional_program_manager@REGION |
+| `exam.delegate` | M12 | no | Delegate exam duty to Local দায়ীs | regional_program_manager@REGION |
 | `zakat.decide` | M12 | no | Finalize zakat eligibility as the approving alem | official_daee@REGION |
 | `call_log.record` | M12 | no | Record a follow-up call to a beneficiary | official_daee@REGION |
-| `dawah.tracking.view` | M12 | no | Official daee tracking view of Local daees and classes | program_manager@PROGRAM; regional_program_manager@REGION; official_daee@REGION |
+| `dawah.tracking.view` | M12 | no | Official দায়ী tracking view of Local দায়ীs and classes | program_manager@PROGRAM; regional_program_manager@REGION; official_daee@REGION |
 | `document.register.view` | M13 | no | View the document register and checklists | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; implementer@REGION |
 | `document.submit` | M13 | no | Submit, verify, approve or archive a document in the register | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; implementer@REGION |
 | `document.deadline.extend` | M13 | no | Extend a document deadline with reason | program_manager@PROGRAM |

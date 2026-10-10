@@ -57,7 +57,7 @@ Components and why each exists:
 | PostgreSQL 16 | Relational master data, JSONB answers and settings, audit log, pg-boss queues | One database for everything (constitution §2) |
 | MinIO | Photos, vouchers, documents, exports; presigned expiring URLs | Signed-URL file access without building it by hand (D-053, BR-204) |
 | SMTP relay | Email through the organization's mail server; Mailpit in dev | BD-47 |
-| SMS adapter | Provider-agnostic HTTP adapter; logging stub in dev; provider chosen before Qurbani | Q-11, BD-47 |
+| SMS adapter | Provider-agnostic HTTP adapter; logging stub in dev; a real provider before rollout beyond the Phase 3 pilot (O-49) | Q-11, BD-47 |
 | Backups | Daily `pg_dump`, WAL archiving when enabled, MinIO mirror to a second disk or server | O-06: RPO 24 h → 1 h, RTO 4 h |
 
 ### 2.1 Workers: a separate process (decision)
@@ -197,7 +197,7 @@ Every request to `/api/v1` passes these steps in this order. A failure at any st
       - the serializer removes NID number and photo, bank details, ratings, categories, donor data,
         official-section answers and blocklist reasons unless the resolved role may see them;
         the same mask runs in exports (BR-183)
-13  response envelope with request id (API_STANDARDS §2)
+13  response envelope with request id (API_STANDARDS §3)
 ```
 
 Where guards live: steps 4–8 are NestJS guards and interceptors in `auth` and `access`; step 9 is a validation pipe; steps 10–11 are inside the application service; step 12 is a serializer interceptor. Business guards (step 11) are never duplicated in controllers.
@@ -233,7 +233,7 @@ The PWA evaluates the same zod schemas and form logic as the server (`packages/s
 | Environment | Where | Composition | Differences |
 |---|---|---|---|
 | development | developer machine | Docker Compose: postgres, minio, mailpit; `pnpm dev` runs web and api; `JOBS_INLINE=true` | dummy OTP on, `LoggingSmsAdapter`, seed data, hot reload |
-| test | CI runner and local `pnpm test` | same compose for API and E2E tests; `FilesystemStorage`; ephemeral database per run | dummy OTP on, no outbound email or SMS, Playwright with offline emulation, k6 before gates |
+| test | CI runner and local `pnpm test` | same compose for API and E2E tests; `FilesystemStorage`; one database per test file cloned from a migrated template (O-46) | dummy OTP on, no outbound email or SMS, Playwright with offline emulation, k6 before gates |
 | staging | organization's server | Docker Compose: caddy, web, api, worker, postgres, minio; own database, buckets, secrets; real SMTP; SMS adapter in dry-run until the provider is chosen | dummy OTP off; anonymized demo data only; UAT runs here |
 | production | organization's server | same images as staging; separate compose project, volumes, secrets | dummy OTP refuses to enable; real SMTP and SMS; backups active |
 
@@ -280,7 +280,7 @@ Release flow (detailed in `docs/ops/DEPLOYMENT.md`, written in T3.0): CI builds 
 
 Retention is permanent (BD-46), so growth must be visible (NFR-30):
 
-- A nightly `storage-stats` job records into `storage_stats`: database size, size per large table (audit_log, application_answers, photo_metadata), MinIO bytes per bucket and per project (photos, vouchers, documents, exports), counts of objects.
+- A nightly `storage-stats` job records into `storage_stats`: database size, size per large table (audit_log, application_answers, files), MinIO bytes per bucket and per project (photos, vouchers, documents, exports), counts of objects.
 - An admin screen shows totals, growth per month and the projected date on which the configured disk threshold is reached.
 - A monthly email summarizing the same figures goes to the IT team's address configured in settings; the budget-style threshold (e.g. 80% of disk) raises a monitoring alert.
 - Exports that are older than a configured number of days are the only objects ever deleted (they are regenerable); business files are never deleted.
@@ -303,6 +303,6 @@ What is deliberately absent: Redis, Kafka or any broker, Kubernetes, a separate 
 
 ## 13. ADRs and open items
 
-ADRs: `docs/architecture/ADR/README.md` (ADR-001…006 written in T0.8; 007…011 planned).
+ADRs: `docs/architecture/ADR/README.md` (ADR-001…008, ADR-010 and ADR-011 written in Phase 0; ADR-009 is written with the form engine in T2.3).
 
-Open items for later tasks: error-tracking tool (T3.0); server details, domain names and the backup target (owner/IT, before T3.0); CI provider (T1.1); SMS provider (before Qurbani, C3 item 10); whether the IT team scrapes the metrics endpoint (T3.0).
+Open items for later tasks: error-tracking tool (T3.0); server details, domain names and the backup target (owner/IT, before T3.0); CI provider (T1.1); SMS provider (before rollout beyond the Phase 3 pilot, O-49); whether the IT team scrapes the metrics endpoint (T3.0).

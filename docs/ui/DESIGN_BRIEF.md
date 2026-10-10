@@ -17,9 +17,9 @@ Import these into docs/DECISION_LOG.md as the series UX-01 to UX-13, status appr
 | UX-05 | All numbers use English digits 0-9 in both languages: amounts, dates, counts, ids and phone numbers. | Supersedes the Bengali-digit line of constitution section 11. Formatting stays in one central utility, so Bengali digits can be added later by a new decision. |
 | UX-06 | Some volunteers use iPhones. Android Chrome stays the primary target. | Offline design and tests must cover iOS Safari and installed iOS PWAs: possible storage eviction, no background sync, push only for installed PWAs, and install guidance in Bangla. |
 | UX-07 | The four biggest current problems are duplicate and wrong data, photos and proof, stuck approvals, and accounts and expenses. | These are the hero capabilities: NID lookup with duplicate warnings at entry, photo capture with metadata and a verification view, an approval queue that shows waiting time, and a clear expense and ledger view. |
-| UX-08 | Screens are reviewed as clickable HTML mockups in a browser at phone and desktop widths. There is no Figma file. | Task T0.19b builds them with the owner's logo and colours. The owner approves them before each phase is built (blueprint D২). |
-| UX-09 | System name: চ্যারিটি ও সোশ্যাল সার্ভিস. The English name is proposed as Charity & Social Service. | The header shows the As-Sunnah Foundation logo and this name. The short name under the phone home-screen icon is "ASF Charity" (owner decision O-31, 2026-10-10). |
-| UX-10 | The management home (Department Head, Monitoring Team) opens with work progress: applications, approved, and distributed or completed against target. | Proposed order below that first block: alerts, budget, area view. |
+| UX-08 | Screens are reviewed as clickable HTML mockups in a browser at phone and desktop widths. There is no Figma file. | Task T0.19b builds them with the owner's logo and colours. The owner approves them before each phase is built (blueprint D2). |
+| UX-09 | System name: চ্যারিটি ও সোশ্যাল সার্ভিস. The English name is Charity & Social Service (final, O-49). | The header shows the As-Sunnah Foundation logo and this name. The short name under the phone home-screen icon is "ASF Charity" (owner decision O-31, 2026-10-10). |
+| UX-10 | The management home (Department Head, Monitoring Team) opens with work progress: applications, approved, and distributed or completed against target. | Order below that first block: alerts, budget, area view (final, O-49). |
 | UX-11 | Photo source is a per-project setting chosen by the PM next to the photo rule. Defaults: camera only for distribution and construction proof, gallery allowed for vouchers and paper documents. | New setting in the photo-rule component. Photos without capture time or GPS stay flagged (BD-21). |
 | UX-12 | Volunteers read operational messages, such as correction requests and approvals, inside the app only. No SMS, WhatsApp or email for these for now. | The volunteer home puts "needs your attention" first. SMS is still required for OTP and for Qurbani donor messages (BD-34, BD-44). |
 | UX-13 | Typography follows the website: font stack UbuntuSans, Bornomala, sans-serif, weights 400 and 700 only. | Replaces Hind Siliguri in constitution section 12. Self-hosted files in docs/ui/brand/fonts/: Ubuntu Sans draws Latin letters and digits, Bornomala draws Bengali. Bornomala declares the SIL Open Font License 1.0 in the file itself; its source is https://codepotro.com/font/bornomala/ (owner decision O-32, 2026-10-10). |
@@ -27,10 +27,10 @@ Import these into docs/DECISION_LOG.md as the series UX-01 to UX-13, status appr
 ## 2. Defaults assumed (not asked; the owner may change them)
 
 1. Dates use English digits and the Gregorian calendar. (A Hijri date beside the date was assumed here at first; the owner withdrew it on 2026-10-10, DECISION_LOG O-43.)
-2. No public pages except the tree-planting application link (blueprint A৮.৫). The ERP is an internal system.
+2. No public pages except the tree-planting application link (blueprint A8.5). The ERP is an internal system.
 3. Light theme only for now. Colours are CSS variables, so a dark theme can be added later.
 4. The default interface language is Bangla for everyone. A per-user switch offers English.
-5. Web Push for installed PWAs may enhance the in-app notifications. This is a proposal to evaluate in task T0.14, not a decision.
+5. Web Push for installed PWAs: decided by O-35 (optional, off by default, after the Phase 3 pilot, content-free payloads).
 
 ## 3. Design principles
 

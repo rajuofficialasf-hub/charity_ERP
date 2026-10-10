@@ -132,7 +132,7 @@ document.addEventListener('mock:ready', function () {
   var I = window.mockIcon;
   var names = ['মরিয়ম বিবি', 'আয়েশা সিদ্দিকা', 'জোবেদা খাতুন', 'করিমন নেছা', 'সালমা আক্তার', 'হালিমা খাতুন', 'রোকেয়া বেগম', 'মোঃ হাশেম', 'আব্দুল মজিদ', 'সুফিয়া খাতুন', 'নূরজাহান বেগম', 'মনোয়ারা বেগম'];
   var rows = names.map(function (n, i) {
-    return { id: 'APP-2026-000' + (101 + i), name: n + ' (নমুনা)', village: i % 2 ? 'কাউন্দিয়া' : 'বনগাঁও', state: i < 3 ? 'done' : 'left', photo: i < 2 ? 'uploaded' : (i === 2 ? 'pending' : 'none'), sync: i === 2 ? 'pending' : 'synced', sel: false };
+    return { id: 'WNT-2026-00' + (101 + i), name: n + ' (নমুনা)', village: i % 2 ? 'কাউন্দিয়া' : 'বনগাঁও', state: i < 3 ? 'done' : 'left', photo: i < 2 ? 'uploaded' : (i === 2 ? 'pending' : 'none'), sync: i === 2 ? 'pending' : 'synced', sel: false };
   });
   rows[5].photo = 'taken'; /* photo taken earlier, not yet marked done */
   var filter = 'left', q = '', current = null;

@@ -2,11 +2,11 @@
 
 Status: complete, task T0.15 (2026-10-10). Logical model only: entities, keys, relationships, cardinality, classification and JSONB usage. Physical types, every column, indexes and constraints in SQL are the data dictionary of task T0.16 (`docs/database/DATABASE_SCHEMA.md`); the Prisma schema and migrations come in T1.2. Diagram: `docs/database/erd.mermaid` (one Mermaid `erDiagram` with the same entities and relationships).
 
-Sources: blueprint B2 (entity tables, key rules) and B3 (hybrid storage); BD-01…BD-49; owner decisions O-01…O-36 (notably O-02, O-03, O-09, O-11, O-14, O-15, O-16, O-17, O-18, O-19, O-20, O-22, O-28, O-34); `docs/BUSINESS_RULES.md`; `docs/security/permissions.yaml`; `docs/architecture/WORKFLOW_ENGINE.md`, `OFFLINE_SYNC.md`, `FILES_AND_DOCUMENTS.md`, `NOTIFICATIONS.md`, `AUTH.md`. Ambiguities and entities added beyond the T0.15 entity list are flagged in section 20 (DECISION_LOG open question 29).
+Sources: blueprint B2 (entity tables, key rules) and B3 (hybrid storage); BD-01…BD-49; owner decisions O-01…O-36 (notably O-02, O-03, O-09, O-11, O-14, O-15, O-16, O-17, O-18, O-19, O-20, O-22, O-28, O-34); `docs/BUSINESS_RULES.md`; `docs/security/permissions.yaml`; `docs/architecture/WORKFLOW_ENGINE.md`, `OFFLINE_SYNC.md`, `FILES_AND_DOCUMENTS.md`, `NOTIFICATIONS.md`, `AUTH.md`. Ambiguities and entities added beyond the T0.15 entity list are flagged in section 20 (DECISION_LOG open question 29, answered by O-37).
 
 ## 1. Scope
 
-90 entities in 12 clusters. Every entity cites the requirement it serves. Entities of the documentation module (M13) are included now so the data model does not change later, although the module is built last (O-34).
+91 entities in 12 clusters. Every entity cites the requirement it serves. Entities of the documentation module (M13) are included now so the data model does not change later, although the module is built last (O-34).
 
 ## 2. Conventions
 
@@ -113,7 +113,7 @@ Cardinality notation below: `1 — n` one to many, `1 — 0..1` optional one, `n
 |---|---|---|---|
 | beneficiaries | id (BEN-ID, UUID v7); nid (unique, nullable); birth_reg (unique, nullable), check: at least one present; name; father_or_husband_name; mother_name; mobile (not unique, indexed); gender; dob; marital_status; education; class_code + other text; occupation; division/district/upazila/union ids; village; post office; post code; landmark; gps; photo_file_id; household figures (members 14+, children under 14, total computed); daily_income; monthly_income; monthly_expense; status active/deceased/relocated; merged_into_id (nullable) | 1 — n applications, beneficiary_family_members, profile_correction_requests, media_consents, followup_evaluations, call_logs, class_attendance, learning_progress, exam_results, media_subjects; self 0..1 (merged_into) | B2; B3; BD-01…BD-05; O-02, O-03, O-18; BR-001…022 |
 | beneficiary_family_members | id; beneficiary_id; name; relationship; gender; dob or age; occupation; monthly_income; is_earner; active | beneficiaries 1 — n; 1 — n class_attendance, learning_progress, exam_results (nullable FK) | B3 (multiple earners repeat group); O-11 |
-| profile_merges | id; kept_id; merged_id; reason; snapshot (JSONB); merged_by, merged_at; reverted_by, reverted_at | beneficiaries 1 — n (kept), beneficiaries 1 — 0..1 (merged) | B2 additions; BD-05; BR-013, BR-014 |
+| profile_merges | id; kept_id; merged_id; status (proposed, merged, reverted); reason; proposed_by, proposed_at; snapshot (JSONB); merged_by, merged_at; reverted_by, reverted_at | beneficiaries 1 — n (kept), beneficiaries 1 — 0..1 (merged) | B2 additions; BD-05; BR-013, BR-014 |
 | profile_correction_requests | id; beneficiary_id; field; old_value; new_value; reason; requested_by; status; decided_by, decided_at | beneficiaries 1 — n | BD-02; BR-006 |
 | media_consents | id; beneficiary_id; granted; channels (list of reference codes); recorded_by, recorded_at; evidence_file_id; revoked_at | beneficiaries 1 — n (history; latest active applies) | B2 additions; BD-38; O-17; BR-022 |
 
@@ -206,7 +206,7 @@ Cardinality notation below: `1 — n` one to many, `1 — 0..1` optional one, `n
 | audit_log | id; actor user_id and role; action; entity_type; entity_id; old (JSONB); new (JSONB); reason; ip; device_session_id; client_uuid; at | append-only; no update or delete | B2; B8; BR-177…179 |
 | sync_batches | id; user_id; device_session_id; idempotency_key (unique); received_at; record_count; results (JSONB) | device_sessions 1 — n | OFFLINE_SYNC §4; BR-194 |
 | alerts | id; kind; severity; project_id; subject_type; subject_id; status open/acknowledged/resolved; details (JSONB); raised_at; resolved_at | projects 1 — n | BD-42; BR-173 (addition) |
-| export_jobs | id; requested_by; kind; filters (JSONB); sensitive; status; file_id; row_count; created_at | users 1 — n; files 1 — 0..1 | NFR-10; BR-223 (addition) |
+| export_jobs | id; requested_by; kind; filters (JSONB); sensitive; status; file_id; row_count; created_at | users 1 — n; files 1 — 0..1 | NFR-10; BR-224 (addition) |
 | storage_stats | id; captured_at; bucket; project_id (nullable); bytes; objects; database_bytes | — | BD-46; BR-208 (addition) |
 | id_sequences | scope_key (`app:<project id>`); last_value | — (counter per project for `applications.app_no`) | O-03; technical table added in T0.16 (DATABASE_SCHEMA.md §4) |
 

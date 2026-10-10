@@ -98,12 +98,12 @@ transitions:
     trigger: on_enter_approved
     effects: [audit:application.implementation_started]
     note: "Templates define the stages inside implementation (stage_transitions)"
-  - from: [approved, implementation, completed]
+  - from: [draft, needs_verification, submitted, under_review, reviewed, waitlisted, approved, implementation, completed]
     to: closed
     auto: true
     trigger: project.closed
     effects: [outcome.set:per_template_default, lock:fields, lock:photos, lock:vouchers, audit:application.closed]
-    note: "Applications still in implementation receive the template's not-delivered outcome and no cost (BD-23)"
+    note: "O-49: every unfinished application is closed with its prior state recorded in workflow_transitions; applications still in implementation receive the template's not-delivered outcome and no cost (BD-23); project reopen restores the prior states"
 
 sub_workflows:
   field_unlock:
@@ -152,7 +152,7 @@ project_lifecycle:
       to: closing
       permission: project.close
       effects: [audit:project.closing, notify:project_closing]
-      note: "No new applications; remaining work, photos and vouchers verified (O-12)"
+      note: "No new applications; remaining work, photos and vouchers verified (O-12); unfinished applications are listed as a warning (O-49)"
     - from: closing
       to: closed
       permission: project.close
@@ -163,4 +163,5 @@ project_lifecycle:
       to: active
       permission: project.reopen
       requires_reason: true
-      effects: [audit:project.reopen, notify:project_reopened]
+      effects: [applications.restore_prior_state, audit:project.reopen, notify:project_reopened]
+      note: "O-49: applications closed by the project close return to their prior states"

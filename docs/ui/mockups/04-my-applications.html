@@ -48,19 +48,19 @@ document.addEventListener('mock:ready', function () {
   };
   function badge(s) { var b = BADGE[s]; return '<span class="badge ' + b[0] + '">' + I(b[1]) + b[2] + '</span>'; }
   var apps = [
-    { id: 'APP-2026-000184', name: 'আমেনা খাতুন (নমুনা)', village: 'বনগাঁও, সাভার', group: 'pending', state: 'correction', date: '07-10-2026', sync: 'synced', steps: 2, note: 'পরিবারের সদস্য সংখ্যা মিলছে না, আবার দেখুন' },
-    { id: 'APP-2026-000191', name: 'রহিমা বেগম (নমুনা)', village: 'বনগাঁও, সাভার', group: 'pending', state: 'under_review', date: '08-10-2026', sync: 'synced', steps: 2 },
-    { id: 'APP-2026-000203', name: 'জোবেদা খাতুন (নমুনা)', village: 'কাউন্দিয়া, সাভার', group: 'pending', state: 'submitted', date: '09-10-2026', sync: 'synced', steps: 1 },
-    { id: 'APP-2026-000207', name: 'মোঃ হাশেম (নমুনা)', village: 'আশুলিয়া, সাভার', group: 'pending', state: 'reviewed', date: '09-10-2026', sync: 'synced', steps: 3 },
-    { id: 'APP-2026-000215', name: 'সালমা আক্তার (নমুনা)', village: 'আশুলিয়া, সাভার', group: 'pending', state: 'waitlisted', date: '05-10-2026', sync: 'synced', steps: 3 },
-    { id: 'APP-2026-000219', name: 'করিমন নেছা (নমুনা)', village: 'বনগাঁও, সাভার', group: 'pending', state: 'submitted', date: '10-10-2026', sync: 'pending', steps: 1 },
-    { id: 'APP-2026-000222', name: 'আব্দুল মজিদ (নমুনা)', village: 'কাউন্দিয়া, সাভার', group: 'pending', state: 'submitted', date: '10-10-2026', sync: 'synced', steps: 1 },
+    { id: 'WNT-2026-00184', name: 'আমেনা খাতুন (নমুনা)', village: 'বনগাঁও, সাভার', group: 'pending', state: 'correction', date: '07-10-2026', sync: 'synced', steps: 2, note: 'পরিবারের সদস্য সংখ্যা মিলছে না, আবার দেখুন' },
+    { id: 'WNT-2026-00191', name: 'রহিমা বেগম (নমুনা)', village: 'বনগাঁও, সাভার', group: 'pending', state: 'under_review', date: '08-10-2026', sync: 'synced', steps: 2 },
+    { id: 'WNT-2026-00203', name: 'জোবেদা খাতুন (নমুনা)', village: 'কাউন্দিয়া, সাভার', group: 'pending', state: 'submitted', date: '09-10-2026', sync: 'synced', steps: 1 },
+    { id: 'WNT-2026-00207', name: 'মোঃ হাশেম (নমুনা)', village: 'আশুলিয়া, সাভার', group: 'pending', state: 'reviewed', date: '09-10-2026', sync: 'synced', steps: 3 },
+    { id: 'WNT-2026-00215', name: 'সালমা আক্তার (নমুনা)', village: 'আশুলিয়া, সাভার', group: 'pending', state: 'waitlisted', date: '05-10-2026', sync: 'synced', steps: 3 },
+    { id: 'WNT-2026-00219', name: 'করিমন নেছা (নমুনা)', village: 'বনগাঁও, সাভার', group: 'pending', state: 'submitted', date: '10-10-2026', sync: 'pending', steps: 1 },
+    { id: 'WNT-2026-00222', name: 'আব্দুল মজিদ (নমুনা)', village: 'কাউন্দিয়া, সাভার', group: 'pending', state: 'submitted', date: '10-10-2026', sync: 'synced', steps: 1 },
     { id: 'DRAFT-3', name: 'ফাতেমা বেগম (নমুনা)', village: 'বনগাঁও, সাভার', group: 'draft', state: 'draft', date: '10-10-2026', sync: 'pending', steps: 0 },
     { id: 'DRAFT-2', name: 'নাম লেখা হয়নি', village: 'আশুলিয়া, সাভার', group: 'draft', state: 'draft', date: '09-10-2026', sync: 'pending', steps: 0 },
     { id: 'DRAFT-1', name: 'হালিমা খাতুন (নমুনা)', village: 'কাউন্দিয়া, সাভার', group: 'draft', state: 'draft', date: '08-10-2026', sync: 'synced', steps: 0 },
-    { id: 'APP-2026-000101', name: 'মরিয়ম বিবি (নমুনা)', village: 'বনগাঁও, সাভার', group: 'approved', state: 'approved', date: '01-10-2026', sync: 'synced', steps: 4 },
-    { id: 'APP-2026-000102', name: 'আয়েশা সিদ্দিকা (নমুনা)', village: 'কাউন্দিয়া, সাভার', group: 'approved', state: 'approved', date: '01-10-2026', sync: 'synced', steps: 4 },
-    { id: 'APP-2026-000140', name: 'জাহানারা বেগম (নমুনা)', village: 'আশুলিয়া, সাভার', group: 'rejected', state: 'rejected', date: '03-10-2026', sync: 'synced', steps: 3, reason: 'একই পরিবার থেকে আরেকটি আবেদন অনুমোদিত হয়েছে' }
+    { id: 'WNT-2026-00101', name: 'মরিয়ম বিবি (নমুনা)', village: 'বনগাঁও, সাভার', group: 'approved', state: 'approved', date: '01-10-2026', sync: 'synced', steps: 4 },
+    { id: 'WNT-2026-00102', name: 'আয়েশা সিদ্দিকা (নমুনা)', village: 'কাউন্দিয়া, সাভার', group: 'approved', state: 'approved', date: '01-10-2026', sync: 'synced', steps: 4 },
+    { id: 'WNT-2026-00140', name: 'জাহানারা বেগম (নমুনা)', village: 'আশুলিয়া, সাভার', group: 'rejected', state: 'rejected', date: '03-10-2026', sync: 'synced', steps: 3, reason: 'একই পরিবার থেকে আরেকটি আবেদন অনুমোদিত হয়েছে' }
   ];
   var filter = 'pending', selected = null;
   var list = document.getElementById('list'), detail = document.getElementById('detail');

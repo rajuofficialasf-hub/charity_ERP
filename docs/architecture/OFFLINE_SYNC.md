@@ -22,7 +22,7 @@ Status: complete, task T0.12 (2026-10-10). Design only; no code. Sources: bluepr
 | Reference lists | beneficiary class options, outcomes, expense categories, payment methods, i18n catalogue | with the snapshot | small |
 | Outbox and photo queue | section 3 and section 5 | — | photo queue 200 MB (O-07) |
 
-Never cached: NID photos, bank details, ratings, categories, donor data, official sections, audit detail, other volunteers' data (field-level protection applies to the snapshot endpoint exactly as to every other endpoint, BR-183). The NID or birth number of the volunteer's own beneficiaries is cached because the volunteer entered it and needs it to recognize the person; it is encrypted at rest (section 7).
+Never cached: NID photos, bank details, ratings, categories, donor data, official sections, audit detail, other volunteers' data (field-level protection applies to the snapshot endpoint exactly as to every other endpoint, BR-183). NID and birth-registration numbers are never part of the cached data set either (constitution §5, BR-183): the volunteer recognizes beneficiaries by name, father or husband name and village. Only the number the volunteer typed into an unsynced draft stays in the encrypted outbox until that record is synced (section 7).
 
 ## 3. Outbox pattern and record lifecycle
 
@@ -157,7 +157,7 @@ Recovery behaviour by event (O-29):
 | Installed PWA vs Safari tab | An installed PWA (Share → Add to Home Screen) gets its own storage and runs standalone; a Safari tab shares Safari's storage and loses state more easily | Treat installation as the supported mode for volunteers on iPhones; the Safari tab works for lookups but shows an "install for offline work" notice before offline capture |
 | Storage eviction | Safari may evict IndexedDB and cache storage of sites not used for a while, and clears them when the user clears Safari data | Request `navigator.storage.persist()` at first login; sync on app open, on `visibilitychange`, on `online`; reminder when pending > 0 for 24 hours and daily after (O-29); show a warning that unsynced work can be lost if the app is removed or data cleared; photo budget 100 MB on iOS (O-29) so queues drain faster |
 | No background sync | iOS does not run the Background Sync API | Foreground sync only (section 3 triggers); no promise of "it will sync by itself later" in the UI; the home screen shows the pending count prominently |
-| Push notifications | Only installed PWAs can receive Web Push on iOS; decision deferred (T0.14) | In-app inbox remains the primary channel (UX-12); push, if adopted, is an enhancement for installed apps |
+| Push notifications | Only installed PWAs can receive Web Push on iOS; Web Push decided by O-35 (optional, off by default, after the Phase 3 pilot) | In-app inbox remains the primary channel (UX-12); push, if adopted, is an enhancement for installed apps |
 | Camera and files | Camera capture works through the file input with `capture`; EXIF may be stripped | Capture time is taken from the device clock at capture; GPS from the Geolocation API with the user's permission; missing metadata flags the photo (BR-109) |
 | Install guidance | Users do not find "Add to Home Screen" | Bangla step-by-step install guide with screenshots inside the app and in the volunteer manual (T2.10); champions trained on it (D2) |
 | Memory | Older iPhones and 2 GB Android phones | Lists paginated, images downscaled, no heavy animation (NFR-12, design brief) |

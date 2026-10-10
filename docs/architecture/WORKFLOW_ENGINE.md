@@ -62,14 +62,14 @@ Per-status editing rules of the team-member table (BR-041) and of BD-16/O-13 (li
                                                                     │ approved ├────────►│ implementation │ stages per template
                                                                     └──────────┘         └───────┬────────┘
                                                            field unlock loop:                     │ completion guards
-                                                           open → updated → verified (re-lock)    ▼
+                                                           open → updated → relocked            ▼
                                                            on approved / implementation / completed  ┌───────────┐  project close  ┌────────┐
                                                                                                       │ completed ├───────────────►│ closed │
                                                                                                       └───────────┘                └────────┘
                                                                                                       follow-up evaluations allowed in completed and closed
 ```
 
-Project close moves every application that is not `rejected`/`deleted` to `closed`; applications still in `implementation` receive the outcome `not_distributed` (or the template's equivalent) with no cost (BD-23, BR-113, BR-140).
+Project close moves every application that is not `rejected`, `deleted` or already `closed` to `closed` (O-49): draft, needs_verification, submitted, under_review, reviewed, waitlisted, approved, implementation and completed. The prior state is kept in `workflow_transitions`; applications still in `implementation` receive the outcome `not_distributed` (or the template's equivalent) with no cost (BD-23, BR-113, BR-140). The Closing step lists unfinished applications as a warning. Project reopen restores every application closed by that close to its prior state and clears the close-time outcome.
 
 ## 5. Definition format
 
@@ -160,6 +160,7 @@ Transactional effects run inside the transition's database transaction; deferred
 | activity.create:`type` / activity.close:`type` | transactional | Creates or closes the linked activity | BR-125 |
 | stock.recompute | transactional | Recomputes the volunteer's stock cells | BR-110 |
 | outcome.set:`value` | transactional | Records the application outcome | BD-23 |
+| applications.restore_prior_state | transactional | On project reopen, returns every application closed by the project close to the state recorded before the close and clears the close-time outcome | O-49 |
 | profile.status:`value` | transactional | Changes the beneficiary profile status (deceased, relocated) | BR-021, O-18 |
 | needs_verification.link | transactional | Links the record to the existing beneficiary profile | BR-104 |
 | notify:`template` | deferred | In-app/email/SMS message via the notifications outbox | BR-214…217 |
@@ -196,14 +197,14 @@ Stage keys are snake_case of the A8/B5 names; labels carry the Bengali and Engli
 
 ## 10. Exceptions and overrides
 
-- **PM final approval in house construction (BD-24):** the `construction.yaml` approval transition uses `application.approve` like every template; the permission's default grants already give the PM `application.approve` at PROGRAM under the condition `house_construction_only` (permissions.yaml), and the template sets `approval.default_approver: program_manager` only as documentation. The RPM keeps approval too (A4 matrix row 15 shows both); the template adds the guard `approval.by_pm_required: true` → implemented as guard `approver.has_permission` with the PM condition, so that an RPM approval on a construction project is refused unless the panel grants it. Recorded in the template as `overrides.approval.require_condition: house_construction_only`.
+- **PM final approval in house construction (BD-24):** the `construction.yaml` approval transition uses `application.approve` like every template; the permission's default grants already give the PM `application.approve` at PROGRAM under the condition `house_construction_only` (permissions.yaml), and the template names no role (BR-193). The RPM keeps approval too (A4 matrix row 15 shows both); the template adds the guard `approval.by_pm_required: true` → implemented as guard `approver.has_permission` with the PM condition, so that an RPM approval on a construction project is refused unless the panel grants it. Recorded in the template as `overrides.approval.require_condition: house_construction_only`.
 - **Official দায়ী approval (O-27):** no template change; the RPM grants `application.approve` per project.
 - **Implementer (O-26):** `advance-voucher.yaml` transitions use the ordinary permissions; the Implementer holds them through the `safe_water_only` condition.
-- **Per-project overrides (data):** stage names and order (when editable), photo rule and source, limit, deadline, scoring criteria and weights, quotas, issue types, expense categories, follow-up template, document checklist. Stored in `project_components.settings` and `project_settings`; the engine reads the project's snapshot, never the template file, after activation.
+- **Per-project overrides (data):** stage names and order (when editable), photo rule and source, limit, deadline, scoring criteria and weights, quotas, issue types, expense categories, follow-up template, document checklist. Stored in `project_components.settings` and the `projects` row (limits, deadline, quotas); the engine reads the project's snapshot, never the template file, after activation.
 
 ## 11. Project lifecycle workflow
 
-Defined in `_common.yaml` under `project_lifecycle`: `draft → active` (`project.activate`; guards: form published, components valid, areas and RPM set, budget set, rules texts present) → `closing` (`project.close`; stops new applications) → `closed` (`project.close`; guards: template `project_close_guards`, e.g. `stock.balanced`; effects: close every open application with outcome, lock everything, audit) → `active` (`project.reopen`; requires reason). Follow-up evaluations remain allowed in `closed` (BR-056, BR-070).
+Defined in `_common.yaml` under `project_lifecycle`: `draft → active` (`project.activate`; guards: form published, components valid, areas and RPM set, budget set, rules texts present) → `closing` (`project.close`; stops new applications) → `closed` (`project.close`; guards: template `project_close_guards`, e.g. `stock.balanced`; effects: close every unfinished application with outcome and recorded prior state (O-49), lock everything, audit) → `active` (`project.reopen`; requires reason; effect `applications.restore_prior_state`). Follow-up evaluations remain allowed in `closed` (BR-056, BR-070).
 
 ## 12. Versioning and snapshots
 

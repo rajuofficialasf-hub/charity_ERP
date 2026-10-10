@@ -375,6 +375,7 @@ Supporting pieces used by several components: **Icon** (Lucide, 20 px default, 1
 | implementation (and its stages) | brand | `hammer` (stage name as label) |
 | completed | success | `badge-check` |
 | closed | neutral | `lock` |
+| deleted | neutral | `trash-2` |
 
 - Other statuses use the same tones: sync (pending neutral `clock`, syncing info `refresh-cw`, synced success `check`, failed danger `circle-alert`); photo (verified success `shield-check`, flagged warning `flag`, pending upload neutral `cloud-upload`); blocklisted danger `ban`.
 - Accessibility: the label is real text; the icon is decorative. A badge is not interactive; if it filters a list it is wrapped in a button.
@@ -419,7 +420,7 @@ Control types:
 - **Select** (single, with search when more than 10 options; multi-select as a checkbox list in a sheet on phones); **Radio** group; **Checkbox** group; the "অন্যান্য" (other) option opens a text input inside the same field (BD-14).
 - **Date / time / datetime**: native inputs on phones (reliable on Android and iOS), a calendar popover on desktop; values shown with English digits in the I18N date format.
 - **File**: see File upload (§5.12).
-- **Address**: the Bangladesh address cascade (division, district, upazila, union, ward) as chained selects from the cached locations master; each select is disabled until its parent is chosen.
+- **Address**: the Bangladesh address cascade (division, district, upazila, union; no ward, O-09) as chained selects from the cached locations master; each select is disabled until its parent is chosen.
 
 Look: 1 px `--color-border-strong` boundary, `--radius-md`, surface fill, control height per §2.8, text `--text-input`. Focus: `--focus-ring`. Error: 2 px danger border, a danger icon and the message below in ink. Locked: muted fill, lock icon, value in primary text (still readable and copyable).
 

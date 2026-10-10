@@ -41,7 +41,7 @@ Status: complete first draft, task T0.1 (2026-10-10). Sources: blueprint B7 (off
 | NFR-18 | 2G/3G and intermittent connectivity assumed; small requests; automatic retry with backoff | B10, B7 | decided |
 | NFR-19 | Everything field-facing works offline: application capture, today's distribution, today's class, construction updates, visits, follow-ups; records queue with client_uuid and sync when the network returns; nothing is lost | B7, Q-23, §10 | decided |
 | NFR-20 | Text syncs before photos; photos in a separate compressed queue; no completion while photos are pending | B7 | decided |
-| NFR-21 | Offline data set per device: current form versions of assigned projects, own beneficiaries and applications, syllabus, locations | B7 | decided (open question 7 for the budget) |
+| NFR-21 | Offline data set per device: current form versions of assigned projects, own beneficiaries and applications, syllabus, locations | B7 | decided (budgets by O-07, O-29; NFR-22) |
 | NFR-22 | Offline storage budget per device: photo queue up to 200 MB on Android and 100 MB on iOS (O-07, O-29); unsynchronized files are never deleted automatically; at the budget the user is notified and offered safe cleanup of synced files; structured data up to 50 MB and a warning at 80% of either budget (O-47) | B7, O-07, O-29, OFFLINE_SYNC.md §5, §11 | decided (O-07, O-29, O-47) |
 | NFR-23 | Sync conflict rules as BD-48; "needs verification" state for NID collisions | B7, Q-43 | decided |
 
@@ -52,8 +52,8 @@ Status: complete first draft, task T0.1 (2026-10-10). Sources: blueprint B7 (off
 | NFR-24 | Images compressed on the phone before upload; resumable (chunked) upload that continues where it stopped | B10, §9 | decided |
 | NFR-25 | Maximum photo size after compression 300 KB at the longest edge 1,600 px (JPEG quality about 80); originals are not kept on the server | B10 | decided (O-47) |
 | NFR-26 | Each photo keeps capture date-time and GPS where available; EXIF is read on the device before compression and stored as metadata | A8.1, BD-21 | decided |
-| NFR-27 | Upload validation: allowed types (JPEG, PNG, WebP for photos; PDF, JPEG, PNG for vouchers and documents), size limits (photos 5 MB before compression, documents 20 MB), virus-scan hook | §13 | decided (O-47) |
-| NFR-28 | Private files served only through signed URLs that expire within 15 minutes, after an authorization check | B8, §9 | decided (O-47) |
+| NFR-27 | Upload validation: allowed types and size limits per file kind as in `docs/architecture/FILES_AND_DOCUMENTS.md` §5 (O-30), including photos JPEG, PNG, WebP up to 5 MB before compression, documents up to 20 MB, vouchers, NID photos and media video; every upload quarantined until the virus scan is clean | §13 | decided (O-47) |
+| NFR-28 | Private files served only through signed URLs that expire within 15 minutes, after an authorization check; the only exception is the donor photo links of Qurbani emails, valid 30 days (O-35, NOTIFICATIONS.md) | B8, §9 | decided (O-47) |
 
 ## 6. Data volume, retention and storage growth
 
@@ -110,9 +110,9 @@ Status: complete first draft, task T0.1 (2026-10-10). Sources: blueprint B7 (off
 
 | Id | Requirement | Source | Status |
 |---|---|---|---|
-| NFR-53 | Business logic (score, zakat, budget math, form evaluator, permission names) lives once in `packages/shared` and is used by API and UI | §13 | decided (location depends on D-050) |
-| NFR-54 | OpenAPI drift test: the generated spec must match `docs/api/openapi.yaml` in CI | §13, D-051 | decided (tooling depends on D-051) |
-| NFR-55 | Every migration reversible with a hand-written `down.sql` | §9 | decided (depends on D-051) |
+| NFR-53 | Business logic (score, zakat, budget math, form evaluator, permission names) lives once in `packages/shared` and is used by API and UI | §13 | decided (D-050 approved) |
+| NFR-54 | OpenAPI drift test: the generated spec must match `docs/api/openapi.yaml` in CI | §13, D-051 | decided (D-051 approved; tooling in TEST_STRATEGY §3.3) |
+| NFR-55 | Every migration reversible with a hand-written `down.sql` | §9 | decided (D-051 approved) |
 | NFR-56 | Test pyramid per constitution §14 executed in CI: lint, typecheck, unit, API, E2E; load, accessibility and security tests before each gate | §14 | decided |
 | NFR-57 | Documentation and code change in the same commit (PROJECT_RULES §5) | §2 | decided |
 
@@ -128,5 +128,5 @@ Status: complete first draft, task T0.1 (2026-10-10). Sources: blueprint B7 (off
 | Open question | NFR ids |
 |---|---|
 | 5, 6, 7: answered 2026-10-10 (O-05, O-06, O-07) | NFR-40, NFR-35, NFR-22 now decided |
-| IT team approval of availability, sizing, network rules and the backup targets' feasibility | NFR-31, NFR-33, NFR-35, NFR-42 |
+| IT team approval of availability, sizing, network rules and the backup targets' feasibility — deferred to production preparation by O-48 (not blocking) | NFR-31, NFR-33, NFR-35, NFR-42 |
 | All other PROPOSAL rows: confirmed by the owner on 2026-10-10 (O-47, task T0.21) | NFR-02, 04–10, 14–16, 22 (50 MB part), 25, 27, 28, 30, 41, 46, 47 now decided |

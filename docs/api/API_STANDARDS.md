@@ -250,7 +250,7 @@ POST /api/v1/files/{fileId}/url → signed URL (15 minutes)
 ```
 
 - The export runs in the worker (ADR-004) with the requester's permissions, scope and field masks frozen at request time (RBAC.md §8).
-- Kinds that include identity, bank, donor or official-section fields require the matching `export.*` permission, set `sensitive = true` and write an audit entry with filters and row count (BR-223).
+- Kinds that include identity, bank, donor or official-section fields require the matching `export.*` permission, set `sensitive = true` and write an audit entry with filters and row count (BR-224, BR-179).
 - Files are deleted after 30 days; the job row and the audit entry remain (O-30); `GET` on an expired job returns 410 `export.expired`.
 - The requester gets an in-app notification when the job is done.
 

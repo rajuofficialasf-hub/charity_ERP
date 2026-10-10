@@ -129,7 +129,7 @@ ERP decision (UX-13, owner, 2026-10-10):
 
 Licences:
 - Ubuntu Sans is published under the Ubuntu Font Licence 1.0 (designers Dalton Maag, David Jonathan Ross, Dual Type; on Google Fonts since 2024-03-22; variable weights 100 to 800). The licence text must travel with any font files in the repository. A subset is a Modified Version, see the naming rule above.
-- Bornomala is not on Google Fonts or Fontsource. The font files themselves declare: copyright Codepotro, designer Jayed Ahsan Saad, vendor https://codepotro.com, licence SIL Open Font License 1.0 (standard text in docs/ui/brand/fonts/). A web search found no public page that confirms the font or its licence, so the owner should confirm the source with the web developer who built the website.
+- Bornomala is not on Google Fonts or Fontsource. The font files themselves declare: copyright Codepotro, designer Jayed Ahsan Saad, vendor https://codepotro.com, licence SIL Open Font License 1.0 (standard text in docs/ui/brand/fonts/). The owner confirmed the source https://codepotro.com/font/bornomala/ on 2026-10-10 (DECISION_LOG O-32).
 
 ## 5. Shape and layout observed on the website (for task T0.19 to consider)
 

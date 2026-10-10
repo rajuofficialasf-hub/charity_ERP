@@ -7,7 +7,7 @@ title_bn: বাস্তবায়ন + এভিডেন্স + ফলো-
 extends: _common
 projects: [self_reliance]
 source: [A8.3, A9, B5, B6]
-notes: "Zakat assessment before approval (Official daee decides). After approval: dawah classes -> initial and final exams -> payment only for those who passed -> purchase with placard photo and vouchers -> verification locks evidence -> completed -> continuous follow-up."
+notes: "Zakat assessment before approval (Official দায়ী decides). After approval: dawah classes -> initial and final exams -> payment only for those who passed -> purchase with placard photo and vouchers -> verification locks evidence -> completed -> continuous follow-up."
 
 stages:
   editable: false
@@ -26,7 +26,7 @@ stage_transitions:
     activity: training
     guards: [project.active, workers.assigned]
     effects: [audit:stage.training_started, notify:classes_started]
-    note: "Local daee assigned; whole family attends (BD-26); daily attendance through today's class"
+    note: "Local দায়ী assigned; whole family attends (BD-26); daily attendance through today's class"
   - from: training
     to: initial_exam
     permission: exam.record
@@ -104,7 +104,7 @@ activities:
 
 overrides:
   pre_approval:
-    zakat_assessment: "System computes total assets, debts, net assets and proposes eligibility against the nisab version in force; the Official daee decides (zakat.decide); the nisab value is snapshotted on the application (BD-28, O-15)"
+    zakat_assessment: "System computes total assets, debts, net assets and proposes eligibility against the nisab version in force; the Official দায়ী decides (zakat.decide); the nisab value is snapshotted on the application (BD-28, O-15)"
     site_verification: optional
   not_delivered_outcome: not_supported
   follow_up_template: self_reliance_default   # O-23: business started, current income, business running, profit, main problem

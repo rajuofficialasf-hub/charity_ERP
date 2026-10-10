@@ -13,10 +13,10 @@ Index created in task T0.1; ADR-001…006 written in task T0.8 (2026-10-10). One
 | [ADR-007](ADR-007-email-sms-adapters.md) | Provider-agnostic email and SMS adapters behind a transactional outbox | Q-11, D-053, O-33 | approved with NOTIFICATIONS.md, 2026-10-10 |
 | [ADR-008](ADR-008-workflow-templates-yaml.md) | Workflow templates as YAML with named guards and effects | Q-35, BD-11 | approved with WORKFLOW_ENGINE.md, 2026-10-10 |
 | [ADR-010](ADR-010-offline-outbox-conflicts.md) | Offline outbox with client_uuid idempotency and server-decided conflicts | BD-48, O-07, O-13 | approved with OFFLINE_SYNC.md, 2026-10-10 |
+| [ADR-011](ADR-011-identifier-formats.md) | Identifier formats (BEN-ID = UUID v7, application number = project code + year + sequence) | O-03 | approved; written at the Phase 0 gate (T0.22) |
 
 Planned (written when the decision is designed):
 
 | ADR | Title | DECISION_LOG id | Written in |
 |---|---|---|---|
-| ADR-009 | Form definitions as JSON with a shared evaluator | BD-12 | T0.11 / T2.3 |
-| ADR-011 | Identifier formats (BEN-ID = UUID v7, application id = project code + year + sequence) | O-03 | T0.15 |
+| ADR-009 | Form definitions as JSON with a shared evaluator | BD-12 | T2.3 (the JSON shape is already fixed by `form-field-logic.schema.json`) |

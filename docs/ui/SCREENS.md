@@ -24,6 +24,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 - **States.** Every screen supports the standard states of DS §8: empty, loading, error, offline, pending sync, denied (shown as not found), read-only and stale version. Each entry lists only what is specific to it.
 - **Layouts.** Phone below 640 px, tablet 640 to 1023 px, desktop 1024 px and up (DS §2.8, §4).
 - **Phase and task.** The roadmap phase (constitution §8) and the PLAN task that builds the screen.
+- **Role labels.** Tables use short labels for the roles of `permissions.yaml`: Head = Department Head (`department_head`), Monitoring = Monitoring Team (`monitoring_team`), PM = Program Manager, RPM = Regional Program Manager, Executive = Project Executive, Finance, Procurement and Media = the Finance, Procurement and Media Teams; volunteer types use their full names (General Volunteer, Local দায়ী, দাঈ-স্বেচ্ছাসেবক (both), Team Member, Paid Volunteer).
 - **Detail level.**
   - Section 3 to 9 entries are full specifications.
   - Section 10 rows are short and are expanded into full entries at the start of their phase, together with their mockups (DESIGN_BRIEF §6).
@@ -68,7 +69,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 | SCR-062 | Permission panel | desktop-first | Head, Monitoring | 1 · T1.8 |
 | SCR-070 | Issue log | parity | Paid Volunteer, Procurement, RPM, Executive, PM | 4 · T4.1 |
 | SCR-071 | Donor list | parity | PM, RPM, Executive | 4 · T4.4 |
-| SCR-072 | Document register | parity | officials | 5 · T5.4 (built last, O-34) |
+| SCR-072 | Document register | parity | officials | after 6 · T6.1: T5.4 (built last, O-34) |
 | SCR-080 … SCR-112 | Remaining screens (section 10) | per row | per row | per row |
 
 ## 3. Shared screens
@@ -81,7 +82,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 - **Data shown.**
   - Logo (SVG) and the system name (UX-09).
   - Language switch.
-  - Mobile number and password fields.
+  - Mobile number or email, and password fields (AUTH.md §4).
   - Lockout message with the remaining time.
   - On the installed iOS PWA, the install state.
 - **Actions.**
@@ -147,7 +148,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 
 ### SCR-003 Registration status and correction
 
-- **Purpose.** After submission the applicant sees the status (pending, correction requested, approved, rejected). They answer correction requests by editing the requested fields.
+- **Purpose.** After submission the applicant sees the status (pending, correction requested, approved, rejected; display wording over the account state `pending` and the registration review outcome, AUTH.md §7). They answer correction requests by editing the requested fields.
 - **Roles.** Applicants with an unapproved account.
 - **Priority.** phone-first.
 - **Data shown.**
@@ -407,7 +408,7 @@ This home is derived from O-26: Project Executive-level rights on safe-water pro
 |---|---|---|---|
 | Needs your attention | Safe-water applications to review, vouchers to verify, documents due | `application.review`, `voucher.verify`, `document.submit` | 2–5 |
 | Safe-water projects | Progress per site | `project.view`, `progress.update` | 4 |
-| Documents | My checklist items and deadlines | Open SCR-072; `document.register.view` | 5 |
+| Documents | My checklist items and deadlines | Open SCR-072; `document.register.view` | documentation module (O-34) |
 
 - **Priority.** parity.
 
@@ -950,7 +951,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
     - scoring criteria
     - photo rule and photo source (UX-11)
     - rules text for consent
-    - document checklist (Phase 5)
+    - document checklist (documentation module, built last, O-34)
   - Lifecycle badge: draft, active, closing, closed.
 - **Actions.**
 
@@ -1155,7 +1156,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Layouts.**
   - Phone: cards per item.
   - Desktop: a table grouped by requirement level.
-- **Phase · task.** 5 · T5.4 (O-34: last). **API.** added in Phase 5.
+- **Phase · task.** T5.4, built last after 6 · T6.1 and before the security audit T6.3 (O-34). **API.** added with the documentation module.
 
 ## 10. Remaining screens (expanded at the start of their phase)
 
@@ -1188,10 +1189,10 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 | SCR-104 | Exports | Export jobs list and download (signed URLs) | officials | `export.list` | parity | 2 · T2.8 |
 | SCR-105 | Staff handover | Reassign pending work before deactivation (BD-08) | Head, Monitoring | `user.handover` | desktop-first | 1 · T1.9 |
 | SCR-106 | Admin settings | Organization, nisab, holidays, providers, alert thresholds, notification templates, i18n | Head, Monitoring, PM (nisab) | `settings.manage`, `nisab.set`, `holiday.manage`, `provider.settings.manage`, `notification.template.manage`, `i18n.manage` | desktop-first | 1 · T1.13, 6 · T6.2 |
-| SCR-107 | Locations and reference lists | Division to ward master; reference lists (O-38) | Head, Monitoring | `location.manage`, `settings.manage` | desktop-first | 1 · T1.13 |
+| SCR-107 | Locations and reference lists | Division to union master (four levels, O-09); reference lists (O-38) | Head, Monitoring | `location.manage`, `settings.manage` | desktop-first | 1 · T1.13 |
 | SCR-108 | Media tab and story editor | Media work list, story writing, channel and date, publishable photos (O-28, BD-38) | Media Team | `media.subject.manage`, `story.manage` | parity | 5 · T5.5 |
-| SCR-109 | Deficiency report | The deficiency report fields (SOP), escalation of repeats (BD-37) | officials | `deficiency.report` | parity | 5 · T5.4 |
-| SCR-110 | Checklist template editor | Document checklist templates (BD-35) | Head, Monitoring, PM | `template.checklist.manage` | desktop-first | 1 · T1.13 (core), 5 · T5.4 |
+| SCR-109 | Deficiency report | The deficiency report fields (SOP), escalation of repeats (BD-37) | officials | `deficiency.report` | parity | after 6 · T6.1: T5.4 (O-34) |
+| SCR-110 | Checklist template editor | Document checklist templates (BD-35) | Head, Monitoring, PM | `template.checklist.manage` | desktop-first | after 6 · T6.1: T5.4 (moved from T1.13 by O-34) |
 | SCR-111 | Public application form (tree planting) | Public link without login; entries go to needs verification (O-08, O-13) | the public | `public` | phone-first | 4 · T4.3 |
 | SCR-112 | Programs | Programs list, create, assign PM | Head, Monitoring | `program.create`, `program.assign_pm`, `program.view` | desktop-first | 1 · T1.11 |
 

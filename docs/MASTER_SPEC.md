@@ -297,7 +297,7 @@ One volunteer cannot do everything alone; they may have a team of 4–5 or 10.
 #### Volunteer rating and category (officials only)
 
 - Rating criteria: at project creation the PM sets at most 5 criteria (e.g. timely submission, accuracy of data, distribution photos and updates, following the rules); each rated 1 to 5.
-- Ratings are per project; the profile shows the ratings of all projects and an average. The system may propose the rating from work data, or an official enters it by hand (Q-32: at project close the system proposes a score per criterion from work data; PM/RPM/Executive finalize, changing it if they wish). The "average" wording versus BD-40 ("never averaged" across kinds of work) is open question 10.
+- Ratings are per project; the profile shows the ratings of all projects and an average. The system may propose the rating from work data, or an official enters it by hand (Q-32: at project close the system proposes a score per criterion from work data; PM/RPM/Executive finalize, changing it if they wish). The "average" wording versus BD-40 ("never averaged" across kinds of work) is resolved by O-10: averages only within the same kind of work.
 - Volunteer category: every volunteer in the list has a category; the list of categories is set by the department (Q-34: A excellent, B good, C weak, D risky, plus a separate "inactive" flag). A category is never automatic: an official sets or changes it by hand and must give a comment; who, when, from what to what, with comment, is logged.
 - Ratings, categories and their comments are visible to officials only; a volunteer sees neither own nor others'.
 
@@ -415,8 +415,8 @@ Projects are run anew every year, so a new project is created every year. "Copy 
 
 - Draft: setup in progress; saved, volunteers do not see it.
 - Active: applications, review, approval and activities run.
-- Closing (PROPOSED): new applications stop; remaining work, photos and voucher verification are finished. (Open question 12.)
-- Closed: only the PM can close (approved by BD-20). All activity stops: no new application, edit, delete, distribution or progress update; everything read-only; dashboards and reports still viewable and downloadable. Only beneficiary follow-up evaluations can still be added, as often as someone checks; each evaluation records date, who checked, method (visit/phone), result and comments, photos; stored on the beneficiary profile. For self-reliance, for example: has the business started, current income, is the business running, profit, main problem (PROPOSED questions; open question 23).
+- Closing (adopted by O-12): new applications stop; remaining work, photos and voucher verification are finished; unfinished applications are listed as a warning (O-49).
+- Closed: only the PM can close (approved by BD-20). All activity stops: no new application, edit, delete, distribution or progress update; everything read-only; dashboards and reports still viewable and downloadable. Every unfinished application moves to Closed with its prior state kept in the history, and a reopen restores it (O-49). Only beneficiary follow-up evaluations can still be added, as often as someone checks; each evaluation records date, who checked, method (visit/phone), result and comments, photos; stored on the beneficiary profile. For self-reliance, for example: has the business started, current income, is the business running, profit, main problem (adopted by O-23 as the editable default template).
 - Who closed when is logged; a wrong close is undone by a controlled reopen with a reason, logged (Q-33, approved by BD-20).
 
 ### A7. Application and approval workflow
@@ -426,14 +426,17 @@ Every application passes through a fixed status cycle; as the status changes, so
 | Status | Meaning | Who may do what |
 |---|---|---|
 | Draft | Created by the volunteer or team member, not yet submitted; if created offline it is saved on the phone and synced when the network returns | Main volunteer: edit, delete, submit; team member: edit own created application |
+| Needs verification | Offline NID collision or public-link entry waiting for an official to link the profile (BD-48, O-08) | RPM or Executive of the region: link or reject with reason; volunteer: view status only |
 | Pending (Submitted) | Sent to the office, review not started | Main volunteer: edit and delete |
 | Under review | An official is verifying | Official: verify and edit the whole form if needed; volunteer: view only |
 | Awaiting approval (Reviewed) | Review done, sent to the approver | RPM (PM in house construction) or staff with approval permission: approve or reject |
+| Waitlisted | Reviewed but over quota (BD-17) | Approver: pull from the waitlist in one click or reject with reason |
 | Approved | Final; data locked | Volunteer: view basic data only; corrections only by field unlock |
 | Rejected (PROPOSED; approved by BD-11) | Not accepted, with reason | View only |
 | Implementation / Distribution in progress (PROPOSED; approved by BD-11) | The project's activity stage: package receipt, construction stage, payment, etc. | Volunteer / paid volunteer / official per template |
 | Completed (PROPOSED; approved by BD-11) | Support delivered, photos and vouchers verified | View only; add follow-up |
-| Closed | When the project closes, every application is read-only | View only; follow-up evaluations |
+| Closed | When the project closes, every application is read-only; unfinished applications keep their prior state for a reopen (O-49) | View only; follow-up evaluations |
+| Deleted | Draft or pending application removed by its owner before review | No access; kept for audit |
 
 Diagram image3: main cycle top to bottom; two branches on the right: reject instead of approve, and the field-unlock loop after approval. The steps after approval (implementation, completed) follow the project's template.
 
@@ -591,7 +594,7 @@ The most challenging project because two sides run together. The beneficiary sid
 
 1. First fund collection, alongside the list of which volunteers work this time. Each volunteer is told their cow or goat number and the Qurbani place, and asked to submit beneficiary applications on the distribution form.
 2. Donor data comes from two sources, merged by the system into one list: (a) SSL's Excel or sheet: transaction id, name, phone, email, amount, cow shares, goats; (b) the system's own form for cash or non-SSL donors (previously a Google Form): name, mobile, email, amount, purpose, approval status, approver, comment, cow shares and goat count. Excel column format: Q-11 (import format as last year's sheet). (Approved by BD-32.)
-3. The animal list is generated from donor data: cow numbers and share descriptions by share count (e.g. "Cow-3: 2 shares"); when 7 shares are full the cow's status is "full"; goat numbers come the same way. This whole account used to be done in Google Sheets. (Approved by BD-33; share model of goats is open question 19.)
+3. The animal list is generated from donor data: cow numbers and share descriptions by share count (e.g. "Cow-3: 2 shares"); when 7 shares are full the cow's status is "full"; goat numbers come the same way. This whole account used to be done in Google Sheets. (Approved by BD-33; goat share model decided by O-19: a goat is one whole animal.)
 4. Animal allocation is not automatic; officials do it by hand: on the volunteer's profile the animal number is entered (e.g. Cow-3 on Abdur Rahim's profile). One person may get several cows; for goats one, two, three or four, as many as needed. (Q-47)
 5. Once an animal is assigned to someone it cannot be given to anyone else; it shows as allocated in the list and becomes free only when the allocation is cancelled, so one animal is never given to two people.
 6. Every cow and goat carries the responsible volunteer's name, mobile and Qurbani spot (district, upazila, union); the donor is also matched to the animal number, so whose share is in which animal and in whose hands is seen on one screen.
@@ -604,7 +607,7 @@ The most challenging project because two sides run together. The beneficiary sid
 
 Not every project has dawah; when Dawah Enabled = yes in project setup, syllabus, classes, attendance, learning progress, initial and final exams, call log and follow-up are enabled. Two kinds of দায়ী (A2): the Local দায়ী teaches and posts daily updates; the Official দায়ী takes exams, watches how many classes happen (the system counts) and follows up beneficiaries by phone.
 
-Not only the beneficiary but family members attend; so attendance and learning progress may be kept for family members too (PROPOSED; open question 11). At many spots female দায়ীs serve female beneficiaries, so at assignment it can be set which দায়ী sees which beneficiaries. (Approved by BD-26.)
+Not only the beneficiary but family members attend; so attendance and learning progress may be kept for family members too (decided by O-11: attendance may be recorded for family members). At many spots female দায়ীs serve female beneficiaries, so at assignment it can be set which দায়ী sees which beneficiaries. (Approved by BD-26.)
 
 #### Progress tracking by syllabus
 
@@ -650,7 +653,7 @@ Monitoring is not just reports; it is an operational control centre: the system 
 | Inactive volunteer | Assigned but no work | PROPOSED |
 | Implementation delayed | Behind the planned time | PROPOSED |
 
-The system refuses applications beyond the limit, so no alert is needed for that. (Alert list approved by BD-42; thresholds are open question 4.)
+The system refuses applications beyond the limit, so no alert is needed for that. (Alert list approved by BD-42; thresholds decided by O-04.)
 
 #### Audit log
 
@@ -768,7 +771,7 @@ One web ERP on desktop and mobile (PWA) → API layer (permission and scope chec
 | field_changes | entity, entity_id, field, old_value, new_value, requested_by, approved_by, reason, at | Field unlock and change control |
 | audit_log | who, when, action, entity, entity_id, old, new, reason, ip/device | Permanent, never deleted |
 | donors, animals, animal_shares | donor info, amount; animal no, type, spot; share allocation, volunteer_id | Qurbani |
-| locations | division → district → upazila → union → ward | System master, cascading |
+| locations | division → district → upazila → union → ward (ward dropped by O-09: four levels) | System master, cascading |
 
 Physical names: this section keeps the blueprint's entity names because it translates the blueprint. The logical model with physical names (for example `activities` for project_activities, `workflow_definitions` for workflow_templates, project_settings folded into `projects` and `project_components`) is `docs/database/ERD.md`, whose section 19 maps every name.
 
@@ -835,7 +838,7 @@ The PM does not write fields from scratch; they tick fields from a ready library
 | Kind | Examples | Stored where |
 |---|---|---|
 | Identity (standard) | Beneficiary name, father/husband and mother's name, mobile, NID/birth registration, date of birth/age, gender, marital status, education, class, occupation, photo | Columns of the beneficiary table |
-| Address (standard) | Division, district, upazila, union, ward, village, post office, post code, house/landmark, GPS | Beneficiary table, referencing locations |
+| Address (standard) | Division, district, upazila, union, ward (dropped by O-09), village, post office, post code, house/landmark, GPS | Beneficiary table, referencing locations |
 | Family and income (standard) | 14+ members, children under 14, total members (calculated), daily/monthly income, monthly expense, multiple earners (repeat group) | Beneficiary table + sub-table |
 | Custom (project) | Qurbani: received meat last year; winter: jacket size; self-reliance: business type, capital, zakat assessment | application_answers (JSONB), question–answer rows; no new columns |
 
@@ -860,7 +863,7 @@ Each section has its own settings: order, who sees it (volunteer or official onl
 
 #### Field types
 
-Short and long text, number, decimal, money, phone, email, date, time, date-time; single and multiple select, radio, checkbox; photo, file, signature; GPS location; Bangladesh address (system component: division → district → upazila → union → ward, the list of 64 districts and 495 upazilas in one place, the PM does not build it); repeat group (e.g. every family member, "+ add another"); calculation; information/note.
+Short and long text, number, decimal, money, phone, email, date, time, date-time; single and multiple select, radio, checkbox; photo, file, signature; GPS location; Bangladesh address (system component: division → district → upazila → union; the blueprint's ward level is dropped by O-09; the list of 64 districts and 495 upazilas in one place, the PM does not build it); repeat group (e.g. every family member, "+ add another"); calculation; information/note.
 
 #### Field settings and no-code logic
 
@@ -907,7 +910,7 @@ Permissions are not only role-based but scope-based: which user may view, edit o
 
 #### Configurable workflow (PROPOSED, Q-35; approved by BD-11)
 
-Application statuses are not hard-coded. For each template the states, transitions (from which state to which), who may perform them and conditions (e.g. no "completed" without photos) are configured in the database; new templates or steps for new projects are added without code changes. The common part is the same in every template: Draft → Submitted → Under Review → Reviewed → Approved / Rejected → Implementation/Distribution → Completed → Closed (A7).
+Application statuses are not hard-coded. For each template the states, transitions (from which state to which), who may perform them and conditions (e.g. no "completed" without photos) are configured in the database; new templates or steps for new projects are added without code changes. The common part is the same in every template: Draft → Submitted → Under Review → Reviewed → Approved / Rejected → Implementation/Distribution → Completed → Closed (A7), plus Needs verification (offline NID collision and public-link entries, BD-48, O-08), Waitlisted (BD-17) and Deleted (drafts and pending applications removed by their owner) from `workflow-templates/_common.yaml`.
 
 | Template | States after approval (example) | Activity types |
 |---|---|---|
@@ -963,7 +966,7 @@ Field volunteers are the largest group of primary users, so the offline PWA is p
 - Every offline record carries a client-side unique id (client_uuid) and creation time; when the server receives the same id a second time it does not create a new record (idempotent).
 - Sync status on every record: pending / syncing / synced / failed; on failure the reason is shown and the system retries automatically (with backoff).
 - Photos in a separate queue, compressed; text goes first, photos later; a distribution is not "completed" while photos are pending.
-- Available offline: forms of assigned projects (current version), own beneficiary list, syllabus, location list; sensitive data on the phone encrypted and wiped on logout (PROPOSED; approved by constitution §9 offline rules; scope is open question 7).
+- Available offline: forms of assigned projects (current version), own beneficiary list, syllabus, location list; sensitive data on the phone encrypted and wiped on logout (approved by constitution §9 offline rules; scope and budgets decided by O-07 and O-29).
 - Conflict rule (Q-43, approved by BD-48): the server's value stays on approved data; the last write stays on drafts and field updates, and both are in the audit log. NID lookup does not work offline, so the volunteer enters everything by hand; at sync, if that NID already exists the application is not deleted but goes to "needs verification", and an official matches it to the profile.
 
 ### B8. Security, audit log and data protection
@@ -975,9 +978,9 @@ NID/birth registration, mobile number, address-GPS and donor data are sensitive.
 | Role- and scope-based access | B4; checked on the server, not only in the UI |
 | Field-level protection | NID, ratings, categories, donor data, official section: visible only to authorized roles; the same rule in exports. NID number and photo are visible to all official staff (decided), not to volunteers |
 | Audit log | Permanent trail of every important action (below) |
-| Session and login | Mobile/email + password, OTP (PROPOSED; open question 5), session timeout, lock after several failed attempts, session refresh when the role changes |
+| Session and login | Mobile/email + password, OTP for registration and password reset only (O-05), session timeout, lock after several failed attempts, session refresh when the role changes |
 | File access | Photos, vouchers and documents are never on public links; time-limited signed links after a permission check |
-| Backup | Daily automatic backup to a separate location; regular restore tests (PROPOSED; open question 6) |
+| Backup | Daily automatic backup to a separate location; regular restore tests (targets decided by O-06: RPO 24 hours, then 1 hour; RTO 4 hours; monthly drill) |
 | Data retention | Audit log and beneficiary history are never deleted; no time limit: all data including photos and documents is kept permanently (decided, Q-39; approved by BD-46) |
 
 #### Audit log record (PROPOSED structure)
@@ -987,7 +990,7 @@ NID/birth registration, mobile number, address-GPS and donor data are sensitive.
 | Who | user_id, role |
 | When | timestamp |
 | Action | create / update / status_change / approve / reject / unlock / permission_change / category_change / close / export |
-| Entity, Entity ID | application, APP-2026-00125 |
+| Entity, Entity ID | application, WNT-2026-00125 (format by O-03) |
 | Old Value, New Value | {status: reviewed} → {status: approved} |
 | Reason | "Field unlock: NID correction" |
 | IP / Device | Where appropriate; client_uuid on mobile sync |
@@ -1004,7 +1007,7 @@ NID/birth registration, mobile number, address-GPS and donor data are sensitive.
 | Language | i18n, Bangla and English from the start; form labels in both languages | Decided (Q-17) |
 | Hosting and backup | Hosting on the organization's own server; development by the organization's own team (decided, Q-40) | Where the data lives |
 
-The concrete stack proposal of the constitution (§9: Node.js 24 LTS, NestJS, Prisma, Next.js, pnpm workspaces, pg-boss, MinIO, Nodemailer, SMS adapter, Docker Compose) is recorded as D-050…D-053 in `docs/DECISION_LOG.md` with status "proposed" until the owner confirms (open question 1).
+The concrete stack proposal of the constitution (§9: Node.js 24 LTS, NestJS, Prisma, Next.js, pnpm workspaces, pg-boss, MinIO, Nodemailer, SMS adapter, Docker Compose) is recorded as D-050…D-053 in `docs/DECISION_LOG.md`, approved by the owner on 2026-10-10 (O-01).
 
 ### B10. Performance and field reality
 
@@ -1096,13 +1099,13 @@ Only the items without which architecture or code cannot start:
 1. Role and data-scope model (B4, Q-36) and the default permission matrix (A4): no screen or API is designed without it.
 2. Project component list and common workflow states (A6, Q-35, Q-38); exceptions such as PM approval in house construction written in the template.
 3. Form platform: section library, standard fields and form versioning (mandatory fields and class options already decided: Q-31 and Q-27).
-4. Budget and accounts: bucket model (Q-37), cost per beneficiary (Q-24), and the categories and approval rules of volunteer operational expenses (open question 14).
+4. Budget and accounts: bucket model (Q-37), cost per beneficiary (Q-24), and the categories and approval rules of volunteer operational expenses (decided by O-14).
 5. Offline sync conflict rule (Q-43).
 6. Security, audit and retention policy (Q-39) and technology stack and hosting (Q-40).
-7. Document checklist, deadlines and storage codes in the system (per SOP, A10): before Phase 1 design.
+7. Document checklist, deadlines and storage codes in the system (per SOP, A10): before Phase 1 design. (Overridden by O-34: the documentation SOP module is built last, after Phase 6 reporting; the data model already holds its entities.)
 8. Rating method (Q-32), category list (Q-34), close/reopen and follow-up schedule (Q-33): may wait until before Phase 5, but direction is needed now to reserve room in the data model.
 9. Setting the zakat nisab value (per Q-29): before self-reliance starts in Phase 4.
-10. SMS provider selection and setup before Qurbani (Q-11): before Phase 4.
+10. SMS provider selection and setup before Qurbani (Q-11): before Phase 4. (O-49: a real gateway before rollout beyond the Phase 3 pilot; the pilot may use the dummy OTP with the owner's written approval.)
 
 Identity (NID/birth registration), blocklist, application transfer and Procurement Team access (Q-21, Q-44–Q-46) are decided and no longer on the gate list.
 
@@ -1124,7 +1127,7 @@ Modules are built in seven phases, not all at once; at the end of each phase rea
 | 5 · Dawah + Monitoring + Follow-up | Dawah module (syllabus, today's class, exams, call log, Official দায়ী tracking), monitoring control centre and alerts, work summaries, ratings and categories, project closing and follow-up evaluations | Test by MEAL and the Monitoring Team |
 | 6 · Central Reporting & Optimization | Program, central and dawah dashboards (approved KPIs), beneficiary journey report, media tracker, SOP documentation, performance and security hardening, backup-restore drill | Management review |
 
-Timeline and budget are not in the blueprint; the duration of Phases 1 and 2 can be set after the Phase 0 decisions. (The constitution §8 places the document register in Phase 5 and the owner's plan splits it: data model in Phase 0, checklist editor in Phase 1, full register in Phase 5.)
+Timeline and budget are not in the blueprint; the duration of Phases 1 and 2 can be set after the Phase 0 decisions. (The constitution §8 places the document register in Phase 5; by O-34 the data model is in Phase 0 and the checklist editor and full register are built last, after Phase 6 reporting.)
 
 ### D2. Way of working
 
@@ -1333,14 +1336,14 @@ All other fields are project-specific custom fields. Never typed (filled by the 
 
 ## Open questions
 
-Items where the blueprint is silent or contradicts itself, or where a proposal needs the owner's decision, limited to business rules, data structure, API contracts, security, permissions, workflows, money and major UX. The same list, with the same numbers, is section 6 of `docs/DECISION_LOG.md`; numbers 1–11 match the owner's prepared T0.7 prompt in `docs/PLAN.md`.
+Items where the blueprint is silent or contradicts itself, or where a proposal needs the owner's decision, limited to business rules, data structure, API contracts, security, permissions, workflows, money and major UX. This section keeps questions 1–23 as raised in T0.1 for traceability. Section 6 of `docs/DECISION_LOG.md` is the complete list (questions 1–30) with the answering decision of each; all 30 are answered.
 
 **Resolution (2026-10-10, task T0.7):** the owner answered all 23 questions; the decisions are recorded as O-01 … O-23 in `docs/DECISION_LOG.md` section 5. The recommendation column below became the decision except where noted here:
 
 - 3: BEN-ID is a UUID version 7 (the primary key itself), not a "BEN-" sequence; the application id format stands as recommended (O-03).
 - 9: four levels only (division → district → upazila → union, no ward); the admin panel manages the master (add upazila/union, rename, deactivate; nothing hard-deleted); initial load from an open dataset (O-09).
 - 16: Friday is the only weekly holiday; public holidays from an admin holiday calendar (O-16).
-- 22: the ERP never pays; the accounts team pays, mostly by mobile banking, and sends the transaction id; the ERP records date, amount, method and id with an optional copy; method list admin-editable, defaults bKash, Nagad, Rocket, bank transfer (O-22). New open question 24: whether the accounts team may enter payment records themselves.
+- 22: the ERP never pays; the accounts team pays, mostly by mobile banking, and sends the transaction id; the ERP records date, amount, method and id with an optional copy; method list admin-editable, defaults bKash, Nagad, Rocket, bank transfer (O-22). Question 24 (answered by O-24): whether the accounts team may enter payment records themselves.
 
 These resolutions supersede the following blueprint wording: the "মোবাইল নম্বর ইউনিক" cell of the B3 layer table and diagram image4 (O-02); the ward level in B2 locations, B3 address component and constitution §6 (O-09); the "BEN-000123" style examples in A7, Appendix A and B.3 (O-03); the "OTP (PROPOSED)" login row in B8 (O-05, OTP at registration and reset only).
 

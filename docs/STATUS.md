@@ -1,8 +1,9 @@
 # Project status (Claude updates this at the end of every task; read it at the start of every session)
 
 - Last updated: 2026-10-10
-- Current phase: 0 (Requirement & Architecture Freeze) - IN PROGRESS
-- Last completed task: T0.8 - System architecture and ADRs: docs/architecture/SYSTEM_ARCHITECTURE.md complete; ADR-001..006 written; ADR index renumbered (007..011 planned). Design choices made in T0.8 were approved by the owner on 2026-10-10 as D-054..D-057 with implementation requirements (see DECISION_LOG section 3 and SYSTEM_ARCHITECTURE sections 2.1 and 10). (T0.1 and T0.7 done the same day; T0.2..T0.6 delivered inside T0.1.)
+- Current phase: 0 (Requirement & Architecture Freeze) - COMPLETE, pending management sign-off (docs/gates/PHASE_0_SIGNOFF.md; tag gate-phase-0)
+- Last completed task: T0.22 - Phase 0 gate (see the T0.22 line below).
+- T0.8 done (2026-10-10) - System architecture and ADRs: docs/architecture/SYSTEM_ARCHITECTURE.md complete; ADR-001..006 written; ADR index renumbered (007..011 planned). Design choices made in T0.8 were approved by the owner on 2026-10-10 as D-054..D-057 with implementation requirements (see DECISION_LOG section 3 and SYSTEM_ARCHITECTURE sections 2.1 and 10). (T0.1 and T0.7 done the same day; T0.2..T0.6 delivered inside T0.1.)
 - T0.9 done (2026-10-10): docs/architecture/AUTH.md complete (registration with two OTPs and the dummy-OTP path, password rules, tokens and device sessions, lockout, account states, remote revocation and local wipe, permission-version refresh, handover, Main Admin protection, rate limits, audit events). Values not covered by O-05 were proposed in AUTH.md section 14 and approved the same day as O-25 (BR-231..233).
 - T0.10 done (2026-10-10): docs/security/permissions.yaml is the machine-readable source of truth (roles, scopes, conditions, three permission sets, sensitive-field catalogue, permissions with default grants); docs/security/RBAC.md explains the model, resolves scopes, shows the default matrix for A4's two tables plus Official daee and Implementer, and specifies enforcement and tests. Name consistency between the two files checked with a script. The six interpretations of RBAC.md section 11 were confirmed the same day (O-26), with two refinements: the RPM may grant application approval to an Official daee per project (O-27), and the Media Team works in its own Media tab with a beneficiary work list (O-28; new entity media_subjects, permission media.subject.manage, BR-234..235).
 - T0.11 done (2026-10-10): docs/architecture/WORKFLOW_ENGINE.md complete (common cycle with needs_verification and waitlisted, state diagram, definition format, guard and effect catalogues, activity model and bulk-update pattern, overrides, project lifecycle, versioning, code-vs-data table, worked example of a new project type); workflow-templates/ holds schema.json, _common.yaml and the six templates; ADR-008 written. Design choices approved with the document: post-approval stages are sub-states of implementation; edge cases are outcomes, not states; soft-delete state `deleted` for drafts and pending applications.
@@ -19,7 +20,8 @@
 - O-42 (2026-10-10): Taka below 10 lakh in lakh grouping (৳ 3,00,000), from 10 lakh in millions (৳ 1 মিলিয়ন); mockups updated. Details confirmed: at most 2 decimals, million form only in dashboards and summaries (exact amounts in entry fields, ledgers, vouchers, exports, PDF), threshold 10 lakh or more, counts never in millions.
 - T0.20 done (2026-10-10): docs/ui/I18N.md complete (principles, locale resolution, message catalogue with ICU and typed keys, no-hard-coded-strings rule with four enforcement layers, server-side localization per output, one formatter with an exact format table including O-42 Taka display and 12-hour time with Bengali day periods, NFC and digit normalization, bilingual-data inventory and rules, fallback table, exports/PDF/email/SMS, third-language process, tests, implementation map). Owner answers O-43 (both languages required for configuration, Hijri withdrawn, no runtime message overrides, 12-hour time) and technical choices O-44 recorded; BR-221 retired, BR-243 to BR-245 added; export_jobs.locale added; hijri_date removed from user preferences; i18n.manage description corrected; mockup times converted to 12-hour.
 - T0.21 done (2026-10-10): docs/testing/TEST_STRATEGY.md complete (principles, pyramid and tools, coverage per layer incl. the 12 critical journeys mapped to gates, load, accessibility, visual, security, data integrity, offline, i18n, smoke; test data strategy; coverage targets; CI gate stages; BR test-status tracking; environments; per-gate run table; flaky-test policy). docs/security/SECURITY_POLICY.md complete (roles, data classification, OWASP Top 10 mapping, authentication and sessions, authorization and field protection, input validation, web and transport security, uploads, secrets, logging, dependencies, error handling, audit event map, retention, backups, devices, privacy, incident response, secure release, pre-production checklist, exceptions). Owner answers O-45 (logs 90 days, incidents to IT lead and Department Head within 24 hours, no external pentest for now) and technical choices O-46 recorded; NFR targets confirmed as O-47; [L] tables append-only by trigger; BR-221 status wording corrected to retired; API_STANDARDS section references corrected.
-- Next task: T0.22 - Phase 0 gate: consistency check and sign-off.
+- T0.22 done (2026-10-10): Phase 0 gate. Three read-only reviews (blueprint C3 coverage; stale items and contradictions; naming of roles, states, permissions, entities, modules, screens, tasks); all findings fixed in 39 documents and mockup files (blueprint and constitution untouched); owner answers recorded as O-49 (pilot may use the dummy OTP with written approval, real SMS gateway before rollout beyond the pilot; project close/reopen of unfinished applications; UX-09 and UX-10 final; implementing officer = assigned Project Executive or RPM); O-34 schedule applied to PLAN (documentation module T5.4 after T6.1); schema additions applications.submitted_by/completed_by and profile_merges.status/proposed_by/proposed_at; ADR-011 written; permissions.yaml YAML defect fixed; docs/gates/PHASE_0_SIGNOFF.md written with the English checklist and the Bengali management summary; tag gate-phase-0.
+- Next task: T1.1 - Repository scaffold and toolchain, only after the management sign-off of Phase 0. Do not start Phase 1 work before the signature.
 - Blocking items: none.
 - Git: the owner pushed main to origin on 2026-10-10 up to ceb4e50 (verified: main...origin/main in sync); later commits are local until the next push.
 
@@ -29,10 +31,11 @@ Complete:
 - docs/PROJECT_RULES.md
 - docs/MODULE_CATALOG.md (22 modules)
 - docs/BUSINESS_RULES.md (BR-001..BR-245, BR-221 retired, gaps list; test-status register empty until code exists)
-- docs/DECISION_LOG.md (Q-01..Q-47, BD-01..BD-49, D-050..D-053 proposed, UX-01..UX-13 approved, Open 1..23)
-- docs/NON_FUNCTIONAL_REQUIREMENTS.md (NFR-01..NFR-59, PROPOSAL rows need approval)
+- docs/DECISION_LOG.md (Q-01..Q-47, BD-01..BD-49, D-050..D-057 approved, UX-01..UX-13 approved, O-01..O-49, open questions 1..30 all answered)
+- docs/NON_FUNCTIONAL_REQUIREMENTS.md (NFR-01..NFR-61; PROPOSAL rows decided by O-47 except NFR-31, NFR-33, NFR-42, deferred by O-48)
 
-- docs/architecture/SYSTEM_ARCHITECTURE.md and ADR/ADR-001..006 (T0.8)
+- docs/architecture/SYSTEM_ARCHITECTURE.md and ADR/ADR-001..006 (T0.8); ADR-007, ADR-008, ADR-010 with their tasks; ADR-011 (T0.22)
+- docs/gates/PHASE_0_SIGNOFF.md (T0.22)
 - docs/architecture/AUTH.md (T0.9)
 - docs/security/RBAC.md and permissions.yaml (T0.10)
 - docs/architecture/WORKFLOW_ENGINE.md, workflow-templates/ (schema, _common, six templates), ADR-008 (T0.11)
@@ -54,7 +57,7 @@ Outlines (headings plus one line per section; completed in the task named in eac
 ## Open decisions waiting on the owner
 - None. Question 30 answered by O-38 (reference list seeds) and O-39 (pg_trgm, audit_log partitioning, GPS columns, mobile check, no row-level security).
 - NFR PROPOSAL rows confirmed by O-47 (T0.21). Deferred to production preparation by O-48 (not blocking): IT team approval of NFR-31, NFR-33, NFR-35 and NFR-42; incident contacts in RUNBOOK.md; CI provider (T1.1).
-- Questions 1..30 are answered (O-01..O-39; full list in DECISION_LOG section 5). Interpretations recorded in O-03, O-09, O-16 and O-22 stand unless the owner corrects them. Architecture choices of T0.8 are D-054..D-057.
+- Questions 1..30 are answered (decisions O-01..O-49; full list in DECISION_LOG sections 5 and 6). Management sign-off of Phase 0 is the only open step before T1.1. Interpretations recorded in O-03, O-09, O-16 and O-22 stand unless the owner corrects them. Architecture choices of T0.8 are D-054..D-057.
 
 ## Prerequisites still open (checked 2026-10-10)
 Needed for development (before T1.1):
@@ -71,9 +74,10 @@ Resolved before production, not now (O-36); none blocks Phase 0 or development:
 ## Known issues / risks
 - The blueprint contradicts itself on beneficiary mobile uniqueness (B3 layer table and diagram image4 vs B3 rules, Q-21, BD-01). Resolved by O-02 (not unique); the blueprint text itself is unchanged and the owner may align it in a later version.
 - O-09 drops the ward level named in constitution section 6 and blueprint B2/B3; the constitution text is not edited (DECISION_LOG outranks it per section 0).
-- docs/api/openapi.yaml and docs/security/permissions.yaml were checked visually only; no YAML parser is installed on this machine (PyYAML missing). They are parsed in CI from T1.1.
+- YAML files are parsed with js-yaml through npx (T0.22): permissions.yaml, openapi.yaml and the workflow templates parse, and the templates validate against schema.json; CI repeats this from T1.1.
 
 ## Last test run
+- 2026-10-10 T0.22: reference resolution across all documents 0 unresolved; permission names 0 unknown (146 openapi operations); sensitive-field columns all in DATABASE_SCHEMA; js-yaml parse of permissions.yaml (140 permissions, 15 roles), openapi.yaml and 7 workflow templates; ajv: 7 of 7 templates valid against schema.json; Redocly lint valid (0 errors, 0 warnings); mockups 45 of 45 renders clean and 51 of 51 interaction checks passed.
 - 2026-10-10 T0.19b: Playwright (playwright-core 1.49.1 with installed Chrome): 45 of 45 page renders clean at 360/768/1280 px (no page errors, no horizontal overflow, no missing icons, no Bengali digits, no text below 12 px, no phone touch target below 44 px), fonts loaded from file://; interaction script 51 of 51 passed; axe-core 4.10.2 WCAG A/AA 0 violations on all pages at 360 and 1280 px.
 - 2026-10-10 T0.19: document checks by a Node script: every permission name in SCREENS.md exists in permissions.yaml (138 of 140 referenced, 0 unknown); the four status tints equal the computed 12 percent mixes; every hex value in DESIGN_SYSTEM.md is in colors.md or the derived tints; all 32 required full entries and all 15 roles covered; no Bengali digits in either file.
 - 2026-10-10 T0.18: `npx --yes @redocly/cli@1 lint docs/api/openapi.yaml --config docs/api/redocly.yaml` → "Your API description is valid", 0 errors, 0 warnings (first OpenAPI lint run). Otherwise Phase 0 has documents only; earlier verification after T0.8: SYSTEM_ARCHITECTURE has 13 sections with the deployment diagram and the request-check order; six ADR files plus README exist; 230 unique BR ids; DECISION_LOG row counts Q 47 / BD 49 / D 4 / UX 13 / O 23; git working tree clean.
@@ -82,7 +86,7 @@ Resolved before production, not now (O-36); none blocks Phase 0 or development:
 - The model and effort level for every task are in docs/MODEL_GUIDE.md. It is the owner's reference; Claude Code does not switch models by itself. The rows marked ছাড় নেই (no downgrade) must not be run on a lower model when a usage limit runs out.
 - Brand assets are in docs/ui/brand/: colors.md, logo.png, logo.svg and fonts/ with licence texts (copied from the website on 2026-10-10).
 - Design interview held on 2026-10-10: owner decisions UX-01 to UX-13 are in docs/ui/DESIGN_BRIEF.md and were imported into docs/DECISION_LOG.md in T0.1. There is no Figma file; clickable HTML mockups are built in task T0.19b.
-- Owner answers to open questions are recorded as O-nn (same number as the question) in docs/DECISION_LOG.md; every affected document is then updated in the same change (T0.7).
-- Git remote: origin is https://github.com/rajuofficialasf-hub/charity_ERP.git, branch main. T0.1 commits are local; push when the owner wants.
+- Owner answers and instructions are recorded as O-nn in docs/DECISION_LOG.md (O-01..O-25 match their question numbers; the mapping for later questions is in the log header); every affected document is then updated in the same change (T0.7).
+- Git remote: origin is https://github.com/rajuofficialasf-hub/charity_ERP.git, branch main. Claude commits locally; the owner pushes (including the tag gate-phase-0).
 - The repository contains only docs/, CLAUDE.md, .claude/, README.md and the git configuration files. No application code until Phase 0 is signed off.
 - docs/source/ERP_BLUEPRINT_BN.md was machine-converted from the owner's docx and verified paragraph by paragraph against it on 2026-10-10.

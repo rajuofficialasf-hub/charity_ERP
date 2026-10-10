@@ -1,6 +1,6 @@
 # AUTHENTICATION AND SESSIONS
 
-Status: complete, task T0.9 (2026-10-10); all proposals approved by the owner the same day as O-25. Design only; no code. Inputs: blueprint A5 (registration), B8 (session and login), B10 (account security); constitution §5 (Main Admin), §13; decisions BD-08, BD-44, BD-47, BD-49, O-05 (password, tokens, lockout, OTP scope), O-25 (OTP parameters, idle timeout, device limit, stronger password for GLOBAL-scope officials, RPM revocation, auto-deactivation, alert thresholds), D-055 (zod validation), D-056 (network), D-057 (monitoring); rules BR-023…035, BR-047, BR-201, BR-203, BR-209; NFR-36, NFR-40, NFR-41. The word PROPOSAL below marks values that were proposals in the first draft and are now decided by O-25, except the password hashing algorithm (Argon2id), the common-password list and the rate-limit values of NFR-41, which remain implementation proposals to confirm in T0.21.
+Status: complete, task T0.9 (2026-10-10); all proposals approved by the owner the same day as O-25. Design only; no code. Inputs: blueprint A5 (registration), B8 (session and login), B10 (account security); constitution §5 (Main Admin), §13; decisions BD-08, BD-44, BD-47, BD-49, O-05 (password, tokens, lockout, OTP scope), O-25 (OTP parameters, idle timeout, device limit, stronger password for GLOBAL-scope officials, RPM revocation, auto-deactivation, alert thresholds), D-055 (zod validation), D-056 (network), D-057 (monitoring); rules BR-023…035, BR-047, BR-201, BR-203, BR-209; NFR-36, NFR-40, NFR-41. All values that were proposals in the first draft are decided: O-25 for the authentication values, SECURITY_POLICY §4 (T0.21) for Argon2id, O-47 for the rate limits of NFR-41; only the bundled common-password list is chosen in T1.7.
 
 ## 1. Identities and accounts
 
@@ -12,7 +12,7 @@ Status: complete, task T0.9 (2026-10-10); all proposals approved by the owner th
 
 One person has one user account. A volunteer account and a staff account are never merged; if a volunteer later becomes staff, a new staff account is created and the volunteer account is deactivated after handover of its applications (application transfer, BR-049).
 
-Passwords are stored as Argon2id hashes (PROPOSAL of algorithm; any current memory-hard hash is acceptable) with a per-user salt; plaintext passwords and OTP codes never appear in logs, audit entries or error messages.
+Passwords are stored as Argon2id hashes (SECURITY_POLICY §4) with a per-user salt; plaintext passwords and OTP codes never appear in logs, audit entries or error messages.
 
 ## 2. Registration with two OTPs
 
@@ -29,26 +29,26 @@ Flow (BR-023, BD-44):
 8. Review       approval or field-level correction requests (BR-029, BR-030); on approval the account becomes "active"
 ```
 
-OTP parameters (PROPOSAL unless decided): 6 digits; valid 5 minutes; at most 5 verification attempts per code, then a new code is required; at most 5 OTP requests per number or address per hour (NFR-41, rate limiting section 12); the same code is never reused; codes are stored hashed with their expiry in `otp_codes` and purged by a job after expiry.
+OTP parameters (O-25): 6 digits; valid 5 minutes; at most 5 verification attempts per code, then a new code is required; at most 5 OTP requests per number or address per hour (NFR-41, rate limiting section 12); the same code is never reused; codes are stored hashed with their expiry in `otp_codes` and purged by a job after expiry.
 
-Partial registrations: a user who verified both OTPs but did not submit the form may resume within 24 hours (PROPOSAL) by verifying the mobile OTP again; after that the draft is discarded.
+Partial registrations: a user who verified both OTPs but did not submit the form may resume within 24 hours (O-25) by verifying the mobile OTP again; after that the draft is discarded.
 
 ### 2.1 Dummy OTP in development and test (BD-44, BD-49, BR-024)
 
 - The OTP delivery path is an adapter: `OtpDeliveryService` chooses between `SmsAdapter` + `EmailAdapter` (real) and `DummyOtpAdapter` (fixed code).
 - `DummyOtpAdapter` is enabled only when `OTP_DUMMY_ENABLED=true`; the fixed code is read from configuration (`OTP_DUMMY_CODE`), never hard-coded in the source, and is the same for mobile and email in dev/test.
 - The configuration loader refuses to start the process when `OTP_DUMMY_ENABLED=true` and `NODE_ENV=production`; the production-readiness checklist (T6.5) and a smoke test on each deployment assert that the dummy path is off.
-- Real gateways in staging and production: SMS through the provider-agnostic adapter configured in admin settings (provider chosen before Qurbani, Q-11); email through the organization's SMTP. In staging the SMS adapter may run in dry-run mode (logs instead of sending) until the provider exists; the email OTP still goes out.
+- Real gateways in staging and production: SMS through the provider-agnostic adapter configured in admin settings (a real gateway before rollout beyond the Phase 3 pilot; the pilot may run with the dummy OTP only with the owner's written approval and an explicit, time-limited configuration flag, O-49); email through the organization's SMTP. In staging the SMS adapter may run in dry-run mode (logs instead of sending) until the provider exists; the email OTP still goes out.
 - Seed data for dev/test creates accounts with known passwords; such seeds never run in production (BR-024).
 
 ## 3. Password rules (O-05)
 
 - Minimum 8 characters with at least one letter and one digit; no maximum below 128; spaces allowed.
-- Rejected: the user's own mobile number, a password equal to the login id, and passwords on a short list of common passwords (PROPOSAL: the top 10,000 list bundled in `packages/shared`).
+- Rejected: the user's own mobile number, a password equal to the login id, and passwords on a short list of common passwords (a bundled list of common passwords in `packages/shared`, chosen in T1.7).
 - No forced periodic rotation (NIST guidance); a change is required only after a reset or when the Monitoring Team forces it for a compromised account.
 - Password change (logged in): requires the current password; revokes every other device session (section 5) and keeps the current one.
 - Password reset (forgotten): start with the login id → OTP to the registered mobile (volunteers) or mobile or email (staff) → new password → all device sessions revoked. Reset links are not used; OTP only (O-05).
-- Officials with GLOBAL scope (Department Head, Monitoring Team): PROPOSAL to require a longer minimum (12 characters) because of the access they hold; open item.
+- Officials with GLOBAL scope (Department Head, Monitoring Team): minimum 12 characters because of the access they hold (O-25).
 
 ## 4. Login
 
@@ -79,9 +79,9 @@ Rules:
 - Access tokens carry only `sub` (user id), `sid` (device session id), `roles` (role keys), `pv` (permission version, section 9), `exp`. They never carry permissions, scopes or personal data; the server resolves those per request (SYSTEM_ARCHITECTURE §6).
 - Every request checks that the session `sid` exists and is not revoked (cheap lookup, cached for at most 60 seconds per session; a revocation invalidates the cache entry immediately on the same instance and within 60 seconds on others).
 - Refresh: `POST /auth/refresh` exchanges the refresh token for a new access token and a new refresh token; the old refresh token is invalidated. Reuse of an already-rotated refresh token means theft: the whole device session is revoked and an audit event `auth.refresh_reuse_detected` is written.
-- Session lifetime: a device session lives while it is refreshed at least every 30 days; the hard limit is PROPOSAL 180 days, after which the user logs in again.
-- Idle timeout: PROPOSAL 12 hours without any request on official desktop sessions (the access token expires in 15 minutes anyway; this governs silent refresh), none on volunteer phones (field use is intermittent and offline for days). Open item 25.
-- Device limit: PROPOSAL at most 5 active device sessions per user; the oldest is revoked when a sixth logs in. Open item 25.
+- Session lifetime: a device session lives while it is refreshed at least every 30 days; the hard limit is 180 days, after which the user logs in again (O-25).
+- Idle timeout: 12 hours without any request on official desktop sessions (the access token expires in 15 minutes anyway; this governs silent refresh), none on volunteer phones (field use is intermittent and offline for days) (O-25).
+- Device limit: at most 5 active device sessions per user; the oldest is revoked when a sixth logs in (O-25).
 - Logout: revokes the current device session and triggers the local-data wipe (section 8).
 
 ## 6. Lockout after failed attempts (O-05)
@@ -89,27 +89,27 @@ Rules:
 - 5 consecutive failed password attempts on one login id lock the account for 15 minutes; the counter resets on a successful login or when the window passes.
 - The lockout response does not reveal whether the id exists.
 - Per-IP rate limiting (section 12) runs independently so that one attacker cannot lock many accounts cheaply; the account lock counts only attempts with a valid-looking id.
-- Audit events `auth.login_failed` (with id hash and IP) and `auth.locked`; 10 locks of one account within a day raise a monitoring alert (PROPOSAL threshold).
+- Audit events `auth.login_failed` (with id hash and IP) and `auth.locked`; 10 locks of one account within a day raise a monitoring alert (O-25).
 - The Monitoring Team can clear a lock from the user's admin screen (audited).
 
 ## 7. Account states
 
 | State | Meaning | Can log in | What is allowed |
 |---|---|---|---|
-| pending | Registered, both OTPs verified, awaiting approval | Yes | Own profile only; project section shows "You have not participated in any project yet" (BR-031); correction requests can be answered |
+| pending | Registered, both OTPs verified, awaiting approval | Yes | Own profile and registration correction only; project section shows "You have not participated in any project yet" (BR-031); every other endpoint returns 403 `auth.account_pending` (API_STANDARDS §8) |
 | active | Approved | Yes | Everything the role, project assignments and permissions allow |
 | blocked | On the blocklist (volunteer) or suspended by the Monitoring Team (staff) | Yes, but only to see the block message | No application creation or assignment; no visibility of own earlier applications (BR-047); the login response carries `state: blocked` and the message; every other endpoint returns 403 `account_blocked` |
 | deactivated | Left or transferred after handover (BR-034) | No | Nothing; all their work and audit entries remain |
 
-Transitions: pending → active (approval) · pending → deactivated (rejected registration, PROPOSAL: after 90 days unapproved) · active ↔ blocked (blocklist set/lift, RPM or above with reason, BR-047; for staff, Monitoring Team or Department Head) · active → deactivated (only after a completed handover, section 10) · deactivated → active (reactivation by the Department Head or Monitoring Team with reason; audited).
+Transitions: pending → active (approval) · pending → deactivated (rejected registration, or after 90 days unapproved, O-25) · active ↔ blocked (blocklist set/lift, RPM or above with reason, BR-047; for staff, Monitoring Team or Department Head) · active → deactivated (only after a completed handover, section 10) · deactivated → active (reactivation by the Department Head or Monitoring Team with reason; audited).
 
 Lifting a block or reactivating never restores revoked device sessions; the user logs in again.
 
 ## 8. Devices: listing, remote revocation and local-data wipe (B10, BR-201, NFR-36)
 
 - Every user sees own devices (name, platform, last seen, created) on the profile screen and can revoke any of them except the current one (which uses logout).
-- Officials with the permission `user.session.revoke` (default: Department Head, Monitoring Team; RPM for volunteers in own region, PROPOSAL) see a user's devices and revoke one or all, with a reason; used when a phone is lost or stolen. Audit event `auth.session_revoked_by_official`.
-- Effect on the device: the next request fails with 401 `session_revoked`; the PWA then (1) stops sync, (2) wipes the encrypted local store (Dexie databases, photo queue, cached forms, service-worker runtime caches for API data), (3) discards tokens, (4) shows the login screen with the message. The wipe also runs on logout and when the refresh token is rejected for any reason.
+- Officials with the permission `session.revoke_user` (default: Department Head, Monitoring Team; RPM for volunteers in own region, O-25) see a user's devices and revoke one or all, with a reason; used when a phone is lost or stolen. Audit event `auth.session_revoked_by_official`.
+- Effect on the device: the next request fails with 401 `session_revoked`; the PWA then (1) stops sync, (2) wipes the encrypted local store (Dexie databases, photo queue, cached forms, service-worker runtime caches for API data), (3) discards tokens, (4) shows the login screen with the message. The wipe also runs on logout. A refresh token that is only expired (not revoked) does not wipe: the encrypted outbox is kept and the user signs in again before sync continues (O-29, OFFLINE_SYNC §7, API_STANDARDS `auth.refresh_invalid`).
 - Pending offline records on a revoked device are lost by design (the data stayed on an untrusted device); the official who revoked is told so in the confirmation dialog, and the volunteer is told at next login. A later decision may add server-side recovery for already-synced drafts; nothing further now.
 - A revoked session cannot be un-revoked; the user logs in again and a new session row is created.
 
@@ -125,7 +125,7 @@ Lifting a block or reactivating never restores revoked device sessions; the user
 - Deactivation starts from the user's admin screen with "mark for deactivation". The system lists the outstanding work: pending reviews and approvals, ongoing projects of their district or region, documents in their name, issues assigned to them, follow-ups, open edit and correction requests they own.
 - Each item is reassigned to a chosen person, or all items to one person in one click; the list must be empty before the "deactivate" button is enabled. The handover record (`handovers`: from, to, scope JSON, approved by, time) is written and audited.
 - On deactivation: state → deactivated; all device sessions revoked; API keys or integrations, if any, disabled; nothing deleted.
-- For volunteers the equivalent is application transfer (BR-049); a volunteer with no open applications can be deactivated directly by the RPM or above (PROPOSAL), otherwise transfer first.
+- For volunteers the equivalent is application transfer (BR-049); a volunteer with no open applications can be deactivated directly by the RPM or above (O-25), otherwise transfer first.
 
 ## 11. Main Admin protection (constitution §5, BR-035)
 
@@ -135,7 +135,7 @@ Lifting a block or reactivating never restores revoked device sessions; the user
 
 ## 12. Rate limiting (NFR-41, BR-209)
 
-| Route class | Limit (PROPOSAL values from NFR-41) | Key |
+| Route class | Limit (NFR-41, confirmed by O-47) | Key |
 |---|---|---|
 | Login | 10 attempts per minute, 100 per hour | login id and IP separately |
 | OTP request | 5 per hour per mobile or email; 20 per hour per IP | number/address, IP |
@@ -144,7 +144,7 @@ Lifting a block or reactivating never restores revoked device sessions; the user
 | Refresh | 60 per hour per session | session id |
 | Public application form | 20 submissions per hour per IP (O-08) | IP |
 
-Limits are enforced in the API (not only in Caddy) so that they apply per account; the limiter state lives in PostgreSQL or process memory with a short window (no Redis, D-053). Exceeding a limit returns 429 with a retry-after header and is logged; repeated 429s on one IP raise a monitoring alert (PROPOSAL).
+Limits are enforced in the API (not only in Caddy) so that they apply per account; the limiter state lives in PostgreSQL or process memory with a short window (no Redis, D-053). Exceeding a limit returns 429 with a retry-after header and is logged; repeated 429s on one IP raise a monitoring alert (O-25).
 
 ## 13. Audit events
 
@@ -179,7 +179,7 @@ The following were proposed in T0.9 and approved by the owner as O-25; they are 
 6. Unapproved registrations auto-deactivated after 90 days; volunteers with no open applications may be deactivated directly by RPM or above.
 7. Alert thresholds: 10 lockouts of one account per day; repeated 429s per IP.
 
-Still implementation proposals (confirmed in T0.21 with the security policy): Argon2id as the password hash, the bundled common-password list, and the exact rate-limit numbers of section 12 (NFR-41). A second factor for GLOBAL-scope officials is a later option, not planned now.
+Confirmed in T0.21: Argon2id as the password hash (SECURITY_POLICY §4) and the rate-limit numbers of section 12 (NFR-41, O-47); the bundled common-password list is chosen in T1.7. A second factor for GLOBAL-scope officials is a later option, not planned now.
 
 ## 15. Related documents
 

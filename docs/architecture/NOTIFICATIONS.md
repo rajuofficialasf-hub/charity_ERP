@@ -6,8 +6,8 @@ Status: complete, task T0.14 (2026-10-10). Design only; no code. Sources: bluepr
 
 - **Nobody outside staff, volunteers and Qurbani donors receives anything.** Beneficiaries receive no notification on any channel for now (BD-47, BR-214).
 - **Volunteers read operational messages in the app only** — correction requests, approvals, assignments, transfers, reminders — with no SMS, WhatsApp or email for these (UX-12, BR-216). Email and SMS reach volunteers only for OTP at registration and password reset.
-- **SMS is used for exactly two purposes:** OTP and Qurbani donor messages (BD-34, BD-44). No provider is chosen yet; the SMS adapter runs in dry-run mode, logging what it would send, until the provider is configured before production (O-33).
-- **OTP is a fixed dummy code in development and test** behind configuration and impossible to enable in production; real gateways before production (BD-44, BD-49, BR-024; AUTH.md §2.1).
+- **SMS is used for exactly two purposes:** OTP and Qurbani donor messages (BD-34, BD-44). No provider is chosen yet; the SMS adapter runs in dry-run mode, logging what it would send, until the provider is configured: a real gateway before rollout beyond the Phase 3 pilot (O-33, O-49).
+- **OTP is a fixed dummy code in development and test** behind configuration and impossible to enable in production except during the Phase 3 pilot under the owner's written approval and an explicit, time-limited flag (O-49); real gateways before rollout beyond the pilot (BD-44, BD-49, BR-024; AUTH.md §2.1).
 - **Staff** (officials) receive in-app notifications and, for selected events, email through the organization's SMTP (BD-47).
 - **Every outbound message goes through a transactional outbox** so that a message exists only when its business event committed, is delivered at least once by the worker, and is never sent twice (D-054).
 - **No personal data in SMS or push payloads** beyond what the recipient already owns (their own OTP, the donor's own animal); never NIDs, names of beneficiaries or bank details.

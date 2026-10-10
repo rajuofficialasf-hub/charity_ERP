@@ -27,7 +27,7 @@ Positive: no duplicates, no silent loss, identical rules online and offline, aud
 
 Negative: two queues and a dependency order to maintain; encryption key management on the device; iOS eviction can still lose unsynced work if the user ignores nudges, so training and the install guide matter; late drafts and limit races produce "failed" records that volunteers must understand (Bangla reasons, needs-attention card).
 
-Follow-ups: T2.7 implements the stores, sync client, endpoints and Playwright offline tests; T2.10 writes the install guide; T3.4 load-tests the sync burst; the open values of OFFLINE_SYNC.md §15 are confirmed by the owner (question 26).
+Follow-ups: T2.7 implements the stores, sync client, endpoints and Playwright offline tests; T2.10 writes the install guide; T3.4 load-tests the sync burst; the values of OFFLINE_SYNC.md §15 were confirmed by the owner (O-29, answering question 26).
 
 ## Related
 

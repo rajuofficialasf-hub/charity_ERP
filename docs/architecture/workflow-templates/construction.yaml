@@ -7,7 +7,7 @@ title_bn: নির্মাণ
 extends: _common
 projects: [semi_pucca_house, tin_house]
 source: [A8.2, B5]
-notes: "PM gives final approval. One Local daee per area and 2-3 paid volunteers per district post daily stage progress with photos and raise issues. Stages are written by the PM; the list below is the default."
+notes: "PM gives final approval. One Local দায়ী per area and 2-3 paid volunteers per district post daily stage progress with photos and raise issues. Stages are written by the PM; the list below is the default."
 
 stages:
   editable: true
@@ -25,7 +25,7 @@ stage_transitions:
     activity: construction
     guards: [project.active, workers.assigned]
     effects: [audit:stage.worker_assigned, notify:workers_assigned]
-    note: "RPM assigns the area's Local daee and paid volunteers"
+    note: "RPM assigns the area's Local দায়ী and paid volunteers"
   - from: worker_assigned
     to: foundation
     permission: progress.update
@@ -93,8 +93,7 @@ overrides:
   approval:
     permission: application.approve
     require_condition: house_construction_only
-    default_approver: program_manager
-    note: "PM final approval (BD-24): application.approve defaults to the PM under house_construction_only; an RPM approval on this template is refused unless the permission panel grants it"
+    note: "PM final approval (BD-24): the default grant of application.approve with the condition house_construction_only (permissions.yaml) gives it to the PM; an RPM approval on this template is refused unless the permission panel grants it; the template names no role (BR-193)"
   not_delivered_outcome: not_built
   issue_resolvers: [issue.resolve]
   dawah: enabled_by_component

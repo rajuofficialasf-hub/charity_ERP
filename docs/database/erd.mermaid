@@ -185,6 +185,7 @@ erDiagram
     uuid id PK
     uuid kept_id FK
     uuid merged_id FK
+    text status
     jsonb snapshot
   }
   profile_correction_requests {
@@ -491,7 +492,7 @@ erDiagram
   files {
     uuid id PK
     text bucket
-    text key
+    text object_key
     text sha256
     text virus_scan
   }

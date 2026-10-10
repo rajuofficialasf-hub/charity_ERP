@@ -22,15 +22,16 @@ Status: complete, task T0.13 (2026-10-10). Design only; no code. Sources: bluepr
 ## 2. File metadata model
 
 ```
-files
-  id uuid v7                 bucket, key (section 8)         kind (section 1)
+files   (column names as in DATABASE_SCHEMA.md "files")
+  id uuid v7                 bucket, object_key (section 8)  kind (section 1)
   mime, size_bytes, sha256   uploaded_by, uploaded_at        project_id (nullable for profiles)
-  captured_at (device clock at capture, nullable)            gps { lat, lng, accuracy } (nullable)
-  source: camera | gallery | scan | system                   client_uuid (offline upload id)
-  flags[]: no_capture_time | no_gps | gallery_under_camera_only | stale_capture | duplicate_suspect | scan_pending | scan_failed
-  phash (64-bit perceptual hash, images only)                thumbnail_keys { s, m }
-  virus_scan: pending | clean | infected | skipped           locked_at, locked_by_event
-  consent_channels_at_publish[] (media assets only)          created_at, deleted_at (soft; exports only)
+  captured_at (device clock at capture, nullable)            record_created_at (owning record's client time, O-30)
+  latitude, longitude, gps_accuracy_m (nullable)             client_uuid (offline upload id)
+  source: camera | gallery | scan | system
+  flags[]: no_capture_time | no_gps | gallery_under_camera_only | stale_capture | duplicate_suspect   (data quality only)
+  phash (64-bit perceptual hash, images only)                thumbnail_small_key, thumbnail_medium_key
+  virus_scan: pending | clean | infected | failed | skipped  locked_at (the locking event is in the audit log)
+  deleted_at (soft; exports only)                            consent at publication is recorded on the media story
 file_links
   file_id, entity_type (application | activity | voucher | expense_claim | payment | document | animal | issue | media_subject | media_story | volunteer | beneficiary), entity_id, slot (e.g. distribution_proof, final_photo, animal | meat | packet), position
 ```
@@ -41,7 +42,7 @@ Rules: a file may be linked to several entities (a distribution photo to the act
 
 - No file is ever public. Every download starts with `POST /api/v1/files/{id}/url`; the API runs the full request lifecycle (SYSTEM_ARCHITECTURE §6): permission (`application.view`, `document.register.view`, `volunteer.view_sensitive` for NID photos, …), scope, object-level check through the file's links, and the sensitive-field class of the file kind (BR-183). Only then it issues a presigned GET URL valid for 15 minutes (NFR-28), bound to the exact object key. Thumbnails use the same path.
 - Caddy forwards only presigned requests to MinIO's object endpoint; the MinIO admin API and bucket listing are never reachable from outside (D-056).
-- Downloads of sensitive classes (nid_photo, document register files, exports containing identity fields) write an audit entry (`file.download_sensitive`) with the file id and the requester (BR-179, BR-223).
+- Downloads of sensitive classes (nid_photo, document register files, exports containing identity fields) write an audit entry (`file.download_sensitive`) with the file id and the requester (BR-179, BR-224).
 - Uploads also start with the API (section 4): the client never holds long-lived credentials, only short presigned PUT URLs per chunk.
 - Volunteers never receive URLs for files outside their SELF/ASSIGNED scope; the Media Team receives media assets and consent state, never NID photos or vouchers (sensitive_fields catalogue in `permissions.yaml`).
 
@@ -131,6 +132,8 @@ Flagged-photo monitoring (O-30, BR-241): the data-quality flags that count are `
 Keys contain system ids and codes only, never names, NIDs or phone numbers. Versioning is enabled on `documents` and `photos` (ADR-005). Buckets are mirrored to the backup target (O-06) except `exports`.
 
 ## 9. Document register (SOP clauses 3–5, 8–11)
+
+Schedule (O-34): sections 9 to 12 describe the documentation module, which is built last (task T5.4, after T6.1 and before the security audit T6.3). The data model already holds its entities; the SOP-pending items stay marked until the SOP v2.3 text is supplied.
 
 Entities:
 

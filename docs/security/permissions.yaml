@@ -28,7 +28,7 @@ conditions:
   own_or_paid_volunteer_issues: "Only issues raised by the Procurement Team itself or by paid volunteers (Q-46)"
   own_region: "Limited to the user's region inside the project (A4 'নিজ রিজিওন')"
   own_part: "Only the team's own data (Media: stories and media; Procurement: issues) (A4 second table)"
-  type_both_only: "Only Local daees of type Both (A4 'উভয় ধরন হলে')"
+  type_both_only: "Only Local দায়ীs of type Both (A4 'উভয় ধরন হলে')"
   tree_planting_only: "Only on projects whose workflow template is Open application + visit (A8.5)"
   no_open_applications: "Only when the target volunteer has no open applications (O-25)"
 
@@ -45,7 +45,7 @@ roles:
   finance_team: { name_en: Finance Team, name_bn: "ফাইন্যান্স টিম", kind: official, global_scope: false }
   volunteer_general: { name_en: General Volunteer, name_bn: "জেনারেল স্বেচ্ছাসেবক", kind: volunteer, global_scope: false }
   volunteer_local_daee: { name_en: "Local দায়ী", name_bn: "স্থানীয় দায়ী", kind: volunteer, global_scope: false }
-  volunteer_both: { name_en: "Both (দাঈ-স্বেচ্ছাসেবক)", name_bn: "দাঈ-স্বেচ্ছাসেবক", kind: volunteer, global_scope: false }
+  volunteer_both: { name_en: "দাঈ-স্বেচ্ছাসেবক (both)", name_bn: "দাঈ-স্বেচ্ছাসেবক", kind: volunteer, global_scope: false }
   volunteer_team_member: { name_en: Team Member, name_bn: "টিম মেম্বার", kind: volunteer, global_scope: false }
   volunteer_paid: { name_en: Paid Volunteer, name_bn: "পেইড ভলান্টিয়ার", kind: volunteer, global_scope: false }
 
@@ -93,15 +93,15 @@ permission_sets:
 # global_scope roles (department_head, monitoring_team) are always included.
 sensitive_fields:
   - key: beneficiary.nid
-    fields: [beneficiaries.nid, beneficiaries.birth_reg, beneficiaries.nid_photo]
+    fields: [beneficiaries.nid, beneficiaries.birth_reg, "files where kind = nid_photo (beneficiary)"]
     visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee]
     source: "B8: NID number and photo visible to all official staff who do project work, never to volunteers, Media, Finance, Procurement"
   - key: volunteer.identity
-    fields: [volunteers.nid, volunteers.nid_photo]
+    fields: [volunteers.nid, volunteers.nid_photo_file_id]
     visible_to: [program_manager, regional_program_manager, project_executive]
     source: "A5, B8"
   - key: volunteer.bank
-    fields: [volunteers.bank_name, volunteers.account_name, volunteers.account_number, volunteers.routing_number]
+    fields: [volunteers.bank_name, volunteers.bank_account_name, volunteers.bank_account_number, volunteers.bank_routing_number]
     visible_to: [program_manager, regional_program_manager, project_executive, finance_team]
     source: "A5 (used when paying operational expenses), B8"
   - key: volunteer.rating
@@ -158,14 +158,14 @@ permissions:
     default: []
   - name: user.deactivate_volunteer
     description: Deactivate a volunteer who has no open applications
-    module: M01
+    module: M03
     sensitive: false
     default:
       - { role: program_manager, scope: PROGRAM, condition: no_open_applications }
       - { role: regional_program_manager, scope: REGION, condition: no_open_applications }
   - name: user.handover
     description: Run the staff handover and deactivate an official's account
-    module: M01
+    module: M03
     sensitive: false
     default: []
   - name: system.owner.transfer
@@ -263,7 +263,7 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
   - name: volunteer.assign_project
-    description: Add volunteers, Local daees and paid volunteers to a project with a permission set
+    description: Add volunteers, Local দায়ীs and paid volunteers to a project with a permission set
     module: M04
     sensitive: false
     default:
@@ -705,7 +705,7 @@ permissions:
       - { role: project_executive, scope: REGION }
   - name: site_verification.record
     description: Record a site visit with comment, photos and recommendation
-    module: M08
+    module: M09
     sensitive: false
     default:
       - { role: regional_program_manager, scope: REGION }
@@ -714,7 +714,7 @@ permissions:
       - { role: volunteer_both, scope: ASSIGNED }
   - name: site_verification.decide
     description: Decide approve/reject directly from a site verification (tree planting)
-    module: M08
+    module: M09
     sensitive: false
     default:
       - { role: regional_program_manager, scope: REGION }
@@ -840,7 +840,7 @@ permissions:
       - { role: project_executive, scope: REGION }
   - name: followup.record
     description: Add a follow-up evaluation, also after project close
-    module: M09
+    module: M14
     sensitive: false
     default:
       - { role: regional_program_manager, scope: REGION }
@@ -931,14 +931,14 @@ permissions:
 
   # ---- M12 Dawah -----------------------------------------------------------------------------------
   - name: daee.assign
-    description: Assign Local daees to beneficiaries (gender split)
+    description: Assign Local দায়ীs to beneficiaries (gender split)
     module: M12
     sensitive: false
     default:
       - { role: regional_program_manager, scope: REGION }
       - { role: official_daee, scope: REGION }
   - name: class.record
-    description: Today's class: attendance, absence reasons, topics taught
+    description: "Today's class: attendance, absence reasons, topics taught"
     module: M12
     sensitive: false
     default:
@@ -954,7 +954,7 @@ permissions:
       - { role: volunteer_local_daee, scope: ASSIGNED, condition: if_rpm_grants }
       - { role: volunteer_both, scope: ASSIGNED, condition: if_rpm_grants }
   - name: exam.delegate
-    description: Delegate exam duty to Local daees
+    description: Delegate exam duty to Local দায়ীs
     module: M12
     sensitive: false
     default:
@@ -972,7 +972,7 @@ permissions:
     default:
       - { role: official_daee, scope: REGION }
   - name: dawah.tracking.view
-    description: Official daee tracking view of Local daees and classes
+    description: Official দায়ী tracking view of Local দায়ীs and classes
     module: M12
     sensitive: false
     default:

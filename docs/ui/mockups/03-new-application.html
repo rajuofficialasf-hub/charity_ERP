@@ -243,7 +243,7 @@ document.addEventListener('mock:ready', function () {
       document.getElementById('f-village').value = k.village;
       idInput.readOnly = true; idInput.closest('.field').classList.add('is-locked');
       var html = '<div class="alert t-success">' + I('circle-check') + '<div><div class="alert-title">উপকারভোগী পাওয়া গেছে</div><p>নাম, পিতা/স্বামীর নাম ও NID লক করা হয়েছে। মোবাইল ও ঠিকানা বদলানো যাবে; পরিবর্তন লগে থাকবে।</p></div></div>';
-      if (k.dup) html += '<div class="alert t-warning">' + I('triangle-alert') + '<div><div class="alert-title">একই পরিবারের সম্ভাব্য আবেদন</div><p>এই প্রকল্পে বনগাঁও গ্রামে একই পিতার নামে আরেকটি আবেদন আছে <span class="tnum">(APP-2026-000231)</span>। আপনি চালিয়ে যেতে পারেন; অফিস রিভিউয়ের সময় সিদ্ধান্ত নেবে।</p></div></div>';
+      if (k.dup) html += '<div class="alert t-warning">' + I('triangle-alert') + '<div><div class="alert-title">একই পরিবারের সম্ভাব্য আবেদন</div><p>এই প্রকল্পে বনগাঁও গ্রামে একই পিতার নামে আরেকটি আবেদন আছে <span class="tnum">(WNT-2026-00231)</span>। আপনি চালিয়ে যেতে পারেন; অফিস রিভিউয়ের সময় সিদ্ধান্ত নেবে।</p></div></div>';
       result.innerHTML = html;
     } else {
       result.innerHTML = '<div class="alert">' + I('info') + '<div><div class="alert-title">নতুন উপকারভোগী</div><p>এই নম্বরে কোনো প্রোফাইল নেই। পরের অংশে তথ্য দিন।</p></div></div>';
@@ -294,7 +294,7 @@ document.addEventListener('mock:ready', function () {
     var summary = document.getElementById('error-summary');
     if (!checkMobile()) { summary.hidden = false; show(1); summary.focus(); return; }
     summary.hidden = true;
-    mockToast(document.body.classList.contains('is-offline') ? 'আবেদনটি ফোনে আছে; নেটওয়ার্ক পেলে অফিসে যাবে' : 'আবেদন অফিসে পাঠানো হয়েছে (APP-2026-000412)');
+    mockToast(document.body.classList.contains('is-offline') ? 'আবেদনটি ফোনে আছে; নেটওয়ার্ক পেলে অফিসে যাবে' : 'আবেদন অফিসে পাঠানো হয়েছে (WNT-2026-00412)');
     setTimeout(function () { location.href = '04-my-applications.html'; }, 1400);
   });
 });

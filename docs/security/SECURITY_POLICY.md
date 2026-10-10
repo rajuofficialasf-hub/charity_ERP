@@ -20,7 +20,7 @@ Principles: security first; authorization on the server with default deny (the U
 | Public | Tree-planting public form texts, login page | everyone | — | allowed | — | yes |
 | Internal | Project names, statuses, counts, reference lists | by role and scope | by permission | allowed | cached for assigned projects | yes |
 | Personal | Names, father or husband names, mobile numbers, addresses, GPS, photos, family members | by role and scope | by permission, audited when bulk | never in content; ids only | own records only, encrypted | encrypted |
-| Sensitive (`sensitive_fields` in permissions.yaml) | NID and birth-registration numbers and NID photos; volunteer NID; bank details; ratings, categories and their comments; donor data; official form sections and scores; blocklist reasons; audit detail | only the roles listed for the class; masked otherwise (RBAC §8) | same mask; export audited (BR-223) | never | never sent to volunteers' phones | encrypted; profiles bucket with a separate key (O-30) |
+| Sensitive (`sensitive_fields` in permissions.yaml) | NID and birth-registration numbers and NID photos; volunteer NID; bank details; ratings, categories and their comments; donor data; official form sections and scores; blocklist reasons; audit detail | only the roles listed for the class; masked otherwise (RBAC §8) | same mask; export audited (BR-179, BR-224) | never | never sent to volunteers' phones | encrypted; profiles bucket with a separate key (O-30) |
 | Secret | Passwords, OTP codes, tokens, cookies, signing keys, database and storage credentials, SMTP and SMS credentials, backup keys | never | never | never | refresh token only, HttpOnly cookie | key material kept apart from data backups |
 
 ## 3. OWASP Top 10 (2021) mapped to this system
@@ -34,7 +34,7 @@ Principles: security first; authorization on the server with default deny (the U
 | A05 Security misconfiguration | Caddy security headers and CSP; only ports 80 and 443 public; internal services on the Docker network only; `JOBS_INLINE` and dummy OTP impossible in production; seed guard | §7, §20 |
 | A06 Vulnerable and outdated components | Frozen lockfile; `pnpm audit` in CI with recorded exceptions; review of new dependencies; monthly base-image updates | §11 |
 | A07 Identification and authentication failures | Password rules, lockout, rate limits, OTP limits, short access tokens, rotated refresh tokens bound to device sessions, remote revocation, session refresh on permission change | §4 |
-| A08 Software and data integrity failures | CI gate on every merge; migrations reviewed with `down.sql`; published form versions immutable; audit log append-only; release from tagged commits only | TEST_STRATEGY §6, §13 |
+| A08 Software and data integrity failures | CI gate on every merge; migrations reviewed with `down.sql`; published form versions immutable; audit log append-only; release from tagged commits only | TEST_STRATEGY §6; §13 of this policy |
 | A09 Security logging and monitoring failures | Structured logs with request ids; audit log of every §13 event; alerts for lockouts, repeated 429, failed jobs, 5xx rate, readiness failures (O-25, D-057) | §10, §13 |
 | A10 Server-side request forgery | The server never fetches URLs supplied by users; outbound connections only to the configured SMTP server, SMS provider and backup target | §7 |
 
@@ -47,7 +47,7 @@ OWASP ASVS level 2 is the checklist of the security audit before go-live (T6.3).
 | Password storage | Argon2id with per-user salt; plaintext passwords and OTP codes never stored, logged or audited |
 | Password rules | At least 8 characters with a letter and a digit; at least 12 for Department Head and Monitoring Team accounts |
 | Registration and reset OTP | 6 digits, valid 5 minutes, 5 verification attempts per code, 5 requests per hour per number or address; partial registration resumable for 24 hours; OTP not used at every login |
-| Dummy OTP | Fixed code only in development and test (BD-44, BD-49); production refuses to start with the dummy mode on |
+| Dummy OTP | Fixed code in development and test (BD-44, BD-49). Production refuses to start with the dummy mode on, except during the Phase 3 pilot under an explicit, time-limited configuration flag approved in writing by the owner (O-49); the flag is logged at every start and shown to the Monitoring Team; a real SMS gateway is required before rollout beyond the pilot region |
 | Lockout | 15 minutes after 5 failed attempts; alert at 10 lockouts of one account per day |
 | Access token | 15 minutes, held in memory by the PWA, never in local storage |
 | Refresh token | Opaque 256-bit value, 30 days, rotated on every refresh, stored hashed, bound to one device session; sent only as an HttpOnly, Secure, SameSite=Strict cookie scoped to the refresh path together with an `X-CSRF-Token` header |
@@ -95,7 +95,7 @@ OWASP ASVS level 2 is the checklist of the security audit before go-live (T6.3).
 - Allowed types and size limits per file kind as in FILES_AND_DOCUMENTS (photos JPEG, PNG, WebP; documents PDF, JPEG, PNG, DOCX, XLSX; video only for the media team), checked by content type and magic bytes, not by extension alone.
 - Every uploaded file stays quarantined until the ClamAV scan succeeds (O-46 item 7); a pending scan never allows preview, download or publication; infected files are blocked and alerted; a scanner failure is never treated as clean.
 - EXIF capture time and GPS are read and stored as metadata; served images and thumbnails carry no EXIF.
-- No file is public; every download goes through the permission check and a signed URL valid for 15 minutes (NFR-28).
+- No file is public; every download goes through the permission check and a signed URL valid for 15 minutes (NFR-28). The only exception is the donor photo links in Qurbani emails, valid 30 days and limited to that donor's animal photos (O-35, NOTIFICATIONS.md).
 - Export files are deleted 30 days after creation (O-30); source records are untouched.
 - Identical content is rejected within a project by SHA-256; near duplicates only warn.
 
@@ -149,8 +149,8 @@ Every entry stores the actor, the originating user for jobs and sync, the actor'
 | Nisab changes | `nisab.change` |
 | Deletion | `application.delete` and every soft delete |
 | Template changes | `template.create`, `form.publish`, `form.version_created`, project template updates |
-| Document deadline extensions | `document.deadline_extend` (Phase 5) |
-| Deficiency reports | `deficiency.report` (Phase 5) |
+| Document deadline extensions | `document.deadline_extend` (documentation module, O-34) |
+| Deficiency reports | `deficiency.report` (documentation module, O-34) |
 | Media consent | `media_consent` |
 | Exports of sensitive data | `export.requested` with `sensitive = true`, `file.download_sensitive` |
 
@@ -222,7 +222,7 @@ Run before the first production use and before every major release; each item ne
 
 | # | Item | Evidence |
 |---|---|---|
-| 1 | Real SMS and email gateways configured; dummy OTP off | Configuration check and a real OTP received; startup log shows OTP mode `real` (SMS provider chosen, O-33) |
+| 1 | Real SMS and email gateways configured; dummy OTP off | Configuration check and a real OTP received; startup log shows OTP mode `real` (SMS provider chosen, O-33). Pilot exception (O-49): the Phase 3 pilot may run with the dummy OTP only with the owner's written approval recorded in DECISION_LOG; a real gateway before rollout beyond the pilot region |
 | 2 | Seed and test data removed; seed guard active | Query showing no seed marker rows and no demo accounts; guard test |
 | 3 | Main Admin protected | Attempts to deactivate, block or strip the Department Head account fail; transfer works only through the audited path |
 | 4 | Backups verified by an actual restore | Restore drill record with time against the RTO |

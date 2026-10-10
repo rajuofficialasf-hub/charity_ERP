@@ -67,7 +67,7 @@ Test environment for automated layers (O-46 item 1): object storage through the 
 | 8 | House-construction issue raise and resolve | Phase 4 | T4.6 |
 | 9 | Self-reliance exam, then payment, then voucher lock | Phase 4 | T4.6 |
 | 10 | Qurbani animal allocation exclusivity | Phase 4 | T4.6 |
-| 11 | Document deadline warning and deficiency report | Phase 5 | T5.6 |
+| 11 | Document deadline warning and deficiency report | Documentation module (built last, O-34) and Phase 6 | T5.4, T6.6 |
 | 12 | Language switch (persistence, offline, inbox re-rendered) | Phase 1 | T1.16 |
 
 Additional E2E coverage per phase is listed in the gate test tasks of `docs/PLAN.md` (T1.16, T2.9, T3.5, T4.6, T5.6). Journeys run on Chromium; journeys 2, 3, 6 and 12 also run on WebKit for iOS behaviour (NFR-13).
@@ -133,7 +133,7 @@ Health and readiness endpoints; login with a dedicated smoke account; one read a
 - Deterministic: a fixed random seed, fixed clock in tests, stable UUIDs in fixtures where snapshots depend on them.
 - Obviously fake identities: NIDs from 1000000000 to 1000099999, birth-registration numbers starting with 1000000, phone numbers 0170000xxxx, email addresses at example.org, demo names marked "(নমুনা)", donors and transaction ids prefixed `TEST-`.
 - Anonymized sample forms from `docs/source/samples/` only after the owner supplies them; never real NIDs, phone numbers, bank details or donor data in the repository.
-- The dummy OTP works only in development and test. Production refuses to start when the dummy-OTP mode or a seed marker row is present (seed guard, SECURITY_POLICY §20).
+- The dummy OTP works in development and test. Production refuses to start when a seed marker row is present, and refuses dummy-OTP mode unless the explicit, time-limited pilot flag approved under O-49 is set; that flag is logged at every start (seed guard, SECURITY_POLICY §4, §20).
 - Production data never flows to test, staging or a developer machine (NFR-49). A production problem is reproduced with fixtures.
 
 ## 5. Coverage expectations (O-46 item 5)
@@ -175,7 +175,7 @@ Merging to `main` requires the push stages to pass. Gate tags (`gate-phase-N`) r
 | Environment | Purpose | Data | Tests that run there |
 |---|---|---|---|
 | Development | Developer machines, docker-compose | Reference and demo seed | All automated layers locally |
-| Test | CI | Fresh per run: reference seed plus fixtures | Push and nightly stages |
+| Test | CI | One database per test file cloned from a migrated template (O-46), reference seed plus fixtures | Push and nightly stages |
 | Staging | Release candidate on the organization's server | Demo seed and generated volume data for load tests | E2E against deployed build, ZAP, k6, UAT, smoke |
 | Production | Field use | Real data | Smoke tests with the dedicated smoke account and project only |
 
@@ -187,8 +187,8 @@ Merging to `main` requires the push stages to pass. Gate tags (`gate-phase-N`) r
 | Phase 2 (T2.9, T2.10) | Phase 2 modules | All Phase 2 endpoints, drift, matrix | 3, 4, 5 plus the T2.9 list | Offline and sync suite; bundle size and Lighthouse (NFR-15, NFR-16); exports per role | UAT PHASE_2, device matrix (Android 2 GB, iPhone Safari and installed PWA) |
 | Phase 3 pilot (T3.4, T3.5, T3.6) | Phase 3 modules | Phase 3 endpoints, drift, matrix | 6, 7 | k6 distribution day (NFR-02); ZAP baseline; deployment smoke tests; backup and restore check on staging | UAT PHASE_3 on staging, pilot go-live checklist |
 | Phase 4 (T4.6, T4.7) | Phase 4 modules | Phase 4 endpoints, drift, matrix | 8, 9, 10 | ZAP baseline; k6 again before a new field rollout | UAT PHASE_4 per project type |
-| Phase 5 (T5.6, T5.7) | Phase 5 modules | Phase 5 endpoints, drift, matrix | 11 | ZAP baseline; audit-log completeness check for every constitution §13 event | UAT PHASE_5 |
-| Phase 6 (T6.3 to T6.6) | Every BR tested or marked manual | Full suite | All 12 | T6.3 security audit (OWASP ASVS level 2 checklist), T6.4 performance audit, full restore drill against RPO and RTO (O-06), migration rollback rehearsal, the pre-production checklist of SECURITY_POLICY §20 | UAT closure, go/no-go |
+| Phase 5 (T5.6, T5.7) | Phase 5 modules | Phase 5 endpoints, drift, matrix | — (journey 11 moves with the documentation module, O-34) | ZAP baseline; audit-log completeness check for every constitution §13 event | UAT PHASE_5 |
+| Phase 6 (T6.3 to T6.6; documentation module T5.4 runs after T6.1, O-34) | Every BR tested or marked manual | Full suite | All 12 | T6.3 security audit (OWASP ASVS level 2 checklist), T6.4 performance audit, full restore drill against RPO and RTO (O-06), migration rollback rehearsal, the pre-production checklist of SECURITY_POLICY §20 | UAT closure, go/no-go |
 
 Each gate produces `docs/testing/uat/PHASE_N_UAT_BN.md` before the session and `docs/gates/PHASE_N_SIGNOFF.md` with the executed commands, outputs, coverage per layer and the untested-rules list.
 

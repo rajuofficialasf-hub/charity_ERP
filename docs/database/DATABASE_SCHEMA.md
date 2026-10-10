@@ -43,7 +43,7 @@ The **system actor** is a fixed `users` row (`kind = 'system'`, state `active`, 
 
 | Id | Format | Generation |
 |---|---|---|
-| Beneficiary (BEN-ID) | the UUID v7 `beneficiaries.id` | application-generated; shown in full or as a shortened display (first 8 hex characters) where space is tight; search uses NID/birth number and name |
+| Beneficiary (BEN-ID) | the UUID v7 `beneficiaries.id` | application-generated; shown in full where an id is required (profile, merge pointer, exports); a short display form needs a new decision (O-03); search uses NID/birth number and name |
 | Application number | `{project.code}-{year}-{5-digit sequence}`, e.g. `WNT-2026-00125` | server-side, inside the transaction that creates the server row: `UPDATE id_sequences SET last_value = last_value + 1 WHERE scope_key = 'app:'||project_id RETURNING last_value` (row lock serializes concurrent creations; a rollback undoes the increment, so committed numbers have no gaps); the row is created with `last_value = 0` when the project is created |
 | Offline records | no `app_no` until synced | the device shows a short client reference (last 6 characters of `client_uuid`); the server assigns `app_no` at sync |
 | Project code | 2–8 uppercase letters, unique (`WNT`, `IFT`, `MEAT`, `QRB`, `SBL`, `HSE`, `SWT`, `TRP`, …) | entered by the PM in project setup (O-03) |
@@ -129,6 +129,7 @@ Technical table added in T0.16 for O-03 (ERD.md §20).
 | L-severity | info, warning, critical | alerts.severity |
 | L-alert-status | open, acknowledged, resolved | alerts.status |
 | L-job-status | queued, running, done, failed | export_jobs.status |
+| L-merge-status | proposed, merged, reverted | profile_merges.status |
 
 ### 5.2 System-wide configurable lists (`reference_lists`, FK enforced)
 
@@ -158,7 +159,7 @@ Beneficiary class options (BD-14; defaults from `reference_lists` `beneficiary_c
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
 | kind | text | no | — | L-user-kind |
-| mobile | text | yes | — | login id; CHECK `^01[3-9][0-9]{8}$` (PROPOSAL format); required for volunteers |
+| mobile | text | yes | — | login id; CHECK `^01[3-9][0-9]{8}$` (O-39); required for volunteers |
 | email | text | yes | — | stored lower-case; required for staff |
 | password_hash | text | yes | — | Argon2id; null for the system actor |
 | state | text | no | 'pending' | L-user-state |
@@ -608,15 +609,18 @@ Index: (beneficiary_id) WHERE active.
 | id | uuid | no | — | PK |
 | kept_id | uuid | no | — | FK beneficiaries |
 | merged_id | uuid | no | — | FK beneficiaries |
+| status | text | no | 'proposed' | L-merge-status: proposed (an RPM proposal, BD-05), merged, reverted |
 | reason | text | no | — | — |
-| snapshot | jsonb | no | — | both profiles before merge (for revert) |
-| merged_by | uuid | no | — | FK users |
-| merged_at | timestamptz | no | now() | — |
+| proposed_by | uuid | no | — | FK users |
+| proposed_at | timestamptz | no | now() | — |
+| snapshot | jsonb | yes | — | both profiles before merge (for revert); set when merged |
+| merged_by | uuid | yes | — | FK users |
+| merged_at | timestamptz | yes | — | — |
 | reverted_by | uuid | yes | — | FK users |
 | reverted_at | timestamptz | yes | — | — |
 | [A] | | | | |
 
-Constraints: CHECK kept_id <> merged_id; partial UNIQUE (merged_id) WHERE reverted_at IS NULL.
+Constraints: CHECK kept_id <> merged_id; CHECK (status NOT IN ('merged', 'reverted') OR merged_at IS NOT NULL); CHECK (status <> 'reverted' OR reverted_at IS NOT NULL); partial UNIQUE (merged_id) WHERE status = 'merged'. A proposal (status proposed) is created by an RPM with `beneficiary.merge.propose`; PM, Monitoring Team or Department Head merge it with `beneficiary.merge` (BD-05); the Monitoring Team reverts (T0.22 gate correction, matches openapi.yaml).
 
 ### profile_correction_requests
 | Column | Type | Null | Default | Comment |
@@ -809,7 +813,7 @@ Indexes: (assignee_user_id, project_id) WHERE active_to IS NULL; (target_type, t
 | client_uuid | uuid | yes | — | UNIQUE (offline records) |
 | client_created_at | timestamptz | yes | — | device time, offset-corrected |
 | submitted_at, reviewed_at, approved_at, completed_at | timestamptz | yes | — | — |
-| reviewed_by, approved_by | uuid | yes | — | FK users |
+| submitted_by, reviewed_by, approved_by, completed_by | uuid | yes | — | FK users; written by the workflow `actor_recorded_as` setting (WORKFLOW_ENGINE §5) |
 | decision_comment | text | yes | — | required when deciding against the score order (BR-099) |
 | nisab_version_id | uuid | yes | — | FK nisab_versions (zakat snapshot) |
 | nisab_value | numeric(14,2) | yes | — | value at verification (BD-28) |

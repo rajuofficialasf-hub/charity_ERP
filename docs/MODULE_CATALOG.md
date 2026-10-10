@@ -1,6 +1,6 @@
 # MODULE CATALOG
 
-Status: complete first draft, task T0.1 (2026-10-10). Sources: blueprint B১ (ten core modules), Part A chapters, constitution §4 (scope), §8 (phases), `docs/MASTER_SPEC.md`, `docs/PLAN.md` §4 (task ids). "Needs decision" entries point to the numbered open questions in `docs/DECISION_LOG.md` (section "Open").
+Status: complete first draft, task T0.1 (2026-10-10). Sources: blueprint B1 (ten core modules), Part A chapters, constitution §4 (scope), §8 (phases), `docs/MASTER_SPEC.md`, `docs/PLAN.md` §4 (task ids). "Needs decision" entries point to the numbered open questions in `docs/DECISION_LOG.md` (section "Open").
 
 ## 1. Blueprint core modules (B1) and how this catalogue maps to them
 
@@ -35,7 +35,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 ### M02 Users, Roles & Permissions
 - Purpose: roles, permission names, data scopes (GLOBAL … SELF), permission = role × scope, project-level permission sets, permission panel with full audit, field-level protection rules.
 - Primary users: Department Head, Monitoring Team (panel); every request (enforcement).
-- Key entities: roles, permissions, user_roles, user_permissions (overrides), scopes, project_volunteers.permission_set, project staff access.
+- Key entities: roles, permissions, user_roles, user_permissions (overrides), scopes, project_volunteers.permission_set, project_staff.
 - Depends on: M01, M15, M06 (project assignments).
 - B1: shared service (B4). Phase: 1. Blueprint: A4 (both matrices, permission panel), B4, B8 (field-level). Tasks: T0.10, T1.8.
 - Needs decision: none beyond permissions.yaml authoring (T0.10).
@@ -67,7 +67,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 ### M06 Programs & Projects
 - Purpose: programs with PM assignment; project setup with draft save; configuration groups (basic data, budget, deadline, areas and RPMs with district split, staff access, form, rules and consent, dawah toggle and syllabus, photo rule and source, rating criteria, limits and stages, document checklist); components with settings (project_components); master templates and copy-from-project with the copy/not-copy list; lifecycle draft → active → closing → closed and reopen; deadline extension with reason; project code.
 - Primary users: Department Head (programs), PM (projects), Monitoring/Head (templates).
-- Key entities: programs, projects, project_settings, project_areas, project_components, project_templates, project_quotas, rules_consent texts, fund_sources (with M10).
+- Key entities: programs, projects (settings and `rules`), project_areas, project_components, project_templates, project_quotas, project_staff, fund_sources (with M10).
 - Depends on: M02, M07, M10, M19, M15.
 - B1: 1 Program & Project. Phase: 1 (core setup, templates, consent, assignment), 5 (close/reopen complete). Blueprint: A2, A6, Q-08, Q-12, Q-33, Q-35, Q-38; BD-09, BD-10, BD-16, BD-20, UX-11. Tasks: T1.11, T1.12, T5.3.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 3 (project code), 12 (Closing state), 23 (follow-up template).
@@ -75,7 +75,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 ### M07 Form Platform
 - Purpose: section library, standard field library (Appendix B), custom fields, field types incl. Bangladesh address, repeat group, calculation; bilingual labels; visibility (volunteer / official only); no-code conditional logic; mandatory toggles with the fixed mandatory set; "অন্যান্য" text box; immutable published versions; public application link; shared evaluator used by server and client.
 - Primary users: PM (builder), volunteers and public (filling), officials (official section).
-- Key entities: forms, form_versions, form_sections, form_fields, field_options, field_library, section_library, public_form_links.
+- Key entities: forms, form_versions, form_sections, form_fields, field_options, form_library_fields, form_library_sections; the public link lives in project_components.settings.
 - Depends on: M06, M19, M05 (standard columns), M22 (evaluator offline).
 - B1: 4 Application & Form Platform. Phase: 2. Blueprint: B3, A6 (form group), Appendix B, Q-26…Q-31; BD-12…BD-15. Tasks: T2.3, T2.4.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 8 (public link abuse rules).
@@ -89,9 +89,9 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 3 (application id), 13 (limit counting and late drafts), 21 (score recomputation).
 
 ### M09 Project Activities
-- Purpose: activity engine (Distribution, Construction, Purchase, Training, Visit, Payment, Voucher, Expense, Issue, Inspection, Follow-up); dispatch and receive confirmation; today's distribution bulk screen with photo rule, capture metadata and duplicate-photo warning; edge states; stock reconciliation gate; stage-based progress; issue log (raise, assign, resolve); site verification; beneficiary support payments and advances; vouchers with verification lock; materials and placard photo; volunteer expense claims and bKash payments with unique transaction id.
+- Purpose: activity engine (Distribution, Construction, Purchase, Training, Visit, Payment, Voucher, Expense, Issue, Inspection, Follow-up); dispatch and receive confirmation; today's distribution bulk screen with photo rule, capture metadata and duplicate-photo warning; edge states; stock reconciliation gate; stage-based progress; issue log (raise, assign, resolve); site verification; beneficiary support payments and advances; vouchers with verification lock; materials and placard photo; volunteer expense claims and payment records (method from the admin-editable list, O-22, O-24) with unique transaction id.
 - Primary users: volunteers, paid volunteers, Project Executive, RPM, Procurement Team (issues), PM.
-- Key entities: activities, stock_movements, distributions, constructions/stages, issues, site_verifications, payments, vouchers, expense_claims, expense_items.
+- Key entities: activities, stock_movements, distributions, construction_stages, issues, site_verifications, payments, vouchers, expense_claims, expense_items.
 - Depends on: M08, M10, M18, M22, M15, M17.
 - B1: 6 Project Activities. Phase: 3 (distribution, expenses, payments), 4 (construction, safe water, self-reliance, tree planting). Blueprint: A8.1–A8.5, B5 (activity engine, bulk screens), Q-22, Q-46; BD-21…BD-25, BD-27, BD-31. Tasks: T3.1, T3.2, T4.1, T4.2, T4.3, T4.5.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 14 (expense claims), 22 (payment methods).
@@ -101,7 +101,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Primary users: PM, RPM, Executive (entries via activities), Finance Team (view/export), dashboards.
 - Key entities: budget_ledger, fund_sources, payments (shared with M09).
 - Depends on: M06, M09, M16.
-- B1: 8 Budget & Project Accounts. Phase: 3 (basic card and ledger), 4 (full buckets). Blueprint: A6 (budget), B6, Q-24, Q-37; BD-29, BD-30, BD-31. Tasks: T3.2, T4.6.
+- B1: 8 Budget & Project Accounts. Phase: 3 (basic card and ledger), 4 (full buckets). Blueprint: A6 (budget), B6, Q-24, Q-37; BD-29, BD-30, BD-31. Tasks: T3.2, T4.5.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 4 (budget alert percentage), 14.
 
 ### M11 Qurbani
@@ -115,7 +115,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 ### M12 Dawah
 - Purpose: syllabus per project; দায়ী assignment per beneficiary group (gender split); today's class bulk screen (attendance, absence reason, topic, in progress/learned); family-member attendance; initial and final exams with side-by-side results and PDF; exam-gated payment hook for self-reliance; Official দায়ী tracking view with no-update alert; call log; dawah dashboard.
 - Primary users: Local দায়ী, Official দায়ী, RPM.
-- Key entities: syllabus_topics, dawah_classes, class_attendance, learning_progress, exams, exam_results, call_logs, work_assignments.
+- Key entities: dawah_syllabus_topics, dawah_classes, class_attendance, learning_progress, exams, exam_results, call_logs, work_assignments.
 - Depends on: M06 (Dawah Enabled), M08, M04, M14, M16, M22.
 - B1: 7 Dawah. Phase: 4 (minimal exam activity for the self-reliance gate), 5 (full module). Blueprint: A9, A8.2–A8.3, Q-30; BD-26, BD-27. Tasks: T4.2 (exam minimum), T5.1.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 11 (family-member attendance).
@@ -131,7 +131,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 ### M14 Monitoring & Follow-up
 - Purpose: monitoring control centre (project progress, stuck work, regularity), automatic alerts (review/approval pending, no update, distribution without photo, budget, incomplete activity, inactive volunteer, delay, duplicate NID attempts, unbalanced stock, overdue documents, repeated deficiency reports), work summaries per staff and volunteer with CSV/PDF, continuous follow-up evaluations also after close.
 - Primary users: Monitoring Team, Department Head, PM, RPM, Official দায়ী.
-- Key entities: alerts, alert_settings (thresholds), followup_evaluations, work_summary (computed).
+- Key entities: alerts, settings (alerts.* thresholds), followup_evaluations, work_summary (computed).
 - Depends on: M08, M09, M12, M13, M10, M16, M17.
 - B1: 9 Monitoring & Follow-up. Phase: 5. Blueprint: A10 (control centre, alerts, work summary), A6 (follow-up), Q-33; BD-19, BD-41, BD-42. Tasks: T5.2, T5.3.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 4 (thresholds), 23 (follow-up template).
@@ -147,7 +147,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 ### M16 Dashboards, Reports & Exports
 - Purpose: project, program, central and dawah dashboards with year/area filters; the seven KPI groups; statistics on every list; Excel/CSV and PDF exports with field-level protection; beneficiary journey report; fund-source reports; exam comparison PDF; work summary export; storage growth report.
 - Primary users: everyone within scope; Finance, Media, Procurement for own parts.
-- Key entities: report definitions, export jobs, cached aggregates.
+- Key entities: report definitions, export_jobs, cached aggregates.
 - Depends on: all domain modules, M02 (scope and field protection), M18 (fonts for PDF), M20.
 - B1: 10 Reports & Audit. Phase: 2 (export service), 3 (project dashboard), 6 (program, central, dawah, journey). Blueprint: A11, B10 (data for other departments), Q-13, Q-41; BD-43, UX-10. Tasks: T2.8, T3.3, T6.1.
 - Needs decision: none.
@@ -158,12 +158,12 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Key entities: notifications, notification_templates, outbound_messages, provider settings (M21).
 - Depends on: M21, M20, background jobs.
 - B1: shared service. Phase: 1 (in-app, email, SMS adapter), 4 (donor messaging). Blueprint: B9 (notifications), A8.6, Q-11; BD-34, BD-47, UX-12. Tasks: T0.14, T1.14.
-- Needs decision: Web Push (DESIGN_BRIEF open item, T0.14); SMS provider before production.
+- Needs decision: none (Web Push decided by O-35; SMS provider timing by O-49: a real gateway before rollout beyond the Phase 3 pilot).
 
 ### M18 Files & Media
 - Purpose: object storage adapter (MinIO; filesystem in tests), signed expiring URLs after authorization, upload validation (type, size, virus-scan hook), client-side compression and resumable upload, photo metadata (capture time, GPS, source camera/gallery per project setting), duplicate-photo detection, voucher and document files, media consent gating of the "publishable" list, and the Media tab (O-28): a media work list of selected beneficiaries (`media_subjects`) with per-beneficiary media status, stories, channel and date and a writing area.
 - Primary users: volunteers and paid volunteers (photos, vouchers), officials (documents), Media Team (stories, publishable list).
-- Key entities: files, photo_metadata, media_subjects, media_stories, media_consents (owned by M05).
+- Key entities: files (with photo metadata columns), media_subjects, media_stories, media_consents (owned by M05).
 - Depends on: M02, M15, M05.
 - B1: shared service. Phase: 2 (file service), 3 (photo rules), 5 (media tracker). Blueprint: B8 (file access), B10 (photos), A8.1 (photo rule and metadata), A10 (media team), Q-12; BD-21, BD-38, UX-11. Tasks: T0.13, T2.1, T3.1, T5.5.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 17 (consent capture and channels).
@@ -187,7 +187,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 ### M21 Admin & Settings
 - Purpose: system settings (monitoring thresholds, photo defaults, payment methods, expense categories defaults, holiday calendar, nisab versions, SMS/SMTP provider settings, dummy OTP toggle restricted to non-production), master template editors (project, document checklist, rating criteria), Department Head account protection (not deletable).
 - Primary users: Department Head, Monitoring Team, PM (nisab).
-- Key entities: settings, nisab_versions, holiday_calendar, provider_settings.
+- Key entities: settings (including provider settings), nisab_versions, holiday_calendar.
 - Depends on: M02, M15.
 - B1: shared service. Phase: 1 (core), 6 (rest). Blueprint: A6 (templates), A8.3 (nisab), B9; BD-28, BD-44, BD-49, constitution §5 (Head account). Tasks: T1.13, T6.2.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 4, 15, 16, 22.
@@ -195,7 +195,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 ### M22 Offline Sync
 - Purpose: installable PWA, IndexedDB outbox with client_uuid and sync_status, separate compressed photo queue, text before photos, retry with backoff, server-side idempotency, conflict rules (server wins on approved, last write on drafts and field updates, both logged), "needs verification" on NID collision, offline data set (forms, own beneficiaries and applications, syllabus, locations), encrypted local data wiped on logout or revocation, iOS Safari constraints.
 - Primary users: volunteers, Local দায়ীs, paid volunteers.
-- Key entities: outbox records, sync batches, photo queue, device_sessions (M01).
+- Key entities: outbox records (device), sync_batches, photo queue (device), device_sessions (M01).
 - Depends on: M07 (evaluator), M08, M09, M12, M18, M01.
 - B1: shared/core architecture (B7). Phase: 2. Blueprint: B7, B10, Q-15, Q-23, Q-43; BD-48, UX-06. Tasks: T0.12, T2.7, T2.10.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 7 (offline scope and photo budget).
@@ -222,22 +222,22 @@ M22 Offline ◄── M07, M08, M09, M12, M18
 | Phase | Modules delivered (or started) |
 |---|---|
 | 0 | Documents only: data model for all modules (ERD), workflow templates, permissions.yaml, screens |
-| 1 | M01, M02, M03, M04 (tab, assignment, teams, blocklist, consent), M06 (core setup, templates), M13 (checklist template editor), M15 (writer), M17, M19, M20, M21 (core); My Work home |
+| 1 | M01, M02, M03, M04 (tab, assignment, teams, blocklist, consent), M06 (core setup, templates), M15 (writer), M17, M19, M20, M21 (core); My Work home |
 | 2 | M05, M07, M08, M04 (application transfer), M16 (export service), M18 (file service), M22 |
 | 3 | M09 (distribution, dispatch/receive, reconciliation, expense claims and payments), M10 (basic), M16 (project dashboard), M18 (photo rules); deployment pipeline; load test; pilot |
 | 4 | M09 (construction, safe water, self-reliance, tree planting), M10 (full buckets), M11, M12 (exam minimum) |
-| 5 | M12 (full), M14, M15 (viewer), M04 (ratings, categories), M06 (close/reopen), M13 (full register), M18 (media tracker) |
-| 6 | M16 (program, central, dawah dashboards, journey report), M21 (rest), hardening, backup drill, manuals |
+| 5 | M12 (full), M14, M15 (viewer), M04 (ratings, categories), M06 (close/reopen), M18 (media tracker) |
+| 6 | M16 (program, central, dawah dashboards, journey report); then M13 (checklist template editor and full register, built last by O-34, before the security audit); M21 (rest), hardening, backup drill, manuals |
 
 ## 5. Needs-decision index
 
-All "Needs decision" references to open questions 1–23 in the module entries above were resolved on 2026-10-10 by decisions O-01…O-23 (`docs/DECISION_LOG.md` section 5); the module entries keep the question numbers for traceability. Still open:
+All "Needs decision" references to open questions 1–23 in the module entries above were resolved on 2026-10-10 by decisions O-01…O-49 (`docs/DECISION_LOG.md` section 5); the module entries keep the question numbers for traceability. Still open:
 
 | Module | Open item |
 |---|---|
 | M10, M02 | Question 24 answered by O-24 (2026-10-10): officials enter payment records manually; the accounts team does not use the ERP for now |
-| M17 | Web Push and PWA short name (DESIGN_BRIEF open items, T0.14) |
-| M11, M17 | SMS provider before Qurbani (C3 item 10) |
+| M17 | Decided: Web Push (O-35), PWA short name "ASF Charity" (O-31) |
+| M01, M11, M17 | SMS provider: a real gateway before rollout beyond the Phase 3 pilot and before Qurbani; the pilot may use the dummy OTP with the owner's written approval (O-49) |
 | M13 | SOP v2.3 text (input dependency) |
 
 Decisions that changed module scope: M19 has four levels and admin management (O-09); M10 records payments made by the accounts team and never executes them (O-22, BR-229); M05 uses UUID v7 as BEN-ID (O-03); M06 includes the Closing state (O-12); M21 holds the global nisab table, the holiday calendar (Friday weekend, O-16), payment methods and expense categories (O-14, O-22).
