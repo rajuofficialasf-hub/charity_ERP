@@ -234,7 +234,6 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
   - Pending edit requests.
   - Device sessions: device, last seen, current device marker.
   - Language (bn or en).
-  - The Hijri date setting, off by default.
 - **Actions.**
 
 | Action | Permission |
@@ -243,7 +242,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 | Submit edit request | `edit_request.submit` |
 | Revoke one of own sessions | `session.revoke_own` |
 | Change password | `authenticated` |
-| Switch language, Hijri setting | `authenticated` |
+| Switch language | `authenticated` |
 | Log out (wipes local data, OFFLINE_SYNC.md) | `authenticated` |
 
 - **States.**

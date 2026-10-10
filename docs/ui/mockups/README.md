@@ -54,6 +54,11 @@ Screenshots were reviewed at all three widths; layout problems found during revi
 | 10 | Phase markers | Volunteer profile tabs for work summary, ratings and animal allocation, and beneficiary follow-up, carry a note "built in Phase 4/5" | They are in the pilot screens but belong to later phases (SCREENS.md) |
 | 11 | Login | A "which role to enter as" choice exists only in the mockup | To reach both volunteer and official screens without accounts |
 
+## Changes after approval
+
+- 2026-10-10 (O-42): Taka amounts from 10 lakh up in millions in dashboards and summaries (`mockTaka()` in mockup.js).
+- 2026-10-10 (O-43, task T0.20): every time of day in 12-hour form with the Bengali day period first (for example "বিকাল 4:40"), including the live camera stamp; the Hijri date toggle on the notification settings tab removed.
+
 ## After the owner's review
 
 Approved by the owner on 2026-10-10 (DECISION_LOG O-41). Items 1 and 3 above were accepted and written into DESIGN_SYSTEM.md (sections 2.7, 2.8, 4.3 and 5.7); the other items stay mockup simplifications. Later-phase screens get their own mockups at the start of their phase.

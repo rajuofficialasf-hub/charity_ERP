@@ -177,7 +177,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Needs decision: none (resolved by O-09).
 
 ### M20 i18n
-- Purpose: bn and en as first-class languages, per-user switch, central message catalogue, bilingual data fields (labels, options, statuses, stages), one formatting utility with English digits, optional Hijri display setting, third language without rewrite.
+- Purpose: bn and en as first-class languages, per-user switch, central message catalogue, bilingual data fields (labels, options, statuses, stages), one formatting utility with English digits (no Hijri display, O-43), third language without rewrite.
 - Primary users: everyone.
 - Key entities: i18n keys (packages/shared), bilingual columns.
 - Depends on: none.

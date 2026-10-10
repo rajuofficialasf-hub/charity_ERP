@@ -379,5 +379,5 @@ Generated on 2026-10-10 by the T0.10 check script from `permissions.yaml`; regen
 | `holiday.manage` | M21 | no | Maintain the holiday calendar | none (global roles only) |
 | `provider.settings.manage` | M21 | no | Configure SMTP and SMS provider settings | none (global roles only) |
 | `template.checklist.manage` | M21 | no | Edit document checklist templates | program_manager@PROGRAM |
-| `i18n.manage` | M20 | no | Edit translations of bilingual data and message overrides | none (global roles only) |
+| `i18n.manage` | M20 | no | Edit translations of bilingual data (no runtime message overrides, O-43) | none (global roles only) |
 | `sync.batch` | M22 | no | Submit offline records and photos for own assignments | regional_program_manager@SELF; project_executive@SELF; official_daee@SELF; volunteer_general@SELF; volunteer_local_daee@SELF; volunteer_both@SELF; volunteer_team_member@SELF; volunteer_paid@SELF |

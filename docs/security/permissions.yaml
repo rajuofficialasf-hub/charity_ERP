@@ -1244,7 +1244,7 @@ permissions:
 
   # ---- M20 i18n ------------------------------------------------------------------------------------
   - name: i18n.manage
-    description: Edit translations of bilingual data and message overrides
+    description: Edit translations of bilingual data (no runtime message overrides, O-43)
     module: M20
     sensitive: false
     default: []

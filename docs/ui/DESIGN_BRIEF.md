@@ -26,7 +26,7 @@ Import these into docs/DECISION_LOG.md as the series UX-01 to UX-13, status appr
 
 ## 2. Defaults assumed (not asked; the owner may change them)
 
-1. Dates use English digits and the Gregorian calendar. A Hijri date can be shown beside a date where it matters (Ramadan, Qurbani) through a setting that is off by default.
+1. Dates use English digits and the Gregorian calendar. (A Hijri date beside the date was assumed here at first; the owner withdrew it on 2026-10-10, DECISION_LOG O-43.)
 2. No public pages except the tree-planting application link (blueprint A৮.৫). The ERP is an internal system.
 3. Light theme only for now. Colours are CSS variables, so a dark theme can be added later.
 4. The default interface language is Bangla for everyone. A per-user switch offers English.

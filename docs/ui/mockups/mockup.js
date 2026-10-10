@@ -255,7 +255,9 @@
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function stampNow() {
     var d = new Date();
-    return pad(d.getDate()) + '-' + pad(d.getMonth() + 1) + '-' + d.getFullYear() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+    var h = d.getHours(), p = h < 4 ? 'রাত' : h < 6 ? 'ভোর' : h < 12 ? 'সকাল' : h < 16 ? 'দুপুর' : h < 18 ? 'বিকাল' : h < 20 ? 'সন্ধ্যা' : 'রাত';
+    /* 12-hour time with the Bengali day period first (O-43, I18N.md section 6.3) */
+    return pad(d.getDate()) + '-' + pad(d.getMonth() + 1) + '-' + d.getFullYear() + ' ' + p + ' ' + (h % 12 === 0 ? 12 : h % 12) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
   }
   window.mockStampNow = stampNow;
 

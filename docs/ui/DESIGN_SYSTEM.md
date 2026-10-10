@@ -274,7 +274,7 @@ CSS custom properties cannot be used inside media queries, so the breakpoints ar
 6. **Room for both languages.** Labels and buttons allow about 30 percent growth between bn and en. No fixed widths or fixed heights on text containers; buttons grow, they do not clip.
 7. **Line height floors** as in §2.4: 1.5 for body, never below 1.4.
 8. **Digits** are always 0-9 (UX-05), produced only by the central formatting utility (I18N, T0.20 and T1.5). Taka amounts below 10 lakh use lakh grouping (৳ 3,00,000) and amounts of 10 lakh and above are shown in millions (৳ 1.26 মিলিয়ন) (O-42); the remaining digit-grouping and currency details are defined in I18N.md. Phone numbers and ids are shown without grouping.
-9. **Mixed script.** Latin and digits are drawn by UbuntuSans and Bengali by Bornomala from the same stack; no per-language font switching in components. Dates follow the I18N format with English digits; the optional Hijri date sits beside the Gregorian date when the user setting is on (off by default).
+9. **Mixed script.** Latin and digits are drawn by UbuntuSans and Bengali by Bornomala from the same stack; no per-language font switching in components. Dates and times follow the I18N formats with English digits (dd-mm-yyyy, 12-hour time with the Bengali day period first, O-43); no Hijri date is shown.
 10. **Bilingual data** (form labels, option lists, status and stage names) is rendered in the user's language with the fallback rule of I18N.md; components never assume one language is shorter.
 
 ### 3.1 Logo

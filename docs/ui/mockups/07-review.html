@@ -169,13 +169,13 @@ document.addEventListener('mock:ready', function () {
     var btn = (a.state === 'approved' && unlockable) ? '<button class="btn btn-ghost btn-sm" type="button" data-unlock="' + key + '" data-label="' + label + '">' + I('lock-open') + 'আনলক</button>' : '';
     return '<div class="answer-row"><div class="k">' + label + '</div><div class="v"><span data-val="' + key + '">' + value + '</span>' + (changed ? ' <span class="changed-mark">পরিবর্তিত</span>' : '') + '</div>' + btn + '</div>';
   }
-  var BASE_TL = [['জমা হয়েছে', 'সাকিব হাসান (নমুনা) · 04-10-2026 10:15'], ['রিভিউ শুরু', 'ইমরান হোসেন, প্রজেক্ট এক্সিকিউটিভ · 05-10-2026 09:40'], ['রিভিউ শেষ', 'ইমরান হোসেন · 05-10-2026 12:05 · "সরেজমিনে দেখা হয়েছে"'], ['সিদ্ধান্ত', '']];
+  var BASE_TL = [['জমা হয়েছে', 'সাকিব হাসান (নমুনা) · 04-10-2026 সকাল 10:15'], ['রিভিউ শুরু', 'ইমরান হোসেন, প্রজেক্ট এক্সিকিউটিভ · 05-10-2026 সকাল 9:40'], ['রিভিউ শেষ', 'ইমরান হোসেন · 05-10-2026 দুপুর 12:05 · "সরেজমিনে দেখা হয়েছে"'], ['সিদ্ধান্ত', '']];
   var ORDER = { submitted: 1, under_review: 2, reviewed: 3, waitlisted: 3, needs_verification: 0, approved: 4, rejected: 4 };
   function timeline(a) {
     var done = ORDER[a.state];
     var html = BASE_TL.map(function (t, i) {
       if (i === 3) {
-        if (a.state === 'approved') return '<li class="is-done"><span class="dot">' + I('check') + '</span><div class="step-title">অনুমোদিত</div><div class="step-meta">' + (a.decidedBy || 'রাশেদ কবির, RPM · 06-10-2026 15:30') + '</div></li>';
+        if (a.state === 'approved') return '<li class="is-done"><span class="dot">' + I('check') + '</span><div class="step-title">অনুমোদিত</div><div class="step-meta">' + (a.decidedBy || 'রাশেদ কবির, RPM · 06-10-2026 দুপুর 3:30') + '</div></li>';
         if (a.state === 'rejected') return '<li class="is-rejected"><span class="dot">' + I('x', 'icon-sm') + '</span><div class="step-title">বাতিল</div><div class="step-meta">' + (a.decidedBy || '') + '</div></li>';
         if (a.state === 'waitlisted') return '<li class="is-current"><span class="dot"></span><div class="step-title">ওয়েটলিস্টে</div><div class="step-meta">' + (a.decidedBy || 'রাশেদ কবির, RPM · 01-10-2026 · "কোটা পূর্ণ"') + '</div></li>';
         return '<li class="' + (done === 3 ? 'is-current' : '') + '"><span class="dot"></span><div class="step-title">সিদ্ধান্ত</div><div class="step-meta">' + (done === 3 ? 'আপনার সিদ্ধান্তের অপেক্ষায়' : '') + '</div></li>';
@@ -220,7 +220,7 @@ document.addEventListener('mock:ready', function () {
         answer(a, 'income', 'মাসিক আয়', '<span class="tnum">' + a.income + '</span>', true) +
         '<div class="answer-row"><div class="k"><span class="official-tag">' + I('shield', 'icon-sm') + 'শুধু অফিসিয়াল</span><br>যাচাইকারীর মন্তব্য</div><div class="v">বাড়ি গিয়ে দেখা হয়েছে; ঘরের অবস্থা খারাপ।</div></div>' +
       '</section>' +
-      '<section class="detail-section"><h3>ছবি</h3><div class="photos"><button class="photo" type="button" data-toast="ছবির পূর্ণ তথ্য: সময়, GPS, ডিভাইসের সময়ের পার্থক্য (মকআপ)">' + I('image') + (a.photo === 'flagged' ? '<span class="badge t-warning">' + I('flag') + 'সংকেত</span><span class="stamp">01-10-2026 08:12<br>লোকেশন নেই</span>' : a.photo === 'pending' ? '<span class="badge">' + I('cloud-upload') + 'আপলোড বাকি</span><span class="stamp">09-10-2026 16:02<br>23.7104, 90.3802</span>' : '<span class="badge t-success">' + I('shield-check') + 'যাচাইকৃত</span><span class="stamp">04-10-2026 10:02<br>23.8456, 90.2567</span>') + '</button></div></section>' +
+      '<section class="detail-section"><h3>ছবি</h3><div class="photos"><button class="photo" type="button" data-toast="ছবির পূর্ণ তথ্য: সময়, GPS, ডিভাইসের সময়ের পার্থক্য (মকআপ)">' + I('image') + (a.photo === 'flagged' ? '<span class="badge t-warning">' + I('flag') + 'সংকেত</span><span class="stamp">01-10-2026 সকাল 8:12<br>লোকেশন নেই</span>' : a.photo === 'pending' ? '<span class="badge">' + I('cloud-upload') + 'আপলোড বাকি</span><span class="stamp">09-10-2026 বিকাল 4:02<br>23.7104, 90.3802</span>' : '<span class="badge t-success">' + I('shield-check') + 'যাচাইকৃত</span><span class="stamp">04-10-2026 সকাল 10:02<br>23.8456, 90.2567</span>') + '</button></div></section>' +
       '<section class="detail-section"><h3>অগ্রগতি</h3>' + timeline(a) + '</section>' +
       '<section class="detail-section"><h3>পরিবর্তনের লগ</h3><ul class="list-plain">' + logHtml + '</ul></section>' +
       '</div>' + (actions(a) ? '<div class="action-bar">' + actions(a) + '</div>' : '');

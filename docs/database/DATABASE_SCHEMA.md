@@ -124,7 +124,7 @@ Technical table added in T0.16 for O-03 (ERD.md §20).
 | L-file-flag | no_capture_time, no_gps, gallery_under_camera_only, stale_capture, duplicate_suspect | files.flags (data-quality flags, O-30) |
 | L-scan | pending, clean, infected, failed, skipped | files.virus_scan |
 | L-notif-channel | in_app, email, sms, push | notification_templates.channel |
-| L-locale | bn, en | notification_templates.locale, users.language |
+| L-locale | bn, en | notification_templates.locale, users.language, export_jobs.locale |
 | L-outbound-status | queued, sending, sent, failed, dry_run, suppressed | outbound_messages.status |
 | L-severity | info, warning, critical | alerts.severity |
 | L-alert-status | open, acknowledged, resolved | alerts.status |
@@ -1535,6 +1535,7 @@ Constraints: partial UNIQUE (kind, subject_type, subject_id) WHERE status <> 're
 | id | uuid | no | — | PK |
 | requested_by | uuid | no | — | FK users |
 | kind | text | no | — | export type |
+| locale | text | no | 'bn' | L-locale; the requester's language at request time, reused on retry (I18N.md §5, O-44) |
 | filters | jsonb | no | '{}' | — |
 | sensitive | boolean | no | false | audited when true |
 | status | text | no | 'queued' | L-job-status |
