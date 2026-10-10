@@ -44,7 +44,7 @@ Outlines (headings plus one line per section; completed in the task named in eac
 - Remaining PROPOSAL rows of docs/NON_FUNCTIONAL_REQUIREMENTS.md (section 13) need the owner's or the IT team's confirmation in T0.21 (NFR-22 photo queue, NFR-35 and NFR-40 are now decided).
 
 ## Prerequisites still open (checked 2026-10-10)
-- SOP v2.3 text (docs/source/SOP_v2.3_BN.md or .pdf) is needed for the seven document checklists, the 11 deficiency-report items and the hard-copy code structure (BR-162, BR-165, BR-167; tasks T0.4 detail, T1.13, T5.4).
+- SOP v2.3 text (docs/source/SOP_v2.3_BN.md or .pdf): needed only when the documentation module is built, which the owner moved to the very end of the plan (O-34). Not blocking any current task.
 - pnpm is not installed on the owner's machine; needed from T1.1 (`npm install -g pnpm`).
 - Docker Desktop was not running; needed from T1.1 (postgres, minio, mailpit via Docker Compose).
 - The CI provider is to be named in T1.1.
