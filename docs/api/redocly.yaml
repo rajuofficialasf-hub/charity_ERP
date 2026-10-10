@@ -1,0 +1,54 @@
+# Redocly lint configuration for docs/api/openapi.yaml (task T0.18, 2026-10-10).
+# Run: npx --yes @redocly/cli@1 lint docs/api/openapi.yaml --config docs/api/redocly.yaml
+# The assertion rules enforce the annotations required by docs/api/API_STANDARDS.md section 16.
+extends:
+  - recommended
+rules:
+  info-license-url: off
+  operation-operationId: error
+  operation-summary: error
+  operation-4xx-response: error
+  security-defined: error
+  no-unused-components: warn
+  rule/x-permission-required:
+    subject:
+      type: Operation
+      property: x-permission
+    assertions:
+      defined: true
+    message: Every operation must declare x-permission (a permissions.yaml name or public, authenticated, workflow, entity).
+    severity: error
+  rule/x-scope-required:
+    subject:
+      type: Operation
+      property: x-scope
+    assertions:
+      defined: true
+    message: Every operation must declare x-scope.
+    severity: error
+  rule/x-audit-required:
+    subject:
+      type: Operation
+      property: x-audit
+    assertions:
+      defined: true
+    message: Every operation must declare x-audit (an audit action or none).
+    severity: error
+  rule/x-idempotency-required:
+    subject:
+      type: Operation
+      property: x-idempotency
+    assertions:
+      defined: true
+      enum: [none, clientUuid, header]
+    message: Every operation must declare x-idempotency as none, clientUuid or header.
+    severity: error
+  rule/x-rate-limit-required:
+    subject:
+      type: Operation
+      property: x-rate-limit
+    assertions:
+      defined: true
+      enum: [login, otp-request, otp-verify, password-reset, refresh, public-form, default, sync]
+    message: Every operation must declare an x-rate-limit class from API_STANDARDS section 10.
+    severity: error

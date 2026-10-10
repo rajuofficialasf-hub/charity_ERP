@@ -12,7 +12,8 @@
 - T0.15 done (2026-10-10): docs/database/ERD.md complete (90 entities in 12 clusters with keys, relationships and cardinality, classification master/configuration/transaction/log/platform, JSONB usages, constraints and idempotency keys, naming map, additions and ambiguities) and docs/database/erd.mermaid (one erDiagram, same entities). Physical names follow the T0.15 prompt; earlier documents were swept to them (MASTER_SPEC keeps blueprint names with a pointer). Ambiguities resolved as recommended by O-37.
 - T0.16 done (2026-10-10): docs/database/DATABASE_SCHEMA.md complete (91 tables with columns, types, nullability, defaults, comments, keys, uniques, checks and indexes; code lists instead of PostgreSQL enums; application number counter `id_sequences` per O-03, no BEN- sequence because O-03 made the BEN-ID the UUID v7; BD-03 enforced by deferred constraint triggers; index catalogue; JSON Schemas in docs/database/json-schemas/ (10 files); soft-delete policy; retention and partitioning; database roles). ERD updated with id_sequences. Proposals accepted the same day (O-38, O-39).
 - T0.17 done (2026-10-10): docs/api/API_STANDARDS.md complete (path versioning, resource naming with action endpoints for state changes, envelope, keyset cursor pagination with capped totals, filtering/sorting/search, ETag and If-Match concurrency, validation and bn/en localization, error-code catalogue with a mapping of earlier names, idempotency on existing unique keys, rate-limit classes, auth headers and CSRF-protected refresh, file and signed-URL conventions, bulk-update and export patterns, audit per endpoint, required OpenAPI annotations, breaking-change rule with client-version support for offline phones).
-- Next task: T0.18 - OpenAPI for Phase 1–2 endpoints (docs/api/openapi.yaml).
+- T0.18 done (2026-10-10): docs/api/openapi.yaml written (OpenAPI 3.1, 146 operations on 124 paths across 19 tags: auth, sessions, users, access, registration, volunteers, beneficiaries, programs, projects, templates, forms, public, applications, activities, files, notifications, exports, reference, sync); every operation has operationId, x-permission, x-scope, x-audit, x-idempotency and x-rate-limit; docs/api/redocly.yaml enforces them. Lint: `npx --yes @redocly/cli@1 lint docs/api/openapi.yaml --config docs/api/redocly.yaml` → valid, 0 errors, 0 warnings. Two paths renamed to avoid ambiguity (/application-numbers/{appNo}, /upload-sessions); API_STANDARDS updated with the four x-permission markers and the action-to-transition map.
+- Next task: T0.19 - Design system and screen inventory (docs/ui/DESIGN_SYSTEM.md, SCREENS.md).
 - Blocking items: none.
 - Git: the owner pushed main to origin on 2026-10-10 up to ceb4e50 (verified: main...origin/main in sync); later commits are local until the next push.
 
@@ -35,9 +36,9 @@ Complete:
 - docs/database/ERD.md and erd.mermaid (T0.15)
 - docs/database/DATABASE_SCHEMA.md and json-schemas/ (T0.16)
 - docs/api/API_STANDARDS.md (T0.17)
+- docs/api/openapi.yaml and redocly.yaml (T0.18; later phases extend it)
 
 Outlines (headings plus one line per section; completed in the task named in each file):
-- docs/api/openapi.yaml skeleton (T0.18)
 - docs/security/SECURITY_POLICY.md (T0.21)
 - docs/ui/DESIGN_SYSTEM.md and SCREENS.md (T0.19), I18N.md (T0.20)
 - docs/testing/TEST_STRATEGY.md (T0.21), testing/uat/README.md, gates/README.md
@@ -66,7 +67,7 @@ Resolved before production, not now (O-36); none blocks Phase 0 or development:
 - docs/api/openapi.yaml and docs/security/permissions.yaml were checked visually only; no YAML parser is installed on this machine (PyYAML missing). They are parsed in CI from T1.1.
 
 ## Last test run
-- none (Phase 0, documents only). Verification done on 2026-10-10 after T0.8: SYSTEM_ARCHITECTURE has 13 sections with the deployment diagram and the request-check order; six ADR files plus README exist; 230 unique BR ids; DECISION_LOG row counts Q 47 / BD 49 / D 4 / UX 13 / O 23; git working tree clean.
+- 2026-10-10 T0.18: `npx --yes @redocly/cli@1 lint docs/api/openapi.yaml --config docs/api/redocly.yaml` → "Your API description is valid", 0 errors, 0 warnings (first OpenAPI lint run). Otherwise Phase 0 has documents only; earlier verification after T0.8: SYSTEM_ARCHITECTURE has 13 sections with the deployment diagram and the request-check order; six ADR files plus README exist; 230 unique BR ids; DECISION_LOG row counts Q 47 / BD 49 / D 4 / UX 13 / O 23; git working tree clean.
 
 ## Notes for the next session
 - The model and effort level for every task are in docs/MODEL_GUIDE.md. It is the owner's reference; Claude Code does not switch models by itself. The rows marked ছাড় নেই (no downgrade) must not be run on a lower model when a usage limit runs out.

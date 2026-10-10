@@ -15,7 +15,7 @@ Status: complete, task T0.17 (2026-10-10). Every endpoint of the ERP follows the
 | Plural, kebab-case nouns | `/projects`, `/expense-claims`, `/media-subjects` |
 | Nest at most one level under the owning parent | `/projects/{projectId}/applications`, `/applications/{applicationId}/activities` |
 | Ids are UUIDs (v7) | `/beneficiaries/{beneficiaryId}` (the BEN-ID, O-03) |
-| Human application number as an alternate lookup | `GET /applications/by-number/{appNo}` |
+| Human application number as an alternate lookup | `GET /application-numbers/{appNo}` |
 | JSON field names camelCase | `beneficiaryId`, `submittedAt` (the database is snake_case; Prisma maps) |
 | Methods | `GET` read, `POST` create or action, `PATCH` partial update; no `PUT`; no hard `DELETE` |
 | State changes are explicit actions | `POST /applications/{id}/actions/submit`, `…/actions/approve`, `…/actions/reject`, `…/actions/waitlist`, `…/actions/delete` (soft delete), `POST /projects/{id}/actions/close` |
@@ -23,6 +23,23 @@ Status: complete, task T0.17 (2026-10-10). Every endpoint of the ERP follows the
 | Searches with large bodies | `POST /beneficiaries/lookup` (NID lookup sends the number in the body, never in the URL, so it is not logged by proxies) |
 
 No personal data in paths or query strings (privacy rule): identity numbers, mobile numbers and names go in request bodies.
+
+Application action names and the common-cycle transitions they trigger (`workflow-templates/_common.yaml`):
+
+| Action | Transition |
+|---|---|
+| submit | draft → submitted |
+| review | submitted → under_review |
+| send_for_approval | under_review → reviewed |
+| approve | reviewed → approved |
+| reject | reviewed → rejected, or waitlisted → rejected |
+| waitlist | reviewed → waitlisted |
+| pull_from_waitlist | waitlisted → approved |
+| delete | draft → deleted, or submitted → deleted |
+| verify_link | needs_verification → submitted |
+| reject_unverified | needs_verification → rejected |
+
+Template stages after approval are moved by activities (`POST /applications/{id}/activities` and the bulk screens), not by action names.
 
 ## 3. Request and response envelope
 
@@ -203,7 +220,7 @@ Responses include `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`; a
 
 ## 12. Files and signed URLs
 
-- File bytes never travel through JSON endpoints. Uploads use upload sessions (FILES_AND_DOCUMENTS §4): `POST /files/upload-sessions` (declares kind, entity, slot, mime, size, sha256, capture metadata, clientUuid) → presigned chunk URLs (256 KB parts, O-29) → `GET /files/upload-sessions/{id}` for resume → `POST /files/upload-sessions/{id}/finalize`.
+- File bytes never travel through JSON endpoints. Uploads use upload sessions (FILES_AND_DOCUMENTS §4): `POST /upload-sessions` (declares kind, entity, slot, mime, size, sha256, capture metadata, clientUuid) → presigned chunk URLs (256 KB parts, O-29) → `GET /upload-sessions/{id}` for resume → `POST /upload-sessions/{id}/finalize`.
 - Downloads: `POST /files/{fileId}/url` returns `{ url, expiresAt }` after the permission, scope and field-class checks; URLs expire within 15 minutes (NFR-28); quarantined files return 423 `file.quarantined` (O-30).
 - Records reference files by id in the slot fields (`photoFileIds`, `voucherFileId`); the API never embeds file URLs in list responses (they would expire and leak); clients ask for URLs when they display a file, thumbnails included.
 
@@ -251,7 +268,7 @@ POST /api/v1/files/{fileId}/url → signed URL (15 minutes)
 | `operationId` | `<module>.<resource>.<action>`, e.g. `applications.application.approve` | lint |
 | `tags` | the NestJS module | lint |
 | `summary`, `description` | one line and the behaviour, including scope rules | review |
-| `x-permission` | a name from `permissions.yaml`, or `public` | boot check and CI (unknown names fail) |
+| `x-permission` | a name from `permissions.yaml`, or one of four markers: `public` (no authentication; the operation sets `security: []`), `authenticated` (any active user, own data or non-sensitive reference data only), `workflow` (the permission is taken from the project's workflow snapshot: the transition's `permission` for actions and state-dependent edits, the activity binding's `permission` for activities; requires `x-workflow`), `entity` (file endpoints: the read permission of the file's linked entity plus its field class) | boot check and CI (unknown names fail) |
 | `x-scope` | entity type whose scope is resolved (`project`, `application`, `beneficiary`, `self`, …) | lint |
 | `x-audit` | audit action or `none` | lint |
 | `x-idempotency` | `none`, `clientUuid` or `header` | lint |
