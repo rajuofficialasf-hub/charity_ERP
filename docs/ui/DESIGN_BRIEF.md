@@ -22,7 +22,7 @@ Import these into docs/DECISION_LOG.md as the series UX-01 to UX-13, status appr
 | UX-10 | The management home (Department Head, Monitoring Team) opens with work progress: applications, approved, and distributed or completed against target. | Proposed order below that first block: alerts, budget, area view. |
 | UX-11 | Photo source is a per-project setting chosen by the PM next to the photo rule. Defaults: camera only for distribution and construction proof, gallery allowed for vouchers and paper documents. | New setting in the photo-rule component. Photos without capture time or GPS stay flagged (BD-21). |
 | UX-12 | Volunteers read operational messages, such as correction requests and approvals, inside the app only. No SMS, WhatsApp or email for these for now. | The volunteer home puts "needs your attention" first. SMS is still required for OTP and for Qurbani donor messages (BD-34, BD-44). |
-| UX-13 | Typography follows the website: font stack UbuntuSans, Bornomala, sans-serif, weights 400 and 700 only. | Replaces Hind Siliguri in constitution section 12. Self-hosted files: Ubuntu Sans draws Latin letters and digits, Bornomala draws Bengali. The Bornomala licence is not verified, see docs/ui/brand/colors.md. |
+| UX-13 | Typography follows the website: font stack UbuntuSans, Bornomala, sans-serif, weights 400 and 700 only. | Replaces Hind Siliguri in constitution section 12. Self-hosted files in docs/ui/brand/fonts/: Ubuntu Sans draws Latin letters and digits, Bornomala draws Bengali. Bornomala declares the SIL Open Font License 1.0 in the file itself, and the owner still confirms its source. |
 
 ## 2. Defaults assumed (not asked; the owner may change them)
 
@@ -46,8 +46,8 @@ Import these into docs/DECISION_LOG.md as the series UX-01 to UX-13, status appr
 
 - The header shows the As-Sunnah Foundation logo and the system name (UX-09).
 - Colours and fonts: docs/ui/brand/colors.md, extracted from the website on 2026-10-10. Use its tokens and do not invent new colours.
-- The logo is supplied: docs/ui/brand/logo.png, PNG with transparency, 300 by 196 px. It is sharp up to 150 CSS pixels wide on 2x screens, so use it in the header and never upscale it. A vector SVG or a PNG at least 1000 px wide is still wanted for the login screen and PDF exports. The website draws its logo as an inline SVG; the colours of the logo belong to the logo only.
-- Font files are to be supplied in docs/ui/brand/fonts/: UbuntuSans.woff2, Bornomala-Regular.woff2 and Bornomala-Bold.woff2, with the Ubuntu Font Licence text. The website already serves these files from https://assunnahfoundation.org/fonts/.
+- The logo is supplied: docs/ui/brand/logo.svg (vector, copied from the website's inline SVG) and docs/ui/brand/logo.png (PNG with transparency, 300 by 196 px, sharp up to 150 CSS pixels wide on 2x screens, never upscaled). Use the SVG wherever sharpness matters, such as the login screen and PDF exports. The colours of the logo belong to the logo only.
+- Font files are in docs/ui/brand/fonts/, copied from the website with the licence texts and a README that explains how to declare them.
 
 ## 5. Layout rules by device
 
@@ -104,7 +104,7 @@ Screens of later phases (house construction, self-reliance, dawah, Qurbani, docu
 
 ## 8. Open items
 
-1. The font files (UX-13), a vector or larger logo for the login screen and PDF exports (UX-01), and the owner's confirmation of the Bornomala licence.
+1. The owner's confirmation of where the Bornomala font comes from (UX-13). The font declares the SIL Open Font License 1.0 and names Codepotro as vendor, but no public page confirms it.
 2. The short name for the phone home screen (UX-09).
 3. Whether to add Web Push (section 2, item 5).
 4. Optional: reflect these decisions in the next version of the blueprint document so both stay aligned.

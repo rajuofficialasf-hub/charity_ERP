@@ -27,7 +27,7 @@ Source: the live website https://assunnahfoundation.org/ read in a browser on 20
 
 The logo colours belong to the logo only. Do not recolour the logo and do not use its orange or lime in the interface.
 
-Logo file supplied by the owner: docs/ui/brand/logo.png, PNG with transparency, 300 by 196 px (18,664 bytes). Measured dominant colours: lime #8CC63F, black #000000 (the wordmark), orange #ED962F, green #2E9061, which match the website's logo within measurement error. At 300 px wide it is sharp up to 150 CSS pixels wide on a 2x screen and 100 on a 3x screen, which suits the app header. It is too small for the login screen at full size and for PDF exports. Never upscale it. An SVG or a PNG at least 1000 px wide is wanted for those uses.
+Logo files for the ERP: docs/ui/brand/logo.png (PNG with transparency, 300 by 196 px, 18,664 bytes, supplied by the owner) and docs/ui/brand/logo.svg (vector, 8,837 bytes, copied on 2026-10-10 from the inline SVG in the website header; the text colour variable was replaced by ink #0F2920 and width and height were set to the viewBox size 114.03 by 72.58). Measured dominant colours of the PNG: lime #8CC63F, black #000000 (the wordmark), orange #ED962F, green #2E9061, which match the website's logo within measurement error. The PNG is sharp up to 150 CSS pixels wide on a 2x screen and 100 on a 3x screen and must never be upscaled. Use the SVG wherever sharpness matters, such as the login screen, large headers and PDF exports, and keep the PNG as a fallback.
 
 ## 2. ERP tokens
 
@@ -101,8 +101,8 @@ What this means:
 
 Observed on the website:
 - Font stack: `UbuntuSans, Bornomala, sans-serif`, the same on the body and every heading.
-- Faces loaded: UbuntuSans as one variable file declared for weights 500 to 700 (318,140 bytes, so regular Latin text is likely drawn at weight 500); Bornomala Regular and Bold as woff2 (76,124 and 85,712 bytes) with ttf fallbacks (204,276 and 225,072 bytes). PublicSans is declared but not loaded.
-- Files are served from https://assunnahfoundation.org/fonts/.
+- Faces loaded: UbuntuSans as one variable file declared for weights 500 to 700 (318,140 bytes; the file itself is a variable font covering weights 100 to 800, so the website's regular Latin text is likely drawn at weight 500 only because its CSS declares 500 to 700); Bornomala Regular and Bold as woff2 (76,124 and 85,712 bytes) with ttf fallbacks (204,276 and 225,072 bytes). PublicSans is declared but not loaded.
+- Files are served from https://assunnahfoundation.org/fonts/. Copies are in docs/ui/brand/fonts/ with a README and the licence texts.
 
 | Role | Weight | Size | Line height |
 |---|---|---|---|
@@ -121,15 +121,15 @@ Observed on the website:
 | button | 700 | 17 px | 1.75 |
 
 ERP decision (UX-13, owner, 2026-10-10):
-- Font stack `UbuntuSans, Bornomala, sans-serif`, weights 400 and 700 only, self-hosted, no external font CDN at runtime. Define the two families under exactly these names.
+- Font stack `UbuntuSans, Bornomala, sans-serif`, weights 400 and 700 only, self-hosted, no external font CDN at runtime. Define the two families under exactly these names. Declare UbuntuSans for weights 400 to 700 (its file covers 100 to 800) and Bornomala as two static files, Regular 400 and Bold 700.
 - UbuntuSans draws Latin letters and all digits, which are English digits everywhere (UX-05). Bornomala draws the Bengali script. The generic sans-serif is the last fallback.
 - Constitution section 12 asked for Medium and SemiBold. They are not available. Use Bold where the scale said Medium or SemiBold for emphasis, Regular for body text. Task T0.19 confirms the final mapping.
 - Recommendation for T0.19: the website body text is 16 to 17 px. The 14 px body size of the constitution is small for Bangla on phones. Test 16 px on phones and keep 14 px for dense desktop tables.
-- Performance: the full UbuntuSans file is 318 KB. Subset it to Basic Latin, digits and punctuation, since Bengali comes from Bornomala. Use font-display swap and precache the font files in the PWA.
+- Performance: the full UbuntuSans file is 318 KB. A subset to Basic Latin, digits and punctuation is much lighter, since Bengali comes from Bornomala, but under the Ubuntu Font Licence a subset is a Modified Version and its internal font name must carry the suffix derivative X (clause 2(c)), for example Ubuntu Sans derivative CSS ERP. The alternative is the original file unmodified. Use font-display swap and precache the font files in the PWA.
 
 Licences:
-- Ubuntu Sans is published under the Ubuntu Font Licence 1.0 (designers Dalton Maag, David Jonathan Ross, Dual Type; on Google Fonts since 2024-03-22; variable weights 100 to 800). The licence text must travel with any font files in the repository. Subsets are derivative files and keep the same licence.
-- Bornomala is not on Google Fonts or Fontsource, and a web search found no licence information. Its origin and licence are not verified. The owner or the web developer who built the website should confirm them before the ERP ships the files.
+- Ubuntu Sans is published under the Ubuntu Font Licence 1.0 (designers Dalton Maag, David Jonathan Ross, Dual Type; on Google Fonts since 2024-03-22; variable weights 100 to 800). The licence text must travel with any font files in the repository. A subset is a Modified Version, see the naming rule above.
+- Bornomala is not on Google Fonts or Fontsource. The font files themselves declare: copyright Codepotro, designer Jayed Ahsan Saad, vendor https://codepotro.com, licence SIL Open Font License 1.0 (standard text in docs/ui/brand/fonts/). A web search found no public page that confirms the font or its licence, so the owner should confirm the source with the web developer who built the website.
 
 ## 5. Shape and layout observed on the website (for task T0.19 to consider)
 
