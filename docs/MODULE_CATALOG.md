@@ -125,8 +125,8 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Primary users: PM, RPM, Project Executive, Implementer; Monitoring Team; volunteers never.
 - Key entities: document_checklist_templates, documents, deficiency_reports, holiday_calendar (with M21).
 - Depends on: M06, M18, M17, M14, M21.
-- B1: shared service (documents). Phase: 0 (data model), 1 (checklist template editor in admin), 5 (full register). Blueprint: A10 (documentation, SOP mapping table, legacy audit), Q-14; BD-35…BD-39. Tasks: T0.13, T1.13, T5.4.
-- Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 16 (working days); input dependency SOP v2.3 text.
+- B1: shared service (documents). Phase: 0 (data model, done in T0.13); the checklist-template editor and the full register are built **last, after Phase 6** (O-34). Blueprint: A10 (documentation, SOP mapping table, legacy audit), Q-14; BD-35…BD-39. Tasks: T0.13 (design), then the T1.13 checklist part and T5.4 moved to the end of the plan.
+- Needs decision: working days resolved (O-16); the SOP v2.3 text is needed only when this module is built (O-34).
 
 ### M14 Monitoring & Follow-up
 - Purpose: monitoring control centre (project progress, stuck work, regularity), automatic alerts (review/approval pending, no update, distribution without photo, budget, incomplete activity, inactive volunteer, delay, duplicate NID attempts, unbalanced stock, overdue documents, repeated deficiency reports), work summaries per staff and volunteer with CSV/PDF, continuous follow-up evaluations also after close.
