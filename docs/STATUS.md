@@ -3,8 +3,9 @@
 - Last updated: 2026-10-10
 - Current phase: 0 (Requirement & Architecture Freeze) - IN PROGRESS
 - Last completed task: T0.8 - System architecture and ADRs: docs/architecture/SYSTEM_ARCHITECTURE.md complete; ADR-001..006 written; ADR index renumbered (007..011 planned). Design choices made in T0.8 were approved by the owner on 2026-10-10 as D-054..D-057 with implementation requirements (see DECISION_LOG section 3 and SYSTEM_ARCHITECTURE sections 2.1 and 10). (T0.1 and T0.7 done the same day; T0.2..T0.6 delivered inside T0.1.)
-- Next task: T0.9 - Authentication and sessions (docs/architecture/AUTH.md) using O-05.
-- Blocking items: none.
+- T0.9 done (2026-10-10): docs/architecture/AUTH.md complete (registration with two OTPs and the dummy-OTP path, password rules, tokens and device sessions, lockout, account states, remote revocation and local wipe, permission-version refresh, handover, Main Admin protection, rate limits, audit events). Values not covered by O-05 are proposals in AUTH.md section 14 = open question 25.
+- Next task: T0.10 - RBAC.md and permissions.yaml.
+- Blocking items: none (open question 25 does not block T0.10).
 
 ## Deliverables of T0.1 (complete vs outline)
 Complete:
@@ -16,9 +17,10 @@ Complete:
 - docs/NON_FUNCTIONAL_REQUIREMENTS.md (NFR-01..NFR-59, PROPOSAL rows need approval)
 
 - docs/architecture/SYSTEM_ARCHITECTURE.md and ADR/ADR-001..006 (T0.8)
+- docs/architecture/AUTH.md (T0.9)
 
 Outlines (headings plus one line per section; completed in the task named in each file):
-- docs/architecture/AUTH.md (T0.9), WORKFLOW_ENGINE.md (T0.11), OFFLINE_SYNC.md (T0.12), FILES_AND_DOCUMENTS.md (T0.13), NOTIFICATIONS.md (T0.14), workflow-templates/README.md (T0.11)
+- docs/architecture/WORKFLOW_ENGINE.md (T0.11), OFFLINE_SYNC.md (T0.12), FILES_AND_DOCUMENTS.md (T0.13), NOTIFICATIONS.md (T0.14), workflow-templates/README.md (T0.11)
 - docs/database/ERD.md (T0.15), DATABASE_SCHEMA.md (T0.16)
 - docs/api/API_STANDARDS.md (T0.17), openapi.yaml skeleton (T0.18)
 - docs/security/RBAC.md and permissions.yaml skeleton (T0.10), SECURITY_POLICY.md (T0.21)
@@ -27,7 +29,8 @@ Outlines (headings plus one line per section; completed in the task named in eac
 - docs/ops/DEPLOYMENT.md and RUNBOOK.md (T3.0, T6.5)
 
 ## Open decisions waiting on the owner
-- None from T0.1..T0.8. Question 24 answered by O-24 (officials enter payment records manually). The T0.8 architecture choices are approved as D-054..D-057 with implementation requirements (worker retries/graceful shutdown/timeouts/idempotency; zod + DB constraints; Caddy with HTTPS and network hardening; monitoring and essential alerting from launch, error-tracking service deferred to T3.0).
+- Open question 25 (AUTH.md section 14): OTP parameters, idle timeout, device limit, stronger password for GLOBAL-scope officials, who revokes volunteer sessions, auto-deactivation of unapproved registrations, lockout alert thresholds; recommendations in DECISION_LOG section 6.
+- Question 24 answered by O-24 (officials enter payment records manually). The T0.8 architecture choices are approved as D-054..D-057 with implementation requirements (worker retries/graceful shutdown/timeouts/idempotency; zod + DB constraints; Caddy with HTTPS and network hardening; monitoring and essential alerting from launch, error-tracking service deferred to T3.0).
 - Interpretations recorded in O-03 (BEN-ID = UUID v7, no short display form), O-09 (initial load from an open dataset), O-16 (admin holiday calendar for public holidays) and O-22 (entry stays with officials) stand unless the owner corrects them.
 - PWA short name for the phone home screen (open item of UX-09, proposal CSS) and whether to add Web Push (decide in task T0.14).
 - Confirm with the web developer where the Bornomala font comes from (UX-13). The files declare the SIL Open Font License 1.0 and name Codepotro as vendor, but no public page confirms it.
