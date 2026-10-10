@@ -13,7 +13,8 @@
 - T0.16 done (2026-10-10): docs/database/DATABASE_SCHEMA.md complete (91 tables with columns, types, nullability, defaults, comments, keys, uniques, checks and indexes; code lists instead of PostgreSQL enums; application number counter `id_sequences` per O-03, no BEN- sequence because O-03 made the BEN-ID the UUID v7; BD-03 enforced by deferred constraint triggers; index catalogue; JSON Schemas in docs/database/json-schemas/ (10 files); soft-delete policy; retention and partitioning; database roles). ERD updated with id_sequences. Proposals accepted the same day (O-38, O-39).
 - T0.17 done (2026-10-10): docs/api/API_STANDARDS.md complete (path versioning, resource naming with action endpoints for state changes, envelope, keyset cursor pagination with capped totals, filtering/sorting/search, ETag and If-Match concurrency, validation and bn/en localization, error-code catalogue with a mapping of earlier names, idempotency on existing unique keys, rate-limit classes, auth headers and CSRF-protected refresh, file and signed-URL conventions, bulk-update and export patterns, audit per endpoint, required OpenAPI annotations, breaking-change rule with client-version support for offline phones).
 - T0.18 done (2026-10-10): docs/api/openapi.yaml written (OpenAPI 3.1, 146 operations on 124 paths across 19 tags: auth, sessions, users, access, registration, volunteers, beneficiaries, programs, projects, templates, forms, public, applications, activities, files, notifications, exports, reference, sync); every operation has operationId, x-permission, x-scope, x-audit, x-idempotency and x-rate-limit; docs/api/redocly.yaml enforces them. Lint: `npx --yes @redocly/cli@1 lint docs/api/openapi.yaml --config docs/api/redocly.yaml` → valid, 0 errors, 0 warnings. Two paths renamed to avoid ambiguity (/application-numbers/{appNo}, /upload-sessions); API_STANDARDS updated with the four x-permission markers and the action-to-transition map.
-- Next task: T0.19 - Design system and screen inventory (docs/ui/DESIGN_SYSTEM.md, SCREENS.md).
+- T0.19 done (2026-10-10): docs/ui/DESIGN_SYSTEM.md complete (tokens as CSS variables from colors.md plus four derived status tints, spacing, radius, typography with UbuntuSans and Bornomala at 400/700, elevation, focus, motion, layers, breakpoints; Bengali typography rules; layout per device; inventory of all 19 base components of constitution section 12 with props, states and accessibility; patterns: bulk-update list, review detail with timeline, form renderer, NID lookup, photo tile, progress-first dashboard, masked fields; mobile rules for 2 GB Android and iPhone; states; dark-theme note). docs/ui/SCREENS.md complete (37 full screen entries incl. My Work for all 15 roles, 33 compact later-phase rows, coverage matrices). Design choices recorded as O-40 (radius 6/8/16, caption 12 px, body 16 px on phones and 14 px on desktop, elevation, status tints, Lucide icons, chart colours, breakpoints).
+- Next task: T0.19b - Clickable HTML mockups of the pilot set (docs/ui/mockups/).
 - Blocking items: none.
 - Git: the owner pushed main to origin on 2026-10-10 up to ceb4e50 (verified: main...origin/main in sync); later commits are local until the next push.
 
@@ -37,10 +38,11 @@ Complete:
 - docs/database/DATABASE_SCHEMA.md and json-schemas/ (T0.16)
 - docs/api/API_STANDARDS.md (T0.17)
 - docs/api/openapi.yaml and redocly.yaml (T0.18; later phases extend it)
+- docs/ui/DESIGN_SYSTEM.md and SCREENS.md (T0.19)
 
 Outlines (headings plus one line per section; completed in the task named in each file):
 - docs/security/SECURITY_POLICY.md (T0.21)
-- docs/ui/DESIGN_SYSTEM.md and SCREENS.md (T0.19), I18N.md (T0.20)
+- docs/ui/I18N.md (T0.20)
 - docs/testing/TEST_STRATEGY.md (T0.21), testing/uat/README.md, gates/README.md
 - docs/ops/DEPLOYMENT.md and RUNBOOK.md (T3.0, T6.5)
 
@@ -67,6 +69,7 @@ Resolved before production, not now (O-36); none blocks Phase 0 or development:
 - docs/api/openapi.yaml and docs/security/permissions.yaml were checked visually only; no YAML parser is installed on this machine (PyYAML missing). They are parsed in CI from T1.1.
 
 ## Last test run
+- 2026-10-10 T0.19: document checks by a Node script: every permission name in SCREENS.md exists in permissions.yaml (138 of 140 referenced, 0 unknown); the four status tints equal the computed 12 percent mixes; every hex value in DESIGN_SYSTEM.md is in colors.md or the derived tints; all 32 required full entries and all 15 roles covered; no Bengali digits in either file.
 - 2026-10-10 T0.18: `npx --yes @redocly/cli@1 lint docs/api/openapi.yaml --config docs/api/redocly.yaml` → "Your API description is valid", 0 errors, 0 warnings (first OpenAPI lint run). Otherwise Phase 0 has documents only; earlier verification after T0.8: SYSTEM_ARCHITECTURE has 13 sections with the deployment diagram and the request-check order; six ADR files plus README exist; 230 unique BR ids; DECISION_LOG row counts Q 47 / BD 49 / D 4 / UX 13 / O 23; git working tree clean.
 
 ## Notes for the next session

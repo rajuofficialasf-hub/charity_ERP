@@ -1,6 +1,6 @@
 # Design brief: Charity & Social Service ERP
 
-Status: owner interview held on 2026-10-10 (three rounds of questions in chat) and a brand instruction the same day (colours and fonts from the website). This brief is the source of truth for look, feel and UI behaviour until docs/ui/DESIGN_SYSTEM.md and docs/ui/SCREENS.md exist (task T0.19). When the owner changes a decision, update this file, record the change in docs/DECISION_LOG.md and rerun the affected tasks.
+Status: owner interview held on 2026-10-10 (three rounds of questions in chat) and a brand instruction the same day (colours and fonts from the website). This brief is the source of the owner's design decisions. Since task T0.19 (2026-10-10), docs/ui/DESIGN_SYSTEM.md and docs/ui/SCREENS.md are the binding specification built from it, with the design-system choices recorded as O-40. When the owner changes a decision, update this file, record the change in docs/DECISION_LOG.md and rerun the affected tasks.
 
 Precedence: the owner's latest instruction, then this brief, then constitution sections 11 and 12, then the defaults in section 2.
 

@@ -123,8 +123,8 @@ Observed on the website:
 ERP decision (UX-13, owner, 2026-10-10):
 - Font stack `UbuntuSans, Bornomala, sans-serif`, weights 400 and 700 only, self-hosted, no external font CDN at runtime. Define the two families under exactly these names. Declare UbuntuSans for weights 400 to 700 (its file covers 100 to 800) and Bornomala as two static files, Regular 400 and Bold 700.
 - UbuntuSans draws Latin letters and all digits, which are English digits everywhere (UX-05). Bornomala draws the Bengali script. The generic sans-serif is the last fallback.
-- Constitution section 12 asked for Medium and SemiBold. They are not available. Use Bold where the scale said Medium or SemiBold for emphasis, Regular for body text. Task T0.19 confirms the final mapping.
-- Recommendation for T0.19: the website body text is 16 to 17 px. The 14 px body size of the constitution is small for Bangla on phones. Test 16 px on phones and keep 14 px for dense desktop tables.
+- Constitution section 12 asked for Medium and SemiBold. They are not available. Use Bold where the scale said Medium or SemiBold for emphasis, Regular for body text. The final mapping is in docs/ui/DESIGN_SYSTEM.md section 2.4 (decision O-40, task T0.19).
+- Recommendation for T0.19: the website body text is 16 to 17 px. The 14 px body size of the constitution is small for Bangla on phones. Test 16 px on phones and keep 14 px for dense desktop tables. Adopted in T0.19 (O-40): 16 px body on phones and tablets, 14 px on desktop, caption 12 px; T0.19b checks it on rendered screens.
 - Performance: the full UbuntuSans file is 318 KB. A subset to Basic Latin, digits and punctuation is much lighter, since Bengali comes from Bornomala, but under the Ubuntu Font Licence a subset is a Modified Version and its internal font name must carry the suffix derivative X (clause 2(c)), for example Ubuntu Sans derivative CSS ERP. The alternative is the original file unmodified. Use font-display swap and precache the font files in the PWA.
 
 Licences:
@@ -133,7 +133,7 @@ Licences:
 
 ## 5. Shape and layout observed on the website (for task T0.19 to consider)
 
-- Base corner radius 8 px; cards 20 px with a 1 px border #919EAB at 12 percent and a very light shadow (0 2px 6px 2px at 3 percent black). The constitution tokens are 6, 10 and 16 px. T0.19 decides whether to align.
+- Base corner radius 8 px; cards 20 px with a 1 px border #919EAB at 12 percent and a very light shadow (0 2px 6px 2px at 3 percent black). The constitution tokens are 6, 10 and 16 px. Decided in T0.19 (O-40): 6 px small, 8 px for controls as on the website, 16 px for cards and dialogs (docs/ui/DESIGN_SYSTEM.md section 2.3).
 - Buttons: 8 px radius, 6 px by 16 px padding, 17 px bold, no shadow. Soft or outlined button: background #EEF2F0, text #008E48, 1 px border #008E48, padding 6 px by 24 px.
 - Inputs: 8 px radius, 1 px border at 20 percent hairline, 16 px text.
 - Spacing unit 8 px. Header 64 px on phones and 80 px on desktop with an 8 px background blur.
