@@ -1,0 +1,29 @@
+# permissions.yaml - single source of truth for permission names, defaults and scopes.
+# Status: skeleton written in task T0.1 (2026-10-10); filled in task T0.10 from blueprint A4 and B4.
+#
+# Schema (to be validated in CI from task T1.8):
+#   version: integer
+#   scopes: list of scope names in order of breadth
+#   roles: map of role key -> { name_en, name_bn, kind: official | volunteer }
+#   permissions: list of { name, description, module, default: [ { role, scope, condition? } ], sensitive_fields? }
+# Permission names are dotted, lower-case, module.action[.qualifier], e.g. application.approve, volunteer.rating.view.
+# "condition" records matrix entries such as "if RPM grants" or "house construction only".
+version: 0
+scopes: [GLOBAL, PROGRAM, PROJECT, REGION, DISTRICT, UPAZILA, UNION, ASSIGNED, SELF]
+roles:
+  department_head: { name_en: Department Head, name_bn: "ডিপার্টমেন্ট হেড", kind: official }
+  monitoring_team: { name_en: Monitoring Team, name_bn: "মনিটরিং টিম", kind: official }
+  program_manager: { name_en: Program Manager, name_bn: "প্রোগ্রাম ম্যানেজার", kind: official }
+  regional_program_manager: { name_en: Regional Program Manager, name_bn: "রিজিওনাল প্রোগ্রাম ম্যানেজার", kind: official }
+  project_executive: { name_en: Project Executive, name_bn: "প্রজেক্ট এক্সিকিউটিভ", kind: official }
+  implementer: { name_en: Implementer, name_bn: "বাস্তবায়নকারী", kind: official }
+  official_daee: { name_en: "Official দায়ী", name_bn: "অফিসিয়াল দায়ী", kind: official }
+  procurement_team: { name_en: Procurement Team, name_bn: "প্রকিউরমেন্ট টিম", kind: official }
+  media_team: { name_en: Media Team, name_bn: "মিডিয়া টিম", kind: official }
+  finance_team: { name_en: Finance Team, name_bn: "ফাইন্যান্স টিম", kind: official }
+  volunteer_general: { name_en: General Volunteer, name_bn: "জেনারেল স্বেচ্ছাসেবক", kind: volunteer }
+  volunteer_local_daee: { name_en: "Local দায়ী", name_bn: "স্থানীয় দায়ী", kind: volunteer }
+  volunteer_both: { name_en: "Both (দাঈ-স্বেচ্ছাসেবক)", name_bn: "দাঈ-স্বেচ্ছাসেবক", kind: volunteer }
+  volunteer_team_member: { name_en: Team Member, name_bn: "টিম মেম্বার", kind: volunteer }
+  volunteer_paid: { name_en: Paid Volunteer, name_bn: "পেইড ভলান্টিয়ার", kind: volunteer }
+permissions: []   # filled in T0.10

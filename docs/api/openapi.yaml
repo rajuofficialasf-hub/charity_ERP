@@ -1,0 +1,44 @@
+openapi: 3.1.0
+# Status: skeleton written in task T0.1 (2026-10-10); Phase 1-2 endpoints are added in task T0.18.
+# This file is the API contract. The generated spec from the backend must match it (NFR-54).
+info:
+  title: Charity & Social Service ERP API
+  version: 0.0.1
+  description: >-
+    REST API of the Charity & Social Service ERP (As-Sunnah Foundation). Conventions are in
+    docs/api/API_STANDARDS.md. Every operation declares its permission name and scope in
+    x-permission and x-scope (names from docs/security/permissions.yaml).
+servers:
+  - url: /api/v1
+    description: Versioned base path
+tags:
+  - name: auth
+    description: Login, OTP, sessions (T0.18)
+  - name: users
+    description: Users, roles, permission panel (T0.18)
+  - name: volunteers
+    description: Registration, approval, volunteer tab, assignment, teams (T0.18)
+  - name: beneficiaries
+    description: Beneficiary master, lookup, merge, blocklist (T0.18)
+  - name: programs
+    description: Programs and project setup (T0.18)
+  - name: forms
+    description: Form platform (T0.18)
+  - name: applications
+    description: Applications and workflow (T0.18)
+  - name: sync
+    description: Offline sync batches (T0.18)
+  - name: files
+    description: Uploads and signed URLs (T0.18)
+  - name: locations
+    description: Locations master (T0.18)
+paths: {}
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas: {}
+security:
+  - bearerAuth: []
