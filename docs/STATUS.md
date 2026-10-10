@@ -11,7 +11,8 @@
 - T0.14 done (2026-10-10): docs/architecture/NOTIFICATIONS.md complete (principles, channels, recipient resolution by scope, full event matrix with recipients/channels/template keys/phases, mandatory vs optional and preferences, bilingual templates, transactional outbox with retries and status, rate limits and coalescing, OTP path, Qurbani donor messages, Web Push evaluation with a "yes, optional, later" recommendation, privacy, tests); ADR-007 written. Proposals accepted the same day as O-35.
 - T0.15 done (2026-10-10): docs/database/ERD.md complete (90 entities in 12 clusters with keys, relationships and cardinality, classification master/configuration/transaction/log/platform, JSONB usages, constraints and idempotency keys, naming map, additions and ambiguities) and docs/database/erd.mermaid (one erDiagram, same entities). Physical names follow the T0.15 prompt; earlier documents were swept to them (MASTER_SPEC keeps blueprint names with a pointer). Ambiguities resolved as recommended by O-37.
 - T0.16 done (2026-10-10): docs/database/DATABASE_SCHEMA.md complete (91 tables with columns, types, nullability, defaults, comments, keys, uniques, checks and indexes; code lists instead of PostgreSQL enums; application number counter `id_sequences` per O-03, no BEN- sequence because O-03 made the BEN-ID the UUID v7; BD-03 enforced by deferred constraint triggers; index catalogue; JSON Schemas in docs/database/json-schemas/ (10 files); soft-delete policy; retention and partitioning; database roles). ERD updated with id_sequences. Proposals accepted the same day (O-38, O-39).
-- Next task: T0.17 - API standards (docs/api/API_STANDARDS.md).
+- T0.17 done (2026-10-10): docs/api/API_STANDARDS.md complete (path versioning, resource naming with action endpoints for state changes, envelope, keyset cursor pagination with capped totals, filtering/sorting/search, ETag and If-Match concurrency, validation and bn/en localization, error-code catalogue with a mapping of earlier names, idempotency on existing unique keys, rate-limit classes, auth headers and CSRF-protected refresh, file and signed-URL conventions, bulk-update and export patterns, audit per endpoint, required OpenAPI annotations, breaking-change rule with client-version support for offline phones).
+- Next task: T0.18 - OpenAPI for Phase 1–2 endpoints (docs/api/openapi.yaml).
 - Blocking items: none.
 - Git: the owner pushed main to origin on 2026-10-10 up to ceb4e50 (verified: main...origin/main in sync); later commits are local until the next push.
 
@@ -33,9 +34,10 @@ Complete:
 - docs/architecture/NOTIFICATIONS.md, ADR-007 (T0.14)
 - docs/database/ERD.md and erd.mermaid (T0.15)
 - docs/database/DATABASE_SCHEMA.md and json-schemas/ (T0.16)
+- docs/api/API_STANDARDS.md (T0.17)
 
 Outlines (headings plus one line per section; completed in the task named in each file):
-- docs/api/API_STANDARDS.md (T0.17), openapi.yaml skeleton (T0.18)
+- docs/api/openapi.yaml skeleton (T0.18)
 - docs/security/SECURITY_POLICY.md (T0.21)
 - docs/ui/DESIGN_SYSTEM.md and SCREENS.md (T0.19), I18N.md (T0.20)
 - docs/testing/TEST_STRATEGY.md (T0.21), testing/uat/README.md, gates/README.md

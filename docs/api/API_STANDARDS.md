@@ -1,36 +1,290 @@
-# API STANDARDS
+# API STANDARDS (/api/v1)
 
-Status: outline, written in task T0.1 (2026-10-10); completed in task T0.17. D-051 (NestJS + OpenAPI generation) approved on 2026-10-10 (O-01).
+Status: complete, task T0.17 (2026-10-10). Every endpoint of the ERP follows these conventions; `docs/api/openapi.yaml` (T0.18) applies them and the CI drift test (NFR-54, ADR-002) enforces them. Sources: constitution §9, §13, §15; `docs/architecture/SYSTEM_ARCHITECTURE.md` §6 (check order); ADR-002 (NestJS, @nestjs/swagger); D-055 (zod as the only validation library); `docs/architecture/AUTH.md`; `docs/security/RBAC.md` §8 and `permissions.yaml`; `docs/architecture/OFFLINE_SYNC.md` §4; `docs/architecture/FILES_AND_DOCUMENTS.md` §3–§5; `docs/architecture/WORKFLOW_ENGINE.md` §6; `docs/architecture/NOTIFICATIONS.md`; `docs/database/DATABASE_SCHEMA.md`; O-03, O-08, O-25, O-29, O-30; UX-05. The technical choices below are approved with this document.
 
-## 1. Base conventions
-Versioned base path `/api/v1`, JSON, UTF-8, timestamps in ISO 8601 UTC, money as decimal strings, English digits.
+## 1. Versioning
 
-## 2. Response envelope
-Success and error envelopes, pagination metadata, request id.
+- Base path `/api/v1`. The version is in the path, not in a header.
+- Additive changes stay in v1: new endpoints, new optional request fields, new response fields, new error codes in an existing family, new enum values in *configurable* lists (clients must tolerate unknown values there).
+- Breaking changes follow section 17. If a breaking change cannot be avoided, `/api/v2` runs in parallel with v1 for a deprecation window long enough for offline phones to update (section 17).
 
-## 3. Pagination, filtering, sorting, searching
-Query parameter conventions, default and maximum page sizes (NFR-11), filter grammar for tabs (location, status, type, category), full-text search rules.
+## 2. Resource naming and methods
 
-## 4. Validation and errors
-Error codes catalogue, field-level validation errors, localized messages via i18n keys, no stack traces or SQL.
+| Rule | Example |
+|---|---|
+| Plural, kebab-case nouns | `/projects`, `/expense-claims`, `/media-subjects` |
+| Nest at most one level under the owning parent | `/projects/{projectId}/applications`, `/applications/{applicationId}/activities` |
+| Ids are UUIDs (v7) | `/beneficiaries/{beneficiaryId}` (the BEN-ID, O-03) |
+| Human application number as an alternate lookup | `GET /applications/by-number/{appNo}` |
+| JSON field names camelCase | `beneficiaryId`, `submittedAt` (the database is snake_case; Prisma maps) |
+| Methods | `GET` read, `POST` create or action, `PATCH` partial update; no `PUT`; no hard `DELETE` |
+| State changes are explicit actions | `POST /applications/{id}/actions/submit`, `…/actions/approve`, `…/actions/reject`, `…/actions/waitlist`, `…/actions/delete` (soft delete), `POST /projects/{id}/actions/close` |
+| Actions map to workflow transitions | the action name equals the transition's target or verb in the project's workflow snapshot (WORKFLOW_ENGINE §5); the engine runs permission, guards and effects |
+| Searches with large bodies | `POST /beneficiaries/lookup` (NID lookup sends the number in the body, never in the URL, so it is not logged by proxies) |
 
-## 5. Authentication and authorization headers
-Bearer tokens, device session header, how every endpoint declares its permission name and scope (BR-193).
+No personal data in paths or query strings (privacy rule): identity numbers, mobile numbers and names go in request bodies.
 
-## 6. Idempotency
-Idempotency keys for sync batches and payments; `client_uuid` semantics; retry behaviour.
+## 3. Request and response envelope
 
-## 7. Rate limiting
-Limits for auth, OTP and public forms (NFR-41); headers returned.
+Success:
 
-## 8. Files
-Upload initiation, chunked upload, signed download URLs.
+```json
+{
+  "data": { "id": "0192…", "status": "submitted" },
+  "meta": { "requestId": "req_01J…", "etag": "W/\"1728549…\"" }
+}
+```
 
-## 9. Audit and sensitive data
-Which endpoints write audit entries; field-level masking rules in serializers (BR-183).
+Lists:
 
-## 10. Documentation and contract tests
-OpenAPI generation, drift test against `docs/api/openapi.yaml` (NFR-54), breaking-change process (impact analysis, approval, migration, tests).
+```json
+{
+  "data": [ { … }, { … } ],
+  "meta": { "requestId": "req_…", "nextCursor": "eyJ…", "prevCursor": null, "limit": 25, "total": 137 }
+}
+```
 
-## 11. Localization
-Accept-Language handling, bilingual data fields in responses.
+Error:
+
+```json
+{
+  "error": {
+    "code": "validation.failed",
+    "messageKey": "errors.validation.failed",
+    "message": "কিছু তথ্য সঠিক নয়",
+    "details": [ { "path": "beneficiary.nid", "code": "validation.nid_format", "messageKey": "errors.validation.nid_format", "message": "NID 10, 13 বা 17 অঙ্কের হতে হবে" } ],
+    "requestId": "req_…"
+  }
+}
+```
+
+Messages come from the Bengali or English catalogue; digits are always 0–9 in both languages (UX-05).
+
+- `requestId` is returned in every response and in the `X-Request-Id` header; it is the correlation key in logs (SYSTEM_ARCHITECTURE §10).
+- Timestamps are ISO 8601 UTC with `Z`; dates are `YYYY-MM-DD`; money is a decimal **string** (`"1000.00"`) in BDT; counts are integers; booleans are booleans; all digits are 0–9 (UX-05).
+- Fields the caller may not see are **absent**, not null (field-level protection by removal, RBAC.md §8).
+- `null` means "known to be empty"; an absent optional field in a PATCH means "unchanged".
+
+## 4. Pagination: keyset cursors
+
+Decision: **cursor (keyset) pagination** for every list endpoint.
+
+Why: lists change while people work (applications arrive during review, distributions are recorded all day); offset pages shift and skip or repeat rows, and deep offsets get slower; with about 2,000 concurrent field users (NFR-01) the database cost must stay constant at any depth; UUID v7 ids are time-ordered, so `(sortKey, id)` is a natural stable key.
+
+- Parameters: `limit` (default 25, maximum 100, NFR-11), `cursor` (opaque base64 of the last row's sort key and id, signed so it cannot be forged into another scope), `include=total` to request a count.
+- `meta.nextCursor` / `meta.prevCursor` are null at the ends.
+- `meta.total` is exact up to 10,000 rows and `"10000+"` beyond, so screens can show "statistics everywhere" (BR-224) without full counts on huge tables; dashboards use their own aggregate endpoints.
+- Officials' tables navigate with next/previous and narrow with filters instead of jumping to page N.
+- Small bounded lists (at most 500 rows, e.g. reference lists, a project's components, locations under one parent) return all rows without paging and say so in the OpenAPI description.
+- Offline snapshots use `since=<timestamp>` deltas (OFFLINE_SYNC §4), not cursors.
+
+## 5. Filtering, sorting and searching
+
+- Filters are plain query parameters documented per endpoint; multiple values are comma-separated: `?status=submitted,reviewed&districtId=0192…&ownerVolunteerId=…`.
+- Ranges use suffixes: `submittedFrom`, `submittedTo` (dates, inclusive).
+- Sorting: `sort=-submittedAt,appNo` (leading `-` = descending); only fields whitelisted per endpoint; the id is always added as the final tiebreaker.
+- Search: `q=` where documented; it searches names and application numbers with trigram matching (O-39); identity numbers are searched only through the lookup endpoint (section 2).
+- Every filter is combined with the caller's resolved scope (RBAC.md §4); a filter can narrow but never widen what the caller may see.
+- Unknown parameters are rejected with `validation.unknown_parameter` (catches typos that would silently return everything).
+
+## 6. Concurrency control
+
+- Every single-record response carries an `ETag` derived from the row's `updated_at` (weak validator).
+- `PATCH` and action endpoints on mutable records require `If-Match: <etag>`; a mismatch returns 412 `conflict.stale_version` with the current representation in `error.details`, so the client can show what changed.
+- This prevents an official and a volunteer (or two officials) from silently overwriting each other online. Offline records do not use ETags; their conflicts follow OFFLINE_SYNC §6.
+
+## 7. Validation and localization
+
+- Every request body, query and path parameter is validated on the server with the zod schema from `packages/shared` (D-055), regardless of client validation; database constraints are the last line (DATABASE_SCHEMA §5, §18).
+- Validation failures return **422** with `validation.failed` and one `details` entry per problem: `path` (JSON path in camelCase), `code` (catalogue code), `messageKey`, `message`.
+- Language of `message`: the `Accept-Language` header (the PWA always sends the user's chosen language), else the authenticated user's stored language, else `bn`. Only `bn` and `en` are served; other values fall back to `bn`.
+- Messages come from the i18n catalogue; the API never builds sentences by concatenation; numbers in messages use the central formatter with English digits (UX-05, BR-219).
+
+## 8. Error-code catalogue
+
+Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<code>`. HTTP status gives the class; clients branch on `code`.
+
+| Family | Code | HTTP | Meaning / client action |
+|---|---|---|---|
+| auth | auth.invalid_credentials | 401 | wrong id or password (same message for unknown id) |
+| auth | auth.account_locked | 423 | locked after 5 failures for 15 minutes (O-05) |
+| auth | auth.account_pending | 403 | registration awaiting approval |
+| auth | auth.account_blocked | 403 | blocked; show the block message (BR-047) |
+| auth | auth.account_deactivated | 403 | account closed |
+| auth | auth.token_missing | 401 | no bearer token |
+| auth | auth.token_expired | 401 | access token expired → refresh |
+| auth | auth.token_stale | 401 | permission version changed → refresh silently (AUTH.md §9) |
+| auth | auth.session_revoked | 401 | device session revoked → wipe local data (AUTH.md §8) |
+| auth | auth.refresh_invalid | 401 | refresh token expired or invalid → log in; keep the outbox (O-29) |
+| auth | auth.refresh_reused | 401 | refresh-token reuse detected → session revoked |
+| auth | auth.csrf_failed | 403 | refresh without a valid CSRF token |
+| otp | otp.invalid | 422 | wrong code |
+| otp | otp.expired | 422 | code older than 5 minutes |
+| otp | otp.attempts_exceeded | 429 | more than 5 attempts on one code |
+| permission | permission.denied | 403 | the action needs a permission the caller lacks |
+| permission | permission.not_found | 404 | record does not exist **or** is outside the caller's scope (no existence leak, RBAC.md §8) |
+| validation | validation.failed | 422 | see details |
+| validation | validation.unknown_parameter | 400 | unknown query parameter |
+| validation | validation.malformed | 400 | unparsable JSON or wrong content type |
+| validation | validation.nid_format, validation.birth_reg_format, validation.mobile_format, validation.required, validation.too_long, validation.out_of_range, validation.option_unknown, validation.bangla_text | 422 (as details) | field-level problems |
+| business | beneficiary.identity_missing | 422 | neither NID nor birth registration (BR-001) |
+| business | beneficiary.mobile_is_volunteer_mobile | 422 | BD-03 / BR-008 (also raised by the database trigger, DATABASE_SCHEMA §18) |
+| business | beneficiary.blocked | 422 | blocked beneficiary cannot apply (BR-010) |
+| business | beneficiary.already_applied | 409 | one application per beneficiary per project (BR-016) |
+| business | beneficiary.locked_field | 422 | locked field changes only through a correction request (BR-006) |
+| business | payment.transaction_id_exists | 409 | unique transaction id (BR-134) |
+| business | payment.claim_already_paid | 409 | one payment per claim |
+| business | animal.already_allocated | 409 | allocated animal (BR-145) |
+| workflow | workflow.transition_not_allowed | 409 | no transition from the current state with this action |
+| workflow | workflow.guard.<guard_name> | 409 | a named guard failed; `<guard_name>` is any guard of WORKFLOW_ENGINE §6 with dots replaced by underscores, e.g. `workflow.guard.deadline_open`, `workflow.guard.limit_not_exceeded`, `workflow.guard.photos_required_per_rule`, `workflow.guard.photos_not_pending_sync`, `workflow.guard.stock_balanced`, `workflow.guard.exam_passed`, `workflow.guard.vouchers_verified`, `workflow.guard.project_not_closed`, `workflow.guard.score_comment_if_against_order` |
+| workflow | workflow.reason_required, workflow.comment_required | 422 | transition needs a reason or a comment against the score order |
+| conflict | conflict.stale_version | 412 | `If-Match` mismatch |
+| conflict | conflict.locked_on_server | 409 | locked or approved data; server wins (OFFLINE_SYNC §6) |
+| sync | sync.batch_too_large | 413 | more than 50 records or over the payload limit (O-29) |
+| sync | sync.deadline_passed | 409 (per record) | late draft created after the deadline (O-13) |
+| sync | sync.limit_exceeded | 409 (per record) | volunteer's application limit reached (O-13) |
+| sync | sync.project_closed | 409 (per record) | project closed |
+| sync | sync.not_permitted | 403 (per record) | permission or assignment removed while offline |
+| sync | sync.retry_exhausted | — (client-side) | client gave up after 7 days of transient failures (O-29) |
+| file | file.type_not_allowed | 415 | type not allowed for the kind (FILES_AND_DOCUMENTS §5) |
+| file | file.too_large | 413 | above the size limit |
+| file | file.source_not_allowed | 422 | gallery under camera_only (UX-11) |
+| file | file.duplicate | 409 | identical bytes already in the project (O-30) |
+| file | file.quarantined | 423 | not scanned yet; cannot be previewed or downloaded (O-30) |
+| file | file.infected | 410 | blocked by the scanner |
+| file | file.session_expired | 410 | upload session expired |
+| rate_limit | rate_limit.exceeded | 429 | with `Retry-After` |
+| export | export.not_ready, export.expired | 409, 410 | job still running; file removed after 30 days |
+| client | client.upgrade_required | 426 | PWA version below the minimum supported version; sync the outbox, then update (section 17) |
+| server | server.unavailable | 503 | maintenance or dependency down, with `Retry-After` |
+| server | server.internal | 500 | unexpected; message never contains stack traces or SQL (BR-210) |
+
+Mapping of codes written in earlier documents (same meaning, normalized here): `session_revoked` → `auth.session_revoked`; `token_stale` → `auth.token_stale`; `account_blocked` → `auth.account_blocked`; `locked_on_server` → `conflict.locked_on_server`; `deadline_passed` → `sync.deadline_passed`; `limit_exceeded` → `sync.limit_exceeded`; `project_closed` → `sync.project_closed`; `not_permitted` → `sync.not_permitted`; `retry_exhausted` → `sync.retry_exhausted`; `beneficiary_mobile_is_volunteer_mobile` → `beneficiary.mobile_is_volunteer_mobile`; `file.type_not_allowed`, `file.too_large`, `file.source_not_allowed` unchanged.
+
+New codes are added to this table in the same commit as the endpoint that raises them; the i18n catalogue must contain `errors.<code>` in bn and en (CI check).
+
+## 9. Idempotency
+
+There is no generic idempotency-key table; idempotency rides on keys the data model already enforces as unique (DATABASE_SCHEMA §18):
+
+| Operation | Key | Replay behaviour |
+|---|---|---|
+| Create endpoints for offline-capable records (applications, activities, classes, expense claims, issues, vouchers, follow-ups, stock movements) | `clientUuid` in the body (unique column) | the existing record is returned with 200 and `Idempotent-Replay: true` |
+| `POST /sync/batch` and bulk-update endpoints | `Idempotency-Key` header (stored in `sync_batches.idempotency_key` with the per-record results) | stored results returned unchanged |
+| Payment records | `clientUuid` plus the unique `transactionId` | a different body with a used `transactionId` → 409 `payment.transaction_id_exists` |
+| File finalize | `clientUuid` + slot | existing file returned |
+| Public application form | `clientUuid` generated by the page | repeated submissions return the first result (O-08) |
+| Donor messages and notifications | outbox `idempotency_key` (NOTIFICATIONS §7) | never sent twice |
+
+The PWA uses the same create endpoint online and offline (OFFLINE_SYNC §3), so every create carries a `clientUuid`.
+
+## 10. Rate limiting
+
+| Class (`x-rate-limit`) | Limit | Key |
+|---|---|---|
+| login | 10 per minute, 100 per hour | login id and IP |
+| otp-request | 5 per hour per number or address; 20 per hour per IP (O-25) | address, IP |
+| otp-verify | 5 attempts per code (O-25) | code |
+| password-reset | 5 per hour | login id |
+| refresh | 60 per hour | device session |
+| public-form | 20 per hour (O-08, NFR-41) | IP |
+| default | 600 per minute per user (PROPOSAL, tuned by the load test T3.4) | user |
+| sync | 60 batches per minute per device session (PROPOSAL) | device session |
+
+Responses include `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`; a 429 carries `Retry-After`, which the PWA honours (O-29). Limits are enforced in the API (not only in Caddy) so they apply per account.
+
+## 11. Authentication headers and token refresh
+
+- `Authorization: Bearer <access token>` on every authenticated request (15-minute JWT, AUTH.md §5).
+- Refresh only at `POST /api/v1/auth/refresh`, using the HttpOnly, Secure, SameSite=Strict refresh cookie scoped to that path **and** an `X-CSRF-Token` header that must match the double-submit cookie; the response returns a new access token and rotates the refresh cookie.
+- Client behaviour on 401: `auth.token_expired` or `auth.token_stale` → refresh once and retry; `auth.session_revoked` → wipe and show login; `auth.refresh_invalid` → keep the outbox, show login (O-29); any other 401 → login.
+- `X-Client-Version: <pwa version>` on every request (section 17); `X-Device-Session` is not needed because the session id is inside the token.
+- Public endpoints (login, OTP, registration, public form, health) are declared `x-permission: public` and listed in SECURITY_POLICY.
+
+## 12. Files and signed URLs
+
+- File bytes never travel through JSON endpoints. Uploads use upload sessions (FILES_AND_DOCUMENTS §4): `POST /files/upload-sessions` (declares kind, entity, slot, mime, size, sha256, capture metadata, clientUuid) → presigned chunk URLs (256 KB parts, O-29) → `GET /files/upload-sessions/{id}` for resume → `POST /files/upload-sessions/{id}/finalize`.
+- Downloads: `POST /files/{fileId}/url` returns `{ url, expiresAt }` after the permission, scope and field-class checks; URLs expire within 15 minutes (NFR-28); quarantined files return 423 `file.quarantined` (O-30).
+- Records reference files by id in the slot fields (`photoFileIds`, `voucherFileId`); the API never embeds file URLs in list responses (they would expire and leak); clients ask for URLs when they display a file, thumbnails included.
+
+## 13. Bulk-update pattern
+
+Used by the today's screens (distribution, class, construction, visit, follow-up; WORKFLOW_ENGINE §8):
+
+```
+POST /api/v1/projects/{projectId}/bulk/{screen}      screen = distribution | class | construction | visit | followup
+Idempotency-Key: <uuid>
+{ "rows": [ { "clientUuid": "…", "applicationId": "…", "outcome": "distributed", "photoSlots": ["…"], "comment": "…" }, … ] }   (≤ 50 rows)
+
+200 { "data": { "results": [ { "clientUuid": "…", "result": "done" | "failed" | "pending_photos", "code": "workflow.guard.photos_required_per_rule", "status": "implementation", "stage": "distributed" } ] } }
+```
+
+- Each row is processed independently through the same application service, guards, effects and audit as a single action; one failed row never rolls back the others.
+- Permission is checked per row against the row's record and scope; `x-permission` on the endpoint names the screen's permission (e.g. `distribution.update`, `class.record`, `progress.update`, `site_verification.record`, `followup.record`).
+- The same payload shape is accepted inside `/sync/batch` for offline saves.
+
+## 14. Export job pattern
+
+```
+POST /api/v1/exports            { "kind": "applications", "filters": { … }, "format": "xlsx" | "csv" | "pdf" }
+202 { "data": { "jobId": "…", "status": "queued" } }
+GET  /api/v1/exports/{jobId}    → { status: queued | running | done | failed, rowCount, fileId }
+POST /api/v1/files/{fileId}/url → signed URL (15 minutes)
+```
+
+- The export runs in the worker (ADR-004) with the requester's permissions, scope and field masks frozen at request time (RBAC.md §8).
+- Kinds that include identity, bank, donor or official-section fields require the matching `export.*` permission, set `sensitive = true` and write an audit entry with filters and row count (BR-223).
+- Files are deleted after 30 days; the job row and the audit entry remain (O-30); `GET` on an expired job returns 410 `export.expired`.
+- The requester gets an in-app notification when the job is done.
+
+## 15. Audit requirements per endpoint
+
+- Every write endpoint declares `x-audit: <action>` (e.g. `application.approve`, `permission_change`, `blocklist.set`); the application service writes the entry in the same transaction (BR-179).
+- Always audited (constitution §13): permission and role changes, approvals and rejections, field unlock, blocklist, transfer, handover, merge and revert, payments and expense verification, animal allocation, nisab changes, deletions (soft), template changes, document deadline extensions, deficiency reports, media consent, exports of sensitive data, sensitive file URL issuance (NID photos, register documents).
+- Read endpoints declare `x-audit: none` unless they expose a sensitive class in bulk.
+- Audit entries carry the `requestId`, actor, on-behalf-of user (jobs, sync), device session and client_uuid where applicable (DATABASE_SCHEMA §17 audit_log).
+
+## 16. OpenAPI annotations required on every operation
+
+| Annotation | Content | Checked by |
+|---|---|---|
+| `operationId` | `<module>.<resource>.<action>`, e.g. `applications.application.approve` | lint |
+| `tags` | the NestJS module | lint |
+| `summary`, `description` | one line and the behaviour, including scope rules | review |
+| `x-permission` | a name from `permissions.yaml`, or `public` | boot check and CI (unknown names fail) |
+| `x-scope` | entity type whose scope is resolved (`project`, `application`, `beneficiary`, `self`, …) | lint |
+| `x-audit` | audit action or `none` | lint |
+| `x-idempotency` | `none`, `clientUuid` or `header` | lint |
+| `x-rate-limit` | class from section 10 | lint |
+| `x-sensitive-fields` | sensitive field classes the response may include for permitted roles (`beneficiary.nid`, `volunteer.bank`, …) | review, serializer mask test |
+| `x-workflow` | for action endpoints: the transition scope and action | lint |
+| `requestBody`, `parameters` | generated from the zod schemas of `packages/shared` | drift test |
+| `responses` | success schema plus every error response the operation can return, referencing shared components (`#/components/responses/Error422`, …) | drift test |
+| `security` | `bearerAuth` or none for public | lint |
+
+The generated document from the code must match `docs/api/openapi.yaml`; CI fails on any difference (NFR-54). An operation missing any required annotation fails lint.
+
+## 17. Breaking changes
+
+A change is **breaking** when an existing client could fail or misbehave: removing or renaming an endpoint, field, parameter or error code; changing a type, format or meaning; making an optional request field required; narrowing accepted values of a fixed code list; changing authorization so that a previously allowed call is denied (except security fixes, which follow SECURITY_POLICY); changing pagination or envelope shape.
+
+Process (constitution §2, §15):
+1. Impact analysis: database, API, UI, offline clients, security, tests, migration, deployment.
+2. Owner approval recorded in DECISION_LOG before implementation.
+3. OpenAPI updated in the same change; migration with `down.sql` if the schema changes.
+4. Client compatibility: offline phones may run an older PWA for days. Every request sends `X-Client-Version`; the server keeps accepting the previous contract until the minimum supported version (a setting) is raised after all active device sessions report the new version; requests from versions below the minimum get 426 `client.upgrade_required` and the PWA prompts an update after syncing its outbox.
+5. Tests: contract tests for both versions during the window; E2E with an old-client fixture.
+6. Release notes in the phase gate documents.
+
+## 18. Endpoint checklist (for every new endpoint)
+
+- [ ] Path, method and action name follow sections 1–2; no personal data in the URL.
+- [ ] zod request and response schemas in `packages/shared`.
+- [ ] `x-permission`, `x-scope`, `x-audit`, `x-idempotency`, `x-rate-limit`, `x-sensitive-fields` set.
+- [ ] Scope filter in the repository and object-level check for single-record routes (404 outside scope).
+- [ ] Field-level masks applied; the same masks in exports.
+- [ ] Errors from the catalogue; new codes added to section 8 and to the i18n catalogue in bn and en.
+- [ ] `If-Match` on mutating record endpoints; `clientUuid` on offline-capable creates.
+- [ ] Audit entry written in the transaction where required.
+- [ ] OpenAPI updated; drift test green; authorization-matrix test regenerated.
+- [ ] Tests: unit, API (allow and deny per role/scope), and E2E where the journey is critical.
