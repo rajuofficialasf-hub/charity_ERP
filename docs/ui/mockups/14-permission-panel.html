@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>পারমিশন প্যানেল · মকআপ</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<style>
+  .perm-layout { display: grid; gap: var(--space-4); grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 1024px) { .perm-layout { grid-template-columns: 300px minmax(0, 1fr); align-items: start; } .users { position: sticky; top: calc(var(--app-bar-height) + 16px); } }
+  .user-btn { display: flex; gap: var(--space-3); align-items: center; width: 100%; padding: var(--space-2); border: 0; background: none; text-align: left; border-radius: var(--radius-md); cursor: pointer; }
+  .user-btn:hover { background: var(--color-bg-muted); }
+  .user-btn[aria-current="true"] { background: var(--color-bg-brand-soft); }
+  details.module { border: 1px solid var(--color-border-default); border-radius: var(--radius-md); margin-bottom: var(--space-2); background: var(--color-bg-surface); }
+  details.module > summary { display: flex; align-items: center; gap: var(--space-2); min-height: 48px; padding: 0 var(--space-3); cursor: pointer; font-weight: var(--font-weight-bold); list-style: none; }
+  details.module > summary::-webkit-details-marker { display: none; }
+  details.module[open] > summary { border-bottom: 1px solid var(--color-border-default); }
+  details.module .perm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--color-border-default); }
+  details.module .perm:last-child { border-bottom: 0; }
+  .perm .row-text { flex: 1 1 200px; }
+  .perm code { font-size: var(--text-caption); color: var(--color-text-secondary); }
+  @media (max-width: 639px) { .perm .switch-hit, .perm .scope-select { display: none; } }
+</style>
+</head>
+<body data-shell="official" data-active="permissions">
+<main id="main">
+  <div class="alert desktop-notice"><i data-icon="monitor"></i><div><div class="alert-title">বড় পর্দায় ভালো চলে</div><p>ফোনে শুধু দেখা যায়। পারমিশন বদলাতে কম্পিউটার ব্যবহার করুন।</p></div></div>
+  <div class="page-head"><div class="page-title"><h1>পারমিশন প্যানেল</h1><p class="page-sub">যেকোনো ব্যক্তিকে যেকোনো দায়িত্ব দেওয়া ও তুলে নেওয়া; প্রতিটি পরিবর্তন অডিট লগে থাকে</p></div></div>
+
+  <div class="perm-layout">
+    <section class="card users" aria-labelledby="u-title">
+      <h2 id="u-title" class="card-title">ব্যক্তি</h2>
+      <div class="search" style="margin-bottom:8px"><i data-icon="search"></i><label class="sr-only" for="uq">নাম বা মোবাইল</label><input class="input" id="uq" placeholder="নাম বা মোবাইল"></div>
+      <ul class="list-plain" id="users"></ul>
+    </section>
+
+    <section aria-labelledby="pu-name">
+      <div class="card" style="margin-bottom:16px">
+        <div class="cluster"><span class="avatar avatar-lg" id="pu-init">ই</span><div class="grow"><h2 id="pu-name" style="font-size:var(--text-display)">ইমরান হোসেন (নমুনা)</h2><div class="caption muted" id="pu-role">প্রজেক্ট এক্সিকিউটিভ · ঢাকা রিজিওন</div></div></div>
+        <div class="alert" id="owner-note" hidden style="margin-top:12px"><i data-icon="shield-check"></i><div>এটি মেইন অ্যাডমিন (সিস্টেম ওনার) অ্যাকাউন্ট। প্যানেল থেকে মালিকানার অধিকার সরানো যায় না।</div></div>
+      </div>
+
+      <div class="tabs" role="tablist" aria-label="পারমিশনের দৃশ্য">
+        <button class="tab" role="tab" id="pt-eff" aria-controls="pp-eff" aria-selected="true">কার্যকর পারমিশন</button>
+        <button class="tab" role="tab" id="pt-log" aria-controls="pp-log">সাম্প্রতিক পরিবর্তন <span class="tab-count tnum" id="log-count">2</span></button>
+      </div>
+
+      <div id="pp-eff" role="tabpanel" aria-labelledby="pt-eff">
+        <div class="cluster caption muted" style="margin-bottom:8px"><span class="badge"><i data-icon="user-round"></i>ভূমিকার ডিফল্ট</span><span class="badge t-info"><i data-icon="shield"></i>প্যানেল থেকে</span><span class="badge t-brand"><i data-icon="folder-kanban"></i>প্রকল্প থেকে</span></div>
+        <div id="modules"></div>
+      </div>
+      <div id="pp-log" role="tabpanel" aria-labelledby="pt-log" hidden>
+        <div class="card"><ul class="list-plain" id="log">
+          <li class="list-row" style="align-items:flex-start"><i data-icon="history"></i><div class="grow"><div><strong>দেওয়া হয়েছে:</strong> আবেদন অনুমোদন (রিজিওন)</div><div class="caption muted tnum">"RPM ছুটিতে থাকায় এক মাসের জন্য" · ফারহানা ইসলাম, মনিটরিং টিম · 02-10-2026 11:20</div></div></li>
+          <li class="list-row" style="align-items:flex-start"><i data-icon="history"></i><div class="grow"><div><strong>প্রকল্প থেকে:</strong> স্বেচ্ছাসেবক প্রকল্পে যুক্ত করা</div><div class="caption muted tnum">রাশেদ কবির, RPM দিয়েছেন · শীতবস্ত্র বিতরণ 2026 · 15-09-2026</div></div></li>
+        </ul></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<dialog class="modal modal-sm" id="change" aria-labelledby="ch-title" data-reason>
+  <div class="sheet-handle"></div>
+  <div class="modal-head"><h2 id="ch-title"></h2><button class="icon-btn" type="button" data-close><i data-icon="x"></i><span class="sr-only">বন্ধ করুন</span></button></div>
+  <div class="modal-body">
+    <p id="ch-msg"></p>
+    <div class="field" id="ch-scope-field"><label class="field-label" for="ch-scope">স্কোপ</label><select class="select" id="ch-scope"><option>রিজিওন: ঢাকা</option><option>জেলা: ঢাকা</option><option>প্রকল্প: শীতবস্ত্র বিতরণ 2026</option><option>সারা দেশ</option></select></div>
+    <div class="field mb-0"><label class="field-label" for="ch-reason">কারণ <span class="req">(আবশ্যক)</span></label><textarea class="textarea" id="ch-reason" required></textarea></div>
+  </div>
+  <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close id="ch-cancel">বাতিল</button><button class="btn btn-primary" type="button" data-confirm id="ch-confirm">সংরক্ষণ</button></div>
+</dialog>
+
+<script src="icons.js"></script>
+<script src="mockup.js"></script>
+<script>
+document.addEventListener('mock:ready', function () {
+  var I = window.mockIcon;
+  var users = [
+    { init: 'ই', name: 'ইমরান হোসেন (নমুনা)', role: 'প্রজেক্ট এক্সিকিউটিভ · ঢাকা রিজিওন' },
+    { init: 'রা', name: 'রাশেদ কবির (নমুনা)', role: 'RPM · ঢাকা রিজিওন' },
+    { init: 'না', name: 'নাজমুল হক (নমুনা)', role: 'PM · মানবিক সহায়তা প্রোগ্রাম' },
+    { init: 'আ', name: 'আব্দুর রহমান (নমুনা)', role: 'ডিপার্টমেন্ট হেড · মেইন অ্যাডমিন', owner: true }
+  ];
+  var SRC = { role: ['', 'user-round', 'ভূমিকার ডিফল্ট'], panel: ['t-info', 'shield', 'প্যানেল'], project: ['t-brand', 'folder-kanban', 'প্রকল্প'] };
+  var modules = [
+    { name: 'আবেদন', icon: 'file-text', perms: [
+      ['আবেদন দেখা', 'application.view', 'রিজিওন', 'role', true],
+      ['রিভিউ ও পুরো ফর্ম এডিট', 'application.review', 'রিজিওন', 'role', true],
+      ['আবেদন অনুমোদন', 'application.approve', 'রিজিওন', 'panel', true],
+      ['ওয়েটলিস্টে রাখা', 'application.waitlist', 'রিজিওন', 'panel', true],
+      ['অনুমোদনের পর ফিল্ড আনলক', 'application.unlock_field', 'রিজিওন', 'role', true],
+      ['আবেদন হস্তান্তর', 'application.transfer', '-', null, false]
+    ] },
+    { name: 'স্বেচ্ছাসেবক', icon: 'users', perms: [
+      ['নিবন্ধন অনুমোদন', 'registration.approve', 'রিজিওন', 'role', true],
+      ['প্রকল্পে যুক্ত করা', 'volunteer.assign_project', 'প্রকল্প', 'project', true],
+      ['রেটিং দেখা ও দেওয়া', 'volunteer.rating.set', 'রিজিওন', 'role', true],
+      ['ব্লকলিস্টে দেওয়া', 'volunteer.block', '-', null, false]
+    ] },
+    { name: 'উপকারভোগী', icon: 'user-round', perms: [
+      ['সারা দেশের তালিকা দেখা', 'beneficiary.view_all', 'সারা দেশ', 'role', true],
+      ['NID দেখা', 'beneficiary.view_nid', 'রিজিওন', 'role', true],
+      ['প্রোফাইল মার্জ', 'beneficiary.merge', '-', null, false]
+    ] },
+    { name: 'প্রকল্প ও সেটআপ', icon: 'settings', perms: [
+      ['প্রকল্প তৈরি ও সেটআপ', 'project.configure', '-', null, false],
+      ['প্রকল্প ড্যাশবোর্ড', 'dashboard.project.view', 'রিজিওন', 'role', true]
+    ] }
+  ];
+  var current = 0, pending = null;
+  function renderUsers() {
+    document.getElementById('users').innerHTML = users.map(function (u, i) { return '<li><button class="user-btn" type="button" data-u="' + i + '"' + (i === current ? ' aria-current="true"' : '') + '><span class="avatar avatar-sm">' + u.init + '</span><span><span class="strong">' + u.name + '</span><br><span class="caption muted">' + u.role + '</span></span></button></li>'; }).join('');
+  }
+  function renderModules() {
+    var u = users[current];
+    document.getElementById('pu-init').textContent = u.init; document.getElementById('pu-name').textContent = u.name; document.getElementById('pu-role').textContent = u.role;
+    document.getElementById('owner-note').hidden = !u.owner;
+    document.getElementById('modules').innerHTML = modules.map(function (m, mi) {
+      var on = m.perms.filter(function (p) { return p[4]; }).length;
+      return '<details class="module"' + (mi === 0 ? ' open' : '') + '><summary>' + I(m.icon) + '<span class="grow">' + m.name + '</span><span class="caption muted tnum">' + on + ' / ' + m.perms.length + '</span>' + I('chevron-down') + '</summary>' +
+        m.perms.map(function (p, pi) {
+          var src = p[3] ? SRC[p[3]] : null;
+          return '<div class="perm"><div class="row-text"><label for="p' + mi + '-' + pi + '">' + p[0] + '</label><br><code>' + p[1] + '</code></div>' +
+            (p[4] ? '<span class="badge tnum">' + I('map-pin') + p[2] + '</span>' : '<span class="badge">' + I('minus') + 'নেই</span>') +
+            (src ? '<span class="badge ' + src[0] + '">' + I(src[1]) + src[2] + '</span>' : '') +
+            '<span class="switch-hit"><input class="switch" type="checkbox" role="switch" id="p' + mi + '-' + pi + '" data-p="' + mi + ':' + pi + '"' + (p[4] ? ' checked' : '') + (u.owner ? ' disabled' : '') + '></span></div>';
+        }).join('') + '</details>';
+    }).join('');
+  }
+  document.getElementById('users').addEventListener('click', function (e) { var b = e.target.closest('[data-u]'); if (!b) return; current = Number(b.getAttribute('data-u')); renderUsers(); renderModules(); });
+  document.getElementById('modules').addEventListener('change', function (e) {
+    var k = e.target.getAttribute('data-p'); if (!k) return;
+    var parts = k.split(':'); var p = modules[parts[0]].perms[parts[1]];
+    pending = { p: p, el: e.target, on: e.target.checked };
+    document.getElementById('ch-title').textContent = (pending.on ? 'পারমিশন দিন: ' : 'পারমিশন তুলে নিন: ') + p[0];
+    document.getElementById('ch-msg').textContent = users[current].name + ' · ' + p[1];
+    document.getElementById('ch-scope-field').hidden = !pending.on;
+    window.mockOpen('change');
+  });
+  document.getElementById('change').addEventListener('close', function () {
+    if (pending && !pending.done) { pending.el.checked = !pending.on; }
+    pending = null;
+  });
+  document.getElementById('ch-confirm').addEventListener('click', function () {
+    var p = pending.p, reason = document.getElementById('ch-reason').value.trim();
+    p[4] = pending.on; p[3] = pending.on ? 'panel' : null; p[2] = pending.on ? document.getElementById('ch-scope').value.split(':')[0] : '-';
+    pending.done = true;
+    document.getElementById('log').insertAdjacentHTML('afterbegin', '<li class="list-row" style="align-items:flex-start">' + I('history') + '<div class="grow"><div><strong>' + (p[4] ? 'দেওয়া হয়েছে: ' : 'তুলে নেওয়া হয়েছে: ') + '</strong>' + p[0] + '</div><div class="caption muted tnum">"' + reason + '" · ফারহানা ইসলাম, মনিটরিং টিম · ' + window.mockStampNow() + '</div></div></li>');
+    var lc = document.getElementById('log-count'); lc.textContent = Number(lc.textContent) + 1;
+    document.getElementById('change').close(); renderModules();
+    mockToast('পারমিশন বদলানো হয়েছে; পরের অনুরোধ থেকেই কার্যকর; অডিট লগে যোগ হয়েছে');
+  });
+  document.getElementById('uq').addEventListener('input', function (e) {
+    var q = e.target.value.trim();
+    document.querySelectorAll('#users li').forEach(function (li, i) { li.hidden = q && (users[i].name + users[i].role).indexOf(q) < 0; });
+  });
+  renderUsers(); renderModules();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>স্বেচ্ছাসেবক · মকআপ</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<style>
+  .profile-head { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
+  .profile-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-left: auto; }
+  @media (max-width: 639px) { .profile-actions { margin-left: 0; width: 100%; } .profile-actions .btn { flex: 1 1 auto; } }
+  .phase-note { display: inline-flex; gap: var(--space-1); align-items: center; font-size: var(--text-caption); color: var(--color-text-secondary); margin-bottom: var(--space-3); }
+  .rating-grid { display: grid; gap: var(--space-4); grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 640px) { .rating-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+</style>
+</head>
+<body data-shell="official" data-active="people" data-user-name="রাশেদ কবির (নমুনা)" data-user-initials="রা" data-user-role="RPM · ঢাকা রিজিওন">
+<main id="main">
+  <!-- List view -->
+  <section id="view-list" aria-labelledby="list-title">
+    <div class="page-head">
+      <div class="page-title"><h1 id="list-title">স্বেচ্ছাসেবক</h1><p class="page-sub">সারা দেশের তালিকা · আপনার স্কোপ: ঢাকা রিজিওন</p></div>
+      <button class="btn btn-secondary btn-sm" type="button" data-toast="স্বেচ্ছাসেবকের তালিকা এক্সপোর্ট (মকআপ)"><i data-icon="download"></i>এক্সপোর্ট</button>
+    </div>
+    <div class="toolbar">
+      <div class="search"><i data-icon="search"></i><label class="sr-only" for="vq">নাম বা মোবাইল</label><input class="input" id="vq" placeholder="নাম বা জেলা"></div>
+      <button class="btn btn-secondary" type="button" data-open="vfilters"><i data-icon="sliders-horizontal"></i>ফিল্টার</button>
+    </div>
+    <div class="chips" data-chip-group role="group" aria-label="ধরন" style="margin-bottom:12px">
+      <button class="chip" type="button" aria-pressed="true" data-value="all">সব</button>
+      <button class="chip" type="button" aria-pressed="false" data-value="জেনারেল">জেনারেল</button>
+      <button class="chip" type="button" aria-pressed="false" data-value="স্থানীয় দায়ী">স্থানীয় দায়ী</button>
+      <button class="chip" type="button" aria-pressed="false" data-value="উভয়">উভয়</button>
+      <button class="chip" type="button" aria-pressed="false" data-value="পেইড">পেইড</button>
+    </div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th scope="col">নাম</th><th scope="col">ধরন</th><th scope="col">এলাকা</th><th scope="col" class="p3">প্রকল্প</th><th scope="col" class="num">আবেদন</th><th scope="col">ক্যাটাগরি</th><th scope="col">অবস্থা</th></tr></thead>
+        <tbody id="vrows"></tbody>
+      </table>
+      <div class="pager"><span class="tnum">দেখানো হচ্ছে 6টি · মোট 1,204 জন</span><span class="cluster"><button class="btn btn-secondary btn-sm" type="button" disabled>আগের</button><button class="btn btn-secondary btn-sm" type="button" data-toast="পরের 25 জন (মকআপ)">পরের</button></span></div>
+    </div>
+  </section>
+
+  <!-- Profile view -->
+  <section id="view-profile" hidden aria-labelledby="p-name">
+    <nav class="breadcrumb" aria-label="অবস্থান"><ol><li><a href="#" data-back>স্বেচ্ছাসেবক</a></li><li aria-current="page" id="crumb-name">সাকিব হাসান (নমুনা)</li></ol></nav>
+    <button class="btn btn-ghost btn-sm only-phone" type="button" data-back style="margin-bottom:8px"><i data-icon="arrow-left"></i>তালিকায় ফিরুন</button>
+    <div class="card" style="margin-bottom:16px">
+      <div class="profile-head">
+        <span class="avatar avatar-lg">সা</span>
+        <div class="grow">
+          <h1 id="p-name">সাকিব হাসান (নমুনা)</h1>
+          <div class="caption muted">জেনারেল স্বেচ্ছাসেবক · সাভার, ঢাকা · নিবন্ধন 12-01-2025</div>
+          <div class="cluster" style="margin-top:6px" id="p-badges"><span class="badge t-success"><i data-icon="circle-check"></i>সক্রিয়</span><span class="badge t-brand"><i data-icon="award"></i>ক্যাটাগরি A</span></div>
+        </div>
+        <div class="profile-actions">
+          <button class="btn btn-primary btn-sm" type="button" data-open="assign"><i data-icon="user-plus"></i>প্রকল্পে যুক্ত করুন</button>
+          <button class="btn btn-secondary btn-sm" type="button" data-open="transfer"><i data-icon="arrow-right-left"></i>আবেদন হস্তান্তর</button>
+          <button class="btn btn-ghost btn-sm" type="button" data-open="block" id="block-btn"><i data-icon="ban"></i>ব্লকলিস্ট</button>
+        </div>
+      </div>
+      <div class="alert t-danger" id="blocked-alert" hidden style="margin-top:12px"><i data-icon="ban"></i><div><div class="alert-title">ব্লকলিস্টে আছেন</div><p id="blocked-reason"></p></div></div>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="প্রোফাইলের অংশ">
+      <button class="tab" role="tab" id="pt-over" aria-controls="pp-over" aria-selected="true">সারসংক্ষেপ</button>
+      <button class="tab" role="tab" id="pt-proj" aria-controls="pp-proj">প্রকল্প ও পারমিশন</button>
+      <button class="tab" role="tab" id="pt-team" aria-controls="pp-team">টিম</button>
+      <button class="tab" role="tab" id="pt-work" aria-controls="pp-work">কাজের সারসংক্ষেপ</button>
+      <button class="tab" role="tab" id="pt-rate" aria-controls="pp-rate">রেটিং ও ক্যাটাগরি</button>
+      <button class="tab" role="tab" id="pt-animal" aria-controls="pp-animal">পশু বরাদ্দ</button>
+      <button class="tab" role="tab" id="pt-hist" aria-controls="pp-hist">ইতিহাস</button>
+    </div>
+
+    <div id="pp-over" role="tabpanel" aria-labelledby="pt-over">
+      <div class="grid grid-2">
+        <div class="card"><h2 class="card-title">যোগাযোগ ও পরিচয়</h2><dl class="kv">
+          <dt>মোবাইল</dt><dd class="tnum">01700000001</dd>
+          <dt>হোয়াটসঅ্যাপ</dt><dd class="tnum">01700000001</dd>
+          <dt>ইমেইল</dt><dd>sample.volunteer@example.org</dd>
+          <dt>NID</dt><dd class="tnum">1000000555 <span class="caption muted">(অফিসিয়ালদের জন্য)</span></dd>
+          <dt>পিতা</dt><dd>আব্দুল করিম (নমুনা)</dd>
+          <dt>ঠিকানা</dt><dd>বনগাঁও, সাভার, ঢাকা</dd>
+          <dt>শিক্ষা</dt><dd>স্নাতক বা সমমান</dd>
+        </dl></div>
+        <div class="card"><h2 class="card-title">ব্যাংক তথ্য</h2><dl class="kv">
+          <dt>ব্যাংক</dt><dd>নমুনা ব্যাংক লিমিটেড</dd>
+          <dt>অ্যাকাউন্ট</dt><dd class="tnum">0000-0000-0001</dd>
+        </dl><p class="caption muted" style="margin-top:8px">ব্যাংক তথ্য শুধু PM, RPM, এক্সিকিউটিভ ও ফাইন্যান্স টিম দেখেন।</p>
+        <div class="alert" style="margin-top:12px"><i data-icon="file-pen-line"></i><div><div class="alert-title">এডিট রিকোয়েস্ট অপেক্ষমাণ</div><p>ঠিকানা: "বনগাঁও" থেকে "কাউন্দিয়া"</p><div class="cluster"><button class="btn btn-secondary btn-sm" type="button" data-toast="এডিট রিকোয়েস্ট ফেরত পাঠানো হয়েছে (মকআপ)">ফেরত</button><button class="btn btn-primary btn-sm" type="button" data-toast="এডিট রিকোয়েস্ট অনুমোদিত (মকআপ)">অনুমোদন</button></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="pp-proj" role="tabpanel" aria-labelledby="pt-proj" hidden>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th scope="col">প্রকল্প</th><th scope="col">ভূমিকা</th><th scope="col">এলাকা</th><th scope="col" class="num">সীমা</th><th scope="col">সম্মতি</th><th scope="col">অবস্থা</th></tr></thead>
+        <tbody>
+          <tr><td class="cell-title" data-label="প্রকল্প">শীতবস্ত্র বিতরণ 2026</td><td data-label="ভূমিকা">আবেদন ও বিতরণ</td><td data-label="এলাকা">বনগাঁও, কাউন্দিয়া</td><td data-label="সীমা" class="num">18 / 25</td><td data-label="সম্মতি"><span class="badge t-success"><i data-icon="circle-check"></i>দিয়েছেন</span></td><td data-label="অবস্থা"><span class="badge t-success"><i data-icon="circle-check"></i>সক্রিয়</span></td></tr>
+          <tr><td class="cell-title" data-label="প্রকল্প">ইফতার বিতরণ 2027</td><td data-label="ভূমিকা">আবেদন ও বিতরণ</td><td data-label="এলাকা">বনগাঁও</td><td data-label="সীমা" class="num">0 / 25</td><td data-label="সম্মতি"><span class="badge t-warning"><i data-icon="clock"></i>বাকি</span></td><td data-label="অবস্থা"><span class="badge"><i data-icon="circle-dashed"></i>অপেক্ষমাণ</span></td></tr>
+        </tbody></table></div>
+      <div class="card" style="margin-top:16px"><h2 class="card-title">শীতবস্ত্র বিতরণ 2026: প্রকল্পের পারমিশন</h2>
+        <div class="row-item"><div class="row-text"><label for="pm1">আবেদন তৈরি ও অফিসে পাঠানো</label><div class="row-desc">পারমিশন সেট: আবেদন ও বিতরণ</div></div><span class="switch-hit"><input class="switch" type="checkbox" role="switch" id="pm1" checked></span></div>
+        <div class="row-item"><div class="row-text"><label for="pm2">বিতরণের আপডেট ও ছবি</label></div><span class="switch-hit"><input class="switch" type="checkbox" role="switch" id="pm2" checked></span></div>
+        <div class="row-item"><div class="row-text"><label for="pm3">টিম মেম্বার যুক্ত করা</label></div><span class="switch-hit"><input class="switch" type="checkbox" role="switch" id="pm3" checked></span></div>
+        <div class="row-item"><div class="row-text"><label for="pm4">পেইড ভলান্টিয়ার হিসেবে চিহ্নিত</label><div class="row-desc">ঘর নির্মাণ ও নিরাপদ পানি প্রকল্পে</div></div><span class="switch-hit"><input class="switch" type="checkbox" role="switch" id="pm4"></span></div>
+      </div>
+    </div>
+
+    <div id="pp-team" role="tabpanel" aria-labelledby="pt-team" hidden>
+      <div class="card"><ul class="list-plain">
+        <li class="list-row"><span class="avatar avatar-sm">রা</span><div class="grow"><div>রাকিব (নমুনা)</div><div class="caption muted">টিম মেম্বার · 4টি আবেদন তৈরি করেছেন</div></div><button class="btn btn-ghost btn-sm" type="button" data-toast="টিম মেম্বারকে অন্য টিমে সরানো (মকআপ)">অন্য টিমে</button></li>
+        <li class="list-row"><span class="avatar avatar-sm">নু</span><div class="grow"><div>নুসরাত (নমুনা)</div><div class="caption muted">টিম মেম্বার · 1টি আবেদন</div></div><button class="btn btn-ghost btn-sm" type="button" data-toast="টিম মেম্বারকে অন্য টিমে সরানো (মকআপ)">অন্য টিমে</button></li>
+      </ul></div>
+    </div>
+
+    <div id="pp-work" role="tabpanel" aria-labelledby="pt-work" hidden>
+      <p class="phase-note"><i data-icon="info" data-class="icon-sm"></i>এই অংশ Phase 5-এ তৈরি হবে; নমুনা দেখানো হলো</p>
+      <div class="toolbar"><select class="select" style="max-width:200px" aria-label="বছর"><option>2026</option><option>2025</option></select><select class="select" style="max-width:260px" aria-label="প্রকল্প"><option>সব প্রকল্প</option></select></div>
+      <div class="grid-stats">
+        <div class="card"><div class="stat-label">আবেদন</div><div class="stat-value">22</div></div>
+        <div class="card"><div class="stat-label">অনুমোদিত</div><div class="stat-value">12</div></div>
+        <div class="card"><div class="stat-label">বিতরণ</div><div class="stat-value">9</div></div>
+        <div class="card"><div class="stat-label">ছবি</div><div class="stat-value">31</div></div>
+      </div>
+    </div>
+
+    <div id="pp-rate" role="tabpanel" aria-labelledby="pt-rate" hidden>
+      <p class="phase-note"><i data-icon="info" data-class="icon-sm"></i>এই অংশ Phase 5-এ তৈরি হবে · স্বেচ্ছাসেবকরা রেটিং ও ক্যাটাগরি কখনো দেখেন না</p>
+      <div class="rating-grid">
+        <div class="card"><h2 class="card-title">আবেদন ও বিতরণ</h2>
+          <div class="bars">
+            <div><div class="progress-label"><span>সময়মতো কাজ</span><span class="tnum">4 / 5</span></div><div class="progress"><span style="width:80%"></span></div></div>
+            <div><div class="progress-label"><span>তথ্যের নির্ভুলতা</span><span class="tnum">5 / 5</span></div><div class="progress"><span style="width:100%"></span></div></div>
+            <div><div class="progress-label"><span>ছবির মান</span><span class="tnum">3 / 5</span></div><div class="progress"><span style="width:60%"></span></div></div>
+          </div></div>
+        <div class="card"><h2 class="card-title">দাওয়াহ</h2><p class="muted mb-0">এই স্বেচ্ছাসেবক দাওয়াহর কাজ করেন না।</p><p class="caption muted">দুটি রেটিং আলাদা থাকে, গড় করা হয় না।</p></div>
+      </div>
+      <div class="card" style="margin-top:16px"><div class="spread"><div><h2 class="card-title mb-0">ক্যাটাগরি</h2><p class="caption muted mb-0">বদলাতে মন্তব্য লাগবে</p></div><button class="btn btn-secondary btn-sm" type="button" data-open="category">ক্যাটাগরি বদলান</button></div></div>
+    </div>
+
+    <div id="pp-animal" role="tabpanel" aria-labelledby="pt-animal" hidden>
+      <p class="phase-note"><i data-icon="info" data-class="icon-sm"></i>এই অংশ Phase 4-এ (কুরবানী) তৈরি হবে</p>
+      <div class="card"><ul class="list-plain">
+        <li class="list-row"><i data-icon="beef"></i><div class="grow"><div class="strong tnum">গরু C-2026-014</div><div class="caption muted tnum">7 / 7 শেয়ার পূর্ণ · ছবি 3 / 3</div></div><button class="btn btn-ghost btn-sm" type="button" data-toast="বরাদ্দ বাতিল করতে কারণ লাগবে (মকআপ)">বরাদ্দ বাতিল</button></li>
+        <li class="list-row"><i data-icon="beef"></i><div class="grow"><div class="strong tnum">ছাগল G-2026-087</div><div class="caption muted">ছবি 1 / 3</div></div></li>
+      </ul></div>
+    </div>
+
+    <div id="pp-hist" role="tabpanel" aria-labelledby="pt-hist" hidden>
+      <div class="card"><ol class="timeline" id="history">
+        <li class="is-done"><span class="dot"><i data-icon="check"></i></span><div class="step-title">শীতবস্ত্র বিতরণ 2026-এ যুক্ত</div><div class="step-meta tnum">রাশেদ কবির, RPM · 15-09-2026</div></li>
+        <li class="is-done"><span class="dot"><i data-icon="check"></i></span><div class="step-title">ক্যাটাগরি B থেকে A</div><div class="step-meta tnum">"ইফতার 2026-এ ভালো কাজ" · 20-04-2026</div></li>
+        <li class="is-done"><span class="dot"><i data-icon="check"></i></span><div class="step-title">নিবন্ধন অনুমোদিত</div><div class="step-meta tnum">ইমরান হোসেন, প্রজেক্ট এক্সিকিউটিভ · 12-01-2025</div></li>
+      </ol></div>
+    </div>
+  </section>
+</main>
+
+<dialog class="modal drawer" id="vfilters" aria-labelledby="vf-title">
+  <div class="sheet-handle"></div>
+  <div class="modal-head"><h2 id="vf-title">ফিল্টার</h2><button class="icon-btn" type="button" data-close><i data-icon="x"></i><span class="sr-only">বন্ধ করুন</span></button></div>
+  <div class="modal-body">
+    <div class="field"><label class="field-label" for="vf-dist">জেলা</label><select class="select" id="vf-dist"><option>সব</option><option>ঢাকা</option><option>গাজীপুর</option></select></div>
+    <div class="field"><label class="field-label" for="vf-proj">প্রকল্প</label><select class="select" id="vf-proj"><option>সব</option><option>শীতবস্ত্র বিতরণ 2026</option></select></div>
+    <fieldset><legend>অবস্থা</legend><label class="choice"><input type="checkbox" checked> সক্রিয়</label><label class="choice"><input type="checkbox"> নিষ্ক্রিয়</label><label class="choice"><input type="checkbox"> ব্লকলিস্টে</label></fieldset>
+  </div>
+  <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>বাতিল</button><button class="btn btn-primary" type="button" data-close>প্রয়োগ করুন</button></div>
+</dialog>
+
+<dialog class="modal" id="assign" aria-labelledby="as-title">
+  <div class="sheet-handle"></div>
+  <div class="modal-head"><h2 id="as-title">প্রকল্পে যুক্ত করুন</h2><button class="icon-btn" type="button" data-close><i data-icon="x"></i><span class="sr-only">বন্ধ করুন</span></button></div>
+  <div class="modal-body">
+    <div class="field"><label class="field-label" for="as-proj">প্রকল্প</label><select class="select" id="as-proj"><option>ঘর নির্মাণ 2026</option><option>ইফতার বিতরণ 2027</option></select></div>
+    <div class="field"><label class="field-label" for="as-set">পারমিশন সেট</label><select class="select" id="as-set"><option>আবেদন ও বিতরণ</option><option>আবেদন, বিতরণ ও দাওয়াহ</option><option>কাজের অগ্রগতি (পেইড)</option></select></div>
+    <div class="field"><label class="field-label" for="as-area">এলাকা</label><select class="select" id="as-area"><option>বনগাঁও, সাভার</option></select></div>
+    <div class="field mb-0"><label class="field-label" for="as-limit">আবেদনের সীমা</label><input class="input tnum" id="as-limit" inputmode="numeric" value="25"></div>
+  </div>
+  <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>বাতিল</button><button class="btn btn-primary" type="button" data-close data-toast="প্রকল্পে যুক্ত করা হয়েছে; স্বেচ্ছাসেবককে সম্মতির জন্য জানানো হয়েছে">যুক্ত করুন</button></div>
+</dialog>
+
+<dialog class="modal" id="transfer" aria-labelledby="tr-title" data-reason>
+  <div class="sheet-handle"></div>
+  <div class="modal-head"><h2 id="tr-title">আবেদন হস্তান্তর</h2><button class="icon-btn" type="button" data-close><i data-icon="x"></i><span class="sr-only">বন্ধ করুন</span></button></div>
+  <div class="modal-body">
+    <div class="field"><label class="field-label" for="tr-to">নতুন স্বেচ্ছাসেবক</label><select class="select" id="tr-to"><option>তানভীর আহমেদ (নমুনা)</option><option>মাহমুদুল হাসান (নমুনা)</option></select></div>
+    <fieldset><legend>কোন আবেদন</legend>
+      <label class="choice"><input type="checkbox" checked> APP-2026-000184 · আমেনা খাতুন (নমুনা)</label>
+      <label class="choice"><input type="checkbox" checked> APP-2026-000191 · রহিমা বেগম (নমুনা)</label>
+      <label class="choice"><input type="checkbox"> APP-2026-000203 · জোবেদা খাতুন (নমুনা)</label>
+    </fieldset>
+    <div class="alert t-warning" style="margin-bottom:12px"><i data-icon="triangle-alert"></i><div>নতুন স্বেচ্ছাসেবক আগের সব তথ্য দেখবেন; সাকিব হাসান এই আবেদনগুলো আর দেখবেন না। সব লগে থাকবে।</div></div>
+    <div class="field mb-0"><label class="field-label" for="tr-reason">কারণ <span class="req">(আবশ্যক)</span></label><textarea class="textarea" id="tr-reason" required></textarea></div>
+  </div>
+  <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>বাতিল</button><button class="btn btn-primary" type="button" data-confirm id="tr-confirm">হস্তান্তর করুন</button></div>
+</dialog>
+
+<dialog class="modal modal-sm" id="block" aria-labelledby="bl-title" data-reason>
+  <div class="sheet-handle"></div>
+  <div class="modal-head"><h2 id="bl-title">ব্লকলিস্টে দিন: সাকিব হাসান (নমুনা)</h2><button class="icon-btn" type="button" data-close><i data-icon="x"></i><span class="sr-only">বন্ধ করুন</span></button></div>
+  <div class="modal-body">
+    <ul><li>নতুন আবেদন ও নতুন প্রকল্পে যুক্ত করা যাবে না</li><li>নিজের আবেদনগুলো আর দেখতে পাবেন না</li></ul>
+    <div class="field mb-0"><label class="field-label" for="bl-reason">কারণ <span class="req">(আবশ্যক)</span></label><textarea class="textarea" id="bl-reason" required></textarea></div>
+  </div>
+  <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>বাতিল</button><button class="btn btn-danger" type="button" data-confirm id="bl-confirm">ব্লকলিস্টে দিন</button></div>
+</dialog>
+
+<dialog class="modal modal-sm" id="category" aria-labelledby="cat-title" data-reason>
+  <div class="sheet-handle"></div>
+  <div class="modal-head"><h2 id="cat-title">ক্যাটাগরি বদলান</h2><button class="icon-btn" type="button" data-close><i data-icon="x"></i><span class="sr-only">বন্ধ করুন</span></button></div>
+  <div class="modal-body">
+    <div class="field"><label class="field-label" for="cat-val">নতুন ক্যাটাগরি</label><select class="select" id="cat-val"><option>A</option><option selected>B</option><option>C</option><option>D</option></select></div>
+    <label class="choice" style="margin-bottom:12px"><input type="checkbox"> নিষ্ক্রিয় হিসেবে চিহ্নিত</label>
+    <div class="field mb-0"><label class="field-label" for="cat-reason">মন্তব্য <span class="req">(আবশ্যক)</span></label><textarea class="textarea" id="cat-reason" required></textarea></div>
+  </div>
+  <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>বাতিল</button><button class="btn btn-primary" type="button" data-confirm data-close data-toast="ক্যাটাগরি বদলানো হয়েছে; লগে যোগ হয়েছে">সংরক্ষণ</button></div>
+</dialog>
+
+<script src="icons.js"></script>
+<script src="mockup.js"></script>
+<script>
+document.addEventListener('mock:ready', function () {
+  var I = window.mockIcon;
+  var vols = [
+    ['সাকিব হাসান (নমুনা)', 'জেনারেল', 'সাভার, ঢাকা', 'শীতবস্ত্র 2026', 22, 'A', 'active'],
+    ['তানভীর আহমেদ (নমুনা)', 'জেনারেল', 'ধামরাই, ঢাকা', 'শীতবস্ত্র 2026', 31, 'A', 'active'],
+    ['মাওলানা আব্দুল্লাহ (নমুনা)', 'স্থানীয় দায়ী', 'কেরানীগঞ্জ, ঢাকা', 'স্বাবলম্বী 2026', 0, 'B', 'active'],
+    ['মাহমুদুল হাসান (নমুনা)', 'উভয়', 'সাভার, ঢাকা', 'শীতবস্ত্র 2026', 14, 'B', 'active'],
+    ['জাকির হোসেন (নমুনা)', 'পেইড', 'কুড়িগ্রাম সদর', 'ঘর নির্মাণ 2026', 0, 'C', 'inactive'],
+    ['শামীম রেজা (নমুনা)', 'জেনারেল', 'গাজীপুর সদর', '-', 3, 'D', 'blocked']
+  ];
+  var ST = { active: ['t-success', 'circle-check', 'সক্রিয়'], inactive: ['', 'circle-pause', 'নিষ্ক্রিয়'], blocked: ['t-danger', 'ban', 'ব্লকলিস্টে'] };
+  var type = 'all', q = '';
+  function render() {
+    var rows = vols.filter(function (v) { return (type === 'all' || v[1] === type) && (!q || (v[0] + v[2]).indexOf(q) >= 0); });
+    document.getElementById('vrows').innerHTML = rows.length ? rows.map(function (v, i) {
+      var s = ST[v[6]];
+      return '<tr class="is-clickable" tabindex="0" data-i="' + i + '"><td class="cell-title" data-label="নাম"><span class="cluster"><span class="avatar avatar-sm">' + v[0].slice(0, 2) + '</span>' + v[0] + '</span></td><td data-label="ধরন">' + v[1] + '</td><td data-label="এলাকা">' + v[2] + '</td><td data-label="প্রকল্প" class="p3">' + v[3] + '</td><td data-label="আবেদন" class="num">' + v[4] + '</td><td data-label="ক্যাটাগরি"><span class="badge t-brand">' + I('award') + v[5] + '</span></td><td data-label="অবস্থা"><span class="badge ' + s[0] + '">' + I(s[1]) + s[2] + '</span></td></tr>';
+    }).join('') : '<tr><td colspan="7"><div class="empty">' + I('search-x', 'icon-lg') + '<h3>কেউ মেলেনি</h3></div></td></tr>';
+  }
+  function openProfile() { document.getElementById('view-list').hidden = true; document.getElementById('view-profile').hidden = false; window.scrollTo(0, 0); var h = document.getElementById('p-name'); h.tabIndex = -1; h.focus(); }
+  function back(e) { if (e) e.preventDefault(); document.getElementById('view-profile').hidden = true; document.getElementById('view-list').hidden = false; }
+  document.getElementById('vrows').addEventListener('click', function (e) { if (e.target.closest('tr[data-i]')) openProfile(); });
+  document.getElementById('vrows').addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.closest('tr[data-i]')) openProfile(); });
+  document.querySelectorAll('[data-back]').forEach(function (b) { b.addEventListener('click', back); });
+  document.addEventListener('mock:chip', function (e) { type = e.detail; render(); });
+  document.getElementById('vq').addEventListener('input', function (e) { q = e.target.value.trim(); render(); });
+  document.getElementById('tr-confirm').addEventListener('click', function () { document.getElementById('transfer').close(); mockToast('2টি আবেদন তানভীর আহমেদের কাছে হস্তান্তর হয়েছে'); });
+  document.getElementById('bl-confirm').addEventListener('click', function () {
+    var r = document.getElementById('bl-reason').value.trim();
+    document.getElementById('block').close();
+    document.getElementById('blocked-alert').hidden = false;
+    document.getElementById('blocked-reason').textContent = 'কারণ: ' + r + ' · রাশেদ কবির, RPM · এইমাত্র';
+    document.getElementById('p-badges').innerHTML = '<span class="badge t-danger">' + I('ban') + 'ব্লকলিস্টে</span>';
+    var b = document.getElementById('block-btn'); b.removeAttribute('data-open'); b.innerHTML = I('circle-check') + 'ব্লকলিস্ট থেকে তুলুন'; b.setAttribute('data-toast', 'তুলে নিতে কারণ লাগবে (মকআপ)');
+    mockToast('ব্লকলিস্টে দেওয়া হয়েছে; অডিট লগে যোগ হয়েছে');
+  });
+  render();
+  if (location.hash === '#profile') openProfile();
+});
+</script>
+</body>
+</html>

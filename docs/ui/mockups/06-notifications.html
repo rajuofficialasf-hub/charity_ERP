@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>নোটিফিকেশন ও সিঙ্ক · মকআপ</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<style>
+  .notif { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3); text-decoration: none; color: inherit; border-radius: var(--radius-md); }
+  .notif:hover { background: var(--color-bg-muted); }
+  .notif.is-unread .notif-title { font-weight: var(--font-weight-bold); }
+  .unread-dot { width: 10px; height: 10px; border-radius: var(--radius-full); background: var(--color-brand-primary); flex: none; margin-top: 7px; }
+  .notif-ico { width: 40px; height: 40px; border-radius: var(--radius-full); display: grid; place-items: center; flex: none; background: var(--color-bg-muted); }
+  .notif-ico.t-warning { background: var(--color-bg-warning-soft); color: var(--color-status-warning); }
+  .notif-ico.t-success { background: var(--color-bg-success-soft); color: var(--color-status-success); }
+  .notif-ico.t-info { background: var(--color-bg-info-soft); color: var(--color-status-info); }
+  .day { font-size: var(--text-label); font-weight: var(--font-weight-bold); color: var(--color-text-secondary); margin: var(--space-3) 0 var(--space-1); }
+  .wrap-max { max-width: 760px; }
+</style>
+</head>
+<body data-shell="volunteer" data-active="notif">
+<main id="main">
+  <div class="wrap-max">
+    <div class="page-head"><div class="page-title"><h1>নোটিফিকেশন</h1><p class="page-sub">অফিসের সব বার্তা এখানে আসে (SMS বা হোয়াটসঅ্যাপে নয়)</p></div></div>
+    <div class="tabs" role="tablist" aria-label="নোটিফিকেশন ও সিঙ্ক">
+      <button class="tab" role="tab" id="t-inbox" aria-controls="p-inbox" aria-selected="true">ইনবক্স <span class="tab-count tnum">3</span></button>
+      <button class="tab" role="tab" id="t-sync" aria-controls="p-sync">সিঙ্ক অবস্থা <span class="tab-count tnum">2</span></button>
+      <button class="tab" role="tab" id="t-pref" aria-controls="p-pref">সেটিং</button>
+    </div>
+
+    <section id="p-inbox" role="tabpanel" aria-labelledby="t-inbox">
+      <div class="spread" style="margin-bottom:8px">
+        <div class="chips" data-chip-group role="group" aria-label="ফিল্টার">
+          <button class="chip" type="button" aria-pressed="true" data-value="all">সব</button>
+          <button class="chip" type="button" aria-pressed="false" data-value="unread">না পড়া <span class="chip-count">3</span></button>
+        </div>
+        <button class="btn btn-ghost btn-sm" type="button" id="mark-all"><i data-icon="check-check"></i>সব পড়া হয়েছে</button>
+      </div>
+      <div class="card" style="padding:4px">
+        <div class="day" style="padding:0 12px">আজ</div>
+        <a class="notif is-unread" href="04-my-applications.html#APP-2026-000184"><span class="notif-ico t-warning"><i data-icon="pencil-line"></i></span><div class="grow"><div class="notif-title">আবেদন সংশোধন করতে হবে</div><div class="caption muted">আমেনা খাতুন (নমুনা): পরিবারের সদস্য সংখ্যা মিলছে না</div><div class="caption muted tnum">14:20</div></div><span class="unread-dot" aria-label="না পড়া"></span></a>
+        <a class="notif is-unread" href="02-volunteer-home.html"><span class="notif-ico t-info"><i data-icon="file-check"></i></span><div class="grow"><div class="notif-title">নতুন প্রকল্পে যুক্ত হয়েছেন: ইফতার বিতরণ 2027</div><div class="caption muted">নিয়মাবলিতে সম্মতি দিন</div><div class="caption muted tnum">11:02</div></div><span class="unread-dot" aria-label="না পড়া"></span></a>
+        <a class="notif is-unread" href="04-my-applications.html#APP-2026-000101"><span class="notif-ico t-success"><i data-icon="circle-check"></i></span><div class="grow"><div class="notif-title">আবেদন অনুমোদিত হয়েছে</div><div class="caption muted">মরিয়ম বিবি (নমুনা) · APP-2026-000101</div><div class="caption muted tnum">09:45</div></div><span class="unread-dot" aria-label="না পড়া"></span></a>
+        <div class="day" style="padding:0 12px">গতকাল</div>
+        <a class="notif" href="05-today-distribution.html"><span class="notif-ico"><i data-icon="package"></i></span><div class="grow"><div class="notif-title">আজকের বিতরণের তালিকা তৈরি</div><div class="caption muted">12 জন উপকারভোগী · বনগাঁও ও কাউন্দিয়া</div><div class="caption muted tnum">09-10-2026 18:30</div></div></a>
+        <a class="notif" href="04-my-applications.html"><span class="notif-ico t-warning"><i data-icon="calendar-clock"></i></span><div class="grow"><div class="notif-title">আবেদনের শেষ তারিখ ঘনিয়ে আসছে</div><div class="caption muted">শীতবস্ত্র বিতরণ 2026 · আর 3 দিন</div><div class="caption muted tnum">09-10-2026 08:00</div></div></a>
+      </div>
+    </section>
+
+    <section id="p-sync" role="tabpanel" aria-labelledby="t-sync" hidden>
+      <div class="grid-stats" style="margin-bottom:16px">
+        <div class="card"><div class="stat-label">অপেক্ষমাণ</div><div class="stat-value" id="n-pending">4</div></div>
+        <div class="card"><div class="stat-label">ব্যর্থ</div><div class="stat-value" id="n-failed">2</div></div>
+        <div class="card"><div class="stat-label">আজ সিঙ্ক হয়েছে</div><div class="stat-value">27</div></div>
+        <div class="card"><div class="stat-label">শেষ সিঙ্ক</div><div class="stat-value">10:12</div></div>
+      </div>
+      <div class="card stack" style="margin-bottom:16px">
+        <div>
+          <div class="progress-label"><span>ছবির জায়গা (এই ফোন)</span><span class="tnum">38 MB / 200 MB</span></div>
+          <div class="progress" role="progressbar" aria-valuenow="38" aria-valuemax="200" aria-valuetext="200 MB-এর মধ্যে 38 MB"><span style="width:19%"></span></div>
+          <p class="caption muted" style="margin-top:6px">iPhone-এ সীমা 100 MB। iPhone-এ পটভূমিতে সিঙ্ক হয় না; অ্যাপ খুললে ও নেটওয়ার্ক ফিরলে সিঙ্ক হয়।</p>
+        </div>
+        <button class="btn btn-primary" type="button" id="sync-now"><i data-icon="refresh-cw"></i>এখনই সিঙ্ক করুন</button>
+      </div>
+      <h2 class="section-title">ব্যর্থ রেকর্ড</h2>
+      <div class="stack-sm" id="failed">
+        <div class="attention t-danger"><i data-icon="cloud-alert"></i><div class="grow"><div class="attention-title">ছবি আপলোড ব্যর্থ</div><div>জোবেদা খাতুন (নমুনা) · বিতরণের ছবি · 412 KB</div><div class="attention-meta">নেটওয়ার্ক বিচ্ছিন্ন হয়েছিল · 3 বার চেষ্টা হয়েছে · পরের চেষ্টা 10 মিনিট পরে</div></div><button class="btn btn-secondary btn-sm" type="button" data-retry>আবার চেষ্টা</button></div>
+        <div class="attention t-warning"><i data-icon="git-compare"></i><div class="grow"><div class="attention-title">সার্ভারে নতুন তথ্য আছে</div><div>APP-2026-000101 অনুমোদিত হয়েছে, তাই আপনার পরিবর্তন রাখা হয়নি (অনুমোদিত তথ্যে সার্ভারের মানই থাকে)</div><div class="attention-meta">আপনার পরিবর্তন: মোবাইল নম্বর · লগে সংরক্ষিত</div></div><button class="btn btn-secondary btn-sm" type="button" data-retry>বুঝেছি</button></div>
+      </div>
+      <h2 class="section-title" style="margin-top:16px">অপেক্ষমাণ</h2>
+      <div class="card"><ul class="list-plain">
+        <li class="list-row"><i data-icon="file-text"></i><div class="grow">করিমন নেছা (নমুনা): নতুন আবেদন</div><span class="badge"><i data-icon="clock"></i>অপেক্ষমাণ</span></li>
+        <li class="list-row"><i data-icon="package"></i><div class="grow">জোবেদা খাতুন (নমুনা): বিতরণ</div><span class="badge"><i data-icon="clock"></i>অপেক্ষমাণ</span></li>
+        <li class="list-row"><i data-icon="image"></i><div class="grow">2টি ছবি (মোট 690 KB)</div><span class="badge"><i data-icon="clock"></i>লেখার পরে যাবে</span></li>
+      </ul></div>
+    </section>
+
+    <section id="p-pref" role="tabpanel" aria-labelledby="t-pref" hidden>
+      <div class="card">
+        <div class="row-item"><div class="row-text"><label class="strong" for="pref-push">এই ফোনে পুশ নোটিফিকেশন</label><div class="row-desc">ফোন লক থাকলেও নতুন বার্তার খবর পাবেন; বার্তার বিস্তারিত দেখাবে না</div></div><span class="switch-hit"><input class="switch" type="checkbox" role="switch" id="pref-push"></span></div>
+        <div class="row-item"><div class="row-text"><label class="strong" for="pref-hijri">তারিখের পাশে হিজরি তারিখ</label><div class="row-desc">ডিফল্টে বন্ধ</div></div><span class="switch-hit"><input class="switch" type="checkbox" role="switch" id="pref-hijri"></span></div>
+        <div class="row-item"><div class="row-text"><span class="strong">ভাষা</span><div class="row-desc">সংখ্যা সবসময় ইংরেজি অঙ্কে</div></div><div class="segmented" role="group" aria-label="ভাষা"><button type="button" aria-pressed="true">বাংলা</button><button type="button" aria-pressed="false" data-lang>English</button></div></div>
+      </div>
+    </section>
+  </div>
+</main>
+<script src="icons.js"></script>
+<script src="mockup.js"></script>
+<script>
+document.addEventListener('mock:ready', function () {
+  if (location.hash === '#sync') window.mockSelectTab('t-sync');
+  document.getElementById('mark-all').addEventListener('click', function () {
+    document.querySelectorAll('.notif.is-unread').forEach(function (n) { n.classList.remove('is-unread'); var d = n.querySelector('.unread-dot'); if (d) d.remove(); });
+    mockToast('সব নোটিফিকেশন পড়া হিসেবে চিহ্নিত');
+  });
+  document.addEventListener('mock:chip', function (e) {
+    document.querySelectorAll('.notif').forEach(function (n) { n.hidden = e.detail === 'unread' && !n.classList.contains('is-unread'); });
+  });
+  document.getElementById('failed').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-retry]'); if (!b) return;
+    b.closest('.attention').remove();
+    var n = document.getElementById('n-failed'); n.textContent = Math.max(0, Number(n.textContent) - 1);
+    mockToast('ঠিক আছে');
+  });
+  document.getElementById('sync-now').addEventListener('click', function () {
+    if (document.body.classList.contains('is-offline')) { mockToast('অফলাইনে সিঙ্ক করা যায় না; নেটওয়ার্ক ফিরলে নিজেই হবে'); return; }
+    document.getElementById('n-pending').textContent = '0'; mockToast('সিঙ্ক সম্পন্ন: 4টি রেকর্ড পাঠানো হয়েছে');
+  });
+});
+</script>
+</body>
+</html>

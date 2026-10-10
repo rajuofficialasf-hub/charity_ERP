@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>উপকারভোগী 360 · মকআপ</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<style>
+  .profile-head { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: flex-start; }
+  .profile-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-left: auto; }
+  @media (max-width: 639px) { .profile-actions { margin-left: 0; width: 100%; } .profile-actions .btn { flex: 1 1 auto; } }
+  .compare { display: grid; gap: var(--space-2); grid-template-columns: minmax(0, 1fr); }
+  .compare-row { border: 1px solid var(--color-border-default); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); }
+  .compare-row .k { font-size: var(--text-label); font-weight: var(--font-weight-bold); color: var(--color-text-secondary); }
+  .compare-opts { display: grid; gap: 0 var(--space-3); grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 640px) { .compare-opts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .compare-head { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); } }
+  .compare-head { font-weight: var(--font-weight-bold); margin-bottom: var(--space-2); }
+</style>
+</head>
+<body data-shell="official" data-active="beneficiary" data-user-name="রাশেদ কবির (নমুনা)" data-user-initials="রা" data-user-role="RPM · ঢাকা রিজিওন">
+<main id="main">
+  <nav class="breadcrumb" aria-label="অবস্থান"><ol><li><a href="#" data-toast="উপকারভোগী ট্যাব (তালিকা) এই মকআপ সেটে আলাদা নেই">উপকারভোগী</a></li><li aria-current="page">আমেনা খাতুন (নমুনা)</li></ol></nav>
+  <div class="card" style="margin-bottom:16px">
+    <div class="profile-head">
+      <span class="avatar avatar-lg">আ</span>
+      <div class="grow">
+        <h1>আমেনা খাতুন (নমুনা)</h1>
+        <div class="caption muted tnum">BEN 0192a3b4-7c1e-7d20-9a55-1f0e00000001</div>
+        <div class="cluster" style="margin-top:6px"><span class="badge t-success"><i data-icon="circle-check"></i>সক্রিয়</span><span class="badge t-info"><i data-icon="camera"></i>মিডিয়া সম্মতি: ওয়েবসাইট, ফেসবুক</span><span class="badge t-warning"><i data-icon="copy"></i>সম্ভাব্য ডুপ্লিকেট 1টি</span></div>
+      </div>
+      <div class="profile-actions">
+        <button class="btn btn-secondary btn-sm" type="button" data-open="correction"><i data-icon="file-pen-line"></i>সংশোধনের অনুরোধ</button>
+        <button class="btn btn-secondary btn-sm" type="button" data-toast="অবস্থা বদল: মৃত্যু বা স্থানান্তর, কারণসহ (মকআপ)"><i data-icon="user-cog"></i>অবস্থা বদলান</button>
+        <button class="btn btn-ghost btn-sm" type="button" data-toast="ব্লকলিস্টে দিতে কারণ লাগবে (মকআপ)"><i data-icon="ban"></i>ব্লকলিস্ট</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs" role="tablist" aria-label="প্রোফাইলের অংশ">
+    <button class="tab" role="tab" id="bt-over" aria-controls="bp-over" aria-selected="true">সারসংক্ষেপ</button>
+    <button class="tab" role="tab" id="bt-apps" aria-controls="bp-apps">আবেদন ও সহায়তা <span class="tab-count tnum">3</span></button>
+    <button class="tab" role="tab" id="bt-photos" aria-controls="bp-photos">ছবি</button>
+    <button class="tab" role="tab" id="bt-follow" aria-controls="bp-follow">ফলো-আপ</button>
+    <button class="tab" role="tab" id="bt-log" aria-controls="bp-log">পরিবর্তনের লগ</button>
+    <button class="tab" role="tab" id="bt-dup" aria-controls="bp-dup">সম্ভাব্য ডুপ্লিকেট <span class="tab-count tnum">1</span></button>
+  </div>
+
+  <div id="bp-over" role="tabpanel" aria-labelledby="bt-over">
+    <div class="grid grid-2">
+      <div class="card"><h2 class="card-title">পরিচয় ও যোগাযোগ</h2><dl class="kv">
+        <dt>NID</dt><dd class="tnum">1000000001 <i data-icon="lock" data-class="icon-sm"></i></dd>
+        <dt>পিতা/স্বামী</dt><dd>মৃত আব্দুল হক (নমুনা) <i data-icon="lock" data-class="icon-sm"></i></dd>
+        <dt>মোবাইল</dt><dd class="tnum">01700000123</dd>
+        <dt>লিঙ্গ</dt><dd>মহিলা</dd>
+        <dt>জন্ম তারিখ</dt><dd class="tnum">05-03-1968</dd>
+        <dt>ঠিকানা</dt><dd>বনগাঁও, বনগাঁও ইউনিয়ন, সাভার, ঢাকা</dd>
+        <dt>ধরন</dt><dd>বিধবা</dd>
+      </dl><p class="caption muted" style="margin-top:8px"><i data-icon="lock" data-class="icon-sm"></i> লক করা তথ্য বদলায় শুধু সংশোধনের অনুরোধ অনুমোদিত হলে।</p></div>
+      <div class="card"><h2 class="card-title">পরিবার <span class="caption muted tnum">(5 জন)</span></h2>
+        <div class="table-wrap" style="box-shadow:none"><table class="table">
+          <thead><tr><th scope="col">নাম</th><th scope="col">সম্পর্ক</th><th scope="col" class="num">বয়স</th></tr></thead>
+          <tbody>
+            <tr><td class="cell-title" data-label="নাম">রফিক (নমুনা)</td><td data-label="সম্পর্ক">ছেলে</td><td data-label="বয়স" class="num">24</td></tr>
+            <tr><td class="cell-title" data-label="নাম">শিরিন (নমুনা)</td><td data-label="সম্পর্ক">পুত্রবধূ</td><td data-label="বয়স" class="num">21</td></tr>
+            <tr><td class="cell-title" data-label="নাম">তানিয়া (নমুনা)</td><td data-label="সম্পর্ক">নাতনি</td><td data-label="বয়স" class="num">4</td></tr>
+            <tr><td class="cell-title" data-label="নাম">সুমন (নমুনা)</td><td data-label="সম্পর্ক">ছেলে</td><td data-label="বয়স" class="num">17</td></tr>
+          </tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="bp-apps" role="tabpanel" aria-labelledby="bt-apps" hidden>
+    <div class="card"><ol class="timeline">
+      <li class="is-current"><span class="dot"></span><div class="step-title">স্বাবলম্বী 2026 · <span class="tnum">APP-2026-000301</span></div><div class="step-meta">রিভিউ চলছে · স্বেচ্ছাসেবক: সাকিব হাসান (নমুনা)</div></li>
+      <li class="is-done"><span class="dot"><i data-icon="check"></i></span><div class="step-title">শীতবস্ত্র বিতরণ 2025 · <span class="tnum">APP-2025-004112</span></div><div class="step-meta tnum">বিতরণ হয়েছে: 1টি কম্বল · 14-12-2025</div></li>
+      <li class="is-done"><span class="dot"><i data-icon="check"></i></span><div class="step-title">ইফতার বিতরণ 2024 · <span class="tnum">APP-2024-001877</span></div><div class="step-meta tnum">বিতরণ হয়েছে: ইফতার প্যাকেট · 22-03-2024</div></li>
+    </ol>
+    <div class="cluster" style="margin-top:16px"><button class="btn btn-secondary btn-sm" type="button" data-toast="উপকারভোগীর যাত্রা রিপোর্ট (PDF) তৈরি হচ্ছে (মকআপ)"><i data-icon="file-down"></i>যাত্রা রিপোর্ট</button></div></div>
+  </div>
+
+  <div id="bp-photos" role="tabpanel" aria-labelledby="bt-photos" hidden>
+    <div class="card"><div class="photos">
+      <button class="photo" type="button" data-toast="ছবির পূর্ণ তথ্য (মকআপ)"><i data-icon="image"></i><span class="badge t-success"><i data-icon="shield-check"></i>যাচাইকৃত</span><span class="stamp">14-12-2025 10:22<br>23.8456, 90.2567</span></button>
+      <button class="photo" type="button" data-toast="ছবির পূর্ণ তথ্য (মকআপ)"><i data-icon="image"></i><span class="badge t-success"><i data-icon="shield-check"></i>যাচাইকৃত</span><span class="stamp">22-03-2024 17:40<br>23.8455, 90.2569</span></button>
+      <button class="photo" type="button" data-toast="ছবির পূর্ণ তথ্য (মকআপ)"><i data-icon="image"></i><span class="badge t-warning"><i data-icon="flag"></i>সংকেত</span><span class="stamp">04-10-2026 09:10<br>লোকেশন নেই</span></button>
+    </div></div>
+  </div>
+
+  <div id="bp-follow" role="tabpanel" aria-labelledby="bt-follow" hidden>
+    <p class="caption muted"><i data-icon="info" data-class="icon-sm"></i> ফলো-আপ মূল্যায়ন Phase 5-এ তৈরি হবে; কোনো নির্দিষ্ট সময়সূচি নেই</p>
+    <div class="card"><div class="empty"><i data-icon="message-square-text" data-class="icon-lg"></i><h3>এখনো কোনো ফলো-আপ নেই</h3><p>খোঁজ নিলে মূল্যায়ন যোগ করুন।</p><button class="btn btn-secondary" type="button" data-toast="ফলো-আপ মূল্যায়ন যোগ (মকআপ)">মূল্যায়ন যোগ করুন</button></div></div>
+  </div>
+
+  <div id="bp-log" role="tabpanel" aria-labelledby="bt-log" hidden>
+    <div class="card"><ul class="list-plain">
+      <li class="list-row" style="align-items:flex-start"><i data-icon="history"></i><div class="grow"><div><strong>মোবাইল:</strong> <span class="tnum">"01700000999"</span> থেকে <span class="tnum">"01700000123"</span></div><div class="caption muted tnum">স্বেচ্ছাসেবক সাকিব হাসান · নতুন আবেদনের সময় · 04-10-2026</div></div></li>
+      <li class="list-row" style="align-items:flex-start"><i data-icon="history"></i><div class="grow"><div><strong>ঠিকানা (গ্রাম):</strong> "বনগাও" থেকে "বনগাঁও"</div><div class="caption muted tnum">ইমরান হোসেন, প্রজেক্ট এক্সিকিউটিভ · 10-12-2025</div></div></li>
+    </ul></div>
+  </div>
+
+  <div id="bp-dup" role="tabpanel" aria-labelledby="bt-dup" hidden>
+    <div class="card">
+      <div class="spread">
+        <div><div class="strong">আমেনা বেগম (নমুনা) · <span class="tnum">BEN 0192a3b4-…-0000000044</span></div><div class="caption muted">মিলেছে: নাম + পিতার নাম + একই মোবাইল · জন্ম নিবন্ধন দিয়ে তৈরি, 2023</div></div>
+        <button class="btn btn-primary btn-sm" type="button" data-open="merge"><i data-icon="git-merge"></i>তুলনা ও মার্জ</button>
+      </div>
+    </div>
+    <p class="caption muted" style="margin-top:8px">মার্জ করতে পারেন PM, মনিটরিং টিম ও ডিপার্টমেন্ট হেড; RPM প্রস্তাব দিতে পারেন। মনিটরিং টিম মার্জ ফেরত নিতে পারে।</p>
+  </div>
+</main>
+
+<dialog class="modal modal-lg" id="merge" aria-labelledby="mg-title" data-reason>
+  <div class="sheet-handle"></div>
+  <div class="modal-head"><h2 id="mg-title">দুটি প্রোফাইল তুলনা</h2><button class="icon-btn" type="button" data-close><i data-icon="x"></i><span class="sr-only">বন্ধ করুন</span></button></div>
+  <div class="modal-body">
+    <div class="compare-head hide-phone"><div>রাখা হবে: BEN …0001</div><div>অবসর হবে: BEN …0044</div></div>
+    <div class="compare">
+      <fieldset class="compare-row"><legend class="k">নাম</legend><div class="compare-opts"><label class="choice"><input type="radio" name="m-name" checked> আমেনা খাতুন (নমুনা)</label><label class="choice"><input type="radio" name="m-name"> আমেনা বেগম (নমুনা)</label></div></fieldset>
+      <fieldset class="compare-row"><legend class="k">পরিচয়</legend><div class="compare-opts"><label class="choice"><input type="radio" name="m-id" checked> <span class="tnum">NID 1000000001</span></label><label class="choice"><input type="radio" name="m-id"> <span class="tnum">জন্ম নিবন্ধন 19680000000000044</span></label></div></fieldset>
+      <fieldset class="compare-row"><legend class="k">মোবাইল</legend><div class="compare-opts"><label class="choice"><input type="radio" name="m-mob" checked> <span class="tnum">01700000123</span></label><label class="choice"><input type="radio" name="m-mob"> <span class="tnum">01700000123</span></label></div></fieldset>
+      <fieldset class="compare-row"><legend class="k">ঠিকানা</legend><div class="compare-opts"><label class="choice"><input type="radio" name="m-addr" checked> বনগাঁও, সাভার</label><label class="choice"><input type="radio" name="m-addr"> বনগাঁও, সাভার</label></div></fieldset>
+    </div>
+    <div class="alert" style="margin:12px 0"><i data-icon="info"></i><div>দুটি আইডিই খোঁজা যাবে; অবসর হওয়া BEN রাখা প্রোফাইলের দিকে নির্দেশ করবে। সব আবেদন রাখা প্রোফাইলে যাবে।</div></div>
+    <div class="field mb-0"><label class="field-label" for="mg-reason">কারণ <span class="req">(আবশ্যক)</span></label><textarea class="textarea" id="mg-reason" required></textarea></div>
+  </div>
+  <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>বাতিল</button><button class="btn btn-primary" type="button" data-confirm id="mg-confirm">মার্জ করুন</button></div>
+</dialog>
+
+<dialog class="modal modal-sm" id="correction" aria-labelledby="co-title" data-reason>
+  <div class="sheet-handle"></div>
+  <div class="modal-head"><h2 id="co-title">লক করা তথ্য সংশোধন</h2><button class="icon-btn" type="button" data-close><i data-icon="x"></i><span class="sr-only">বন্ধ করুন</span></button></div>
+  <div class="modal-body">
+    <div class="field"><label class="field-label" for="co-field">কোন তথ্য</label><select class="select" id="co-field"><option>নাম</option><option>পিতা/স্বামীর নাম</option><option>NID</option></select></div>
+    <div class="field"><label class="field-label" for="co-new">সঠিক মান</label><input class="input" id="co-new"></div>
+    <div class="field mb-0"><label class="field-label" for="co-reason">কারণ <span class="req">(আবশ্যক)</span></label><textarea class="textarea" id="co-reason" required></textarea></div>
+  </div>
+  <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>বাতিল</button><button class="btn btn-primary" type="button" data-confirm data-close data-toast="সংশোধনের অনুরোধ জমা হয়েছে; অনুমোদনের পর বদলাবে">অনুরোধ পাঠান</button></div>
+</dialog>
+
+<script src="icons.js"></script>
+<script src="mockup.js"></script>
+<script>
+document.addEventListener('mock:ready', function () {
+  document.getElementById('mg-confirm').addEventListener('click', function () {
+    document.getElementById('merge').close();
+    document.getElementById('bp-dup').innerHTML = '<div class="alert t-success"><svg class="icon" aria-hidden="true"><use href="#i-circle-check"></use></svg><div><div class="alert-title">মার্জ সম্পন্ন</div><p class="tnum">BEN …0044 এখন BEN …0001-এর দিকে নির্দেশ করে। অডিট লগে যোগ হয়েছে; মনিটরিং টিম ফেরত নিতে পারে।</p></div></div>';
+    mockToast('প্রোফাইল মার্জ হয়েছে');
+  });
+});
+</script>
+</body>
+</html>
