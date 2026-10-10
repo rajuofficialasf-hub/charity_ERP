@@ -6,7 +6,8 @@ The items below are still to be supplied by the owner. Drop each file where show
 
 | Done | What | Put it in | Needed by |
 |---|---|---|---|
-| [ ] | Logo (SVG preferred, otherwise PNG with a transparent background) and the brand colours as hex codes; the owner confirmed on 2026-10-10 that both exist | `docs/ui/brand/` (colours may be typed in chat; Claude writes `colors.md`) | T0.19b, T1.4 |
+| [x] | Logo file. Supplied as `docs/ui/brand/logo.png` (300 by 196 px). An SVG or a PNG at least 1000 px wide is still wanted for the login screen and PDF exports. The colours and fonts were taken from the website on 2026-10-10, see `docs/ui/brand/colors.md` | `docs/ui/brand/` | T0.19b, T1.4 |
+| [ ] | Font files UbuntuSans.woff2, Bornomala-Regular.woff2 and Bornomala-Bold.woff2 from the website's /fonts/ folder, with the Ubuntu Font Licence text; the owner confirms the Bornomala licence | `docs/ui/brand/fonts/` | T0.19b, T1.4 |
 | [ ] | SOP v2.3 (September 2026) as Markdown or PDF | `docs/source/SOP_v2.3_BN.md` or `.pdf` | T0.4, T1.13, T5.4 |
 | [ ] | Qurbani donor sheet sample (SSL format, 5-10 rows, names and phone numbers replaced) and the field list of the cash-donor form | `docs/source/samples/` | T4.4 |
 | [ ] | Exports of the current volunteer registration form and the two application forms, plus a few filled, anonymized samples | `docs/source/samples/` | T2.3, T2.9 |

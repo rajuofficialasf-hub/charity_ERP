@@ -1,11 +1,13 @@
 # CSS ERP — Claude Code দিয়ে পূর্ণাঙ্গ ডেভেলপমেন্ট প্ল্যান ও ধাপে ধাপে প্রম্পট
 
 **আস-সুন্নাহ ফাউন্ডেশন · চ্যারিটি এন্ড সোশ্যাল সার্ভিস ডিপার্টমেন্ট**
-সংস্করণ ১.২ · ১০ অক্টোবর ২০২৬
+সংস্করণ ১.৩ · ১০ অক্টোবর ২০২৬
 
 > **১.১-এ যা বদলেছে:** রিপোজিটরি `D:\Charity Website\Charity_ERP`-এ প্রস্তুত ও GitHub-এ যুক্ত (M2 ও M3 সম্পন্ন, push হয়েছে) · প্রস্তাবিত Node.js 22 → 24 LTS (আপনার মেশিনে ২৪ আছে) · `/css-start` প্রথম দিনে DECISION_LOG না থাকলেও ঠিকমতো চলে · ব্লুপ্রিন্টের Markdown রূপ নতুন করে বানানো: ক্রমিক তালিকা, ৮১টি উপ-শিরোনাম ও ছবির ক্যাপশন ঠিক, মূল docx-এর সাথে অনুচ্ছেদ ধরে মিলিয়ে যাচাই করা।
 >
 > **১.২-এ যা বদলেছে:** ডিজাইন ইন্টারভিউ হয়েছে: ১২টি সিদ্ধান্ত (UX-01…12) `docs/ui/DESIGN_BRIEF.md`-এ · আপনার Figma নেই, তাই নতুন টাস্ক T0.19b: ব্রাউজারে দেখার HTML মকআপ (মোট টাস্ক ৭৮) · মাস্টার প্রম্পটে সংশোধন: সংখ্যা সবসময় ইংরেজি অঙ্কে, অফিসিয়ালরা ফোন ও ডেস্কটপ সমান ব্যবহার করেন, কিছু স্বেচ্ছাসেবক আইফোন ব্যবহার করেন · লোগো ও ব্র্যান্ডের রং আপনার দেওয়ার তালিকায়।
+>
+> **১.৩-এ যা বদলেছে:** রং ও ফন্ট ওয়েবসাইট থেকে নেওয়া হয়েছে (UX-01, UX-13): প্রধান সবুজ `#008E48`, গাঢ় সবুজ `#0F2920`, সোনালি `#E8B65D`; ফন্ট `UbuntuSans, Bornomala, sans-serif`, ওজন ৪০০ ও ৭০০ (Hind Siliguri বাদ) · ছোট লেখার জন্য গাঢ়তর সবুজ `#007B3E`, কারণ `#008E48`-এ সাদা লেখার কনট্রাস্ট ৪.২৩, যা AA-এর ৪.৫-এর নিচে · বিস্তারিত `docs/ui/brand/colors.md`-এ · Bornomala ফন্টের লাইসেন্স নিশ্চিত করা বাকি। আপনার দেওয়া লোগো `docs/ui/brand/logo.png`-এ আছে (৩০০×১৯৬ px, স্বচ্ছ পটভূমি); লগইন পর্দা ও ছাপা রিপোর্টের জন্য SVG বা বড় PNG চাই।
 
 উৎস ডকুমেন্ট (তিনটিই পুরো পড়ে বিশ্লেষণ করা হয়েছে):
 
@@ -77,7 +79,7 @@
 | l | P6.17 admin লাইব্রেরির শেষে, কিন্তু রোডম্যাপ Phase 1-এ "admin settings" এবং নিসাব ভার্সনিং Phase 4-এর আগে দরকার | মাস্টার §8 Phase 1 | T1.13 core admin; T6.2 বাকি অংশ |
 | m | এক্সপোর্ট রোডম্যাপে Phase 2, লাইব্রেরিতে শুধু P6.16 (শেষে) | মাস্টার §8 Phase 2 | T2.8 এক্সপোর্ট সার্ভিস, ফিল্ড-লেভেল সুরক্ষাসহ |
 | n | নামের ভিন্নতা: "মনিটরিং অফিসার" (ব্লুপ্রিন্ট) = "Monitoring Team" (মাস্টার); RM = RPM; প্রজেক্ট অফিসার = প্রজেক্ট এক্সিকিউটিভ | পরিশিষ্ট ক, A৪ | CLAUDE.md-এ সমার্থক হিসেবে লেখা; কোড ও ডকে মাস্টার §5-এর ইংরেজি নাম |
-| o | Figma নেই (মালিক ১০ অক্টোবর জানিয়েছেন), অথচ মাস্টার §12 "approved mockups" বলত; SOP v2.3-এর পূর্ণ টেক্সট নেই (শুধু সারাংশ); কুরবানী SSL শীটের নমুনা নেই | মাস্টার §12, §17; ব্লুপ্রিন্ট A১০, A৮.৬ | ডিজাইন ইন্টারভিউ থেকে `docs/ui/DESIGN_BRIEF.md`; T0.19b-তে ব্রাউজারে দেখার HTML মকআপ; লোগো ও ব্র্যান্ড রং `docs/ui/brand/`-এ; SOP `docs/source/`, নমুনা শীট `docs/source/samples/`; না থাকলে সংশ্লিষ্ট টাস্কে Claude জিজ্ঞেস করবে |
+| o | Figma নেই (মালিক ১০ অক্টোবর জানিয়েছেন), অথচ মাস্টার §12 "approved mockups" বলত; SOP v2.3-এর পূর্ণ টেক্সট নেই (শুধু সারাংশ); কুরবানী SSL শীটের নমুনা নেই | মাস্টার §12, §17; ব্লুপ্রিন্ট A১০, A৮.৬ | ডিজাইন ইন্টারভিউ থেকে `docs/ui/DESIGN_BRIEF.md`; T0.19b-তে ব্রাউজারে দেখার HTML মকআপ; রং ও ফন্ট ওয়েবসাইট থেকে নেওয়া (`docs/ui/brand/colors.md`), লোগো `docs/ui/brand/`-এ; SOP `docs/source/`, নমুনা শীট `docs/source/samples/`; না থাকলে সংশ্লিষ্ট টাস্কে Claude জিজ্ঞেস করবে |
 
 ### ১.৩ যা ভালো আছে (বদলানো হয়নি)
 
@@ -110,7 +112,7 @@
 | "টেস্ট পাশ করেছে" দাবি | CLAUDE.md: আউটপুটসহ দেখাতে হবে; আপনি নিজে `pnpm test` চালান; CI সবুজ |
 | NID/ব্যাংক/ডোনার ডেটা ফাঁস | authorization-matrix টেস্ট (T1.8), এক্সপোর্টেও একই ফিল্টার (T2.8), security audit (T6.3) |
 | বিতরণের দিনে ২,০০০ স্বেচ্ছাসেবক | k6 লোড টেস্ট পাইলটের আগে (T3.4), পেজিনেশন ও ক্যাশিং (NFR) |
-| বাইরের নির্ভরতা: লোকেশন ডেটা, SMS প্রোভাইডার, SMTP, সার্ভার, লোগো ও ব্র্যান্ড রং, SOP, ডোনার শীট | §৩ M4 তালিকা; যে টাস্কে দরকার সেখানে উল্লেখ |
+| বাইরের নির্ভরতা: লোকেশন ডেটা, SMS প্রোভাইডার, SMTP, সার্ভার, লোগো ও ফন্ট ফাইল, SOP, ডোনার শীট | §৩ M4 তালিকা; যে টাস্কে দরকার সেখানে উল্লেখ |
 | ব্লুপ্রিন্ট বদলালে Claude পুরোনো তথ্যে কাজ করবে | `docs/source/ERP_BLUEPRINT_BN.md` হালনাগাদ + `/css-change` দিয়ে প্রভাব বিশ্লেষণ |
 | লম্বা টাস্কে context শেষ হয়ে যাওয়া | টাস্ক ভাঙা, `/compact`, STATUS.md-এ অগ্রগতি লিখে রাখা; বড় টাস্কগুলো (T2.3–T2.7) দুই সেশনে করা স্বাভাবিক |
 
@@ -199,7 +201,7 @@ css-erp/
 
 **ঝ. যখন Claude ভুল পথে যায়।** `Esc` দিয়ে থামান; `/css-fix` দিয়ে কোথায় ব্লুপ্রিন্টের সাথে মিলছে না বলুন; কখনো "যেভাবে হোক চালিয়ে দাও" বলবেন না — মাস্টার §2-এর "no silent change" তখন ভাঙে। নতুন ব্যবসায়িক নিয়ম Claude নিজে বানাবে না; বানালে সেটা bug হিসেবে ধরুন।
 
-**ঞ. মকআপ (Figma নেই)।** আপনার Figma ফাইল নেই, তাই T0.19b-তে Claude ব্রাউজারে ক্লিক করে দেখা যায় এমন HTML মকআপ বানাবে: `docs/ui/mockups/index.html` ব্রাউজারে খুলুন এবং ফোন ও ডেস্কটপ মাপে দেখুন। লোগো ও ব্র্যান্ডের রং `docs/ui/brand/`-এ রাখুন, অথবা রঙের hex কোড চ্যাটে লিখে দিন। মতামত দিয়ে ঠিক করিয়ে অনুমোদন দিন। ডিজাইনের সিদ্ধান্তগুলো `docs/ui/DESIGN_BRIEF.md`-এ।
+**ঞ. মকআপ (Figma নেই)।** আপনার Figma ফাইল নেই, তাই T0.19b-তে Claude ব্রাউজারে ক্লিক করে দেখা যায় এমন HTML মকআপ বানাবে: `docs/ui/mockups/index.html` ব্রাউজারে খুলুন এবং ফোন ও ডেস্কটপ মাপে দেখুন। রং ও ফন্ট ওয়েবসাইট থেকে নেওয়া হয়েছে (`docs/ui/brand/colors.md`); লোগো ও ফন্ট ফাইল `docs/ui/brand/`-এ রাখুন। মতামত দিয়ে ঠিক করিয়ে অনুমোদন দিন। ডিজাইনের সিদ্ধান্তগুলো `docs/ui/DESIGN_BRIEF.md`-এ।
 
 ### ২.৪ ফেজ, গেট ও টাস্ক-ম্যাপ
 
@@ -235,7 +237,8 @@ css-erp/
 
 | কী | কোথায় রাখবেন | কোন টাস্কে লাগবে |
 |---|---|---|
-| লোগো (SVG হলে ভালো, নয়তো স্বচ্ছ পটভূমির PNG) ও ব্র্যান্ডের রঙের hex কোড। আপনি জানিয়েছেন দুটোই আছে (১০ অক্টোবর); রং চ্যাটে লিখলে Claude `colors.md` বানিয়ে দেবে | `docs/ui/brand/` | T0.19b, T1.4 |
+| লোগো ✅ দেওয়া হয়েছে (`docs/ui/brand/logo.png`, ৩০০×১৯৬ px, স্বচ্ছ পটভূমি); লগইন পর্দা ও ছাপা রিপোর্টের জন্য SVG বা ১০০০ px-এর বেশি চওড়া PNG হলে ভালো। রং ও ফন্ট ওয়েবসাইট থেকে নেওয়া হয়ে গেছে, দেখুন `docs/ui/brand/colors.md` | `docs/ui/brand/` | T0.19b, T1.4 |
+| ফন্ট ফাইল: `UbuntuSans.woff2`, `Bornomala-Regular.woff2`, `Bornomala-Bold.woff2` আপনার ওয়েবসাইটের `/fonts/` থেকে, সাথে Ubuntu Font Licence-এর লেখা; Bornomala-র লাইসেন্স নিশ্চিত করুন | `docs/ui/brand/fonts/` | T0.19b, T1.4 |
 | SOP v2.3 (সেপ্টেম্বর ২০২৬) — Markdown/PDF | `docs/source/SOP_v2.3_BN.md` বা `.pdf` | T0.4, T1.13, T5.4 |
 | কুরবানী ডোনার SSL শীটের নমুনা (নাম-ফোন বদলে, ৫–১০ সারি) ও ক্যাশ-ডোনার গুগল ফর্মের ফিল্ড তালিকা | `docs/source/samples/` | T4.4 |
 | বর্তমান স্বেচ্ছাসেবক নিবন্ধন ফর্ম ও দুই আবেদন ফর্মের (গুগল ফর্ম) এক্সপোর্ট, কয়েকটি পূরণ করা নমুনা (anonymized) | `docs/source/samples/` | T2.3, T2.9 |
@@ -262,7 +265,7 @@ css-erp/
 
 #### T0.1 📄 স্টার্টআপ (মাস্টার §16) `[P0.1]`
 - কখন: একদম প্রথম সেশন। আগে দরকার: M1–M3 শেষ।
-- শেষে দেখে নিন: `docs/` ফোল্ডারে §3-এর সব ফাইল আছে (কিছু outline হতে পারে); DECISION_LOG-এ BD-01…49, D-050…053 ও UX-01…12; Claude-এর খোলা প্রশ্নের তালিকা; কোনো `apps/` ফোল্ডার তৈরি হয়নি।
+- শেষে দেখে নিন: `docs/` ফোল্ডারে §3-এর সব ফাইল আছে (কিছু outline হতে পারে); DECISION_LOG-এ BD-01…49, D-050…053 ও UX-01…13; Claude-এর খোলা প্রশ্নের তালিকা; কোনো `apps/` ফোল্ডার তৈরি হয়নি।
 
 ```text
 Begin the STARTUP PROCEDURE (constitution §16).
@@ -270,7 +273,7 @@ Context: docs/source/ERP_BLUEPRINT_BN.md is the owner's blueprint (auto-converte
 Deliver in this session, in this order, committing after each file so nothing is lost if the context runs out:
 1. docs/MASTER_SPEC.md — faithful English specification of the whole blueprint (Parts A, B, C, D and both appendices).
 2. docs/PROJECT_RULES.md — the constitution's process rules as a checklist.
-3. docs/MODULE_CATALOG.md; docs/BUSINESS_RULES.md (every rule as BR-nnn with its source section); docs/DECISION_LOG.md (BD-01…BD-49, each cross-referenced to the blueprint Part C question numbers ১–৪৭ and to the blueprint sections, plus the owner's design decisions UX-01 to UX-12 imported from docs/ui/DESIGN_BRIEF.md); docs/NON_FUNCTIONAL_REQUIREMENTS.md.
+3. docs/MODULE_CATALOG.md; docs/BUSINESS_RULES.md (every rule as BR-nnn with its source section); docs/DECISION_LOG.md (BD-01…BD-49, each cross-referenced to the blueprint Part C question numbers ১–৪৭ and to the blueprint sections, plus the owner's design decisions UX-01 to UX-13 imported from docs/ui/DESIGN_BRIEF.md); docs/NON_FUNCTIONAL_REQUIREMENTS.md.
 4. Outline files (headings plus one line per section on what it will contain) for every remaining document listed in constitution §3.
 5. docs/STATUS.md updated.
 Finish with the list of open questions that need my decision — only items affecting business rules, data structure, API contracts, security, permissions, workflows, money or major UX — each with your recommendation. Then stop. Do not write application code. If you cannot finish everything, say exactly which files are complete and which are outlines so I can continue with tasks T0.2–T0.6.
@@ -307,7 +310,7 @@ Do not invent rules. List gaps and ambiguities separately at the end.
 ```
 
 #### T0.5 📄 ডিসিশন লগ (সংশোধিত কাঠামো) `[P1.3]`
-- শেষে দেখে নিন: Q-01…47, BD-01…49, D-050… ও UX-01…12 মিলিয়ে চার সিরিজ; প্রতিটি BD-তে Q রেফারেন্স।
+- শেষে দেখে নিন: Q-01…47, BD-01…49, D-050… ও UX-01…13 মিলিয়ে চার সিরিজ; প্রতিটি BD-তে Q রেফারেন্স।
 
 ```text
 Rebuild docs/DECISION_LOG.md with this structure:
@@ -315,7 +318,7 @@ Rebuild docs/DECISION_LOG.md with this structure:
 2. Blueprint decisions Q-01…Q-47: one row per Part C question ১–৪৭ (C১ and C২): question, decision, status, blueprint sections affected.
 3. Constitution decisions BD-01…BD-49 (§7), each with the Q-ids it derives from (several BDs map to one Q; some BDs come from Part A/B text with no Q — cite the section instead).
 4. Technical proposals D-050… from constitution §9 (monorepo, backend, ORM and down.sql migrations, jobs, storage, SMTP/SMS adapters, dev infrastructure) with status "proposed — awaiting owner".
-5. The owner's design decisions UX-01 to UX-12 imported from docs/ui/DESIGN_BRIEF.md, status approved, source "owner interview 2026-10-10".
+5. The owner's design decisions UX-01 to UX-13 imported from docs/ui/DESIGN_BRIEF.md, status approved, source "owner interview 2026-10-10".
 6. An "Open" section listing every question you raised in T0.1 that I have not answered yet, numbered so I can answer by number.
 ```
 
@@ -436,25 +439,25 @@ Each endpoint: operationId, auth requirement, x-permission (name from docs/secur
 ```
 
 #### T0.19 📄 ডিজাইন সিস্টেম ডক ও পর্দার তালিকা `[P5.1-এর ডক অংশ]`
-- আগে দরকার: `docs/ui/DESIGN_BRIEF.md` (আছে); লোগো ও ব্র্যান্ড রং `docs/ui/brand/`-এ থাকলে ভালো, না থাকলে §12-এর টোকেন placeholder। শেষে দেখে নিন: SCREENS.md-এ §12-এর প্রতিটি key screen + প্রতি ভূমিকার My Work।
+- আগে দরকার: `docs/ui/DESIGN_BRIEF.md` ও `docs/ui/brand/colors.md` (দুটোই আছে); লোগো আছে, ফন্ট ফাইল থাকলে ভালো। শেষে দেখে নিন: SCREENS.md-এ §12-এর প্রতিটি key screen + প্রতি ভূমিকার My Work।
 
 ```text
 Create docs/ui/DESIGN_SYSTEM.md and docs/ui/SCREENS.md. Documents only; no code.
-Inputs: constitution §12 tokens and component list; docs/ui/DESIGN_BRIEF.md (the owner's decisions UX-01 to UX-12 and the mockup set); the owner's logo and colours in docs/ui/brand/ if present (if absent, use the §12 tokens as placeholders and say so).
-DESIGN_SYSTEM.md: tokens as CSS variables (colors, spacing, radius, typography with Hind Siliguri and fallback, elevation, breakpoints), the component inventory with props, states, sizes and accessibility behaviour for every base component of §12, layout patterns per device as in DESIGN_BRIEF section 5 (officials work equally on desktop and phone, UX-03; setup screens are desktop first, UX-04), the bulk-update list, review detail with timeline, form renderer, mobile-first rules for 2 GB Android phones and iPhones, Bengali typography rules (line-height, truncation; numbers always use English digits, UX-05), empty / loading / error / offline states, and a theming note for a future dark theme.
+Inputs: constitution §12 tokens and component list; docs/ui/DESIGN_BRIEF.md (the owner's decisions UX-01 to UX-13 and the mockup set); docs/ui/brand/colors.md (colour tokens, contrast checks and fonts taken from the website: use them and do not invent colours) and the logo at docs/ui/brand/logo.png.
+DESIGN_SYSTEM.md: tokens as CSS variables (colors, spacing, radius, typography with UbuntuSans, Bornomala and a sans-serif fallback at weights 400 and 700 (UX-13), elevation, breakpoints), the component inventory with props, states, sizes and accessibility behaviour for every base component of §12, layout patterns per device as in DESIGN_BRIEF section 5 (officials work equally on desktop and phone, UX-03; setup screens are desktop first, UX-04), the bulk-update list, review detail with timeline, form renderer, mobile-first rules for 2 GB Android phones and iPhones, Bengali typography rules (line-height, truncation; numbers always use English digits, UX-05), empty / loading / error / offline states, and a theming note for a future dark theme.
 SCREENS.md: every key screen of §12 plus the My Work home per role (blueprint A৪) and the registration, consent, permission panel, document register, issue log, donor list and today's class screens: purpose, roles, data shown, actions and the permission each needs, states, components used, phone, tablet and desktop layouts, and the phase in which it is built.
 ```
 
 #### T0.19b 📄 ক্লিক-করা-যায় এমন HTML মকআপ (Figma-র বদলে) `[নতুন; ব্লুপ্রিন্ট D২]`
-- আগে দরকার: T0.19; `docs/ui/DESIGN_BRIEF.md`; লোগো ও ব্র্যান্ড রং `docs/ui/brand/`-এ (না থাকলে Claude §12-এর রং placeholder হিসেবে দেখাবে এবং তা লিখে জানাবে)।
-- শেষে দেখে নিন: ব্রাউজারে `docs/ui/mockups/index.html` খুলে ৩৬০, ৭৬৮ ও ১২৮০ px-এ প্রতিটি পর্দা দেখুন; আপনার লোগো ও রং এসেছে কি না; ফোনে অফিসিয়াল পর্দাগুলো পড়া ও চালানো যায় কি না; সংখ্যা সবখানে ইংরেজি অঙ্কে। মতামত দিয়ে ঠিক করিয়ে নিন, তারপর অনুমোদন দিন (Phase 0 গেটের শর্ত)।
+- আগে দরকার: T0.19; `docs/ui/DESIGN_BRIEF.md`; `docs/ui/brand/colors.md` (আছে); লোগো `docs/ui/brand/logo.png`-এ আছে; ফন্ট ফাইল `docs/ui/brand/fonts/`-এ থাকলে ভালো, না থাকলে Claude সিস্টেম ফন্টে দেখাবে এবং তা লিখে জানাবে।
+- শেষে দেখে নিন: ব্রাউজারে `docs/ui/mockups/index.html` খুলে ৩৬০, ৭৬৮ ও ১২৮০ px-এ প্রতিটি পর্দা দেখুন; আপনার লোগো, ফন্ট ও রং এসেছে কি না; ফোনে অফিসিয়াল পর্দাগুলো পড়া ও চালানো যায় কি না; সংখ্যা সবখানে ইংরেজি অঙ্কে। মতামত দিয়ে ঠিক করিয়ে নিন, তারপর অনুমোদন দিন (Phase 0 গেটের শর্ত)।
 
 ```text
 Build clickable HTML mockups for the owner's approval (blueprint D২ and the Phase 0 deliverable "main screen mockups"). Static files only: HTML, CSS and a little vanilla JavaScript; no build step, no network access or CDN at view time, and no application code under apps/ or packages/.
-Inputs: docs/ui/DESIGN_BRIEF.md (owner decisions UX-01 to UX-12 and the mockup set in its section 6), docs/ui/DESIGN_SYSTEM.md and SCREENS.md, constitution §12, the blueprint, and the owner's logo and colours in docs/ui/brand/. If the brand files are missing, use the §12 tokens and label the colours as placeholders on the index page.
-Create docs/ui/mockups/: index.html listing every screen with its role and phase and a viewport switcher (360, 768 and 1280 px preview frames); tokens.css and components.css built from the design system tokens as CSS variables, so a brand colour change is a one-line edit; a local fonts/ folder with Hind Siliguri (open licence) so nothing loads from the internet at view time; and one HTML file per screen of the pilot set in DESIGN_BRIEF.md section 6, in Bangla with realistic fake data (obviously fake NIDs, phone numbers and names). English digits everywhere (UX-05).
+Inputs: docs/ui/DESIGN_BRIEF.md (owner decisions UX-01 to UX-13 and the mockup set in its section 6), docs/ui/DESIGN_SYSTEM.md and SCREENS.md, constitution §12, the blueprint, docs/ui/brand/colors.md (the colour tokens and fonts, taken from the website) and the logo at docs/ui/brand/logo.png (PNG with transparency, 300 by 196 px: use it as supplied, at most 150 CSS pixels wide, never upscaled).
+Create docs/ui/mockups/: index.html listing every screen with its role and phase and a viewport switcher (360, 768 and 1280 px preview frames); tokens.css and components.css built from the design system tokens as CSS variables, so a brand colour change is a one-line edit; a local fonts/ folder with the owner's font files from docs/ui/brand/fonts/ (UbuntuSans and Bornomala; if they are missing, say so and use the system sans-serif, never substitute another font silently) so nothing loads from the internet at view time; and one HTML file per screen of the pilot set in DESIGN_BRIEF.md section 6, in Bangla with realistic fake data (obviously fake NIDs, phone numbers and names). English digits everywhere (UX-05).
 Make them clickable, not functional: navigation between screens, tabs, filter sheets, the NID lookup that auto-fills after a sample number is typed, the duplicate warning, approve / waitlist / reject with a reason dialog, field unlock, an offline banner toggle, the in-app camera frame with capture time and GPS stamp, and live toggles in the form builder preview.
-Rules: volunteer and official screens work at 360 px (tables become cards, filters in a bottom sheet, sticky action bar); setup screens are desktop first and show a "best on a larger screen" notice on phones (UX-03, UX-04); semantic HTML, labels, visible focus, colour contrast AA (propose adjusted shades if a brand colour fails); no screens beyond the pilot set.
+Rules: volunteer and official screens work at 360 px (tables become cards, filters in a bottom sheet, sticky action bar); setup screens are desktop first and show a "best on a larger screen" notice on phones (UX-03, UX-04); semantic HTML, labels, visible focus, colour contrast AA using the tokens of colors.md (the dark green for small text on green); no screens beyond the pilot set.
 Verify: render every page at 360, 768 and 1280 px with a headless browser (for example Playwright through npx) or the desktop app's browser pane, look at the screenshots, and fix what breaks. List any deviation from the design system. Commit. Then tell me how to open the mockups and stop. Apply my feedback in follow-up commits, and when I approve, record "Phase 0 mockups approved" with the date in docs/DECISION_LOG.md.
 ```
 
@@ -479,7 +482,7 @@ SECURITY_POLICY: the OWASP baseline mapped to this system; authentication and se
 Phase 0 gate.
 1. Cross-check every document of constitution §3 against each other and against the blueprint: contradictions, gaps, stale items, inconsistent names (roles, states, permission names, entity names). Fix the documents (never the blueprint) and record anything that needed a decision as "open" in DECISION_LOG.md.
 2. Confirm every open question is answered; list the ones that are not, with your recommendation.
-3. Verify the Phase 0 gate list of blueprint C৩ is covered: role and scope model with the default matrix; component list and common workflow states with the template exceptions; form platform (section library, standard fields, versioning, mandatory fields, beneficiary type options); budget bucket model, cost per beneficiary, volunteer expense categories and approval rule; offline conflict rules; security, audit and retention; stack and hosting; document checklist, deadlines and storage codes; ratings method, category list, close/reopen and follow-up; nisab handling; SMS provider timing; the owner's design decisions UX-01 to UX-12 reflected in the design documents; the HTML mockups approved by the owner (blueprint D১, Phase 0) with that approval recorded in DECISION_LOG.md.
+3. Verify the Phase 0 gate list of blueprint C৩ is covered: role and scope model with the default matrix; component list and common workflow states with the template exceptions; form platform (section library, standard fields, versioning, mandatory fields, beneficiary type options); budget bucket model, cost per beneficiary, volunteer expense categories and approval rule; offline conflict rules; security, audit and retention; stack and hosting; document checklist, deadlines and storage codes; ratings method, category list, close/reopen and follow-up; nisab handling; SMS provider timing; the owner's design decisions UX-01 to UX-13 reflected in the design documents; the HTML mockups approved by the owner (blueprint D১, Phase 0) with that approval recorded in DECISION_LOG.md.
 4. Write docs/gates/PHASE_0_SIGNOFF.md: an English checklist plus a one-page Bengali summary for management describing exactly what is being frozen.
 5. Update docs/STATUS.md (Phase 0 complete pending sign-off; next task T1.1), commit, and tag gate-phase-0. Do not start Phase 1 work.
 ```
@@ -528,7 +531,7 @@ Later tasks extend the demo set as entities become functional.
 - আগে দরকার: T0.19 ও T0.19b (অনুমোদিত HTML মকআপ)। শেষে দেখে নিন: `/dev/components` গ্যালারিতে §12-এর সব কম্পোনেন্ট; ৩৬০px-এ ঠিক দেখায়; axe টেস্ট সবুজ।
 
 ```text
-Implement packages/ui from docs/ui/DESIGN_SYSTEM.md: tokens as CSS variables and a Tailwind preset bound to them; Hind Siliguri with system fallback (self-hosted font files, no external CDN at runtime); and every base component of constitution §12: Button (primary/secondary/danger/ghost), Badge/Status, Card/Stat, Field (text, textarea, number, phone, select, combobox, date, file), Form layout, Nav/Item, Row/Toggle, Table with filters/search/pagination, Modal, Drawer, Confirm dialog, File upload with preview, Alert, Tabs, Breadcrumb, Empty/Loading/Error states, Offline banner, Bulk-update list row with checkbox, Step/timeline, Progress bar.
+Implement packages/ui from docs/ui/DESIGN_SYSTEM.md: tokens from docs/ui/brand/colors.md as CSS variables and a Tailwind preset bound to them; UbuntuSans and Bornomala at weights 400 and 700 with a sans-serif fallback (self-hosted files from docs/ui/brand/fonts/, UbuntuSans subset to Latin letters, digits and punctuation, font-display swap, no external CDN at runtime, and the Ubuntu Font Licence text shipped with the files); and every base component of constitution §12: Button (primary/secondary/danger/ghost), Badge/Status, Card/Stat, Field (text, textarea, number, phone, select, combobox, date, file), Form layout, Nav/Item, Row/Toggle, Table with filters/search/pagination, Modal, Drawer, Confirm dialog, File upload with preview, Alert, Tabs, Breadcrumb, Empty/Loading/Error states, Offline banner, Bulk-update list row with checkbox, Step/timeline, Progress bar.
 Each component: typed props, keyboard and screen-reader support, visible focus, tests with React Testing Library plus axe, and an entry in a dev-only /dev/components gallery route in apps/web with both languages. Mobile-first; verify every component at 360×640 and 1280×800. Match the approved HTML mockups in docs/ui/mockups/ and note any deviation. No page or feature work in this task.
 ```
 
@@ -722,7 +725,7 @@ E2E: score → waitlist → pull; unlock; transfer. Update openapi.yaml and BUSI
 - শেষে দেখে নিন: ফোনে ইনস্টল হয়; নেটওয়ার্ক বন্ধ করে আবেদন নেওয়া → চালু করলে সিঙ্ক (Playwright offline টেস্ট); ছবি আলাদা কিউ; লগআউটে ডেটা মুছে যায়।
 
 ```text
-Implement the offline-first PWA per docs/architecture/OFFLINE_SYNC.md and BD-48: installable app with the Serwist service worker and app-shell caching; offline data scope per DECISION_LOG (assigned projects' current form versions, own beneficiaries and applications, syllabus, locations); the Dexie/IndexedDB outbox with client_uuid on every offline record and sync_status pending → syncing → synced / failed with reason; the sync engine with batching, retry with backoff, server-side idempotency and deduplication; the separate compressed photo queue with resumable upload, text before photos, and no completion while photos are pending; conflict handling (server wins on approved data; last write wins on drafts and field updates; both logged); the "needs verification" path when an offline NID turns out to exist at sync; form-version handling when a form was republished meanwhile; encrypted local storage with a session-derived key, wiped on logout or remote revocation; sync status UI and offline banner; background sync where supported.
+Implement the offline-first PWA per docs/architecture/OFFLINE_SYNC.md and BD-48: installable app with the Serwist service worker and app-shell caching including the self-hosted font files (UX-13); offline data scope per DECISION_LOG (assigned projects' current form versions, own beneficiaries and applications, syllabus, locations); the Dexie/IndexedDB outbox with client_uuid on every offline record and sync_status pending → syncing → synced / failed with reason; the sync engine with batching, retry with backoff, server-side idempotency and deduplication; the separate compressed photo queue with resumable upload, text before photos, and no completion while photos are pending; conflict handling (server wins on approved data; last write wins on drafts and field updates; both logged); the "needs verification" path when an offline NID turns out to exist at sync; form-version handling when a form was republished meanwhile; encrypted local storage with a session-derived key, wiped on logout or remote revocation; sync status UI and offline banner; background sync where supported.
 Verify on a throttled 3G profile and with the app installed on Android Chrome and on an iPhone (describe the manual steps and results). Tests: unit for the outbox and conflict rules, Playwright offline capture → reconnect → sync → needs-verification path, photo queue resume. Update openapi.yaml (sync endpoints).
 ```
 
@@ -730,7 +733,7 @@ Verify on a throttled 3G profile and with the app installed on Android Chrome an
 - শেষে দেখে নিন: স্বেচ্ছাসেবক-ভূমিকার এক্সপোর্টে সুরক্ষিত ফিল্ড নেই (টেস্ট); বাংলা ফন্ট PDF-এ ঠিক; বড় এক্সপোর্ট background job।
 
 ```text
-Implement the export service: Excel (xlsx), CSV and PDF for any filtered list (volunteers, beneficiaries, applications including form answers mapped across versions), the beneficiary 360° profile PDF, and later report exports through the same service; field-level permission filtering must reuse the exact serializer code path of the API (one implementation); Bengali font embedding in PDF (Hind Siliguri) with English digits per UX-05 and I18N.md; large exports as pg-boss jobs with a signed download link and progress in the UI; an audit entry for every export of sensitive data (constitution §13). Tests: a volunteer-role export never contains protected fields; CSV/XLSX column parity with the on-screen list; PDF renders Bengali correctly (snapshot).
+Implement the export service: Excel (xlsx), CSV and PDF for any filtered list (volunteers, beneficiaries, applications including form answers mapped across versions), the beneficiary 360° profile PDF, and later report exports through the same service; field-level permission filtering must reuse the exact serializer code path of the API (one implementation); font embedding in PDF (UbuntuSans for Latin letters and digits, Bornomala for Bengali) with English digits per UX-05 and I18N.md; large exports as pg-boss jobs with a signed download link and progress in the UI; an audit entry for every export of sensitive data (constitution §13). Tests: a volunteer-role export never contains protected fields; CSV/XLSX column parity with the on-screen list; PDF renders Bengali correctly (snapshot).
 ```
 
 #### T2.9 🧪 Phase 2 টেস্ট একত্রীকরণ
@@ -1105,7 +1108,7 @@ ERP for the Charity & Social Service Department of As-Sunnah Foundation. The pro
 ## UI rules decided by the owner (details: docs/ui/DESIGN_BRIEF.md)
 - All numbers use English digits 0-9 in both languages.
 - Officials work equally on desktop and phone: review, approval, lookup, profiles and dashboards must work at 360 px. Setup screens (form builder, project setup, permission panel) are desktop first.
-- Calm institutional look with one accent colour; use the owner's logo and colours from docs/ui/brand/ once supplied. Read the brief before any UI task.
+- Calm institutional look. Colours and fonts come only from docs/ui/brand/colors.md (green family, font stack UbuntuSans, Bornomala, sans-serif, weights 400 and 700); do not invent colours. Read the brief before any UI task.
 
 ## Repository map and commands
 (Filled in by task T1.1 after scaffolding; keep this section current whenever scripts or layout change.)
@@ -1296,6 +1299,7 @@ Classify each item: (a) bug, (b) requirement already in the blueprint but missin
 4. শেষ লাইন: "Now begin with the STARTUP PROCEDURE" → STATUS.md-এ Phase 0 শুরু না হলে তবেই স্টার্টআপ, নইলে CLAUDE.md-এর সেশন-রিচুয়াল।
 5. (১০ অক্টোবর, v1.1.1) §9-এ প্রস্তাবিত Node.js 22 → 24 LTS।
 6. (১০ অক্টোবর, v1.1.2) ডিজাইন ইন্টারভিউ: §9 ও §10-এ ডিভাইস (অফিসিয়াল ফোন ও ডেস্কটপ সমান, কিছু আইফোন), §11-এ সংখ্যা সবসময় ইংরেজি অঙ্কে, §12-এ Figma নেই বলে মকআপ T0.19b-তে এবং ব্র্যান্ড রংয়ের লাইন; §৩-এর ডকুমেন্ট তালিকায় নতুন `docs/ui/DESIGN_BRIEF.md`।
+7. (১০ অক্টোবর, v1.1.3) §12-এ রং ও টাইপোগ্রাফি ওয়েবসাইট অনুসারে (UX-01, UX-13): সবুজ `#008E48` পরিবার, ফন্ট UbuntuSans ও Bornomala, ওজন ৪০০ ও ৭০০; নতুন `docs/ui/brand/colors.md`।
 
 বাকি সব (§0–§18-এর নীতি, ভূমিকা, BD-01…49, রোডম্যাপ, টোকেন, স্ট্যান্ডার্ড, টেস্টিং, প্রক্রিয়া) অপরিবর্তিত।
 

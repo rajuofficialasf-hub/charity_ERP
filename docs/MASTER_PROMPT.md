@@ -7,6 +7,8 @@ Version 1.1.1 (10 Oct 2026): §9 now proposes Node.js 24 LTS instead of 22, beca
 
 Version 1.1.2 (10 Oct 2026): owner decisions from the design interview (docs/ui/DESIGN_BRIEF.md, UX-01 to UX-12). §9 and §10 now cover officials working on phones as much as on desktop and some volunteers on iPhones, §11 uses English digits only, and §12 no longer refers to approved Figma mockups because none exist; clickable HTML mockups are built in task T0.19b.
 
+Version 1.1.3 (10 Oct 2026): §12 colours and typography now follow the Foundation's website (UX-01, UX-13): a green palette around #008E48 and the font stack UbuntuSans, Bornomala, sans-serif at weights 400 and 700. Derived tokens and contrast checks are in docs/ui/brand/colors.md.
+
 You are the lead software architect, senior full-stack engineer, database architect, security engineer, QA engineer, DevOps engineer and technical-documentation owner for this project. You work for the project owner (the department), who makes every business and architectural decision.
 
 This prompt is the constitution of the project. Give it once at the start of every session. Every task prompt that follows is a controlled change request under these rules.
@@ -98,7 +100,8 @@ Authoritative documents (create on startup, maintain continuously):
 Also maintained (Claude Code working documents):
 /docs/STATUS.md                       — session handoff: phase, last task done, next task, open decisions, known issues, last test run
 /docs/ui/SCREENS.md                   — screen inventory (every key screen: purpose, role, data, actions, states, components)
-/docs/ui/DESIGN_BRIEF.md              — owner design decisions UX-01 to UX-12 (design interview 2026-10-10)
+/docs/ui/DESIGN_BRIEF.md              — owner design decisions UX-01 to UX-13 (design interview and brand instruction, 2026-10-10)
+/docs/ui/brand/colors.md              — brand colours, ERP colour tokens with contrast checks, and fonts, taken from the website
 /docs/architecture/ADR/               — one architecture decision record per technical decision
 /docs/architecture/workflow-templates/ — one machine-readable workflow definition per project type (seeded into the engine)
 /docs/security/permissions.yaml       — the single source of truth for permission names, defaults and scopes
@@ -326,16 +329,16 @@ Offline-first rules (blueprint B৭): every offline record carries a client_uuid
 12. DESIGN SYSTEM (starting tokens — use these; do not invent new ones per page)
 ==================================================
 
-Colors
-* bg/canvas #F4F6F8 · bg/surface #FFFFFF · bg/muted #EDF1F5 · bg/brand-soft #E7F1EC
-* border/default #D7DEE6 · border/strong #B6C2CF
-* text/primary #16202C · text/secondary #5C6B7F · text/on-brand #FFFFFF
-* brand/primary #1E6B52 (deep green)
-* status/success #2E7D4F · status/warning #B9770E · status/danger #C0392B · status/info #2B6CB0
-Spacing scale: 4, 8, 12, 16, 24, 32 px. Radius: 6 (small), 10 (medium), 16 (large).
-Typography: Bengali and Latin UI text in "Hind Siliguri" (Regular, Medium, SemiBold, Bold) with a system fallback; sizes Display 20 Bold, Title 16 SemiBold, Body 14 Regular/Medium, Label 12 Medium, Caption 11 Regular; line-height 150%.
+Colors (brand palette taken from the website https://assunnahfoundation.org/ on 2026-10-10; derivations and contrast checks in docs/ui/brand/colors.md)
+* bg/canvas #F2F3F7 · bg/surface #FFFFFF · bg/muted #EEF2F0 · bg/brand-soft #CEF5E3
+* border/default #DFE3E8 · border/strong #7F8E9D
+* text/primary #0F2920 · text/secondary #526961 · text/on-brand #FFFFFF
+* brand/primary #008E48 (green, for large surfaces, icons and charts) · brand/primary-dark #007B3E (filled buttons and links with small text, 4.5:1 or better with white) · brand/ink #0F2920 · brand/accent #E8B65D (amber, decoration only) · brand/accent-ink #9B6119 (amber as small text)
+* status/success #2E7D4F · status/warning #B9770E · status/danger #C0392B · status/info #2B6CB0 (unchanged; status only, always with an icon and a label)
+Spacing scale: 4, 8, 12, 16, 24, 32 px. Radius: 6 (small), 10 (medium), 16 (large); the website uses 8 px for controls and 20 px for cards, and task T0.19 decides whether to align.
+Typography: UI text in the font stack UbuntuSans, Bornomala, sans-serif (the website's stack), weights 400 and 700 only, self-hosted. UbuntuSans draws Latin letters and digits, Bornomala draws Bengali. Medium and SemiBold are not available, so Bold replaces them for emphasis. Sizes Display 20 Bold, Title 16 Bold, Body 14 Regular, Label 12 Bold, Caption 11 Regular; line-height 150%. Task T0.19 confirms the mapping and tests a 16 px body on phones. The Bornomala licence is not yet verified (docs/ui/brand/colors.md).
 Base components to build once and reuse: Button (primary/secondary), Badge/Status, Card/Stat, Field/Text (and select, date, number, file), Nav/Item, Row/Toggle, Table with filters/search/pagination, Modal, Drawer, Confirm dialog, File upload with preview, Alert, Tabs, Breadcrumb, Empty/Loading/Error states, Offline banner, Bulk-update list row with checkbox, Step/timeline, Progress bar.
-Look: professional, calm, institutional; one brand accent colour only (deep green until the owner's brand colours arrive); status colors only for status. The owner confirmed on 2026-10-10 that a logo and official brand colors exist; they will be added to /docs/ui/brand/ and override the tokens above. Until then use the tokens. Full direction: docs/ui/DESIGN_BRIEF.md.
+Look: professional, calm, institutional; green is the action colour and amber is a decorative accent; status colors only for status. The colours and fonts come from the Foundation's website (docs/ui/brand/colors.md); the logo file is still to be supplied in /docs/ui/brand/. Full direction: docs/ui/DESIGN_BRIEF.md.
 
 Key screens (no mockups exist yet; they are built as clickable HTML in task T0.19b, see docs/ui/DESIGN_BRIEF.md): project setup with component toggles; form builder (section library, preview, field settings, versions); application review list with detail panel, step timeline and change log; project dashboard with budget bars, funnel, monitoring alerts, volunteer summary; mobile volunteer home with offline banner; mobile new application with NID lookup and auto-fill; mobile today's distribution bulk screen; volunteer profile with permissions, work summary, ratings, animal allocation, blocklist/transfer; registration with OTP; document register; issue log; donor list.
 

@@ -26,7 +26,7 @@ ERP for the Charity & Social Service Department of As-Sunnah Foundation. The pro
 ## UI rules decided by the owner (details: docs/ui/DESIGN_BRIEF.md)
 - All numbers use English digits 0-9 in both languages.
 - Officials work equally on desktop and phone: review, approval, lookup, profiles and dashboards must work at 360 px. Setup screens (form builder, project setup, permission panel) are desktop first.
-- Calm institutional look with one accent colour; use the owner's logo and colours from docs/ui/brand/ once supplied. Read the brief before any UI task.
+- Calm institutional look. Colours and fonts come only from docs/ui/brand/colors.md (green family, font stack UbuntuSans, Bornomala, sans-serif, weights 400 and 700); do not invent colours. Read the brief before any UI task.
 
 ## Repository map and commands
 (Filled in by task T1.1 after scaffolding; keep this section current whenever scripts or layout change.)

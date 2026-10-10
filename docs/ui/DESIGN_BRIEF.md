@@ -1,17 +1,17 @@
 # Design brief: Charity & Social Service ERP
 
-Status: owner interview held on 2026-10-10, three rounds of questions in chat. This brief is the source of truth for look, feel and UI behaviour until docs/ui/DESIGN_SYSTEM.md and docs/ui/SCREENS.md exist (task T0.19). When the owner changes a decision, update this file, record the change in docs/DECISION_LOG.md and rerun the affected tasks.
+Status: owner interview held on 2026-10-10 (three rounds of questions in chat) and a brand instruction the same day (colours and fonts from the website). This brief is the source of truth for look, feel and UI behaviour until docs/ui/DESIGN_SYSTEM.md and docs/ui/SCREENS.md exist (task T0.19). When the owner changes a decision, update this file, record the change in docs/DECISION_LOG.md and rerun the affected tasks.
 
 Precedence: the owner's latest instruction, then this brief, then constitution sections 11 and 12, then the defaults in section 2.
 
 ## 1. Owner decisions
 
-Import these into docs/DECISION_LOG.md as the series UX-01 to UX-12, status approved, source "owner interview 2026-10-10" (tasks T0.1 and T0.5).
+Import these into docs/DECISION_LOG.md as the series UX-01 to UX-13, status approved, source "owner interview 2026-10-10" (tasks T0.1 and T0.5).
 
 | Id | Decision | Effect |
 |---|---|---|
-| UX-01 | As-Sunnah Foundation has its own logo and brand colours. The owner supplies them in docs/ui/brand/. | The brand colours override the constitution section 12 tokens once they arrive. Until then the tokens are placeholders and the mockups say so. |
-| UX-02 | The look is calm and institutional: white cards, light borders, one accent colour, clean tables for officials, large touch targets on phones. | No heavy shadows, gradients or decorative illustration. Status colours are used only for status. |
+| UX-01 | The brand colours are taken from the Foundation's website, https://assunnahfoundation.org/, as the owner instructed on 2026-10-10. The logo is supplied as docs/ui/brand/logo.png. | The extracted palette, the ERP colour tokens and their contrast checks are in docs/ui/brand/colors.md. They replace the colour tokens of constitution section 12. |
+| UX-02 | The look is calm and institutional: white cards, light borders, green as the action colour with amber as a decorative accent, clean tables for officials, large touch targets on phones. | No heavy shadows, gradients or decorative illustration. Status colours are used only for status. |
 | UX-03 | Officials (PM, RPM, Project Executive) work equally on desktop and on phone. | Review, approval, lookup, volunteer and beneficiary profiles and every dashboard must be fully usable at phone width, 360 px. Tables collapse to cards on phones. |
 | UX-04 | Setup screens (form builder, project setup, permission panel, template and checklist editors) are desktop first. On a phone they are readable and allow small edits only. | No drag and drop is required. Phones show a "best on a larger screen" notice on these screens. |
 | UX-05 | All numbers use English digits 0-9 in both languages: amounts, dates, counts, ids and phone numbers. | Supersedes the Bengali-digit line of constitution section 11. Formatting stays in one central utility, so Bengali digits can be added later by a new decision. |
@@ -22,6 +22,7 @@ Import these into docs/DECISION_LOG.md as the series UX-01 to UX-12, status appr
 | UX-10 | The management home (Department Head, Monitoring Team) opens with work progress: applications, approved, and distributed or completed against target. | Proposed order below that first block: alerts, budget, area view. |
 | UX-11 | Photo source is a per-project setting chosen by the PM next to the photo rule. Defaults: camera only for distribution and construction proof, gallery allowed for vouchers and paper documents. | New setting in the photo-rule component. Photos without capture time or GPS stay flagged (BD-21). |
 | UX-12 | Volunteers read operational messages, such as correction requests and approvals, inside the app only. No SMS, WhatsApp or email for these for now. | The volunteer home puts "needs your attention" first. SMS is still required for OTP and for Qurbani donor messages (BD-34, BD-44). |
+| UX-13 | Typography follows the website: font stack UbuntuSans, Bornomala, sans-serif, weights 400 and 700 only. | Replaces Hind Siliguri in constitution section 12. Self-hosted files: Ubuntu Sans draws Latin letters and digits, Bornomala draws Bengali. The Bornomala licence is not verified, see docs/ui/brand/colors.md. |
 
 ## 2. Defaults assumed (not asked; the owner may change them)
 
@@ -44,8 +45,9 @@ Import these into docs/DECISION_LOG.md as the series UX-01 to UX-12, status appr
 ## 4. Brand
 
 - The header shows the As-Sunnah Foundation logo and the system name (UX-09).
-- Expected files in docs/ui/brand/: the logo (SVG preferred, otherwise PNG with a transparent background), a light and a dark variant if they exist, and colors.md with the brand colours as hex codes and their names.
-- When the files arrive, update the tokens in DESIGN_SYSTEM.md and check text contrast against WCAG AA. Propose adjusted shades where a brand colour fails.
+- Colours and fonts: docs/ui/brand/colors.md, extracted from the website on 2026-10-10. Use its tokens and do not invent new colours.
+- The logo is supplied: docs/ui/brand/logo.png, PNG with transparency, 300 by 196 px. It is sharp up to 150 CSS pixels wide on 2x screens, so use it in the header and never upscale it. A vector SVG or a PNG at least 1000 px wide is still wanted for the login screen and PDF exports. The website draws its logo as an inline SVG; the colours of the logo belong to the logo only.
+- Font files are to be supplied in docs/ui/brand/fonts/: UbuntuSans.woff2, Bornomala-Regular.woff2 and Bornomala-Bold.woff2, with the Ubuntu Font Licence text. The website already serves these files from https://assunnahfoundation.org/fonts/.
 
 ## 5. Layout rules by device
 
@@ -98,10 +100,11 @@ Screens of later phases (house construction, self-reliance, dawah, Qurbani, docu
 | UX-10 | Dashboards (T3.3, T6.1) |
 | UX-11 | FILES_AND_DOCUMENTS.md (T0.13), project setup (T1.11), distribution (T3.1) |
 | UX-12 | NOTIFICATIONS.md (T0.14), volunteer home (T1.15) |
+| UX-13 | DESIGN_SYSTEM.md (T0.19), mockups (T0.19b), packages/ui and fonts (T1.4), PWA font precache (T2.7), PDF export fonts (T2.8) |
 
 ## 8. Open items
 
-1. Logo and brand colours from the owner (UX-01).
+1. The font files (UX-13), a vector or larger logo for the login screen and PDF exports (UX-01), and the owner's confirmation of the Bornomala licence.
 2. The short name for the phone home screen (UX-09).
 3. Whether to add Web Push (section 2, item 5).
 4. Optional: reflect these decisions in the next version of the blueprint document so both stay aligned.
