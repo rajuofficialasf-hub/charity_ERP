@@ -1,6 +1,6 @@
 # OFFLINE PWA AND SYNC
 
-Status: complete, task T0.12 (2026-10-10). Design only; no code. Sources: blueprint B7 (offline PWA and sync), B10 (field reality), D2; decisions BD-21, BD-48, O-07 (offline data set, 200 MB photo queue, wipe), O-13 (late-synced drafts), D-052 (Next.js, Serwist, Dexie), D-055 (zod shared schemas), UX-06 (iPhones); rules BR-194…202, BR-058, BR-059, BR-077, BR-104, BR-196; NFR-12…28; `docs/architecture/AUTH.md` §5, §8, §9; `docs/architecture/WORKFLOW_ENGINE.md` §8 and `workflow-templates/_common.yaml`; `docs/architecture/SYSTEM_ARCHITECTURE.md` §7; ADR-005, ADR-006. Values not yet decided by the owner are marked PROPOSAL and collected in section 15 (DECISION_LOG open question 26).
+Status: complete, task T0.12 (2026-10-10). Design only; no code. Sources: blueprint B7 (offline PWA and sync), B10 (field reality), D2; decisions BD-21, BD-48, O-07 (offline data set, 200 MB photo queue, wipe), O-13 (late-synced drafts), D-052 (Next.js, Serwist, Dexie), D-055 (zod shared schemas), UX-06 (iPhones); rules BR-194…202, BR-058, BR-059, BR-077, BR-104, BR-196; NFR-12…28; `docs/architecture/AUTH.md` §5, §8, §9; `docs/architecture/WORKFLOW_ENGINE.md` §8 and `workflow-templates/_common.yaml`; `docs/architecture/SYSTEM_ARCHITECTURE.md` §7; ADR-005, ADR-006. The values proposed in the first draft were decided by the owner on 2026-10-10 as O-29 with additional requirements; section 15 lists them as binding. Where the text below still says PROPOSAL it refers to that first draft and is now decided unless section 15 says otherwise.
 
 ## 1. Goals and constraints
 
@@ -55,7 +55,9 @@ pending ──(flush)──► syncing ──(server: synced)──► synced �
    └──(retry now)───────┴──(server: failed <code>)──► failed (reason shown; user may edit and resubmit, which creates a new pending version of the same client_uuid)
 ```
 
-Retry schedule (PROPOSAL): 30 s, 2 min, 10 min, 1 h, then every hour for up to 7 days, each with ±20% jitter; after that the record stays `failed` with reason `retry_exhausted` and appears in the needs-attention card until the user retries or deletes a draft. A server business failure (validation, guard, permission) is final (`failed`), not retried automatically, because retrying cannot change the outcome; the user corrects the record.
+Retry schedule (O-29): transient network and server failures (timeouts, 5xx, 429, 503) are retried after 30 s, 2 min, 10 min, 1 h, then every hour for up to 7 days, each with bounded jitter (±20%); a server `Retry-After` header overrides the next retry time. After 7 days the record stays `failed` with reason `retry_exhausted` and appears in the needs-attention card until the user retries or deletes a draft. A permanent business failure (validation, guard, permission, 4xx other than 429) is final (`failed`), never retried automatically; the user corrects the record, which creates a new pending version under the same `client_uuid`.
+
+Purge (O-29): a `synced` record is deleted from the device 7 days after sync only when the server confirmed persistence (the result carried the server id and a later snapshot or result acknowledged it) and no dependent record or photo upload is still pending. Records with pending dependants stay until the dependants are synced.
 
 Ordering: records flush in `client_created_at` order with dependencies respected (an `application_submit` before the `activity` rows of that application). Flush triggers: app open, `online` event, `visibilitychange` to visible, after any local write when online, manual "sync now", and a 15-minute timer while the app is open and online.
 
@@ -73,7 +75,7 @@ Idempotency-Key: <batch uuid>
 - Authentication and the permission `sync.batch` (SELF scope) gate the endpoint; each record is then processed through the ordinary application service of its kind, with the originating user as actor, so permission, scope, guards, effects and audit are identical to the online path (SYSTEM_ARCHITECTURE §6 step 11).
 - Idempotency at two levels: the batch id (a replayed batch returns the stored results) and the record `client_uuid` (a replayed record returns its stored result and never creates a duplicate, BR-194).
 - Partial success is normal: every record gets its own result; the batch never fails as a whole because one record failed.
-- Batch size 50 (PROPOSAL) keeps requests small on 2G; the client sends consecutive batches until the outbox is drained, photos excluded.
+- Batch size 50 records (O-29) with a separate payload-size limit (PROPOSAL 1 MB per batch, enforced by the client and the API) keeps requests small on 2G; the client sends consecutive batches until the outbox is drained; photos and attachments never travel in record batches (section 5).
 - `server_time` lets the client compute its clock offset; `client_created_at` is stored as received and the offset recorded, so the deadline guard (O-13) can evaluate the original creation time with a known tolerance.
 
 Snapshot endpoint:
@@ -87,9 +89,9 @@ returns only changed rows of the data sets of section 2, with field-level masks 
 
 - Photos are captured through the in-app camera (or gallery where the project setting allows, UX-11), compressed on the device to at most 300 KB / 1,600 px (NFR-25) before they enter the **photo queue**, a separate Dexie table of blobs keyed by `client_uuid` + attachment slot, with capture time, GPS (if available) and source.
 - Text first, photos later (BR-196): the outbox flushes before the photo queue; a photo uploads only after its owning record is `synced` and has a server id.
-- Upload is chunked and resumable (ADR-005): the client asks the API for an upload session, uploads 256 KB chunks (PROPOSAL) to presigned URLs, resumes from the last acknowledged chunk after a drop, and finalizes through the API, which validates, stores metadata and runs the duplicate check (BR-109).
+- Upload is chunked and resumable (ADR-005): the client asks the API for an upload session, uploads 256 KB chunks (O-29) to presigned URLs, resumes from the last acknowledged chunk after a drop, and finalizes through the API, which validates, stores metadata and runs the duplicate check (BR-109).
 - A distribution or any photo-gated step cannot complete while its photos are pending: the engine guard `photos.not_pending_sync` fails and the record shows "photos pending" (WORKFLOW_ENGINE §6). The activity is already recorded; only the completion waits.
-- Budget: 200 MB per device (O-07); at 80% the app warns and suggests syncing; at 100% new photos are refused until space is freed by successful uploads (NFR-22). Uploaded photos are deleted from the queue immediately (the server copy is permanent).
+- Budget (O-29): 200 MB on Android, 100 MB on iOS; at 80% the app warns and suggests syncing; at 100% new photos are refused and the user is notified with a "free space" action that offers only safe cleanup, i.e. deleting eligible **synchronized** files whose server copy is confirmed. **Unsynchronized photos or attachments are never deleted automatically** to free space (BR-237). Uploaded photos are deleted from the queue once the server confirms the stored object (the server copy is permanent).
 
 ## 6. Conflict rules at sync (BD-48, O-13)
 
@@ -113,7 +115,18 @@ Offline NID lookup is impossible (B7): the volunteer enters the identity number 
 - Wipe triggers: logout; 401 `session_revoked`; refresh token rejected as reused or revoked; the user deleting the installed app (storage goes with it). A wipe deletes all Dexie databases, the photo queue, the service-worker runtime cache for API data and in-memory tokens (BR-198, AUTH.md §8).
 - Before logout with unsynced records the app shows a blocking warning listing pending and failed records and offers "sync now"; proceeding requires a second confirmation and is logged at next login (`auth.logout_with_pending`, count only).
 - The app offers no "clear data" button while records are pending; browser-level clearing is outside the app's control and is covered by the iOS mitigations in section 11 and by the install guide.
-- If the refresh token merely expired (30 days without sync, `invalid_grant`), the outbox is **kept**; the user logs in again on the same device and the records are re-keyed from the new session (the old wrapped keys are unwrapped with a device-bound recovery key that is itself wrapped by the previous refresh token's derived key; PROPOSAL, open item). If this proves fragile in T2.7, the fallback is to require sync before expiry through the nudges of section 9 and to warn at login when records would be lost.
+- **Outbox persistence across credential expiry (O-29).** When the access or refresh credentials expire (`invalid_grant`), encrypted pending outbox records are **preserved**, never silently discarded. The data keys are wrapped twice: by the session-derived key (section above) and by a device-bound key held in platform-appropriate secure storage where it exists (WebAuthn/PRF-backed or platform keystore-backed key on Android Chrome where available; on iOS Safari, a non-extractable CryptoKey stored in IndexedDB, which is the strongest option the platform offers). After re-authentication on the same device the records are unwrapped with the device-bound key and re-keyed to the new session; synchronization of protected records requires that re-authentication first. If secure persistence across expiry cannot be implemented on a platform (T2.7 verifies this per platform), the documented fallback for that platform is advance synchronization warnings: reminders from 7 days before refresh-token expiry, a blocking warning at 24 hours, and a clear statement at login of what would be lost.
+
+Recovery behaviour by event (O-29):
+
+| Event | Outbox and photo queue | Local cache | Keys and tokens | User experience |
+|---|---|---|---|---|
+| Logout (user) | Warning if anything is pending; after confirmation wiped | wiped | wiped | Must sync first to keep work; confirmation logged at next login |
+| Device revocation by an official (lost phone) | wiped | wiped | wiped | Next request fails with `session_revoked`; login screen with message; the official saw the pending count in the confirmation dialog |
+| Credential expiry (`invalid_grant`) | preserved, encrypted | preserved | session key gone; device-bound key keeps data recoverable | Login required; after login records are re-keyed and synced; nothing lost |
+| App removal / site data cleared by the user | lost with the storage (outside the app's control) | lost | lost | Prevented by warnings and the install guide; iOS persist() request; reminders while pending |
+| Key loss (secure storage unavailable or corrupted) | undecryptable → treated as lost; count reported at login | re-downloaded | regenerated | The app reports the number of records that could not be recovered and asks the user to re-enter them; audited (`sync.outbox_unrecoverable`) |
+| Account deactivation or block while records pending | records rejected at sync with `not_permitted`; kept on the device until the user deletes them | wiped on next login attempt | wiped | Message explains the state; nothing silently accepted or deleted |
 
 ## 8. Form-version handling
 
@@ -128,7 +141,7 @@ Offline NID lookup is impossible (B7): the volunteer enters the identity number 
 - **Sync chip** in the app bar: pending / failed counts; tap opens the **sync centre**: records grouped by status with the Bangla reason for failures, "retry now", "retry all", and for drafts "edit" or "delete"; a photo-queue section with uploaded/pending bytes and the budget bar.
 - **Per-record badges** on lists: pending, syncing, failed, needs verification, photos pending.
 - **Needs-attention card** on the volunteer home (UX-12) lists failed records, records needing verification, and "photos pending" items.
-- **Nudges**: when pending records are older than 24 hours (PROPOSAL) the app shows a reminder on open; on iOS the reminder is stronger (section 11).
+- **Reminders (O-29)**: the first reminder appears when a record has been pending for 24 hours, then once per day while pending records remain; reminders stop when sync succeeds. The sync chip and sync centre always show the pending count, the last successful synchronization time and actionable failure reasons.
 - All messages use i18n keys with English digits (UX-05).
 
 ## 10. Token behaviour while offline (AUTH.md §5, §9)
@@ -142,7 +155,7 @@ Offline NID lookup is impossible (B7): the volunteer enters the identity number 
 | Topic | Fact | Design response |
 |---|---|---|
 | Installed PWA vs Safari tab | An installed PWA (Share → Add to Home Screen) gets its own storage and runs standalone; a Safari tab shares Safari's storage and loses state more easily | Treat installation as the supported mode for volunteers on iPhones; the Safari tab works for lookups but shows an "install for offline work" notice before offline capture |
-| Storage eviction | Safari may evict IndexedDB and cache storage of sites not used for a while, and clears them when the user clears Safari data | Request `navigator.storage.persist()` at first login; sync on app open, on `visibilitychange`, on `online`; nudge when pending > 0 for more than 24 hours and daily after; show a warning that unsynced work can be lost if the app is removed or data cleared; keep the photo budget lower on iOS (100 MB, PROPOSAL) so queues drain faster |
+| Storage eviction | Safari may evict IndexedDB and cache storage of sites not used for a while, and clears them when the user clears Safari data | Request `navigator.storage.persist()` at first login; sync on app open, on `visibilitychange`, on `online`; reminder when pending > 0 for 24 hours and daily after (O-29); show a warning that unsynced work can be lost if the app is removed or data cleared; photo budget 100 MB on iOS (O-29) so queues drain faster |
 | No background sync | iOS does not run the Background Sync API | Foreground sync only (section 3 triggers); no promise of "it will sync by itself later" in the UI; the home screen shows the pending count prominently |
 | Push notifications | Only installed PWAs can receive Web Push on iOS; decision deferred (T0.14) | In-app inbox remains the primary channel (UX-12); push, if adopted, is an enhancement for installed apps |
 | Camera and files | Camera capture works through the file input with `capture`; EXIF may be stripped | Capture time is taken from the device clock at capture; GPS from the Geolocation API with the user's permission; missing metadata flags the photo (BR-109) |
@@ -199,15 +212,18 @@ Official: verifies, links to B (or rejects) → submitted → ordinary cycle
 | Device matrix | Installed PWA on a 2 GB Android phone (Chrome); iPhone: Safari tab and installed PWA, including persist() request, eviction simulation (clear website data) and recovery messaging | Manual script before each gate (UAT) |
 | Load | Sync burst on distribution day: 2,000 devices flushing batches within 30 minutes with the worker under photo load | k6 (NFR-02, T3.4) |
 | Security | Encrypted-at-rest check of IndexedDB contents, wipe on revocation, no masked field in the snapshot | automated where possible, manual review |
+| Required by O-29 | Offline capture and sync; intermittent connectivity (drops mid-batch and mid-chunk, Retry-After honoured, jitter bounds); authentication expiry with pending records (preserved, re-auth, re-key, sync; fallback warnings where persistence is unsupported); storage exhaustion (80% warning, 100% block, no automatic deletion of unsynced files, safe cleanup of synced files); 7-day purge only after confirmed persistence; recovery paths of section 7 (logout, revocation, app removal, key loss, deactivation) | Playwright, Vitest, device matrix; results recorded before the Phase 2 gate |
 
 ## 14. Code and data
 
 Code: the outbox and photo-queue stores, the sync client, the batch and snapshot endpoints, conflict resolution, encryption, the service worker configuration. Data: what each project caches (template snapshot), form versions, reference lists, budgets and thresholds in settings (photo budget, nudge interval, batch size, retry schedule).
 
-## 15. Values to confirm (DECISION_LOG open question 26)
+## 15. Values decided by O-29 (2026-10-10)
 
-1. Retry schedule 30 s, 2 min, 10 min, 1 h, then hourly up to 7 days; synced records purged from the device after 7 days.
-2. Batch size 50 records; chunk size 256 KB.
-3. Nudge when pending records are older than 24 hours; daily afterwards.
-4. iOS photo budget 100 MB (Android 200 MB per O-07).
-5. Recovery of a kept outbox after refresh-token expiry through a device-bound wrapped key (section 7), or the fallback of warning and requiring sync before expiry.
+1. Retry: 30 s, 2 min, 10 min, 1 h, then hourly up to 7 days; `Retry-After` respected; bounded jitter; permanent validation errors never auto-retried; synced records purged after 7 days only with confirmed persistence and no pending dependants.
+2. Batches of up to 50 records with a separate payload-size limit (1 MB PROPOSAL, to confirm in T2.7); 256 KB chunks; attachments never inside record batches.
+3. First reminder after 24 hours pending, then daily until sync succeeds; pending count, last sync time and actionable reasons always visible.
+4. Photo budget 100 MB on iOS, 200 MB on Android; compression per NFR-25; unsynced files never deleted automatically; notification at budget with safe cleanup of synced files only.
+5. Encrypted pending outbox preserved across credential expiry with platform-appropriate secure, device-bound keys; re-authentication before syncing protected records; recovery behaviour per the table in section 7; no silent discard; advance synchronization warnings as the documented fallback where secure persistence is impossible.
+
+All of these are validated by the tests listed in section 13 (offline, intermittent connectivity, authentication expiry, storage exhaustion).
