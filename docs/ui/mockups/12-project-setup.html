@@ -177,7 +177,7 @@ document.addEventListener('mock:ready', function () {
     var v = Number(cost.value) || 0;
     cost.closest('.field').classList.toggle('has-error', !v);
     document.getElementById('b-cost-err').hidden = !!v;
-    document.getElementById('b-total').textContent = v ? 'মোট বাজেট: 3,000 × ৳ ' + v + ' = ৳ ' + (3000 * v).toLocaleString('en-IN') : 'মোট বাজেট: লক্ষ্য × প্রতিজনের খরচ';
+    document.getElementById('b-total').textContent = v ? 'মোট বাজেট: 3,000 × ৳ ' + v + ' = ' + window.mockTaka(3000 * v) : 'মোট বাজেট: লক্ষ্য × প্রতিজনের খরচ';
   });
 });
 </script>

@@ -258,6 +258,13 @@
     return pad(d.getDate()) + '-' + pad(d.getMonth() + 1) + '-' + d.getFullYear() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
   }
   window.mockStampNow = stampNow;
+
+  /* Taka display (O-42): lakh grouping below 10 lakh, million from 10 lakh (1,000,000) up, at most 2 decimals; English digits (UX-05). */
+  function taka(n) {
+    if (Math.abs(n) < 1000000) return '৳ ' + Math.round(n).toLocaleString('en-IN');
+    return '৳ ' + String(Number((n / 1000000).toFixed(2))) + ' মিলিয়ন';
+  }
+  window.mockTaka = taka;
   setInterval(function () {
     document.querySelectorAll('[data-live-time]').forEach(function (el) { el.textContent = stampNow(); });
   }, 1000);
