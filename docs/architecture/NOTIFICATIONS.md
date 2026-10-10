@@ -1,6 +1,6 @@
 # NOTIFICATIONS
 
-Status: complete, task T0.14 (2026-10-10). Design only; no code. Sources: blueprint A5 (OTP, correction requests), A8.6 (donor messages), A10 (alerts, SOP warnings), B9 (notifications); decisions BD-34, BD-44, BD-47, BD-49, UX-12, O-25 (OTP parameters), O-30 (security alerts), O-31 (PWA short name), O-33 (SMS provider before production), O-34 (documentation module last), D-053 (adapters), D-054 (worker retries, idempotency), D-057 (essential alerting); rules BR-024, BR-147, BR-148, BR-214…217; the `notify:` and `donor.email:` effects used in `docs/architecture/workflow-templates/`; permissions `notification.read_own`, `notification.template.manage`, `donor.message.send` (`docs/security/permissions.yaml`). Values not yet decided are marked PROPOSAL and listed in section 14 (DECISION_LOG open question 28).
+Status: complete, task T0.14 (2026-10-10). Design only; no code. Sources: blueprint A5 (OTP, correction requests), A8.6 (donor messages), A10 (alerts, SOP warnings), B9 (notifications); decisions BD-34, BD-44, BD-47, BD-49, UX-12, O-25 (OTP parameters), O-30 (security alerts), O-31 (PWA short name), O-33 (SMS provider before production), O-34 (documentation module last), D-053 (adapters), D-054 (worker retries, idempotency), D-057 (essential alerting); rules BR-024, BR-147, BR-148, BR-214…217; the `notify:` and `donor.email:` effects used in `docs/architecture/workflow-templates/`; permissions `notification.read_own`, `notification.template.manage`, `donor.message.send` (`docs/security/permissions.yaml`). The proposals of the first draft were accepted by the owner on 2026-10-10 as O-35; where the text below says PROPOSAL, the value is now decided as listed in section 14.
 
 ## 1. Principles and approved decisions
 
@@ -243,7 +243,7 @@ worker (pg-boss queue `notify`)
 4. VAPID keys generated and held by the organization; no third-party push SDK.
 5. If the department considers any vendor push service unacceptable under BD-45, the answer is "no" and nothing else changes.
 
-Owner decides (open question 28).
+Decided by the owner on 2026-10-10 (O-35): adopted on these conditions, after the Phase 3 pilot.
 
 ## 12. Security and privacy
 
@@ -261,9 +261,9 @@ Owner decides (open question 28).
 - E2E: volunteer receives in-app notices for correction request, approval and transfer and nothing by SMS/email; staff email in Mailpit for approvals waiting; donor pre-notification and photo email with sent status; malware alert path.
 - No beneficiary message under any event (negative test across the event list).
 
-## 14. Open items (DECISION_LOG open question 28)
+## 14. Values decided by O-35 (2026-10-10)
 
-1. Web Push: yes as an optional, off-by-default enhancement after the Phase 3 pilot with content-free payloads, or no because of BD-45.
+1. Web Push: adopted as an optional, off-by-default enhancement after the Phase 3 pilot with content-free payloads, organization-held VAPID keys and per-device opt-in.
 2. Staff email default for digest-eligible events: daily digest at 08:00 Asia/Dhaka (staff can switch to immediate).
 3. Coalescing window: 15 minutes for identical events.
 4. Email and SMS retry give-up: 24 hours (30 s, 2 min, 10 min, 1 h, then hourly).
