@@ -133,7 +133,7 @@ All three use `font-display: swap`, are self-hosted (no font CDN at runtime) and
 
 | Token | Value | Note |
 |---|---|---|
-| `--focus-ring` | `0 0 0 2px var(--color-bg-surface), 0 0 0 4px var(--color-brand-primary)` | A 2 px green ring with a 2 px surface-colour gap; #008E48 reaches 4.23:1 on surface and 3.75:1 on muted, above the 3:1 rule |
+| `--focus-ring` | `0 0 0 2px var(--color-bg-surface), 0 0 0 4px var(--color-brand-primary)` | A 2 px green ring with a 2 px surface-colour gap; #008E48 reaches 4.23:1 on surface and 3.75:1 on muted, above the 3:1 rule. It may also be drawn as a 2 px `--color-brand-primary` outline with a 2 px offset, which components with their own shadow cannot hide (O-41) |
 | `--motion-fast` | 120ms | Hover, pressed and toggle feedback |
 | `--motion-base` | 200ms | Drawers, sheets, dialogs; the maximum for any animation |
 | `--ease-standard` | `cubic-bezier(0.2, 0, 0, 1)` | All transitions |
@@ -153,7 +153,7 @@ Only `transform` and `opacity` are animated. With `prefers-reduced-motion: reduc
 | phone | 0 to 639 px | Top app bar plus bottom tab bar, cards, full-screen detail |
 | sm (tablet) | 640 to 1023 px | Collapsible side rail, compact tables, drawer detail |
 | lg (desktop) | 1024 px and up | Fixed sidebar, dense tables, split view |
-| xl | 1280 px and up | Wider split view (detail panel 480 px), dashboard content max 1280 px |
+| xl | 1280 px and up | Dashboard content max 1280 px; the split-view detail panel widens to 480 px only from 1440 px (O-41) |
 
 CSS custom properties cannot be used inside media queries, so the breakpoints are also written into the Tailwind configuration (`sm: 640px`, `lg: 1024px`, `xl: 1280px`) from the same constants file in `packages/ui`. The minimum supported width is 360 px.
 
@@ -311,7 +311,7 @@ From DESIGN_BRIEF §5. Officials work equally on desktop and phone (UX-03); setu
 
 ### 4.3 Split view (review, people, issues)
 
-- Desktop: list on the left (minimum 400 px), detail on the right (420 px, 480 px from 1280 px). Selecting a row loads the detail without leaving the list; the URL holds the selected id so the view can be shared and reloaded.
+- Desktop: list on the left (minimum 400 px), detail on the right (420 px, 480 px from 1440 px; O-41). Between 1024 and 1439 px the list hides its priority-4 columns. Selecting a row loads the detail without leaving the list; the URL holds the selected id so the view can be shared and reloaded.
 - Tablet: the list fills the page, the detail opens in a drawer.
 - Phone: the list fills the page, the detail opens full screen with a back button; the action bar is sticky at the bottom.
 - Keyboard on desktop: arrow keys move the selection in the list, Enter opens the detail, Escape returns focus to the list.
@@ -456,7 +456,7 @@ Switch: track 44 by 24 px (`--radius-full`), on = `--color-brand-primary-dark`, 
 
 | Prop | Values |
 |---|---|
-| `columns` | id, header key, cell renderer, `priority` (1 = always shown, 2 = tablet and up, 3 = desktop only), alignment (numbers right) |
+| `columns` | id, header key, cell renderer, `priority` (1 = always shown, 2 = tablet and up, 3 = desktop only, 4 = desktop but hidden in the split view between 1024 and 1439 px, with key flags shown as icons beside the title; O-41), alignment (numbers right) |
 | `rows`, `rowKey` | data |
 | `selectable` | `none`, `single` (split view), `multiple` (bulk) |
 | `filters` | filter definitions (select, date range, status chips) |

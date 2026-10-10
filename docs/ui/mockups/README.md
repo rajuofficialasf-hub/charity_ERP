@@ -56,4 +56,4 @@ Screenshots were reviewed at all three widths; layout problems found during revi
 
 ## After the owner's review
 
-Feedback is applied in follow-up commits. When the owner approves, "Phase 0 mockups approved" is recorded with the date in `docs/DECISION_LOG.md`, and the accepted proposals above (items 1 and 3) are written into DESIGN_SYSTEM.md.
+Approved by the owner on 2026-10-10 (DECISION_LOG O-41). Items 1 and 3 above were accepted and written into DESIGN_SYSTEM.md (sections 2.7, 2.8, 4.3 and 5.7); the other items stay mockup simplifications. Later-phase screens get their own mockups at the start of their phase.
