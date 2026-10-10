@@ -6,8 +6,9 @@
 - T0.9 done (2026-10-10): docs/architecture/AUTH.md complete (registration with two OTPs and the dummy-OTP path, password rules, tokens and device sessions, lockout, account states, remote revocation and local wipe, permission-version refresh, handover, Main Admin protection, rate limits, audit events). Values not covered by O-05 were proposed in AUTH.md section 14 and approved the same day as O-25 (BR-231..233).
 - T0.10 done (2026-10-10): docs/security/permissions.yaml is the machine-readable source of truth (roles, scopes, conditions, three permission sets, sensitive-field catalogue, permissions with default grants); docs/security/RBAC.md explains the model, resolves scopes, shows the default matrix for A4's two tables plus Official daee and Implementer, and specifies enforcement and tests. Name consistency between the two files checked with a script. The six interpretations of RBAC.md section 11 were confirmed the same day (O-26), with two refinements: the RPM may grant application approval to an Official daee per project (O-27), and the Media Team works in its own Media tab with a beneficiary work list (O-28; new entity media_subjects, permission media.subject.manage, BR-234..235).
 - T0.11 done (2026-10-10): docs/architecture/WORKFLOW_ENGINE.md complete (common cycle with needs_verification and waitlisted, state diagram, definition format, guard and effect catalogues, activity model and bulk-update pattern, overrides, project lifecycle, versioning, code-vs-data table, worked example of a new project type); workflow-templates/ holds schema.json, _common.yaml and the six templates; ADR-008 written. Design choices approved with the document: post-approval stages are sub-states of implementation; edge cases are outcomes, not states; soft-delete state `deleted` for drafts and pending applications.
-- Next task: T0.12 - Offline sync (docs/architecture/OFFLINE_SYNC.md).
-- Blocking items: none.
+- T0.12 done (2026-10-10): docs/architecture/OFFLINE_SYNC.md complete (cached data set, outbox record and lifecycle, batch and snapshot endpoints, photo queue and resumable upload, conflict rules per record kind, offline NID path, encrypted storage and wipe, form-version handling, sync UI, iOS section, sequence diagrams, test strategy); ADR-010 written. Values not covered by O-07/O-13 are proposals = open question 26.
+- Next task: T0.13 - Files and documents (docs/architecture/FILES_AND_DOCUMENTS.md).
+- Blocking items: none (question 26 does not block T0.13).
 
 ## Deliverables of T0.1 (complete vs outline)
 Complete:
@@ -22,9 +23,10 @@ Complete:
 - docs/architecture/AUTH.md (T0.9)
 - docs/security/RBAC.md and permissions.yaml (T0.10)
 - docs/architecture/WORKFLOW_ENGINE.md, workflow-templates/ (schema, _common, six templates), ADR-008 (T0.11)
+- docs/architecture/OFFLINE_SYNC.md, ADR-010 (T0.12)
 
 Outlines (headings plus one line per section; completed in the task named in each file):
-- docs/architecture/OFFLINE_SYNC.md (T0.12), FILES_AND_DOCUMENTS.md (T0.13), NOTIFICATIONS.md (T0.14)
+- docs/architecture/FILES_AND_DOCUMENTS.md (T0.13), NOTIFICATIONS.md (T0.14)
 - docs/database/ERD.md (T0.15), DATABASE_SCHEMA.md (T0.16)
 - docs/api/API_STANDARDS.md (T0.17), openapi.yaml skeleton (T0.18)
 - docs/security/SECURITY_POLICY.md (T0.21)
@@ -33,7 +35,8 @@ Outlines (headings plus one line per section; completed in the task named in eac
 - docs/ops/DEPLOYMENT.md and RUNBOOK.md (T3.0, T6.5)
 
 ## Open decisions waiting on the owner
-- None from T0.1..T0.10. RBAC interpretations confirmed by O-26..O-28. Question 25 answered by O-25 (all seven authentication proposals accepted). Question 24 answered by O-24 (officials enter payment records manually). The T0.8 architecture choices are approved as D-054..D-057 with implementation requirements (worker retries/graceful shutdown/timeouts/idempotency; zod + DB constraints; Caddy with HTTPS and network hardening; monitoring and essential alerting from launch, error-tracking service deferred to T3.0).
+- Open question 26 (OFFLINE_SYNC.md section 15): retry schedule, batch/chunk sizes, nudge interval, iOS photo budget, outbox recovery after token expiry; recommendations in DECISION_LOG section 6.
+- RBAC interpretations confirmed by O-26..O-28. Question 25 answered by O-25 (all seven authentication proposals accepted). Question 24 answered by O-24 (officials enter payment records manually). The T0.8 architecture choices are approved as D-054..D-057 with implementation requirements (worker retries/graceful shutdown/timeouts/idempotency; zod + DB constraints; Caddy with HTTPS and network hardening; monitoring and essential alerting from launch, error-tracking service deferred to T3.0).
 - Interpretations recorded in O-03 (BEN-ID = UUID v7, no short display form), O-09 (initial load from an open dataset), O-16 (admin holiday calendar for public holidays) and O-22 (entry stays with officials) stand unless the owner corrects them.
 - PWA short name for the phone home screen (open item of UX-09, proposal CSS) and whether to add Web Push (decide in task T0.14).
 - Confirm with the web developer where the Bornomala font comes from (UX-13). The files declare the SIL Open Font License 1.0 and name Codepotro as vendor, but no public page confirms it.

@@ -42,7 +42,7 @@ Status: complete first draft, task T0.1 (2026-10-10). Sources: blueprint B7 (off
 | NFR-19 | Everything field-facing works offline: application capture, today's distribution, today's class, construction updates, visits, follow-ups; records queue with client_uuid and sync when the network returns; nothing is lost | B7, Q-23, §10 | decided |
 | NFR-20 | Text syncs before photos; photos in a separate compressed queue; no completion while photos are pending | B7 | decided |
 | NFR-21 | Offline data set per device: current form versions of assigned projects, own beneficiaries and applications, syllabus, locations | B7 | decided (open question 7 for the budget) |
-| NFR-22 | Offline storage budget per device: photo queue up to 200 MB (decided, O-07); structured data up to 50 MB; the app warns at 80% and blocks new photos at 100% until sync (the 50 MB and warning levels remain PROPOSAL) | B7, O-07 | decided (O-07) for the photo queue; rest PROPOSAL |
+| NFR-22 | Offline storage budget per device: photo queue up to 200 MB on Android (decided, O-07), 100 MB on iOS (PROPOSAL, open question 26); structured data up to 50 MB; the app warns at 80% and blocks new photos at 100% until sync (the 50 MB and warning levels remain PROPOSAL) | B7, O-07, OFFLINE_SYNC.md §5, §11 | decided (O-07) for the Android photo queue; rest PROPOSAL |
 | NFR-23 | Sync conflict rules as BD-48; "needs verification" state for NID collisions | B7, Q-43 | decided |
 
 ## 5. Photos and files
