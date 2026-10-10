@@ -18,11 +18,11 @@ Import these into docs/DECISION_LOG.md as the series UX-01 to UX-13, status appr
 | UX-06 | Some volunteers use iPhones. Android Chrome stays the primary target. | Offline design and tests must cover iOS Safari and installed iOS PWAs: possible storage eviction, no background sync, push only for installed PWAs, and install guidance in Bangla. |
 | UX-07 | The four biggest current problems are duplicate and wrong data, photos and proof, stuck approvals, and accounts and expenses. | These are the hero capabilities: NID lookup with duplicate warnings at entry, photo capture with metadata and a verification view, an approval queue that shows waiting time, and a clear expense and ledger view. |
 | UX-08 | Screens are reviewed as clickable HTML mockups in a browser at phone and desktop widths. There is no Figma file. | Task T0.19b builds them with the owner's logo and colours. The owner approves them before each phase is built (blueprint D২). |
-| UX-09 | System name: চ্যারিটি ও সোশ্যাল সার্ভিস. The English name is proposed as Charity & Social Service. | The header shows the As-Sunnah Foundation logo and this name. The short name under the phone home-screen icon is open; the proposal is CSS. |
+| UX-09 | System name: চ্যারিটি ও সোশ্যাল সার্ভিস. The English name is proposed as Charity & Social Service. | The header shows the As-Sunnah Foundation logo and this name. The short name under the phone home-screen icon is "ASF Charity" (owner decision O-31, 2026-10-10). |
 | UX-10 | The management home (Department Head, Monitoring Team) opens with work progress: applications, approved, and distributed or completed against target. | Proposed order below that first block: alerts, budget, area view. |
 | UX-11 | Photo source is a per-project setting chosen by the PM next to the photo rule. Defaults: camera only for distribution and construction proof, gallery allowed for vouchers and paper documents. | New setting in the photo-rule component. Photos without capture time or GPS stay flagged (BD-21). |
 | UX-12 | Volunteers read operational messages, such as correction requests and approvals, inside the app only. No SMS, WhatsApp or email for these for now. | The volunteer home puts "needs your attention" first. SMS is still required for OTP and for Qurbani donor messages (BD-34, BD-44). |
-| UX-13 | Typography follows the website: font stack UbuntuSans, Bornomala, sans-serif, weights 400 and 700 only. | Replaces Hind Siliguri in constitution section 12. Self-hosted files in docs/ui/brand/fonts/: Ubuntu Sans draws Latin letters and digits, Bornomala draws Bengali. Bornomala declares the SIL Open Font License 1.0 in the file itself, and the owner still confirms its source. |
+| UX-13 | Typography follows the website: font stack UbuntuSans, Bornomala, sans-serif, weights 400 and 700 only. | Replaces Hind Siliguri in constitution section 12. Self-hosted files in docs/ui/brand/fonts/: Ubuntu Sans draws Latin letters and digits, Bornomala draws Bengali. Bornomala declares the SIL Open Font License 1.0 in the file itself; its source is https://codepotro.com/font/bornomala/ (owner decision O-32, 2026-10-10). |
 
 ## 2. Defaults assumed (not asked; the owner may change them)
 
@@ -104,7 +104,7 @@ Screens of later phases (house construction, self-reliance, dawah, Qurbani, docu
 
 ## 8. Open items
 
-1. The owner's confirmation of where the Bornomala font comes from (UX-13). The font declares the SIL Open Font License 1.0 and names Codepotro as vendor, but no public page confirms it.
-2. The short name for the phone home screen (UX-09).
-3. Whether to add Web Push (section 2, item 5).
+1. Resolved 2026-10-10: Bornomala comes from https://codepotro.com/font/bornomala/ (O-32).
+2. Resolved 2026-10-10: the home-screen short name is "ASF Charity" (O-31).
+3. Whether to add Web Push (section 2, item 5) — decided in task T0.14.
 4. Optional: reflect these decisions in the next version of the blueprint document so both stay aligned.

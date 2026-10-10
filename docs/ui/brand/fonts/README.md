@@ -13,7 +13,7 @@ Copied on 2026-10-10 from https://assunnahfoundation.org/fonts/ with the owner's
 ## Licences, as declared inside the font files
 
 - Ubuntu Sans: copyright 2011, 2022, 2023 Canonical Ltd., licensed under the Ubuntu Font Licence 1.0. Vendor Dalton Maag Ltd.
-- Bornomala: copyright Codepotro, designer Jayed Ahsan Saad, vendor https://codepotro.com. Both files declare the SIL Open Font License, Version 1.0. A web search found no public page that confirms the font or its licence, so the owner should confirm the source with the web developer who built the website.
+- Bornomala: copyright Codepotro, designer Jayed Ahsan Saad, vendor https://codepotro.com. Both files declare the SIL Open Font License, Version 1.0. The owner confirmed on 2026-10-10 that the font comes from https://codepotro.com/font/bornomala/ (DECISION_LOG O-32).
 - Both licences require the licence text to travel with the fonts wherever they are copied. These text files must be shipped with the fonts into the application (task T1.4).
 
 ## How to use them
