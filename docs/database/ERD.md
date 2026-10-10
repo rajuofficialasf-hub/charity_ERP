@@ -274,13 +274,13 @@ Cardinality notation below: `1 — n` one to many, `1 — 0..1` optional one, `n
 
 `docs/MASTER_SPEC.md` B2 keeps the blueprint names because it translates the blueprint; every other document uses the physical names.
 
-## 20. Additions, folded entities and ambiguities (DECISION_LOG open question 29)
+## 20. Additions, folded entities and ambiguities (resolved by O-37, 2026-10-10)
 
 Entities added beyond the T0.15 list, each with its documented requirement: user_roles (A4), work_assignments (BD-24, BD-26, B4 ASSIGNED), volunteer_change_requests (BR-030, BR-031), form_library_sections and form_library_fields (BD-12), nisab_versions (O-15), holiday_calendar (O-16), reference_lists (O-14, O-17, O-22), settings (O-04, O-29, O-30, O-35), alerts (BD-42), outbound_messages (T0.14), push_subscriptions (O-35), file_links and upload_sessions (T0.13), document_events (T0.13), media_subjects (O-28), storage_stats (BD-46), export_jobs (NFR-10).
 
 Folded (no own table): blueprint project_settings → projects and project_components.settings; beneficiary contact changes and correction history → field_changes; public form links and rating criteria → project_components.settings; handover items → handovers.scope; notification preferences → users.preferences.
 
-Ambiguities with recommendations (none blocks T0.16):
+Ambiguities, resolved as recommended by O-37 (2026-10-10):
 1. **Family and income data over time**: the beneficiary row and `beneficiary_family_members` hold the current household; each application keeps a snapshot of the family and income answers in `application_answers`; dawah attendance references family members (O-11). Recommended.
 2. **Donors per project**: donors belong to one Qurbani project (each year's SSL sheet and cash form is its own set); no cross-year donor master. Recommended.
 3. **`distributions` and `construction_stages` as detail extensions of `activities`**: one distribution row per distribution activity (items, partial ticks, later date); one construction stage row per application and stage (status, dates); stage definitions stay in the project's workflow snapshot. Recommended.
