@@ -1,6 +1,6 @@
 # SYSTEM ARCHITECTURE
 
-Status: outline, written in task T0.1 (2026-10-10); completed in task T0.8. Depends on the owner's answer to open question 1 (stack D-050…D-053).
+Status: outline, written in task T0.1 (2026-10-10); completed in task T0.8. Stack D-050…D-053 approved by the owner on 2026-10-10 (O-01): pnpm monorepo, NestJS + Prisma + PostgreSQL 16, Next.js PWA, pg-boss, MinIO, SMTP and SMS adapters.
 
 ## 1. Context and goals
 One deployable backend, one PostgreSQL database, one offline-first PWA (constitution §2, §9); what the system is and is not (scope §4).

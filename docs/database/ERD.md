@@ -1,6 +1,6 @@
 # ENTITY-RELATIONSHIP DIAGRAM
 
-Status: outline, written in task T0.1 (2026-10-10); completed in task T0.15 (Mermaid diagram in `erd.mermaid` plus this narrative). Entity inventory is already in `docs/MASTER_SPEC.md` B2. Depends on open questions 2, 3, 11, 14, 15, 18, 20.
+Status: outline, written in task T0.1 (2026-10-10); completed in task T0.15 (Mermaid diagram in `erd.mermaid` plus this narrative). Entity inventory is already in `docs/MASTER_SPEC.md` B2. Decided inputs (2026-10-10): beneficiary mobile not unique (O-02); BEN-ID = UUID v7, application id = project code + year + sequence, projects carry a unique code (O-03); locations have four levels with an active flag and admin management (O-09); family-member attendance references the application's family repeat group (O-11); expense claims allow several per volunteer per project (O-14); one global `nisab_versions` table (O-15); beneficiary status active/deceased/relocated (O-18); volunteer NID unique (O-20); payments store method from an admin list and an optional confirmation file (O-22).
 
 ## 1. Conventions
 UUID primary keys, BEN-ID and application id formats, audit columns everywhere, soft delete only where approved, naming (snake_case, singular vs plural), bilingual columns.
@@ -33,7 +33,7 @@ syllabus_topics, daee_assignments, dawah_classes, class_attendance, learning_pro
 document_checklist_templates, documents, deficiency_reports, files, photo_metadata, media_stories.
 
 ## 11. Platform cluster
-locations, notifications, notification_templates, outbound_messages, audit_log, settings, holiday_calendar, alerts, alert_settings, export_jobs.
+locations (division → district → upazila → union, active flag, audited changes), notifications, notification_templates, outbound_messages, audit_log, settings, holiday_calendar (Friday weekly holiday plus public holidays), payment_methods, expense_categories, alerts, alert_settings, export_jobs.
 
 ## 12. Unique constraints and idempotency keys
 NID, birth registration, volunteer mobile, (project, beneficiary), payment transaction id, client_uuid, (animal, assigned volunteer), BEN-ID pointers after merge.

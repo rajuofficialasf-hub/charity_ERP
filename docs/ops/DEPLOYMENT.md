@@ -1,6 +1,6 @@
 # DEPLOYMENT
 
-Status: outline, written in task T0.1 (2026-10-10); completed in task T3.0 (pipeline, staging, backup before the pilot) and finalized in task T6.5 (production hardening). Depends on D-053 and on the server details the owner supplies.
+Status: outline, written in task T0.1 (2026-10-10); completed in task T3.0 (pipeline, staging, backup before the pilot) and finalized in task T6.5 (production hardening). D-053 approved (O-01); backup targets decided (O-06: RPO 24 h then 1 h with WAL, RTO 4 h, monthly drill); server details still to be supplied by the owner.
 
 ## 1. Environments
 Development (Docker Compose), test (CI), staging and production on the organization's server; configuration and secrets per environment.

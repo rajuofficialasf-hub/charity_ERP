@@ -2,9 +2,9 @@
 
 - Last updated: 2026-10-10
 - Current phase: 0 (Requirement & Architecture Freeze) - IN PROGRESS
-- Last completed task: T0.1 - Startup procedure (constitution section 16). Documents only; no application code.
-- Next task: T0.7 - Owner decisions (answer the 23 open questions in docs/DECISION_LOG.md section 5 by number). T0.2 and T0.3 are needed only if the owner finds MASTER_SPEC.md or MODULE_CATALOG.md too thin; T0.4, T0.5 and T0.6 were delivered inside T0.1 and can be skipped unless the owner wants changes. After T0.7 continue with T0.8 (system architecture and ADRs).
-- Blocking items: none for T0.7. T0.8 onward depend on the owner's answer to open question 1 (stack D-050..D-053).
+- Last completed task: T0.7 - Owner decisions. All 23 open questions of T0.1 answered on 2026-10-10 and recorded as O-01..O-23 in docs/DECISION_LOG.md section 5; stack D-050..D-053 approved (O-01); dependent documents updated. (T0.1 done the same day; T0.2..T0.6 delivered inside T0.1.)
+- Next task: T0.8 - System architecture and ADRs (docs/architecture/SYSTEM_ARCHITECTURE.md, ADR-001..006).
+- Blocking items: none.
 
 ## Deliverables of T0.1 (complete vs outline)
 Complete:
@@ -25,11 +25,11 @@ Outlines (headings plus one line per section; completed in the task named in eac
 - docs/ops/DEPLOYMENT.md and RUNBOOK.md (T3.0, T6.5)
 
 ## Open decisions waiting on the owner
-- Open questions 1..23 in docs/DECISION_LOG.md section 5 (also at the end of docs/MASTER_SPEC.md), each with a recommendation. Numbers 1..11 match the prepared T0.7 prompt in docs/PLAN.md; 12..23 are new.
-- D-050..D-053 technical stack proposals (constitution section 9) = open question 1. Node.js 24 LTS is proposed (v24.15.0 is installed on the owner's machine).
+- Open question 24 (docs/DECISION_LOG.md section 6): may the accounts (Finance) team enter payment records themselves? Recommendation: keep entry with PM/RPM/Executive for now; add a grantable `payment.record` permission later if needed.
+- Interpretations recorded in O-03 (BEN-ID = UUID v7, no short display form), O-09 (initial load from an open dataset), O-16 (admin holiday calendar for public holidays) and O-22 (entry stays with officials) stand unless the owner corrects them.
 - PWA short name for the phone home screen (open item of UX-09, proposal CSS) and whether to add Web Push (decide in task T0.14).
 - Confirm with the web developer where the Bornomala font comes from (UX-13). The files declare the SIL Open Font License 1.0 and name Codepotro as vendor, but no public page confirms it.
-- PROPOSAL rows of docs/NON_FUNCTIONAL_REQUIREMENTS.md (section 13) need the owner's or the IT team's confirmation in T0.7 or T0.21.
+- Remaining PROPOSAL rows of docs/NON_FUNCTIONAL_REQUIREMENTS.md (section 13) need the owner's or the IT team's confirmation in T0.21 (NFR-22 photo queue, NFR-35 and NFR-40 are now decided).
 
 ## Prerequisites still open (checked 2026-10-10)
 - SOP v2.3 text (docs/source/SOP_v2.3_BN.md or .pdf) is needed for the seven document checklists, the 11 deficiency-report items and the hard-copy code structure (BR-162, BR-165, BR-167; tasks T0.4 detail, T1.13, T5.4).
@@ -39,11 +39,12 @@ Outlines (headings plus one line per section; completed in the task named in eac
 - Other input files not yet supplied: see docs/source/README.md.
 
 ## Known issues / risks
-- The blueprint contradicts itself on beneficiary mobile uniqueness (B3 layer table and diagram image4 vs B3 rules, Q-21, BD-01). Documented as open question 2; not resolved.
+- The blueprint contradicts itself on beneficiary mobile uniqueness (B3 layer table and diagram image4 vs B3 rules, Q-21, BD-01). Resolved by O-02 (not unique); the blueprint text itself is unchanged and the owner may align it in a later version.
+- O-09 drops the ward level named in constitution section 6 and blueprint B2/B3; the constitution text is not edited (DECISION_LOG outranks it per section 0).
 - docs/api/openapi.yaml and docs/security/permissions.yaml were checked visually only; no YAML parser is installed on this machine (PyYAML missing). They are parsed in CI from T1.1.
 
 ## Last test run
-- none (Phase 0, documents only). Verification done on 2026-10-10: 227 unique BR ids with no duplicates; DECISION_LOG row counts Q 47 / BD 49 / D 4 / UX 13; every constitution section 3 path exists; git working tree clean after 8 commits.
+- none (Phase 0, documents only). Verification done on 2026-10-10 after T0.7: 230 unique BR ids with no duplicates; DECISION_LOG row counts Q 47 / BD 49 / D 4 / UX 13 / O 23; every constitution section 3 path exists; git working tree clean.
 
 ## Notes for the next session
 - The model and effort level for every task are in docs/MODEL_GUIDE.md. It is the owner's reference; Claude Code does not switch models by itself. The rows marked ছাড় নেই (no downgrade) must not be run on a lower model when a usage limit runs out.

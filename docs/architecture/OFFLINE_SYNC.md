@@ -1,6 +1,6 @@
 # OFFLINE PWA AND SYNC
 
-Status: outline, written in task T0.1 (2026-10-10); completed in task T0.12. Depends on open questions 7 (offline budget) and 13 (late drafts) and on D-052.
+Status: outline, written in task T0.1 (2026-10-10); completed in task T0.12. Decided inputs (2026-10-10): offline data set and 200 MB photo queue, wiped on logout or revocation (O-07); late-synced drafts accepted only with a client creation time before the deadline and flagged needs verification (O-13); stack D-052 approved (Next.js, Serwist, Dexie).
 
 ## 1. Goals and constraints
 Field volunteers on 2G/3G and low-end phones; nothing lost; blueprint B7, BD-48, UX-06.

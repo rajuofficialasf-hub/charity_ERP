@@ -1,6 +1,6 @@
 # AUTHENTICATION AND SESSIONS
 
-Status: outline, written in task T0.1 (2026-10-10); completed in task T0.9. Depends on open question 5 (password, token lifetimes, lockout, OTP at login).
+Status: outline, written in task T0.1 (2026-10-10); completed in task T0.9. Parameters decided by O-05 (2026-10-10): password minimum 8 characters with a letter and a digit; access token 15 minutes; refresh token 30 days bound to the device session, revocable; 15-minute lock after 5 failed attempts; role or permission change forces a session refresh; OTP for registration and password reset only, not at login.
 
 ## 1. Identities
 Staff users and volunteer users; mobile number as the volunteer login id (BR-025); email for staff; the Department Head account protection (BR-035).

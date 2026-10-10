@@ -1,6 +1,6 @@
 # SECURITY POLICY
 
-Status: outline, written in task T0.1 (2026-10-10); completed in task T0.21. Sources: blueprint B8, constitution §13, NFR section 8; open questions 5, 6, 8.
+Status: outline, written in task T0.1 (2026-10-10); completed in task T0.21. Sources: blueprint B8, constitution §13, NFR section 8; decisions O-05 (authentication parameters), O-06 (backup targets), O-08 (public form: rate limit, needs verification, no CAPTCHA).
 
 ## 1. Data classification
 Public, internal, sensitive (NID and photos, bank details, mobile numbers, GPS, donor data, ratings and categories, blocklist reasons, official section); handling rules per class on screens, exports, logs and backups.

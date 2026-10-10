@@ -1,6 +1,6 @@
 # API STANDARDS
 
-Status: outline, written in task T0.1 (2026-10-10); completed in task T0.17. Depends on D-051 (NestJS + OpenAPI generation).
+Status: outline, written in task T0.1 (2026-10-10); completed in task T0.17. D-051 (NestJS + OpenAPI generation) approved on 2026-10-10 (O-01).
 
 ## 1. Base conventions
 Versioned base path `/api/v1`, JSON, UTF-8, timestamps in ISO 8601 UTC, money as decimal strings, English digits.

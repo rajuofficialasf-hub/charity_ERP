@@ -15,4 +15,4 @@ Planned records (titles only; each is written when its decision is confirmed):
 | ADR-007 | Workflow templates as YAML with named guards | Q-35, BD-11 | T0.11 |
 | ADR-008 | Form definitions as JSON with a shared evaluator | BD-12 | T0.11 / T2.3 |
 | ADR-009 | Offline outbox and conflict rules | BD-48 | T0.12 |
-| ADR-010 | Identifier formats (BEN-ID, application id, project code) | open question 3 | T0.15 |
+| ADR-010 | Identifier formats (BEN-ID = UUID v7, application id = project code + year + sequence) | O-03 | T0.15 |

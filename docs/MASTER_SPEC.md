@@ -768,7 +768,7 @@ One web ERP on desktop and mobile (PWA) → API layer (permission and scope chec
 | donors, animals, animal_shares | donor info, amount; animal no, type, spot; share allocation, volunteer_id | Qurbani |
 | locations | division → district → upazila → union → ward | System master, cascading |
 
-Note on the diagram: image4 marks `mobile*` as unique on both volunteers and beneficiaries. For beneficiaries this contradicts B3 (end), Q-21 and BD-01; see open question 2.
+Note on the diagram: image4 marks `mobile*` as unique on both volunteers and beneficiaries. For beneficiaries this contradicts B3 (end), Q-21 and BD-01; resolved by O-02: the beneficiary mobile is not unique (warning only). The locations row's ward level is dropped by O-09 (four levels, managed from the admin panel). BEN-ID is a UUID v7 by O-03.
 
 #### Key rules
 
@@ -819,7 +819,7 @@ Not just a form builder: a platform of beneficiary, application and dynamic form
 
 | Layer | What | Example |
 |---|---|---|
-| 1. Beneficiary master profile | One profile per person; mobile number unique (blueprint wording; contradicts the rules below and Q-21, see open question 2) | BEN-000123: Abdur Rahim, 017XXXXXXXX |
+| 1. Beneficiary master profile | One profile per person; mobile number unique (blueprint wording; contradicts the rules below and Q-21; resolved by O-02: not unique, warning only) | BEN-000123: Abdur Rahim, 017XXXXXXXX (example id style superseded by O-03: UUID v7) |
 | 2. Project application | A separate application per project, linked to the same profile | Iftar 2026, Qurbani 2026, Winter 2026, Winter 2027: 4 applications, 1 person |
 | 3. Dynamic form (versioned) | The PM-built form for the project's needs | Qurbani 2026 form v1, v2 |
 | 4. Dynamic answers | Answers to project questions, with the application | Family members 6, occupation farmer |
@@ -1329,7 +1329,16 @@ All other fields are project-specific custom fields. Never typed (filled by the 
 
 ## Open questions
 
-Items where the blueprint is silent or contradicts itself, or where a proposal needs the owner's decision, limited to business rules, data structure, API contracts, security, permissions, workflows, money and major UX. The same list, with the same numbers, is the "Open" section of `docs/DECISION_LOG.md`; numbers 1–11 match the owner's prepared T0.7 prompt in `docs/PLAN.md`.
+Items where the blueprint is silent or contradicts itself, or where a proposal needs the owner's decision, limited to business rules, data structure, API contracts, security, permissions, workflows, money and major UX. The same list, with the same numbers, is section 6 of `docs/DECISION_LOG.md`; numbers 1–11 match the owner's prepared T0.7 prompt in `docs/PLAN.md`.
+
+**Resolution (2026-10-10, task T0.7):** the owner answered all 23 questions; the decisions are recorded as O-01 … O-23 in `docs/DECISION_LOG.md` section 5. The recommendation column below became the decision except where noted here:
+
+- 3: BEN-ID is a UUID version 7 (the primary key itself), not a "BEN-" sequence; the application id format stands as recommended (O-03).
+- 9: four levels only (division → district → upazila → union, no ward); the admin panel manages the master (add upazila/union, rename, deactivate; nothing hard-deleted); initial load from an open dataset (O-09).
+- 16: Friday is the only weekly holiday; public holidays from an admin holiday calendar (O-16).
+- 22: the ERP never pays; the accounts team pays, mostly by mobile banking, and sends the transaction id; the ERP records date, amount, method and id with an optional copy; method list admin-editable, defaults bKash, Nagad, Rocket, bank transfer (O-22). New open question 24: whether the accounts team may enter payment records themselves.
+
+These resolutions supersede the following blueprint wording: the "মোবাইল নম্বর ইউনিক" cell of the B3 layer table and diagram image4 (O-02); the ward level in B2 locations, B3 address component and constitution §6 (O-09); the "BEN-000123" style examples in A7, Appendix A and B.3 (O-03); the "OTP (PROPOSED)" login row in B8 (O-05, OTP at registration and reset only).
 
 | # | Question | Source of the gap | Recommendation |
 |---|---|---|---|

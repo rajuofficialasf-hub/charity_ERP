@@ -30,7 +30,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Key entities: users, device_sessions, otp_codes (dev dummy), password resets.
 - Depends on: M02, M17 (OTP delivery), M21 (settings).
 - B1: shared service. Phase: 1. Blueprint: A5 (OTP), B8 (session and login), B10 (account security). Tasks: T0.9, T1.7.
-- Needs decision: open question 5 (password rules, token lifetimes, lockout, OTP at login).
+- Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 5 (password rules, token lifetimes, lockout, OTP at login).
 
 ### M02 Users, Roles & Permissions
 - Purpose: roles, permission names, data scopes (GLOBAL … SELF), permission = role × scope, project-level permission sets, permission panel with full audit, field-level protection rules.
@@ -46,7 +46,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Key entities: volunteers, users (staff), registration_requests, correction_requests, edit_requests, handovers.
 - Depends on: M01, M02, M18 (photo, NID photo), M17, M19.
 - B1: 3 Volunteer. Phase: 1. Blueprint: A5 (registration, verification and approval, profile rules, staff exit and handover), Q-19, Q-42; BD-08, BD-44. Tasks: T1.9.
-- Needs decision: open question 20 (volunteer NID uniqueness, volunteer also a beneficiary).
+- Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 20 (volunteer NID uniqueness, volunteer also a beneficiary).
 
 ### M04 Volunteer Management
 - Purpose: volunteer tab (nationwide list, filters, statistics), assignment to projects by region with permission sets and the paid flag, rules-and-consent acceptance, team management by NID reference, ratings (max 5 criteria, 1–5, proposed from work data at close), categories A/B/C/D plus inactive flag with mandatory comment, blocklist, application transfer, work summary link.
@@ -54,7 +54,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Key entities: volunteers, project_volunteers, volunteer_teams, ratings, rating_criteria, categories (log), blocklist, application_transfers, consents.
 - Depends on: M03, M06, M08 (transfers), M14 (work summary), M15.
 - B1: 3 Volunteer. Phase: 1 (tab, assignment, teams, blocklist, transfer basics), 2 (transfer of applications), 5 (ratings and categories). Blueprint: A5, A4 volunteer types, Q-07, Q-16, Q-20, Q-25, Q-32, Q-34, Q-45; BD-06, BD-07, BD-40. Tasks: T1.10, T1.12, T2.6, T5.3.
-- Needs decision: open question 10 (rating averages).
+- Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 10 (rating averages).
 
 ### M05 Beneficiary Master
 - Purpose: permanent BEN-ID profile keyed by NID or birth registration (format validation), auto-fill and locked fields, profile correction request, mobile and address change log, volunteer-own-number block, family-duplicate warning at review, duplicate-candidate detection and profile merge with reversal, beneficiary blocklist, profile statuses, beneficiary tab and 360° profile, media consent status.
@@ -62,7 +62,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Key entities: beneficiaries, beneficiary_contact_changes, profile_correction_requests, profile_merges, blocklist, media_consents, family sub-table (earners).
 - Depends on: M07 (standard fields), M08, M19, M15, M18 (photo).
 - B1: 2 Beneficiary. Phase: 1 (tab shell), 2 (full master). Blueprint: A7 (360°, blocklist, duplicates and merge), B2, B3 (NID identification), Q-21, Q-44, Q-45; BD-01…BD-06. Tasks: T1.10, T2.2.
-- Needs decision: open questions 2 (mobile uniqueness), 3 (BEN-ID format), 18 (profile status list), 17 (media consent capture).
+- Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 2 (mobile uniqueness), 3 (BEN-ID format), 18 (profile status list), 17 (media consent capture).
 
 ### M06 Programs & Projects
 - Purpose: programs with PM assignment; project setup with draft save; configuration groups (basic data, budget, deadline, areas and RPMs with district split, staff access, form, rules and consent, dawah toggle and syllabus, photo rule and source, rating criteria, limits and stages, document checklist); components with settings (project_components); master templates and copy-from-project with the copy/not-copy list; lifecycle draft → active → closing → closed and reopen; deadline extension with reason; project code.
@@ -70,7 +70,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Key entities: programs, projects, project_settings, project_areas, project_components, project_templates, project_quotas, rules_consent texts, fund_sources (with M10).
 - Depends on: M02, M07, M10, M19, M15.
 - B1: 1 Program & Project. Phase: 1 (core setup, templates, consent, assignment), 5 (close/reopen complete). Blueprint: A2, A6, Q-08, Q-12, Q-33, Q-35, Q-38; BD-09, BD-10, BD-16, BD-20, UX-11. Tasks: T1.11, T1.12, T5.3.
-- Needs decision: open questions 3 (project code), 12 (Closing state), 23 (follow-up template).
+- Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 3 (project code), 12 (Closing state), 23 (follow-up template).
 
 ### M07 Form Platform
 - Purpose: section library, standard field library (Appendix B), custom fields, field types incl. Bangladesh address, repeat group, calculation; bilingual labels; visibility (volunteer / official only); no-code conditional logic; mandatory toggles with the fixed mandatory set; "অন্যান্য" text box; immutable published versions; public application link; shared evaluator used by server and client.
@@ -78,7 +78,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Key entities: forms, form_versions, form_sections, form_fields, field_options, field_library, section_library, public_form_links.
 - Depends on: M06, M19, M05 (standard columns), M22 (evaluator offline).
 - B1: 4 Application & Form Platform. Phase: 2. Blueprint: B3, A6 (form group), Appendix B, Q-26…Q-31; BD-12…BD-15. Tasks: T2.3, T2.4.
-- Needs decision: open question 8 (public link abuse rules).
+- Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 8 (public link abuse rules).
 
 ### M08 Application Workflow
 - Purpose: configurable workflow engine (states, transitions, allowed roles, guards from YAML templates), common cycle Draft → Submitted → Under Review → Reviewed → Approved/Rejected → Implementation → Completed → Closed, per-status permissions, review with full-form edit, approval routing (RPM; PM in house construction), field unlock with change log, priority score, quotas, waitlist and mandatory comment against the score, application limit and deadline enforcement, "needs verification" state for sync conflicts, application id generation, family-duplicate warning hook, transfer of applications.
@@ -86,7 +86,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Key entities: applications, application_answers, application_scores, workflow_templates, workflow_transitions, field_changes, application_transfers, project_quotas.
 - Depends on: M05, M06, M07, M02, M15, M17.
 - B1: 4 and 5. Phase: 2. Blueprint: A7, B5, Q-04, Q-05, Q-06; BD-11, BD-16, BD-17, BD-18, BD-48. Tasks: T0.11, T2.5, T2.6.
-- Needs decision: open questions 3 (application id), 13 (limit counting and late drafts), 21 (score recomputation).
+- Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 3 (application id), 13 (limit counting and late drafts), 21 (score recomputation).
 
 ### M09 Project Activities
 - Purpose: activity engine (Distribution, Construction, Purchase, Training, Visit, Payment, Voucher, Expense, Issue, Inspection, Follow-up); dispatch and receive confirmation; today's distribution bulk screen with photo rule, capture metadata and duplicate-photo warning; edge states; stock reconciliation gate; stage-based progress; issue log (raise, assign, resolve); site verification; beneficiary support payments and advances; vouchers with verification lock; materials and placard photo; volunteer expense claims and bKash payments with unique transaction id.
@@ -94,7 +94,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Key entities: project_activities, stock_movements, distributions, constructions/stages, issues, site_verifications, payments, vouchers, expense_claims, expense_items.
 - Depends on: M08, M10, M18, M22, M15, M17.
 - B1: 6 Project Activities. Phase: 3 (distribution, expenses, payments), 4 (construction, safe water, self-reliance, tree planting). Blueprint: A8.1–A8.5, B5 (activity engine, bulk screens), Q-22, Q-46; BD-21…BD-25, BD-27, BD-31. Tasks: T3.1, T3.2, T4.1, T4.2, T4.3, T4.5.
-- Needs decision: open questions 14 (expense claims), 22 (payment methods).
+- Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 14 (expense claims), 22 (payment methods).
 
 ### M10 Budget & Ledger
 - Purpose: planned budget = target × cost per beneficiary; bucket-based ledger (allocated, approved, spent, remaining, beneficiary support, advance, actual expense, voucher submitted/verified, returned, volunteer expense claimed/paid); fund-source tags and zakat-fund eligibility check; unique transaction ids; budget alerts; finance viewer and exports.
@@ -102,7 +102,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Key entities: budget_ledger, fund_sources, payments (shared with M09).
 - Depends on: M06, M09, M16.
 - B1: 8 Budget & Project Accounts. Phase: 3 (basic card and ledger), 4 (full buckets). Blueprint: A6 (budget), B6, Q-24, Q-37; BD-29, BD-30, BD-31. Tasks: T3.2, T4.6.
-- Needs decision: open question 4 (budget alert percentage), 14.
+- Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 4 (budget alert percentage), 14.
 
 ### M11 Qurbani
 - Purpose: donor import from the SSL sheet and the system's cash-donor form merged into one list; animal and share generation (cow = 7 shares); manual exclusive allocation on the volunteer profile (several cows, 1–4 goats); animal-level spot and volunteer data; donor pre-notification by email/SMS with sent status; three photos per animal emailed to donors with status; Excel export with allocations; beneficiary side via the distribution template.
@@ -110,7 +110,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Key entities: donors, animals, animal_shares, animal_photos, donor_messages.
 - Depends on: M09, M04, M17, M18, M16.
 - B1: 6 Project Activities. Phase: 4. Blueprint: A8.6, Q-11, Q-47; BD-32…BD-34. Tasks: T4.4.
-- Needs decision: open question 19 (goat share model); SMS provider before production (C3 item 10).
+- Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 19 (goat share model); SMS provider before production (C3 item 10).
 
 ### M12 Dawah
 - Purpose: syllabus per project; দায়ী assignment per beneficiary group (gender split); today's class bulk screen (attendance, absence reason, topic, in progress/learned); family-member attendance; initial and final exams with side-by-side results and PDF; exam-gated payment hook for self-reliance; Official দায়ী tracking view with no-update alert; call log; dawah dashboard.
@@ -118,7 +118,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Key entities: syllabus_topics, dawah_classes, class_attendance, learning_progress, exams, exam_results, call_logs, daee_assignments.
 - Depends on: M06 (Dawah Enabled), M08, M04, M14, M16, M22.
 - B1: 7 Dawah. Phase: 4 (minimal exam activity for the self-reliance gate), 5 (full module). Blueprint: A9, A8.2–A8.3, Q-30; BD-26, BD-27. Tasks: T4.2 (exam minimum), T5.1.
-- Needs decision: open question 11 (family-member attendance).
+- Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 11 (family-member attendance).
 
 ### M13 Documents (SOP)
 - Purpose: project document checklist templates (seven projects pre-seeded), document register with status chain collected → verified → approved → archived, responsible official role, due dates, soft warning and 3-working-day countdown, non-compliance marking, hard-copy location codes, 5-year retention, cloud folder path program → project → year → district, deficiency reports (11 SOP items) with automatic escalation on the second report within a year, legacy audit marks, quarterly audit report, CSV export.
@@ -126,7 +126,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Key entities: document_checklist_templates, documents, deficiency_reports, holiday_calendar (with M21).
 - Depends on: M06, M18, M17, M14, M21.
 - B1: shared service (documents). Phase: 0 (data model), 1 (checklist template editor in admin), 5 (full register). Blueprint: A10 (documentation, SOP mapping table, legacy audit), Q-14; BD-35…BD-39. Tasks: T0.13, T1.13, T5.4.
-- Needs decision: open question 16 (working days); input dependency SOP v2.3 text.
+- Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 16 (working days); input dependency SOP v2.3 text.
 
 ### M14 Monitoring & Follow-up
 - Purpose: monitoring control centre (project progress, stuck work, regularity), automatic alerts (review/approval pending, no update, distribution without photo, budget, incomplete activity, inactive volunteer, delay, duplicate NID attempts, unbalanced stock, overdue documents, repeated deficiency reports), work summaries per staff and volunteer with CSV/PDF, continuous follow-up evaluations also after close.
@@ -134,7 +134,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Key entities: alerts, alert_settings (thresholds), followup_evaluations, work_summary (computed).
 - Depends on: M08, M09, M12, M13, M10, M16, M17.
 - B1: 9 Monitoring & Follow-up. Phase: 5. Blueprint: A10 (control centre, alerts, work summary), A6 (follow-up), Q-33; BD-19, BD-41, BD-42. Tasks: T5.2, T5.3.
-- Needs decision: open question 4 (thresholds), 23 (follow-up template).
+- Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 4 (thresholds), 23 (follow-up template).
 
 ### M15 Audit Log
 - Purpose: permanent append-only log of every important action (actor, role, time, action, entity, id, old and new state, reason, IP/device, client_uuid); viewer and download by project, beneficiary or person; export logging for sensitive data.
@@ -166,15 +166,15 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Key entities: files, photo_metadata, media_stories, media_consents (owned by M05).
 - Depends on: M02, M15, M05.
 - B1: shared service. Phase: 2 (file service), 3 (photo rules), 5 (media tracker). Blueprint: B8 (file access), B10 (photos), A8.1 (photo rule and metadata), A10 (media team), Q-12; BD-21, BD-38, UX-11. Tasks: T0.13, T2.1, T3.1, T5.5.
-- Needs decision: open question 17 (consent capture and channels).
+- Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 17 (consent capture and channels).
 
 ### M19 Locations
-- Purpose: cascading master division → district → upazila → union → ward used by forms, filters, quotas and scopes; offline copy on phones.
-- Primary users: all forms and filters.
-- Key entities: locations (hierarchical).
-- Depends on: none.
-- B1: shared service. Phase: 1. Blueprint: B2 (locations), B3 (address component). Tasks: T1.2.
-- Needs decision: open question 9 (data source, ward optional).
+- Purpose: cascading master with four levels, division → district → upazila → union (no ward, O-09), used by forms, filters, quotas and scopes; offline copy on phones; admin-panel management (add upazila/union, rename, deactivate; never hard-deleted; audited); initial load from an open dataset.
+- Primary users: all forms and filters; Department Head and Monitoring Team for management.
+- Key entities: locations (hierarchical, with active flag).
+- Depends on: M15 (audit), M21 (admin).
+- B1: shared service. Phase: 1. Blueprint: B2 (locations), B3 (address component); O-09; BR-084, BR-228. Tasks: T1.2, T1.13.
+- Needs decision: none (resolved by O-09).
 
 ### M20 i18n
 - Purpose: bn and en as first-class languages, per-user switch, central message catalogue, bilingual data fields (labels, options, statuses, stages), one formatting utility with English digits, optional Hijri display setting, third language without rewrite.
@@ -190,7 +190,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Key entities: settings, nisab_versions, holiday_calendar, provider_settings.
 - Depends on: M02, M15.
 - B1: shared service. Phase: 1 (core), 6 (rest). Blueprint: A6 (templates), A8.3 (nisab), B9; BD-28, BD-44, BD-49, constitution §5 (Head account). Tasks: T1.13, T6.2.
-- Needs decision: open questions 4, 15, 16, 22.
+- Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 4, 15, 16, 22.
 
 ### M22 Offline Sync
 - Purpose: installable PWA, IndexedDB outbox with client_uuid and sync_status, separate compressed photo queue, text before photos, retry with backoff, server-side idempotency, conflict rules (server wins on approved, last write on drafts and field updates, both logged), "needs verification" on NID collision, offline data set (forms, own beneficiaries and applications, syllabus, locations), encrypted local data wiped on logout or revocation, iOS Safari constraints.
@@ -198,7 +198,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Key entities: outbox records, sync batches, photo queue, device_sessions (M01).
 - Depends on: M07 (evaluator), M08, M09, M12, M18, M01.
 - B1: shared/core architecture (B7). Phase: 2. Blueprint: B7, B10, Q-15, Q-23, Q-43; BD-48, UX-06. Tasks: T0.12, T2.7, T2.10.
-- Needs decision: open question 7 (offline scope and photo budget).
+- Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 7 (offline scope and photo budget).
 
 ## 3. Dependency overview
 
@@ -231,24 +231,13 @@ M22 Offline ◄── M07, M08, M09, M12, M18
 
 ## 5. Needs-decision index
 
-| Module | Open question numbers (DECISION_LOG "Open") |
+All "Needs decision" references to open questions 1–23 in the module entries above were resolved on 2026-10-10 by decisions O-01…O-23 (`docs/DECISION_LOG.md` section 5); the module entries keep the question numbers for traceability. Still open:
+
+| Module | Open item |
 |---|---|
-| M01 | 5 |
-| M03 | 20 |
-| M04 | 10 |
-| M05 | 2, 3, 17, 18 |
-| M06 | 3, 12, 23 |
-| M07 | 8 |
-| M08 | 3, 13, 21 |
-| M09 | 14, 22 |
-| M10 | 4, 14 |
-| M11 | 19 |
-| M12 | 11 |
-| M13 | 16 |
-| M14 | 4, 23 |
-| M17 | Web Push (DESIGN_BRIEF open item) |
-| M18 | 17 |
-| M19 | 9 |
-| M21 | 4, 15, 16, 22 |
-| M22 | 7 |
-| All | 1 (stack), 6 (backup targets) |
+| M10, M02 | Open question 24: may the accounts (Finance) team enter payment records themselves (today viewer) |
+| M17 | Web Push and PWA short name (DESIGN_BRIEF open items, T0.14) |
+| M11, M17 | SMS provider before Qurbani (C3 item 10) |
+| M13 | SOP v2.3 text (input dependency) |
+
+Decisions that changed module scope: M19 has four levels and admin management (O-09); M10 records payments made by the accounts team and never executes them (O-22, BR-229); M05 uses UUID v7 as BEN-ID (O-03); M06 includes the Closing state (O-12); M21 holds the global nisab table, the holiday calendar (Friday weekend, O-16), payment methods and expense categories (O-14, O-22).

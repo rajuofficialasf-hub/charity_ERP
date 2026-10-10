@@ -1,6 +1,6 @@
 # FILES, PHOTOS AND DOCUMENTS
 
-Status: outline, written in task T0.1 (2026-10-10); completed in task T0.13. Depends on open question 17 (media consent) and D-053 (MinIO).
+Status: outline, written in task T0.1 (2026-10-10); completed in task T0.13. Decided inputs (2026-10-10): media consent recorded by an official on the profile with the channel list website, Facebook, print, video, donor report, admin-editable (O-17); MinIO object storage approved (D-053, O-01); payment confirmation copies may be attached to payment records (O-22).
 
 ## 1. Scope
 Photos (distribution, construction, placard, animal), vouchers, SOP documents, media stories' assets, NID photos of volunteers.

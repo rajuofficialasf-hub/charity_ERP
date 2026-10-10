@@ -42,7 +42,7 @@ Status: complete first draft, task T0.1 (2026-10-10). Sources: blueprint B7 (off
 | NFR-19 | Everything field-facing works offline: application capture, today's distribution, today's class, construction updates, visits, follow-ups; records queue with client_uuid and sync when the network returns; nothing is lost | B7, Q-23, §10 | decided |
 | NFR-20 | Text syncs before photos; photos in a separate compressed queue; no completion while photos are pending | B7 | decided |
 | NFR-21 | Offline data set per device: current form versions of assigned projects, own beneficiaries and applications, syllabus, locations | B7 | decided (open question 7 for the budget) |
-| NFR-22 | Offline storage budget per device: structured data up to 50 MB, photo queue up to 200 MB; the app warns at 80% and blocks new photos at 100% until sync | B7 | PROPOSAL (open question 7) |
+| NFR-22 | Offline storage budget per device: photo queue up to 200 MB (decided, O-07); structured data up to 50 MB; the app warns at 80% and blocks new photos at 100% until sync (the 50 MB and warning levels remain PROPOSAL) | B7, O-07 | decided (O-07) for the photo queue; rest PROPOSAL |
 | NFR-23 | Sync conflict rules as BD-48; "needs verification" state for NID collisions | B7, Q-43 | decided |
 
 ## 5. Photos and files
@@ -70,7 +70,7 @@ Status: complete first draft, task T0.1 (2026-10-10). Sources: blueprint B7 (off
 |---|---|---|---|
 | NFR-33 | Availability target 99.5% per month during distribution seasons, measured on the login and sync endpoints; planned maintenance announced in-app and outside field hours | §10 | PROPOSAL |
 | NFR-34 | Daily automatic backup to a separate location with regular restore tests | B8 | decided |
-| NFR-35 | RPO 24 hours initially (daily `pg_dump` plus MinIO mirror), 1 hour once WAL archiving is enabled; RTO 4 hours; restore drill monthly with a written result in `docs/ops/RUNBOOK.md` | §10 | PROPOSAL (open question 6) |
+| NFR-35 | RPO 24 hours initially (daily `pg_dump` plus MinIO mirror), 1 hour once WAL archiving is enabled; RTO 4 hours; restore drill monthly with a written result in `docs/ops/RUNBOOK.md` | §10, O-06 | decided (O-06); IT team to confirm feasibility |
 | NFR-36 | A phone that is lost or stolen can have its device session revoked by an official; local data is wiped on logout or revocation | B10, B7 | decided |
 
 ## 8. Security and privacy
@@ -80,7 +80,7 @@ Status: complete first draft, task T0.1 (2026-10-10). Sources: blueprint B7 (off
 | NFR-37 | Server-side authorization on every endpoint, default deny; object- and function-level checks; no IDOR | B4, §2, §13 | decided |
 | NFR-38 | Field-level protection of NID, bank, ratings, categories, donor data and official section, on screens and in exports | B8 | decided |
 | NFR-39 | OWASP baseline: input validation, CSRF/XSS protection, session hardening, safe uploads, dependency scanning, no secrets in code or logs, errors without stack traces or SQL | §13 | decided |
-| NFR-40 | Authentication parameters: minimum password 8 characters with a letter and a digit; access token 15 minutes; refresh token 30 days bound to the device session and revocable; lock 15 minutes after 5 failed attempts; role or permission change forces a session refresh; OTP for registration and password reset only | B8 | PROPOSAL (open question 5) |
+| NFR-40 | Authentication parameters: minimum password 8 characters with a letter and a digit; access token 15 minutes; refresh token 30 days bound to the device session and revocable; lock 15 minutes after 5 failed attempts; role or permission change forces a session refresh; OTP for registration and password reset only | B8, O-05 | decided (O-05) |
 | NFR-41 | Rate limiting: authentication endpoints 10 attempts per minute per account and IP; public application form 20 submissions per hour per IP; OTP requests 5 per hour per number | §13 | PROPOSAL |
 | NFR-42 | Sensitive data on the phone encrypted at rest; TLS everywhere; database and object storage reachable only from the application network | B7, B8 | decided (network rule PROPOSAL) |
 | NFR-43 | Every security-relevant action audited per constitution §13; exports of sensitive data logged | §13 | decided |
@@ -125,8 +125,6 @@ Status: complete first draft, task T0.1 (2026-10-10). Sources: blueprint B7 (off
 
 | Open question | NFR ids |
 |---|---|
-| 5 (authentication values) | NFR-40 |
-| 6 (RPO/RTO, drills) | NFR-35 |
-| 7 (offline budget) | NFR-22 |
-| IT team approval of availability, sizing and network rules | NFR-31, NFR-33, NFR-42 |
-| All other PROPOSAL rows: owner confirms or changes in T0.7 or T0.21 | NFR-02, 04–10, 14–16, 25, 27, 28, 30, 41, 46, 47, 52 |
+| 5, 6, 7: answered 2026-10-10 (O-05, O-06, O-07) | NFR-40, NFR-35, NFR-22 now decided |
+| IT team approval of availability, sizing, network rules and the backup targets' feasibility | NFR-31, NFR-33, NFR-35, NFR-42 |
+| All other PROPOSAL rows: owner confirms or changes in T0.21 (test strategy and security policy) | NFR-02, 04–10, 14–16, 22 (50 MB part), 25, 27, 28, 30, 41, 46, 47, 52 |

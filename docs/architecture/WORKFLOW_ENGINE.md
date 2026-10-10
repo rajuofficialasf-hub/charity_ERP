@@ -1,6 +1,6 @@
 # WORKFLOW AND ACTIVITY ENGINE
 
-Status: outline, written in task T0.1 (2026-10-10); completed in task T0.11 together with the six template definitions in `docs/architecture/workflow-templates/`. Depends on open questions 12 (Closing state), 13 (limits), 21 (score timing).
+Status: outline, written in task T0.1 (2026-10-10); completed in task T0.11 together with the six template definitions in `docs/architecture/workflow-templates/`. Decided inputs (2026-10-10): the project lifecycle includes Closing (O-12); the application limit counts all non-rejected, non-deleted applications including drafts and late-synced drafts go to needs verification (O-13); the priority score is recomputed until the decision and snapshotted at the decision (O-21); application id = project code + year + 5-digit sequence (O-03).
 
 ## 1. Purpose
 Configurable states and transitions for applications and project activities (BD-11, BR-090); nothing project-specific in code.
