@@ -687,6 +687,8 @@ Per SOP clause 7.1 the legacy (pre-SOP) document audit can also be recorded: rec
 
 The Media Team keeps a tracker of which stories are being worked on, which are in progress, which are done and which were published. Each story: title, related project and beneficiary, responsible member, status (planned / in progress / done / published), publication channel and date.
 
+Owner decision O-28 (2026-10-10): the Media Team works in its own Media tab; "add beneficiary" selects beneficiaries from the nationwide list into a media work list; per beneficiary the tab shows the media status, the stories with channel and date, and a writing area; sensitive fields stay masked and the team changes nothing outside its own media records.
+
 ### A11. Dashboards, reports and downloads
 
 Four levels of dashboards: project, program, central and dawah; with charts and cards, interactive filters by year and area; everyone sees data within own scope.

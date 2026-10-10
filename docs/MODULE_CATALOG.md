@@ -161,9 +161,9 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Needs decision: Web Push (DESIGN_BRIEF open item, T0.14); SMS provider before production.
 
 ### M18 Files & Media
-- Purpose: object storage adapter (MinIO; filesystem in tests), signed expiring URLs after authorization, upload validation (type, size, virus-scan hook), client-side compression and resumable upload, photo metadata (capture time, GPS, source camera/gallery per project setting), duplicate-photo detection, voucher and document files, media consent gating of the "publishable" list, media story tracker.
+- Purpose: object storage adapter (MinIO; filesystem in tests), signed expiring URLs after authorization, upload validation (type, size, virus-scan hook), client-side compression and resumable upload, photo metadata (capture time, GPS, source camera/gallery per project setting), duplicate-photo detection, voucher and document files, media consent gating of the "publishable" list, and the Media tab (O-28): a media work list of selected beneficiaries (`media_subjects`) with per-beneficiary media status, stories, channel and date and a writing area.
 - Primary users: volunteers and paid volunteers (photos, vouchers), officials (documents), Media Team (stories, publishable list).
-- Key entities: files, photo_metadata, media_stories, media_consents (owned by M05).
+- Key entities: files, photo_metadata, media_subjects, media_stories, media_consents (owned by M05).
 - Depends on: M02, M15, M05.
 - B1: shared service. Phase: 2 (file service), 3 (photo rules), 5 (media tracker). Blueprint: B8 (file access), B10 (photos), A8.1 (photo rule and metadata), A10 (media team), Q-12; BD-21, BD-38, UX-11. Tasks: T0.13, T2.1, T3.1, T5.5.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 17 (consent capture and channels).

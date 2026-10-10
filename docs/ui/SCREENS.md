@@ -17,6 +17,9 @@ Project dashboard (progress first); program, central and dawah dashboards; monit
 ## 5. Setup (desktop first)
 Program and project setup with component toggles and draft save; form builder with section library, field settings, live preview and versions; templates; permission panel; admin settings (thresholds, nisab, providers, holiday calendar); document checklist editor; rating criteria; quotas and scoring criteria.
 
+## 5a. Media Team (responsive; O-28)
+Media tab: media work list with "add beneficiary" (select from the nationwide beneficiary list, sensitive fields masked), per-beneficiary media status (planned / in progress / published), story editor with writing area, channel and publication date, publishable photo list gated by consent.
+
 ## 6. Project-specific
 Qurbani donor list and import, animal allocation and photos; dawah tracking view and exams; construction stages; safe-water advance and vouchers; tree-planting public form.
 

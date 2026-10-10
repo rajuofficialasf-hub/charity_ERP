@@ -663,6 +663,7 @@ permissions:
       - { role: program_manager, scope: PROGRAM, condition: house_construction_only }
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION, condition: if_rpm_grants }
+      - { role: official_daee, scope: REGION, condition: if_rpm_grants }   # O-27
   - name: application.reject
     description: Reject a reviewed application with reason
     module: M08
@@ -671,6 +672,7 @@ permissions:
       - { role: program_manager, scope: PROGRAM, condition: house_construction_only }
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION, condition: if_rpm_grants }
+      - { role: official_daee, scope: REGION, condition: if_rpm_grants }   # O-27
   - name: application.waitlist
     description: Put a reviewed application on the waitlist or pull it from the waitlist
     module: M08
@@ -679,6 +681,7 @@ permissions:
       - { role: program_manager, scope: PROGRAM, condition: house_construction_only }
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION, condition: if_rpm_grants }
+      - { role: official_daee, scope: REGION, condition: if_rpm_grants }   # O-27
   - name: application.unlock_field
     description: Unlock one field of an approved application and approve the update
     module: M08
@@ -1176,8 +1179,14 @@ permissions:
       - { role: volunteer_local_daee, scope: ASSIGNED }
       - { role: volunteer_both, scope: SELF }
       - { role: volunteer_paid, scope: ASSIGNED }
+  - name: media.subject.manage
+    description: In the Media tab, add beneficiaries to the media work list and set their media status (O-28)
+    module: M18
+    sensitive: false
+    default:
+      - { role: media_team, scope: GLOBAL }
   - name: story.manage
-    description: Read, write and edit media stories and the publication tracker
+    description: Read, write and edit media stories and the publication tracker for beneficiaries on the media work list
     module: M18
     sensitive: false
     default:

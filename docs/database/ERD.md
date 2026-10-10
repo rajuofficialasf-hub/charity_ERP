@@ -30,7 +30,7 @@ donors, animals, animal_shares, animal_photos, donor_messages.
 syllabus_topics, daee_assignments, dawah_classes, class_attendance, learning_progress, exams, exam_results, call_logs.
 
 ## 10. Documents and media cluster
-document_checklist_templates, documents, deficiency_reports, files, photo_metadata, media_stories.
+document_checklist_templates, documents, deficiency_reports, files, photo_metadata, media_subjects (beneficiary selected into the Media tab work list: beneficiary_id, project_id, added_by, media_status, O-28), media_stories (under a media subject: title, text, author, status, channel, published_at).
 
 ## 11. Platform cluster
 locations (division → district → upazila → union, active flag, audited changes), notifications, notification_templates, outbound_messages, audit_log, settings, holiday_calendar (Friday weekly holiday plus public holidays), payment_methods, expense_categories, alerts, alert_settings, export_jobs.

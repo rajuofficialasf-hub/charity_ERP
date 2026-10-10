@@ -146,7 +146,7 @@ Rows of the blueprint's first table and the permissions that implement them: row
 | application.view, beneficiary.view_all | ✓ [GLOBAL] | — | ✓ [PROJECT, house construction] |
 | application.view_official_section | ✓ [GLOBAL] | — | ✓ [PROJECT, house construction] |
 | application.create / edit / delete, any beneficiary or project write | — | — | — |
-| story.manage, story.view, media.publishable.manage | ✓ | — | — |
+| media.subject.manage (Media tab: add beneficiaries to the media work list, set media status; O-28), story.manage, story.view, media.publishable.manage | ✓ | — | — |
 | beneficiary.consent.view | ✓ | — | — |
 | file.upload | own part | — | own part |
 | budget.view, ledger.view, dashboard.project.view, dashboard.program.view | — | ✓ [GLOBAL] | — |
@@ -168,6 +168,7 @@ Finance stays a viewer (BD-31, O-24). Media changes only own stories and media c
 | application.view / view_official_section | ✓ [ASSIGNED] | W |
 | beneficiary.view_nid | ✓ | W |
 | application.create / submit / review, progress.update, voucher.verify, beneficiary.lookup | — | W |
+| application.approve / reject / waitlist | G (O-27; the grant also extends application.view to REGION on that project) | — |
 | exam.record, exam.delegate target, zakat.decide, call_log.record, daee.assign, dawah.tracking.view, dashboard.dawah.view | ✓ | — |
 | followup.record | ✓ | — |
 | document.register.view / submit, deficiency.report | — | ✓ |
@@ -225,16 +226,16 @@ Stock reconciliation and the Qurbani animal photos are not in the base sets beca
 - Panel tests: revoke beats grant; volunteer cannot receive sensitive permissions; permission_version bump forces refresh.
 - Boot-time checks: unknown permission in code, dead permission in YAML.
 
-## 11. Interpretations to confirm (not blocking)
+## 11. Interpretations, confirmed by the owner on 2026-10-10 (O-26, O-27, O-28)
 
-1. **Implementer** (SOP role, safe water): modelled as Project Executive-level rights restricted to safe-water projects (`safe_water_only`) plus document register rights. Blueprint A4 only says "overall implementation and all related documents".
-2. **Official দায়ী**: exams, zakat decision (Q-30), call log, tracking view, follow-up, Local দায়ী assignment, GLOBAL read of the volunteer and beneficiary tabs (A5), application view at ASSIGNED (own area's beneficiaries). Not a reviewer or approver.
-3. **Media Team** reads applications and beneficiaries at GLOBAL including official sections (A4 "আবেদন ও উপকারভোগীর তথ্য দেখা"), but never NID, bank, ratings, donor data (sensitive_fields excludes them).
-4. **`nisab.set`** given to the PM at GLOBAL (Q-29 "PM or above"); the nisab is one global table (O-15).
-5. **Stock reconciliation** (`stock.reconcile`) entered by the volunteer and verified by RPM/Executive, both under the same permission name with different scopes.
-6. **`beneficiary.merge`** at PROGRAM for the PM (BD-05 names PM, Monitoring Team, Department Head); RPM proposes only.
+1. **Implementer** (SOP role, safe water): modelled as Project Executive-level rights restricted to safe-water projects (`safe_water_only`) plus document register rights. Confirmed (O-26).
+2. **Official দায়ী**: exams, zakat decision (Q-30), call log, tracking view, follow-up, Local দায়ী assignment, GLOBAL read of the volunteer and beneficiary tabs (A5), application view at ASSIGNED (own area's beneficiaries). Not a reviewer or approver by default; **the RPM may grant application approval (approve, reject, waitlist) per project** like the Executive's "if RPM grants" extras, and the grant extends application view to REGION on that project (O-27).
+3. **Media Team**: works in its own **Media tab**; "add beneficiary" selects beneficiaries from the nationwide list into the media work list (`media.subject.manage`); per beneficiary the media status, stories, channel and date and a writing area; reads beneficiary and application data at GLOBAL without NID, bank, ratings or donor data; changes nothing outside its own media records (O-28).
+4. **`nisab.set`** given to the PM at GLOBAL (Q-29 "PM or above"); the nisab is one global table (O-15). Confirmed (O-26).
+5. **Stock reconciliation** (`stock.reconcile`) entered by the volunteer and verified by RPM/Executive, both under the same permission name with different scopes. Confirmed (O-26).
+6. **`beneficiary.merge`** at PROGRAM for the PM (BD-05 names PM, Monitoring Team, Department Head); RPM proposes only. Confirmed (O-26).
 
-## 12. Permission catalogue (generated from permissions.yaml, 139 permissions)
+## 12. Permission catalogue (generated from permissions.yaml, 140 permissions)
 
 Generated on 2026-10-10 by the T0.10 check script from `permissions.yaml`; regenerate whenever the YAML changes (T1.8 adds this to CI). Department Head and Monitoring Team hold every permission at GLOBAL and are not repeated per row.
 
@@ -306,9 +307,9 @@ Generated on 2026-10-10 by the T0.10 check script from `permissions.yaml`; regen
 | `application.view` | M08 | no | View applications (basic data for volunteers; official section needs application.view_official_section) | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; implementer@REGION (safe_water_only); official_daee@ASSIGNED; procurement_team@PROJECT (house_construction_project); media_team@GLOBAL; volunteer_general@SELF; volunteer_both@SELF; volunteer_team_member@SELF (own_created); volunteer_local_daee@ASSIGNED; volunteer_paid@PROJECT |
 | `application.view_official_section` | M08 | yes | See official-only form sections, scores and reviewer comments | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; implementer@REGION (safe_water_only); official_daee@ASSIGNED; procurement_team@PROJECT (house_construction_project); media_team@GLOBAL |
 | `application.review` | M08 | no | Take an application under review and edit the whole form | regional_program_manager@REGION; project_executive@REGION; implementer@REGION (safe_water_only) |
-| `application.approve` | M08 | no | Approve a reviewed application | program_manager@PROGRAM (house_construction_only); regional_program_manager@REGION; project_executive@REGION (if_rpm_grants) |
-| `application.reject` | M08 | no | Reject a reviewed application with reason | program_manager@PROGRAM (house_construction_only); regional_program_manager@REGION; project_executive@REGION (if_rpm_grants) |
-| `application.waitlist` | M08 | no | Put a reviewed application on the waitlist or pull it from the waitlist | program_manager@PROGRAM (house_construction_only); regional_program_manager@REGION; project_executive@REGION (if_rpm_grants) |
+| `application.approve` | M08 | no | Approve a reviewed application | program_manager@PROGRAM (house_construction_only); regional_program_manager@REGION; project_executive@REGION (if_rpm_grants); official_daee@REGION (if_rpm_grants) |
+| `application.reject` | M08 | no | Reject a reviewed application with reason | program_manager@PROGRAM (house_construction_only); regional_program_manager@REGION; project_executive@REGION (if_rpm_grants); official_daee@REGION (if_rpm_grants) |
+| `application.waitlist` | M08 | no | Put a reviewed application on the waitlist or pull it from the waitlist | program_manager@PROGRAM (house_construction_only); regional_program_manager@REGION; project_executive@REGION (if_rpm_grants); official_daee@REGION (if_rpm_grants) |
 | `application.unlock_field` | M08 | no | Unlock one field of an approved application and approve the update | regional_program_manager@REGION; project_executive@REGION |
 | `application.update_unlocked_field` | M08 | no | Update a field the official unlocked | volunteer_general@SELF; volunteer_both@SELF |
 | `application.verify_needs_verification` | M08 | no | Resolve a 'needs verification' record (NID collision at sync, public form) by linking or rejecting | regional_program_manager@REGION; project_executive@REGION |
@@ -368,7 +369,8 @@ Generated on 2026-10-10 by the T0.10 check script from `permissions.yaml`; regen
 | `notification.read_own` | M17 | no | Read own in-app notifications | program_manager@SELF; regional_program_manager@SELF; project_executive@SELF; implementer@SELF; official_daee@SELF; procurement_team@SELF; media_team@SELF; finance_team@SELF; volunteer_general@SELF; volunteer_local_daee@SELF; volunteer_both@SELF; volunteer_team_member@SELF; volunteer_paid@SELF |
 | `notification.template.manage` | M17 | no | Edit notification templates | none (global roles only) |
 | `file.upload` | M18 | no | Upload photos, vouchers and documents within the user's permitted actions | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; implementer@REGION; official_daee@REGION; media_team@GLOBAL (own_part); procurement_team@PROJECT (own_part); volunteer_general@SELF; volunteer_local_daee@ASSIGNED; volunteer_both@SELF; volunteer_paid@ASSIGNED |
-| `story.manage` | M18 | no | Read, write and edit media stories and the publication tracker | media_team@GLOBAL |
+| `media.subject.manage` | M18 | no | In the Media tab, add beneficiaries to the media work list and set their media status (O-28) | media_team@GLOBAL |
+| `story.manage` | M18 | no | Read, write and edit media stories and the publication tracker for beneficiaries on the media work list | media_team@GLOBAL |
 | `story.view` | M18 | no | Read media stories | program_manager@PROGRAM; regional_program_manager@REGION; media_team@GLOBAL |
 | `media.publishable.manage` | M18 | no | Collect photos and videos into the publishable list (consent-gated) | media_team@GLOBAL |
 | `location.manage` | M19 | no | Add, rename and deactivate divisions, districts, upazilas and unions | none (global roles only) |
