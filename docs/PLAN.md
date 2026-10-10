@@ -954,7 +954,7 @@ Write the handover documentation: docs/manuals/ in Bengali — an administrator 
 
 ## ৫. নিয়মিত ব্যবহারের প্রম্পট (slash command)
 
-starter-kit-এর `.claude/commands/` ফোল্ডারে এগুলো আছে; Claude Code-এ `/css-…` লিখলেই চলে (কোনো সংস্করণে `/project:css-…`)। পুরো লেখা পরিশিষ্ট B-তে, যাতে command কাজ না করলে পেস্ট করতে পারেন।
+রিপোর `.claude/commands/` ফোল্ডারে এগুলো আছে; দশটিই শুধু আপনি চালাতে পারেন (`disable-model-invocation`), Claude নিজে থেকে `/css-end` বা `/css-gate` চালিয়ে commit বা ট্যাগ করবে না; Claude Code-এ `/css-…` লিখলেই চলে (কোনো সংস্করণে `/project:css-…`)। পুরো লেখা পরিশিষ্ট B-তে, যাতে command কাজ না করলে পেস্ট করতে পারেন।
 
 | Command | কখন | লাইব্রেরির মূল |
 |---|---|---|
@@ -1140,6 +1140,10 @@ ERP for the Charity & Social Service Department of As-Sunnah Foundation. The pro
 **css-start.md**
 
 ```text
+---
+description: "Session start: report where the project stands in Bengali, change nothing"
+disable-model-invocation: true
+---
 Session start. Do not change any file.
 1. Read docs/STATUS.md and, once it exists (task T0.1 creates it), the last 40 lines of docs/DECISION_LOG.md; then run `git status` and `git log --oneline -15`.
 2. Tell me in Bengali, in at most 8 lines: current phase, last completed task, the next task id and its one-line goal, open decisions waiting on me, anything uncommitted or failing.
@@ -1149,6 +1153,10 @@ Session start. Do not change any file.
 **css-end.md**
 
 ```text
+---
+description: "Session end: run tests, update STATUS.md and docs, commit, give the report in Bengali"
+disable-model-invocation: true
+---
 Session end for the current task.
 1. Run the tests of every touched package (unit, API, and E2E if the task touched UI flows) and show the command and summary output.
 2. Update docs/STATUS.md: phase, last completed task id, next task id, open decisions, known issues, last test run (date, command, result).
@@ -1160,6 +1168,11 @@ Session end for the current task.
 **css-fix.md**
 
 ```text
+---
+description: "Report a mismatch with the blueprint or spec; propose a fix and wait for approval"
+argument-hint: "[what does not match]"
+disable-model-invocation: true
+---
 The last change does not match the blueprint/spec in this way: $ARGUMENTS
 Explain the conflict, the affected modules, and the fix you propose, with the exact documents and rules (BR-ids, BD-ids) involved. Do not implement until I approve.
 ```
@@ -1167,6 +1180,11 @@ Explain the conflict, the affected modules, and the fix you propose, with the ex
 **css-change.md**
 
 ```text
+---
+description: "New owner decision: impact analysis first, then log it and implement after approval"
+argument-hint: "[the decision]"
+disable-model-invocation: true
+---
 New decision from the project owner: $ARGUMENTS
 Per the No Silent Change policy: first report what it conflicts with (blueprint sections, BD/BR ids, DECISION_LOG entries), the affected modules, and the database / API / UI / security / testing / migration impact. Then wait for my approval. After approval: record it in docs/DECISION_LOG.md with a new id and today's date, update the affected documents, then implement with tests.
 ```
@@ -1174,6 +1192,11 @@ Per the No Silent Change policy: first report what it conflicts with (blueprint 
 **css-bug.md**
 
 ```text
+---
+description: "Fix a bug: reproduce with a failing test first, then fix and keep the regression test"
+argument-hint: "[what happens / expected / where / role]"
+disable-model-invocation: true
+---
 Bug report: $ARGUMENTS
 Expected format from me: what happens / what should happen / where (screen or endpoint) / which role / steps to reproduce.
 Find the root cause before fixing: reproduce it with a failing test first. Then fix, keep the regression test, and report: cause, fix, affected modules, tests added and executed, documents updated. Do not change behaviour beyond the bug.
@@ -1182,6 +1205,11 @@ Find the root cause before fixing: reproduce it with a failing test first. Then 
 **css-review.md**
 
 ```text
+---
+description: "Review a module against spec, business rules, RBAC and API standards; list only, no fixes"
+argument-hint: "[module name]"
+disable-model-invocation: true
+---
 Review the "$ARGUMENTS" module against docs/MASTER_SPEC.md, docs/BUSINESS_RULES.md, docs/security/RBAC.md and docs/api/API_STANDARDS.md.
 If subagents are available, split the review: (a) business-rule compliance, (b) authorization and field-level protection including IDOR, (c) tests and coverage, (d) code quality (duplicated logic, hard-coded strings or permissions, magic numbers, performance risks such as N+1 queries and unpaginated lists).
 Report a prioritized list (critical / major / minor) with file references. Do not refactor or fix anything yet; give me the list first.
@@ -1190,6 +1218,10 @@ Report a prioritized list (critical / major / minor) with file references. Do no
 **css-docsync.md**
 
 ```text
+---
+description: "Check that code and documentation are in sync and update the documentation"
+disable-model-invocation: true
+---
 Check whether the code and the documentation are still synchronized: MASTER_SPEC, MODULE_CATALOG, BUSINESS_RULES (including the test-status column), DECISION_LOG, ERD, DATABASE_SCHEMA, openapi.yaml (run the drift test), RBAC and permissions.yaml, SCREENS, I18N (missing keys in bn or en), TEST_STRATEGY, STATUS.
 List every mismatch, then update the documentation to match the approved implementation. Where the code contradicts an approved decision, do not change the docs: report it as a defect instead.
 ```
@@ -1197,12 +1229,21 @@ List every mismatch, then update the documentation to match the approved impleme
 **css-status.md**
 
 ```text
+---
+description: "One-page status report in Bengali: done, in progress, blocked, decisions, risks, next tasks"
+disable-model-invocation: true
+---
 Give me a status report in Bengali (technical terms in English), under one page: what was completed since the last gate (task ids), what is in progress, what is blocked, open decisions waiting on me, test coverage per layer and the last full run, the current risk list with mitigations, and the next three tasks. Base it on docs/STATUS.md, git log and the test reports; do not guess.
 ```
 
 **css-gate.md**
 
 ```text
+---
+description: "Phase gate: docs sync, review, full tests, Bengali UAT script, release notes, git tag"
+argument-hint: "[phase number]"
+disable-model-invocation: true
+---
 Phase gate for phase $ARGUMENTS. Run in this order and report each step; do not start work that belongs to the next phase.
 1. Documentation sync for every module of this phase (same checks as /css-docsync); fix the docs.
 2. Review each module of this phase against MASTER_SPEC, BUSINESS_RULES, RBAC, API_STANDARDS (use subagents in parallel if available): rule violations, missing authorization or field-level protection, missing tests, duplicated logic, hard-coded strings, performance risks. Fix critical findings now with tests; log the rest in docs/STATUS.md under known issues.
@@ -1215,6 +1256,11 @@ Phase gate for phase $ARGUMENTS. Run in this order and report each step; do not 
 **css-uat.md**
 
 ```text
+---
+description: "Process tester feedback: classify as bug, missing requirement, new request or training issue"
+argument-hint: "[phase or module]"
+disable-model-invocation: true
+---
 UAT feedback for $ARGUMENTS, verbatim from the testers (Bengali), pasted below this line:
 
 Classify each item: (a) bug, (b) requirement already in the blueprint but missing or wrong, (c) new request that needs an owner decision, (d) training or wording issue. Fix (a) and (b) now with regression tests and report them; put (c) into docs/DECISION_LOG.md as open items with your recommendation; propose i18n text changes for (d). Do not implement (c) without my approval.

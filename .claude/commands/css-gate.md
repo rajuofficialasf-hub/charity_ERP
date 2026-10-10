@@ -1,3 +1,8 @@
+---
+description: "Phase gate: docs sync, review, full tests, Bengali UAT script, release notes, git tag"
+argument-hint: "[phase number]"
+disable-model-invocation: true
+---
 Phase gate for phase $ARGUMENTS. Run in this order and report each step; do not start work that belongs to the next phase.
 1. Documentation sync for every module of this phase (same checks as /css-docsync); fix the docs.
 2. Review each module of this phase against MASTER_SPEC, BUSINESS_RULES, RBAC, API_STANDARDS (use subagents in parallel if available): rule violations, missing authorization or field-level protection, missing tests, duplicated logic, hard-coded strings, performance risks. Fix critical findings now with tests; log the rest in docs/STATUS.md under known issues.

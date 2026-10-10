@@ -1,3 +1,7 @@
+---
+description: "Session end: run tests, update STATUS.md and docs, commit, give the report in Bengali"
+disable-model-invocation: true
+---
 Session end for the current task.
 1. Run the tests of every touched package (unit, API, and E2E if the task touched UI flows) and show the command and summary output.
 2. Update docs/STATUS.md: phase, last completed task id, next task id, open decisions, known issues, last test run (date, command, result).
