@@ -23,6 +23,11 @@ ERP for the Charity & Social Service Department of As-Sunnah Foundation. The pro
 - Large tasks: split into steps; finish, test and commit each step before starting the next. If the context gets long, write progress into docs/STATUS.md before continuing.
 - Decisions: every new business or architectural decision is appended to docs/DECISION_LOG.md before implementation. Proposals stay "proposed" until the owner confirms in chat.
 
+## UI rules decided by the owner (details: docs/ui/DESIGN_BRIEF.md)
+- All numbers use English digits 0-9 in both languages.
+- Officials work equally on desktop and phone: review, approval, lookup, profiles and dashboards must work at 360 px. Setup screens (form builder, project setup, permission panel) are desktop first.
+- Calm institutional look with one accent colour; use the owner's logo and colours from docs/ui/brand/ once supplied. Read the brief before any UI task.
+
 ## Repository map and commands
 (Filled in by task T1.1 after scaffolding; keep this section current whenever scripts or layout change.)
 - Install: pnpm install · Dev: pnpm dev · Unit/API tests: pnpm test · E2E: pnpm e2e · Lint: pnpm lint · Typecheck: pnpm typecheck · DB: pnpm db:migrate, pnpm db:seed · Local services: docker compose up -d

@@ -1,9 +1,11 @@
 # CSS ERP — Claude Code দিয়ে পূর্ণাঙ্গ ডেভেলপমেন্ট প্ল্যান ও ধাপে ধাপে প্রম্পট
 
 **আস-সুন্নাহ ফাউন্ডেশন · চ্যারিটি এন্ড সোশ্যাল সার্ভিস ডিপার্টমেন্ট**
-সংস্করণ ১.১ · ১০ অক্টোবর ২০২৬
+সংস্করণ ১.২ · ১০ অক্টোবর ২০২৬
 
 > **১.১-এ যা বদলেছে:** রিপোজিটরি `D:\Charity Website\Charity_ERP`-এ প্রস্তুত ও GitHub-এ যুক্ত (M2 ও M3 সম্পন্ন, push হয়েছে) · প্রস্তাবিত Node.js 22 → 24 LTS (আপনার মেশিনে ২৪ আছে) · `/css-start` প্রথম দিনে DECISION_LOG না থাকলেও ঠিকমতো চলে · ব্লুপ্রিন্টের Markdown রূপ নতুন করে বানানো: ক্রমিক তালিকা, ৮১টি উপ-শিরোনাম ও ছবির ক্যাপশন ঠিক, মূল docx-এর সাথে অনুচ্ছেদ ধরে মিলিয়ে যাচাই করা।
+>
+> **১.২-এ যা বদলেছে:** ডিজাইন ইন্টারভিউ হয়েছে: ১২টি সিদ্ধান্ত (UX-01…12) `docs/ui/DESIGN_BRIEF.md`-এ · আপনার Figma নেই, তাই নতুন টাস্ক T0.19b: ব্রাউজারে দেখার HTML মকআপ (মোট টাস্ক ৭৮) · মাস্টার প্রম্পটে সংশোধন: সংখ্যা সবসময় ইংরেজি অঙ্কে, অফিসিয়ালরা ফোন ও ডেস্কটপ সমান ব্যবহার করেন, কিছু স্বেচ্ছাসেবক আইফোন ব্যবহার করেন · লোগো ও ব্র্যান্ডের রং আপনার দেওয়ার তালিকায়।
 
 উৎস ডকুমেন্ট (তিনটিই পুরো পড়ে বিশ্লেষণ করা হয়েছে):
 
@@ -13,7 +15,7 @@
 | ২ | MASTER_PROMPT_CSS_ERP.md | AI ডেভেলপারের "সংবিধান": §0–§18, ৪৯টি অনুমোদিত সিদ্ধান্ত (BD-01…49), রোডম্যাপ, স্ট্যান্ডার্ড, কাজের নিয়ম | প্রতিটি সেশনে Claude যে নিয়মে কাজ করবে |
 | ৩ | charity_ERP.md | প্রম্পট লাইব্রেরি P0–P8 + §A নিয়মিত প্রম্পট | কোন ক্রমে কী করাতে হবে |
 
-এই ফাইলটি তিনটিকে এক সুতোয় বেঁধে **Claude Code-এর জন্য** সাজিয়েছে: কী কী অসঙ্গতি পাওয়া গেল ও কীভাবে ঠিক করা হলো (§১), কৌশল ও কাজের পদ্ধতি (§২), Claude ছাড়া আপনার ম্যানুয়াল প্রস্তুতি (§৩), এবং ৭৭টি টাস্ক-প্রম্পট ক্রম অনুযায়ী (§৪), নিয়মিত প্রম্পট/slash command (§৫), টিপস (§৬), পরিশিষ্ট।
+এই ফাইলটি তিনটিকে এক সুতোয় বেঁধে **Claude Code-এর জন্য** সাজিয়েছে: কী কী অসঙ্গতি পাওয়া গেল ও কীভাবে ঠিক করা হলো (§১), কৌশল ও কাজের পদ্ধতি (§২), Claude ছাড়া আপনার ম্যানুয়াল প্রস্তুতি (§৩), এবং ৭৮টি টাস্ক-প্রম্পট ক্রম অনুযায়ী (§৪), নিয়মিত প্রম্পট/slash command (§৫), টিপস (§৬), পরিশিষ্ট।
 
 ---
 
@@ -39,7 +41,7 @@
 
 ## ০. এক নজরে
 
-- **মোট টাস্ক:** ৭৭টি (Phase 0: ২২ · Phase 1: ১৭ · Phase 2: ১০ · Phase 3: ৭ · Phase 4: ৭ · Phase 5: ৭ · Phase 6: ৭)। প্রতিটি টাস্ক একটি "controlled change request", মাস্টার প্রম্পট §15 অনুযায়ী।
+- **মোট টাস্ক:** ৭৮টি (Phase 0: ২৩ · Phase 1: ১৭ · Phase 2: ১০ · Phase 3: ৭ · Phase 4: ৭ · Phase 5: ৭ · Phase 6: ৭)। প্রতিটি টাস্ক একটি "controlled change request", মাস্টার প্রম্পট §15 অনুযায়ী।
 - **গেট:** প্রতিটি ফেজের শেষে বাস্তব ব্যবহারকারীর পরীক্ষা (ব্লুপ্রিন্ট D১)। গেট পার না হলে পরের ফেজ নয়। Phase 3 (শীতবস্ত্র/ইফতার পাইলট) থেকে মাঠে ব্যবহার, তাই ডিপ্লয়মেন্ট Phase 3-এর শুরুতেই (T3.0)।
 - **Claude Code-এর "স্মৃতি":** `CLAUDE.md` (প্রতি সেশনে স্বয়ংক্রিয়ভাবে লোড হয়, ভেতরে `@docs/MASTER_PROMPT.md` import) + `docs/STATUS.md` (প্রতি টাস্কের শেষে Claude হালনাগাদ করে) + `docs/` ডকুমেন্ট + git log। এজন্য মাস্টার প্রম্পট প্রতি সেশনে পেস্ট করতে হবে না।
 - **সময়সীমা:** মাস্টার প্রম্পট অনুযায়ী নেই; মান ও ধারাবাহিকতা আগে। তবু হিসাবের সুবিধার জন্য: Phase 0 প্রায় ২২ সেশন, বাকি ফেজ মিলিয়ে ৫৫ সেশন; জটিল টাস্ক একাধিক সেশনে ভাঙতে হতে পারে।
@@ -75,7 +77,7 @@
 | l | P6.17 admin লাইব্রেরির শেষে, কিন্তু রোডম্যাপ Phase 1-এ "admin settings" এবং নিসাব ভার্সনিং Phase 4-এর আগে দরকার | মাস্টার §8 Phase 1 | T1.13 core admin; T6.2 বাকি অংশ |
 | m | এক্সপোর্ট রোডম্যাপে Phase 2, লাইব্রেরিতে শুধু P6.16 (শেষে) | মাস্টার §8 Phase 2 | T2.8 এক্সপোর্ট সার্ভিস, ফিল্ড-লেভেল সুরক্ষাসহ |
 | n | নামের ভিন্নতা: "মনিটরিং অফিসার" (ব্লুপ্রিন্ট) = "Monitoring Team" (মাস্টার); RM = RPM; প্রজেক্ট অফিসার = প্রজেক্ট এক্সিকিউটিভ | পরিশিষ্ট ক, A৪ | CLAUDE.md-এ সমার্থক হিসেবে লেখা; কোড ও ডকে মাস্টার §5-এর ইংরেজি নাম |
-| o | "Figma মকআপ আছে" বলা আছে, কিন্তু কোনো ফাইল/লিংক দেওয়া নেই; SOP v2.3-এর পূর্ণ টেক্সট নেই (শুধু সারাংশ); কুরবানী SSL শীটের নমুনা নেই | মাস্টার §12, §17; ব্লুপ্রিন্ট A১০, A৮.৬ | §৩ M4: মকআপের স্ক্রিনশট `docs/ui/mockups/`, SOP `docs/source/`, নমুনা শীট `docs/source/samples/`; না থাকলে সংশ্লিষ্ট টাস্কে Claude জিজ্ঞেস করবে |
+| o | Figma নেই (মালিক ১০ অক্টোবর জানিয়েছেন), অথচ মাস্টার §12 "approved mockups" বলত; SOP v2.3-এর পূর্ণ টেক্সট নেই (শুধু সারাংশ); কুরবানী SSL শীটের নমুনা নেই | মাস্টার §12, §17; ব্লুপ্রিন্ট A১০, A৮.৬ | ডিজাইন ইন্টারভিউ থেকে `docs/ui/DESIGN_BRIEF.md`; T0.19b-তে ব্রাউজারে দেখার HTML মকআপ; লোগো ও ব্র্যান্ড রং `docs/ui/brand/`-এ; SOP `docs/source/`, নমুনা শীট `docs/source/samples/`; না থাকলে সংশ্লিষ্ট টাস্কে Claude জিজ্ঞেস করবে |
 
 ### ১.৩ যা ভালো আছে (বদলানো হয়নি)
 
@@ -108,7 +110,7 @@
 | "টেস্ট পাশ করেছে" দাবি | CLAUDE.md: আউটপুটসহ দেখাতে হবে; আপনি নিজে `pnpm test` চালান; CI সবুজ |
 | NID/ব্যাংক/ডোনার ডেটা ফাঁস | authorization-matrix টেস্ট (T1.8), এক্সপোর্টেও একই ফিল্টার (T2.8), security audit (T6.3) |
 | বিতরণের দিনে ২,০০০ স্বেচ্ছাসেবক | k6 লোড টেস্ট পাইলটের আগে (T3.4), পেজিনেশন ও ক্যাশিং (NFR) |
-| বাইরের নির্ভরতা: লোকেশন ডেটা, SMS প্রোভাইডার, SMTP, সার্ভার, Figma, SOP, ডোনার শীট | §৩ M4 তালিকা; যে টাস্কে দরকার সেখানে উল্লেখ |
+| বাইরের নির্ভরতা: লোকেশন ডেটা, SMS প্রোভাইডার, SMTP, সার্ভার, লোগো ও ব্র্যান্ড রং, SOP, ডোনার শীট | §৩ M4 তালিকা; যে টাস্কে দরকার সেখানে উল্লেখ |
 | ব্লুপ্রিন্ট বদলালে Claude পুরোনো তথ্যে কাজ করবে | `docs/source/ERP_BLUEPRINT_BN.md` হালনাগাদ + `/css-change` দিয়ে প্রভাব বিশ্লেষণ |
 | লম্বা টাস্কে context শেষ হয়ে যাওয়া | টাস্ক ভাঙা, `/compact`, STATUS.md-এ অগ্রগতি লিখে রাখা; বড় টাস্কগুলো (T2.3–T2.7) দুই সেশনে করা স্বাভাবিক |
 
@@ -152,7 +154,7 @@ css-erp/
 │   ├── database/                  ← ERD.md, erd.mermaid, DATABASE_SCHEMA.md
 │   ├── api/                       ← API_STANDARDS.md, openapi.yaml
 │   ├── security/                  ← RBAC.md, permissions.yaml, SECURITY_POLICY.md
-│   ├── ui/                        ← DESIGN_SYSTEM.md, SCREENS.md, I18N.md, mockups/, brand/
+│   ├── ui/                        ← DESIGN_BRIEF.md, DESIGN_SYSTEM.md, SCREENS.md, I18N.md, mockups/ (HTML), brand/
 │   ├── testing/                   ← TEST_STRATEGY.md, uat/
 │   ├── gates/                     ← PHASE_N_SIGNOFF / RELEASE_NOTES
 │   └── ops/                       ← DEPLOYMENT.md, RUNBOOK.md
@@ -197,13 +199,13 @@ css-erp/
 
 **ঝ. যখন Claude ভুল পথে যায়।** `Esc` দিয়ে থামান; `/css-fix` দিয়ে কোথায় ব্লুপ্রিন্টের সাথে মিলছে না বলুন; কখনো "যেভাবে হোক চালিয়ে দাও" বলবেন না — মাস্টার §2-এর "no silent change" তখন ভাঙে। নতুন ব্যবসায়িক নিয়ম Claude নিজে বানাবে না; বানালে সেটা bug হিসেবে ধরুন।
 
-**ঞ. Figma মকআপ।** সবচেয়ে সহজ: প্রতিটি ফ্রেমের স্ক্রিনশট PNG হিসেবে `docs/ui/mockups/` ফোল্ডারে রাখুন (Claude Code ছবি পড়তে পারে); Figma variables থাকলে JSON এক্সপোর্ট `docs/ui/brand/tokens.json`। ঐচ্ছিক: Claude Code-এ Figma MCP সার্ভার যুক্ত করে T0.19/T1.4-এ লিংক দেওয়া।
+**ঞ. মকআপ (Figma নেই)।** আপনার Figma ফাইল নেই, তাই T0.19b-তে Claude ব্রাউজারে ক্লিক করে দেখা যায় এমন HTML মকআপ বানাবে: `docs/ui/mockups/index.html` ব্রাউজারে খুলুন এবং ফোন ও ডেস্কটপ মাপে দেখুন। লোগো ও ব্র্যান্ডের রং `docs/ui/brand/`-এ রাখুন, অথবা রঙের hex কোড চ্যাটে লিখে দিন। মতামত দিয়ে ঠিক করিয়ে অনুমোদন দিন। ডিজাইনের সিদ্ধান্তগুলো `docs/ui/DESIGN_BRIEF.md`-এ।
 
 ### ২.৪ ফেজ, গেট ও টাস্ক-ম্যাপ
 
 | Phase | লক্ষ্য (মাস্টার §8 / ব্লুপ্রিন্ট D১) | টাস্ক | গেটে কারা পরীক্ষা করবেন |
 |---|---|---|---|
-| 0 · Requirement & Architecture Freeze | সব ডকুমেন্ট, ERD, API চুক্তি, পর্দার তালিকা, ওয়ার্কফ্লো টেমপ্লেট, খোলা প্রশ্নের উত্তর; **কোনো অ্যাপ কোড নয়** | T0.1–T0.22 | ম্যানেজমেন্ট সাইন-অফ (বাংলা সারাংশ T0.22) |
+| 0 · Requirement & Architecture Freeze | সব ডকুমেন্ট, ERD, API চুক্তি, পর্দার তালিকা, ওয়ার্কফ্লো টেমপ্লেট, খোলা প্রশ্নের উত্তর; **কোনো অ্যাপ কোড নয়** | T0.1–T0.22 (T0.19b সহ) | ম্যানেজমেন্ট সাইন-অফ (বাংলা সারাংশ T0.22) |
 | 1 · Foundation | scaffold, DB, সিড, ডিজাইন সিস্টেম, i18n, API backbone, auth/সেশন, RBAC/পারমিশন প্যানেল, নিবন্ধন-অনুমোদন-হ্যান্ডওভার, ভলান্টিয়ার/উপকারভোগী ট্যাব, প্রোগ্রাম-প্রকল্প সেটআপ, টেমপ্লেট/সম্মতি/অ্যাসাইন, admin core, নোটিফিকেশন, My Work | T1.1–T1.17 | অফিসিয়াল টিম |
 | 2 · Beneficiary + Application + Form + Offline | ফাইল সার্ভিস, উপকারভোগী মাস্টার, ফর্ম ইঞ্জিন ও বিল্ডার, ওয়ার্কফ্লো ইঞ্জিন ও আবেদন, আবেদনের নিয়ম, অফলাইন PWA, এক্সপোর্ট | T2.1–T2.10 | স্বেচ্ছাসেবক ও RPM |
 | 3 · Winter/Iftar Pilot | ডিপ্লয়মেন্ট, বিতরণ কার্যপ্রবাহ, খরচ-ভাউচার-পরিশোধ-লেজার, প্রকল্প ড্যাশবোর্ড, লোড টেস্ট; এক রিজিওনে পাইলট → সব | T3.0–T3.6 | পাইলট রিজিওন (RPM, স্বেচ্ছাসেবক) |
@@ -233,8 +235,7 @@ css-erp/
 
 | কী | কোথায় রাখবেন | কোন টাস্কে লাগবে |
 |---|---|---|
-| Figma মকআপের প্রতিটি ফ্রেমের স্ক্রিনশট (PNG, নাম যেমন `project-setup.png`, `mobile-today-distribution.png`) | `docs/ui/mockups/` | T0.19, T1.4, প্রতিটি UI টাস্ক |
-| Figma token/variables export (JSON) ও লোগো, ব্র্যান্ড রং | `docs/ui/brand/` | T0.19, T1.4 |
+| লোগো (SVG হলে ভালো, নয়তো স্বচ্ছ পটভূমির PNG) ও ব্র্যান্ডের রঙের hex কোড। আপনি জানিয়েছেন দুটোই আছে (১০ অক্টোবর); রং চ্যাটে লিখলে Claude `colors.md` বানিয়ে দেবে | `docs/ui/brand/` | T0.19b, T1.4 |
 | SOP v2.3 (সেপ্টেম্বর ২০২৬) — Markdown/PDF | `docs/source/SOP_v2.3_BN.md` বা `.pdf` | T0.4, T1.13, T5.4 |
 | কুরবানী ডোনার SSL শীটের নমুনা (নাম-ফোন বদলে, ৫–১০ সারি) ও ক্যাশ-ডোনার গুগল ফর্মের ফিল্ড তালিকা | `docs/source/samples/` | T4.4 |
 | বর্তমান স্বেচ্ছাসেবক নিবন্ধন ফর্ম ও দুই আবেদন ফর্মের (গুগল ফর্ম) এক্সপোর্ট, কয়েকটি পূরণ করা নমুনা (anonymized) | `docs/source/samples/` | T2.3, T2.9 |
@@ -261,7 +262,7 @@ css-erp/
 
 #### T0.1 📄 স্টার্টআপ (মাস্টার §16) `[P0.1]`
 - কখন: একদম প্রথম সেশন। আগে দরকার: M1–M3 শেষ।
-- শেষে দেখে নিন: `docs/` ফোল্ডারে §3-এর সব ফাইল আছে (কিছু outline হতে পারে); DECISION_LOG-এ BD-01…49 ও D-050…053; Claude-এর খোলা প্রশ্নের তালিকা; কোনো `apps/` ফোল্ডার তৈরি হয়নি।
+- শেষে দেখে নিন: `docs/` ফোল্ডারে §3-এর সব ফাইল আছে (কিছু outline হতে পারে); DECISION_LOG-এ BD-01…49, D-050…053 ও UX-01…12; Claude-এর খোলা প্রশ্নের তালিকা; কোনো `apps/` ফোল্ডার তৈরি হয়নি।
 
 ```text
 Begin the STARTUP PROCEDURE (constitution §16).
@@ -269,7 +270,7 @@ Context: docs/source/ERP_BLUEPRINT_BN.md is the owner's blueprint (auto-converte
 Deliver in this session, in this order, committing after each file so nothing is lost if the context runs out:
 1. docs/MASTER_SPEC.md — faithful English specification of the whole blueprint (Parts A, B, C, D and both appendices).
 2. docs/PROJECT_RULES.md — the constitution's process rules as a checklist.
-3. docs/MODULE_CATALOG.md; docs/BUSINESS_RULES.md (every rule as BR-nnn with its source section); docs/DECISION_LOG.md (BD-01…BD-49, each cross-referenced to the blueprint Part C question numbers ১–৪৭ and to the blueprint sections); docs/NON_FUNCTIONAL_REQUIREMENTS.md.
+3. docs/MODULE_CATALOG.md; docs/BUSINESS_RULES.md (every rule as BR-nnn with its source section); docs/DECISION_LOG.md (BD-01…BD-49, each cross-referenced to the blueprint Part C question numbers ১–৪৭ and to the blueprint sections, plus the owner's design decisions UX-01 to UX-12 imported from docs/ui/DESIGN_BRIEF.md); docs/NON_FUNCTIONAL_REQUIREMENTS.md.
 4. Outline files (headings plus one line per section on what it will contain) for every remaining document listed in constitution §3.
 5. docs/STATUS.md updated.
 Finish with the list of open questions that need my decision — only items affecting business rules, data structure, API contracts, security, permissions, workflows, money or major UX — each with your recommendation. Then stop. Do not write application code. If you cannot finish everything, say exactly which files are complete and which are outlines so I can continue with tasks T0.2–T0.6.
@@ -306,7 +307,7 @@ Do not invent rules. List gaps and ambiguities separately at the end.
 ```
 
 #### T0.5 📄 ডিসিশন লগ (সংশোধিত কাঠামো) `[P1.3]`
-- শেষে দেখে নিন: Q-01…47, BD-01…49, D-050… তিন সিরিজ; প্রতিটি BD-তে Q রেফারেন্স।
+- শেষে দেখে নিন: Q-01…47, BD-01…49, D-050… ও UX-01…12 মিলিয়ে চার সিরিজ; প্রতিটি BD-তে Q রেফারেন্স।
 
 ```text
 Rebuild docs/DECISION_LOG.md with this structure:
@@ -314,7 +315,8 @@ Rebuild docs/DECISION_LOG.md with this structure:
 2. Blueprint decisions Q-01…Q-47: one row per Part C question ১–৪৭ (C১ and C২): question, decision, status, blueprint sections affected.
 3. Constitution decisions BD-01…BD-49 (§7), each with the Q-ids it derives from (several BDs map to one Q; some BDs come from Part A/B text with no Q — cite the section instead).
 4. Technical proposals D-050… from constitution §9 (monorepo, backend, ORM and down.sql migrations, jobs, storage, SMTP/SMS adapters, dev infrastructure) with status "proposed — awaiting owner".
-5. An "Open" section listing every question you raised in T0.1 that I have not answered yet, numbered so I can answer by number.
+5. The owner's design decisions UX-01 to UX-12 imported from docs/ui/DESIGN_BRIEF.md, status approved, source "owner interview 2026-10-10".
+6. An "Open" section listing every question you raised in T0.1 that I have not answered yet, numbered so I can answer by number.
 ```
 
 #### T0.6 📄 নন-ফাংশনাল চাহিদা `[P1.4]`
@@ -383,7 +385,8 @@ Design the configurable workflow engine of blueprint B৫ and BD-11: common stat
 
 ```text
 Create docs/architecture/OFFLINE_SYNC.md based on blueprint B৭ and BD-48.
-Cover: what is cached on the device (DECISION_LOG answer), client_uuid idempotency on every offline record, the outbox pattern and sync_status lifecycle pending → syncing → synced / failed with reason and automatic retry with backoff, batch sync endpoint design, text before photos with a separate compressed photo queue and resumable upload, no completion while photos are pending, conflict rules (server wins on approved data; last write wins on drafts and field updates; both versions logged), the offline NID lookup limitation and the "needs verification" path when an existing NID is found at sync, encrypted local storage (key derived from the session) and wipe on logout or remote revocation, form-version handling when a form was republished while the volunteer was offline, sync status UI and the offline banner, and the test strategy (Playwright offline emulation, throttled 3G profile, installed PWA on Android Chrome).
+Cover: what is cached on the device (DECISION_LOG answer), client_uuid idempotency on every offline record, the outbox pattern and sync_status lifecycle pending → syncing → synced / failed with reason and automatic retry with backoff, batch sync endpoint design, text before photos with a separate compressed photo queue and resumable upload, no completion while photos are pending, conflict rules (server wins on approved data; last write wins on drafts and field updates; both versions logged), the offline NID lookup limitation and the "needs verification" path when an existing NID is found at sync, encrypted local storage (key derived from the session) and wipe on logout or remote revocation, form-version handling when a form was republished while the volunteer was offline, sync status UI and the offline banner, and the test strategy (Playwright offline emulation, throttled 3G profile, installed PWA on Android Chrome and on an iPhone).
+Cover iOS explicitly (some volunteers use iPhones, UX-06 in docs/ui/DESIGN_BRIEF.md): installed PWA versus a Safari tab, the risk of storage eviction, no background sync (so sync on app open and on reconnect), push only for installed PWAs, a request for persistent storage, Bangla install guidance, and mitigations such as warning before logout or clearing data while records are unsynced.
 ```
 
 #### T0.13 📄 ফাইল ও ডকুমেন্ট `[P2.6]`
@@ -391,6 +394,7 @@ Cover: what is cached on the device (DECISION_LOG answer), client_uuid idempoten
 ```text
 Create docs/architecture/FILES_AND_DOCUMENTS.md.
 Cover: file metadata model and entity links; access control (private files only through signed, expiring URLs issued after a permission check; never public links); upload validation (types, sizes, virus-scan hook); image handling (client-side compression, server-side thumbnails, EXIF capture of date/time and GPS for distribution photos, perceptual-hash duplicate detection that warns but never blocks); resumable uploads; storage path conventions (documents: Program → Project → Year → District per SOP ধারা ১০; photos and vouchers under project/application); the SOP-driven document register (per-project checklist from templates, required / if needed / optional, responsible official role — never volunteers, deadline, status chain collection → verification → approval → archived, soft-copy file, hard-copy location code CSS-ALM-… / CSS-LKR-…, retention 5 years from submission), soft warning and 3-working-day countdown then non-compliance (BD-36), deficiency reports with the 11 SOP fields and the central log with automatic escalation on a second report within a year (BD-37), legacy deficiency marking, the quarterly audit report, media consent gating of "publishable" photos (BD-38), and storage growth reporting (BD-46).
+Also cover the per-project photo source setting (UX-11 in docs/ui/DESIGN_BRIEF.md): camera only, or camera or gallery with a flag; defaults are camera only for distribution and construction proof and gallery allowed for vouchers and paper documents; how camera only is realised on the web (in-app capture versus the device camera through a file input), the trade-offs on 2 GB Android phones and on iOS, how capture time and GPS are recorded, and how a photo without them is flagged.
 ```
 
 #### T0.14 📄 নোটিফিকেশন `[P2.7]`
@@ -398,7 +402,7 @@ Cover: file metadata model and entity links; access control (private files only 
 ```text
 Create docs/architecture/NOTIFICATIONS.md.
 Channels: in-app for staff and volunteers, email through the organization's SMTP, SMS through a provider-agnostic adapter (no provider chosen yet; logging stub in dev). Produce the full notification matrix: event → recipients (by role/scope) → channel(s) → template key (bn/en) → phase in which the event exists, covering registration and approvals, edit and correction requests, permission changes, blocklist, handover, project assignment and consent, deadline extensions, application submitted/reviewed/approved/rejected/waitlisted, field unlock requests, transfer, dispatch/receive, stock mismatch, expense claim verified/paid, issue raised/assigned/resolved, exam results, payment recorded, document deadline soft warning and non-compliance, deficiency escalation, monitoring alerts, Qurbani donor pre-notification and photo emails with sent-status tracking, OTP (dummy in dev/test).
-Note the approved decisions: beneficiaries receive no notifications for now (BD-47); OTP is dummy in dev/test and real before production (BD-49). Define template storage (bilingual data, variables), user preferences, retry and delivery-status logging, and rate limits.
+Note the approved decisions: beneficiaries receive no notifications for now (BD-47); OTP is dummy in dev/test and real before production (BD-49); volunteers read operational messages such as correction requests and approvals in the app only, with no SMS, WhatsApp or email for them for now (UX-12 in docs/ui/DESIGN_BRIEF.md), while SMS stays for OTP and Qurbani donor messages. Evaluate Web Push for installed PWAs (Android Chrome, iOS 16.4 and later) as an optional enhancement of the in-app channel and recommend yes or no. Define template storage (bilingual data, variables), user preferences, retry and delivery-status logging, and rate limits.
 ```
 
 #### T0.15 📄 ERD `[P3.1]`
@@ -432,19 +436,32 @@ Each endpoint: operationId, auth requirement, x-permission (name from docs/secur
 ```
 
 #### T0.19 📄 ডিজাইন সিস্টেম ডক ও পর্দার তালিকা `[P5.1-এর ডক অংশ]`
-- আগে দরকার: M4-এর মকআপ স্ক্রিনশট `docs/ui/mockups/` (না থাকলে §12 থেকেই)। শেষে দেখে নিন: SCREENS.md-এ §12-এর প্রতিটি key screen + প্রতি ভূমিকার My Work।
+- আগে দরকার: `docs/ui/DESIGN_BRIEF.md` (আছে); লোগো ও ব্র্যান্ড রং `docs/ui/brand/`-এ থাকলে ভালো, না থাকলে §12-এর টোকেন placeholder। শেষে দেখে নিন: SCREENS.md-এ §12-এর প্রতিটি key screen + প্রতি ভূমিকার My Work।
 
 ```text
 Create docs/ui/DESIGN_SYSTEM.md and docs/ui/SCREENS.md. Documents only; no code.
-Inputs: constitution §12 tokens and component list; the Figma mockup screenshots in docs/ui/mockups/ and tokens in docs/ui/brand/ if present (read every image; if absent, work from §12 and say so).
-DESIGN_SYSTEM.md: tokens as CSS variables (colors, spacing, radius, typography with Hind Siliguri and fallback, elevation, breakpoints), the component inventory with props, states, sizes and accessibility behaviour for every base component of §12, layout patterns (desktop shell for officials, mobile shell for volunteers, bulk-update list, review detail with timeline, form renderer), mobile-first rules for 2 GB Android phones, Bengali typography rules (digits, line-height, truncation), empty / loading / error / offline states, and a theming note for a future dark theme.
-SCREENS.md: every key screen of §12 plus the My Work home per role (blueprint A৪) and the registration, consent, permission panel, document register, issue log, donor list and today's class screens: purpose, roles, data shown, actions and the permission each needs, states, components used, mobile vs desktop differences, and the phase in which it is built.
+Inputs: constitution §12 tokens and component list; docs/ui/DESIGN_BRIEF.md (the owner's decisions UX-01 to UX-12 and the mockup set); the owner's logo and colours in docs/ui/brand/ if present (if absent, use the §12 tokens as placeholders and say so).
+DESIGN_SYSTEM.md: tokens as CSS variables (colors, spacing, radius, typography with Hind Siliguri and fallback, elevation, breakpoints), the component inventory with props, states, sizes and accessibility behaviour for every base component of §12, layout patterns per device as in DESIGN_BRIEF section 5 (officials work equally on desktop and phone, UX-03; setup screens are desktop first, UX-04), the bulk-update list, review detail with timeline, form renderer, mobile-first rules for 2 GB Android phones and iPhones, Bengali typography rules (line-height, truncation; numbers always use English digits, UX-05), empty / loading / error / offline states, and a theming note for a future dark theme.
+SCREENS.md: every key screen of §12 plus the My Work home per role (blueprint A৪) and the registration, consent, permission panel, document register, issue log, donor list and today's class screens: purpose, roles, data shown, actions and the permission each needs, states, components used, phone, tablet and desktop layouts, and the phase in which it is built.
+```
+
+#### T0.19b 📄 ক্লিক-করা-যায় এমন HTML মকআপ (Figma-র বদলে) `[নতুন; ব্লুপ্রিন্ট D২]`
+- আগে দরকার: T0.19; `docs/ui/DESIGN_BRIEF.md`; লোগো ও ব্র্যান্ড রং `docs/ui/brand/`-এ (না থাকলে Claude §12-এর রং placeholder হিসেবে দেখাবে এবং তা লিখে জানাবে)।
+- শেষে দেখে নিন: ব্রাউজারে `docs/ui/mockups/index.html` খুলে ৩৬০, ৭৬৮ ও ১২৮০ px-এ প্রতিটি পর্দা দেখুন; আপনার লোগো ও রং এসেছে কি না; ফোনে অফিসিয়াল পর্দাগুলো পড়া ও চালানো যায় কি না; সংখ্যা সবখানে ইংরেজি অঙ্কে। মতামত দিয়ে ঠিক করিয়ে নিন, তারপর অনুমোদন দিন (Phase 0 গেটের শর্ত)।
+
+```text
+Build clickable HTML mockups for the owner's approval (blueprint D২ and the Phase 0 deliverable "main screen mockups"). Static files only: HTML, CSS and a little vanilla JavaScript; no build step, no network access or CDN at view time, and no application code under apps/ or packages/.
+Inputs: docs/ui/DESIGN_BRIEF.md (owner decisions UX-01 to UX-12 and the mockup set in its section 6), docs/ui/DESIGN_SYSTEM.md and SCREENS.md, constitution §12, the blueprint, and the owner's logo and colours in docs/ui/brand/. If the brand files are missing, use the §12 tokens and label the colours as placeholders on the index page.
+Create docs/ui/mockups/: index.html listing every screen with its role and phase and a viewport switcher (360, 768 and 1280 px preview frames); tokens.css and components.css built from the design system tokens as CSS variables, so a brand colour change is a one-line edit; a local fonts/ folder with Hind Siliguri (open licence) so nothing loads from the internet at view time; and one HTML file per screen of the pilot set in DESIGN_BRIEF.md section 6, in Bangla with realistic fake data (obviously fake NIDs, phone numbers and names). English digits everywhere (UX-05).
+Make them clickable, not functional: navigation between screens, tabs, filter sheets, the NID lookup that auto-fills after a sample number is typed, the duplicate warning, approve / waitlist / reject with a reason dialog, field unlock, an offline banner toggle, the in-app camera frame with capture time and GPS stamp, and live toggles in the form builder preview.
+Rules: volunteer and official screens work at 360 px (tables become cards, filters in a bottom sheet, sticky action bar); setup screens are desktop first and show a "best on a larger screen" notice on phones (UX-03, UX-04); semantic HTML, labels, visible focus, colour contrast AA (propose adjusted shades if a brand colour fails); no screens beyond the pilot set.
+Verify: render every page at 360, 768 and 1280 px with a headless browser (for example Playwright through npx) or the desktop app's browser pane, look at the screenshots, and fix what breaks. List any deviation from the design system. Commit. Then tell me how to open the mockups and stop. Apply my feedback in follow-up commits, and when I approve, record "Phase 0 mockups approved" with the date in docs/DECISION_LOG.md.
 ```
 
 #### T0.20 📄 i18n ডক `[P5.2-এর ডক অংশ]`
 
 ```text
-Create docs/ui/I18N.md. Bangla and English are both first-class and switchable per user. Define: message catalogue structure (namespaced keys such as application.approve), the rule that no user-facing string is hard-coded (labels, buttons, validation, notifications, errors, statuses, menus, reports, email and SMS templates) and how a test or lint rule enforces it; server-side localization of API messages; Bengali digit formatting rules and where Latin digits stay (ids, phone numbers); date and number formatting; bilingual data fields (form labels, section names, option lists, status and stage names, document names) and how they are stored and rendered; fallback rules; export and PDF localization including font embedding; the process for adding a third language without rewriting.
+Create docs/ui/I18N.md. Bangla and English are both first-class and switchable per user. Define: message catalogue structure (namespaced keys such as application.approve), the rule that no user-facing string is hard-coded (labels, buttons, validation, notifications, errors, statuses, menus, reports, email and SMS templates) and how a test or lint rule enforces it; server-side localization of API messages; number and date formatting (all numbers use English digits 0-9 in both languages, UX-05; one central formatting utility so Bengali digits could be added later by a new decision; optional Hijri date display behind a setting that is off by default); bilingual data fields (form labels, section names, option lists, status and stage names, document names) and how they are stored and rendered; fallback rules; export and PDF localization including font embedding; the process for adding a third language without rewriting.
 ```
 
 #### T0.21 📄 টেস্ট স্ট্র্যাটেজি ও সিকিউরিটি পলিসি `[P7.1 + নতুন]`
@@ -462,7 +479,7 @@ SECURITY_POLICY: the OWASP baseline mapped to this system; authentication and se
 Phase 0 gate.
 1. Cross-check every document of constitution §3 against each other and against the blueprint: contradictions, gaps, stale items, inconsistent names (roles, states, permission names, entity names). Fix the documents (never the blueprint) and record anything that needed a decision as "open" in DECISION_LOG.md.
 2. Confirm every open question is answered; list the ones that are not, with your recommendation.
-3. Verify the Phase 0 gate list of blueprint C৩ is covered: role and scope model with the default matrix; component list and common workflow states with the template exceptions; form platform (section library, standard fields, versioning, mandatory fields, beneficiary type options); budget bucket model, cost per beneficiary, volunteer expense categories and approval rule; offline conflict rules; security, audit and retention; stack and hosting; document checklist, deadlines and storage codes; ratings method, category list, close/reopen and follow-up; nisab handling; SMS provider timing.
+3. Verify the Phase 0 gate list of blueprint C৩ is covered: role and scope model with the default matrix; component list and common workflow states with the template exceptions; form platform (section library, standard fields, versioning, mandatory fields, beneficiary type options); budget bucket model, cost per beneficiary, volunteer expense categories and approval rule; offline conflict rules; security, audit and retention; stack and hosting; document checklist, deadlines and storage codes; ratings method, category list, close/reopen and follow-up; nisab handling; SMS provider timing; the owner's design decisions UX-01 to UX-12 reflected in the design documents; the HTML mockups approved by the owner (blueprint D১, Phase 0) with that approval recorded in DECISION_LOG.md.
 4. Write docs/gates/PHASE_0_SIGNOFF.md: an English checklist plus a one-page Bengali summary for management describing exactly what is being frozen.
 5. Update docs/STATUS.md (Phase 0 complete pending sign-off; next task T1.1), commit, and tag gate-phase-0. Do not start Phase 1 work.
 ```
@@ -478,7 +495,7 @@ Phase 0 gate.
 
 ```text
 Scaffold the repository exactly per docs/architecture/SYSTEM_ARCHITECTURE.md and the approved stack (DECISION_LOG D-050…D-053). No business features in this task.
-- pnpm workspace monorepo: apps/web (Next.js App Router, TypeScript, PWA-ready with Serwist configured but no offline features yet), apps/api (NestJS, TypeScript, Prisma initialised, /api/v1 prefix, health endpoint), packages/shared, packages/ui, packages/config (eslint, prettier, tsconfig base).
+- pnpm workspace monorepo: apps/web (Next.js App Router, TypeScript, PWA-ready with Serwist configured but no offline features yet; manifest name "চ্যারিটি ও সোশ্যাল সার্ভিস" per UX-09, short name CSS until the owner decides), apps/api (NestJS, TypeScript, Prisma initialised, /api/v1 prefix, health endpoint), packages/shared, packages/ui, packages/config (eslint, prettier, tsconfig base).
 - infra/: Docker Compose for dev with postgres 16, minio (+ bucket bootstrap), mailpit; .env.example files for api and web (never real secrets); root package.json scripts: dev, build, test, e2e, lint, typecheck, db:migrate, db:seed, db:reset (dev only, guarded).
 - Testing toolchain proven with one passing sample test per layer: Vitest unit (packages/shared), Supertest API (health endpoint), React Testing Library (a ui component), Playwright E2E (home page loads, mobile and desktop projects), MSW set up for web tests, axe-core helper.
 - CI pipeline for [GitHub Actions / GitLab CI / Gitea Actions — আপনারটা লিখুন]: install, lint, typecheck, unit + API tests with a Postgres service, build; E2E on main.
@@ -508,18 +525,18 @@ Later tasks extend the demo set as entities become functional.
 ```
 
 #### T1.4 🛠 ডিজাইন সিস্টেম বাস্তবায়ন `[P5.1-এর কোড অংশ]`
-- আগে দরকার: T0.19; মকআপ স্ক্রিনশট থাকলে ভালো। শেষে দেখে নিন: `/dev/components` গ্যালারিতে §12-এর সব কম্পোনেন্ট; ৩৬০px-এ ঠিক দেখায়; axe টেস্ট সবুজ।
+- আগে দরকার: T0.19 ও T0.19b (অনুমোদিত HTML মকআপ)। শেষে দেখে নিন: `/dev/components` গ্যালারিতে §12-এর সব কম্পোনেন্ট; ৩৬০px-এ ঠিক দেখায়; axe টেস্ট সবুজ।
 
 ```text
 Implement packages/ui from docs/ui/DESIGN_SYSTEM.md: tokens as CSS variables and a Tailwind preset bound to them; Hind Siliguri with system fallback (self-hosted font files, no external CDN at runtime); and every base component of constitution §12: Button (primary/secondary/danger/ghost), Badge/Status, Card/Stat, Field (text, textarea, number, phone, select, combobox, date, file), Form layout, Nav/Item, Row/Toggle, Table with filters/search/pagination, Modal, Drawer, Confirm dialog, File upload with preview, Alert, Tabs, Breadcrumb, Empty/Loading/Error states, Offline banner, Bulk-update list row with checkbox, Step/timeline, Progress bar.
-Each component: typed props, keyboard and screen-reader support, visible focus, tests with React Testing Library plus axe, and an entry in a dev-only /dev/components gallery route in apps/web with both languages. Mobile-first; verify every component at 360×640 and 1280×800. Compare with docs/ui/mockups/ where screenshots exist and note deviations. No page or feature work in this task.
+Each component: typed props, keyboard and screen-reader support, visible focus, tests with React Testing Library plus axe, and an entry in a dev-only /dev/components gallery route in apps/web with both languages. Mobile-first; verify every component at 360×640 and 1280×800. Match the approved HTML mockups in docs/ui/mockups/ and note any deviation. No page or feature work in this task.
 ```
 
 #### T1.5 🛠 i18n বাস্তবায়ন `[P5.2-এর কোড অংশ]`
 - শেষে দেখে নিন: ভাষা সুইচে গ্যালারি বাংলা/ইংরেজি হয়; hard-coded string ধরার টেস্ট আছে।
 
 ```text
-Implement the i18n system per docs/ui/I18N.md: bn and en message catalogues (namespaced JSON) in packages/shared, the t() integration in apps/web (next-intl), server-side localization of API error and notification messages (Accept-Language and user preference), Bengali digit and date formatting utilities, bilingual-data helpers for form labels and status names, a per-user language switch persisted on the profile, and a test or lint rule that fails on hard-coded user-facing strings in apps/web and on keys missing in either language. Convert every existing string in the scaffold and the gallery. Tests for the formatting utilities, the fallback behaviour and the missing-key detector.
+Implement the i18n system per docs/ui/I18N.md: bn and en message catalogues (namespaced JSON) in packages/shared, the t() integration in apps/web (next-intl), server-side localization of API error and notification messages (Accept-Language and user preference), number and date formatting utilities (English digits in both languages, UX-05; optional Hijri date display behind a setting that is off by default), bilingual-data helpers for form labels and status names, a per-user language switch persisted on the profile, and a test or lint rule that fails on hard-coded user-facing strings in apps/web and on keys missing in either language. Convert every existing string in the scaffold and the gallery. Tests for the formatting utilities, the fallback behaviour and the missing-key detector.
 ```
 
 #### T1.6 🛠 API backbone ও cross-cutting services `[নতুন]`
@@ -575,7 +592,7 @@ Scope rules server-side: both tabs are GLOBAL read for officials; volunteers and
 ```text
 Implement programs and project setup per MASTER_SPEC A৬ and BD-09, BD-13, BD-14, BD-16, BD-20:
 - Programs: CRUD by Department Head; PM assignment; program list visible to officials only.
-- Projects: CRUD with draft save of partial setup and explicit activation; project code (unique, used for application ids); configuration groups — basic info (name, year, program, description, workflow template chosen from the seeded definitions), component toggles with settings stored as JSONB and validated against the per-component JSON Schemas, budget (cost per beneficiary × target beneficiaries, fund-source tags zakat / sadaqah / general / specific donor with amounts), application window (from/to) with PM-only extension requiring a reason (logged), areas (division or one or more districts) with an RPM per area and optional district split among RPMs, staff assignment with view/edit/delete access, photo rule (group / individual / both), rating criteria (max 5, each 1–5), per-volunteer application limit, stage names and order for stage-based projects, application kinds for tree planting, dawah enabled with the syllabus topic list, beneficiary type options with the BD-14 defaults editable per project.
+- Projects: CRUD with draft save of partial setup and explicit activation; project code (unique, used for application ids); configuration groups — basic info (name, year, program, description, workflow template chosen from the seeded definitions), component toggles with settings stored as JSONB and validated against the per-component JSON Schemas, budget (cost per beneficiary × target beneficiaries, fund-source tags zakat / sadaqah / general / specific donor with amounts), application window (from/to) with PM-only extension requiring a reason (logged), areas (division or one or more districts) with an RPM per area and optional district split among RPMs, staff assignment with view/edit/delete access, photo rule (group / individual / both) and photo source (camera only, or camera or gallery with a flag; defaults per UX-11), rating criteria (max 5, each 1–5), per-volunteer application limit, stage names and order for stage-based projects, application kinds for tree planting, dawah enabled with the syllabus topic list, beneficiary type options with the BD-14 defaults editable per project.
 - Lifecycle draft → active → closing → closed; close and reopen by PM only with reason (logged); closed and closing enforced server-side (no new applications; closed = read-only except follow-ups).
 Screens: project list with status and progress placeholders, project setup wizard with component toggles (key screen, compare with the mockup), project overview. Audit log on every change. Tests for every rule; E2E create → draft → activate → close → reopen. Update openapi.yaml.
 ```
@@ -611,7 +628,7 @@ Implement notifications per docs/architecture/NOTIFICATIONS.md for every Phase 1
 - শেষে দেখে নিন: প্রতিটি demo account লগইনে নিজের হোম; মোবাইলে bottom nav; initial bundle size NFR-এর মধ্যে (রিপোর্টে সংখ্যা)।
 
 ```text
-Implement the application shell per docs/ui/SCREENS.md and MASTER_SPEC A৪ "My Work": role-aware navigation (desktop sidebar for officials, mobile bottom navigation for volunteers), the home screen per role with the widgets that exist so far (volunteer: my projects, my applications placeholder, notifications; team member: main volunteer's projects; local দায়ী and paid volunteer: placeholders for today's class / today's work; Official দায়ী: tracking placeholder; Executive / RPM: pending registrations, my projects, notifications; PM: projects, templates; Department Head / Monitoring: admin, permission panel, audit entry points), the offline banner wired to navigator state (full offline arrives in Phase 2), language switch, profile menu, device sessions link, notification bell. Run Lighthouse and axe on the mobile viewport and report the initial JS payload against the NFR target. Tests with RTL; E2E per role home.
+Implement the application shell per docs/ui/SCREENS.md and MASTER_SPEC A৪ "My Work": role-aware navigation (desktop sidebar for officials, mobile bottom navigation for volunteers), the home screen per role with the widgets that exist so far (volunteer: my projects, my applications placeholder, notifications; team member: main volunteer's projects; local দায়ী and paid volunteer: placeholders for today's class / today's work; Official দায়ী: tracking placeholder; Executive / RPM: pending registrations, my projects, notifications; PM: projects, templates; Department Head / Monitoring: admin, permission panel, audit entry points), the offline banner wired to navigator state (full offline arrives in Phase 2), the header with the As-Sunnah Foundation logo and the system name (UX-09), the volunteer home opening with a needs-your-attention list for corrections, approvals and unsynced items because notifications are in-app only (UX-12), officials' screens working at 360 px (UX-03), language switch, profile menu, device sessions link, notification bell. Run Lighthouse and axe on the mobile viewport and report the initial JS payload against the NFR target. Tests with RTL; E2E per role home.
 ```
 
 #### T1.16 🧪 Phase 1 টেস্ট একত্রীকরণ `[P7.2/P7.3-এর Phase 1 অংশ]`
@@ -675,7 +692,7 @@ Load the two current forms from appendix খ (seeded in T1.3) through the engine
 - শেষে দেখে নিন: PM ফর্ম বানিয়ে প্রকাশ করে, বদলালে v2 (E2E); মোবাইলে রেন্ডারার ৩৬০px-এ, ক্যাসকেডিং ঠিকানা, রিপিট গ্রুপ, লাইভ হিসাব।
 
 ```text
-Implement the form builder for PMs (key screen: section library on the left, live preview on the right, field settings panel, add by drag or tick, no-code logic editor, calculation editor, version list with a change summary, publish) and the runtime form renderer used by web and mobile (cascading address, repeat groups, live calculations, conditional logic, bilingual, official-only sections hidden from volunteers, photo and file fields using the T2.1 upload component, GPS field, draft autosave, validation messages localized). Mobile-first for the renderer; verify at 360×640 and keyboard-only. Compare with docs/ui/mockups/ where present. Tests with RTL for renderer behaviours; Playwright: PM builds a form from sections, publishes, edits → v2, old application keeps v1.
+Implement the form builder for PMs (key screen: section library on the left, live preview on the right, field settings panel, add by drag or tick, no-code logic editor, calculation editor, version list with a change summary, publish) and the runtime form renderer used by web and mobile (cascading address, repeat groups, live calculations, conditional logic, bilingual, official-only sections hidden from volunteers, photo and file fields using the T2.1 upload component, GPS field, draft autosave, validation messages localized). Mobile-first for the renderer; verify at 360×640 and keyboard-only. Match the approved mockups in docs/ui/mockups/ for the screens that exist. Tests with RTL for renderer behaviours; Playwright: PM builds a form from sections, publishes, edits → v2, old application keeps v1.
 ```
 
 #### T2.5 🛠 ওয়ার্কফ্লো ইঞ্জিন ও আবেদনের কোর চক্র `[P6.6-এর অংশ ১ + P2.4 কোড]`
@@ -706,14 +723,14 @@ E2E: score → waitlist → pull; unlock; transfer. Update openapi.yaml and BUSI
 
 ```text
 Implement the offline-first PWA per docs/architecture/OFFLINE_SYNC.md and BD-48: installable app with the Serwist service worker and app-shell caching; offline data scope per DECISION_LOG (assigned projects' current form versions, own beneficiaries and applications, syllabus, locations); the Dexie/IndexedDB outbox with client_uuid on every offline record and sync_status pending → syncing → synced / failed with reason; the sync engine with batching, retry with backoff, server-side idempotency and deduplication; the separate compressed photo queue with resumable upload, text before photos, and no completion while photos are pending; conflict handling (server wins on approved data; last write wins on drafts and field updates; both logged); the "needs verification" path when an offline NID turns out to exist at sync; form-version handling when a form was republished meanwhile; encrypted local storage with a session-derived key, wiped on logout or remote revocation; sync status UI and offline banner; background sync where supported.
-Verify on a throttled 3G profile and with the app installed on Android Chrome (describe the manual steps and results). Tests: unit for the outbox and conflict rules, Playwright offline capture → reconnect → sync → needs-verification path, photo queue resume. Update openapi.yaml (sync endpoints).
+Verify on a throttled 3G profile and with the app installed on Android Chrome and on an iPhone (describe the manual steps and results). Tests: unit for the outbox and conflict rules, Playwright offline capture → reconnect → sync → needs-verification path, photo queue resume. Update openapi.yaml (sync endpoints).
 ```
 
 #### T2.8 🛠 এক্সপোর্ট সার্ভিস (Excel/CSV/PDF) `[নতুন; A১১]`
 - শেষে দেখে নিন: স্বেচ্ছাসেবক-ভূমিকার এক্সপোর্টে সুরক্ষিত ফিল্ড নেই (টেস্ট); বাংলা ফন্ট PDF-এ ঠিক; বড় এক্সপোর্ট background job।
 
 ```text
-Implement the export service: Excel (xlsx), CSV and PDF for any filtered list (volunteers, beneficiaries, applications including form answers mapped across versions), the beneficiary 360° profile PDF, and later report exports through the same service; field-level permission filtering must reuse the exact serializer code path of the API (one implementation); Bengali font embedding in PDF (Hind Siliguri) and Bengali digits per I18N.md; large exports as pg-boss jobs with a signed download link and progress in the UI; an audit entry for every export of sensitive data (constitution §13). Tests: a volunteer-role export never contains protected fields; CSV/XLSX column parity with the on-screen list; PDF renders Bengali correctly (snapshot).
+Implement the export service: Excel (xlsx), CSV and PDF for any filtered list (volunteers, beneficiaries, applications including form answers mapped across versions), the beneficiary 360° profile PDF, and later report exports through the same service; field-level permission filtering must reuse the exact serializer code path of the API (one implementation); Bengali font embedding in PDF (Hind Siliguri) with English digits per UX-05 and I18N.md; large exports as pg-boss jobs with a signed download link and progress in the UI; an audit entry for every export of sensitive data (constitution §13). Tests: a volunteer-role export never contains protected fields; CSV/XLSX column parity with the on-screen list; PDF renders Bengali correctly (snapshot).
 ```
 
 #### T2.9 🧪 Phase 2 টেস্ট একত্রীকরণ
@@ -732,7 +749,7 @@ Report with executed commands and outputs.
 
 ```text
 /css-gate 2
-Testers: 20–30 volunteers on their own Android phones and two RPMs. Scenarios must include installing the PWA, taking applications offline in the field and syncing later, NID auto-fill for a repeat beneficiary, review with score and waitlist on desktop, field unlock, and transfer. Add a short Bengali installation guide for Android Chrome to docs/testing/uat/.
+Testers: 20–30 volunteers on their own Android phones and two RPMs. Scenarios must include installing the PWA, taking applications offline in the field and syncing later, NID auto-fill for a repeat beneficiary, review with score and waitlist on desktop, field unlock, and transfer. Add a short Bengali installation guide for Android Chrome and for iPhone Safari (Share, Add to Home Screen) to docs/testing/uat/.
 ```
 
 ---
@@ -753,7 +770,7 @@ Field use starts in this phase, so set up deployment now per constitution §9 en
 
 ```text
 Implement the distribution workflow end to end on the engine per MASTER_SPEC A৮.১ and BD-21, BD-22, BD-23:
-goods dispatch by the office (what, how many, to which volunteer, courier spot from the volunteer profile) and the volunteer's receive confirmation with the distribution date; the "today's distribution" bulk screen on mobile (list of approved beneficiaries, received tick, photo per rule, status per row, one save, works offline through the T2.7 outbox); photo rules per project (door-to-door = one photo per beneficiary; gathered = group photo only) enforced as a guard with capture date/time and GPS metadata and the duplicate-photo warning; edge states (absent, later distribution on the same application, not distributed at close with no cost, shortage → waitlist, damaged/lost with photos and reason, partial with item ticks, death/relocation → profile status change and PM reassignment decision with reason); stock reconciliation per volunteer and project (sent = distributed + remaining + damaged) blocking project completion when unbalanced, differences needing a reason and raising a monitoring alert; distribution counts updating the beneficiary profile and the budget "distributed" bucket (ledger entries via T3.2 interfaces). Tests for every rule; E2E dispatch → receive → today's distribution with photo → reconciliation. Update openapi.yaml.
+goods dispatch by the office (what, how many, to which volunteer, courier spot from the volunteer profile) and the volunteer's receive confirmation with the distribution date; the "today's distribution" bulk screen on mobile (list of approved beneficiaries, received tick, photo per rule, status per row, one save, works offline through the T2.7 outbox); photo rules per project (door-to-door = one photo per beneficiary; gathered = group photo only) enforced as a guard with capture date/time and GPS metadata, the duplicate-photo warning and the per-project photo source setting (UX-11: camera only by default for distribution proof, through an in-app capture screen); edge states (absent, later distribution on the same application, not distributed at close with no cost, shortage → waitlist, damaged/lost with photos and reason, partial with item ticks, death/relocation → profile status change and PM reassignment decision with reason); stock reconciliation per volunteer and project (sent = distributed + remaining + damaged) blocking project completion when unbalanced, differences needing a reason and raising a monitoring alert; distribution counts updating the beneficiary profile and the budget "distributed" bucket (ledger entries via T3.2 interfaces). Tests for every rule; E2E dispatch → receive → today's distribution with photo → reconciliation. Update openapi.yaml.
 ```
 
 #### T3.2 🛠 স্বেচ্ছাসেবকের খরচ, ভাউচার, পরিশোধ ও বাজেট লেজার `[P6.8-এর অংশ ২ + B৬]`
@@ -767,7 +784,7 @@ Implement money per MASTER_SPEC B৬ and BD-29, BD-30, BD-31: the budget_ledger 
 - শেষে দেখে নিন: ড্যাশবোর্ডের সংখ্যা সিড ডেটার সাথে মেলে (টেস্ট); সতর্কবার্তা তালিকা; ফিল্টার সাল/এলাকা।
 
 ```text
-Implement the project dashboard (key screen) per MASTER_SPEC A১১: beneficiaries, application status funnel, distribution progress, volunteers and teams, budget cards from the ledger, monitoring alert list, volunteer summary; interactive filters by year, division, district, upazila, union; every number computed by one query service that tests can assert against the seeded data; cached sensibly and paginated where needed. Add the first monitoring alerts as scheduled jobs with the admin thresholds: approvals pending beyond N days, distribution marked without required photos, unbalanced stock, duplicate NID attempts, inactive volunteers; alerts appear on the dashboard and in the Monitoring Team inbox (the full control centre is Phase 5). Tests incl. scope: an RPM sees only their region's numbers.
+Implement the project dashboard (key screen, work progress first, UX-10) per MASTER_SPEC A১১: beneficiaries, application status funnel, distribution progress, volunteers and teams, budget cards from the ledger, monitoring alert list, volunteer summary; interactive filters by year, division, district, upazila, union; every number computed by one query service that tests can assert against the seeded data; cached sensibly and paginated where needed. Add the first monitoring alerts as scheduled jobs with the admin thresholds: approvals pending beyond N days, distribution marked without required photos, unbalanced stock, duplicate NID attempts, inactive volunteers; alerts appear on the dashboard and in the Monitoring Team inbox (the full control centre is Phase 5). Tests incl. scope: an RPM sees only their region's numbers.
 ```
 
 #### T3.4 🧪 লোড টেস্ট ও কম দামি ফোনে পরীক্ষা `[P7.4-এর পারফরম্যান্স অংশ, আগে আনা]`
@@ -909,7 +926,7 @@ Testers: the MEAL / Monitoring Team, two Official দায়ীs with their lo
 - শেষে দেখে নিন: ৭টি KPI গ্রুপ; উপকারভোগী জার্নি রিপোর্ট PDF; উৎস-ভিত্তিক বাজেট রিপোর্ট; প্রতিটি সংখ্যা স্কোপ মানে।
 
 ```text
-Implement the program, central and dawah dashboards per MASTER_SPEC A১১ and BD-43 with the approved seven KPI groups (unique beneficiaries and applications by year/program/project/division/district; application funnel with average time per step; budget planned/spent/remaining with program and project comparison; volunteers active by region with category and average rating for officials only; dawah classes, attendance, initial vs final improvement; follow-up coverage and result summary; alerts), interactive filters by year, program, project and area, statistics on every list, the beneficiary journey report (identified → support → dawah → follow-up) as screen and PDF, budget reports by fund source, and exports through the T2.8 service respecting field-level permissions. All numbers through tested query services; caching with invalidation; pagination for drill-downs. Tests incl. scope and KPI correctness against seeded data.
+Implement the program, central and dawah dashboards per MASTER_SPEC A১১ and BD-43 (the management home opens on work progress first, UX-10) with the approved seven KPI groups (unique beneficiaries and applications by year/program/project/division/district; application funnel with average time per step; budget planned/spent/remaining with program and project comparison; volunteers active by region with category and average rating for officials only; dawah classes, attendance, initial vs final improvement; follow-up coverage and result summary; alerts), interactive filters by year, program, project and area, statistics on every list, the beneficiary journey report (identified → support → dawah → follow-up) as screen and PDF, budget reports by fund source, and exports through the T2.8 service respecting field-level permissions. All numbers through tested query services; caching with invalidation; pagination for drill-downs. Tests incl. scope and KPI correctness against seeded data.
 ```
 
 #### T6.2 🛠 অ্যাডমিন ও সেটিংস (বাকি অংশ) `[P6.17-এর অংশ ২]`
@@ -1002,7 +1019,7 @@ Do not assume. List the interpretations with consequences and your recommendatio
 8. **demo account ও dummy OTP কখনো production-এ নয়** (BD-49)। T3.0 ও T6.6 এটা যাচাই করে; আপনিও করবেন।
 9. **সংবেদনশীল ডেটা Claude-কে দেবেন না।** নমুনা শীট/ফর্ম anonymized; আসল NID, ফোন, ব্যাংক তথ্য রিপোতে নয়।
 10. **প্রোডাকশন সার্ভারে Claude Code চালাবেন না।** ডিপ্লয় স্ক্রিপ্ট Claude লিখবে; চালাবেন আপনি বা IT।
-11. **Claude Code যা পারে না:** আসল ফোনে পরীক্ষা (আপনি/স্বেচ্ছাসেবকরা), Figma সরাসরি পড়া (স্ক্রিনশট বা MCP লাগে), SMS প্রোভাইডারের credential, সার্ভারে ঢোকা। এগুলো আপনার দিক থেকে সময়মতো দিন।
+11. **Claude Code যা পারে না:** আসল ফোনে পরীক্ষা (আপনি/স্বেচ্ছাসেবকরা), SMS প্রোভাইডারের credential, সার্ভারে ঢোকা। এগুলো আপনার দিক থেকে সময়মতো দিন।
 12. **সংস্করণভেদে ফিচার:** plan mode না থাকলে প্রম্পটের শুরুতে লিখুন "First give me the plan per §15 step 3 and wait for my approval before changing any file."; `@import` না থাকলে CLAUDE.md-এ মাস্টার প্রম্পট পেস্ট; commands না থাকলে পরিশিষ্ট B-এর লেখা পেস্ট।
 13. **একাধিক ডেভেলপার যুক্ত হলে** একই CLAUDE.md, একই নিয়ম; ব্রাঞ্চ ধরে কাজ, PR-এ `/css-review`।
 14. **ফেজের ভেতরে ক্রম বদলানো যায়** (যেমন Phase 4-এ কুরবানী আগে), কিন্তু ফেজ টপকানো নয়; নির্ভরতা টাস্কের "আগে দরকার" লাইনে লেখা।
@@ -1027,7 +1044,7 @@ Do not assume. List the interpretations with consequences and your recommendatio
 | P3.2 | T0.16 (ডক) + T1.2 (migrations) | Phase 0-তে কোড নয় |
 | P3.3 | T1.3 | + পরিশিষ্ট খ-এর ফর্ম সিড |
 | P4.1 · P4.2 | T0.17 · T0.18 | |
-| P5.1 | T0.19 (ডক + SCREENS) + T1.4 (কোড) | |
+| P5.1 | T0.19 (ডক + SCREENS) + T0.19b (HTML মকআপ) + T1.4 (কোড) | |
 | P5.2 | T0.20 + T1.5 | |
 | P6.1 | T1.7 + T1.8 | |
 | P6.2 | T1.9 | + edit request, handover বিস্তারিত |
@@ -1049,7 +1066,7 @@ Do not assume. List the interpretations with consequences and your recommendatio
 | P8.1 | T3.0 + T6.5 | ডিপ্লয়মেন্ট আগে |
 | P8.2 | T6.6 | "§49" → §14/§15 |
 | A.1 · A.2 · A.3 · A.4 · A.5 · A.6 | /css-fix · /css-change · /css-bug · /css-review · /css-docsync · /css-status | |
-| — (নতুন) | T0.7, T0.22, T1.1, T1.6, T1.10, T1.15, T1.17, T2.1, T2.8, T2.10, T3.6, T4.5, T4.7, T5.7, T6.7, /css-start, /css-end, /css-gate, /css-uat | |
+| — (নতুন) | T0.7, T0.19b, T0.22, T1.1, T1.6, T1.10, T1.15, T1.17, T2.1, T2.8, T2.10, T3.6, T4.5, T4.7, T5.7, T6.7, /css-start, /css-end, /css-gate, /css-uat | |
 
 ---
 
@@ -1084,6 +1101,11 @@ ERP for the Charity & Social Service Department of As-Sunnah Foundation. The pro
 - Git safety: never run git reset --hard, push --force, branch -D, rebase on shared history, or delete migrations. Never modify .env files that hold real secrets. Small commits per task; tag phase gates as gate-phase-N.
 - Large tasks: split into steps; finish, test and commit each step before starting the next. If the context gets long, write progress into docs/STATUS.md before continuing.
 - Decisions: every new business or architectural decision is appended to docs/DECISION_LOG.md before implementation. Proposals stay "proposed" until the owner confirms in chat.
+
+## UI rules decided by the owner (details: docs/ui/DESIGN_BRIEF.md)
+- All numbers use English digits 0-9 in both languages.
+- Officials work equally on desktop and phone: review, approval, lookup, profiles and dashboards must work at 360 px. Setup screens (form builder, project setup, permission panel) are desktop first.
+- Calm institutional look with one accent colour; use the owner's logo and colours from docs/ui/brand/ once supplied. Read the brief before any UI task.
 
 ## Repository map and commands
 (Filled in by task T1.1 after scaffolding; keep this section current whenever scripts or layout change.)
@@ -1273,6 +1295,7 @@ Classify each item: (a) bug, (b) requirement already in the blueprint but missin
 3. §9-এর "To confirm with the project owner" অংশে ফাঁকা backend/storage-এর জায়গায় প্রস্তাবিত স্ট্যাক (§২.১), "proposed" হিসেবে; SMS প্রোভাইডার, ব্র্যান্ড ও সার্ভার এখনো "to confirm"।
 4. শেষ লাইন: "Now begin with the STARTUP PROCEDURE" → STATUS.md-এ Phase 0 শুরু না হলে তবেই স্টার্টআপ, নইলে CLAUDE.md-এর সেশন-রিচুয়াল।
 5. (১০ অক্টোবর, v1.1.1) §9-এ প্রস্তাবিত Node.js 22 → 24 LTS।
+6. (১০ অক্টোবর, v1.1.2) ডিজাইন ইন্টারভিউ: §9 ও §10-এ ডিভাইস (অফিসিয়াল ফোন ও ডেস্কটপ সমান, কিছু আইফোন), §11-এ সংখ্যা সবসময় ইংরেজি অঙ্কে, §12-এ Figma নেই বলে মকআপ T0.19b-তে এবং ব্র্যান্ড রংয়ের লাইন; §৩-এর ডকুমেন্ট তালিকায় নতুন `docs/ui/DESIGN_BRIEF.md`।
 
 বাকি সব (§0–§18-এর নীতি, ভূমিকা, BD-01…49, রোডম্যাপ, টোকেন, স্ট্যান্ডার্ড, টেস্টিং, প্রক্রিয়া) অপরিবর্তিত।
 

@@ -5,6 +5,8 @@ Version 1.1 (8 Oct 2026) — adapted for Claude Code: §3 lists the extra workin
 
 Version 1.1.1 (10 Oct 2026): §9 now proposes Node.js 24 LTS instead of 22, because 24 is the current LTS line and is already installed on the owner's machine.
 
+Version 1.1.2 (10 Oct 2026): owner decisions from the design interview (docs/ui/DESIGN_BRIEF.md, UX-01 to UX-12). §9 and §10 now cover officials working on phones as much as on desktop and some volunteers on iPhones, §11 uses English digits only, and §12 no longer refers to approved Figma mockups because none exist; clickable HTML mockups are built in task T0.19b.
+
 You are the lead software architect, senior full-stack engineer, database architect, security engineer, QA engineer, DevOps engineer and technical-documentation owner for this project. You work for the project owner (the department), who makes every business and architectural decision.
 
 This prompt is the constitution of the project. Give it once at the start of every session. Every task prompt that follows is a controlled change request under these rules.
@@ -96,6 +98,7 @@ Authoritative documents (create on startup, maintain continuously):
 Also maintained (Claude Code working documents):
 /docs/STATUS.md                       — session handoff: phase, last task done, next task, open decisions, known issues, last test run
 /docs/ui/SCREENS.md                   — screen inventory (every key screen: purpose, role, data, actions, states, components)
+/docs/ui/DESIGN_BRIEF.md              — owner design decisions UX-01 to UX-12 (design interview 2026-10-10)
 /docs/architecture/ADR/               — one architecture decision record per technical decision
 /docs/architecture/workflow-templates/ — one machine-readable workflow definition per project type (seeded into the engine)
 /docs/security/permissions.yaml       — the single source of truth for permission names, defaults and scopes
@@ -281,7 +284,7 @@ Within a phase, work module by module. Each task prompt from the project owner i
 
 Approved
 * Database: PostgreSQL with JSONB for dynamic answers and component settings.
-* Frontend: React (Next.js) delivered as an installable, offline-first PWA; one codebase for desktop (officials) and mobile (volunteers); mobile-first.
+* Frontend: React (Next.js) delivered as an installable, offline-first PWA; one codebase for desktop and mobile; volunteers work mainly on phones and officials work equally on desktop and phone (UX-03); mobile-first.
 * API: versioned REST (/api/v1), documented in openapi.yaml; server-side authorization on every endpoint.
 * Files: object/file storage on the own server; private files only via signed, expiring URLs after an authorization check; images compressed on the phone, resumable uploads.
 * Background jobs for sync processing, notifications, deadline warnings, score computation, report generation.
@@ -302,7 +305,7 @@ Offline-first rules (blueprint B৭): every offline record carries a client_uuid
 ==================================================
 
 * Concurrency: about 2,000 volunteers at once on a distribution day; load-test before each field rollout.
-* Devices: low-cost Android phones (2 GB RAM) and older browsers; light initial load; paginated lists; minimal data use.
+* Devices: low-cost Android phones (2 GB RAM), some iPhones (UX-06) and older browsers; light initial load; paginated lists; minimal data use.
 * Network: 2G/3G and intermittent; everything field-facing works offline.
 * Retention: permanent; design for growing storage; report growth to the IT team.
 * Availability and backup targets (RPO/RTO): proposed by you, approved by the IT team.
@@ -315,7 +318,7 @@ Offline-first rules (blueprint B৭): every offline record carries a client_uuid
 
 * Bangla (bn) and English (en), both first-class, switchable per user.
 * No hard-coded user-facing text; central i18n keys (t("application.approve")). Covers labels, buttons, validation, notifications, errors, statuses, menus, reports, email/SMS templates.
-* Bengali digits where appropriate; dates in both calendars' formats as configured.
+* All numbers (amounts, dates, counts, ids, phone numbers) use English digits 0-9 in both languages (owner decision UX-05). Formatting stays in one central utility, so Bengali digits could be added later by a new decision. A Hijri date may be shown beside a Gregorian date through a setting that is off by default.
 * Form field labels, section names, option lists, status names and workflow stage names are bilingual data.
 * Adding a third language later must not require rewriting the application.
 
@@ -332,9 +335,9 @@ Colors
 Spacing scale: 4, 8, 12, 16, 24, 32 px. Radius: 6 (small), 10 (medium), 16 (large).
 Typography: Bengali and Latin UI text in "Hind Siliguri" (Regular, Medium, SemiBold, Bold) with a system fallback; sizes Display 20 Bold, Title 16 SemiBold, Body 14 Regular/Medium, Label 12 Medium, Caption 11 Regular; line-height 150%.
 Base components to build once and reuse: Button (primary/secondary), Badge/Status, Card/Stat, Field/Text (and select, date, number, file), Nav/Item, Row/Toggle, Table with filters/search/pagination, Modal, Drawer, Confirm dialog, File upload with preview, Alert, Tabs, Breadcrumb, Empty/Loading/Error states, Offline banner, Bulk-update list row with checkbox, Step/timeline, Progress bar.
-Look: professional, calm, institutional; green is the only brand accent; status colors only for status. Official brand assets (logo, exact brand colors) will be added to /docs/ui/brand/ when provided; until then use the tokens above.
+Look: professional, calm, institutional; one brand accent colour only (deep green until the owner's brand colours arrive); status colors only for status. The owner confirmed on 2026-10-10 that a logo and official brand colors exist; they will be added to /docs/ui/brand/ and override the tokens above. Until then use the tokens. Full direction: docs/ui/DESIGN_BRIEF.md.
 
-Key screens (from the approved mockups): project setup with component toggles; form builder (section library, preview, field settings, versions); application review list with detail panel, step timeline and change log; project dashboard with budget bars, funnel, monitoring alerts, volunteer summary; mobile volunteer home with offline banner; mobile new application with NID lookup and auto-fill; mobile today's distribution bulk screen; volunteer profile with permissions, work summary, ratings, animal allocation, blocklist/transfer; registration with OTP; document register; issue log; donor list.
+Key screens (no mockups exist yet; they are built as clickable HTML in task T0.19b, see docs/ui/DESIGN_BRIEF.md): project setup with component toggles; form builder (section library, preview, field settings, versions); application review list with detail panel, step timeline and change log; project dashboard with budget bars, funnel, monitoring alerts, volunteer summary; mobile volunteer home with offline banner; mobile new application with NID lookup and auto-fill; mobile today's distribution bulk screen; volunteer profile with permissions, work summary, ratings, animal allocation, blocklist/transfer; registration with OTP; document register; issue log; donor list.
 
 ==================================================
 13. STANDARDS

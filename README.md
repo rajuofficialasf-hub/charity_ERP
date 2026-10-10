@@ -11,7 +11,8 @@ Repository: https://github.com/rajuofficialasf-hub/charity_ERP
 | `CLAUDE.md` | Instructions Claude Code loads in every session; it imports the constitution |
 | `docs/MASTER_PROMPT.md` | The project constitution: rules, 49 approved decisions, roadmap, standards |
 | `docs/source/ERP_BLUEPRINT_BN.md` | The business blueprint in Bengali, the top business authority. Diagrams are in `docs/source/images/` |
-| `docs/PLAN.md` | The owner's step-by-step plan: 77 task prompts for Phase 0-6 (Bengali guidance, English prompts) |
+| `docs/PLAN.md` | The owner's step-by-step plan: 78 task prompts for Phase 0-6 (Bengali guidance, English prompts) |
+| `docs/ui/DESIGN_BRIEF.md` | The owner's design decisions from the 2026-10-10 interview: look, devices, digits, photos, notifications |
 | `docs/STATUS.md` | Session hand-off: current phase, next task, open decisions, known issues |
 | `docs/source/README.md` | Input files the owner still has to supply (mockups, SOP, samples, location data) |
 | `.claude/commands/` | Project slash commands: `/css-start`, `/css-end`, `/css-fix`, `/css-change`, `/css-bug`, `/css-review`, `/css-docsync`, `/css-status`, `/css-gate`, `/css-uat` |
