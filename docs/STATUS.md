@@ -10,8 +10,9 @@
 - T0.13 done (2026-10-10): docs/architecture/FILES_AND_DOCUMENTS.md complete (file kinds and metadata model, signed-URL access, upload pipeline with 256 KB chunks and virus-scan hook, validation table, image handling with EXIF/GPS capture and pHash duplicate warning, per-project photo source setting with the web realisation and its trade-offs, bucket and key layout per SOP 10, SOP document register with status chain, hard-copy codes and retention, working-day deadline countdown and non-compliance, deficiency reports with escalation and legacy marking, quarterly audit report, media consent gating, locks, storage growth, tests). Proposals decided the same day as O-30 with changes (BR-239..241); hard-copy code segments and the 11 deficiency fields wait for the SOP text.
 - T0.14 done (2026-10-10): docs/architecture/NOTIFICATIONS.md complete (principles, channels, recipient resolution by scope, full event matrix with recipients/channels/template keys/phases, mandatory vs optional and preferences, bilingual templates, transactional outbox with retries and status, rate limits and coalescing, OTP path, Qurbani donor messages, Web Push evaluation with a "yes, optional, later" recommendation, privacy, tests); ADR-007 written. Proposals accepted the same day as O-35.
 - T0.15 done (2026-10-10): docs/database/ERD.md complete (90 entities in 12 clusters with keys, relationships and cardinality, classification master/configuration/transaction/log/platform, JSONB usages, constraints and idempotency keys, naming map, additions and ambiguities) and docs/database/erd.mermaid (one erDiagram, same entities). Physical names follow the T0.15 prompt; earlier documents were swept to them (MASTER_SPEC keeps blueprint names with a pointer). Ambiguities resolved as recommended by O-37.
-- Next task: T0.16 - Physical schema and data dictionary (docs/database/DATABASE_SCHEMA.md, documents only).
-- Blocking items: none.
+- T0.16 done (2026-10-10): docs/database/DATABASE_SCHEMA.md complete (91 tables with columns, types, nullability, defaults, comments, keys, uniques, checks and indexes; code lists instead of PostgreSQL enums; application number counter `id_sequences` per O-03, no BEN- sequence because O-03 made the BEN-ID the UUID v7; BD-03 enforced by deferred constraint triggers; index catalogue; JSON Schemas in docs/database/json-schemas/ (10 files); soft-delete policy; retention and partitioning; database roles). ERD updated with id_sequences. Proposals = open question 30.
+- Next task: T0.17 - API standards (docs/api/API_STANDARDS.md).
+- Blocking items: none (question 30 does not block T0.17).
 - Git: the owner pushed main to origin on 2026-10-10 up to ceb4e50 (verified: main...origin/main in sync); later commits are local until the next push.
 
 ## Deliverables of T0.1 (complete vs outline)
@@ -31,9 +32,9 @@ Complete:
 - docs/architecture/FILES_AND_DOCUMENTS.md (T0.13)
 - docs/architecture/NOTIFICATIONS.md, ADR-007 (T0.14)
 - docs/database/ERD.md and erd.mermaid (T0.15)
+- docs/database/DATABASE_SCHEMA.md and json-schemas/ (T0.16)
 
 Outlines (headings plus one line per section; completed in the task named in each file):
-- docs/database/DATABASE_SCHEMA.md (T0.16)
 - docs/api/API_STANDARDS.md (T0.17), openapi.yaml skeleton (T0.18)
 - docs/security/SECURITY_POLICY.md (T0.21)
 - docs/ui/DESIGN_SYSTEM.md and SCREENS.md (T0.19), I18N.md (T0.20)
@@ -41,11 +42,9 @@ Outlines (headings plus one line per section; completed in the task named in eac
 - docs/ops/DEPLOYMENT.md and RUNBOOK.md (T3.0, T6.5)
 
 ## Open decisions waiting on the owner
-- None from T0.1..T0.13. Question 27 answered by O-30 with changes (all uploads quarantined until scanned; stale_capture by captured_at vs record_created_at; flagged-share alert with minimum sample; item 5 pending the SOP text). PWA short name "ASF Charity" (O-31); Bornomala source confirmed (O-32); SMS provider deferred to before production (O-33).
-- Question 26 answered by O-29 (offline sync and mobile storage requirements, BR-236..238). RBAC interpretations confirmed by O-26..O-28. Question 25 answered by O-25 (all seven authentication proposals accepted). Question 24 answered by O-24 (officials enter payment records manually). The T0.8 architecture choices are approved as D-054..D-057 with implementation requirements (worker retries/graceful shutdown/timeouts/idempotency; zod + DB constraints; Caddy with HTTPS and network hardening; monitoring and essential alerting from launch, error-tracking service deferred to T3.0).
-- Interpretations recorded in O-03 (BEN-ID = UUID v7, no short display form), O-09 (initial load from an open dataset), O-16 (admin holiday calendar for public holidays) and O-22 (entry stays with officials) stand unless the owner corrects them.
-- None. Question 28 answered by O-35 (Web Push optional after the Phase 3 pilot; digest, coalescing, retries, throttle, reminders, donor channels; BR-242). PWA short name and Bornomala source resolved (O-31, O-32).
-- Remaining PROPOSAL rows of docs/NON_FUNCTIONAL_REQUIREMENTS.md (section 13) need the owner's or the IT team's confirmation in T0.21 (NFR-22 photo queue, NFR-35 and NFR-40 are now decided).
+- Open question 30 (DATABASE_SCHEMA.md section 24): pg_trgm, audit_log partitioning, GPS storage, mobile format check, no row-level security, seed values of four reference lists; recommendations in DECISION_LOG section 6.
+- Remaining PROPOSAL rows of docs/NON_FUNCTIONAL_REQUIREMENTS.md (section 13) are confirmed in T0.21.
+- Questions 1..29 are answered (O-01..O-37; full list in DECISION_LOG section 5). Interpretations recorded in O-03, O-09, O-16 and O-22 stand unless the owner corrects them. Architecture choices of T0.8 are D-054..D-057.
 
 ## Prerequisites still open (checked 2026-10-10)
 Needed for development (before T1.1):

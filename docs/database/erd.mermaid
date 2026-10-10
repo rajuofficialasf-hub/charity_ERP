@@ -555,6 +555,10 @@ erDiagram
     text bucket
     uuid project_id FK
   }
+  id_sequences {
+    text scope_key PK "app:<project id> (T0.16)"
+    int last_value
+  }
 
   %% ---------------- Relationships ----------------
   users ||--o{ user_roles : holds

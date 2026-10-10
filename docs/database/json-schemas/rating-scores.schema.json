@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://css-erp.assunnahfoundation.org/schemas/rating-scores.json",
+  "title": "volunteer_ratings.proposed_scores and final_scores",
+  "description": "Criterion key to score 1-5; at most 5 criteria per project (BD-40, BR-042). Written in T0.16.",
+  "type": "object",
+  "maxProperties": 5,
+  "propertyNames": { "pattern": "^[a-z0-9_]{1,64}$" },
+  "additionalProperties": { "type": "integer", "minimum": 1, "maximum": 5 }
+}

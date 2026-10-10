@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://css-erp.assunnahfoundation.org/schemas/workflow-definition.json",
+  "title": "workflow_definitions.definition and projects.workflow_snapshot",
+  "description": "A merged workflow template (template + _common + project overrides). The structure is defined once in docs/architecture/workflow-templates/schema.json; this file only references it so the database dictionary and the template files share one schema (T0.16).",
+  "allOf": [
+    { "$ref": "../../architecture/workflow-templates/schema.json" }
+  ]
+}

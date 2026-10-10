@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://css-erp.assunnahfoundation.org/schemas/application-score-criteria.json",
+  "title": "application_scores.criteria",
+  "description": "Score breakdown of one application (BD-17, BR-097, O-21): the criteria and weights used, the inputs read and the points awarded. Frozen at the decision (snapshot_at). Written in T0.16.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["scoring_version", "items", "total"],
+  "properties": {
+    "scoring_version": { "type": "string", "description": "hash or version of the project's scoring settings used" },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "max_points", "points"],
+        "properties": {
+          "key": { "type": "string" },
+          "label": { "type": "object", "properties": { "bn": { "type": "string" }, "en": { "type": "string" } } },
+          "input": { "description": "the answer value or derived fact used (e.g. monthly income, previously assisted)" },
+          "max_points": { "type": "number", "minimum": 0, "maximum": 100 },
+          "points": { "type": "number", "minimum": 0, "maximum": 100 }
+        }
+      }
+    },
+    "total": { "type": "number", "minimum": 0, "maximum": 100 }
+  }
+}

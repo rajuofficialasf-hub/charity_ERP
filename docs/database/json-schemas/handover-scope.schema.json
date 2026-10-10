@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://css-erp.assunnahfoundation.org/schemas/handover-scope.json",
+  "title": "handovers.scope",
+  "description": "Items handed over before an official's account is deactivated (BD-08, BR-034, AUTH.md section 10). Written in T0.16.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["items"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["item_type", "item_id", "new_owner_user_id"],
+        "properties": {
+          "item_type": { "enum": ["pending_review", "pending_approval", "project_area", "project_staff", "document", "issue", "followup", "edit_request", "correction_request", "work_assignment"] },
+          "item_id": { "type": "string", "format": "uuid" },
+          "project_id": { "type": "string", "format": "uuid" },
+          "new_owner_user_id": { "type": "string", "format": "uuid" },
+          "done_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "note": { "type": "string", "maxLength": 2000 }
+  }
+}

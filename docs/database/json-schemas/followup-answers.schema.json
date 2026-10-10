@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://css-erp.assunnahfoundation.org/schemas/followup-answers.json",
+  "title": "followup_evaluations.answers",
+  "description": "Answers to the project's follow-up template (O-23 default for self-reliance: business started, current income, business running, profit, main problem). Question codes come from project_components.settings (follow_up). Written in T0.16.",
+  "type": "object",
+  "propertyNames": { "pattern": "^[a-z0-9_]{1,64}$" },
+  "additionalProperties": {
+    "oneOf": [
+      { "type": "boolean" },
+      { "type": "number" },
+      { "type": "string", "maxLength": 2000 }
+    ]
+  }
+}

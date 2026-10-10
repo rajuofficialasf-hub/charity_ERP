@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://css-erp.assunnahfoundation.org/schemas/distribution-items.json",
+  "title": "distributions.items",
+  "description": "Items of a package received or still pending, for partial distribution (BD-23, BR-116). Written in T0.16.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["items"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "received"],
+        "properties": {
+          "code": { "type": "string", "maxLength": 64 },
+          "label": { "type": "object", "properties": { "bn": { "type": "string" }, "en": { "type": "string" } } },
+          "quantity": { "type": "integer", "minimum": 1 },
+          "received": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

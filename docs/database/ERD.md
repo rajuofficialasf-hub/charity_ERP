@@ -34,7 +34,7 @@ Sources: blueprint B2 (entity tables, key rules) and B3 (hybrid storage); BD-01�
 | Continuous (survive project close) | Added any time, also after close | followup_evaluations, call_logs, media_subjects, media_stories |
 | Requests and decisions | Workflow of a single change, kept forever | profile_correction_requests, profile_merges, volunteer_change_requests, handovers, blocklist, volunteer_categories_log |
 | Log (append-only) | Never updated except status fields of delivery | audit_log, field_changes, document_events, notifications, outbound_messages, sync_batches, storage_stats |
-| Platform | Technical state | device_sessions, otp_codes, push_subscriptions, files, file_links, upload_sessions, alerts, export_jobs |
+| Platform | Technical state | device_sessions, otp_codes, push_subscriptions, files, file_links, upload_sessions, alerts, export_jobs, id_sequences |
 
 ## 4. Overview
 
@@ -208,6 +208,7 @@ Cardinality notation below: `1 — n` one to many, `1 — 0..1` optional one, `n
 | alerts | id; kind; severity; project_id; subject_type; subject_id; status open/acknowledged/resolved; details (JSONB); raised_at; resolved_at | projects 1 — n | BD-42; BR-173 (addition) |
 | export_jobs | id; requested_by; kind; filters (JSONB); sensitive; status; file_id; row_count; created_at | users 1 — n; files 1 — 0..1 | NFR-10; BR-223 (addition) |
 | storage_stats | id; captured_at; bucket; project_id (nullable); bytes; objects; database_bytes | — | BD-46; BR-208 (addition) |
+| id_sequences | scope_key (`app:<project id>`); last_value | — (counter per project for `applications.app_no`) | O-03; technical table added in T0.16 (DATABASE_SCHEMA.md §4) |
 
 ## 17. JSONB usages
 
@@ -276,7 +277,7 @@ Cardinality notation below: `1 — n` one to many, `1 — 0..1` optional one, `n
 
 ## 20. Additions, folded entities and ambiguities (resolved by O-37, 2026-10-10)
 
-Entities added beyond the T0.15 list, each with its documented requirement: user_roles (A4), work_assignments (BD-24, BD-26, B4 ASSIGNED), volunteer_change_requests (BR-030, BR-031), form_library_sections and form_library_fields (BD-12), nisab_versions (O-15), holiday_calendar (O-16), reference_lists (O-14, O-17, O-22), settings (O-04, O-29, O-30, O-35), alerts (BD-42), outbound_messages (T0.14), push_subscriptions (O-35), file_links and upload_sessions (T0.13), document_events (T0.13), media_subjects (O-28), storage_stats (BD-46), export_jobs (NFR-10).
+Entities added beyond the T0.15 list, each with its documented requirement: user_roles (A4), work_assignments (BD-24, BD-26, B4 ASSIGNED), volunteer_change_requests (BR-030, BR-031), form_library_sections and form_library_fields (BD-12), nisab_versions (O-15), holiday_calendar (O-16), reference_lists (O-14, O-17, O-22), settings (O-04, O-29, O-30, O-35), alerts (BD-42), outbound_messages (T0.14), push_subscriptions (O-35), file_links and upload_sessions (T0.13), document_events (T0.13), media_subjects (O-28), storage_stats (BD-46), export_jobs (NFR-10). Added in T0.16: id_sequences (O-03 application number counter), bringing the physical model to 91 tables.
 
 Folded (no own table): blueprint project_settings → projects and project_components.settings; beneficiary contact changes and correction history → field_changes; public form links and rating criteria → project_components.settings; handover items → handovers.scope; notification preferences → users.preferences.
 
