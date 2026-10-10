@@ -1,0 +1,680 @@
+%% erd.mermaid - logical ERD of the Charity & Social Service ERP (task T0.15, 2026-10-10).
+%% Same entities and relationships as docs/database/ERD.md. Attributes show keys only (PK, FK, UK) plus a few
+%% identifying columns; the full column list is the data dictionary (docs/database/DATABASE_SCHEMA.md, T0.16).
+erDiagram
+  %% ---------------- Identity and access ----------------
+  users {
+    uuid id PK
+    text mobile UK
+    text email UK
+    text kind
+    text state
+    bool is_system_owner
+  }
+  roles {
+    text key PK
+    bool global_scope
+  }
+  user_roles {
+    uuid id PK
+    uuid user_id FK
+    text role_key FK
+  }
+  permissions {
+    text name PK
+    text module
+    bool sensitive
+  }
+  user_permissions {
+    uuid id PK
+    uuid user_id FK
+    text permission_name FK
+    text effect
+    text scope_type
+  }
+  device_sessions {
+    uuid id PK
+    uuid user_id FK
+    timestamptz revoked_at
+  }
+  otp_codes {
+    uuid id PK
+    text purpose
+    text address_hash
+  }
+  handovers {
+    uuid id PK
+    uuid from_user_id FK
+    uuid to_user_id FK
+    jsonb scope
+  }
+
+  %% ---------------- Locations, reference, settings ----------------
+  locations {
+    uuid id PK
+    uuid parent_id FK
+    text level
+    text code UK
+    bool active
+  }
+  reference_lists {
+    uuid id PK
+    text list_key
+    text code
+  }
+  settings {
+    text key PK
+    jsonb value
+  }
+  holiday_calendar {
+    date date PK
+  }
+  nisab_versions {
+    uuid id PK
+    date effective_from UK
+    numeric value
+  }
+
+  %% ---------------- Programs and projects ----------------
+  programs {
+    uuid id PK
+    text code UK
+    uuid pm_user_id FK
+  }
+  projects {
+    uuid id PK
+    uuid program_id FK
+    text code UK
+    int year
+    text status
+    uuid workflow_definition_id FK
+    jsonb workflow_snapshot
+    jsonb rules
+  }
+  project_components {
+    uuid id PK
+    uuid project_id FK
+    text component_key
+    jsonb settings
+  }
+  project_areas {
+    uuid id PK
+    uuid project_id FK
+    uuid location_id FK
+    uuid rpm_user_id FK
+  }
+  project_staff {
+    uuid id PK
+    uuid project_id FK
+    uuid user_id FK
+    text role_key FK
+  }
+  project_templates {
+    uuid id PK
+    text key
+    uuid source_project_id FK
+    jsonb definition
+  }
+  project_quotas {
+    uuid id PK
+    uuid project_id FK
+    uuid location_id FK
+    int target
+  }
+  fund_sources {
+    uuid id PK
+    uuid project_id FK
+    text source
+  }
+
+  %% ---------------- Forms ----------------
+  forms {
+    uuid id PK
+    uuid project_id FK
+    text key
+  }
+  form_versions {
+    uuid id PK
+    uuid form_id FK
+    int version_no
+    text status
+  }
+  form_sections {
+    uuid id PK
+    uuid form_version_id FK
+    uuid library_section_id FK
+    text visibility
+  }
+  form_fields {
+    uuid id PK
+    uuid form_section_id FK
+    uuid library_field_id FK
+    text field_key
+    jsonb logic
+  }
+  field_options {
+    uuid id PK
+    uuid form_field_id FK
+    uuid depends_on_option_id FK
+    text code
+  }
+  form_library_sections {
+    uuid id PK
+    text key UK
+  }
+  form_library_fields {
+    uuid id PK
+    text key UK
+  }
+
+  %% ---------------- Beneficiaries ----------------
+  beneficiaries {
+    uuid id PK "BEN-ID, UUID v7"
+    text nid UK
+    text birth_reg UK
+    text mobile
+    text status
+    uuid merged_into_id FK
+  }
+  beneficiary_family_members {
+    uuid id PK
+    uuid beneficiary_id FK
+    bool is_earner
+  }
+  profile_merges {
+    uuid id PK
+    uuid kept_id FK
+    uuid merged_id FK
+    jsonb snapshot
+  }
+  profile_correction_requests {
+    uuid id PK
+    uuid beneficiary_id FK
+    text field
+    text status
+  }
+  media_consents {
+    uuid id PK
+    uuid beneficiary_id FK
+    bool granted
+  }
+
+  %% ---------------- Volunteers ----------------
+  volunteers {
+    uuid id PK
+    uuid user_id FK
+    text nid UK
+    text type
+    uuid reference_volunteer_id FK
+    text category
+  }
+  volunteer_teams {
+    uuid id PK
+    uuid project_id FK
+    uuid lead_volunteer_id FK
+    uuid member_volunteer_id FK
+  }
+  project_volunteers {
+    uuid id PK
+    uuid project_id FK
+    uuid volunteer_id FK
+    text permission_set
+    bool is_paid
+  }
+  volunteer_ratings {
+    uuid id PK
+    uuid project_id FK
+    uuid volunteer_id FK
+    text work_kind
+  }
+  volunteer_categories_log {
+    uuid id PK
+    uuid volunteer_id FK
+    text comment
+  }
+  blocklist {
+    uuid id PK
+    text subject_type
+    uuid subject_id
+    bool active
+  }
+  volunteer_change_requests {
+    uuid id PK
+    uuid volunteer_id FK
+    text kind
+  }
+  work_assignments {
+    uuid id PK
+    uuid project_id FK
+    uuid assignee_user_id FK
+    text kind
+    text target_type
+    uuid target_id
+  }
+
+  %% ---------------- Applications and workflow ----------------
+  applications {
+    uuid id PK
+    text app_no UK
+    uuid project_id FK
+    uuid form_version_id FK
+    uuid beneficiary_id FK
+    uuid owner_volunteer_id FK
+    uuid nisab_version_id FK
+    text status
+    text stage
+    uuid client_uuid UK
+  }
+  application_answers {
+    uuid id PK
+    uuid application_id FK
+    uuid field_id FK
+    jsonb value
+  }
+  application_scores {
+    uuid id PK
+    uuid application_id FK
+    jsonb criteria
+  }
+  field_changes {
+    uuid id PK
+    text entity_type
+    uuid entity_id
+    text field
+  }
+  application_transfers {
+    uuid id PK
+    uuid application_id FK
+    uuid from_volunteer_id FK
+    uuid to_volunteer_id FK
+  }
+  workflow_definitions {
+    uuid id PK
+    text key
+    int version
+    jsonb definition
+  }
+  workflow_transitions {
+    uuid id PK
+    uuid workflow_definition_id FK
+    text from_state
+    text to_state
+    text permission_name FK
+  }
+
+  %% ---------------- Activities, stock and money ----------------
+  activities {
+    uuid id PK
+    uuid project_id FK
+    uuid application_id FK
+    text type
+    uuid client_uuid UK
+  }
+  distributions {
+    uuid activity_id PK
+    jsonb items
+  }
+  stock_movements {
+    uuid id PK
+    uuid project_id FK
+    uuid volunteer_id FK
+    uuid activity_id FK
+    text kind
+    int quantity
+  }
+  construction_stages {
+    uuid id PK
+    uuid application_id FK
+    text stage_key
+  }
+  issues {
+    uuid id PK
+    uuid project_id FK
+    uuid application_id FK
+    text status
+  }
+  site_verifications {
+    uuid id PK
+    uuid application_id FK
+    uuid activity_id FK
+    text recommendation
+  }
+  payments {
+    uuid id PK
+    uuid project_id FK
+    uuid application_id FK
+    uuid expense_claim_id FK
+    text transaction_id UK
+    numeric amount
+  }
+  expense_claims {
+    uuid id PK
+    uuid project_id FK
+    uuid volunteer_id FK
+    text status
+  }
+  expense_items {
+    uuid id PK
+    uuid expense_claim_id FK
+    text category_code
+  }
+  vouchers {
+    uuid id PK
+    uuid project_id FK
+    uuid application_id FK
+    uuid animal_id FK
+    text status
+  }
+  budget_ledger {
+    uuid id PK
+    uuid project_id FK
+    uuid application_id FK
+    uuid fund_source_id FK
+    text bucket
+    numeric amount
+  }
+
+  %% ---------------- Qurbani ----------------
+  donors {
+    uuid id PK
+    uuid project_id FK
+    text source
+    text transaction_id
+  }
+  animals {
+    uuid id PK
+    uuid project_id FK
+    text type
+    int number
+    uuid assigned_volunteer_id FK
+  }
+  animal_shares {
+    uuid id PK
+    uuid animal_id FK
+    uuid donor_id FK
+    int shares
+  }
+  animal_photos {
+    uuid id PK
+    uuid animal_id FK
+    uuid file_id FK
+    text kind
+  }
+  donor_messages {
+    uuid id PK
+    uuid donor_id FK
+    uuid animal_id FK
+    uuid outbound_message_id FK
+  }
+
+  %% ---------------- Dawah and follow-up ----------------
+  dawah_syllabus_topics {
+    uuid id PK
+    uuid project_id FK
+  }
+  dawah_classes {
+    uuid id PK
+    uuid project_id FK
+    uuid daee_user_id FK
+    uuid client_uuid UK
+  }
+  class_attendance {
+    uuid id PK
+    uuid class_id FK
+    uuid beneficiary_id FK
+    uuid family_member_id FK
+  }
+  learning_progress {
+    uuid id PK
+    uuid topic_id FK
+    uuid beneficiary_id FK
+    uuid family_member_id FK
+  }
+  exams {
+    uuid id PK
+    uuid project_id FK
+    text type
+  }
+  exam_results {
+    uuid id PK
+    uuid exam_id FK
+    uuid beneficiary_id FK
+    uuid family_member_id FK
+    bool passed
+  }
+  call_logs {
+    uuid id PK
+    uuid beneficiary_id FK
+    uuid project_id FK
+  }
+  followup_evaluations {
+    uuid id PK
+    uuid beneficiary_id FK
+    uuid project_id FK
+    jsonb answers
+  }
+
+  %% ---------------- Documents (built last, O-34) and media ----------------
+  document_templates {
+    uuid id PK
+    text project_type
+    jsonb rows
+  }
+  documents {
+    uuid id PK
+    uuid project_id FK
+    uuid owner_user_id FK
+    uuid file_id FK
+    text hard_copy_code UK
+  }
+  document_events {
+    uuid id PK
+    uuid document_id FK
+  }
+  deficiency_reports {
+    uuid id PK
+    uuid document_id FK
+    uuid responsible_user_id FK
+  }
+  media_subjects {
+    uuid id PK
+    uuid beneficiary_id FK
+    text media_status
+  }
+  media_stories {
+    uuid id PK
+    uuid media_subject_id FK
+    text status
+  }
+
+  %% ---------------- Files, notifications, sync, audit, operations ----------------
+  files {
+    uuid id PK
+    text bucket
+    text key
+    text sha256
+    text virus_scan
+  }
+  file_links {
+    uuid id PK
+    uuid file_id FK
+    text entity_type
+    uuid entity_id
+    text slot
+  }
+  upload_sessions {
+    uuid id PK
+    uuid user_id FK
+    uuid finalized_file_id FK
+  }
+  notifications {
+    uuid id PK
+    uuid user_id FK
+    text template_key
+  }
+  notification_templates {
+    uuid id PK
+    text key
+    text channel
+    text locale
+  }
+  outbound_messages {
+    uuid id PK
+    text idempotency_key UK
+    text channel
+    text status
+  }
+  push_subscriptions {
+    uuid id PK
+    uuid device_session_id FK
+  }
+  audit_log {
+    uuid id PK
+    uuid actor_user_id FK
+    text entity_type
+    uuid entity_id
+  }
+  sync_batches {
+    uuid id PK
+    uuid device_session_id FK
+    text idempotency_key UK
+  }
+  alerts {
+    uuid id PK
+    uuid project_id FK
+    text kind
+    text status
+  }
+  export_jobs {
+    uuid id PK
+    uuid requested_by FK
+    uuid file_id FK
+  }
+  storage_stats {
+    uuid id PK
+    text bucket
+    uuid project_id FK
+  }
+
+  %% ---------------- Relationships ----------------
+  users ||--o{ user_roles : holds
+  roles ||--o{ user_roles : "granted as"
+  users ||--o{ user_permissions : overrides
+  permissions ||--o{ user_permissions : "granted or revoked"
+  users ||--o{ device_sessions : "logs in on"
+  users ||--o{ handovers : "hands over"
+  users ||--o| volunteers : "is (volunteer)"
+  device_sessions ||--o{ push_subscriptions : has
+  device_sessions ||--o{ sync_batches : sends
+
+  locations ||--o{ locations : contains
+  programs ||--o{ projects : contains
+  users ||--o{ programs : "manages (PM)"
+  projects ||--o{ project_components : enables
+  projects ||--o{ project_areas : covers
+  locations ||--o{ project_areas : "area of"
+  users ||--o{ project_areas : "RPM of"
+  projects ||--o{ project_staff : staffs
+  users ||--o{ project_staff : "staff on"
+  projects ||--o{ project_templates : "saved as"
+  projects ||--o{ project_quotas : sets
+  locations ||--o{ project_quotas : "quota for"
+  projects ||--o{ fund_sources : "funded by"
+  workflow_definitions ||--o{ projects : "snapshotted by"
+  workflow_definitions ||--o{ workflow_transitions : defines
+
+  projects ||--o{ forms : has
+  forms ||--o{ form_versions : versions
+  form_versions ||--o{ form_sections : contains
+  form_sections ||--o{ form_fields : contains
+  form_fields ||--o{ field_options : offers
+  form_library_sections ||--o{ form_sections : "copied into"
+  form_library_fields ||--o{ form_fields : "copied into"
+
+  beneficiaries ||--o{ beneficiary_family_members : "household of"
+  beneficiaries ||--o{ profile_merges : "kept in"
+  beneficiaries ||--o{ profile_correction_requests : corrected
+  beneficiaries ||--o{ media_consents : consents
+  beneficiaries |o--o{ beneficiaries : "merged into"
+
+  volunteers ||--o{ volunteers : "references (team member)"
+  projects ||--o{ project_volunteers : assigns
+  volunteers ||--o{ project_volunteers : "assigned to"
+  projects ||--o{ volunteer_teams : teams
+  volunteers ||--o{ volunteer_teams : "leads or joins"
+  volunteers ||--o{ volunteer_ratings : rated
+  volunteers ||--o{ volunteer_categories_log : categorised
+  volunteers ||--o{ volunteer_change_requests : requests
+  projects ||--o{ work_assignments : assigns
+  users ||--o{ work_assignments : "works as"
+
+  projects ||--o{ applications : receives
+  beneficiaries ||--o{ applications : "applies through"
+  form_versions ||--o{ applications : "captured on"
+  volunteers ||--o{ applications : owns
+  nisab_versions ||--o{ applications : "zakat snapshot"
+  applications ||--o{ application_answers : answers
+  form_fields ||--o{ application_answers : "answer to"
+  applications ||--o| application_scores : scored
+  applications ||--o{ application_transfers : transferred
+  applications ||--o{ field_changes : changed
+
+  projects ||--o{ activities : records
+  applications ||--o{ activities : "worked through"
+  activities ||--o| distributions : details
+  projects ||--o{ stock_movements : tracks
+  volunteers ||--o{ stock_movements : "holds stock"
+  applications ||--o{ construction_stages : progresses
+  projects ||--o{ issues : logs
+  applications ||--o{ issues : "raised on"
+  applications ||--o{ site_verifications : verified
+  projects ||--o{ payments : records
+  applications ||--o{ payments : "paid for"
+  expense_claims ||--o{ payments : "settled by"
+  projects ||--o{ expense_claims : receives
+  volunteers ||--o{ expense_claims : claims
+  expense_claims ||--o{ expense_items : itemises
+  projects ||--o{ vouchers : receives
+  applications ||--o{ vouchers : evidences
+  projects ||--o{ budget_ledger : accounts
+  fund_sources ||--o{ budget_ledger : "charged to"
+
+  projects ||--o{ donors : "Qurbani donors"
+  projects ||--o{ animals : "Qurbani animals"
+  volunteers ||--o{ animals : "allocated (one each)"
+  animals ||--o{ animal_shares : "shared by"
+  donors ||--o{ animal_shares : owns
+  animals ||--o{ animal_photos : photographed
+  animals ||--o{ vouchers : "expense of"
+  donors ||--o{ donor_messages : notified
+  outbound_messages ||--o| donor_messages : delivers
+
+  projects ||--o{ dawah_syllabus_topics : teaches
+  projects ||--o{ dawah_classes : holds
+  dawah_classes ||--o{ class_attendance : records
+  beneficiaries ||--o{ class_attendance : attends
+  beneficiary_family_members ||--o{ class_attendance : "family attends"
+  dawah_syllabus_topics ||--o{ learning_progress : tracks
+  beneficiaries ||--o{ learning_progress : learns
+  projects ||--o{ exams : conducts
+  exams ||--o{ exam_results : results
+  beneficiaries ||--o{ exam_results : sits
+  beneficiaries ||--o{ call_logs : called
+  beneficiaries ||--o{ followup_evaluations : "followed up"
+
+  document_templates ||--o{ documents : "checklist of"
+  projects ||--o{ documents : requires
+  documents ||--o{ document_events : history
+  documents ||--o{ deficiency_reports : "deficiency of"
+  beneficiaries ||--o{ media_subjects : "media subject"
+  media_subjects ||--o{ media_stories : stories
+
+  files ||--o{ file_links : "linked as"
+  files ||--o{ animal_photos : "image of"
+  users ||--o{ upload_sessions : uploads
+  users ||--o{ notifications : receives
+  notification_templates ||--o{ outbound_messages : renders
+  users ||--o{ audit_log : acts
+  projects ||--o{ alerts : raises
+  users ||--o{ export_jobs : requests
+  files ||--o| export_jobs : "output of"

@@ -43,7 +43,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 ### M03 Registration & Approval
 - Purpose: staff and volunteer registration forms, two-OTP verification, pending state in the volunteer tab, field-level correction requests, approval and activation, profile edit requests, staff handover before deactivation.
 - Primary users: volunteers (self-registration), Department Head/Monitoring Team (staff), Project Executive/RPM/PM/Monitoring/Head (volunteer approval).
-- Key entities: volunteers, users (staff), registration_requests, correction_requests, edit_requests, handovers.
+- Key entities: users (state pending/active/blocked/deactivated), volunteers, volunteer_change_requests (registration corrections and profile edits), otp_codes, handovers.
 - Depends on: M01, M02, M18 (photo, NID photo), M17, M19.
 - B1: 3 Volunteer. Phase: 1. Blueprint: A5 (registration, verification and approval, profile rules, staff exit and handover), Q-19, Q-42; BD-08, BD-44. Tasks: T1.9.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 20 (volunteer NID uniqueness, volunteer also a beneficiary).
@@ -51,7 +51,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 ### M04 Volunteer Management
 - Purpose: volunteer tab (nationwide list, filters, statistics), assignment to projects by region with permission sets and the paid flag, rules-and-consent acceptance, team management by NID reference, ratings (max 5 criteria, 1–5, proposed from work data at close), categories A/B/C/D plus inactive flag with mandatory comment, blocklist, application transfer, work summary link.
 - Primary users: RPM, Project Executive, PM; volunteers (team assignment, consent).
-- Key entities: volunteers, project_volunteers, volunteer_teams, ratings, rating_criteria, categories (log), blocklist, application_transfers, consents.
+- Key entities: volunteers, project_volunteers (permission set, consent), volunteer_teams, volunteer_ratings (criteria in project_components.settings), volunteer_categories_log, blocklist, application_transfers, work_assignments.
 - Depends on: M03, M06, M08 (transfers), M14 (work summary), M15.
 - B1: 3 Volunteer. Phase: 1 (tab, assignment, teams, blocklist, transfer basics), 2 (transfer of applications), 5 (ratings and categories). Blueprint: A5, A4 volunteer types, Q-07, Q-16, Q-20, Q-25, Q-32, Q-34, Q-45; BD-06, BD-07, BD-40. Tasks: T1.10, T1.12, T2.6, T5.3.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 10 (rating averages).
@@ -59,7 +59,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 ### M05 Beneficiary Master
 - Purpose: permanent BEN-ID profile keyed by NID or birth registration (format validation), auto-fill and locked fields, profile correction request, mobile and address change log, volunteer-own-number block, family-duplicate warning at review, duplicate-candidate detection and profile merge with reversal, beneficiary blocklist, profile statuses, beneficiary tab and 360° profile, media consent status.
 - Primary users: volunteers (lookup and auto-fill), officials (tab, merge, blocklist), PM/Monitoring/Head (merge).
-- Key entities: beneficiaries, beneficiary_contact_changes, profile_correction_requests, profile_merges, blocklist, media_consents, family sub-table (earners).
+- Key entities: beneficiaries, field_changes, profile_correction_requests, profile_merges, blocklist, media_consents, family sub-table (earners).
 - Depends on: M07 (standard fields), M08, M19, M15, M18 (photo).
 - B1: 2 Beneficiary. Phase: 1 (tab shell), 2 (full master). Blueprint: A7 (360°, blocklist, duplicates and merge), B2, B3 (NID identification), Q-21, Q-44, Q-45; BD-01…BD-06. Tasks: T1.10, T2.2.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 2 (mobile uniqueness), 3 (BEN-ID format), 18 (profile status list), 17 (media consent capture).
@@ -83,7 +83,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 ### M08 Application Workflow
 - Purpose: configurable workflow engine (states, transitions, allowed roles, guards from YAML templates), common cycle Draft → Submitted → Under Review → Reviewed → Approved/Rejected → Implementation → Completed → Closed, per-status permissions, review with full-form edit, approval routing (RPM; PM in house construction), field unlock with change log, priority score, quotas, waitlist and mandatory comment against the score, application limit and deadline enforcement, "needs verification" state for sync conflicts, application id generation, family-duplicate warning hook, transfer of applications.
 - Primary users: volunteers, team members, Project Executive, RPM, PM.
-- Key entities: applications, application_answers, application_scores, workflow_templates, workflow_transitions, field_changes, application_transfers, project_quotas.
+- Key entities: applications, application_answers, application_scores, workflow_definitions, workflow_transitions, field_changes, application_transfers, project_quotas.
 - Depends on: M05, M06, M07, M02, M15, M17.
 - B1: 4 and 5. Phase: 2. Blueprint: A7, B5, Q-04, Q-05, Q-06; BD-11, BD-16, BD-17, BD-18, BD-48. Tasks: T0.11, T2.5, T2.6.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 3 (application id), 13 (limit counting and late drafts), 21 (score recomputation).
@@ -91,7 +91,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 ### M09 Project Activities
 - Purpose: activity engine (Distribution, Construction, Purchase, Training, Visit, Payment, Voucher, Expense, Issue, Inspection, Follow-up); dispatch and receive confirmation; today's distribution bulk screen with photo rule, capture metadata and duplicate-photo warning; edge states; stock reconciliation gate; stage-based progress; issue log (raise, assign, resolve); site verification; beneficiary support payments and advances; vouchers with verification lock; materials and placard photo; volunteer expense claims and bKash payments with unique transaction id.
 - Primary users: volunteers, paid volunteers, Project Executive, RPM, Procurement Team (issues), PM.
-- Key entities: project_activities, stock_movements, distributions, constructions/stages, issues, site_verifications, payments, vouchers, expense_claims, expense_items.
+- Key entities: activities, stock_movements, distributions, constructions/stages, issues, site_verifications, payments, vouchers, expense_claims, expense_items.
 - Depends on: M08, M10, M18, M22, M15, M17.
 - B1: 6 Project Activities. Phase: 3 (distribution, expenses, payments), 4 (construction, safe water, self-reliance, tree planting). Blueprint: A8.1–A8.5, B5 (activity engine, bulk screens), Q-22, Q-46; BD-21…BD-25, BD-27, BD-31. Tasks: T3.1, T3.2, T4.1, T4.2, T4.3, T4.5.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 14 (expense claims), 22 (payment methods).
@@ -115,7 +115,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 ### M12 Dawah
 - Purpose: syllabus per project; দায়ী assignment per beneficiary group (gender split); today's class bulk screen (attendance, absence reason, topic, in progress/learned); family-member attendance; initial and final exams with side-by-side results and PDF; exam-gated payment hook for self-reliance; Official দায়ী tracking view with no-update alert; call log; dawah dashboard.
 - Primary users: Local দায়ী, Official দায়ী, RPM.
-- Key entities: syllabus_topics, dawah_classes, class_attendance, learning_progress, exams, exam_results, call_logs, daee_assignments.
+- Key entities: syllabus_topics, dawah_classes, class_attendance, learning_progress, exams, exam_results, call_logs, work_assignments.
 - Depends on: M06 (Dawah Enabled), M08, M04, M14, M16, M22.
 - B1: 7 Dawah. Phase: 4 (minimal exam activity for the self-reliance gate), 5 (full module). Blueprint: A9, A8.2–A8.3, Q-30; BD-26, BD-27. Tasks: T4.2 (exam minimum), T5.1.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 11 (family-member attendance).
@@ -123,7 +123,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 ### M13 Documents (SOP)
 - Purpose: project document checklist templates (seven projects pre-seeded), document register with status chain collected → verified → approved → archived, responsible official role, due dates, soft warning and 3-working-day countdown, non-compliance marking, hard-copy location codes, 5-year retention, cloud folder path program → project → year → district, deficiency reports (11 SOP items) with automatic escalation on the second report within a year, legacy audit marks, quarterly audit report, CSV export.
 - Primary users: PM, RPM, Project Executive, Implementer; Monitoring Team; volunteers never.
-- Key entities: document_checklist_templates, documents, deficiency_reports, holiday_calendar (with M21).
+- Key entities: document_templates, documents, deficiency_reports, holiday_calendar (with M21).
 - Depends on: M06, M18, M17, M14, M21.
 - B1: shared service (documents). Phase: 0 (data model, done in T0.13); the checklist-template editor and the full register are built **last, after Phase 6** (O-34). Blueprint: A10 (documentation, SOP mapping table, legacy audit), Q-14; BD-35…BD-39. Tasks: T0.13 (design), then the T1.13 checklist part and T5.4 moved to the end of the plan.
 - Needs decision: working days resolved (O-16); the SOP v2.3 text is needed only when this module is built (O-34).

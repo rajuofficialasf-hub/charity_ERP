@@ -5,7 +5,7 @@ Status: complete, task T0.10 (2026-10-10). Design only; no code. Companion file:
 ## 1. Model
 
 - **Permission = role × data scope.** A grant is a triple (permission name, scope, optional condition). Holding `application.approve` at REGION means: approve applications of projects where the user is RPM, inside the user's region.
-- **Default deny.** An action is allowed only if a grant exists for the user from one of four sources, in this order of evaluation: (1) `global_scope: true` on the role (Department Head, Monitoring Team: every permission at GLOBAL, minus `global_roles_excluded`), (2) the role's default grants in the YAML, (3) the project-level permission set or project grant (`project_volunteers.permission_set`, `project_volunteers.extra_permissions`, `project_staff_access`), (4) a permission-panel override (`user_permissions`: grant or revoke, with scope). A revoke override wins over any grant.
+- **Default deny.** An action is allowed only if a grant exists for the user from one of four sources, in this order of evaluation: (1) `global_scope: true` on the role (Department Head, Monitoring Team: every permission at GLOBAL, minus `global_roles_excluded`), (2) the role's default grants in the YAML, (3) the project-level permission set or project grant (`project_volunteers.permission_set`, `project_volunteers.extra_permissions`, `project_staff`), (4) a permission-panel override (`user_permissions`: grant or revoke, with scope). A revoke override wins over any grant.
 - **Project-level.** Volunteers get permissions only through the permission set assigned on each project (A5); the same person holds different sets on different projects (Q-16). Officials get REGION/PROGRAM defaults from their role, narrowed to the projects and areas they are assigned to.
 - **No hard-coded permission.** The API never tests a role name to allow an action; it tests a permission name (BR-193). Role names appear only in the YAML defaults and in the permission panel UI.
 
@@ -45,10 +45,10 @@ permission: { name, description, module, sensitive, default: [ { role, scope, co
 |---|---|---|
 | GLOBAL | Whole country, all programs | `roles.global_scope` or an explicit GLOBAL grant (volunteer and beneficiary tabs for officials, BR-185) |
 | PROGRAM | All projects of the programs the user manages | `programs.pm_user_id` (and panel grants naming a program) |
-| PROJECT | A specific project | `project_volunteers` rows, `project_staff_access` rows, Procurement attachment to house-construction projects |
-| REGION | Own region (division) inside assigned projects | `project_areas` rows where the user is RPM; staff under an RPM inherit the RPM's region through `project_staff_access`; Official দায়ী and Implementer through their project assignment |
+| PROJECT | A specific project | `project_volunteers` rows, `project_staff` rows, Procurement attachment to house-construction projects |
+| REGION | Own region (division) inside assigned projects | `project_areas` rows where the user is RPM; staff under an RPM inherit the RPM's region through `project_staff`; Official দায়ী and Implementer through their project assignment |
 | DISTRICT / UPAZILA / UNION | When the PM split districts among RPMs, or by assignment | `project_areas.district_ids` for the RPM; Local দায়ী and Paid Volunteer assignments carry location ids |
-| ASSIGNED | Only own assigned beneficiaries or applications | `daee_assignments` (Local দায়ী), paid-volunteer assignments, site-verification assignments, Official দায়ী's area |
+| ASSIGNED | Only own assigned beneficiaries or applications | `work_assignments` (Local দায়ী), paid-volunteer assignments, site-verification assignments, Official দায়ী's area |
 | SELF | Own created applications, own profile, own sessions | `applications.submitted_by`, `created_by`, `users.id` |
 
 Resolution rules:
@@ -184,7 +184,7 @@ The three sets of blueprint A5 are lists of permission names in `permission_sets
 | application_distribution_dawah | Local দায়ী, Both | the set above plus class.record; exam.record only if the RPM grants |
 | work_progress | Paid Volunteer | application.view (PROJECT, read only), progress.update (ASSIGNED), issue.raise, expense.claim.submit, file.upload, sync.batch, session.revoke_own |
 
-Extras marked "if RPM grants" in the YAML (`condition: if_rpm_grants`) are stored per project on `project_volunteers.extra_permissions` (volunteers) or `project_staff_access.extra_permissions` (Executives: approve/reject/waitlist, assign volunteers, transfer applications) through `project.volunteer_grant.manage`; each grant and revoke is audited and bumps the user's `permission_version`. An RPM can grant only permissions the RPM holds (no escalation beyond own region), and only within own projects.
+Extras marked "if RPM grants" in the YAML (`condition: if_rpm_grants`) are stored per project on `project_volunteers.extra_permissions` (volunteers) or `project_staff.extra_permissions` (Executives: approve/reject/waitlist, assign volunteers, transfer applications) through `project.volunteer_grant.manage`; each grant and revoke is audited and bumps the user's `permission_version`. An RPM can grant only permissions the RPM holds (no escalation beyond own region), and only within own projects.
 
 Stock reconciliation and the Qurbani animal photos are not in the base sets because they belong to specific project templates; the engine exposes them only when the component is enabled, and the permission set still gates them (`stock.reconcile`, `animal.photo.upload` default for General/Both at SELF/ASSIGNED).
 

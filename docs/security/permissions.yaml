@@ -105,7 +105,7 @@ sensitive_fields:
     visible_to: [program_manager, regional_program_manager, project_executive, finance_team]
     source: "A5 (used when paying operational expenses), B8"
   - key: volunteer.rating
-    fields: [ratings.*, volunteers.category, category_changes.comment]
+    fields: [volunteer_ratings.*, volunteers.category, volunteer_categories_log.comment]
     visible_to: [program_manager, regional_program_manager, project_executive]
     source: "A4, A5, BD-40: never to volunteers; not to Media, Finance, Procurement"
   - key: donor.data

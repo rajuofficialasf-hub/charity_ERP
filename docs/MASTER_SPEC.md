@@ -770,6 +770,8 @@ One web ERP on desktop and mobile (PWA) → API layer (permission and scope chec
 | donors, animals, animal_shares | donor info, amount; animal no, type, spot; share allocation, volunteer_id | Qurbani |
 | locations | division → district → upazila → union → ward | System master, cascading |
 
+Physical names: this section keeps the blueprint's entity names because it translates the blueprint. The logical model with physical names (for example `activities` for project_activities, `workflow_definitions` for workflow_templates, project_settings folded into `projects` and `project_components`) is `docs/database/ERD.md`, whose section 19 maps every name.
+
 Note on the diagram: image4 marks `mobile*` as unique on both volunteers and beneficiaries. For beneficiaries this contradicts B3 (end), Q-21 and BD-01; resolved by O-02: the beneficiary mobile is not unique (warning only). The locations row's ward level is dropped by O-09 (four levels, managed from the admin panel). BEN-ID is a UUID v7 by O-03.
 
 #### Key rules

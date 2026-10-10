@@ -17,7 +17,7 @@ Application statuses, the steps after approval and the conditions that gate them
 | Permission | A name from `permissions.yaml`; templates never name roles (BR-193). The person's scope is resolved by the request lifecycle before the engine runs. |
 | Guard | A named condition implemented once in code; a transition lists the guards it needs. Guards read data and return pass/fail with an i18n reason key. |
 | Effect | A named side effect implemented once in code (ledger entry, notification, audit, lock, activity creation). Transactional effects run in the same database transaction as the state change; deferred effects are enqueued as jobs in that transaction. |
-| Activity | A unit of field work recorded in `project_activities` (type, stage, who, when, photos, status, outcome). Activities drive stage transitions through the bulk-update screens. |
+| Activity | A unit of field work recorded in `activities` (type, stage, who, when, photos, status, outcome). Activities drive stage transitions through the bulk-update screens. |
 | Outcome | A final result recorded on the application when it leaves `implementation` (distributed, not_distributed, deceased_relocated, …), so that edge cases are not confused with "completed" (BD-23). |
 | Snapshot | A project copies the template at activation (BD-10); later template versions never change a running project. |
 
@@ -131,14 +131,14 @@ Each guard is one function in `apps/api/src/modules/applications/workflow/guards
 | photos.required_per_rule | the photos the project's photo rule demands (one per beneficiary, or a group photo) are attached | project_components.settings, files | BR-066, BR-108 |
 | photos.not_pending_sync | no photo of this activity is still in the device queue | sync state | BR-196 |
 | stock.balanced | sent = distributed + remaining + damaged for the project (or volunteer); differences have a reason | stock_movements | BR-110 |
-| stages.all_completed | every configured stage of the project is completed for this application | project_activities | BR-117 |
+| stages.all_completed | every configured stage of the project is completed for this application | activities | BR-117 |
 | evidence.photo_present | the final evidence photo (house, placard, tube well, garden) is attached | files | BR-117, BR-122, BR-123 |
 | exam.passed | the beneficiary passed the final exam | exam_results | BR-121 |
 | payment.recorded | a payment of the required type is recorded for this application | payments | BR-121, BR-123 |
 | vouchers.verified | all submitted vouchers are verified | vouchers | BR-122, BR-123 |
 | site_verification.recorded | a site verification with recommendation exists | site_verifications | BR-106, BR-124 |
 | field_unlock.open | an open unlock exists for the field being updated | field_changes | BR-095 |
-| workers.assigned | a Local দায়ী and at least one paid volunteer are assigned to the application's area | daee_assignments, assignments | BR-117 |
+| workers.assigned | a Local দায়ী and at least one paid volunteer are assigned to the application's area | work_assignments, assignments | BR-117 |
 | animals.allocated | every animal of the volunteer has a volunteer and the donor shares are complete | animals, animal_shares | BR-144, BR-145 |
 | donor.notified | pre-notification sent for all donors of the animal | donor_messages | BR-147 |
 | animal_photos.complete | the three photo kinds exist for the animal | animal_photos | BR-148 |
@@ -168,7 +168,7 @@ Transactional effects run inside the transition's database transaction; deferred
 
 ## 8. Activity model and bulk-update pattern
 
-Activity types (B5): Distribution, Construction, Purchase, Training, Visit, Payment, Voucher, Expense, Issue, Inspection, Follow-up. One record per unit of work in `project_activities`: application, type, stage, done_by, done_at, photos/files, comments, status (planned / done / failed), outcome (per type), client_uuid for offline records.
+Activity types (B5): Distribution, Construction, Purchase, Training, Visit, Payment, Voucher, Expense, Issue, Inspection, Follow-up. One record per unit of work in `activities`: application, type, stage, done_by, done_at, photos/files, comments, status (planned / done / failed), outcome (per type), client_uuid for offline records.
 
 | Type | Bulk screen | Row columns | Required attachments | Outcomes |
 |---|---|---|---|---|
@@ -207,7 +207,7 @@ Defined in `_common.yaml` under `project_lifecycle`: `draft → active` (`projec
 
 ## 12. Versioning and snapshots
 
-- Each template file carries `version`. Seeding stores templates in `workflow_templates` (key, version, definition JSONB) and transitions in `workflow_transitions` for querying.
+- Each template file carries `version`. Seeding stores templates in `workflow_definitions` (key, version, definition JSONB) and transitions in `workflow_transitions` for querying.
 - At project activation the project stores `template_key`, `template_version` and a JSONB snapshot of the merged definition (template + `_common` + project overrides). All engine decisions for that project read the snapshot (BD-10).
 - A template change is a new version; it applies to projects activated afterwards. Running projects are never migrated automatically; a deliberate migration is a decision with its own `down.sql`-style reversal plan.
 - Template edits by PM/Head/Monitoring (`project.template.manage`) are audited (BR-064).
@@ -220,7 +220,7 @@ Defined in `_common.yaml` under `project_lifecycle`: `draft → active` (`projec
 | Guard implementations (section 6) | Per-project overrides: stage names and order, photo rule and source, limit, deadline, scoring criteria, quotas, issue types, expense categories, follow-up template, document checklist |
 | Effect handlers (section 7) | Bilingual labels of states, stages, outcomes |
 | Activity handlers and the bulk-screen framework (row validation, per-row results, offline outbox) | Which activity types a template uses and their bulk screens |
-| JSON Schema validator and the seed step | Workflow template versions in `workflow_templates` and the project snapshot |
+| JSON Schema validator and the seed step | Workflow template versions in `workflow_definitions` and the project snapshot |
 | Permission names and their checks (`permissions.yaml` is data, its enforcement is code) | Permission-panel grants and RPM project grants |
 
 ## 14. Adding a new project type by configuration

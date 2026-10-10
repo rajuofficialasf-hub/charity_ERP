@@ -135,7 +135,7 @@ Keys contain system ids and codes only, never names, NIDs or phone numbers. Vers
 Entities:
 
 ```
-document_checklist_templates   template_key (per project type), rows: name_bn/en, requirement (required | if_needed | optional),
+document_templates   template_key (per project type), rows: name_bn/en, requirement (required | if_needed | optional),
                                owner_role (official designation only), deadline_rule (absolute date | days after milestone:
                                project_activation | first_distribution | project_close), retention_years (5), order
 documents                      project_id, district_id (nullable), checklist_row_id, name_bn/en, requirement, owner_role,

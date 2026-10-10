@@ -8,7 +8,7 @@ Blueprint B5 and BD-11 require application states, transitions and post-approval
 
 ## Decision
 
-- Templates are YAML files in `docs/architecture/workflow-templates/`, validated by a JSON Schema, seeded into `workflow_templates` and snapshotted per project at activation (BD-10). `_common.yaml` carries the shared cycle; project types extend it.
+- Templates are YAML files in `docs/architecture/workflow-templates/`, validated by a JSON Schema, seeded into `workflow_definitions` and snapshotted per project at activation (BD-10). `_common.yaml` carries the shared cycle; project types extend it.
 - A transition names a **permission** from `permissions.yaml` (never a role), a list of **guards** and a list of **effects** by name. Guards and effects are implemented once in code and registered by name; the seed step fails if a template references an unknown name.
 - Post-approval stages are sub-states of the common `implementation` state, so dashboards and monitoring aggregate on the same common states for every project type; stage names and order are per-project data where the blueprint says the PM writes them.
 - Edge cases on distribution day are **outcomes** recorded on the application and the activity, not extra states.

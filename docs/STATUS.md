@@ -9,8 +9,9 @@
 - T0.12 done (2026-10-10): docs/architecture/OFFLINE_SYNC.md complete (cached data set, outbox record and lifecycle, batch and snapshot endpoints, photo queue and resumable upload, conflict rules per record kind, offline NID path, encrypted storage and wipe, form-version handling, sync UI, iOS section, sequence diagrams, test strategy); ADR-010 written. Values not covered by O-07/O-13 were proposed as question 26 and decided the same day as O-29 with additional requirements (Retry-After, payload-size limit, no automatic deletion of unsynced files, secure device-bound keys, recovery table, required tests).
 - T0.13 done (2026-10-10): docs/architecture/FILES_AND_DOCUMENTS.md complete (file kinds and metadata model, signed-URL access, upload pipeline with 256 KB chunks and virus-scan hook, validation table, image handling with EXIF/GPS capture and pHash duplicate warning, per-project photo source setting with the web realisation and its trade-offs, bucket and key layout per SOP 10, SOP document register with status chain, hard-copy codes and retention, working-day deadline countdown and non-compliance, deficiency reports with escalation and legacy marking, quarterly audit report, media consent gating, locks, storage growth, tests). Proposals decided the same day as O-30 with changes (BR-239..241); hard-copy code segments and the 11 deficiency fields wait for the SOP text.
 - T0.14 done (2026-10-10): docs/architecture/NOTIFICATIONS.md complete (principles, channels, recipient resolution by scope, full event matrix with recipients/channels/template keys/phases, mandatory vs optional and preferences, bilingual templates, transactional outbox with retries and status, rate limits and coalescing, OTP path, Qurbani donor messages, Web Push evaluation with a "yes, optional, later" recommendation, privacy, tests); ADR-007 written. Proposals accepted the same day as O-35.
-- Next task: T0.15 - ERD (docs/database/ERD.md and erd.mermaid).
-- Blocking items: none.
+- T0.15 done (2026-10-10): docs/database/ERD.md complete (90 entities in 12 clusters with keys, relationships and cardinality, classification master/configuration/transaction/log/platform, JSONB usages, constraints and idempotency keys, naming map, additions and ambiguities) and docs/database/erd.mermaid (one erDiagram, same entities). Physical names follow the T0.15 prompt; earlier documents were swept to them (MASTER_SPEC keeps blueprint names with a pointer). Ambiguities = open question 29.
+- Next task: T0.16 - Physical schema and data dictionary (docs/database/DATABASE_SCHEMA.md, documents only).
+- Blocking items: none (question 29 has recommendations; T0.16 follows them unless the owner changes them).
 - Git: the owner pushed main to origin on 2026-10-10 up to ceb4e50 (verified: main...origin/main in sync); later commits are local until the next push.
 
 ## Deliverables of T0.1 (complete vs outline)
@@ -29,9 +30,10 @@ Complete:
 - docs/architecture/OFFLINE_SYNC.md, ADR-010 (T0.12)
 - docs/architecture/FILES_AND_DOCUMENTS.md (T0.13)
 - docs/architecture/NOTIFICATIONS.md, ADR-007 (T0.14)
+- docs/database/ERD.md and erd.mermaid (T0.15)
 
 Outlines (headings plus one line per section; completed in the task named in each file):
-- docs/database/ERD.md (T0.15), DATABASE_SCHEMA.md (T0.16)
+- docs/database/DATABASE_SCHEMA.md (T0.16)
 - docs/api/API_STANDARDS.md (T0.17), openapi.yaml skeleton (T0.18)
 - docs/security/SECURITY_POLICY.md (T0.21)
 - docs/ui/DESIGN_SYSTEM.md and SCREENS.md (T0.19), I18N.md (T0.20)
