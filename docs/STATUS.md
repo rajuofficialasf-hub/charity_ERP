@@ -1,32 +1,55 @@
 # Project status (Claude updates this at the end of every task; read it at the start of every session)
 
 - Last updated: 2026-10-10
-- Current phase: 0 (Requirement & Architecture Freeze) - NOT STARTED
-- Last completed task: none. The repository was bootstrapped on 2026-10-10 (docs, blueprint as Markdown, CLAUDE.md, slash commands) and holds no application code.
-- Next task: T0.1 - Startup procedure (constitution section 16)
-- Blocking items: none
+- Current phase: 0 (Requirement & Architecture Freeze) - IN PROGRESS
+- Last completed task: T0.1 - Startup procedure (constitution section 16). Documents only; no application code.
+- Next task: T0.7 - Owner decisions (answer the 23 open questions in docs/DECISION_LOG.md section 5 by number). T0.2 and T0.3 are needed only if the owner finds MASTER_SPEC.md or MODULE_CATALOG.md too thin; T0.4, T0.5 and T0.6 were delivered inside T0.1 and can be skipped unless the owner wants changes. After T0.7 continue with T0.8 (system architecture and ADRs).
+- Blocking items: none for T0.7. T0.8 onward depend on the owner's answer to open question 1 (stack D-050..D-053).
+
+## Deliverables of T0.1 (complete vs outline)
+Complete:
+- docs/MASTER_SPEC.md (Parts A, B, C, D, both appendices, open questions)
+- docs/PROJECT_RULES.md
+- docs/MODULE_CATALOG.md (22 modules)
+- docs/BUSINESS_RULES.md (BR-001..BR-227, gaps list; test-status register empty until code exists)
+- docs/DECISION_LOG.md (Q-01..Q-47, BD-01..BD-49, D-050..D-053 proposed, UX-01..UX-13 approved, Open 1..23)
+- docs/NON_FUNCTIONAL_REQUIREMENTS.md (NFR-01..NFR-59, PROPOSAL rows need approval)
+
+Outlines (headings plus one line per section; completed in the task named in each file):
+- docs/architecture/SYSTEM_ARCHITECTURE.md (T0.8), AUTH.md (T0.9), WORKFLOW_ENGINE.md (T0.11), OFFLINE_SYNC.md (T0.12), FILES_AND_DOCUMENTS.md (T0.13), NOTIFICATIONS.md (T0.14), ADR/README.md (T0.8), workflow-templates/README.md (T0.11)
+- docs/database/ERD.md (T0.15), DATABASE_SCHEMA.md (T0.16)
+- docs/api/API_STANDARDS.md (T0.17), openapi.yaml skeleton (T0.18)
+- docs/security/RBAC.md and permissions.yaml skeleton (T0.10), SECURITY_POLICY.md (T0.21)
+- docs/ui/DESIGN_SYSTEM.md and SCREENS.md (T0.19), I18N.md (T0.20)
+- docs/testing/TEST_STRATEGY.md (T0.21), testing/uat/README.md, gates/README.md
+- docs/ops/DEPLOYMENT.md and RUNBOOK.md (T3.0, T6.5)
 
 ## Open decisions waiting on the owner
-- D-050..D-053 technical stack proposals (constitution section 9): confirm or change in task T0.7. Node.js 24 LTS is proposed (v24.15.0 is installed on the owner's machine).
+- Open questions 1..23 in docs/DECISION_LOG.md section 5 (also at the end of docs/MASTER_SPEC.md), each with a recommendation. Numbers 1..11 match the prepared T0.7 prompt in docs/PLAN.md; 12..23 are new.
+- D-050..D-053 technical stack proposals (constitution section 9) = open question 1. Node.js 24 LTS is proposed (v24.15.0 is installed on the owner's machine).
 - PWA short name for the phone home screen (open item of UX-09, proposal CSS) and whether to add Web Push (decide in task T0.14).
 - Confirm with the web developer where the Bornomala font comes from (UX-13). The files declare the SIL Open Font License 1.0 and name Codepotro as vendor, but no public page confirms it.
+- PROPOSAL rows of docs/NON_FUNCTIONAL_REQUIREMENTS.md (section 13) need the owner's or the IT team's confirmation in T0.7 or T0.21.
 
 ## Prerequisites still open (checked 2026-10-10)
+- SOP v2.3 text (docs/source/SOP_v2.3_BN.md or .pdf) is needed for the seven document checklists, the 11 deficiency-report items and the hard-copy code structure (BR-162, BR-165, BR-167; tasks T0.4 detail, T1.13, T5.4).
 - pnpm is not installed on the owner's machine; needed from T1.1 (`npm install -g pnpm`).
 - Docker Desktop was not running; needed from T1.1 (postgres, minio, mailpit via Docker Compose).
 - The CI provider is to be named in T1.1.
 - Other input files not yet supplied: see docs/source/README.md.
 
 ## Known issues / risks
-- none yet
+- The blueprint contradicts itself on beneficiary mobile uniqueness (B3 layer table and diagram image4 vs B3 rules, Q-21, BD-01). Documented as open question 2; not resolved.
+- docs/api/openapi.yaml and docs/security/permissions.yaml were checked visually only; no YAML parser is installed on this machine (PyYAML missing). They are parsed in CI from T1.1.
 
 ## Last test run
-- none yet
+- none (Phase 0, documents only). Verification done on 2026-10-10: 227 unique BR ids with no duplicates; DECISION_LOG row counts Q 47 / BD 49 / D 4 / UX 13; every constitution section 3 path exists; git working tree clean after 8 commits.
 
 ## Notes for the next session
 - The model and effort level for every task are in docs/MODEL_GUIDE.md. It is the owner's reference; Claude Code does not switch models by itself. The rows marked ছাড় নেই (no downgrade) must not be run on a lower model when a usage limit runs out.
 - Brand assets are in docs/ui/brand/: colors.md, logo.png, logo.svg and fonts/ with licence texts (copied from the website on 2026-10-10).
-- Design interview held on 2026-10-10: owner decisions UX-01 to UX-13 are in docs/ui/DESIGN_BRIEF.md. Import them into docs/DECISION_LOG.md in tasks T0.1 and T0.5. There is no Figma file; clickable HTML mockups are built in task T0.19b.
-- Git remote: origin is https://github.com/rajuofficialasf-hub/charity_ERP.git, branch main.
+- Design interview held on 2026-10-10: owner decisions UX-01 to UX-13 are in docs/ui/DESIGN_BRIEF.md and were imported into docs/DECISION_LOG.md in T0.1. There is no Figma file; clickable HTML mockups are built in task T0.19b.
+- Owner answers to open questions are recorded as O-nn (same number as the question) in docs/DECISION_LOG.md; every affected document is then updated in the same change (T0.7).
+- Git remote: origin is https://github.com/rajuofficialasf-hub/charity_ERP.git, branch main. T0.1 commits are local; push when the owner wants.
 - The repository contains only docs/, CLAUDE.md, .claude/, README.md and the git configuration files. No application code until Phase 0 is signed off.
 - docs/source/ERP_BLUEPRINT_BN.md was machine-converted from the owner's docx and verified paragraph by paragraph against it on 2026-10-10.
