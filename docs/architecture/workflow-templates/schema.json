@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://css-erp.assunnahfoundation.org/schemas/workflow-template.json",
+  "title": "CSS ERP workflow template",
+  "description": "Validates the YAML workflow templates in docs/architecture/workflow-templates/. Written in task T0.11 (2026-10-10). Guard, effect, permission and activity names are checked against the code registries and permissions.yaml at seed time.",
+  "type": "object",
+  "required": ["template", "version", "title_en", "title_bn"],
+  "additionalProperties": false,
+  "properties": {
+    "template": { "type": "string", "pattern": "^_?[a-z][a-z0-9_]*$" },
+    "version": { "type": "integer", "minimum": 1 },
+    "title_en": { "type": "string" },
+    "title_bn": { "type": "string" },
+    "extends": { "type": "string", "pattern": "^_?[a-z][a-z0-9_]*$" },
+    "projects": { "type": "array", "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" } },
+    "source": { "type": "array", "items": { "type": "string" } },
+    "notes": { "type": "string" },
+    "states": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "label_en", "label_bn"],
+        "additionalProperties": false,
+        "properties": {
+          "key": { "$ref": "#/$defs/stateKey" },
+          "label_en": { "type": "string" },
+          "label_bn": { "type": "string" },
+          "terminal": { "type": "boolean" },
+          "kind": { "enum": ["common", "template"] }
+        }
+      }
+    },
+    "stages": {
+      "type": "object",
+      "required": ["editable", "list"],
+      "additionalProperties": false,
+      "properties": {
+        "editable": { "type": "boolean", "description": "true when the PM may rename and reorder the stages per project (BR-068)" },
+        "list": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key", "label_en", "label_bn"],
+            "additionalProperties": false,
+            "properties": {
+              "key": { "$ref": "#/$defs/stateKey" },
+              "label_en": { "type": "string" },
+              "label_bn": { "type": "string" },
+              "activity": { "$ref": "#/$defs/activityType" },
+              "photo_required": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "transitions": { "type": "array", "items": { "$ref": "#/$defs/transition" } },
+    "stage_transitions": { "type": "array", "items": { "$ref": "#/$defs/stageTransition" } },
+    "sub_workflows": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["states", "transitions"],
+        "properties": {
+          "allowed_in": { "type": "array", "items": { "$ref": "#/$defs/stateKey" } },
+          "states": { "type": "array", "items": { "$ref": "#/$defs/stateKey" } },
+          "transitions": { "type": "array", "items": { "$ref": "#/$defs/transition" } }
+        }
+      }
+    },
+    "donor_flow": {
+      "type": "object",
+      "description": "Qurbani only: a second flow for donors and animals, independent of the beneficiary application cycle",
+      "required": ["states", "transitions"],
+      "properties": {
+        "entity": { "type": "string" },
+        "states": { "type": "array", "items": { "$ref": "#/$defs/stateKey" } },
+        "transitions": { "type": "array", "items": { "$ref": "#/$defs/transition" } }
+      }
+    },
+    "activities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type"],
+        "additionalProperties": false,
+        "properties": {
+          "type": { "$ref": "#/$defs/activityType" },
+          "bulk_screen": { "type": "string" },
+          "attachments": { "type": "string" },
+          "outcomes": { "type": "array", "items": { "type": "string" } },
+          "available_in": { "type": "array", "items": { "$ref": "#/$defs/stateKey" } },
+          "permission": { "$ref": "#/$defs/permissionName" }
+        }
+      }
+    },
+    "overrides": { "type": "object" },
+    "project_close_guards": { "type": "array", "items": { "$ref": "#/$defs/guardName" } },
+    "defaults": { "type": "object" },
+    "project_lifecycle": {
+      "type": "object",
+      "required": ["states", "transitions"],
+      "properties": {
+        "states": { "type": "array", "items": { "$ref": "#/$defs/stateKey" } },
+        "transitions": { "type": "array", "items": { "$ref": "#/$defs/transition" } }
+      }
+    }
+  },
+  "$defs": {
+    "stateKey": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "activityType": { "enum": ["distribution", "construction", "purchase", "training", "visit", "payment", "voucher", "expense", "issue", "inspection", "follow_up"] },
+    "permissionName": { "type": "string", "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)+$" },
+    "guardName": { "type": "string", "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)+$" },
+    "effectName": { "type": "string", "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)*(:[a-z0-9_.]+)?$" },
+    "transition": {
+      "type": "object",
+      "required": ["from", "to"],
+      "additionalProperties": false,
+      "properties": {
+        "from": { "oneOf": [ { "$ref": "#/$defs/stateKey" }, { "type": "array", "items": { "$ref": "#/$defs/stateKey" } } ] },
+        "to": { "$ref": "#/$defs/stateKey" },
+        "permission": { "$ref": "#/$defs/permissionName" },
+        "auto": { "type": "boolean" },
+        "trigger": { "type": "string" },
+        "guards": { "type": "array", "items": { "$ref": "#/$defs/guardName" } },
+        "effects": { "type": "array", "items": { "$ref": "#/$defs/effectName" } },
+        "requires_reason": { "type": "boolean" },
+        "requires_comment_if": { "enum": ["against_score_order"] },
+        "actor_recorded_as": { "enum": ["submitted_by", "reviewed_by", "approved_by", "completed_by", "verified_by"] },
+        "note": { "type": "string" }
+      },
+      "oneOf": [ { "required": ["permission"] }, { "required": ["auto", "trigger"] } ]
+    },
+    "stageTransition": {
+      "type": "object",
+      "required": ["to", "permission"],
+      "additionalProperties": false,
+      "properties": {
+        "from": { "oneOf": [ { "$ref": "#/$defs/stateKey" }, { "type": "null" } ] },
+        "to": { "$ref": "#/$defs/stateKey" },
+        "permission": { "$ref": "#/$defs/permissionName" },
+        "activity": { "$ref": "#/$defs/activityType" },
+        "guards": { "type": "array", "items": { "$ref": "#/$defs/guardName" } },
+        "effects": { "type": "array", "items": { "$ref": "#/$defs/effectName" } },
+        "note": { "type": "string" }
+      }
+    }
+  }
+}

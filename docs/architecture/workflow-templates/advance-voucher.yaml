@@ -1,0 +1,99 @@
+# advance-voucher.yaml - safe water (blueprint A8.4, B5, B6; BD-29).
+# Status: written in task T0.11 (2026-10-10). Validated by schema.json.
+template: advance_voucher
+version: 1
+title_en: Advance + construction + voucher
+title_bn: অ্যাডভান্স + নির্মাণ + ভাউচার
+extends: _common
+projects: [safe_water]
+source: [A8.4, B5, B6]
+notes: "Money sent to the volunteer (advance) -> work started -> PM-defined stages -> work completed -> tube-well photo, vouchers and account -> verification -> completed. Voucher amount = actual expense; remainder of the advance = returned."
+
+stages:
+  editable: true
+  list:
+    - { key: fund_sent, label_en: Fund sent, label_bn: টাকা পাঠানো, activity: payment }
+    - { key: work_started, label_en: Work started, label_bn: কাজ শুরু, activity: construction, photo_required: true }
+    - { key: work_completed, label_en: Work completed, label_bn: কাজ শেষ, activity: construction, photo_required: true }
+    - { key: voucher_submitted, label_en: Vouchers submitted, label_bn: ভাউচার জমা, activity: voucher }
+    - { key: verified, label_en: Verified, label_bn: যাচাই হয়েছে, activity: voucher }
+
+stage_transitions:
+  - from: null
+    to: fund_sent
+    permission: payment.record
+    activity: payment
+    guards: [project.active]
+    effects: [activity.create:payment, ledger.post:advance, audit:stage.fund_sent, notify:advance_sent]
+    note: "Advance recorded on the application and in the advance bucket (A8.4 step 3)"
+  - from: fund_sent
+    to: work_started
+    permission: progress.update
+    activity: construction
+    guards: [payment.recorded, photos.required_per_rule]
+    effects: [activity.create:construction, audit:stage.progress]
+  - from: work_started
+    to: work_completed
+    permission: progress.update
+    activity: construction
+    guards: [stages.all_completed, evidence.photo_present]
+    effects: [activity.create:construction, audit:stage.progress]
+    note: "PM-defined intermediate stages are inserted between work_started and work_completed per project"
+  - from: work_completed
+    to: voucher_submitted
+    permission: voucher.submit
+    activity: voucher
+    guards: [evidence.photo_present]
+    effects: [activity.create:voucher, ledger.post:voucher_submitted, audit:stage.voucher_submitted, notify:vouchers_submitted]
+  - from: voucher_submitted
+    to: verified
+    permission: voucher.verify
+    activity: voucher
+    guards: [vouchers.verified]
+    effects: [ledger.post:actual_expense, ledger.post:voucher_verified, ledger.post:returned, lock:vouchers, lock:photos, outcome.set:installed, audit:stage.verified]
+    note: "Actual expense from vouchers; advance minus actual = returned (BD-29)"
+
+transitions:
+  - from: implementation
+    to: completed
+    auto: true
+    trigger: on_stage_verified
+    guards: [payment.recorded, evidence.photo_present, vouchers.verified, photos.not_pending_sync]
+    effects: [audit:application.completed, notify:application_completed]
+    actor_recorded_as: completed_by
+
+activities:
+  - type: payment
+    attachments: payment_copy
+    permission: payment.record
+    available_in: [approved, implementation]
+  - type: construction
+    bulk_screen: todays_construction
+    attachments: photo_per_stage
+    permission: progress.update
+    outcomes: [stage_done, blocked]
+    available_in: [implementation]
+  - type: voucher
+    attachments: vouchers
+    permission: voucher.submit
+    available_in: [implementation]
+  - type: issue
+    attachments: photos
+    permission: issue.raise
+    available_in: [implementation]
+  - type: expense
+    attachments: vouchers
+    permission: expense.claim.submit
+
+overrides:
+  not_delivered_outcome: not_installed
+  progress_actors: "general volunteers (safe_water_only) and paid volunteers at the same stages (A8.4)"
+  implementer_role: "Implementer holds the official permissions through the safe_water_only condition (O-26)"
+
+project_close_guards: []
+
+defaults:
+  photo_rule: individual
+  photo_source: camera_only
+  vouchers: required
+  limit_counts: [draft, submitted, under_review, reviewed, waitlisted, approved, implementation, completed]

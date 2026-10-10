@@ -1,0 +1,119 @@
+# implementation-evidence.yaml - self-reliance (স্বাবলম্বী) (blueprint A8.3, A9, B5; BD-26, BD-27, BD-28, BD-30).
+# Status: written in task T0.11 (2026-10-10). Validated by schema.json.
+template: implementation_evidence
+version: 1
+title_en: Implementation + evidence + follow-up
+title_bn: বাস্তবায়ন + এভিডেন্স + ফলো-আপ
+extends: _common
+projects: [self_reliance]
+source: [A8.3, A9, B5, B6]
+notes: "Zakat assessment before approval (Official daee decides). After approval: dawah classes -> initial and final exams -> payment only for those who passed -> purchase with placard photo and vouchers -> verification locks evidence -> completed -> continuous follow-up."
+
+stages:
+  editable: false
+  list:
+    - { key: training, label_en: Dawah classes, label_bn: দাওয়াহ ক্লাস, activity: training }
+    - { key: initial_exam, label_en: Initial exam, label_bn: প্রাথমিক পরীক্ষা, activity: training }
+    - { key: final_exam, label_en: Final exam, label_bn: সমাপনী পরীক্ষা, activity: training }
+    - { key: payment, label_en: Support payment, label_bn: সহায়তার টাকা পাঠানো, activity: payment }
+    - { key: purchase, label_en: Purchase and evidence, label_bn: উপকরণ ক্রয় ও প্রমাণ, activity: purchase, photo_required: true }
+    - { key: verified, label_en: Verified, label_bn: যাচাই হয়েছে, activity: voucher }
+
+stage_transitions:
+  - from: null
+    to: training
+    permission: daee.assign
+    activity: training
+    guards: [project.active, workers.assigned]
+    effects: [audit:stage.training_started, notify:classes_started]
+    note: "Local daee assigned; whole family attends (BD-26); daily attendance through today's class"
+  - from: training
+    to: initial_exam
+    permission: exam.record
+    activity: training
+    effects: [audit:stage.initial_exam]
+  - from: initial_exam
+    to: final_exam
+    permission: exam.record
+    activity: training
+    effects: [audit:stage.final_exam, notify:exam_results]
+    note: "Results of both exams shown side by side"
+  - from: final_exam
+    to: payment
+    permission: payment.record
+    activity: payment
+    guards: [exam.passed, zakat.eligible_if_zakat_fund]
+    effects: [activity.create:payment, ledger.post:beneficiary_support, audit:stage.payment, notify:support_paid]
+    note: "Exam-gated payment (BD-27); date, amount, method, transaction id stored on the application"
+  - from: payment
+    to: purchase
+    permission: voucher.submit
+    activity: purchase
+    guards: [payment.recorded, evidence.photo_present]
+    effects: [activity.create:purchase, ledger.post:voucher_submitted, audit:stage.purchase, notify:vouchers_submitted]
+    note: "Placard photo with beneficiary and materials plus all vouchers"
+  - from: purchase
+    to: verified
+    permission: voucher.verify
+    activity: voucher
+    guards: [vouchers.verified, evidence.photo_present]
+    effects: [ledger.post:actual_expense, ledger.post:voucher_verified, lock:vouchers, lock:photos, outcome.set:supported, audit:stage.verified]
+    note: "After verification photos and vouchers can no longer be changed or deleted (BD-27)"
+
+transitions:
+  - from: implementation
+    to: completed
+    auto: true
+    trigger: on_stage_verified
+    guards: [exam.passed, payment.recorded, vouchers.verified, evidence.photo_present, photos.not_pending_sync]
+    effects: [audit:application.completed, notify:application_completed]
+    actor_recorded_as: completed_by
+
+activities:
+  - type: training
+    bulk_screen: todays_class
+    permission: class.record
+    outcomes: [present, absent]
+    available_in: [implementation, completed]
+  - type: payment
+    attachments: payment_copy
+    permission: payment.record
+    available_in: [implementation]
+  - type: purchase
+    attachments: placard_photo_and_vouchers
+    permission: voucher.submit
+    available_in: [implementation]
+  - type: voucher
+    attachments: vouchers
+    permission: voucher.verify
+    available_in: [implementation]
+  - type: visit
+    bulk_screen: todays_visit
+    attachments: photo
+    permission: site_verification.record
+    available_in: [under_review, reviewed]
+  - type: follow_up
+    bulk_screen: todays_followup
+    attachments: optional_photo
+    permission: followup.record
+    outcomes: [business_started, income_recorded, business_running, profit_recorded, problem_recorded]
+    available_in: [completed, closed]
+  - type: expense
+    attachments: vouchers
+    permission: expense.claim.submit
+
+overrides:
+  pre_approval:
+    zakat_assessment: "System computes total assets, debts, net assets and proposes eligibility against the nisab version in force; the Official daee decides (zakat.decide); the nisab value is snapshotted on the application (BD-28, O-15)"
+    site_verification: optional
+  not_delivered_outcome: not_supported
+  follow_up_template: self_reliance_default   # O-23: business started, current income, business running, profit, main problem
+
+project_close_guards: []
+
+defaults:
+  photo_rule: individual
+  photo_source: camera_only
+  vouchers: required
+  dawah: enabled
+  limit_counts: [draft, submitted, under_review, reviewed, waitlisted, approved, implementation, completed]

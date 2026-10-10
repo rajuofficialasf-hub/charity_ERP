@@ -1,0 +1,74 @@
+# qurbani.yaml - Qurbani (blueprint A8.6, B5; BD-32, BD-33, BD-34; O-19).
+# Status: written in task T0.11 (2026-10-10). Validated by schema.json.
+# The beneficiary side reuses the distribution template unchanged (same form, approval, meat distribution and photos).
+# The donor/animal side is a second flow on the animal entity, independent of the application cycle.
+template: qurbani
+version: 1
+title_en: Beneficiary + donor + animal
+title_bn: উপকারভোগী + ডোনার + পশু
+extends: distribution
+projects: [qurbani]
+source: [A8.6, B5]
+notes: "Stock reconciliation counts animals. Allocation is manual and exclusive; donors are notified before and after Qurbani day."
+
+donor_flow:
+  entity: animal
+  states: [imported, animal_allocated, notified, photos_sent, voucher]
+  transitions:
+    - from: imported
+      to: animal_allocated
+      permission: animal.allocate
+      guards: [animals.allocated]
+      effects: [audit:animal.allocate, notify:animal_allocated]
+      note: "Manual allocation on the volunteer profile; several cows or 1-4 goats; exclusive until cancelled (BD-33, O-19)"
+    - from: animal_allocated
+      to: imported
+      permission: animal.deallocate
+      requires_reason: true
+      effects: [audit:animal.deallocate]
+    - from: animal_allocated
+      to: notified
+      permission: donor.message.send
+      guards: [animals.allocated]
+      effects: [donor.email:pre_notification, audit:donor.notified]
+      note: "Pre-SMS or email to every donor of the animal; sent status tracked per donor (BD-34)"
+    - from: notified
+      to: photos_sent
+      permission: animal.photo.upload
+      guards: [donor.notified, animal_photos.complete]
+      effects: [donor.email:animal_photos, audit:donor.photos_sent]
+      note: "Three photos per animal (animal, meat, packet) emailed with sent status"
+    - from: photos_sent
+      to: voucher
+      permission: voucher.verify
+      guards: [vouchers.verified]
+      effects: [ledger.post:actual_expense, ledger.post:voucher_verified, lock:vouchers, audit:donor.voucher]
+
+activities:
+  - type: distribution
+    bulk_screen: todays_distribution
+    attachments: photos_per_rule
+    permission: distribution.update
+    outcomes: [distributed, absent, later, not_distributed, shortage, damaged, partial, deceased_relocated]
+    available_in: [implementation]
+  - type: voucher
+    attachments: vouchers
+    permission: voucher.submit
+    available_in: [implementation, completed]
+  - type: expense
+    attachments: vouchers
+    permission: expense.claim.submit
+
+overrides:
+  stock_item: animal
+  donor_sources: [ssl_sheet, cash_form]
+  share_model: { cow: 7, goat: 1 }   # O-19
+  not_delivered_outcome: not_distributed
+
+project_close_guards: [stock.balanced, animal_photos.complete]
+
+defaults:
+  photo_rule: per_project
+  photo_source: camera_only
+  vouchers: required
+  limit_counts: [draft, submitted, under_review, reviewed, waitlisted, approved, implementation, completed]

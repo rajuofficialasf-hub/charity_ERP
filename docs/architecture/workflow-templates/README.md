@@ -1,16 +1,17 @@
 # Workflow templates
 
-Status: folder created in task T0.1 (2026-10-10); the machine-readable definitions are written in task T0.11 and seeded into the engine in task T2.5. Format and guard names are defined in `docs/architecture/WORKFLOW_ENGINE.md`.
+Status: written in task T0.11 (2026-10-10); seeded into the engine in task T2.5. Format, guard and effect catalogues and the code-versus-data boundary are in `docs/architecture/WORKFLOW_ENGINE.md`. Every file is validated by `schema.json` (JSON Schema 2020-12); at seed time guard, effect, permission and activity names are checked against the code registries and `docs/security/permissions.yaml`.
 
-One file per project type (blueprint A8, B5):
-
-| File | Template | Projects | Stages after approval (blueprint example) |
+| File | Template key | Projects | Extends |
 |---|---|---|---|
-| `distribution.yaml` | Distribution | Winter clothing, iftar, meat distribution, Qurbani beneficiary side | Package Sent → Received → Distributed → Completed |
-| `construction.yaml` | Construction | Semi-pucca and tin houses | Worker Assigned → stages written by the PM (e.g. Foundation, Wall, Roof) → Completed |
-| `advance-voucher.yaml` | Advance + construction + voucher | Safe water | Fund Sent → Work Started → Work Completed → Voucher → Verified → Completed |
-| `implementation-evidence.yaml` | Implementation + evidence + follow-up | Self-reliance | Purchase → Evidence → Verified → Completed → Follow-up (exam gate before payment) |
-| `qurbani.yaml` | Beneficiary + donor + animal | Qurbani | Distribution template plus donor flow Imported → Animal Allocated → Notified → Photos Sent → Voucher |
-| `open-application-visit.yaml` | Open application + visit | Tree planting | Verified → Visit → Distributed → Completed |
+| `_common.yaml` | `_common` | shared by all: common states, common transitions, field-unlock sub-workflow, follow-up/expense/payment activities, project lifecycle | — |
+| `distribution.yaml` | `distribution` | winter clothing, iftar, meat distribution | `_common` |
+| `construction.yaml` | `construction` | semi-pucca and tin houses (PM final approval) | `_common` |
+| `advance-voucher.yaml` | `advance_voucher` | safe water | `_common` |
+| `implementation-evidence.yaml` | `implementation_evidence` | self-reliance | `_common` |
+| `qurbani.yaml` | `qurbani` | Qurbani (beneficiary side as distribution; donor/animal flow) | `distribution` |
+| `open-application-visit.yaml` | `open_application_visit` | tree planting (public link, site visit before approval) | `_common` |
 
-All six share the common cycle Draft → Submitted → Under Review → Reviewed → Approved / Rejected → … → Completed → Closed (BD-11). House construction overrides the approver to the PM (BD-24).
+What is data: everything in these files, plus the per-project overrides the PM sets (stage names and order where `stages.editable`, photo rule and source, limit, deadline, scoring criteria, quotas, issue types, expense categories, follow-up template, document checklist). What is code: the engine, the guard implementations, the effect handlers, the activity handlers, the bulk-screen framework, the validator and the seed step.
+
+Adding a new project type: copy the closest file, change the key, titles and stages, reuse only existing guard/effect/permission/activity names, validate, seed. See WORKFLOW_ENGINE.md section 14.

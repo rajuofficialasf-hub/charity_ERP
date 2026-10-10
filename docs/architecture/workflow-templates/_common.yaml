@@ -1,0 +1,166 @@
+# _common.yaml - states and transitions shared by every workflow template (blueprint A7, B5; BD-11, BD-17, BD-18, BD-48).
+# Status: written in task T0.11 (2026-10-10). Validated by schema.json. Templates declare `extends: _common`.
+# Permissions are names from docs/security/permissions.yaml; guards and effects are names from WORKFLOW_ENGINE.md sections 6-7.
+template: _common
+version: 1
+title_en: Common application cycle
+title_bn: কমন আবেদন চক্র
+source: [A7, B5, B7]
+
+states:
+  - { key: draft, label_en: Draft, label_bn: খসড়া, kind: common }
+  - { key: needs_verification, label_en: Needs verification, label_bn: যাচাই দরকার, kind: common }
+  - { key: submitted, label_en: Submitted, label_bn: পেন্ডিং, kind: common }
+  - { key: under_review, label_en: Under review, label_bn: রিভিউ চলছে, kind: common }
+  - { key: reviewed, label_en: Awaiting approval, label_bn: অনুমোদনের অপেক্ষায়, kind: common }
+  - { key: waitlisted, label_en: Waitlisted, label_bn: ওয়েটলিস্ট, kind: common }
+  - { key: approved, label_en: Approved, label_bn: অনুমোদিত, kind: common }
+  - { key: rejected, label_en: Rejected, label_bn: বাতিল, kind: common, terminal: true }
+  - { key: implementation, label_en: Implementation / distribution, label_bn: বাস্তবায়ন / বিতরণ চলছে, kind: common }
+  - { key: completed, label_en: Completed, label_bn: সম্পন্ন, kind: common }
+  - { key: closed, label_en: Closed, label_bn: ক্লোজড, kind: common, terminal: true }
+  - { key: deleted, label_en: Deleted, label_bn: মুছে ফেলা, kind: common, terminal: true }
+
+transitions:
+  # creation is not a transition: application.create produces a draft (or needs_verification for public-link / offline collision entries)
+  - from: draft
+    to: submitted
+    permission: application.submit
+    guards: [project.active, deadline.open, limit.not_exceeded, identity.present, mandatory_fields.present, beneficiary.not_blocked, volunteer.not_blocked, consent.accepted]
+    effects: [score.compute, audit:application.submit, notify:application_submitted]
+    actor_recorded_as: submitted_by
+  - from: draft
+    to: deleted
+    permission: application.delete_pending
+    guards: [project.not_closed]
+    effects: [audit:application.delete]
+  - from: needs_verification
+    to: submitted
+    permission: application.verify_needs_verification
+    guards: [identity.present, beneficiary.not_blocked, deadline.open, limit.not_exceeded]
+    effects: [needs_verification.link, score.compute, audit:application.verified_link]
+    note: "Offline NID collision (BD-48) or public-link entry (O-08, O-13): the official links the record to the existing profile"
+  - from: needs_verification
+    to: rejected
+    permission: application.verify_needs_verification
+    requires_reason: true
+    effects: [audit:application.reject, notify:application_rejected]
+  - from: submitted
+    to: deleted
+    permission: application.delete_pending
+    guards: [project.not_closed]
+    effects: [audit:application.delete]
+  - from: submitted
+    to: under_review
+    permission: application.review
+    guards: [project.active]
+    effects: [audit:application.review_started]
+  - from: under_review
+    to: reviewed
+    permission: application.review
+    guards: [identity.present, mandatory_fields.present]
+    effects: [score.compute, audit:application.reviewed, notify:application_reviewed]
+    actor_recorded_as: reviewed_by
+  - from: reviewed
+    to: approved
+    permission: application.approve
+    guards: [project.active, beneficiary.not_blocked, score.comment_if_against_order, zakat.eligible_if_zakat_fund]
+    requires_comment_if: against_score_order
+    effects: [score.snapshot, quota.increment, ledger.post:approved, lock:fields, audit:application.approve, notify:application_approved]
+    actor_recorded_as: approved_by
+  - from: reviewed
+    to: rejected
+    permission: application.reject
+    requires_reason: true
+    guards: [score.comment_if_against_order]
+    effects: [score.snapshot, audit:application.reject, notify:application_rejected]
+  - from: reviewed
+    to: waitlisted
+    permission: application.waitlist
+    requires_reason: true
+    guards: [score.comment_if_against_order]
+    effects: [score.snapshot, waitlist.enqueue, audit:application.waitlisted, notify:application_waitlisted]
+  - from: waitlisted
+    to: approved
+    permission: application.waitlist
+    guards: [project.active, beneficiary.not_blocked]
+    effects: [waitlist.dequeue, quota.increment, ledger.post:approved, lock:fields, audit:application.approve, notify:application_approved]
+    actor_recorded_as: approved_by
+    note: "One-click pull from the waitlist (BD-17)"
+  - from: waitlisted
+    to: rejected
+    permission: application.reject
+    requires_reason: true
+    effects: [waitlist.dequeue, audit:application.reject, notify:application_rejected]
+  - from: approved
+    to: implementation
+    auto: true
+    trigger: on_enter_approved
+    effects: [audit:application.implementation_started]
+    note: "Templates define the stages inside implementation (stage_transitions)"
+  - from: [approved, implementation, completed]
+    to: closed
+    auto: true
+    trigger: project.closed
+    effects: [outcome.set:per_template_default, lock:fields, lock:photos, lock:vouchers, audit:application.closed]
+    note: "Applications still in implementation receive the template's not-delivered outcome and no cost (BD-23)"
+
+sub_workflows:
+  field_unlock:
+    allowed_in: [approved, implementation, completed]
+    states: [open, updated, relocked]
+    transitions:
+      - from: relocked
+        to: open
+        permission: application.unlock_field
+        requires_reason: true
+        guards: [project.not_closed]
+        effects: [unlock:field, audit:field.unlock, notify:field_unlocked]
+      - from: open
+        to: updated
+        permission: application.update_unlocked_field
+        guards: [field_unlock.open, project.not_closed]
+        effects: [audit:field.updated, notify:field_updated]
+      - from: updated
+        to: relocked
+        permission: application.unlock_field
+        guards: [project.not_closed]
+        effects: [lock:fields, audit:field.relocked]
+
+activities:
+  - type: follow_up
+    bulk_screen: todays_followup
+    attachments: optional_photo
+    available_in: [completed, closed]
+    permission: followup.record
+  - type: expense
+    attachments: vouchers
+    permission: expense.claim.submit
+  - type: payment
+    attachments: payment_copy
+    permission: payment.record
+
+project_lifecycle:
+  states: [draft, active, closing, closed]
+  transitions:
+    - from: draft
+      to: active
+      permission: project.activate
+      guards: [project.setup_complete]
+      effects: [audit:project.activate, notify:project_activated]
+    - from: active
+      to: closing
+      permission: project.close
+      effects: [audit:project.closing, notify:project_closing]
+      note: "No new applications; remaining work, photos and vouchers verified (O-12)"
+    - from: closing
+      to: closed
+      permission: project.close
+      guards: [template.project_close_guards]
+      effects: [audit:project.close, lock:fields, lock:photos, lock:vouchers, notify:project_closed]
+      note: "Guards from the template's project_close_guards (e.g. stock.balanced) run here; closing every open application is the project.closed trigger above"
+    - from: closed
+      to: active
+      permission: project.reopen
+      requires_reason: true
+      effects: [audit:project.reopen, notify:project_reopened]

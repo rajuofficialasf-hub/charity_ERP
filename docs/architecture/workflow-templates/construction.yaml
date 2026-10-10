@@ -1,0 +1,108 @@
+# construction.yaml - semi-pucca and tin house construction (blueprint A8.2, B5; BD-24, BD-25).
+# Status: written in task T0.11 (2026-10-10). Validated by schema.json.
+template: construction
+version: 1
+title_en: Construction
+title_bn: নির্মাণ
+extends: _common
+projects: [semi_pucca_house, tin_house]
+source: [A8.2, B5]
+notes: "PM gives final approval. One Local daee per area and 2-3 paid volunteers per district post daily stage progress with photos and raise issues. Stages are written by the PM; the list below is the default."
+
+stages:
+  editable: true
+  list:
+    - { key: worker_assigned, label_en: Worker assigned, label_bn: কর্মী নিয়োগ, activity: construction }
+    - { key: foundation, label_en: Foundation, label_bn: ভিত্তি, activity: construction, photo_required: true }
+    - { key: wall, label_en: Wall, label_bn: দেয়াল, activity: construction, photo_required: true }
+    - { key: roof, label_en: Roof, label_bn: ছাদ, activity: construction, photo_required: true }
+    - { key: final_photo, label_en: Final photo with the house, label_bn: ঘরসহ চূড়ান্ত ছবি, activity: inspection, photo_required: true }
+
+stage_transitions:
+  - from: null
+    to: worker_assigned
+    permission: volunteer.assign_project
+    activity: construction
+    guards: [project.active, workers.assigned]
+    effects: [audit:stage.worker_assigned, notify:workers_assigned]
+    note: "RPM assigns the area's Local daee and paid volunteers"
+  - from: worker_assigned
+    to: foundation
+    permission: progress.update
+    activity: construction
+    guards: [photos.required_per_rule]
+    effects: [activity.create:construction, audit:stage.progress]
+  - from: foundation
+    to: wall
+    permission: progress.update
+    activity: construction
+    guards: [photos.required_per_rule]
+    effects: [activity.create:construction, audit:stage.progress]
+  - from: wall
+    to: roof
+    permission: progress.update
+    activity: construction
+    guards: [photos.required_per_rule]
+    effects: [activity.create:construction, audit:stage.progress]
+  - from: roof
+    to: final_photo
+    permission: progress.update
+    activity: inspection
+    guards: [stages.all_completed, evidence.photo_present]
+    effects: [activity.create:inspection, outcome.set:built, audit:stage.final_photo]
+    note: "Photo of the beneficiary with the finished house"
+
+transitions:
+  - from: implementation
+    to: completed
+    permission: application.review
+    guards: [stages.all_completed, evidence.photo_present, photos.not_pending_sync]
+    effects: [ledger.post:spent, lock:photos, audit:application.completed, notify:application_completed]
+    actor_recorded_as: completed_by
+    note: "An official confirms completion after the final photo; vouchers optional in this project"
+
+activities:
+  - type: construction
+    bulk_screen: todays_construction
+    attachments: photo_per_stage
+    permission: progress.update
+    outcomes: [stage_done, blocked]
+    available_in: [implementation]
+  - type: issue
+    attachments: photos
+    permission: issue.raise
+    outcomes: [new, in_progress, resolved]
+    available_in: [approved, implementation, completed]
+  - type: inspection
+    attachments: photo
+    permission: progress.update
+    available_in: [implementation]
+  - type: training
+    bulk_screen: todays_class
+    permission: class.record
+    available_in: [approved, implementation, completed]
+  - type: voucher
+    attachments: vouchers
+    permission: voucher.submit
+    available_in: [implementation, completed]
+  - type: expense
+    attachments: vouchers
+    permission: expense.claim.submit
+
+overrides:
+  approval:
+    permission: application.approve
+    require_condition: house_construction_only
+    default_approver: program_manager
+    note: "PM final approval (BD-24): application.approve defaults to the PM under house_construction_only; an RPM approval on this template is refused unless the permission panel grants it"
+  not_delivered_outcome: not_built
+  issue_resolvers: [issue.resolve]
+  dawah: enabled_by_component
+
+project_close_guards: []
+
+defaults:
+  photo_rule: individual
+  photo_source: camera_only
+  vouchers: optional
+  limit_counts: [draft, submitted, under_review, reviewed, waitlisted, approved, implementation, completed]

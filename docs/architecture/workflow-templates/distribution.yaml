@@ -1,0 +1,79 @@
+# distribution.yaml - winter clothing, iftar, meat distribution (blueprint A8.1, B5; BD-21, BD-22, BD-23).
+# Status: written in task T0.11 (2026-10-10). Validated by schema.json.
+template: distribution
+version: 1
+title_en: Distribution
+title_bn: বিতরণ
+extends: _common
+projects: [winter_clothing, iftar, meat_distribution]
+source: [A8.1, B5]
+notes: "Package sent -> received -> distributed and photos -> completed. Photo rule per project; stock must balance before the project closes."
+
+stages:
+  editable: false
+  list:
+    - { key: package_sent, label_en: Package sent, label_bn: প্যাকেজ পাঠানো, activity: distribution }
+    - { key: received, label_en: Received, label_bn: রিসিভ হয়েছে, activity: distribution }
+    - { key: distributed, label_en: Distributed, label_bn: বিতরণ হয়েছে, activity: distribution, photo_required: true }
+
+stage_transitions:
+  - from: null
+    to: package_sent
+    permission: stock.dispatch
+    activity: distribution
+    guards: [project.active]
+    effects: [stock.recompute, audit:stage.package_sent, notify:package_sent]
+    note: "Office records the dispatch to the volunteer's spot"
+  - from: package_sent
+    to: received
+    permission: stock.receive
+    activity: distribution
+    guards: [project.active]
+    effects: [stock.recompute, audit:stage.received]
+    note: "Volunteer confirms receipt and sets the distribution date"
+  - from: received
+    to: distributed
+    permission: distribution.update
+    activity: distribution
+    guards: [receipt.confirmed, photos.required_per_rule]
+    effects: [activity.create:distribution, ledger.post:spent, stock.recompute, outcome.set:distributed, audit:stage.distributed]
+    note: "Today's distribution bulk screen; edge outcomes below keep the stage at received"
+
+transitions:
+  - from: implementation
+    to: completed
+    auto: true
+    trigger: photos.synced
+    guards: [photos.required_per_rule, photos.not_pending_sync]
+    effects: [audit:application.completed, notify:application_completed]
+    actor_recorded_as: completed_by
+
+activities:
+  - type: distribution
+    bulk_screen: todays_distribution
+    attachments: photos_per_rule
+    permission: distribution.update
+    outcomes: [distributed, absent, later, not_distributed, shortage, damaged, partial, deceased_relocated]
+    available_in: [implementation]
+  - type: expense
+    attachments: vouchers
+    permission: expense.claim.submit
+
+overrides:
+  outcomes:
+    absent: { effects: [stock.recompute, audit:outcome.absent], stays_in_stage: received, note: "package returns to remaining" }
+    later: { effects: [audit:outcome.later], stays_in_stage: received, note: "later distribution on the same application; completes when distributed" }
+    not_distributed: { set_at: project_close, effects: [outcome.set:not_distributed, audit:outcome.not_distributed], cost: none }
+    shortage: { effects: [waitlist.enqueue, alert.raise:stock_shortage, audit:outcome.shortage], stays_in_stage: received }
+    damaged: { effects: [stock.recompute, alert.raise:damaged_goods, audit:outcome.damaged], requires_reason: true, photo_required: true }
+    partial: { effects: [audit:outcome.partial], stays_in_stage: received, note: "items received ticked; rest later" }
+    deceased_relocated: { effects: [profile.status:per_outcome, audit:outcome.deceased_relocated], requires_reason: true, note: "PM decides reassignment with reason in long projects (BD-23)" }
+  not_delivered_outcome: not_distributed
+
+project_close_guards: [stock.balanced]
+
+defaults:
+  photo_rule: per_project          # group | individual | both (BR-066)
+  photo_source: camera_only        # UX-11
+  vouchers: not_used
+  limit_counts: [draft, submitted, under_review, reviewed, waitlisted, approved, implementation, completed]   # O-13

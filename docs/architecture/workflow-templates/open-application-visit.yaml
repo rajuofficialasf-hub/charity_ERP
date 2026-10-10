@@ -1,0 +1,86 @@
+# open-application-visit.yaml - tree planting (blueprint A8.5, B5; Q-10, O-08).
+# Status: written in task T0.11 (2026-10-10). Validated by schema.json.
+template: open_application_visit
+version: 1
+title_en: Open application + visit
+title_bn: ওপেন আবেদন + ভিজিট
+extends: _common
+projects: [tree_planting]
+source: [A8.5, B5]
+notes: "Applications arrive on a public link without a volunteer (needs_verification entry). An area volunteer makes the site visit before approval; after approval saplings are sent, received and distributed with group (institution) or placard garden photos."
+
+stages:
+  editable: false
+  list:
+    - { key: saplings_sent, label_en: Saplings sent, label_bn: চারা পাঠানো, activity: distribution }
+    - { key: received, label_en: Received, label_bn: রিসিভ হয়েছে, activity: distribution }
+    - { key: distributed, label_en: Distributed and photographed, label_bn: বিতরণ ও ছবি, activity: distribution, photo_required: true }
+
+stage_transitions:
+  - from: null
+    to: saplings_sent
+    permission: stock.dispatch
+    activity: distribution
+    guards: [project.active]
+    effects: [stock.recompute, audit:stage.saplings_sent, notify:package_sent]
+  - from: saplings_sent
+    to: received
+    permission: stock.receive
+    activity: distribution
+    effects: [stock.recompute, audit:stage.received]
+    note: "Responsible volunteer updates receipt and which day saplings go where"
+  - from: received
+    to: distributed
+    permission: distribution.update
+    activity: distribution
+    guards: [receipt.confirmed, photos.required_per_rule]
+    effects: [activity.create:distribution, ledger.post:spent, stock.recompute, outcome.set:planted, audit:stage.distributed]
+    note: "Group photo at institutions; placard garden photo for personal gardens"
+
+transitions:
+  - from: implementation
+    to: completed
+    auto: true
+    trigger: photos.synced
+    guards: [photos.required_per_rule, photos.not_pending_sync]
+    effects: [audit:application.completed, notify:application_completed]
+    actor_recorded_as: completed_by
+
+activities:
+  - type: visit
+    bulk_screen: todays_visit
+    attachments: photo
+    permission: site_verification.record
+    outcomes: [recommend_approve, recommend_reject, revisit]
+    available_in: [under_review]
+  - type: distribution
+    bulk_screen: todays_distribution
+    attachments: photos_per_rule
+    permission: distribution.update
+    outcomes: [distributed, absent, later, not_distributed, shortage, damaged, partial]
+    available_in: [implementation]
+  - type: expense
+    attachments: vouchers
+    permission: expense.claim.submit
+
+overrides:
+  entry:
+    public_link: true
+    entry_state: needs_verification
+    rate_limited: true
+    note: "Public form entries start in needs_verification (O-08); an official verifies and links or rejects"
+  pre_approval:
+    site_verification: required
+    approval_guards_add: [site_verification.recorded]
+    direct_decision_by_volunteer: "site_verification.decide if the RPM grants (A8.5 step 2)"
+  application_types: [educational_institution, personal_garden]
+  stock_item: sapling
+  not_delivered_outcome: not_distributed
+
+project_close_guards: [stock.balanced]
+
+defaults:
+  photo_rule: per_application_type   # group for institutions, placard garden photo for personal gardens
+  photo_source: camera_only
+  vouchers: not_used
+  limit_counts: []                   # no per-volunteer limit: applications come from the public (A8.5)
