@@ -1,33 +1,198 @@
 # FILES, PHOTOS AND DOCUMENTS
 
-Status: outline, written in task T0.1 (2026-10-10); completed in task T0.13. Decided inputs (2026-10-10): media consent recorded by an official on the profile with the channel list website, Facebook, print, video, donor report, admin-editable (O-17); MinIO object storage approved (D-053, O-01); payment confirmation copies may be attached to payment records (O-22).
+Status: complete, task T0.13 (2026-10-10). Design only; no code. Sources: blueprint A8.1 (photo rule and metadata), A10 (documentation, SOP mapping, media), B8 (file access), B10 (photos, storage growth); decisions BD-21, BD-35…39, BD-46, O-16 (working days), O-17 (media consent), O-28 (Media tab), O-29 (photo budgets, never auto-delete unsynced), UX-07, UX-11; rules BR-022, BR-066, BR-108, BR-109, BR-122, BR-123, BR-162…171, BR-204, BR-205, BR-207, BR-208; NFR-24…31; ADR-005 (MinIO, presigned URLs, chunked upload); `docs/architecture/OFFLINE_SYNC.md` §5; `docs/architecture/WORKFLOW_ENGINE.md` §6 (photo guards); `docs/security/permissions.yaml`. Values not yet decided are marked PROPOSAL and collected in section 15 (DECISION_LOG open question 27). The SOP v2.3 text has not been supplied; items that depend on it are marked "to confirm against the SOP".
 
 ## 1. Scope
-Photos (distribution, construction, placard, animal), vouchers, SOP documents, media stories' assets, NID photos of volunteers.
 
-## 2. Storage layout
-Object storage buckets and key structure; SOP cloud-folder convention program → project → year → district (BR-168); local-filesystem adapter for tests.
+| File kind | Examples | Owner entity | Who uploads | Sensitivity class |
+|---|---|---|---|---|
+| distribution_proof | beneficiary photo or group photo at distribution | activity (distribution) | volunteer, RPM, Executive | project data |
+| construction_proof | stage photos, final house photo | activity (construction, inspection) | paid volunteer, volunteer (safe water), officials | project data |
+| evidence | placard photo with materials, tube-well photo, garden photo | activity (purchase, inspection) | volunteer, officials | project data |
+| voucher | bills and vouchers, expense-claim receipts | voucher, expense_claim | volunteer, Local দায়ী, paid volunteer, officials | project data |
+| payment_copy | screenshot or copy of the accounts team's transaction confirmation (O-22) | payment | officials | finance data |
+| document | SOP register files (proposal, criteria, completion report, …) | document (register) | officials only | official data |
+| animal_photo | animal, meat, packet (Qurbani) | animal | volunteer, officials | project data (emailed to donors) |
+| profile_photo | volunteer's own photo | volunteer | volunteer at registration | internal |
+| nid_photo | volunteer's NID photo; beneficiary NID photo if ever captured | volunteer / beneficiary | registration | **sensitive** (field class `volunteer.identity` / `beneficiary.nid`) |
+| media_asset | photos and videos collected by the Media Team | media_subject / media_story | Media Team | consent-gated |
+| export | generated CSV/XLSX/PDF | export_job | system | inherits the data's class; audited |
+| issue_photo | photos attached to issues | issue | issue raisers | project data |
 
-## 3. Upload pipeline
-Client compression, chunked resumable upload, type and size validation, virus-scan hook, metadata extraction (capture time, GPS, source camera/gallery), duplicate detection (BR-109).
+## 2. File metadata model
 
-## 4. Access control
-Signed expiring URLs after permission and scope check (BR-204); field-level rules for NID photos and donor files; export packaging.
+```
+files
+  id uuid v7                 bucket, key (section 8)         kind (section 1)
+  mime, size_bytes, sha256   uploaded_by, uploaded_at        project_id (nullable for profiles)
+  captured_at (device clock at capture, nullable)            gps { lat, lng, accuracy } (nullable)
+  source: camera | gallery | scan | system                   client_uuid (offline upload id)
+  flags[]: no_capture_time | no_gps | gallery_under_camera_only | stale_capture | duplicate_suspect | scan_pending | scan_failed
+  phash (64-bit perceptual hash, images only)                thumbnail_keys { s, m }
+  virus_scan: pending | clean | infected | skipped           locked_at, locked_by_event
+  consent_channels_at_publish[] (media assets only)          created_at, deleted_at (soft; exports only)
+file_links
+  file_id, entity_type (application | activity | voucher | expense_claim | payment | document | animal | issue | media_subject | media_story | volunteer | beneficiary), entity_id, slot (e.g. distribution_proof, final_photo, animal | meat | packet), position
+```
 
-## 5. Photo rules
-Per-project photo rule and source setting (BR-066); flagged photos; verification view for officials (UX-07).
+Rules: a file may be linked to several entities (a distribution photo to the activity and the application); the link carries the slot that the workflow guards read (`photos.required_per_rule`, `evidence.photo_present`, `animal_photos.complete`); files are never hard-deleted except in the `exports` bucket (regenerable, BR-207); `sha256` is unique per project to stop identical re-uploads, while `phash` finds near-duplicates (section 6).
 
-## 6. Locks
-Vouchers and photos locked after verification (BR-122, BR-123); how a lock is represented and audited.
+## 3. Access control
 
-## 7. Document register
-`documents`, checklists, status chain, hard-copy codes, retention (BR-162…170); deficiency reports; quarterly audit report.
+- No file is ever public. Every download starts with `POST /api/v1/files/{id}/url`; the API runs the full request lifecycle (SYSTEM_ARCHITECTURE §6): permission (`application.view`, `document.register.view`, `volunteer.view_sensitive` for NID photos, …), scope, object-level check through the file's links, and the sensitive-field class of the file kind (BR-183). Only then it issues a presigned GET URL valid for 15 minutes (NFR-28), bound to the exact object key. Thumbnails use the same path.
+- Caddy forwards only presigned requests to MinIO's object endpoint; the MinIO admin API and bucket listing are never reachable from outside (D-056).
+- Downloads of sensitive classes (nid_photo, document register files, exports containing identity fields) write an audit entry (`file.download_sensitive`) with the file id and the requester (BR-179, BR-223).
+- Uploads also start with the API (section 4): the client never holds long-lived credentials, only short presigned PUT URLs per chunk.
+- Volunteers never receive URLs for files outside their SELF/ASSIGNED scope; the Media Team receives media assets and consent state, never NID photos or vouchers (sensitive_fields catalogue in `permissions.yaml`).
 
-## 8. Media consent and publishable list
-Consent record on the profile, channel list, gating of the publishable list (BR-022), media story tracker.
+## 4. Upload pipeline
 
-## 9. Retention and growth
-Permanent retention; storage-growth reporting (NFR-30); backup of object storage.
+```
+client                                     api                                         minio / worker
+ 1 initiate ───────────────────────────►  policy check: kind allowed for the entity, mime and size per
+   { kind, entity, slot, mime, size,      section 5, project photo_source setting (section 7),
+     sha256, captured_at, gps, source,    quota (NFR-22 on device; per-project soft cap on server),
+     client_uuid }                        permission file.upload + the entity's own permission
+ 2 ◄── upload session { session_id, chunk_size 256 KB, presigned PUT URLs per chunk, expires 1 h }
+ 3 PUT chunks ──────────────────────────────────────────────────────────────────────►  multipart parts
+   (resumable: GET session status returns acknowledged parts after a drop)
+ 4 finalize { session_id } ────────────►  complete multipart; verify size and sha256; read magic bytes;
+                                          write files row (virus_scan pending, flags from metadata);
+                                          link to entity; enqueue photos job; return file id + flags
+ 5                                                        photos job (worker): virus-scan hook, EXIF read
+                                                          (server-side confirmation), thumbnails 320 px and
+                                                          1,024 px (PROPOSAL), phash, duplicate check,
+                                                          flag updates, re-evaluate workflow guards
+```
 
-## 10. Testing
-Upload validation, signed-URL expiry, duplicate detection, lock enforcement, consent gating.
+- The offline photo queue (OFFLINE_SYNC §5) uses exactly this pipeline; a photo uploads only after its owning record has a server id, text first, photos later.
+- A session that is not finalized within its expiry is garbage-collected; an interrupted upload resumes from the last acknowledged part (NFR-24).
+- Finalize is idempotent on `client_uuid` + slot: a repeated finalize returns the existing file.
+
+## 5. Validation table
+
+| Kind | Allowed types (magic bytes checked) | Max size before client compression | Stored size target | Virus-scan behaviour (PROPOSAL) |
+|---|---|---|---|---|
+| distribution_proof, construction_proof, evidence, animal_photo, issue_photo, profile_photo | JPEG, PNG, WebP → stored as JPEG/WebP | 5 MB | ≤ 300 KB at 1,600 px (NFR-25) | usable immediately, flagged `scan_pending` until clean; infected → quarantined, links hidden, alert |
+| voucher, payment_copy | JPEG, PNG, WebP, PDF | photos 5 MB, PDF 10 MB | photos compressed; PDF unchanged | usable with `scan_pending`; infected → quarantined |
+| document (register) | PDF, JPEG, PNG, DOCX, XLSX | 20 MB | unchanged | **quarantined until clean**: not downloadable before the scan completes (documents are opened on office computers) |
+| nid_photo | JPEG, PNG, WebP | 5 MB | ≤ 500 KB at 1,600 px (legibility over size) | as photos |
+| media_asset | JPEG, PNG, WebP, MP4 | images 10 MB, video 200 MB (PROPOSAL) | images compressed; video unchanged | quarantined until clean |
+| export | CSV, XLSX, PDF | system-generated | — | skipped (generated by the server) |
+
+Rejections return i18n error codes (`file.type_not_allowed`, `file.too_large`, `file.source_not_allowed`); nothing is silently dropped. The virus-scan hook is an adapter (ClamAV daemon in staging/production, no-op "clean" in dev/test) so the pipeline is identical everywhere.
+
+## 6. Image handling
+
+- **Client-side compression**: before a photo enters the device queue it is resized to at most 1,600 px on the longest edge and encoded to JPEG at quality about 80 (WebP where supported), targeting ≤ 300 KB (NFR-25). Capture time and GPS are read **before** compression and sent as explicit metadata in the initiate call, because re-encoding may strip EXIF.
+- **Server-side**: the compressed image is stored as the original (no re-encode); the worker produces two thumbnails (320 px for lists, 1,024 px for the verification view and PDF exports; PROPOSAL), reads EXIF if present to confirm the client metadata (a mismatch > 10 minutes between client-declared capture time and EXIF time sets `stale_capture`), and computes a 64-bit perceptual hash.
+- **Duplicate detection (BD-21, BR-109)**: identical bytes (`sha256`) within a project are rejected as a repeat upload with a message; near-duplicates (pHash Hamming distance ≤ 6 within the same project, PROPOSAL) set `duplicate_suspect` on both files and show a warning on the record and in the officials' verification view with the other photo side by side. Duplicate detection **warns but never blocks**: the volunteer may keep the photo with a note; the official decides.
+- **Capture time and GPS**: `captured_at` comes from the in-app camera (device clock at the moment of capture) or from EXIF for file-input captures; GPS from the Geolocation API at capture time with the user's permission, with accuracy stored. Missing values set `no_capture_time` / `no_gps`. Flags are shown as badges (UX-07 verification view: photo, time, place, source, flags) and are available to monitoring; they never block submission or completion by themselves (BD-21 requires photos per the photo rule; it does not require unflagged photos) — this is a deliberate design choice so that field work on phones without GPS fix is not stopped, while officials see exactly what is missing.
+
+## 7. Photo source per project (UX-11)
+
+Setting on the photo-rule component of each project, per photo kind:
+
+| Photo kind | Default | Options |
+|---|---|---|
+| distribution_proof | camera_only | camera_only, camera_or_gallery |
+| construction_proof | camera_only | camera_only, camera_or_gallery |
+| evidence (placard, tube well, garden) | camera_only | camera_only, camera_or_gallery |
+| voucher, payment_copy | camera_or_gallery | camera_only, camera_or_gallery |
+| document (register) | camera_or_gallery (and file upload) | — |
+| profile_photo, nid_photo | camera_or_gallery | — |
+
+How "camera only" is realised on the web:
+
+| Approach | How | Guarantees | Trade-offs |
+|---|---|---|---|
+| In-app capture (primary on Android Chrome) | `getUserMedia` with the rear camera in an in-app camera screen; capture button writes the frame to a canvas, compresses, records device time and GPS fix, enqueues | Capture time is the moment of the tap; gallery selection impossible; GPS requested at capture; works offline | Needs camera permission; on 2 GB Android phones the preview must be low resolution (720p) to avoid memory pressure; some WebViews lack `getUserMedia`; iOS Safari supports it only in the installed PWA and Safari tab, not in in-app browsers; battery and heat on long distribution days → the screen releases the stream between captures |
+| Device camera through file input (fallback) | `<input type="file" accept="image/*" capture="environment">`; the OS camera app opens | Reliable on every platform including iOS and low-RAM phones; EXIF usually present | Browsers may still let the user pick from the gallery (the `capture` attribute is a hint); EXIF may be stripped by the OS; GPS depends on the OS camera's settings → the server relies on flags (below) rather than on a guarantee |
+| Gallery (only when camera_or_gallery) | plain file input without `capture` | Lets the volunteer attach existing vouchers and paper photos | Capture time comes from EXIF if present; `source=gallery` recorded |
+
+Policy: when the project says `camera_only`, the app shows only the in-app camera where available and the `capture` file input otherwise; the initiate call declares `source`. The server flags a file as `gallery_under_camera_only` when the declared source is gallery, and `stale_capture` when the capture time is older than 10 minutes before the upload or the record's `client_created_at` (PROPOSAL window), covering the "old photo re-used" case of A8.1. Flags are visible to officials and to monitoring (alert `photo.flagged_ratio` when a volunteer's flagged share is high, PROPOSAL); they do not block (section 6).
+
+## 8. Storage layout (buckets and keys)
+
+| Bucket | Key pattern | Notes |
+|---|---|---|
+| `documents` | `{program_code}/{project_code}/{year}/{district_code}/{document_id}-{slug}.{ext}` | SOP clause 10 structure Program → Project → Year → District (BR-168); district of the document's scope, `_central` for project-wide documents |
+| `photos` | `{project_code}/{application_id}/{kind}/{file_id}.jpg`; animals `{project_code}/animals/{animal_no}/{kind}/{file_id}.jpg`; issues `{project_code}/issues/{issue_id}/{file_id}.jpg` | thumbnails `.../thumb/{file_id}-s.jpg`, `-m.jpg` |
+| `vouchers` | `{project_code}/applications/{application_id}/{file_id}.{ext}`; `{project_code}/claims/{claim_id}/{file_id}.{ext}`; `{project_code}/payments/{payment_id}/{file_id}.{ext}` | includes payment copies |
+| `profiles` | `volunteers/{volunteer_id}/photo/{file_id}.jpg`, `volunteers/{volunteer_id}/nid/{file_id}.jpg` | most restricted bucket policy; separate backup encryption key (PROPOSAL) |
+| `media` | `{project_code}/{beneficiary_id}/{file_id}.{ext}` | Media Team assets |
+| `exports` | `{yyyy}/{mm}/{job_id}/{file_name}` | only bucket with a lifecycle rule (delete after 30 days, PROPOSAL) |
+
+Keys contain system ids and codes only, never names, NIDs or phone numbers. Versioning is enabled on `documents` and `photos` (ADR-005). Buckets are mirrored to the backup target (O-06) except `exports`.
+
+## 9. Document register (SOP clauses 3–5, 8–11)
+
+Entities:
+
+```
+document_checklist_templates   template_key (per project type), rows: name_bn/en, requirement (required | if_needed | optional),
+                               owner_role (official designation only), deadline_rule (absolute date | days after milestone:
+                               project_activation | first_distribution | project_close), retention_years (5), order
+documents                      project_id, district_id (nullable), checklist_row_id, name_bn/en, requirement, owner_role,
+                               owner_user_id (resolved from assignments), due_at, status, file_id (soft copy), hard_copy_code,
+                               submitted_at, verified_at, approved_at, archived_at, retain_until, non_compliant_at,
+                               legacy (bool), legacy_recoverable (bool|null), legacy_note_file_id, extension_count
+document_events                document_id, event (created | submitted | verified | approved | archived | deadline_extended |
+                               warning_sent | non_compliance | reopened), by, at, reason
+```
+
+Status chain (SOP clause 4): `pending → collected (submitted) → verified → approved → archived`; `collected` is set by the responsible official (`document.submit`), `verified` by RPM or PM, `approved` by the PM, `archived` when the hard-copy code and retention are recorded; a document may be reopened to `collected` with reason (audited). Every move is a `document_events` row and an audit entry (BR-164, BR-171).
+
+Rules: the checklist comes from the project-type template and is copied into the project with its template (BD-35, BR-162, BR-165: the seven project checklists are pre-seeded once the SOP text is supplied); `owner_role` is an official designation only (PM, RPM, Project Executive, Implementer) and `owner_user_id` is resolved from the project's assignments and re-resolved on handover (BD-08); volunteers have no permission on the register and never see it (BR-163); field photos, vouchers and forms stay attached to applications and are linked into the register by officials through `file_links` without copying.
+
+Hard-copy location code (SOP clauses 8–9): pattern `CSS-{ALM|LKR}-{segment}-{segment}-{segment}-{seq}` as in the blueprint examples `CSS-ALM-1-2-3-01` and `CSS-LKR-4-1-2-02` (ALM = almirah, LKR = locker; the meaning of the three numeric segments, e.g. cabinet–shelf–box, is **to confirm against the SOP**); validated by a regex; unique; recorded at archiving; retention `retain_until = submitted_at + 5 years` (BR-162); the quarterly report lists hard copies past retention (they are never deleted by the system; disposal is a physical decision recorded as an event).
+
+## 10. Deadlines, soft warning and non-compliance (SOP clause 6, BD-36)
+
+- Working days (O-16): every day except Friday and the dates in the admin holiday calendar. The `alerts` job runs daily after midnight Asia/Dhaka.
+- At `due_at` passed and status before `collected`: a **soft warning** notification goes to the responsible official (in-app and email) and a 3-working-day countdown starts (`warning_sent` event).
+- When the countdown ends and the document is still not collected: `non_compliant_at` is set, the document and the official appear in the monitoring control centre (alert `document.overdue`), and the project's document compliance rate reflects it (BR-166). Later submission clears the overdue alert but keeps the non-compliance record for the quarterly report.
+- Extension: the PM may extend `due_at` with a reason (`document.deadline.extend`), audited (BR-171); an extension before the deadline prevents the warning; an extension during the countdown stops it.
+- Non-compliance never touches volunteer ratings or categories (BD-36): the register has no volunteer actors.
+
+## 11. Deficiency reports and escalation (SOP clause 7, BD-37)
+
+`deficiency_reports`: document_id (nullable for legacy items without a register row), project_id, responsible_user_id, reported_by, event_date, description, loss_type, recovery_steps, evidence_file_ids, prior_count (number of earlier reports on the same responsible person in the previous 365 days, computed at filing), pm_decision, decided_by, decided_at, escalated_at, legacy (bool). The blueprint names 11 items for SOP 7.4; the exact field list and labels are **to confirm against the SOP** before T5.4.
+
+- Central log: all reports in one list with filters (project, official, period, escalated, legacy); `deficiency.report` permission for officials; volunteers never file or see them.
+- Automatic escalation (BR-167): when a report is filed and `prior_count ≥ 1` within 365 days for the same responsible person, the report is marked `escalated`, the Department Head and Monitoring Team are notified, and the PM's decision field becomes mandatory for closure.
+- Legacy deficiencies (SOP 7.1): recorded with `legacy = true`, `legacy_recoverable` and the attached acknowledgement note; exempt from non-compliance and from escalation counting; shown separately in reports (BR-167).
+- Every report and decision is audited (BR-171).
+
+## 12. Quarterly audit report (SOP clause 13, BD-39)
+
+One click (`document.audit.run`) produces a PDF and a CSV for a quarter and a scope (program/project/district): pending documents by project and responsible official, on-time submission rate, warnings and non-compliance counts, deficiency summary (new, escalated, legacy), hard copies past the 5-year retention, documents without a hard-copy code. Generated by the export job, stored under `exports`, downloadable through a signed URL; the generation is audited.
+
+The register also exports its full columns to Excel/CSV, replacing the SOP tracking sheet (BR-169).
+
+## 13. Media consent and the publishable list (SOP clause 12, BD-38, O-17, O-28)
+
+- `media_consents` (beneficiary_id, granted, channels[], recorded_at, recorded_by, evidence_file_id nullable, revoked_at) is recorded by an official on the beneficiary profile (`beneficiary.consent.record`); the channel list (website, Facebook, print, video, donor report) is admin-editable (O-17).
+- A file enters the **publishable list** (`media.publishable.manage`) only when its beneficiary has an active consent covering the requested channel; the list item stores `consent_channels_at_publish`. Revocation removes items from the list for future use but keeps the history and what was already published, with the revocation date visible.
+- The Media tab (O-28) shows the consent state next to each beneficiary on the media work list; assets of beneficiaries without consent are visible to the Media Team for planning but marked "not publishable".
+- Media assets never include NID photos or vouchers; the Media Team's file access is limited to `media` bucket assets and distribution photos of beneficiaries on its work list (section 3).
+
+## 14. Locks, retention and storage growth
+
+- **Locks**: `locked_at` is set on vouchers and evidence photos when an official verifies them (BR-122, BR-123; effect `lock:vouchers`, `lock:photos`) and on every project file at project close; a locked file cannot be replaced or unlinked; new files may still be added where the workflow allows (e.g. follow-up photos after close). Only the Monitoring Team's merge revert may re-link locked files (BD-05).
+- **Retention**: permanent for every business file (BD-46, BR-207); the `exports` bucket is the only one with deletion; soft delete (`deleted_at`) exists only for exports.
+- **Storage growth** (BD-46, NFR-30, SYSTEM_ARCHITECTURE §11): the nightly `storage-stats` job records bytes and object counts per bucket and per project, plus database size; the admin screen shows growth per month and the projected date for the configured disk threshold; a monthly summary email goes to the IT team; crossing the threshold raises a monitoring alert.
+- **Backups**: all buckets except `exports` mirrored per O-06; restore drill includes a sample of documents and photos with their metadata rows.
+
+## 15. Tests and open items
+
+Tests (T2.1, T3.1, T5.4): upload validation per kind (type, size, source); resumable upload after a dropped chunk; finalize idempotency; signed URL expiry and denial outside scope (IDOR, 404); sensitive download audit; EXIF/metadata capture and flag setting; duplicate detection warns without blocking; photo-source policy per project; virus-scan quarantine behaviour; document status chain and events; working-day countdown with Friday and holidays; soft warning and non-compliance job; extension stops the countdown; escalation on a second report within 365 days; legacy exemption; quarterly report content; consent gating of the publishable list; locks after verification and close; storage-stats job output.
+
+Open items (DECISION_LOG open question 27, PROPOSAL values):
+1. Virus-scan behaviour: documents and media quarantined until clean; photos and vouchers usable immediately with a `scan_pending` flag.
+2. Duplicate threshold: pHash Hamming distance ≤ 6 within the same project; identical sha256 rejected.
+3. Capture-time freshness window for `stale_capture`: 10 minutes.
+4. Thumbnail sizes 320 px and 1,024 px; media video limit 200 MB; exports lifecycle 30 days.
+5. Hard-copy code segment meanings and the 11 deficiency fields: to confirm against the SOP v2.3 text (input dependency).
+6. Separate backup encryption key for the `profiles` bucket.
+7. Monitoring alert on a high share of flagged photos per volunteer (threshold to set with O-04's other thresholds).
