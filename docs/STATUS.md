@@ -8,8 +8,9 @@
 - T0.11 done (2026-10-10): docs/architecture/WORKFLOW_ENGINE.md complete (common cycle with needs_verification and waitlisted, state diagram, definition format, guard and effect catalogues, activity model and bulk-update pattern, overrides, project lifecycle, versioning, code-vs-data table, worked example of a new project type); workflow-templates/ holds schema.json, _common.yaml and the six templates; ADR-008 written. Design choices approved with the document: post-approval stages are sub-states of implementation; edge cases are outcomes, not states; soft-delete state `deleted` for drafts and pending applications.
 - T0.12 done (2026-10-10): docs/architecture/OFFLINE_SYNC.md complete (cached data set, outbox record and lifecycle, batch and snapshot endpoints, photo queue and resumable upload, conflict rules per record kind, offline NID path, encrypted storage and wipe, form-version handling, sync UI, iOS section, sequence diagrams, test strategy); ADR-010 written. Values not covered by O-07/O-13 were proposed as question 26 and decided the same day as O-29 with additional requirements (Retry-After, payload-size limit, no automatic deletion of unsynced files, secure device-bound keys, recovery table, required tests).
 - T0.13 done (2026-10-10): docs/architecture/FILES_AND_DOCUMENTS.md complete (file kinds and metadata model, signed-URL access, upload pipeline with 256 KB chunks and virus-scan hook, validation table, image handling with EXIF/GPS capture and pHash duplicate warning, per-project photo source setting with the web realisation and its trade-offs, bucket and key layout per SOP 10, SOP document register with status chain, hard-copy codes and retention, working-day deadline countdown and non-compliance, deficiency reports with escalation and legacy marking, quarterly audit report, media consent gating, locks, storage growth, tests). Proposals decided the same day as O-30 with changes (BR-239..241); hard-copy code segments and the 11 deficiency fields wait for the SOP text.
-- Next task: T0.14 - Notifications (docs/architecture/NOTIFICATIONS.md); decide Web Push and the PWA short name.
-- Blocking items: none.
+- T0.14 done (2026-10-10): docs/architecture/NOTIFICATIONS.md complete (principles, channels, recipient resolution by scope, full event matrix with recipients/channels/template keys/phases, mandatory vs optional and preferences, bilingual templates, transactional outbox with retries and status, rate limits and coalescing, OTP path, Qurbani donor messages, Web Push evaluation with a "yes, optional, later" recommendation, privacy, tests); ADR-007 written. Proposals = open question 28.
+- Next task: T0.15 - ERD (docs/database/ERD.md and erd.mermaid).
+- Blocking items: none (question 28 does not block T0.15).
 
 ## Deliverables of T0.1 (complete vs outline)
 Complete:
@@ -26,9 +27,9 @@ Complete:
 - docs/architecture/WORKFLOW_ENGINE.md, workflow-templates/ (schema, _common, six templates), ADR-008 (T0.11)
 - docs/architecture/OFFLINE_SYNC.md, ADR-010 (T0.12)
 - docs/architecture/FILES_AND_DOCUMENTS.md (T0.13)
+- docs/architecture/NOTIFICATIONS.md, ADR-007 (T0.14)
 
 Outlines (headings plus one line per section; completed in the task named in each file):
-- docs/architecture/NOTIFICATIONS.md (T0.14)
 - docs/database/ERD.md (T0.15), DATABASE_SCHEMA.md (T0.16)
 - docs/api/API_STANDARDS.md (T0.17), openapi.yaml skeleton (T0.18)
 - docs/security/SECURITY_POLICY.md (T0.21)
@@ -40,7 +41,7 @@ Outlines (headings plus one line per section; completed in the task named in eac
 - None from T0.1..T0.13. Question 27 answered by O-30 with changes (all uploads quarantined until scanned; stale_capture by captured_at vs record_created_at; flagged-share alert with minimum sample; item 5 pending the SOP text). PWA short name "ASF Charity" (O-31); Bornomala source confirmed (O-32); SMS provider deferred to before production (O-33).
 - Question 26 answered by O-29 (offline sync and mobile storage requirements, BR-236..238). RBAC interpretations confirmed by O-26..O-28. Question 25 answered by O-25 (all seven authentication proposals accepted). Question 24 answered by O-24 (officials enter payment records manually). The T0.8 architecture choices are approved as D-054..D-057 with implementation requirements (worker retries/graceful shutdown/timeouts/idempotency; zod + DB constraints; Caddy with HTTPS and network hardening; monitoring and essential alerting from launch, error-tracking service deferred to T3.0).
 - Interpretations recorded in O-03 (BEN-ID = UUID v7, no short display form), O-09 (initial load from an open dataset), O-16 (admin holiday calendar for public holidays) and O-22 (entry stays with officials) stand unless the owner corrects them.
-- Whether to add Web Push (decide in task T0.14). PWA short name and Bornomala source are resolved (O-31, O-32).
+- Open question 28 (NOTIFICATIONS.md section 14): Web Push (recommendation: yes, optional, off by default, after the Phase 3 pilot), digest default, coalescing, retry give-up, email throttle, deadline reminder, donor channels. PWA short name and Bornomala source are resolved (O-31, O-32).
 - Remaining PROPOSAL rows of docs/NON_FUNCTIONAL_REQUIREMENTS.md (section 13) need the owner's or the IT team's confirmation in T0.21 (NFR-22 photo queue, NFR-35 and NFR-40 are now decided).
 
 ## Prerequisites still open (checked 2026-10-10)

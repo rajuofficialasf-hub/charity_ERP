@@ -106,5 +106,5 @@ Screens of later phases (house construction, self-reliance, dawah, Qurbani, docu
 
 1. Resolved 2026-10-10: Bornomala comes from https://codepotro.com/font/bornomala/ (O-32).
 2. Resolved 2026-10-10: the home-screen short name is "ASF Charity" (O-31).
-3. Whether to add Web Push (section 2, item 5) — decided in task T0.14.
+3. Whether to add Web Push (section 2, item 5): evaluated in task T0.14 (`docs/architecture/NOTIFICATIONS.md` §11); recommendation "yes, optional, off by default, after the Phase 3 pilot, content-free payloads"; owner decides as DECISION_LOG open question 28.
 4. Optional: reflect these decisions in the next version of the blueprint document so both stay aligned.
