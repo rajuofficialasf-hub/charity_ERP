@@ -42,7 +42,7 @@ Outlines (headings plus one line per section; completed in the task named in eac
 - docs/ops/DEPLOYMENT.md and RUNBOOK.md (T3.0, T6.5)
 
 ## Open decisions waiting on the owner
-- Open question 30 (DATABASE_SCHEMA.md section 24): pg_trgm, audit_log partitioning, GPS storage, mobile format check, no row-level security, seed values of four reference lists; recommendations in DECISION_LOG section 6.
+- Open question 30 items 1–5 (DATABASE_SCHEMA.md section 24): pg_trgm, audit_log partitioning, GPS storage, mobile format check, no row-level security; recommendations in DECISION_LOG section 6. Item 6 (seed values of gender, marital status, education, relationship) answered by O-38.
 - Remaining PROPOSAL rows of docs/NON_FUNCTIONAL_REQUIREMENTS.md (section 13) are confirmed in T0.21.
 - Questions 1..29 are answered (O-01..O-37; full list in DECISION_LOG section 5). Interpretations recorded in O-03, O-09, O-16 and O-22 stand unless the owner corrects them. Architecture choices of T0.8 are D-054..D-057.
 

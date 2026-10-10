@@ -136,10 +136,12 @@ Technical table added in T0.16 for O-03 (ERD.md §20).
 |---|---|---|
 | payment_method | bkash, nagad, rocket, bank_transfer (O-22) | payments.method_code |
 | consent_channel | website, facebook, print, video, donor_report (O-17) | media_consents.channels (validated by trigger, array) |
-| gender | to be seeded from the current forms' options (blueprint gives no list) | beneficiaries.gender_code, beneficiary_family_members.gender_code |
-| marital_status | from the current self-reliance form | beneficiaries.marital_status_code |
-| education_level | from the current forms | beneficiaries.education_code |
-| relationship | from the current forms (earner relationship) | beneficiary_family_members.relationship_code |
+| gender | male (পুরুষ), female (মহিলা) — O-38 | beneficiaries.gender_code, beneficiary_family_members.gender_code |
+| marital_status | never_married, married, widowed, divorced, separated, other — O-38 | beneficiaries.marital_status_code |
+| education_level | illiterate, primary, secondary, higher_secondary, graduate, postgraduate — O-38 | beneficiaries.education_code |
+| relationship | self, spouse, son, daughter, father, mother, brother, sister, grandfather, grandmother, grandson, granddaughter, son_in_law, daughter_in_law, other_relative, guardian, non_relative — O-38 | beneficiary_family_members.relationship_code |
+
+Bengali and English labels of these four lists are recorded in DECISION_LOG O-38 and seeded in T1.3.
 
 Enforcement pattern: the referencing column `x_code text` plus a stored generated column `x_list text generated always as ('payment_method') stored`, and `FOREIGN KEY (x_list, x_code) REFERENCES reference_lists(list_key, code)`. Deactivating a code (`active = false`) keeps old rows valid; the service refuses inactive codes for new rows.
 
@@ -1653,4 +1655,4 @@ Row-level security is not used: authorization and scope filtering are enforced i
 3. Store GPS as numeric latitude/longitude/accuracy columns without PostGIS.
 4. Mobile number format check `^01[3-9][0-9]{8}$` (Bangladesh 11-digit mobile) for users, beneficiaries and volunteers' WhatsApp.
 5. No row-level security; one application role with authorization in the API.
-6. Seed values for the `gender`, `marital_status`, `education_level` and `relationship` reference lists from the current forms (the blueprint gives none); the owner supplies or confirms them.
+6. Resolved 2026-10-10 (O-38): seed values of the `gender`, `marital_status`, `education_level` and `relationship` lists (section 5.2).
