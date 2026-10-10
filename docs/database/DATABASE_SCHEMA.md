@@ -35,7 +35,7 @@ Each table section lists its columns (type, null, default, comment), then its ke
 | updated_at | timestamptz | no | now() | set by the application on every update (and by a `set_updated_at` trigger as a backstop) |
 | updated_by | uuid | yes | — | FK users(id) |
 
-`[L]` = log tables (append-only): `created_at timestamptz not null default now()`, `created_by uuid null references users(id)`.
+`[L]` = log tables (append-only): `created_at timestamptz not null default now()`, `created_by uuid null references users(id)`. Append-only is enforced by a BEFORE UPDATE OR DELETE trigger on every `[L]` table that raises an error (O-46; implemented and tested in T1.2).
 
 The **system actor** is a fixed `users` row (`kind = 'system'`, state `active`, cannot log in) used as `created_by` for job-written rows; the originating user is kept in the row (for example `audit_log.actor_user_id`) when a job acts for someone (SYSTEM_ARCHITECTURE §6).
 

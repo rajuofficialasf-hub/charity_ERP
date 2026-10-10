@@ -320,7 +320,7 @@ Module codes refer to `docs/MODULE_CATALOG.md` (M01…M22).
 | BR-218 | Bangla and English are both first-class and switchable per user; no user-facing text is hard-coded; labels, buttons, validation, notifications, errors, statuses, menus, reports and message templates use central i18n keys; the default interface language is Bangla | B9, Q-17, §11, DESIGN_BRIEF §2 | — | M20 | i18n keys | UI + lint | E2E | approved |
 | BR-219 | All numbers (amounts, dates, counts, ids, phone numbers) use English digits 0–9 in both languages; formatting lives in one central utility | UX-05, §11 | — | M20 | — | shared package | unit | approved |
 | BR-220 | Form labels, section names, option lists, status names and workflow stage names are bilingual data | §11, B3 | — | M20, M07 | bilingual columns | DB | unit | approved |
-| BR-221 | ~~A Hijri date may be shown beside the Gregorian date through a setting that is off by default~~ Withdrawn: no Hijri date is shown anywhere | §11, DESIGN_BRIEF §2, O-43 | — | M20, M21 | — | — | — | withdrawn (O-43) |
+| BR-221 | ~~A Hijri date may be shown beside the Gregorian date through a setting that is off by default~~ Retired: no Hijri date is shown anywhere | §11, DESIGN_BRIEF §2, O-43 | — | M20, M21 | — | — | — | retired (O-43) |
 | BR-222 | The system is one installable offline-first PWA for desktop and mobile; no separate mobile app | Q-15, Q-23, D2 | — | M22 | — | client | E2E | approved |
 | BR-223 | Review, approval, lookup, profiles and dashboards are fully usable at 360 px; setup screens (form builder, project setup, permission panel, template and checklist editors) are desktop first and show a notice on phones | UX-03, UX-04 | — | UI | — | UI | visual, E2E | approved |
 | BR-224 | Every list and screen shows its statistics; every filtered list exports to Excel/CSV; beneficiary profile, exam comparison and work summary export to PDF; all form data exports to Excel/CSV and PDF; exports apply the same field-level protection as screens | A11 (statistics, downloads), B8 | — | M16 | — | report | API | approved |
@@ -353,7 +353,7 @@ Module codes refer to `docs/MODULE_CATALOG.md` (M01…M22).
 
 ## 19. Test-status register
 
-Every rule above starts with test status "not yet". When a test exists, record it here as `BR-nnn: <test file>::<test name> — passing/failing (date)`. Update this register in the same commit as the test.
+Every rule above starts with test status "not yet". When a test exists, record it here as `BR-nnn: <test file>::<test name> — passing/failing (date)`. Update this register in the same commit as the test. The procedure (test naming with the rule id, the untested-rules list for each gate, manual rules with a reason) is in `docs/testing/TEST_STRATEGY.md` §7.
 
 (Empty: no code exists yet. Phase 0.)
 

@@ -1,33 +1,200 @@
 # TEST STRATEGY
 
-Status: outline, written in task T0.1 (2026-10-10); completed in task T0.21. Sources: constitution §14, PROJECT_RULES §6, NFR sections 1–2.
+Status: complete for Phase 0, written in task T0.21 (2026-10-10). Binding for every task from T1.1 on and for every phase gate. Sources: constitution §9, §14, §15; PROJECT_RULES §6 and §7; NFR-01, NFR-02, NFR-04 to NFR-10, NFR-46, NFR-49, NFR-51, NFR-54 to NFR-56; RBAC.md §10; OFFLINE_SYNC.md §13; I18N.md §12; decisions D-054, O-29, O-30, O-46 in `docs/DECISION_LOG.md`. Security rules that the tests prove are in `docs/security/SECURITY_POLICY.md`.
 
 ## 1. Principles
-Tested means executed; testing is part of every task; every BR with a test type gets a test; test status recorded in `docs/BUSINESS_RULES.md` section 19.
+
+1. **Tested means executed.** A test counts only when it ran in the current session or CI run and its command and summary output are shown (constitution §2, §15).
+2. **Testing is part of every task.** Each task adds or updates the tests for the behaviour it changes in the same commit; there is no separate "testing phase".
+3. **Every testable business rule has a test.** BUSINESS_RULES.md names the test type per rule; the test-status register (§7) records the executed test.
+4. **Real dependencies where it matters.** Integration and API tests use a real PostgreSQL 16, never a mocked database (O-46 item 1).
+5. **No production data, ever.** Tests use deterministic seeds and factories with obviously fake identities (§4, NFR-49, BD-49).
+6. **Never weaken a check to make a test pass.** A failing security, validation or authorization test is fixed in the code or reported; it is never disabled (constitution §15).
 
 ## 2. Pyramid and tools
-Unit (business rules in `packages/shared`, services), integration (database constraints, cross-module), API/contract (against `openapi.yaml`), E2E (Playwright, including offline emulation), load (k6), accessibility (axe), visual regression, security (authorization matrix, IDOR, upload), data integrity (unique constraints, idempotency), smoke per deployment. Tool choices depend on D-051/D-052.
 
-## 3. Critical E2E journeys
-The twelve journeys of constitution §14 mapped to phases and gates.
+| Layer | Tool | Lives in | Runs |
+|---|---|---|---|
+| Unit | Vitest | `packages/shared/**/*.test.ts`, `apps/api/src/**/*.spec.ts`, `apps/web/**/*.test.tsx` | every push |
+| Component | Vitest + React Testing Library + MSW (handlers typed from `openapi.yaml`) + axe-core | `apps/web`, `packages/ui` | every push |
+| Integration | Vitest against PostgreSQL 16 (docker-compose test profile), one database per test file cloned from a migrated template | `apps/api/test/integration` | every push |
+| API and contract | Supertest + ajv response validation against the bundled `openapi.yaml`; drift test; Redocly lint | `apps/api/test/api`, `docs/api/redocly.yaml` | every push |
+| Authorization matrix | Generated Supertest suite from `permissions.yaml` and the OpenAPI `x-permission`/`x-scope` annotations | `apps/api/test/authz` | every push |
+| E2E | Playwright (Chromium; WebKit for iOS behaviour; offline emulation; throttled 3G profile) | `apps/web/e2e` | smoke subset every push; full nightly and before gates |
+| Accessibility | axe-core inside component tests and Playwright | with the tests above | every push (smoke), full before gates |
+| Visual regression | Playwright `toHaveScreenshot` | `apps/web/e2e/visual` | nightly and before gates |
+| Load | k6 | `tests/load` | before the Phase 3 pilot and every field rollout (T3.4) |
+| Security scans | `pnpm audit`, gitleaks, ESLint security rules, OWASP ZAP baseline (Docker) | CI configuration | audit and gitleaks every push; ZAP before gates from Phase 3 |
+| Smoke | Playwright + HTTP checks against the deployed environment | `tests/smoke` | after every deployment (NFR-51) |
+| Device matrix and UAT | Manual Bengali scripts | `docs/testing/uat/` | before each gate |
 
-## 4. Test data
-Seed framework and demo data (T1.3), anonymized samples from `docs/source/samples/`, dummy OTP, never production data.
+Test environment for automated layers (O-46 item 1): object storage through the local-filesystem adapter (ADR-005), email to Mailpit, SMS to the logging stub, jobs inline (`JOBS_INLINE=true`, test only, D-054), the dummy OTP (BD-44, BD-49), the clock injectable so deadlines, countdowns and token expiry are tested without waiting.
 
-## 5. Environments and CI
-What runs on every commit, before a gate, before a field rollout; test databases and storage adapters; CI provider (to be named in T1.1).
+## 3. What each layer must cover
 
-## 6. Authorization matrix testing
-Generated tests from `permissions.yaml` covering every endpoint × role × scope.
+### 3.1 Unit
 
-## 7. Offline and sync testing
-Outbox, retries, conflicts, photo queue, iOS constraints.
+- Every business rule implemented as a pure function in `packages/shared`: priority score and criteria (BD-17), zakat net assets against the nisab snapshot (BD-28), budget buckets (BD-29), form logic and calculation evaluator (BD-12, BD-14), limits and deadlines (BD-16), stock reconciliation (BD-22), rating proposals (BD-40), working-day countdown (BR-166), permission and scope resolution helpers.
+- The formatter and normalization of I18N.md §6 with the exact outputs (I18N §12).
+- The offline outbox state machine, retry schedule and conflict rules (OFFLINE_SYNC §13, O-29).
+- Workflow guards and effects as units against a template snapshot (WORKFLOW_ENGINE).
 
-## 8. Load testing
-Distribution-day scenario, pass criteria (NFR-02), schedule before the Phase 3 pilot and each rollout.
+### 3.2 Integration
 
-## 9. UAT
-Bengali UAT scripts per gate in `docs/testing/uat/`; who tests at each gate (PLAN §2.4).
+- Database constraints and triggers: unique NID and birth registration, unique `transaction_id`, `client_uuid`, (animal, assigned volunteer), the BD-03 volunteer-mobile trigger, published form immutability, `[L]` log tables append-only (O-46 item 9), `updated_at` backstop.
+- Cross-module effects inside one transaction: approval posting to the ledger and quota, audit entries written with the business write, notifications queued in the outbox (NOTIFICATIONS §7).
+- Jobs: retries, timeouts, idempotent handlers keyed by entity id or `client_uuid`, graceful shutdown (D-054, NFR-60).
+- File pipeline: quarantine until the scan is clean, EICAR rejected, a stopped scanner never marks a file clean (O-30, O-46 item 7).
 
-## 10. Reporting
-How test results are reported in the §15 template and in `docs/STATUS.md`.
+### 3.3 API and contract
+
+- Every endpoint: success, validation errors with codes, authentication failure, permission denial, out-of-scope 404, stale `If-Match` 412, idempotent replay, pagination and rate limit where declared (API_STANDARDS).
+- Every response validated against the `openapi.yaml` schema of that operation by the shared Supertest helper (O-46 item 2).
+- **Drift test** (NFR-54): the spec generated by `@nestjs/swagger` is normalized and compared with `docs/api/openapi.yaml`; any difference fails CI. A contract change therefore needs a deliberate edit of `openapi.yaml` in the same commit (constitution §13).
+- Redocly lint of `openapi.yaml` with `docs/api/redocly.yaml`.
+
+### 3.4 E2E: critical journeys (constitution §14)
+
+| # | Journey | Gate that requires it | Task |
+|---|---|---|---|
+| 1 | Login and logout; role-based denial for every role | Phase 1 | T1.16 |
+| 2 | Volunteer registration with two OTPs, correction, approval | Phase 1 | T1.16 |
+| 3 | Mobile application with NID auto-fill, offline capture and sync, needs-verification path | Phase 2 | T2.9 |
+| 4 | Review, score, waitlist, approval, field unlock | Phase 2 | T2.9 |
+| 5 | Application transfer | Phase 2 | T2.9 |
+| 6 | Today's distribution with photos and stock reconciliation | Phase 3 | T3.5 |
+| 7 | Expense claim and payment record with unique transaction id | Phase 3 | T3.5 |
+| 8 | House-construction issue raise and resolve | Phase 4 | T4.6 |
+| 9 | Self-reliance exam, then payment, then voucher lock | Phase 4 | T4.6 |
+| 10 | Qurbani animal allocation exclusivity | Phase 4 | T4.6 |
+| 11 | Document deadline warning and deficiency report | Phase 5 | T5.6 |
+| 12 | Language switch (persistence, offline, inbox re-rendered) | Phase 1 | T1.16 |
+
+Additional E2E coverage per phase is listed in the gate test tasks of `docs/PLAN.md` (T1.16, T2.9, T3.5, T4.6, T5.6). Journeys run on Chromium; journeys 2, 3, 6 and 12 also run on WebKit for iOS behaviour (NFR-13).
+
+### 3.5 Load (NFR-01, NFR-02)
+
+- Scenario: 2,000 virtual users over 30 minutes on the distribution-day mix (today's distribution bulk save, photo upload start, application submit, sync batches, NID lookup) against staging with production-like data volume.
+- Pass criteria: error rate below 0.5 % and the p95 targets NFR-04 to NFR-10 met; database query plans checked for the hot paths.
+- Schedule: before the Phase 3 pilot and before every field rollout (T3.4, RUNBOOK distribution-day readiness).
+
+### 3.6 Accessibility (NFR-46)
+
+- axe-core with zero serious or critical violations on every screen in bn and en, at 360 px and desktop width.
+- Keyboard-only walkthrough of the review queue, the form renderer and the permission panel before each gate (manual, in the UAT script).
+
+### 3.7 Visual regression (O-46 item 4)
+
+- Key screens of `docs/ui/SCREENS.md` §11 at 360, 768 and 1280 px in bn and en, with the self-hosted fonts loaded for deterministic rendering.
+- Baselines are committed; a changed baseline is reviewed like code; threshold 0.1 % of pixels.
+
+### 3.8 Security tests
+
+| Test | Rule |
+|---|---|
+| Authorization matrix (generated, O-46 item 3) | For every endpoint and role: in scope 2xx, out of scope 404, no grant 403, unauthenticated 401; explicit fixtures for conditions (`if_rpm_grants`, `own_created`, `house_construction_only` and the others in permissions.yaml) |
+| IDOR (RBAC §10) | Cross-project, cross-region and cross-volunteer reads and writes by every project role; batch endpoints report per-record denial |
+| Field-level masks | Every `sensitive_fields` class absent for every non-permitted role in JSON, CSV, XLSX and PDF (one serializer, NFR-38) |
+| Authentication | Lockout after 5 failures, token expiry and rotation, refresh CSRF check, device revocation ends the session and wipes local data, permission change forces a refresh (AUTH.md) |
+| Rate limits | Each class of API_STANDARDS §10 returns 429 with `Retry-After` |
+| Upload | Type, size, path traversal in names, quarantine, EICAR, signed URL expiry after 15 minutes |
+| Errors | No stack trace, SQL or internal path in any error response |
+| Secrets | gitleaks finds nothing; production configuration refuses dummy OTP and seed markers (O-46 item 8) |
+| Dependencies | `pnpm audit` without high or critical findings, or a recorded exception |
+| Dynamic scan | OWASP ZAP baseline against staging before every gate from Phase 3 |
+
+### 3.9 Data integrity
+
+- Unique constraints and idempotency: the same `client_uuid` twice creates one record; the same `Idempotency-Key` replays the first response; a second payment on the same claim is rejected (BD-31); the same transaction id is rejected.
+- Transactions: a failure in any step of a multi-write service leaves no partial rows (approval, merge, transfer, handover).
+- Migrations (NFR-55): in CI every migration is applied up, then all down, then up again on a seeded database; each `down.sql` restores the previous schema exactly (schema dump compared).
+- No hard delete: tests assert that business tables have no delete path in services (NFR-32).
+
+### 3.10 Offline and sync
+
+All cases of OFFLINE_SYNC.md §13 and O-29: offline capture and sync, drops mid-batch and mid-chunk, `Retry-After`, authentication expiry with pending records, storage exhaustion, conflict rules of BD-48, iOS eviction simulation; device-matrix steps in the UAT script.
+
+### 3.11 Localization
+
+All tests of I18N.md §12: formatter outputs, NFC normalization, catalogue and lint checks, fallback, server-side language, publish refusal for missing translations, 360 px screenshots in both languages, PDF snapshot.
+
+### 3.12 Smoke tests after each deployment
+
+Health and readiness endpoints; login with a dedicated smoke account; one read and one write in a dedicated smoke project; a signed URL issued and expired; the job queue processes a no-op job; the version header matches the release. A failing smoke test triggers the rollback in DEPLOYMENT.md (T3.0).
+
+## 4. Test data strategy (O-46 item 8)
+
+| Layer | Content | Used by |
+|---|---|---|
+| Reference seed | Locations, reference lists (O-38), roles and permissions, workflow templates, settings with defaults | every environment except production data import |
+| Demo seed per phase | Demo accounts per role, sample programs and projects, applications in every state | development, staging, UAT |
+| Scenario fixtures | Factories in `packages/shared/testing` building exactly the rows a test needs | unit, integration, API, E2E |
+
+- Deterministic: a fixed random seed, fixed clock in tests, stable UUIDs in fixtures where snapshots depend on them.
+- Obviously fake identities: NIDs from 1000000000 to 1000099999, birth-registration numbers starting with 1000000, phone numbers 0170000xxxx, email addresses at example.org, demo names marked "(নমুনা)", donors and transaction ids prefixed `TEST-`.
+- Anonymized sample forms from `docs/source/samples/` only after the owner supplies them; never real NIDs, phone numbers, bank details or donor data in the repository.
+- The dummy OTP works only in development and test. Production refuses to start when the dummy-OTP mode or a seed marker row is present (seed guard, SECURITY_POLICY §20).
+- Production data never flows to test, staging or a developer machine (NFR-49). A production problem is reproduced with fixtures.
+
+## 5. Coverage expectations (O-46 item 5)
+
+| Area | Minimum |
+|---|---|
+| Business-rule modules in `packages/shared` | 90 % of lines and branches |
+| API services, guards and serializers | 80 % of lines |
+| Web components and hooks | 70 % of lines |
+| Business rules | Every testable BR has at least one executed test before the gate of its phase; otherwise the register marks it manual with a reason |
+| Critical journeys | All journeys of §3.4 required by the gate pass |
+| Endpoints | Every operation in `openapi.yaml` has at least one API test and appears in the authorization matrix |
+
+There is no single global coverage number; coverage is reported per package by Vitest in CI and summarized in each gate report.
+
+## 6. CI gate
+
+The CI provider is named in T1.1 (on the organization's Git hosting, constitution §9). The pipeline fails on the first failing stage.
+
+| When | Stages, in order |
+|---|---|
+| Every push and pull request | 1. Install with the frozen lockfile. 2. Lint (including the i18n literal-text rule) and typecheck. 3. i18n catalogue check (I18N §4). 4. Unit and component tests with axe. 5. Integration and API tests, including the authorization matrix. 6. Contract: drift test and Redocly lint. 7. Migrations up, down, up. 8. Build. 9. E2E smoke subset with axe. 10. `pnpm audit` and gitleaks |
+| Nightly and before every gate | Full E2E on Chromium and WebKit, visual regression, full axe in both languages, bundle-size check against NFR-15, OWASP ZAP baseline against staging (from Phase 3) |
+| Before a field rollout | k6 load test (§3.5) |
+| After every deployment | Smoke tests (§3.12) |
+
+Merging to `main` requires the push stages to pass. Gate tags (`gate-phase-N`) require the nightly set to pass on the tagged commit.
+
+## 7. How BUSINESS_RULES.md tracks test status
+
+- Each rule row names the expected test type (unit, integration, API, E2E, manual, none).
+- When a test exists and runs, the test-status register (BUSINESS_RULES §19) gets one line in the same commit: `BR-nnn: <test file>::<test name> — passing (date)`.
+- Tests reference their rule in the test name (`BR-097 score recomputed on answer change`) so a script can match tests and rules.
+- Before each gate, a script lists the testable rules of the phase's modules without a register line; the gate report shows that list with a reason per rule (T1.16 and the later consolidation tasks).
+- Rules tested only by hand (policy rules, physical procedures) are marked manual with the reason in the register; retired rules need no test.
+
+## 8. Environments
+
+| Environment | Purpose | Data | Tests that run there |
+|---|---|---|---|
+| Development | Developer machines, docker-compose | Reference and demo seed | All automated layers locally |
+| Test | CI | Fresh per run: reference seed plus fixtures | Push and nightly stages |
+| Staging | Release candidate on the organization's server | Demo seed and generated volume data for load tests | E2E against deployed build, ZAP, k6, UAT, smoke |
+| Production | Field use | Real data | Smoke tests with the dedicated smoke account and project only |
+
+## 9. What each phase gate must run
+
+| Gate | BR coverage | API and contract | E2E journeys (§3.4) | Other required runs | Manual |
+|---|---|---|---|---|---|
+| Phase 1 (T1.16, T1.17) | Phase 1 modules | All Phase 1 endpoints, drift, authorization matrix | 1, 2, 12 plus the T1.16 list | axe on every Phase 1 screen in both languages; visual baselines created; migrations up/down/up | UAT script PHASE_1, keyboard walkthrough |
+| Phase 2 (T2.9, T2.10) | Phase 2 modules | All Phase 2 endpoints, drift, matrix | 3, 4, 5 plus the T2.9 list | Offline and sync suite; bundle size and Lighthouse (NFR-15, NFR-16); exports per role | UAT PHASE_2, device matrix (Android 2 GB, iPhone Safari and installed PWA) |
+| Phase 3 pilot (T3.4, T3.5, T3.6) | Phase 3 modules | Phase 3 endpoints, drift, matrix | 6, 7 | k6 distribution day (NFR-02); ZAP baseline; deployment smoke tests; backup and restore check on staging | UAT PHASE_3 on staging, pilot go-live checklist |
+| Phase 4 (T4.6, T4.7) | Phase 4 modules | Phase 4 endpoints, drift, matrix | 8, 9, 10 | ZAP baseline; k6 again before a new field rollout | UAT PHASE_4 per project type |
+| Phase 5 (T5.6, T5.7) | Phase 5 modules | Phase 5 endpoints, drift, matrix | 11 | ZAP baseline; audit-log completeness check for every constitution §13 event | UAT PHASE_5 |
+| Phase 6 (T6.3 to T6.6) | Every BR tested or marked manual | Full suite | All 12 | T6.3 security audit (OWASP ASVS level 2 checklist), T6.4 performance audit, full restore drill against RPO and RTO (O-06), migration rollback rehearsal, the pre-production checklist of SECURITY_POLICY §20 | UAT closure, go/no-go |
+
+Each gate produces `docs/testing/uat/PHASE_N_UAT_BN.md` before the session and `docs/gates/PHASE_N_SIGNOFF.md` with the executed commands, outputs, coverage per layer and the untested-rules list.
+
+## 10. Reporting and flaky tests
+
+- Every task report uses the §15 template; the Tests section shows the commands run and their summary output.
+- `docs/STATUS.md` keeps the "last test run" line with date, scope and result.
+- Gate sign-off files hold the full results (§9).
+- Flaky tests (O-46 item 10): unit and API tests never retry automatically; E2E tests get one retry in CI and the retry is reported; a flaky test is quarantined for at most 7 days with an entry under known issues in STATUS, then fixed or deleted with the reason recorded.

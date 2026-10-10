@@ -17,8 +17,9 @@
 - T0.19b built (2026-10-10): docs/ui/mockups/ holds index.html with 360/768/1280 preview frames, the 14 pilot screens of DESIGN_BRIEF section 6 in Bangla with fake data, tokens.css (DESIGN_SYSTEM section 2.9), components.css, mockup.js, icons.js (96 Lucide icons, ISC), local fonts and logo, and README.md (how to open, verification, 11 listed deviations from the design system). Static files only, no network at view time.
 - T0.19b approved by the owner on 2026-10-10 (O-41, "Phase 0 mockups approved"); focus-ring outline and split-view widths with column priority 4 written into DESIGN_SYSTEM.md.
 - O-42 (2026-10-10): Taka below 10 lakh in lakh grouping (৳ 3,00,000), from 10 lakh in millions (৳ 1 মিলিয়ন); mockups updated. Details confirmed: at most 2 decimals, million form only in dashboards and summaries (exact amounts in entry fields, ledgers, vouchers, exports, PDF), threshold 10 lakh or more, counts never in millions.
-- T0.20 done (2026-10-10): docs/ui/I18N.md complete (principles, locale resolution, message catalogue with ICU and typed keys, no-hard-coded-strings rule with four enforcement layers, server-side localization per output, one formatter with an exact format table including O-42 Taka display and 12-hour time with Bengali day periods, NFC and digit normalization, bilingual-data inventory and rules, fallback table, exports/PDF/email/SMS, third-language process, tests, implementation map). Owner answers O-43 (both languages required for configuration, Hijri withdrawn, no runtime message overrides, 12-hour time) and technical choices O-44 recorded; BR-221 withdrawn, BR-243 to BR-245 added; export_jobs.locale added; hijri_date removed from user preferences; i18n.manage description corrected; mockup times converted to 12-hour.
-- Next task: T0.21 - Test strategy and security policy (docs/testing/TEST_STRATEGY.md, docs/security/SECURITY_POLICY.md).
+- T0.20 done (2026-10-10): docs/ui/I18N.md complete (principles, locale resolution, message catalogue with ICU and typed keys, no-hard-coded-strings rule with four enforcement layers, server-side localization per output, one formatter with an exact format table including O-42 Taka display and 12-hour time with Bengali day periods, NFC and digit normalization, bilingual-data inventory and rules, fallback table, exports/PDF/email/SMS, third-language process, tests, implementation map). Owner answers O-43 (both languages required for configuration, Hijri withdrawn, no runtime message overrides, 12-hour time) and technical choices O-44 recorded; BR-221 retired, BR-243 to BR-245 added; export_jobs.locale added; hijri_date removed from user preferences; i18n.manage description corrected; mockup times converted to 12-hour.
+- T0.21 done (2026-10-10): docs/testing/TEST_STRATEGY.md complete (principles, pyramid and tools, coverage per layer incl. the 12 critical journeys mapped to gates, load, accessibility, visual, security, data integrity, offline, i18n, smoke; test data strategy; coverage targets; CI gate stages; BR test-status tracking; environments; per-gate run table; flaky-test policy). docs/security/SECURITY_POLICY.md complete (roles, data classification, OWASP Top 10 mapping, authentication and sessions, authorization and field protection, input validation, web and transport security, uploads, secrets, logging, dependencies, error handling, audit event map, retention, backups, devices, privacy, incident response, secure release, pre-production checklist, exceptions). Owner answers O-45 (logs 90 days, incidents to IT lead and Department Head within 24 hours, no external pentest for now) and technical choices O-46 recorded; NFR targets confirmed as O-47; [L] tables append-only by trigger; BR-221 status wording corrected to retired; API_STANDARDS section references corrected.
+- Next task: T0.22 - Phase 0 gate: consistency check and sign-off.
 - Blocking items: none.
 - Git: the owner pushed main to origin on 2026-10-10 up to ceb4e50 (verified: main...origin/main in sync); later commits are local until the next push.
 
@@ -27,7 +28,7 @@ Complete:
 - docs/MASTER_SPEC.md (Parts A, B, C, D, both appendices, open questions)
 - docs/PROJECT_RULES.md
 - docs/MODULE_CATALOG.md (22 modules)
-- docs/BUSINESS_RULES.md (BR-001..BR-245, BR-221 withdrawn, gaps list; test-status register empty until code exists)
+- docs/BUSINESS_RULES.md (BR-001..BR-245, BR-221 retired, gaps list; test-status register empty until code exists)
 - docs/DECISION_LOG.md (Q-01..Q-47, BD-01..BD-49, D-050..D-053 proposed, UX-01..UX-13 approved, Open 1..23)
 - docs/NON_FUNCTIONAL_REQUIREMENTS.md (NFR-01..NFR-59, PROPOSAL rows need approval)
 
@@ -44,15 +45,15 @@ Complete:
 - docs/api/openapi.yaml and redocly.yaml (T0.18; later phases extend it)
 - docs/ui/DESIGN_SYSTEM.md and SCREENS.md (T0.19)
 - docs/ui/I18N.md (T0.20)
+- docs/testing/TEST_STRATEGY.md and docs/security/SECURITY_POLICY.md (T0.21)
 
 Outlines (headings plus one line per section; completed in the task named in each file):
-- docs/security/SECURITY_POLICY.md (T0.21)
-- docs/testing/TEST_STRATEGY.md (T0.21), testing/uat/README.md, gates/README.md
+- docs/testing/uat/README.md, gates/README.md
 - docs/ops/DEPLOYMENT.md and RUNBOOK.md (T3.0, T6.5)
 
 ## Open decisions waiting on the owner
 - None. Question 30 answered by O-38 (reference list seeds) and O-39 (pg_trgm, audit_log partitioning, GPS columns, mobile check, no row-level security).
-- Remaining PROPOSAL rows of docs/NON_FUNCTIONAL_REQUIREMENTS.md (section 13) are confirmed in T0.21.
+- NFR PROPOSAL rows confirmed by O-47 (T0.21); NFR-31, NFR-33, NFR-35 feasibility and the NFR-42 network rule wait for the IT team.
 - Questions 1..30 are answered (O-01..O-39; full list in DECISION_LOG section 5). Interpretations recorded in O-03, O-09, O-16 and O-22 stand unless the owner corrects them. Architecture choices of T0.8 are D-054..D-057.
 
 ## Prerequisites still open (checked 2026-10-10)

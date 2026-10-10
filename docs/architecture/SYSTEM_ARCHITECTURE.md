@@ -184,7 +184,7 @@ Every request to `/api/v1` passes these steps in this order. A failure at any st
         for ASSIGNED, an assignment row must exist (BR-160, BR-120)
  9  input validation
       - DTO validated with the zod schema from packages/shared (same schema the PWA used offline);
-        field-level errors with i18n keys (API_STANDARDS §4)
+        field-level errors with i18n keys (API_STANDARDS §3, §7)
 10  idempotency (sync batches, payments, public form)
       - client_uuid / idempotency key looked up; a repeat returns the stored result (BR-194, BR-134)
 11  application service
