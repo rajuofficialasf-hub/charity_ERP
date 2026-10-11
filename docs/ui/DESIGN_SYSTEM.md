@@ -1,6 +1,6 @@
 # DESIGN SYSTEM
 
-Status: complete for Phase 0, written in task T0.19 (2026-10-10). This is the binding UI specification for the clickable mockups (T0.19b), `packages/ui` (T1.4) and every screen built afterwards. Screens are listed in `docs/ui/SCREENS.md`.
+Status: complete for Phase 0, written in task T0.19 (2026-10-10); premium refresh for UX-14 on 2026-10-11 (elevation, gradients, motion and component finish below; submitted for the owner's approval before T1.4). This is the binding UI specification for the clickable mockups (T0.19b), `packages/ui` (T1.4) and every screen built afterwards. Screens are listed in `docs/ui/SCREENS.md`.
 
 Sources and precedence: the owner's latest instruction, then `docs/ui/DESIGN_BRIEF.md` (owner decisions UX-01 to UX-13), then `docs/DECISION_LOG.md` O-40 (the design-system choices of this task), then constitution §11 and §12, then this document. Colours, contrast values and fonts come from `docs/ui/brand/colors.md` and `docs/ui/brand/fonts/README.md`. No colour may be used that is not listed in §2.1. A new token needs a decision in DECISION_LOG.md first.
 
@@ -124,10 +124,32 @@ All three use `font-display: swap`, are self-hosted (no font CDN at runtime) and
 
 | Token | Value | Use |
 |---|---|---|
+Layered shadows tinted with brand ink (UX-14): a tight contact shadow plus a soft ambient one; never pure black.
+
+| Token | Value | Use |
+|---|---|---|
 | `--elevation-0` | none | Flat content, table rows, page regions |
-| `--elevation-1` | `0 2px 6px 2px rgba(0, 0, 0, 0.03)` plus a 1px `--color-border-default` border | Cards, stat cards, the sticky header (the website's card shadow) |
-| `--elevation-2` | `0 4px 16px rgba(15, 41, 32, 0.12)` | Menus, dropdowns, toasts, drawers, bottom sheets, the sticky action bar |
-| `--elevation-3` | `0 8px 32px rgba(15, 41, 32, 0.18)` | Modals and confirm dialogs, over the scrim |
+| `--elevation-1` | `0 1px 2px rgba(15, 41, 32, 0.04), 0 2px 8px rgba(15, 41, 32, 0.05)` with a 1px `--border-subtle` border | Cards, stat cards, attention items, tables, inputs (contact shadow only) |
+| `--elevation-2` | `0 2px 4px rgba(15, 41, 32, 0.05), 0 8px 24px rgba(15, 41, 32, 0.09)` | Menus, dropdowns, drawers, bottom sheets, the split-view panel |
+| `--elevation-3` | `0 4px 8px rgba(15, 41, 32, 0.06), 0 20px 48px rgba(15, 41, 32, 0.16)` | Modals, confirm dialogs, toasts, the login card |
+| `--elevation-hover` | `0 4px 8px rgba(15, 41, 32, 0.06), 0 14px 32px rgba(15, 41, 32, 0.12)` | Hover on clickable cards and attention items (pointer devices) |
+| `--elevation-brand` | `0 1px 2px rgba(0, 123, 62, 0.24), 0 6px 16px rgba(0, 123, 62, 0.22)` | Primary buttons |
+| `--border-subtle` | `rgba(15, 41, 32, 0.08)` | Card, table and panel borders (replaces the hard default border on raised surfaces) |
+
+### 2.6a Gradients and glow (UX-14)
+
+Gradients are built only from brand tokens and appear only in headers, hero areas and dashboard highlights; never behind forms, tables or running text.
+
+| Token | Value | Use |
+|---|---|---|
+| `--gradient-hero` | `linear-gradient(135deg, var(--color-brand-primary-dark) 0%, var(--color-brand-ink) 100%)` | Hero headers of home screens and dashboards (`.page-head.hero`) |
+| `--gradient-brand` | `linear-gradient(135deg, var(--color-brand-primary) 0%, var(--color-brand-primary-dark) 100%)` | Progress fills, chart bars, active indicators (nav, tab, tab bar); never behind small text |
+| `--gradient-soft` | `linear-gradient(180deg, var(--color-bg-brand-soft) 0%, var(--color-bg-surface) 100%)` | Avatars, selected chips, photo placeholders, empty-state halo |
+| `--gradient-accent-line` | `linear-gradient(90deg, var(--color-brand-primary) 0%, var(--color-brand-accent) 100%)` | The 3 px top line of stat cards (decoration; amber stays decorative) |
+| `--glow-accent` | amber radial glow at 16 % in the hero's top right corner | Decoration of the hero only |
+| `--ring-brand` | `0 0 0 4px rgba(0, 142, 72, 0.16)` | Focus glow of inputs and hover glow of custom checkboxes |
+
+Contrast on gradients is checked against the lightest stop: white text on `--gradient-hero` is 5.38:1 at #007B3E; secondary text on the hero is white at 94 % (4.95:1); translucent elements on the hero (secondary button, chips) use at most 8 % white fill (4.64:1). The primary button keeps #007B3E with at most a 6 % white sheen (4.82:1 at the top edge).
 
 ### 2.7 Focus, motion and layers
 
@@ -135,8 +157,10 @@ All three use `font-display: swap`, are self-hosted (no font CDN at runtime) and
 |---|---|---|
 | `--focus-ring` | `0 0 0 2px var(--color-bg-surface), 0 0 0 4px var(--color-brand-primary)` | A 2 px green ring with a 2 px surface-colour gap; #008E48 reaches 4.23:1 on surface and 3.75:1 on muted, above the 3:1 rule. It may also be drawn as a 2 px `--color-brand-primary` outline with a 2 px offset, which components with their own shadow cannot hide (O-41) |
 | `--motion-fast` | 120ms | Hover, pressed and toggle feedback |
-| `--motion-base` | 200ms | Drawers, sheets, dialogs; the maximum for any animation |
-| `--ease-standard` | `cubic-bezier(0.2, 0, 0, 1)` | All transitions |
+| `--motion-base` | 200ms | Drawers, sheets, toggles, card lift; the maximum for feedback |
+| `--motion-slow` | 320ms | Entrances only: dialogs, toasts, the page content (UX-14) |
+| `--ease-standard` | `cubic-bezier(0.2, 0, 0, 1)` | Colour and shadow transitions |
+| `--ease-out` | `cubic-bezier(0.16, 1, 0.3, 1)` | Movement: lifts, entrances, the one-time 700 ms growth of progress and chart bars |
 | `--z-sticky` | 10 | Sticky table headers, sticky action bar |
 | `--z-nav` | 20 | App bar, bottom tab bar, sidebar |
 | `--z-banner` | 30 | Offline and update banners |
@@ -144,7 +168,7 @@ All three use `font-display: swap`, are self-hosted (no font CDN at runtime) and
 | `--z-modal` | 50 | Modals and confirm dialogs |
 | `--z-toast` | 60 | Toasts |
 
-Only `transform` and `opacity` are animated. With `prefers-reduced-motion: reduce`, all durations become 0 and nothing slides.
+Movement uses only `transform` and `opacity`. Colour and shadow transitions run only on hover-capable devices; on touch devices they change without transition (§7). With `prefers-reduced-motion: reduce`, all durations become 0, keyframe animations are switched off and nothing slides.
 
 ### 2.8 Breakpoints and sizes (O-40)
 
@@ -222,17 +246,30 @@ CSS custom properties cannot be used inside media queries, so the breakpoints ar
   --leading-body: 1.5;
   --leading-heading: 1.4;
 
-  /* elevation */
+  /* elevation (UX-14): soft layered shadows tinted with brand ink; never pure black */
   --elevation-0: none;
-  --elevation-1: 0 2px 6px 2px rgba(0, 0, 0, 0.03);
-  --elevation-2: 0 4px 16px rgba(15, 41, 32, 0.12);
-  --elevation-3: 0 8px 32px rgba(15, 41, 32, 0.18);
+  --elevation-1: 0 1px 2px rgba(15, 41, 32, 0.04), 0 2px 8px rgba(15, 41, 32, 0.05);
+  --elevation-2: 0 2px 4px rgba(15, 41, 32, 0.05), 0 8px 24px rgba(15, 41, 32, 0.09);
+  --elevation-3: 0 4px 8px rgba(15, 41, 32, 0.06), 0 20px 48px rgba(15, 41, 32, 0.16);
+  --elevation-hover: 0 4px 8px rgba(15, 41, 32, 0.06), 0 14px 32px rgba(15, 41, 32, 0.12);
+  --elevation-brand: 0 1px 2px rgba(0, 123, 62, 0.24), 0 6px 16px rgba(0, 123, 62, 0.22);
+  --border-subtle: rgba(15, 41, 32, 0.08);
+
+  /* gradients (UX-14): only in headers, hero areas and dashboard highlights; built from brand tokens */
+  --gradient-brand: linear-gradient(135deg, var(--color-brand-primary) 0%, var(--color-brand-primary-dark) 100%);
+  --gradient-hero: linear-gradient(135deg, var(--color-brand-primary-dark) 0%, var(--color-brand-ink) 100%);
+  --gradient-soft: linear-gradient(180deg, var(--color-bg-brand-soft) 0%, var(--color-bg-surface) 100%);
+  --gradient-accent-line: linear-gradient(90deg, var(--color-brand-primary) 0%, var(--color-brand-accent) 100%);
+  --glow-accent: radial-gradient(circle at 88% 0%, rgba(232, 182, 93, 0.16) 0, rgba(232, 182, 93, 0) 38%);
+  --ring-brand: 0 0 0 4px rgba(0, 142, 72, 0.16);
 
   /* focus and motion */
   --focus-ring: 0 0 0 2px var(--color-bg-surface), 0 0 0 4px var(--color-brand-primary);
   --motion-fast: 120ms;
   --motion-base: 200ms;
+  --motion-slow: 320ms;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* layers */
   --z-sticky: 10;
@@ -260,7 +297,7 @@ CSS custom properties cannot be used inside media queries, so the breakpoints ar
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root { --motion-fast: 0ms; --motion-base: 0ms; }
+  :root { --motion-fast: 0ms; --motion-base: 0ms; --motion-slow: 0ms; }
 }
 ```
 
@@ -326,6 +363,18 @@ Form builder, project setup, permission panel, template and checklist editors, a
 ## 5. Component inventory
 
 Every base component of constitution §12, built once in `packages/ui` (T1.4) and reused everywhere. Each component accepts `className` only for layout (margin, grid placement), never to change its colours or typography. All visible text comes from i18n keys. Accessibility behaviour follows the WAI-ARIA Authoring Practices pattern named; the headless primitive library is chosen in T1.4 with an ADR (O-40 item 8).
+
+**Premium finish (UX-14).** Every component below follows the same finish, implemented in the refreshed mockups (`docs/ui/mockups/components.css`):
+- **Surfaces:** cards, tables, attention items and panels use `--elevation-1` with `--border-subtle`; clickable cards lift 2 px with `--elevation-hover` on hover; stat cards carry the `--gradient-accent-line` top line and a 24 px (phone) / 28 px (desktop) value in brand ink.
+- **Buttons:** primary on #007B3E with a 6 % sheen and `--elevation-brand`, lifting 1 px on hover and pressing to 98 % on tap; secondary on surface with a translucent dark-green border, brand-soft on hover; danger with a red-tinted shadow.
+- **Fields:** a contact shadow at rest, darker border on hover, `--color-brand-primary-dark` border plus `--ring-brand` glow on focus; checkboxes and radios are restyled native inputs (dark-green fill with a white check, radio as a thick ring) that stay keyboard- and screen-reader-native.
+- **Choice controls:** the segmented control is a muted track with a raised white segment; chips are pills, the selected chip uses `--gradient-soft`; tabs get a 3 px brand-gradient underline; the switch thumb has a soft shadow and eases with `--ease-out`.
+- **Tables:** sticky header on a translucent muted background with a light blur (desktop), roomier 12 px rows, a brand-soft hover tint, a 4 px brand bar on the selected row, and inline row actions that appear on hover or keyboard focus (always visible on touch screens).
+- **Overlays:** dialogs enter with a 320 ms rise and fade over a blurred scrim, the footer sits on the canvas colour; toasts rise in.
+- **Feedback:** badges are pills with a soft inner ring; progress fills and chart bars use `--gradient-brand` and grow once on load; the current timeline step has a soft green halo; skeletons shimmer with a moving highlight (transform only).
+- **Empty states:** a simple illustration: the icon in brand dark green on a `--gradient-soft` disc with two faint concentric rings.
+- **Hero header:** home screens and dashboards (`.page-head.hero`) use `--gradient-hero` with the amber glow and a faint ring motif, white title and buttons adapted for the dark surface; the login screen uses a soft brand-soft radial wash behind a floating card.
+- **Navigation:** the active nav item has a brand-soft wash and a glowing gradient indicator; the app bar and the phone tab bar are near-opaque white with a soft shadow (glass blur only from 1024 px).
 
 Supporting pieces used by several components: **Icon** (Lucide, 20 px default, 16 px in dense tables, stroke 2, `aria-hidden` unless it is the only content, O-40), **Avatar** (photo or initials on brand-soft, never a sensitive photo), **Toast** (a polite status message, 4 to 6 seconds, never the only place an error is reported), **Sticky action bar**, **Photo tile** (§6.5), **Bottom sheet** (the phone variant of Drawer).
 
@@ -640,7 +689,7 @@ Targets: low-cost Android phones with 2 GB RAM and Chrome (primary), iPhones wit
 1. **Bundle:** the volunteer PWA's first route is at most 250 KB of compressed JavaScript (NFR-15); dashboards, charts, the form builder and the permission panel load on demand and never ship in the volunteer bundle.
 2. **Lists:** 25 items per page with cursor paging; "load more" instead of infinite scroll; never keep more than about 200 rows in the DOM.
 3. **Images:** thumbnails lazy-loaded at small sizes; full images only on tap; photos compressed on the phone before upload (NFR-25).
-4. **Effects:** no backdrop blur (the website header blur is too expensive on low-end phones), no parallax, no box-shadow animation; only transform and opacity, at most 200 ms (§2.7).
+4. **Effects:** no backdrop blur below 1024 px (glass effects only on desktop, UX-14), no parallax, no box-shadow or colour transitions on touch devices; movement only with transform and opacity, at most 200 ms for feedback and 320 ms for entrances (§2.7); gradients are static images, never animated.
 5. **Fonts:** three font files precached; text renders immediately with the fallback (`font-display: swap`).
 6. **Viewport:** use `100dvh` for full-height layouts; respect `env(safe-area-inset-*)` for the app bar, bottom tab bar and sticky action bars on iPhones with a home indicator.
 7. **Inputs:** text inside inputs at least 16 px on phones (iOS zoom); correct `inputmode` (numeric for NID, tel for phones, decimal for money); `autocomplete` off for beneficiary data.
@@ -696,6 +745,9 @@ Accessibility (WCAG 2.2 AA, constitution §10):
 | Wrap Bengali text to two lines | Truncate names, ids or amounts on detail screens |
 | Use one primary button per region | Place two primary buttons side by side |
 | Use the Confirm dialog with a reason for reject, waitlist, blocklist, unlock | Execute irreversible actions on a single tap |
+| Use gradients only in hero headers and dashboard highlights (UX-14) | Put gradients behind forms, tables or running text |
+| Check text contrast against the lightest gradient stop | Rely on the dark end of a gradient for contrast |
+| Lift and glow on hover with the elevation tokens | Invent shadows, colours or animation timings per page |
 
 ## 11. Theming note: future dark theme
 
@@ -708,7 +760,7 @@ Light theme only for now (DESIGN_BRIEF §2 item 3). The system is ready for a da
 
 ## 12. Implementation notes
 
-- **T0.19b mockups:** `docs/ui/mockups/tokens.css` copies §2.9 exactly; `components.css` implements §5; Lucide SVGs and the font files are copied locally; nothing loads from the internet at view time.
+- **T0.19b mockups:** `docs/ui/mockups/tokens.css` copies §2.9 exactly; `components.css` implements §5 including the UX-14 premium finish (refreshed 2026-10-11); Lucide SVGs and the font files are copied locally; nothing loads from the internet at view time.
 - **T1.4 packages/ui:** tokens in one CSS file plus a TypeScript constants file (breakpoints for Tailwind), Tailwind theme bound to the CSS variables, the components of §5 documented in this file, axe tests per component, the headless primitive library chosen with an ADR, the UbuntuSans subset decision (§2.5).
 - **T1.5:** the formatting utility for digits, numbers, dates and currency (I18N.md).
 - **T1.15:** app shell and My Work homes per SCREENS.md.

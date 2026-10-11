@@ -7,8 +7,10 @@
 <link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="components.css">
 <style>
-  .auth { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; padding: var(--space-5) var(--space-4) var(--space-6); }
-  .auth-card { width: 100%; max-width: 440px; }
+  .auth { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; padding: var(--space-5) var(--space-4) var(--space-6);
+    background: radial-gradient(120% 60% at 50% -10%, var(--color-bg-brand-soft) 0%, rgba(206, 245, 227, 0) 70%), var(--color-bg-canvas); }
+  .auth-card { width: 100%; max-width: 440px; box-shadow: var(--elevation-3); border: 0; }
+  @media (min-width: 640px) { .auth-card { padding: var(--space-5); } }
   .auth-card.wide { max-width: 720px; }
   .auth-logo { display: block; height: 72px; width: auto; margin: var(--space-4) auto var(--space-2); }
   .auth-name { text-align: center; margin-bottom: var(--space-5); }

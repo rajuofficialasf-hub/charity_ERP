@@ -38,6 +38,12 @@ Run with Playwright (playwright-core 1.49.1 driving the installed Chrome) from t
 
 Screenshots were reviewed at all three widths; layout problems found during review were fixed (review list columns at 1280 px, stock summary position on phones, number wrapping, progress bars in phone cards, native date format, offline icon).
 
+## Premium refresh (UX-14, 2026-10-11)
+
+The owner asked for a premium, polished look before Phase 1 screens are built (UX-14). The refresh changes `tokens.css` (layered elevation, gradient, glow and focus-glow tokens, slower entrance motion), `components.css` (the finish described in DESIGN_SYSTEM §5 "Premium finish") and three screens: hero headers on 02 (volunteer home), 10 (project dashboard) and 11 (management home), gradient chart bars on 10, and a soft brand wash with a floating card on 01 (login). Colours still come only from brand tokens; glass blur is used only from 1024 px; touch devices animate only transform and opacity; `prefers-reduced-motion` switches every animation off.
+
+Verification after the refresh (same Playwright scripts as below): 45 of 45 renders clean, 51 of 51 interaction checks passed, axe-core 0 violations at 360 and 1280 px. Text on gradients was checked by calculation against the lightest stop (DESIGN_SYSTEM §2.6a): hero title 5.38:1, hero subtitle 4.95:1, hero secondary button and chips 4.64:1, primary button top edge 4.82:1.
+
 ## Deviations from the design system
 
 | # | Where | Deviation | Reason / proposal |

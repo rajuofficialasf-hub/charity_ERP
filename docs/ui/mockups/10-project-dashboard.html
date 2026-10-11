@@ -9,17 +9,17 @@
 <style>
   .funnel { display: flex; flex-direction: column; gap: var(--space-2); }
   .funnel-row { display: grid; grid-template-columns: 112px minmax(0, 1fr) 64px; gap: var(--space-2); align-items: center; font-size: 14px; }
-  .funnel-bar { height: 20px; border-radius: var(--radius-sm); background: var(--color-brand-primary); }
+  .funnel-bar { height: 20px; border-radius: var(--radius-full); background: var(--gradient-brand); box-shadow: 0 2px 6px rgba(0, 123, 62, 0.18); transform-origin: left center; animation: grow-x 700ms var(--ease-out) both; }
   .funnel-bar.s2 { background: var(--color-brand-ink); }
   .funnel-bar.s3 { background: var(--color-brand-accent); }
-  .funnel-bar.s4 { background: var(--color-border-strong); }
+  .funnel-bar.s4 { background: var(--color-border-strong); box-shadow: none; }
   .funnel-row .tnum { text-align: right; font-weight: var(--font-weight-bold); }
 </style>
 </head>
 <body data-shell="official" data-active="dashboard" data-user-name="নাজমুল হক (নমুনা)" data-user-initials="না" data-user-role="PM · মানবিক সহায়তা প্রোগ্রাম">
 <main id="main">
   <nav class="breadcrumb" aria-label="অবস্থান"><ol><li><a href="11-management-home.html">আমার কাজ</a></li><li aria-current="page">শীতবস্ত্র বিতরণ 2026</li></ol></nav>
-  <div class="page-head">
+  <div class="page-head hero">
     <div class="page-title"><h1>শীতবস্ত্র বিতরণ 2026</h1><p class="page-sub">মানবিক সহায়তা প্রোগ্রাম · সক্রিয় · শেষ তারিখ 30-11-2026</p></div>
     <div class="cluster">
       <select class="select" style="width:auto" aria-label="এলাকা"><option>সব রিজিওন</option><option>ঢাকা রিজিওন</option><option>রংপুর রিজিওন</option></select>
