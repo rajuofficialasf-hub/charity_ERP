@@ -1,0 +1,122 @@
+{
+  "auth": {
+    "invalid_credentials": "The mobile number, email or password is incorrect.",
+    "account_locked": "The account is locked for a while after repeated failed attempts. Try again later.",
+    "account_pending": "Your registration is still waiting for approval.",
+    "account_blocked": "This account is blocked.",
+    "account_deactivated": "This account has been closed.",
+    "token_missing": "You need to log in.",
+    "token_expired": "The session has expired. Trying again.",
+    "token_stale": "Your permissions have changed. Refreshing.",
+    "session_revoked": "The session on this device was revoked. Log in again.",
+    "refresh_invalid": "Log in again. Your pending work is kept on this phone.",
+    "refresh_reused": "The session was revoked for security reasons. Log in again.",
+    "csrf_failed": "The request could not be verified. Reload the page."
+  },
+  "otp": {
+    "invalid": "The code is incorrect.",
+    "expired": "The code has expired. Request a new one.",
+    "attempts_exceeded": "Too many wrong codes. Request a new one."
+  },
+  "permission": {
+    "denied": "You do not have permission for this action.",
+    "not_found": "Not found."
+  },
+  "validation": {
+    "failed": "Some information is not valid.",
+    "unknown_parameter": "The request has an unknown parameter.",
+    "malformed": "The request could not be read.",
+    "nid_format": "The NID must have 10, 13 or 17 digits.",
+    "birth_reg_format": "The birth registration number must have 17 digits.",
+    "mobile_format": "The mobile number must have 11 digits starting with 01.",
+    "required": "Fill in this field.",
+    "too_long": "The text is too long.",
+    "out_of_range": "The value is outside the allowed range.",
+    "option_unknown": "The chosen option is not in the list.",
+    "bangla_text": "Write in Bangla."
+  },
+  "beneficiary": {
+    "identity_missing": "Enter the NID or the birth registration number.",
+    "mobile_is_volunteer_mobile": "The volunteer's own mobile number cannot be used as the beneficiary's number.",
+    "blocked": "This beneficiary cannot make a new application.",
+    "already_applied": "This beneficiary already has an application in this project.",
+    "locked_field": "This information can be changed only through a correction request."
+  },
+  "payment": {
+    "transaction_id_exists": "This transaction id has already been used.",
+    "claim_already_paid": "This claim has already been paid."
+  },
+  "animal": {
+    "already_allocated": "This animal is already allocated to a volunteer."
+  },
+  "workflow": {
+    "transition_not_allowed": "This action is not possible in the current state.",
+    "reason_required": "Write a reason.",
+    "comment_required": "Write a comment for a decision against the score order.",
+    "guard": {
+      "project_active": "The project is not active.",
+      "project_not_closed": "The project is closed.",
+      "project_setup_complete": "The project setup is not complete yet.",
+      "template_project_close_guards": "The conditions for closing the project are not met yet.",
+      "deadline_open": "The application period has ended.",
+      "limit_not_exceeded": "The application limit has been reached.",
+      "identity_present": "The NID or birth registration number is missing or not valid.",
+      "mandatory_fields_present": "Fill in the required fields.",
+      "beneficiary_not_blocked": "The beneficiary is blocklisted.",
+      "volunteer_not_blocked": "The volunteer is blocklisted.",
+      "consent_accepted": "The project rules have not been accepted.",
+      "score_comment_if_against_order": "A decision against the score order needs a comment.",
+      "zakat_eligible_if_zakat_fund": "Zakat eligibility is not confirmed for the zakat fund.",
+      "receipt_confirmed": "The volunteer has not confirmed receipt of the goods.",
+      "photos_required_per_rule": "The photos required by the project rule are missing.",
+      "photos_not_pending_sync": "Some photos are still waiting to upload.",
+      "stock_balanced": "The stock does not balance.",
+      "stages_all_completed": "Not all stages are completed.",
+      "evidence_photo_present": "The final evidence photo is missing.",
+      "exam_passed": "The beneficiary has not passed the final exam.",
+      "payment_recorded": "The required payment has not been recorded.",
+      "vouchers_verified": "Not all vouchers are verified.",
+      "site_verification_recorded": "The site verification has not been recorded.",
+      "field_unlock_open": "This field is not unlocked.",
+      "workers_assigned": "No Local Daee or paid volunteer is assigned to the area.",
+      "animals_allocated": "Not all animals are allocated or their shares are incomplete.",
+      "donor_notified": "Not all donors have been notified.",
+      "animal_photos_complete": "The three animal photos are not complete."
+    }
+  },
+  "conflict": {
+    "stale_version": "Someone else changed this record. Reload to see the latest version.",
+    "locked_on_server": "The record is locked or approved on the server; the server value was kept."
+  },
+  "sync": {
+    "batch_too_large": "Too much data was sent at once.",
+    "deadline_passed": "The project deadline has passed.",
+    "limit_exceeded": "Your application limit has been reached.",
+    "project_closed": "The project is closed.",
+    "not_permitted": "You no longer have permission for this action.",
+    "retry_exhausted": "Sync failed after many attempts. See the details."
+  },
+  "file": {
+    "type_not_allowed": "This file type is not accepted.",
+    "too_large": "The file is larger than allowed.",
+    "source_not_allowed": "This project accepts only photos taken with the camera.",
+    "duplicate": "The same file already exists in this project.",
+    "quarantined": "The file is being checked; it can be viewed when the check is done.",
+    "infected": "The file was blocked by the security check.",
+    "session_expired": "The upload has expired. Upload again."
+  },
+  "rate_limit": {
+    "exceeded": "Too many requests. Try again shortly."
+  },
+  "export": {
+    "not_ready": "The export is still being prepared.",
+    "expired": "The export file has expired."
+  },
+  "client": {
+    "upgrade_required": "Update the app. Pending work is synced first."
+  },
+  "server": {
+    "unavailable": "The server is not available now. Try again shortly.",
+    "internal": "Something went wrong. Try again."
+  }
+}

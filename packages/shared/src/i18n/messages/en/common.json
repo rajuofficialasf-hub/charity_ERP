@@ -1,0 +1,46 @@
+{
+  "app": {
+    "name": "Charity & Social Service",
+    "short_name": "ASF Charity",
+    "organization": "As-Sunnah Foundation",
+    "description": "As-Sunnah Foundation, Charity & Social Service Department ERP"
+  },
+  "action": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "retry": "Retry",
+    "close": "Close",
+    "submit": "Submit",
+    "edit": "Edit",
+    "search": "Search"
+  },
+  "state": {
+    "loading": "Loading",
+    "empty": {
+      "title": "Nothing here yet"
+    },
+    "error": {
+      "text": "Something went wrong. Try again."
+    }
+  },
+  "language": {
+    "label": "Language",
+    "bn": "বাংলা",
+    "en": "English"
+  },
+  "day_period": {
+    "night_early": "AM",
+    "dawn": "AM",
+    "morning": "AM",
+    "noon": "PM",
+    "afternoon": "PM",
+    "evening": "PM",
+    "night_late": "PM"
+  },
+  "time": {
+    "pattern": "{time} {period}"
+  },
+  "unit": {
+    "million": "million"
+  }
+}

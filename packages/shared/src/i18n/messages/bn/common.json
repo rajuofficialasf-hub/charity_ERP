@@ -1,0 +1,46 @@
+{
+  "app": {
+    "name": "চ্যারিটি ও সোশ্যাল সার্ভিস",
+    "short_name": "ASF Charity",
+    "organization": "আস-সুন্নাহ ফাউন্ডেশন",
+    "description": "আস-সুন্নাহ ফাউন্ডেশন, চ্যারিটি ও সোশ্যাল সার্ভিস ডিপার্টমেন্টের ইআরপি"
+  },
+  "action": {
+    "save": "সংরক্ষণ",
+    "cancel": "বাতিল",
+    "retry": "আবার চেষ্টা করুন",
+    "close": "বন্ধ করুন",
+    "submit": "জমা দিন",
+    "edit": "সম্পাদনা",
+    "search": "খুঁজুন"
+  },
+  "state": {
+    "loading": "লোড হচ্ছে",
+    "empty": {
+      "title": "এখনও কিছু নেই"
+    },
+    "error": {
+      "text": "কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।"
+    }
+  },
+  "language": {
+    "label": "ভাষা",
+    "bn": "বাংলা",
+    "en": "English"
+  },
+  "day_period": {
+    "night_early": "রাত",
+    "dawn": "ভোর",
+    "morning": "সকাল",
+    "noon": "দুপুর",
+    "afternoon": "বিকাল",
+    "evening": "সন্ধ্যা",
+    "night_late": "রাত"
+  },
+  "time": {
+    "pattern": "{period} {time}"
+  },
+  "unit": {
+    "million": "মিলিয়ন"
+  }
+}

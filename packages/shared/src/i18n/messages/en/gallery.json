@@ -1,0 +1,301 @@
+{
+  "title": "Component gallery",
+  "intro": "Every base component of the design system (development only).",
+  "language": "Language",
+  "sections": {
+    "type": "Typography",
+    "button": "Button",
+    "badge": "Badge and status",
+    "card": "Card and stat",
+    "field": "Field: text, number, phone",
+    "select": "Field: select, combobox, date",
+    "choice": "Checkbox and radio",
+    "file": "Photo and file upload",
+    "form": "Form layout",
+    "nav": "Navigation item",
+    "row": "Row and toggle",
+    "table": "Table: filters, search, pages",
+    "overlay": "Modal, drawer and confirmation",
+    "alert": "Alert",
+    "tabs": "Tabs",
+    "breadcrumb": "Breadcrumb",
+    "states": "Empty, loading and error states",
+    "offline": "Offline banner",
+    "bulk": "Bulk-update row",
+    "timeline": "Step and timeline",
+    "progress": "Progress bar",
+    "misc": "Avatar, spinner and icon"
+  },
+  "type": {
+    "display": "Winter Clothing 2026",
+    "title": "Today's distribution",
+    "body": "{name}, {village}, mobile {mobile}, {amount}",
+    "label": "Application number",
+    "caption": "{datetime}"
+  },
+  "button": {
+    "primary": "Approve application",
+    "secondary": "Move to waitlist",
+    "ghost": "Save draft",
+    "danger": "Reject application",
+    "small": "Details",
+    "icon": "New application",
+    "loading": "Saving",
+    "disabled": "Submit",
+    "link": "Go to project"
+  },
+  "status": {
+    "draft": "Draft",
+    "needs_verification": "Needs verification",
+    "submitted": "Submitted",
+    "under_review": "Under review",
+    "reviewed": "Reviewed",
+    "waitlisted": "Waitlisted",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "implementation": "Implementation",
+    "completed": "Completed",
+    "closed": "Closed",
+    "deleted": "Deleted",
+    "sync_pending": "Sync pending",
+    "sync_syncing": "Syncing",
+    "sync_synced": "Synced",
+    "sync_failed": "Sync failed",
+    "photo_verified": "Photo verified",
+    "photo_flagged": "Photo flagged",
+    "photo_pending": "Photo upload pending",
+    "blocklisted": "Blocklisted"
+  },
+  "card": {
+    "projectTitle": "Winter Clothing 2026",
+    "projectSub": "Humanitarian program · Rangpur division",
+    "projectBody": "Target {target} families, distribution starts {date}.",
+    "edit": "Edit",
+    "linked": "Iftar Distribution 2027 (linked card)",
+    "accent": "Announcement: a new form version has been published.",
+    "statApplications": "Applications",
+    "statApproved": "Approved",
+    "statDistributed": "Distributed",
+    "statBudget": "Budget spent",
+    "thisWeek": "+{count} this week",
+    "attentionTitle": "{n, plural, one {{count} application waiting for review} other {{count} applications waiting for review}}",
+    "attentionReason": "Review before Friday",
+    "attentionMeta": "Waiting {duration}",
+    "attention2Title": "{n, plural, one {{count} distribution photo missing} other {{count} distribution photos missing}}",
+    "open": "Open"
+  },
+  "field": {
+    "name": "Beneficiary name",
+    "nameHelper": "As on the national ID card",
+    "father": "Father's or husband's name",
+    "fatherValue": "Abdul Karim (sample)",
+    "fatherOld": "Abdul Karim Mia (sample)",
+    "nid": "NID number",
+    "nidHelper": "10, 13 or 17 digits",
+    "members": "Family members",
+    "income": "Monthly income (৳)",
+    "mobile": "Mobile number",
+    "mobileError": "The volunteer's own number cannot be used",
+    "note": "Comment",
+    "official": "Official's comment",
+    "correctionRequested": "Correction request sent"
+  },
+  "select": {
+    "type": "Beneficiary type",
+    "types": {
+      "elderly": "Elderly",
+      "widow": "Widow",
+      "orphan": "Orphan",
+      "disabled": "Disabled",
+      "ill": "Ill",
+      "labourer": "Labourer",
+      "extremely_poor": "Extremely poor",
+      "other": "Other"
+    },
+    "district": "District",
+    "upazila": "Upazila (combobox)",
+    "date": "Distribution date"
+  },
+  "choice": {
+    "items": "Items received",
+    "itemOptions": {
+      "blanket": "Blanket",
+      "shawl": "Shawl",
+      "sweater": "Sweater",
+      "other": "Other"
+    },
+    "gender": "Gender",
+    "genderOptions": {
+      "female": "Female",
+      "male": "Male"
+    }
+  },
+  "file": {
+    "photo": "Distribution photo",
+    "photoHelper": "From the camera or the gallery, up to {max}",
+    "document": "Voucher (PDF or photo)",
+    "documentHelper": "Up to {size}",
+    "meta": "{datetime} · GPS {gps}",
+    "networkLost": "The network was lost"
+  },
+  "form": {
+    "formLabel": "New application",
+    "basic": "Basic information",
+    "basicDesc": "Write as on the national ID card",
+    "saveDraft": "Save draft",
+    "submit": "Submit",
+    "showErrors": "Show the error summary",
+    "nameMissing": "Enter the beneficiary name",
+    "mobileMissing": "Enter the mobile number"
+  },
+  "nav": {
+    "home": "Home",
+    "review": "Review",
+    "people": "People",
+    "projects": "Projects",
+    "more": "More",
+    "sidebar": "Sidebar",
+    "tabBar": "Bottom tab bar",
+    "rail": "Tablet rail"
+  },
+  "row": {
+    "distribution": "Distribution",
+    "distributionDesc": "Dispatch, receive and photos",
+    "form": "Application form",
+    "formLocked": "Cannot be turned off after activation",
+    "photoRule": "Photo rule",
+    "photoRuleValue": "One per beneficiary",
+    "notifications": "Notification settings"
+  },
+  "table": {
+    "label": "Applications",
+    "name": "Name",
+    "number": "Application number",
+    "village": "Village",
+    "score": "Score",
+    "status": "Status",
+    "chipAll": "All",
+    "chipRemaining": "Remaining",
+    "chipDone": "Done",
+    "openRow": "Opened",
+    "view": "View",
+    "selected": "Selected"
+  },
+  "overlay": {
+    "openModal": "Unlock field (modal)",
+    "modalTitle": "Unlock the mobile number",
+    "newValue": "New value",
+    "unlock": "Unlock",
+    "openDrawer": "Filters (drawer)",
+    "drawerTitle": "Filters",
+    "apply": "Apply",
+    "openConfirm": "Reject application (confirmation)",
+    "confirmTitle": "Reject the application of Rahima Khatun?",
+    "confirmMessage": "The volunteer will see the reason.",
+    "confirmConsequence": "The application moves to \"rejected\"",
+    "confirmLabel": "Reject application",
+    "confirmed": "Rejected, reason: "
+  },
+  "alert": {
+    "infoTitle": "Best on a larger screen",
+    "infoText": "This setup page is made for the desktop.",
+    "successTitle": "Application submitted",
+    "warningTitle": "Possible family duplicate",
+    "warningText": "Same village and same father's name found. Decide at review.",
+    "dangerTitle": "This beneficiary is blocklisted",
+    "dangerText": "No new application can be made.",
+    "action": "See the other application"
+  },
+  "tabs": {
+    "label": "Application details",
+    "answers": "Answers",
+    "history": "History",
+    "changes": "Changes",
+    "answersBody": "The form answers appear here.",
+    "historyBody": "The workflow steps appear here.",
+    "changesBody": "The list of field changes.",
+    "segmentedLabel": "View",
+    "list": "List",
+    "map": "Map",
+    "manyLabel": "Many tabs (a select on phones)"
+  },
+  "breadcrumb": {
+    "projects": "Projects",
+    "project": "Winter Clothing 2026",
+    "applications": "Applications"
+  },
+  "states": {
+    "emptyTitle": "No applications yet",
+    "emptyText": "Create the first application.",
+    "emptyAction": "New application",
+    "errorTitle": "Could not load the list",
+    "errorText": "Check the internet connection and try again.",
+    "retried": "Retried"
+  },
+  "bulk": {
+    "label": "Today's distribution",
+    "selectAll": "Select all remaining",
+    "distributed": "Distributed",
+    "absent": "Absent",
+    "later": "Distribute later",
+    "notDistributed": "Not distributed",
+    "damaged": "Damaged or lost",
+    "partial": "Partial",
+    "quantity": "Quantity: blanket {blanket}, shawl {shawl}"
+  },
+  "timeline": {
+    "label": "Application history",
+    "submitted": "Submitted",
+    "review": "Review",
+    "approval": "Approval",
+    "distribution": "Distribution",
+    "actor1": "Volunteer Rafiq (sample)",
+    "actor2": "Project Executive Nasrin (sample)",
+    "comment": "All papers are in order.",
+    "stagesLabel": "Construction stages",
+    "stages": {
+      "foundation": "Foundation",
+      "walls": "Walls",
+      "roof": "Roof",
+      "handover": "Handover"
+    }
+  },
+  "progress": {
+    "quota": "Area quota",
+    "budget": "Budget spent",
+    "over": "Budget exceeded",
+    "buckets": "Budget buckets",
+    "spent": "Spent",
+    "advance": "Advance",
+    "returned": "Returned",
+    "claimed": "Claimed"
+  },
+  "misc": {
+    "person": "Rahima Khatun",
+    "icon": "Warning",
+    "avatarOther": "Karim Uddin (sample)"
+  },
+  "district": {
+    "dhaka": "Dhaka",
+    "gazipur": "Gazipur",
+    "narayanganj": "Narayanganj",
+    "narsingdi": "Narsingdi",
+    "manikganj": "Manikganj",
+    "munshiganj": "Munshiganj",
+    "rangpur": "Rangpur",
+    "dinajpur": "Dinajpur",
+    "nilphamari": "Nilphamari",
+    "kurigram": "Kurigram",
+    "lalmonirhat": "Lalmonirhat",
+    "gaibandha": "Gaibandha"
+  },
+  "sample": {
+    "rahima": "Rahima Khatun (sample)",
+    "karim": "Karim Mia (sample)",
+    "ayesha": "Ayesha Begum (sample)",
+    "char_bagdanga": "Char Bagdanga",
+    "purba_para": "Purba Para",
+    "karim_uddin": "Karim Uddin (sample)"
+  },
+  "project_code": "WNT"
+}

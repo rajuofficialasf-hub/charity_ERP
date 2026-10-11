@@ -1,0 +1,301 @@
+{
+  "title": "কম্পোনেন্ট গ্যালারি",
+  "intro": "ডিজাইন সিস্টেমের সব মৌলিক কম্পোনেন্ট (শুধু ডেভেলপমেন্টে)।",
+  "language": "ভাষা",
+  "sections": {
+    "type": "টাইপোগ্রাফি",
+    "button": "বাটন",
+    "badge": "ব্যাজ ও স্ট্যাটাস",
+    "card": "কার্ড ও পরিসংখ্যান",
+    "field": "ফিল্ড: লেখা, সংখ্যা, ফোন",
+    "select": "ফিল্ড: বাছাই, কম্বোবক্স, তারিখ",
+    "choice": "চেকবক্স ও রেডিও",
+    "file": "ছবি ও ফাইল আপলোড",
+    "form": "ফর্ম লেআউট",
+    "nav": "নেভিগেশন আইটেম",
+    "row": "সারি ও টগল",
+    "table": "টেবিল: ফিল্টার, খোঁজ, পাতা",
+    "overlay": "মডাল, ড্রয়ার ও নিশ্চিতকরণ",
+    "alert": "সতর্কবার্তা",
+    "tabs": "ট্যাব",
+    "breadcrumb": "ব্রেডক্রাম্ব",
+    "states": "খালি, লোডিং ও ত্রুটি অবস্থা",
+    "offline": "অফলাইন ব্যানার",
+    "bulk": "বাল্ক আপডেট সারি",
+    "timeline": "ধাপ ও সময়রেখা",
+    "progress": "অগ্রগতি বার",
+    "misc": "অ্যাভাটার, স্পিনার ও আইকন"
+  },
+  "type": {
+    "display": "শীতবস্ত্র বিতরণ 2026",
+    "title": "আজকের বিতরণ",
+    "body": "{name}, {village}, মোবাইল {mobile}, {amount}",
+    "label": "আবেদন নম্বর",
+    "caption": "{datetime}"
+  },
+  "button": {
+    "primary": "আবেদন অনুমোদন",
+    "secondary": "অপেক্ষমাণ তালিকায়",
+    "ghost": "খসড়া সংরক্ষণ",
+    "danger": "আবেদন বাতিল",
+    "small": "বিস্তারিত",
+    "icon": "নতুন আবেদন",
+    "loading": "সংরক্ষণ হচ্ছে",
+    "disabled": "জমা দিন",
+    "link": "প্রকল্পে যান"
+  },
+  "status": {
+    "draft": "খসড়া",
+    "needs_verification": "যাচাই দরকার",
+    "submitted": "জমা হয়েছে",
+    "under_review": "পর্যালোচনায়",
+    "reviewed": "পর্যালোচিত",
+    "waitlisted": "অপেক্ষমাণ",
+    "approved": "অনুমোদিত",
+    "rejected": "বাতিল",
+    "implementation": "বাস্তবায়ন",
+    "completed": "সম্পন্ন",
+    "closed": "বন্ধ",
+    "deleted": "মুছে ফেলা",
+    "sync_pending": "সিঙ্ক বাকি",
+    "sync_syncing": "সিঙ্ক হচ্ছে",
+    "sync_synced": "সিঙ্ক হয়েছে",
+    "sync_failed": "সিঙ্ক হয়নি",
+    "photo_verified": "ছবি যাচাই হয়েছে",
+    "photo_flagged": "ছবি সন্দেহজনক",
+    "photo_pending": "ছবি আপলোড বাকি",
+    "blocklisted": "ব্লকলিস্টে"
+  },
+  "card": {
+    "projectTitle": "শীতবস্ত্র বিতরণ 2026",
+    "projectSub": "মানবিক কার্যক্রম · রংপুর বিভাগ",
+    "projectBody": "লক্ষ্য {target} পরিবার, বিতরণ শুরু {date}।",
+    "edit": "সম্পাদনা",
+    "linked": "ইফতার বিতরণ 2027 (লিংক কার্ড)",
+    "accent": "ঘোষণা: নতুন ফর্ম সংস্করণ প্রকাশিত হয়েছে।",
+    "statApplications": "আবেদন",
+    "statApproved": "অনুমোদিত",
+    "statDistributed": "বিতরণ",
+    "statBudget": "বাজেট ব্যয়",
+    "thisWeek": "এই সপ্তাহে +{count}",
+    "attentionTitle": "{n, plural, other {{count}টি আবেদন পর্যালোচনার অপেক্ষায়}}",
+    "attentionReason": "শুক্রবারের আগে পর্যালোচনা করুন",
+    "attentionMeta": "{duration} ধরে অপেক্ষমাণ",
+    "attention2Title": "{n, plural, other {{count}টি বিতরণের ছবি বাকি}}",
+    "open": "খুলুন"
+  },
+  "field": {
+    "name": "উপকারভোগীর নাম",
+    "nameHelper": "জাতীয় পরিচয়পত্র অনুযায়ী",
+    "father": "পিতা/স্বামীর নাম",
+    "fatherValue": "আব্দুল করিম (নমুনা)",
+    "fatherOld": "আব্দুল করিম মিয়া (নমুনা)",
+    "nid": "এনআইডি নম্বর",
+    "nidHelper": "10, 13 বা 17 অঙ্ক",
+    "members": "পরিবারের সদস্য সংখ্যা",
+    "income": "মাসিক আয় (৳)",
+    "mobile": "মোবাইল নম্বর",
+    "mobileError": "স্বেচ্ছাসেবকের নিজের নম্বর দেওয়া যাবে না",
+    "note": "মন্তব্য",
+    "official": "কর্মকর্তার মন্তব্য",
+    "correctionRequested": "সংশোধনের অনুরোধ পাঠানো হয়েছে"
+  },
+  "select": {
+    "type": "উপকারভোগীর ধরন",
+    "types": {
+      "elderly": "বৃদ্ধ",
+      "widow": "বিধবা",
+      "orphan": "এতিম",
+      "disabled": "প্রতিবন্ধী",
+      "ill": "অসুস্থ",
+      "labourer": "শ্রমজীবী",
+      "extremely_poor": "অতিদরিদ্র",
+      "other": "অন্যান্য"
+    },
+    "district": "জেলা",
+    "upazila": "উপজেলা (কম্বোবক্স)",
+    "date": "বিতরণের তারিখ"
+  },
+  "choice": {
+    "items": "প্রাপ্ত সামগ্রী",
+    "itemOptions": {
+      "blanket": "কম্বল",
+      "shawl": "চাদর",
+      "sweater": "সোয়েটার",
+      "other": "অন্যান্য"
+    },
+    "gender": "লিঙ্গ",
+    "genderOptions": {
+      "female": "নারী",
+      "male": "পুরুষ"
+    }
+  },
+  "file": {
+    "photo": "বিতরণের ছবি",
+    "photoHelper": "ক্যামেরা বা গ্যালারি থেকে, সর্বোচ্চ {max}টি",
+    "document": "ভাউচার (PDF বা ছবি)",
+    "documentHelper": "সর্বোচ্চ {size}",
+    "meta": "{datetime} · GPS {gps}",
+    "networkLost": "নেটওয়ার্ক বিচ্ছিন্ন হয়েছে"
+  },
+  "form": {
+    "formLabel": "নতুন আবেদন",
+    "basic": "মৌলিক তথ্য",
+    "basicDesc": "জাতীয় পরিচয়পত্র অনুযায়ী লিখুন",
+    "saveDraft": "খসড়া সংরক্ষণ",
+    "submit": "জমা দিন",
+    "showErrors": "ত্রুটির সারাংশ দেখুন",
+    "nameMissing": "উপকারভোগীর নাম লিখুন",
+    "mobileMissing": "মোবাইল নম্বর লিখুন"
+  },
+  "nav": {
+    "home": "হোম",
+    "review": "পর্যালোচনা",
+    "people": "মানুষ",
+    "projects": "প্রকল্প",
+    "more": "আরও",
+    "sidebar": "সাইডবার",
+    "tabBar": "নিচের ট্যাব বার",
+    "rail": "ট্যাবলেট রেল"
+  },
+  "row": {
+    "distribution": "বিতরণ",
+    "distributionDesc": "পাঠানো, গ্রহণ ও ছবি",
+    "form": "আবেদন ফর্ম",
+    "formLocked": "চালু হওয়ার পর বন্ধ করা যায় না",
+    "photoRule": "ছবির নিয়ম",
+    "photoRuleValue": "প্রতি উপকারভোগী একটি",
+    "notifications": "নোটিফিকেশন সেটিংস"
+  },
+  "table": {
+    "label": "আবেদনের তালিকা",
+    "name": "নাম",
+    "number": "আবেদন নম্বর",
+    "village": "গ্রাম",
+    "score": "স্কোর",
+    "status": "অবস্থা",
+    "chipAll": "সব",
+    "chipRemaining": "বাকি",
+    "chipDone": "সম্পন্ন",
+    "openRow": "খোলা হয়েছে",
+    "view": "দেখুন",
+    "selected": "বেছে নেওয়া"
+  },
+  "overlay": {
+    "openModal": "ফিল্ড আনলক (মডাল)",
+    "modalTitle": "মোবাইল নম্বর আনলক করুন",
+    "newValue": "নতুন মান",
+    "unlock": "আনলক করুন",
+    "openDrawer": "ফিল্টার (ড্রয়ার)",
+    "drawerTitle": "ফিল্টার",
+    "apply": "প্রয়োগ",
+    "openConfirm": "আবেদন বাতিল (নিশ্চিতকরণ)",
+    "confirmTitle": "রহিমা খাতুনের আবেদন বাতিল করবেন?",
+    "confirmMessage": "স্বেচ্ছাসেবক কারণটি দেখতে পাবেন।",
+    "confirmConsequence": "আবেদনটি \"বাতিল\" অবস্থায় যাবে",
+    "confirmLabel": "আবেদন বাতিল করুন",
+    "confirmed": "বাতিল করা হয়েছে, কারণ: "
+  },
+  "alert": {
+    "infoTitle": "বড় পর্দায় ভালো দেখায়",
+    "infoText": "এই সেটআপ পাতাটি ডেস্কটপের জন্য তৈরি।",
+    "successTitle": "আবেদন জমা হয়েছে",
+    "warningTitle": "সম্ভাব্য পারিবারিক ডুপ্লিকেট",
+    "warningText": "একই গ্রামে একই পিতার নাম পাওয়া গেছে। পর্যালোচনায় সিদ্ধান্ত নিন।",
+    "dangerTitle": "এই উপকারভোগী ব্লকলিস্টে আছেন",
+    "dangerText": "নতুন আবেদন করা যাবে না।",
+    "action": "অন্য আবেদন দেখুন"
+  },
+  "tabs": {
+    "label": "আবেদনের বিস্তারিত",
+    "answers": "উত্তর",
+    "history": "ইতিহাস",
+    "changes": "পরিবর্তন",
+    "answersBody": "ফর্মের উত্তরগুলো এখানে দেখা যাবে।",
+    "historyBody": "কাজের ধাপগুলো এখানে।",
+    "changesBody": "ফিল্ড পরিবর্তনের তালিকা।",
+    "segmentedLabel": "দেখার ধরন",
+    "list": "তালিকা",
+    "map": "মানচিত্র",
+    "manyLabel": "অনেক ট্যাব (ফোনে বাছাই)"
+  },
+  "breadcrumb": {
+    "projects": "প্রকল্প",
+    "project": "শীতবস্ত্র বিতরণ 2026",
+    "applications": "আবেদন"
+  },
+  "states": {
+    "emptyTitle": "এখনও কোনো আবেদন নেই",
+    "emptyText": "প্রথম আবেদনটি তৈরি করুন।",
+    "emptyAction": "নতুন আবেদন",
+    "errorTitle": "তালিকা লোড করা যায়নি",
+    "errorText": "ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।",
+    "retried": "আবার চেষ্টা করা হয়েছে"
+  },
+  "bulk": {
+    "label": "আজকের বিতরণ",
+    "selectAll": "বাকি সব বেছে নিন",
+    "distributed": "বিতরণ হয়েছে",
+    "absent": "অনুপস্থিত",
+    "later": "পরে বিতরণ",
+    "notDistributed": "বিতরণ হয়নি",
+    "damaged": "নষ্ট/হারানো",
+    "partial": "আংশিক",
+    "quantity": "পরিমাণ: কম্বল {blanket}, চাদর {shawl}"
+  },
+  "timeline": {
+    "label": "আবেদনের ইতিহাস",
+    "submitted": "জমা",
+    "review": "পর্যালোচনা",
+    "approval": "অনুমোদন",
+    "distribution": "বিতরণ",
+    "actor1": "স্বেচ্ছাসেবক রফিক (নমুনা)",
+    "actor2": "প্রজেক্ট এক্সিকিউটিভ নাসরিন (নমুনা)",
+    "comment": "সব কাগজ ঠিক আছে।",
+    "stagesLabel": "নির্মাণের ধাপ",
+    "stages": {
+      "foundation": "ভিত্তি",
+      "walls": "দেয়াল",
+      "roof": "ছাদ",
+      "handover": "হস্তান্তর"
+    }
+  },
+  "progress": {
+    "quota": "এলাকার কোটা",
+    "budget": "বাজেট ব্যয়",
+    "over": "বাজেট ছাড়িয়ে গেছে",
+    "buckets": "বাজেটের ভাগ",
+    "spent": "ব্যয়",
+    "advance": "অগ্রিম",
+    "returned": "ফেরত",
+    "claimed": "দাবি"
+  },
+  "misc": {
+    "person": "রহিমা খাতুন",
+    "icon": "সতর্কতা",
+    "avatarOther": "করিম উদ্দিন (নমুনা)"
+  },
+  "district": {
+    "dhaka": "ঢাকা",
+    "gazipur": "গাজীপুর",
+    "narayanganj": "নারায়ণগঞ্জ",
+    "narsingdi": "নরসিংদী",
+    "manikganj": "মানিকগঞ্জ",
+    "munshiganj": "মুন্সিগঞ্জ",
+    "rangpur": "রংপুর",
+    "dinajpur": "দিনাজপুর",
+    "nilphamari": "নীলফামারী",
+    "kurigram": "কুড়িগ্রাম",
+    "lalmonirhat": "লালমনিরহাট",
+    "gaibandha": "গাইবান্ধা"
+  },
+  "sample": {
+    "rahima": "রহিমা খাতুন (নমুনা)",
+    "karim": "করিম মিয়া (নমুনা)",
+    "ayesha": "আয়েশা বেগম (নমুনা)",
+    "char_bagdanga": "চর বাগডাঙ্গা",
+    "purba_para": "পূর্ব পাড়া",
+    "karim_uddin": "করিম উদ্দিন (নমুনা)"
+  },
+  "project_code": "WNT"
+}

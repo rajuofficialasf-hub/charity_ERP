@@ -10,6 +10,16 @@
       "@css/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./i18n": {
+      "@css/source": "./src/i18n/index.ts",
+      "types": "./dist/i18n/index.d.ts",
+      "default": "./dist/i18n/index.js"
+    },
+    "./format": {
+      "@css/source": "./src/format/index.ts",
+      "types": "./dist/format/index.d.ts",
+      "default": "./dist/format/index.js"
     }
   },
   "files": [
@@ -20,6 +30,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@formatjs/icu-messageformat-parser": "3.5.18",
+    "intl-messageformat": "11.2.15",
     "zod": "4.6.5"
   },
   "devDependencies": {

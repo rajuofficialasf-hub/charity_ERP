@@ -1,0 +1,97 @@
+{
+  "common": {
+    "close": "Close",
+    "cancel": "Cancel",
+    "loading": "Loading",
+    "retry": "Retry",
+    "dismiss": "Dismiss",
+    "back": "Back",
+    "countName": "{label}, {count} pending"
+  },
+  "field": {
+    "required": "(required)",
+    "locked": "Locked",
+    "requestCorrection": "Request correction",
+    "changed": "Changed",
+    "previousValue": "Previous value: {value}",
+    "otherSpecify": "If other, please specify",
+    "selectPlaceholder": "Select",
+    "search": "Search",
+    "noResults": "No results",
+    "showOptions": "Show options",
+    "openCalendar": "Open calendar",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "errorSummaryTitle": "Please correct the following:",
+    "officialOnly": "Officials only",
+    "reason": "Reason"
+  },
+  "file": {
+    "takePhoto": "Take photo",
+    "chooseFile": "Choose file",
+    "chooseFromGallery": "Choose from gallery",
+    "dropHere": "or drop files here",
+    "remove": "Remove {name}",
+    "retry": "Upload again",
+    "count": "{count} of {max} files",
+    "tooLarge": "{name} is larger than {max}",
+    "wrongType": "{name}: this file type is not accepted",
+    "state": {
+      "selected": "Selected",
+      "compressing": "Compressing",
+      "queued": "Waiting (offline)",
+      "uploading": "Uploading",
+      "quarantined": "Being checked",
+      "ready": "Ready",
+      "failed": "Upload failed",
+      "rejected": "Not accepted"
+    }
+  },
+  "table": {
+    "search": "Search",
+    "filters": "Filters",
+    "filtersActive": "{count} active",
+    "clearFilters": "Clear filters",
+    "applyFilters": "Apply filters",
+    "loadMore": "Load more",
+    "previous": "Previous page",
+    "next": "Next page",
+    "resultCount": "{shown} of {total}",
+    "selectAll": "Select all",
+    "select": "Select",
+    "selectRow": "Select {name}",
+    "rowActions": "Actions",
+    "pagination": "Pagination"
+  },
+  "bulk": {
+    "selectedCount": "{count} selected",
+    "moreActions": "More actions",
+    "showDetails": "Show details",
+    "hideDetails": "Hide details"
+  },
+  "nav": {
+    "breadcrumb": "Breadcrumb",
+    "backTo": "Back to {parent}",
+    "sectionSelect": "Choose a section"
+  },
+  "offline": {
+    "offline": "You are offline; your work is saved on this phone",
+    "backOnline": "Back online",
+    "syncing": "Syncing",
+    "syncFailed": "Sync failed",
+    "pending": "{count} waiting to sync",
+    "openOutbox": "See details"
+  },
+  "feedback": {
+    "requestId": "Request id: {id}",
+    "valueOfMax": "{value} of {max}",
+    "progressText": "{value} of {max} ({percent}%)"
+  },
+  "timeline": {
+    "done": "Done",
+    "current": "Current",
+    "upcoming": "Upcoming",
+    "skipped": "Skipped",
+    "rejected": "Rejected"
+  }
+}
