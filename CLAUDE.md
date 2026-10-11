@@ -48,7 +48,7 @@ Commands (from the repository root):
 - Unit, component and API tests: `pnpm test` (`pnpm test:coverage` for coverage) · E2E: `pnpm e2e` (builds, then Playwright)
 - Lint: `pnpm lint` (ESLint and Prettier check; `pnpm format` to fix) · Typecheck: `pnpm typecheck` · Build: `pnpm build`
 - Document checks: `pnpm docs:check`
-- DB: `pnpm db:migrate` (prisma migrate deploy, non-destructive), `pnpm --filter @css/api db:migrate:dev` (create a new migration without applying it; then write its down.sql), `pnpm db:load-locations` (locations CSV into the database), `pnpm db:seed`, `pnpm db:reset` (seed, reset and load-locations refuse anything but css_erp_dev / css_erp_test, and refuse NODE_ENV=production; Prisma itself asks the owner before a reset)
+- DB: `pnpm db:migrate` (prisma migrate deploy, non-destructive), `pnpm --filter @css/api db:migrate:dev` (create a new migration without applying it; then write its down.sql), `pnpm db:load-locations` (locations CSV into the database), `pnpm db:seed [--set base|demo|all]` (deterministic dev/test seed in `apps/api/seed`, demo accounts in `docs/testing/DEMO_ACCOUNTS.md`), `pnpm db:reset` (seed, reset and load-locations refuse anything but css_erp_dev / css_erp_test, and refuse NODE_ENV=production; Prisma itself asks the owner before a reset)
 - Database tests: the Vitest project `api-db` (`apps/api/vitest.db.config.mts`, tests in `apps/api/test/integration/`) clones a database per test file from a migrated template; needs `docker compose up -d` locally (`TEST_DATABASE_URL`, default css_erp_test on port 5433)
 - Locations: `pnpm --filter @css/api locations:convert <owner json>` rewrites `docs/source/data/bd-locations.csv` (codes kept); see `docs/source/data/README.md`
 

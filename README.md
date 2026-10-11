@@ -76,7 +76,7 @@ The web app runs at http://localhost:3000 and the API at http://localhost:4000 (
 | `pnpm docs:check` | Parses and validates permissions.yaml, openapi.yaml, workflow templates and JSON Schemas; Redocly lint |
 | `pnpm db:migrate` | Applies the Prisma migrations to `DATABASE_URL` (`prisma migrate deploy`, non-destructive) |
 | `pnpm db:load-locations` | Loads `docs/source/data/bd-locations.csv` into the locations table (dev and test databases only) |
-| `pnpm db:seed` | Development seed (T1.3); refuses non-dev databases and production |
+| `pnpm db:seed` | Development and test seed (`--set base`, `demo` or `all`, default all; idempotent); demo accounts in `docs/testing/DEMO_ACCOUNTS.md`; refuses non-dev databases and production |
 | `pnpm db:reset` | Drops and re-creates the dev database from the migrations; refuses anything but `css_erp_dev` / `css_erp_test` and production |
 | `docker compose up -d` / `docker compose down` | Starts or stops the development services |
 

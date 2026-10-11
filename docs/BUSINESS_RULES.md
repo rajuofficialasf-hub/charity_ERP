@@ -367,6 +367,8 @@ Every rule above starts with test status "not yet". When a test exists, record i
 - BR-194: apps/api/test/integration/constraints.test.ts::BR-194 client_uuid is unique (offline idempotency) and the client_uuid uniqueness tests of every offline table — passing (2026-10-11; database level; sync service T2.7)
 - BR-228: apps/api/test/integration/locations.test.ts::loadLocations (four tests: idempotent load, rename and deactivate, conflicting codes, the committed CSV counts) — passing (2026-10-11; data unverified, see docs/source/data/README.md)
 
+- BR-024: apps/api/test/integration/seed.test.ts::refuses production and databases outside the dev/test pattern (BR-024, BD-49); leaves the seed markers the production guard looks for — passing (2026-10-11; seed part only; the dummy-OTP and production start guards follow in T1.7 and T1.6)
+
 Database-level parts only where noted; each rule stays open for its service, API and E2E tests in the task that builds the module (T1.2, 2026-10-11).
 
 ## 20. Gaps and ambiguities
