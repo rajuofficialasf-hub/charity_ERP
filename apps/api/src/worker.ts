@@ -6,6 +6,7 @@ import { loadEnv, type Env } from './config/env';
 import { CoreModule } from './core/core.module';
 import { loggerOptions } from './core/logging';
 import { JobConsumers, JobsModule } from './jobs/jobs.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { StorageModule } from './storage/storage.module';
 
 /** The worker process (ADR-004, SYSTEM_ARCHITECTURE 2.1): job consumers, maintenance, schedules. */
@@ -18,6 +19,7 @@ class WorkerModule {
         LoggerModule.forRoot({ pinoHttp: loggerOptions(env) }),
         CoreModule.register(env),
         StorageModule,
+        NotificationsModule,
         JobsModule,
       ],
     };

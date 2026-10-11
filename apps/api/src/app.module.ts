@@ -12,6 +12,7 @@ import { loggerOptions } from './core/logging';
 import { RequestContextMiddleware } from './core/request-context.middleware';
 import { HealthModule } from './health/health.module';
 import { JobsModule } from './jobs/jobs.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { StorageModule } from './storage/storage.module';
 
 export interface AppOptions {
@@ -29,6 +30,7 @@ export class AppModule implements NestModule {
         LoggerModule.forRoot({ pinoHttp: loggerOptions(env, options.logStream) }),
         CoreModule.register(env),
         StorageModule,
+        NotificationsModule,
         JobsModule,
         HealthModule,
       ],
