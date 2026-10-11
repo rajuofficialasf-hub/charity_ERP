@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
+import { ApiExcludeController } from '@nestjs/swagger';
 import { RawResponse } from '../core/envelope';
 import { RateLimit } from '../rate-limit/rate-limit';
 
@@ -7,6 +8,8 @@ import { RateLimit } from '../rate-limit/rate-limit';
  * Served at /health/live outside the /api/v1 prefix; it reports only up or down. The readiness
  * probe with database, storage and queue checks arrives in T1.6.
  */
+// Probes live outside /api/v1 and outside the API contract (SYSTEM_ARCHITECTURE 10).
+@ApiExcludeController()
 @RawResponse()
 @RateLimit('none')
 @Controller('health')
