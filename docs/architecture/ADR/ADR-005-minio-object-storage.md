@@ -28,6 +28,8 @@ Negative: one more service to run, monitor and back up; MinIO's licence and rele
 
 Follow-ups: T0.13 details the file pipeline and the document register storage; T2.1 implements the `files` module and both adapters; T3.0 sets up the mirror and the restore drill for objects.
 
+Packaging (D-059, 2026-10-11): MinIO stopped publishing official community container images in late 2025. Development uses the Chainguard images built from the upstream source, pinned by digest, approved for development only. Before production the image provenance, source alignment, maintenance status and vulnerability scans are verified, the production image source and maintenance strategy are documented, and the final choice is recorded in DECISION_LOG before the T3.0 checkpoint.
+
 ## Related
 
 D-053; BD-21, BD-35, BD-46; BR-109, BR-168, BR-204, BR-205; NFR-24…28, NFR-30, NFR-34, NFR-35; `docs/architecture/FILES_AND_DOCUMENTS.md`.

@@ -77,7 +77,8 @@ jobs:
   e2e:
     name: E2E (Playwright)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: checks
+    # A secret or an unaccepted advisory stops the pipeline before E2E (O-52).
+    needs: [checks, security]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

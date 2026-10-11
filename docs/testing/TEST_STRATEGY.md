@@ -149,6 +149,8 @@ Health and readiness endpoints; login with a dedicated smoke account; one read a
 
 There is no single global coverage number; coverage is reported per package by Vitest in CI and summarized in each gate report.
 
+Enforcement (O-52, 2026-10-11): while business logic is largely absent, CI does not fail on coverage. Phase 1 reports coverage per package and lists untested code; before the Phase 1 gate (T1.16, T1.17) the enforcement strategy for these minimums is defined and switched on. Missing enforcement is never taken as evidence that code is adequately tested.
+
 ## 6. CI gate
 
 CI runs on GitHub Actions (O-51), in `.github/workflows/ci.yml`. The pipeline fails on the first failing stage. State at T1.1: install, lint, typecheck, document checks (`pnpm docs:check`: YAML parse, template schema validation, JSON Schema compile, Redocly lint), unit and API tests with a PostgreSQL 16 service, build, `pnpm audit` and gitleaks run on every push; E2E (Chromium, mobile and desktop) runs on pushes to main. The i18n check (T1.5), the drift test and authorization matrix (T1.6), migrations up-down-up (T1.2), and the nightly set are added by the tasks that create them.

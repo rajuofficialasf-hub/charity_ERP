@@ -105,7 +105,7 @@ OWASP ASVS level 2 is the checklist of the security audit before go-live (T6.3).
 - They live only in per-environment `.env` files on the server, owned by the service user with mode 600, or in the server's secret store; only `.env.example` without values is in git.
 - Different values per environment; staging values never reach production.
 - Rotation: at go-live, once a year, when a person with access leaves, and immediately after a suspected incident.
-- gitleaks scans every commit in CI and as a pre-commit hook (O-46 item 6).
+- gitleaks scans every commit in CI and as a pre-commit hook (O-46 item 6). Development security limitation (O-52, 2026-10-11): the local pre-commit hook is not installed yet; CI scans the full git history on every push and the run fails when a secret is found. Local scanning is revisited when a suitable installation method exists.
 - Secrets are never logged, never placed in URLs, never sent to the browser except the user's own cookies.
 - Claude Code never reads or modifies `.env` files that hold real secrets (CLAUDE.md).
 
@@ -120,7 +120,7 @@ OWASP ASVS level 2 is the checklist of the security audit before go-live (T6.3).
 ## 11. Dependency and supply-chain security
 
 - The lockfile is committed and installs are frozen in CI.
-- `pnpm audit` runs on every push; high and critical findings fail the build; an exception names the package, reason, mitigation and an expiry date in DECISION_LOG.
+- `pnpm audit` runs on every push; high and critical findings fail the build; an exception names the package, reason, mitigation and an expiry date in DECISION_LOG (section 7). Active: E-001 (braces, development tooling only, expires 2027-01-11).
 - A new dependency needs a reason in the task report, an active maintainer, a compatible licence and a lockfile review.
 - Docker base images are pinned by version and updated at least monthly; the server's operating system is patched by the IT team.
 
