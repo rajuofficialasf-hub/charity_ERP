@@ -90,8 +90,10 @@ export interface StatCardProps {
   value: number;
   /** Target: shows "1,240 of 2,000" and a progress bar (UX-10). */
   target?: number;
-  /** Short unit text after the value, for example "জন" or "৳". */
+  /** Short unit text after the value, for example "জন". */
   unit?: string;
+  /** Text before the value, for example the taka sign: "৳ 3,00,000" (DESIGN_SYSTEM 3 item 8). */
+  prefix?: string;
   /** Change text prepared by the caller, for example "+12 this week". */
   delta?: string;
   href?: string;
@@ -105,6 +107,7 @@ export function StatCard({
   value,
   target,
   unit,
+  prefix,
   delta,
   href,
   loading,
@@ -118,6 +121,7 @@ export function StatCard({
     <>
       <p className="ui-stat-label">{label}</p>
       <p className="ui-stat-value">
+        {prefix && <span className="ui-stat-unit">{prefix} </span>}
         {formatNumber(value)}
         {unit && <span className="ui-stat-unit"> {unit}</span>}
       </p>

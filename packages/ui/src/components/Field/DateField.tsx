@@ -119,7 +119,7 @@ export function DateField({ value, defaultValue, onChange, min, max, ...field }:
           </Modal>
         </ModalOverlay>
       ) : (
-        <Popover className="ui-popover" placement="bottom end">
+        <Popover className="ui-popover ui-popover-calendar" placement="bottom end">
           <Dialog className="ui-popover-dialog" aria-label={field.label}>
             <CalendarBody />
           </Dialog>

@@ -45,9 +45,10 @@
     background: var(--color-bg-brand-soft);
     box-shadow: inset 4px 0 0 var(--color-brand-primary);
   }
+  /* actions stay beside the text and wrap under it only when a long label leaves no room */
   .ui-bulk-main {
-    display: grid;
-    grid-template-columns: 44px minmax(0, 1fr) auto;
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
     min-height: 56px;
@@ -55,6 +56,14 @@
   }
   .ui-bulk-spacer {
     width: 44px;
+  }
+  .ui-bulk-text {
+    flex: 1 1 150px;
+    min-width: 0;
+  }
+  .ui-bulk-main > .ui-choice,
+  .ui-bulk-spacer {
+    flex: none;
   }
   .ui-bulk-title {
     margin: 0;
@@ -73,6 +82,7 @@
   }
   .ui-bulk-actions {
     display: flex;
+    margin-left: auto;
     align-items: center;
     gap: var(--space-1);
   }

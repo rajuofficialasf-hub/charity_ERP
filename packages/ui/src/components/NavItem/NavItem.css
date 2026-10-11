@@ -76,9 +76,13 @@
   }
   .ui-nav-rail .ui-nav-badge {
     position: absolute;
-    top: 4px;
-    right: 6px;
+    top: 2px;
+    right: 2px;
+    min-width: 18px;
     margin: 0;
+    padding: 0 4px;
+    line-height: 18px;
+    text-align: center;
     background: var(--color-status-danger);
     color: var(--color-text-on-brand);
   }

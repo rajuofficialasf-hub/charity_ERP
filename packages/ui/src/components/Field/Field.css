@@ -254,6 +254,9 @@
       transform: translateY(-4px);
     }
   }
+  .ui-popover-calendar {
+    min-width: 0;
+  }
   .ui-popover-dialog {
     padding: var(--space-3);
     outline: none;

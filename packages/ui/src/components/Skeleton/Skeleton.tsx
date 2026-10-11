@@ -27,7 +27,7 @@ export function Skeleton({ shape = 'text', count = 1, className }: SkeletonProps
       {Array.from({ length: count }, (_, i) => (
         <div
           key={i}
-          className={cx('ui-skeleton-item', shape !== 'text' && 'is-boxed')}
+          className={cx('ui-skeleton-item', (shape === 'row' || shape === 'card') && 'is-boxed')}
           aria-hidden="true"
         >
           {lines.map((width, j) => (

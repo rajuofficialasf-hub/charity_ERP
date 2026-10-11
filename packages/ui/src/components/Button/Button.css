@@ -103,6 +103,14 @@
   .ui-btn-sm.ui-btn-icon {
     min-width: 36px;
   }
+  /* On status tints (alerts, offline banner) ghost buttons use ink: dark green reaches only 4.49:1
+     on the danger tint (DESIGN_SYSTEM 2.1). */
+  .ui-alert .ui-btn-ghost,
+  .ui-offline .ui-btn-ghost {
+    color: var(--color-text-primary);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
   .ui-btn-block {
     width: 100%;
   }
