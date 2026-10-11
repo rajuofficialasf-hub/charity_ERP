@@ -158,7 +158,7 @@ Enforcement pattern: the referencing column `x_code text` plus a stored generate
 
 Beneficiary class options (BD-14; defaults from `reference_lists` `beneficiary_class_default`), expense categories (O-14), issue types, outcome labels, stage keys, application statuses beyond the common ones, follow-up questions. They are copied into a project with its template and can be edited per project (BR-065, BR-079), so a database FK to one global list would be wrong. Columns store the code (`class_code`, `category_code`, `type_code`, `stage`, `outcome`), and the service validates them against `projects.workflow_snapshot` and `project_components.settings` on every write; reports join labels from the same snapshot.
 
-`reference_lists` also holds the **defaults** for these lists (`beneficiary_class_default`, `expense_category_default`, `issue_type_default`) used when a template is created.
+`reference_lists` also holds the **defaults** for these lists (`beneficiary_class_default`, `expense_category_default`, `issue_type_default`) used when a template is created. Seed values (T1.3): beneficiary classes of BD-14, expense categories of O-14, issue types of O-53.
 
 ## 6. Identity and access
 
@@ -385,7 +385,7 @@ Indexes: (program_id, year); (status).
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
 | project_id | uuid | no | — | FK projects |
-| component_key | text | no | — | BR-063 list |
+| component_key | text | no | — | BR-063 list; keys of D-062 |
 | enabled | boolean | no | false | — |
 | settings | jsonb | no | '{}' | `project-component-settings.schema.json` (discriminated by component_key) |
 | [A] | | | | |
