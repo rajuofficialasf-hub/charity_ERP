@@ -530,7 +530,7 @@ Later tasks extend the demo set as entities become functional.
 ```
 
 #### T1.4 🛠 ডিজাইন সিস্টেম বাস্তবায়ন `[P5.1-এর কোড অংশ]`
-- আগে দরকার: T0.19 ও T0.19b (অনুমোদিত HTML মকআপ)। শেষে দেখে নিন: `/dev/components` গ্যালারিতে §12-এর সব কম্পোনেন্ট; ৩৬০px-এ ঠিক দেখায়; axe টেস্ট সবুজ।
+- আগে দরকার: T0.19 ও T0.19b (অনুমোদিত HTML মকআপ), এবং UX-14 অনুযায়ী প্রিমিয়াম চেহারায় নতুন করা মকআপ ও DESIGN_SYSTEM.md — মালিকের অনুমোদনসহ (T1.4-এর আগে Claude এটি মনে করিয়ে দেবে)। শেষে দেখে নিন: `/dev/components` গ্যালারিতে §12-এর সব কম্পোনেন্ট; ৩৬০px-এ ঠিক দেখায়; axe টেস্ট সবুজ।
 
 ```text
 Implement packages/ui from docs/ui/DESIGN_SYSTEM.md: tokens from docs/ui/brand/colors.md as CSS variables and a Tailwind preset bound to them; UbuntuSans and Bornomala at weights 400 and 700 with a sans-serif fallback (self-hosted files from docs/ui/brand/fonts/ with their licence texts; UbuntuSans declared for weights 400 to 700 and either shipped unmodified or subset to Latin letters, digits and punctuation with its internal font name suffixed derivative CSS ERP as Ubuntu Font Licence clause 2(c) requires; font-display swap; no external CDN at runtime); and every base component of constitution §12: Button (primary/secondary/danger/ghost), Badge/Status, Card/Stat, Field (text, textarea, number, phone, select, combobox, date, file), Form layout, Nav/Item, Row/Toggle, Table with filters/search/pagination, Modal, Drawer, Confirm dialog, File upload with preview, Alert, Tabs, Breadcrumb, Empty/Loading/Error states, Offline banner, Bulk-update list row with checkbox, Step/timeline, Progress bar.

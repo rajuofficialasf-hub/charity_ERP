@@ -11,7 +11,7 @@ Sources and precedence: the owner's latest instruction, then `docs/ui/DESIGN_BRI
 3. **One layout system.** The same components on every screen. A screen that needs something new extends a component in this document; it never invents a per-page pattern (constitution §12).
 4. **Phone first for field work, parity for officials, desktop first for setup.** Volunteers work on phones. Officials work equally on desktop and phone, so review, approval, lookup, profiles and dashboards work fully at 360 px (UX-03, NFR-17). Setup screens are desktop first (UX-04).
 5. **Low-end devices.** Light first load, short lists, small images, almost no animation (NFR-12, NFR-15).
-6. **Calm and institutional.** White cards, light borders, green as the action colour, amber only as decoration, no gradients, no heavy shadows, no decorative illustration (UX-02).
+6. **Premium and polished (UX-14, refining UX-02).** Green stays the action colour and amber a decorative accent; a high-quality finish through soft layered shadows, subtle gradients only in headers, hero areas and dashboard highlights, smooth short micro-animations, refined spacing and carefully designed components; simple illustrations allowed in empty states. Never at the cost of speed on 2 GB phones or AA contrast. The tokens and components of this document are updated with the premium mockup refresh before T1.4.
 7. **Plain Bangla.** Short labels and verbs, the same term for the same thing everywhere (blueprint appendix ক). Bangla is the default language, English is a per-user switch.
 8. **English digits.** All numbers use 0-9 in both languages: amounts, dates, counts, ids and phone numbers (UX-05).
 9. **Status is never colour alone.** A status always shows an icon and a text label (colors.md §6).
