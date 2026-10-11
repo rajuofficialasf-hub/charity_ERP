@@ -1,0 +1,20 @@
+packages:
+  - apps/*
+  - packages/*
+minimumReleaseAgeExclude:
+  - prettier@3.9.10
+
+# Dependencies allowed to run install scripts (pnpm blocks all others).
+allowBuilds:
+  '@prisma/engines': true
+  '@swc/core': true
+  esbuild: true
+  prisma: true
+  core-js: false
+  msw: false
+
+overrides:
+  # @swc/core 1.16 refuses to load its native binding when the Windows user cache folder grants
+  # rights to other app sandboxes (seen on the owner's machine, 2026-10-11). 1.15.47 is the last
+  # release without that check; revisit when a fixed 1.16.x exists.
+  '@swc/core': 1.15.47
