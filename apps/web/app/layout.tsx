@@ -4,6 +4,7 @@ import { getLocale, getMessages, getTranslations } from 'next-intl/server';
 import type { ReactNode } from 'react';
 import './globals.css';
 import { AppProviders } from './_components/AppProviders';
+import { AuthProvider } from './_lib/auth';
 import { ServiceWorkerProvider } from './service-worker-provider';
 
 // Texts come from the catalogue in the user's language (T1.5); tokens and fonts from @css/ui
@@ -25,14 +26,16 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const locale = await getLocale();
-  const { common, nav, ui } = await getMessages();
+  const { auth, common, nav, ui } = await getMessages();
   return (
     <html lang={locale}>
       <body>
         {/* The client receives only the namespaces every page needs (I18N 3.4, NFR-15). */}
-        <NextIntlClientProvider messages={{ common, nav, ui }}>
+        <NextIntlClientProvider messages={{ auth, common, nav, ui }}>
           <AppProviders>
-            <ServiceWorkerProvider>{children}</ServiceWorkerProvider>
+            <AuthProvider>
+              <ServiceWorkerProvider>{children}</ServiceWorkerProvider>
+            </AuthProvider>
           </AppProviders>
         </NextIntlClientProvider>
       </body>

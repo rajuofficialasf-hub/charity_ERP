@@ -7,10 +7,18 @@ import createNextIntlPlugin from 'next-intl/plugin';
 // build does not contain it at all.
 const devRoutes = process.env.NODE_ENV !== 'production' || process.env.CSS_DEV_GALLERY === '1';
 
+// The PWA and the API share one origin (AUTH.md 5: the refresh cookie and CSRF need it). In
+// production Caddy routes /api/* to the API before Next sees it; in development and E2E this
+// rewrite forwards /api/v1/* to the API process (CSS_API_ORIGIN, server-side only).
+const apiOrigin = process.env.CSS_API_ORIGIN ?? 'http://127.0.0.1:4000';
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   pageExtensions: devRoutes ? ['dev.tsx', 'tsx', 'ts'] : ['tsx', 'ts'],
+  async rewrites() {
+    return [{ source: '/api/v1/:path*', destination: `${apiOrigin}/api/v1/:path*` }];
+  },
 };
 
 // next-intl reads the request language from i18n/request.ts (D-067).
