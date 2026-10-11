@@ -7,6 +7,7 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import security from 'eslint-plugin-security';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+import noLiteralUiText from './eslint-rules/no-literal-ui-text.mjs';
 
 /** Files and folders no rule ever looks at. */
 export const ignores = {
@@ -101,12 +102,20 @@ export const sharedPurity = {
 };
 
 /** Test files may use dev-only helpers and looser rules. */
+/** No hard-coded user-facing text in the PWA and the design system (I18N 4, D-067). */
+export const i18n = {
+  files: ['apps/web/**/*.tsx', 'packages/ui/src/**/*.tsx'],
+  plugins: { css: { rules: { 'no-literal-ui-text': noLiteralUiText } } },
+  rules: { 'css/no-literal-ui-text': 'error' },
+};
+
 export const tests = {
   files: ['**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}', '**/test/**/*.{ts,tsx}', '**/e2e/**/*.ts'],
   rules: {
     'security/detect-non-literal-fs-filename': 'off',
     'security/detect-object-injection': 'off',
     'security/detect-non-literal-regexp': 'off',
+    'css/no-literal-ui-text': 'off',
   },
 };
 
@@ -124,4 +133,4 @@ export const scripts = {
   },
 };
 
-export default [ignores, ...base, node, react, next, sharedPurity, tests, scripts, prettier];
+export default [ignores, ...base, node, react, next, sharedPurity, i18n, tests, scripts, prettier];

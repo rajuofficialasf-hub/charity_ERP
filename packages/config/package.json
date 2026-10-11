@@ -11,7 +11,8 @@
     "./tsconfig/library.json": "./tsconfig/library.json",
     "./tsconfig/react-library.json": "./tsconfig/react-library.json",
     "./tsconfig/nest.json": "./tsconfig/nest.json",
-    "./tsconfig/next.json": "./tsconfig/next.json"
+    "./tsconfig/next.json": "./tsconfig/next.json",
+    "./eslint-rules/no-literal-ui-text": "./eslint-rules/no-literal-ui-text.mjs"
   },
   "dependencies": {
     "@eslint/js": "10.0.1",

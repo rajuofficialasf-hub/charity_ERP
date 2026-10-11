@@ -46,8 +46,9 @@ export type LocationRow = Record<(typeof CSV_COLUMNS)[number], string>;
 /** Typos found in the 2026-10-11 review (only unambiguous ones). */
 const TYPO_FIXES: Record<string, string> = { emakre: 'Remakri', joyasreeup: 'Joyasree' };
 const WARD_ENTRY = /^Ward No\.\s*\d+$/i;
-const POUROSOVA = /pourashava|pourosova|paurashava|pourashova|municipality|পৌরসভা/i;
-const CITY_CORPORATION = /city corporation|সিটি কর্পোরেশন/i;
+// i18n-allow-bengali: the next two patterns match place-type words in the owner's location data.
+const POUROSOVA = /pourashava|pourosova|paurashava|pourashova|municipality|পৌরসভা/i; // i18n-allow-bengali
+const CITY_CORPORATION = /city corporation|সিটি কর্পোরেশন/i; // i18n-allow-bengali
 
 export interface ConversionResult {
   rows: LocationRow[];

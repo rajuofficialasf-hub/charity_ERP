@@ -15,7 +15,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "e2e": "pnpm --filter \"./packages/*\" build && pnpm --filter @css/web build:e2e && pnpm --filter @css/web e2e",
-    "lint": "eslint . && prettier --check .",
+    "lint": "eslint . && prettier --check . && node scripts/check-i18n.mjs",
     "typecheck": "pnpm -r typecheck",
     "format": "prettier --write .",
     "db:migrate": "pnpm --filter @css/api db:migrate",
@@ -24,7 +24,8 @@
     "db:load-locations": "pnpm --filter @css/api db:load-locations",
     "docs:check": "node scripts/check-docs.mjs",
     "services:up": "docker compose up -d",
-    "services:down": "docker compose down"
+    "services:down": "docker compose down",
+    "i18n:check": "node scripts/check-i18n.mjs"
   },
   "devDependencies": {
     "@css/config": "workspace:*",

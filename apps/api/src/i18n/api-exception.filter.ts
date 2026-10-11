@@ -46,6 +46,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
       ({ status, code, params } = exception);
     } else if (exception instanceof HttpException) {
       status = exception.getStatus();
+      // eslint-disable-next-line security/detect-object-injection -- numeric HTTP status into a constant table
       code = CODE_BY_STATUS[status] ?? (status < 500 ? 'validation.malformed' : 'server.internal');
     } else {
       status = HttpStatus.INTERNAL_SERVER_ERROR;
