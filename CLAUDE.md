@@ -29,7 +29,25 @@ ERP for the Charity & Social Service Department of As-Sunnah Foundation. The pro
 - Calm institutional look. Colours and fonts come only from docs/ui/brand/colors.md (green family, font stack UbuntuSans, Bornomala, sans-serif, weights 400 and 700); do not invent colours. Read the brief before any UI task.
 
 ## Repository map and commands
-(Filled in by task T1.1 after scaffolding; keep this section current whenever scripts or layout change.)
-- Install: pnpm install · Dev: pnpm dev · Unit/API tests: pnpm test · E2E: pnpm e2e · Lint: pnpm lint · Typecheck: pnpm typecheck · DB: pnpm db:migrate, pnpm db:seed · Local services: docker compose up -d
+(Written in T1.1; keep this section current whenever scripts or layout change. Setup and troubleshooting: README.md.)
+
+Layout (pnpm workspace, packages named `@css/*`):
+- `apps/api`: NestJS 11 REST API under `/api/v1` (`src/main.ts`, `src/bootstrap.ts`, modules in `src/<module>/`); `GET /health/live` outside the prefix; Prisma 7 in `prisma/` with `prisma.config.ts` (generated client in `src/generated/`, not committed); unit tests `src/**/*.spec.ts`, API tests `test/api/*.test.ts`; `scripts/db-*.ts` behind the dev/test database guard (`src/config/db-guard.ts`).
+- `apps/web`: Next.js 16 App Router PWA (`app/`), Serwist service worker (`app/sw.ts`, served by `app/serwist/[path]/route.ts`), manifest `app/manifest.ts`; component tests `**/*.test.tsx` with MSW (`test/msw/`); Playwright E2E in `e2e/` (projects `mobile` and `desktop`).
+- `packages/shared`: pure TypeScript shared by api and web (no Node, Nest, Next, Prisma or React imports; ESLint enforces it).
+- `packages/ui`: design system (React); axe helper at `@css/ui/testing`.
+- `packages/config`: tsconfig variants, ESLint flat config, Prettier.
+- `infra/`: `docker-compose.dev.yml` (postgres on host port 5433, minio plus bucket bootstrap, mailpit), included by the root `compose.yaml`.
+- `scripts/check-docs.mjs`: machine checks of permissions.yaml, openapi.yaml, workflow templates and JSON Schemas.
+- `.github/workflows/ci.yml`: GitHub Actions CI (O-51).
+- Workspace packages export TypeScript sources under the `@css/source` condition (tests, typecheck) and `dist/` otherwise; `pnpm dev`, `pnpm build` and `pnpm e2e` build the packages first.
+
+Commands (from the repository root):
+- Install: `pnpm install` · Local services: `docker compose up -d` (stop: `docker compose down`)
+- Dev: `pnpm dev` (web on :3000, api on :4000; needs `apps/api/.env` from `.env.example`)
+- Unit, component and API tests: `pnpm test` (`pnpm test:coverage` for coverage) · E2E: `pnpm e2e` (builds, then Playwright)
+- Lint: `pnpm lint` (ESLint and Prettier check; `pnpm format` to fix) · Typecheck: `pnpm typecheck` · Build: `pnpm build`
+- Document checks: `pnpm docs:check`
+- DB: `pnpm db:migrate`, `pnpm db:seed`, `pnpm db:reset` (seed and reset refuse anything but css_erp_dev / css_erp_test, and refuse NODE_ENV=production)
 
 @docs/MASTER_PROMPT.md

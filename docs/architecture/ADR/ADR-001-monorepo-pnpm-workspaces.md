@@ -33,7 +33,7 @@ Positive: one commit changes schema, API and UI together (documentation sync rul
 
 Negative: a larger repository and a longer CI run as the code grows; workspace tooling (pnpm, TypeScript project references) must be configured correctly in T1.1; care is needed so that `packages/shared` never imports server-only code (enforced by its own tsconfig and an ESLint rule).
 
-Follow-ups: T1.1 scaffolds the workspace, the scripts named in CLAUDE.md (`pnpm dev`, `test`, `e2e`, `lint`, `typecheck`, `db:migrate`, `db:seed`) and the CI pipeline.
+Follow-ups: T1.1 scaffolds the workspace, the scripts named in CLAUDE.md (`pnpm dev`, `test`, `e2e`, `lint`, `typecheck`, `db:migrate`, `db:seed`) and the CI pipeline. Done in T1.1 (2026-10-11): packages are named `@css/*`; `packages/shared` and `packages/ui` export their TypeScript sources under the `@css/source` condition (used by Vitest and `tsc --noEmit`) and `dist/` for builds and runtime; the ESLint rule that keeps `packages/shared` free of Node, Nest, Next, Prisma and React imports is in `packages/config/eslint.config.mjs`.
 
 ## Related
 

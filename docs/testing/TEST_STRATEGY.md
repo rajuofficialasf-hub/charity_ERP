@@ -151,7 +151,7 @@ There is no single global coverage number; coverage is reported per package by V
 
 ## 6. CI gate
 
-The CI provider is named in T1.1 (on the organization's Git hosting, constitution §9). The pipeline fails on the first failing stage.
+CI runs on GitHub Actions (O-51), in `.github/workflows/ci.yml`. The pipeline fails on the first failing stage. State at T1.1: install, lint, typecheck, document checks (`pnpm docs:check`: YAML parse, template schema validation, JSON Schema compile, Redocly lint), unit and API tests with a PostgreSQL 16 service, build, `pnpm audit` and gitleaks run on every push; E2E (Chromium, mobile and desktop) runs on pushes to main. The i18n check (T1.5), the drift test and authorization matrix (T1.6), migrations up-down-up (T1.2), and the nightly set are added by the tasks that create them.
 
 | When | Stages, in order |
 |---|---|

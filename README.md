@@ -30,4 +30,73 @@ Repository: https://github.com/rajuofficialasf-hub/charity_ERP
 
 ## Application setup
 
-Added by task T1.1 once the repository is scaffolded. Until then there is no application code: Phase 0 produces documents only.
+Phase 1 has started: the repository holds the scaffold of task T1.1 (no business features yet).
+
+### Prerequisites
+
+- Node.js 24 LTS (`.nvmrc`) and pnpm 12 (`corepack enable` or `npm install -g pnpm@12.10.1`)
+- Docker Desktop with the engine running (Docker Compose v2.20 or newer)
+- Git with LF line endings (`.gitattributes` enforces them)
+
+### First run
+
+```bash
+pnpm install
+docker compose up -d
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env.local
+pnpm dev
+```
+
+The web app runs at http://localhost:3000 and the API at http://localhost:4000 (liveness: http://localhost:4000/health/live; business routes under `/api/v1`). For Playwright, install the browser once: `pnpm --filter @css/web exec playwright install chromium`.
+
+### Layout
+
+| Path | Contents |
+|---|---|
+| `apps/api` | NestJS REST API (`/api/v1`), Prisma schema and migrations in `prisma/` |
+| `apps/web` | Next.js PWA (App Router), service worker, Playwright tests in `e2e/` |
+| `packages/shared` | Pure TypeScript shared by API and PWA: zod schemas, permission names, i18n keys, business-rule functions |
+| `packages/ui` | Design system components |
+| `packages/config` | Shared tsconfig, ESLint and Prettier configuration |
+| `infra/` | Docker Compose file for development services |
+| `scripts/` | Repository checks (`check-docs.mjs`) |
+
+### Scripts (run from the root)
+
+| Command | What it does |
+|---|---|
+| `pnpm dev` | Builds the shared packages, then runs web and API in watch mode |
+| `pnpm build` | Builds every package and app |
+| `pnpm test` | Unit, component and API tests (Vitest, all packages) |
+| `pnpm test:coverage` | The same with a coverage report |
+| `pnpm e2e` | Builds the PWA and runs Playwright (mobile and desktop) |
+| `pnpm lint` | ESLint and the Prettier check (`pnpm format` rewrites) |
+| `pnpm typecheck` | TypeScript in every package |
+| `pnpm docs:check` | Parses and validates permissions.yaml, openapi.yaml, workflow templates and JSON Schemas; Redocly lint |
+| `pnpm db:migrate` | Prisma migrations against `DATABASE_URL` |
+| `pnpm db:seed` | Development seed (T1.3); refuses non-dev databases and production |
+| `pnpm db:reset` | Drops and re-creates the dev database from the migrations; refuses anything but `css_erp_dev` / `css_erp_test` and production |
+| `docker compose up -d` / `docker compose down` | Starts or stops the development services |
+
+### Development services
+
+| Service | Address | Notes |
+|---|---|---|
+| PostgreSQL 16 | `127.0.0.1:5433` | Databases `css_erp_dev` and `css_erp_test`; user `css`, dev-only password in `infra/docker-compose.dev.yml` |
+| MinIO (S3 API) | http://127.0.0.1:9000 | Buckets created by the `minio-init` container; console at http://127.0.0.1:9001 |
+| Mailpit | SMTP `127.0.0.1:1025`, inbox http://127.0.0.1:8025 | Catches every email sent in development |
+
+All ports listen on 127.0.0.1 only. Overrides (ports, dev passwords) go in `infra/.env`, see `infra/.env.example`.
+
+### Troubleshooting
+
+- **`docker compose up` cannot connect**: start Docker Desktop and wait until it reports "Engine running".
+- **Port already in use** (for example a PostgreSQL installed on Windows holds 5432, which is why the dev database uses 5433): set another port in `infra/.env` and the same port in `DATABASE_URL` of `apps/api/.env`.
+- **`pnpm install` reports ignored build scripts**: only the packages listed under `allowBuilds` in `pnpm-workspace.yaml` may run install scripts; add a package there only after reviewing it.
+- **Prisma client missing**: run `pnpm --filter @css/api db:generate`.
+- **Playwright cannot find a browser**: run `pnpm --filter @css/web exec playwright install chromium`.
+- **Next.js telemetry**: turn it off once per machine with `pnpm --filter @css/web exec next telemetry disable` (CI sets `NEXT_TELEMETRY_DISABLED`).
+- **Line endings on Windows**: the repository keeps LF; if Git converted files, run `git config core.autocrlf false` and check out again.
+
+Commit conventions and the working rules for changes are in `CONTRIBUTING.md`.

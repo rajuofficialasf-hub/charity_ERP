@@ -232,7 +232,7 @@ The PWA evaluates the same zod schemas and form logic as the server (`packages/s
 
 | Environment | Where | Composition | Differences |
 |---|---|---|---|
-| development | developer machine | Docker Compose: postgres, minio, mailpit; `pnpm dev` runs web and api; `JOBS_INLINE=true` | dummy OTP on, `LoggingSmsAdapter`, seed data, hot reload |
+| development | developer machine | Docker Compose (`infra/docker-compose.dev.yml`, started with `docker compose up -d` from the root): postgres (host port 5433), minio with bucket bootstrap, mailpit; `pnpm dev` runs web and api; `JOBS_INLINE=true` | dummy OTP on, `LoggingSmsAdapter`, seed data, hot reload |
 | test | CI runner and local `pnpm test` | same compose for API and E2E tests; `FilesystemStorage`; one database per test file cloned from a migrated template (O-46) | dummy OTP on, no outbound email or SMS, Playwright with offline emulation, k6 before gates |
 | staging | organization's server | Docker Compose: caddy, web, api, worker, postgres, minio; own database, buckets, secrets; real SMTP; SMS adapter in dry-run until the provider is chosen | dummy OTP off; anonymized demo data only; UAT runs here |
 | production | organization's server | same images as staging; separate compose project, volumes, secrets | dummy OTP refuses to enable; real SMTP and SMS; backups active |
@@ -305,4 +305,6 @@ What is deliberately absent: Redis, Kafka or any broker, Kubernetes, a separate 
 
 ADRs: `docs/architecture/ADR/README.md` (ADR-001…008, ADR-010 and ADR-011 written in Phase 0; ADR-009 is written with the form engine in T2.3).
 
-Open items for later tasks: error-tracking tool (T3.0); server details, domain names and the backup target (owner/IT, before T3.0); CI provider (T1.1); SMS provider (before rollout beyond the Phase 3 pilot, O-49); whether the IT team scrapes the metrics endpoint (T3.0).
+CI runs on GitHub Actions (O-51). Development MinIO images come from Chainguard because official community images are discontinued (D-059, proposed); production packaging is decided before T3.0.
+
+Open items for later tasks: error-tracking tool (T3.0); MinIO packaging for staging and production (D-059, before T3.0); server details, domain names and the backup target (owner/IT, before T3.0); SMS provider (before rollout beyond the Phase 3 pilot, O-49); whether the IT team scrapes the metrics endpoint (T3.0).
