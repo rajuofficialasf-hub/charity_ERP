@@ -112,3 +112,28 @@ export {
   type RowToggleProps,
   type SwitchProps,
 } from './components/RowToggle/RowToggle.js';
+export {
+  BulkList,
+  BulkRow,
+  type BulkBadge,
+  type BulkListProps,
+  type BulkRowProps,
+} from './components/BulkRow/BulkRow.js';
+export {
+  ConfirmDialog,
+  Drawer,
+  Modal,
+  type ConfirmDialogProps,
+  type DrawerProps,
+  type ModalProps,
+} from './components/Modal/Modal.js';
+export {
+  Table,
+  TableToolbar,
+  type FilterChip,
+  type TableColumn,
+  type TablePagination,
+  type TableProps,
+  type TableSort,
+  type TableToolbarProps,
+} from './components/Table/Table.js';

@@ -37,6 +37,8 @@ export interface UiMessages {
     errorSummaryTitle: string;
     /** Tag beside labels of fields visible to officials only (DESIGN_SYSTEM 5.4). */
     officialOnly: string;
+    /** Label of the reason box of confirm dialogs. */
+    reason: string;
   };
   file: {
     takePhoto: string;
@@ -77,6 +79,8 @@ export interface UiMessages {
     /** "{shown} of {total}". */
     resultCount: string;
     selectAll: string;
+    /** Row checkbox inside the table; React Aria adds the row's name after it. */
+    select: string;
     /** "Select {name}". */
     selectRow: string;
     rowActions: string;

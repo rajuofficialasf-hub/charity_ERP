@@ -216,9 +216,8 @@ export function FileUpload({
       {value.length > 0 && (
         <ul className="ui-upload-list" aria-live="polite">
           {value.map((item) => {
-             
             const look = STATE_LOOK[item.state];
-             
+
             const stateText = messages.file.state[item.state];
             return (
               <li key={item.id} className={cx('ui-upload-item', `is-${item.state}`)}>

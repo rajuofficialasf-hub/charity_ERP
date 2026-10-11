@@ -1,0 +1,198 @@
+/* Modal, Drawer, Confirm dialog and bottom sheet (DESIGN_SYSTEM 5.8-5.10, UX-14 entrance). */
+@layer components {
+  .ui-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-5) var(--space-4);
+    background: var(--color-scrim);
+  }
+  @media (min-width: 1024px) {
+    .ui-overlay {
+      -webkit-backdrop-filter: blur(3px);
+      backdrop-filter: blur(3px);
+    }
+  }
+  .ui-overlay[data-entering] {
+    animation: ui-fade-in var(--motion-slow) var(--ease-standard);
+  }
+  .ui-overlay[data-exiting] {
+    animation: ui-fade-in var(--motion-base) var(--ease-standard) reverse;
+  }
+  .ui-dialog {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 560px;
+    max-height: calc(100dvh - 48px);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-surface);
+    color: var(--color-text-primary);
+    box-shadow: var(--elevation-3);
+    outline: none;
+  }
+  .ui-dialog[data-entering] {
+    animation: ui-dialog-in var(--motion-slow) var(--ease-out);
+  }
+  .ui-dialog-sm {
+    max-width: 400px;
+  }
+  .ui-dialog-lg {
+    max-width: 720px;
+  }
+  @keyframes ui-dialog-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.98);
+    }
+  }
+  @keyframes ui-fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  .ui-dialog-frame {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-height: inherit;
+    outline: none;
+  }
+  .ui-dialog-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-2) var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--color-border-default);
+  }
+  .ui-dialog-title {
+    flex: 1;
+    margin: 0;
+    font-size: var(--text-title);
+  }
+  .ui-dialog-body {
+    padding: var(--space-4);
+    overflow-y: auto;
+  }
+  .ui-dialog-foot {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-top: 1px solid var(--border-subtle);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    background: var(--color-bg-canvas);
+  }
+  .ui-sheet-handle,
+  .ui-sheet-handle-button {
+    display: none;
+  }
+  .ui-confirm-message > :last-child {
+    margin-bottom: 0;
+  }
+  .ui-confirm-consequence {
+    margin: var(--space-3) 0 0;
+    padding-left: var(--space-4);
+  }
+  .ui-confirm-reason {
+    margin: var(--space-3) 0 0;
+  }
+
+  /* drawer: full-height side panel from 640 px */
+  @media (min-width: 640px) {
+    .ui-overlay:has(.ui-drawer-right) {
+      justify-content: flex-end;
+      padding: 0;
+    }
+    .ui-drawer-right {
+      width: 420px;
+      max-width: 100%;
+      height: 100dvh;
+      max-height: 100dvh;
+      border-radius: 0;
+    }
+    .ui-drawer-right[data-entering] {
+      animation: ui-drawer-in var(--motion-base) var(--ease-out);
+    }
+    .ui-drawer-right .ui-dialog-foot {
+      border-radius: 0;
+    }
+    .ui-overlay:has(.ui-drawer-bottom) {
+      align-items: flex-end;
+      padding: 0;
+    }
+    .ui-drawer-bottom {
+      max-width: 100%;
+      max-height: 90dvh;
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    }
+  }
+  @keyframes ui-drawer-in {
+    from {
+      transform: translateX(24px);
+      opacity: 0;
+    }
+  }
+
+  /* phones: every modal and drawer is a bottom sheet with a drag handle */
+  @media (max-width: 639px) {
+    .ui-overlay {
+      align-items: flex-end;
+      padding: 0;
+    }
+    .ui-dialog {
+      max-width: 100%;
+      max-height: 90dvh;
+      padding-bottom: env(safe-area-inset-bottom);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    }
+    .ui-dialog[data-entering] {
+      animation: ui-sheet-in var(--motion-slow) var(--ease-out);
+    }
+    .ui-dialog-full {
+      height: 100dvh;
+      max-height: 100dvh;
+      border-radius: 0;
+    }
+    .ui-sheet-handle {
+      display: block;
+      width: 40px;
+      height: 4px;
+      margin: var(--space-2) auto 0;
+      border-radius: var(--radius-full);
+      background: var(--color-border-strong);
+    }
+    .ui-sheet-handle-button {
+      display: block;
+      width: 100%;
+      min-height: 24px;
+      padding: 0 0 var(--space-1);
+      border: 0;
+      background: none;
+      cursor: pointer;
+    }
+    .ui-sheet-handle-button:focus-visible {
+      outline: 2px solid var(--color-brand-primary);
+      outline-offset: -2px;
+    }
+    .ui-dialog-foot {
+      border-radius: 0;
+    }
+    .ui-dialog-foot > .ui-btn {
+      flex: 1 1 0;
+    }
+  }
+  @keyframes ui-sheet-in {
+    from {
+      transform: translateY(32px);
+      opacity: 0;
+    }
+  }
+  .ui-sheet .ui-dialog-body {
+    padding-top: var(--space-2);
+  }
+}

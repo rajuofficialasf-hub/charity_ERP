@@ -25,6 +25,8 @@ export interface CheckboxProps {
   value?: string;
   /** 44 px hit area (bulk rows and table selection on phones). */
   hitArea?: boolean;
+  /** "selection" inside a Table row or header (React Aria slot). */
+  slot?: string;
   className?: string;
 }
 

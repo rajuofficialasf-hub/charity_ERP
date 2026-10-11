@@ -32,6 +32,7 @@ export const exampleMessages: Record<'bn' | 'en', UiMessages> = {
       nextMonth: 'পরের মাস',
       errorSummaryTitle: 'ফর্মে কিছু ভুল আছে, ঠিক করুন:',
       officialOnly: 'শুধু কর্মকর্তা',
+      reason: 'কারণ',
     },
     file: {
       takePhoto: 'ছবি তুলুন',
@@ -65,6 +66,7 @@ export const exampleMessages: Record<'bn' | 'en', UiMessages> = {
       next: 'পরের পাতা',
       resultCount: '{total}টির মধ্যে {shown}টি',
       selectAll: 'সব বেছে নিন',
+      select: 'বেছে নিন',
       selectRow: '{name} বেছে নিন',
       rowActions: 'কাজ',
       pagination: 'পাতা বদল',
@@ -127,6 +129,7 @@ export const exampleMessages: Record<'bn' | 'en', UiMessages> = {
       nextMonth: 'Next month',
       errorSummaryTitle: 'Please correct the following:',
       officialOnly: 'Officials only',
+      reason: 'Reason',
     },
     file: {
       takePhoto: 'Take photo',
@@ -160,6 +163,7 @@ export const exampleMessages: Record<'bn' | 'en', UiMessages> = {
       next: 'Next page',
       resultCount: '{shown} of {total}',
       selectAll: 'Select all',
+      select: 'Select',
       selectRow: 'Select {name}',
       rowActions: 'Actions',
       pagination: 'Pagination',
