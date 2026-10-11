@@ -10,8 +10,7 @@ import { checkDestructiveDbAccess } from '../src/config/db-guard';
 // API on port 4100 with the dummy OTP. Development and test only: the database guard refuses
 // anything but css_erp_test* and NODE_ENV=production. The values below are E2E-only placeholders.
 const DATABASE_URL =
-  process.env.E2E_DATABASE_URL ??
-  'postgresql://css:css_dev_only@127.0.0.1:5433/css_erp_test_e2e';
+  process.env.E2E_DATABASE_URL ?? 'postgresql://css:css_dev_only@127.0.0.1:5433/css_erp_test_e2e';
 const PORT = process.env.E2E_API_PORT ?? '4100';
 const root = join(__dirname, '..');
 
