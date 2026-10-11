@@ -5074,6 +5074,32 @@ paths:
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+  /me/language:
+    put:
+      tags: [auth]
+      operationId: auth.me.language.set
+      summary: >-
+        Set own interface language (users.language, I18N 2); the PWA also keeps it in the css_locale
+        cookie and device storage. Live with login in T1.7 (O-56)
+      x-permission: authenticated
+      x-scope: self
+      x-audit: user.language_changed
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [language]
+              properties:
+                language: { type: string, enum: [bn, en] }
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /me/preferences:
     get:
       tags: [notifications]

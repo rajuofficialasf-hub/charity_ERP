@@ -160,6 +160,7 @@ Every event below is written to `audit_log` (BR-179) with actor, target user, de
 | auth.refresh_reuse_detected | Refresh-token reuse |
 | auth.session_revoked / session_revoked_by_official | Device revocation |
 | auth.password_changed / password_reset_started / password_reset_completed | Password flows |
+| user.language_changed | Own interface language changed (I18N 2; endpoint `PUT /me/language`, live with T1.7, O-56) |
 | auth.role_changed / permission_changed (written by the access module) | Permission version bump |
 | auth.state_changed | pending/active/blocked/deactivated transitions with reason |
 | auth.handover_started / handover_completed | Deactivation handover |
