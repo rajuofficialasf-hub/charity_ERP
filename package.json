@@ -21,6 +21,7 @@
     "db:migrate": "pnpm --filter @css/api db:migrate",
     "db:seed": "pnpm --filter @css/api db:seed",
     "db:reset": "pnpm --filter @css/api db:reset",
+    "db:load-locations": "pnpm --filter @css/api db:load-locations",
     "docs:check": "node scripts/check-docs.mjs",
     "services:up": "docker compose up -d",
     "services:down": "docker compose down"

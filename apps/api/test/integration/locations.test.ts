@@ -1,0 +1,116 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { Client } from 'pg';
+import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
+import { type LocationRow } from '../../src/locations/convert';
+import { parseCsvRecords } from '../../src/locations/csv';
+import { loadLocations } from '../../src/locations/load';
+import { cloneTemplate } from './support/db';
+
+// Locations master loader (O-09, D-061, BR-228).
+let db: Client;
+let drop: () => Promise<void>;
+beforeAll(async () => {
+  ({ client: db, drop } = await cloneTemplate(inject('templateDb')));
+});
+afterAll(async () => drop());
+
+const row = (over: Partial<LocationRow>): LocationRow => ({
+  division_code: 'L-90',
+  division_bn: 'পরীক্ষা বিভাগ',
+  division_en: 'Test Division',
+  district_code: 'L-90-01',
+  district_bn: 'পরীক্ষা জেলা',
+  district_en: 'Test District',
+  upazila_code: 'L-90-01-01',
+  upazila_bn: 'পরীক্ষা উপজেলা',
+  upazila_en: 'Test Upazila',
+  upazila_kind: 'upazila',
+  union_code: 'L-90-01-01-001',
+  union_bn: 'পরীক্ষা ইউনিয়ন',
+  union_en: 'Test Union',
+  union_kind: 'union',
+  verified: 'no',
+  ...over,
+});
+
+describe('loadLocations', () => {
+  const fixture = [
+    row({}),
+    row({
+      union_code: 'L-90-01-01-002',
+      union_bn: 'পরীক্ষা পৌরসভা',
+      union_en: 'Test Pourashava',
+      union_kind: 'pourosova',
+    }),
+  ];
+
+  it('inserts the hierarchy once and is idempotent', async () => {
+    expect(await loadLocations(db, fixture)).toEqual({
+      inserted: 5,
+      updated: 0,
+      unchanged: 0,
+      deactivated: 0,
+    });
+    expect(await loadLocations(db, fixture)).toEqual({
+      inserted: 0,
+      updated: 0,
+      unchanged: 5,
+      deactivated: 0,
+    });
+    const { rows } = await db.query(
+      `SELECT c.level, c.kind, p.code AS parent FROM locations c LEFT JOIN locations p ON p.id = c.parent_id WHERE c.code = 'L-90-01-01-002'`,
+    );
+    expect(rows[0]).toEqual({ level: 'union', kind: 'pourosova', parent: 'L-90-01-01' });
+  });
+
+  it('renames with a version bump and deactivates a code missing from the CSV, never deleting it', async () => {
+    const renamed = [row({ union_bn: 'নতুন নাম', union_en: 'New Name' })];
+    expect(await loadLocations(db, renamed)).toEqual({
+      inserted: 0,
+      updated: 1,
+      unchanged: 3,
+      deactivated: 1,
+    });
+    const { rows } = await db.query(
+      `SELECT code, name_en, version, active FROM locations WHERE code IN ('L-90-01-01-001', 'L-90-01-01-002') ORDER BY code`,
+    );
+    expect(rows).toEqual([
+      { code: 'L-90-01-01-001', name_en: 'New Name', version: 2, active: true },
+      { code: 'L-90-01-01-002', name_en: 'Test Pourashava', version: 2, active: false },
+    ]);
+    // reappearing in the CSV reactivates it
+    expect((await loadLocations(db, [...renamed, fixture[1]!])).updated).toBe(1);
+  });
+
+  it('refuses one code for two different places and rolls back', async () => {
+    const before = (await db.query('SELECT count(*)::int AS n FROM locations')).rows[0].n;
+    await expect(
+      loadLocations(db, [
+        row({ upazila_code: 'L-91-01-01', union_code: 'L-91-01-01-001' }),
+        row({ upazila_code: 'L-91-01-01', upazila_en: 'Other', union_code: 'L-91-01-01-002' }),
+      ]),
+    ).rejects.toThrow(/two different places/);
+    expect((await db.query('SELECT count(*)::int AS n FROM locations')).rows[0].n).toBe(before);
+  });
+
+  it('loads the committed bd-locations.csv: 8 divisions, 64 districts, 495 upazilas and 12 city corporations', async () => {
+    const csv = readFileSync(
+      join(__dirname, '../../../../docs/source/data/bd-locations.csv'),
+      'utf8',
+    );
+    await loadLocations(db, parseCsvRecords(csv) as LocationRow[]);
+    const { rows } = await db.query(
+      `SELECT level, kind, count(*)::int AS n FROM locations WHERE active AND code NOT LIKE 'L-9_%' GROUP BY level, kind ORDER BY level, kind`,
+    );
+    expect(rows).toEqual([
+      { level: 'district', kind: 'district', n: 64 },
+      { level: 'division', kind: 'division', n: 8 },
+      { level: 'union', kind: 'pourosova', n: 330 },
+      { level: 'union', kind: 'thana', n: 111 },
+      { level: 'union', kind: 'union', n: 4591 },
+      { level: 'upazila', kind: 'city_corporation', n: 12 },
+      { level: 'upazila', kind: 'upazila', n: 495 },
+    ]);
+  });
+});

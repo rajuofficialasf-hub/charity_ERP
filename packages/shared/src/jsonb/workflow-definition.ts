@@ -17,8 +17,12 @@ const activityType = z.enum([
   'inspection',
   'follow_up',
 ]);
+// The patterns below are copied from the JSON Schema; the separator (. or :) is not in the repeated
+// character class, so matching is linear.
+// eslint-disable-next-line security/detect-unsafe-regex
 const permissionName = z.string().regex(/^[a-z0-9_]+(\.[a-z0-9_]+)+$/);
 const guardName = permissionName;
+// eslint-disable-next-line security/detect-unsafe-regex
 const effectName = z.string().regex(/^[a-z0-9_]+(\.[a-z0-9_]+)*(:[a-z0-9_.]+)?$/);
 
 export const transitionSchema = z

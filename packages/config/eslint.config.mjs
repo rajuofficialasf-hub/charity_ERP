@@ -107,7 +107,7 @@ export const tests = {
 
 /** Repository maintenance scripts only read fixed paths inside the repository. */
 export const scripts = {
-  files: ['scripts/**/*.mjs'],
+  files: ['scripts/**/*.mjs', 'apps/api/scripts/**/*.ts'],
   rules: {
     'security/detect-non-literal-fs-filename': 'off',
     'security/detect-object-injection': 'off',

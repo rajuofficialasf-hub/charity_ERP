@@ -10,6 +10,8 @@ const text = z.strictObject({
 const number = z.strictObject({ t: z.enum(['number', 'decimal']), v: z.number() });
 const money = z.strictObject({
   t: z.literal('money'),
+  // bounded pattern copied from the JSON Schema; no catastrophic backtracking
+  // eslint-disable-next-line security/detect-unsafe-regex
   v: z.string().regex(/^[0-9]{1,12}(\.[0-9]{1,2})?$/),
 });
 const date = z.strictObject({ t: z.literal('date'), v: z.iso.date() });
