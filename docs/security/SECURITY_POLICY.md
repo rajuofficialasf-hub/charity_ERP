@@ -44,7 +44,7 @@ OWASP ASVS level 2 is the checklist of the security audit before go-live (T6.3).
 
 | Control | Rule |
 |---|---|
-| Password storage | Argon2id with per-user salt; plaintext passwords and OTP codes never stored, logged or audited |
+| Password storage | Argon2id with per-user salt; plaintext passwords and OTP codes never stored, logged or audited (T1.7: OTP codes and addresses stored as HMACs; audit entries carry a hash of the login id) |
 | Password rules | At least 8 characters with a letter and a digit; at least 12 for Department Head and Monitoring Team accounts |
 | Registration and reset OTP | 6 digits, valid 5 minutes, 5 verification attempts per code, 5 requests per hour per number or address; partial registration resumable for 24 hours; OTP not used at every login |
 | Dummy OTP | Fixed code in development and test (BD-44, BD-49). Production refuses to start with the dummy mode on, except during the Phase 3 pilot under an explicit, time-limited configuration flag approved in writing by the owner (O-49); the flag is logged at every start and shown to the Monitoring Team; a real SMS gateway is required before rollout beyond the pilot region |

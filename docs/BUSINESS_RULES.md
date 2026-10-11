@@ -377,6 +377,14 @@ Every rule above starts with test status "not yet". When a test exists, record i
 - BR-024 (jobs): apps/api/src/config/env.spec.ts::refuses inline jobs and filesystem storage in production (BR-024) — passing (2026-10-11; T1.6)
 - BR-179 (mechanism): apps/api/test/integration/audit-idempotency.test.ts::records actor, request facts and the change inside the transaction; leaves no entry when the business transaction rolls back; apps/api/test/api/guards.api.test.ts::fails a write that declared an audit action but wrote no entry, fails a write route without @Audit — passing (2026-10-11; T1.6; each audited action is tested with its module)
 - BR-210: apps/api/test/api/i18n.api.test.ts::turns unexpected failures into server.internal without leaking details; apps/api/test/api/core.api.test.ts::logs one line per request without bodies, query strings or secrets — passing (2026-10-11; T1.5, T1.6)
+- BR-024 (OTP): apps/api/src/config/env.spec.ts::refuses the dummy OTP and insecure auth cookies in production; apps/api/src/auth/auth.spec.ts::uses the configured fixed code and sends nothing in dummy mode — passing (2026-10-11; T1.7)
+- BR-201: apps/api/test/integration/sessions-users.test.ts::lets the Monitoring Team list and revoke with a reason; apps/web/app/_lib/api.test.ts::wipes local data and signs out when the session was revoked; apps/web/e2e/auth.spec.ts::lists the devices and logs out another one — passing (2026-10-11; T1.7; RPM own-region revocation with T1.8)
+- BR-203: packages/shared/src/auth/password.test.ts (9 tests); apps/api/test/integration/auth.test.ts (login, lockout, tokens, refresh); apps/api/test/integration/password.test.ts — passing (2026-10-11; T1.7)
+- BR-209: apps/api/test/api/guards.api.test.ts::allows 10 logins per minute per login id and per IP; apps/api/src/auth/auth.spec.ts::auth rate-limit keys — passing (2026-10-11; T1.6, T1.7)
+- BR-231: apps/api/test/integration/password.test.ts::counts wrong codes and stops at the fifth; refuses an expired code; stops issuing codes after 5 requests per hour — passing (2026-10-11; T1.7; registration OTP with T1.9)
+- BR-232: apps/api/test/integration/auth.test.ts::revokes the oldest session when a sixth device logs in; refuses sessions idle too long or past their limits; ends at the 180-day hard limit — passing (2026-10-11; T1.7)
+- BR-035: apps/api/test/integration/sessions-users.test.ts::protects the Main Admin's sessions; refuses the Main Admin … in state changes — passing (2026-10-11; T1.7; transfer flow later)
+- BR-034 (gate): apps/api/test/integration/sessions-users.test.ts::deactivates only after a completed handover — passing (2026-10-11; T1.7; the handover itself with T1.9)
 
 Database-level parts only where noted; each rule stays open for its service, API and E2E tests in the task that builds the module (T1.2, 2026-10-11).
 

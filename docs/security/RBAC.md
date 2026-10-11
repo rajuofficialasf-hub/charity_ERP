@@ -198,6 +198,9 @@ Stock reconciliation and the Qurbani animal photos are not in the base sets beca
 
 ## 8. Server-side enforcement
 
+Until T1.8 the API runs an interim resolver (O-59 item 3, AUTH.md 16): GLOBAL-scope roles pass every named permission, every user passes `session.revoke_own` on own sessions, and everything else is denied; scope resolution, project permission sets and the panel replace it in T1.8.
+
+
 1. **Guard declaration per endpoint.** Every handler declares `@Permission('<name>')` and `@ScopeOf('<entity>')`; a handler without them cannot be registered (boot-time check). Anonymous endpoints (public form, login, OTP) declare `@Public()` explicitly and are listed in SECURITY_POLICY.
 2. **Check order.** Rate limit → authentication → role resolution → permission → scope resolution → object-level → validation → service (SYSTEM_ARCHITECTURE §6).
 3. **Scope resolution per role** (section 4) produces query filters; repositories accept a scope object and never a raw user id.
@@ -235,7 +238,7 @@ Stock reconciliation and the Qurbani animal photos are not in the base sets beca
 5. **Stock reconciliation** (`stock.reconcile`) entered by the volunteer and verified by RPM/Executive, both under the same permission name with different scopes. Confirmed (O-26).
 6. **`beneficiary.merge`** at PROGRAM for the PM (BD-05 names PM, Monitoring Team, Department Head); RPM proposes only. Confirmed (O-26).
 
-## 12. Permission catalogue (generated from permissions.yaml, 140 permissions)
+## 12. Permission catalogue (generated from permissions.yaml, 141 permissions)
 
 Generated on 2026-10-10 by the T0.10 check script from `permissions.yaml`; regenerate whenever the YAML changes (T1.8 adds this to CI). Department Head and Monitoring Team hold every permission at GLOBAL and are not repeated per row.
 
@@ -244,6 +247,7 @@ Generated on 2026-10-10 by the T0.10 check script from `permissions.yaml`; regen
 | `session.revoke_own` | M01 | no | Revoke one of the user's own device sessions | program_manager@SELF; regional_program_manager@SELF; project_executive@SELF; implementer@SELF; official_daee@SELF; procurement_team@SELF; media_team@SELF; finance_team@SELF; volunteer_general@SELF; volunteer_local_daee@SELF; volunteer_both@SELF; volunteer_team_member@SELF; volunteer_paid@SELF |
 | `session.revoke_user` | M01 | no | List and revoke another user's device sessions (lost phone), with reason | regional_program_manager@REGION (own_region) |
 | `user.state.change` | M01 | no | Change an account state (pending/active/blocked/deactivated) with reason; blocklist uses volunteer.block | none (global roles only) |
+| `user.lock.clear` | M01 | no | Clear a login lock (5 failed attempts) on a user's account with reason (O-59, AUTH.md 6) | none (global roles only) |
 | `user.deactivate_volunteer` | M03 | no | Deactivate a volunteer who has no open applications | program_manager@PROGRAM (no_open_applications); regional_program_manager@REGION (no_open_applications) |
 | `user.handover` | M03 | no | Run the staff handover and deactivate an official's account | none (global roles only) |
 | `system.owner.transfer` | M01 | no | Transfer the Main Admin (system owner) flag to another official | department_head@GLOBAL |

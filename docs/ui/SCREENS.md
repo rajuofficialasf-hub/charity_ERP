@@ -76,6 +76,8 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 
 ### SCR-001 Login and password reset
 
+- **Built (T1.7).** `/login` and `/login/reset` in apps/web (centered card on the brand wash of mockup 01; the reset flow is login id → code and new password → done; the dummy-OTP note appears only in development and E2E builds). Not yet: install state on iOS, the 426 banner (T1.13), registration link (T1.9).
+
 - **Purpose.** Sign in with mobile number and password; reset a forgotten password by OTP (AUTH.md).
 - **Roles.** Everyone.
 - **Priority.** parity.
@@ -226,6 +228,8 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 - **Phase · task.** 2 · T2.7. **API.** tag sync.
 
 ### SCR-006 My profile, edit request, device sessions, language
+
+- **Built in part (T1.7).** `/account/sessions` (device list, current marker, log out another device with confirm) and `/account/password`; the placeholder home links them with language and logout until the app shell (T1.15). Profile and edit requests come in T1.9; the unsynced-records warning at logout with the outbox (T2.7).
 
 - **Purpose.** Shows the user's own data and lets them ask for changes. Approved volunteers change their profile only through an edit request. It also lists device sessions and sets language and preferences.
 - **Roles.** Everyone.

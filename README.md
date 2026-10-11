@@ -70,7 +70,7 @@ The web app runs at http://localhost:3000 and the API at http://localhost:4000 (
 | `pnpm build` | Builds every package and app |
 | `pnpm test` | Unit, component, API and database integration tests (Vitest, all packages; the database tests need `docker compose up -d`) |
 | `pnpm test:coverage` | The same with a coverage report |
-| `pnpm e2e` | Builds the packages and the PWA with the dev component gallery, then runs Playwright (mobile and desktop) |
+| `pnpm e2e` | Builds the packages, the API and the PWA with the dev component gallery, then runs Playwright (mobile and desktop) against the API on a fresh `css_erp_test_e2e` database with the demo accounts (needs `docker compose up -d`) |
 | `pnpm lint` | ESLint (including the hard-coded text rule), the Prettier check and `pnpm i18n:check` (`pnpm format` rewrites) |
 | `pnpm i18n:check` | Message catalogue check (bn/en parity, ICU, parameters, digits, error codes) and no Bengali text in code |
 | `pnpm typecheck` | TypeScript in every package |

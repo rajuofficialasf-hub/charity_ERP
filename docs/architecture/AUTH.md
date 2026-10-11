@@ -1,6 +1,6 @@
 # AUTHENTICATION AND SESSIONS
 
-Status: complete, task T0.9 (2026-10-10); all proposals approved by the owner the same day as O-25. Design only; no code. Inputs: blueprint A5 (registration), B8 (session and login), B10 (account security); constitution §5 (Main Admin), §13; decisions BD-08, BD-44, BD-47, BD-49, O-05 (password, tokens, lockout, OTP scope), O-25 (OTP parameters, idle timeout, device limit, stronger password for GLOBAL-scope officials, RPM revocation, auto-deactivation, alert thresholds), D-055 (zod validation), D-056 (network), D-057 (monitoring); rules BR-023…035, BR-047, BR-201, BR-203, BR-209; NFR-36, NFR-40, NFR-41. All values that were proposals in the first draft are decided: O-25 for the authentication values, SECURITY_POLICY §4 (T0.21) for Argon2id, O-47 for the rate limits of NFR-41; only the bundled common-password list is chosen in T1.7.
+Status: complete, task T0.9 (2026-10-10); all proposals approved by the owner the same day as O-25. Design only; no code. Inputs: blueprint A5 (registration), B8 (session and login), B10 (account security); constitution §5 (Main Admin), §13; decisions BD-08, BD-44, BD-47, BD-49, O-05 (password, tokens, lockout, OTP scope), O-25 (OTP parameters, idle timeout, device limit, stronger password for GLOBAL-scope officials, RPM revocation, auto-deactivation, alert thresholds), D-055 (zod validation), D-056 (network), D-057 (monitoring); rules BR-023…035, BR-047, BR-201, BR-203, BR-209; NFR-36, NFR-40, NFR-41. All values that were proposals in the first draft are decided: O-25 for the authentication values, SECURITY_POLICY §4 (T0.21) for Argon2id, O-47 for the rate limits of NFR-41; the bundled common-password list was chosen in T1.7 (D-071). Implementation notes of T1.7 are in section 16.
 
 ## 1. Identities and accounts
 
@@ -44,7 +44,7 @@ Partial registrations: a user who verified both OTPs but did not submit the form
 ## 3. Password rules (O-05)
 
 - Minimum 8 characters with at least one letter and one digit; no maximum below 128; spaces allowed.
-- Rejected: the user's own mobile number, a password equal to the login id, and passwords on a short list of common passwords (a bundled list of common passwords in `packages/shared`, chosen in T1.7).
+- Rejected: the user's own mobile number, a password equal to the login id, and passwords on a short list of common passwords (the SecLists 10k list filtered to 8 characters or more plus local words, `@css/shared/auth/common-passwords`, D-071). A password whose letters alone spell a local word (assunnah, bangladesh, bismillah …) counts as common.
 - No forced periodic rotation (NIST guidance); a change is required only after a reset or when the Monitoring Team forces it for a compromised account.
 - Password change (logged in): requires the current password; revokes every other device session (section 5) and keeps the current one.
 - Password reset (forgotten): start with the login id → OTP to the registered mobile (volunteers) or mobile or email (staff) → new password → all device sessions revoked. Reset links are not used; OTP only (O-05).
@@ -60,7 +60,7 @@ POST /auth/login { loginId, password, device: { name, platform, appVersion } }
 2. Look up the account by mobile (volunteers, staff) or email (staff). Unknown id and wrong password return the same error and the same timing class (no user enumeration).
 3. Check lockout (section 6).
 4. Verify the password hash.
-5. Check account state (section 7): pending → "waiting for approval" message; blocked → the block message and no tokens; deactivated → "account closed".
+5. Check account state (section 7): pending → tokens with the pending restrictions; blocked → 403 `auth.account_blocked` with the catalogue message and no tokens (O-59 item 4; the block reason is never shown); deactivated → 403 `auth.account_deactivated`. The state is revealed only after a correct password.
 6. Create a device session (section 5), issue the access token and the refresh token, write the audit event `auth.login`.
 7. Return the tokens plus the minimal profile (id, display name, roles, language, must-refresh flag).
 
@@ -90,7 +90,8 @@ Rules:
 - The lockout response does not reveal whether the id exists.
 - Per-IP rate limiting (section 12) runs independently so that one attacker cannot lock many accounts cheaply; the account lock counts only attempts with a valid-looking id.
 - Audit events `auth.login_failed` (with id hash and IP) and `auth.locked`; 10 locks of one account within a day raise a monitoring alert (O-25).
-- The Monitoring Team can clear a lock from the user's admin screen (audited).
+- The Monitoring Team (and the Department Head) can clear a lock with a reason: `POST /users/{userId}/unlock`, permission `user.lock.clear`, audit `auth.lock_cleared` (O-59 item 2). A successful password reset also lifts the lock.
+- A locked login answers 423 with `Retry-After` (seconds until the lock ends); the login screen shows the minutes left.
 
 ## 7. Account states
 
@@ -98,7 +99,7 @@ Rules:
 |---|---|---|---|
 | pending | Registered, both OTPs verified, awaiting approval | Yes | Own profile and registration correction only; project section shows "You have not participated in any project yet" (BR-031); every other endpoint returns 403 `auth.account_pending` (API_STANDARDS §8) |
 | active | Approved | Yes | Everything the role, project assignments and permissions allow |
-| blocked | On the blocklist (volunteer) or suspended by the Monitoring Team (staff) | Yes, but only to see the block message | No application creation or assignment; no visibility of own earlier applications (BR-047); the login response carries `state: blocked` and the message; every other endpoint returns 403 `account_blocked` |
+| blocked | On the blocklist (volunteer) or suspended by the Monitoring Team (staff) | No: login answers 403 `auth.account_blocked` with the catalogue message and creates no session (O-59 item 4, same as section 4) | No application creation or assignment; no visibility of own earlier applications (BR-047); a session that existed when the block was set is revoked |
 | deactivated | Left or transferred after handover (BR-034) | No | Nothing; all their work and audit entries remain |
 
 Transitions: pending → active (approval) · pending → deactivated (rejected registration, or after 90 days unapproved, O-25) · active ↔ blocked (blocklist set/lift, RPM or above with reason, BR-047; for staff, Monitoring Team or Department Head) · active → deactivated (only after a completed handover, section 10) · deactivated → active (reactivation by the Department Head or Monitoring Team with reason; audited).
@@ -185,3 +186,14 @@ Confirmed in T0.21: Argon2id as the password hash (SECURITY_POLICY §4) and the 
 ## 15. Related documents
 
 `docs/security/RBAC.md` and `permissions.yaml` (T0.10) for what a session may do; `docs/architecture/OFFLINE_SYNC.md` (T0.12) for token behaviour while offline; `docs/security/SECURITY_POLICY.md` (T0.21); `docs/api/openapi.yaml` (T0.18) for the `auth` tag endpoints: register/start, otp/verify, register/submit, login, refresh, logout, password/change, password/reset/start, password/reset/complete, sessions (list), sessions/{id} (revoke), admin users/{id}/sessions, users/{id}/state, users/{id}/handover.
+
+## 16. Implementation notes (T1.7, D-070, D-071, D-072, O-59)
+
+- Code: `apps/api/src/auth/` (AuthGuard, AuthService, SessionService, TokenService, OtpService and OtpDeliveryService, PasswordHasher, PermissionVersionService, interim PermissionResolver), `apps/api/src/users/`; PWA client and screens in `apps/web/app/_lib/` (api.ts, auth.tsx, wipe.ts), `apps/web/app/login/`, `apps/web/app/account/`.
+- Cookies: `css_refresh` (HttpOnly, SameSite=Strict, path `/api/v1/auth/refresh`; value = device session id, a dot and 256 random bits; stored as SHA-256) and `css_csrf` (readable, path `/`; nonce and HMAC bound to the session, sent back as `X-CSRF-Token`). `AUTH_COOKIE_SECURE` may be false only outside production.
+- Session lifetime: `expires_at` is the 180-day hard limit (immutable); a refresh is refused after 30 days without activity; the 12-hour idle timeout applies to staff sessions whose client reports platform `desktop`. A rotated refresh token replayed within 30 seconds of its rotation is treated as a parallel tab (`auth.refresh_invalid`, the PWA retries once with the newer cookie); later it is theft (`auth.refresh_reused`, session revoked).
+- Authorization until T1.8 (O-59 item 3): `authenticated` for any signed-in user; GLOBAL-scope roles pass every named permission; every user has `session.revoke_own` on own sessions; everything else is denied. A pending account reaches only the operations marked for it (me, logout, own sessions, password change, language).
+- Account state endpoint (`POST /users/{userId}/state`, If-Match): active ↔ blocked for staff, active or blocked → deactivated after a completed handover, deactivated → active. Pending accounts (registration flow, T1.9), volunteer blocks (blocklist, T1.9), the own account and the system owner are refused with 409 codes. Every change bumps the permission version; a block or deactivation revokes all sessions.
+- OTP: `otp_codes` rows hold HMACs of the address and of the code (`OTP_SECRET`); the reset code goes to staff by email and to volunteers by SMS; with `OTP_DUMMY_ENABLED` the configured `OTP_DUMMY_CODE` is accepted, nothing is sent and the API prints a boxed warning at every start; production refuses the dummy mode (the O-49 pilot flag is not built).
+- Lockout for unknown ids is counted in memory, so a lock never tells whether an account exists. Login is rate-limited by login id and by IP separately; the IP is the user's address through trusted proxies only (`TRUST_PROXY`, D-072).
+- The PWA keeps the access token in memory, refreshes once for parallel callers (Web Locks across tabs), sends no refresh without the `css_csrf` cookie, never lets a stale refresh end a newer session, and wipes local data on logout, revocation and reuse (section 8). Forms post with POST and their submit buttons stay disabled until the page is interactive (D-072).

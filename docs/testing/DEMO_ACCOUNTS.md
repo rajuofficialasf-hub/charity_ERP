@@ -2,7 +2,7 @@
 
 Created by `pnpm db:seed` (demo set, T1.3) in `css_erp_dev` and in test databases. **Never in staging or production**: the seed refuses `NODE_ENV=production` and any database that is not `css_erp_dev*` / `css_erp_test*`, and production refuses to start while a seed marker row exists (O-46 item 8). Every identity is fake (TEST_STRATEGY section 4): NIDs 1000000000 to 1000099999, mobiles 0170000xxxx, emails at example.org, names marked (নমুনা).
 
-Password of every demo account: `CssDemo2026` (development only; meets the O-05 rules). Staff log in with the email or the mobile, volunteers with the mobile (AUTH.md section 2); login itself arrives with T1.7.
+Password of every demo account: `CssDemo2026` (development only; meets the O-05 rules). Staff log in with the email or the mobile, volunteers with the mobile (AUTH.md section 2); login works since T1.7 (http://localhost:3000/login with `pnpm dev`). The development OTP for password reset is the `OTP_DUMMY_CODE` of `apps/api/.env`; the E2E run uses its own database and the code 123456 (`apps/api/scripts/e2e-server.ts`). The Department Head and Monitoring Team need 12 characters when they set a new password (O-25); the demo password is only for the seed.
 
 ## Staff
 
