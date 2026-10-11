@@ -1,0 +1,7 @@
+/*
+ * Entry stylesheet of the design system: import once in the app, after Tailwind.
+ *   @import 'tailwindcss'; @import '@css/ui/tailwind.css'; @import '@css/ui/styles.css';
+ */
+@import './tokens.css';
+@import './fonts.css';
+@import './base.css';

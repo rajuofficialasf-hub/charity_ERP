@@ -3,7 +3,7 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-    "types": ["@testing-library/jest-dom/vitest"]
+    "types": ["node", "@testing-library/jest-dom/vitest"]
   },
   "include": ["src"]
 }
