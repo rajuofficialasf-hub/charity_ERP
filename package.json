@@ -14,7 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "e2e": "pnpm --filter \"@css/web...\" build && pnpm --filter @css/web e2e",
+    "e2e": "pnpm --filter \"./packages/*\" build && pnpm --filter @css/web build:e2e && pnpm --filter @css/web e2e",
     "lint": "eslint . && prettier --check .",
     "typecheck": "pnpm -r typecheck",
     "format": "prettier --write .",

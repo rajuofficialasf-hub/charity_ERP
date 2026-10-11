@@ -45,7 +45,12 @@ export const base = [
 
 /** Node processes (api, scripts, configuration files). */
 export const node = {
-  files: ['apps/api/**/*.ts', 'scripts/**/*.mjs', '**/*.config.{js,mjs,ts}'],
+  files: [
+    'apps/api/**/*.ts',
+    'scripts/**/*.mjs',
+    'apps/web/scripts/**/*.mjs',
+    '**/*.config.{js,mjs,ts}',
+  ],
   languageOptions: { globals: { ...globals.node } },
 };
 
@@ -107,7 +112,12 @@ export const tests = {
 
 /** Repository maintenance scripts and the dev/test seed only read fixed paths and fixed keys. */
 export const scripts = {
-  files: ['scripts/**/*.mjs', 'apps/api/scripts/**/*.ts', 'apps/api/seed/**/*.ts'],
+  files: [
+    'scripts/**/*.mjs',
+    'apps/web/scripts/**/*.mjs',
+    'apps/api/scripts/**/*.ts',
+    'apps/api/seed/**/*.ts',
+  ],
   rules: {
     'security/detect-non-literal-fs-filename': 'off',
     'security/detect-object-injection': 'off',

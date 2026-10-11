@@ -5,16 +5,18 @@
   "description": "CSS ERP installable offline-first PWA (Next.js App Router)",
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "node scripts/next.mjs dev",
+    "build": "node scripts/next.mjs build",
     "start": "next start",
     "typecheck": "next typegen && tsc --noEmit",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "build:e2e": "node scripts/next.mjs build --dev-gallery"
   },
   "dependencies": {
     "@css/ui": "workspace:*",
     "@serwist/turbopack": "9.5.13",
     "esbuild": "0.28.2",
+    "lucide-react": "1.55.0",
     "next": "16.4.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
