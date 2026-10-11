@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { fakeMobile as sharedFakeMobile, fakeNid as sharedFakeNid } from '@css/shared';
 import type { Client } from 'pg';
 
 /**
@@ -8,8 +9,9 @@ import type { Client } from 'pg';
  */
 let counter = 0;
 const next = () => ++counter;
-export const fakeNid = () => String(1000000000 + next());
-export const fakeMobile = () => '0170000' + String(next() % 10000).padStart(4, '0');
+// Shared fake generators (packages/shared/src/testing/fake.ts); indexes from 5000 stay clear of the demo seed.
+export const fakeNid = () => sharedFakeNid(5000 + next());
+export const fakeMobile = () => sharedFakeMobile(5000 + (next() % 5000));
 
 async function insert(db: Client, table: string, row: Record<string, unknown>): Promise<string> {
   const cols = Object.keys(row);

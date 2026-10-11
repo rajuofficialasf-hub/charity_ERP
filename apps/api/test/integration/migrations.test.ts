@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
+import { runSeed } from '../../seed/run';
 import {
   createDatabase,
   dropDatabase,
@@ -14,8 +15,8 @@ import {
   urlFor,
 } from './support/db';
 
-// Reversible migrations (ADR-003, NFR-55, TEST_STRATEGY section 3.9). The round trip runs on an
-// empty database; T1.3 extends it to a seeded one.
+// Reversible migrations (ADR-003, NFR-55, TEST_STRATEGY section 3.9). The round trip runs on a
+// database holding the base and demo seed (T1.3), so down.sql is proven to work with data.
 const created: string[] = [];
 afterAll(async () => {
   for (const name of created) await dropDatabase(name);
@@ -78,12 +79,23 @@ describe('migrations', () => {
     }
   });
 
-  it('NFR-55 up, down and up again leave the identical schema; down removes everything', async () => {
+  it('NFR-55 up, down and up again leave the identical schema; down removes everything, also with seed data', async () => {
     const db = await freshDatabase('rt');
     const empty = await snapshot(db);
     await runMigrations(db, 'up');
     const first = await snapshot(db);
     expect((first.relations ?? []).length).toBeGreaterThan(91);
+    const client = newClient(urlFor(db));
+    await client.connect();
+    try {
+      const report = await runSeed(client, ['base', 'demo'], {
+        NODE_ENV: 'test',
+        DATABASE_URL: urlFor(db),
+      });
+      expect(report.totals.inserted).toBeGreaterThan(700);
+    } finally {
+      await client.end();
+    }
     await runMigrations(db, 'down');
     expect(await snapshot(db)).toEqual(empty);
     await runMigrations(db, 'up');
