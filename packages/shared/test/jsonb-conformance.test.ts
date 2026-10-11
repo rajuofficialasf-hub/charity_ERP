@@ -303,7 +303,12 @@ const componentCases: Record<string, Case[]> = {
   ],
 };
 for (const [key, cases] of Object.entries(componentCases)) {
-  conform('project-component-settings', `#/$defs/${key}`, componentSettingsSchema(key), cases);
+  conform(
+    'project-component-settings',
+    `#/$defs/${key}`,
+    componentSettingsSchemas[key as keyof typeof componentSettingsSchemas],
+    cases,
+  );
 }
 
 describe('project-component-settings as a whole', () => {

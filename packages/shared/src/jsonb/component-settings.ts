@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { type ComponentKey, isComponentKey } from '../components.js';
 import { bilingual, code64 } from './common.js';
 
 // project_components.settings (docs/database/json-schemas/project-component-settings.schema.json).
@@ -71,8 +72,28 @@ export type ComponentWithSettings = keyof typeof componentSettingsSchemas;
 /** Settings of a component that has no settings definition: always the empty object. */
 export const emptySettingsSchema = z.strictObject({});
 
+/**
+ * Which settings definition a component uses (D-062). Components not listed store {}.
+ * `scoring` belongs to application_form and is applied with project setup (T1.11).
+ */
+export const COMPONENT_SETTINGS_DEFINITION: Partial<Record<ComponentKey, ComponentWithSettings>> = {
+  application_form: 'application_form',
+  public_link: 'public_link',
+  volunteer_assignment: 'volunteer_assignment',
+  distribution: 'photo_rule',
+  stages: 'stages',
+  issue_log: 'issue_log',
+  volunteer_expenses: 'volunteer_expenses',
+  rating_criteria: 'rating_criteria',
+  follow_up: 'follow_up',
+  dawah: 'dawah',
+};
+
+/* eslint-disable security/detect-object-injection -- componentKey is checked against COMPONENT_KEYS */
 export function componentSettingsSchema(componentKey: string): z.ZodType {
-  return componentKey in componentSettingsSchemas
-    ? componentSettingsSchemas[componentKey as ComponentWithSettings]
-    : emptySettingsSchema;
+  const definition = isComponentKey(componentKey)
+    ? COMPONENT_SETTINGS_DEFINITION[componentKey]
+    : undefined;
+  return definition ? componentSettingsSchemas[definition] : emptySettingsSchema;
 }
+/* eslint-enable security/detect-object-injection */
