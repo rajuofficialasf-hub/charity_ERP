@@ -42,6 +42,8 @@ jobs:
     env:
       NODE_ENV: test
       DATABASE_URL: postgresql://css:css_ci_only@127.0.0.1:5432/css_erp_test
+      # Integration tests clone per-file databases from a migrated template (O-46 item 1).
+      TEST_DATABASE_URL: postgresql://css:css_ci_only@127.0.0.1:5432/css_erp_test
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6

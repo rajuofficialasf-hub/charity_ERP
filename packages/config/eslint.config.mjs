@@ -101,6 +101,7 @@ export const tests = {
   rules: {
     'security/detect-non-literal-fs-filename': 'off',
     'security/detect-object-injection': 'off',
+    'security/detect-non-literal-regexp': 'off',
   },
 };
 
