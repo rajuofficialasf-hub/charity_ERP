@@ -355,7 +355,19 @@ Module codes refer to `docs/MODULE_CATALOG.md` (M01…M22); cross-cutting rules 
 
 Every rule above starts with test status "not yet". When a test exists, record it here as `BR-nnn: <test file>::<test name> — passing/failing (date)`. Update this register in the same commit as the test. The procedure (test naming with the rule id, the untested-rules list for each gate, manual rules with a reason) is in `docs/testing/TEST_STRATEGY.md` §7.
 
-(Empty: no code exists yet. Phase 0.)
+- BR-001: apps/api/test/integration/constraints.test.ts::BR-001 NID or birth registration is mandatory — passing (2026-10-11)
+- BR-002: apps/api/test/integration/constraints.test.ts::BR-002 NID must have 10, 13 or 17 digits — passing (2026-10-11; database CHECK; the service-level message follows with T2.2)
+- BR-003: apps/api/test/integration/constraints.test.ts::BR-003 NID is unique; BR-003 birth registration number is unique — passing (2026-10-11)
+- BR-008: apps/api/test/integration/triggers.test.ts::BR-008 refuses an application whose beneficiary uses the owner volunteer mobile (at commit); BR-008 refuses when the creating user has the beneficiary mobile; BR-008 catches a later change of the beneficiary mobile and of the volunteer mobile — passing (2026-10-11; database backstop; the friendly service error follows with T2.2)
+- BR-016: apps/api/test/integration/constraints.test.ts::BR-016 one live application per beneficiary per project; allowed again after soft delete — passing (2026-10-11)
+- BR-077: apps/api/test/integration/triggers.test.ts::BR-077 a published form version cannot change — passing (2026-10-11; database trigger; form engine T2.3)
+- BR-122: apps/api/test/integration/triggers.test.ts::BR-122 a verified voucher is locked — passing (2026-10-11; database trigger)
+- BR-134: apps/api/test/integration/constraints.test.ts::BR-134 transaction_id is unique; BR-134 a claim is paid only once — passing (2026-10-11)
+- BR-145: apps/api/test/integration/triggers.test.ts::BR-145 an allocated animal cannot move to another volunteer directly; shares fill the animal — passing (2026-10-11)
+- BR-194: apps/api/test/integration/constraints.test.ts::BR-194 client_uuid is unique (offline idempotency) and the client_uuid uniqueness tests of every offline table — passing (2026-10-11; database level; sync service T2.7)
+- BR-228: apps/api/test/integration/locations.test.ts::loadLocations (four tests: idempotent load, rename and deactivate, conflicting codes, the committed CSV counts) — passing (2026-10-11; data unverified, see docs/source/data/README.md)
+
+Database-level parts only where noted; each rule stays open for its service, API and E2E tests in the task that builds the module (T1.2, 2026-10-11).
 
 ## 20. Gaps and ambiguities
 

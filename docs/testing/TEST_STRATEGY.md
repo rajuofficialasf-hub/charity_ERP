@@ -153,7 +153,7 @@ Enforcement (O-52, 2026-10-11): while business logic is largely absent, CI does 
 
 ## 6. CI gate
 
-CI runs on GitHub Actions (O-51), in `.github/workflows/ci.yml`. The pipeline fails on the first failing stage. State at T1.1: install, lint, typecheck, document checks (`pnpm docs:check`: YAML parse, template schema validation, JSON Schema compile, Redocly lint), unit and API tests with a PostgreSQL 16 service, build, `pnpm audit` and gitleaks run on every push; E2E (Chromium, mobile and desktop) runs on pushes to main. The i18n check (T1.5), the drift test and authorization matrix (T1.6), migrations up-down-up (T1.2), and the nightly set are added by the tasks that create them.
+CI runs on GitHub Actions (O-51), in `.github/workflows/ci.yml`. The pipeline fails on the first failing stage. State at T1.1: install, lint, typecheck, document checks (`pnpm docs:check`: YAML parse, template schema validation, JSON Schema compile, Redocly lint), unit and API tests with a PostgreSQL 16 service, build, `pnpm audit` and gitleaks run on every push; E2E (Chromium, mobile and desktop) runs on pushes to main. Since T1.2 `pnpm test` also runs the Vitest project `api-db` (integration tests on per-file databases cloned from a migrated template, the migration round trip up-down-up with catalog snapshots, the down.sql completeness check and the Prisma schema-to-migrations drift check) against the CI PostgreSQL service (`TEST_DATABASE_URL`). The i18n check (T1.5), the OpenAPI drift test and authorization matrix (T1.6), and the nightly set are added by the tasks that create them.
 
 | When | Stages, in order |
 |---|---|

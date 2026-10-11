@@ -68,13 +68,14 @@ The web app runs at http://localhost:3000 and the API at http://localhost:4000 (
 |---|---|
 | `pnpm dev` | Builds the shared packages, then runs web and API in watch mode |
 | `pnpm build` | Builds every package and app |
-| `pnpm test` | Unit, component and API tests (Vitest, all packages) |
+| `pnpm test` | Unit, component, API and database integration tests (Vitest, all packages; the database tests need `docker compose up -d`) |
 | `pnpm test:coverage` | The same with a coverage report |
 | `pnpm e2e` | Builds the PWA and runs Playwright (mobile and desktop) |
 | `pnpm lint` | ESLint and the Prettier check (`pnpm format` rewrites) |
 | `pnpm typecheck` | TypeScript in every package |
 | `pnpm docs:check` | Parses and validates permissions.yaml, openapi.yaml, workflow templates and JSON Schemas; Redocly lint |
-| `pnpm db:migrate` | Prisma migrations against `DATABASE_URL` |
+| `pnpm db:migrate` | Applies the Prisma migrations to `DATABASE_URL` (`prisma migrate deploy`, non-destructive) |
+| `pnpm db:load-locations` | Loads `docs/source/data/bd-locations.csv` into the locations table (dev and test databases only) |
 | `pnpm db:seed` | Development seed (T1.3); refuses non-dev databases and production |
 | `pnpm db:reset` | Drops and re-creates the dev database from the migrations; refuses anything but `css_erp_dev` / `css_erp_test` and production |
 | `docker compose up -d` / `docker compose down` | Starts or stops the development services |

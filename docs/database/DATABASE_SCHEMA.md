@@ -1,6 +1,6 @@
 # DATABASE SCHEMA AND DATA DICTIONARY (PostgreSQL 16)
 
-Status: complete, task T0.16 (2026-10-10). Documents only: the Prisma schema, SQL migrations with hand-written `down.sql` and seeds are written in task T1.2 after the Phase 0 sign-off (ADR-003). This dictionary is the physical form of `docs/database/ERD.md` (91 tables: the 90 entities of T0.15 plus `id_sequences`); every table, column, constraint and index here must appear in the migrations, and a change here is a change there in the same commit (PROJECT_RULES §5). JSON Schemas for JSONB columns: `docs/database/json-schemas/`. The proposals of the first draft were accepted by the owner on 2026-10-10 (O-38, O-39); where the text says PROPOSAL the value is decided as listed in section 24.
+Status: complete, task T0.16 (2026-10-10); implemented in T1.2 (2026-10-11) as `apps/api/prisma/schema.prisma` and the initial migration `apps/api/prisma/migrations/20261011000000_init/` with a hand-written `down.sql` (ADR-003); seeds follow in T1.3. This dictionary is the physical form of `docs/database/ERD.md` (91 tables: the 90 entities of T0.15 plus `id_sequences`); every table, column, constraint and index here must appear in the migrations, and a change here is a change there in the same commit (PROJECT_RULES §5). JSON Schemas for JSONB columns: `docs/database/json-schemas/`. The proposals of the first draft were accepted by the owner on 2026-10-10 (O-38, O-39); where the text says PROPOSAL the value is decided as listed in section 24.
 
 Note on human ids: the T0.16 prompt mentions "BEN-" ids "per DECISION_LOG". DECISION_LOG O-03 decided that the BEN-ID **is** the beneficiary's UUID v7; there is no `BEN-` sequence. Only applications carry a human id. This dictionary follows O-03.
 
@@ -1201,7 +1201,7 @@ Index: (project_id, daee_user_id, held_on).
 | absence_reason | text | yes | — | required when absent |
 | [A] | | | | |
 
-Constraints: UNIQUE NULLS NOT DISTINCT (class_id, beneficiary_id, family_member_id) (PostgreSQL 15+); CHECK present OR absence_reason IS NOT NULL.
+Constraints: one row per (class_id, beneficiary_id, family_member_id), the member being null for the beneficiary; implemented in T1.2 as two partial unique indexes (WHERE family_member_id IS NULL on the first two columns, WHERE family_member_id IS NOT NULL on all three), which has the meaning of UNIQUE NULLS NOT DISTINCT and can be expressed in Prisma; CHECK present OR absence_reason IS NOT NULL.
 
 ### learning_progress
 | Column | Type | Null | Default | Comment |
@@ -1215,7 +1215,7 @@ Constraints: UNIQUE NULLS NOT DISTINCT (class_id, beneficiary_id, family_member_
 | learned_at | timestamptz | yes | — | — |
 | [A] | | | | |
 
-Constraints: UNIQUE NULLS NOT DISTINCT (topic_id, beneficiary_id, family_member_id).
+Constraints: one row per (topic_id, beneficiary_id, family_member_id), implemented as two partial unique indexes like class_attendance (T1.2).
 
 ### exams
 | Column | Type | Null | Default | Comment |
@@ -1238,7 +1238,7 @@ Constraints: UNIQUE NULLS NOT DISTINCT (topic_id, beneficiary_id, family_member_
 | passed | boolean | no | — | gates payment (BD-27) |
 | [A] | | | | |
 
-Constraints: UNIQUE NULLS NOT DISTINCT (exam_id, beneficiary_id, family_member_id).
+Constraints: one row per (exam_id, beneficiary_id, family_member_id), implemented as two partial unique indexes like class_attendance (T1.2).
 
 ### call_logs
 | Column | Type | Null | Default | Comment |
@@ -1356,7 +1356,7 @@ The 11 SOP 7.4 fields are provisional until the SOP text is reviewed (O-30 item 
 | notes | text | yes | — | — |
 | [A] | | | | |
 
-Constraints: partial UNIQUE (beneficiary_id, project_id).
+Constraints: one subject per beneficiary and project, and one per beneficiary without a project (two partial unique indexes, T1.2).
 
 ### media_stories
 | Column | Type | Null | Default | Comment |
@@ -1619,7 +1619,7 @@ All foreign-key columns not covered above get a plain index in T1.2 (PostgreSQL 
 
 ## 20. JSONB columns and their JSON Schemas
 
-Machine-readable schemas live in `docs/database/json-schemas/` (JSON Schema 2020-12); `packages/shared` generates or mirrors the zod schemas from them so that the PWA, the API and these documents use one definition (D-055).
+Machine-readable schemas live in `docs/database/json-schemas/` (JSON Schema 2020-12); `packages/shared/src/jsonb/` mirrors them in zod (`jsonbSchemas` keyed by `table.column`; `componentSettingsSchema(componentKey)` for `project_components.settings`) so that the PWA, the API and these documents use one definition (D-055). A conformance test in `packages/shared/test/` runs the same samples through both and validates the workflow templates (T1.2). `project-component-settings.schema.json` uses anyOf, because `{}` (a component without settings) satisfies several optional-only definitions and oneOf rejected it (T1.2).
 
 | Column(s) | Schema file |
 |---|---|

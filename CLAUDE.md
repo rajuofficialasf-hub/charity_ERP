@@ -32,9 +32,9 @@ ERP for the Charity & Social Service Department of As-Sunnah Foundation. The pro
 (Written in T1.1; keep this section current whenever scripts or layout change. Setup and troubleshooting: README.md.)
 
 Layout (pnpm workspace, packages named `@css/*`):
-- `apps/api`: NestJS 11 REST API under `/api/v1` (`src/main.ts`, `src/bootstrap.ts`, modules in `src/<module>/`); `GET /health/live` outside the prefix; Prisma 7 in `prisma/` with `prisma.config.ts` (generated client in `src/generated/`, not committed); unit tests `src/**/*.spec.ts`, API tests `test/api/*.test.ts`; `scripts/db-*.ts` behind the dev/test database guard (`src/config/db-guard.ts`).
+- `apps/api`: NestJS 11 REST API under `/api/v1` (`src/main.ts`, `src/bootstrap.ts`, modules in `src/<module>/`); `GET /health/live` outside the prefix; Prisma 7 in `prisma/` with `prisma.config.ts` (schema of all 91 tables, migrations with hand-written down.sql, `prisma/sql/roles.sql`; generated client in `src/generated/`, not committed); locations converter and loader in `src/locations/`; unit tests `src/**/*.spec.ts`, API tests `test/api/*.test.ts`; `scripts/db-*.ts` behind the dev/test database guard (`src/config/db-guard.ts`).
 - `apps/web`: Next.js 16 App Router PWA (`app/`), Serwist service worker (`app/sw.ts`, served by `app/serwist/[path]/route.ts`), manifest `app/manifest.ts`; component tests `**/*.test.tsx` with MSW (`test/msw/`); Playwright E2E in `e2e/` (projects `mobile` and `desktop`).
-- `packages/shared`: pure TypeScript shared by api and web (no Node, Nest, Next, Prisma or React imports; ESLint enforces it).
+- `packages/shared`: pure TypeScript shared by api and web (no Node, Nest, Next, Prisma or React imports; ESLint enforces it): zod schemas of every JSONB column (`src/jsonb/`), `uuidv7()`.
 - `packages/ui`: design system (React); axe helper at `@css/ui/testing`.
 - `packages/config`: tsconfig variants, ESLint flat config, Prettier.
 - `infra/`: `docker-compose.dev.yml` (postgres on host port 5433, minio plus bucket bootstrap, mailpit), included by the root `compose.yaml`.
@@ -48,6 +48,8 @@ Commands (from the repository root):
 - Unit, component and API tests: `pnpm test` (`pnpm test:coverage` for coverage) · E2E: `pnpm e2e` (builds, then Playwright)
 - Lint: `pnpm lint` (ESLint and Prettier check; `pnpm format` to fix) · Typecheck: `pnpm typecheck` · Build: `pnpm build`
 - Document checks: `pnpm docs:check`
-- DB: `pnpm db:migrate`, `pnpm db:seed`, `pnpm db:reset` (seed and reset refuse anything but css_erp_dev / css_erp_test, and refuse NODE_ENV=production)
+- DB: `pnpm db:migrate` (prisma migrate deploy, non-destructive), `pnpm --filter @css/api db:migrate:dev` (create a new migration without applying it; then write its down.sql), `pnpm db:load-locations` (locations CSV into the database), `pnpm db:seed`, `pnpm db:reset` (seed, reset and load-locations refuse anything but css_erp_dev / css_erp_test, and refuse NODE_ENV=production; Prisma itself asks the owner before a reset)
+- Database tests: the Vitest project `api-db` (`apps/api/vitest.db.config.mts`, tests in `apps/api/test/integration/`) clones a database per test file from a migrated template; needs `docker compose up -d` locally (`TEST_DATABASE_URL`, default css_erp_test on port 5433)
+- Locations: `pnpm --filter @css/api locations:convert <owner json>` rewrites `docs/source/data/bd-locations.csv` (codes kept); see `docs/source/data/README.md`
 
 @docs/MASTER_PROMPT.md
