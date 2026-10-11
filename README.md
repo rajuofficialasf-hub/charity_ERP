@@ -71,7 +71,8 @@ The web app runs at http://localhost:3000 and the API at http://localhost:4000 (
 | `pnpm test` | Unit, component, API and database integration tests (Vitest, all packages; the database tests need `docker compose up -d`) |
 | `pnpm test:coverage` | The same with a coverage report |
 | `pnpm e2e` | Builds the packages and the PWA with the dev component gallery, then runs Playwright (mobile and desktop) |
-| `pnpm lint` | ESLint and the Prettier check (`pnpm format` rewrites) |
+| `pnpm lint` | ESLint (including the hard-coded text rule), the Prettier check and `pnpm i18n:check` (`pnpm format` rewrites) |
+| `pnpm i18n:check` | Message catalogue check (bn/en parity, ICU, parameters, digits, error codes) and no Bengali text in code |
 | `pnpm typecheck` | TypeScript in every package |
 | `pnpm docs:check` | Parses and validates permissions.yaml, openapi.yaml, workflow templates and JSON Schemas; Redocly lint |
 | `pnpm db:migrate` | Applies the Prisma migrations to `DATABASE_URL` (`prisma migrate deploy`, non-destructive) |

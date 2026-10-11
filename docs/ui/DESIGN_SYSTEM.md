@@ -767,7 +767,7 @@ Light theme only for now (DESIGN_BRIEF §2 item 3). The system is ready for a da
   - Gallery: `/dev/components` in `apps/web` (dev and E2E builds only) shows every component in bn and en; Playwright checks it at 360×640 and 1280×800 with axe including colour contrast.
   - Deviations from the mockups and gaps: listed in `docs/ui/mockups/README.md` ("T1.4 implementation deviations"). React Aria has no Bengali strings; where a component has no prop for one of its built-in screen-reader texts, the English text is read in the Bengali interface.
   - Not in T1.4: app shell, hero header, toast, photo tile, sticky action bar and tooltip (page-level or later tasks: T1.15, T2.7, T3.1).
-- **T1.5:** the formatting utility for digits, numbers, dates and currency (I18N.md).
+- **T1.5 (done 2026-10-11):** the formatter `@css/shared/format` (I18N.md §6); the components' texts (`UiMessages`) come from the `ui` namespace of the catalogue and the number formatter from `formatCount`, both passed to `UiProvider` by `apps/web`.
 - **T1.15:** app shell and My Work homes per SCREENS.md.
 - **T2.4:** form renderer (§6.3). **T2.7:** font precache, iOS banners, offline banner wiring. **T2.8:** PDF exports embed UbuntuSans and Bornomala.
 - **Changes:** a new component, variant or token is added to this document first (and to DECISION_LOG.md when it changes a decision), then implemented.
