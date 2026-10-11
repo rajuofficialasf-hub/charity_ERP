@@ -95,7 +95,7 @@ The owner chose the organization's engineering standard (assunnah-engineering pl
   - existing: covered by `apps/api/test/api/health*.test.ts`, `apps/api/test/api/i18n.api.test.ts` (their app factory changes).
 - **Done when:** the three ported test files pass against Express; `node dist/server.js` answers `/health/live`.
 - **Depends on:** U1 · **Size:** L · **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U3. Backbone on Express: validation, envelope, rate limits, audit wrapper, route registry and OpenAPI
 - **Goal:** Every cross-cutting service of T1.6 works as Express middleware or a route wrapper, and the OpenAPI document is generated from the route registry.
@@ -249,8 +249,8 @@ The owner chose the organization's engineering standard (assunnah-engineering pl
 
 ## Progress
 - **Branch:** `migrate/org-stack-admin-minimal`
-- **Updated:** 2026-10-11 18:05
-- **Next:** U2, create `apps/api/src/app.ts` from the kit's `app.ts` order and the harness `test/support/app.ts`; port the three health and i18n test files first
+- **Updated:** 2026-10-11 18:10
+- **Next:** U3, `defineRoute` with the OpenAPI registry, `validate`, `send`, express-rate-limit limiters and the audit route wrapper; port core, guards, openapi-drift, pagination and audit-idempotency tests
 - **Uncommitted:** none
 - **Reviewed through:** none yet
-- **Notes:** U1 baseline (2026-10-11, NestJS): api + api-db 27 files, 193 tests: unit `src/auth/auth.spec.ts`, `src/config/{db-guard,env}.spec.ts`, `src/core/pagination.spec.ts`, `src/locations/convert.spec.ts`, `src/notifications/adapters.spec.ts`, `src/storage/filesystem-storage.spec.ts`; API `test/api/{core,guards,health-ready,health,i18n}.api.test.ts`, `test/api/openapi-drift.test.ts`; integration `test/integration/{audit-idempotency,auth,constraints,jobs,locations,migrations,minio-storage,notifications,pagination,password,seed,sessions-users,triggers,user-language}.test.ts`; E2E `apps/web/e2e/{auth,gallery,home}.spec.ts` 39 passed, 3 skipped. The owner pushes `main` manually and does not open pull requests; this branch is merged into `main` by the owner (fast-forward) when the plan is done, or earlier at a checkpoint on request. U10 to U12 wait for the owner's confirmation of the Minimal licence.
+- **Notes:** U2: Nest services keep their decorators until U6 (both apps compile; the Express container constructs them with `new`); `trust proxy` accepts the D-072 string or a hop count (`http/security.ts`); the built `dist/server.js` answered live, ready (all three checks up) and a 404 error block on port 4010. U1 baseline (2026-10-11, NestJS): api + api-db 27 files, 193 tests: unit `src/auth/auth.spec.ts`, `src/config/{db-guard,env}.spec.ts`, `src/core/pagination.spec.ts`, `src/locations/convert.spec.ts`, `src/notifications/adapters.spec.ts`, `src/storage/filesystem-storage.spec.ts`; API `test/api/{core,guards,health-ready,health,i18n}.api.test.ts`, `test/api/openapi-drift.test.ts`; integration `test/integration/{audit-idempotency,auth,constraints,jobs,locations,migrations,minio-storage,notifications,pagination,password,seed,sessions-users,triggers,user-language}.test.ts`; E2E `apps/web/e2e/{auth,gallery,home}.spec.ts` 39 passed, 3 skipped. The owner pushes `main` manually and does not open pull requests; this branch is merged into `main` by the owner (fast-forward) when the plan is done, or earlier at a checkpoint on request. U10 to U12 wait for the owner's confirmation of the Minimal licence.

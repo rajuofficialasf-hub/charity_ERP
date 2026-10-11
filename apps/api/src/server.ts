@@ -1,0 +1,40 @@
+import { createServer } from 'node:http';
+import { createApp } from './app';
+import { loadEnv } from './config/env';
+import { closeContainer, createContainer } from './container';
+
+/** In-flight requests get this long after SIGTERM before the process exits anyway (NE-ERR-04). */
+const SHUTDOWN_GRACE_MS = 10_000;
+
+const env = loadEnv(process.env);
+const container = createContainer(env);
+const { logger } = container;
+const app = createApp(container);
+
+const server = createServer(app);
+server.listen(env.PORT, () => {
+  logger.info({ port: env.PORT }, 'api listening');
+});
+
+let stopping = false;
+function shutdown(signal: NodeJS.Signals): void {
+  if (stopping) return;
+  stopping = true;
+  logger.info({ signal }, 'shutting down');
+  setTimeout(() => {
+    logger.error('shutdown took too long, exiting');
+    process.exit(1);
+  }, SHUTDOWN_GRACE_MS).unref();
+  server.close((error) => {
+    closeContainer(container)
+      .then(() => process.exit(error ? 1 : 0))
+      .catch((closeError: unknown) => {
+        logger.error({ err: closeError }, 'error while closing resources');
+        process.exit(1);
+      });
+  });
+  server.closeIdleConnections();
+}
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);

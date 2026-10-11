@@ -58,6 +58,19 @@ const envSchema = z
      * production names Caddy's address or network so per-IP limits and audit IPs see the user.
      */
     TRUST_PROXY: z.string().min(1).default('loopback'),
+    /**
+     * Browser origins allowed to call the API with credentials (NE-SEC-02), comma separated.
+     * Empty by default: the PWA is served on the same origin (Caddy, the Vite proxy).
+     */
+    CORS_ORIGINS: z
+      .string()
+      .default('')
+      .transform((v) =>
+        v
+          .split(',')
+          .map((o) => o.trim())
+          .filter(Boolean),
+      ),
     /** Multiplies every rate limit by 100 for the E2E run (one shared address); never production. */
     RATE_LIMITS_RELAXED: flag,
     /** Secure attribute of the auth cookies; false only for development over a LAN address. */

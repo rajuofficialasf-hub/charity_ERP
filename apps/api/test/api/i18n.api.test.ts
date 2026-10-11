@@ -1,50 +1,31 @@
-import 'reflect-metadata';
-import { Controller, Get, type INestApplication, Module } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
+import { Router } from 'express';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { AppModule } from '../../src/app.module';
-import { configureApp } from '../../src/bootstrap';
-import { testEnv } from '../support/env';
 import { ApiError } from '../../src/i18n/api-error';
-import { Public } from '../../src/openapi/api-contract';
+import { buildTestApp, type TestApp } from '../support/app';
 
-// A route that raises catalogue errors, mounted only in this test.
-// Test probe outside the contract: public for the AuthGuard (T1.7).
-@Public()
-@Controller('i18n-probe')
-class ProbeController {
-  @Get('nid')
-  nid(): never {
-    throw new ApiError('validation.nid_format', 422);
-  }
-
-  @Get('crash')
-  crash(): never {
-    throw new Error('select * from secret_table failed');
-  }
-}
-
-@Module({ controllers: [ProbeController] })
-class ProbeModule {}
+// A probe router that raises catalogue errors, mounted only in this test.
+const probe = Router();
+probe.get('/i18n-probe/nid', () => {
+  throw new ApiError('validation.nid_format', 422);
+});
+probe.get('/i18n-probe/crash', () => {
+  throw new Error('select * from secret_table failed');
+});
 
 describe('API errors in the request language (I18N 2 and 5, API_STANDARDS 3 and 7)', () => {
-  let app: INestApplication;
+  let t: TestApp;
 
-  beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({
-      imports: [AppModule.register(testEnv()), ProbeModule],
-    }).compile();
-    app = configureApp(moduleRef.createNestApplication({ logger: false }));
-    await app.init();
+  beforeAll(() => {
+    t = buildTestApp({ routers: [probe] });
   });
 
   afterAll(async () => {
-    await app.close();
+    await t.close();
   });
 
   it('answers in bn by default', async () => {
-    const res = await request(app.getHttpServer()).get('/api/v1/does-not-exist').expect(404);
+    const res = await request(t.app).get('/api/v1/does-not-exist').expect(404);
     expect(res.headers['content-language']).toBe('bn');
     expect(res.body).toMatchObject({
       error: {
@@ -56,13 +37,13 @@ describe('API errors in the request language (I18N 2 and 5, API_STANDARDS 3 and 
   });
 
   it('answers in en for Accept-Language en and in bn for an unsupported language', async () => {
-    const en = await request(app.getHttpServer())
+    const en = await request(t.app)
       .get('/api/v1/does-not-exist')
       .set('Accept-Language', 'en-US,en;q=0.9')
       .expect(404);
     expect(en.body.error.message).toBe('Not found.');
     expect(en.headers['content-language']).toBe('en');
-    const fr = await request(app.getHttpServer())
+    const fr = await request(t.app)
       .get('/api/v1/does-not-exist')
       .set('Accept-Language', 'fr')
       .expect(404);
@@ -70,7 +51,7 @@ describe('API errors in the request language (I18N 2 and 5, API_STANDARDS 3 and 
   });
 
   it('renders ApiError codes from the catalogue', async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(t.app)
       .get('/api/v1/i18n-probe/nid')
       .set('Accept-Language', 'en')
       .expect(422);
@@ -82,8 +63,23 @@ describe('API errors in the request language (I18N 2 and 5, API_STANDARDS 3 and 
   });
 
   it('turns unexpected failures into server.internal without leaking details (BR-210)', async () => {
-    const res = await request(app.getHttpServer()).get('/api/v1/i18n-probe/crash').expect(500);
+    const res = await request(t.app).get('/api/v1/i18n-probe/crash').expect(500);
     expect(res.body.error.code).toBe('server.internal');
     expect(JSON.stringify(res.body)).not.toMatch(/secret_table|select/);
+  });
+
+  it('refuses malformed JSON and bodies over the limit (NE-REQ-02)', async () => {
+    const bad = await request(t.app)
+      .post('/api/v1/does-not-exist')
+      .set('Content-Type', 'application/json')
+      .send('{"a":')
+      .expect(400);
+    expect(bad.body.error.code).toBe('validation.malformed');
+    const big = await request(t.app)
+      .post('/api/v1/does-not-exist')
+      .set('Content-Type', 'application/json')
+      .send(JSON.stringify({ a: 'x'.repeat(200_000) }))
+      .expect(413);
+    expect(big.body.error.code).toBe('validation.malformed');
   });
 });
