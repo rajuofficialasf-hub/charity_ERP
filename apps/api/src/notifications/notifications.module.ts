@@ -1,4 +1,5 @@
 import { Global, Module } from '@nestjs/common';
+import pino from 'pino';
 import { ENV, type Env } from '../config/env';
 import {
   EMAIL_ADAPTER,
@@ -28,7 +29,7 @@ import {
     {
       provide: SMS_ADAPTER,
       inject: [ENV],
-      useFactory: (env: Env) => new StubSmsAdapter(env.SMS_MODE),
+      useFactory: (env: Env) => new StubSmsAdapter(env.SMS_MODE, pino({ level: env.LOG_LEVEL })),
     },
     InAppAdapter,
   ],

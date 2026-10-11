@@ -24,7 +24,11 @@ const envSchema = z
     HEALTH_TOKEN: z.string().min(24).optional(),
     /** Runs job consumers inside the API process; development and tests only (ADR-004). */
     JOBS_INLINE: flag,
-    STORAGE_DRIVER: z.enum(['minio', 'filesystem']).default('minio'),
+    /**
+     * The storage driver (NS-34, no default): `s3` is MinIO through the S3 API (TEMP until the NAS
+     * driver exists, D-074), `filesystem` the stand-in of automated tests.
+     */
+    STORAGE_DRIVER: z.enum(['s3', 'filesystem']),
     MINIO_ENDPOINT: z.string().default('127.0.0.1'),
     MINIO_PORT: z.coerce.number().int().min(1).max(65535).default(9000),
     MINIO_USE_SSL: flag,
@@ -86,11 +90,11 @@ const envSchema = z
         path: ['JOBS_INLINE'],
         message: 'must be false in production (BR-024)',
       });
-    if (env.NODE_ENV === 'production' && env.STORAGE_DRIVER !== 'minio')
+    if (env.NODE_ENV === 'production' && env.STORAGE_DRIVER === 'filesystem')
       ctx.addIssue({
         code: 'custom',
         path: ['STORAGE_DRIVER'],
-        message: 'must be minio in production',
+        message: 'the filesystem driver is for tests only',
       });
     if (env.NODE_ENV === 'production' && env.OTP_DUMMY_ENABLED)
       ctx.addIssue({
@@ -116,11 +120,11 @@ const envSchema = z
         path: ['AUTH_COOKIE_SECURE'],
         message: 'must be true in production',
       });
-    if (env.STORAGE_DRIVER === 'minio' && (!env.MINIO_ACCESS_KEY || !env.MINIO_SECRET_KEY))
+    if (env.STORAGE_DRIVER === 's3' && (!env.MINIO_ACCESS_KEY || !env.MINIO_SECRET_KEY))
       ctx.addIssue({
         code: 'custom',
         path: ['MINIO_ACCESS_KEY'],
-        message: 'required when STORAGE_DRIVER=minio',
+        message: 'required when STORAGE_DRIVER=s3',
       });
     if (env.STORAGE_DRIVER === 'filesystem' && !env.STORAGE_FS_ROOT)
       ctx.addIssue({

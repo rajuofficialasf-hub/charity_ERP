@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
 import { uuidv7 } from '@css/shared';
 import { createTransport, type Transporter } from 'nodemailer';
+import type { Logger } from 'pino';
 import type { Tx } from '../core/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
 
@@ -116,14 +116,18 @@ export function maskMobile(mobile: string): string {
  * and tests, `dry_run` accepts silently on staging. Neither logs the text (it may hold an OTP).
  */
 export class StubSmsAdapter implements SmsAdapter {
-  private readonly logger = new Logger('Sms');
-
-  constructor(private readonly mode: 'logging' | 'dry_run') {}
+  constructor(
+    private readonly mode: 'logging' | 'dry_run',
+    private readonly logger: Logger,
+  ) {}
 
   async send(message: SmsMessage): Promise<Delivered> {
     const id = `${this.mode}:${uuidv7()}`;
     if (this.mode === 'logging')
-      this.logger.log(`sms to ${maskMobile(message.to)}, ${message.body.length} characters, ${id}`);
+      this.logger.info(
+        { to: maskMobile(message.to), characters: message.body.length, id },
+        'sms (stub)',
+      );
     return { providerMessageId: id };
   }
 }
@@ -141,7 +145,6 @@ export interface InAppMessage {
  * parameters, never rendered text, so the inbox follows the reader's language (I18N 5). Written
  * inside the business transaction.
  */
-@Injectable()
 export class InAppAdapter {
   async deliver(tx: Tx, message: InAppMessage): Promise<Delivered> {
     const id = uuidv7();

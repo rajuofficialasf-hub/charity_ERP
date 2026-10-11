@@ -1,8 +1,9 @@
+import pino from 'pino';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { PrismaService } from '../../src/core/prisma.service';
 import { installJobs } from '../../src/jobs/install';
 import { JobRunner } from '../../src/jobs/job-runner';
-import { HEARTBEAT_CRON, HEARTBEAT_QUEUE, JobConsumers } from '../../src/jobs/jobs.module';
+import { HEARTBEAT_CRON, HEARTBEAT_QUEUE, JobConsumers } from '../../src/jobs/consumers';
 import { QUEUE_NAMES } from '../../src/jobs/queues';
 import { testEnv } from '../support/env';
 import { cloneTemplate, dropDatabase } from './support/db';
@@ -68,7 +69,7 @@ describe('jobs (ADR-004)', () => {
   });
 
   it('runs the sample heartbeat job and registers its schedule', async () => {
-    await new JobConsumers(jobs).register();
+    await new JobConsumers(jobs, pino({ level: 'silent' })).register();
     const id = await jobs.enqueue(HEARTBEAT_QUEUE, { kind: 'heartbeat' });
     const boss = await jobs.instance();
     const done = await waitFor(async () => {

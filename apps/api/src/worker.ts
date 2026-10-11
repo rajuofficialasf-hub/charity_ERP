@@ -1,40 +1,33 @@
-import 'reflect-metadata';
-import { Module, type DynamicModule } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
-import { Logger, LoggerModule } from 'nestjs-pino';
-import { loadEnv, type Env } from './config/env';
-import { CoreModule } from './core/core.module';
-import { loggerOptions } from './core/logging';
-import { JobConsumers, JobsModule } from './jobs/jobs.module';
-import { NotificationsModule } from './notifications/notifications.module';
-import { StorageModule } from './storage/storage.module';
+import { loadEnv } from './config/env';
+import { closeContainer, createContainer } from './container';
+import { JobConsumers } from './jobs/consumers';
 
 /** The worker process (ADR-004, SYSTEM_ARCHITECTURE 2.1): job consumers, maintenance, schedules. */
-@Module({})
-class WorkerModule {
-  static register(env: Env): DynamicModule {
-    return {
-      module: WorkerModule,
-      imports: [
-        LoggerModule.forRoot({ pinoHttp: loggerOptions(env) }),
-        CoreModule.register(env),
-        StorageModule,
-        NotificationsModule,
-        JobsModule,
-      ],
-    };
-  }
-}
-
-async function bootstrap(): Promise<void> {
+async function main(): Promise<void> {
   const env = loadEnv(process.env);
-  const app = await NestFactory.createApplicationContext(WorkerModule.register(env), {
-    bufferLogs: true,
-  });
-  app.useLogger(app.get(Logger));
+  const container = createContainer(env);
+  const { logger } = container;
+  await new JobConsumers(container.jobs, logger).register();
+  logger.info('worker started');
+
+  let stopping = false;
   // SIGTERM stops intake and lets running jobs finish (JobRunner.onModuleDestroy, D-054).
-  app.enableShutdownHooks();
-  await app.get(JobConsumers).register();
+  const shutdown = (signal: NodeJS.Signals): void => {
+    if (stopping) return;
+    stopping = true;
+    logger.info({ signal }, 'worker shutting down');
+    closeContainer(container)
+      .then(() => process.exit(0))
+      .catch((error: unknown) => {
+        logger.error({ err: error }, 'error while closing resources');
+        process.exit(1);
+      });
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 
-void bootstrap();
+void main().catch((error: unknown) => {
+  process.stderr.write(`${(error as Error).message}\n`);
+  process.exit(1);
+});

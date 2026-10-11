@@ -1,31 +1,10 @@
-import { Inject, Injectable, Logger, Module, type OnApplicationBootstrap } from '@nestjs/common';
+import { Inject, Injectable, Module, type OnApplicationBootstrap } from '@nestjs/common';
+import pino from 'pino';
 import { ENV, type Env } from '../config/env';
+import { JobConsumers } from './consumers';
 import { JobRunner } from './job-runner';
 
-/** The sample job of T1.6: proves enqueue, consume and scheduling end to end. */
-export const HEARTBEAT_QUEUE = 'maintenance' as const;
-/** Every five minutes: the scheduled job pattern (ADR-004). */
-export const HEARTBEAT_CRON = '*/5 * * * *';
-
-export interface HeartbeatData {
-  kind: 'heartbeat';
-}
-
-/** Registers the consumers and schedules; runs in the worker, or in the api with JOBS_INLINE. */
-@Injectable()
-export class JobConsumers {
-  private readonly logger = new Logger('JobConsumers');
-
-  constructor(@Inject(JobRunner) private readonly jobs: JobRunner) {}
-
-  async register(): Promise<void> {
-    await this.jobs.work<HeartbeatData>(HEARTBEAT_QUEUE, async (job) => {
-      this.logger.log(`heartbeat ${job.id}`);
-      return { kind: job.data.kind, handledAt: new Date().toISOString() };
-    });
-    await this.jobs.schedule(HEARTBEAT_QUEUE, HEARTBEAT_CRON, { kind: 'heartbeat' });
-  }
-}
+export { HEARTBEAT_CRON, HEARTBEAT_QUEUE, type HeartbeatData, JobConsumers } from './consumers';
 
 @Injectable()
 class InlineConsumers implements OnApplicationBootstrap {
@@ -39,8 +18,18 @@ class InlineConsumers implements OnApplicationBootstrap {
   }
 }
 
+/** Nest wiring of the job consumers (until U6 of the stack-adoption plan removes Nest). */
 @Module({
-  providers: [JobRunner, JobConsumers, InlineConsumers],
+  providers: [
+    JobRunner,
+    {
+      provide: JobConsumers,
+      inject: [JobRunner, ENV],
+      useFactory: (jobs: JobRunner, env: Env) =>
+        new JobConsumers(jobs, pino({ level: env.LOG_LEVEL })),
+    },
+    InlineConsumers,
+  ],
   exports: [JobRunner, JobConsumers],
 })
 export class JobsModule {}

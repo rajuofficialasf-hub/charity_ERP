@@ -24,8 +24,7 @@ import {
 import { AuthService } from './services/auth';
 import { SessionsService } from './services/sessions';
 import { UsersService } from './services/users';
-import type { StorageAdapter } from './storage/storage';
-import { createStorage } from './storage/storage.module';
+import { createStorage, type StorageDriver } from './storage';
 
 /**
  * The services of one process, built once from the validated configuration (no DI container,
@@ -38,7 +37,7 @@ export interface Container {
   prisma: PrismaService;
   audit: AuditWriter;
   idempotency: IdempotencyService;
-  storage: StorageAdapter;
+  storage: StorageDriver;
   email: EmailAdapter;
   sms: SmsAdapter;
   inApp: InAppAdapter;
@@ -98,7 +97,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       password: env.SMTP_PASSWORD,
       from: env.SMTP_FROM,
     });
-  const sms = o.sms ?? new StubSmsAdapter(env.SMS_MODE);
+  const sms = o.sms ?? new StubSmsAdapter(env.SMS_MODE, logger);
   // Authentication (AUTH.md): built in dependency order, so each service gets its instances.
   const hasher = o.hasher ?? new PasswordHasher();
   const tokens = o.tokens ?? new TokenService(env, clock);

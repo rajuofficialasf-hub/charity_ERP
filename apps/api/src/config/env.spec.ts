@@ -4,6 +4,7 @@ import { loadEnv } from './env';
 const base = {
   DATABASE_URL: 'postgresql://u:p@localhost:5432/css_erp_dev',
   CURSOR_SECRET: 'x'.repeat(32),
+  STORAGE_DRIVER: 's3',
   MINIO_ACCESS_KEY: 'placeholder',
   MINIO_SECRET_KEY: 'placeholder',
   JWT_SECRET: 'j'.repeat(32),
@@ -18,7 +19,7 @@ describe('loadEnv', () => {
       NODE_ENV: 'development',
       PORT: 4100,
       DATABASE_URL: 'postgresql://u:p@localhost:5432/css_erp_dev',
-      STORAGE_DRIVER: 'minio',
+      STORAGE_DRIVER: 's3',
       JOBS_INLINE: false,
       SMS_MODE: 'logging',
     });
@@ -26,6 +27,11 @@ describe('loadEnv', () => {
 
   it('fails fast with the variable name when a value is missing', () => {
     expect(() => loadEnv({})).toThrow(/DATABASE_URL/);
+  });
+
+  it('has no default storage driver and refuses an unknown one (NS-34)', () => {
+    expect(() => loadEnv({ ...base, STORAGE_DRIVER: undefined })).toThrow(/STORAGE_DRIVER/);
+    expect(() => loadEnv({ ...base, STORAGE_DRIVER: 'minio' })).toThrow(/STORAGE_DRIVER/);
   });
 
   it('rejects a database URL that is not PostgreSQL', () => {

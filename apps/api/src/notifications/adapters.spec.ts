@@ -1,4 +1,5 @@
 import { createTransport } from 'nodemailer';
+import pino from 'pino';
 import { describe, expect, it, vi } from 'vitest';
 import {
   classifySmtpError,
@@ -35,20 +36,19 @@ describe('notification adapters (ADR-007)', () => {
 
   it('masks mobile numbers and never logs the SMS text (it may hold an OTP)', async () => {
     expect(maskMobile('01700000001')).toBe('017******01');
-    const logging = new StubSmsAdapter('logging');
-    const spy = vi.spyOn(
-      (logging as unknown as { logger: { log: (m: string) => void } }).logger,
-      'log',
-    );
+    const lines: string[] = [];
+    const logger = pino({ level: 'info' }, { write: (line: string) => void lines.push(line) });
+    const logging = new StubSmsAdapter('logging', logger);
     const result = await logging.send({ to: '01700000001', body: 'Your code is 482913' });
     expect(result.providerMessageId).toMatch(/^logging:/);
-    const line = String(spy.mock.calls[0]?.[0]);
+    const line = lines.join('\n');
     expect(line).toContain('017******01');
     expect(line).not.toContain('482913');
     expect(line).not.toContain('01700000001');
     expect(
-      (await new StubSmsAdapter('dry_run').send({ to: '01700000001', body: 'x' }))
+      (await new StubSmsAdapter('dry_run', logger).send({ to: '01700000001', body: 'x' }))
         .providerMessageId,
     ).toMatch(/^dry_run:/);
+    expect(lines).toHaveLength(1);
   });
 });

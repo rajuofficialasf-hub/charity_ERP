@@ -40,6 +40,7 @@ Rules: a file may be linked to several entities (a distribution photo to the act
 
 ## 3. Access control
 
+- **Note (D-074, 2026-10-11):** presigned URLs are dropped with the organization's storage standard (NS-41): the API streams every download and upload through authorized routes (`GET /api/v1/files/{id}/content`, upload sessions over the API), with the same checks as below; the storage adapter (`apps/api/src/storage`, an S3 driver on MinIO until the NAS driver exists) exposes no URL. The route shapes are detailed in T2.1; the paragraphs below describe the earlier presigned design and are rewritten there.
 - No file is ever public. Every download starts with `POST /api/v1/files/{id}/url`; the API runs the full request lifecycle (SYSTEM_ARCHITECTURE §6): permission (`application.view`, `document.register.view`, `volunteer.view_sensitive` for NID photos, …), scope, object-level check through the file's links, and the sensitive-field class of the file kind (BR-183). Only then it issues a presigned GET URL valid for 15 minutes (NFR-28), bound to the exact object key. Thumbnails use the same path.
 - Caddy forwards only presigned requests to MinIO's object endpoint; the MinIO admin API and bucket listing are never reachable from outside (D-056).
 - Downloads of sensitive classes (nid_photo, document register files, exports containing identity fields) write an audit entry (`file.download_sensitive`) with the file id and the requester (BR-179, BR-224).

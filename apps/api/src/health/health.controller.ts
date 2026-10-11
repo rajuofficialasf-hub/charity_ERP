@@ -8,7 +8,8 @@ import { PrismaService } from '../core/prisma.service';
 import { JobRunner } from '../jobs/job-runner';
 import { Public } from '../openapi/api-contract';
 import { RateLimit } from '../rate-limit/rate-limit';
-import { STORAGE, type StorageAdapter } from '../storage/storage';
+import type { StorageDriver } from '../storage';
+import { STORAGE } from '../storage/storage.module';
 
 type CheckName = 'database' | 'storage' | 'queue';
 const TIMEOUT_MS = 2_000;
@@ -41,7 +42,7 @@ export class HealthController {
   constructor(
     @Inject(ENV) private readonly env: Env,
     @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Inject(STORAGE) private readonly storage: StorageAdapter,
+    @Inject(STORAGE) private readonly storage: StorageDriver,
     @Inject(JobRunner) private readonly jobs: JobRunner,
   ) {}
 
