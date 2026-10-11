@@ -169,7 +169,7 @@ describe('rate limits and audit enforcement (API_STANDARDS 10, 15; D-068)', () =
     expect(res.body).toEqual({ data: { note: 'x' }, meta: { requestId: 'with-body-0001' } });
   });
 
-  it('refuses an anonymous caller on a non-public route (default deny, NE-SEC-03)', async () => {
+  it('answers 401 to an anonymous or forged-token caller on a non-public route', async () => {
     const res = await request(t.app).get('/api/v1/guard-probe/protected').expect(401);
     expect(res.body.error.code).toBe('auth.token_missing');
     const forged = await request(t.app)

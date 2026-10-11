@@ -11,7 +11,7 @@ export interface RouteDeps {
   registry: RouteRegistry;
   limiters: RateLimiters;
   logger: Logger;
-  /** Access middleware for the declared rule: the auth middleware, or default deny. */
+  /** The access middleware of a declared rule (`requireAccess`, passed by createApp). */
   access: (spec: OperationSpec) => RequestHandler[];
 }
 

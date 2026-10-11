@@ -99,7 +99,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       from: env.SMTP_FROM,
     });
   const sms = o.sms ?? new StubSmsAdapter(env.SMS_MODE);
-  // Authentication (AUTH.md, T1.7): the same objects the Nest module wired, built in order.
+  // Authentication (AUTH.md): built in dependency order, so each service gets its instances.
   const hasher = o.hasher ?? new PasswordHasher();
   const tokens = o.tokens ?? new TokenService(env, clock);
   const sessions = o.sessions ?? new SessionService(prisma, tokens, audit, clock);

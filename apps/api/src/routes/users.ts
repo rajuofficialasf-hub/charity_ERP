@@ -61,8 +61,9 @@ export function usersRouter(deps: RouteDeps, c: Pick<Container, 'users'>): Route
     responses: { 200: null, 401: null, 403: null, 404: null },
     handler: async ({ params, res }) => {
       const { user, updatedAt } = await c.users.get(params.userId);
-      res.setHeader('ETag', etagOf(updatedAt));
-      return ok(user, { etag: etagOf(updatedAt) });
+      const etag = etagOf(updatedAt);
+      res.setHeader('ETag', etag);
+      return ok(user, { etag });
     },
   });
 
@@ -85,8 +86,9 @@ export function usersRouter(deps: RouteDeps, c: Pick<Container, 'users'>): Route
         body,
         req.get('if-match'),
       );
-      res.setHeader('ETag', etagOf(updatedAt));
-      return ok(user, { etag: etagOf(updatedAt) });
+      const etag = etagOf(updatedAt);
+      res.setHeader('ETag', etag);
+      return ok(user, { etag });
     },
   });
 

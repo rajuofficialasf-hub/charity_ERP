@@ -37,11 +37,6 @@ export function identifierHash(env: Env, value: string): string {
   return createHmac('sha256', env.OTP_SECRET).update(`id:${value}`).digest('base64url');
 }
 
-/**
- * Delivery of an OTP (NOTIFICATIONS 9, AUTH.md 2.1): the dummy path sends nothing and accepts the
- * configured fixed code (development and test only, refused in production by the configuration);
- * the real path renders the bilingual template and sends through the SMS or email adapter.
- */
 /** The start-up line of BD-49: a loud warning whenever the dummy OTP is on (server.ts, Nest). */
 export function otpStartupMessage(dummy: boolean): { level: 'warn' | 'info'; text: string } {
   if (!dummy) return { level: 'info', text: 'OTP mode: real (SMS and email adapters)' };
@@ -57,6 +52,11 @@ export function otpStartupMessage(dummy: boolean): { level: 'warn' | 'info'; tex
   };
 }
 
+/**
+ * Delivery of an OTP (NOTIFICATIONS 9, AUTH.md 2.1): the dummy path sends nothing and accepts the
+ * configured fixed code (development and test only, refused in production by the configuration);
+ * the real path renders the bilingual template and sends through the SMS or email adapter.
+ */
 @Injectable()
 export class OtpDeliveryService implements OnApplicationBootstrap {
   private readonly logger = new Logger('OtpDelivery');
