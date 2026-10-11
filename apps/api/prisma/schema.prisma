@@ -1,0 +1,14 @@
+// Physical database of the CSS ERP (PostgreSQL 16).
+// The models are written in T1.2 from docs/database/DATABASE_SCHEMA.md and ERD.md; every
+// migration then ships with a hand-written down.sql (ADR-003). The connection URL lives in
+// prisma.config.ts.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}

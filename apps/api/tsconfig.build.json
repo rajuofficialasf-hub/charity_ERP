@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "noEmit": false,
+    // Builds use the compiled dist/ of workspace packages, never their sources.
+    "customConditions": []
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.spec.ts", "src/generated"]
+}
