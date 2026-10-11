@@ -298,6 +298,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@css/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@css/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -347,6 +350,9 @@ importers:
       '@testing-library/react':
         specifier: 16.3.3
         version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@testing-library/user-event':
+        specifier: 14.6.7
+        version: 14.6.7(@testing-library/dom@10.4.2)
       '@types/node':
         specifier: 24.19.2
         version: 24.19.2

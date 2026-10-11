@@ -21,7 +21,9 @@ export const INTL_LOCALE: Record<Locale, string> = {
 
 const WORDS = { bn: bnCommon, en: enCommon };
 const MINUS = '−';
-const TAKA = '৳';
+/** The taka sign, written before amounts with one space (I18N 6.2). */
+export const TAKA_SIGN = '৳';
+const TAKA = TAKA_SIGN;
 
 const numberFormats = new Map<string, Intl.NumberFormat>();
 function nf(locale: Locale, options: Intl.NumberFormatOptions = {}): Intl.NumberFormat {

@@ -74,7 +74,7 @@ export interface CatalogueReport {
   warnings: string[];
 }
 
-const BENGALI_DIGIT = /[০-৯]/u;
+const BENGALI_DIGIT = /[\u09E6-\u09EF]/u;
 
 /**
  * The catalogue check of I18N.md 4 (pure; scripts/check-i18n.mjs feeds it the files): same keys

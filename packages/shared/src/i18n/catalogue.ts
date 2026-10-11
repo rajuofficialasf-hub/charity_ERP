@@ -3,14 +3,12 @@ import bn_codes from './messages/bn/codes.json' with { type: 'json' };
 import bn_common from './messages/bn/common.json' with { type: 'json' };
 import bn_errors from './messages/bn/errors.json' with { type: 'json' };
 import bn_gallery from './messages/bn/gallery.json' with { type: 'json' };
-import bn_home from './messages/bn/home.json' with { type: 'json' };
 import bn_nav from './messages/bn/nav.json' with { type: 'json' };
 import bn_ui from './messages/bn/ui.json' with { type: 'json' };
 import en_codes from './messages/en/codes.json' with { type: 'json' };
 import en_common from './messages/en/common.json' with { type: 'json' };
 import en_errors from './messages/en/errors.json' with { type: 'json' };
 import en_gallery from './messages/en/gallery.json' with { type: 'json' };
-import en_home from './messages/en/home.json' with { type: 'json' };
 import en_nav from './messages/en/nav.json' with { type: 'json' };
 import en_ui from './messages/en/ui.json' with { type: 'json' };
 
@@ -20,7 +18,6 @@ export const bn = {
   common: bn_common,
   errors: bn_errors,
   gallery: bn_gallery,
-  home: bn_home,
   nav: bn_nav,
   ui: bn_ui,
 };
@@ -33,10 +30,9 @@ export const en: Messages = {
   common: en_common,
   errors: en_errors,
   gallery: en_gallery,
-  home: en_home,
   nav: en_nav,
   ui: en_ui,
 };
 
-export const NAMESPACES = ['codes', 'common', 'errors', 'gallery', 'home', 'nav', 'ui'] as const;
+export const NAMESPACES = ['codes', 'common', 'errors', 'gallery', 'nav', 'ui'] as const;
 export type Namespace = (typeof NAMESPACES)[number];

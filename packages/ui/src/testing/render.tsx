@@ -1,12 +1,17 @@
+import { formatCount } from '@css/shared/format';
+import { bn, en } from '@css/shared/i18n';
 import { render, type RenderOptions, type RenderResult } from '@testing-library/react';
 import type { ReactElement } from 'react';
-import { exampleMessages } from '../provider/example-messages.js';
+import type { UiMessages } from '../provider/messages.js';
 import { UiProvider, type UiLocale } from '../provider/UiProvider.js';
 
-/** English digits with lakh grouping, standing in for packages/shared/format until T1.5. */
-export const testFormatNumber = (value: number): string => value.toLocaleString('en-IN');
+/**
+ * The design system's texts from the `ui` namespace of the catalogue (T1.5). Typing them as
+ * UiMessages makes a key missing in either language fail the typecheck.
+ */
+export const uiMessages: Record<UiLocale, UiMessages> = { bn: bn.ui, en: en.ui };
 
-/** Renders a component inside UiProvider with the example messages of one language. */
+/** Renders a component inside UiProvider with the catalogue texts of one language. */
 export function renderWithUi(
   ui: ReactElement,
   { locale = 'en', ...options }: { locale?: UiLocale } & Omit<RenderOptions, 'wrapper'> = {},
@@ -17,8 +22,8 @@ export function renderWithUi(
       <UiProvider
         locale={locale}
         // eslint-disable-next-line security/detect-object-injection -- typed union key into a constant table
-        messages={exampleMessages[locale]}
-        formatNumber={testFormatNumber}
+        messages={uiMessages[locale]}
+        formatNumber={(value) => formatCount(value, locale)}
       >
         {children}
       </UiProvider>

@@ -1,2 +1,2 @@
 export { expectNoAxeViolations } from './axe.js';
-export { renderWithUi, testFormatNumber } from './render.js';
+export { renderWithUi, uiMessages } from './render.js';

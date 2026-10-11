@@ -39,8 +39,10 @@ for (const lang of ['bn', 'en'] as const) {
   test.describe(`gallery (${lang})`, () => {
     test('renders every component without horizontal scroll or accessibility violations', async ({
       page,
+      baseURL,
     }, info) => {
-      await page.goto(`/dev/components?lang=${lang}`);
+      await page.context().addCookies([{ name: 'css_locale', value: lang, url: baseURL! }]);
+      await page.goto('/dev/components');
       await page.locator('[data-hydrated]').waitFor();
       await expect(page.locator('html')).toHaveAttribute('lang', lang);
       for (const id of SECTIONS) await expect(page.locator(`section#${id}`)).toBeVisible();
@@ -65,8 +67,9 @@ for (const lang of ['bn', 'en'] as const) {
 }
 
 test.describe('gallery keyboard flows', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/dev/components?lang=en');
+  test.beforeEach(async ({ page, baseURL }) => {
+    await page.context().addCookies([{ name: 'css_locale', value: 'en', url: baseURL! }]);
+    await page.goto('/dev/components');
     await page.locator('[data-hydrated]').waitFor();
   });
 
@@ -158,6 +161,22 @@ test.describe('gallery keyboard flows', () => {
     await page.getByRole('button', { name: 'Filters (1 active)' }).click();
     await expect(page.getByRole('dialog', { name: 'Filters' })).toBeVisible();
   });
+});
+
+test('the language switch turns the gallery to English and back, and the choice persists (I18N 2)', async ({
+  page,
+}) => {
+  await page.goto('/dev/components');
+  await page.locator('[data-hydrated]').waitFor();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'bn');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('কম্পোনেন্ট গ্যালারি');
+  await page.getByRole('radio', { name: 'English' }).locator('xpath=ancestor::label').click();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Component gallery');
+  await page.reload();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Component gallery');
+  await page.getByRole('radio', { name: 'বাংলা' }).locator('xpath=ancestor::label').click();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'bn');
 });
 
 test('serves the self-hosted fonts with their licence texts (D-065)', async ({ request }) => {

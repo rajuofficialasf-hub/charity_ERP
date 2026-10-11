@@ -18,11 +18,6 @@
       "types": "./dist/testing/index.d.ts",
       "default": "./dist/testing/index.js"
     },
-    "./example-messages": {
-      "@css/source": "./src/provider/example-messages.ts",
-      "types": "./dist/provider/example-messages.d.ts",
-      "default": "./dist/provider/example-messages.js"
-    },
     "./styles.css": "./src/styles/index.css",
     "./tailwind.css": "./src/styles/tailwind.css",
     "./fonts/*": "./fonts/*"
