@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://css-erp.assunnahfoundation.org/schemas/project-component-settings.json",
   "title": "project_components.settings",
-  "description": "Settings of one project component (T0.16). The component is project_components.component_key; the API selects the matching definition below. Components without settings store {}.",
+  "description": "Settings of one project component (T0.16). The component is project_components.component_key; the API selects the matching definition below. Components without settings store {}. anyOf, not oneOf: {} satisfies several optional-only definitions (T1.2).",
   "type": "object",
   "$defs": {
     "bilingual": {
@@ -88,7 +88,7 @@
       "properties": { "family_attendance": { "type": "boolean", "default": true }, "gender_split": { "type": "boolean" } }
     }
   },
-  "oneOf": [
+  "anyOf": [
     { "$ref": "#/$defs/application_form" },
     { "$ref": "#/$defs/public_link" },
     { "$ref": "#/$defs/volunteer_assignment" },

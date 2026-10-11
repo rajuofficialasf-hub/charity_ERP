@@ -1,8 +1,11 @@
 {
   "extends": "@css/config/tsconfig/library.json",
   "compilerOptions": {
-    "rootDir": "src",
-    "outDir": "dist"
+    "rootDir": ".",
+    "outDir": "dist",
+    "types": ["node"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
   },
-  "include": ["src"]
+  "include": ["src", "test"]
 }
