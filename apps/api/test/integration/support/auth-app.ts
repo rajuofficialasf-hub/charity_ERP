@@ -1,16 +1,12 @@
-import 'reflect-metadata';
 import { randomUUID } from 'node:crypto';
-import type { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
-import { ThrottlerStorageService } from '@nestjs/throttler';
 import { hash } from '@node-rs/argon2';
+import type { Express } from 'express';
 import type { Client } from 'pg';
 import request from 'supertest';
 import { inject } from 'vitest';
-import { AppModule } from '../../../src/app.module';
+import { createApp } from '../../../src/app';
 import { ARGON2_OPTIONS } from '../../../src/auth/password-hasher';
-import { configureApp } from '../../../src/bootstrap';
-import { CLOCK } from '../../../src/core/clock';
+import { closeContainer, type Container, createContainer } from '../../../src/container';
 import { testEnv } from '../../support/env';
 import { cloneTemplate } from './db';
 import { fakeMobile } from './fixtures';
@@ -24,16 +20,6 @@ export class TestClock {
   }
 }
 
-/** Rate-limit storage that never limits; the limits themselves are covered in test/api/guards. */
-const unlimited = {
-  increment: async () => ({
-    totalHits: 1,
-    timeToExpire: 60,
-    isBlocked: false,
-    timeToBlockExpire: 0,
-  }),
-};
-
 export const PASSWORD = 'Nadi kul 2026';
 
 const ROLES = [
@@ -45,14 +31,19 @@ const ROLES = [
 ];
 
 export interface AuthHarness {
-  app: INestApplication;
+  app: Express;
+  container: Container;
   db: Client;
   clock: TestClock;
-  server: () => ReturnType<INestApplication['getHttpServer']>;
+  server: () => Express;
   close: () => Promise<void>;
 }
 
-/** A full API application on a fresh cloned database with the roles of the tests. */
+/**
+ * The real API application (createApp, as server.ts builds it) on a fresh cloned database with
+ * the roles of the tests. The rate limits are relaxed a hundredfold (RATE_LIMITS_RELAXED); the
+ * limits themselves are covered in test/api/guards.
+ */
 export async function authHarness(
   options: { realRateLimits?: boolean } = {},
 ): Promise<AuthHarness> {
@@ -63,23 +54,20 @@ export async function authHarness(
       [role.key, role.kind, role.global],
     );
   const clock = new TestClock();
-  let builder = Test.createTestingModule({
-    imports: [AppModule.register(testEnv({ DATABASE_URL: clone.url }))],
-  })
-    .overrideProvider(CLOCK)
-    .useValue(clock);
-  if (!options.realRateLimits)
-    builder = builder.overrideProvider(ThrottlerStorageService).useValue(unlimited);
-  const moduleRef = await builder.compile();
-  const app = configureApp(moduleRef.createNestApplication());
-  await app.init();
+  const env = testEnv({
+    DATABASE_URL: clone.url,
+    RATE_LIMITS_RELAXED: options.realRateLimits ? 'false' : 'true',
+  });
+  const container = createContainer(env, { overrides: { clock } });
+  const { app } = createApp(container);
   return {
     app,
+    container,
     db: clone.client,
     clock,
-    server: () => app.getHttpServer(),
+    server: () => app,
     close: async () => {
-      await app.close();
+      await closeContainer(container);
       await clone.drop();
     },
   };

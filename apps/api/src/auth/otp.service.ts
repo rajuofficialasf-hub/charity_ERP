@@ -42,6 +42,21 @@ export function identifierHash(env: Env, value: string): string {
  * configured fixed code (development and test only, refused in production by the configuration);
  * the real path renders the bilingual template and sends through the SMS or email adapter.
  */
+/** The start-up line of BD-49: a loud warning whenever the dummy OTP is on (server.ts, Nest). */
+export function otpStartupMessage(dummy: boolean): { level: 'warn' | 'info'; text: string } {
+  if (!dummy) return { level: 'info', text: 'OTP mode: real (SMS and email adapters)' };
+  const line = '*'.repeat(72);
+  return {
+    level: 'warn',
+    text: [
+      line,
+      '* OTP MODE: DUMMY. Every OTP is the fixed code from OTP_DUMMY_CODE.',
+      '* Development and test only (BD-44, BD-49). Never use this configuration with real users.',
+      line,
+    ].join('\n'),
+  };
+}
+
 @Injectable()
 export class OtpDeliveryService implements OnApplicationBootstrap {
   private readonly logger = new Logger('OtpDelivery');
@@ -58,19 +73,9 @@ export class OtpDeliveryService implements OnApplicationBootstrap {
 
   /** The loud start-up warning of BD-49 whenever the dummy OTP is on. */
   onApplicationBootstrap(): void {
-    if (!this.dummy) {
-      this.logger.log('OTP mode: real (SMS and email adapters)');
-      return;
-    }
-    const line = '*'.repeat(72);
-    this.logger.warn(
-      [
-        line,
-        '* OTP MODE: DUMMY. Every OTP is the fixed code from OTP_DUMMY_CODE.',
-        '* Development and test only (BD-44, BD-49). Never use this configuration with real users.',
-        line,
-      ].join('\n'),
-    );
+    const { level, text } = otpStartupMessage(this.dummy);
+    if (level === 'warn') this.logger.warn(text);
+    else this.logger.log(text);
   }
 
   /** The code to issue: the fixed dummy code, or six random digits. */

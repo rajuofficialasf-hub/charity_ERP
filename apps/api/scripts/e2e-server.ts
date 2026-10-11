@@ -64,7 +64,7 @@ async function main(): Promise<void> {
   run('pnpm', ['exec', 'prisma', 'migrate', 'deploy'], env);
   run('pnpm', ['run', 'jobs:install'], env);
   run('pnpm', ['run', 'db:seed', '--set', 'all'], env);
-  const api = spawn(process.execPath, ['dist/main.js'], { cwd: root, env, stdio: 'inherit' });
+  const api = spawn(process.execPath, ['dist/server.js'], { cwd: root, env, stdio: 'inherit' });
   const stop = () => api.kill('SIGTERM');
   process.on('SIGTERM', stop);
   process.on('SIGINT', stop);

@@ -1,8 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { PermissionVersionService } from '../../src/auth/permission-version.service';
-import { PrismaService } from '../../src/core/prisma.service';
 import {
   account,
   type AuthHarness,
@@ -314,8 +312,7 @@ describe('permission version (AUTH.md 9)', () => {
   it('a role change bumps the version, is audited and forces a silent refresh', async () => {
     const staff = await account(h.db);
     const s = await login(h, staff);
-    const prisma = h.app.get(PrismaService);
-    const versions = h.app.get(PermissionVersionService);
+    const { prisma, permissionVersions: versions } = h.container;
     const version = await prisma.$transaction((tx) =>
       versions.bump(tx, staff.id, {
         action: 'auth.role_changed',

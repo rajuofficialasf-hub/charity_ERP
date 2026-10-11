@@ -17,13 +17,13 @@ import { PrismaService, type Tx } from '../core/prisma.service';
 import { currentContext } from '../core/request-context';
 import { ApiError } from '../i18n/api-error';
 import { UserLanguageService } from '../i18n/user-language.service';
-import { afterFailure, minutesLeft, UnknownIdLockout } from './lockout';
-import { normalizeLoginId } from './login-id';
-import { identifierHash, type OtpTarget, OtpService } from './otp.service';
-import { PasswordHasher } from './password-hasher';
-import type { Principal } from './principal';
-import { SessionService } from './session.service';
-import { TokenService } from './token.service';
+import { afterFailure, minutesLeft, UnknownIdLockout } from '../auth/lockout';
+import { normalizeLoginId } from '../auth/login-id';
+import { identifierHash, type OtpTarget, OtpService } from '../auth/otp.service';
+import { PasswordHasher } from '../auth/password-hasher';
+import type { Principal } from '../auth/principal';
+import { SessionService } from '../auth/session.service';
+import { TokenService } from '../auth/token.service';
 
 /** What the controller needs to answer a login or refresh: the body and the cookie values. */
 export interface IssuedSession {

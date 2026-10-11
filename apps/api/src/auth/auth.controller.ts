@@ -17,7 +17,7 @@ import { currentContext } from '../core/request-context';
 import { ZBody } from '../core/validation';
 import { ApiError } from '../i18n/api-error';
 import { ApiContract } from '../openapi/api-contract';
-import { AuthService, type IssuedSession } from './auth.service';
+import { AuthService, type IssuedSession } from '../services/auth';
 import {
   clearSessionCookies,
   CSRF_COOKIE,

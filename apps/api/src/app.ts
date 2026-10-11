@@ -1,14 +1,18 @@
 import express, { type Express, Router } from 'express';
 import type { DestinationStream } from 'pino';
+import { requireAccess } from './auth/require-access';
 import type { Container } from './container';
 import { RequestContextMiddleware } from './core/request-context.middleware';
 import { healthRouter } from './health/routes';
 import { errorHandler, notFound } from './http/errors';
-import { ApiError } from './i18n/api-error';
 import { corsAllowlist, requestLogging, securityHeaders, trustProxySetting } from './http/security';
 import type { RouteDeps } from './openapi/define-route';
 import { RouteRegistry } from './openapi/registry';
 import { createRateLimiters } from './rate-limit/limiters';
+import { authRouter } from './routes/auth';
+import { meRouter } from './routes/me';
+import { sessionsRouter } from './routes/sessions';
+import { usersRouter } from './routes/users';
 
 export const API_PREFIX = 'api/v1';
 
@@ -20,19 +24,7 @@ export interface AppOptions {
   logStream?: DestinationStream;
   /** Routers mounted under /api/v1 after the built-in ones (test probes), built with the route deps. */
   extraRouters?: ((deps: RouteDeps) => Router)[];
-  /** Access middleware for a declared rule; without it every non-public route is refused. */
-  access?: RouteDeps['access'];
 }
-
-/** Default deny (NE-SEC-03): a non-public route answers 403 until the auth middleware is wired. */
-const denyAll: RouteDeps['access'] = (spec) =>
-  spec.permission === 'public'
-    ? []
-    : [
-        (_req, _res, next) => {
-          next(new ApiError('permission.denied', 403));
-        },
-      ];
 
 /** The app plus the registry its routes were declared in (OpenAPI generation, drift test). */
 export interface BuiltApp {
@@ -65,9 +57,19 @@ export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
     registry,
     limiters: createRateLimiters(c.env),
     logger: c.logger,
-    access: options.access ?? denyAll,
+    access: requireAccess({
+      tokens: c.tokens,
+      sessions: c.sessions,
+      permissions: c.permissions,
+      clock: c.clock,
+      logger: c.logger,
+    }),
   };
   const api = Router();
+  api.use(authRouter(deps, c));
+  api.use(meRouter(deps, c));
+  api.use(sessionsRouter(deps, c));
+  api.use(usersRouter(deps, c));
   for (const build of options.extraRouters ?? []) api.use(build(deps));
   app.use(`/${API_PREFIX}`, api);
 

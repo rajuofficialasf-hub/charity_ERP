@@ -14,7 +14,7 @@ import { etagOf } from '../core/etag';
 import { pageQuery } from '../core/pagination';
 import { ZBody, ZParam, ZQuery } from '../core/validation';
 import { ApiContract } from '../openapi/api-contract';
-import { type UserListQuery, UsersService } from './users.service';
+import { type UserListQuery, UsersService } from '../services/users';
 
 const uuid = z.uuid();
 const listQuery = pageQuery.omit({ sort: true }).extend({

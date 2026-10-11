@@ -169,9 +169,14 @@ describe('rate limits and audit enforcement (API_STANDARDS 10, 15; D-068)', () =
     expect(res.body).toEqual({ data: { note: 'x' }, meta: { requestId: 'with-body-0001' } });
   });
 
-  it('refuses a non-public route until the auth middleware is wired (default deny)', async () => {
-    const res = await request(t.app).get('/api/v1/guard-probe/protected').expect(403);
-    expect(res.body.error.code).toBe('permission.denied');
+  it('refuses an anonymous caller on a non-public route (default deny, NE-SEC-03)', async () => {
+    const res = await request(t.app).get('/api/v1/guard-probe/protected').expect(401);
+    expect(res.body.error.code).toBe('auth.token_missing');
+    const forged = await request(t.app)
+      .get('/api/v1/guard-probe/protected')
+      .set('Authorization', 'Bearer not-a-token')
+      .expect(401);
+    expect(forged.body.error.code).toBe('auth.token_missing');
   });
 
   it('fails a write that declared an audit action but wrote no entry', async () => {

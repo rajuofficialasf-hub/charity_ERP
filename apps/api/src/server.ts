@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { createApp } from './app';
+import { otpStartupMessage } from './auth/otp.service';
 import { loadEnv } from './config/env';
 import { closeContainer, createContainer } from './container';
 
@@ -10,6 +11,9 @@ const env = loadEnv(process.env);
 const container = createContainer(env);
 const { logger } = container;
 const { app } = createApp(container);
+
+const otpMode = otpStartupMessage(container.otpDelivery.dummy);
+logger[otpMode.level](otpMode.text);
 
 const server = createServer(app);
 server.listen(env.PORT, () => {

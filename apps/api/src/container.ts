@@ -1,6 +1,12 @@
 import type { DestinationStream, Logger } from 'pino';
 import pino from 'pino';
 import { AuditWriter } from './audit/audit-writer';
+import { OtpDeliveryService, OtpService } from './auth/otp.service';
+import { PasswordHasher } from './auth/password-hasher';
+import { PermissionResolver } from './auth/permission-resolver';
+import { PermissionVersionService } from './auth/permission-version.service';
+import { SessionService } from './auth/session.service';
+import { TokenService } from './auth/token.service';
 import type { Env } from './config/env';
 import { type Clock, systemClock } from './core/clock';
 import { REDACT_PATHS } from './core/logging';
@@ -15,6 +21,9 @@ import {
   SmtpEmailAdapter,
   StubSmsAdapter,
 } from './notifications/adapters';
+import { AuthService } from './services/auth';
+import { SessionsService } from './services/sessions';
+import { UsersService } from './services/users';
 import type { StorageAdapter } from './storage/storage';
 import { createStorage } from './storage/storage.module';
 
@@ -35,6 +44,16 @@ export interface Container {
   inApp: InAppAdapter;
   jobs: JobRunner;
   health: HealthService;
+  hasher: PasswordHasher;
+  tokens: TokenService;
+  sessions: SessionService;
+  permissions: PermissionResolver;
+  permissionVersions: PermissionVersionService;
+  otpDelivery: OtpDeliveryService;
+  otp: OtpService;
+  auth: AuthService;
+  deviceSessions: SessionsService;
+  users: UsersService;
 }
 
 export interface ContainerOptions {
@@ -68,28 +87,48 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       storage: () => storage.ping(),
       queue: () => jobs.ping(),
     });
+  const audit = o.audit ?? new AuditWriter();
+  const email =
+    o.email ??
+    new SmtpEmailAdapter({
+      host: env.SMTP_HOST,
+      port: env.SMTP_PORT,
+      secure: env.SMTP_SECURE,
+      user: env.SMTP_USER,
+      password: env.SMTP_PASSWORD,
+      from: env.SMTP_FROM,
+    });
+  const sms = o.sms ?? new StubSmsAdapter(env.SMS_MODE);
+  // Authentication (AUTH.md, T1.7): the same objects the Nest module wired, built in order.
+  const hasher = o.hasher ?? new PasswordHasher();
+  const tokens = o.tokens ?? new TokenService(env, clock);
+  const sessions = o.sessions ?? new SessionService(prisma, tokens, audit, clock);
+  const permissionVersions = o.permissionVersions ?? new PermissionVersionService(audit, sessions);
+  const otpDelivery = o.otpDelivery ?? new OtpDeliveryService(env, sms, email);
+  const otp = o.otp ?? new OtpService(env, prisma, clock, otpDelivery);
   return {
     env,
     logger,
     clock,
     prisma,
-    audit: o.audit ?? new AuditWriter(),
+    audit,
     idempotency: o.idempotency ?? new IdempotencyService(prisma),
     storage,
-    email:
-      o.email ??
-      new SmtpEmailAdapter({
-        host: env.SMTP_HOST,
-        port: env.SMTP_PORT,
-        secure: env.SMTP_SECURE,
-        user: env.SMTP_USER,
-        password: env.SMTP_PASSWORD,
-        from: env.SMTP_FROM,
-      }),
-    sms: o.sms ?? new StubSmsAdapter(env.SMS_MODE),
+    email,
+    sms,
     inApp: o.inApp ?? new InAppAdapter(),
     jobs,
     health,
+    hasher,
+    tokens,
+    sessions,
+    permissions: o.permissions ?? new PermissionResolver(),
+    permissionVersions,
+    otpDelivery,
+    otp,
+    auth: o.auth ?? new AuthService(env, prisma, clock, hasher, tokens, sessions, otp, audit),
+    deviceSessions: o.deviceSessions ?? new SessionsService(sessions, prisma, audit),
+    users: o.users ?? new UsersService(env, prisma, audit, sessions, permissionVersions, clock),
   };
 }
 
