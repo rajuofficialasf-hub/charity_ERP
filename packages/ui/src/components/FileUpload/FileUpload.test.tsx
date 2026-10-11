@@ -124,6 +124,8 @@ describe('Form layout and error summary (DESIGN_SYSTEM 6.3)', () => {
       </Form>,
     );
     expect(screen.getByRole('group', { name: 'Basic information' })).toBeInTheDocument();
+    // A native submission before hydration never puts field values into the URL.
+    expect(screen.getByRole('form', { name: 'New application' })).toHaveAttribute('method', 'post');
     const summary = screen.getByRole('alert');
     expect(summary).toHaveFocus();
     await user.click(screen.getByRole('link', { name: 'Enter the name' }));

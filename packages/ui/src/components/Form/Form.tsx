@@ -16,10 +16,15 @@ export interface FormProps {
   'aria-label'?: string;
 }
 
-/** Form wrapper: validation on blur and submit, never on every keystroke (DESIGN_SYSTEM 5.4, 6.3). */
+/**
+ * Form wrapper: validation on blur and submit, never on every keystroke (DESIGN_SYSTEM 5.4, 6.3).
+ * The method is always POST: forms are handled in JavaScript, and a native submission before the
+ * page is interactive must never put field values (a password, an NID) into the URL.
+ */
 export function Form({ onSubmit, validationErrors, children, className, ...aria }: FormProps) {
   return (
     <AriaForm
+      method="post"
       className={cx('ui-form', className)}
       onSubmit={onSubmit}
       validationErrors={validationErrors}
