@@ -1,6 +1,6 @@
 # ADR-006: Next.js PWA stack (App Router, Serwist, Dexie outbox, Tailwind tokens, next-intl)
 
-Status: approved 2026-10-10 (DECISION_LOG D-052, confirmed by the owner in O-01). Written in task T0.8.
+Status: superseded by ADR-013 on 2026-10-11 (D-073: the frontend is a Vite React SPA; the offline design of this ADR, Dexie, Tailwind tokens and the catalogue stay). Originally approved 2026-10-10 (DECISION_LOG D-052, confirmed by the owner in O-01). Written in task T0.8.
 
 ## Context
 
