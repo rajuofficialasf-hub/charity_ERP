@@ -35,6 +35,8 @@ export interface UiMessages {
     previousMonth: string;
     nextMonth: string;
     errorSummaryTitle: string;
+    /** Tag beside labels of fields visible to officials only (DESIGN_SYSTEM 5.4). */
+    officialOnly: string;
   };
   file: {
     takePhoto: string;
@@ -46,6 +48,10 @@ export interface UiMessages {
     retry: string;
     /** "{count} of {max} files". */
     count: string;
+    /** "{name} is larger than {max}". */
+    tooLarge: string;
+    /** "{name}: this file type is not accepted". */
+    wrongType: string;
     state: Record<
       | 'selected'
       | 'compressing'

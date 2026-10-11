@@ -1,0 +1,395 @@
+/* Field (DESIGN_SYSTEM 5.4): label, control, helper, error, lock; UX-14 focus glow. */
+@layer components {
+  .ui-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+    margin-bottom: var(--space-4);
+  }
+  .ui-field-inner {
+    display: contents;
+  }
+  .ui-field-label-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1) var(--space-2);
+  }
+  .ui-field-label {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1);
+    font-size: var(--text-label);
+    font-weight: var(--font-weight-bold);
+  }
+  .ui-field-req {
+    font-weight: var(--font-weight-regular);
+    color: var(--color-text-secondary);
+  }
+  .ui-field-lock {
+    color: var(--color-text-secondary);
+  }
+  .ui-field-official {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    font-size: var(--text-caption);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-brand-accent-ink);
+  }
+  .ui-field-changed {
+    font-size: var(--text-caption);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-brand-accent-ink);
+    cursor: help;
+  }
+  .ui-field-helper {
+    margin: 0;
+    font-size: var(--text-caption);
+    color: var(--color-text-secondary);
+  }
+  .ui-field-error {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-1);
+    margin: 0;
+    font-size: var(--text-caption);
+  }
+  .ui-field-error svg {
+    flex: none;
+    margin-top: 1px;
+    color: var(--color-status-danger);
+  }
+  .ui-field-correction {
+    align-self: flex-start;
+  }
+  .ui-field-other {
+    margin: var(--space-2) 0 0;
+  }
+
+  .ui-input,
+  .ui-native-select {
+    width: 100%;
+    min-height: var(--control-height);
+    padding: 0 var(--space-3);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-surface);
+    font-size: var(--text-input);
+    line-height: var(--leading-body);
+    text-align: left;
+    box-shadow: 0 1px 2px rgba(15, 41, 32, 0.04);
+    transition:
+      border-color var(--motion-fast) var(--ease-standard),
+      box-shadow var(--motion-fast) var(--ease-standard);
+  }
+  .ui-input[data-hovered],
+  .ui-input:hover,
+  .ui-native-select:hover {
+    border-color: var(--color-text-secondary);
+  }
+  .ui-input[data-focused],
+  .ui-input:focus,
+  .ui-input[data-focus-within],
+  .ui-native-select:focus {
+    outline: none;
+    border-color: var(--color-brand-primary-dark);
+    box-shadow: var(--ring-brand);
+  }
+  .ui-input::placeholder {
+    color: var(--color-text-secondary);
+    opacity: 0.8;
+  }
+  .ui-textarea {
+    min-height: 88px;
+    padding: var(--space-2) var(--space-3);
+    resize: vertical;
+  }
+  .ui-native-select {
+    appearance: none;
+    padding-right: 40px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%230F2920' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+  }
+  .ui-field.is-locked .ui-input,
+  .ui-input[readonly],
+  .ui-input[data-readonly] {
+    background: var(--color-bg-muted);
+  }
+  .ui-input[data-disabled],
+  .ui-input:disabled {
+    background: var(--color-bg-muted);
+    color: var(--color-text-secondary);
+    cursor: not-allowed;
+  }
+  .ui-field.has-error .ui-input {
+    border: 2px solid var(--color-status-danger);
+  }
+
+  /* prefix (money) and trailing button (combobox, date) */
+  .ui-input-prefix {
+    display: flex;
+    align-items: stretch;
+  }
+  .ui-input-prefix > span {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--color-border-strong);
+    border-right: 0;
+    border-radius: var(--radius-md) 0 0 var(--radius-md);
+    background: var(--color-bg-muted);
+  }
+  .ui-input-prefix > .ui-input {
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  }
+  .ui-input-wrap {
+    position: relative;
+  }
+  .ui-input-wrap > .ui-input {
+    padding-right: 48px;
+  }
+  .ui-input-button {
+    display: inline-grid;
+    place-items: center;
+    min-width: 44px;
+    min-height: 44px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    outline: none;
+  }
+  .ui-input-wrap > .ui-input-button {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  .ui-input-button[data-hovered] {
+    background: var(--color-bg-muted);
+    color: var(--color-text-primary);
+  }
+  .ui-input-button[data-focus-visible] {
+    outline: 2px solid var(--color-brand-primary);
+    outline-offset: -2px;
+  }
+
+  /* select trigger */
+  .ui-select-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    cursor: pointer;
+    color: var(--color-text-primary);
+  }
+  .ui-select-trigger[data-focus-visible] {
+    outline: none;
+    border-color: var(--color-brand-primary-dark);
+    box-shadow: var(--ring-brand);
+  }
+  .ui-select-value {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ui-select-value[data-placeholder] {
+    color: var(--color-text-secondary);
+  }
+
+  /* date: segments with dd-mm-yyyy literals */
+  .ui-date-group {
+    display: flex;
+    align-items: center;
+    padding-right: 0;
+  }
+  .ui-date-input {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    min-width: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .ui-date-segment {
+    padding: 0 2px;
+    border-radius: var(--radius-sm);
+    outline: none;
+  }
+  .ui-date-segment[data-placeholder] {
+    color: var(--color-text-secondary);
+  }
+  .ui-date-segment[data-focused] {
+    background: var(--color-brand-primary-dark);
+    color: var(--color-text-on-brand);
+  }
+  .ui-date-literal {
+    color: var(--color-text-secondary);
+  }
+
+  /* popover, list box and calendar */
+  .ui-popover {
+    min-width: var(--trigger-width);
+    max-width: calc(100vw - 32px);
+    overflow: auto;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-surface);
+    box-shadow: var(--elevation-2);
+    outline: none;
+  }
+  .ui-popover[data-entering] {
+    animation: ui-pop-in var(--motion-base) var(--ease-out);
+  }
+  @keyframes ui-pop-in {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+  }
+  .ui-popover-dialog {
+    padding: var(--space-3);
+    outline: none;
+  }
+  .ui-popover-search {
+    position: relative;
+    display: block;
+    padding: var(--space-2);
+    border-bottom: 1px solid var(--color-border-default);
+  }
+  .ui-popover-search > svg {
+    position: absolute;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--color-text-secondary);
+  }
+  .ui-popover-search .ui-input {
+    padding-left: 36px;
+  }
+  .ui-listbox {
+    max-height: 320px;
+    margin: 0;
+    padding: var(--space-1);
+    overflow: auto;
+    outline: none;
+  }
+  .ui-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    min-height: 44px;
+    padding: 0 var(--space-3);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    outline: none;
+  }
+  @media (min-width: 1024px) {
+    .ui-option {
+      min-height: 36px;
+    }
+  }
+  .ui-option[data-focused],
+  .ui-option[data-hovered] {
+    background: var(--color-bg-muted);
+  }
+  .ui-option[data-selected] {
+    font-weight: var(--font-weight-bold);
+    color: var(--color-brand-ink);
+  }
+  .ui-option[data-disabled] {
+    color: var(--color-text-secondary);
+    cursor: not-allowed;
+  }
+  .ui-option-check {
+    color: var(--color-brand-primary-dark);
+  }
+  .ui-listbox-empty {
+    margin: 0;
+    padding: var(--space-3);
+    color: var(--color-text-secondary);
+  }
+
+  .ui-calendar {
+    width: min(320px, 100%);
+    margin: 0 auto;
+  }
+  .ui-calendar-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+  .ui-calendar-title {
+    margin: 0;
+    font-size: var(--text-title);
+  }
+  .ui-calendar-nav {
+    display: inline-grid;
+    place-items: center;
+    min-width: 44px;
+    min-height: 44px;
+    border: 0;
+    border-radius: var(--radius-md);
+    background: transparent;
+    cursor: pointer;
+    outline: none;
+  }
+  .ui-calendar-nav[data-hovered] {
+    background: var(--color-bg-muted);
+  }
+  .ui-calendar-nav[data-focus-visible] {
+    outline: 2px solid var(--color-brand-primary);
+  }
+  .ui-calendar-grid {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .ui-calendar-grid th {
+    padding-bottom: var(--space-1);
+    font-size: var(--text-caption);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-secondary);
+  }
+  .ui-calendar-cell {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    margin: 1px auto;
+    border-radius: var(--radius-full);
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    outline: none;
+  }
+  .ui-calendar-cell[data-outside-month] {
+    display: none;
+  }
+  .ui-calendar-cell[data-hovered] {
+    background: var(--color-bg-muted);
+  }
+  .ui-calendar-cell[data-selected] {
+    background: var(--color-brand-primary-dark);
+    color: var(--color-text-on-brand);
+    font-weight: var(--font-weight-bold);
+  }
+  .ui-calendar-cell[data-focus-visible] {
+    outline: 2px solid var(--color-brand-primary);
+    outline-offset: 2px;
+  }
+  .ui-calendar-cell[data-disabled],
+  .ui-calendar-cell[data-unavailable] {
+    color: var(--color-text-secondary);
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}

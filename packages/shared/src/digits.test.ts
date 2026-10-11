@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hasOnlyEnglishDigits } from './digits.js';
+import { hasOnlyEnglishDigits, toEnglishDigits } from './digits.js';
 
 describe('hasOnlyEnglishDigits (UX-05)', () => {
   it('accepts English digits inside Bengali text', () => {
@@ -12,5 +12,13 @@ describe('hasOnlyEnglishDigits (UX-05)', () => {
 
   it('accepts text without digits', () => {
     expect(hasOnlyEnglishDigits('চ্যারিটি ও সোশ্যাল সার্ভিস')).toBe(true);
+  });
+});
+
+describe('toEnglishDigits (I18N 6.4)', () => {
+  it('converts Bengali digits and keeps everything else', () => {
+    expect(toEnglishDigits('০১৭১২-৩৪৫৬৭৮')).toBe('01712-345678');
+    expect(toEnglishDigits('৳ ১,২৫০.৫০')).toBe('৳ 1,250.50');
+    expect(toEnglishDigits('NID 1234 ৫৬৭৮৯০')).toBe('NID 1234 567890');
   });
 });

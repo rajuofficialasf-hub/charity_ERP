@@ -1,0 +1,114 @@
+/* Checkbox and radio (UX-14): restyled, still keyboard and screen-reader native. */
+@layer components {
+  .ui-choices {
+    display: flex;
+    flex-direction: column;
+  }
+  .ui-choices-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0 var(--space-4);
+  }
+  @media (min-width: 640px) {
+    .ui-choices-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0 var(--space-4);
+    }
+  }
+  .ui-choice {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 44px;
+    cursor: pointer;
+    outline: none;
+  }
+  @media (min-width: 1024px) {
+    .ui-choice {
+      min-height: 32px;
+    }
+  }
+  .ui-choice-hit {
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .ui-choice[data-disabled] {
+    color: var(--color-text-secondary);
+    cursor: not-allowed;
+  }
+  .ui-check-box,
+  .ui-radio-dot {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 20px;
+    height: 20px;
+    border: 1.5px solid var(--color-border-strong);
+    background: var(--color-bg-surface);
+    transition:
+      background-color var(--motion-fast) var(--ease-standard),
+      border-color var(--motion-fast) var(--ease-standard),
+      box-shadow var(--motion-fast) var(--ease-standard);
+  }
+  .ui-check-box {
+    border-radius: var(--radius-sm);
+  }
+  .ui-radio-dot {
+    border-radius: var(--radius-full);
+  }
+  .ui-check-mark {
+    display: none;
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: var(--color-text-on-brand);
+    stroke-width: 3.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .ui-check-dash {
+    display: none;
+    width: 10px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--color-text-on-brand);
+  }
+  .ui-choice[data-hovered] .ui-check-box,
+  .ui-choice[data-hovered] .ui-radio-dot {
+    border-color: var(--color-brand-primary-dark);
+    box-shadow: var(--ring-brand);
+  }
+  .ui-choice[data-selected] .ui-check-box,
+  .ui-choice[data-indeterminate] .ui-check-box {
+    border-color: var(--color-brand-primary-dark);
+    background: var(--color-brand-primary-dark);
+  }
+  .ui-choice[data-selected] .ui-check-mark {
+    display: block;
+  }
+  .ui-choice[data-indeterminate] .ui-check-mark {
+    display: none;
+  }
+  .ui-choice[data-indeterminate] .ui-check-dash {
+    display: block;
+  }
+  .ui-choice[data-selected] .ui-radio-dot {
+    border: 6px solid var(--color-brand-primary-dark);
+  }
+  .ui-choice[data-focus-visible] .ui-check-box,
+  .ui-choice[data-focus-visible] .ui-radio-dot {
+    outline: 2px solid var(--color-brand-primary);
+    outline-offset: 2px;
+  }
+  .ui-choice[data-invalid] .ui-check-box,
+  .ui-choice[data-invalid] .ui-radio-dot {
+    border-color: var(--color-status-danger);
+  }
+  .ui-choice[data-disabled] .ui-check-box,
+  .ui-choice[data-disabled] .ui-radio-dot {
+    background: var(--color-bg-muted);
+    opacity: 0.6;
+  }
+}

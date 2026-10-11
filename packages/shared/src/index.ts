@@ -1,5 +1,5 @@
 export { COMPONENT_KEYS, type ComponentKey, isComponentKey } from './components.js';
-export { hasOnlyEnglishDigits } from './digits.js';
+export { hasOnlyEnglishDigits, toEnglishDigits } from './digits.js';
 export { uuidv7, uuidv7Time } from './ids.js';
 export * from './jsonb/index.js';
 export * from './notifications/templates.js';

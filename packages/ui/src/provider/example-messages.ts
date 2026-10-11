@@ -31,6 +31,7 @@ export const exampleMessages: Record<'bn' | 'en', UiMessages> = {
       previousMonth: 'আগের মাস',
       nextMonth: 'পরের মাস',
       errorSummaryTitle: 'ফর্মে কিছু ভুল আছে, ঠিক করুন:',
+      officialOnly: 'শুধু কর্মকর্তা',
     },
     file: {
       takePhoto: 'ছবি তুলুন',
@@ -40,6 +41,8 @@ export const exampleMessages: Record<'bn' | 'en', UiMessages> = {
       remove: '{name} সরান',
       retry: 'আবার আপলোড',
       count: '{max}টির মধ্যে {count}টি ফাইল',
+      tooLarge: '{name} ফাইলটি {max}-এর চেয়ে বড়',
+      wrongType: '{name}: এই ধরনের ফাইল নেওয়া যায় না',
       state: {
         selected: 'বেছে নেওয়া',
         compressing: 'ছোট করা হচ্ছে',
@@ -123,6 +126,7 @@ export const exampleMessages: Record<'bn' | 'en', UiMessages> = {
       previousMonth: 'Previous month',
       nextMonth: 'Next month',
       errorSummaryTitle: 'Please correct the following:',
+      officialOnly: 'Officials only',
     },
     file: {
       takePhoto: 'Take photo',
@@ -132,6 +136,8 @@ export const exampleMessages: Record<'bn' | 'en', UiMessages> = {
       remove: 'Remove {name}',
       retry: 'Upload again',
       count: '{count} of {max} files',
+      tooLarge: '{name} is larger than {max}',
+      wrongType: '{name}: this file type is not accepted',
       state: {
         selected: 'Selected',
         compressing: 'Compressing',
