@@ -28,6 +28,7 @@ export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
         else delete op.security;
       }
     }
+    // eslint-disable-next-line security/detect-object-injection -- path keys of the generated document
     paths[relative] = item;
   }
   return { ...document, paths };

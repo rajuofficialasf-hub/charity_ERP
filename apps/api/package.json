@@ -9,13 +9,16 @@
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate deploy",
+    "db:migrate": "prisma migrate deploy && pnpm jobs:install",
     "db:seed": "tsx --conditions=@css/source seed/run.ts",
     "db:reset": "tsx scripts/db-reset.ts",
     "db:migrate:dev": "prisma migrate dev --create-only",
     "db:load-locations": "tsx --conditions=@css/source scripts/load-locations.ts",
     "locations:convert": "tsx --conditions=@css/source scripts/convert-locations.ts",
-    "openapi:generate": "tsx --conditions=@css/source scripts/openapi-generate.ts"
+    "openapi:generate": "tsx --conditions=@css/source scripts/openapi-generate.ts",
+    "jobs:install": "tsx --conditions=@css/source scripts/jobs-install.ts",
+    "worker": "node dist/worker.js",
+    "dev:worker": "tsx watch --conditions=@css/source src/worker.ts"
   },
   "dependencies": {
     "@css/shared": "workspace:*",

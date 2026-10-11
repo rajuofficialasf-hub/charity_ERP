@@ -52,7 +52,7 @@ export function jsonSchemaOf(schema: ZodType): Record<string, unknown> {
 }
 
 export function ApiContract(spec: ApiContractSpec): MethodDecorator {
-  const decorators: (MethodDecorator & ClassDecorator)[] = [
+  const decorators: (MethodDecorator | ClassDecorator | PropertyDecorator)[] = [
     ApiOperation({
       operationId: spec.operationId,
       summary: spec.summary,
