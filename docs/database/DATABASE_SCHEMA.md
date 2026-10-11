@@ -35,7 +35,14 @@ Each table section lists its columns (type, null, default, comment), then its ke
 | updated_at | timestamptz | no | now() | set by the application on every update (and by a `set_updated_at` trigger as a backstop) |
 | updated_by | uuid | yes | — | FK users(id) |
 
-`[L]` = log tables (append-only): `created_at timestamptz not null default now()`, `created_by uuid null references users(id)`. Append-only is enforced by a BEFORE UPDATE OR DELETE trigger on every `[L]` table that raises an error (O-46; implemented and tested in T1.2).
+`[L]` = log tables: `created_at timestamptz not null default now()`, `created_by uuid null references users(id)`. A BEFORE UPDATE OR DELETE trigger protects them (O-46 item 9; scope decided in D-060, implemented and tested in T1.2):
+
+| Kind | Tables | Rule |
+|---|---|---|
+| Strict append-only | audit_log, budget_ledger, stock_movements, document_events, application_transfers, volunteer_categories_log, workflow_transitions | every UPDATE and DELETE raises an error |
+| Status log | device_sessions, otp_codes, upload_sessions, notifications, outbound_messages, push_subscriptions, field_changes | DELETE raises an error; UPDATE may change only the columns listed in D-060 (for example `notifications.read_at`, the worker's delivery columns of `outbound_messages`, `field_changes.unlock_state`) |
+
+Expired `otp_codes` and unfinalized `upload_sessions` may be deleted only by the cleanup jobs, which set the session setting `css.cleanup = on` (section 21).
 
 The **system actor** is a fixed `users` row (`kind = 'system'`, state `active`, cannot log in) used as `created_by` for job-written rows; the originating user is kept in the row (for example `audit_log.actor_user_id`) when a job acts for someone (SYSTEM_ARCHITECTURE §6).
 
@@ -72,6 +79,7 @@ Technical table added in T0.16 for O-03 (ERD.md §20).
 | L-otp-purpose | registration, password_reset | otp_codes.purpose |
 | L-channel-otp | sms, email | otp_codes.channel |
 | L-location-level | division, district, upazila, union | locations.level |
+| L-location-kind | division, district, upazila, city_corporation, union, pourosova, thana | locations.kind (D-061; city_corporation at upazila level, pourosova and thana at union level) |
 | L-project-status | draft, active, closing, closed | projects.status |
 | L-quota-level | district, union | project_quotas.level |
 | L-fund-source | zakat, sadaqah, general, donor | fund_sources.source |
@@ -284,13 +292,15 @@ Index: (from_user_id).
 | id | uuid | no | — | PK |
 | parent_id | uuid | yes | — | FK locations; null for divisions |
 | level | text | no | — | L-location-level |
-| code | text | no | — | official code where available |
+| kind | text | no | — | L-location-kind (D-061) |
+| code | text | no | — | internal code assigned once and never changed: `L-dd`, `L-dd-dd`, `L-dd-dd-dd`, `L-dd-dd-dd-ddd` (D-061) |
+| bbs_code | text | yes | — | official BBS geocode when supplied (D-061) |
 | name_bn, name_en | text | no | — | renamable (O-09) |
 | active | boolean | no | true | deactivate, never delete |
 | version | integer | no | 1 | bumped on change (offline snapshot) |
 | [A] | | | | |
 
-Constraints: UNIQUE (code); CHECK (level = 'division') = (parent_id IS NULL). Indexes: (parent_id, active); (level, active).
+Constraints: UNIQUE (code); UNIQUE (bbs_code) WHERE bbs_code IS NOT NULL; CHECK (level = 'division') = (parent_id IS NULL); CHECK the kind matches the level (division → division, district → district, upazila → upazila or city_corporation, union → union, pourosova or thana). Indexes: (parent_id, active); (level, active). Loaded by `pnpm db:load-locations` from `docs/source/data/bd-locations.csv` (T1.2).
 
 ### reference_lists
 | Column | Type | Null | Default | Comment |
@@ -1650,6 +1660,8 @@ Machine-readable schemas live in `docs/database/json-schemas/` (JSON Schema 2020
 | css_jobs_cleanup | DELETE on otp_codes, upload_sessions, export file rows | worker cleanup jobs only |
 | css_readonly | SELECT on reporting views without sensitive columns | optional reporting, IT diagnostics |
 | css_backup | replication / pg_dump | backup tooling (O-06) |
+
+The roles and grants are written in `apps/api/prisma/sql/roles.sql` (idempotent, not run by migrations) and applied with the deployment in T3.0.
 
 Row-level security is not used: authorization and scope filtering are enforced in the API (RBAC.md §8), with one application role, which keeps the model simple; this is a deliberate choice and can be revisited if direct database access by other departments is ever granted.
 

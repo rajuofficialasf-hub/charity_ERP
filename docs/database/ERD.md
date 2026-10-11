@@ -76,7 +76,7 @@ Cardinality notation below: `1 — n` one to many, `1 — 0..1` optional one, `n
 
 | Entity | Key columns | Relationships | Requirement |
 |---|---|---|---|
-| locations | id; parent_id; level division/district/upazila/union; code (unique); name_bn/en; active; version | self 1 — n (parent → children); referenced by beneficiaries, volunteers, project_areas, project_quotas, animals, work_assignments | B2; O-09; BR-084, BR-228 |
+| locations | id; parent_id; level division/district/upazila/union; kind (city_corporation, pourosova, thana besides the plain levels, D-061); code (internal, unique); bbs_code (unique when present); name_bn/en; active; version | self 1 — n (parent → children); referenced by beneficiaries, volunteers, project_areas, project_quotas, animals, work_assignments | B2; O-09; BR-084, BR-228 |
 | reference_lists | id; list_key (payment_method, consent_channel, expense_category_default, beneficiary_class_default, issue_type_default); code; label_bn/en; active; sort | — (referenced by code) | O-14, O-17, O-22, BD-14 (addition) |
 | settings | key; value (JSONB); updated_by | — | O-04, O-29, O-30, O-35; BR-213 (addition) |
 | holiday_calendar | date; name_bn/en | — | O-16 (addition) |
