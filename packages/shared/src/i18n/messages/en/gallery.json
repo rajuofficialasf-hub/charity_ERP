@@ -7,7 +7,7 @@
     "button": "Button",
     "badge": "Badge and status",
     "card": "Card and stat",
-    "field": "Field: text, number, phone",
+    "field": "Field: text, number, phone, password",
     "select": "Field: select, combobox, date",
     "choice": "Checkbox and radio",
     "file": "Photo and file upload",
@@ -98,7 +98,9 @@
     "mobileError": "The volunteer's own number cannot be used",
     "note": "Comment",
     "official": "Official's comment",
-    "correctionRequested": "Correction request sent"
+    "correctionRequested": "Correction request sent",
+    "password": "Password",
+    "otp": "Code"
   },
   "select": {
     "type": "Beneficiary type",

@@ -81,10 +81,12 @@ export {
 } from './components/Field/Select.js';
 export {
   NumberField,
+  PasswordField,
   PhoneField,
   TextArea,
   TextField,
   type NumberFieldProps,
+  type PasswordFieldProps,
   type PhoneFieldProps,
   type TextAreaProps,
   type TextFieldProps,

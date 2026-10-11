@@ -1,9 +1,17 @@
 'use client';
 
 import { toEnglishDigits } from '@css/shared';
-import { useLayoutEffect, useRef, type HTMLAttributes } from 'react';
-import { Input, TextArea as AriaTextArea, TextField as AriaTextField } from 'react-aria-components';
+import { Eye, EyeOff } from 'lucide-react';
+import { useLayoutEffect, useRef, useState, type HTMLAttributes } from 'react';
+import {
+  Button as AriaButton,
+  Input,
+  TextArea as AriaTextArea,
+  TextField as AriaTextField,
+} from 'react-aria-components';
+import { useUi } from '../../provider/UiProvider.js';
 import { useTextValue } from '../../utils/useTextValue.js';
+import { Icon } from '../Icon/Icon.js';
 import { FieldFooter, FieldLabel, fieldClass, type FieldBaseProps } from './FieldParts.js';
 
 export interface TextFieldProps extends FieldBaseProps {
@@ -16,6 +24,8 @@ export interface TextFieldProps extends FieldBaseProps {
   placeholder?: string;
   maxLength?: number;
   autoComplete?: string;
+  /** Keyboard hint, e.g. `numeric` for a one-time code (with `autoComplete="one-time-code"`). */
+  inputMode?: 'text' | 'numeric' | 'email' | 'tel';
   /** `lang` of the value when it is in the other language. */
   lang?: string;
 }
@@ -29,6 +39,7 @@ export function TextField({
   placeholder,
   maxLength,
   autoComplete,
+  inputMode,
   lang,
   onBlur,
   ...field
@@ -46,7 +57,7 @@ export function TextField({
       onChange={set}
       onBlur={onBlur}
       type={type === 'email' ? 'email' : 'text'}
-      inputMode={numeric ? 'numeric' : type === 'email' ? 'email' : undefined}
+      inputMode={inputMode ?? (numeric ? 'numeric' : type === 'email' ? 'email' : undefined)}
       isRequired={field.required}
       isInvalid={!!field.error}
       isReadOnly={field.readOnly || field.locked}
@@ -189,6 +200,8 @@ export interface PhoneFieldProps extends FieldBaseProps {
   onChange?: (value: string) => void;
   onBlur?: () => void;
   placeholder?: string;
+  /** Off by default (a beneficiary's number must never be autofilled, BD-03); `tel` for own number. */
+  autoComplete?: string;
 }
 
 /** Bangladesh mobile number: telephone keypad, English digits, 11 digits, no autofill (BD-03). */
@@ -198,6 +211,7 @@ export function PhoneField({
   onChange,
   onBlur,
   placeholder,
+  autoComplete = 'off',
   ...field
 }: PhoneFieldProps) {
   const [current, set] = useTextValue(value, defaultValue, onChange, (v) =>
@@ -218,11 +232,71 @@ export function PhoneField({
       isInvalid={!!field.error}
       isReadOnly={field.readOnly || field.locked}
       isDisabled={field.disabled}
-      autoComplete="off"
+      autoComplete={autoComplete}
       validationBehavior="aria"
     >
       <FieldLabel {...field} />
       <Input className="ui-input ui-tnum" placeholder={placeholder} />
+      <FieldFooter {...field} />
+    </AriaTextField>
+  );
+}
+
+export interface PasswordFieldProps extends FieldBaseProps {
+  value?: string;
+  defaultValue?: string;
+  onChange?: (value: string) => void;
+  onBlur?: () => void;
+  /** `current-password` (login) or `new-password` (change, reset). */
+  autoComplete: 'current-password' | 'new-password';
+  maxLength?: number;
+}
+
+/**
+ * Password with a show/hide button (SCR-001): the value is never transformed; the button has an
+ * accessible name that says what it does and `aria-pressed` while the password is shown.
+ */
+export function PasswordField({
+  value,
+  defaultValue,
+  onChange,
+  onBlur,
+  autoComplete,
+  maxLength = 128,
+  ...field
+}: PasswordFieldProps) {
+  const { messages } = useUi();
+  const [visible, setVisible] = useState(false);
+  const [current, set] = useTextValue(value, defaultValue, onChange, (v) => v);
+  return (
+    <AriaTextField
+      className={fieldClass(field)}
+      id={field.id}
+      name={field.name}
+      value={current}
+      onChange={set}
+      onBlur={onBlur}
+      type={visible ? 'text' : 'password'}
+      isRequired={field.required}
+      isInvalid={!!field.error}
+      isDisabled={field.disabled}
+      maxLength={maxLength}
+      autoComplete={autoComplete}
+      validationBehavior="aria"
+    >
+      <FieldLabel {...field} />
+      <div className="ui-input-wrap">
+        <Input className="ui-input" spellCheck={false} autoCapitalize="none" autoCorrect="off" />
+        <AriaButton
+          className="ui-input-button"
+          aria-label={visible ? messages.field.hidePassword : messages.field.showPassword}
+          aria-pressed={visible}
+          isDisabled={field.disabled}
+          onPress={() => setVisible((v) => !v)}
+        >
+          <Icon icon={visible ? EyeOff : Eye} />
+        </AriaButton>
+      </div>
       <FieldFooter {...field} />
     </AriaTextField>
   );

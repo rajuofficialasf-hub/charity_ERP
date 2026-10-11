@@ -38,6 +38,7 @@ import {
   NavItem,
   NumberField,
   OfflineBanner,
+  PasswordField,
   PhoneField,
   ProgressBar,
   RadioGroup,
@@ -389,6 +390,13 @@ function GalleryBody() {
               required
               defaultValue={SAMPLE_MOBILE}
               error={t('field.mobileError')}
+            />
+            <PasswordField label={t('field.password')} autoComplete="current-password" required />
+            <TextField
+              label={t('field.otp')}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
             />
           </FormGrid>
           <TextArea label={t('field.note')} value={note} onChange={setNote} />

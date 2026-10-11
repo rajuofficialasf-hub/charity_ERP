@@ -2,7 +2,7 @@ import { screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations, renderWithUi } from '../../testing/index.js';
-import { NumberField, PhoneField, TextArea, TextField } from './TextField.js';
+import { NumberField, PasswordField, PhoneField, TextArea, TextField } from './TextField.js';
 
 describe('Field: text, textarea, number, phone (DESIGN_SYSTEM 5.4)', () => {
   it('has a visible label, required in text, and helper and error linked to the input', async () => {
@@ -93,6 +93,47 @@ describe('Field: text, textarea, number, phone (DESIGN_SYSTEM 5.4)', () => {
     expect(area.tagName).toBe('TEXTAREA');
     await user.type(area, 'line one{Enter}line two');
     expect(area).toHaveValue('line one\nline two');
+    await expectNoAxeViolations(container);
+  });
+
+  it('a phone field may allow autofill of the own number', () => {
+    renderWithUi(<PhoneField label="Mobile" autoComplete="tel" />);
+    expect(screen.getByRole('textbox', { name: 'Mobile' })).toHaveAttribute('autocomplete', 'tel');
+  });
+
+  it('a one-time code field takes the numeric keypad and the OTP autofill hint', () => {
+    renderWithUi(<TextField label="Code" inputMode="numeric" autoComplete="one-time-code" />);
+    const input = screen.getByRole('textbox', { name: 'Code' });
+    expect(input).toHaveAttribute('inputmode', 'numeric');
+    expect(input).toHaveAttribute('autocomplete', 'one-time-code');
+  });
+
+  it('a password field hides the value until the reveal button is pressed (SCR-001)', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const { container } = renderWithUi(
+      <PasswordField
+        label="পাসওয়ার্ড"
+        autoComplete="current-password"
+        required
+        onChange={onChange}
+      />,
+      { locale: 'bn' },
+    );
+    const input = container.querySelector('input')!;
+    expect(input).toHaveAttribute('type', 'password');
+    expect(input).toHaveAttribute('autocomplete', 'current-password');
+    expect(input).toHaveAccessibleName(/পাসওয়ার্ড/);
+    await user.type(input, 'Nadi 2026');
+    expect(onChange).toHaveBeenLastCalledWith('Nadi 2026');
+    const reveal = screen.getByRole('button', { name: 'পাসওয়ার্ড দেখান' });
+    expect(reveal).toHaveAttribute('aria-pressed', 'false');
+    await user.click(reveal);
+    expect(input).toHaveAttribute('type', 'text');
+    expect(screen.getByRole('button', { name: 'পাসওয়ার্ড লুকান' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     await expectNoAxeViolations(container);
   });
 });

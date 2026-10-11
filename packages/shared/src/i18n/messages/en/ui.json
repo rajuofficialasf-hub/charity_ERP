@@ -24,7 +24,9 @@
     "nextMonth": "Next month",
     "errorSummaryTitle": "Please correct the following:",
     "officialOnly": "Officials only",
-    "reason": "Reason"
+    "reason": "Reason",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "file": {
     "takePhoto": "Take photo",

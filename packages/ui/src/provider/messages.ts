@@ -39,6 +39,9 @@ export interface UiMessages {
     officialOnly: string;
     /** Label of the reason box of confirm dialogs. */
     reason: string;
+    /** Names of the reveal button of PasswordField. */
+    showPassword: string;
+    hidePassword: string;
   };
   file: {
     takePhoto: string;
