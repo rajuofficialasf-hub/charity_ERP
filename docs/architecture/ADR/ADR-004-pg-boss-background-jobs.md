@@ -21,6 +21,8 @@ Background work is required for sync processing, notification delivery (email, S
 - In-process timers and `setInterval`: no persistence; jobs lost on restart; no retries; rejected.
 - In-process pg-boss consumers only: simpler process model but exposes field latency to heavy jobs; kept as the development mode only.
 
+Implementation note (T1.6, D-069): pg-boss 12 in its own schema `pgboss`; `pnpm db:migrate` runs `jobs:install` after the Prisma migrations as the migrating role and creates every registered queue (queues are partitioned tables, so creating one is DDL); the api and worker start with `migrate: false`. Code: `apps/api/src/jobs/`, worker entry `apps/api/src/worker.ts`.
+
 ## Consequences
 
 Positive: no additional infrastructure; transactional enqueue; jobs survive restarts; retries and scheduling built in; clean separation of request latency from batch work.

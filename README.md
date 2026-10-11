@@ -75,7 +75,9 @@ The web app runs at http://localhost:3000 and the API at http://localhost:4000 (
 | `pnpm i18n:check` | Message catalogue check (bn/en parity, ICU, parameters, digits, error codes) and no Bengali text in code |
 | `pnpm typecheck` | TypeScript in every package |
 | `pnpm docs:check` | Parses and validates permissions.yaml, openapi.yaml, workflow templates and JSON Schemas; Redocly lint |
-| `pnpm db:migrate` | Applies the Prisma migrations to `DATABASE_URL` (`prisma migrate deploy`, non-destructive) |
+| `pnpm db:migrate` | Applies the Prisma migrations to `DATABASE_URL` (`prisma migrate deploy`, non-destructive), then installs the pg-boss schema and queues (`jobs:install`) |
+| `pnpm --filter @css/api dev:worker` | Runs the job worker in watch mode (the API enqueues, the worker consumes) |
+| `pnpm --filter @css/api openapi:generate` | Writes the OpenAPI document generated from the code to `apps/api/openapi.generated.json` |
 | `pnpm db:load-locations` | Loads `docs/source/data/bd-locations.csv` into the locations table (dev and test databases only) |
 | `pnpm db:seed` | Development and test seed (`--set base`, `demo` or `all`, default all; idempotent); demo accounts in `docs/testing/DEMO_ACCOUNTS.md`; refuses non-dev databases and production |
 | `pnpm db:reset` | Drops and re-creates the dev database from the migrations; refuses anything but `css_erp_dev` / `css_erp_test` and production |

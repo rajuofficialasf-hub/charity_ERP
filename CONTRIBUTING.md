@@ -46,6 +46,15 @@ Run `pnpm e2e` when a change touches pages or user journeys, and `pnpm docs:chec
 
 Tests name the rule they prove: `it('BR-097 score recomputed on answer change', …)`.
 
+## How to add an endpoint
+
+1. **Contract first.** Add the operation to `docs/api/openapi.yaml` with every annotation of API_STANDARDS 16 (`operationId`, `tags`, `x-permission`, `x-scope`, `x-audit`, `x-idempotency`, `x-rate-limit`, responses) and run `pnpm docs:check`. A new error code goes into API_STANDARDS 8 and into `errors.<code>` in both catalogue languages (`pnpm i18n:check`).
+2. **Schemas.** Write the request and response zod schemas in `packages/shared`; the PWA uses the same ones. Name specific error codes with `{ message: 'validation.<code>' }`.
+3. **Handler.** In `apps/api/src/<module>/`, decorate the handler with `@ApiContract({...})` using the same values as the contract (this also sets `@Audit`, `@RateLimit` and `@Idempotency`), take input through `@ZBody`, `@ZQuery` or `@ZParam`, and return a value, `ok(...)` or `page(...)`; never build the envelope or an error message by hand.
+4. **Service.** Do the work in one Prisma transaction; call `AuditWriter.record(tx, …)` for every write (the request fails otherwise), enqueue jobs with `JobRunner.enqueue(queue, data, { tx })`, throw `ApiError(code, status)` for business failures, and use the pagination helpers for lists.
+5. **Tests.** Unit tests for rules, an API test (Supertest) for the endpoint including its error codes, an integration test when the database is involved; the OpenAPI drift test must stay green (`pnpm test`).
+6. **Docs.** Update the module's documents in the same commit.
+
 ## Never
 
 - Commit secrets, real `.env` files, or real personal data (NIDs, phone numbers, bank details, donor data). Seeds and fixtures use obviously fake identities (TEST_STRATEGY section 4).

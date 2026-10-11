@@ -154,6 +154,29 @@ Server components render official and management lists; volunteer screens are cl
 | Admin | `admin` | Settings (thresholds, photo defaults, payment methods, expense categories, holiday calendar with Friday weekend, nisab versions, provider settings), master template editors | O-04, O-14, O-15, O-16, O-22 |
 | Sync | `sync` | Batch endpoint, idempotency on `client_uuid`, conflict rules, needs-verification routing, photo queue coordination | Section 7 and `OFFLINE_SYNC.md` |
 
+### 5.1 Implemented patterns (T1.6)
+
+The backbone every module uses, in `apps/api/src` (D-068, D-069, O-57). A new endpoint follows CONTRIBUTING.md "How to add an endpoint".
+
+| Concern | Where | Pattern |
+|---|---|---|
+| Configuration | `config/env.ts` | One zod schema; `loadEnv(process.env)` fails fast; `AppModule.register(env)` passes it to the app; production refuses `JOBS_INLINE` and filesystem storage |
+| Database | `core/prisma.service.ts` | One `PrismaService` (Prisma 7 pg adapter); services that write inside a caller's transaction take a `Tx` |
+| Request context | `core/request-context.ts`, `core/request-context.middleware.ts` | AsyncLocalStorage with request id, locale, IP, and (from T1.7) user, device session and role; read by the logger, the audit writer and the error filter |
+| Request id and logs | `core/request-id.ts`, `core/logging.ts` | `X-Request-Id` reused when well-formed, else `req_<uuidv7>`, echoed on every response; pino through nestjs-pino: one line per request with id, user id, path (no query string), status and latency; bodies, cookies, authorization and personal fields never logged, known sensitive keys redacted |
+| Envelope | `core/envelope.ts` | Every result becomes `{ data, meta: { requestId, … } }`; handlers return values, `ok(data, meta)` or `page(rows, pageMeta)`; probes are marked `@RawResponse()` |
+| Errors | `i18n/api-error.ts`, `i18n/api-exception.filter.ts` | Services throw `ApiError(code, status, params?, details?)`; the filter renders `{ error: { code, messageKey, message, details?, requestId } }` in the request language; anything else is `server.internal` without details |
+| Validation | `core/validation.ts` | `@ZBody(schema)`, `@ZQuery(schema)`, `@ZParam(name, schema)` with the shared zod schemas; strict query schemas reject unknown parameters (400 `validation.unknown_parameter`); field problems are 422 `validation.failed` with one detail per field; a schema names a specific code with `{ message: 'validation.nid_format' }` |
+| Lists | `core/pagination.ts` | `pageQuery` (limit 25, maximum 100), HMAC-signed cursors bound to the endpoint and caller, `parseSort` (whitelist, id tiebreaker), `keysetWhere`/`orderBy`/`buildPage` for next and previous pages, `parseList`, `parseRange` (Dhaka days), `searchWhere` (NFC, at least 2 characters, trigram-served contains), totals capped at "10000+" |
+| Idempotency | `idempotency/idempotency.service.ts` | O-57: `replayByClientUuid` returns the existing record with 200 and `Idempotent-Replay: true`; `runWithKey` stores sync and bulk results in `sync_batches` and replays them, race-safe |
+| Rate limits | `rate-limit/rate-limit.ts` | The API_STANDARDS 10 classes with their keys on in-process counters (@nestjs/throttler storage); undeclared routes use `default`; `RateLimit-*` headers, `Retry-After` on 429 |
+| Audit | `audit/audit-writer.ts`, `audit/audit.decorator.ts` | `AuditWriter.record(tx, entry)` inside the business transaction; every write route declares `@Audit(action)` (through `@ApiContract`); a write without `@Audit`, or a declared action without an entry, fails with `server.internal` |
+| OpenAPI | `openapi/api-contract.ts`, `openapi/document.ts`, `openapi/drift.ts` | `@ApiContract({...})` declares the operation once and also sets audit, rate limit and idempotency; `buildOpenApiDocument` generates the document; the drift test compares it with `docs/api/openapi.yaml`; `pnpm --filter @css/api openapi:generate` writes `openapi.generated.json` |
+| Jobs | `jobs/queues.ts`, `jobs/job-runner.ts`, `jobs/jobs.module.ts`, `jobs/install.ts`, `worker.ts` | Queue registry with retry, backoff and expiry; `JobRunner.enqueue(queue, data, { tx })` inside the transaction; consumers and cron schedules (Asia/Dhaka) in the worker or with `JOBS_INLINE`; the schema and queues come from `jobs:install` in `db:migrate` (D-069); sample job: the `maintenance` heartbeat every five minutes |
+| Storage | `storage/*` | `StorageAdapter` (`put`, `get`, `stat`, `presignGet`, `presignPut`, `ping`) with `MinioStorage` and `FilesystemStorage` (tests); safe keys only; URL lifetime at most 900 seconds |
+| Notifications | `notifications/adapters.ts` | `EmailAdapter` (`SmtpEmailAdapter`, Nodemailer), `SmsAdapter` (`StubSmsAdapter`: masked logging or dry run until a provider exists), `InAppAdapter` (a `notifications` row with key and parameters); `DeliveryError` transient or permanent for the outbox (T1.14) |
+| Health | `health/health.controller.ts` | `/health/live` up or down; `/health/ready` database, storage and queue with a 2-second limit each, 200 or 503, per-check detail only with the `HEALTH_TOKEN` bearer token |
+
 ## 6. Request lifecycle (exact order of checks)
 
 Every request to `/api/v1` passes these steps in this order. A failure at any step stops the request with the error code of that step; later steps never run.

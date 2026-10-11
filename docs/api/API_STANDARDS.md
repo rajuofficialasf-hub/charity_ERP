@@ -195,6 +195,8 @@ There is no generic idempotency-key table; idempotency rides on keys the data mo
 
 The PWA uses the same create endpoint online and offline (OFFLINE_SYNC §3), so every create carries a `clientUuid`.
 
+Implementation (T1.6, O-57): `IdempotencyService` in apps/api: `replayByClientUuid` for the clientUuid mode and `runWithKey` for the header mode on `sync_batches`; there is no generic idempotency-key table.
+
 ## 10. Rate limiting
 
 | Class (`x-rate-limit`) | Limit | Key |
@@ -280,6 +282,8 @@ POST /api/v1/files/{fileId}/url → signed URL (15 minutes)
 | `security` | `bearerAuth` or none for public | lint |
 
 The generated document from the code must match `docs/api/openapi.yaml`; CI fails on any difference (NFR-54). An operation missing any required annotation fails lint.
+
+Implementation (T1.6): handlers declare `@ApiContract({...})`; `apps/api/test/api/openapi-drift.test.ts` compares every implemented operation with this contract (annotations, known permission names, security, parameters, request body schema, response codes). Operations of the contract that are not implemented yet are allowed.
 
 ## 17. Breaking changes
 

@@ -374,6 +374,9 @@ Every rule above starts with test status "not yet". When a test exists, record i
 - BR-228: apps/api/test/integration/locations.test.ts::loadLocations (four tests: idempotent load, rename and deactivate, conflicting codes, the committed CSV counts) — passing (2026-10-11; data unverified, see docs/source/data/README.md)
 
 - BR-024: apps/api/test/integration/seed.test.ts::refuses production and databases outside the dev/test pattern (BR-024, BD-49); leaves the seed markers the production guard looks for — passing (2026-10-11; seed part only; the dummy-OTP and production start guards follow in T1.7 and T1.6)
+- BR-024 (jobs): apps/api/src/config/env.spec.ts::refuses inline jobs and filesystem storage in production (BR-024) — passing (2026-10-11; T1.6)
+- BR-179 (mechanism): apps/api/test/integration/audit-idempotency.test.ts::records actor, request facts and the change inside the transaction; leaves no entry when the business transaction rolls back; apps/api/test/api/guards.api.test.ts::fails a write that declared an audit action but wrote no entry, fails a write route without @Audit — passing (2026-10-11; T1.6; each audited action is tested with its module)
+- BR-210: apps/api/test/api/i18n.api.test.ts::turns unexpected failures into server.internal without leaking details; apps/api/test/api/core.api.test.ts::logs one line per request without bodies, query strings or secrets — passing (2026-10-11; T1.5, T1.6)
 
 Database-level parts only where noted; each rule stays open for its service, API and E2E tests in the task that builds the module (T1.2, 2026-10-11).
 
