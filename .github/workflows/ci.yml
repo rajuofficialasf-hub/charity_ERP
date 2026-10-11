@@ -39,11 +39,20 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
+      # Email integration tests (O-58); same pinned image as infra/docker-compose.dev.yml.
+      mailpit:
+        image: axllent/mailpit@sha256:94f6b70c1436defae6799d9ac7ff0eeff9540465b842026d5cdb018f1c0234ea
+        ports:
+          - 1025:1025
+          - 8025:8025
     env:
       NODE_ENV: test
       DATABASE_URL: postgresql://css:css_ci_only@127.0.0.1:5432/css_erp_test
       # Integration tests clone per-file databases from a migrated template (O-46 item 1).
       TEST_DATABASE_URL: postgresql://css:css_ci_only@127.0.0.1:5432/css_erp_test
+      # Storage integration tests against MinIO (O-58); CI-only placeholder credentials.
+      MINIO_TEST_ACCESS_KEY: css_ci_only
+      MINIO_TEST_SECRET_KEY: css_ci_only_secret
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -52,6 +61,13 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # MinIO needs a server command, which service containers cannot pass; same pinned image as
+      # infra/docker-compose.dev.yml (D-059 covers dev and test, not production).
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio -p 9000:9000             -e MINIO_ROOT_USER=css_ci_only -e MINIO_ROOT_PASSWORD=css_ci_only_secret             chainguard/minio@sha256:7df55d002b698e4494a131b848dd553361bbe58b7e19f62d9623c29af1ba9ccf             server /data --address :9000
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:9000/minio/health/live && exit 0; sleep 2; done
+          docker logs minio; exit 1
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm docs:check
