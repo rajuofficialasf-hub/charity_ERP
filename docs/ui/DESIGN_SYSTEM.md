@@ -1,6 +1,6 @@
 # DESIGN SYSTEM
 
-Status: complete for Phase 0, written in task T0.19 (2026-10-10); premium refresh for UX-14 on 2026-10-11 (elevation, gradients, motion and component finish below; submitted for the owner's approval before T1.4). This is the binding UI specification for the clickable mockups (T0.19b), `packages/ui` (T1.4) and every screen built afterwards. Screens are listed in `docs/ui/SCREENS.md`.
+Status: complete for Phase 0, written in task T0.19 (2026-10-10); premium refresh for UX-14 on 2026-10-11 (elevation, gradients, motion and component finish below), approved by the owner the same day (O-54). This is the binding UI specification for the clickable mockups (T0.19b), `packages/ui` (T1.4) and every screen built afterwards. Screens are listed in `docs/ui/SCREENS.md`.
 
 Sources and precedence: the owner's latest instruction, then `docs/ui/DESIGN_BRIEF.md` (owner decisions UX-01 to UX-13), then `docs/DECISION_LOG.md` O-40 (the design-system choices of this task), then constitution §11 and §12, then this document. Colours, contrast values and fonts come from `docs/ui/brand/colors.md` and `docs/ui/brand/fonts/README.md`. No colour may be used that is not listed in §2.1. A new token needs a decision in DECISION_LOG.md first.
 

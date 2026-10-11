@@ -102,7 +102,7 @@ Screens of later phases (house construction, self-reliance, dawah, Qurbani, docu
 | UX-11 | FILES_AND_DOCUMENTS.md (T0.13), project setup (T1.11), distribution (T3.1) |
 | UX-12 | NOTIFICATIONS.md (T0.14), volunteer home (T1.15) |
 | UX-13 | DESIGN_SYSTEM.md (T0.19), mockups (T0.19b), packages/ui and fonts (T1.4), PWA font precache (T2.7), PDF export fonts (T2.8) |
-| UX-14 | Premium mockup refresh before T1.4, DESIGN_SYSTEM.md update, packages/ui (T1.4), app shell (T1.15) |
+| UX-14 | Premium mockup refresh and DESIGN_SYSTEM.md update done and approved 2026-10-11 (O-54); packages/ui (T1.4), app shell (T1.15) |
 
 ## 8. Open items
 
