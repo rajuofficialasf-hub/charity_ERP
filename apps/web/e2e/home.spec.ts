@@ -2,10 +2,13 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
 test.describe('home page', () => {
-  test('loads with the system name and the PWA manifest', async ({ page }) => {
+  test('sends a visitor to the login screen with the system name and the PWA manifest', async ({
+    page,
+  }) => {
     await page.goto('/');
 
-    await expect(page).toHaveTitle('চ্যারিটি ও সোশ্যাল সার্ভিস');
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveTitle('লগইন করুন');
     await expect(
       page.getByRole('heading', { level: 1, name: 'চ্যারিটি ও সোশ্যাল সার্ভিস' }),
     ).toBeVisible();
@@ -36,6 +39,7 @@ test.describe('home page', () => {
 
   test('has no accessibility violations', async ({ page }) => {
     await page.goto('/');
+    await expect(page).toHaveURL(/\/login$/);
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);
   });

@@ -99,6 +99,23 @@ jobs:
     needs: [checks, security]
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # The E2E API recreates css_erp_test_e2e here, migrates and seeds it (T1.7).
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: css
+          POSTGRES_PASSWORD: css_ci_only
+          POSTGRES_DB: css_erp_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U css -d css_erp_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      E2E_DATABASE_URL: postgresql://css:css_ci_only@127.0.0.1:5432/css_erp_test_e2e
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6

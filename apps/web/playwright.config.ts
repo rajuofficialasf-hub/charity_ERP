@@ -19,10 +19,22 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
     },
   ],
-  webServer: {
-    command: `pnpm exec next start --port ${PORT}`,
-    url: baseURL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
-  },
+  // The API on its own E2E database (seeded with the demo accounts, dummy OTP), then the web
+  // build whose /api/v1 rewrite points at it (T1.7). Mobile and desktop share the database, so
+  // specs that change data use different accounts per project.
+  webServer: [
+    {
+      command: 'pnpm --filter @css/api e2e:server',
+      url: 'http://127.0.0.1:4100/health/live',
+      reuseExistingServer: false,
+      timeout: 300_000,
+      stdout: 'pipe',
+    },
+    {
+      command: `pnpm exec next start --port ${PORT}`,
+      url: baseURL,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+  ],
 });
