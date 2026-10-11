@@ -1,22 +1,47 @@
 import type { Me, TokenPair } from '@css/shared/auth';
-import { bn, en } from '@css/shared/i18n';
+import type { Locale } from '@css/shared/i18n';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { NextIntlClientProvider } from 'next-intl';
 import type { ReactNode } from 'react';
-import { AppProviders } from '../app/_components/AppProviders';
-import { AuthProvider } from '../app/_lib/auth';
+import { createMemoryRouter, RouterProvider, useLocation } from 'react-router';
+import { AppProviders } from '../src/components/AppProviders';
+import { LocaleProvider } from '../src/i18n/LocaleProvider';
+import { AuthProvider } from '../src/lib/auth';
+import { createQueryClient } from '../src/lib/query-client';
 import { server } from './msw/server';
 
-/** Providers of the layout: catalogue, design system and auth. */
-export function renderApp(ui: ReactNode, locale: 'bn' | 'en' = 'bn') {
-  return render(
-    <NextIntlClientProvider locale={locale} messages={locale === 'bn' ? bn : en}>
-      <AppProviders>
-        <AuthProvider>{ui}</AuthProvider>
-      </AppProviders>
-    </NextIntlClientProvider>,
+/** The current route, for assertions on navigation. */
+export function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="location">{location.pathname + location.search}</output>;
+}
+
+/**
+ * Providers of the app (catalogue, design system, session, server-data cache) around a memory
+ * router with the component under test at `path` and a probe route for every other path.
+ */
+export function renderApp(ui: ReactNode, locale: Locale = 'bn', options: { path?: string } = {}) {
+  const path = options.path ?? '/';
+  const router = createMemoryRouter(
+    [
+      { path, element: ui },
+      { path: '*', element: <LocationProbe /> },
+    ],
+    { initialEntries: [path] },
   );
+  const view = render(
+    <QueryClientProvider client={createQueryClient()}>
+      <LocaleProvider initial={locale}>
+        <AppProviders>
+          <AuthProvider>
+            <RouterProvider router={router} />
+          </AuthProvider>
+        </AppProviders>
+      </LocaleProvider>
+    </QueryClientProvider>,
+  );
+  return { ...view, router };
 }
 
 export const ME: Me = {

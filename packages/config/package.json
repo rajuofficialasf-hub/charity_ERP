@@ -11,12 +11,11 @@
     "./tsconfig/library.json": "./tsconfig/library.json",
     "./tsconfig/react-library.json": "./tsconfig/react-library.json",
     "./tsconfig/nest.json": "./tsconfig/nest.json",
-    "./tsconfig/next.json": "./tsconfig/next.json",
+    "./tsconfig/vite.json": "./tsconfig/vite.json",
     "./eslint-rules/no-literal-ui-text": "./eslint-rules/no-literal-ui-text.mjs"
   },
   "dependencies": {
     "@eslint/js": "10.0.1",
-    "@next/eslint-plugin-next": "16.4.0",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-react-hooks": "7.1.1",
     "eslint-plugin-security": "4.2.0",

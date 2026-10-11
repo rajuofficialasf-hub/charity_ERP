@@ -2,32 +2,33 @@
   "name": "@css/web",
   "version": "0.0.0",
   "private": true,
-  "description": "CSS ERP installable offline-first PWA (Next.js App Router)",
+  "description": "CSS ERP installable offline-first PWA (Vite + React single-page application)",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/next.mjs dev",
-    "build": "node scripts/next.mjs build",
-    "start": "next start",
-    "typecheck": "next typegen && tsc --noEmit",
-    "e2e": "playwright test",
-    "build:e2e": "node scripts/next.mjs build --dev-gallery"
+    "dev": "node scripts/fonts.mjs && vite",
+    "build": "node scripts/build.mjs",
+    "build:e2e": "node scripts/build.mjs --e2e",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@css/shared": "workspace:*",
     "@css/ui": "workspace:*",
-    "@serwist/turbopack": "9.5.13",
-    "esbuild": "0.28.2",
+    "@serwist/window": "9.5.13",
+    "@tanstack/react-query": "5.104.1",
     "lucide-react": "1.55.0",
-    "next": "16.4.0",
-    "next-intl": "4.14.9",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "serwist": "9.5.13"
+    "react-router": "8.4.0",
+    "serwist": "9.5.13",
+    "use-intl": "4.14.9"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
     "@css/config": "workspace:*",
     "@playwright/test": "1.64.0",
+    "@serwist/vite": "9.5.13",
     "@tailwindcss/postcss": "4.3.3",
     "@testing-library/dom": "10.4.2",
     "@testing-library/jest-dom": "7.0.1",
@@ -36,10 +37,12 @@
     "@types/node": "24.19.2",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
     "axe-core": "4.14.0",
     "jsdom": "30.1.2",
     "msw": "2.15.0",
     "tailwindcss": "4.3.3",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vite": "8.3.4"
   }
 }

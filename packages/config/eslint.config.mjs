@@ -1,7 +1,6 @@
 // Shared ESLint flat configuration for the CSS ERP workspace.
 // The root eslint.config.mjs composes these blocks; packages never keep their own rule sets.
 import js from '@eslint/js';
-import nextPlugin from '@next/eslint-plugin-next';
 import prettier from 'eslint-config-prettier';
 import reactHooks from 'eslint-plugin-react-hooks';
 import security from 'eslint-plugin-security';
@@ -14,13 +13,10 @@ export const ignores = {
   ignores: [
     '**/node_modules/**',
     '**/dist/**',
-    '**/.next/**',
     '**/coverage/**',
     '**/playwright-report/**',
     '**/test-results/**',
     '**/src/generated/**',
-    '**/public/sw.js',
-    '**/next-env.d.ts',
     'docs/**',
   ],
 };
@@ -63,20 +59,9 @@ export const react = {
   rules: { ...reactHooks.configs.recommended.rules },
 };
 
-/** Next.js specific rules for apps/web. */
-export const next = {
-  files: ['apps/web/**/*.{ts,tsx}'],
-  plugins: { '@next/next': nextPlugin },
-  rules: {
-    ...nextPlugin.configs.recommended.rules,
-    ...nextPlugin.configs['core-web-vitals'].rules,
-  },
-  settings: { next: { rootDir: 'apps/web' } },
-};
-
 /**
  * packages/shared runs in the browser offline and on the server, so it must stay pure TypeScript
- * (ADR-001, SYSTEM_ARCHITECTURE section 3): no Node built-ins, Nest, Next or Prisma.
+ * (ADR-001, SYSTEM_ARCHITECTURE section 3): no Node built-ins, Nest, Prisma or the web app's framework.
  */
 export const sharedPurity = {
   files: ['packages/shared/src/**/*.ts'],
@@ -87,7 +72,7 @@ export const sharedPurity = {
         patterns: [
           { group: ['node:*'], message: 'packages/shared must not use Node built-ins (ADR-001).' },
           {
-            group: ['@nestjs/*', 'next', 'next/*', '@prisma/*', 'prisma'],
+            group: ['@nestjs/*', '@prisma/*', 'prisma', 'react-router', 'vite'],
             message: 'packages/shared must stay framework free (ADR-001).',
           },
           { group: ['react', 'react-dom', 'react/*'], message: 'UI code belongs in packages/ui.' },
@@ -104,7 +89,7 @@ export const sharedPurity = {
 /** Test files may use dev-only helpers and looser rules. */
 /** No hard-coded user-facing text in the PWA and the design system (I18N 4, D-067). */
 export const i18n = {
-  files: ['apps/web/**/*.tsx', 'packages/ui/src/**/*.tsx'],
+  files: ['apps/web/src/**/*.tsx', 'packages/ui/src/**/*.tsx'],
   plugins: { css: { rules: { 'no-literal-ui-text': noLiteralUiText } } },
   rules: { 'css/no-literal-ui-text': 'error' },
 };
@@ -133,4 +118,4 @@ export const scripts = {
   },
 };
 
-export default [ignores, ...base, node, react, next, sharedPurity, i18n, tests, scripts, prettier];
+export default [ignores, ...base, node, react, sharedPurity, i18n, tests, scripts, prettier];

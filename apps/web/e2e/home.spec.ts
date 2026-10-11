@@ -31,10 +31,10 @@ test.describe('home page', () => {
     });
   });
 
-  test('serves the service worker script', async ({ request }) => {
-    const res = await request.get('/serwist/sw.js');
+  test('serves the service worker script at the root scope', async ({ request }) => {
+    const res = await request.get('/sw.js');
     expect(res.ok()).toBe(true);
-    expect(res.headers()['service-worker-allowed']).toBe('/');
+    expect(res.headers()['content-type']).toContain('javascript');
   });
 
   test('has no accessibility violations', async ({ page }) => {

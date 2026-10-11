@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 const PORT = 3100;
 const baseURL = `http://127.0.0.1:${PORT}`;
 
-// E2E tests run against a production build (`pnpm e2e` builds first). Chromium only for now;
+// E2E tests run against the E2E build served by `vite preview` (`pnpm e2e` builds first). Chromium only for now;
 // WebKit for iPhone behaviour and offline emulation are added with the offline PWA (T2.7).
 export default defineConfig({
   testDir: 'e2e',
@@ -31,7 +31,9 @@ export default defineConfig({
       stdout: 'pipe',
     },
     {
-      command: `pnpm exec next start --port ${PORT}`,
+      command: `pnpm exec vite preview --port ${PORT}`,
+      // The preview server proxies /api/v1 to the E2E API (vite.config.ts reads CSS_API_ORIGIN).
+      env: { CSS_API_ORIGIN: 'http://127.0.0.1:4100' },
       url: baseURL,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
