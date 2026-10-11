@@ -20,6 +20,16 @@
       "@css/source": "./src/format/index.ts",
       "types": "./dist/format/index.d.ts",
       "default": "./dist/format/index.js"
+    },
+    "./auth": {
+      "@css/source": "./src/auth/index.ts",
+      "types": "./dist/auth/index.d.ts",
+      "default": "./dist/auth/index.js"
+    },
+    "./auth/common-passwords": {
+      "@css/source": "./src/auth/common-passwords.ts",
+      "types": "./dist/auth/common-passwords.d.ts",
+      "default": "./dist/auth/common-passwords.js"
     }
   },
   "files": [
