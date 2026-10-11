@@ -1,0 +1,109 @@
+/* Button (DESIGN_SYSTEM 5.1), ported from the approved mockups; React Aria state attributes. */
+@layer components {
+  .ui-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: var(--control-height);
+    padding: var(--space-1) var(--space-4);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    font-size: var(--text-body);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--leading-heading);
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    outline: none;
+    transition:
+      box-shadow var(--motion-fast) var(--ease-standard),
+      transform var(--motion-fast) var(--ease-standard),
+      background-color var(--motion-fast) var(--ease-standard);
+  }
+  /* primary: dark green with a 6 % sheen, so small white text keeps at least 4.5:1 */
+  .ui-btn-primary {
+    background: var(--color-brand-primary-dark)
+      linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 100%);
+    color: var(--color-text-on-brand);
+    box-shadow: var(--elevation-brand);
+  }
+  .ui-btn-secondary {
+    background: var(--color-bg-surface);
+    color: var(--color-brand-primary-dark);
+    border-color: rgba(0, 123, 62, 0.55);
+    box-shadow: var(--elevation-1);
+  }
+  .ui-btn-ghost {
+    background: transparent;
+    color: var(--color-brand-primary-dark);
+  }
+  .ui-btn-danger {
+    background: var(--color-status-danger);
+    color: var(--color-text-on-brand);
+    box-shadow: 0 6px 16px rgba(192, 57, 43, 0.22);
+  }
+  .ui-btn[data-hovered] {
+    box-shadow: inset 0 0 0 999px rgba(15, 41, 32, 0.06);
+  }
+  .ui-btn-primary[data-hovered] {
+    box-shadow:
+      inset 0 0 0 999px rgba(15, 41, 32, 0.1),
+      0 2px 4px rgba(0, 123, 62, 0.24),
+      0 10px 22px rgba(0, 123, 62, 0.28);
+    transform: translateY(-1px);
+  }
+  .ui-btn-secondary[data-hovered] {
+    background: var(--color-bg-brand-soft);
+    box-shadow: var(--elevation-2);
+  }
+  .ui-btn[data-pressed] {
+    transform: translateY(0) scale(0.98);
+    box-shadow: inset 0 0 0 999px rgba(15, 41, 32, 0.16);
+  }
+  .ui-btn[data-focus-visible] {
+    outline: 2px solid var(--color-brand-primary);
+    outline-offset: 2px;
+  }
+  .ui-btn[data-disabled] {
+    background: var(--color-bg-muted);
+    color: var(--color-text-secondary);
+    border-color: transparent;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+  }
+  .ui-btn[data-pending] {
+    cursor: progress;
+  }
+  .ui-btn-sm {
+    position: relative;
+    min-height: 36px;
+    padding: 0 var(--space-3);
+    font-size: 14px;
+  }
+  /* a 44 px hit area around small buttons on phones */
+  .ui-btn-sm::after {
+    content: '';
+    position: absolute;
+    inset: -4px 0;
+  }
+  @media (min-width: 1024px) {
+    .ui-btn-sm {
+      min-height: 32px;
+    }
+    .ui-btn-sm::after {
+      display: none;
+    }
+  }
+  .ui-btn-icon {
+    min-width: var(--control-height);
+    padding: 0;
+  }
+  .ui-btn-sm.ui-btn-icon {
+    min-width: 36px;
+  }
+  .ui-btn-block {
+    width: 100%;
+  }
+}

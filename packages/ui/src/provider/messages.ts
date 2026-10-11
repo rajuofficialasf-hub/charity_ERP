@@ -111,6 +111,7 @@ export interface UiMessages {
     current: string;
     upcoming: string;
     skipped: string;
+    rejected: string;
   };
 }
 

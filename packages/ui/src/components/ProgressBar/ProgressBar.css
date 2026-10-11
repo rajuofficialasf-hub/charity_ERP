@@ -1,0 +1,80 @@
+/* Progress bar (DESIGN_SYSTEM 5.19): gradient fill that grows once on load (transform only). */
+@layer components {
+  .ui-progress-block {
+    min-width: 0;
+  }
+  .ui-progress-label {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin-bottom: var(--space-1);
+    font-size: var(--text-caption);
+  }
+  .ui-progress-label .ui-tnum {
+    white-space: nowrap;
+  }
+  .ui-progress {
+    display: flex;
+    height: 8px;
+    overflow: hidden;
+    border-radius: var(--radius-full);
+    background: var(--color-bg-muted);
+    box-shadow: inset 0 1px 2px rgba(15, 41, 32, 0.06);
+  }
+  .ui-progress-sm {
+    height: 4px;
+  }
+  .ui-progress > span {
+    display: block;
+    height: 100%;
+    background: var(--gradient-brand);
+    transform-origin: left center;
+    animation: ui-grow-x 700ms var(--ease-out) both;
+  }
+  .ui-progress.t-success > span.s1 {
+    background: var(--color-status-success);
+  }
+  .ui-progress.t-warning > span.s1 {
+    background: var(--color-status-warning);
+  }
+  .ui-progress.t-danger > span.s1 {
+    background: var(--color-status-danger);
+  }
+  .ui-progress > .s2,
+  .ui-progress-legend .s2 {
+    background: var(--color-brand-ink);
+  }
+  .ui-progress > .s3,
+  .ui-progress-legend .s3 {
+    background: var(--color-brand-accent);
+  }
+  .ui-progress > .s4,
+  .ui-progress-legend .s4 {
+    background: var(--color-border-strong);
+  }
+  @keyframes ui-grow-x {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+  .ui-progress-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+    margin: var(--space-2) 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--text-caption);
+  }
+  .ui-progress-legend i {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 6px;
+    border-radius: 2px;
+    background: var(--color-brand-primary);
+  }
+}

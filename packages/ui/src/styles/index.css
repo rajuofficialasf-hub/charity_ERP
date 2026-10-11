@@ -5,3 +5,17 @@
 @import './tokens.css';
 @import './fonts.css';
 @import './base.css';
+@import '../components/Spinner/Spinner.css';
+@import '../components/Button/Button.css';
+@import '../components/Badge/Badge.css';
+@import '../components/Avatar/Avatar.css';
+@import '../components/ProgressBar/ProgressBar.css';
+@import '../components/Skeleton/Skeleton.css';
+@import '../components/Card/Card.css';
+@import '../components/Alert/Alert.css';
+@import '../components/Timeline/Timeline.css';
+@import '../components/States/States.css';
+@import '../components/OfflineBanner/OfflineBanner.css';
+@import '../components/Breadcrumb/Breadcrumb.css';
+@import '../components/Tabs/Tabs.css';
+@import '../components/NavItem/NavItem.css';

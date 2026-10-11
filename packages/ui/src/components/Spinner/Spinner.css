@@ -1,0 +1,11 @@
+@layer components {
+  .ui-spinner {
+    flex: none;
+    animation: ui-spin 800ms linear infinite;
+  }
+  @keyframes ui-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+}

@@ -1,0 +1,49 @@
+/* Empty and error states (DESIGN_SYSTEM 5.15): icon on a soft brand disc with two faint rings. */
+@layer components {
+  .ui-empty {
+    padding: var(--space-6) var(--space-4);
+    text-align: center;
+    color: var(--color-text-secondary);
+  }
+  .ui-empty-art {
+    display: block;
+    box-sizing: content-box;
+    width: 40px;
+    height: 40px;
+    margin: var(--space-4) auto var(--space-5);
+    padding: 28px;
+    border-radius: var(--radius-full);
+    background: var(--gradient-soft);
+    color: var(--color-brand-primary-dark);
+    box-shadow:
+      0 0 0 10px rgba(206, 245, 227, 0.45),
+      0 0 0 22px rgba(206, 245, 227, 0.22);
+  }
+  .ui-empty-art .ui-icon {
+    width: 40px;
+    height: 40px;
+  }
+  .ui-error-state .ui-empty-art {
+    background: var(--color-bg-danger-soft);
+    color: var(--color-status-danger);
+    box-shadow:
+      0 0 0 10px rgba(192, 57, 43, 0.06),
+      0 0 0 22px rgba(192, 57, 43, 0.03);
+  }
+  .ui-empty-title {
+    margin: 0 0 var(--space-1);
+    color: var(--color-text-primary);
+    font-size: var(--text-title);
+  }
+  .ui-empty-message {
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  .ui-empty-action {
+    margin-top: var(--space-4);
+  }
+  .ui-error-request {
+    margin: var(--space-3) 0 0;
+    font-size: var(--text-caption);
+  }
+}

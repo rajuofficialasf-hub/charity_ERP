@@ -95,6 +95,7 @@ export const exampleMessages: Record<'bn' | 'en', UiMessages> = {
       current: 'চলমান',
       upcoming: 'বাকি',
       skipped: 'বাদ পড়েছে',
+      rejected: 'প্রত্যাখ্যাত',
     },
   },
   en: {
@@ -186,6 +187,7 @@ export const exampleMessages: Record<'bn' | 'en', UiMessages> = {
       current: 'Current',
       upcoming: 'Upcoming',
       skipped: 'Skipped',
+      rejected: 'Rejected',
     },
   },
 };

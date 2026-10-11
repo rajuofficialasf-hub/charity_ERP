@@ -1,0 +1,60 @@
+/* Breadcrumb (DESIGN_SYSTEM 5.14): trail from 640 px, back link on phones. */
+@layer components {
+  .ui-breadcrumb {
+    margin-bottom: var(--space-2);
+    font-size: var(--text-caption);
+  }
+  .ui-breadcrumb-back {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-height: 44px;
+    color: var(--color-brand-primary-dark);
+    font-size: 14px;
+    font-weight: var(--font-weight-bold);
+    text-decoration: none;
+    outline: none;
+  }
+  .ui-breadcrumb-trail {
+    display: none;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  @media (min-width: 640px) {
+    .ui-breadcrumb-back {
+      display: none;
+    }
+    .ui-breadcrumb-trail {
+      display: flex;
+    }
+  }
+  .ui-breadcrumb-item {
+    display: flex;
+    min-width: 0;
+  }
+  .ui-breadcrumb-item + .ui-breadcrumb-item::before {
+    content: '/';
+    margin-right: var(--space-1);
+    color: var(--color-text-secondary);
+  }
+  .ui-breadcrumb-link {
+    max-width: 240px;
+    overflow: hidden;
+    color: var(--color-brand-primary-dark);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    outline: none;
+  }
+  .ui-breadcrumb-link[data-current] {
+    color: var(--color-text-secondary);
+    text-decoration: none;
+  }
+  .ui-breadcrumb-back[data-focus-visible],
+  .ui-breadcrumb-link[data-focus-visible] {
+    outline: 2px solid var(--color-brand-primary);
+    outline-offset: 2px;
+  }
+}
