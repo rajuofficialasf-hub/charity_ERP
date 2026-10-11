@@ -1,0 +1,29 @@
+{
+  "name": "@css/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pure TypeScript shared by api and web: zod schemas, permission names, i18n keys, business-rule functions",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "@css/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@css/config": "workspace:*",
+    "typescript": "6.0.3"
+  }
+}

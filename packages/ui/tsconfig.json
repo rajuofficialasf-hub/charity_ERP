@@ -1,0 +1,9 @@
+{
+  "extends": "@css/config/tsconfig/react-library.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "types": ["@testing-library/jest-dom/vitest"]
+  },
+  "include": ["src"]
+}
