@@ -10,10 +10,13 @@ import { configureApp } from '../../src/bootstrap';
 import type { Tx } from '../../src/core/prisma.service';
 import { RateLimit } from '../../src/rate-limit/rate-limit';
 import { testEnv } from '../support/env';
+import { Public } from '../../src/openapi/api-contract';
 
 // A transaction stand-in: the audit insert succeeds without a database.
 const fakeTx = { auditLog: { create: async () => ({}) } } as unknown as Tx;
 
+// Test probe outside the contract: public for the AuthGuard (T1.7).
+@Public()
 @Controller('guard-probe')
 class ProbeController {
   constructor(@Inject(AuditWriter) private readonly audit: AuditWriter) {}
@@ -67,27 +70,27 @@ describe('rate limits and audit enforcement (API_STANDARDS 10, 15; D-068)', () =
     await app.close();
   });
 
-  it('allows 10 logins per minute per login id and IP, then answers 429 with Retry-After', async () => {
+  it('allows 10 logins per minute per login id and per IP, then answers 429 with Retry-After', async () => {
     const server = app.getHttpServer();
     for (let i = 1; i <= 10; i++) {
       const res = await request(server)
         .post('/api/v1/guard-probe/login')
-        .send({ login: 'a@example.org' })
+        .send({ loginId: 'a@example.org' })
         .expect(201);
       expect(res.headers['ratelimit-limit']).toBe('10');
       expect(res.headers['ratelimit-remaining']).toBe(String(10 - i));
     }
     const blocked = await request(server)
       .post('/api/v1/guard-probe/login')
-      .send({ login: 'a@example.org' })
+      .send({ loginId: 'a@example.org' })
       .expect(429);
     expect(blocked.body.error.code).toBe('rate_limit.exceeded');
     expect(Number(blocked.headers['retry-after'])).toBeGreaterThan(0);
-    // another login id has its own budget
+    // login id and IP are counted separately (AUTH.md 12): the IP window is spent as well
     await request(server)
       .post('/api/v1/guard-probe/login')
-      .send({ login: 'b@example.org' })
-      .expect(201);
+      .send({ loginId: 'b@example.org' })
+      .expect(429);
   });
 
   it('applies the default class to routes without a declared class', async () => {

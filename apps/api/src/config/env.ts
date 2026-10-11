@@ -40,6 +40,24 @@ const envSchema = z
     SMTP_FROM: z.string().default('CSS ERP <no-reply@example.org>'),
     /** logging (dev/test: masked log line) or dry_run (staging until a provider exists, O-33). */
     SMS_MODE: z.enum(['logging', 'dry_run']).default('logging'),
+    /** Signs access tokens (D-070); JWT_PREVIOUS_SECRET is still accepted during a rotation. */
+    JWT_SECRET: z.string().min(32),
+    JWT_PREVIOUS_SECRET: z.string().min(32).optional(),
+    /** Signs the double-submit CSRF token of the refresh endpoint (D-070). */
+    AUTH_CSRF_SECRET: z.string().min(32),
+    /** HMAC key of OTP code and address hashes (AUTH.md 2, D-070). */
+    OTP_SECRET: z.string().min(32),
+    /** Fixed OTP code instead of SMS and email; development and test only (BD-44, BD-49). */
+    OTP_DUMMY_ENABLED: flag,
+    OTP_DUMMY_CODE: z
+      .string()
+      .regex(/^[0-9]{6}$/)
+      .optional(),
+    /** Secure attribute of the auth cookies; false only for development over a LAN address. */
+    AUTH_COOKIE_SECURE: z
+      .enum(['true', 'false', '1', '0'])
+      .default('true')
+      .transform((v) => v === 'true' || v === '1'),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV === 'production' && env.JOBS_INLINE)
@@ -53,6 +71,24 @@ const envSchema = z
         code: 'custom',
         path: ['STORAGE_DRIVER'],
         message: 'must be minio in production',
+      });
+    if (env.NODE_ENV === 'production' && env.OTP_DUMMY_ENABLED)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['OTP_DUMMY_ENABLED'],
+        message: 'must be false in production (BD-49, BR-024)',
+      });
+    if (env.OTP_DUMMY_ENABLED && !env.OTP_DUMMY_CODE)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['OTP_DUMMY_CODE'],
+        message: 'required when OTP_DUMMY_ENABLED=true',
+      });
+    if (env.NODE_ENV === 'production' && !env.AUTH_COOKIE_SECURE)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['AUTH_COOKIE_SECURE'],
+        message: 'must be true in production',
       });
     if (env.STORAGE_DRIVER === 'minio' && (!env.MINIO_ACCESS_KEY || !env.MINIO_SECRET_KEY))
       ctx.addIssue({

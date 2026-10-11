@@ -1,8 +1,10 @@
-import { applyDecorators } from '@nestjs/common';
+import { applyDecorators, SetMetadata } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiCookieAuth,
   ApiExtension,
+  ApiHeader,
   ApiOperation,
   ApiParam,
   ApiQuery,
@@ -13,6 +15,24 @@ import { z, type ZodObject, type ZodType } from 'zod';
 import { Audit } from '../audit/audit.decorator';
 import { Idempotency } from '../idempotency/idempotency.service';
 import { RateLimit, type RateLimitClass } from '../rate-limit/rate-limit';
+
+/** Metadata read by the AuthGuard: the declared permission and the pending-account allowance. */
+export const ACCESS_RULE = 'css:access-rule';
+
+export interface AccessRule {
+  /** Permission name or one of the markers public, authenticated, workflow, entity. */
+  permission: string;
+  scope: string;
+  /** A pending account may call this operation (AUTH.md 7: own profile and session only). */
+  allowPending?: boolean;
+}
+
+/**
+ * Marks a route outside the API contract (health probes, test probes) as public for the
+ * AuthGuard. Contract operations declare their permission through `@ApiContract` instead.
+ */
+export const Public = () =>
+  SetMetadata(ACCESS_RULE, { permission: 'public', scope: 'none' } satisfies AccessRule);
 
 /**
  * The OpenAPI contract of one operation (API_STANDARDS 16). Declared once on the handler, it
@@ -34,6 +54,12 @@ export interface ApiContractSpec {
   rateLimit: RateLimitClass;
   sensitiveFields?: string[];
   workflow?: string;
+  /** A pending account may call this operation (AUTH.md 7). */
+  allowPending?: boolean;
+  /** Security of a public operation that is not bearer, e.g. the refresh cookie. */
+  cookieAuth?: string;
+  /** Header parameters of the contract (Accept-Language, X-Client-Version, If-Match, …). */
+  headers?: { name: string; required: boolean }[];
   body?: ZodType;
   /** A strict zod object; each field becomes a query parameter. */
   query?: ZodObject;
@@ -64,6 +90,11 @@ export function ApiContract(spec: ApiContractSpec): MethodDecorator {
     ApiExtension('x-audit', spec.audit),
     ApiExtension('x-idempotency', spec.idempotency),
     ApiExtension('x-rate-limit', spec.rateLimit),
+    SetMetadata(ACCESS_RULE, {
+      permission: spec.permission,
+      scope: spec.scope,
+      allowPending: spec.allowPending ?? false,
+    } satisfies AccessRule),
     Audit(spec.audit),
     RateLimit(spec.rateLimit),
     Idempotency(spec.idempotency),
@@ -72,6 +103,9 @@ export function ApiContract(spec: ApiContractSpec): MethodDecorator {
     decorators.push(ApiExtension('x-sensitive-fields', spec.sensitiveFields));
   if (spec.workflow) decorators.push(ApiExtension('x-workflow', spec.workflow));
   if (spec.permission !== 'public') decorators.push(ApiBearerAuth('bearerAuth'));
+  if (spec.cookieAuth) decorators.push(ApiCookieAuth(spec.cookieAuth));
+  for (const header of spec.headers ?? [])
+    decorators.push(ApiHeader({ name: header.name, required: header.required }));
   if (spec.body) decorators.push(ApiBody({ schema: jsonSchemaOf(spec.body) }));
   for (const [name, schema] of Object.entries(spec.query?.shape ?? {})) {
     const s = schema as ZodType;

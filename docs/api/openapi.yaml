@@ -70,7 +70,10 @@ components:
       type: apiKey
       in: cookie
       name: css_refresh
-      description: HttpOnly, Secure, SameSite=Strict refresh token cookie scoped to /api/v1/auth/refresh.
+      description: >-
+        HttpOnly, Secure, SameSite=Strict refresh token cookie scoped to /api/v1/auth/refresh; the value is the
+        device session id, a dot and 256 random bits, rotated on every refresh (D-070). Login and refresh also set
+        the readable cookie css_csrf (path /, SameSite=Strict) whose value the PWA sends as X-CSRF-Token.
 
   parameters:
     Cursor:
@@ -131,7 +134,7 @@ components:
       name: X-CSRF-Token
       in: header
       required: true
-      description: Double-submit token matching the CSRF cookie (refresh only).
+      description: Double-submit token equal to the css_csrf cookie and signed for the session (refresh only, D-070).
       schema: { type: string }
     ProjectId:
       name: projectId
@@ -295,7 +298,8 @@ components:
       description: >-
         workflow.transition_not_allowed, workflow.guard.<guard_name>, conflict.locked_on_server,
         beneficiary.already_applied, payment.transaction_id_exists, payment.claim_already_paid,
-        animal.already_allocated, file.duplicate, export.not_ready.
+        animal.already_allocated, file.duplicate, export.not_ready, session.use_logout,
+        user.system_owner_protected, user.handover_required, user.transition_not_allowed, user.not_locked.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -323,12 +327,16 @@ components:
       description: >-
         validation.failed with field details; business rules such as beneficiary.identity_missing,
         beneficiary.mobile_is_volunteer_mobile, beneficiary.blocked, beneficiary.locked_field,
-        workflow.reason_required, workflow.comment_required, otp.invalid, otp.expired, file.source_not_allowed.
+        workflow.reason_required, workflow.comment_required, otp.invalid, otp.expired, file.source_not_allowed;
+        password details validation.password_too_short, validation.password_letter_digit,
+        validation.password_identity, validation.password_common, auth.current_password_invalid.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
     Locked:
-      description: auth.account_locked, file.quarantined.
+      description: auth.account_locked (with Retry-After, the seconds until the lock ends), file.quarantined.
+      headers:
+        Retry-After: { $ref: '#/components/headers/RetryAfter' }
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -426,6 +434,7 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     ReasonRequest:
       type: object
+      additionalProperties: false
       required: [reason]
       properties:
         reason: { type: string, minLength: 3, maxLength: 1000 }
@@ -499,16 +508,21 @@ components:
         homeProgramId: { $ref: '#/components/schemas/Uuid' }
     LoginRequest:
       type: object
+      additionalProperties: false
       required: [loginId, password]
       properties:
-        loginId: { type: string, description: Mobile number or email }
-        password: { type: string }
+        loginId: { type: string, minLength: 1, maxLength: 254, description: Mobile number or email (email for staff only) }
+        password: { type: string, minLength: 1, maxLength: 128 }
         device:
           type: object
+          additionalProperties: false
           properties:
-            name: { type: string }
-            platform: { type: string }
-            appVersion: { type: string }
+            name: { type: string, maxLength: 100 }
+            platform:
+              type: string
+              enum: [android, ios, desktop, other]
+              description: Staff sessions on desktop get the 12-hour idle timeout (O-25, D-070)
+            appVersion: { type: string, maxLength: 32 }
     Me:
       type: object
       required: [id, displayName, kind, state, roles, language, permissionVersion]
@@ -543,20 +557,23 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     PasswordChangeRequest:
       type: object
+      additionalProperties: false
       required: [currentPassword, newPassword]
       properties:
-        currentPassword: { type: string }
+        currentPassword: { type: string, minLength: 1, maxLength: 128 }
         newPassword: { type: string, minLength: 8, maxLength: 128 }
     PasswordResetStartRequest:
       type: object
+      additionalProperties: false
       required: [loginId]
       properties:
-        loginId: { type: string }
+        loginId: { type: string, minLength: 1, maxLength: 254 }
     PasswordResetCompleteRequest:
       type: object
+      additionalProperties: false
       required: [loginId, code, newPassword]
       properties:
-        loginId: { type: string }
+        loginId: { type: string, minLength: 1, maxLength: 254 }
         code: { type: string, pattern: '^[0-9]{6}$' }
         newPassword: { type: string, minLength: 8, maxLength: 128 }
     DeviceSession:
@@ -612,10 +629,11 @@ components:
         meta: { $ref: '#/components/schemas/ListMeta' }
     UserStateRequest:
       type: object
+      additionalProperties: false
       required: [state, reason]
       properties:
         state: { type: string, enum: [active, blocked, deactivated] }
-        reason: { type: string, minLength: 3 }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
     HandoverRequest:
       type: object
       required: [scope]
@@ -2100,6 +2118,7 @@ paths:
               schema: { $ref: '#/components/schemas/TokenResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
         '423': { $ref: '#/components/responses/Locked' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
   /auth/refresh:
@@ -2174,6 +2193,7 @@ paths:
         '204': { $ref: '#/components/responses/NoContent' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
   /auth/password/reset/start:
     post:
       tags: [auth]
@@ -2192,6 +2212,7 @@ paths:
             schema: { $ref: '#/components/schemas/PasswordResetStartRequest' }
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
   /auth/password/reset/complete:
     post:
@@ -2248,6 +2269,7 @@ paths:
         '204': { $ref: '#/components/responses/NoContent' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /users/{userId}/sessions:
     parameters:
       - $ref: '#/components/parameters/UserId'
@@ -2266,6 +2288,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DeviceSessionList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
   /users/{userId}/sessions/{sessionId}/revoke:
@@ -2288,8 +2311,11 @@ paths:
             schema: { $ref: '#/components/schemas/ReasonRequest' }
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
 
   # ======================= users =======================
   /users:
@@ -2319,7 +2345,9 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/UserList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /users/{userId}:
     parameters:
       - $ref: '#/components/parameters/UserId'
@@ -2340,6 +2368,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/UserResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
   /users/{userId}/state:
     parameters:
@@ -2366,10 +2396,36 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/UserResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /users/{userId}/unlock:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    post:
+      tags: [users]
+      operationId: users.user.unlock
+      summary: Clear a login lock with a reason (O-59; AUTH.md 6)
+      x-permission: user.lock.clear
+      x-scope: user
+      x-audit: auth.lock_cleared
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReasonRequest' }
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /users/{userId}/handover:
     parameters:
       - $ref: '#/components/parameters/UserId'

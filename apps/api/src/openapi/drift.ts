@@ -71,10 +71,14 @@ export function canonicalSchema(schema: unknown): unknown {
 
 const json = (v: unknown) => JSON.stringify(v ?? null);
 
-function params(doc: unknown, op: Op): string[] {
-  const list =
-    (resolve(doc, op.parameters) as
-      { name: string; in: string; required?: boolean }[] | undefined) ?? [];
+type Param = { name: string; in: string; required?: boolean };
+
+/** Parameters of an operation, including those declared once on its path item. */
+function params(doc: unknown, op: Op, item?: Record<string, unknown>): string[] {
+  const list = [
+    ...((resolve(doc, item?.parameters) as Param[] | undefined) ?? []),
+    ...((resolve(doc, op.parameters) as Param[] | undefined) ?? []),
+  ];
   return list.map((p) => `${p.in}:${p.name}:${p.required ? 'required' : 'optional'}`).sort();
 }
 
@@ -114,8 +118,8 @@ export function compareWithContract(
       const security = (o: Op, doc: Doc) => json(o.security ?? doc.security);
       if (security(op, generated) !== security(expected, contract))
         problems.push(`${where}: security differs`);
-      const gp = params(generated, op);
-      const cp = params(contract, expected);
+      const gp = params(generated, op, item);
+      const cp = params(contract, expected, contract.paths?.[path]);
       if (json(gp) !== json(cp))
         problems.push(`${where}: parameters ${json(gp)} differ from ${json(cp)}`);
       const gb = bodySchema(generated, op);

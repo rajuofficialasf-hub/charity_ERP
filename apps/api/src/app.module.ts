@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
 import type { DestinationStream } from 'pino';
+import { AuthModule } from './auth/auth.module';
 import type { Env } from './config/env';
 import { CoreModule } from './core/core.module';
 import { loggerOptions } from './core/logging';
@@ -39,6 +40,7 @@ export class AppModule implements NestModule {
         StorageModule,
         NotificationsModule,
         JobsModule,
+        AuthModule,
         HealthModule,
       ],
     };

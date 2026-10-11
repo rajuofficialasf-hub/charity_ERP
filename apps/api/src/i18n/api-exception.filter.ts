@@ -46,8 +46,10 @@ export class ApiExceptionFilter implements ExceptionFilter {
     let code: string;
     let params: MessageParams | undefined;
     let details: ApiErrorDetail[] | undefined;
+    let retryAfter: number | undefined;
     if (exception instanceof ApiError) {
       ({ status, code, params, details } = exception);
+      retryAfter = exception.retryAfterSeconds;
     } else if (exception instanceof HttpException) {
       status = exception.getStatus();
       // eslint-disable-next-line security/detect-object-injection -- numeric HTTP status into a constant table
@@ -60,6 +62,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
       );
     }
     if (res.headersSent) return;
+    if (retryAfter !== undefined) res.setHeader('Retry-After', String(Math.ceil(retryAfter)));
     const render = (c: string, p?: MessageParams) =>
       translate(locale, `errors.${c}` as MessageKey, p);
     res

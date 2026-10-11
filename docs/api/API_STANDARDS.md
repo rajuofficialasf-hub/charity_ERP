@@ -135,6 +135,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | auth | auth.refresh_invalid | 401 | refresh token expired or invalid → log in; keep the outbox (O-29) |
 | auth | auth.refresh_reused | 401 | refresh-token reuse detected → session revoked |
 | auth | auth.csrf_failed | 403 | refresh without a valid CSRF token |
+| auth | auth.current_password_invalid | 422 (as detail of validation.failed) | password change with a wrong current password (T1.7) |
 | otp | otp.invalid | 422 | wrong code |
 | otp | otp.expired | 422 | code older than 5 minutes |
 | otp | otp.attempts_exceeded | 429 | more than 5 attempts on one code |
@@ -144,6 +145,12 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | validation | validation.unknown_parameter | 400 | unknown query parameter |
 | validation | validation.malformed | 400 | unparsable JSON or wrong content type |
 | validation | validation.nid_format, validation.birth_reg_format, validation.mobile_format, validation.required, validation.too_long, validation.out_of_range, validation.option_unknown, validation.bangla_text | 422 (as details) | field-level problems |
+| validation | validation.password_too_short, validation.password_letter_digit, validation.password_identity, validation.password_common | 422 (as details) | password rules of AUTH.md §3 (T1.7, D-071) |
+| session | session.use_logout | 409 | the current device session is ended with logout, not revoke (T1.7) |
+| user | user.system_owner_protected | 409 | the Main Admin cannot be blocked, deactivated or have its sessions revoked by others (BR-035, AUTH.md §11) |
+| user | user.handover_required | 409 | deactivation before a completed handover (BR-034) |
+| user | user.transition_not_allowed | 409 | account state change not allowed (AUTH.md §7, O-59): same state, own account, pending account (registration flow), volunteer block (blocklist flow) |
+| user | user.not_locked | 409 | lock clearing on an account that is not locked (O-59) |
 | business | beneficiary.identity_missing | 422 | neither NID nor birth registration (BR-001) |
 | business | beneficiary.mobile_is_volunteer_mobile | 422 | BD-03 / BR-008 (also raised by the database trigger, DATABASE_SCHEMA §18) |
 | business | beneficiary.blocked | 422 | blocked beneficiary cannot apply (BR-010) |
@@ -216,6 +223,7 @@ Responses include `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`; a
 
 - `Authorization: Bearer <access token>` on every authenticated request (15-minute JWT, AUTH.md §5).
 - Refresh only at `POST /api/v1/auth/refresh`, using the HttpOnly, Secure, SameSite=Strict refresh cookie scoped to that path **and** an `X-CSRF-Token` header that must match the double-submit cookie; the response returns a new access token and rotates the refresh cookie.
+- Cookie names (D-070): `css_refresh` (HttpOnly, path `/api/v1/auth/refresh`; value = device session id, a dot and 256 random bits) and `css_csrf` (readable, path `/`, value = nonce and HMAC bound to the session). Login and refresh set both; logout and a dead refresh clear both. A locked login (423) carries `Retry-After` with the seconds until the lock ends.
 - Client behaviour on 401: `auth.token_expired` or `auth.token_stale` → refresh once and retry; `auth.session_revoked` → wipe and show login; `auth.refresh_invalid` → keep the outbox, show login (O-29); any other 401 → login.
 - `X-Client-Version: <pwa version>` on every request (section 17); `X-Device-Session` is not needed because the session id is inside the token.
 - Public endpoints (login, OTP, registration, public form, health) are declared `x-permission: public` and listed in SECURITY_POLICY.

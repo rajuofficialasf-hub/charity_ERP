@@ -7,8 +7,11 @@ import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/bootstrap';
 import { testEnv } from '../support/env';
 import { ApiError } from '../../src/i18n/api-error';
+import { Public } from '../../src/openapi/api-contract';
 
 // A route that raises catalogue errors, mounted only in this test.
+// Test probe outside the contract: public for the AuthGuard (T1.7).
+@Public()
 @Controller('i18n-probe')
 class ProbeController {
   @Get('nid')

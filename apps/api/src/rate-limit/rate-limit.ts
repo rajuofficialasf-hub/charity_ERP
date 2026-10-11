@@ -42,24 +42,37 @@ const field = (req: Request, ...names: string[]) => {
   return 'none';
 };
 const ip = (req: Request) => req.ip ?? 'unknown';
-const loginId = (req: Request) => field(req, 'login', 'mobile', 'email');
+const loginId = (req: Request) => field(req, 'loginId', 'login', 'mobile', 'email');
 const address = (req: Request) => field(req, 'address', 'mobile', 'email');
 const session = (req: Request) => currentContext()?.deviceSessionId ?? `ip:${ip(req)}`;
+/** The refresh token starts with its session id (D-070), so refreshes count per session. */
+const refreshSession = (req: Request) => {
+  const match = /(?:^|;\s*)css_refresh=([0-9a-f-]{36})\./.exec(req.headers.cookie ?? '');
+  return match?.[1] ? `sid:${match[1]}` : `ip:${ip(req)}`;
+};
 const caller = (req: Request) => currentContext()?.userId ?? `ip:${ip(req)}`;
 
 /** Limits and keys per class (API_STANDARDS 10, O-08, O-25; default and sync are proposals tuned in T3.4). */
 export const RATE_LIMITS: Record<RateLimitClass, Window[]> = {
   login: [
-    { limit: 10, ttlMs: MINUTE, key: (r) => `${loginId(r)}|${ip(r)}` },
-    { limit: 100, ttlMs: HOUR, key: (r) => `${loginId(r)}|${ip(r)}` },
+    { limit: 10, ttlMs: MINUTE, key: (r) => `id:${loginId(r)}` },
+    { limit: 100, ttlMs: HOUR, key: (r) => `id:${loginId(r)}` },
+    { limit: 10, ttlMs: MINUTE, key: (r) => `ip:${ip(r)}` },
+    { limit: 100, ttlMs: HOUR, key: (r) => `ip:${ip(r)}` },
   ],
   'otp-request': [
     { limit: 5, ttlMs: HOUR, key: address },
     { limit: 20, ttlMs: HOUR, key: ip },
   ],
-  'otp-verify': [{ limit: 5, ttlMs: HOUR, key: (r) => field(r, 'otpId', 'code_id', 'requestId') }],
+  'otp-verify': [
+    {
+      limit: 5,
+      ttlMs: HOUR,
+      key: (r) => field(r, 'registrationId', 'loginId', 'otpId', 'requestId'),
+    },
+  ],
   'password-reset': [{ limit: 5, ttlMs: HOUR, key: loginId }],
-  refresh: [{ limit: 60, ttlMs: HOUR, key: session }],
+  refresh: [{ limit: 60, ttlMs: HOUR, key: refreshSession }],
   'public-form': [{ limit: 20, ttlMs: HOUR, key: ip }],
   default: [{ limit: 600, ttlMs: MINUTE, key: caller }],
   sync: [{ limit: 60, ttlMs: MINUTE, key: session }],

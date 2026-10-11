@@ -19,6 +19,9 @@ async function main(): Promise<void> {
     STORAGE_DRIVER: 'filesystem',
     STORAGE_FS_ROOT: mkdtempSync(join(tmpdir(), 'css-openapi-')),
     LOG_LEVEL: 'silent',
+    JWT_SECRET: 'openapi-generation-only-jwt-0123456789',
+    AUTH_CSRF_SECRET: 'openapi-generation-only-csrf-012345678',
+    OTP_SECRET: 'openapi-generation-only-otp-0123456789',
   });
   const app = configureApp(await NestFactory.create(AppModule.register(env), { logger: false }));
   await app.init();

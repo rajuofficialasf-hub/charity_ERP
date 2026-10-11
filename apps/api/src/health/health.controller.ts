@@ -6,6 +6,7 @@ import { ENV, type Env } from '../config/env';
 import { RawResponse } from '../core/envelope';
 import { PrismaService } from '../core/prisma.service';
 import { JobRunner } from '../jobs/job-runner';
+import { Public } from '../openapi/api-contract';
 import { RateLimit } from '../rate-limit/rate-limit';
 import { STORAGE, type StorageAdapter } from '../storage/storage';
 
@@ -32,6 +33,7 @@ async function check(probe: () => Promise<boolean>): Promise<'up' | 'down'> {
  */
 // Probes live outside /api/v1 and outside the API contract (SYSTEM_ARCHITECTURE 10).
 @ApiExcludeController()
+@Public()
 @RawResponse()
 @RateLimit('none')
 @Controller('health')

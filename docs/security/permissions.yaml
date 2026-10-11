@@ -156,6 +156,11 @@ permissions:
     module: M01
     sensitive: false
     default: []
+  - name: user.lock.clear
+    description: Clear a login lock (5 failed attempts) on a user's account with reason (O-59, AUTH.md 6)
+    module: M01
+    sensitive: false
+    default: []
   - name: user.deactivate_volunteer
     description: Deactivate a volunteer who has no open applications
     module: M03

@@ -12,12 +12,15 @@ import { ok, page } from '../../src/core/envelope';
 import { pageQuery } from '../../src/core/pagination';
 import { ZBody, ZQuery } from '../../src/core/validation';
 import { testEnv } from '../support/env';
+import { Public } from '../../src/openapi/api-contract';
 
 const body = z.strictObject({
   name: z.string().min(1).max(10),
   nid: z.string().regex(/^\d{10}$/, { message: 'validation.nid_format' }),
 });
 
+// Test probe outside the contract: public for the AuthGuard (T1.7).
+@Public()
 @Controller('core-probe')
 class ProbeController {
   @Get('one')

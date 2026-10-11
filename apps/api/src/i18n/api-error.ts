@@ -17,6 +17,8 @@ export class ApiError extends Error {
     readonly status: number,
     readonly params?: MessageParams,
     readonly details?: ApiErrorDetail[],
+    /** Sent as `Retry-After` (lockout 423, rate limits 429). */
+    readonly retryAfterSeconds?: number,
   ) {
     super(code);
     this.name = 'ApiError';

@@ -6,6 +6,9 @@ const base = {
   CURSOR_SECRET: 'x'.repeat(32),
   MINIO_ACCESS_KEY: 'placeholder',
   MINIO_SECRET_KEY: 'placeholder',
+  JWT_SECRET: 'j'.repeat(32),
+  AUTH_CSRF_SECRET: 'c'.repeat(32),
+  OTP_SECRET: 'o'.repeat(32),
 };
 
 describe('loadEnv', () => {
@@ -47,8 +50,35 @@ describe('loadEnv', () => {
 
   it('needs MinIO keys for MinIO storage and a short cursor secret is refused', () => {
     expect(() =>
-      loadEnv({ DATABASE_URL: base.DATABASE_URL, CURSOR_SECRET: base.CURSOR_SECRET }),
+      loadEnv({ ...base, MINIO_ACCESS_KEY: undefined, MINIO_SECRET_KEY: undefined }),
     ).toThrow(/MINIO_ACCESS_KEY/);
     expect(() => loadEnv({ ...base, CURSOR_SECRET: 'short' })).toThrow(/CURSOR_SECRET/);
+  });
+
+  it('refuses the dummy OTP and insecure auth cookies in production (BD-49, BR-024, D-070)', () => {
+    expect(() =>
+      loadEnv({
+        ...base,
+        NODE_ENV: 'production',
+        OTP_DUMMY_ENABLED: 'true',
+        OTP_DUMMY_CODE: '123456',
+      }),
+    ).toThrow(/OTP_DUMMY_ENABLED/);
+    expect(() => loadEnv({ ...base, NODE_ENV: 'production', AUTH_COOKIE_SECURE: 'false' })).toThrow(
+      /AUTH_COOKIE_SECURE/,
+    );
+    expect(loadEnv({ ...base, NODE_ENV: 'production' })).toMatchObject({
+      OTP_DUMMY_ENABLED: false,
+      AUTH_COOKIE_SECURE: true,
+    });
+  });
+
+  it('needs a six-digit dummy code when the dummy OTP is on, and long auth secrets', () => {
+    expect(() => loadEnv({ ...base, OTP_DUMMY_ENABLED: 'true' })).toThrow(/OTP_DUMMY_CODE/);
+    expect(() => loadEnv({ ...base, OTP_DUMMY_ENABLED: 'true', OTP_DUMMY_CODE: '12345' })).toThrow(
+      /OTP_DUMMY_CODE/,
+    );
+    expect(() => loadEnv({ ...base, JWT_SECRET: 'short' })).toThrow(/JWT_SECRET/);
+    expect(() => loadEnv({ ...base, OTP_SECRET: undefined })).toThrow(/OTP_SECRET/);
   });
 });

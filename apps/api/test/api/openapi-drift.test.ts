@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Controller, type INestApplication, Module, Put } from '@nestjs/common';
+import { Controller, type INestApplication, Module, Post } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import yaml from 'js-yaml';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -11,7 +11,7 @@ import { configureApp } from '../../src/bootstrap';
 import { ApiContract } from '../../src/openapi/api-contract';
 import { buildOpenApiDocument } from '../../src/openapi/document';
 import { compareWithContract } from '../../src/openapi/drift';
-import { ZBody } from '../../src/core/validation';
+import { ZBody, ZParam } from '../../src/core/validation';
 import { testEnv } from '../support/env';
 
 // The generated document must match docs/api/openapi.yaml (API_STANDARDS 16, NFR-54).
@@ -28,32 +28,33 @@ const permissions = new Set(
   ).permissions.map((p) => p.name),
 );
 
-const languageBody = z.strictObject({ language: z.enum(['bn', 'en']) });
+// Fixtures use an operation of the contract that is not implemented yet (handover, T1.9).
+const userId = z.uuid();
 const contractOf = {
-  operationId: 'auth.me.language.set',
-  tag: 'auth',
-  summary: 'Set own interface language',
-  permission: 'authenticated',
-  scope: 'self',
-  audit: 'user.language_changed',
+  operationId: 'users.handover.complete',
+  tag: 'users',
+  summary: 'Complete the handover and deactivate the account (all items reassigned)',
+  permission: 'user.handover',
+  scope: 'user',
+  audit: 'auth.handover_completed',
   idempotency: 'none' as const,
   rateLimit: 'default' as const,
-  body: languageBody,
-  responses: { 204: null, 401: null, 422: null },
+  params: { userId },
+  responses: { 200: null, 404: null, 409: null },
 };
 
-@Controller('me')
+@Controller('users')
 class MatchingController {
-  @Put('language')
+  @Post(':userId/handover/complete')
   @ApiContract(contractOf)
-  set(@ZBody(languageBody) _body: unknown) {
+  complete(@ZParam('userId', userId) _id: string) {
     return null;
   }
 }
 
-@Controller('me')
+@Controller('users')
 class DriftingController {
-  @Put('language')
+  @Post(':userId/handover/complete')
   @ApiContract({
     ...contractOf,
     audit: 'none',
@@ -61,7 +62,7 @@ class DriftingController {
     body: z.strictObject({ language: z.string() }),
     responses: { 204: null },
   })
-  set(@ZBody(z.strictObject({ language: z.string() })) _body: unknown) {
+  complete(@ZBody(z.strictObject({ language: z.string() })) _body: unknown) {
     return null;
   }
 }
@@ -93,7 +94,7 @@ describe('OpenAPI drift test (API_STANDARDS 16)', () => {
   it('an operation declared like the contract passes', async () => {
     const { app, document } = await generate(MatchingController);
     open = app;
-    expect(Object.keys(document.paths)).toContain('/me/language');
+    expect(Object.keys(document.paths)).toContain('/users/{userId}/handover/complete');
     expect(compareWithContract(document as never, contract, permissions)).toEqual([]);
   });
 
@@ -101,7 +102,7 @@ describe('OpenAPI drift test (API_STANDARDS 16)', () => {
     const { app, document } = await generate(DriftingController);
     open = app;
     const problems = compareWithContract(document as never, contract, permissions).join('\n');
-    expect(problems).toMatch(/x-audit is "none", the contract says "user.language_changed"/);
+    expect(problems).toMatch(/x-audit is "none", the contract says "auth.handover_completed"/);
     expect(problems).toMatch(/unknown x-permission "no.such_permission"/);
     expect(problems).toMatch(/request body schema/);
     expect(problems).toMatch(/responses \["204"\] differ/);

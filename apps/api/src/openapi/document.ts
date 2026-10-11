@@ -5,7 +5,7 @@ import { API_PREFIX } from '../bootstrap';
 /**
  * Generates the OpenAPI document from the controllers' ApiContract decorators (API_STANDARDS 16,
  * D-068). Paths are made relative to the `/api/v1` server like docs/api/openapi.yaml; public
- * operations get `security: []` (bearer auth is the document default).
+ * operations get `security: []` or their cookie requirement (bearer auth is the document default).
  */
 export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
   const config = new DocumentBuilder()
@@ -15,6 +15,7 @@ export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
     .addServer(`/${API_PREFIX}`)
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'bearerAuth')
     .addSecurityRequirements('bearerAuth')
+    .addCookieAuth('css_refresh', { type: 'apiKey', in: 'cookie' }, 'refreshCookie')
     .build();
   const document = SwaggerModule.createDocument(app, config, { autoTagControllers: false });
   const prefix = `/${API_PREFIX}`;
@@ -24,7 +25,10 @@ export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
     for (const operation of Object.values(item)) {
       if (operation && typeof operation === 'object' && 'operationId' in operation) {
         const op = operation as Record<string, unknown>;
-        if (op['x-permission'] === 'public') op.security = [];
+        const cookie = ((op.security as Record<string, unknown>[] | undefined) ?? []).filter(
+          (requirement) => !('bearerAuth' in requirement),
+        );
+        if (op['x-permission'] === 'public') op.security = cookie;
         else delete op.security;
       }
     }

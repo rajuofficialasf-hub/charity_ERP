@@ -124,7 +124,7 @@ describe('base set', () => {
         .sort((a, b) => a.name.localeCompare(b.name)),
     );
     expect(roles).toHaveLength(15);
-    expect(permissions).toHaveLength(140);
+    expect(permissions).toHaveLength(141);
   });
 
   it('stores every workflow template merged and valid, with all its transitions', async () => {
