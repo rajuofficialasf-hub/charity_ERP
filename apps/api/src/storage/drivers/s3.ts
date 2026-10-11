@@ -10,7 +10,6 @@ import {
   NoSuchKey,
   NotFound,
   S3Client,
-  S3ServiceException,
 } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { assertKey, BUCKETS, NotFoundError, type StorageDriver } from '../types';
@@ -21,8 +20,6 @@ export interface S3Options {
   useSSL: boolean;
   accessKey: string;
   secretKey: string;
-  /** Buckets the readiness check expects (default: all of FILES_AND_DOCUMENTS 8). */
-  buckets?: readonly string[];
 }
 
 // Outbound timeouts (NE-ERR-03, NS-44): a connection that isn't up in this long fails, and so does
@@ -32,16 +29,16 @@ const SOCKET_IDLE_TIMEOUT_MS = 30_000;
 /** MinIO ignores the region but the SDK requires one. */
 const REGION = 'us-east-1';
 
+/**
+ * A missing key: `NoSuchKey` from GET, `NotFound` from HEAD. A missing bucket is an infrastructure
+ * fault: GET reports it as `NoSuchBucket`, which propagates (NE-ERR-02); a HEAD response carries no
+ * error code, so `stat` cannot tell the two apart and `ping` is the check for the buckets.
+ */
 function isMissing(error: unknown): boolean {
-  return (
-    error instanceof NoSuchKey ||
-    error instanceof NotFound ||
-    (error instanceof S3ServiceException && error.$metadata.httpStatusCode === 404)
-  );
+  return error instanceof NoSuchKey || error instanceof NotFound;
 }
 
 export function createS3Driver(options: S3Options): StorageDriver {
-  const buckets = options.buckets ?? BUCKETS;
   const client = new S3Client({
     region: REGION,
     endpoint: `${options.useSSL ? 'https' : 'http'}://${options.endPoint}:${options.port}`,
@@ -78,6 +75,7 @@ export function createS3Driver(options: S3Options): StorageDriver {
       assertKey(key);
       try {
         const result = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+        if (!result.Body) throw new NotFoundError(bucket, key);
         // In Node the body is the response stream.
         return result.Body as Readable;
       } catch (error) {
@@ -105,7 +103,7 @@ export function createS3Driver(options: S3Options): StorageDriver {
 
     async ping() {
       try {
-        await Promise.all(buckets.map((Bucket) => client.send(new HeadBucketCommand({ Bucket }))));
+        await Promise.all(BUCKETS.map((Bucket) => client.send(new HeadBucketCommand({ Bucket }))));
         return true;
       } catch {
         return false;

@@ -1,6 +1,6 @@
 import { Inject, Injectable, Module, type OnApplicationBootstrap } from '@nestjs/common';
-import pino from 'pino';
 import { ENV, type Env } from '../config/env';
+import { createLogger } from '../container';
 import { JobConsumers } from './consumers';
 import { JobRunner } from './job-runner';
 
@@ -18,15 +18,14 @@ class InlineConsumers implements OnApplicationBootstrap {
   }
 }
 
-/** Nest wiring of the job consumers (until U6 of the stack-adoption plan removes Nest). */
+/** Nest wiring of the job consumers; removed with Nest in docs/plans/2026-10-11-1742-chore-stack-adoption-admin-minimal-plan.md (U6). */
 @Module({
   providers: [
     JobRunner,
     {
       provide: JobConsumers,
       inject: [JobRunner, ENV],
-      useFactory: (jobs: JobRunner, env: Env) =>
-        new JobConsumers(jobs, pino({ level: env.LOG_LEVEL })),
+      useFactory: (jobs: JobRunner, env: Env) => new JobConsumers(jobs, createLogger(env)),
     },
     InlineConsumers,
   ],

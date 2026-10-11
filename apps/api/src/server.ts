@@ -3,7 +3,7 @@ import { createApp } from './app';
 import { otpStartupMessage } from './auth/otp.service';
 import { loadEnv } from './config/env';
 import { closeContainer, createContainer } from './container';
-import { JobConsumers } from './jobs/consumers';
+import { startInlineConsumers } from './jobs/consumers';
 
 /** In-flight requests get this long after SIGTERM before the process exits anyway (NE-ERR-04). */
 const SHUTDOWN_GRACE_MS = 10_000;
@@ -16,11 +16,7 @@ const { app } = createApp(container);
 const otpMode = otpStartupMessage(container.otpDelivery.dummy);
 logger[otpMode.level](otpMode.text);
 
-// Development runs the consumers inside the api (JOBS_INLINE, ADR-004); production refuses it.
-if (env.JOBS_INLINE && env.NODE_ENV !== 'test')
-  void new JobConsumers(container.jobs, logger).register().catch((error: unknown) => {
-    logger.error({ err: error }, 'inline job consumers failed to start');
-  });
+void startInlineConsumers(env, container.jobs, logger);
 
 const server = createServer(app);
 server.listen(env.PORT, () => {

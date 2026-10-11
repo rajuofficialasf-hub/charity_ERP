@@ -9,7 +9,7 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createStorage, NotFoundError } from '../../src/storage';
+import { type Bucket, createStorage, NotFoundError } from '../../src/storage';
 import { testEnv } from '../support/env';
 
 // The S3 driver against the real MinIO container (ADR-005, D-074, O-58): docker compose locally, a
@@ -113,6 +113,13 @@ describe('S3 storage driver on MinIO (ADR-005, NS-4x)', () => {
 
   it('throws NotFoundError for a missing key', async () => {
     await expect(storage.get('exports', key('missing.bin'))).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('reports a missing bucket as a fault, not as a missing file (NE-ERR-02)', async () => {
+    const bucket = 'no-such-bucket' as Bucket;
+    await expect(storage.get(bucket, key('x.bin'))).rejects.toMatchObject({ name: 'NoSuchBucket' });
+    // HEAD carries no error code, so stat answers null for a missing bucket as for a missing key.
+    expect(await storage.stat(bucket, key('x.bin'))).toBeNull();
   });
 
   it('keeps the bucket private: an unauthenticated GET of an object URL is refused (NS-40)', async () => {

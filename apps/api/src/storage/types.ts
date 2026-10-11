@@ -13,7 +13,8 @@ export interface ObjectInfo {
 /**
  * The one interface every storage driver implements (NS-31), with streams in and out (NS-04).
  * Only the API reads and writes files: no bucket is public and the browser never receives a
- * storage URL (NS-41); authorized routes stream the bytes (NS-10, from T2.1). Object keys carry
+ * storage URL (NS-41); authorized routes stream the bytes (NS-10; the file routes come with the
+ * files task of docs/PLAN.md, T2.1). Object keys carry
  * entity ids, never personal data.
  */
 export interface StorageDriver {

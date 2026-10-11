@@ -37,7 +37,27 @@ describe('filesystem storage driver (ADR-005, tests only)', () => {
     await expect(fresh().get('vouchers', 'v/1.pdf')).rejects.toBeInstanceOf(NotFoundError);
   });
 
-  it('refuses keys that escape the bucket (NE-SEC-07)', async () => {
+  it('leaves no partial object when the upload stream fails', async () => {
+    const storage = fresh();
+    const failing = new Readable({
+      read() {
+        this.push(Buffer.from('partial'));
+        this.destroy(new Error('connection lost'));
+      },
+    });
+    await expect(
+      storage.put('photos', 'p/1.jpg', failing, { contentType: 'image/jpeg' }),
+    ).rejects.toThrow('connection lost');
+    expect(await storage.stat('photos', 'p/1.jpg')).toBeNull();
+    await expect(storage.get('photos', 'p/1.jpg')).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('refuses keys that escape the bucket or collide with its own files (NE-SEC-07)', async () => {
+    await expect(
+      fresh().put('photos', 'x.meta.json', Readable.from([Buffer.from('x')]), {
+        contentType: 'text/plain',
+      }),
+    ).rejects.toBeInstanceOf(ApiError);
     const storage = fresh();
     await expect(
       storage.put('photos', '../etc/passwd', Readable.from([Buffer.from('x')]), {
