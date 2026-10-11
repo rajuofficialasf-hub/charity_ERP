@@ -1,0 +1,5 @@
+# Lets `docker compose up -d` work from the repository root. The services live in infra/.
+name: css-erp-dev
+
+include:
+  - infra/docker-compose.dev.yml

@@ -1,0 +1,67 @@
+# Development services for the CSS ERP (D-053, SYSTEM_ARCHITECTURE section 8).
+# Start from the repository root with `docker compose up -d` (compose.yaml includes this file).
+# Every port is bound to 127.0.0.1 only (D-056). The credentials below are dev-only defaults
+# that can be overridden from a root .env file (see infra/.env.example); staging and production
+# use their own compose project and secrets (T3.0).
+#
+# Images are pinned by digest. MinIO no longer publishes official community images (late 2025),
+# so the MinIO server and client come from Chainguard, which builds them from the upstream
+# source; production storage packaging is decided before T3.0 (STATUS, ADR-005).
+
+name: css-erp-dev
+
+services:
+  postgres:
+    # postgres:16.15-alpine
+    image: postgres@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-css}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-css_dev_only}
+      POSTGRES_DB: css_erp_dev
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5433}:5432'
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d css_erp_dev']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio:
+    # chainguard/minio:latest (MinIO RELEASE.2026-09-22T19-25-18Z, AGPLv3)
+    image: chainguard/minio@sha256:7df55d002b698e4494a131b848dd553361bbe58b7e19f62d9623c29af1ba9ccf
+    command: ['server', '/data', '--address', ':9000', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-css_dev_only}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-css_dev_only_secret}
+    ports:
+      - '127.0.0.1:${MINIO_PORT:-9000}:9000'
+      - '127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001'
+    volumes:
+      - minio-data:/data
+
+  minio-init:
+    # chainguard/minio-client:latest-dev (mc with a shell, used once to create the buckets)
+    image: chainguard/minio-client@sha256:2d11d09801b035510cb0c2ff0c64aa016fc94f0c4e7055a31ec17cf41dd154cb
+    depends_on:
+      - minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-css_dev_only}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-css_dev_only_secret}
+    volumes:
+      - ./minio/bootstrap.sh:/bootstrap.sh:ro
+    entrypoint: ['sh', '/bootstrap.sh']
+    restart: 'no'
+
+  mailpit:
+    # axllent/mailpit:v1.31.5; SMTP on 1025, web inbox on 8025
+    image: axllent/mailpit@sha256:94f6b70c1436defae6799d9ac7ff0eeff9540465b842026d5cdb018f1c0234ea
+    ports:
+      - '127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025'
+      - '127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025'
+
+volumes:
+  pg-data:
+  minio-data:
