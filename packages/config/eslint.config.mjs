@@ -104,4 +104,13 @@ export const tests = {
   },
 };
 
-export default [ignores, ...base, node, react, next, sharedPurity, tests, prettier];
+/** Repository maintenance scripts only read fixed paths inside the repository. */
+export const scripts = {
+  files: ['scripts/**/*.mjs'],
+  rules: {
+    'security/detect-non-literal-fs-filename': 'off',
+    'security/detect-object-injection': 'off',
+  },
+};
+
+export default [ignores, ...base, node, react, next, sharedPurity, tests, scripts, prettier];

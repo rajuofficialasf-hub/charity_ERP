@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "@css/config": "workspace:*",
-    "@redocly/cli": "1.34.20",
+    "@redocly/cli": "2.62.1",
     "@types/node": "24.19.2",
     "@vitest/coverage-v8": "4.1.11",
     "ajv": "8.20.0",

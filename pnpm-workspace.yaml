@@ -18,3 +18,14 @@ overrides:
   # rights to other app sandboxes (seen on the owner's machine, 2026-10-11). 1.15.47 is the last
   # release without that check; revisit when a fixed 1.16.x exists.
   '@swc/core': 1.15.47
+  # Security fixes for transitive dependencies of the Prisma CLI (pnpm audit, 2026-10-11);
+  # remove when Prisma ships the patched versions.
+  mysql2: 3.24.5
+  deepmerge-ts: 8.0.2
+
+auditConfig:
+  ignoreGhsas:
+    # braces <=3.0.3 stack exhaustion; no patched release exists. Reached only through
+    # @next/eslint-plugin-next > fast-glob > micromatch at lint time with our own glob patterns.
+    # Exception E-001 in docs/DECISION_LOG.md, expires 2027-01-11 (O-46 item 6).
+    - GHSA-vfj7-8cjw-p6xm

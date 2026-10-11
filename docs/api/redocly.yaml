@@ -1,10 +1,10 @@
 # Redocly lint configuration for docs/api/openapi.yaml (task T0.18, 2026-10-10).
-# Run: npx --yes @redocly/cli@1 lint docs/api/openapi.yaml --config docs/api/redocly.yaml
+# Run: pnpm docs:check (Redocly CLI 2, pinned in the root package.json; T1.1)
 # The assertion rules enforce the annotations required by docs/api/API_STANDARDS.md section 16.
 extends:
   - recommended
 rules:
-  info-license-url: off
+  info-license-strict: off
   operation-operationId: error
   operation-summary: error
   operation-4xx-response: error
