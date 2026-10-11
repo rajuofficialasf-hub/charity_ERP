@@ -11,8 +11,8 @@ export interface RouteDeps {
   registry: RouteRegistry;
   limiters: RateLimiters;
   logger: Logger;
-  /** Access middleware for the declared rule (U4); until then routes carry no authentication. */
-  access?: (spec: OperationSpec) => RequestHandler[];
+  /** Access middleware for the declared rule: the auth middleware, or default deny. */
+  access: (spec: OperationSpec) => RequestHandler[];
 }
 
 /** The handler of a route: the validated parts of the request plus the raw objects. */
@@ -72,8 +72,8 @@ export function defineRoute<B = unknown, Q = unknown, P = Record<string, unknown
   };
   router[method](
     path,
-    ...(deps.access?.(spec) ?? []),
-    ...deps.limiters.for(spec.rateLimit),
+    ...deps.access(spec),
+    ...deps.limiters.for(spec.rateLimit, where),
     validate({ body: spec.body, query: spec.query, params: spec.params }),
     run,
   );

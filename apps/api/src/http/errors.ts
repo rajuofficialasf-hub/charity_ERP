@@ -14,6 +14,17 @@ const BODY_PARSER_ERRORS: Record<string, { status: number; code: string }> = {
   'entity.verify.failed': { status: 400, code: 'validation.malformed' },
 };
 
+/** Other 4xx errors Express raises itself (an undecodable path, an aborted body): not internal. */
+function clientError(err: unknown): { status: number; code: string } | undefined {
+  if (typeof err !== 'object' || err === null) return undefined;
+  const status =
+    (err as { status?: unknown; statusCode?: unknown }).status ??
+    (err as { statusCode?: unknown }).statusCode;
+  if (typeof status !== 'number' || !Number.isInteger(status) || status < 400 || status >= 500)
+    return undefined;
+  return { status, code: 'validation.malformed' };
+}
+
 function bodyParserError(err: unknown): { status: number; code: string } | undefined {
   if (typeof err !== 'object' || err === null || !('type' in err)) return undefined;
   const type = (err as { type: unknown }).type;
@@ -83,7 +94,7 @@ export function errorHandler(logger: Logger): ErrorRequestHandler {
       });
       return;
     }
-    const known = bodyParserError(err);
+    const known = bodyParserError(err) ?? clientError(err);
     if (known) {
       sendApiError(req, res, known.status, known.code);
       return;

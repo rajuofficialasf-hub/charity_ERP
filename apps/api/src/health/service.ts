@@ -7,6 +7,11 @@ export type CheckResult = 'up' | 'down';
 /** Each dependency is probed with a time limit; a slow probe counts as down. */
 export const CHECK_TIMEOUT_MS = 2_000;
 
+export interface Readiness {
+  ready: boolean;
+  checks: Record<CheckName, CheckResult>;
+}
+
 export interface ReadinessChecks {
   database: () => Promise<boolean>;
   storage: () => Promise<boolean>;
@@ -14,14 +19,19 @@ export interface ReadinessChecks {
 }
 
 async function probe(check: () => Promise<boolean>): Promise<CheckResult> {
+  let timer: NodeJS.Timeout | undefined;
   try {
     const result = await Promise.race([
       check(),
-      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), CHECK_TIMEOUT_MS)),
+      new Promise<boolean>((resolve) => {
+        timer = setTimeout(() => resolve(false), CHECK_TIMEOUT_MS);
+      }),
     ]);
     return result ? 'up' : 'down';
   } catch {
     return 'down';
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -30,12 +40,22 @@ async function probe(check: () => Promise<boolean>): Promise<CheckResult> {
  * per-check detail is shown only to a caller with the HEALTH_TOKEN bearer token.
  */
 export class HealthService {
+  private inFlight: Promise<Readiness> | undefined;
+
   constructor(
     private readonly env: Env,
     private readonly checks: ReadinessChecks,
   ) {}
 
-  async readiness(): Promise<{ ready: boolean; checks: Record<CheckName, CheckResult> }> {
+  /** Concurrent callers share one probe round, so a flood of probes costs one round at a time. */
+  readiness(): Promise<Readiness> {
+    this.inFlight ??= this.probeAll().finally(() => {
+      this.inFlight = undefined;
+    });
+    return this.inFlight;
+  }
+
+  private async probeAll(): Promise<Readiness> {
     const [database, storage, queue] = await Promise.all([
       probe(this.checks.database),
       probe(this.checks.storage),

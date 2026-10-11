@@ -4,9 +4,9 @@ import type { Env } from '../config/env';
 import { ApiError } from '../i18n/api-error';
 import { RATE_LIMITS, type RateLimitClass } from './rate-limit';
 
-/** One limiter chain per API_STANDARDS 10 class, built once per app (NE-SEC-04, D-068). */
+/** Limiter chains of the API_STANDARDS 10 classes, one chain per route (NE-SEC-04, D-068). */
 export interface RateLimiters {
-  for(cls: RateLimitClass | 'none'): RequestHandler[];
+  for(cls: RateLimitClass | 'none', route: string): RequestHandler[];
 }
 
 /**
@@ -18,21 +18,22 @@ export interface RateLimiters {
  */
 export function createRateLimiters(env: Env): RateLimiters {
   const factor = env.RATE_LIMITS_RELAXED ? 100 : 1;
-  const chains = new Map<RateLimitClass, RequestHandler[]>();
-  for (const [cls, windows] of Object.entries(RATE_LIMITS) as [
-    RateLimitClass,
-    (typeof RATE_LIMITS)[RateLimitClass],
-  ][]) {
-    const ordered = [...windows].sort((a, b) => b.limit - a.limit);
-    chains.set(
-      cls,
-      ordered.map((window) =>
+  return {
+    for(cls, route) {
+      if (cls === 'none') return [];
+      // Every route has its own budget per key (as the T1.6 guard had). IP windows run first, so a
+      // flood of made-up ids is refused by the address before it fills the per-id counters; the
+      // tightest window runs last so its headers reach the client.
+      const windows = [...RATE_LIMITS[cls]].sort(
+        (a, b) => Number(b.byIp) - Number(a.byIp) || b.limit - a.limit,
+      );
+      return windows.map((window) =>
         rateLimit({
           windowMs: window.ttlMs,
           limit: window.limit * factor,
           standardHeaders: 'draft-6',
           legacyHeaders: false,
-          keyGenerator: (req) => `${cls}:${window.key(req)}`,
+          keyGenerator: (req) => `${cls}:${route}:${window.key(req)}`,
           validate: {
             keyGeneratorIpFallback: false,
             trustProxy: false,
@@ -46,8 +47,7 @@ export function createRateLimiters(env: Env): RateLimiters {
             next(new ApiError('rate_limit.exceeded', 429, undefined, undefined, seconds));
           },
         }),
-      ),
-    );
-  }
-  return { for: (cls) => (cls === 'none' ? [] : (chains.get(cls) ?? [])) };
+      );
+    },
+  };
 }

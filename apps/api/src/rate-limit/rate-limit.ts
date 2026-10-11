@@ -8,6 +8,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { ThrottlerStorageService } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
+import { ipKeyGenerator } from 'express-rate-limit';
 import { ENV, type Env } from '../config/env';
 import { currentContext } from '../core/request-context';
 import { ApiError } from '../i18n/api-error';
@@ -28,7 +29,12 @@ interface Window {
   ttlMs: number;
   /** The key this window counts by. */
   key: (req: Request) => string;
+  /** Counts by the client address (runs before the per-id windows, NE-SEC-04). */
+  byIp?: boolean;
 }
+
+/** Body fields used as keys are capped, so a flood of long made-up ids cannot grow the stores. */
+const KEY_MAX_LENGTH = 128;
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -38,11 +44,12 @@ const field = (req: Request, ...names: string[]) => {
   for (const name of names) {
     // eslint-disable-next-line security/detect-object-injection -- names are fixed field names of this file
     const value = Object.hasOwn(body, name) ? body[name] : undefined;
-    if (typeof value === 'string') return value.trim().toLowerCase();
+    if (typeof value === 'string') return value.trim().toLowerCase().slice(0, KEY_MAX_LENGTH);
   }
   return 'none';
 };
-const ip = (req: Request) => req.ip ?? 'unknown';
+/** The client address through `trust proxy`, IPv6 grouped by /56 so a /64 is one client. */
+const ip = (req: Request) => (req.ip ? ipKeyGenerator(req.ip) : 'unknown');
 const loginId = (req: Request) => field(req, 'loginId', 'login', 'mobile', 'email');
 const address = (req: Request) => field(req, 'address', 'mobile', 'email');
 const session = (req: Request) => currentContext()?.deviceSessionId ?? `ip:${ip(req)}`;
@@ -58,12 +65,12 @@ export const RATE_LIMITS: Record<RateLimitClass, Window[]> = {
   login: [
     { limit: 10, ttlMs: MINUTE, key: (r) => `id:${loginId(r)}` },
     { limit: 100, ttlMs: HOUR, key: (r) => `id:${loginId(r)}` },
-    { limit: 10, ttlMs: MINUTE, key: (r) => `ip:${ip(r)}` },
-    { limit: 100, ttlMs: HOUR, key: (r) => `ip:${ip(r)}` },
+    { limit: 10, ttlMs: MINUTE, key: (r) => `ip:${ip(r)}`, byIp: true },
+    { limit: 100, ttlMs: HOUR, key: (r) => `ip:${ip(r)}`, byIp: true },
   ],
   'otp-request': [
     { limit: 5, ttlMs: HOUR, key: address },
-    { limit: 20, ttlMs: HOUR, key: ip },
+    { limit: 20, ttlMs: HOUR, key: ip, byIp: true },
   ],
   'otp-verify': [
     {
@@ -74,7 +81,7 @@ export const RATE_LIMITS: Record<RateLimitClass, Window[]> = {
   ],
   'password-reset': [{ limit: 5, ttlMs: HOUR, key: loginId }],
   refresh: [{ limit: 60, ttlMs: HOUR, key: refreshSession }],
-  'public-form': [{ limit: 20, ttlMs: HOUR, key: ip }],
+  'public-form': [{ limit: 20, ttlMs: HOUR, key: ip, byIp: true }],
   default: [{ limit: 600, ttlMs: MINUTE, key: caller }],
   sync: [{ limit: 60, ttlMs: MINUTE, key: session }],
 };

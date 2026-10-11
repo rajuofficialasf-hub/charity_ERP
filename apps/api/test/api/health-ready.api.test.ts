@@ -58,6 +58,35 @@ describe('GET /health/ready', () => {
     expect(wrong.body).toEqual({ status: 'ready' });
   });
 
+  it('shares one probe round between concurrent callers', async () => {
+    let probes = 0;
+    const slow = buildTestApp({
+      overrides: {
+        prisma: {
+          $queryRaw: async () => {
+            probes += 1;
+            await new Promise((r) => setTimeout(r, 50));
+            return [{ '?column?': 1 }];
+          },
+          $disconnect: async () => {},
+        } as unknown as Container['prisma'],
+        storage: { ping: async () => true } as unknown as Container['storage'],
+        jobs: {
+          ping: async () => true,
+          onModuleDestroy: async () => {},
+        } as unknown as Container['jobs'],
+      },
+    });
+    try {
+      await Promise.all(
+        Array.from({ length: 5 }, () => request(slow.app).get('/health/ready').expect(200)),
+      );
+      expect(probes).toBe(1);
+    } finally {
+      await slow.close();
+    }
+  });
+
   it.each(['database', 'storage', 'queue'] as const)(
     'answers 503 when the %s is down',
     async (name) => {

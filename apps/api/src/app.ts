@@ -4,6 +4,7 @@ import type { Container } from './container';
 import { RequestContextMiddleware } from './core/request-context.middleware';
 import { healthRouter } from './health/routes';
 import { errorHandler, notFound } from './http/errors';
+import { ApiError } from './i18n/api-error';
 import { corsAllowlist, requestLogging, securityHeaders, trustProxySetting } from './http/security';
 import type { RouteDeps } from './openapi/define-route';
 import { RouteRegistry } from './openapi/registry';
@@ -19,7 +20,19 @@ export interface AppOptions {
   logStream?: DestinationStream;
   /** Routers mounted under /api/v1 after the built-in ones (test probes), built with the route deps. */
   extraRouters?: ((deps: RouteDeps) => Router)[];
+  /** Access middleware for a declared rule; without it every non-public route is refused. */
+  access?: RouteDeps['access'];
 }
+
+/** Default deny (NE-SEC-03): a non-public route answers 403 until the auth middleware is wired. */
+const denyAll: RouteDeps['access'] = (spec) =>
+  spec.permission === 'public'
+    ? []
+    : [
+        (_req, _res, next) => {
+          next(new ApiError('permission.denied', 403));
+        },
+      ];
 
 /** The app plus the registry its routes were declared in (OpenAPI generation, drift test). */
 export interface BuiltApp {
@@ -37,15 +50,23 @@ export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
   app.set('trust proxy', trustProxySetting(c.env.TRUST_PROXY));
   app.disable('x-powered-by');
   app.use(requestLogging(c.env, options.logStream));
-  app.use((req, res, next) => new RequestContextMiddleware().use(req, res, next));
   app.use(securityHeaders());
   app.use(corsAllowlist(c.env.CORS_ORIGINS));
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
+  // The request context opens after the body is read: body-parser continues from the socket's
+  // events, which would leave an AsyncLocalStorage context opened earlier behind. Body-parser
+  // errors render with the X-Request-Id header instead of the context.
+  app.use((req, res, next) => new RequestContextMiddleware().use(req, res, next));
   // Probes come before the limiters, so a busy client cannot make the API look down.
   app.use(healthRouter(c.health));
 
   const registry = new RouteRegistry();
-  const deps: RouteDeps = { registry, limiters: createRateLimiters(c.env), logger: c.logger };
+  const deps: RouteDeps = {
+    registry,
+    limiters: createRateLimiters(c.env),
+    logger: c.logger,
+    access: options.access ?? denyAll,
+  };
   const api = Router();
   for (const build of options.extraRouters ?? []) api.use(build(deps));
   app.use(`/${API_PREFIX}`, api);

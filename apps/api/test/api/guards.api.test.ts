@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { AuditWriter } from '../../src/audit/audit-writer';
 import type { Tx } from '../../src/core/prisma.service';
 import { defineRoute, type RouteDeps } from '../../src/openapi/define-route';
@@ -53,6 +54,31 @@ function probes(deps: RouteDeps): Router {
       await audit.record(fakeTx, { action: 'probe.write', entityType: 'probe' });
       return { ok: true };
     },
+  });
+  defineRoute<{ note: string }>(router, deps, {
+    ...base,
+    method: 'post',
+    path: '/guard-probe/audited-body',
+    operationId: 'probe.auditedBody',
+    summary: 'audited with a body',
+    audit: 'probe.write',
+    rateLimit: 'default',
+    body: z.strictObject({ note: z.string() }),
+    handler: async ({ body: input }) => {
+      await audit.record(fakeTx, { action: 'probe.write', entityType: 'probe' });
+      return { note: input.note };
+    },
+  });
+  defineRoute(router, deps, {
+    ...base,
+    method: 'get',
+    path: '/guard-probe/protected',
+    operationId: 'probe.protected',
+    summary: 'protected',
+    permission: 'permission.view',
+    audit: 'none',
+    rateLimit: 'default',
+    handler: () => ({ ok: true }),
   });
   defineRoute(router, deps, {
     ...base,
@@ -134,6 +160,20 @@ describe('rate limits and audit enforcement (API_STANDARDS 10, 15; D-068)', () =
     await request(t.app).post('/api/v1/guard-probe/audited').expect(200);
   });
 
+  it('keeps the request context across a JSON body (audit count and request id)', async () => {
+    const res = await request(t.app)
+      .post('/api/v1/guard-probe/audited-body')
+      .set('X-Request-Id', 'with-body-0001')
+      .send({ note: 'x' })
+      .expect(200);
+    expect(res.body).toEqual({ data: { note: 'x' }, meta: { requestId: 'with-body-0001' } });
+  });
+
+  it('refuses a non-public route until the auth middleware is wired (default deny)', async () => {
+    const res = await request(t.app).get('/api/v1/guard-probe/protected').expect(403);
+    expect(res.body.error.code).toBe('permission.denied');
+  });
+
   it('fails a write that declared an audit action but wrote no entry', async () => {
     const res = await request(t.app).post('/api/v1/guard-probe/forgot-audit').expect(500);
     expect(res.body.error.code).toBe('server.internal');
@@ -159,5 +199,53 @@ describe('rate limits and audit enforcement (API_STANDARDS 10, 15; D-068)', () =
         ],
       }),
     ).toThrow(/must declare its audit action/);
+  });
+
+  it('refuses to register a route without a permission', () => {
+    expect(() =>
+      buildTestApp({
+        routers: [
+          (deps) => {
+            const router = Router();
+            defineRoute(router, deps, {
+              ...base,
+              permission: '',
+              method: 'get',
+              path: '/guard-probe/no-permission',
+              operationId: 'probe.noPermission',
+              summary: 'no permission',
+              audit: 'none',
+              rateLimit: 'default',
+              handler: () => ({ ok: true }),
+            });
+            return router;
+          },
+        ],
+      }),
+    ).toThrow(/must declare its permission/);
+  });
+
+  it('refuses to register the same operationId twice', () => {
+    expect(() =>
+      buildTestApp({
+        routers: [
+          (deps) => {
+            const router = Router();
+            for (const path of ['/guard-probe/twice-a', '/guard-probe/twice-b'])
+              defineRoute(router, deps, {
+                ...base,
+                method: 'get',
+                path,
+                operationId: 'probe.twice',
+                summary: 'twice',
+                audit: 'none',
+                rateLimit: 'default',
+                handler: () => ({ ok: true }),
+              });
+            return router;
+          },
+        ],
+      }),
+    ).toThrow(/registered twice/);
   });
 });
