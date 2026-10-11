@@ -67,9 +67,14 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ ...base, NODE_ENV: 'production', AUTH_COOKIE_SECURE: 'false' })).toThrow(
       /AUTH_COOKIE_SECURE/,
     );
+    expect(() => loadEnv({ ...base, NODE_ENV: 'production', RATE_LIMITS_RELAXED: 'true' })).toThrow(
+      /RATE_LIMITS_RELAXED/,
+    );
     expect(loadEnv({ ...base, NODE_ENV: 'production' })).toMatchObject({
       OTP_DUMMY_ENABLED: false,
       AUTH_COOKIE_SECURE: true,
+      TRUST_PROXY: 'loopback',
+      RATE_LIMITS_RELAXED: false,
     });
   });
 

@@ -91,6 +91,12 @@ describe('rate limits and audit enforcement (API_STANDARDS 10, 15; D-068)', () =
       .post('/api/v1/guard-probe/login')
       .send({ loginId: 'b@example.org' })
       .expect(429);
+    // a user behind the trusted local proxy is counted by the forwarded address (D-072)
+    await request(server)
+      .post('/api/v1/guard-probe/login')
+      .set('X-Forwarded-For', '203.0.113.9')
+      .send({ loginId: 'c@example.org' })
+      .expect(201);
   });
 
   it('applies the default class to routes without a declared class', async () => {

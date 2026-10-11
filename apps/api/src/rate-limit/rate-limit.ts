@@ -8,6 +8,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { ThrottlerStorageService } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
+import { ENV, type Env } from '../config/env';
 import { currentContext } from '../core/request-context';
 import { ApiError } from '../i18n/api-error';
 
@@ -92,6 +93,7 @@ export class RateLimitGuard implements CanActivate {
   constructor(
     @Inject(Reflector) private readonly reflector: Reflector,
     @Inject(ThrottlerStorageService) private readonly storage: ThrottlerStorageService,
+    @Inject(ENV) private readonly env: Env,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -106,7 +108,9 @@ export class RateLimitGuard implements CanActivate {
     const route = `${req.method} ${context.getClass().name}.${context.getHandler().name}`;
     let tightest: { limit: number; remaining: number; reset: number } | undefined;
     // eslint-disable-next-line security/detect-object-injection -- typed union key into a constant table
-    for (const [index, window] of RATE_LIMITS[cls].entries()) {
+    const factor = this.env.RATE_LIMITS_RELAXED ? 100 : 1;
+    for (const [index, declared] of RATE_LIMITS[cls].entries()) {
+      const window = { ...declared, limit: declared.limit * factor };
       const key = `${cls}:${index}:${route}:${window.key(req)}`;
       const record = await this.storage.increment(key, window.ttlMs, window.limit, 0, cls);
       const remaining = Math.max(window.limit - record.totalHits, 0);

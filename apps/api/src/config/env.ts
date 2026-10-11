@@ -53,6 +53,13 @@ const envSchema = z
       .string()
       .regex(/^[0-9]{6}$/)
       .optional(),
+    /**
+     * Proxies trusted for X-Forwarded-For (Express `trust proxy`, D-072): `loopback` by default;
+     * production names Caddy's address or network so per-IP limits and audit IPs see the user.
+     */
+    TRUST_PROXY: z.string().min(1).default('loopback'),
+    /** Multiplies every rate limit by 100 for the E2E run (one shared address); never production. */
+    RATE_LIMITS_RELAXED: flag,
     /** Secure attribute of the auth cookies; false only for development over a LAN address. */
     AUTH_COOKIE_SECURE: z
       .enum(['true', 'false', '1', '0'])
@@ -83,6 +90,12 @@ const envSchema = z
         code: 'custom',
         path: ['OTP_DUMMY_CODE'],
         message: 'required when OTP_DUMMY_ENABLED=true',
+      });
+    if (env.NODE_ENV === 'production' && env.RATE_LIMITS_RELAXED)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['RATE_LIMITS_RELAXED'],
+        message: 'must be false in production (D-072)',
       });
     if (env.NODE_ENV === 'production' && !env.AUTH_COOKIE_SECURE)
       ctx.addIssue({
