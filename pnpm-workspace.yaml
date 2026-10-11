@@ -26,10 +26,3 @@ overrides:
   # remove when Prisma ships the patched versions.
   mysql2: 3.24.5
   deepmerge-ts: 8.0.2
-
-auditConfig:
-  ignoreGhsas:
-    # braces <=3.0.3 stack exhaustion; no patched release exists. Reached only through
-    # @next/eslint-plugin-next > fast-glob > micromatch at lint time with our own glob patterns.
-    # Exception E-001 in docs/DECISION_LOG.md, expires 2027-01-11 (O-46 item 6).
-    - GHSA-vfj7-8cjw-p6xm

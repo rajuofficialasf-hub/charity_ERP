@@ -11,7 +11,7 @@ The system has one backend (`apps/api`), one PWA (`apps/web`) and business rules
 One git repository managed with pnpm workspaces:
 
 ```
-apps/web        Next.js PWA
+apps/web        Vite React SPA (PWA; ADR-013)
 apps/api        NestJS API and worker entry points
 packages/shared zod schemas, permission names, i18n keys, pure business rules (score, zakat, budget, form evaluator)
 packages/ui     design system components and tokens
@@ -20,7 +20,7 @@ infra/          docker-compose files, Caddyfile, backup scripts
 docs/           all project documents
 ```
 
-`packages/shared` has no runtime dependency on Node, Nest, Next or Prisma; it is consumed by both apps as TypeScript source through workspace links, so no package publishing is needed. CI runs lint, typecheck, unit, API and E2E tests for the whole workspace on every commit.
+`packages/shared` has no runtime dependency on Node, Nest, Prisma or the web framework; it is consumed by both apps as TypeScript source through workspace links, so no package publishing is needed. CI runs lint, typecheck, unit, API and E2E tests for the whole workspace on every commit.
 
 ## Alternatives considered
 

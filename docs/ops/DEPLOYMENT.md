@@ -8,6 +8,8 @@ Development (Docker Compose), test (CI), staging and production on the organizat
 ## 2. Topology
 Reverse proxy with TLS, API, web, workers, PostgreSQL, object storage, mail relay; ports and networks.
 
+Web (D-073, ADR-013): the PWA is static files (`apps/web/dist` from `pnpm --filter @css/web build`); Caddy serves them with the SPA fallback (every unknown path returns `index.html`), long cache headers for `assets/*` (content-hashed) and no cache for `index.html`, `sw.js` and `manifest.webmanifest`, and routes `/api/v1/*` to the API on the same origin (the refresh cookie and CSRF need it, AUTH.md 5). No Node process runs for the web app. The API's `TRUST_PROXY` names Caddy's address (D-072). Written in full in T3.0.
+
 ## 3. Build and release
 Build steps, versioning, release checklist, database migrations with `down.sql`, zero-downtime considerations.
 

@@ -129,7 +129,7 @@
 | স্তর | প্রস্তাব | কেন | বিকল্প (বাদ দেওয়ার কারণসহ) |
 |---|---|---|---|
 | Monorepo | pnpm workspaces: `apps/web`, `apps/api`, `packages/shared`, `packages/ui`, `packages/config` | এক রিপোতে সব; business logic (স্কোর, যাকাত, বাজেট হিসাব, পারমিশন নাম, zod schema) `packages/shared`-এ একবার লেখা, API ও UI দুই জায়গায় ব্যবহার (মাস্টার §13: "no duplicated calculations") | দুই আলাদা রিপো: contract সিঙ্ক রাখা কঠিন |
-| Frontend / PWA | Next.js (App Router) + React + TypeScript; Tailwind CSS (§12 টোকেন CSS variable হিসেবে); next-intl (bn/en); TanStack Query; react-hook-form + zod; Serwist (service worker); Dexie (IndexedDB outbox) | §9-এ Next.js অনুমোদিত; অফলাইন/PWA টুলিং পরিণত; Claude Code এই স্ট্যাক ভালো জানে | Vite + React SPA: হালকা, কিন্তু §9 Next.js বলে |
+| Frontend / PWA | ~~Next.js (App Router)~~ Vite + React 19 + TypeScript SPA with React Router (D-073, 2026-10-11); Tailwind CSS (§12 টোকেন CSS variable হিসেবে); next-intl (bn/en); TanStack Query; react-hook-form + zod; Serwist (service worker); Dexie (IndexedDB outbox) | §9-এ Next.js অনুমোদিত; অফলাইন/PWA টুলিং পরিণত; Claude Code এই স্ট্যাক ভালো জানে | Vite + React SPA: হালকা, কিন্তু §9 Next.js বলে |
 | Backend / API | NestJS + TypeScript; `@nestjs/swagger` → OpenAPI; Passport-JWT; validation pipeline (zod বা class-validator, একটিই) | ব্লুপ্রিন্ট B১-এর ১০টি কোর মডিউল → NestJS module; guard = permission × scope সরাসরি প্রকাশ করা যায়; OpenAPI স্বয়ংক্রিয়, drift test সম্ভব | Next.js route handlers (এক অ্যাপ, কিন্তু REST versioning, jobs, OpenAPI দুর্বল); Fastify (হালকা, কাঠামো কম — একক ডেভেলপারের জন্য NestJS-এর শৃঙ্খলা বেশি কাজে লাগে) |
 | ORM / migrations | Prisma + PostgreSQL 16; প্রতিটি migration-এর সাথে হাতে লেখা `down.sql` | `schema.prisma` = ERD-এর কোড রূপ (ডক-কোড সিঙ্ক সহজ); টাইপ-সেফ; লাইব্রেরি P3.2-এর "reversible migrations" চাহিদা down.sql দিয়ে পূরণ | Drizzle (হালকা, কম পরিণত migration), TypeORM (up/down আছে, কিন্তু বাগপ্রবণ) |
 | Background jobs | pg-boss | PostgreSQL-ই কিউ; Redis-এর মতো বাড়তি সার্ভিস নেই ("simplest adequate architecture", §2) | BullMQ + Redis: বেশি ক্ষমতা, কিন্তু আরেকটি সার্ভিস চালাতে হয় |
@@ -163,7 +163,7 @@ css-erp/
 │   ├── gates/                     ← PHASE_N_SIGNOFF / RELEASE_NOTES
 │   └── ops/                       ← DEPLOYMENT.md, RUNBOOK.md
 ├── apps/
-│   ├── web/                       ← Next.js PWA (officials desktop + volunteers mobile, এক কোডবেস)
+│   ├── web/                       ← React PWA, Vite SPA (D-073; officials desktop + volunteers mobile, এক কোডবেস)
 │   └── api/                       ← NestJS REST /api/v1, Prisma, pg-boss workers
 ├── packages/
 │   ├── shared/                    ← zod schemas, permission names, i18n keys, pure business rules (score, zakat, budget, form evaluator)

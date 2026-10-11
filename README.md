@@ -44,18 +44,18 @@ Phase 1 has started: the repository holds the scaffold of task T1.1 (no business
 pnpm install
 docker compose up -d
 cp apps/api/.env.example apps/api/.env
-cp apps/web/.env.example apps/web/.env.local
+cp apps/web/.env.example apps/web/.env
 pnpm dev
 ```
 
-The web app runs at http://localhost:3000 and the API at http://localhost:4000 (liveness: http://localhost:4000/health/live; business routes under `/api/v1`). For Playwright, install the browser once: `pnpm --filter @css/web exec playwright install chromium`.
+The web app runs at http://127.0.0.1:3000 (Vite, proxying `/api/v1` to the API) and the API at http://localhost:4000 (liveness: http://localhost:4000/health/live; business routes under `/api/v1`). For Playwright, install the browser once: `pnpm --filter @css/web exec playwright install chromium`.
 
 ### Layout
 
 | Path | Contents |
 |---|---|
 | `apps/api` | NestJS REST API (`/api/v1`), Prisma schema and migrations in `prisma/` |
-| `apps/web` | Next.js PWA (App Router), service worker, Playwright tests in `e2e/` |
+| `apps/web` | Vite React single-page PWA (`src/`: React Router, TanStack Query, use-intl, Serwist service worker), Playwright tests in `e2e/` |
 | `packages/shared` | Pure TypeScript shared by API and PWA: zod schemas, permission names, i18n keys, business-rule functions |
 | `packages/ui` | Design system: React Aria components, design tokens, Tailwind preset, self-hosted fonts |
 | `packages/config` | Shared tsconfig, ESLint and Prettier configuration |
@@ -100,7 +100,7 @@ All ports listen on 127.0.0.1 only. Overrides (ports, dev passwords) go in `infr
 - **`pnpm install` reports ignored build scripts**: only the packages listed under `allowBuilds` in `pnpm-workspace.yaml` may run install scripts; add a package there only after reviewing it.
 - **Prisma client missing**: run `pnpm --filter @css/api db:generate`.
 - **Playwright cannot find a browser**: run `pnpm --filter @css/web exec playwright install chromium`.
-- **Next.js telemetry**: turn it off once per machine with `pnpm --filter @css/web exec next telemetry disable` (CI sets `NEXT_TELEMETRY_DISABLED`).
+- **The web app cannot reach the API** (`ECONNREFUSED 127.0.0.1:4000` in the Vite log): start the API (`pnpm dev` starts both) or set `CSS_API_ORIGIN` in `apps/web/.env` to where it runs.
 - **Line endings on Windows**: the repository keeps LF; if Git converted files, run `git config core.autocrlf false` and check out again.
 
 Commit conventions and the working rules for changes are in `CONTRIBUTING.md`.

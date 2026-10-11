@@ -29,8 +29,8 @@ One server, one Docker Compose project per environment (staging, production), th
                  ┌──────────────┘      └──────────────┐
           ┌──────┴──────┐                       ┌─────┴──────┐
           │    web      │                       │    api     │  NestJS, /api/v1
-          │  Next.js    │  ───── REST ──────►   │  (HTTP)    │  auth, access, audit,
-          │  PWA server │                       └─────┬──────┘  domain modules
+          │  Vite SPA   │  ───── REST ──────►   │  (HTTP)    │  auth, access, audit,
+          │  static     │                       └─────┬──────┘  domain modules
           └─────────────┘                             │
                                                       │  same image, second entry point
                                                ┌──────┴──────┐
@@ -51,7 +51,7 @@ Components and why each exists:
 | Component | Role | Why this and not less |
 |---|---|---|
 | Caddy | TLS termination, routing, compression, basic request limits; HTTPS enforced (HTTP → HTTPS redirect, HSTS); only ports 80 and 443 are public; PostgreSQL, the MinIO admin API and the worker stay on the Docker internal network and are never exposed (D-056) | Automatic certificate renewal removes a recurring operations task; one process in front of two apps |
-| web (Next.js) | Serves the PWA shell, server-rendered official screens, static assets, service worker | One codebase for desktop and phone (Q-15, D-052) |
+| web (Vite React SPA) | Static files (`apps/web/dist`: app shell, assets, service worker, manifest) served by Caddy with the SPA fallback; no server process (D-073, ADR-013) | One codebase for desktop and phone (Q-15); every screen renders from the API or local data |
 | api (NestJS) | REST under `/api/v1`, all authorization, domain logic, audit | Modules mirror the ten B1 core modules (D-051) |
 | worker | pg-boss consumers for background jobs | Separate process; see 2.1 |
 | PostgreSQL 16 | Relational master data, JSONB answers and settings, audit log, pg-boss queues | One database for everything (constitution §2) |
@@ -124,7 +124,9 @@ Rules:
 
 Each NestJS module exposes a small public API (its application services) and keeps its repositories private; modules depend on each other only through those services, and the dependency graph in MODULE_CATALOG section 3 is enforced by the module imports.
 
-### 4.2 Next.js route groups (`apps/web/app`)
+### 4.2 Route groups of the PWA (`apps/web/src`, React Router)
+
+The groups below are the planned React Router layout routes (T1.15 adds the app shell); today `src/routes/index.tsx` holds the auth and account screens of T1.7 and the dev-only gallery route.
 
 | Route group | Audience and device priority (DESIGN_BRIEF §5) | Screens (SCREENS.md) |
 |---|---|---|
@@ -135,7 +137,7 @@ Each NestJS module exposes a small public API (its application services) and kee
 | `(setup)` | PM, Department Head, Monitoring Team; desktop first with a phone notice | program and project setup, form builder, templates, permission panel, admin settings, checklist and rating editors |
 | `(public)` | Anyone; phone first | tree-planting public application form (BR-087) |
 
-Server components render official and management lists; volunteer screens are client components backed by the Dexie outbox so that they work offline. Shared UI lives in `packages/ui`; data access from the browser goes only through the REST API (no direct database access from Next.js server code), so there is exactly one authorization path.
+Every screen renders in the browser: official and management lists read the API through TanStack Query, volunteer screens read the Dexie outbox so that they work offline (T2.7). Shared UI lives in `packages/ui`; data access goes only through the REST API, so there is exactly one authorization path. Route-level code splitting is explicit (`lazy`), the gallery being the first split chunk.
 
 ## 5. Cross-cutting services
 
@@ -318,7 +320,7 @@ Retention is permanent (BD-46), so growth must be visible (NFR-30):
 | Jobs | pg-boss in PostgreSQL | BullMQ with Redis | No extra service, transactional enqueue, adequate throughput for this load (ADR-004) |
 | Worker placement | Separate process from the same image | In-process only | Protects field-endpoint latency; one image keeps deployment simple (section 2.1) |
 | Files | MinIO with presigned URLs; filesystem adapter in tests | Plain filesystem, cloud object storage | Signed expiring URLs and mirroring for free; no cloud dependency (ADR-005) |
-| Frontend | Next.js App Router PWA with Serwist and Dexie | Vite SPA, native apps | Constitution §9 approves Next.js; one codebase; mature offline tooling (ADR-006) |
+| Frontend | Vite React SPA (React Router, TanStack Query, use-intl, Serwist, Dexie) | Next.js (ADR-006, superseded), native apps | Organization standard ST-01 and the owner's decision D-073; no screen needs server rendering; static hosting (ADR-013) |
 | Repository | pnpm monorepo | Separate repos per app | Shared business rules and schemas used by both sides without publishing packages (ADR-001) |
 | Reverse proxy | Caddy | nginx + certbot | Automatic TLS; fewer moving parts for the IT team |
 | Observability | Logs + health + Prometheus endpoint; error tracker optional | Full APM | Enough to run; can grow if the IT team already runs Grafana |
