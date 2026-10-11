@@ -1,0 +1,55 @@
+import { Injectable } from '@nestjs/common';
+import { uuidv7 } from '@css/shared';
+import type { Tx } from '../core/prisma.service';
+import { currentContext } from '../core/request-context';
+import type { Prisma } from '../generated/prisma/client';
+
+/** One business event for the audit trail (constitution 13, DATABASE_SCHEMA audit_log). */
+export interface AuditEntry {
+  /** Action name, the same as the endpoint's `x-audit`, e.g. `application.approve`. */
+  action: string;
+  entityType: string;
+  entityId?: string | null;
+  old?: Prisma.InputJsonValue | null;
+  new?: Prisma.InputJsonValue | null;
+  reason?: string | null;
+  /** Offline record id when the write came from a device (BR-194). */
+  clientUuid?: string | null;
+  /** Originating user when a job or sync acts for someone (SYSTEM_ARCHITECTURE 6). */
+  onBehalfOfUserId?: string | null;
+  /** Jobs pass the system actor; requests take the user from the request context. */
+  actorUserId?: string | null;
+}
+
+/**
+ * Writes audit entries inside the caller's transaction (BR-179), so an entry exists exactly when
+ * the business write committed. Actor, role, IP, device session and request id come from the
+ * request context; the count feeds the audit enforcement of D-068.
+ */
+@Injectable()
+export class AuditWriter {
+  async record(tx: Tx, entry: AuditEntry): Promise<string> {
+    const ctx = currentContext();
+    const id = uuidv7();
+    await tx.auditLog.create({
+      data: {
+        id,
+        action: entry.action,
+        entityType: entry.entityType,
+        entityId: entry.entityId ?? null,
+        old: entry.old ?? undefined,
+        new: entry.new ?? undefined,
+        reason: entry.reason ?? null,
+        clientUuid: entry.clientUuid ?? null,
+        onBehalfOfUserId: entry.onBehalfOfUserId ?? null,
+        actorUserId: entry.actorUserId ?? ctx?.userId ?? null,
+        actorRole: ctx?.actorRole ?? null,
+        ip: ctx?.ip ?? null,
+        deviceSessionId: ctx?.deviceSessionId ?? null,
+        requestId: ctx?.requestId ?? null,
+      },
+    });
+    if (ctx) ctx.auditCount += 1;
+    return id;
+  }
+}

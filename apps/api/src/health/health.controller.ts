@@ -1,5 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { RawResponse } from '../core/envelope';
+import { RateLimit } from '../rate-limit/rate-limit';
 
 /**
  * Liveness probe for Caddy and the IT team's uptime check (SYSTEM_ARCHITECTURE section 10).
@@ -7,6 +8,7 @@ import { RawResponse } from '../core/envelope';
  * probe with database, storage and queue checks arrives in T1.6.
  */
 @RawResponse()
+@RateLimit('none')
 @Controller('health')
 export class HealthController {
   @Get('live')

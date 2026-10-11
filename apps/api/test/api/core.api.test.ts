@@ -6,6 +6,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { AppModule } from '../../src/app.module';
+import { Audit } from '../../src/audit/audit.decorator';
 import { configureApp } from '../../src/bootstrap';
 import { ok, page } from '../../src/core/envelope';
 import { pageQuery } from '../../src/core/pagination';
@@ -35,6 +36,7 @@ class ProbeController {
   }
 
   @Post('echo')
+  @Audit('none')
   echo(@ZBody(body) input: z.infer<typeof body>) {
     return ok({ name: input.name });
   }
