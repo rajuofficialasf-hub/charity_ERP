@@ -1,7 +1,7 @@
 # Project status (Claude updates this at the end of every task; read it at the start of every session)
 
-- Last updated: 2026-10-10
-- Current phase: 0 (Requirement & Architecture Freeze) - COMPLETE, pending management sign-off (docs/gates/PHASE_0_SIGNOFF.md; tag gate-phase-0)
+- Last updated: 2026-10-11
+- Current phase: 0 (Requirement & Architecture Freeze) - COMPLETE and signed off 2026-10-11 (O-50; docs/gates/PHASE_0_SIGNOFF.md; tag gate-phase-0 pushed). Phase 1 starts with T1.1.
 - Last completed task: T0.22 - Phase 0 gate (see the T0.22 line below).
 - T0.8 done (2026-10-10) - System architecture and ADRs: docs/architecture/SYSTEM_ARCHITECTURE.md complete; ADR-001..006 written; ADR index renumbered (007..011 planned). Design choices made in T0.8 were approved by the owner on 2026-10-10 as D-054..D-057 with implementation requirements (see DECISION_LOG section 3 and SYSTEM_ARCHITECTURE sections 2.1 and 10). (T0.1 and T0.7 done the same day; T0.2..T0.6 delivered inside T0.1.)
 - T0.9 done (2026-10-10): docs/architecture/AUTH.md complete (registration with two OTPs and the dummy-OTP path, password rules, tokens and device sessions, lockout, account states, remote revocation and local wipe, permission-version refresh, handover, Main Admin protection, rate limits, audit events). Values not covered by O-05 were proposed in AUTH.md section 14 and approved the same day as O-25 (BR-231..233).
@@ -21,7 +21,7 @@
 - T0.20 done (2026-10-10): docs/ui/I18N.md complete (principles, locale resolution, message catalogue with ICU and typed keys, no-hard-coded-strings rule with four enforcement layers, server-side localization per output, one formatter with an exact format table including O-42 Taka display and 12-hour time with Bengali day periods, NFC and digit normalization, bilingual-data inventory and rules, fallback table, exports/PDF/email/SMS, third-language process, tests, implementation map). Owner answers O-43 (both languages required for configuration, Hijri withdrawn, no runtime message overrides, 12-hour time) and technical choices O-44 recorded; BR-221 retired, BR-243 to BR-245 added; export_jobs.locale added; hijri_date removed from user preferences; i18n.manage description corrected; mockup times converted to 12-hour.
 - T0.21 done (2026-10-10): docs/testing/TEST_STRATEGY.md complete (principles, pyramid and tools, coverage per layer incl. the 12 critical journeys mapped to gates, load, accessibility, visual, security, data integrity, offline, i18n, smoke; test data strategy; coverage targets; CI gate stages; BR test-status tracking; environments; per-gate run table; flaky-test policy). docs/security/SECURITY_POLICY.md complete (roles, data classification, OWASP Top 10 mapping, authentication and sessions, authorization and field protection, input validation, web and transport security, uploads, secrets, logging, dependencies, error handling, audit event map, retention, backups, devices, privacy, incident response, secure release, pre-production checklist, exceptions). Owner answers O-45 (logs 90 days, incidents to IT lead and Department Head within 24 hours, no external pentest for now) and technical choices O-46 recorded; NFR targets confirmed as O-47; [L] tables append-only by trigger; BR-221 status wording corrected to retired; API_STANDARDS section references corrected.
 - T0.22 done (2026-10-10): Phase 0 gate. Three read-only reviews (blueprint C3 coverage; stale items and contradictions; naming of roles, states, permissions, entities, modules, screens, tasks); all findings fixed in 39 documents and mockup files (blueprint and constitution untouched); owner answers recorded as O-49 (pilot may use the dummy OTP with written approval, real SMS gateway before rollout beyond the pilot; project close/reopen of unfinished applications; UX-09 and UX-10 final; implementing officer = assigned Project Executive or RPM); O-34 schedule applied to PLAN (documentation module T5.4 after T6.1); schema additions applications.submitted_by/completed_by and profile_merges.status/proposed_by/proposed_at; ADR-011 written; permissions.yaml YAML defect fixed; docs/gates/PHASE_0_SIGNOFF.md written with the English checklist and the Bengali management summary; tag gate-phase-0.
-- Next task: T1.1 - Repository scaffold and toolchain, only after the management sign-off of Phase 0. Do not start Phase 1 work before the signature.
+- Next task: T1.1 - Repository scaffold and toolchain (Phase 1). Prerequisite: Docker Desktop running (checked 2026-10-11: not running; pnpm installed).
 - Blocking items: none.
 - Git: the owner pushed main to origin on 2026-10-10 up to ceb4e50 (verified: main...origin/main in sync); later commits are local until the next push.
 
@@ -57,12 +57,12 @@ Outlines (headings plus one line per section; completed in the task named in eac
 ## Open decisions waiting on the owner
 - None. Question 30 answered by O-38 (reference list seeds) and O-39 (pg_trgm, audit_log partitioning, GPS columns, mobile check, no row-level security).
 - NFR PROPOSAL rows confirmed by O-47 (T0.21). Deferred to production preparation by O-48 (not blocking): IT team approval of NFR-31, NFR-33, NFR-35 and NFR-42; incident contacts in RUNBOOK.md; CI provider (T1.1).
-- Questions 1..30 are answered (decisions O-01..O-49; full list in DECISION_LOG sections 5 and 6). Management sign-off of Phase 0 is the only open step before T1.1. Interpretations recorded in O-03, O-09, O-16 and O-22 stand unless the owner corrects them. Architecture choices of T0.8 are D-054..D-057.
+- Questions 1..30 are answered (decisions O-01..O-49; full list in DECISION_LOG sections 5 and 6). Phase 0 was signed off on 2026-10-11 (O-50). Interpretations recorded in O-03, O-09, O-16 and O-22 stand unless the owner corrects them. Architecture choices of T0.8 are D-054..D-057.
 
 ## Prerequisites still open (checked 2026-10-10)
 Needed for development (before T1.1):
-- pnpm is not installed on the owner's machine (`npm install -g pnpm`).
-- Docker Desktop was not running (postgres, minio, mailpit via Docker Compose).
+- pnpm installed (checked 2026-10-11).
+- Docker Desktop was not running on 2026-10-11 (Docker CLI 29.8.2 and Compose v5.5.1 installed; the engine must be started before T1.1 for postgres, minio, mailpit).
 
 Resolved before production, not now (O-36); none blocks Phase 0 or development:
 - SMS provider (O-33); the adapter runs in dry-run mode until then.
