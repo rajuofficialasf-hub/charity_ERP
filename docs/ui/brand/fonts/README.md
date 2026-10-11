@@ -24,3 +24,10 @@ Copied on 2026-10-10 from https://assunnahfoundation.org/fonts/ with the owner's
 - UbuntuSans draws Latin letters and all digits. Bornomala draws the Bengali script.
 - The full UbuntuSans file is 318 KB. A subset (Basic Latin, digits, punctuation) is much lighter, but under the Ubuntu Font Licence a subset is a Modified Version, and clause 2(c) requires its internal font name to carry the suffix "derivative X", for example "Ubuntu Sans derivative CSS ERP". The other choice is to ship the original file unmodified and precache it in the PWA. The CSS family alias `UbuntuSans` is not affected.
 - Self-host only, with `font-display: swap`. No external font CDN at runtime.
+
+## What the application ships (T1.4, D-065)
+
+- `packages/ui/fonts/` holds the files the application serves: `UbuntuSans-derivative-CSSERP.woff2` (25,184 bytes; subset of Basic Latin, Latin-1, general punctuation and the minus sign; weight axis 400 to 700, width axis pinned at 100; internal name "Ubuntu Sans derivative CSS ERP" as clause 2(c) requires; OpenType features tnum, pnum, case, frac, liga and kerning kept), the two Bornomala files unmodified, and both licence texts.
+- The subset is built by `packages/ui/scripts/subset-ubuntu-sans.py` with Python fontTools 4.60.1 and brotli 1.1.0 (a development tool, not a project dependency); rerun it only when the source file here changes.
+- `apps/web/scripts/next.mjs` copies the folder to `apps/web/public/fonts/` before `dev` and `build`, so the fonts and licence texts are served at `/fonts/` and the service worker can precache stable URLs (T2.7). The CSS families stay `UbuntuSans` and `Bornomala` (`packages/ui/src/styles/fonts.css`).
+- The files in this folder stay the original website copies used by the mockups.

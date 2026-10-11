@@ -44,6 +44,28 @@ The owner asked for a premium, polished look before Phase 1 screens are built (U
 
 Verification after the refresh (same Playwright scripts as below): 45 of 45 renders clean, 51 of 51 interaction checks passed, axe-core 0 violations at 360 and 1280 px. Text on gradients was checked by calculation against the lightest stop (DESIGN_SYSTEM §2.6a): hero title 5.38:1, hero subtitle 4.95:1, hero secondary button and chips 4.64:1, primary button top edge 4.82:1.
 
+## T1.4 implementation deviations (packages/ui, 2026-10-11)
+
+`packages/ui` ports `tokens.css` and `components.css` into React components on React Aria (D-064). Gallery screenshots at 360 and 1280 px were compared with these mockups; everything else matches. Differences:
+
+| # | Component | Mockup | packages/ui | Reason |
+|---|---|---|---|---|
+| 1 | Date field | not shown | React Aria date picker at every size, dd-mm-yyyy segments, popover on desktop and bottom sheet on phones | O-55: native inputs show the phone's own format |
+| 2 | Searchable select, combobox | not shown | list in a popover with the field look; search box above 10 options | DESIGN_SYSTEM 5.4 |
+| 3 | Button, loading | `aria-busy` | React Aria keeps the button focusable, `aria-disabled`, pending announced | React Aria pending semantics |
+| 4 | Ghost button on a status tint | dark green text | ink text with an underline | axe: dark green on the danger tint is 4.49:1 |
+| 5 | Small button on phones | 36 px high | 36 px high with a 44 px hit area | DESIGN_SYSTEM 2.8 |
+| 6 | Table on phones | table rows restyled as cards by CSS (`data-label`) | a separate card list from `cardRenderer`; the whole card opens the row | DESIGN_SYSTEM 5.7: the phone list is a `<ul>`, only the visible layout is in the accessibility tree |
+| 7 | Table row checkbox | "select" plus the row name in the label | React Aria adds the row header to the short label | avoids the name being read twice |
+| 8 | Bulk-update row | actions always beside the text | actions wrap under the text only when a long label leaves no room | Bengali names stayed readable at 360 px |
+| 9 | Checkbox, radio, switch | native inputs restyled with `appearance: none` and data-URI glyphs | hidden native input (React Aria) with a drawn box, ring or track; same colours and sizes | React Aria pattern, no hex in data URIs |
+| 10 | Table header and dialog scrim | backdrop blur at every width | blur only from 1024 px | DESIGN_SYSTEM 7 item 4 |
+| 11 | Stat card | amber-green top line only inside `.grid-stats` | on every stat card | one component, one look |
+| 12 | Breadcrumb on phones | hidden | a back link with the parent's name | DESIGN_SYSTEM 5.14 |
+| 13 | Tabs | not shown with more than five tabs | more than five tabs become a select on phones | DESIGN_SYSTEM 5.13 |
+| 14 | Drawer | blocking | blocking only; the non-blocking variant comes with its first screen | scope of T1.4 |
+| 15 | Screen-reader texts | n/a | a few React Aria built-in texts stay English in the Bengali interface | React Aria has no Bengali strings (ADR-012) |
+
 ## Deviations from the design system
 
 | # | Where | Deviation | Reason / proposal |

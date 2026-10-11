@@ -1,6 +1,6 @@
 # DESIGN SYSTEM
 
-Status: complete for Phase 0, written in task T0.19 (2026-10-10); premium refresh for UX-14 on 2026-10-11 (elevation, gradients, motion and component finish below), approved by the owner the same day (O-54). This is the binding UI specification for the clickable mockups (T0.19b), `packages/ui` (T1.4) and every screen built afterwards. Screens are listed in `docs/ui/SCREENS.md`.
+Status: complete for Phase 0, written in task T0.19 (2026-10-10); premium refresh for UX-14 on 2026-10-11 (elevation, gradients, motion and component finish below), approved by the owner the same day (O-54); implemented in `packages/ui` in task T1.4 (2026-10-11, see §12). This is the binding UI specification for the clickable mockups (T0.19b), `packages/ui` (T1.4) and every screen built afterwards. Screens are listed in `docs/ui/SCREENS.md`.
 
 Sources and precedence: the owner's latest instruction, then `docs/ui/DESIGN_BRIEF.md` (owner decisions UX-01 to UX-13), then `docs/DECISION_LOG.md` O-40 (the design-system choices of this task), then constitution §11 and §12, then this document. Colours, contrast values and fonts come from `docs/ui/brand/colors.md` and `docs/ui/brand/fonts/README.md`. No colour may be used that is not listed in §2.1. A new token needs a decision in DECISION_LOG.md first.
 
@@ -108,7 +108,7 @@ Rules:
 - The phone body is 16 px; dense desktop tables and panels use 14 px (colors.md §4 recommendation, O-40). T0.19b checks the 16 px phone body on rendered screens and reports any problem.
 - Caption is 12 px, not the constitution's 11 px, because Bengali conjuncts and vowel signs are unreadable at 11 px (O-40).
 - Line height is 1.5 for body text and never below 1.4 for any text that may contain Bengali (Bornomala's vowel signs above and below the line need the room).
-- Tables, amounts, counts and ids use `font-variant-numeric: tabular-nums` so columns align. T1.4 confirms that UbuntuSans exposes the `tnum` feature; if it does not, numbers are right-aligned without it.
+- Tables, amounts, counts and ids use `font-variant-numeric: tabular-nums` so columns align. T1.4 confirmed that the shipped UbuntuSans subset keeps the `tnum` feature (D-065).
 
 ### 2.5 Font files
 
@@ -118,12 +118,10 @@ Rules:
 | Bornomala | `Bornomala-Regular.woff2` | `font-weight: 400` |
 | Bornomala | `Bornomala-Bold.woff2` | `font-weight: 700` |
 
-All three use `font-display: swap`, are self-hosted (no font CDN at runtime) and precached by the service worker (T2.7). The licence texts travel with the files (fonts README). UbuntuSans draws Latin letters and all digits. Bornomala draws Bengali, the danda (।) and the taka sign (৳). Whether the application ships the original 318 KB UbuntuSans file or a Latin subset renamed "Ubuntu Sans derivative CSS ERP" (required by the Ubuntu Font Licence clause 2(c)) is decided in T1.4 against the NFR-15 budget; the mockups use the original files.
+All three use `font-display: swap`, are self-hosted (no font CDN at runtime) and precached by the service worker (T2.7). The licence texts travel with the files (fonts README). UbuntuSans draws Latin letters and all digits. Bornomala draws Bengali, the danda (।) and the taka sign (৳). The application ships a Latin subset of UbuntuSans renamed "Ubuntu Sans derivative CSS ERP" as the Ubuntu Font Licence clause 2(c) requires: Basic Latin, Latin-1, general punctuation and the minus sign, weight axis 400 to 700, 25 KB instead of 318 KB (D-065, T1.4). Its `@font-face` carries the matching `unicode-range`; the files and licences are in `packages/ui/fonts/` and are served at `/fonts/`. The mockups use the original files.
 
 ### 2.6 Elevation (O-40)
 
-| Token | Value | Use |
-|---|---|---|
 Layered shadows tinted with brand ink (UX-14): a tight contact shadow plus a soft ambient one; never pure black.
 
 | Token | Value | Use |
@@ -362,7 +360,7 @@ Form builder, project setup, permission panel, template and checklist editors, a
 
 ## 5. Component inventory
 
-Every base component of constitution §12, built once in `packages/ui` (T1.4) and reused everywhere. Each component accepts `className` only for layout (margin, grid placement), never to change its colours or typography. All visible text comes from i18n keys. Accessibility behaviour follows the WAI-ARIA Authoring Practices pattern named; the headless primitive library is chosen in T1.4 with an ADR (O-40 item 8).
+Every base component of constitution §12, built once in `packages/ui` (T1.4) and reused everywhere. Each component accepts `className` only for layout (margin, grid placement), never to change its colours or typography. All visible text comes from i18n keys. Accessibility behaviour follows the WAI-ARIA Authoring Practices pattern named; the headless primitive library is React Aria Components (D-064, ADR-012). The components' own texts ("required", "close", pager words) come from the app through `UiProvider` (`UiMessages`); `packages/ui` ships no text.
 
 **Premium finish (UX-14).** Every component below follows the same finish, implemented in the refreshed mockups (`docs/ui/mockups/components.css`):
 - **Surfaces:** cards, tables, attention items and panels use `--elevation-1` with `--border-subtle`; clickable cards lift 2 px with `--elevation-hover` on hover; stat cards carry the `--gradient-accent-line` top line and a 24 px (phone) / 28 px (desktop) value in brand ink.
@@ -395,7 +393,8 @@ Supporting pieces used by several components: **Icon** (Lucide, 20 px default, 1
 - **secondary:** fill `--color-bg-muted`, text `--color-brand-primary-dark`, 1 px `--color-brand-primary-dark` border (the website's soft button with the accessible green).
 - **ghost:** no fill, text `--color-brand-primary-dark`; for tertiary actions and table row actions.
 - **danger:** fill `--color-status-danger`, white text (5.44:1); only for destructive or rejecting actions and always followed by a Confirm dialog.
-- States: hover, focus (`--focus-ring`), pressed, disabled (fill `--color-bg-muted`, text `--color-text-secondary`, no pointer events, still focusable when a tooltip explains why), loading (spinner replaces the start icon, label stays, `aria-busy="true"`, clicks ignored).
+- States: hover, focus (`--focus-ring`), pressed, disabled (fill `--color-bg-muted`, text `--color-text-secondary`, no pointer events; a tooltip explaining why arrives with the Tooltip component when a screen needs it), loading (spinner replaces the start icon, label stays, clicks ignored; React Aria keeps the button focusable, marks it `aria-disabled` and announces the pending state instead of `aria-busy`, T1.4).
+- On status tints (alerts, offline banner) a ghost button uses ink with an underline, because dark green reaches only 4.49:1 on the danger tint (found by axe in T1.4).
 - Accessibility: native `<button>`; links that navigate are `<a>` styled as buttons. Icon-only buttons need `aria-label` and a tooltip. One primary button per region.
 - Do not: put two primary buttons side by side; use amber or status colours other than danger; use a button for navigation between pages.
 
@@ -467,7 +466,7 @@ Control types:
 - **Text** (`text`, `long_text` with auto-growing textarea, `email`, `phone` with `inputmode="tel"`, `nid` with `inputmode="numeric"` and length hint 10/13/17).
 - **Number** (`number`, `decimal`, `money` with ৳ prefix): `inputmode="numeric"` or `"decimal"`, English digits only, Bengali digits typed by a user are converted on input by the formatting utility.
 - **Select** (single, with search when more than 10 options; multi-select as a checkbox list in a sheet on phones); **Radio** group; **Checkbox** group; the "অন্যান্য" (other) option opens a text input inside the same field (BD-14).
-- **Date / time / datetime**: native inputs on phones (reliable on Android and iOS), a calendar popover on desktop; values shown with English digits in the I18N date format.
+- **Date / time / datetime**: the React Aria date picker at every size (O-55): segments typed with the numeric keypad and shown as dd-mm-yyyy with English digits; the calendar opens as a popover on desktop and as a bottom sheet on phones. Native date inputs are not used because they show the phone's own format.
 - **File**: see File upload (§5.12).
 - **Address**: the Bangladesh address cascade (division, district, upazila, union; no ward, O-09) as chained selects from the cached locations master; each select is disabled until its parent is chosen.
 
@@ -540,7 +539,7 @@ Phone: a modal becomes a full-height bottom sheet with the footer actions sticky
 
 ### 5.9 Drawer
 
-A side panel for detail without leaving the list (tablet split view, filters on desktop, preview in setup screens). Props: `side` (`right`, `bottom`), `title`, `width` (420 px default), `open`, `onClose`. On phones every drawer becomes a bottom sheet (max height 90 percent, drag handle that is also a close button). Accessibility: like Modal when it blocks the page; as a complementary region when it does not.
+A side panel for detail without leaving the list (tablet split view, filters on desktop, preview in setup screens). Props: `side` (`right`, `bottom`), `title`, `width` (420 px default), `open`, `onClose`. On phones every drawer becomes a bottom sheet (max height 90 percent, drag handle that is also a close button). Accessibility: like Modal when it blocks the page; as a complementary region when it does not (the non-blocking variant is built with the first screen that needs it; T1.4 ships the blocking drawer).
 
 ### 5.10 Confirm dialog
 
@@ -583,7 +582,7 @@ States per file: selected (local preview), compressing, queued (offline, pending
 
 ### 5.13 Tabs
 
-Props: `items` (id, label, count), `value`, `onChange`, `variant` (`line`, `segmented` for two or three short options). The active tab has a 2 px green underline and Bold label. On phones tabs scroll horizontally with the active tab kept in view; more than five tabs become a select. Accessibility (APG tabs): `role="tablist"`, arrow keys move between tabs, Home and End, the panel is labelled by its tab. Tab state is kept in the URL for shareable views.
+Props: `items` (id, label, count), `value`, `onChange`, `variant` (`line`, `segmented` for two or three short options). The active tab has a 3 px brand-gradient underline and Bold label (UX-14). On phones tabs scroll horizontally with the active tab kept in view; more than five tabs become a select. Accessibility (APG tabs): `role="tablist"`, arrow keys move between tabs, Home and End, the panel is labelled by its tab. Tab state is kept in the URL for shareable views.
 
 ### 5.14 Breadcrumb
 
@@ -593,7 +592,7 @@ Props: `items` (label, href). Shown on tablet and desktop; on phones replaced by
 
 | Component | Props | Look |
 |---|---|---|
-| EmptyState | `icon`, `title`, `message`, `action` | Centered icon (48 px, secondary colour), title, one sentence, one action (for example "create the first application"). No illustrations |
+| EmptyState | `icon`, `title`, `message`, `action` | The simple illustration of UX-14: the icon in brand dark green on a `--gradient-soft` disc with two faint rings, title, one sentence, one action (for example "create the first application") |
 | Skeleton | `shape` (`text`, `row`, `card`, `stat`), `count` | Muted blocks matching the final layout, no shimmer animation when reduced motion is set; lists show 3 to 5 skeleton rows |
 | ErrorState | `title`, `message`, `requestId`, `onRetry` | Icon, plain message from the error key, "retry" button, and the request id in Caption so support can trace it (API_STANDARDS error envelope) |
 
@@ -761,7 +760,13 @@ Light theme only for now (DESIGN_BRIEF §2 item 3). The system is ready for a da
 ## 12. Implementation notes
 
 - **T0.19b mockups:** `docs/ui/mockups/tokens.css` copies §2.9 exactly; `components.css` implements §5 including the UX-14 premium finish (refreshed 2026-10-11); Lucide SVGs and the font files are copied locally; nothing loads from the internet at view time.
-- **T1.4 packages/ui:** tokens in one CSS file plus a TypeScript constants file (breakpoints for Tailwind), Tailwind theme bound to the CSS variables, the components of §5 documented in this file, axe tests per component, the headless primitive library chosen with an ADR, the UbuntuSans subset decision (§2.5).
+- **T1.4 packages/ui (done 2026-10-11):**
+  - Tokens: `src/styles/tokens.css` equals §2.9 (a test compares them); `src/breakpoints.ts` holds the breakpoints; `@css/ui/tailwind.css` is the Tailwind 4 preset (D-066): utilities resolve to the token variables, Tailwind's default palette, spacing, type scale, shadows, radii and letter spacing are removed, so `p-5` is `--space-5` (24 px) and `bg-red-500` does not exist.
+  - Styles: `@css/ui/styles.css` (tokens, fonts, base layer, one CSS file per component in `@layer components`, `ui-` class prefix), ported from the approved `docs/ui/mockups/components.css`; components style React Aria state attributes (`data-hovered`, `data-pressed`, `data-focus-visible`, `data-selected`).
+  - Components: Button, Badge and StatusBadge, Card, StatCard, AttentionCard, TextField (text, email, NID), TextArea, NumberField (integer, decimal, money), PhoneField, Select, Combobox, DateField, Checkbox, CheckboxGroup, RadioGroup, FileUpload, Form, FormSection, FormGrid, FormActions, ErrorSummary, NavItem, RowToggle and Switch, Table and TableToolbar, Modal, Drawer, ConfirmDialog, Alert, Tabs, Breadcrumb, EmptyState, Skeleton, ErrorState, OfflineBanner, BulkList and BulkRow, Timeline, ProgressBar; supporting Icon, Avatar, Spinner. Each has RTL, keyboard and axe tests in both languages.
+  - Gallery: `/dev/components` in `apps/web` (dev and E2E builds only) shows every component in bn and en; Playwright checks it at 360×640 and 1280×800 with axe including colour contrast.
+  - Deviations from the mockups and gaps: listed in `docs/ui/mockups/README.md` ("T1.4 implementation deviations"). React Aria has no Bengali strings; where a component has no prop for one of its built-in screen-reader texts, the English text is read in the Bengali interface.
+  - Not in T1.4: app shell, hero header, toast, photo tile, sticky action bar and tooltip (page-level or later tasks: T1.15, T2.7, T3.1).
 - **T1.5:** the formatting utility for digits, numbers, dates and currency (I18N.md).
 - **T1.15:** app shell and My Work homes per SCREENS.md.
 - **T2.4:** form renderer (§6.3). **T2.7:** font precache, iOS banners, offline banner wiring. **T2.8:** PDF exports embed UbuntuSans and Bornomala.

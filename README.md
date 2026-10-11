@@ -57,7 +57,7 @@ The web app runs at http://localhost:3000 and the API at http://localhost:4000 (
 | `apps/api` | NestJS REST API (`/api/v1`), Prisma schema and migrations in `prisma/` |
 | `apps/web` | Next.js PWA (App Router), service worker, Playwright tests in `e2e/` |
 | `packages/shared` | Pure TypeScript shared by API and PWA: zod schemas, permission names, i18n keys, business-rule functions |
-| `packages/ui` | Design system components |
+| `packages/ui` | Design system: React Aria components, design tokens, Tailwind preset, self-hosted fonts |
 | `packages/config` | Shared tsconfig, ESLint and Prettier configuration |
 | `infra/` | Docker Compose file for development services |
 | `scripts/` | Repository checks (`check-docs.mjs`) |
@@ -70,7 +70,7 @@ The web app runs at http://localhost:3000 and the API at http://localhost:4000 (
 | `pnpm build` | Builds every package and app |
 | `pnpm test` | Unit, component, API and database integration tests (Vitest, all packages; the database tests need `docker compose up -d`) |
 | `pnpm test:coverage` | The same with a coverage report |
-| `pnpm e2e` | Builds the PWA and runs Playwright (mobile and desktop) |
+| `pnpm e2e` | Builds the packages and the PWA with the dev component gallery, then runs Playwright (mobile and desktop) |
 | `pnpm lint` | ESLint and the Prettier check (`pnpm format` rewrites) |
 | `pnpm typecheck` | TypeScript in every package |
 | `pnpm docs:check` | Parses and validates permissions.yaml, openapi.yaml, workflow templates and JSON Schemas; Redocly lint |
