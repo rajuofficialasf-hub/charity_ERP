@@ -6,9 +6,10 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
-import { type MessageKey, translate } from '@css/shared/i18n';
+import { type MessageKey, type MessageParams, translate } from '@css/shared/i18n';
 import type { Request, Response } from 'express';
-import { ApiError } from './api-error';
+import { currentContext } from '../core/request-context';
+import { ApiError, type ApiErrorDetail } from './api-error';
 import { requestLocale } from './request-locale';
 
 /** Catalogue codes for Nest's own HTTP exceptions (API_STANDARDS 8). */
@@ -25,9 +26,9 @@ const CODE_BY_STATUS: Partial<Record<number, string>> = {
 };
 
 /**
- * Renders every error as the error block of API_STANDARDS 3 with the message in the request
- * language (I18N 5): `{ error: { code, messageKey, message } }`. Unknown failures become
- * `server.internal` without stack traces or SQL (BR-210). T1.6 adds requestId and details.
+ * Renders every error as the error block of API_STANDARDS 3 in the request language (I18N 5):
+ * `{ error: { code, messageKey, message, details?, requestId } }`. Unknown failures become
+ * `server.internal`; stack traces and SQL stay in the server log (BR-210).
  */
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
@@ -38,12 +39,15 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const req = http.getRequest<Request>();
     const res = http.getResponse<Response>();
     const locale = requestLocale(req);
+    const requestId =
+      currentContext()?.requestId ?? (res.getHeader('X-Request-Id') as string | undefined);
 
     let status: number;
     let code: string;
-    let params: ApiError['params'];
+    let params: MessageParams | undefined;
+    let details: ApiErrorDetail[] | undefined;
     if (exception instanceof ApiError) {
-      ({ status, code, params } = exception);
+      ({ status, code, params, details } = exception);
     } else if (exception instanceof HttpException) {
       status = exception.getStatus();
       // eslint-disable-next-line security/detect-object-injection -- numeric HTTP status into a constant table
@@ -51,14 +55,33 @@ export class ApiExceptionFilter implements ExceptionFilter {
     } else {
       status = HttpStatus.INTERNAL_SERVER_ERROR;
       code = 'server.internal';
-      this.logger.error(exception instanceof Error ? exception.message : 'non-error exception');
+      this.logger.error(
+        exception instanceof Error ? (exception.stack ?? exception.message) : 'non-error exception',
+      );
     }
-    const messageKey = `errors.${code}`;
+    if (res.headersSent) return;
+    const render = (c: string, p?: MessageParams) =>
+      translate(locale, `errors.${c}` as MessageKey, p);
     res
       .status(status)
       .setHeader('Content-Language', locale)
       .json({
-        error: { code, messageKey, message: translate(locale, messageKey as MessageKey, params) },
+        error: {
+          code,
+          messageKey: `errors.${code}`,
+          message: render(code, params),
+          ...(details?.length
+            ? {
+                details: details.map((d) => ({
+                  path: d.path,
+                  code: d.code,
+                  messageKey: `errors.${d.code}`,
+                  message: render(d.code, d.params),
+                })),
+              }
+            : {}),
+          requestId,
+        },
       });
   }
 }

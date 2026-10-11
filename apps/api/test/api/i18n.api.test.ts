@@ -5,6 +5,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/bootstrap';
+import { testEnv } from '../support/env';
 import { ApiError } from '../../src/i18n/api-error';
 
 // A route that raises catalogue errors, mounted only in this test.
@@ -29,7 +30,7 @@ describe('API errors in the request language (I18N 2 and 5, API_STANDARDS 3 and 
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [AppModule, ProbeModule],
+      imports: [AppModule.register(testEnv()), ProbeModule],
     }).compile();
     app = configureApp(moduleRef.createNestApplication({ logger: false }));
     await app.init();
@@ -42,7 +43,7 @@ describe('API errors in the request language (I18N 2 and 5, API_STANDARDS 3 and 
   it('answers in bn by default', async () => {
     const res = await request(app.getHttpServer()).get('/api/v1/does-not-exist').expect(404);
     expect(res.headers['content-language']).toBe('bn');
-    expect(res.body).toEqual({
+    expect(res.body).toMatchObject({
       error: {
         code: 'permission.not_found',
         messageKey: 'errors.permission.not_found',
@@ -70,7 +71,7 @@ describe('API errors in the request language (I18N 2 and 5, API_STANDARDS 3 and 
       .get('/api/v1/i18n-probe/nid')
       .set('Accept-Language', 'en')
       .expect(422);
-    expect(res.body.error).toEqual({
+    expect(res.body.error).toMatchObject({
       code: 'validation.nid_format',
       messageKey: 'errors.validation.nid_format',
       message: 'The NID must have 10, 13 or 17 digits.',

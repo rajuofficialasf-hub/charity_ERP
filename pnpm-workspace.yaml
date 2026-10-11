@@ -14,6 +14,8 @@ allowBuilds:
   msw: false
   # next-intl's message extractor watcher (not used; T1.5): no install script.
   '@parcel/watcher': false
+  # usage telemetry pulled in by swagger-ui-dist (@nestjs/swagger, T1.6): never runs.
+  '@scarf/scarf': false
 
 overrides:
   # @swc/core 1.16 refuses to load its native binding when the Windows user cache folder grants

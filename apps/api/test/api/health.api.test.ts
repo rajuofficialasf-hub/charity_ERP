@@ -5,12 +5,15 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/bootstrap';
+import { testEnv } from '../support/env';
 
 describe('GET /health/live', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const moduleRef = await Test.createTestingModule({
+      imports: [AppModule.register(testEnv())],
+    }).compile();
     app = configureApp(moduleRef.createNestApplication());
     await app.init();
   });

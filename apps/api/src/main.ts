@@ -6,7 +6,7 @@ import { loadEnv } from './config/env';
 
 async function bootstrap(): Promise<void> {
   const env = loadEnv(process.env);
-  const app = configureApp(await NestFactory.create(AppModule));
+  const app = configureApp(await NestFactory.create(AppModule.register(env), { bufferLogs: true }));
   await app.listen(env.PORT);
 }
 
