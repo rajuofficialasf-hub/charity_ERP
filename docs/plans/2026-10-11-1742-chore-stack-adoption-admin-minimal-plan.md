@@ -108,7 +108,7 @@ The owner chose the organization's engineering standard (assunnah-engineering pl
   - existing: covered by `apps/api/test/api/{core,guards,openapi-drift}.api.test.ts`, `apps/api/test/integration/{pagination,audit-idempotency}.test.ts` (factories change, assertions stay).
 - **Done when:** those five test files pass on Express and `pnpm --filter @css/api openapi:generate` runs without error.
 - **Depends on:** U2 · **Size:** L · **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U4. Authentication, sessions, users and `/me/language` on Express
 - **Goal:** Every T1.7 operation is served by Express routes behind one `requireAccess` middleware with identical behaviour.
@@ -249,8 +249,8 @@ The owner chose the organization's engineering standard (assunnah-engineering pl
 
 ## Progress
 - **Branch:** `migrate/org-stack-admin-minimal`
-- **Updated:** 2026-10-11 18:10
-- **Next:** U3, `defineRoute` with the OpenAPI registry, `validate`, `send`, express-rate-limit limiters and the audit route wrapper; port core, guards, openapi-drift, pagination and audit-idempotency tests
+- **Updated:** 2026-10-11 18:15
+- **Next:** checkpoint C1 (test + review of U2 and U3), then U4: `requireAccess` middleware and the auth, sessions, users and me routes on `defineRoute`
 - **Uncommitted:** none
 - **Reviewed through:** none yet
-- **Notes:** U2: Nest services keep their decorators until U6 (both apps compile; the Express container constructs them with `new`); `trust proxy` accepts the D-072 string or a hop count (`http/security.ts`); the built `dist/server.js` answered live, ready (all three checks up) and a 404 error block on port 4010. U1 baseline (2026-10-11, NestJS): api + api-db 27 files, 193 tests: unit `src/auth/auth.spec.ts`, `src/config/{db-guard,env}.spec.ts`, `src/core/pagination.spec.ts`, `src/locations/convert.spec.ts`, `src/notifications/adapters.spec.ts`, `src/storage/filesystem-storage.spec.ts`; API `test/api/{core,guards,health-ready,health,i18n}.api.test.ts`, `test/api/openapi-drift.test.ts`; integration `test/integration/{audit-idempotency,auth,constraints,jobs,locations,migrations,minio-storage,notifications,pagination,password,seed,sessions-users,triggers,user-language}.test.ts`; E2E `apps/web/e2e/{auth,gallery,home}.spec.ts` 39 passed, 3 skipped. The owner pushes `main` manually and does not open pull requests; this branch is merged into `main` by the owner (fast-forward) when the plan is done, or earlier at a checkpoint on request. U10 to U12 wait for the owner's confirmation of the Minimal licence.
+- **Notes:** U3: `pagination.test.ts` and `audit-idempotency.test.ts` never used the Nest app (they construct the services), so they are unchanged; express-rate-limit windows of a class are chained with the tightest window last so its headers win; a request refused by the minute window has already counted in the hour window (same as the Nest guard). U2: Nest services keep their decorators until U6 (both apps compile; the Express container constructs them with `new`); `trust proxy` accepts the D-072 string or a hop count (`http/security.ts`); the built `dist/server.js` answered live, ready (all three checks up) and a 404 error block on port 4010. U1 baseline (2026-10-11, NestJS): api + api-db 27 files, 193 tests: unit `src/auth/auth.spec.ts`, `src/config/{db-guard,env}.spec.ts`, `src/core/pagination.spec.ts`, `src/locations/convert.spec.ts`, `src/notifications/adapters.spec.ts`, `src/storage/filesystem-storage.spec.ts`; API `test/api/{core,guards,health-ready,health,i18n}.api.test.ts`, `test/api/openapi-drift.test.ts`; integration `test/integration/{audit-idempotency,auth,constraints,jobs,locations,migrations,minio-storage,notifications,pagination,password,seed,sessions-users,triggers,user-language}.test.ts`; E2E `apps/web/e2e/{auth,gallery,home}.spec.ts` 39 passed, 3 skipped. The owner pushes `main` manually and does not open pull requests; this branch is merged into `main` by the owner (fast-forward) when the plan is done, or earlier at a checkpoint on request. U10 to U12 wait for the owner's confirmation of the Minimal licence.

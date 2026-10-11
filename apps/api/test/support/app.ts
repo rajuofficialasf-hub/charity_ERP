@@ -1,5 +1,5 @@
-import type { Express, Router } from 'express';
-import { createApp } from '../../src/app';
+import type { Express } from 'express';
+import { type AppOptions, createApp } from '../../src/app';
 import type { Env } from '../../src/config/env';
 import {
   closeContainer,
@@ -7,10 +7,12 @@ import {
   type ContainerOptions,
   createContainer,
 } from '../../src/container';
+import type { RouteRegistry } from '../../src/openapi/registry';
 import { testEnv } from './env';
 
 export interface TestApp {
   app: Express;
+  registry: RouteRegistry;
   container: Container;
   close: () => Promise<void>;
 }
@@ -25,7 +27,7 @@ export function buildTestApp(
     envOverrides?: Record<string, string>;
     overrides?: ContainerOptions['overrides'];
     logStream?: ContainerOptions['logStream'];
-    routers?: Router[];
+    routers?: AppOptions['extraRouters'];
   } = {},
 ): TestApp {
   const env = options.env ?? testEnv(options.envOverrides);
@@ -33,6 +35,9 @@ export function buildTestApp(
     overrides: options.overrides,
     logStream: options.logStream,
   });
-  const app = createApp(container, { logStream: options.logStream, extraRouters: options.routers });
-  return { app, container, close: () => closeContainer(container) };
+  const { app, registry } = createApp(container, {
+    logStream: options.logStream,
+    extraRouters: options.routers,
+  });
+  return { app, registry, container, close: () => closeContainer(container) };
 }

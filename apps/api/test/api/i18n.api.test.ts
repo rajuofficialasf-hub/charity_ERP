@@ -17,7 +17,7 @@ describe('API errors in the request language (I18N 2 and 5, API_STANDARDS 3 and 
   let t: TestApp;
 
   beforeAll(() => {
-    t = buildTestApp({ routers: [probe] });
+    t = buildTestApp({ routers: [() => probe] });
   });
 
   afterAll(async () => {

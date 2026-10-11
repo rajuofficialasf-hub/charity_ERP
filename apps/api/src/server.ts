@@ -9,7 +9,7 @@ const SHUTDOWN_GRACE_MS = 10_000;
 const env = loadEnv(process.env);
 const container = createContainer(env);
 const { logger } = container;
-const app = createApp(container);
+const { app } = createApp(container);
 
 const server = createServer(app);
 server.listen(env.PORT, () => {

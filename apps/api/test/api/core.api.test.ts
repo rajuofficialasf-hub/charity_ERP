@@ -1,52 +1,78 @@
-import 'reflect-metadata';
 import { Writable } from 'node:stream';
-import { Controller, Get, type INestApplication, Module, Post } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
+import { Router } from 'express';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { AppModule } from '../../src/app.module';
-import { Audit } from '../../src/audit/audit.decorator';
-import { configureApp } from '../../src/bootstrap';
-import { ok, page } from '../../src/core/envelope';
 import { pageQuery } from '../../src/core/pagination';
-import { ZBody, ZQuery } from '../../src/core/validation';
-import { testEnv } from '../support/env';
-import { Public } from '../../src/openapi/api-contract';
+import { ok, page } from '../../src/http/send';
+import { defineRoute, type RouteDeps } from '../../src/openapi/define-route';
+import { buildTestApp, type TestApp } from '../support/app';
 
 const body = z.strictObject({
   name: z.string().min(1).max(10),
   nid: z.string().regex(/^\d{10}$/, { message: 'validation.nid_format' }),
 });
+const listQuery = pageQuery.extend({ status: z.string().optional() });
 
-// Test probe outside the contract: public for the AuthGuard (T1.7).
-@Public()
-@Controller('core-probe')
-class ProbeController {
-  @Get('one')
-  one() {
-    return ok({ id: '1' });
-  }
-
-  @Get('plain')
-  plain() {
-    return { hello: 'world' };
-  }
-
-  @Get('list')
-  list(@ZQuery(pageQuery.extend({ status: z.string().optional() })) query: { limit: number }) {
-    return page([{ id: 'a' }], { nextCursor: null, prevCursor: null, limit: query.limit });
-  }
-
-  @Post('echo')
-  @Audit('none')
-  echo(@ZBody(body) input: z.infer<typeof body>) {
-    return ok({ name: input.name });
-  }
+// Test probes outside the contract, declared like real routes.
+function probes(deps: RouteDeps): Router {
+  const router = Router();
+  const base = {
+    tag: 'probe',
+    permission: 'public',
+    scope: 'none',
+    audit: 'none',
+    idempotency: 'none' as const,
+    rateLimit: 'default' as const,
+    responses: { 200: null },
+  };
+  defineRoute(router, deps, {
+    ...base,
+    method: 'get',
+    path: '/core-probe/one',
+    operationId: 'probe.one',
+    summary: 'one',
+    handler: () => ok({ id: '1' }),
+  });
+  defineRoute(router, deps, {
+    ...base,
+    method: 'get',
+    path: '/core-probe/plain',
+    operationId: 'probe.plain',
+    summary: 'plain',
+    handler: () => ({ hello: 'world' }),
+  });
+  defineRoute<unknown, z.infer<typeof listQuery>>(router, deps, {
+    ...base,
+    method: 'get',
+    path: '/core-probe/list',
+    operationId: 'probe.list',
+    summary: 'list',
+    query: listQuery,
+    handler: ({ query }) =>
+      page([{ id: 'a' }], { nextCursor: null, prevCursor: null, limit: query.limit }),
+  });
+  defineRoute<z.infer<typeof body>>(router, deps, {
+    ...base,
+    method: 'post',
+    path: '/core-probe/echo',
+    operationId: 'probe.echo',
+    summary: 'echo',
+    body,
+    handler: ({ body: input }) => ok({ name: input.name }),
+  });
+  defineRoute(router, deps, {
+    ...base,
+    method: 'post',
+    path: '/core-probe/empty',
+    operationId: 'probe.empty',
+    summary: 'empty',
+    status: 204,
+    responses: { 204: null },
+    handler: () => undefined,
+  });
+  return router;
 }
-
-@Module({ controllers: [ProbeController] })
-class ProbeModule {}
 
 const lines: string[] = [];
 const logStream = new Writable({
@@ -57,35 +83,31 @@ const logStream = new Writable({
 });
 
 describe('API core: envelope, request id, validation, logging (API_STANDARDS 3, 7)', () => {
-  let app: INestApplication;
+  let t: TestApp;
 
-  beforeAll(async () => {
-    const env = testEnv({ LOG_LEVEL: 'info' });
-    const moduleRef = await Test.createTestingModule({
-      imports: [AppModule.register(env, { logStream }), ProbeModule],
-    }).compile();
-    app = configureApp(moduleRef.createNestApplication());
-    await app.init();
+  beforeAll(() => {
+    t = buildTestApp({ envOverrides: { LOG_LEVEL: 'info' }, logStream, routers: [probes] });
   });
 
   afterAll(async () => {
-    await app.close();
+    await t.close();
   });
 
   it('wraps results in { data, meta.requestId } and echoes X-Request-Id', async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(t.app)
       .get('/api/v1/core-probe/one')
       .set('X-Request-Id', 'caddy-request-0001')
       .expect(200);
     expect(res.headers['x-request-id']).toBe('caddy-request-0001');
     expect(res.body).toEqual({ data: { id: '1' }, meta: { requestId: 'caddy-request-0001' } });
-    const plain = await request(app.getHttpServer()).get('/api/v1/core-probe/plain').expect(200);
+    const plain = await request(t.app).get('/api/v1/core-probe/plain').expect(200);
     expect(plain.body.data).toEqual({ hello: 'world' });
     expect(plain.body.meta.requestId).toMatch(/^req_[0-9a-f]{32}$/);
+    await request(t.app).post('/api/v1/core-probe/empty').expect(204);
   });
 
   it('ignores a forwarded request id that could inject into logs', async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(t.app)
       .get('/api/v1/core-probe/one')
       .set('X-Request-Id', 'bad id <script> with spaces')
       .expect(200);
@@ -93,13 +115,9 @@ describe('API core: envelope, request id, validation, logging (API_STANDARDS 3, 
   });
 
   it('returns list pages with pagination meta and rejects unknown query parameters', async () => {
-    const res = await request(app.getHttpServer())
-      .get('/api/v1/core-probe/list?limit=10')
-      .expect(200);
+    const res = await request(t.app).get('/api/v1/core-probe/list?limit=10').expect(200);
     expect(res.body.meta).toMatchObject({ limit: 10, nextCursor: null, prevCursor: null });
-    const bad = await request(app.getHttpServer())
-      .get('/api/v1/core-probe/list?limt=10')
-      .expect(400);
+    const bad = await request(t.app).get('/api/v1/core-probe/list?limt=10').expect(400);
     expect(bad.body.error).toMatchObject({
       code: 'validation.unknown_parameter',
       details: [{ path: 'limt', code: 'validation.unknown_parameter' }],
@@ -108,7 +126,7 @@ describe('API core: envelope, request id, validation, logging (API_STANDARDS 3, 
   });
 
   it('reports field problems as 422 validation.failed with localized details', async () => {
-    const en = await request(app.getHttpServer())
+    const en = await request(t.app)
       .post('/api/v1/core-probe/echo')
       .set('Accept-Language', 'en')
       .send({ name: '', nid: '12' })
@@ -125,10 +143,7 @@ describe('API core: envelope, request id, validation, logging (API_STANDARDS 3, 
         },
       ],
     });
-    const bn = await request(app.getHttpServer())
-      .post('/api/v1/core-probe/echo')
-      .send({ name: 'ক' })
-      .expect(422);
+    const bn = await request(t.app).post('/api/v1/core-probe/echo').send({ name: 'ক' }).expect(422);
     expect(bn.body.error.details[0]).toMatchObject({
       path: 'nid',
       code: 'validation.required',
@@ -137,7 +152,7 @@ describe('API core: envelope, request id, validation, logging (API_STANDARDS 3, 
   });
 
   it('answers malformed JSON with 400 validation.malformed', async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(t.app)
       .post('/api/v1/core-probe/echo')
       .set('Content-Type', 'application/json')
       .send('{"name": ')
@@ -147,7 +162,7 @@ describe('API core: envelope, request id, validation, logging (API_STANDARDS 3, 
 
   it('logs one line per request without bodies, query strings or secrets', async () => {
     lines.length = 0;
-    await request(app.getHttpServer())
+    await request(t.app)
       .post('/api/v1/core-probe/echo?mobile=01700000001')
       .set('Authorization', 'Bearer secret-token-value')
       .set('Cookie', 'refresh=secret-cookie')
@@ -165,7 +180,7 @@ describe('API core: envelope, request id, validation, logging (API_STANDARDS 3, 
   });
 
   it('keeps health probes outside the envelope', async () => {
-    const res = await request(app.getHttpServer()).get('/health/live').expect(200);
+    const res = await request(t.app).get('/health/live').expect(200);
     expect(res.body).toEqual({ status: 'up' });
   });
 });

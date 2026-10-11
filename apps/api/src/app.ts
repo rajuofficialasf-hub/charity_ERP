@@ -5,6 +5,9 @@ import { RequestContextMiddleware } from './core/request-context.middleware';
 import { healthRouter } from './health/routes';
 import { errorHandler, notFound } from './http/errors';
 import { corsAllowlist, requestLogging, securityHeaders, trustProxySetting } from './http/security';
+import type { RouteDeps } from './openapi/define-route';
+import { RouteRegistry } from './openapi/registry';
+import { createRateLimiters } from './rate-limit/limiters';
 
 export const API_PREFIX = 'api/v1';
 
@@ -14,8 +17,14 @@ export const JSON_BODY_LIMIT = '100kb';
 export interface AppOptions {
   /** Test hook: where log lines go (default stdout). */
   logStream?: DestinationStream;
-  /** Routers mounted under /api/v1 after the built-in ones (test probes). */
-  extraRouters?: Router[];
+  /** Routers mounted under /api/v1 after the built-in ones (test probes), built with the route deps. */
+  extraRouters?: ((deps: RouteDeps) => Router)[];
+}
+
+/** The app plus the registry its routes were declared in (OpenAPI generation, drift test). */
+export interface BuiltApp {
+  app: Express;
+  registry: RouteRegistry;
 }
 
 /**
@@ -23,7 +32,7 @@ export interface AppOptions {
  * the same way). The order matters (SYSTEM_ARCHITECTURE 6): client address → logging → request
  * context → security headers → CORS → JSON → health probes → /api/v1 routes → 404 → errors.
  */
-export function createApp(c: Container, options: AppOptions = {}): Express {
+export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
   const app = express();
   app.set('trust proxy', trustProxySetting(c.env.TRUST_PROXY));
   app.disable('x-powered-by');
@@ -35,11 +44,13 @@ export function createApp(c: Container, options: AppOptions = {}): Express {
   // Probes come before the limiters, so a busy client cannot make the API look down.
   app.use(healthRouter(c.health));
 
+  const registry = new RouteRegistry();
+  const deps: RouteDeps = { registry, limiters: createRateLimiters(c.env), logger: c.logger };
   const api = Router();
-  for (const router of options.extraRouters ?? []) api.use(router);
+  for (const build of options.extraRouters ?? []) api.use(build(deps));
   app.use(`/${API_PREFIX}`, api);
 
   app.use(notFound);
   app.use(errorHandler(c.logger));
-  return app;
+  return { app, registry };
 }
