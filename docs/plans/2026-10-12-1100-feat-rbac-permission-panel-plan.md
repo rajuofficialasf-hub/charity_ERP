@@ -111,7 +111,7 @@ None block the plan.
   - integration: the loader against the fixtures returns the expected grants for an RPM of Dhaka, a Project Executive under that RPM, a volunteer on two projects, a team member (`own_created`) and the Department Head.
 - **Done when:** both test files pass.
 - **Depends on:** U1 · **Size:** L · **Risk area:** auth
-- **Status:** todo
+- **Status:** done
 
 ### U3. Scope resolution and enforcement on every endpoint
 - **Goal:** `requireAccess` decides every request with the engine, data access applies the scope filter, out-of-scope single records answer 404, and the existing endpoints keep their behaviour for allowed callers.
@@ -225,8 +225,8 @@ None block the plan.
 
 ## Progress
 - **Branch:** `feat/rbac-permission-panel`
-- **Updated:** 2026-10-12 11:35
-- **Next:** U2: effective permissions (`apps/api/src/access/effective.ts`, pure merge function and its unit tests first)
+- **Updated:** 2026-10-12 12:00
+- **Next:** checkpoint C2 (review of U2), then U3: scope resolution (`apps/api/src/access/scope.ts`) and the switch of `requireAccess`
 - **Reviewed through:** C1 at 8861af0
 - **Uncommitted:** none
-- **Notes:** C1: no P0/P1; the worker also loads permissions.yaml through `createContainer` (fail-closed), so the T3.0 worker image must contain the file too (written in the env comment; DEPLOYMENT in U9). U1: permission names may contain digits (`i18n.manage`); zod errors report the offending input; `loadAccessRegistry` caches per path and process; `RouteDeps.permissions` is the registry (the existing `RouteDeps.access` stays the middleware factory); the drift fixture now drifts with a known but different permission because unknown names cannot be registered any more.
+- **Notes:** U2: volunteers hold the SELF defaults of their role directly and their non-SELF defaults only per assigned project; a set permission whose defaults for the user's roles are all `if_rpm_grants` needs the extra; set and extra grants take the scope of the role default (else SELF for volunteers, PROJECT for staff); a revoke at GLOBAL removes the permission everywhere, a PROJECT revoke removes the grants bound to that project, other revokes match scope type and ref; `createContainer` refuses a YAML condition without a check; the Vitest fork crash ("Worker exited unexpectedly", no test failed) was seen again once and did not repeat in two reruns. C1: no P0/P1; the worker also loads permissions.yaml through `createContainer` (fail-closed), so the T3.0 worker image must contain the file too (written in the env comment; DEPLOYMENT in U9). U1: permission names may contain digits (`i18n.manage`); zod errors report the offending input; `loadAccessRegistry` caches per path and process; `RouteDeps.permissions` is the registry (the existing `RouteDeps.access` stays the middleware factory); the drift fixture now drifts with a known but different permission because unknown names cannot be registered any more.

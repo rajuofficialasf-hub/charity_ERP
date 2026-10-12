@@ -1,5 +1,6 @@
 import type { DestinationStream, Logger } from 'pino';
 import pino from 'pino';
+import { assertConditionsCovered } from './access/conditions';
 import { type AccessRegistry, loadAccessRegistry } from './access/registry';
 import { AuditWriter } from './audit/audit-writer';
 import { OtpDeliveryService, OtpService } from './auth/otp.service';
@@ -107,6 +108,9 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const permissionVersions = o.permissionVersions ?? new PermissionVersionService(audit, sessions);
   const otpDelivery = o.otpDelivery ?? new OtpDeliveryService(env, sms, email, logger);
   const otp = o.otp ?? new OtpService(env, prisma, clock, otpDelivery);
+  // permissions.yaml must name only conditions the access module can check (R5).
+  const accessRegistry = o.accessRegistry ?? loadAccessRegistry(env.PERMISSIONS_FILE);
+  assertConditionsCovered(accessRegistry);
   return {
     env,
     logger,
@@ -120,7 +124,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     inApp: o.inApp ?? new InAppAdapter(),
     jobs,
     health,
-    accessRegistry: o.accessRegistry ?? loadAccessRegistry(env.PERMISSIONS_FILE),
+    accessRegistry,
     hasher,
     tokens,
     sessions,
