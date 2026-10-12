@@ -15,7 +15,12 @@ export interface Principal {
   permissionVersion: number;
 }
 
-export type AuthedRequest = Request & { principal?: Principal; scope?: Scope };
+export type AuthedRequest = Request & {
+  principal?: Principal;
+  scope?: Scope;
+  /** The protected field classes the caller may see (RBAC.md 6); absent means none. */
+  fieldClasses?: ReadonlySet<string>;
+};
 
 /** The caller's scope for the route's permission and entity, set by the access middleware. */
 export function scopeOf(req: AuthedRequest): Scope {

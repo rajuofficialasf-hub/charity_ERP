@@ -4,6 +4,7 @@ import { Router } from 'express';
 import yaml from 'js-yaml';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { sensitive } from '../../src/access/field-mask';
 import { buildOpenApiDocument } from '../../src/openapi/build-document';
 import { defineRoute, type RouteDeps } from '../../src/openapi/define-route';
 import { compareWithContract, PERMISSION_MARKERS } from '../../src/openapi/drift';
@@ -139,5 +140,42 @@ describe('OpenAPI drift test (API_STANDARDS 16)', () => {
     expect(register({ permission: 'permission.view', scope: 'none' })).toThrow(
       /held below GLOBAL and needs a scope entity/,
     );
+  });
+
+  // The field mask needs the response schema (U4 of the plan above).
+  it('refuses a route with protected data but no response schema, or with undeclared classes', () => {
+    const register = (over: Record<string, unknown>) => () =>
+      buildTestApp({
+        routers: [
+          (deps) => {
+            const router = Router();
+            defineRoute(router, deps, {
+              ...contractOf,
+              audit: 'none',
+              method: 'get',
+              path: '/probe-mask',
+              operationId: 'probe.mask',
+              responses: { 200: null },
+              ...over,
+              handler: () => null,
+            });
+            return router;
+          },
+        ],
+      });
+    expect(register({ scope: 'volunteer' })).toThrow(/needs a response schema/);
+    expect(register({ sensitiveFields: ['volunteer.bank'] })).toThrow(/needs a response schema/);
+    expect(register({ sensitiveFields: ['volunteer.money'] })).toThrow(
+      /unknown sensitive field class volunteer\.money/,
+    );
+    const marked = z.object({
+      data: z.object({ nid: sensitive(z.string(), 'volunteer.identity') }),
+    });
+    expect(register({ responses: { 200: marked } })).toThrow(
+      /marks volunteer\.identity but does not declare it/,
+    );
+    expect(
+      register({ responses: { 200: marked }, sensitiveFields: ['volunteer.identity'] }),
+    ).not.toThrow();
   });
 });

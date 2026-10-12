@@ -27,6 +27,11 @@ export function page<T>(rows: T[], meta: PageMeta): Enveloped {
   return ok(rows, { ...meta });
 }
 
+/** Applies `fn` to the data of a handler result, keeping the envelope meta of `ok()`/`page()`. */
+export function mapData(value: unknown, fn: (data: unknown) => unknown): unknown {
+  return isEnveloped(value) ? ok(fn(value.data), value.meta) : fn(value);
+}
+
 function isEnveloped(value: unknown): value is Enveloped {
   return typeof value === 'object' && value !== null && ENVELOPE in value;
 }

@@ -1,8 +1,11 @@
 import type { Request, RequestHandler, Response, Router } from 'express';
 import type { Logger } from 'pino';
+import type { ZodType } from 'zod';
+import { maskData, sensitiveClassesOf } from '../access/field-mask';
 import { type AccessRegistry, SCOPE_ENTITIES } from '../access/registry';
+import type { AuthedRequest } from '../auth/principal';
 import { assertAudited, WRITE_METHODS } from '../audit/write-route';
-import { send } from '../http/send';
+import { mapData, send } from '../http/send';
 import { validate, validatedOf } from '../http/validate';
 import type { RateLimiters } from '../rate-limit/limiters';
 import { type HttpMethod, type OperationSpec, type RouteRegistry } from './registry';
@@ -65,6 +68,7 @@ export function defineRoute<B = unknown, Q = unknown, P = Record<string, unknown
     ?.defaults.some((d) => d.scope !== 'GLOBAL');
   if (scoped && spec.scope === 'none')
     throw new Error(`${where}: ${spec.permission} is held below GLOBAL and needs a scope entity`);
+  const dataSchema = maskedDataSchema(where, spec, status, deps.permissions);
   deps.registry.add({ ...spec, method, path });
 
   const run: RequestHandler = async (req, res, next) => {
@@ -78,7 +82,18 @@ export function defineRoute<B = unknown, Q = unknown, P = Record<string, unknown
         res,
       });
       if (WRITE_METHODS.has(method)) assertAudited(spec.audit, where, deps.logger);
-      send(res, value, status);
+      // Only the declared fields leave, minus the classes the caller may not see (RBAC.md 6).
+      const visible = (req as AuthedRequest).fieldClasses ?? new Set<string>();
+      const body = dataSchema
+        ? mapData(value, (data) =>
+            maskData(
+              dataSchema,
+              dataSchema.parse(JSON.parse(JSON.stringify(data ?? null))),
+              visible,
+            ),
+          )
+        : value;
+      send(res, body, status);
     } catch (error) {
       next(error);
     }
@@ -90,4 +105,36 @@ export function defineRoute<B = unknown, Q = unknown, P = Record<string, unknown
     validate({ body: spec.body, query: spec.query, params: spec.params }),
     run,
   );
+}
+
+/** Entities whose records carry protected fields: their routes always declare a response schema. */
+const MASKED_ENTITIES = new Set(['volunteer', 'beneficiary', 'application']);
+
+/**
+ * The schema of the success response's `data`, which the field mask runs on (RBAC.md 6, O-62). A
+ * route of a masked entity or with declared sensitive fields needs one; a schema may mark only the
+ * classes the route declares in `sensitiveFields` (the contract's `x-sensitive-fields`).
+ */
+function maskedDataSchema(
+  where: string,
+  spec: OperationSpec,
+  status: number,
+  registry: AccessRegistry,
+): ZodType | undefined {
+  const declared = spec.sensitiveFields ?? [];
+  for (const cls of declared)
+    if (!registry.sensitiveFields.some((c) => c.key === cls))
+      throw new Error(`${where}: unknown sensitive field class ${cls}`);
+  if (status === 204) return undefined;
+  const schema = Object.hasOwn(spec.responses, status) ? spec.responses[status] : null;
+  if (!schema) {
+    if (MASKED_ENTITIES.has(spec.scope) || declared.length)
+      throw new Error(`${where}: needs a response schema for ${status} (field mask, RBAC.md 6)`);
+    return undefined;
+  }
+  for (const cls of sensitiveClassesOf(schema))
+    if (!declared.includes(cls))
+      throw new Error(`${where}: the response schema marks ${cls} but does not declare it`);
+  const shape = (schema as unknown as { shape?: Record<string, ZodType> }).shape;
+  return shape && Object.hasOwn(shape, 'data') ? shape.data : schema;
 }

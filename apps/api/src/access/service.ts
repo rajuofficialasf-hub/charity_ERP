@@ -6,10 +6,15 @@ import { currentContext } from '../core/request-context';
 import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import { type EffectiveAccess, effectiveAccess, loadAccessFacts } from './effective';
+import { visibleFieldClasses } from './field-mask';
 import type { AccessRegistry } from './registry';
 import { makeScope, NO_INSTANCES, resolveInstances, type Scope, userWhere } from './scope';
 
 const ACCOUNT_KINDS = { in: ['staff', 'volunteer'] };
+
+export interface RequestAccess extends EffectiveAccess {
+  fieldClasses: ReadonlySet<string>;
+}
 
 /**
  * The access decisions of a request (RBAC.md 8, NE-SEC-03): the caller's effective access, the
@@ -24,13 +29,19 @@ export class AccessService {
     private readonly logger: Logger,
   ) {}
 
-  /** The effective grants and instance revokes of a user, computed per request. */
-  async load(userId: string): Promise<EffectiveAccess> {
-    return effectiveAccess(
-      this.registry,
-      await loadAccessFacts(this.prisma, userId),
-      this.clock.now(),
-    );
+  /**
+   * The effective grants and instance revokes of a user, computed per request, and the protected
+   * field classes the user's roles (account and project roles) may see.
+   */
+  async load(userId: string): Promise<RequestAccess> {
+    const facts = await loadAccessFacts(this.prisma, userId);
+    return {
+      ...effectiveAccess(this.registry, facts, this.clock.now()),
+      fieldClasses: visibleFieldClasses(this.registry, [
+        ...facts.roles,
+        ...facts.projectStaff.map((s) => s.roleKey),
+      ]),
+    };
   }
 
   /** The scope handle for the route's permission and entity (made only here). */

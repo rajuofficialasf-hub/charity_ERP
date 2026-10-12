@@ -95,6 +95,7 @@ export function requireAccess(deps: AccessDeps): (rule: AccessRule) => RequestHa
           throw new ApiError('permission.denied', 403);
         }
         req.scope = scope;
+        req.fieldClasses = access.fieldClasses;
         next();
       } catch (error) {
         next(error);
