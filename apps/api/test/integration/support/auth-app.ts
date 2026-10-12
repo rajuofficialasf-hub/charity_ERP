@@ -56,6 +56,8 @@ export async function authHarness(
     extraRouters?: AppOptions['extraRouters'];
     /** A fixture permission catalogue instead of docs/security/permissions.yaml. */
     accessRegistry?: AccessRegistry;
+    /** Services replaced for the test (a recording notification hook). */
+    overrides?: Partial<Container>;
   } = {},
 ): Promise<AuthHarness> {
   const clone = await cloneTemplate(inject('templateDb'));
@@ -73,6 +75,7 @@ export async function authHarness(
   });
   const container = createContainer(env, {
     overrides: {
+      ...options.overrides,
       clock,
       ...(options.accessRegistry ? { accessRegistry: options.accessRegistry } : {}),
     },

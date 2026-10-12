@@ -29,6 +29,15 @@ export const SENSITIVE_KEYS = [
   'email',
   'bankAccount',
   'accountNumber',
+  'bankAccountNumber',
+  'bankAccountName',
+  'bankRoutingNumber',
+  'bank',
+  'referenceNid',
+  'registrationToken',
+  'x-registration-token',
+  'mobileCode',
+  'emailCode',
   'secret',
 ];
 

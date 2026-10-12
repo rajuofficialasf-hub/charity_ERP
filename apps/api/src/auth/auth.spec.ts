@@ -233,3 +233,25 @@ describe('auth rate-limit keys (AUTH.md 12)', () => {
     expect(error.retryAfterSeconds).toBe(900);
   });
 });
+
+describe('registration rate-limit windows (DECISION_LOG D-082, D-088)', () => {
+  const req = (body: unknown) => ({ body, ip: '10.0.0.1', headers: {} }) as never;
+
+  it('caps starts at 10 per address and day besides the code windows', () => {
+    expect(RATE_LIMITS.registration.map((w) => [w.limit, w.ttlMs])).toEqual([
+      [10, 86_400_000],
+      [5, 3_600_000],
+      [20, 3_600_000],
+    ]);
+  });
+
+  it('counts reference lookups per address and per NID, the NID only as a hash', () => {
+    const [byIp, byNid] = RATE_LIMITS['reference-lookup'];
+    expect([byIp!.limit, byNid!.limit]).toEqual([20, 5]);
+    const key = byNid!.key(req({ nid: '1000000000123' }));
+    expect(key).toMatch(/^nid:/);
+    expect(key).not.toContain('1000000000123');
+    expect(byNid!.key(req({ nid: '1000000000123' }))).toBe(key);
+    expect(byNid!.key(req({ nid: '1000000000124' }))).not.toBe(key);
+  });
+});

@@ -17,7 +17,7 @@ export const OTP_RULES = {
   maxRequestsPerHour: 5,
 } as const;
 
-export type OtpPurpose = 'registration' | 'password_reset';
+export type OtpPurpose = 'registration' | 'password_reset' | 'contact_change';
 export type OtpChannel = 'sms' | 'email';
 
 export interface OtpTarget {

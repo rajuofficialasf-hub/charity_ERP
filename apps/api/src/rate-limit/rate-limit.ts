@@ -1,3 +1,4 @@
+import { createHmac, randomBytes } from 'node:crypto';
 import type { Request } from 'express';
 import { ipKeyGenerator } from 'express-rate-limit';
 import { normalizeLoginId } from '../auth/login-id';
@@ -12,6 +13,8 @@ export type RateLimitClass =
   | 'refresh'
   | 'public-form'
   | 'reference-read'
+  | 'registration'
+  | 'reference-lookup'
   | 'default'
   | 'sync';
 
@@ -29,6 +32,7 @@ const KEY_MAX_LENGTH = 128;
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
 
 const field = (req: Request, ...names: string[]) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
@@ -59,6 +63,12 @@ const refreshSession = (req: Request) => {
   return match?.[1] ? `sid:${match[1]}` : `ip:${ip(req)}`;
 };
 const caller = (req: Request) => currentContext()?.userId ?? `ip:${ip(req)}`;
+/** An NID is counted only as an HMAC under a per-process key, so no counter holds the number. */
+const NID_KEY = randomBytes(32);
+const nid = (req: Request) => {
+  const value = field(req, 'nid');
+  return value === 'none' ? value : createHmac('sha256', NID_KEY).update(value).digest('base64url');
+};
 
 /** Limits and keys per class (API_STANDARDS 10, O-08, O-25; default and sync are proposals tuned in T3.4). */
 export const RATE_LIMITS: Record<RateLimitClass, Window[]> = {
@@ -88,6 +98,17 @@ export const RATE_LIMITS: Record<RateLimitClass, Window[]> = {
   'public-form': [{ limit: 20, ttlMs: HOUR, key: ip, byIp: true }],
   // Public reference data for the registration form (DECISION_LOG D-083).
   'reference-read': [{ limit: 300, ttlMs: HOUR, key: ip, byIp: true }],
+  // Registration drafts and the team member's reference lookup (DECISION_LOG D-082, D-088); the
+  // 5 lookups per draft are counted on the draft itself.
+  registration: [
+    { limit: 10, ttlMs: DAY, key: ip, byIp: true },
+    { limit: 5, ttlMs: HOUR, key: address },
+    { limit: 20, ttlMs: HOUR, key: ip, byIp: true },
+  ],
+  'reference-lookup': [
+    { limit: 20, ttlMs: DAY, key: ip, byIp: true },
+    { limit: 5, ttlMs: DAY, key: (r) => `nid:${nid(r)}` },
+  ],
   default: [{ limit: 600, ttlMs: MINUTE, key: caller }],
   sync: [{ limit: 60, ttlMs: MINUTE, key: session }],
 };

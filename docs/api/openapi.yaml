@@ -452,10 +452,11 @@ components:
     # ---------------- auth and users ----------------
     RegistrationStartRequest:
       type: object
+      additionalProperties: false
       required: [mobile, email]
       properties:
         mobile: { type: string, pattern: '^01[3-9][0-9]{8}$' }
-        email: { type: string, format: email }
+        email: { type: string, format: email, maxLength: 254 }
         kind: { type: string, enum: [volunteer, staff], default: volunteer }
     RegistrationStart:
       type: object
@@ -471,12 +472,14 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     OtpSendRequest:
       type: object
+      additionalProperties: false
       required: [registrationId, channel]
       properties:
         registrationId: { $ref: '#/components/schemas/Uuid' }
         channel: { type: string, enum: [sms, email] }
     OtpVerifyRequest:
       type: object
+      additionalProperties: false
       required: [registrationId, mobileCode, emailCode]
       properties:
         registrationId: { $ref: '#/components/schemas/Uuid' }
@@ -497,6 +500,7 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     ReferenceLookupRequest:
       type: object
+      additionalProperties: false
       required: [registrationId, nid]
       properties:
         registrationId: { $ref: '#/components/schemas/Uuid' }
@@ -2225,6 +2229,8 @@ paths:
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '410': { $ref: '#/components/responses/Gone' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
   /auth/register/otp/verify:
     post:
@@ -2250,6 +2256,7 @@ paths:
               schema: { $ref: '#/components/schemas/RegistrationVerifiedResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '410': { $ref: '#/components/responses/Gone' }
         '422': { $ref: '#/components/responses/Unprocessable' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
   /auth/register/reference-lookup:
@@ -2278,6 +2285,8 @@ paths:
               schema: { $ref: '#/components/schemas/ReferenceLookupResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '410': { $ref: '#/components/responses/Gone' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
   /auth/register/photos/{slot}:
     parameters:

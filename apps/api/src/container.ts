@@ -24,7 +24,13 @@ import {
   StubSmsAdapter,
 } from './notifications/adapters';
 import { AuthService } from './services/auth';
+import { RegistrationCleanup } from './jobs/registration-cleanup';
+import {
+  LoggingRegistrationEvents,
+  type RegistrationEvents,
+} from './notifications/registration-events';
 import { LocationsService } from './services/locations';
+import { RegistrationService } from './services/registration';
 import { SessionsService } from './services/sessions';
 import { AccessPanelService } from './services/access';
 import { UsersService } from './services/users';
@@ -60,6 +66,9 @@ export interface Container {
   users: UsersService;
   accessPanel: AccessPanelService;
   locations: LocationsService;
+  registrationEvents: RegistrationEvents;
+  registration: RegistrationService;
+  registrationCleanup: RegistrationCleanup;
 }
 
 export interface ContainerOptions {
@@ -116,6 +125,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const accessRegistry = o.accessRegistry ?? loadAccessRegistry(env.PERMISSIONS_FILE);
   assertConditionsCovered(accessRegistry);
   const access = o.access ?? new AccessService(accessRegistry, prisma, clock, logger);
+  const registrationEvents = o.registrationEvents ?? new LoggingRegistrationEvents(logger);
   return {
     env,
     logger,
@@ -145,6 +155,10 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     accessPanel:
       o.accessPanel ?? new AccessPanelService(prisma, access, audit, permissionVersions, clock),
     locations: o.locations ?? new LocationsService(prisma),
+    registrationEvents,
+    registration:
+      o.registration ?? new RegistrationService(env, prisma, clock, otp, audit, registrationEvents),
+    registrationCleanup: o.registrationCleanup ?? new RegistrationCleanup(prisma, storage, logger),
   };
 }
 

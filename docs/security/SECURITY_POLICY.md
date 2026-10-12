@@ -59,7 +59,7 @@ OWASP ASVS level 2 is the checklist of the security audit before go-live (T6.3).
 
 ## 5. Authorization and field-level protection (RBAC.md §8 and §9)
 
-1. Every handler declares its permission and scope; a handler without them cannot be registered. Public endpoints (login, OTP, password reset, public form) declare `@Public()` and are listed in openapi.yaml with `x-permission: public`.
+1. Every handler declares its permission and scope; a handler without them cannot be registered. Public endpoints (login, OTP, password reset, registration start, codes and reference lookup, the locations list, public form) declare `@Public()` and are listed in openapi.yaml with `x-permission: public`.
 2. Check order: rate limit, authentication, role resolution, permission, scope resolution, object-level check, validation, service.
 3. Repositories take a scope object, never a raw user id; lists always filter by scope.
 4. Single records outside the scope return 404, never 403, so existence is not leaked.
@@ -88,7 +88,7 @@ OWASP ASVS level 2 is the checklist of the security audit before go-live (T6.3).
 | CSRF | The access token travels in the `Authorization` header (not a cookie); the refresh cookie requires the `X-CSRF-Token` header and SameSite=Strict |
 | Network | Only ports 80 and 443 public; PostgreSQL, the MinIO admin API, the worker and the metrics endpoint are reachable only on the internal Docker network or with authentication (D-056, D-057, NFR-61) |
 | Outbound | Only the SMTP server, the SMS provider and the backup target; no fetching of user-supplied URLs |
-| Rate limits | Per class of API_STANDARDS §10: login, OTP request, OTP verify, password reset, refresh, public form (O-08: rate-limited, repeated NID or mobile goes to needs verification, no CAPTCHA), default, sync |
+| Rate limits | Per class of API_STANDARDS §10: login, OTP request, OTP verify, password reset, refresh, public form (O-08: rate-limited, repeated NID or mobile goes to needs verification, no CAPTCHA), registration, reference lookup, reference read (D-082, D-083, D-088), default, sync |
 
 ## 8. File upload rules (FILES_AND_DOCUMENTS.md, O-30)
 

@@ -65,10 +65,13 @@ export class JobRunner {
     });
   }
 
-  /** Scheduled job pattern: a cron expression in Asia/Dhaka time for a queue (ADR-004). */
-  async schedule(queue: QueueName, cron: string, data: object = {}): Promise<void> {
+  /**
+   * Scheduled job pattern: a cron expression in Asia/Dhaka time for a queue (ADR-004); `key`
+   * keeps several schedules apart on one queue.
+   */
+  async schedule(queue: QueueName, cron: string, data: object = {}, key?: string): Promise<void> {
     const boss = await this.start(true);
-    await boss.schedule(queue, cron, data, { tz: 'Asia/Dhaka' });
+    await boss.schedule(queue, cron, data, { tz: 'Asia/Dhaka', ...(key ? { key } : {}) });
   }
 
   /** Readiness check: the queue schema is reachable (SYSTEM_ARCHITECTURE 10). */

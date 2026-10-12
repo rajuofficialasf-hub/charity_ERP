@@ -8,6 +8,17 @@ import {
   passwordResetStartRequestSchema,
   type PasswordResetStartRequest,
 } from '@css/shared/auth';
+import {
+  type OtpSendRequest,
+  otpSendRequestSchema,
+  type OtpVerifyRequest,
+  otpVerifyRequestSchema,
+  type ReferenceLookupRequest,
+  referenceLookupRequestSchema,
+  REGISTRATION_TOKEN_HEADER,
+  type RegistrationStartRequest,
+  registrationStartRequestSchema,
+} from '@css/shared/registration';
 import { Router, type Response } from 'express';
 import {
   clearSessionCookies,
@@ -27,7 +38,10 @@ import type { IssuedSession } from '../services/auth';
 const authOp = { tag: 'auth', scope: 'self', idempotency: 'none' as const };
 
 /** Login, refresh, logout, current user and passwords (AUTH.md 3 to 8, openapi tag auth). */
-export function authRouter(deps: RouteDeps, c: Pick<Container, 'auth' | 'env'>): Router {
+export function authRouter(
+  deps: RouteDeps,
+  c: Pick<Container, 'auth' | 'env' | 'registration'>,
+): Router {
   const router = Router();
   const answer = (res: Response, issued: IssuedSession) => {
     setSessionCookies(res, c.env, issued.refreshToken, issued.csrfToken, issued.refreshExpiresAt);
@@ -142,6 +156,74 @@ export function authRouter(deps: RouteDeps, c: Pick<Container, 'auth' | 'env'>):
     body: passwordResetStartRequestSchema,
     responses: { 204: null, 422: null, 429: null },
     handler: ({ body }) => c.auth.resetStart(body.loginId, currentContext()?.locale ?? 'bn'),
+  });
+
+  // Registration before login (AUTH.md 2; DECISION_LOG D-082, D-086, D-088).
+  defineRoute<RegistrationStartRequest>(router, deps, {
+    ...authOp,
+    method: 'post',
+    path: '/auth/register/start',
+    status: 201,
+    operationId: 'auth.registration.start',
+    summary:
+      'Start registration with mobile and email; sends two OTPs (dummy code in dev/test); an existing account is reported only after verification (D-086)',
+    permission: 'public',
+    audit: 'auth.register_started',
+    rateLimit: 'registration',
+    headers: [{ name: 'Accept-Language', required: false }],
+    body: registrationStartRequestSchema,
+    responses: { 201: null, 422: null, 429: null },
+    handler: ({ body }) => c.registration.start(body, currentContext()?.locale ?? 'bn'),
+  });
+
+  defineRoute<OtpSendRequest>(router, deps, {
+    ...authOp,
+    method: 'post',
+    path: '/auth/register/otp/send',
+    status: 204,
+    operationId: 'auth.registration.resendOtp',
+    summary: 'Resend one OTP (mobile or email)',
+    permission: 'public',
+    audit: 'auth.otp_sent',
+    rateLimit: 'otp-request',
+    body: otpSendRequestSchema,
+    responses: { 204: null, 404: null, 410: null, 422: null, 429: null },
+    handler: ({ body }) => c.registration.resend(body, currentContext()?.locale ?? 'bn'),
+  });
+
+  defineRoute<OtpVerifyRequest>(router, deps, {
+    ...authOp,
+    method: 'post',
+    path: '/auth/register/otp/verify',
+    operationId: 'auth.registration.verifyOtp',
+    summary:
+      'Verify both OTPs; returns the draft token once and the form opens (BR-023, D-082); a contact of an existing account answers registration.account_exists (D-086)',
+    permission: 'public',
+    audit: 'auth.otp_verified',
+    rateLimit: 'otp-verify',
+    body: otpVerifyRequestSchema,
+    responses: { 200: null, 404: null, 409: null, 410: null, 422: null, 429: null },
+    handler: async ({ body, res }) => {
+      res.setHeader('Cache-Control', 'no-store');
+      return c.registration.verify(body);
+    },
+  });
+
+  defineRoute<ReferenceLookupRequest>(router, deps, {
+    ...authOp,
+    method: 'post',
+    path: '/auth/register/reference-lookup',
+    operationId: 'auth.registration.referenceLookup',
+    summary:
+      'Name of the active volunteer whose NID a team member gives as reference (verified draft only; limited and audited, D-088)',
+    permission: 'public',
+    audit: 'auth.reference_lookup',
+    rateLimit: 'reference-lookup',
+    headers: [{ name: REGISTRATION_TOKEN_HEADER, required: true }],
+    body: referenceLookupRequestSchema,
+    responses: { 200: null, 401: null, 404: null, 410: null, 422: null, 429: null },
+    handler: ({ body, req }) =>
+      c.registration.referenceLookup(body, req.get(REGISTRATION_TOKEN_HEADER)),
   });
 
   defineRoute<PasswordResetCompleteRequest>(router, deps, {

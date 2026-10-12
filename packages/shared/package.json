@@ -35,6 +35,11 @@
       "@css/source": "./src/access/index.ts",
       "types": "./dist/access/index.d.ts",
       "default": "./dist/access/index.js"
+    },
+    "./registration": {
+      "@css/source": "./src/registration/index.ts",
+      "types": "./dist/registration/index.d.ts",
+      "default": "./dist/registration/index.js"
     }
   },
   "files": [

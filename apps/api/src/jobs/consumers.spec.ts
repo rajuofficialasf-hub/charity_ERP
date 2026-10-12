@@ -1,7 +1,8 @@
 import pino from 'pino';
 import { describe, expect, it, vi } from 'vitest';
-import { HEARTBEAT_CRON, HEARTBEAT_QUEUE, startInlineConsumers } from './consumers';
+import { HEARTBEAT_CRON, HEARTBEAT_QUEUE, JobConsumers, startInlineConsumers } from './consumers';
 import type { JobRunner } from './job-runner';
+import { REGISTRATION_CLEANUP_CRON, type RegistrationCleanup } from './registration-cleanup';
 
 function fakeRunner(failWith?: Error) {
   const work = vi.fn(async () => {
@@ -35,5 +36,29 @@ describe('startInlineConsumers (ADR-004)', () => {
     const { runner } = fakeRunner(new Error('pg-boss is not installed'));
     expect(await startInlineConsumers(dev, runner, logger)).toBe(false);
     expect(lines.join('')).toContain('inline job consumers failed to start');
+  });
+});
+
+describe('the registration cleanup on the maintenance queue (DECISION_LOG D-082)', () => {
+  it('is scheduled under its own key and dispatched by kind', async () => {
+    const { runner, work, schedule } = fakeRunner();
+    const run = vi.fn(async () => ({ files: 2 }));
+    await new JobConsumers(runner, quiet, { run } as unknown as RegistrationCleanup).register();
+    expect(schedule).toHaveBeenCalledWith(
+      HEARTBEAT_QUEUE,
+      REGISTRATION_CLEANUP_CRON,
+      { kind: 'registration-cleanup' },
+      'registration-cleanup',
+    );
+    const handler = (
+      work.mock.calls as unknown as [string, (job: unknown) => Promise<unknown>][]
+    )[0]![1];
+    expect(await handler({ id: 'j1', data: { kind: 'registration-cleanup' } })).toEqual({
+      files: 2,
+    });
+    expect(await handler({ id: 'j2', data: { kind: 'heartbeat' } })).toMatchObject({
+      kind: 'heartbeat',
+    });
+    expect(run).toHaveBeenCalledTimes(1);
   });
 });
