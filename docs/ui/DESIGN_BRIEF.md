@@ -6,7 +6,7 @@ Precedence: the owner's latest instruction, then this brief, then constitution s
 
 ## 1. Owner decisions
 
-Import these into docs/DECISION_LOG.md as the series UX-01 to UX-14 (UX-14 added 2026-10-11), status approved, source "owner interview 2026-10-10" (tasks T0.1 and T0.5).
+Import these into docs/DECISION_LOG.md as the series UX-01 to UX-15 (UX-14 added 2026-10-11, UX-15 on 2026-10-12), status approved, source "owner interview 2026-10-10" (tasks T0.1 and T0.5).
 
 | Id | Decision | Effect |
 |---|---|---|
@@ -24,6 +24,7 @@ Import these into docs/DECISION_LOG.md as the series UX-01 to UX-14 (UX-14 added
 | UX-12 | Volunteers read operational messages, such as correction requests and approvals, inside the app only. No SMS, WhatsApp or email for these for now. | The volunteer home puts "needs your attention" first. SMS is still required for OTP and for Qurbani donor messages (BD-34, BD-44). |
 | UX-13 | Typography follows the website: font stack UbuntuSans, Bornomala, sans-serif, weights 400 and 700 only. | Replaces Hind Siliguri in constitution section 12. Self-hosted files in docs/ui/brand/fonts/: Ubuntu Sans draws Latin letters and digits, Bornomala draws Bengali. Bornomala declares the SIL Open Font License 1.0 in the file itself; its source is https://codepotro.com/font/bornomala/ (owner decision O-32, 2026-10-10). |
 | UX-14 | The interface must look premium, modern and eye-catching, in a polished way rather than a loud one: the brand green stays the action colour; high-quality finish through soft layered shadows, subtle gradients only in headers, hero areas and dashboard highlights, smooth short micro-animations (respecting reduced motion), refined typography and spacing, and carefully designed components (tables with sticky headers, hover and inline actions; custom-styled form fields, selects, toggles, checkboxes; polished cards, badges, dialogs, empty states with simple illustrations). Performance on 2 GB Android phones (NFR-12, NFR-15) and AA contrast stay binding. | Refines UX-02 (calm, institutional) into "premium and polished"; the bold-and-vibrant alternative (large gradients, glass effects, heavy animation) was not chosen. The mockups are refreshed with the premium look and approved by the owner before T1.4 builds packages/ui; DESIGN_SYSTEM.md tokens and components are updated with that refresh. |
+| UX-15 | The admin area (`/admin`: management dashboards and admin settings) uses `packages/ui` and this design system like every other screen; the MUI Minimal template is not adopted because its paid licence cannot be confirmed (2026-10-12). | `/admin` has its own layout (sidebar navigation, header with the user, language switch and log out), loaded as a lazy route; no second UI library in the PWA. |
 
 ## 2. Defaults assumed (not asked; the owner may change them)
 
@@ -103,6 +104,7 @@ Screens of later phases (house construction, self-reliance, dawah, Qurbani, docu
 | UX-12 | NOTIFICATIONS.md (T0.14), volunteer home (T1.15) |
 | UX-13 | DESIGN_SYSTEM.md (T0.19), mockups (T0.19b), packages/ui and fonts (T1.4), PWA font precache (T2.7), PDF export fonts (T2.8) |
 | UX-14 | Premium mockup refresh and DESIGN_SYSTEM.md update done and approved 2026-10-11 (O-54); packages/ui (T1.4), app shell (T1.15) |
+| UX-15 | Admin layout under `/admin` (T1.7d, plan `docs/plans/2026-10-11-1742-chore-stack-adoption-admin-minimal-plan.md`); later admin screens T1.13, dashboards T3.3 and T6.1 |
 
 ## 8. Open items
 

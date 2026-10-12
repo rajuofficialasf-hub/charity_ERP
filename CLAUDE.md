@@ -37,7 +37,7 @@ ERP for the Charity & Social Service Department of As-Sunnah Foundation. The pro
 - Storage: one adapter (`apps/api/src/storage`), S3 driver on self-hosted MinIO marked `TEMP:` until the NAS driver exists, filesystem driver for tests; private buckets, files streamed by the API, no signed URLs (NS-30…NS-44; D-074).
 - Jobs: pg-boss in PostgreSQL, separate worker process (ADR-004) — no Redis. Email: Nodemailer over the organization's SMTP (Mailpit in dev). SMS: provider-agnostic stub until a provider is chosen (O-33).
 - Monorepo and tooling: pnpm 12 workspaces with `@css/*` packages (D-050; the kit's npm layout is not used), Vitest 4, Playwright, ESLint flat config, Prettier; CI on GitHub Actions (O-51).
-- UI: `packages/ui` on React Aria + Tailwind 4 with the brand tokens (D-064); the MUI Minimal template only for admin dashboards and settings (plan `docs/plans/2026-10-11-1742-chore-stack-adoption-admin-minimal-plan.md`, pending the licence confirmation).
+- UI: `packages/ui` on React Aria + Tailwind 4 with the brand tokens for every screen, the admin area included (D-064, UX-15; the MUI Minimal template is not adopted because its licence cannot be confirmed).
 
 ## Repository map and commands
 (Written in T1.1; keep this section current whenever scripts or layout change. Setup and troubleshooting: README.md.)
