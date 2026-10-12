@@ -1,5 +1,6 @@
-# Build contexts of the images (docker/app, later apps/api and apps/web): never the dependencies,
-# builds, environment files, caches or local data.
+# Applies to image builds whose context is the repository root (the production images of
+# apps/api and apps/web, T3.0): never the dependencies, builds, environment files, caches or local
+# data. The development image (docker/app) uses its own folder as context and copies nothing.
 node_modules
 **/node_modules
 **/dist

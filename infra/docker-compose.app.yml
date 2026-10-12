@@ -107,10 +107,14 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
-      minio:
-        condition: service_started
+      # The buckets exist once the bootstrap has run (docker-compose.dev.yml).
+      minio-init:
+        condition: service_completed_successfully
       mailpit:
         condition: service_started
+    # SIGTERM lets the inline job consumers drain for up to 30 s (JobRunner.stop, D-054) before
+    # server.ts gives up; Docker's default 10 s would kill the process first.
+    stop_grace_period: 40s
     restart: unless-stopped
 
   web:
@@ -136,8 +140,9 @@ services:
     depends_on:
       setup:
         condition: service_completed_successfully
+      # The proxy target answers before the first page loads.
       api:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
