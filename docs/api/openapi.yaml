@@ -722,7 +722,7 @@ components:
         scopeType: { type: string, enum: [GLOBAL, PROGRAM, PROJECT, REGION, DISTRICT, UPAZILA, UNION, ASSIGNED, SELF] }
         scopeRef: { $ref: '#/components/schemas/Uuid' }
         condition: { type: string }
-        reason: { type: string, minLength: 3 }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
         expiresAt: { type: string, format: date-time }
     PermissionGrant:
       allOf:
@@ -747,9 +747,10 @@ components:
         userId: { $ref: '#/components/schemas/Uuid' }
         permissions:
           type: array
+          maxItems: 50
           items: { type: string }
           description: Only permissions marked if_rpm_grants in permissions.yaml that the RPM holds
-        reason: { type: string, minLength: 3 }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
 
     # ---------------- volunteers and registration ----------------
     VolunteerSummary:

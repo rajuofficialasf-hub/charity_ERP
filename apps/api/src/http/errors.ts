@@ -31,15 +31,15 @@ function bodyParserError(err: unknown): { status: number; code: string } | undef
   return typeof type === 'string' ? BODY_PARSER_ERRORS[type] : undefined;
 }
 
-/**
- * Renders the error block of API_STANDARDS 3 in the request language (I18N 5):
- * `{ error: { code, messageKey, message, details?, requestId } }`, with `Retry-After` for locks
- * and rate limits. Unknown failures become `server.internal`; stack traces and SQL stay in the
- * server log (BR-210, NE-SEC-11).
- */
 /** Codes whose params are part of the contract and sent to the client (API_STANDARDS 3 and 8). */
 const PUBLIC_PARAMS = new Set(['permission.grant_refused']);
 
+/**
+ * Renders the error block of API_STANDARDS 3 in the request language (I18N 5):
+ * `{ error: { code, messageKey, message, params?, details?, requestId } }`, with `Retry-After` for locks
+ * and rate limits. Unknown failures become `server.internal`; stack traces and SQL stay in the
+ * server log (BR-210, NE-SEC-11).
+ */
 export function sendApiError(
   req: Request,
   res: Response,

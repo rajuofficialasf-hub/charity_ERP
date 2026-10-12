@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { sensitive } from '../../src/access/field-mask';
 import { buildOpenApiDocument } from '../../src/openapi/build-document';
 import { defineRoute, type RouteDeps } from '../../src/openapi/define-route';
-import { compareWithContract, PERMISSION_MARKERS } from '../../src/openapi/drift';
+import { canonicalSchema, compareWithContract, PERMISSION_MARKERS } from '../../src/openapi/drift';
 import { buildTestApp, type TestApp } from '../support/app';
 
 // The generated document must match docs/api/openapi.yaml (API_STANDARDS 16, NFR-54).
@@ -177,5 +177,14 @@ describe('OpenAPI drift test (API_STANDARDS 16)', () => {
     expect(
       register({ responses: { 200: marked }, sensitiveFields: ['volunteer.identity'] }),
     ).not.toThrow();
+  });
+
+  it('ignores only the regex zod writes for a format, never a pattern of the contract', () => {
+    const generated = { type: 'string', format: 'uuid', pattern: '^zod-regex$' };
+    expect(canonicalSchema(generated, true)).toEqual(
+      canonicalSchema({ type: 'string', format: 'uuid' }),
+    );
+    const contract = { type: 'string', format: 'uuid', pattern: '^[0-9a-f-]{36}$' };
+    expect(canonicalSchema(contract)).not.toEqual(canonicalSchema(generated, true));
   });
 });

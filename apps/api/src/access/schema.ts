@@ -1,17 +1,8 @@
+import { SCOPE_TYPES } from '@css/shared/access';
 import { z } from 'zod';
 
-/** Data scopes from broad to narrow (RBAC.md 4, blueprint B4). */
-export const SCOPES = [
-  'GLOBAL',
-  'PROGRAM',
-  'PROJECT',
-  'REGION',
-  'DISTRICT',
-  'UPAZILA',
-  'UNION',
-  'ASSIGNED',
-  'SELF',
-] as const;
+/** Data scopes from broad to narrow (RBAC.md 4, blueprint B4), shared with the API contract. */
+export const SCOPES = SCOPE_TYPES;
 export type ScopeType = (typeof SCOPES)[number];
 
 const grant = z.strictObject({

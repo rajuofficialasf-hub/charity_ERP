@@ -2,6 +2,7 @@ import type {
   EffectivePermission,
   PermissionGrantRequest,
   ProjectGrantRequest,
+  ScopeTypeName,
 } from '@css/shared/access';
 import { uuidv7 } from '@css/shared';
 import { type EffectiveGrant, effectiveAccess, loadAccessFacts } from '../access/effective';
@@ -25,13 +26,13 @@ export type RefusalRule =
 const OWNER_TRANSFER = 'system.owner.transfer';
 const IF_RPM_GRANTS = 'if_rpm_grants';
 /** The location level a scope reference must have (DATABASE_SCHEMA L-location-level). */
-const AREA_LEVEL: Record<string, string> = {
+const AREA_LEVEL: Partial<Record<ScopeTypeName, string>> = {
   REGION: 'division',
   DISTRICT: 'district',
   UPAZILA: 'upazila',
   UNION: 'union',
 };
-const UNBOUND = new Set(['GLOBAL', 'SELF', 'ASSIGNED']);
+const UNBOUND: ReadonlySet<ScopeTypeName> = new Set(['GLOBAL', 'SELF', 'ASSIGNED']);
 
 interface Target {
   id: string;
@@ -136,7 +137,7 @@ export class AccessPanelService {
    */
   private refusal(
     target: Target,
-    change: { permission: string; effect: 'grant' | 'revoke'; scopeType: string },
+    change: { permission: string; effect: 'grant' | 'revoke'; scopeType: ScopeTypeName },
   ): RefusalRule | null {
     if (
       change.effect === 'grant' &&
@@ -154,10 +155,13 @@ export class AccessPanelService {
     return null;
   }
 
-  /** Audits the refused change in its own transaction, then answers 403 with the rule. */
+  /**
+   * Audits a refused change in its own transaction (the change itself wrote nothing), then answers
+   * 409 for the Main Admin (BR-035) or 403 with the rule (D-078).
+   */
   private async refuse(
     targetId: string,
-    rule: RefusalRule,
+    rule: RefusalRule | 'system_owner_protected',
     attempted: Record<string, string | string[] | null>,
     reason: string,
   ): Promise<never> {
@@ -170,7 +174,13 @@ export class AccessPanelService {
         reason,
       }),
     );
+    if (rule === 'system_owner_protected') throw new ApiError('user.system_owner_protected', 409);
     throw new ApiError('permission.grant_refused', 403, { rule });
+  }
+
+  /** Serializes permission changes of one user: role changes and version bumps lock the same row. */
+  private async lockUser(tx: Tx, userId: string): Promise<void> {
+    await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
   }
 
   /** 422 details for a scope reference, a condition or an expiry that does not fit (RBAC.md 7). */
@@ -192,39 +202,38 @@ export class AccessPanelService {
       details.push({ path: 'scopeRef', code: 'validation.required' });
       return details;
     }
+    const level = AREA_LEVEL[body.scopeType];
     const exists =
       body.scopeType === 'PROGRAM'
         ? await db.program.count({ where: { id: ref } })
         : body.scopeType === 'PROJECT'
           ? await db.project.count({ where: { id: ref } })
-          : await db.location.count({ where: { id: ref, level: AREA_LEVEL[body.scopeType] } });
+          : level
+            ? await db.location.count({ where: { id: ref, level } })
+            : 0;
     if (!exists) details.push({ path: 'scopeRef', code: 'validation.option_unknown' });
     return details;
   }
 
   /** Creates a panel override (grant or revoke) for any user (Department Head, Monitoring Team). */
   async grant(actor: Principal, body: PermissionGrantRequest) {
-    const target = await this.target(this.prisma, body.userId);
-    if (!target) throw new ApiError('permission.not_found', 404);
-    // the Main Admin cannot be changed at all, before every other rule (BR-035, D-078)
-    if (target.isSystemOwner) throw new ApiError('user.system_owner_protected', 409);
-    const details = await this.invalid(this.prisma, body);
-    if (details.length) throw new ApiError('validation.failed', 422, undefined, details);
-    const rule = this.refusal(target, body);
-    if (rule)
-      await this.refuse(
-        target.id,
-        rule,
-        {
-          permission: body.permission,
-          effect: body.effect,
-          scopeType: body.scopeType,
-          scopeRef: body.scopeRef ?? null,
-        },
-        body.reason,
-      );
+    const attempted = {
+      permission: body.permission,
+      effect: body.effect,
+      scopeType: body.scopeType,
+      scopeRef: body.scopeRef ?? null,
+    };
     const id = uuidv7();
-    const row = await this.prisma.$transaction(async (tx) => {
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      await this.lockUser(tx, body.userId);
+      const target = await this.target(tx, body.userId);
+      if (!target) throw new ApiError('permission.not_found', 404);
+      // the Main Admin cannot be changed at all, before every other rule (BR-035, D-078)
+      if (target.isSystemOwner) return { refused: 'system_owner_protected' as const };
+      const details = await this.invalid(tx, body);
+      if (details.length) throw new ApiError('validation.failed', 422, undefined, details);
+      const rule = this.refusal(target, body);
+      if (rule) return { refused: rule };
       const old = await this.grantsOf(target.id, tx);
       const created = await tx.userPermission.create({
         data: {
@@ -248,8 +257,10 @@ export class AccessPanelService {
         new: { grants: await this.grantsOf(target.id, tx), override: id },
         reason: body.reason,
       });
-      return created;
+      return { refused: null, created };
     });
+    if (outcome.refused) return this.refuse(body.userId, outcome.refused, attempted, body.reason);
+    const row = outcome.created;
     return {
       id: row.id,
       userId: row.userId,
@@ -268,31 +279,39 @@ export class AccessPanelService {
 
   /** Ends a live panel override with a reason; an ended or unknown one answers 404. */
   async endGrant(actor: Principal, grantId: string, reason: string): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
+    const outcome = await this.prisma.$transaction(async (tx) => {
       const grant = await tx.userPermission.findFirst({
         where: { id: grantId, revokedAt: null },
-        select: { id: true, userId: true, user: { select: { isSystemOwner: true } } },
+        select: { id: true, userId: true },
       });
       if (!grant) throw new ApiError('permission.not_found', 404);
-      if (grant.user.isSystemOwner) throw new ApiError('user.system_owner_protected', 409);
+      await this.lockUser(tx, grant.userId);
+      const target = await this.target(tx, grant.userId);
+      if (target?.isSystemOwner) return { refused: grant.userId };
       const old = await this.grantsOf(grant.userId, tx);
-      await tx.userPermission.update({
-        where: { id: grant.id },
+      // conditional: of two concurrent requests only the first ends the override
+      const ended = await tx.userPermission.updateMany({
+        where: { id: grant.id, revokedAt: null },
         data: { revokedAt: this.clock.now(), revokedBy: actor.userId, updatedBy: actor.userId },
       });
+      if (ended.count === 0) throw new ApiError('permission.not_found', 404);
       await this.versions.bump(tx, grant.userId, {
         action: 'permission_change',
         old: { grants: old, override: grant.id },
         new: { grants: await this.grantsOf(grant.userId, tx) },
         reason,
       });
+      return { refused: null };
     });
+    if (outcome.refused)
+      await this.refuse(outcome.refused, 'system_owner_protected', { override: grantId }, reason);
   }
 
   /**
    * Sets the "if RPM grants" extras of a staff member or volunteer on one project (replaces the
-   * list). The project is found inside the caller's scope, the target must work on it, and every
-   * permission must be one the caller holds there and one the catalogue lets an RPM grant.
+   * list). The project is found inside the caller's scope and the target must work on it. Each
+   * newly added permission must be one the catalogue lets an RPM grant and one the caller holds
+   * there; extras already on the target may stay or be removed without that check.
    */
   async setProjectGrants(
     actor: Principal,
@@ -301,45 +320,45 @@ export class AccessPanelService {
     body: ProjectGrantRequest,
   ) {
     await this.access.findProject(scope, projectId, { id: true });
-    const target = await this.target(this.prisma, body.userId);
-    const [staff, volunteer] = target
-      ? await Promise.all([
-          this.prisma.projectStaff.findFirst({
-            where: { projectId, userId: target.id, endedAt: null },
-            select: { id: true, extraPermissions: true },
-          }),
-          this.prisma.projectVolunteer.findFirst({
-            where: { projectId, endedAt: null, volunteer: { userId: target.id } },
-            select: { id: true, extraPermissions: true },
-          }),
-        ])
-      : [null, null];
-    if (!target || (!staff && !volunteer)) {
-      this.access.denied(actor.userId, scope.permission, 'user');
-      throw new ApiError('permission.not_found', 404);
-    }
-    if (target.isSystemOwner) throw new ApiError('user.system_owner_protected', 409);
-    const unknown = body.permissions.filter((p) => !this.registry.permissions.has(p));
-    if (unknown.length)
-      throw new ApiError('validation.failed', 422, undefined, [
-        { path: 'permissions', code: 'validation.option_unknown' },
-      ]);
     const permissions = [...new Set(body.permissions)];
-    const attempted = (permission: string) => ({ permission, projectId, effect: 'grant' });
-    for (const permission of permissions) {
-      const rule =
-        this.refusal(target, { permission, effect: 'grant', scopeType: 'PROJECT' }) ??
-        (this.registry.permissions
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      await this.lockUser(tx, body.userId);
+      const target = await this.target(tx, body.userId);
+      if (target?.isSystemOwner)
+        return { refused: 'system_owner_protected' as const, permission: null };
+      const [staff, volunteer] = target
+        ? await Promise.all([
+            tx.projectStaff.findFirst({
+              where: { projectId, userId: target.id, endedAt: null },
+              select: { id: true, extraPermissions: true },
+            }),
+            tx.projectVolunteer.findFirst({
+              where: { projectId, endedAt: null, volunteer: { userId: target.id } },
+              select: { id: true, extraPermissions: true },
+            }),
+          ])
+        : [null, null];
+      if (!target || (!staff && !volunteer)) {
+        this.access.denied(actor.userId, scope.permission, 'user');
+        throw new ApiError('permission.not_found', 404);
+      }
+      if (permissions.some((p) => !this.registry.permissions.has(p)))
+        throw new ApiError('validation.failed', 422, undefined, [
+          { path: 'permissions', code: 'validation.option_unknown' },
+        ]);
+      const existing = new Set((staff ?? volunteer)!.extraPermissions);
+      for (const permission of permissions.filter((p) => !existing.has(p))) {
+        const grantable = this.registry.permissions
           .get(permission)!
-          .defaults.some((d) => d.condition === IF_RPM_GRANTS)
-          ? null
-          : 'not_rpm_grantable') ??
-        ((await this.access.holdsOnProject(actor.userId, permission, projectId))
-          ? null
-          : 'not_held_by_granter');
-      if (rule) await this.refuse(target.id, rule, attempted(permission), body.reason);
-    }
-    await this.prisma.$transaction(async (tx) => {
+          .defaults.some((d) => d.condition === IF_RPM_GRANTS);
+        const rule =
+          this.refusal(target, { permission, effect: 'grant', scopeType: 'PROJECT' }) ??
+          (grantable ? null : 'not_rpm_grantable') ??
+          ((await this.access.holdsOnProject(actor.userId, permission, projectId, tx))
+            ? null
+            : 'not_held_by_granter');
+        if (rule) return { refused: rule, permission };
+      }
       const old = await this.grantsOf(target.id, tx, projectId);
       if (staff)
         await tx.projectStaff.update({
@@ -357,7 +376,15 @@ export class AccessPanelService {
         new: { projectId, grants: await this.grantsOf(target.id, tx, projectId) },
         reason: body.reason,
       });
+      return { refused: null, permission: null };
     });
-    return this.grantsOf(target.id, this.prisma, projectId);
+    if (outcome.refused)
+      await this.refuse(
+        body.userId,
+        outcome.refused,
+        { permission: outcome.permission, projectId, effect: 'grant' },
+        body.reason,
+      );
+    return this.grantsOf(body.userId, this.prisma, projectId);
   }
 }

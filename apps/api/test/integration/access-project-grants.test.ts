@@ -12,7 +12,7 @@ import {
   login,
 } from './support/auth-app';
 
-// Project grants of "if RPM grants" extras (RBAC.md 3 and 7, BD-07 of the blueprint's A4; plan
+// Project grants of "if RPM grants" extras (docs/security/RBAC.md 3 and 7; plan
 // docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, U5).
 // The fixture catalogue marks a sensitive permission as "if RPM grants" for volunteers, so the
 // refusal shared with the panel is reachable here too; the real permissions.yaml has no such case.
@@ -111,6 +111,38 @@ describe('project grants', () => {
     expect(notHeld.body.error.params).toEqual({ rule: 'not_held_by_granter' });
   });
 
+  it('checks only newly added extras: kept ones need no granter check, removals are free', async () => {
+    // the RPM lost application.waitlist on A1 in the previous test; the Executive keeps it
+    await h.db.query(
+      `UPDATE project_staff SET extra_permissions = ARRAY['application.waitlist']
+        WHERE project_id = $1 AND user_id = $2`,
+      [world.a1.id, world.users.executive],
+    );
+    const keep = await setGrants(world.a1.id, world.users.executive, [
+      'application.waitlist',
+      'application.transfer',
+    ]);
+    expect(keep.status).toBe(200);
+    const drop = await setGrants(world.a1.id, world.users.executive, ['application.transfer']);
+    expect(drop.status).toBe(200);
+    const row = await h.db.query(
+      'SELECT extra_permissions FROM project_staff WHERE project_id = $1 AND user_id = $2',
+      [world.a1.id, world.users.executive],
+    );
+    expect(row.rows[0].extra_permissions).toEqual(['application.transfer']);
+  });
+
+  it('answers 422 for an unknown permission and changes nothing', async () => {
+    const res = await setGrants(world.a1.id, world.users.executive, ['no.such_permission']);
+    expect(res.status).toBe(422);
+    expect(res.body.error.details.map((d: { path: string }) => d.path)).toEqual(['permissions']);
+    const row = await h.db.query(
+      'SELECT extra_permissions FROM project_staff WHERE project_id = $1 AND user_id = $2',
+      [world.a1.id, world.users.executive],
+    );
+    expect(row.rows[0].extra_permissions).toEqual(['application.transfer']);
+  });
+
   it('never gives a sensitive permission to a volunteer, even when the catalogue allows it', async () => {
     const res = await setGrants(world.a1.id, world.users.general, ['volunteer.view_sensitive']);
     expect(res.status).toBe(403);
@@ -122,11 +154,9 @@ describe('project grants', () => {
     expect(audit.rowCount).toBe(1);
   });
 
-  it('answers 409 when the target is the Main Admin', async () => {
-    await h.db.query('UPDATE users SET is_system_owner = true WHERE id = $1', [
-      world.users.executive,
-    ]);
-    const res = await setGrants(world.a1.id, world.users.executive, ['application.approve']);
+  it('answers 409 when the target is the Main Admin, even one who is not on the project', async () => {
+    const owner = await account(h.db, { role: 'project_executive', systemOwner: true });
+    const res = await setGrants(world.a1.id, owner.id, ['application.approve']);
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('user.system_owner_protected');
   });

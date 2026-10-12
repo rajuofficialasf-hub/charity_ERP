@@ -5,6 +5,7 @@ import {
   holdsPermission,
   makeScope,
   NO_INSTANCES,
+  projectWhere,
   type ScopeInstances,
   userWhere,
 } from './scope';
@@ -127,5 +128,34 @@ describe('the user filter', () => {
     };
     expect(v.OR).toHaveLength(1);
     expect(JSON.stringify(v.OR[0])).toContain('volunteersUser');
+  });
+});
+
+describe('the project filter', () => {
+  const where = (i: Partial<ScopeInstances>) =>
+    projectWhere(
+      makeScope('actor', 'project.volunteer_grant.manage', 'project', { ...NO_INSTANCES, ...i }),
+    );
+
+  it('reaches every project at GLOBAL and none without an instance', () => {
+    expect(where({ global: true })).toEqual({});
+    expect(where({ self: true })).toEqual({ id: { in: [] } });
+  });
+
+  it('adds up programs, projects and areas', () => {
+    const w = where({
+      programIds: [P1],
+      projectIds: [P2],
+      areas: [
+        { projectId: P1, locationId: DHAKA },
+        { projectId: null, locationId: RANGPUR },
+      ],
+    }) as { OR: unknown[] };
+    expect(w.OR).toEqual([
+      { programId: { in: [P1] } },
+      { id: { in: [P2] } },
+      { id: P1 },
+      { projectAreasProject: { some: { locationId: RANGPUR } } },
+    ]);
   });
 });

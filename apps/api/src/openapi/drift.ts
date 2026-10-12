@@ -55,17 +55,27 @@ function resolve(doc: unknown, value: unknown, seen = new Set<string>()): unknow
   return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, resolve(doc, v, seen)]));
 }
 
-/** Canonical form of a JSON Schema: descriptive keywords removed, keys and `required` sorted. */
-export function canonicalSchema(schema: unknown): unknown {
-  if (Array.isArray(schema)) return schema.map(canonicalSchema);
+/** Formats whose regular expression zod writes next to the format in generated schemas. */
+const ZOD_FORMATS = new Set(['uuid', 'date-time', 'email']);
+
+/**
+ * Canonical form of a JSON Schema: descriptive keywords removed, keys and `required` sorted. On
+ * the generated side only, the `pattern` zod adds to a uuid, date-time or email format is dropped
+ * (the format implies it); a pattern in the contract is always compared.
+ */
+export function canonicalSchema(schema: unknown, generated = false): unknown {
+  if (Array.isArray(schema)) return schema.map((s) => canonicalSchema(s, generated));
   if (!schema || typeof schema !== 'object') return schema;
-  // zod adds the regular expression of a format (uuid, date-time, email); the format implies it
-  const implied = 'format' in schema;
+  const format = (schema as { format?: unknown }).format;
+  const implied = generated && typeof format === 'string' && ZOD_FORMATS.has(format);
   const entries = Object.entries(schema)
     .filter(([k]) => !DESCRIPTIVE.has(k) && !(implied && k === 'pattern'))
     .map(
       ([k, v]) =>
-        [k, k === 'required' && Array.isArray(v) ? [...v].sort() : canonicalSchema(v)] as const,
+        [
+          k,
+          k === 'required' && Array.isArray(v) ? [...v].sort() : canonicalSchema(v, generated),
+        ] as const,
     )
     .sort(([a], [b]) => a.localeCompare(b));
   return Object.fromEntries(entries);
@@ -84,10 +94,10 @@ function params(doc: unknown, op: Op, item?: Record<string, unknown>): string[] 
   return list.map((p) => `${p.in}:${p.name}:${p.required ? 'required' : 'optional'}`).sort();
 }
 
-function bodySchema(doc: unknown, op: Op): unknown {
+function bodySchema(doc: unknown, op: Op, generated = false): unknown {
   const body = resolve(doc, op.requestBody) as
     { content?: Record<string, { schema?: unknown }> } | undefined;
-  return canonicalSchema(body?.content?.['application/json']?.schema);
+  return canonicalSchema(body?.content?.['application/json']?.schema, generated);
 }
 
 export function compareWithContract(
@@ -124,7 +134,7 @@ export function compareWithContract(
       const cp = params(contract, expected, contract.paths?.[path]);
       if (json(gp) !== json(cp))
         problems.push(`${where}: parameters ${json(gp)} differ from ${json(cp)}`);
-      const gb = bodySchema(generated, op);
+      const gb = bodySchema(generated, op, true);
       const cb = bodySchema(contract, expected);
       if (json(gb) !== json(cb))
         problems.push(`${where}: request body schema ${json(gb)} differs from ${json(cb)}`);

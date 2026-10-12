@@ -47,11 +47,14 @@ const effective = async (s: Session, userId: string, query: Record<string, strin
 const version = async (userId: string) =>
   (await h.db.query('SELECT permission_version FROM users WHERE id = $1', [userId])).rows[0]
     .permission_version as number;
-const audits = async (userId: string, action: string) =>
+const audits = async (userId: string, action: string, override?: string) =>
   (
     await h.db.query(
-      'SELECT old, new, reason FROM audit_log WHERE entity_id = $1 AND action = $2 ORDER BY created_at',
-      [userId, action],
+      `SELECT old, new, reason FROM audit_log
+        WHERE entity_id = $1 AND action = $2
+          AND ($3::text IS NULL OR old->>'override' = $3 OR new->>'override' = $3)
+        ORDER BY created_at`,
+      [userId, action, override ?? null],
     )
   ).rows as { old: unknown; new: unknown; reason: string }[];
 const grant = (s: Session, body: Record<string, unknown>) =>
@@ -137,7 +140,7 @@ describe('grant and revoke', () => {
         grantId: res.body.data.id,
       }),
     );
-    const entries = await audits(world.users.executive, 'permission_change');
+    const entries = await audits(world.users.executive, 'permission_change', res.body.data.id);
     expect(entries).toHaveLength(1);
     const entry = entries[0]!;
     expect(entry.reason).toBe(REASON);
@@ -172,7 +175,9 @@ describe('grant and revoke', () => {
       .expect(204);
     expect(await has()).toBe(true);
     expect(await version(world.users.rpmRangpur)).toBe(before + 1);
-    expect(await audits(world.users.rpmRangpur, 'permission_change')).toHaveLength(2);
+    expect(
+      await audits(world.users.rpmRangpur, 'permission_change', created.body.data.id),
+    ).toHaveLength(2);
     // an ended override cannot be ended again
     await api()
       .post(`/api/v1/permission-grants/${created.body.data.id}/revoke`)
@@ -220,8 +225,14 @@ describe('refusals', () => {
   });
 
   it('answers 409 for any change that targets the Main Admin, before every other rule', async () => {
-    await h.db.query('UPDATE users SET is_system_owner = true WHERE id = $1', [world.users.head]);
+    // a Main Admin of its own, so no other test depends on the flag (it cannot be unset)
+    const owner = await account(h.db, { role: 'department_head' });
     const monitoring = await as(world.users.monitoring);
+    const live = await grant(monitoring, {
+      userId: owner.id,
+      permission: 'form.library.manage',
+    }).expect(201);
+    await h.db.query('UPDATE users SET is_system_owner = true WHERE id = $1', [owner.id]);
     for (const body of [
       { permission: 'permission.view' },
       { permission: 'permission.view', effect: 'revoke' },
@@ -234,12 +245,47 @@ describe('refusals', () => {
           effect: 'grant',
           scopeType: 'GLOBAL',
           reason: REASON,
-          userId: world.users.head,
+          userId: owner.id,
           ...body,
         })
         .expect(409);
       expect(res.body.error.code).toBe('user.system_owner_protected');
     }
+    // ending a grant of the Main Admin is refused too, and the grant stays live
+    const end = await api()
+      .post(`/api/v1/permission-grants/${live.body.data.id}/revoke`)
+      .set(bearer(monitoring))
+      .send({ reason: 'Trying to strip the owner' })
+      .expect(409);
+    expect(end.body.error.code).toBe('user.system_owner_protected');
+    const row = await h.db.query('SELECT revoked_at FROM user_permissions WHERE id = $1', [
+      live.body.data.id,
+    ]);
+    expect(row.rows[0].revoked_at).toBeNull();
+    // every attempt is audited (three grants and one end)
+    expect(await audits(owner.id, 'permission_change_refused')).toHaveLength(4);
+  });
+
+  it('refuses a caller without the panel permission to end a grant', async () => {
+    const head = await as(world.users.head);
+    const live = await grant(head, {
+      userId: world.users.outsider,
+      permission: 'form.library.manage',
+    }).expect(201);
+    const pm = await as(world.users.pm);
+    const res = await api()
+      .post(`/api/v1/permission-grants/${live.body.data.id}/revoke`)
+      .set(bearer(pm))
+      .send({ reason: 'Not my permission to end' })
+      .expect(403);
+    expect(res.body.error.code).toBe('permission.denied');
+    const row = await h.db.query('SELECT revoked_at FROM user_permissions WHERE id = $1', [
+      live.body.data.id,
+    ]);
+    expect(row.rows[0].revoked_at).toBeNull();
+    expect(await audits(world.users.outsider, 'permission_change', live.body.data.id)).toHaveLength(
+      1,
+    );
   });
 
   it('validates the permission, the scope reference and the expiry', async () => {

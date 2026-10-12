@@ -61,7 +61,7 @@ export const permissionGrantRequestSchema = z.object({
   scopeType: z.enum(SCOPE_TYPES),
   scopeRef: z.uuid().optional(),
   condition: z.string().optional(),
-  reason: z.string().trim().min(3),
+  reason: z.string().trim().min(3).max(1000),
   expiresAt: z.iso.datetime({ offset: true }).optional(),
 });
 export type PermissionGrantRequest = z.infer<typeof permissionGrantRequestSchema>;
@@ -79,7 +79,7 @@ export type PermissionGrant = z.infer<typeof permissionGrantSchema>;
 
 export const projectGrantRequestSchema = z.object({
   userId: z.uuid(),
-  permissions: z.array(z.string()),
-  reason: z.string().trim().min(3),
+  permissions: z.array(z.string()).max(50),
+  reason: z.string().trim().min(3).max(1000),
 });
 export type ProjectGrantRequest = z.infer<typeof projectGrantRequestSchema>;
