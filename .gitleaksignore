@@ -1,0 +1,5 @@
+# Known false positives of the CI secret scan (gitleaks reads this file from the repository root).
+# One fingerprint per line: commit:file:rule:line. Only test fixtures that are obviously not
+# secrets belong here; each entry is recorded in docs/security/SECURITY_POLICY.md section 9.
+# T1.6 test cursor secret of the pagination integration test (a fixed fake string):
+ccb2433fb61daa980cee2e5764f8f7bef7748b5a:apps/api/test/integration/pagination.test.ts:generic-api-key:17

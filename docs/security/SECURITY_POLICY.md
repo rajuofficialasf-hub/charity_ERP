@@ -105,7 +105,7 @@ OWASP ASVS level 2 is the checklist of the security audit before go-live (T6.3).
 - They live only in per-environment `.env` files on the server, owned by the service user with mode 600, or in the server's secret store; only `.env.example` without values is in git.
 - Different values per environment; staging values never reach production.
 - Rotation: at go-live, once a year, when a person with access leaves, and immediately after a suspected incident.
-- gitleaks scans every commit in CI and as a pre-commit hook (O-46 item 6). Development security limitation (O-52, 2026-10-11): the local pre-commit hook is not installed yet; CI scans the full git history on every push and the run fails when a secret is found. Local scanning is revisited when a suitable installation method exists.
+- gitleaks scans every commit in CI and as a pre-commit hook (O-46 item 6). Known false positives (test fixtures that are obviously not secrets) are listed by exact fingerprint in `.gitleaksignore` at the repository root, never by path or rule, so every other finding still fails CI; today one entry: the fixed test cursor secret of `apps/api/test/integration/pagination.test.ts` from T1.6 (2026-10-12). Development security limitation (O-52, 2026-10-11): the local pre-commit hook is not installed yet; CI scans the full git history on every push and the run fails when a secret is found. Local scanning is revisited when a suitable installation method exists.
 - Secrets are never logged, never placed in URLs, never sent to the browser except the user's own cookies.
 - Claude Code never reads or modifies `.env` files that hold real secrets (CLAUDE.md).
 

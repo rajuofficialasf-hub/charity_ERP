@@ -58,6 +58,9 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The Prisma client lives in apps/api/src/generated (not committed); typecheck, tests and the
+      # API build need it. Generation needs no database.
+      - run: pnpm --filter @css/api db:generate
       # MinIO needs a server command, which service containers cannot pass; same pinned image as
       # infra/docker-compose.dev.yml (D-059 covers dev and test, not production).
       - name: Start MinIO
@@ -121,6 +124,9 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The Prisma client lives in apps/api/src/generated (not committed); typecheck, tests and the
+      # API build need it. Generation needs no database.
+      - run: pnpm --filter @css/api db:generate
       - run: pnpm --filter @css/web exec playwright install --with-deps chromium
       - run: pnpm e2e
       - if: failure()

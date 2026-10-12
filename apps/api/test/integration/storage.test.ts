@@ -9,7 +9,7 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { type Bucket, createStorage, NotFoundError } from '../../src/storage';
+import { type Bucket, BUCKETS, createStorage, NotFoundError } from '../../src/storage';
 import { testEnv } from '../support/env';
 
 // The S3 driver against the real MinIO container (ADR-005, D-074, O-58): docker compose locally, a
@@ -57,11 +57,14 @@ function generatedStream(total: number): { stream: Readable; digest: () => strin
   return { stream, digest: () => hash.digest('hex') };
 }
 
+// Locally infra/minio/bootstrap.sh creates the buckets; the CI MinIO starts empty.
 beforeAll(async () => {
-  try {
-    await admin.send(new HeadBucketCommand({ Bucket: 'exports' }));
-  } catch {
-    await admin.send(new CreateBucketCommand({ Bucket: 'exports' }));
+  for (const Bucket of BUCKETS) {
+    try {
+      await admin.send(new HeadBucketCommand({ Bucket }));
+    } catch {
+      await admin.send(new CreateBucketCommand({ Bucket }));
+    }
   }
 });
 
