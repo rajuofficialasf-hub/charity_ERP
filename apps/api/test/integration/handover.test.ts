@@ -137,7 +137,8 @@ describe('the handover of an official', () => {
       expect(res.status).toBe(422);
       expect(res.body.error.code).toBe('handover.target_invalid');
     }
-    expect((await assign(head, leaving.id, { toUserId: target.id, items: [] })).status).toBe(200);
+    // an empty list moves nothing and is refused; omitting it moves everything
+    expect((await assign(head, leaving.id, { toUserId: target.id, items: [] })).status).toBe(422);
   });
 
   it('refuses an item of another user and an item already handed over', async () => {
@@ -223,8 +224,52 @@ describe('the handover of an official', () => {
     ]);
   });
 
-  it('a PM gets 403 on the handover', async () => {
+  it('a PM gets 403 on every handover step and nothing moves', async () => {
+    const { leaving, areas, target } = await leavingRpm();
+    const pm = await as(world.users.pm);
+    expect((await handover(pm, leaving.id)).status).toBe(403);
+    expect((await assign(pm, leaving.id, { toUserId: target.id })).status).toBe(403);
+    expect((await complete(pm, leaving.id)).status).toBe(403);
+    expect(await rpmOf(areas[0]!)).toBe(leaving.id);
+    const rows = await h.db.query('SELECT 1 FROM handovers WHERE from_user_id = $1', [leaving.id]);
+    expect(rows.rowCount).toBe(0);
+  });
+
+  it('answers 401 without a login, 404 for a volunteer and 422 for a malformed body', async () => {
     const { leaving } = await leavingRpm();
-    expect((await handover(await as(world.users.pm), leaving.id)).status).toBe(403);
+    const head = await as(world.users.head);
+    expect((await api().get(`/api/v1/users/${leaving.id}/handover`)).status).toBe(401);
+    expect((await handover(head, world.users.general)).status).toBe(404);
+    expect((await handover(head, randomUUID())).status).toBe(404);
+    expect((await assign(head, leaving.id, { toUserId: 'not-a-uuid' })).status).toBe(422);
+    expect((await assign(head, leaving.id, { toUserId: leaving.id, extra: 1 })).status).toBe(422);
+  });
+
+  it('a second completion is refused and adds nothing; new work after completion blocks the deactivation', async () => {
+    const { leaving, target } = await leavingRpm();
+    const head = await as(world.users.head);
+    expect((await assign(head, leaving.id, { toUserId: target.id })).status).toBe(200);
+    const first = await complete(head, leaving.id);
+    expect(first.status).toBe(200);
+    const second = await complete(head, leaving.id);
+    expect(second.status).toBe(409);
+    const rows = await h.db.query('SELECT 1 FROM handovers WHERE from_user_id = $1', [leaving.id]);
+    expect(rows.rowCount).toBe(1);
+
+    // a new area reaches the official after the completion
+    const project = await f.project(h.db);
+    await h.db.query(
+      'INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)',
+      [randomUUID(), project.id, (await f.locationTree(h.db)).division, leaving.id],
+    );
+    const etag = (await api().get(`/api/v1/users/${leaving.id}`).set(bearer(head))).headers
+      .etag as string;
+    const res = await api()
+      .post(`/api/v1/users/${leaving.id}/state`)
+      .set(bearer(head))
+      .set('If-Match', etag)
+      .send({ state: 'deactivated', reason: 'চাকরি ছেড়েছেন' });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('handover.items_outstanding');
   });
 });

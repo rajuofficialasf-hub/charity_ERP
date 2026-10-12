@@ -18,6 +18,7 @@ import {
   parseSort,
   searchWhere,
 } from '../core/pagination';
+import { pendingHandoverItems } from '../handover/providers';
 import { ApiError } from '../i18n/api-error';
 
 export interface UserListQuery extends Omit<PageQuery, 'sort'> {
@@ -171,11 +172,16 @@ export class UsersService {
       if (user.id === actor.userId || !allowed.includes(body.state) || volunteerBlock)
         throw new ApiError('user.transition_not_allowed', 409);
       if (body.state === 'deactivated') {
+        // the latest handover must be completed, and no work may have reached the official since
+        // (a reactivation or a new assignment after the completion; BR-034)
         const handover = await tx.handover.findFirst({
-          where: { fromUserId: user.id, completedAt: { not: null } },
-          select: { id: true },
+          where: { fromUserId: user.id },
+          orderBy: { createdAt: 'desc' },
+          select: { completedAt: true },
         });
-        if (!handover) throw new ApiError('user.handover_required', 409);
+        if (!handover?.completedAt) throw new ApiError('user.handover_required', 409);
+        if ((await pendingHandoverItems(tx, user.id)).length)
+          throw new ApiError('handover.items_outstanding', 409);
       }
       await tx.user.update({
         where: { id: user.id },

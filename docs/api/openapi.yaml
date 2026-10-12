@@ -719,6 +719,7 @@ components:
         toUserId: { $ref: '#/components/schemas/Uuid' }
         items:
           type: array
+          minItems: 1
           maxItems: 500
           description: Items to reassign; omitted means every listed item (reassign all)
           items:
@@ -726,7 +727,7 @@ components:
             additionalProperties: false
             required: [itemType, itemId]
             properties:
-              itemType: { type: string, maxLength: 64 }
+              itemType: { type: string, enum: [program, project_area, project_staff, pending_review, document, issue, followup] }
               itemId: { $ref: '#/components/schemas/Uuid' }
     HandoverItem:
       type: object

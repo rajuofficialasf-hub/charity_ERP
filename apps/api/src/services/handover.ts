@@ -7,7 +7,13 @@ import type { PermissionVersionService } from '../auth/permission-version.servic
 import type { Principal } from '../auth/principal';
 import type { Clock } from '../core/clock';
 import type { PrismaService, Tx } from '../core/prisma.service';
-import { HANDOVER_PROVIDERS, type HandoverItem, pickItems } from '../handover/providers';
+import {
+  type HandoverItem,
+  type HandoverItemType,
+  pendingHandoverItems,
+  pickItems,
+  providerOf,
+} from '../handover/providers';
 import { ApiError } from '../i18n/api-error';
 import type { RegistrationEvents } from '../notifications/registration-events';
 
@@ -16,7 +22,7 @@ type HandoverRow = { id: string; scope: unknown; completedAt: Date | null };
 
 export interface HandoverAssign {
   toUserId: string;
-  items?: { itemType: string; itemId: string }[];
+  items?: { itemType: HandoverItemType; itemId: string }[];
 }
 
 /**
@@ -38,9 +44,8 @@ export class HandoverService {
     private readonly events: RegistrationEvents,
   ) {}
 
-  private async pending(db: Tx, userId: string): Promise<HandoverItem[]> {
-    const lists = await Promise.all(HANDOVER_PROVIDERS.map((p) => p.list(db, userId)));
-    return lists.flat();
+  private pending(db: Tx, userId: string): Promise<HandoverItem[]> {
+    return pendingHandoverItems(db, userId);
   }
 
   /** The official in scope (staff only), 404 otherwise; locked when a transaction is given. */
@@ -88,7 +93,7 @@ export class HandoverService {
       where: { fromUserId: userId, completedAt: null },
       select: { id: true, scope: true, completedAt: true },
     });
-    if (open) return open;
+    if (open) return { handover: open, started: false };
     const created = await tx.handover.create({
       data: {
         id: uuidv7(),
@@ -105,13 +110,15 @@ export class HandoverService {
       entityId: userId,
       new: { handoverId: created.id },
     });
-    this.events.emit({ type: 'user.handover_started', userId });
-    return created;
+    return { handover: created, started: true };
   }
 
   async assign(actor: Principal, scope: Scope, userId: string, body: HandoverAssign) {
-    return this.prisma.$transaction(async (tx) => {
-      await this.official(scope, userId, tx, true);
+    const result = await this.prisma.$transaction(async (tx) => {
+      // both accounts locked in id order: a state change of either waits (no deadlock)
+      const ids = [userId, body.toUserId].sort();
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ANY(${ids}::uuid[]) ORDER BY id FOR UPDATE`;
+      await this.official(scope, userId, tx);
       const target = await tx.user.findFirst({
         where: { id: body.toUserId, kind: 'staff', state: 'active', NOT: { id: userId } },
         select: {
@@ -125,14 +132,13 @@ export class HandoverService {
       const picked = pickItems(pending, body.items);
       if (picked.some((i) => i.requiredRole !== null && !roles.has(i.requiredRole)))
         throw new ApiError('handover.target_invalid', 422);
-      const handover = await this.open(tx, actor, userId, target.id);
+      const { handover, started } = await this.open(tx, actor, userId, target.id);
       const recorded: HandoverScope = handoverScopeSchema.parse(handover.scope);
       const now = this.clock.now();
       for (const item of picked) {
-        const provider = HANDOVER_PROVIDERS.find((p) => p.itemType === item.itemType)!;
-        await provider.reassign(tx, item, userId, target.id, actor.userId);
+        await providerOf(item.itemType).reassign(tx, item, userId, target.id, actor.userId);
         recorded.items.push({
-          item_type: item.itemType as HandoverScope['items'][number]['item_type'],
+          item_type: item.itemType,
           item_id: item.itemId,
           ...(item.projectId ? { project_id: item.projectId } : {}),
           new_owner_user_id: target.id,
@@ -156,8 +162,14 @@ export class HandoverService {
         });
       }
       const left = picked.length ? await this.pending(tx, userId) : pending;
-      return this.view(userId, saved, left);
+      return { view: this.view(userId, saved, left), started, moved: picked.length, to: target.id };
     });
+    if (result.started) this.events.emit({ type: 'user.handover_started', userId });
+    if (result.moved) {
+      this.events.emit({ type: 'user.handover_assigned', userId });
+      this.events.emit({ type: 'user.handover_received', userId: result.to });
+    }
+    return result.view;
   }
 
   /** Completes the handover once nothing is left; the deactivation stays the state change. */
@@ -166,7 +178,10 @@ export class HandoverService {
       await this.official(scope, userId, tx, true);
       const pending = await this.pending(tx, userId);
       if (pending.length) throw new ApiError('handover.items_outstanding', 409);
-      const handover = await this.open(tx, actor, userId, null);
+      // a repeated completion writes no second row or entry: there is nothing left to complete
+      const latest = await this.latest(tx, userId);
+      if (latest?.completedAt) throw new ApiError('user.transition_not_allowed', 409);
+      const { handover } = await this.open(tx, actor, userId, null);
       const saved = await tx.handover.update({
         where: { id: handover.id },
         data: { completedAt: this.clock.now() },

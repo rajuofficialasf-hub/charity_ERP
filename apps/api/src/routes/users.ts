@@ -13,6 +13,7 @@ import { etagOf } from '../core/etag';
 import { pageQuery } from '../core/pagination';
 import { ok, page } from '../http/send';
 import { defineRoute, type RouteDeps } from '../openapi/define-route';
+import { HANDOVER_ITEM_TYPES } from '../handover/providers';
 import type { HandoverAssign } from '../services/handover';
 import type { UserListQuery } from '../services/users';
 
@@ -21,7 +22,8 @@ const uuid = z.uuid();
 const handoverAssign = z.strictObject({
   toUserId: uuid,
   items: z
-    .array(z.strictObject({ itemType: z.string().max(64), itemId: uuid }))
+    .array(z.strictObject({ itemType: z.enum(HANDOVER_ITEM_TYPES), itemId: uuid }))
+    .min(1)
     .max(500)
     .optional(),
 });

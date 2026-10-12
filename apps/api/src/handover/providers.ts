@@ -12,9 +12,21 @@ import { ApiError } from '../i18n/api-error';
 export type HandoverCategory =
   'reviews_approvals' | 'projects' | 'documents' | 'issues' | 'followups';
 
+/** The item types of the providers (a subset of the `handovers.scope` item types). */
+export const HANDOVER_ITEM_TYPES = [
+  'program',
+  'project_area',
+  'project_staff',
+  'pending_review',
+  'document',
+  'issue',
+  'followup',
+] as const;
+export type HandoverItemType = (typeof HANDOVER_ITEM_TYPES)[number];
+
 export interface HandoverItem {
   category: HandoverCategory;
-  itemType: string;
+  itemType: HandoverItemType;
   itemId: string;
   projectId: string | null;
   label: string;
@@ -23,7 +35,7 @@ export interface HandoverItem {
 }
 
 export interface HandoverProvider {
-  itemType: string;
+  itemType: HandoverItemType;
   list(db: Tx, userId: string): Promise<HandoverItem[]>;
   /** Moves one listed item; an item that is no longer the official's is refused (stale). */
   reassign(tx: Tx, item: HandoverItem, from: string, to: string, actorId: string): Promise<void>;
@@ -137,7 +149,7 @@ const projectStaff: HandoverProvider = {
 };
 
 /** A module that does not exist yet: nothing to hand over until it plugs in its provider. */
-const empty = (itemType: string): HandoverProvider => ({
+const empty = (itemType: HandoverItemType): HandoverProvider => ({
   itemType,
   list: async () => [],
   reassign: async () => {
@@ -155,13 +167,26 @@ export const HANDOVER_PROVIDERS: HandoverProvider[] = [
   empty('followup'),
 ];
 
+/** The provider of an item type. */
+export function providerOf(itemType: HandoverItemType): HandoverProvider {
+  const provider = HANDOVER_PROVIDERS.find((p) => p.itemType === itemType);
+  if (!provider) throw new Error(`no handover provider for ${itemType}`);
+  return provider;
+}
+
+/** Everything an official still owns, from every provider. */
+export async function pendingHandoverItems(db: Tx, userId: string): Promise<HandoverItem[]> {
+  const lists = await Promise.all(HANDOVER_PROVIDERS.map((p) => p.list(db, userId)));
+  return lists.flat();
+}
+
 /**
  * The items an assignment moves: every pending item when none are named (reassign all), else the
  * named ones, each of which must be pending now (another user's item or one already moved: 422).
  */
 export function pickItems(
   pending: HandoverItem[],
-  requested: { itemType: string; itemId: string }[] | undefined,
+  requested: { itemType: HandoverItemType; itemId: string }[] | undefined,
 ): HandoverItem[] {
   if (!requested) return pending;
   return requested.map((r, i) => {

@@ -24,7 +24,7 @@ const permissions = new Set(
 );
 
 // Fixtures use an operation of the contract that is not implemented yet (the project team, a
-// later task of docs/PLAN.md); the handover it used before is built now.
+// later task of docs/PLAN.md).
 const contractOf = {
   operationId: 'volunteers.team.remove',
   tag: 'volunteers',
