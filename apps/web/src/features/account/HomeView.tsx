@@ -9,12 +9,20 @@ export function HomeView() {
   const t = useTranslations('auth');
   const tc = useTranslations('common.app');
   const ta = useTranslations('admin');
+  const tr = useTranslations('registration');
   return (
     <AccountPage title={(me) => t('home.welcome', { name: me.displayName })}>
       {(me) => (
         <>
           <DocumentTitle title={tc('name')} />
           {me.state === 'pending' && <Alert tone="info">{t('account.pending')}</Alert>}
+          {me.kind === 'volunteer' && (
+            <div>
+              <Button variant="secondary" href="/account/profile">
+                {tr('profile.link')}
+              </Button>
+            </div>
+          )}
           <p className="m-0">{t('account.signed_in_as', { name: me.displayName })}</p>
           <p className="m-0">{t('home.placeholder')}</p>
           {canOpenAdmin(me) && (

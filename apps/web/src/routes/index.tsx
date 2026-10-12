@@ -3,6 +3,7 @@ import { createBrowserRouter, type RouteObject } from 'react-router';
 import { RouteError } from '../components/RouteError';
 import { ChangePasswordView } from '../features/account/ChangePasswordView';
 import { HomeView } from '../features/account/HomeView';
+import { ProfileView } from '../features/account/ProfileView';
 import { SessionsView } from '../features/account/SessionsView';
 import { LoginPage } from '../features/auth/LoginPage';
 import { ResetPage } from '../features/auth/ResetPage';
@@ -25,6 +26,7 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
         { path: '/login', element: <LoginPage /> },
         { path: '/login/reset', element: <ResetPage /> },
         { path: '/register', element: <RegisterPage /> },
+        { path: '/account/profile', element: <ProfileView /> },
         { path: '/account/sessions', element: <SessionsView /> },
         { path: '/account/password', element: <ChangePasswordView /> },
         {
