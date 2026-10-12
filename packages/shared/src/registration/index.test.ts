@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  decisionRequestSchema,
   draftExpiry,
+  editRequestCreateSchema,
   REGISTRATION_RULES,
   registrationStartRequestSchema,
   registrationCorrectionCreateSchema,
@@ -109,5 +111,27 @@ describe('the correction and staff decision schemas', () => {
     expect(ok(staffDecisionSchema, { decision: 'approve' })).toBe(false);
     expect(ok(staffDecisionSchema, { decision: 'reject' })).toBe(false);
     expect(ok(staffDecisionSchema, { decision: 'reject', reason: 'পদ নেই' })).toBe(true);
+  });
+});
+
+describe('the edit request schemas', () => {
+  const ok = (v: unknown) => editRequestCreateSchema.safeParse(v).success;
+
+  it('checks the value of each editable field: text, address object, bank object, file id, contact', () => {
+    expect(ok({ field: 'education', newValue: 'স্নাতক' })).toBe(true);
+    expect(ok({ field: 'nid', newValue: '1000000000123' })).toBe(true);
+    expect(ok({ field: 'mobile', newValue: '01712345678' })).toBe(true);
+    expect(ok({ field: 'email', newValue: 'A@example.org' })).toBe(true);
+    expect(ok({ field: 'photo' })).toBe(true);
+    expect(ok({ field: 'education' })).toBe(false);
+    expect(ok({ field: 'category', newValue: 'A' })).toBe(false);
+  });
+
+  it('a refusal needs a reason', () => {
+    expect(decisionRequestSchema.safeParse({ decision: 'approve' }).success).toBe(true);
+    expect(decisionRequestSchema.safeParse({ decision: 'reject' }).success).toBe(false);
+    expect(
+      decisionRequestSchema.safeParse({ decision: 'reject', reason: 'প্রমাণ নেই' }).success,
+    ).toBe(true);
   });
 });

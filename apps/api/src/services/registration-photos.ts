@@ -75,15 +75,16 @@ export class RegistrationPhotosService {
     principal: Principal,
     input: { requestId: string; slot: PhotoSlot; source: PhotoSource; body: unknown },
   ): Promise<{ fileId: string }> {
+    // open or answered, before the decision: a second upload replaces the first
     const where = {
       id: input.requestId,
       field: input.slot,
-      status: 'open',
+      status: { in: ['open', 'submitted'] },
       volunteer: { userId: principal.userId },
     };
     const request = await this.prisma.volunteerChangeRequest.findFirst({
       where,
-      select: { id: true },
+      select: { id: true, kind: true },
     });
     if (!request) throw new ApiError('permission.not_found', 404);
     const image = imageOf(input.body);
@@ -94,11 +95,15 @@ export class RegistrationPhotosService {
       async (tx, id) => {
         const [locked] = await tx.$queryRaw<{ new_value: string | null }[]>`
           SELECT new_value FROM volunteer_change_requests
-           WHERE id = ${request.id}::uuid AND status = 'open' FOR UPDATE`;
+           WHERE id = ${request.id}::uuid AND status IN ('open', 'submitted') FOR UPDATE`;
         if (!locked) throw new ApiError('permission.not_found', 404);
+        // a profile edit with its photo goes to the approvers; a correction waits for the answer
         await tx.volunteerChangeRequest.update({
           where: { id: request.id },
-          data: { newValue: id },
+          data: {
+            newValue: id,
+            ...(request.kind === 'profile_edit' ? { status: 'submitted' } : {}),
+          },
         });
         return discard(tx, locked.new_value);
       },

@@ -165,7 +165,7 @@ describe('base set', () => {
       )
     ).rows[0];
     expect(notif.bn).toBe(notif.en);
-    expect(notif.keys).toBe(29);
+    expect(notif.keys).toBe(30);
     const forms = (await db.query('SELECT key, project_type FROM project_templates ORDER BY key'))
       .rows;
     expect(forms).toEqual([

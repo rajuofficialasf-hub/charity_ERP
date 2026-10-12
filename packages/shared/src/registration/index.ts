@@ -218,3 +218,48 @@ export const staffDecisionSchema = z
     message: 'validation.required',
   });
 export type StaffDecision = z.infer<typeof staffDecisionSchema>;
+
+/**
+ * The fields an approved volunteer may ask to change (BR-031 as amended by D-085): the correction
+ * fields plus the mobile and the email, which first need a code to the new value. A photo edit is
+ * created without a value; the own photo upload fills it.
+ */
+export const EDIT_FIELD_VALUES = {
+  ...CORRECTION_FIELD_VALUES,
+  mobile: mobileSchema,
+  email: z
+    .email()
+    .max(254)
+    .transform((v) => v.toLowerCase()),
+} as const;
+export type EditField = keyof typeof EDIT_FIELD_VALUES;
+export const EDIT_FIELDS = Object.keys(EDIT_FIELD_VALUES) as EditField[];
+export const CONTACT_FIELDS = ['mobile', 'email'] as const;
+export const PHOTO_FIELDS = ['photo', 'nid_photo'] as const;
+
+export const editRequestCreateSchema = z
+  .strictObject({
+    field: z.enum(EDIT_FIELDS as [EditField, ...EditField[]]),
+    newValue: changeRequestAnswerSchema.shape.newValue.optional(),
+    note: z.string().trim().max(1000).optional(),
+  })
+  .refine(
+    (v) => (PHOTO_FIELDS as readonly string[]).includes(v.field) || v.newValue !== undefined,
+    { path: ['newValue'], message: 'validation.required' },
+  );
+export type EditRequestCreate = z.infer<typeof editRequestCreateSchema>;
+
+/** An approver's decision on an edit request: a refusal needs a reason (D-085). */
+export const decisionRequestSchema = z
+  .strictObject({
+    decision: z.enum(['approve', 'reject']),
+    reason: z.string().trim().min(3).max(1000).optional(),
+  })
+  .refine((v) => v.decision !== 'reject' || v.reason !== undefined, {
+    path: ['reason'],
+    message: 'validation.required',
+  });
+export type DecisionRequest = z.infer<typeof decisionRequestSchema>;
+
+export const otpCodeRequestSchema = z.strictObject({ code: otpCodeSchema });
+export type OtpCodeRequest = z.infer<typeof otpCodeRequestSchema>;

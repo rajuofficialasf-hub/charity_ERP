@@ -251,6 +251,16 @@ describe('registration rate-limit windows', () => {
     ]);
   });
 
+  it('keys a contact code by the change request in the path when the body names none', () => {
+    const withPath = (requestId: string) =>
+      ({ body: { code: '123456' }, ip: '10.0.0.1', headers: {}, params: { requestId } }) as never;
+    const [byAddress] = RATE_LIMITS['otp-request'];
+    const [byId] = RATE_LIMITS['otp-verify'];
+    expect(byAddress!.key(withPath('R1'))).toBe('request:R1');
+    expect(byId!.key(withPath('R1'))).toBe('request:R1');
+    expect(byId!.key(withPath('R2'))).not.toBe(byId!.key(withPath('R1')));
+  });
+
   it('keys a code resend by its registration draft, not one shared bucket', () => {
     const [byAddress] = RATE_LIMITS['otp-request'];
     const a = byAddress!.key(req({ registrationId: 'A', channel: 'sms' }));

@@ -2,6 +2,12 @@ import { reasonRequestSchema, type ReasonRequest, USER_STATES } from '@css/share
 import {
   type ChangeRequestAnswer,
   changeRequestAnswerSchema,
+  type DecisionRequest,
+  decisionRequestSchema,
+  type EditRequestCreate,
+  editRequestCreateSchema,
+  type OtpCodeRequest,
+  otpCodeRequestSchema,
   type RegistrationCorrectionCreate,
   registrationCorrectionCreateSchema,
   type StaffDecision,
@@ -13,7 +19,8 @@ import { z } from 'zod';
 import { sensitive } from '../access/field-mask';
 import { principalOf, scopeOf } from '../auth/principal';
 import type { Container } from '../container';
-import { pageQuery } from '../core/pagination';
+import { currentContext } from '../core/request-context';
+import { type PageQuery, pageQuery } from '../core/pagination';
 import { ok, page } from '../http/send';
 import { defineRoute, type RouteDeps } from '../openapi/define-route';
 import type { RegistrationListQuery } from '../services/registrations';
@@ -138,7 +145,7 @@ const listMeta = (rows: unknown[]) => ({ limit: rows.length, nextCursor: null, p
  */
 export function registrationsRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'registrations' | 'users'>,
+  c: Pick<Container, 'registrations' | 'users' | 'changeRequests'>,
 ): Router {
   const router = Router();
 
@@ -283,6 +290,101 @@ export function registrationsRouter(
     responses: { 200: changeRequest, 401: null, 404: null, 409: null, 422: null },
     handler: ({ body, params, req }) =>
       c.registrations.answer(principalOf(req), params.requestId, body),
+  });
+
+  const editOp = {
+    tag: 'registration',
+    scope: 'self',
+    permission: 'edit_request.submit',
+    idempotency: 'none' as const,
+  };
+
+  defineRoute<EditRequestCreate>(router, deps, {
+    ...editOp,
+    method: 'post',
+    path: '/me/change-requests',
+    status: 201,
+    operationId: 'registration.editRequest.submit',
+    summary:
+      'Submit a profile edit request with the new value (approved volunteers cannot edit directly; BR-031 as amended by D-085)',
+    audit: 'auth.edit_requested',
+    rateLimit: 'default',
+    body: editRequestCreateSchema,
+    responses: { 201: changeRequest, 401: null, 403: null, 404: null, 409: null, 422: null },
+    handler: ({ body, req }) => c.changeRequests.create(principalOf(req), body),
+  });
+
+  defineRoute<unknown, unknown, { requestId: string }>(router, deps, {
+    ...editOp,
+    method: 'post',
+    path: '/me/change-requests/:requestId/otp',
+    status: 204,
+    operationId: 'registration.contactChange.sendOtp',
+    summary: 'Send a code to the new mobile or email of an own contact edit request (D-085)',
+    audit: 'auth.otp_sent',
+    rateLimit: 'otp-request',
+    params: { requestId: uuid },
+    responses: { 204: null, 401: null, 403: null, 404: null, 409: null, 429: null },
+    handler: ({ params, req }) =>
+      c.changeRequests.sendCode(
+        principalOf(req),
+        params.requestId,
+        currentContext()?.locale ?? 'bn',
+      ),
+  });
+
+  defineRoute<OtpCodeRequest, unknown, { requestId: string }>(router, deps, {
+    ...editOp,
+    method: 'post',
+    path: '/me/change-requests/:requestId/otp/verify',
+    status: 204,
+    operationId: 'registration.contactChange.verifyOtp',
+    summary:
+      'Verify the code of a contact edit request; only then does the request reach the approvers (D-085)',
+    audit: 'auth.otp_verified',
+    rateLimit: 'otp-verify',
+    params: { requestId: uuid },
+    body: otpCodeRequestSchema,
+    responses: { 204: null, 401: null, 403: null, 404: null, 409: null, 422: null, 429: null },
+    handler: ({ body, params, req }) =>
+      c.changeRequests.verifyCode(principalOf(req), params.requestId, body.code),
+  });
+
+  defineRoute<unknown, Omit<PageQuery, 'sort'>>(router, deps, {
+    ...pendingOp,
+    method: 'get',
+    path: '/edit-requests',
+    operationId: 'registration.editRequest.list',
+    summary: 'Pending edit requests within scope',
+    permission: 'edit_request.approve',
+    audit: 'none',
+    query: pageQuery.omit({ sort: true, include: true }),
+    responses: { 200: z.array(changeRequest), 401: null, 403: null, 422: null },
+    handler: async ({ query, req }) => {
+      const { rows, meta } = await c.changeRequests.list(
+        query,
+        principalOf(req),
+        scopeOf(req),
+        (req as { fieldClasses?: ReadonlySet<string> }).fieldClasses ?? new Set<string>(),
+      );
+      return page(rows, meta);
+    },
+  });
+
+  defineRoute<DecisionRequest, unknown, { requestId: string }>(router, deps, {
+    ...pendingOp,
+    method: 'post',
+    path: '/edit-requests/:requestId/decision',
+    operationId: 'registration.editRequest.decide',
+    summary:
+      'Approve (the new value applies at once) or reject an edit request with a reason (D-085)',
+    permission: 'edit_request.approve',
+    audit: 'auth.edit_request_decided',
+    params: { requestId: uuid },
+    body: decisionRequestSchema,
+    responses: { 200: changeRequest, 401: null, 403: null, 404: null, 409: null, 422: null },
+    handler: ({ body, params, req }) =>
+      c.changeRequests.decide(principalOf(req), scopeOf(req), params.requestId, body),
   });
 
   defineRoute(router, deps, {

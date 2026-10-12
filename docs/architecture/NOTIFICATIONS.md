@@ -50,6 +50,7 @@ Channels: **A** in-app · **E** email · **S** SMS · **P** optional Web Push (i
 |---|---|---|---|---|
 | Registration OTP (mobile) | registrant | S (dummy in dev/test) | `otp_registration_sms` | 1 |
 | Registration OTP (email) | registrant | E (dummy in dev/test) | `otp_registration_email` | 1 |
+| Contact change OTP (new mobile or email of an edit request, D-085) | volunteer | S to the new mobile, E to the new email (dummy in dev/test) | `otp_contact_change` | 1 |
 | Password reset OTP | user | S for volunteers, S or E for staff | `otp_password_reset` | 1 |
 | Registration submitted (pending) | reviewers of the registrant's region (Project Executive, RPM), pm, monitoring | A | `registration_pending` | 1 |
 | Registration correction requested (per field) | registrant | A | `registration_correction_requested` | 1 |

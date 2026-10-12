@@ -925,9 +925,11 @@ components:
         note: { type: string, minLength: 3, maxLength: 1000 }
     EditRequestCreate:
       type: object
-      required: [field, newValue]
+      additionalProperties: false
+      required: [field]
+      description: The new value is required except for a photo, which the own photo upload fills (D-085)
       properties:
-        field: { type: string }
+        field: { type: string, enum: [name, fatherName, motherName, nid, whatsapp, address, addressLine, education, experience, workDescription, previousProjects, facebookId, bank, photo, nid_photo, mobile, email] }
         newValue: { $ref: '#/components/schemas/ChangeValue' }
         note: { type: string, maxLength: 1000 }
     ChangeRequestAnswer:
@@ -938,6 +940,7 @@ components:
         newValue: { $ref: '#/components/schemas/ChangeValue' }
     OtpCodeRequest:
       type: object
+      additionalProperties: false
       required: [code]
       properties:
         code: { type: string, pattern: '^[0-9]{6}$' }
@@ -1043,10 +1046,12 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     DecisionRequest:
       type: object
+      additionalProperties: false
       required: [decision]
+      description: A refusal needs a reason
       properties:
         decision: { type: string, enum: [approve, reject] }
-        reason: { type: string }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
     ProjectVolunteerCreate:
       type: object
       required: [volunteerIds, regionLocationId, permissionSet]
@@ -3152,6 +3157,9 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ChangeRequestResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /me/change-requests/{requestId}:
@@ -3195,6 +3203,8 @@ paths:
       x-rate-limit: otp-request
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
@@ -3217,7 +3227,10 @@ paths:
             schema: { $ref: '#/components/schemas/OtpCodeRequest' }
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
   /edit-requests:
@@ -3239,7 +3252,9 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ChangeRequestList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /edit-requests/{requestId}/decision:
     parameters:
       - $ref: '#/components/parameters/RequestId'
@@ -3263,10 +3278,13 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ChangeRequestResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
   # ======================= volunteers =======================
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /volunteers:
     get:
       tags: [volunteers]

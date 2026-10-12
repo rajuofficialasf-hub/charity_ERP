@@ -33,6 +33,7 @@ import { LocationsService } from './services/locations';
 import { FilesService } from './services/files';
 import { VolunteersService } from './services/volunteers';
 import { RegistrationsService } from './services/registrations';
+import { ChangeRequestsService } from './services/change-requests';
 import { RegistrationService } from './services/registration';
 import { RegistrationPhotosService } from './services/registration-photos';
 import { SessionsService } from './services/sessions';
@@ -77,6 +78,7 @@ export interface Container {
   files: FilesService;
   volunteers: VolunteersService;
   registrations: RegistrationsService;
+  changeRequests: ChangeRequestsService;
 }
 
 export interface ContainerOptions {
@@ -182,6 +184,19 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         audit,
         access,
         accessRegistry,
+        permissionVersions,
+        sessions,
+        registrationEvents,
+      ),
+    changeRequests:
+      o.changeRequests ??
+      new ChangeRequestsService(
+        env,
+        prisma,
+        clock,
+        audit,
+        otp,
+        access,
         permissionVersions,
         sessions,
         registrationEvents,

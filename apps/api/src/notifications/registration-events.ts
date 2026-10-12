@@ -13,7 +13,9 @@ export type RegistrationEventType =
   | 'registration.approved'
   | 'registration.rejected'
   | 'registration.correction_requested'
-  | 'registration.resubmitted';
+  | 'registration.resubmitted'
+  | 'registration.edit_requested'
+  | 'registration.edit_decided';
 
 export interface RegistrationEvent {
   type: RegistrationEventType;

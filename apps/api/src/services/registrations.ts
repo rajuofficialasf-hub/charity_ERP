@@ -659,8 +659,8 @@ export class RegistrationsService {
   }
 }
 
-/** Writes one corrected value into the pending profile (users or volunteers columns). */
-async function applyField(
+/** Writes one corrected or approved value into the profile (users or volunteers columns). */
+export async function applyField(
   tx: Tx,
   userId: string,
   volunteerId: string,

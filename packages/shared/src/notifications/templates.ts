@@ -80,6 +80,30 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
     },
   },
   {
+    key: 'otp_contact_change',
+    variables: ['code', 'minutes'],
+    channels: {
+      sms: {
+        bn: {
+          body: 'নতুন মোবাইল নম্বর যাচাই কোড {{code}}। কোডটি {{minutes}} মিনিট বৈধ। কাউকে জানাবেন না।',
+        },
+        en: {
+          body: 'Your code for the new mobile number is {{code}}. It is valid for {{minutes}} minutes. Do not share it.',
+        },
+      },
+      email: {
+        bn: {
+          subject: 'নতুন ইমেইল যাচাই কোড',
+          body: 'আপনার নতুন ইমেইল যাচাই কোড {{code}}। কোডটি {{minutes}} মিনিট বৈধ। আপনি অনুরোধ না করে থাকলে এই ইমেইলটি উপেক্ষা করুন।',
+        },
+        en: {
+          subject: 'Verification code for your new email',
+          body: 'Your verification code for the new email is {{code}}. It is valid for {{minutes}} minutes. If you did not ask for it, ignore this email.',
+        },
+      },
+    },
+  },
+  {
     key: 'registration_pending',
     variables: ['applicant_name', 'region_name'],
     channels: inApp(

@@ -54,8 +54,14 @@ const loginId = (req: Request) => {
   const id = normalizeLoginId(raw);
   return `${id.kind}:${id.value}`;
 };
-/** The code's address, or the registration draft a resend names (one window per draft). */
-const address = (req: Request) => field(req, 'address', 'mobile', 'email', 'registrationId');
+/** The request a code belongs to when the body names none: the change request in the path. */
+const pathRequest = (req: Request) =>
+  `request:${String((req.params as Record<string, unknown> | undefined)?.requestId ?? 'none').slice(0, KEY_MAX_LENGTH)}`;
+/** The code's address, the registration draft a resend names, or the change request in the path. */
+const address = (req: Request) => {
+  const value = field(req, 'address', 'mobile', 'email', 'registrationId');
+  return value === 'none' ? pathRequest(req) : value;
+};
 const session = (req: Request) => currentContext()?.deviceSessionId ?? `ip:${ip(req)}`;
 /** The refresh token starts with its session id (D-070), so refreshes count per session. */
 const refreshSession = (req: Request) => {
@@ -80,7 +86,10 @@ export const RATE_LIMITS: Record<RateLimitClass, Window[]> = {
     {
       limit: 5,
       ttlMs: HOUR,
-      key: (r) => field(r, 'registrationId', 'loginId', 'otpId', 'requestId'),
+      key: (r) => {
+        const value = field(r, 'registrationId', 'loginId', 'otpId', 'requestId');
+        return value === 'none' ? pathRequest(r) : value;
+      },
     },
     { limit: 20, ttlMs: HOUR, key: ip, byIp: true },
   ],
