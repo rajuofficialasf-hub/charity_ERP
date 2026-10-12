@@ -202,6 +202,12 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    RegistrationToken:
+      name: X-Registration-Token
+      in: header
+      required: true
+      description: Draft token returned once by the OTP verification (D-082); never in a URL or a log.
+      schema: { type: string, minLength: 32, maxLength: 128 }
     RequestId:
       name: requestId
       in: path
@@ -476,12 +482,59 @@ components:
         registrationId: { $ref: '#/components/schemas/Uuid' }
         mobileCode: { type: string, pattern: '^[0-9]{6}$' }
         emailCode: { type: string, pattern: '^[0-9]{6}$' }
-    RegistrationSubmitRequest:
+    RegistrationVerified:
       type: object
-      required: [registrationId, password, name, fatherName, motherName, nid, type, divisionId, districtId, upazilaId, unionId]
+      required: [registrationToken, expiresAt, kind]
+      properties:
+        registrationToken: { type: string, description: Shown once; sent back in X-Registration-Token (D-082) }
+        expiresAt: { type: string, format: date-time }
+        kind: { type: string, enum: [volunteer, staff] }
+    RegistrationVerifiedResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/RegistrationVerified' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    ReferenceLookupRequest:
+      type: object
+      required: [registrationId, nid]
       properties:
         registrationId: { $ref: '#/components/schemas/Uuid' }
-        password: { type: string, minLength: 8, maxLength: 128, description: 'At least one letter and one digit (O-05); 12 for Department Head and Monitoring Team (O-25)' }
+        nid: { type: string, pattern: '^([0-9]{10}|[0-9]{13}|[0-9]{17})$' }
+    ReferenceLookupResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [name]
+          properties:
+            name: { type: string, description: Name of the active volunteer with this NID (R3 of the T1.9 plan) }
+        meta: { $ref: '#/components/schemas/Meta' }
+    UploadedPhotoResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [fileId]
+          properties:
+            fileId: { $ref: '#/components/schemas/Uuid' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    BankDetails:
+      type: object
+      properties:
+        bankName: { type: string, maxLength: 200 }
+        accountName: { type: string, maxLength: 200 }
+        accountNumber: { type: string, maxLength: 40 }
+        routingNumber: { type: string, maxLength: 20 }
+    VolunteerRegistrationSubmit:
+      type: object
+      required: [kind, registrationId, password, name, fatherName, motherName, nid, type, divisionId, districtId, upazilaId, unionId]
+      properties:
+        kind: { type: string, const: volunteer }
+        registrationId: { $ref: '#/components/schemas/Uuid' }
+        password: { type: string, minLength: 8, maxLength: 128, description: 'At least one letter and one digit (O-05)' }
         name: { type: string, maxLength: 200 }
         fatherName: { type: string, maxLength: 200 }
         motherName: { type: string, maxLength: 200 }
@@ -492,24 +545,30 @@ components:
         districtId: { $ref: '#/components/schemas/Uuid' }
         upazilaId: { $ref: '#/components/schemas/Uuid' }
         unionId: { $ref: '#/components/schemas/Uuid' }
-        addressLine: { type: string }
-        education: { type: string }
-        experience: { type: string }
-        workDescription: { type: string }
-        previousProjects: { type: string }
-        facebookId: { type: string }
-        bank:
-          type: object
-          properties:
-            bankName: { type: string }
-            accountName: { type: string }
-            accountNumber: { type: string }
-            routingNumber: { type: string }
-        referenceNid: { type: string, pattern: '^([0-9]{10}|[0-9]{13}|[0-9]{17})$' }
-        photoFileId: { $ref: '#/components/schemas/Uuid' }
-        nidPhotoFileId: { $ref: '#/components/schemas/Uuid' }
-        designation: { type: string, description: staff only }
+        addressLine: { type: string, maxLength: 500 }
+        education: { type: string, maxLength: 500 }
+        experience: { type: string, maxLength: 2000 }
+        workDescription: { type: string, maxLength: 2000 }
+        previousProjects: { type: string, maxLength: 2000 }
+        facebookId: { type: string, maxLength: 200 }
+        bank: { $ref: '#/components/schemas/BankDetails' }
+        referenceNid: { type: string, pattern: '^([0-9]{10}|[0-9]{13}|[0-9]{17})$', description: Required for a team member }
+    StaffRegistrationSubmit:
+      type: object
+      required: [kind, registrationId, password, name, designation, homeProgramId, homeDivisionId]
+      properties:
+        kind: { type: string, const: staff }
+        registrationId: { $ref: '#/components/schemas/Uuid' }
+        password: { type: string, minLength: 8, maxLength: 128 }
+        name: { type: string, maxLength: 200 }
+        designation: { type: string, maxLength: 200 }
         homeProgramId: { $ref: '#/components/schemas/Uuid' }
+        homeDivisionId: { $ref: '#/components/schemas/Uuid' }
+    RegistrationSubmitRequest:
+      description: The form of the draft's kind (MASTER_SPEC A5, D-088); the photos are linked through the draft
+      oneOf:
+        - $ref: '#/components/schemas/VolunteerRegistrationSubmit'
+        - $ref: '#/components/schemas/StaffRegistrationSubmit'
     LoginRequest:
       type: object
       additionalProperties: false
@@ -640,17 +699,35 @@ components:
         reason: { type: string, minLength: 3, maxLength: 1000 }
     HandoverRequest:
       type: object
-      required: [scope]
+      required: [toUserId]
       properties:
-        defaultReceiverUserId: { $ref: '#/components/schemas/Uuid' }
-        scope: { $ref: '../database/json-schemas/handover-scope.schema.json' }
+        toUserId: { $ref: '#/components/schemas/Uuid' }
+        items:
+          type: array
+          maxItems: 500
+          description: Items to reassign; omitted means every listed item (reassign all)
+          items:
+            type: object
+            required: [itemType, itemId]
+            properties:
+              itemType: { type: string }
+              itemId: { $ref: '#/components/schemas/Uuid' }
+    HandoverItem:
+      type: object
+      required: [category, itemType, itemId, label]
+      properties:
+        category: { type: string, enum: [reviews_approvals, projects, documents, issues, followups] }
+        itemType: { type: string }
+        itemId: { $ref: '#/components/schemas/Uuid' }
+        projectId: { type: [string, 'null'], format: uuid }
+        label: { type: string }
     Handover:
       type: object
-      required: [id, fromUserId, scope]
+      required: [fromUserId, pending, outstandingCount]
       properties:
-        id: { $ref: '#/components/schemas/Uuid' }
+        id: { type: [string, 'null'], format: uuid, description: Null until the first reassignment starts the handover }
         fromUserId: { $ref: '#/components/schemas/Uuid' }
-        toUserId: { type: [string, 'null'], format: uuid }
+        pending: { type: array, items: { $ref: '#/components/schemas/HandoverItem' } }
         scope: { $ref: '../database/json-schemas/handover-scope.schema.json' }
         outstandingCount: { type: integer, description: Items still without a new owner }
         completedAt: { type: [string, 'null'], format: date-time }
@@ -816,13 +893,34 @@ components:
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/VolunteerSummary' } }
         meta: { $ref: '#/components/schemas/ListMeta' }
-    ChangeRequestCreate:
+    ChangeValue:
+      description: Text for a text field; an object for the address and the bank details; a file id from the photo upload for a photo field (D-085)
+      oneOf:
+        - { type: string, maxLength: 2000 }
+        - { type: object }
+    RegistrationCorrectionCreate:
       type: object
-      required: [field]
+      required: [fields, note]
+      properties:
+        fields: { type: array, minItems: 1, maxItems: 20, items: { type: string } }
+        note: { type: string, minLength: 3, maxLength: 1000 }
+    EditRequestCreate:
+      type: object
+      required: [field, newValue]
       properties:
         field: { type: string }
-        newValue: { type: string }
-        note: { type: string }
+        newValue: { $ref: '#/components/schemas/ChangeValue' }
+        note: { type: string, maxLength: 1000 }
+    ChangeRequestAnswer:
+      type: object
+      required: [newValue]
+      properties:
+        newValue: { $ref: '#/components/schemas/ChangeValue' }
+    OtpCodeRequest:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string, pattern: '^[0-9]{6}$' }
     ChangeRequest:
       type: object
       required: [id, volunteerId, kind, field, status]
@@ -831,9 +929,10 @@ components:
         volunteerId: { $ref: '#/components/schemas/Uuid' }
         kind: { type: string, enum: [registration_correction, profile_edit] }
         field: { type: string }
-        newValue: { type: [string, 'null'] }
+        newValue: { description: 'Absent for NID, bank, mobile and email values towards anyone but the owner and allowed officials' }
         note: { type: [string, 'null'] }
         status: { type: string, enum: [open, submitted, approved, rejected, closed] }
+        contactVerified: { type: boolean, description: 'For a mobile or email change: the code to the new value was verified' }
         decidedAt: { type: [string, 'null'], format: date-time }
     ChangeRequestResponse:
       type: object
@@ -847,6 +946,81 @@ components:
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/ChangeRequest' } }
         meta: { $ref: '#/components/schemas/ListMeta' }
+    PendingRegistration:
+      type: object
+      required: [userId, kind, displayName, status, submittedAt]
+      properties:
+        userId: { $ref: '#/components/schemas/Uuid' }
+        kind: { type: string, enum: [volunteer, staff] }
+        displayName: { type: string }
+        status: { type: string, enum: [awaiting_review, in_correction] }
+        submittedAt: { type: string, format: date-time }
+        volunteerType: { type: [string, 'null'], enum: [general, local_daee, both, team_member, paid, null] }
+        divisionId: { type: [string, 'null'], format: uuid }
+        districtId: { type: [string, 'null'], format: uuid }
+        designation: { type: [string, 'null'] }
+    PendingRegistrationList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/PendingRegistration' } }
+        meta: { $ref: '#/components/schemas/ListMeta' }
+    RegistrationDetail:
+      allOf:
+        - $ref: '#/components/schemas/PendingRegistration'
+        - type: object
+          properties:
+            mobile: { type: [string, 'null'] }
+            email: { type: [string, 'null'] }
+            photoFileId: { type: [string, 'null'], format: uuid }
+            homeProgramId: { type: [string, 'null'], format: uuid }
+            homeDivisionId: { type: [string, 'null'], format: uuid }
+            volunteer: { oneOf: [{ $ref: '#/components/schemas/Volunteer' }, { type: 'null' }] }
+            blocklisted: { type: boolean }
+            corrections: { type: array, items: { $ref: '#/components/schemas/ChangeRequest' } }
+    RegistrationDetailResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/RegistrationDetail' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    OwnVolunteerProfile:
+      type: object
+      description: The volunteer's own profile; includes the own NID and bank details in full (D-081) and never the own rating or category
+      required: [userId, state, displayName, inAnyProject]
+      properties:
+        userId: { $ref: '#/components/schemas/Uuid' }
+        volunteerId: { type: [string, 'null'], format: uuid }
+        state: { type: string, enum: [pending, active, blocked, deactivated] }
+        displayName: { type: string }
+        mobile: { type: [string, 'null'] }
+        email: { type: [string, 'null'] }
+        inAnyProject: { type: boolean, description: False shows the "not yet in any project" message (BR-031) }
+        fatherName: { type: string }
+        motherName: { type: string }
+        nid: { type: string }
+        type: { type: string, enum: [general, local_daee, both, team_member, paid] }
+        whatsapp: { type: [string, 'null'] }
+        divisionId: { $ref: '#/components/schemas/Uuid' }
+        districtId: { $ref: '#/components/schemas/Uuid' }
+        upazilaId: { $ref: '#/components/schemas/Uuid' }
+        unionId: { $ref: '#/components/schemas/Uuid' }
+        addressLine: { type: [string, 'null'] }
+        education: { type: [string, 'null'] }
+        experience: { type: [string, 'null'] }
+        workDescription: { type: [string, 'null'] }
+        previousProjects: { type: [string, 'null'] }
+        facebookId: { type: [string, 'null'] }
+        bank: { $ref: '#/components/schemas/BankDetails' }
+        referenceNid: { type: [string, 'null'] }
+        photoFileId: { type: [string, 'null'], format: uuid }
+        nidPhotoFileId: { type: [string, 'null'], format: uuid }
+    OwnVolunteerProfileResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/OwnVolunteerProfile' }
+        meta: { $ref: '#/components/schemas/Meta' }
     DecisionRequest:
       type: object
       required: [decision]
@@ -2010,13 +2184,13 @@ paths:
     post:
       tags: [auth]
       operationId: auth.registration.start
-      summary: Start registration with mobile and email; sends two OTPs (dummy code in dev/test)
+      summary: Start registration with mobile and email; sends two OTPs (dummy code in dev/test); an existing account is reported only after verification (D-086)
       security: []
       x-permission: public
       x-scope: self
       x-audit: auth.register_started
       x-idempotency: none
-      x-rate-limit: otp-request
+      x-rate-limit: registration
       parameters:
         - $ref: '#/components/parameters/AcceptLanguage'
       requestBody:
@@ -2030,7 +2204,6 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/RegistrationStartResponse' }
-        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
   /auth/register/otp/send:
@@ -2057,7 +2230,7 @@ paths:
     post:
       tags: [auth]
       operationId: auth.registration.verifyOtp
-      summary: Verify both OTPs; the registration form opens only when both match (BR-023)
+      summary: Verify both OTPs; returns the draft token once and the form opens (BR-023, D-082); a contact of an existing account answers registration.account_exists (D-086)
       security: []
       x-permission: public
       x-scope: self
@@ -2070,21 +2243,100 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/OtpVerifyRequest' }
       responses:
-        '204': { $ref: '#/components/responses/NoContent' }
+        '200':
+          description: Both codes verified
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegistrationVerifiedResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /auth/register/reference-lookup:
+    post:
+      tags: [auth]
+      operationId: auth.registration.referenceLookup
+      summary: Name of the active volunteer whose NID a team member gives as reference (verified draft only; limited and audited, D-088)
+      security: []
+      x-permission: public
+      x-scope: self
+      x-audit: auth.reference_lookup
+      x-idempotency: none
+      x-rate-limit: reference-lookup
+      parameters:
+        - $ref: '#/components/parameters/RegistrationToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReferenceLookupRequest' }
+      responses:
+        '200':
+          description: Matching volunteer
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReferenceLookupResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /auth/register/photos/{slot}:
+    parameters:
+      - name: slot
+        in: path
+        required: true
+        schema: { type: string, enum: [photo, nid_photo] }
+    post:
+      tags: [auth]
+      operationId: auth.registration.uploadPhoto
+      summary: Upload the photo or the NID photo of a verified draft (JPEG or PNG, at most 2 MB; metadata stripped; replaces the slot's earlier upload; D-087)
+      security: []
+      x-permission: public
+      x-scope: self
+      x-audit: file.uploaded
+      x-idempotency: none
+      x-rate-limit: public-form
+      x-sensitive-fields: [volunteer.identity]
+      parameters:
+        - $ref: '#/components/parameters/RegistrationToken'
+        - name: registrationId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: source
+          in: query
+          schema: { type: string, enum: [camera, gallery] }
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary }
+          image/png:
+            schema: { type: string, format: binary }
+      responses:
+        '201':
+          description: Stored
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UploadedPhotoResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '413': { $ref: '#/components/responses/Unprocessable' }
+        '415': { $ref: '#/components/responses/Unprocessable' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
   /auth/register/submit:
     post:
       tags: [auth]
       operationId: auth.registration.submit
-      summary: Submit the registration form; the account is created in state pending
+      summary: Submit the registration form of the draft's kind; the account is created in state pending, or a rejected never-approved account returns to pending (D-086)
       security: []
       x-permission: public
       x-scope: self
       x-audit: auth.registered
       x-idempotency: none
-      x-rate-limit: otp-request
+      x-rate-limit: registration
       x-sensitive-fields: [volunteer.identity, volunteer.bank]
+      parameters:
+        - $ref: '#/components/parameters/RegistrationToken'
       requestBody:
         required: true
         content:
@@ -2096,6 +2348,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/MeResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /auth/login:
@@ -2438,7 +2692,7 @@ paths:
     get:
       tags: [users]
       operationId: users.handover.get
-      summary: Outstanding work of an official to hand over (BD-08)
+      summary: Pending work of an official by category, and the handover state (BD-08, BR-034)
       x-permission: user.handover
       x-scope: user
       x-audit: none
@@ -2454,7 +2708,7 @@ paths:
     post:
       tags: [users]
       operationId: users.handover.assign
-      summary: Assign new owners to outstanding items (one by one or all to one person)
+      summary: Reassign listed items to an active official of a fitting role (one by one or all); the first call starts the handover
       x-permission: user.handover
       x-scope: user
       x-audit: auth.handover_started
@@ -2472,6 +2726,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/HandoverResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /users/{userId}/handover/complete:
     parameters:
@@ -2479,7 +2734,7 @@ paths:
     post:
       tags: [users]
       operationId: users.handover.complete
-      summary: Complete the handover and deactivate the account (all items reassigned)
+      summary: Complete the handover once every item is reassigned; deactivation stays the account-state change
       x-permission: user.handover
       x-scope: user
       x-audit: auth.handover_completed
@@ -2623,7 +2878,7 @@ paths:
     get:
       tags: [registration]
       operationId: registration.pending.list
-      summary: Pending volunteer registrations within scope (volunteer tab, pending filter)
+      summary: Pending registrations within scope (volunteers by address, D-084; staff for staff approvers only)
       x-permission: registration.approve
       x-scope: volunteer
       x-audit: none
@@ -2633,6 +2888,12 @@ paths:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
         - $ref: '#/components/parameters/IncludeTotal'
+        - name: kind
+          in: query
+          schema: { type: string, enum: [volunteer, staff] }
+        - name: status
+          in: query
+          schema: { type: string, enum: [awaiting_review, in_correction], default: awaiting_review }
         - name: districtId
           in: query
           schema: { type: string, format: uuid }
@@ -2641,15 +2902,35 @@ paths:
           description: Pending registrations
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/VolunteerList' }
+              schema: { $ref: '#/components/schemas/PendingRegistrationList' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /registrations/{userId}:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [registration]
+      operationId: registration.pending.get
+      summary: One pending registration with its fields, photos and correction requests (masks per role)
+      x-permission: registration.approve
+      x-scope: volunteer
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      x-sensitive-fields: [volunteer.identity, volunteer.bank]
+      responses:
+        '200':
+          description: Registration
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegistrationDetailResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /registrations/{userId}/approve:
     parameters:
       - $ref: '#/components/parameters/UserId'
     post:
       tags: [registration]
       operationId: registration.volunteer.approve
-      summary: Approve a volunteer registration; the account becomes active
+      summary: Approve a volunteer registration; the account becomes active (refused while corrections are open or the volunteer is blocklisted)
       x-permission: registration.approve
       x-scope: volunteer
       x-audit: auth.approved
@@ -2669,7 +2950,7 @@ paths:
     post:
       tags: [registration]
       operationId: registration.volunteer.reject
-      summary: Reject a volunteer registration with a reason
+      summary: Reject a volunteer registration with a reason; the person may register again (D-086)
       x-permission: registration.approve
       x-scope: volunteer
       x-audit: auth.rejected
@@ -2683,13 +2964,14 @@ paths:
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /registrations/{userId}/correction-requests:
     parameters:
       - $ref: '#/components/parameters/UserId'
     post:
       tags: [registration]
       operationId: registration.correction.create
-      summary: Ask the registrant to correct one field (the whole form is not returned, BR-030)
+      summary: Ask the registrant to correct the named fields with one note; one request row per field (the whole form is not returned, BR-030)
       x-permission: registration.request_correction
       x-scope: volunteer
       x-audit: auth.correction_requested
@@ -2699,14 +2981,16 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/ChangeRequestCreate' }
+            schema: { $ref: '#/components/schemas/RegistrationCorrectionCreate' }
       responses:
         '201':
-          description: Correction requested
+          description: Corrections requested
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ChangeRequestResponse' }
+              schema: { $ref: '#/components/schemas/ChangeRequestList' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /staff-registrations/{userId}/decision:
     parameters:
       - $ref: '#/components/parameters/UserId'
@@ -2737,6 +3021,59 @@ paths:
               schema: { $ref: '#/components/schemas/UserResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+  /me/registration/resubmit:
+    post:
+      tags: [registration]
+      operationId: registration.correction.resubmit
+      summary: Return the corrected registration to the approvers once every correction is answered (BR-030)
+      x-permission: authenticated
+      x-scope: self
+      x-audit: auth.correction_resubmitted
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /me/photos/{slot}:
+    parameters:
+      - name: slot
+        in: path
+        required: true
+        schema: { type: string, enum: [photo, nid_photo] }
+    post:
+      tags: [registration]
+      operationId: registration.ownPhoto.upload
+      summary: Upload a photo for an own correction or edit request that names the photo field (same rules as the registration upload, D-087)
+      x-permission: authenticated
+      x-scope: self
+      x-audit: file.uploaded
+      x-idempotency: none
+      x-rate-limit: public-form
+      x-sensitive-fields: [volunteer.identity]
+      parameters:
+        - name: requestId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: source
+          in: query
+          schema: { type: string, enum: [camera, gallery] }
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary }
+          image/png:
+            schema: { type: string, format: binary }
+      responses:
+        '201':
+          description: Stored
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UploadedPhotoResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '413': { $ref: '#/components/responses/Unprocessable' }
+        '415': { $ref: '#/components/responses/Unprocessable' }
   /me/change-requests:
     get:
       tags: [registration]
@@ -2757,7 +3094,7 @@ paths:
     post:
       tags: [registration]
       operationId: registration.editRequest.submit
-      summary: Submit a profile edit request (approved volunteers cannot edit directly, BR-031)
+      summary: Submit a profile edit request with the new value (approved volunteers cannot edit directly; BR-031 as amended by D-085)
       x-permission: edit_request.submit
       x-scope: self
       x-audit: auth.edit_requested
@@ -2767,13 +3104,14 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/ChangeRequestCreate' }
+            schema: { $ref: '#/components/schemas/EditRequestCreate' }
       responses:
         '201':
           description: Edit request submitted
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ChangeRequestResponse' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /me/change-requests/{requestId}:
     parameters:
@@ -2781,7 +3119,7 @@ paths:
     patch:
       tags: [registration]
       operationId: registration.ownChangeRequest.answer
-      summary: Answer a correction request or update an opened field
+      summary: Answer one correction request with the corrected value
       x-permission: authenticated
       x-scope: self
       x-audit: auth.correction_answered
@@ -2791,11 +3129,7 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [newValue]
-              properties:
-                newValue: { type: string }
+            schema: { $ref: '#/components/schemas/ChangeRequestAnswer' }
       responses:
         '200':
           description: Answered
@@ -2804,6 +3138,46 @@ paths:
               schema: { $ref: '#/components/schemas/ChangeRequestResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /me/change-requests/{requestId}/otp:
+    parameters:
+      - $ref: '#/components/parameters/RequestId'
+    post:
+      tags: [registration]
+      operationId: registration.contactChange.sendOtp
+      summary: Send a code to the new mobile or email of an own contact edit request (D-085)
+      x-permission: edit_request.submit
+      x-scope: self
+      x-audit: auth.otp_sent
+      x-idempotency: none
+      x-rate-limit: otp-request
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /me/change-requests/{requestId}/otp/verify:
+    parameters:
+      - $ref: '#/components/parameters/RequestId'
+    post:
+      tags: [registration]
+      operationId: registration.contactChange.verifyOtp
+      summary: Verify the code of a contact edit request; only then does the request reach the approvers (D-085)
+      x-permission: edit_request.submit
+      x-scope: self
+      x-audit: auth.otp_verified
+      x-idempotency: none
+      x-rate-limit: otp-verify
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OtpCodeRequest' }
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
   /edit-requests:
     get:
       tags: [registration]
@@ -2830,7 +3204,7 @@ paths:
     post:
       tags: [registration]
       operationId: registration.editRequest.decide
-      summary: Approve (opens the field) or reject an edit request
+      summary: Approve (the new value applies at once) or reject an edit request with a reason (D-085)
       x-permission: edit_request.approve
       x-scope: volunteer
       x-audit: auth.edit_request_decided
@@ -2848,6 +3222,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ChangeRequestResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
 
   # ======================= volunteers =======================
   /volunteers:
@@ -2906,7 +3281,7 @@ paths:
     get:
       tags: [volunteers]
       operationId: volunteers.self.get
-      summary: Own volunteer profile (never includes own rating or category)
+      summary: Own volunteer profile with the own NID and bank details (D-081); never the own rating or category; also for a pending registrant
       x-permission: authenticated
       x-scope: self
       x-audit: none
@@ -2917,7 +3292,7 @@ paths:
           description: Own profile
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/VolunteerResponse' }
+              schema: { $ref: '#/components/schemas/OwnVolunteerProfileResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
   /volunteers/{volunteerId}:
     parameters:
@@ -5069,6 +5444,27 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/FileInfoResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /files/{fileId}/content:
+    parameters:
+      - $ref: '#/components/parameters/FileId'
+    get:
+      tags: [files]
+      operationId: files.file.content
+      summary: Stream a registration or profile photo to its owner and to allowed officials; the NID photo only to the volunteer.identity roles (Cache-Control no-store, nosniff; D-087)
+      x-permission: entity
+      x-scope: file
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: The image
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+        '404': { $ref: '#/components/responses/NotFound' }
   /files/{fileId}/url:
     parameters:
       - $ref: '#/components/parameters/FileId'
@@ -5256,26 +5652,24 @@ paths:
     get:
       tags: [reference]
       operationId: reference.location.list
-      summary: Children of a location (divisions when parentId is omitted); not paginated
-      x-permission: authenticated
+      summary: Active children of a location (divisions when parentId is omitted); public reference data for the registration form (D-083); not paginated
+      security: []
+      x-permission: public
       x-scope: system
       x-audit: none
       x-idempotency: none
-      x-rate-limit: default
+      x-rate-limit: reference-read
       parameters:
         - name: parentId
           in: query
           schema: { type: string, format: uuid }
-        - name: includeInactive
-          in: query
-          schema: { type: boolean, default: false }
       responses:
         '200':
           description: Locations
           content:
             application/json:
               schema: { $ref: '#/components/schemas/LocationList' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
     post:
       tags: [reference]
       operationId: reference.location.create

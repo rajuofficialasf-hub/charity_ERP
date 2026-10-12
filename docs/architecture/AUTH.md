@@ -31,7 +31,9 @@ Flow (BR-023, BD-44):
 
 OTP parameters (O-25): 6 digits; valid 5 minutes; at most 5 verification attempts per code, then a new code is required; at most 5 OTP requests per number or address per hour (NFR-41, rate limiting section 12); the same code is never reused; codes are stored hashed with their expiry in `otp_codes` and purged by a job after expiry.
 
-Partial registrations: a user who verified both OTPs but did not submit the form may resume within 24 hours (O-25) by verifying the mobile OTP again; after that the draft is discarded.
+Partial registrations: a user who verified both OTPs but did not submit the form may resume within 24 hours (O-25) by starting again with the same mobile and email and verifying both codes; the draft keeps its uploaded photos; after that the draft and its photos are deleted by a daily job (D-082).
+
+Implementation decisions of T1.9 (D-082, D-086, D-087, D-088): the draft lives in `registration_drafts`; verification returns a random draft token once (only its hash is stored), which the client sends in the `X-Registration-Token` header on the reference lookup, the photo uploads and the submit. `start` always sends the codes; only after both are verified does the API answer `registration.account_exists` for a mobile or email of an active, pending or blocked account, so nobody learns which numbers are registered without owning them. A rejected, never-approved account is reused by a new registration and returns to `pending`. The photo and the NID photo are JPEG or PNG of at most 2 MB, stripped of metadata on the server and stored privately; a team member's reference NID shows the main volunteer's name, five times per draft at most, audited.
 
 ### 2.1 Dummy OTP in development and test (BD-44, BD-49, BR-024)
 

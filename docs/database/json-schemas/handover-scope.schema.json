@@ -14,7 +14,7 @@
         "additionalProperties": false,
         "required": ["item_type", "item_id", "new_owner_user_id"],
         "properties": {
-          "item_type": { "enum": ["pending_review", "pending_approval", "project_area", "project_staff", "document", "issue", "followup", "edit_request", "correction_request", "work_assignment"] },
+          "item_type": { "enum": ["pending_review", "pending_approval", "program", "project_area", "project_staff", "document", "issue", "followup", "edit_request", "correction_request", "work_assignment"] },
           "item_id": { "type": "string", "format": "uuid" },
           "project_id": { "type": "string", "format": "uuid" },
           "new_owner_user_id": { "type": "string", "format": "uuid" },

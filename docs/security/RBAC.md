@@ -54,6 +54,8 @@ permission: { name, description, module, sensitive, default: [ { role, scope, co
 
 Resolution rules:
 
+- Volunteers outside any project (D-084): a pending or unassigned volunteer is reached through the address. REGION and the area scopes reach volunteers whose division, district, upazila or union is one of the caller's area locations; PROGRAM reaches those in the area locations of the program's projects; GLOBAL reaches all. This is how the approvers of Q-19 see the registrations of their region.
+
 - The resolver computes, per request, the set of scope instances the user holds for the target entity type (for example `{REGION: [projectA/divisionX], PROJECT: [projectB]}`) and the repository turns it into a mandatory `WHERE` clause (SYSTEM_ARCHITECTURE §6 step 7). A user with no instance for the entity type gets an empty result, never an error that reveals existence.
 - Several scopes add up: an RPM who is also assigned as Official দায়ী on another project holds REGION for the first and the Official দায়ী grants for the second.
 - GLOBAL read of the volunteer and beneficiary tabs does not imply write: writing still needs the specific permission at its scope (BR-185).
@@ -213,7 +215,7 @@ As built in T1.8 (Express, ADR-014; the decorator names below are the design's, 
 3. **Scope resolution per role** (section 4) produces query filters; repositories accept a scope object and never a raw user id.
 4. **Object-level checks for ASSIGNED and SELF.** Single-record routes load the record through the scoped repository; a record outside the scope is "not found" (404), never 403, so existence is not leaked. SELF compares `submitted_by`/owner to the user; ASSIGNED requires an assignment row. Team members additionally require `created_by = user` (`own_created`).
 5. **IDOR prevention.** All ids are UUIDs (O-03), never sequential; list endpoints always filter by scope; batch endpoints (sync, bulk update) check each record's scope individually and report per-record results; file downloads go through the permission check before a signed URL is issued (BR-204).
-6. **Field-level protection.** The `sensitive_fields` catalogue of the YAML drives one serializer mask used for JSON responses, exports (CSV/XLSX/PDF) and PDF reports alike (BR-183). Protected classes: beneficiary NID/birth number and NID photo; volunteer NID and NID photo; volunteer bank details; ratings, categories and their comments; donor data; official form sections and scores; blocklist reasons; audit detail. Masking is by removal, not by blanking, so a volunteer client never learns the field exists.
+6. **Field-level protection.** The `sensitive_fields` catalogue of the YAML drives one serializer mask used for JSON responses, exports (CSV/XLSX/PDF) and PDF reports alike (BR-183). Protected classes: beneficiary NID/birth number and NID photo; volunteer NID and NID photo; volunteer bank details; ratings, categories and their comments; donor data; official form sections and scores; blocklist reasons; audit detail. Masking is by removal, not by blanking, so a volunteer client never learns the field exists. The one exception is the own record (D-081): `GET /volunteers/me` returns the volunteer's own NID, NID photo id and bank details in full.
 7. **Sensitive exports** (`sensitive: true` permissions, `export.*` of identity fields) write an audit entry with the filter used and the row count (BR-224, BR-179).
 8. **Default deny** at every layer: a missing grant, an unknown permission name, an unresolved scope or a failed condition all deny.
 

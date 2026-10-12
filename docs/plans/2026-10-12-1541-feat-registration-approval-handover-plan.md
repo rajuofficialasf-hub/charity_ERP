@@ -103,7 +103,7 @@ Today accounts exist only in the seed: nobody can join the system, and the appro
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U2. Registration drafts and the contact-change OTP purpose
 - **Goal:** The database keeps registration drafts, accepts OTPs for contact changes, and links a staff photo to a user.
@@ -336,7 +336,7 @@ Today accounts exist only in the seed: nobody can join the system, and the appro
 ## Progress
 - **Branch:** `feat/registration-approval-handover`
 - **Updated:** 2026-10-12 16:30
-- **Next:** U1: decisions D-081 to D-088 in `docs/DECISION_LOG.md`, then the contract edits in `docs/api/openapi.yaml`
+- **Next:** checkpoint C1 (range 6148201..HEAD), then U2 migration
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** The owner answered "Start implementation" after the doc review, which also confirms the proposed decisions of U1 (Technical decisions "Decisions logged before code").
+- **Notes:** U1: decisions D-081 to D-089 in DECISION_LOG (approved with "Start implementation"; D-087 is a further owner answer during U1: registration photos may be viewed before the T2.1 scanner, an exception to O-30). Resume of a draft is "start again with the same mobile and email and verify both codes" (AUTH.md 2 rewritten), not the mobile code alone. The contract got a new `RegistrationToken` header parameter, `RegistrationCorrectionCreate` (the name `CorrectionRequestCreate` already belongs to the beneficiary correction), `OwnVolunteerProfile`, `PendingRegistration` and `RegistrationDetail`; the rate classes `registration`, `reference-lookup` and `reference-read` are also in `docs/api/redocly.yaml`. Request schemas in the contract may still be adjusted to what zod generates when the routes are built (the drift test compares them). The owner answered "Start implementation" after the doc review, which also confirms the proposed decisions of U1 (Technical decisions "Decisions logged before code").

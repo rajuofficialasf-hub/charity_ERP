@@ -76,7 +76,7 @@ Technical table added in T0.16 for O-03 (ERD.md §20).
 | L-role-kind | official, volunteer | roles.kind |
 | L-perm-effect | grant, revoke | user_permissions.effect |
 | L-scope | GLOBAL, PROGRAM, PROJECT, REGION, DISTRICT, UPAZILA, UNION, ASSIGNED, SELF | user_permissions.scope_type |
-| L-otp-purpose | registration, password_reset | otp_codes.purpose |
+| L-otp-purpose | registration, password_reset, contact_change (D-085) | otp_codes.purpose |
 | L-channel-otp | sms, email | otp_codes.channel |
 | L-location-level | division, district, upazila, union | locations.level |
 | L-location-kind | division, district, upazila, city_corporation, union, pourosova, thana | locations.kind (D-061; city_corporation at upazila level, pourosova and thana at union level) |
@@ -270,6 +270,27 @@ Indexes: (user_id) WHERE revoked_at IS NULL; UNIQUE (refresh_token_hash).
 | [L] | | | | |
 
 Index: (address_hash, purpose, created_at desc). Rows are deleted by a job after expiry (technical data, not business data).
+
+### registration_drafts
+A registration between `start` and `submit` (AUTH.md 2, D-082). Technical data: an unsubmitted draft is deleted with its photos 24 hours after its expiry by a daily job; a submitted draft keeps the link to the account it created.
+
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK; the `registrationId` of the API |
+| kind | text | no | 'volunteer' | volunteer, staff |
+| mobile | text | no | — | CHECK `^01[3-9][0-9]{8}$` |
+| email | text | no | — | lower-cased |
+| token_hash | text | yes | — | SHA-256 of the draft token issued at verification; never the token |
+| verified_at | timestamptz | yes | — | both OTPs verified |
+| expires_at | timestamptz | no | — | +24 hours from start, renewed by a new verification |
+| reference_lookups | smallint | no | 0 | CHECK 0–5 |
+| photo_file_id | uuid | yes | — | FK files |
+| nid_photo_file_id | uuid | yes | — | FK files |
+| submitted_user_id | uuid | yes | — | FK users; set by submit |
+| submitted_at | timestamptz | yes | — | — |
+| [A] | | | | |
+
+Indexes: (mobile), (email), (expires_at) WHERE submitted_at IS NULL, and one per foreign key (DB-MIG-07).
 
 ### handovers
 | Column | Type | Null | Default | Comment |
@@ -1407,7 +1428,7 @@ Constraints: UNIQUE (bucket, object_key); partial UNIQUE (project_id, sha256) WH
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
 | file_id | uuid | no | — | FK files |
-| entity_type | text | no | — | application, activity, voucher, expense_claim, payment, document, animal, issue, media_subject, media_story, volunteer, beneficiary, followup_evaluation |
+| entity_type | text | no | — | application, activity, voucher, expense_claim, payment, document, animal, issue, media_subject, media_story, volunteer, beneficiary, followup_evaluation, user (staff photo, D-082) |
 | entity_id | uuid | no | — | — |
 | slot | text | no | — | e.g. distribution_proof, final_photo |
 | position | smallint | no | 0 | — |

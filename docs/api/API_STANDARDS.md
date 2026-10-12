@@ -153,6 +153,14 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | user | user.handover_required | 409 | deactivation before a completed handover (BR-034) |
 | user | user.transition_not_allowed | 409 | account state change not allowed (AUTH.md §7, O-59): same state, own account, pending account (registration flow), volunteer block (blocklist flow) |
 | user | user.not_locked | 409 | lock clearing on an account that is not locked (O-59) |
+| registration | registration.account_exists | 409 | after both codes: the mobile or email belongs to an active, pending or blocked account; log in instead (D-086) |
+| registration | registration.token_invalid | 401 | missing or wrong draft token on lookup, upload or submit (D-082) |
+| registration | registration.draft_expired | 410 | the draft is older than 24 hours or unverified; start again |
+| registration | registration.open_corrections | 409 | approval or resubmit while a correction is unanswered (BR-030) |
+| registration | registration.not_resubmitted | 409 | approval of a registration still in correction |
+| registration | registration.blocklisted | 409 | approval of a blocklisted registration (BR-047) |
+| handover | handover.target_invalid | 422 | the receiving user is not an active official with a fitting role, or is the person handed over (BR-034) |
+| handover | handover.items_outstanding | 409 | completion while items are still unassigned (BR-034) |
 | business | beneficiary.identity_missing | 422 | neither NID nor birth registration (BR-001) |
 | business | beneficiary.mobile_is_volunteer_mobile | 422 | BD-03 / BR-008 (also raised by the database trigger, DATABASE_SCHEMA §18) |
 | business | beneficiary.blocked | 422 | blocked beneficiary cannot apply (BR-010) |
@@ -216,6 +224,9 @@ Implementation (T1.6, O-57): `IdempotencyService` in apps/api: `replayByClientUu
 | password-reset | 5 per hour per login id (normalized spelling); 20 per hour per IP (D-075) | login id, IP |
 | refresh | 60 per hour | device session |
 | public-form | 20 per hour (O-08, NFR-41) | IP |
+| registration | 10 registrations started per IP per day, plus the `otp-request` windows (D-082) | IP, address |
+| reference-lookup | 20 per IP per day and 5 per NID per day; 5 per draft are counted on the draft (D-088) | IP, NID hash |
+| reference-read | 300 per hour (public reference data, D-083) | IP |
 | default | 600 per minute per user (PROPOSAL, tuned by the load test T3.4) | user |
 | sync | 60 batches per minute per device session (PROPOSAL) | device session |
 
