@@ -249,6 +249,16 @@ describe('contact changes', () => {
     expect(status).toEqual({ [typo.body.data.id]: 'closed', [fixed.body.data.id]: 'open' });
   });
 
+  it('caps the codes of one account at 5 per hour, also across replaced requests', async () => {
+    const v = await approvedVolunteer();
+    const statuses: number[] = [];
+    for (let i = 0; i < 6; i += 1) {
+      const created = await ask(v.session, { field: 'mobile', newValue: f.fakeMobile() });
+      statuses.push((await sendCode(v.session, created.body.data.id)).status);
+    }
+    expect(statuses).toEqual([204, 204, 204, 204, 204, 429]);
+  });
+
   it("volunteer B cannot see, answer or verify volunteer A's request", async () => {
     const a = await approvedVolunteer();
     const b = await approvedVolunteer();

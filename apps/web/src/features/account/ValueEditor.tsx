@@ -13,7 +13,7 @@ const BANK_LABEL = {
 const NUMERIC = new Set<RequestField>(['nid', 'whatsapp', 'mobile']);
 
 /**
- * The input for the new value of one field (D-085): a text, the address cascade or the bank
+ * The input for the new value of one field (DECISION_LOG D-085): a text, the address cascade or the bank
  * details; photos are uploaded by their own field. The value is what the API expects as
  * `newValue`.
  */

@@ -115,7 +115,7 @@ describe('ProfileView of a pending registrant', () => {
     const { container } = renderApp(<ProfileView />, 'bn', { path: '/account/profile' });
     expect(await screen.findByText('আপনি এখনো কোনো প্রজেক্টে যুক্ত হননি।')).toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: 'সংশোধনের অনুরোধ' })).toBeInTheDocument();
-    // the own NID and bank details in full (D-081)
+    // the own NID and bank details in full (DECISION_LOG D-081)
     expect(screen.getByText('1000000000301')).toBeInTheDocument();
     expect(screen.getByText(/0000111122223333/)).toBeInTheDocument();
     // only the two requested fields can be answered
@@ -182,17 +182,19 @@ describe('ProfileView of an approved volunteer', () => {
       kind: 'profile_edit',
       status: 'open',
       newValue: '01700000999',
-      contactVerified: false,
       note: null,
     });
-    serve(profile({ state: 'active', inAnyProject: true }), () => [open]);
+    let rows = [open];
+    serve(profile({ state: 'active', inAnyProject: true }), () => rows);
     renderApp(<ProfileView />, 'en', { path: '/account/profile' });
     expect(await screen.findByText('Waiting for you')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Send code' }));
     expect(await screen.findByText('The code was sent.')).toBeInTheDocument();
     await user.type(screen.getByRole('textbox', { name: /^Code/ }), '123456');
+    // after the code the request waits for the approver
+    rows = [{ ...open, status: 'submitted' }];
     await user.click(screen.getByRole('button', { name: 'Verify code' }));
-    await screen.findByRole('button', { name: 'Verify code' });
+    expect(await screen.findByText('Waiting for approval')).toBeInTheDocument();
     expect(calls.map((c) => [c.method, c.url, c.body])).toEqual([
       ['POST', '/api/v1/me/change-requests/01900000-0000-7000-8000-0000000000c5/otp', null],
       [
@@ -201,5 +203,72 @@ describe('ProfileView of an approved volunteer', () => {
         { code: '123456' },
       ],
     ]);
+  });
+});
+
+describe('ProfileView states', () => {
+  it('an official without a volunteer profile sees the empty state', async () => {
+    refreshAs({ ...ME, kind: 'staff', state: 'active' });
+    server.use(
+      http.get('*/api/v1/volunteers/me', () =>
+        HttpResponse.json(
+          { error: { code: 'permission.not_found', message: 'Not found.', requestId: 'r' } },
+          { status: 404 },
+        ),
+      ),
+      http.get('*/api/v1/me/change-requests', () => list([])),
+    );
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    expect(await screen.findByText("This page is for a volunteer's profile.")).toBeInTheDocument();
+  });
+
+  it('a failed request list shows an error with retry, not an empty list', async () => {
+    refreshAs({ ...ME, kind: 'volunteer', state: 'pending', roles: [] });
+    server.use(
+      http.get('*/api/v1/volunteers/me', () => HttpResponse.json({ data: profile() })),
+      http.get('*/api/v1/me/change-requests', () =>
+        HttpResponse.json(
+          // a client error is not retried, so the screen shows it at once
+          { error: { code: 'permission.denied', message: 'Not allowed.', requestId: 'r' } },
+          { status: 403 },
+        ),
+      ),
+    );
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    expect(await screen.findByRole('button', { name: /Retry/ })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Correction requests' })).not.toBeInTheDocument();
+  });
+
+  it('shows a refused answer on its field', async () => {
+    const user = userEvent.setup();
+    refreshAs({ ...ME, kind: 'volunteer', state: 'pending', roles: [] });
+    serve(profile(), () => [row('01900000-0000-7000-8000-0000000000c7', 'nid')]);
+    server.use(
+      http.patch('*/api/v1/me/change-requests/:id', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'validation.failed',
+              message: 'Some information is not valid.',
+              details: [
+                {
+                  path: 'newValue',
+                  code: 'validation.nid_format',
+                  message: 'The NID must have 10, 13 or 17 digits.',
+                },
+              ],
+              requestId: 'r',
+            },
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    await user.type(await screen.findByRole('textbox', { name: /NID number/ }), '123');
+    await user.click(screen.getByRole('button', { name: 'Answer' }));
+    expect(await screen.findByRole('textbox', { name: /NID number/ })).toHaveAccessibleDescription(
+      /10, 13 or 17 digits/,
+    );
   });
 });

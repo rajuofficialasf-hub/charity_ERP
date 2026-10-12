@@ -1,3 +1,4 @@
+import { VOLUNTEER_TYPES, type VolunteerType } from '@css/shared/registration';
 import { Alert, Card, EmptyState, ErrorState, Skeleton } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'use-intl';
@@ -7,10 +8,13 @@ import { ApiFailure } from '../../lib/api';
 import { Corrections, EditRequests } from './ChangeRequests';
 import { ownProfile, ownRequests, type OwnProfile, PROFILE_KEY, REQUESTS_KEY } from './profile-api';
 
+const isVolunteerType = (type: string): type is VolunteerType =>
+  (VOLUNTEER_TYPES as readonly string[]).includes(type);
+
 /**
  * The volunteer's own profile (SCR-003, BR-031; plan
  * docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, R6, R8, R10, R11, R18):
- * the own details in full (D-081), the "no project yet" message, the correction requests of a
+ * the own details in full (DECISION_LOG D-081), the "no project yet" message, the correction requests of a
  * pending registration and, after approval, the edit requests.
  */
 export function ProfileView() {
@@ -44,7 +48,7 @@ function Profile() {
       />
     );
   const me = profile.data;
-  const rows = requests.data ?? [];
+  const rows = requests.data;
   return (
     <div className="flex flex-col gap-6">
       {me.state === 'pending' && (
@@ -53,9 +57,17 @@ function Profile() {
         </Alert>
       )}
       {!me.inAnyProject && <Alert tone="info">{t('profile.no_project')}</Alert>}
-      {me.state === 'pending' ? <Corrections requests={rows} /> : null}
+      {/* a failed list is an error, never "nothing to do" */}
+      {requests.error && (
+        <ErrorState
+          title={tc('state.error.text')}
+          onRetry={() => void requests.refetch()}
+          requestId={requests.error instanceof ApiFailure ? requests.error.requestId : undefined}
+        />
+      )}
+      {rows && me.state === 'pending' && <Corrections requests={rows} />}
       <Details me={me} />
-      {me.state === 'active' && <EditRequests requests={rows} />}
+      {rows && me.state === 'active' && <EditRequests requests={rows} />}
     </div>
   );
 }
@@ -73,7 +85,7 @@ function Details({ me }: { me: OwnProfile }) {
     [t('start.mobile'), me.mobile],
     [t('start.email'), me.email],
     [t('form.whatsapp'), me.whatsapp],
-    [t('form.type'), t(`form.types.${me.type as 'general'}`)],
+    [t('form.type'), isVolunteerType(me.type) ? t(`form.types.${me.type}`) : me.type],
     [t('form.address_line'), me.addressLine],
     [t('form.education'), me.education],
     [t('form.experience'), me.experience],

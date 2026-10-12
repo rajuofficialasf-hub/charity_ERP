@@ -38,7 +38,6 @@ export interface ChangeRequest {
   newValue?: unknown;
   note: string | null;
   status: 'open' | 'submitted' | 'approved' | 'rejected' | 'closed';
-  contactVerified?: boolean;
 }
 
 export const PROFILE_KEY = ['volunteers', 'me'] as const;

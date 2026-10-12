@@ -34,6 +34,8 @@ import { addressProblem } from './registration';
 import { applyField, changeView } from './registrations';
 
 const EDIT = 'profile_edit';
+/** Contact-change codes one account may send per hour, across all its requests. */
+const CODES_PER_ACCOUNT_HOUR = 5;
 const isContact = (field: string): field is (typeof CONTACT_FIELDS)[number] =>
   (CONTACT_FIELDS as readonly string[]).includes(field);
 const isPhoto = (field: string) => (PHOTO_FIELDS as readonly string[]).includes(field);
@@ -190,6 +192,15 @@ export class ChangeRequestsService {
   /** Sends a code to the new mobile or email (D-085). */
   async sendCode(principal: Principal, requestId: string, locale: Locale): Promise<void> {
     const row = await this.ownOpenContact(principal, requestId);
+    // one account, whatever the request: a new request must not give a fresh budget of codes
+    const recent = await this.prisma.otpCode.count({
+      where: {
+        purpose: 'contact_change',
+        createdBy: principal.userId,
+        createdAt: { gt: new Date(this.clock.now().getTime() - 3_600_000) },
+      },
+    });
+    if (recent >= CODES_PER_ACCOUNT_HOUR) throw new ApiError('rate_limit.exceeded', 429);
     const channel = row.field === 'mobile' ? 'sms' : 'email';
     await this.otp.issue(
       { purpose: 'contact_change', channel, address: row.newValue },

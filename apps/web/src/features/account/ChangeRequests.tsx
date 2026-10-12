@@ -90,7 +90,7 @@ function CorrectionRow({ row, onAnswered }: { row: ChangeRequest; onAnswered: ()
   const answered = row.status === 'submitted';
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    answer.mutate(cleanValue(field, value));
+    if (!answer.isPending) answer.mutate(cleanValue(field, value));
   };
   return (
     <Card>
@@ -131,7 +131,7 @@ function CorrectionRow({ row, onAnswered }: { row: ChangeRequest; onAnswered: ()
 }
 
 /**
- * Edit requests of an approved volunteer (BR-031 as amended by D-085): the new value goes with
+ * Edit requests of an approved volunteer (BR-031 as amended by DECISION_LOG D-085): the new value goes with
  * the request; a new mobile or email first needs its code, a photo its upload.
  */
 export function EditRequests({ requests }: { requests: ChangeRequest[] }) {
@@ -140,7 +140,6 @@ export function EditRequests({ requests }: { requests: ChangeRequest[] }) {
   const [field, setField] = useState<RequestField | null>(null);
   const [value, setValue] = useState<unknown>(undefined);
   const [note, setNote] = useState('');
-  const [sent, setSent] = useState(false);
   const ask = useMutation({
     mutationFn: () =>
       askEdit({
@@ -149,7 +148,6 @@ export function EditRequests({ requests }: { requests: ChangeRequest[] }) {
         ...(note.trim() ? { note: note.trim() } : {}),
       }),
     onSuccess: () => {
-      setSent(true);
       setValue(undefined);
       setNote('');
       refresh();
@@ -159,8 +157,7 @@ export function EditRequests({ requests }: { requests: ChangeRequest[] }) {
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setSent(false);
-    ask.mutate();
+    if (!ask.isPending) ask.mutate();
   };
 
   return (
@@ -199,7 +196,7 @@ export function EditRequests({ requests }: { requests: ChangeRequest[] }) {
           {field && isContact(field) && <p className="m-0">{t('profile.edit.code_intro')}</p>}
           {field && isPhoto(field) && <p className="m-0">{t('profile.edit.photo_intro')}</p>}
           <TextField label={t('profile.edit.note')} name="note" value={note} onChange={setNote} />
-          {sent && (
+          {ask.isSuccess && (
             <Alert tone="success" live="status">
               {t('profile.edit.sent')}
             </Alert>
@@ -224,11 +221,8 @@ function OpenEdit({ row, onChanged }: { row: ChangeRequest; onChanged: () => voi
   const field = row.field as RequestField;
   const label = t(FIELD_LABEL[field] ?? 'form.name');
   const [code, setCode] = useState('');
-  const [codeSent, setCodeSent] = useState(false);
-  const send = useMutation({
-    mutationFn: () => sendContactCode(row.id),
-    onSuccess: () => setCodeSent(true),
-  });
+  // each action clears the other's result, so an old message never hides a new one
+  const send = useMutation({ mutationFn: () => sendContactCode(row.id) });
   const verify = useMutation({
     mutationFn: () => verifyContactCode(row.id, code),
     onSuccess: onChanged,
@@ -247,10 +241,17 @@ function OpenEdit({ row, onChanged }: { row: ChangeRequest; onChanged: () => voi
         </div>
         {waiting && isContact(field) && (
           <>
-            <Button variant="secondary" onPress={() => send.mutate()} loading={send.isPending}>
+            <Button
+              variant="secondary"
+              onPress={() => {
+                verify.reset();
+                send.mutate();
+              }}
+              loading={send.isPending}
+            >
               {t('profile.edit.send_code')}
             </Button>
-            {codeSent && (
+            {send.isSuccess && (
               <Alert tone="info" live="status">
                 {t('profile.edit.code_sent')}
               </Alert>
@@ -264,7 +265,13 @@ function OpenEdit({ row, onChanged }: { row: ChangeRequest; onChanged: () => voi
               autoComplete="one-time-code"
               error={messageOf(verify.error ?? send.error) ?? undefined}
             />
-            <Button onPress={() => verify.mutate()} loading={verify.isPending}>
+            <Button
+              onPress={() => {
+                send.reset();
+                verify.mutate();
+              }}
+              loading={verify.isPending}
+            >
               {t('profile.edit.verify_code')}
             </Button>
           </>
