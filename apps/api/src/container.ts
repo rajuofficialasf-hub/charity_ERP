@@ -35,6 +35,7 @@ import { VolunteersService } from './services/volunteers';
 import { RegistrationsService } from './services/registrations';
 import { ChangeRequestsService } from './services/change-requests';
 import { BlocklistService } from './services/blocklist';
+import { HandoverService } from './services/handover';
 import { RegistrationService } from './services/registration';
 import { RegistrationPhotosService } from './services/registration-photos';
 import { SessionsService } from './services/sessions';
@@ -81,6 +82,7 @@ export interface Container {
   registrations: RegistrationsService;
   changeRequests: ChangeRequestsService;
   blocklist: BlocklistService;
+  handover: HandoverService;
 }
 
 export interface ContainerOptions {
@@ -190,6 +192,9 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         sessions,
         registrationEvents,
       ),
+    handover:
+      o.handover ??
+      new HandoverService(prisma, clock, audit, access, permissionVersions, registrationEvents),
     blocklist:
       o.blocklist ??
       new BlocklistService(prisma, clock, audit, access, sessions, registrationEvents),

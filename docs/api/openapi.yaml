@@ -713,6 +713,7 @@ components:
         reason: { type: string, minLength: 3, maxLength: 1000 }
     HandoverRequest:
       type: object
+      additionalProperties: false
       required: [toUserId]
       properties:
         toUserId: { $ref: '#/components/schemas/Uuid' }
@@ -722,9 +723,10 @@ components:
           description: Items to reassign; omitted means every listed item (reassign all)
           items:
             type: object
+            additionalProperties: false
             required: [itemType, itemId]
             properties:
-              itemType: { type: string }
+              itemType: { type: string, maxLength: 64 }
               itemId: { $ref: '#/components/schemas/Uuid' }
     HandoverItem:
       type: object
@@ -2739,6 +2741,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/HandoverResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     post:
       tags: [users]
@@ -2760,6 +2764,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/HandoverResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
@@ -2781,6 +2787,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/HandoverResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
   /system-owner/transfer:

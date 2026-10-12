@@ -23,27 +23,29 @@ const permissions = new Set(
   ).permissions.map((p) => p.name),
 );
 
-// Fixtures use an operation of the contract that is not implemented yet (handover, T1.9).
-const userId = z.uuid();
+// Fixtures use an operation of the contract that is not implemented yet (the project team, a
+// later task of docs/PLAN.md); the handover it used before is built now.
 const contractOf = {
-  operationId: 'users.handover.complete',
-  tag: 'users',
-  summary: 'Complete the handover and deactivate the account (all items reassigned)',
-  permission: 'user.handover',
-  scope: 'user',
-  audit: 'auth.handover_completed',
+  operationId: 'volunteers.team.remove',
+  tag: 'volunteers',
+  summary: 'Remove a member from own project team',
+  permission: 'volunteer.team.manage',
+  scope: 'self',
+  audit: 'volunteer.team_removed',
   idempotency: 'none' as const,
   rateLimit: 'default' as const,
-  params: { userId },
-  responses: { 200: null, 404: null, 409: null },
+  status: 204,
+  params: { projectId: z.uuid(), volunteerId: z.uuid() },
+  responses: { 204: null, 404: null },
 };
+const FIXTURE_PATH = '/projects/:projectId/team/:volunteerId/remove';
 
 function matching(deps: RouteDeps): Router {
   const router = Router();
   defineRoute(router, deps, {
     ...contractOf,
     method: 'post',
-    path: '/users/:userId/handover/complete',
+    path: FIXTURE_PATH,
     handler: () => null,
   });
   return router;
@@ -56,9 +58,10 @@ function drifting(deps: RouteDeps): Router {
     audit: 'none',
     permission: 'user.state.change',
     body: z.strictObject({ language: z.string() }),
-    responses: { 204: null },
+    status: 200,
+    responses: { 200: null },
     method: 'post',
-    path: '/users/:userId/handover/complete',
+    path: FIXTURE_PATH,
     handler: () => null,
   });
   return router;
@@ -80,7 +83,9 @@ describe('OpenAPI drift test (API_STANDARDS 16)', () => {
   it('an operation declared like the contract passes', async () => {
     open = buildTestApp({ routers: [matching] });
     const document = buildOpenApiDocument(open.registry);
-    expect(Object.keys(document.paths)).toContain('/users/{userId}/handover/complete');
+    expect(Object.keys(document.paths)).toContain(
+      '/projects/{projectId}/team/{volunteerId}/remove',
+    );
     expect(compareWithContract(document as never, contract as never, permissions)).toEqual([]);
   });
 
@@ -90,12 +95,12 @@ describe('OpenAPI drift test (API_STANDARDS 16)', () => {
     const problems = compareWithContract(document as never, contract as never, permissions).join(
       '\n',
     );
-    expect(problems).toMatch(/x-audit is "none", the contract says "auth.handover_completed"/);
+    expect(problems).toMatch(/x-audit is "none", the contract says "volunteer.team_removed"/);
     expect(problems).toMatch(
-      /x-permission is "user.state.change", the contract says "user.handover"/,
+      /x-permission is "user.state.change", the contract says "volunteer.team.manage"/,
     );
     expect(problems).toMatch(/request body schema/);
-    expect(problems).toMatch(/responses \["204"\] differ/);
+    expect(problems).toMatch(/responses \["200"\] differ/);
   });
 
   // Routes, the contract and permissions.yaml agree three ways (R21 of
@@ -126,7 +131,7 @@ describe('OpenAPI drift test (API_STANDARDS 16)', () => {
               ...contractOf,
               ...over,
               method: 'post',
-              path: '/users/:userId/handover/complete',
+              path: FIXTURE_PATH,
               handler: () => null,
             });
             return router;
@@ -152,6 +157,7 @@ describe('OpenAPI drift test (API_STANDARDS 16)', () => {
             defineRoute(router, deps, {
               ...contractOf,
               audit: 'none',
+              status: 200,
               method: 'get',
               path: '/probe-mask',
               operationId: 'probe.mask',

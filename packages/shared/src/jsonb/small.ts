@@ -43,6 +43,7 @@ export const handoverScopeSchema = z.strictObject({
       item_type: z.enum([
         'pending_review',
         'pending_approval',
+        'program',
         'project_area',
         'project_staff',
         'document',

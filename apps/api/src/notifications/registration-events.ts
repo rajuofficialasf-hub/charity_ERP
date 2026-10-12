@@ -17,7 +17,9 @@ export type RegistrationEventType =
   | 'registration.edit_requested'
   | 'registration.edit_decided'
   | 'volunteer.blocked'
-  | 'volunteer.unblocked';
+  | 'volunteer.unblocked'
+  | 'user.handover_started'
+  | 'user.handover_completed';
 
 export interface RegistrationEvent {
   type: RegistrationEventType;
