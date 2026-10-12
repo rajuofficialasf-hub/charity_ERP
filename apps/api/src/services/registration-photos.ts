@@ -75,12 +75,16 @@ export class RegistrationPhotosService {
     principal: Principal,
     input: { requestId: string; slot: PhotoSlot; source: PhotoSource; body: unknown },
   ): Promise<{ fileId: string }> {
-    // open or answered, before the decision: a second upload replaces the first
+    // a correction until it is answered; a profile edit until it is decided (the answer of a
+    // correction has already written the photo into the profile)
     const where = {
       id: input.requestId,
       field: input.slot,
-      status: { in: ['open', 'submitted'] },
       volunteer: { userId: principal.userId },
+      OR: [
+        { kind: 'registration_correction', status: 'open' },
+        { kind: 'profile_edit', status: { in: ['open', 'submitted'] } },
+      ],
     };
     const request = await this.prisma.volunteerChangeRequest.findFirst({
       where,

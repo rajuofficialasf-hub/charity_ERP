@@ -1,9 +1,11 @@
 import { uuidv7 } from '@css/shared';
 import type { Locale } from '@css/shared/i18n';
+import { z } from 'zod';
 import {
   CONTACT_FIELDS,
   type DecisionRequest,
   EDIT_FIELD_VALUES,
+  EDIT_FIELDS,
   type EditField,
   type EditRequestCreate,
   PHOTO_FIELDS,
@@ -43,6 +45,14 @@ const CLASS_OF: Record<string, string> = {
 };
 
 type Row = Parameters<typeof changeView>[0];
+
+const editField = z.enum(EDIT_FIELDS as [EditField, ...EditField[]]);
+
+/** Whether an approver with these field classes may read the value of a field (RBAC.md 6). */
+function visible(field: string, classes: ReadonlySet<string>): boolean {
+  const cls = CLASS_OF[field];
+  return cls === undefined || classes.has(cls);
+}
 
 /** A profile edit as the contract shows it; a contact edit says whether its code was verified. */
 function editView(row: Row, withValue: boolean) {
@@ -85,6 +95,12 @@ export class ChangeRequestsService {
     const value = isPhoto(body.field) ? null : await this.checkedValue(principal, body);
     const row = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM volunteers WHERE id = ${volunteer.id}::uuid FOR UPDATE`;
+      // a contact still waiting for its code is replaced (a mistyped number would else block the field)
+      if (isContact(body.field))
+        await tx.volunteerChangeRequest.updateMany({
+          where: { volunteerId: volunteer.id, kind: EDIT, field: body.field, status: 'open' },
+          data: { status: 'closed', decidedAt: this.clock.now() },
+        });
       const busy = await tx.volunteerChangeRequest.count({
         where: {
           volunteerId: volunteer.id,
@@ -120,7 +136,11 @@ export class ChangeRequestsService {
     return editView(row, true);
   }
 
-  /** The value of a non-photo field, checked by its field; a new contact must be free. */
+  /**
+   * The value of a non-photo field, checked by its field. Whether a new contact is free is told
+   * only after its code is verified (verifyCode), so nobody learns whose number or address it is
+   * without owning it (D-086).
+   */
   private async checkedValue(principal: Principal, body: EditRequestCreate): Promise<unknown> {
     const parsed = EDIT_FIELD_VALUES[body.field].safeParse(body.newValue);
     if (!parsed.success) throw invalid(parsed.error.issues[0]?.message ?? 'validation.failed');
@@ -132,8 +152,13 @@ export class ChangeRequestsService {
       );
       if (problem) throw invalid('validation.option_unknown');
     }
-    if (isContact(body.field))
-      await this.assertContactFree(this.prisma, body.field, value as string, principal.userId);
+    if (isContact(body.field)) {
+      const current = await this.prisma.user.findUniqueOrThrow({
+        where: { id: principal.userId },
+        select: { mobile: true, email: true },
+      });
+      if (current[body.field] === value) throw invalid('validation.option_unknown');
+    }
     return value;
   }
 
@@ -199,6 +224,8 @@ export class ChangeRequestsService {
     }
     await this.prisma.$transaction(async (tx) => {
       if (!(await this.otp.consume(tx, otpId))) throw new ApiError('otp.invalid', 422);
+      // the caller now owns the new contact: only now may the answer say it is taken
+      await this.assertContactFree(tx, row.field, row.newValue, principal.userId);
       const moved = await tx.volunteerChangeRequest.updateMany({
         where: { id: row.id, status: 'open' },
         data: { status: 'submitted' },
@@ -245,16 +272,19 @@ export class ChangeRequestsService {
       binding,
     });
     return {
-      rows: rows.map((r) => {
-        const cls = CLASS_OF[r.field];
-        return editView(r, cls === undefined || classes.has(cls));
-      }),
+      rows: rows.map((r) => editView(r, visible(r.field, classes))),
       meta,
     };
   }
 
   /** Approves (the value applies at once) or refuses with a reason an edit request in scope. */
-  async decide(actor: Principal, scope: Scope, requestId: string, body: DecisionRequest) {
+  async decide(
+    actor: Principal,
+    scope: Scope,
+    requestId: string,
+    body: DecisionRequest,
+    classes: ReadonlySet<string>,
+  ) {
     const { row, userId } = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM volunteer_change_requests WHERE id = ${requestId}::uuid FOR UPDATE`;
       const found = await tx.volunteerChangeRequest.findFirst({
@@ -267,7 +297,7 @@ export class ChangeRequestsService {
       }
       if (found.status !== 'submitted') throw new ApiError('user.transition_not_allowed', 409);
       const owner = found.volunteer.userId;
-      const field = found.field as EditField;
+      const field = editField.parse(found.field);
       if (body.decision === 'approve')
         await this.apply(tx, owner, found.volunteerId, field, found.newValue);
       const saved = await tx.volunteerChangeRequest.update({
@@ -291,7 +321,7 @@ export class ChangeRequestsService {
       return { row: saved, userId: owner };
     });
     this.events.emit({ type: 'registration.edit_decided', userId });
-    return editView(row, true);
+    return editView(row, visible(row.field, classes));
   }
 
   private async apply(
@@ -310,8 +340,10 @@ export class ChangeRequestsService {
       });
       return;
     }
-    const value =
-      field === 'address' || field === 'bank' ? (JSON.parse(stored) as unknown) : stored;
+    // validated at the request; parsed again at the boundary instead of trusted (ST-12)
+    const value: unknown = EDIT_FIELD_VALUES[field].parse(
+      field === 'address' || field === 'bank' ? JSON.parse(stored) : stored,
+    );
     if (field === 'nid') {
       const taken = await tx.volunteer.count({ where: { nid: stored, NOT: { id: volunteerId } } });
       if (taken) throw new ApiError('registration.nid_exists', 409);

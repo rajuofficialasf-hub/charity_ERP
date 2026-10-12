@@ -384,7 +384,13 @@ export function registrationsRouter(
     body: decisionRequestSchema,
     responses: { 200: changeRequest, 401: null, 403: null, 404: null, 409: null, 422: null },
     handler: ({ body, params, req }) =>
-      c.changeRequests.decide(principalOf(req), scopeOf(req), params.requestId, body),
+      c.changeRequests.decide(
+        principalOf(req),
+        scopeOf(req),
+        params.requestId,
+        body,
+        (req as { fieldClasses?: ReadonlySet<string> }).fieldClasses ?? new Set<string>(),
+      ),
   });
 
   defineRoute(router, deps, {

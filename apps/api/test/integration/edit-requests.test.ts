@@ -3,6 +3,8 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { RegistrationEvent } from '../../src/notifications/registration-events';
 import { jpeg } from '../support/images';
+import { makeScope, NO_INSTANCES } from '../../src/access/scope';
+import type { Principal } from '../../src/auth/principal';
 import { accessWorld } from './support/access-fixtures';
 import {
   type Account,
@@ -109,7 +111,9 @@ describe('edit requests', () => {
     const pending = await account(h.db, { kind: 'volunteer', state: 'pending' });
     await h.db.query('DELETE FROM user_roles WHERE user_id = $1', [pending.id]);
     const s = await login(h, pending);
-    expect((await ask(s, { field: 'education', newValue: 'স্নাতক' })).status).toBe(403);
+    const res = await ask(s, { field: 'education', newValue: 'স্নাতক' });
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('auth.account_pending');
   });
 
   it('an RPM of another region gets 404 on the decision', async () => {
@@ -119,6 +123,24 @@ describe('edit requests', () => {
     expect((await decide(rangpur, created.body.data.id, { decision: 'approve' })).status).toBe(404);
     const list = await api().get('/api/v1/edit-requests').set(bearer(rangpur));
     expect(list.body.data.map((r: { id: string }) => r.id)).not.toContain(created.body.data.id);
+  });
+
+  it('the decision returns an NID value only to an approver with the identity class', async () => {
+    const v = await approvedVolunteer();
+    const created = await ask(v.session, { field: 'nid', newValue: f.fakeNid() });
+    const scope = makeScope(world.users.rpmDhaka, 'edit_request.approve', 'volunteer', {
+      ...NO_INSTANCES,
+      global: true,
+    });
+    const principal = { userId: world.users.rpmDhaka } as Principal;
+    const decided = await h.container.changeRequests.decide(
+      principal,
+      scope,
+      created.body.data.id,
+      { decision: 'reject', reason: 'যাচাই করা যায়নি' },
+      new Set<string>(),
+    );
+    expect(decided).not.toHaveProperty('newValue');
   });
 
   it('the audit entry of an NID change holds the field name and no value', async () => {
@@ -200,12 +222,31 @@ describe('contact changes', () => {
     await expect(login(h, newMobile)).resolves.toBeTruthy();
   });
 
-  it('refuses a mobile that another account uses', async () => {
+  it('tells that a mobile belongs to another account only after its code is verified', async () => {
     const v = await approvedVolunteer();
     const other = await account(h.db, { kind: 'volunteer' });
-    const res = await ask(v.session, { field: 'mobile', newValue: other.mobile });
+    const created = await ask(v.session, { field: 'mobile', newValue: other.mobile });
+    expect(created.status).toBe(201);
+    expect((await sendCode(v.session, created.body.data.id)).status).toBe(204);
+    const res = await verifyCode(v.session, created.body.data.id);
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('registration.account_exists');
+  });
+
+  it('refuses the current mobile and replaces a contact request still waiting for its code', async () => {
+    const v = await approvedVolunteer();
+    expect((await ask(v.session, { field: 'mobile', newValue: v.account.mobile })).status).toBe(
+      422,
+    );
+    const typo = await ask(v.session, { field: 'mobile', newValue: f.fakeMobile() });
+    const fixed = await ask(v.session, { field: 'mobile', newValue: f.fakeMobile() });
+    expect(fixed.status).toBe(201);
+    const rows = await h.db.query(
+      'SELECT id, status FROM volunteer_change_requests WHERE id = ANY($1)',
+      [[typo.body.data.id, fixed.body.data.id]],
+    );
+    const status = Object.fromEntries(rows.rows.map((x) => [x.id, x.status]));
+    expect(status).toEqual({ [typo.body.data.id]: 'closed', [fixed.body.data.id]: 'open' });
   });
 
   it("volunteer B cannot see, answer or verify volunteer A's request", async () => {
