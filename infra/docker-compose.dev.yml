@@ -12,8 +12,10 @@ name: css-erp-dev
 
 services:
   postgres:
-    # postgres:16.15-alpine
-    image: postgres@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+    # postgres:17.11-alpine (ST-03, D-074). A 16 data directory cannot be opened by 17, so the
+    # volume is pg-data-17; the old `pg-data` volume of 16 stays until the owner removes it
+    # (`docker volume rm css-erp-dev_pg-data`); dev data is seed data (`pnpm db:migrate && pnpm db:seed`).
+    image: postgres@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-css}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-css_dev_only}
@@ -21,7 +23,7 @@ services:
     ports:
       - '127.0.0.1:${POSTGRES_PORT:-5433}:5432'
     volumes:
-      - pg-data:/var/lib/postgresql/data
+      - pg-data-17:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d css_erp_dev']
@@ -63,5 +65,5 @@ services:
       - '127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025'
 
 volumes:
-  pg-data:
+  pg-data-17:
   minio-data:

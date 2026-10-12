@@ -1,4 +1,4 @@
-# ADR-003: Prisma ORM on PostgreSQL 16 with hand-written down.sql for every migration
+# ADR-003: Prisma ORM on PostgreSQL 17 with hand-written down.sql for every migration
 
 Status: approved 2026-10-10 (DECISION_LOG D-051, confirmed by the owner in O-01). Written in task T0.8.
 
@@ -8,7 +8,7 @@ PostgreSQL with JSONB is approved (constitution §9, BD-45). The schema is large
 
 ## Decision
 
-- Prisma ORM with PostgreSQL 16. `schema.prisma` is the code form of the ERD; the data dictionary in `docs/database/DATABASE_SCHEMA.md` is updated in the same commit as the schema.
+- Prisma ORM with PostgreSQL 17 (16 until 2026-10-12; moved with the organization's standard, ST-03, D-074, before any production data existed). `schema.prisma` is the code form of the ERD; the data dictionary in `docs/database/DATABASE_SCHEMA.md` is updated in the same commit as the schema.
 - Every migration directory produced by `prisma migrate dev --create-only` must contain, next to the generated `migration.sql`, a hand-written `down.sql` that reverses it (drop added columns, restore dropped ones from a backup table where data would be lost, recreate indexes). A CI test fails when a migration lacks `down.sql`; a review checklist item verifies that `down.sql` was executed against a copy of the previous state.
 - Constraints that implement business rules live in SQL inside the migration (unique indexes on NID and birth registration, on `(project_id, beneficiary_id)`, on payment transaction id, on `client_uuid`; the volunteer-own-mobile check as a trigger or constraint; append-only audit log through revoked UPDATE/DELETE privileges), because Prisma's schema cannot express all of them. Such SQL is kept in the migration and documented in DATABASE_SCHEMA §5.
 - The application database role has no DDL rights; migrations run through a one-shot container with a migration role before the new API version starts.

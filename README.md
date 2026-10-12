@@ -87,7 +87,7 @@ The web app runs at http://127.0.0.1:3000 (Vite, proxying `/api/v1` to the API) 
 
 | Service | Address | Notes |
 |---|---|---|
-| PostgreSQL 16 | `127.0.0.1:5433` | Databases `css_erp_dev` and `css_erp_test`; user `css`, dev-only password in `infra/docker-compose.dev.yml` |
+| PostgreSQL 17 | `127.0.0.1:5433` | Databases `css_erp_dev` and `css_erp_test`; user `css`, dev-only password in `infra/docker-compose.dev.yml` |
 | MinIO (S3 API) | http://127.0.0.1:9000 | Buckets created by the `minio-init` container; console at http://127.0.0.1:9001 |
 | Mailpit | SMTP `127.0.0.1:1025`, inbox http://127.0.0.1:8025 | Catches every email sent in development |
 

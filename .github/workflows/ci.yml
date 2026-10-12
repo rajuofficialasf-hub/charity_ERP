@@ -1,6 +1,6 @@
 # CI for the CSS ERP on GitHub Actions (O-51; stages from TEST_STRATEGY section 6).
 # Every push and pull request: install, lint, typecheck, document checks, unit and API tests
-# against PostgreSQL 16, build, dependency audit and secret scan. Pushes to main also run E2E.
+# against PostgreSQL 17, build, dependency audit and secret scan. Pushes to main also run E2E.
 # Nightly runs (full E2E on WebKit, visual regression) are added when those suites exist.
 
 name: CI
@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 20
     services:
       postgres:
-        image: postgres:16
+        image: postgres:17
         env:
           POSTGRES_USER: css
           POSTGRES_PASSWORD: css_ci_only
@@ -99,7 +99,7 @@ jobs:
     # The E2E API recreates css_erp_test_e2e here, migrates and seeds it (T1.7).
     services:
       postgres:
-        image: postgres:16
+        image: postgres:17
         env:
           POSTGRES_USER: css
           POSTGRES_PASSWORD: css_ci_only
