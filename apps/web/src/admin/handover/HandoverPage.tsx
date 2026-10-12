@@ -40,7 +40,7 @@ const handoverKey = (userId: string) => ['admin', 'handover', userId] as const;
 const userKey = (userId: string) => ['admin', 'user', userId] as const;
 
 /**
- * The staff handover (SCR-064, BD-08, BR-034; plan
+ * The staff handover (SCR-105, BD-08, BR-034; plan
  * docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, R13, R14): the
  * Department Head or the Monitoring Team finds an official, hands the pending work by category to
  * other officials (one item or all), completes the handover and then deactivates the account. The

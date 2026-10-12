@@ -11,7 +11,7 @@ import { AdminLayout } from '../AdminLayout';
 import { DashboardPage } from '../DashboardPage';
 import { HandoverPage } from './HandoverPage';
 
-// The handover page (SCR-064, BD-08, BR-034; plan
+// The handover page (SCR-105, BD-08, BR-034; plan
 // docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U14). Test data only.
 const HEAD: Me = { ...ME, displayName: 'ডিপার্টমেন্ট হেড (নমুনা)', roles: ['department_head'] };
 const OFFICIAL = {

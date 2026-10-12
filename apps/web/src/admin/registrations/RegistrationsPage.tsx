@@ -25,7 +25,7 @@ export interface ListNotice {
 }
 
 /**
- * The registrations page of the admin area (SCR-005; plan
+ * The registrations page of the admin area (SCR-040; plan
  * docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, R7, R10): the pending
  * registrations in the approver's scope and, for edit approvers, the edit requests of approved
  * volunteers. The server decides what each list contains (scope, staff rows only for staff

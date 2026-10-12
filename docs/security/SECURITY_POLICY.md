@@ -93,9 +93,9 @@ OWASP ASVS level 2 is the checklist of the security audit before go-live (T6.3).
 ## 8. File upload rules (FILES_AND_DOCUMENTS.md, O-30)
 
 - Allowed types and size limits per file kind as in FILES_AND_DOCUMENTS (photos JPEG, PNG, WebP; documents PDF, JPEG, PNG, DOCX, XLSX; video only for the media team), checked by content type and magic bytes, not by extension alone.
-- Every uploaded file stays quarantined until the ClamAV scan succeeds (O-46 item 7); a pending scan never allows preview, download or publication; infected files are blocked and alerted; a scanner failure is never treated as clean.
+- Every uploaded file stays quarantined until the ClamAV scan succeeds (O-46 item 7); a pending scan never allows preview, download or publication; infected files are blocked and alerted; a scanner failure is never treated as clean. Exception until T2.1 (D-087): registration and profile photos (JPEG or PNG, at most 2 MB, type by magic bytes, metadata stripped on the server, private `profiles` bucket, served with `nosniff`) may be viewed by their owner and allowed officials before the scanner exists; T2.1 scans them retroactively.
 - EXIF capture time and GPS are read and stored as metadata; served images and thumbnails carry no EXIF.
-- No file is public; every download goes through the permission check and a signed URL valid for 15 minutes (NFR-28). The only exception is the donor photo links in Qurbani emails, valid 30 days and limited to that donor's animal photos (O-35, NOTIFICATIONS.md).
+- No file is public; every download goes through the permission check, and the API streams the file itself (`GET /api/v1/files/{fileId}/content`, `Cache-Control: no-store`); there are no signed URLs (D-074, NS-41). A view of an NID photo by an official is audited (`file.nid_viewed`). The only exception is the donor photo links in Qurbani emails, valid 30 days and limited to that donor's animal photos (O-35, NOTIFICATIONS.md); how they are served without signed URLs is settled with T4.4.
 - Export files are deleted 30 days after creation (O-30); source records are untouched.
 - Identical content is rejected within a project by SHA-256; near duplicates only warn.
 

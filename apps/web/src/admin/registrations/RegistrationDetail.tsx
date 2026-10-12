@@ -39,7 +39,7 @@ import { StaffDecisionDialog } from './StaffDecisionDialog';
 type Dialog = 'approve' | 'reject' | 'correct' | 'staff' | null;
 
 /**
- * One pending registration (SCR-005; plan
+ * One pending registration (SCR-040; plan
  * docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, R7 to R9, R12): the
  * submitted details and photos, the correction requests, and the decisions the user's role
  * allows. The server checks permission and scope again on every action.

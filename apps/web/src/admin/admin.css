@@ -126,7 +126,7 @@
   color: var(--color-status-danger);
 }
 
-/* Registrations (SCR-005): the photos of a registration side by side, wrapping on phones. */
+/* Registrations (SCR-040): the photos of a registration side by side, wrapping on phones. */
 .admin-photos {
   display: flex;
   flex-wrap: wrap;

@@ -12,7 +12,7 @@ import { DashboardPage } from '../DashboardPage';
 import { RegistrationDetail } from './RegistrationDetail';
 import { RegistrationsPage } from './RegistrationsPage';
 
-// The registration admin page (SCR-005, BR-028 to BR-031, BD-06; plan
+// The registration admin page (SCR-040, BR-028 to BR-031, BD-06; plan
 // docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U13). Test data only.
 const HEAD: Me = { ...ME, displayName: 'ডিপার্টমেন্ট হেড (নমুনা)', roles: ['department_head'] };
 const RPM: Me = { ...ME, displayName: 'আরপিএম (নমুনা)', roles: ['regional_program_manager'] };

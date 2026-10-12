@@ -148,6 +148,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
   - Phone: one step per screen, sticky next button.
   - Tablet and desktop: centered column 720 px, the same steps.
 - **Phase · task.** 1 · T1.9. **API.** tags auth, registration.
+- **Built (T1.9).** `/register` in apps/web (`apps/web/src/features/registration/`; plan `docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md`, U11): kind and contacts, then the mobile code and the email code on two screens checked by one API call, then the form of the kind (volunteer or official; the address cascade from the public `/locations`; photo and NID photo compressed on the phone, at most 1600 px, and uploaded at once), then the "submitted" page. The draft is resumed by starting again with the same mobile and email and verifying both codes (AUTH.md 2); the partial form is not stored on the device. Photos are not scanned before T2.1 (D-087). Tests `registration.test.tsx`, `apps/web/e2e/registration.spec.ts`.
 
 ### SCR-003 Registration status and correction
 
@@ -171,6 +172,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 - **Components.** Badge, Alert, Field, Button.
 - **Layouts.** Single column on every size.
 - **Phase · task.** 1 · T1.9. **API.** tag registration.
+- **Built (T1.9).** Inside `/account/profile` (SCR-006): a pending registrant sees the waiting notice, the "no project yet" message and only the requested correction rows, each with the approver's note and an input for its field; "Submit again" appears once every row is answered (BR-030; plan `docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md`, U12). The rejection reason is not shown on the device (the person may register again, D-086).
 
 ### SCR-004 Notifications inbox
 
@@ -231,6 +233,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 ### SCR-006 My profile, edit request, device sessions, language
 
 - **Built in part (T1.7).** `/account/sessions` (device list, current marker, log out another device with confirm) and `/account/password`; the placeholder home links them with language and logout until the app shell (T1.15). Profile and edit requests come in T1.9; the unsynced-records warning at logout with the outbox (T2.7).
+- **Built (T1.9).** `/account/profile` for volunteers (`apps/web/src/features/account/ProfileView.tsx`, `ChangeRequests.tsx`; plan `docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md`, U12): the own details in full, and after approval an edit request with the new value of one field (text, address cascade, bank details, photo upload); a new mobile or email waits for a code to the new address before it reaches the approver (D-085). The home page links the profile for volunteers.
 
 - **Purpose.** Shows the user's own data and lets them ask for changes. Approved volunteers change their profile only through an edit request. It also lists device sessions and sets language and preferences.
 - **Roles.** Everyone.
@@ -699,6 +702,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
   - Tablet: a drawer.
   - Desktop: a split view.
 - **Phase · task.** 1 · T1.9. **API.** tag registration.
+- **Built (T1.9).** `/admin/registrations` in the admin area (`apps/web/src/admin/registrations/`; plan `docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md`, U13), open to the Department Head, Monitoring Team, PM, RPM and Project Executive: the pending registrations in scope (name, kind and type, status, district, submitted) and, for the edit approvers, a tab of edit requests with who asked, the field, the new value and the reason (approve, or refuse with a reason). The detail `/admin/registrations/{userId}` shows the details with the address names, the photos streamed by the API (a hidden NID or bank value reads "not visible to you"), the correction rows and the actions: approve (not while blocklisted or in correction), ask for corrections (checked fields and one note), reject with a reason, blocklist or lift with a reason (PM, RPM and the global roles), and for an official the staff decision with a role. Not yet: the split view and the stale-version notice (the decisions are guarded by row locks on the server), filters and paging beyond 100 rows (the volunteer tab of T1.10 takes the list over). Tests `registrations.test.tsx`, `apps/web/e2e/registration.spec.ts`.
 
 ### SCR-041 Application review list and detail
 
@@ -939,7 +943,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 ### SCR-051 Admin area shell
 
 - **Purpose.** The frame of the management screens and admin settings (UX-15): later admin pages (settings and audit log in T1.13, dashboards in T3.3 and T6.1) open inside it.
-- **Roles.** Department Head, Monitoring Team, Program Manager. Any other signed-in user sees a "no access" page; a signed-out visitor goes to the login screen. The server enforces every admin permission; the shell only hides.
+- **Roles.** Department Head, Monitoring Team, Program Manager, and since T1.9 the RPM and the Project Executive for the registrations page. Any other signed-in user sees a "no access" page; a signed-out visitor goes to the login screen. The server enforces every admin permission; the shell only hides.
 - **Priority.** parity, with the "best on a larger screen" notice under 768 px (UX-04).
 - **Data shown.** Top bar: system name, the signed-in user's name, language switch, log out. Sidebar: the admin destinations (today only "ড্যাশবোর্ড" / "Dashboard"). Content: the dashboard placeholder with today's date (dd-mm-yyyy, English digits).
 - **Actions.** Open a destination; switch language; log out (`authenticated`).
@@ -1204,7 +1208,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 | SCR-102 | Central dashboard | Seven KPI groups (BD-43), progress first (UX-10) | Head, Monitoring | `dashboard.central.view` | parity | 6 · T6.1 |
 | SCR-103 | Dawah dashboard | Classes, attendance, exams | Head, Monitoring, Official দায়ী, RPM | `dashboard.dawah.view` | parity | 6 · T6.1 |
 | SCR-104 | Exports | Export jobs list and download (signed URLs) | officials | `export.list` | parity | 2 · T2.8 |
-| SCR-105 | Staff handover | Reassign pending work before deactivation (BD-08) | Head, Monitoring | `user.handover` | desktop-first | 1 · T1.9 |
+| SCR-105 | Staff handover | Reassign pending work before deactivation (BD-08). Built (T1.9, plan U14): `/admin/handover` finds an official, lists the pending work by category, hands one item or all to an official, completes the handover and deactivates with a reason; tests `apps/web/src/admin/handover/handover.test.tsx`, `apps/web/e2e/handover.spec.ts` | Head, Monitoring | `user.handover`, `user.state.change` | desktop-first | 1 · T1.9 |
 | SCR-106 | Admin settings | Organization, nisab, holidays, providers, alert thresholds, notification templates, i18n | Head, Monitoring, PM (nisab) | `settings.manage`, `nisab.set`, `holiday.manage`, `provider.settings.manage`, `notification.template.manage`, `i18n.manage` | desktop-first | 1 · T1.13, 6 · T6.2 |
 | SCR-107 | Locations and reference lists | Division to union master (four levels, O-09); reference lists (O-38) | Head, Monitoring | `location.manage`, `settings.manage` | desktop-first | 1 · T1.13 |
 | SCR-108 | Media tab and story editor | Media work list, story writing, channel and date, publishable photos (O-28, BD-38) | Media Team | `media.subject.manage`, `story.manage` | parity | 5 · T5.5 |
