@@ -4,7 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import type { ReactNode } from 'react';
-import { createMemoryRouter, RouterProvider, useLocation } from 'react-router';
+import { createMemoryRouter, type RouteObject, RouterProvider, useLocation } from 'react-router';
 import { AppProviders } from '../src/components/AppProviders';
 import { LocaleProvider } from '../src/i18n/LocaleProvider';
 import { AuthProvider } from '../src/lib/auth';
@@ -21,11 +21,15 @@ export function LocationProbe() {
  * Providers of the app (catalogue, design system, session, server-data cache) around a memory
  * router with the component under test at `path` and a probe route for every other path.
  */
-export function renderApp(ui: ReactNode, locale: Locale = 'bn', options: { path?: string } = {}) {
+export function renderApp(
+  ui: ReactNode,
+  locale: Locale = 'bn',
+  options: { path?: string; children?: RouteObject[] } = {},
+) {
   const path = options.path ?? '/';
   const router = createMemoryRouter(
     [
-      { path, element: ui },
+      { path, element: ui, ...(options.children ? { children: options.children } : {}) },
       { path: '*', element: <LocationProbe /> },
     ],
     { initialEntries: [path] },

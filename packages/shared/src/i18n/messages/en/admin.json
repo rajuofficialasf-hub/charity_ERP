@@ -1,0 +1,22 @@
+{
+  "open": "Admin",
+  "nav": {
+    "label": "Admin menu",
+    "dashboard": "Dashboard"
+  },
+  "bar": {
+    "label": "Admin",
+    "user": "Signed in: {name}"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "placeholder": "The management dashboard arrives here in a later step: work progress against target, alerts, budget and areas.",
+    "today": "Today: {date}"
+  },
+  "forbidden": {
+    "title": "No access",
+    "message": "You do not have access to this page.",
+    "home": "Back to home"
+  },
+  "phone_notice": "This screen works best on a larger screen."
+}

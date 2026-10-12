@@ -25,6 +25,19 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
         { path: '/login/reset', element: <ResetPage /> },
         { path: '/account/sessions', element: <SessionsView /> },
         { path: '/account/password', element: <ChangePasswordView /> },
+        {
+          // The admin area is its own chunk (UX-15): the other screens never load it.
+          path: '/admin',
+          lazy: async () => ({ Component: (await import('../admin/AdminLayout')).AdminLayout }),
+          children: [
+            {
+              index: true,
+              lazy: async () => ({
+                Component: (await import('../admin/DashboardPage')).DashboardPage,
+              }),
+            },
+          ],
+        },
         ...(gallery && GalleryPage
           ? [
               {

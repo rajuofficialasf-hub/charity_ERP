@@ -1,5 +1,6 @@
-import { Alert } from '@css/ui';
+import { Alert, Button } from '@css/ui';
 import { useTranslations } from 'use-intl';
+import { canOpenAdmin } from '../../admin/roles';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 
@@ -7,6 +8,7 @@ import { DocumentTitle } from '../../components/DocumentTitle';
 export function HomeView() {
   const t = useTranslations('auth');
   const tc = useTranslations('common.app');
+  const ta = useTranslations('admin');
   return (
     <AccountPage title={(me) => t('home.welcome', { name: me.displayName })}>
       {(me) => (
@@ -15,6 +17,13 @@ export function HomeView() {
           {me.state === 'pending' && <Alert tone="info">{t('account.pending')}</Alert>}
           <p className="m-0">{t('account.signed_in_as', { name: me.displayName })}</p>
           <p className="m-0">{t('home.placeholder')}</p>
+          {canOpenAdmin(me) && (
+            <div>
+              <Button variant="primary" href="/admin">
+                {ta('open')}
+              </Button>
+            </div>
+          )}
         </>
       )}
     </AccountPage>

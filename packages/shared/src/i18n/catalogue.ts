@@ -1,4 +1,5 @@
 /* One import per namespace and language (I18N.md 3.1, D-067). A new namespace is added here. */
+import bn_admin from './messages/bn/admin.json' with { type: 'json' };
 import bn_auth from './messages/bn/auth.json' with { type: 'json' };
 import bn_codes from './messages/bn/codes.json' with { type: 'json' };
 import bn_common from './messages/bn/common.json' with { type: 'json' };
@@ -6,6 +7,7 @@ import bn_errors from './messages/bn/errors.json' with { type: 'json' };
 import bn_gallery from './messages/bn/gallery.json' with { type: 'json' };
 import bn_nav from './messages/bn/nav.json' with { type: 'json' };
 import bn_ui from './messages/bn/ui.json' with { type: 'json' };
+import en_admin from './messages/en/admin.json' with { type: 'json' };
 import en_auth from './messages/en/auth.json' with { type: 'json' };
 import en_codes from './messages/en/codes.json' with { type: 'json' };
 import en_common from './messages/en/common.json' with { type: 'json' };
@@ -16,6 +18,7 @@ import en_ui from './messages/en/ui.json' with { type: 'json' };
 
 /** The bn catalogue is the source language; its shape types every key (I18N 3.4). */
 export const bn = {
+  admin: bn_admin,
   auth: bn_auth,
   codes: bn_codes,
   common: bn_common,
@@ -29,6 +32,7 @@ export type Messages = typeof bn;
 
 /** English must have exactly the keys of bn: a missing key fails the typecheck here. */
 export const en: Messages = {
+  admin: en_admin,
   auth: en_auth,
   codes: en_codes,
   common: en_common,
@@ -38,5 +42,14 @@ export const en: Messages = {
   ui: en_ui,
 };
 
-export const NAMESPACES = ['auth', 'codes', 'common', 'errors', 'gallery', 'nav', 'ui'] as const;
+export const NAMESPACES = [
+  'admin',
+  'auth',
+  'codes',
+  'common',
+  'errors',
+  'gallery',
+  'nav',
+  'ui',
+] as const;
 export type Namespace = (typeof NAMESPACES)[number];
