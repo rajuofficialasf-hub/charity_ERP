@@ -137,6 +137,8 @@ describe('POST /auth/register/start', () => {
 describe('POST /auth/register/otp/verify', () => {
   it("gives an official's draft the active programs for the form, and a volunteer's none", async () => {
     const program = (await f.project(h.db)).program;
+    const closed = (await f.project(h.db)).program;
+    await h.db.query('UPDATE programs SET active = false WHERE id = $1', [closed]);
     const staff = await verified('staff');
     const res = await request(h.server())
       .post('/api/v1/auth/register/start')
@@ -147,6 +149,7 @@ describe('POST /auth/register/otp/verify', () => {
       id: program,
       name: { bn: 'প্রোগ্রাম', en: 'Program' },
     });
+    expect(again.body.data.programs.map((p: { id: string }) => p.id)).not.toContain(closed);
     const volunteer = await verify((await start(contacts())).body.data.registrationId);
     expect(volunteer.body.data).not.toHaveProperty('programs');
   });

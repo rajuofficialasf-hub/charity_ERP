@@ -45,7 +45,12 @@ export function CodeStep({
     setError(null);
     void verifyCodes(draft.registrationId, mobileCode, emailCode)
       .then((verified) =>
-        onVerified({ ...draft, token: verified.registrationToken, programs: verified.programs }),
+        onVerified({
+          ...draft,
+          kind: verified.kind,
+          token: verified.registrationToken,
+          programs: verified.programs,
+        }),
       )
       .catch((failure: unknown) => {
         const f = failureOf(failure, tl('offline'));

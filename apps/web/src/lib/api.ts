@@ -171,7 +171,7 @@ export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   /** A body sent as it is (a photo); its type goes in `headers`. */
-  rawBody?: Blob;
+  rawBody?: ArrayBuffer;
   headers?: Record<string, string>;
 }
 

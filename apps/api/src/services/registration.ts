@@ -150,6 +150,9 @@ export class RegistrationService {
       }
     }
     const exists = await this.contactTaken(draft.mobile, draft.email, draft.kind);
+    const kind = z.enum(REGISTRATION_KINDS).parse(draft.kind);
+    // read before the codes are spent: nothing after the commit may fail and lose the token
+    const programs = kind === 'staff' && !exists ? await this.activePrograms() : undefined;
     const now = this.clock.now();
     const token = randomBytes(32).toString('base64url');
     const expiresAt = draftExpiry(now);
@@ -172,13 +175,13 @@ export class RegistrationService {
     });
     if (exists) throw new ApiError('registration.account_exists', 409);
     this.events.emit({ type: 'registration.verified', draftId: draft.id });
-    const kind = z.enum(REGISTRATION_KINDS).parse(draft.kind);
     return {
       registrationToken: token,
       expiresAt: expiresAt.toISOString(),
       kind,
-      // the staff form names a program; only a verified official's draft learns their names
-      ...(kind === 'staff' ? { programs: await this.activePrograms() } : {}),
+      // the staff form names a program: a draft for an official gets the active program names
+      // once both codes are verified (names only; programs are not personal data)
+      ...(programs ? { programs } : {}),
     };
   }
 

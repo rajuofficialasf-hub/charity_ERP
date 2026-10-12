@@ -1,11 +1,11 @@
 import AxeBuilder from '@axe-core/playwright';
 import { fakeEmail, fakeMobile, fakeNid } from '@css/shared';
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page, test, type TestInfo } from '@playwright/test';
 
 // Registration on a phone from the login page to the pending confirmation (plan
 // docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U11; AUTH.md 2). The
-// API runs with the dummy OTP 123456 on a fresh E2E database; every run uses its own fake mobile,
-// email and NID in the ranges the demo seed leaves free.
+// API runs with the dummy OTP 123456 on a fresh E2E database (recreated per run); every repeat
+// and retry uses its own fake mobile, email and NID in the ranges the demo seed leaves free.
 const OTP = '123456';
 const PASSWORD = 'Nadi kul 2026';
 
@@ -17,14 +17,10 @@ const PNG = Buffer.from(
 
 const scan = (page: Page) => new AxeBuilder({ page }).exclude('[data-live-announcer]').analyze();
 
-/** Contacts and an NID nobody else of this run uses. */
-function freshPerson() {
-  const n = 5000 + Math.floor(Math.random() * 4999);
-  return {
-    mobile: fakeMobile(n),
-    email: fakeEmail(`reg-e2e-${Date.now()}-${n}`),
-    nid: fakeNid(60000 + Math.floor(Math.random() * 39999)),
-  };
+/** Contacts and an NID nobody else of this run uses, from the repeat and retry of the test. */
+function personFor(info: TestInfo) {
+  const n = 5100 + info.repeatEachIndex * 10 + info.retry;
+  return { mobile: fakeMobile(n), email: fakeEmail(`reg-e2e-${n}`), nid: fakeNid(60000 + n) };
 }
 
 /** Picks from a Select; its button is named by the current value, then the label. */
@@ -43,11 +39,12 @@ async function photo(page: Page, label: RegExp, slot: string) {
   const uploaded = page.waitForResponse(
     (r) => r.url().includes(`/auth/register/photos/${slot}?`) && r.status() === 201,
   );
+  const chooser = page.waitForEvent('filechooser');
   await page
     .getByRole('group', { name: label })
-    .locator('input[type="file"]')
-    .first()
-    .setInputFiles({ name: `${slot}.png`, mimeType: 'image/png', buffer: PNG });
+    .getByRole('button', { name: 'গ্যালারি থেকে নিন' })
+    .click();
+  await (await chooser).setFiles({ name: `${slot}.png`, mimeType: 'image/png', buffer: PNG });
   await uploaded;
 }
 
@@ -56,7 +53,7 @@ test.describe('registration on a phone', () => {
     page,
   }, info) => {
     test.skip(info.project.name !== 'mobile', 'the phone journey');
-    const person = freshPerson();
+    const person = personFor(info);
     await page.goto('/login');
     await page.getByRole('link', { name: 'নিবন্ধন করুন' }).click();
     await expect(page).toHaveURL(/\/register$/);
@@ -76,10 +73,10 @@ test.describe('registration on a phone', () => {
     await page.getByRole('textbox', { name: /NID নম্বর/ }).fill(person.nid);
     await choose(page, /(^|\s)বিভাগ/, 'ঢাকা');
     await choose(page, /(^|\s)জেলা/, 'ঢাকা');
-    await choose(page, /(^|\s)উপজেলা/);
-    await choose(page, /(^|\s)ইউনিয়ন/);
+    await choose(page, /(^|\s)উপজেলা/, 'সাভার');
+    await choose(page, /(^|\s)ইউনিয়ন/, 'সাভার');
     await expect(page.getByRole('button', { name: /স্বেচ্ছাসেবকের ধরন/ })).toBeVisible();
-    await photo(page, /^ছবি/, 'photo');
+    await photo(page, /^ছবি\s*\(/, 'photo');
     await photo(page, /^NID-এর ছবি/, 'nid_photo');
     await page
       .getByLabel(/^পাসওয়ার্ড/)

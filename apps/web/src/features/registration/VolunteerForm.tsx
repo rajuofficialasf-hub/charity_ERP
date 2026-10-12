@@ -53,10 +53,8 @@ export function VolunteerForm({ draft, onDone }: { draft: Draft; onDone: () => v
   const [values, setValues] = useState<Record<string, string>>({});
   const [type, setType] = useState<VolunteerType>('general');
   const [address, setAddress] = useState<Address>(EMPTY_ADDRESS);
-  const [photos, setPhotos] = useState<{ photo: string | null; nid_photo: string | null }>({
-    photo: null,
-    nid_photo: null,
-  });
+  // the photos travel with the draft; the form only needs to know both are there
+  const [photos, setPhotos] = useState({ photo: false, nid_photo: false });
   const [reference, setReference] = useState<{ name?: string; missing?: boolean }>({});
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -66,16 +64,22 @@ export function VolunteerForm({ draft, onDone }: { draft: Draft; onDone: () => v
 
   const value = (key: string) => values[key] ?? '';
   const set = (key: string) => (v: string) => setValues((old) => ({ ...old, [key]: v }));
-  const optional = (key: string) => (value(key).trim() ? value(key).trim() : undefined);
+  const optional = (key: string) => value(key).trim() || undefined;
 
   const checkReference = () => {
     setReference({});
+    setErrors(({ referenceNid: _old, ...rest }) => rest);
     void lookupReference(draft, value('referenceNid'))
       .then(({ name }) => setReference({ name }))
       .catch((failure: unknown) => {
         const f = failureOf(failure, tl('offline'));
         if (f.code === 'permission.not_found') setReference({ missing: true });
-        else setErrors((old) => ({ ...old, referenceNid: f.message ?? '' }));
+        // a malformed NID answers on the field `nid` of the lookup
+        else
+          setErrors((old) => ({
+            ...old,
+            referenceNid: f.fields.nid ?? f.message ?? tl('offline'),
+          }));
       });
   };
 
@@ -124,7 +128,7 @@ export function VolunteerForm({ draft, onDone }: { draft: Draft; onDone: () => v
       .catch((failure: unknown) => {
         const f = failureOf(failure, tl('offline'));
         setErrors(f.fields);
-        setError(f.message ?? (Object.keys(f.fields).length ? null : tl('offline')));
+        setError(f.message);
       })
       .finally(() => setPending(false));
   };
@@ -205,7 +209,11 @@ export function VolunteerForm({ draft, onDone }: { draft: Draft; onDone: () => v
               label={t('reference_nid')}
               name="referenceNid"
               value={value('referenceNid')}
-              onChange={(v) => set('referenceNid')(v.replace(/\D/g, '').slice(0, 17))}
+              onChange={(v) => {
+                // the name shown belongs to the NID it was looked up for
+                setReference({});
+                set('referenceNid')(v.replace(/\D/g, '').slice(0, 17));
+              }}
               inputMode="numeric"
               required
               error={errors.referenceNid}
@@ -256,13 +264,13 @@ export function VolunteerForm({ draft, onDone }: { draft: Draft; onDone: () => v
         <PhotoField
           label={t('photo')}
           upload={(photo, source) => uploadDraftPhoto(draft, 'photo', photo, source)}
-          onUploaded={(id) => setPhotos((old) => ({ ...old, photo: id }))}
+          onUploaded={(id) => setPhotos((old) => ({ ...old, photo: id !== null }))}
           error={errors.photo}
         />
         <PhotoField
           label={t('nid_photo')}
           upload={(photo, source) => uploadDraftPhoto(draft, 'nid_photo', photo, source)}
-          onUploaded={(id) => setPhotos((old) => ({ ...old, nid_photo: id }))}
+          onUploaded={(id) => setPhotos((old) => ({ ...old, nid_photo: id !== null }))}
           error={errors.nid_photo}
         />
       </FormSection>

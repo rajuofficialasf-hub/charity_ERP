@@ -2,7 +2,7 @@ import { expectNoAxeViolations } from '@css/ui/testing';
 import { screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
@@ -16,6 +16,8 @@ const DHAKA = '01900000-0000-7000-8000-0000000000d1';
 const DHAKA_DISTRICT = '01900000-0000-7000-8000-0000000000d2';
 const RANGPUR = '01900000-0000-7000-8000-0000000000e1';
 const RANGPUR_DISTRICT = '01900000-0000-7000-8000-0000000000e2';
+const UPAZILA = '01900000-0000-7000-8000-0000000000e3';
+const UNION = '01900000-0000-7000-8000-0000000000e4';
 
 const location = (id: string, bn: string, en: string) => ({
   id,
@@ -35,7 +37,15 @@ const apiError = (status: number, code: string, message: string, details: object
 /** Requests the screens sent, with their headers and URLs. */
 let seen: { url: string; headers: Headers; body: unknown }[] = [];
 
-function api(over: { verify?: () => Response } = {}) {
+const PROGRAM = '01900000-0000-7000-8000-0000000000f1';
+
+function api(
+  over: {
+    verify?: () => Response;
+    lookup?: () => Response;
+    submit?: (body: unknown) => Response;
+  } = {},
+) {
   server.use(
     http.post('*/api/v1/auth/register/start', async ({ request }) => {
       seen.push({ url: request.url, headers: request.headers, body: await request.json() });
@@ -60,20 +70,81 @@ function api(over: { verify?: () => Response } = {}) {
           ? [location(DHAKA_DISTRICT, 'ঢাকা জেলা', 'Dhaka district')]
           : parent === RANGPUR
             ? [location(RANGPUR_DISTRICT, 'রংপুর জেলা', 'Rangpur district')]
-            : [location(DHAKA, 'ঢাকা', 'Dhaka'), location(RANGPUR, 'রংপুর', 'Rangpur')];
+            : parent === RANGPUR_DISTRICT
+              ? [location(UPAZILA, 'পীরগঞ্জ', 'Pirganj')]
+              : parent === UPAZILA
+                ? [location(UNION, 'চতরা', 'Chatra')]
+                : [location(DHAKA, 'ঢাকা', 'Dhaka'), location(RANGPUR, 'রংপুর', 'Rangpur')];
       return HttpResponse.json({ data });
     }),
     http.post('*/api/v1/auth/register/reference-lookup', async ({ request }) => {
       seen.push({ url: request.url, headers: request.headers, body: await request.json() });
-      return HttpResponse.json({ data: { name: 'মূল স্বেচ্ছাসেবক নমুনা' } });
+      return over.lookup?.() ?? HttpResponse.json({ data: { name: 'মূল স্বেচ্ছাসেবক নমুনা' } });
+    }),
+    http.post('*/api/v1/auth/register/photos/:slot', ({ request, params }) => {
+      seen.push({ url: request.url, headers: request.headers, body: params.slot });
+      return HttpResponse.json(
+        {
+          data: {
+            fileId: `01900000-0000-7000-8000-00000000${params.slot === 'photo' ? '0b01' : '0b02'}`,
+          },
+        },
+        { status: 201 },
+      );
+    }),
+    http.post('*/api/v1/auth/register/submit', async ({ request }) => {
+      const body = await request.json();
+      seen.push({ url: request.url, headers: request.headers, body });
+      return (
+        over.submit?.(body) ??
+        HttpResponse.json(
+          {
+            data: {
+              id: '01900000-0000-7000-8000-0000000000c1',
+              displayName: 'নতুন',
+              kind: 'volunteer',
+              state: 'pending',
+              roles: [],
+              language: 'bn',
+              permissionVersion: 1,
+            },
+          },
+          { status: 201 },
+        )
+      );
     }),
   );
 }
+
+/** Fills the volunteer form up to the password, with both photos uploaded. */
+async function fillVolunteer(user: ReturnType<typeof userEvent.setup>, container: HTMLElement) {
+  await screen.findByRole('heading', { name: 'Registration form' });
+  await user.type(screen.getByRole('textbox', { name: /^Name/ }), 'New Person');
+  await user.type(screen.getByRole('textbox', { name: /Father's name/ }), 'Father');
+  await user.type(screen.getByRole('textbox', { name: /Mother's name/ }), 'Mother');
+  await user.type(screen.getByRole('textbox', { name: /NID number/ }), '1000000000555');
+  for (const [label, option] of [
+    [/Division/, 'Rangpur'],
+    [/(^|\s)District/, 'Rangpur district'],
+    [/Upazila/, 'Pirganj'],
+    [/Union/, 'Chatra'],
+  ] as const) {
+    await user.click(screen.getByRole('button', { name: label }));
+    await user.click(await screen.findByRole('option', { name: option }));
+  }
+  const inputs = container.querySelectorAll<HTMLInputElement>('input[type="file"]');
+  return inputs;
+}
+
+const png = () => new File([new Uint8Array([137, 80, 78, 71])], 'photo.png', { type: 'image/png' });
 
 beforeEach(() => {
   resetClientForTests();
   refreshAs(null);
   seen = [];
+  // jsdom cannot make object URLs of test files; the preview is not under test here
+  vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview');
+  vi.spyOn(URL, 'revokeObjectURL').mockReturnValue(undefined);
 });
 
 async function throughCodes(user: ReturnType<typeof userEvent.setup>, locale: 'bn' | 'en' = 'en') {
@@ -176,5 +247,143 @@ describe('RegisterPage', () => {
     await user.click(screen.getByRole('button', { name: 'কোড পাঠান' }));
     expect(await screen.findByRole('textbox', { name: /মোবাইলে পাওয়া কোড/ })).toBeInTheDocument();
     await expectNoAxeViolations(container);
+  });
+});
+
+describe('the form after the codes', () => {
+  it('submits the volunteer form with the token and shows the pending confirmation', async () => {
+    const user = userEvent.setup();
+    api();
+    const { container } = await throughCodes(user);
+    const inputs = await fillVolunteer(user, container);
+    // gallery inputs of the photo and the NID photo
+    await user.upload(inputs[1]!, png());
+    await user.upload(inputs[3]!, png());
+    await screen.findAllByText(/photo.png/);
+    await user.type(screen.getByLabelText(/^Password/, { selector: 'input' }), 'Nadi kul 2026');
+    await user.type(
+      screen.getByLabelText(/^Repeat the password/, { selector: 'input' }),
+      'Nadi kul 2026',
+    );
+    await user.click(screen.getByRole('button', { name: 'Submit' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Registration submitted' }),
+    ).toBeInTheDocument();
+    const submit = seen.find((r) => r.url.endsWith('/auth/register/submit'))!;
+    expect(submit.headers.get('X-Registration-Token')).toBe(TOKEN);
+    expect(submit.body).toMatchObject({
+      kind: 'volunteer',
+      registrationId: DRAFT,
+      name: 'New Person',
+      nid: '1000000000555',
+      type: 'general',
+      divisionId: RANGPUR,
+      districtId: RANGPUR_DISTRICT,
+    });
+    expect(seen.filter((r) => r.url.includes('/photos/')).map((r) => r.body)).toEqual([
+      'photo',
+      'nid_photo',
+    ]);
+  }, 20_000);
+
+  it('sends nothing with a mismatched password or a missing photo, and shows a refused NID', async () => {
+    const user = userEvent.setup();
+    api({
+      submit: () =>
+        apiError(422, 'validation.failed', 'Some information is not valid.', [
+          {
+            path: 'nid',
+            code: 'validation.nid_format',
+            message: 'The NID must have 10, 13 or 17 digits.',
+          },
+        ]),
+    });
+    const { container } = await throughCodes(user);
+    const inputs = await fillVolunteer(user, container);
+    await user.type(screen.getByLabelText(/^Password/, { selector: 'input' }), 'Nadi kul 2026');
+    await user.type(
+      screen.getByLabelText(/^Repeat the password/, { selector: 'input' }),
+      'other 2026',
+    );
+    await user.click(screen.getByRole('button', { name: 'Submit' }));
+    expect(await screen.findAllByText('Add the photo.')).toHaveLength(2);
+    expect(seen.some((r) => r.url.endsWith('/submit'))).toBe(false);
+    await user.upload(inputs[1]!, png());
+    await user.upload(inputs[3]!, png());
+    await screen.findAllByText(/photo.png/);
+    await user.clear(screen.getByLabelText(/^Repeat the password/, { selector: 'input' }));
+    await user.type(
+      screen.getByLabelText(/^Repeat the password/, { selector: 'input' }),
+      'Nadi kul 2026',
+    );
+    await user.click(screen.getByRole('button', { name: 'Submit' }));
+    expect(await screen.findByRole('textbox', { name: /NID number/ })).toHaveAccessibleDescription(
+      /10, 13 or 17 digits/,
+    );
+  }, 20_000);
+
+  it('says when no active volunteer has the reference NID, and forgets a name when the NID changes', async () => {
+    const user = userEvent.setup();
+    let found = true;
+    api({
+      lookup: () =>
+        found
+          ? HttpResponse.json({ data: { name: 'মূল স্বেচ্ছাসেবক নমুনা' } })
+          : apiError(404, 'permission.not_found', 'Not found.'),
+    });
+    await throughCodes(user);
+    await screen.findByRole('heading', { name: 'Registration form' });
+    await user.click(screen.getByRole('button', { name: /Volunteer type/ }));
+    await user.click(screen.getByRole('option', { name: 'Team member' }));
+    const nid = screen.getByRole('textbox', { name: /Main volunteer's NID/ });
+    await user.type(nid, '1000000000123');
+    await user.click(screen.getByRole('button', { name: 'Show the name' }));
+    expect(await screen.findByText(/Main volunteer: /)).toBeInTheDocument();
+    await user.type(nid, '4');
+    expect(screen.queryByText(/Main volunteer: /)).not.toBeInTheDocument();
+    found = false;
+    await user.click(screen.getByRole('button', { name: 'Show the name' }));
+    expect(await screen.findByText('No active volunteer has this NID.')).toBeInTheDocument();
+  });
+
+  it("an official's draft gets the staff form with the programs and no NID", async () => {
+    const user = userEvent.setup();
+    api({
+      verify: () =>
+        HttpResponse.json({
+          data: {
+            registrationToken: TOKEN,
+            expiresAt: '2026-10-13T10:00:00Z',
+            kind: 'staff',
+            programs: [{ id: PROGRAM, name: { bn: 'স্বাবলম্বী', en: 'Self-reliance' } }],
+          },
+        }),
+    });
+    await throughCodes(user);
+    await screen.findByRole('heading', { name: 'Registration form' });
+    expect(screen.getByRole('textbox', { name: /Designation/ })).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /NID number/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Program/ }));
+    expect(await screen.findByRole('option', { name: 'Self-reliance' })).toBeInTheDocument();
+  });
+
+  it('changing the division clears the district below it', async () => {
+    const user = userEvent.setup();
+    api();
+    await throughCodes(user);
+    await screen.findByRole('heading', { name: 'Registration form' });
+    await user.click(screen.getByRole('button', { name: /Division/ }));
+    await user.click(await screen.findByRole('option', { name: 'Rangpur' }));
+    await user.click(screen.getByRole('button', { name: /(^|\s)District/ }));
+    await user.click(await screen.findByRole('option', { name: 'Rangpur district' }));
+    expect(screen.getByRole('button', { name: /(^|\s)District/ })).toHaveAccessibleName(
+      /Rangpur district/,
+    );
+    await user.click(screen.getByRole('button', { name: /Division/ }));
+    await user.click(await screen.findByRole('option', { name: 'Dhaka' }));
+    expect(screen.getByRole('button', { name: /(^|\s)District/ })).not.toHaveAccessibleName(
+      /Rangpur district/,
+    );
+    expect(screen.getByRole('button', { name: /Upazila/ })).toBeDisabled();
   });
 });

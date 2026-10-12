@@ -60,12 +60,17 @@ export const lookupReference = (draft: Draft, nid: string) =>
     false,
   );
 
-export const uploadDraftPhoto = (draft: Draft, slot: PhotoSlot, photo: Blob, source: string) =>
+export const uploadDraftPhoto = async (
+  draft: Draft,
+  slot: PhotoSlot,
+  photo: Blob,
+  source: string,
+) =>
   api<{ fileId: string }>(
     `/auth/register/photos/${slot}?registrationId=${draft.registrationId}&source=${source}`,
     {
       method: 'POST',
-      rawBody: photo,
+      rawBody: await photo.arrayBuffer(),
       headers: { ...tokenHeader(draft), 'Content-Type': photo.type },
     },
     false,
@@ -80,9 +85,13 @@ export const locations = (parentId?: string) =>
 /** Field errors of a 422 answer by field name, and the first message for everything else. */
 export function failureOf(error: unknown, offline: string) {
   if (!(error instanceof ApiFailure)) return { fields: {}, message: offline, code: 'offline' };
-  const fields = Object.fromEntries(error.details.map((d) => [d.path ?? '', d.message]));
+  const fields = Object.fromEntries(
+    error.details
+      .map((d) => [d.path ?? '', d.message] as const)
+      .filter((e): e is readonly [string, string] => typeof e[1] === 'string'),
+  );
   return {
-    fields: fields as Record<string, string>,
+    fields,
     message: Object.keys(fields).length ? null : error.message,
     code: error.code,
   };

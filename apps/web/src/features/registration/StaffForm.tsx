@@ -35,7 +35,7 @@ export function StaffForm({ draft, onDone }: { draft: Draft; onDone: () => void 
   const [designation, setDesignation] = useState('');
   const [programId, setProgramId] = useState<string | null>(null);
   const [divisionId, setDivisionId] = useState<string | null>(null);
-  const [photo, setPhoto] = useState<string | null>(null);
+  const [photo, setPhoto] = useState(false);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -120,7 +120,7 @@ export function StaffForm({ draft, onDone }: { draft: Draft; onDone: () => void 
         <PhotoField
           label={t('photo')}
           upload={(blob, source) => uploadDraftPhoto(draft, 'photo', blob, source)}
-          onUploaded={setPhoto}
+          onUploaded={(id) => setPhoto(id !== null)}
           error={errors.photo}
         />
       </FormSection>

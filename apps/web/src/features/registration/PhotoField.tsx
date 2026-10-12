@@ -1,6 +1,6 @@
 import { PHOTO_MAX_BYTES } from '@css/shared/registration';
 import { FileUpload, type UploadItem } from '@css/ui';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../lib/api';
 import { compressImage } from './compress';
@@ -25,6 +25,8 @@ export function PhotoField({
 }) {
   const t = useTranslations('registration.form');
   const [item, setItem] = useState<UploadItem | null>(null);
+  // only the latest pick may change the field (an older upload can finish later)
+  const latest = useRef(0);
 
   useEffect(
     () => () => {
@@ -36,17 +38,22 @@ export function PhotoField({
   const add = async (files: File[]) => {
     const file = files[0];
     if (!file) return;
+    const pick = ++latest.current;
+    const current = () => pick === latest.current;
     const previewUrl = URL.createObjectURL(file);
     const base = { id: file.name, name: file.name, previewUrl };
     setItem({ ...base, state: 'compressing' });
     try {
       const photo = await compressImage(file);
+      if (!current()) return;
       setItem({ ...base, state: 'uploading' });
       // the browser does not tell which button picked the file, so the source stays "gallery"
       const { fileId } = await upload(photo, 'gallery');
+      if (!current()) return;
       setItem({ ...base, state: 'ready', removable: true });
       onUploaded(fileId);
     } catch (failure) {
+      if (!current()) return;
       setItem({
         ...base,
         state: 'failed',

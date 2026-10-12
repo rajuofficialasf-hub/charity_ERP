@@ -38,10 +38,10 @@ export function AddressFields({
   const parents = [undefined, value.divisionId, value.districtId, value.upazilaId];
   const labels = [t('division'), t('district'), t('upazila'), t('union')];
   const lists = [
-    useLevel(undefined, true),
-    useLevel(parents[1] ?? undefined, Boolean(parents[1])),
-    useLevel(parents[2] ?? undefined, Boolean(parents[2])),
-    useLevel(parents[3] ?? undefined, Boolean(parents[3])),
+    useLevel(undefined),
+    useLevel(value.divisionId),
+    useLevel(value.districtId),
+    useLevel(value.upazilaId),
   ];
   return (
     <>
@@ -52,7 +52,8 @@ export function AddressFields({
           name={level}
           required
           value={value[level]}
-          disabled={i > 0 && !parents[i]}
+          // a list still loading cannot be opened empty
+          disabled={(i > 0 && !parents[i]) || !lists[i]}
           error={errors[level]}
           options={(lists[i] ?? []).map((l) => ({ id: l.id, label: l.name[locale] }))}
           onChange={(id) => {
@@ -66,11 +67,15 @@ export function AddressFields({
   );
 }
 
-/** The children of a level; a level whose parent is not chosen yet has no list (not the cache). */
-function useLevel(parentId: string | undefined, enabled: boolean) {
+/**
+ * The children of a level: the divisions for `undefined`, nothing for a level whose parent is not
+ * chosen yet (`null`; not the cached divisions).
+ */
+function useLevel(parentId: string | null | undefined) {
+  const enabled = parentId !== null;
   const data = useQuery({
     queryKey: ['locations', parentId ?? 'divisions'],
-    queryFn: () => locations(parentId),
+    queryFn: () => locations(parentId ?? undefined),
     enabled,
     staleTime: 60 * 60_000,
   }).data;
