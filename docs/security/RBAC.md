@@ -20,7 +20,8 @@ permission: { name, description, module, sensitive, default: [ { role, scope, co
 - `module` is the MODULE_CATALOG id (M01…M22).
 - `sensitive: true` marks permissions that expose a protected field class or export it; such actions are always audited (BR-179, BR-224).
 - `conditions` are named checks implemented once in the `access` module (for example `house_construction_only` reads the project's workflow template; `if_rpm_grants` means the default is absent and the grant must come from `project.volunteer_grant.manage`).
-- Loading (T1.8): the API validates the file against a zod schema at start (fail fast), builds an in-memory permission registry, and refuses to boot if any `@Permission()` decorator in the code references a name not in the file, or if any YAML permission is referenced by no endpoint and no UI capability (dead permission). The authorization-matrix test generates one test per (endpoint × role × scope) from the YAML.
+- Loading (T1.8, built): `apps/api/src/access/registry.ts` validates the file with a zod schema and cross-checks it (roles, sets, conditions, `extends` cycles) when the container starts, and the API and the worker refuse to start on any problem; `PERMISSIONS_FILE` may point elsewhere (DEPLOYMENT). `createContainer` also refuses a YAML condition without a check in `access/conditions.ts`. `defineRoute` refuses a route whose permission is not in the file, whose scope entity is unknown, or whose permission is held below GLOBAL while the route declares the entity `none`. A YAML permission that no endpoint uses yet is listed in the matrix report instead of stopping the start (D-077).
+- The authorization-matrix test (`apps/api/test/integration/authorization-matrix.test.ts`) calls every registered endpoint as every role and as an anonymous caller and compares each decision with the role's default grants; its report is `docs/security/AUTHORIZATION_MATRIX.md` (regenerate with `pnpm --filter @css/api authz:matrix`). The scope dimension (which records) is tested by the scope and IDOR tests (section 10).
 - The matrix tables in section 5 are a human view of the same data. When the two disagree, the YAML wins and this document is corrected.
 
 ## 3. Roles
@@ -194,11 +195,17 @@ Stock reconciliation and the Qurbani animal photos are not in the base sets beca
 - The panel grants or revokes any permission for any user at a chosen scope instance (GLOBAL, a program, a project, a region/district, ASSIGNED, SELF). A revoke override beats every grant source. Overrides live in `user_permissions` with granted_by, reason, time, optional expiry.
 - Every change writes an audit entry (`permission_change`) with old and new effective grants (BR-180) and bumps `permission_version` so active sessions refresh immediately (AUTH.md §9).
 - The panel cannot: give `system.owner.transfer` to anyone but the Department Head; remove the Department Head's or Monitoring Team's global scope; grant a sensitive permission to a volunteer role (hard rule: volunteers never see ratings, categories, NID, bank, donor data, official sections, BR-046, BR-183). Attempts are refused and audited.
+- Built in T1.8 (`apps/api/src/services/access.ts`, screen SCR-062 at `/admin/permissions`): the refusals answer 403 `permission.grant_refused` with `params.rule` (D-078) and are audited as `permission_change_refused` in a transaction of their own; any change that targets the Main Admin answers 409 `user.system_owner_protected` before every other rule and is audited the same way. The checks run inside the change's transaction with the target's user row locked. An override names a scope reference that must exist and fit the scope type (a program, a project, or a location of the level REGION = division, DISTRICT, UPAZILA, UNION; none for GLOBAL, SELF, ASSIGNED). An override ends with `POST /permission-grants/{id}/revoke`; effective-permission rows of source `panel_grant` carry that `grantId` (D-079, proposed). Project grants (`POST /projects/{id}/grants`) replace the target's extras on that project; each newly added permission must carry an `if_rpm_grants` default and be held by the granter on that project, extras already there may stay or go. Roles stay read-only on the panel (O-61).
 - The same person may hold different sets on different projects: the panel and the project grants both key on (user, project) where the scope is PROJECT or narrower.
 
 ## 8. Server-side enforcement
 
-Until T1.8 the API runs an interim resolver (O-59 item 3, AUTH.md 16): GLOBAL-scope roles pass every named permission, every user passes `session.revoke_own` on own sessions, and everything else is denied; scope resolution, project permission sets and the panel replace it in T1.8.
+As built in T1.8 (Express, ADR-014; the decorator names below are the design's, the code declares the same on `defineRoute`):
+
+- `requireAccess` (`apps/api/src/auth/require-access.ts`) runs token → session → permission version → account state → permission → scope. The permission check asks whether any effective grant names the route's permission (`access/effective.ts`: GLOBAL roles, role defaults, project permission sets and extras, panel overrides; a revoke wins, an expired override counts as absent). A refusal answers 403 `permission.denied` and logs a `permission_denied` event with user, permission, entity and request id only (NE-LOG-03).
+- The scope handle (`access/scope.ts`, made only by `AccessService.scopeFor`) holds the instances for the route's permission and entity: GLOBAL, SELF, programs, projects, areas and, for the user entity under `own_region`, volunteer-only areas; panel revokes of an instance (a program also removes its projects) are subtracted. Conditions narrow a grant for the entity or drop it; a condition the entity has no rule for denies. Routes of the entities `none`, `global` and `system` filter no data and therefore need an unconditioned GLOBAL grant.
+- Services receive the handle (`scopeOf(req)`) and filter with `userWhere` / `projectWhere`; single records are loaded with `AccessService.findUser` / `findProject`, which answer 404 `permission.not_found` outside the scope (logged as a denial) before any write. Filters for applications, beneficiaries and volunteers come with their endpoints (T2.x).
+- The field mask (`access/field-mask.ts`) runs in `defineRoute` on every success response: the route's response schema marks protected fields with `sensitive(schema, class)` (and form-answer arrays with `officialRows`), the data is parsed through the schema (undeclared keys never leave) and the classes the caller's roles may not see are removed. A route of the entities volunteer, beneficiary, application, project, program or file, or with `sensitiveFields`, must declare a response schema; a schema may mark only the classes the route declares.
 
 
 1. **Guard declaration per endpoint.** Every handler declares `@Permission('<name>')` and `@ScopeOf('<entity>')`; a handler without them cannot be registered (boot-time check). Anonymous endpoints (public form, login, OTP) declare `@Public()` explicitly and are listed in SECURITY_POLICY.
@@ -223,11 +230,11 @@ Until T1.8 the API runs an interim resolver (O-59 item 3, AUTH.md 16): GLOBAL-sc
 
 ## 10. Testing
 
-- Authorization-matrix test generated from the YAML: for every endpoint × role × scope instance, expected allow/deny; run in CI (T1.8).
+- Authorization-matrix test generated from the YAML: every endpoint × every role and an anonymous caller, expected allow/deny from the role defaults; run in CI (T1.8, built; report `docs/security/AUTHORIZATION_MATRIX.md`). The scope dimension is covered by `apps/api/test/integration/access-scope.test.ts` and `access-idor.test.ts`.
 - IDOR tests: cross-project and cross-region reads and writes by RPM, Executive, volunteer, team member, Local দায়ী, paid volunteer, Procurement; expect 404.
 - Serializer mask tests: every sensitive field class absent for every non-permitted role, on JSON and on exports.
 - Panel tests: revoke beats grant; volunteer cannot receive sensitive permissions; permission_version bump forces refresh.
-- Boot-time checks: unknown permission in code, dead permission in YAML.
+- Boot-time checks: unknown permission in code (built); permissions no endpoint uses yet are listed in the matrix report (D-077).
 
 ## 11. Interpretations, confirmed by the owner on 2026-10-10 (O-26, O-27, O-28)
 

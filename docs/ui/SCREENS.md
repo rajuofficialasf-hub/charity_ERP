@@ -1040,6 +1040,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 ### SCR-062 Permission panel
 
 - **Purpose.** The Department Head or Monitoring Team grants or revokes any permission for anyone at any scope. Every change is audited (blueprint A4 "permission panel").
+- **Built (T1.8).** `/admin/permissions` in the admin area (`apps/web/src/admin/permissions/`): user search, roles read only (O-61), effective permissions grouped by module with scope and source, a dialog to grant or remove a permission with scope, reason and optional expiry, and ending a panel grant with a reason. Recent changes are read in the audit viewer of T1.13 (O-61); project staff access and project grants have their API (`POST /projects/{id}/grants`) and get their screen with the project screens. Scope references other than GLOBAL, SELF and ASSIGNED are typed as ids until the program, project and location pickers exist.
 - **Roles.**
   - Department Head and Monitoring Team: the global panel.
   - PM and RPM: project staff access, through the project screens.

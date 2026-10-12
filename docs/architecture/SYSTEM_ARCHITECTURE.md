@@ -143,8 +143,8 @@ Every screen renders in the browser: official and management lists read the API 
 
 | Service | Module | What it provides | Design |
 |---|---|---|---|
-| Authentication | `auth/*`, `routes/{auth,me,sessions,users}.ts`, `services/{auth,sessions,users}.ts` (T1.7, ported in T1.7d) | `requireAccess` (before the rate limiters): bearer JWT → device session (cached 60 s) → permission version → account state → interim `PermissionResolver` (O-59); `defineRoute`'s `permission` and `allowPending` declare access, `public` marks the open operations; `principalOf(req)` gives the `Principal`; `SessionService`, `PermissionVersionService.bump(tx, …)`; `TRUST_PROXY` decides which proxies may set the client address (D-072) |
-| Authorization and scope resolution | `access` | Permission names from `docs/security/permissions.yaml`, role resolution, scope resolution, object-level checks, field-level masks | Section 6. Resolution reads the user's roles, project assignments (`project_volunteers`, staff project access), the project's area split (`project_areas`, O-09 four-level locations) and the permission-panel overrides, cached per request |
+| Authentication | `auth/*`, `routes/{auth,me,sessions,users}.ts`, `services/{auth,sessions,users}.ts` (T1.7, ported in T1.7d) | `requireAccess` (before the rate limiters): bearer JWT → device session (cached 60 s) → permission version → account state → effective permission and scope handle of the `access` module (T1.8); `defineRoute`'s `permission` and `allowPending` declare access, `public` marks the open operations; `principalOf(req)` gives the `Principal`; `SessionService`, `PermissionVersionService.bump(tx, …)`; `TRUST_PROXY` decides which proxies may set the client address (D-072) |
+| Authorization and scope resolution | `access/*` (registry, conditions, effective, scope, service, field-mask; T1.8), `routes/access.ts`, `services/access.ts` | Permission names from `docs/security/permissions.yaml`, role resolution, scope resolution, object-level checks, field-level masks, the permission panel and project grants | Section 6 and RBAC.md 8. Resolution reads the user's roles, project assignments (`project_volunteers`, `project_staff`), the project's area split (`project_areas`, O-09 four-level locations) and the permission-panel overrides per request; the registry is loaded once at start (`PERMISSIONS_FILE`) |
 | Audit log | `audit` | `AuditWriter.record(...)` called by application services inside the transaction | Append-only table; no UPDATE/DELETE grants for the application role; viewer and export in `reports` |
 | Files | `files` | Upload initiation, chunked resumable upload, validation, virus-scan hook, metadata extraction, duplicate detection, signed download URLs | `StorageAdapter` interface with `MinioStorage` (staging, production, dev) and `FilesystemStorage` (automated tests). Signed URLs expire within 15 minutes (NFR-28) |
 | Notifications | `notifications` | In-app inbox, email, SMS; bilingual templates; delivery status | Outbox table `outbound_messages` written in the transaction; the worker delivers through `EmailAdapter` (Nodemailer/SMTP, Mailpit in dev) and `SmsAdapter` (provider HTTP client; `LoggingSmsAdapter` in dev and test) |
@@ -196,7 +196,7 @@ Every request to `/api/v1` passes these steps in this order. A failure at any st
       - official roles and volunteer type from the user record
       - Department Head and Monitoring Team get GLOBAL scope (BR-184)
  6  permission check
-      - the handler declares @Permission('application.approve') and @ScopeOf('project')
+      - the route declares permission 'application.approve' and scope entity 'project' (defineRoute)
       - the permission must be held by one of the user's roles, by a project permission set,
         or by a permission-panel override; default deny (BR-180, BR-193)
  7  data-scope resolution
@@ -226,7 +226,7 @@ Every request to `/api/v1` passes these steps in this order. A failure at any st
 13  response envelope with request id (API_STANDARDS §3)
 ```
 
-Where guards live: steps 4–8 are the `requireAccess` middleware (`auth/require-access.ts`, later the `access` module of T1.8) and the rate-limit chain that `defineRoute` mounts; step 9 is the `validate` middleware; steps 10–11 are inside the application service; step 12 is the serializer called by the route before `send`. Business guards (step 11) are never duplicated in controllers.
+Where guards live: steps 4–7 are the `requireAccess` middleware (`auth/require-access.ts` with `access/service.ts`; it puts the scope handle on the request) and the rate-limit chain that `defineRoute` mounts; step 8 runs in the service through `AccessService.findUser` / `findProject` and the `userWhere` / `projectWhere` filters (404 outside the scope); step 9 is the `validate` middleware; steps 10–11 are inside the application service; step 12 is the field mask that `defineRoute` runs on every response with a response schema (`access/field-mask.ts`). In the implementation the rate limiters run after the access check, so the per-user windows see the caller. Business guards (step 11) are never duplicated in controllers.
 
 Writes that bypass HTTP (jobs, sync processing) run the same application services with a system actor and the originating user's identity recorded in the audit entry, so the audit trail and the business guards are identical for online and offline work.
 
