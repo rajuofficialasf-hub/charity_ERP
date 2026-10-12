@@ -47,17 +47,23 @@ export class BlocklistService {
     private readonly events: RegistrationEvents,
   ) {}
 
-  /** The volunteer in scope, locked for the change; 404 outside (RBAC.md 8.4). */
+  private notFound(scope: Scope): never {
+    this.access.denied(scope.actorId, scope.permission, scope.entity);
+    throw new ApiError('permission.not_found', 404);
+  }
+
+  /**
+   * The volunteer in scope with the account state; the user row is locked first, in the same
+   * order as an approval, so a block and an approval at once wait instead of deadlocking.
+   */
   private async volunteerInScope(tx: Tx, scope: Scope, volunteerId: string) {
-    await tx.$queryRaw`SELECT id FROM volunteers WHERE id = ${volunteerId}::uuid FOR UPDATE`;
+    await tx.$queryRaw`SELECT u.id FROM users u JOIN volunteers v ON v.user_id = u.id
+      WHERE v.id = ${volunteerId}::uuid FOR UPDATE OF u`;
     const volunteer = await tx.volunteer.findFirst({
       where: { AND: [{ id: volunteerId }, volunteerWhere(scope)] },
-      select: { id: true, userId: true },
+      select: { id: true, userId: true, user: { select: { state: true } } },
     });
-    if (!volunteer) {
-      this.access.denied(scope.actorId, scope.permission, scope.entity);
-      throw new ApiError('permission.not_found', 404);
-    }
+    if (!volunteer) return this.notFound(scope);
     return volunteer;
   }
 
@@ -67,7 +73,10 @@ export class BlocklistService {
       const active = await tx.blocklist.count({
         where: { subjectType: 'volunteer', subjectId: volunteer.id, active: true },
       });
-      if (active) throw new ApiError('user.transition_not_allowed', 409);
+      // an account blocked through the account state (D-080) is not put on the blocklist: lifting
+      // that entry would let the trigger reactivate an account a higher role blocked
+      if (active || volunteer.user.state === 'blocked')
+        throw new ApiError('user.transition_not_allowed', 409);
       const created = await tx.blocklist.create({
         data: {
           id: uuidv7(),
@@ -91,6 +100,8 @@ export class BlocklistService {
       });
       return { entry: created, userId: volunteer.userId };
     });
+    // revokeAll evicted inside the transaction; a request in between may have cached the old facts
+    this.sessions.evictUser(userId);
     this.events.emit({ type: 'volunteer.blocked', userId });
     return entryView(entry);
   }
@@ -102,10 +113,7 @@ export class BlocklistService {
         where: { subjectType: 'volunteer', subjectId: volunteer.id, active: true },
         select: { id: true },
       });
-      if (!active) {
-        this.access.denied(scope.actorId, scope.permission, scope.entity);
-        throw new ApiError('permission.not_found', 404);
-      }
+      if (!active) return this.notFound(scope);
       const released = await tx.blocklist.update({
         where: { id: active.id },
         data: {

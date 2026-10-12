@@ -52,7 +52,10 @@ const blocklistEntry = z.object({
   releasedAt: z.string().nullable(),
 });
 
-/** Volunteer profiles (openapi tag volunteers); the volunteer tab follows in T1.10. */
+/**
+ * Volunteer routes (openapi tag volunteers): the own profile and the blocklist (BR-047); the
+ * volunteer tab follows with the next task of docs/PLAN.md.
+ */
 export function volunteersRouter(
   deps: RouteDeps,
   c: Pick<Container, 'volunteers' | 'blocklist'>,

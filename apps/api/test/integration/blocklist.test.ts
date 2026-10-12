@@ -63,6 +63,7 @@ describe('blocking a volunteer', () => {
       subjectId: v.volunteerId,
       active: true,
     });
+    expect(res.body.data).not.toHaveProperty('reason');
     const user = await h.db.query('SELECT state FROM users WHERE id = $1', [v.account.id]);
     expect(user.rows[0].state).toBe('blocked');
     expect((await api().get('/api/v1/volunteers/me').set(bearer(own))).status).toBe(401);
@@ -76,6 +77,7 @@ describe('blocking a volunteer', () => {
     const lifted = await unblock(rpm, v.volunteerId, { reason: 'তদন্তে নির্দোষ' });
     expect(lifted.status).toBe(200);
     expect(lifted.body.data).toMatchObject({ active: false, releasedAt: expect.any(String) });
+    expect(lifted.body.data).not.toHaveProperty('reason');
     expect((await tryLogin(v.account.loginId)).status).toBe(200);
     expect((await unblock(rpm, v.volunteerId, { reason: 'আবার' })).status).toBe(404);
 
@@ -99,6 +101,38 @@ describe('blocking a volunteer', () => {
     expect(
       (await block(await as(world.users.executive), dhaka.volunteerId, { reason: 'কারণ' })).status,
     ).toBe(403);
+  });
+
+  it('unblock is refused outside the region (404) and to a Project Executive (403); both need a login', async () => {
+    const rangpur = await activeVolunteer(world.rangpur);
+    expect(
+      (
+        await block(await as(world.users.rpmRangpur), rangpur.volunteerId, {
+          reason: 'রংপুরে ব্লক',
+        })
+      ).status,
+    ).toBe(201);
+    const reason = { reason: 'তুলে দিন' };
+    expect(
+      (await unblock(await as(world.users.rpmDhaka), rangpur.volunteerId, reason)).status,
+    ).toBe(404);
+    expect(
+      (await unblock(await as(world.users.executive), rangpur.volunteerId, reason)).status,
+    ).toBe(403);
+    for (const path of ['block', 'unblock'])
+      expect(
+        (await api().post(`/api/v1/volunteers/${rangpur.volunteerId}/${path}`).send(reason)).status,
+      ).toBe(401);
+  });
+
+  it('an account the Department Head blocked is not put on the blocklist, so no lift can reactivate it', async () => {
+    const v = await activeVolunteer();
+    await h.db.query(`UPDATE users SET state = 'blocked' WHERE id = $1`, [v.account.id]);
+    const rpm = await as(world.users.rpmDhaka);
+    expect((await block(rpm, v.volunteerId, { reason: 'আবার ব্লক' })).status).toBe(409);
+    expect((await unblock(rpm, v.volunteerId, { reason: 'তুলে দিন' })).status).toBe(404);
+    const user = await h.db.query('SELECT state FROM users WHERE id = $1', [v.account.id]);
+    expect(user.rows[0].state).toBe('blocked');
   });
 
   it('the PM blocks in the program; a blocklisted pending registration cannot be approved', async () => {
