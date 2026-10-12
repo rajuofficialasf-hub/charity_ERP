@@ -72,6 +72,11 @@ export class AccessService {
     return makeScope(principal.userId, permission, entity, instances);
   }
 
+  /** The scope a user holds for a permission on another entity than the route's (one request). */
+  async scopeOfUser(userId: string, permission: string, entity: string): Promise<Scope> {
+    return this.scopeFor({ userId } as Principal, await this.load(userId), permission, entity);
+  }
+
   /** Logs a refusal without any record content (user, permission, entity, request id only). */
   denied(userId: string, permission: string, entity: string): void {
     this.logger.warn(

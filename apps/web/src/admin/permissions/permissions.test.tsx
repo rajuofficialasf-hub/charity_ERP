@@ -210,6 +210,119 @@ describe('permission panel', () => {
     expect(ended).toEqual({ id: GRANT_ID, reason: 'No longer needed' });
   });
 
+  it('shows why ending a grant failed, inside the dialog', async () => {
+    const user = userEvent.setup();
+    effective = [
+      {
+        permission: 'permission.view',
+        scopeType: 'GLOBAL',
+        source: 'panel_grant',
+        grantId: GRANT_ID,
+      },
+    ];
+    server.use(
+      http.post('*/api/v1/permission-grants/:grantId/revoke', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'permission.not_found',
+              messageKey: 'errors.permission.not_found',
+              message: 'পাওয়া যায়নি।',
+              requestId: 'req_test',
+            },
+          },
+          { status: 404 },
+        ),
+      ),
+    );
+    renderPanel(HEAD);
+    await chooseExecutive(user);
+    await user.click(
+      (await screen.findAllByRole('button', { name: 'permission.view প্রত্যাহার' }))[0]!,
+    );
+    const dialog = await screen.findByRole('alertdialog', { name: 'পারমিশন প্রত্যাহার' });
+    await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'No longer needed');
+    await user.click(within(dialog).getByRole('button', { name: 'প্রত্যাহার করুন' }));
+    expect(await within(dialog).findByText('পাওয়া যায়নি।')).toBeInTheDocument();
+  });
+
+  it('shows a field error at its field and an unshown one above the form', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.post('*/api/v1/permission-grants', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'validation.failed',
+              messageKey: 'errors.validation.failed',
+              message: 'কিছু তথ্য সঠিক নয়।',
+              details: [
+                {
+                  path: 'reason',
+                  code: 'validation.too_long',
+                  messageKey: 'x',
+                  message: 'লেখা অনেক লম্বা।',
+                },
+                {
+                  path: 'userId',
+                  code: 'validation.required',
+                  messageKey: 'x',
+                  message: 'ঘরটি পূরণ করুন।',
+                },
+              ],
+              requestId: 'req_test',
+            },
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+    renderPanel(HEAD);
+    await chooseExecutive(user);
+    await user.click(await screen.findByRole('button', { name: 'পারমিশন দিন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'পারমিশন দিন' });
+    await user.type(within(dialog).getByRole('combobox', { name: /পারমিশন/ }), 'permission.view');
+    await user.click(await screen.findByRole('option', { name: 'permission.view' }));
+    await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'Long reason');
+    await user.click(within(dialog).getByRole('button', { name: 'দিন' }));
+    expect(await within(dialog).findByText('লেখা অনেক লম্বা।')).toBeInTheDocument();
+    expect(within(dialog).getByText('কিছু তথ্য সঠিক নয়।')).toBeInTheDocument();
+  });
+
+  it('shows an error instead of an empty list when the permissions do not load, and retries', async () => {
+    const user = userEvent.setup();
+    let fail = true;
+    server.use(
+      http.get('*/api/v1/users/:userId/effective-permissions', () =>
+        fail
+          ? HttpResponse.json(
+              {
+                error: {
+                  code: 'server.internal',
+                  messageKey: 'errors.server.internal',
+                  message: 'কিছু একটা ভুল হয়েছে।',
+                  requestId: 'req_failed',
+                },
+              },
+              { status: 500 },
+            )
+          : HttpResponse.json({ data: effective, meta }),
+      ),
+    );
+    renderPanel(HEAD);
+    await chooseExecutive(user);
+    // a server error is retried twice by the query client before the error state shows
+    const retry = await screen.findByRole(
+      'button',
+      { name: /আবার চেষ্টা করুন/ },
+      { timeout: 8000 },
+    );
+    expect(screen.queryByText('এই ব্যবহারকারীর কোনো পারমিশন নেই।')).not.toBeInTheDocument();
+    fail = false;
+    await user.click(retry);
+    expect((await screen.findAllByText('application.review')).length).toBeGreaterThan(0);
+  }, 15_000);
+
   it('renders in English without accessibility violations', async () => {
     const { container } = renderPanel({ ...ME, roles: ['monitoring_team'] }, 'en');
     expect(

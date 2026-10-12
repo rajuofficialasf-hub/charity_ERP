@@ -11,6 +11,13 @@ export const ADMIN_ROLES: readonly string[] = [
   'program_manager',
 ];
 
+/** The permission panel is for the Department Head and the Monitoring Team only (RBAC.md 7). */
+export const PERMISSION_PANEL_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
+
+export function canManagePermissions(me: Pick<Me, 'roles'>): boolean {
+  return me.roles.some((role) => PERMISSION_PANEL_ROLES.includes(role));
+}
+
 export function canOpenAdmin(me: Pick<Me, 'roles'>): boolean {
   return me.roles.some((role) => ADMIN_ROLES.includes(role));
 }

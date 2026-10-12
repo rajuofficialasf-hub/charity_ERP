@@ -93,6 +93,19 @@ describe('project grants', () => {
     expect(notOnProject.status).toBe(404);
   });
 
+  it('answers 404 for a user of another region on a project shared by both regions', async () => {
+    // A1 has areas in Dhaka and Rangpur; the Rangpur volunteer works in the Rangpur area
+    const res = await setGrants(world.a1.id, world.users.rangpurVolunteer, ['exam.record']);
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('permission.not_found');
+    const row = await h.db.query(
+      `SELECT pv.extra_permissions FROM project_volunteers pv JOIN volunteers v ON v.id = pv.volunteer_id
+        WHERE pv.project_id = $1 AND v.user_id = $2`,
+      [world.a1.id, world.users.rangpurVolunteer],
+    );
+    expect(row.rows[0].extra_permissions).toEqual([]);
+  });
+
   it('refuses a permission without "if RPM grants" and one the RPM does not hold there', async () => {
     const plain = await setGrants(world.a1.id, world.users.executive, ['permission.view']);
     expect(plain.status).toBe(403);

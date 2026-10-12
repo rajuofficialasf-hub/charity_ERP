@@ -105,6 +105,34 @@ describe('authorization matrix', () => {
     expect(wrong).toEqual([]);
   });
 
+  // Cells written by hand from RBAC.md 5 and permissions.yaml, independent of the engine that the
+  // computed expectation above uses, so an engine bug cannot agree with itself.
+  it('matches the hand-checked cells of the default matrix', () => {
+    const pinned: [string, string, boolean][] = [
+      ['get /users', 'program_manager', true],
+      ['get /users', 'regional_program_manager', true],
+      ['get /users', 'project_executive', false],
+      ['get /users', 'volunteer_general', false],
+      ['get /users', ANONYMOUS, false],
+      ['get /roles', 'monitoring_team', true],
+      ['get /roles', 'program_manager', false],
+      ['post /permission-grants', 'department_head', true],
+      ['post /permission-grants', 'monitoring_team', true],
+      ['post /permission-grants', 'program_manager', false],
+      ['post /projects/:projectId/grants', 'regional_program_manager', true],
+      ['post /projects/:projectId/grants', 'project_executive', false],
+      ['get /users/:userId/sessions', 'regional_program_manager', true],
+      ['get /users/:userId/sessions', 'program_manager', false],
+      ['post /users/:userId/state', 'monitoring_team', true],
+      ['post /users/:userId/state', 'regional_program_manager', false],
+      ['get /sessions', 'volunteer_team_member', true],
+      ['get /auth/me', 'volunteer_paid', true],
+      ['post /auth/login', ANONYMOUS, true],
+    ];
+    for (const [route, role, allowed] of pinned)
+      expect(decisions.get(route)?.[role], `${route} as ${role}`).toBe(allowed);
+  });
+
   it('lets only the global roles through a permission no role holds by default', () => {
     const cells = decisions.get('get /matrix-probe')!;
     for (const role of [ANONYMOUS, ...roles])

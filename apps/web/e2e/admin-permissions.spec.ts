@@ -29,6 +29,8 @@ const settle = (page: Page) =>
 
 const scan = (page: Page) => new AxeBuilder({ page }).exclude('[data-live-announcer]').analyze();
 
+// Signs in through the form in each test, as admin.spec.ts and auth.spec.ts do: the journey starts
+// at the login screen, and each test stays independent of a stored session.
 async function signIn(page: Page, loginId: string): Promise<void> {
   await page.goto('/login');
   await expect(page.getByRole('button', { name: 'লগইন', exact: true })).toBeEnabled();

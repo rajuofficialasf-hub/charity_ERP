@@ -6,7 +6,7 @@ import { DocumentTitle } from '../../components/DocumentTitle';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
-import { PERMISSION_PANEL_ROLES } from '../navigation';
+import { canManagePermissions } from '../roles';
 import { EffectivePermissions, type PanelUser } from './EffectivePermissions';
 
 const MIN_SEARCH = 2;
@@ -22,7 +22,7 @@ export function PermissionsPage() {
   const t = useTranslations('admin.permissions');
   const [selected, setSelected] = useState<PanelUser | null>(null);
   if (!me) return null;
-  if (!me.roles.some((role) => PERMISSION_PANEL_ROLES.includes(role))) return <ForbiddenContent />;
+  if (!canManagePermissions(me)) return <ForbiddenContent />;
   return (
     <>
       <DocumentTitle title={t('title')} />

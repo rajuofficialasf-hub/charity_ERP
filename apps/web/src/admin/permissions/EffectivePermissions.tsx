@@ -19,10 +19,11 @@ export interface PanelUser {
 
 export const permissionCatalogue = () => api<PermissionInfo[]>('/permissions');
 const roleCatalogue = () => api<Role[]>('/roles');
-export const effectiveKey = (userId: string) => ['admin', 'effective', userId] as const;
+const effectiveKey = (userId: string) => ['admin', 'effective', userId] as const;
 
 interface Row extends EffectivePermission {
   key: string;
+  module: string;
 }
 
 /** The roles (read only) and the effective permissions of one user, grouped by module. */
@@ -51,11 +52,11 @@ export function EffectivePermissions({ user }: { user: PanelUser }) {
   const rows: Row[] = (effective.data ?? []).map((g, i) => ({
     ...g,
     key: `${g.permission}|${g.scopeType}|${g.scopeRef ?? ''}|${g.source}|${g.grantId ?? i}`,
+    module: moduleOf.get(g.permission) ?? '—',
   }));
-  const modules = [...new Set(rows.map((r) => moduleOf.get(r.permission) ?? '—'))].sort();
-  const failure = [effective.error, permissions.error, roles.error].find(
-    (e) => e instanceof ApiFailure,
-  );
+  const modules = [...new Set(rows.map((r) => r.module))].sort();
+  // any failure, also one without an API answer (offline), shows the error state, never an empty list
+  const failure = effective.error ?? permissions.error ?? roles.error;
   const refresh = (message: string) => {
     setNotice(message);
     void queryClient.invalidateQueries({ queryKey: effectiveKey(user.id) });
@@ -105,9 +106,13 @@ export function EffectivePermissions({ user }: { user: PanelUser }) {
       {failure && (
         <ErrorState
           title={tc('state.error.text')}
-          message={failure.message}
-          requestId={failure.requestId}
-          onRetry={() => void effective.refetch()}
+          message={failure instanceof ApiFailure ? failure.message : undefined}
+          requestId={failure instanceof ApiFailure ? failure.requestId : undefined}
+          onRetry={() => {
+            void effective.refetch();
+            void permissions.refetch();
+            void roles.refetch();
+          }}
         />
       )}
       {effective.isPending && <Skeleton shape="row" count={4} />}
@@ -115,7 +120,7 @@ export function EffectivePermissions({ user }: { user: PanelUser }) {
         <EmptyState icon={KeyRound} title={t('effective_empty')} headingLevel={3} />
       )}
       {modules.map((module) => {
-        const inModule = rows.filter((r) => (moduleOf.get(r.permission) ?? '—') === module);
+        const inModule = rows.filter((r) => r.module === module);
         const title = t('module', { module });
         return (
           <div key={module} className="admin-panel-group">

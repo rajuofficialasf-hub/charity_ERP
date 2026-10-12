@@ -19,6 +19,8 @@ import { type PanelUser, permissionCatalogue } from './EffectivePermissions';
 type Effect = 'grant' | 'revoke';
 /** Scopes without a reference (RBAC.md 4); every other scope names a program, project or location. */
 const UNBOUND: readonly ScopeTypeName[] = ['GLOBAL', 'SELF', 'ASSIGNED'];
+/** Detail paths shown at their field; any other answer is shown above the form. */
+const FIELD_PATHS = ['permission', 'scopeRef', 'reason', 'expiresAt'];
 
 /**
  * Grant or remove a permission for one user at a scope, with a reason and an optional expiry
@@ -105,11 +107,13 @@ export function GrantDialog({
         </Button>
       }
     >
-      {failure && failure.details.length === 0 && (
-        <Alert tone="danger" live="alert">
-          {failure.message}
-        </Alert>
-      )}
+      {failure &&
+        (failure.details.length === 0 ||
+          failure.details.some((d) => !FIELD_PATHS.includes(d.path ?? ''))) && (
+          <Alert tone="danger" live="alert">
+            {failure.message}
+          </Alert>
+        )}
       <RadioGroup
         label={t('dialog.effect')}
         orientation="horizontal"

@@ -320,6 +320,8 @@ export class AccessPanelService {
     body: ProjectGrantRequest,
   ) {
     await this.access.findProject(scope, projectId, { id: true });
+    // the target must also be a user the caller reaches (a shared project spans other regions)
+    const userScope = await this.access.scopeOfUser(actor.userId, scope.permission, 'user');
     const permissions = [...new Set(body.permissions)];
     const outcome = await this.prisma.$transaction(async (tx) => {
       await this.lockUser(tx, body.userId);
@@ -338,7 +340,12 @@ export class AccessPanelService {
             }),
           ])
         : [null, null];
-      if (!target || (!staff && !volunteer)) {
+      const reachable =
+        target &&
+        (await tx.user.count({
+          where: { AND: [{ id: target.id }, this.access.userFilter(userScope)] },
+        })) > 0;
+      if (!target || !reachable || (!staff && !volunteer)) {
         this.access.denied(actor.userId, scope.permission, 'user');
         throw new ApiError('permission.not_found', 404);
       }
