@@ -38,13 +38,24 @@ Phase 1 has started: the repository holds the scaffold of task T1.1 (no business
 - Docker Desktop with the engine running (Docker Compose v2.20 or newer)
 - Git with LF line endings (`.gitattributes` enforces them)
 
-### First run
+### First run, one command (everything in Docker)
+
+```bash
+docker compose up
+```
+
+On a fresh clone this builds the small development image (`docker/app/Dockerfile.dev`), starts PostgreSQL 17, MinIO and Mailpit, installs the workspace into Docker volumes (`setup`), migrates and seeds the development database with the demo accounts (`migrate`; `docs/testing/DEMO_ACCOUNTS.md`, dummy OTP `123456`), then starts the API on http://127.0.0.1:4000 and the web app on http://127.0.0.1:3000 (`infra/docker-compose.app.yml`). Every port binds to 127.0.0.1 only. The `setup` and `migrate` steps are idempotent, so a repeated `docker compose up` changes nothing; when `migrate` fails, `api` and `web` stay down: read `docker compose logs migrate` first. Source changes on the host reach the containers (bind mount, polling), so editing works as usual; `docker compose down` stops everything and keeps the data volumes.
+
+Checklist run on 2026-10-12 (Windows 11, Docker Desktop): `docker compose up` → `setup` and `migrate` completed → http://127.0.0.1:3000/login signs in with a demo account → `docker compose down`.
+
+### First run, services in Docker and the apps on the host
 
 ```bash
 pnpm install
-docker compose up -d
+docker compose up -d postgres minio mailpit
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
+pnpm db:migrate && pnpm db:load-locations && pnpm db:seed --set all
 pnpm dev
 ```
 

@@ -1,0 +1,150 @@
+# The application services for `docker compose up` on a fresh clone (ORG-DEV-01, D-074): one
+# command brings up PostgreSQL, MinIO, Mailpit (docker-compose.dev.yml), installs the workspace,
+# migrates and seeds the development database and starts the API and the web dev server. Local
+# development only; never used in CI, staging or production. The values below are dev-only
+# placeholders (BD-49): every published port binds to 127.0.0.1 (D-056). `docker compose up -d
+# postgres minio mailpit` followed by `pnpm dev` on the host keeps working as before.
+
+x-node: &node
+  build:
+    # The image copies nothing; the repository is mounted at run time.
+    context: ../docker/app
+    dockerfile: Dockerfile.dev
+  image: css-erp-dev:local
+  working_dir: /app
+  volumes:
+    - ..:/app
+    # Linux dependencies stay in Docker volumes, never mixed with the ones on the host.
+    - pnpm-store:/pnpm-store
+    - node-modules:/app/node_modules
+    - api-node-modules:/app/apps/api/node_modules
+    - web-node-modules:/app/apps/web/node_modules
+    - shared-node-modules:/app/packages/shared/node_modules
+    - ui-node-modules:/app/packages/ui/node_modules
+    - config-node-modules:/app/packages/config/node_modules
+
+# The API configuration (apps/api/src/config/env.ts); the same values serve the one-shot migrate.
+x-api-env: &api-env
+  NODE_ENV: development
+  PORT: '4000'
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  DATABASE_URL: postgresql://${POSTGRES_USER:-css}:${POSTGRES_PASSWORD:-css_dev_only}@postgres:5432/css_erp_dev
+  # Dev-only placeholders of at least 32 characters; real environments get their own values.
+  CURSOR_SECRET: dev-only-cursor-secret-0123456789abcdef
+  JWT_SECRET: dev-only-jwt-secret-0123456789abcdef0123
+  AUTH_CSRF_SECRET: dev-only-csrf-secret-0123456789abcdef01
+  OTP_SECRET: dev-only-otp-secret-0123456789abcdef0123
+  OTP_DUMMY_ENABLED: 'true'
+  OTP_DUMMY_CODE: '123456'
+  AUTH_COOKIE_SECURE: 'false'
+  STORAGE_DRIVER: s3
+  MINIO_ENDPOINT: minio
+  MINIO_PORT: '9000'
+  MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-css_dev_only}
+  MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-css_dev_only_secret}
+  SMTP_HOST: mailpit
+  SMTP_PORT: '1025'
+  # The job consumers run inside the api in development (ADR-004).
+  JOBS_INLINE: 'true'
+  # The Vite dev server in the web container is the one proxy in front of the api (D-072).
+  TRUST_PROXY: uniquelocal
+  # File changes on a bind mount from Windows or macOS reach the container only by polling.
+  CHOKIDAR_USEPOLLING: 'true'
+
+services:
+  # One-shot: the workspace's dependencies, the Prisma client and the built packages.
+  setup:
+    <<: *node
+    command:
+      - sh
+      - -ec
+      - |
+        pnpm install --frozen-lockfile
+        pnpm --filter @css/api db:generate
+        pnpm --filter "./packages/*" build
+    environment:
+      NODE_ENV: development
+    restart: 'no'
+
+  # One-shot: migrations and the pg-boss schema (db:migrate), the locations master and the full
+  # seed with the demo accounts (docs/testing/DEMO_ACCOUNTS.md). Every step is idempotent, so a
+  # repeated `docker compose up` changes nothing; when it fails, api and web stay down
+  # (`docker compose logs migrate`).
+  migrate:
+    <<: *node
+    command:
+      - sh
+      - -ec
+      - |
+        pnpm --filter @css/api db:migrate
+        pnpm --filter @css/api db:load-locations
+        pnpm --filter @css/api db:seed --set all
+    environment: *api-env
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  api:
+    <<: *node
+    command: ['pnpm', '--filter', '@css/api', 'dev']
+    environment: *api-env
+    ports:
+      - '127.0.0.1:${API_PORT:-4000}:4000'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4000/health/live').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      minio:
+        condition: service_started
+      mailpit:
+        condition: service_started
+    restart: unless-stopped
+
+  web:
+    <<: *node
+    command: ['pnpm', '--filter', '@css/web', 'dev', '--host', '0.0.0.0', '--port', '3000']
+    environment:
+      # vite.config.ts proxies /api/v1 to the api container; the browser still sees one origin.
+      CSS_API_ORIGIN: http://api:4000
+      VITE_WATCH_POLL: '1'
+    ports:
+      - '127.0.0.1:${WEB_PORT:-3000}:3000'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+      api:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  pnpm-store:
+  node-modules:
+  api-node-modules:
+  web-node-modules:
+  shared-node-modules:
+  ui-node-modules:
+  config-node-modules:

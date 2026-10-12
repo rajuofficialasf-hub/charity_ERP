@@ -1,0 +1,17 @@
+# Build contexts of the images (docker/app, later apps/api and apps/web): never the dependencies,
+# builds, environment files, caches or local data.
+node_modules
+**/node_modules
+**/dist
+**/.vite
+**/src/generated
+.git
+.ae
+.claude
+.env
+.env.*
+!.env.example
+apps/web/playwright-report
+apps/web/test-results
+apps/web/public/fonts
+apps/api/openapi.generated.json

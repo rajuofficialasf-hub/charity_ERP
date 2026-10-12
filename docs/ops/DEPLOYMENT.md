@@ -5,6 +5,8 @@ Status: outline, written in task T0.1 (2026-10-10); completed in task T3.0 (pipe
 ## 1. Environments
 Development (Docker Compose), test (CI), staging and production on the organization's server; configuration and secrets per environment.
 
+Development (ORG-DEV-01, T1.7d): `docker compose up` from the repository root runs the whole ERP — `infra/docker-compose.dev.yml` (PostgreSQL 17, MinIO, Mailpit) plus `infra/docker-compose.app.yml` (one-shot `setup` and `migrate`, then `api` and `web` from the development image `docker/app/Dockerfile.dev`, the repository bind-mounted, dependencies in volumes, dev-only placeholder secrets, dummy OTP). Nothing of it is used beyond a developer's machine: staging and production get their own compose project, images and secrets (T3.0).
+
 ## 2. Topology
 Reverse proxy with TLS, API, web, workers, PostgreSQL, object storage, mail relay; ports and networks.
 

@@ -58,8 +58,15 @@ export default defineConfig({
   },
   define: { 'import.meta.env.VITE_APP_VERSION': JSON.stringify(version) },
   // Bound to 127.0.0.1 so that Playwright, curl and the docs reach the same address (localhost
-  // may resolve to ::1 only on some machines).
-  server: { host: '127.0.0.1', port: 3000, strictPort: true, proxy },
+  // may resolve to ::1 only on some machines); the Docker web service passes --host 0.0.0.0 and
+  // VITE_WATCH_POLL=1, because changes on a bind mount reach a container only by polling.
+  server: {
+    host: '127.0.0.1',
+    port: 3000,
+    strictPort: true,
+    proxy,
+    ...(process.env.VITE_WATCH_POLL ? { watch: { usePolling: true, interval: 1000 } } : {}),
+  },
   preview: { host: '127.0.0.1', port: 3100, strictPort: true, proxy },
   build: { sourcemap: false },
 });
