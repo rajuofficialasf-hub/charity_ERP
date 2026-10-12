@@ -30,7 +30,9 @@ import {
   type RegistrationEvents,
 } from './notifications/registration-events';
 import { LocationsService } from './services/locations';
+import { FilesService } from './services/files';
 import { RegistrationService } from './services/registration';
+import { RegistrationPhotosService } from './services/registration-photos';
 import { SessionsService } from './services/sessions';
 import { AccessPanelService } from './services/access';
 import { UsersService } from './services/users';
@@ -69,6 +71,8 @@ export interface Container {
   registrationEvents: RegistrationEvents;
   registration: RegistrationService;
   registrationCleanup: RegistrationCleanup;
+  registrationPhotos: RegistrationPhotosService;
+  files: FilesService;
 }
 
 export interface ContainerOptions {
@@ -126,6 +130,8 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   assertConditionsCovered(accessRegistry);
   const access = o.access ?? new AccessService(accessRegistry, prisma, clock, logger);
   const registrationEvents = o.registrationEvents ?? new LoggingRegistrationEvents(logger);
+  const registration =
+    o.registration ?? new RegistrationService(env, prisma, clock, otp, audit, registrationEvents);
   return {
     env,
     logger,
@@ -156,8 +162,11 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       o.accessPanel ?? new AccessPanelService(prisma, access, audit, permissionVersions, clock),
     locations: o.locations ?? new LocationsService(prisma),
     registrationEvents,
-    registration:
-      o.registration ?? new RegistrationService(env, prisma, clock, otp, audit, registrationEvents),
+    registration,
+    registrationPhotos:
+      o.registrationPhotos ??
+      new RegistrationPhotosService(prisma, storage, audit, registration, logger),
+    files: o.files ?? new FilesService(prisma, storage, access),
     registrationCleanup: o.registrationCleanup ?? new RegistrationCleanup(prisma, storage, logger),
   };
 }

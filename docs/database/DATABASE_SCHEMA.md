@@ -1677,7 +1677,7 @@ Machine-readable schemas live in `docs/database/json-schemas/` (JSON Schema 2020
 | Role | Privileges | Used by |
 |---|---|---|
 | css_migrate | owner of the schema; DDL | one-shot migration container (ADR-003) |
-| css_app | SELECT, INSERT, UPDATE on business tables; INSERT only on append-only logs (audit_log, field_changes, budget_ledger, document_events, application_transfers, stock_movements); no DELETE; no DDL | api and worker |
+| css_app | SELECT, INSERT, UPDATE on business tables; EXECUTE on discard_registration_photo (a replaced draft photo, D-082); INSERT only on append-only logs (audit_log, field_changes, budget_ledger, document_events, application_transfers, stock_movements); no DELETE; no DDL | api and worker |
 | css_jobs_cleanup | DELETE on otp_codes, upload_sessions; UPDATE on files (exports); EXECUTE on purge_expired_registration_drafts | worker cleanup jobs only |
 | css_readonly | SELECT on reporting views without sensitive columns | optional reporting, IT diagnostics |
 | css_backup | replication / pg_dump | backup tooling (O-06) |

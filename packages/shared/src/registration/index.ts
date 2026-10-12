@@ -18,6 +18,14 @@ export const REGISTRATION_RULES = {
 export const REGISTRATION_KINDS = ['volunteer', 'staff'] as const;
 export type RegistrationKind = (typeof REGISTRATION_KINDS)[number];
 
+/** Photo slots of a registration and of a correction or edit request (D-087). */
+export const PHOTO_SLOTS = ['photo', 'nid_photo'] as const;
+export type PhotoSlot = (typeof PHOTO_SLOTS)[number];
+export const PHOTO_SOURCES = ['camera', 'gallery'] as const;
+export type PhotoSource = (typeof PHOTO_SOURCES)[number];
+/** Largest photo the API accepts; the phone compresses below it. */
+export const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+
 /** The draft token header (D-082): never in a URL or a log. */
 export const REGISTRATION_TOKEN_HEADER = 'X-Registration-Token';
 

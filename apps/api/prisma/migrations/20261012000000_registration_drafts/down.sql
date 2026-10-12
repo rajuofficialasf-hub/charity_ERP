@@ -4,6 +4,7 @@
 -- refuse are removed first: contact-change codes (short-lived OTPs; deleting them needs the
 -- cleanup setting of the status-log trigger) and the links of staff photos (the files stay).
 
+DROP FUNCTION IF EXISTS discard_registration_photo(uuid);
 DROP FUNCTION IF EXISTS purge_expired_registration_drafts(integer);
 DROP TABLE IF EXISTS "registration_drafts";
 

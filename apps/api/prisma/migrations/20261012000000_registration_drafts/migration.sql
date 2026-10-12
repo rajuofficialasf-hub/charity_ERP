@@ -112,6 +112,23 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION purge_expired_registration_drafts(integer) FROM PUBLIC;
 
+-- A replaced draft photo (a second upload to the same slot): the API role has no DELETE on files
+-- (DATABASE_SCHEMA 23), so the row goes only through this function, which removes nothing but a
+-- profile or NID photo uploaded through a draft (no uploader) that no draft points at any more.
+-- Returns the object for the API to remove from storage.
+CREATE FUNCTION discard_registration_photo(p_file uuid)
+  RETURNS TABLE (bucket text, object_key text)
+  LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+  DELETE FROM files fl
+   WHERE fl.id = p_file
+     AND fl.kind IN ('profile_photo', 'nid_photo')
+     AND fl.uploaded_by IS NULL
+     AND NOT EXISTS (SELECT 1 FROM registration_drafts d
+                      WHERE d.photo_file_id = p_file OR d.nid_photo_file_id = p_file)
+  RETURNING fl.bucket, fl.object_key;
+$$;
+REVOKE ALL ON FUNCTION discard_registration_photo(uuid) FROM PUBLIC;
+
 -- D-085: codes sent to a new mobile or email before an edit request reaches the approver.
 ALTER TABLE "otp_codes" DROP CONSTRAINT "otp_codes_purpose_check";
 ALTER TABLE "otp_codes" ADD CONSTRAINT "otp_codes_purpose_check" CHECK ("purpose" IN ('registration', 'password_reset', 'contact_change'));

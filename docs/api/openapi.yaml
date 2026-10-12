@@ -2329,8 +2329,10 @@ paths:
               schema: { $ref: '#/components/schemas/UploadedPhotoResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '410': { $ref: '#/components/responses/Gone' }
         '413': { $ref: '#/components/responses/Unprocessable' }
         '415': { $ref: '#/components/responses/Unprocessable' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
   /auth/register/submit:
     post:
@@ -3080,9 +3082,12 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/UploadedPhotoResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '413': { $ref: '#/components/responses/Unprocessable' }
         '415': { $ref: '#/components/responses/Unprocessable' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
   /me/change-requests:
     get:
       tags: [registration]
@@ -5473,6 +5478,7 @@ paths:
               schema: { type: string, format: binary }
             image/png:
               schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
   /files/{fileId}/url:
     parameters:

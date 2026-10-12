@@ -40,6 +40,10 @@ export interface RouteDefinition<
   path: string;
   /** Success status (200 by default; 201 for creates; 204 sends no body). */
   status?: number;
+  /** Route-only request middleware after the rate limits, e.g. the raw photo body parser. */
+  before?: RequestHandler[];
+  /** The handler writes the response itself (a file stream): no envelope and no field mask. */
+  streams?: boolean;
   handler: (ctx: RouteContext<B, Q, P>) => Promise<unknown> | unknown;
 }
 
@@ -54,7 +58,7 @@ export function defineRoute<B = unknown, Q = unknown, P = Record<string, unknown
   deps: RouteDeps,
   definition: RouteDefinition<B, Q, P>,
 ): void {
-  const { method, path, status = 200, handler, ...spec } = definition;
+  const { method, path, status = 200, handler, before = [], streams = false, ...spec } = definition;
   const where = `${method.toUpperCase()} ${path}`;
   if (WRITE_METHODS.has(method) && !spec.audit)
     throw new Error(`${where}: a write route must declare its audit action (BR-179)`);
@@ -69,7 +73,7 @@ export function defineRoute<B = unknown, Q = unknown, P = Record<string, unknown
     ?.defaults.some((d) => d.scope !== 'GLOBAL');
   if (scoped && spec.scope === 'none')
     throw new Error(`${where}: ${spec.permission} is held below GLOBAL and needs a scope entity`);
-  const dataSchema = maskedDataSchema(where, spec, status, deps.permissions);
+  const dataSchema = streams ? undefined : maskedDataSchema(where, spec, status, deps.permissions);
   /** The handler result in its JSON form, checked against the response schema. */
   const parseResponse = (schema: ZodType, data: unknown) => {
     const parsed = schema.safeParse(JSON.parse(JSON.stringify(data ?? null)));
@@ -94,6 +98,7 @@ export function defineRoute<B = unknown, Q = unknown, P = Record<string, unknown
         res,
       });
       if (WRITE_METHODS.has(method)) assertAudited(spec.audit, where, deps.logger);
+      if (streams) return;
       // Only the declared fields leave, minus the classes the caller may not see (RBAC.md 6).
       const visible = (req as AuthedRequest).fieldClasses ?? new Set<string>();
       const body = dataSchema
@@ -108,6 +113,7 @@ export function defineRoute<B = unknown, Q = unknown, P = Record<string, unknown
     path,
     ...deps.access(spec),
     ...deps.limiters.for(spec.rateLimit, where),
+    ...before,
     validate({ body: spec.body, query: spec.query, params: spec.params }),
     run,
   );

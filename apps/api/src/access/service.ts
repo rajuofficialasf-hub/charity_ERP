@@ -58,7 +58,7 @@ export class AccessService {
     permission: string,
     entity: string,
   ): Promise<Scope> {
-    if (entity === 'self' || permission === 'authenticated')
+    if (entity === 'self' || permission === 'authenticated' || permission === 'entity')
       return makeScope(principal.userId, permission, entity, { ...NO_INSTANCES, self: true });
     const grants = access.grants.filter((g) => g.permission === permission);
     const revokes = access.instanceRevokes.filter((r) => r.permission === permission);

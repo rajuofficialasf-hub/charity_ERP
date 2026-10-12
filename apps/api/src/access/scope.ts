@@ -58,8 +58,9 @@ export function makeScope(
 
 /** True when the caller may call the operation at all; the scope then narrows the data. */
 export function holdsPermission(permission: string, grants: EffectiveGrant[]): boolean {
-  if (permission === 'authenticated') return true;
-  if (PERMISSION_MARKERS.includes(permission)) return false; // public is decided before; workflow and entity later
+  // `entity`: any active user passes here; the file service decides from the linked record.
+  if (permission === 'authenticated' || permission === 'entity') return true;
+  if (PERMISSION_MARKERS.includes(permission)) return false; // public is decided before; workflow later
   return grants.some((g) => g.permission === permission);
 }
 

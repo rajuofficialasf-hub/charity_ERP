@@ -79,6 +79,7 @@ export function requireAccess(deps: AccessDeps): (rule: AccessRule) => RequestHa
           deps.access.denied(facts.userId, rule.permission, rule.scope);
           throw new ApiError('permission.denied', 403);
         }
+        // `entity` (file routes): the service decides from the file's linked record (D-087).
         const scope = await deps.access.scopeFor(
           req.principal,
           access,

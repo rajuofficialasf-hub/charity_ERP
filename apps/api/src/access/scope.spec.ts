@@ -78,14 +78,15 @@ describe('scope instances', () => {
 });
 
 describe('holding a permission', () => {
-  it('passes authenticated callers, denies the workflow and entity markers and unheld names', () => {
+  it('passes authenticated callers and the entity marker, denies workflow and unheld names', () => {
     const grants = [grant({}), grant({ permission: 'session.revoke_own', scopeType: 'SELF' })];
     expect(holdsPermission('authenticated', grants)).toBe(true);
     expect(holdsPermission('application.view', grants)).toBe(true);
     expect(holdsPermission('session.revoke_own', grants)).toBe(true);
     expect(holdsPermission('permission.view', grants)).toBe(false);
     expect(holdsPermission('workflow', grants)).toBe(false);
-    expect(holdsPermission('entity', grants)).toBe(false);
+    // the file service decides an `entity` route per file (DECISION_LOG D-087)
+    expect(holdsPermission('entity', grants)).toBe(true);
   });
 });
 

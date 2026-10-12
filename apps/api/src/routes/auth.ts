@@ -10,6 +10,10 @@ import {
 } from '@css/shared/auth';
 import {
   type OtpSendRequest,
+  PHOTO_SLOTS,
+  PHOTO_SOURCES,
+  type PhotoSlot,
+  type PhotoSource,
   otpSendRequestSchema,
   type OtpVerifyRequest,
   otpVerifyRequestSchema,
@@ -20,6 +24,7 @@ import {
   registrationStartRequestSchema,
 } from '@css/shared/registration';
 import { Router, type Response } from 'express';
+import { z } from 'zod';
 import {
   clearSessionCookies,
   CSRF_COOKIE,
@@ -31,6 +36,7 @@ import {
 import { principalOf } from '../auth/principal';
 import type { Container } from '../container';
 import { currentContext } from '../core/request-context';
+import { photoBody } from '../files/photo-body';
 import { ApiError } from '../i18n/api-error';
 import { defineRoute, type RouteDeps } from '../openapi/define-route';
 import type { IssuedSession } from '../services/auth';
@@ -40,7 +46,7 @@ const authOp = { tag: 'auth', scope: 'self', idempotency: 'none' as const };
 /** Login, refresh, logout, current user and passwords (AUTH.md 3 to 8, openapi tag auth). */
 export function authRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'auth' | 'env' | 'registration'>,
+  c: Pick<Container, 'auth' | 'env' | 'registration' | 'registrationPhotos'>,
 ): Router {
   const router = Router();
   const answer = (res: Response, issued: IssuedSession) => {
@@ -225,6 +231,51 @@ export function authRouter(
     handler: ({ body, req }) =>
       c.registration.referenceLookup(body, req.get(REGISTRATION_TOKEN_HEADER)),
   });
+
+  defineRoute<unknown, { registrationId: string; source?: PhotoSource }, { slot: PhotoSlot }>(
+    router,
+    deps,
+    {
+      ...authOp,
+      method: 'post',
+      path: '/auth/register/photos/:slot',
+      status: 201,
+      operationId: 'auth.registration.uploadPhoto',
+      summary:
+        "Upload the photo or the NID photo of a verified draft (JPEG or PNG, at most 2 MB; metadata stripped; replaces the slot's earlier upload; D-087)",
+      permission: 'public',
+      audit: 'file.uploaded',
+      rateLimit: 'public-form',
+      sensitiveFields: ['volunteer.identity'],
+      headers: [{ name: REGISTRATION_TOKEN_HEADER, required: true }],
+      params: { slot: z.enum(PHOTO_SLOTS) },
+      query: z.strictObject({
+        registrationId: z.uuid(),
+        source: z.enum(PHOTO_SOURCES).optional(),
+      }),
+      before: [photoBody],
+      responses: {
+        201: z.object({ fileId: z.uuid() }),
+        401: null,
+        404: null,
+        410: null,
+        413: null,
+        415: null,
+        422: null,
+        429: null,
+      },
+      handler: ({ params, query, req }) =>
+        c.registrationPhotos.forDraft(
+          {
+            registrationId: query.registrationId,
+            slot: params.slot,
+            source: query.source ?? 'gallery',
+            body: req.body,
+          },
+          req.get(REGISTRATION_TOKEN_HEADER),
+        ),
+    },
+  );
 
   defineRoute<PasswordResetCompleteRequest>(router, deps, {
     ...authOp,
