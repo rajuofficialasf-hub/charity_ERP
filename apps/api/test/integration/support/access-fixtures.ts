@@ -3,7 +3,7 @@ import type { Client } from 'pg';
 import { loadAccessRegistry } from '../../../src/access/registry';
 import { locationTree, project, user, volunteer, volunteerUser } from './fixtures';
 
-/** Roles and permissions of permissions.yaml, as the base seed writes them (T1.3). */
+/** Roles and permissions of permissions.yaml, as the base seed writes them (`seed/sets/base/access.ts`). */
 export async function seedAccessCatalogue(db: Client): Promise<void> {
   const registry = loadAccessRegistry();
   for (const role of registry.roles.values())
@@ -36,8 +36,9 @@ async function staffUser(db: Client, role: string): Promise<string> {
 /**
  * Two divisions (Dhaka-like and Rangpur-like), program P with projects A1 and A2 and another
  * program with project B1; a PM of P, an RPM per division on A1, a Project Executive under the
- * Dhaka RPM with the "if RPM grants" extra `application.approve`, a general volunteer on A1
- * (application_distribution) and A2 (work_progress), a Local দায়ী on A1 with `exam.record`, a team
+ * Dhaka RPM with the "if RPM grants" extra `application.approve`, a দাঈ-স্বেচ্ছাসেবক (both) on A1
+ * (application_distribution) and A2 (application_distribution_dawah), a Local দায়ী on A1 with
+ * `exam.record`, a team
  * member, the Department Head and the Monitoring Team.
  */
 export async function accessWorld(db: Client) {
@@ -82,10 +83,10 @@ export async function accessWorld(db: Client) {
       [randomUUID(), projectId, volunteerId, region, set, extras, rpmDhaka],
     );
   const generalUser = await volunteerUser(db);
-  await grantRole(db, generalUser, 'volunteer_general');
-  const general = await volunteer(db, dhaka, generalUser);
+  await grantRole(db, generalUser, 'volunteer_both');
+  const general = await volunteer(db, dhaka, generalUser, { type: 'both' });
   await assign(general, a1.id, 'application_distribution', dhaka.division);
-  await assign(general, a2.id, 'work_progress', dhaka.division);
+  await assign(general, a2.id, 'application_distribution_dawah', dhaka.division);
   const daeeUser = await volunteerUser(db);
   await grantRole(db, daeeUser, 'volunteer_local_daee');
   const daee = await volunteer(db, dhaka, daeeUser, { type: 'local_daee' });

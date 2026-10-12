@@ -108,7 +108,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const permissionVersions = o.permissionVersions ?? new PermissionVersionService(audit, sessions);
   const otpDelivery = o.otpDelivery ?? new OtpDeliveryService(env, sms, email, logger);
   const otp = o.otp ?? new OtpService(env, prisma, clock, otpDelivery);
-  // permissions.yaml must name only conditions the access module can check (R5).
+  // permissions.yaml must name only conditions the access module can check (RBAC.md 2).
   const accessRegistry = o.accessRegistry ?? loadAccessRegistry(env.PERMISSIONS_FILE);
   assertConditionsCovered(accessRegistry);
   return {

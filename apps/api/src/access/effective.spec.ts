@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { assertConditionsCovered, checkCondition } from './conditions';
-import { type AccessFacts, effectivePermissions, type EffectiveGrant } from './effective';
+import {
+  type AccessFacts,
+  effectiveAccess,
+  effectivePermissions,
+  type EffectiveGrant,
+} from './effective';
 import { loadAccessRegistry, parsePermissionsFile, readPermissionsFile } from './registry';
 
 const registry = loadAccessRegistry();
@@ -49,34 +54,103 @@ describe('effective permissions', () => {
     expect(names(executive)).not.toContain('application.approve');
   });
 
-  it('gives a volunteer without a project only the SELF defaults of the role', () => {
+  it('gives a volunteer without a project only its account permissions, nothing a set governs', () => {
     const grants = effectivePermissions(
       registry,
       facts({ roles: ['volunteer_general'], volunteerType: 'general' }),
       NOW,
     );
-    expect(grants.length).toBeGreaterThan(0);
     expect(grants.every((g) => g.scopeType === 'SELF' && g.projectId === null)).toBe(true);
     expect(names(grants)).toContain('session.revoke_own');
-    expect(names(grants)).not.toContain('project.view');
+    expect(names(grants)).toContain('edit_request.submit');
+    for (const governed of [
+      'application.create',
+      'stock.receive',
+      'distribution.update',
+      'project.view',
+    ])
+      expect(names(grants)).not.toContain(governed);
+  });
+
+  it('keeps the defaults of a volunteer role that no permission set is meant for (team member)', () => {
+    const grants = effectivePermissions(
+      registry,
+      facts({ roles: ['volunteer_team_member'], volunteerType: 'team_member' }),
+      NOW,
+    );
+    expect(grants).toContainEqual(
+      expect.objectContaining({
+        permission: 'application.view',
+        scopeType: 'SELF',
+        condition: 'own_created',
+      }),
+    );
+    expect(names(grants)).toContain('application.create');
+  });
+
+  it('ignores a permission set that is not meant for the role', () => {
+    const grants = effectivePermissions(
+      registry,
+      facts({
+        roles: ['volunteer_team_member'],
+        volunteerType: 'team_member',
+        projectVolunteers: [
+          { projectId: PROJECT_A, permissionSet: 'application_distribution', extraPermissions: [] },
+        ],
+      }),
+      NOW,
+    );
+    expect(on(grants, PROJECT_A)).not.toContain('stock.receive');
+  });
+
+  it('gives the owner transfer only to a Department Head and never strips a Department Head', () => {
+    const transfer = {
+      id: 'o5',
+      permission: 'system.owner.transfer',
+      effect: 'grant' as const,
+      scopeType: 'GLOBAL' as const,
+      scopeRef: null,
+      condition: null,
+      expiresAt: null,
+    };
+    const monitoring = effectivePermissions(
+      registry,
+      facts({ roles: ['monitoring_team'], overrides: [transfer] }),
+      NOW,
+    );
+    expect(names(monitoring)).not.toContain('system.owner.transfer');
+    const head = effectivePermissions(
+      registry,
+      facts({ roles: ['department_head'], overrides: [{ ...transfer, effect: 'revoke' }] }),
+      NOW,
+    );
+    expect(names(head)).toContain('system.owner.transfer');
   });
 
   it('binds permission sets to their project, so two projects give different permissions', () => {
     const grants = effectivePermissions(
       registry,
       facts({
-        roles: ['volunteer_general'],
-        volunteerType: 'general',
+        roles: ['volunteer_both'],
+        volunteerType: 'both',
         projectVolunteers: [
           { projectId: PROJECT_A, permissionSet: 'application_distribution', extraPermissions: [] },
-          { projectId: PROJECT_B, permissionSet: 'work_progress', extraPermissions: [] },
+          {
+            projectId: PROJECT_B,
+            permissionSet: 'application_distribution_dawah',
+            extraPermissions: [],
+          },
         ],
       }),
       NOW,
     );
     expect(on(grants, PROJECT_A)).toContain('stock.receive');
-    expect(on(grants, PROJECT_B)).not.toContain('stock.receive');
-    expect(on(grants, PROJECT_B)).toContain('progress.update');
+    expect(on(grants, PROJECT_A)).not.toContain('class.record');
+    expect(on(grants, PROJECT_B)).toContain('class.record');
+    // nothing a set governs is held without a project binding
+    expect(grants.filter((g) => g.permission === 'stock.receive' && g.projectId === null)).toEqual(
+      [],
+    );
     // PROJECT defaults of the role (project.view) count only on assigned projects
     expect(on(grants, PROJECT_A)).toContain('project.view');
     expect(grants.filter((g) => g.permission === 'project.view' && g.projectId === null)).toEqual(
@@ -208,6 +282,76 @@ describe('effective permissions', () => {
     expect(names(expiredGrant)).not.toContain('permission.view');
   });
 
+  it('a scope-type revoke removes the role default, an instance revoke is left to scope resolution', () => {
+    const revoke = (scopeRef: string | null) => ({
+      id: 'o3',
+      permission: 'application.view',
+      effect: 'revoke' as const,
+      scopeType: 'REGION' as const,
+      scopeRef,
+      condition: null,
+      expiresAt: null,
+    });
+    const typeWide = effectiveAccess(
+      registry,
+      facts({ roles: ['regional_program_manager'], overrides: [revoke(null)] }),
+      NOW,
+    );
+    expect(typeWide.grants.filter((g) => g.permission === 'application.view')).toEqual([]);
+    expect(typeWide.instanceRevokes).toEqual([]);
+    const dhaka = '00000000-0000-7000-8000-0000000000d1';
+    const oneRegion = effectiveAccess(
+      registry,
+      facts({ roles: ['regional_program_manager'], overrides: [revoke(dhaka)] }),
+      NOW,
+    );
+    expect(names(oneRegion.grants)).toContain('application.view');
+    expect(oneRegion.instanceRevokes).toEqual([expect.objectContaining({ scopeRef: dhaka })]);
+  });
+
+  it('ignores an extra that is not an "if RPM grants" permission of the role', () => {
+    const grants = effectivePermissions(
+      registry,
+      facts({
+        roles: ['project_executive'],
+        volunteerType: null,
+        projectStaff: [
+          {
+            projectId: PROJECT_A,
+            roleKey: 'project_executive',
+            extraPermissions: ['permission.panel.manage', 'system.owner.transfer'],
+          },
+        ],
+      }),
+      NOW,
+    );
+    expect(names(grants)).not.toContain('permission.panel.manage');
+    expect(names(grants)).not.toContain('system.owner.transfer');
+  });
+
+  it('never gives a volunteer a sensitive permission, from any source', () => {
+    const grants = effectivePermissions(
+      registry,
+      facts({
+        roles: ['volunteer_general'],
+        volunteerType: 'general',
+        overrides: [
+          {
+            id: 'o4',
+            permission: 'volunteer.view_sensitive',
+            effect: 'grant',
+            scopeType: 'GLOBAL',
+            scopeRef: null,
+            condition: null,
+            expiresAt: null,
+          },
+        ],
+      }),
+      NOW,
+    );
+    expect(names(grants)).not.toContain('volunteer.view_sensitive');
+  });
+
   it('a project-scoped revoke removes only the grants of that project', () => {
     const grants = effectivePermissions(
       registry,
@@ -246,6 +390,43 @@ describe('conditions', () => {
     const raw = structuredClone(readPermissionsFile()) as { conditions: Record<string, string> };
     raw.conditions.on_full_moon = 'not implemented';
     expect(() => assertConditionsCovered(parsePermissionsFile(raw))).toThrow(/on_full_moon/);
+  });
+
+  const actorBase = { userId: 'u1', roles: ['program_manager'], volunteerType: null };
+  it.each([
+    [
+      'safe_water_only',
+      { project: { workflowKey: 'advance_voucher' } },
+      { project: { workflowKey: 'distribution' } },
+    ],
+    ['tree_planting_only', { project: { workflowKey: 'open_application_visit' } }, {}],
+    [
+      'house_construction_project',
+      { project: { workflowKey: 'construction' }, attachedToProject: true },
+      { project: { workflowKey: 'construction' }, attachedToProject: false },
+    ],
+    ['own_region', { inOwnRegion: true }, { inOwnRegion: false }],
+    ['own_part', { record: { ownPart: true } }, { record: {} }],
+    [
+      'own_or_paid_volunteer_issues',
+      { record: { createdBy: 'u1' } },
+      { record: { createdBy: 'u2' } },
+    ],
+    [
+      'own_or_paid_volunteer_issues',
+      { record: { createdBy: 'u2', raisedByRoles: ['volunteer_paid'] } },
+      { record: { createdBy: 'u2', raisedByRoles: ['volunteer_general'] } },
+    ],
+    [
+      'no_open_applications',
+      { target: { openApplications: 0 } },
+      { target: { openApplications: 2 } },
+    ],
+    ['if_rpm_grants', null, {}],
+  ])('%s allows with the facts and denies without them', (name, allow, deny) => {
+    if (allow) expect(checkCondition(name, { actor: actorBase, ...allow })).toBe(true);
+    expect(checkCondition(name, { actor: actorBase, ...deny })).toBe(false);
+    expect(checkCondition(name, { actor: actorBase })).toBe(false);
   });
 
   it('decides from the context and denies when the context lacks the facts', () => {

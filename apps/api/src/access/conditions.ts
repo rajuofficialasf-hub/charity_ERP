@@ -52,7 +52,10 @@ const CONDITIONS: Record<string, ConditionCheck> = {
   no_open_applications: (ctx) => ctx.target?.openApplications === 0,
 };
 
-/** True when the named condition holds; an unknown name or a missing fact denies (R5). */
+/**
+ * True when the named condition holds; an unknown name or a missing fact denies
+ * (docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, R5).
+ */
 export function checkCondition(name: string, ctx: ConditionContext): boolean {
   const check = Object.hasOwn(CONDITIONS, name) ? CONDITIONS[name] : undefined;
   return check ? check(ctx) : false;

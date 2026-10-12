@@ -19,7 +19,7 @@ let drop: () => Promise<void>;
 let prisma: PrismaService;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const registry = loadAccessRegistry();
-const NOW = new Date();
+const NOW = new Date('2026-10-12T06:00:00Z');
 
 const grantsOf = async (userId: string): Promise<EffectiveGrant[]> =>
   effectivePermissions(registry, await loadAccessFacts(prisma, userId), NOW);
@@ -66,9 +66,12 @@ describe('effective permissions from the database', () => {
     const on = (projectId: string) =>
       new Set(grants.filter((g) => g.projectId === projectId).map((g) => g.permission));
     expect(on(world.a1.id)).toContain('stock.receive');
-    expect(on(world.a2.id)).not.toContain('stock.receive');
-    expect(on(world.a2.id)).toContain('progress.update');
+    expect(on(world.a1.id)).not.toContain('class.record');
+    expect(on(world.a2.id)).toContain('class.record');
     expect(on(world.b1.id).size).toBe(0);
+    expect(grants.filter((g) => g.permission === 'stock.receive' && g.projectId === null)).toEqual(
+      [],
+    );
   });
 
   it('gives the Local দায়ী exam.record through the extra and the team member own records only', async () => {
@@ -113,8 +116,8 @@ describe('effective permissions from the database', () => {
           extra.revokedAt ?? null,
         ],
       );
-    await override('revoke', { revokedAt: new Date() });
-    await override('revoke', { expiresAt: new Date(Date.now() - 60_000) });
+    await override('revoke', { revokedAt: new Date('2026-10-12T05:00:00Z') });
+    await override('revoke', { expiresAt: new Date('2026-10-12T05:59:00Z') });
     expect((await grantsOf(world.users.pm)).some((g) => g.permission === 'permission.view')).toBe(
       true,
     );
