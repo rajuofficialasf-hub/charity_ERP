@@ -7,7 +7,7 @@ import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import { type EffectiveAccess, effectiveAccess, loadAccessFacts } from './effective';
 import type { AccessRegistry } from './registry';
-import { makeScope, resolveInstances, type Scope, userWhere } from './scope';
+import { makeScope, NO_INSTANCES, resolveInstances, type Scope, userWhere } from './scope';
 
 const ACCOUNT_KINDS = { in: ['staff', 'volunteer'] };
 
@@ -41,16 +41,16 @@ export class AccessService {
     entity: string,
   ): Promise<Scope> {
     if (entity === 'self' || permission === 'authenticated')
-      return makeScope(principal.userId, permission, entity, {
-        global: false,
-        self: true,
-        programIds: [],
-        projectIds: [],
-        areas: [],
-      });
+      return makeScope(principal.userId, permission, entity, { ...NO_INSTANCES, self: true });
     const grants = access.grants.filter((g) => g.permission === permission);
     const revokes = access.instanceRevokes.filter((r) => r.permission === permission);
-    const instances = await resolveInstances(this.prisma, principal.userId, grants, revokes);
+    const instances = await resolveInstances(
+      this.prisma,
+      principal.userId,
+      entity,
+      grants,
+      revokes,
+    );
     return makeScope(principal.userId, permission, entity, instances);
   }
 

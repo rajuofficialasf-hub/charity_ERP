@@ -18,6 +18,9 @@ export interface AccessDeps {
   logger: Logger;
 }
 
+/** Scope entities whose routes filter no data (RBAC.md 8). */
+const UNFILTERED = new Set(['none', 'global', 'system']);
+
 /** The access rule of an operation: its permission and the pending-account allowance. */
 export type AccessRule = Pick<OperationSpec, 'permission' | 'allowPending' | 'scope'>;
 
@@ -76,7 +79,22 @@ export function requireAccess(deps: AccessDeps): (rule: AccessRule) => RequestHa
           deps.access.denied(facts.userId, rule.permission, rule.scope);
           throw new ApiError('permission.denied', 403);
         }
-        req.scope = await deps.access.scopeFor(req.principal, access, rule.permission, rule.scope);
+        const scope = await deps.access.scopeFor(
+          req.principal,
+          access,
+          rule.permission,
+          rule.scope,
+        );
+        // A route that filters no data needs a GLOBAL grant: a narrower one would act as GLOBAL.
+        if (
+          UNFILTERED.has(rule.scope) &&
+          rule.permission !== 'authenticated' &&
+          !scope.instances.global
+        ) {
+          deps.access.denied(facts.userId, rule.permission, rule.scope);
+          throw new ApiError('permission.denied', 403);
+        }
+        req.scope = scope;
         next();
       } catch (error) {
         next(error);

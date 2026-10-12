@@ -38,8 +38,6 @@ const TRANSITIONS: Record<string, readonly UserState[]> = {
   pending: [],
 };
 
-const ACCOUNT_KINDS = { in: ['staff', 'volunteer'] };
-
 const userSelect = {
   id: true,
   displayName: true,
@@ -82,7 +80,6 @@ export class UsersService {
     const direction = cursor?.d ?? 'next';
     const filter = {
       AND: [this.access.userFilter(scope)],
-      kind: ACCOUNT_KINDS,
       ...(query.state ? { state: query.state } : {}),
       ...(query.role ? { userRolesUser: { some: { roleKey: query.role, revokedAt: null } } } : {}),
       ...(searchWhere(query.q, ['displayName', 'mobile', 'email']) ?? {}),

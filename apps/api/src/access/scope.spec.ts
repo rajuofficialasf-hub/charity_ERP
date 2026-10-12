@@ -4,6 +4,7 @@ import {
   applyInstanceRevokes,
   holdsPermission,
   makeScope,
+  NO_INSTANCES,
   type ScopeInstances,
   userWhere,
 } from './scope';
@@ -46,6 +47,7 @@ describe('scope instances', () => {
       { projectId: P1, locationId: RANGPUR },
       { projectId: P2, locationId: DHAKA },
     ],
+    volunteerAreas: [{ projectId: P1, locationId: DHAKA }],
   });
 
   it('subtracts a revoked region, project and program from the resolved instances', () => {
@@ -60,6 +62,17 @@ describe('scope instances', () => {
       revoke({ scopeType: 'PROGRAM', scopeRef: P2 }),
     ]);
     expect(program.programIds).toEqual([P1]);
+  });
+
+  it('removes the projects and areas of a revoked program', () => {
+    const program = applyInstanceRevokes(
+      instances(),
+      [revoke({ scopeType: 'PROGRAM', scopeRef: P2 })],
+      [P1],
+    );
+    expect(program.projectIds).toEqual([P2]);
+    expect(program.areas).toEqual([{ projectId: P2, locationId: DHAKA }]);
+    expect(program.volunteerAreas).toEqual([]);
   });
 });
 
@@ -76,13 +89,7 @@ describe('holding a permission', () => {
 });
 
 describe('the user filter', () => {
-  const none: ScopeInstances = {
-    global: false,
-    self: false,
-    programIds: [],
-    projectIds: [],
-    areas: [],
-  };
+  const none = NO_INSTANCES;
   const where = (i: Partial<ScopeInstances>) =>
     userWhere(makeScope('actor', 'permission.view', 'user', { ...none, ...i }));
 
@@ -112,5 +119,13 @@ describe('the user filter', () => {
       projectAreasRpmUser: { some: { locationId: DHAKA, projectId: P1 } },
     });
     expect(bound.OR).not.toContainEqual({ homeDivisionId: DHAKA });
+  });
+
+  it('reaches only volunteers through a volunteer area', () => {
+    const v = where({ volunteerAreas: [{ projectId: P1, locationId: DHAKA }] }) as {
+      OR: unknown[];
+    };
+    expect(v.OR).toHaveLength(1);
+    expect(JSON.stringify(v.OR[0])).toContain('volunteersUser');
   });
 });

@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { Writable } from 'node:stream';
+import { Router } from 'express';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { defineRoute, type RouteDeps } from '../../src/openapi/define-route';
 import { accessWorld, seedAccessCatalogue } from './support/access-fixtures';
 import {
   type Account,
@@ -27,12 +29,32 @@ const logStream = new Writable({
   },
 });
 
+// A route of entity `global` (filters no data): only a GLOBAL grant may pass (RBAC.md 8).
+function globalProbe(deps: RouteDeps): Router {
+  const router = Router();
+  defineRoute(router, deps, {
+    method: 'get',
+    path: '/scope-probe/global',
+    operationId: 'probe.scopeGlobal',
+    tag: 'probe',
+    summary: 'global probe',
+    permission: 'user.lock.clear',
+    scope: 'global',
+    audit: 'none',
+    idempotency: 'none',
+    rateLimit: 'default',
+    responses: { 200: null },
+    handler: () => ({ ok: true }),
+  });
+  return router;
+}
+
 const api = () => request(h.server());
 const as = (userId: string) => login(h, accounts.get(userId)!);
 const deniedEvents = () => logLines.filter((l) => l.event === 'permission_denied');
 
 beforeAll(async () => {
-  h = await authHarness({ logStream });
+  h = await authHarness({ logStream, extraRouters: [globalProbe] });
   await seedAccessCatalogue(h.db);
   const make = (kind: 'staff' | 'volunteer') => async (role: string) => {
     const a = await account(h.db, { kind, role });
@@ -177,5 +199,62 @@ describe('scope on the user endpoints', () => {
     expect(stale.body.error.code).toBe('auth.token_stale');
     const token = await refresh(rpm);
     await api().get('/api/v1/users').set('Authorization', `Bearer ${token}`).expect(403);
+  });
+
+  it("refuses an RPM the sessions of staff in the RPM's region (own_region: volunteers only)", async () => {
+    const rpm = await as(world.users.rpmDhaka);
+    await api().get(`/api/v1/users/${world.users.executive}/sessions`).set(bearer(rpm)).expect(404);
+    // the same RPM still sees that staff member through permission.view (no condition)
+    await api().get(`/api/v1/users/${world.users.executive}`).set(bearer(rpm)).expect(200);
+  });
+
+  it('answers 404 to an out-of-scope session revoke and leaves the session active', async () => {
+    const rpm = await as(world.users.rpmDhaka);
+    await as(world.users.rangpurVolunteer);
+    const { rows } = await h.db.query(
+      'SELECT id FROM device_sessions WHERE user_id = $1 AND revoked_at IS NULL LIMIT 1',
+      [world.users.rangpurVolunteer],
+    );
+    const res = await api()
+      .post(`/api/v1/users/${world.users.rangpurVolunteer}/sessions/${rows[0].id}/revoke`)
+      .set(bearer(rpm))
+      .send({ reason: 'Phone lost in the field' })
+      .expect(404);
+    expect(res.body.error.code).toBe('permission.not_found');
+    const after = await h.db.query('SELECT revoked_at FROM device_sessions WHERE id = $1', [
+      rows[0].id,
+    ]);
+    expect(after.rows[0].revoked_at).toBeNull();
+  });
+
+  it('answers 404 to an out-of-scope unlock and keeps the lock', async () => {
+    const { rows } = await h.db.query('SELECT id FROM programs WHERE pm_user_id = $1', [
+      world.users.pm,
+    ]);
+    await override(world.users.pm, 'user.lock.clear', 'grant', 'PROGRAM', rows[0].id as string);
+    await h.db.query("UPDATE users SET locked_until = now() + interval '1 hour' WHERE id = $1", [
+      world.users.outsider,
+    ]);
+    const pm = await as(world.users.pm);
+    const res = await api()
+      .post(`/api/v1/users/${world.users.outsider}/unlock`)
+      .set(bearer(pm))
+      .send({ reason: 'Testing the scope' })
+      .expect(404);
+    expect(res.body.error.code).toBe('permission.not_found');
+    const after = await h.db.query('SELECT locked_until FROM users WHERE id = $1', [
+      world.users.outsider,
+    ]);
+    expect(after.rows[0].locked_until).not.toBeNull();
+    await h.db.query('UPDATE users SET locked_until = NULL WHERE id = $1', [world.users.outsider]);
+  });
+
+  it('refuses a below-GLOBAL grant on a route that filters no data', async () => {
+    // the PM holds user.lock.clear for one program (previous test); the probe filters nothing
+    const pm = await as(world.users.pm);
+    const res = await api().get('/api/v1/scope-probe/global').set(bearer(pm)).expect(403);
+    expect(res.body.error.code).toBe('permission.denied');
+    const head = await as(world.users.head);
+    await api().get('/api/v1/scope-probe/global').set(bearer(head)).expect(200);
   });
 });

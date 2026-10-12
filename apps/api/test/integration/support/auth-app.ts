@@ -5,7 +5,7 @@ import type { Client } from 'pg';
 import type { DestinationStream } from 'pino';
 import request from 'supertest';
 import { inject } from 'vitest';
-import { createApp } from '../../../src/app';
+import { createApp, type AppOptions } from '../../../src/app';
 import { ARGON2_OPTIONS } from '../../../src/auth/password-hasher';
 import { closeContainer, type Container, createContainer } from '../../../src/container';
 import { testEnv } from '../../support/env';
@@ -46,7 +46,11 @@ export interface AuthHarness {
  * limits themselves are covered in test/api/guards.
  */
 export async function authHarness(
-  options: { realRateLimits?: boolean; logStream?: DestinationStream } = {},
+  options: {
+    realRateLimits?: boolean;
+    logStream?: DestinationStream;
+    extraRouters?: AppOptions['extraRouters'];
+  } = {},
 ): Promise<AuthHarness> {
   const clone = await cloneTemplate(inject('templateDb'));
   for (const role of ROLES)
@@ -62,7 +66,10 @@ export async function authHarness(
     ...(options.logStream ? { LOG_LEVEL: 'info' } : {}),
   });
   const container = createContainer(env, { overrides: { clock }, logStream: options.logStream });
-  const { app } = createApp(container, { logStream: options.logStream });
+  const { app } = createApp(container, {
+    logStream: options.logStream,
+    extraRouters: options.extraRouters,
+  });
   return {
     app,
     container,
