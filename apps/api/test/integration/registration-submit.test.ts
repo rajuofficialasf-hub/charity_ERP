@@ -249,6 +249,115 @@ describe('POST /auth/register/submit', () => {
   });
 });
 
+describe('submit refusals', () => {
+  /** Starts and verifies a draft for given contacts (the helper makes fresh ones). */
+  async function verifyFor(mobile: string, email: string, kind = 'volunteer') {
+    const started = await request(h.server())
+      .post('/api/v1/auth/register/start')
+      .send({ mobile, email, kind });
+    const registrationId = started.body.data.registrationId as string;
+    const res = await request(h.server())
+      .post('/api/v1/auth/register/otp/verify')
+      .send({ registrationId, mobileCode: '246810', emailCode: '246810' });
+    return { registrationId, res, token: res.body.data?.registrationToken as string | undefined };
+  }
+
+  it('answers 409 when the mobile became an account after verification, and changes nothing', async () => {
+    const d = await verifiedDraft(h);
+    const other = await account(h.db, { kind: 'volunteer', state: 'pending' });
+    await h.db.query('UPDATE users SET mobile = $1 WHERE id = $2', [d.mobile, other.id]);
+    const res = await submit(d.token, volunteerForm(d));
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('registration.account_exists');
+    const users = await h.db.query('SELECT id FROM users WHERE mobile = $1', [d.mobile]);
+    expect(users.rows).toEqual([{ id: other.id }]);
+  });
+
+  it('reports a rejected account of the other kind at verification', async () => {
+    const rejected = await account(h.db, { kind: 'volunteer', state: 'deactivated' });
+    await f.volunteer(h.db, loc, rejected.id);
+    const { res } = await verifyFor(
+      rejected.mobile,
+      `kind${randomUUID().slice(0, 8)}@example.org`,
+      'staff',
+    );
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('registration.account_exists');
+  });
+
+  it('refuses an unknown program or division for an official (422)', async () => {
+    const d = await verifiedDraft(h, 'staff');
+    const program = await submit(d.token, staffForm(d, { homeProgramId: randomUUID() }));
+    expect(program.status).toBe(422);
+    expect(program.body.error.details[0].path).toBe('homeProgramId');
+    const division = await submit(d.token, staffForm(d, { homeDivisionId: loc.district }));
+    expect(division.status).toBe(422);
+    expect(division.body.error.details[0].path).toBe('homeDivisionId');
+  });
+
+  it('a team member reference to a closed volunteer is unknown, and every reference is counted', async () => {
+    const closed = await account(h.db, { kind: 'volunteer', state: 'deactivated' });
+    const closedNid = f.fakeNid();
+    await f.volunteer(h.db, loc, closed.id, { nid: closedNid });
+    const d = await verifiedDraft(h);
+    const first = await submit(
+      d.token,
+      volunteerForm(d, { type: 'team_member', referenceNid: closedNid }),
+    );
+    expect(first.status).toBe(422);
+    expect(first.body.error.details[0].path).toBe('referenceNid');
+    for (let i = 0; i < 4; i += 1)
+      expect(
+        (
+          await submit(
+            d.token,
+            volunteerForm(d, { type: 'team_member', referenceNid: f.fakeNid() }),
+          )
+        ).status,
+      ).toBe(422);
+    const lookups = await h.db.query(
+      `SELECT count(*)::int AS n FROM audit_log WHERE action = 'auth.reference_lookup' AND entity_id = $1`,
+      [d.registrationId],
+    );
+    expect(lookups.rows[0].n).toBe(5);
+    const sixth = await submit(
+      d.token,
+      volunteerForm(d, { type: 'team_member', referenceNid: f.fakeNid() }),
+    );
+    expect(sixth.status).toBe(429);
+  });
+
+  it('stops a draft after 5 refused submits', async () => {
+    const holder = await verifiedDraft(h);
+    const nid = f.fakeNid();
+    expect((await submit(holder.token, volunteerForm(holder, { nid }))).status).toBe(201);
+    const d = await verifiedDraft(h);
+    for (let i = 0; i < 5; i += 1)
+      expect((await submit(d.token, volunteerForm(d, { nid }))).status).toBe(409);
+    expect((await submit(d.token, volunteerForm(d))).status).toBe(429);
+  });
+
+  it("replaces a returning official's photo link instead of adding one", async () => {
+    const d = await verifiedDraft(h, 'staff');
+    const firstPhoto = (await photo(d, 'photo', jpeg(), 'image/jpeg')).body.data.fileId as string;
+    const userId = (await submit(d.token, staffForm(d))).body.data.id as string;
+    await h.db.query(`UPDATE users SET state = 'deactivated' WHERE id = $1`, [userId]);
+    const again = await verifyFor(d.mobile, d.email, 'staff');
+    expect(again.res.status).toBe(200);
+    const draft = { ...d, registrationId: again.registrationId, token: again.token! };
+    const secondPhoto = (await photo(draft, 'photo', png(), 'image/png')).body.data
+      .fileId as string;
+    expect((await submit(draft.token, staffForm(draft))).status).toBe(201);
+    const links = await h.db.query(
+      `SELECT file_id FROM file_links WHERE entity_type = 'user' AND entity_id = $1 AND slot = 'photo'`,
+      [userId],
+    );
+    expect(links.rows).toEqual([{ file_id: secondPhoto }]);
+    // the earlier photo stays with the earlier submitted registration (BD-46)
+    expect((await h.db.query('SELECT 1 FROM files WHERE id = $1', [firstPhoto])).rowCount).toBe(1);
+  });
+});
+
 describe('the pending account', () => {
   async function pendingVolunteer() {
     const d = await verifiedDraft(h);
@@ -286,6 +395,12 @@ describe('the pending account', () => {
     const me = await request(h.server()).get('/api/v1/volunteers/me').set(bearer(s));
     expect(me.body.data.userId).toBe(b.userId);
     expect(JSON.stringify(me.body)).not.toContain(a.form.nid);
+  });
+
+  it('/volunteers/me needs a login', async () => {
+    const res = await request(h.server()).get('/api/v1/volunteers/me');
+    expect(res.status).toBe(401);
+    expect(res.body.data).toBeUndefined();
   });
 
   it('an official without a volunteer profile gets 404 on /volunteers/me', async () => {

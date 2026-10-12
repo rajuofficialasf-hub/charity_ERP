@@ -14,6 +14,8 @@ export const REGISTRATION_RULES = {
   maxReferenceLookups: 5,
   /** Lookups of one NID per day across all drafts (D-088). */
   maxLookupsPerNidPerDay: 5,
+  /** Refused submits (conflict or invalid form) a draft allows before 429. */
+  maxRefusedSubmits: 5,
 } as const;
 
 export const REGISTRATION_KINDS = ['volunteer', 'staff'] as const;

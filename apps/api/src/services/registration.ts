@@ -149,7 +149,7 @@ export class RegistrationService {
         throw onField(error, path);
       }
     }
-    const exists = await this.contactTaken(draft.mobile, draft.email);
+    const exists = await this.contactTaken(draft.mobile, draft.email, draft.kind);
     const now = this.clock.now();
     const token = randomBytes(32).toString('base64url');
     const expiresAt = draftExpiry(now);
@@ -181,9 +181,10 @@ export class RegistrationService {
 
   /**
    * True when the mobile or email belongs to an account other than a rejected, never-approved
-   * one (D-086): a volunteer never approved, or an official who never received a role.
+   * one of the same kind (D-086): a volunteer never approved, or an official who never received a
+   * role. A rejected account of the other kind is taken, so the person learns it at verification.
    */
-  private async contactTaken(mobile: string, email: string): Promise<boolean> {
+  private async contactTaken(mobile: string, email: string, kind: string): Promise<boolean> {
     const users = await this.prisma.user.findMany({
       where: { OR: [{ mobile }, { email }] },
       select: {
@@ -193,7 +194,7 @@ export class RegistrationService {
         _count: { select: { userRolesUser: true } },
       },
     });
-    return users.some(isTaken);
+    return users.some((u) => isTaken(u, kind));
   }
 
   /** The name of the active volunteer with this NID, for a team member's reference (D-088). */
@@ -202,7 +203,22 @@ export class RegistrationService {
     token: string | undefined,
   ): Promise<{ name: string }> {
     const draft = await this.ownedDraft(body.registrationId, token);
-    const nidHash = identifierHash(this.env, `nid:${body.nid}`);
+    const volunteer = await this.countedLookup(draft.id, body.nid);
+    if (!volunteer) throw new ApiError('permission.not_found', 404);
+    return { name: volunteer.name };
+  }
+
+  /**
+   * Whether an NID belongs to an active volunteer, counted and audited (D-088): 5 per draft and 5
+   * per NID and day across drafts, each one an `auth.reference_lookup` entry with the NID hashed.
+   * The reference lookup and the team member's submit both go through here, so the submit is no
+   * unmetered way to test NIDs.
+   */
+  private async countedLookup(
+    draftId: string,
+    nid: string,
+  ): Promise<{ id: string; name: string } | null> {
+    const nidHash = identifierHash(this.env, `nid:${nid}`);
     const sameNid = await this.prisma.auditLog.count({
       where: {
         action: 'auth.reference_lookup',
@@ -213,21 +229,17 @@ export class RegistrationService {
     if (sameNid >= REGISTRATION_RULES.maxLookupsPerNidPerDay)
       throw new ApiError('rate_limit.exceeded', 429);
     const reserved = await this.prisma.registrationDraft.updateMany({
-      where: { id: draft.id, referenceLookups: { lt: REGISTRATION_RULES.maxReferenceLookups } },
+      where: { id: draftId, referenceLookups: { lt: REGISTRATION_RULES.maxReferenceLookups } },
       data: { referenceLookups: { increment: 1 } },
     });
     if (reserved.count === 0) throw new ApiError('rate_limit.exceeded', 429);
     const volunteer = await this.prisma.volunteer.findFirst({
-      where: { nid: body.nid, user: { state: 'active' } },
-      select: { user: { select: { displayName: true } } },
+      where: { nid, user: { state: 'active' } },
+      select: { id: true, user: { select: { displayName: true } } },
     });
-    await this.draftAudit('auth.reference_lookup', draft.id, {
-      nidHash,
-      found: Boolean(volunteer),
-    });
-    this.events.emit({ type: 'registration.reference_lookup', draftId: draft.id });
-    if (!volunteer) throw new ApiError('permission.not_found', 404);
-    return { name: volunteer.user.displayName };
+    await this.draftAudit('auth.reference_lookup', draftId, { nidHash, found: Boolean(volunteer) });
+    this.events.emit({ type: 'registration.reference_lookup', draftId });
+    return volunteer ? { id: volunteer.id, name: volunteer.user.displayName } : null;
   }
 
   /**
@@ -239,6 +251,27 @@ export class RegistrationService {
    */
   async submit(body: RegistrationSubmitRequest, token: string | undefined): Promise<string> {
     const draft = await this.ownedDraft(body.registrationId, token);
+    const refused = await this.prisma.auditLog.count({
+      where: {
+        action: 'auth.register_refused',
+        entityType: 'registration_draft',
+        entityId: draft.id,
+      },
+    });
+    if (refused >= REGISTRATION_RULES.maxRefusedSubmits)
+      throw new ApiError('rate_limit.exceeded', 429);
+    try {
+      return await this.submitDraft(draft, body);
+    } catch (error) {
+      // A refused submit is counted on the draft, so one verified draft cannot test NIDs or
+      // references without end (C5 review of the plan of this task).
+      if (error instanceof ApiError && [409, 422].includes(error.status))
+        await this.draftAudit('auth.register_refused', draft.id, { code: error.code });
+      throw error;
+    }
+  }
+
+  private async submitDraft(draft: Draft, body: RegistrationSubmitRequest): Promise<string> {
     if (body.kind !== draft.kind) throw invalid('kind', 'validation.option_unknown');
     const problems = checkPassword(body.password, {
       minLength: minPasswordLength(false),
@@ -255,11 +288,12 @@ export class RegistrationService {
       );
     if (body.kind === 'volunteer') await this.assertAddress(body);
     else await this.assertStaffPlace(body);
-    const referenceVolunteerId =
+    const [referenceVolunteerId, passwordHash] = await Promise.all([
       body.kind === 'volunteer' && body.type === 'team_member'
-        ? await this.mainVolunteer(body.referenceNid!)
-        : null;
-    const passwordHash = await this.hasher.hash(body.password);
+        ? this.mainVolunteer(draft.id, body.referenceNid!)
+        : null,
+      this.hasher.hash(body.password),
+    ]);
     const now = this.clock.now();
     let userId: string;
     try {
@@ -300,15 +334,7 @@ export class RegistrationService {
             update: profile,
           });
         } else if (draft.photoFileId) {
-          await tx.fileLink.create({
-            data: {
-              id: uuidv7(),
-              fileId: draft.photoFileId,
-              entityType: 'user',
-              entityId: id,
-              slot: 'photo',
-            },
-          });
+          await this.linkStaffPhoto(tx, id, draft.photoFileId);
         }
         await tx.registrationDraft.update({
           where: { id: draft.id },
@@ -333,7 +359,8 @@ export class RegistrationService {
         return id;
       });
     } catch (error) {
-      // a parallel submit with the same NID or contact lost the race to the unique indexes
+      // A parallel submit with the same NID or contact lost the race to the unique indexes. The
+      // driver adapter does not always fill `meta.target`, so the whole meta is searched.
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')
         throw new ApiError(
           JSON.stringify(error.meta ?? {}).includes('nid')
@@ -345,6 +372,21 @@ export class RegistrationService {
     }
     this.events.emit({ type: 'registration.submitted', userId });
     return userId;
+  }
+
+  /**
+   * The staff photo link: a returning official's link is moved to the new photo (the API role
+   * cannot delete rows); the earlier photo stays with the earlier submitted draft (BD-46).
+   */
+  private async linkStaffPhoto(tx: Tx, userId: string, fileId: string): Promise<void> {
+    const moved = await tx.fileLink.updateMany({
+      where: { entityType: 'user', entityId: userId, slot: 'photo' },
+      data: { fileId },
+    });
+    if (moved.count === 0)
+      await tx.fileLink.create({
+        data: { id: uuidv7(), fileId, entityType: 'user', entityId: userId, slot: 'photo' },
+      });
   }
 
   /**
@@ -366,7 +408,7 @@ export class RegistrationService {
     });
     if (!users.length) return null;
     const [user] = users;
-    if (users.length > 1 || !user || user.kind !== kind || isTaken(user))
+    if (users.length > 1 || !user || isTaken(user, kind))
       throw new ApiError('registration.account_exists', 409);
     return user;
   }
@@ -401,12 +443,9 @@ export class RegistrationService {
     if (!division) throw invalid('homeDivisionId', 'validation.option_unknown');
   }
 
-  /** The active volunteer a team member names as reference (R3). */
-  private async mainVolunteer(nid: string): Promise<string> {
-    const main = await this.prisma.volunteer.findFirst({
-      where: { nid, user: { state: 'active' } },
-      select: { id: true },
-    });
+  /** The active volunteer a team member names as reference (R3), through the counted lookup. */
+  private async mainVolunteer(draftId: string, nid: string): Promise<string> {
+    const main = await this.countedLookup(draftId, nid);
     if (!main) throw invalid('referenceNid', 'validation.option_unknown');
     return main.id;
   }
@@ -441,14 +480,17 @@ export class RegistrationService {
   }
 }
 
-/** A contact is taken unless its account was rejected and never approved (D-086). */
-function isTaken(u: {
-  kind: string;
-  state: string;
-  volunteersUser: { approvedAt: Date | null } | null;
-  _count: { userRolesUser: number };
-}): boolean {
-  if (u.state !== 'deactivated') return true;
+/** A contact is taken unless its account of the same kind was rejected and never approved (D-086). */
+function isTaken(
+  u: {
+    kind: string;
+    state: string;
+    volunteersUser: { approvedAt: Date | null } | null;
+    _count: { userRolesUser: number };
+  },
+  kind: string,
+): boolean {
+  if (u.state !== 'deactivated' || u.kind !== kind) return true;
   return u.kind === 'volunteer'
     ? Boolean(u.volunteersUser?.approvedAt)
     : u._count.userRolesUser > 0;
