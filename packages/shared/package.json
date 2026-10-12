@@ -30,6 +30,11 @@
       "@css/source": "./src/auth/common-passwords.ts",
       "types": "./dist/auth/common-passwords.d.ts",
       "default": "./dist/auth/common-passwords.js"
+    },
+    "./access": {
+      "@css/source": "./src/access/index.ts",
+      "types": "./dist/access/index.d.ts",
+      "default": "./dist/access/index.js"
     }
   },
   "files": [

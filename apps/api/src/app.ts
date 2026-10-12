@@ -12,6 +12,7 @@ import { createRateLimiters } from './rate-limit/limiters';
 import { authRouter } from './routes/auth';
 import { meRouter } from './routes/me';
 import { sessionsRouter } from './routes/sessions';
+import { accessRouter } from './routes/access';
 import { usersRouter } from './routes/users';
 
 export const API_PREFIX = 'api/v1';
@@ -71,6 +72,7 @@ export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
   api.use(meRouter(deps, c));
   api.use(sessionsRouter(deps, c));
   api.use(usersRouter(deps, c));
+  api.use(accessRouter(deps, c));
   for (const build of options.extraRouters ?? []) api.use(build(deps));
   app.use(`/${API_PREFIX}`, api);
 

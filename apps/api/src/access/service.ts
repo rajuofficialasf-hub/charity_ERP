@@ -8,7 +8,14 @@ import { ApiError } from '../i18n/api-error';
 import { type EffectiveAccess, effectiveAccess, loadAccessFacts } from './effective';
 import { visibleFieldClasses } from './field-mask';
 import type { AccessRegistry } from './registry';
-import { makeScope, NO_INSTANCES, resolveInstances, type Scope, userWhere } from './scope';
+import {
+  makeScope,
+  NO_INSTANCES,
+  projectWhere,
+  resolveInstances,
+  type Scope,
+  userWhere,
+} from './scope';
 
 const ACCOUNT_KINDS = { in: ['staff', 'volunteer'] };
 
@@ -103,5 +110,42 @@ export class AccessService {
       throw new ApiError('permission.not_found', 404);
     }
     return user as Prisma.UserGetPayload<{ select: S }>;
+  }
+
+  /** One project inside the scope, or 404 `permission.not_found` (RBAC.md 8.4). */
+  async findProject<S extends Prisma.ProjectSelect>(
+    scope: Scope,
+    projectId: string,
+    select: S,
+    db: Tx = this.prisma,
+  ): Promise<Prisma.ProjectGetPayload<{ select: S }>> {
+    const project = await db.project.findFirst({
+      where: { AND: [{ id: projectId }, projectWhere(scope)] },
+      select,
+    });
+    if (!project) {
+      this.denied(scope.actorId, scope.permission, scope.entity);
+      throw new ApiError('permission.not_found', 404);
+    }
+    return project as Prisma.ProjectGetPayload<{ select: S }>;
+  }
+
+  /** Whether a user holds a permission on one project (granter check of project grants, RBAC.md 7). */
+  async holdsOnProject(
+    userId: string,
+    permission: string,
+    projectId: string,
+    db: Tx = this.prisma,
+  ): Promise<boolean> {
+    const access = await this.load(userId);
+    const grants = access.grants.filter((g) => g.permission === permission);
+    if (!grants.length) return false;
+    const revokes = access.instanceRevokes.filter((r) => r.permission === permission);
+    const instances = await resolveInstances(db, userId, 'project', grants, revokes);
+    const scope = makeScope(userId, permission, 'project', instances);
+    const found = await db.project.count({
+      where: { AND: [{ id: projectId }, projectWhere(scope)] },
+    });
+    return found > 0;
   }
 }

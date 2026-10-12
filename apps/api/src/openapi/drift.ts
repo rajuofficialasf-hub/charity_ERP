@@ -59,8 +59,10 @@ function resolve(doc: unknown, value: unknown, seen = new Set<string>()): unknow
 export function canonicalSchema(schema: unknown): unknown {
   if (Array.isArray(schema)) return schema.map(canonicalSchema);
   if (!schema || typeof schema !== 'object') return schema;
+  // zod adds the regular expression of a format (uuid, date-time, email); the format implies it
+  const implied = 'format' in schema;
   const entries = Object.entries(schema)
-    .filter(([k]) => !DESCRIPTIVE.has(k))
+    .filter(([k]) => !DESCRIPTIVE.has(k) && !(implied && k === 'pattern'))
     .map(
       ([k, v]) =>
         [k, k === 'required' && Array.isArray(v) ? [...v].sort() : canonicalSchema(v)] as const,

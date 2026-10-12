@@ -25,6 +25,7 @@ import {
 } from './notifications/adapters';
 import { AuthService } from './services/auth';
 import { SessionsService } from './services/sessions';
+import { AccessPanelService } from './services/access';
 import { UsersService } from './services/users';
 import { createStorage, type StorageDriver } from './storage';
 
@@ -56,6 +57,7 @@ export interface Container {
   auth: AuthService;
   deviceSessions: SessionsService;
   users: UsersService;
+  accessPanel: AccessPanelService;
 }
 
 export interface ContainerOptions {
@@ -138,6 +140,8 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     deviceSessions: o.deviceSessions ?? new SessionsService(sessions, prisma, audit, access),
     users:
       o.users ?? new UsersService(env, prisma, audit, sessions, permissionVersions, clock, access),
+    accessPanel:
+      o.accessPanel ?? new AccessPanelService(prisma, access, audit, permissionVersions, clock),
   };
 }
 

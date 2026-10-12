@@ -289,3 +289,23 @@ export function userWhere(scope: Scope): Prisma.UserWhereInput {
   for (const a of i.volunteerAreas) or.push(volunteersIn(a));
   return or.length ? { OR: or } : { id: { in: [] } };
 }
+
+/**
+ * The projects a scope reaches (entity `project`): every project at GLOBAL; the projects of the
+ * caller's programs; the caller's projects; the projects of the caller's areas (an area without a
+ * project reaches the projects with an area in that location). No instance means no project.
+ */
+export function projectWhere(scope: Scope): Prisma.ProjectWhereInput {
+  const i = scope.instances;
+  if (i.global) return {};
+  const or: Prisma.ProjectWhereInput[] = [];
+  if (i.programIds.length) or.push({ programId: { in: i.programIds } });
+  if (i.projectIds.length) or.push({ id: { in: i.projectIds } });
+  for (const a of i.areas)
+    or.push(
+      a.projectId
+        ? { id: a.projectId }
+        : { projectAreasProject: { some: { locationId: a.locationId } } },
+    );
+  return or.length ? { OR: or } : { id: { in: [] } };
+}

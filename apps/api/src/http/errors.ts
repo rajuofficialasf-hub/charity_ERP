@@ -37,6 +37,9 @@ function bodyParserError(err: unknown): { status: number; code: string } | undef
  * and rate limits. Unknown failures become `server.internal`; stack traces and SQL stay in the
  * server log (BR-210, NE-SEC-11).
  */
+/** Codes whose params are part of the contract and sent to the client (API_STANDARDS 3 and 8). */
+const PUBLIC_PARAMS = new Set(['permission.grant_refused']);
+
 export function sendApiError(
   req: Request,
   res: Response,
@@ -59,6 +62,7 @@ export function sendApiError(
         code,
         messageKey: `errors.${code}`,
         message: render(code, options.params),
+        ...(options.params && PUBLIC_PARAMS.has(code) ? { params: options.params } : {}),
         ...(options.details?.length
           ? {
               details: options.details.map((d) => ({

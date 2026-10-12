@@ -417,6 +417,10 @@ components:
             code: { type: string, description: Code from API_STANDARDS section 8 }
             messageKey: { type: string }
             message: { type: string }
+            params:
+              type: object
+              additionalProperties: { type: string }
+              description: Only for codes that document them in API_STANDARDS section 8, e.g. permission.grant_refused (rule)
             details:
               type: array
               items: { $ref: '#/components/schemas/ErrorDetail' }
@@ -701,6 +705,7 @@ components:
         scopeRef: { type: [string, 'null'], format: uuid }
         condition: { type: [string, 'null'] }
         source: { type: string, enum: [global_role, role_default, permission_set, project_grant, panel_grant] }
+        grantId: { $ref: '#/components/schemas/Uuid', description: 'The panel override behind a panel_grant row (D-079)' }
     EffectivePermissionList:
       type: object
       required: [data, meta]
@@ -2588,6 +2593,8 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PermissionGrantResponse' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /permission-grants/{grantId}/revoke:
     parameters:
@@ -4042,6 +4049,7 @@ paths:
               schema: { $ref: '#/components/schemas/EffectivePermissionList' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}/quotas:
     parameters:

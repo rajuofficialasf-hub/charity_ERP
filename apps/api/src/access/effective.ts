@@ -15,6 +15,8 @@ export interface EffectiveGrant {
   source: GrantSource;
   /** The project the grant is bound to (permission sets, project extras, project defaults). */
   projectId: string | null;
+  /** The panel override behind a `panel_grant` (D-079). */
+  grantId?: string;
 }
 
 export interface PanelOverride {
@@ -195,6 +197,7 @@ export function effectiveAccess(
         condition: o.condition,
         source: 'panel_grant',
         projectId: o.scopeType === 'PROJECT' ? o.scopeRef : null,
+        grantId: o.id,
       });
   // Hard rules of RBAC.md 7 and 9, kept here too so a stray row cannot break them: revokes never
   // strip the Department Head (Main Admin, BR-035); only the Department Head holds the owner

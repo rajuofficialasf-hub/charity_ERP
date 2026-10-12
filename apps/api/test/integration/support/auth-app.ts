@@ -1,3 +1,4 @@
+import type { AccessRegistry } from '../../../src/access/registry';
 import { randomUUID } from 'node:crypto';
 import { hash } from '@node-rs/argon2';
 import type { Express } from 'express';
@@ -50,6 +51,8 @@ export async function authHarness(
     realRateLimits?: boolean;
     logStream?: DestinationStream;
     extraRouters?: AppOptions['extraRouters'];
+    /** A fixture permission catalogue instead of docs/security/permissions.yaml. */
+    accessRegistry?: AccessRegistry;
   } = {},
 ): Promise<AuthHarness> {
   const clone = await cloneTemplate(inject('templateDb'));
@@ -65,7 +68,13 @@ export async function authHarness(
     // a captured log stream needs log lines (the test env is silent otherwise)
     ...(options.logStream ? { LOG_LEVEL: 'info' } : {}),
   });
-  const container = createContainer(env, { overrides: { clock }, logStream: options.logStream });
+  const container = createContainer(env, {
+    overrides: {
+      clock,
+      ...(options.accessRegistry ? { accessRegistry: options.accessRegistry } : {}),
+    },
+    logStream: options.logStream,
+  });
   const { app } = createApp(container, {
     logStream: options.logStream,
     extraRouters: options.extraRouters,
