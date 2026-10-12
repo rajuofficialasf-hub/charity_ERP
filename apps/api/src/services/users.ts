@@ -157,6 +157,11 @@ export class UsersService {
       );
       assertIfMatch(ifMatch, user.updatedAt);
       if (user.isSystemOwner) throw new ApiError('user.system_owner_protected', 409);
+      // Only the Department Head blocks an account, whatever permission the caller holds (D-080).
+      if (body.state === 'blocked' && !actor.roles.includes('department_head')) {
+        this.access.denied(actor.userId, scope.permission, scope.entity);
+        throw new ApiError('permission.denied', 403);
+      }
       const allowed = TRANSITIONS[user.state] ?? [];
       const volunteerBlock =
         user.kind === 'volunteer' && (body.state === 'blocked' || user.state === 'blocked');

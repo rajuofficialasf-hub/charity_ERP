@@ -181,13 +181,45 @@ describe('scope on the user endpoints', () => {
       world.users.outsider,
     ]);
     expect(outsider.rows[0].state).toBe('active');
+    // a PM may not block anybody, even inside the scope (D-080): only the Department Head blocks
     const etag = (await api().get(`/api/v1/users/${world.users.executive}`).set(bearer(pm))).headers
       .etag as string;
-    await api()
+    const refused = await api()
       .post(`/api/v1/users/${world.users.executive}/state`)
       .set(bearer(pm))
       .set('If-Match', etag)
       .send({ state: 'blocked', reason: 'Testing the scope' })
+      .expect(403);
+    expect(refused.body.error.code).toBe('permission.denied');
+    const executive = await h.db.query('SELECT state FROM users WHERE id = $1', [
+      world.users.executive,
+    ]);
+    expect(executive.rows[0].state).toBe('active');
+  });
+
+  it('lets only the Department Head block, even when the Monitoring Team holds the panel grant', async () => {
+    await override(world.users.monitoring, 'user.state.change', 'grant');
+    const monitoring = await as(world.users.monitoring);
+    const etag = (await api().get(`/api/v1/users/${world.users.outsider}`).set(bearer(monitoring)))
+      .headers.etag as string;
+    await api()
+      .post(`/api/v1/users/${world.users.outsider}/state`)
+      .set(bearer(monitoring))
+      .set('If-Match', etag)
+      .send({ state: 'blocked', reason: 'Monitoring may not block' })
+      .expect(403);
+    const outsider = await h.db.query('SELECT state FROM users WHERE id = $1', [
+      world.users.outsider,
+    ]);
+    expect(outsider.rows[0].state).toBe('active');
+    const head = await as(world.users.head);
+    const headEtag = (await api().get(`/api/v1/users/${world.users.outsider}`).set(bearer(head)))
+      .headers.etag as string;
+    await api()
+      .post(`/api/v1/users/${world.users.outsider}/state`)
+      .set(bearer(head))
+      .set('If-Match', headEtag)
+      .send({ state: 'blocked', reason: 'Head blocks' })
       .expect(200);
   });
 
