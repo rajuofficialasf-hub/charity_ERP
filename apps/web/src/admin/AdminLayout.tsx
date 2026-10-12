@@ -1,6 +1,5 @@
-import type { Me } from '@css/shared/auth';
 import { Alert, Button, NavItem } from '@css/ui';
-import { Outlet, useLocation, useOutletContext } from 'react-router';
+import { Outlet, useLocation } from 'react-router';
 import { useTranslations } from 'use-intl';
 import { LogoutButton } from '../components/AccountPage';
 import { DocumentTitle } from '../components/DocumentTitle';
@@ -9,11 +8,6 @@ import { RequireAuth } from '../lib/auth';
 import './admin.css';
 import { ADMIN_NAV } from './navigation';
 import { canOpenAdmin } from './roles';
-
-/** The signed-in user, for the pages inside the admin layout. */
-export function useAdminUser(): Me {
-  return useOutletContext<Me>();
-}
 
 /** Shown to a signed-in user outside the management audience (the server denies anyway). */
 function Forbidden() {
@@ -41,7 +35,8 @@ function Forbidden() {
 export function AdminLayout() {
   const t = useTranslations('admin');
   const tc = useTranslations('common.app');
-  const { pathname } = useLocation();
+  // `/admin/` (trailing slash) is the same page as `/admin`.
+  const pathname = useLocation().pathname.replace(/(.)\/$/, '$1');
   return (
     <RequireAuth>
       {(me) =>
@@ -73,7 +68,7 @@ export function AdminLayout() {
                 <Alert tone="info" className="admin-phone-notice">
                   {t('phone_notice')}
                 </Alert>
-                <Outlet context={me} />
+                <Outlet />
               </main>
             </div>
           </div>

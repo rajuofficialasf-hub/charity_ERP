@@ -26,7 +26,7 @@ beforeEach(() => {
   resetClientForTests();
 });
 
-// Admin area shell on packages/ui (UX-15, plan U11): management roles only; the API enforces
+// Admin area shell on packages/ui (UX-15; docs/plans/2026-10-11-1742-chore-stack-adoption-admin-minimal-plan.md, U11): management roles only; the API enforces
 // every admin permission, the shell only decides what to show (RE-SEC-05).
 describe('admin area', () => {
   it('shows a Department Head the shell with the dashboard, without accessibility violations', async () => {
@@ -45,6 +45,19 @@ describe('admin area', () => {
     // dates in English digits through the shared formatter (UX-05)
     expect(screen.getByText(/^আজ: \d{2}-\d{2}-\d{4}$/)).toBeInTheDocument();
     await expectNoAxeViolations(container);
+  });
+
+  it('marks the dashboard as the current page on /admin/ as well', async () => {
+    refreshAs(HEAD);
+    renderApp(<AdminLayout />, 'bn', {
+      path: '/admin/',
+      children: [{ index: true, element: <DashboardPage /> }],
+    });
+    const nav = await screen.findByRole('navigation', { name: 'অ্যাডমিন মেনু' });
+    expect(within(nav).getByRole('link', { name: 'ড্যাশবোর্ড' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
   });
 
   it('renders the shell in English', async () => {
