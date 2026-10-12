@@ -130,8 +130,9 @@ describe('base set', () => {
   it('stores every workflow template merged and valid, with all its transitions', async () => {
     const templates = readWorkflowTemplates();
     const { rows } = await db.query(
-      `SELECT d.key, d.definition, count(t.id)::int AS transitions FROM workflow_definitions d LEFT JOIN workflow_transitions t ON t.workflow_definition_id = d.id GROUP BY d.id ORDER BY d.key`,
+      `SELECT d.key, d.definition, count(t.id)::int AS transitions FROM workflow_definitions d LEFT JOIN workflow_transitions t ON t.workflow_definition_id = d.id GROUP BY d.id ORDER BY d.key COLLATE "C"`,
     );
+    // Code-point order on both sides: the database's default collation differs per platform.
     expect(rows.map((r) => r.key)).toEqual(templates.map((t) => t.template).sort());
     for (const r of rows) {
       expect(workflowDefinitionSchema.safeParse(r.definition).success).toBe(true);

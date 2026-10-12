@@ -43,7 +43,8 @@ describe('Modal (DESIGN_SYSTEM 5.8)', () => {
     expect(dialog).toContainElement(document.activeElement as HTMLElement);
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(trigger).toHaveFocus();
+    // React Aria restores focus after the dialog has unmounted, a frame later on slow machines.
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 
   it('cannot be dismissed with Escape while saving', async () => {
