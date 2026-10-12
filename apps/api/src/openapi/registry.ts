@@ -1,5 +1,6 @@
 import { z, type ZodObject, type ZodType } from 'zod';
 import { PERMISSION_MARKERS } from './drift';
+import type { RateLimitClass } from '../rate-limit/rate-limit';
 
 export type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
@@ -20,15 +21,7 @@ export interface OperationSpec {
   /** Audit action or 'none'. */
   audit: string;
   idempotency: 'none' | 'clientUuid' | 'header';
-  rateLimit:
-    | 'login'
-    | 'otp-request'
-    | 'otp-verify'
-    | 'password-reset'
-    | 'refresh'
-    | 'public-form'
-    | 'default'
-    | 'sync';
+  rateLimit: RateLimitClass;
   sensitiveFields?: string[];
   workflow?: string;
   /** A pending account may call this operation (AUTH.md 7). */

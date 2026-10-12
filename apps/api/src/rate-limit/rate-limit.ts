@@ -11,6 +11,7 @@ export type RateLimitClass =
   | 'password-reset'
   | 'refresh'
   | 'public-form'
+  | 'reference-read'
   | 'default'
   | 'sync';
 
@@ -85,6 +86,8 @@ export const RATE_LIMITS: Record<RateLimitClass, Window[]> = {
   ],
   refresh: [{ limit: 60, ttlMs: HOUR, key: refreshSession }],
   'public-form': [{ limit: 20, ttlMs: HOUR, key: ip, byIp: true }],
+  // Public reference data for the registration form (DECISION_LOG D-083).
+  'reference-read': [{ limit: 300, ttlMs: HOUR, key: ip, byIp: true }],
   default: [{ limit: 600, ttlMs: MINUTE, key: caller }],
   sync: [{ limit: 60, ttlMs: MINUTE, key: session }],
 };

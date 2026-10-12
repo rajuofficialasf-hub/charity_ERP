@@ -24,6 +24,7 @@ import {
   StubSmsAdapter,
 } from './notifications/adapters';
 import { AuthService } from './services/auth';
+import { LocationsService } from './services/locations';
 import { SessionsService } from './services/sessions';
 import { AccessPanelService } from './services/access';
 import { UsersService } from './services/users';
@@ -58,6 +59,7 @@ export interface Container {
   deviceSessions: SessionsService;
   users: UsersService;
   accessPanel: AccessPanelService;
+  locations: LocationsService;
 }
 
 export interface ContainerOptions {
@@ -142,6 +144,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       o.users ?? new UsersService(env, prisma, audit, sessions, permissionVersions, clock, access),
     accessPanel:
       o.accessPanel ?? new AccessPanelService(prisma, access, audit, permissionVersions, clock),
+    locations: o.locations ?? new LocationsService(prisma),
   };
 }
 

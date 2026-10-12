@@ -14,6 +14,7 @@ import { meRouter } from './routes/me';
 import { sessionsRouter } from './routes/sessions';
 import { accessRouter } from './routes/access';
 import { usersRouter } from './routes/users';
+import { locationsRouter } from './routes/locations';
 
 export const API_PREFIX = 'api/v1';
 
@@ -73,6 +74,7 @@ export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
   api.use(sessionsRouter(deps, c));
   api.use(usersRouter(deps, c));
   api.use(accessRouter(deps, c));
+  api.use(locationsRouter(deps, c));
   for (const build of options.extraRouters ?? []) api.use(build(deps));
   app.use(`/${API_PREFIX}`, api);
 
