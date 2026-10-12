@@ -157,8 +157,11 @@ export class UsersService {
       );
       assertIfMatch(ifMatch, user.updatedAt);
       if (user.isSystemOwner) throw new ApiError('user.system_owner_protected', 409);
-      // Only the Department Head blocks an account, whatever permission the caller holds (D-080).
-      if (body.state === 'blocked' && !actor.roles.includes('department_head')) {
+      // Only the Department Head blocks an account or lifts a block, whatever permission the caller
+      // holds (D-080). Deactivation is not covered by this rule.
+      const blockOrUnblock =
+        body.state === 'blocked' || (user.state === 'blocked' && body.state === 'active');
+      if (blockOrUnblock && !actor.roles.includes('department_head')) {
         this.access.denied(actor.userId, scope.permission, scope.entity);
         throw new ApiError('permission.denied', 403);
       }

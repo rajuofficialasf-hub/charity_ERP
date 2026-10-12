@@ -221,6 +221,25 @@ describe('scope on the user endpoints', () => {
       .set('If-Match', headEtag)
       .send({ state: 'blocked', reason: 'Head blocks' })
       .expect(200);
+    // lifting the block is the Department Head's too (D-080)
+    const blockedEtag = (await api().get(`/api/v1/users/${world.users.outsider}`).set(bearer(head)))
+      .headers.etag as string;
+    await api()
+      .post(`/api/v1/users/${world.users.outsider}/state`)
+      .set(bearer(monitoring))
+      .set('If-Match', blockedEtag)
+      .send({ state: 'active', reason: 'Monitoring may not unblock' })
+      .expect(403);
+    const stillBlocked = await h.db.query('SELECT state FROM users WHERE id = $1', [
+      world.users.outsider,
+    ]);
+    expect(stillBlocked.rows[0].state).toBe('blocked');
+    await api()
+      .post(`/api/v1/users/${world.users.outsider}/state`)
+      .set(bearer(head))
+      .set('If-Match', blockedEtag)
+      .send({ state: 'active', reason: 'Head lifts the block' })
+      .expect(200);
   });
 
   it('applies a revoke override after the token refresh', async () => {
