@@ -64,6 +64,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 | SCR-044 | Beneficiary tab | parity | officials, Media | 1 · T1.10 (list), 2 · T2.2 |
 | SCR-045 | Beneficiary 360 profile and merge | parity | officials | 2 · T2.2 |
 | SCR-050 | Project dashboard | parity | PM, RPM, Executive, Head, Monitoring, Finance | 3 · T3.3 |
+| SCR-051 | Admin area shell (`/admin`) with the dashboard placeholder | parity (notice on phones) | Head, Monitoring, PM | 1 · T1.7d (UX-15); pages in T1.13, T3.3, T6.1 |
 | SCR-060 | Project setup with component toggles | desktop-first | PM | 1 · T1.11, T1.12 |
 | SCR-061 | Form builder | desktop-first | PM | 2 · T2.4 |
 | SCR-062 | Permission panel | desktop-first | Head, Monitoring | 1 · T1.8 |
@@ -934,6 +935,17 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
   - Tablet: two columns.
   - Desktop: a 12-column grid with progress across the top, alerts and budget side by side, then tables.
 - **Phase · task.** 3 · T3.3. **API.** added to openapi.yaml in Phase 3.
+
+### SCR-051 Admin area shell
+
+- **Purpose.** The frame of the management screens and admin settings (UX-15): later admin pages (settings and audit log in T1.13, dashboards in T3.3 and T6.1) open inside it.
+- **Roles.** Department Head, Monitoring Team, Program Manager. Any other signed-in user sees a "no access" page; a signed-out visitor goes to the login screen. The server enforces every admin permission; the shell only hides.
+- **Priority.** parity, with the "best on a larger screen" notice under 768 px (UX-04).
+- **Data shown.** Top bar: system name, the signed-in user's name, language switch, log out. Sidebar: the admin destinations (today only "ড্যাশবোর্ড" / "Dashboard"). Content: the dashboard placeholder with today's date (dd-mm-yyyy, English digits).
+- **Actions.** Open a destination; switch language; log out (`authenticated`).
+- **Entry.** The "অ্যাডমিন" / "Admin" button on the home page, shown to the three roles; the URL `/admin`.
+- **Layout and components.** DS §4.5: `NavItem`, `Alert`, `Card`, the language switch and the log-out button of the account screens; lazy route chunk.
+- **Built.** T1.7d (plan `docs/plans/2026-10-11-1742-chore-stack-adoption-admin-minimal-plan.md`, U11); tests `apps/web/src/admin/admin.test.tsx`, `apps/web/e2e/admin.spec.ts`.
 
 ## 8. Setup screens (desktop first, UX-04)
 

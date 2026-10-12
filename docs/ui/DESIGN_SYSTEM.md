@@ -358,6 +358,15 @@ Form builder, project setup, permission panel, template and checklist editors, a
 - Tablet: single column, preview in a drawer.
 - Phone: readable, small edits only (rename, toggle, change a date); a persistent Alert (info) reads "best on a larger screen". Structural edits (adding sections, reordering, bulk permission changes) are hidden on phones. No drag and drop anywhere; ordering uses move-up and move-down buttons.
 
+### 4.5 Admin area layout (UX-15)
+
+The management screens and admin settings live under `/admin` (`apps/web/src/admin/`), loaded as their own route chunk. They use this design system and `packages/ui` like every other screen; no second UI library is used (the MUI Minimal template was not adopted, UX-15).
+- Top bar: the system name (link to the admin home), then the signed-in user ("লগইন করা: name"), the language switch and log out.
+- Sidebar from 640 px: destinations as `NavItem` (icon and label, active item per §5.5), sticky below the top bar; on phones the destinations sit in a scrolling row above the content.
+- Content: page title (Display), then cards; maximum width `--content-max`.
+- Phones: the "best on a larger screen" Alert of §4.4 is shown under 768 px; the pages stay readable.
+- Audience: Department Head, Monitoring Team and Program Managers; any other signed-in user sees a "no access" page. Navigation only hides; the server enforces every admin permission.
+
 ## 5. Component inventory
 
 Every base component of constitution §12, built once in `packages/ui` (T1.4) and reused everywhere. Each component accepts `className` only for layout (margin, grid placement), never to change its colours or typography. All visible text comes from i18n keys. Accessibility behaviour follows the WAI-ARIA Authoring Practices pattern named; the headless primitive library is React Aria Components (D-064, ADR-012). The components' own texts ("required", "close", pager words) come from the app through `UiProvider` (`UiMessages`); `packages/ui` ships no text.
