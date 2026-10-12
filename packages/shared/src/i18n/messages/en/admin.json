@@ -3,7 +3,8 @@
   "nav": {
     "label": "Admin menu",
     "dashboard": "Dashboard",
-    "permissions": "Permissions"
+    "permissions": "Permissions",
+    "registrations": "Registrations"
   },
   "bar": {
     "label": "Admin",
@@ -73,6 +74,104 @@
     "end_body": "This permission given in the panel will end: {permission}",
     "end_confirm": "End it",
     "ended": "Permission ended"
+  },
+  "registrations": {
+    "title": "Registrations",
+    "intro": "Pending registrations of volunteers and officials in your area, and the change requests of approved volunteers.",
+    "tabs": {
+      "label": "Registration work",
+      "pending": "Pending registrations",
+      "edits": "Edit requests"
+    },
+    "column": {
+      "name": "Name",
+      "kind": "Kind",
+      "status": "Status",
+      "submitted": "Submitted",
+      "area": "District"
+    },
+    "kind": {
+      "volunteer": "Volunteer",
+      "staff": "Official"
+    },
+    "status": {
+      "awaiting_review": "Waiting for review",
+      "in_correction": "In correction"
+    },
+    "empty": "No registration is waiting.",
+    "back": "Back to the list",
+    "not_found": "This registration is no longer waiting, or it is outside your area.",
+    "details": "Details",
+    "photos": "Photos",
+    "no_photo": "No photo",
+    "hidden": "Not visible to you",
+    "reference": "Main volunteer given",
+    "home_program": "Program",
+    "blocklisted": "This volunteer is on the blocklist. Lift the block before approving.",
+    "corrections": {
+      "title": "Correction requests",
+      "status": {
+        "open": "Waiting for the registrant",
+        "submitted": "Answered",
+        "approved": "Approved",
+        "rejected": "Refused",
+        "closed": "Closed"
+      }
+    },
+    "actions": "Decision",
+    "approve": "Approve",
+    "approve_title": "Approve the registration of {name}?",
+    "approve_body": "The account becomes active and the volunteer can log in to work.",
+    "approve_confirm": "Approve now",
+    "approved": "The registration was approved",
+    "reject": "Reject",
+    "reject_title": "Reject the registration of {name}?",
+    "reject_confirm": "Reject now",
+    "rejected": "The registration was rejected",
+    "reason": "Reason",
+    "correct": "Ask for corrections",
+    "correct_fields": "Details to correct",
+    "correct_note": "What has to be corrected",
+    "correct_send": "Send",
+    "corrected": "The correction request was sent",
+    "staff": {
+      "decide": "Decide",
+      "title": "Decision on the registration of {name}",
+      "decision": "Decision",
+      "approve": "Approve with a role",
+      "reject": "Reject",
+      "role": "Role",
+      "reason_hint": "Needed for a rejection; kept in the audit log.",
+      "submit": "Save the decision",
+      "approved": "The official was approved"
+    },
+    "block": "Put on the blocklist",
+    "block_title": "Put {name} on the blocklist?",
+    "block_consequence": "While blocked the volunteer cannot log in to work and gets no new applications or assignments.",
+    "block_confirm": "Block",
+    "blocked": "The volunteer was put on the blocklist",
+    "unblock": "Lift the block",
+    "unblock_title": "Lift the block of {name}?",
+    "unblock_confirm": "Lift the block",
+    "unblocked": "The block was lifted",
+    "edits": {
+      "empty": "No edit request is waiting.",
+      "column": {
+        "volunteer": "Volunteer",
+        "field": "Detail",
+        "value": "New value",
+        "note": "Reason given"
+      },
+      "approve": "Approve",
+      "approve_label": "Approve the {field} of {name}",
+      "reject": "Refuse",
+      "reject_label": "Refuse the {field} of {name}",
+      "reject_title": "Refuse the new {field} of {name}?",
+      "reject_confirm": "Refuse",
+      "approved": "The new value was applied",
+      "rejected": "The request was refused",
+      "photo": "New photo"
+    }
   },
   "forbidden": {
     "title": "No access",

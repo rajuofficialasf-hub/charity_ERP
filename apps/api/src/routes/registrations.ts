@@ -55,6 +55,7 @@ const changeRequest = z.object({
   status: z.enum(['open', 'submitted', 'approved', 'rejected', 'closed']),
   contactVerified: z.boolean().optional(),
   decidedAt: z.string().nullable(),
+  volunteerName: z.string().optional(),
 });
 
 const volunteerSummary = z.object({

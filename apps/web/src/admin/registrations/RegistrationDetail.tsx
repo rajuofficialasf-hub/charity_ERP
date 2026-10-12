@@ -1,0 +1,348 @@
+import { formatDateTime } from '@css/shared/format';
+import type { Locale } from '@css/shared/i18n';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  ConfirmDialog,
+  EmptyState,
+  ErrorState,
+  Skeleton,
+} from '@css/ui';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Check, FilePenLine, UserCheck, X } from 'lucide-react';
+import { type ReactNode, useId, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router';
+import { useLocale, useTranslations } from 'use-intl';
+import { DocumentTitle } from '../../components/DocumentTitle';
+import { FIELD_LABEL, type RequestField } from '../../features/account/profile-api';
+import { ApiFailure } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
+import { ForbiddenContent } from '../AdminLayout';
+import { canApproveStaff, canBlock, canOpenAdmin } from '../roles';
+import { AddressNames } from './AddressNames';
+import { BlocklistAction } from './Blocklist';
+import { CorrectionDialog } from './CorrectionDialog';
+import { FileImage } from './FileImage';
+import {
+  approve,
+  detailKey,
+  LIST_KEY,
+  registrationDetail,
+  type RegistrationDetailView,
+  reject,
+} from './registrations-api';
+import type { ListNotice } from './RegistrationsPage';
+import { StaffDecisionDialog } from './StaffDecisionDialog';
+
+type Dialog = 'approve' | 'reject' | 'correct' | 'staff' | null;
+
+/**
+ * One pending registration (SCR-005; plan
+ * docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, R7 to R9, R12): the
+ * submitted details and photos, the correction requests, and the decisions the user's role
+ * allows. The server checks permission and scope again on every action.
+ */
+export function RegistrationDetail() {
+  const { me } = useAuth();
+  const { userId = '' } = useParams();
+  const t = useTranslations('admin.registrations');
+  const tc = useTranslations('common');
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [dialog, setDialog] = useState<Dialog>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const reg = useQuery({
+    queryKey: detailKey(userId),
+    queryFn: () => registrationDetail(userId),
+    retry: false,
+  });
+  /** A final decision: the registration leaves the list; the list shows the message. */
+  const finished = (message: string) => {
+    void queryClient.invalidateQueries({ queryKey: LIST_KEY });
+    void navigate('/admin/registrations', { state: { notice: message } satisfies ListNotice });
+  };
+  const changed = (message: string) => {
+    setDialog(null);
+    setNotice(message);
+    void queryClient.invalidateQueries({ queryKey: detailKey(userId) });
+    void queryClient.invalidateQueries({ queryKey: LIST_KEY });
+  };
+  const approval = useMutation({
+    mutationFn: () => approve(userId),
+    onSuccess: () => finished(t('approved')),
+  });
+  const rejection = useMutation({
+    mutationFn: (reason: string) => reject(userId, reason.trim()),
+    onSuccess: () => finished(t('rejected')),
+  });
+
+  if (!me) return null;
+  if (!canOpenAdmin(me)) return <ForbiddenContent />;
+  const back = (
+    <div>
+      <Link to="/admin/registrations">{t('back')}</Link>
+    </div>
+  );
+  if (reg.isPending) return <Skeleton count={4} />;
+  if (reg.error instanceof ApiFailure && reg.error.status === 404)
+    return (
+      <>
+        {back}
+        <EmptyState icon={UserCheck} title={t('not_found')} />
+      </>
+    );
+  if (reg.error || !reg.data)
+    return (
+      <>
+        {back}
+        <ErrorState
+          title={tc('state.error.text')}
+          requestId={reg.error instanceof ApiFailure ? reg.error.requestId : undefined}
+          onRetry={() => void reg.refetch()}
+        />
+      </>
+    );
+  const r = reg.data;
+  const decisionError = [approval.error, rejection.error].find((e) => e instanceof ApiFailure) as
+    ApiFailure | undefined;
+  const closeDialog = () => {
+    approval.reset();
+    rejection.reset();
+    setDialog(null);
+  };
+
+  return (
+    <>
+      <DocumentTitle title={r.displayName} />
+      {back}
+      <h1 className="admin-title">{r.displayName}</h1>
+      <div className="flex flex-wrap gap-2">
+        <Badge label={r.kind === 'staff' ? t('kind.staff') : t('kind.volunteer')} />
+        <Badge
+          tone={r.status === 'in_correction' ? 'warning' : 'info'}
+          label={t(`status.${r.status}`)}
+        />
+      </div>
+      {notice && (
+        <Alert tone="success" live="status" onDismiss={() => setNotice(null)}>
+          {notice}
+        </Alert>
+      )}
+      {r.blocklisted && <Alert tone="danger">{t('blocklisted')}</Alert>}
+
+      <Section title={t('actions')}>
+        <div className="flex flex-wrap gap-2">
+          {r.kind === 'volunteer' ? (
+            <>
+              <Button
+                icon={Check}
+                disabled={r.blocklisted || r.status === 'in_correction'}
+                onPress={() => setDialog('approve')}
+              >
+                {t('approve')}
+              </Button>
+              <Button variant="secondary" icon={FilePenLine} onPress={() => setDialog('correct')}>
+                {t('correct')}
+              </Button>
+              <Button variant="secondary" icon={X} onPress={() => setDialog('reject')}>
+                {t('reject')}
+              </Button>
+              {canBlock(me) && r.volunteer && (
+                <BlocklistAction
+                  volunteerId={r.volunteer.id}
+                  name={r.displayName}
+                  blocked={r.blocklisted}
+                  onDone={changed}
+                />
+              )}
+            </>
+          ) : (
+            canApproveStaff(me) && (
+              <Button icon={Check} onPress={() => setDialog('staff')}>
+                {t('staff.decide')}
+              </Button>
+            )
+          )}
+        </div>
+      </Section>
+
+      <Details registration={r} />
+      <Photos registration={r} />
+      {r.corrections.length > 0 && <Corrections registration={r} />}
+
+      <ConfirmDialog
+        isOpen={dialog === 'approve'}
+        title={t('approve_title', { name: r.displayName })}
+        message={
+          <>
+            {t('approve_body')}
+            {decisionError && <p className="admin-error">{decisionError.message}</p>}
+          </>
+        }
+        confirmLabel={t('approve_confirm')}
+        pending={approval.isPending}
+        onConfirm={() => approval.mutate()}
+        onCancel={closeDialog}
+      />
+      <ConfirmDialog
+        isOpen={dialog === 'reject'}
+        title={t('reject_title', { name: r.displayName })}
+        message={decisionError && <p className="admin-error">{decisionError.message}</p>}
+        tone="danger"
+        reasonRequired
+        reasonLabel={t('reason')}
+        confirmLabel={t('reject_confirm')}
+        pending={rejection.isPending}
+        onConfirm={(reason) => rejection.mutate(reason)}
+        onCancel={closeDialog}
+      />
+      <CorrectionDialog
+        userId={userId}
+        isOpen={dialog === 'correct'}
+        onClose={closeDialog}
+        onDone={() => changed(t('corrected'))}
+      />
+      <StaffDecisionDialog
+        userId={userId}
+        name={r.displayName}
+        isOpen={dialog === 'staff'}
+        onClose={closeDialog}
+        onDone={(decision) =>
+          finished(decision === 'approve' ? t('staff.approved') : t('rejected'))
+        }
+      />
+    </>
+  );
+}
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  const id = useId();
+  return (
+    <section aria-labelledby={id} className="admin-panel-section">
+      <h2 id={id} className="admin-subtitle">
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+function Details({ registration: r }: { registration: RegistrationDetailView }) {
+  const t = useTranslations('admin.registrations');
+  const tf = useTranslations('registration');
+  const locale = useLocale() as Locale;
+  const v = r.volunteer;
+  const empty = tf('profile.empty');
+  const hidden = t('hidden');
+  const bank = v?.bank
+    ? [v.bank.bankName, v.bank.accountName, v.bank.accountNumber, v.bank.routingNumber]
+        .filter(Boolean)
+        .join(', ') || empty
+    : hidden;
+  const rows: [string, ReactNode][] = v
+    ? [
+        [tf('form.type'), tf(`form.types.${v.type as 'general'}`)],
+        [tf('form.father_name'), v.fatherName],
+        [tf('form.mother_name'), v.motherName],
+        [tf('form.nid'), v.nid ?? hidden],
+        [tf('start.mobile'), r.mobile ?? empty],
+        [tf('start.email'), r.email ?? empty],
+        [tf('form.whatsapp'), v.whatsapp ?? empty],
+        [tf('form.address'), <AddressNames key="address" address={v} />],
+        [tf('form.address_line'), v.addressLine ?? empty],
+        [tf('form.education'), v.education ?? empty],
+        [tf('form.experience'), v.experience ?? empty],
+        [tf('form.work_description'), v.workDescription ?? empty],
+        [tf('form.previous_projects'), v.previousProjects ?? empty],
+        [tf('form.facebook'), v.facebookId ?? empty],
+        [tf('form.bank'), bank],
+        ...(v.referenceVolunteerId ? [[t('reference'), '✓'] as [string, ReactNode]] : []),
+      ]
+    : [
+        [tf('form.designation'), r.designation ?? empty],
+        [tf('start.mobile'), r.mobile ?? empty],
+        [tf('start.email'), r.email ?? empty],
+        [
+          tf('form.region'),
+          <AddressNames
+            key="region"
+            address={{
+              divisionId: r.homeDivisionId,
+              districtId: null,
+              upazilaId: null,
+              unionId: null,
+            }}
+          />,
+        ],
+      ];
+  return (
+    <Section title={t('details')}>
+      <Card>
+        <p className="admin-muted m-0">
+          {t('column.submitted')}: {formatDateTime(r.submittedAt, locale)}
+        </p>
+        <dl className="grid gap-2 sm:grid-cols-[12rem_1fr]">
+          {rows.map(([label, value]) => (
+            <div key={label} className="contents">
+              <dt className="font-bold">{label}</dt>
+              <dd className="m-0">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </Card>
+    </Section>
+  );
+}
+
+function Photos({ registration: r }: { registration: RegistrationDetailView }) {
+  const t = useTranslations('admin.registrations');
+  const tf = useTranslations('registration.form');
+  const photo = r.volunteer?.photoFileId ?? r.photoFileId;
+  const slots: [string, string | null | undefined, boolean][] = [[tf('photo'), photo, true]];
+  if (r.volunteer)
+    slots.push([tf('nid_photo'), r.volunteer.nidPhotoFileId, 'nidPhotoFileId' in r.volunteer]);
+  return (
+    <Section title={t('photos')}>
+      <div className="admin-photos">
+        {slots.map(([label, fileId, visible]) => (
+          <figure key={label} className="m-0 grid gap-1">
+            <figcaption className="font-bold">{label}</figcaption>
+            {!visible ? (
+              <span>{t('hidden')}</span>
+            ) : fileId ? (
+              <FileImage fileId={fileId} alt={label} />
+            ) : (
+              <span>{t('no_photo')}</span>
+            )}
+          </figure>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+function Corrections({ registration: r }: { registration: RegistrationDetailView }) {
+  const t = useTranslations('admin.registrations');
+  const tf = useTranslations('registration');
+  return (
+    <Section title={t('corrections.title')}>
+      <ul className="m-0 grid gap-2 p-0" role="list">
+        {r.corrections.map((c) => (
+          <li key={c.id} className="flex flex-wrap items-center gap-2">
+            <strong>
+              {c.field in FIELD_LABEL ? tf(FIELD_LABEL[c.field as RequestField]) : c.field}
+            </strong>
+            <Badge
+              size="sm"
+              tone={c.status === 'open' ? 'warning' : 'info'}
+              label={t(`corrections.status.${c.status}`)}
+            />
+            {c.note && <span className="admin-muted m-0">{c.note}</span>}
+          </li>
+        ))}
+      </ul>
+    </Section>
+  );
+}

@@ -273,6 +273,7 @@ export class ChangeRequestsService {
       where: cursor ? { AND: [filter, keysetWhere(sort, cursor)] } : filter,
       orderBy: orderBy(sort, direction),
       take: query.limit + 1,
+      include: { volunteer: { select: { user: { select: { displayName: true } } } } },
     });
     const { rows, meta } = buildPage(fetched, {
       limit: query.limit,
@@ -283,7 +284,11 @@ export class ChangeRequestsService {
       binding,
     });
     return {
-      rows: rows.map((r) => editView(r, visible(r.field, classes))),
+      // the approver sees who asked
+      rows: rows.map((r) => ({
+        ...editView(r, visible(r.field, classes)),
+        volunteerName: r.volunteer.user.displayName,
+      })),
       meta,
     };
   }

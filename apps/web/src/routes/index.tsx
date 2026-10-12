@@ -41,6 +41,20 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
               }),
             },
             {
+              path: 'registrations',
+              lazy: async () => ({
+                Component: (await import('../admin/registrations/RegistrationsPage'))
+                  .RegistrationsPage,
+              }),
+            },
+            {
+              path: 'registrations/:userId',
+              lazy: async () => ({
+                Component: (await import('../admin/registrations/RegistrationDetail'))
+                  .RegistrationDetail,
+              }),
+            },
+            {
               path: 'permissions',
               lazy: async () => ({
                 Component: (await import('../admin/permissions/PermissionsPage')).PermissionsPage,

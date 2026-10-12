@@ -969,6 +969,7 @@ components:
         status: { type: string, enum: [open, submitted, approved, rejected, closed] }
         contactVerified: { type: boolean, description: 'For a mobile or email change: the code to the new value was verified' }
         decidedAt: { type: [string, 'null'], format: date-time }
+        volunteerName: { type: string, description: 'Display name of the volunteer; only in the approvers'' list (GET /edit-requests)' }
     ChangeRequestResponse:
       type: object
       required: [data, meta]

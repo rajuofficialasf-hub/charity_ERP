@@ -1,13 +1,16 @@
 import AxeBuilder from '@axe-core/playwright';
 import { fakeEmail, fakeMobile, fakeNid } from '@css/shared';
-import { expect, type Page, test, type TestInfo } from '@playwright/test';
+import { devices, expect, type Page, test, type TestInfo } from '@playwright/test';
 
 // Registration on a phone from the login page to the pending confirmation (plan
-// docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U11; AUTH.md 2). The
-// API runs with the dummy OTP 123456 on a fresh E2E database (recreated per run); every repeat
-// and retry uses its own fake mobile, email and NID in the ranges the demo seed leaves free.
+// docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U11; AUTH.md 2), and the
+// approval journey of U13: an RPM asks for a correction, the volunteer fixes it on the phone and
+// submits again, the RPM approves. The API runs with the dummy OTP 123456 on a fresh E2E database
+// (recreated per run); every project, repeat and retry uses its own fake mobile, email and NID in
+// the ranges the demo seed leaves free.
 const OTP = '123456';
 const PASSWORD = 'Nadi kul 2026';
+const DEMO_PASSWORD = 'CssDemo2026';
 
 /** A tiny valid PNG (1 x 1 pixel) as the photo and the NID photo. */
 const PNG = Buffer.from(
@@ -17,11 +20,18 @@ const PNG = Buffer.from(
 
 const scan = (page: Page) => new AxeBuilder({ page }).exclude('[data-live-announcer]').analyze();
 
-/** Contacts and an NID nobody else of this run uses, from the repeat and retry of the test. */
+/** Contacts, an NID and a name nobody else of this run uses (project, repeat and retry). */
 function personFor(info: TestInfo) {
-  const n = 5100 + info.repeatEachIndex * 10 + info.retry;
-  return { mobile: fakeMobile(n), email: fakeEmail(`reg-e2e-${n}`), nid: fakeNid(60000 + n) };
+  const n =
+    5100 + (info.project.name === 'desktop' ? 500 : 0) + info.repeatEachIndex * 10 + info.retry;
+  return {
+    mobile: fakeMobile(n),
+    email: fakeEmail(`reg-e2e-${n}`),
+    nid: fakeNid(60000 + n),
+    name: `নতুন স্বেচ্ছাসেবক ${n} (নমুনা)`,
+  };
 }
+type Person = ReturnType<typeof personFor>;
 
 /** Picks from a Select; its button is named by the current value, then the label. */
 async function choose(page: Page, label: RegExp, option?: string) {
@@ -48,45 +58,123 @@ async function photo(page: Page, label: RegExp, slot: string) {
   await uploaded;
 }
 
+/** The phone registration of a volunteer in Savar (Dhaka), up to the pending confirmation. */
+async function register(page: Page, person: Person) {
+  await page.goto('/login');
+  await page.getByRole('link', { name: 'নিবন্ধন করুন' }).click();
+  await expect(page).toHaveURL(/\/register$/);
+  await page.getByRole('radio', { name: 'স্বেচ্ছাসেবক' }).check();
+  await page.getByRole('textbox', { name: /মোবাইল নম্বর/ }).fill(person.mobile);
+  await page.getByRole('textbox', { name: /ইমেইল/ }).fill(person.email);
+  await page.getByRole('button', { name: 'কোড পাঠান' }).click();
+  await page.getByRole('textbox', { name: /মোবাইলে পাওয়া কোড/ }).fill(OTP);
+  await page.getByRole('button', { name: 'পরের ধাপ' }).click();
+  await page.getByRole('textbox', { name: /ইমেইলে পাওয়া কোড/ }).fill(OTP);
+  await page.getByRole('button', { name: 'যাচাই করুন' }).click();
+
+  await expect(page.getByRole('heading', { name: 'নিবন্ধন ফর্ম' })).toBeVisible();
+  await page.getByRole('textbox', { name: /^নাম/ }).fill(person.name);
+  await page.getByRole('textbox', { name: /পিতার নাম/ }).fill('নমুনা পিতা');
+  await page.getByRole('textbox', { name: /মাতার নাম/ }).fill('নমুনা মাতা');
+  await page.getByRole('textbox', { name: /NID নম্বর/ }).fill(person.nid);
+  await choose(page, /(^|\s)বিভাগ/, 'ঢাকা');
+  await choose(page, /(^|\s)জেলা/, 'ঢাকা');
+  await choose(page, /(^|\s)উপজেলা/, 'সাভার');
+  await choose(page, /(^|\s)ইউনিয়ন/, 'সাভার');
+  await expect(page.getByRole('button', { name: /স্বেচ্ছাসেবকের ধরন/ })).toBeVisible();
+  await photo(page, /^ছবি\s*\(/, 'photo');
+  await photo(page, /^NID-এর ছবি/, 'nid_photo');
+  await page
+    .getByLabel(/^পাসওয়ার্ড/)
+    .first()
+    .fill(PASSWORD);
+  await page.getByLabel(/^পাসওয়ার্ড আবার লিখুন/).fill(PASSWORD);
+  await page.getByRole('button', { name: 'জমা দিন' }).click();
+
+  await expect(page.getByRole('heading', { name: 'নিবন্ধন জমা হয়েছে' })).toBeVisible();
+  await expect(page.getByText('অনুমোদনের পর আপনি কাজ শুরু করতে পারবেন।')).toBeVisible();
+}
+
+async function signIn(page: Page, loginId: string, password: string) {
+  await page.goto('/login');
+  await expect(page.getByRole('button', { name: 'লগইন', exact: true })).toBeEnabled();
+  await page.getByRole('textbox', { name: /মোবাইল নম্বর বা ইমেইল/ }).fill(loginId);
+  await page
+    .getByLabel(/^পাসওয়ার্ড/)
+    .first()
+    .fill(password);
+  await page.getByRole('button', { name: 'লগইন', exact: true }).click();
+  await expect(page.getByRole('heading', { level: 1, name: /^স্বাগতম, / })).toBeVisible();
+}
+
 test.describe('registration on a phone', () => {
   test('a volunteer registers with two codes and reaches the pending confirmation', async ({
     page,
   }, info) => {
     test.skip(info.project.name !== 'mobile', 'the phone journey');
-    const person = personFor(info);
-    await page.goto('/login');
-    await page.getByRole('link', { name: 'নিবন্ধন করুন' }).click();
-    await expect(page).toHaveURL(/\/register$/);
-    await page.getByRole('radio', { name: 'স্বেচ্ছাসেবক' }).check();
-    await page.getByRole('textbox', { name: /মোবাইল নম্বর/ }).fill(person.mobile);
-    await page.getByRole('textbox', { name: /ইমেইল/ }).fill(person.email);
-    await page.getByRole('button', { name: 'কোড পাঠান' }).click();
-    await page.getByRole('textbox', { name: /মোবাইলে পাওয়া কোড/ }).fill(OTP);
-    await page.getByRole('button', { name: 'পরের ধাপ' }).click();
-    await page.getByRole('textbox', { name: /ইমেইলে পাওয়া কোড/ }).fill(OTP);
-    await page.getByRole('button', { name: 'যাচাই করুন' }).click();
-
-    await expect(page.getByRole('heading', { name: 'নিবন্ধন ফর্ম' })).toBeVisible();
-    await page.getByRole('textbox', { name: /^নাম/ }).fill('নতুন স্বেচ্ছাসেবক (নমুনা)');
-    await page.getByRole('textbox', { name: /পিতার নাম/ }).fill('নমুনা পিতা');
-    await page.getByRole('textbox', { name: /মাতার নাম/ }).fill('নমুনা মাতা');
-    await page.getByRole('textbox', { name: /NID নম্বর/ }).fill(person.nid);
-    await choose(page, /(^|\s)বিভাগ/, 'ঢাকা');
-    await choose(page, /(^|\s)জেলা/, 'ঢাকা');
-    await choose(page, /(^|\s)উপজেলা/, 'সাভার');
-    await choose(page, /(^|\s)ইউনিয়ন/, 'সাভার');
-    await expect(page.getByRole('button', { name: /স্বেচ্ছাসেবকের ধরন/ })).toBeVisible();
-    await photo(page, /^ছবি\s*\(/, 'photo');
-    await photo(page, /^NID-এর ছবি/, 'nid_photo');
-    await page
-      .getByLabel(/^পাসওয়ার্ড/)
-      .first()
-      .fill(PASSWORD);
-    await page.getByLabel(/^পাসওয়ার্ড আবার লিখুন/).fill(PASSWORD);
-    await page.getByRole('button', { name: 'জমা দিন' }).click();
-
-    await expect(page.getByRole('heading', { name: 'নিবন্ধন জমা হয়েছে' })).toBeVisible();
-    await expect(page.getByText('অনুমোদনের পর আপনি কাজ শুরু করতে পারবেন।')).toBeVisible();
+    await register(page, personFor(info));
     expect((await scan(page)).violations).toEqual([]);
+  });
+});
+
+test.describe('registration approval', () => {
+  test('an RPM asks for a correction, the volunteer fixes it, the RPM approves', async ({
+    page,
+    browser,
+    baseURL,
+  }, info) => {
+    test.skip(info.project.name !== 'desktop', 'the approver works on a desktop');
+    test.setTimeout(120_000);
+    const person = personFor(info);
+    const phone = await browser.newContext({ ...devices['Pixel 7'], baseURL });
+    const mobile = await phone.newPage();
+    await register(mobile, person);
+
+    // the RPM of Dhaka asks for a correction of the father's name
+    await signIn(page, 'rpm.dhaka@example.org', DEMO_PASSWORD);
+    await page.getByRole('link', { name: 'অ্যাডমিন' }).click();
+    await page
+      .getByRole('navigation', { name: 'অ্যাডমিন মেনু' })
+      .getByRole('link', { name: 'নিবন্ধন' })
+      .click();
+    await expect(page.getByRole('heading', { level: 1, name: 'নিবন্ধন' })).toBeVisible();
+    await page.getByRole('link', { name: person.name }).click();
+    await expect(page.getByRole('heading', { level: 1, name: person.name })).toBeVisible();
+    await expect(page.getByText(person.nid)).toBeVisible();
+    expect((await scan(page)).violations).toEqual([]);
+    await page.getByRole('button', { name: 'সংশোধনের অনুরোধ' }).click();
+    const dialog = page.getByRole('dialog', { name: 'সংশোধনের অনুরোধ' });
+    // the native input is visually hidden; people press its label
+    const father = dialog.getByRole('checkbox', { name: 'পিতার নাম' });
+    await father.locator('xpath=ancestor::label').click();
+    await expect(father).toBeChecked();
+    await dialog.getByRole('textbox', { name: /কী ঠিক করতে হবে/ }).fill('NID-এর মতো লিখুন');
+    await dialog.getByRole('button', { name: 'পাঠান' }).click();
+    await expect(page.getByText('সংশোধনের অনুরোধ পাঠানো হয়েছে')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'অনুমোদন', exact: true })).toBeDisabled();
+
+    // the volunteer fixes it on the phone and submits again
+    await signIn(mobile, person.mobile, PASSWORD);
+    await mobile.getByRole('link', { name: 'আমার প্রোফাইল' }).click();
+    await mobile.getByRole('textbox', { name: /পিতার নাম/ }).fill('সংশোধিত পিতা');
+    await mobile.getByRole('button', { name: 'উত্তর দিন' }).click();
+    await mobile.getByRole('button', { name: 'আবার জমা দিন' }).click();
+    await expect(mobile.getByText(/সংশোধন জমা হয়েছে/)).toBeVisible();
+
+    // the RPM sees the corrected name and approves
+    await page.reload();
+    await expect(page.getByText('সংশোধিত পিতা')).toBeVisible();
+    await page.getByRole('button', { name: 'অনুমোদন', exact: true }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'অনুমোদন করুন' }).click();
+    await expect(page.getByText('নিবন্ধন অনুমোদিত হয়েছে')).toBeVisible();
+    await expect(page.getByRole('link', { name: person.name })).toHaveCount(0);
+
+    // the volunteer's home no longer shows the pending message
+    await mobile.goto('/');
+    await expect(mobile.getByRole('heading', { level: 1, name: /^স্বাগতম, / })).toBeVisible();
+    await expect(
+      mobile.getByText('আপনার নিবন্ধন অনুমোদনের অপেক্ষায়', { exact: false }),
+    ).toHaveCount(0);
+    await phone.close();
   });
 });

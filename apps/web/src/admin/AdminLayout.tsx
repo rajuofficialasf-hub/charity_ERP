@@ -69,7 +69,10 @@ export function AdminLayout() {
                     icon={item.icon}
                     label={t(`nav.${item.key}`)}
                     href={item.href}
-                    active={pathname === item.href}
+                    active={
+                      pathname === item.href ||
+                      (item.href !== '/admin' && pathname.startsWith(`${item.href}/`))
+                    }
                   />
                 ))}
               </nav>

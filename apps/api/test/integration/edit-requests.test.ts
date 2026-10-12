@@ -75,6 +75,11 @@ describe('edit requests', () => {
     const rpm = await as(world.users.rpmDhaka);
     const pending = await api().get('/api/v1/edit-requests').set(bearer(rpm));
     expect(pending.body.data.map((r: { id: string }) => r.id)).toContain(created.body.data.id);
+    // the approver sees who asked (the volunteer's name), the owner's own list does not need it
+    const name = await h.db.query('SELECT display_name FROM users WHERE id = $1', [v.account.id]);
+    expect(
+      pending.body.data.find((r: { id: string }) => r.id === created.body.data.id).volunteerName,
+    ).toBe(name.rows[0].display_name);
     const res = await decide(rpm, created.body.data.id, { decision: 'approve' });
     expect(res.status).toBe(200);
     expect(res.body.data.status).toBe('approved');

@@ -173,6 +173,8 @@ export interface RequestOptions {
   /** A body sent as it is (a photo); its type goes in `headers`. */
   rawBody?: ArrayBuffer;
   headers?: Record<string, string>;
+  /** The answer is a file (a streamed photo), returned as a Blob instead of the `data` field. */
+  blob?: boolean;
 }
 
 /**
@@ -197,6 +199,7 @@ export async function api<T>(path: string, options: RequestOptions = {}, retry =
   });
   if (res.ok) {
     if (res.status === 204) return undefined as T;
+    if (options.blob) return (await res.blob()) as T;
     return ((await res.json()) as { data: T }).data;
   }
   const error = await failure(res);
