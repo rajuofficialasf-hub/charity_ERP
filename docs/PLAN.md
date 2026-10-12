@@ -164,7 +164,7 @@ css-erp/
 │   └── ops/                       ← DEPLOYMENT.md, RUNBOOK.md
 ├── apps/
 │   ├── web/                       ← React PWA, Vite SPA (D-073; officials desktop + volunteers mobile, এক কোডবেস)
-│   └── api/                       ← NestJS REST /api/v1, Prisma, pg-boss workers
+│   └── api/                       ← Express 5 REST /api/v1 (D-074), Prisma, pg-boss workers
 ├── packages/
 │   ├── shared/                    ← zod schemas, permission names, i18n keys, pure business rules (score, zakat, budget, form evaluator)
 │   ├── ui/                        ← design system components + tokens

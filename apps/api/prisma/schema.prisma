@@ -1,4 +1,4 @@
-// Physical database of the CSS ERP (PostgreSQL 16), written in T1.2 from
+// Physical database of the CSS ERP (PostgreSQL 17), written in T1.2 from
 // docs/database/DATABASE_SCHEMA.md and ERD.md (91 tables). The data dictionary is the source;
 // change both in the same commit. What Prisma cannot express (CHECK constraints, triggers, views,
 // the partitioned audit_log, generated columns) lives in the hand-written part of each migration;

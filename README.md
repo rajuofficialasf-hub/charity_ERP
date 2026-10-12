@@ -54,7 +54,7 @@ The web app runs at http://127.0.0.1:3000 (Vite, proxying `/api/v1` to the API) 
 
 | Path | Contents |
 |---|---|
-| `apps/api` | NestJS REST API (`/api/v1`), Prisma schema and migrations in `prisma/` |
+| `apps/api` | Express 5 REST API (`/api/v1`, `src/server.ts`) and the pg-boss worker (`src/worker.ts`), Prisma schema and migrations in `prisma/` |
 | `apps/web` | Vite React single-page PWA (`src/`: React Router, TanStack Query, use-intl, Serwist service worker), Playwright tests in `e2e/` |
 | `packages/shared` | Pure TypeScript shared by API and PWA: zod schemas, permission names, i18n keys, business-rule functions |
 | `packages/ui` | Design system: React Aria components, design tokens, Tailwind preset, self-hosted fonts |

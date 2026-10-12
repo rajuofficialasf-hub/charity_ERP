@@ -1007,7 +1007,7 @@ NID/birth registration, mobile number, address-GPS and donor data are sensitive.
 | Language | i18n, Bangla and English from the start; form labels in both languages | Decided (Q-17) |
 | Hosting and backup | Hosting on the organization's own server; development by the organization's own team (decided, Q-40) | Where the data lives |
 
-The concrete stack proposal of the constitution (§9: Node.js 24 LTS, NestJS, Prisma, Next.js, pnpm workspaces, pg-boss, MinIO, Nodemailer, SMS adapter, Docker Compose) is recorded as D-050…D-053 in `docs/DECISION_LOG.md`, approved by the owner on 2026-10-10 (O-01).
+The concrete stack proposal of the constitution (§9: Node.js 24 LTS, NestJS, Prisma, Next.js, pnpm workspaces, pg-boss, MinIO, Nodemailer, SMS adapter, Docker Compose; the frontend moved to a Vite React SPA by D-073 and the backend to Express 5 by D-074) is recorded as D-050…D-053 in `docs/DECISION_LOG.md`, approved by the owner on 2026-10-10 (O-01).
 
 ### B10. Performance and field reality
 

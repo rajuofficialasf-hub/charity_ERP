@@ -1,6 +1,6 @@
 # ADR-002: NestJS for the backend
 
-Status: approved 2026-10-10 (DECISION_LOG D-051, confirmed by the owner in O-01). Written in task T0.8.
+Status: superseded by ADR-014 on 2026-10-12 (D-074: Express 5 per the organization's standard). Originally approved 2026-10-10 (DECISION_LOG D-051, confirmed by the owner in O-01). Written in task T0.8; kept as history.
 
 ## Context
 

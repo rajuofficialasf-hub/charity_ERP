@@ -50,7 +50,7 @@ Tests name the rule they prove: `it('BR-097 score recomputed on answer change', 
 
 1. **Contract first.** Add the operation to `docs/api/openapi.yaml` with every annotation of API_STANDARDS 16 (`operationId`, `tags`, `x-permission`, `x-scope`, `x-audit`, `x-idempotency`, `x-rate-limit`, responses) and run `pnpm docs:check`. A new error code goes into API_STANDARDS 8 and into `errors.<code>` in both catalogue languages (`pnpm i18n:check`).
 2. **Schemas.** Write the request and response zod schemas in `packages/shared`; the PWA uses the same ones. Name specific error codes with `{ message: 'validation.<code>' }`.
-3. **Handler.** In `apps/api/src/<module>/`, decorate the handler with `@ApiContract({...})` using the same values as the contract (this also sets `@Audit`, `@RateLimit` and `@Idempotency`), take input through `@ZBody`, `@ZQuery` or `@ZParam`, and return a value, `ok(...)` or `page(...)`; never build the envelope or an error message by hand.
+3. **Route.** In `apps/api/src/routes/<module>.ts`, declare the operation with `defineRoute(router, deps, { ...spec, method, path, status?, handler })` using the same values as the contract (`operationId`, `tag`, `permission`, `scope`, `audit`, `idempotency`, `rateLimit`, `body`, `query`, `params`, `responses`); the declaration mounts the access check, the rate-limit chain, the validation and the envelope, and a write route without an audit action cannot be registered. The handler receives `{ body, query, params, req, res }` (parsed, typed) and the caller through `principalOf(req)`; keep it thin: service call, then return the value, `ok(value, meta)` or `page(rows, meta)`.
 4. **Service.** Do the work in one Prisma transaction; call `AuditWriter.record(tx, …)` for every write (the request fails otherwise), enqueue jobs with `JobRunner.enqueue(queue, data, { tx })`, throw `ApiError(code, status)` for business failures, and use the pagination helpers for lists.
 5. **Tests.** Unit tests for rules, an API test (Supertest) for the endpoint including its error codes, an integration test when the database is involved; the OpenAPI drift test must stay green (`pnpm test`).
 6. **Docs.** Update the module's documents in the same commit.
@@ -67,4 +67,4 @@ Tests name the rule they prove: `it('BR-097 score recomputed on answer change', 
 
 The project owner reviews and pushes to GitHub; CI (`.github/workflows/ci.yml`) then runs lint, typecheck, document checks, tests, build, the dependency audit and the secret scan, and E2E on `main`. Phase gates are tagged `gate-phase-N`.
 
-How to add an endpoint (envelope, validation, permission and scope, audit, OpenAPI) is added to this file with the API backbone in task T1.6.
+The endpoint recipe above was written with the API backbone in task T1.6 and rewritten for the Express port in task T1.7d (ADR-014).

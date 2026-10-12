@@ -24,11 +24,11 @@ One server, one Docker Compose project per environment (staging, production), th
                              ┌──────┴──────┐
                              │   Caddy     │  TLS (automatic certificates), HTTP/2,
                              │ reverse     │  routes /api/* → api, everything else → web,
-                             │ proxy       │  /files/* signed-URL pass-through → minio
+                             │ proxy       │  (files are streamed by the api, D-074)
                              └──┬──────┬───┘
                  ┌──────────────┘      └──────────────┐
           ┌──────┴──────┐                       ┌─────┴──────┐
-          │    web      │                       │    api     │  NestJS, /api/v1
+          │    web      │                       │    api     │  Express 5, /api/v1
           │  Vite SPA   │  ───── REST ──────►   │  (HTTP)    │  auth, access, audit,
           │  static     │                       └─────┬──────┘  domain modules
           └─────────────┘                             │
@@ -40,9 +40,9 @@ One server, one Docker Compose project per environment (staging, production), th
                         ┌──────────────┬──────────────┼───────────────┬───────────────┐
                  ┌──────┴──────┐ ┌─────┴─────┐ ┌──────┴──────┐ ┌──────┴──────┐ ┌──────┴──────┐
                  │ PostgreSQL  │ │   MinIO   │ │  SMTP relay │ │ SMS provider│ │  Backups    │
-                 │ 16 + JSONB  │ │ S3 API,   │ │ (org mail   │ │ (HTTP API,  │ │ pg_dump,    │
-                 │ pg-boss     │ │ presigned │ │ server)     │ │ adapter;    │ │ WAL archive,│
-                 │ queue tables│ │ URLs      │ │             │ │ stub in dev)│ │ MinIO mirror│
+                 │ 17 + JSONB  │ │ S3 API,   │ │ (org mail   │ │ (HTTP API,  │ │ pg_dump,    │
+                 │ pg-boss     │ │ buckets,  │ │ server)     │ │ adapter;    │ │ WAL archive,│
+                 │ queue tables│ │ private   │ │             │ │ stub in dev)│ │ MinIO mirror│
                  └─────────────┘ └───────────┘ └─────────────┘ └─────────────┘ └─────────────┘
 ```
 
@@ -52,17 +52,17 @@ Components and why each exists:
 |---|---|---|
 | Caddy | TLS termination, routing, compression, basic request limits; HTTPS enforced (HTTP → HTTPS redirect, HSTS); only ports 80 and 443 are public; PostgreSQL, the MinIO admin API and the worker stay on the Docker internal network and are never exposed (D-056) | Automatic certificate renewal removes a recurring operations task; one process in front of two apps |
 | web (Vite React SPA) | Static files (`apps/web/dist`: app shell, assets, service worker, manifest) served by Caddy with the SPA fallback; no server process (D-073, ADR-013) | One codebase for desktop and phone (Q-15); every screen renders from the API or local data |
-| api (NestJS) | REST under `/api/v1`, all authorization, domain logic, audit | Modules mirror the ten B1 core modules (D-051) |
+| api (Express 5) | REST under `/api/v1`, all authorization, domain logic, audit (D-074, ADR-014) | Plain modules (routes, services) mirror the ten B1 core modules; one `requireAccess` middleware and one `defineRoute` declaration per operation |
 | worker | pg-boss consumers for background jobs | Separate process; see 2.1 |
-| PostgreSQL 16 | Relational master data, JSONB answers and settings, audit log, pg-boss queues | One database for everything (constitution §2) |
-| MinIO | Photos, vouchers, documents, exports; presigned expiring URLs | Signed-URL file access without building it by hand (D-053, BR-204) |
+| PostgreSQL 17 | Relational master data, JSONB answers and settings, audit log, pg-boss queues | One database for everything (constitution §2) |
+| MinIO | Photos, vouchers, documents, exports behind the storage adapter's S3 driver; private buckets, files streamed by authorized API routes (D-074, NS-41) | Self-hosted S3 API until the NAS driver exists (D-053, BR-204, ADR-005 as amended) |
 | SMTP relay | Email through the organization's mail server; Mailpit in dev | BD-47 |
 | SMS adapter | Provider-agnostic HTTP adapter; logging stub in dev; a real provider before rollout beyond the Phase 3 pilot (O-49) | Q-11, BD-47 |
 | Backups | Daily `pg_dump`, WAL archiving when enabled, MinIO mirror to a second disk or server | O-06: RPO 24 h → 1 h, RTO 4 h |
 
 ### 2.1 Workers: a separate process (decision)
 
-pg-boss consumers run in a **separate `worker` process** started from the same `apps/api` build (`node dist/main.js` for HTTP, `node dist/worker.js` for jobs), not inside the HTTP process.
+pg-boss consumers run in a **separate `worker` process** started from the same `apps/api` build (`node dist/server.js` for HTTP, `node dist/worker.js` for jobs), not inside the HTTP process.
 
 Reasons:
 
@@ -100,15 +100,15 @@ Rules:
 
 - No business logic in controllers; a controller that contains an `if` on business data is a defect.
 - Engines and domain services never import Prisma; they receive repositories through interfaces, so they can be unit-tested with in-memory fakes.
-- `packages/shared` contains pure TypeScript only (zod schemas, permission names, i18n keys, rule functions such as score, zakat net assets, budget math, form logic evaluator). It has no Node, Nest, Next or Prisma dependency, so the same code runs in the browser offline and on the server (BR-076, BR-083, NFR-53).
+- `packages/shared` contains pure TypeScript only (zod schemas, permission names, i18n keys, rule functions such as score, zakat net assets, budget math, form logic evaluator). It has no Node, Express, Prisma or web-framework dependency, so the same code runs in the browser offline and on the server (BR-076, BR-083, NFR-53).
 - Application services own transactions. One use case = one transaction = one audit entry (or several in the same transaction). Jobs are enqueued inside the transaction through pg-boss's PostgreSQL tables, so a job never exists for a write that rolled back.
 - Repositories apply the resolved data scope as query conditions (section 6), never the controllers.
 
 ## 4. Module map
 
-### 4.1 Blueprint B1 core modules → NestJS modules
+### 4.1 Blueprint B1 core modules → API modules
 
-| B1 # | Core module | NestJS module (`apps/api/src/modules/…`) | MODULE_CATALOG ids | Notes |
+| B1 # | Core module | API module (`apps/api/src/routes/…` and `src/services/…`) | MODULE_CATALOG ids | Notes |
 |---|---|---|---|---|
 | 1 | Program & Project | `programs` | M06 | programs, projects, settings, areas, components, templates, quotas, fund sources, lifecycle incl. Closing (O-12) |
 | 2 | Beneficiary | `beneficiaries` | M05 | master, lookup, correction requests, duplicate detection, merge, blocklist (shared with volunteers), media consent |
@@ -122,7 +122,7 @@ Rules:
 | 10 | Reports & Audit | `reports`, `audit` | M15, M16 | dashboards, KPIs, export jobs; audit log writer and viewer |
 | — | Shared services | `auth`, `access`, `files`, `notifications`, `jobs`, `i18n`, `exports`, `locations`, `documents`, `admin`, `sync` | M01, M02, M18, M17, —, M20, M16, M19, M13, M21, M22 | see section 5 |
 
-Each NestJS module exposes a small public API (its application services) and keeps its repositories private; modules depend on each other only through those services, and the dependency graph in MODULE_CATALOG section 3 is enforced by the module imports.
+Each module exposes a small public API (its application services, constructed in `container.ts`) and keeps its data access private; routers are thin (validate → service → send, NE-REQ-04) and modules depend on each other only through those services; the dependency graph in MODULE_CATALOG section 3 is enforced by review and the ESLint import rules.
 
 ### 4.2 Route groups of the PWA (`apps/web/src`, React Router)
 
@@ -143,12 +143,12 @@ Every screen renders in the browser: official and management lists read the API 
 
 | Service | Module | What it provides | Design |
 |---|---|---|---|
-| Authentication | `auth` | Login, OTP (registration and reset only, O-05), tokens, device sessions, revocation | Details in `AUTH.md`. Access token 15 min, refresh 30 days bound to `device_sessions`; a revoked device fails at the authentication step of every request |
+| Authentication | `auth/*`, `routes/{auth,me,sessions,users}.ts`, `services/{auth,sessions,users}.ts` (T1.7, ported in T1.7d) | `requireAccess` (before the rate limiters): bearer JWT → device session (cached 60 s) → permission version → account state → interim `PermissionResolver` (O-59); `defineRoute`'s `permission` and `allowPending` declare access, `public` marks the open operations; `principalOf(req)` gives the `Principal`; `SessionService`, `PermissionVersionService.bump(tx, …)`; `TRUST_PROXY` decides which proxies may set the client address (D-072) |
 | Authorization and scope resolution | `access` | Permission names from `docs/security/permissions.yaml`, role resolution, scope resolution, object-level checks, field-level masks | Section 6. Resolution reads the user's roles, project assignments (`project_volunteers`, staff project access), the project's area split (`project_areas`, O-09 four-level locations) and the permission-panel overrides, cached per request |
 | Audit log | `audit` | `AuditWriter.record(...)` called by application services inside the transaction | Append-only table; no UPDATE/DELETE grants for the application role; viewer and export in `reports` |
 | Files | `files` | Upload initiation, chunked resumable upload, validation, virus-scan hook, metadata extraction, duplicate detection, signed download URLs | `StorageAdapter` interface with `MinioStorage` (staging, production, dev) and `FilesystemStorage` (automated tests). Signed URLs expire within 15 minutes (NFR-28) |
 | Notifications | `notifications` | In-app inbox, email, SMS; bilingual templates; delivery status | Outbox table `outbound_messages` written in the transaction; the worker delivers through `EmailAdapter` (Nodemailer/SMTP, Mailpit in dev) and `SmsAdapter` (provider HTTP client; `LoggingSmsAdapter` in dev and test) |
-| Jobs | `jobs` | pg-boss wrapper, queue names, retry policies, job registry | Queues: `sync` (batch processing), `notify` (deliveries), `alerts` (monitoring computation, document deadlines), `exports` (CSV/XLSX/PDF), `photos` (post-processing, duplicate hashing, donor photo emails), `storage-stats` (nightly), `scores` (priority score recomputation). Consumers run in the worker process (2.1) |
+| Jobs | `jobs/queues.ts`, `jobs/job-runner.ts`, `jobs/consumers.ts`, `jobs/install.ts`, `worker.ts` | Queue registry with retry, backoff and expiry; `JobRunner.enqueue(queue, data, { tx })` inside the transaction; `JobConsumers` registers consumers and cron schedules (Asia/Dhaka) in the worker, or in the api through `startInlineConsumers` with `JOBS_INLINE`; the schema and queues come from `jobs:install` in `db:migrate` (D-069); sample job: the `maintenance` heartbeat every five minutes |
 | i18n | `i18n` + `packages/shared/i18n` | Message catalogue bn/en, server-side message resolution for API errors and templates, bilingual column helpers, English-digit formatter | Keys are code; catalogues are data; a missing key fails CI |
 | Exports | `exports` | Job-based CSV, XLSX and PDF generation with the same field-level masks as screens, download through a signed URL, audit entry for sensitive exports | Fonts for PDF from `docs/ui/brand/fonts` |
 | Locations | `locations` | Four-level master (division → district → upazila → union), admin management (add, rename, deactivate; never delete), offline snapshot endpoint | O-09, BR-228 |
@@ -162,20 +162,20 @@ The backbone every module uses, in `apps/api/src` (D-068, D-069, O-57). A new en
 
 | Concern | Where | Pattern |
 |---|---|---|
-| Configuration | `config/env.ts` | One zod schema; `loadEnv(process.env)` fails fast; `AppModule.register(env)` passes it to the app; production refuses `JOBS_INLINE` and filesystem storage |
+| Configuration | `config/env.ts` | One zod schema; `loadEnv(process.env)` fails fast; `createContainer(env)` builds every service from it; production refuses `JOBS_INLINE`, the dummy OTP, relaxed rate limits and the filesystem storage driver |
 | Database | `core/prisma.service.ts` | One `PrismaService` (Prisma 7 pg adapter); services that write inside a caller's transaction take a `Tx` |
-| Request context | `core/request-context.ts`, `core/request-context.middleware.ts` | AsyncLocalStorage with request id, locale, IP, and (from T1.7) user, device session and role; read by the logger, the audit writer and the error filter |
-| Request id and logs | `core/request-id.ts`, `core/logging.ts` | `X-Request-Id` reused when well-formed, else `req_<uuidv7>`, echoed on every response; pino through nestjs-pino: one line per request with id, user id, path (no query string), status and latency; bodies, cookies, authorization and personal fields never logged, known sensitive keys redacted |
-| Envelope | `core/envelope.ts` | Every result becomes `{ data, meta: { requestId, … } }`; handlers return values, `ok(data, meta)` or `page(rows, pageMeta)`; probes are marked `@RawResponse()` |
-| Errors | `i18n/api-error.ts`, `i18n/api-exception.filter.ts` | Services throw `ApiError(code, status, params?, details?)`; the filter renders `{ error: { code, messageKey, message, details?, requestId } }` in the request language; anything else is `server.internal` without details |
-| Validation | `core/validation.ts` | `@ZBody(schema)`, `@ZQuery(schema)`, `@ZParam(name, schema)` with the shared zod schemas; strict query schemas reject unknown parameters (400 `validation.unknown_parameter`); field problems are 422 `validation.failed` with one detail per field; a schema names a specific code with `{ message: 'validation.nid_format' }` |
+| Request context | `core/request-context.ts`, `core/request-context.middleware.ts` | AsyncLocalStorage opened by `requestContext()` after the JSON body is read: request id, locale, IP, and (from the access middleware) user, device session and role; read by the logger, the audit writer and the error handler |
+| Request id and logs | `core/request-id.ts`, `core/logging.ts`, `http/security.ts` | `X-Request-Id` reused when well-formed, else `req_<uuidv7>`, echoed on every response; pino-http: one line per request with id, user id, path (no query string), status and latency; bodies, cookies, authorization and personal fields never logged, known sensitive keys redacted; helmet headers and the CORS allowlist (`CORS_ORIGINS`) live beside it |
+| Envelope | `http/send.ts` | Every result becomes `{ data, meta: { requestId, … } }`; handlers return values, `ok(data, meta)` or `page(rows, pageMeta)`; a route declared with status 204 sends no body; health probes answer outside the envelope |
+| Errors | `i18n/api-error.ts`, `http/errors.ts` | Services throw `ApiError(code, status, params?, details?)`; the error middleware renders `{ error: { code, messageKey, message, details?, requestId } }` in the request language; body-parser and other client errors become 4xx `validation.malformed`; anything else is `server.internal` without details |
+| Validation | `http/validate.ts` | `defineRoute` mounts `validate({ body, query, params })` with the shared zod schemas; strict query schemas reject unknown parameters (400 `validation.unknown_parameter`); field problems are 422 `validation.failed` with one detail per field; a schema names a specific code with `{ message: 'validation.nid_format' }`; the handler receives the parsed parts |
 | Lists | `core/pagination.ts` | `pageQuery` (limit 25, maximum 100), HMAC-signed cursors bound to the endpoint and caller, `parseSort` (whitelist, id tiebreaker), `keysetWhere`/`orderBy`/`buildPage` for next and previous pages, `parseList`, `parseRange` (Dhaka days), `searchWhere` (NFC, at least 2 characters, trigram-served contains), totals capped at "10000+" |
 | Idempotency | `idempotency/idempotency.service.ts` | O-57: `replayByClientUuid` returns the existing record with 200 and `Idempotent-Replay: true`; `runWithKey` stores sync and bulk results in `sync_batches` and replays them, race-safe |
-| Rate limits | `rate-limit/rate-limit.ts` | The API_STANDARDS 10 classes with their keys on in-process counters (@nestjs/throttler storage); undeclared routes use `default`; `RateLimit-*` headers, `Retry-After` on 429 |
-| Audit | `audit/audit-writer.ts`, `audit/audit.decorator.ts` | `AuditWriter.record(tx, entry)` inside the business transaction; every write route declares `@Audit(action)` (through `@ApiContract`); a write without `@Audit`, or a declared action without an entry, fails with `server.internal` |
-| OpenAPI | `openapi/api-contract.ts`, `openapi/document.ts`, `openapi/drift.ts` | `@ApiContract({...})` declares the operation once and also sets audit, rate limit and idempotency; `buildOpenApiDocument` generates the document; the drift test compares it with `docs/api/openapi.yaml`; `pnpm --filter @css/api openapi:generate` writes `openapi.generated.json` |
+| Rate limits | `rate-limit/rate-limit.ts` (rules), `rate-limit/limiters.ts` | The API_STANDARDS 10 classes with their keys (login id, address, session, caller, IP through `TRUST_PROXY`) on express-rate-limit chains, one chain per route, IP windows first; `RateLimit-*` headers of the tightest window, `Retry-After` on 429; `RATE_LIMITS_RELAXED` for E2E only |
+| Audit | `audit/audit-writer.ts`, `audit/write-route.ts` | `AuditWriter.record(tx, entry)` inside the business transaction; every write route declares its audit action in `defineRoute` (a write without one cannot be registered, BR-179); a declared action without an entry fails the request with `server.internal` |
+| OpenAPI | `openapi/define-route.ts`, `openapi/registry.ts`, `openapi/build-document.ts`, `openapi/drift.ts` | `defineRoute(router, deps, { ...spec, handler })` declares the operation once (contract, access rule, rate-limit class, audit action, idempotency mode, schemas) and registers it; `buildOpenApiDocument(registry)` generates the document; the drift test compares it with `docs/api/openapi.yaml`; `pnpm --filter @css/api openapi:generate` writes `openapi.generated.json` |
 | Jobs | `jobs/queues.ts`, `jobs/job-runner.ts`, `jobs/jobs.module.ts`, `jobs/install.ts`, `worker.ts` | Queue registry with retry, backoff and expiry; `JobRunner.enqueue(queue, data, { tx })` inside the transaction; consumers and cron schedules (Asia/Dhaka) in the worker or with `JOBS_INLINE`; the schema and queues come from `jobs:install` in `db:migrate` (D-069); sample job: the `maintenance` heartbeat every five minutes |
-| Storage | `storage/*` | `StorageAdapter` (`put`, `get`, `stat`, `presignGet`, `presignPut`, `ping`) with `MinioStorage` and `FilesystemStorage` (tests); safe keys only; URL lifetime at most 900 seconds |
+| Storage | `storage/{types,index}.ts`, `storage/drivers/{s3,filesystem}.ts` | One `StorageDriver` (`put`, `get`, `stat`, `remove`, `ping`; streams in and out, `NotFoundError`) chosen by `STORAGE_DRIVER` (no default); the S3 driver on MinIO is `TEMP:` until the NAS driver exists; private buckets, no signed URLs, safe keys only (NS-30…NS-44, D-074) |
 | Notifications | `notifications/adapters.ts` | `EmailAdapter` (`SmtpEmailAdapter`, Nodemailer), `SmsAdapter` (`StubSmsAdapter`: masked logging or dry run until a provider exists), `InAppAdapter` (a `notifications` row with key and parameters); `DeliveryError` transient or permanent for the outbox (T1.14) |
 | Authentication | `auth/*`, `users/*` (T1.7) | `AuthGuard` (global, before the rate limiter): bearer JWT → device session (cached 60 s) → permission version → account state → interim `PermissionResolver` (O-59); `@ApiContract({ permission, allowPending })` declares access, `@Public()` marks routes outside the contract; `@CurrentUser()` gives the `Principal`; `SessionService`, `PermissionVersionService.bump(tx, …)`; `TRUST_PROXY` decides which proxies may set the client address (D-072) |
 | Health | `health/health.controller.ts` | `/health/live` up or down; `/health/ready` database, storage and queue with a 2-second limit each, 200 or 503, per-check detail only with the `HEALTH_TOKEN` bearer token |
@@ -226,7 +226,7 @@ Every request to `/api/v1` passes these steps in this order. A failure at any st
 13  response envelope with request id (API_STANDARDS §3)
 ```
 
-Where guards live: steps 4–8 are NestJS guards and interceptors in `auth` and `access`; step 9 is a validation pipe; steps 10–11 are inside the application service; step 12 is a serializer interceptor. Business guards (step 11) are never duplicated in controllers.
+Where guards live: steps 4–8 are the `requireAccess` middleware (`auth/require-access.ts`, later the `access` module of T1.8) and the rate-limit chain that `defineRoute` mounts; step 9 is the `validate` middleware; steps 10–11 are inside the application service; step 12 is the serializer called by the route before `send`. Business guards (step 11) are never duplicated in controllers.
 
 Writes that bypass HTTP (jobs, sync processing) run the same application services with a system actor and the originating user's identity recorded in the audit entry, so the audit trail and the business guards are identical for online and offline work.
 
@@ -315,7 +315,7 @@ Retention is permanent (BD-46), so growth must be visible (NFR-30):
 
 | Choice | Chosen | Not chosen | Why |
 |---|---|---|---|
-| Backend framework | NestJS (modules, guards, interceptors, OpenAPI) | Fastify/Express by hand, Next.js route handlers | A single in-house team benefits from the enforced structure; guards express role × scope directly; OpenAPI generated and diff-tested (ADR-002) |
+| Backend framework | Express 5 with plain modules, one access middleware and `defineRoute` (route registry → OpenAPI) | NestJS (ADR-002, superseded), Fastify | The organization's standard (ST-02, D-074); the contract, envelope, audit enforcement and drift test of the Nest design are kept as plain code (ADR-014) |
 | ORM and migrations | Prisma with hand-written `down.sql` | Drizzle, TypeORM, raw SQL | Schema file mirrors the ERD; type safety; reversibility added by the down.sql rule (ADR-003) |
 | Jobs | pg-boss in PostgreSQL | BullMQ with Redis | No extra service, transactional enqueue, adequate throughput for this load (ADR-004) |
 | Worker placement | Separate process from the same image | In-process only | Protects field-endpoint latency; one image keeps deployment simple (section 2.1) |

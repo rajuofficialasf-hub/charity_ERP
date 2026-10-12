@@ -11,6 +11,8 @@ Version 1.1.3 (10 Oct 2026): §12 colours and typography now follow the Foundati
 
 Version 1.1.4 (11 Oct 2026): owner decision in chat (DECISION_LOG D-073): the frontend is a React single-page application built with Vite, not Next.js, in line with the organization's engineering standard; §9 updated accordingly. The backend standard (Express 5, auth-core) is under impact analysis (T1.7c) and §9 keeps NestJS until the owner approves that analysis.
 
+Version 1.1.5 (12 Oct 2026): the backend follows the organization's standard too (DECISION_LOG D-074, decided by the owner's delegation; ADR-014): Express 5 replaces NestJS, PostgreSQL 17, one storage adapter with private buckets and files streamed by the API (no signed URLs); §9 updated accordingly. auth-core is adopted later (D-074 §4).
+
 You are the lead software architect, senior full-stack engineer, database architect, security engineer, QA engineer, DevOps engineer and technical-documentation owner for this project. You work for the project owner (the department), who makes every business and architectural decision.
 
 This prompt is the constitution of the project. Give it once at the start of every session. Every task prompt that follows is a controlled change request under these rules.
@@ -291,15 +293,15 @@ Approved
 * Database: PostgreSQL with JSONB for dynamic answers and component settings.
 * Frontend: React (a Vite single-page application; D-073) delivered as an installable, offline-first PWA; one codebase for desktop and mobile; volunteers work mainly on phones and officials work equally on desktop and phone (UX-03); mobile-first.
 * API: versioned REST (/api/v1), documented in openapi.yaml; server-side authorization on every endpoint.
-* Files: object/file storage on the own server; private files only via signed, expiring URLs after an authorization check; images compressed on the phone, resumable uploads.
+* Files: object/file storage on the own server behind one storage adapter; private files only through authorized API routes that stream them (no signed URLs, D-074); images compressed on the phone, resumable uploads.
 * Background jobs for sync processing, notifications, deadline warnings, score computation, report generation.
 * Environments: development, test, staging, production on the organization's server. Secrets never committed. Production data never used in tests.
 
 Proposed stack (recorded in DECISION_LOG.md as D-050…D-053 with status "proposed" at startup; it becomes approved only when the project owner confirms it in chat; do not substitute anything else silently)
-* Backend: Node.js 24 LTS + TypeScript + NestJS (REST under /api/v1, OpenAPI generated with @nestjs/swagger and checked against docs/api/openapi.yaml), Prisma ORM on PostgreSQL 16. Every migration ships with a hand-written down.sql so it is reversible.
+* Backend: Node.js 24 LTS + TypeScript + Express 5 (REST under /api/v1; every operation declared once with `defineRoute`, whose registry generates the OpenAPI document checked against docs/api/openapi.yaml), Prisma ORM on PostgreSQL 17 (D-074, ADR-014; replaces NestJS of D-051). Every migration ships with a hand-written down.sql so it is reversible.
 * Frontend: Vite + React 19 + TypeScript single-page application as the installable offline-first PWA (React Router, TanStack Query, Serwist service worker, Dexie/IndexedDB outbox for offline records and a separate photo queue), Tailwind CSS bound to the §12 tokens as CSS variables, use-intl for bn/en (D-073, replaces Next.js of D-052).
 * Monorepo: pnpm workspaces — apps/web, apps/api, packages/shared (zod schemas, permission names, i18n keys, pure business-rule functions such as score, zakat and budget math), packages/ui (design system), packages/config.
-* Background jobs: pg-boss (PostgreSQL-backed queue, no Redis). Object storage: MinIO (self-hosted, S3-compatible, presigned expiring URLs) with a local-filesystem adapter for tests. Email: Nodemailer over the organization's SMTP (Mailpit in dev). SMS: provider-agnostic adapter with a logging stub in dev; the real provider is chosen before production (needed before Qurbani).
+* Background jobs: pg-boss (PostgreSQL-backed queue, no Redis). Object storage: one storage adapter (the organization's shape) with an S3 driver on self-hosted MinIO until the NAS driver exists, private buckets and no signed URLs, and a filesystem driver for tests (D-074). Email: Nodemailer over the organization's SMTP (Mailpit in dev). SMS: provider-agnostic adapter with a logging stub in dev; the real provider is chosen before production (needed before Qurbani).
 * Dev/test infrastructure: Docker Compose (postgres, minio, mailpit); CI on the organization's Git hosting running lint, typecheck, unit, API and E2E tests.
 Still to confirm with the project owner: SMS provider (before production); brand assets; server details for deployment.
 

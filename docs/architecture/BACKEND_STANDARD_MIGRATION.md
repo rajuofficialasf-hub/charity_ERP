@@ -1,6 +1,6 @@
 # Backend migration to the organization's standard (Express 5, auth-core)
 
-Status: analysis complete, task T1.7c (2026-10-11). Decisions below are recorded as D-074 in `docs/DECISION_LOG.md`; the owner delegated them in chat ("decide yourself and act accordingly", 2026-10-11) after choosing the organization's standard for the backend as well as the frontend (D-073). The migration itself is task T1.7d.
+Status: analysis complete, task T1.7c (2026-10-11); **migration done on 2026-10-12** (task T1.7d, plan `docs/plans/2026-10-11-1742-chore-stack-adoption-admin-minimal-plan.md`, ADR-014): every step of section 5 is complete and NestJS is gone from the repository. Decisions below are recorded as D-074 in `docs/DECISION_LOG.md`; the owner delegated them in chat ("decide yourself and act accordingly", 2026-10-11) after choosing the organization's standard for the backend as well as the frontend (D-073). The migration itself is task T1.7d.
 
 ## 1. Why
 

@@ -12,7 +12,7 @@ One git repository managed with pnpm workspaces:
 
 ```
 apps/web        Vite React SPA (PWA; ADR-013)
-apps/api        NestJS API and worker entry points
+apps/api        Express 5 API and worker entry points (ADR-014)
 packages/shared zod schemas, permission names, i18n keys, pure business rules (score, zakat, budget, form evaluator)
 packages/ui     design system components and tokens
 packages/config eslint, tsconfig, prettier shared configuration
