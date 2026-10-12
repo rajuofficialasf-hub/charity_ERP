@@ -19,17 +19,32 @@ export class RegistrationCleanup {
     private readonly logger: Logger,
   ) {}
 
-  async run(limit = 500): Promise<{ files: number }> {
-    const rows = await this.prisma.$queryRaw<{ bucket: string; object_key: string }[]>`
-      SELECT bucket, object_key FROM purge_expired_registration_drafts(${limit}::int)`;
+  async run(batch = 500, maxBatches = 20): Promise<{ files: number }> {
+    let files = 0;
+    // Batches keep each transaction short; a backlog is worked off in one run.
+    for (let i = 0; i < maxBatches; i += 1) {
+      const { removed, drafts } = await this.purge(batch);
+      files += removed;
+      if (drafts < batch) break;
+    }
+    this.logger.info({ files }, 'expired registration drafts purged');
+    return { files };
+  }
+
+  private async purge(batch: number): Promise<{ removed: number; drafts: number }> {
+    const rows = await this.prisma.$queryRaw<
+      { bucket: string | null; object_key: string | null; drafts: number }[]
+    >`SELECT bucket, object_key, drafts FROM purge_expired_registration_drafts(${batch}::int)`;
+    let removed = 0;
     for (const row of rows) {
+      if (!row.bucket || !row.object_key) continue;
+      removed += 1;
       try {
         await this.storage.remove(row.bucket as Bucket, row.object_key);
       } catch (error) {
         this.logger.warn({ err: error, bucket: row.bucket }, 'draft photo object not removed');
       }
     }
-    this.logger.info({ files: rows.length }, 'expired registration drafts purged');
-    return { files: rows.length };
+    return { removed, drafts: rows[0]?.drafts ?? 0 };
   }
 }

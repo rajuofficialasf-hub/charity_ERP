@@ -234,7 +234,7 @@ describe('auth rate-limit keys (AUTH.md 12)', () => {
   });
 });
 
-describe('registration rate-limit windows (DECISION_LOG D-082, D-088)', () => {
+describe('registration rate-limit windows', () => {
   const req = (body: unknown) => ({ body, ip: '10.0.0.1', headers: {} }) as never;
 
   it('caps starts at 10 per address and day besides the code windows', () => {
@@ -245,13 +245,16 @@ describe('registration rate-limit windows (DECISION_LOG D-082, D-088)', () => {
     ]);
   });
 
-  it('counts reference lookups per address and per NID, the NID only as a hash', () => {
-    const [byIp, byNid] = RATE_LIMITS['reference-lookup'];
-    expect([byIp!.limit, byNid!.limit]).toEqual([20, 5]);
-    const key = byNid!.key(req({ nid: '1000000000123' }));
-    expect(key).toMatch(/^nid:/);
-    expect(key).not.toContain('1000000000123');
-    expect(byNid!.key(req({ nid: '1000000000123' }))).toBe(key);
-    expect(byNid!.key(req({ nid: '1000000000124' }))).not.toBe(key);
+  it('counts reference lookups per address only; the per-NID count needs a draft token', () => {
+    expect(RATE_LIMITS['reference-lookup'].map((w) => [w.limit, w.ttlMs, w.byIp])).toEqual([
+      [20, 86_400_000, true],
+    ]);
+  });
+
+  it('keys a code resend by its registration draft, not one shared bucket', () => {
+    const [byAddress] = RATE_LIMITS['otp-request'];
+    const a = byAddress!.key(req({ registrationId: 'A', channel: 'sms' }));
+    expect(a).not.toBe('none');
+    expect(byAddress!.key(req({ registrationId: 'B', channel: 'sms' }))).not.toBe(a);
   });
 });

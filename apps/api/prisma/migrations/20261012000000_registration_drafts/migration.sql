@@ -81,28 +81,34 @@ CREATE TRIGGER registration_drafts_set_updated_at BEFORE UPDATE ON "registration
 
 -- The daily cleanup (DATABASE_SCHEMA 21): unsubmitted drafts past expires_at (24 hours after the
 -- start or the last verification) go with their photo rows. The cleanup role may only EXECUTE
--- this function, so it can never delete other files rows. Returns the objects for the job to
--- remove from storage; a photo still referenced elsewhere makes the foreign key refuse the call.
+-- this function, so it can never delete other files rows. Returns one row per removed photo
+-- object for the job to remove from storage, each with the number of drafts deleted (one row
+-- with null bucket and key when the drafts had no photos); a photo still referenced elsewhere
+-- makes the foreign key refuse the call.
 CREATE FUNCTION purge_expired_registration_drafts(p_limit integer DEFAULT 500)
-  RETURNS TABLE (bucket text, object_key text)
+  RETURNS TABLE (bucket text, object_key text, drafts integer)
   LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_files uuid[];
+  v_drafts integer;
 BEGIN
   WITH gone AS (
     DELETE FROM registration_drafts d
      WHERE d.id IN (SELECT x.id FROM registration_drafts x
                      WHERE x.submitted_at IS NULL AND x.expires_at < now()
                      ORDER BY x.expires_at LIMIT p_limit)
-    RETURNING d.photo_file_id, d.nid_photo_file_id
+    RETURNING d.id, d.photo_file_id, d.nid_photo_file_id
   )
-  SELECT coalesce(array_agg(f), '{}') INTO v_files
-    FROM (SELECT photo_file_id FROM gone UNION SELECT nid_photo_file_id FROM gone) AS ids(f)
-   WHERE f IS NOT NULL;
+  SELECT count(DISTINCT gone.id)::integer, coalesce(array_agg(ids.f) FILTER (WHERE ids.f IS NOT NULL), '{}')
+    INTO v_drafts, v_files
+    FROM gone, LATERAL (VALUES (gone.photo_file_id), (gone.nid_photo_file_id)) AS ids(f);
   RETURN QUERY
     DELETE FROM files fl
      WHERE fl.id = ANY (v_files) AND fl.kind IN ('profile_photo', 'nid_photo')
-    RETURNING fl.bucket, fl.object_key;
+    RETURNING fl.bucket, fl.object_key, v_drafts;
+  IF NOT FOUND AND v_drafts > 0 THEN
+    RETURN QUERY SELECT NULL::text, NULL::text, v_drafts;
+  END IF;
 END $$;
 REVOKE ALL ON FUNCTION purge_expired_registration_drafts(integer) FROM PUBLIC;
 

@@ -2,7 +2,11 @@ import { createHash, randomUUID } from 'node:crypto';
 import { Readable, Writable } from 'node:stream';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import pino from 'pino';
+import { identifierHash } from '../../src/auth/otp.service';
+import { RegistrationCleanup } from '../../src/jobs/registration-cleanup';
 import type { RegistrationEvent } from '../../src/notifications/registration-events';
+import type { StorageDriver } from '../../src/storage';
 import { account, authHarness, type AuthHarness } from './support/auth-app';
 import * as f from './support/fixtures';
 
@@ -58,6 +62,15 @@ async function verified(kind: 'volunteer' | 'staff' = 'volunteer') {
   };
 }
 
+/** The registration codes sent to one address (OTP addresses are stored only as HMACs). */
+const codesOf = async (address: string) =>
+  (
+    await h.db.query(
+      `SELECT channel, attempts FROM otp_codes WHERE purpose = 'registration' AND address_hash = $1 ORDER BY created_at`,
+      [identifierHash(h.container.env, address)],
+    )
+  ).rows as { channel: string; attempts: number }[];
+
 const auditActions = async (entityId: string) =>
   (
     await h.db.query('SELECT action FROM audit_log WHERE entity_id = $1 ORDER BY created_at', [
@@ -83,10 +96,8 @@ describe('POST /auth/register/start', () => {
       email: c.email,
       token_hash: null,
     });
-    const codes = await h.db.query(
-      `SELECT channel FROM otp_codes WHERE purpose = 'registration' AND created_at >= now() - interval '1 minute' ORDER BY channel`,
-    );
-    expect(codes.rows.map((r) => r.channel)).toEqual(expect.arrayContaining(['email', 'sms']));
+    expect((await codesOf(c.mobile)).map((r) => r.channel)).toEqual(['sms']);
+    expect((await codesOf(c.email)).map((r) => r.channel)).toEqual(['email']);
     expect(await auditActions(id)).toEqual(['auth.register_started']);
     expect(events).toContainEqual({ type: 'registration.started', draftId: id });
   });
@@ -109,11 +120,17 @@ describe('POST /auth/register/start', () => {
     expect((await start({ ...contacts(), mobile: '12345' })).status).toBe(422);
   });
 
-  it('resumes the open draft of the same mobile and email', async () => {
+  it('resumes the open draft of the same mobile and email, but not an expired one', async () => {
     const c = contacts();
     const first = await start(c);
     const second = await start(c);
     expect(second.body.data.registrationId).toBe(first.body.data.registrationId);
+    await h.db.query(
+      `UPDATE registration_drafts SET expires_at = now() - interval '1 minute' WHERE id = $1`,
+      [first.body.data.registrationId],
+    );
+    const third = await start(c);
+    expect(third.body.data.registrationId).not.toBe(first.body.data.registrationId);
   });
 });
 
@@ -150,10 +167,10 @@ describe('POST /auth/register/otp/verify', () => {
     ]);
     const mobileWrong = await verify(id, '111111', CODE);
     expect(mobileWrong.body.error.details[0].path).toBe('mobileCode');
-    const attempts = await h.db.query(
-      `SELECT max(attempts)::int AS most FROM otp_codes WHERE purpose = 'registration' AND consumed_at IS NULL`,
-    );
-    expect(attempts.rows[0].most).toBeGreaterThanOrEqual(1);
+    // the mobile code was checked twice (right, then wrong); the second call stopped before the
+    // email code, which was checked once (wrong)
+    expect((await codesOf(c.mobile)).map((r) => r.attempts)).toEqual([2]);
+    expect((await codesOf(c.email)).map((r) => r.attempts)).toEqual([1]);
     expect((await verify(id)).status).toBe(200);
     expect(await auditActions(id)).toContain('auth.otp_failed');
   });
@@ -172,6 +189,45 @@ describe('POST /auth/register/otp/verify', () => {
     const again = (await start({ mobile: rejected.mobile, email: contacts().email })).body.data
       .registrationId as string;
     expect((await verify(again)).status).toBe(200);
+  });
+
+  it('counts an approved, later closed volunteer and an official who held a role as taken', async () => {
+    const loc = await f.locationTree(h.db);
+    const closed = await account(h.db, { kind: 'volunteer', state: 'deactivated' });
+    await f.volunteer(h.db, loc, closed.id, { approved_at: new Date() });
+    const v = (await start({ mobile: closed.mobile, email: contacts().email })).body.data
+      .registrationId as string;
+    expect((await verify(v)).status).toBe(409);
+
+    const withRole = await account(h.db, { kind: 'staff', state: 'deactivated' });
+    const s1 = (await start({ mobile: f.fakeMobile(), email: withRole.email!, kind: 'staff' })).body
+      .data.registrationId as string;
+    expect((await verify(s1)).status).toBe(409);
+
+    const noRole = `norole${++n}@example.org`;
+    await f.user(h.db, { kind: 'staff', email: noRole, state: 'deactivated' });
+    const s2 = (await start({ mobile: f.fakeMobile(), email: noRole, kind: 'staff' })).body.data
+      .registrationId as string;
+    expect((await verify(s2)).status).toBe(200);
+  });
+
+  it('a taken contact ends an earlier verification of the same draft', async () => {
+    const r = await verified();
+    await account(h.db, { kind: 'volunteer' }).then((a) =>
+      h.db.query('UPDATE users SET mobile = $1 WHERE id = $2', [r.mobile, a.id]),
+    );
+    await api()
+      .post('/api/v1/auth/register/otp/send')
+      .send({ registrationId: r.registrationId, channel: 'sms' });
+    await api()
+      .post('/api/v1/auth/register/otp/send')
+      .send({ registrationId: r.registrationId, channel: 'email' });
+    expect((await verify(r.registrationId)).status).toBe(409);
+    const res = await api()
+      .post('/api/v1/auth/register/reference-lookup')
+      .set(TOKEN_HEADER, r.token)
+      .send({ registrationId: r.registrationId, nid: f.fakeNid() });
+    expect(res.status).toBe(401);
   });
 
   it('refuses an unknown draft (404) and an expired one (410)', async () => {
@@ -260,6 +316,31 @@ describe('POST /auth/register/reference-lookup', () => {
     expect((await lookup(unverified, nid, a.token)).status).toBe(401);
   });
 
+  it('answers 410 for an expired draft with its valid token', async () => {
+    const r = await verified();
+    await h.db.query(
+      `UPDATE registration_drafts SET expires_at = now() - interval '1 minute' WHERE id = $1`,
+      [r.registrationId],
+    );
+    const res = await lookup(r.registrationId, f.fakeNid(), r.token);
+    expect(res.status).toBe(410);
+    expect(res.body.error.code).toBe('registration.draft_expired');
+  });
+
+  it('allows 5 lookups of one NID per day across drafts, counted only with a valid token', async () => {
+    const nid = f.fakeNid();
+    const a = await verified();
+    const b = await verified();
+    // requests without a valid token do not use up the NID
+    for (let i = 0; i < 6; i += 1)
+      expect((await lookup(a.registrationId, nid, 'y'.repeat(43))).status).toBe(401);
+    for (let i = 0; i < 3; i += 1)
+      expect((await lookup(a.registrationId, nid, a.token)).status).toBe(404);
+    for (let i = 0; i < 2; i += 1)
+      expect((await lookup(b.registrationId, nid, b.token)).status).toBe(404);
+    expect((await lookup(b.registrationId, nid, b.token)).status).toBe(429);
+  });
+
   it('stops after 5 lookups per draft', async () => {
     const r = await verified();
     for (let i = 0; i < 5; i += 1)
@@ -315,6 +396,54 @@ describe('the daily cleanup of unsubmitted drafts', () => {
   });
 });
 
+describe('the cleanup when the storage fails', () => {
+  it('still purges the rows, logs the failure and counts the photos', async () => {
+    const lines: string[] = [];
+    const logger = pino({ level: 'warn' }, { write: (l: string) => void lines.push(l) });
+    const failing = {
+      remove: async () => {
+        throw new Error('storage down');
+      },
+    } as unknown as StorageDriver;
+    const id = randomUUID();
+    await f.insert(h.db, 'files', {
+      id,
+      bucket: 'profiles',
+      object_key: `registration/${id}.jpg`,
+      kind: 'nid_photo',
+      mime: 'image/jpeg',
+      size_bytes: 4,
+      sha256: createHash('sha256').update(id).digest('hex'),
+      source: 'gallery',
+    });
+    const draft = (await start(contacts())).body.data.registrationId as string;
+    await h.db.query(
+      `UPDATE registration_drafts SET expires_at = now() - interval '1 minute', nid_photo_file_id = $2 WHERE id = $1`,
+      [draft, id],
+    );
+    const result = await new RegistrationCleanup(h.container.prisma, failing, logger).run();
+    expect(result.files).toBe(1);
+    expect(
+      (await h.db.query('SELECT 1 FROM registration_drafts WHERE id = $1', [draft])).rowCount,
+    ).toBe(0);
+    expect(lines.join('')).toContain('draft photo object not removed');
+  });
+
+  it('works off a backlog larger than one batch, also of drafts without photos', async () => {
+    const ids: string[] = [];
+    for (let i = 0; i < 3; i += 1)
+      ids.push((await start(contacts())).body.data.registrationId as string);
+    await h.db.query(
+      `UPDATE registration_drafts SET expires_at = now() - interval '1 minute' WHERE id = ANY($1)`,
+      [ids],
+    );
+    await h.container.registrationCleanup.run(1);
+    expect(
+      (await h.db.query('SELECT 1 FROM registration_drafts WHERE id = ANY($1)', [ids])).rowCount,
+    ).toBe(0);
+  });
+});
+
 describe('logs', () => {
   it('carry no draft token, code, mobile, email or NID', async () => {
     const r = await verified();
@@ -336,6 +465,29 @@ describe('rate limits with the real values', () => {
     real = await authHarness({ realRateLimits: true });
   });
   afterAll(async () => real.close());
+
+  it('gives every draft its own resend window', async () => {
+    const drafts: string[] = [];
+    for (const c of [contacts(), contacts()])
+      drafts.push(
+        (
+          await real.db.query(
+            `INSERT INTO registration_drafts (id, mobile, email, expires_at) VALUES (gen_random_uuid(), $1, $2, now() + interval '1 day') RETURNING id`,
+            [c.mobile, c.email],
+          )
+        ).rows[0].id as string,
+      );
+    // 6 resends in all: one shared bucket of 5 would refuse the last
+    for (const id of drafts)
+      for (let i = 0; i < 3; i += 1)
+        expect(
+          (
+            await request(real.server())
+              .post('/api/v1/auth/register/otp/send')
+              .send({ registrationId: id, channel: 'sms' })
+          ).status,
+        ).toBe(204);
+  });
 
   it('refuses the eleventh start from one address in a day', async () => {
     const statuses: number[] = [];

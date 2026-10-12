@@ -67,10 +67,11 @@ describe('GET /locations without a login', () => {
   });
 
   it('answers 429 after 300 calls per hour from one address', async () => {
-    let last = 0;
-    for (let i = 0; i < 300; i += 1) last = (await fetch(`${base}/locations`)).status;
-    // the earlier tests made a few calls too, so the window is already over its limit here
-    expect(last).toBe(429);
+    const statuses: number[] = [];
+    for (let i = 0; i < 302; i += 1) statuses.push((await fetch(`${base}/locations`)).status);
+    // earlier tests of this file may have used part of the window: at most 300 succeed in all
+    expect(statuses.filter((s) => s === 200).length).toBeLessThanOrEqual(300);
+    expect(statuses.at(-1)).toBe(429);
     const res = await fetch(`${base}/locations`);
     expect(res.status).toBe(429);
     expect(res.headers.get('retry-after')).toBeTruthy();

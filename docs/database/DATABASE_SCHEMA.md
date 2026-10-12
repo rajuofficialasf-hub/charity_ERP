@@ -272,7 +272,7 @@ Indexes: (user_id) WHERE revoked_at IS NULL; UNIQUE (refresh_token_hash).
 Index: (address_hash, purpose, created_at desc). Rows are deleted by a job after expiry (technical data, not business data).
 
 ### registration_drafts
-A registration between `start` and `submit` (AUTH.md 2, D-082). Technical data: an unsubmitted draft is deleted with its photos once `expires_at` (24 hours after the start or the last verification) has passed, by a daily job through the function `purge_expired_registration_drafts(limit)`, which returns the storage objects to remove; a submitted draft keeps the link to the account it created and no token (CHECK).
+A registration between `start` and `submit` (AUTH.md 2, D-082). Technical data: an unsubmitted draft is deleted with its photos once `expires_at` (24 hours after the start or the last verification) has passed, by a daily job through the function `purge_expired_registration_drafts(limit)`, which returns the storage objects to remove and the number of drafts deleted (the job repeats it while a batch is full); a submitted draft keeps the link to the account it created and no token (CHECK).
 
 | Column | Type | Null | Default | Comment |
 |---|---|---|---|---|

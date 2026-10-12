@@ -11,6 +11,8 @@ export const REGISTRATION_RULES = {
   draftLifeMs: 24 * 60 * 60_000,
   /** Reference lookups a team member may make per draft (D-088). */
   maxReferenceLookups: 5,
+  /** Lookups of one NID per day across all drafts (D-088). */
+  maxLookupsPerNidPerDay: 5,
 } as const;
 
 export const REGISTRATION_KINDS = ['volunteer', 'staff'] as const;
@@ -69,9 +71,4 @@ export interface RegistrationVerified {
 /** The expiry of a draft started or verified at `at`. */
 export function draftExpiry(at: Date): Date {
   return new Date(at.getTime() + REGISTRATION_RULES.draftLifeMs);
-}
-
-/** Lookups left on a draft; never negative. */
-export function lookupsLeft(used: number): number {
-  return Math.max(0, REGISTRATION_RULES.maxReferenceLookups - used);
 }

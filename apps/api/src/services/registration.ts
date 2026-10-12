@@ -1,5 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { uuidv7 } from '@css/shared';
+import { z } from 'zod';
 import type { Locale } from '@css/shared/i18n';
 import {
   draftExpiry,
@@ -7,7 +8,7 @@ import {
   type OtpVerifyRequest,
   REGISTRATION_RULES,
   type ReferenceLookupRequest,
-  type RegistrationKind,
+  REGISTRATION_KINDS,
   type RegistrationStart,
   type RegistrationStartRequest,
   type RegistrationVerified,
@@ -146,11 +147,13 @@ export class RegistrationService {
     await this.prisma.$transaction(async (tx) => {
       for (const id of codes)
         if (!(await this.otp.consume(tx, id))) throw new ApiError('otp.invalid', 422);
-      if (!exists)
-        await tx.registrationDraft.update({
-          where: { id: draft.id },
-          data: { tokenHash: tokenHash(token), verifiedAt: now, expiresAt },
-        });
+      // A taken contact also ends an earlier verification of this draft (its token stops working).
+      await tx.registrationDraft.update({
+        where: { id: draft.id },
+        data: exists
+          ? { tokenHash: null, verifiedAt: null }
+          : { tokenHash: tokenHash(token), verifiedAt: now, expiresAt },
+      });
       await this.audit.record(tx, {
         action: 'auth.otp_verified',
         entityType: 'registration_draft',
@@ -163,7 +166,7 @@ export class RegistrationService {
     return {
       registrationToken: token,
       expiresAt: expiresAt.toISOString(),
-      kind: draft.kind as RegistrationKind,
+      kind: z.enum(REGISTRATION_KINDS).parse(draft.kind),
     };
   }
 
@@ -195,6 +198,16 @@ export class RegistrationService {
     token: string | undefined,
   ): Promise<{ name: string }> {
     const draft = await this.ownedDraft(body.registrationId, token);
+    const nidHash = identifierHash(this.env, `nid:${body.nid}`);
+    const sameNid = await this.prisma.auditLog.count({
+      where: {
+        action: 'auth.reference_lookup',
+        createdAt: { gt: new Date(this.clock.now().getTime() - 86_400_000) },
+        new: { path: ['nidHash'], equals: nidHash },
+      },
+    });
+    if (sameNid >= REGISTRATION_RULES.maxLookupsPerNidPerDay)
+      throw new ApiError('rate_limit.exceeded', 429);
     const reserved = await this.prisma.registrationDraft.updateMany({
       where: { id: draft.id, referenceLookups: { lt: REGISTRATION_RULES.maxReferenceLookups } },
       data: { referenceLookups: { increment: 1 } },
@@ -205,7 +218,7 @@ export class RegistrationService {
       select: { user: { select: { displayName: true } } },
     });
     await this.draftAudit('auth.reference_lookup', draft.id, {
-      nidHash: identifierHash(this.env, `nid:${body.nid}`),
+      nidHash,
       found: Boolean(volunteer),
     });
     this.events.emit({ type: 'registration.reference_lookup', draftId: draft.id });
