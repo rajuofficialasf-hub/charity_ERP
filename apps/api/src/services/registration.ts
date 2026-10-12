@@ -172,11 +172,23 @@ export class RegistrationService {
     });
     if (exists) throw new ApiError('registration.account_exists', 409);
     this.events.emit({ type: 'registration.verified', draftId: draft.id });
+    const kind = z.enum(REGISTRATION_KINDS).parse(draft.kind);
     return {
       registrationToken: token,
       expiresAt: expiresAt.toISOString(),
-      kind: z.enum(REGISTRATION_KINDS).parse(draft.kind),
+      kind,
+      // the staff form names a program; only a verified official's draft learns their names
+      ...(kind === 'staff' ? { programs: await this.activePrograms() } : {}),
     };
+  }
+
+  private async activePrograms() {
+    const rows = await this.prisma.program.findMany({
+      where: { active: true },
+      orderBy: { code: 'asc' },
+      select: { id: true, nameBn: true, nameEn: true },
+    });
+    return rows.map((p) => ({ id: p.id, name: { bn: p.nameBn, en: p.nameEn } }));
   }
 
   /**

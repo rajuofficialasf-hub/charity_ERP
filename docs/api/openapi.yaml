@@ -499,6 +499,15 @@ components:
         registrationToken: { type: string, description: Shown once; sent back in X-Registration-Token (D-082) }
         expiresAt: { type: string, format: date-time }
         kind: { type: string, enum: [volunteer, staff] }
+        programs:
+          type: array
+          description: The active programs for the staff form; an official's draft only (R5 of the T1.9 plan)
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id: { $ref: '#/components/schemas/Uuid' }
+              name: { $ref: '#/components/schemas/Bilingual' }
     RegistrationVerifiedResponse:
       type: object
       required: [data, meta]

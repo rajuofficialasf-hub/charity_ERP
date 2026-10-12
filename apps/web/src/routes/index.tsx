@@ -6,6 +6,7 @@ import { HomeView } from '../features/account/HomeView';
 import { SessionsView } from '../features/account/SessionsView';
 import { LoginPage } from '../features/auth/LoginPage';
 import { ResetPage } from '../features/auth/ResetPage';
+import { RegisterPage } from '../features/registration/RegisterPage';
 
 /** The dev-only component gallery (T1.4) exists in `vite dev` and in the E2E build only. */
 export const GALLERY_ENABLED = import.meta.env.DEV || import.meta.env.VITE_DEV_GALLERY === '1';
@@ -23,6 +24,7 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
         { path: '/', element: <HomeView /> },
         { path: '/login', element: <LoginPage /> },
         { path: '/login/reset', element: <ResetPage /> },
+        { path: '/register', element: <RegisterPage /> },
         { path: '/account/sessions', element: <SessionsView /> },
         { path: '/account/password', element: <ChangePasswordView /> },
         {

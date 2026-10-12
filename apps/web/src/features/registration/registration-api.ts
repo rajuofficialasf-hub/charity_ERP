@@ -1,0 +1,89 @@
+import type { Me } from '@css/shared/auth';
+import {
+  type PhotoSlot,
+  REGISTRATION_TOKEN_HEADER,
+  type RegistrationKind,
+  type RegistrationStart,
+  type RegistrationSubmitRequest,
+  type RegistrationVerified,
+} from '@css/shared/registration';
+import { api, ApiFailure } from '../../lib/api';
+
+/**
+ * The calls of the registration before login (AUTH.md 2; DECISION_LOG D-082). The draft token
+ * lives only in memory and travels in the X-Registration-Token header, never in a URL (NE-CFG-03).
+ */
+export interface Draft {
+  registrationId: string;
+  kind: RegistrationKind;
+  mobile: string;
+  email: string;
+  token?: string;
+  programs?: RegistrationVerified['programs'];
+}
+
+export interface Location {
+  id: string;
+  name: { bn: string; en: string };
+}
+
+export const startRegistration = (body: {
+  mobile: string;
+  email: string;
+  kind: RegistrationKind;
+}) => api<RegistrationStart>('/auth/register/start', { method: 'POST', body }, false);
+
+export const resendCode = (registrationId: string, channel: 'sms' | 'email') =>
+  api<void>(
+    '/auth/register/otp/send',
+    { method: 'POST', body: { registrationId, channel } },
+    false,
+  );
+
+export const verifyCodes = (registrationId: string, mobileCode: string, emailCode: string) =>
+  api<RegistrationVerified>(
+    '/auth/register/otp/verify',
+    { method: 'POST', body: { registrationId, mobileCode, emailCode } },
+    false,
+  );
+
+const tokenHeader = (draft: Draft) => ({ [REGISTRATION_TOKEN_HEADER]: draft.token ?? '' });
+
+export const lookupReference = (draft: Draft, nid: string) =>
+  api<{ name: string }>(
+    '/auth/register/reference-lookup',
+    {
+      method: 'POST',
+      body: { registrationId: draft.registrationId, nid },
+      headers: tokenHeader(draft),
+    },
+    false,
+  );
+
+export const uploadDraftPhoto = (draft: Draft, slot: PhotoSlot, photo: Blob, source: string) =>
+  api<{ fileId: string }>(
+    `/auth/register/photos/${slot}?registrationId=${draft.registrationId}&source=${source}`,
+    {
+      method: 'POST',
+      rawBody: photo,
+      headers: { ...tokenHeader(draft), 'Content-Type': photo.type },
+    },
+    false,
+  );
+
+export const submitRegistration = (draft: Draft, body: RegistrationSubmitRequest) =>
+  api<Me>('/auth/register/submit', { method: 'POST', body, headers: tokenHeader(draft) }, false);
+
+export const locations = (parentId?: string) =>
+  api<Location[]>(`/locations${parentId ? `?parentId=${parentId}` : ''}`, {}, false);
+
+/** Field errors of a 422 answer by field name, and the first message for everything else. */
+export function failureOf(error: unknown, offline: string) {
+  if (!(error instanceof ApiFailure)) return { fields: {}, message: offline, code: 'offline' };
+  const fields = Object.fromEntries(error.details.map((d) => [d.path ?? '', d.message]));
+  return {
+    fields: fields as Record<string, string>,
+    message: Object.keys(fields).length ? null : error.message,
+    code: error.code,
+  };
+}

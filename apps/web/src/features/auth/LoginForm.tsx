@@ -25,6 +25,7 @@ function useFailureText() {
 /** Sign in with mobile number or email and password (SCR-001, AUTH.md 4). */
 export function LoginForm({ ended }: { ended?: string }) {
   const t = useTranslations('auth.login');
+  const tr = useTranslations('registration');
   const locale = useLocale();
   const navigate = useNavigate();
   const { setLocale } = useLocaleSwitch();
@@ -98,6 +99,10 @@ export function LoginForm({ ended }: { ended?: string }) {
         </Button>
         <Button variant="ghost" href="/login/reset">
           {t('forgot')}
+        </Button>
+        <p className="m-0">{tr('link_intro')}</p>
+        <Button variant="secondary" href="/register" fullWidth>
+          {tr('link')}
         </Button>
       </div>
     </Form>

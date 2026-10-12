@@ -170,6 +170,8 @@ export function refreshSession(): Promise<TokenPair | null> {
 export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
+  /** A body sent as it is (a photo); its type goes in `headers`. */
+  rawBody?: Blob;
   headers?: Record<string, string>;
 }
 
@@ -184,11 +186,14 @@ export async function api<T>(path: string, options: RequestOptions = {}, retry =
     headers: {
       'Accept-Language': language(),
       'X-Client-Version': APP_VERSION,
-      ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      ...(options.body === undefined || options.rawBody
+        ? {}
+        : { 'Content-Type': 'application/json' }),
       ...(state.accessToken ? { Authorization: `Bearer ${state.accessToken}` } : {}),
       ...options.headers,
     },
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    body:
+      options.rawBody ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
   });
   if (res.ok) {
     if (res.status === 204) return undefined as T;
@@ -202,8 +207,13 @@ export async function api<T>(path: string, options: RequestOptions = {}, retry =
   ) {
     if (await refreshSession()) return api<T>(path, options, false);
   }
+  // only a session answer ends the session (a registration draft answers registration.* codes)
   if (res.status === 401 && REVOKING.has(error.code)) await endSession('revoked');
-  else if (res.status === 401 && error.code !== 'auth.invalid_credentials')
+  else if (
+    res.status === 401 &&
+    error.code.startsWith('auth.') &&
+    error.code !== 'auth.invalid_credentials'
+  )
     await endSession('expired');
   throw error;
 }

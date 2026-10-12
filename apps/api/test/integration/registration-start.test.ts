@@ -135,6 +135,22 @@ describe('POST /auth/register/start', () => {
 });
 
 describe('POST /auth/register/otp/verify', () => {
+  it("gives an official's draft the active programs for the form, and a volunteer's none", async () => {
+    const program = (await f.project(h.db)).program;
+    const staff = await verified('staff');
+    const res = await request(h.server())
+      .post('/api/v1/auth/register/start')
+      .send({ mobile: staff.mobile, email: staff.email, kind: 'staff' });
+    const again = await verify(res.body.data.registrationId);
+    expect(again.status).toBe(200);
+    expect(again.body.data.programs).toContainEqual({
+      id: program,
+      name: { bn: 'প্রোগ্রাম', en: 'Program' },
+    });
+    const volunteer = await verify((await start(contacts())).body.data.registrationId);
+    expect(volunteer.body.data).not.toHaveProperty('programs');
+  });
+
   it('marks the draft verified and returns the token once; only its hash is stored', async () => {
     const r = await verified();
     expect(r.token.length).toBeGreaterThanOrEqual(32);

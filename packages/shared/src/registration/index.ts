@@ -77,6 +77,8 @@ export interface RegistrationVerified {
   registrationToken: string;
   expiresAt: string;
   kind: RegistrationKind;
+  /** The active programs for the staff form (an official's draft only). */
+  programs?: { id: string; name: { bn: string; en: string } }[];
 }
 
 /** The expiry of a draft started or verified at `at`. */
