@@ -226,7 +226,7 @@ None block the plan.
 ## Progress
 - **Branch:** `feat/rbac-permission-panel`
 - **Updated:** 2026-10-12 11:35
-- **Next:** checkpoint C1 (test + review of U1), then U2: effective permissions (`apps/api/src/access/effective.ts`, pure merge first)
-- **Reviewed through:** none yet
+- **Next:** U2: effective permissions (`apps/api/src/access/effective.ts`, pure merge function and its unit tests first)
+- **Reviewed through:** C1 at 8861af0
 - **Uncommitted:** none
-- **Notes:** U1: permission names may contain digits (`i18n.manage`); zod errors report the offending input; `loadAccessRegistry` caches per path and process; `RouteDeps.permissions` is the registry (the existing `RouteDeps.access` stays the middleware factory); the drift fixture now drifts with a known but different permission because unknown names cannot be registered any more.
+- **Notes:** C1: no P0/P1; the worker also loads permissions.yaml through `createContainer` (fail-closed), so the T3.0 worker image must contain the file too (written in the env comment; DEPLOYMENT in U9). U1: permission names may contain digits (`i18n.manage`); zod errors report the offending input; `loadAccessRegistry` caches per path and process; `RouteDeps.permissions` is the registry (the existing `RouteDeps.access` stays the middleware factory); the drift fixture now drifts with a known but different permission because unknown names cannot be registered any more.
