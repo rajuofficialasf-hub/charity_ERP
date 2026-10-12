@@ -1,15 +1,8 @@
-import { Inject, Injectable, SetMetadata } from '@nestjs/common';
 import { uuidv7 } from '@css/shared';
 import type { Response } from 'express';
-import { PrismaService, type Tx } from '../core/prisma.service';
+import { type PrismaService, type Tx } from '../core/prisma.service';
 import { ApiError } from '../i18n/api-error';
 import type { Prisma } from '../generated/prisma/client';
-
-export const IDEMPOTENCY = 'css:idempotency';
-
-/** Declares how an endpoint is idempotent, the same value as its OpenAPI `x-idempotency`. */
-export const Idempotency = (mode: 'none' | 'clientUuid' | 'header') =>
-  SetMetadata(IDEMPOTENCY, mode);
 
 const KEY = /^[A-Za-z0-9_-]{8,128}$/;
 
@@ -20,9 +13,8 @@ const KEY = /^[A-Za-z0-9_-]{8,128}$/;
  * - header: the `Idempotency-Key` of sync and bulk endpoints is stored with the per-record results
  *   in `sync_batches`; a repeat returns the stored results unchanged, even under concurrency.
  */
-@Injectable()
 export class IdempotencyService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   /** Marks a response as a replay of an earlier create (clientUuid mode). */
   markReplay(res: Response): void {

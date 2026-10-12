@@ -11,7 +11,7 @@ async function main(): Promise<void> {
   logger.info('worker started');
 
   let stopping = false;
-  // SIGTERM stops intake and lets running jobs finish (JobRunner.onModuleDestroy, D-054).
+  // SIGTERM stops intake and lets running jobs finish (JobRunner.stop, D-054).
   const shutdown = (signal: NodeJS.Signals): void => {
     if (stopping) return;
     stopping = true;

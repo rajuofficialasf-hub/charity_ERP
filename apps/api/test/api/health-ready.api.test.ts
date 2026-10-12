@@ -25,7 +25,7 @@ describe('GET /health/ready', () => {
         storage: { ping: async () => state.storage } as unknown as Container['storage'],
         jobs: {
           ping: async () => state.queue,
-          onModuleDestroy: async () => {},
+          stop: async () => {},
         } as unknown as Container['jobs'],
       },
     });
@@ -73,7 +73,7 @@ describe('GET /health/ready', () => {
         storage: { ping: async () => true } as unknown as Container['storage'],
         jobs: {
           ping: async () => true,
-          onModuleDestroy: async () => {},
+          stop: async () => {},
         } as unknown as Container['jobs'],
       },
     });

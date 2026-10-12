@@ -1,4 +1,3 @@
-import { Injectable } from '@nestjs/common';
 import { uuidv7 } from '@css/shared';
 import type { Tx } from '../core/prisma.service';
 import { currentContext } from '../core/request-context';
@@ -26,7 +25,6 @@ export interface AuditEntry {
  * the business write committed. Actor, role, IP, device session and request id come from the
  * request context; the count feeds the audit enforcement of D-068.
  */
-@Injectable()
 export class AuditWriter {
   async record(tx: Tx, entry: AuditEntry): Promise<string> {
     const ctx = currentContext();

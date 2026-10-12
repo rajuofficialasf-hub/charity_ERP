@@ -10,7 +10,7 @@
     "./tsconfig/base.json": "./tsconfig/base.json",
     "./tsconfig/library.json": "./tsconfig/library.json",
     "./tsconfig/react-library.json": "./tsconfig/react-library.json",
-    "./tsconfig/nest.json": "./tsconfig/nest.json",
+    "./tsconfig/node.json": "./tsconfig/node.json",
     "./tsconfig/vite.json": "./tsconfig/vite.json",
     "./eslint-rules/no-literal-ui-text": "./eslint-rules/no-literal-ui-text.mjs"
   },

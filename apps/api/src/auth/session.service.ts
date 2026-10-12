@@ -1,11 +1,10 @@
-import { Inject, Injectable } from '@nestjs/common';
 import { uuidv7 } from '@css/shared';
 import type { DevicePlatform } from '@css/shared/auth';
-import { AuditWriter } from '../audit/audit-writer';
-import { CLOCK, type Clock } from '../core/clock';
-import { PrismaService, type Tx } from '../core/prisma.service';
+import { type AuditWriter } from '../audit/audit-writer';
+import type { Clock } from '../core/clock';
+import { type PrismaService, type Tx } from '../core/prisma.service';
 import { ApiError } from '../i18n/api-error';
-import { hashRefreshToken, TokenService } from './token.service';
+import { hashRefreshToken, type TokenService } from './token.service';
 
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
@@ -60,15 +59,14 @@ export interface RevokeBy {
  * reuse detection, revocation and the cached per-request check. Revocation evicts the cache entry
  * at once on this process; other processes see it within the cache time (one process today).
  */
-@Injectable()
 export class SessionService {
   private readonly cache = new Map<string, CacheEntry>();
 
   constructor(
-    @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Inject(TokenService) private readonly tokens: TokenService,
-    @Inject(AuditWriter) private readonly audit: AuditWriter,
-    @Inject(CLOCK) private readonly clock: Clock,
+    private readonly prisma: PrismaService,
+    private readonly tokens: TokenService,
+    private readonly audit: AuditWriter,
+    private readonly clock: Clock,
   ) {}
 
   /** Creates a session; the sixth active session of a user revokes the oldest (O-25). */

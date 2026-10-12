@@ -14,7 +14,7 @@ import {
   parseSort,
   searchWhere,
 } from './pagination';
-import { issueCode } from './validation';
+import { issueCode } from '../http/validate';
 
 const SECRET = 'unit-test-secret-0123456789abcdefgh';
 

@@ -1,4 +1,3 @@
-import { Injectable } from '@nestjs/common';
 import { hash, verify } from '@node-rs/argon2';
 
 /**
@@ -15,7 +14,6 @@ export const ARGON2_OPTIONS = {
 const CURRENT_PREFIX = `$argon2id$v=19$m=${ARGON2_OPTIONS.memoryCost},t=${ARGON2_OPTIONS.timeCost},p=${ARGON2_OPTIONS.parallelism}$`;
 
 /** Password hashing and verification; plaintext never leaves this class (AUTH.md 1). */
-@Injectable()
 export class PasswordHasher {
   private dummy?: Promise<string>;
 

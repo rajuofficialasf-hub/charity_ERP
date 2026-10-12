@@ -1,13 +1,10 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "display": "CSS ERP NestJS (CommonJS output, decorators with metadata)",
+  "display": "CSS ERP Node (CommonJS output for the Express api and the worker)",
   "extends": "./base.json",
   "compilerOptions": {
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "strictPropertyInitialization": false,
     "declaration": false,
     "sourceMap": true,
     "types": ["node"]

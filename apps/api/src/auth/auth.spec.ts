@@ -1,3 +1,4 @@
+import pino from 'pino';
 import { describe, expect, it, vi } from 'vitest';
 import { loadEnv } from '../config/env';
 import { ApiError } from '../i18n/api-error';
@@ -142,6 +143,7 @@ describe('OTP delivery (AUTH.md 2.1, BD-44, BD-49)', () => {
       env({ OTP_DUMMY_ENABLED: 'true', OTP_DUMMY_CODE: '135790' }),
       sms,
       email,
+      pino({ level: 'silent' }),
     );
     expect(delivery.newCode()).toBe('135790');
     await delivery.deliver(
@@ -155,7 +157,7 @@ describe('OTP delivery (AUTH.md 2.1, BD-44, BD-49)', () => {
 
   it('sends a random code through the real adapters with the bilingual template', async () => {
     const { sms, email } = adapters();
-    const delivery = new OtpDeliveryService(env(), sms, email);
+    const delivery = new OtpDeliveryService(env(), sms, email, pino({ level: 'silent' }));
     const code = delivery.newCode();
     expect(code).toMatch(/^\d{6}$/);
     await delivery.deliver(

@@ -1,4 +1,3 @@
-import { Injectable } from '@nestjs/common';
 import type { Principal } from './principal';
 
 /** Permissions every account holds on its own data until T1.8 resolves scopes (O-59 item 3). */
@@ -11,7 +10,6 @@ const SELF_PERMISSIONS = new Set(['session.revoke_own']);
  * SELF permissions on own data; everything else, including the `workflow` and `entity` markers,
  * is denied. Object-level checks (own session, system owner) stay in the services.
  */
-@Injectable()
 export class PermissionResolver {
   allows(permission: string, principal: Principal): boolean {
     if (permission === 'authenticated') return true;

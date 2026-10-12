@@ -1,19 +1,14 @@
 import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
-import { Inject, Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
+import type { Logger } from 'pino';
 import { uuidv7 } from '@css/shared';
 import { type Locale } from '@css/shared/i18n';
 import { NOTIFICATION_TEMPLATES } from '@css/shared';
 import { renderNotification } from '@css/shared/i18n';
-import { ENV, type Env } from '../config/env';
-import { CLOCK, type Clock } from '../core/clock';
-import { PrismaService } from '../core/prisma.service';
+import type { Env } from '../config/env';
+import type { Clock } from '../core/clock';
+import { type PrismaService } from '../core/prisma.service';
 import { ApiError } from '../i18n/api-error';
-import {
-  EMAIL_ADAPTER,
-  type EmailAdapter,
-  SMS_ADAPTER,
-  type SmsAdapter,
-} from '../notifications/adapters';
+import type { EmailAdapter, SmsAdapter } from '../notifications/adapters';
 
 /** OTP parameters (AUTH.md 2, O-25). */
 export const OTP_RULES = {
@@ -37,7 +32,7 @@ export function identifierHash(env: Env, value: string): string {
   return createHmac('sha256', env.OTP_SECRET).update(`id:${value}`).digest('base64url');
 }
 
-/** The start-up line of BD-49: a loud warning whenever the dummy OTP is on (server.ts, Nest). */
+/** The start-up line of BD-49: a loud warning whenever the dummy OTP is on (server.ts). */
 export function otpStartupMessage(dummy: boolean): { level: 'warn' | 'info'; text: string } {
   if (!dummy) return { level: 'info', text: 'OTP mode: real (SMS and email adapters)' };
   const line = '*'.repeat(72);
@@ -57,25 +52,16 @@ export function otpStartupMessage(dummy: boolean): { level: 'warn' | 'info'; tex
  * configured fixed code (development and test only, refused in production by the configuration);
  * the real path renders the bilingual template and sends through the SMS or email adapter.
  */
-@Injectable()
-export class OtpDeliveryService implements OnApplicationBootstrap {
-  private readonly logger = new Logger('OtpDelivery');
-
+export class OtpDeliveryService {
   constructor(
-    @Inject(ENV) private readonly env: Env,
-    @Inject(SMS_ADAPTER) private readonly sms: SmsAdapter,
-    @Inject(EMAIL_ADAPTER) private readonly email: EmailAdapter,
+    private readonly env: Env,
+    private readonly sms: SmsAdapter,
+    private readonly email: EmailAdapter,
+    private readonly logger: Logger,
   ) {}
 
   get dummy(): boolean {
     return this.env.OTP_DUMMY_ENABLED;
-  }
-
-  /** The loud start-up warning of BD-49 whenever the dummy OTP is on. */
-  onApplicationBootstrap(): void {
-    const { level, text } = otpStartupMessage(this.dummy);
-    if (level === 'warn') this.logger.warn(text);
-    else this.logger.log(text);
   }
 
   /** The code to issue: the fixed dummy code, or six random digits. */
@@ -91,7 +77,10 @@ export class OtpDeliveryService implements OnApplicationBootstrap {
     templateKey: string,
   ): Promise<void> {
     if (this.dummy) {
-      this.logger.log(`dummy OTP issued (${target.purpose}, ${target.channel}); nothing sent`);
+      this.logger.info(
+        { purpose: target.purpose, channel: target.channel },
+        'dummy OTP issued; nothing sent',
+      );
       return;
     }
     const template = NOTIFICATION_TEMPLATES.find((t) => t.key === templateKey);
@@ -111,13 +100,12 @@ export class OtpDeliveryService implements OnApplicationBootstrap {
  * per code and 5 requests per address and hour; codes and addresses are stored only as HMACs and
  * a code is used once. A failed attempt is committed even though the request then fails.
  */
-@Injectable()
 export class OtpService {
   constructor(
-    @Inject(ENV) private readonly env: Env,
-    @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Inject(CLOCK) private readonly clock: Clock,
-    @Inject(OtpDeliveryService) private readonly delivery: OtpDeliveryService,
+    private readonly env: Env,
+    private readonly prisma: PrismaService,
+    private readonly clock: Clock,
+    private readonly delivery: OtpDeliveryService,
   ) {}
 
   private codeHash(id: string, code: string): string {

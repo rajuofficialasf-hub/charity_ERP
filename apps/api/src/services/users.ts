@@ -1,13 +1,12 @@
-import { Inject, Injectable } from '@nestjs/common';
 import type { UserState, UserStateRequest } from '@css/shared/auth';
-import { AuditWriter } from '../audit/audit-writer';
-import { PermissionVersionService } from '../auth/permission-version.service';
+import { type AuditWriter } from '../audit/audit-writer';
+import { type PermissionVersionService } from '../auth/permission-version.service';
 import type { Principal } from '../auth/principal';
-import { SessionService } from '../auth/session.service';
-import { ENV, type Env } from '../config/env';
-import { CLOCK, type Clock } from '../core/clock';
+import { type SessionService } from '../auth/session.service';
+import type { Env } from '../config/env';
+import type { Clock } from '../core/clock';
 import { assertIfMatch } from '../core/etag';
-import { PrismaService } from '../core/prisma.service';
+import { type PrismaService } from '../core/prisma.service';
 import {
   buildPage,
   decodeCursor,
@@ -57,15 +56,14 @@ const userSelect = {
 } as const;
 
 /** User administration (openapi tag users): list, view, state change, lock clearing. */
-@Injectable()
 export class UsersService {
   constructor(
-    @Inject(ENV) private readonly env: Env,
-    @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Inject(AuditWriter) private readonly audit: AuditWriter,
-    @Inject(SessionService) private readonly sessions: SessionService,
-    @Inject(PermissionVersionService) private readonly versions: PermissionVersionService,
-    @Inject(CLOCK) private readonly clock: Clock,
+    private readonly env: Env,
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditWriter,
+    private readonly sessions: SessionService,
+    private readonly versions: PermissionVersionService,
+    private readonly clock: Clock,
   ) {}
 
   async list(query: UserListQuery, actor: Principal) {

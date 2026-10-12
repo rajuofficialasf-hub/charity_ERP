@@ -1,8 +1,7 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { Inject, Injectable } from '@nestjs/common';
 import { errors, jwtVerify, SignJWT } from 'jose';
-import { ENV, type Env } from '../config/env';
-import { CLOCK, type Clock } from '../core/clock';
+import type { Env } from '../config/env';
+import type { Clock } from '../core/clock';
 import { ApiError } from '../i18n/api-error';
 
 /** Access-token lifetime (O-05). */
@@ -37,14 +36,13 @@ export function hashRefreshToken(token: string): string {
  * Access tokens (JWT HS256 with a key id, D-070), opaque refresh tokens and the signed
  * double-submit CSRF token of the refresh endpoint.
  */
-@Injectable()
 export class TokenService {
   private readonly current: SigningKey;
   private readonly keys: Map<string, SigningKey>;
 
   constructor(
-    @Inject(ENV) private readonly env: Env,
-    @Inject(CLOCK) private readonly clock: Clock,
+    private readonly env: Env,
+    private readonly clock: Clock,
   ) {
     this.current = signingKey(env.JWT_SECRET);
     this.keys = new Map([[this.current.kid, this.current]]);

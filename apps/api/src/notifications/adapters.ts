@@ -43,9 +43,6 @@ export interface SmsAdapter {
   send(message: SmsMessage): Promise<Delivered>;
 }
 
-export const EMAIL_ADAPTER = Symbol('EMAIL_ADAPTER');
-export const SMS_ADAPTER = Symbol('SMS_ADAPTER');
-
 /** SMTP status classes and network errors that a later attempt can overcome. */
 export function classifySmtpError(error: unknown): DeliveryError {
   const e = error as { responseCode?: number; code?: string; message?: string };

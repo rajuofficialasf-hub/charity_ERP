@@ -75,7 +75,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const clock = o.clock ?? systemClock;
   const prisma = o.prisma ?? new PrismaService(env);
   const storage = o.storage ?? createStorage(env);
-  const jobs = o.jobs ?? new JobRunner(env);
+  const jobs = o.jobs ?? new JobRunner(env, logger);
   const health =
     o.health ??
     new HealthService(env, {
@@ -103,7 +103,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const tokens = o.tokens ?? new TokenService(env, clock);
   const sessions = o.sessions ?? new SessionService(prisma, tokens, audit, clock);
   const permissionVersions = o.permissionVersions ?? new PermissionVersionService(audit, sessions);
-  const otpDelivery = o.otpDelivery ?? new OtpDeliveryService(env, sms, email);
+  const otpDelivery = o.otpDelivery ?? new OtpDeliveryService(env, sms, email, logger);
   const otp = o.otp ?? new OtpService(env, prisma, clock, otpDelivery);
   return {
     env,
@@ -125,7 +125,8 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     permissionVersions,
     otpDelivery,
     otp,
-    auth: o.auth ?? new AuthService(env, prisma, clock, hasher, tokens, sessions, otp, audit),
+    auth:
+      o.auth ?? new AuthService(env, prisma, clock, hasher, tokens, sessions, otp, audit, logger),
     deviceSessions: o.deviceSessions ?? new SessionsService(sessions, prisma, audit),
     users: o.users ?? new UsersService(env, prisma, audit, sessions, permissionVersions, clock),
   };
@@ -133,6 +134,6 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
 
 /** Closes what the container opened (Prisma, pg-boss); used by server.ts and the tests. */
 export async function closeContainer(c: Container): Promise<void> {
-  await c.jobs.onModuleDestroy();
+  await c.jobs.stop();
   await c.prisma.$disconnect();
 }

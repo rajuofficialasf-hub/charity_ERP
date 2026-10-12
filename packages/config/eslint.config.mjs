@@ -61,7 +61,7 @@ export const react = {
 
 /**
  * packages/shared runs in the browser offline and on the server, so it must stay pure TypeScript
- * (ADR-001, SYSTEM_ARCHITECTURE section 3): no Node built-ins, Nest, Prisma or the web app's framework.
+ * (ADR-001, SYSTEM_ARCHITECTURE section 3): no Node built-ins, Express, Prisma or the web app's framework.
  */
 export const sharedPurity = {
   files: ['packages/shared/src/**/*.ts'],
@@ -72,7 +72,7 @@ export const sharedPurity = {
         patterns: [
           { group: ['node:*'], message: 'packages/shared must not use Node built-ins (ADR-001).' },
           {
-            group: ['@nestjs/*', '@prisma/*', 'prisma', 'react-router', 'vite'],
+            group: ['express', '@prisma/*', 'prisma', 'react-router', 'vite'],
             message: 'packages/shared must stay framework free (ADR-001).',
           },
           { group: ['react', 'react-dom', 'react/*'], message: 'UI code belongs in packages/ui.' },

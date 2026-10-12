@@ -1,7 +1,6 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { AuditWriter, type AuditEntry } from '../audit/audit-writer';
+import { type AuditWriter, type AuditEntry } from '../audit/audit-writer';
 import type { Tx } from '../core/prisma.service';
-import { SessionService } from './session.service';
+import { type SessionService } from './session.service';
 
 /**
  * Forces a session refresh after a change to what a user may do (AUTH.md 9): increments
@@ -10,11 +9,10 @@ import { SessionService } from './session.service';
  * Role assignment (T1.8, T1.9), permission-panel changes (T1.8), blocklist and account-state
  * changes all go through here.
  */
-@Injectable()
 export class PermissionVersionService {
   constructor(
-    @Inject(AuditWriter) private readonly audit: AuditWriter,
-    @Inject(SessionService) private readonly sessions: SessionService,
+    private readonly audit: AuditWriter,
+    private readonly sessions: SessionService,
   ) {}
 
   /** Bumps the version inside the caller's transaction and audits the change; returns the new version. */

@@ -1,6 +1,6 @@
-import { Inject, Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
 import { fromPrisma, type Job, PgBoss } from 'pg-boss';
-import { ENV, type Env } from '../config/env';
+import type { Logger } from 'pino';
+import type { Env } from '../config/env';
 import type { Tx } from '../core/prisma.service';
 import { JOBS_SCHEMA, type QueueName } from './queues';
 
@@ -12,13 +12,14 @@ export type JobHandler<T> = (job: Job<T>) => Promise<unknown>;
  * business transaction, so a job exists only if the write committed. The app never runs DDL: the
  * schema and the queues come from the install step (D-069).
  */
-@Injectable()
-export class JobRunner implements OnModuleDestroy {
-  private readonly logger = new Logger('JobRunner');
+export class JobRunner {
   private boss: PgBoss | undefined;
   private starting: Promise<PgBoss> | undefined;
 
-  constructor(@Inject(ENV) private readonly env: Env) {}
+  constructor(
+    private readonly env: Env,
+    private readonly logger: Logger,
+  ) {}
 
   /** Starts pg-boss on first use; `consumer` adds maintenance and cron scheduling (worker side). */
   async start(consumer = false): Promise<PgBoss> {
@@ -32,7 +33,7 @@ export class JobRunner implements OnModuleDestroy {
         supervise: consumer,
         schedule: consumer,
       });
-      boss.on('error', (error) => this.logger.error(`pg-boss: ${error.message}`));
+      boss.on('error', (error) => this.logger.error({ err: error }, 'pg-boss'));
       await boss.start();
       this.boss = boss;
       return boss;
@@ -82,7 +83,7 @@ export class JobRunner implements OnModuleDestroy {
   }
 
   /** Stops intake and lets running jobs finish within 30 seconds (SIGTERM, D-054). */
-  async onModuleDestroy(): Promise<void> {
+  async stop(): Promise<void> {
     await this.boss?.stop({ graceful: true, timeout: 30_000, close: true });
     this.boss = undefined;
     this.starting = undefined;

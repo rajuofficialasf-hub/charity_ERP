@@ -2,7 +2,7 @@ import express, { type Express, Router } from 'express';
 import type { DestinationStream } from 'pino';
 import { requireAccess } from './auth/require-access';
 import type { Container } from './container';
-import { RequestContextMiddleware } from './core/request-context.middleware';
+import { requestContext } from './core/request-context.middleware';
 import { healthRouter } from './health/routes';
 import { errorHandler, notFound } from './http/errors';
 import { corsAllowlist, requestLogging, securityHeaders, trustProxySetting } from './http/security';
@@ -48,7 +48,7 @@ export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
   // The request context opens after the body is read: body-parser continues from the socket's
   // events, which would leave an AsyncLocalStorage context opened earlier behind. Body-parser
   // errors render with the X-Request-Id header instead of the context.
-  app.use((req, res, next) => new RequestContextMiddleware().use(req, res, next));
+  app.use(requestContext());
   // Probes come before the limiters, so a busy client cannot make the API look down.
   app.use(healthRouter(c.health));
 

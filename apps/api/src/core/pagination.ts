@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { normalizeText } from '@css/shared/i18n';
 import { z } from 'zod';
 import { ApiError } from '../i18n/api-error';
-import type { PageMeta } from './envelope';
+import type { PageMeta } from '../http/send';
 
 /**
  * Pagination, sorting, filtering and search helpers (API_STANDARDS 4 and 5): keyset cursors

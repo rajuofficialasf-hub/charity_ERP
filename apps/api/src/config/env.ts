@@ -144,6 +144,3 @@ export function loadEnv(source: Record<string, string | undefined>): Env {
   }
   return result.data;
 }
-
-/** Injection token of the validated configuration. */
-export const ENV = Symbol('ENV');

@@ -23,11 +23,11 @@ beforeAll(async () => {
   await installJobs(clone.url);
   await installJobs(clone.url); // idempotent
   prisma = new PrismaService(env);
-  jobs = new JobRunner(env);
+  jobs = new JobRunner(env, pino({ level: 'silent' }));
 });
 
 afterAll(async () => {
-  await jobs.onModuleDestroy();
+  await jobs.stop();
   await prisma.$disconnect();
   await drop();
 });

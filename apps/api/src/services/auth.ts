@@ -1,4 +1,3 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   checkPassword,
   type LoginRequest,
@@ -10,20 +9,21 @@ import {
 } from '@css/shared/auth';
 import { commonPasswords } from '@css/shared/auth/common-passwords';
 import type { Locale } from '@css/shared/i18n';
-import { AuditWriter } from '../audit/audit-writer';
-import { ENV, type Env } from '../config/env';
-import { CLOCK, type Clock } from '../core/clock';
-import { PrismaService, type Tx } from '../core/prisma.service';
+import type { Logger } from 'pino';
+import { type AuditWriter } from '../audit/audit-writer';
+import type { Env } from '../config/env';
+import type { Clock } from '../core/clock';
+import { type PrismaService, type Tx } from '../core/prisma.service';
 import { currentContext } from '../core/request-context';
 import { ApiError } from '../i18n/api-error';
 import { UserLanguageService } from '../i18n/user-language.service';
 import { afterFailure, minutesLeft, UnknownIdLockout } from '../auth/lockout';
 import { normalizeLoginId } from '../auth/login-id';
-import { identifierHash, type OtpTarget, OtpService } from '../auth/otp.service';
-import { PasswordHasher } from '../auth/password-hasher';
+import { identifierHash, type OtpTarget, type OtpService } from '../auth/otp.service';
+import { type PasswordHasher } from '../auth/password-hasher';
 import type { Principal } from '../auth/principal';
-import { SessionService } from '../auth/session.service';
-import { TokenService } from '../auth/token.service';
+import { type SessionService } from '../auth/session.service';
+import { type TokenService } from '../auth/token.service';
 
 /** What the controller needs to answer a login or refresh: the body and the cookie values. */
 export interface IssuedSession {
@@ -50,20 +50,19 @@ const accountSelect = {
  * never tell whether a login id exists: unknown ids and wrong passwords share the error, the
  * timing class and the lockout behaviour.
  */
-@Injectable()
 export class AuthService {
-  private readonly logger = new Logger('AuthService');
   private readonly unknownIds = new UnknownIdLockout();
 
   constructor(
-    @Inject(ENV) private readonly env: Env,
-    @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Inject(CLOCK) private readonly clock: Clock,
-    @Inject(PasswordHasher) private readonly hasher: PasswordHasher,
-    @Inject(TokenService) private readonly tokens: TokenService,
-    @Inject(SessionService) private readonly sessions: SessionService,
-    @Inject(OtpService) private readonly otp: OtpService,
-    @Inject(AuditWriter) private readonly audit: AuditWriter,
+    private readonly env: Env,
+    private readonly prisma: PrismaService,
+    private readonly clock: Clock,
+    private readonly hasher: PasswordHasher,
+    private readonly tokens: TokenService,
+    private readonly sessions: SessionService,
+    private readonly otp: OtpService,
+    private readonly audit: AuditWriter,
+    private readonly logger: Logger,
   ) {}
 
   /** Account for a login id: staff by email or mobile, volunteers by mobile (AUTH.md 1). */
@@ -366,7 +365,8 @@ export class AuthService {
     } catch (error) {
       // The answer must not reveal the account: limits and delivery failures are only logged.
       this.logger.warn(
-        `password reset code not sent: ${error instanceof ApiError ? error.code : (error as Error).message}`,
+        { reason: error instanceof ApiError ? error.code : (error as Error).message },
+        'password reset code not sent',
       );
     }
   }
