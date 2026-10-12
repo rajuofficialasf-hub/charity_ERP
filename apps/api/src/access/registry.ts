@@ -27,7 +27,6 @@ export const SCOPE_ENTITIES = [
   'volunteer',
   'file',
 ] as const;
-export type ScopeEntity = (typeof SCOPE_ENTITIES)[number];
 
 export interface RoleDef {
   key: string;
@@ -77,7 +76,7 @@ export interface AccessRegistry {
 }
 
 /** Validates the parsed YAML and its cross-references; throws one error naming every problem. */
-export function parsePermissionsFile(raw: unknown): AccessRegistry {
+function validatePermissionsFile(raw: unknown): PermissionsFile {
   const parsed = permissionsFileSchema.safeParse(raw, { reportInput: true });
   if (!parsed.success)
     throw new Error(
@@ -106,14 +105,32 @@ export function parsePermissionsFile(raw: unknown): AccessRegistry {
       if (!roleKeys.has(role)) problems.push(`${key}: unknown role ${role}`);
     for (const name of set.permissions)
       if (!names.has(name)) problems.push(`${key}: unknown permission ${name}`);
-    if (set.extends && !(set.extends in file.permission_sets))
+    if (set.extends && !Object.hasOwn(file.permission_sets, set.extends))
       problems.push(`${key}: unknown parent set ${set.extends}`);
+  }
+  // An extends chain must end; a cycle is named instead of overflowing the stack.
+  for (const key of Object.keys(file.permission_sets)) {
+    const chain = [key];
+    let next = file.permission_sets[key]?.extends;
+    while (next && Object.hasOwn(file.permission_sets, next)) {
+      if (chain.includes(next)) {
+        problems.push(`${key}: extends cycle ${[...chain, next].join(' -> ')}`);
+        break;
+      }
+      chain.push(next);
+      next = file.permission_sets[next]?.extends;
+    }
   }
   for (const f of file.sensitive_fields)
     for (const role of f.visible_to)
       if (!roleKeys.has(role)) problems.push(`sensitive field ${f.key}: unknown role ${role}`);
   if (problems.length) throw new Error(`permissions.yaml is invalid: ${problems.join('; ')}`);
+  return file;
+}
 
+/** The registry of a parsed YAML; throws one error naming every problem of the file. */
+export function parsePermissionsFile(raw: unknown): AccessRegistry {
+  const file = validatePermissionsFile(raw);
   const permissionSets = new Map<string, PermissionSetDef>();
   const resolveSet = (key: string): string[] => {
     const set = file.permission_sets[key]!;
@@ -150,16 +167,14 @@ export function parsePermissionsFile(raw: unknown): AccessRegistry {
       fields: f.fields,
       visibleTo: f.visible_to,
     })),
-    conditions,
+    conditions: new Set(Object.keys(file.conditions)),
     isKnownPermission: (name) => PERMISSION_MARKERS.includes(name) || permissions.has(name),
   };
 }
 
 /** The raw file, validated (the seed writes roles and permissions from it, T1.3). */
 export function readPermissionsFile(path = DEFAULT_PERMISSIONS_FILE): PermissionsFile {
-  const raw = yaml.load(readFileSync(path, 'utf8'));
-  parsePermissionsFile(raw);
-  return permissionsFileSchema.parse(raw);
+  return validatePermissionsFile(yaml.load(readFileSync(path, 'utf8')));
 }
 
 const loaded = new Map<string, AccessRegistry>();

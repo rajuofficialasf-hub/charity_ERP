@@ -41,6 +41,29 @@ describe('access registry', () => {
     expect(base?.permissions).not.toContain('class.record');
   });
 
+  it('refuses a file that breaks the schema, naming the path and the value', () => {
+    const file = variant((f) => {
+      (f.roles as Record<string, { kind: string }>).finance_team!.kind = 'contractor';
+    });
+    expect(() => parsePermissionsFile(file)).toThrow(/roles\.finance_team\.kind.*contractor/);
+  });
+
+  it('refuses unknown roles in exclusions, permission sets and sensitive field classes', () => {
+    const file = variant((f) => {
+      perms(f)[0]!.default = [];
+      (perms(f)[0] as { global_roles_excluded?: string[] }).global_roles_excluded = ['ghost_a'];
+      (f.permission_sets as Record<string, { for: string[] }>).work_progress!.for.push('ghost_b');
+      (f.sensitive_fields as { visible_to: string[] }[])[0]!.visible_to.push('ghost_c');
+    });
+    expect(() => parsePermissionsFile(file)).toThrow(
+      /session\.revoke_own: unknown excluded role ghost_a/,
+    );
+    expect(() => parsePermissionsFile(file)).toThrow(/work_progress: unknown role ghost_b/);
+    expect(() => parsePermissionsFile(file)).toThrow(
+      /sensitive field beneficiary\.nid: unknown role ghost_c/,
+    );
+  });
+
   it('refuses a duplicate permission', () => {
     const file = variant((f) => perms(f).push({ ...perms(f)[0]!, default: [] }));
     expect(() => parsePermissionsFile(file)).toThrow(/duplicate permission session\.revoke_own/);
@@ -58,6 +81,23 @@ describe('access registry', () => {
     );
     expect(() => parsePermissionsFile(condition)).toThrow(
       /session\.revoke_own: unknown condition on_tuesdays/,
+    );
+  });
+
+  it('names an extends cycle and an inherited key as problems instead of crashing', () => {
+    const cycle = variant((f) => {
+      const sets = f.permission_sets as Record<string, { extends?: string }>;
+      sets.application_distribution!.extends = 'application_distribution_dawah';
+    });
+    expect(() => parsePermissionsFile(cycle)).toThrow(
+      /extends cycle application_distribution -> application_distribution_dawah -> application_distribution/,
+    );
+    const inherited = variant((f) => {
+      const sets = f.permission_sets as Record<string, { extends?: string }>;
+      sets.work_progress!.extends = 'constructor';
+    });
+    expect(() => parsePermissionsFile(inherited)).toThrow(
+      /work_progress: unknown parent set constructor/,
     );
   });
 

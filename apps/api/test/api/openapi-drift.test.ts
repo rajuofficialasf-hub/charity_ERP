@@ -6,15 +6,14 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { buildOpenApiDocument } from '../../src/openapi/build-document';
 import { defineRoute, type RouteDeps } from '../../src/openapi/define-route';
-import { compareWithContract } from '../../src/openapi/drift';
+import { compareWithContract, PERMISSION_MARKERS } from '../../src/openapi/drift';
 import { buildTestApp, type TestApp } from '../support/app';
 
 // The generated document must match docs/api/openapi.yaml (API_STANDARDS 16, NFR-54).
 const repo = join(__dirname, '../../../..');
-const contract = yaml.load(readFileSync(join(repo, 'docs/api/openapi.yaml'), 'utf8')) as Record<
-  string,
-  never
->;
+const contract = yaml.load(readFileSync(join(repo, 'docs/api/openapi.yaml'), 'utf8')) as {
+  paths: Record<string, Record<string, { 'x-permission'?: unknown } | null>>;
+};
 const permissions = new Set(
   (
     yaml.load(readFileSync(join(repo, 'docs/security/permissions.yaml'), 'utf8')) as {
@@ -74,20 +73,22 @@ describe('OpenAPI drift test (API_STANDARDS 16)', () => {
   it('the application matches docs/api/openapi.yaml', async () => {
     open = buildTestApp();
     const document = buildOpenApiDocument(open.registry);
-    expect(compareWithContract(document as never, contract, permissions)).toEqual([]);
+    expect(compareWithContract(document as never, contract as never, permissions)).toEqual([]);
   });
 
   it('an operation declared like the contract passes', async () => {
     open = buildTestApp({ routers: [matching] });
     const document = buildOpenApiDocument(open.registry);
     expect(Object.keys(document.paths)).toContain('/users/{userId}/handover/complete');
-    expect(compareWithContract(document as never, contract, permissions)).toEqual([]);
+    expect(compareWithContract(document as never, contract as never, permissions)).toEqual([]);
   });
 
   it('an operation that drifts from the contract fails with every difference named', async () => {
     open = buildTestApp({ routers: [drifting] });
     const document = buildOpenApiDocument(open.registry);
-    const problems = compareWithContract(document as never, contract, permissions).join('\n');
+    const problems = compareWithContract(document as never, contract as never, permissions).join(
+      '\n',
+    );
     expect(problems).toMatch(/x-audit is "none", the contract says "auth.handover_completed"/);
     expect(problems).toMatch(
       /x-permission is "user.state.change", the contract says "user.handover"/,
@@ -100,16 +101,14 @@ describe('OpenAPI drift test (API_STANDARDS 16)', () => {
   // docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md): the drift check above compares
   // the routes with the contract and the YAML; this covers the contract's operations not built yet.
   it('every x-permission of the contract is a marker or a permission of permissions.yaml', () => {
-    const markers = ['public', 'authenticated', 'workflow', 'entity'];
     const unknown: string[] = [];
-    const paths = (contract as unknown as { paths: Record<string, Record<string, unknown>> }).paths;
-    for (const [path, item] of Object.entries(paths))
+    for (const [path, item] of Object.entries(contract.paths))
       for (const [method, op] of Object.entries(item)) {
-        const permission = (op as { 'x-permission'?: unknown } | null)?.['x-permission'];
+        const permission = op?.['x-permission'];
         if (permission === undefined) continue;
         if (
           typeof permission !== 'string' ||
-          !(markers.includes(permission) || permissions.has(permission))
+          !(PERMISSION_MARKERS.includes(permission) || permissions.has(permission))
         )
           unknown.push(`${method.toUpperCase()} ${path}: ${String(permission)}`);
       }
