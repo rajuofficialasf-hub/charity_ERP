@@ -6,7 +6,7 @@ import type { AccessRegistry } from './registry';
  * protected field with its class from the `sensitive_fields` catalogue, and every response of a
  * route passes through `maskData` before it is sent (`defineRoute`), so a handler cannot forget it.
  * Hidden fields are removed, not blanked: a volunteer client never learns they exist. Exports
- * (T2.8) reuse the same marks and the same function.
+ * (the export task T2.8 of docs/PLAN.md) reuse the same marks and the same function.
  */
 interface SensitiveMark {
   /** Class key from permissions.yaml `sensitive_fields`. */
@@ -24,13 +24,18 @@ export function sensitive<T extends ZodType>(schema: T, cls: string): T {
 }
 
 /**
- * Marks an array of form answers (`{ visibility, … }` rows): the official-only rows belong to the
- * class `application.official_section` (BD-12, B3, B4).
+ * Marks an array of form answers (`{ visibility, … }` rows): every row whose visibility is not
+ * exactly `volunteer` belongs to the class `application.official_section` (decision BD-12 of docs/DECISION_LOG.md). The row
+ * schema must declare `visibility`, or the parse would strip it before the mask reads it.
  */
 export function officialRows<T extends ZodType>(
   schema: T,
   cls = 'application.official_section',
 ): T {
+  const element = defOf(unwrap(schema).core).element;
+  const rowShape = element ? defOf(unwrap(element).core).shape : undefined;
+  if (!rowShape || !Object.hasOwn(rowShape, 'visibility'))
+    throw new Error('officialRows: the row schema must be an object with a visibility key');
   marks.add(schema, { cls, rows: true });
   return schema;
 }
@@ -56,12 +61,15 @@ type Def = {
   options?: ZodType[];
   out?: ZodType;
   valueType?: ZodType;
-  left?: ZodType;
-  right?: ZodType;
   getter?: () => ZodType;
+  items?: ZodType[];
+  in?: ZodType;
+  rest?: ZodType | null;
 };
 
-const defOf = (schema: ZodType) => (schema as unknown as { _zod: { def: Def } })._zod.def;
+function defOf(schema: ZodType): Def {
+  return (schema as unknown as { _zod: { def: Def } })._zod.def;
+}
 
 /** The marks on a schema and its wrappers (optional, nullable, default, …) and the core schema. */
 function unwrap(schema: ZodType): { marks: SensitiveMark[]; core: ZodType } {
@@ -72,8 +80,11 @@ function unwrap(schema: ZodType): { marks: SensitiveMark[]; core: ZodType } {
     if (mark) found.push(mark);
     const def = defOf(current);
     if (def.innerType) current = def.innerType;
-    else if (def.type === 'pipe' && def.out) current = def.out;
-    else if (def.type === 'lazy' && def.getter) current = def.getter();
+    else if (def.type === 'pipe' && def.out) {
+      // a mark on the input side of a pipe (a marked field with .transform) counts as well
+      if (def.in) found.push(...unwrap(def.in).marks);
+      current = def.out;
+    } else if (def.type === 'lazy' && def.getter) current = def.getter();
     else return { marks: found, core: current };
   }
 }
@@ -81,40 +92,66 @@ function unwrap(schema: ZodType): { marks: SensitiveMark[]; core: ZodType } {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+/** A value the caller may not see; its parent drops it (object key, array item, record entry). */
+const HIDDEN = Symbol('hidden');
+
+/** Schema kinds the mask walks; anything else in a response schema is refused at registration. */
+const WALKABLE = new Set(['object', 'array', 'tuple', 'union', 'record']);
+const LEAVES = new Set([
+  'string',
+  'number',
+  'int',
+  'boolean',
+  'bigint',
+  'null',
+  'undefined',
+  'literal',
+  'enum',
+  'unknown',
+  'any',
+  'date',
+  'template_literal',
+  'nan',
+  'transform',
+]);
+
 function walk(schema: ZodType, value: unknown, visible: ReadonlySet<string>): unknown {
   const { marks: own, core } = unwrap(schema);
+  if (own.some((m) => !m.rows && !visible.has(m.cls))) return HIDDEN;
   const def = defOf(core);
+  if (def.type === 'union' && def.options) {
+    // the parsed value matched an option; mask with that option, hide it when none matches
+    const option = def.options.find((o) => o.safeParse(value).success);
+    return option ? walk(option, value, visible) : HIDDEN;
+  }
   if (Array.isArray(value)) {
-    const rows = own.find((m) => m.rows && !visible.has(m.cls));
+    const rows = own.some((m) => m.rows && !visible.has(m.cls));
     const kept = rows
-      ? value.filter((row) => !(isRecord(row) && row.visibility === 'official_only'))
+      ? value.filter((row) => isRecord(row) && row.visibility === 'volunteer')
       : value;
-    return def.element ? kept.map((item) => walk(def.element!, item, visible)) : [...kept];
+    const items = kept.map((item, i) => {
+      const itemSchema = def.element ?? def.items?.[i] ?? def.rest ?? undefined;
+      return itemSchema ? walk(itemSchema, item, visible) : HIDDEN;
+    });
+    return items.filter((item) => item !== HIDDEN);
   }
   if (!isRecord(value)) return value;
-  if (def.type === 'object' && def.shape) {
-    const out: Record<string, unknown> = {};
-    for (const [key, item] of Object.entries(value)) {
-      const field = Object.hasOwn(def.shape, key) ? def.shape[key] : undefined;
-      if (!field) {
-        out[key] = item; // a catchall or passthrough key carries no mark
-        continue;
-      }
-      const fieldMarks = unwrap(field).marks;
-      if (fieldMarks.some((m) => !m.rows && !visible.has(m.cls))) continue;
-      out[key] = walk(field, item, visible);
-    }
-    return out;
+  const out: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value)) {
+    // only declared keys leave: a key outside the shape (loose or catchall object) is dropped
+    const field =
+      def.type === 'object' && def.shape
+        ? Object.hasOwn(def.shape, key)
+          ? def.shape[key]
+          : undefined
+        : def.type === 'record'
+          ? def.valueType
+          : undefined;
+    if (!field) continue;
+    const masked = walk(field, item, visible);
+    if (masked !== HIDDEN) out[key] = masked;
   }
-  if (def.type === 'union' && def.options)
-    return def.options.reduce<unknown>((acc, option) => walk(option, acc, visible), value);
-  if (def.type === 'intersection' && def.left && def.right)
-    return walk(def.right, walk(def.left, value, visible), visible);
-  if (def.type === 'record' && def.valueType)
-    return Object.fromEntries(
-      Object.entries(value).map(([k, v]) => [k, walk(def.valueType!, v, visible)]),
-    );
-  return { ...value };
+  return out;
 }
 
 /**
@@ -122,10 +159,14 @@ function walk(schema: ZodType, value: unknown, visible: ReadonlySet<string>): un
  * objects and never changes its input.
  */
 export function maskData(schema: ZodType, value: unknown, visible: ReadonlySet<string>): unknown {
-  return walk(schema, value, visible);
+  const masked = walk(schema, value, visible);
+  return masked === HIDDEN ? null : masked;
 }
 
-/** Every class the schema marks, anywhere inside it (route registration checks these). */
+/**
+ * Every class the schema marks, anywhere inside it (route registration checks these). Throws for a
+ * schema kind the mask cannot walk (intersection, map, set, …), so a mark is never silently skipped.
+ */
 export function sensitiveClassesOf(schema: ZodType): Set<string> {
   const found = new Set<string>();
   const seen = new Set<ZodType>();
@@ -135,10 +176,13 @@ export function sensitiveClassesOf(schema: ZodType): Set<string> {
     const { marks: own, core } = unwrap(s);
     for (const m of own) found.add(m.cls);
     const def = defOf(core);
+    if (!WALKABLE.has(def.type) && !LEAVES.has(def.type))
+      throw new Error(`the field mask cannot walk a ${def.type} schema in a response`);
     const children = [
       ...Object.values(def.shape ?? {}),
       ...(def.options ?? []),
-      ...[def.element, def.valueType, def.left, def.right].filter((c): c is ZodType => !!c),
+      ...(def.items ?? []),
+      ...[def.element, def.valueType, def.rest].filter((c): c is ZodType => !!c),
     ];
     children.forEach(visit);
   };

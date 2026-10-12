@@ -6,6 +6,7 @@ import { type AccessRegistry, SCOPE_ENTITIES } from '../access/registry';
 import type { AuthedRequest } from '../auth/principal';
 import { assertAudited, WRITE_METHODS } from '../audit/write-route';
 import { mapData, send } from '../http/send';
+import { ApiError } from '../i18n/api-error';
 import { validate, validatedOf } from '../http/validate';
 import type { RateLimiters } from '../rate-limit/limiters';
 import { type HttpMethod, type OperationSpec, type RouteRegistry } from './registry';
@@ -69,6 +70,17 @@ export function defineRoute<B = unknown, Q = unknown, P = Record<string, unknown
   if (scoped && spec.scope === 'none')
     throw new Error(`${where}: ${spec.permission} is held below GLOBAL and needs a scope entity`);
   const dataSchema = maskedDataSchema(where, spec, status, deps.permissions);
+  /** The handler result in its JSON form, checked against the response schema. */
+  const parseResponse = (schema: ZodType, data: unknown) => {
+    const parsed = schema.safeParse(JSON.parse(JSON.stringify(data ?? null)));
+    if (parsed.success) return parsed.data;
+    // a contract bug of the handler: nothing is sent; logged with the route and the paths only
+    deps.logger.error(
+      { route: where, issues: parsed.error.issues.map((i) => i.path.join('.')) },
+      'response does not match its schema',
+    );
+    throw new ApiError('server.internal', 500);
+  };
   deps.registry.add({ ...spec, method, path });
 
   const run: RequestHandler = async (req, res, next) => {
@@ -85,13 +97,7 @@ export function defineRoute<B = unknown, Q = unknown, P = Record<string, unknown
       // Only the declared fields leave, minus the classes the caller may not see (RBAC.md 6).
       const visible = (req as AuthedRequest).fieldClasses ?? new Set<string>();
       const body = dataSchema
-        ? mapData(value, (data) =>
-            maskData(
-              dataSchema,
-              dataSchema.parse(JSON.parse(JSON.stringify(data ?? null))),
-              visible,
-            ),
-          )
+        ? mapData(value, (data) => maskData(dataSchema, parseResponse(dataSchema, data), visible))
         : value;
       send(res, body, status);
     } catch (error) {
@@ -108,7 +114,14 @@ export function defineRoute<B = unknown, Q = unknown, P = Record<string, unknown
 }
 
 /** Entities whose records carry protected fields: their routes always declare a response schema. */
-const MASKED_ENTITIES = new Set(['volunteer', 'beneficiary', 'application']);
+const MASKED_ENTITIES = new Set([
+  'volunteer',
+  'beneficiary',
+  'application',
+  'project',
+  'program',
+  'file',
+]);
 
 /**
  * The schema of the success response's `data`, which the field mask runs on (RBAC.md 6, O-62). A

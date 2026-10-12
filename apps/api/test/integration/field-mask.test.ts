@@ -43,6 +43,20 @@ function maskProbe(deps: RouteDeps): Router {
       internalNote: 'not in the response schema',
     }),
   });
+  defineRoute(router, deps, {
+    method: 'get',
+    path: '/mask-probe/broken',
+    operationId: 'probe.maskBroken',
+    tag: 'probe',
+    summary: 'handler result that breaks its schema',
+    permission: 'authenticated',
+    scope: 'volunteer',
+    audit: 'none',
+    idempotency: 'none',
+    rateLimit: 'default',
+    responses: { 200: z.object({ data: z.object({ count: z.number() }) }) },
+    handler: () => ({ count: 'not a number' }),
+  });
   return router;
 }
 
@@ -91,5 +105,12 @@ describe('field mask on responses', () => {
 
   it('never sends a key the response schema does not declare', async () => {
     expect(await fetchAs('monitoring_team')).not.toHaveProperty('internalNote');
+  });
+
+  it('answers server.internal instead of sending a result that breaks its schema', async () => {
+    const s = await login(h, await account(h.db, { role: 'department_head' }));
+    const res = await api().get('/api/v1/mask-probe/broken').set(bearer(s)).expect(500);
+    expect(res.body.error.code).toBe('server.internal');
+    expect(JSON.stringify(res.body)).not.toContain('not a number');
   });
 });

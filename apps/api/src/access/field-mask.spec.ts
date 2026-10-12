@@ -107,3 +107,49 @@ describe('masking nested data', () => {
     ]);
   });
 });
+
+describe('masking in every position (fail closed)', () => {
+  const none = new Set<string>();
+  const donor = sensitive(z.object({ name: z.string() }), 'donor.data');
+
+  it('drops marked array items, a marked record value and a marked top-level value', () => {
+    expect(maskData(z.array(donor), [{ name: 'A' }], none)).toEqual([]);
+    expect(maskData(z.record(z.string(), donor), { a: { name: 'A' } }, none)).toEqual({});
+    expect(maskData(donor, { name: 'A' }, none)).toBeNull();
+  });
+
+  it('masks inside the matching union option, also for arrays', () => {
+    const row = z.object({ id: z.string(), nid: sensitive(z.string(), 'beneficiary.nid') });
+    const field = z.union([z.array(row), z.null()]);
+    expect(maskData(field, [{ id: 'b1', nid: '1000000001' }], none)).toEqual([{ id: 'b1' }]);
+    expect(maskData(field, null, none)).toBeNull();
+  });
+
+  it('honours a mark before .transform() and inside .or()', () => {
+    const schema = z.object({
+      a: sensitive(z.string(), 'volunteer.identity').transform((v) => v),
+      b: sensitive(z.string(), 'volunteer.bank').or(z.number()),
+    });
+    expect(maskData(schema, { a: 'x', b: 'y' }, none)).toEqual({});
+  });
+
+  it('drops keys a loose object does not declare', () => {
+    expect(maskData(z.looseObject({ id: z.string() }), { id: 'x', extra: 1 }, none)).toEqual({
+      id: 'x',
+    });
+  });
+
+  it('keeps only rows marked volunteer; an unknown visibility is protected', () => {
+    const rows = officialRows(z.array(z.object({ visibility: z.string() })));
+    expect(maskData(rows, [{ visibility: 'volunteer' }, { visibility: 'Official' }], none)).toEqual(
+      [{ visibility: 'volunteer' }],
+    );
+  });
+
+  it('refuses answer rows without visibility and schema kinds it cannot walk', () => {
+    expect(() => officialRows(z.array(z.object({ value: z.string() })))).toThrow(/visibility/);
+    expect(() =>
+      sensitiveClassesOf(z.intersection(z.object({ a: z.string() }), z.object({ b: z.string() }))),
+    ).toThrow(/cannot walk a intersection/);
+  });
+});
