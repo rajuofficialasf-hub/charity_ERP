@@ -107,6 +107,15 @@ export const DEMO_STAFF: DemoStaff[] = [
     designation: 'Regional Program Manager',
   },
   {
+    // the official of the handover journey (T1.9 U14): holds one project area, deactivated in E2E
+    key: 'rpm_handover',
+    role: 'regional_program_manager',
+    name: 'আরপিএম হ্যান্ডওভার',
+    email: 'handover.rpm',
+    mobileIndex: 14,
+    designation: 'Regional Program Manager',
+  },
+  {
     key: 'executive',
     role: 'project_executive',
     name: 'প্রজেক্ট এক্সিকিউটিভ',
@@ -369,14 +378,16 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
       { scope_key: `app:${projectId}`, last_value: 0 },
       { key: ['scope_key'], insertOnly: ['last_value'] },
     );
-    for (const [rpm, refs] of [
-      ['rpm_dhaka', dhaka],
-      ['rpm_rangpur', rangpur],
+    for (const [rpm, location] of [
+      ['rpm_dhaka', dhaka[0]!.division],
+      ['rpm_rangpur', rangpur[0]!.division],
+      // a district of its own, so the handover to the Dhaka RPM moves it without a clash
+      ['rpm_handover', dhaka[0]!.district],
     ] as const) {
       await ctx.upsert('project_areas', {
         id: seedId(`project-area:WNT:${rpm}`),
         project_id: projectId,
-        location_id: refs[0]!.division,
+        location_id: location,
         rpm_user_id: userId(rpm),
         ...ctx.audit(),
       });

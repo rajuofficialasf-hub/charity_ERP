@@ -60,6 +60,27 @@ describe('API client', () => {
     expect(csrf).toBe('nonce.mac');
   });
 
+  it('returns a streamed file as a Blob and, when asked, the whole envelope', async () => {
+    server.use(
+      http.get('*/api/v1/files/f/content', () =>
+        HttpResponse.arrayBuffer(new Uint8Array([1, 2, 3]).buffer, {
+          headers: { 'Content-Type': 'image/png' },
+        }),
+      ),
+      http.get('*/api/v1/users/u', () =>
+        HttpResponse.json({ data: { id: 'u' }, meta: { etag: '"v1"' } }),
+      ),
+    );
+    const file = await api<Blob>('/files/f/content', { blob: true });
+    expect(file.type).toBe('image/png');
+    expect(file.size).toBe(3);
+    expect(await api('/users/u', { envelope: true })).toEqual({
+      data: { id: 'u' },
+      meta: { etag: '"v1"' },
+    });
+    expect(await api('/users/u')).toEqual({ id: 'u' });
+  });
+
   it('shares one refresh between parallel callers', async () => {
     let refreshes = 0;
     server.use(

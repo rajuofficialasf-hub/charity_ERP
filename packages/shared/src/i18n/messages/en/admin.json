@@ -4,7 +4,8 @@
     "label": "Admin menu",
     "dashboard": "Dashboard",
     "permissions": "Permissions",
-    "registrations": "Registrations"
+    "registrations": "Registrations",
+    "handover": "Handover"
   },
   "bar": {
     "label": "Admin",
@@ -172,6 +173,43 @@
       "rejected": "The request was refused",
       "photo": "New photo"
     }
+  },
+  "handover": {
+    "title": "Handover",
+    "intro": "Before an official's account is deactivated, their pending work goes to other officials. Find the official, hand the work over, complete the handover, then deactivate the account.",
+    "search": "Find the official",
+    "search_hint": "Type at least 2 characters of the name, email or mobile number.",
+    "state": {
+      "pending": "Pending",
+      "active": "Active",
+      "blocked": "Blocked",
+      "deactivated": "Deactivated"
+    },
+    "pending": "Pending work",
+    "category": {
+      "reviews_approvals": "Reviews and approvals",
+      "projects": "Projects",
+      "documents": "Documents",
+      "issues": "Issues",
+      "followups": "Follow-ups"
+    },
+    "category_empty": "Nothing pending here.",
+    "receiver": "Hand over to",
+    "receiver_hint": "The official who takes the work; they need a fitting role.",
+    "assign_all": "Hand over all",
+    "assign_one": "Hand over",
+    "assign_label": "Hand over {item}",
+    "assigned": "The work was handed over",
+    "complete": "Complete the handover",
+    "completed": "Handover completed on {date}",
+    "completed_now": "The handover was completed",
+    "deactivate": "Deactivate",
+    "deactivate_title": "Deactivate the account of {name}?",
+    "deactivate_consequence": "The account can no longer log in; its history stays as it is.",
+    "deactivate_confirm": "Deactivate the account",
+    "deactivated": "The account was deactivated",
+    "already": "This account is deactivated.",
+    "reason": "Reason"
   },
   "forbidden": {
     "title": "No access",

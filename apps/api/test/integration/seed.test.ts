@@ -189,7 +189,7 @@ describe('demo set', () => {
       department_head: 1,
       monitoring_team: 1,
       program_manager: 3,
-      regional_program_manager: 2,
+      regional_program_manager: 3,
       project_executive: 1,
       official_daee: 1,
       implementer: 1,
@@ -205,7 +205,14 @@ describe('demo set', () => {
     expect(
       (await db.query('SELECT count(*)::int AS n FROM users WHERE is_system_owner')).rows[0].n,
     ).toBe(1);
-    expect(DEMO_STAFF).toHaveLength(13);
+    expect(DEMO_STAFF).toHaveLength(14);
+    // the dedicated official of the handover journey holds one project area of its own (T1.9 U14)
+    const areas = (
+      await db.query(
+        `SELECT a.location_id <> ALL (SELECT location_id FROM project_areas o WHERE o.rpm_user_id <> a.rpm_user_id) AS own_location FROM project_areas a JOIN users u ON u.id = a.rpm_user_id WHERE u.email = 'handover.rpm@example.org'`,
+      )
+    ).rows;
+    expect(areas).toEqual([{ own_location: true }]);
     const team = (
       await db.query(
         `SELECT t.reference_nid, m.nid FROM volunteers t JOIN volunteers m ON m.id = t.reference_volunteer_id WHERE t.type = 'team_member'`,
@@ -279,6 +286,6 @@ describe('demo set', () => {
       `SELECT count(*)::int AS n, count(*) FILTER (WHERE password_hash LIKE '$argon2id$v=19$m=19456,t=2,p=1$%')::int AS argon FROM users WHERE kind <> 'system'`,
     );
     expect(rows[0].argon).toBe(rows[0].n);
-    expect(rows[0].n).toBe(33);
+    expect(rows[0].n).toBe(34);
   });
 });

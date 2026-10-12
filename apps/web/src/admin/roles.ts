@@ -40,6 +40,9 @@ export const BLOCKLIST_ROLES: readonly string[] = [
   'regional_program_manager',
 ];
 
+/** The staff handover and the deactivation after it (`user.handover`, `user.state.change`; BD-08). */
+export const HANDOVER_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
+
 const holds = (me: Pick<Me, 'roles'>, roles: readonly string[]) =>
   me.roles.some((role) => roles.includes(role));
 
@@ -48,3 +51,4 @@ export const canOpenAdmin = (me: Pick<Me, 'roles'>) => holds(me, ADMIN_ROLES);
 export const canApproveStaff = (me: Pick<Me, 'roles'>) => holds(me, STAFF_APPROVER_ROLES);
 export const canDecideEdits = (me: Pick<Me, 'roles'>) => holds(me, EDIT_REQUEST_ROLES);
 export const canBlock = (me: Pick<Me, 'roles'>) => holds(me, BLOCKLIST_ROLES);
+export const canHandOver = (me: Pick<Me, 'roles'>) => holds(me, HANDOVER_ROLES);

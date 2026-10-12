@@ -55,6 +55,12 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
               }),
             },
             {
+              path: 'handover',
+              lazy: async () => ({
+                Component: (await import('../admin/handover/HandoverPage')).HandoverPage,
+              }),
+            },
+            {
               path: 'permissions',
               lazy: async () => ({
                 Component: (await import('../admin/permissions/PermissionsPage')).PermissionsPage,

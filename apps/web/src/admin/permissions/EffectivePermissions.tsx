@@ -6,16 +6,9 @@ import { KeyRound } from 'lucide-react';
 import { useId, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { api, ApiFailure } from '../../lib/api';
+import type { PanelUser } from '../UserSearch';
 import { GrantDialog } from './GrantDialog';
 import { RevokeDialog } from './RevokeDialog';
-
-/** A user as the user list returns it (GET /users). */
-export interface PanelUser {
-  id: string;
-  displayName: string;
-  designation: string | null;
-  roles: string[];
-}
 
 export const permissionCatalogue = () => api<PermissionInfo[]>('/permissions');
 const roleCatalogue = () => api<Role[]>('/roles');

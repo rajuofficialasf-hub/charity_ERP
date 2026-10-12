@@ -175,6 +175,8 @@ export interface RequestOptions {
   headers?: Record<string, string>;
   /** The answer is a file (a streamed photo), returned as a Blob instead of the `data` field. */
   blob?: boolean;
+  /** Returns the whole envelope `{ data, meta }` (for `meta.etag` before an `If-Match` write). */
+  envelope?: boolean;
 }
 
 /**
@@ -200,6 +202,7 @@ export async function api<T>(path: string, options: RequestOptions = {}, retry =
   if (res.ok) {
     if (res.status === 204) return undefined as T;
     if (options.blob) return (await res.blob()) as T;
+    if (options.envelope) return (await res.json()) as T;
     return ((await res.json()) as { data: T }).data;
   }
   const error = await failure(res);

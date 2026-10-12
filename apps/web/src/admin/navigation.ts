@@ -1,10 +1,10 @@
 import type { IconComponent } from '@css/ui';
-import { KeyRound, LayoutDashboard, UserCheck } from 'lucide-react';
-import { PERMISSION_PANEL_ROLES, REGISTRATION_ROLES } from './roles';
+import { ArrowRightLeft, KeyRound, LayoutDashboard, UserCheck } from 'lucide-react';
+import { HANDOVER_ROLES, PERMISSION_PANEL_ROLES, REGISTRATION_ROLES } from './roles';
 
 /** One destination of the admin sidebar; the label is a key of the `admin.nav` messages. */
 export interface AdminNavItem {
-  key: 'dashboard' | 'registrations' | 'permissions';
+  key: 'dashboard' | 'registrations' | 'handover' | 'permissions';
   href: string;
   icon: IconComponent;
   /** Only these roles see the item (the server checks the permission anyway); all when absent. */
@@ -20,6 +20,7 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
     icon: UserCheck,
     roles: REGISTRATION_ROLES,
   },
+  { key: 'handover', href: '/admin/handover', icon: ArrowRightLeft, roles: HANDOVER_ROLES },
   {
     key: 'permissions',
     href: '/admin/permissions',

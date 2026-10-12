@@ -15,6 +15,7 @@ Password of every demo account: `CssDemo2026` (development only; meets the O-05 
 | Program Manager | pm.err@example.org | 01700000005 | PM of program ERR |
 | Regional Program Manager | rpm.dhaka@example.org | 01700000006 | RPM, Dhaka division |
 | Regional Program Manager | rpm.rangpur@example.org | 01700000007 | RPM, Rangpur division |
+| Regional Program Manager | handover.rpm@example.org | 01700000014 | RPM, Dhaka division; holds one project area (a Dhaka district of WNT). The official of the handover journey: the E2E spec hands the work to rpm.dhaka, deactivates the account and restores both at the end (T1.9 U14) |
 | Project Executive | executive@example.org | 01700000008 |  |
 | Official দায়ী | daee@example.org | 01700000009 |  |
 | Implementer | implementer@example.org | 01700000010 |  |

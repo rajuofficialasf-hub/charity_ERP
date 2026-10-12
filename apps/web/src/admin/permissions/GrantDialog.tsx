@@ -14,7 +14,8 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { api, ApiFailure } from '../../lib/api';
-import { type PanelUser, permissionCatalogue } from './EffectivePermissions';
+import type { PanelUser } from '../UserSearch';
+import { permissionCatalogue } from './EffectivePermissions';
 
 type Effect = 'grant' | 'revoke';
 /** Scopes without a reference (RBAC.md 4); every other scope names a program, project or location. */
