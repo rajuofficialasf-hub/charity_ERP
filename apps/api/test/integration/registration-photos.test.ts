@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { readdirSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -15,9 +15,11 @@ let loc: Awaited<ReturnType<typeof f.locationTree>>;
 
 beforeAll(async () => {
   h = await authHarness();
-  await h.db.query(
-    `INSERT INTO roles (key, name_bn, name_en, kind, global_scope) VALUES ('finance_team', 'f', 'f', 'official', false) ON CONFLICT DO NOTHING`,
-  );
+  for (const role of ['finance_team', 'official_daee'])
+    await h.db.query(
+      `INSERT INTO roles (key, name_bn, name_en, kind, global_scope) VALUES ($1, $1, $1, 'official', false) ON CONFLICT DO NOTHING`,
+      [role],
+    );
   loc = await f.locationTree(h.db);
 });
 afterAll(async () => h.close());
@@ -142,6 +144,22 @@ describe('POST /auth/register/photos/{slot}', () => {
     expect(draft.rows[0].photo_file_id).toBe(second);
   });
 
+  it('two uploads to one slot at the same time leave exactly one photo', async () => {
+    const d = await verifiedDraft(h);
+    const results = await Promise.all([
+      upload(d, 'photo', jpeg()),
+      upload(d, 'photo', png(), 'image/png'),
+    ]);
+    expect(results.map((r) => r.status)).toEqual([201, 201]);
+    const rows = await h.db.query(`SELECT id FROM files WHERE object_key LIKE $1`, [
+      `registration/${d.registrationId}/%`,
+    ]);
+    const draft = await h.db.query('SELECT photo_file_id FROM registration_drafts WHERE id = $1', [
+      d.registrationId,
+    ]);
+    expect(rows.rows.map((r) => r.id)).toEqual([draft.rows[0].photo_file_id]);
+  });
+
   it('removes the stored object when the files row cannot be written', async () => {
     const d = await verifiedDraft(h);
     await h.db.query(`CREATE FUNCTION test_fail_files() RETURNS trigger LANGUAGE plpgsql AS $$
@@ -161,13 +179,9 @@ describe('POST /auth/register/photos/{slot}', () => {
       'registration',
       d.registrationId,
     );
-    const left = (() => {
-      try {
-        return readdirSync(dir);
-      } catch {
-        return [];
-      }
-    })();
+    // the upload wrote into the draft's folder, and the object is gone again
+    expect(existsSync(dir)).toBe(true);
+    const left = readdirSync(dir);
     expect(left).toEqual([]);
   });
 });
@@ -224,6 +238,29 @@ describe('GET /files/{fileId}/content', () => {
     expect((await content(photo)).status).toBe(401);
   });
 
+  it('keeps the NID photo from an official who reaches the volunteer without the identity class', async () => {
+    const { photo, nidPhoto } = await volunteerWithPhotos();
+    const daee = await login(h, await account(h.db, { role: 'official_daee' }));
+    expect((await content(photo, daee)).status).toBe(200);
+    expect((await content(nidPhoto, daee)).status).toBe(404);
+  });
+
+  it("audits an official's view of an NID photo, not the owner's", async () => {
+    const { owner, nidPhoto } = await volunteerWithPhotos();
+    const views = async () =>
+      (
+        await h.db.query(
+          `SELECT new FROM audit_log WHERE action = 'file.nid_viewed' AND entity_id = $1`,
+          [nidPhoto],
+        )
+      ).rows;
+    await content(nidPhoto, await login(h, owner));
+    expect(await views()).toEqual([]);
+    const rpm = await account(h.db, { role: 'regional_program_manager' });
+    await content(nidPhoto, await login(h, rpm));
+    expect(await views()).toEqual([{ new: { ownerUserId: owner.id } }]);
+  });
+
   it('serves no photo of an unsubmitted draft', async () => {
     const d = await verifiedDraft(h);
     const photo = (await upload(d, 'photo', jpeg())).body.data.fileId as string;
@@ -264,6 +301,17 @@ describe('POST /me/photos/{slot}', () => {
       .get(`/api/v1/files/${res.body.data.fileId}/content`)
       .set(bearer(session));
     expect(seen.status).toBe(200);
+  });
+
+  it('keeps one upload per request: a second upload replaces the first', async () => {
+    const { requestId, session } = await volunteerWithRequest();
+    const first = (await ownUpload(session, 'photo', requestId)).body.data.fileId as string;
+    const second = (await ownUpload(session, 'photo', requestId)).body.data.fileId as string;
+    expect(await fileRow(first)).toBeUndefined();
+    const req = await h.db.query('SELECT new_value FROM volunteer_change_requests WHERE id = $1', [
+      requestId,
+    ]);
+    expect(req.rows[0].new_value).toBe(second);
   });
 
   it("refuses another volunteer's request and a request for another field (404)", async () => {

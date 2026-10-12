@@ -166,7 +166,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     registrationPhotos:
       o.registrationPhotos ??
       new RegistrationPhotosService(prisma, storage, audit, registration, logger),
-    files: o.files ?? new FilesService(prisma, storage, access),
+    files: o.files ?? new FilesService(prisma, storage, access, audit),
     registrationCleanup: o.registrationCleanup ?? new RegistrationCleanup(prisma, storage, logger),
   };
 }

@@ -65,6 +65,10 @@ export function defineRoute<B = unknown, Q = unknown, P = Record<string, unknown
   if (!spec.permission) throw new Error(`${where}: a route must declare its permission`);
   if (!deps.permissions.isKnownPermission(spec.permission))
     throw new Error(`${where}: unknown permission ${spec.permission} (not in permissions.yaml)`);
+  // `entity` passes the access middleware for every active user; only the file service, which
+  // decides per file, may rely on it (DECISION_LOG D-087).
+  if (spec.permission === 'entity' && spec.scope !== 'file')
+    throw new Error(`${where}: the entity marker is only for file routes (scope file)`);
   if (!(SCOPE_ENTITIES as readonly string[]).includes(spec.scope))
     throw new Error(`${where}: unknown scope entity ${spec.scope}`);
   // A permission held below GLOBAL must name the entity its scope filters (O-62).

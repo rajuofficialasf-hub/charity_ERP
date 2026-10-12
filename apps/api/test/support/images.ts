@@ -13,7 +13,9 @@ const segment = (marker: number, data: Buffer) => {
   return Buffer.concat([head, data]);
 };
 
-export function jpeg(options: { pad?: number; metadata?: boolean } = {}): Buffer {
+export function jpeg(
+  options: { pad?: number; metadata?: boolean; trailer?: boolean; scans?: number } = {},
+): Buffer {
   const jfif = Buffer.from([0x4a, 0x46, 0x49, 0x46, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0]);
   const exif = Buffer.concat([Buffer.from('Exif\0\0'), Buffer.from(METADATA_MARKER)]);
   const comment = Buffer.from(`comment ${METADATA_MARKER}`);
@@ -22,10 +24,20 @@ export function jpeg(options: { pad?: number; metadata?: boolean } = {}): Buffer
     segment(0xe0, jfif),
     ...(options.metadata === false ? [] : [segment(0xe1, exif), segment(0xfe, comment)]),
     segment(0xdb, Buffer.from([0, 0])),
-    segment(0xda, Buffer.from([1, 1, 0, 0, 0x3f, 0])),
-    Buffer.from('scan-data'),
+    ...Array.from({ length: options.scans ?? 1 }, (_, i) => [
+      // a progressive JPEG may carry metadata between its scans
+      ...(i > 0 && options.metadata !== false ? [segment(0xe1, exif)] : []),
+      ...(i > 0 ? [segment(0xc4, Buffer.from([0, 1]))] : []),
+      segment(0xda, Buffer.from([1, 1, 0, 0, 0x3f, 0])),
+      // scan data with a stuffed byte and a restart marker, which are not segment markers
+      Buffer.from([0x53, 0xff, 0x00, 0x43, 0xff, 0xd0, 0x41]),
+    ]).flat(),
     Buffer.alloc(options.pad ?? 0, 0x11),
     Buffer.from([0xff, 0xd9]),
+    // phones append second images or motion clips after the end marker, with their own Exif
+    ...(options.trailer
+      ? [Buffer.from([0xff, 0xd8]), segment(0xe1, exif), Buffer.from([0xff, 0xd9])]
+      : []),
   ]);
 }
 

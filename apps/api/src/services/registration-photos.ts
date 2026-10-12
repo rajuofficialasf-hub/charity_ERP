@@ -41,20 +41,25 @@ export class RegistrationPhotosService {
   ): Promise<{ fileId: string }> {
     const draft = await this.registration.ownedDraft(input.registrationId, token);
     const image = imageOf(input.body);
-    const previous = input.slot === 'photo' ? draft.photoFileId : draft.nidPhotoFileId;
     const { fileId, replaced } = await this.store(
       image,
       `registration/${draft.id}`,
       { slot: input.slot, source: input.source, uploadedBy: null },
       async (tx, id) => {
+        // The draft row is locked, so two uploads to one slot replace each other in turn.
+        const [locked] = await tx.$queryRaw<
+          { photo_file_id: string | null; nid_photo_file_id: string | null }[]
+        >`SELECT photo_file_id, nid_photo_file_id FROM registration_drafts
+           WHERE id = ${draft.id}::uuid AND submitted_at IS NULL FOR UPDATE`;
+        if (!locked) throw new ApiError('registration.token_invalid', 401);
         await tx.registrationDraft.update({
           where: { id: draft.id },
           data: input.slot === 'photo' ? { photoFileId: id } : { nidPhotoFileId: id },
         });
-        if (!previous) return [];
-        // the replaced photo: only through the narrow database function (no DELETE for the API)
-        return tx.$queryRaw<{ bucket: string; object_key: string }[]>`
-          SELECT bucket, object_key FROM discard_registration_photo(${previous}::uuid)`;
+        return discard(
+          tx,
+          input.slot === 'photo' ? locked.photo_file_id : locked.nid_photo_file_id,
+        );
       },
       { registrationId: draft.id },
     );
@@ -62,29 +67,44 @@ export class RegistrationPhotosService {
     return { fileId };
   }
 
-  /** Upload for an open own change request that names the photo field (U7, U8 store the id). */
+  /**
+   * Upload for an open own change request whose field is the photo slot: the file id becomes the
+   * request's new value, and a second upload replaces the first.
+   */
   async forOwnRequest(
     principal: Principal,
     input: { requestId: string; slot: PhotoSlot; source: PhotoSource; body: unknown },
   ): Promise<{ fileId: string }> {
+    const where = {
+      id: input.requestId,
+      field: input.slot,
+      status: 'open',
+      volunteer: { userId: principal.userId },
+    };
     const request = await this.prisma.volunteerChangeRequest.findFirst({
-      where: {
-        id: input.requestId,
-        field: input.slot,
-        status: 'open',
-        volunteer: { userId: principal.userId },
-      },
+      where,
       select: { id: true },
     });
     if (!request) throw new ApiError('permission.not_found', 404);
     const image = imageOf(input.body);
-    const { fileId } = await this.store(
+    const { fileId, replaced } = await this.store(
       image,
       `users/${principal.userId}`,
       { slot: input.slot, source: input.source, uploadedBy: principal.userId },
-      async () => [],
+      async (tx, id) => {
+        const [locked] = await tx.$queryRaw<{ new_value: string | null }[]>`
+          SELECT new_value FROM volunteer_change_requests
+           WHERE id = ${request.id}::uuid AND status = 'open' FOR UPDATE`;
+        if (!locked) throw new ApiError('permission.not_found', 404);
+        await tx.volunteerChangeRequest.update({
+          where: { id: request.id },
+          data: { newValue: id },
+        });
+        return discard(tx, locked.new_value);
+      },
       { requestId: request.id },
     );
+    for (const old of replaced) await this.removeQuietly(old.object_key);
     return { fileId };
   }
 
@@ -140,6 +160,15 @@ export class RegistrationPhotosService {
       this.logger.warn({ err: error, bucket: BUCKET }, 'photo object not removed');
     }
   }
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The replaced photo, only through the narrow database function (no DELETE for the API role). */
+function discard(tx: Tx, fileId: string | null): Promise<{ bucket: string; object_key: string }[]> {
+  if (!fileId || !UUID.test(fileId)) return Promise.resolve([]);
+  return tx.$queryRaw<{ bucket: string; object_key: string }[]>`
+    SELECT bucket, object_key FROM discard_registration_photo(${fileId}::uuid)`;
 }
 
 /** The raw body as a cleaned JPEG or PNG, or 415 `file.type_not_allowed`. */

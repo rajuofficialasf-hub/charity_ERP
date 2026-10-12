@@ -11,6 +11,18 @@ describe('cleanImage: type by magic bytes and metadata stripped', () => {
     expect(out!.bytes.equals(jpeg({ metadata: false }))).toBe(true);
   });
 
+  it('drops metadata between the scans of a progressive JPEG and everything after the end marker', () => {
+    const out = cleanImage(jpeg({ scans: 2, trailer: true }));
+    expect(out!.bytes.includes(METADATA_MARKER)).toBe(false);
+    expect(out!.bytes.equals(jpeg({ scans: 2, metadata: false }))).toBe(true);
+    expect(out!.bytes.subarray(-2).equals(Buffer.from([0xff, 0xd9]))).toBe(true);
+  });
+
+  it('refuses a JPEG whose scan never ends', () => {
+    const input = jpeg();
+    expect(cleanImage(input.subarray(0, input.length - 2))).toBeNull();
+  });
+
   it('removes the PNG text and eXIf chunks and keeps the other chunks', () => {
     const out = cleanImage(png());
     expect(out?.mime).toBe('image/png');

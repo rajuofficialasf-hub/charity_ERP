@@ -1,6 +1,7 @@
 import { pipeline } from 'node:stream/promises';
 import type { Response } from 'express';
 import type { AccessService } from '../access/service';
+import type { AuditWriter } from '../audit/audit-writer';
 import type { Principal } from '../auth/principal';
 import type { PrismaService } from '../core/prisma.service';
 import { ApiError } from '../i18n/api-error';
@@ -19,13 +20,15 @@ const REACHING_PERMISSIONS = [
  * NS-41). So far the registration and profile photos: their owner sees them (the NID photo too,
  * D-081); an official sees them when one of the reaching permissions covers the owner, and the NID
  * photo only with the `volunteer.identity` field class. Everyone else, and a photo of an
- * unsubmitted draft, gets 404 without telling which.
+ * unsubmitted draft, gets 404 without telling which. An official's view of an NID photo is
+ * audited (`file.nid_viewed`).
  */
 export class FilesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageDriver,
     private readonly access: AccessService,
+    private readonly audit: AuditWriter,
   ) {}
 
   async streamContent(principal: Principal, fileId: string, res: Response): Promise<void> {
@@ -46,6 +49,16 @@ export class FilesService {
       this.access.denied(principal.userId, 'entity', 'file');
       throw new ApiError('permission.not_found', 404);
     }
+    // An official opening an identity document leaves a trace (R15; RBAC.md 6).
+    if (file.kind === 'nid_photo' && principal.userId !== owner)
+      await this.prisma.$transaction((tx) =>
+        this.audit.record(tx, {
+          action: 'file.nid_viewed',
+          entityType: 'file',
+          entityId: file.id,
+          new: { ownerUserId: owner },
+        }),
+      );
     let body;
     try {
       body = await this.storage.get(file.bucket as Bucket, file.objectKey);
