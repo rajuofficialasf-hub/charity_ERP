@@ -34,6 +34,16 @@ function probes(deps: RouteDeps): Router {
   });
   defineRoute(router, deps, {
     ...base,
+    method: 'post',
+    path: '/guard-probe/reset',
+    operationId: 'probe.reset',
+    summary: 'password reset start',
+    audit: 'none',
+    rateLimit: 'password-reset',
+    handler: () => ({ ok: true }),
+  });
+  defineRoute(router, deps, {
+    ...base,
     method: 'get',
     path: '/guard-probe/read',
     operationId: 'probe.read',
@@ -129,6 +139,43 @@ describe('rate limits and audit enforcement (API_STANDARDS 10, 15; D-068)', () =
       .post('/api/v1/guard-probe/login')
       .set('X-Forwarded-For', '203.0.113.9')
       .send({ loginId: 'c@example.org' })
+      .expect(200);
+  });
+
+  it('counts every spelling of one login id in the same window (AUTH.md 1)', async () => {
+    const spellings = ['01700000009', ' 0170-0000009 ', '+8801700000009', '8801700000009'];
+    for (let i = 0; i < 10; i++)
+      await request(t.app)
+        .post('/api/v1/guard-probe/login')
+        // a different address each time, so only the login-id window is shared
+        .set('X-Forwarded-For', `203.0.113.${100 + i}`)
+        .send({ loginId: spellings[i % spellings.length] })
+        .expect(200);
+    const blocked = await request(t.app)
+      .post('/api/v1/guard-probe/login')
+      .set('X-Forwarded-For', '203.0.113.120')
+      .send({ loginId: '০১৭০০০০০০০৯' })
+      .expect(429);
+    expect(blocked.body.error.code).toBe('rate_limit.exceeded');
+  });
+
+  it('limits password-reset starts per address as well as per login id', async () => {
+    for (let i = 0; i < 20; i++)
+      await request(t.app)
+        .post('/api/v1/guard-probe/reset')
+        .set('X-Forwarded-For', '203.0.113.77')
+        .send({ loginId: `victim${i}@example.org` })
+        .expect(200);
+    await request(t.app)
+      .post('/api/v1/guard-probe/reset')
+      .set('X-Forwarded-For', '203.0.113.77')
+      .send({ loginId: 'victim99@example.org' })
+      .expect(429);
+    // another address is not affected
+    await request(t.app)
+      .post('/api/v1/guard-probe/reset')
+      .set('X-Forwarded-For', '203.0.113.78')
+      .send({ loginId: 'victim99@example.org' })
       .expect(200);
   });
 

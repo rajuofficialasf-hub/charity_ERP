@@ -163,17 +163,23 @@ export class OtpService {
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
     if (!row) throw new ApiError('otp.invalid', 422);
-    if (row.attempts >= OTP_RULES.maxAttempts) throw new ApiError('otp.attempts_exceeded', 429);
     if (row.expiresAt <= now) throw new ApiError('otp.expired', 422);
+    // The attempt is reserved before the comparison, in one conditional UPDATE, so parallel
+    // guesses cannot all pass the cap on the same stale count (C4 review of the stack-adoption plan).
+    const reserved = await this.prisma.otpCode.updateMany({
+      where: { id: row.id, attempts: { lt: OTP_RULES.maxAttempts }, consumedAt: null },
+      data: { attempts: { increment: 1 } },
+    });
+    if (reserved.count === 0) throw new ApiError('otp.attempts_exceeded', 429);
     const expected = Buffer.from(row.codeHash);
     const given = Buffer.from(this.codeHash(row.id, code));
     if (expected.length === given.length && timingSafeEqual(expected, given)) return row.id;
-    const updated = await this.prisma.otpCode.update({
+    const after = await this.prisma.otpCode.findUnique({
       where: { id: row.id },
-      data: { attempts: { increment: 1 } },
       select: { attempts: true },
     });
-    if (updated.attempts >= OTP_RULES.maxAttempts) throw new ApiError('otp.attempts_exceeded', 429);
+    if ((after?.attempts ?? OTP_RULES.maxAttempts) >= OTP_RULES.maxAttempts)
+      throw new ApiError('otp.attempts_exceeded', 429);
     throw new ApiError('otp.invalid', 422);
   }
 

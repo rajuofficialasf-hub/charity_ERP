@@ -140,8 +140,8 @@ Lifting a block or reactivating never restores revoked device sessions; the user
 |---|---|---|
 | Login | 10 attempts per minute, 100 per hour | login id and IP separately |
 | OTP request | 5 per hour per mobile or email; 20 per hour per IP | number/address, IP |
-| OTP verify | 5 attempts per code (section 2) | code |
-| Password reset start | 5 per hour per login id | login id |
+| OTP verify | 5 attempts per code (section 2, reserved atomically); 20 per hour per IP (D-075) | code, IP |
+| Password reset start | 5 per hour per login id (counted on the normalized id, section 1); 20 per hour per IP (D-075) | login id, IP |
 | Refresh | 60 per hour per session | session id |
 | Public application form | 20 submissions per hour per IP (O-08) | IP |
 

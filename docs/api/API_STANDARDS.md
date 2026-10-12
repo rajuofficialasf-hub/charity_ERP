@@ -1,6 +1,6 @@
 # API STANDARDS (/api/v1)
 
-Status: complete, task T0.17 (2026-10-10). Every endpoint of the ERP follows these conventions; `docs/api/openapi.yaml` (T0.18) applies them and the CI drift test (NFR-54, ADR-002) enforces them. Sources: constitution §9, §13, §15; `docs/architecture/SYSTEM_ARCHITECTURE.md` §6 (check order); ADR-002 (NestJS, @nestjs/swagger); D-055 (zod as the only validation library); `docs/architecture/AUTH.md`; `docs/security/RBAC.md` §8 and `permissions.yaml`; `docs/architecture/OFFLINE_SYNC.md` §4; `docs/architecture/FILES_AND_DOCUMENTS.md` §3–§5; `docs/architecture/WORKFLOW_ENGINE.md` §6; `docs/architecture/NOTIFICATIONS.md`; `docs/database/DATABASE_SCHEMA.md`; O-03, O-08, O-25, O-29, O-30; UX-05. The technical choices below are approved with this document.
+Status: complete, task T0.17 (2026-10-10). Every endpoint of the ERP follows these conventions; `docs/api/openapi.yaml` (T0.18) applies them and the CI drift test (NFR-54, ADR-014) enforces them. Sources: constitution §9, §13, §15; `docs/architecture/SYSTEM_ARCHITECTURE.md` §6 (check order); ADR-002 (NestJS, @nestjs/swagger); D-055 (zod as the only validation library); `docs/architecture/AUTH.md`; `docs/security/RBAC.md` §8 and `permissions.yaml`; `docs/architecture/OFFLINE_SYNC.md` §4; `docs/architecture/FILES_AND_DOCUMENTS.md` §3–§5; `docs/architecture/WORKFLOW_ENGINE.md` §6; `docs/architecture/NOTIFICATIONS.md`; `docs/database/DATABASE_SCHEMA.md`; O-03, O-08, O-25, O-29, O-30; UX-05. The technical choices below are approved with this document.
 
 ## 1. Versioning
 
@@ -210,8 +210,8 @@ Implementation (T1.6, O-57): `IdempotencyService` in apps/api: `replayByClientUu
 |---|---|---|
 | login | 10 per minute, 100 per hour | login id and IP |
 | otp-request | 5 per hour per number or address; 20 per hour per IP (O-25) | address, IP |
-| otp-verify | 5 attempts per code (O-25) | code |
-| password-reset | 5 per hour | login id |
+| otp-verify | 5 attempts per code (O-25); 20 per hour per IP (D-075) | code, IP |
+| password-reset | 5 per hour per login id (normalized spelling); 20 per hour per IP (D-075) | login id, IP |
 | refresh | 60 per hour | device session |
 | public-form | 20 per hour (O-08, NFR-41) | IP |
 | default | 600 per minute per user (PROPOSAL, tuned by the load test T3.4) | user |
@@ -276,7 +276,7 @@ POST /api/v1/files/{fileId}/url → signed URL (15 minutes)
 | Annotation | Content | Checked by |
 |---|---|---|
 | `operationId` | `<module>.<resource>.<action>`, e.g. `applications.application.approve` | lint |
-| `tags` | the NestJS module | lint |
+| `tags` | the API module (its router) | lint |
 | `summary`, `description` | one line and the behaviour, including scope rules | review |
 | `x-permission` | a name from `permissions.yaml`, or one of four markers: `public` (no authentication; the operation sets `security: []`), `authenticated` (any active user, own data or non-sensitive reference data only), `workflow` (the permission is taken from the project's workflow snapshot: the transition's `permission` for actions and state-dependent edits, the activity binding's `permission` for activities; requires `x-workflow`), `entity` (file endpoints: the read permission of the file's linked entity plus its field class) | boot check and CI (unknown names fail) |
 | `x-scope` | entity type whose scope is resolved (`project`, `application`, `beneficiary`, `self`, …) | lint |

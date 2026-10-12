@@ -225,7 +225,15 @@ describe('auth rate-limit keys (AUTH.md 12)', () => {
 
   it('counts logins by login id and by IP separately', () => {
     const keys = RATE_LIMITS.login.map((w) => w.key(req({ loginId: ' A@Example.org ' })));
-    expect(keys).toEqual(['id:a@example.org', 'id:a@example.org', 'ip:10.0.0.1', 'ip:10.0.0.1']);
+    expect(keys).toEqual([
+      'id:email:a@example.org',
+      'id:email:a@example.org',
+      'ip:10.0.0.1',
+      'ip:10.0.0.1',
+    ]);
+    // spellings of one mobile number share the window (AUTH.md 1, D-075)
+    for (const spelling of ['01700000001', ' 0170-0000001 ', '+8801700000001', '০১৭০০০০০০০১'])
+      expect(RATE_LIMITS.login[0]!.key(req({ loginId: spelling }))).toBe('id:mobile:01700000001');
   });
 
   it('counts refreshes per session from the refresh cookie and OTP checks per login id', () => {
@@ -238,8 +246,11 @@ describe('auth rate-limit keys (AUTH.md 12)', () => {
       '01700000001',
     );
     expect(RATE_LIMITS['password-reset'][0]!.key(req({ loginId: 'X@example.org' }))).toBe(
-      'x@example.org',
+      'email:x@example.org',
     );
+    // the reset and verify classes also count per address (D-075)
+    expect(RATE_LIMITS['password-reset'][1]!.key(req({}))).toBe('10.0.0.1');
+    expect(RATE_LIMITS['otp-verify'][1]!.key(req({}))).toBe('10.0.0.1');
   });
 
   it('builds API errors with Retry-After for locks', () => {

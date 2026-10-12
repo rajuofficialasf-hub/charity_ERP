@@ -1,5 +1,6 @@
 import type { Request } from 'express';
 import { ipKeyGenerator } from 'express-rate-limit';
+import { normalizeLoginId } from '../auth/login-id';
 import { currentContext } from '../core/request-context';
 
 /** The rate-limit classes of API_STANDARDS 10, the same values as OpenAPI `x-rate-limit`. */
@@ -39,7 +40,16 @@ const field = (req: Request, ...names: string[]) => {
 };
 /** The client address through `trust proxy`, IPv6 grouped by /56 so a /64 is one client. */
 const ip = (req: Request) => (req.ip ? ipKeyGenerator(req.ip) : 'unknown');
-const loginId = (req: Request) => field(req, 'loginId', 'login', 'mobile', 'email');
+/**
+ * A login id is counted in its normalized form (AUTH.md 1: spaces, dashes and the country prefix
+ * removed, English digits), so spellings of one id share one window.
+ */
+const loginId = (req: Request) => {
+  const raw = field(req, 'loginId', 'login', 'mobile', 'email');
+  if (raw === 'none') return raw;
+  const id = normalizeLoginId(raw);
+  return `${id.kind}:${id.value}`;
+};
 const address = (req: Request) => field(req, 'address', 'mobile', 'email');
 const session = (req: Request) => currentContext()?.deviceSessionId ?? `ip:${ip(req)}`;
 /** The refresh token starts with its session id (D-070), so refreshes count per session. */
@@ -67,8 +77,12 @@ export const RATE_LIMITS: Record<RateLimitClass, Window[]> = {
       ttlMs: HOUR,
       key: (r) => field(r, 'registrationId', 'loginId', 'otpId', 'requestId'),
     },
+    { limit: 20, ttlMs: HOUR, key: ip, byIp: true },
   ],
-  'password-reset': [{ limit: 5, ttlMs: HOUR, key: loginId }],
+  'password-reset': [
+    { limit: 5, ttlMs: HOUR, key: loginId },
+    { limit: 20, ttlMs: HOUR, key: ip, byIp: true },
+  ],
   refresh: [{ limit: 60, ttlMs: HOUR, key: refreshSession }],
   'public-form': [{ limit: 20, ttlMs: HOUR, key: ip, byIp: true }],
   default: [{ limit: 600, ttlMs: MINUTE, key: caller }],

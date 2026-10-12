@@ -147,6 +147,36 @@ describe('password reset with the OTP', () => {
     expect((await auditRows(h.db, 'auth.otp_failed')).length).toBeGreaterThanOrEqual(6);
   });
 
+  it('counts parallel wrong codes atomically: the right code is refused once five are spent', async () => {
+    const staff = await account(h.db);
+    await post('/auth/password/reset/start').send({ loginId: staff.email }).expect(204);
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        post('/auth/password/reset/complete').send({
+          loginId: staff.email,
+          code: '111111',
+          newPassword: 'Shapla phul 77',
+        }),
+      ),
+    );
+    // five attempts are reserved; the rest are refused. A request that reserved an early attempt
+    // may still see the cap reached by the time it answers, so only the bounds are fixed.
+    const invalid = results.filter((r) => r.status === 422).length;
+    const exceeded = results.filter((r) => r.status === 429).length;
+    expect(invalid + exceeded).toBe(8);
+    expect(invalid).toBeLessThanOrEqual(4);
+    expect(exceeded).toBeGreaterThanOrEqual(4);
+    const right = await post('/auth/password/reset/complete')
+      .send({ loginId: staff.email, code: CODE, newPassword: 'Shapla phul 77' })
+      .expect(429);
+    expect(right.body.error.code).toBe('otp.attempts_exceeded');
+    // the attempted code carries exactly five attempts; no code ever exceeds the cap
+    const counted = await h.db.query(
+      'SELECT max(attempts)::int AS most, count(*) FILTER (WHERE attempts > 5)::int AS over FROM otp_codes',
+    );
+    expect(counted.rows[0]).toEqual({ most: 5, over: 0 });
+  });
+
   it('refuses an expired code and a weak password without using the code', async () => {
     const staff = await account(h.db);
     await post('/auth/password/reset/start').send({ loginId: staff.email }).expect(204);

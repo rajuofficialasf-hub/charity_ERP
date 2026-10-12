@@ -1,4 +1,4 @@
-import type { RequestHandler } from 'express';
+import type { Request, RequestHandler } from 'express';
 import { requestLocale } from '../i18n/request-locale';
 import { runWithContext } from './request-context';
 import { requestIdOf } from './request-id';
@@ -9,7 +9,7 @@ import { requestIdOf } from './request-id';
  * set `req.id`.
  */
 export function requestContext(): RequestHandler {
-  return (req: { id?: unknown } & Parameters<RequestHandler>[0], res, next) => {
+  return (req: Request & { id?: unknown }, res, next) => {
     const requestId = typeof req.id === 'string' ? req.id : requestIdOf(req);
     if (!res.getHeader('X-Request-Id')) res.setHeader('X-Request-Id', requestId);
     runWithContext({ requestId, locale: requestLocale(req), ip: req.ip, auditCount: 0 }, next);
