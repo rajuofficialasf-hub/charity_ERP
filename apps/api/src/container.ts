@@ -2,10 +2,10 @@ import type { DestinationStream, Logger } from 'pino';
 import pino from 'pino';
 import { assertConditionsCovered } from './access/conditions';
 import { type AccessRegistry, loadAccessRegistry } from './access/registry';
+import { AccessService } from './access/service';
 import { AuditWriter } from './audit/audit-writer';
 import { OtpDeliveryService, OtpService } from './auth/otp.service';
 import { PasswordHasher } from './auth/password-hasher';
-import { PermissionResolver } from './auth/permission-resolver';
 import { PermissionVersionService } from './auth/permission-version.service';
 import { SessionService } from './auth/session.service';
 import { TokenService } from './auth/token.service';
@@ -49,7 +49,7 @@ export interface Container {
   hasher: PasswordHasher;
   tokens: TokenService;
   sessions: SessionService;
-  permissions: PermissionResolver;
+  access: AccessService;
   permissionVersions: PermissionVersionService;
   otpDelivery: OtpDeliveryService;
   otp: OtpService;
@@ -111,6 +111,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   // permissions.yaml must name only conditions the access module can check (RBAC.md 2).
   const accessRegistry = o.accessRegistry ?? loadAccessRegistry(env.PERMISSIONS_FILE);
   assertConditionsCovered(accessRegistry);
+  const access = o.access ?? new AccessService(accessRegistry, prisma, clock, logger);
   return {
     env,
     logger,
@@ -128,14 +129,15 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     hasher,
     tokens,
     sessions,
-    permissions: o.permissions ?? new PermissionResolver(),
+    access,
     permissionVersions,
     otpDelivery,
     otp,
     auth:
       o.auth ?? new AuthService(env, prisma, clock, hasher, tokens, sessions, otp, audit, logger),
-    deviceSessions: o.deviceSessions ?? new SessionsService(sessions, prisma, audit),
-    users: o.users ?? new UsersService(env, prisma, audit, sessions, permissionVersions, clock),
+    deviceSessions: o.deviceSessions ?? new SessionsService(sessions, prisma, audit, access),
+    users:
+      o.users ?? new UsersService(env, prisma, audit, sessions, permissionVersions, clock, access),
   };
 }
 

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { hash } from '@node-rs/argon2';
 import type { Express } from 'express';
 import type { Client } from 'pg';
+import type { DestinationStream } from 'pino';
 import request from 'supertest';
 import { inject } from 'vitest';
 import { createApp } from '../../../src/app';
@@ -45,7 +46,7 @@ export interface AuthHarness {
  * limits themselves are covered in test/api/guards.
  */
 export async function authHarness(
-  options: { realRateLimits?: boolean } = {},
+  options: { realRateLimits?: boolean; logStream?: DestinationStream } = {},
 ): Promise<AuthHarness> {
   const clone = await cloneTemplate(inject('templateDb'));
   for (const role of ROLES)
@@ -57,9 +58,11 @@ export async function authHarness(
   const env = testEnv({
     DATABASE_URL: clone.url,
     RATE_LIMITS_RELAXED: options.realRateLimits ? 'false' : 'true',
+    // a captured log stream needs log lines (the test env is silent otherwise)
+    ...(options.logStream ? { LOG_LEVEL: 'info' } : {}),
   });
-  const container = createContainer(env, { overrides: { clock } });
-  const { app } = createApp(container);
+  const container = createContainer(env, { overrides: { clock }, logStream: options.logStream });
+  const { app } = createApp(container, { logStream: options.logStream });
   return {
     app,
     container,

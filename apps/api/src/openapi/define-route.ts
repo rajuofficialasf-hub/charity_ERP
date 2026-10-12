@@ -59,6 +59,12 @@ export function defineRoute<B = unknown, Q = unknown, P = Record<string, unknown
     throw new Error(`${where}: unknown permission ${spec.permission} (not in permissions.yaml)`);
   if (!(SCOPE_ENTITIES as readonly string[]).includes(spec.scope))
     throw new Error(`${where}: unknown scope entity ${spec.scope}`);
+  // A permission held below GLOBAL must name the entity its scope filters (O-62).
+  const scoped = deps.permissions.permissions
+    .get(spec.permission)
+    ?.defaults.some((d) => d.scope !== 'GLOBAL');
+  if (scoped && spec.scope === 'none')
+    throw new Error(`${where}: ${spec.permission} is held below GLOBAL and needs a scope entity`);
   deps.registry.add({ ...spec, method, path });
 
   const run: RequestHandler = async (req, res, next) => {

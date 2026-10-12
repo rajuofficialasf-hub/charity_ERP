@@ -8,8 +8,6 @@ import { afterFailure, LOCKOUT_RULES, minutesLeft, UnknownIdLockout } from './lo
 import { normalizeLoginId } from './login-id';
 import { identifierHash, OtpDeliveryService } from './otp.service';
 import { PasswordHasher } from './password-hasher';
-import { PermissionResolver } from './permission-resolver';
-import type { Principal } from './principal';
 import { ACCESS_TOKEN_SECONDS, hashRefreshToken, TokenService } from './token.service';
 
 const base = {
@@ -193,29 +191,6 @@ describe('PasswordHasher (SECURITY_POLICY 4)', () => {
     expect(await hasher.verify('garbage', 'x')).toBe(false);
     expect(hasher.needsRehash(stored)).toBe(false);
     expect(hasher.needsRehash('$argon2id$v=19$m=4096,t=3,p=1$abc$def')).toBe(true);
-  });
-});
-
-describe('interim permission resolver (O-59 item 3)', () => {
-  const principal = (globalScope: boolean): Principal => ({
-    userId: 'u',
-    sessionId: 's',
-    kind: 'staff',
-    state: 'active',
-    roles: [],
-    globalScope,
-    isSystemOwner: false,
-    permissionVersion: 1,
-  });
-  const resolver = new PermissionResolver();
-
-  it('denies by default and lets global roles and own-session permissions pass', () => {
-    expect(resolver.allows('authenticated', principal(false))).toBe(true);
-    expect(resolver.allows('session.revoke_own', principal(false))).toBe(true);
-    expect(resolver.allows('session.revoke_user', principal(false))).toBe(false);
-    expect(resolver.allows('permission.view', principal(false))).toBe(false);
-    expect(resolver.allows('session.revoke_user', principal(true))).toBe(true);
-    expect(resolver.allows('workflow', principal(true))).toBe(false);
   });
 });
 

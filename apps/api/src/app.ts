@@ -61,7 +61,7 @@ export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
     access: requireAccess({
       tokens: c.tokens,
       sessions: c.sessions,
-      permissions: c.permissions,
+      access: c.access,
       clock: c.clock,
       logger: c.logger,
     }),

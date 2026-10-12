@@ -1,0 +1,181 @@
+import { randomUUID } from 'node:crypto';
+import { Writable } from 'node:stream';
+import request from 'supertest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { accessWorld, seedAccessCatalogue } from './support/access-fixtures';
+import {
+  type Account,
+  account,
+  type AuthHarness,
+  authHarness,
+  bearer,
+  login,
+  type Session,
+} from './support/auth-app';
+
+// Scope resolution and enforcement through the real endpoints (RBAC.md 4 and 8; plan
+// docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, U3).
+let h: AuthHarness;
+let world: Awaited<ReturnType<typeof accessWorld>>;
+const accounts = new Map<string, Account>();
+const logLines: Record<string, unknown>[] = [];
+const logStream = new Writable({
+  write(chunk, _enc, done) {
+    for (const line of String(chunk).split('\n'))
+      if (line.trim()) logLines.push(JSON.parse(line) as Record<string, unknown>);
+    done();
+  },
+});
+
+const api = () => request(h.server());
+const as = (userId: string) => login(h, accounts.get(userId)!);
+const deniedEvents = () => logLines.filter((l) => l.event === 'permission_denied');
+
+beforeAll(async () => {
+  h = await authHarness({ logStream });
+  await seedAccessCatalogue(h.db);
+  const make = (kind: 'staff' | 'volunteer') => async (role: string) => {
+    const a = await account(h.db, { kind, role });
+    accounts.set(a.id, a);
+    return a.id;
+  };
+  world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
+});
+
+afterAll(async () => {
+  await h.close();
+});
+
+async function override(
+  userId: string,
+  permission: string,
+  effect: string,
+  scope = 'GLOBAL',
+  ref: string | null = null,
+) {
+  await h.db.query(
+    `INSERT INTO user_permissions (id, user_id, permission_name, effect, scope_type, scope_ref, reason, granted_by)
+     VALUES ($1, $2, $3, $4, $5, $6, 'Test override', $7)`,
+    [randomUUID(), userId, permission, effect, scope, ref, world.users.head],
+  );
+  await h.db.query('UPDATE users SET permission_version = permission_version + 1 WHERE id = $1', [
+    userId,
+  ]);
+  h.container.sessions.evictUser(userId);
+}
+
+async function refresh(s: Session): Promise<string> {
+  const res = await api()
+    .post('/api/v1/auth/refresh')
+    .set('Cookie', s.cookieHeader)
+    .set('X-CSRF-Token', s.csrf)
+    .expect(200);
+  return res.body.data.accessToken as string;
+}
+
+describe('scope on the user endpoints', () => {
+  it('shows a PM the users of own program and nobody else', async () => {
+    const pm = await as(world.users.pm);
+    const ids = new Set<string>();
+    let cursor: string | undefined;
+    do {
+      const res = await api()
+        .get('/api/v1/users')
+        .query({ limit: 100, ...(cursor ? { cursor } : {}) })
+        .set(bearer(pm))
+        .expect(200);
+      for (const u of res.body.data as { id: string }[]) ids.add(u.id);
+      cursor = res.body.meta.nextCursor ?? undefined;
+    } while (cursor);
+    for (const inside of [world.users.executive, world.users.rpmDhaka, world.users.general])
+      expect(ids).toContain(inside);
+    expect(ids).not.toContain(world.users.outsider);
+    await api().get(`/api/v1/users/${world.users.executive}`).set(bearer(pm)).expect(200);
+    const outside = await api()
+      .get(`/api/v1/users/${world.users.outsider}`)
+      .set(bearer(pm))
+      .expect(404);
+    expect(outside.body.error.code).toBe('permission.not_found');
+  });
+
+  it("lets the Dhaka RPM revoke a Dhaka volunteer's session but not a Rangpur volunteer's", async () => {
+    const rpm = await as(world.users.rpmDhaka);
+    await as(world.users.general);
+    const list = await api()
+      .get(`/api/v1/users/${world.users.general}/sessions`)
+      .set(bearer(rpm))
+      .expect(200);
+    await api()
+      .post(`/api/v1/users/${world.users.general}/sessions/${list.body.data[0].id}/revoke`)
+      .set(bearer(rpm))
+      .send({ reason: 'Phone lost in the field' })
+      .expect(204);
+    await api()
+      .get(`/api/v1/users/${world.users.rangpurVolunteer}/sessions`)
+      .set(bearer(rpm))
+      .expect(404);
+  });
+
+  it('refuses a role without the permission with 403 and logs the denial', async () => {
+    const executive = await as(world.users.executive);
+    const before = deniedEvents().length;
+    const res = await api().get('/api/v1/users').set(bearer(executive)).expect(403);
+    expect(res.body.error.code).toBe('permission.denied');
+    expect(deniedEvents().slice(before)).toEqual([
+      expect.objectContaining({ userId: world.users.executive, permission: 'permission.view' }),
+    ]);
+  });
+
+  it('logs a scope 404 as a denial without the record', async () => {
+    const pm = await as(world.users.pm);
+    const before = deniedEvents().length;
+    await api().get(`/api/v1/users/${world.users.outsider}`).set(bearer(pm)).expect(404);
+    const events = deniedEvents().slice(before);
+    expect(events).toEqual([
+      expect.objectContaining({
+        userId: world.users.pm,
+        permission: 'permission.view',
+        entity: 'user',
+      }),
+    ]);
+    expect(JSON.stringify(events)).not.toContain(world.users.outsider);
+  });
+
+  it('answers 404 before any write when a state change targets a user outside the scope', async () => {
+    const pmAccount = accounts.get(world.users.pm)!;
+    // a PROGRAM-scoped grant of user.state.change for the PM's own program
+    const { rows } = await h.db.query('SELECT id FROM programs WHERE pm_user_id = $1', [
+      pmAccount.id,
+    ]);
+    await override(world.users.pm, 'user.state.change', 'grant', 'PROGRAM', rows[0].id as string);
+    const pm = await as(world.users.pm);
+    await api()
+      .post(`/api/v1/users/${world.users.outsider}/state`)
+      .set(bearer(pm))
+      .set('If-Match', '"stale"')
+      .send({ state: 'blocked', reason: 'Testing the scope' })
+      .expect(404);
+    const outsider = await h.db.query('SELECT state FROM users WHERE id = $1', [
+      world.users.outsider,
+    ]);
+    expect(outsider.rows[0].state).toBe('active');
+    const etag = (await api().get(`/api/v1/users/${world.users.executive}`).set(bearer(pm))).headers
+      .etag as string;
+    await api()
+      .post(`/api/v1/users/${world.users.executive}/state`)
+      .set(bearer(pm))
+      .set('If-Match', etag)
+      .send({ state: 'blocked', reason: 'Testing the scope' })
+      .expect(200);
+  });
+
+  it('applies a revoke override after the token refresh', async () => {
+    const rpm = await as(world.users.rpmRangpur);
+    await api().get('/api/v1/users').set(bearer(rpm)).expect(200);
+    await override(world.users.rpmRangpur, 'permission.view', 'revoke');
+    const stale = await api().get('/api/v1/users').set(bearer(rpm)).expect(401);
+    expect(stale.body.error.code).toBe('auth.token_stale');
+    const token = await refresh(rpm);
+    await api().get('/api/v1/users').set('Authorization', `Bearer ${token}`).expect(403);
+  });
+});

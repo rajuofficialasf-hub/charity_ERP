@@ -136,5 +136,8 @@ describe('OpenAPI drift test (API_STANDARDS 16)', () => {
       /unknown permission no\.such_permission/,
     );
     expect(register({ scope: 'planet' })).toThrow(/unknown scope entity planet/);
+    expect(register({ permission: 'permission.view', scope: 'none' })).toThrow(
+      /held below GLOBAL and needs a scope entity/,
+    );
   });
 });

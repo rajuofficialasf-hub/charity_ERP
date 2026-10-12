@@ -86,6 +86,7 @@ function probes(deps: RouteDeps): Router {
     operationId: 'probe.protected',
     summary: 'protected',
     permission: 'permission.view',
+    scope: 'user',
     audit: 'none',
     rateLimit: 'default',
     handler: () => ({ ok: true }),

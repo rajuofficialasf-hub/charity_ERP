@@ -7,7 +7,7 @@ import {
 } from '@css/shared/auth';
 import { Router } from 'express';
 import { z } from 'zod';
-import { principalOf } from '../auth/principal';
+import { principalOf, scopeOf } from '../auth/principal';
 import type { Container } from '../container';
 import { etagOf } from '../core/etag';
 import { pageQuery } from '../core/pagination';
@@ -44,7 +44,7 @@ export function usersRouter(deps: RouteDeps, c: Pick<Container, 'users'>): Route
     query: listQuery,
     responses: { 200: null, 401: null, 403: null, 422: null },
     handler: async ({ query, req }) => {
-      const { rows, meta } = await c.users.list(query, principalOf(req));
+      const { rows, meta } = await c.users.list(query, principalOf(req), scopeOf(req));
       return page(rows, meta);
     },
   });
@@ -59,8 +59,8 @@ export function usersRouter(deps: RouteDeps, c: Pick<Container, 'users'>): Route
     audit: 'none',
     params: { userId: uuid },
     responses: { 200: null, 401: null, 403: null, 404: null },
-    handler: async ({ params, res }) => {
-      const { user, updatedAt } = await c.users.get(params.userId);
+    handler: async ({ params, req, res }) => {
+      const { user, updatedAt } = await c.users.get(scopeOf(req), params.userId);
       const etag = etagOf(updatedAt);
       res.setHeader('ETag', etag);
       return ok(user, { etag });
@@ -82,6 +82,7 @@ export function usersRouter(deps: RouteDeps, c: Pick<Container, 'users'>): Route
     handler: async ({ body, params, req, res }) => {
       const { user, updatedAt } = await c.users.changeState(
         principalOf(req),
+        scopeOf(req),
         params.userId,
         body,
         req.get('if-match'),
@@ -105,7 +106,7 @@ export function usersRouter(deps: RouteDeps, c: Pick<Container, 'users'>): Route
     body: reasonRequestSchema,
     responses: { 204: null, 401: null, 403: null, 404: null, 409: null, 422: null },
     handler: ({ body, params, req }) =>
-      c.users.unlock(principalOf(req), params.userId, body.reason),
+      c.users.unlock(principalOf(req), scopeOf(req), params.userId, body.reason),
   });
 
   return router;

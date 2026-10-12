@@ -1,7 +1,7 @@
 import { reasonRequestSchema, type ReasonRequest } from '@css/shared/auth';
 import { Router } from 'express';
 import { z } from 'zod';
-import { principalOf } from '../auth/principal';
+import { principalOf, scopeOf } from '../auth/principal';
 import type { Container } from '../container';
 import { page } from '../http/send';
 import { defineRoute, type RouteDeps } from '../openapi/define-route';
@@ -57,7 +57,7 @@ export function sessionsRouter(deps: RouteDeps, c: Pick<Container, 'deviceSessio
     params: { userId: uuid },
     responses: { 200: null, 401: null, 403: null, 404: null },
     handler: async ({ params, req }) =>
-      list(await c.deviceSessions.listUser(principalOf(req), params.userId)),
+      list(await c.deviceSessions.listUser(principalOf(req), scopeOf(req), params.userId)),
   });
 
   defineRoute<ReasonRequest, unknown, { userId: string; sessionId: string }>(router, deps, {
@@ -74,7 +74,13 @@ export function sessionsRouter(deps: RouteDeps, c: Pick<Container, 'deviceSessio
     body: reasonRequestSchema,
     responses: { 204: null, 401: null, 403: null, 404: null, 409: null, 422: null },
     handler: ({ body, params, req }) =>
-      c.deviceSessions.revokeUser(principalOf(req), params.userId, params.sessionId, body.reason),
+      c.deviceSessions.revokeUser(
+        principalOf(req),
+        scopeOf(req),
+        params.userId,
+        params.sessionId,
+        body.reason,
+      ),
   });
 
   return router;

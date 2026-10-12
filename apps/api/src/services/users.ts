@@ -1,4 +1,6 @@
 import type { UserState, UserStateRequest } from '@css/shared/auth';
+import type { Scope } from '../access/scope';
+import type { AccessService } from '../access/service';
 import { type AuditWriter } from '../audit/audit-writer';
 import { type PermissionVersionService } from '../auth/permission-version.service';
 import type { Principal } from '../auth/principal';
@@ -64,9 +66,10 @@ export class UsersService {
     private readonly sessions: SessionService,
     private readonly versions: PermissionVersionService,
     private readonly clock: Clock,
+    private readonly access: AccessService,
   ) {}
 
-  async list(query: UserListQuery, actor: Principal) {
+  async list(query: UserListQuery, actor: Principal, scope: Scope) {
     const sort = parseSort(
       undefined,
       ['displayName', 'id'],
@@ -78,6 +81,7 @@ export class UsersService {
       : undefined;
     const direction = cursor?.d ?? 'next';
     const filter = {
+      AND: [this.access.userFilter(scope)],
       kind: ACCOUNT_KINDS,
       ...(query.state ? { state: query.state } : {}),
       ...(query.role ? { userRolesUser: { some: { roleKey: query.role, revokedAt: null } } } : {}),
@@ -116,18 +120,14 @@ export class UsersService {
     };
   }
 
-  private async find(userId: string) {
-    const user = await this.prisma.user.findFirst({
-      where: { id: userId, kind: ACCOUNT_KINDS },
-      select: userSelect,
-    });
-    if (!user) throw new ApiError('permission.not_found', 404);
-    return user;
-  }
-
-  /** The user and its ETag source (`updated_at`). */
-  async get(userId: string) {
-    const { userRolesUser, lockedUntil: _locked, updatedAt, ...user } = await this.find(userId);
+  /** The user and its ETag source (`updated_at`), inside the caller's scope (404 outside). */
+  async get(scope: Scope, userId: string) {
+    const {
+      userRolesUser,
+      lockedUntil: _locked,
+      updatedAt,
+      ...user
+    } = await this.access.findUser(scope, userId, userSelect);
     return {
       user: {
         ...user,
@@ -145,17 +145,19 @@ export class UsersService {
    */
   async changeState(
     actor: Principal,
+    scope: Scope,
     userId: string,
     body: UserStateRequest,
     ifMatch: string | undefined,
   ) {
     const now = this.clock.now();
     await this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.findFirst({
-        where: { id: userId, kind: ACCOUNT_KINDS },
-        select: { id: true, kind: true, state: true, isSystemOwner: true, updatedAt: true },
-      });
-      if (!user) throw new ApiError('permission.not_found', 404);
+      const user = await this.access.findUser(
+        scope,
+        userId,
+        { id: true, kind: true, state: true, isSystemOwner: true, updatedAt: true },
+        tx,
+      );
       assertIfMatch(ifMatch, user.updatedAt);
       if (user.isSystemOwner) throw new ApiError('user.system_owner_protected', 409);
       const allowed = TRANSITIONS[user.state] ?? [];
@@ -191,18 +193,14 @@ export class UsersService {
         });
     });
     this.sessions.evictUser(userId);
-    return this.get(userId);
+    return this.get(scope, userId);
   }
 
   /** Clears a login lock with a reason (O-59 item 2, AUTH.md 6). */
-  async unlock(actor: Principal, userId: string, reason: string): Promise<void> {
+  async unlock(actor: Principal, scope: Scope, userId: string, reason: string): Promise<void> {
     const now = this.clock.now();
     await this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.findFirst({
-        where: { id: userId, kind: ACCOUNT_KINDS },
-        select: { id: true, lockedUntil: true },
-      });
-      if (!user) throw new ApiError('permission.not_found', 404);
+      const user = await this.access.findUser(scope, userId, { id: true, lockedUntil: true }, tx);
       if (!user.lockedUntil || user.lockedUntil <= now) throw new ApiError('user.not_locked', 409);
       await tx.user.update({
         where: { id: user.id },

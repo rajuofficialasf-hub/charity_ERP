@@ -1,4 +1,5 @@
 import type { Request } from 'express';
+import type { Scope } from '../access/scope';
 import { ApiError } from '../i18n/api-error';
 
 /** The authenticated caller of a request, set by requireAccess (AUTH.md 5, SYSTEM_ARCHITECTURE 6). */
@@ -14,7 +15,13 @@ export interface Principal {
   permissionVersion: number;
 }
 
-export type AuthedRequest = Request & { principal?: Principal };
+export type AuthedRequest = Request & { principal?: Principal; scope?: Scope };
+
+/** The caller's scope for the route's permission and entity, set by the access middleware. */
+export function scopeOf(req: AuthedRequest): Scope {
+  if (!req.scope) throw new Error('scopeOf: the route has no access scope (public route?)');
+  return req.scope;
+}
 
 export function principalOf(req: AuthedRequest): Principal {
   if (!req.principal) throw new ApiError('auth.token_missing', 401);

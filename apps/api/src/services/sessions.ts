@@ -1,4 +1,6 @@
 import { type DeviceSession } from '@css/shared/auth';
+import type { Scope } from '../access/scope';
+import type { AccessService } from '../access/service';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Principal } from '../auth/principal';
 import type { SessionService } from '../auth/session.service';
@@ -26,6 +28,7 @@ export class SessionsService {
     private readonly sessions: SessionService,
     private readonly prisma: PrismaService,
     private readonly audit: AuditWriter,
+    private readonly access: AccessService,
   ) {}
 
   async listOwn(user: Principal): Promise<DeviceSession[]> {
@@ -56,29 +59,25 @@ export class SessionsService {
     });
   }
 
-  /** The target account, or 404 for unknown ids and the system actor (RBAC.md 8). */
-  private async target(userId: string) {
-    const user = await this.prisma.user.findFirst({
-      where: { id: userId, kind: { in: ['staff', 'volunteer'] } },
-      select: { id: true, isSystemOwner: true },
-    });
-    if (!user) throw new ApiError('permission.not_found', 404);
-    return user;
+  /** The target account inside the caller's scope, or 404 (unknown, out of scope, system actor). */
+  private target(scope: Scope, userId: string) {
+    return this.access.findUser(scope, userId, { id: true, isSystemOwner: true });
   }
 
-  async listUser(actor: Principal, userId: string): Promise<DeviceSession[]> {
-    const user = await this.target(userId);
+  async listUser(actor: Principal, scope: Scope, userId: string): Promise<DeviceSession[]> {
+    const user = await this.target(scope, userId);
     const rows = await this.sessions.list(user.id);
     return rows.map((r) => view(r, user.id === actor.userId ? actor.sessionId : null));
   }
 
   async revokeUser(
     actor: Principal,
+    scope: Scope,
     userId: string,
     sessionId: string,
     reason: string,
   ): Promise<void> {
-    const user = await this.target(userId);
+    const user = await this.target(scope, userId);
     // The Main Admin's sessions are revoked only by the Main Admin (AUTH.md 11, BR-035).
     if (user.isSystemOwner && user.id !== actor.userId)
       throw new ApiError('user.system_owner_protected', 409);
