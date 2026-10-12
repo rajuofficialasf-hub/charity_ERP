@@ -36,6 +36,12 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                 Component: (await import('../admin/DashboardPage')).DashboardPage,
               }),
             },
+            {
+              path: 'permissions',
+              lazy: async () => ({
+                Component: (await import('../admin/permissions/PermissionsPage')).PermissionsPage,
+              }),
+            },
           ],
         },
         ...(gallery && GalleryPage

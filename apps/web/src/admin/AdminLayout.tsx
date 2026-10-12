@@ -6,22 +6,31 @@ import { DocumentTitle } from '../components/DocumentTitle';
 import { LanguageSwitch } from '../components/LanguageSwitch';
 import { RequireAuth } from '../lib/auth';
 import './admin.css';
-import { ADMIN_NAV } from './navigation';
+import { navFor } from './navigation';
 import { canOpenAdmin } from './roles';
 
-/** Shown to a signed-in user outside the management audience (the server denies anyway). */
-function Forbidden() {
+/** The "no access" content: inside the admin content area for a page the user may not open. */
+export function ForbiddenContent() {
   const t = useTranslations('admin.forbidden');
   return (
-    <main id="main" className="account-page">
+    <>
       <DocumentTitle title={t('title')} />
-      <h1>{t('title')}</h1>
+      <h1 className="admin-title">{t('title')}</h1>
       <p className="m-0">{t('message')}</p>
       <div>
         <Button variant="secondary" href="/">
           {t('home')}
         </Button>
       </div>
+    </>
+  );
+}
+
+/** Shown to a signed-in user outside the management audience (the server denies anyway). */
+function Forbidden() {
+  return (
+    <main id="main" className="account-page">
+      <ForbiddenContent />
     </main>
   );
 }
@@ -54,7 +63,7 @@ export function AdminLayout() {
             </header>
             <div className="admin-body">
               <nav className="admin-sidebar" aria-label={t('nav.label')}>
-                {ADMIN_NAV.map((item) => (
+                {navFor(me.roles).map((item) => (
                   <NavItem
                     key={item.key}
                     icon={item.icon}

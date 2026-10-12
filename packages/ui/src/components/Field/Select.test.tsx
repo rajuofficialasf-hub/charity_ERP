@@ -1,5 +1,6 @@
 import { screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations, renderWithUi } from '../../testing/index.js';
 import { DateField } from './DateField.js';
@@ -91,6 +92,28 @@ describe('Combobox (DESIGN_SYSTEM 5.4)', () => {
     await user.keyboard('{ArrowDown}{Enter}');
     expect(onChange).toHaveBeenLastCalledWith('nilphamari');
     expect(input).toHaveValue('Nilphamari');
+  });
+
+  it('shows server-searched options as they arrive, without filtering them again', async () => {
+    const user = userEvent.setup();
+    function Search() {
+      const [options, setOptions] = useState<SelectOption[]>([]);
+      return (
+        <Combobox
+          label="User"
+          options={options}
+          serverSearch
+          onInputChange={(text) =>
+            setTimeout(() => setOptions(text ? [{ id: 'u1', label: 'Rahim' }] : []), 10)
+          }
+        />
+      );
+    }
+    renderWithUi(<Search />);
+    await user.click(screen.getByRole('combobox', { name: 'User' }));
+    await user.paste('rahim@example.org');
+    // the label does not contain the typed email; the server matched it
+    expect(await screen.findByRole('option', { name: 'Rahim' })).toBeVisible();
   });
 });
 

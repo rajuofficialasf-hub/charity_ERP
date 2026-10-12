@@ -1,0 +1,111 @@
+import AxeBuilder from '@axe-core/playwright';
+import { expect, type Page, test } from '@playwright/test';
+
+// The permission panel against the API on its E2E database (SCR-062, RBAC.md 7; plan
+// docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, U8). Mobile and desktop share the
+// database, so each project changes the permissions of its own target account
+// (docs/testing/DEMO_ACCOUNTS.md).
+const PASSWORD = 'CssDemo2026';
+const CASES = {
+  desktop: {
+    manager: 'head@example.org',
+    target: 'executive@example.org',
+    name: 'প্রজেক্ট এক্সিকিউটিভ (নমুনা)',
+  },
+  mobile: {
+    manager: 'monitoring@example.org',
+    target: 'daee@example.org',
+    name: 'অফিসিয়াল দায়ী (নমুনা)',
+  },
+} as const;
+const caseOf = (project: string) => CASES[project === 'mobile' ? 'mobile' : 'desktop'];
+
+/**
+ * Waits until no entrance animation runs: the bottom sheet and its scrim slide and fade in on
+ * phones, and a list opened meanwhile would be clicked through the moving sheet.
+ */
+const settle = (page: Page) =>
+  page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+
+const scan = (page: Page) => new AxeBuilder({ page }).exclude('[data-live-announcer]').analyze();
+
+async function signIn(page: Page, loginId: string): Promise<void> {
+  await page.goto('/login');
+  await expect(page.getByRole('button', { name: 'লগইন', exact: true })).toBeEnabled();
+  await page.getByRole('textbox', { name: /মোবাইল নম্বর বা ইমেইল/ }).fill(loginId);
+  await page
+    .getByLabel(/^পাসওয়ার্ড/, { exact: false })
+    .first()
+    .fill(PASSWORD);
+  await page.getByRole('button', { name: 'লগইন', exact: true }).click();
+  await expect(page).toHaveURL(/\/$/);
+}
+
+test.describe('permission panel', () => {
+  test('a manager grants a permission and ends it again', async ({ page }, info) => {
+    const c = caseOf(info.project.name);
+    await signIn(page, c.manager);
+    await page.goto('/admin');
+    await page
+      .getByRole('navigation', { name: 'অ্যাডমিন মেনু' })
+      .getByRole('link', { name: 'পারমিশন' })
+      .click();
+    await expect(page.getByRole('heading', { level: 1, name: 'পারমিশন প্যানেল' })).toBeVisible();
+
+    await page.getByRole('combobox', { name: /ব্যবহারকারী খুঁজুন/ }).fill(c.target);
+    await page.getByRole('option', { name: new RegExp(c.name.replace(/[()]/g, '\\$&')) }).click();
+    const effective = page.getByRole('region', { name: 'কার্যকর পারমিশন' });
+    await expect(
+      effective.getByText('রোলের ডিফল্ট').filter({ visible: true }).first(),
+    ).toBeVisible();
+
+    await page.getByRole('button', { name: 'পারমিশন দিন' }).click();
+    const dialog = page.getByRole('dialog', { name: 'পারমিশন দিন' });
+    await settle(page);
+    await dialog.getByRole('combobox', { name: /পারমিশন/ }).fill('permission.view');
+    await settle(page);
+    // options are chosen with the keyboard: on phones a pointer has to scroll the sheet, which
+    // moves it under the floating list
+    await expect(page.getByRole('option', { name: 'permission.view', exact: true })).toBeVisible();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await expect(dialog.getByRole('combobox', { name: /পারমিশন/ })).toHaveValue('permission.view');
+    await dialog.getByRole('button', { name: /স্কোপ/ }).press('Enter');
+    await expect(page.getByRole('option', { name: 'সারা দেশ (GLOBAL)' })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(dialog.getByRole('button', { name: /স্কোপ/ })).toContainText('সারা দেশ (GLOBAL)');
+    await dialog.getByRole('textbox', { name: /কারণ/ }).fill('E2E: monitoring help');
+    await dialog.getByRole('button', { name: 'দিন', exact: true }).click();
+    await expect(page.getByText('পারমিশন দেওয়া হয়েছে')).toBeVisible();
+    await expect(effective.getByText('প্যানেল').filter({ visible: true }).first()).toBeVisible();
+
+    await effective
+      .getByRole('button', { name: 'permission.view প্রত্যাহার' })
+      .filter({ visible: true })
+      .first()
+      .click();
+    const confirm = page.getByRole('alertdialog', { name: 'পারমিশন প্রত্যাহার' });
+    await settle(page);
+    await confirm.getByRole('textbox', { name: /কারণ/ }).fill('E2E: no longer needed');
+    await confirm.getByRole('button', { name: 'প্রত্যাহার করুন' }).click();
+    await expect(page.getByText('পারমিশন প্রত্যাহার করা হয়েছে')).toBeVisible();
+
+    const notice = page.getByText('এই পর্দা বড় স্ক্রিনে ভালো চলে।');
+    if (info.project.name === 'mobile') await expect(notice).toBeVisible();
+    else await expect(notice).toBeHidden();
+    expect((await scan(page)).violations).toEqual([]);
+  });
+
+  test('a Program Manager has no panel item and no access to the panel', async ({ page }) => {
+    await signIn(page, 'pm.err@example.org');
+    await page.goto('/admin');
+    await expect(page.getByRole('heading', { level: 1, name: 'ড্যাশবোর্ড' })).toBeVisible();
+    await expect(
+      page
+        .getByRole('navigation', { name: 'অ্যাডমিন মেনু' })
+        .getByRole('link', { name: 'পারমিশন' }),
+    ).toHaveCount(0);
+    await page.goto('/admin/permissions');
+    await expect(page.getByText('এই পাতায় আপনার প্রবেশাধিকার নেই।')).toBeVisible();
+  });
+});

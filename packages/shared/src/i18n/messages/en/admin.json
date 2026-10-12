@@ -2,7 +2,8 @@
   "open": "Admin",
   "nav": {
     "label": "Admin menu",
-    "dashboard": "Dashboard"
+    "dashboard": "Dashboard",
+    "permissions": "Permissions"
   },
   "bar": {
     "label": "Admin",
@@ -12,6 +13,66 @@
     "title": "Dashboard",
     "placeholder": "The management dashboard arrives here in a later step: work progress against target, alerts, budget and areas.",
     "today": "Today: {date}"
+  },
+  "permissions": {
+    "title": "Permission panel",
+    "intro": "Find a user to see the effective permissions, grant or remove a permission, and end a permission given in the panel. Every change is audited with its reason.",
+    "search": "Find a user",
+    "search_hint": "Type at least 2 characters of the name, email or mobile number.",
+    "user_option": "{name} · {detail}",
+    "roles": "Roles",
+    "roles_hint": "Roles cannot be changed here.",
+    "effective": "Effective permissions",
+    "effective_empty": "This user has no permissions.",
+    "module": "Module {module}",
+    "column": {
+      "permission": "Permission",
+      "scope": "Scope",
+      "source": "Source",
+      "actions": "Actions"
+    },
+    "source": {
+      "global_role": "Global role",
+      "role_default": "Role default",
+      "permission_set": "Permission set",
+      "project_grant": "Project grant",
+      "panel_grant": "Panel"
+    },
+    "scope": {
+      "GLOBAL": "Whole country (GLOBAL)",
+      "PROGRAM": "Program (PROGRAM)",
+      "PROJECT": "Project (PROJECT)",
+      "REGION": "Region (REGION)",
+      "DISTRICT": "District (DISTRICT)",
+      "UPAZILA": "Upazila (UPAZILA)",
+      "UNION": "Union (UNION)",
+      "ASSIGNED": "Assigned work (ASSIGNED)",
+      "SELF": "Own records (SELF)"
+    },
+    "grant": "Grant a permission",
+    "dialog": {
+      "effect": "What to do",
+      "effect_grant": "Grant the permission",
+      "effect_revoke": "Remove the permission",
+      "permission": "Permission",
+      "scope": "Scope",
+      "scope_ref": "Scope id",
+      "scope_ref_hint": "Id (UUID) of the program, project or location.",
+      "reason": "Reason",
+      "reason_hint": "At least 3 characters; kept in the audit log.",
+      "expires": "Expiry date",
+      "expires_hint": "Leave empty for no expiry.",
+      "submit_grant": "Grant",
+      "submit_revoke": "Remove"
+    },
+    "granted": "Permission granted",
+    "removed": "Permission removed",
+    "end": "End",
+    "end_label": "End {permission}",
+    "end_title": "End permission",
+    "end_body": "This permission given in the panel will end: {permission}",
+    "end_confirm": "End it",
+    "ended": "Permission ended"
   },
   "forbidden": {
     "title": "No access",

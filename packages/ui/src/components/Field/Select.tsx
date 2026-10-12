@@ -180,6 +180,11 @@ export interface ComboboxProps extends FieldBaseProps {
   /** Allows text that is not one of the options (reported through onInputChange). */
   allowsCustomValue?: boolean;
   onInputChange?: (text: string) => void;
+  /**
+   * Options come from a server search on the typed text: they are not filtered again here, and
+   * the list stays open while it is empty, so it fills when the answer arrives.
+   */
+  serverSearch?: boolean;
 }
 
 /** Text input with a filtered option list on the APG combobox pattern. */
@@ -191,6 +196,7 @@ export function Combobox({
   placeholder,
   allowsCustomValue,
   onInputChange,
+  serverSearch = false,
   ...field
 }: ComboboxProps) {
   const { messages } = useUi();
@@ -204,8 +210,9 @@ export function Combobox({
       defaultSelectedKey={defaultValue ?? undefined}
       onSelectionChange={(key: Key | null) => onChange?.(key === null ? null : String(key))}
       onInputChange={onInputChange}
-      defaultFilter={contains}
+      defaultFilter={serverSearch ? () => true : contains}
       allowsCustomValue={allowsCustomValue}
+      allowsEmptyCollection={serverSearch}
       menuTrigger="focus"
       isRequired={field.required}
       isInvalid={!!field.error}

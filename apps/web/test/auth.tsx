@@ -24,7 +24,7 @@ export function LocationProbe() {
 export function renderApp(
   ui: ReactNode,
   locale: Locale = 'bn',
-  options: { path?: string; children?: RouteObject[] } = {},
+  options: { path?: string; children?: RouteObject[]; initialPath?: string } = {},
 ) {
   const path = options.path ?? '/';
   const router = createMemoryRouter(
@@ -32,7 +32,7 @@ export function renderApp(
       { path, element: ui, ...(options.children ? { children: options.children } : {}) },
       { path: '*', element: <LocationProbe /> },
     ],
-    { initialEntries: [path] },
+    { initialEntries: [options.initialPath ?? path] },
   );
   const view = render(
     <QueryClientProvider client={createQueryClient()}>

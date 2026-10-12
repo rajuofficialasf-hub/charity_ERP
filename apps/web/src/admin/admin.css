@@ -97,3 +97,31 @@
     display: none;
   }
 }
+
+/* Permission panel (SCR-062): sections, module groups and the phone cards of the permission list. */
+.admin-panel-section,
+.admin-panel-group {
+  display: grid;
+  gap: var(--space-3);
+}
+.admin-subtitle,
+.admin-group-title {
+  margin: 0;
+  font-weight: var(--font-weight-bold);
+  line-height: var(--leading-heading);
+}
+.admin-subtitle {
+  font-size: var(--text-title);
+}
+.admin-group-title {
+  font-size: var(--text-body);
+  color: var(--color-text-secondary);
+}
+.admin-permission-card {
+  display: grid;
+  gap: var(--space-1);
+}
+.admin-error {
+  margin: var(--space-2) 0 0;
+  color: var(--color-status-danger);
+}
