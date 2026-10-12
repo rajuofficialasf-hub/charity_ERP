@@ -2,6 +2,7 @@ import type { RouteRegistry } from '../../../src/openapi/registry';
 import type { AccessRegistry } from '../../../src/access/registry';
 import { randomUUID } from 'node:crypto';
 import { hash } from '@node-rs/argon2';
+import { createServer, type Server } from 'node:http';
 import type { Express } from 'express';
 import type { Client } from 'pg';
 import type { DestinationStream } from 'pino';
@@ -40,7 +41,11 @@ export interface AuthHarness {
   registry: RouteRegistry;
   db: Client;
   clock: TestClock;
-  server: () => Express;
+  /**
+   * One listening server per harness: `request(app)` would start and stop a server for every
+   * request, which kills Vitest workers on Windows under load (see authorization-matrix.test.ts).
+   */
+  server: () => Server;
   close: () => Promise<void>;
 }
 
@@ -85,14 +90,18 @@ export async function authHarness(
     logStream: options.logStream,
     extraRouters: options.extraRouters,
   });
+  const listening = createServer(app);
+  await new Promise<void>((resolve) => listening.listen(0, '127.0.0.1', resolve));
   return {
     app,
     container,
     registry,
     db: clone.client,
     clock,
-    server: () => app,
+    server: () => listening,
     close: async () => {
+      listening.closeAllConnections();
+      await new Promise((resolve) => listening.close(resolve));
       await closeContainer(container);
       await clone.drop();
     },
