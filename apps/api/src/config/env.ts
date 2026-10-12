@@ -137,7 +137,11 @@ const envSchema = z
 export type Env = z.infer<typeof envSchema>;
 
 export function loadEnv(source: Record<string, string | undefined>): Env {
-  const result = envSchema.safeParse(source);
+  // An empty value (`HEALTH_TOKEN=` in .env.example) means "not set", as in dotenv.
+  const present = Object.fromEntries(
+    Object.entries(source).filter(([, value]) => value !== undefined && value !== ''),
+  );
+  const result = envSchema.safeParse(present);
   if (!result.success) {
     const problems = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
     throw new Error(`Invalid configuration: ${problems}`);

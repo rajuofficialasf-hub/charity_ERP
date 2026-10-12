@@ -25,6 +25,12 @@ describe('loadEnv', () => {
     });
   });
 
+  it('treats an empty value as unset, as in .env.example (HEALTH_TOKEN=, JWT_PREVIOUS_SECRET=)', () => {
+    const env = loadEnv({ ...base, HEALTH_TOKEN: '', JWT_PREVIOUS_SECRET: '' });
+    expect(env.HEALTH_TOKEN).toBeUndefined();
+    expect(env.JWT_PREVIOUS_SECRET).toBeUndefined();
+  });
+
   it('fails fast with the variable name when a value is missing', () => {
     expect(() => loadEnv({})).toThrow(/DATABASE_URL/);
   });

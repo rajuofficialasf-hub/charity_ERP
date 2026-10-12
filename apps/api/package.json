@@ -4,14 +4,14 @@
   "private": true,
   "description": "CSS ERP REST API (Express 5, /api/v1) and the worker entry point",
   "scripts": {
-    "dev": "tsx watch --conditions=@css/source src/server.ts",
+    "dev": "tsx watch --env-file-if-exists=.env --conditions=@css/source src/server.ts",
     "prebuild": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy && pnpm jobs:install",
-    "db:seed": "tsx --conditions=@css/source seed/run.ts",
+    "db:seed": "tsx --env-file-if-exists=.env --conditions=@css/source seed/run.ts",
     "db:reset": "tsx scripts/db-reset.ts",
     "db:migrate:dev": "prisma migrate dev --create-only",
     "db:load-locations": "tsx --conditions=@css/source scripts/load-locations.ts",
@@ -20,7 +20,7 @@
     "e2e:server": "tsx --conditions=@css/source scripts/e2e-server.ts",
     "jobs:install": "tsx --conditions=@css/source scripts/jobs-install.ts",
     "worker": "node dist/worker.js",
-    "dev:worker": "tsx watch --conditions=@css/source src/worker.ts"
+    "dev:worker": "tsx watch --env-file-if-exists=.env --conditions=@css/source src/worker.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1149.0",
