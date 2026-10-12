@@ -40,6 +40,8 @@ export interface RegistrationListQuery extends Omit<PageQuery, 'sort'> {
 const CORRECTION = 'registration_correction';
 /** Correction rows that keep a registration away from the approvers. */
 const UNFINISHED = ['open', 'submitted'];
+/** Refused correction answers (invalid value, NID of another volunteer) an account allows. */
+const MAX_REFUSED_ANSWERS = 10;
 /** Roles a staff decision may not give: the Main Admin's role (AUTH.md 11). */
 const NOT_BY_DECISION = new Set(['department_head']);
 
@@ -107,16 +109,19 @@ export function changeView(row: ChangeRow, withValue: boolean) {
     volunteerId: row.volunteerId,
     kind: row.kind,
     field: row.field,
-    ...(withValue && row.newValue !== null ? { newValue: storedValue(row.newValue) } : {}),
+    ...(withValue && row.newValue !== null
+      ? { newValue: storedValue(row.field, row.newValue) }
+      : {}),
     note: row.note,
     status: row.status,
     decidedAt: row.decidedAt?.toISOString() ?? null,
   };
 }
 
-/** Objects (address, bank) are stored as JSON text; everything else as the text itself. */
-function storedValue(text: string): unknown {
-  if (!text.startsWith('{')) return text;
+/** The address and the bank details are stored as JSON text; every other field as the text. */
+const OBJECT_FIELDS = new Set(['address', 'bank']);
+function storedValue(field: string, text: string): unknown {
+  if (!OBJECT_FIELDS.has(field)) return text;
   try {
     return JSON.parse(text) as unknown;
   } catch {
@@ -207,14 +212,15 @@ export class RegistrationsService {
       ...query,
       status: query.status ?? 'awaiting_review',
     });
-    const fetched = await this.prisma.user.findMany({
-      where: cursor ? { AND: [filter, keysetWhere(sort, cursor)] } : filter,
-      orderBy: orderBy(sort, direction),
-      take: query.limit + 1,
-      select: pendingSelect,
-    });
-    const total =
-      query.include === 'total' ? await this.prisma.user.count({ where: filter }) : undefined;
+    const [fetched, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where: cursor ? { AND: [filter, keysetWhere(sort, cursor)] } : filter,
+        orderBy: orderBy(sort, direction),
+        take: query.limit + 1,
+        select: pendingSelect,
+      }),
+      query.include === 'total' ? this.prisma.user.count({ where: filter }) : undefined,
+    ]);
     const { rows, meta } = buildPage(fetched, {
       limit: query.limit,
       sort,
@@ -272,12 +278,11 @@ export class RegistrationsService {
       },
     });
     if (!user) return this.notFound(scope);
-    const full = user;
-    const v = full.volunteersUser;
+    const v = user.volunteersUser;
     const staffPhoto = v
       ? null
       : await this.prisma.fileLink.findFirst({
-          where: { entityType: 'user', entityId: full.id, slot: 'photo' },
+          where: { entityType: 'user', entityId: user.id, slot: 'photo' },
           select: { fileId: true },
         });
     const blocklisted = v
@@ -286,24 +291,24 @@ export class RegistrationsService {
         })) > 0
       : false;
     return {
-      ...pendingView(full),
-      mobile: full.mobile,
-      email: full.email,
+      ...pendingView(user),
+      mobile: user.mobile,
+      email: user.email,
       photoFileId: v?.photoFileId ?? staffPhoto?.fileId ?? null,
-      homeProgramId: full.homeProgramId,
-      homeDivisionId: full.homeDivisionId,
+      homeProgramId: user.homeProgramId,
+      homeDivisionId: user.homeDivisionId,
       volunteer: v
         ? {
             id: v.id,
             userId: v.userId,
-            displayName: full.displayName,
+            displayName: user.displayName,
             type: v.type,
             state: 'pending',
             districtId: v.districtId,
             upazilaId: v.upazilaId,
             fatherName: v.fatherName,
             motherName: v.motherName,
-            mobile: full.mobile,
+            mobile: user.mobile,
             whatsapp: v.whatsapp,
             divisionId: v.divisionId,
             unionId: v.unionId,
@@ -337,8 +342,12 @@ export class RegistrationsService {
     throw new ApiError('permission.not_found', 404);
   }
 
-  /** A pending volunteer in scope (with its corrections), locked for the decision. */
+  /**
+   * A pending volunteer in scope (with its corrections) for a decision: the user row is locked
+   * first and read after, so two decisions at once run one after the other on fresh data.
+   */
   private async pendingVolunteer(tx: Tx, scope: Scope, userId: string) {
+    await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
     const user = await tx.user.findFirst({
       where: {
         id: userId,
@@ -361,7 +370,6 @@ export class RegistrationsService {
       },
     });
     if (!user?.volunteersUser) return this.notFound(scope);
-    await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
     return { userId: user.id, volunteer: user.volunteersUser };
   }
 
@@ -501,6 +509,7 @@ export class RegistrationsService {
         ]);
     }
     await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
       const user = await tx.user.findFirst({
         where: { id: userId, kind: 'staff', state: 'pending' },
         select: { id: true },
@@ -509,7 +518,6 @@ export class RegistrationsService {
         this.access.denied(actor.userId, 'staff.registration.approve', 'global');
         throw new ApiError('permission.not_found', 404);
       }
-      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
       if (body.decision === 'reject') return this.close(tx, actor, userId, body.reason!);
       await tx.user.update({ where: { id: userId }, data: { state: 'active' } });
       await tx.userRole.create({
@@ -540,6 +548,28 @@ export class RegistrationsService {
    * pending profile at once; the row waits for the resubmit (BR-030).
    */
   async answer(principal: Principal, requestId: string, body: ChangeRequestAnswer) {
+    const refused = await this.prisma.auditLog.count({
+      where: { action: 'auth.correction_refused', entityType: 'user', entityId: principal.userId },
+    });
+    if (refused >= MAX_REFUSED_ANSWERS) throw new ApiError('rate_limit.exceeded', 429);
+    try {
+      return await this.answerRow(principal, requestId, body);
+    } catch (error) {
+      // a refused answer is counted, so an NID correction cannot test NIDs without end
+      if (error instanceof ApiError && [409, 422].includes(error.status))
+        await this.prisma.$transaction((tx) =>
+          this.audit.record(tx, {
+            action: 'auth.correction_refused',
+            entityType: 'user',
+            entityId: principal.userId,
+            new: { requestId, code: error.code },
+          }),
+        );
+      throw error;
+    }
+  }
+
+  private async answerRow(principal: Principal, requestId: string, body: ChangeRequestAnswer) {
     const row = await this.prisma.volunteerChangeRequest.findFirst({
       where: {
         id: requestId,
@@ -615,7 +645,8 @@ export class RegistrationsService {
       if (!rows.length) throw new ApiError('user.transition_not_allowed', 409);
       await tx.volunteerChangeRequest.updateMany({
         where: { id: { in: rows.map((r) => r.id) } },
-        data: { status: 'closed' },
+        // closed by the registrant's resubmit: the time, no decider
+        data: { status: 'closed', decidedAt: this.clock.now() },
       });
       await this.audit.record(tx, {
         action: 'auth.correction_resubmitted',

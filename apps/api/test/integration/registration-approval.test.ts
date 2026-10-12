@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { RegistrationEvent } from '../../src/notifications/registration-events';
+import { jpeg } from '../support/images';
 import { accessWorld } from './support/access-fixtures';
 import {
   type Account,
@@ -175,7 +176,48 @@ describe('the pending list and approval in scope', () => {
   });
 });
 
+describe('decisions at the same time', () => {
+  it('an approval and a rejection at once leave one consistent outcome', async () => {
+    const dhaka = await registerVolunteer(world.dhaka);
+    const rpm = await as(world.users.rpmDhaka);
+    const executive = await as(world.users.executive);
+    const [approved, rejected] = await Promise.all([
+      approve(rpm, dhaka.userId),
+      api()
+        .post(`/api/v1/registrations/${dhaka.userId}/reject`)
+        .set(bearer(executive))
+        .send({ reason: 'একই সময়ে' }),
+    ]);
+    // exactly one decision wins; the other finds no pending registration
+    expect([approved.status, rejected.status].sort()).toEqual(
+      approved.status === 200 ? [200, 404] : [204, 404],
+    );
+    const user = (await h.db.query('SELECT state FROM users WHERE id = $1', [dhaka.userId]))
+      .rows[0];
+    const roles = await h.db.query(
+      'SELECT 1 FROM user_roles WHERE user_id = $1 AND revoked_at IS NULL',
+      [dhaka.userId],
+    );
+    expect(user.state).toBe(approved.status === 200 ? 'active' : 'deactivated');
+    expect(roles.rowCount).toBe(approved.status === 200 ? 1 : 0);
+  });
+});
+
 describe('rejection', () => {
+  it('an approver outside the region gets 404, a volunteer 403, and the account stays pending', async () => {
+    const dhaka = await registerVolunteer(world.dhaka);
+    const reject = (s: Session) =>
+      api()
+        .post(`/api/v1/registrations/${dhaka.userId}/reject`)
+        .set(bearer(s))
+        .send({ reason: 'বাইরে' });
+    expect((await reject(await as(world.users.rpmRangpur))).status).toBe(404);
+    expect((await reject(await as(world.users.general))).status).toBe(403);
+    const user = (await h.db.query('SELECT state FROM users WHERE id = $1', [dhaka.userId]))
+      .rows[0];
+    expect(user.state).toBe('pending');
+  });
+
   it('needs a reason, deactivates the account and ends its sessions', async () => {
     const dhaka = await registerVolunteer(world.dhaka);
     const own = await login(h, dhaka.mobile);
@@ -293,6 +335,49 @@ describe('correction requests', () => {
     expect(v.rows[0].nid).toBe(nid);
   });
 
+  it('answers a photo row only with the file the own upload stored on it', async () => {
+    const dhaka = await registerVolunteer(world.dhaka);
+    const rpm = await as(world.users.rpmDhaka);
+    const own = await login(h, dhaka.mobile);
+    const created = await correct(rpm, dhaka.userId, {
+      fields: ['photo'],
+      note: 'ছবি পরিষ্কার নয়',
+    });
+    const requestId = created.body.data[0].id as string;
+    const answer = (newValue: string) =>
+      api().patch(`/api/v1/me/change-requests/${requestId}`).set(bearer(own)).send({ newValue });
+    expect((await answer(randomUUID())).status).toBe(422);
+    const uploaded = await api()
+      .post(`/api/v1/me/photos/photo?requestId=${requestId}`)
+      .set(bearer(own))
+      .set('Content-Type', 'image/jpeg')
+      .send(jpeg());
+    expect(uploaded.status).toBe(201);
+    const fileId = uploaded.body.data.fileId as string;
+    expect((await answer(fileId)).status).toBe(200);
+    const v = await h.db.query('SELECT photo_file_id FROM volunteers WHERE user_id = $1', [
+      dhaka.userId,
+    ]);
+    expect(v.rows[0].photo_file_id).toBe(fileId);
+  });
+
+  it('refuses the NID of another volunteer in an answer (409)', async () => {
+    const holder = await registerVolunteer(world.dhaka);
+    const holderNid = (
+      await h.db.query('SELECT nid FROM volunteers WHERE user_id = $1', [holder.userId])
+    ).rows[0].nid as string;
+    const dhaka = await registerVolunteer(world.dhaka);
+    const rpm = await as(world.users.rpmDhaka);
+    const own = await login(h, dhaka.mobile);
+    const created = await correct(rpm, dhaka.userId, { fields: ['nid'], note: 'এনআইডি ঠিক করুন' });
+    const res = await api()
+      .patch(`/api/v1/me/change-requests/${created.body.data[0].id}`)
+      .set(bearer(own))
+      .send({ newValue: holderNid });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('registration.nid_exists');
+  });
+
   it('refuses unknown fields and a registration that is already approved', async () => {
     const dhaka = await registerVolunteer(world.dhaka);
     const rpm = await as(world.users.rpmDhaka);
@@ -372,6 +457,7 @@ describe('staff registrations', () => {
         .status,
     ).toBe(422);
     expect((await decide(head, staff.userId, { decision: 'reject' })).status).toBe(422);
+    expect((await decide(head, staff.userId, { decision: 'approve' })).status).toBe(422);
     const rejected = await decide(head, staff.userId, { decision: 'reject', reason: 'পদ নেই' });
     expect(rejected.status).toBe(200);
     expect(rejected.body.data.state).toBe('deactivated');

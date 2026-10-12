@@ -3,7 +3,9 @@ import {
   draftExpiry,
   REGISTRATION_RULES,
   registrationStartRequestSchema,
+  registrationCorrectionCreateSchema,
   registrationSubmitRequestSchema,
+  staffDecisionSchema,
 } from './index';
 
 describe('registration draft rules', () => {
@@ -79,5 +81,33 @@ describe('the registration submit schemas', () => {
     expect(issues({ ...volunteer, type: 'team_member', referenceNid: '1000000000999' })).toEqual(
       [],
     );
+  });
+});
+
+describe('the correction and staff decision schemas', () => {
+  const ok = (schema: { safeParse: (v: unknown) => { success: boolean } }, v: unknown) =>
+    schema.safeParse(v).success;
+
+  it('a correction names 1 to 20 known fields with a note of 3 to 1000 characters', () => {
+    expect(ok(registrationCorrectionCreateSchema, { fields: ['name'], note: 'ঠিক করুন' })).toBe(
+      true,
+    );
+    expect(ok(registrationCorrectionCreateSchema, { fields: [], note: 'ঠিক করুন' })).toBe(false);
+    expect(ok(registrationCorrectionCreateSchema, { fields: ['password'], note: 'ঠিক করুন' })).toBe(
+      false,
+    );
+    expect(
+      ok(registrationCorrectionCreateSchema, { fields: Array(21).fill('name'), note: 'ঠিক করুন' }),
+    ).toBe(false);
+    expect(ok(registrationCorrectionCreateSchema, { fields: ['name'], note: 'ok' })).toBe(false);
+  });
+
+  it('a staff approval needs a role and a rejection a reason', () => {
+    expect(ok(staffDecisionSchema, { decision: 'approve', roleKey: 'project_executive' })).toBe(
+      true,
+    );
+    expect(ok(staffDecisionSchema, { decision: 'approve' })).toBe(false);
+    expect(ok(staffDecisionSchema, { decision: 'reject' })).toBe(false);
+    expect(ok(staffDecisionSchema, { decision: 'reject', reason: 'পদ নেই' })).toBe(true);
   });
 });
