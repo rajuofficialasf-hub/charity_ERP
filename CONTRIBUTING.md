@@ -65,6 +65,6 @@ Tests name the rule they prove: `it('BR-097 score recomputed on answer change', 
 
 ## Pushing
 
-The project owner reviews and pushes to GitHub; CI (`.github/workflows/ci.yml`) then runs lint, typecheck, document checks, tests, build, the dependency audit and the secret scan, and E2E on `main`. Phase gates are tagged `gate-phase-N`.
+Claude pushes finished work on its task branch (never with force) and, when the GitHub Actions run of that push is green, fast-forwards the branch into `main` and pushes `main` (O-60); a red run stops the merge. CI (`.github/workflows/ci.yml`) runs lint, typecheck, document checks, tests, build, the dependency audit and the secret scan on every push, and E2E on `main`. Phase gates are tagged `gate-phase-N` after the owner's sign-off.
 
 The endpoint recipe above was written with the API backbone in task T1.6 and rewritten for the Express port in task T1.7d (ADR-014).

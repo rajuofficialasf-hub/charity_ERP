@@ -38,7 +38,7 @@
 - Follow-ups from the T1.7d reviews (not blocking): links of `packages/ui` (`Button href`, `NavItem`) do full page loads because `AppProviders` gives `UiProvider` no router `navigate` (app-wide since T1.4; wire it with the T1.15 app shell); password-reset start answers faster for an unknown id than for a known one (send in the background or pad); the login lockout counter is a read-modify-write (bounded by the IP windows and the Argon2 cost). Checkpoint C7 at 7a54517.
 - Known issues: `pnpm audit` reports one moderate advisory (nodemailer < 10.0.9, quoted local-part parsing; patched 10.0.9, below the D-058 override threshold — take it at the next dependency pass). (the forced exit of `server.ts` is 35 s since U9, above the 30 s pg-boss drain, and the Docker api service has `stop_grace_period: 40s`.)
 - Last test run: 2026-10-12 — see the T1.7d entry under "Last test run" below.
-- Git: the owner pushes; the T1.7, T1.7b, nodemailer, T1.7c and T1.7d commits are local, on branch `migrate/org-stack-admin-minimal` (merge into `main` when T1.7d is done). After the push, check the GitHub Actions run together (postgres:17 services, the e2e job starts the Express API).
+- Git (O-60): Claude pushes the task branch and, after a green GitHub Actions run, fast-forwards it into `main` and pushes `main`. T1.7 to T1.7d are on branch `migrate/org-stack-admin-minimal`, merged into `main` on 2026-10-12 (see the CI result in the T1.7d report).
 
 ## Deliverables of T0.1 (complete vs outline)
 Complete:
