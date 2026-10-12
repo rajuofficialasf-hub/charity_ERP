@@ -1,26 +1,19 @@
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import yaml from 'js-yaml';
+import { readPermissionsFile as readValidated } from '../../../src/access/registry';
+import type { PermissionsFile } from '../../../src/access/schema';
 import type { SeedContext } from '../../context';
 import { REPO_ROOT } from '../util';
 
 /**
- * Roles and permissions from docs/security/permissions.yaml, the single source of truth (RBAC.md).
- * Default grants, scopes and conditions stay in the YAML; the access module loads them (T1.8).
- * Rows that are no longer in the YAML are reported, never deleted.
+ * Roles and permissions from docs/security/permissions.yaml, the single source of truth (RBAC.md),
+ * validated by the access module's parser. Default grants, scopes and conditions stay in the YAML;
+ * the access module reads them at run time (T1.8). Rows that are no longer in the YAML are
+ * reported, never deleted.
  */
-export interface PermissionsFile {
-  roles: Record<
-    string,
-    { name_en: string; name_bn: string; kind: 'official' | 'volunteer'; global_scope: boolean }
-  >;
-  permissions: { name: string; description: string; module: string; sensitive: boolean }[];
-}
+export type { PermissionsFile };
 
 export function readPermissionsFile(): PermissionsFile {
-  return yaml.load(
-    readFileSync(join(REPO_ROOT, 'docs/security/permissions.yaml'), 'utf8'),
-  ) as PermissionsFile;
+  return readValidated(join(REPO_ROOT, 'docs/security/permissions.yaml'));
 }
 
 export async function seedAccess(ctx: SeedContext): Promise<void> {

@@ -54,7 +54,7 @@ function drifting(deps: RouteDeps): Router {
   defineRoute(router, deps, {
     ...contractOf,
     audit: 'none',
-    permission: 'no.such_permission',
+    permission: 'user.state.change',
     body: z.strictObject({ language: z.string() }),
     responses: { 204: null },
     method: 'post',
@@ -89,8 +89,53 @@ describe('OpenAPI drift test (API_STANDARDS 16)', () => {
     const document = buildOpenApiDocument(open.registry);
     const problems = compareWithContract(document as never, contract, permissions).join('\n');
     expect(problems).toMatch(/x-audit is "none", the contract says "auth.handover_completed"/);
-    expect(problems).toMatch(/unknown x-permission "no.such_permission"/);
+    expect(problems).toMatch(
+      /x-permission is "user.state.change", the contract says "user.handover"/,
+    );
     expect(problems).toMatch(/request body schema/);
     expect(problems).toMatch(/responses \["204"\] differ/);
+  });
+
+  // Routes, the contract and permissions.yaml agree three ways (R21 of
+  // docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md): the drift check above compares
+  // the routes with the contract and the YAML; this covers the contract's operations not built yet.
+  it('every x-permission of the contract is a marker or a permission of permissions.yaml', () => {
+    const markers = ['public', 'authenticated', 'workflow', 'entity'];
+    const unknown: string[] = [];
+    const paths = (contract as unknown as { paths: Record<string, Record<string, unknown>> }).paths;
+    for (const [path, item] of Object.entries(paths))
+      for (const [method, op] of Object.entries(item)) {
+        const permission = (op as { 'x-permission'?: unknown } | null)?.['x-permission'];
+        if (permission === undefined) continue;
+        if (
+          typeof permission !== 'string' ||
+          !(markers.includes(permission) || permissions.has(permission))
+        )
+          unknown.push(`${method.toUpperCase()} ${path}: ${String(permission)}`);
+      }
+    expect(unknown).toEqual([]);
+  });
+
+  it('refuses to register a route whose permission or scope entity is unknown', () => {
+    const register = (over: Record<string, unknown>) => () =>
+      buildTestApp({
+        routers: [
+          (deps) => {
+            const router = Router();
+            defineRoute(router, deps, {
+              ...contractOf,
+              ...over,
+              method: 'post',
+              path: '/users/:userId/handover/complete',
+              handler: () => null,
+            });
+            return router;
+          },
+        ],
+      });
+    expect(register({ permission: 'no.such_permission' })).toThrow(
+      /unknown permission no\.such_permission/,
+    );
+    expect(register({ scope: 'planet' })).toThrow(/unknown scope entity planet/);
   });
 });

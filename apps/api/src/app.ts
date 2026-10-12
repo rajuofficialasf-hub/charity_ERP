@@ -57,6 +57,7 @@ export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
     registry,
     limiters: createRateLimiters(c.env),
     logger: c.logger,
+    permissions: c.accessRegistry,
     access: requireAccess({
       tokens: c.tokens,
       sessions: c.sessions,

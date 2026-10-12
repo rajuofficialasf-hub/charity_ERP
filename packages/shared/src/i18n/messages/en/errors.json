@@ -21,7 +21,8 @@
   },
   "permission": {
     "denied": "You do not have permission for this action.",
-    "not_found": "Not found."
+    "not_found": "Not found.",
+    "grant_refused": "This permission change is not allowed."
   },
   "validation": {
     "failed": "Some information is not valid.",

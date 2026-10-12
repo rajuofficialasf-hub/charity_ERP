@@ -1,5 +1,6 @@
 import type { DestinationStream, Logger } from 'pino';
 import pino from 'pino';
+import { type AccessRegistry, loadAccessRegistry } from './access/registry';
 import { AuditWriter } from './audit/audit-writer';
 import { OtpDeliveryService, OtpService } from './auth/otp.service';
 import { PasswordHasher } from './auth/password-hasher';
@@ -43,6 +44,7 @@ export interface Container {
   inApp: InAppAdapter;
   jobs: JobRunner;
   health: HealthService;
+  accessRegistry: AccessRegistry;
   hasher: PasswordHasher;
   tokens: TokenService;
   sessions: SessionService;
@@ -118,6 +120,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     inApp: o.inApp ?? new InAppAdapter(),
     jobs,
     health,
+    accessRegistry: o.accessRegistry ?? loadAccessRegistry(env.PERMISSIONS_FILE),
     hasher,
     tokens,
     sessions,

@@ -99,7 +99,7 @@ None block the plan.
   - existing: covered by `apps/api/test/api/openapi-drift.test.ts`, `apps/api/test/integration/seed.test.ts` (seed still writes the same roles and permissions).
 - **Done when:** the API starts with the real file, the seed test and the drift test pass, the decisions are in DECISION_LOG.
 - **Depends on:** none · **Size:** M · **Risk area:** auth
-- **Status:** todo
+- **Status:** done
 
 ### U2. Effective permissions and conditions
 - **Goal:** For any user the engine lists the effective grants (permission, scope type, scope ref, condition, source) from the four sources, with revoke overrides winning and expired overrides ignored.
@@ -225,8 +225,8 @@ None block the plan.
 
 ## Progress
 - **Branch:** `feat/rbac-permission-panel`
-- **Updated:** 2026-10-12 11:30
-- **Next:** U1: decisions in DECISION_LOG, then the failing registry tests (`apps/api/src/access/registry.spec.ts`)
+- **Updated:** 2026-10-12 11:35
+- **Next:** checkpoint C1 (test + review of U1), then U2: effective permissions (`apps/api/src/access/effective.ts`, pure merge first)
 - **Reviewed through:** none yet
 - **Uncommitted:** none
-- **Notes:** none yet
+- **Notes:** U1: permission names may contain digits (`i18n.manage`); zod errors report the offending input; `loadAccessRegistry` caches per path and process; `RouteDeps.permissions` is the registry (the existing `RouteDeps.access` stays the middleware factory); the drift fixture now drifts with a known but different permission because unknown names cannot be registered any more.

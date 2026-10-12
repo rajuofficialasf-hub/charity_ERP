@@ -1,5 +1,6 @@
 import type { Request, RequestHandler, Response, Router } from 'express';
 import type { Logger } from 'pino';
+import { type AccessRegistry, SCOPE_ENTITIES } from '../access/registry';
 import { assertAudited, WRITE_METHODS } from '../audit/write-route';
 import { send } from '../http/send';
 import { validate, validatedOf } from '../http/validate';
@@ -11,6 +12,8 @@ export interface RouteDeps {
   registry: RouteRegistry;
   limiters: RateLimiters;
   logger: Logger;
+  /** permissions.yaml: a route may name only its permissions and the contract markers. */
+  permissions: AccessRegistry;
   /** The access middleware of a declared rule (`requireAccess`, passed by createApp). */
   access: (spec: OperationSpec) => RequestHandler[];
 }
@@ -52,6 +55,10 @@ export function defineRoute<B = unknown, Q = unknown, P = Record<string, unknown
   if (WRITE_METHODS.has(method) && !spec.audit)
     throw new Error(`${where}: a write route must declare its audit action (BR-179)`);
   if (!spec.permission) throw new Error(`${where}: a route must declare its permission`);
+  if (!deps.permissions.isKnownPermission(spec.permission))
+    throw new Error(`${where}: unknown permission ${spec.permission} (not in permissions.yaml)`);
+  if (!(SCOPE_ENTITIES as readonly string[]).includes(spec.scope))
+    throw new Error(`${where}: unknown scope entity ${spec.scope}`);
   deps.registry.add({ ...spec, method, path });
 
   const run: RequestHandler = async (req, res, next) => {

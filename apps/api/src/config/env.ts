@@ -66,6 +66,11 @@ const envSchema = z
      * Browser origins allowed to call the API with credentials (NE-SEC-02), comma separated.
      * Empty by default: the PWA is served on the same origin (Caddy, the Vite proxy).
      */
+    /**
+     * docs/security/permissions.yaml (RBAC.md 2); unset = the file of the repository, which the
+     * production image copies (T3.0).
+     */
+    PERMISSIONS_FILE: z.string().min(1).optional(),
     CORS_ORIGINS: z
       .string()
       .default('')
