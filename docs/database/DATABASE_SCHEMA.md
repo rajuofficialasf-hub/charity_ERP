@@ -272,7 +272,7 @@ Indexes: (user_id) WHERE revoked_at IS NULL; UNIQUE (refresh_token_hash).
 Index: (address_hash, purpose, created_at desc). Rows are deleted by a job after expiry (technical data, not business data).
 
 ### registration_drafts
-A registration between `start` and `submit` (AUTH.md 2, D-082). Technical data: an unsubmitted draft is deleted with its photos 24 hours after its expiry by a daily job; a submitted draft keeps the link to the account it created.
+A registration between `start` and `submit` (AUTH.md 2, D-082). Technical data: an unsubmitted draft is deleted with its photos once `expires_at` (24 hours after the start or the last verification) has passed, by a daily job through the function `purge_expired_registration_drafts(limit)`, which returns the storage objects to remove; a submitted draft keeps the link to the account it created and no token (CHECK).
 
 | Column | Type | Null | Default | Comment |
 |---|---|---|---|---|
@@ -1661,7 +1661,7 @@ Machine-readable schemas live in `docs/database/json-schemas/` (JSON Schema 2020
 - Nothing of business value is hard-deleted (constitution §2, BR-207). The application database role has **no DELETE privilege** on business tables.
 - Allowed "deleted" states: `applications.status = 'deleted'` with `deleted_at` (only drafts and pending applications, by the owner or an official with the permission; BR-091); `files.deleted_at` only for `kind = 'export'` (regenerable).
 - Ending instead of deleting: `revoked_at` (roles, permissions, sessions, push subscriptions), `ended_at` (project staff and volunteer assignments), `removed_at` (team members), `released_at` (blocklist), `active = false` (locations, reference lists, templates, programs), `deactivated_at` (users), `reverted_at` (merges).
-- Technical rows the system may delete: expired `otp_codes`, expired unfinalized `upload_sessions`, export files after 30 days (O-30), unsubmitted `registration_drafts` 24 hours after expiry with their photo `files` rows (D-082). These deletions are performed by jobs running under a dedicated role with DELETE only on those tables.
+- Technical rows the system may delete: expired `otp_codes`, expired unfinalized `upload_sessions`, export files after 30 days (O-30), expired unsubmitted `registration_drafts` with their photo `files` rows (D-082). These deletions are performed by jobs running under a dedicated role with DELETE only on those tables; the drafts and their photos only through the `SECURITY DEFINER` function `purge_expired_registration_drafts`, so the role has no DELETE on `files`.
 
 ## 22. Retention, partitioning and archiving
 
@@ -1678,7 +1678,7 @@ Machine-readable schemas live in `docs/database/json-schemas/` (JSON Schema 2020
 |---|---|---|
 | css_migrate | owner of the schema; DDL | one-shot migration container (ADR-003) |
 | css_app | SELECT, INSERT, UPDATE on business tables; INSERT only on append-only logs (audit_log, field_changes, budget_ledger, document_events, application_transfers, stock_movements); no DELETE; no DDL | api and worker |
-| css_jobs_cleanup | DELETE on otp_codes, upload_sessions, registration_drafts, export file rows and the photo rows of expired drafts | worker cleanup jobs only |
+| css_jobs_cleanup | DELETE on otp_codes, upload_sessions; UPDATE on files (exports); EXECUTE on purge_expired_registration_drafts | worker cleanup jobs only |
 | css_readonly | SELECT on reporting views without sensitive columns | optional reporting, IT diagnostics |
 | css_backup | replication / pg_dump | backup tooling (O-06) |
 

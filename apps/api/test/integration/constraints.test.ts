@@ -350,7 +350,7 @@ describe('Qurbani animals (BR-145, O-19)', () => {
   });
 });
 
-describe('registration drafts and contact changes (D-082, D-085)', () => {
+describe('registration drafts and contact changes', () => {
   const draft = (over: Record<string, unknown> = {}) =>
     f.insert(db, 'registration_drafts', {
       id: randomUUID(),
@@ -403,14 +403,62 @@ describe('registration drafts and contact changes (D-082, D-085)', () => {
       /registration_drafts_submitted_check/,
     );
     const u = await f.volunteerUser(db);
-    await expect(
+    await expectSqlError(
       draft({
         token_hash: 'h',
         verified_at: new Date(),
         submitted_user_id: u,
         submitted_at: new Date(),
       }),
+      SQLSTATE.checkViolation,
+      /registration_drafts_token_spent_check/,
+    );
+    await expect(
+      draft({ verified_at: new Date(), submitted_user_id: u, submitted_at: new Date() }),
     ).resolves.toBeTruthy();
+  });
+
+  it('the purge removes expired unsubmitted drafts with their photo rows and nothing else', async () => {
+    const photo = (kind = 'profile_photo') =>
+      f.insert(db, 'files', {
+        id: randomUUID(),
+        bucket: 'profiles',
+        object_key: `purge/${randomUUID()}.jpg`,
+        kind,
+        mime: 'image/jpeg',
+        size_bytes: 10,
+        sha256: randomUUID().replace(/-/g, '').padEnd(64, '0'),
+        source: 'camera',
+      });
+    const past = new Date(Date.now() - 60_000);
+    const [p1, p2, p3, p4] = [
+      await photo(),
+      await photo('nid_photo'),
+      await photo(),
+      await photo(),
+    ];
+    const expired = await draft({ expires_at: past, photo_file_id: p1, nid_photo_file_id: p2 });
+    const live = await draft({ photo_file_id: p3 });
+    const u = await f.volunteerUser(db);
+    const submitted = await draft({
+      expires_at: past,
+      verified_at: past,
+      submitted_user_id: u,
+      submitted_at: past,
+      photo_file_id: p4,
+    });
+    const keys = (
+      await db.query('SELECT bucket, object_key FROM purge_expired_registration_drafts(100)')
+    ).rows;
+    const left = async (table: string, ids: string[]) =>
+      (await db.query(`SELECT id FROM ${table} WHERE id = ANY($1)`, [ids])).rows.map((r) => r.id);
+    expect(keys).toHaveLength(2);
+    expect(keys.every((k) => k.bucket === 'profiles')).toBe(true);
+    expect(await left('registration_drafts', [expired, live, submitted])).toEqual(
+      expect.arrayContaining([live, submitted]),
+    );
+    expect(await left('registration_drafts', [expired])).toEqual([]);
+    expect((await left('files', [p1, p2, p3, p4])).sort()).toEqual([p3, p4].sort());
   });
 
   it('otp_codes accept contact_change and still refuse an unknown purpose', async () => {

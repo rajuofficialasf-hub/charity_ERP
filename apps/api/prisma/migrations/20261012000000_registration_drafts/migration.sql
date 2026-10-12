@@ -1,5 +1,7 @@
--- Registration drafts and the contact-change OTP purpose (T1.9; DECISION_LOG D-082, D-085;
--- DATABASE_SCHEMA registration_drafts). Additive: one new table and two widened CHECKs.
+-- Registration drafts and the contact-change OTP purpose (plan
+-- docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, unit U2; DECISION_LOG
+-- D-082, D-085; DATABASE_SCHEMA registration_drafts). Additive: one new table, its purge
+-- function and two widened CHECKs.
 
 -- CreateTable
 CREATE TABLE "registration_drafts" (
@@ -69,11 +71,40 @@ ALTER TABLE "registration_drafts" ADD CONSTRAINT "registration_drafts_kind_check
 ALTER TABLE "registration_drafts" ADD CONSTRAINT "registration_drafts_mobile_format" CHECK ("mobile" ~ '^01[3-9][0-9]{8}$');
 ALTER TABLE "registration_drafts" ADD CONSTRAINT "registration_drafts_email_lower_check" CHECK ("email" = lower("email"));
 ALTER TABLE "registration_drafts" ADD CONSTRAINT "registration_drafts_reference_lookups_check" CHECK ("reference_lookups" BETWEEN 0 AND 5);
--- The draft token is issued at verification; a submitted draft names the account it created.
+-- The draft token is issued at verification and dies with the submit; a submitted draft names
+-- the account it created.
 ALTER TABLE "registration_drafts" ADD CONSTRAINT "registration_drafts_verified_check" CHECK (token_hash IS NULL OR verified_at IS NOT NULL);
 ALTER TABLE "registration_drafts" ADD CONSTRAINT "registration_drafts_submitted_check" CHECK ((submitted_at IS NULL) = (submitted_user_id IS NULL));
+ALTER TABLE "registration_drafts" ADD CONSTRAINT "registration_drafts_token_spent_check" CHECK (submitted_at IS NULL OR token_hash IS NULL);
 
 CREATE TRIGGER registration_drafts_set_updated_at BEFORE UPDATE ON "registration_drafts" FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- The daily cleanup (DATABASE_SCHEMA 21): unsubmitted drafts past expires_at (24 hours after the
+-- start or the last verification) go with their photo rows. The cleanup role may only EXECUTE
+-- this function, so it can never delete other files rows. Returns the objects for the job to
+-- remove from storage; a photo still referenced elsewhere makes the foreign key refuse the call.
+CREATE FUNCTION purge_expired_registration_drafts(p_limit integer DEFAULT 500)
+  RETURNS TABLE (bucket text, object_key text)
+  LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_files uuid[];
+BEGIN
+  WITH gone AS (
+    DELETE FROM registration_drafts d
+     WHERE d.id IN (SELECT x.id FROM registration_drafts x
+                     WHERE x.submitted_at IS NULL AND x.expires_at < now()
+                     ORDER BY x.expires_at LIMIT p_limit)
+    RETURNING d.photo_file_id, d.nid_photo_file_id
+  )
+  SELECT coalesce(array_agg(f), '{}') INTO v_files
+    FROM (SELECT photo_file_id FROM gone UNION SELECT nid_photo_file_id FROM gone) AS ids(f)
+   WHERE f IS NOT NULL;
+  RETURN QUERY
+    DELETE FROM files fl
+     WHERE fl.id = ANY (v_files) AND fl.kind IN ('profile_photo', 'nid_photo')
+    RETURNING fl.bucket, fl.object_key;
+END $$;
+REVOKE ALL ON FUNCTION purge_expired_registration_drafts(integer) FROM PUBLIC;
 
 -- D-085: codes sent to a new mobile or email before an edit request reaches the approver.
 ALTER TABLE "otp_codes" DROP CONSTRAINT "otp_codes_purpose_check";

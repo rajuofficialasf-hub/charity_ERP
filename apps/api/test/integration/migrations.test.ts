@@ -102,7 +102,7 @@ describe('migrations', () => {
     expect(await snapshot(db)).toEqual(first);
   });
 
-  it('each later migration down.sql restores the schema of the migration before it (ADR-003)', async () => {
+  it('each later migration down.sql restores the schema of the migration before it', async () => {
     const dirs = migrationDirs();
     const db = await freshDatabase('step');
     const client = newClient(urlFor(db));
@@ -119,6 +119,45 @@ describe('migrations', () => {
         expect(await snapshot(db), `${dir}/down.sql`).toEqual(before);
         await apply(dir, 'migration.sql');
       }
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('the registration drafts down.sql removes contact-change codes and staff photo links and keeps the rest', async () => {
+    const db = await freshDatabase('regdown');
+    await runMigrations(db, 'up');
+    const client = newClient(urlFor(db));
+    await client.connect();
+    try {
+      const otp = (purpose: string) =>
+        client.query(
+          `INSERT INTO otp_codes (id, purpose, channel, address_hash, code_hash, expires_at) VALUES (gen_random_uuid(), $1, 'sms', 'h', 'c', now())`,
+          [purpose],
+        );
+      await otp('contact_change');
+      await otp('registration');
+      const file = (
+        await client.query(
+          `INSERT INTO files (id, bucket, object_key, kind, mime, size_bytes, sha256, source) VALUES (gen_random_uuid(), 'profiles', 'k/1.jpg', 'profile_photo', 'image/jpeg', 10, $1, 'gallery') RETURNING id`,
+          ['a'.repeat(64)],
+        )
+      ).rows[0].id as string;
+      for (const entity of ['user', 'volunteer'])
+        await client.query(
+          `INSERT INTO file_links (id, file_id, entity_type, entity_id, slot) VALUES (gen_random_uuid(), $1, $2, gen_random_uuid(), 'photo')`,
+          [file, entity],
+        );
+      await client.query(
+        readFileSync(
+          join(MIGRATIONS_DIR, '20261012000000_registration_drafts', 'down.sql'),
+          'utf8',
+        ),
+      );
+      const rows = async (sql: string) => (await client.query(sql)).rows.map((r) => r.v as string);
+      expect(await rows('SELECT purpose AS v FROM otp_codes')).toEqual(['registration']);
+      expect(await rows('SELECT entity_type AS v FROM file_links')).toEqual(['volunteer']);
+      expect(await rows('SELECT id AS v FROM files')).toEqual([file]);
     } finally {
       await client.end();
     }

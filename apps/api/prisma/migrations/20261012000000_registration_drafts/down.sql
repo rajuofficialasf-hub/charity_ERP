@@ -1,8 +1,10 @@
--- Reverses 20261012000000_registration_drafts (ADR-003). Drafts are technical data (D-082): the
--- table goes with its rows; their photo files stay in `files`. Rows the narrower CHECKs would
+-- Reverses 20261012000000_registration_drafts (docs/architecture/ADR/ADR-003-prisma-with-down-sql.md;
+-- DECISION_LOG D-082). Drafts are technical data: the table and its purge function go with the
+-- rows; their photo files stay in `files`. Rows the narrower CHECKs would
 -- refuse are removed first: contact-change codes (short-lived OTPs; deleting them needs the
 -- cleanup setting of the status-log trigger) and the links of staff photos (the files stay).
 
+DROP FUNCTION IF EXISTS purge_expired_registration_drafts(integer);
 DROP TABLE IF EXISTS "registration_drafts";
 
 DO $$
