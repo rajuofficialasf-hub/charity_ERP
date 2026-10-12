@@ -1,3 +1,4 @@
+import type { RouteRegistry } from '../../../src/openapi/registry';
 import type { AccessRegistry } from '../../../src/access/registry';
 import { randomUUID } from 'node:crypto';
 import { hash } from '@node-rs/argon2';
@@ -35,6 +36,8 @@ const ROLES = [
 export interface AuthHarness {
   app: Express;
   container: Container;
+  /** Every operation the app registered (the authorization matrix walks it). */
+  registry: RouteRegistry;
   db: Client;
   clock: TestClock;
   server: () => Express;
@@ -75,13 +78,14 @@ export async function authHarness(
     },
     logStream: options.logStream,
   });
-  const { app } = createApp(container, {
+  const { app, registry } = createApp(container, {
     logStream: options.logStream,
     extraRouters: options.extraRouters,
   });
   return {
     app,
     container,
+    registry,
     db: clone.client,
     clock,
     server: () => app,
