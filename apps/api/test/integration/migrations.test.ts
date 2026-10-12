@@ -102,6 +102,28 @@ describe('migrations', () => {
     expect(await snapshot(db)).toEqual(first);
   });
 
+  it('each later migration down.sql restores the schema of the migration before it (ADR-003)', async () => {
+    const dirs = migrationDirs();
+    const db = await freshDatabase('step');
+    const client = newClient(urlFor(db));
+    await client.connect();
+    try {
+      const apply = (dir: string, file: 'migration.sql' | 'down.sql') =>
+        client.query(readFileSync(join(MIGRATIONS_DIR, dir, file), 'utf8'));
+      await apply(dirs[0]!, 'migration.sql');
+      for (const dir of dirs.slice(1)) {
+        const before = await snapshot(db);
+        await apply(dir, 'migration.sql');
+        expect(await snapshot(db), `${dir} changes the schema`).not.toEqual(before);
+        await apply(dir, 'down.sql');
+        expect(await snapshot(db), `${dir}/down.sql`).toEqual(before);
+        await apply(dir, 'migration.sql');
+      }
+    } finally {
+      await client.end();
+    }
+  });
+
   it('schema.prisma and the migrations do not drift apart', async () => {
     const shadow = await freshDatabase('shadow');
     const apiDir = join(__dirname, '../..');

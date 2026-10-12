@@ -279,18 +279,18 @@ A registration between `start` and `submit` (AUTH.md 2, D-082). Technical data: 
 | id | uuid | no | — | PK; the `registrationId` of the API |
 | kind | text | no | 'volunteer' | volunteer, staff |
 | mobile | text | no | — | CHECK `^01[3-9][0-9]{8}$` |
-| email | text | no | — | lower-cased |
-| token_hash | text | yes | — | SHA-256 of the draft token issued at verification; never the token |
+| email | text | no | — | CHECK lower-cased |
+| token_hash | text | yes | — | SHA-256 of the draft token issued at verification; never the token; CHECK only with verified_at |
 | verified_at | timestamptz | yes | — | both OTPs verified |
 | expires_at | timestamptz | no | — | +24 hours from start, renewed by a new verification |
 | reference_lookups | smallint | no | 0 | CHECK 0–5 |
 | photo_file_id | uuid | yes | — | FK files |
 | nid_photo_file_id | uuid | yes | — | FK files |
 | submitted_user_id | uuid | yes | — | FK users; set by submit |
-| submitted_at | timestamptz | yes | — | — |
+| submitted_at | timestamptz | yes | — | CHECK set together with submitted_user_id |
 | [A] | | | | |
 
-Indexes: (mobile), (email), (expires_at) WHERE submitted_at IS NULL, and one per foreign key (DB-MIG-07).
+Indexes: (mobile), (email), (expires_at) WHERE submitted_at IS NULL, and one per foreign key (DB-MIG-07). Migration `20261012000000_registration_drafts`.
 
 ### handovers
 | Column | Type | Null | Default | Comment |
@@ -1661,7 +1661,7 @@ Machine-readable schemas live in `docs/database/json-schemas/` (JSON Schema 2020
 - Nothing of business value is hard-deleted (constitution §2, BR-207). The application database role has **no DELETE privilege** on business tables.
 - Allowed "deleted" states: `applications.status = 'deleted'` with `deleted_at` (only drafts and pending applications, by the owner or an official with the permission; BR-091); `files.deleted_at` only for `kind = 'export'` (regenerable).
 - Ending instead of deleting: `revoked_at` (roles, permissions, sessions, push subscriptions), `ended_at` (project staff and volunteer assignments), `removed_at` (team members), `released_at` (blocklist), `active = false` (locations, reference lists, templates, programs), `deactivated_at` (users), `reverted_at` (merges).
-- Technical rows the system may delete: expired `otp_codes`, expired unfinalized `upload_sessions`, export files after 30 days (O-30). These deletions are performed by jobs running under a dedicated role with DELETE only on those tables.
+- Technical rows the system may delete: expired `otp_codes`, expired unfinalized `upload_sessions`, export files after 30 days (O-30), unsubmitted `registration_drafts` 24 hours after expiry with their photo `files` rows (D-082). These deletions are performed by jobs running under a dedicated role with DELETE only on those tables.
 
 ## 22. Retention, partitioning and archiving
 
@@ -1678,7 +1678,7 @@ Machine-readable schemas live in `docs/database/json-schemas/` (JSON Schema 2020
 |---|---|---|
 | css_migrate | owner of the schema; DDL | one-shot migration container (ADR-003) |
 | css_app | SELECT, INSERT, UPDATE on business tables; INSERT only on append-only logs (audit_log, field_changes, budget_ledger, document_events, application_transfers, stock_movements); no DELETE; no DDL | api and worker |
-| css_jobs_cleanup | DELETE on otp_codes, upload_sessions, export file rows | worker cleanup jobs only |
+| css_jobs_cleanup | DELETE on otp_codes, upload_sessions, registration_drafts, export file rows and the photo rows of expired drafts | worker cleanup jobs only |
 | css_readonly | SELECT on reporting views without sensitive columns | optional reporting, IT diagnostics |
 | css_backup | replication / pg_dump | backup tooling (O-06) |
 

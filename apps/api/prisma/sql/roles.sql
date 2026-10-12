@@ -26,6 +26,9 @@ REVOKE UPDATE ON audit_log, budget_ledger, stock_movements, document_events, app
 GRANT USAGE ON SCHEMA public TO css_jobs_cleanup;
 GRANT SELECT, DELETE ON otp_codes, upload_sessions TO css_jobs_cleanup;
 GRANT SELECT, UPDATE ON files TO css_jobs_cleanup;
+-- D-082: unsubmitted registration drafts and their photo rows, 24 hours after expiry.
+GRANT SELECT, DELETE ON registration_drafts TO css_jobs_cleanup;
+GRANT DELETE ON files TO css_jobs_cleanup;
 
 -- css_readonly: reporting views without sensitive columns are added with the reports module;
 -- until then it may read the two summary views only.

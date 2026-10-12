@@ -350,6 +350,107 @@ describe('Qurbani animals (BR-145, O-19)', () => {
   });
 });
 
+describe('registration drafts and contact changes (D-082, D-085)', () => {
+  const draft = (over: Record<string, unknown> = {}) =>
+    f.insert(db, 'registration_drafts', {
+      id: randomUUID(),
+      mobile: f.fakeMobile(),
+      email: `d${randomUUID().slice(0, 8)}@example.org`,
+      expires_at: new Date(Date.now() + 86_400_000),
+      ...over,
+    });
+
+  it('a draft defaults to a volunteer with no lookups', async () => {
+    const id = await draft();
+    const row = (await db.query('SELECT * FROM registration_drafts WHERE id = $1', [id])).rows[0];
+    expect(row).toMatchObject({ kind: 'volunteer', reference_lookups: 0, verified_at: null });
+    await expect(draft({ kind: 'staff' })).resolves.toBeTruthy();
+  });
+
+  it('refuses an unknown kind, a bad mobile, an upper-case email and more than 5 lookups', async () => {
+    await expectSqlError(
+      draft({ kind: 'system' }),
+      SQLSTATE.checkViolation,
+      /registration_drafts_kind_check/,
+    );
+    await expectSqlError(
+      draft({ mobile: '12345' }),
+      SQLSTATE.checkViolation,
+      /registration_drafts_mobile_format/,
+    );
+    await expectSqlError(
+      draft({ email: 'Upper@example.org' }),
+      SQLSTATE.checkViolation,
+      /registration_drafts_email_lower_check/,
+    );
+    await expectSqlError(
+      draft({ reference_lookups: 6 }),
+      SQLSTATE.checkViolation,
+      /registration_drafts_reference_lookups_check/,
+    );
+    await expect(draft({ reference_lookups: 5 })).resolves.toBeTruthy();
+  });
+
+  it('the token goes with the verification and the submitted user with the submit time', async () => {
+    await expectSqlError(
+      draft({ token_hash: 'h' }),
+      SQLSTATE.checkViolation,
+      /registration_drafts_verified_check/,
+    );
+    await expectSqlError(
+      draft({ submitted_at: new Date() }),
+      SQLSTATE.checkViolation,
+      /registration_drafts_submitted_check/,
+    );
+    const u = await f.volunteerUser(db);
+    await expect(
+      draft({
+        token_hash: 'h',
+        verified_at: new Date(),
+        submitted_user_id: u,
+        submitted_at: new Date(),
+      }),
+    ).resolves.toBeTruthy();
+  });
+
+  it('otp_codes accept contact_change and still refuse an unknown purpose', async () => {
+    const otp = (purpose: string) =>
+      f.insert(db, 'otp_codes', {
+        id: randomUUID(),
+        purpose,
+        channel: 'sms',
+        address_hash: 'h',
+        code_hash: 'c',
+        expires_at: new Date(),
+      });
+    await expect(otp('contact_change')).resolves.toBeTruthy();
+    await expectSqlError(otp('login'), SQLSTATE.checkViolation, /otp_codes_purpose_check/);
+  });
+
+  it('file_links accept the entity user and still refuse an unknown entity', async () => {
+    const file = await f.insert(db, 'files', {
+      id: randomUUID(),
+      bucket: 'profiles',
+      object_key: `test/${randomUUID()}.jpg`,
+      kind: 'profile_photo',
+      mime: 'image/jpeg',
+      size_bytes: 10,
+      sha256: 'a'.repeat(64),
+      source: 'gallery',
+    });
+    const link = (entity: string) =>
+      f.insert(db, 'file_links', {
+        id: randomUUID(),
+        file_id: file,
+        entity_type: entity,
+        entity_id: randomUUID(),
+        slot: 'photo',
+      });
+    await expect(link('user')).resolves.toBeTruthy();
+    await expectSqlError(link('donor'), SQLSTATE.checkViolation, /file_links_entity_type_check/);
+  });
+});
+
 describe('other uniques', () => {
   it('users: mobile and email unique, at most one system owner', async () => {
     const mobile = f.fakeMobile();

@@ -108,7 +108,7 @@ Today accounts exist only in the seed: nobody can join the system, and the appro
 ### U2. Registration drafts and the contact-change OTP purpose
 - **Goal:** The database keeps registration drafts, accepts OTPs for contact changes, and links a staff photo to a user.
 - **Requirements:** R1, R5, R18, R20
-- **Files:** `apps/api/prisma/schema.prisma`, `apps/api/prisma/migrations/<new>/migration.sql`, `apps/api/prisma/migrations/<new>/down.sql`, `apps/api/test/integration/migrations.test.ts`
+- **Files:** `apps/api/prisma/schema.prisma`, `apps/api/prisma/migrations/20261012000000_registration_drafts/migration.sql`, `apps/api/prisma/migrations/20261012000000_registration_drafts/down.sql`, `apps/api/prisma/sql/roles.sql`, `apps/api/test/integration/migrations.test.ts`, `apps/api/test/integration/constraints.test.ts`, `docs/database/DATABASE_SCHEMA.md`
 - **Approach:** follow `apps/api/prisma/migrations/20261011000000_init/` (hand-written CHECKs, foreign-key indexes, DB-MIG-07) and the round-trip test in `apps/api/test/integration/migrations.test.ts`.
 - **Tests:**
   - integration: the migration applies and `down.sql` restores the previous schema (round trip); a draft with an unknown kind or a bad mobile is refused by CHECKs; `otp_codes` accepts `contact_change` and still refuses an unknown purpose; `file_links` accepts the entity `user`
@@ -117,7 +117,7 @@ Today accounts exist only in the seed: nobody can join the system, and the appro
 - **Depends on:** U1
 - **Size:** M
 - **Risk area:** migration
-- **Status:** todo
+- **Status:** done
 
 ### U3. Public locations list
 - **Goal:** The registration form loads divisions, districts, upazilas and unions without a login.
@@ -335,8 +335,8 @@ Today accounts exist only in the seed: nobody can join the system, and the appro
 
 ## Progress
 - **Branch:** `feat/registration-approval-handover`
-- **Updated:** 2026-10-12 16:30
-- **Next:** U2: the migration `registration_drafts`, `otp_codes` purpose `contact_change`, `file_links` entity `user`; first the round-trip test in `apps/api/test/integration/migrations.test.ts`
+- **Updated:** 2026-10-12 16:45
+- **Next:** checkpoint C2 (scope `0e44327..HEAD`), then U3: the public `GET /locations` with the `reference-read` class; first the API test
 - **Reviewed through:** C1 at ae61563
 - **Uncommitted:** none
-- **Notes:** C1 (T0, own review of the documents): no findings; for U5, the access middleware refuses the `entity` permission marker today (`holdsPermission` in `apps/api/src/access/scope.ts`), so `GET /files/{fileId}/content` needs the middleware to pass `entity` like `authenticated` and the files service to decide. U1: decisions D-081 to D-089 in DECISION_LOG (approved with "Start implementation"; D-087 is a further owner answer during U1: registration photos may be viewed before the T2.1 scanner, an exception to O-30). Resume of a draft is "start again with the same mobile and email and verify both codes" (AUTH.md 2 rewritten), not the mobile code alone. The contract got a new `RegistrationToken` header parameter, `RegistrationCorrectionCreate` (the name `CorrectionRequestCreate` already belongs to the beneficiary correction), `OwnVolunteerProfile`, `PendingRegistration` and `RegistrationDetail`; the rate classes `registration`, `reference-lookup` and `reference-read` are also in `docs/api/redocly.yaml`. Request schemas in the contract may still be adjusted to what zod generates when the routes are built (the drift test compares them). The owner answered "Start implementation" after the doc review, which also confirms the proposed decisions of U1 (Technical decisions "Decisions logged before code").
+- **Notes:** C1 (T0, own review of the documents): no findings; for U5, the access middleware refuses the `entity` permission marker today (`holdsPermission` in `apps/api/src/access/scope.ts`), so `GET /files/{fileId}/content` needs the middleware to pass `entity` like `authenticated` and the files service to decide. U1: decisions D-081 to D-089 in DECISION_LOG (approved with "Start implementation"; D-087 is a further owner answer during U1: registration photos may be viewed before the T2.1 scanner, an exception to O-30). Resume of a draft is "start again with the same mobile and email and verify both codes" (AUTH.md 2 rewritten), not the mobile code alone. The contract got a new `RegistrationToken` header parameter, `RegistrationCorrectionCreate` (the name `CorrectionRequestCreate` already belongs to the beneficiary correction), `OwnVolunteerProfile`, `PendingRegistration` and `RegistrationDetail`; the rate classes `registration`, `reference-lookup` and `reference-read` are also in `docs/api/redocly.yaml`. Request schemas in the contract may still be adjusted to what zod generates when the routes are built (the drift test compares them). The owner answered "Start implementation" after the doc review, which also confirms the proposed decisions of U1 (Technical decisions "Decisions logged before code"). U2: migration `20261012000000_registration_drafts`; besides the documented CHECKs it has `registration_drafts_email_lower_check` (as on users), `_verified_check` (a token only with `verified_at`) and `_submitted_check` (submitted_at and submitted_user_id together); the CHECK tests live in `constraints.test.ts` next to the others, and `migrations.test.ts` gained a step test (each later migration's down.sql restores the schema before it). down.sql deletes `contact_change` codes inside a DO block that sets `css.cleanup` (the otp status-log trigger refuses DELETE otherwise). `roles.sql` grants the cleanup role DELETE on `registration_drafts` and `files`. For U5: the application role `css_app` has no DELETE privilege in production (DATABASE_SCHEMA 21, 23), so "a new upload to a slot deletes the previous row" cannot run as the API; unlink the old file instead and let the cleanup job remove unlinked draft photos, or record a decision.
