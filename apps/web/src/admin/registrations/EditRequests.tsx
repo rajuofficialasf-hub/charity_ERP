@@ -41,8 +41,9 @@ export function EditRequests() {
     onSuccess: (_, { reason }) => {
       setRefusing(null);
       setNotice(reason ? t('rejected') : t('approved'));
-      void queryClient.invalidateQueries({ queryKey: EDITS_KEY });
     },
+    // also after a refusal (decided meanwhile by another approver): the list shows what is open
+    onSettled: () => void queryClient.invalidateQueries({ queryKey: EDITS_KEY }),
   });
   const failure = decide.error instanceof ApiFailure ? decide.error : null;
 

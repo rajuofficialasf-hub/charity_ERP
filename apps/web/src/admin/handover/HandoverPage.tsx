@@ -92,6 +92,10 @@ function Handover({ official }: { official: PanelUser }) {
     // each step bumps the account row, so the deactivation needs its new version (If-Match)
     void queryClient.invalidateQueries({ queryKey: userKey(official.id) });
   };
+  const reread = () => {
+    void queryClient.invalidateQueries({ queryKey: userKey(official.id) });
+    void queryClient.invalidateQueries({ queryKey: handoverKey(official.id) });
+  };
   const assign = useMutation({
     mutationFn: (items?: PendingItem[]) =>
       api<HandoverView>(`/users/${official.id}/handover`, {
@@ -105,12 +109,14 @@ function Handover({ official }: { official: PanelUser }) {
       }),
     onMutate: () => setNotice(null),
     onSuccess: (view) => refreshed(t('assigned'), view),
+    onError: () => reread(),
   });
   const complete = useMutation({
     mutationFn: () =>
       api<HandoverView>(`/users/${official.id}/handover/complete`, { method: 'POST' }),
     onMutate: () => setNotice(null),
     onSuccess: (view) => refreshed(t('completed_now'), view),
+    onError: () => reread(),
   });
   const deactivate = useMutation({
     mutationFn: (reason: string) =>
@@ -127,6 +133,8 @@ function Handover({ official }: { official: PanelUser }) {
       void queryClient.invalidateQueries({ queryKey: userKey(official.id) });
       void queryClient.invalidateQueries({ queryKey: handoverKey(official.id) });
     },
+    // a refusal (stale version, work moved meanwhile) reads the account and the work again
+    onError: () => reread(),
   });
 
   if (account.isPending || handover.isPending) return <Skeleton shape="row" count={3} />;

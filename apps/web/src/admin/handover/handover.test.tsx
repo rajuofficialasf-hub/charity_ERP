@@ -243,6 +243,26 @@ describe('handover page', () => {
     expect(calls.at(-1)!.ifMatch).toBe('"v3"');
   }, 15_000);
 
+  it('reads the account again after a refused deactivation, so a retry carries the new version', async () => {
+    const user = userEvent.setup();
+    renderPage(HEAD);
+    await pick(user, /কর্মকর্তা খুঁজুন/, 'বিদায়ী');
+    await user.click(await screen.findByRole('button', { name: 'নিষ্ক্রিয় করুন' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'চাকরি ছেড়েছেন');
+    // another administrator changed the account meanwhile
+    version = 7;
+    await user.click(within(dialog).getByRole('button', { name: 'অ্যাকাউন্ট নিষ্ক্রিয় করুন' }));
+    await within(dialog).findByText(/অপেক্ষমাণ কাজ হস্তান্তর করুন/);
+    completedAt = '2026-10-12T06:00:00.000Z';
+    pending = [];
+    await user.click(
+      await within(dialog).findByRole('button', { name: 'অ্যাকাউন্ট নিষ্ক্রিয় করুন' }),
+    );
+    expect(await screen.findByText('অ্যাকাউন্ট নিষ্ক্রিয় করা হয়েছে')).toBeInTheDocument();
+    expect(calls.at(-1)!.ifMatch).toBe('"v7"');
+  });
+
   it('is accessible in English', async () => {
     const user = userEvent.setup();
     const { container } = renderPage(HEAD, 'en');

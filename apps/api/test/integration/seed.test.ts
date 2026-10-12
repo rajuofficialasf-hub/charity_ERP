@@ -206,7 +206,7 @@ describe('demo set', () => {
       (await db.query('SELECT count(*)::int AS n FROM users WHERE is_system_owner')).rows[0].n,
     ).toBe(1);
     expect(DEMO_STAFF).toHaveLength(14);
-    // the dedicated official of the handover journey holds one project area of its own (T1.9 U14)
+    // the dedicated official of the handover journey holds one project area of its own (plan docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U14)
     const areas = (
       await db.query(
         `SELECT a.location_id <> ALL (SELECT location_id FROM project_areas o WHERE o.rpm_user_id <> a.rpm_user_id) AS own_location FROM project_areas a JOIN users u ON u.id = a.rpm_user_id WHERE u.email = 'handover.rpm@example.org'`,

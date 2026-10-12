@@ -71,7 +71,19 @@ export const LIST_KEY = ['admin', 'registrations'] as const;
 export const detailKey = (userId: string) => ['admin', 'registrations', userId] as const;
 export const EDITS_KEY = ['admin', 'edit-requests'] as const;
 
-export const pendingRegistrations = () => api<PendingRegistration[]>('/registrations?limit=100');
+/**
+ * Both groups of the queue: waiting for review, and waiting for the registrant's corrections (the
+ * list answers one status at a time and `awaiting_review` by default). The first 100 of each; the
+ * volunteer tab of T1.10 brings paging and filters.
+ */
+export const pendingRegistrations = async () =>
+  (
+    await Promise.all(
+      (['awaiting_review', 'in_correction'] as const).map((status) =>
+        api<PendingRegistration[]>(`/registrations?limit=100&status=${status}`),
+      ),
+    )
+  ).flat();
 export const registrationDetail = (userId: string) =>
   api<RegistrationDetailView>(`/registrations/${userId}`);
 export const approve = (userId: string) =>

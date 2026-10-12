@@ -144,10 +144,9 @@ test.describe('registration approval', () => {
     expect((await scan(page)).violations).toEqual([]);
     await page.getByRole('button', { name: 'সংশোধনের অনুরোধ' }).click();
     const dialog = page.getByRole('dialog', { name: 'সংশোধনের অনুরোধ' });
-    // the native input is visually hidden; people press its label
-    const father = dialog.getByRole('checkbox', { name: 'পিতার নাম' });
-    await father.locator('xpath=ancestor::label').click();
-    await expect(father).toBeChecked();
+    // the native input is visually hidden; people press its label text
+    await dialog.getByText('পিতার নাম', { exact: true }).click();
+    await expect(dialog.getByRole('checkbox', { name: 'পিতার নাম' })).toBeChecked();
     await dialog.getByRole('textbox', { name: /কী ঠিক করতে হবে/ }).fill('NID-এর মতো লিখুন');
     await dialog.getByRole('button', { name: 'পাঠান' }).click();
     await expect(page.getByText('সংশোধনের অনুরোধ পাঠানো হয়েছে')).toBeVisible();
@@ -155,6 +154,9 @@ test.describe('registration approval', () => {
 
     // the volunteer fixes it on the phone and submits again
     await signIn(mobile, person.mobile, PASSWORD);
+    await expect(
+      mobile.getByText('আপনার নিবন্ধন অনুমোদনের অপেক্ষায়', { exact: false }),
+    ).toBeVisible();
     await mobile.getByRole('link', { name: 'আমার প্রোফাইল' }).click();
     await mobile.getByRole('textbox', { name: /পিতার নাম/ }).fill('সংশোধিত পিতা');
     await mobile.getByRole('button', { name: 'উত্তর দিন' }).click();

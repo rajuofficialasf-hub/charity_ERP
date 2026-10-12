@@ -114,7 +114,14 @@ async function record(request: Request) {
 
 function serve() {
   server.use(
-    http.get('*/api/v1/registrations', () => HttpResponse.json({ data: pending, meta })),
+    // the list answers one status at a time (awaiting_review when none is given)
+    http.get('*/api/v1/registrations', ({ request }) => {
+      const status = new URL(request.url).searchParams.get('status') ?? 'awaiting_review';
+      return HttpResponse.json({
+        data: pending.filter((p) => (p as { status: string }).status === status),
+        meta,
+      });
+    }),
     http.get('*/api/v1/registrations/:userId', ({ params }) =>
       params.userId === STAFF_USER
         ? HttpResponse.json({ data: staffDetail })
@@ -257,6 +264,16 @@ describe('registration list', () => {
       .closest<HTMLElement>('[role="row"]')!;
     expect(within(staffRow).getByText('কর্মকর্তা')).toBeInTheDocument();
     await expectNoAxeViolations(container);
+  });
+
+  it('keeps a registration in correction in the list', async () => {
+    pending = [{ ...pendingVolunteer, status: 'in_correction' }, pendingStaff];
+    renderPage(RPM);
+    const table = await screen.findByRole('grid', { name: 'অপেক্ষমাণ নিবন্ধন' });
+    const row = within(table)
+      .getByRole('link', { name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' })
+      .closest<HTMLElement>('[role="row"]')!;
+    expect(within(row).getByText('সংশোধন চলছে')).toBeInTheDocument();
   });
 
   it('shows an empty state when nothing waits', async () => {

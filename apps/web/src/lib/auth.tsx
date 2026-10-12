@@ -1,8 +1,17 @@
 import type { Me } from '@css/shared/auth';
 import { Spinner, VisuallyHidden } from '@css/ui';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { useTranslations } from 'use-intl';
-import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { currentMe, onSessionChange, refreshSession, type SessionEnd } from './api';
 
 export type AuthStatus = 'loading' | 'signed-in' | 'signed-out';
@@ -19,17 +28,27 @@ const AuthContext = createContext<AuthValue>({ status: 'loading', me: null });
 /**
  * Holds who is signed in (AUTH.md 5). At start it restores the session from the refresh cookie
  * with one silent refresh; afterwards it follows the API client's sign-in and sign-out events.
+ * When the session ends or another user signs in, the server-data cache is emptied, so no
+ * record or photo of one session is shown in the next (AUTH.md 8).
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
+  const userId = useRef<string | null>(currentMe()?.id ?? null);
   const [value, setValue] = useState<AuthValue>(() => {
     const me = currentMe();
     return me ? { status: 'signed-in', me } : { status: 'loading', me: null };
   });
 
   useEffect(() => {
-    const stop = onSessionChange((me, ended) =>
-      setValue({ status: me ? 'signed-in' : 'signed-out', me, ended }),
-    );
+    const stop = onSessionChange((me, ended) => {
+      // only a change of the signed-in user empties the cache: a token refresh of the same user
+      // keeps it, and a repeated "signed out" must not clear again (a cleared query refetches,
+      // its 401 ends the session again: a loop)
+      const next = me?.id ?? null;
+      if (userId.current !== null && next !== userId.current) queryClient.clear();
+      userId.current = next;
+      setValue({ status: me ? 'signed-in' : 'signed-out', me, ended });
+    });
     if (!currentMe())
       refreshSession()
         .then((pair) => {
@@ -40,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setValue((v) => (v.status === 'loading' ? { status: 'signed-out', me: null } : v)),
         );
     return stop;
-  }, []);
+  }, [queryClient]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

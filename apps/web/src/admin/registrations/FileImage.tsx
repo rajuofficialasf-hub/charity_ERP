@@ -3,9 +3,16 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'use-intl';
 import { api } from '../../lib/api';
 
-/** Reads a blob as a data URL: nothing to revoke, and the cache drops it with the query. */
+/** The photo types the API stores (registration photos, D-087); anything else is not shown. */
+const IMAGE_TYPES = new Set(['image/jpeg', 'image/png']);
+
+/** Reads a photo as a data URL: nothing to revoke, and the cache drops it with the query. */
 const dataUrl = (blob: Blob) =>
   new Promise<string>((resolve, reject) => {
+    if (!IMAGE_TYPES.has(blob.type)) {
+      reject(new Error('not a photo'));
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
     reader.onerror = () => reject(reader.error ?? new Error('read'));
@@ -22,7 +29,9 @@ export function FileImage({ fileId, alt }: { fileId: string; alt: string }) {
   const file = useQuery({
     queryKey: ['files', fileId],
     queryFn: async () => dataUrl(await api<Blob>(`/files/${fileId}/content`, { blob: true })),
-    staleTime: Infinity,
+    // a photo leaves the cache with its screen: opening it again asks the API (and audits an
+    // NID photo view) again
+    gcTime: 0,
   });
   if (file.error) return <p className="admin-error">{t('state.error.text')}</p>;
   if (!file.data) return <Skeleton shape="card" />;

@@ -107,7 +107,7 @@ export const DEMO_STAFF: DemoStaff[] = [
     designation: 'Regional Program Manager',
   },
   {
-    // the official of the handover journey (T1.9 U14): holds one project area, deactivated in E2E
+    // the official of the handover journey (plan docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U14): holds one project area, deactivated in E2E
     key: 'rpm_handover',
     role: 'regional_program_manager',
     name: 'আরপিএম হ্যান্ডওভার',
