@@ -159,6 +159,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | registration | registration.open_corrections | 409 | approval or resubmit while a correction is unanswered (BR-030) |
 | registration | registration.not_resubmitted | 409 | approval of a registration still in correction |
 | registration | registration.blocklisted | 409 | approval of a blocklisted registration (BR-047) |
+| registration | registration.nid_exists | 409 | a volunteer registration with an NID another volunteer already holds (O-20) |
 | handover | handover.target_invalid | 422 | the receiving user is not an active official with a fitting role, or is the person handed over (BR-034) |
 | handover | handover.items_outstanding | 409 | completion while items are still unassigned (BR-034) |
 | business | beneficiary.identity_missing | 422 | neither NID nor birth registration (BR-001) |

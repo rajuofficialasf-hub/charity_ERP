@@ -527,6 +527,7 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     BankDetails:
       type: object
+      additionalProperties: false
       properties:
         bankName: { type: string, maxLength: 200 }
         accountName: { type: string, maxLength: 200 }
@@ -534,14 +535,15 @@ components:
         routingNumber: { type: string, maxLength: 20 }
     VolunteerRegistrationSubmit:
       type: object
+      additionalProperties: false
       required: [kind, registrationId, password, name, fatherName, motherName, nid, type, divisionId, districtId, upazilaId, unionId]
       properties:
         kind: { type: string, const: volunteer }
         registrationId: { $ref: '#/components/schemas/Uuid' }
         password: { type: string, minLength: 8, maxLength: 128, description: 'At least one letter and one digit (O-05)' }
-        name: { type: string, maxLength: 200 }
-        fatherName: { type: string, maxLength: 200 }
-        motherName: { type: string, maxLength: 200 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        fatherName: { type: string, minLength: 1, maxLength: 200 }
+        motherName: { type: string, minLength: 1, maxLength: 200 }
         nid: { type: string, pattern: '^([0-9]{10}|[0-9]{13}|[0-9]{17})$' }
         whatsapp: { type: string, pattern: '^01[3-9][0-9]{8}$' }
         type: { type: string, enum: [general, local_daee, both, team_member, paid] }
@@ -559,13 +561,14 @@ components:
         referenceNid: { type: string, pattern: '^([0-9]{10}|[0-9]{13}|[0-9]{17})$', description: Required for a team member }
     StaffRegistrationSubmit:
       type: object
+      additionalProperties: false
       required: [kind, registrationId, password, name, designation, homeProgramId, homeDivisionId]
       properties:
         kind: { type: string, const: staff }
         registrationId: { $ref: '#/components/schemas/Uuid' }
         password: { type: string, minLength: 8, maxLength: 128 }
-        name: { type: string, maxLength: 200 }
-        designation: { type: string, maxLength: 200 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        designation: { type: string, minLength: 1, maxLength: 200 }
         homeProgramId: { $ref: '#/components/schemas/Uuid' }
         homeDivisionId: { $ref: '#/components/schemas/Uuid' }
     RegistrationSubmitRequest:
@@ -2362,7 +2365,9 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '410': { $ref: '#/components/responses/Gone' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
   /auth/login:
     post:
       tags: [auth]
@@ -3308,6 +3313,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/OwnVolunteerProfileResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /volunteers/{volunteerId}:
     parameters:
       - $ref: '#/components/parameters/VolunteerId'

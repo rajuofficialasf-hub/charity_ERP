@@ -7,6 +7,7 @@ import {
   type PasswordResetCompleteRequest,
   passwordResetStartRequestSchema,
   type PasswordResetStartRequest,
+  USER_STATES,
 } from '@css/shared/auth';
 import {
   type OtpSendRequest,
@@ -22,6 +23,8 @@ import {
   REGISTRATION_TOKEN_HEADER,
   type RegistrationStartRequest,
   registrationStartRequestSchema,
+  type RegistrationSubmitRequest,
+  registrationSubmitRequestSchema,
 } from '@css/shared/registration';
 import { Router, type Response } from 'express';
 import { z } from 'zod';
@@ -42,6 +45,19 @@ import { defineRoute, type RouteDeps } from '../openapi/define-route';
 import type { IssuedSession } from '../services/auth';
 
 const authOp = { tag: 'auth', scope: 'self', idempotency: 'none' as const };
+
+/** The contract's Me: the account as login and the registration submit return it. */
+const meSchema = z.object({
+  id: z.uuid(),
+  displayName: z.string(),
+  kind: z.enum(['staff', 'volunteer']),
+  state: z.enum(USER_STATES),
+  roles: z.array(z.string()),
+  language: z.enum(['bn', 'en']),
+  permissionVersion: z.number().int(),
+  blockMessage: z.string().nullable().optional(),
+  volunteerId: z.uuid().nullable().optional(),
+});
 
 /** Login, refresh, logout, current user and passwords (AUTH.md 3 to 8, openapi tag auth). */
 export function authRouter(
@@ -230,6 +246,25 @@ export function authRouter(
     responses: { 200: null, 401: null, 404: null, 410: null, 422: null, 429: null },
     handler: ({ body, req }) =>
       c.registration.referenceLookup(body, req.get(REGISTRATION_TOKEN_HEADER)),
+  });
+
+  defineRoute<RegistrationSubmitRequest>(router, deps, {
+    ...authOp,
+    method: 'post',
+    path: '/auth/register/submit',
+    status: 201,
+    operationId: 'auth.registration.submit',
+    summary:
+      "Submit the registration form of the draft's kind; the account is created in state pending, or a rejected never-approved account returns to pending (D-086)",
+    permission: 'public',
+    audit: 'auth.registered',
+    rateLimit: 'registration',
+    sensitiveFields: ['volunteer.identity', 'volunteer.bank'],
+    headers: [{ name: REGISTRATION_TOKEN_HEADER, required: true }],
+    body: registrationSubmitRequestSchema,
+    responses: { 201: meSchema, 401: null, 404: null, 409: null, 410: null, 422: null, 429: null },
+    handler: async ({ body, req }) =>
+      c.auth.me(await c.registration.submit(body, req.get(REGISTRATION_TOKEN_HEADER))),
   });
 
   defineRoute<unknown, { registrationId: string; source?: PhotoSource }, { slot: PhotoSlot }>(

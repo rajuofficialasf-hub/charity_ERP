@@ -6,7 +6,10 @@ import type { Logger } from 'pino';
  * hook; the notification task T1.14 plugs delivery in. Events carry ids, never personal data.
  */
 export type RegistrationEventType =
-  'registration.started' | 'registration.verified' | 'registration.reference_lookup';
+  | 'registration.started'
+  | 'registration.verified'
+  | 'registration.reference_lookup'
+  | 'registration.submitted';
 
 export interface RegistrationEvent {
   type: RegistrationEventType;

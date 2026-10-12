@@ -1,5 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { uuidv7 } from '@css/shared';
+import { checkPassword, minPasswordLength } from '@css/shared/auth';
+import { commonPasswords } from '@css/shared/auth/common-passwords';
 import { z } from 'zod';
 import type { Locale } from '@css/shared/i18n';
 import {
@@ -9,15 +11,21 @@ import {
   REGISTRATION_RULES,
   type ReferenceLookupRequest,
   REGISTRATION_KINDS,
+  type RegistrationKind,
   type RegistrationStart,
   type RegistrationStartRequest,
+  type RegistrationSubmitRequest,
+  type StaffRegistrationSubmit,
+  type VolunteerRegistrationSubmit,
   type RegistrationVerified,
 } from '@css/shared/registration';
 import { type AuditEntry, type AuditWriter } from '../audit/audit-writer';
 import { identifierHash, type OtpChannel, type OtpService } from '../auth/otp.service';
+import type { PasswordHasher } from '../auth/password-hasher';
 import type { Env } from '../config/env';
 import type { Clock } from '../core/clock';
-import type { PrismaService } from '../core/prisma.service';
+import type { PrismaService, Tx } from '../core/prisma.service';
+import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import type { RegistrationEvents } from '../notifications/registration-events';
 
@@ -49,6 +57,7 @@ export class RegistrationService {
     private readonly otp: OtpService,
     private readonly audit: AuditWriter,
     private readonly events: RegistrationEvents,
+    private readonly hasher: PasswordHasher,
   ) {}
 
   private draftAudit(action: string, draftId: string, extra: AuditEntry['new'] = {}) {
@@ -184,12 +193,7 @@ export class RegistrationService {
         _count: { select: { userRolesUser: true } },
       },
     });
-    return users.some((u) => {
-      if (u.state !== 'deactivated') return true;
-      return u.kind === 'volunteer'
-        ? Boolean(u.volunteersUser?.approvedAt)
-        : u._count.userRolesUser > 0;
-    });
+    return users.some(isTaken);
   }
 
   /** The name of the active volunteer with this NID, for a team member's reference (D-088). */
@@ -226,6 +230,187 @@ export class RegistrationService {
     return { name: volunteer.user.displayName };
   }
 
+  /**
+   * Submits the form of the draft's kind (plan
+   * docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, R2, R5, R6, R21): one
+   * transaction creates the pending account and the volunteer row (or the staff fields and the
+   * photo link), or returns a rejected, never-approved account to pending, and spends the draft
+   * token. Returns the user id.
+   */
+  async submit(body: RegistrationSubmitRequest, token: string | undefined): Promise<string> {
+    const draft = await this.ownedDraft(body.registrationId, token);
+    if (body.kind !== draft.kind) throw invalid('kind', 'validation.option_unknown');
+    const problems = checkPassword(body.password, {
+      minLength: minPasswordLength(false),
+      mobile: draft.mobile,
+      email: draft.email,
+      common: commonPasswords(),
+    });
+    if (problems.length)
+      throw new ApiError(
+        'validation.failed',
+        422,
+        undefined,
+        problems.map((code) => ({ path: 'password', code })),
+      );
+    if (body.kind === 'volunteer') await this.assertAddress(body);
+    else await this.assertStaffPlace(body);
+    const referenceVolunteerId =
+      body.kind === 'volunteer' && body.type === 'team_member'
+        ? await this.mainVolunteer(body.referenceNid!)
+        : null;
+    const passwordHash = await this.hasher.hash(body.password);
+    const now = this.clock.now();
+    let userId: string;
+    try {
+      userId = await this.prisma.$transaction(async (tx) => {
+        const [locked] = await tx.$queryRaw<{ id: string }[]>`
+          SELECT id FROM registration_drafts
+           WHERE id = ${draft.id}::uuid AND submitted_at IS NULL FOR UPDATE`;
+        if (!locked) throw new ApiError('registration.token_invalid', 401);
+        const reuse = await this.reusableAccount(tx, draft, body.kind);
+        if (body.kind === 'volunteer') {
+          const sameNid = await tx.volunteer.count({
+            where: { nid: body.nid, ...(reuse ? { NOT: { userId: reuse.id } } : {}) },
+          });
+          if (sameNid) throw new ApiError('registration.nid_exists', 409);
+        }
+        const account = {
+          kind: body.kind,
+          mobile: draft.mobile,
+          email: draft.email,
+          passwordHash,
+          state: 'pending',
+          displayName: body.name,
+          designation: body.kind === 'staff' ? body.designation : null,
+          homeProgramId: body.kind === 'staff' ? body.homeProgramId : null,
+          homeDivisionId: body.kind === 'staff' ? body.homeDivisionId : null,
+          failedLoginCount: 0,
+          lockedUntil: null,
+          deactivatedAt: null,
+        };
+        const id = reuse?.id ?? uuidv7();
+        if (reuse) await tx.user.update({ where: { id }, data: account });
+        else await tx.user.create({ data: { id, ...account } });
+        if (body.kind === 'volunteer') {
+          const profile = volunteerColumns(body, referenceVolunteerId, draft);
+          await tx.volunteer.upsert({
+            where: { userId: id },
+            create: { id: uuidv7(), userId: id, ...profile },
+            update: profile,
+          });
+        } else if (draft.photoFileId) {
+          await tx.fileLink.create({
+            data: {
+              id: uuidv7(),
+              fileId: draft.photoFileId,
+              entityType: 'user',
+              entityId: id,
+              slot: 'photo',
+            },
+          });
+        }
+        await tx.registrationDraft.update({
+          where: { id: draft.id },
+          data: { submittedUserId: id, submittedAt: now, tokenHash: null },
+        });
+        // Personal identifiers stay out of the entry (RBAC.md 6): kinds and names only.
+        await this.audit.record(tx, {
+          action: 'auth.registered',
+          entityType: 'user',
+          entityId: id,
+          actorUserId: id,
+          old: reuse
+            ? { state: reuse.state, displayName: reuse.displayName, designation: reuse.designation }
+            : null,
+          new: {
+            kind: body.kind,
+            registrationId: draft.id,
+            reusedAccount: Boolean(reuse),
+            ...(body.kind === 'volunteer' ? { type: body.type } : {}),
+          },
+        });
+        return id;
+      });
+    } catch (error) {
+      // a parallel submit with the same NID or contact lost the race to the unique indexes
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')
+        throw new ApiError(
+          JSON.stringify(error.meta ?? {}).includes('nid')
+            ? 'registration.nid_exists'
+            : 'registration.account_exists',
+          409,
+        );
+      throw error;
+    }
+    this.events.emit({ type: 'registration.submitted', userId });
+    return userId;
+  }
+
+  /**
+   * The account a submit may take over (D-086): none when the contacts are free; the one rejected,
+   * never-approved account of the same kind; anything else is `registration.account_exists`.
+   */
+  private async reusableAccount(tx: Tx, draft: Draft, kind: RegistrationKind) {
+    const users = await tx.user.findMany({
+      where: { OR: [{ mobile: draft.mobile }, { email: draft.email }] },
+      select: {
+        id: true,
+        kind: true,
+        state: true,
+        displayName: true,
+        designation: true,
+        volunteersUser: { select: { approvedAt: true } },
+        _count: { select: { userRolesUser: true } },
+      },
+    });
+    if (!users.length) return null;
+    const [user] = users;
+    if (users.length > 1 || !user || user.kind !== kind || isTaken(user))
+      throw new ApiError('registration.account_exists', 409);
+    return user;
+  }
+
+  /** The division, district, upazila and union exist, are active and form one chain. */
+  private async assertAddress(body: VolunteerRegistrationSubmit): Promise<void> {
+    const chain = [
+      ['divisionId', body.divisionId, 'division', null],
+      ['districtId', body.districtId, 'district', body.divisionId],
+      ['upazilaId', body.upazilaId, 'upazila', body.districtId],
+      ['unionId', body.unionId, 'union', body.upazilaId],
+    ] as const;
+    const rows = await this.prisma.location.findMany({
+      where: { id: { in: chain.map(([, id]) => id) }, active: true },
+      select: { id: true, level: true, parentId: true },
+    });
+    for (const [path, id, level, parent] of chain) {
+      const row = rows.find((r) => r.id === id);
+      if (!row || row.level !== level || (parent !== null && row.parentId !== parent))
+        throw invalid(path, 'validation.option_unknown');
+    }
+  }
+
+  private async assertStaffPlace(body: StaffRegistrationSubmit): Promise<void> {
+    const program = await this.prisma.program.count({
+      where: { id: body.homeProgramId, active: true },
+    });
+    if (!program) throw invalid('homeProgramId', 'validation.option_unknown');
+    const division = await this.prisma.location.count({
+      where: { id: body.homeDivisionId, level: 'division', active: true },
+    });
+    if (!division) throw invalid('homeDivisionId', 'validation.option_unknown');
+  }
+
+  /** The active volunteer a team member names as reference (R3). */
+  private async mainVolunteer(nid: string): Promise<string> {
+    const main = await this.prisma.volunteer.findFirst({
+      where: { nid, user: { state: 'active' } },
+      select: { id: true },
+    });
+    if (!main) throw invalid('referenceNid', 'validation.option_unknown');
+    return main.id;
+  }
+
   /** An unsubmitted draft before its expiry: 404 when unknown or submitted, 410 when expired. */
   private async openDraft(id: string): Promise<Draft> {
     const draft = await this.prisma.registrationDraft.findUnique({ where: { id } });
@@ -254,4 +439,54 @@ export class RegistrationService {
     if (draft.expiresAt <= this.clock.now()) throw new ApiError('registration.draft_expired', 410);
     return draft;
   }
+}
+
+/** A contact is taken unless its account was rejected and never approved (D-086). */
+function isTaken(u: {
+  kind: string;
+  state: string;
+  volunteersUser: { approvedAt: Date | null } | null;
+  _count: { userRolesUser: number };
+}): boolean {
+  if (u.state !== 'deactivated') return true;
+  return u.kind === 'volunteer'
+    ? Boolean(u.volunteersUser?.approvedAt)
+    : u._count.userRolesUser > 0;
+}
+
+function invalid(path: string, code: string): ApiError {
+  return new ApiError('validation.failed', 422, undefined, [{ path, code }]);
+}
+
+/** The volunteers columns of the form; the photos come from the draft. */
+function volunteerColumns(
+  body: VolunteerRegistrationSubmit,
+  referenceVolunteerId: string | null,
+  draft: { photoFileId: string | null; nidPhotoFileId: string | null },
+) {
+  return {
+    nid: body.nid,
+    type: body.type,
+    fatherName: body.fatherName,
+    motherName: body.motherName,
+    whatsapp: body.whatsapp ?? null,
+    divisionId: body.divisionId,
+    districtId: body.districtId,
+    upazilaId: body.upazilaId,
+    unionId: body.unionId,
+    addressLine: body.addressLine ?? null,
+    education: body.education ?? null,
+    experience: body.experience ?? null,
+    workDescription: body.workDescription ?? null,
+    previousProjects: body.previousProjects ?? null,
+    facebookId: body.facebookId ?? null,
+    bankName: body.bank?.bankName ?? null,
+    bankAccountName: body.bank?.accountName ?? null,
+    bankAccountNumber: body.bank?.accountNumber ?? null,
+    bankRoutingNumber: body.bank?.routingNumber ?? null,
+    referenceNid: body.type === 'team_member' ? (body.referenceNid ?? null) : null,
+    referenceVolunteerId,
+    photoFileId: draft.photoFileId,
+    nidPhotoFileId: draft.nidPhotoFileId,
+  };
 }

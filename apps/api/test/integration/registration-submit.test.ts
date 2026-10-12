@@ -1,0 +1,305 @@
+import { randomUUID } from 'node:crypto';
+import request from 'supertest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { RegistrationEvent } from '../../src/notifications/registration-events';
+import { jpeg, png } from '../support/images';
+import {
+  account,
+  authHarness,
+  type AuthHarness,
+  bearer,
+  login,
+  PASSWORD,
+} from './support/auth-app';
+import * as f from './support/fixtures';
+import { TOKEN_HEADER, verifiedDraft } from './support/registration';
+
+// Submit and the pending account (AUTH.md 2, 7; DECISION_LOG D-081, D-086; plan
+// docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, unit U6).
+const events: RegistrationEvent[] = [];
+let h: AuthHarness;
+let loc: Awaited<ReturnType<typeof f.locationTree>>;
+let programId: string;
+
+beforeAll(async () => {
+  h = await authHarness({
+    overrides: { registrationEvents: { emit: (event) => void events.push(event) } },
+  });
+  loc = await f.locationTree(h.db);
+  programId = (await f.project(h.db)).program;
+});
+afterAll(async () => h.close());
+
+type Draft = Awaited<ReturnType<typeof verifiedDraft>>;
+
+const volunteerForm = (d: Pick<Draft, 'registrationId'>, over: Record<string, unknown> = {}) => ({
+  kind: 'volunteer',
+  registrationId: d.registrationId,
+  password: PASSWORD,
+  name: 'নমুনা স্বেচ্ছাসেবক',
+  fatherName: 'নমুনা পিতা',
+  motherName: 'নমুনা মাতা',
+  nid: f.fakeNid(),
+  type: 'general',
+  divisionId: loc.division,
+  districtId: loc.district,
+  upazilaId: loc.upazila,
+  unionId: loc.union,
+  whatsapp: f.fakeMobile(),
+  education: 'স্নাতক',
+  bank: { bankName: 'Test Bank', accountName: 'নমুনা', accountNumber: '0000111122223333' },
+  ...over,
+});
+
+const staffForm = (d: Pick<Draft, 'registrationId'>, over: Record<string, unknown> = {}) => ({
+  kind: 'staff',
+  registrationId: d.registrationId,
+  password: PASSWORD,
+  name: 'নমুনা কর্মকর্তা',
+  designation: 'Project Officer',
+  homeProgramId: programId,
+  homeDivisionId: loc.division,
+  ...over,
+});
+
+const submit = (token: string | undefined, body: Record<string, unknown>) => {
+  const req = request(h.server()).post('/api/v1/auth/register/submit');
+  if (token) req.set(TOKEN_HEADER, token);
+  return req.send(body);
+};
+
+const photo = (d: Draft, slot: string, bytes: Buffer, type: string) =>
+  request(h.server())
+    .post(`/api/v1/auth/register/photos/${slot}?registrationId=${d.registrationId}`)
+    .set(TOKEN_HEADER, d.token)
+    .set('Content-Type', type)
+    .send(bytes);
+
+describe('POST /auth/register/submit', () => {
+  it('creates a pending volunteer with the volunteer row and the photos', async () => {
+    const d = await verifiedDraft(h);
+    const photoId = (await photo(d, 'photo', jpeg(), 'image/jpeg')).body.data.fileId as string;
+    const nidPhotoId = (await photo(d, 'nid_photo', png(), 'image/png')).body.data.fileId as string;
+    const form = volunteerForm(d);
+    const res = await submit(d.token, form);
+    expect(res.status).toBe(201);
+    expect(res.body.data).toMatchObject({
+      displayName: form.name,
+      kind: 'volunteer',
+      state: 'pending',
+      roles: [],
+    });
+    const userId = res.body.data.id as string;
+    const user = (await h.db.query('SELECT * FROM users WHERE id = $1', [userId])).rows[0];
+    expect(user).toMatchObject({ mobile: d.mobile, email: d.email, state: 'pending' });
+    expect(user.password_hash).toMatch(/^\$argon2id\$/);
+    const v = (await h.db.query('SELECT * FROM volunteers WHERE user_id = $1', [userId])).rows[0];
+    expect(v).toMatchObject({
+      nid: form.nid,
+      type: 'general',
+      father_name: form.fatherName,
+      union_id: loc.union,
+      bank_account_number: '0000111122223333',
+      photo_file_id: photoId,
+      nid_photo_file_id: nidPhotoId,
+      approved_at: null,
+    });
+    expect(res.body.data.volunteerId).toBe(v.id);
+    const draft = (
+      await h.db.query('SELECT * FROM registration_drafts WHERE id = $1', [d.registrationId])
+    ).rows[0];
+    expect(draft).toMatchObject({ submitted_user_id: userId, token_hash: null });
+    expect(draft.submitted_at).not.toBeNull();
+    const audit = (
+      await h.db.query(
+        `SELECT new FROM audit_log WHERE action = 'auth.registered' AND entity_id = $1`,
+        [userId],
+      )
+    ).rows;
+    expect(audit).toHaveLength(1);
+    expect(JSON.stringify(audit[0].new)).not.toContain(form.nid);
+    expect(events).toContainEqual({ type: 'registration.submitted', userId });
+    // the draft token is spent
+    expect((await submit(d.token, volunteerForm(d))).status).toBe(401);
+  });
+
+  it('creates a pending official with designation, program and region and no volunteer row', async () => {
+    const d = await verifiedDraft(h, 'staff');
+    const photoId = (await photo(d, 'photo', jpeg(), 'image/jpeg')).body.data.fileId as string;
+    const res = await submit(d.token, staffForm(d));
+    expect(res.status).toBe(201);
+    const userId = res.body.data.id as string;
+    const user = (await h.db.query('SELECT * FROM users WHERE id = $1', [userId])).rows[0];
+    expect(user).toMatchObject({
+      kind: 'staff',
+      state: 'pending',
+      designation: 'Project Officer',
+      home_program_id: programId,
+      home_division_id: loc.division,
+    });
+    expect(
+      (await h.db.query('SELECT 1 FROM volunteers WHERE user_id = $1', [userId])).rowCount,
+    ).toBe(0);
+    const link = await h.db.query(
+      `SELECT file_id FROM file_links WHERE entity_type = 'user' AND entity_id = $1 AND slot = 'photo'`,
+      [userId],
+    );
+    expect(link.rows).toEqual([{ file_id: photoId }]);
+  });
+
+  it('refuses the form of the other kind, a broken address and a weak password (422)', async () => {
+    const d = await verifiedDraft(h);
+    expect((await submit(d.token, staffForm(d))).status).toBe(422);
+    const other = await f.locationTree(h.db);
+    const broken = await submit(d.token, volunteerForm(d, { upazilaId: other.upazila }));
+    expect(broken.status).toBe(422);
+    expect(broken.body.error.details[0].path).toBe('upazilaId');
+    const weak = await submit(d.token, volunteerForm(d, { password: 'aaaaaaaaaa' }));
+    expect(weak.status).toBe(422);
+    expect(weak.body.error.details[0]).toMatchObject({
+      path: 'password',
+      code: 'validation.password_letter_digit',
+    });
+  });
+
+  it('refuses a duplicate NID (409)', async () => {
+    const nid = f.fakeNid();
+    const first = await verifiedDraft(h);
+    expect((await submit(first.token, volunteerForm(first, { nid }))).status).toBe(201);
+    const second = await verifiedDraft(h);
+    const res = await submit(second.token, volunteerForm(second, { nid }));
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('registration.nid_exists');
+  });
+
+  it('links a team member to the active main volunteer and refuses an unknown reference', async () => {
+    const main = await account(h.db, { kind: 'volunteer' });
+    const mainNid = f.fakeNid();
+    const mainId = await f.volunteer(h.db, loc, main.id, { nid: mainNid });
+    const d = await verifiedDraft(h);
+    const unknown = await submit(
+      d.token,
+      volunteerForm(d, { type: 'team_member', referenceNid: f.fakeNid() }),
+    );
+    expect(unknown.status).toBe(422);
+    expect(unknown.body.error.details[0].path).toBe('referenceNid');
+    const ok = await submit(
+      d.token,
+      volunteerForm(d, { type: 'team_member', referenceNid: mainNid }),
+    );
+    expect(ok.status).toBe(201);
+    const v = await h.db.query('SELECT reference_volunteer_id FROM volunteers WHERE user_id = $1', [
+      ok.body.data.id,
+    ]);
+    expect(v.rows[0].reference_volunteer_id).toBe(mainId);
+  });
+
+  it('refuses an expired draft (410), a missing token and another draft token (401)', async () => {
+    const a = await verifiedDraft(h);
+    const b = await verifiedDraft(h);
+    expect((await submit(undefined, volunteerForm(a))).status).toBe(401);
+    expect((await submit(b.token, volunteerForm(a))).status).toBe(401);
+    await h.db.query(
+      `UPDATE registration_drafts SET expires_at = now() - interval '1 minute' WHERE id = $1`,
+      [a.registrationId],
+    );
+    expect((await submit(a.token, volunteerForm(a))).status).toBe(410);
+  });
+
+  it('a rejected, never-approved volunteer registers again and returns to pending', async () => {
+    const d = await verifiedDraft(h);
+    const first = await submit(d.token, volunteerForm(d, { name: 'প্রথম নাম' }));
+    const userId = first.body.data.id as string;
+    await h.db.query(
+      `UPDATE users SET state = 'deactivated', deactivated_at = now() WHERE id = $1`,
+      [userId],
+    );
+    // the same person starts again with the same mobile and email
+    const again = await request(h.server())
+      .post('/api/v1/auth/register/start')
+      .send({ mobile: d.mobile, email: d.email });
+    const registrationId = again.body.data.registrationId as string;
+    const verified = await request(h.server())
+      .post('/api/v1/auth/register/otp/verify')
+      .send({ registrationId, mobileCode: '246810', emailCode: '246810' });
+    expect(verified.status).toBe(200);
+    const res = await submit(
+      verified.body.data.registrationToken,
+      volunteerForm({ registrationId }, { name: 'দ্বিতীয় নাম' }),
+    );
+    expect(res.status).toBe(201);
+    expect(res.body.data.id).toBe(userId);
+    const user = (
+      await h.db.query('SELECT state, display_name, deactivated_at FROM users WHERE id = $1', [
+        userId,
+      ])
+    ).rows[0];
+    expect(user).toEqual({ state: 'pending', display_name: 'দ্বিতীয় নাম', deactivated_at: null });
+    expect(
+      (await h.db.query('SELECT 1 FROM volunteers WHERE user_id = $1', [userId])).rowCount,
+    ).toBe(1);
+    const audit = (
+      await h.db.query(
+        `SELECT old, new FROM audit_log WHERE action = 'auth.registered' AND entity_id = $1 ORDER BY created_at`,
+        [userId],
+      )
+    ).rows;
+    expect(audit).toHaveLength(2);
+    expect(audit[1].old).toMatchObject({ state: 'deactivated', displayName: 'প্রথম নাম' });
+  });
+});
+
+describe('the pending account', () => {
+  async function pendingVolunteer() {
+    const d = await verifiedDraft(h);
+    const form = volunteerForm(d);
+    const res = await submit(d.token, form);
+    return { d, form, userId: res.body.data.id as string };
+  }
+
+  it('logs in, reads the own profile with the full NID and bank details, and nothing else', async () => {
+    const { d, form, userId } = await pendingVolunteer();
+    const s = await login(h, d.mobile);
+    const me = await request(h.server()).get('/api/v1/volunteers/me').set(bearer(s));
+    expect(me.status).toBe(200);
+    expect(me.body.data).toMatchObject({
+      userId,
+      state: 'pending',
+      displayName: form.name,
+      mobile: d.mobile,
+      email: d.email,
+      inAnyProject: false,
+      nid: form.nid,
+      bank: { bankName: 'Test Bank', accountName: 'নমুনা', accountNumber: '0000111122223333' },
+      divisionId: loc.division,
+    });
+    expect(me.body.data).not.toHaveProperty('category');
+    const users = await request(h.server()).get('/api/v1/users').set(bearer(s));
+    expect(users.status).toBe(403);
+    expect(users.body.error.code).toBe('auth.account_pending');
+  });
+
+  it('another volunteer reads only their own profile', async () => {
+    const a = await pendingVolunteer();
+    const b = await pendingVolunteer();
+    const s = await login(h, b.d.mobile);
+    const me = await request(h.server()).get('/api/v1/volunteers/me').set(bearer(s));
+    expect(me.body.data.userId).toBe(b.userId);
+    expect(JSON.stringify(me.body)).not.toContain(a.form.nid);
+  });
+
+  it('an official without a volunteer profile gets 404 on /volunteers/me', async () => {
+    const official = await account(h.db, { role: 'program_manager' });
+    const s = await login(h, official);
+    expect((await request(h.server()).get('/api/v1/volunteers/me').set(bearer(s))).status).toBe(
+      404,
+    );
+  });
+});
+
+describe('unknown draft', () => {
+  it('answers 401 for a draft id nobody verified', async () => {
+    const d = { registrationId: randomUUID() };
+    expect((await submit('x'.repeat(43), volunteerForm(d))).status).toBe(401);
+  });
+});

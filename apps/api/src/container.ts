@@ -31,6 +31,7 @@ import {
 } from './notifications/registration-events';
 import { LocationsService } from './services/locations';
 import { FilesService } from './services/files';
+import { VolunteersService } from './services/volunteers';
 import { RegistrationService } from './services/registration';
 import { RegistrationPhotosService } from './services/registration-photos';
 import { SessionsService } from './services/sessions';
@@ -73,6 +74,7 @@ export interface Container {
   registrationCleanup: RegistrationCleanup;
   registrationPhotos: RegistrationPhotosService;
   files: FilesService;
+  volunteers: VolunteersService;
 }
 
 export interface ContainerOptions {
@@ -131,7 +133,8 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const access = o.access ?? new AccessService(accessRegistry, prisma, clock, logger);
   const registrationEvents = o.registrationEvents ?? new LoggingRegistrationEvents(logger);
   const registration =
-    o.registration ?? new RegistrationService(env, prisma, clock, otp, audit, registrationEvents);
+    o.registration ??
+    new RegistrationService(env, prisma, clock, otp, audit, registrationEvents, hasher);
   return {
     env,
     logger,
@@ -167,6 +170,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       o.registrationPhotos ??
       new RegistrationPhotosService(prisma, storage, audit, registration, logger),
     files: o.files ?? new FilesService(prisma, storage, access, audit),
+    volunteers: o.volunteers ?? new VolunteersService(prisma),
     registrationCleanup: o.registrationCleanup ?? new RegistrationCleanup(prisma, storage, logger),
   };
 }

@@ -140,7 +140,8 @@
     "draft_expired": "The time for this registration has run out. Start again.",
     "open_corrections": "Fix every field marked for correction, then submit again.",
     "not_resubmitted": "The corrections have not been submitted yet.",
-    "blocklisted": "A blocklisted registration cannot be approved."
+    "blocklisted": "A blocklisted registration cannot be approved.",
+    "nid_exists": "This NID is already registered for another volunteer."
   },
   "handover": {
     "target_invalid": "Choose an active official who can take over this work.",

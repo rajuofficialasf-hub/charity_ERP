@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '../auth/password.js';
 import { otpCodeSchema } from '../auth/schemas.js';
 
 /**
@@ -80,3 +81,72 @@ export interface RegistrationVerified {
 export function draftExpiry(at: Date): Date {
   return new Date(at.getTime() + REGISTRATION_RULES.draftLifeMs);
 }
+
+const text = (max: number) => z.string().trim().min(1, { message: 'validation.required' }).max(max);
+const optionalText = (max: number) => z.string().trim().max(max).optional();
+const password = z
+  .string()
+  .min(PASSWORD_MIN_LENGTH, { message: 'validation.password_too_short' })
+  .max(PASSWORD_MAX_LENGTH);
+
+/** Volunteer types of the one registration form (BR-033). */
+export const VOLUNTEER_TYPES = ['general', 'local_daee', 'both', 'team_member', 'paid'] as const;
+export type VolunteerType = (typeof VOLUNTEER_TYPES)[number];
+
+/** Optional bank details (A5, used when paying operational expenses). */
+export const bankDetailsSchema = z.strictObject({
+  bankName: optionalText(200),
+  accountName: optionalText(200),
+  accountNumber: optionalText(40),
+  routingNumber: optionalText(20),
+});
+export type BankDetails = z.infer<typeof bankDetailsSchema>;
+
+/** The volunteer form (BR-026); a team member names the main volunteer's NID (R3). */
+export const volunteerRegistrationSubmitSchema = z
+  .strictObject({
+    kind: z.literal('volunteer'),
+    registrationId: z.uuid(),
+    password,
+    name: text(200),
+    fatherName: text(200),
+    motherName: text(200),
+    nid: nidSchema,
+    whatsapp: mobileSchema.optional(),
+    type: z.enum(VOLUNTEER_TYPES),
+    divisionId: z.uuid(),
+    districtId: z.uuid(),
+    upazilaId: z.uuid(),
+    unionId: z.uuid(),
+    addressLine: optionalText(500),
+    education: optionalText(500),
+    experience: optionalText(2000),
+    workDescription: optionalText(2000),
+    previousProjects: optionalText(2000),
+    facebookId: optionalText(200),
+    bank: bankDetailsSchema.optional(),
+    referenceNid: nidSchema.optional(),
+  })
+  .refine((v) => v.type !== 'team_member' || v.referenceNid !== undefined, {
+    path: ['referenceNid'],
+    message: 'validation.required',
+  });
+export type VolunteerRegistrationSubmit = z.infer<typeof volunteerRegistrationSubmitSchema>;
+
+/** The staff form (MASTER_SPEC A5, D-088): no NID, parents or bank details. */
+export const staffRegistrationSubmitSchema = z.strictObject({
+  kind: z.literal('staff'),
+  registrationId: z.uuid(),
+  password,
+  name: text(200),
+  designation: text(200),
+  homeProgramId: z.uuid(),
+  homeDivisionId: z.uuid(),
+});
+export type StaffRegistrationSubmit = z.infer<typeof staffRegistrationSubmitSchema>;
+
+export const registrationSubmitRequestSchema = z.discriminatedUnion('kind', [
+  volunteerRegistrationSubmitSchema,
+  staffRegistrationSubmitSchema,
+]);
+export type RegistrationSubmitRequest = z.infer<typeof registrationSubmitRequestSchema>;
