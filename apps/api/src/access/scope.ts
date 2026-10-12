@@ -291,6 +291,33 @@ export function userWhere(scope: Scope): Prisma.UserWhereInput {
   return or.length ? { OR: or } : { id: { in: [] } };
 }
 
+const ADDRESS_COLUMNS = ['divisionId', 'districtId', 'upazilaId', 'unionId'] as const;
+const ADDRESS_RELATIONS = ['division', 'district', 'upazila', 'union'] as const;
+
+/**
+ * The volunteers a scope reaches by their address (entity `volunteer`; DECISION_LOG D-084, RBAC.md
+ * 4): everyone at GLOBAL; the own row for SELF; for an area (REGION, a split district or a smaller
+ * area) the volunteers whose division, district, upazila or union is that location; for PROGRAM
+ * and PROJECT the volunteers in the area locations of those projects. A pending or unassigned
+ * volunteer is on no project, so the address decides.
+ */
+export function volunteerWhere(scope: Scope): Prisma.VolunteerWhereInput {
+  const i = scope.instances;
+  if (i.global) return {};
+  const or: Prisma.VolunteerWhereInput[] = [];
+  if (i.self) or.push({ userId: scope.actorId });
+  const locations = [...new Set([...i.areas, ...i.volunteerAreas].map((a) => a.locationId))];
+  if (locations.length)
+    for (const column of ADDRESS_COLUMNS) or.push({ [column]: { in: locations } });
+  const inAreasOf = (area: Prisma.ProjectAreaWhereInput) =>
+    ADDRESS_RELATIONS.map((relation) => ({
+      [relation]: { projectAreasLocation: { some: area } },
+    }));
+  if (i.programIds.length) or.push(...inAreasOf({ project: { programId: { in: i.programIds } } }));
+  if (i.projectIds.length) or.push(...inAreasOf({ projectId: { in: i.projectIds } }));
+  return or.length ? { OR: or } : { id: { in: [] } };
+}
+
 /**
  * The projects a scope reaches (entity `project`): every project at GLOBAL; the projects of the
  * caller's programs; the caller's projects; the projects of the caller's areas (an area without a

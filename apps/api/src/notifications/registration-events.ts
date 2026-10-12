@@ -9,7 +9,11 @@ export type RegistrationEventType =
   | 'registration.started'
   | 'registration.verified'
   | 'registration.reference_lookup'
-  | 'registration.submitted';
+  | 'registration.submitted'
+  | 'registration.approved'
+  | 'registration.rejected'
+  | 'registration.correction_requested'
+  | 'registration.resubmitted';
 
 export interface RegistrationEvent {
   type: RegistrationEventType;

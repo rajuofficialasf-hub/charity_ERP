@@ -152,3 +152,69 @@ export const registrationSubmitRequestSchema = z.discriminatedUnion('kind', [
   staffRegistrationSubmitSchema,
 ]);
 export type RegistrationSubmitRequest = z.infer<typeof registrationSubmitRequestSchema>;
+
+/** The address of a volunteer as one corrected or edited value. */
+export const addressValueSchema = z.strictObject({
+  divisionId: z.uuid(),
+  districtId: z.uuid(),
+  upazilaId: z.uuid(),
+  unionId: z.uuid(),
+});
+
+/**
+ * The volunteer fields a correction request may name, with the shape of their new value (BR-030;
+ * DECISION_LOG D-085). The type and the team member's reference are not among them: they decide
+ * the role and need the counted reference lookup, so a wrong one is rejected and registered again.
+ * A photo's value is the file id the own photo upload stored on the request.
+ */
+export const CORRECTION_FIELD_VALUES = {
+  name: text(200),
+  fatherName: text(200),
+  motherName: text(200),
+  nid: nidSchema,
+  whatsapp: mobileSchema,
+  address: addressValueSchema,
+  addressLine: optionalText(500),
+  education: optionalText(500),
+  experience: optionalText(2000),
+  workDescription: optionalText(2000),
+  previousProjects: optionalText(2000),
+  facebookId: optionalText(200),
+  bank: bankDetailsSchema,
+  photo: z.uuid(),
+  nid_photo: z.uuid(),
+} as const;
+export type CorrectionField = keyof typeof CORRECTION_FIELD_VALUES;
+export const CORRECTION_FIELDS = Object.keys(CORRECTION_FIELD_VALUES) as CorrectionField[];
+
+export const registrationCorrectionCreateSchema = z.strictObject({
+  fields: z
+    .array(z.enum(CORRECTION_FIELDS as [CorrectionField, ...CorrectionField[]]))
+    .min(1)
+    .max(20),
+  note: z.string().trim().min(3).max(1000),
+});
+export type RegistrationCorrectionCreate = z.infer<typeof registrationCorrectionCreateSchema>;
+
+/** The answer to one request: text, an object (address, bank) or a photo's file id. */
+export const changeRequestAnswerSchema = z.strictObject({
+  newValue: z.union([z.string().max(2000), z.record(z.string(), z.unknown())]),
+});
+export type ChangeRequestAnswer = z.infer<typeof changeRequestAnswerSchema>;
+
+/** The staff decision (R9): a role on approval, a reason on rejection. */
+export const staffDecisionSchema = z
+  .strictObject({
+    decision: z.enum(['approve', 'reject']),
+    reason: z.string().trim().min(3).max(1000).optional(),
+    roleKey: z.string().max(64).optional(),
+  })
+  .refine((v) => v.decision !== 'approve' || v.roleKey !== undefined, {
+    path: ['roleKey'],
+    message: 'validation.required',
+  })
+  .refine((v) => v.decision !== 'reject' || v.reason !== undefined, {
+    path: ['reason'],
+    message: 'validation.required',
+  });
+export type StaffDecision = z.infer<typeof staffDecisionSchema>;

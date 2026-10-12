@@ -1,0 +1,390 @@
+import { randomUUID } from 'node:crypto';
+import request from 'supertest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { RegistrationEvent } from '../../src/notifications/registration-events';
+import { accessWorld } from './support/access-fixtures';
+import {
+  type Account,
+  account,
+  type AuthHarness,
+  authHarness,
+  bearer,
+  login,
+  PASSWORD,
+  type Session,
+} from './support/auth-app';
+import * as f from './support/fixtures';
+import { TOKEN_HEADER, verifiedDraft } from './support/registration';
+
+// Approval, rejection and correction requests (BR-028 to BR-030; DECISION_LOG D-084; plan
+// docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, unit U7).
+const events: RegistrationEvent[] = [];
+let h: AuthHarness;
+let world: Awaited<ReturnType<typeof accessWorld>>;
+let sylhet: Awaited<ReturnType<typeof f.locationTree>>;
+const accounts = new Map<string, Account>();
+const api = () => request(h.server());
+const as = (userId: string) => login(h, accounts.get(userId)!);
+
+beforeAll(async () => {
+  h = await authHarness({
+    overrides: { registrationEvents: { emit: (event) => void events.push(event) } },
+  });
+  const make = (kind: 'staff' | 'volunteer') => async (role: string) => {
+    const a = await account(h.db, { kind, role });
+    accounts.set(a.id, a);
+    return a.id;
+  };
+  world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
+  // a third division where only another program (B1) works
+  sylhet = await f.locationTree(h.db);
+  await h.db.query(
+    'INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)',
+    [randomUUID(), world.b1.id, sylhet.division, world.users.rpmRangpur],
+  );
+});
+afterAll(async () => h.close());
+
+type Tree = Awaited<ReturnType<typeof f.locationTree>>;
+
+/** A pending volunteer registered through the API at an address. */
+async function registerVolunteer(tree: Tree, over: Record<string, unknown> = {}) {
+  const d = await verifiedDraft(h);
+  const res = await api()
+    .post('/api/v1/auth/register/submit')
+    .set(TOKEN_HEADER, d.token)
+    .send({
+      kind: 'volunteer',
+      registrationId: d.registrationId,
+      password: PASSWORD,
+      name: 'নমুনা নিবন্ধন',
+      fatherName: 'পিতা',
+      motherName: 'মাতা',
+      nid: f.fakeNid(),
+      type: 'general',
+      divisionId: tree.division,
+      districtId: tree.district,
+      upazilaId: tree.upazila,
+      unionId: tree.union,
+      ...over,
+    });
+  if (res.status !== 201) throw new Error(`submit ${res.status} ${JSON.stringify(res.body)}`);
+  return { userId: res.body.data.id as string, mobile: d.mobile };
+}
+
+async function registerStaff() {
+  const d = await verifiedDraft(h, 'staff');
+  const res = await api().post('/api/v1/auth/register/submit').set(TOKEN_HEADER, d.token).send({
+    kind: 'staff',
+    registrationId: d.registrationId,
+    password: PASSWORD,
+    name: 'নতুন কর্মকর্তা',
+    designation: 'Project Officer',
+    homeProgramId: world.a1.program,
+    homeDivisionId: world.dhaka.division,
+  });
+  if (res.status !== 201) throw new Error(`staff submit ${res.status}`);
+  return { userId: res.body.data.id as string, email: d.email };
+}
+
+const list = (s: Session, query = '') => api().get(`/api/v1/registrations${query}`).set(bearer(s));
+const approve = (s: Session, userId: string) =>
+  api().post(`/api/v1/registrations/${userId}/approve`).set(bearer(s));
+const auditOf = async (entityId: string) =>
+  (
+    await h.db.query(
+      'SELECT action, reason FROM audit_log WHERE entity_id = $1 ORDER BY created_at',
+      [entityId],
+    )
+  ).rows as { action: string; reason: string | null }[];
+
+describe('the pending list and approval in scope', () => {
+  it('the Dhaka RPM lists and approves a Dhaka registration and gets 404 for a Rangpur one', async () => {
+    const dhaka = await registerVolunteer(world.dhaka);
+    const rangpur = await registerVolunteer(world.rangpur);
+    const rpm = await as(world.users.rpmDhaka);
+    const ids = (await list(rpm)).body.data.map((r: { userId: string }) => r.userId);
+    expect(ids).toContain(dhaka.userId);
+    expect(ids).not.toContain(rangpur.userId);
+    const detail = await api().get(`/api/v1/registrations/${dhaka.userId}`).set(bearer(rpm));
+    expect(detail.status).toBe(200);
+    expect(detail.body.data).toMatchObject({
+      userId: dhaka.userId,
+      kind: 'volunteer',
+      status: 'awaiting_review',
+    });
+    expect(detail.body.data.volunteer.nid).toMatch(/^\d+$/);
+    expect(
+      (await api().get(`/api/v1/registrations/${rangpur.userId}`).set(bearer(rpm))).status,
+    ).toBe(404);
+    expect((await approve(rpm, rangpur.userId)).status).toBe(404);
+
+    const res = await approve(rpm, dhaka.userId);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ userId: dhaka.userId, state: 'active', type: 'general' });
+    const user = (await h.db.query('SELECT state FROM users WHERE id = $1', [dhaka.userId]))
+      .rows[0];
+    expect(user.state).toBe('active');
+    const v = (
+      await h.db.query('SELECT approved_by, approved_at FROM volunteers WHERE user_id = $1', [
+        dhaka.userId,
+      ])
+    ).rows[0];
+    expect(v.approved_by).toBe(world.users.rpmDhaka);
+    expect(v.approved_at).not.toBeNull();
+    const roles = await h.db.query(
+      'SELECT role_key FROM user_roles WHERE user_id = $1 AND revoked_at IS NULL',
+      [dhaka.userId],
+    );
+    expect(roles.rows).toEqual([{ role_key: 'volunteer_general' }]);
+    expect((await auditOf(dhaka.userId)).map((a) => a.action)).toContain('auth.approved');
+    expect(events).toContainEqual({ type: 'registration.approved', userId: dhaka.userId });
+    // approved once: a second approval is a conflict
+    expect((await approve(rpm, dhaka.userId)).status).toBe(404);
+  });
+
+  it("the PM approves in the divisions of the program's projects only", async () => {
+    const dhaka = await registerVolunteer(world.dhaka);
+    const elsewhere = await registerVolunteer(sylhet);
+    const pm = await as(world.users.pm);
+    expect((await approve(pm, elsewhere.userId)).status).toBe(404);
+    expect((await approve(pm, dhaka.userId)).status).toBe(200);
+  });
+
+  it('the Project Executive approves in the region; a volunteer and Finance get 403', async () => {
+    const dhaka = await registerVolunteer(world.dhaka);
+    const executive = await as(world.users.executive);
+    expect((await approve(executive, dhaka.userId)).status).toBe(200);
+    expect((await list(await as(world.users.general))).status).toBe(403);
+    const finance = await account(h.db, { role: 'finance_team' });
+    expect((await list(await login(h, finance))).status).toBe(403);
+  });
+
+  it('a blocklisted registration cannot be approved', async () => {
+    const dhaka = await registerVolunteer(world.dhaka);
+    const volunteerId = (
+      await h.db.query('SELECT id FROM volunteers WHERE user_id = $1', [dhaka.userId])
+    ).rows[0].id;
+    await h.db.query(
+      `INSERT INTO blocklist (id, subject_type, subject_id, reason, blocked_by) VALUES ($1, 'volunteer', $2, 'test block', $3)`,
+      [randomUUID(), volunteerId, world.users.head],
+    );
+    const res = await approve(await as(world.users.rpmDhaka), dhaka.userId);
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('registration.blocklisted');
+  });
+});
+
+describe('rejection', () => {
+  it('needs a reason, deactivates the account and ends its sessions', async () => {
+    const dhaka = await registerVolunteer(world.dhaka);
+    const own = await login(h, dhaka.mobile);
+    const rpm = await as(world.users.rpmDhaka);
+    const reject = (body: object) =>
+      api().post(`/api/v1/registrations/${dhaka.userId}/reject`).set(bearer(rpm)).send(body);
+    expect((await reject({})).status).toBe(422);
+    expect((await reject({ reason: 'তথ্য মেলেনি' })).status).toBe(204);
+    const user = (await h.db.query('SELECT state FROM users WHERE id = $1', [dhaka.userId]))
+      .rows[0];
+    expect(user.state).toBe('deactivated');
+    expect(await auditOf(dhaka.userId)).toContainEqual({
+      action: 'auth.rejected',
+      reason: 'তথ্য মেলেনি',
+    });
+    expect(events).toContainEqual({ type: 'registration.rejected', userId: dhaka.userId });
+    const me = await api().get('/api/v1/volunteers/me').set(bearer(own));
+    expect(me.status).toBe(401);
+  });
+});
+
+describe('correction requests', () => {
+  const correct = (s: Session, userId: string, body: object) =>
+    api().post(`/api/v1/registrations/${userId}/correction-requests`).set(bearer(s)).send(body);
+
+  it('two fields open two rows; the volunteer answers, resubmits, and only then the approval works', async () => {
+    const dhaka = await registerVolunteer(world.dhaka);
+    const rpm = await as(world.users.rpmDhaka);
+    const own = await login(h, dhaka.mobile);
+    const created = await correct(rpm, dhaka.userId, {
+      fields: ['name', 'education'],
+      note: 'নাম ও শিক্ষাগত যোগ্যতা ঠিক করুন',
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.data.map((r: { field: string }) => r.field).sort()).toEqual([
+      'education',
+      'name',
+    ]);
+    expect(created.body.data.every((r: { status: string }) => r.status === 'open')).toBe(true);
+
+    // hidden from the default list, shown under the in_correction filter
+    const ids = async (q = '') =>
+      (await list(rpm, q)).body.data.map((r: { userId: string }) => r.userId);
+    expect(await ids()).not.toContain(dhaka.userId);
+    expect(await ids('?status=in_correction')).toContain(dhaka.userId);
+
+    const mine = await api().get('/api/v1/me/change-requests').set(bearer(own));
+    expect(mine.status).toBe(200);
+    const rows = mine.body.data as { id: string; field: string }[];
+    expect(rows).toHaveLength(2);
+    const byField = Object.fromEntries(rows.map((r) => [r.field, r.id]));
+
+    const answer = (id: string, newValue: unknown) =>
+      api().patch(`/api/v1/me/change-requests/${id}`).set(bearer(own)).send({ newValue });
+    const resubmit = () => api().post('/api/v1/me/registration/resubmit').set(bearer(own));
+
+    expect((await answer(byField.name!, 'সংশোধিত নাম')).status).toBe(200);
+    const early = await resubmit();
+    expect(early.status).toBe(409);
+    expect(early.body.error.code).toBe('registration.open_corrections');
+    expect((await approve(rpm, dhaka.userId)).body.error.code).toBe(
+      'registration.open_corrections',
+    );
+    expect((await answer(byField.education!, 'স্নাতকোত্তর')).status).toBe(200);
+    const notYet = await approve(rpm, dhaka.userId);
+    expect(notYet.status).toBe(409);
+    expect(notYet.body.error.code).toBe('registration.not_resubmitted');
+    expect((await resubmit()).status).toBe(204);
+    expect(await ids()).toContain(dhaka.userId);
+    expect((await approve(rpm, dhaka.userId)).status).toBe(200);
+
+    const profile = await h.db.query(
+      'SELECT u.display_name, v.education FROM users u JOIN volunteers v ON v.user_id = u.id WHERE u.id = $1',
+      [dhaka.userId],
+    );
+    expect(profile.rows[0]).toEqual({ display_name: 'সংশোধিত নাম', education: 'স্নাতকোত্তর' });
+    const actions = (await auditOf(dhaka.userId)).map((a) => a.action);
+    for (const action of ['auth.correction_requested', 'auth.correction_resubmitted'])
+      expect(actions).toContain(action);
+    expect(events).toContainEqual({
+      type: 'registration.correction_requested',
+      userId: dhaka.userId,
+    });
+    expect(events).toContainEqual({ type: 'registration.resubmitted', userId: dhaka.userId });
+  });
+
+  it('checks the value of an answer by its field', async () => {
+    const dhaka = await registerVolunteer(world.dhaka);
+    const rpm = await as(world.users.rpmDhaka);
+    const own = await login(h, dhaka.mobile);
+    const created = await correct(rpm, dhaka.userId, {
+      fields: ['nid', 'address'],
+      note: 'ঠিক করুন',
+    });
+    const byField = Object.fromEntries(
+      (created.body.data as { id: string; field: string }[]).map((r) => [r.field, r.id]),
+    );
+    const answer = (id: string, newValue: unknown) =>
+      api().patch(`/api/v1/me/change-requests/${id}`).set(bearer(own)).send({ newValue });
+    expect((await answer(byField.nid!, '12345')).status).toBe(422);
+    const other = await f.locationTree(h.db);
+    expect(
+      (
+        await answer(byField.address!, {
+          divisionId: world.dhaka.division,
+          districtId: world.dhaka.district,
+          upazilaId: other.upazila,
+          unionId: other.union,
+        })
+      ).status,
+    ).toBe(422);
+    const nid = f.fakeNid();
+    expect((await answer(byField.nid!, nid)).status).toBe(200);
+    const v = await h.db.query('SELECT nid FROM volunteers WHERE user_id = $1', [dhaka.userId]);
+    expect(v.rows[0].nid).toBe(nid);
+  });
+
+  it('refuses unknown fields and a registration that is already approved', async () => {
+    const dhaka = await registerVolunteer(world.dhaka);
+    const rpm = await as(world.users.rpmDhaka);
+    expect(
+      (await correct(rpm, dhaka.userId, { fields: ['password'], note: 'ঠিক করুন' })).status,
+    ).toBe(422);
+    expect((await approve(rpm, dhaka.userId)).status).toBe(200);
+    expect((await correct(rpm, dhaka.userId, { fields: ['name'], note: 'ঠিক করুন' })).status).toBe(
+      404,
+    );
+  });
+
+  it("volunteer B cannot answer or read volunteer A's correction", async () => {
+    const a = await registerVolunteer(world.dhaka);
+    const b = await registerVolunteer(world.dhaka);
+    const rpm = await as(world.users.rpmDhaka);
+    const created = await correct(rpm, a.userId, { fields: ['name'], note: 'ঠিক করুন' });
+    const requestId = created.body.data[0].id as string;
+    const bSession = await login(h, b.mobile);
+    const res = await api()
+      .patch(`/api/v1/me/change-requests/${requestId}`)
+      .set(bearer(bSession))
+      .send({ newValue: 'অন্য নাম' });
+    expect(res.status).toBe(404);
+    const bList = await api().get('/api/v1/me/change-requests').set(bearer(bSession));
+    expect(bList.body.data).toEqual([]);
+  });
+});
+
+describe('staff registrations', () => {
+  const decide = (s: Session, userId: string, body: object) =>
+    api().post(`/api/v1/staff-registrations/${userId}/decision`).set(bearer(s)).send(body);
+
+  it('the Monitoring Team approves with a role; the account becomes active', async () => {
+    const staff = await registerStaff();
+    const monitoring = await as(world.users.monitoring);
+    const res = await decide(monitoring, staff.userId, {
+      decision: 'approve',
+      roleKey: 'project_executive',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({
+      id: staff.userId,
+      state: 'active',
+      roles: ['project_executive'],
+    });
+    expect((await auditOf(staff.userId)).map((a) => a.action)).toContain('auth.approved');
+    expect(events).toContainEqual({ type: 'registration.approved', userId: staff.userId });
+  });
+
+  it('staff registrations are listed for staff approvers only', async () => {
+    const staff = await registerStaff();
+    const ids = async (s: Session) =>
+      (await list(s, '?kind=staff')).body.data.map((r: { userId: string }) => r.userId);
+    expect(await ids(await as(world.users.head))).toContain(staff.userId);
+    expect(await ids(await as(world.users.rpmDhaka))).toEqual([]);
+  });
+
+  it('an RPM gets 403; the Department Head role cannot be given; a rejection needs a reason', async () => {
+    const staff = await registerStaff();
+    expect(
+      (
+        await decide(await as(world.users.rpmDhaka), staff.userId, {
+          decision: 'approve',
+          roleKey: 'project_executive',
+        })
+      ).status,
+    ).toBe(403);
+    const head = await as(world.users.head);
+    const owner = await decide(head, staff.userId, {
+      decision: 'approve',
+      roleKey: 'department_head',
+    });
+    expect(owner.status).toBe(422);
+    expect(
+      (await decide(head, staff.userId, { decision: 'approve', roleKey: 'volunteer_general' }))
+        .status,
+    ).toBe(422);
+    expect((await decide(head, staff.userId, { decision: 'reject' })).status).toBe(422);
+    const rejected = await decide(head, staff.userId, { decision: 'reject', reason: 'পদ নেই' });
+    expect(rejected.status).toBe(200);
+    expect(rejected.body.data.state).toBe('deactivated');
+  });
+
+  it('a volunteer registration is not decided as staff, nor a staff one approved as volunteer', async () => {
+    const volunteer = await registerVolunteer(world.dhaka);
+    const staff = await registerStaff();
+    const head = await as(world.users.head);
+    expect(
+      (await decide(head, volunteer.userId, { decision: 'approve', roleKey: 'project_executive' }))
+        .status,
+    ).toBe(404);
+    expect((await approve(head, staff.userId)).status).toBe(404);
+  });
+});

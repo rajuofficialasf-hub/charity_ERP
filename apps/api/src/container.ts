@@ -32,6 +32,7 @@ import {
 import { LocationsService } from './services/locations';
 import { FilesService } from './services/files';
 import { VolunteersService } from './services/volunteers';
+import { RegistrationsService } from './services/registrations';
 import { RegistrationService } from './services/registration';
 import { RegistrationPhotosService } from './services/registration-photos';
 import { SessionsService } from './services/sessions';
@@ -75,6 +76,7 @@ export interface Container {
   registrationPhotos: RegistrationPhotosService;
   files: FilesService;
   volunteers: VolunteersService;
+  registrations: RegistrationsService;
 }
 
 export interface ContainerOptions {
@@ -171,6 +173,19 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       new RegistrationPhotosService(prisma, storage, audit, registration, logger),
     files: o.files ?? new FilesService(prisma, storage, access, audit),
     volunteers: o.volunteers ?? new VolunteersService(prisma),
+    registrations:
+      o.registrations ??
+      new RegistrationsService(
+        env,
+        prisma,
+        clock,
+        audit,
+        access,
+        accessRegistry,
+        permissionVersions,
+        sessions,
+        registrationEvents,
+      ),
     registrationCleanup: o.registrationCleanup ?? new RegistrationCleanup(prisma, storage, logger),
   };
 }

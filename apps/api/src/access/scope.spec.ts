@@ -8,6 +8,7 @@ import {
   projectWhere,
   type ScopeInstances,
   userWhere,
+  volunteerWhere,
 } from './scope';
 
 const grant = (over: Partial<EffectiveGrant>): EffectiveGrant => ({
@@ -158,5 +159,40 @@ describe('the project filter', () => {
       { id: P1 },
       { projectAreasProject: { some: { locationId: RANGPUR } } },
     ]);
+  });
+});
+
+describe('the volunteer filter by address (DECISION_LOG D-084)', () => {
+  const none = NO_INSTANCES;
+  const where = (i: Partial<ScopeInstances>) =>
+    volunteerWhere(makeScope('actor', 'registration.approve', 'volunteer', { ...none, ...i }));
+  const DISTRICT = '01890000-0000-7000-8000-0000000000d1';
+
+  it('reaches every volunteer at GLOBAL and none without an instance', () => {
+    expect(where({ global: true })).toEqual({});
+    expect(where({})).toEqual({ id: { in: [] } });
+  });
+
+  it('REGION reaches volunteers whose division, district, upazila or union is a region of the caller', () => {
+    const region = where({ areas: [{ projectId: P1, locationId: DHAKA }] }) as { OR: unknown[] };
+    for (const column of ['divisionId', 'districtId', 'upazilaId', 'unionId'])
+      expect(region.OR).toContainEqual({ [column]: { in: [DHAKA] } });
+  });
+
+  it('a split district reaches the volunteers of that district only', () => {
+    const split = where({ areas: [{ projectId: P1, locationId: DISTRICT }] }) as { OR: unknown[] };
+    expect(split.OR).toContainEqual({ districtId: { in: [DISTRICT] } });
+    expect(JSON.stringify(split)).not.toContain(DHAKA);
+  });
+
+  it("PROGRAM reaches the volunteers in the area locations of the program's projects", () => {
+    const program = where({ programIds: [P1] }) as { OR: unknown[] };
+    const inProgram = { some: { project: { programId: { in: [P1] } } } };
+    expect(program.OR).toContainEqual({ division: { projectAreasLocation: inProgram } });
+    expect(program.OR).toContainEqual({ union: { projectAreasLocation: inProgram } });
+  });
+
+  it('SELF reaches the own volunteer row', () => {
+    expect(where({ self: true })).toEqual({ OR: [{ userId: 'actor' }] });
   });
 });

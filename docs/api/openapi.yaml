@@ -442,14 +442,21 @@ components:
             status: { type: string }
             stage: { type: [string, 'null'] }
         meta: { $ref: '#/components/schemas/Meta' }
+    StaffDecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [decision]
+      description: A role on approval (any official role but the Department Head's), a reason on rejection (R9 of the T1.9 plan)
+      properties:
+        decision: { type: string, enum: [approve, reject] }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
+        roleKey: { type: string, maxLength: 64 }
     ReasonRequest:
       type: object
       additionalProperties: false
       required: [reason]
       properties:
         reason: { type: string, minLength: 3, maxLength: 1000 }
-
-    # ---------------- auth and users ----------------
     RegistrationStartRequest:
       type: object
       additionalProperties: false
@@ -902,14 +909,19 @@ components:
         meta: { $ref: '#/components/schemas/ListMeta' }
     ChangeValue:
       description: Text for a text field; an object for the address and the bank details; a file id from the photo upload for a photo field (D-085)
-      oneOf:
+      anyOf:
         - { type: string, maxLength: 2000 }
-        - { type: object }
+        - { type: object, propertyNames: { type: string }, additionalProperties: {} }
     RegistrationCorrectionCreate:
       type: object
+      additionalProperties: false
       required: [fields, note]
       properties:
-        fields: { type: array, minItems: 1, maxItems: 20, items: { type: string } }
+        fields:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items: { type: string, enum: [name, fatherName, motherName, nid, whatsapp, address, addressLine, education, experience, workDescription, previousProjects, facebookId, bank, photo, nid_photo] }
         note: { type: string, minLength: 3, maxLength: 1000 }
     EditRequestCreate:
       type: object
@@ -920,6 +932,7 @@ components:
         note: { type: string, maxLength: 1000 }
     ChangeRequestAnswer:
       type: object
+      additionalProperties: false
       required: [newValue]
       properties:
         newValue: { $ref: '#/components/schemas/ChangeValue' }
@@ -2919,7 +2932,9 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PendingRegistrationList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /registrations/{userId}:
     parameters:
       - $ref: '#/components/parameters/UserId'
@@ -2939,6 +2954,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/RegistrationDetailResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
   /registrations/{userId}/approve:
     parameters:
@@ -2958,6 +2975,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/VolunteerResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
   /registrations/{userId}/reject:
@@ -2979,8 +2998,11 @@ paths:
             schema: { $ref: '#/components/schemas/ReasonRequest' }
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /registrations/{userId}/correction-requests:
     parameters:
       - $ref: '#/components/parameters/UserId'
@@ -3004,6 +3026,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ChangeRequestList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
@@ -3023,18 +3047,15 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              allOf:
-                - $ref: '#/components/schemas/DecisionRequest'
-                - type: object
-                  properties:
-                    roleKey: { type: string, description: Required on approve }
+            schema: { $ref: '#/components/schemas/StaffDecisionRequest' }
       responses:
         '200':
           description: Decision recorded
           content:
             application/json:
               schema: { $ref: '#/components/schemas/UserResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /me/registration/resubmit:
@@ -3049,6 +3070,7 @@ paths:
       x-rate-limit: default
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '409': { $ref: '#/components/responses/Conflict' }
   /me/photos/{slot}:
     parameters:
@@ -3155,6 +3177,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ChangeRequestResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }

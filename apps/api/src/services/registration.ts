@@ -415,21 +415,8 @@ export class RegistrationService {
 
   /** The division, district, upazila and union exist, are active and form one chain. */
   private async assertAddress(body: VolunteerRegistrationSubmit): Promise<void> {
-    const chain = [
-      ['divisionId', body.divisionId, 'division', null],
-      ['districtId', body.districtId, 'district', body.divisionId],
-      ['upazilaId', body.upazilaId, 'upazila', body.districtId],
-      ['unionId', body.unionId, 'union', body.upazilaId],
-    ] as const;
-    const rows = await this.prisma.location.findMany({
-      where: { id: { in: chain.map(([, id]) => id) }, active: true },
-      select: { id: true, level: true, parentId: true },
-    });
-    for (const [path, id, level, parent] of chain) {
-      const row = rows.find((r) => r.id === id);
-      if (!row || row.level !== level || (parent !== null && row.parentId !== parent))
-        throw invalid(path, 'validation.option_unknown');
-    }
+    const problem = await addressProblem(this.prisma, body);
+    if (problem) throw invalid(problem, 'validation.option_unknown');
   }
 
   private async assertStaffPlace(body: StaffRegistrationSubmit): Promise<void> {
@@ -531,4 +518,29 @@ function volunteerColumns(
     photoFileId: draft.photoFileId,
     nidPhotoFileId: draft.nidPhotoFileId,
   };
+}
+
+/**
+ * The first address field that is unknown, inactive or outside its parent (division → district →
+ * upazila → union), or null when the four form one chain. Shared by the submit and the corrections.
+ */
+export async function addressProblem(
+  db: Pick<PrismaService, 'location'>,
+  address: { divisionId: string; districtId: string; upazilaId: string; unionId: string },
+): Promise<string | null> {
+  const chain = [
+    ['divisionId', address.divisionId, 'division', null],
+    ['districtId', address.districtId, 'district', address.divisionId],
+    ['upazilaId', address.upazilaId, 'upazila', address.districtId],
+    ['unionId', address.unionId, 'union', address.upazilaId],
+  ] as const;
+  const rows = await db.location.findMany({
+    where: { id: { in: chain.map(([, id]) => id) }, active: true },
+    select: { id: true, level: true, parentId: true },
+  });
+  for (const [path, id, level, parent] of chain) {
+    const row = rows.find((r) => r.id === id);
+    if (!row || row.level !== level || (parent !== null && row.parentId !== parent)) return path;
+  }
+  return null;
 }
