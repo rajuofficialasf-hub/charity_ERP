@@ -1111,9 +1111,10 @@ components:
         comment: { type: string, minLength: 3, description: Mandatory (BR-045) }
     BlocklistRequest:
       type: object
+      additionalProperties: false
       required: [reason]
       properties:
-        reason: { type: string, minLength: 3 }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
     BlocklistEntry:
       type: object
       required: [id, subjectType, subjectId, active, blockedAt]
@@ -3426,8 +3427,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/BlocklistResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /volunteers/{volunteerId}/unblock:
     parameters:
       - $ref: '#/components/parameters/VolunteerId'
@@ -3451,7 +3455,10 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/BlocklistResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}/volunteers:
     parameters:
       - $ref: '#/components/parameters/ProjectId'

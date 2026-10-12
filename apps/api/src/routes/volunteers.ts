@@ -1,8 +1,8 @@
 import { VOLUNTEER_TYPES } from '@css/shared/registration';
-import { USER_STATES } from '@css/shared/auth';
+import { reasonRequestSchema, type ReasonRequest, USER_STATES } from '@css/shared/auth';
 import { Router } from 'express';
 import { z } from 'zod';
-import { principalOf } from '../auth/principal';
+import { principalOf, scopeOf } from '../auth/principal';
 import type { Container } from '../container';
 import { defineRoute, type RouteDeps } from '../openapi/define-route';
 
@@ -42,8 +42,21 @@ const ownProfile = z.object({
   nidPhotoFileId: z.uuid().nullable(),
 });
 
+/** A blocklist entry without its reason (the reason is in the audit log, class blocklist.reason). */
+const blocklistEntry = z.object({
+  id: z.uuid(),
+  subjectType: z.enum(['volunteer', 'beneficiary']),
+  subjectId: z.uuid(),
+  active: z.boolean(),
+  blockedAt: z.string(),
+  releasedAt: z.string().nullable(),
+});
+
 /** Volunteer profiles (openapi tag volunteers); the volunteer tab follows in T1.10. */
-export function volunteersRouter(deps: RouteDeps, c: Pick<Container, 'volunteers'>): Router {
+export function volunteersRouter(
+  deps: RouteDeps,
+  c: Pick<Container, 'volunteers' | 'blocklist'>,
+): Router {
   const router = Router();
 
   defineRoute(router, deps, {
@@ -61,6 +74,42 @@ export function volunteersRouter(deps: RouteDeps, c: Pick<Container, 'volunteers
     rateLimit: 'default',
     responses: { 200: ownProfile, 401: null, 404: null },
     handler: ({ req }) => c.volunteers.own(principalOf(req)),
+  });
+
+  const blockOp = {
+    tag: 'volunteers',
+    scope: 'volunteer',
+    idempotency: 'none' as const,
+    rateLimit: 'default' as const,
+    params: { volunteerId: z.uuid() },
+    body: reasonRequestSchema,
+  };
+
+  defineRoute<ReasonRequest, unknown, { volunteerId: string }>(router, deps, {
+    ...blockOp,
+    method: 'post',
+    path: '/volunteers/:volunteerId/block',
+    status: 201,
+    operationId: 'volunteers.blocklist.set',
+    summary: 'Block a volunteer with a reason (BR-047)',
+    permission: 'volunteer.block',
+    audit: 'blocklist.set',
+    responses: { 201: blocklistEntry, 401: null, 403: null, 404: null, 409: null, 422: null },
+    handler: ({ body, params, req }) =>
+      c.blocklist.block(principalOf(req), scopeOf(req), params.volunteerId, body.reason),
+  });
+
+  defineRoute<ReasonRequest, unknown, { volunteerId: string }>(router, deps, {
+    ...blockOp,
+    method: 'post',
+    path: '/volunteers/:volunteerId/unblock',
+    operationId: 'volunteers.blocklist.lift',
+    summary: 'Lift a volunteer block with a reason',
+    permission: 'volunteer.unblock',
+    audit: 'blocklist.lift',
+    responses: { 200: blocklistEntry, 401: null, 403: null, 404: null, 422: null },
+    handler: ({ body, params, req }) =>
+      c.blocklist.unblock(principalOf(req), scopeOf(req), params.volunteerId, body.reason),
   });
 
   return router;

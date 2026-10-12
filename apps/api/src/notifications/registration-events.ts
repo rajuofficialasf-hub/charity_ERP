@@ -15,7 +15,9 @@ export type RegistrationEventType =
   | 'registration.correction_requested'
   | 'registration.resubmitted'
   | 'registration.edit_requested'
-  | 'registration.edit_decided';
+  | 'registration.edit_decided'
+  | 'volunteer.blocked'
+  | 'volunteer.unblocked';
 
 export interface RegistrationEvent {
   type: RegistrationEventType;
