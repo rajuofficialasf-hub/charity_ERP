@@ -1,7 +1,7 @@
 ---
 title: A simpler registration, bank branch, the password rule and the language toggle in the bar (T1.9c)
 type: feat
-status: in-progress
+status: done
 doc_review: 2026-10-13
 source: brainstorm
 date: 2026-10-13
@@ -126,10 +126,8 @@ The owner reviewed the T1.9b screens on 2026-10-13. A new official cannot know t
 - `ae-review` has run, with no open P0 or P1
 - The owner checked the registration, the profile and the toggle in the browser
 
-## Progress
-- **Branch:** feat/registration-simplify
-- **Next:** U7: docs (SCREENS, DESIGN_SYSTEM, CLAUDE.md map, STATUS, BUSINESS_RULES test register), then checkpoint C2
-- **Reviewed through:** none
-- **Updated:** 2026-10-13
-- **Uncommitted:** none
-- **Notes:** the owner's message of 2026-10-13 was the start; the designation of an official stays (not named in the message) and moves to step 1; the first bank details go through the existing edit request (approver) until the owner says otherwise. U2 and U3 are one commit (the shared schemas change both). `checkPassword` keeps its signature but takes only `minLength`; `hasUppercase` and `hasDigit` are exported so the PWA ticks the two conditions on their own; the common-password list (`@css/shared/auth/common-passwords`) is deleted with its export. The reference lookup route, its service path, its rate class, its event and the audit action are removed; the column `registration_drafts.reference_lookups` and its CHECK stay (unused; dropping it is a later migration). A volunteer submit is always `general` with no reference and no bank; an official's has no home program or division (columns stay nullable). While testing the bank edit request a bug showed: the field mask emptied an object under `z.unknown()`, so an approver saw `{}` as the new value of an address or bank edit (the web page showed nothing); `maskData` now keeps a leaf value whole (a unit test and the new bank test cover it). C1 review fixes (logic, security, standards): a rejected account that registers again now has its home program, home division, bank details and reference cleared (the update path had kept them; a test starts from filled columns); a registration password with the own mobile or email is accepted and the two refusal codes are tested on the submit; a branch name is checked not to reach the logs; test names carry no decision ids; a comment at `newValue` says the service enforces the bank and identity class (the mask keeps a leaf whole). Left as notes: the unused column `registration_drafts.reference_lookups` (its own migration later); an old cached PWA still sends the removed fields and gets 422, so the web and the API are deployed together. U4: an official's designation moved into step 1 (three steps: contact, account, photos); the volunteer's work step has only the optional texts; `PasswordRules` shows the three conditions with a check or an empty circle while typing and the account step also names the rule when it is pressed incomplete; the registration detail of an approver drops the bank, reference and workplace rows. U5: the bank editor and the profile show the branch.
+## Notes after the build
+- C1 and C2 reviewed (logic, security, standards). C1 fixes are in the history (reuse of a rejected account clears the old columns, tests of the password on submit, the branch name kept out of the logs). C2 fixes: the password checklist names 12 characters for a Department Head or Monitoring Team on the change screen (the reset screen cannot know the role before sign-in, so it shows 8 and the server still refuses a shorter global password); the length check uses `passwordLength`.
+- The language toggle on the admin phone row is sticky at the row end, and `SegmentedControl` options are `position: relative`, because the visually hidden radio inputs escaped the scrolling row and made the page scroll sideways (found by the permission panel e2e on the phone project); the admin e2e asserts the toggle is in view and the page has no horizontal overflow.
+- Open for the owner: (1) the 12-character minimum of a global role is enforced only at the next password change or reset, not when `monitoring_team` is granted to an official registered with 8 characters; (2) the same simple password rule is used by the reset and the change (D-091 extension, proposed); (3) comments cite decision ids as the rest of the code does.
+- Known: the permission panel e2e on the phone project is flaky once in a while (`settle` is aborted by a navigation; it passes on retry).

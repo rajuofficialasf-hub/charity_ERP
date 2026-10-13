@@ -1,9 +1,11 @@
+import { minPasswordLength } from '@css/shared/auth';
 import { Alert, Button, Form, PasswordField } from '@css/ui';
 import { useTranslations } from 'use-intl';
 import { type FormEvent, useState } from 'react';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { PasswordRules } from '../../components/PasswordRules';
+import { PERMISSION_PANEL_ROLES } from '../../admin/roles';
 import { api, ApiFailure } from '../../lib/api';
 
 /** Change own password (SCR-006, AUTH.md 3): the other devices are logged out. */
@@ -48,7 +50,7 @@ export function ChangePasswordView() {
 
   return (
     <AccountPage title={() => t('title')}>
-      {() => (
+      {(me) => (
         <Form onSubmit={submit} aria-label={t('title')}>
           <DocumentTitle title={t('title')} />
           <div className="auth-shell-stack">
@@ -75,7 +77,13 @@ export function ChangePasswordView() {
               required
               error={errors.newPassword}
             />
-            <PasswordRules password={next} id="change-rules" />
+            <PasswordRules
+              password={next}
+              id="change-rules"
+              minLength={minPasswordLength(
+                me.roles.some((r) => PERMISSION_PANEL_ROLES.includes(r)),
+              )}
+            />
             <PasswordField
               label={t('confirm')}
               name="confirm"

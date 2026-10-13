@@ -1,4 +1,4 @@
-import { checkPassword, hasDigit, hasUppercase, PASSWORD_MIN_LENGTH } from '@css/shared/auth';
+import { hasDigit, hasUppercase, PASSWORD_MIN_LENGTH, passwordLength } from '@css/shared/auth';
 import { formatCount } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import { Check, Circle } from 'lucide-react';
@@ -10,16 +10,23 @@ import { useLocale, useTranslations } from 'use-intl';
  * circle, so the state is never colour alone. The API enforces the rule, including the longer
  * minimum for GLOBAL-scope officials; this list is a hint.
  */
-export function PasswordRules({ password, id }: { password: string; id: string }) {
+export function PasswordRules({
+  password,
+  id,
+  minLength = PASSWORD_MIN_LENGTH,
+}: {
+  password: string;
+  id: string;
+  /** The minimum for this account: longer for a GLOBAL-scope official (minPasswordLength). */
+  minLength?: number;
+}) {
   const t = useTranslations('auth.password');
   const locale = useLocale() as Locale;
-  const long = !checkPassword(password, { minLength: PASSWORD_MIN_LENGTH }).includes(
-    'validation.password_too_short',
-  );
+  const long = passwordLength(password) >= minLength;
   const rules = [
     {
       key: 'length',
-      text: t('rule_length', { min: formatCount(PASSWORD_MIN_LENGTH, locale) }),
+      text: t('rule_length', { min: formatCount(minLength, locale) }),
       met: long,
     },
     { key: 'uppercase', text: t('rule_uppercase'), met: hasUppercase(password) },

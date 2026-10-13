@@ -43,6 +43,18 @@ describe('ChangePasswordView', () => {
     expect(body).toEqual({ currentPassword: 'Nadi kul 2026', newPassword: 'Shapla phul 77' });
   }, 15_000);
 
+  it('asks a Department Head for 12 characters and does not tick the length at 10', async () => {
+    const user = userEvent.setup();
+    refreshAs({ ...ME, roles: ['department_head'] });
+    renderApp(<ChangePasswordView />, 'en');
+    const fresh = await screen.findByLabelText(/^New password(?! again)/, { selector: 'input' });
+    await user.type(fresh, 'Shapla phul');
+    const length = screen.getByText('At least 12 characters').closest('li');
+    expect(length).toHaveAttribute('data-met', 'false');
+    await user.type(fresh, '7');
+    expect(length).toHaveAttribute('data-met', 'true');
+  }, 15_000);
+
   it('shows server rule failures on their field', async () => {
     const user = userEvent.setup();
     server.use(

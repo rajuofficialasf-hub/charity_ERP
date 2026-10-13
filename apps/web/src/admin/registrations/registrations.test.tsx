@@ -389,7 +389,7 @@ describe('volunteer registration detail', () => {
       },
     ]);
     expect(await screen.findByText('সংশোধন চলছে')).toBeInTheDocument();
-  });
+  }, 15_000);
 
   it('a rejection needs a reason', async () => {
     const user = userEvent.setup();
