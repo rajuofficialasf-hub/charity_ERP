@@ -141,9 +141,13 @@ async function refreshOnce(): Promise<TokenPair | null> {
       res = await attempt();
     }
   }
-  if (res.ok) return accept(((await res.json()) as { data: TokenPair }).data);
+  if (res.ok) {
+    const { data } = (await res.json()) as { data: TokenPair };
+    // A login or logout happened meanwhile; this token belongs to the session before it.
+    return state.generation === started ? accept(data) : null;
+  }
   const error = await failure(res);
-  // A login or logout happened meanwhile; this answer is about the session before it.
+  // Same for a failure: it is about the session before the login or logout.
   if (state.generation !== started) return null;
   if (REVOKING.has(error.code)) await endSession('revoked');
   else if (res.status === 401 || error.code === 'auth.account_blocked') await endSession('expired');
@@ -238,10 +242,14 @@ export async function login(loginId: string, password: string): Promise<Me> {
   return accept(pair).me;
 }
 
-/** Logs out: the server revokes the session, the device wipes its data (AUTH.md 8). */
+/**
+ * Logs out: the server revokes the session, the device wipes its data (AUTH.md 8). A stale or
+ * expired access token is refreshed once first: without it the server session, and with it the
+ * refresh cookie, would survive and the next page load would sign the user in again.
+ */
 export async function logout(): Promise<void> {
   try {
-    await api<void>('/auth/logout', { method: 'POST' }, false);
+    await api<void>('/auth/logout', { method: 'POST' });
   } finally {
     state.generation += 1;
     await endSession('logout');
