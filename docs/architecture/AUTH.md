@@ -16,24 +16,26 @@ Passwords are stored as Argon2id hashes (SECURITY_POLICY §4) with a per-user sa
 
 ## 2. Registration with two OTPs
 
-Flow (BR-023, BD-44):
+Flow (BR-023, BD-44; one page since UX-16 and D-090, 2026-10-13):
 
 ```
-1. Start        enter mobile number and email
-2. OTP mobile   system sends an OTP to the mobile through the SMS adapter
-3. OTP email    system sends a different OTP to the email through SMTP
-4. Verify       both codes must be entered and match; only then the registration form opens
-5. Form         identity, education and experience, contact, optional bank details, reference, attachments, type (BR-026)
-6. Password     chosen at the end of the form, rules of section 3
-7. Submit       account created in state "pending" (section 7); appears in the volunteer tab
-8. Review       approval or field-level correction requests (BR-029, BR-030); on approval the account becomes "active"
+1. Start        the page opens a draft for the chosen kind (volunteer or official); nothing is sent
+2. OTP mobile   "যাচাই করুন" in the mobile field sends an OTP to that number through the SMS adapter;
+                the code is entered below the field and verifies the mobile alone
+3. OTP email    the same inside the email field, with a different OTP through SMTP
+4. Verified     once both are verified the draft token is issued and the next step opens
+5. Form steps   address, work details and type (reference for a team member), bank details (optional)
+                and the password (rules of section 3), then the photos last: own photo and both pages
+                of the NID card (UX-18; an official gives the own photo)
+6. Submit       account created in state "pending" (section 7); appears in the volunteer tab
+7. Review       approval or field-level correction requests (BR-029, BR-030); on approval the account becomes "active"
 ```
 
 OTP parameters (O-25): 6 digits; valid 5 minutes; at most 5 verification attempts per code, then a new code is required; at most 5 OTP requests per number or address per hour (NFR-41, rate limiting section 12); the same code is never reused; codes are stored hashed with their expiry in `otp_codes` and purged by a job after expiry.
 
-Partial registrations: a user who verified both OTPs but did not submit the form may resume within 24 hours (O-25) by starting again with the same mobile and email and verifying both codes; the draft keeps its uploaded photos; after that the draft and its photos are deleted by a daily job (D-082).
+Partial registrations: the form is held in the page only; a reload starts a new draft and asks for both codes again (D-090 dropped the resume by contacts of D-082). Unsubmitted drafts and their photos are deleted by a daily job 24 hours after the last verification (O-25, D-082).
 
-Implementation decisions of T1.9 (D-082, D-086, D-087, D-088): the draft lives in `registration_drafts`; verification returns a random draft token once (only its hash is stored), which the client sends in the `X-Registration-Token` header on the reference lookup, the photo uploads and the submit. `start` always sends the codes; only after both are verified does the API answer `registration.account_exists` for a mobile or email of an active, pending or blocked account, so nobody learns which numbers are registered without owning them. A rejected, never-approved account is reused by a new registration and returns to `pending`. The photo and the NID photo are JPEG or PNG of at most 2 MB, stripped of metadata on the server and stored privately; a team member's reference NID shows the main volunteer's name, five times per draft at most, audited.
+Implementation decisions of T1.9 (D-082, D-086, D-087, D-088): the draft lives in `registration_drafts`; verification returns a random draft token once (only its hash is stored), which the client sends in the `X-Registration-Token` header on the reference lookup, the photo uploads and the submit. Each channel is sent a code and verified on its own (D-090): a send names the channel and the address, a changed address clears that channel, a send is counted per address (5 per hour), per draft (6 in its lifetime) and per IP, and wrong codes count on the code and the draft without a reset by a new send; only after both are verified does the API answer `registration.account_exists` for a mobile or email of an active, pending or blocked account, so nobody learns which numbers are registered without owning them. A rejected, never-approved account is reused by a new registration and returns to `pending`. The photo and the NID photo are JPEG or PNG of at most 2 MB, stripped of metadata on the server and stored privately; a team member's reference NID shows the main volunteer's name, five times per draft at most, audited.
 
 ### 2.1 Dummy OTP in development and test (BD-44, BD-49, BR-024)
 
