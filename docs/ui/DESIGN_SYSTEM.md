@@ -15,6 +15,7 @@ Sources and precedence: the owner's latest instruction, then `docs/ui/DESIGN_BRI
 7. **Plain Bangla.** Short labels and verbs, the same term for the same thing everywhere (blueprint appendix ক). Bangla is the default language, English is a per-user switch.
 8. **English digits.** All numbers use 0-9 in both languages: amounts, dates, counts, ids and phone numbers (UX-05).
 9. **Status is never colour alone.** A status always shows an icon and a text label (colors.md §6).
+10. **Simple and clean, no explanatory text (UX-17).** A screen shows its title, at most one short line where it helps, the labels and the work itself; messages appear only when something happens; a helper under a field only when it prevents a mistake. No welcome or "how this works" paragraphs, no "arrives later" placeholders.
 
 ## 2. Tokens
 
@@ -483,6 +484,8 @@ Look: 1 px `--color-border-strong` boundary, `--radius-md`, surface fill, contro
 
 Accessibility: `<label for>` always visible (never placeholder-only); helper and error linked with `aria-describedby`; errors announced on submit through the error summary (§6.3); required stated in text; groups use `<fieldset>` and `<legend>`.
 
+End action (UX-16): `endAction` puts a small action or state inside the end of a text or phone field, for example "যাচাই করুন" or the verified mark of a contact; the text never runs under it. Used by the registration contacts and the profile code fields.
+
 Do not: use placeholders as labels; validate on every keystroke (validate on blur and on submit); hide the reason a field is locked.
 
 ### 5.5 Nav / Item
@@ -618,6 +621,10 @@ The row of the bulk screens (today's distribution, today's class, today's constr
 ### 5.18 Step / timeline
 
 Props: `steps` (state or stage name, actor, time, comment, status `done`, `current`, `upcoming`, `skipped`), `orientation` (`vertical` default; `horizontal` for a compact stage strip on desktop), `showActor` (actor names only for officials), `onStepClick`. Done steps show a green check, the current step a filled green dot with Bold label, upcoming steps a hollow dot, skipped or rejected steps the matching status icon. Times use English digits and relative time with the absolute time on focus. Accessibility: an ordered list; the current step carries `aria-current="step"`.
+
+**Stepper (UX-16):** the steps of a form split into small parts: numbered dots joined by a line, done steps with a check, the current one with the brand ring and `aria-current="step"`; the names show from 640 px, on phones the form's section title names the step. Props `steps`, `current`, `label`.
+
+**Page band (UX-16):** the green title band at the head of a public page's card: the h1 and one short line in white on `--color-brand-primary-dark` (4.5:1 for small text), optional controls such as a segmented choice. Used by the registration.
 
 ### 5.19 Progress bar
 

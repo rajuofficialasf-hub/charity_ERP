@@ -125,7 +125,7 @@ The owner reviewed the T1.9 screens on 2026-10-13: the codes open separate pages
 - **Files:** `docs/ui/SCREENS.md` (SCR-002, SCR-003, SCR-006), `docs/ui/DESIGN_SYSTEM.md` (inline verification field, stepper, title band, the text rule), `docs/BUSINESS_RULES.md` (BR-023 test register), `CLAUDE.md` (map), `docs/STATUS.md`
 - **Tests:** existing: `pnpm docs:check`, `pnpm lint`
 - **Done when:** the checks pass and STATUS names T1.10 next.
-- **Depends on:** U6 · **Size:** S · **Risk area:** none · **Status:** todo
+- **Depends on:** U6 · **Size:** S · **Risk area:** none · **Status:** done
 
 ## Checkpoints
 - **Mode:** grouped
@@ -151,7 +151,7 @@ The owner reviewed the T1.9 screens on 2026-10-13: the codes open separate pages
 
 ## Progress
 - **Branch:** feat/registration-redesign
-- **Next:** U7: documents (SCREENS SCR-002, SCR-003, SCR-006; DESIGN_SYSTEM inline verification, stepper, title band, the text rule; BUSINESS_RULES BR-023 register; CLAUDE.md map; STATUS), then checkpoint C2 (scope `6a221f9..HEAD`)
+- **Next:** checkpoint C2 (scope `6a221f9..HEAD`, full `ae-check` on the whole branch, full test run), then the plan status `done`, push and CI (O-60)
 - **Reviewed through:** C1 at 81e5b16
 - **Updated:** 2026-10-13
 - **Uncommitted:** none
