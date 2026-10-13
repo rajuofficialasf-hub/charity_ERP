@@ -163,6 +163,42 @@ describe('migrations', () => {
     }
   });
 
+  it('the draft channels migration keeps existing verified and submitted drafts (backfill, D-090)', async () => {
+    const dirs = migrationDirs();
+    const at = dirs.indexOf('20261013000000_registration_draft_channels');
+    expect(at).toBeGreaterThan(0);
+    const db = await freshDatabase('chan');
+    const client = newClient(urlFor(db));
+    await client.connect();
+    try {
+      const apply = (dir: string) =>
+        client.query(readFileSync(join(MIGRATIONS_DIR, dir, 'migration.sql'), 'utf8'));
+      for (const dir of dirs.slice(0, at)) await apply(dir);
+      const user = (
+        await client.query(
+          `INSERT INTO users (id, kind, mobile, state, display_name) VALUES (gen_random_uuid(), 'volunteer', '01700009901', 'pending', 'নমুনা') RETURNING id`,
+        )
+      ).rows[0].id as string;
+      // a draft verified the T1.9 way and a submitted one
+      await client.query(
+        `INSERT INTO registration_drafts (id, mobile, email, token_hash, verified_at, expires_at) VALUES (gen_random_uuid(), '01700009902', 'v@example.org', 'h', now(), now() + interval '1 day')`,
+      );
+      await client.query(
+        `INSERT INTO registration_drafts (id, mobile, email, verified_at, expires_at, submitted_user_id, submitted_at) VALUES (gen_random_uuid(), '01700009901', 's@example.org', now(), now(), $1, now())`,
+        [user],
+      );
+      await apply(dirs[at]!);
+      const rows = (
+        await client.query(
+          'SELECT verified_at = mobile_verified_at AND verified_at = email_verified_at AS same FROM registration_drafts',
+        )
+      ).rows;
+      expect(rows).toEqual([{ same: true }, { same: true }]);
+    } finally {
+      await client.end();
+    }
+  });
+
   it('schema.prisma and the migrations do not drift apart', async () => {
     const shadow = await freshDatabase('shadow');
     const apiDir = join(__dirname, '../..');

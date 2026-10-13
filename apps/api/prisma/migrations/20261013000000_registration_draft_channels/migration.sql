@@ -29,6 +29,10 @@ ALTER TABLE "volunteers" ADD CONSTRAINT "volunteers_nid_photo_back_file_id_fkey"
 -- ---------------------------------------------------------------------------------------------
 -- Hand-written part: CHECK constraints and the two photo functions
 -- ---------------------------------------------------------------------------------------------
+-- Drafts verified the T1.9 way (both codes in one call) carry both channel times from then on, so
+-- the CHECKs below hold for every existing row, also the submitted drafts that are kept.
+UPDATE "registration_drafts" SET "mobile_verified_at" = "verified_at", "email_verified_at" = "verified_at" WHERE "verified_at" IS NOT NULL;
+
 -- A channel is verified only with its address; the token (verified_at) only once both are; the
 -- sends of one draft stay within its budget (6 across channels and address changes).
 ALTER TABLE "registration_drafts" ADD CONSTRAINT "registration_drafts_mobile_verified_check" CHECK (mobile_verified_at IS NULL OR mobile IS NOT NULL);

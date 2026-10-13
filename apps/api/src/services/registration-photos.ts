@@ -17,12 +17,12 @@ const KIND: Record<PhotoSlot, 'profile_photo' | 'nid_photo'> = {
   nid_photo: 'nid_photo',
   nid_photo_back: 'nid_photo',
 };
-/** The draft column of each slot (both pages of the NID card, UX-18). */
-const DRAFT_COLUMN = {
-  photo: 'photoFileId',
-  nid_photo: 'nidPhotoFileId',
-  nid_photo_back: 'nidPhotoBackFileId',
-} as const satisfies Record<PhotoSlot, string>;
+/** The draft column of each slot, as Prisma and as SQL names it (both NID pages, UX-18). */
+const SLOT_COLUMN = {
+  photo: ['photoFileId', 'photo_file_id'],
+  nid_photo: ['nidPhotoFileId', 'nid_photo_file_id'],
+  nid_photo_back: ['nidPhotoBackFileId', 'nid_photo_back_file_id'],
+} as const satisfies Record<PhotoSlot, readonly [string, string]>;
 const EXTENSION = { 'image/jpeg': 'jpg', 'image/png': 'png' } as const;
 
 /**
@@ -54,15 +54,18 @@ export class RegistrationPhotosService {
       { slot: input.slot, source: input.source, uploadedBy: null },
       async (tx, id) => {
         // The draft row is locked, so two uploads to one slot replace each other in turn.
-        await tx.$queryRaw`SELECT id FROM registration_drafts
+        const [locked] = await tx.$queryRaw<
+          {
+            photo_file_id: string | null;
+            nid_photo_file_id: string | null;
+            nid_photo_back_file_id: string | null;
+          }[]
+        >`SELECT photo_file_id, nid_photo_file_id, nid_photo_back_file_id FROM registration_drafts
            WHERE id = ${draft.id}::uuid AND submitted_at IS NULL FOR UPDATE`;
-        const locked = await tx.registrationDraft.findFirst({
-          where: { id: draft.id, submittedAt: null },
-        });
         if (!locked) throw new ApiError('registration.token_invalid', 401);
-        const column = DRAFT_COLUMN[input.slot];
+        const [column, previous] = SLOT_COLUMN[input.slot];
         await tx.registrationDraft.update({ where: { id: draft.id }, data: { [column]: id } });
-        return discard(tx, locked[column]);
+        return discard(tx, locked[previous]);
       },
       { registrationId: draft.id },
     );

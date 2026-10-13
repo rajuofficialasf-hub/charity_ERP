@@ -105,8 +105,8 @@ export class RegistrationService {
    * one, and a changed address clears that channel's verification; a verified channel with the
    * same address and a draft that holds its token are refused (409). The send is counted on the
    * draft first (6 in its lifetime, across channels and address changes), then per address by
-   * the OTP service (5 per hour). The answer is the same whether or not the address belongs to an
-   * account (D-086).
+   * the OTP service (5 per hour); a code that is not sent changes nothing on the draft. The answer
+   * is the same whether or not the address belongs to an account (D-086).
    */
   async send(body: OtpSendRequest, locale: Locale): Promise<void> {
     const draft = await this.openDraft(body.registrationId);
@@ -115,22 +115,41 @@ export class RegistrationService {
     const verifiedAt = sms ? draft.mobileVerifiedAt : draft.emailVerifiedAt;
     if (draft.verifiedAt || (verifiedAt && current === body.address))
       throw new ApiError('registration.already_verified', 409);
-    const contact = sms
-      ? { mobile: body.address, mobileVerifiedAt: null }
-      : { email: body.address, emailVerifiedAt: null };
-    const counted = await this.prisma.registrationDraft.updateMany({
+    // the send is reserved on the draft's budget first; a code that cannot be sent gives it back
+    const reserved = await this.prisma.registrationDraft.updateMany({
       where: {
         id: draft.id,
         verifiedAt: null,
         otpSends: { lt: REGISTRATION_RULES.maxSendsPerDraft },
       },
-      data: { otpSends: { increment: 1 }, ...contact },
+      data: { otpSends: { increment: 1 } },
     });
-    if (counted.count === 0) throw new ApiError('rate_limit.exceeded', 429);
-    await this.otp.issue(
-      { purpose: 'registration', channel: body.channel, address: body.address },
-      { locale, templateKey: sms ? 'otp_registration_sms' : 'otp_registration_email' },
-    );
+    if (reserved.count === 0) throw new ApiError('rate_limit.exceeded', 429);
+    try {
+      await this.otp.issue(
+        { purpose: 'registration', channel: body.channel, address: body.address },
+        { locale, templateKey: sms ? 'otp_registration_sms' : 'otp_registration_email' },
+      );
+    } catch (error) {
+      await this.prisma.registrationDraft.updateMany({
+        where: { id: draft.id, otpSends: { gt: 0 } },
+        data: { otpSends: { decrement: 1 } },
+      });
+      throw error;
+    }
+    // only a sent code changes the contact; the row is read again under its lock, so a channel
+    // verified meanwhile with this address keeps its verification
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM registration_drafts WHERE id = ${draft.id}::uuid FOR UPDATE`;
+      const fresh = await tx.registrationDraft.findUniqueOrThrow({ where: { id: draft.id } });
+      if (fresh.verifiedAt || (sms ? fresh.mobile : fresh.email) === body.address) return;
+      await tx.registrationDraft.update({
+        where: { id: draft.id },
+        data: sms
+          ? { mobile: body.address, mobileVerifiedAt: null }
+          : { email: body.address, emailVerifiedAt: null },
+      });
+    });
     await this.draftAudit('auth.otp_sent', draft.id, {
       channel: body.channel,
       address: maskAddress(body.address),

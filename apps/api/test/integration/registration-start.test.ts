@@ -155,6 +155,28 @@ describe('POST /auth/register/otp/send', () => {
     expect((await verify(id, 'sms', '000000')).status).toBe(422);
   });
 
+  it('a send refused for its address changes nothing: the old number stays verified and the budget kept', async () => {
+    const c = contacts();
+    const id = await start();
+    await send(id, 'sms', c.mobile);
+    await verify(id, 'sms');
+    // the new number already had 5 codes this hour
+    const full = f.fakeMobile();
+    for (let i = 0; i < 5; i += 1)
+      await f.insert(h.db, 'otp_codes', {
+        id: randomUUID(),
+        purpose: 'registration',
+        channel: 'sms',
+        address_hash: identifierHash(h.container.env, full),
+        code_hash: 'c',
+        expires_at: new Date(Date.now() + 60_000),
+      });
+    expect((await send(id, 'sms', full)).status).toBe(429);
+    const draft = await draftRow(id);
+    expect(draft).toMatchObject({ mobile: c.mobile, otp_sends: 1 });
+    expect(draft.mobile_verified_at).not.toBeNull();
+  });
+
   it('allows 6 sends per draft across channels and address changes, then 429', async () => {
     const id = await start();
     const statuses: number[] = [];
