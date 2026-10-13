@@ -245,7 +245,7 @@ describe('POST /auth/register/otp/verify', () => {
     expect((await draftRow(id)).verified_at).not.toBeNull();
   });
 
-  it('the answer of a verified draft carries no program list (O-64)', async () => {
+  it('the answer of a verified draft carries no program list', async () => {
     for (const kind of ['staff', 'volunteer'] as const) {
       const done = await verifyBoth(await start(kind), contacts());
       expect(done.body.data).toMatchObject({ verified: ['sms', 'email'], kind });
@@ -464,10 +464,15 @@ describe('logs', () => {
     await request(h.server())
       .post('/api/v1/auth/register/submit')
       .set(TOKEN_HEADER, r.token)
-      .send({ kind: 'volunteer', registrationId: r.registrationId, nid });
+      .send({
+        kind: 'volunteer',
+        registrationId: r.registrationId,
+        nid,
+        bank: { branchName: 'Savar Branch Secret' },
+      });
     const text = logLines.join('');
     expect(text.length).toBeGreaterThan(0);
-    for (const secret of [r.token, CODE, r.mobile, r.email, nid])
+    for (const secret of [r.token, CODE, r.mobile, r.email, nid, 'Savar Branch Secret'])
       expect(text).not.toContain(secret);
   });
 });

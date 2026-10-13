@@ -172,7 +172,27 @@ describe('POST /auth/register/submit', () => {
     expect(res.body.error.code).toBe('registration.nid_exists');
   });
 
-  it('refuses the fields the owner removed: type, reference, bank, program and workplace (O-64)', async () => {
+  it('takes a password with the own mobile number or email in it, and names the rule of a refused one', async () => {
+    const d = await verifiedDraft(h);
+    const weak = await submit(d.token, volunteerForm(d, { password: `a${d.mobile}` }));
+    expect(weak.status).toBe(422);
+    expect(weak.body.error.details[0]).toMatchObject({
+      path: 'password',
+      code: 'validation.password_uppercase_digit',
+    });
+    const short = await submit(d.token, volunteerForm(d, { password: 'Ab1' }));
+    expect(short.body.error.details[0].code).toBe('validation.password_too_short');
+    const ok = await submit(d.token, volunteerForm(d, { password: `A${d.mobile}` }));
+    expect(ok.status).toBe(201);
+    const other = await verifiedDraft(h);
+    const withEmail = await submit(
+      other.token,
+      volunteerForm(other, { password: `${other.email.split('@')[0]!.replace(/^./, 'R')}1` }),
+    );
+    expect(withEmail.status).toBe(201);
+  });
+
+  it('refuses the fields the owner removed: type, reference, bank, program and workplace', async () => {
     const d = await verifiedDraft(h);
     for (const extra of [
       { type: 'paid' },
@@ -210,6 +230,12 @@ describe('POST /auth/register/submit', () => {
       `UPDATE users SET state = 'deactivated', deactivated_at = now() WHERE id = $1`,
       [userId],
     );
+    // the earlier form held a bank account, a reference and a home program; none of it may survive
+    await h.db.query(
+      `UPDATE volunteers SET bank_name = 'Old Bank', bank_account_number = '999', bank_branch_name = 'Old', reference_nid = $2 WHERE user_id = $1`,
+      [userId, f.fakeNid()],
+    );
+    await h.db.query('UPDATE users SET home_program_id = $2 WHERE id = $1', [userId, programId]);
     // the same person starts again with the same mobile and email
     const again = await verifyContacts(h, { mobile: d.mobile, email: d.email });
     const registrationId = again.registrationId;
@@ -226,6 +252,21 @@ describe('POST /auth/register/submit', () => {
       ])
     ).rows[0];
     expect(user).toEqual({ state: 'pending', display_name: 'দ্বিতীয় নাম', deactivated_at: null });
+    const cleared = (
+      await h.db.query(
+        `SELECT v.bank_name, v.bank_account_number, v.bank_branch_name, v.reference_nid, v.type, u.home_program_id
+           FROM volunteers v JOIN users u ON u.id = v.user_id WHERE u.id = $1`,
+        [userId],
+      )
+    ).rows[0];
+    expect(cleared).toEqual({
+      bank_name: null,
+      bank_account_number: null,
+      bank_branch_name: null,
+      reference_nid: null,
+      type: 'general',
+      home_program_id: null,
+    });
     expect(
       (await h.db.query('SELECT 1 FROM volunteers WHERE user_id = $1', [userId])).rowCount,
     ).toBe(1);

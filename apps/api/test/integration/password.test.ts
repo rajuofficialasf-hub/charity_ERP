@@ -73,7 +73,7 @@ describe('POST /auth/password/change', () => {
     expect(short.body.error.details[0].code).toBe('validation.password_too_short');
   });
 
-  it('accepts a password with the own mobile number or a common word, and refuses one over 128 characters (O-64)', async () => {
+  it('accepts a password with the own mobile number or a common word, and refuses one over 128 characters', async () => {
     const staff = await account(h.db);
     const s = await login(h, staff);
     const long = await post('/auth/password/change')

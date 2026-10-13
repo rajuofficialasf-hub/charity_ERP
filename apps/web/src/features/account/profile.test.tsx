@@ -40,7 +40,7 @@ const profile = (over: Partial<OwnProfile> = {}): OwnProfile => ({
   workDescription: null,
   previousProjects: null,
   facebookId: null,
-  bank: { bankName: 'Test Bank', accountNumber: '0000111122223333' },
+  bank: { bankName: 'Test Bank', accountNumber: '0000111122223333', branchName: 'Savar Branch' },
   photoFileId: null,
   nidPhotoFileId: null,
   nidPhotoBackFileId: null,
@@ -118,7 +118,7 @@ describe('ProfileView of a pending registrant', () => {
     expect(await screen.findByRole('heading', { name: 'সংশোধনের অনুরোধ' })).toBeInTheDocument();
     // the own NID and bank details in full (DECISION_LOG D-081)
     expect(screen.getByText('1000000000301')).toBeInTheDocument();
-    expect(screen.getByText(/0000111122223333/)).toBeInTheDocument();
+    expect(screen.getByText(/0000111122223333, Savar Branch/)).toBeInTheDocument();
     // only the two requested fields can be answered
     expect(screen.getAllByRole('form')).toHaveLength(2);
     expect(screen.queryByRole('button', { name: 'আবার জমা দিন' })).not.toBeInTheDocument();
@@ -179,6 +179,27 @@ describe('ProfileView of an approved volunteer', () => {
     for (const label of ['Edit Photo', 'Edit NID card, first page', 'Edit NID card, second page'])
       expect(within(photos).getByRole('button', { name: label })).toBeInTheDocument();
     await expectNoAxeViolations(container);
+  }, 15_000);
+
+  it('adds the bank details with a branch from the edit button of the bank section', async () => {
+    const user = userEvent.setup();
+    serve(profile({ state: 'active', inAnyProject: true, bank: {} }), () => []);
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    const bank = await screen.findByRole('region', { name: 'Bank details' });
+    expect(within(bank).getByText('Not given')).toBeInTheDocument();
+    await user.click(within(bank).getByRole('button', { name: 'Edit Bank details' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Request to change Bank details' });
+    await user.type(within(dialog).getByRole('textbox', { name: 'Bank name' }), 'Test Bank');
+    await user.type(within(dialog).getByRole('textbox', { name: 'Branch' }), 'Savar Branch');
+    await user.click(within(dialog).getByRole('button', { name: 'Send request' }));
+    expect(await screen.findByText('The request was sent.')).toBeInTheDocument();
+    expect(calls).toEqual([
+      {
+        method: 'POST',
+        url: '/api/v1/me/change-requests',
+        body: { field: 'bank', newValue: { bankName: 'Test Bank', branchName: 'Savar Branch' } },
+      },
+    ]);
   }, 15_000);
 
   it('asks for an address change from the edit button beside the address', async () => {

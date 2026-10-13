@@ -236,11 +236,6 @@ function Details({ registration: r }: { registration: RegistrationDetailView }) 
   const v = r.volunteer;
   const empty = tf('profile.empty');
   const hidden = t('hidden');
-  const bank = v?.bank
-    ? [v.bank.bankName, v.bank.accountName, v.bank.accountNumber, v.bank.routingNumber]
-        .filter(Boolean)
-        .join(', ') || empty
-    : hidden;
   const rows: [string, ReactNode][] = v
     ? [
         [tf('form.type'), tf(`form.types.${v.type as 'general'}`)],
@@ -257,25 +252,11 @@ function Details({ registration: r }: { registration: RegistrationDetailView }) 
         [tf('form.work_description'), v.workDescription ?? empty],
         [tf('form.previous_projects'), v.previousProjects ?? empty],
         [tf('form.facebook'), v.facebookId ?? empty],
-        [tf('form.bank'), bank],
-        ...(v.referenceVolunteerId ? [[t('reference'), '✓'] as [string, ReactNode]] : []),
       ]
     : [
         [tf('form.designation'), r.designation ?? empty],
         [tf('form.mobile'), r.mobile ?? empty],
         [tf('form.email'), r.email ?? empty],
-        [
-          tf('form.region'),
-          <AddressNames
-            key="region"
-            address={{
-              divisionId: r.homeDivisionId,
-              districtId: null,
-              upazilaId: null,
-              unionId: null,
-            }}
-          />,
-        ],
       ];
   return (
     <Section title={t('details')}>

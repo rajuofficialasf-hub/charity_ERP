@@ -192,7 +192,7 @@ describe('edit requests', () => {
     expect(saved.rows[0].photo_file_id).toBe(upload.body.data.fileId);
   });
 
-  it('the bank details with a branch are added later through a request, and only the bank class sees them (O-64)', async () => {
+  it('the bank details with a branch are added later through a request, and only the bank class sees them', async () => {
     const v = await approvedVolunteer();
     const bank = {
       bankName: 'Test Bank',

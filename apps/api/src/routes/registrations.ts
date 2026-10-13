@@ -50,6 +50,8 @@ const changeRequest = z.object({
   volunteerId: uuid,
   kind: z.enum(['registration_correction', 'profile_edit']),
   field: z.string(),
+  // an object or a text; the service shows NID and bank values only to a caller with the field
+  // class (`visible` in services/change-requests.ts), the mask passes a leaf whole
   newValue: z.unknown().optional(),
   note: nullableText,
   status: z.enum(['open', 'submitted', 'approved', 'rejected', 'closed']),

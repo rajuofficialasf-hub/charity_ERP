@@ -6,6 +6,8 @@ export {
   PASSWORD_MIN_LENGTH_GLOBAL,
   type PasswordContext,
   type PasswordProblem,
+  hasDigit,
+  hasUppercase,
   passwordLength,
 } from './password.js';
 export * from './schemas.js';

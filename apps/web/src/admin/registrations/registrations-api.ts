@@ -15,7 +15,10 @@ export interface PendingRegistration {
   designation: string | null;
 }
 
-type Bank = Record<'bankName' | 'accountName' | 'accountNumber' | 'routingNumber', string | null>;
+type Bank = Record<
+  'bankName' | 'accountName' | 'accountNumber' | 'branchName' | 'routingNumber',
+  string | null
+>;
 
 /**
  * GET /registrations/{userId}. The NID, the NID photo and the bank details are absent (not empty)

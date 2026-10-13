@@ -6,7 +6,6 @@ import {
   type RegistrationStart,
   type RegistrationSubmitRequest,
   type RegistrationChannel,
-  type RegistrationVerified,
   type RegistrationVerifyResult,
 } from '@css/shared/registration';
 import { api, ApiFailure } from '../../lib/api';
@@ -19,7 +18,6 @@ export interface Draft {
   registrationId: string;
   kind: RegistrationKind;
   token?: string;
-  programs?: RegistrationVerified['programs'];
 }
 
 export interface Location {
@@ -48,17 +46,6 @@ export const verifyCode = (registrationId: string, channel: RegistrationChannel,
   );
 
 const tokenHeader = (draft: Draft) => ({ [REGISTRATION_TOKEN_HEADER]: draft.token ?? '' });
-
-export const lookupReference = (draft: Draft, nid: string) =>
-  api<{ name: string }>(
-    '/auth/register/reference-lookup',
-    {
-      method: 'POST',
-      body: { registrationId: draft.registrationId, nid },
-      headers: tokenHeader(draft),
-    },
-    false,
-  );
 
 export const uploadDraftPhoto = async (
   draft: Draft,

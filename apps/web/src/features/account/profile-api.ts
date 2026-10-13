@@ -25,7 +25,13 @@ export interface OwnProfile {
   workDescription: string | null;
   previousProjects: string | null;
   facebookId: string | null;
-  bank: { bankName?: string; accountName?: string; accountNumber?: string; routingNumber?: string };
+  bank: {
+    bankName?: string;
+    accountName?: string;
+    accountNumber?: string;
+    branchName?: string;
+    routingNumber?: string;
+  };
   photoFileId: string | null;
   nidPhotoFileId: string | null;
   nidPhotoBackFileId: string | null;

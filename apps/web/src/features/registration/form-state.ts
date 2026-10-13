@@ -1,15 +1,15 @@
+import { checkPassword, minPasswordLength } from '@css/shared/auth';
 import type {
   PhotoSlot,
   RegistrationKind,
   RegistrationSubmitRequest,
-  VolunteerType,
 } from '@css/shared/registration';
 import { type Address, EMPTY_ADDRESS } from './AddressFields';
 
-/** The steps of each kind (UX-16, UX-18): the photos are always the last one. */
+/** The steps of each kind (UX-16, UX-18, O-64): the photos are always the last one. */
 export const STEPS = {
   volunteer: ['contact', 'identity', 'work', 'account', 'photos'],
-  staff: ['contact', 'workplace', 'account', 'photos'],
+  staff: ['contact', 'account', 'photos'],
 } as const satisfies Record<RegistrationKind, readonly string[]>;
 export type StepKey = (typeof STEPS)[RegistrationKind][number];
 
@@ -26,7 +26,6 @@ export const TEXT_FIELDS = [
   'previousProjects',
   'facebookId',
 ] as const;
-export const BANK_FIELDS = ['bankName', 'accountName', 'accountNumber', 'routingNumber'] as const;
 
 /** Everything the steps collect; held in the page only (nothing is stored on the device). */
 export interface RegistrationValues {
@@ -39,17 +38,12 @@ export interface RegistrationValues {
   email: string;
   address: Address;
   addressLine: string;
-  type: VolunteerType;
-  referenceNid: string;
   education: string;
   experience: string;
   workDescription: string;
   previousProjects: string;
   facebookId: string;
-  bank: Record<(typeof BANK_FIELDS)[number], string>;
   designation: string;
-  homeProgramId: string | null;
-  homeDivisionId: string | null;
   password: string;
   confirm: string;
   photos: Record<PhotoSlot, boolean>;
@@ -65,17 +59,12 @@ export const EMPTY_VALUES: RegistrationValues = {
   email: '',
   address: EMPTY_ADDRESS,
   addressLine: '',
-  type: 'general',
-  referenceNid: '',
   education: '',
   experience: '',
   workDescription: '',
   previousProjects: '',
   facebookId: '',
-  bank: { bankName: '', accountName: '', accountNumber: '', routingNumber: '' },
   designation: '',
-  homeProgramId: null,
-  homeDivisionId: null,
   password: '',
   confirm: '',
   photos: { photo: false, nid_photo: false, nid_photo_back: false },
@@ -90,6 +79,8 @@ export type Problem =
   | 'errors.validation.required'
   | 'errors.validation.nid_format'
   | 'errors.validation.mobile_format'
+  | 'errors.validation.password_too_short'
+  | 'errors.validation.password_uppercase_digit'
   | 'auth.password.mismatch'
   | 'registration.form.missing_photo';
 
@@ -106,6 +97,7 @@ export function checkStep(
   if (step === 'contact') {
     need('name', v.name);
     if (kind === 'volunteer') need('fatherName', v.fatherName);
+    else need('designation', v.designation);
   }
   if (step === 'identity') {
     need('motherName', v.motherName);
@@ -115,15 +107,13 @@ export function checkStep(
     for (const level of ['divisionId', 'districtId', 'upazilaId', 'unionId'] as const)
       need(level, v.address[level]);
   }
-  if (step === 'work' && v.type === 'team_member' && !NID.test(v.referenceNid))
-    problems.referenceNid = 'errors.validation.nid_format';
-  if (step === 'workplace') {
-    need('designation', v.designation);
-    need('homeProgramId', v.homeProgramId);
-    need('homeDivisionId', v.homeDivisionId);
-  }
   if (step === 'account') {
-    need('password', v.password);
+    // the checklist under the field shows the rule while typing; a refused step says it once more
+    for (const problem of checkPassword(v.password, { minLength: minPasswordLength(false) }))
+      problems.password =
+        problem === 'validation.password_too_short'
+          ? 'errors.validation.password_too_short'
+          : 'errors.validation.password_uppercase_digit';
     // Two values the user just typed on this device, not a secret check.
     // eslint-disable-next-line security/detect-possible-timing-attacks
     if (v.password !== v.confirm) problems.confirm = 'auth.password.mismatch';
@@ -138,10 +128,9 @@ export function checkStep(
 export function stepOf(kind: RegistrationKind, field: string): number {
   const at = (step: StepKey) => (STEPS[kind] as readonly string[]).indexOf(step);
   const root = field.split('.')[0] ?? field;
-  if (['name', 'fatherName', 'mobile', 'email'].includes(root)) return at('contact');
-  if (['designation', 'homeProgramId', 'homeDivisionId'].includes(root)) return at('workplace');
-  if (['type', 'referenceNid', ...TEXT_FIELDS].includes(root)) return at('work');
-  if (['bank', 'password', 'confirm'].includes(root)) return at('account');
+  if (['name', 'fatherName', 'designation', 'mobile', 'email'].includes(root)) return at('contact');
+  if ((TEXT_FIELDS as readonly string[]).includes(root)) return at('work');
+  if (['password', 'confirm'].includes(root)) return at('account');
   if ((PHOTOS.volunteer as readonly string[]).includes(root)) return at('photos');
   return kind === 'volunteer' ? at('identity') : at('contact');
 }
@@ -161,12 +150,7 @@ export function submitBody(
       password: v.password,
       name: v.name.trim(),
       designation: v.designation.trim(),
-      homeProgramId: v.homeProgramId ?? '',
-      homeDivisionId: v.homeDivisionId ?? '',
     };
-  const bank = Object.fromEntries(
-    BANK_FIELDS.map((k) => [k, optional(v.bank[k])]).filter((e) => e[1] !== undefined),
-  );
   return {
     kind,
     registrationId,
@@ -176,7 +160,6 @@ export function submitBody(
     motherName: v.motherName.trim(),
     nid: v.nid,
     whatsapp: optional(v.whatsapp),
-    type: v.type,
     divisionId: v.address.divisionId ?? '',
     districtId: v.address.districtId ?? '',
     upazilaId: v.address.upazilaId ?? '',
@@ -187,7 +170,5 @@ export function submitBody(
     workDescription: optional(v.workDescription),
     previousProjects: optional(v.previousProjects),
     facebookId: optional(v.facebookId),
-    bank: Object.keys(bank).length ? bank : undefined,
-    referenceNid: v.type === 'team_member' ? v.referenceNid : undefined,
   };
 }

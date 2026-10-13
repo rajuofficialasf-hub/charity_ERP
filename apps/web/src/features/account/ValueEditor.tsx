@@ -3,11 +3,15 @@ import { useTranslations } from 'use-intl';
 import { type Address, AddressFields, EMPTY_ADDRESS } from '../registration/AddressFields';
 import type { RequestField } from './profile-api';
 
-type Bank = Record<'bankName' | 'accountName' | 'accountNumber' | 'routingNumber', string>;
+type Bank = Record<
+  'bankName' | 'accountName' | 'accountNumber' | 'branchName' | 'routingNumber',
+  string
+>;
 const BANK_LABEL = {
   bankName: 'form.bank_name',
   accountName: 'form.account_name',
   accountNumber: 'form.account_number',
+  branchName: 'form.branch_name',
   routingNumber: 'form.routing_number',
 } as const;
 const NUMERIC = new Set<RequestField>(['nid', 'whatsapp', 'mobile']);

@@ -16,7 +16,7 @@ import {
   stepOf,
   submitBody,
 } from './form-state';
-import { AccountStep, IdentityStep, PhotosStep, WorkplaceStep, WorkStep } from './FormSteps';
+import { AccountStep, IdentityStep, PhotosStep, WorkStep } from './FormSteps';
 import {
   type Draft,
   failureOf,
@@ -120,8 +120,7 @@ export function RegisterPage() {
     void verifyCode(draft.registrationId, c, value)
       .then((result) => {
         channel(c, { busy: false, verified: true, sent: false, code: '' });
-        if (result.registrationToken)
-          setDraft({ ...draft, token: result.registrationToken, programs: result.programs });
+        if (result.registrationToken) setDraft({ ...draft, token: result.registrationToken });
       })
       .catch((failure: unknown) => {
         const f = failureOf(failure, offline);
@@ -255,20 +254,8 @@ export function RegisterPage() {
               />
             )}
             {key === 'identity' && <IdentityStep values={values} set={set} errors={errors} />}
-            {key === 'work' && draft && (
-              <WorkStep values={values} set={set} errors={errors} draft={draft} />
-            )}
-            {key === 'workplace' && draft && (
-              <WorkplaceStep values={values} set={set} errors={errors} draft={draft} />
-            )}
-            {key === 'account' && (
-              <AccountStep
-                values={values}
-                set={set}
-                errors={errors}
-                withBank={kind === 'volunteer'}
-              />
-            )}
+            {key === 'work' && <WorkStep values={values} set={set} errors={errors} />}
+            {key === 'account' && <AccountStep values={values} set={set} errors={errors} />}
             {key === 'photos' && draft && (
               <PhotosStep draft={draft} errors={errors} onPhoto={photo} />
             )}

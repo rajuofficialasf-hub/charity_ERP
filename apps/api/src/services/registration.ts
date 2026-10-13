@@ -316,6 +316,10 @@ export class RegistrationService {
           state: 'pending',
           displayName: body.name,
           designation: body.kind === 'staff' ? body.designation : null,
+          // a rejected account that registers again starts clean: what the old form held and the
+          // new one no longer asks for is cleared (DECISION_LOG O-64, D-091)
+          homeProgramId: null,
+          homeDivisionId: null,
           failedLoginCount: 0,
           lockedUntil: null,
           deactivatedAt: null,
@@ -479,7 +483,7 @@ function volunteerColumns(
 ) {
   return {
     nid: body.nid,
-    // every volunteer registers as a general volunteer; the Foundation sets roles later (O-64)
+    // every volunteer registers as a general volunteer; the Foundation sets roles later (DECISION_LOG O-64)
     type: 'general',
     fatherName: body.fatherName,
     motherName: body.motherName,
@@ -494,6 +498,14 @@ function volunteerColumns(
     workDescription: body.workDescription ?? null,
     previousProjects: body.previousProjects ?? null,
     facebookId: body.facebookId ?? null,
+    // nothing of the earlier registration's bank details or reference survives a new one
+    bankName: null,
+    bankAccountName: null,
+    bankAccountNumber: null,
+    bankBranchName: null,
+    bankRoutingNumber: null,
+    referenceNid: null,
+    referenceVolunteerId: null,
     photoFileId: draft.photoFileId,
     nidPhotoFileId: draft.nidPhotoFileId,
     nidPhotoBackFileId: draft.nidPhotoBackFileId,

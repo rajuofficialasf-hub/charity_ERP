@@ -18,7 +18,6 @@ const RANGPUR = '01900000-0000-7000-8000-0000000000e1';
 const RANGPUR_DISTRICT = '01900000-0000-7000-8000-0000000000e2';
 const UPAZILA = '01900000-0000-7000-8000-0000000000e3';
 const UNION = '01900000-0000-7000-8000-0000000000e4';
-const PROGRAM = '01900000-0000-7000-8000-0000000000f1';
 
 const location = (id: string, bn: string, en: string) => ({
   id,
@@ -78,9 +77,6 @@ function api(
               registrationToken: TOKEN,
               expiresAt: '2026-10-14T10:00:00Z',
               kind: over.kind ?? 'volunteer',
-              ...(over.kind === 'staff'
-                ? { programs: [{ id: PROGRAM, name: { bn: 'স্বাবলম্বী', en: 'Self-reliance' } }] }
-                : {}),
             },
           });
     }),
@@ -97,10 +93,6 @@ function api(
                 ? [location(UNION, 'চতরা', 'Chatra')]
                 : [location(DHAKA, 'ঢাকা', 'Dhaka'), location(RANGPUR, 'রংপুর', 'Rangpur')];
       return HttpResponse.json({ data });
-    }),
-    http.post('*/api/v1/auth/register/reference-lookup', async ({ request }) => {
-      await record(request);
-      return HttpResponse.json({ data: { name: 'মূল স্বেচ্ছাসেবক নমুনা' } });
     }),
     http.post('*/api/v1/auth/register/photos/:slot', async ({ request, params }) => {
       await record(request, params.slot);
@@ -374,11 +366,13 @@ describe('the steps after the contacts', () => {
       fatherName: 'Father',
       motherName: 'Mother',
       nid: '1000000000555',
-      type: 'general',
       divisionId: RANGPUR,
       unionId: UNION,
       education: 'SSC',
     });
+    // nothing the owner removed is sent: no type, no bank, no reference
+    for (const removed of ['type', 'bank', 'referenceNid', 'homeProgramId'])
+      expect(submit.body).not.toHaveProperty(removed);
     expect(submit.headers.get('X-Registration-Token')).toBe(TOKEN);
     expect(
       seen.filter((s) => s.path.startsWith('/auth/register/photos/')).map((s) => s.body),
@@ -386,27 +380,26 @@ describe('the steps after the contacts', () => {
     for (const request of seen) expect(request.url).not.toContain(TOKEN);
   }, 30_000);
 
-  it('an official has four steps with the workplace and the own photo only', async () => {
+  it('an official has three steps: designation with the contacts, the password, the own photo', async () => {
     const user = userEvent.setup();
     api({ kind: 'staff' });
     const { container } = renderApp(<RegisterPage />, 'en', { path: '/register' });
+    await user.click(screen.getByRole('button', { name: 'Official' }));
+    // no program, no workplace and no volunteer fields anywhere
+    expect(screen.queryByRole('button', { name: /Program/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/workplace/i)).not.toBeInTheDocument();
+    await user.type(screen.getByRole('textbox', { name: /Designation/ }), 'Project Officer');
     await verifyContacts(user, 'staff');
     expect(
       screen.getByRole('heading', { level: 1, name: 'Official registration' }),
     ).toBeInTheDocument();
     expect(bodiesOf('/auth/register/start')).toEqual([{ kind: 'staff' }]);
     await next(user);
-    expect(stepName()).toBe('2Workplace');
-    await user.type(screen.getByRole('textbox', { name: /Designation/ }), 'Project Officer');
-    await user.click(screen.getByRole('button', { name: /Program/ }));
-    await user.click(await screen.findByRole('option', { name: 'Self-reliance' }));
-    await user.click(screen.getByRole('button', { name: /Division of the workplace/ }));
-    await user.click(await screen.findByRole('option', { name: 'Dhaka' }));
-    await next(user);
+    expect(stepName()).toBe('2Account');
     await user.type(screen.getByLabelText(/^Password/), 'Nadi kul 2026');
     await user.type(screen.getByLabelText(/^Repeat the password/), 'Nadi kul 2026');
     await next(user);
-    expect(stepName()).toBe('4Photos');
+    expect(stepName()).toBe('3Photos');
     expect(screen.queryByRole('group', { name: /NID card/ })).not.toBeInTheDocument();
     await uploadAll(user, container, 1);
     await user.click(screen.getByRole('button', { name: 'Submit' }));
@@ -417,8 +410,6 @@ describe('the steps after the contacts', () => {
       password: 'Nadi kul 2026',
       name: 'New Person',
       designation: 'Project Officer',
-      homeProgramId: PROGRAM,
-      homeDivisionId: DHAKA,
     });
   }, 30_000);
 
@@ -456,13 +447,9 @@ describe('the steps after the contacts', () => {
       submit: () => apiError(410, 'registration.draft_expired', 'The registration has expired.'),
     });
     const { container } = renderApp(<RegisterPage />, 'en', { path: '/register' });
-    await verifyContacts(user, 'staff');
-    await next(user);
+    await user.click(screen.getByRole('button', { name: 'Official' }));
     await user.type(screen.getByRole('textbox', { name: /Designation/ }), 'Project Officer');
-    await user.click(screen.getByRole('button', { name: /Program/ }));
-    await user.click(await screen.findByRole('option', { name: 'Self-reliance' }));
-    await user.click(screen.getByRole('button', { name: /Division of the workplace/ }));
-    await user.click(await screen.findByRole('option', { name: 'Dhaka' }));
+    await verifyContacts(user, 'staff');
     await next(user);
     await user.type(screen.getByLabelText(/^Password/), 'Nadi kul 2026');
     await user.type(screen.getByLabelText(/^Repeat the password/), 'Nadi kul 2026');
@@ -474,7 +461,7 @@ describe('the steps after the contacts', () => {
     expect(screen.getByText('Verify your identity')).toBeInTheDocument();
   }, 30_000);
 
-  it("the team member's reference shows the main volunteer's name", async () => {
+  it('asks no volunteer type, reference, bank or program anywhere in the volunteer steps', async () => {
     const user = userEvent.setup();
     api();
     renderApp(<RegisterPage />, 'en', { path: '/register' });
@@ -484,12 +471,76 @@ describe('the steps after the contacts', () => {
     await user.type(screen.getByRole('textbox', { name: /NID number/ }), '1000000000555');
     await chooseAddress(user);
     await next(user);
-    await user.click(screen.getByRole('button', { name: /Volunteer type/ }));
-    await user.click(screen.getByRole('option', { name: 'Team member' }));
-    await user.type(screen.getByRole('textbox', { name: /Main volunteer's NID/ }), '1000000000123');
-    await user.click(screen.getByRole('button', { name: 'Show the name' }));
-    expect(await screen.findByText('Main volunteer: মূল স্বেচ্ছাসেবক নমুনা')).toBeInTheDocument();
-    const lookup = seen.find((s) => s.path === '/auth/register/reference-lookup')!;
-    expect(lookup.headers.get('X-Registration-Token')).toBe(TOKEN);
-  }, 20_000);
+    expect(stepName()).toBe('3Work');
+    for (const gone of [/Volunteer type/, /Main volunteer/, /Bank/, /Account number/, /Branch/])
+      expect(screen.queryByText(gone)).not.toBeInTheDocument();
+    await next(user);
+    expect(stepName()).toBe('4Account');
+    expect(screen.queryByText(/Bank/)).not.toBeInTheDocument();
+  }, 30_000);
+});
+
+describe('the password checklist', () => {
+  /** The checklist items by their text, with whether each one is met. */
+  const checklist = () =>
+    Object.fromEntries(
+      within(screen.getByText('The password needs').parentElement!)
+        .getAllByRole('listitem')
+        .map((li) => [li.textContent, li.getAttribute('data-met')]),
+    );
+
+  async function toAccount(user: User) {
+    api();
+    const view = renderApp(<RegisterPage />, 'en', { path: '/register' });
+    await verifyContacts(user);
+    await next(user);
+    await user.type(screen.getByRole('textbox', { name: /Mother's name/ }), 'Mother');
+    await user.type(screen.getByRole('textbox', { name: /NID number/ }), '1000000000555');
+    await chooseAddress(user);
+    await next(user);
+    await next(user);
+    return view;
+  }
+
+  it('ticks the three conditions while typing and keeps the next step closed until all hold', async () => {
+    const user = userEvent.setup();
+    const { container } = await toAccount(user);
+    expect(checklist()).toEqual({
+      'At least 8 characters': 'false',
+      'One upper-case letter (A-Z)': 'false',
+      'One digit (0-9)': 'false',
+    });
+    const field = screen.getByLabelText(/^Password/);
+    await user.type(field, 'abcdefgh');
+    expect(checklist()).toEqual({
+      'At least 8 characters': 'true',
+      'One upper-case letter (A-Z)': 'false',
+      'One digit (0-9)': 'false',
+    });
+    await user.type(field, 'A');
+    expect(checklist()['One upper-case letter (A-Z)']).toBe('true');
+    await user.type(screen.getByLabelText(/^Repeat the password/), 'abcdefghA');
+    await next(user);
+    // one condition is still missing: the step stays and the field says so
+    expect(stepName()).toBe('4Account');
+    expect(screen.getByLabelText(/^Password/)).toHaveAccessibleDescription(
+      /upper-case letter and one digit/,
+    );
+    await user.type(field, '7');
+    expect(checklist()).toEqual({
+      'At least 8 characters': 'true',
+      'One upper-case letter (A-Z)': 'true',
+      'One digit (0-9)': 'true',
+    });
+    await expectNoAxeViolations(container);
+  }, 30_000);
+
+  it('accepts a password with the mobile number in it', async () => {
+    const user = userEvent.setup();
+    await toAccount(user);
+    await user.type(screen.getByLabelText(/^Password/), 'A01712345678');
+    await user.type(screen.getByLabelText(/^Repeat the password/), 'A01712345678');
+    await next(user);
+    expect(stepName()).toBe('5Photos');
+  }, 30_000);
 });

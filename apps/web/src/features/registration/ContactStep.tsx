@@ -21,7 +21,8 @@ const DUMMY_OTP_NOTE = import.meta.env.VITE_OTP_DUMMY === '1';
 
 /**
  * Step 1 (UX-16 of DECISION_LOG; plan docs/plans/2026-10-13-0922-feat-registration-redesign-plan.md,
- * R2; the owner's reference image): the name, the father's name (volunteers) and the
+ * R2; the owner's reference image): the name, the father's name (volunteers) or the designation
+ * (officials) and the
  * mobile number and email, each verified inside its own field; the code input opens below the
  * field it belongs to.
  */
@@ -64,7 +65,7 @@ export function ContactStep({
           autoComplete="name"
           error={errors.name}
         />
-        {kind === 'volunteer' && (
+        {kind === 'volunteer' ? (
           <TextField
             label={t('form.father_name')}
             name="fatherName"
@@ -72,6 +73,15 @@ export function ContactStep({
             onChange={(fatherName) => set({ fatherName })}
             required
             error={errors.fatherName}
+          />
+        ) : (
+          <TextField
+            label={t('form.designation')}
+            name="designation"
+            value={values.designation}
+            onChange={(designation) => set({ designation })}
+            required
+            error={errors.designation}
           />
         )}
         <ContactField

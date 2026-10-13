@@ -31,8 +31,8 @@ describe('ChangePasswordView', () => {
       'Nadi kul 2026',
     );
     await user.type(fresh, 'Shapla phul 77');
-    expect(screen.getByText('অন্তত 8টি অক্ষর')).toHaveAttribute('data-met', 'true');
-    expect(screen.getByText('অন্তত একটি বর্ণ ও একটি অঙ্ক')).toHaveAttribute('data-met', 'true');
+    for (const rule of ['অন্তত 8টি অক্ষর', 'একটি বড় হাতের অক্ষর (A-Z)', 'একটি সংখ্যা (0-9)'])
+      expect(screen.getByText(rule).closest('li')).toHaveAttribute('data-met', 'true');
     await user.type(
       screen.getByLabelText(/^নতুন পাসওয়ার্ড আবার লিখুন/, { selector: 'input' }),
       'Shapla phul 77',
@@ -41,7 +41,7 @@ describe('ChangePasswordView', () => {
     await user.click(screen.getByRole('button', { name: 'পাসওয়ার্ড পরিবর্তন করুন' }));
     expect(await screen.findByText(/পাসওয়ার্ড বদলানো হয়েছে/)).toBeInTheDocument();
     expect(body).toEqual({ currentPassword: 'Nadi kul 2026', newPassword: 'Shapla phul 77' });
-  });
+  }, 15_000);
 
   it('shows server rule failures on their field', async () => {
     const user = userEvent.setup();

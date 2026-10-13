@@ -233,6 +233,7 @@ function Value({
         me.bank.bankName,
         me.bank.accountName,
         me.bank.accountNumber,
+        me.bank.branchName,
         me.bank.routingNumber,
       ]
         .filter(Boolean)

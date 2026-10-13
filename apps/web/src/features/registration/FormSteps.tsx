@@ -1,20 +1,11 @@
-import { type PhotoSlot, VOLUNTEER_TYPES, type VolunteerType } from '@css/shared/registration';
-import type { Locale } from '@css/shared/i18n';
-import { Alert, Button, PasswordField, Select, TextField } from '@css/ui';
-import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
-import { useLocale, useTranslations } from 'use-intl';
+import type { PhotoSlot } from '@css/shared/registration';
+import { PasswordField, TextField } from '@css/ui';
+import { useTranslations } from 'use-intl';
 import { PasswordRules } from '../../components/PasswordRules';
 import { AddressFields } from './AddressFields';
-import { BANK_FIELDS, PHOTOS, type RegistrationValues, TEXT_FIELDS } from './form-state';
+import { PHOTOS, type RegistrationValues, TEXT_FIELDS } from './form-state';
 import { PhotoField } from './PhotoField';
-import {
-  type Draft,
-  failureOf,
-  locations,
-  lookupReference,
-  uploadDraftPhoto,
-} from './registration-api';
+import { type Draft, uploadDraftPhoto } from './registration-api';
 
 interface StepProps {
   values: RegistrationValues;
@@ -31,13 +22,6 @@ const TEXT_LABELS = {
   previousProjects: 'form.previous_projects',
   facebookId: 'form.facebook',
 } as const;
-const BANK_LABELS = {
-  bankName: 'form.bank_name',
-  accountName: 'form.account_name',
-  accountNumber: 'form.account_number',
-  routingNumber: 'form.routing_number',
-} as const;
-
 /** Volunteer step 2: the mother's name, the NID, WhatsApp and the address. */
 export function IdentityStep({ values, set, errors }: StepProps) {
   const t = useTranslations('registration');
@@ -84,66 +68,11 @@ export function IdentityStep({ values, set, errors }: StepProps) {
   );
 }
 
-/** Volunteer step 3: the type (the main volunteer's NID for a team member) and the work details. */
-export function WorkStep({ values, set, errors, draft }: StepProps & { draft: Draft }) {
+/** Volunteer step 3: the work details (all optional). */
+export function WorkStep({ values, set, errors }: StepProps) {
   const t = useTranslations('registration');
-  const tl = useTranslations('auth.login');
-  const [reference, setReference] = useState<{ name?: string; missing?: boolean; error?: string }>(
-    {},
-  );
-  const check = () => {
-    setReference({});
-    void lookupReference(draft, values.referenceNid)
-      .then(({ name }) => setReference({ name }))
-      .catch((failure: unknown) => {
-        const f = failureOf(failure, tl('offline'));
-        if (f.code === 'permission.not_found') setReference({ missing: true });
-        else setReference({ error: f.fields.nid ?? f.message ?? tl('offline') });
-      });
-  };
   return (
     <div className="register-grid">
-      <Select
-        label={t('form.type')}
-        name="type"
-        required
-        value={values.type}
-        onChange={(id) => id && set({ type: id as VolunteerType })}
-        options={VOLUNTEER_TYPES.map((id) => ({ id, label: t(`form.types.${id}`) }))}
-        error={errors.type}
-      />
-      {values.type === 'team_member' && (
-        <div className="register-stack">
-          <TextField
-            label={t('form.reference_nid')}
-            name="referenceNid"
-            value={values.referenceNid}
-            onChange={(v) => {
-              // the name shown belongs to the NID it was looked up for
-              setReference({});
-              set({ referenceNid: digits(17)(v) });
-            }}
-            inputMode="numeric"
-            required
-            error={errors.referenceNid ?? reference.error}
-            endAction={
-              <Button size="sm" variant="secondary" onPress={check}>
-                {t('form.reference_check')}
-              </Button>
-            }
-          />
-          {reference.name && (
-            <Alert tone="success" live="status">
-              {t('form.reference_found', { name: reference.name })}
-            </Alert>
-          )}
-          {reference.missing && (
-            <Alert tone="warning" live="status">
-              {t('form.reference_missing')}
-            </Alert>
-          )}
-        </div>
-      )}
       {TEXT_FIELDS.map((key) => (
         <TextField
           key={key}
@@ -158,69 +87,11 @@ export function WorkStep({ values, set, errors, draft }: StepProps & { draft: Dr
   );
 }
 
-/** Official step 2: the designation, the program and the division of the workplace. */
-export function WorkplaceStep({ values, set, errors, draft }: StepProps & { draft: Draft }) {
-  const t = useTranslations('registration');
-  const locale = useLocale() as Locale;
-  const divisions = useQuery({
-    queryKey: ['locations', 'divisions'],
-    queryFn: () => locations(),
-    staleTime: 60 * 60_000,
-  }).data;
-  return (
-    <div className="register-grid">
-      <TextField
-        label={t('form.designation')}
-        name="designation"
-        value={values.designation}
-        onChange={(designation) => set({ designation })}
-        required
-        error={errors.designation}
-      />
-      <Select
-        label={t('form.program')}
-        name="homeProgramId"
-        required
-        value={values.homeProgramId}
-        onChange={(homeProgramId) => set({ homeProgramId })}
-        options={(draft.programs ?? []).map((p) => ({ id: p.id, label: p.name[locale] }))}
-        error={errors.homeProgramId}
-      />
-      <Select
-        label={t('form.region')}
-        name="homeDivisionId"
-        required
-        value={values.homeDivisionId}
-        onChange={(homeDivisionId) => set({ homeDivisionId })}
-        options={(divisions ?? []).map((d) => ({ id: d.id, label: d.name[locale] }))}
-        error={errors.homeDivisionId}
-      />
-    </div>
-  );
-}
-
-/** The bank details (volunteers, optional) and the password. */
-export function AccountStep({ values, set, errors, withBank }: StepProps & { withBank: boolean }) {
+/** The password, checked while it is typed (O-64). */
+export function AccountStep({ values, set, errors }: StepProps) {
   const t = useTranslations('registration');
   return (
     <div className="register-stack">
-      {withBank && (
-        <fieldset className="register-fieldset">
-          <legend>{t('form.bank')}</legend>
-          <div className="register-grid">
-            {BANK_FIELDS.map((key) => (
-              <TextField
-                key={key}
-                label={t(BANK_LABELS[key])}
-                name={key}
-                value={values.bank[key]}
-                onChange={(v) => set({ bank: { ...values.bank, [key]: v } })}
-                error={errors[`bank.${key}`]}
-              />
-            ))}
-          </div>
-        </fieldset>
-      )}
       <div className="register-grid">
         <PasswordField
           label={t('form.password')}
