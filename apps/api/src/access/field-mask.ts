@@ -119,6 +119,9 @@ function walk(schema: ZodType, value: unknown, visible: ReadonlySet<string>): un
   const { marks: own, core } = unwrap(schema);
   if (own.some((m) => !m.rows && !visible.has(m.cls))) return HIDDEN;
   const def = defOf(core);
+  // a leaf holds its value whole, also an object or an array under `z.unknown()` (the answer of an
+  // edit request); it has no nested marks to look at
+  if (LEAVES.has(def.type)) return value;
   if (def.type === 'union' && def.options) {
     // the parsed value matched an option; mask with that option, hide it when none matches
     const option = def.options.find((o) => o.safeParse(value).success);

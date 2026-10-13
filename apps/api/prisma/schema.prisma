@@ -1279,6 +1279,7 @@ model Volunteer {
   bankName                          String?                  @map("bank_name")
   bankAccountName                   String?                  @map("bank_account_name")
   bankAccountNumber                 String?                  @map("bank_account_number")
+  bankBranchName                    String?                  @map("bank_branch_name")
   bankRoutingNumber                 String?                  @map("bank_routing_number")
   referenceNid                      String?                  @map("reference_nid")
   referenceVolunteerId              String?                  @map("reference_volunteer_id") @db.Uuid

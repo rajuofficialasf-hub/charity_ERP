@@ -35,6 +35,7 @@ const ownProfile = z.object({
     bankName: z.string().optional(),
     accountName: z.string().optional(),
     accountNumber: z.string().optional(),
+    branchName: z.string().optional(),
     routingNumber: z.string().optional(),
   }),
   referenceNid: text,

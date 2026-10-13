@@ -30,6 +30,7 @@ export const SENSITIVE_KEYS = [
   'bankAccount',
   'accountNumber',
   'bankAccountNumber',
+  'branchName',
   'bankAccountName',
   'bankRoutingNumber',
   'bank',

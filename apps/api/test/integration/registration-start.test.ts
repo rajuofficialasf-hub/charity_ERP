@@ -10,7 +10,7 @@ import type { StorageDriver } from '../../src/storage';
 import { account, authHarness, type AuthHarness } from './support/auth-app';
 import * as f from './support/fixtures';
 
-// Registration start, the per-channel codes and the reference lookup (AUTH.md 2; DECISION_LOG
+// Registration start and the per-channel codes (AUTH.md 2; DECISION_LOG
 // D-082, D-086, D-088, D-090; plans docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md,
 // U4, and docs/plans/2026-10-13-0922-feat-registration-redesign-plan.md, U3). The dummy OTP of the
 // test configuration is 246810.
@@ -245,18 +245,12 @@ describe('POST /auth/register/otp/verify', () => {
     expect((await draftRow(id)).verified_at).not.toBeNull();
   });
 
-  it("gives an official's draft the active programs for the form, and a volunteer's none", async () => {
-    const program = (await f.project(h.db)).program;
-    const closed = (await f.project(h.db)).program;
-    await h.db.query('UPDATE programs SET active = false WHERE id = $1', [closed]);
-    const staff = await verifyBoth(await start('staff'), contacts());
-    expect(staff.body.data.programs).toContainEqual({
-      id: program,
-      name: { bn: 'প্রোগ্রাম', en: 'Program' },
-    });
-    expect(staff.body.data.programs.map((p: { id: string }) => p.id)).not.toContain(closed);
-    const volunteer = await verifyBoth(await start(), contacts());
-    expect(volunteer.body.data).not.toHaveProperty('programs');
+  it('the answer of a verified draft carries no program list (O-64)', async () => {
+    for (const kind of ['staff', 'volunteer'] as const) {
+      const done = await verifyBoth(await start(kind), contacts());
+      expect(done.body.data).toMatchObject({ verified: ['sms', 'email'], kind });
+      expect(done.body.data).not.toHaveProperty('programs');
+    }
   });
 
   it('names the code of a wrong answer, counts the attempt and needs a sent code', async () => {
@@ -358,91 +352,14 @@ describe('POST /auth/register/otp/verify', () => {
   });
 });
 
-describe('POST /auth/register/reference-lookup', () => {
-  const lookup = (registrationId: string, nid: string, token?: string) => {
-    const req = api().post('/api/v1/auth/register/reference-lookup');
-    if (token) req.set(TOKEN_HEADER, token);
-    return req.send({ registrationId, nid });
-  };
-
-  it('returns the name of an active volunteer and audits the lookup with a hashed NID', async () => {
-    const loc = await f.locationTree(h.db);
-    const main = await account(h.db, { kind: 'volunteer' });
-    const nid = f.fakeNid();
-    await f.volunteer(h.db, loc, main.id, { nid });
+describe('the reference lookup of the team member registration is gone (O-64, D-091)', () => {
+  it('answers 404 even with a valid draft token', async () => {
     const r = await verified();
-    const res = await lookup(r.registrationId, nid, r.token);
-    expect(res.status).toBe(200);
-    expect(res.body.data).toEqual({ name: expect.stringMatching(/^নমুনা /) });
-    const entry = (
-      await h.db.query(
-        `SELECT new FROM audit_log WHERE entity_id = $1 AND action = 'auth.reference_lookup'`,
-        [r.registrationId],
-      )
-    ).rows[0];
-    expect(entry.new.found).toBe(true);
-    expect(JSON.stringify(entry.new)).not.toContain(nid);
-  });
-
-  it('answers 404 for an unknown NID and for a blocked or pending volunteer', async () => {
-    const loc = await f.locationTree(h.db);
-    const r = await verified();
-    expect((await lookup(r.registrationId, f.fakeNid(), r.token)).status).toBe(404);
-    for (const state of ['blocked', 'pending']) {
-      const v = await account(h.db, { kind: 'volunteer', state });
-      const nid = f.fakeNid();
-      await f.volunteer(h.db, loc, v.id, { nid });
-      expect((await lookup(r.registrationId, nid, r.token)).status).toBe(404);
-    }
-  });
-
-  it('refuses a missing token, another draft token and an unverified draft (401)', async () => {
-    const a = await verified();
-    const b = await verified();
-    const nid = f.fakeNid();
-    for (const res of [
-      await lookup(a.registrationId, nid),
-      await lookup(a.registrationId, nid, b.token),
-      await lookup(a.registrationId, nid, 'x'.repeat(43)),
-    ]) {
-      expect(res.status).toBe(401);
-      expect(res.body.error.code).toBe('registration.token_invalid');
-    }
-    const unverified = await start();
-    expect((await lookup(unverified, nid, a.token)).status).toBe(401);
-  });
-
-  it('answers 410 for an expired draft with its valid token', async () => {
-    const r = await verified();
-    await h.db.query(
-      `UPDATE registration_drafts SET expires_at = now() - interval '1 minute' WHERE id = $1`,
-      [r.registrationId],
-    );
-    const res = await lookup(r.registrationId, f.fakeNid(), r.token);
-    expect(res.status).toBe(410);
-    expect(res.body.error.code).toBe('registration.draft_expired');
-  });
-
-  it('allows 5 lookups of one NID per day across drafts, counted only with a valid token', async () => {
-    const nid = f.fakeNid();
-    const a = await verified();
-    const b = await verified();
-    // requests without a valid token do not use up the NID
-    for (let i = 0; i < 6; i += 1)
-      expect((await lookup(a.registrationId, nid, 'y'.repeat(43))).status).toBe(401);
-    for (let i = 0; i < 3; i += 1)
-      expect((await lookup(a.registrationId, nid, a.token)).status).toBe(404);
-    for (let i = 0; i < 2; i += 1)
-      expect((await lookup(b.registrationId, nid, b.token)).status).toBe(404);
-    expect((await lookup(b.registrationId, nid, b.token)).status).toBe(429);
-  });
-
-  it('stops after 5 lookups per draft', async () => {
-    const r = await verified();
-    for (let i = 0; i < 5; i += 1)
-      expect((await lookup(r.registrationId, f.fakeNid(), r.token)).status).toBe(404);
-    const res = await lookup(r.registrationId, f.fakeNid(), r.token);
-    expect(res.status).toBe(429);
+    const res = await api()
+      .post('/api/v1/auth/register/reference-lookup')
+      .set(TOKEN_HEADER, r.token)
+      .send({ registrationId: r.registrationId, nid: f.fakeNid() });
+    expect(res.status).toBe(404);
   });
 });
 
@@ -543,10 +460,11 @@ describe('logs', () => {
   it('carry no draft token, code, mobile, email or NID, also from the per-channel steps', async () => {
     const r = await verified();
     const nid = f.fakeNid();
+    // a refused submit carries the NID in its body
     await request(h.server())
-      .post('/api/v1/auth/register/reference-lookup')
+      .post('/api/v1/auth/register/submit')
       .set(TOKEN_HEADER, r.token)
-      .send({ registrationId: r.registrationId, nid });
+      .send({ kind: 'volunteer', registrationId: r.registrationId, nid });
     const text = logLines.join('');
     expect(text.length).toBeGreaterThan(0);
     for (const secret of [r.token, CODE, r.mobile, r.email, nid])

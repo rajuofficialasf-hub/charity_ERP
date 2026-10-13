@@ -334,8 +334,8 @@ components:
         validation.failed with field details; business rules such as beneficiary.identity_missing,
         beneficiary.mobile_is_volunteer_mobile, beneficiary.blocked, beneficiary.locked_field,
         workflow.reason_required, workflow.comment_required, otp.invalid, otp.expired, file.source_not_allowed;
-        password details validation.password_too_short, validation.password_letter_digit,
-        validation.password_identity, validation.password_common, auth.current_password_invalid.
+        password details validation.password_too_short, validation.password_uppercase_digit,
+        auth.current_password_invalid.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -508,37 +508,11 @@ components:
         registrationToken: { type: string, description: Shown once; sent back in X-Registration-Token (D-082) }
         expiresAt: { type: string, format: date-time }
         kind: { type: string, enum: [volunteer, staff] }
-        programs:
-          type: array
-          description: The active programs for the staff form; an official's draft only (R5 of the T1.9 plan)
-          items:
-            type: object
-            required: [id, name]
-            properties:
-              id: { $ref: '#/components/schemas/Uuid' }
-              name: { $ref: '#/components/schemas/Bilingual' }
     RegistrationVerifiedResponse:
       type: object
       required: [data, meta]
       properties:
         data: { $ref: '#/components/schemas/RegistrationVerified' }
-        meta: { $ref: '#/components/schemas/Meta' }
-    ReferenceLookupRequest:
-      type: object
-      additionalProperties: false
-      required: [registrationId, nid]
-      properties:
-        registrationId: { $ref: '#/components/schemas/Uuid' }
-        nid: { type: string, pattern: '^([0-9]{10}|[0-9]{13}|[0-9]{17})$' }
-    ReferenceLookupResponse:
-      type: object
-      required: [data, meta]
-      properties:
-        data:
-          type: object
-          required: [name]
-          properties:
-            name: { type: string, description: Name of the active volunteer with this NID (R3 of the T1.9 plan) }
         meta: { $ref: '#/components/schemas/Meta' }
     UploadedPhotoResponse:
       type: object
@@ -557,21 +531,21 @@ components:
         bankName: { type: string, maxLength: 200 }
         accountName: { type: string, maxLength: 200 }
         accountNumber: { type: string, maxLength: 40 }
+        branchName: { type: string, maxLength: 100 }
         routingNumber: { type: string, maxLength: 20 }
     VolunteerRegistrationSubmit:
       type: object
       additionalProperties: false
-      required: [kind, registrationId, password, name, fatherName, motherName, nid, type, divisionId, districtId, upazilaId, unionId]
+      required: [kind, registrationId, password, name, fatherName, motherName, nid, divisionId, districtId, upazilaId, unionId]
       properties:
         kind: { type: string, const: volunteer }
         registrationId: { $ref: '#/components/schemas/Uuid' }
-        password: { type: string, minLength: 8, maxLength: 128, description: 'At least one letter and one digit (O-05)' }
+        password: { type: string, minLength: 8, maxLength: 128, description: 'At least one upper-case letter and one digit (O-64)' }
         name: { type: string, minLength: 1, maxLength: 200 }
         fatherName: { type: string, minLength: 1, maxLength: 200 }
         motherName: { type: string, minLength: 1, maxLength: 200 }
         nid: { type: string, pattern: '^([0-9]{10}|[0-9]{13}|[0-9]{17})$' }
         whatsapp: { type: string, pattern: '^01[3-9][0-9]{8}$' }
-        type: { type: string, enum: [general, local_daee, both, team_member, paid] }
         divisionId: { $ref: '#/components/schemas/Uuid' }
         districtId: { $ref: '#/components/schemas/Uuid' }
         upazilaId: { $ref: '#/components/schemas/Uuid' }
@@ -582,20 +556,16 @@ components:
         workDescription: { type: string, maxLength: 2000 }
         previousProjects: { type: string, maxLength: 2000 }
         facebookId: { type: string, maxLength: 200 }
-        bank: { $ref: '#/components/schemas/BankDetails' }
-        referenceNid: { type: string, pattern: '^([0-9]{10}|[0-9]{13}|[0-9]{17})$', description: Required for a team member }
     StaffRegistrationSubmit:
       type: object
       additionalProperties: false
-      required: [kind, registrationId, password, name, designation, homeProgramId, homeDivisionId]
+      required: [kind, registrationId, password, name, designation]
       properties:
         kind: { type: string, const: staff }
         registrationId: { $ref: '#/components/schemas/Uuid' }
         password: { type: string, minLength: 8, maxLength: 128 }
         name: { type: string, minLength: 1, maxLength: 200 }
         designation: { type: string, minLength: 1, maxLength: 200 }
-        homeProgramId: { $ref: '#/components/schemas/Uuid' }
-        homeDivisionId: { $ref: '#/components/schemas/Uuid' }
     RegistrationSubmitRequest:
       description: The form of the draft's kind (MASTER_SPEC A5, D-088); the photos are linked through the draft
       oneOf:
@@ -912,6 +882,7 @@ components:
                 bankName: { type: [string, 'null'] }
                 accountName: { type: [string, 'null'] }
                 accountNumber: { type: [string, 'null'] }
+                branchName: { type: [string, 'null'] }
                 routingNumber: { type: [string, 'null'] }
             photoFileId: { type: [string, 'null'], format: uuid }
             referenceVolunteerId: { type: [string, 'null'], format: uuid }
@@ -2303,35 +2274,6 @@ paths:
               schema: { $ref: '#/components/schemas/RegistrationVerifiedResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
-        '410': { $ref: '#/components/responses/Gone' }
-        '422': { $ref: '#/components/responses/Unprocessable' }
-        '429': { $ref: '#/components/responses/TooManyRequests' }
-  /auth/register/reference-lookup:
-    post:
-      tags: [auth]
-      operationId: auth.registration.referenceLookup
-      summary: Name of the active volunteer whose NID a team member gives as reference (verified draft only; limited and audited, D-088)
-      security: []
-      x-permission: public
-      x-scope: self
-      x-audit: auth.reference_lookup
-      x-idempotency: none
-      x-rate-limit: reference-lookup
-      parameters:
-        - $ref: '#/components/parameters/RegistrationToken'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/ReferenceLookupRequest' }
-      responses:
-        '200':
-          description: Matching volunteer
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ReferenceLookupResponse' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
         '410': { $ref: '#/components/responses/Gone' }
         '422': { $ref: '#/components/responses/Unprocessable' }
         '429': { $ref: '#/components/responses/TooManyRequests' }

@@ -37,9 +37,7 @@
     "option_unknown": "The chosen option is not in the list.",
     "bangla_text": "Write in Bangla.",
     "password_too_short": "The password is too short.",
-    "password_letter_digit": "Use at least one letter and one digit in the password.",
-    "password_identity": "Do not use your mobile number or email as the password.",
-    "password_common": "This password is too common. Choose another one."
+    "password_uppercase_digit": "Use at least one upper-case letter and one digit in the password."
   },
   "beneficiary": {
     "identity_missing": "Enter the NID or the birth registration number.",

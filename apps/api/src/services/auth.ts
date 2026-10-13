@@ -7,7 +7,6 @@ import {
   type PasswordResetCompleteRequest,
   type TokenPair,
 } from '@css/shared/auth';
-import { commonPasswords } from '@css/shared/auth/common-passwords';
 import type { Locale } from '@css/shared/i18n';
 import type { Logger } from 'pino';
 import { type AuditWriter } from '../audit/audit-writer';
@@ -281,15 +280,12 @@ export class AuthService {
 
   private async assertPasswordRules(
     tx: Tx,
-    user: { id: string; mobile: string | null; email: string | null },
+    user: { id: string },
     password: string,
     field: string,
   ): Promise<void> {
     const problems = checkPassword(password, {
       minLength: minPasswordLength(await this.hasGlobalScope(tx, user.id)),
-      mobile: user.mobile,
-      email: user.email,
-      common: commonPasswords(),
     });
     if (problems.length)
       throw new ApiError(

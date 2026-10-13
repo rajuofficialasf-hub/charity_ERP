@@ -101,7 +101,7 @@ sensitive_fields:
     visible_to: [program_manager, regional_program_manager, project_executive]
     source: "A5, B8"
   - key: volunteer.bank
-    fields: [volunteers.bank_name, volunteers.bank_account_name, volunteers.bank_account_number, volunteers.bank_routing_number]
+    fields: [volunteers.bank_name, volunteers.bank_account_name, volunteers.bank_account_number, volunteers.bank_branch_name, volunteers.bank_routing_number]
     visible_to: [program_manager, regional_program_manager, project_executive, finance_team]
     source: "A5 (used when paying operational expenses), B8"
   - key: volunteer.rating

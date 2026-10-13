@@ -252,12 +252,6 @@ describe('registration rate-limit windows', () => {
     expect(byDraft!.skip!(req({ kind: 'volunteer' }))).toBe(true);
   });
 
-  it('counts reference lookups per address only; the per-NID count needs a draft token', () => {
-    expect(RATE_LIMITS['reference-lookup'].map((w) => [w.limit, w.ttlMs, w.byIp])).toEqual([
-      [20, 86_400_000, true],
-    ]);
-  });
-
   it('keys a contact code by the change request in the path when the body names none', () => {
     const withPath = (requestId: string) =>
       ({ body: { code: '123456' }, ip: '10.0.0.1', headers: {}, params: { requestId } }) as never;

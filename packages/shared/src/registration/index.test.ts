@@ -57,7 +57,6 @@ describe('the registration submit schemas', () => {
     fatherName: 'নমুনা পিতা',
     motherName: 'নমুনা মাতা',
     nid: '1000000000123',
-    type: 'general',
     divisionId: uuid,
     districtId: uuid,
     upazilaId: uuid,
@@ -69,8 +68,6 @@ describe('the registration submit schemas', () => {
     password: 'Nadi kul 2026',
     name: 'নমুনা কর্মকর্তা',
     designation: 'Project Officer',
-    homeProgramId: uuid,
-    homeDivisionId: uuid,
   };
   const issues = (value: unknown) =>
     registrationSubmitRequestSchema
@@ -95,13 +92,16 @@ describe('the registration submit schemas', () => {
     expect(issues({ ...volunteer, nid: '12345' })).toEqual([['nid', 'validation.nid_format']]);
   });
 
-  it('a team member needs the reference NID of the main volunteer', () => {
-    expect(issues({ ...volunteer, type: 'team_member' })).toEqual([
-      ['referenceNid', 'validation.required'],
-    ]);
-    expect(issues({ ...volunteer, type: 'team_member', referenceNid: '1000000000999' })).toEqual(
-      [],
-    );
+  it('refuses what the owner removed from the registration: type, reference, bank, program, workplace (O-64)', () => {
+    for (const extra of [
+      { type: 'general' },
+      { type: 'paid' },
+      { referenceNid: '1000000000999' },
+      { bank: { bankName: 'Test Bank' } },
+    ])
+      expect(issues({ ...volunteer, ...extra }).length, JSON.stringify(extra)).toBe(1);
+    for (const extra of [{ homeProgramId: uuid }, { homeDivisionId: uuid }])
+      expect(issues({ ...staff, ...extra }).length, JSON.stringify(extra)).toBe(1);
   });
 });
 

@@ -147,7 +147,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | validation | validation.unknown_parameter | 400 | unknown query parameter |
 | validation | validation.malformed | 400 | unparsable JSON or wrong content type |
 | validation | validation.nid_format, validation.birth_reg_format, validation.mobile_format, validation.required, validation.too_long, validation.out_of_range, validation.option_unknown, validation.bangla_text | 422 (as details) | field-level problems |
-| validation | validation.password_too_short, validation.password_letter_digit, validation.password_identity, validation.password_common | 422 (as details) | password rules of AUTH.md §3 (T1.7, D-071) |
+| validation | validation.password_too_short, validation.password_uppercase_digit | 422 (as details) | password rules of AUTH.md §3 (T1.7, D-071) |
 | session | session.use_logout | 409 | the current device session is ended with logout, not revoke (T1.7) |
 | user | user.system_owner_protected | 409 | the Main Admin cannot be blocked, deactivated or have its sessions revoked by others (BR-035, AUTH.md §11) |
 | user | user.handover_required | 409 | deactivation before a completed handover (BR-034) |
@@ -228,7 +228,6 @@ Implementation (T1.6, O-57): `IdempotencyService` in apps/api: `replayByClientUu
 | refresh | 60 per hour | device session |
 | public-form | 20 per hour (O-08, NFR-41) | IP |
 | registration | 10 registrations started per IP per day, plus the `otp-request` windows (D-082) | IP, address |
-| reference-lookup | 20 per IP per day; 5 per draft and 5 per NID per day are counted by the service after the draft token is checked (D-088), so a caller without a draft cannot use up an NID; a team member's submit checks its reference through the same count, and a draft allows 5 refused submits (409, 422) before 429 | IP; draft and NID hash in the service |
 | reference-read | 300 per hour (public reference data, D-083) | IP |
 | default | 600 per minute per user (PROPOSAL, tuned by the load test T3.4) | user |
 | sync | 60 batches per minute per device session (PROPOSAL) | device session |

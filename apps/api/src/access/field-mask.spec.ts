@@ -108,6 +108,35 @@ describe('masking nested data', () => {
   });
 });
 
+describe('a value under z.unknown() stays whole', () => {
+  // the answer of an edit request is an object or a text; the mask must not empty it
+  const schema = z.object({
+    newValue: z.unknown().optional(),
+    secret: sensitive(z.string(), 'volunteer.bank'),
+  });
+
+  it('keeps an object and an array that a leaf schema holds', () => {
+    const visible = visibleFieldClasses(registry, ['regional_program_manager']);
+    expect(
+      maskData(schema, { newValue: { bankName: 'B', branchName: 'C' }, secret: 's' }, visible),
+    ).toEqual({
+      newValue: { bankName: 'B', branchName: 'C' },
+      secret: 's',
+    });
+    expect(maskData(schema, { newValue: [1, { a: 2 }], secret: 's' }, visible)).toEqual({
+      newValue: [1, { a: 2 }],
+      secret: 's',
+    });
+  });
+
+  it('still removes the marked sibling for a role without the class', () => {
+    const visible = visibleFieldClasses(registry, ['media_team']);
+    expect(maskData(schema, { newValue: { a: 1 }, secret: 's' }, visible)).toEqual({
+      newValue: { a: 1 },
+    });
+  });
+});
+
 describe('masking in every position (fail closed)', () => {
   const none = new Set<string>();
   const donor = sensitive(z.object({ name: z.string() }), 'donor.data');

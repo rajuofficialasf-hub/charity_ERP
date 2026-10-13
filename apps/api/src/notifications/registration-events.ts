@@ -8,7 +8,6 @@ import type { Logger } from 'pino';
 export type RegistrationEventType =
   | 'registration.started'
   | 'registration.verified'
-  | 'registration.reference_lookup'
   | 'registration.submitted'
   | 'registration.approved'
   | 'registration.rejected'

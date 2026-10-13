@@ -62,7 +62,6 @@ async function registerVolunteer(tree: Tree, over: Record<string, unknown> = {})
       fatherName: 'পিতা',
       motherName: 'মাতা',
       nid: f.fakeNid(),
-      type: 'general',
       divisionId: tree.division,
       districtId: tree.district,
       upazilaId: tree.upazila,
@@ -81,8 +80,6 @@ async function registerStaff() {
     password: PASSWORD,
     name: 'নতুন কর্মকর্তা',
     designation: 'Project Officer',
-    homeProgramId: world.a1.program,
-    homeDivisionId: world.dhaka.division,
   });
   if (res.status !== 201) throw new Error(`staff submit ${res.status}`);
   return { userId: res.body.data.id as string, email: d.email };

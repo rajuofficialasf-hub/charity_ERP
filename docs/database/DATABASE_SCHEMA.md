@@ -704,7 +704,7 @@ Index: (beneficiary_id, recorded_at desc).
 | education | text | yes | — | — |
 | experience, work_description, previous_projects | text | yes | — | — |
 | facebook_id | text | yes | — | — |
-| bank_name, bank_account_name, bank_account_number, bank_routing_number | text | yes | — | sensitive class `volunteer.bank` |
+| bank_name, bank_account_name, bank_account_number, bank_branch_name, bank_routing_number | text | yes | — | sensitive class `volunteer.bank`; the branch was added by migration `20261013100000_volunteer_bank_branch` (O-64) |
 | reference_nid | text | yes | — | main volunteer's NID (team members) |
 | reference_volunteer_id | uuid | yes | — | FK volunteers, resolved from reference_nid |
 | photo_file_id | uuid | yes | — | FK files |

@@ -40,14 +40,12 @@ const volunteerForm = (d: Pick<Draft, 'registrationId'>, over: Record<string, un
   fatherName: 'নমুনা পিতা',
   motherName: 'নমুনা মাতা',
   nid: f.fakeNid(),
-  type: 'general',
   divisionId: loc.division,
   districtId: loc.district,
   upazilaId: loc.upazila,
   unionId: loc.union,
   whatsapp: f.fakeMobile(),
   education: 'স্নাতক',
-  bank: { bankName: 'Test Bank', accountName: 'নমুনা', accountNumber: '0000111122223333' },
   ...over,
 });
 
@@ -57,8 +55,6 @@ const staffForm = (d: Pick<Draft, 'registrationId'>, over: Record<string, unknow
   password: PASSWORD,
   name: 'নমুনা কর্মকর্তা',
   designation: 'Project Officer',
-  homeProgramId: programId,
-  homeDivisionId: loc.division,
   ...over,
 });
 
@@ -101,7 +97,8 @@ describe('POST /auth/register/submit', () => {
       type: 'general',
       father_name: form.fatherName,
       union_id: loc.union,
-      bank_account_number: '0000111122223333',
+      bank_account_number: null,
+      reference_volunteer_id: null,
       photo_file_id: photoId,
       nid_photo_file_id: nidPhotoId,
       nid_photo_back_file_id: nidBackId,
@@ -126,7 +123,7 @@ describe('POST /auth/register/submit', () => {
     expect((await submit(d.token, volunteerForm(d))).status).toBe(401);
   });
 
-  it('creates a pending official with designation, program and region and no volunteer row', async () => {
+  it('creates a pending official with designation only, no program, no workplace and no volunteer row', async () => {
     const d = await verifiedDraft(h, 'staff');
     const photoId = (await photo(d, 'photo', jpeg(), 'image/jpeg')).body.data.fileId as string;
     const res = await submit(d.token, staffForm(d));
@@ -137,8 +134,8 @@ describe('POST /auth/register/submit', () => {
       kind: 'staff',
       state: 'pending',
       designation: 'Project Officer',
-      home_program_id: programId,
-      home_division_id: loc.division,
+      home_program_id: null,
+      home_division_id: null,
     });
     expect(
       (await h.db.query('SELECT 1 FROM volunteers WHERE user_id = $1', [userId])).rowCount,
@@ -161,7 +158,7 @@ describe('POST /auth/register/submit', () => {
     expect(weak.status).toBe(422);
     expect(weak.body.error.details[0]).toMatchObject({
       path: 'password',
-      code: 'validation.password_letter_digit',
+      code: 'validation.password_uppercase_digit',
     });
   });
 
@@ -175,26 +172,22 @@ describe('POST /auth/register/submit', () => {
     expect(res.body.error.code).toBe('registration.nid_exists');
   });
 
-  it('links a team member to the active main volunteer and refuses an unknown reference', async () => {
-    const main = await account(h.db, { kind: 'volunteer' });
-    const mainNid = f.fakeNid();
-    const mainId = await f.volunteer(h.db, loc, main.id, { nid: mainNid });
+  it('refuses the fields the owner removed: type, reference, bank, program and workplace (O-64)', async () => {
     const d = await verifiedDraft(h);
-    const unknown = await submit(
-      d.token,
-      volunteerForm(d, { type: 'team_member', referenceNid: f.fakeNid() }),
+    for (const extra of [
+      { type: 'paid' },
+      { type: 'general' },
+      { referenceNid: f.fakeNid() },
+      { bank: { bankName: 'Test Bank' } },
+    ])
+      expect((await submit(d.token, volunteerForm(d, extra))).status).toBe(422);
+    const staff = await verifiedDraft(h, 'staff');
+    for (const extra of [{ homeProgramId: programId }, { homeDivisionId: loc.division }])
+      expect((await submit(staff.token, staffForm(staff, extra))).status).toBe(422);
+    // nothing was created
+    expect((await h.db.query('SELECT 1 FROM users WHERE mobile = $1', [d.mobile])).rowCount).toBe(
+      0,
     );
-    expect(unknown.status).toBe(422);
-    expect(unknown.body.error.details[0].path).toBe('referenceNid');
-    const ok = await submit(
-      d.token,
-      volunteerForm(d, { type: 'team_member', referenceNid: mainNid }),
-    );
-    expect(ok.status).toBe(201);
-    const v = await h.db.query('SELECT reference_volunteer_id FROM volunteers WHERE user_id = $1', [
-      ok.body.data.id,
-    ]);
-    expect(v.rows[0].reference_volunteer_id).toBe(mainId);
   });
 
   it('refuses an expired draft (410), a missing token and another draft token (401)', async () => {
@@ -275,48 +268,6 @@ describe('submit refusals', () => {
     expect(res.body.error.code).toBe('registration.account_exists');
   });
 
-  it('refuses an unknown program or division for an official (422)', async () => {
-    const d = await verifiedDraft(h, 'staff');
-    const program = await submit(d.token, staffForm(d, { homeProgramId: randomUUID() }));
-    expect(program.status).toBe(422);
-    expect(program.body.error.details[0].path).toBe('homeProgramId');
-    const division = await submit(d.token, staffForm(d, { homeDivisionId: loc.district }));
-    expect(division.status).toBe(422);
-    expect(division.body.error.details[0].path).toBe('homeDivisionId');
-  });
-
-  it('a team member reference to a closed volunteer is unknown, and every reference is counted', async () => {
-    const closed = await account(h.db, { kind: 'volunteer', state: 'deactivated' });
-    const closedNid = f.fakeNid();
-    await f.volunteer(h.db, loc, closed.id, { nid: closedNid });
-    const d = await verifiedDraft(h);
-    const first = await submit(
-      d.token,
-      volunteerForm(d, { type: 'team_member', referenceNid: closedNid }),
-    );
-    expect(first.status).toBe(422);
-    expect(first.body.error.details[0].path).toBe('referenceNid');
-    for (let i = 0; i < 4; i += 1)
-      expect(
-        (
-          await submit(
-            d.token,
-            volunteerForm(d, { type: 'team_member', referenceNid: f.fakeNid() }),
-          )
-        ).status,
-      ).toBe(422);
-    const lookups = await h.db.query(
-      `SELECT count(*)::int AS n FROM audit_log WHERE action = 'auth.reference_lookup' AND entity_id = $1`,
-      [d.registrationId],
-    );
-    expect(lookups.rows[0].n).toBe(5);
-    const sixth = await submit(
-      d.token,
-      volunteerForm(d, { type: 'team_member', referenceNid: f.fakeNid() }),
-    );
-    expect(sixth.status).toBe(429);
-  });
-
   it('stops a draft after 5 refused submits', async () => {
     const holder = await verifiedDraft(h);
     const nid = f.fakeNid();
@@ -356,7 +307,7 @@ describe('the pending account', () => {
     return { d, form, userId: res.body.data.id as string };
   }
 
-  it('logs in, reads the own profile with the full NID and bank details, and nothing else', async () => {
+  it('logs in, reads the own profile with the full NID and no bank details yet, and nothing else', async () => {
     const { d, form, userId } = await pendingVolunteer();
     const s = await login(h, d.mobile);
     const me = await request(h.server()).get('/api/v1/volunteers/me').set(bearer(s));
@@ -369,7 +320,8 @@ describe('the pending account', () => {
       email: d.email,
       inAnyProject: false,
       nid: form.nid,
-      bank: { bankName: 'Test Bank', accountName: 'নমুনা', accountNumber: '0000111122223333' },
+      type: 'general',
+      bank: {},
       divisionId: loc.division,
     });
     expect(me.body.data).toHaveProperty('nidPhotoBackFileId', null);

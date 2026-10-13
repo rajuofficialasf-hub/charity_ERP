@@ -56,21 +56,39 @@ describe('POST /auth/password/change', () => {
     const rules = await post('/auth/password/change')
       .set('Accept-Language', 'en')
       .set(bearer(s))
-      .send({ currentPassword: PASSWORD, newPassword: `x${staff.mobile}` })
+      .send({ currentPassword: PASSWORD, newPassword: 'nouppercase1' })
       .expect(422);
     expect(rules.body.error.details.map((d: { code: string }) => d.code)).toEqual([
-      'validation.password_identity',
+      'validation.password_uppercase_digit',
     ]);
-    const common = await post('/auth/password/change')
+    const nodigit = await post('/auth/password/change')
       .set(bearer(s))
-      .send({ currentPassword: PASSWORD, newPassword: 'Bismillah786' })
+      .send({ currentPassword: PASSWORD, newPassword: 'NoDigitsHere' })
       .expect(422);
-    expect(common.body.error.details[0].code).toBe('validation.password_common');
+    expect(nodigit.body.error.details[0].code).toBe('validation.password_uppercase_digit');
     const short = await post('/auth/password/change')
       .set(bearer(s))
       .send({ currentPassword: PASSWORD, newPassword: 'ab1' })
       .expect(422);
     expect(short.body.error.details[0].code).toBe('validation.password_too_short');
+  });
+
+  it('accepts a password with the own mobile number or a common word, and refuses one over 128 characters (O-64)', async () => {
+    const staff = await account(h.db);
+    const s = await login(h, staff);
+    const long = await post('/auth/password/change')
+      .set(bearer(s))
+      .send({ currentPassword: PASSWORD, newPassword: `A1${'x'.repeat(127)}` });
+    expect(long.status).toBe(422);
+    await post('/auth/password/change')
+      .set(bearer(s))
+      .send({ currentPassword: PASSWORD, newPassword: `X${staff.mobile}` })
+      .expect(204);
+    const again = await login(h, staff, { password: `X${staff.mobile}` });
+    await post('/auth/password/change')
+      .set(bearer(again))
+      .send({ currentPassword: `X${staff.mobile}`, newPassword: 'Bismillah786' })
+      .expect(204);
   });
 
   it('asks 12 characters of GLOBAL-scope officials (O-25)', async () => {
@@ -183,7 +201,7 @@ describe('password reset with the OTP', () => {
     const weak = await post('/auth/password/reset/complete')
       .send({ loginId: staff.email, code: CODE, newPassword: 'password12' })
       .expect(422);
-    expect(weak.body.error.details[0].code).toBe('validation.password_common');
+    expect(weak.body.error.details[0].code).toBe('validation.password_uppercase_digit');
     h.clock.advance(5 * 60_000 + 1000);
     const expired = await post('/auth/password/reset/complete')
       .send({ loginId: staff.email, code: CODE, newPassword: 'Shapla phul 77' })

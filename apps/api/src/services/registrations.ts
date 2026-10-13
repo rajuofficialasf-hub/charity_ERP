@@ -265,6 +265,7 @@ export class RegistrationsService {
             bankName: true,
             bankAccountName: true,
             bankAccountNumber: true,
+            bankBranchName: true,
             bankRoutingNumber: true,
             photoFileId: true,
             nidPhotoFileId: true,
@@ -327,6 +328,7 @@ export class RegistrationsService {
               bankName: v.bankName,
               accountName: v.bankAccountName,
               accountNumber: v.bankAccountNumber,
+              branchName: v.bankBranchName,
               routingNumber: v.bankRoutingNumber,
             },
             photoFileId: v.photoFileId,
@@ -696,6 +698,7 @@ export async function applyField(
           bankName: b.bankName ?? null,
           bankAccountName: b.accountName ?? null,
           bankAccountNumber: b.accountNumber ?? null,
+          bankBranchName: b.branchName ?? null,
           bankRoutingNumber: b.routingNumber ?? null,
         };
       }

@@ -13,7 +13,6 @@ export type RateLimitClass =
   | 'public-form'
   | 'reference-read'
   | 'registration'
-  | 'reference-lookup'
   | 'default'
   | 'sync';
 
@@ -118,7 +117,6 @@ export const RATE_LIMITS: Record<RateLimitClass, Window[]> = {
     },
     { limit: 20, ttlMs: HOUR, key: ip, byIp: true },
   ],
-  'reference-lookup': [{ limit: 20, ttlMs: DAY, key: ip, byIp: true }],
   default: [{ limit: 600, ttlMs: MINUTE, key: caller }],
   sync: [{ limit: 60, ttlMs: MINUTE, key: session }],
 };

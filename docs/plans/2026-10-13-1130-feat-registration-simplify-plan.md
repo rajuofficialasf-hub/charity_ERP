@@ -64,7 +64,7 @@ The owner reviewed the T1.9b screens on 2026-10-13. A new official cannot know t
 - **Files:** `packages/shared/src/auth/password.ts` (+ test), `packages/shared/src/registration/index.ts` (+ test), `packages/shared/src/i18n/messages/{bn,en}/errors.json`, `apps/api/src/services/{registration,auth}.ts`, `apps/api/src/routes/auth.ts`, `apps/api/src/rate-limit/rate-limit.ts` (the class `reference-lookup` goes), `docs/api/openapi.yaml`, `docs/api/API_STANDARDS.md`, the tests of `apps/api/test/integration/{registration-start,registration-submit,registration-approval,password,auth}.test.ts` and `apps/api/src/auth/auth.spec.ts`
 - **Approach:** `packages/shared/src/auth/password.ts`; existing tests `password.test.ts`, `registration-submit.test.ts` (covered; updated).
 - **Tests:** unit: 7 characters refused, 8 accepted; no upper-case letter refused; no digit refused; a password holding the mobile or the email accepted; "Password1" accepted; the 12-character floor for a GLOBAL role; a Bengali letter is not an upper-case letter. Integration: a volunteer submit without type, reference and bank creates a `general` volunteer with no reference; a submit with `type`, `referenceNid`, `bank` or `homeProgramId` answers 422; an official submit with name, designation and photo only creates the account with no home program or division; approval of a volunteer grants `volunteer_general`; the reset and the change use the new rule; the verify answer has no `programs`; the reference lookup route answers 404; an approved official with no program and no division is refused every scoped read and write; the lockout after repeated wrong passwords and the length cap of 128 still hold; the drift test.
-- **Done when:** shared, api and api-db suites and the drift test pass. **Depends on:** U1 · **Size:** M · **Risk area:** auth · **Status:** todo
+- **Done when:** shared, api and api-db suites and the drift test pass. **Depends on:** U1 · **Size:** M · **Risk area:** auth · **Status:** done
 
 ### U3. Bank branch
 - **Goal:** The bank details have a branch, protected like the rest of the bank class.
@@ -72,7 +72,7 @@ The owner reviewed the T1.9b screens on 2026-10-13. A new official cannot know t
 - **Files:** `apps/api/prisma/migrations/20261013100000_volunteer_bank_branch/{migration.sql,down.sql}`, `apps/api/prisma/schema.prisma`, `packages/shared/src/registration/index.ts`, `apps/api/src/services/{registrations,volunteers}.ts`, `apps/api/src/routes/{registrations,volunteers}.ts`, `docs/api/openapi.yaml`, `docs/database/DATABASE_SCHEMA.md`, `docs/security/permissions.yaml`, `apps/api/test/integration/{registration-approval,edit-requests,constraints,field-mask}.test.ts`
 - **Approach:** the bank columns of the init migration; existing tests of the bank edit request (covered; extended).
 - **Tests:** integration: an approved volunteer asks to set the bank details with a branch, the RPM approves and `bank_branch_name` holds it; an official without the bank class gets no branch in the detail or the edit list; the migration and its down.sql step test and the Prisma drift check.
-- **Done when:** the suites pass. **Depends on:** U2 · **Size:** S · **Risk area:** migration · **Status:** todo
+- **Done when:** the suites pass. **Depends on:** U2 · **Size:** S · **Risk area:** migration · **Status:** done
 
 ### U4. The registration page
 - **Goal:** The form asks only the decided things and checks the password while it is typed.
@@ -128,8 +128,8 @@ The owner reviewed the T1.9b screens on 2026-10-13. A new official cannot know t
 
 ## Progress
 - **Branch:** feat/registration-simplify
-- **Next:** U2: the password rule and the registration schemas; first `password.test.ts`
+- **Next:** checkpoint C1 (scope `acbda45..HEAD`), then U4: the registration page without the removed fields and with the live password checklist
 - **Reviewed through:** none
 - **Updated:** 2026-10-13
 - **Uncommitted:** none
-- **Notes:** the owner's message of 2026-10-13 was the start; the designation of an official stays (not named in the message) and moves to step 1; the first bank details go through the existing edit request (approver) until the owner says otherwise.
+- **Notes:** the owner's message of 2026-10-13 was the start; the designation of an official stays (not named in the message) and moves to step 1; the first bank details go through the existing edit request (approver) until the owner says otherwise. U2 and U3 are one commit (the shared schemas change both). `checkPassword` keeps its signature but takes only `minLength`; `hasUppercase` and `hasDigit` are exported so the PWA ticks the two conditions on their own; the common-password list (`@css/shared/auth/common-passwords`) is deleted with its export. The reference lookup route, its service path, its rate class, its event and the audit action are removed; the column `registration_drafts.reference_lookups` and its CHECK stay (unused; dropping it is a later migration). A volunteer submit is always `general` with no reference and no bank; an official's has no home program or division (columns stay nullable). While testing the bank edit request a bug showed: the field mask emptied an object under `z.unknown()`, so an approver saw `{}` as the new value of an address or bank edit (the web page showed nothing); `maskData` now keeps a leaf value whole (a unit test and the new bank test cover it).

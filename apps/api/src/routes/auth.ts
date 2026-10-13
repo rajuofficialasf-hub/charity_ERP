@@ -18,8 +18,6 @@ import {
   otpSendRequestSchema,
   type OtpVerifyRequest,
   otpVerifyRequestSchema,
-  type ReferenceLookupRequest,
-  referenceLookupRequestSchema,
   REGISTRATION_TOKEN_HEADER,
   type RegistrationStartRequest,
   registrationStartRequestSchema,
@@ -230,23 +228,6 @@ export function authRouter(
       res.setHeader('Cache-Control', 'no-store');
       return c.registration.verify(body);
     },
-  });
-
-  defineRoute<ReferenceLookupRequest>(router, deps, {
-    ...authOp,
-    method: 'post',
-    path: '/auth/register/reference-lookup',
-    operationId: 'auth.registration.referenceLookup',
-    summary:
-      'Name of the active volunteer whose NID a team member gives as reference (verified draft only; limited and audited, D-088)',
-    permission: 'public',
-    audit: 'auth.reference_lookup',
-    rateLimit: 'reference-lookup',
-    headers: [{ name: REGISTRATION_TOKEN_HEADER, required: true }],
-    body: referenceLookupRequestSchema,
-    responses: { 200: null, 401: null, 404: null, 410: null, 422: null, 429: null },
-    handler: ({ body, req }) =>
-      c.registration.referenceLookup(body, req.get(REGISTRATION_TOKEN_HEADER)),
   });
 
   defineRoute<RegistrationSubmitRequest>(router, deps, {

@@ -98,6 +98,7 @@ const registrationDetail = pendingRegistration.extend({
           bankName: nullableText,
           accountName: nullableText,
           accountNumber: nullableText,
+          branchName: nullableText,
           routingNumber: nullableText,
         }),
         'volunteer.bank',

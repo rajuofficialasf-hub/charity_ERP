@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { commonPasswords } from './common-passwords.js';
 import {
   checkPassword,
   minPasswordLength,
@@ -8,51 +7,49 @@ import {
 } from './password.js';
 import { loginRequestSchema, passwordChangeRequestSchema } from './schemas.js';
 
-const base = { minLength: PASSWORD_MIN_LENGTH, common: commonPasswords() };
+const base = { minLength: PASSWORD_MIN_LENGTH };
 
-describe('password rules (AUTH.md 3, O-05, O-25, BR-203)', () => {
-  it('accepts 8 characters with a letter and a digit, spaces included', () => {
+describe('password rules (AUTH.md 3, O-64, O-25, BR-203)', () => {
+  it('accepts 8 characters with an upper-case letter and a digit, spaces included', () => {
     expect(checkPassword('Nadi 2026', base)).toEqual([]);
-    expect(checkPassword('kalo-megh7', base)).toEqual([]);
+    expect(checkPassword('Kalo-megh7', base)).toEqual([]);
+    expect(checkPassword('Password1', base)).toEqual([]);
   });
 
   it('refuses short passwords and counts characters, not bytes', () => {
-    expect(checkPassword('ab12cd3', base)).toEqual(['validation.password_too_short']);
-    expect(checkPassword('অআইঈ১২৩৪', base)).not.toContain('validation.password_too_short');
+    expect(checkPassword('Ab12cd3', base)).toEqual(['validation.password_too_short']);
+    expect(checkPassword('Aঅইঈ১২৩৪', base)).not.toContain('validation.password_too_short');
   });
 
-  it('needs at least one letter and one digit', () => {
-    expect(checkPassword('onlyletters', base)).toContain('validation.password_letter_digit');
-    expect(checkPassword('1234567890', base)).toContain('validation.password_letter_digit');
+  it('needs one upper-case letter and one digit', () => {
+    expect(checkPassword('lowercase1', base)).toEqual(['validation.password_uppercase_digit']);
+    expect(checkPassword('Uppercaseonly', base)).toEqual(['validation.password_uppercase_digit']);
+    expect(checkPassword('12345678', base)).toEqual(['validation.password_uppercase_digit']);
+    // a Bengali letter has no case, so it is not an upper-case letter
+    expect(checkPassword('অআইঈউঊ১২৩৪', base)).toEqual(['validation.password_uppercase_digit']);
   });
 
-  it('requires 12 characters for officials with GLOBAL scope (O-25)', () => {
-    expect(minPasswordLength(true)).toBe(PASSWORD_MIN_LENGTH_GLOBAL);
-    expect(minPasswordLength(false)).toBe(PASSWORD_MIN_LENGTH);
-    expect(checkPassword('Nadi 2026x', { ...base, minLength: minPasswordLength(true) })).toEqual([
+  it('names both problems of a short password without the letters', () => {
+    expect(checkPassword('abc', base)).toEqual([
       'validation.password_too_short',
+      'validation.password_uppercase_digit',
     ]);
   });
 
-  it('refuses the own mobile number, the email and its name part', () => {
-    const ctx = { ...base, mobile: '01700000101', email: 'rahim.uddin@example.org' };
-    expect(checkPassword('x01700000101', ctx)).toContain('validation.password_identity');
-    expect(checkPassword('Rahim.Uddin@example.org', ctx)).toContain('validation.password_identity');
-    expect(checkPassword('rahim.uddin', ctx)).toContain('validation.password_identity');
-    expect(checkPassword('Nadi 2026', ctx)).toEqual([]);
+  it('requires 12 characters for officials with GLOBAL scope (O-25), with the same letter rules', () => {
+    expect(minPasswordLength(true)).toBe(PASSWORD_MIN_LENGTH_GLOBAL);
+    expect(minPasswordLength(false)).toBe(PASSWORD_MIN_LENGTH);
+    expect(checkPassword('Nadi 2026x', { minLength: minPasswordLength(true) })).toEqual([
+      'validation.password_too_short',
+    ]);
+    expect(checkPassword('Nadi kul 2026', { minLength: minPasswordLength(true) })).toEqual([]);
   });
 
-  it('refuses common passwords from the bundled list and local words with decoration (D-071)', () => {
-    expect(commonPasswords().size).toBeGreaterThan(2000);
-    expect(checkPassword('password1', base)).toContain('validation.password_common');
-    expect(checkPassword('Bismillah786', base)).toContain('validation.password_common');
-    expect(checkPassword('assunnah@2026', base)).toContain('validation.password_common');
-    expect(checkPassword('Bangladesh71', base)).toContain('validation.password_common');
-  });
-
-  it('checks only length, letter and digit without the list (the PWA hint)', () => {
-    expect(checkPassword('qwerty123', { minLength: 8 })).toEqual([]);
-    expect(checkPassword('qwerty123', base)).toEqual(['validation.password_common']);
+  it('does not look at the mobile number, the email or a list of common words (O-64)', () => {
+    expect(checkPassword('X01700000101', base)).toEqual([]);
+    expect(checkPassword('Rahim.uddin1', base)).toEqual([]);
+    expect(checkPassword('Bismillah786', base)).toEqual([]);
+    expect(checkPassword('Assunnah2026', base)).toEqual([]);
   });
 
   it('names the catalogue code of a too short new password in the request schema', () => {

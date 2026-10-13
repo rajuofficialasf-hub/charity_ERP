@@ -192,6 +192,53 @@ describe('edit requests', () => {
     expect(saved.rows[0].photo_file_id).toBe(upload.body.data.fileId);
   });
 
+  it('the bank details with a branch are added later through a request, and only the bank class sees them (O-64)', async () => {
+    const v = await approvedVolunteer();
+    const bank = {
+      bankName: 'Test Bank',
+      accountName: 'নমুনা',
+      accountNumber: '0000111122223333',
+      branchName: 'Savar Branch',
+    };
+    const created = await ask(v.session, { field: 'bank', newValue: bank });
+    expect(created.status).toBe(201);
+    // the volunteer sees their own details, the registration holds no bank
+    const before = await h.db.query('SELECT bank_branch_name FROM volunteers WHERE id = $1', [
+      v.volunteerId,
+    ]);
+    expect(before.rows[0].bank_branch_name).toBeNull();
+    const rpm = await as(world.users.rpmDhaka);
+    const pending = await api().get('/api/v1/edit-requests').set(bearer(rpm));
+    expect(
+      pending.body.data.find((r: { id: string }) => r.id === created.body.data.id).newValue,
+    ).toEqual(bank);
+    // a branch name over 100 characters is refused
+    const long = await ask(v.session, {
+      field: 'bank',
+      newValue: { ...bank, branchName: 'x'.repeat(101) },
+    });
+    expect(long.status).toBe(422);
+    expect((await decide(rpm, created.body.data.id, { decision: 'approve' })).status).toBe(200);
+    const saved = await h.db.query(
+      'SELECT bank_name, bank_account_number, bank_branch_name FROM volunteers WHERE id = $1',
+      [v.volunteerId],
+    );
+    expect(saved.rows[0]).toEqual({
+      bank_name: 'Test Bank',
+      bank_account_number: '0000111122223333',
+      bank_branch_name: 'Savar Branch',
+    });
+    const me = await api().get('/api/v1/volunteers/me').set(bearer(v.session));
+    expect(me.body.data.bank).toMatchObject({ branchName: 'Savar Branch' });
+    // the audit entries name the field, never the values
+    const audit = await h.db.query(
+      `SELECT new FROM audit_log WHERE entity_id = $1 AND action IN ('auth.edit_requested', 'auth.edit_request_decided')`,
+      [created.body.data.id],
+    );
+    expect(JSON.stringify(audit.rows)).not.toContain('Savar Branch');
+    expect(JSON.stringify(audit.rows)).not.toContain('0000111122223333');
+  });
+
   it('the second page of the NID card is a photo edit of its own', async () => {
     const v = await approvedVolunteer();
     const created = await ask(v.session, { field: 'nid_photo_back' });
