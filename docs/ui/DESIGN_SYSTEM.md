@@ -624,6 +624,8 @@ Props: `steps` (state or stage name, actor, time, comment, status `done`, `curre
 
 **Stepper (UX-16):** the steps of a form split into small parts: numbered dots joined by a line, done steps with a check, the current one with the brand ring and `aria-current="step"`; the names show from 640 px, on phones the form's section title names the step. Props `steps`, `current`, `label`.
 
+**Segmented control (UX-19):** a compact pill of two or three options built on a React Aria radio group (arrow keys select, one tab stop), the selected option raised in `--color-brand-primary-dark`; props `label`, `options` (`id`, `label`, optional `lang`), `value`, `onChange`. Used for the language toggle. `TopBar` (apps/web) is the slim bar above the pages without a sidebar, with the system name at the start and the toggle at the end; in the admin area the toggle ends the sidebar.
+
 **Page band (UX-16):** the green title band at the head of a public page's card: the h1 and one short line in white on `--color-brand-primary-dark` (4.5:1 for small text), optional controls such as a segmented choice. Used by the registration.
 
 ### 5.19 Progress bar

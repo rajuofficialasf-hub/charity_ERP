@@ -84,7 +84,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 - **Priority.** parity.
 - **Data shown.**
   - Logo (SVG) and the system name (UX-09).
-  - Language switch.
+  - Language toggle in the top bar (UX-19).
   - Mobile number or email, and password fields (AUTH.md §4).
   - Lockout message with the remaining time.
   - On the installed iOS PWA, the install state.
@@ -117,7 +117,8 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
   4. Submit for approval.
 
   The steps can be resumed for 24 hours (O-25).
-- **Roles.** New volunteers (type chosen in the form) and new staff (post and workplace added).
+- **Rebuilt (T1.9c, O-64, UX-19; plan `docs/plans/2026-10-13-1130-feat-registration-simplify-plan.md`).** Nothing is asked that the person cannot know: a volunteer registers as a general volunteer with no type and no reference, an official gives the designation with the name and no program or workplace, nobody gives bank details (they are added later from the profile, now with a branch). The password step shows the three rules (8 characters, one upper-case letter, one digit) as a checklist that ticks while typing; nothing else is checked. The volunteer has five steps (contacts, identity and address, work, account, photos), the official three (contacts with the designation, account, photo). The language toggle sits in the top bar above the page.
+- **Roles.** New volunteers and new officials.
 - **Priority.** phone-first.
 - **Data shown.**
   - A step indicator showing the four steps.
@@ -125,9 +126,9 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
     - name, father's and mother's name, NID
     - WhatsApp, address (bd_address)
     - education, experience, work details, previous projects
-    - Facebook id, optional bank details, reference
-    - photo and NID photo
-  - The volunteer type selector. Team Member registration asks for the main volunteer's NID as reference.
+    - Facebook id
+    - photo and both pages of the NID card
+  - No volunteer type, reference, bank details, program or workplace (O-64).
 - **Actions.**
 
 | Action | Permission |
@@ -234,6 +235,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 ### SCR-006 My profile, edit request, device sessions, language
 
 - **Built in part (T1.7).** `/account/sessions` (device list, current marker, log out another device with confirm) and `/account/password`; the placeholder home links them with language and logout until the app shell (T1.15). Profile and edit requests come in T1.9; the unsynced-records warning at logout with the outbox (T2.7).
+- **Changed (T1.9c, O-64).** The bank section has a branch beside the bank name, account name, account number and routing number; a volunteer who gave no bank details at registration adds them from the edit button of that section (an edit request, D-085). The language toggle is in the top bar of the page.
 - **Rebuilt (T1.9b, UX-18; plan `docs/plans/2026-10-13-0922-feat-registration-redesign-plan.md`, U5).** `/account/profile` shows the own details in six section cards (personal, contact, address, work, bank, photos with the three images); after approval each detail but the volunteer type has "সম্পাদনা" beside it, which opens the request dialog with the new value and an optional reason; a detail with an open request shows "আপনার অপেক্ষায়" (with the code or the photo upload below it) or "অনুমোদনের অপেক্ষায়" instead.
 - **Built (T1.9).** `/account/profile` for volunteers (`apps/web/src/features/account/ProfileView.tsx`, `ChangeRequests.tsx`; plan `docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md`, U12): the own details in full, and after approval an edit request with the new value of one field (text, address cascade, bank details, photo upload); a new mobile or email waits for a code to the new address before it reaches the approver (D-085). The home page links the profile for volunteers.
 
@@ -947,7 +949,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Purpose.** The frame of the management screens and admin settings (UX-15): later admin pages (settings and audit log in T1.13, dashboards in T3.3 and T6.1) open inside it.
 - **Roles.** Department Head, Monitoring Team, Program Manager, and since T1.9 the RPM and the Project Executive for the registrations page. Any other signed-in user sees a "no access" page; a signed-out visitor goes to the login screen. The server enforces every admin permission; the shell only hides.
 - **Priority.** parity, with the "best on a larger screen" notice under 768 px (UX-04).
-- **Data shown.** Top bar: system name, the signed-in user's name, language switch, log out. Sidebar: the admin destinations (today only "ড্যাশবোর্ড" / "Dashboard"). Content: the dashboard placeholder with today's date (dd-mm-yyyy, English digits).
+- **Data shown.** Top bar: system name, the signed-in user's name, log out. Sidebar: the admin destinations, with the language toggle as its last item (UX-19; at the end of the row on phones). Content: the dashboard placeholder with today's date (dd-mm-yyyy, English digits).
 - **Actions.** Open a destination; switch language; log out (`authenticated`).
 - **Entry.** The "অ্যাডমিন" / "Admin" button on the home page, shown to the three roles; the URL `/admin`.
 - **Layout and components.** DS §4.5: `NavItem`, `Alert`, `Card`, the language switch and the log-out button of the account screens; lazy route chunk.
