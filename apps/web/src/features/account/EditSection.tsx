@@ -1,6 +1,6 @@
 import { Alert, Button, Checkbox, Form, TextField } from '@css/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../lib/api';
 import { isContact, isPhoto } from './ChangeRequests';
@@ -26,14 +26,18 @@ export function EditSection({
   me,
   title,
   fields,
-  requests,
+  edits,
+  onBusy,
   onCancel,
   onSent,
 }: {
   me: OwnProfile;
   title: string;
   fields: ProfileField[];
-  requests: ChangeRequest[];
+  /** The edit requests of the person that are open or waiting for the approver. */
+  edits: ChangeRequest[];
+  /** Tells the page a send is running, so the section can not be left meanwhile. */
+  onBusy: (busy: boolean) => void;
   onCancel: () => void;
   onSent: () => void;
 }) {
@@ -47,18 +51,15 @@ export function EditSection({
   const [errors, setErrors] = useState<Partial<Record<RequestField, string>>>({});
   const [alert, setAlert] = useState<string | null>(null);
 
-  const waitingFor = (field: ProfileField) =>
-    requests.find(
-      (r) =>
-        r.kind === 'profile_edit' && r.field === field && ['open', 'submitted'].includes(r.status),
-    );
+  const waitingFor = (field: ProfileField) => edits.find((r) => r.field === field);
 
   const send = useMutation({
     mutationFn: async () => {
       const sent: RequestField[] = [];
       const failed: [RequestField, unknown][] = [];
       for (const field of fields) {
-        if (field === 'type' || !picked.has(field)) continue;
+        // a detail whose request appeared meanwhile is not asked for twice
+        if (field === 'type' || !picked.has(field) || waitingFor(field)) continue;
         try {
           await askEdit({
             field,
@@ -88,6 +89,12 @@ export function EditSection({
       setAlert(sent.length ? t('profile.edit.partial') : unplaced ? message(unplaced[1]) : null);
     },
   });
+
+  const sending = send.isPending;
+  useEffect(() => {
+    onBusy(sending);
+    return () => onBusy(false);
+  }, [sending, onBusy]);
 
   const toggle = (field: RequestField, on: boolean) => {
     setPicked((now) => {
@@ -138,7 +145,10 @@ export function EditSection({
                     {on ? (
                       <div className="profile-editor">
                         {isPhoto(field) ? (
-                          <p className="m-0">{t('profile.edit.photo_intro')}</p>
+                          <>
+                            <p className="m-0">{t('profile.edit.photo_intro')}</p>
+                            {errors[field] && <p className="profile-error">{errors[field]}</p>}
+                          </>
                         ) : (
                           <>
                             <ValueEditor

@@ -1,7 +1,7 @@
 ---
 title: The own profile by section with one edit mode (T1.9d)
 type: feat
-status: in-progress
+status: done
 source: plan
 date: 2026-10-13
 ---
@@ -57,3 +57,8 @@ Owner message of 2026-10-13 with a reference image (a settings page with an avat
 
 ## Risks and rollback
 - Several requests are not atomic: a failure in the middle leaves the earlier ones sent; the screen shows which, and the person sends the rest again. Rolling back is a revert of the web commits (no data or API change).
+
+## Notes after the build
+- C1 reviewed (logic, security, standards). Fixed: a refused photo request showed no message (the photo row now shows it); the sections can not be left while a send runs (the navigation is disabled meanwhile); a detail whose request appeared meanwhile is not asked for twice; the helpers `isVolunteerType`, the typed section key and the shared list of waiting requests replaced three copies; the edit mode is scanned by axe in English as well.
+- Left: switching the section in the edit mode drops the ticked details without a warning (a confirmation can come with the app shell); comments cite decision ids as the rest of the code does; the profile e2e relies on the per-run E2E database (each project and repeat asks for another detail).
+- The `settle` helper of the permission panel e2e rejected with an AbortError when an animation was cancelled; it now ignores that, which ended the flake seen on the phone project.

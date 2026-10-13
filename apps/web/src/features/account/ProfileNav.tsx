@@ -3,17 +3,20 @@ import { useTranslations } from 'use-intl';
 import type { LucideIcon } from 'lucide-react';
 
 /** The sections of the profile as a list of buttons: one open at a time (UX-18, T1.9d). */
-export function ProfileNav({
+export function ProfileNav<Key extends string>({
   sections,
   current,
   waiting,
+  busy,
   onSelect,
 }: {
-  sections: { key: string; title: string; icon: LucideIcon }[];
-  current: string;
+  sections: { key: Key; title: string; icon: LucideIcon }[];
+  current: Key;
   /** Sections with a request waiting for the person (a code or a photo to give). */
-  waiting: ReadonlySet<string>;
-  onSelect: (key: string) => void;
+  waiting: ReadonlySet<Key>;
+  /** A send is running: the section can not be left meanwhile. */
+  busy: boolean;
+  onSelect: (key: Key) => void;
 }) {
   const t = useTranslations('registration.profile');
   const id = useId();
@@ -26,6 +29,7 @@ export function ProfileNav({
             key={key}
             type="button"
             className="profile-nav-item"
+            disabled={busy && current !== key}
             aria-current={current === key ? 'true' : undefined}
             aria-describedby={attention ? `${id}-${key}` : undefined}
             onClick={() => onSelect(key)}

@@ -208,7 +208,7 @@ describe('ProfileView of an approved volunteer', () => {
     expect(await screen.findByText(/Place/)).toBeInTheDocument();
   }, 15_000);
 
-  it('has one edit button for the open section, in both languages without violations', async () => {
+  it('has one edit button for the open section; the view and the edit mode pass axe in Bengali', async () => {
     const user = userEvent.setup();
     serve(profile({ state: 'active', inAnyProject: true }), () => []);
     const { container } = renderApp(<ProfileView />, 'bn', { path: '/account/profile' });
@@ -282,9 +282,10 @@ describe('ProfileView of an approved volunteer', () => {
   it('cancel leaves the mode and sends nothing', async () => {
     const user = userEvent.setup();
     serve(profile({ state: 'active', inAnyProject: true }), () => []);
-    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    const { container } = renderApp(<ProfileView />, 'en', { path: '/account/profile' });
     const form = await startEdit(user, 'Personal details');
     await user.click(within(form).getByRole('checkbox', { name: 'Change NID number' }));
+    await expectNoAxeViolations(container);
     await user.click(within(form).getByRole('button', { name: 'Cancel' }));
     expect(screen.getByRole('button', { name: 'Edit Personal details' })).toBeInTheDocument();
     expect(calls).toEqual([]);
@@ -399,6 +400,25 @@ describe('ProfileView of an approved volunteer', () => {
     expect(await within(form).findByRole('alert')).toHaveTextContent(/\S/);
     expect(within(form).getByRole('checkbox', { name: 'Change Education' })).toBeChecked();
   }, 20_000);
+
+  it('a refused photo request says why, and the sections can not be left while it is sent', async () => {
+    const user = userEvent.setup();
+    serve(profile({ state: 'active', inAnyProject: true }), () => []);
+    server.use(
+      http.post('*/api/v1/me/change-requests', () =>
+        HttpResponse.json(
+          { error: { code: 'conflict', message: 'A request is already open.', requestId: 'r' } },
+          { status: 409 },
+        ),
+      ),
+    );
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    const form = await startEdit(user, 'Photos');
+    await user.click(within(form).getByRole('checkbox', { name: 'Change Photo' }));
+    await user.click(within(form).getByRole('button', { name: 'Send request' }));
+    expect(await within(form).findByText('A request is already open.')).toBeInTheDocument();
+    expect(within(form).getByRole('checkbox', { name: 'Change Photo' })).toBeChecked();
+  }, 15_000);
 
   it('a photo is ticked without an input; its upload follows the request', async () => {
     const user = userEvent.setup();

@@ -13,7 +13,7 @@ export type ProfileField = RequestField | 'type';
 export const labelKey = (field: ProfileField) =>
   field === 'type' ? ('form.type' as const) : FIELD_LABEL[field];
 
-const isVolunteerType = (type: string): type is VolunteerType =>
+export const isVolunteerType = (type: string): type is VolunteerType =>
   (VOLUNTEER_TYPES as readonly string[]).includes(type);
 
 const PHOTO_ID = {

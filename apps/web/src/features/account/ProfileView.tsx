@@ -57,6 +57,7 @@ function Profile() {
   const requests = useQuery({ queryKey: REQUESTS_KEY, queryFn: ownRequests });
   const [current, setCurrent] = useState<(typeof SECTIONS)[number]['key']>('personal');
   const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const titleId = useId();
   if (profile.isPending) return <Skeleton count={3} />;
@@ -115,8 +116,9 @@ function Profile() {
           }))}
           current={current}
           waiting={waiting}
+          busy={busy}
           onSelect={(key) => {
-            setCurrent(key as typeof current);
+            setCurrent(key);
             setEditing(false);
           }}
         />
@@ -147,7 +149,8 @@ function Profile() {
                 me={me}
                 title={title}
                 fields={[...section.fields]}
-                requests={rows}
+                edits={edits}
+                onBusy={setBusy}
                 onCancel={() => setEditing(false)}
                 onSent={() => {
                   setEditing(false);

@@ -1,8 +1,8 @@
-import { VOLUNTEER_TYPES, type VolunteerType } from '@css/shared/registration';
 import { Avatar, Badge, Card } from '@css/ui';
 import { Ban, CircleCheck, Clock, UserX } from 'lucide-react';
 import { useTranslations } from 'use-intl';
 import { useFileDataUrl } from '../../components/FileImage';
+import { isVolunteerType } from './ProfileDetails';
 import type { OwnProfile } from './profile-api';
 
 const STATE = {
@@ -17,9 +17,7 @@ export function ProfileHeader({ me }: { me: OwnProfile }) {
   const t = useTranslations('registration');
   const photo = useFileDataUrl(me.photoFileId);
   const state = STATE[me.state];
-  const type = (VOLUNTEER_TYPES as readonly string[]).includes(me.type)
-    ? t(`form.types.${me.type as VolunteerType}`)
-    : me.type;
+  const type = isVolunteerType(me.type) ? t(`form.types.${me.type}`) : me.type;
   return (
     <Card>
       <section aria-label={me.displayName} className="profile-head">
