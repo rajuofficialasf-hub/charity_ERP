@@ -28,6 +28,7 @@ export interface OwnProfile {
   bank: { bankName?: string; accountName?: string; accountNumber?: string; routingNumber?: string };
   photoFileId: string | null;
   nidPhotoFileId: string | null;
+  nidPhotoBackFileId: string | null;
 }
 
 export interface ChangeRequest {

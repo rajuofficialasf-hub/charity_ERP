@@ -1,8 +1,6 @@
 import type { CorrectionField } from '@css/shared/registration';
-import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import type { ChangeRequest } from '../../features/account/profile-api';
-import { locations } from '../../features/registration/registration-api';
 
 /** A row of GET /registrations (pending volunteers in scope, staff for staff approvers). */
 export interface PendingRegistration {
@@ -110,18 +108,3 @@ export const decideEdit = (
   body: { decision: 'approve' } | { decision: 'reject'; reason: string },
 ) => api<ChangeRequest>(`/edit-requests/${id}/decision`, { method: 'POST', body });
 export const roles = () => api<RoleInfo[]>('/roles');
-
-/**
- * The name of one location, read from its parent's public list (the cache the address cascade
- * of the registration form uses); `parentId` undefined means the divisions.
- */
-export function useLocationName(parentId: string | null | undefined, id: string | null) {
-  const enabled = parentId !== null && id !== null;
-  const list = useQuery({
-    queryKey: ['locations', parentId ?? 'divisions'],
-    queryFn: () => locations(parentId ?? undefined),
-    enabled,
-    staleTime: 60 * 60_000,
-  });
-  return enabled ? list.data?.find((l) => l.id === id)?.name : undefined;
-}

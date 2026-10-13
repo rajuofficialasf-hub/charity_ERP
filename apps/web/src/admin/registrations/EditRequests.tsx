@@ -13,8 +13,8 @@ import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { FIELD_LABEL, type RequestField } from '../../features/account/profile-api';
 import { ApiFailure } from '../../lib/api';
-import { type AddressIds, AddressNames } from './AddressNames';
-import { FileImage } from './FileImage';
+import { type AddressIds, AddressNames } from '../../components/AddressNames';
+import { FileImage } from '../../components/FileImage';
 import { decideEdit, EDITS_KEY, type EditRequestRow, editRequests } from './registrations-api';
 
 const PHOTO_FIELDS = new Set(['photo', 'nid_photo']);

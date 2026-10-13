@@ -1,0 +1,62 @@
+/*
+ * The own profile by section (SCR-006, UX-18): one card per section, each detail a row of label,
+ * value and its edit action; a stacked row on phones, three columns from 640 px. Tokens only.
+ */
+.profile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.profile-section {
+  display: grid;
+  gap: var(--space-3);
+}
+.profile-section-title {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: var(--font-weight-bold);
+}
+.profile-list {
+  display: grid;
+  margin: 0;
+}
+.profile-row {
+  display: grid;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.profile-row:first-child {
+  border-top: 0;
+}
+.profile-label {
+  color: var(--color-text-secondary);
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-bold);
+}
+.profile-value {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+  margin: 0;
+}
+.profile-text {
+  overflow-wrap: anywhere;
+}
+.profile-action {
+  justify-self: end;
+}
+.profile-empty {
+  color: var(--color-text-secondary);
+}
+.profile-request {
+  display: block;
+  grid-column: 1 / -1;
+}
+@media (min-width: 640px) {
+  .profile-row {
+    grid-template-columns: 12rem minmax(0, 1fr);
+    align-items: center;
+  }
+}

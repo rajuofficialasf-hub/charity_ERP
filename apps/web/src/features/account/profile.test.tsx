@@ -1,5 +1,5 @@
 import { expectNoAxeViolations } from '@css/ui/testing';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -43,6 +43,7 @@ const profile = (over: Partial<OwnProfile> = {}): OwnProfile => ({
   bank: { bankName: 'Test Bank', accountNumber: '0000111122223333' },
   photoFileId: null,
   nidPhotoFileId: null,
+  nidPhotoBackFileId: null,
   ...over,
 });
 
@@ -121,6 +122,8 @@ describe('ProfileView of a pending registrant', () => {
     // only the two requested fields can be answered
     expect(screen.getAllByRole('form')).toHaveLength(2);
     expect(screen.queryByRole('button', { name: 'আবার জমা দিন' })).not.toBeInTheDocument();
+    // before approval nothing else can be changed (BR-031)
+    expect(screen.queryByRole('button', { name: /সম্পাদনা/ })).not.toBeInTheDocument();
     await expectNoAxeViolations(container);
 
     await user.type(screen.getByRole('textbox', { name: /পিতার নাম/ }), 'সংশোধিত পিতা');
@@ -144,20 +147,53 @@ describe('ProfileView of an approved volunteer', () => {
     refreshAs({ ...ME, kind: 'volunteer', state: 'active', roles: ['volunteer_general'] }),
   );
 
-  it('asks for an address change with the new value', async () => {
-    const user = userEvent.setup();
+  it('arranges the details by section, with an edit button beside each changeable one', async () => {
     serve(profile({ state: 'active', inAnyProject: true }), () => []);
     const { container } = renderApp(<ProfileView />, 'en', { path: '/account/profile' });
-    await screen.findByRole('heading', { name: 'Ask to change a detail' });
+    for (const name of [
+      'Personal details',
+      'Contact',
+      'Address',
+      'Work details',
+      'Bank details',
+      'Photos',
+    ])
+      expect(await screen.findByRole('heading', { level: 2, name })).toBeInTheDocument();
     expect(screen.queryByText('You have not joined any project yet.')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /Which detail/ }));
-    await user.click(await screen.findByRole('option', { name: 'Address' }));
+    const personal = screen.getByRole('region', { name: 'Personal details' });
+    expect(within(personal).getByText('1000000000301')).toBeInTheDocument();
+    expect(
+      within(personal).getByRole('button', { name: "Edit Father's name" }),
+    ).toBeInTheDocument();
+    // the type decides the role: no edit button
+    const work = screen.getByRole('region', { name: 'Work details' });
+    expect(within(work).getByText('General volunteer')).toBeInTheDocument();
+    expect(
+      within(work).queryByRole('button', { name: /Edit Volunteer type/ }),
+    ).not.toBeInTheDocument();
+    // the address with its names
+    expect(
+      await within(screen.getByRole('region', { name: 'Address' })).findByText(/Place/),
+    ).toBeInTheDocument();
+    const photos = screen.getByRole('region', { name: 'Photos' });
+    for (const label of ['Edit Photo', 'Edit NID card, first page', 'Edit NID card, second page'])
+      expect(within(photos).getByRole('button', { name: label })).toBeInTheDocument();
+    await expectNoAxeViolations(container);
+  }, 15_000);
+
+  it('asks for an address change from the edit button beside the address', async () => {
+    const user = userEvent.setup();
+    serve(profile({ state: 'active', inAnyProject: true }), () => []);
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    await user.click(await screen.findByRole('button', { name: 'Edit Address' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Request to change Address' });
     for (const label of [/Division/, /(^|\s)District/, /Upazila/, /Union/]) {
-      await user.click(await screen.findByRole('button', { name: label }));
+      await user.click(await within(dialog).findByRole('button', { name: label }));
       await user.click(await screen.findByRole('option', { name: 'Place' }));
     }
-    await user.click(screen.getByRole('button', { name: 'Send request' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Send request' }));
     expect(await screen.findByText('The request was sent.')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(calls).toEqual([
       {
         method: 'POST',
@@ -173,8 +209,23 @@ describe('ProfileView of an approved volunteer', () => {
         },
       },
     ]);
-    await expectNoAxeViolations(container);
   }, 15_000);
+
+  it('a detail with a request waiting for approval shows that instead of the button', async () => {
+    serve(profile({ state: 'active', inAnyProject: true }), () => [
+      row('01900000-0000-7000-8000-0000000000c6', 'education', {
+        kind: 'profile_edit',
+        status: 'submitted',
+        newValue: 'স্নাতক',
+        note: null,
+      }),
+    ]);
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    const work = await screen.findByRole('region', { name: 'Work details' });
+    expect(await within(work).findByText('Waiting for approval')).toBeInTheDocument();
+    expect(within(work).queryByRole('button', { name: 'Edit Education' })).not.toBeInTheDocument();
+    expect(within(work).getByRole('button', { name: 'Edit Experience' })).toBeInTheDocument();
+  });
 
   it('a new mobile waits for its code before it reaches the approver', async () => {
     const user = userEvent.setup();

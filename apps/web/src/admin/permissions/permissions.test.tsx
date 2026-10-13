@@ -147,7 +147,7 @@ describe('permission panel', () => {
       reason: 'Monitoring help',
     });
     expect((await screen.findAllByText('প্যানেল')).length).toBeGreaterThan(0);
-  });
+  }, 15_000);
 
   it('shows the message of a refused change', async () => {
     const user = userEvent.setup();

@@ -21,10 +21,10 @@ import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { canApproveStaff, canBlock, canOpenAdmin } from '../roles';
-import { AddressNames } from './AddressNames';
+import { AddressNames } from '../../components/AddressNames';
 import { BlocklistAction } from './Blocklist';
 import { CorrectionDialog } from './CorrectionDialog';
-import { FileImage } from './FileImage';
+import { FileImage } from '../../components/FileImage';
 import {
   approve,
   detailKey,

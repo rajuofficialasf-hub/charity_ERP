@@ -1,7 +1,8 @@
 import { Skeleton } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'use-intl';
-import { api } from '../../lib/api';
+import { api } from '../lib/api';
+import './file-image.css';
 
 /** The photo types the API stores (registration photos, D-087); anything else is not shown. */
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png']);
@@ -33,7 +34,7 @@ export function FileImage({ fileId, alt }: { fileId: string; alt: string }) {
     // NID photo view) again
     gcTime: 0,
   });
-  if (file.error) return <p className="admin-error">{t('state.error.text')}</p>;
+  if (file.error) return <p className="file-image-error">{t('state.error.text')}</p>;
   if (!file.data) return <Skeleton shape="card" />;
-  return <img src={file.data} alt={alt} className="admin-photo" />;
+  return <img src={file.data} alt={alt} className="file-image" />;
 }

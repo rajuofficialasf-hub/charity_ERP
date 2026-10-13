@@ -6,18 +6,14 @@ import { UserCheck } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
+import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { canDecideEdits, canOpenAdmin } from '../roles';
 import { EditRequests } from './EditRequests';
-import {
-  LIST_KEY,
-  type PendingRegistration,
-  pendingRegistrations,
-  useLocationName,
-} from './registrations-api';
+import { LIST_KEY, type PendingRegistration, pendingRegistrations } from './registrations-api';
 
 /** A message handed over by the detail page after a final decision (the row has left the list). */
 export interface ListNotice {

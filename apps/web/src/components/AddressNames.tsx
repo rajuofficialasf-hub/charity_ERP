@@ -1,6 +1,7 @@
 import type { Locale } from '@css/shared/i18n';
 import { useLocale } from 'use-intl';
-import { useLocationName } from './registrations-api';
+import { useQuery } from '@tanstack/react-query';
+import { locations } from '../features/registration/registration-api';
 
 export interface AddressIds {
   divisionId: string | null;
@@ -26,4 +27,19 @@ export function AddressNames({ address }: { address: AddressIds }) {
         .join(', ')}
     </>
   );
+}
+
+/**
+ * The name of one location, read from its parent's public list (the cache the address cascade
+ * of the registration form uses); `parentId` undefined means the divisions.
+ */
+export function useLocationName(parentId: string | null | undefined, id: string | null) {
+  const enabled = parentId !== null && id !== null;
+  const list = useQuery({
+    queryKey: ['locations', parentId ?? 'divisions'],
+    queryFn: () => locations(parentId ?? undefined),
+    enabled,
+    staleTime: 60 * 60_000,
+  });
+  return enabled ? list.data?.find((l) => l.id === id)?.name : undefined;
 }

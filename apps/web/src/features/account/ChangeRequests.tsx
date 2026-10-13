@@ -1,7 +1,7 @@
-import { EDIT_FIELDS, type PhotoSlot } from '@css/shared/registration';
-import { Alert, Badge, Button, Card, Form, Select, TextField } from '@css/ui';
+import { PHOTO_SLOTS, type PhotoSlot } from '@css/shared/registration';
+import { Alert, Badge, Button, Card, Form, Modal, TextField } from '@css/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { CircleCheck, Clock } from 'lucide-react';
+import { CircleCheck } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../lib/api';
@@ -21,7 +21,8 @@ import {
 } from './profile-api';
 import { cleanValue, ValueEditor } from './ValueEditor';
 
-const isPhoto = (field: string): field is PhotoSlot => field === 'photo' || field === 'nid_photo';
+const isPhoto = (field: string): field is PhotoSlot =>
+  (PHOTO_SLOTS as readonly string[]).includes(field);
 const isContact = (field: string) => field === 'mobile' || field === 'email';
 
 /** The message of a refused call: the field message of a 422, else the API's own message. */
@@ -131,159 +132,139 @@ function CorrectionRow({ row, onAnswered }: { row: ChangeRequest; onAnswered: ()
 }
 
 /**
- * Edit requests of an approved volunteer (BR-031 as amended by DECISION_LOG D-085): the new value goes with
- * the request; a new mobile or email first needs its code, a photo its upload.
+ * The request to change one detail (BR-031 as amended by DECISION_LOG D-085; UX-18): opened from
+ * the edit button beside the detail; the new value goes with the request (a photo follows with
+ * its upload, a new mobile or email with its code).
  */
-export function EditRequests({ requests }: { requests: ChangeRequest[] }) {
+export function EditDialog({
+  field,
+  onClose,
+  onSent,
+}: {
+  field: RequestField;
+  onClose: () => void;
+  onSent: () => void;
+}) {
   const t = useTranslations('registration');
+  const tc = useTranslations('common.action');
   const refresh = useRefresh();
-  const [field, setField] = useState<RequestField | null>(null);
+  const label = t(FIELD_LABEL[field]);
   const [value, setValue] = useState<unknown>(undefined);
   const [note, setNote] = useState('');
   const ask = useMutation({
     mutationFn: () =>
       askEdit({
-        field: field!,
-        ...(field && !isPhoto(field) ? { newValue: cleanValue(field, value) } : {}),
+        field,
+        ...(isPhoto(field) ? {} : { newValue: cleanValue(field, value) }),
         ...(note.trim() ? { note: note.trim() } : {}),
       }),
     onSuccess: () => {
-      setValue(undefined);
-      setNote('');
       refresh();
+      onSent();
     },
   });
-  const open = requests.filter((r) => r.kind === 'profile_edit');
-
-  const submit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!ask.isPending) ask.mutate();
-  };
-
   return (
-    <section aria-labelledby="edit-title" className="flex flex-col gap-4">
-      <h2 id="edit-title">{t('profile.edit.title')}</h2>
-      <p className="m-0">{t('profile.edit.intro')}</p>
-      {open.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <h3>{t('profile.edit.open')}</h3>
-          {open.map((row) => (
-            <OpenEdit key={row.id} row={row} onChanged={refresh} />
-          ))}
-        </div>
+    <Modal
+      title={t('profile.edit.dialog_title', { field: label })}
+      isOpen
+      onClose={onClose}
+      dismissible={!ask.isPending}
+      secondaryAction={
+        <Button variant="secondary" onPress={onClose} disabled={ask.isPending}>
+          {tc('cancel')}
+        </Button>
+      }
+      primaryAction={
+        <Button onPress={() => !ask.isPending && ask.mutate()} loading={ask.isPending}>
+          {t('profile.edit.send')}
+        </Button>
+      }
+    >
+      {ask.error && (
+        <Alert tone="danger" live="alert">
+          {messageOf(ask.error)}
+        </Alert>
       )}
-      <Form onSubmit={submit} aria-label={t('profile.edit.title')}>
-        <div className="flex flex-col gap-3">
-          <Select
-            label={t('profile.edit.field')}
-            name="field"
-            required
-            value={field}
-            onChange={(id) => {
-              setField(id as RequestField | null);
-              setValue(undefined);
-            }}
-            options={EDIT_FIELDS.map((f) => ({ id: f, label: t(FIELD_LABEL[f]) }))}
-          />
-          {field && !isPhoto(field) && (
-            <ValueEditor
-              field={field}
-              label={t('profile.edit.new_value')}
-              value={value}
-              onChange={setValue}
-            />
-          )}
-          {field && isContact(field) && <p className="m-0">{t('profile.edit.code_intro')}</p>}
-          {field && isPhoto(field) && <p className="m-0">{t('profile.edit.photo_intro')}</p>}
-          <TextField label={t('profile.edit.note')} name="note" value={note} onChange={setNote} />
-          {ask.isSuccess && (
-            <Alert tone="success" live="status">
-              {t('profile.edit.sent')}
-            </Alert>
-          )}
-          {ask.error && (
-            <Alert tone="danger" live="alert">
-              {messageOf(ask.error)}
-            </Alert>
-          )}
-          <Button type="submit" loading={ask.isPending} disabled={!field}>
-            {t('profile.edit.send')}
-          </Button>
-        </div>
-      </Form>
-    </section>
+      {!isPhoto(field) && (
+        <ValueEditor
+          field={field}
+          label={t('profile.edit.new_value')}
+          value={value}
+          onChange={setValue}
+        />
+      )}
+      {isContact(field) && <p className="m-0">{t('profile.edit.code_intro')}</p>}
+      {isPhoto(field) && <p className="m-0">{t('profile.edit.photo_intro')}</p>}
+      <TextField label={t('profile.edit.note')} name="note" value={note} onChange={setNote} />
+    </Modal>
   );
 }
 
-/** One open edit: its status, and the code or the photo it still waits for. */
-function OpenEdit({ row, onChanged }: { row: ChangeRequest; onChanged: () => void }) {
+/** An open edit beside its detail: the code a new contact waits for, or the photo to upload. */
+export function RequestState({
+  row,
+  field,
+  label,
+}: {
+  row: ChangeRequest;
+  field: RequestField;
+  label: string;
+}) {
   const t = useTranslations('registration');
-  const field = row.field as RequestField;
-  const label = t(FIELD_LABEL[field] ?? 'form.name');
+  const refresh = useRefresh();
   const [code, setCode] = useState('');
   // each action clears the other's result, so an old message never hides a new one
   const send = useMutation({ mutationFn: () => sendContactCode(row.id) });
   const verify = useMutation({
     mutationFn: () => verifyContactCode(row.id, code),
-    onSuccess: onChanged,
+    onSuccess: refresh,
   });
-  const waiting = row.status === 'open';
+  if (isPhoto(field))
+    return (
+      <PhotoField
+        label={label}
+        upload={(photo) => uploadOwnPhoto(row.id, field, photo)}
+        onUploaded={(fileId) => fileId && refresh()}
+      />
+    );
+  if (!isContact(field)) return null;
   return (
-    <Card>
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center gap-2">
-          <strong>{label}</strong>
-          <Badge
-            tone={waiting ? 'warning' : 'info'}
-            icon={Clock}
-            label={t(waiting ? 'profile.edit.status.open' : 'profile.edit.status.submitted')}
-          />
-        </div>
-        {waiting && isContact(field) && (
-          <>
-            <Button
-              variant="secondary"
-              onPress={() => {
-                verify.reset();
-                send.mutate();
-              }}
-              loading={send.isPending}
-            >
-              {t('profile.edit.send_code')}
-            </Button>
-            {send.isSuccess && (
-              <Alert tone="info" live="status">
-                {t('profile.edit.code_sent')}
-              </Alert>
-            )}
-            <TextField
-              label={t('profile.edit.code')}
-              name={`code-${row.id}`}
-              value={code}
-              onChange={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))}
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              error={messageOf(verify.error ?? send.error) ?? undefined}
-            />
-            <Button
-              onPress={() => {
-                send.reset();
-                verify.mutate();
-              }}
-              loading={verify.isPending}
-            >
-              {t('profile.edit.verify_code')}
-            </Button>
-          </>
-        )}
-        {waiting && isPhoto(field) && (
-          <PhotoField
-            label={label}
-            upload={(photo) => uploadOwnPhoto(row.id, field, photo)}
-            onUploaded={(fileId) => fileId && onChanged()}
-          />
-        )}
+    <div className="flex flex-col gap-3">
+      <TextField
+        label={t('profile.edit.code')}
+        name={`code-${row.id}`}
+        value={code}
+        onChange={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))}
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        helper={send.isSuccess ? t('profile.edit.code_sent') : undefined}
+        error={messageOf(verify.error ?? send.error) ?? undefined}
+        endAction={
+          <Button
+            size="sm"
+            variant="secondary"
+            onPress={() => {
+              verify.reset();
+              send.mutate();
+            }}
+            loading={send.isPending}
+          >
+            {t('profile.edit.send_code')}
+          </Button>
+        }
+      />
+      <div>
+        <Button
+          onPress={() => {
+            send.reset();
+            verify.mutate();
+          }}
+          loading={verify.isPending}
+          disabled={code.length !== 6}
+        >
+          {t('profile.edit.verify_code')}
+        </Button>
       </div>
-    </Card>
+    </div>
   );
 }

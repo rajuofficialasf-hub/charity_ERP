@@ -104,7 +104,6 @@
   "profile": {
     "link": "My profile",
     "title": "My profile",
-    "details": "My details",
     "no_project": "You have not joined any project yet.",
     "pending": "Your registration is waiting for approval.",
     "not_volunteer": "This page is for a volunteer's profile.",
@@ -118,22 +117,28 @@
       "resubmit": "Submit again",
       "resubmitted": "The corrections were submitted. The approver will look again."
     },
+    "sections": {
+      "personal": "Personal details",
+      "contact": "Contact",
+      "address": "Address",
+      "work": "Work details",
+      "bank": "Bank details",
+      "photos": "Photos"
+    },
     "edit": {
-      "title": "Ask to change a detail",
-      "intro": "After approval you cannot change your details directly. Send a request with the new value; once approved it applies at once.",
-      "field": "Which detail",
+      "button": "Edit",
+      "button_label": "Edit {field}",
+      "dialog_title": "Request to change {field}",
       "new_value": "New value",
       "note": "Reason (optional)",
       "send": "Send request",
       "sent": "The request was sent.",
-      "code_intro": "A code goes to the new address. Once you verify it, the request reaches the approver.",
+      "code_intro": "A code goes to the new address; once verified, the request reaches the approver.",
+      "photo_intro": "After the request, add the new photo here.",
       "send_code": "Send code",
       "code_sent": "The code was sent.",
       "code": "Code",
       "verify_code": "Verify code",
-      "verified": "Verified. The request reached the approver.",
-      "photo_intro": "Add the new photo; once it arrives the request reaches the approver.",
-      "open": "Open requests",
       "status": {
         "open": "Waiting for you",
         "submitted": "Waiting for approval"
