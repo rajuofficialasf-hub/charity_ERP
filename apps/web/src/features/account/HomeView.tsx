@@ -23,8 +23,6 @@ export function HomeView() {
               </Button>
             </div>
           )}
-          <p className="m-0">{t('account.signed_in_as', { name: me.displayName })}</p>
-          <p className="m-0">{t('home.placeholder')}</p>
           {canOpenAdmin(me) && (
             <div>
               <Button variant="primary" href="/admin">

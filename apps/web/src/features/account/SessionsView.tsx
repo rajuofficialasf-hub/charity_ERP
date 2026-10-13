@@ -60,7 +60,6 @@ function SessionList() {
 
   return (
     <>
-      <p className="m-0">{t('intro')}</p>
       {done && (
         <Alert tone="success" live="status" onDismiss={() => setDone(false)}>
           {t('revoked')}

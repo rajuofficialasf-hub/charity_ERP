@@ -14,7 +14,6 @@ export function DashboardPage() {
       <DocumentTitle title={t('title')} />
       <h1 className="admin-title">{t('title')}</h1>
       <Card>
-        <p className="m-0">{t('placeholder')}</p>
         <p className="admin-muted">{t('today', { date: formatDate(new Date()) })}</p>
       </Card>
     </>

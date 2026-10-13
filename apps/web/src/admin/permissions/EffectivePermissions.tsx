@@ -83,8 +83,7 @@ export function EffectivePermissions({ user }: { user: PanelUser }) {
         {t('effective')}
       </h2>
       <p className="m-0">
-        <strong>{t('roles')}:</strong> {user.roles.map(roleName).join(', ')}{' '}
-        <span className="admin-muted">{t('roles_hint')}</span>
+        <strong>{t('roles')}:</strong> {user.roles.map(roleName).join(', ')}
       </p>
       <div>
         <Button icon={KeyRound} onPress={() => setGranting(true)}>

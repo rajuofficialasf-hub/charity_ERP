@@ -40,7 +40,6 @@ export function RegistrationsPage() {
     <>
       <DocumentTitle title={t('title')} />
       <h1 className="admin-title">{t('title')}</h1>
-      <p className="m-0">{t('intro')}</p>
       {notice && (
         <Alert
           tone="success"

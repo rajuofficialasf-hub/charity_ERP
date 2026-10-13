@@ -56,7 +56,6 @@ export function HandoverPage() {
     <>
       <DocumentTitle title={t('title')} />
       <h1 className="admin-title">{t('title')}</h1>
-      <p className="m-0">{t('intro')}</p>
       <UserSearch
         label={t('search')}
         helper={t('search_hint')}

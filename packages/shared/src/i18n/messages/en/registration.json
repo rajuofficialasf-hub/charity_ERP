@@ -110,7 +110,7 @@
     "empty": "Not given",
     "corrections": {
       "title": "Correction requests",
-      "intro": "The approver asked you to fix the details below. Answer each one, then submit again.",
+      "intro": "Correct the details below, then submit again.",
       "note": "From the approver: {note}",
       "answer": "Answer",
       "answered": "Answered",

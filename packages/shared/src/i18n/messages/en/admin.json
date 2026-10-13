@@ -13,17 +13,14 @@
   },
   "dashboard": {
     "title": "Dashboard",
-    "placeholder": "The management dashboard arrives here in a later step: work progress against target, alerts, budget and areas.",
     "today": "Today: {date}"
   },
   "permissions": {
     "title": "Permission panel",
-    "intro": "Find a user to see the effective permissions, grant or remove a permission, and end a permission given in the panel. Every change is audited with its reason.",
     "search": "Find a user",
     "search_hint": "Type at least 2 characters of the name, email or mobile number.",
     "user_option": "{name} · {detail}",
     "roles": "Roles",
-    "roles_hint": "Roles cannot be changed here.",
     "effective": "Effective permissions",
     "effective_empty": "This user has no permissions.",
     "module": "Module {module}",
@@ -78,7 +75,6 @@
   },
   "registrations": {
     "title": "Registrations",
-    "intro": "Pending registrations of volunteers and officials in your area, and the change requests of approved volunteers.",
     "tabs": {
       "label": "Registration work",
       "pending": "Pending registrations",
@@ -176,7 +172,6 @@
   },
   "handover": {
     "title": "Handover",
-    "intro": "Before an official's account is deactivated, their pending work goes to other officials. Find the official, hand the work over, complete the handover, then deactivate the account.",
     "search": "Find the official",
     "search_hint": "Type at least 2 characters of the name, email or mobile number.",
     "state": {
