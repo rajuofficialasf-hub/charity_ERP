@@ -25,10 +25,17 @@ const isPhoto = (field: string): field is PhotoSlot =>
   (PHOTO_SLOTS as readonly string[]).includes(field);
 const isContact = (field: string) => field === 'mobile' || field === 'email';
 
-/** The message of a refused call: the field message of a 422, else the API's own message. */
-function messageOf(error: unknown): string | null {
-  if (!(error instanceof ApiFailure)) return null;
-  return error.details[0]?.message ?? error.message;
+/**
+ * The message of a refused call: the field message of a 422, else the API's own message; a call
+ * that reached no server says so (offline), so no alert is ever empty.
+ */
+function useMessageOf() {
+  const offline = useTranslations('auth.login')('offline');
+  return (error: unknown): string | null => {
+    if (!error) return null;
+    if (!(error instanceof ApiFailure)) return offline;
+    return error.details[0]?.message ?? error.message;
+  };
 }
 
 function useRefresh() {
@@ -45,6 +52,7 @@ function useRefresh() {
  */
 export function Corrections({ requests }: { requests: ChangeRequest[] }) {
   const t = useTranslations('registration.profile.corrections');
+  const messageOf = useMessageOf();
   const refresh = useRefresh();
   const rows = requests.filter((r) => r.kind === 'registration_correction');
   const again = useMutation({ mutationFn: resubmit, onSuccess: refresh });
@@ -81,6 +89,7 @@ export function Corrections({ requests }: { requests: ChangeRequest[] }) {
 
 function CorrectionRow({ row, onAnswered }: { row: ChangeRequest; onAnswered: () => void }) {
   const t = useTranslations('registration');
+  const messageOf = useMessageOf();
   const field = row.field as RequestField;
   const label = t(FIELD_LABEL[field] ?? 'form.name');
   const [value, setValue] = useState<unknown>(undefined);
@@ -146,6 +155,7 @@ export function EditDialog({
   onSent: () => void;
 }) {
   const t = useTranslations('registration');
+  const messageOf = useMessageOf();
   const tc = useTranslations('common.action');
   const refresh = useRefresh();
   const label = t(FIELD_LABEL[field]);
@@ -211,6 +221,7 @@ export function RequestState({
   label: string;
 }) {
   const t = useTranslations('registration');
+  const messageOf = useMessageOf();
   const refresh = useRefresh();
   const [code, setCode] = useState('');
   // each action clears the other's result, so an old message never hides a new one

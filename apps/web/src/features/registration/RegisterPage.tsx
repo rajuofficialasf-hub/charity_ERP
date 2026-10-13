@@ -60,7 +60,18 @@ export function RegisterPage() {
   const set = (patch: Partial<RegistrationValues>) => setValues((v) => ({ ...v, ...patch }));
   const channel = (c: RegistrationChannel, patch: Partial<ChannelState>) =>
     setChannels((old) => ({ ...old, [c]: { ...old[c], ...patch } }));
-  const verified = Boolean(draft?.token);
+  // the draft holds its token only once both contacts are verified (D-090)
+  const verified = Boolean(draft?.token) && channels.sms.verified && channels.email.verified;
+  const busy = channels.sms.busy || channels.email.busy;
+  /** What a refused call says: its own message, the first field message, else the generic text. */
+  const messageOf = (f: ReturnType<typeof failureOf>) =>
+    f.message ?? Object.values(f.fields)[0] ?? tr('common.state.error.text');
+
+  /** A contact typed again after its code was sent: the earlier code no longer counts. */
+  const setContact = (c: RegistrationChannel, value: string) => {
+    set(c === 'sms' ? { mobile: value } : { email: value });
+    if (channels[c].sent && !channels[c].verified) channel(c, { ...NEW_CHANNEL });
+  };
 
   const ensureDraft = async (): Promise<Draft> => {
     if (draft) return draft;
@@ -87,16 +98,18 @@ export function RegisterPage() {
     setExists(false);
     setError(null);
     channel(c, { busy: true, error: undefined, codeError: undefined, code: '' });
+    const address = c === 'sms' ? values.mobile : values.email;
     void ensureDraft()
-      .then((d) => sendCode(d.registrationId, c, c === 'sms' ? values.mobile : values.email))
-      .then(() => channel(c, { busy: false, sent: true }))
+      .then((d) => sendCode(d.registrationId, c, address))
+      .then(() => channel(c, { busy: false, sent: true, address }))
       .catch((failure: unknown) => {
         const f = failureOf(failure, offline);
-        if (f.code === 'registration.already_verified')
+        // the server already holds this very address as verified
+        if (f.code === 'registration.already_verified' && channels[c].address === address)
           return channel(c, { busy: false, verified: true, sent: false });
         if (f.code === 'registration.draft_expired' || f.code === 'permission.not_found')
-          return restart(f.message ?? offline);
-        channel(c, { busy: false, error: f.fields.address ?? f.message ?? offline });
+          return restart(messageOf(f));
+        channel(c, { busy: false, error: f.fields.address ?? messageOf(f) });
       });
   };
 
@@ -116,16 +129,22 @@ export function RegisterPage() {
           setExists(true);
           return setChannels(NEW_CHANNELS);
         }
-        if (f.code === 'registration.draft_expired') return restart(f.message ?? offline);
-        channel(c, { busy: false, codeError: f.fields.code ?? f.message ?? offline });
+        if (f.code === 'registration.draft_expired') return restart(messageOf(f));
+        channel(c, { busy: false, codeError: f.fields.code ?? messageOf(f) });
       });
   };
 
-  /** "Change" on a verified contact: its field opens again; the next code verifies the new one. */
-  const change = (c: RegistrationChannel) => channel(c, { ...NEW_CHANNEL });
+  /**
+   * "Change" on a contact verified while the other is not: its field opens again and the next code
+   * verifies the new one. Once both are verified the draft holds its token and takes no change.
+   */
+  const change = (c: RegistrationChannel) => {
+    if (!draft?.token) channel(c, { ...NEW_CHANNEL, address: channels[c].address });
+  };
 
   const switchKind = (next: RegistrationKind) => {
-    if (next === kind || verified) return;
+    // a draft being started belongs to the current kind
+    if (next === kind || verified || busy) return;
     setKind(next);
     setDraft(null);
     setChannels(NEW_CHANNELS);
@@ -137,7 +156,7 @@ export function RegisterPage() {
 
   const next = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (pending) return;
+    if (pending || (key === 'contact' && !verified)) return;
     const problems = checkStep(key, kind, values);
     if (Object.keys(problems).length) {
       setErrors(translated(problems));
@@ -155,12 +174,24 @@ export function RegisterPage() {
       .then(() => setDone(true))
       .catch((failure: unknown) => {
         const f = failureOf(failure, offline);
-        const fields = { ...f.fields };
-        if (f.code === 'registration.nid_exists') fields.nid = f.message ?? offline;
+        // an expired or spent draft cannot be submitted again: back to the contacts
+        if (
+          [
+            'registration.draft_expired',
+            'registration.token_invalid',
+            'permission.not_found',
+          ].includes(f.code)
+        ) {
+          setStep(0);
+          return restart(messageOf(f));
+        }
+        const fields = Object.fromEntries(Object.entries(f.fields).filter(([path]) => path));
+        if (f.code === 'registration.nid_exists') fields.nid = messageOf(f);
         const first = Object.keys(fields)[0];
         if (first) setStep(stepOf(kind, first));
         setErrors(fields);
-        setError(first ? null : f.message);
+        // the message also shows above the buttons, so no refusal goes unseen
+        setError(messageOf(f));
       })
       .finally(() => setPending(false));
   };
@@ -196,7 +227,7 @@ export function RegisterPage() {
                 type="button"
                 className="register-kind-option"
                 aria-pressed={kind === k}
-                disabled={verified && kind !== k}
+                disabled={(verified || busy) && kind !== k}
                 onClick={() => switchKind(k)}
               >
                 {t(`kind.${k}`)}
@@ -219,6 +250,8 @@ export function RegisterPage() {
                 onSend={send}
                 onCode={code}
                 onChange={change}
+                onContact={setContact}
+                canChange={!draft?.token}
               />
             )}
             {key === 'identity' && <IdentityStep values={values} set={set} errors={errors} />}

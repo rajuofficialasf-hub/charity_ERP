@@ -62,7 +62,7 @@ async function photo(page: Page, label: RegExp, slot: string) {
 /** Verifies one contact inside its field (UX-16): "যাচাই করুন", the code below, "যাচাই হয়েছে". */
 async function verifyContact(page: Page, label: RegExp, value: string, codeLabel: RegExp) {
   const field = page
-    .locator('.register-contact')
+    .getByTestId('register-contact')
     .filter({ has: page.getByRole('textbox', { name: label }) });
   await field.getByRole('textbox', { name: label }).fill(value);
   await field.getByRole('button', { name: 'যাচাই করুন' }).click();

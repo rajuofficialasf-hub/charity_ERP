@@ -211,6 +211,18 @@ describe('ProfileView of an approved volunteer', () => {
     ]);
   }, 15_000);
 
+  it('a request that reaches no server says so in the dialog', async () => {
+    const user = userEvent.setup();
+    serve(profile({ state: 'active', inAnyProject: true }), () => []);
+    server.use(http.post('*/api/v1/me/change-requests', () => HttpResponse.error()));
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    await user.click(await screen.findByRole('button', { name: 'Edit Education' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Request to change Education' });
+    await user.type(within(dialog).getByRole('textbox', { name: /New value/ }), 'BA');
+    await user.click(within(dialog).getByRole('button', { name: 'Send request' }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(/\S/);
+  }, 15_000);
+
   it('a detail with a request waiting for approval shows that instead of the button', async () => {
     serve(profile({ state: 'active', inAnyProject: true }), () => [
       row('01900000-0000-7000-8000-0000000000c6', 'education', {

@@ -7,6 +7,8 @@ import { EMAIL, MOBILE, type RegistrationValues } from './form-state';
 /** Where one contact stands: nothing sent, a code sent, or verified. */
 export interface ChannelState {
   sent: boolean;
+  /** The address the last code went to (the one a verification belongs to). */
+  address?: string;
   verified: boolean;
   code: string;
   busy: boolean;
@@ -18,7 +20,8 @@ export const NEW_CHANNEL: ChannelState = { sent: false, verified: false, code: '
 const DUMMY_OTP_NOTE = import.meta.env.VITE_OTP_DUMMY === '1';
 
 /**
- * Step 1 (UX-16, the owner's reference image): the name, the father's name (volunteers) and the
+ * Step 1 (UX-16 of DECISION_LOG; plan docs/plans/2026-10-13-0922-feat-registration-redesign-plan.md,
+ * R2; the owner's reference image): the name, the father's name (volunteers) and the
  * mobile number and email, each verified inside its own field; the code input opens below the
  * field it belongs to.
  */
@@ -32,6 +35,8 @@ export function ContactStep({
   onSend,
   onCode,
   onChange,
+  onContact,
+  canChange,
 }: {
   kind: RegistrationKind;
   values: RegistrationValues;
@@ -42,6 +47,8 @@ export function ContactStep({
   onSend: (channel: RegistrationChannel) => void;
   onCode: (channel: RegistrationChannel, code: string) => void;
   onChange: (channel: RegistrationChannel) => void;
+  onContact: (channel: RegistrationChannel, value: string) => void;
+  canChange: boolean;
 }) {
   const t = useTranslations('registration');
   const both = channels.sms.verified && channels.email.verified;
@@ -71,23 +78,25 @@ export function ContactStep({
           channel="sms"
           value={values.mobile}
           valid={MOBILE.test(values.mobile)}
-          onValue={(mobile) => set({ mobile })}
+          onValue={(mobile) => onContact('sms', mobile)}
           state={channels.sms}
           error={errors.mobile}
           onSend={onSend}
           onCode={onCode}
           onChange={onChange}
+          canChange={canChange}
         />
         <ContactField
           channel="email"
           value={values.email}
           valid={EMAIL.test(values.email)}
-          onValue={(email) => set({ email: email.trim() })}
+          onValue={(email) => onContact('email', email.trim())}
           state={channels.email}
           error={errors.email}
           onSend={onSend}
           onCode={onCode}
           onChange={onChange}
+          canChange={canChange}
         />
       </div>
       {exists && (
@@ -124,6 +133,7 @@ function ContactField({
   onSend,
   onCode,
   onChange,
+  canChange,
 }: {
   channel: RegistrationChannel;
   value: string;
@@ -134,6 +144,7 @@ function ContactField({
   onSend: (channel: RegistrationChannel) => void;
   onCode: (channel: RegistrationChannel, code: string) => void;
   onChange: (channel: RegistrationChannel) => void;
+  canChange: boolean;
 }) {
   const t = useTranslations('registration');
   const sms = channel === 'sms';
@@ -160,13 +171,13 @@ function ContactField({
     endAction: action,
   };
   return (
-    <div className="register-contact">
+    <div className="register-contact" data-testid="register-contact">
       {sms ? (
         <PhoneField {...field} autoComplete="tel" />
       ) : (
         <TextField {...field} type="email" autoComplete="email" />
       )}
-      {state.verified && (
+      {state.verified && canChange && (
         <Button variant="ghost" size="sm" onPress={() => onChange(channel)}>
           {t('verify.change')}
         </Button>

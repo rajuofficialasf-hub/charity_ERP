@@ -145,7 +145,9 @@ beforeEach(() => {
 });
 
 const contactField = (name: RegExp) =>
-  screen.getByRole('textbox', { name }).closest<HTMLElement>('.register-contact')!;
+  screen
+    .getAllByTestId('register-contact')
+    .find((el) => within(el).queryByRole('textbox', { name }))!;
 
 /** Name, father's name and both contacts verified inside their fields. */
 async function verifyContacts(user: User, kind: 'volunteer' | 'staff' = 'volunteer') {
@@ -265,6 +267,26 @@ describe('the contact step (UX-16)', () => {
       within(contactField(/Mobile number/)).getByRole('button', { name: 'Verify' }),
     ).toBeInTheDocument();
   }, 15_000);
+
+  it('once both are verified the contacts are fixed; a number typed again after its code needs a new one', async () => {
+    const user = userEvent.setup();
+    api();
+    renderApp(<RegisterPage />, 'en', { path: '/register' });
+    await user.type(screen.getByRole('textbox', { name: /Mobile number/ }), '01712345678');
+    await user.click(within(contactField(/Mobile number/)).getByRole('button', { name: 'Verify' }));
+    await screen.findByRole('textbox', { name: /Code sent to your mobile/ });
+    // a corrected number: the code of the first one no longer counts
+    await user.type(screen.getByRole('textbox', { name: /Mobile number/ }), '{Backspace}9');
+    expect(
+      screen.queryByRole('textbox', { name: /Code sent to your mobile/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(contactField(/Mobile number/)).getByRole('button', { name: 'Verify' }),
+    ).toBeInTheDocument();
+    await user.clear(screen.getByRole('textbox', { name: /Mobile number/ }));
+    await verifyContacts(user);
+    expect(screen.queryByRole('button', { name: 'Change' })).not.toBeInTheDocument();
+  }, 20_000);
 
   it('reports an existing account only after both codes, with a way to log in', async () => {
     const user = userEvent.setup();
@@ -425,6 +447,31 @@ describe('the steps after the contacts', () => {
       /The NID is not valid/,
     );
     expect(stepName()).toBe('2Identity and address');
+  }, 30_000);
+
+  it('an expired draft at submit goes back to the contacts with the message', async () => {
+    const user = userEvent.setup();
+    api({
+      kind: 'staff',
+      submit: () => apiError(410, 'registration.draft_expired', 'The registration has expired.'),
+    });
+    const { container } = renderApp(<RegisterPage />, 'en', { path: '/register' });
+    await verifyContacts(user, 'staff');
+    await next(user);
+    await user.type(screen.getByRole('textbox', { name: /Designation/ }), 'Project Officer');
+    await user.click(screen.getByRole('button', { name: /Program/ }));
+    await user.click(await screen.findByRole('option', { name: 'Self-reliance' }));
+    await user.click(screen.getByRole('button', { name: /Division of the workplace/ }));
+    await user.click(await screen.findByRole('option', { name: 'Dhaka' }));
+    await next(user);
+    await user.type(screen.getByLabelText(/^Password/), 'Nadi kul 2026');
+    await user.type(screen.getByLabelText(/^Repeat the password/), 'Nadi kul 2026');
+    await next(user);
+    await uploadAll(user, container, 1);
+    await user.click(screen.getByRole('button', { name: 'Submit' }));
+    expect(await screen.findByText('The registration has expired.')).toBeInTheDocument();
+    expect(stepName()).toBe('1Contact');
+    expect(screen.getByText('Verify your identity')).toBeInTheDocument();
   }, 30_000);
 
   it("the team member's reference shows the main volunteer's name", async () => {
