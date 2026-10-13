@@ -148,12 +148,12 @@ describe('migrations', () => {
           `INSERT INTO file_links (id, file_id, entity_type, entity_id, slot) VALUES (gen_random_uuid(), $1, $2, gen_random_uuid(), 'photo')`,
           [file, entity],
         );
-      await client.query(
-        readFileSync(
-          join(MIGRATIONS_DIR, '20261012000000_registration_drafts', 'down.sql'),
-          'utf8',
-        ),
-      );
+      // the later migration first, as a rollback would
+      for (const dir of [
+        '20261013000000_registration_draft_channels',
+        '20261012000000_registration_drafts',
+      ])
+        await client.query(readFileSync(join(MIGRATIONS_DIR, dir, 'down.sql'), 'utf8'));
       const rows = async (sql: string) => (await client.query(sql)).rows.map((r) => r.v as string);
       expect(await rows('SELECT purpose AS v FROM otp_codes')).toEqual(['registration']);
       expect(await rows('SELECT entity_type AS v FROM file_links')).toEqual(['volunteer']);

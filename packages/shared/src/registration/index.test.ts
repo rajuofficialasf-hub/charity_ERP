@@ -3,6 +3,8 @@ import {
   decisionRequestSchema,
   draftExpiry,
   editRequestCreateSchema,
+  otpSendRequestSchema,
+  otpVerifyRequestSchema,
   REGISTRATION_RULES,
   registrationStartRequestSchema,
   registrationCorrectionCreateSchema,
@@ -17,14 +19,31 @@ describe('registration draft rules', () => {
     expect(REGISTRATION_RULES.draftLifeMs).toBe(86_400_000);
   });
 
-  it('the start request lower-cases the email and defaults to a volunteer', () => {
+  it('the start names only the kind and defaults to a volunteer (D-090)', () => {
+    expect(registrationStartRequestSchema.parse({})).toEqual({ kind: 'volunteer' });
+    expect(registrationStartRequestSchema.safeParse({ mobile: '01712345678' }).success).toBe(false);
+  });
+
+  it('a send takes the address of its channel; the email is lower-cased', () => {
+    const id = '01890000-0000-7000-8000-000000000001';
     expect(
-      registrationStartRequestSchema.parse({ mobile: '01712345678', email: 'A@Example.org' }),
-    ).toEqual({ mobile: '01712345678', email: 'a@example.org', kind: 'volunteer' });
+      otpSendRequestSchema.parse({
+        registrationId: id,
+        channel: 'email',
+        address: 'A@Example.org',
+      }),
+    ).toEqual({ registrationId: id, channel: 'email', address: 'a@example.org' });
     expect(
-      registrationStartRequestSchema.safeParse({ mobile: '0171234567', email: 'a@example.org' })
+      otpSendRequestSchema.safeParse({ registrationId: id, channel: 'sms', address: 'a@b.org' })
         .success,
     ).toBe(false);
+    expect(
+      otpSendRequestSchema.safeParse({ registrationId: id, channel: 'sms', address: '0171234567' })
+        .success,
+    ).toBe(false);
+    expect(
+      otpVerifyRequestSchema.parse({ registrationId: id, channel: 'sms', code: '123456' }),
+    ).toEqual({ registrationId: id, channel: 'sms', code: '123456' });
   });
 });
 

@@ -188,14 +188,13 @@ export function authRouter(
     status: 201,
     operationId: 'auth.registration.start',
     summary:
-      'Start registration with mobile and email; sends two OTPs (dummy code in dev/test); an existing account is reported only after verification (D-086)',
+      'Start a registration draft of a kind; nothing is sent, each contact is verified on its own (D-090)',
     permission: 'public',
     audit: 'auth.register_started',
     rateLimit: 'registration',
-    headers: [{ name: 'Accept-Language', required: false }],
     body: registrationStartRequestSchema,
     responses: { 201: null, 422: null, 429: null },
-    handler: ({ body }) => c.registration.start(body, currentContext()?.locale ?? 'bn'),
+    handler: ({ body }) => c.registration.start(body),
   });
 
   defineRoute<OtpSendRequest>(router, deps, {
@@ -204,13 +203,15 @@ export function authRouter(
     path: '/auth/register/otp/send',
     status: 204,
     operationId: 'auth.registration.resendOtp',
-    summary: 'Resend one OTP (mobile or email)',
+    summary:
+      'Send an OTP to one contact of the draft; a changed address clears that channel (D-090; dummy code in dev/test)',
     permission: 'public',
     audit: 'auth.otp_sent',
     rateLimit: 'otp-request',
+    headers: [{ name: 'Accept-Language', required: false }],
     body: otpSendRequestSchema,
-    responses: { 204: null, 404: null, 410: null, 422: null, 429: null },
-    handler: ({ body }) => c.registration.resend(body, currentContext()?.locale ?? 'bn'),
+    responses: { 204: null, 404: null, 409: null, 410: null, 422: null, 429: null },
+    handler: ({ body }) => c.registration.send(body, currentContext()?.locale ?? 'bn'),
   });
 
   defineRoute<OtpVerifyRequest>(router, deps, {
@@ -219,7 +220,7 @@ export function authRouter(
     path: '/auth/register/otp/verify',
     operationId: 'auth.registration.verifyOtp',
     summary:
-      'Verify both OTPs; returns the draft token once and the form opens (BR-023, D-082); a contact of an existing account answers registration.account_exists (D-086)',
+      'Verify the OTP of one channel; once both are verified returns the draft token once (BR-023, D-082, D-090); a contact of an existing account answers registration.account_exists only then (D-086)',
     permission: 'public',
     audit: 'auth.otp_verified',
     rateLimit: 'otp-verify',

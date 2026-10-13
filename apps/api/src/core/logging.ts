@@ -38,6 +38,7 @@ export const SENSITIVE_KEYS = [
   'x-registration-token',
   'mobileCode',
   'emailCode',
+  'address',
   'secret',
 ];
 

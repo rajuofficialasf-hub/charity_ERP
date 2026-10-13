@@ -16,13 +16,18 @@ export const REGISTRATION_RULES = {
   maxLookupsPerNidPerDay: 5,
   /** Refused submits (conflict or invalid form) a draft allows before 429. */
   maxRefusedSubmits: 5,
+  /** Codes one draft may send in its lifetime, across channels and address changes (D-090). */
+  maxSendsPerDraft: 6,
 } as const;
 
 export const REGISTRATION_KINDS = ['volunteer', 'staff'] as const;
 export type RegistrationKind = (typeof REGISTRATION_KINDS)[number];
 
-/** Photo slots of a registration and of a correction or edit request (D-087). */
-export const PHOTO_SLOTS = ['photo', 'nid_photo'] as const;
+/**
+ * Photo slots of a registration and of a correction or edit request (D-087): the own photo and
+ * both pages of the NID card (UX-18).
+ */
+export const PHOTO_SLOTS = ['photo', 'nid_photo', 'nid_photo_back'] as const;
 export type PhotoSlot = (typeof PHOTO_SLOTS)[number];
 export const PHOTO_SOURCES = ['camera', 'gallery'] as const;
 export type PhotoSource = (typeof PHOTO_SOURCES)[number];
@@ -39,26 +44,32 @@ export const nidSchema = z
   .string()
   .regex(/^([0-9]{10}|[0-9]{13}|[0-9]{17})$/, { message: 'validation.nid_format' });
 
+const emailSchema = z
+  .email()
+  .max(254)
+  .transform((v) => v.toLowerCase());
+
+/** A draft starts with its kind only; each contact comes with its own code (D-090). */
 export const registrationStartRequestSchema = z.strictObject({
-  mobile: mobileSchema,
-  email: z
-    .email()
-    .max(254)
-    .transform((v) => v.toLowerCase()),
   kind: z.enum(REGISTRATION_KINDS).default('volunteer'),
 });
 export type RegistrationStartRequest = z.infer<typeof registrationStartRequestSchema>;
 
-export const otpSendRequestSchema = z.strictObject({
-  registrationId: z.uuid(),
-  channel: z.enum(['sms', 'email']),
-});
+export const OTP_CHANNELS = ['sms', 'email'] as const;
+export type RegistrationChannel = (typeof OTP_CHANNELS)[number];
+
+/** Sends a code to one contact of the draft; a changed address clears that channel (D-090). */
+export const otpSendRequestSchema = z.discriminatedUnion('channel', [
+  z.strictObject({ registrationId: z.uuid(), channel: z.literal('sms'), address: mobileSchema }),
+  z.strictObject({ registrationId: z.uuid(), channel: z.literal('email'), address: emailSchema }),
+]);
 export type OtpSendRequest = z.infer<typeof otpSendRequestSchema>;
 
+/** Verifies the code of one channel (D-090). */
 export const otpVerifyRequestSchema = z.strictObject({
   registrationId: z.uuid(),
-  mobileCode: otpCodeSchema,
-  emailCode: otpCodeSchema,
+  channel: z.enum(OTP_CHANNELS),
+  code: otpCodeSchema,
 });
 export type OtpVerifyRequest = z.infer<typeof otpVerifyRequestSchema>;
 
@@ -70,7 +81,14 @@ export type ReferenceLookupRequest = z.infer<typeof referenceLookupRequestSchema
 
 export interface RegistrationStart {
   registrationId: string;
-  otpSentTo: ('sms' | 'email')[];
+}
+
+/**
+ * The answer of a verify (D-090): the channels verified so far; once both are, also the draft token
+ * and what the form needs.
+ */
+export interface RegistrationVerifyResult extends Partial<RegistrationVerified> {
+  verified: RegistrationChannel[];
 }
 
 export interface RegistrationVerified {
@@ -185,6 +203,7 @@ export const CORRECTION_FIELD_VALUES = {
   bank: bankDetailsSchema,
   photo: z.uuid(),
   nid_photo: z.uuid(),
+  nid_photo_back: z.uuid(),
 } as const;
 export type CorrectionField = keyof typeof CORRECTION_FIELD_VALUES;
 export const CORRECTION_FIELDS = Object.keys(CORRECTION_FIELD_VALUES) as CorrectionField[];
@@ -237,7 +256,7 @@ export const EDIT_FIELD_VALUES = {
 export type EditField = keyof typeof EDIT_FIELD_VALUES;
 export const EDIT_FIELDS = Object.keys(EDIT_FIELD_VALUES) as EditField[];
 export const CONTACT_FIELDS = ['mobile', 'email'] as const;
-export const PHOTO_FIELDS = ['photo', 'nid_photo'] as const;
+export const PHOTO_FIELDS = PHOTO_SLOTS;
 
 export const editRequestCreateSchema = z
   .strictObject({

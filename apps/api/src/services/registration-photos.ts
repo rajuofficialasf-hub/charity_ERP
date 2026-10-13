@@ -15,7 +15,14 @@ const BUCKET = 'profiles' as const;
 const KIND: Record<PhotoSlot, 'profile_photo' | 'nid_photo'> = {
   photo: 'profile_photo',
   nid_photo: 'nid_photo',
+  nid_photo_back: 'nid_photo',
 };
+/** The draft column of each slot (both pages of the NID card, UX-18). */
+const DRAFT_COLUMN = {
+  photo: 'photoFileId',
+  nid_photo: 'nidPhotoFileId',
+  nid_photo_back: 'nidPhotoBackFileId',
+} as const satisfies Record<PhotoSlot, string>;
 const EXTENSION = { 'image/jpeg': 'jpg', 'image/png': 'png' } as const;
 
 /**
@@ -47,19 +54,15 @@ export class RegistrationPhotosService {
       { slot: input.slot, source: input.source, uploadedBy: null },
       async (tx, id) => {
         // The draft row is locked, so two uploads to one slot replace each other in turn.
-        const [locked] = await tx.$queryRaw<
-          { photo_file_id: string | null; nid_photo_file_id: string | null }[]
-        >`SELECT photo_file_id, nid_photo_file_id FROM registration_drafts
+        await tx.$queryRaw`SELECT id FROM registration_drafts
            WHERE id = ${draft.id}::uuid AND submitted_at IS NULL FOR UPDATE`;
-        if (!locked) throw new ApiError('registration.token_invalid', 401);
-        await tx.registrationDraft.update({
-          where: { id: draft.id },
-          data: input.slot === 'photo' ? { photoFileId: id } : { nidPhotoFileId: id },
+        const locked = await tx.registrationDraft.findFirst({
+          where: { id: draft.id, submittedAt: null },
         });
-        return discard(
-          tx,
-          input.slot === 'photo' ? locked.photo_file_id : locked.nid_photo_file_id,
-        );
+        if (!locked) throw new ApiError('registration.token_invalid', 401);
+        const column = DRAFT_COLUMN[input.slot];
+        await tx.registrationDraft.update({ where: { id: draft.id }, data: { [column]: id } });
+        return discard(tx, locked[column]);
       },
       { registrationId: draft.id },
     );

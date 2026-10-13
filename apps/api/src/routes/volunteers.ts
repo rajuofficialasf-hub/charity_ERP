@@ -40,6 +40,7 @@ const ownProfile = z.object({
   referenceNid: text,
   photoFileId: z.uuid().nullable(),
   nidPhotoFileId: z.uuid().nullable(),
+  nidPhotoBackFileId: z.uuid().nullable(),
 });
 
 /** A blocklist entry without its reason (the reason is in the audit log, class blocklist.reason). */

@@ -245,6 +245,13 @@ describe('registration rate-limit windows', () => {
     ]);
   });
 
+  it('counts a submit by its draft and leaves a start, which names no draft, to the address windows', () => {
+    const [, byDraft] = RATE_LIMITS.registration;
+    expect(byDraft!.key(req({ registrationId: 'D1' }))).toBe('draft:d1');
+    expect(byDraft!.skip!(req({ registrationId: 'D1' }))).toBe(false);
+    expect(byDraft!.skip!(req({ kind: 'volunteer' }))).toBe(true);
+  });
+
   it('counts reference lookups per address only; the per-NID count needs a draft token', () => {
     expect(RATE_LIMITS['reference-lookup'].map((w) => [w.limit, w.ttlMs, w.byIp])).toEqual([
       [20, 86_400_000, true],

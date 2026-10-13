@@ -84,6 +84,7 @@ export const FIELD_LABEL = {
   bank: 'form.bank',
   photo: 'form.photo',
   nid_photo: 'form.nid_photo',
+  nid_photo_back: 'form.nid_photo_back',
   mobile: 'start.mobile',
   email: 'start.email',
 } as const;

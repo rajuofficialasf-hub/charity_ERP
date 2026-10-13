@@ -13,17 +13,39 @@ export const newContacts = () => ({
   email: `reg-h${++n}.${randomUUID().slice(0, 6)}@example.org`,
 });
 
+/**
+ * Starts a draft and verifies the given contacts one channel at a time (D-090); returns the draft
+ * id and the answer of the last verify (200 with the token, or the refusal).
+ */
+export async function verifyContacts(
+  h: AuthHarness,
+  contacts: { mobile: string; email: string },
+  kind: 'volunteer' | 'staff' = 'volunteer',
+) {
+  const started = await request(h.server()).post('/api/v1/auth/register/start').send({ kind });
+  if (started.status !== 201) throw new Error(`start failed: ${started.status}`);
+  const registrationId = started.body.data.registrationId as string;
+  let res!: request.Response;
+  for (const [channel, address] of [
+    ['sms', contacts.mobile],
+    ['email', contacts.email],
+  ] as const) {
+    const sent = await request(h.server())
+      .post('/api/v1/auth/register/otp/send')
+      .send({ registrationId, channel, address });
+    if (sent.status !== 204) throw new Error(`send failed: ${sent.status}`);
+    res = await request(h.server())
+      .post('/api/v1/auth/register/otp/verify')
+      .send({ registrationId, channel, code: DUMMY_CODE });
+    if (res.status !== 200) break;
+  }
+  return { registrationId, res, token: res.body.data?.registrationToken as string | undefined };
+}
+
 /** A registration draft with both codes verified: its id, contacts and draft token. */
 export async function verifiedDraft(h: AuthHarness, kind: 'volunteer' | 'staff' = 'volunteer') {
   const contacts = newContacts();
-  const started = await request(h.server())
-    .post('/api/v1/auth/register/start')
-    .send({ ...contacts, kind });
-  if (started.status !== 201) throw new Error(`start failed: ${started.status}`);
-  const registrationId = started.body.data.registrationId as string;
-  const verified = await request(h.server())
-    .post('/api/v1/auth/register/otp/verify')
-    .send({ registrationId, mobileCode: DUMMY_CODE, emailCode: DUMMY_CODE });
-  if (verified.status !== 200) throw new Error(`verify failed: ${verified.status}`);
-  return { ...contacts, registrationId, token: verified.body.data.registrationToken as string };
+  const { registrationId, res, token } = await verifyContacts(h, contacts, kind);
+  if (res.status !== 200 || !token) throw new Error(`verify failed: ${res.status}`);
+  return { ...contacts, registrationId, token };
 }

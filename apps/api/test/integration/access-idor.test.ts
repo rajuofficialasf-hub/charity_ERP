@@ -77,6 +77,7 @@ afterAll(async () => {
 const PROTECTED_KEYS = [
   'nid',
   'nidPhotoFileId',
+  'nidPhotoBackFileId',
   'bankName',
   'bankAccountName',
   'bankAccountNumber',

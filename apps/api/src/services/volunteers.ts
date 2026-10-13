@@ -43,6 +43,7 @@ export class VolunteersService {
             referenceNid: true,
             photoFileId: true,
             nidPhotoFileId: true,
+            nidPhotoBackFileId: true,
             _count: { select: { projectVolunteersVolunteer: { where: { endedAt: null } } } },
           },
         },
@@ -82,6 +83,7 @@ export class VolunteersService {
       referenceNid: v.referenceNid,
       photoFileId: v.photoFileId,
       nidPhotoFileId: v.nidPhotoFileId,
+      nidPhotoBackFileId: v.nidPhotoBackFileId,
     };
   }
 }

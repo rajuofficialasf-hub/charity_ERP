@@ -43,6 +43,7 @@ const isPhoto = (field: string) => (PHOTO_FIELDS as readonly string[]).includes(
 const CLASS_OF: Record<string, string> = {
   nid: 'volunteer.identity',
   nid_photo: 'volunteer.identity',
+  nid_photo_back: 'volunteer.identity',
   bank: 'volunteer.bank',
 };
 

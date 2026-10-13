@@ -136,6 +136,7 @@
   },
   "registration": {
     "account_exists": "An account with this mobile number or email already exists. Log in instead.",
+    "already_verified": "This contact is already verified.",
     "token_invalid": "This registration could not be confirmed. Start again.",
     "draft_expired": "The time for this registration has run out. Start again.",
     "open_corrections": "Fix every field marked for correction, then submit again.",

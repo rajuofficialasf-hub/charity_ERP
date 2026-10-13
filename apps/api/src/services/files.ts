@@ -78,7 +78,13 @@ export class FilesService {
   /** The user a photo belongs to: the volunteer profile, the staff link, or the uploader. */
   private async ownerOf(file: { id: string; uploadedBy: string | null }): Promise<string | null> {
     const volunteer = await this.prisma.volunteer.findFirst({
-      where: { OR: [{ photoFileId: file.id }, { nidPhotoFileId: file.id }] },
+      where: {
+        OR: [
+          { photoFileId: file.id },
+          { nidPhotoFileId: file.id },
+          { nidPhotoBackFileId: file.id },
+        ],
+      },
       select: { userId: true },
     });
     if (volunteer) return volunteer.userId;

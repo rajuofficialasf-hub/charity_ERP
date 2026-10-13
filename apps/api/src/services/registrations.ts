@@ -1,5 +1,6 @@
 import { uuidv7 } from '@css/shared';
 import {
+  PHOTO_SLOTS,
   type ChangeRequestAnswer,
   CORRECTION_FIELD_VALUES,
   type CorrectionField,
@@ -267,6 +268,7 @@ export class RegistrationsService {
             bankRoutingNumber: true,
             photoFileId: true,
             nidPhotoFileId: true,
+            nidPhotoBackFileId: true,
             referenceVolunteerId: true,
             approvedAt: true,
             volunteerChangeRequestsVolunteer: {
@@ -320,6 +322,7 @@ export class RegistrationsService {
             facebookId: v.facebookId,
             nid: v.nid,
             nidPhotoFileId: v.nidPhotoFileId,
+            nidPhotoBackFileId: v.nidPhotoBackFileId,
             bank: {
               bankName: v.bankName,
               accountName: v.bankAccountName,
@@ -587,7 +590,7 @@ export class RegistrationsService {
         { path: 'newValue', code: parsed?.error.issues[0]?.message ?? 'validation.failed' },
       ]);
     const value = parsed.data as unknown;
-    if ((field === 'photo' || field === 'nid_photo') && value !== row.newValue)
+    if ((PHOTO_SLOTS as readonly string[]).includes(field) && value !== row.newValue)
       // a photo is answered with the file the own upload stored on this request
       throw new ApiError('validation.failed', 422, undefined, [
         { path: 'newValue', code: 'validation.option_unknown' },
@@ -700,6 +703,8 @@ export async function applyField(
         return { photoFile: { connect: { id: value as string } } };
       case 'nid_photo':
         return { nidPhotoFile: { connect: { id: value as string } } };
+      case 'nid_photo_back':
+        return { nidPhotoBackFile: { connect: { id: value as string } } };
       default:
         return { [field]: (value as string | undefined) ?? null };
     }

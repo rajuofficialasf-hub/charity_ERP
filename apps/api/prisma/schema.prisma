@@ -418,33 +418,39 @@ model OtpCode {
 }
 
 model RegistrationDraft {
-  id               String    @id @db.Uuid
-  kind             String    @default("volunteer")
-  mobile           String
-  email            String
-  tokenHash        String?   @map("token_hash")
-  verifiedAt       DateTime? @map("verified_at") @db.Timestamptz(6)
-  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(6)
-  referenceLookups Int       @default(0) @map("reference_lookups") @db.SmallInt
-  photoFileId      String?   @map("photo_file_id") @db.Uuid
-  nidPhotoFileId   String?   @map("nid_photo_file_id") @db.Uuid
-  submittedUserId  String?   @map("submitted_user_id") @db.Uuid
-  submittedAt      DateTime? @map("submitted_at") @db.Timestamptz(6)
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy        String?   @map("created_by") @db.Uuid
-  updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-  updatedBy        String?   @map("updated_by") @db.Uuid
-  photoFile        File?     @relation("registration_drafts_photo_file_id", fields: [photoFileId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  nidPhotoFile     File?     @relation("registration_drafts_nid_photo_file_id", fields: [nidPhotoFileId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  submittedUser    User?     @relation("registration_drafts_submitted_user_id", fields: [submittedUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  createdByRef     User?     @relation("registration_drafts_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  updatedByRef     User?     @relation("registration_drafts_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  id                 String    @id @db.Uuid
+  kind               String    @default("volunteer")
+  mobile             String?
+  email              String?
+  mobileVerifiedAt   DateTime? @map("mobile_verified_at") @db.Timestamptz(6)
+  emailVerifiedAt    DateTime? @map("email_verified_at") @db.Timestamptz(6)
+  otpSends           Int       @default(0) @map("otp_sends") @db.SmallInt
+  tokenHash          String?   @map("token_hash")
+  verifiedAt         DateTime? @map("verified_at") @db.Timestamptz(6)
+  expiresAt          DateTime  @map("expires_at") @db.Timestamptz(6)
+  referenceLookups   Int       @default(0) @map("reference_lookups") @db.SmallInt
+  photoFileId        String?   @map("photo_file_id") @db.Uuid
+  nidPhotoFileId     String?   @map("nid_photo_file_id") @db.Uuid
+  nidPhotoBackFileId String?   @map("nid_photo_back_file_id") @db.Uuid
+  submittedUserId    String?   @map("submitted_user_id") @db.Uuid
+  submittedAt        DateTime? @map("submitted_at") @db.Timestamptz(6)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy          String?   @map("created_by") @db.Uuid
+  updatedAt          DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy          String?   @map("updated_by") @db.Uuid
+  photoFile          File?     @relation("registration_drafts_photo_file_id", fields: [photoFileId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  nidPhotoFile       File?     @relation("registration_drafts_nid_photo_file_id", fields: [nidPhotoFileId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  nidPhotoBackFile   File?     @relation("registration_drafts_nid_photo_back_file_id", fields: [nidPhotoBackFileId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  submittedUser      User?     @relation("registration_drafts_submitted_user_id", fields: [submittedUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef       User?     @relation("registration_drafts_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef       User?     @relation("registration_drafts_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
   @@index([mobile], map: "registration_drafts_mobile_idx")
   @@index([email], map: "registration_drafts_email_idx")
   @@index([expiresAt], where: raw("submitted_at IS NULL"), map: "registration_drafts_expires_at_idx")
   @@index([photoFileId], map: "registration_drafts_photo_file_id_idx")
   @@index([nidPhotoFileId], map: "registration_drafts_nid_photo_file_id_idx")
+  @@index([nidPhotoBackFileId], map: "registration_drafts_nid_photo_back_file_id_idx")
   @@index([submittedUserId], map: "registration_drafts_submitted_user_id_idx")
   @@index([createdBy], map: "registration_drafts_created_by_idx")
   @@index([updatedBy], map: "registration_drafts_updated_by_idx")
@@ -1278,6 +1284,7 @@ model Volunteer {
   referenceVolunteerId              String?                  @map("reference_volunteer_id") @db.Uuid
   photoFileId                       String?                  @map("photo_file_id") @db.Uuid
   nidPhotoFileId                    String?                  @map("nid_photo_file_id") @db.Uuid
+  nidPhotoBackFileId                String?                  @map("nid_photo_back_file_id") @db.Uuid
   category                          String?
   inactiveFlag                      Boolean                  @default(false) @map("inactive_flag")
   approvedBy                        String?                  @map("approved_by") @db.Uuid
@@ -1294,6 +1301,7 @@ model Volunteer {
   referenceVolunteer                Volunteer?               @relation("volunteers_reference_volunteer_id", fields: [referenceVolunteerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   photoFile                         File?                    @relation("volunteers_photo_file_id", fields: [photoFileId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   nidPhotoFile                      File?                    @relation("volunteers_nid_photo_file_id", fields: [nidPhotoFileId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  nidPhotoBackFile                  File?                    @relation("volunteers_nid_photo_back_file_id", fields: [nidPhotoBackFileId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   approvedByRef                     User?                    @relation("volunteers_approved_by", fields: [approvedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   createdByRef                      User?                    @relation("volunteers_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   updatedByRef                      User?                    @relation("volunteers_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
@@ -1322,6 +1330,7 @@ model Volunteer {
   @@index([unionId], map: "volunteers_union_id_idx")
   @@index([photoFileId], map: "volunteers_photo_file_id_idx")
   @@index([nidPhotoFileId], map: "volunteers_nid_photo_file_id_idx")
+  @@index([nidPhotoBackFileId], map: "volunteers_nid_photo_back_file_id_idx")
   @@index([approvedBy], map: "volunteers_approved_by_idx")
   @@index([createdBy], map: "volunteers_created_by_idx")
   @@index([updatedBy], map: "volunteers_updated_by_idx")
@@ -2602,52 +2611,54 @@ model MediaStory {
 }
 
 model File {
-  id                             String              @id @db.Uuid
-  bucket                         String
-  objectKey                      String              @map("object_key")
-  kind                           String
-  mime                           String
-  sizeBytes                      BigInt              @map("size_bytes")
-  sha256                         String
-  projectId                      String?             @map("project_id") @db.Uuid
-  uploadedBy                     String?             @map("uploaded_by") @db.Uuid
-  uploadedAt                     DateTime            @default(now()) @map("uploaded_at") @db.Timestamptz(6)
-  capturedAt                     DateTime?           @map("captured_at") @db.Timestamptz(6)
-  recordCreatedAt                DateTime?           @map("record_created_at") @db.Timestamptz(6)
-  latitude                       Decimal?            @db.Decimal(9, 6)
-  longitude                      Decimal?            @db.Decimal(9, 6)
-  gpsAccuracyM                   Decimal?            @map("gps_accuracy_m") @db.Decimal(7, 2)
-  source                         String
-  flags                          String[]            @default([])
-  phash                          BigInt?
-  thumbnailSmallKey              String?             @map("thumbnail_small_key")
-  thumbnailMediumKey             String?             @map("thumbnail_medium_key")
-  virusScan                      String              @default("pending") @map("virus_scan")
-  lockedAt                       DateTime?           @map("locked_at") @db.Timestamptz(6)
-  clientUuid                     String?             @map("client_uuid") @db.Uuid
-  deletedAt                      DateTime?           @map("deleted_at") @db.Timestamptz(6)
-  createdAt                      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy                      String?             @map("created_by") @db.Uuid
-  updatedAt                      DateTime            @default(now()) @map("updated_at") @db.Timestamptz(6)
-  updatedBy                      String?             @map("updated_by") @db.Uuid
-  project                        Project?            @relation("files_project_id", fields: [projectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  uploadedByRef                  User?               @relation("files_uploaded_by", fields: [uploadedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  createdByRef                   User?               @relation("files_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  updatedByRef                   User?               @relation("files_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  beneficiariesPhotoFile         Beneficiary[]       @relation("beneficiaries_photo_file_id")
-  mediaConsentsEvidenceFile      MediaConsent[]      @relation("media_consents_evidence_file_id")
-  volunteersPhotoFile            Volunteer[]         @relation("volunteers_photo_file_id")
-  volunteersNidPhotoFile         Volunteer[]         @relation("volunteers_nid_photo_file_id")
-  paymentsConfirmationFile       Payment[]           @relation("payments_confirmation_file_id")
-  expenseItemsVoucherFile        ExpenseItem[]       @relation("expense_items_voucher_file_id")
-  animalPhotosFile               AnimalPhoto[]       @relation("animal_photos_file_id")
-  documentsFile                  Document[]          @relation("documents_file_id")
-  documentsLegacyNoteFile        Document[]          @relation("documents_legacy_note_file_id")
-  fileLinksFile                  FileLink[]          @relation("file_links_file_id")
-  uploadSessionsFinalizedFile    UploadSession[]     @relation("upload_sessions_finalized_file_id")
-  exportJobsFile                 ExportJob[]         @relation("export_jobs_file_id")
-  registrationDraftsPhotoFile    RegistrationDraft[] @relation("registration_drafts_photo_file_id")
-  registrationDraftsNidPhotoFile RegistrationDraft[] @relation("registration_drafts_nid_photo_file_id")
+  id                                 String              @id @db.Uuid
+  bucket                             String
+  objectKey                          String              @map("object_key")
+  kind                               String
+  mime                               String
+  sizeBytes                          BigInt              @map("size_bytes")
+  sha256                             String
+  projectId                          String?             @map("project_id") @db.Uuid
+  uploadedBy                         String?             @map("uploaded_by") @db.Uuid
+  uploadedAt                         DateTime            @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+  capturedAt                         DateTime?           @map("captured_at") @db.Timestamptz(6)
+  recordCreatedAt                    DateTime?           @map("record_created_at") @db.Timestamptz(6)
+  latitude                           Decimal?            @db.Decimal(9, 6)
+  longitude                          Decimal?            @db.Decimal(9, 6)
+  gpsAccuracyM                       Decimal?            @map("gps_accuracy_m") @db.Decimal(7, 2)
+  source                             String
+  flags                              String[]            @default([])
+  phash                              BigInt?
+  thumbnailSmallKey                  String?             @map("thumbnail_small_key")
+  thumbnailMediumKey                 String?             @map("thumbnail_medium_key")
+  virusScan                          String              @default("pending") @map("virus_scan")
+  lockedAt                           DateTime?           @map("locked_at") @db.Timestamptz(6)
+  clientUuid                         String?             @map("client_uuid") @db.Uuid
+  deletedAt                          DateTime?           @map("deleted_at") @db.Timestamptz(6)
+  createdAt                          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy                          String?             @map("created_by") @db.Uuid
+  updatedAt                          DateTime            @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy                          String?             @map("updated_by") @db.Uuid
+  project                            Project?            @relation("files_project_id", fields: [projectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  uploadedByRef                      User?               @relation("files_uploaded_by", fields: [uploadedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef                       User?               @relation("files_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef                       User?               @relation("files_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  beneficiariesPhotoFile             Beneficiary[]       @relation("beneficiaries_photo_file_id")
+  mediaConsentsEvidenceFile          MediaConsent[]      @relation("media_consents_evidence_file_id")
+  volunteersPhotoFile                Volunteer[]         @relation("volunteers_photo_file_id")
+  volunteersNidPhotoFile             Volunteer[]         @relation("volunteers_nid_photo_file_id")
+  volunteersNidPhotoBackFile         Volunteer[]         @relation("volunteers_nid_photo_back_file_id")
+  paymentsConfirmationFile           Payment[]           @relation("payments_confirmation_file_id")
+  expenseItemsVoucherFile            ExpenseItem[]       @relation("expense_items_voucher_file_id")
+  animalPhotosFile                   AnimalPhoto[]       @relation("animal_photos_file_id")
+  documentsFile                      Document[]          @relation("documents_file_id")
+  documentsLegacyNoteFile            Document[]          @relation("documents_legacy_note_file_id")
+  fileLinksFile                      FileLink[]          @relation("file_links_file_id")
+  uploadSessionsFinalizedFile        UploadSession[]     @relation("upload_sessions_finalized_file_id")
+  exportJobsFile                     ExportJob[]         @relation("export_jobs_file_id")
+  registrationDraftsPhotoFile        RegistrationDraft[] @relation("registration_drafts_photo_file_id")
+  registrationDraftsNidPhotoFile     RegistrationDraft[] @relation("registration_drafts_nid_photo_file_id")
+  registrationDraftsNidPhotoBackFile RegistrationDraft[] @relation("registration_drafts_nid_photo_back_file_id")
 
   @@unique([bucket, objectKey], map: "files_bucket_object_key_key")
   @@unique([projectId, sha256], where: raw("kind <> 'export'"), map: "files_project_id_sha256_key")

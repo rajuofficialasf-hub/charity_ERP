@@ -24,6 +24,8 @@ interface Window {
   key: (req: Request) => string;
   /** Counts by the client address (runs before the per-id windows, NE-SEC-04). */
   byIp?: boolean;
+  /** The window does not apply to this request (it names nothing to count by). */
+  skip?: (req: Request) => boolean;
 }
 
 /** Body fields used as keys are capped, so a flood of long made-up ids cannot grow the stores. */
@@ -104,9 +106,16 @@ export const RATE_LIMITS: Record<RateLimitClass, Window[]> = {
   // Registration drafts and the team member's reference lookup (DECISION_LOG D-082, D-088). The
   // 5 lookups per draft and per NID and day are counted by the service after the draft token is
   // checked, so nobody without a draft can use up a volunteer's NID.
+  // A start names nothing but its kind (D-090): it counts by the client address only; a submit
+  // also counts by its draft.
   registration: [
     { limit: 10, ttlMs: DAY, key: ip, byIp: true },
-    { limit: 5, ttlMs: HOUR, key: address },
+    {
+      limit: 5,
+      ttlMs: HOUR,
+      key: (r) => `draft:${field(r, 'registrationId')}`,
+      skip: (r) => field(r, 'registrationId') === 'none',
+    },
     { limit: 20, ttlMs: HOUR, key: ip, byIp: true },
   ],
   'reference-lookup': [{ limit: 20, ttlMs: DAY, key: ip, byIp: true }],

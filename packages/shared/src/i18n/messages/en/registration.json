@@ -66,6 +66,7 @@
     "photos": "Photo and NID photo",
     "photo": "Photo",
     "nid_photo": "NID photo",
+    "nid_photo_back": "NID card, second page",
     "photo_helper": "JPEG or PNG, at most 2 MB. The phone makes it smaller before sending.",
     "designation": "Designation",
     "program": "Program",

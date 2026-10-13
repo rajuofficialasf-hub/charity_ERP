@@ -191,6 +191,33 @@ describe('edit requests', () => {
     ]);
     expect(saved.rows[0].photo_file_id).toBe(upload.body.data.fileId);
   });
+
+  it('the second page of the NID card is a photo edit of its own', async () => {
+    const v = await approvedVolunteer();
+    const created = await ask(v.session, { field: 'nid_photo_back' });
+    expect(created.status).toBe(201);
+    const upload = await api()
+      .post(`/api/v1/me/photos/nid_photo_back?requestId=${created.body.data.id}&source=camera`)
+      .set(bearer(v.session))
+      .set('Content-Type', 'image/jpeg')
+      .send(jpeg());
+    expect(upload.status).toBe(201);
+    const rpm = await as(world.users.rpmDhaka);
+    // the approver holds the identity class, so the value is shown
+    const pending = await api().get('/api/v1/edit-requests').set(bearer(rpm));
+    expect(
+      pending.body.data.find((r: { id: string }) => r.id === created.body.data.id).newValue,
+    ).toBe(upload.body.data.fileId);
+    expect((await decide(rpm, created.body.data.id, { decision: 'approve' })).status).toBe(200);
+    const saved = await h.db.query(
+      'SELECT nid_photo_back_file_id, photo_file_id FROM volunteers WHERE id = $1',
+      [v.volunteerId],
+    );
+    expect(saved.rows[0]).toMatchObject({
+      nid_photo_back_file_id: upload.body.data.fileId,
+      photo_file_id: null,
+    });
+  });
 });
 
 describe('contact changes', () => {

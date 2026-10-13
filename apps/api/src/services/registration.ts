@@ -17,10 +17,10 @@ import {
   type RegistrationSubmitRequest,
   type StaffRegistrationSubmit,
   type VolunteerRegistrationSubmit,
-  type RegistrationVerified,
+  type RegistrationVerifyResult,
 } from '@css/shared/registration';
 import { type AuditEntry, type AuditWriter } from '../audit/audit-writer';
-import { identifierHash, type OtpChannel, type OtpService } from '../auth/otp.service';
+import { identifierHash, type OtpService } from '../auth/otp.service';
 import type { PasswordHasher } from '../auth/password-hasher';
 import type { Env } from '../config/env';
 import type { Clock } from '../core/clock';
@@ -30,6 +30,15 @@ import { ApiError } from '../i18n/api-error';
 import type { RegistrationEvents } from '../notifications/registration-events';
 
 type Draft = NonNullable<Awaited<ReturnType<PrismaService['registrationDraft']['findUnique']>>>;
+/** A draft with its token: both contacts are set and verified (CHECKs of D-090). */
+type VerifiedDraft = Draft & { mobile: string; email: string };
+
+/** An address in the audit: enough to tell two sends apart, not enough to read it (D-090). */
+function maskAddress(address: string): string {
+  const at = address.indexOf('@');
+  if (at > 0) return `${address[0]}•••${address.slice(at)}`;
+  return `${address.slice(0, 2)}•••••••${address.slice(-2)}`;
+}
 
 const tokenHash = (token: string) => createHash('sha256').update(token).digest('hex');
 
@@ -73,120 +82,140 @@ export class RegistrationService {
       .then(() => undefined);
   }
 
-  /** Starts a registration, or resumes the open draft of the same contacts, and sends both codes. */
-  async start(body: RegistrationStartRequest, locale: Locale): Promise<RegistrationStart> {
-    const now = this.clock.now();
-    const open = await this.prisma.registrationDraft.findFirst({
-      where: {
-        mobile: body.mobile,
-        email: body.email,
-        kind: body.kind,
-        submittedAt: null,
-        expiresAt: { gt: now },
-      },
-      orderBy: { createdAt: 'desc' },
-      select: { id: true },
-    });
-    const id = open?.id ?? uuidv7();
+  /** Starts a draft of the kind; nothing is sent, each contact comes with its own code (D-090). */
+  async start(body: RegistrationStartRequest): Promise<RegistrationStart> {
+    const id = uuidv7();
     await this.prisma.$transaction(async (tx) => {
-      if (!open)
-        await tx.registrationDraft.create({
-          data: {
-            id,
-            kind: body.kind,
-            mobile: body.mobile,
-            email: body.email,
-            expiresAt: draftExpiry(now),
-          },
-        });
+      await tx.registrationDraft.create({
+        data: { id, kind: body.kind, expiresAt: draftExpiry(this.clock.now()) },
+      });
       await this.audit.record(tx, {
         action: 'auth.register_started',
         entityType: 'registration_draft',
         entityId: id,
-        new: { kind: body.kind, resumed: Boolean(open) },
+        new: { kind: body.kind },
       });
     });
-    for (const channel of ['sms', 'email'] as const) await this.send(channel, body, locale);
     this.events.emit({ type: 'registration.started', draftId: id });
-    return { registrationId: id, otpSentTo: ['sms', 'email'] };
-  }
-
-  /** Sends one code again (AUTH.md 2: 5 per address and hour). */
-  async resend(body: OtpSendRequest, locale: Locale): Promise<void> {
-    const draft = await this.openDraft(body.registrationId);
-    await this.send(body.channel, draft, locale);
-    await this.draftAudit('auth.otp_sent', draft.id, { channel: body.channel });
-  }
-
-  private send(channel: OtpChannel, to: { mobile: string; email: string }, locale: Locale) {
-    return this.otp.issue(
-      { purpose: 'registration', channel, address: channel === 'sms' ? to.mobile : to.email },
-      {
-        locale,
-        templateKey: channel === 'sms' ? 'otp_registration_sms' : 'otp_registration_email',
-      },
-    );
+    return { registrationId: id };
   }
 
   /**
-   * Verifies both codes; only then reports a contact of an existing account (D-086). Returns the
-   * draft token once and stores its hash (D-082).
+   * Sends a code to one contact of the draft (D-090). The address replaces the channel's earlier
+   * one, and a changed address clears that channel's verification; a verified channel with the
+   * same address and a draft that holds its token are refused (409). The send is counted on the
+   * draft first (6 in its lifetime, across channels and address changes), then per address by
+   * the OTP service (5 per hour). The answer is the same whether or not the address belongs to an
+   * account (D-086).
    */
-  async verify(body: OtpVerifyRequest): Promise<RegistrationVerified> {
+  async send(body: OtpSendRequest, locale: Locale): Promise<void> {
     const draft = await this.openDraft(body.registrationId);
-    const codes: string[] = [];
-    for (const [channel, address, code, path] of [
-      ['sms', draft.mobile, body.mobileCode, 'mobileCode'],
-      ['email', draft.email, body.emailCode, 'emailCode'],
-    ] as const) {
-      try {
-        codes.push(await this.otp.check({ purpose: 'registration', address }, code));
-      } catch (error) {
-        await this.draftAudit('auth.otp_failed', draft.id, {
-          channel,
-          code: error instanceof ApiError ? error.code : 'error',
-        });
-        throw onField(error, path);
-      }
+    const sms = body.channel === 'sms';
+    const current = sms ? draft.mobile : draft.email;
+    const verifiedAt = sms ? draft.mobileVerifiedAt : draft.emailVerifiedAt;
+    if (draft.verifiedAt || (verifiedAt && current === body.address))
+      throw new ApiError('registration.already_verified', 409);
+    const contact = sms
+      ? { mobile: body.address, mobileVerifiedAt: null }
+      : { email: body.address, emailVerifiedAt: null };
+    const counted = await this.prisma.registrationDraft.updateMany({
+      where: {
+        id: draft.id,
+        verifiedAt: null,
+        otpSends: { lt: REGISTRATION_RULES.maxSendsPerDraft },
+      },
+      data: { otpSends: { increment: 1 }, ...contact },
+    });
+    if (counted.count === 0) throw new ApiError('rate_limit.exceeded', 429);
+    await this.otp.issue(
+      { purpose: 'registration', channel: body.channel, address: body.address },
+      { locale, templateKey: sms ? 'otp_registration_sms' : 'otp_registration_email' },
+    );
+    await this.draftAudit('auth.otp_sent', draft.id, {
+      channel: body.channel,
+      address: maskAddress(body.address),
+    });
+  }
+
+  /**
+   * Verifies the code of one channel (D-090). The draft row is locked, so two channels verified
+   * at once still end in one token. Once both are verified the contacts are checked: a mobile or
+   * email of an existing account clears both verifications and answers
+   * `registration.account_exists` (D-086); otherwise the draft token is returned once and only its
+   * hash is stored (D-082).
+   */
+  async verify(body: OtpVerifyRequest): Promise<RegistrationVerifyResult> {
+    const draft = await this.openDraft(body.registrationId);
+    if (draft.verifiedAt) throw new ApiError('registration.already_verified', 409);
+    const sms = body.channel === 'sms';
+    const address = sms ? draft.mobile : draft.email;
+    let codeId: string;
+    try {
+      if (!address) throw new ApiError('otp.invalid', 422);
+      codeId = await this.otp.check({ purpose: 'registration', address }, body.code);
+    } catch (error) {
+      await this.draftAudit('auth.otp_failed', draft.id, {
+        channel: body.channel,
+        code: error instanceof ApiError ? error.code : 'error',
+      });
+      throw onField(error, 'code');
     }
-    const exists = await this.contactTaken(draft.mobile, draft.email, draft.kind);
-    const kind = z.enum(REGISTRATION_KINDS).parse(draft.kind);
-    // read before the codes are spent: nothing after the commit may fail and lose the token
-    const programs = kind === 'staff' && !exists ? await this.activePrograms() : undefined;
     const now = this.clock.now();
     const token = randomBytes(32).toString('base64url');
     const expiresAt = draftExpiry(now);
-    await this.prisma.$transaction(async (tx) => {
-      for (const id of codes)
-        if (!(await this.otp.consume(tx, id))) throw new ApiError('otp.invalid', 422);
-      // A taken contact also ends an earlier verification of this draft (its token stops working).
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM registration_drafts WHERE id = ${draft.id}::uuid FOR UPDATE`;
+      const fresh = await tx.registrationDraft.findUniqueOrThrow({ where: { id: draft.id } });
+      // the address changed or the draft was verified while the code was checked
+      if (fresh.verifiedAt || (sms ? fresh.mobile : fresh.email) !== address)
+        throw new ApiError('otp.invalid', 422, undefined, [{ path: 'code', code: 'otp.invalid' }]);
+      if (!(await this.otp.consume(tx, codeId))) throw new ApiError('otp.invalid', 422);
+      const mark = sms ? { mobileVerifiedAt: now } : { emailVerifiedAt: now };
+      const other = sms ? fresh.emailVerifiedAt : fresh.mobileVerifiedAt;
+      const record = (extra: Record<string, unknown>) =>
+        this.audit.record(tx, {
+          action: 'auth.otp_verified',
+          entityType: 'registration_draft',
+          entityId: draft.id,
+          new: { channel: body.channel, ...extra },
+        });
+      if (!other || !fresh.mobile || !fresh.email) {
+        await tx.registrationDraft.update({
+          where: { id: draft.id },
+          data: { ...mark, expiresAt },
+        });
+        await record({});
+        return { done: false as const };
+      }
+      const exists = await this.contactTaken(tx, fresh.mobile, fresh.email, fresh.kind);
+      const kind = z.enum(REGISTRATION_KINDS).parse(fresh.kind);
+      const programs = kind === 'staff' && !exists ? await this.activePrograms(tx) : undefined;
       await tx.registrationDraft.update({
         where: { id: draft.id },
+        // a taken contact verifies nothing: both channels start again
         data: exists
-          ? { tokenHash: null, verifiedAt: null }
-          : { tokenHash: tokenHash(token), verifiedAt: now, expiresAt },
+          ? { mobileVerifiedAt: null, emailVerifiedAt: null, tokenHash: null, verifiedAt: null }
+          : { ...mark, tokenHash: tokenHash(token), verifiedAt: now, expiresAt },
       });
-      await this.audit.record(tx, {
-        action: 'auth.otp_verified',
-        entityType: 'registration_draft',
-        entityId: draft.id,
-        new: { accountExists: exists },
-      });
+      await record({ accountExists: exists });
+      return { done: true as const, exists, kind, programs };
     });
-    if (exists) throw new ApiError('registration.account_exists', 409);
+    if (!outcome.done) return { verified: [body.channel] };
+    if (outcome.exists) throw new ApiError('registration.account_exists', 409);
     this.events.emit({ type: 'registration.verified', draftId: draft.id });
     return {
+      verified: ['sms', 'email'],
       registrationToken: token,
       expiresAt: expiresAt.toISOString(),
-      kind,
+      kind: outcome.kind,
       // the staff form names a program: a draft for an official gets the active program names
       // once both codes are verified (names only; programs are not personal data)
-      ...(programs ? { programs } : {}),
+      ...(outcome.programs ? { programs: outcome.programs } : {}),
     };
   }
 
-  private async activePrograms() {
-    const rows = await this.prisma.program.findMany({
+  private async activePrograms(db: Pick<Tx, 'program'>) {
+    const rows = await db.program.findMany({
       where: { active: true },
       orderBy: { code: 'asc' },
       select: { id: true, nameBn: true, nameEn: true },
@@ -199,8 +228,13 @@ export class RegistrationService {
    * one of the same kind (D-086): a volunteer never approved, or an official who never received a
    * role. A rejected account of the other kind is taken, so the person learns it at verification.
    */
-  private async contactTaken(mobile: string, email: string, kind: string): Promise<boolean> {
-    const users = await this.prisma.user.findMany({
+  private async contactTaken(
+    db: Pick<Tx, 'user'>,
+    mobile: string,
+    email: string,
+    kind: string,
+  ): Promise<boolean> {
+    const users = await db.user.findMany({
       where: { OR: [{ mobile }, { email }] },
       select: {
         kind: true,
@@ -286,7 +320,10 @@ export class RegistrationService {
     }
   }
 
-  private async submitDraft(draft: Draft, body: RegistrationSubmitRequest): Promise<string> {
+  private async submitDraft(
+    draft: VerifiedDraft,
+    body: RegistrationSubmitRequest,
+  ): Promise<string> {
     if (body.kind !== draft.kind) throw invalid('kind', 'validation.option_unknown');
     const problems = checkPassword(body.password, {
       minLength: minPasswordLength(false),
@@ -408,7 +445,7 @@ export class RegistrationService {
    * The account a submit may take over (D-086): none when the contacts are free; the one rejected,
    * never-approved account of the same kind; anything else is `registration.account_exists`.
    */
-  private async reusableAccount(tx: Tx, draft: Draft, kind: RegistrationKind) {
+  private async reusableAccount(tx: Tx, draft: VerifiedDraft, kind: RegistrationKind) {
     const users = await tx.user.findMany({
       where: { OR: [{ mobile: draft.mobile }, { email: draft.email }] },
       select: {
@@ -464,7 +501,7 @@ export class RegistrationService {
    * A verified draft whose token the caller holds (NE-SEC-03): a missing or wrong token, an
    * unknown or unverified draft all answer 401, so the answer reveals nothing about the draft.
    */
-  async ownedDraft(id: string, token: string | undefined): Promise<Draft> {
+  async ownedDraft(id: string, token: string | undefined): Promise<VerifiedDraft> {
     const draft = await this.prisma.registrationDraft.findUnique({ where: { id } });
     const expected = draft?.tokenHash ? Buffer.from(draft.tokenHash) : null;
     const given = Buffer.from(tokenHash(token ?? ''));
@@ -478,7 +515,9 @@ export class RegistrationService {
     )
       throw new ApiError('registration.token_invalid', 401);
     if (draft.expiresAt <= this.clock.now()) throw new ApiError('registration.draft_expired', 410);
-    return draft;
+    // a token exists only with both contacts verified (registration_drafts_channels_check)
+    if (!draft.mobile || !draft.email) throw new ApiError('registration.token_invalid', 401);
+    return { ...draft, mobile: draft.mobile, email: draft.email };
   }
 }
 
@@ -506,7 +545,11 @@ function invalid(path: string, code: string): ApiError {
 function volunteerColumns(
   body: VolunteerRegistrationSubmit,
   referenceVolunteerId: string | null,
-  draft: { photoFileId: string | null; nidPhotoFileId: string | null },
+  draft: {
+    photoFileId: string | null;
+    nidPhotoFileId: string | null;
+    nidPhotoBackFileId: string | null;
+  },
 ) {
   return {
     nid: body.nid,
@@ -532,6 +575,7 @@ function volunteerColumns(
     referenceVolunteerId,
     photoFileId: draft.photoFileId,
     nidPhotoFileId: draft.nidPhotoFileId,
+    nidPhotoBackFileId: draft.nidPhotoBackFileId,
   };
 }
 

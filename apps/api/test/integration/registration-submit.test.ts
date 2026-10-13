@@ -12,7 +12,7 @@ import {
   PASSWORD,
 } from './support/auth-app';
 import * as f from './support/fixtures';
-import { TOKEN_HEADER, verifiedDraft } from './support/registration';
+import { TOKEN_HEADER, verifiedDraft, verifyContacts } from './support/registration';
 
 // Submit and the pending account (AUTH.md 2, 7; DECISION_LOG D-081, D-086; plan
 // docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, unit U6).
@@ -80,6 +80,8 @@ describe('POST /auth/register/submit', () => {
     const d = await verifiedDraft(h);
     const photoId = (await photo(d, 'photo', jpeg(), 'image/jpeg')).body.data.fileId as string;
     const nidPhotoId = (await photo(d, 'nid_photo', png(), 'image/png')).body.data.fileId as string;
+    const nidBackId = (await photo(d, 'nid_photo_back', jpeg(), 'image/jpeg')).body.data
+      .fileId as string;
     const form = volunteerForm(d);
     const res = await submit(d.token, form);
     expect(res.status).toBe(201);
@@ -102,6 +104,7 @@ describe('POST /auth/register/submit', () => {
       bank_account_number: '0000111122223333',
       photo_file_id: photoId,
       nid_photo_file_id: nidPhotoId,
+      nid_photo_back_file_id: nidBackId,
       approved_at: null,
     });
     expect(res.body.data.volunteerId).toBe(v.id);
@@ -215,16 +218,11 @@ describe('POST /auth/register/submit', () => {
       [userId],
     );
     // the same person starts again with the same mobile and email
-    const again = await request(h.server())
-      .post('/api/v1/auth/register/start')
-      .send({ mobile: d.mobile, email: d.email });
-    const registrationId = again.body.data.registrationId as string;
-    const verified = await request(h.server())
-      .post('/api/v1/auth/register/otp/verify')
-      .send({ registrationId, mobileCode: '246810', emailCode: '246810' });
-    expect(verified.status).toBe(200);
+    const again = await verifyContacts(h, { mobile: d.mobile, email: d.email });
+    const registrationId = again.registrationId;
+    expect(again.res.status).toBe(200);
     const res = await submit(
-      verified.body.data.registrationToken,
+      again.token,
       volunteerForm({ registrationId }, { name: 'দ্বিতীয় নাম' }),
     );
     expect(res.status).toBe(201);
@@ -251,16 +249,8 @@ describe('POST /auth/register/submit', () => {
 
 describe('submit refusals', () => {
   /** Starts and verifies a draft for given contacts (the helper makes fresh ones). */
-  async function verifyFor(mobile: string, email: string, kind = 'volunteer') {
-    const started = await request(h.server())
-      .post('/api/v1/auth/register/start')
-      .send({ mobile, email, kind });
-    const registrationId = started.body.data.registrationId as string;
-    const res = await request(h.server())
-      .post('/api/v1/auth/register/otp/verify')
-      .send({ registrationId, mobileCode: '246810', emailCode: '246810' });
-    return { registrationId, res, token: res.body.data?.registrationToken as string | undefined };
-  }
+  const verifyFor = (mobile: string, email: string, kind: 'volunteer' | 'staff' = 'volunteer') =>
+    verifyContacts(h, { mobile, email }, kind);
 
   it('answers 409 when the mobile became an account after verification, and changes nothing', async () => {
     const d = await verifiedDraft(h);
@@ -382,6 +372,7 @@ describe('the pending account', () => {
       bank: { bankName: 'Test Bank', accountName: 'নমুনা', accountNumber: '0000111122223333' },
       divisionId: loc.division,
     });
+    expect(me.body.data).toHaveProperty('nidPhotoBackFileId', null);
     expect(me.body.data).not.toHaveProperty('category');
     const users = await request(h.server()).get('/api/v1/users').set(bearer(s));
     expect(users.status).toBe(403);

@@ -278,19 +278,23 @@ A registration between `start` and `submit` (AUTH.md 2, D-082). Technical data: 
 |---|---|---|---|---|
 | id | uuid | no | — | PK; the `registrationId` of the API |
 | kind | text | no | 'volunteer' | volunteer, staff |
-| mobile | text | no | — | CHECK `^01[3-9][0-9]{8}$` |
-| email | text | no | — | CHECK lower-cased |
+| mobile | text | yes | — | CHECK `^01[3-9][0-9]{8}$`; set by the first code sent to it (D-090) |
+| email | text | yes | — | CHECK lower-cased; set by the first code sent to it (D-090) |
+| mobile_verified_at | timestamptz | yes | — | the mobile's code verified; CHECK only with mobile; cleared when the address changes |
+| email_verified_at | timestamptz | yes | — | the email's code verified; CHECK only with email; cleared when the address changes |
+| otp_sends | smallint | no | 0 | codes sent by this draft, across channels and address changes; CHECK 0–6 |
 | token_hash | text | yes | — | SHA-256 of the draft token issued at verification; never the token; CHECK only with verified_at |
-| verified_at | timestamptz | yes | — | both OTPs verified |
+| verified_at | timestamptz | yes | — | both OTPs verified; CHECK only with both channel times |
 | expires_at | timestamptz | no | — | +24 hours from start, renewed by a new verification |
 | reference_lookups | smallint | no | 0 | CHECK 0–5 |
 | photo_file_id | uuid | yes | — | FK files |
-| nid_photo_file_id | uuid | yes | — | FK files |
+| nid_photo_file_id | uuid | yes | — | FK files; the first page (front) of the NID card |
+| nid_photo_back_file_id | uuid | yes | — | FK files; the second page (back) of the NID card (UX-18) |
 | submitted_user_id | uuid | yes | — | FK users; set by submit |
 | submitted_at | timestamptz | yes | — | CHECK set together with submitted_user_id |
 | [A] | | | | |
 
-Indexes: (mobile), (email), (expires_at) WHERE submitted_at IS NULL, and one per foreign key (DB-MIG-07). Migration `20261012000000_registration_drafts`.
+Indexes: (mobile), (email), (expires_at) WHERE submitted_at IS NULL, and one per foreign key (DB-MIG-07). Migrations `20261012000000_registration_drafts`, `20261013000000_registration_draft_channels` (per-channel verification and the NID back, D-090).
 
 ### handovers
 | Column | Type | Null | Default | Comment |
@@ -704,7 +708,8 @@ Index: (beneficiary_id, recorded_at desc).
 | reference_nid | text | yes | — | main volunteer's NID (team members) |
 | reference_volunteer_id | uuid | yes | — | FK volunteers, resolved from reference_nid |
 | photo_file_id | uuid | yes | — | FK files |
-| nid_photo_file_id | uuid | yes | — | FK files; sensitive class `volunteer.identity` |
+| nid_photo_file_id | uuid | yes | — | FK files; sensitive class `volunteer.identity`; the first page (front) of the NID card |
+| nid_photo_back_file_id | uuid | yes | — | FK files; sensitive class `volunteer.identity`; the second page (back) of the NID card (UX-18, migration `20261013000000_registration_draft_channels`) |
 | category | text | yes | — | L-category (officials only) |
 | inactive_flag | boolean | no | false | BD-40 |
 | approved_by | uuid | yes | — | FK users |

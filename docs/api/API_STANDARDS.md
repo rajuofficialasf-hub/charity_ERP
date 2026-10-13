@@ -154,6 +154,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | user | user.transition_not_allowed | 409 | account state change not allowed (AUTH.md §7, O-59): same state, own account, pending account (registration flow), volunteer block (blocklist flow) |
 | user | user.not_locked | 409 | lock clearing on an account that is not locked (O-59) |
 | registration | registration.account_exists | 409 | after both codes: the mobile or email belongs to an active, pending or blocked account; log in instead (D-086) |
+| registration | registration.already_verified | 409 | a code is sent or checked for a contact that is already verified, or the draft already holds its token (D-090) |
 | registration | registration.token_invalid | 401 | missing or wrong draft token on lookup, upload or submit (D-082) |
 | registration | registration.draft_expired | 410 | the draft is older than 24 hours or unverified; start again |
 | registration | registration.open_corrections | 409 | approval or resubmit while a correction is unanswered (BR-030) |

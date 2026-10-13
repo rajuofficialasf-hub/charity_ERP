@@ -78,7 +78,7 @@ The owner reviewed the T1.9 screens on 2026-10-13: the codes open separate pages
 - **Approach:** the T1.9 migration `20261012000000_registration_drafts` and its CHECK tests.
 - **Tests:** integration: a token without both channel times is refused; a channel time without its address is refused; a malformed mobile is refused, a null one accepted; the purge removes an expired draft's NID back object too; the down.sql step test restores the schema before it.
 - **Done when:** the constraint and migration tests pass.
-- **Depends on:** U1 · **Size:** S · **Risk area:** migration · **Status:** todo
+- **Depends on:** U1 · **Size:** S · **Risk area:** migration · **Status:** done
 
 ### U3. Per-channel registration API and the NID back slot
 - **Goal:** Each contact is sent a code and verified on its own; the token follows both; the NID back is a photo slot everywhere the NID photo is.
@@ -87,7 +87,7 @@ The owner reviewed the T1.9 screens on 2026-10-13: the codes open separate pages
 - **Approach:** the existing `start`, `resend` and `verify` of `RegistrationService`; existing: `apps/api/test/integration/registration-start.test.ts` (covered; its tests change to the new contract instead of adding contradicting ones).
 - **Tests:** integration: three spellings of one mobile are refused by the schema except `01XXXXXXXXX`, so they share one window; many address changes in one draft stop at the per-draft send budget; after 5 wrong codes a new send or an address change gives no fresh draft budget; a send and a first verify look the same for a taken and a free address; a captured log line and the audit rows hold no full address and no code; start creates an empty draft and sends nothing; a send stores the address and sends one code; a verify marks one channel and answers without a token; the second verify answers the token; a wrong code names its channel and counts; a changed address clears that channel; a send after the token answers 409; an existing contact answers 409 only after both channels; resend limits per address and draft; 404, 410 and 422 cases; audit entries per step; the photo, submit and approval suites pass through the new support helper; the NID back: upload to the slot `nid_photo_back`, a volunteer submit needs all three photos, the detail and `/volunteers/me` return it, an official without the identity class does not get it, a correction and an edit request may name it.
 - **Done when:** the api and api-db suites and the drift test pass.
-- **Depends on:** U2 · **Size:** M · **Risk area:** auth · **Status:** todo
+- **Depends on:** U2 · **Size:** M · **Risk area:** auth · **Status:** done
 
 ### U4. Registration page on one page with steps
 - **Goal:** The registration looks and works like the reference image, in small steps.
@@ -151,8 +151,8 @@ The owner reviewed the T1.9 screens on 2026-10-13: the codes open separate pages
 
 ## Progress
 - **Branch:** feat/registration-redesign
-- **Next:** U2: the migration `20261013000000_registration_draft_channels`; first the CHECK tests in `constraints.test.ts`
+- **Next:** checkpoint C1 (scope `569db1c..HEAD`), then U4: the registration page; first `packages/ui` `endAction` and its test
 - **Reviewed through:** none
 - **Updated:** 2026-10-13
 - **Uncommitted:** none
-- **Notes:** the owner said "শুরু কর" (start) on 2026-10-13 and added UX-18 in the same message (photos last with both NID pages; the own profile by section with an edit button beside each detail). An official's photo step has the own photo only: the official form asks for no NID.
+- **Notes:** the owner said "শুরু কর" (start) on 2026-10-13 and added UX-18 in the same message (photos last with both NID pages; the own profile by section with an edit button beside each detail). An official's photo step has the own photo only: the official form asks for no NID. U2 and U3 are one commit: the nullable contacts of U2 do not typecheck without the service of U3. U3: the per-draft window of the rate class `registration` (5 per hour) now counts only requests that name a draft (a `skip` on the window): a start names no draft, and with the earlier `address` key all starts shared one key. The server stores the NID back but, as before T1.9b, does not require the photos at submit (the PWA does); enforcing them would touch every submit test, so it is left as a remaining issue for the owner. The web registration flow calls the old contract until U4 rebuilds it (only the label of the new slot was added so the web typechecks).

@@ -360,10 +360,48 @@ describe('registration drafts and contact changes', () => {
       ...over,
     });
 
+  /** Both channels verified, as a draft that holds a token (D-090). */
+  const both = () => ({ mobile_verified_at: new Date(), email_verified_at: new Date() });
+
+  it('a draft may start without contacts; a channel is verified only with its address, a token only with both; at most 6 sends (D-090)', async () => {
+    await expect(draft({ mobile: null, email: null })).resolves.toBeTruthy();
+    await expectSqlError(
+      draft({ mobile: null, mobile_verified_at: new Date() }),
+      SQLSTATE.checkViolation,
+      /registration_drafts_mobile_verified_check/,
+    );
+    await expectSqlError(
+      draft({ email: null, email_verified_at: new Date() }),
+      SQLSTATE.checkViolation,
+      /registration_drafts_email_verified_check/,
+    );
+    await expectSqlError(
+      draft({ verified_at: new Date(), mobile_verified_at: new Date() }),
+      SQLSTATE.checkViolation,
+      /registration_drafts_channels_check/,
+    );
+    await expect(
+      draft({ verified_at: new Date(), token_hash: 'h', ...both() }),
+    ).resolves.toBeTruthy();
+    await expectSqlError(
+      draft({ otp_sends: 7 }),
+      SQLSTATE.checkViolation,
+      /registration_drafts_otp_sends_check/,
+    );
+    await expect(draft({ otp_sends: 6 })).resolves.toBeTruthy();
+  });
+
   it('a draft defaults to a volunteer with no lookups', async () => {
     const id = await draft();
     const row = (await db.query('SELECT * FROM registration_drafts WHERE id = $1', [id])).rows[0];
-    expect(row).toMatchObject({ kind: 'volunteer', reference_lookups: 0, verified_at: null });
+    expect(row).toMatchObject({
+      kind: 'volunteer',
+      reference_lookups: 0,
+      otp_sends: 0,
+      verified_at: null,
+      mobile_verified_at: null,
+      email_verified_at: null,
+    });
     await expect(draft({ kind: 'staff' })).resolves.toBeTruthy();
   });
 
@@ -407,6 +445,7 @@ describe('registration drafts and contact changes', () => {
       draft({
         token_hash: 'h',
         verified_at: new Date(),
+        ...both(),
         submitted_user_id: u,
         submitted_at: new Date(),
       }),
@@ -414,7 +453,7 @@ describe('registration drafts and contact changes', () => {
       /registration_drafts_token_spent_check/,
     );
     await expect(
-      draft({ verified_at: new Date(), submitted_user_id: u, submitted_at: new Date() }),
+      draft({ verified_at: new Date(), ...both(), submitted_user_id: u, submitted_at: new Date() }),
     ).resolves.toBeTruthy();
   });
 
@@ -431,18 +470,26 @@ describe('registration drafts and contact changes', () => {
         source: 'camera',
       });
     const past = new Date(Date.now() - 60_000);
-    const [p1, p2, p3, p4] = [
+    const [p1, p2, p3, p4, p5] = [
       await photo(),
       await photo('nid_photo'),
       await photo(),
       await photo(),
+      await photo('nid_photo'),
     ];
-    const expired = await draft({ expires_at: past, photo_file_id: p1, nid_photo_file_id: p2 });
+    // the NID back goes with the draft too (UX-18)
+    const expired = await draft({
+      expires_at: past,
+      photo_file_id: p1,
+      nid_photo_file_id: p2,
+      nid_photo_back_file_id: p5,
+    });
     const live = await draft({ photo_file_id: p3 });
     const u = await f.volunteerUser(db);
     const submitted = await draft({
       expires_at: past,
       verified_at: past,
+      ...both(),
       submitted_user_id: u,
       submitted_at: past,
       photo_file_id: p4,
@@ -452,13 +499,42 @@ describe('registration drafts and contact changes', () => {
     ).rows;
     const left = async (table: string, ids: string[]) =>
       (await db.query(`SELECT id FROM ${table} WHERE id = ANY($1)`, [ids])).rows.map((r) => r.id);
-    expect(keys).toHaveLength(2);
+    expect(keys).toHaveLength(3);
     expect(keys.every((k) => k.bucket === 'profiles')).toBe(true);
     expect(await left('registration_drafts', [expired, live, submitted])).toEqual(
       expect.arrayContaining([live, submitted]),
     );
     expect(await left('registration_drafts', [expired])).toEqual([]);
-    expect((await left('files', [p1, p2, p3, p4])).sort()).toEqual([p3, p4].sort());
+    expect((await left('files', [p1, p2, p3, p4, p5])).sort()).toEqual([p3, p4].sort());
+  });
+
+  it('a discarded photo stays while a draft or a volunteer holds it as the NID back', async () => {
+    const photo = () =>
+      f.insert(db, 'files', {
+        id: randomUUID(),
+        bucket: 'profiles',
+        object_key: `discard/${randomUUID()}.jpg`,
+        kind: 'nid_photo',
+        mime: 'image/jpeg',
+        size_bytes: 10,
+        sha256: randomUUID().replace(/-/g, '').padEnd(64, '0'),
+        source: 'gallery',
+      });
+    const onDraft = await photo();
+    await draft({ nid_photo_back_file_id: onDraft });
+    const onVolunteer = await photo();
+    const tree = await f.locationTree(db);
+    const v = await f.volunteer(db, tree, await f.volunteerUser(db));
+    await db.query('UPDATE volunteers SET nid_photo_back_file_id = $1 WHERE id = $2', [
+      onVolunteer,
+      v,
+    ]);
+    const loose = await photo();
+    const discard = async (id: string) =>
+      (await db.query('SELECT object_key FROM discard_registration_photo($1)', [id])).rows.length;
+    expect(await discard(onDraft)).toBe(0);
+    expect(await discard(onVolunteer)).toBe(0);
+    expect(await discard(loose)).toBe(1);
   });
 
   it('otp_codes accept contact_change and still refuse an unknown purpose', async () => {

@@ -92,6 +92,7 @@ const registrationDetail = pendingRegistration.extend({
       facebookId: nullableText,
       nid: sensitive(z.string(), 'volunteer.identity'),
       nidPhotoFileId: sensitive(uuid.nullable(), 'volunteer.identity'),
+      nidPhotoBackFileId: sensitive(uuid.nullable(), 'volunteer.identity'),
       bank: sensitive(
         z.object({
           bankName: nullableText,

@@ -60,16 +60,21 @@ describe('POST /auth/register/photos/{slot}', () => {
     expect(photo.status).toBe(201);
     const nidPhoto = await upload(d, 'nid_photo', png(), 'image/png');
     expect(nidPhoto.status).toBe(201);
+    // the second page of the NID card has its own slot (UX-18)
+    const nidBack = await upload(d, 'nid_photo_back', jpeg());
+    expect(nidBack.status).toBe(201);
     const draft = (
       await h.db.query(
-        'SELECT photo_file_id, nid_photo_file_id FROM registration_drafts WHERE id = $1',
+        'SELECT photo_file_id, nid_photo_file_id, nid_photo_back_file_id FROM registration_drafts WHERE id = $1',
         [d.registrationId],
       )
     ).rows[0];
     expect(draft).toEqual({
       photo_file_id: photo.body.data.fileId,
       nid_photo_file_id: nidPhoto.body.data.fileId,
+      nid_photo_back_file_id: nidBack.body.data.fileId,
     });
+    expect((await fileRow(nidBack.body.data.fileId))!.kind).toBe('nid_photo');
     const row = (await fileRow(photo.body.data.fileId))!;
     expect(row).toMatchObject({
       bucket: 'profiles',
@@ -112,7 +117,7 @@ describe('POST /auth/register/photos/{slot}', () => {
     expect((await upload({ ...a, token: b.token }, 'photo', jpeg())).status).toBe(401);
     const unverified = await request(h.server())
       .post('/api/v1/auth/register/start')
-      .send({ mobile: f.fakeMobile(), email: `u${randomUUID().slice(0, 8)}@example.org` });
+      .send({ kind: 'volunteer' });
     expect(
       (
         await upload(

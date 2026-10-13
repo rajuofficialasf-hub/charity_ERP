@@ -97,7 +97,7 @@ sensitive_fields:
     visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee]
     source: "B8: NID number and photo visible to all official staff who do project work, never to volunteers, Media, Finance, Procurement"
   - key: volunteer.identity
-    fields: [volunteers.nid, volunteers.nid_photo_file_id]
+    fields: [volunteers.nid, volunteers.nid_photo_file_id, volunteers.nid_photo_back_file_id]
     visible_to: [program_manager, regional_program_manager, project_executive]
     source: "A5, B8"
   - key: volunteer.bank

@@ -10,9 +10,10 @@ import type { StorageDriver } from '../../src/storage';
 import { account, authHarness, type AuthHarness } from './support/auth-app';
 import * as f from './support/fixtures';
 
-// Registration start, the two codes, resume and the reference lookup (AUTH.md 2; DECISION_LOG
-// D-082, D-086, D-088; plan docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md,
-// unit U4). The dummy OTP of the test configuration is 246810.
+// Registration start, the per-channel codes and the reference lookup (AUTH.md 2; DECISION_LOG
+// D-082, D-086, D-088, D-090; plans docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md,
+// U4, and docs/plans/2026-10-13-0922-feat-registration-redesign-plan.md, U3). The dummy OTP of the
+// test configuration is 246810.
 const CODE = '246810';
 const TOKEN_HEADER = 'X-Registration-Token';
 const logLines: string[] = [];
@@ -38,28 +39,34 @@ const contacts = () => ({
   email: `reg${++n}.${randomUUID().slice(0, 6)}@example.org`,
 });
 const api = () => request(h.server());
+type Channel = 'sms' | 'email';
 
-async function start(body: Record<string, unknown>) {
-  return api().post('/api/v1/auth/register/start').send(body);
+async function start(kind: 'volunteer' | 'staff' = 'volunteer') {
+  const res = await api().post('/api/v1/auth/register/start').send({ kind });
+  expect(res.status).toBe(201);
+  return res.body.data.registrationId as string;
 }
 
-async function verify(registrationId: string, mobileCode = CODE, emailCode = CODE) {
-  return api()
-    .post('/api/v1/auth/register/otp/verify')
-    .send({ registrationId, mobileCode, emailCode });
+const send = (registrationId: string, channel: Channel, address: string) =>
+  api().post('/api/v1/auth/register/otp/send').send({ registrationId, channel, address });
+
+const verify = (registrationId: string, channel: Channel, code = CODE) =>
+  api().post('/api/v1/auth/register/otp/verify').send({ registrationId, channel, code });
+
+/** Sends and verifies both channels; returns the answer of the second verify. */
+async function verifyBoth(registrationId: string, c: { mobile: string; email: string }) {
+  expect((await send(registrationId, 'sms', c.mobile)).status).toBe(204);
+  expect((await verify(registrationId, 'sms')).status).toBe(200);
+  expect((await send(registrationId, 'email', c.email)).status).toBe(204);
+  return verify(registrationId, 'email');
 }
 
 async function verified(kind: 'volunteer' | 'staff' = 'volunteer') {
   const c = contacts();
-  const started = await start({ ...c, kind });
-  expect(started.status).toBe(201);
-  const res = await verify(started.body.data.registrationId);
+  const registrationId = await start(kind);
+  const res = await verifyBoth(registrationId, c);
   expect(res.status).toBe(200);
-  return {
-    ...c,
-    registrationId: started.body.data.registrationId as string,
-    token: res.body.data.registrationToken as string,
-  };
+  return { ...c, registrationId, token: res.body.data.registrationToken as string };
 }
 
 /** The registration codes sent to one address (OTP addresses are stored only as HMACs). */
@@ -78,206 +85,254 @@ const auditActions = async (entityId: string) =>
     ])
   ).rows.map((r) => r.action as string);
 
+const draftRow = async (id: string) =>
+  (await h.db.query('SELECT * FROM registration_drafts WHERE id = $1', [id])).rows[0];
+
 describe('POST /auth/register/start', () => {
-  it('creates a draft, sends one code per channel and audits the start', async () => {
-    const c = contacts();
-    const res = await start(c);
-    expect(res.status).toBe(201);
-    expect(res.body.data).toEqual({
-      registrationId: expect.any(String),
-      otpSentTo: ['sms', 'email'],
-    });
-    const id = res.body.data.registrationId as string;
-    const draft = (await h.db.query('SELECT * FROM registration_drafts WHERE id = $1', [id]))
-      .rows[0];
-    expect(draft).toMatchObject({
+  it('creates an empty draft of the kind, sends nothing and audits the start', async () => {
+    const id = await start();
+    expect(await draftRow(id)).toMatchObject({
       kind: 'volunteer',
-      mobile: c.mobile,
-      email: c.email,
+      mobile: null,
+      email: null,
+      otp_sends: 0,
       token_hash: null,
     });
-    expect((await codesOf(c.mobile)).map((r) => r.channel)).toEqual(['sms']);
-    expect((await codesOf(c.email)).map((r) => r.channel)).toEqual(['email']);
     expect(await auditActions(id)).toEqual(['auth.register_started']);
     expect(events).toContainEqual({ type: 'registration.started', draftId: id });
+    expect((await draftRow(await start('staff'))).kind).toBe('staff');
   });
 
-  it('answers the same for the mobile of an existing account', async () => {
+  it('refuses contacts in the start body and an unknown kind (422)', async () => {
+    for (const body of [contacts(), { kind: 'system' }])
+      expect((await api().post('/api/v1/auth/register/start').send(body)).status).toBe(422);
+  });
+});
+
+describe('POST /auth/register/otp/send', () => {
+  it('stores the address and sends one code to it only, with a masked address in the audit', async () => {
+    const c = contacts();
+    const id = await start();
+    expect((await send(id, 'sms', c.mobile)).status).toBe(204);
+    expect(await draftRow(id)).toMatchObject({ mobile: c.mobile, email: null, otp_sends: 1 });
+    expect((await codesOf(c.mobile)).map((r) => r.channel)).toEqual(['sms']);
+    expect(await codesOf(c.email)).toEqual([]);
+    expect((await send(id, 'email', c.email.toUpperCase())).status).toBe(204);
+    expect((await draftRow(id)).email).toBe(c.email);
+    const sent = (
+      await h.db.query(
+        `SELECT new FROM audit_log WHERE entity_id = $1 AND action = 'auth.otp_sent' ORDER BY created_at`,
+        [id],
+      )
+    ).rows.map((r) => r.new as { channel: string; address: string });
+    expect(sent.map((e) => e.channel)).toEqual(['sms', 'email']);
+    expect(sent[0]!.address).toBe(`${c.mobile.slice(0, 2)}•••••••${c.mobile.slice(-2)}`);
+    expect(JSON.stringify(sent)).not.toContain(c.mobile);
+    expect(JSON.stringify(sent)).not.toContain(c.email);
+  });
+
+  it('accepts only the 01XXXXXXXXX spelling of a mobile, so its spellings share one window', async () => {
+    const id = await start();
+    const m = f.fakeMobile();
+    for (const spelling of [`+88${m}`, `88${m}`, m.replace('01', '০১'), '12345'])
+      expect((await send(id, 'sms', spelling)).status).toBe(422);
+    expect((await send(id, 'sms', m)).status).toBe(204);
+    expect((await draftRow(id)).otp_sends).toBe(1);
+  });
+
+  it('a changed address clears that channel; a verified channel with the same address is refused (409)', async () => {
+    const c = contacts();
+    const id = await start();
+    await send(id, 'sms', c.mobile);
+    expect((await verify(id, 'sms')).body.data).toEqual({ verified: ['sms'] });
+    const again = await send(id, 'sms', c.mobile);
+    expect(again.status).toBe(409);
+    expect(again.body.error.code).toBe('registration.already_verified');
+    const other = f.fakeMobile();
+    expect((await send(id, 'sms', other)).status).toBe(204);
+    expect(await draftRow(id)).toMatchObject({ mobile: other, mobile_verified_at: null });
+    // the code of the earlier number no longer verifies the new one
+    expect((await verify(id, 'sms', '000000')).status).toBe(422);
+  });
+
+  it('allows 6 sends per draft across channels and address changes, then 429', async () => {
+    const id = await start();
+    const statuses: number[] = [];
+    for (let i = 0; i < 7; i += 1)
+      statuses.push(
+        (await send(id, i % 2 ? 'email' : 'sms', i % 2 ? contacts().email : f.fakeMobile())).status,
+      );
+    expect(statuses).toEqual([204, 204, 204, 204, 204, 204, 429]);
+  });
+
+  it('answers the same for the address of an existing account', async () => {
     const existing = await account(h.db, { kind: 'volunteer' });
-    const res = await start({ mobile: existing.mobile, email: contacts().email });
-    expect(res.status).toBe(201);
-    expect(res.body.data.otpSentTo).toEqual(['sms', 'email']);
+    const free = contacts();
+    const a = await send(await start(), 'sms', existing.mobile!);
+    const b = await send(await start(), 'sms', free.mobile);
+    expect([a.status, a.body]).toEqual([b.status, b.body]);
   });
 
-  it('lower-cases the email and refuses a malformed mobile', async () => {
-    const c = contacts();
-    const res = await start({ ...c, email: c.email.toUpperCase() });
-    expect(res.status).toBe(201);
-    const row = await h.db.query('SELECT email FROM registration_drafts WHERE id = $1', [
-      res.body.data.registrationId,
-    ]);
-    expect(row.rows[0].email).toBe(c.email);
-    expect((await start({ ...contacts(), mobile: '12345' })).status).toBe(422);
-  });
-
-  it('resumes the open draft of the same mobile and email, but not an expired one', async () => {
-    const c = contacts();
-    const first = await start(c);
-    const second = await start(c);
-    expect(second.body.data.registrationId).toBe(first.body.data.registrationId);
-    await h.db.query(
-      `UPDATE registration_drafts SET expires_at = now() - interval '1 minute' WHERE id = $1`,
-      [first.body.data.registrationId],
-    );
-    const third = await start(c);
-    expect(third.body.data.registrationId).not.toBe(first.body.data.registrationId);
+  it('answers 404 for an unknown draft and 409 once the draft holds its token', async () => {
+    expect((await send(randomUUID(), 'email', contacts().email)).status).toBe(404);
+    const r = await verified();
+    const res = await send(r.registrationId, 'email', contacts().email);
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('registration.already_verified');
   });
 });
 
 describe('POST /auth/register/otp/verify', () => {
+  it('verifies one channel at a time; the second gives the token once, only its hash is stored', async () => {
+    const c = contacts();
+    const id = await start();
+    await send(id, 'sms', c.mobile);
+    const first = await verify(id, 'sms');
+    expect(first.status).toBe(200);
+    expect(first.body.data).toEqual({ verified: ['sms'] });
+    expect((await draftRow(id)).mobile_verified_at).not.toBeNull();
+    await send(id, 'email', c.email);
+    const second = await verify(id, 'email');
+    expect(second.status).toBe(200);
+    expect(second.body.data).toMatchObject({ verified: ['sms', 'email'], kind: 'volunteer' });
+    const token = second.body.data.registrationToken as string;
+    expect(token.length).toBeGreaterThanOrEqual(32);
+    const draft = await draftRow(id);
+    expect(draft.verified_at).not.toBeNull();
+    expect(draft.token_hash).toBe(createHash('sha256').update(token).digest('hex'));
+    expect(await auditActions(id)).toEqual([
+      'auth.register_started',
+      'auth.otp_sent',
+      'auth.otp_verified',
+      'auth.otp_sent',
+      'auth.otp_verified',
+    ]);
+    expect(events).toContainEqual({ type: 'registration.verified', draftId: id });
+    // a verified draft takes no further code
+    expect((await verify(id, 'email')).status).toBe(409);
+  });
+
+  it('two channels verified at the same time still end in one token', async () => {
+    const c = contacts();
+    const id = await start();
+    await send(id, 'sms', c.mobile);
+    await send(id, 'email', c.email);
+    const answers = await Promise.all([verify(id, 'sms'), verify(id, 'email')]);
+    expect(answers.map((r) => r.status)).toEqual([200, 200]);
+    expect(answers.filter((r) => r.body.data.registrationToken)).toHaveLength(1);
+    expect((await draftRow(id)).verified_at).not.toBeNull();
+  });
+
   it("gives an official's draft the active programs for the form, and a volunteer's none", async () => {
     const program = (await f.project(h.db)).program;
     const closed = (await f.project(h.db)).program;
     await h.db.query('UPDATE programs SET active = false WHERE id = $1', [closed]);
-    const staff = await verified('staff');
-    const res = await request(h.server())
-      .post('/api/v1/auth/register/start')
-      .send({ mobile: staff.mobile, email: staff.email, kind: 'staff' });
-    const again = await verify(res.body.data.registrationId);
-    expect(again.status).toBe(200);
-    expect(again.body.data.programs).toContainEqual({
+    const staff = await verifyBoth(await start('staff'), contacts());
+    expect(staff.body.data.programs).toContainEqual({
       id: program,
       name: { bn: 'প্রোগ্রাম', en: 'Program' },
     });
-    expect(again.body.data.programs.map((p: { id: string }) => p.id)).not.toContain(closed);
-    const volunteer = await verify((await start(contacts())).body.data.registrationId);
+    expect(staff.body.data.programs.map((p: { id: string }) => p.id)).not.toContain(closed);
+    const volunteer = await verifyBoth(await start(), contacts());
     expect(volunteer.body.data).not.toHaveProperty('programs');
   });
 
-  it('marks the draft verified and returns the token once; only its hash is stored', async () => {
-    const r = await verified();
-    expect(r.token.length).toBeGreaterThanOrEqual(32);
-    const draft = (
-      await h.db.query(
-        'SELECT token_hash, verified_at, expires_at FROM registration_drafts WHERE id = $1',
-        [r.registrationId],
-      )
-    ).rows[0];
-    expect(draft.verified_at).not.toBeNull();
-    expect(draft.token_hash).toBe(createHash('sha256').update(r.token).digest('hex'));
-    expect(draft.token_hash).not.toContain(r.token);
-    expect(await auditActions(r.registrationId)).toEqual([
-      'auth.register_started',
-      'auth.otp_verified',
+  it('names the code of a wrong answer, counts the attempt and needs a sent code', async () => {
+    const c = contacts();
+    const id = await start();
+    expect((await verify(id, 'sms')).status).toBe(422);
+    await send(id, 'sms', c.mobile);
+    const wrong = await verify(id, 'sms', '111111');
+    expect(wrong.status).toBe(422);
+    expect(wrong.body.error.details).toEqual([
+      expect.objectContaining({ path: 'code', code: 'otp.invalid' }),
     ]);
-    expect(events).toContainEqual({ type: 'registration.verified', draftId: r.registrationId });
-    // the codes are used up
-    expect((await verify(r.registrationId)).status).toBe(422);
+    expect((await codesOf(c.mobile)).map((r) => r.attempts)).toEqual([1]);
+    expect((await verify(id, 'sms')).status).toBe(200);
+    expect(await auditActions(id)).toContain('auth.otp_failed');
   });
 
-  it('names the channel of a wrong code and counts the attempt', async () => {
-    const c = contacts();
-    const id = (await start(c)).body.data.registrationId as string;
-    const wrong = await verify(id, CODE, '111111');
-    expect(wrong.status).toBe(422);
-    expect(wrong.body.error.code).toBe('otp.invalid');
-    expect(wrong.body.error.details).toEqual([
-      expect.objectContaining({ path: 'emailCode', code: 'otp.invalid' }),
-    ]);
-    const mobileWrong = await verify(id, '111111', CODE);
-    expect(mobileWrong.body.error.details[0].path).toBe('mobileCode');
-    // the mobile code was checked twice (right, then wrong); the second call stopped before the
-    // email code, which was checked once (wrong)
-    expect((await codesOf(c.mobile)).map((r) => r.attempts)).toEqual([2]);
-    expect((await codesOf(c.email)).map((r) => r.attempts)).toEqual([1]);
-    expect((await verify(id)).status).toBe(200);
-    expect(await auditActions(id)).toContain('auth.otp_failed');
+  it('after 5 wrong codes a new send gives a new code but no fresh budget for the draft', async () => {
+    const real = await authHarness({ realRateLimits: true });
+    try {
+      const go = () => request(real.server());
+      const id = (await go().post('/api/v1/auth/register/start').send({})).body.data
+        .registrationId as string;
+      await go()
+        .post('/api/v1/auth/register/otp/send')
+        .send({ registrationId: id, channel: 'sms', address: f.fakeMobile() });
+      const guess = () =>
+        go()
+          .post('/api/v1/auth/register/otp/verify')
+          .send({ registrationId: id, channel: 'sms', code: '000000' });
+      for (let i = 0; i < 5; i += 1) expect((await guess()).status).not.toBe(200);
+      await go()
+        .post('/api/v1/auth/register/otp/send')
+        .send({ registrationId: id, channel: 'sms', address: f.fakeMobile() });
+      expect((await guess()).status).toBe(429);
+    } finally {
+      await real.close();
+    }
   });
 
   it('reports an existing account only after both codes, and frees a rejected never-approved one', async () => {
     const pending = await account(h.db, { kind: 'volunteer', state: 'pending' });
-    const id = (await start({ mobile: pending.mobile, email: contacts().email })).body.data
-      .registrationId as string;
-    const res = await verify(id);
+    const id = await start();
+    await send(id, 'sms', pending.mobile!);
+    // the first channel looks like any other
+    expect((await verify(id, 'sms')).body.data).toEqual({ verified: ['sms'] });
+    await send(id, 'email', contacts().email);
+    const res = await verify(id, 'email');
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('registration.account_exists');
+    // both channels start again
+    expect(await draftRow(id)).toMatchObject({
+      mobile_verified_at: null,
+      email_verified_at: null,
+      token_hash: null,
+    });
 
     const loc = await f.locationTree(h.db);
     const rejected = await account(h.db, { kind: 'volunteer', state: 'deactivated' });
     await f.volunteer(h.db, loc, rejected.id);
-    const again = (await start({ mobile: rejected.mobile, email: contacts().email })).body.data
-      .registrationId as string;
-    expect((await verify(again)).status).toBe(200);
+    const again = await verifyBoth(await start(), {
+      mobile: rejected.mobile!,
+      email: contacts().email,
+    });
+    expect(again.status).toBe(200);
   });
 
   it('counts an approved, later closed volunteer and an official who held a role as taken', async () => {
     const loc = await f.locationTree(h.db);
     const closed = await account(h.db, { kind: 'volunteer', state: 'deactivated' });
     await f.volunteer(h.db, loc, closed.id, { approved_at: new Date() });
-    const v = (await start({ mobile: closed.mobile, email: contacts().email })).body.data
-      .registrationId as string;
-    expect((await verify(v)).status).toBe(409);
+    expect(
+      (await verifyBoth(await start(), { mobile: closed.mobile!, email: contacts().email })).status,
+    ).toBe(409);
 
     const withRole = await account(h.db, { kind: 'staff', state: 'deactivated' });
-    const s1 = (await start({ mobile: f.fakeMobile(), email: withRole.email!, kind: 'staff' })).body
-      .data.registrationId as string;
-    expect((await verify(s1)).status).toBe(409);
+    expect(
+      (await verifyBoth(await start('staff'), { mobile: f.fakeMobile(), email: withRole.email! }))
+        .status,
+    ).toBe(409);
 
     const noRole = `norole${++n}@example.org`;
     await f.user(h.db, { kind: 'staff', email: noRole, state: 'deactivated' });
-    const s2 = (await start({ mobile: f.fakeMobile(), email: noRole, kind: 'staff' })).body.data
-      .registrationId as string;
-    expect((await verify(s2)).status).toBe(200);
-  });
-
-  it('a taken contact ends an earlier verification of the same draft', async () => {
-    const r = await verified();
-    await account(h.db, { kind: 'volunteer' }).then((a) =>
-      h.db.query('UPDATE users SET mobile = $1 WHERE id = $2', [r.mobile, a.id]),
-    );
-    await api()
-      .post('/api/v1/auth/register/otp/send')
-      .send({ registrationId: r.registrationId, channel: 'sms' });
-    await api()
-      .post('/api/v1/auth/register/otp/send')
-      .send({ registrationId: r.registrationId, channel: 'email' });
-    expect((await verify(r.registrationId)).status).toBe(409);
-    const res = await api()
-      .post('/api/v1/auth/register/reference-lookup')
-      .set(TOKEN_HEADER, r.token)
-      .send({ registrationId: r.registrationId, nid: f.fakeNid() });
-    expect(res.status).toBe(401);
+    expect(
+      (await verifyBoth(await start('staff'), { mobile: f.fakeMobile(), email: noRole })).status,
+    ).toBe(200);
   });
 
   it('refuses an unknown draft (404) and an expired one (410)', async () => {
-    expect((await verify(randomUUID())).status).toBe(404);
-    const id = (await start(contacts())).body.data.registrationId as string;
+    expect((await verify(randomUUID(), 'sms')).status).toBe(404);
+    const id = await start();
     await h.db.query(
       `UPDATE registration_drafts SET expires_at = now() - interval '1 minute' WHERE id = $1`,
       [id],
     );
-    const res = await verify(id);
+    const res = await verify(id, 'sms');
     expect(res.status).toBe(410);
     expect(res.body.error.code).toBe('registration.draft_expired');
-  });
-});
-
-describe('POST /auth/register/otp/send', () => {
-  it('resends a code within the hourly limit, then answers 429', async () => {
-    const id = (await start(contacts())).body.data.registrationId as string;
-    const resend = () =>
-      api().post('/api/v1/auth/register/otp/send').send({ registrationId: id, channel: 'sms' });
-    // start sent one code to the mobile; the address allows 5 per hour (AUTH.md 2)
-    for (let i = 0; i < 4; i += 1) expect((await resend()).status).toBe(204);
-    expect((await resend()).status).toBe(429);
-    expect(await auditActions(id)).toContain('auth.otp_sent');
-  });
-
-  it('answers 404 for an unknown draft', async () => {
-    const res = await api()
-      .post('/api/v1/auth/register/otp/send')
-      .send({ registrationId: randomUUID(), channel: 'email' });
-    expect(res.status).toBe(404);
   });
 });
 
@@ -331,7 +386,7 @@ describe('POST /auth/register/reference-lookup', () => {
       expect(res.status).toBe(401);
       expect(res.body.error.code).toBe('registration.token_invalid');
     }
-    const unverified = (await start(contacts())).body.data.registrationId as string;
+    const unverified = await start();
     expect((await lookup(unverified, nid, a.token)).status).toBe(401);
   });
 
@@ -392,13 +447,13 @@ describe('the daily cleanup of unsubmitted drafts', () => {
     };
     const gone = await photo();
     const kept = await photo();
-    const expired = (await start(contacts())).body.data.registrationId as string;
+    const expired = await start();
     await h.db.query(
       `UPDATE registration_drafts SET expires_at = now() - interval '1 minute', photo_file_id = $2 WHERE id = $1`,
       [expired, gone.id],
     );
     const user = await account(h.db, { kind: 'volunteer', state: 'pending' });
-    const submitted = (await start(contacts())).body.data.registrationId as string;
+    const submitted = await start();
     await h.db.query(
       `UPDATE registration_drafts SET expires_at = now() - interval '1 minute', photo_file_id = $2,
          submitted_user_id = $3, submitted_at = now() WHERE id = $1`,
@@ -435,7 +490,7 @@ describe('the cleanup when the storage fails', () => {
       sha256: createHash('sha256').update(id).digest('hex'),
       source: 'gallery',
     });
-    const draft = (await start(contacts())).body.data.registrationId as string;
+    const draft = await start();
     await h.db.query(
       `UPDATE registration_drafts SET expires_at = now() - interval '1 minute', nid_photo_file_id = $2 WHERE id = $1`,
       [draft, id],
@@ -450,8 +505,7 @@ describe('the cleanup when the storage fails', () => {
 
   it('works off a backlog larger than one batch, also of drafts without photos', async () => {
     const ids: string[] = [];
-    for (let i = 0; i < 3; i += 1)
-      ids.push((await start(contacts())).body.data.registrationId as string);
+    for (let i = 0; i < 3; i += 1) ids.push(await start());
     await h.db.query(
       `UPDATE registration_drafts SET expires_at = now() - interval '1 minute' WHERE id = ANY($1)`,
       [ids],
@@ -464,7 +518,7 @@ describe('the cleanup when the storage fails', () => {
 });
 
 describe('logs', () => {
-  it('carry no draft token, code, mobile, email or NID', async () => {
+  it('carry no draft token, code, mobile, email or NID, also from the per-channel steps', async () => {
     const r = await verified();
     const nid = f.fakeNid();
     await request(h.server())
@@ -485,34 +539,32 @@ describe('rate limits with the real values', () => {
   });
   afterAll(async () => real.close());
 
-  it('gives every draft its own resend window', async () => {
-    const drafts: string[] = [];
-    for (const c of [contacts(), contacts()])
-      drafts.push(
+  it('counts the sends to one address across drafts: 5 per hour', async () => {
+    const mobile = f.fakeMobile();
+    const statuses: number[] = [];
+    for (let i = 0; i < 6; i += 1) {
+      // drafts made directly, so the starts of the next test keep their own window
+      const id = (
+        await real.db.query(
+          `INSERT INTO registration_drafts (id, expires_at) VALUES (gen_random_uuid(), now() + interval '1 day') RETURNING id`,
+        )
+      ).rows[0].id as string;
+      statuses.push(
         (
-          await real.db.query(
-            `INSERT INTO registration_drafts (id, mobile, email, expires_at) VALUES (gen_random_uuid(), $1, $2, now() + interval '1 day') RETURNING id`,
-            [c.mobile, c.email],
-          )
-        ).rows[0].id as string,
+          await request(real.server())
+            .post('/api/v1/auth/register/otp/send')
+            .send({ registrationId: id, channel: 'sms', address: mobile })
+        ).status,
       );
-    // 6 resends in all: one shared bucket of 5 would refuse the last
-    for (const id of drafts)
-      for (let i = 0; i < 3; i += 1)
-        expect(
-          (
-            await request(real.server())
-              .post('/api/v1/auth/register/otp/send')
-              .send({ registrationId: id, channel: 'sms' })
-          ).status,
-        ).toBe(204);
+    }
+    expect(statuses).toEqual([204, 204, 204, 204, 204, 429]);
   });
 
   it('refuses the eleventh start from one address in a day', async () => {
     const statuses: number[] = [];
     for (let i = 0; i < 11; i += 1)
       statuses.push(
-        (await request(real.server()).post('/api/v1/auth/register/start').send(contacts())).status,
+        (await request(real.server()).post('/api/v1/auth/register/start').send({})).status,
       );
     expect(statuses.slice(0, 10).every((s) => s === 201)).toBe(true);
     expect(statuses[10]).toBe(429);
