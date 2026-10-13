@@ -5,6 +5,30 @@ import { expectNoAxeViolations, renderWithUi } from '../../testing/index.js';
 import { NumberField, PasswordField, PhoneField, TextArea, TextField } from './TextField.js';
 
 describe('Field: text, textarea, number, phone (DESIGN_SYSTEM 5.4)', () => {
+  it('an action inside the end of a text or phone field is its own control (UX-16)', async () => {
+    const user = userEvent.setup();
+    const onPress = vi.fn();
+    const { container } = renderWithUi(
+      <>
+        <PhoneField
+          label="মোবাইল নম্বর"
+          endAction={
+            <button type="button" onClick={onPress}>
+              যাচাই করুন
+            </button>
+          }
+        />
+        <TextField label="ইমেইল" type="email" endAction={<span>যাচাই হয়েছে</span>} />
+      </>,
+      { locale: 'bn' },
+    );
+    expect(screen.getByRole('textbox', { name: /মোবাইল নম্বর/ })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'যাচাই করুন' }));
+    expect(onPress).toHaveBeenCalledOnce();
+    expect(screen.getByText('যাচাই হয়েছে')).toBeInTheDocument();
+    await expectNoAxeViolations(container);
+  });
+
   it('has a visible label, required in text, and helper and error linked to the input', async () => {
     const { container } = renderWithUi(
       <TextField

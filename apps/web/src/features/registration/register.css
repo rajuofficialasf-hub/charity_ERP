@@ -1,0 +1,164 @@
+/*
+ * Registration on one page (SCR-002, UX-16; the owner's reference image): a white card with the
+ * green title band on the soft canvas, a step indicator, one bordered section per step, two
+ * columns of fields from 640 px. Tokens only (colors.md, DESIGN_SYSTEM).
+ */
+.register-page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-4) var(--space-6);
+  background:
+    radial-gradient(
+      120% 50% at 50% -10%,
+      var(--color-bg-brand-soft) 0%,
+      rgba(206, 245, 227, 0) 70%
+    ),
+    var(--color-bg-canvas);
+}
+.register-card {
+  width: 100%;
+  max-width: 880px;
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-surface);
+  box-shadow: var(--elevation-2);
+}
+.register-body {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+.register-section {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+}
+.register-section-title {
+  padding: 0;
+  font-weight: var(--font-weight-bold);
+}
+.register-grid {
+  display: grid;
+  gap: var(--space-4);
+}
+.register-stack {
+  display: grid;
+  gap: var(--space-3);
+}
+.register-contact {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+  justify-items: stretch;
+}
+.register-contact > .ui-button {
+  justify-self: start;
+}
+.register-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.register-fieldset > legend {
+  margin-bottom: var(--space-3);
+  padding: 0;
+  font-weight: var(--font-weight-bold);
+}
+.register-photos {
+  display: grid;
+  gap: var(--space-4);
+}
+.register-notice {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-warning-soft);
+}
+.register-notice-icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-surface);
+  color: var(--color-brand-accent-ink);
+}
+.register-notice-title {
+  margin: 0;
+  font-weight: var(--font-weight-bold);
+}
+.register-muted {
+  color: var(--color-text-secondary);
+}
+.register-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: flex-end;
+}
+.register-done {
+  justify-items: center;
+}
+.register-link {
+  color: var(--color-brand-primary-dark);
+  font-weight: var(--font-weight-bold);
+}
+.register-kind {
+  display: inline-flex;
+  margin-top: var(--space-2);
+  padding: var(--space-1);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-text-on-brand) 16%, transparent);
+}
+.register-kind-option {
+  min-height: 36px;
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-on-brand);
+  font: inherit;
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+}
+.register-kind-option[aria-pressed='true'] {
+  background: var(--color-bg-surface);
+  color: var(--color-brand-primary-dark);
+}
+.register-kind-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.register-kind-option:focus-visible {
+  outline: 2px solid var(--color-text-on-brand);
+  outline-offset: 2px;
+}
+.register-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+}
+@media (min-width: 640px) {
+  .register-body {
+    padding: var(--space-5);
+  }
+  .register-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .register-photos {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

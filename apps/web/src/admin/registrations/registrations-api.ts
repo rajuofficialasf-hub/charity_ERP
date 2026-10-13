@@ -47,6 +47,7 @@ export interface RegistrationDetailView extends PendingRegistration {
     facebookId: string | null;
     nid?: string;
     nidPhotoFileId?: string | null;
+    nidPhotoBackFileId?: string | null;
     bank?: Bank;
     photoFileId: string | null;
     referenceVolunteerId: string | null;

@@ -85,7 +85,7 @@ export const FIELD_LABEL = {
   photo: 'form.photo',
   nid_photo: 'form.nid_photo',
   nid_photo_back: 'form.nid_photo_back',
-  mobile: 'start.mobile',
-  email: 'start.email',
+  mobile: 'form.mobile',
+  email: 'form.email',
 } as const;
 export type RequestField = keyof typeof FIELD_LABEL;

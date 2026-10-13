@@ -1,0 +1,25 @@
+/* Title band of a public page (UX-16): dark brand green, white text, rounded top of its card. */
+@layer components {
+  .ui-page-band {
+    display: grid;
+    gap: var(--space-2);
+    justify-items: center;
+    padding: var(--space-5) var(--space-4);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    background: var(--color-brand-primary-dark);
+    color: var(--color-text-on-brand);
+    text-align: center;
+  }
+  .ui-page-band-title {
+    margin: 0;
+    font-size: var(--text-display);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--leading-heading);
+  }
+  .ui-page-band-subtitle {
+    max-width: 36rem;
+    margin: 0;
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+  }
+}

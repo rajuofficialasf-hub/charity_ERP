@@ -2,8 +2,9 @@ import AxeBuilder from '@axe-core/playwright';
 import { fakeEmail, fakeMobile, fakeNid } from '@css/shared';
 import { devices, expect, type Page, test, type TestInfo } from '@playwright/test';
 
-// Registration on a phone from the login page to the pending confirmation (plan
-// docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U11; AUTH.md 2), and the
+// Registration on a phone from the login page to the pending confirmation (plans
+// docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U11, and
+// docs/plans/2026-10-13-0922-feat-registration-redesign-plan.md, U4: one page, UX-16; AUTH.md 2), and the
 // approval journey of U13: an RPM asks for a correction, the volunteer fixes it on the phone and
 // submits again, the RPM approves. The API runs with the dummy OTP 123456 on a fresh E2E database
 // (recreated per run); every project, repeat and retry uses its own fake mobile, email and NID in
@@ -58,40 +59,54 @@ async function photo(page: Page, label: RegExp, slot: string) {
   await uploaded;
 }
 
+/** Verifies one contact inside its field (UX-16): "যাচাই করুন", the code below, "যাচাই হয়েছে". */
+async function verifyContact(page: Page, label: RegExp, value: string, codeLabel: RegExp) {
+  const field = page
+    .locator('.register-contact')
+    .filter({ has: page.getByRole('textbox', { name: label }) });
+  await field.getByRole('textbox', { name: label }).fill(value);
+  await field.getByRole('button', { name: 'যাচাই করুন' }).click();
+  await field.getByRole('textbox', { name: codeLabel }).fill(OTP);
+  await expect(field.getByText('যাচাই হয়েছে')).toBeVisible();
+}
+
+const next = (page: Page) => page.getByRole('button', { name: 'পরের ধাপ' }).click();
+
 /** The phone registration of a volunteer in Savar (Dhaka), up to the pending confirmation. */
 async function register(page: Page, person: Person) {
   await page.goto('/login');
   await page.getByRole('link', { name: 'নিবন্ধন করুন' }).click();
   await expect(page).toHaveURL(/\/register$/);
-  await page.getByRole('radio', { name: 'স্বেচ্ছাসেবক' }).check();
-  await page.getByRole('textbox', { name: /মোবাইল নম্বর/ }).fill(person.mobile);
-  await page.getByRole('textbox', { name: /ইমেইল/ }).fill(person.email);
-  await page.getByRole('button', { name: 'কোড পাঠান' }).click();
-  await page.getByRole('textbox', { name: /মোবাইলে পাওয়া কোড/ }).fill(OTP);
-  await page.getByRole('button', { name: 'পরের ধাপ' }).click();
-  await page.getByRole('textbox', { name: /ইমেইলে পাওয়া কোড/ }).fill(OTP);
-  await page.getByRole('button', { name: 'যাচাই করুন' }).click();
-
-  await expect(page.getByRole('heading', { name: 'নিবন্ধন ফর্ম' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক নিবন্ধন' })).toBeVisible();
   await page.getByRole('textbox', { name: /^নাম/ }).fill(person.name);
   await page.getByRole('textbox', { name: /পিতার নাম/ }).fill('নমুনা পিতা');
+  await verifyContact(page, /মোবাইল নম্বর/, person.mobile, /মোবাইলে পাওয়া কোড/);
+  await verifyContact(page, /^ইমেইল/, person.email, /ইমেইলে পাওয়া কোড/);
+  await next(page);
+
   await page.getByRole('textbox', { name: /মাতার নাম/ }).fill('নমুনা মাতা');
   await page.getByRole('textbox', { name: /NID নম্বর/ }).fill(person.nid);
   await choose(page, /(^|\s)বিভাগ/, 'ঢাকা');
   await choose(page, /(^|\s)জেলা/, 'ঢাকা');
   await choose(page, /(^|\s)উপজেলা/, 'সাভার');
   await choose(page, /(^|\s)ইউনিয়ন/, 'সাভার');
+  await next(page);
   await expect(page.getByRole('button', { name: /স্বেচ্ছাসেবকের ধরন/ })).toBeVisible();
-  await photo(page, /^ছবি\s*\(/, 'photo');
-  await photo(page, /^NID-এর ছবি/, 'nid_photo');
+  await next(page);
   await page
     .getByLabel(/^পাসওয়ার্ড/)
     .first()
     .fill(PASSWORD);
   await page.getByLabel(/^পাসওয়ার্ড আবার লিখুন/).fill(PASSWORD);
+  await next(page);
+
+  // the photos come last (UX-18): the own photo and both pages of the NID card
+  await photo(page, /^নিজের ছবি/, 'photo');
+  await photo(page, /^NID কার্ডের প্রথম পাতা/, 'nid_photo');
+  await photo(page, /^NID কার্ডের দ্বিতীয় পাতা/, 'nid_photo_back');
   await page.getByRole('button', { name: 'জমা দিন' }).click();
 
-  await expect(page.getByRole('heading', { name: 'নিবন্ধন জমা হয়েছে' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'নিবন্ধন জমা হয়েছে' })).toBeVisible();
   await expect(page.getByText('অনুমোদনের পর আপনি কাজ শুরু করতে পারবেন।')).toBeVisible();
 }
 

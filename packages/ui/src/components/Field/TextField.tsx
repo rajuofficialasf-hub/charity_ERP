@@ -2,7 +2,7 @@
 
 import { toEnglishDigits } from '@css/shared';
 import { Eye, EyeOff } from 'lucide-react';
-import { useLayoutEffect, useRef, useState, type HTMLAttributes } from 'react';
+import { useLayoutEffect, useRef, useState, type HTMLAttributes, type ReactNode } from 'react';
 import {
   Button as AriaButton,
   Input,
@@ -28,6 +28,19 @@ export interface TextFieldProps extends FieldBaseProps {
   inputMode?: 'text' | 'numeric' | 'email' | 'tel';
   /** `lang` of the value when it is in the other language. */
   lang?: string;
+  /** A small action or state inside the field at its end, e.g. "যাচাই করুন" or a verified mark (UX-16). */
+  endAction?: ReactNode;
+}
+
+/** The input, with an action inside its end when one is given. */
+function WithAction({ action, children }: { action?: ReactNode; children: ReactNode }) {
+  if (!action) return <>{children}</>;
+  return (
+    <div className="ui-input-wrap has-action">
+      {children}
+      <span className="ui-input-action">{action}</span>
+    </div>
+  );
 }
 
 /** Single-line text field: label, control, helper, error, lock and change marker (DESIGN_SYSTEM 5.4). */
@@ -42,6 +55,7 @@ export function TextField({
   inputMode,
   lang,
   onBlur,
+  endAction,
   ...field
 }: TextFieldProps) {
   const numeric = type === 'nid';
@@ -67,7 +81,9 @@ export function TextField({
       validationBehavior="aria"
     >
       <FieldLabel {...field} />
-      <Input className="ui-input" placeholder={placeholder} lang={lang} />
+      <WithAction action={endAction}>
+        <Input className="ui-input" placeholder={placeholder} lang={lang} />
+      </WithAction>
       <FieldFooter {...field} />
     </AriaTextField>
   );
@@ -202,6 +218,8 @@ export interface PhoneFieldProps extends FieldBaseProps {
   placeholder?: string;
   /** Off by default (a beneficiary's number must never be autofilled, BD-03); `tel` for own number. */
   autoComplete?: string;
+  /** A small action or state inside the field at its end (UX-16). */
+  endAction?: ReactNode;
 }
 
 /** Bangladesh mobile number: telephone keypad, English digits, 11 digits, no autofill (BD-03). */
@@ -212,6 +230,7 @@ export function PhoneField({
   onBlur,
   placeholder,
   autoComplete = 'off',
+  endAction,
   ...field
 }: PhoneFieldProps) {
   const [current, set] = useTextValue(value, defaultValue, onChange, (v) =>
@@ -236,7 +255,9 @@ export function PhoneField({
       validationBehavior="aria"
     >
       <FieldLabel {...field} />
-      <Input className="ui-input ui-tnum" placeholder={placeholder} />
+      <WithAction action={endAction}>
+        <Input className="ui-input ui-tnum" placeholder={placeholder} />
+      </WithAction>
       <FieldFooter {...field} />
     </AriaTextField>
   );

@@ -5,7 +5,9 @@ import {
   type RegistrationKind,
   type RegistrationStart,
   type RegistrationSubmitRequest,
+  type RegistrationChannel,
   type RegistrationVerified,
+  type RegistrationVerifyResult,
 } from '@css/shared/registration';
 import { api, ApiFailure } from '../../lib/api';
 
@@ -16,8 +18,6 @@ import { api, ApiFailure } from '../../lib/api';
 export interface Draft {
   registrationId: string;
   kind: RegistrationKind;
-  mobile: string;
-  email: string;
   token?: string;
   programs?: RegistrationVerified['programs'];
 }
@@ -27,23 +27,23 @@ export interface Location {
   name: { bn: string; en: string };
 }
 
-export const startRegistration = (body: {
-  mobile: string;
-  email: string;
-  kind: RegistrationKind;
-}) => api<RegistrationStart>('/auth/register/start', { method: 'POST', body }, false);
+/** A new draft of the kind; nothing is sent yet (D-090). */
+export const startDraft = (kind: RegistrationKind) =>
+  api<RegistrationStart>('/auth/register/start', { method: 'POST', body: { kind } }, false);
 
-export const resendCode = (registrationId: string, channel: 'sms' | 'email') =>
+/** Sends a code to one contact of the draft (D-090). */
+export const sendCode = (registrationId: string, channel: RegistrationChannel, address: string) =>
   api<void>(
     '/auth/register/otp/send',
-    { method: 'POST', body: { registrationId, channel } },
+    { method: 'POST', body: { registrationId, channel, address } },
     false,
   );
 
-export const verifyCodes = (registrationId: string, mobileCode: string, emailCode: string) =>
-  api<RegistrationVerified>(
+/** Verifies the code of one channel; the second one answers the draft token (D-090). */
+export const verifyCode = (registrationId: string, channel: RegistrationChannel, code: string) =>
+  api<RegistrationVerifyResult>(
     '/auth/register/otp/verify',
-    { method: 'POST', body: { registrationId, mobileCode, emailCode } },
+    { method: 'POST', body: { registrationId, channel, code } },
     false,
   );
 

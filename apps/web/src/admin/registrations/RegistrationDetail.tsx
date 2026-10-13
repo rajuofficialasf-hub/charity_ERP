@@ -247,8 +247,8 @@ function Details({ registration: r }: { registration: RegistrationDetailView }) 
         [tf('form.father_name'), v.fatherName],
         [tf('form.mother_name'), v.motherName],
         [tf('form.nid'), v.nid ?? hidden],
-        [tf('start.mobile'), r.mobile ?? empty],
-        [tf('start.email'), r.email ?? empty],
+        [tf('form.mobile'), r.mobile ?? empty],
+        [tf('form.email'), r.email ?? empty],
         [tf('form.whatsapp'), v.whatsapp ?? empty],
         [tf('form.address'), <AddressNames key="address" address={v} />],
         [tf('form.address_line'), v.addressLine ?? empty],
@@ -262,8 +262,8 @@ function Details({ registration: r }: { registration: RegistrationDetailView }) 
       ]
     : [
         [tf('form.designation'), r.designation ?? empty],
-        [tf('start.mobile'), r.mobile ?? empty],
-        [tf('start.email'), r.email ?? empty],
+        [tf('form.mobile'), r.mobile ?? empty],
+        [tf('form.email'), r.email ?? empty],
         [
           tf('form.region'),
           <AddressNames
@@ -302,7 +302,10 @@ function Photos({ registration: r }: { registration: RegistrationDetailView }) {
   const photo = r.volunteer?.photoFileId ?? r.photoFileId;
   const slots: [string, string | null | undefined, boolean][] = [[tf('photo'), photo, true]];
   if (r.volunteer)
-    slots.push([tf('nid_photo'), r.volunteer.nidPhotoFileId, 'nidPhotoFileId' in r.volunteer]);
+    slots.push(
+      [tf('nid_photo'), r.volunteer.nidPhotoFileId, 'nidPhotoFileId' in r.volunteer],
+      [tf('nid_photo_back'), r.volunteer.nidPhotoBackFileId, 'nidPhotoBackFileId' in r.volunteer],
+    );
   return (
     <Section title={t('photos')}>
       <div className="admin-photos">

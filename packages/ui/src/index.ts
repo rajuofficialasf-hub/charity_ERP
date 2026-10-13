@@ -55,6 +55,8 @@ export {
   type ErrorStateProps,
 } from './components/States/States.js';
 export { Tabs, type TabItem, type TabsProps } from './components/Tabs/Tabs.js';
+export { Stepper, type StepperProps } from './components/Stepper/Stepper.js';
+export { PageBand, type PageBandProps } from './components/PageBand/PageBand.js';
 export {
   Timeline,
   type StepStatus,

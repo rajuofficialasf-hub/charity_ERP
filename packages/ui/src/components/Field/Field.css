@@ -152,6 +152,18 @@
   .ui-input-wrap > .ui-input {
     padding-right: 48px;
   }
+  /* an action or state inside the end of the field (UX-16): the text never runs under it */
+  .ui-input-wrap.has-action > .ui-input {
+    padding-right: 8.5rem;
+  }
+  .ui-input-action {
+    position: absolute;
+    right: var(--space-1);
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+  }
   .ui-input-button {
     display: inline-grid;
     place-items: center;

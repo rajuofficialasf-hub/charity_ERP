@@ -14,6 +14,8 @@
 @import '../components/Card/Card.css';
 @import '../components/Alert/Alert.css';
 @import '../components/Timeline/Timeline.css';
+@import '../components/Stepper/Stepper.css';
+@import '../components/PageBand/PageBand.css';
 @import '../components/States/States.css';
 @import '../components/OfflineBanner/OfflineBanner.css';
 @import '../components/Breadcrumb/Breadcrumb.css';
