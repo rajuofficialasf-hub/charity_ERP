@@ -37,17 +37,17 @@ Owner message of 2026-10-13 with a reference image (a settings page with an avat
 ### U1. Tests first
 - **Files:** `apps/web/src/features/account/profile.test.tsx`
 - **Tests:** unit (web, MSW): the header shows the name, the type and the state; the six section names are buttons and only the open one's details are shown; choosing "ব্যাংকের তথ্য" shows the bank details in full with the branch; an active volunteer has one edit button (none for a pending one); the edit mode shows a checkbox per changeable detail and none for the type or a detail with an open request; send is disabled until one detail is ticked; ticking two details of the contact section and sending posts two requests with their values and the one reason; a refused request stays ticked with its message while the other leaves; cancel posts nothing; a new mobile waits for its code and a photo for its upload after sending; the corrections of a pending registrant are unchanged; axe in bn and en.
-- **Done when:** the new and changed tests fail for the right reason. **Size:** S · **Risk area:** none · **Status:** todo
+- **Done when:** the new and changed tests fail for the right reason. **Size:** S · **Risk area:** none · **Status:** done
 
 ### U2. The profile screen
 - **Files:** `apps/web/src/features/account/{ProfileView.tsx,ProfileNav.tsx,ProfileHeader.tsx,EditSection.tsx,ChangeRequests.tsx,profile.css}`, `packages/shared/src/i18n/messages/{bn,en}/registration.json`
 - **Approach:** `ProfileView` keeps the queries and the pending/corrections parts; `ProfileNav` and `ProfileHeader` are new; `EditSection` holds the picked set, the values, the reason and the sequential sends (reuse `ValueEditor`, `cleanValue`, `askEdit`, `RequestState`); the dialog `EditDialog` and its keys go. New keys in both languages (section navigation label, the states, "change this", the short instruction, the partial failure).
-- **Done when:** the U1 tests pass, `pnpm lint` and `pnpm typecheck` are clean. **Depends on:** U1 · **Size:** M · **Risk area:** none · **Status:** todo
+- **Done when:** the U1 tests pass, `pnpm lint` and `pnpm typecheck` are clean. **Depends on:** U1 · **Size:** M · **Risk area:** none · **Status:** done
 
 ### U3. E2E, documents, status
 - **Files:** `apps/web/e2e/registration.spec.ts` (the profile steps of the correction journey), `docs/ui/SCREENS.md`, `docs/STATUS.md`
 - **Tests:** e2e: the pending volunteer's correction journey still passes; an approved volunteer opens `/account/profile`, opens the contact section, ticks the WhatsApp number, sends, and sees "অনুমোদনের অপেক্ষায়"; at 360 px the page has no sideways scroll.
-- **Done when:** `pnpm test` and `pnpm e2e` pass. **Depends on:** U2 · **Size:** S · **Risk area:** none · **Status:** todo
+- **Done when:** `pnpm test` and `pnpm e2e` pass. **Depends on:** U2 · **Size:** S · **Risk area:** none · **Status:** done
 
 ## Checkpoints
 - **Mode:** end only (web-only change, no risk area): **C1** after U3 with a review of the whole range.

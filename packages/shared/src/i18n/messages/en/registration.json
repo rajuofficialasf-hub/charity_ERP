@@ -123,8 +123,6 @@
     "edit": {
       "button": "Edit",
       "button_label": "Edit {field}",
-      "dialog_title": "Request to change {field}",
-      "new_value": "New value",
       "note": "Reason (optional)",
       "send": "Send request",
       "sent": "The request was sent.",
@@ -137,7 +135,18 @@
       "status": {
         "open": "Waiting for you",
         "submitted": "Waiting for approval"
-      }
+      },
+      "pick": "Tick what you want to change.",
+      "change_field": "Change {field}",
+      "form_label": "Request to change {section}",
+      "partial": "Some requests were not sent. Check the marked details."
+    },
+    "nav_label": "Profile sections",
+    "state": {
+      "pending": "Pending approval",
+      "active": "Active",
+      "blocked": "Blocked",
+      "deactivated": "Deactivated"
     }
   }
 }

@@ -27,14 +27,20 @@ const dataUrl = (blob: Blob) =>
  */
 export function FileImage({ fileId, alt }: { fileId: string; alt: string }) {
   const t = useTranslations('common');
-  const file = useQuery({
+  const file = useFileDataUrl(fileId);
+  if (file.error) return <p className="file-image-error">{t('state.error.text')}</p>;
+  if (!file.data) return <Skeleton shape="card" />;
+  return <img src={file.data} alt={alt} className="file-image" />;
+}
+
+/** The photo as a data URL for a place that draws it itself (the avatar); idle without a file. */
+export function useFileDataUrl(fileId: string | null) {
+  return useQuery({
     queryKey: ['files', fileId],
     queryFn: async () => dataUrl(await api<Blob>(`/files/${fileId}/content`, { blob: true })),
+    enabled: fileId !== null,
     // a photo leaves the cache with its screen: opening it again asks the API (and audits an
     // NID photo view) again
     gcTime: 0,
   });
-  if (file.error) return <p className="file-image-error">{t('state.error.text')}</p>;
-  if (!file.data) return <Skeleton shape="card" />;
-  return <img src={file.data} alt={alt} className="file-image" />;
 }

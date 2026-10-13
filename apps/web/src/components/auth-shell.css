@@ -61,6 +61,9 @@
   display: grid;
   gap: var(--space-4);
 }
+.account-page-wide {
+  max-width: 960px;
+}
 .account-page h1 {
   font-size: var(--text-display);
   font-weight: 700;

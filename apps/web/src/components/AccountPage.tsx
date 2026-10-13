@@ -40,9 +40,12 @@ export function LogoutButton() {
 export function AccountPage({
   title,
   children,
+  wide = false,
 }: {
   title: (me: Me) => string;
   children: (me: Me) => ReactNode;
+  /** A page with a side navigation (the profile) gets a wider frame. */
+  wide?: boolean;
 }) {
   const t = useTranslations('auth.account');
   return (
@@ -50,7 +53,7 @@ export function AccountPage({
       {(me) => (
         <>
           <TopBar />
-          <main id="main" className="account-page">
+          <main id="main" className={wide ? 'account-page account-page-wide' : 'account-page'}>
             <h1>{title(me)}</h1>
             {children(me)}
             <nav className="account-links" aria-label={t('title')}>

@@ -1,5 +1,5 @@
 import { PHOTO_SLOTS, type PhotoSlot } from '@css/shared/registration';
-import { Alert, Badge, Button, Card, Form, Modal, TextField } from '@css/ui';
+import { Alert, Badge, Button, Card, Form, TextField } from '@css/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CircleCheck } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
@@ -8,7 +8,6 @@ import { ApiFailure } from '../../lib/api';
 import { PhotoField } from '../registration/PhotoField';
 import {
   answerRequest,
-  askEdit,
   type ChangeRequest,
   FIELD_LABEL,
   PROFILE_KEY,
@@ -21,9 +20,9 @@ import {
 } from './profile-api';
 import { cleanValue, ValueEditor } from './ValueEditor';
 
-const isPhoto = (field: string): field is PhotoSlot =>
+export const isPhoto = (field: string): field is PhotoSlot =>
   (PHOTO_SLOTS as readonly string[]).includes(field);
-const isContact = (field: string) => field === 'mobile' || field === 'email';
+export const isContact = (field: string) => field === 'mobile' || field === 'email';
 
 /**
  * The message of a refused call: the field message of a 422, else the API's own message; a call
@@ -137,76 +136,6 @@ function CorrectionRow({ row, onAnswered }: { row: ChangeRequest; onAnswered: ()
         </div>
       </Form>
     </Card>
-  );
-}
-
-/**
- * The request to change one detail (BR-031 as amended by DECISION_LOG D-085; UX-18): opened from
- * the edit button beside the detail; the new value goes with the request (a photo follows with
- * its upload, a new mobile or email with its code).
- */
-export function EditDialog({
-  field,
-  onClose,
-  onSent,
-}: {
-  field: RequestField;
-  onClose: () => void;
-  onSent: () => void;
-}) {
-  const t = useTranslations('registration');
-  const messageOf = useMessageOf();
-  const tc = useTranslations('common.action');
-  const refresh = useRefresh();
-  const label = t(FIELD_LABEL[field]);
-  const [value, setValue] = useState<unknown>(undefined);
-  const [note, setNote] = useState('');
-  const ask = useMutation({
-    mutationFn: () =>
-      askEdit({
-        field,
-        ...(isPhoto(field) ? {} : { newValue: cleanValue(field, value) }),
-        ...(note.trim() ? { note: note.trim() } : {}),
-      }),
-    onSuccess: () => {
-      refresh();
-      onSent();
-    },
-  });
-  return (
-    <Modal
-      title={t('profile.edit.dialog_title', { field: label })}
-      isOpen
-      onClose={onClose}
-      dismissible={!ask.isPending}
-      secondaryAction={
-        <Button variant="secondary" onPress={onClose} disabled={ask.isPending}>
-          {tc('cancel')}
-        </Button>
-      }
-      primaryAction={
-        <Button onPress={() => !ask.isPending && ask.mutate()} loading={ask.isPending}>
-          {t('profile.edit.send')}
-        </Button>
-      }
-    >
-      {ask.error && (
-        <Alert tone="danger" live="alert">
-          {messageOf(ask.error)}
-        </Alert>
-      )}
-      {!isPhoto(field) && (
-        <ValueEditor
-          field={field}
-          label={t('profile.edit.new_value')}
-          value={value}
-          onChange={setValue}
-        />
-      )}
-      {isContact(field) && <p className="m-0">{t('profile.edit.code_intro')}</p>}
-      {isPhoto(field) && <p className="m-0">{t('profile.edit.photo_intro')}</p>}
-      <TextField label={t('profile.edit.note')} name="note" value={note} onChange={setNote} />
-    </Modal>
   );
 }
 

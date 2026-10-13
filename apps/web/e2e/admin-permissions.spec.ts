@@ -25,7 +25,10 @@ const caseOf = (project: string) => CASES[project === 'mobile' ? 'mobile' : 'des
  * phones, and a list opened meanwhile would be clicked through the moving sheet.
  */
 const settle = (page: Page) =>
-  page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+  // an animation cancelled meanwhile (a removed element) rejects `finished` with an AbortError
+  page.evaluate(() =>
+    Promise.all(document.getAnimations().map((a) => a.finished.catch(() => undefined))),
+  );
 
 const scan = (page: Page) => new AxeBuilder({ page }).exclude('[data-live-announcer]').analyze();
 
