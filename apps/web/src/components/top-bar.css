@@ -1,0 +1,24 @@
+/* The top bar of the pages without a sidebar (UX-19): brand at the start, language toggle at the end. */
+.top-bar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--app-bar-height);
+  padding: var(--space-2) var(--space-4);
+}
+.top-bar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-brand-ink);
+  font-weight: var(--font-weight-bold);
+  text-decoration: none;
+}
+.top-bar-brand:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}

@@ -4,12 +4,14 @@
  * columns of fields from 640 px. Tokens only (colors.md, DESIGN_SYSTEM).
  */
 .register-page {
+  /* the wash runs up under the top bar (UX-19), so the bar has no seam */
   min-height: 100dvh;
+  margin-top: calc(-1 * var(--app-bar-height));
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-4);
-  padding: var(--space-5) var(--space-4) var(--space-6);
+  padding: calc(var(--space-5) + var(--app-bar-height)) var(--space-4) var(--space-6);
   background:
     radial-gradient(
       120% 50% at 50% -10%,

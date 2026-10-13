@@ -3,11 +3,13 @@
  * centered at 440 px from tablet up, full width with a 16 px gutter on phones. Tokens only.
  */
 .auth-shell {
+  /* the wash runs up under the top bar (UX-19), so the bar has no seam */
   min-height: 100dvh;
+  margin-top: calc(-1 * var(--app-bar-height));
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--space-5) var(--space-4) var(--space-6);
+  padding: calc(var(--space-5) + var(--app-bar-height)) var(--space-4) var(--space-6);
   background:
     radial-gradient(
       120% 60% at 50% -10%,
@@ -44,13 +46,6 @@
 .auth-shell-stack {
   display: grid;
   gap: var(--space-4);
-}
-.auth-shell-foot {
-  margin-top: var(--space-4);
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  justify-content: center;
 }
 @media (min-width: 640px) {
   .auth-shell-card {

@@ -7,7 +7,7 @@ import { type ReactNode, useState } from 'react';
 import './auth-shell.css';
 import { logout } from '../lib/api';
 import { RequireAuth } from '../lib/auth';
-import { LanguageSwitch } from './LanguageSwitch';
+import { TopBar } from './TopBar';
 
 /** Logs out and wipes the device's local data (AUTH.md 8, SCR-006). */
 export function LogoutButton() {
@@ -48,23 +48,25 @@ export function AccountPage({
   return (
     <RequireAuth>
       {(me) => (
-        <main id="main" className="account-page">
-          <h1>{title(me)}</h1>
-          {children(me)}
-          <nav className="account-links" aria-label={t('title')}>
-            <Button variant="ghost" href="/">
-              {t('title')}
-            </Button>
-            <Button variant="ghost" href="/account/sessions">
-              {t('devices')}
-            </Button>
-            <Button variant="ghost" href="/account/password">
-              {t('change_password')}
-            </Button>
-            <LogoutButton />
-          </nav>
-          <LanguageSwitch />
-        </main>
+        <>
+          <TopBar />
+          <main id="main" className="account-page">
+            <h1>{title(me)}</h1>
+            {children(me)}
+            <nav className="account-links" aria-label={t('title')}>
+              <Button variant="ghost" href="/">
+                {t('title')}
+              </Button>
+              <Button variant="ghost" href="/account/sessions">
+                {t('devices')}
+              </Button>
+              <Button variant="ghost" href="/account/password">
+                {t('change_password')}
+              </Button>
+              <LogoutButton />
+            </nav>
+          </main>
+        </>
       )}
     </RequireAuth>
   );

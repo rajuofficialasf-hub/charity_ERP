@@ -55,6 +55,17 @@ test.describe('admin area', () => {
     if (info.project.name === 'mobile') await expect(notice).toBeVisible();
     else await expect(notice).toBeHidden();
 
+    // the language toggle ends the sidebar (UX-19), in view, and the page never scrolls sideways
+    const toggle = page.locator('nav.admin-sidebar').getByRole('radiogroup');
+    await expect(toggle).toBeInViewport();
+    await toggle.getByRole('radio', { name: 'English' }).click({ force: true });
+    await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
+    await toggle.getByRole('radio', { name: 'বাংলা' }).click({ force: true });
+    await expect(page.getByRole('heading', { level: 1, name: 'ড্যাশবোর্ড' })).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+
     expect((await scan(page)).violations).toEqual([]);
 
     await page.getByRole('button', { name: 'লগআউট' }).click();

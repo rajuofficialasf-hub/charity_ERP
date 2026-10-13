@@ -16,6 +16,7 @@
 @import '../components/Timeline/Timeline.css';
 @import '../components/Stepper/Stepper.css';
 @import '../components/PageBand/PageBand.css';
+@import '../components/SegmentedControl/SegmentedControl.css';
 @import '../components/States/States.css';
 @import '../components/OfflineBanner/OfflineBanner.css';
 @import '../components/Breadcrumb/Breadcrumb.css';

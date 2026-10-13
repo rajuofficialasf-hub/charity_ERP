@@ -37,9 +37,9 @@ function Forbidden() {
 
 /**
  * The admin area (UX-15, SYSTEM_ARCHITECTURE 4.2 management screens) on packages/ui: a top bar
- * with the system name, the signed-in user, the language switch and log out; a sidebar of
- * destinations (a row above the content on phones); the page in the content area. Loaded as its
- * own route chunk.
+ * with the system name, the signed-in user and log out; a sidebar of destinations with the language
+ * toggle as its last item (UX-19; a row above the content on phones); the page in the content
+ * area. Loaded as its own route chunk.
  */
 export function AdminLayout() {
   const t = useTranslations('admin');
@@ -57,7 +57,6 @@ export function AdminLayout() {
               </a>
               <div className="admin-bar-actions">
                 <span className="admin-user">{t('bar.user', { name: me.displayName })}</span>
-                <LanguageSwitch className="admin-language" />
                 <LogoutButton />
               </div>
             </header>
@@ -75,6 +74,7 @@ export function AdminLayout() {
                     }
                   />
                 ))}
+                <LanguageSwitch className="admin-language" />
               </nav>
               <main id="main" className="admin-content">
                 <Alert tone="info" className="admin-phone-notice">

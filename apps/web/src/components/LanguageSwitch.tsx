@@ -1,4 +1,4 @@
-import { RadioGroup } from '@css/ui';
+import { SegmentedControl } from '@css/ui';
 import { useTranslations } from 'use-intl';
 import { useLocaleSwitch } from '../i18n/LocaleProvider';
 import { api } from '../lib/api';
@@ -7,7 +7,8 @@ import { useAuth } from '../lib/auth';
 /**
  * Language switch (I18N 2, D-067): stores the choice on this device (cookie and localStorage),
  * on the account when signed in (PUT /me/language, O-56), and re-renders the app in the new
- * language. Language names are shown in their own language.
+ * language. Language names are shown in their own language. A compact toggle for the top bar and
+ * the bottom of the sidebar (UX-19).
  */
 export function LanguageSwitch({ className }: { className?: string }) {
   const t = useTranslations('common.language');
@@ -25,14 +26,13 @@ export function LanguageSwitch({ className }: { className?: string }) {
   };
 
   return (
-    <RadioGroup
+    <SegmentedControl
       label={t('label')}
-      orientation="horizontal"
       value={locale}
       onChange={choose}
       options={[
-        { id: 'bn', label: t('bn') },
-        { id: 'en', label: t('en') },
+        { id: 'bn', label: t('bn'), lang: 'bn' },
+        { id: 'en', label: t('en'), lang: 'en' },
       ]}
       className={className}
     />

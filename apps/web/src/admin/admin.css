@@ -53,6 +53,15 @@
   background: var(--color-bg-surface);
   border-bottom: 1px solid var(--border-subtle);
 }
+/* UX-19: the language toggle is the last item of the sidebar, at its end in the row on phones. */
+.admin-language {
+  margin-inline-start: auto;
+  flex: none;
+  align-self: center;
+  /* in the scrolling row of a phone the toggle stays in view at the end */
+  position: sticky;
+  inset-inline-end: 0;
+}
 .admin-content {
   display: grid;
   gap: var(--space-4);
@@ -86,6 +95,12 @@
     padding: var(--space-2);
     border-bottom: 0;
     border-right: 1px solid var(--border-subtle);
+  }
+  .admin-language {
+    position: static;
+    margin-inline-start: 0;
+    margin-top: auto;
+    align-self: flex-start;
   }
   .admin-content {
     padding: var(--space-5);

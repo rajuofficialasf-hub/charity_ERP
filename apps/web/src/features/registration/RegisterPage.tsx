@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, Send } from 'lucide-react';
 import { type FormEvent, useRef, useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { LanguageSwitch } from '../../components/LanguageSwitch';
+import { TopBar } from '../../components/TopBar';
 import { type ChannelState, ContactStep, NEW_CHANNEL } from './ContactStep';
 import {
   checkStep,
@@ -201,104 +201,109 @@ export function RegisterPage() {
   const title = done ? t('done.title') : t(`band.${kind}`);
   if (done)
     return (
-      <main id="main" className="register-page">
-        <DocumentTitle title={title} />
-        <section className="register-card">
-          <PageBand title={title} subtitle={t('done.text')} />
-          <div className="register-body register-done">
-            <Button href="/login">{t('done.login')}</Button>
-          </div>
-        </section>
-      </main>
+      <>
+        <TopBar />
+        <main id="main" className="register-page">
+          <DocumentTitle title={title} />
+          <section className="register-card">
+            <PageBand title={title} subtitle={t('done.text')} />
+            <div className="register-body register-done">
+              <Button href="/login">{t('done.login')}</Button>
+            </div>
+          </section>
+        </main>
+      </>
     );
 
   const stepNames = steps.map((s) => t(`steps.${s}`));
   const canNext = key !== 'contact' || verified;
   return (
-    <main id="main" className="register-page">
-      <DocumentTitle title={title} />
-      <section className="register-card">
-        <PageBand title={title} subtitle={t(`band.${kind}_line`)}>
-          <div className="register-kind" role="group" aria-label={t('kind.label')}>
-            {(['volunteer', 'staff'] as const).map((k) => (
-              <button
-                key={k}
-                type="button"
-                className="register-kind-option"
-                aria-pressed={kind === k}
-                disabled={(verified || busy) && kind !== k}
-                onClick={() => switchKind(k)}
-              >
-                {t(`kind.${k}`)}
-              </button>
-            ))}
-          </div>
-        </PageBand>
-        <form className="register-body" onSubmit={next} noValidate aria-label={title}>
-          <Stepper label={t('steps.label')} steps={stepNames} current={step} />
-          <fieldset className="register-section">
-            <legend className="register-section-title">{stepNames[step]}</legend>
-            {key === 'contact' && (
-              <ContactStep
-                kind={kind}
-                values={values}
-                set={set}
-                errors={errors}
-                channels={channels}
-                exists={exists}
-                onSend={send}
-                onCode={code}
-                onChange={change}
-                onContact={setContact}
-                canChange={!draft?.token}
-              />
+    <>
+      <TopBar />
+      <main id="main" className="register-page">
+        <DocumentTitle title={title} />
+        <section className="register-card">
+          <PageBand title={title} subtitle={t(`band.${kind}_line`)}>
+            <div className="register-kind" role="group" aria-label={t('kind.label')}>
+              {(['volunteer', 'staff'] as const).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  className="register-kind-option"
+                  aria-pressed={kind === k}
+                  disabled={(verified || busy) && kind !== k}
+                  onClick={() => switchKind(k)}
+                >
+                  {t(`kind.${k}`)}
+                </button>
+              ))}
+            </div>
+          </PageBand>
+          <form className="register-body" onSubmit={next} noValidate aria-label={title}>
+            <Stepper label={t('steps.label')} steps={stepNames} current={step} />
+            <fieldset className="register-section">
+              <legend className="register-section-title">{stepNames[step]}</legend>
+              {key === 'contact' && (
+                <ContactStep
+                  kind={kind}
+                  values={values}
+                  set={set}
+                  errors={errors}
+                  channels={channels}
+                  exists={exists}
+                  onSend={send}
+                  onCode={code}
+                  onChange={change}
+                  onContact={setContact}
+                  canChange={!draft?.token}
+                />
+              )}
+              {key === 'identity' && <IdentityStep values={values} set={set} errors={errors} />}
+              {key === 'work' && <WorkStep values={values} set={set} errors={errors} />}
+              {key === 'account' && <AccountStep values={values} set={set} errors={errors} />}
+              {key === 'photos' && draft && (
+                <PhotosStep draft={draft} errors={errors} onPhoto={photo} />
+              )}
+            </fieldset>
+            {error && (
+              <Alert tone="danger" live="alert">
+                {error}
+              </Alert>
             )}
-            {key === 'identity' && <IdentityStep values={values} set={set} errors={errors} />}
-            {key === 'work' && <WorkStep values={values} set={set} errors={errors} />}
-            {key === 'account' && <AccountStep values={values} set={set} errors={errors} />}
-            {key === 'photos' && draft && (
-              <PhotosStep draft={draft} errors={errors} onPhoto={photo} />
-            )}
-          </fieldset>
-          {error && (
-            <Alert tone="danger" live="alert">
-              {error}
-            </Alert>
-          )}
-          <div className="register-actions">
-            {step > 0 && (
-              <Button
-                variant="secondary"
-                icon={ArrowLeft}
-                onPress={() => {
-                  setErrors({});
-                  setStep(step - 1);
-                }}
-              >
-                {t('nav.back')}
-              </Button>
-            )}
-            {step < steps.length - 1 ? (
-              <Button type="submit" icon={ArrowRight} disabled={!canNext}>
-                {t('nav.next')}
-              </Button>
-            ) : (
-              <Button type="submit" icon={Send} loading={pending}>
-                {t('form.submit')}
-              </Button>
-            )}
-          </div>
-        </form>
-      </section>
-      <footer className="register-foot">
-        <span>
-          {t('have_account')}{' '}
-          <a href="/login" className="register-link">
-            {t('verify.login')}
-          </a>
-        </span>
-        <LanguageSwitch />
-      </footer>
-    </main>
+            <div className="register-actions">
+              {step > 0 && (
+                <Button
+                  variant="secondary"
+                  icon={ArrowLeft}
+                  onPress={() => {
+                    setErrors({});
+                    setStep(step - 1);
+                  }}
+                >
+                  {t('nav.back')}
+                </Button>
+              )}
+              {step < steps.length - 1 ? (
+                <Button type="submit" icon={ArrowRight} disabled={!canNext}>
+                  {t('nav.next')}
+                </Button>
+              ) : (
+                <Button type="submit" icon={Send} loading={pending}>
+                  {t('form.submit')}
+                </Button>
+              )}
+            </div>
+          </form>
+        </section>
+        <footer className="register-foot">
+          <span>
+            {t('have_account')}{' '}
+            <a href="/login" className="register-link">
+              {t('verify.login')}
+            </a>
+          </span>
+        </footer>
+      </main>
+    </>
   );
 }

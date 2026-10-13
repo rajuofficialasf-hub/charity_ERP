@@ -95,7 +95,7 @@ The owner reviewed the T1.9b screens on 2026-10-13. A new official cannot know t
 - **Files:** `packages/ui/src/components/SegmentedControl/` (new, + test, css), `packages/ui/src/index.ts`, `apps/web/src/components/{LanguageSwitch,TopBar,AuthShell,AccountPage}.tsx`, `apps/web/src/admin/{AdminLayout.tsx,admin.css}`, `apps/web/src/features/registration/RegisterPage.tsx`, `apps/web/src/components/LanguageSwitch.test.tsx`, `apps/web/e2e/{auth,admin,home}.spec.ts`
 - **Approach:** the admin bar and sidebar of U11 of the stack plan; React Aria `ToggleButtonGroup`.
 - **Tests:** unit: the toggle shows both languages, the current one pressed; choosing the other stores the cookie and the account language and re-renders; keyboard arrows move; axe in both languages. E2E: the toggle is in the top bar on login and the registration, at the bottom of the sidebar in `/admin`, and switching changes the heading.
-- **Done when:** ui and web tests and the e2e specs pass. **Depends on:** U1 · **Size:** M · **Risk area:** none · **Status:** todo
+- **Done when:** ui and web tests and the e2e specs pass. **Depends on:** U1 · **Size:** M · **Risk area:** none · **Status:** done
 
 ### U7. Documents and status
 - **Goal:** The documents describe the new registration, the password rule and the toggle.
@@ -128,7 +128,7 @@ The owner reviewed the T1.9b screens on 2026-10-13. A new official cannot know t
 
 ## Progress
 - **Branch:** feat/registration-simplify
-- **Next:** U6: the language toggle (`packages/ui` `SegmentedControl`, `TopBar`, the admin sidebar); first `LanguageSwitch.test.tsx`; the registration e2e spec still needs the removed steps taken out
+- **Next:** U7: docs (SCREENS, DESIGN_SYSTEM, CLAUDE.md map, STATUS, BUSINESS_RULES test register), then checkpoint C2
 - **Reviewed through:** none
 - **Updated:** 2026-10-13
 - **Uncommitted:** none

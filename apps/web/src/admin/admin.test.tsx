@@ -47,6 +47,15 @@ describe('admin area', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('puts the language toggle at the bottom of the sidebar, not in the top bar', async () => {
+    refreshAs(HEAD);
+    renderAdmin();
+    const nav = await screen.findByRole('navigation', { name: 'অ্যাডমিন মেনু' });
+    const toggle = within(nav).getByRole('radiogroup', { name: 'ভাষা' });
+    expect(nav.lastElementChild).toBe(toggle);
+    expect(within(screen.getByRole('banner')).queryByRole('radiogroup')).not.toBeInTheDocument();
+  });
+
   it('marks the dashboard as the current page on /admin/ as well', async () => {
     refreshAs(HEAD);
     renderApp(<AdminLayout />, 'bn', {

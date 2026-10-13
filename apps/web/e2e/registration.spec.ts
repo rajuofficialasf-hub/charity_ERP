@@ -91,12 +91,18 @@ async function register(page: Page, person: Person) {
   await choose(page, /(^|\s)উপজেলা/, 'সাভার');
   await choose(page, /(^|\s)ইউনিয়ন/, 'সাভার');
   await next(page);
-  await expect(page.getByRole('button', { name: /স্বেচ্ছাসেবকের ধরন/ })).toBeVisible();
+  // nobody is asked for a type, a reference or bank details (O-64)
+  await expect(page.getByRole('button', { name: /স্বেচ্ছাসেবকের ধরন/ })).toHaveCount(0);
+  await expect(page.getByText(/ব্যাংক/)).toHaveCount(0);
   await next(page);
+  // the password rules tick while typing (O-64)
+  const rules = page.getByRole('list').filter({ hasText: 'অন্তত 8টি অক্ষর' });
+  await expect(rules.locator('[data-met="true"]')).toHaveCount(0);
   await page
     .getByLabel(/^পাসওয়ার্ড/)
     .first()
     .fill(PASSWORD);
+  await expect(rules.locator('[data-met="true"]')).toHaveCount(3);
   await page.getByLabel(/^পাসওয়ার্ড আবার লিখুন/).fill(PASSWORD);
   await next(page);
 
@@ -193,5 +199,22 @@ test.describe('registration approval', () => {
       mobile.getByText('আপনার নিবন্ধন অনুমোদনের অপেক্ষায়', { exact: false }),
     ).toHaveCount(0);
     await phone.close();
+  });
+});
+
+test.describe('language toggle in the top bar', () => {
+  test('the registration page switches to English from the bar and keeps it', async ({ page }) => {
+    await page.goto('/register');
+    const toggle = page.getByRole('banner').getByRole('radiogroup', { name: 'ভাষা' });
+    await expect(toggle).toBeVisible();
+    await toggle.getByRole('radio', { name: 'English' }).click({ force: true });
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Volunteer registration' }),
+    ).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await page.reload();
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Volunteer registration' }),
+    ).toBeVisible();
   });
 });
