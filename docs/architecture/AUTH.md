@@ -24,9 +24,10 @@ Flow (BR-023, BD-44; one page since UX-16 and D-090, 2026-10-13):
                 the code is entered below the field and verifies the mobile alone
 3. OTP email    the same inside the email field, with a different OTP through SMTP
 4. Verified     once both are verified the draft token is issued and the next step opens
-5. Form steps   address, work details and type (reference for a team member), bank details (optional)
-                and the password (rules of section 3), then the photos last: own photo and both pages
-                of the NID card (UX-18; an official gives the own photo)
+5. Form steps   address, work details, the password (rules of section 3, hints while typing), then the
+                photos last: own photo and both pages of the NID card (UX-18; an official gives
+                the own photo). Nothing else is asked (O-64): no program, workplace, volunteer
+                type, reference or bank details; an official gives the designation with the name
 6. Submit       account created in state "pending" (section 7); appears in the volunteer tab
 7. Review       approval or field-level correction requests (BR-029, BR-030); on approval the account becomes "active"
 ```
@@ -47,8 +48,7 @@ Implementation decisions of T1.9 (D-082, D-086, D-087, D-088): the draft lives i
 
 ## 3. Password rules (O-05)
 
-- Minimum 8 characters with at least one letter and one digit; no maximum below 128; spaces allowed.
-- Rejected: the user's own mobile number, a password equal to the login id, and passwords on a short list of common passwords (the SecLists 10k list filtered to 8 characters or more plus local words, `@css/shared/auth/common-passwords`, D-071). A password whose letters alone spell a local word (assunnah, bangladesh, bismillah …) counts as common.
+- Minimum 8 characters with at least one upper-case letter and one digit; no maximum below 128; spaces allowed. That is the whole rule (O-64, D-091): the mobile or email inside the password and common passwords are not checked any more (the earlier O-05 and D-071 rules were dropped by the owner). The API enforces it for the registration, the reset and the change; the PWA shows the three conditions as a checklist while the person types.
 - No forced periodic rotation (NIST guidance); a change is required only after a reset or when the Monitoring Team forces it for a compromised account.
 - Password change (logged in): requires the current password; revokes every other device session (section 5) and keeps the current one.
 - Password reset (forgotten): start with the login id → OTP to the registered mobile (volunteers) or mobile or email (staff) → new password → all device sessions revoked. Reset links are not used; OTP only (O-05).

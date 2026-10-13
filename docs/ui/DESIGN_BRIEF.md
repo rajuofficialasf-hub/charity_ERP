@@ -6,7 +6,7 @@ Precedence: the owner's latest instruction, then this brief, then constitution s
 
 ## 1. Owner decisions
 
-Import these into docs/DECISION_LOG.md as the series UX-01 to UX-18 (UX-14 added 2026-10-11, UX-15 on 2026-10-12, UX-16 to UX-18 on 2026-10-13), status approved, source "owner interview 2026-10-10" (tasks T0.1 and T0.5).
+Import these into docs/DECISION_LOG.md as the series UX-01 to UX-19 (UX-14 added 2026-10-11, UX-15 on 2026-10-12, UX-16 to UX-19 on 2026-10-13), status approved, source "owner interview 2026-10-10" (tasks T0.1 and T0.5).
 
 | Id | Decision | Effect |
 |---|---|---|
@@ -28,6 +28,7 @@ Import these into docs/DECISION_LOG.md as the series UX-01 to UX-18 (UX-14 added
 | UX-16 | Registration is one page: the mobile number and the email are verified inside their own fields ("যাচাই করুন" in the field, the code input below it, "যাচাই হয়েছে" when correct); the rest of the form comes in small steps (five for volunteers, four for officials) under a green title band, as in the owner's reference image; no foreign (প্রবাসী) numbers now (owner, 2026-10-13). | One page `/register` with inline verification fields and a step indicator; the API verifies each channel on its own (D-090). |
 | UX-17 | Premium, simple and clean, without an "AI feel": no explanatory paragraphs; a title, at most one short line where it helps, labels, and messages only when something happens; applies to every built screen and every screen to come (owner, 2026-10-13). | Every screen: title, optional one line, the work itself; help text only at a field when it prevents a mistake; no welcome or explanation paragraphs. |
 | UX-18 | The photo section is the last step; a volunteer gives the own photo and both pages of the NID card (front and back); the own profile is arranged by section, and after approval every editable detail has an edit button beside it that sends the change request (owner, 2026-10-13). | Registration photo step last with three slots; profile cards by section with an edit action per detail. |
+| UX-19 | The language is a compact toggle (বাংলা | English): in the top bar of every page without a sidebar, and at the very bottom of the sidebar in the admin area; not a block at the end of a page (owner, 2026-10-13). | A `TopBar` (brand left, toggle right) on the sign-in, registration and account pages; the toggle is the last item of the admin sidebar. |
 
 ## 2. Defaults assumed (not asked; the owner may change them)
 
@@ -107,6 +108,7 @@ Screens of later phases (house construction, self-reliance, dawah, Qurbani, docu
 | UX-12 | NOTIFICATIONS.md (T0.14), volunteer home (T1.15) |
 | UX-13 | DESIGN_SYSTEM.md (T0.19), mockups (T0.19b), packages/ui and fonts (T1.4), PWA font precache (T2.7), PDF export fonts (T2.8) |
 | UX-14 | Premium mockup refresh and DESIGN_SYSTEM.md update done and approved 2026-10-11 (O-54); packages/ui (T1.4), app shell (T1.15) |
+| UX-19 | The language toggle (T1.9c, plan `docs/plans/2026-10-13-1130-feat-registration-simplify-plan.md`) |
 | UX-16, UX-17, UX-18 | Registration page, the text clean-up and the profile (T1.9b, plan `docs/plans/2026-10-13-0922-feat-registration-redesign-plan.md`) |
 | UX-15 | Admin layout under `/admin` (T1.7d, plan `docs/plans/2026-10-11-1742-chore-stack-adoption-admin-minimal-plan.md`); later admin screens T1.13, dashboards T3.3 and T6.1 |
 

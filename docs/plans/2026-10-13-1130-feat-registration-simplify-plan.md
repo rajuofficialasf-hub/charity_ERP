@@ -56,7 +56,7 @@ The owner reviewed the T1.9b screens on 2026-10-13. A new official cannot know t
 - **Requirements:** R1 to R7
 - **Files:** `docs/DECISION_LOG.md` (O-64, UX-19, D-091), `docs/ui/DESIGN_BRIEF.md`, `docs/architecture/AUTH.md` (section 2 form, section 3 password rules), `docs/BUSINESS_RULES.md` (BR-033, BR-026, BR-203)
 - **Tests:** existing: `pnpm docs:check`
-- **Done when:** decisions logged, checks pass. **Depends on:** none · **Size:** S · **Risk area:** auth · **Status:** todo
+- **Done when:** decisions logged, checks pass. **Depends on:** none · **Size:** S · **Risk area:** auth · **Status:** done
 
 ### U2. Password rule and registration schemas (shared and API)
 - **Goal:** One simple password function; the registration takes only what the owner decided.
@@ -128,7 +128,7 @@ The owner reviewed the T1.9b screens on 2026-10-13. A new official cannot know t
 
 ## Progress
 - **Branch:** feat/registration-simplify
-- **Next:** U1: the decisions O-64, UX-19, D-091 in DECISION_LOG and DESIGN_BRIEF, then AUTH.md and BUSINESS_RULES
+- **Next:** U2: the password rule and the registration schemas; first `password.test.ts`
 - **Reviewed through:** none
 - **Updated:** 2026-10-13
 - **Uncommitted:** none
