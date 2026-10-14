@@ -534,7 +534,18 @@ export class RegistrationsService {
         throw new ApiError('permission.not_found', 404);
       }
       if (body.decision === 'reject') return this.close(tx, actor, userId, body.reason!);
-      await tx.user.update({ where: { id: userId }, data: { state: 'active' } });
+      // a role with global scope asks for 12 characters; the 8 of the registration are not enough,
+      // so the person chooses a new password at the next sign-in (O-66)
+      // (the same stored flag that sets the password length in AuthService)
+      const stored = await tx.role.findUnique({
+        where: { key: body.roleKey! },
+        select: { globalScope: true },
+      });
+      const passwordChangeRequired = stored?.globalScope === true;
+      await tx.user.update({
+        where: { id: userId },
+        data: { state: 'active', passwordChangeRequired },
+      });
       await tx.userRole.create({
         data: { id: uuidv7(), userId, roleKey: body.roleKey!, grantedBy: actor.userId },
       });

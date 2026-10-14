@@ -36,6 +36,7 @@ model User {
   language                             String                     @default("bn")
   preferences                          Json                       @default("{}")
   permissionVersion                    Int                        @default(1) @map("permission_version")
+  passwordChangeRequired               Boolean                    @default(false) @map("password_change_required")
   designation                          String?
   homeProgramId                        String?                    @map("home_program_id") @db.Uuid
   homeDivisionId                       String?                    @map("home_division_id") @db.Uuid

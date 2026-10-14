@@ -291,7 +291,7 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
     Forbidden:
-      description: permission.denied, auth.account_blocked, auth.account_pending, auth.account_deactivated, auth.csrf_failed, sync.not_permitted.
+      description: permission.denied, auth.account_blocked, auth.account_pending, auth.password_change_required, auth.account_deactivated, auth.csrf_failed, sync.not_permitted.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -656,6 +656,9 @@ components:
         roles: { type: array, items: { type: string } }
         language: { type: string, enum: [bn, en] }
         permissionVersion: { type: integer }
+        passwordChangeRequired:
+          type: boolean
+          description: true until the person sets a new password (a staff role with global scope was approved); every other operation answers 403 auth.password_change_required
         blockMessage: { type: [string, 'null'] }
         volunteerId: { type: [string, 'null'], format: uuid }
     TokenPair:

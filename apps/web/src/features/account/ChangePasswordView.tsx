@@ -2,11 +2,12 @@ import { minPasswordLength } from '@css/shared/auth';
 import { Alert, Button, Form, PasswordField } from '@css/ui';
 import { useTranslations } from 'use-intl';
 import { type FormEvent, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { PasswordRules } from '../../components/PasswordRules';
 import { PERMISSION_PANEL_ROLES } from '../../admin/roles';
-import { api, ApiFailure } from '../../lib/api';
+import { api, ApiFailure, refreshSession } from '../../lib/api';
 
 /** Change own password (SCR-006, AUTH.md 3): the other devices are logged out. */
 export function ChangePasswordView() {
@@ -19,8 +20,9 @@ export function ChangePasswordView() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState(false);
+  const navigate = useNavigate();
 
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>, due: boolean) => {
     event.preventDefault();
     setErrors({});
     setError(null);
@@ -39,6 +41,11 @@ export function ChangePasswordView() {
       setNext('');
       setConfirm('');
       setDone(true);
+      if (due) {
+        // the session now says nothing is due: read it again, then start working
+        await refreshSession();
+        void navigate('/', { replace: true });
+      }
     } catch (failure) {
       if (failure instanceof ApiFailure && failure.details.length)
         setErrors(Object.fromEntries(failure.details.map((d) => [d.path ?? '', d.message])));
@@ -51,9 +58,17 @@ export function ChangePasswordView() {
   return (
     <AccountPage title={() => t('title')}>
       {(me) => (
-        <Form onSubmit={submit} aria-label={t('title')}>
+        <Form
+          onSubmit={(event) => submit(event, me.passwordChangeRequired === true)}
+          aria-label={t('title')}
+        >
           <DocumentTitle title={t('title')} />
           <div className="auth-shell-stack">
+            {me.passwordChangeRequired && !done && (
+              <Alert tone="info" live="status">
+                {t('required_notice')}
+              </Alert>
+            )}
             {done && (
               <Alert tone="success" live="status">
                 {t('done')}
@@ -81,7 +96,8 @@ export function ChangePasswordView() {
               password={next}
               id="change-rules"
               minLength={minPasswordLength(
-                me.roles.some((r) => PERMISSION_PANEL_ROLES.includes(r)),
+                me.passwordChangeRequired === true ||
+                  me.roles.some((r) => PERMISSION_PANEL_ROLES.includes(r)),
               )}
             />
             <PasswordField

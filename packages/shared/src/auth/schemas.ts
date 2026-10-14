@@ -70,6 +70,8 @@ export interface Me {
   roles: string[];
   language: 'bn' | 'en';
   permissionVersion: number;
+  /** A new password is due before anything else (a staff role with global scope was approved). */
+  passwordChangeRequired?: boolean;
   blockMessage?: string | null;
   volunteerId?: string | null;
 }

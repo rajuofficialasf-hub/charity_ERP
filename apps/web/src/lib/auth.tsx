@@ -1,7 +1,7 @@
 import type { Me } from '@css/shared/auth';
 import { Spinner, VisuallyHidden } from '@css/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router';
+import { Navigate, useLocation, useNavigate } from 'react-router';
 import { useTranslations } from 'use-intl';
 import {
   createContext,
@@ -85,15 +85,22 @@ export function loginPath(ended?: SessionEnd): string {
   return ended && ended !== 'expired' ? `/login?ended=${ended}` : '/login';
 }
 
+/** The screen a signed-in user with a new password due is kept on. */
+export const PASSWORD_PATH = '/account/password';
+
 /** Shows its children only to a signed-in user; others go to the login screen. */
 export function RequireAuth({ children }: { children: (me: Me) => ReactNode }) {
   const { status, me, ended } = useAuth();
   const navigate = useNavigate();
   const t = useTranslations('common.state');
+  const { pathname } = useLocation();
   useEffect(() => {
     if (status === 'signed-out') void navigate(loginPath(ended), { replace: true });
   }, [status, ended, navigate]);
   const content = useMemo(() => (me ? children(me) : null), [me, children]);
+  // a new password is due before anything else (a global role was approved; O-66)
+  if (me?.passwordChangeRequired && pathname !== PASSWORD_PATH)
+    return <Navigate to={PASSWORD_PATH} replace />;
   if (status !== 'signed-in' || !me)
     return (
       <div className="flex min-h-dvh items-center justify-center" role="status" aria-busy="true">

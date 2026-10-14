@@ -176,6 +176,7 @@ Beneficiary class options (BD-14; defaults from `reference_lists` `beneficiary_c
 | language | text | no | 'bn' | L-locale |
 | preferences | jsonb | no | '{}' | `user-preferences.schema.json` |
 | permission_version | integer | no | 1 | bumped on any role/permission/state change (AUTH.md §9) |
+| password_change_required | boolean | no | false | set when a staff registration is approved with a global role; cleared when the person sets a new password (AUTH.md §3, O-66) |
 | designation | text | yes | — | staff only |
 | home_program_id | uuid | yes | — | FK programs; staff |
 | home_division_id | uuid | yes | — | FK locations (division); staff |

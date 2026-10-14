@@ -129,6 +129,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | auth | auth.account_pending | 403 | registration awaiting approval |
 | auth | auth.account_blocked | 403 | blocked; show the block message (BR-047) |
 | auth | auth.account_deactivated | 403 | account closed |
+| auth | auth.password_change_required | 403 | a staff account approved with a global role must set a new password first; only the own profile read, the language, the password change and the logout answer (O-66) |
 | auth | auth.token_missing | 401 | no bearer token |
 | auth | auth.token_expired | 401 | access token expired → refresh |
 | auth | auth.token_stale | 401 | permission version changed → refresh silently (AUTH.md §9) |
@@ -137,6 +138,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | auth | auth.refresh_reused | 401 | refresh-token reuse detected → session revoked |
 | auth | auth.csrf_failed | 403 | refresh without a valid CSRF token |
 | auth | auth.current_password_invalid | 422 (as detail of validation.failed) | password change with a wrong current password (T1.7) |
+| auth | auth.password_unchanged | 422 (as detail of validation.failed) | password change to the password the account already has (O-66) |
 | otp | otp.invalid | 422 | wrong code |
 | otp | otp.expired | 422 | code older than 5 minutes |
 | otp | otp.attempts_exceeded | 429 | more than 5 attempts on one code |
