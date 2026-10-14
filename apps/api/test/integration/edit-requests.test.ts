@@ -356,7 +356,7 @@ describe('contact changes', () => {
   });
 });
 
-describe('the personal, profession, education and address fields (O-65, O-66; BR-247, BR-248)', () => {
+describe('the personal, profession, education and address fields', () => {
   const columnsOf = async (volunteerId: string) =>
     (
       await h.db.query(

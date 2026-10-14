@@ -306,7 +306,7 @@ describe('POST /auth/register/submit', () => {
   });
 });
 
-describe('the personal, profession, education and address data (O-65, O-66; BR-246, BR-248)', () => {
+describe('the personal, profession, education and address data', () => {
   // the locations exist only after the setup has run, so the data are built when a test asks
   const place = () => ({
     divisionId: loc.division,

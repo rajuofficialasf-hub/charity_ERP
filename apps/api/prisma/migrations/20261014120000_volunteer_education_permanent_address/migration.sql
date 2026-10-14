@@ -5,6 +5,14 @@
 -- year and the address chain of the two JSON objects are checked by the strict zod schemas of
 -- @css/shared/registration, like profession_details.
 
+-- The requests for the emergency contact that are still open are closed and their values (the name and
+-- the mobile of a third person) are cleared, so no approver can read or decide them.
+UPDATE "volunteer_change_requests"
+   SET "new_value" = NULL,
+       "status" = CASE WHEN "status" IN ('open', 'submitted') THEN 'closed' ELSE "status" END,
+       "decided_at" = CASE WHEN "status" IN ('open', 'submitted') THEN now() ELSE "decided_at" END
+ WHERE "field" = 'emergencyContact';
+
 -- AlterTable
 ALTER TABLE "volunteers"
   DROP COLUMN "emergency_contact_name",

@@ -183,6 +183,8 @@ describe('the skills, the emergency contact and the personal values', () => {
       'https://facebook.com@evil.example/x',
       'https://evilfacebook.com/x',
       'https://facebook.com:8443/x',
+      'https://l.facebook.com/l.php?u=https://evil.example',
+      'https://lm.facebook.com/l.php?u=https://evil.example',
       'https://facebook.com\\@evil.example/x',
       'https://www.facebook.com/a b',
       'javascript:alert(1)',

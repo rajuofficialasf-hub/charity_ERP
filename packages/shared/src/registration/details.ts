@@ -84,6 +84,9 @@ export type SkillsValue = z.infer<typeof skillsValueSchema>;
 /** The hosts a Facebook account link may have besides the subdomains of facebook.com (O-66). */
 const FACEBOOK_HOSTS = new Set(['facebook.com', 'fb.com', 'www.fb.com', 'fb.me']);
 
+/** Facebook's own redirect hosts: a link there can send the reader anywhere. */
+const FACEBOOK_REDIRECTS = new Set(['l.facebook.com', 'lm.facebook.com']);
+
 /**
  * Whether the text is an https link to Facebook: it parses as a URL, has no user name, password or
  * port, a host that is exactly one of the hosts above or a subdomain of facebook.com, and no
@@ -100,6 +103,7 @@ export function isFacebookLink(value: string): boolean {
       !url.username &&
       !url.password &&
       url.port === '' &&
+      !FACEBOOK_REDIRECTS.has(host) &&
       (FACEBOOK_HOSTS.has(host) || host.endsWith('.facebook.com'))
     );
   } catch {

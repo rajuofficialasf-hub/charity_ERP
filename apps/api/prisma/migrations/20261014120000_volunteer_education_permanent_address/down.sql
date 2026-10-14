@@ -1,6 +1,6 @@
 -- Reverts 20261014120000_volunteer_education_permanent_address: the education, the permanent
 -- address and the full-time answer entered since are dropped; the emergency contact columns come
--- back empty.
+-- back empty; the cleared values of the closed emergency contact requests are not restored.
 ALTER TABLE "volunteers"
   DROP COLUMN "emergency_full_time",
   DROP COLUMN "education_details",

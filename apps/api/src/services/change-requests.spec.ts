@@ -10,7 +10,7 @@ describe('the field class of the edit request values', () => {
     expect(CLASS_OF.bank).toBe('volunteer.bank');
   });
 
-  it('names no class for the emergency contact, which is not collected (O-66), and none for the education', () => {
+  it('names no class for the emergency contact, which is not collected, and none for the education', () => {
     expect(CLASS_OF.emergencyContact).toBeUndefined();
     expect(CLASS_OF.educationDetails).toBeUndefined();
   });
