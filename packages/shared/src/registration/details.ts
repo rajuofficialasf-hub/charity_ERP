@@ -88,27 +88,22 @@ const FACEBOOK_HOSTS = new Set(['facebook.com', 'fb.com', 'www.fb.com', 'fb.me']
 const FACEBOOK_REDIRECTS = new Set(['l.facebook.com', 'lm.facebook.com']);
 
 /**
- * Whether the text is an https link to Facebook: it parses as a URL, has no user name, password or
- * port, a host that is exactly one of the hosts above or a subdomain of facebook.com, and no
+ * Whether the text is an https link to Facebook: it starts with `https://`, its authority (the
+ * part before the first `/`, `?` or `#`) is a plain host without a user name, password or port,
+ * that host is exactly one of the hosts above or a subdomain of facebook.com, and the text has no
  * whitespace, control character or backslash. Shared with the PWA, which draws an anchor only when
- * this holds; the server never fetches the link.
+ * this holds; the server never fetches the link. Written without the `URL` class because this
+ * package has neither the DOM nor the Node types.
  */
 export function isFacebookLink(value: string): boolean {
   if (/[\s\\]/.test(value) || [...value].some((c) => c.charCodeAt(0) < 32)) return false;
-  try {
-    const url = new URL(value);
-    const host = url.hostname;
-    return (
-      url.protocol === 'https:' &&
-      !url.username &&
-      !url.password &&
-      url.port === '' &&
-      !FACEBOOK_REDIRECTS.has(host) &&
-      (FACEBOOK_HOSTS.has(host) || host.endsWith('.facebook.com'))
-    );
-  } catch {
-    return false;
-  }
+  const match = /^https:\/\/([^/?#]*)(?:[/?#]|$)/i.exec(value);
+  if (!match) return false;
+  const host = match[1]!.toLowerCase();
+  if (!/^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/.test(host)) return false;
+  return (
+    !FACEBOOK_REDIRECTS.has(host) && (FACEBOOK_HOSTS.has(host) || host.endsWith('.facebook.com'))
+  );
 }
 
 /** The Facebook account as a link: https, a Facebook host, no credentials, at most 300 characters. */
