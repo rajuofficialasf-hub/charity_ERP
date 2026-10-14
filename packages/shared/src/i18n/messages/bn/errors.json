@@ -39,7 +39,8 @@
     "password_too_short": "পাসওয়ার্ডটি খুব ছোট।",
     "password_uppercase_digit": "পাসওয়ার্ডে অন্তত একটি বড় হাতের অক্ষর ও একটি সংখ্যা দিন।",
     "date_format": "তারিখটি সঠিক নয়।",
-    "date_future": "ভবিষ্যতের তারিখ দেওয়া যাবে না।"
+    "date_future": "ভবিষ্যতের তারিখ দেওয়া যাবে না।",
+    "facebook_link": "ফেসবুক অ্যাকাউন্টের https লিঙ্ক দিন (যেমন https://www.facebook.com/আপনার-নাম)।"
   },
   "beneficiary": {
     "identity_missing": "এনআইডি অথবা জন্মনিবন্ধন নম্বর দিন।",

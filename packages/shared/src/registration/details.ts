@@ -45,8 +45,6 @@ const optionalText = (max: number) =>
     .transform((v) => v || undefined)
     .optional();
 
-const mobile = z.string().regex(/^01[3-9][0-9]{8}$/, { message: 'validation.mobile_format' });
-
 /** The date of birth: a real calendar date in the past, not before 1900. */
 export const dateOfBirthSchema = z
   .string()
@@ -78,15 +76,78 @@ export const skillsValueSchema = z.strictObject({
   vehicle: z.enum(VEHICLES).optional(),
   canSwim: z.boolean().optional(),
   availability: z.enum(AVAILABILITIES).optional(),
+  /** Can give full time in an emergency (a yes or no; O-66: only here, not in a profession). */
+  emergencyFullTime: z.boolean().optional(),
 });
 export type SkillsValue = z.infer<typeof skillsValueSchema>;
 
-/** The emergency contact (the guardian) as one value: a name and a Bangladeshi mobile. */
-export const emergencyContactSchema = z.strictObject({
-  name: optionalText(200),
-  mobile: mobile.optional(),
+/** The hosts a Facebook account link may have besides the subdomains of facebook.com (O-66). */
+const FACEBOOK_HOSTS = new Set(['facebook.com', 'fb.com', 'www.fb.com', 'fb.me']);
+
+/**
+ * Whether the text is an https link to Facebook: it parses as a URL, has no user name, password or
+ * port, a host that is exactly one of the hosts above or a subdomain of facebook.com, and no
+ * whitespace, control character or backslash. Shared with the PWA, which draws an anchor only when
+ * this holds; the server never fetches the link.
+ */
+export function isFacebookLink(value: string): boolean {
+  if (/[\s\\]/.test(value) || [...value].some((c) => c.charCodeAt(0) < 32)) return false;
+  try {
+    const url = new URL(value);
+    const host = url.hostname;
+    return (
+      url.protocol === 'https:' &&
+      !url.username &&
+      !url.password &&
+      url.port === '' &&
+      (FACEBOOK_HOSTS.has(host) || host.endsWith('.facebook.com'))
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** The Facebook account as a link: https, a Facebook host, no credentials, at most 300 characters. */
+export const facebookLinkSchema = z
+  .string()
+  .trim()
+  .max(300)
+  .refine(isFacebookLink, { message: 'validation.facebook_link' });
+
+export const QUALIFICATIONS = [
+  'psc',
+  'jsc',
+  'ssc',
+  'dakhil',
+  'hsc',
+  'alim',
+  'diploma',
+  'bachelor',
+  'fazil',
+  'masters',
+  'kamil',
+  'hafez',
+  'other',
+] as const;
+export const EDUCATION_STATUSES = ['studying', 'completed'] as const;
+export type Qualification = (typeof QUALIFICATIONS)[number];
+export type EducationStatus = (typeof EDUCATION_STATUSES)[number];
+
+/** Education as one value (O-66, BR-248); every part is optional. */
+export const educationValueSchema = z.strictObject({
+  highestQualification: z.enum(QUALIFICATIONS).optional(),
+  institutionName: optionalText(200),
+  subject: optionalText(200),
+  passingYear: z
+    .number()
+    .int()
+    .min(1950)
+    .refine((v) => v <= new Date().getFullYear() + 8, { message: 'validation.out_of_range' })
+    .optional(),
+  result: optionalText(60),
+  status: z.enum(EDUCATION_STATUSES).optional(),
 });
-export type EmergencyContact = z.infer<typeof emergencyContactSchema>;
+export type EducationValue = z.infer<typeof educationValueSchema>;
 
 /** The options of the profession fields that are a choice, in the order the form shows them. */
 export const DETAIL_OPTIONS = {
@@ -124,9 +185,7 @@ export const PROFESSION_DETAILS = {
     businessAddress: optionalText(400),
   }),
   job_seeker: z.strictObject({
-    highestQualification: optionalText(200),
     skills: optionalText(400),
-    fullTimeAvailable: z.boolean().optional(),
   }),
   service_holder: z.strictObject({
     sector: optionalText(200),

@@ -39,7 +39,8 @@
     "password_too_short": "The password is too short.",
     "password_uppercase_digit": "Use at least one upper-case letter and one digit in the password.",
     "date_format": "Enter a valid date.",
-    "date_future": "The date cannot be in the future."
+    "date_future": "The date cannot be in the future.",
+    "facebook_link": "Enter an https link to your Facebook account (for example https://www.facebook.com/your-name)."
   },
   "beneficiary": {
     "identity_missing": "Enter the NID or the birth registration number.",

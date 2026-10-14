@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   dateOfBirthSchema,
-  emergencyContactSchema,
+  EDUCATION_STATUSES,
+  educationValueSchema,
+  facebookLinkSchema,
+  isFacebookLink,
   interestAreasSchema,
   parseProfessionDetails,
   PROFESSION_FIELDS,
   PROFESSIONS,
   professionValueSchema,
+  QUALIFICATIONS,
   skillsValueSchema,
 } from './details';
 
@@ -41,9 +45,7 @@ describe('the details of each profession', () => {
       businessAddress: 'সাভার বাজার',
     },
     job_seeker: {
-      highestQualification: 'স্নাতক',
       skills: 'কম্পিউটার',
-      fullTimeAvailable: true,
     },
     service_holder: {
       sector: 'ব্যাংকার',
@@ -85,7 +87,8 @@ describe('the details of each profession', () => {
     });
     expect(parseProfessionDetails('student', { educationMedium: 'other' }).success).toBe(false);
     expect(parseProfessionDetails('imam', { mosqueType: 'masjid' }).success).toBe(false);
-    expect(parseProfessionDetails('job_seeker', { fullTimeAvailable: 'yes' }).success).toBe(false);
+    // the full-time answer is part of the skills now, not of the profession (O-66)
+    expect(parseProfessionDetails('job_seeker', { fullTimeAvailable: true }).success).toBe(false);
   });
 
   it('refuses a text over its maximum', () => {
@@ -133,6 +136,7 @@ describe('the skills, the emergency contact and the personal values', () => {
         vehicle: 'motorcycle',
         canSwim: true,
         availability: 'holidays',
+        emergencyFullTime: true,
       }),
     ).toBe(true);
     expect(ok(skillsValueSchema, {})).toBe(true);
@@ -140,16 +144,9 @@ describe('the skills, the emergency contact and the personal values', () => {
     expect(ok(interestAreasSchema, ['media', 'media'])).toBe(false);
     expect(ok(skillsValueSchema, { vehicle: 'car' })).toBe(false);
     expect(ok(skillsValueSchema, { canSwim: 'yes' })).toBe(false);
+    expect(ok(skillsValueSchema, { emergencyFullTime: 'yes' })).toBe(false);
     expect(ok(skillsValueSchema, { availability: 'never' })).toBe(false);
     expect(ok(skillsValueSchema, { other: true })).toBe(false);
-  });
-
-  it('emergency contact: a name and a Bangladeshi mobile, both optional', () => {
-    expect(ok(emergencyContactSchema, { name: 'নমুনা অভিভাবক', mobile: '01712345678' })).toBe(true);
-    expect(ok(emergencyContactSchema, {})).toBe(true);
-    expect(ok(emergencyContactSchema, { mobile: '0171234' })).toBe(false);
-    expect(ok(emergencyContactSchema, { name: 'ক'.repeat(201) })).toBe(false);
-    expect(ok(emergencyContactSchema, { name: 'x', phone: '01712345678' })).toBe(false);
   });
 
   it('date of birth: a real date, not in the future, not before 1900', () => {
@@ -161,5 +158,81 @@ describe('the skills, the emergency contact and the personal values', () => {
     expect(dateOfBirthSchema.safeParse('2999-01-01').error?.issues[0]?.message).toBe(
       'validation.date_future',
     );
+  });
+
+  it('the check function itself refuses a leading space (the schema trims before it checks)', () => {
+    expect(isFacebookLink(' https://facebook.com/x')).toBe(false);
+    expect(isFacebookLink('https://facebook.com/x')).toBe(true);
+  });
+
+  it('the Facebook account is an https link to Facebook', () => {
+    for (const good of [
+      'https://www.facebook.com/nomuna.name',
+      'https://facebook.com/profile.php?id=100012345',
+      'https://m.facebook.com/nomuna',
+      'https://web.facebook.com/nomuna',
+      'https://fb.com/nomuna',
+      'https://fb.me/nomuna',
+    ])
+      expect(ok(facebookLinkSchema, good), good).toBe(true);
+    for (const bad of [
+      'http://www.facebook.com/nomuna',
+      'https://evil.example/www.facebook.com',
+      'https://facebook.com.evil.example/x',
+      'https://user:pass@facebook.com/x',
+      'https://facebook.com@evil.example/x',
+      'https://evilfacebook.com/x',
+      'https://facebook.com:8443/x',
+      'https://facebook.com\@evil.example/x',
+      'https://www.facebook.com/a b',
+      'javascript:alert(1)',
+      'nomuna.name',
+      '100012345',
+      'https://www.facebook.com/' + 'a'.repeat(300),
+    ])
+      expect(ok(facebookLinkSchema, bad), bad).toBe(false);
+  });
+});
+
+describe('education as one value', () => {
+  it('takes every qualification and status, a year and a result, all optional', () => {
+    expect(ok(educationValueSchema, {})).toBe(true);
+    for (const highestQualification of QUALIFICATIONS)
+      expect(ok(educationValueSchema, { highestQualification }), highestQualification).toBe(true);
+    for (const status of EDUCATION_STATUSES)
+      expect(ok(educationValueSchema, { status })).toBe(true);
+    expect(
+      educationValueSchema.parse({
+        highestQualification: 'bachelor',
+        institutionName: ' নমুনা কলেজ ',
+        subject: 'বাংলা',
+        passingYear: 2016,
+        result: 'GPA 4.50',
+        status: 'completed',
+      }),
+    ).toEqual({
+      highestQualification: 'bachelor',
+      institutionName: 'নমুনা কলেজ',
+      subject: 'বাংলা',
+      passingYear: 2016,
+      result: 'GPA 4.50',
+      status: 'completed',
+    });
+  });
+
+  it('refuses an unknown qualification or status, a year out of range, a long text and an extra key', () => {
+    const year = new Date().getFullYear();
+    for (const bad of [
+      { highestQualification: 'phd-of-everything' },
+      { status: 'dropped' },
+      { passingYear: 1949 },
+      { passingYear: year + 9 },
+      { passingYear: 2016.5 },
+      { passingYear: '2016' },
+      { result: 'x'.repeat(61) },
+      { institutionName: 'x'.repeat(201) },
+      { grade: 'A' },
+    ])
+      expect(ok(educationValueSchema, bad), JSON.stringify(bad)).toBe(false);
   });
 });

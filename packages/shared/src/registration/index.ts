@@ -4,7 +4,8 @@ import { otpCodeSchema } from '../auth/schemas.js';
 import {
   bloodGroupSchema,
   dateOfBirthSchema,
-  emergencyContactSchema,
+  educationValueSchema,
+  facebookLinkSchema,
   interestAreasSchema,
   parseProfessionDetails,
   professionValueSchema,
@@ -117,6 +118,16 @@ const password = z
 export const VOLUNTEER_TYPES = ['general', 'local_daee', 'both', 'team_member', 'paid'] as const;
 export type VolunteerType = (typeof VOLUNTEER_TYPES)[number];
 
+/** The permanent address (O-66, BR-248): the four levels of the present address and a line. */
+export const permanentAddressSchema = z.strictObject({
+  divisionId: z.uuid(),
+  districtId: z.uuid(),
+  upazilaId: z.uuid(),
+  unionId: z.uuid(),
+  addressLine: optionalText(500),
+});
+export type PermanentAddress = z.infer<typeof permanentAddressSchema>;
+
 /**
  * Optional bank details (A5, used when paying operational expenses): added later from the own
  * profile through an edit request, never at registration (O-64); the branch is its own field.
@@ -152,9 +163,9 @@ export const volunteerRegistrationSubmitSchema = z
     upazilaId: z.uuid(),
     unionId: z.uuid(),
     addressLine: optionalText(500),
-    education: optionalText(500),
-    previousProjects: optionalText(2000),
-    facebookId: optionalText(200),
+    permanentAddress: permanentAddressSchema.optional(),
+    educationDetails: educationValueSchema.optional(),
+    facebookId: facebookLinkSchema.optional(),
     dateOfBirth: dateOfBirthSchema.optional(),
     bloodGroup: bloodGroupSchema.optional(),
     tshirtSize: tshirtSizeSchema.optional(),
@@ -165,7 +176,7 @@ export const volunteerRegistrationSubmitSchema = z
     vehicle: skillsValueSchema.shape.vehicle,
     canSwim: skillsValueSchema.shape.canSwim,
     availability: skillsValueSchema.shape.availability,
-    emergencyContact: emergencyContactSchema.optional(),
+    emergencyFullTime: skillsValueSchema.shape.emergencyFullTime,
   })
   .superRefine((value, ctx) => {
     const details = parseProfessionDetails(value.profession, value.professionDetails);
@@ -224,14 +235,15 @@ export const CORRECTION_FIELD_VALUES = {
   experience: optionalText(2000),
   workDescription: optionalText(2000),
   previousProjects: optionalText(2000),
-  facebookId: optionalText(200),
+  facebookId: facebookLinkSchema,
   bloodGroup: bloodGroupSchema,
   dateOfBirth: dateOfBirthSchema,
   tshirtSize: tshirtSizeSchema,
   volunteeringArea: volunteeringAreaSchema,
   profession: professionValueSchema,
   skills: skillsValueSchema,
-  emergencyContact: emergencyContactSchema,
+  educationDetails: educationValueSchema,
+  permanentAddress: permanentAddressSchema,
   bank: bankDetailsSchema,
   photo: z.uuid(),
   nid_photo: z.uuid(),
