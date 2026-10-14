@@ -1,6 +1,20 @@
 import { z } from 'zod';
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '../auth/password.js';
 import { otpCodeSchema } from '../auth/schemas.js';
+import {
+  bloodGroupSchema,
+  dateOfBirthSchema,
+  emergencyContactSchema,
+  interestAreasSchema,
+  parseProfessionDetails,
+  professionValueSchema,
+  PROFESSIONS,
+  skillsValueSchema,
+  tshirtSizeSchema,
+  volunteeringAreaSchema,
+} from './details.js';
+
+export * from './details.js';
 
 /**
  * Registration before login (AUTH.md 2; DECISION_LOG D-082, D-086, D-088): request schemas of the
@@ -117,29 +131,52 @@ export const bankDetailsSchema = z.strictObject({
 export type BankDetails = z.infer<typeof bankDetailsSchema>;
 
 /**
- * The volunteer form (BR-026, O-64): no type, no reference and no bank details; every volunteer
- * registers as a general volunteer and the Foundation sets the role per project later.
+ * The volunteer form (BR-026, O-64, O-65, D-092): no type, no reference and no bank details; every
+ * volunteer registers as a general volunteer and the Foundation sets the role per project later.
+ * Mandatory: the name, the parents' names, the NID, the address to the union and the profession;
+ * the profession's details are one nested object checked against that profession's schema, and
+ * everything else is optional.
  */
-export const volunteerRegistrationSubmitSchema = z.strictObject({
-  kind: z.literal('volunteer'),
-  registrationId: z.uuid(),
-  password,
-  name: text(200),
-  fatherName: text(200),
-  motherName: text(200),
-  nid: nidSchema,
-  whatsapp: mobileSchema.optional(),
-  divisionId: z.uuid(),
-  districtId: z.uuid(),
-  upazilaId: z.uuid(),
-  unionId: z.uuid(),
-  addressLine: optionalText(500),
-  education: optionalText(500),
-  experience: optionalText(2000),
-  workDescription: optionalText(2000),
-  previousProjects: optionalText(2000),
-  facebookId: optionalText(200),
-});
+export const volunteerRegistrationSubmitSchema = z
+  .strictObject({
+    kind: z.literal('volunteer'),
+    registrationId: z.uuid(),
+    password,
+    name: text(200),
+    fatherName: text(200),
+    motherName: text(200),
+    nid: nidSchema,
+    whatsapp: mobileSchema.optional(),
+    divisionId: z.uuid(),
+    districtId: z.uuid(),
+    upazilaId: z.uuid(),
+    unionId: z.uuid(),
+    addressLine: optionalText(500),
+    education: optionalText(500),
+    previousProjects: optionalText(2000),
+    facebookId: optionalText(200),
+    dateOfBirth: dateOfBirthSchema.optional(),
+    bloodGroup: bloodGroupSchema.optional(),
+    tshirtSize: tshirtSizeSchema.optional(),
+    volunteeringArea: volunteeringAreaSchema.optional(),
+    profession: z.enum(PROFESSIONS),
+    professionDetails: z.record(z.string(), z.unknown()).optional(),
+    interestAreas: interestAreasSchema.optional(),
+    vehicle: skillsValueSchema.shape.vehicle,
+    canSwim: skillsValueSchema.shape.canSwim,
+    availability: skillsValueSchema.shape.availability,
+    emergencyContact: emergencyContactSchema.optional(),
+  })
+  .superRefine((value, ctx) => {
+    const details = parseProfessionDetails(value.profession, value.professionDetails);
+    if (!details.success)
+      for (const issue of details.issues)
+        ctx.addIssue({
+          code: 'custom',
+          path: ['professionDetails', ...issue.path],
+          message: issue.message,
+        });
+  });
 export type VolunteerRegistrationSubmit = z.infer<typeof volunteerRegistrationSubmitSchema>;
 
 /**
@@ -188,6 +225,13 @@ export const CORRECTION_FIELD_VALUES = {
   workDescription: optionalText(2000),
   previousProjects: optionalText(2000),
   facebookId: optionalText(200),
+  bloodGroup: bloodGroupSchema,
+  dateOfBirth: dateOfBirthSchema,
+  tshirtSize: tshirtSizeSchema,
+  volunteeringArea: volunteeringAreaSchema,
+  profession: professionValueSchema,
+  skills: skillsValueSchema,
+  emergencyContact: emergencyContactSchema,
   bank: bankDetailsSchema,
   photo: z.uuid(),
   nid_photo: z.uuid(),
@@ -200,7 +244,7 @@ export const registrationCorrectionCreateSchema = z.strictObject({
   fields: z
     .array(z.enum(CORRECTION_FIELDS as [CorrectionField, ...CorrectionField[]]))
     .min(1)
-    .max(20),
+    .max(40),
   note: z.string().trim().min(3).max(1000),
 });
 export type RegistrationCorrectionCreate = z.infer<typeof registrationCorrectionCreateSchema>;

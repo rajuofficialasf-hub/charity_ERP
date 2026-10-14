@@ -146,7 +146,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | validation | validation.failed | 422 | see details |
 | validation | validation.unknown_parameter | 400 | unknown query parameter |
 | validation | validation.malformed | 400 | unparsable JSON or wrong content type |
-| validation | validation.nid_format, validation.birth_reg_format, validation.mobile_format, validation.required, validation.too_long, validation.out_of_range, validation.option_unknown, validation.bangla_text | 422 (as details) | field-level problems |
+| validation | validation.nid_format, validation.birth_reg_format, validation.mobile_format, validation.required, validation.too_long, validation.out_of_range, validation.option_unknown, validation.bangla_text, validation.date_format, validation.date_future | 422 (as details) | field-level problems |
 | validation | validation.password_too_short, validation.password_uppercase_digit | 422 (as details) | password rules of AUTH.md §3 (T1.7, D-071) |
 | session | session.use_logout | 409 | the current device session is ended with logout, not revoke (T1.7) |
 | user | user.system_owner_protected | 409 | the Main Admin cannot be blocked, deactivated or have its sessions revoked by others (BR-035, AUTH.md §11) |

@@ -1,7 +1,7 @@
 ---
 title: One volunteer form: the registration and the profile with the personal, profession and skills data (T1.9e)
 type: feat
-status: ready
+status: in-progress
 doc_review: 2026-10-14
 source: plan
 date: 2026-10-14
@@ -47,7 +47,7 @@ Owner message of 2026-10-14 with a pasted form specification: the registration a
 - **Files:** `packages/shared/src/registration/{details.ts (new),index.ts}`, `packages/shared/src/registration/details.test.ts` (new), `packages/shared/src/i18n/messages/{bn,en}/registration.json` (option labels)
 - **Approach:** `details.ts` holds the fixed lists (blood groups, T-shirt sizes, volunteering areas, vehicles, availability, interest areas, professions), the strict schema of each profession's details (`professionDetailsSchema` by profession), `professionValueSchema` (`{ profession, details }`), `skillsValueSchema`, `emergencyContactSchema`, the date of birth (an ISO date in the past) and the field value schemas that `index.ts` adds to `CORRECTION_FIELD_VALUES`; the submit schema of a volunteer drops `experience` and `workDescription` and takes the new fields; `changeRequestAnswerSchema` stays (string or object).
 - **Tests:** unit: every profession accepts its own fields and refuses another profession's field; an empty details object and a missing profession detail pass; an unknown profession (also `__proto__`, `constructor` and `toString`), a text over its maximum, a repeated interest area, a blood group outside the list, a date of birth in the future or malformed, an emergency mobile that is not a Bangladeshi mobile and an interest area outside the five are refused; the submit schema refuses `experience` and `workDescription` and accepts the minimum (the old mandatory fields and the profession).
-- **Done when:** the unit tests pass. **Size:** M · **Risk area:** personal data · **Status:** todo
+- **Done when:** the unit tests pass. **Size:** M · **Risk area:** personal data · **Status:** done
 
 ### U2. Database and API
 - **Files:** `apps/api/prisma/schema.prisma`, `apps/api/prisma/migrations/20261014000000_volunteer_profile_details/{migration.sql,down.sql}`, `apps/api/src/services/{registration,registrations,volunteers,change-requests}.ts`, `apps/api/src/routes/{registrations,volunteers}.ts`, `apps/api/src/core/logging.ts`, `docs/security/permissions.yaml`, `docs/api/openapi.yaml`, `docs/database/DATABASE_SCHEMA.md`, `docs/security/AUTHORIZATION_MATRIX.md` (regenerated)
@@ -85,3 +85,11 @@ Owner message of 2026-10-14 with a pasted form specification: the registration a
 - **Contract:** the volunteer submit becomes stricter for `experience` and `workDescription` (422); the web and the API are deployed together; an old cached PWA gets 422 until it updates.
 - **Personal data:** the blood group, the date of birth and the emergency contact are new personal data; they ride the NID class and the log redaction, and the exports (none yet) must follow the class (BD field-level rule). The emergency contact is a third person's name and mobile: it is kept with the profile like the other data (no retention limit and no hard delete, BD-46), cleared only when a rejected registration is reused, and no export includes it except through the class.
 - **Size:** about 40 new texts in two languages and two new input components; the units are tested one by one.
+
+## Progress
+- **Branch:** feat/volunteer-form-merge
+- **Next:** U2: database and API (tests first: the integration tests of the submit with the new fields, the masks, the edit requests; then the migration, Prisma, services, routes, permissions.yaml, openapi, DATABASE_SCHEMA)
+- **Reviewed through:** none
+- **Updated:** 2026-10-14
+- **Uncommitted:** none
+- **Notes:** U1 is `packages/shared/src/registration/details.ts` (lists, per-profession strict schemas, grouped values, `parseProfessionDetails` with an own-key lookup) re-exported from `index.ts`; the submit takes `profession` (required), `professionDetails`, flat skills and `emergencyContact`; the edit and correction values are `bloodGroup`, `dateOfBirth`, `tshirtSize`, `volunteeringArea`, `profession` ({profession, details}), `skills`, `emergencyContact`; the correction list limit is now 40; new error codes `validation.date_format` and `validation.date_future`. The API does not compile until U2 (it still reads `experience` and `workDescription` from the submit).

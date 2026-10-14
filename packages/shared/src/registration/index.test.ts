@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   decisionRequestSchema,
+  EDIT_FIELD_VALUES,
+  EDIT_FIELDS,
   draftExpiry,
   editRequestCreateSchema,
   otpSendRequestSchema,
@@ -61,6 +63,7 @@ describe('the registration submit schemas', () => {
     districtId: uuid,
     upazilaId: uuid,
     unionId: uuid,
+    profession: 'student',
   };
   const staff = {
     kind: 'staff',
@@ -88,6 +91,52 @@ describe('the registration submit schemas', () => {
     expect(issues({ ...staff, nid: '1000000000123' }).length).toBe(1);
   });
 
+  it('accepts the full form of O-65 with the profession details as one nested object', () => {
+    expect(
+      issues({
+        ...volunteer,
+        whatsapp: '01712345678',
+        dateOfBirth: '1990-05-17',
+        bloodGroup: 'O+',
+        tshirtSize: 'L',
+        volunteeringArea: 'own_upazila',
+        profession: 'teacher',
+        professionDetails: { institutionType: 'madrasa', designation: 'মুদাররিস' },
+        interestAreas: ['field_relief', 'first_aid'],
+        vehicle: 'bicycle',
+        canSwim: true,
+        availability: 'on_call',
+        emergencyContact: { name: 'নমুনা অভিভাবক', mobile: '01812345678' },
+      }),
+    ).toEqual([]);
+  });
+
+  it('needs the profession and checks its details against that profession only', () => {
+    const { profession: _, ...noProfession } = volunteer;
+    expect(issues(noProfession).map(([p]) => p)).toEqual(['profession']);
+    expect(issues({ ...volunteer, profession: 'pilot' }).map(([p]) => p)).toEqual(['profession']);
+    expect(issues({ ...volunteer, profession: 'student', professionDetails: {} })).toEqual([]);
+    expect(
+      issues({ ...volunteer, profession: 'student', professionDetails: { designation: 'X' } }).map(
+        ([p]) => p,
+      ),
+    ).toEqual(['professionDetails']);
+    for (const profession of ['__proto__', 'constructor'])
+      expect(issues({ ...volunteer, profession }).length, profession).toBeGreaterThan(0);
+  });
+
+  it('checks the personal values and the emergency contact', () => {
+    for (const bad of [
+      { bloodGroup: 'C+' },
+      { tshirtSize: 'XXXL' },
+      { dateOfBirth: '2999-01-01' },
+      { volunteeringArea: 'abroad' },
+      { emergencyContact: { mobile: '123' } },
+      { interestAreas: ['cooking'] },
+    ])
+      expect(issues({ ...volunteer, ...bad }).length, JSON.stringify(bad)).toBe(1);
+  });
+
   it('checks the NID format', () => {
     expect(issues({ ...volunteer, nid: '12345' })).toEqual([['nid', 'validation.nid_format']]);
   });
@@ -98,6 +147,9 @@ describe('the registration submit schemas', () => {
       { type: 'paid' },
       { referenceNid: '1000000000999' },
       { bank: { bankName: 'Test Bank' } },
+      // covered by the profession part now (O-65)
+      { experience: 'ব্যাংকে কাজ' },
+      { workDescription: 'শিক্ষকতা' },
     ])
       expect(issues({ ...volunteer, ...extra }).length, JSON.stringify(extra)).toBe(1);
     for (const extra of [{ homeProgramId: uuid }, { homeDivisionId: uuid }])
@@ -109,7 +161,7 @@ describe('the correction and staff decision schemas', () => {
   const ok = (schema: { safeParse: (v: unknown) => { success: boolean } }, v: unknown) =>
     schema.safeParse(v).success;
 
-  it('a correction names 1 to 20 known fields with a note of 3 to 1000 characters', () => {
+  it('a correction names 1 to 40 known fields with a note of 3 to 1000 characters', () => {
     expect(ok(registrationCorrectionCreateSchema, { fields: ['name'], note: 'ঠিক করুন' })).toBe(
       true,
     );
@@ -118,7 +170,7 @@ describe('the correction and staff decision schemas', () => {
       false,
     );
     expect(
-      ok(registrationCorrectionCreateSchema, { fields: Array(21).fill('name'), note: 'ঠিক করুন' }),
+      ok(registrationCorrectionCreateSchema, { fields: Array(41).fill('name'), note: 'ঠিক করুন' }),
     ).toBe(false);
     expect(ok(registrationCorrectionCreateSchema, { fields: ['name'], note: 'ok' })).toBe(false);
   });
@@ -144,6 +196,35 @@ describe('the edit request schemas', () => {
     expect(ok({ field: 'photo' })).toBe(true);
     expect(ok({ field: 'education' })).toBe(false);
     expect(ok({ field: 'category', newValue: 'A' })).toBe(false);
+  });
+
+  it('the new profile fields are editable: single values and the grouped profession, skills and emergency contact (BR-247)', () => {
+    for (const field of [
+      'bloodGroup',
+      'dateOfBirth',
+      'tshirtSize',
+      'volunteeringArea',
+      'profession',
+      'skills',
+      'emergencyContact',
+    ])
+      expect(EDIT_FIELDS, field).toContain(field);
+    const good = (field: keyof typeof EDIT_FIELD_VALUES, value: unknown) =>
+      EDIT_FIELD_VALUES[field].safeParse(value).success;
+    expect(good('bloodGroup', 'AB-')).toBe(true);
+    expect(good('bloodGroup', 'Z+')).toBe(false);
+    expect(good('dateOfBirth', '1985-01-31')).toBe(true);
+    expect(good('dateOfBirth', 'yesterday')).toBe(false);
+    expect(good('tshirtSize', 'M')).toBe(true);
+    expect(good('volunteeringArea', 'anywhere')).toBe(true);
+    expect(good('profession', { profession: 'imam', details: { role: 'khatib' } })).toBe(true);
+    expect(good('profession', { profession: 'imam', details: { sector: 'x' } })).toBe(false);
+    expect(good('skills', { interestAreas: ['media'], canSwim: false })).toBe(true);
+    expect(good('skills', { canSwim: 'no' })).toBe(false);
+    expect(good('emergencyContact', { name: 'অভিভাবক', mobile: '01712345678' })).toBe(true);
+    expect(good('emergencyContact', { mobile: '1' })).toBe(false);
+    // the old work texts stay editable for the volunteers that have them
+    expect(good('experience', 'ব্যাংকে কাজ')).toBe(true);
   });
 
   it('a refusal needs a reason', () => {
