@@ -84,17 +84,33 @@ async function register(page: Page, person: Person) {
   await verifyContact(page, /^ইমেইল/, person.email, /ইমেইলে পাওয়া কোড/);
   await next(page);
 
+  // identity: the mother, the NID and the optional personal data
   await page.getByRole('textbox', { name: /মাতার নাম/ }).fill('নমুনা মাতা');
   await page.getByRole('textbox', { name: /NID নম্বর/ }).fill(person.nid);
+  await choose(page, /রক্তের গ্রুপ/, 'O+');
+  await next(page);
+
+  // address
   await choose(page, /(^|\s)বিভাগ/, 'ঢাকা');
   await choose(page, /(^|\s)জেলা/, 'ঢাকা');
   await choose(page, /(^|\s)উপজেলা/, 'সাভার');
   await choose(page, /(^|\s)ইউনিয়ন/, 'সাভার');
   await next(page);
+
+  // the profession is mandatory and shows its own fields only (O-65)
+  await choose(page, /আপনার বর্তমান পেশা/, 'শিক্ষক');
+  await page.getByRole('textbox', { name: /^পদবি/ }).fill('সহকারী শিক্ষক');
+  await choose(page, /আপনার বর্তমান পেশা/, 'ছাত্র');
+  await expect(page.getByRole('textbox', { name: /^পদবি/ })).toHaveCount(0);
+  await page.getByRole('textbox', { name: /শিক্ষাপ্রতিষ্ঠানের নাম/ }).fill('নমুনা বিদ্যালয়');
+  await next(page);
+
+  // skills and the emergency contact, all optional
+  await page.getByRole('checkbox', { name: 'প্রাথমিক চিকিৎসা ও উদ্ধারকাজ' }).check({ force: true });
+  await next(page);
   // nobody is asked for a type, a reference or bank details (O-64)
   await expect(page.getByRole('button', { name: /স্বেচ্ছাসেবকের ধরন/ })).toHaveCount(0);
   await expect(page.getByText(/ব্যাংক/)).toHaveCount(0);
-  await next(page);
   // the password rules tick while typing (O-64)
   const rules = page.getByRole('list').filter({ hasText: 'অন্তত 8টি অক্ষর' });
   await expect(rules.locator('[data-met="true"]')).toHaveCount(0);

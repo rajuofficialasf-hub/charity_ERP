@@ -14,8 +14,8 @@ const DETAILS = {
     { section: 'কাজের তথ্য', label: 'আগের প্রজেক্টে কাজ' },
   ],
   mobile: [
-    { section: 'কাজের তথ্য', label: 'অভিজ্ঞতা' },
-    { section: 'কাজের তথ্য', label: 'কী ধরনের কাজ করেন' },
+    { section: 'কাজের তথ্য', label: 'আগের প্রজেক্টে কাজ' },
+    { section: 'কাজের তথ্য', label: 'শিক্ষাগত যোগ্যতা' },
     { section: 'যোগাযোগ', label: 'ফেসবুক আইডি' },
   ],
 } as const;

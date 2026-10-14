@@ -70,7 +70,7 @@ Owner message of 2026-10-14 with a pasted form specification: the registration a
 ### U5. E2E, documents, status
 - **Files:** `apps/web/e2e/{registration,profile}.spec.ts`, `docs/ui/SCREENS.md`, `docs/STATUS.md`, `CLAUDE.md` (only if the layout changed)
 - **Tests:** e2e: a volunteer registers through the seven steps on a phone with a profession and skills and reaches the confirmation; the RPM approval journey still works; the profile shows the new data and sends a request for a new field; no sideways scroll at 360 px; the registration spec with `--repeat-each 3` and `--workers 1`.
-- **Done when:** `pnpm test` and `pnpm e2e` pass, the documents name the new fields. **Depends on:** U4 · **Size:** M · **Risk area:** none · **Status:** todo
+- **Done when:** `pnpm test` and `pnpm e2e` pass, the documents name the new fields. **Depends on:** U4 · **Size:** M · **Risk area:** none · **Status:** done
 
 ## Checkpoints
 - **Mode:** grouped
