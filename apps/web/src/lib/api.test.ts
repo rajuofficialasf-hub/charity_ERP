@@ -161,6 +161,67 @@ describe('API client', () => {
     expect(wiped).toHaveBeenCalledWith('logout');
   });
 
+  it.each(['auth.token_stale', 'auth.token_expired'])(
+    'refreshes and repeats the logout when the access token is %s, so the server session ends',
+    async (code) => {
+      const tokens: (string | null)[] = [];
+      server.use(
+        http.post('*/api/v1/auth/login', () => HttpResponse.json({ data: pair(), meta: {} })),
+        http.post('*/api/v1/auth/refresh', () =>
+          HttpResponse.json({ data: pair(ME, 'access-2'), meta: {} }),
+        ),
+        http.post('*/api/v1/auth/logout', ({ request }) => {
+          const token = request.headers.get('authorization');
+          tokens.push(token);
+          return token === 'Bearer access-2'
+            ? new HttpResponse(null, { status: 204 })
+            : apiError(401, code, 'stale');
+        }),
+      );
+      await login('a', 'b');
+      await logout();
+      expect(tokens).toEqual(['Bearer access-1', 'Bearer access-2']);
+      expect(currentMe()).toBeNull();
+    },
+  );
+
+  it('a refresh that succeeds after a logout does not sign the old session in again', async () => {
+    const events: (string | undefined)[] = [];
+    let release: () => void = () => {};
+    server.use(
+      http.post('*/api/v1/auth/login', () => HttpResponse.json({ data: pair(), meta: {} })),
+      http.post('*/api/v1/auth/logout', () => new HttpResponse(null, { status: 204 })),
+      http.post('*/api/v1/auth/refresh', async () => {
+        await new Promise<void>((r) => (release = r));
+        return HttpResponse.json({ data: pair(ME, 'access-late'), meta: {} });
+      }),
+    );
+    await login('a', 'b');
+    onSessionChange((me, ended) => events.push(me ? 'in' : ended));
+    const pending = refreshSession();
+    await logout();
+    release();
+    expect(await pending).toBeNull();
+    expect(currentMe()).toBeNull();
+    expect(events).toEqual(['logout']);
+  });
+
+  it('a refresh that succeeds after a newer login does not replace the new session', async () => {
+    let release: () => void = () => {};
+    server.use(
+      http.post('*/api/v1/auth/login', () => HttpResponse.json({ data: pair(), meta: {} })),
+      http.post('*/api/v1/auth/refresh', async () => {
+        await new Promise<void>((r) => (release = r));
+        return HttpResponse.json({ data: pair({ ...ME, id: 'old-user' }, 'access-old'), meta: {} });
+      }),
+    );
+    const pending = refreshSession();
+    await login('a', 'b');
+    release();
+    expect(await pending).toBeNull();
+    expect(currentMe()).toEqual(ME);
+  });
+
   it('turns error bodies into ApiFailure with code, message and Retry-After', async () => {
     server.use(
       http.post('*/api/v1/auth/login', () =>
