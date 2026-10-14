@@ -183,7 +183,7 @@ describe('the skills, the emergency contact and the personal values', () => {
       'https://facebook.com@evil.example/x',
       'https://evilfacebook.com/x',
       'https://facebook.com:8443/x',
-      'https://facebook.com\@evil.example/x',
+      'https://facebook.com\\@evil.example/x',
       'https://www.facebook.com/a b',
       'javascript:alert(1)',
       'nomuna.name',

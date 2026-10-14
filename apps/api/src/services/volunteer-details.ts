@@ -1,10 +1,11 @@
 import {
-  type EmergencyContact,
+  type EducationValue,
   parseProfessionDetails,
+  type PermanentAddress,
   type SkillsValue,
 } from '@css/shared/registration';
 import { z } from 'zod';
-import type { Prisma } from '../generated/prisma/client';
+import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 
 /**
@@ -25,8 +26,9 @@ export const DETAILS_SELECT = {
   vehicle: true,
   canSwim: true,
   availability: true,
-  emergencyContactName: true,
-  emergencyContactMobile: true,
+  emergencyFullTime: true,
+  educationDetails: true,
+  permanentAddress: true,
 } as const;
 
 type DetailsRow = Prisma.VolunteerGetPayload<{ select: typeof DETAILS_SELECT }>;
@@ -45,7 +47,13 @@ export function detailsView(v: DetailsRow) {
     vehicle: v.vehicle,
     canSwim: v.canSwim,
     availability: v.availability,
-    emergencyContact: { name: v.emergencyContactName, mobile: v.emergencyContactMobile },
+    emergencyFullTime: v.emergencyFullTime,
+    educationDetails: z.record(z.string(), z.unknown()).catch({}).parse(v.educationDetails),
+    permanentAddress: z
+      .record(z.string(), z.unknown())
+      .nullable()
+      .catch(null)
+      .parse(v.permanentAddress),
   };
 }
 
@@ -76,7 +84,9 @@ export interface RegistrationDetails {
   vehicle?: string | undefined;
   canSwim?: boolean | undefined;
   availability?: string | undefined;
-  emergencyContact?: { name?: string | undefined; mobile?: string | undefined } | undefined;
+  emergencyFullTime?: boolean | undefined;
+  educationDetails?: EducationValue | undefined;
+  permanentAddress?: PermanentAddress | undefined;
 }
 
 /** The columns a registration sets; whatever the form left out is cleared (a reused account too). */
@@ -92,8 +102,11 @@ export function registrationDetailsColumns(body: RegistrationDetails) {
     vehicle: body.vehicle ?? null,
     canSwim: body.canSwim ?? null,
     availability: body.availability ?? null,
-    emergencyContactName: body.emergencyContact?.name ?? null,
-    emergencyContactMobile: body.emergencyContact?.mobile ?? null,
+    emergencyFullTime: body.emergencyFullTime ?? null,
+    educationDetails: (body.educationDetails ?? {}) as Prisma.InputJsonObject,
+    permanentAddress: body.permanentAddress
+      ? (body.permanentAddress as Prisma.InputJsonObject)
+      : Prisma.DbNull,
   };
 }
 
@@ -117,12 +130,13 @@ export function detailsUpdate(field: string, value: unknown): Prisma.VolunteerUp
         vehicle: v.vehicle ?? null,
         canSwim: v.canSwim ?? null,
         availability: v.availability ?? null,
+        emergencyFullTime: v.emergencyFullTime ?? null,
       };
     }
-    case 'emergencyContact': {
-      const v = value as EmergencyContact;
-      return { emergencyContactName: v.name ?? null, emergencyContactMobile: v.mobile ?? null };
-    }
+    case 'educationDetails':
+      return { educationDetails: value as EducationValue as Prisma.InputJsonObject };
+    case 'permanentAddress':
+      return { permanentAddress: value as PermanentAddress as Prisma.InputJsonObject };
     default:
       return null;
   }

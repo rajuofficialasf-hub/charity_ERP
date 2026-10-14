@@ -47,7 +47,6 @@ export const CLASS_OF: Record<string, string> = {
   nid_photo_back: 'volunteer.identity',
   bloodGroup: 'volunteer.identity',
   dateOfBirth: 'volunteer.identity',
-  emergencyContact: 'volunteer.identity',
   bank: 'volunteer.bank',
 };
 
@@ -152,7 +151,7 @@ export class ChangeRequestsService {
     const parsed = EDIT_FIELD_VALUES[body.field].safeParse(body.newValue);
     if (!parsed.success) throw invalid(parsed.error.issues[0]?.message ?? 'validation.failed');
     const value = parsed.data as unknown;
-    if (body.field === 'address') {
+    if (body.field === 'address' || body.field === 'permanentAddress') {
       const problem = await addressProblem(
         this.prisma,
         value as Parameters<typeof addressProblem>[1],

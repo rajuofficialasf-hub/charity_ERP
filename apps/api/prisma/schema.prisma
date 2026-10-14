@@ -1286,8 +1286,9 @@ model Volunteer {
   vehicle                           String?
   canSwim                           Boolean?                 @map("can_swim")
   availability                      String?
-  emergencyContactName              String?                  @map("emergency_contact_name")
-  emergencyContactMobile            String?                  @map("emergency_contact_mobile")
+  emergencyFullTime                 Boolean?                 @map("emergency_full_time")
+  educationDetails                  Json                     @default("{}") @map("education_details")
+  permanentAddress                  Json?                    @map("permanent_address")
   bankName                          String?                  @map("bank_name")
   bankAccountName                   String?                  @map("bank_account_name")
   bankAccountNumber                 String?                  @map("bank_account_number")

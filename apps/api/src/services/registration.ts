@@ -419,6 +419,10 @@ export class RegistrationService {
   private async assertAddress(body: VolunteerRegistrationSubmit): Promise<void> {
     const problem = await addressProblem(this.prisma, body);
     if (problem) throw invalid(problem, 'validation.option_unknown');
+    if (body.permanentAddress) {
+      const permanent = await addressProblem(this.prisma, body.permanentAddress);
+      if (permanent) throw invalid(`permanentAddress.${permanent}`, 'validation.option_unknown');
+    }
   }
 
   /** An unsubmitted draft before its expiry: 404 when unknown or submitted, 410 when expired. */
@@ -494,12 +498,12 @@ function volunteerColumns(
     upazilaId: body.upazilaId,
     unionId: body.unionId,
     addressLine: body.addressLine ?? null,
-    education: body.education ?? null,
-    // The volunteer form has no experience or work description: the profession covers them
-    // (O-65), so a reused account clears the old values too.
+    // The volunteer form has no experience, work description, education text or earlier projects
+    // (O-65, O-66): a reused account clears the old values too.
+    education: null,
     experience: null,
     workDescription: null,
-    previousProjects: body.previousProjects ?? null,
+    previousProjects: null,
     facebookId: body.facebookId ?? null,
     // the personal, profession and skills data; whatever the form left out is cleared
     ...registrationDetailsColumns(body),

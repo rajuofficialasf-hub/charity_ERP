@@ -356,13 +356,13 @@ describe('contact changes', () => {
   });
 });
 
-describe('the personal, profession and skills fields (O-65, D-092; BR-247)', () => {
+describe('the personal, profession, education and address fields (O-65, O-66; BR-247, BR-248)', () => {
   const columnsOf = async (volunteerId: string) =>
     (
       await h.db.query(
         `SELECT to_char(date_of_birth, 'YYYY-MM-DD') AS dob, blood_group, tshirt_size, volunteering_area,
                 profession, profession_details, interest_areas, vehicle, can_swim, availability,
-                emergency_contact_name, emergency_contact_mobile
+                emergency_full_time, education_details, permanent_address, facebook_id
            FROM volunteers WHERE id = $1`,
         [volunteerId],
       )
@@ -371,6 +371,22 @@ describe('the personal, profession and skills fields (O-65, D-092; BR-247)', () 
   it('each new field is asked for, approved by the Dhaka RPM and written', async () => {
     const v = await approvedVolunteer();
     const rpm = await as(world.users.rpmDhaka);
+    const place = await f.locationTree(h.db);
+    const permanent = {
+      divisionId: place.division,
+      districtId: place.district,
+      upazilaId: place.upazila,
+      unionId: place.union,
+      addressLine: 'নমুনা গ্রাম',
+    };
+    const education = {
+      highestQualification: 'bachelor',
+      institutionName: 'নমুনা কলেজ',
+      subject: 'বাংলা',
+      passingYear: 2016,
+      result: 'GPA 4.50',
+      status: 'completed',
+    };
     const cases: [string, unknown][] = [
       ['bloodGroup', 'AB-'],
       ['dateOfBirth', '1992-03-04'],
@@ -390,9 +406,12 @@ describe('the personal, profession and skills fields (O-65, D-092; BR-247)', () 
           vehicle: 'bicycle',
           canSwim: false,
           availability: 'holidays',
+          emergencyFullTime: true,
         },
       ],
-      ['emergencyContact', { name: 'নমুনা অভিভাবক', mobile: '01712345678' }],
+      ['educationDetails', education],
+      ['permanentAddress', permanent],
+      ['facebookId', 'https://www.facebook.com/nomuna.name'],
     ];
     for (const [field, newValue] of cases) {
       const created = await ask(v.session, { field, newValue });
@@ -412,8 +431,10 @@ describe('the personal, profession and skills fields (O-65, D-092; BR-247)', () 
       vehicle: 'bicycle',
       can_swim: false,
       availability: 'holidays',
-      emergency_contact_name: 'নমুনা অভিভাবক',
-      emergency_contact_mobile: '01712345678',
+      emergency_full_time: true,
+      education_details: education,
+      permanent_address: permanent,
+      facebook_id: 'https://www.facebook.com/nomuna.name',
     });
   });
 
@@ -438,13 +459,27 @@ describe('the personal, profession and skills fields (O-65, D-092; BR-247)', () 
 
   it('refuses a bad value or a detail of another profession with 422, and a second open request with 409', async () => {
     const v = await approvedVolunteer();
+    const place = await f.locationTree(h.db);
     for (const body of [
       { field: 'bloodGroup', newValue: 'Z+' },
       { field: 'dateOfBirth', newValue: '2999-01-01' },
       { field: 'skills', newValue: { vehicle: 'car' } },
-      { field: 'emergencyContact', newValue: { mobile: '1' } },
+      { field: 'skills', newValue: { emergencyFullTime: 'yes' } },
       { field: 'profession', newValue: { profession: 'imam', details: { sector: 'x' } } },
       { field: 'profession', newValue: { profession: '__proto__', details: {} } },
+      { field: 'educationDetails', newValue: { highestQualification: 'everything' } },
+      { field: 'educationDetails', newValue: { passingYear: 1900 } },
+      { field: 'facebookId', newValue: 'https://evil.example/www.facebook.com' },
+      { field: 'emergencyContact', newValue: { name: 'অভিভাবক' } },
+      {
+        field: 'permanentAddress',
+        newValue: {
+          divisionId: place.division,
+          districtId: place.upazila,
+          upazilaId: place.upazila,
+          unionId: place.union,
+        },
+      },
     ])
       expect((await ask(v.session, body)).status, JSON.stringify(body)).toBe(422);
     expect((await ask(v.session, { field: 'tshirtSize', newValue: 'M' })).status).toBe(201);
@@ -460,9 +495,10 @@ describe('the personal, profession and skills fields (O-65, D-092; BR-247)', () 
     const values: [string, unknown][] = [
       ['bloodGroup', 'B+'],
       ['dateOfBirth', '1991-01-01'],
-      ['emergencyContact', { name: 'অভিভাবক', mobile: '01712345678' }],
       ['tshirtSize', 'S'],
+      ['educationDetails', { institutionName: 'নমুনা কলেজ' }],
     ];
+    const protectedFields = new Set(['bloodGroup', 'dateOfBirth']);
     const reject = async (field: string, newValue: unknown, classes: Set<string>) => {
       const v = await approvedVolunteer();
       const created = await ask(v.session, { field, newValue });
@@ -477,7 +513,7 @@ describe('the personal, profession and skills fields (O-65, D-092; BR-247)', () 
     for (const [field, newValue] of values) {
       const without = await reject(field, newValue, new Set<string>());
       expect(Object.hasOwn(without, 'newValue'), `${field} without the class`).toBe(
-        field === 'tshirtSize',
+        !protectedFields.has(field),
       );
       const withClass = await reject(field, newValue, new Set(['volunteer.identity']));
       expect(withClass.newValue, `${field} with the class`).toEqual(newValue);
@@ -490,7 +526,10 @@ describe('the personal, profession and skills fields (O-65, D-092; BR-247)', () 
       `UPDATE volunteers SET blood_group = 'A-', date_of_birth = '1988-12-31', tshirt_size = 'M',
               volunteering_area = 'anywhere', profession = 'student', profession_details = '{"institutionName":"নমুনা"}',
               interest_areas = '["media","first_aid"]', vehicle = 'none', can_swim = true,
-              availability = 'anytime', emergency_contact_name = 'অভিভাবক', emergency_contact_mobile = '01712345678'
+              availability = 'anytime', emergency_full_time = false,
+              education_details = '{"highestQualification":"hsc","passingYear":2012}',
+              permanent_address = '{"addressLine":"নমুনা গ্রাম"}',
+              facebook_id = 'https://www.facebook.com/nomuna'
         WHERE id = $1`,
       [v.volunteerId],
     );
@@ -507,7 +546,11 @@ describe('the personal, profession and skills fields (O-65, D-092; BR-247)', () 
       vehicle: 'none',
       canSwim: true,
       availability: 'anytime',
-      emergencyContact: { name: 'অভিভাবক', mobile: '01712345678' },
+      emergencyFullTime: false,
+      educationDetails: { highestQualification: 'hsc', passingYear: 2012 },
+      permanentAddress: { addressLine: 'নমুনা গ্রাম' },
+      facebookId: 'https://www.facebook.com/nomuna',
     });
+    expect(res.body.data).not.toHaveProperty('emergencyContact');
   });
 });

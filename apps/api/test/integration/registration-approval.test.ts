@@ -249,7 +249,13 @@ describe('the new personal, profession and skills data in the registration (O-65
     vehicle: 'none',
     canSwim: false,
     availability: 'holidays',
-    emergencyContact: { name: 'নমুনা অভিভাবক', mobile: '01812345678' },
+    emergencyFullTime: false,
+    facebookId: 'https://www.facebook.com/nomuna',
+    educationDetails: {
+      highestQualification: 'hsc',
+      institutionName: 'নমুনা কলেজ',
+      passingYear: 2012,
+    },
   };
 
   it('the Dhaka RPM sees the data in the registration detail', async () => {
@@ -268,7 +274,13 @@ describe('the new personal, profession and skills data in the registration (O-65
       vehicle: 'none',
       canSwim: false,
       availability: 'holidays',
-      emergencyContact: { name: 'নমুনা অভিভাবক', mobile: '01812345678' },
+      emergencyFullTime: false,
+      facebookId: 'https://www.facebook.com/nomuna',
+      educationDetails: {
+        highestQualification: 'hsc',
+        institutionName: 'নমুনা কলেজ',
+        passingYear: 2012,
+      },
     });
   });
 

@@ -126,7 +126,8 @@ export const OBJECT_FIELDS = new Set([
   'bank',
   'profession',
   'skills',
-  'emergencyContact',
+  'educationDetails',
+  'permanentAddress',
 ]);
 function storedValue(field: string, text: string): unknown {
   if (!OBJECT_FIELDS.has(field)) return text;
@@ -606,7 +607,7 @@ export class RegistrationsService {
       throw new ApiError('validation.failed', 422, undefined, [
         { path: 'newValue', code: 'validation.option_unknown' },
       ]);
-    if (field === 'address') {
+    if (field === 'address' || field === 'permanentAddress') {
       const problem = await addressProblem(
         this.prisma,
         value as Parameters<typeof addressProblem>[1],
