@@ -34,6 +34,7 @@ const AuthContext = createContext<AuthValue>({ status: 'loading', me: null });
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const userId = useRef<string | null>(currentMe()?.id ?? null);
+  const version = useRef<number | null>(currentMe()?.permissionVersion ?? null);
   const [value, setValue] = useState<AuthValue>(() => {
     const me = currentMe();
     return me ? { status: 'signed-in', me } : { status: 'loading', me: null };
@@ -46,7 +47,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // its 401 ends the session again: a loop)
       const next = me?.id ?? null;
       if (userId.current !== null && next !== userId.current) queryClient.clear();
+      // the same user with other permissions (a role granted or taken back): what the earlier
+      // answers showed may no longer be theirs to see, so they are dropped and the open screen asks
+      // again (R8 of docs/plans/2026-10-14-1400-feat-volunteer-form-refine-plan.md)
+      else if (
+        me &&
+        next === userId.current &&
+        version.current !== null &&
+        me.permissionVersion !== version.current
+      )
+        void queryClient.resetQueries();
       userId.current = next;
+      version.current = me?.permissionVersion ?? null;
       setValue({ status: me ? 'signed-in' : 'signed-out', me, ended });
     });
     if (!currentMe())

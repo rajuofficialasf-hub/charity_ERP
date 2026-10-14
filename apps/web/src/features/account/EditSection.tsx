@@ -31,6 +31,7 @@ export function EditSection({
   fields,
   edits,
   onBusy,
+  onDirty,
   onCancel,
   onSent,
 }: {
@@ -41,6 +42,8 @@ export function EditSection({
   edits: ChangeRequest[];
   /** Tells the page a send is running, so the section can not be left meanwhile. */
   onBusy: (busy: boolean) => void;
+  /** Tells the page whether a detail is ticked, so leaving the section can ask first. */
+  onDirty: (dirty: boolean) => void;
   onCancel: () => void;
   onSent: () => void;
 }) {
@@ -111,6 +114,12 @@ export function EditSection({
     onBusy(sending);
     return () => onBusy(false);
   }, [sending, onBusy]);
+
+  const dirty = picked.size > 0;
+  useEffect(() => {
+    onDirty(dirty);
+    return () => onDirty(false);
+  }, [dirty, onDirty]);
 
   const toggle = (field: RequestField, on: boolean) => {
     setPicked((now) => {

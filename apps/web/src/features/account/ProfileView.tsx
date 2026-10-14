@@ -1,4 +1,4 @@
-import { Alert, Button, Card, EmptyState, ErrorState, Skeleton } from '@css/ui';
+import { Alert, Button, Card, ConfirmDialog, EmptyState, ErrorState, Skeleton } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import {
   Briefcase,
@@ -87,6 +87,9 @@ function Profile() {
   const [current, setCurrent] = useState<(typeof SECTIONS)[number]['key']>('personal');
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
+  // something is ticked in the edit mode; another section asks before it opens (R9)
+  const [dirty, setDirty] = useState(false);
+  const [leaving, setLeaving] = useState<(typeof SECTIONS)[number]['key'] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const titleId = useId();
   if (profile.isPending) return <Skeleton count={3} />;
@@ -149,6 +152,10 @@ function Profile() {
           waiting={waiting}
           busy={busy}
           onSelect={(key) => {
+            if (editing && dirty && key !== current) {
+              setLeaving(key);
+              return;
+            }
             setCurrent(key);
             setEditing(false);
           }}
@@ -182,6 +189,7 @@ function Profile() {
                 fields={fieldsOf}
                 edits={edits}
                 onBusy={setBusy}
+                onDirty={setDirty}
                 onCancel={() => setEditing(false)}
                 onSent={() => {
                   setEditing(false);
@@ -203,6 +211,18 @@ function Profile() {
           </section>
         </Card>
       </div>
+      <ConfirmDialog
+        isOpen={leaving !== null}
+        title={t('profile.edit.leave_title')}
+        message={t('profile.edit.leave_message')}
+        confirmLabel={t('profile.edit.leave_confirm')}
+        onConfirm={() => {
+          if (leaving) setCurrent(leaving);
+          setLeaving(null);
+          setEditing(false);
+        }}
+        onCancel={() => setLeaving(null)}
+      />
     </div>
   );
 }

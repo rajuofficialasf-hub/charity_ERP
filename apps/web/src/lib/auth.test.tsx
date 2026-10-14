@@ -62,4 +62,26 @@ describe('AuthProvider and the query cache', () => {
     await login('b', 'secret 123');
     await waitFor(() => expect(client.getQueryData(['admin', 'registrations'])).toBeUndefined());
   });
+
+  it('drops the cached answers when the permissions of the same user change, not otherwise', async () => {
+    let refreshed = { ...ME, permissionVersion: 1 };
+    server.use(
+      http.post('*/api/v1/auth/login', () =>
+        HttpResponse.json({ data: pair({ ...ME, permissionVersion: 1 }), meta: {} }),
+      ),
+      http.post('*/api/v1/auth/refresh', () =>
+        HttpResponse.json({ data: pair(refreshed, 'access-2'), meta: {} }),
+      ),
+    );
+    await login('head@example.org', 'secret 123');
+    const client = mount();
+    client.setQueryData(['admin', 'registrations'], [{ userId: 'x' }]);
+    // the same version: the cache stays
+    await refreshSession();
+    expect(client.getQueryData(['admin', 'registrations'])).toBeDefined();
+    // another version of the same user: the cache goes
+    refreshed = { ...ME, permissionVersion: 2 };
+    await refreshSession();
+    await waitFor(() => expect(client.getQueryData(['admin', 'registrations'])).toBeUndefined());
+  });
 });

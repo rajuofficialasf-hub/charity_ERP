@@ -563,6 +563,39 @@ describe('the personal, profession, education and skills data in the profile', (
     ]);
   }, 90_000);
 
+  it('asks before another section opens while a detail is ticked, and not for an untouched edit mode', async () => {
+    const user = userEvent.setup();
+    serve(profile(FULL), () => []);
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    // nothing ticked: the section changes without a question
+    await startEdit(user, 'Address');
+    await openSection(user, 'Skills and time');
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Skills and time' })).toBeInTheDocument();
+
+    // a ticked detail: the question, "Cancel" stays with the tick, the other button leaves
+    const address = await startEdit(user, 'Address');
+    await user.click(within(address).getByRole('checkbox', { name: 'Change Address' }));
+    await openSection(user, 'Education');
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText('Leave without sending?')).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await vi.waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(screen.getByRole('heading', { level: 2, name: 'Address' })).toBeInTheDocument();
+    expect(within(address).getByRole('checkbox', { name: 'Change Address' })).toBeChecked();
+
+    await openSection(user, 'Education');
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Leave this section',
+      }),
+    );
+    expect(await screen.findByRole('heading', { level: 2, name: 'Education' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('form', { name: 'Request to change Address' }),
+    ).not.toBeInTheDocument();
+  }, 30_000);
+
   it('a permanent address without its four levels is not sent', async () => {
     const user = userEvent.setup();
     serve(profile({ ...FULL, permanentAddress: null }), () => []);
