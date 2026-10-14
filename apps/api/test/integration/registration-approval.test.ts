@@ -66,6 +66,7 @@ async function registerVolunteer(tree: Tree, over: Record<string, unknown> = {})
       districtId: tree.district,
       upazilaId: tree.upazila,
       unionId: tree.union,
+      profession: 'student',
       ...over,
     });
   if (res.status !== 201) throw new Error(`submit ${res.status} ${JSON.stringify(res.body)}`);
@@ -233,6 +234,82 @@ describe('rejection', () => {
     expect(events).toContainEqual({ type: 'registration.rejected', userId: dhaka.userId });
     const me = await api().get('/api/v1/volunteers/me').set(bearer(own));
     expect(me.status).toBe(401);
+  });
+});
+
+describe('the new personal, profession and skills data in the registration (O-65, D-092)', () => {
+  const FULL = {
+    dateOfBirth: '1990-05-17',
+    bloodGroup: 'O+',
+    tshirtSize: 'M',
+    volunteeringArea: 'own_union',
+    profession: 'imam',
+    professionDetails: { role: 'imam', mosqueName: 'নমুনা মসজিদ', mosqueType: 'jame' },
+    interestAreas: ['data_entry'],
+    vehicle: 'none',
+    canSwim: false,
+    availability: 'holidays',
+    emergencyContact: { name: 'নমুনা অভিভাবক', mobile: '01812345678' },
+  };
+
+  it('the Dhaka RPM sees the data in the registration detail', async () => {
+    const dhaka = await registerVolunteer(world.dhaka, FULL);
+    const rpm = await as(world.users.rpmDhaka);
+    const detail = await api().get(`/api/v1/registrations/${dhaka.userId}`).set(bearer(rpm));
+    expect(detail.status).toBe(200);
+    expect(detail.body.data.volunteer).toMatchObject({
+      dateOfBirth: '1990-05-17',
+      bloodGroup: 'O+',
+      tshirtSize: 'M',
+      volunteeringArea: 'own_union',
+      profession: 'imam',
+      professionDetails: FULL.professionDetails,
+      interestAreas: ['data_entry'],
+      vehicle: 'none',
+      canSwim: false,
+      availability: 'holidays',
+      emergencyContact: { name: 'নমুনা অভিভাবক', mobile: '01812345678' },
+    });
+  });
+
+  it('a correction asks for a new field and the answer is written on approval', async () => {
+    const dhaka = await registerVolunteer(world.dhaka, FULL);
+    const rpm = await as(world.users.rpmDhaka);
+    const own = await login(h, dhaka.mobile);
+    const created = await api()
+      .post(`/api/v1/registrations/${dhaka.userId}/correction-requests`)
+      .set(bearer(rpm))
+      .send({ fields: ['bloodGroup', 'profession'], note: 'রক্তের গ্রুপ ও পেশা ঠিক করুন' });
+    expect(created.status).toBe(201);
+    const rows = (await api().get('/api/v1/me/change-requests').set(bearer(own))).body.data as {
+      id: string;
+      field: string;
+    }[];
+    const byField = Object.fromEntries(rows.map((r) => [r.field, r.id]));
+    const answer = (id: string, newValue: unknown) =>
+      api().patch(`/api/v1/me/change-requests/${id}`).set(bearer(own)).send({ newValue });
+    expect((await answer(byField.bloodGroup!, 'AB+')).status).toBe(200);
+    expect(
+      (
+        await answer(byField.profession!, {
+          profession: 'student',
+          details: { institutionName: 'নমুনা বিদ্যালয়' },
+        })
+      ).status,
+    ).toBe(200);
+    expect((await api().post('/api/v1/me/registration/resubmit').set(bearer(own))).status).toBe(
+      204,
+    );
+    expect((await approve(rpm, dhaka.userId)).status).toBe(200);
+    const saved = await h.db.query(
+      'SELECT blood_group, profession, profession_details FROM volunteers WHERE user_id = $1',
+      [dhaka.userId],
+    );
+    expect(saved.rows[0]).toEqual({
+      blood_group: 'AB+',
+      profession: 'student',
+      profession_details: { institutionName: 'নমুনা বিদ্যালয়' },
+    });
   });
 });
 

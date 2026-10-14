@@ -31,7 +31,7 @@ import type { PrismaService, Tx } from '../core/prisma.service';
 import { ApiError } from '../i18n/api-error';
 import type { RegistrationEvents } from '../notifications/registration-events';
 import { addressProblem } from './registration';
-import { applyField, changeView } from './registrations';
+import { applyField, changeView, OBJECT_FIELDS } from './registrations';
 
 const EDIT = 'profile_edit';
 /** Contact-change codes one account may send per hour, across all its requests. */
@@ -40,10 +40,13 @@ const isContact = (field: string): field is (typeof CONTACT_FIELDS)[number] =>
   (CONTACT_FIELDS as readonly string[]).includes(field);
 const isPhoto = (field: string) => (PHOTO_FIELDS as readonly string[]).includes(field);
 /** Values an approver sees only with the field class (RBAC.md 6). */
-const CLASS_OF: Record<string, string> = {
+export const CLASS_OF: Record<string, string> = {
   nid: 'volunteer.identity',
   nid_photo: 'volunteer.identity',
   nid_photo_back: 'volunteer.identity',
+  bloodGroup: 'volunteer.identity',
+  dateOfBirth: 'volunteer.identity',
+  emergencyContact: 'volunteer.identity',
   bank: 'volunteer.bank',
 };
 
@@ -359,7 +362,7 @@ export class ChangeRequestsService {
     }
     // validated at the request; parsed again at the boundary instead of trusted (ST-12)
     const value: unknown = EDIT_FIELD_VALUES[field].parse(
-      field === 'address' || field === 'bank' ? JSON.parse(stored) : stored,
+      OBJECT_FIELDS.has(field) ? JSON.parse(stored) : stored,
     );
     if (field === 'nid') {
       const taken = await tx.volunteer.count({ where: { nid: stored, NOT: { id: volunteerId } } });

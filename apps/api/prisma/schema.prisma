@@ -1276,6 +1276,18 @@ model Volunteer {
   workDescription                   String?                  @map("work_description")
   previousProjects                  String?                  @map("previous_projects")
   facebookId                        String?                  @map("facebook_id")
+  bloodGroup                        String?                  @map("blood_group")
+  dateOfBirth                       DateTime?                @map("date_of_birth") @db.Date
+  tshirtSize                        String?                  @map("tshirt_size")
+  volunteeringArea                  String?                  @map("volunteering_area")
+  profession                        String?
+  professionDetails                 Json                     @default("{}") @map("profession_details")
+  interestAreas                     Json                     @default("[]") @map("interest_areas")
+  vehicle                           String?
+  canSwim                           Boolean?                 @map("can_swim")
+  availability                      String?
+  emergencyContactName              String?                  @map("emergency_contact_name")
+  emergencyContactMobile            String?                  @map("emergency_contact_mobile")
   bankName                          String?                  @map("bank_name")
   bankAccountName                   String?                  @map("bank_account_name")
   bankAccountNumber                 String?                  @map("bank_account_number")

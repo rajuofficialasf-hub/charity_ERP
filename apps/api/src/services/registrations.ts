@@ -29,6 +29,7 @@ import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import type { RegistrationEvents } from '../notifications/registration-events';
 import { addressProblem } from './registration';
+import { DETAILS_SELECT, detailsUpdate, detailsView } from './volunteer-details';
 
 export type RegistrationStatus = 'awaiting_review' | 'in_correction';
 
@@ -120,7 +121,13 @@ export function changeView(row: ChangeRow, withValue: boolean) {
 }
 
 /** The address and the bank details are stored as JSON text; every other field as the text. */
-const OBJECT_FIELDS = new Set(['address', 'bank']);
+export const OBJECT_FIELDS = new Set([
+  'address',
+  'bank',
+  'profession',
+  'skills',
+  'emergencyContact',
+]);
 function storedValue(field: string, text: string): unknown {
   if (!OBJECT_FIELDS.has(field)) return text;
   try {
@@ -262,6 +269,7 @@ export class RegistrationsService {
             workDescription: true,
             previousProjects: true,
             facebookId: true,
+            ...DETAILS_SELECT,
             bankName: true,
             bankAccountName: true,
             bankAccountNumber: true,
@@ -321,6 +329,7 @@ export class RegistrationsService {
             workDescription: v.workDescription,
             previousProjects: v.previousProjects,
             facebookId: v.facebookId,
+            ...detailsView(v),
             nid: v.nid,
             nidPhotoFileId: v.nidPhotoFileId,
             nidPhotoBackFileId: v.nidPhotoBackFileId,
@@ -709,7 +718,7 @@ export async function applyField(
       case 'nid_photo_back':
         return { nidPhotoBackFile: { connect: { id: value as string } } };
       default:
-        return { [field]: (value as string | undefined) ?? null };
+        return detailsUpdate(field, value) ?? { [field]: (value as string | undefined) ?? null };
     }
   })();
   await tx.volunteer.update({ where: { id: volunteerId }, data });

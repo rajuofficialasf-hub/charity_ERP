@@ -24,6 +24,7 @@ import { type PageQuery, pageQuery } from '../core/pagination';
 import { ok, page } from '../http/send';
 import { defineRoute, type RouteDeps } from '../openapi/define-route';
 import type { RegistrationListQuery } from '../services/registrations';
+import { volunteerDetailsShape } from './volunteer-details-schema';
 
 const uuid = z.uuid();
 const nullableText = z.string().nullable();
@@ -72,7 +73,7 @@ const volunteerSummary = z.object({
 });
 
 /** The registration an approver opens; NID, NID photo and bank details by field class (RBAC.md 6). */
-const registrationDetail = pendingRegistration.extend({
+export const registrationDetail = pendingRegistration.extend({
   mobile: nullableText,
   email: nullableText,
   photoFileId: uuid.nullable(),
@@ -92,6 +93,7 @@ const registrationDetail = pendingRegistration.extend({
       workDescription: nullableText,
       previousProjects: nullableText,
       facebookId: nullableText,
+      ...volunteerDetailsShape(true),
       nid: sensitive(z.string(), 'volunteer.identity'),
       nidPhotoFileId: sensitive(uuid.nullable(), 'volunteer.identity'),
       nidPhotoBackFileId: sensitive(uuid.nullable(), 'volunteer.identity'),

@@ -536,7 +536,7 @@ components:
     VolunteerRegistrationSubmit:
       type: object
       additionalProperties: false
-      required: [kind, registrationId, password, name, fatherName, motherName, nid, divisionId, districtId, upazilaId, unionId]
+      required: [kind, registrationId, password, name, fatherName, motherName, nid, divisionId, districtId, upazilaId, unionId, profession]
       properties:
         kind: { type: string, const: volunteer }
         registrationId: { $ref: '#/components/schemas/Uuid' }
@@ -552,10 +552,50 @@ components:
         unionId: { $ref: '#/components/schemas/Uuid' }
         addressLine: { type: string, maxLength: 500 }
         education: { type: string, maxLength: 500 }
-        experience: { type: string, maxLength: 2000 }
-        workDescription: { type: string, maxLength: 2000 }
         previousProjects: { type: string, maxLength: 2000 }
         facebookId: { type: string, maxLength: 200 }
+        dateOfBirth: { type: string, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$', description: 'A real date in the past, not before 1900 (O-65)' }
+        bloodGroup: { type: string, enum: [A+, A-, B+, B-, O+, O-, AB+, AB-] }
+        tshirtSize: { type: string, enum: [S, M, L, XL, XXL] }
+        volunteeringArea: { type: string, enum: [own_union, own_upazila, own_district, anywhere] }
+        profession: { type: string, enum: [student, teacher, imam, businessman, job_seeker, service_holder], description: The one mandatory new field (O-65) }
+        professionDetails: { $ref: '#/components/schemas/ProfessionDetails' }
+        interestAreas: { type: array, maxItems: 5, description: Each area at most once, items: { type: string, enum: [field_relief, survey, data_entry, media, first_aid] } }
+        vehicle: { type: string, enum: [bicycle, motorcycle, none] }
+        canSwim: { type: boolean }
+        availability: { type: string, enum: [holidays, anytime, on_call] }
+        emergencyContact: { $ref: '#/components/schemas/EmergencyContact' }
+    ProfessionDetails:
+      type: object
+      description: The own fields of the chosen profession only, all optional; a field of another profession is refused (422). student educationMedium (general, aliya, qawmi, technical), institutionName, currentClass, subject, institutionLocation; teacher institutionType (school, college, university, madrasa), institutionNameAddress, designation, teachingSubject; imam role (khatib, imam, muazzin), mosqueName, mosqueType (jame, panjegana), mosqueAddress; businessman businessName, businessType (retail, wholesale, service, agriculture, it_online, other), businessAddress; job_seeker highestQualification, skills, fullTimeAvailable (boolean); service_holder sector, organization, designation, workplaceLocation
+      propertyNames: { type: string }
+      additionalProperties: {}
+    EmergencyContact:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, maxLength: 200 }
+        mobile: { type: string, pattern: '^01[3-9][0-9]{8}$' }
+    VolunteerProfileDetails:
+      type: object
+      description: The personal, profession and skills data of a volunteer (O-65, D-092; BR-246)
+      required: [professionDetails, interestAreas, emergencyContact]
+      properties:
+        bloodGroup: { type: [string, 'null'], enum: [A+, A-, B+, B-, O+, O-, AB+, AB-, null] }
+        dateOfBirth: { type: [string, 'null'], format: date }
+        tshirtSize: { type: [string, 'null'], enum: [S, M, L, XL, XXL, null] }
+        volunteeringArea: { type: [string, 'null'], enum: [own_union, own_upazila, own_district, anywhere, null] }
+        profession: { type: [string, 'null'], enum: [student, teacher, imam, businessman, job_seeker, service_holder, null] }
+        professionDetails: { $ref: '#/components/schemas/ProfessionDetails' }
+        interestAreas: { type: array, items: { type: string, enum: [field_relief, survey, data_entry, media, first_aid] } }
+        vehicle: { type: [string, 'null'], enum: [bicycle, motorcycle, none, null] }
+        canSwim: { type: [boolean, 'null'] }
+        availability: { type: [string, 'null'], enum: [holidays, anytime, on_call, null] }
+        emergencyContact:
+          type: object
+          properties:
+            name: { type: [string, 'null'] }
+            mobile: { type: [string, 'null'] }
     StaffRegistrationSubmit:
       type: object
       additionalProperties: false
@@ -858,8 +898,12 @@ components:
     Volunteer:
       allOf:
         - $ref: '#/components/schemas/VolunteerSummary'
+        - $ref: '#/components/schemas/VolunteerProfileDetails'
         - type: object
           properties:
+            bloodGroup: { x-sensitive-class: volunteer.identity }
+            dateOfBirth: { x-sensitive-class: volunteer.identity }
+            emergencyContact: { x-sensitive-class: volunteer.identity }
             fatherName: { type: string }
             motherName: { type: string }
             mobile: { type: string }
@@ -901,7 +945,7 @@ components:
         data: { type: array, items: { $ref: '#/components/schemas/VolunteerSummary' } }
         meta: { $ref: '#/components/schemas/ListMeta' }
     ChangeValue:
-      description: Text for a text field; an object for the address and the bank details; a file id from the photo upload for a photo field (D-085)
+      description: Text for a text field; an object for the address, the bank details, the profession ({ profession, details }), the skills and the emergency contact (O-65); a file id from the photo upload for a photo field (D-085)
       anyOf:
         - { type: string, maxLength: 2000 }
         - { type: object, propertyNames: { type: string }, additionalProperties: {} }
@@ -913,8 +957,8 @@ components:
         fields:
           type: array
           minItems: 1
-          maxItems: 20
-          items: { type: string, enum: [name, fatherName, motherName, nid, whatsapp, address, addressLine, education, experience, workDescription, previousProjects, facebookId, bank, photo, nid_photo, nid_photo_back] }
+          maxItems: 40
+          items: { type: string, enum: [name, fatherName, motherName, nid, whatsapp, address, addressLine, education, experience, workDescription, previousProjects, facebookId, bloodGroup, dateOfBirth, tshirtSize, volunteeringArea, profession, skills, emergencyContact, bank, photo, nid_photo, nid_photo_back] }
         note: { type: string, minLength: 3, maxLength: 1000 }
     EditRequestCreate:
       type: object
@@ -922,7 +966,7 @@ components:
       required: [field]
       description: The new value is required except for a photo, which the own photo upload fills (D-085)
       properties:
-        field: { type: string, enum: [name, fatherName, motherName, nid, whatsapp, address, addressLine, education, experience, workDescription, previousProjects, facebookId, bank, photo, nid_photo, nid_photo_back, mobile, email] }
+        field: { type: string, enum: [name, fatherName, motherName, nid, whatsapp, address, addressLine, education, experience, workDescription, previousProjects, facebookId, bloodGroup, dateOfBirth, tshirtSize, volunteeringArea, profession, skills, emergencyContact, bank, photo, nid_photo, nid_photo_back, mobile, email] }
         newValue: { $ref: '#/components/schemas/ChangeValue' }
         note: { type: string, maxLength: 1000 }
     ChangeRequestAnswer:
@@ -1003,7 +1047,9 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     OwnVolunteerProfile:
       type: object
-      description: The volunteer's own profile; includes the own NID and bank details in full (D-081) and never the own rating or category
+      description: The volunteer's own profile; includes the own NID, bank details and personal data in full (D-081, O-65) and never the own rating or category
+      allOf:
+        - $ref: '#/components/schemas/VolunteerProfileDetails'
       required: [userId, state, displayName, inAnyProject]
       properties:
         userId: { $ref: '#/components/schemas/Uuid' }

@@ -46,6 +46,7 @@ const volunteerForm = (d: Pick<Draft, 'registrationId'>, over: Record<string, un
   unionId: loc.union,
   whatsapp: f.fakeMobile(),
   education: 'স্নাতক',
+  profession: 'student',
   ...over,
 });
 
@@ -230,9 +231,15 @@ describe('POST /auth/register/submit', () => {
       `UPDATE users SET state = 'deactivated', deactivated_at = now() WHERE id = $1`,
       [userId],
     );
-    // the earlier form held a bank account, a reference and a home program; none of it may survive
+    // the earlier form held a bank account, a reference, a home program and the new personal data;
+    // none of it may survive
     await h.db.query(
-      `UPDATE volunteers SET bank_name = 'Old Bank', bank_account_number = '999', bank_branch_name = 'Old', reference_nid = $2 WHERE user_id = $1`,
+      `UPDATE volunteers SET bank_name = 'Old Bank', bank_account_number = '999', bank_branch_name = 'Old', reference_nid = $2,
+              blood_group = 'A+', date_of_birth = '1980-01-01', tshirt_size = 'XL', volunteering_area = 'anywhere',
+              profession = 'imam', profession_details = '{"mosqueName":"Old"}', interest_areas = '["media"]',
+              vehicle = 'bicycle', can_swim = true, availability = 'anytime',
+              emergency_contact_name = 'Old', emergency_contact_mobile = '01712345678'
+        WHERE user_id = $1`,
       [userId, f.fakeNid()],
     );
     await h.db.query('UPDATE users SET home_program_id = $2 WHERE id = $1', [userId, programId]);
@@ -254,7 +261,10 @@ describe('POST /auth/register/submit', () => {
     expect(user).toEqual({ state: 'pending', display_name: 'দ্বিতীয় নাম', deactivated_at: null });
     const cleared = (
       await h.db.query(
-        `SELECT v.bank_name, v.bank_account_number, v.bank_branch_name, v.reference_nid, v.type, u.home_program_id
+        `SELECT v.bank_name, v.bank_account_number, v.bank_branch_name, v.reference_nid, v.type, u.home_program_id,
+                v.blood_group, v.date_of_birth, v.tshirt_size, v.volunteering_area, v.profession,
+                v.profession_details, v.interest_areas, v.vehicle, v.can_swim, v.availability,
+                v.emergency_contact_name, v.emergency_contact_mobile
            FROM volunteers v JOIN users u ON u.id = v.user_id WHERE u.id = $1`,
         [userId],
       )
@@ -266,6 +276,19 @@ describe('POST /auth/register/submit', () => {
       reference_nid: null,
       type: 'general',
       home_program_id: null,
+      blood_group: null,
+      date_of_birth: null,
+      tshirt_size: null,
+      volunteering_area: null,
+      // the second form chose a student again, with no details
+      profession: 'student',
+      profession_details: {},
+      interest_areas: [],
+      vehicle: null,
+      can_swim: null,
+      availability: null,
+      emergency_contact_name: null,
+      emergency_contact_mobile: null,
     });
     expect(
       (await h.db.query('SELECT 1 FROM volunteers WHERE user_id = $1', [userId])).rowCount,
@@ -278,6 +301,103 @@ describe('POST /auth/register/submit', () => {
     ).rows;
     expect(audit).toHaveLength(2);
     expect(audit[1].old).toMatchObject({ state: 'deactivated', displayName: 'প্রথম নাম' });
+  });
+});
+
+describe('the personal, profession and skills data (O-65, D-092; BR-246)', () => {
+  const FULL = {
+    dateOfBirth: '1990-05-17',
+    bloodGroup: 'O+',
+    tshirtSize: 'L',
+    volunteeringArea: 'own_upazila',
+    profession: 'teacher',
+    professionDetails: {
+      institutionType: 'madrasa',
+      institutionNameAddress: 'নমুনা মাদ্রাসা, সাভার',
+      designation: 'মুদাররিস',
+    },
+    interestAreas: ['field_relief', 'first_aid'],
+    vehicle: 'motorcycle',
+    canSwim: true,
+    availability: 'on_call',
+    emergencyContact: { name: 'নমুনা অভিভাবক', mobile: '01812345678' },
+  };
+  const columnsOf = async (userId: string) =>
+    (
+      await h.db.query(
+        `SELECT to_char(date_of_birth, 'YYYY-MM-DD') AS dob, blood_group, tshirt_size, volunteering_area,
+                profession, profession_details, interest_areas, vehicle, can_swim, availability,
+                emergency_contact_name, emergency_contact_mobile
+           FROM volunteers WHERE user_id = $1`,
+        [userId],
+      )
+    ).rows[0];
+
+  it('stores every new field, the profession details as one object', async () => {
+    const d = await verifiedDraft(h);
+    const res = await submit(d.token, volunteerForm(d, FULL));
+    expect(res.status).toBe(201);
+    expect(await columnsOf(res.body.data.id)).toEqual({
+      dob: '1990-05-17',
+      blood_group: 'O+',
+      tshirt_size: 'L',
+      volunteering_area: 'own_upazila',
+      profession: 'teacher',
+      profession_details: FULL.professionDetails,
+      interest_areas: ['field_relief', 'first_aid'],
+      vehicle: 'motorcycle',
+      can_swim: true,
+      availability: 'on_call',
+      emergency_contact_name: 'নমুনা অভিভাবক',
+      emergency_contact_mobile: '01812345678',
+    });
+  });
+
+  it('accepts the minimum: only the profession, nothing else of the new data', async () => {
+    const d = await verifiedDraft(h);
+    const res = await submit(d.token, volunteerForm(d));
+    expect(res.status).toBe(201);
+    expect(await columnsOf(res.body.data.id)).toEqual({
+      dob: null,
+      blood_group: null,
+      tshirt_size: null,
+      volunteering_area: null,
+      profession: 'student',
+      profession_details: {},
+      interest_areas: [],
+      vehicle: null,
+      can_swim: null,
+      availability: null,
+      emergency_contact_name: null,
+      emergency_contact_mobile: null,
+    });
+  });
+
+  it('refuses a detail of another profession, a missing profession and a bad value, and creates nothing', async () => {
+    const cases: [Record<string, unknown>, string][] = [
+      [
+        { profession: 'student', professionDetails: { designation: 'প্রভাষক' } },
+        'professionDetails',
+      ],
+      [{ profession: 'constructor' }, 'profession'],
+      [{ profession: undefined }, 'profession'],
+      [{ bloodGroup: 'Z+' }, 'bloodGroup'],
+      [{ dateOfBirth: '2999-01-01' }, 'dateOfBirth'],
+      [{ emergencyContact: { mobile: '123' } }, 'emergencyContact.mobile'],
+      [{ interestAreas: ['media', 'media'] }, 'interestAreas'],
+      [{ experience: 'পুরনো ফিল্ড' }, 'experience'],
+    ];
+    for (const [over, path] of cases) {
+      const d = await verifiedDraft(h);
+      const res = await submit(d.token, volunteerForm(d, over));
+      expect(res.status, JSON.stringify(over)).toBe(422);
+      expect(
+        res.body.error.details.map((x: { path: string }) => x.path),
+        JSON.stringify(over),
+      ).toContain(path);
+      const users = await h.db.query('SELECT 1 FROM users WHERE mobile = $1', [d.mobile]);
+      expect(users.rowCount, JSON.stringify(over)).toBe(0);
+    }
   });
 });
 

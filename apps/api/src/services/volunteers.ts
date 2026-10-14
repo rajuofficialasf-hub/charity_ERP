@@ -1,6 +1,7 @@
 import type { Principal } from '../auth/principal';
 import type { PrismaService } from '../core/prisma.service';
 import { ApiError } from '../i18n/api-error';
+import { DETAILS_SELECT, detailsView } from './volunteer-details';
 
 /**
  * Volunteer profiles (BR-026, BR-031). So far the own profile: the volunteer sees their own NID,
@@ -36,6 +37,7 @@ export class VolunteersService {
             workDescription: true,
             previousProjects: true,
             facebookId: true,
+            ...DETAILS_SELECT,
             bankName: true,
             bankAccountName: true,
             bankAccountNumber: true,
@@ -75,6 +77,7 @@ export class VolunteersService {
       workDescription: v.workDescription,
       previousProjects: v.previousProjects,
       facebookId: v.facebookId,
+      ...detailsView(v),
       bank: compact({
         bankName: v.bankName,
         accountName: v.bankAccountName,

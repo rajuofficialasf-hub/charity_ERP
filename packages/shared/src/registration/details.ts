@@ -48,8 +48,17 @@ const optionalText = (max: number) =>
 const mobile = z.string().regex(/^01[3-9][0-9]{8}$/, { message: 'validation.mobile_format' });
 
 /** The date of birth: a real calendar date in the past, not before 1900. */
-export const dateOfBirthSchema = z.iso
-  .date({ message: 'validation.date_format' })
+export const dateOfBirthSchema = z
+  .string()
+  .regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, { message: 'validation.date_format' })
+  // a real calendar date: 1990-02-30 does not survive the round trip
+  .refine(
+    (v) => {
+      const at = new Date(`${v}T00:00:00.000Z`);
+      return !Number.isNaN(at.getTime()) && at.toISOString().slice(0, 10) === v;
+    },
+    { message: 'validation.date_format' },
+  )
   .refine((v) => v >= '1900-01-01', { message: 'validation.date_format' })
   .refine((v) => v <= new Date().toISOString().slice(0, 10), { message: 'validation.date_future' });
 
@@ -150,7 +159,10 @@ export function parseProfessionDetails(
   details: unknown,
 ): { success: true; data: Record<string, unknown> } | { success: false; issues: DetailsIssue[] } {
   if (!Object.hasOwn(PROFESSION_DETAILS, profession))
-    return { success: false, issues: [{ path: ['profession'], message: 'validation.option_unknown' }] };
+    return {
+      success: false,
+      issues: [{ path: ['profession'], message: 'validation.option_unknown' }],
+    };
   const schema = PROFESSION_DETAILS[profession as Profession];
   const parsed = schema.safeParse(details ?? {});
   if (parsed.success) return { success: true, data: parsed.data };

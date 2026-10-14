@@ -355,3 +355,159 @@ describe('contact changes', () => {
     expect((await sendCode(a.session, randomUUID())).status).toBe(404);
   });
 });
+
+describe('the personal, profession and skills fields (O-65, D-092; BR-247)', () => {
+  const columnsOf = async (volunteerId: string) =>
+    (
+      await h.db.query(
+        `SELECT to_char(date_of_birth, 'YYYY-MM-DD') AS dob, blood_group, tshirt_size, volunteering_area,
+                profession, profession_details, interest_areas, vehicle, can_swim, availability,
+                emergency_contact_name, emergency_contact_mobile
+           FROM volunteers WHERE id = $1`,
+        [volunteerId],
+      )
+    ).rows[0];
+
+  it('each new field is asked for, approved by the Dhaka RPM and written', async () => {
+    const v = await approvedVolunteer();
+    const rpm = await as(world.users.rpmDhaka);
+    const cases: [string, unknown][] = [
+      ['bloodGroup', 'AB-'],
+      ['dateOfBirth', '1992-03-04'],
+      ['tshirtSize', 'XL'],
+      ['volunteeringArea', 'own_district'],
+      [
+        'profession',
+        {
+          profession: 'businessman',
+          details: { businessName: 'নমুনা স্টোর', businessType: 'retail' },
+        },
+      ],
+      [
+        'skills',
+        {
+          interestAreas: ['survey', 'media'],
+          vehicle: 'bicycle',
+          canSwim: false,
+          availability: 'holidays',
+        },
+      ],
+      ['emergencyContact', { name: 'নমুনা অভিভাবক', mobile: '01712345678' }],
+    ];
+    for (const [field, newValue] of cases) {
+      const created = await ask(v.session, { field, newValue });
+      expect(created.status, field).toBe(201);
+      expect((await decide(rpm, created.body.data.id, { decision: 'approve' })).status, field).toBe(
+        200,
+      );
+    }
+    expect(await columnsOf(v.volunteerId)).toEqual({
+      dob: '1992-03-04',
+      blood_group: 'AB-',
+      tshirt_size: 'XL',
+      volunteering_area: 'own_district',
+      profession: 'businessman',
+      profession_details: { businessName: 'নমুনা স্টোর', businessType: 'retail' },
+      interest_areas: ['survey', 'media'],
+      vehicle: 'bicycle',
+      can_swim: false,
+      availability: 'holidays',
+      emergency_contact_name: 'নমুনা অভিভাবক',
+      emergency_contact_mobile: '01712345678',
+    });
+  });
+
+  it('a new profession replaces the old details, none of them stays', async () => {
+    const v = await approvedVolunteer();
+    await h.db.query(
+      `UPDATE volunteers SET profession = 'imam', profession_details = '{"mosqueName":"Old","role":"khatib"}' WHERE id = $1`,
+      [v.volunteerId],
+    );
+    const created = await ask(v.session, {
+      field: 'profession',
+      newValue: { profession: 'teacher', details: { designation: 'প্রভাষক' } },
+    });
+    expect(created.status).toBe(201);
+    const rpm = await as(world.users.rpmDhaka);
+    expect((await decide(rpm, created.body.data.id, { decision: 'approve' })).status).toBe(200);
+    expect(await columnsOf(v.volunteerId)).toMatchObject({
+      profession: 'teacher',
+      profession_details: { designation: 'প্রভাষক' },
+    });
+  });
+
+  it('refuses a bad value or a detail of another profession with 422, and a second open request with 409', async () => {
+    const v = await approvedVolunteer();
+    for (const body of [
+      { field: 'bloodGroup', newValue: 'Z+' },
+      { field: 'dateOfBirth', newValue: '2999-01-01' },
+      { field: 'skills', newValue: { vehicle: 'car' } },
+      { field: 'emergencyContact', newValue: { mobile: '1' } },
+      { field: 'profession', newValue: { profession: 'imam', details: { sector: 'x' } } },
+      { field: 'profession', newValue: { profession: '__proto__', details: {} } },
+    ])
+      expect((await ask(v.session, body)).status, JSON.stringify(body)).toBe(422);
+    expect((await ask(v.session, { field: 'tshirtSize', newValue: 'M' })).status).toBe(201);
+    expect((await ask(v.session, { field: 'tshirtSize', newValue: 'L' })).status).toBe(409);
+  });
+
+  it('the decision shows a protected value only to an approver with the identity class', async () => {
+    const principal = { userId: world.users.rpmDhaka } as Principal;
+    const scope = makeScope(world.users.rpmDhaka, 'edit_request.approve', 'volunteer', {
+      ...NO_INSTANCES,
+      global: true,
+    });
+    const values: [string, unknown][] = [
+      ['bloodGroup', 'B+'],
+      ['dateOfBirth', '1991-01-01'],
+      ['emergencyContact', { name: 'অভিভাবক', mobile: '01712345678' }],
+      ['tshirtSize', 'S'],
+    ];
+    const reject = async (field: string, newValue: unknown, classes: Set<string>) => {
+      const v = await approvedVolunteer();
+      const created = await ask(v.session, { field, newValue });
+      return h.container.changeRequests.decide(
+        principal,
+        scope,
+        created.body.data.id,
+        { decision: 'reject', reason: 'যাচাই করা যায়নি' },
+        classes,
+      );
+    };
+    for (const [field, newValue] of values) {
+      const without = await reject(field, newValue, new Set<string>());
+      expect(Object.hasOwn(without, 'newValue'), `${field} without the class`).toBe(
+        field === 'tshirtSize',
+      );
+      const withClass = await reject(field, newValue, new Set(['volunteer.identity']));
+      expect(withClass.newValue, `${field} with the class`).toEqual(newValue);
+    }
+  });
+
+  it('the own profile returns the new data to its volunteer', async () => {
+    const v = await approvedVolunteer();
+    await h.db.query(
+      `UPDATE volunteers SET blood_group = 'A-', date_of_birth = '1988-12-31', tshirt_size = 'M',
+              volunteering_area = 'anywhere', profession = 'student', profession_details = '{"institutionName":"নমুনা"}',
+              interest_areas = '["media","first_aid"]', vehicle = 'none', can_swim = true,
+              availability = 'anytime', emergency_contact_name = 'অভিভাবক', emergency_contact_mobile = '01712345678'
+        WHERE id = $1`,
+      [v.volunteerId],
+    );
+    const res = await api().get('/api/v1/volunteers/me').set(bearer(v.session));
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({
+      bloodGroup: 'A-',
+      dateOfBirth: '1988-12-31',
+      tshirtSize: 'M',
+      volunteeringArea: 'anywhere',
+      profession: 'student',
+      professionDetails: { institutionName: 'নমুনা' },
+      interestAreas: ['media', 'first_aid'],
+      vehicle: 'none',
+      canSwim: true,
+      availability: 'anytime',
+      emergencyContact: { name: 'অভিভাবক', mobile: '01712345678' },
+    });
+  });
+});

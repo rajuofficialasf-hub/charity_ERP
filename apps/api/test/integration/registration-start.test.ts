@@ -469,10 +469,25 @@ describe('logs', () => {
         registrationId: r.registrationId,
         nid,
         bank: { branchName: 'Savar Branch Secret' },
+        dateOfBirth: '1971-02-03',
+        bloodGroup: 'AB-',
+        emergencyContact: { name: 'Secret Guardian', mobile: '01712340000' },
+        professionDetails: { institutionName: 'Secret Institution' },
       });
     const text = logLines.join('');
     expect(text.length).toBeGreaterThan(0);
-    for (const secret of [r.token, CODE, r.mobile, r.email, nid, 'Savar Branch Secret'])
+    for (const secret of [
+      r.token,
+      CODE,
+      r.mobile,
+      r.email,
+      nid,
+      'Savar Branch Secret',
+      '1971-02-03',
+      'Secret Guardian',
+      '01712340000',
+      'Secret Institution',
+    ])
       expect(text).not.toContain(secret);
   });
 });

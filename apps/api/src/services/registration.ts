@@ -24,6 +24,7 @@ import type { Clock } from '../core/clock';
 import type { PrismaService, Tx } from '../core/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
+import { registrationDetailsColumns } from './volunteer-details';
 import type { RegistrationEvents } from '../notifications/registration-events';
 
 type Draft = NonNullable<Awaited<ReturnType<PrismaService['registrationDraft']['findUnique']>>>;
@@ -494,10 +495,14 @@ function volunteerColumns(
     unionId: body.unionId,
     addressLine: body.addressLine ?? null,
     education: body.education ?? null,
-    experience: body.experience ?? null,
-    workDescription: body.workDescription ?? null,
+    // the experience and the work description are covered by the profession now (O-65): a reused
+    // account loses the old ones too
+    experience: null,
+    workDescription: null,
     previousProjects: body.previousProjects ?? null,
     facebookId: body.facebookId ?? null,
+    // the personal, profession and skills data; whatever the form left out is cleared
+    ...registrationDetailsColumns(body),
     // nothing of the earlier registration's bank details or reference survives a new one
     bankName: null,
     bankAccountName: null,

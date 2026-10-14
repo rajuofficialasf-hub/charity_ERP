@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { principalOf, scopeOf } from '../auth/principal';
 import type { Container } from '../container';
 import { defineRoute, type RouteDeps } from '../openapi/define-route';
+import { volunteerDetailsShape } from './volunteer-details-schema';
 
 const text = z.string().nullable();
 /** The own profile as the contract's OwnVolunteerProfile; only these fields leave. */
@@ -31,6 +32,7 @@ const ownProfile = z.object({
   workDescription: text,
   previousProjects: text,
   facebookId: text,
+  ...volunteerDetailsShape(false),
   bank: z.object({
     bankName: z.string().optional(),
     accountName: z.string().optional(),

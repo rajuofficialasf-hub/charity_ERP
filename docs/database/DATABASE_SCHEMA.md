@@ -705,6 +705,12 @@ Index: (beneficiary_id, recorded_at desc).
 | experience, work_description, previous_projects | text | yes | — | — |
 | facebook_id | text | yes | — | — |
 | bank_name, bank_account_name, bank_account_number, bank_branch_name, bank_routing_number | text | yes | — | sensitive class `volunteer.bank`; the branch was added by migration `20261013100000_volunteer_bank_branch` (O-64) |
+| blood_group, date_of_birth, emergency_contact_name, emergency_contact_mobile | text, date, text, text | yes | — | personal data of O-65 (D-092, BR-246); sensitive class `volunteer.identity`; check constraints on the blood group list, the date from 1900 and the mobile format; migration `20261014000000_volunteer_profile_details` |
+| tshirt_size, volunteering_area, vehicle, availability | text | yes | — | fixed lists of `@css/shared/registration` enforced by check constraints |
+| profession | text | yes | — | one of student, teacher, imam, businessman, job_seeker, service_holder |
+| profession_details | jsonb | no | `{}` | an object with the fields of the chosen profession only (strict zod schema per profession; a changed profession replaces it) |
+| interest_areas | jsonb | no | `[]` | an array of the fixed interest areas |
+| can_swim | boolean | yes | — | yes or no |
 | reference_nid | text | yes | — | main volunteer's NID (team members) |
 | reference_volunteer_id | uuid | yes | — | FK volunteers, resolved from reference_nid |
 | photo_file_id | uuid | yes | — | FK files |
