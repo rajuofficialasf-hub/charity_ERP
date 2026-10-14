@@ -17,11 +17,13 @@
   "steps": {
     "label": "Registration steps",
     "contact": "Contact",
-    "identity": "Identity and address",
-    "work": "Work",
+    "identity": "Identity",
     "account": "Account",
     "photos": "Photos",
-    "workplace": "Workplace"
+    "workplace": "Workplace",
+    "address": "Address",
+    "profession": "Profession",
+    "skills": "Skills and time"
   },
   "verify": {
     "button": "Verify",
@@ -89,7 +91,27 @@
     "confirm_password": "Repeat the password",
     "submit": "Submit",
     "missing_photo": "Add the photo.",
-    "photo_max": "8 MB"
+    "photo_max": "8 MB",
+    "date_of_birth": "Date of birth",
+    "blood_group": "Blood group",
+    "tshirt_size": "T-shirt size",
+    "volunteering_area": "Where you want to serve",
+    "profession": "What is your current profession?",
+    "interest_areas": "Areas of interest",
+    "vehicle": "Do you have your own vehicle?",
+    "can_swim": "Can you swim?",
+    "availability": "When can you give time?",
+    "skills": "Skills and time",
+    "emergency_contact": "Emergency contact",
+    "emergency_name": "Guardian's name",
+    "emergency_mobile": "Guardian's mobile number",
+    "yes": "Yes",
+    "no": "No",
+    "choose": "Choose",
+    "profession_group": "Profession",
+    "vehicle_short": "Vehicle",
+    "swimming_short": "Swimming",
+    "availability_short": "Availability"
   },
   "done": {
     "title": "Registration submitted",
@@ -118,7 +140,8 @@
       "address": "Address",
       "work": "Work details",
       "bank": "Bank details",
-      "photos": "Photos"
+      "photos": "Photos",
+      "skills": "Skills and time"
     },
     "edit": {
       "button": "Edit",
@@ -147,6 +170,107 @@
       "active": "Active",
       "blocked": "Blocked",
       "deactivated": "Deactivated"
+    }
+  },
+  "lists": {
+    "volunteering_area": {
+      "own_union": "My own union",
+      "own_upazila": "My own upazila",
+      "own_district": "My own district",
+      "anywhere": "Anywhere in the country"
+    },
+    "vehicle": {
+      "bicycle": "Bicycle",
+      "motorcycle": "Motorcycle",
+      "none": "None"
+    },
+    "availability": {
+      "holidays": "Holidays only",
+      "anytime": "Any time",
+      "on_call": "On an emergency call"
+    },
+    "interest": {
+      "field_relief": "Field relief and aid distribution",
+      "survey": "Survey and verification",
+      "data_entry": "Data entry and office work",
+      "media": "Media, photography and videography",
+      "first_aid": "First aid and rescue"
+    },
+    "profession": {
+      "student": "Student",
+      "teacher": "Teacher",
+      "imam": "Imam or muazzin",
+      "businessman": "Businessman",
+      "job_seeker": "Job seeker",
+      "service_holder": "Service holder or other"
+    },
+    "option": {
+      "educationMedium": {
+        "general": "General",
+        "aliya": "Aliya madrasa",
+        "qawmi": "Qawmi madrasa",
+        "technical": "Technical"
+      },
+      "institutionType": {
+        "school": "School",
+        "college": "College",
+        "university": "University",
+        "madrasa": "Madrasa"
+      },
+      "role": {
+        "khatib": "Khatib",
+        "imam": "Imam",
+        "muazzin": "Muazzin"
+      },
+      "mosqueType": {
+        "jame": "Jame mosque",
+        "panjegana": "Panjegana mosque"
+      },
+      "businessType": {
+        "retail": "Retail",
+        "wholesale": "Wholesale",
+        "service": "Service",
+        "agriculture": "Agriculture",
+        "it_online": "IT and online",
+        "other": "Other"
+      }
+    },
+    "profession_field": {
+      "student": {
+        "educationMedium": "Education medium",
+        "institutionName": "Institution name",
+        "currentClass": "Current class, year or jamat",
+        "subject": "Department or subject",
+        "institutionLocation": "Institution location (district, upazila)"
+      },
+      "teacher": {
+        "institutionType": "Institution type",
+        "institutionNameAddress": "Institution name and address",
+        "designation": "Designation",
+        "teachingSubject": "Teaching subject"
+      },
+      "imam": {
+        "role": "Role",
+        "mosqueName": "Mosque name",
+        "mosqueType": "Mosque type",
+        "mosqueAddress": "Full address of the mosque (village or area, union, upazila)"
+      },
+      "businessman": {
+        "businessName": "Business name",
+        "businessType": "Business type",
+        "businessAddress": "Address or market name"
+      },
+      "job_seeker": {
+        "highestQualification": "Highest qualification",
+        "skills": "Special skills (computer, driving, accounting…)",
+        "fullTimeAvailable": "Can you give full time in an emergency?"
+      },
+      "service_holder": {
+        "sector": "Profession or sector",
+        "organization": "Organization",
+        "designation": "Designation",
+        "workplaceLocation": "Workplace area"
+      }
     }
   }
 }

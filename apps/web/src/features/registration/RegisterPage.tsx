@@ -16,7 +16,14 @@ import {
   stepOf,
   submitBody,
 } from './form-state';
-import { AccountStep, IdentityStep, PhotosStep, WorkStep } from './FormSteps';
+import {
+  AccountStep,
+  AddressStep,
+  IdentityStep,
+  PhotosStep,
+  ProfessionStep,
+  SkillsStep,
+} from './FormSteps';
 import {
   type Draft,
   failureOf,
@@ -259,7 +266,9 @@ export function RegisterPage() {
                 />
               )}
               {key === 'identity' && <IdentityStep values={values} set={set} errors={errors} />}
-              {key === 'work' && <WorkStep values={values} set={set} errors={errors} />}
+              {key === 'address' && <AddressStep values={values} set={set} errors={errors} />}
+              {key === 'profession' && <ProfessionStep values={values} set={set} errors={errors} />}
+              {key === 'skills' && <SkillsStep values={values} set={set} errors={errors} />}
               {key === 'account' && <AccountStep values={values} set={set} errors={errors} />}
               {key === 'photos' && draft && (
                 <PhotosStep draft={draft} errors={errors} onPhoto={photo} />

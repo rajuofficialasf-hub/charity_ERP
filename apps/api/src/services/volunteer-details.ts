@@ -1,4 +1,10 @@
-import { parseProfessionDetails, type Profession } from '@css/shared/registration';
+import {
+  type EmergencyContact,
+  interestAreasSchema,
+  parseProfessionDetails,
+  type SkillsValue,
+} from '@css/shared/registration';
+import { z } from 'zod';
 import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 
@@ -34,8 +40,9 @@ export function detailsView(v: DetailsRow) {
     tshirtSize: v.tshirtSize,
     volunteeringArea: v.volunteeringArea,
     profession: v.profession,
-    professionDetails: v.professionDetails as Record<string, unknown>,
-    interestAreas: v.interestAreas as string[],
+    // JSON columns, parsed at the boundary (the database checks their type)
+    professionDetails: z.record(z.string(), z.unknown()).parse(v.professionDetails),
+    interestAreas: interestAreasSchema.parse(v.interestAreas),
     vehicle: v.vehicle,
     canSwim: v.canSwim,
     availability: v.availability,
@@ -101,16 +108,11 @@ export function detailsUpdate(field: string, value: unknown): Prisma.VolunteerUp
     case 'dateOfBirth':
       return { dateOfBirth: asDate(value as string) };
     case 'profession': {
-      const v = value as { profession: Profession; details?: unknown };
+      const v = value as { profession: string; details?: unknown };
       return { profession: v.profession, professionDetails: detailsOf(v.profession, v.details) };
     }
     case 'skills': {
-      const v = value as {
-        interestAreas?: string[];
-        vehicle?: string;
-        canSwim?: boolean;
-        availability?: string;
-      };
+      const v = value as SkillsValue;
       return {
         interestAreas: v.interestAreas ?? [],
         vehicle: v.vehicle ?? null,
@@ -119,7 +121,7 @@ export function detailsUpdate(field: string, value: unknown): Prisma.VolunteerUp
       };
     }
     case 'emergencyContact': {
-      const v = value as { name?: string; mobile?: string };
+      const v = value as EmergencyContact;
       return { emergencyContactName: v.name ?? null, emergencyContactMobile: v.mobile ?? null };
     }
     default:

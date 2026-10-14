@@ -88,32 +88,39 @@ export const emergencyContactSchema = z.strictObject({
 });
 export type EmergencyContact = z.infer<typeof emergencyContactSchema>;
 
+/** The options of the profession fields that are a choice, in the order the form shows them. */
+export const DETAIL_OPTIONS = {
+  educationMedium: ['general', 'aliya', 'qawmi', 'technical'],
+  institutionType: ['school', 'college', 'university', 'madrasa'],
+  role: ['khatib', 'imam', 'muazzin'],
+  mosqueType: ['jame', 'panjegana'],
+  businessType: ['retail', 'wholesale', 'service', 'agriculture', 'it_online', 'other'],
+} as const;
+
 /** The own fields of each profession (all optional; an unknown field is refused). */
 export const PROFESSION_DETAILS = {
   student: z.strictObject({
-    educationMedium: z.enum(['general', 'aliya', 'qawmi', 'technical']).optional(),
+    educationMedium: z.enum(DETAIL_OPTIONS.educationMedium).optional(),
     institutionName: optionalText(200),
     currentClass: optionalText(100),
     subject: optionalText(200),
     institutionLocation: optionalText(300),
   }),
   teacher: z.strictObject({
-    institutionType: z.enum(['school', 'college', 'university', 'madrasa']).optional(),
+    institutionType: z.enum(DETAIL_OPTIONS.institutionType).optional(),
     institutionNameAddress: optionalText(400),
     designation: optionalText(200),
     teachingSubject: optionalText(200),
   }),
   imam: z.strictObject({
-    role: z.enum(['khatib', 'imam', 'muazzin']).optional(),
+    role: z.enum(DETAIL_OPTIONS.role).optional(),
     mosqueName: optionalText(200),
-    mosqueType: z.enum(['jame', 'panjegana']).optional(),
+    mosqueType: z.enum(DETAIL_OPTIONS.mosqueType).optional(),
     mosqueAddress: optionalText(400),
   }),
   businessman: z.strictObject({
     businessName: optionalText(200),
-    businessType: z
-      .enum(['retail', 'wholesale', 'service', 'agriculture', 'it_online', 'other'])
-      .optional(),
+    businessType: z.enum(DETAIL_OPTIONS.businessType).optional(),
     businessAddress: optionalText(400),
   }),
   job_seeker: z.strictObject({
@@ -191,4 +198,3 @@ export const professionValueSchema = z
     }
     return { profession: value.profession, details: parsed.data };
   });
-export type ProfessionValue = z.output<typeof professionValueSchema>;

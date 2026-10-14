@@ -5,10 +5,24 @@ import type {
   RegistrationSubmitRequest,
 } from '@css/shared/registration';
 import { type Address, EMPTY_ADDRESS } from './AddressFields';
+import {
+  EMPTY_EMERGENCY,
+  EMPTY_PROFESSION,
+  EMPTY_SKILLS,
+  emergencyValue,
+  type EmergencyState,
+  professionDetailsOf,
+  type ProfessionState,
+  skillsValue,
+  type SkillsState,
+} from './ProfileInputs';
 
-/** The steps of each kind (UX-16, UX-18, O-64): the photos are always the last one. */
+/**
+ * The steps of each kind (UX-16, UX-18, O-64, O-65): the contacts first, the photos always last.
+ * A volunteer gives the identity, the address, the profession and the skills in between.
+ */
 export const STEPS = {
-  volunteer: ['contact', 'identity', 'work', 'account', 'photos'],
+  volunteer: ['contact', 'identity', 'address', 'profession', 'skills', 'account', 'photos'],
   staff: ['contact', 'account', 'photos'],
 } as const satisfies Record<RegistrationKind, readonly string[]>;
 export type StepKey = (typeof STEPS)[RegistrationKind][number];
@@ -19,13 +33,8 @@ export const PHOTOS: Record<RegistrationKind, readonly PhotoSlot[]> = {
   staff: ['photo'],
 };
 
-export const TEXT_FIELDS = [
-  'education',
-  'experience',
-  'workDescription',
-  'previousProjects',
-  'facebookId',
-] as const;
+/** The optional texts that follow the profession fields (the work details of earlier forms). */
+export const TEXT_FIELDS = ['education', 'previousProjects', 'facebookId'] as const;
 
 /** Everything the steps collect; held in the page only (nothing is stored on the device). */
 export interface RegistrationValues {
@@ -38,11 +47,16 @@ export interface RegistrationValues {
   email: string;
   address: Address;
   addressLine: string;
+  volunteeringArea: string;
+  dateOfBirth: string;
+  bloodGroup: string;
+  tshirtSize: string;
   education: string;
-  experience: string;
-  workDescription: string;
   previousProjects: string;
   facebookId: string;
+  profession: ProfessionState;
+  skills: SkillsState;
+  emergency: EmergencyState;
   designation: string;
   password: string;
   confirm: string;
@@ -59,11 +73,16 @@ export const EMPTY_VALUES: RegistrationValues = {
   email: '',
   address: EMPTY_ADDRESS,
   addressLine: '',
+  volunteeringArea: '',
+  dateOfBirth: '',
+  bloodGroup: '',
+  tshirtSize: '',
   education: '',
-  experience: '',
-  workDescription: '',
   previousProjects: '',
   facebookId: '',
+  profession: EMPTY_PROFESSION,
+  skills: EMPTY_SKILLS,
+  emergency: EMPTY_EMERGENCY,
   designation: '',
   password: '',
   confirm: '',
@@ -79,10 +98,21 @@ export type Problem =
   | 'errors.validation.required'
   | 'errors.validation.nid_format'
   | 'errors.validation.mobile_format'
+  | 'errors.validation.date_format'
+  | 'errors.validation.date_future'
   | 'errors.validation.password_too_short'
   | 'errors.validation.password_uppercase_digit'
   | 'auth.password.mismatch'
   | 'registration.form.missing_photo';
+
+/** The problem of a date of birth, or null: a real date, not in the future, not before 1900. */
+function dateProblem(value: string): Problem | null {
+  if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(value)) return 'errors.validation.date_format';
+  const at = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(at.getTime()) || at.toISOString().slice(0, 10) !== value || value < '1900-01-01')
+    return 'errors.validation.date_format';
+  return value > new Date().toISOString().slice(0, 10) ? 'errors.validation.date_future' : null;
+}
 
 /** The fields of a step that are not filled in as the API needs them. */
 export function checkStep(
@@ -104,9 +134,17 @@ export function checkStep(
     if (!NID.test(v.nid)) problems.nid = 'errors.validation.nid_format';
     if (v.whatsapp && !MOBILE.test(v.whatsapp))
       problems.whatsapp = 'errors.validation.mobile_format';
+    if (v.dateOfBirth) {
+      const bad = dateProblem(v.dateOfBirth);
+      if (bad) problems.dateOfBirth = bad;
+    }
+  }
+  if (step === 'address')
     for (const level of ['divisionId', 'districtId', 'upazilaId', 'unionId'] as const)
       need(level, v.address[level]);
-  }
+  if (step === 'profession') need('profession', v.profession.profession);
+  if (step === 'skills' && v.emergency.mobile && !MOBILE.test(v.emergency.mobile))
+    problems['emergencyContact.mobile'] = 'errors.validation.mobile_format';
   if (step === 'account') {
     // the checklist under the field shows the rule while typing; a refused step says it once more
     for (const problem of checkPassword(v.password, { minLength: minPasswordLength(false) }))
@@ -129,13 +167,38 @@ export function stepOf(kind: RegistrationKind, field: string): number {
   const at = (step: StepKey) => (STEPS[kind] as readonly string[]).indexOf(step);
   const root = field.split('.')[0] ?? field;
   if (['name', 'fatherName', 'designation', 'mobile', 'email'].includes(root)) return at('contact');
-  if ((TEXT_FIELDS as readonly string[]).includes(root)) return at('work');
+  if (
+    [
+      'divisionId',
+      'districtId',
+      'upazilaId',
+      'unionId',
+      'addressLine',
+      'volunteeringArea',
+    ].includes(root)
+  )
+    return at('address');
+  if (
+    (TEXT_FIELDS as readonly string[]).includes(root) ||
+    ['profession', 'professionDetails'].includes(root)
+  )
+    return at('profession');
+  if (['interestAreas', 'vehicle', 'canSwim', 'availability', 'emergencyContact'].includes(root))
+    return at('skills');
   if (['password', 'confirm'].includes(root)) return at('account');
   if ((PHOTOS.volunteer as readonly string[]).includes(root)) return at('photos');
   return kind === 'volunteer' ? at('identity') : at('contact');
 }
 
 const optional = (value: string) => value.trim() || undefined;
+
+type VolunteerSubmit = Extract<RegistrationSubmitRequest, { kind: 'volunteer' }>;
+
+/** The skills as the flat fields of the submit; whatever is not given is left out. */
+function skillFields(skills: SkillsState) {
+  const value = skillsValue(skills);
+  return value as Pick<VolunteerSubmit, 'interestAreas' | 'vehicle' | 'canSwim' | 'availability'>;
+}
 
 /** The submit body of the kind (registrationSubmitRequestSchema). */
 export function submitBody(
@@ -165,10 +228,18 @@ export function submitBody(
     upazilaId: v.address.upazilaId ?? '',
     unionId: v.address.unionId ?? '',
     addressLine: optional(v.addressLine),
+    volunteeringArea: optional(v.volunteeringArea) as VolunteerSubmit['volunteeringArea'],
+    dateOfBirth: optional(v.dateOfBirth),
+    bloodGroup: optional(v.bloodGroup) as VolunteerSubmit['bloodGroup'],
+    tshirtSize: optional(v.tshirtSize) as VolunteerSubmit['tshirtSize'],
     education: optional(v.education),
-    experience: optional(v.experience),
-    workDescription: optional(v.workDescription),
     previousProjects: optional(v.previousProjects),
     facebookId: optional(v.facebookId),
+    profession: v.profession.profession as VolunteerSubmit['profession'],
+    professionDetails: professionDetailsOf(v.profession),
+    ...skillFields(v.skills),
+    ...(Object.keys(emergencyValue(v.emergency)).length
+      ? { emergencyContact: emergencyValue(v.emergency) }
+      : {}),
   };
 }

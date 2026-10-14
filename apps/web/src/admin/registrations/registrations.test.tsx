@@ -80,6 +80,17 @@ const volunteerDetail = (over: Record<string, unknown> = {}) => ({
     workDescription: null,
     previousProjects: null,
     facebookId: null,
+    bloodGroup: 'O+',
+    dateOfBirth: '1990-05-17',
+    emergencyContact: { name: 'Guardian', mobile: '01812345678' },
+    tshirtSize: 'M',
+    volunteeringArea: 'own_union',
+    profession: 'student',
+    professionDetails: { institutionName: 'Sample School' },
+    interestAreas: ['media'],
+    vehicle: 'none',
+    canSwim: false,
+    availability: 'holidays',
     nid: '1000000000501',
     nidPhotoFileId: null,
     bank: {
@@ -345,6 +356,38 @@ describe('volunteer registration detail', () => {
     renderPage(HEAD);
     await openRow(user, 'নতুন স্বেচ্ছাসেবক (নমুনা)');
     expect(screen.getAllByText('আপনার দেখার অনুমতি নেই').length).toBeGreaterThan(0);
+  });
+
+  it('shows the personal, profession and skills data (O-65), and hides the protected ones without the class', async () => {
+    const user = userEvent.setup();
+    renderPage(RPM);
+    await openRow(user, 'নতুন স্বেচ্ছাসেবক (নমুনা)');
+    for (const text of ['17-05-1990', 'O+', 'Guardian, 01812345678', 'নিজ ইউনিয়ন', 'ছাত্র'])
+      expect(screen.getByText(text)).toBeInTheDocument();
+    expect(screen.getByText(/Sample School/)).toBeInTheDocument();
+    expect(screen.getByText(/মিডিয়া, ফটোগ্রাফি ও ভিডিওগ্রাফি/)).toBeInTheDocument();
+  });
+
+  it('shows that a masked blood group, date of birth and emergency contact are not visible', async () => {
+    const user = userEvent.setup();
+    const masked = volunteerDetail();
+    const {
+      bloodGroup: _blood,
+      dateOfBirth: _dob,
+      emergencyContact: _contact,
+      nid: _nid,
+      nidPhotoFileId: _photo,
+      ...rest
+    } = masked.volunteer;
+    detail = { ...masked, volunteer: rest };
+    renderPage(HEAD);
+    await openRow(user, 'নতুন স্বেচ্ছাসেবক (নমুনা)');
+    // the NID, the date of birth, the blood group and the emergency contact
+    expect(screen.getAllByText('আপনার দেখার অনুমতি নেই').length).toBeGreaterThanOrEqual(4);
+    expect(screen.queryByText('17-05-1990')).not.toBeInTheDocument();
+    expect(screen.queryByText('Guardian, 01812345678')).not.toBeInTheDocument();
+    // the other new data stays
+    expect(screen.getByText('নিজ ইউনিয়ন')).toBeInTheDocument();
   });
 
   it('shows the photo streamed by the API', async () => {

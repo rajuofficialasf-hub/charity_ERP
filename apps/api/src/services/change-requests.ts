@@ -40,6 +40,7 @@ const isContact = (field: string): field is (typeof CONTACT_FIELDS)[number] =>
   (CONTACT_FIELDS as readonly string[]).includes(field);
 const isPhoto = (field: string) => (PHOTO_FIELDS as readonly string[]).includes(field);
 /** Values an approver sees only with the field class (RBAC.md 6). */
+/** Exported for the unit test that every key is an editable field. */
 export const CLASS_OF: Record<string, string> = {
   nid: 'volunteer.identity',
   nid_photo: 'volunteer.identity',

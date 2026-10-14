@@ -495,8 +495,8 @@ function volunteerColumns(
     unionId: body.unionId,
     addressLine: body.addressLine ?? null,
     education: body.education ?? null,
-    // the experience and the work description are covered by the profession now (O-65): a reused
-    // account loses the old ones too
+    // The volunteer form has no experience or work description: the profession covers them
+    // (O-65), so a reused account clears the old values too.
     experience: null,
     workDescription: null,
     previousProjects: body.previousProjects ?? null,

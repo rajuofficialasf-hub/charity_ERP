@@ -1,10 +1,12 @@
 import { VOLUNTEER_TYPES, type VolunteerType } from '@css/shared/registration';
+import { formatDate } from '@css/shared/format';
 import { Badge } from '@css/ui';
 import { Clock } from 'lucide-react';
 import { useTranslations } from 'use-intl';
 import { AddressNames } from '../../components/AddressNames';
 import { FileImage } from '../../components/FileImage';
 import { RequestState } from './ChangeRequests';
+import { emergencyText, ProfessionText, SkillsText } from './DetailValues';
 import { type ChangeRequest, FIELD_LABEL, type OwnProfile, type RequestField } from './profile-api';
 
 /** A detail of the profile: the editable fields of a request, and the type (no request). */
@@ -87,6 +89,33 @@ export function Value({
       return <>{isVolunteerType(me.type) ? t(`form.types.${me.type}`) : me.type}</>;
     case 'name':
       return <>{me.displayName}</>;
+    case 'dateOfBirth':
+      return me.dateOfBirth ? <>{formatDate(me.dateOfBirth)}</> : empty;
+    case 'volunteeringArea':
+      return me.volunteeringArea ? (
+        <>
+          {t(
+            `lists.volunteering_area.${me.volunteeringArea}` as 'lists.volunteering_area.anywhere',
+          )}
+        </>
+      ) : (
+        empty
+      );
+    case 'profession':
+      return <ProfessionText profession={me.profession} details={me.professionDetails} />;
+    case 'skills':
+      return (
+        <SkillsText
+          interestAreas={me.interestAreas}
+          vehicle={me.vehicle}
+          canSwim={me.canSwim}
+          availability={me.availability}
+        />
+      );
+    case 'emergencyContact': {
+      const text = emergencyText(me.emergencyContact);
+      return text ? <>{text}</> : empty;
+    }
     case 'address':
       return <AddressNames address={me} />;
     case 'bank': {
@@ -113,3 +142,10 @@ export function Value({
     }
   }
 }
+
+/** The earlier work texts: shown (and asked for) only for a volunteer who has them (O-65). */
+export const LEGACY_FIELDS: readonly ProfileField[] = ['experience', 'workDescription'];
+export const hasValue = (me: OwnProfile, field: ProfileField): boolean => {
+  const value = field === 'type' ? me.type : me[field as keyof OwnProfile];
+  return typeof value === 'string' ? value !== '' : value !== null && value !== undefined;
+};

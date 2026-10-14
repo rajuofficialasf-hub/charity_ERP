@@ -1,4 +1,4 @@
-import { formatDateTime } from '@css/shared/format';
+import { formatDate, formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import {
   Alert,
@@ -16,6 +16,7 @@ import { type ReactNode, useId, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
+import { emergencyText, ProfessionText, SkillsText } from '../../features/account/DetailValues';
 import { FIELD_LABEL, type RequestField } from '../../features/account/profile-api';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -248,10 +249,48 @@ function Details({ registration: r }: { registration: RegistrationDetailView }) 
         [tf('form.address'), <AddressNames key="address" address={v} />],
         [tf('form.address_line'), v.addressLine ?? empty],
         [tf('form.education'), v.education ?? empty],
-        [tf('form.experience'), v.experience ?? empty],
-        [tf('form.work_description'), v.workDescription ?? empty],
+        // the earlier work texts only when the volunteer has them (O-65)
+        ...(v.experience ? [[tf('form.experience'), v.experience] as [string, ReactNode]] : []),
+        ...(v.workDescription
+          ? [[tf('form.work_description'), v.workDescription] as [string, ReactNode]]
+          : []),
         [tf('form.previous_projects'), v.previousProjects ?? empty],
         [tf('form.facebook'), v.facebookId ?? empty],
+        // the personal data of O-65: the protected ones are absent without the identity class
+        [
+          tf('form.date_of_birth'),
+          v.dateOfBirth === undefined ? hidden : v.dateOfBirth ? formatDate(v.dateOfBirth) : empty,
+        ],
+        [tf('form.blood_group'), v.bloodGroup === undefined ? hidden : (v.bloodGroup ?? empty)],
+        [tf('form.tshirt_size'), v.tshirtSize ?? empty],
+        [
+          tf('form.volunteering_area'),
+          v.volunteeringArea
+            ? tf(`lists.volunteering_area.${v.volunteeringArea as 'anywhere'}`)
+            : empty,
+        ],
+        [
+          tf('form.profession_group'),
+          <ProfessionText
+            key="profession"
+            profession={v.profession}
+            details={v.professionDetails}
+          />,
+        ],
+        [
+          tf('form.skills'),
+          <SkillsText
+            key="skills"
+            interestAreas={v.interestAreas}
+            vehicle={v.vehicle}
+            canSwim={v.canSwim}
+            availability={v.availability}
+          />,
+        ],
+        [
+          tf('form.emergency_contact'),
+          v.emergencyContact === undefined ? hidden : (emergencyText(v.emergencyContact) ?? empty),
+        ],
       ]
     : [
         [tf('form.designation'), r.designation ?? empty],

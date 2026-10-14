@@ -73,6 +73,7 @@ const volunteerSummary = z.object({
 });
 
 /** The registration an approver opens; NID, NID photo and bank details by field class (RBAC.md 6). */
+/** Exported for the field-mask unit test of the protected volunteer data. */
 export const registrationDetail = pendingRegistration.extend({
   mobile: nullableText,
   email: nullableText,

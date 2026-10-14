@@ -2,7 +2,7 @@ import { expectNoAxeViolations } from '@css/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ME, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
@@ -40,6 +40,17 @@ const profile = (over: Partial<OwnProfile> = {}): OwnProfile => ({
   workDescription: null,
   previousProjects: null,
   facebookId: null,
+  bloodGroup: null,
+  dateOfBirth: null,
+  tshirtSize: null,
+  volunteeringArea: null,
+  profession: null,
+  professionDetails: {},
+  interestAreas: [],
+  vehicle: null,
+  canSwim: null,
+  availability: null,
+  emergencyContact: { name: null, mobile: null },
   bank: { bankName: 'Test Bank', accountNumber: '0000111122223333', branchName: 'Savar Branch' },
   photoFileId: null,
   nidPhotoFileId: null,
@@ -180,7 +191,15 @@ describe('ProfileView of an approved volunteer', () => {
       within(nav)
         .getAllByRole('button')
         .map((b) => b.textContent),
-    ).toEqual(['Personal details', 'Contact', 'Address', 'Work details', 'Bank details', 'Photos']);
+    ).toEqual([
+      'Personal details',
+      'Contact',
+      'Address',
+      'Work details',
+      'Skills and time',
+      'Bank details',
+      'Photos',
+    ]);
     // the first section is open, the others are not shown
     expect(within(nav).getByRole('button', { name: 'Personal details' })).toHaveAttribute(
       'aria-current',
@@ -234,7 +253,9 @@ describe('ProfileView of an approved volunteer', () => {
     expect(await screen.findByText('Waiting for approval')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Edit Work details' }));
     const form = screen.getByRole('form', { name: 'Request to change Work details' });
-    expect(within(form).getByRole('checkbox', { name: 'Change Experience' })).toBeInTheDocument();
+    expect(
+      within(form).getByRole('checkbox', { name: 'Change Work in earlier projects' }),
+    ).toBeInTheDocument();
     expect(
       within(form).queryByRole('checkbox', { name: 'Change Education' }),
     ).not.toBeInTheDocument();
@@ -471,6 +492,141 @@ describe('ProfileView of an approved volunteer', () => {
       ],
     ]);
   }, 20_000);
+});
+
+describe('the personal, profession and skills data in the profile (O-65, D-092; BR-246)', () => {
+  const FULL = {
+    state: 'active' as const,
+    inAnyProject: true,
+    dateOfBirth: '1990-05-17',
+    bloodGroup: 'O+',
+    tshirtSize: 'L',
+    volunteeringArea: 'own_upazila',
+    profession: 'teacher',
+    professionDetails: { institutionType: 'madrasa', designation: 'Mudarris' },
+    interestAreas: ['field_relief', 'first_aid'],
+    vehicle: 'motorcycle',
+    canSwim: true,
+    availability: 'on_call',
+    emergencyContact: { name: 'Guardian', mobile: '01812345678' },
+    experience: null,
+    workDescription: null,
+  };
+  beforeEach(() =>
+    refreshAs({ ...ME, kind: 'volunteer', state: 'active', roles: ['volunteer_general'] }),
+  );
+
+  it('shows each new value in its section, the date in English digits', async () => {
+    const user = userEvent.setup();
+    serve(profile(FULL), () => []);
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    await screen.findByRole('navigation', { name: 'Profile sections' });
+    for (const text of ['17-05-1990', 'O+', 'L'])
+      expect(screen.getByText(text)).toBeInTheDocument();
+    await openSection(user, 'Contact');
+    expect(screen.getByText('Guardian, 01812345678')).toBeInTheDocument();
+    await openSection(user, 'Address');
+    expect(screen.getByText('My own upazila')).toBeInTheDocument();
+    await openSection(user, 'Work details');
+    const work = screen.getByRole('region', { name: 'Work details' });
+    expect(within(work).getByText('Teacher')).toBeInTheDocument();
+    expect(within(work).getByText('Institution type: Madrasa')).toBeInTheDocument();
+    expect(within(work).getByText('Designation: Mudarris')).toBeInTheDocument();
+    await openSection(user, 'Skills and time');
+    const skills = screen.getByRole('region', { name: 'Skills and time' });
+    expect(
+      within(skills).getByText(
+        'Areas of interest: Field relief and aid distribution, First aid and rescue',
+      ),
+    ).toBeInTheDocument();
+    expect(within(skills).getByText('Vehicle: Motorcycle')).toBeInTheDocument();
+    expect(within(skills).getByText('Swimming: Yes')).toBeInTheDocument();
+    expect(within(skills).getByText('Availability: On an emergency call')).toBeInTheDocument();
+  }, 20_000);
+
+  it('shows the earlier experience and work description only for a volunteer who has them', async () => {
+    const user = userEvent.setup();
+    serve(profile({ ...FULL, experience: 'Ten years in a bank' }), () => []);
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    await screen.findByRole('navigation', { name: 'Profile sections' });
+    await openSection(user, 'Work details');
+    expect(screen.getByText('Ten years in a bank')).toBeInTheDocument();
+    expect(screen.queryByText('What work you do')).not.toBeInTheDocument();
+  }, 15_000);
+
+  it('asks the profession as one request with the new details, starting from the current ones', async () => {
+    const user = userEvent.setup();
+    serve(profile(FULL), () => []);
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    const form = await startEdit(user, 'Work details');
+    await user.click(within(form).getByRole('checkbox', { name: 'Change Profession' }));
+    // it starts with what the volunteer has
+    expect(within(form).getByRole('textbox', { name: /^Designation/ })).toHaveValue('Mudarris');
+    await user.click(within(form).getByRole('button', { name: /current profession/ }));
+    await user.click(await screen.findByRole('option', { name: 'Imam or muazzin' }));
+    // the old profession's details are gone
+    expect(within(form).queryByRole('textbox', { name: /^Designation/ })).not.toBeInTheDocument();
+    await user.type(within(form).getByRole('textbox', { name: /Mosque name/ }), 'Central Mosque');
+    await user.click(within(form).getByRole('button', { name: 'Send request' }));
+    expect(await screen.findByText('The request was sent.')).toBeInTheDocument();
+    expect(calls).toEqual([
+      {
+        method: 'POST',
+        url: '/api/v1/me/change-requests',
+        body: {
+          field: 'profession',
+          newValue: { profession: 'imam', details: { mosqueName: 'Central Mosque' } },
+        },
+      },
+    ]);
+  }, 30_000);
+
+  it('asks the skills and the emergency contact as groups, and a choice as a single value', async () => {
+    const user = userEvent.setup();
+    serve(profile(FULL), () => []);
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+
+    const skills = await startEdit(user, 'Skills and time');
+    await user.click(within(skills).getByRole('checkbox', { name: 'Change Skills and time' }));
+    // the current answers are there; one is changed
+    expect(within(skills).getByRole('checkbox', { name: 'First aid and rescue' })).toBeChecked();
+    await user.click(within(skills).getByRole('checkbox', { name: 'First aid and rescue' }));
+    await user.click(within(skills).getByRole('radio', { name: 'Bicycle' }));
+    await user.click(within(skills).getByRole('button', { name: 'Send request' }));
+    expect(await screen.findByText('The request was sent.')).toBeInTheDocument();
+
+    const contact = await startEdit(user, 'Contact');
+    await user.click(within(contact).getByRole('checkbox', { name: 'Change Emergency contact' }));
+    const mobile = within(contact).getByRole('textbox', { name: /Guardian's mobile/ });
+    await user.clear(mobile);
+    await user.type(mobile, '01912345678');
+    await user.click(within(contact).getByRole('button', { name: 'Send request' }));
+    await vi.waitFor(() => expect(calls).toHaveLength(2));
+
+    const personal = await startEdit(user, 'Personal details');
+    await user.click(within(personal).getByRole('checkbox', { name: 'Change Blood group' }));
+    await user.click(within(personal).getByRole('button', { name: /Blood group/ }));
+    await user.click(await screen.findByRole('option', { name: 'AB-' }));
+    await user.click(within(personal).getByRole('button', { name: 'Send request' }));
+    await vi.waitFor(() => expect(calls).toHaveLength(3));
+
+    expect(calls.map((c) => c.body)).toEqual([
+      {
+        field: 'skills',
+        newValue: {
+          interestAreas: ['field_relief'],
+          vehicle: 'bicycle',
+          canSwim: true,
+          availability: 'on_call',
+        },
+      },
+      {
+        field: 'emergencyContact',
+        newValue: { name: 'Guardian', mobile: '01912345678' },
+      },
+      { field: 'bloodGroup', newValue: 'AB-' },
+    ]);
+  }, 60_000);
 });
 
 describe('ProfileView states', () => {

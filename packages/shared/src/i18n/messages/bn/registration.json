@@ -17,11 +17,13 @@
   "steps": {
     "label": "নিবন্ধনের ধাপ",
     "contact": "যোগাযোগ",
-    "identity": "পরিচয় ও ঠিকানা",
-    "work": "কাজ",
+    "identity": "পরিচয়",
     "account": "অ্যাকাউন্ট",
     "photos": "ছবি",
-    "workplace": "কর্মস্থল"
+    "workplace": "কর্মস্থল",
+    "address": "ঠিকানা",
+    "profession": "পেশা",
+    "skills": "দক্ষতা ও সময়"
   },
   "verify": {
     "button": "যাচাই করুন",
@@ -89,7 +91,27 @@
     "confirm_password": "পাসওয়ার্ড আবার লিখুন",
     "submit": "জমা দিন",
     "missing_photo": "ছবি দিন।",
-    "photo_max": "8 MB"
+    "photo_max": "8 MB",
+    "date_of_birth": "জন্মতারিখ",
+    "blood_group": "রক্তের গ্রুপ",
+    "tshirt_size": "টি-শার্টের সাইজ",
+    "volunteering_area": "যে এলাকায় সেবা দিতে চান",
+    "profession": "আপনার বর্তমান পেশা কী?",
+    "interest_areas": "আগ্রহের কাজের ক্ষেত্র",
+    "vehicle": "নিজের বাহন আছে কি?",
+    "can_swim": "সাঁতার জানেন কি?",
+    "availability": "কখন সময় দিতে পারবেন?",
+    "skills": "দক্ষতা ও সময়",
+    "emergency_contact": "জরুরি যোগাযোগ",
+    "emergency_name": "অভিভাবকের নাম",
+    "emergency_mobile": "অভিভাবকের মোবাইল নম্বর",
+    "yes": "হ্যাঁ",
+    "no": "না",
+    "choose": "বেছে নিন",
+    "profession_group": "পেশা",
+    "vehicle_short": "বাহন",
+    "swimming_short": "সাঁতার",
+    "availability_short": "সময়"
   },
   "done": {
     "title": "নিবন্ধন জমা হয়েছে",
@@ -118,7 +140,8 @@
       "address": "ঠিকানা",
       "work": "কাজের তথ্য",
       "bank": "ব্যাংকের তথ্য",
-      "photos": "ছবি"
+      "photos": "ছবি",
+      "skills": "দক্ষতা ও সময়"
     },
     "edit": {
       "button": "সম্পাদনা",
@@ -147,6 +170,107 @@
       "active": "সক্রিয়",
       "blocked": "ব্লক করা",
       "deactivated": "নিষ্ক্রিয়"
+    }
+  },
+  "lists": {
+    "volunteering_area": {
+      "own_union": "নিজ ইউনিয়ন",
+      "own_upazila": "নিজ উপজেলা",
+      "own_district": "নিজ জেলা",
+      "anywhere": "দেশের যেকোনো স্থান"
+    },
+    "vehicle": {
+      "bicycle": "সাইকেল",
+      "motorcycle": "মোটরসাইকেল",
+      "none": "নেই"
+    },
+    "availability": {
+      "holidays": "শুধু ছুটির দিনে",
+      "anytime": "যেকোনো সময়",
+      "on_call": "জরুরি কলের ভিত্তিতে"
+    },
+    "interest": {
+      "field_relief": "মাঠপর্যায়ে ত্রাণ ও সহায়তা বিতরণ",
+      "survey": "জরিপ ও তথ্য যাচাই",
+      "data_entry": "ডেটা এন্ট্রি ও অফিসের কাজ",
+      "media": "মিডিয়া, ফটোগ্রাফি ও ভিডিওগ্রাফি",
+      "first_aid": "প্রাথমিক চিকিৎসা ও উদ্ধারকাজ"
+    },
+    "profession": {
+      "student": "ছাত্র",
+      "teacher": "শিক্ষক",
+      "imam": "ইমাম / মুয়াজ্জিন",
+      "businessman": "ব্যবসায়ী",
+      "job_seeker": "বেকার / কর্মসন্ধানী",
+      "service_holder": "চাকরিজীবী / অন্যান্য"
+    },
+    "option": {
+      "educationMedium": {
+        "general": "জেনারেল",
+        "aliya": "আলিয়া মাদ্রাসা",
+        "qawmi": "কওমি মাদ্রাসা",
+        "technical": "কারিগরি"
+      },
+      "institutionType": {
+        "school": "স্কুল",
+        "college": "কলেজ",
+        "university": "বিশ্ববিদ্যালয়",
+        "madrasa": "মাদ্রাসা"
+      },
+      "role": {
+        "khatib": "খতিব",
+        "imam": "ইমাম",
+        "muazzin": "মুয়াজ্জিন"
+      },
+      "mosqueType": {
+        "jame": "জামে মসজিদ",
+        "panjegana": "পাঞ্জেগানা মসজিদ"
+      },
+      "businessType": {
+        "retail": "খুচরা",
+        "wholesale": "পাইকারি",
+        "service": "সেবা",
+        "agriculture": "কৃষি",
+        "it_online": "আইটি ও অনলাইন",
+        "other": "অন্যান্য"
+      }
+    },
+    "profession_field": {
+      "student": {
+        "educationMedium": "শিক্ষার মাধ্যম",
+        "institutionName": "শিক্ষাপ্রতিষ্ঠানের নাম",
+        "currentClass": "বর্তমান শ্রেণি, বর্ষ বা জামাত",
+        "subject": "বিভাগ বা বিষয়",
+        "institutionLocation": "প্রতিষ্ঠানের অবস্থান (জেলা, উপজেলা)"
+      },
+      "teacher": {
+        "institutionType": "প্রতিষ্ঠানের ধরন",
+        "institutionNameAddress": "শিক্ষাপ্রতিষ্ঠানের নাম ও ঠিকানা",
+        "designation": "পদবি",
+        "teachingSubject": "পাঠদানের বিষয়"
+      },
+      "imam": {
+        "role": "দায়িত্বের ধরন",
+        "mosqueName": "মসজিদের নাম",
+        "mosqueType": "মসজিদের ধরন",
+        "mosqueAddress": "মসজিদের পূর্ণ ঠিকানা (গ্রাম বা মহল্লা, ইউনিয়ন, উপজেলা)"
+      },
+      "businessman": {
+        "businessName": "ব্যবসা প্রতিষ্ঠানের নাম",
+        "businessType": "ব্যবসার ধরন",
+        "businessAddress": "ঠিকানা বা বাজারের নাম"
+      },
+      "job_seeker": {
+        "highestQualification": "সর্বশেষ শিক্ষাগত যোগ্যতা",
+        "skills": "বিশেষ দক্ষতা (কম্পিউটার, ড্রাইভিং, হিসাবরক্ষণ…)",
+        "fullTimeAvailable": "জরুরি কাজে পূর্ণ সময় দিতে পারবেন কি?"
+      },
+      "service_holder": {
+        "sector": "পেশা বা খাতের নাম",
+        "organization": "কর্মরত প্রতিষ্ঠানের নাম",
+        "designation": "পদবি",
+        "workplaceLocation": "কর্মস্থলের এলাকা"
+      }
     }
   }
 }

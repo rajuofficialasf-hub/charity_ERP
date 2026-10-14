@@ -37,6 +37,8 @@ export const SENSITIVE_KEYS = [
   'emergencyContactName',
   'emergencyContactMobile',
   'professionDetails',
+  // the value of a change request: it may be a protected one (NID, blood group, guardian)
+  'newValue',
   'bankAccountName',
   'bankRoutingNumber',
   'bank',

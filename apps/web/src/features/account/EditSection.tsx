@@ -13,7 +13,7 @@ import {
   REQUESTS_KEY,
   type RequestField,
 } from './profile-api';
-import { cleanValue, ValueEditor } from './ValueEditor';
+import { cleanValue, initialValue, ValueEditor } from './ValueEditor';
 
 /**
  * The edit mode of one section (T1.9d; BR-031 as amended by DECISION_LOG D-085): the person ticks
@@ -104,6 +104,8 @@ export function EditSection({
       return next;
     });
     setErrors((now) => ({ ...now, [field]: undefined }));
+    // a group starts with what the volunteer has now, so a change is an edit, not a new entry
+    if (on) setValues((now) => (field in now ? now : { ...now, [field]: initialValue(field, me) }));
   };
 
   return (

@@ -25,6 +25,17 @@ export interface OwnProfile {
   workDescription: string | null;
   previousProjects: string | null;
   facebookId: string | null;
+  bloodGroup: string | null;
+  dateOfBirth: string | null;
+  tshirtSize: string | null;
+  volunteeringArea: string | null;
+  profession: string | null;
+  professionDetails: Record<string, unknown>;
+  interestAreas: string[];
+  vehicle: string | null;
+  canSwim: boolean | null;
+  availability: string | null;
+  emergencyContact: { name: string | null; mobile: string | null };
   bank: {
     bankName?: string;
     accountName?: string;
@@ -88,6 +99,13 @@ export const FIELD_LABEL = {
   workDescription: 'form.work_description',
   previousProjects: 'form.previous_projects',
   facebookId: 'form.facebook',
+  bloodGroup: 'form.blood_group',
+  dateOfBirth: 'form.date_of_birth',
+  tshirtSize: 'form.tshirt_size',
+  volunteeringArea: 'form.volunteering_area',
+  profession: 'form.profession_group',
+  skills: 'form.skills',
+  emergencyContact: 'form.emergency_contact',
   bank: 'form.bank',
   photo: 'form.photo',
   nid_photo: 'form.nid_photo',

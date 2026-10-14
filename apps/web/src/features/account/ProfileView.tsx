@@ -1,6 +1,15 @@
 import { Alert, Button, Card, EmptyState, ErrorState, Skeleton } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
-import { Briefcase, Image, Landmark, MapPin, PencilLine, Phone, User } from 'lucide-react';
+import {
+  Briefcase,
+  Image,
+  Landmark,
+  MapPin,
+  PencilLine,
+  Phone,
+  Sparkles,
+  User,
+} from 'lucide-react';
 import { useId, useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
@@ -8,7 +17,7 @@ import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../lib/api';
 import { Corrections } from './ChangeRequests';
 import { EditSection } from './EditSection';
-import { DetailRow, type ProfileField } from './ProfileDetails';
+import { DetailRow, hasValue, LEGACY_FIELDS, type ProfileField } from './ProfileDetails';
 import { ProfileHeader } from './ProfileHeader';
 import { ProfileNav } from './ProfileNav';
 import { ownProfile, ownRequests, PROFILE_KEY, REQUESTS_KEY } from './profile-api';
@@ -16,14 +25,30 @@ import './profile.css';
 
 /** The own details by section (UX-18); the type decides the role, so it can not be requested. */
 const SECTIONS = [
-  { key: 'personal', icon: User, fields: ['name', 'fatherName', 'motherName', 'nid'] },
-  { key: 'contact', icon: Phone, fields: ['mobile', 'email', 'whatsapp', 'facebookId'] },
-  { key: 'address', icon: MapPin, fields: ['address', 'addressLine'] },
+  {
+    key: 'personal',
+    icon: User,
+    fields: ['name', 'fatherName', 'motherName', 'nid', 'dateOfBirth', 'bloodGroup', 'tshirtSize'],
+  },
+  {
+    key: 'contact',
+    icon: Phone,
+    fields: ['mobile', 'email', 'whatsapp', 'facebookId', 'emergencyContact'],
+  },
+  { key: 'address', icon: MapPin, fields: ['address', 'addressLine', 'volunteeringArea'] },
   {
     key: 'work',
     icon: Briefcase,
-    fields: ['type', 'education', 'experience', 'workDescription', 'previousProjects'],
+    fields: [
+      'type',
+      'profession',
+      'education',
+      'previousProjects',
+      'experience',
+      'workDescription',
+    ],
   },
+  { key: 'skills', icon: Sparkles, fields: ['skills'] },
   { key: 'bank', icon: Landmark, fields: ['bank'] },
   { key: 'photos', icon: Image, fields: ['photo', 'nid_photo', 'nid_photo_back'] },
 ] as const satisfies readonly { key: string; icon: unknown; fields: readonly ProfileField[] }[];
@@ -75,6 +100,8 @@ function Profile() {
   const rows = requests.data;
   const active = me.state === 'active';
   const section = SECTIONS.find((s) => s.key === current)!;
+  // the earlier work texts only for a volunteer who has them
+  const fieldsOf = [...section.fields].filter((f) => !LEGACY_FIELDS.includes(f) || hasValue(me, f));
   const title = t(`profile.sections.${section.key}`);
   const edits = (rows ?? []).filter(
     (r) => r.kind === 'profile_edit' && ['open', 'submitted'].includes(r.status),
@@ -148,7 +175,7 @@ function Profile() {
                 key={section.key}
                 me={me}
                 title={title}
-                fields={[...section.fields]}
+                fields={fieldsOf}
                 edits={edits}
                 onBusy={setBusy}
                 onCancel={() => setEditing(false)}
@@ -159,7 +186,7 @@ function Profile() {
               />
             ) : (
               <dl className="profile-list">
-                {section.fields.map((field) => (
+                {fieldsOf.map((field) => (
                   <DetailRow
                     key={field}
                     me={me}
