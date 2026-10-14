@@ -1,17 +1,22 @@
 import { checkPassword, minPasswordLength } from '@css/shared/auth';
 import {
   dateOfBirthSchema,
+  isFacebookLink,
   type PhotoSlot,
   type RegistrationKind,
   type RegistrationSubmitRequest,
 } from '@css/shared/registration';
 import { type Address, EMPTY_ADDRESS } from './AddressFields';
 import {
-  EMPTY_EMERGENCY,
+  addressStarted,
+  EMPTY_EDUCATION,
+  EMPTY_PERMANENT,
   EMPTY_PROFESSION,
   EMPTY_SKILLS,
-  emergencyValue,
-  type EmergencyState,
+  educationValue,
+  type EducationState,
+  permanentValue,
+  type PermanentState,
   professionDetailsOf,
   type ProfessionState,
   skillsValue,
@@ -20,10 +25,20 @@ import {
 
 /**
  * The steps of each kind (UX-16, UX-18, O-64, O-65): the contacts first, the photos always last.
- * A volunteer gives the identity, the address, the profession and the skills in between.
+ * A volunteer gives the identity, the address, the education, the profession and the skills in
+ * between.
  */
 export const STEPS = {
-  volunteer: ['contact', 'identity', 'address', 'profession', 'skills', 'account', 'photos'],
+  volunteer: [
+    'contact',
+    'identity',
+    'address',
+    'education',
+    'profession',
+    'skills',
+    'account',
+    'photos',
+  ],
   staff: ['contact', 'account', 'photos'],
 } as const satisfies Record<RegistrationKind, readonly string[]>;
 export type StepKey = (typeof STEPS)[RegistrationKind][number];
@@ -33,9 +48,6 @@ export const PHOTOS: Record<RegistrationKind, readonly PhotoSlot[]> = {
   volunteer: ['photo', 'nid_photo', 'nid_photo_back'],
   staff: ['photo'],
 };
-
-/** The optional texts that follow the profession fields (the work details of earlier forms). */
-export const TEXT_FIELDS = ['education', 'previousProjects', 'facebookId'] as const;
 
 /** Everything the steps collect; held in the page only (nothing is stored on the device). */
 export interface RegistrationValues {
@@ -48,16 +60,17 @@ export interface RegistrationValues {
   email: string;
   address: Address;
   addressLine: string;
+  /** The present address is the permanent one too (ticked at the start, O-66). */
+  permanentSame: boolean;
+  permanent: PermanentState;
   volunteeringArea: string;
   dateOfBirth: string;
   bloodGroup: string;
   tshirtSize: string;
-  education: string;
-  previousProjects: string;
   facebookId: string;
+  education: EducationState;
   profession: ProfessionState;
   skills: SkillsState;
-  emergency: EmergencyState;
   designation: string;
   password: string;
   confirm: string;
@@ -74,16 +87,16 @@ export const EMPTY_VALUES: RegistrationValues = {
   email: '',
   address: EMPTY_ADDRESS,
   addressLine: '',
+  permanentSame: true,
+  permanent: EMPTY_PERMANENT,
   volunteeringArea: '',
   dateOfBirth: '',
   bloodGroup: '',
   tshirtSize: '',
-  education: '',
-  previousProjects: '',
   facebookId: '',
+  education: EMPTY_EDUCATION,
   profession: EMPTY_PROFESSION,
   skills: EMPTY_SKILLS,
-  emergency: EMPTY_EMERGENCY,
   designation: '',
   password: '',
   confirm: '',
@@ -101,6 +114,8 @@ export type Problem =
   | 'errors.validation.mobile_format'
   | 'errors.validation.date_format'
   | 'errors.validation.date_future'
+  | 'errors.validation.facebook_link'
+  | 'errors.validation.out_of_range'
   | 'errors.validation.password_too_short'
   | 'errors.validation.password_uppercase_digit'
   | 'auth.password.mismatch'
@@ -136,13 +151,24 @@ export function checkStep(
       const bad = dateProblem(v.dateOfBirth);
       if (bad) problems.dateOfBirth = bad;
     }
+    if (v.facebookId.trim() && !isFacebookLink(v.facebookId.trim()))
+      problems.facebookId = 'errors.validation.facebook_link';
   }
-  if (step === 'address')
+  if (step === 'address') {
     for (const level of ['divisionId', 'districtId', 'upazilaId', 'unionId'] as const)
       need(level, v.address[level]);
+    // the permanent address is optional, but a started one needs all four levels
+    if (!v.permanentSame && addressStarted(v.permanent.address))
+      for (const level of ['divisionId', 'districtId', 'upazilaId', 'unionId'] as const)
+        if (!v.permanent.address[level])
+          problems[`permanent-${level}`] = 'errors.validation.required';
+  }
+  if (step === 'education' && v.education.passingYear) {
+    const year = Number(v.education.passingYear);
+    if (year < 1950 || year > new Date().getFullYear() + 8)
+      problems['educationDetails.passingYear'] = 'errors.validation.out_of_range';
+  }
   if (step === 'profession') need('profession', v.profession.profession);
-  if (step === 'skills' && v.emergency.mobile && !MOBILE.test(v.emergency.mobile))
-    problems['emergencyContact.mobile'] = 'errors.validation.mobile_format';
   if (step === 'account') {
     // the checklist under the field shows the rule while typing; a refused step says it once more
     for (const problem of checkPassword(v.password, { minLength: minPasswordLength(false) }))
@@ -173,15 +199,13 @@ export function stepOf(kind: RegistrationKind, field: string): number {
       'unionId',
       'addressLine',
       'volunteeringArea',
+      'permanentAddress',
     ].includes(root)
   )
     return at('address');
-  if (
-    (TEXT_FIELDS as readonly string[]).includes(root) ||
-    ['profession', 'professionDetails'].includes(root)
-  )
-    return at('profession');
-  if (['interestAreas', 'vehicle', 'canSwim', 'availability', 'emergencyContact'].includes(root))
+  if (root === 'educationDetails') return at('education');
+  if (['profession', 'professionDetails'].includes(root)) return at('profession');
+  if (['interestAreas', 'vehicle', 'canSwim', 'availability', 'emergencyFullTime'].includes(root))
     return at('skills');
   if (['password', 'confirm'].includes(root)) return at('account');
   if ((PHOTOS.volunteer as readonly string[]).includes(root)) return at('photos');
@@ -195,7 +219,30 @@ type VolunteerSubmit = Extract<RegistrationSubmitRequest, { kind: 'volunteer' }>
 /** The skills as the flat fields of the submit; whatever is not given is left out. */
 function skillFields(skills: SkillsState) {
   const value = skillsValue(skills);
-  return value as Pick<VolunteerSubmit, 'interestAreas' | 'vehicle' | 'canSwim' | 'availability'>;
+  return value as Pick<
+    VolunteerSubmit,
+    'interestAreas' | 'vehicle' | 'canSwim' | 'availability' | 'emergencyFullTime'
+  >;
+}
+
+/** The permanent address of the submit: a copy of the present one, the one typed, or none. */
+function permanentField(v: RegistrationValues): Pick<VolunteerSubmit, 'permanentAddress'> {
+  const line = optional(v.addressLine);
+  if (v.permanentSame) {
+    const { divisionId, districtId, upazilaId, unionId } = v.address;
+    if (!divisionId || !districtId || !upazilaId || !unionId) return {};
+    return {
+      permanentAddress: {
+        divisionId,
+        districtId,
+        upazilaId,
+        unionId,
+        ...(line ? { addressLine: line } : {}),
+      },
+    };
+  }
+  const typed = permanentValue(v.permanent);
+  return typed ? { permanentAddress: typed } : {};
 }
 
 /** The submit body of the kind (registrationSubmitRequestSchema). */
@@ -230,14 +277,13 @@ export function submitBody(
     dateOfBirth: optional(v.dateOfBirth),
     bloodGroup: optional(v.bloodGroup) as VolunteerSubmit['bloodGroup'],
     tshirtSize: optional(v.tshirtSize) as VolunteerSubmit['tshirtSize'],
-    education: optional(v.education),
-    previousProjects: optional(v.previousProjects),
     facebookId: optional(v.facebookId),
+    ...permanentField(v),
+    ...(Object.keys(educationValue(v.education)).length
+      ? { educationDetails: educationValue(v.education) as VolunteerSubmit['educationDetails'] }
+      : {}),
     profession: v.profession.profession as VolunteerSubmit['profession'],
     professionDetails: professionDetailsOf(v.profession),
     ...skillFields(v.skills),
-    ...(Object.keys(emergencyValue(v.emergency)).length
-      ? { emergencyContact: emergencyValue(v.emergency) }
-      : {}),
   };
 }

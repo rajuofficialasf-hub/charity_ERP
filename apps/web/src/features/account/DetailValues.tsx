@@ -5,6 +5,7 @@ import {
   PROFESSIONS,
 } from '@css/shared/registration';
 import { useTranslations } from 'use-intl';
+import { AddressNames } from '../../components/AddressNames';
 
 /**
  * The profession, the skills and the emergency contact as lines of text (DECISION_LOG O-65, D-092),
@@ -58,11 +59,13 @@ export function SkillsText({
   vehicle,
   canSwim,
   availability,
+  emergencyFullTime,
 }: {
   interestAreas: string[];
   vehicle: string | null;
   canSwim: boolean | null;
   availability: string | null;
+  emergencyFullTime: boolean | null;
 }) {
   const t = useTranslations('registration');
   const lines = [
@@ -75,6 +78,9 @@ export function SkillsText({
       ? `${t('form.vehicle_short')}: ${t(`lists.vehicle.${vehicle}` as 'lists.vehicle.none')}`
       : null,
     canSwim === null ? null : `${t('form.swimming_short')}: ${t(canSwim ? 'form.yes' : 'form.no')}`,
+    emergencyFullTime === null
+      ? null
+      : `${t('form.emergency_full_time_short')}: ${t(emergencyFullTime ? 'form.yes' : 'form.no')}`,
     availability
       ? `${t('form.availability_short')}: ${t(`lists.availability.${availability}` as 'lists.availability.anytime')}`
       : null,
@@ -86,8 +92,53 @@ export function SkillsText({
   );
 }
 
-/** The emergency contact as "name, mobile"; null when none was given. */
-export function emergencyText(contact: { name: string | null; mobile: string | null }) {
-  const text = [contact.name, contact.mobile].filter(Boolean).join(', ');
-  return text || null;
+/** The education as lines of text; "not given" when nothing was given. */
+export function EducationText({ education }: { education: Record<string, unknown> }) {
+  const t = useTranslations('registration');
+  const text = (key: string) => {
+    const v = education[key];
+    return typeof v === 'string' && v ? v : null;
+  };
+  const qualification = text('highestQualification');
+  const status = text('status');
+  const lines = [
+    qualification
+      ? `${t('form.highest_qualification')}: ${t(`lists.qualification.${qualification}` as 'lists.qualification.ssc')}`
+      : null,
+    text('institutionName') ? `${t('form.institution_name')}: ${text('institutionName')}` : null,
+    text('subject') ? `${t('form.edu_subject')}: ${text('subject')}` : null,
+    typeof education.passingYear === 'number'
+      ? `${t('form.passing_year')}: ${education.passingYear}`
+      : null,
+    text('result') ? `${t('form.result')}: ${text('result')}` : null,
+    status
+      ? `${t('form.edu_status')}: ${t(`lists.education_status.${status}` as 'lists.education_status.studying')}`
+      : null,
+  ].filter((line): line is string => line !== null);
+  return lines.length ? (
+    <Lines lines={lines} />
+  ) : (
+    <span className="profile-empty">{t('profile.empty')}</span>
+  );
+}
+
+/** The permanent address: the village or house line, then the names of the four levels. */
+export function PermanentAddressText({ address }: { address: Record<string, unknown> | null }) {
+  const t = useTranslations('registration');
+  if (!address) return <span className="profile-empty">{t('profile.empty')}</span>;
+  const id = (key: string) => (typeof address[key] === 'string' ? (address[key] as string) : null);
+  const line = id('addressLine');
+  return (
+    <>
+      {line ? `${line}, ` : ''}
+      <AddressNames
+        address={{
+          divisionId: id('divisionId'),
+          districtId: id('districtId'),
+          upazilaId: id('upazilaId'),
+          unionId: id('unionId'),
+        }}
+      />
+    </>
+  );
 }

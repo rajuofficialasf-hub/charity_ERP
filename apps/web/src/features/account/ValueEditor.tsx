@@ -3,12 +3,16 @@ import { DateField, Select, TextField } from '@css/ui';
 import { useTranslations } from 'use-intl';
 import { type Address, AddressFields, EMPTY_ADDRESS } from '../registration/AddressFields';
 import {
-  EMPTY_EMERGENCY,
+  EducationFields,
+  EMPTY_EDUCATION,
+  EMPTY_PERMANENT,
   EMPTY_PROFESSION,
   EMPTY_SKILLS,
-  EmergencyContactFields,
-  emergencyValue,
-  type EmergencyState,
+  educationValue,
+  type EducationState,
+  PermanentAddressFields,
+  permanentValue,
+  type PermanentState,
   ProfessionFields,
   type ProfessionState,
   professionValue,
@@ -33,7 +37,7 @@ const NUMERIC = new Set<RequestField>(['nid', 'whatsapp', 'mobile']);
 
 /**
  * The input for the new value of one field (DECISION_LOG D-085, O-65): a text, a choice, a date,
- * the address cascade, the bank details, or one of the groups (profession, skills, emergency
+ * the address cascade, the bank details, or one of the groups (profession, skills, education,
  * contact) with the same inputs as the registration; photos are uploaded by their own field. The
  * value is held as the form needs it and turned into what the API expects as `newValue` by
  * `cleanValue`.
@@ -76,12 +80,20 @@ export function ValueEditor({
         errors={error ? { interestAreas: error } : {}}
       />
     );
-  if (field === 'emergencyContact')
+  if (field === 'educationDetails')
     return (
-      <EmergencyContactFields
-        value={(value as EmergencyState | undefined) ?? EMPTY_EMERGENCY}
+      <EducationFields
+        value={(value as EducationState | undefined) ?? EMPTY_EDUCATION}
         onChange={onChange}
-        errors={error ? { 'emergencyContact.mobile': error } : {}}
+        errors={error ? { 'educationDetails.highestQualification': error } : {}}
+      />
+    );
+  if (field === 'permanentAddress')
+    return (
+      <PermanentAddressFields
+        value={(value as PermanentState | undefined) ?? EMPTY_PERMANENT}
+        onChange={onChange}
+        errors={error ? { 'permanent-divisionId': error } : {}}
       />
     );
   if (field === 'bloodGroup' || field === 'tshirtSize' || field === 'volunteeringArea') {
@@ -173,12 +185,33 @@ export function initialValue(field: RequestField, me: OwnProfile): unknown {
         vehicle: me.vehicle ?? '',
         canSwim: me.canSwim === null ? '' : me.canSwim ? 'yes' : 'no',
         availability: me.availability ?? '',
+        emergencyFullTime: me.emergencyFullTime === null ? '' : me.emergencyFullTime ? 'yes' : 'no',
       } satisfies SkillsState;
-    case 'emergencyContact':
+    case 'educationDetails': {
+      const e = me.educationDetails;
+      const text = (k: string) => (typeof e[k] === 'string' ? (e[k] as string) : '');
       return {
-        name: me.emergencyContact.name ?? '',
-        mobile: me.emergencyContact.mobile ?? '',
-      } satisfies EmergencyState;
+        highestQualification: text('highestQualification'),
+        institutionName: text('institutionName'),
+        subject: text('subject'),
+        passingYear: typeof e.passingYear === 'number' ? String(e.passingYear) : '',
+        result: text('result'),
+        status: text('status') as EducationState['status'],
+      } satisfies EducationState;
+    }
+    case 'permanentAddress': {
+      const p = me.permanentAddress;
+      const id = (k: string) => (p && typeof p[k] === 'string' ? (p[k] as string) : null);
+      return {
+        address: {
+          divisionId: id('divisionId'),
+          districtId: id('districtId'),
+          upazilaId: id('upazilaId'),
+          unionId: id('unionId'),
+        },
+        line: id('addressLine') ?? '',
+      } satisfies PermanentState;
+    }
     default:
       return undefined;
   }
@@ -189,8 +222,10 @@ export function cleanValue(field: RequestField, value: unknown): unknown {
   if (field === 'profession')
     return professionValue((value as ProfessionState | undefined) ?? EMPTY_PROFESSION);
   if (field === 'skills') return skillsValue((value as SkillsState | undefined) ?? EMPTY_SKILLS);
-  if (field === 'emergencyContact')
-    return emergencyValue((value as EmergencyState | undefined) ?? EMPTY_EMERGENCY);
+  if (field === 'educationDetails')
+    return educationValue((value as EducationState | undefined) ?? EMPTY_EDUCATION);
+  if (field === 'permanentAddress')
+    return permanentValue((value as PermanentState | undefined) ?? EMPTY_PERMANENT) ?? undefined;
   if (field !== 'bank' || !value || typeof value !== 'object') return value;
   return Object.fromEntries(
     Object.entries(value as Record<string, string>).filter(([, v]) => v.trim() !== ''),

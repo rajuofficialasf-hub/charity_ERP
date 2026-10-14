@@ -1,14 +1,17 @@
 import {
   AVAILABILITIES,
   DETAIL_OPTIONS,
+  EDUCATION_STATUSES,
   INTEREST_AREAS,
   PROFESSION_FIELDS,
   PROFESSIONS,
   type Profession,
+  QUALIFICATIONS,
   VEHICLES,
 } from '@css/shared/registration';
 import { CheckboxGroup, RadioGroup, Select, TextField } from '@css/ui';
 import { useTranslations } from 'use-intl';
+import { type Address, AddressFields, EMPTY_ADDRESS } from './AddressFields';
 
 /**
  * The inputs of the profession, the skills and the emergency contact (DECISION_LOG O-65, D-092;
@@ -27,33 +30,53 @@ export interface SkillsState {
   vehicle: string;
   canSwim: '' | 'yes' | 'no';
   availability: string;
+  emergencyFullTime: '' | 'yes' | 'no';
 }
 export const EMPTY_SKILLS: SkillsState = {
   interestAreas: [],
   vehicle: '',
   canSwim: '',
   availability: '',
+  emergencyFullTime: '',
 };
 
-export interface EmergencyState {
-  name: string;
-  mobile: string;
+/** Education as the form holds it (the year as typed); `educationValue` turns it into the API value. */
+export interface EducationState {
+  highestQualification: string;
+  institutionName: string;
+  subject: string;
+  passingYear: string;
+  result: string;
+  status: '' | 'studying' | 'completed';
 }
-export const EMPTY_EMERGENCY: EmergencyState = { name: '', mobile: '' };
+export const EMPTY_EDUCATION: EducationState = {
+  highestQualification: '',
+  institutionName: '',
+  subject: '',
+  passingYear: '',
+  result: '',
+  status: '',
+};
 
-const BOOLEAN_FIELDS = new Set(['fullTimeAvailable']);
+/** The permanent address as the form holds it: the four levels and a line. */
+export interface PermanentState {
+  address: Address;
+  line: string;
+}
+export const EMPTY_PERMANENT: PermanentState = { address: EMPTY_ADDRESS, line: '' };
+
 const CHOICE_FIELDS = new Set(Object.keys(DETAIL_OPTIONS));
 
 const blank = (v: string) => v.trim() === '';
 
-/** The details of the chosen profession without blanks; a yes or no becomes a boolean. */
-export function professionDetailsOf(state: ProfessionState): Record<string, string | boolean> {
+/** The details of the chosen profession without blanks. */
+export function professionDetailsOf(state: ProfessionState): Record<string, string> {
   if (!state.profession) return {};
   const own = new Set(PROFESSION_FIELDS[state.profession]);
-  const out: Record<string, string | boolean> = {};
+  const out: Record<string, string> = {};
   for (const [field, value] of Object.entries(state.details)) {
     if (!own.has(field) || blank(value)) continue;
-    out[field] = BOOLEAN_FIELDS.has(field) ? value === 'yes' : value.trim();
+    out[field] = value.trim();
   }
   return out;
 }
@@ -71,14 +94,36 @@ export function skillsValue(state: SkillsState) {
     ...(state.vehicle ? { vehicle: state.vehicle } : {}),
     ...(state.canSwim ? { canSwim: state.canSwim === 'yes' } : {}),
     ...(state.availability ? { availability: state.availability } : {}),
+    ...(state.emergencyFullTime ? { emergencyFullTime: state.emergencyFullTime === 'yes' } : {}),
   };
 }
 
-/** The edit value of the emergency contact; whatever is not given is left out. */
-export function emergencyValue(state: EmergencyState) {
+/** The edit value of the education; blank parts are left out and the year becomes a number. */
+export function educationValue(state: EducationState) {
   return {
-    ...(blank(state.name) ? {} : { name: state.name.trim() }),
-    ...(blank(state.mobile) ? {} : { mobile: state.mobile }),
+    ...(state.highestQualification ? { highestQualification: state.highestQualification } : {}),
+    ...(blank(state.institutionName) ? {} : { institutionName: state.institutionName.trim() }),
+    ...(blank(state.subject) ? {} : { subject: state.subject.trim() }),
+    ...(state.passingYear ? { passingYear: Number(state.passingYear) } : {}),
+    ...(blank(state.result) ? {} : { result: state.result.trim() }),
+    ...(state.status ? { status: state.status } : {}),
+  };
+}
+
+/** Whether any part of an address is filled in. */
+export const addressStarted = (a: Address) =>
+  Boolean(a.divisionId || a.districtId || a.upazilaId || a.unionId);
+
+/** The edit value of a permanent address, or null while no level is given. */
+export function permanentValue(state: PermanentState) {
+  const { divisionId, districtId, upazilaId, unionId } = state.address;
+  if (!divisionId || !districtId || !upazilaId || !unionId) return null;
+  return {
+    divisionId,
+    districtId,
+    upazilaId,
+    unionId,
+    ...(blank(state.line) ? {} : { addressLine: state.line.trim() }),
   };
 }
 
@@ -87,8 +132,6 @@ interface GroupProps<T> {
   onChange: (value: T) => void;
   errors?: Record<string, string>;
 }
-
-const digits = (v: string) => v.replace(/\D/g, '').slice(0, 11);
 
 /** The profession choice and the fields of that profession only; a new choice drops the old fields. */
 export function ProfessionFields({ value, onChange, errors = {} }: GroupProps<ProfessionState>) {
@@ -129,22 +172,6 @@ export function ProfessionFields({ value, onChange, errors = {} }: GroupProps<Pr
                     id,
                     label: optionLabel(field, id),
                   }))}
-                  error={errors[`professionDetails.${field}`]}
-                />
-              );
-            if (BOOLEAN_FIELDS.has(field))
-              return (
-                <RadioGroup
-                  key={field}
-                  label={text}
-                  name={`professionDetails.${field}`}
-                  orientation="horizontal"
-                  value={current || null}
-                  onChange={(id) => setDetail(field, id)}
-                  options={[
-                    { id: 'yes', label: t('form.yes') },
-                    { id: 'no', label: t('form.no') },
-                  ]}
                   error={errors[`professionDetails.${field}`]}
                 />
               );
@@ -201,6 +228,18 @@ export function SkillsFields({ value, onChange, errors = {} }: GroupProps<Skills
           ]}
           error={errors.canSwim}
         />
+        <RadioGroup
+          label={t('form.emergency_full_time')}
+          name="emergencyFullTime"
+          orientation="horizontal"
+          value={value.emergencyFullTime || null}
+          onChange={(v) => onChange({ ...value, emergencyFullTime: v as 'yes' | 'no' })}
+          options={[
+            { id: 'yes', label: t('form.yes') },
+            { id: 'no', label: t('form.no') },
+          ]}
+          error={errors.emergencyFullTime}
+        />
         <Select
           label={t('form.availability')}
           name="availability"
@@ -215,30 +254,86 @@ export function SkillsFields({ value, onChange, errors = {} }: GroupProps<Skills
   );
 }
 
-/** The guardian to call in an emergency: a name and a mobile number. */
-export function EmergencyContactFields({
+/** The education: the highest qualification, the institution, the subject, the year, the result. */
+export function EducationFields({ value, onChange, errors = {} }: GroupProps<EducationState>) {
+  const t = useTranslations('registration');
+  const set = (patch: Partial<EducationState>) => onChange({ ...value, ...patch });
+  return (
+    <div className="register-grid">
+      <Select
+        label={t('form.highest_qualification')}
+        name="highestQualification"
+        placeholder={t('form.choose')}
+        value={value.highestQualification || null}
+        onChange={(id) => set({ highestQualification: id ?? '' })}
+        options={QUALIFICATIONS.map((id) => ({ id, label: t(`lists.qualification.${id}`) }))}
+        error={errors['educationDetails.highestQualification']}
+      />
+      <TextField
+        label={t('form.institution_name')}
+        name="institutionName"
+        value={value.institutionName}
+        onChange={(institutionName) => set({ institutionName })}
+        error={errors['educationDetails.institutionName']}
+      />
+      <TextField
+        label={t('form.edu_subject')}
+        name="eduSubject"
+        value={value.subject}
+        onChange={(subject) => set({ subject })}
+        error={errors['educationDetails.subject']}
+      />
+      <TextField
+        label={t('form.passing_year')}
+        name="passingYear"
+        value={value.passingYear}
+        onChange={(v) => set({ passingYear: v.replace(/\D/g, '').slice(0, 4) })}
+        inputMode="numeric"
+        error={errors['educationDetails.passingYear']}
+      />
+      <TextField
+        label={t('form.result')}
+        name="eduResult"
+        value={value.result}
+        onChange={(result) => set({ result })}
+        error={errors['educationDetails.result']}
+      />
+      <RadioGroup
+        label={t('form.edu_status')}
+        name="eduStatus"
+        orientation="horizontal"
+        value={value.status || null}
+        onChange={(status) => set({ status: status as EducationState['status'] })}
+        options={EDUCATION_STATUSES.map((id) => ({ id, label: t(`lists.education_status.${id}`) }))}
+        error={errors['educationDetails.status']}
+      />
+    </div>
+  );
+}
+
+/** The permanent address: the four levels (not mandatory) and a village or house line. */
+export function PermanentAddressFields({
   value,
   onChange,
   errors = {},
-}: GroupProps<EmergencyState>) {
+}: GroupProps<PermanentState>) {
   const t = useTranslations('registration');
   return (
-    <div className="register-grid">
-      <TextField
-        label={t('form.emergency_name')}
-        name="emergencyName"
-        value={value.name}
-        onChange={(name) => onChange({ ...value, name })}
-        error={errors['emergencyContact.name']}
+    <>
+      <AddressFields
+        value={value.address}
+        onChange={(address) => onChange({ ...value, address })}
+        errors={errors}
+        optional
+        labelSuffix={t('form.permanent_suffix')}
       />
       <TextField
-        label={t('form.emergency_mobile')}
-        name="emergencyMobile"
-        value={value.mobile}
-        onChange={(mobile) => onChange({ ...value, mobile: digits(mobile) })}
-        inputMode="numeric"
-        error={errors['emergencyContact.mobile']}
+        label={`${t('form.address_line')} ${t('form.permanent_suffix')}`}
+        name="permanentLine"
+        value={value.line}
+        onChange={(line) => onChange({ ...value, line })}
+        error={errors['permanentAddress.addressLine']}
       />
-    </div>
+    </>
   );
 }

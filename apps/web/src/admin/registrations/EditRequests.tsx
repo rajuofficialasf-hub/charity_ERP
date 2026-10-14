@@ -12,7 +12,12 @@ import { Check, FilePenLine, X } from 'lucide-react';
 import { useState } from 'react';
 import { formatDate } from '@css/shared/format';
 import { useTranslations } from 'use-intl';
-import { emergencyText, ProfessionText, SkillsText } from '../../features/account/DetailValues';
+import {
+  EducationText,
+  PermanentAddressText,
+  ProfessionText,
+  SkillsText,
+} from '../../features/account/DetailValues';
 import { FIELD_LABEL, type RequestField } from '../../features/account/profile-api';
 import { ApiFailure } from '../../lib/api';
 import { type AddressIds, AddressNames } from '../../components/AddressNames';
@@ -68,6 +73,7 @@ export function EditRequests() {
         vehicle?: string;
         canSwim?: boolean;
         availability?: string;
+        emergencyFullTime?: boolean;
       };
       return (
         <SkillsText
@@ -75,13 +81,14 @@ export function EditRequests() {
           vehicle={v.vehicle ?? null}
           canSwim={v.canSwim ?? null}
           availability={v.availability ?? null}
+          emergencyFullTime={v.emergencyFullTime ?? null}
         />
       );
     }
-    if (r.field === 'emergencyContact') {
-      const v = r.newValue as { name?: string; mobile?: string };
-      return emergencyText({ name: v.name ?? null, mobile: v.mobile ?? null }) ?? '';
-    }
+    if (r.field === 'educationDetails')
+      return <EducationText education={r.newValue as Record<string, unknown>} />;
+    if (r.field === 'permanentAddress')
+      return <PermanentAddressText address={r.newValue as Record<string, unknown>} />;
     if (r.field === 'dateOfBirth' && typeof r.newValue === 'string') return formatDate(r.newValue);
     if (r.field === 'volunteeringArea' && typeof r.newValue === 'string')
       return tf(`lists.volunteering_area.${r.newValue}` as 'lists.volunteering_area.anywhere');
