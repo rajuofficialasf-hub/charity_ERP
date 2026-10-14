@@ -10,7 +10,9 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, FilePenLine, X } from 'lucide-react';
 import { useState } from 'react';
+import { formatDate } from '@css/shared/format';
 import { useTranslations } from 'use-intl';
+import { emergencyText, ProfessionText, SkillsText } from '../../features/account/DetailValues';
 import { FIELD_LABEL, type RequestField } from '../../features/account/profile-api';
 import { ApiFailure } from '../../lib/api';
 import { type AddressIds, AddressNames } from '../../components/AddressNames';
@@ -55,6 +57,34 @@ export function EditRequests() {
     if (PHOTO_FIELDS.has(r.field) && typeof r.newValue === 'string')
       return <FileImage fileId={r.newValue} alt={t('photo')} />;
     if (r.field === 'address') return <AddressNames address={r.newValue as AddressIds} />;
+    // the new groups of O-65 are shown as labelled text, never as raw ids or "[object Object]"
+    if (r.field === 'profession') {
+      const v = r.newValue as { profession: string; details?: Record<string, unknown> };
+      return <ProfessionText profession={v.profession} details={v.details ?? {}} />;
+    }
+    if (r.field === 'skills') {
+      const v = r.newValue as {
+        interestAreas?: string[];
+        vehicle?: string;
+        canSwim?: boolean;
+        availability?: string;
+      };
+      return (
+        <SkillsText
+          interestAreas={v.interestAreas ?? []}
+          vehicle={v.vehicle ?? null}
+          canSwim={v.canSwim ?? null}
+          availability={v.availability ?? null}
+        />
+      );
+    }
+    if (r.field === 'emergencyContact') {
+      const v = r.newValue as { name?: string; mobile?: string };
+      return emergencyText({ name: v.name ?? null, mobile: v.mobile ?? null }) ?? '';
+    }
+    if (r.field === 'dateOfBirth' && typeof r.newValue === 'string') return formatDate(r.newValue);
+    if (r.field === 'volunteeringArea' && typeof r.newValue === 'string')
+      return tf(`lists.volunteering_area.${r.newValue}` as 'lists.volunteering_area.anywhere');
     if (typeof r.newValue === 'object')
       return Object.values(r.newValue as Record<string, string>)
         .filter(Boolean)

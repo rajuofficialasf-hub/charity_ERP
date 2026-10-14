@@ -101,7 +101,7 @@ function Profile() {
   const active = me.state === 'active';
   const section = SECTIONS.find((s) => s.key === current)!;
   // the earlier work texts only for a volunteer who has them
-  const fieldsOf = [...section.fields].filter((f) => !LEGACY_FIELDS.includes(f) || hasValue(me, f));
+  const fieldsOf = section.fields.filter((f) => !LEGACY_FIELDS.includes(f) || hasValue(me, f));
   const title = t(`profile.sections.${section.key}`);
   const edits = (rows ?? []).filter(
     (r) => r.kind === 'profile_edit' && ['open', 'submitted'].includes(r.status),

@@ -1,7 +1,7 @@
 ---
 title: One volunteer form: the registration and the profile with the personal, profession and skills data (T1.9e)
 type: feat
-status: in-progress
+status: done
 doc_review: 2026-10-14
 source: plan
 date: 2026-10-14
@@ -86,10 +86,7 @@ Owner message of 2026-10-14 with a pasted form specification: the registration a
 - **Personal data:** the blood group, the date of birth and the emergency contact are new personal data; they ride the NID class and the log redaction, and the exports (none yet) must follow the class (BD field-level rule). The emergency contact is a third person's name and mobile: it is kept with the profile like the other data (no retention limit and no hard delete, BD-46), cleared only when a rejected registration is reused, and no export includes it except through the class.
 - **Size:** about 40 new texts in two languages and two new input components; the units are tested one by one.
 
-## Progress
-- **Branch:** feat/volunteer-form-merge
-- **Next:** U5: e2e, SCREENS.md, STATUS.md, then checkpoint C2 on U3 to U5
-- **Reviewed through:** C1 at 45c618c
-- **Updated:** 2026-10-14
-- **Uncommitted:** none
-- **Notes:** U1 is `packages/shared/src/registration/details.ts` (lists, per-profession strict schemas, grouped values, `parseProfessionDetails` with an own-key lookup) re-exported from `index.ts`; the submit takes `profession` (required), `professionDetails`, flat skills and `emergencyContact`; the edit and correction values are `bloodGroup`, `dateOfBirth`, `tshirtSize`, `volunteeringArea`, `profession` ({profession, details}), `skills`, `emergencyContact`; the correction list limit is now 40; new error codes `validation.date_format` and `validation.date_future`. The API does not compile until U2 (it still reads `experience` and `workDescription` from the submit). U2: `services/volunteer-details.ts` holds the select, the view, the registration columns and the update of the new fields; `routes/volunteer-details-schema.ts` the response shape (`protect` marks the three protected fields for the approver's detail, the own profile is unmarked); `OBJECT_FIELDS` (profession, skills, emergencyContact stored as JSON text like the address and the bank) is shared by the request and the apply step; the OpenAPI date of birth is a pattern, the interest areas' uniqueness is in the description (the drift test compares the generated schema). The web does not typecheck until U3. The vitest api-db project crashed a worker when run with the default parallelism after the Docker restart (the other session was also running tests); with `--maxWorkers=3` all 298 pass. C1 review (logic, security, standards): no P0 to P2 finding. Fixed from it: `newValue` joins the redacted log keys; the JSON columns are parsed with zod in the view; the update takes the shared types; a comment states the rule. Kept on purpose: `experience` and `workDescription` stay correctable and editable for a volunteer who has them (the profile shows them only when filled); `registrationDetail` and `CLASS_OF` are exported for their unit tests (a comment says so). U3 and U4 are one commit because the web typechecks only with both: `ProfileInputs.tsx` holds the profession, skills and emergency-contact inputs shared by the registration and the profile edit mode; the edit mode starts a group with the current values (`initialValue`).
+## Notes after the build
+- C1 and C2 reviewed (logic, security, standards). C1 fixes: `newValue` is a redacted log key, the JSON columns are parsed with zod in the view, the update takes the shared types. C2 fixes: the approver's edit-request list shows the profession, the skills (with "No" kept) and the emergency contact as labelled text instead of "[object Object]"; the date check of the form uses the shared `dateOfBirthSchema`; the masked rows of the approver's detail are asserted one by one; the interest areas of a stored value that breaks the list read as an empty list instead of failing the detail; tests for the T-shirt size, the volunteering area and the date field of the edit mode.
+- Kept on purpose: `experience` and `workDescription` stay correctable and editable for a volunteer who has them (the profile shows them only when filled); `registrationDetail` and `CLASS_OF` are exported for their unit tests.
+- Follow-ups for the owner or the next tasks: `Cache-Control: no-store` for the API answers that carry personal data (today only the token and file answers have it; needed before the runtime caching of T2.7); clear the cached registration detail when an approver's permission version changes; the 12-character rule of a global role at grant time (T1.9c); whether the lists of professions and interests should become configuration (D-092); the date of birth is compared with the UTC date.

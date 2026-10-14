@@ -1,6 +1,5 @@
 import {
   type EmergencyContact,
-  interestAreasSchema,
   parseProfessionDetails,
   type SkillsValue,
 } from '@css/shared/registration';
@@ -42,7 +41,7 @@ export function detailsView(v: DetailsRow) {
     profession: v.profession,
     // JSON columns, parsed at the boundary (the database checks their type)
     professionDetails: z.record(z.string(), z.unknown()).parse(v.professionDetails),
-    interestAreas: interestAreasSchema.parse(v.interestAreas),
+    interestAreas: z.array(z.string()).catch([]).parse(v.interestAreas),
     vehicle: v.vehicle,
     canSwim: v.canSwim,
     availability: v.availability,

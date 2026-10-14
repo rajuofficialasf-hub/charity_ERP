@@ -1,8 +1,9 @@
 import { checkPassword, minPasswordLength } from '@css/shared/auth';
-import type {
-  PhotoSlot,
-  RegistrationKind,
-  RegistrationSubmitRequest,
+import {
+  dateOfBirthSchema,
+  type PhotoSlot,
+  type RegistrationKind,
+  type RegistrationSubmitRequest,
 } from '@css/shared/registration';
 import { type Address, EMPTY_ADDRESS } from './AddressFields';
 import {
@@ -107,11 +108,8 @@ export type Problem =
 
 /** The problem of a date of birth, or null: a real date, not in the future, not before 1900. */
 function dateProblem(value: string): Problem | null {
-  if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(value)) return 'errors.validation.date_format';
-  const at = new Date(`${value}T00:00:00.000Z`);
-  if (Number.isNaN(at.getTime()) || at.toISOString().slice(0, 10) !== value || value < '1900-01-01')
-    return 'errors.validation.date_format';
-  return value > new Date().toISOString().slice(0, 10) ? 'errors.validation.date_future' : null;
+  const parsed = dateOfBirthSchema.safeParse(value);
+  return parsed.success ? null : (`errors.${parsed.error.issues[0]!.message}` as Problem);
 }
 
 /** The fields of a step that are not filled in as the API needs them. */

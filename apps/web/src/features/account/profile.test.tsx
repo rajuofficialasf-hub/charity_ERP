@@ -629,6 +629,49 @@ describe('the personal, profession and skills data in the profile (O-65, D-092; 
   }, 60_000);
 });
 
+describe('the single new values of the profile edit (BR-247)', () => {
+  beforeEach(() =>
+    refreshAs({ ...ME, kind: 'volunteer', state: 'active', roles: ['volunteer_general'] }),
+  );
+
+  it('sends the volunteering area and the T-shirt size as single values', async () => {
+    const user = userEvent.setup();
+    serve(profile({ state: 'active', inAnyProject: true }), () => []);
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+
+    const address = await startEdit(user, 'Address');
+    await user.click(
+      within(address).getByRole('checkbox', { name: 'Change Where you want to serve' }),
+    );
+    await user.click(within(address).getByRole('button', { name: /Where you want to serve/ }));
+    await user.click(await screen.findByRole('option', { name: 'Anywhere in the country' }));
+    await user.click(within(address).getByRole('button', { name: 'Send request' }));
+    await vi.waitFor(() => expect(calls).toHaveLength(1));
+
+    const personal = await startEdit(user, 'Personal details');
+    await user.click(within(personal).getByRole('checkbox', { name: 'Change T-shirt size' }));
+    await user.click(within(personal).getByRole('button', { name: /T-shirt size/ }));
+    await user.click(await screen.findByRole('option', { name: 'XL' }));
+    await user.click(within(personal).getByRole('button', { name: 'Send request' }));
+    await vi.waitFor(() => expect(calls).toHaveLength(2));
+    expect(calls.map((c) => c.body)).toEqual([
+      { field: 'volunteeringArea', newValue: 'anywhere' },
+      { field: 'tshirtSize', newValue: 'XL' },
+    ]);
+  }, 60_000);
+
+  it('offers the date of birth with a date field that starts empty', async () => {
+    const user = userEvent.setup();
+    serve(profile({ state: 'active', inAnyProject: true }), () => []);
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    const personal = await startEdit(user, 'Personal details');
+    await user.click(within(personal).getByRole('checkbox', { name: 'Change Date of birth' }));
+    expect(within(personal).getByRole('group', { name: /Date of birth/ })).toBeInTheDocument();
+    // nothing is sent until a date is given and the request is sent
+    expect(calls).toEqual([]);
+  }, 30_000);
+});
+
 describe('ProfileView states', () => {
   it('an official without a volunteer profile sees the empty state', async () => {
     refreshAs({ ...ME, kind: 'staff', state: 'active' });

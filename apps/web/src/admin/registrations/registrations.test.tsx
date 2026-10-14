@@ -382,8 +382,11 @@ describe('volunteer registration detail', () => {
     detail = { ...masked, volunteer: rest };
     renderPage(HEAD);
     await openRow(user, 'নতুন স্বেচ্ছাসেবক (নমুনা)');
-    // the NID, the date of birth, the blood group and the emergency contact
-    expect(screen.getAllByText('আপনার দেখার অনুমতি নেই').length).toBeGreaterThanOrEqual(4);
+    // each protected row says it is not visible, none shows an empty value
+    for (const label of ['NID নম্বর', 'জন্মতারিখ', 'রক্তের গ্রুপ', 'জরুরি যোগাযোগ']) {
+      const row = screen.getByText(label).parentElement!;
+      expect(within(row).getByText('আপনার দেখার অনুমতি নেই'), label).toBeInTheDocument();
+    }
     expect(screen.queryByText('17-05-1990')).not.toBeInTheDocument();
     expect(screen.queryByText('Guardian, 01812345678')).not.toBeInTheDocument();
     // the other new data stays
@@ -559,6 +562,46 @@ describe('edit requests', () => {
       },
     ]);
     expect(await screen.findByText('কোনো পরিবর্তনের অনুরোধ অপেক্ষায় নেই।')).toBeInTheDocument();
+  });
+
+  it('shows the profession, the skills and the emergency contact as labelled text, with "No" kept (O-65)', async () => {
+    const user = userEvent.setup();
+    const base = {
+      volunteerId: VOLUNTEER_ID,
+      kind: 'profile_edit',
+      status: 'submitted',
+      note: null,
+    };
+    edits = [
+      {
+        ...base,
+        id: '01900000-0000-7000-8000-0000000000e1',
+        field: 'profession',
+        newValue: { profession: 'imam', details: { mosqueName: 'Central Mosque', role: 'khatib' } },
+      },
+      {
+        ...base,
+        id: '01900000-0000-7000-8000-0000000000e2',
+        field: 'skills',
+        newValue: { interestAreas: ['first_aid'], vehicle: 'bicycle', canSwim: false },
+      },
+      {
+        ...base,
+        id: '01900000-0000-7000-8000-0000000000e3',
+        field: 'emergencyContact',
+        newValue: { name: 'Guardian', mobile: '01812345678' },
+      },
+    ];
+    renderPage(RPM);
+    await user.click(await screen.findByRole('tab', { name: 'পরিবর্তনের অনুরোধ' }));
+    const table = await screen.findByRole('grid', { name: 'পরিবর্তনের অনুরোধ' });
+    expect(within(table).getByText('ইমাম / মুয়াজ্জিন')).toBeInTheDocument();
+    expect(within(table).getByText(/Central Mosque/)).toBeInTheDocument();
+    expect(within(table).getByText(/খতিব/)).toBeInTheDocument();
+    expect(within(table).getByText(/সাঁতার: না/)).toBeInTheDocument();
+    expect(within(table).getByText(/বাহন: সাইকেল/)).toBeInTheDocument();
+    expect(within(table).getByText('Guardian, 01812345678')).toBeInTheDocument();
+    expect(table.textContent).not.toContain('[object Object]');
   });
 
   it('a refusal needs a reason', async () => {
