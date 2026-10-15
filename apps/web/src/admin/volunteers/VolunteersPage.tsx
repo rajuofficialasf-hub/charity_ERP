@@ -17,6 +17,7 @@ import { Link, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
+import { useFileDataUrl } from '../../components/FileImage';
 import { AddressFields } from '../../features/registration/AddressFields';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -61,7 +62,15 @@ function VolunteerTab({ categories }: { categories: boolean }) {
   const locale = useLocale() as Locale;
   const [params, setParams] = useSearchParams();
   const [q, setQ] = useState('');
-  const [cursor, setCursor] = useState<string | null>(null);
+  // a cursor belongs to the filters and the search it was made for; any other view starts at the
+  // first page, however the URL changed (a sidebar link, back and forward)
+  const view = `${params.toString()}|${q}`;
+  const [paging, setPaging] = useState<{ view: string; cursor: string | null }>({
+    view,
+    cursor: null,
+  });
+  const cursor = paging.view === view ? paging.cursor : null;
+  const setCursor = (next: string | null) => setPaging({ view, cursor: next });
   const filters: FilterValues = Object.fromEntries(
     FILTER_KEYS.flatMap((key) => {
       const value = params.get(key);
@@ -69,7 +78,6 @@ function VolunteerTab({ categories }: { categories: boolean }) {
     }),
   );
   const setFilters = (next: FilterValues) => {
-    setCursor(null);
     const out = new URLSearchParams();
     for (const key of FILTER_KEYS) {
       // eslint-disable-next-line security/detect-object-injection -- a fixed list of filter keys
@@ -79,10 +87,7 @@ function VolunteerTab({ categories }: { categories: boolean }) {
     setParams(out, { replace: true });
   };
   const change = (patch: FilterValues) => setFilters({ ...filters, ...patch });
-  const onSearch = useCallback((term: string) => {
-    setCursor(null);
-    setQ(term);
-  }, []);
+  const onSearch = useCallback((term: string) => setQ(term), []);
 
   const page = useQuery({
     queryKey: [...VOLUNTEERS_KEY, 'page', filters, q, cursor],
@@ -116,7 +121,12 @@ function VolunteerTab({ categories }: { categories: boolean }) {
 
   const rows = page.data?.data ?? [];
   const showCategory = rows.some((r) => 'category' in r);
-  const name = (r: VolunteerRow) => <Link to={`/admin/volunteers/${r.id}`}>{r.displayName}</Link>;
+  const name = (r: VolunteerRow) => (
+    <span className="admin-person">
+      {r.photoFileId && <RowPhoto fileId={r.photoFileId} />}
+      <Link to={`/admin/volunteers/${r.id}`}>{r.displayName}</Link>
+    </span>
+  );
   const state = (r: VolunteerRow) => (
     <span className="admin-badges">
       <Badge
@@ -158,7 +168,15 @@ function VolunteerTab({ categories }: { categories: boolean }) {
 
   return (
     <>
-      <StatisticsBar label={t('stats.label')} items={statItems} loading={stats.isPending} />
+      {stats.error ? (
+        <ErrorState
+          title={tc('state.error.text')}
+          requestId={stats.error instanceof ApiFailure ? stats.error.requestId : undefined}
+          onRetry={() => void stats.refetch()}
+        />
+      ) : (
+        <StatisticsBar label={t('stats.label')} items={statItems} loading={stats.isPending} />
+      )}
       <Table
         label={t('table')}
         columns={columns}
@@ -260,6 +278,12 @@ function VolunteerTab({ categories }: { categories: boolean }) {
       />
     </>
   );
+}
+
+/** The volunteer's own photo, small, beside the name (the name names the row). */
+function RowPhoto({ fileId }: { fileId: string }) {
+  const photo = useFileDataUrl(fileId);
+  return photo.data ? <img src={photo.data} alt="" className="admin-avatar" /> : null;
 }
 
 /** The district and upazila of a row, in the page language. */

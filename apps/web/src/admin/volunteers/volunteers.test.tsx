@@ -38,15 +38,33 @@ const STATS = {
   applications: { total: 3400, approved: 2100, underReview: 800 },
 };
 
+const failure = (status: number) =>
+  HttpResponse.json(
+    {
+      error: {
+        code: status === 429 ? 'rate_limit.exceeded' : 'server.internal',
+        messageKey: 'errors.server.internal',
+        message: 'Something went wrong.',
+        requestId: 'req_failed',
+      },
+    },
+    { status },
+  );
+
 let listUrls: URL[];
 let statUrls: URL[];
 
-function serve(rows: unknown[] = [row()], stats: unknown = STATS) {
+function serve(
+  rows: unknown[] = [row()],
+  stats: unknown = STATS,
+  fail: { list?: number; stats?: number } = {},
+) {
   listUrls = [];
   statUrls = [];
   server.use(
     http.get('*/api/v1/volunteers', ({ request }) => {
       listUrls.push(new URL(request.url));
+      if (fail.list) return failure(fail.list);
       return HttpResponse.json({
         data: rows,
         meta: { requestId: 'req_test', limit: 25, nextCursor: null, prevCursor: null, total: 1 },
@@ -54,6 +72,7 @@ function serve(rows: unknown[] = [row()], stats: unknown = STATS) {
     }),
     http.get('*/api/v1/volunteers/statistics', ({ request }) => {
       statUrls.push(new URL(request.url));
+      if (fail.stats) return failure(fail.stats);
       return HttpResponse.json({ data: stats, meta: { requestId: 'req_test' } });
     }),
     http.get('*/api/v1/locations', ({ request }) => {
@@ -153,5 +172,79 @@ describe('the volunteer tab', () => {
     open();
     expect(await screen.findByRole('heading', { level: 1 })).not.toHaveTextContent('স্বেচ্ছাসেবক');
     expect(listUrls).toEqual([]);
+  });
+
+  // 429 is not retried by the query client, so the error shows at once (5xx is retried with backoff)
+  it('shows an error with a retry when the list fails, and asks again on retry', async () => {
+    refreshAs(HEAD);
+    serve([row()], STATS, { list: 429 });
+    const user = userEvent.setup();
+    open();
+    const retry = await screen.findByRole('button', { name: /আবার চেষ্টা করুন/ });
+    const before = listUrls.length;
+    await user.click(retry);
+    await waitFor(() => expect(listUrls.length).toBeGreaterThan(before));
+  });
+
+  it('keeps the rows when only the counts fail, and says so', async () => {
+    refreshAs(HEAD);
+    serve([row()], STATS, { stats: 429 });
+    open();
+    expect((await screen.findAllByText('নমুনা স্বেচ্ছাসেবক')).length).toBeGreaterThan(0);
+    expect(await screen.findByText('কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'স্বেচ্ছাসেবকের হিসাব' })).not.toBeInTheDocument();
+  });
+
+  it('shows the inactive count only when the answer has it', async () => {
+    refreshAs(HEAD);
+    serve([row()], { ...STATS, volunteers: { ...STATS.volunteers, inactive: 7 } });
+    open();
+    const counts = await screen.findByRole('region', { name: 'স্বেচ্ছাসেবকের হিসাব' });
+    expect(await within(counts).findByText('নিষ্ক্রিয়')).toBeInTheDocument();
+  });
+
+  it('sets the type and the blocklist filters in the URL, and clearing keeps the state chip', async () => {
+    refreshAs(HEAD);
+    serve();
+    const user = userEvent.setup();
+    const { router } = open('/admin/volunteers?state=pending');
+    await user.click(await screen.findByRole('button', { name: /ধরন/ }));
+    await user.click(await screen.findByRole('option', { name: 'স্থানীয় দায়ী' }));
+    await waitFor(() => expect(router.state.location.search).toContain('type=local_daee'));
+    await user.click(screen.getByRole('button', { name: /ব্লকলিস্ট/ }));
+    await user.click(await screen.findByRole('option', { name: 'ব্লকলিস্টে আছে' }));
+    await waitFor(() => expect(router.state.location.search).toContain('blocked=true'));
+    await waitFor(() => {
+      const last = listUrls.at(-1)!.searchParams;
+      expect([last.get('state'), last.get('type'), last.get('blocked')]).toEqual([
+        'pending',
+        'local_daee',
+        'true',
+      ]);
+    });
+    await user.click(screen.getByRole('button', { name: 'ফিল্টার মুছুন' }));
+    await waitFor(() => expect(router.state.location.search).toBe('?state=pending'));
+  });
+
+  it('starts at the first page when the URL changes from outside the tab', async () => {
+    refreshAs(HEAD);
+    serve();
+    server.use(
+      http.get('*/api/v1/volunteers', ({ request }) => {
+        listUrls.push(new URL(request.url));
+        return HttpResponse.json({
+          data: [row()],
+          meta: { requestId: 'req_test', limit: 25, nextCursor: 'next-page', prevCursor: null },
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    const { router } = open();
+    const next = await screen.findAllByRole('button', { name: 'পরের পাতা' });
+    await user.click(next[0]!);
+    await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('cursor')).toBe('next-page'));
+    await router.navigate('/admin/volunteers?state=active');
+    await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('state')).toBe('active'));
+    expect(listUrls.at(-1)?.searchParams.get('cursor')).toBeNull();
   });
 });
