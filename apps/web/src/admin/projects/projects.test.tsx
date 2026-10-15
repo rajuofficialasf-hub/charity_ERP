@@ -1,6 +1,6 @@
 import type { Me } from '@css/shared/auth';
 import { expectNoAxeViolations } from '@css/ui/testing';
-import { screen, waitFor, within } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -129,45 +129,13 @@ describe('the project list', () => {
   });
 });
 
-describe('the new-project dialog', () => {
-  it('refuses a lower-case code before sending, shows a taken code, and opens the new draft', async () => {
+describe('a new project', () => {
+  it('opens the setup wizard at its first step', async () => {
     refreshAs(PM);
     serve();
     const user = userEvent.setup();
     const { router } = open();
     await user.click(await screen.findByRole('button', { name: 'নতুন প্রকল্প' }));
-    const dialog = await screen.findByRole('dialog');
-    const code = within(dialog).getByRole('textbox', { name: /প্রকল্প কোড/ });
-    await user.type(code, 'wc');
-    await user.type(within(dialog).getByRole('textbox', { name: /বাংলায় নাম/ }), 'শীতবস্ত্র');
-    await user.type(within(dialog).getByRole('textbox', { name: /ইংরেজিতে নাম/ }), 'Winter');
-    await user.click(within(dialog).getByRole('button', { name: /প্রোগ্রাম/ }));
-    await user.click(await screen.findByRole('option', { name: /মানবিক সহায়তা/ }));
-    await user.click(within(dialog).getByRole('button', { name: /ওয়ার্কফ্লো/ }));
-    await user.click(await screen.findByRole('option', { name: 'বিতরণ' }));
-    const submit = within(dialog).getByRole('button', { name: 'খসড়া তৈরি করুন' });
-    await user.click(submit);
-    expect(
-      await within(dialog).findByText('2 থেকে 8টি ইংরেজি বড় হাতের অক্ষর (A-Z) দিন।'),
-    ).toBeInTheDocument();
-    expect(created).toEqual([]);
-    await user.clear(code);
-    await user.type(code, 'WC');
-    await user.click(submit);
-    expect(
-      await within(dialog).findByText('এই প্রকল্প কোড আগেই ব্যবহার করা হয়েছে।'),
-    ).toBeInTheDocument();
-    await user.clear(code);
-    await user.type(code, 'WCB');
-    await user.click(submit);
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin/projects/new'));
-    expect(created.at(-1)).toEqual({
-      programId: PROGRAM.id,
-      code: 'WCB',
-      year: new Date().getFullYear(),
-      name: { bn: 'শীতবস্ত্র', en: 'Winter' },
-      source: { kind: 'workflow', workflowKey: 'distribution' },
-    });
-    // many keystrokes: slower than the default timeout while the whole suite runs
-  }, 20_000);
+  });
 });

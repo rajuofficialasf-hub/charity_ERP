@@ -7,7 +7,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import { ApiFailure } from '../../../lib/api';
 import { PROGRAMS_KEY, programs } from '../../programs/programs-api';
 import { updateProject } from './setup-api';
-import { Reseed, SaveRow, SetupSection, useSetup } from './setup-context';
+import { Reseed, SaveNotice, SetupSection, useSetup, useStepSave } from './setup-context';
 
 /** Name, description, year, program and workflow; the last three only while a draft. */
 export function BasicsSection() {
@@ -18,6 +18,7 @@ function BasicsForm({ stale, onStale }: { stale: boolean; onStale: () => void })
   const { project, etag, editable, refresh, configure } = useSetup();
   const t = useTranslations('admin.projects.setup');
   const td = useTranslations('admin.projects.dialog');
+  const tz = useTranslations('admin.projects.wizard');
   const tw = useTranslations('admin.projects.workflow');
   const locale = useLocale() as Locale;
   const [nameBn, setNameBn] = useState(project.name.bn);
@@ -42,12 +43,17 @@ function BasicsForm({ stale, onStale }: { stale: boolean; onStale: () => void })
   };
   const save = useMutation({
     mutationFn: () => updateProject(project.id, etag, body()),
-    onSuccess: refresh,
     onError: (e) => e instanceof ApiFailure && e.status === 412 && onStale(),
   });
-  const changed = Object.keys(body()).length > 0;
   const ready = nameBn.trim() !== '' && nameEn.trim() !== '' && /^\d{4}$/.test(year);
-  const canSave = editable('name') || editable('description') || editable('year');
+  const problem = useStepSave({
+    changed: Object.keys(body()).length > 0,
+    invalid: ready ? undefined : tz('basics_invalid'),
+    save: async () => {
+      await save.mutateAsync();
+      await refresh();
+    },
+  });
 
   return (
     <SetupSection id="basics" title={t('section.basics')}>
@@ -103,14 +109,7 @@ function BasicsForm({ stale, onStale }: { stale: boolean; onStale: () => void })
         onChange={setDescription}
         readOnly={!editable('description')}
       />
-      {canSave && (
-        <SaveRow
-          mutation={save}
-          onSave={() => save.mutate()}
-          disabled={!changed || !ready}
-          stale={stale}
-        />
-      )}
+      <SaveNotice mutation={save} problem={problem} stale={stale} />
     </SetupSection>
   );
 }

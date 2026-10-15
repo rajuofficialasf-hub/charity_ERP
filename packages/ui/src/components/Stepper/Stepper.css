@@ -1,6 +1,7 @@
 /*
  * Stepper (UX-16): small numbered steps of a form; the brand green marks the done and current steps.
- * The names show from 640 px; on phones the form's own section title names the step.
+ * The names show from 640 px; on phones the form's own section title names the step. A wizard
+ * (UX-20) marks a step with something missing by a warning sign and makes the steps buttons.
  */
 @layer components {
   .ui-stepper {
@@ -55,6 +56,37 @@
     color: var(--color-brand-primary-dark);
     box-shadow: var(--ring-brand);
   }
+  .ui-stepper li.has-missing .ui-stepper-dot {
+    border-color: var(--color-status-warning);
+    color: var(--color-status-warning);
+  }
+  .ui-stepper li.is-current.has-missing .ui-stepper-dot {
+    box-shadow: var(--ring-brand);
+  }
+  .ui-stepper-button {
+    display: flex;
+    flex: 0 1 auto;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+    min-height: 44px;
+    margin: 0;
+    padding: 0 var(--space-1);
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+  .ui-stepper-button:hover .ui-stepper-name {
+    color: var(--color-brand-primary-dark);
+    text-decoration: underline;
+  }
+  .ui-stepper-button:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
   .ui-stepper-name {
     display: none;
     overflow: hidden;
@@ -64,6 +96,19 @@
   @media (min-width: 640px) {
     .ui-stepper-name {
       display: inline;
+    }
+  }
+  /* on a phone the dots alone must fit 360 px, also for seven or eight steps */
+  @media (max-width: 639px) {
+    .ui-stepper,
+    .ui-stepper li {
+      gap: var(--space-1);
+    }
+    .ui-stepper li:not(:last-child)::after {
+      min-width: var(--space-1);
+    }
+    .ui-stepper-button {
+      padding: 0;
     }
   }
 }

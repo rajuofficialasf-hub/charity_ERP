@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../../lib/api';
 import { updateProject } from './setup-api';
-import { Reseed, SaveRow, SetupSection, useSetup } from './setup-context';
+import { Reseed, SaveNotice, SetupSection, useSetup, useStepSave } from './setup-context';
 
 /**
  * The application window and the per-volunteer limit. Once active the end date moves only by the
@@ -35,12 +35,17 @@ function WindowForm({ stale, onStale }: { stale: boolean; onStale: () => void })
   };
   const save = useMutation({
     mutationFn: () => updateProject(project.id, etag, body()),
-    onSuccess: refresh,
     onError: (e) => e instanceof ApiFailure && e.status === 412 && onStale(),
   });
   const order = from && to && from > to ? t('window_order') : undefined;
-  const changed = Object.keys(body()).length > 0;
-  const canSave = editable('applyFrom') || editable('applyTo') || editable('perVolunteerLimit');
+  const problem = useStepSave({
+    changed: Object.keys(body()).length > 0,
+    invalid: order,
+    save: async () => {
+      await save.mutateAsync();
+      await refresh();
+    },
+  });
 
   return (
     <SetupSection id="window" title={t('section.window')}>
@@ -70,14 +75,7 @@ function WindowForm({ stale, onStale }: { stale: boolean; onStale: () => void })
           />
         )}
       </div>
-      {canSave && (
-        <SaveRow
-          mutation={save}
-          onSave={() => save.mutate()}
-          disabled={!changed || Boolean(order)}
-          stale={stale}
-        />
-      )}
+      <SaveNotice mutation={save} problem={problem} stale={stale} />
     </SetupSection>
   );
 }

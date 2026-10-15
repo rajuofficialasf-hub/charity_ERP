@@ -509,7 +509,8 @@
         "window": "Application window and limit",
         "areas": "Areas and RPMs",
         "staff": "Staff access",
-        "syllabus": "Dawah syllabus"
+        "syllabus": "Dawah syllabus",
+        "review": "Review"
       },
       "saved": "Saved.",
       "stale": "Someone changed this part meanwhile. The latest version is shown now; save again.",
@@ -669,6 +670,29 @@
       "new_apply_to": "New end date",
       "after": "After {date}",
       "missing": "The project cannot be activated yet. Still needed:"
+    },
+    "wizard": {
+      "new_title": "New project",
+      "steps": "Setup steps",
+      "step_of": "Step {n} of {total}",
+      "missing_mark": "something is missing",
+      "back": "Back",
+      "next": "Next",
+      "save_exit_draft": "Save draft and exit",
+      "save_exit": "Save and exit",
+      "create": "Create the draft",
+      "to_project": "Back to the project",
+      "activate": "Activate",
+      "basics_invalid": "Give the name in both languages and a four-digit year.",
+      "budget_invalid": "Give every fund source an amount, and a specific donor its name.",
+      "topics_invalid": "Give every topic its title in both languages.",
+      "saved_notice": "The draft is saved.",
+      "activated_notice": "The project is active.",
+      "review": "Review",
+      "ready": "Everything activation needs is here.",
+      "missing_title": "Still needed before activation:",
+      "open_step": "Open the step",
+      "create_invalid": "Fill in every field of this step."
     }
   }
 }

@@ -1,8 +1,9 @@
 import { localized, type Locale } from '@css/shared/i18n';
-import { Alert, ErrorState, Skeleton } from '@css/ui';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Alert, ErrorState, Skeleton, Stepper, type StepMark } from '@css/ui';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowRight, Rocket } from 'lucide-react';
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../../components/DocumentTitle';
 import { ApiFailure } from '../../../lib/api';
@@ -10,12 +11,13 @@ import { useAuth } from '../../../lib/auth';
 import { ForbiddenContent } from '../../AdminLayout';
 import { canCreateProjects, canSeeProjects } from '../../roles';
 import { ProjectStatusBadge } from '../ProjectStatusBadge';
-import { PROJECTS_KEY } from '../projects-api';
+import { moveProject, type Project, PROJECTS_KEY } from '../projects-api';
 import { AreasSection } from './AreasSection';
 import { BasicsSection } from './BasicsSection';
 import { BudgetSection } from './BudgetSection';
 import { ComponentsSection } from './ComponentsSection';
-import { SetupSummary } from './SetupSummary';
+import { CreateStep } from './CreateStep';
+import { ReviewStep } from './ReviewStep';
 import {
   areas,
   components,
@@ -25,16 +27,23 @@ import {
   staff,
   syllabus,
 } from './setup-api';
-import { SetupProvider } from './setup-context';
+import { SetupProvider, StepSaveProvider } from './setup-context';
 import { StaffSection } from './StaffSection';
 import { SyllabusSection } from './SyllabusSection';
 import { WindowSection } from './WindowSection';
+import { WizardActions } from './WizardActions';
+import {
+  firstOpenStep,
+  isStepId,
+  marksFor,
+  missingItems,
+  STEP_IDS,
+  type StepId,
+} from './wizard-steps';
 
 const PHONE = '(max-width: 639px)';
 
-type SectionId = 'basics' | 'components' | 'budget' | 'window' | 'areas' | 'staff' | 'syllabus';
-
-/** Whether the screen is phone-sized now (the setup is desktop-first, SCR-060). */
+/** Whether the screen is phone-sized now (the setup is desktop-first). */
 function usePhone() {
   const [phone, setPhone] = useState(() => window.matchMedia?.(PHONE).matches === true);
   useEffect(() => {
@@ -53,40 +62,165 @@ function useSetupPart<T>(projectId: string, name: string, fn: () => Promise<T>, 
 }
 
 /**
- * The project setup (SCR-060, mockup 12): the section index, the sections, each loaded from its
- * own route and saved on its own, and the summary of what activation still needs. The state of the
- * project decides what may change; closing, closed and cancelled projects are read-only.
+ * The step on screen hands its save to the wizard (`useStepSave`); a move first runs that save
+ * and goes on only when it succeeded, so nothing typed is lost and a refusal stays visible.
+ */
+function useStepRunner() {
+  const save = useRef<(() => Promise<boolean>) | null>(null);
+  const register = useCallback((next: (() => Promise<boolean>) | null) => {
+    save.current = next;
+  }, []);
+  const [busy, setBusy] = useState(false);
+  const run = async (then: () => void | Promise<void>) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (!save.current || (await save.current())) await then();
+    } finally {
+      setBusy(false);
+    }
+  };
+  return { register, busy, run };
+}
+
+/**
+ * The project setup as a wizard (SCR-060, UX-20): `/admin/projects/new` starts with the first
+ * step, which creates the draft; `/admin/projects/:projectId/setup` walks the steps one at a time,
+ * the current one kept in the address (`?step=`), a return opening the first step with something
+ * missing. Back and Next save the step on screen; "save and exit" saves and opens the project; the
+ * review step activates a complete draft.
  */
 export function ProjectSetupPage() {
   const { me } = useAuth();
-  const { projectId = '' } = useParams();
-  const t = useTranslations('admin.projects.setup');
+  const { projectId } = useParams();
+  if (!me) return null;
+  if (!canSeeProjects(me) || (!projectId && !canCreateProjects(me))) return <ForbiddenContent />;
+  return projectId ? <ProjectWizard projectId={projectId} /> : <NewProjectWizard />;
+}
+
+/** The title, the step indicator and the step count of a wizard page. */
+function WizardHead({
+  title,
+  badge,
+  back,
+  steps,
+  current,
+  marks,
+  onSelect,
+}: {
+  title: string;
+  badge?: ReactNode;
+  back: ReactNode;
+  steps: StepId[];
+  current: number;
+  marks?: StepMark[];
+  onSelect?: (index: number) => void;
+}) {
+  const t = useTranslations('admin.projects.wizard');
+  const ts = useTranslations('admin.projects.setup.section');
+  return (
+    <header className="admin-wizard-head">
+      {back}
+      <div className="admin-title-row">
+        <h1 className="admin-title">{title}</h1>
+        {badge}
+      </div>
+      <Stepper
+        label={t('steps')}
+        steps={steps.map((s) => ts(s))}
+        current={current}
+        marks={marks}
+        missingLabel={t('missing_mark')}
+        onSelect={onSelect}
+      />
+      <p className="admin-wizard-count">
+        {t('step_of', { n: String(current + 1), total: String(steps.length) })}
+      </p>
+    </header>
+  );
+}
+
+/** The first step of a new project, before it exists: Next creates the draft. */
+function NewProjectWizard() {
+  const t = useTranslations('admin.projects.wizard');
+  const tp = useTranslations('admin.projects');
+  const navigate = useNavigate();
+  const { register, busy, run } = useStepRunner();
+  // where the created draft opens: the next step, or the project after "save and exit"
+  const exit = useRef(false);
+  const steps = STEP_IDS.filter((s) => s !== 'syllabus');
+  const created = (project: Project) =>
+    void navigate(
+      exit.current
+        ? `/admin/projects/${project.id}`
+        : `/admin/projects/${project.id}/setup?step=components`,
+      exit.current ? { state: { notice: t('saved_notice') } } : { replace: true },
+    );
+  return (
+    <div className="admin-wizard">
+      <DocumentTitle title={t('new_title')} />
+      <WizardHead
+        title={t('new_title')}
+        back={<Link to="/admin/projects">{tp('detail.back')}</Link>}
+        steps={steps}
+        current={0}
+      />
+      <StepSaveProvider value={register}>
+        <CreateStep onCreated={created} />
+      </StepSaveProvider>
+      <WizardActions
+        busy={busy}
+        saveExitLabel={t('save_exit_draft')}
+        onSaveExit={() => {
+          exit.current = true;
+          void run(() => undefined);
+        }}
+        primary={{
+          label: t('next'),
+          icon: ArrowRight,
+          onPress: () => {
+            exit.current = false;
+            void run(() => undefined);
+          },
+        }}
+      />
+    </div>
+  );
+}
+
+/** The setup of an existing project, one step at a time. */
+function ProjectWizard({ projectId }: { projectId: string }) {
+  const { me } = useAuth();
+  const t = useTranslations('admin.projects.wizard');
+  const ts = useTranslations('admin.projects.setup');
   const tp = useTranslations('admin.projects');
   const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
   const phone = usePhone();
-  const allowed = Boolean(me && canSeeProjects(me));
   const configure = Boolean(me && canCreateProjects(me));
   const rpm = Boolean(me?.roles.includes('regional_program_manager'));
-  const one = useSetupPart(projectId, 'project', () => projectWithEtag(projectId), allowed);
-  const parts = useSetupPart(projectId, 'components', () => components(projectId), allowed);
-  const areaList = useSetupPart(projectId, 'areas', () => areas(projectId), allowed);
-  const staffList = useSetupPart(projectId, 'staff', () => staff(projectId), allowed);
-  // fund sources are budget data, read only at program level
-  const funds = useSetupPart(
-    projectId,
-    'fund-sources',
-    () => fundSources(projectId),
-    allowed && configure,
-  );
-  const dawah = parts.data?.some((c) => c.componentKey === 'dawah' && c.enabled) === true;
-  const topics = useSetupPart(projectId, 'syllabus', () => syllabus(projectId), allowed && dawah);
+  const { register, busy, run } = useStepRunner();
 
-  if (!me) return null;
-  if (!allowed) return <ForbiddenContent />;
-  const back = <Link to={`/admin/projects/${projectId}`}>{t('back')}</Link>;
-  if (one.isPending || parts.isPending) return <Skeleton shape="card" count={3} />;
+  const one = useSetupPart(projectId, 'project', () => projectWithEtag(projectId), true);
+  const parts = useSetupPart(projectId, 'components', () => components(projectId), true);
+  const areaList = useSetupPart(projectId, 'areas', () => areas(projectId), true);
+  const staffList = useSetupPart(projectId, 'staff', () => staff(projectId), true);
+  // fund sources are budget data, read only at program level
+  const funds = useSetupPart(projectId, 'fund-sources', () => fundSources(projectId), configure);
+  const dawah = parts.data?.some((c) => c.componentKey === 'dawah' && c.enabled) === true;
+  const topics = useSetupPart(projectId, 'syllabus', () => syllabus(projectId), dawah);
+  const activate = useMutation({
+    mutationFn: () => moveProject(projectId, 'activate', one.data!.meta.etag),
+    onSuccess: () =>
+      navigate(`/admin/projects/${projectId}`, { state: { notice: t('activated_notice') } }),
+  });
+
+  const back = <Link to={`/admin/projects/${projectId}`}>{ts('back')}</Link>;
+  if (one.isPending || parts.isPending || (configure && funds.isPending))
+    return <Skeleton shape="card" count={3} />;
   if (one.error)
     return (
       <>
@@ -113,61 +247,100 @@ export function ProjectSetupPage() {
         onRetry={() => void query.refetch()}
       />
     ) : null;
+
+  const steps: StepId[] = STEP_IDS.filter(
+    (s) => (s !== 'budget' || funds.data !== undefined) && (s !== 'syllabus' || dawah),
+  );
+  // the check reads every part: without one of them the marks stay off
+  const missing =
+    configure && parts.data && funds.data && areaList.data
+      ? missingItems(project, parts.data, funds.data, areaList.data)
+      : null;
+  const asked = params.get('step');
+  const step: StepId =
+    isStepId(asked) && steps.includes(asked)
+      ? asked
+      : configure
+        ? firstOpenStep(steps, missing)
+        : 'basics';
+  const index = steps.indexOf(step);
+  const go = (next: StepId) =>
+    run(() => {
+      activate.reset();
+      setParams({ step: next });
+      window.scrollTo?.({ top: 0 });
+    });
+  const editable = ['draft', 'active'].includes(project.status) && (configure || rpm);
   const locked = !['draft', 'active'].includes(project.status);
-  const index: SectionId[] = [
-    'basics',
-    'components',
-    ...(funds.data ? (['budget'] as const) : []),
-    'window',
-    'areas',
-    'staff',
-    ...(dawah ? (['syllabus'] as const) : []),
-  ];
+  const toProject = () =>
+    navigate(`/admin/projects/${projectId}`, {
+      state: editable ? { notice: t('saved_notice') } : null,
+    });
+
+  const body = new Map<StepId, ReactNode>([
+    ['basics', <BasicsSection key="basics" />],
+    ['components', failed(parts) ?? <ComponentsSection components={parts.data ?? []} />],
+    ['budget', failed(funds) ?? (funds.data && <BudgetSection sources={funds.data} />)],
+    ['window', <WindowSection key="window" />],
+    ['areas', failed(areaList) ?? (areaList.data && <AreasSection areas={areaList.data} />)],
+    [
+      'staff',
+      failed(staffList) ??
+        (staffList.data && (
+          <StaffSection
+            staff={staffList.data}
+            areas={areaList.data ?? []}
+            manage={configure || rpm}
+          />
+        )),
+    ],
+    ['syllabus', failed(topics) ?? (topics.data && <SyllabusSection topics={topics.data} />)],
+    [
+      'review',
+      <ReviewStep
+        key="review"
+        missing={missing}
+        activation={activate.error}
+        onOpen={(target) => void go(target)}
+      />,
+    ],
+  ]);
+  const last = index === steps.length - 1;
+  const primary = !last
+    ? { label: t('next'), icon: ArrowRight, onPress: () => void go(steps[index + 1]!) }
+    : project.status === 'draft' && configure
+      ? { label: t('activate'), icon: Rocket, onPress: () => activate.mutate() }
+      : { label: t('to_project'), icon: ArrowRight, onPress: () => void toProject() };
 
   return (
     <SetupProvider value={{ project, etag: meta.etag, phone, configure, refresh }}>
-      <DocumentTitle title={t('title', { name: localized(project.name, locale) })} />
-      {back}
-      <div className="admin-title-row">
-        <h1 className="admin-title">{t('title', { name: localized(project.name, locale) })}</h1>
-        <ProjectStatusBadge status={project.status} />
-      </div>
-      {locked && (
-        <Alert tone="info" live="status">
-          {t('read_only', { status: tp(`status.${project.status}`) })}
-        </Alert>
-      )}
-      {phone && !locked && <Alert tone="info">{t('phone_limits')}</Alert>}
-      <div className="admin-setup">
-        <nav className="admin-setup-index" aria-label={t('index')}>
-          <ol>
-            {index.map((id) => (
-              <li key={id}>
-                <a href={`#${id}`}>{t(`section.${id}`)}</a>
-              </li>
-            ))}
-          </ol>
-        </nav>
-        <div className="admin-setup-main">
-          <BasicsSection />
-          {failed(parts) ?? <ComponentsSection components={parts.data ?? []} />}
-          {failed(funds) ?? (funds.data && <BudgetSection sources={funds.data} />)}
-          <WindowSection />
-          {failed(areaList) ?? (areaList.data && <AreasSection areas={areaList.data} />)}
-          {failed(staffList) ??
-            (staffList.data && (
-              <StaffSection
-                staff={staffList.data}
-                areas={areaList.data ?? []}
-                manage={configure || rpm}
-              />
-            ))}
-          {dawah && (failed(topics) ?? (topics.data && <SyllabusSection topics={topics.data} />))}
-        </div>
-        {/* the summary waits for every part it checks, so it never lists a part that failed */}
-        {configure && parts.data && funds.data && areaList.data && (
-          <SetupSummary components={parts.data} fundSources={funds.data} areas={areaList.data} />
+      <div className="admin-wizard">
+        <DocumentTitle title={ts('title', { name: localized(project.name, locale) })} />
+        <WizardHead
+          title={ts('title', { name: localized(project.name, locale) })}
+          badge={<ProjectStatusBadge status={project.status} />}
+          back={back}
+          steps={steps}
+          current={index}
+          marks={marksFor(steps, missing)}
+          onSelect={(i) => void go(steps[i]!)}
+        />
+        {locked && (
+          <Alert tone="info" live="status">
+            {ts('read_only', { status: tp(`status.${project.status}`) })}
+          </Alert>
         )}
+        {phone && !locked && <Alert tone="info">{ts('phone_limits')}</Alert>}
+        <StepSaveProvider value={register}>
+          <div className="admin-wizard-step">{body.get(step)}</div>
+        </StepSaveProvider>
+        <WizardActions
+          busy={busy || activate.isPending}
+          onBack={index > 0 ? () => void go(steps[index - 1]!) : undefined}
+          saveExitLabel={project.status === 'draft' ? t('save_exit_draft') : t('save_exit')}
+          onSaveExit={editable ? () => void run(toProject) : undefined}
+          primary={primary}
+        />
       </div>
     </SetupProvider>
   );

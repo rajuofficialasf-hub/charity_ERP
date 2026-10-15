@@ -183,58 +183,73 @@
 }
 
 /*
- * Project setup (SCR-060, mockup 12): the section index, the sections and the summary side by side
- * from 1440 px (the admin sidebar takes its share of the width); from 1024 px the index runs above
- * the sections and the summary beside them; on smaller screens everything stacks.
+ * Project setup wizard (UX-20): the head with the step indicator, one step card, and the action
+ * bar kept in view at the bottom; one readable column, full-width buttons on a phone.
  */
-.admin-setup {
+.admin-wizard {
   display: grid;
   gap: var(--space-4);
-  margin-top: var(--space-4);
+  max-width: 960px;
 }
-@media (min-width: 1024px) {
-  .admin-setup {
-    grid-template-columns: minmax(0, 1fr) 260px;
-    align-items: start;
-  }
-  .admin-setup-index {
-    grid-column: 1 / -1;
-  }
-  .admin-setup-summary {
-    position: sticky;
-    top: calc(var(--app-bar-height) + var(--space-4));
-  }
+.admin-wizard-head {
+  display: grid;
+  gap: var(--space-3);
 }
-@media (min-width: 1440px) {
-  .admin-setup {
-    grid-template-columns: 180px minmax(0, 1fr) 280px;
-  }
-  .admin-setup-index {
-    grid-column: auto;
-    position: sticky;
-    top: calc(var(--app-bar-height) + var(--space-4));
-  }
+.admin-wizard-count {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-bold);
 }
-.admin-setup-index ol {
+.admin-wizard-step {
+  min-width: 0;
+}
+.admin-wizard-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: var(--z-sticky);
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2) var(--space-4);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--color-bg-surface);
+  box-shadow: var(--elevation-2);
+}
+.admin-wizard-actions-start,
+.admin-wizard-actions-end {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+@media (max-width: 639px) {
+  .admin-wizard-actions,
+  .admin-wizard-actions-start,
+  .admin-wizard-actions-end {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+  .admin-wizard-actions-start:empty {
+    display: none;
+  }
+}
+.admin-wizard-missing ul {
   margin: 0;
   padding: 0;
   list-style: none;
 }
-@media (min-width: 1440px) {
-  .admin-setup-index ol {
-    flex-direction: column;
-  }
-}
-.admin-setup-main {
-  display: grid;
-  gap: var(--space-4);
-  min-width: 0;
-}
-.admin-setup-section {
-  scroll-margin-top: calc(var(--app-bar-height) + var(--space-4));
+.admin-wizard-missing li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-block: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
 }
 .admin-setup-grid {
   display: grid;
@@ -266,8 +281,7 @@
   margin: var(--space-4) 0 var(--space-2);
 }
 .admin-setup-list,
-.admin-setup-components,
-.admin-setup-missing {
+.admin-setup-components {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -284,9 +298,6 @@
 .admin-setup-components li > :first-child {
   flex: 1 1 auto;
   min-width: 0;
-}
-.admin-setup-missing li {
-  padding-block: var(--space-1);
 }
 .admin-setup-checks {
   display: flex;

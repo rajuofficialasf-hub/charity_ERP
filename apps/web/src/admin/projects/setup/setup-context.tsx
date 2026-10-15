@@ -1,7 +1,15 @@
 import { editableIn, type SetupField } from '@css/shared/projects';
 import { Alert, Button, Card } from '@css/ui';
 import { type UseMutationResult } from '@tanstack/react-query';
-import { createContext, Fragment, type ReactNode, useContext, useState } from 'react';
+import {
+  createContext,
+  Fragment,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../../lib/api';
 import type { Project } from '../projects-api';
@@ -10,7 +18,7 @@ import type { Project } from '../projects-api';
 export interface SetupState {
   project: Project;
   etag: string;
-  /** On a phone only the name, the dates and the switches change (SCR-060). */
+  /** On a phone only the name, the dates and the switches change. */
   phone: boolean;
   /** The caller configures the project (the PM and the global roles); others only read. */
   configure: boolean;
@@ -54,7 +62,89 @@ export function Reseed({
   return <Fragment key={state.version}>{children({ stale: state.stale, onStale })}</Fragment>;
 }
 
-/** One section of the setup: a card with its heading, an anchor for the index, and its content. */
+/** The save of the step on screen: true lets the wizard move on, false keeps the step open. */
+type StepSave = () => Promise<boolean>;
+const StepSaveContext = createContext<(save: StepSave | null) => void>(() => {});
+export const StepSaveProvider = StepSaveContext.Provider;
+
+/**
+ * Hands this step's save to the wizard, whose Next, step and save-and-exit buttons call it (UX-20).
+ * Nothing changed: it moves on. A problem the step can see (a missing name, an order of dates):
+ * it stays and says so. Otherwise it saves; a refusal stays, with the server's message shown by
+ * `SaveNotice`. Returns the problem to show.
+ */
+export function useStepSave(step: {
+  changed: boolean;
+  /** Why the step cannot be saved as it is, in the user's words. */
+  invalid?: string;
+  save: () => Promise<unknown>;
+}) {
+  const register = useContext(StepSaveContext);
+  const [problem, setProblem] = useState<string>();
+  const latest = useRef(step);
+  useEffect(() => {
+    latest.current = step;
+  });
+  useEffect(() => {
+    register(async () => {
+      const current = latest.current;
+      if (!current.changed) return true;
+      if (current.invalid) {
+        setProblem(current.invalid);
+        return false;
+      }
+      setProblem(undefined);
+      try {
+        await current.save();
+        return true;
+      } catch {
+        return false;
+      }
+    });
+    return () => register(null);
+  }, [register]);
+  return problem;
+}
+
+/**
+ * Why a step did not save: a problem the step found, the server's refusal, or the reload after
+ * someone else changed the part meanwhile (412).
+ */
+export function SaveNotice({
+  mutation,
+  problem,
+  stale = false,
+}: {
+  mutation: Pick<UseMutationResult<unknown, Error, void>, 'error' | 'isPending' | 'isSuccess'>;
+  problem?: string;
+  stale?: boolean;
+}) {
+  const t = useTranslations('admin.projects.setup');
+  const error = mutation.error;
+  if (problem)
+    return (
+      <Alert tone="warning" live="alert">
+        {problem}
+      </Alert>
+    );
+  if (error instanceof ApiFailure)
+    return (
+      <Alert tone={error.status === 412 ? 'warning' : 'danger'} live="alert">
+        {error.status === 412
+          ? t('stale')
+          : (error.details.map((d) => d.message).find(Boolean) ?? error.message)}
+      </Alert>
+    );
+  if (stale && !mutation.isSuccess && !mutation.isPending)
+    return (
+      <Alert tone="warning" live="alert">
+        {t('stale')}
+      </Alert>
+    );
+  return null;
+}
+
+/** One step of the setup: a card with its heading and its content. */
 export function SetupSection({
   id,
   title,
@@ -76,8 +166,8 @@ export function SetupSection({
 }
 
 /**
- * The save button of a section with its outcome: the server's message for a refusal, a reload
- * notice when someone else changed the part meanwhile (412), and a short confirmation.
+ * The button of an action that saves at once (add an area, give access) with its outcome: the
+ * server's message for a refusal, a reload notice on 412, and a short confirmation.
  */
 export function SaveRow({
   mutation,

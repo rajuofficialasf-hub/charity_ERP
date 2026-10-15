@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { saveSyllabus, type Topic } from './setup-api';
-import { SaveRow, SetupSection, useSetup } from './setup-context';
+import { SaveNotice, SetupSection, useSetup, useStepSave } from './setup-context';
 
 const MAX_TOPICS = 100;
 type Row = { id?: string; title: { bn: string; en: string } };
@@ -13,14 +13,20 @@ type Row = { id?: string; title: { bn: string; en: string } };
 export function SyllabusSection({ topics }: { topics: Topic[] }) {
   const { project, editable, refresh } = useSetup();
   const t = useTranslations('admin.projects.setup');
+  const tz = useTranslations('admin.projects.wizard');
   const [rows, setRows] = useState<Row[]>(topics);
   const can = editable('syllabus');
   const save = useMutation({
     mutationFn: () => saveSyllabus(project.id, { topics: rows }),
-    onSuccess: (saved) => {
-      // the new topics now have their ids, so the next save keeps them
-      setRows(saved);
-      void refresh();
+  });
+  const ready = rows.every((r) => r.title.bn.trim() && r.title.en.trim());
+  const problem = useStepSave({
+    changed: can && JSON.stringify(rows) !== JSON.stringify(topics),
+    invalid: ready ? undefined : tz('topics_invalid'),
+    save: async () => {
+      // the new topics get their ids, so the next save keeps them
+      setRows(await save.mutateAsync());
+      await refresh();
     },
   });
   const setTitle = (i: number, title: Row['title']) =>
@@ -31,7 +37,6 @@ export function SyllabusSection({ topics }: { topics: Topic[] }) {
     next.splice(i + by, 0, row!);
     setRows(next);
   };
-  const ready = rows.every((r) => r.title.bn.trim() && r.title.en.trim());
 
   return (
     <SetupSection id="syllabus" title={t('section.syllabus')}>
@@ -89,19 +94,17 @@ export function SyllabusSection({ topics }: { topics: Topic[] }) {
         </div>
       ))}
       {can && (
-        <>
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={Plus}
-            disabled={rows.length >= MAX_TOPICS}
-            onPress={() => setRows([...rows, { title: { bn: '', en: '' } }])}
-          >
-            {t('add_topic')}
-          </Button>
-          <SaveRow mutation={save} onSave={() => save.mutate()} disabled={!ready} />
-        </>
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={Plus}
+          disabled={rows.length >= MAX_TOPICS}
+          onPress={() => setRows([...rows, { title: { bn: '', en: '' } }])}
+        >
+          {t('add_topic')}
+        </Button>
       )}
+      <SaveNotice mutation={save} problem={problem} />
     </SetupSection>
   );
 }

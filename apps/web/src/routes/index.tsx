@@ -53,6 +53,13 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
               }),
             },
             {
+              path: 'projects/new',
+              lazy: async () => ({
+                Component: (await import('../admin/projects/setup/ProjectSetupPage'))
+                  .ProjectSetupPage,
+              }),
+            },
+            {
               path: 'projects/:projectId',
               lazy: async () => ({
                 Component: (await import('../admin/projects/ProjectOverviewPage'))

@@ -12,7 +12,7 @@ import {
 import { ApiFailure } from '../../../lib/api';
 import { type PanelUser, UserSearch } from '../../UserSearch';
 import { addArea, type Area, candidates, removeArea } from './setup-api';
-import { SaveRow, SetupSection, useSetup } from './setup-context';
+import { SaveRow, SetupSection, useSetup, useStepSave } from './setup-context';
 
 /**
  * The project's areas, each a division or a district with its RPM; a district may be split among
@@ -39,6 +39,8 @@ export function AreasSection({ areas }: { areas: Area[] }) {
     },
   });
   const remove = useMutation({ mutationFn: removeArea, onSuccess: refresh });
+  // an area filled in but not added yet is added when the wizard moves on
+  useStepSave({ changed: can && Boolean(place.divisionId && rpm), save: () => add.mutateAsync() });
 
   return (
     <SetupSection id="areas" title={t('section.areas')}>

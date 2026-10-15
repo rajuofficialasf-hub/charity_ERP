@@ -7,7 +7,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { type FundSource, saveFundSources } from './setup-api';
-import { SaveRow, SetupSection, useSetup } from './setup-context';
+import { SaveNotice, SetupSection, useSetup, useStepSave } from './setup-context';
 
 type Row = { source: FundSource['source']; label: string; amount: string };
 
@@ -24,6 +24,7 @@ const taka = (paisa: bigint | null, locale: Locale) =>
 export function BudgetSection({ sources }: { sources: FundSource[] }) {
   const { project, editable, refresh } = useSetup();
   const t = useTranslations('admin.projects.setup');
+  const tz = useTranslations('admin.projects.wizard');
   const locale = useLocale() as Locale;
   const [cost, setCost] = useState(project.costPerBeneficiary ?? '');
   const [target, setTarget] = useState(
@@ -55,7 +56,23 @@ export function BudgetSection({ sources }: { sources: FundSource[] }) {
           ...(r.label.trim() ? { label: r.label.trim() } : {}),
         })),
       }),
-    onSuccess: refresh,
+  });
+  const before = JSON.stringify({
+    cost: project.costPerBeneficiary ?? '',
+    target: String(project.targetBeneficiaries ?? ''),
+    rows: sources.map((s) => ({ source: s.source, label: s.label ?? '', amount: s.amount })),
+  });
+  const problem = useStepSave({
+    changed: can && JSON.stringify({ cost, target, rows }) !== before,
+    invalid: !amountsOk
+      ? tz('budget_invalid')
+      : project.status !== 'draft' && !equal
+        ? t('fund_mismatch')
+        : undefined,
+    save: async () => {
+      await save.mutateAsync();
+      await refresh();
+    },
   });
   const setRow = (i: number, patch: Partial<Row>) =>
     setRows(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
@@ -134,13 +151,7 @@ export function BudgetSection({ sources }: { sources: FundSource[] }) {
       {planned !== null && total !== null && !equal && (
         <Alert tone={project.status === 'draft' ? 'info' : 'warning'}>{t('fund_mismatch')}</Alert>
       )}
-      {can && (
-        <SaveRow
-          mutation={save}
-          onSave={() => save.mutate()}
-          disabled={!amountsOk || (project.status !== 'draft' && !equal)}
-        />
-      )}
+      <SaveNotice mutation={save} problem={problem} />
     </SetupSection>
   );
 }

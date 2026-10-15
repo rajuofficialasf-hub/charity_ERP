@@ -8,7 +8,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import { ApiFailure } from '../../../lib/api';
 import { type PanelUser, UserSearch } from '../../UserSearch';
 import { addStaff, type Area, candidates, endStaff, type StaffAccess } from './setup-api';
-import { SaveRow, SetupSection, useSetup } from './setup-context';
+import { SaveRow, SetupSection, useSetup, useStepSave } from './setup-context';
 
 /**
  * Staff access on the project: a Project Executive, an Official দায়ী or an Implementer gets view,
@@ -61,6 +61,12 @@ export function StaffSection({
       setCanDelete(false);
       refresh();
     },
+  });
+
+  // an access filled in but not given yet is given when the wizard moves on
+  useStepSave({
+    changed: can && Boolean(person && roleKey && (configure || areaId)),
+    save: () => add.mutateAsync(),
   });
 
   return (

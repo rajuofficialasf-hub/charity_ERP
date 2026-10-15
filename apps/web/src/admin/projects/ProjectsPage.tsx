@@ -11,7 +11,6 @@ import {
 } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import { FolderKanban } from 'lucide-react';
-import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
@@ -21,7 +20,6 @@ import { ForbiddenContent } from '../AdminLayout';
 import { PROGRAMS_KEY, programs } from '../programs/programs-api';
 import { canCreateProjects, canSeePrograms, canSeeProjects } from '../roles';
 import { useTabView } from '../use-tab-view';
-import { NewProjectDialog } from './NewProjectDialog';
 import { ProjectStatusBadge } from './ProjectStatusBadge';
 import { FILTER_KEYS, type Project, projectPage, PROJECTS_KEY } from './projects-api';
 
@@ -30,14 +28,13 @@ const FIRST_YEAR = 2020;
 
 /**
  * The projects in the caller's scope: code, name, program, year and state, with the
- * state chips and the program and year filters in the page URL. A PM (and a global role) creates a
- * draft here and continues on the project's page.
+ * state chips and the program and year filters in the page URL. A PM (and a global role) starts a
+ * new project here, in the setup wizard.
  */
 export function ProjectsPage() {
   const { me } = useAuth();
   const t = useTranslations('admin.projects');
   const navigate = useNavigate();
-  const [creating, setCreating] = useState(false);
   if (!me) return null;
   if (!canSeeProjects(me)) return <ForbiddenContent />;
   return (
@@ -45,16 +42,11 @@ export function ProjectsPage() {
       <DocumentTitle title={t('title')} />
       <div className="admin-title-row">
         <h1 className="admin-title">{t('title')}</h1>
-        {canCreateProjects(me) && <Button onPress={() => setCreating(true)}>{t('new')}</Button>}
+        {canCreateProjects(me) && (
+          <Button onPress={() => void navigate('/admin/projects/new')}>{t('new')}</Button>
+        )}
       </div>
       <ProjectList programNames={canSeePrograms(me)} />
-      {creating && (
-        <NewProjectDialog
-          isOpen
-          onClose={() => setCreating(false)}
-          onDone={(p) => void navigate(`/admin/projects/${p.id}`)}
-        />
-      )}
     </>
   );
 }
