@@ -1,12 +1,11 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test, type TestInfo } from '@playwright/test';
+import { filterBy, openTab, rows as listRows, scan, signIn } from './support/admin';
 
 // The nationwide volunteer tab (docs/ui/SCREENS.md, the volunteer tab and the volunteer profile)
 // against the API on its E2E database with the demo seed (docs/testing/DEMO_ACCOUNTS.md): the
 // counts, the area filter kept in the address, the NID held back outside the caller's region, and
 // the refusal for volunteers. Mobile and desktop share the database, so each signs in with its own
 // accounts.
-const PASSWORD = 'CssDemo2026';
 const ACCOUNTS = {
   desktop: { official: 'rpm.dhaka@example.org', volunteer: '01700000111' },
   mobile: { official: 'pm.hum@example.org', volunteer: '01700000113' },
@@ -14,58 +13,15 @@ const ACCOUNTS = {
 const accounts = (info: TestInfo) =>
   ACCOUNTS[info.project.name === 'mobile' ? 'mobile' : 'desktop'];
 
-/** axe on the page; React Aria's live announcer node is excluded as in auth.spec.ts. */
-const scan = (page: Page) => new AxeBuilder({ page }).exclude('[data-live-announcer]').analyze();
-
-async function signIn(page: Page, loginId: string): Promise<void> {
-  await page.goto('/login');
-  await expect(page.getByRole('button', { name: 'লগইন', exact: true })).toBeEnabled();
-  await page.getByRole('textbox', { name: /মোবাইল নম্বর বা ইমেইল/ }).fill(loginId);
-  await page
-    .getByLabel(/^পাসওয়ার্ড/, { exact: false })
-    .first()
-    .fill(PASSWORD);
-  await page.getByRole('button', { name: 'লগইন', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: /^স্বাগতম, / })).toBeVisible();
-}
-
-/** Picks from a Select; its button is named by the current value, then the label. */
-async function choose(page: Page, label: RegExp, option: string) {
-  await page.getByRole('button', { name: label }).click();
-  await page.getByRole('listbox').getByRole('option', { name: option, exact: true }).click();
-  await expect(page.getByRole('listbox')).toHaveCount(0);
-}
-
-/**
- * Sets area filters: inline beside the list on a desktop, in the filter sheet on a phone. The
- * Select buttons end with their label ("বেছে নিন জেলা"), so "জেলা" never matches "উপজেলা".
- */
-async function filterBy(page: Page, info: TestInfo, picks: [label: string, option: string][]) {
-  const phone = info.project.name === 'mobile';
-  if (phone) await page.getByRole('button', { name: /^ফিল্টার/ }).click();
-  for (const [label, option] of picks) await choose(page, new RegExp(`\\s${label}$`), option);
-  if (phone) await page.getByRole('button', { name: 'ফিল্টার প্রয়োগ' }).click();
-}
-
-/** The rows of the list: a table on a desktop, a card list on a phone. */
-const rows = (page: Page) =>
-  page.locator('[aria-label="স্বেচ্ছাসেবক"]:is(table, ul, [role=grid]):visible');
-
-async function openTab(page: Page) {
-  await page.getByRole('link', { name: 'অ্যাডমিন' }).click();
-  await page
-    .getByRole('navigation', { name: 'অ্যাডমিন মেনু' })
-    .getByRole('link', { name: 'স্বেচ্ছাসেবক' })
-    .click();
-  await expect(page.getByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক' })).toBeVisible();
-}
+const TAB = 'স্বেচ্ছাসেবক';
+const rows = (page: Page) => listRows(page, TAB);
 
 test.describe('the volunteer tab', () => {
   test('an official filters by district, and the filter stays in the address', async ({
     page,
   }, info) => {
     await signIn(page, accounts(info).official);
-    await openTab(page);
+    await openTab(page, TAB);
     const counts = page.getByRole('region', { name: 'স্বেচ্ছাসেবকের হিসাব' });
     await expect(counts.getByText('মোট')).toBeVisible();
     await expect(rows(page).getByRole('link', { name: 'স্বেচ্ছাসেবক 2 (নমুনা)' })).toBeVisible();
@@ -99,7 +55,7 @@ test.describe('the volunteer tab', () => {
   }, info) => {
     test.skip(info.project.name !== 'desktop', 'one account, one project');
     await signIn(page, accounts(info).official);
-    await openTab(page);
+    await openTab(page, TAB);
 
     await rows(page).getByRole('link', { name: 'স্বেচ্ছাসেবক 2 (নমুনা)' }).click();
     await expect(

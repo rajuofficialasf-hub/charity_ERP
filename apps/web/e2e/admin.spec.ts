@@ -4,11 +4,13 @@ import { expect, type Page, test } from '@playwright/test';
 // The admin area shell on packages/ui (UX-15; plan
 // docs/plans/2026-10-11-1742-chore-stack-adoption-admin-minimal-plan.md, U11) against the API on its
 // E2E database. Mobile and desktop share the database, so each project signs in with its own
-// accounts (docs/testing/DEMO_ACCOUNTS.md).
+// accounts (docs/testing/DEMO_ACCOUNTS.md). The language switch here is saved on the account, so
+// these accounts are used by no other spec: another spec signing in while the account is English
+// would not find its Bengali labels.
 const PASSWORD = 'CssDemo2026';
 const ACCOUNTS = {
-  desktop: { manager: 'head@example.org', volunteer: '01700000111' },
-  mobile: { manager: 'monitoring@example.org', volunteer: '01700000112' },
+  desktop: { manager: 'rpm.rangpur@example.org', volunteer: '01700000111' },
+  mobile: { manager: 'procurement@example.org', volunteer: '01700000112' },
 } as const;
 const accounts = (project: string) => ACCOUNTS[project === 'mobile' ? 'mobile' : 'desktop'];
 
