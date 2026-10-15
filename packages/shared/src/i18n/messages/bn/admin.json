@@ -304,5 +304,82 @@
       "revoked": "ডিভাইসটি থেকে লগআউট করা হয়েছে।",
       "unknown_device": "অজানা ডিভাইস"
     }
+  },
+  "beneficiaries": {
+    "title": "উপকারভোগী",
+    "table": "উপকারভোগী",
+    "search": "নাম বা নম্বর দিয়ে খুঁজুন",
+    "stats": {
+      "label": "উপকারভোগীর হিসাব",
+      "total": "মোট",
+      "assisted": "এই বছর সহায়তা পেয়েছেন",
+      "blocked": "ব্লক করা"
+    },
+    "column": {
+      "name": "নাম",
+      "father": "পিতা বা স্বামীর নাম",
+      "type": "ধরন",
+      "area": "এলাকা",
+      "status": "অবস্থা"
+    },
+    "filter": {
+      "type": "ধরন",
+      "year": "বছর",
+      "blocked": "ব্লকলিস্ট",
+      "blocked_yes": "ব্লক করা",
+      "blocked_no": "ব্লক নয়"
+    },
+    "types": {
+      "elderly": "বৃদ্ধ",
+      "widow": "বিধবা",
+      "orphan": "এতিম",
+      "disabled": "প্রতিবন্ধী",
+      "ill": "অসুস্থ",
+      "labourer": "শ্রমজীবী",
+      "extreme_poor": "অতিদরিদ্র",
+      "other": "অন্যান্য"
+    },
+    "status": {
+      "active": "সক্রিয়",
+      "deceased": "মৃত",
+      "relocated": "অন্যত্র চলে গেছেন"
+    },
+    "gender": {
+      "female": "নারী",
+      "male": "পুরুষ",
+      "other": "অন্যান্য"
+    },
+    "blocked": "ব্লক করা",
+    "empty": "এই ফিল্টারে কোনো উপকারভোগী পাওয়া যায়নি।",
+    "profile": {
+      "back": "সব উপকারভোগী",
+      "not_found": "এই উপকারভোগীকে পাওয়া যায়নি।",
+      "hidden": "আপনার জন্য দেখানো হয় না",
+      "sections": {
+        "basic": "মূল তথ্য",
+        "address": "ঠিকানা",
+        "family": "পরিবার",
+        "projects": "বছরভিত্তিক প্রজেক্ট",
+        "applications": "আবেদনের ইতিহাস",
+        "distributions": "বিতরণ ও বাস্তবায়ন",
+        "dawah": "দাওয়াহ",
+        "followups": "ফলো-আপ",
+        "activities": "কার্যক্রমের ইতিহাস"
+      },
+      "mother": "মাতার নাম",
+      "gender": "লিঙ্গ",
+      "age": "বয়স",
+      "occupation": "পেশা",
+      "mobile": "মোবাইল",
+      "nid": "NID বা জন্মনিবন্ধন",
+      "village": "গ্রাম",
+      "post_office": "ডাকঘর",
+      "landmark": "পরিচিত স্থান",
+      "no_rows": "এখনো কিছু নেই।",
+      "attendance": "ক্লাসে উপস্থিতি {total}টির মধ্যে {present}টি",
+      "exams": "পরীক্ষায় পাস {total}টির মধ্যে {passed}টি",
+      "calls": "ফোন কল",
+      "evaluations": "ফলো-আপ মূল্যায়ন"
+    }
   }
 }

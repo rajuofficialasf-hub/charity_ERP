@@ -304,5 +304,82 @@
       "revoked": "The device was signed out.",
       "unknown_device": "Unknown device"
     }
+  },
+  "beneficiaries": {
+    "title": "Beneficiaries",
+    "table": "Beneficiaries",
+    "search": "Search by name or number",
+    "stats": {
+      "label": "Beneficiary counts",
+      "total": "Total",
+      "assisted": "Assisted this year",
+      "blocked": "Blocked"
+    },
+    "column": {
+      "name": "Name",
+      "father": "Father's or husband's name",
+      "type": "Type",
+      "area": "Area",
+      "status": "Status"
+    },
+    "filter": {
+      "type": "Type",
+      "year": "Year",
+      "blocked": "Blocklist",
+      "blocked_yes": "Blocked",
+      "blocked_no": "Not blocked"
+    },
+    "types": {
+      "elderly": "Elderly",
+      "widow": "Widow",
+      "orphan": "Orphan",
+      "disabled": "Person with disability",
+      "ill": "Ill",
+      "labourer": "Labourer",
+      "extreme_poor": "Extremely poor",
+      "other": "Other"
+    },
+    "status": {
+      "active": "Active",
+      "deceased": "Deceased",
+      "relocated": "Moved away"
+    },
+    "gender": {
+      "female": "Female",
+      "male": "Male",
+      "other": "Other"
+    },
+    "blocked": "Blocked",
+    "empty": "No beneficiary matches these filters.",
+    "profile": {
+      "back": "All beneficiaries",
+      "not_found": "This beneficiary was not found.",
+      "hidden": "Not shown to you",
+      "sections": {
+        "basic": "Basic details",
+        "address": "Address",
+        "family": "Family",
+        "projects": "Projects by year",
+        "applications": "Application history",
+        "distributions": "Distribution and implementation",
+        "dawah": "Dawah",
+        "followups": "Follow-ups",
+        "activities": "Activity history"
+      },
+      "mother": "Mother's name",
+      "gender": "Gender",
+      "age": "Age",
+      "occupation": "Occupation",
+      "mobile": "Mobile",
+      "nid": "NID or birth registration",
+      "village": "Village",
+      "post_office": "Post office",
+      "landmark": "Landmark",
+      "no_rows": "Nothing yet.",
+      "attendance": "Class attendance {present} of {total}",
+      "exams": "Exams passed {passed} of {total}",
+      "calls": "Calls",
+      "evaluations": "Follow-up evaluations"
+    }
   }
 }

@@ -2,6 +2,7 @@ import type { VolunteerFilter, VolunteerRow, VolunteerStatistics } from '@css/sh
 import type { DeviceSession } from '@css/shared/auth';
 import type { VolunteerType } from '@css/shared/registration';
 import { api } from '../../lib/api';
+import { listQuery } from '../list-query';
 
 /** The keys of the filters the volunteer tab keeps in the page URL (the search stays out). */
 export const FILTER_KEYS = [
@@ -24,17 +25,10 @@ interface PageMeta {
   total?: number | '10000+';
 }
 
-const query = (values: Record<string, string | undefined>) => {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(values)) if (value) params.set(key, value);
-  const text = params.toString();
-  return text ? `?${text}` : '';
-};
-
 /** GET /volunteers: one page of the tab for the filters, the search and a cursor. */
 export function volunteerPage(filters: FilterValues, q: string, cursor: string | null) {
   return api<{ data: VolunteerRow[]; meta: PageMeta }>(
-    `/volunteers${query({ ...filters, q: q || undefined, cursor: cursor ?? undefined, include: 'total' })}`,
+    `/volunteers${listQuery({ ...filters, q: q || undefined, cursor: cursor ?? undefined, include: 'total' })}`,
     { envelope: true },
   );
 }
@@ -42,7 +36,7 @@ export function volunteerPage(filters: FilterValues, q: string, cursor: string |
 /** GET /volunteers/statistics for the same filters and search. */
 export function volunteerStatistics(filters: FilterValues, q: string) {
   return api<VolunteerStatistics>(
-    `/volunteers/statistics${query({ ...filters, q: q || undefined })}`,
+    `/volunteers/statistics${listQuery({ ...filters, q: q || undefined })}`,
   );
 }
 

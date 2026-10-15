@@ -23,12 +23,13 @@ export const beneficiaryFilterSchema = z.strictObject({
 });
 export type BeneficiaryFilter = z.infer<typeof beneficiaryFilterSchema>;
 
-/** One row of the beneficiary tab; the union, village and mobile only for callers who see them. */
+/** One row of the beneficiary tab; the protected parts only for callers who see them. */
 export interface BeneficiaryRow {
   id: string;
   name: string;
-  fatherOrHusbandName: string;
-  classCode: string | null;
+  /** With the personal-details class only (the Media and Procurement Teams do not get it). */
+  fatherOrHusbandName?: string;
+  classCode?: string | null;
   status: string;
   divisionId: string;
   districtId: string;

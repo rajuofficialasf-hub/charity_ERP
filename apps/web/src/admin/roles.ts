@@ -35,6 +35,17 @@ export const BENEFICIARY_TAB_ROLES: readonly string[] = [
   'procurement_team',
 ];
 
+/**
+ * Who sees a beneficiary's personal details, care data and blocklist status (the classes
+ * `beneficiary.profile_detail` and `beneficiary.care`), and who sees the union and the village
+ * (`beneficiary.address_detail`, also the Procurement Team). The server masks them anyway.
+ */
+export const BENEFICIARY_DETAIL_ROLES: readonly string[] = VOLUNTEER_TAB_ROLES;
+export const BENEFICIARY_ADDRESS_ROLES: readonly string[] = [
+  ...BENEFICIARY_DETAIL_ROLES,
+  'procurement_team',
+];
+
 /** Who sees volunteer categories and ratings (the class `volunteer.rating`). */
 export const CATEGORY_ROLES: readonly string[] = ADMIN_ROLES;
 
@@ -76,6 +87,10 @@ export const canApproveRegistrations = (me: Pick<Me, 'roles'>) => holds(me, REGI
 export const canSeeVolunteers = (me: Pick<Me, 'roles'>) => holds(me, VOLUNTEER_TAB_ROLES);
 export const canSeeBeneficiaries = (me: Pick<Me, 'roles'>) => holds(me, BENEFICIARY_TAB_ROLES);
 export const canSeeCategories = (me: Pick<Me, 'roles'>) => holds(me, CATEGORY_ROLES);
+export const canSeeBeneficiaryDetails = (me: Pick<Me, 'roles'>) =>
+  holds(me, BENEFICIARY_DETAIL_ROLES);
+export const canSeeBeneficiaryAddress = (me: Pick<Me, 'roles'>) =>
+  holds(me, BENEFICIARY_ADDRESS_ROLES);
 export const canApproveStaff = (me: Pick<Me, 'roles'>) => holds(me, STAFF_APPROVER_ROLES);
 export const canDecideEdits = (me: Pick<Me, 'roles'>) => holds(me, EDIT_REQUEST_ROLES);
 export const canBlock = (me: Pick<Me, 'roles'>) => holds(me, BLOCKLIST_ROLES);
