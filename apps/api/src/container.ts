@@ -35,6 +35,7 @@ import { VolunteersService } from './services/volunteers';
 import { VolunteerListService } from './services/volunteer-list';
 import { VolunteerProfileService } from './services/volunteer-profile';
 import { BeneficiariesService } from './services/beneficiaries';
+import { ProgramsService } from './services/programs';
 import { RegistrationsService } from './services/registrations';
 import { ChangeRequestsService } from './services/change-requests';
 import { BlocklistService } from './services/blocklist';
@@ -85,6 +86,7 @@ export interface Container {
   volunteerList: VolunteerListService;
   volunteerProfile: VolunteerProfileService;
   beneficiaries: BeneficiariesService;
+  programs: ProgramsService;
   registrations: RegistrationsService;
   changeRequests: ChangeRequestsService;
   blocklist: BlocklistService;
@@ -188,6 +190,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     volunteerList: o.volunteerList ?? new VolunteerListService(env, prisma, access),
     volunteerProfile: o.volunteerProfile ?? new VolunteerProfileService(prisma, access),
     beneficiaries: o.beneficiaries ?? new BeneficiariesService(env, prisma, clock, access),
+    programs: o.programs ?? new ProgramsService(prisma, audit),
     registrations:
       o.registrations ??
       new RegistrationsService(

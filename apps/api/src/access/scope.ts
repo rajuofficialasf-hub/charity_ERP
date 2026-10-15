@@ -385,6 +385,20 @@ export function beneficiaryRowsProjectWhere(scope: Scope): Prisma.ProjectWhereIn
  * caller's programs; the caller's projects; the projects of the caller's areas (an area without a
  * project reaches the projects with an area in that location). No instance means no project.
  */
+/**
+ * The programs a scope reaches: every program for GLOBAL, the caller's own programs (PROGRAM, the
+ * PM), and the programs of the projects the caller reaches through a project or an area.
+ */
+export function programWhere(scope: Scope): Prisma.ProgramWhereInput {
+  const i = scope.instances;
+  if (i.global) return {};
+  const or: Prisma.ProgramWhereInput[] = [];
+  if (i.programIds.length) or.push({ id: { in: i.programIds } });
+  if (i.projectIds.length || i.areas.length)
+    or.push({ projectsProgram: { some: projectWhere(scope) } });
+  return or.length ? { OR: or } : { id: { in: [] } };
+}
+
 export function projectWhere(scope: Scope): Prisma.ProjectWhereInput {
   const i = scope.instances;
   if (i.global) return {};

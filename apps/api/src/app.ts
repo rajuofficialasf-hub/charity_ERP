@@ -18,6 +18,7 @@ import { locationsRouter } from './routes/locations';
 import { filesRouter } from './routes/files';
 import { volunteersRouter } from './routes/volunteers';
 import { beneficiariesRouter } from './routes/beneficiaries';
+import { programsRouter } from './routes/programs';
 import { registrationsRouter } from './routes/registrations';
 
 export const API_PREFIX = 'api/v1';
@@ -82,6 +83,7 @@ export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
   api.use(filesRouter(deps, c));
   api.use(volunteersRouter(deps, c));
   api.use(beneficiariesRouter(deps, c));
+  api.use(programsRouter(deps, c));
   api.use(registrationsRouter(deps, c));
   for (const build of options.extraRouters ?? []) api.use(build(deps));
   app.use(`/${API_PREFIX}`, api);

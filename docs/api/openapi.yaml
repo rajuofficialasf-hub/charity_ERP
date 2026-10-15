@@ -1650,21 +1650,39 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
 
     # ---------------- programs and projects ----------------
+    BoundedLabel:
+      type: object
+      description: A bilingual configuration label of at most 200 characters per language
+      additionalProperties: false
+      required: [bn, en]
+      properties:
+        bn: { type: string, maxLength: 200 }
+        en: { type: string, maxLength: 200 }
     ProgramCreate:
       type: object
+      additionalProperties: false
       required: [code, name]
       properties:
         code: { type: string, pattern: '^[A-Z]{2,12}$' }
-        name: { $ref: '#/components/schemas/Bilingual' }
-        pmUserId: { $ref: '#/components/schemas/Uuid' }
+        name: { $ref: '#/components/schemas/BoundedLabel' }
+        pmUserId: { type: string, format: uuid }
+    ProgramUpdate:
+      type: object
+      description: At least one of name and active
+      additionalProperties: false
+      properties:
+        name: { $ref: '#/components/schemas/BoundedLabel' }
+        active: { type: boolean }
     Program:
-      allOf:
-        - $ref: '#/components/schemas/ProgramCreate'
-        - type: object
-          required: [id, active]
-          properties:
-            id: { $ref: '#/components/schemas/Uuid' }
-            active: { type: boolean }
+      type: object
+      required: [id, code, name, pmUserId, pmName, active]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        code: { type: string }
+        name: { $ref: '#/components/schemas/Bilingual' }
+        pmUserId: { type: [string, 'null'], format: uuid }
+        pmName: { type: [string, 'null'] }
+        active: { type: boolean }
     ProgramResponse:
       type: object
       required: [data, meta]
@@ -4402,7 +4420,7 @@ paths:
     get:
       tags: [programs]
       operationId: programs.program.list
-      summary: Programs (officials only); not paginated
+      summary: Programs in the caller scope (officials only); not paginated
       x-permission: program.view
       x-scope: program
       x-audit: none
@@ -4414,6 +4432,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProgramList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
     post:
       tags: [programs]
@@ -4435,6 +4454,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProgramResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /programs/{programId}:
@@ -4455,14 +4476,47 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProgramResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [programs]
+      operationId: programs.program.update
+      summary: Rename a program, deactivate it or activate it again (never deleted)
+      description: >-
+        Deactivation is refused with 409 program.has_open_projects while the program has a draft,
+        active or closing project (BR-256); a deactivated program takes no new project.
+      x-permission: program.update
+      x-scope: global
+      x-audit: program.update
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProgramUpdate' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProgramResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /programs/{programId}/pm:
     parameters:
       - $ref: '#/components/parameters/ProgramId'
     post:
       tags: [programs]
       operationId: programs.program.assignPm
-      summary: Assign the Program Manager
+      summary: Assign the Program Manager (an active official holding the PM role)
       x-permission: program.assign_pm
       x-scope: global
       x-audit: program.assign_pm
@@ -4474,6 +4528,7 @@ paths:
           application/json:
             schema:
               type: object
+              additionalProperties: false
               required: [pmUserId]
               properties:
                 pmUserId: { type: string, format: uuid }
@@ -4483,7 +4538,10 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProgramResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
 
   # ======================= projects =======================
   /projects:
