@@ -1,7 +1,7 @@
 ---
 title: The volunteer form refined, and the open problems of T1.9d and T1.9e fixed (T1.9f)
 type: feat
-status: in-progress
+status: done
 doc_review: 2026-10-14
 source: plan
 date: 2026-10-14
@@ -96,7 +96,7 @@ The logout and stale-token fix of the earlier session is delivered by the merge 
 - **Auth:** a flagged account is locked to four routes until the password changes; a mistake would lock the new Monitoring Team member out, so the test covers the allowed routes and the clearing; only an approval after this release flags an account.
 - **Personal data:** the blood group and the date of birth stay in `volunteer.identity`; the permanent address is not protected (like the present one).
 
-## Progress
+## Build notes
 - **Branch:** feat/volunteer-form-refine
 - **Next:** full gate, STATUS, push and merge
 - **Reviewed through:** C2 at 5297056
