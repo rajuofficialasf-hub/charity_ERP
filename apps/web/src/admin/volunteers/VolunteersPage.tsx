@@ -2,6 +2,7 @@ import type { Locale } from '@css/shared/i18n';
 import { VOLUNTEER_TYPES } from '@css/shared/registration';
 import type { VolunteerRow } from '@css/shared/volunteers';
 import {
+  Alert,
   Badge,
   EmptyState,
   ErrorState,
@@ -13,7 +14,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { Users } from 'lucide-react';
 import { useCallback, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
@@ -44,12 +45,26 @@ const CATEGORIES = ['A', 'B', 'C', 'D', 'inactive'] as const;
 export function VolunteersPage() {
   const { me } = useAuth();
   const t = useTranslations('admin.volunteers');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const notice = (location.state as { notice?: string } | null)?.notice;
   if (!me) return null;
   if (!canSeeVolunteers(me)) return <ForbiddenContent />;
   return (
     <>
       <DocumentTitle title={t('title')} />
       <h1 className="admin-title">{t('title')}</h1>
+      {notice && (
+        <Alert
+          tone="success"
+          live="status"
+          onDismiss={() =>
+            void navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+          }
+        >
+          {notice}
+        </Alert>
+      )}
       <VolunteerTab categories={canSeeCategories(me)} />
     </>
   );

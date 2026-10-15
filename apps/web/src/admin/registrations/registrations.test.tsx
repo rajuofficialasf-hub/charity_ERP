@@ -11,6 +11,8 @@ import { AdminLayout } from '../AdminLayout';
 import { DashboardPage } from '../DashboardPage';
 import { RegistrationDetail } from './RegistrationDetail';
 import { RegistrationsPage } from './RegistrationsPage';
+import { VolunteerProfilePage } from '../volunteers/VolunteerProfilePage';
+import { VolunteersPage } from '../volunteers/VolunteersPage';
 
 // The registration admin page (SCR-040, BR-028 to BR-031, BD-06; plan
 // docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U13). Test data only.
@@ -139,12 +141,49 @@ function serve() {
   server.use(
     // the list answers one status at a time (awaiting_review when none is given)
     http.get('*/api/v1/registrations', ({ request }) => {
-      const status = new URL(request.url).searchParams.get('status') ?? 'awaiting_review';
+      const params = new URL(request.url).searchParams;
+      const status = params.get('status');
+      const kind = params.get('kind');
       return HttpResponse.json({
-        data: pending.filter((p) => (p as { status: string }).status === status),
+        data: pending.filter(
+          (p) =>
+            (!status || (p as { status: string }).status === status) &&
+            (!kind || (p as { kind: string }).kind === kind),
+        ),
         meta,
       });
     }),
+    // the volunteer tab and the profile that opens the review of a pending volunteer
+    http.get('*/api/v1/volunteers/statistics', () =>
+      HttpResponse.json({
+        data: {
+          volunteers: { total: 0, active: 0, pending: 0, blocked: 0, deactivated: 0 },
+          applications: { total: 0, approved: 0, underReview: 0 },
+        },
+        meta,
+      }),
+    ),
+    http.get('*/api/v1/volunteers', () => HttpResponse.json({ data: [], meta })),
+    http.get('*/api/v1/volunteers/:volunteerId', () =>
+      HttpResponse.json({
+        data: {
+          id: VOLUNTEER_ID,
+          userId: VOLUNTEER_USER,
+          displayName: pendingVolunteer.displayName,
+          type: 'general',
+          state: 'pending',
+          actions: {
+            approve: true,
+            requestCorrection: true,
+            block: true,
+            unblock: false,
+            viewSessions: false,
+            revokeSessions: false,
+          },
+        },
+        meta,
+      }),
+    ),
     http.get('*/api/v1/registrations/:userId', ({ params }) =>
       params.userId === STAFF_USER
         ? HttpResponse.json({ data: staffDetail })
@@ -226,6 +265,9 @@ function serve() {
   );
 }
 
+/** The profile of the pending volunteer, which opens as the registration review. */
+const REVIEW = `/admin/volunteers/${VOLUNTEER_ID}`;
+
 const renderPage = (me: Me, locale: 'bn' | 'en' = 'bn', path = '/admin/registrations') => {
   refreshAs(me);
   return renderApp(<AdminLayout />, locale, {
@@ -234,6 +276,8 @@ const renderPage = (me: Me, locale: 'bn' | 'en' = 'bn', path = '/admin/registrat
       { index: true, element: <DashboardPage /> },
       { path: 'registrations', element: <RegistrationsPage /> },
       { path: 'registrations/:userId', element: <RegistrationDetail /> },
+      { path: 'volunteers', element: <VolunteersPage /> },
+      { path: 'volunteers/:volunteerId', element: <VolunteerProfilePage /> },
     ],
     initialPath: path,
   });
@@ -267,7 +311,7 @@ beforeEach(() => {
 });
 
 describe('registration list', () => {
-  it('shows the pending rows with their kind, status and district', async () => {
+  it('shows the pending staff registrations only; volunteers are reviewed in the volunteer tab', async () => {
     const { container } = renderPage(HEAD);
     expect(await screen.findByRole('heading', { level: 1, name: 'নিবন্ধন' })).toBeInTheDocument();
     const nav = screen.getByRole('navigation', { name: 'অ্যাডমিন মেনু' });
@@ -276,42 +320,37 @@ describe('registration list', () => {
       'page',
     );
     const table = await screen.findByRole('grid', { name: 'অপেক্ষমাণ নিবন্ধন' });
-    const volunteerRow = within(table)
-      .getByRole('link', { name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' })
-      .closest<HTMLElement>('[role="row"]')!;
-    expect(within(volunteerRow).getByText('স্বেচ্ছাসেবক')).toBeInTheDocument();
-    expect(within(volunteerRow).getByText('যাচাইয়ের অপেক্ষায়')).toBeInTheDocument();
-    expect(await within(volunteerRow).findByText('ঢাকা জেলা')).toBeInTheDocument();
     const staffRow = within(table)
       .getByRole('link', { name: 'নতুন কর্মকর্তা (নমুনা)' })
       .closest<HTMLElement>('[role="row"]')!;
     expect(within(staffRow).getByText('কর্মকর্তা')).toBeInTheDocument();
+    expect(
+      within(table).queryByRole('link', { name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' }),
+    ).not.toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 
-  it('keeps a registration in correction in the list', async () => {
-    pending = [{ ...pendingVolunteer, status: 'in_correction' }, pendingStaff];
-    renderPage(RPM);
-    const table = await screen.findByRole('grid', { name: 'অপেক্ষমাণ নিবন্ধন' });
-    const row = within(table)
-      .getByRole('link', { name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' })
-      .closest<HTMLElement>('[role="row"]')!;
-    expect(within(row).getByText('সংশোধন চলছে')).toBeInTheDocument();
+  it('sends an older link to the volunteer registrations to the volunteer tab', async () => {
+    renderPage(HEAD, 'bn', '/admin/registrations?kind=volunteer');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক' }),
+    ).toBeInTheDocument();
   });
 
   it('shows an empty state when nothing waits', async () => {
     pending = [];
-    renderPage(RPM);
+    renderPage(HEAD);
     expect(await screen.findByText('কোনো নিবন্ধন অপেক্ষায় নেই।')).toBeInTheDocument();
   });
 
-  it('opens for an RPM, without the permission panel', async () => {
+  it('opens for an RPM with the edit requests only, without the permission panel', async () => {
     renderPage(RPM);
     const nav = await screen.findByRole('navigation', { name: 'অ্যাডমিন মেনু' });
     expect(within(nav).getByRole('link', { name: 'নিবন্ধন' })).toBeInTheDocument();
     expect(within(nav).queryByRole('link', { name: 'পারমিশন' })).not.toBeInTheDocument();
-    // the RPM decides edit requests
-    expect(screen.getByRole('tab', { name: 'পরিবর্তনের অনুরোধ' })).toBeInTheDocument();
+    // the RPM decides edit requests and no staff registrations
+    expect((await screen.findAllByText('অনুমোদিত স্বেচ্ছাসেবক (নমুনা)')).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('tab', { name: 'পরিবর্তনের অনুরোধ' })).not.toBeInTheDocument();
   });
 
   it('a Finance Team user sees the no-access screen', async () => {
@@ -320,10 +359,11 @@ describe('registration list', () => {
     expect(screen.queryByRole('navigation', { name: 'অ্যাডমিন মেনু' })).not.toBeInTheDocument();
   });
 
-  it('a Program Manager has no edit requests tab (not an edit approver)', async () => {
+  it('a Program Manager reviews volunteers in the tab and has no registrations page', async () => {
     renderPage(PM);
-    await screen.findByRole('grid', { name: 'অপেক্ষমাণ নিবন্ধন' });
-    expect(screen.queryByRole('tab', { name: 'পরিবর্তনের অনুরোধ' })).not.toBeInTheDocument();
+    const nav = await screen.findByRole('navigation', { name: 'অ্যাডমিন মেনু' });
+    expect(within(nav).queryByRole('link', { name: 'নিবন্ধন' })).not.toBeInTheDocument();
+    expect(within(nav).getByRole('link', { name: 'স্বেচ্ছাসেবক' })).toBeInTheDocument();
   });
 
   it('is accessible in English', async () => {
@@ -336,8 +376,8 @@ describe('registration list', () => {
 describe('volunteer registration detail', () => {
   it('shows the details with the address names; approving shows the success alert on the list', async () => {
     const user = userEvent.setup();
-    const { container } = renderPage(RPM);
-    await openRow(user, 'নতুন স্বেচ্ছাসেবক (নমুনা)');
+    const { container } = renderPage(RPM, 'bn', REVIEW);
+    await screen.findByRole('heading', { level: 1, name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' });
     expect(screen.getByText('নমুনা পিতা')).toBeInTheDocument();
     expect(screen.getByText('1000000000501')).toBeInTheDocument();
     expect(await screen.findByText(/সাভার ইউনিয়ন/)).toBeInTheDocument();
@@ -348,26 +388,24 @@ describe('volunteer registration detail', () => {
     const dialog = await screen.findByRole('alertdialog');
     await user.click(within(dialog).getByRole('button', { name: 'অনুমোদন করুন' }));
     expect(await screen.findByText('নিবন্ধন অনুমোদিত হয়েছে')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1, name: 'নিবন্ধন' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক' })).toBeInTheDocument();
     expect(calls).toEqual([
       { method: 'POST', url: `/api/v1/registrations/${VOLUNTEER_USER}/approve`, body: null },
     ]);
   });
 
   it('a hidden NID shows that it is not visible, never an empty value', async () => {
-    const user = userEvent.setup();
     const masked = volunteerDetail();
     const { nid: _nid, nidPhotoFileId: _photo, ...rest } = masked.volunteer;
     detail = { ...masked, volunteer: rest };
-    renderPage(HEAD);
-    await openRow(user, 'নতুন স্বেচ্ছাসেবক (নমুনা)');
+    renderPage(HEAD, 'bn', REVIEW);
+    await screen.findByRole('heading', { level: 1, name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' });
     expect(screen.getAllByText('আপনার দেখার অনুমতি নেই').length).toBeGreaterThan(0);
   });
 
   it('shows the personal, profession and skills data (O-65), and hides the protected ones without the class', async () => {
-    const user = userEvent.setup();
-    renderPage(RPM);
-    await openRow(user, 'নতুন স্বেচ্ছাসেবক (নমুনা)');
+    renderPage(RPM, 'bn', REVIEW);
+    await screen.findByRole('heading', { level: 1, name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' });
     for (const text of ['17-05-1990', 'O+', 'নিজ ইউনিয়ন', 'ছাত্র'])
       expect(screen.getByText(text)).toBeInTheDocument();
     expect(screen.getByText(/Sample School/)).toBeInTheDocument();
@@ -379,7 +417,6 @@ describe('volunteer registration detail', () => {
   });
 
   it('shows that a masked blood group and date of birth are not visible', async () => {
-    const user = userEvent.setup();
     const masked = volunteerDetail();
     const {
       bloodGroup: _blood,
@@ -389,8 +426,8 @@ describe('volunteer registration detail', () => {
       ...rest
     } = masked.volunteer;
     detail = { ...masked, volunteer: rest };
-    renderPage(HEAD);
-    await openRow(user, 'নতুন স্বেচ্ছাসেবক (নমুনা)');
+    renderPage(HEAD, 'bn', REVIEW);
+    await screen.findByRole('heading', { level: 1, name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' });
     // each protected row says it is not visible, none shows an empty value
     for (const label of ['NID নম্বর', 'জন্মতারিখ', 'রক্তের গ্রুপ']) {
       const row = screen.getByText(label).parentElement!;
@@ -402,7 +439,6 @@ describe('volunteer registration detail', () => {
   });
 
   it('shows the photo streamed by the API', async () => {
-    const user = userEvent.setup();
     const PHOTO = '01900000-0000-7000-8000-0000000000f1';
     const base = volunteerDetail();
     detail = { ...base, volunteer: { ...base.volunteer, photoFileId: PHOTO } };
@@ -413,16 +449,16 @@ describe('volunteer registration detail', () => {
         }),
       ),
     );
-    renderPage(RPM);
-    await openRow(user, 'নতুন স্বেচ্ছাসেবক (নমুনা)');
+    renderPage(RPM, 'bn', REVIEW);
+    await screen.findByRole('heading', { level: 1, name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' });
     const img = await screen.findByRole('img', { name: 'ছবি' });
     expect(img.getAttribute('src')).toMatch(/^data:image\/png;base64,/);
   });
 
   it('a correction request names the checked fields and a note', async () => {
     const user = userEvent.setup();
-    renderPage(RPM);
-    await openRow(user, 'নতুন স্বেচ্ছাসেবক (নমুনা)');
+    renderPage(RPM, 'bn', REVIEW);
+    await screen.findByRole('heading', { level: 1, name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' });
     await user.click(screen.getByRole('button', { name: 'সংশোধনের অনুরোধ' }));
     const dialog = await screen.findByRole('dialog', { name: 'সংশোধনের অনুরোধ' });
     const send = within(dialog).getByRole('button', { name: 'পাঠান' });
@@ -447,8 +483,8 @@ describe('volunteer registration detail', () => {
 
   it('a rejection needs a reason', async () => {
     const user = userEvent.setup();
-    renderPage(RPM);
-    await openRow(user, 'নতুন স্বেচ্ছাসেবক (নমুনা)');
+    renderPage(RPM, 'bn', REVIEW);
+    await screen.findByRole('heading', { level: 1, name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' });
     await user.click(screen.getByRole('button', { name: 'প্রত্যাখ্যান' }));
     const dialog = await screen.findByRole('alertdialog');
     const confirm = within(dialog).getByRole('button', { name: 'প্রত্যাখ্যান করুন' });
@@ -465,8 +501,8 @@ describe('volunteer registration detail', () => {
 
   it('the blocklist action needs a reason; then approval waits for the lift', async () => {
     const user = userEvent.setup();
-    renderPage(RPM);
-    await openRow(user, 'নতুন স্বেচ্ছাসেবক (নমুনা)');
+    renderPage(RPM, 'bn', REVIEW);
+    await screen.findByRole('heading', { level: 1, name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' });
     await user.click(screen.getByRole('button', { name: 'ব্লকলিস্টে দিন' }));
     const dialog = await screen.findByRole('alertdialog');
     const confirm = within(dialog).getByRole('button', { name: 'ব্লক করুন' });
@@ -489,9 +525,8 @@ describe('volunteer registration detail', () => {
   });
 
   it('a Project Executive has no blocklist action', async () => {
-    const user = userEvent.setup();
-    renderPage({ ...RPM, roles: ['project_executive'] });
-    await openRow(user, 'নতুন স্বেচ্ছাসেবক (নমুনা)');
+    renderPage({ ...RPM, roles: ['project_executive'] }, 'bn', REVIEW);
+    await screen.findByRole('heading', { level: 1, name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' });
     expect(screen.getByRole('button', { name: 'অনুমোদন' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'ব্লকলিস্টে দিন' })).not.toBeInTheDocument();
   });
@@ -548,7 +583,6 @@ describe('edit requests', () => {
   it('shows who asked for which value; approving applies it', async () => {
     const user = userEvent.setup();
     renderPage(RPM);
-    await user.click(await screen.findByRole('tab', { name: 'পরিবর্তনের অনুরোধ' }));
     const table = await screen.findByRole('grid', { name: 'পরিবর্তনের অনুরোধ' });
     const row = within(table)
       .getByText('অনুমোদিত স্বেচ্ছাসেবক (নমুনা)')
@@ -573,7 +607,6 @@ describe('edit requests', () => {
   });
 
   it('shows the profession, the skills, the education and the permanent address as labelled text, with "No" kept', async () => {
-    const user = userEvent.setup();
     const base = {
       volunteerId: VOLUNTEER_ID,
       kind: 'profile_edit',
@@ -616,7 +649,6 @@ describe('edit requests', () => {
       },
     ];
     renderPage(RPM);
-    await user.click(await screen.findByRole('tab', { name: 'পরিবর্তনের অনুরোধ' }));
     const table = await screen.findByRole('grid', { name: 'পরিবর্তনের অনুরোধ' });
     expect(within(table).getByText('ইমাম / মুয়াজ্জিন')).toBeInTheDocument();
     expect(within(table).getByText(/Central Mosque/)).toBeInTheDocument();
@@ -632,7 +664,6 @@ describe('edit requests', () => {
   it('a refusal needs a reason', async () => {
     const user = userEvent.setup();
     renderPage(RPM);
-    await user.click(await screen.findByRole('tab', { name: 'পরিবর্তনের অনুরোধ' }));
     const table = await screen.findByRole('grid', { name: 'পরিবর্তনের অনুরোধ' });
     await user.click(
       within(table).getByRole('button', {

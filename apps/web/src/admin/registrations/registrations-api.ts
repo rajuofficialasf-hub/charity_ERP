@@ -88,18 +88,11 @@ export const detailKey = (userId: string) => ['admin', 'registrations', userId] 
 export const EDITS_KEY = ['admin', 'edit-requests'] as const;
 
 /**
- * Both groups of the queue: waiting for review, and waiting for the registrant's corrections (the
- * list answers one status at a time and `awaiting_review` by default). The first 100 of each; the
- * volunteer tab of T1.10 brings paging and filters.
+ * The pending staff registrations (the first 100). Volunteer registrations are reviewed in the
+ * volunteer tab (DECISION_LOG O-67); a staff registration has no correction step.
  */
-export const pendingRegistrations = async () =>
-  (
-    await Promise.all(
-      (['awaiting_review', 'in_correction'] as const).map((status) =>
-        api<PendingRegistration[]>(`/registrations?limit=100&status=${status}`),
-      ),
-    )
-  ).flat();
+export const pendingStaffRegistrations = () =>
+  api<PendingRegistration[]>('/registrations?limit=100&kind=staff');
 export const registrationDetail = (userId: string) =>
   api<RegistrationDetailView>(`/registrations/${userId}`);
 export const approve = (userId: string) =>

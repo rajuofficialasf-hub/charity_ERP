@@ -262,6 +262,47 @@
     },
     "blocklisted": "On the blocklist",
     "no_projects": "No project",
-    "empty": "No volunteer matches these filters."
+    "empty": "No volunteer matches these filters.",
+    "profile": {
+      "back": "All volunteers",
+      "not_found": "This volunteer was not found.",
+      "hidden": "Not shown to you",
+      "registered": "Registered",
+      "approved": "Approved",
+      "sections": {
+        "identity": "Identity",
+        "address": "Address",
+        "education": "Education",
+        "work": "Work",
+        "skills": "Skills and time",
+        "bank": "Bank details",
+        "photos": "Photos",
+        "projects": "Projects and permissions",
+        "team": "Team",
+        "summary": "Work summary",
+        "ratings": "Ratings and category",
+        "blocklist": "Blocklist",
+        "sessions": "Devices"
+      },
+      "no_projects": "Not in any project yet.",
+      "paid": "Paid volunteer",
+      "permission_set": "Permission set",
+      "no_team": "No team members.",
+      "summary_later": "The work summary comes with the ratings.",
+      "no_ratings": "No rating yet.",
+      "category": "Category",
+      "inactive": "Inactive",
+      "not_blocked": "Not on the blocklist.",
+      "blocked_since": "On the blocklist since {date}",
+      "reason": "Reason",
+      "no_sessions": "No device is signed in.",
+      "last_seen": "Last seen {date}",
+      "revoke": "Sign out this device",
+      "revoke_title": "Sign out {device}?",
+      "revoke_reason": "Reason",
+      "revoke_confirm": "Sign out",
+      "revoked": "The device was signed out.",
+      "unknown_device": "Unknown device"
+    }
   }
 }

@@ -11,7 +11,8 @@ import {
   BENEFICIARY_TAB_ROLES,
   HANDOVER_ROLES,
   PERMISSION_PANEL_ROLES,
-  REGISTRATION_ROLES,
+  EDIT_REQUEST_ROLES,
+  STAFF_APPROVER_ROLES,
   VOLUNTEER_TAB_ROLES,
 } from './roles';
 
@@ -38,7 +39,7 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
     key: 'registrations',
     href: '/admin/registrations',
     icon: UserCheck,
-    roles: REGISTRATION_ROLES,
+    roles: [...new Set([...STAFF_APPROVER_ROLES, ...EDIT_REQUEST_ROLES])],
   },
   { key: 'handover', href: '/admin/handover', icon: ArrowRightLeft, roles: HANDOVER_ROLES },
   {

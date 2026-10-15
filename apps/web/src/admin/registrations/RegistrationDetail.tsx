@@ -13,7 +13,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, FilePenLine, UserCheck, X } from 'lucide-react';
 import { type ReactNode, useId, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import {
@@ -45,14 +45,47 @@ import { StaffDecisionDialog } from './StaffDecisionDialog';
 type Dialog = 'approve' | 'reject' | 'correct' | 'staff' | null;
 
 /**
- * One pending registration (SCR-040; plan
- * docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, R7 to R9, R12): the
- * submitted details and photos, the correction requests, and the decisions the user's role
- * allows. The server checks permission and scope again on every action.
+ * The page of one pending staff registration (SCR-040). A volunteer's registration is reviewed in
+ * the volunteer tab (DECISION_LOG O-67), so an older link to it opens the volunteer's profile.
  */
 export function RegistrationDetail() {
   const { me } = useAuth();
   const { userId = '' } = useParams();
+  const t = useTranslations('admin.registrations');
+  const reg = useQuery({
+    queryKey: detailKey(userId),
+    queryFn: () => registrationDetail(userId),
+    retry: false,
+  });
+  if (!me) return null;
+  if (!canApproveRegistrations(me)) return <ForbiddenContent />;
+  if (reg.data?.kind === 'volunteer' && reg.data.volunteer)
+    return <Navigate to={`/admin/volunteers/${reg.data.volunteer.id}`} replace />;
+  return (
+    <>
+      <div>
+        <Link to="/admin/registrations">{t('back')}</Link>
+      </div>
+      <RegistrationReview userId={userId} finishedTo="/admin/registrations" />
+    </>
+  );
+}
+
+/**
+ * One pending registration (plan docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md,
+ * R7 to R9, R12): the submitted details and photos, the correction requests, and the decisions the
+ * user's role allows. Used by the staff registration page and by the volunteer profile of a pending
+ * volunteer. The server checks permission and scope again on every action.
+ */
+export function RegistrationReview({
+  userId,
+  finishedTo,
+}: {
+  userId: string;
+  /** Where a final decision leads, with its message (the registration has left the list). */
+  finishedTo: string;
+}) {
+  const { me } = useAuth();
   const t = useTranslations('admin.registrations');
   const tc = useTranslations('common');
   const navigate = useNavigate();
@@ -67,7 +100,7 @@ export function RegistrationDetail() {
   /** A final decision: the registration leaves the list; the list shows the message. */
   const finished = (message: string) => {
     void queryClient.invalidateQueries({ queryKey: LIST_KEY });
-    void navigate('/admin/registrations', { state: { notice: message } satisfies ListNotice });
+    void navigate(finishedTo, { state: { notice: message } satisfies ListNotice });
   };
   const changed = (message: string) => {
     setDialog(null);
@@ -85,30 +118,16 @@ export function RegistrationDetail() {
   });
 
   if (!me) return null;
-  if (!canApproveRegistrations(me)) return <ForbiddenContent />;
-  const back = (
-    <div>
-      <Link to="/admin/registrations">{t('back')}</Link>
-    </div>
-  );
   if (reg.isPending) return <Skeleton count={4} />;
   if (reg.error instanceof ApiFailure && reg.error.status === 404)
-    return (
-      <>
-        {back}
-        <EmptyState icon={UserCheck} title={t('not_found')} />
-      </>
-    );
+    return <EmptyState icon={UserCheck} title={t('not_found')} />;
   if (reg.error || !reg.data)
     return (
-      <>
-        {back}
-        <ErrorState
-          title={tc('state.error.text')}
-          requestId={reg.error instanceof ApiFailure ? reg.error.requestId : undefined}
-          onRetry={() => void reg.refetch()}
-        />
-      </>
+      <ErrorState
+        title={tc('state.error.text')}
+        requestId={reg.error instanceof ApiFailure ? reg.error.requestId : undefined}
+        onRetry={() => void reg.refetch()}
+      />
     );
   const r = reg.data;
   const decisionError = [approval.error, rejection.error].find((e) => e instanceof ApiFailure) as
@@ -122,7 +141,6 @@ export function RegistrationDetail() {
   return (
     <>
       <DocumentTitle title={r.displayName} />
-      {back}
       <h1 className="admin-title">{r.displayName}</h1>
       <div className="flex flex-wrap gap-2">
         <Badge label={r.kind === 'staff' ? t('kind.staff') : t('kind.volunteer')} />
