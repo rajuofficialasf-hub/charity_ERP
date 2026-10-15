@@ -49,6 +49,6 @@ rules:
       property: x-rate-limit
     assertions:
       defined: true
-      enum: [login, otp-request, otp-verify, password-reset, refresh, public-form, registration, reference-read, default, sync]
+      enum: [login, otp-request, otp-verify, password-reset, refresh, public-form, registration, reference-read, default, list, sync]
     message: Every operation must declare an x-rate-limit class from API_STANDARDS section 10.
     severity: error

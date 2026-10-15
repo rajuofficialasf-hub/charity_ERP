@@ -17,7 +17,7 @@ export type RateLimitClass =
   | 'list'
   | 'sync';
 
-interface Window {
+export interface RateWindow {
   limit: number;
   ttlMs: number;
   /** The key this window counts by. */
@@ -75,7 +75,7 @@ const refreshSession = (req: Request) => {
 const caller = (req: Request) => currentContext()?.userId ?? `ip:${ip(req)}`;
 
 /** Limits and keys per class (API_STANDARDS 10, O-08, O-25; default and sync are proposals tuned in T3.4). */
-export const RATE_LIMITS: Record<RateLimitClass, Window[]> = {
+export const RATE_LIMITS: Record<RateLimitClass, RateWindow[]> = {
   login: [
     { limit: 10, ttlMs: MINUTE, key: (r) => `id:${loginId(r)}` },
     { limit: 100, ttlMs: HOUR, key: (r) => `id:${loginId(r)}` },

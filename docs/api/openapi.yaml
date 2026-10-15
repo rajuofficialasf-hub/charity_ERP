@@ -100,6 +100,45 @@ components:
       required: false
       description: Comma-separated whitelisted fields, leading minus for descending.
       schema: { type: string }
+    VolunteerDivisionId:
+      name: divisionId
+      in: query
+      schema: { type: string, format: uuid }
+    VolunteerDistrictId:
+      name: districtId
+      in: query
+      schema: { type: string, format: uuid }
+    VolunteerUpazilaId:
+      name: upazilaId
+      in: query
+      schema: { type: string, format: uuid }
+    VolunteerUnionId:
+      name: unionId
+      in: query
+      schema: { type: string, format: uuid }
+    VolunteerTypeFilter:
+      name: type
+      in: query
+      schema: { type: string, enum: [general, local_daee, both, team_member, paid] }
+    VolunteerStateFilter:
+      name: state
+      in: query
+      schema: { type: string, enum: [pending, active, blocked, deactivated] }
+    VolunteerProjectId:
+      name: projectId
+      in: query
+      description: Volunteers with an active assignment on the project
+      schema: { type: string, format: uuid }
+    VolunteerCategoryFilter:
+      name: category
+      in: query
+      description: A category or the inactive flag; 403 without the volunteer.rating class (O-67)
+      schema: { type: string, enum: [A, B, C, D, inactive] }
+    VolunteerBlockedFilter:
+      name: blocked
+      in: query
+      description: true for volunteers on the blocklist now, false for the others
+      schema: { type: string, enum: ['true', 'false'] }
     Search:
       name: q
       in: query
@@ -359,7 +398,7 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
     ServerError:
-      description: server.internal or server.unavailable; never contains stack traces or SQL.
+      description: server.internal, server.unavailable or server.busy (a list read over its time limit, O-67); never contains stack traces or SQL.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -897,24 +936,59 @@ components:
     # ---------------- volunteers and registration ----------------
     VolunteerSummary:
       type: object
-      required: [id, userId, displayName, type, state]
+      description: One row of the volunteer tab (O-67)
+      required: [id, userId, displayName, type, state, divisionId, districtId, upazilaId, photoFileId, blocked, projects]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         userId: { $ref: '#/components/schemas/Uuid' }
         displayName: { type: string }
         type: { type: string, enum: [general, local_daee, both, team_member, paid] }
         state: { type: string, enum: [pending, active, blocked, deactivated] }
+        divisionId: { $ref: '#/components/schemas/Uuid' }
         districtId: { $ref: '#/components/schemas/Uuid' }
         upazilaId: { $ref: '#/components/schemas/Uuid' }
+        photoFileId: { type: [string, 'null'], format: uuid }
+        blocked: { type: boolean, description: On the blocklist now }
+        projects:
+          type: array
+          description: The active project assignments
+          items:
+            type: object
+            required: [id, code, nameBn, nameEn]
+            properties:
+              id: { $ref: '#/components/schemas/Uuid' }
+              code: { type: string }
+              nameBn: { type: string }
+              nameEn: { type: string }
         category: { type: [string, 'null'], enum: [A, B, C, D, null], x-sensitive-class: volunteer.rating }
         inactiveFlag: { type: boolean, x-sensitive-class: volunteer.rating }
-        averageRatings:
+    VolunteerStatistics:
+      type: object
+      required: [volunteers, applications]
+      properties:
+        volunteers:
           type: object
-          x-sensitive-class: volunteer.rating
-          description: Average per kind of work, never across kinds (O-10)
+          required: [total, active, pending, blocked, deactivated]
           properties:
-            applicationDistribution: { type: [number, 'null'] }
-            dawah: { type: [number, 'null'] }
+            total: { type: integer, minimum: 0 }
+            active: { type: integer, minimum: 0 }
+            pending: { type: integer, minimum: 0 }
+            blocked: { type: integer, minimum: 0 }
+            deactivated: { type: integer, minimum: 0 }
+            inactive: { type: integer, minimum: 0, x-sensitive-class: volunteer.rating, description: The BD-40 inactive flag }
+        applications:
+          type: object
+          required: [total, approved, underReview]
+          properties:
+            total: { type: integer, minimum: 0 }
+            approved: { type: integer, minimum: 0 }
+            underReview: { type: integer, minimum: 0 }
+    VolunteerStatisticsResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/VolunteerStatistics' }
+        meta: { $ref: '#/components/schemas/Meta' }
     Volunteer:
       allOf:
         - $ref: '#/components/schemas/VolunteerSummary'
@@ -3328,54 +3402,80 @@ paths:
     get:
       tags: [volunteers]
       operationId: volunteers.volunteer.list
-      summary: Nationwide volunteer tab with filters and statistics (masks per role)
+      summary: Nationwide volunteer tab with filters (masks per role)
+      description: >-
+        Every volunteer in every state for a holder of volunteer.view_all, newest first (O-67, D-094).
+        The category filter is refused (403) to a caller without the volunteer.rating class. A search
+        in digits matches the exact mobile number, and the exact NID only inside the caller's
+        volunteer.view_sensitive scope.
       x-permission: volunteer.view_all
       x-scope: global
       x-audit: none
       x-idempotency: none
-      x-rate-limit: default
+      x-rate-limit: list
       x-sensitive-fields: [volunteer.rating]
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
         - $ref: '#/components/parameters/IncludeTotal'
-        - $ref: '#/components/parameters/Sort'
         - $ref: '#/components/parameters/Search'
-        - name: divisionId
-          in: query
-          schema: { type: string, format: uuid }
-        - name: districtId
-          in: query
-          schema: { type: string, format: uuid }
-        - name: upazilaId
-          in: query
-          schema: { type: string, format: uuid }
-        - name: unionId
-          in: query
-          schema: { type: string, format: uuid }
-        - name: type
-          in: query
-          schema: { type: string }
-        - name: state
-          in: query
-          schema: { type: string }
-        - name: projectId
-          in: query
-          schema: { type: string, format: uuid }
-        - name: category
-          in: query
-          schema: { type: string }
-        - name: blocked
-          in: query
-          schema: { type: boolean }
+        - $ref: '#/components/parameters/VolunteerDivisionId'
+        - $ref: '#/components/parameters/VolunteerDistrictId'
+        - $ref: '#/components/parameters/VolunteerUpazilaId'
+        - $ref: '#/components/parameters/VolunteerUnionId'
+        - $ref: '#/components/parameters/VolunteerTypeFilter'
+        - $ref: '#/components/parameters/VolunteerStateFilter'
+        - $ref: '#/components/parameters/VolunteerProjectId'
+        - $ref: '#/components/parameters/VolunteerCategoryFilter'
+        - $ref: '#/components/parameters/VolunteerBlockedFilter'
       responses:
         '200':
           description: Volunteers
           content:
             application/json:
               schema: { $ref: '#/components/schemas/VolunteerList' }
-        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServerError' }
+  /volunteers/statistics:
+    get:
+      tags: [volunteers]
+      operationId: volunteers.volunteer.statistics
+      summary: Counts of the volunteer tab for the filters in use (masks per role)
+      description: >-
+        The same filters as the list (O-67): volunteers by account state, the inactive count only with
+        the volunteer.rating class, and their applications (all but drafts and deleted ones, approved
+        or later, under review).
+      x-permission: volunteer.view_all
+      x-scope: global
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: list
+      x-sensitive-fields: [volunteer.rating]
+      parameters:
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/VolunteerDivisionId'
+        - $ref: '#/components/parameters/VolunteerDistrictId'
+        - $ref: '#/components/parameters/VolunteerUpazilaId'
+        - $ref: '#/components/parameters/VolunteerUnionId'
+        - $ref: '#/components/parameters/VolunteerTypeFilter'
+        - $ref: '#/components/parameters/VolunteerStateFilter'
+        - $ref: '#/components/parameters/VolunteerProjectId'
+        - $ref: '#/components/parameters/VolunteerCategoryFilter'
+        - $ref: '#/components/parameters/VolunteerBlockedFilter'
+      responses:
+        '200':
+          description: Counts
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VolunteerStatisticsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServerError' }
   /volunteers/me:
     get:
       tags: [volunteers]
