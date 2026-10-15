@@ -193,6 +193,18 @@ describe('the deadline extension', () => {
     expect(earlier.status).toBe(409);
     expect(earlier.body.error.code).toBe('project.deadline_not_later');
     expect((await extend({ newApplyTo: '2027-02-01' })).status).toBe(422);
+    // nor once the project is closing or closed
+    for (const status of ['closing', 'closed']) {
+      await h.db.query('UPDATE projects SET status = $1 WHERE id = $2', [status, id]);
+      const refused = await extend({ newApplyTo: '2027-03-01', reason: 'আরও সময়' });
+      expect(refused.status, status).toBe(409);
+      expect(refused.body.error.code).toBe('workflow.transition_not_allowed');
+    }
+    const { rows } = await h.db.query<{ applyTo: string }>(
+      'SELECT to_char(apply_to, \'YYYY-MM-DD\') AS "applyTo" FROM projects WHERE id = $1',
+      [id],
+    );
+    expect(rows[0]!.applyTo).toBe('2027-01-15');
     const plain = await draft(false);
     const onDraft = await at(pm, `/projects/${plain}/extend-deadline`)
       .set('If-Match', await etag(pm, plain))
@@ -263,6 +275,48 @@ describe('closing and reopening', () => {
     expect(res.body.error.details).toMatchObject([
       { path: 'unknown.guard', code: 'workflow.guard.template_project_close_guards' },
     ]);
+  });
+});
+
+describe('an inactive program', () => {
+  it('takes no reopened or activated project, and a close without a snapshot fails', async () => {
+    let pm = await as(world.users.pm);
+    const id = await activated();
+    const pending = await draft(true);
+    for (const path of ['start-closing', 'close'])
+      await at(pm, `/projects/${id}/${path}`)
+        .set('If-Match', await etag(pm, id))
+        .send({ reason: 'কাজ শেষ' });
+    // the program is switched off directly; the API itself refuses that while a project is open
+    await h.db.query('UPDATE programs SET active = false WHERE id = $1', [world.a1.program]);
+    try {
+      const reopen = await at(pm, `/projects/${id}/reopen`)
+        .set('If-Match', await etag(pm, id))
+        .send({ reason: 'আবার' });
+      expect(reopen.status).toBe(409);
+      expect(reopen.body.error.code).toBe('program.inactive');
+      const activate = await at(pm, `/projects/${pending}/activate`).set(
+        'If-Match',
+        await etag(pm, pending),
+      );
+      expect(activate.status).toBe(409);
+      expect(activate.body.error.code).toBe('program.inactive');
+    } finally {
+      await h.db.query('UPDATE programs SET active = true WHERE id = $1', [world.a1.program]);
+    }
+
+    const bare = await activated();
+    await h.db.query('UPDATE projects SET workflow_snapshot = NULL WHERE id = $1', [bare]);
+    // each helper signs in anew, which may retire an older session of the same account
+    pm = await as(world.users.pm);
+    await at(pm, `/projects/${bare}/start-closing`)
+      .set('If-Match', await etag(pm, bare))
+      .send({ reason: 'কাজ শেষ' });
+    const close = await at(pm, `/projects/${bare}/close`)
+      .set('If-Match', await etag(pm, bare))
+      .send({ reason: 'কাজ শেষ' });
+    expect(close.status).toBe(409);
+    expect(close.body.error.code).toBe('workflow.guard.template_project_close_guards');
   });
 });
 

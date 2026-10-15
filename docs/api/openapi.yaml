@@ -4802,6 +4802,7 @@ paths:
         An incomplete draft answers 409 workflow.guard.project_setup_complete with the missing
         items in details (BR-258). On success the workflow definition is stored as the
         project's workflow snapshot, so later workflow versions never change a running project.
+        A draft of an inactive program answers 409 program.inactive.
       x-permission: project.activate
       x-scope: project
       x-audit: project.activate
@@ -4896,6 +4897,8 @@ paths:
       tags: [projects]
       operationId: projects.project.reopen
       summary: Reopen a closing or closed project with a reason (BD-20)
+      description: >-
+        A project of an inactive program is not reopened (409 program.inactive).
       x-permission: project.reopen
       x-scope: project
       x-audit: project.reopen

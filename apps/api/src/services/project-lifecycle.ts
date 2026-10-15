@@ -21,7 +21,7 @@ import type { ProjectViewer, ProjectsService } from './projects';
  * modules not built yet pass until those modules exist (DECISION_LOG D-095); any other key fails
  * the close, so a misspelled or forgotten guard never passes silently.
  */
-const CLOSE_GUARDS: Record<string, (tx: Tx, projectId: string) => Promise<boolean>> = {};
+const CLOSE_GUARDS = new Map<string, (tx: Tx, projectId: string) => Promise<boolean>>();
 const CLOSE_GUARDS_NOT_BUILT_YET: readonly string[] = ['stock.balanced', 'animal_photos.complete'];
 
 const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
@@ -61,6 +61,16 @@ export class ProjectLifecycleService {
     const to = transitionFor(action, from);
     if (!to) throw new ApiError('workflow.transition_not_allowed', 409);
     assertIfMatch(ifMatch, project.updatedAt);
+    if (to === 'active') {
+      // an inactive program has no open project: its row is locked, so a deactivation running at
+      // the same moment waits for this move or sees the project open
+      await tx.$queryRaw`SELECT id FROM programs WHERE id = ${project.programId}::uuid FOR UPDATE`;
+      const program = await tx.program.findUniqueOrThrow({
+        where: { id: project.programId },
+        select: { active: true },
+      });
+      if (!program.active) throw new ApiError('program.inactive', 409);
+    }
     return { project, from, to };
   }
 
@@ -190,14 +200,13 @@ export class ProjectLifecycleService {
         where: { id: projectId },
         select: { workflowSnapshot: true },
       });
-      const guards = workflowDefinitionSchema.parse(workflowSnapshot).project_close_guards ?? [];
-      const failed: string[] = [];
-      for (const guard of guards) {
+      // a project only becomes active through activation, which stores the snapshot; without one
+      // the close guards are unknown, so the close fails
+      const snapshot = workflowDefinitionSchema.safeParse(workflowSnapshot);
+      const failed: string[] = snapshot.success ? [] : ['workflow_snapshot'];
+      for (const guard of snapshot.data?.project_close_guards ?? []) {
         if (CLOSE_GUARDS_NOT_BUILT_YET.includes(guard)) continue;
-        const check = Object.hasOwn(CLOSE_GUARDS, guard)
-          ? // eslint-disable-next-line security/detect-object-injection -- an own key of the registry
-            CLOSE_GUARDS[guard]
-          : undefined;
+        const check = CLOSE_GUARDS.get(guard);
         if (!check || !(await check(tx, projectId))) failed.push(guard);
       }
       if (failed.length)
