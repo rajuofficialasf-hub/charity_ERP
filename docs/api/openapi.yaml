@@ -1370,54 +1370,125 @@ components:
     # ---------------- beneficiaries ----------------
     BeneficiarySummary:
       type: object
-      required: [id, name, fatherOrHusbandName, districtId, unionId, village, status]
+      description: One row of the beneficiary tab (O-67)
+      required: [id, name, fatherOrHusbandName, classCode, status, divisionId, districtId, upazilaId]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         name: { type: string }
         fatherOrHusbandName: { type: string }
-        mobile: { type: string }
+        classCode: { type: [string, 'null'] }
+        status: { type: string }
+        divisionId: { $ref: '#/components/schemas/Uuid' }
         districtId: { $ref: '#/components/schemas/Uuid' }
         upazilaId: { $ref: '#/components/schemas/Uuid' }
-        unionId: { $ref: '#/components/schemas/Uuid' }
-        village: { type: string }
-        status: { type: string, enum: [active, deceased, relocated] }
-        isBlocked: { type: boolean }
-        mergedIntoId: { type: [string, 'null'], format: uuid }
+        unionId: { type: string, format: uuid, x-sensitive-class: beneficiary.address_detail }
+        village: { type: string, x-sensitive-class: beneficiary.address_detail }
+        mobile: { type: string, x-sensitive-class: beneficiary.contact }
+        isBlocked: { type: boolean, x-sensitive-class: beneficiary.care }
+    BeneficiaryStatistics:
+      type: object
+      required: [total, assistedThisYear]
+      properties:
+        total: { type: integer, minimum: 0 }
+        assistedThisYear: { type: integer, minimum: 0 }
+        blocked: { type: integer, minimum: 0, x-sensitive-class: beneficiary.care }
+    BeneficiaryStatisticsResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/BeneficiaryStatistics' }
+        meta: { $ref: '#/components/schemas/Meta' }
     Beneficiary:
-      allOf:
-        - $ref: '#/components/schemas/BeneficiarySummary'
-        - type: object
-          properties:
-            nid: { type: [string, 'null'], x-sensitive-class: beneficiary.nid }
-            birthReg: { type: [string, 'null'], x-sensitive-class: beneficiary.nid }
-            motherName: { type: [string, 'null'] }
-            genderCode: { type: string }
-            dob: { type: [string, 'null'], format: date }
-            ageYears: { type: [integer, 'null'] }
-            maritalStatusCode: { type: [string, 'null'] }
-            educationCode: { type: [string, 'null'] }
-            classCode: { type: [string, 'null'] }
-            classOtherText: { type: [string, 'null'] }
-            occupationCode: { type: [string, 'null'] }
-            occupationOtherText: { type: [string, 'null'] }
-            divisionId: { $ref: '#/components/schemas/Uuid' }
-            postOffice: { type: [string, 'null'] }
-            postCode: { type: [string, 'null'] }
-            landmark: { type: [string, 'null'] }
-            gps: { $ref: '#/components/schemas/Gps' }
-            photoFileId: { type: [string, 'null'], format: uuid }
-            members14Plus: { type: [integer, 'null'] }
-            childrenUnder14: { type: [integer, 'null'] }
-            totalMembers: { type: [integer, 'null'] }
-            dailyIncome: { $ref: '#/components/schemas/Money' }
-            monthlyIncome: { $ref: '#/components/schemas/Money' }
-            monthlyExpense: { $ref: '#/components/schemas/Money' }
-            familyMembers: { type: array, items: { $ref: '#/components/schemas/FamilyMember' } }
-            applications:
-              type: array
-              description: 360 history - projects, statuses, who brought, reviewed and approved, when (BR-019)
-              items: { $ref: '#/components/schemas/ApplicationSummary' }
-            mediaConsent: { $ref: '#/components/schemas/MediaConsent' }
+      type: object
+      description: The 360° profile shell (SCR-045, O-67, D-094); each section an empty array when nothing exists
+      required: [id, name, fatherOrHusbandName, genderCode, status, divisionId, districtId, upazilaId, projectsByYear, applications, distributions]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string }
+        fatherOrHusbandName: { type: string }
+        motherName: { type: [string, 'null'] }
+        genderCode: { type: string }
+        ageYears: { type: [integer, 'null'] }
+        classCode: { type: [string, 'null'] }
+        classOtherText: { type: [string, 'null'] }
+        occupationCode: { type: [string, 'null'] }
+        status: { type: string }
+        photoFileId: { type: [string, 'null'], format: uuid }
+        divisionId: { $ref: '#/components/schemas/Uuid' }
+        districtId: { $ref: '#/components/schemas/Uuid' }
+        upazilaId: { $ref: '#/components/schemas/Uuid' }
+        unionId: { type: string, format: uuid, x-sensitive-class: beneficiary.address_detail }
+        village: { type: string, x-sensitive-class: beneficiary.address_detail }
+        postOffice: { type: [string, 'null'], x-sensitive-class: beneficiary.address_detail }
+        postCode: { type: [string, 'null'], x-sensitive-class: beneficiary.address_detail }
+        landmark: { type: [string, 'null'], x-sensitive-class: beneficiary.address_detail }
+        mobile: { type: string, x-sensitive-class: beneficiary.contact }
+        familyMembers:
+          type: array
+          x-sensitive-class: beneficiary.contact
+          items:
+            type: object
+            properties:
+              id: { $ref: '#/components/schemas/Uuid' }
+              name: { type: string }
+              relationshipCode: { type: [string, 'null'] }
+              ageYears: { type: [integer, 'null'] }
+        nid: { type: [string, 'null'], x-sensitive-class: beneficiary.nid, description: Only inside the beneficiary.view_nid scope }
+        birthReg: { type: [string, 'null'], x-sensitive-class: beneficiary.nid, description: Only inside the beneficiary.view_nid scope }
+        isBlocked: { type: boolean, x-sensitive-class: beneficiary.care }
+        projectsByYear:
+          type: array
+          items:
+            type: object
+            properties:
+              year: { type: integer }
+              projects:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { $ref: '#/components/schemas/Uuid' }
+                    code: { type: string }
+                    nameBn: { type: string }
+                    nameEn: { type: string }
+                    status: { type: string, description: The status of the beneficiary's application }
+        applications:
+          type: array
+          description: Application history, latest 20
+          items:
+            type: object
+            properties:
+              id: { $ref: '#/components/schemas/Uuid' }
+              appNo: { type: [string, 'null'] }
+              projectId: { $ref: '#/components/schemas/Uuid' }
+              status: { type: string }
+              submittedAt: { type: [string, 'null'], format: date-time }
+              reviewedAt: { type: [string, 'null'], format: date-time }
+              approvedAt: { type: [string, 'null'], format: date-time }
+        distributions:
+          type: array
+          description: Distribution and implementation activities, latest 20
+          items:
+            type: object
+            properties:
+              id: { $ref: '#/components/schemas/Uuid' }
+              applicationId: { type: [string, 'null'], format: uuid }
+              projectId: { $ref: '#/components/schemas/Uuid' }
+              status: { type: string }
+              doneAt: { type: string, format: date-time }
+        dawah:
+          type: object
+          x-sensitive-class: beneficiary.care
+          description: Class attendance, learning progress and exams, latest 20 each
+        followUps:
+          type: object
+          x-sensitive-class: beneficiary.care
+          description: Calls and follow-up evaluations, latest 20 each
+        activities:
+          type: array
+          x-sensitive-class: beneficiary.care
+          description: Activity history, latest 20
+          items: { type: object }
     BeneficiaryResponse:
       type: object
       required: [data, meta]
@@ -3889,44 +3960,108 @@ paths:
     get:
       tags: [beneficiaries]
       operationId: beneficiaries.beneficiary.list
-      summary: Nationwide beneficiary tab with filters and statistics
+      summary: Nationwide beneficiary tab with filters (masks per role)
+      description: >-
+        Every beneficiary the caller's beneficiary.view_all scope reaches, newest first (O-67, D-094):
+        the officials and the Media Team nationwide, the Procurement Team only the beneficiaries of
+        its house-construction projects. A digit search matches the mobile only with the
+        beneficiary.contact class, an NID or birth registration only inside the beneficiary.view_nid
+        scope.
       x-permission: beneficiary.view_all
-      x-scope: global
+      x-scope: beneficiary
       x-audit: none
       x-idempotency: none
-      x-rate-limit: default
+      x-rate-limit: list
+      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care]
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
         - $ref: '#/components/parameters/IncludeTotal'
-        - $ref: '#/components/parameters/Sort'
         - $ref: '#/components/parameters/Search'
-        - name: districtId
-          in: query
-          schema: { type: string, format: uuid }
-        - name: upazilaId
-          in: query
-          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/VolunteerDivisionId'
+        - $ref: '#/components/parameters/VolunteerDistrictId'
+        - $ref: '#/components/parameters/VolunteerUpazilaId'
         - name: unionId
           in: query
+          description: 403 without the beneficiary.address_detail class (O-67)
           schema: { type: string, format: uuid }
+        - name: type
+          in: query
+          description: The beneficiary type (class code)
+          schema: { type: string, pattern: '^[a-z][a-z0-9_]{0,49}$' }
         - name: projectId
           in: query
+          description: Beneficiaries with an application in the project
           schema: { type: string, format: uuid }
-        - name: status
+        - name: year
           in: query
-          schema: { type: string }
+          description: Beneficiaries with an application in a project of the year
+          schema: { type: integer, minimum: 2000, maximum: 2100 }
         - name: blocked
           in: query
-          schema: { type: boolean }
+          description: true for blocked beneficiaries; 403 without the beneficiary.care class (O-67)
+          schema: { type: string, enum: ['true', 'false'] }
       responses:
         '200':
           description: Beneficiaries
           content:
             application/json:
               schema: { $ref: '#/components/schemas/BeneficiaryList' }
-        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServerError' }
+  /beneficiaries/statistics:
+    get:
+      tags: [beneficiaries]
+      operationId: beneficiaries.beneficiary.statistics
+      summary: Counts of the beneficiary tab for the filters in use (masks per role)
+      description: >-
+        The same filters as the list (O-67): everyone, those with an application approved or later in
+        a project of this year, and the blocked (only with the beneficiary.care class).
+      x-permission: beneficiary.view_all
+      x-scope: beneficiary
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: list
+      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care]
+      parameters:
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/VolunteerDivisionId'
+        - $ref: '#/components/parameters/VolunteerDistrictId'
+        - $ref: '#/components/parameters/VolunteerUpazilaId'
+        - name: unionId
+          in: query
+          description: 403 without the beneficiary.address_detail class (O-67)
+          schema: { type: string, format: uuid }
+        - name: type
+          in: query
+          description: The beneficiary type (class code)
+          schema: { type: string, pattern: '^[a-z][a-z0-9_]{0,49}$' }
+        - name: projectId
+          in: query
+          description: Beneficiaries with an application in the project
+          schema: { type: string, format: uuid }
+        - name: year
+          in: query
+          description: Beneficiaries with an application in a project of the year
+          schema: { type: integer, minimum: 2000, maximum: 2100 }
+        - name: blocked
+          in: query
+          description: true for blocked beneficiaries; 403 without the beneficiary.care class (O-67)
+          schema: { type: string, enum: ['true', 'false'] }
+      responses:
+        '200':
+          description: Counts
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BeneficiaryStatisticsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServerError' }
   /beneficiaries/lookup:
     post:
       tags: [beneficiaries]
@@ -3957,22 +4092,29 @@ paths:
     get:
       tags: [beneficiaries]
       operationId: beneficiaries.beneficiary.get
-      summary: Beneficiary 360 profile (masks per role)
+      summary: Beneficiary 360° profile shell (masks per role and record)
+      description: >-
+        The sections of the 360° profile with real data where it exists (O-67, D-094). NID and birth
+        registration only inside the caller's beneficiary.view_nid scope; a project-scoped caller sees
+        only the rows of its projects.
       x-permission: beneficiary.view_all
       x-scope: beneficiary
       x-audit: none
       x-idempotency: none
-      x-rate-limit: default
-      x-sensitive-fields: [beneficiary.nid, application.official_section, blocklist.reason]
+      x-rate-limit: list
+      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care, beneficiary.nid]
       responses:
         '200':
           description: Profile
-          headers:
-            ETag: { $ref: '#/components/headers/ETag' }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/BeneficiaryResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServerError' }
   /beneficiaries/{beneficiaryId}/family-members:
     parameters:
       - $ref: '#/components/parameters/BeneficiaryId'
