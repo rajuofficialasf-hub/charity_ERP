@@ -122,9 +122,11 @@ export class ProgramsService {
       }
       const row = await tx.program.update({
         where: { id: programId },
+        // Prisma leaves out the undefined fields
         data: {
-          ...(body.name ? { nameBn: body.name.bn, nameEn: body.name.en } : {}),
-          ...(body.active === undefined ? {} : { active: body.active }),
+          nameBn: body.name?.bn,
+          nameEn: body.name?.en,
+          active: body.active,
           updatedBy: actor.userId,
         },
         select: SELECT,
@@ -143,6 +145,8 @@ export class ProgramsService {
   async assignPm(actor: Principal, scope: Scope, programId: string, pmUserId: string) {
     return this.prisma.$transaction(async (tx) => {
       const before = await this.find(tx, scope, programId, true);
+      // a deactivated program takes no new work, so it takes no new PM either
+      if (!before.active) throw new ApiError('program.inactive', 409);
       await this.assertPm(tx, pmUserId);
       const row = await tx.program.update({
         where: { id: programId },

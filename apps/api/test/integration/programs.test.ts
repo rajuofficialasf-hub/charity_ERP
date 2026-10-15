@@ -134,6 +134,41 @@ describe('keeping programs', () => {
     expect(off.body.data.active).toBe(false);
     const on = await patch(head, id, off.headers.etag, { active: true });
     expect(on.body.data.active).toBe(true);
+    const changes = await audit(id, 'program.update');
+    expect(
+      changes.map((e) => [
+        (e.old as { active: boolean }).active,
+        (e.new as { active: boolean }).active,
+      ]),
+    ).toEqual([
+      [true, false],
+      [false, true],
+    ]);
+    // a deactivated program takes no PM
+    await patch(head, id, on.headers.etag, { active: false });
+    const pm = await staff('program_manager');
+    const noPm = await api()
+      .post(`/api/v1/programs/${id}/pm`)
+      .set(bearer(head))
+      .send({ pmUserId: pm.id });
+    expect(noPm.status).toBe(409);
+    expect(noPm.body.error.code).toBe('program.inactive');
+  });
+
+  it('creates a program with its PM, and refuses one without the role and leaves no row', async () => {
+    const head = await as(world.users.head);
+    const pm = await staff('program_manager');
+    const withPm = await create(head, { code: code(), name, pmUserId: pm.id });
+    expect(withPm.status).toBe(201);
+    expect(withPm.body.data.pmUserId).toBe(pm.id);
+    expect(withPm.body.data.pmName).toEqual(expect.any(String));
+    const notPm = await staff('finance_team');
+    const taken = code();
+    const refused = await create(head, { code: taken, name, pmUserId: notPm.id });
+    expect(refused.status).toBe(422);
+    expect(refused.body.error.code).toBe('program.pm_role_required');
+    const { rowCount } = await h.db.query('SELECT 1 FROM programs WHERE code = $1', [taken]);
+    expect(rowCount).toBe(0);
   });
 
   it('answers 412 to a stale If-Match', async () => {
@@ -155,7 +190,14 @@ describe('who reads and who changes programs', () => {
     const finance = (await staff('finance_team')).session;
     const all = await api().get('/api/v1/programs').set(bearer(finance));
     expect(all.status).toBe(200);
-    expect(all.body.data.length).toBeGreaterThanOrEqual(2);
+    expect(all.body.data.map((p: { id: string }) => p.id)).toEqual(
+      expect.arrayContaining([world.a1.program, world.b1.program]),
+    );
+    // an RPM's program grant names no program of its own, so it reads none
+    const rpm = await as(world.users.rpmDhaka);
+    const none = await api().get('/api/v1/programs').set(bearer(rpm));
+    expect(none.status).toBe(200);
+    expect(none.body.data).toEqual([]);
     // another program is not found for the PM
     expect((await api().get(`/api/v1/programs/${world.b1.program}`).set(bearer(pm))).status).toBe(
       404,
@@ -167,8 +209,29 @@ describe('who reads and who changes programs', () => {
     expect((await create(pm, { code: code(), name })).status).toBe(403);
     const program = await api().get(`/api/v1/programs/${world.a1.program}`).set(bearer(pm));
     expect((await patch(pm, world.a1.program, program.headers.etag, { name })).status).toBe(403);
+    const other = await staff('program_manager');
+    const toPm = await api()
+      .post(`/api/v1/programs/${world.a1.program}/pm`)
+      .set(bearer(pm))
+      .send({ pmUserId: other.id });
+    expect(toPm.status).toBe(403);
     const volunteer = await as(world.users.general);
     expect((await api().get('/api/v1/programs').set(bearer(volunteer))).status).toBe(403);
+    expect(
+      (
+        await api()
+          .post(`/api/v1/programs/${world.a1.program}/pm`)
+          .set(bearer(volunteer))
+          .send({ pmUserId: other.id })
+      ).status,
+    ).toBe(403);
     expect((await api().get('/api/v1/programs')).status).toBe(401);
+    expect((await api().patch(`/api/v1/programs/${world.a1.program}`).send({ name })).status).toBe(
+      401,
+    );
+    expect(
+      (await api().post(`/api/v1/programs/${world.a1.program}/pm`).send({ pmUserId: other.id }))
+        .status,
+    ).toBe(401);
   });
 });

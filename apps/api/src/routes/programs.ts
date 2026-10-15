@@ -133,7 +133,7 @@ export function programsRouter(deps: RouteDeps, c: Pick<Container, 'programs'>):
     audit: 'program.assign_pm',
     params: { programId: uuid },
     body: programPmSchema,
-    responses: { 200: programView, 401: null, 403: null, 404: null, 422: null },
+    responses: { 200: programView, 401: null, 403: null, 404: null, 409: null, 422: null },
     handler: async ({ body, params, req, res }) =>
       withEtag(
         res,
