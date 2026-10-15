@@ -215,7 +215,7 @@ Today the officials have only the T1.9 registration queue: there is no place to 
   - existing: covered by `apps/api/src/access/scope.spec.ts` and `apps/api/test/integration/access-scope.test.ts` (extend them, do not duplicate).
 - **Done when:** the tests pass and the authorization matrix is unchanged.
 - **Note:** `registration-photos.test.ts` and `edit-requests.test.ts` cover the file route today (extend them, do not duplicate).
-- **Depends on:** none · **Size:** L · **Risk area:** auth · **Status:** todo
+- **Depends on:** none · **Size:** L · **Risk area:** auth · **Status:** done
 
 ### U3. Volunteer list and statistics API
 - **Goal:** `GET /volunteers` and `GET /volunteers/statistics` with the filters, the search and the counts of R2–R5.
@@ -446,7 +446,7 @@ Today the officials have only the T1.9 registration queue: there is no place to 
 ## Progress
 - **Branch:** `feat/volunteer-beneficiary-tabs` (from `feat/volunteer-form-refine`, because PR #1 with T1.9f was still open on 2026-10-15; rebase is not needed if PR #1 merges first)
 - **Updated:** 2026-10-15
-- **Next:** U2 per-record access (sensitive scope, action flags, beneficiary scope, file route, list limiter and statement timeout)
+- **Next:** checkpoint C1 (U1, U2), then U3 the volunteer list and statistics API
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** U1: the openapi.yaml edits move to U3, U4 and U5, because the drift test compares each implemented operation with the code's zod schemas key by key; writing the schemas before the code would only be rewritten. O-67, D-094, BR-250 to BR-254, the three beneficiary field classes, `volunteers.inactive_flag` in `volunteer.rating`, `server.busy` and the Caddy log rule are in.
+- **Notes:** U1: the openapi.yaml edits move to U3, U4 and U5, because the drift test compares each implemented operation with the code's zod schemas key by key; writing the schemas before the code would only be rewritten. O-67, D-094, BR-250 to BR-254, the three beneficiary field classes, `volunteers.inactive_flag` in `volunteer.rating`, `server.busy` and the Caddy log rule are in. U2: `AccessService.sensitiveScope`, `reaches`, `allowedOn`; `beneficiaryWhere` and `beneficiaryRowsProjectWhere` in scope.ts; the `house_construction_project` condition now resolves for the beneficiary entity (attached `project_staff` rows of projects whose workflow key is `construction`); `boundedRead` in `core/bounded-read.ts` (SET LOCAL statement_timeout, 57014 → `server.busy`); the `list` rate class (per IP 600, per user 60 a minute). The file route now refuses an NID photo outside the `volunteer.view_sensitive` scope; the earlier photo tests used an RPM without a region and were changed to a regional RPM. The 429 test of the `list` class moves to U3, the first route that uses it.

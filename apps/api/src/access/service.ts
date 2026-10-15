@@ -9,15 +9,25 @@ import { type EffectiveAccess, effectiveAccess, loadAccessFacts } from './effect
 import { visibleFieldClasses } from './field-mask';
 import type { AccessRegistry } from './registry';
 import {
+  beneficiaryWhere,
+  holdsPermission,
   makeScope,
   NO_INSTANCES,
   projectWhere,
   resolveInstances,
   type Scope,
   userWhere,
+  volunteerWhere,
 } from './scope';
 
 const ACCOUNT_KINDS = { in: ['staff', 'volunteer'] };
+
+/** One record an access decision is about, by the id its entity uses. */
+export interface RecordTarget {
+  userId?: string;
+  volunteerId?: string;
+  beneficiaryId?: string;
+}
 
 export interface RequestAccess extends EffectiveAccess {
   fieldClasses: ReadonlySet<string>;
@@ -70,6 +80,71 @@ export class AccessService {
       revokes,
     );
     return makeScope(principal.userId, permission, entity, instances);
+  }
+
+  /**
+   * The caller's scope for a second, narrower permission than the route's (the protected details
+   * of a nationwide list, DECISION_LOG D-094), or null when the caller does not hold it at all.
+   */
+  async sensitiveScope(
+    principal: Principal,
+    access: EffectiveAccess,
+    permission: string,
+    entity: string,
+  ): Promise<Scope | null> {
+    if (!holdsPermission(permission, access.grants)) return null;
+    return this.scopeFor(principal, access, permission, entity);
+  }
+
+  /** Whether a scope reaches one record, named by the id of the scope's entity. */
+  async reaches(scope: Scope, target: RecordTarget): Promise<boolean> {
+    switch (scope.entity) {
+      case 'user':
+        return (
+          !!target.userId &&
+          (await this.prisma.user.count({
+            where: { AND: [{ id: target.userId }, this.userFilter(scope)] },
+          })) > 0
+        );
+      case 'volunteer':
+        return (
+          !!target.volunteerId &&
+          (await this.prisma.volunteer.count({
+            where: { AND: [{ id: target.volunteerId }, volunteerWhere(scope)] },
+          })) > 0
+        );
+      case 'beneficiary':
+        return (
+          !!target.beneficiaryId &&
+          (await this.prisma.beneficiary.count({
+            where: { AND: [{ id: target.beneficiaryId }, beneficiaryWhere(scope)] },
+          })) > 0
+        );
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * What the caller may do to one record, as the action routes would decide it: each flag is true
+   * only when the caller holds the permission and its scope (for the route's entity) reaches the
+   * record. The screen shows a button for a true flag; the routes still check on their own.
+   */
+  async allowedOn<K extends string>(
+    principal: Principal,
+    access: EffectiveAccess,
+    actions: Record<K, { permission: string; entity: string }>,
+    target: RecordTarget,
+  ): Promise<Record<K, boolean>> {
+    const entries = await Promise.all(
+      (Object.entries(actions) as [K, { permission: string; entity: string }][]).map(
+        async ([key, { permission, entity }]) => {
+          const scope = await this.sensitiveScope(principal, access, permission, entity);
+          return [key, scope ? await this.reaches(scope, target) : false] as const;
+        },
+      ),
+    );
+    return Object.fromEntries(entries) as Record<K, boolean>;
   }
 
   /** The scope a user holds for a permission on another entity than the route's (one request). */

@@ -19,7 +19,8 @@ const REACHING_PERMISSIONS = [
  * Streams stored files to the people allowed to see them (x-permission `entity`, D-087; NS-10,
  * NS-41). So far the registration and profile photos: their owner sees them (the NID photo too,
  * D-081); an official sees them when one of the reaching permissions covers the owner, and the NID
- * photo only with the `volunteer.identity` field class. Everyone else, and a photo of an
+ * photo only with the `volunteer.identity` field class and a `volunteer.view_sensitive` scope that
+ * reaches the volunteer (D-094). Everyone else, and a photo of an
  * unsubmitted draft, gets 404 without telling which. An official's view of an NID photo is
  * audited (`file.nid_viewed`).
  */
@@ -98,7 +99,24 @@ export class FilesService {
   private async mayView(principal: Principal, ownerId: string, kind: string): Promise<boolean> {
     if (principal.userId === ownerId) return true;
     const access = await this.access.load(principal.userId);
-    if (kind === 'nid_photo' && !access.fieldClasses.has('volunteer.identity')) return false;
+    if (kind === 'nid_photo') {
+      // an identity document follows the per-record rule of the profile (DECISION_LOG D-094): the
+      // class and a `volunteer.view_sensitive` scope that reaches this volunteer
+      if (!access.fieldClasses.has('volunteer.identity')) return false;
+      const scope = await this.access.sensitiveScope(
+        principal,
+        access,
+        'volunteer.view_sensitive',
+        'volunteer',
+      );
+      const volunteer = await this.prisma.volunteer.findFirst({
+        where: { userId: ownerId },
+        select: { id: true },
+      });
+      return (
+        !!scope && !!volunteer && (await this.access.reaches(scope, { volunteerId: volunteer.id }))
+      );
+    }
     for (const permission of REACHING_PERMISSIONS) {
       if (!access.grants.some((g) => g.permission === permission)) continue;
       const scope = await this.access.scopeFor(principal, access, permission, 'user');

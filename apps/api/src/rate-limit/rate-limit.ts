@@ -14,6 +14,7 @@ export type RateLimitClass =
   | 'reference-read'
   | 'registration'
   | 'default'
+  | 'list'
   | 'sync';
 
 interface Window {
@@ -118,5 +119,11 @@ export const RATE_LIMITS: Record<RateLimitClass, Window[]> = {
     { limit: 20, ttlMs: HOUR, key: ip, byIp: true },
   ],
   default: [{ limit: 600, ttlMs: MINUTE, key: caller }],
+  // The nationwide volunteer and beneficiary lists, their counts and profiles are heavy reads
+  // (DECISION_LOG O-67): a tighter budget per user, and one per address before it.
+  list: [
+    { limit: 600, ttlMs: MINUTE, key: (r) => `ip:${ip(r)}`, byIp: true },
+    { limit: 60, ttlMs: MINUTE, key: caller },
+  ],
   sync: [{ limit: 60, ttlMs: MINUTE, key: session }],
 };

@@ -233,6 +233,7 @@ Implementation (T1.6, O-57): `IdempotencyService` in apps/api: `replayByClientUu
 | registration | 10 registrations started per IP per day, plus the `otp-request` windows (D-082) | IP, address |
 | reference-read | 300 per hour (public reference data, D-083) | IP |
 | default | 600 per minute per user (PROPOSAL, tuned by the load test T3.4) | user |
+| list | 60 per minute per user and 600 per minute per address; each read stops after 5 seconds with `server.busy` (O-67) | user, IP |
 | sync | 60 batches per minute per device session (PROPOSAL) | device session |
 
 Responses include `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`; a 429 carries `Retry-After`, which the PWA honours (O-29). Limits are enforced in the API (not only in Caddy) so they apply per account.
