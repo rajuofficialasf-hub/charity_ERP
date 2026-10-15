@@ -175,6 +175,8 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | project | project.deadline_not_later | 409 | a deadline extension to a date not after the current end date (BR-058) |
 | project | project.rpm_role_required | 422 | an area's RPM does not hold the RPM role (BR-060) |
 | project | project.staff_role_required | 422 | staff access for someone who is not a Project Executive, Official দায়ী or Implementer (D-095) |
+| project | project.area_exists | 409 | the same area with the same RPM is already on the project (BR-060) |
+| project | project.staff_exists | 409 | the person already has an active access on the project |
 | business | beneficiary.identity_missing | 422 | neither NID nor birth registration (BR-001) |
 | business | beneficiary.mobile_is_volunteer_mobile | 422 | BD-03 / BR-008 (also raised by the database trigger, DATABASE_SCHEMA §18) |
 | business | beneficiary.blocked | 422 | blocked beneficiary cannot apply (BR-010) |

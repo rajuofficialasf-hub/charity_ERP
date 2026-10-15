@@ -1,0 +1,59 @@
+import { z } from 'zod';
+import { boundedLabel } from '../jsonb/common.js';
+import { money } from './requests.js';
+
+/**
+ * The parts of a project's setup saved on their own: a component, the fund sources, an area with
+ * its RPM, a staff member's access, the dawah syllabus. Each body is strict and every list bounded.
+ */
+
+/** Switch a component on or off and replace its settings (checked against the component's schema). */
+export const componentPatchSchema = z
+  .strictObject({
+    enabled: z.boolean().optional(),
+    settings: z.record(z.string(), z.unknown()).optional(),
+  })
+  .refine((b) => b.enabled !== undefined || b.settings !== undefined, 'enabled or settings');
+export type ComponentPatch = z.infer<typeof componentPatchSchema>;
+
+export const FUND_SOURCES = ['zakat', 'sadaqah', 'general', 'donor'] as const;
+
+export const fundSourcesSchema = z.strictObject({
+  fundSources: z
+    .array(
+      z
+        .strictObject({
+          source: z.enum(FUND_SOURCES),
+          label: z.string().trim().min(1).max(200).optional(),
+          amount: money,
+        })
+        // a specific donor is named (BD-30)
+        .refine((f) => f.source !== 'donor' || f.label !== undefined, {
+          message: 'a donor needs a name',
+          path: ['label'],
+        }),
+    )
+    .max(10),
+});
+export type FundSources = z.infer<typeof fundSourcesSchema>;
+
+export const areaCreateSchema = z.strictObject({ locationId: z.uuid(), rpmUserId: z.uuid() });
+export type AreaCreate = z.infer<typeof areaCreateSchema>;
+
+/** The official roles that work under an RPM and may get project access (DECISION_LOG D-095). */
+export const STAFF_ACCESS_ROLES = ['project_executive', 'official_daee', 'implementer'] as const;
+
+export const staffCreateSchema = z.strictObject({
+  userId: z.uuid(),
+  roleKey: z.enum(STAFF_ACCESS_ROLES),
+  areaLocationId: z.uuid().optional(),
+  canView: z.boolean().default(true),
+  canEdit: z.boolean().default(false),
+  canDelete: z.boolean().default(false),
+});
+export type StaffCreate = z.infer<typeof staffCreateSchema>;
+
+export const syllabusSchema = z.strictObject({
+  topics: z.array(z.strictObject({ id: z.uuid().optional(), title: boundedLabel })).max(100),
+});
+export type Syllabus = z.infer<typeof syllabusSchema>;

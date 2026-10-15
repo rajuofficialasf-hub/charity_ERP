@@ -1809,11 +1809,20 @@ components:
         newApplyTo: { type: string, format: date, description: extend_deadline only }
     Component:
       type: object
-      required: [componentKey, enabled, settings]
+      description: A volunteer receives only the enabled components, with the settings of the photo rule only
+      required: [componentKey, enabled]
       properties:
         componentKey: { type: string }
         enabled: { type: boolean }
         settings: { $ref: '../database/json-schemas/project-component-settings.schema.json' }
+        etag: { type: string, description: "The component's own version, for If-Match" }
+    ComponentPatch:
+      type: object
+      description: At least one of enabled and settings; settings are checked against the component's schema
+      additionalProperties: false
+      properties:
+        enabled: { type: boolean }
+        settings: { type: object, additionalProperties: {}, propertyNames: { type: string } }
     ComponentResponse:
       type: object
       required: [data, meta]
@@ -1825,51 +1834,88 @@ components:
       required: [data, meta]
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/Component' } }
-        meta: { $ref: '#/components/schemas/ListMeta' }
+        meta: { $ref: '#/components/schemas/Meta' }
     Area:
       type: object
-      required: [id, locationId, rpmUserId]
+      required: [id, locationId, level, locationName, rpmUserId, rpmName]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         locationId: { $ref: '#/components/schemas/Uuid' }
+        level: { type: string, enum: [division, district] }
+        locationName: { $ref: '#/components/schemas/Bilingual' }
         rpmUserId: { $ref: '#/components/schemas/Uuid' }
+        rpmName: { type: string }
     AreaCreate:
       type: object
+      additionalProperties: false
       required: [locationId, rpmUserId]
       properties:
-        locationId: { $ref: '#/components/schemas/Uuid' }
-        rpmUserId: { $ref: '#/components/schemas/Uuid' }
+        locationId: { type: string, format: uuid }
+        rpmUserId: { type: string, format: uuid }
     AreaList:
       type: object
       required: [data, meta]
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/Area' } }
-        meta: { $ref: '#/components/schemas/ListMeta' }
+        meta: { $ref: '#/components/schemas/Meta' }
     StaffAssignmentCreate:
       type: object
+      additionalProperties: false
       required: [userId, roleKey]
       properties:
-        userId: { $ref: '#/components/schemas/Uuid' }
-        roleKey: { type: string }
-        areaLocationId: { $ref: '#/components/schemas/Uuid' }
+        userId: { type: string, format: uuid }
+        roleKey: { type: string, enum: [project_executive, official_daee, implementer] }
+        areaLocationId: { type: string, format: uuid }
         canView: { type: boolean, default: true }
         canEdit: { type: boolean, default: false }
         canDelete: { type: boolean, default: false }
     StaffAssignment:
-      allOf:
-        - $ref: '#/components/schemas/StaffAssignmentCreate'
-        - type: object
-          required: [id]
-          properties:
-            id: { $ref: '#/components/schemas/Uuid' }
-            extraPermissions: { type: array, items: { type: string } }
-            endedAt: { type: [string, 'null'], format: date-time }
+      type: object
+      required: [id, userId, displayName, roleKey, areaLocationId, canView, canEdit, canDelete, extraPermissions, endedAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        userId: { $ref: '#/components/schemas/Uuid' }
+        displayName: { type: string }
+        roleKey: { type: string }
+        areaLocationId: { type: [string, 'null'], format: uuid }
+        canView: { type: boolean }
+        canEdit: { type: boolean }
+        canDelete: { type: boolean }
+        extraPermissions: { type: array, items: { type: string } }
+        endedAt: { type: [string, 'null'], format: date-time }
     StaffAssignmentList:
       type: object
       required: [data, meta]
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/StaffAssignment' } }
-        meta: { $ref: '#/components/schemas/ListMeta' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    SyllabusTopic:
+      type: object
+      required: [id, title]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        title: { $ref: '#/components/schemas/Bilingual' }
+    SyllabusList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/SyllabusTopic' } }
+        meta: { $ref: '#/components/schemas/Meta' }
+    SyllabusReplace:
+      type: object
+      additionalProperties: false
+      required: [topics]
+      properties:
+        topics:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            required: [title]
+            properties:
+              id: { type: string, format: uuid }
+              title: { $ref: '#/components/schemas/BoundedLabel' }
     Quota:
       type: object
       required: [level, locationId, target]
@@ -1892,22 +1938,34 @@ components:
         quotas: { type: array, items: { $ref: '#/components/schemas/Quota' } }
     FundSource:
       type: object
-      required: [source, amount]
+      required: [source, label, amount]
       properties:
         source: { type: string, enum: [zakat, sadaqah, general, donor] }
-        label: { type: string }
+        label: { type: [string, 'null'], description: The donor's name for a specific donor }
         amount: { $ref: '#/components/schemas/Money' }
     FundSourceReplace:
       type: object
+      additionalProperties: false
       required: [fundSources]
       properties:
-        fundSources: { type: array, items: { $ref: '#/components/schemas/FundSource' } }
+        fundSources:
+          type: array
+          maxItems: 10
+          items:
+            type: object
+            description: A specific donor (source donor) needs its label
+            additionalProperties: false
+            required: [source, amount]
+            properties:
+              source: { type: string, enum: [zakat, sadaqah, general, donor] }
+              label: { type: string, minLength: 1, maxLength: 200 }
+              amount: { type: string, pattern: '^\d{1,12}(\.\d{1,2})?$' }
     FundSourceList:
       type: object
       required: [data, meta]
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/FundSource' } }
-        meta: { $ref: '#/components/schemas/ListMeta' }
+        meta: { $ref: '#/components/schemas/Meta' }
     Template:
       type: object
       required: [id, key, version, name, projectType]
@@ -4840,7 +4898,7 @@ paths:
     get:
       tags: [projects]
       operationId: projects.component.list
-      summary: Project components and settings; not paginated
+      summary: Project components and settings (a volunteer gets the enabled ones and the photo rule)
       x-permission: project.view
       x-scope: project
       x-audit: none
@@ -4848,10 +4906,12 @@ paths:
       x-rate-limit: default
       responses:
         '200':
-          description: Components
+          description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ComponentList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
   /projects/{projectId}/components/{componentKey}:
     parameters:
@@ -4860,7 +4920,9 @@ paths:
     patch:
       tags: [projects]
       operationId: projects.component.update
-      summary: Enable, disable or configure a component (BD-09)
+      summary: Switch a component on or off and replace its settings (checked against its JSON Schema; BD-09)
+      description: >-
+        If-Match carries the component's own etag from the list. Settings that fail the component's schema answer 422 with the field paths; a closing, closed or cancelled project answers 409 project.read_only.
       x-permission: project.configure
       x-scope: project
       x-audit: project.component_change
@@ -4872,23 +4934,26 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/Component' }
+            schema: { $ref: '#/components/schemas/ComponentPatch' }
       responses:
         '200':
-          description: Updated
+          description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ComponentResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
-        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
   /projects/{projectId}/areas:
     parameters:
       - $ref: '#/components/parameters/ProjectId'
     get:
       tags: [projects]
       operationId: projects.area.list
-      summary: Project areas and their RPMs; not paginated
+      summary: Project areas and their RPMs (officials only); not paginated
       x-permission: project.view
       x-scope: project
       x-audit: none
@@ -4896,15 +4961,17 @@ paths:
       x-rate-limit: default
       responses:
         '200':
-          description: Areas
+          description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AreaList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     post:
       tags: [projects]
       operationId: projects.area.add
-      summary: Add an area with its RPM, or a district split (Q-08)
+      summary: Add a division or a district with its RPM (a district split among RPMs, Q-08)
       x-permission: project.area.assign
       x-scope: project
       x-audit: project.area_assign
@@ -4917,19 +4984,44 @@ paths:
             schema: { $ref: '#/components/schemas/AreaCreate' }
       responses:
         '201':
-          description: Added
+          description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AreaList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /project-areas/{areaId}/remove:
+    parameters:
+      - name: areaId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [projects]
+      operationId: projects.area.remove
+      summary: Remove an area and its RPM from the project (an active project keeps one)
+      x-permission: project.area.assign
+      x-scope: project
+      x-audit: project.area_assign
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}/staff:
     parameters:
       - $ref: '#/components/parameters/ProjectId'
     get:
       tags: [projects]
       operationId: projects.staff.list
-      summary: Staff on the project with their access; not paginated
+      summary: Staff on the project with their access (officials only); not paginated
       x-permission: project.view
       x-scope: project
       x-audit: none
@@ -4937,15 +5029,19 @@ paths:
       x-rate-limit: default
       responses:
         '200':
-          description: Staff
+          description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/StaffAssignmentList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     post:
       tags: [projects]
       operationId: projects.staff.add
-      summary: Give a staff member view, edit or delete access on the project
+      summary: Give a field official view, edit or delete access on the project
+      description: >-
+        Only a Project Executive, Official দায়ী or Implementer (422 project.staff_role_required). An RPM gives view and edit in its own areas of the project only; delete access only the PM (D-095).
       x-permission: project.staff_access.manage
       x-scope: project
       x-audit: permission_change
@@ -4958,19 +5054,22 @@ paths:
             schema: { $ref: '#/components/schemas/StaffAssignmentCreate' }
       responses:
         '201':
-          description: Added
+          description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/StaffAssignmentList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /project-staff/{assignmentId}/end:
     parameters:
       - $ref: '#/components/parameters/AssignmentId'
     post:
       tags: [projects]
       operationId: projects.staff.end
-      summary: End a staff member's project access
+      summary: End a staff member's project access, with a reason (an RPM only in its own areas)
       x-permission: project.staff_access.manage
       x-scope: project
       x-audit: permission_change
@@ -4983,7 +5082,11 @@ paths:
             schema: { $ref: '#/components/schemas/ReasonRequest' }
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}/grants:
     parameters:
       - $ref: '#/components/parameters/ProjectId'
@@ -5058,7 +5161,7 @@ paths:
     get:
       tags: [projects]
       operationId: projects.fundSource.list
-      summary: Fund-source tags of the budget (BD-30); not paginated
+      summary: Fund-source tags of the budget (BD-30; officials only); not paginated
       x-permission: project.view
       x-scope: project
       x-audit: none
@@ -5066,15 +5169,17 @@ paths:
       x-rate-limit: default
       responses:
         '200':
-          description: Fund sources
+          description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/FundSourceList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       tags: [projects]
       operationId: projects.fundSource.replace
-      summary: Replace the fund-source tags
+      summary: Replace the fund-source tags with their amounts (an active project keeps one)
       x-permission: fund_source.manage
       x-scope: project
       x-audit: project.fund_source_change
@@ -5087,11 +5192,60 @@ paths:
             schema: { $ref: '#/components/schemas/FundSourceReplace' }
       responses:
         '200':
-          description: Fund sources
+          description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/FundSourceList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /projects/{projectId}/syllabus:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [projects]
+      operationId: projects.syllabus.list
+      summary: The dawah syllabus topics in order
+      x-permission: project.view
+      x-scope: project
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SyllabusList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [projects]
+      operationId: projects.syllabus.replace
+      summary: Replace the dawah syllabus topics in their order (a topic sent with its id keeps it)
+      x-permission: project.configure
+      x-scope: project
+      x-audit: project.configure
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SyllabusReplace' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SyllabusList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}/save-as-template:
     parameters:
