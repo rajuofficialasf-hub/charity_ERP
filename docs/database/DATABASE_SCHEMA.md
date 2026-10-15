@@ -186,7 +186,7 @@ Beneficiary class options (BD-14; defaults from `reference_lists` `beneficiary_c
 | deactivated_at | timestamptz | yes | — | set after handover |
 | [A] | | | | |
 
-Keys and constraints: PK id; UNIQUE (mobile) WHERE mobile IS NOT NULL; UNIQUE (email) WHERE email IS NOT NULL; CHECK kind <> 'volunteer' OR mobile IS NOT NULL; CHECK kind <> 'staff' OR email IS NOT NULL; partial UNIQUE (is_system_owner) WHERE is_system_owner (at most one owner; "at least one" enforced by the service and a deferred trigger). Indexes: (state), (kind, state).
+Keys and constraints: PK id; UNIQUE (mobile) WHERE mobile IS NOT NULL; UNIQUE (email) WHERE email IS NOT NULL; CHECK kind <> 'volunteer' OR mobile IS NOT NULL; CHECK kind <> 'staff' OR email IS NOT NULL; partial UNIQUE (is_system_owner) WHERE is_system_owner (at most one owner; "at least one" enforced by the service and a deferred trigger). Indexes: (state), (kind, state), GIN trigram on display_name (name search of the volunteer tab, T1.10).
 
 ### roles
 | Column | Type | Null | Default | Comment |
@@ -619,7 +619,7 @@ Constraints: UNIQUE (form_field_id, code).
 | merged_into_id | uuid | yes | — | FK beneficiaries; retired profiles point to the kept one |
 | [A] | | | | |
 
-Constraints: CHECK nid IS NOT NULL OR birth_reg IS NOT NULL (BR-001); UNIQUE (nid) WHERE nid IS NOT NULL; UNIQUE (birth_reg) WHERE birth_reg IS NOT NULL (BR-003); CHECK merged_into_id <> id. Indexes: (mobile); GIN trigram on name and father_or_husband_name (pg_trgm, PROPOSAL); (union_id, village); (district_id); (status) WHERE merged_into_id IS NULL.
+Constraints: CHECK nid IS NOT NULL OR birth_reg IS NOT NULL (BR-001); UNIQUE (nid) WHERE nid IS NOT NULL; UNIQUE (birth_reg) WHERE birth_reg IS NOT NULL (BR-003); CHECK merged_into_id <> id. Indexes: (mobile); GIN trigram on name and father_or_husband_name (pg_trgm, PROPOSAL); (union_id, village); (district_id); (status) WHERE merged_into_id IS NULL; (id) WHERE merged_into_id IS NULL and (id) WHERE is_blocked AND merged_into_id IS NULL (the counts and the blocklist filter of the beneficiary tab, T1.10; docs/testing/PERFORMANCE.md).
 
 ### beneficiary_family_members
 | Column | Type | Null | Default | Comment |
@@ -1640,6 +1640,9 @@ Rationale for triggers rather than a CHECK: the two values live in different tab
 | Activities of an application | (application_id, type) | activities |
 | Stock balance per volunteer | (project_id, volunteer_id, item, kind) | stock_movements |
 | Volunteer tab filters | (district_id), (type), (category) | volunteers |
+| Volunteer tab name search | GIN trigram (display_name) | users |
+| Beneficiary tab counts (everyone, assisted this year) | (id) WHERE merged_into_id IS NULL | beneficiaries |
+| Beneficiary tab blocked count and filter | (id) WHERE is_blocked AND merged_into_id IS NULL | beneficiaries |
 | Volunteer's projects | (volunteer_id) WHERE ended_at IS NULL | project_volunteers |
 | Scope resolution | project_areas (rpm_user_id), project_staff (user_id), work_assignments (assignee_user_id, project_id) | several |
 | Open issues | (project_id, status), (assigned_to, status) | issues |

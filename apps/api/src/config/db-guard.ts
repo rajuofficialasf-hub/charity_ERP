@@ -1,10 +1,10 @@
 /**
  * Destructive database scripts (reset, seed) may only touch development or test databases
- * (BR-024, BD-49; seed rules in TEST_STRATEGY section 4). The database name must be css_erp_dev
- * or css_erp_test (optionally with a suffix such as css_erp_test_worker_3), and NODE_ENV must not
- * be production.
+ * (BR-024, BD-49; seed rules in TEST_STRATEGY section 4). The database name must be css_erp_dev,
+ * css_erp_test or css_erp_perf (the large measurement data set, docs/testing/PERFORMANCE.md),
+ * optionally with a suffix such as css_erp_test_worker_3, and NODE_ENV must not be production.
  */
-const ALLOWED_PREFIXES = ['css_erp_dev', 'css_erp_test'];
+const ALLOWED_PREFIXES = ['css_erp_dev', 'css_erp_test', 'css_erp_perf'];
 const DATABASE_NAME = /^[a-z0-9_]+$/;
 
 function isDevOrTestDatabase(name: string): boolean {
@@ -35,7 +35,7 @@ export function checkDestructiveDbAccess(env: {
   if (!isDevOrTestDatabase(database)) {
     return {
       allowed: false,
-      reason: `database "${database}" is not a css_erp_dev or css_erp_test database`,
+      reason: `database "${database}" is not a css_erp_dev, css_erp_test or css_erp_perf database`,
     };
   }
   return { allowed: true, database };

@@ -288,6 +288,7 @@ model User {
   @@index([homeDivisionId], map: "users_home_division_id_idx")
   @@index([createdBy], map: "users_created_by_idx")
   @@index([updatedBy], map: "users_updated_by_idx")
+  @@index([displayName(ops: raw("gin_trgm_ops"))], type: Gin, map: "users_display_name_trgm_idx")
   @@map("users")
 }
 
@@ -1129,6 +1130,8 @@ model Beneficiary {
   @@index([updatedBy], map: "beneficiaries_updated_by_idx")
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "beneficiaries_name_trgm_idx")
   @@index([fatherOrHusbandName(ops: raw("gin_trgm_ops"))], type: Gin, map: "beneficiaries_father_or_husband_name_trgm_idx")
+  @@index([id], where: raw("merged_into_id IS NULL"), map: "beneficiaries_live_id_idx")
+  @@index([id], where: raw("is_blocked AND merged_into_id IS NULL"), map: "beneficiaries_blocked_idx")
   @@map("beneficiaries")
 }
 

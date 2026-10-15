@@ -1,0 +1,3 @@
+DROP INDEX beneficiaries_blocked_idx;
+DROP INDEX beneficiaries_live_id_idx;
+DROP INDEX users_display_name_trgm_idx;

@@ -24,6 +24,7 @@ Status: complete for Phase 0, written in task T0.21 (2026-10-10). Binding for ev
 | Accessibility | axe-core inside component tests and Playwright | with the tests above | every push (smoke), full before gates |
 | Visual regression | Playwright `toHaveScreenshot` | `apps/web/e2e/visual` | nightly and before gates |
 | Load | k6 | `tests/load` | before the Phase 3 pilot and every field rollout (T3.4) |
+| List measurement | `perf:seed` and `perf:lists` on the large data set in css_erp_perf ([PERFORMANCE.md](PERFORMANCE.md)) | `apps/api/scripts/perf-*.ts` | when a nationwide list, its filters or its indexes change (T1.10) |
 | Security scans | `pnpm audit`, gitleaks, ESLint security rules, OWASP ZAP baseline (Docker) | CI configuration | audit and gitleaks every push; ZAP before gates from Phase 3 |
 | Smoke | Playwright + HTTP checks against the deployed environment | `tests/smoke` | after every deployment (NFR-51) |
 | Device matrix and UAT | Manual Bengali scripts | `docs/testing/uat/` | before each gate |

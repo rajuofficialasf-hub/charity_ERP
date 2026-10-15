@@ -236,6 +236,40 @@ describe('the statistics of the volunteer tab', () => {
     expect(masked.body.data.volunteers).not.toHaveProperty('inactive');
     expect(masked.body.data.volunteers.total).toBe(4);
   });
+
+  it('count everyone without a filter, the applications by their owner alone', async () => {
+    const tree = await f.locationTree(h.db);
+    const owner = await someone(tree);
+    const project = await f.project(h.db);
+    for (const status of ['draft', 'approved', 'submitted'])
+      await f.application(
+        h.db,
+        { project, loc: tree },
+        {
+          status,
+          owner_volunteer_id: owner.volunteerId,
+          beneficiary_id: await f.beneficiary(h.db, tree),
+        },
+      );
+    // an application without an owner volunteer (an official's) is not a volunteer's work
+    await f.application(
+      h.db,
+      { project, loc: tree },
+      { status: 'approved', beneficiary_id: await f.beneficiary(h.db, tree) },
+    );
+    const { rows } = await h.db.query<{ people: string; active: string; work: string }>(
+      `SELECT (SELECT count(*) FROM volunteers) AS people,
+              (SELECT count(*) FROM volunteers v JOIN users u ON u.id = v.user_id
+                WHERE u.state = 'active') AS active,
+              (SELECT count(*) FROM applications WHERE owner_volunteer_id IS NOT NULL
+                AND status NOT IN ('draft', 'deleted')) AS work`,
+    );
+    const res = await statistics(await as(world.users.monitoring));
+    expect(res.status).toBe(200);
+    expect(res.body.data.volunteers.total).toBe(Number(rows[0]!.people));
+    expect(res.body.data.volunteers.active).toBe(Number(rows[0]!.active));
+    expect(res.body.data.applications.total).toBe(Number(rows[0]!.work));
+  });
 });
 
 describe('the request budget of the list routes', () => {

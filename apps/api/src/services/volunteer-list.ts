@@ -197,29 +197,53 @@ export class VolunteerListService {
     };
   }
 
-  /** The counts for the filters in use: people by state, and their applications by stage. */
+  /**
+   * The counts for the filters in use: people by state, and their applications by stage. One
+   * grouped query each (docs/testing/PERFORMANCE.md): the people by account state, the inactive
+   * flag, and the applications by status; without a filter the applications are counted by their
+   * owner column alone, without joining the volunteers.
+   */
   async statistics(filter: VolunteerFilter, viewer: ListViewer) {
     const seesCategories = viewer.fieldClasses.has('volunteer.rating');
     return boundedRead(this.prisma, async (tx) => {
       const where = await this.where(filter, viewer, tx);
-      const count = (extra: Prisma.VolunteerWhereInput) =>
-        tx.volunteer.count({ where: { AND: [where, extra] } });
-      const applications = (status: Prisma.StringFilter) =>
-        tx.application.count({ where: { status, ownerVolunteer: { is: where } } });
+      const filtered = Object.keys(where).length > 0;
+      const people = await tx.user.groupBy({
+        by: ['state'],
+        where: { volunteersUser: { is: where } },
+        _count: { _all: true },
+      });
+      const byState = new Map(people.map((g) => [g.state, g._count._all]));
+      const stages = await tx.application.groupBy({
+        by: ['status'],
+        where: {
+          status: { notIn: [...UNCOUNTED_STATES] },
+          ...(filtered ? { ownerVolunteer: { is: where } } : { ownerVolunteerId: { not: null } }),
+        },
+        _count: { _all: true },
+      });
+      const sum = (states: readonly string[]) =>
+        stages.filter((g) => states.includes(g.status)).reduce((n, g) => n + g._count._all, 0);
       const volunteers = {
-        total: await tx.volunteer.count({ where }),
-        active: await count({ user: { state: 'active' } }),
-        pending: await count({ user: { state: 'pending' } }),
-        blocked: await count({ user: { state: 'blocked' } }),
-        deactivated: await count({ user: { state: 'deactivated' } }),
-        ...(seesCategories ? { inactive: await count({ inactiveFlag: true }) } : {}),
+        total: people.reduce((n, g) => n + g._count._all, 0),
+        active: byState.get('active') ?? 0,
+        pending: byState.get('pending') ?? 0,
+        blocked: byState.get('blocked') ?? 0,
+        deactivated: byState.get('deactivated') ?? 0,
+        ...(seesCategories
+          ? {
+              inactive: await tx.volunteer.count({
+                where: { AND: [where, { inactiveFlag: true }] },
+              }),
+            }
+          : {}),
       };
       return {
         volunteers,
         applications: {
-          total: await applications({ notIn: [...UNCOUNTED_STATES] }),
-          approved: await applications({ in: [...APPROVED_STATES] }),
-          underReview: await applications({ in: [...UNDER_REVIEW_STATES] }),
+          total: stages.reduce((n, g) => n + g._count._all, 0),
+          approved: sum(APPROVED_STATES),
+          underReview: sum(UNDER_REVIEW_STATES),
         },
       };
     });
