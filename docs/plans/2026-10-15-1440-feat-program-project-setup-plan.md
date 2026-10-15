@@ -311,7 +311,7 @@ None. The technical points (where the application kinds and the syllabus live, h
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** auth
-- **Status:** todo
+- **Status:** done
 
 ### U2. Programs API
 - **Goal:** the Department Head keeps programs; officials read them.
@@ -620,7 +620,7 @@ None. The technical points (where the application kinds and the syllabus live, h
 ## Progress
 - **Branch:** `feat/program-project-setup` (from `feat/volunteer-beneficiary-tabs`, because PR #1 and PR #2 were still open on 2026-10-15)
 - **Updated:** 2026-10-15
-- **Next:** U1 decisions, permissions and shared project rules
+- **Next:** checkpoint C1 (U1), then U2 the programs API
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** none yet
+- **Notes:** U1: `@css/shared/projects` (workflow defaults, lifecycle, setup check, budget in paisa); the shared tests live in `packages/shared/test/projects.test.ts` because they read the workflow yaml files with node:fs (the shared src stays free of Node imports). The application kinds of tree planting are workflow `overrides.application_types`, not `defaults`. Error codes `workflow.transition_not_allowed` and `workflow.guard.project_setup_complete` already existed; new: `project.read_only`, `project.code_taken`, `project.deadline_not_later`, `project.rpm_role_required`, `project.staff_role_required`, `program.inactive`, `program.has_open_projects`, `program.pm_role_required`, `program.code_taken`. Two new permissions raise the counts in `seed.test.ts`, `registry.spec.ts` and `effective.spec.ts` (143, Monitoring 142).

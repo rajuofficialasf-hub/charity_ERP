@@ -1,26 +1,30 @@
 import { z } from 'zod';
 import { type ComponentKey, isComponentKey } from '../components.js';
-import { bilingual, code64 } from './common.js';
+import { code64 } from './common.js';
 
 // project_components.settings (docs/database/json-schemas/project-component-settings.schema.json).
 // The schema to apply is chosen by project_components.component_key; components without settings
-// store {} (T1.2: the docs schema uses anyOf so that {} stays valid).
+// store {} (T1.2: the docs schema uses anyOf so that {} stays valid). Every object is strict and
+// every list and label has a maximum, so a caller cannot store unbounded configuration.
+const label = z.strictObject({ bn: z.string().max(200), en: z.string().max(200) });
 const codeLabel = z.strictObject({
   code: code64,
-  label: bilingual,
+  label,
   active: z.boolean().optional(),
 });
+const codeLabels = (max: number) => z.array(codeLabel).max(max);
 const photoSource = z.enum(['camera_only', 'camera_or_gallery']);
 
 export const componentSettingsSchemas = {
   application_form: z.strictObject({
-    form_ids: z.array(z.uuid()).optional(),
-    beneficiary_class_options: z.array(codeLabel).optional(),
+    form_ids: z.array(z.uuid()).max(20).optional(),
+    beneficiary_class_options: codeLabels(30).optional(),
+    application_kinds: codeLabels(20).optional(),
   }),
   public_link: z.strictObject({
     enabled: z.boolean(),
-    token: z.string().min(16).optional(),
-    form_ids: z.array(z.uuid()).optional(),
+    token: z.string().min(16).max(128).optional(),
+    form_ids: z.array(z.uuid()).max(20).optional(),
   }),
   volunteer_assignment: z.strictObject({ team_members_allowed: z.boolean().optional() }),
   photo_rule: z.strictObject({
@@ -40,27 +44,33 @@ export const componentSettingsSchemas = {
     list: z
       .array(
         z.strictObject({
-          key: z.string().regex(/^[a-z][a-z0-9_]*$/),
-          label: bilingual,
+          key: z
+            .string()
+            .max(64)
+            .regex(/^[a-z][a-z0-9_]*$/),
+          label,
           photo_required: z.boolean().optional(),
         }),
       )
-      .min(1),
+      .min(1)
+      .max(30),
   }),
-  issue_log: z.strictObject({ issue_types: z.array(codeLabel).optional() }),
-  volunteer_expenses: z.strictObject({ categories: z.array(codeLabel).optional() }),
-  rating_criteria: z.strictObject({ criteria: z.array(codeLabel).max(5) }),
+  issue_log: z.strictObject({ issue_types: codeLabels(50).optional() }),
+  volunteer_expenses: z.strictObject({ categories: codeLabels(50).optional() }),
+  rating_criteria: z.strictObject({ criteria: codeLabels(5) }),
   scoring: z.strictObject({
-    criteria: z.array(
-      z.strictObject({
-        key: z.string(),
-        label: bilingual,
-        max_points: z.number().min(0).max(100),
-        rule: z.record(z.string(), z.unknown()),
-      }),
-    ),
+    criteria: z
+      .array(
+        z.strictObject({
+          key: z.string().max(64),
+          label,
+          max_points: z.number().min(0).max(100),
+          rule: z.record(z.string(), z.unknown()),
+        }),
+      )
+      .max(20),
   }),
-  follow_up: z.strictObject({ questions: z.array(codeLabel).optional() }),
+  follow_up: z.strictObject({ questions: codeLabels(50).optional() }),
   dawah: z.strictObject({
     family_attendance: z.boolean().optional(),
     gender_split: z.boolean().optional(),
@@ -74,7 +84,7 @@ export const emptySettingsSchema = z.strictObject({});
 
 /**
  * Which settings definition a component uses (D-062). Components not listed store {}.
- * `scoring` belongs to application_form and is applied with project setup (T1.11).
+ * `scoring` belongs to application_form and is configured with the quotas in Phase 2.
  */
 export const COMPONENT_SETTINGS_DEFINITION: Partial<Record<ComponentKey, ComponentWithSettings>> = {
   application_form: 'application_form',

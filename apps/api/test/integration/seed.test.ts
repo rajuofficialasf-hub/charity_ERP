@@ -124,7 +124,7 @@ describe('base set', () => {
         .sort((a, b) => a.name.localeCompare(b.name)),
     );
     expect(roles).toHaveLength(15);
-    expect(permissions).toHaveLength(141);
+    expect(permissions).toHaveLength(143);
   });
 
   it('stores every workflow template merged and valid, with all its transitions', async () => {
@@ -149,6 +149,7 @@ describe('base set', () => {
       )
     ).rows;
     expect(Object.fromEntries(lists.map((l) => [l.list_key, l.n]))).toEqual({
+      application_kind_default: 2,
       beneficiary_class_default: 8,
       consent_channel: 5,
       education_level: 6,

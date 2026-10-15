@@ -152,5 +152,18 @@
   "handover": {
     "target_invalid": "Choose an active official who can take over this work.",
     "items_outstanding": "Some pending work has not been handed over yet."
+  },
+  "project": {
+    "read_only": "This part of the project setup cannot change in its current state.",
+    "code_taken": "This project code is already in use.",
+    "deadline_not_later": "The new end date must be after the current end date.",
+    "rpm_role_required": "Choose a Regional Program Manager for the area.",
+    "staff_role_required": "This access goes only to a Project Executive, an Official দায়ী or an Implementer."
+  },
+  "program": {
+    "inactive": "This program is inactive; it takes no new projects.",
+    "has_open_projects": "A program with a draft, active or closing project cannot be deactivated.",
+    "pm_role_required": "Choose someone who holds the Program Manager role.",
+    "code_taken": "This program code is already in use."
   }
 }

@@ -227,6 +227,25 @@ const componentCases: Record<string, Case[]> = {
       { beneficiary_class_options: [{ code: 'widow', label: { bn: 'বিধবা' } }] },
       false,
     ],
+    [
+      'application kinds',
+      {
+        application_kinds: [
+          { code: 'personal_garden', label: { bn: 'ব্যক্তিগত বাগান', en: 'Personal garden' } },
+        ],
+      },
+      true,
+    ],
+    [
+      'twenty-one application kinds',
+      {
+        application_kinds: Array.from({ length: 21 }, (_, i) => ({
+          code: `k${i}`,
+          label: { bn: 'ক', en: 'K' },
+        })),
+      },
+      false,
+    ],
   ],
   public_link: [
     ['enabled with token', { enabled: true, token: 'abcdefghijklmnop' }, true],
@@ -251,6 +270,21 @@ const componentCases: Record<string, Case[]> = {
       true,
     ],
     ['empty list', { list: [] }, false],
+    [
+      'thirty-one stages',
+      {
+        list: Array.from({ length: 31 }, (_, i) => ({
+          key: `s${i}`,
+          label: { bn: 'ধাপ', en: 'Stage' },
+        })),
+      },
+      false,
+    ],
+    [
+      'a label over 200 characters',
+      { list: [{ key: 'long', label: { bn: 'ক'.repeat(201), en: 'Long' } }] },
+      false,
+    ],
   ],
   rating_criteria: [
     [
