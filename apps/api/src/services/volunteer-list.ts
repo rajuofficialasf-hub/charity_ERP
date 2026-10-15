@@ -199,7 +199,7 @@ export class VolunteerListService {
 
   /**
    * The counts for the filters in use: people by state, and their applications by stage. One
-   * grouped query each (docs/testing/PERFORMANCE.md): the people by account state, the inactive
+   * grouped query each (docs/testing/PERFORMANCE.md, section "What the measurement changed"): the people by account state, the inactive
    * flag, and the applications by status; without a filter the applications are counted by their
    * owner column alone, without joining the volunteers.
    */

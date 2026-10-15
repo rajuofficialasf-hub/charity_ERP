@@ -868,7 +868,7 @@ Indexes: (assignee_user_id, project_id) WHERE active_to IS NULL; (target_type, t
 | deleted_at | timestamptz | yes | — | soft delete of drafts and pending (status deleted) |
 | [A] | | | | |
 
-Constraints: partial UNIQUE (project_id, beneficiary_id) WHERE status <> 'deleted' AND beneficiary_id IS NOT NULL (BR-016); CHECK (status = 'needs_verification') OR beneficiary_id IS NOT NULL; CHECK (status = 'deleted') = (deleted_at IS NOT NULL); CHECK zakat_decision IN ('eligible','not_eligible'). The BD-03 trigger of section 18 fires on insert and on update of beneficiary_id or owner_volunteer_id. Indexes: see section 19 (project/status, project/region/status, owner/status, review queue, district quotas).
+Constraints: partial UNIQUE (project_id, beneficiary_id) WHERE status <> 'deleted' AND beneficiary_id IS NOT NULL (BR-016); CHECK (status = 'needs_verification') OR beneficiary_id IS NOT NULL; CHECK (status = 'deleted') = (deleted_at IS NOT NULL); CHECK zakat_decision IN ('eligible','not_eligible'). The BD-03 trigger of section 18 fires on insert and on update of beneficiary_id or owner_volunteer_id. Indexes: see section 19 (project/status, project/region/status, owner/status, review queue, district quotas, status/project/beneficiary for the beneficiary tab count).
 
 ### application_answers
 | Column | Type | Null | Default | Comment |
@@ -1643,6 +1643,7 @@ Rationale for triggers rather than a CHECK: the two values live in different tab
 | Volunteer tab name search | GIN trigram (display_name) | users |
 | Beneficiary tab counts (everyone, assisted this year) | (id) WHERE merged_into_id IS NULL | beneficiaries |
 | Beneficiary tab blocked count and filter | (id) WHERE is_blocked AND merged_into_id IS NULL | beneficiaries |
+| Beneficiaries assisted this year (approved applications of the year's projects) | (status, project_id, beneficiary_id) WHERE beneficiary_id IS NOT NULL | applications |
 | Volunteer's projects | (volunteer_id) WHERE ended_at IS NULL | project_volunteers |
 | Scope resolution | project_areas (rpm_user_id), project_staff (user_id), work_assignments (assignee_user_id, project_id) | several |
 | Open issues | (project_id, status), (assigned_to, status) | issues |

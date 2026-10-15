@@ -1,14 +1,16 @@
 // pnpm --filter @css/api perf:seed [--fresh]: builds the measurement database css_erp_perf
-// (docs/testing/PERFORMANCE.md): the migrations, the locations, the base and demo seed, then the
-// large data set of the volunteer and beneficiary tabs (DECISION_LOG O-67): 50,000 volunteers,
-// 2,000,000 beneficiaries, 300 projects and 500,000 applications, spread over every union. The rows
-// are made by SQL (generate_series), so the load takes minutes, not hours. Only a css_erp_perf
-// database, never under NODE_ENV=production (scripts/perf-db.ts); the volunteers get no password,
-// so none of these accounts can sign in. --fresh drops the database first.
+// (docs/testing/PERFORMANCE.md, section "Data set"): the migrations, the locations, the base and
+// demo seed, then the large data set of the volunteer and beneficiary tabs at the size the owner
+// set: 50,000 volunteers, 2,000,000 beneficiaries, 300 projects and 500,000 applications, spread
+// over every union. The rows are made by SQL (generate_series), so the load takes minutes, not
+// hours, and a settings row written last marks the data set complete. Only a css_erp_perf database
+// on this machine, never under NODE_ENV=production (checkPerfDbAccess in src/config/db-guard.ts);
+// the volunteers get no password, so none of these accounts can sign in. --fresh drops the
+// database first.
 import 'dotenv/config';
 import { spawnSync } from 'node:child_process';
 import { Client } from 'pg';
-import { PERF_DATABASE, perfDatabaseUrl } from './perf-db';
+import { perfDatabase } from './perf-db';
 
 const VOLUNTEERS = 50_000;
 const BENEFICIARIES = 2_000_000;
@@ -17,7 +19,9 @@ const PROJECTS = 300;
 const APPLICATION_EVERY = 4;
 const BATCH = 250_000;
 
-const url = perfDatabaseUrl('perf:seed');
+const { url, database } = perfDatabase('perf:seed');
+/** The settings row written last: without it the data set is partial. */
+const MARKER = 'perf.data_set';
 const fresh = process.argv.includes('--fresh');
 
 function run(label: string, command: string, args: string[]): void {
@@ -39,10 +43,10 @@ async function createDatabase(): Promise<boolean> {
   const db = new Client({ connectionString: admin.toString() });
   await db.connect();
   try {
-    if (fresh) await db.query(`DROP DATABASE IF EXISTS ${PERF_DATABASE} WITH (FORCE)`);
-    const exists = await db.query('SELECT 1 FROM pg_database WHERE datname = $1', [PERF_DATABASE]);
+    if (fresh) await db.query(`DROP DATABASE IF EXISTS ${database} WITH (FORCE)`);
+    const exists = await db.query('SELECT 1 FROM pg_database WHERE datname = $1', [database]);
     if (exists.rowCount) return false;
-    await db.query(`CREATE DATABASE ${PERF_DATABASE}`);
+    await db.query(`CREATE DATABASE ${database}`);
     return true;
   } finally {
     await db.end();
@@ -241,6 +245,10 @@ async function load(db: Client): Promise<void> {
   }
   // the visibility map lets counts read the indexes alone, as autovacuum would on a live server
   await timed(db, 'vacuum and analyze', 'VACUUM ANALYZE');
+  await db.query('INSERT INTO settings (key, value) VALUES ($1, $2::jsonb)', [
+    MARKER,
+    JSON.stringify({ volunteers: VOLUNTEERS, beneficiaries: BENEFICIARIES, at: new Date() }),
+  ]);
 }
 
 async function main(): Promise<void> {
@@ -249,19 +257,15 @@ async function main(): Promise<void> {
   const db = new Client({ connectionString: url });
   await db.connect();
   try {
-    const volunteers = Number((await db.query('SELECT count(*) AS c FROM volunteers')).rows[0].c);
-    if (!created && volunteers >= VOLUNTEERS) {
-      console.warn(`perf:seed: ${PERF_DATABASE} already holds the data set (--fresh rebuilds it).`);
+    const marker = await db.query('SELECT value FROM settings WHERE key = $1', [MARKER]);
+    if (!created && marker.rowCount) {
+      console.warn(`perf:seed: ${database} already holds the data set (--fresh rebuilds it).`);
       return;
     }
-    if (!created && volunteers > 0 && volunteers < VOLUNTEERS)
-      throw new Error(`${PERF_DATABASE} holds a partial data set; run with --fresh`);
-    run('locations', 'pnpm', [
-      'exec',
-      'tsx',
-      '--conditions=@css/source',
-      'scripts/load-locations.ts',
-    ]);
+    const volunteers = Number((await db.query('SELECT count(*) AS c FROM volunteers')).rows[0].c);
+    if (!created && volunteers > 0)
+      throw new Error(`${database} holds a partial data set; run with --fresh`);
+    run('locations', 'pnpm', ['db:load-locations']);
     run('base and demo seed', 'pnpm', [
       'exec',
       'tsx',

@@ -175,31 +175,32 @@ export class BeneficiariesService {
   }
 
   /**
-   * The counts for the filters in use: everyone, those assisted this year, the blocked. The three
-   * counts are independent, so each runs in its own bounded read at the same time
-   * (docs/testing/PERFORMANCE.md: one after another they took over 300 ms on 2,000,000 rows).
+   * The counts for the filters in use: everyone, those assisted this year, the blocked; one read,
+   * so the three counts share a snapshot and a connection.
    */
   async statistics(filter: BeneficiaryFilter, viewer: BeneficiaryViewer) {
     const where = await this.where(filter, viewer);
     const year = dhakaYear(this.clock.now());
     const rowsProjects = beneficiaryRowsProjectWhere(viewer.scope);
-    const count = (extra?: Prisma.BeneficiaryWhereInput) =>
-      boundedRead(this.prisma, (tx) =>
-        tx.beneficiary.count({ where: extra ? { AND: [where, extra] } : where }),
-      );
-    const [total, assistedThisYear, blocked] = await Promise.all([
-      count(),
-      count({
-        applicationsBeneficiary: {
-          some: {
-            status: { in: [...APPROVED_STATES] },
-            project: { AND: [{ year }, rowsProjects ?? {}] },
-          },
+    return boundedRead(this.prisma, async (tx) => ({
+      total: await tx.beneficiary.count({ where }),
+      assistedThisYear: await tx.beneficiary.count({
+        where: {
+          AND: [
+            where,
+            {
+              applicationsBeneficiary: {
+                some: {
+                  status: { in: [...APPROVED_STATES] },
+                  project: { AND: [{ year }, rowsProjects ?? {}] },
+                },
+              },
+            },
+          ],
         },
       }),
-      count({ isBlocked: true }),
-    ]);
-    return { total, assistedThisYear, blocked };
+      blocked: await tx.beneficiary.count({ where: { AND: [where, { isBlocked: true }] } }),
+    }));
   }
 
   /** The 360° profile of one beneficiary in the caller's scope, or 404. */

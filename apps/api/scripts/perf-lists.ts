@@ -1,6 +1,6 @@
-// pnpm --filter @css/api perf:lists [--runs 20] [--explain-over 100] [--only <text>]: measures the volunteer and
-// beneficiary tabs on the large data set of perf:seed (docs/testing/PERFORMANCE.md; DECISION_LOG
-// O-67). Each case calls the real service (the same code as the route, without HTTP and the rate
+// pnpm --filter @css/api perf:lists [--runs 20] [--explain-over 100] [--only <text>]: measures
+// the volunteer and beneficiary tabs on the large data set of perf:seed (docs/testing/PERFORMANCE.md,
+// section "Method"). Each case calls the real service (the same code as the route, without HTTP and the rate
 // limit) as the Department Head (GLOBAL) and as the Dhaka RPM, twice to warm up and then --runs
 // times, and prints p50, p95 and the slowest SQL statement. For every case whose p95 is over
 // --explain-over ms, the slowest statement is run again under EXPLAIN (ANALYZE, BUFFERS).
@@ -12,7 +12,7 @@ import { createContainer } from '../src/container';
 import type { PrismaService } from '../src/core/prisma.service';
 import { PrismaClient } from '../src/generated/prisma/client';
 import type { BeneficiaryViewer } from '../src/services/beneficiaries';
-import { perfDatabaseUrl } from './perf-db';
+import { perfDatabase } from './perf-db';
 
 const arg = (name: string, fallback: number) => {
   const i = process.argv.indexOf(name);
@@ -30,7 +30,7 @@ const ONLY = process.argv.includes('--only')
   ? process.argv[process.argv.indexOf('--only') + 1]
   : undefined;
 
-const url = perfDatabaseUrl('perf:lists');
+const { url } = perfDatabase('perf:lists');
 const env = loadEnv({ ...process.env, DATABASE_URL: url, LOG_LEVEL: 'warn' });
 
 interface Statement {

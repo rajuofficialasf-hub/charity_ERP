@@ -22,7 +22,9 @@ allows it, never under `NODE_ENV=production`; the dev and test databases are not
 
 The rows are made with `generate_series` in SQL; the load takes about 6.5 minutes and ends with
 `VACUUM ANALYZE` (the visibility map lets counts read an index alone, as autovacuum would on a live
-server). `--fresh` drops and rebuilds the database.
+server). A settings row written last marks the data set complete; a run that stopped halfway is
+refused until `--fresh` drops and rebuilds the database. The guard `checkPerfDbAccess` allows only a
+`css_erp_perf` database on this machine (or the compose database service).
 
 ## 2. Method
 
@@ -45,40 +47,40 @@ All 68 cases are under 300 ms at p95. Times in milliseconds, 20 runs each.
 
 | Call | Case | Head p50 / p95 | RPM p50 / p95 |
 |---|---|---|---|
-| `volunteers.list` | first page | 9 / 11 | 9 / 10 |
-| `volunteers.list` | next page | 10 / 13 | 9 / 10 |
-| `volunteers.list` | with total | 12 / 16 | 12 / 14 |
-| `volunteers.list` | district | 9 / 10 | 10 / 12 |
-| `volunteers.list` | state pending | 9 / 12 | 9 / 11 |
-| `volunteers.list` | type local_daee | 8 / 9 | 8 / 9 |
-| `volunteers.list` | category A | 8 / 11 | 8 / 10 |
-| `volunteers.list` | blocked | 15 / 31 | 16 / 36 |
-| `volunteers.list` | not blocked + total | 24 / 28 | 25 / 28 |
-| `volunteers.list` | project | 10 / 11 | 9 / 11 |
-| `volunteers.list` | name search | 9 / 12 | 9 / 10 |
-| `volunteers.list` | name search + total | 28 / 36 | 26 / 36 |
-| `volunteers.list` | mobile search | 9 / 12 | 8 / 9 |
-| `volunteers.list` | NID search | 10 / 13 | 14 / 20 |
-| `volunteers.statistics` | all | 73 / 87 | 74 / 84 |
-| `volunteers.statistics` | district | 22 / 25 | 24 / 28 |
-| `beneficiaries.list` | first page | 4 / 4 | 4 / 4 |
+| `volunteers.list` | first page | 11 / 12 | 10 / 12 |
+| `volunteers.list` | next page | 10 / 14 | 9 / 11 |
+| `volunteers.list` | with total | 12 / 14 | 13 / 16 |
+| `volunteers.list` | district | 10 / 13 | 11 / 12 |
+| `volunteers.list` | state pending | 12 / 17 | 9 / 11 |
+| `volunteers.list` | type local_daee | 9 / 10 | 9 / 11 |
+| `volunteers.list` | category A | 9 / 10 | 9 / 12 |
+| `volunteers.list` | blocked | 16 / 22 | 17 / 36 |
+| `volunteers.list` | not blocked + total | 28 / 31 | 27 / 31 |
+| `volunteers.list` | project | 10 / 14 | 9 / 11 |
+| `volunteers.list` | name search | 10 / 11 | 9 / 11 |
+| `volunteers.list` | name search + total | 28 / 36 | 27 / 32 |
+| `volunteers.list` | mobile search | 8 / 10 | 9 / 12 |
+| `volunteers.list` | NID search | 10 / 13 | 11 / 16 |
+| `volunteers.statistics` | all | 69 / 78 | 71 / 78 |
+| `volunteers.statistics` | district | 21 / 26 | 23 / 28 |
+| `beneficiaries.list` | first page | 4 / 5 | 4 / 5 |
 | `beneficiaries.list` | next page | 4 / 5 | 4 / 5 |
-| `beneficiaries.list` | with total | 90 / 130 | 89 / 93 |
-| `beneficiaries.list` | district | 7 / 8 | 5 / 11 |
-| `beneficiaries.list` | upazila | 8 / 10 | 7 / 8 |
-| `beneficiaries.list` | union | 6 / 11 | 4 / 5 |
-| `beneficiaries.list` | type widow | 8 / 15 | 4 / 7 |
-| `beneficiaries.list` | blocked | 6 / 7 | 6 / 8 |
-| `beneficiaries.list` | project | 21 / 24 | 23 / 35 |
-| `beneficiaries.list` | year 2025 | 6 / 7 | 5 / 6 |
-| `beneficiaries.list` | district + year + total | 60 / 69 | 69 / 90 |
-| `beneficiaries.list` | name search | 4 / 5 | 5 / 6 |
-| `beneficiaries.list` | name search + total | 115 / 145 | 139 / 191 |
-| `beneficiaries.list` | mobile search | 4 / 6 | 4 / 6 |
-| `beneficiaries.list` | NID search | 7 / 12 | 8 / 13 |
-| `beneficiaries.statistics` | all | 168 / 186 | 174 / 216 |
-| `beneficiaries.statistics` | district | 54 / 58 | 63 / 123 |
-| `beneficiaries.profile` |  | 19 / 22 | 19 / 24 |
+| `beneficiaries.list` | with total | 90 / 93 | 92 / 100 |
+| `beneficiaries.list` | district | 5 / 6 | 6 / 7 |
+| `beneficiaries.list` | upazila | 8 / 9 | 7 / 9 |
+| `beneficiaries.list` | union | 5 / 7 | 5 / 6 |
+| `beneficiaries.list` | type widow | 4 / 5 | 4 / 5 |
+| `beneficiaries.list` | blocked | 4 / 5 | 4 / 4 |
+| `beneficiaries.list` | project | 18 / 26 | 19 / 23 |
+| `beneficiaries.list` | year 2025 | 5 / 6 | 5 / 6 |
+| `beneficiaries.list` | district + year + total | 61 / 78 | 61 / 67 |
+| `beneficiaries.list` | name search | 8 / 10 | 5 / 6 |
+| `beneficiaries.list` | name search + total | 122 / 136 | 118 / 133 |
+| `beneficiaries.list` | mobile search | 4 / 4 | 4 / 5 |
+| `beneficiaries.list` | NID search | 6 / 10 | 8 / 9 |
+| `beneficiaries.statistics` | all | 172 / 181 | 173 / 185 |
+| `beneficiaries.statistics` | district | 38 / 49 | 37 / 46 |
+| `beneficiaries.profile` |  | 18 / 36 | 18 / 31 |
 
 "with total" asks for the row count as well (`include=total`); the tab asks for it only on the first
 page. The slowest calls are the counts over all 2,000,000 beneficiaries (about 90 to 190 ms); they
@@ -86,22 +88,27 @@ grow with the number of beneficiaries, so section 5 says when to look again.
 
 ## 4. What the measurement changed
 
-The first run (same data, before any change) had three cases over 300 ms:
+The first run (same data, before any change) had three cases over 300 ms, in two calls:
 
 | Case | Before: Head / RPM p95 | After: Head / RPM p95 |
 |---|---|---|
-| `volunteers.statistics` all | 478 / 235 | 87 / 84 |
-| `beneficiaries.statistics` all | 570 / 626 | 186 / 216 |
+| `volunteers.statistics` all | 478 / 235 | 78 / 78 |
+| `beneficiaries.statistics` all | 570 / 626 | 181 / 185 |
 
 - **Volunteer statistics:** nine separate counts became three: the people grouped by account state,
   the inactive flag, and the applications grouped by status. Without a filter the applications are
   counted by their owner column alone, without joining the volunteers.
-- **Beneficiary statistics:** the three counts (everyone, assisted this year, blocked) are independent
-  and now run at the same time, each in its own bounded read. The migration
-  `20261015000000_list_indexes` adds two partial indexes on `beneficiaries`: `(id) WHERE
-  merged_into_id IS NULL`, which the "assisted this year" semi join reads instead of the table, and
-  `(id) WHERE is_blocked AND merged_into_id IS NULL` for the blocked count and the blocklist filter
-  (that filter went from about 20 ms to 7 ms).
+- **Beneficiary statistics:** the three counts (everyone, assisted this year, blocked) stay in one
+  bounded read, so they share one snapshot and one connection; three indexes of the migration
+  `20261015000000_list_indexes` let each count read an index instead of a table:
+  - `beneficiaries (id) WHERE merged_into_id IS NULL`: everyone, and the beneficiary side of
+    "assisted this year";
+  - `applications (status, project_id, beneficiary_id) WHERE beneficiary_id IS NOT NULL`: the
+    approved applications of the year's projects (the count went from about 180 ms to 70 ms);
+  - `beneficiaries (id) WHERE is_blocked AND merged_into_id IS NULL`: the blocked count and the
+    blocklist filter (that filter went from about 20 ms to 5 ms).
+  Running the three counts in parallel reads was tried and dropped: it held three pool connections
+  per request and gave the counts different snapshots.
 - **Volunteer name search:** the same migration adds a GIN trigram index on `users.display_name`. At
   50,000 volunteers a scan of the table is still fast, so it does not change these numbers; it keeps
   the search fast as the number of accounts grows.
