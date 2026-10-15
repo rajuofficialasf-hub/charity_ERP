@@ -187,7 +187,7 @@ Today the officials have only the T1.9 registration queue: there is no place to 
 - **Approach:** the new O-67 and D-094 entries follow the format of the existing O-66 and D-093 entries (which stay untouched). The schemas follow `OwnVolunteerProfile` and the registration detail in openapi.yaml.
 - **Tests:** none (documents); `pnpm docs:check` passes.
 - **Done when:** docs:check passes and the owner's answers are in the log.
-- **Depends on:** none · **Size:** S · **Risk area:** none · **Status:** todo
+- **Depends on:** none · **Size:** S · **Risk area:** none · **Status:** done
 
 ### U2. Per-record access: sensitive scope, action flags, beneficiary scope
 - **Goal:** one place answers "may this caller see the protected details of this record" and "may this caller do X to this record".
@@ -446,7 +446,7 @@ Today the officials have only the T1.9 registration queue: there is no place to 
 ## Progress
 - **Branch:** `feat/volunteer-beneficiary-tabs` (from `feat/volunteer-form-refine`, because PR #1 with T1.9f was still open on 2026-10-15; rebase is not needed if PR #1 merges first)
 - **Updated:** 2026-10-15
-- **Next:** U1 decisions, rules and contract
+- **Next:** U2 per-record access (sensitive scope, action flags, beneficiary scope, file route, list limiter and statement timeout)
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** none yet.
+- **Notes:** U1: the openapi.yaml edits move to U3, U4 and U5, because the drift test compares each implemented operation with the code's zod schemas key by key; writing the schemas before the code would only be rewritten. O-67, D-094, BR-250 to BR-254, the three beneficiary field classes, `volunteers.inactive_flag` in `volunteer.rating`, `server.busy` and the Caddy log rule are in.

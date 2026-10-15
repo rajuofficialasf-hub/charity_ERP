@@ -685,6 +685,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 ### SCR-040 Registration approval queue
 
 - **Purpose.** Review volunteer and staff registrations: approve, reject, or request a correction (blueprint A5 "verification and approval").
+- **T1.10.** Narrowed in T1.10 (O-67): the page keeps only the staff registrations; volunteer registrations live in the volunteer tab under the "pending" state, and old volunteer links redirect there. Edit requests keep their own page.
 - **Roles.**
   - Volunteers: Department Head, Monitoring Team, PM, RPM and Project Executive.
   - Staff: Department Head and Monitoring Team only.
@@ -769,6 +770,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 ### SCR-042 Volunteer tab
 
 - **Purpose.** The central, nationwide volunteer list (blueprint A5 "volunteer tab").
+- **T1.10.** Planned for T1.10 (O-67; plan `docs/plans/2026-10-15-1030-feat-volunteer-beneficiary-tabs-plan.md`): every volunteer in every state for each holder of `volunteer.view_all`, at `/admin/volunteers`. Filters (division to union, type, state, project, category, blocklisted) are kept in the URL; the search (name, mobile; NID only inside the `volunteer.view_sensitive` scope) is not. The statistics above the list follow the filters: volunteers (total, active, pending, blocked, deactivated; inactive only for those who see categories) and applications (total, approved, under review). The category column and filter appear only with `volunteer.rating.view`. The rating filter comes in Phase 5.
 - **Roles.** Officials with `volunteer.view_all`.
 - **Priority.** parity.
 - **Data shown.**
@@ -800,6 +802,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 ### SCR-043 Volunteer profile
 
 - **Purpose.** Everything about one volunteer (constitution §12 key screen): data, projects and permissions, team, work summary, ratings and categories, animal allocation, blocklist and transfer.
+- **T1.10.** Planned for T1.10 (O-67, D-094): `/admin/volunteers/:volunteerId` with the sections identity, address, education, profession and skills, projects and permission sets, team (name, type and state of each member), work summary placeholder, ratings and category, blocklist, device sessions. NID, NID photos, date of birth, blood group and bank appear only inside the caller's `volunteer.view_sensitive` scope. Each action button (approve, request correction, block, unblock, revoke a session) appears only when the server says the caller may do it to this volunteer.
 - **Roles.** Officials. Sensitive parts follow the field classes.
 - **Priority.** parity.
 - **Data shown, by tab.**
@@ -840,6 +843,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 ### SCR-044 Beneficiary tab
 
 - **Purpose.** The central list of beneficiary profiles across years and projects (blueprint A7 "beneficiary tab").
+- **T1.10.** Planned for T1.10 (O-67): `/admin/beneficiaries`, the same filter pattern (area, type, project, year, blocklisted), search by name, by mobile with the contact class, by NID inside the `beneficiary.view_nid` scope; statistics (total, assisted this year, blocked). The Media and Procurement Teams get the limited view of BR-253.
 - **Roles.**
   - Officials with `beneficiary.view_all`.
   - Media Team (masked).
@@ -876,6 +880,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 ### SCR-045 Beneficiary 360 profile and merge
 
 - **Purpose.** One beneficiary's full history (blueprint A7 "profile 360"). It covers identity, family, all applications across years, assistance received, photos, follow-ups, media consent, blocklist and status. It also hosts the merge flow for duplicates (BD-05).
+- **T1.10.** A shell is built in T1.10 (O-67): `/admin/beneficiaries/:beneficiaryId` with the sections basic data and address, projects by year, application history, distribution and implementation, dawah, follow-ups and activity history, each with real data where it exists and an empty state otherwise. Merge and corrections stay in T2.2.
 - **Roles.** Officials. Merge by PM, Monitoring Team and Department Head. The RPM may propose a merge. Only the Monitoring Team reverts one.
 - **Priority.** parity.
 - **Data shown, by tab.**

@@ -126,6 +126,7 @@
   },
   "server": {
     "unavailable": "The server is not available now. Try again shortly.",
+    "busy": "This took too long. Narrow the filters and try again.",
     "internal": "Something went wrong. Try again."
   },
   "session": {
