@@ -9,6 +9,7 @@ import { type Scope, volunteerWhere } from '../access/scope';
 import type { Principal } from '../auth/principal';
 import type { Env } from '../config/env';
 import { boundedRead } from '../core/bounded-read';
+import { isNumberTerm, literalContains, mobileOf } from '../core/search';
 import {
   buildPage,
   decodeCursor,
@@ -44,12 +45,6 @@ const ROW_SELECT = {
     orderBy: { createdAt: 'desc' },
   },
 } satisfies Prisma.VolunteerSelect;
-
-/** A mobile number written in digits (with or without +88) as the stored 01XXXXXXXXX. */
-function mobileOf(digits: string): string | null {
-  const local = digits.startsWith('880') ? digits.slice(2) : digits;
-  return /^01[3-9][0-9]{8}$/.test(local) ? local : null;
-}
 
 /** The caller's view of the list: whether categories are visible, and the NID search scope. */
 export interface ListViewer {
@@ -112,10 +107,10 @@ export class VolunteerListService {
    */
   private async searchWhere(q: string, viewer: ListViewer): Promise<Prisma.VolunteerWhereInput> {
     const term = q.trim();
-    if (!/^[+0-9\s-]+$/.test(term))
+    if (!isNumberTerm(term))
       // LIKE wildcards in the term are letters, not patterns
       return {
-        user: { displayName: { contains: term.replace(/[\\%_]/g, '\\$&'), mode: 'insensitive' } },
+        user: { displayName: { contains: literalContains(term), mode: 'insensitive' } },
       };
     const digits = term.replace(/\D/g, '');
     const or: Prisma.VolunteerWhereInput[] = [];

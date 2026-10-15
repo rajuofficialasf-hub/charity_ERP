@@ -104,6 +104,14 @@ sensitive_fields:
     fields: [beneficiaries.union_id, beneficiaries.village, beneficiaries.post_office, beneficiaries.post_code, beneficiaries.landmark, beneficiaries.latitude, beneficiaries.longitude]
     visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee, procurement_team]
     source: "O-67, D-094: the Media Team sees the area down to the upazila only"
+  - key: beneficiary.profile_detail
+    fields: [beneficiaries.father_or_husband_name, beneficiaries.mother_name, beneficiaries.gender_code, beneficiaries.age_years, beneficiaries.class_code, beneficiaries.class_other_text, beneficiaries.occupation_code, beneficiaries.photo_file_id]
+    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee]
+    source: "O-67, D-094: the Media and Procurement Teams get only the name, the area, the projects and distribution"
+  - key: beneficiary.application_history
+    fields: [applications.app_no, applications.submitted_at, applications.reviewed_at, applications.approved_at]
+    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee, procurement_team]
+    source: "O-67, D-094: the Procurement Team sees its own projects' applications, the Media Team none"
   - key: beneficiary.care
     fields: [call_logs.*, followup_evaluations.*, class_attendance.*, learning_progress.*, exam_results.*, activities.*, beneficiaries.is_blocked]
     visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee]

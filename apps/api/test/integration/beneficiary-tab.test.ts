@@ -21,7 +21,8 @@ let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();
 const api = () => request(h.server());
 const as = (userId: string) => login(h, accounts.get(userId)!);
-const THIS_YEAR = new Date(Date.now() + 6 * 3_600_000).getUTCFullYear();
+/** The year in Bangladesh by the clock the API itself reads. */
+let THIS_YEAR: number;
 
 type Tree = Awaited<ReturnType<typeof f.locationTree>>;
 type Project = Awaited<ReturnType<typeof f.project>>;
@@ -38,6 +39,7 @@ beforeAll(async () => {
     return a.id;
   };
   world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
+  THIS_YEAR = new Date(h.clock.now().getTime() + 6 * 3_600_000).getUTCFullYear();
   // the Procurement Team on one house-construction project and on one project of another kind
   const team = await account(h.db, { role: 'procurement_team' });
   house = await f.project(h.db, { year: THIS_YEAR });
@@ -123,9 +125,16 @@ describe('the beneficiary list', () => {
     const media = await staff('media_team');
     const row = (await list(media, { upazilaId: tree.upazila })).body.data[0];
     expect(row).toMatchObject({ id: someone, name: expect.any(String), upazilaId: tree.upazila });
-    for (const key of ['unionId', 'village', 'mobile', 'isBlocked'])
+    for (const key of [
+      'unionId',
+      'village',
+      'mobile',
+      'isBlocked',
+      'fatherOrHusbandName',
+      'classCode',
+    ])
       expect(row, key).not.toHaveProperty(key);
-    for (const query of [{ unionId: tree.union }, { blocked: 'true' }] as Record<
+    for (const query of [{ unionId: tree.union }, { blocked: 'true' }, { type: 'widow' }] as Record<
       string,
       string
     >[]) {
@@ -148,6 +157,33 @@ describe('the beneficiary list', () => {
     expect(res.body.data[0]).not.toHaveProperty('mobile');
     expect(res.body.data[0]).not.toHaveProperty('isBlocked');
     expect((await profile(procurement, inOther)).status).toBe(404);
+    // its project and year filters stay inside its own projects
+    const elsewhere = await f.project(h.db, { year: 2024 });
+    await applyTo(elsewhere, tree, inHouse);
+    expect(ids(await list(procurement, { projectId: elsewhere.id }))).toEqual([]);
+    expect(ids(await list(procurement, { projectId: otherAttached.id }))).toEqual([]);
+    expect(ids(await list(procurement, { upazilaId: tree.upazila, year: '2024' }))).toEqual([]);
+    expect(ids(await list(procurement, { projectId: house.id }))).toContain(inHouse);
+    expect((await statistics(procurement, { projectId: elsewhere.id })).body.data.total).toBe(0);
+  });
+
+  it('pages with a cursor without repeating or skipping anyone', async () => {
+    const tree = await f.locationTree(h.db);
+    for (let i = 0; i < 5; i += 1) await person(tree);
+    const head = await as(world.users.head);
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await list(head, {
+        unionId: tree.union,
+        limit: '2',
+        ...(cursor ? { cursor } : {}),
+      });
+      seen.push(...ids(page));
+      cursor = page.body.meta.nextCursor ?? undefined;
+    } while (cursor);
+    expect(seen).toHaveLength(5);
+    expect(new Set(seen).size).toBe(5);
   });
 
   it('answers 401 without a sign-in and 403 to volunteers', async () => {
@@ -237,9 +273,23 @@ describe('the 360° profile', () => {
       'followUps',
       'activities',
       'isBlocked',
+      'fatherOrHusbandName',
+      'motherName',
+      'genderCode',
+      'ageYears',
+      'classCode',
+      'classOtherText',
+      'occupationCode',
+      'photoFileId',
+      'applications',
     ])
       expect(data, key).not.toHaveProperty(key);
-    expect(data).toMatchObject({ name: expect.any(String), upazilaId: world.dhaka.upazila });
+    expect(data).toMatchObject({
+      name: expect.any(String),
+      upazilaId: world.dhaka.upazila,
+      projectsByYear: [],
+      distributions: [],
+    });
   });
 
   it('shows the Procurement Team only the rows of its house-construction projects', async () => {
@@ -250,10 +300,39 @@ describe('the 360° profile', () => {
     const data = (await profile(procurement, someone)).body.data;
     expect(data.applications.map((a: { projectId: string }) => a.projectId)).toEqual([house.id]);
     expect(data).toMatchObject({ unionId: world.dhaka.union });
-    for (const key of ['mobile', 'dawah', 'followUps', 'activities', 'nid'])
+    for (const key of ['mobile', 'dawah', 'followUps', 'activities', 'nid', 'fatherOrHusbandName'])
       expect(data, key).not.toHaveProperty(key);
     const head = await as(world.users.head);
     expect((await profile(head, someone)).body.data.applications).toHaveLength(2);
+  });
+
+  it('keeps an older distribution when many other activities follow it', async () => {
+    const someone = await person(world.dhaka);
+    const application = await applyTo(house, world.dhaka, someone);
+    const activity = (doneAt: string, type: string) =>
+      h.db
+        .query(
+          `INSERT INTO activities (id, project_id, application_id, type, done_by, done_at)
+           VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+          [randomUUID(), house.id, application, type, world.users.head, doneAt],
+        )
+        .then((r) => r.rows[0].id as string);
+    const distribution = await activity('2026-01-01T08:00:00Z', 'distribution');
+    await h.db.query('INSERT INTO distributions (activity_id) VALUES ($1)', [distribution]);
+    for (let i = 0; i < 25; i += 1)
+      await activity(`2026-02-${String(i + 1).padStart(2, '0')}T08:00:00Z`, 'visit');
+    const head = await as(world.users.head);
+    const data = (await profile(head, someone)).body.data;
+    expect(data.distributions.map((d: { id: string }) => d.id)).toEqual([distribution]);
+    expect(data.activities).toHaveLength(20);
+  });
+
+  it('answers 404 for a profile merged into another one', async () => {
+    const kept = await person(world.dhaka);
+    const merged = await person(world.dhaka, { merged_into_id: kept });
+    const head = await as(world.users.head);
+    expect((await profile(head, merged)).status).toBe(404);
+    expect((await profile(head, kept)).status).toBe(200);
   });
 
   it('answers 404 for an unknown id and 422 for a bad one', async () => {

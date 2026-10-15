@@ -5,6 +5,7 @@ import { beneficiaryRowsProjectWhere, beneficiaryWhere, type Scope } from '../ac
 import type { Principal } from '../auth/principal';
 import type { Env } from '../config/env';
 import { boundedRead } from '../core/bounded-read';
+import { isNumberTerm, literalContains, mobileOf } from '../core/search';
 import type { Clock } from '../core/clock';
 import {
   buildPage,
@@ -26,15 +27,10 @@ const SECTION_ROWS = 20;
 const CONTACT = 'beneficiary.contact';
 const ADDRESS = 'beneficiary.address_detail';
 const CARE = 'beneficiary.care';
+const DETAIL = 'beneficiary.profile_detail';
 
 /** The calendar year in Bangladesh (UTC+6). */
 const dhakaYear = (now: Date) => new Date(now.getTime() + 6 * 3_600_000).getUTCFullYear();
-
-/** A mobile number in digits (with or without +88) as the stored 01XXXXXXXXX. */
-function mobileOf(digits: string): string | null {
-  const local = digits.startsWith('880') ? digits.slice(2) : digits;
-  return /^01[3-9][0-9]{8}$/.test(local) ? local : null;
-}
 
 export interface BeneficiaryViewer {
   principal: Principal;
@@ -71,6 +67,7 @@ export class BeneficiariesService {
     const sees = (cls: string) => viewer.fieldClasses.has(cls);
     if (filter.unionId && !sees(ADDRESS)) this.refuse(viewer, ADDRESS);
     if (filter.blocked && !sees(CARE)) this.refuse(viewer, CARE);
+    if (filter.type && !sees(DETAIL)) this.refuse(viewer, DETAIL);
     const and: Prisma.BeneficiaryWhereInput[] = [
       beneficiaryWhere(viewer.scope),
       { mergedIntoId: null },
@@ -82,15 +79,19 @@ export class BeneficiariesService {
     }
     if (filter.type) and.push({ classCode: filter.type });
     if (filter.blocked) and.push({ isBlocked: filter.blocked === 'true' });
-    if (filter.projectId || filter.year)
+    if (filter.projectId || filter.year) {
+      // a project-scoped caller filters only among its own projects, so the filter never tells it
+      // who applied to another project
+      const own = beneficiaryRowsProjectWhere(viewer.scope);
       and.push({
         applicationsBeneficiary: {
           some: {
             ...(filter.projectId ? { projectId: filter.projectId } : {}),
-            ...(filter.year ? { project: { year: filter.year } } : {}),
+            project: { AND: [filter.year ? { year: filter.year } : {}, own ?? {}] },
           },
         },
       });
+    }
     if (filter.q) and.push(await this.searchWhere(filter.q, viewer));
     return { AND: and };
   }
@@ -104,9 +105,9 @@ export class BeneficiariesService {
     viewer: BeneficiaryViewer,
   ): Promise<Prisma.BeneficiaryWhereInput> {
     const term = q.trim();
-    if (!/^[+0-9\s-]+$/.test(term))
+    if (!isNumberTerm(term))
       // LIKE wildcards in the term are letters, not patterns
-      return { name: { contains: term.replace(/[\\%_]/g, '\\$&'), mode: 'insensitive' } };
+      return { name: { contains: literalContains(term), mode: 'insensitive' } };
     const digits = term.replace(/\D/g, '');
     const or: Prisma.BeneficiaryWhereInput[] = [];
     const mobile = mobileOf(digits);
@@ -205,13 +206,13 @@ export class BeneficiariesService {
     const inProjects = rows ? { project: rows } : {};
     const [access, found] = await Promise.all([
       this.access.load(viewer.principal.userId),
-      boundedRead(this.prisma, (tx) => this.read(tx, viewer.scope, beneficiaryId, inProjects)),
+      boundedRead(this.prisma, (tx) => this.read(tx, viewer, beneficiaryId, inProjects)),
     ]);
     if (!found) {
       this.access.denied(viewer.principal.userId, viewer.scope.permission, 'beneficiary');
       throw new ApiError('permission.not_found', 404);
     }
-    const { b, applications, activities } = found;
+    const { b, applications, activities, distributions } = found;
     const nidScope = viewer.fieldClasses.has('beneficiary.nid')
       ? await this.access.sensitiveScope(
           viewer.principal,
@@ -260,7 +261,7 @@ export class BeneficiariesService {
         relationshipCode: m.relationshipCode,
         ageYears: m.ageYears,
       })),
-      ...(seesNid ? { nid: b.nid, birthReg: b.birthReg } : {}),
+      ...(seesNid ? { nid: b.nid ?? null, birthReg: b.birthReg ?? null } : {}),
       isBlocked: b.isBlocked,
       projectsByYear: [...years.values()]
         .sort((x, y) => y.year - x.year)
@@ -274,15 +275,13 @@ export class BeneficiariesService {
         reviewedAt: a.reviewedAt?.toISOString() ?? null,
         approvedAt: a.approvedAt?.toISOString() ?? null,
       })),
-      distributions: activities
-        .filter((a) => a.distributionsActivity !== null)
-        .map((a) => ({
-          id: a.id,
-          applicationId: a.applicationId,
-          projectId: a.projectId,
-          status: a.status,
-          doneAt: a.doneAt.toISOString(),
-        })),
+      distributions: distributions.map((a) => ({
+        id: a.id,
+        applicationId: a.applicationId,
+        projectId: a.projectId,
+        status: a.status,
+        doneAt: a.doneAt.toISOString(),
+      })),
       dawah: {
         attendance: b.classAttendanceBeneficiary.map((r) => ({
           id: r.id,
@@ -329,18 +328,23 @@ export class BeneficiariesService {
   /** The profile's reads, inside one time-limited transaction. */
   private async read(
     tx: Tx,
-    scope: Scope,
+    viewer: BeneficiaryViewer,
     beneficiaryId: string,
     inProjects: { project?: Prisma.ProjectWhereInput },
   ) {
+    // a section the caller may not see is not read at all (the field mask would only drop it)
+    const sees = (cls: string) => viewer.fieldClasses.has(cls);
+    const care = sees(CARE);
+    const none = { take: 0 };
     const latest = { orderBy: { createdAt: 'desc' as const }, take: SECTION_ROWS };
     const projectRows = inProjects.project ? { OR: [{ projectId: null }, inProjects] } : {};
     const b = await tx.beneficiary.findFirst({
-      where: { AND: [{ id: beneficiaryId }, beneficiaryWhere(scope)] },
+      // a profile merged into another one is read through the kept profile (T2.2)
+      where: { AND: [{ id: beneficiaryId, mergedIntoId: null }, beneficiaryWhere(viewer.scope)] },
       select: {
         id: true,
-        nid: true,
-        birthReg: true,
+        nid: sees('beneficiary.nid'),
+        birthReg: sees('beneficiary.nid'),
         name: true,
         fatherOrHusbandName: true,
         motherName: true,
@@ -364,30 +368,34 @@ export class BeneficiariesService {
         beneficiaryFamilyMembersBeneficiary: {
           where: { active: true },
           ...latest,
+          ...(sees(CONTACT) ? {} : none),
           select: { id: true, name: true, relationshipCode: true, ageYears: true },
         },
         classAttendanceBeneficiary: {
           ...latest,
+          ...(care ? {} : none),
           select: { id: true, present: true, createdAt: true },
         },
         learningProgressBeneficiary: {
           ...latest,
+          ...(care ? {} : none),
           select: { id: true, status: true, createdAt: true },
         },
         examResultsBeneficiary: {
           ...latest,
+          ...(care ? {} : none),
           select: { id: true, passed: true, score: true, createdAt: true },
         },
         callLogsBeneficiary: {
           where: projectRows,
           orderBy: { calledAt: 'desc' },
-          take: SECTION_ROWS,
+          take: care ? SECTION_ROWS : 0,
           select: { id: true, projectId: true, calledAt: true },
         },
         followupEvaluationsBeneficiary: {
           where: projectRows,
           orderBy: { evaluatedAt: 'desc' },
-          take: SECTION_ROWS,
+          take: care ? SECTION_ROWS : 0,
           select: { id: true, projectId: true, result: true, evaluatedAt: true },
         },
       },
@@ -406,22 +414,32 @@ export class BeneficiariesService {
         project: { select: { id: true, code: true, nameBn: true, nameEn: true, year: true } },
       },
     });
-    const activities = await tx.activity.findMany({
-      where: { application: { beneficiaryId: b.id }, ...inProjects },
+    const activitySelect = {
+      id: true,
+      applicationId: true,
+      projectId: true,
+      type: true,
+      stage: true,
+      status: true,
+      doneAt: true,
+    } as const;
+    const ofThisPerson = { application: { beneficiaryId: b.id }, ...inProjects };
+    const activities = care
+      ? await tx.activity.findMany({
+          where: ofThisPerson,
+          orderBy: { doneAt: 'desc' },
+          take: SECTION_ROWS,
+          select: activitySelect,
+        })
+      : [];
+    // the distributions on their own, so other activities never push them off the page
+    const distributions = await tx.activity.findMany({
+      where: { ...ofThisPerson, distributionsActivity: { isNot: null } },
       orderBy: { doneAt: 'desc' },
       take: SECTION_ROWS,
-      select: {
-        id: true,
-        applicationId: true,
-        projectId: true,
-        type: true,
-        stage: true,
-        status: true,
-        doneAt: true,
-        distributionsActivity: { select: { activityId: true } },
-      },
+      select: activitySelect,
     });
-    return { b, applications, activities };
+    return { b, applications, activities, distributions };
   }
 }
 

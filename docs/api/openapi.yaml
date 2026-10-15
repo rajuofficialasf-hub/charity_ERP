@@ -1371,12 +1371,12 @@ components:
     BeneficiarySummary:
       type: object
       description: One row of the beneficiary tab (O-67)
-      required: [id, name, fatherOrHusbandName, classCode, status, divisionId, districtId, upazilaId]
+      required: [id, name, status, divisionId, districtId, upazilaId]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         name: { type: string }
-        fatherOrHusbandName: { type: string }
-        classCode: { type: [string, 'null'] }
+        fatherOrHusbandName: { type: string, x-sensitive-class: beneficiary.profile_detail }
+        classCode: { type: [string, 'null'], x-sensitive-class: beneficiary.profile_detail }
         status: { type: string }
         divisionId: { $ref: '#/components/schemas/Uuid' }
         districtId: { $ref: '#/components/schemas/Uuid' }
@@ -1401,19 +1401,19 @@ components:
     Beneficiary:
       type: object
       description: The 360° profile shell (SCR-045, O-67, D-094); each section an empty array when nothing exists
-      required: [id, name, fatherOrHusbandName, genderCode, status, divisionId, districtId, upazilaId, projectsByYear, applications, distributions]
+      required: [id, name, status, divisionId, districtId, upazilaId, projectsByYear, distributions]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         name: { type: string }
-        fatherOrHusbandName: { type: string }
-        motherName: { type: [string, 'null'] }
-        genderCode: { type: string }
-        ageYears: { type: [integer, 'null'] }
-        classCode: { type: [string, 'null'] }
-        classOtherText: { type: [string, 'null'] }
-        occupationCode: { type: [string, 'null'] }
+        fatherOrHusbandName: { type: string, x-sensitive-class: beneficiary.profile_detail }
+        motherName: { type: [string, 'null'], x-sensitive-class: beneficiary.profile_detail }
+        genderCode: { type: string, x-sensitive-class: beneficiary.profile_detail }
+        ageYears: { type: [integer, 'null'], x-sensitive-class: beneficiary.profile_detail }
+        classCode: { type: [string, 'null'], x-sensitive-class: beneficiary.profile_detail }
+        classOtherText: { type: [string, 'null'], x-sensitive-class: beneficiary.profile_detail }
+        occupationCode: { type: [string, 'null'], x-sensitive-class: beneficiary.profile_detail }
         status: { type: string }
-        photoFileId: { type: [string, 'null'], format: uuid }
+        photoFileId: { type: [string, 'null'], format: uuid, x-sensitive-class: beneficiary.profile_detail }
         divisionId: { $ref: '#/components/schemas/Uuid' }
         districtId: { $ref: '#/components/schemas/Uuid' }
         upazilaId: { $ref: '#/components/schemas/Uuid' }
@@ -1432,7 +1432,7 @@ components:
               id: { $ref: '#/components/schemas/Uuid' }
               name: { type: string }
               relationshipCode: { type: [string, 'null'] }
-              ageYears: { type: [integer, 'null'] }
+              ageYears: { type: [integer, 'null'], x-sensitive-class: beneficiary.profile_detail }
         nid: { type: [string, 'null'], x-sensitive-class: beneficiary.nid, description: Only inside the beneficiary.view_nid scope }
         birthReg: { type: [string, 'null'], x-sensitive-class: beneficiary.nid, description: Only inside the beneficiary.view_nid scope }
         isBlocked: { type: boolean, x-sensitive-class: beneficiary.care }
@@ -1454,7 +1454,8 @@ components:
                     status: { type: string, description: The status of the beneficiary's application }
         applications:
           type: array
-          description: Application history, latest 20
+          x-sensitive-class: beneficiary.application_history
+          description: Application history, latest 20 (for a project-scoped caller only its projects)
           items:
             type: object
             properties:
@@ -3972,7 +3973,7 @@ paths:
       x-audit: none
       x-idempotency: none
       x-rate-limit: list
-      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care]
+      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care, beneficiary.profile_detail]
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
@@ -4025,7 +4026,7 @@ paths:
       x-audit: none
       x-idempotency: none
       x-rate-limit: list
-      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care]
+      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care, beneficiary.profile_detail]
       parameters:
         - $ref: '#/components/parameters/Search'
         - $ref: '#/components/parameters/VolunteerDivisionId'
@@ -4102,7 +4103,7 @@ paths:
       x-audit: none
       x-idempotency: none
       x-rate-limit: list
-      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care, beneficiary.nid]
+      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care, beneficiary.profile_detail, beneficiary.application_history, beneficiary.nid]
       responses:
         '200':
           description: Profile

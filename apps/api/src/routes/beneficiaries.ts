@@ -12,13 +12,15 @@ import { defineRoute, type RouteDeps } from '../openapi/define-route';
 const contact = <T extends ZodType>(schema: T) => sensitive(schema, 'beneficiary.contact');
 const address = <T extends ZodType>(schema: T) => sensitive(schema, 'beneficiary.address_detail');
 const care = <T extends ZodType>(schema: T) => sensitive(schema, 'beneficiary.care');
-const at = () => z.string();
+const detail = <T extends ZodType>(schema: T) => sensitive(schema, 'beneficiary.profile_detail');
+const history = <T extends ZodType>(schema: T) =>
+  sensitive(schema, 'beneficiary.application_history');
 
 const beneficiaryRow = z.object({
   id: z.uuid(),
   name: z.string(),
-  fatherOrHusbandName: z.string(),
-  classCode: z.string().nullable(),
+  fatherOrHusbandName: detail(z.string()),
+  classCode: detail(z.string().nullable()),
   status: z.string(),
   divisionId: z.uuid(),
   districtId: z.uuid(),
@@ -39,15 +41,15 @@ const beneficiaryStatistics = z.object({
 const beneficiaryProfile = z.object({
   id: z.uuid(),
   name: z.string(),
-  fatherOrHusbandName: z.string(),
-  motherName: z.string().nullable(),
-  genderCode: z.string(),
-  ageYears: z.number().int().nullable(),
-  classCode: z.string().nullable(),
-  classOtherText: z.string().nullable(),
-  occupationCode: z.string().nullable(),
+  fatherOrHusbandName: detail(z.string()),
+  motherName: detail(z.string().nullable()),
+  genderCode: detail(z.string()),
+  ageYears: detail(z.number().int().nullable()),
+  classCode: detail(z.string().nullable()),
+  classOtherText: detail(z.string().nullable()),
+  occupationCode: detail(z.string().nullable()),
   status: z.string(),
-  photoFileId: z.uuid().nullable(),
+  photoFileId: detail(z.uuid().nullable()),
   divisionId: z.uuid(),
   districtId: z.uuid(),
   upazilaId: z.uuid(),
@@ -85,16 +87,18 @@ const beneficiaryProfile = z.object({
       ),
     }),
   ),
-  applications: z.array(
-    z.object({
-      id: z.uuid(),
-      appNo: z.string().nullable(),
-      projectId: z.uuid(),
-      status: z.string(),
-      submittedAt: at().nullable(),
-      reviewedAt: at().nullable(),
-      approvedAt: at().nullable(),
-    }),
+  applications: history(
+    z.array(
+      z.object({
+        id: z.uuid(),
+        appNo: z.string().nullable(),
+        projectId: z.uuid(),
+        status: z.string(),
+        submittedAt: z.string().nullable(),
+        reviewedAt: z.string().nullable(),
+        approvedAt: z.string().nullable(),
+      }),
+    ),
   ),
   distributions: z.array(
     z.object({
@@ -102,27 +106,32 @@ const beneficiaryProfile = z.object({
       applicationId: z.uuid().nullable(),
       projectId: z.uuid(),
       status: z.string(),
-      doneAt: at(),
+      doneAt: z.string(),
     }),
   ),
   dawah: care(
     z.object({
-      attendance: z.array(z.object({ id: z.uuid(), present: z.boolean(), at: at() })),
-      progress: z.array(z.object({ id: z.uuid(), status: z.string(), at: at() })),
+      attendance: z.array(z.object({ id: z.uuid(), present: z.boolean(), at: z.string() })),
+      progress: z.array(z.object({ id: z.uuid(), status: z.string(), at: z.string() })),
       exams: z.array(
-        z.object({ id: z.uuid(), passed: z.boolean(), score: z.number().nullable(), at: at() }),
+        z.object({
+          id: z.uuid(),
+          passed: z.boolean(),
+          score: z.number().nullable(),
+          at: z.string(),
+        }),
       ),
     }),
   ),
   followUps: care(
     z.object({
-      calls: z.array(z.object({ id: z.uuid(), projectId: z.uuid().nullable(), at: at() })),
+      calls: z.array(z.object({ id: z.uuid(), projectId: z.uuid().nullable(), at: z.string() })),
       evaluations: z.array(
         z.object({
           id: z.uuid(),
           projectId: z.uuid().nullable(),
           result: z.string().nullable(),
-          at: at(),
+          at: z.string(),
         }),
       ),
     }),
@@ -136,7 +145,7 @@ const beneficiaryProfile = z.object({
         type: z.string(),
         stage: z.string().nullable(),
         status: z.string(),
-        doneAt: at(),
+        doneAt: z.string(),
       }),
     ),
   ),
@@ -164,7 +173,12 @@ export function beneficiariesRouter(deps: RouteDeps, c: Pick<Container, 'benefic
     audit: 'none',
     idempotency: 'none' as const,
     rateLimit: 'list' as const,
-    sensitiveFields: ['beneficiary.contact', 'beneficiary.address_detail', 'beneficiary.care'],
+    sensitiveFields: [
+      'beneficiary.contact',
+      'beneficiary.address_detail',
+      'beneficiary.care',
+      'beneficiary.profile_detail',
+    ],
   };
 
   defineRoute<unknown, Omit<PageQuery, 'sort'> & BeneficiaryFilter>(router, deps, {
@@ -212,7 +226,11 @@ export function beneficiariesRouter(deps: RouteDeps, c: Pick<Container, 'benefic
     path: '/beneficiaries/:beneficiaryId',
     operationId: 'beneficiaries.beneficiary.get',
     summary: 'Beneficiary 360° profile shell (masks per role and record)',
-    sensitiveFields: [...tabOp.sensitiveFields, 'beneficiary.nid'],
+    sensitiveFields: [
+      ...tabOp.sensitiveFields,
+      'beneficiary.application_history',
+      'beneficiary.nid',
+    ],
     params: { beneficiaryId: z.uuid() },
     responses: {
       200: beneficiaryProfile,
