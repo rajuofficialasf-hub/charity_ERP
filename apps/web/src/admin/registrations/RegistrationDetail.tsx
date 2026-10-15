@@ -26,7 +26,7 @@ import { FIELD_LABEL, type RequestField } from '../../features/account/profile-a
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
-import { canApproveStaff, canBlock, canOpenAdmin } from '../roles';
+import { canApproveStaff, canBlock, canApproveRegistrations } from '../roles';
 import { AddressNames } from '../../components/AddressNames';
 import { BlocklistAction } from './Blocklist';
 import { CorrectionDialog } from './CorrectionDialog';
@@ -85,7 +85,7 @@ export function RegistrationDetail() {
   });
 
   if (!me) return null;
-  if (!canOpenAdmin(me)) return <ForbiddenContent />;
+  if (!canApproveRegistrations(me)) return <ForbiddenContent />;
   const back = (
     <div>
       <Link to="/admin/registrations">{t('back')}</Link>

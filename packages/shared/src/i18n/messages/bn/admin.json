@@ -3,6 +3,8 @@
   "nav": {
     "label": "অ্যাডমিন মেনু",
     "dashboard": "ড্যাশবোর্ড",
+    "volunteers": "স্বেচ্ছাসেবক",
+    "beneficiaries": "উপকারভোগী",
     "permissions": "পারমিশন",
     "registrations": "নিবন্ধন",
     "handover": "হ্যান্ডওভার"
@@ -211,5 +213,55 @@
     "message": "এই পাতায় আপনার প্রবেশাধিকার নেই।",
     "home": "হোমে ফিরে যান"
   },
-  "phone_notice": "এই পর্দা বড় স্ক্রিনে ভালো চলে।"
+  "phone_notice": "এই পর্দা বড় স্ক্রিনে ভালো চলে।",
+  "volunteers": {
+    "title": "স্বেচ্ছাসেবক",
+    "table": "স্বেচ্ছাসেবক",
+    "search": "নাম বা মোবাইল নম্বর দিয়ে খুঁজুন",
+    "chips": {
+      "all": "সব",
+      "pending": "অপেক্ষমাণ",
+      "active": "সক্রিয়",
+      "blocked": "ব্লক করা",
+      "deactivated": "বন্ধ"
+    },
+    "stats": {
+      "label": "স্বেচ্ছাসেবকের হিসাব",
+      "total": "মোট",
+      "active": "সক্রিয়",
+      "pending": "অপেক্ষমাণ",
+      "blocked": "ব্লক করা",
+      "deactivated": "বন্ধ",
+      "inactive": "নিষ্ক্রিয়",
+      "applications": "আবেদন",
+      "approved": "অনুমোদিত",
+      "under_review": "রিভিউ চলছে"
+    },
+    "column": {
+      "name": "নাম",
+      "type": "ধরন",
+      "area": "এলাকা",
+      "projects": "প্রজেক্ট",
+      "state": "অবস্থা",
+      "category": "ক্যাটাগরি"
+    },
+    "filter": {
+      "type": "ধরন",
+      "category": "ক্যাটাগরি",
+      "blocked": "ব্লকলিস্ট",
+      "blocked_yes": "ব্লকলিস্টে আছে",
+      "blocked_no": "ব্লকলিস্টে নেই",
+      "inactive": "নিষ্ক্রিয়",
+      "any": "যেকোনো"
+    },
+    "state": {
+      "pending": "অপেক্ষমাণ",
+      "active": "সক্রিয়",
+      "blocked": "ব্লক করা",
+      "deactivated": "বন্ধ"
+    },
+    "blocklisted": "ব্লকলিস্টে আছে",
+    "no_projects": "কোনো প্রজেক্ট নেই",
+    "empty": "এই ফিল্টারে কোনো স্বেচ্ছাসেবক পাওয়া যায়নি।"
+  }
 }

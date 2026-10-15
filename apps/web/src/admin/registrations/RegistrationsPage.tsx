@@ -11,7 +11,7 @@ import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
-import { canDecideEdits, canOpenAdmin } from '../roles';
+import { canDecideEdits, canApproveRegistrations } from '../roles';
 import { EditRequests } from './EditRequests';
 import { LIST_KEY, type PendingRegistration, pendingRegistrations } from './registrations-api';
 
@@ -35,7 +35,7 @@ export function RegistrationsPage() {
   const notice = (location.state as ListNotice | null)?.notice;
   const [tab, setTab] = useState('pending');
   if (!me) return null;
-  if (!canOpenAdmin(me)) return <ForbiddenContent />;
+  if (!canApproveRegistrations(me)) return <ForbiddenContent />;
   return (
     <>
       <DocumentTitle title={t('title')} />

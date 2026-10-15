@@ -3,6 +3,8 @@
   "nav": {
     "label": "Admin menu",
     "dashboard": "Dashboard",
+    "volunteers": "Volunteers",
+    "beneficiaries": "Beneficiaries",
     "permissions": "Permissions",
     "registrations": "Registrations",
     "handover": "Handover"
@@ -211,5 +213,55 @@
     "message": "You do not have access to this page.",
     "home": "Back to home"
   },
-  "phone_notice": "This screen works best on a larger screen."
+  "phone_notice": "This screen works best on a larger screen.",
+  "volunteers": {
+    "title": "Volunteers",
+    "table": "Volunteers",
+    "search": "Search by name or mobile number",
+    "chips": {
+      "all": "All",
+      "pending": "Pending",
+      "active": "Active",
+      "blocked": "Blocked",
+      "deactivated": "Closed"
+    },
+    "stats": {
+      "label": "Volunteer counts",
+      "total": "Total",
+      "active": "Active",
+      "pending": "Pending",
+      "blocked": "Blocked",
+      "deactivated": "Closed",
+      "inactive": "Inactive",
+      "applications": "Applications",
+      "approved": "Approved",
+      "under_review": "Under review"
+    },
+    "column": {
+      "name": "Name",
+      "type": "Type",
+      "area": "Area",
+      "projects": "Projects",
+      "state": "State",
+      "category": "Category"
+    },
+    "filter": {
+      "type": "Type",
+      "category": "Category",
+      "blocked": "Blocklist",
+      "blocked_yes": "On the blocklist",
+      "blocked_no": "Not on the blocklist",
+      "inactive": "Inactive",
+      "any": "Any"
+    },
+    "state": {
+      "pending": "Pending",
+      "active": "Active",
+      "blocked": "Blocked",
+      "deactivated": "Closed"
+    },
+    "blocklisted": "On the blocklist",
+    "no_projects": "No project",
+    "empty": "No volunteer matches these filters."
+  }
 }

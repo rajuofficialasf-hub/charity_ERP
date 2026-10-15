@@ -147,3 +147,16 @@
   flex-wrap: wrap;
   gap: var(--space-4);
 }
+
+/* The counts above a nationwide tab: two cards a row on a phone, more as the width allows. */
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: var(--space-3);
+  margin-block-end: var(--space-4);
+}
+.admin-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}

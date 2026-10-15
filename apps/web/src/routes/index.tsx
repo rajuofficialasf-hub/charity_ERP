@@ -41,6 +41,12 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
               }),
             },
             {
+              path: 'volunteers',
+              lazy: async () => ({
+                Component: (await import('../admin/volunteers/VolunteersPage')).VolunteersPage,
+              }),
+            },
+            {
               path: 'registrations',
               lazy: async () => ({
                 Component: (await import('../admin/registrations/RegistrationsPage'))
