@@ -80,7 +80,7 @@ Technical table added in T0.16 for O-03 (ERD.md §20).
 | L-channel-otp | sms, email | otp_codes.channel |
 | L-location-level | division, district, upazila, union | locations.level |
 | L-location-kind | division, district, upazila, city_corporation, union, pourosova, thana | locations.kind (D-061; city_corporation at upazila level, pourosova and thana at union level) |
-| L-project-status | draft, active, closing, closed | projects.status |
+| L-project-status | draft, active, closing, closed, cancelled (a never-activated draft, BR-255) | projects.status |
 | L-quota-level | district, union | project_quotas.level |
 | L-fund-source | zakat, sadaqah, general, donor | fund_sources.source |
 | L-form-version-status | draft, published, retired | form_versions.status |
@@ -402,6 +402,8 @@ Constraints: UNIQUE (list_key, code).
 | copied_from_project_id | uuid | yes | — | FK projects |
 | activated_at, closed_at | timestamptz | yes | — | — |
 | closed_by | uuid | yes | — | FK users |
+| cancelled_at | timestamptz | yes | — | set when a draft is cancelled (BR-255; T1.11) |
+| cancelled_by | uuid | yes | — | FK users; indexed |
 | [A] | | | | |
 
 Indexes: (program_id, year); (status).

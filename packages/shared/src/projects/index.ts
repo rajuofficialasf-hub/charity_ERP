@@ -4,3 +4,4 @@ export * from './lifecycle.js';
 export * from './setup-check.js';
 export * from './workflow-defaults.js';
 export * from './programs.js';
+export * from './requests.js';
