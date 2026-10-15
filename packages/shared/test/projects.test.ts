@@ -7,8 +7,11 @@ import { componentSettingsSchema } from '../src/jsonb/component-settings.js';
 import { type WorkflowDefinition } from '../src/jsonb/workflow-definition.js';
 import { mergeWorkflowTemplates } from '../src/workflow/merge.js';
 import {
+  BUDGET_LIMIT_PAISA,
+  componentsCheck,
   editableIn,
   fromPaisa,
+  fundSourcesSchema,
   IDENTITY_FIELDS,
   plannedBudgetPaisa,
   PROJECT_TRANSITIONS,
@@ -16,6 +19,7 @@ import {
   type SetupInput,
   startingComponents,
   sumPaisa,
+  syllabusSchema,
   toPaisa,
   transitionFor,
   WORKFLOW_COMPONENTS,
@@ -228,6 +232,16 @@ describe('the activation check', () => {
     expect(setupCheck(complete)).toEqual([]);
   });
 
+  it('checks the components on their own, as an active project keeps them', () => {
+    expect(componentsCheck(complete.components)).toEqual([]);
+    expect(
+      componentsCheck([
+        ...complete.components,
+        { componentKey: 'public_link', enabled: true, settings: {} },
+      ]),
+    ).toEqual(['component:public_link']);
+  });
+
   it('lists each missing item', () => {
     expect(
       setupCheck({
@@ -329,5 +343,30 @@ describe('the activation check', () => {
         ],
       }),
     ).toEqual([]);
+  });
+});
+
+describe('the setup request bodies', () => {
+  it('takes the budget with the fund sources, and keeps a syllabus topic once', () => {
+    const topic = { id: '0190a000-0000-7000-8000-000000000001', title: { bn: 'ক', en: 'A' } };
+    expect(syllabusSchema.safeParse({ topics: [topic, topic] }).success).toBe(false);
+    expect(syllabusSchema.safeParse({ topics: [topic, { title: topic.title }] }).success).toBe(
+      true,
+    );
+    expect(
+      fundSourcesSchema.safeParse({
+        costPerBeneficiary: '90.00',
+        targetBeneficiaries: 10,
+        fundSources: [{ source: 'zakat', amount: '900.00' }],
+      }).success,
+    ).toBe(true);
+    expect(fundSourcesSchema.safeParse({ costPerBeneficiary: null, fundSources: [] }).success).toBe(
+      false,
+    );
+  });
+
+  it('knows the largest budget the column holds', () => {
+    expect(plannedBudgetPaisa('999999999999.99', 1)! < BUDGET_LIMIT_PAISA).toBe(true);
+    expect(plannedBudgetPaisa('1000000', 1_000_000)! >= BUDGET_LIMIT_PAISA).toBe(true);
   });
 });

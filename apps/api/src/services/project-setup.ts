@@ -2,9 +2,11 @@ import { componentSettingsSchema, isComponentKey, uuidv7 } from '@css/shared';
 import {
   type AreaCreate,
   type ComponentPatch,
+  componentsCheck,
   editableIn,
   FUND_SOURCES,
   type FundSources,
+  PROJECT_STATUSES,
   type ProjectStatus,
   type SetupField,
   STAFF_ACCESS_ROLES,
@@ -20,26 +22,27 @@ import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import type { ProjectViewer, ProjectsService } from './projects';
 
-/** The setup part a component change belongs to, for the state rule. */
-const PART: Record<'components' | 'fundSources' | 'areas' | 'staff' | 'syllabus', SetupField> = {
-  components: 'components',
-  fundSources: 'fundSources',
-  areas: 'areas',
-  staff: 'staff',
-  syllabus: 'syllabus',
-};
-
 const isUniqueViolation = (error: unknown) =>
   error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
 const isForeignKeyViolation = (error: unknown) =>
   error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003';
 
+/** A project status read from the database, checked against the known states. */
+function statusOf(value: string): ProjectStatus {
+  const status = PROJECT_STATUSES.find((s) => s === value);
+  if (!status) throw new Error(`unknown project status ${value}`);
+  return status;
+}
+
+const money = (d: Prisma.Decimal | null) => (d === null ? null : d.toFixed(2));
+
 /**
  * The parts of a project's setup that are saved on their own (docs/MASTER_SPEC.md, A6; DECISION_LOG
- * D-095): components and their settings, fund sources, areas with their RPMs, staff access and the
- * dawah syllabus. Every write loads the project inside the caller's scope, locks its row, applies
- * the state rule and audits, in one transaction. A volunteer reads only the enabled components
- * with the photo rule, and the syllabus.
+ * D-095): components and their settings, the budget with its fund sources, areas with their RPMs,
+ * staff access and the dawah syllabus. Every write loads the project inside the caller's scope,
+ * locks its row, applies the state rule and audits, in one transaction. An active project keeps
+ * what its activation needed. A volunteer reads only the enabled components, the photo rule and
+ * the syllabus.
  */
 export class ProjectSetupService {
   constructor(
@@ -51,24 +54,21 @@ export class ProjectSetupService {
   ) {}
 
   /** Loads and locks the project and refuses a write its state does not allow. */
-  private async writable(
-    tx: Tx,
-    viewer: ProjectViewer,
-    projectId: string,
-    part: keyof typeof PART,
-  ) {
+  private async writable(tx: Tx, viewer: ProjectViewer, projectId: string, part: SetupField) {
     const project = await this.projects.locked(tx, viewer, projectId);
-    // eslint-disable-next-line security/detect-object-injection -- part is a fixed key
-    if (!editableIn(project.status as ProjectStatus, PART[part]))
-      throw new ApiError('project.read_only', 409);
-    return project;
+    const status = statusOf(project.status);
+    if (!editableIn(status, part)) throw new ApiError('project.read_only', 409);
+    return { ...project, status };
   }
 
-  /** Fund sources, staff and areas are official reads: a volunteer is refused. */
-  private officialsOnly(viewer: ProjectViewer): void {
-    if (viewer.principal.kind !== 'volunteer') return;
+  private refuse(viewer: ProjectViewer): never {
     this.access.denied(viewer.principal.userId, viewer.scope.permission, viewer.scope.entity);
     throw new ApiError('permission.denied', 403);
+  }
+
+  /** Staff and areas are official reads: a volunteer is refused. */
+  private officialsOnly(viewer: ProjectViewer): void {
+    if (viewer.principal.kind === 'volunteer') this.refuse(viewer);
   }
 
   /** Whether the caller acts as the program's PM (or a global role) rather than as an area RPM. */
@@ -96,14 +96,15 @@ export class ProjectSetupService {
       select: { componentKey: true, enabled: true, settings: true, updatedAt: true },
     });
     if (viewer.principal.kind === 'volunteer')
-      // a volunteer sees what is switched on, and the photo rule it works by
-      return rows
-        .filter((c) => c.enabled)
-        .map((c) =>
-          c.componentKey === 'distribution'
-            ? { componentKey: c.componentKey, enabled: true, settings: c.settings }
-            : { componentKey: c.componentKey, enabled: true },
-        );
+      // a volunteer sees what is switched on, and the photo rule it works by (a project-wide
+      // setting kept on the distribution row, whether that component is on or not)
+      return rows.flatMap((c) =>
+        c.componentKey === 'distribution'
+          ? [{ componentKey: c.componentKey, enabled: c.enabled, settings: c.settings }]
+          : c.enabled
+            ? [{ componentKey: c.componentKey, enabled: true }]
+            : [],
+      );
     return rows.map((c) => ({
       componentKey: c.componentKey,
       enabled: c.enabled,
@@ -122,14 +123,15 @@ export class ProjectSetupService {
     if (!isComponentKey(componentKey)) throw new ApiError('permission.not_found', 404);
     const actor = viewer.principal.userId;
     return this.prisma.$transaction(async (tx) => {
-      await this.writable(tx, viewer, projectId, 'components');
+      const project = await this.writable(tx, viewer, projectId, 'components');
       const before = await tx.projectComponent.findUnique({
         where: { projectId_componentKey: { projectId, componentKey } },
         select: { enabled: true, settings: true, updatedAt: true },
       });
       if (!before) throw new ApiError('permission.not_found', 404);
       assertIfMatch(ifMatch, before.updatedAt);
-      if (body.settings !== undefined && Object.keys(body.settings).length > 0) {
+      let settings: Prisma.InputJsonValue | undefined;
+      if (body.settings !== undefined) {
         const parsed = componentSettingsSchema(componentKey).safeParse(body.settings);
         if (!parsed.success)
           throw new ApiError(
@@ -141,14 +143,42 @@ export class ProjectSetupService {
               code: 'validation.failed',
             })),
           );
+        // the public link's token is made by the server, never chosen by a caller
+        const token = (parsed.data as { token?: unknown }).token;
+        const kept = (before.settings as { token?: unknown } | null)?.token;
+        if (componentKey === 'public_link' && token !== undefined && token !== kept)
+          throw new ApiError('validation.failed', 422, undefined, [
+            { path: 'settings.token', code: 'validation.failed' },
+          ]);
+        settings = parsed.data as Prisma.InputJsonValue;
+      }
+      if (project.status !== 'draft') {
+        // an active project keeps a photo rule and valid settings for what is switched on
+        const all = await tx.projectComponent.findMany({
+          where: { projectId },
+          select: { componentKey: true, enabled: true, settings: true },
+        });
+        const next = all.map((c) =>
+          c.componentKey === componentKey
+            ? {
+                componentKey,
+                enabled: body.enabled ?? c.enabled,
+                settings: settings ?? c.settings,
+              }
+            : c,
+        );
+        const missing = componentsCheck(next);
+        if (missing.length)
+          throw new ApiError(
+            'workflow.guard.project_setup_complete',
+            409,
+            undefined,
+            missing.map((m) => ({ path: m, code: 'validation.required' })),
+          );
       }
       const row = await tx.projectComponent.update({
         where: { projectId_componentKey: { projectId, componentKey } },
-        data: {
-          enabled: body.enabled,
-          settings: body.settings as Prisma.InputJsonValue | undefined,
-          updatedBy: actor,
-        },
+        data: { enabled: body.enabled, settings, updatedBy: actor },
         select: { componentKey: true, enabled: true, settings: true, updatedAt: true },
       });
       // the project's dawah flag follows its dawah component
@@ -164,15 +194,19 @@ export class ProjectSetupService {
         old: { componentKey, enabled: before.enabled, settings: before.settings },
         new: { componentKey, enabled: row.enabled, settings: row.settings },
       });
-      return { ...row, etag: etagOf(row.updatedAt), updatedAt: undefined };
+      const { updatedAt, ...rest } = row;
+      return { ...rest, etag: etagOf(updatedAt) };
     });
   }
 
-  // ---- fund sources
+  // ---- budget and fund sources
 
+  /** Fund sources are budget data: only the program's PM and the roles that reach every project read them. */
   async fundSources(viewer: ProjectViewer, projectId: string) {
     this.officialsOnly(viewer);
-    await this.projects.get(viewer, projectId);
+    const { project } = await this.projects.get(viewer, projectId);
+    if (!('programId' in project) || !this.programLevel(viewer, project.programId))
+      this.refuse(viewer);
     return this.readFundSources(this.prisma, projectId);
   }
 
@@ -180,7 +214,7 @@ export class ProjectSetupService {
     const rows = await db.fundSource.findMany({
       where: { projectId },
       orderBy: { id: 'asc' },
-      select: { source: true, label: true, amount: true },
+      select: { id: true, source: true, label: true, amount: true },
     });
     // a fixed order: zakat, sadaqah, general donation, then the named donors
     const rank = (source: string) => (FUND_SOURCES as readonly string[]).indexOf(source);
@@ -189,36 +223,89 @@ export class ProjectSetupService {
       .map((f) => ({ source: f.source, label: f.label, amount: f.amount.toFixed(2) }));
   }
 
+  /**
+   * Replaces the fund sources, with the cost per beneficiary and the target when sent. Rows are
+   * kept by their source and name, so a later ledger entry keeps pointing at its source. Once a
+   * project is active its fund sources always add up to its planned budget, so a budget change
+   * comes with its fund sources in this one request (DECISION_LOG D-095).
+   */
   async replaceFundSources(viewer: ProjectViewer, projectId: string, body: FundSources) {
     const actor = viewer.principal.userId;
-    return this.prisma.$transaction(async (tx) => {
-      const project = await this.writable(tx, viewer, projectId, 'fundSources');
-      // activation needed a fund source; an activated project keeps one
-      if (project.status !== 'draft' && body.fundSources.length === 0)
-        throw new ApiError('validation.required', 422);
-      const before = await this.readFundSources(tx, projectId);
-      await tx.fundSource.deleteMany({ where: { projectId } });
-      await tx.fundSource.createMany({
-        data: body.fundSources.map((f) => ({
-          id: uuidv7(),
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const project = await this.writable(tx, viewer, projectId, 'fundSources');
+        const cost =
+          body.costPerBeneficiary === undefined
+            ? money(project.costPerBeneficiary)
+            : body.costPerBeneficiary;
+        const target =
+          body.targetBeneficiaries === undefined
+            ? project.targetBeneficiaries
+            : body.targetBeneficiaries;
+        await this.projects.checkBudget(
+          tx,
           projectId,
-          source: f.source,
-          label: f.label ?? null,
-          amount: f.amount,
-          createdBy: actor,
-          updatedBy: actor,
-        })),
+          project.status,
+          cost,
+          target,
+          body.fundSources.map((f) => f.amount),
+        );
+        if (body.costPerBeneficiary !== undefined || body.targetBeneficiaries !== undefined)
+          await tx.project.update({
+            where: { id: projectId },
+            data: { costPerBeneficiary: cost, targetBeneficiaries: target, updatedBy: actor },
+          });
+        const before = await this.readFundSources(tx, projectId);
+        const existing = await tx.fundSource.findMany({
+          where: { projectId },
+          select: { id: true, source: true, label: true },
+        });
+        const key = (f: { source: string; label?: string | null }) =>
+          `${f.source}|${f.label ?? ''}`;
+        const byKey = new Map(existing.map((f) => [key(f), f.id]));
+        const kept = new Set<string>();
+        for (const f of body.fundSources) {
+          const id = byKey.get(key(f));
+          if (id && !kept.has(id)) {
+            kept.add(id);
+            await tx.fundSource.update({
+              where: { id },
+              data: { amount: f.amount, updatedBy: actor },
+            });
+          } else
+            await tx.fundSource.create({
+              data: {
+                id: uuidv7(),
+                projectId,
+                source: f.source,
+                label: f.label ?? null,
+                amount: f.amount,
+                createdBy: actor,
+                updatedBy: actor,
+              },
+            });
+        }
+        const gone = existing.filter((f) => !kept.has(f.id)).map((f) => f.id);
+        if (gone.length) await tx.fundSource.deleteMany({ where: { id: { in: gone } } });
+        const after = await this.readFundSources(tx, projectId);
+        await this.audit.record(tx, {
+          action: 'project.fund_source_change',
+          entityType: 'project',
+          entityId: projectId,
+          old: {
+            costPerBeneficiary: money(project.costPerBeneficiary),
+            targetBeneficiaries: project.targetBeneficiaries,
+            fundSources: before,
+          },
+          new: { costPerBeneficiary: cost, targetBeneficiaries: target, fundSources: after },
+        });
+        return after;
       });
-      const after = await this.readFundSources(tx, projectId);
-      await this.audit.record(tx, {
-        action: 'project.fund_source_change',
-        entityType: 'project',
-        entityId: projectId,
-        old: { fundSources: before },
-        new: { fundSources: after },
-      });
-      return after;
-    });
+    } catch (error) {
+      // a fund source a ledger entry already uses cannot be removed
+      if (isForeignKeyViolation(error)) throw new ApiError('project.fund_source_in_use', 409);
+      throw error;
+    }
   }
 
   // ---- areas
@@ -290,19 +377,35 @@ export class ProjectSetupService {
     }
   }
 
+  /**
+   * Removes an area. An active project keeps one; an area whose location still carries staff
+   * access (and no other RPM covers it) stays until that access is ended.
+   */
   async removeArea(viewer: ProjectViewer, areaId: string) {
     return this.prisma.$transaction(async (tx) => {
+      const found = await tx.projectArea.findUnique({
+        where: { id: areaId },
+        select: { projectId: true },
+      });
+      if (!found) throw new ApiError('permission.not_found', 404);
+      const project = await this.writable(tx, viewer, found.projectId, 'areas');
+      // read again under the project lock: a removal at the same moment may have won
       const area = await tx.projectArea.findUnique({
         where: { id: areaId },
         select: { projectId: true, locationId: true, rpmUserId: true },
       });
       if (!area) throw new ApiError('permission.not_found', 404);
-      const project = await this.writable(tx, viewer, area.projectId, 'areas');
-      // activation needed an area; an activated project keeps one
       if (project.status !== 'draft') {
         const count = await tx.projectArea.count({ where: { projectId: area.projectId } });
         if (count <= 1) throw new ApiError('validation.required', 422);
       }
+      const otherRpm = await tx.projectArea.count({
+        where: { projectId: area.projectId, locationId: area.locationId, id: { not: areaId } },
+      });
+      const staffThere = await tx.projectStaff.count({
+        where: { projectId: area.projectId, areaLocationId: area.locationId, endedAt: null },
+      });
+      if (!otherRpm && staffThere) throw new ApiError('project.area_in_use', 409);
       await tx.projectArea.delete({ where: { id: areaId } });
       await this.audit.record(tx, {
         action: 'project.area_assign',
@@ -316,10 +419,14 @@ export class ProjectSetupService {
 
   // ---- staff access
 
+  /** The PM and the global roles see every access; an RPM or area staff the access of its areas. */
   async staff(viewer: ProjectViewer, projectId: string) {
     this.officialsOnly(viewer);
-    await this.projects.get(viewer, projectId);
-    return this.readStaff(this.prisma, projectId);
+    const { project } = await this.projects.get(viewer, projectId);
+    const all = await this.readStaff(this.prisma, projectId);
+    if ('programId' in project && this.programLevel(viewer, project.programId)) return all;
+    const own = this.ownAreas(viewer, projectId);
+    return all.filter((s) => s.areaLocationId !== null && own.has(s.areaLocationId));
   }
 
   private async readStaff(db: Tx, projectId: string) {
@@ -349,10 +456,8 @@ export class ProjectSetupService {
         if (!this.programLevel(viewer, project.programId)) {
           // an RPM gives view and edit, only in its own areas of this project
           const own = this.ownAreas(viewer, projectId);
-          if (body.canDelete || !body.areaLocationId || !own.has(body.areaLocationId)) {
-            this.access.denied(actor, viewer.scope.permission, viewer.scope.entity);
-            throw new ApiError('permission.denied', 403);
-          }
+          if (body.canDelete || !body.areaLocationId || !own.has(body.areaLocationId))
+            this.refuse(viewer);
         }
         if (body.areaLocationId) {
           const inProject = await tx.projectArea.count({
@@ -387,9 +492,14 @@ export class ProjectSetupService {
             updatedBy: actor,
           },
         });
-        await this.versions.bump(tx, body.userId, {
+        const change = { projectId, staffAccess: { id, ...body } };
+        await this.versions.bump(tx, body.userId, { action: 'permission_change', new: change });
+        // the project's own audit trail shows who got access too
+        await this.audit.record(tx, {
           action: 'permission_change',
-          new: { projectId, staffAccess: { id, ...body } },
+          entityType: 'project',
+          entityId: projectId,
+          new: change,
         });
         return this.readStaff(tx, projectId);
       });
@@ -399,30 +509,47 @@ export class ProjectSetupService {
     }
   }
 
+  /**
+   * Ends a staff member's access, with a reason. Ending access protects the project's data, so it
+   * is allowed in every state, a closed project included; an RPM ends only the access of its areas.
+   */
   async endStaff(viewer: ProjectViewer, assignmentId: string, reason: string) {
     const actor = viewer.principal.userId;
     await this.prisma.$transaction(async (tx) => {
+      const found = await tx.projectStaff.findUnique({
+        where: { id: assignmentId },
+        select: { projectId: true },
+      });
+      if (!found) throw new ApiError('permission.not_found', 404);
+      const project = await this.projects.locked(tx, viewer, found.projectId);
       const assignment = await tx.projectStaff.findFirst({
         where: { id: assignmentId, endedAt: null },
         select: { projectId: true, userId: true, areaLocationId: true, roleKey: true },
       });
       if (!assignment) throw new ApiError('permission.not_found', 404);
-      const project = await this.writable(tx, viewer, assignment.projectId, 'staff');
       if (!this.programLevel(viewer, project.programId)) {
         const own = this.ownAreas(viewer, assignment.projectId);
-        if (!assignment.areaLocationId || !own.has(assignment.areaLocationId)) {
-          this.access.denied(actor, viewer.scope.permission, viewer.scope.entity);
-          throw new ApiError('permission.denied', 403);
-        }
+        if (!assignment.areaLocationId || !own.has(assignment.areaLocationId)) this.refuse(viewer);
       }
-      await tx.projectStaff.update({
-        where: { id: assignmentId },
+      const ended = await tx.projectStaff.updateMany({
+        where: { id: assignmentId, endedAt: null },
         data: { endedAt: new Date(), updatedBy: actor },
       });
-      await this.versions.bump(tx, assignment.userId, {
-        action: 'permission_change',
+      if (ended.count === 0) throw new ApiError('permission.not_found', 404);
+      const change = {
         old: { projectId: assignment.projectId, staffAccess: { id: assignmentId, ...assignment } },
         new: { projectId: assignment.projectId, staffAccess: null },
+      };
+      await this.versions.bump(tx, assignment.userId, {
+        action: 'permission_change',
+        ...change,
+        reason,
+      });
+      await this.audit.record(tx, {
+        action: 'permission_change',
+        entityType: 'project',
+        entityId: assignment.projectId,
+        ...change,
         reason,
       });
     });
@@ -482,7 +609,7 @@ export class ProjectSetupService {
       });
     } catch (error) {
       // a topic that classes or progress already refer to cannot be removed
-      if (isForeignKeyViolation(error)) throw new ApiError('project.read_only', 409);
+      if (isForeignKeyViolation(error)) throw new ApiError('project.topic_in_use', 409);
       throw error;
     }
   }

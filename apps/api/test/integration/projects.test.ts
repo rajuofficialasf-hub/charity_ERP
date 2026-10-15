@@ -242,9 +242,10 @@ describe('updating a project', () => {
       const res = await patch(pm, id, current.headers.etag, { [key]: null });
       expect(res.status, key).toBe(422);
     }
+    // an active budget changes only together with its fund sources
     const cheaper = await patch(pm, id, current.headers.etag, { costPerBeneficiary: '900.00' });
-    expect(cheaper.status).toBe(200);
-    expect(cheaper.body.data.budgetPlanned).toBe('90000.00');
+    expect(cheaper.status).toBe(422);
+    expect(cheaper.body.error.code).toBe('project.budget_mismatch');
   });
 
   it('starts a draft again from the components of a new workflow', async () => {

@@ -1,5 +1,6 @@
 import { uuidv7, workflowDefinitionSchema } from '@css/shared';
 import {
+  BUDGET_LIMIT_PAISA,
   type CodeLabel,
   editableIn,
   plannedBudgetPaisa,
@@ -9,6 +10,7 @@ import {
   type ProjectUpdate,
   type SetupField,
   startingComponents,
+  sumPaisa,
   transitionFor,
   type WorkflowKey,
 } from '@css/shared/projects';
@@ -103,9 +105,6 @@ function view(p: Row, forVolunteer: boolean) {
     cancelledAt: p.cancelledAt?.toISOString() ?? null,
   };
 }
-
-/** numeric(14,2): the planned budget column holds less than 10^14 paisa. */
-const BUDGET_LIMIT_PAISA = 10n ** 14n;
 
 /** Fields the activation check needs, which an activated project cannot lose again. */
 const REQUIRED_ONCE_ACTIVE: readonly (keyof ProjectUpdate)[] = [
@@ -295,9 +294,8 @@ export class ProjectsService {
         body.targetBeneficiaries === undefined
           ? before.targetBeneficiaries
           : body.targetBeneficiaries;
-      const planned = plannedBudgetPaisa(cost, target);
-      if (planned !== null && planned >= BUDGET_LIMIT_PAISA)
-        throw new ApiError('validation.out_of_range', 422);
+      if (changing.includes('costPerBeneficiary') || changing.includes('targetBeneficiaries'))
+        await this.checkBudget(tx, projectId, status, cost, target);
       if (body.programId && body.programId !== before.programId)
         await this.lockedProgram(tx, viewer, body.programId);
       const from = body.applyFrom === undefined ? day(before.applyFrom) : body.applyFrom;
@@ -362,6 +360,33 @@ export class ProjectsService {
       });
       return { project: view(row, false), updatedAt: row.updatedAt };
     });
+  }
+
+  /**
+   * Refuses a planned budget the column cannot hold and, once the project is active, one its fund
+   * sources no longer add up to: an active project's budget changes together with its fund sources
+   * (DECISION_LOG D-095). Pass the fund sources about to be saved, or leave them out to use the
+   * stored ones.
+   */
+  async checkBudget(
+    tx: Tx,
+    projectId: string,
+    status: ProjectStatus,
+    cost: string | null,
+    target: number | null,
+    fundSources?: readonly string[],
+  ): Promise<void> {
+    const planned = plannedBudgetPaisa(cost, target);
+    if (planned !== null && planned >= BUDGET_LIMIT_PAISA)
+      throw new ApiError('validation.out_of_range', 422);
+    if (status === 'draft') return;
+    const amounts =
+      fundSources ??
+      (await tx.fundSource.findMany({ where: { projectId }, select: { amount: true } })).map((f) =>
+        f.amount.toFixed(2),
+      );
+    if (amounts.length === 0 || planned === null || sumPaisa(amounts) !== planned)
+      throw new ApiError('project.budget_mismatch', 422);
   }
 
   /** A draft that was never activated is cancelled with a reason; it keeps its row and code. */

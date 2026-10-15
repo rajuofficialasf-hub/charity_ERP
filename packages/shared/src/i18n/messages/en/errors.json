@@ -160,7 +160,11 @@
     "rpm_role_required": "Choose a Regional Program Manager for the area.",
     "staff_role_required": "This access goes only to a Project Executive, an Official দায়ী or an Implementer.",
     "area_exists": "This RPM already has this area on the project.",
-    "staff_exists": "This person already has access to the project."
+    "staff_exists": "This person already has access to the project.",
+    "budget_mismatch": "The fund sources must add up to the planned budget (cost per beneficiary × target).",
+    "fund_source_in_use": "A fund source that budget entries already use cannot be removed.",
+    "area_in_use": "Staff still work in this area; end their access first.",
+    "topic_in_use": "A syllabus topic that classes already use cannot be removed."
   },
   "program": {
     "inactive": "This program is inactive; it takes no new projects.",

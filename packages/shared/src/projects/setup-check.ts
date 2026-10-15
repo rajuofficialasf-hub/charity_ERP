@@ -66,12 +66,22 @@ export function setupCheck(input: SetupInput): MissingItem[] {
       missing.push('fund_sources_total');
   }
   if (input.areaCount === 0) missing.push('area');
+  missing.push(...componentsCheck(input.components));
+  return missing;
+}
+
+/**
+ * The component part of the activation check, which an active project keeps passing: a photo rule,
+ * and valid settings for every enabled component.
+ */
+export function componentsCheck(components: SetupInput['components']): MissingItem[] {
+  const missing: MissingItem[] = [];
   // the photo rule is a project-wide setting on the distribution row, needed whether that
   // component is on or not
-  const photo = input.components.find((c) => c.componentKey === 'distribution');
+  const photo = components.find((c) => c.componentKey === 'distribution');
   if (!photo || !componentSettingsSchemas.photo_rule.safeParse(photo.settings).success)
     missing.push('photo_rule');
-  for (const c of input.components)
+  for (const c of components)
     if (
       c.enabled &&
       c.componentKey !== 'distribution' &&

@@ -74,6 +74,11 @@ async function audit(entityId: string, action: string) {
 }
 const at = (s: Session, method: 'get' | 'post' | 'patch' | 'put', path: string) =>
   api()[method](`/api/v1${path}`).set(bearer(s));
+async function etagOf(s: Session, id: string, componentKey: string) {
+  const list = await at(s, 'get', `/projects/${id}/components`);
+  return list.body.data.find((c: { componentKey: string }) => c.componentKey === componentKey)
+    .etag as string;
+}
 
 describe('components', () => {
   it('switches a component and replaces its settings, checked against its schema', async () => {
@@ -114,6 +119,68 @@ describe('components', () => {
     expect(await audit(id, 'project.component_change')).toHaveLength(1);
   });
 
+  it('checks empty settings too, and never takes a public-link token from the caller', async () => {
+    const pm = await as(world.users.pm);
+    const id = await draft();
+    const empty = await at(pm, 'patch', `/projects/${id}/components/distribution`)
+      .set('If-Match', await etagOf(pm, id, 'distribution'))
+      .send({ settings: {} });
+    expect(empty.status).toBe(422);
+    const token = await at(pm, 'patch', `/projects/${id}/components/public_link`)
+      .set('If-Match', await etagOf(pm, id, 'public_link'))
+      .send({ settings: { enabled: true, token: 'a-token-of-my-own-choice' } });
+    expect(token.status).toBe(422);
+    expect(JSON.stringify(token.body.error.details)).toContain('settings.token');
+  });
+
+  it('keeps an active project complete: no enabled component without valid settings', async () => {
+    const pm = await as(world.users.pm);
+    const id = await draft();
+    // activation needs a photo rule, so an active project has one
+    await at(pm, 'patch', `/projects/${id}/components/distribution`)
+      .set('If-Match', await etagOf(pm, id, 'distribution'))
+      .send({ settings: { rule: 'group' } });
+    await setStatus(id, 'active');
+    const stages = await at(pm, 'patch', `/projects/${id}/components/stages`)
+      .set('If-Match', await etagOf(pm, id, 'stages'))
+      .send({ enabled: true, settings: {} });
+    // the settings fail their schema before the completeness rule is reached
+    expect(stages.status).toBe(422);
+    // the public link starts without settings, which its schema needs once it is on
+    const noSettings = await at(pm, 'patch', `/projects/${id}/components/public_link`)
+      .set('If-Match', await etagOf(pm, id, 'public_link'))
+      .send({ enabled: true });
+    expect(noSettings.status).toBe(409);
+    expect(noSettings.body.error.code).toBe('workflow.guard.project_setup_complete');
+    expect(JSON.stringify(noSettings.body.error.details)).toContain('component:public_link');
+    const withList = await at(pm, 'patch', `/projects/${id}/components/public_link`)
+      .set('If-Match', await etagOf(pm, id, 'public_link'))
+      .send({ enabled: true, settings: { enabled: true } });
+    expect(withList.status).toBe(200);
+  });
+
+  it('refuses component writes to a volunteer and to the PM of another program', async () => {
+    const pm = await as(world.users.pm);
+    const id = await draft();
+    const etag = await etagOf(pm, id, 'dawah');
+    const volunteer = await as(world.users.general);
+    expect(
+      (
+        await at(volunteer, 'patch', `/projects/${id}/components/dawah`)
+          .set('If-Match', etag)
+          .send({ enabled: true })
+      ).status,
+    ).toBe(403);
+    const other = await staff('program_manager');
+    expect(
+      (
+        await at(other.session, 'patch', `/projects/${id}/components/dawah`)
+          .set('If-Match', etag)
+          .send({ enabled: true })
+      ).status,
+    ).toBe(404);
+  });
+
   it('keeps the project dawah flag with the dawah component', async () => {
     const pm = await as(world.users.pm);
     const id = await draft();
@@ -125,6 +192,11 @@ describe('components', () => {
     expect(on.status).toBe(200);
     const project = await at(pm, 'get', `/projects/${id}`);
     expect(project.body.data.dawahEnabled).toBe(true);
+    const off = await at(pm, 'patch', `/projects/${id}/components/dawah`)
+      .set('If-Match', on.body.data.etag)
+      .send({ enabled: false });
+    expect(off.status).toBe(200);
+    expect((await at(pm, 'get', `/projects/${id}`)).body.data.dawahEnabled).toBe(false);
   });
 
   it('shows a volunteer only the enabled components and the photo rule', async () => {
@@ -187,17 +259,84 @@ describe('fund sources', () => {
     expect(read.body.data.map((f: { source: string }) => f.source)).toEqual(['zakat', 'donor']);
   });
 
-  it('keeps at least one fund source once active, and refuses a volunteer the list', async () => {
+  it('keeps an active budget and its fund sources equal, saved together', async () => {
     const pm = await as(world.users.pm);
     const id = await draft();
+    const current = await at(pm, 'get', `/projects/${id}`);
+    await at(pm, 'patch', `/projects/${id}`)
+      .set('If-Match', String(current.headers.etag))
+      .send({ costPerBeneficiary: '100.00', targetBeneficiaries: 10 });
+    // a draft saves them apart, whatever the total
+    expect(
+      (
+        await at(pm, 'patch', `/projects/${id}/fund-sources`).send({
+          fundSources: [{ source: 'zakat', amount: '1.00' }],
+        })
+      ).status,
+    ).toBe(200);
     await at(pm, 'patch', `/projects/${id}/fund-sources`).send({
-      fundSources: [{ source: 'zakat', amount: '1.00' }],
+      fundSources: [{ source: 'zakat', amount: '1000.00' }],
     });
     await setStatus(id, 'active');
     const empty = await at(pm, 'patch', `/projects/${id}/fund-sources`).send({ fundSources: [] });
     expect(empty.status).toBe(422);
+    expect(empty.body.error.code).toBe('project.budget_mismatch');
+    const short = await at(pm, 'patch', `/projects/${id}/fund-sources`).send({
+      fundSources: [{ source: 'zakat', amount: '900.00' }],
+    });
+    expect(short.status).toBe(422);
+    expect(short.body.error.code).toBe('project.budget_mismatch');
+    const together = await at(pm, 'patch', `/projects/${id}/fund-sources`).send({
+      costPerBeneficiary: '90.00',
+      targetBeneficiaries: 10,
+      fundSources: [{ source: 'zakat', amount: '900.00' }],
+    });
+    expect(together.status).toBe(200);
+    const project = await at(pm, 'get', `/projects/${id}`);
+    expect(project.body.data).toMatchObject({
+      costPerBeneficiary: '90.00',
+      budgetPlanned: '900.00',
+    });
+    const [entry] = (await audit(id, 'project.fund_source_change')).slice(-1);
+    expect(entry?.new).toMatchObject({ costPerBeneficiary: '90.00', targetBeneficiaries: 10 });
+    // the project form alone cannot move an active budget away from its fund sources
+    const alone = await at(pm, 'patch', `/projects/${id}`)
+      .set('If-Match', String(project.headers.etag))
+      .send({ targetBeneficiaries: 11 });
+    expect(alone.status).toBe(422);
+    expect(alone.body.error.code).toBe('project.budget_mismatch');
+  });
+
+  it('keeps a fund source by its source and name when the list is replaced', async () => {
+    const pm = await as(world.users.pm);
+    const id = await draft();
+    const ids = async () =>
+      (
+        await h.db.query<{ id: string; source: string }>(
+          'SELECT id, source FROM fund_sources WHERE project_id = $1 ORDER BY source',
+          [id],
+        )
+      ).rows;
+    await at(pm, 'patch', `/projects/${id}/fund-sources`).send({
+      fundSources: [
+        { source: 'zakat', amount: '10.00' },
+        { source: 'general', amount: '5.00' },
+      ],
+    });
+    const before = await ids();
+    await at(pm, 'patch', `/projects/${id}/fund-sources`).send({
+      fundSources: [{ source: 'zakat', amount: '12.00' }],
+    });
+    expect(await ids()).toEqual(before.filter((f) => f.source === 'zakat'));
+  });
+
+  it('shows fund sources only at program level, never to area staff or a volunteer', async () => {
+    const executive = await as(world.users.executive);
+    expect((await at(executive, 'get', `/projects/${world.a1.id}/fund-sources`)).status).toBe(403);
     const volunteer = await as(world.users.general);
     expect((await at(volunteer, 'get', `/projects/${world.a1.id}/fund-sources`)).status).toBe(403);
+    const pm = await as(world.users.pm);
+    expect((await at(pm, 'get', `/projects/${world.a1.id}/fund-sources`)).status).toBe(200);
   });
 });
 
@@ -244,6 +383,36 @@ describe('areas', () => {
     expect(await audit(id, 'project.area_assign')).toHaveLength(3);
   });
 
+  it('lists the areas with their RPMs, and keeps an area while staff still work in it', async () => {
+    const pm = await as(world.users.pm);
+    const id = await draft();
+    const tree = await f.locationTree(h.db);
+    const rpm = await staff('regional_program_manager');
+    const added = await at(pm, 'post', `/projects/${id}/areas`).send({
+      locationId: tree.division,
+      rpmUserId: rpm.id,
+    });
+    const areaId = added.body.data[0].id as string;
+    const list = await at(pm, 'get', `/projects/${id}/areas`);
+    expect(list.status).toBe(200);
+    expect(list.body.data[0]).toMatchObject({ rpmUserId: rpm.id, level: 'division' });
+    expect(typeof list.body.data[0].rpmName).toBe('string');
+    const executive = await staff('project_executive');
+    const given = await at(pm, 'post', `/projects/${id}/staff`).send({
+      userId: executive.id,
+      roleKey: 'project_executive',
+      areaLocationId: tree.division,
+    });
+    expect(given.status).toBe(201);
+    const inUse = await at(pm, 'post', `/project-areas/${areaId}/remove`).send({});
+    expect(inUse.status).toBe(409);
+    expect(inUse.body.error.code).toBe('project.area_in_use');
+    const assignment = given.body.data[0].id as string;
+    await at(pm, 'post', `/project-staff/${assignment}/end`).send({ reason: 'বদল' });
+    expect((await at(pm, 'post', `/project-areas/${areaId}/remove`).send({})).status).toBe(204);
+    expect((await at(pm, 'post', `/project-areas/${areaId}/remove`).send({})).status).toBe(404);
+  });
+
   it('keeps the last area of an active project, and refuses outsiders', async () => {
     const pm = await as(world.users.pm);
     const id = await draft();
@@ -283,8 +452,10 @@ describe('staff access', () => {
     expect(res.status).toBe(201);
     const given = res.body.data.find((s: { userId: string }) => s.userId === executive.id);
     expect(given).toMatchObject({ canView: true, canEdit: true, canDelete: false });
-    // a staff access is a permission change of that person, audited on the person
+    // a staff access is a permission change of that person, audited on the person and the project
     expect(await audit(executive.id, 'permission_change')).toHaveLength(1);
+    const onProject = await audit(world.a1.id, 'permission_change');
+    expect(onProject.some((e) => JSON.stringify(e.new).includes(executive.id))).toBe(true);
 
     const another = await staff('project_executive');
     expect(
@@ -351,6 +522,41 @@ describe('staff access', () => {
     expect(after.body.data.map((s: { userId: string }) => s.userId)).not.toContain(executive.id);
   });
 
+  it('ends access in any state, once', async () => {
+    const pm = await as(world.users.pm);
+    const id = await draft();
+    const executive = await staff('project_executive');
+    const given = await at(pm, 'post', `/projects/${id}/staff`).send({
+      userId: executive.id,
+      roleKey: 'project_executive',
+    });
+    expect(given.status).toBe(201);
+    await setStatus(id, 'closed');
+    const assignment = given.body.data[0].id as string;
+    const ended = await at(pm, 'post', `/project-staff/${assignment}/end`).send({ reason: 'শেষ' });
+    expect(ended.status).toBe(204);
+    const twice = await at(pm, 'post', `/project-staff/${assignment}/end`).send({ reason: 'শেষ' });
+    expect(twice.status).toBe(404);
+  });
+
+  it('shows an RPM only the staff of its own areas', async () => {
+    const pm = await as(world.users.pm);
+    const executive = await staff('project_executive');
+    const given = await at(pm, 'post', `/projects/${world.a1.id}/staff`).send({
+      userId: executive.id,
+      roleKey: 'project_executive',
+      areaLocationId: world.rangpur.division,
+    });
+    expect(given.status).toBe(201);
+    const dhaka = await as(world.users.rpmDhaka);
+    const seen = await at(dhaka, 'get', `/projects/${world.a1.id}/staff`);
+    expect(seen.status).toBe(200);
+    for (const s of seen.body.data as { areaLocationId: string | null }[])
+      expect(s.areaLocationId).toBe(world.dhaka.division);
+    const all = await at(pm, 'get', `/projects/${world.a1.id}/staff`);
+    expect(all.body.data.map((s: { userId: string }) => s.userId)).toContain(executive.id);
+  });
+
   it('refuses a volunteer the staff list and another program the writes', async () => {
     const volunteer = await as(world.users.general);
     expect((await at(volunteer, 'get', `/projects/${world.a1.id}/staff`)).status).toBe(403);
@@ -387,6 +593,22 @@ describe('the syllabus', () => {
       'Zakat',
     ]);
     expect(second.body.data[0].id).toBe(keep);
+    const read = await at(pm, 'get', `/projects/${id}/syllabus`);
+    expect(read.status).toBe(200);
+    expect(read.body.data).toEqual(second.body.data);
+    const twice = await at(pm, 'put', `/projects/${id}/syllabus`).send({
+      topics: [
+        { id: keep, title: { bn: 'সালাত', en: 'Prayer' } },
+        { id: keep, title: { bn: 'যাকাত', en: 'Zakat' } },
+      ],
+    });
+    expect(twice.status).toBe(422);
+    const volunteer = await as(world.users.general);
+    expect(
+      (await at(volunteer, 'put', `/projects/${world.a1.id}/syllabus`).send({ topics: [] })).status,
+    ).toBe(403);
+    const other = await staff('program_manager');
+    expect((await at(other.session, 'get', `/projects/${id}/syllabus`)).status).toBe(404);
     await setStatus(id, 'closed');
     const closed = await at(pm, 'put', `/projects/${id}/syllabus`).send({ topics: [] });
     expect(closed.status).toBe(409);

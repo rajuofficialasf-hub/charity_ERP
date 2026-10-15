@@ -33,3 +33,6 @@ export function plannedBudgetPaisa(
   if (costPerBeneficiary === null || targetBeneficiaries === null) return null;
   return toPaisa(costPerBeneficiary) * BigInt(targetBeneficiaries);
 }
+
+/** numeric(14,2): a planned budget is below 10^14 paisa, or the column cannot hold it. */
+export const BUDGET_LIMIT_PAISA = 10n ** 14n;

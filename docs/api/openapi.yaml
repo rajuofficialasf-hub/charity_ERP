@@ -1948,6 +1948,8 @@ components:
       additionalProperties: false
       required: [fundSources]
       properties:
+        costPerBeneficiary: { type: string, pattern: '^\d{1,12}(\.\d{1,2})?$' }
+        targetBeneficiaries: { type: integer, minimum: 1, maximum: 10000000 }
         fundSources:
           type: array
           maxItems: 10
@@ -5161,7 +5163,7 @@ paths:
     get:
       tags: [projects]
       operationId: projects.fundSource.list
-      summary: Fund-source tags of the budget (BD-30; officials only); not paginated
+      summary: Fund-source tags of the budget (BD-30; the program's PM and the global roles only); not paginated
       x-permission: project.view
       x-scope: project
       x-audit: none
@@ -5179,7 +5181,12 @@ paths:
     patch:
       tags: [projects]
       operationId: projects.fundSource.replace
-      summary: Replace the fund-source tags with their amounts (an active project keeps one)
+      summary: Replace the fund-source tags with their amounts, and the budget when it changes with them
+      description: >-
+        Once a project is active its fund sources always add up to its planned budget (cost per
+        beneficiary × target), so a budget change comes with its fund sources in this one request;
+        otherwise 422 project.budget_mismatch (D-095). A draft may save them apart. A fund source
+        that budget entries already use cannot be removed (409 project.fund_source_in_use).
       x-permission: fund_source.manage
       x-scope: project
       x-audit: project.fund_source_change

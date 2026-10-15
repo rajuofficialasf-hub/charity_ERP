@@ -18,7 +18,14 @@ export type ComponentPatch = z.infer<typeof componentPatchSchema>;
 
 export const FUND_SOURCES = ['zakat', 'sadaqah', 'general', 'donor'] as const;
 
+/**
+ * The fund sources with their amounts, and the budget when it changes with them: once a project is
+ * active its fund sources always add up to its planned budget, so both are saved together
+ * (DECISION_LOG D-095).
+ */
 export const fundSourcesSchema = z.strictObject({
+  costPerBeneficiary: money.optional(),
+  targetBeneficiaries: z.number().int().min(1).max(10_000_000).optional(),
   fundSources: z
     .array(
       z
@@ -54,6 +61,13 @@ export const staffCreateSchema = z.strictObject({
 export type StaffCreate = z.infer<typeof staffCreateSchema>;
 
 export const syllabusSchema = z.strictObject({
-  topics: z.array(z.strictObject({ id: z.uuid().optional(), title: boundedLabel })).max(100),
+  topics: z
+    .array(z.strictObject({ id: z.uuid().optional(), title: boundedLabel }))
+    .max(100)
+    // a topic is kept once
+    .refine((topics) => {
+      const ids = topics.flatMap((t) => (t.id ? [t.id] : []));
+      return new Set(ids).size === ids.length;
+    }, 'a topic id appears twice'),
 });
 export type Syllabus = z.infer<typeof syllabusSchema>;

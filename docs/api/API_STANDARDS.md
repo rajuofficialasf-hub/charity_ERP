@@ -177,6 +177,10 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | project | project.staff_role_required | 422 | staff access for someone who is not a Project Executive, Official দায়ী or Implementer (D-095) |
 | project | project.area_exists | 409 | the same area with the same RPM is already on the project (BR-060) |
 | project | project.staff_exists | 409 | the person already has an active access on the project |
+| project | project.budget_mismatch | 422 | an active project whose fund sources would no longer add up to its planned budget; budget and fund sources change together (D-095) |
+| project | project.fund_source_in_use | 409 | removal of a fund source that budget ledger entries already use |
+| project | project.area_in_use | 409 | removal of an area whose location still carries active staff access and no other RPM covers it |
+| project | project.topic_in_use | 409 | removal of a syllabus topic that classes or progress entries already use |
 | business | beneficiary.identity_missing | 422 | neither NID nor birth registration (BR-001) |
 | business | beneficiary.mobile_is_volunteer_mobile | 422 | BD-03 / BR-008 (also raised by the database trigger, DATABASE_SCHEMA §18) |
 | business | beneficiary.blocked | 422 | blocked beneficiary cannot apply (BR-010) |
