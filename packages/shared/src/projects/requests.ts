@@ -43,6 +43,13 @@ export const projectUpdateSchema = z
   .refine((b) => Object.keys(b).length > 0, 'at least one field is required');
 export type ProjectUpdate = z.infer<typeof projectUpdateSchema>;
 
+/** A later end date for the application window of an active project, with the reason (BD-16). */
+export const extendDeadlineSchema = z.strictObject({
+  newApplyTo: date,
+  reason: z.string().trim().min(3).max(1000),
+});
+export type ExtendDeadline = z.infer<typeof extendDeadlineSchema>;
+
 export const projectFilterSchema = z.strictObject({
   programId: z.uuid().optional(),
   year: z.coerce.number().int().min(2020).max(2100).optional(),

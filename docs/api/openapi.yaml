@@ -1802,11 +1802,13 @@ components:
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/Project' } }
         meta: { $ref: '#/components/schemas/ListMeta' }
-    ProjectActionRequest:
+    ExtendDeadlineRequest:
       type: object
+      additionalProperties: false
+      required: [newApplyTo, reason]
       properties:
-        reason: { type: string, minLength: 3, description: Required for reopen and extend_deadline }
-        newApplyTo: { type: string, format: date, description: extend_deadline only }
+        newApplyTo: { type: string, format: date }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
     Component:
       type: object
       description: A volunteer receives only the enabled components, with the settings of the photo rule only
@@ -4795,7 +4797,11 @@ paths:
     post:
       tags: [projects]
       operationId: projects.project.activate
-      summary: Activate a draft project (guard project.setup_complete; snapshots the workflow)
+      summary: Activate a complete draft (guard project.setup_complete; snapshots the workflow)
+      description: >-
+        An incomplete draft answers 409 workflow.guard.project_setup_complete with the missing
+        items in details (BR-258). On success the workflow definition is stored as the
+        project's workflow snapshot, so later workflow versions never change a running project.
       x-permission: project.activate
       x-scope: project
       x-audit: project.activate
@@ -4810,16 +4816,54 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProjectResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
+  /projects/{projectId}/start-closing:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    post:
+      tags: [projects]
+      operationId: projects.project.startClosing
+      summary: Move an active project to closing with a reason (no new applications)
+      x-permission: project.close
+      x-scope: project
+      x-audit: project.closing
+      x-idempotency: none
+      x-rate-limit: default
+      x-workflow: { scope: project, action: start_closing }
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReasonRequest' }
+      responses:
+        '200':
+          description: Closing
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}/close:
     parameters:
       - $ref: '#/components/parameters/ProjectId'
     post:
       tags: [projects]
       operationId: projects.project.close
-      summary: Move to Closing, then to Closed (guards from the template's project_close_guards)
+      summary: Close a closing project with a reason, once the workflow's close guards pass
+      description: >-
+        The guards come from the snapshot's project_close_guards. Guards of modules not built
+        yet (stock.balanced, animal_photos.complete) pass; any other unknown guard fails the close
+        with 409 workflow.guard.template_project_close_guards (D-095).
       x-permission: project.close
       x-scope: project
       x-audit: project.close
@@ -4828,22 +4872,30 @@ paths:
       x-workflow: { scope: project, action: close }
       parameters:
         - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReasonRequest' }
       responses:
         '200':
-          description: Closing or closed
+          description: Closed
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProjectResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}/reopen:
     parameters:
       - $ref: '#/components/parameters/ProjectId'
     post:
       tags: [projects]
       operationId: projects.project.reopen
-      summary: Reopen a closed project with a reason (BD-20)
+      summary: Reopen a closing or closed project with a reason (BD-20)
       x-permission: project.reopen
       x-scope: project
       x-audit: project.reopen
@@ -4863,16 +4915,22 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProjectResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}/extend-deadline:
     parameters:
       - $ref: '#/components/parameters/ProjectId'
     post:
       tags: [projects]
       operationId: projects.project.extendDeadline
-      summary: Extend the application deadline with a reason (BD-16)
+      summary: Extend the application deadline of an active project with a reason (BD-16)
+      description: >-
+        Only while active (409 workflow.transition_not_allowed otherwise); the new end date must be
+        after the current one (409 project.deadline_not_later).
       x-permission: project.deadline.extend
       x-scope: project
       x-audit: project.deadline_extend
@@ -4884,14 +4942,17 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/ProjectActionRequest' }
+            schema: { $ref: '#/components/schemas/ExtendDeadlineRequest' }
       responses:
         '200':
           description: Extended
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProjectResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}/components:

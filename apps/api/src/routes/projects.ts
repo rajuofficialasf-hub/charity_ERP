@@ -1,5 +1,7 @@
 import { type ReasonRequest, reasonRequestSchema } from '@css/shared/auth';
 import {
+  type ExtendDeadline,
+  extendDeadlineSchema,
   type ProjectCreate,
   projectCreateSchema,
   type ProjectFilter,
@@ -58,7 +60,10 @@ const withEtag = (
  * scope, a draft created from a workflow, setup changes as the project's state allows, and the
  * cancel of a draft that was never activated.
  */
-export function projectsRouter(deps: RouteDeps, c: Pick<Container, 'projects'>): Router {
+export function projectsRouter(
+  deps: RouteDeps,
+  c: Pick<Container, 'projects' | 'projectLifecycle'>,
+): Router {
   const router = Router();
   const projectOp = {
     tag: 'projects',
@@ -153,6 +158,118 @@ export function projectsRouter(deps: RouteDeps, c: Pick<Container, 'projects'>):
     responses: { 200: projectView, 401: null, 403: null, 404: null, 409: null, 422: null },
     handler: async ({ body, params, req, res }) =>
       withEtag(res, await c.projects.cancel(viewerOf(req), params.projectId, body.reason)),
+  });
+
+  // the lifecycle: each action takes the project's ETag and answers with the moved project
+  const action = {
+    ...projectOp,
+    method: 'post' as const,
+    params: { projectId: uuid },
+    headers: [{ name: 'If-Match', required: true }],
+  };
+  const moved = { 200: projectView, 401: null, 403: null, 404: null, 409: null, 412: null };
+
+  defineRoute<unknown, unknown, { projectId: string }>(router, deps, {
+    ...action,
+    path: '/projects/:projectId/activate',
+    operationId: 'projects.project.activate',
+    summary: 'Activate a complete draft (guard project.setup_complete; snapshots the workflow)',
+    permission: 'project.activate',
+    audit: 'project.activate',
+    workflow: { scope: 'project', action: 'activate' },
+    responses: moved,
+    handler: async ({ params, req, res }) =>
+      withEtag(
+        res,
+        await c.projectLifecycle.activate(viewerOf(req), params.projectId, req.get('if-match')),
+      ),
+  });
+
+  defineRoute<ExtendDeadline, unknown, { projectId: string }>(router, deps, {
+    ...action,
+    path: '/projects/:projectId/extend-deadline',
+    operationId: 'projects.project.extendDeadline',
+    summary: 'Extend the application deadline of an active project with a reason (BD-16)',
+    permission: 'project.deadline.extend',
+    audit: 'project.deadline_extend',
+    body: extendDeadlineSchema,
+    responses: { ...moved, 422: null },
+    handler: async ({ body, params, req, res }) =>
+      withEtag(
+        res,
+        await c.projectLifecycle.extendDeadline(
+          viewerOf(req),
+          params.projectId,
+          body,
+          req.get('if-match'),
+        ),
+      ),
+  });
+
+  defineRoute<ReasonRequest, unknown, { projectId: string }>(router, deps, {
+    ...action,
+    path: '/projects/:projectId/start-closing',
+    operationId: 'projects.project.startClosing',
+    summary: 'Move an active project to closing with a reason (no new applications)',
+    permission: 'project.close',
+    audit: 'project.closing',
+    workflow: { scope: 'project', action: 'start_closing' },
+    body: reasonRequestSchema,
+    responses: { ...moved, 422: null },
+    handler: async ({ body, params, req, res }) =>
+      withEtag(
+        res,
+        await c.projectLifecycle.startClosing(
+          viewerOf(req),
+          params.projectId,
+          body.reason,
+          req.get('if-match'),
+        ),
+      ),
+  });
+
+  defineRoute<ReasonRequest, unknown, { projectId: string }>(router, deps, {
+    ...action,
+    path: '/projects/:projectId/close',
+    operationId: 'projects.project.close',
+    summary: "Close a closing project with a reason, once the workflow's close guards pass",
+    permission: 'project.close',
+    audit: 'project.close',
+    workflow: { scope: 'project', action: 'close' },
+    body: reasonRequestSchema,
+    responses: { ...moved, 422: null },
+    handler: async ({ body, params, req, res }) =>
+      withEtag(
+        res,
+        await c.projectLifecycle.close(
+          viewerOf(req),
+          params.projectId,
+          body.reason,
+          req.get('if-match'),
+        ),
+      ),
+  });
+
+  defineRoute<ReasonRequest, unknown, { projectId: string }>(router, deps, {
+    ...action,
+    path: '/projects/:projectId/reopen',
+    operationId: 'projects.project.reopen',
+    summary: 'Reopen a closing or closed project with a reason (BD-20)',
+    permission: 'project.reopen',
+    audit: 'project.reopen',
+    workflow: { scope: 'project', action: 'reopen' },
+    body: reasonRequestSchema,
+    responses: { ...moved, 422: null },
+    handler: async ({ body, params, req, res }) =>
+      withEtag(
+        res,
+        await c.projectLifecycle.reopen(
+          viewerOf(req),
+          params.projectId,
+          body.reason,
+          req.get('if-match'),
+        ),
+      ),
   });
 
   return router;

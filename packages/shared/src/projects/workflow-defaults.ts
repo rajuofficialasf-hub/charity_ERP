@@ -88,6 +88,16 @@ export interface StartingComponent {
 }
 
 /**
+ * Whether the workflow counts applications against a per-volunteer limit (its `limit_counts`
+ * default lists the counted states). A workflow whose applications come from the public counts
+ * none, so its projects need no limit.
+ */
+export function limitRequired(definition: WorkflowDefinition): boolean {
+  const counts = definition.defaults?.limit_counts;
+  return Array.isArray(counts) && counts.length > 0;
+}
+
+/**
  * The photo rule of a workflow, a project-wide setting kept on the `distribution` row (the one
  * component with the photo-rule settings) whether that component is on or not. A fixed rule is
  * copied; "per project" means the PM must choose, so the rule starts missing and the activation

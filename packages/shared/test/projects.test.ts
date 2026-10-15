@@ -10,9 +10,11 @@ import {
   BUDGET_LIMIT_PAISA,
   componentsCheck,
   editableIn,
+  extendDeadlineSchema,
   fromPaisa,
   fundSourcesSchema,
   IDENTITY_FIELDS,
+  limitRequired,
   plannedBudgetPaisa,
   PROJECT_TRANSITIONS,
   setupCheck,
@@ -368,5 +370,22 @@ describe('the setup request bodies', () => {
   it('knows the largest budget the column holds', () => {
     expect(plannedBudgetPaisa('999999999999.99', 1)! < BUDGET_LIMIT_PAISA).toBe(true);
     expect(plannedBudgetPaisa('1000000', 1_000_000)! >= BUDGET_LIMIT_PAISA).toBe(true);
+  });
+});
+
+describe('the lifecycle helpers', () => {
+  it('needs a per-volunteer limit except where applications come from the public', () => {
+    for (const key of WORKFLOW_KEYS)
+      expect(limitRequired(definition(key)), key).toBe(key !== 'open_application_visit');
+  });
+
+  it('takes a deadline extension only as a date with a reason', () => {
+    expect(
+      extendDeadlineSchema.safeParse({ newApplyTo: '2027-01-15', reason: 'শীত বেশি' }).success,
+    ).toBe(true);
+    expect(extendDeadlineSchema.safeParse({ newApplyTo: '2027-01-15' }).success).toBe(false);
+    expect(
+      extendDeadlineSchema.safeParse({ newApplyTo: '15/01/2027', reason: 'শীত বেশি' }).success,
+    ).toBe(false);
   });
 });

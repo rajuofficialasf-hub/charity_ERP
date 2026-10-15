@@ -417,6 +417,15 @@ export class ProjectsService {
     });
   }
 
+  /**
+   * Writes a lifecycle change of a locked project and returns the project as an official sees it.
+   * The caller has checked the move and audits it in the same transaction.
+   */
+  async writeState(tx: Tx, projectId: string, data: Prisma.ProjectUncheckedUpdateInput) {
+    const row = await tx.project.update({ where: { id: projectId }, select: SELECT, data });
+    return { project: view(row, false), updatedAt: row.updatedAt };
+  }
+
   /** The project inside the caller's scope (404 outside), with its row locked for the write. */
   async locked(tx: Tx, viewer: ProjectViewer, projectId: string): Promise<Row> {
     await tx.$queryRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
