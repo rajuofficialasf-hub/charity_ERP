@@ -8,7 +8,8 @@ import { cancelProject, type LifecycleAction, moveProject, type Project } from '
 import { ReasonDialog } from './ReasonDialog';
 import { useMissingLabel } from './setup/missing';
 
-type Move = 'activate' | 'extend' | 'start_closing' | 'close' | 'reopen' | 'cancel';
+/** A lifecycle move, or the deadline extension of an active project. */
+type Move = ProjectAction | 'extend';
 
 const ROUTE = new Map<Move, LifecycleAction>([
   ['activate', 'activate'],
@@ -22,7 +23,7 @@ const ROUTE = new Map<Move, LifecycleAction>([
 function movesFor(status: Project['status']): Move[] {
   const order: Move[] = ['activate', 'extend', 'start_closing', 'close', 'reopen', 'cancel'];
   return order.filter((move) =>
-    move === 'extend' ? status === 'active' : transitionFor(move as ProjectAction, status) !== null,
+    move === 'extend' ? status === 'active' : transitionFor(move, status) !== null,
   );
 }
 

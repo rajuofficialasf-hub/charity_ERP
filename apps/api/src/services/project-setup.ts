@@ -18,6 +18,7 @@ import type { AccessService } from '../access/service';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { PermissionVersionService } from '../auth/permission-version.service';
 import { assertIfMatch, etagOf } from '../core/etag';
+import { literalContains } from '../core/search';
 import type { PrismaService, Tx } from '../core/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
@@ -434,7 +435,8 @@ export class ProjectSetupService {
       where: {
         kind: 'staff',
         state: 'active',
-        displayName: { contains: query.q, mode: 'insensitive' },
+        // % and _ in the search are letters, never wildcards
+        displayName: { contains: literalContains(query.q), mode: 'insensitive' },
         userRolesUser: { some: { roleKey: query.role, revokedAt: null } },
       },
       orderBy: [{ displayName: 'asc' }, { id: 'asc' }],

@@ -23,6 +23,9 @@ const code = () =>
   `E${Array.from({ length: 3 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('')}`;
 
 const section = (page: Page, name: string): Locator => page.getByRole('region', { name });
+/** The state badge beside the project's name. */
+const state = (page: Page, badge: string): Locator =>
+  page.locator('.admin-title-row').getByText(badge, { exact: true });
 
 async function newDraft(page: Page, projectCode: string, name: string) {
   await page.getByRole('button', { name: 'নতুন প্রকল্প' }).click();
@@ -40,7 +43,7 @@ async function newDraft(page: Page, projectCode: string, name: string) {
   await chooseIn(page, dialog, 'ওয়ার্কফ্লো', 'বিতরণ');
   await dialog.getByRole('button', { name: 'খসড়া তৈরি করুন' }).click();
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
-  await expect(page.getByText('খসড়া', { exact: true })).toBeVisible();
+  await expect(state(page, 'খসড়া')).toBeVisible();
 }
 
 /** Types a date into the segments of a date field (dd-mm-yyyy). */
@@ -56,7 +59,7 @@ async function move(page: Page, button: string, badge: string) {
   await dialog.getByRole('textbox', { name: /কারণ/ }).fill('পরীক্ষার কারণ');
   await dialog.getByRole('button', { name: button, exact: true }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByText(badge, { exact: true }).first()).toBeVisible();
+  await expect(state(page, badge)).toBeVisible();
 }
 
 test.describe('programs and project setup', () => {
@@ -127,7 +130,7 @@ test.describe('programs and project setup', () => {
     // activate: the year is fixed from now on
     await page.getByRole('link', { name: 'প্রকল্পে ফিরে যান' }).click();
     await page.getByRole('button', { name: 'সক্রিয় করুন', exact: true }).click();
-    await expect(page.getByText('সক্রিয়', { exact: true }).first()).toBeVisible();
+    await expect(state(page, 'সক্রিয়')).toBeVisible();
     await page.getByRole('link', { name: 'সেটআপ' }).click();
     await expect(section(page, 'মৌলিক তথ্য').getByRole('textbox', { name: /বছর/ })).toHaveAttribute(
       'readonly',
@@ -159,6 +162,9 @@ test.describe('programs and project setup', () => {
     await newDraft(page, code(), name);
     await move(page, 'বাতিল করুন', 'বাতিল');
     await page.getByRole('link', { name: 'সব প্রকল্প' }).click();
+    // the list has loaded (another PM's project is in it) before the cancelled one is looked for
+    await expect(listRows(page, TAB)).toBeVisible();
+    await expect(page.getByText(/^\d+টির মধ্যে \d+টি$/).first()).toBeVisible();
     await expect(listRows(page, TAB).getByRole('link', { name })).toHaveCount(0);
   });
 

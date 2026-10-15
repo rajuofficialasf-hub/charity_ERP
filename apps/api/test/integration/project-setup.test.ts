@@ -446,6 +446,14 @@ describe('people to assign', () => {
       'খোঁজার এক্সিকিউটিভ',
       executive.id,
     ]);
+    // an RPM who left and one whose role was taken back are not offered
+    const gone = await staff('regional_program_manager');
+    await h.db.query("UPDATE users SET display_name = 'খোঁজার বিদায়ী', state = 'deactivated' WHERE id = $1", [
+      gone.id,
+    ]);
+    const revoked = await staff('regional_program_manager');
+    await h.db.query("UPDATE users SET display_name = 'খোঁজার প্রত্যাহৃত' WHERE id = $1", [revoked.id]);
+    await h.db.query('UPDATE user_roles SET revoked_at = now() WHERE user_id = $1', [revoked.id]);
     const find = (s: Session, query: string) =>
       at(s, 'get', `/projects/${world.a1.id}/candidates?${query}`);
     const pm = await as(world.users.pm);
@@ -464,6 +472,9 @@ describe('people to assign', () => {
     );
     expect(executives.status).toBe(200);
     expect(executives.body.data.map((c: { id: string }) => c.id)).toEqual([executive.id]);
+    // a wildcard is a letter: no official's name contains "%%"
+    const wildcard = await find(pm, `role=project_executive&q=${encodeURIComponent('%%')}`);
+    expect(wildcard.body.data).toEqual([]);
     expect((await find(pm, 'role=project_executive&q=x')).status).toBe(422);
     expect((await find(pm, 'role=finance_team&q=abc')).status).toBe(422);
     const volunteer = await as(world.users.general);

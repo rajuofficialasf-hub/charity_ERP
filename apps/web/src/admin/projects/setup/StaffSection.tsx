@@ -115,6 +115,8 @@ export function StaffSection({
             />
             {roleKey && (
               <UserSearch
+                // a new role starts a new search, without the text of the last one
+                key={roleKey}
                 label={t('person')}
                 selected={person}
                 onSelect={setPerson}

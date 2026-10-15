@@ -154,4 +154,49 @@ describe('the project overview', () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'বন্ধ শুরু করুন' })).not.toBeInTheDocument();
   });
+
+  it('extends the deadline only to a later date, with a reason', async () => {
+    refreshAs(PM);
+    serve('active');
+    const user = userEvent.setup();
+    open();
+    const [extend] = await buttons(['সময়সীমা বাড়ান']);
+    await user.click(extend!);
+    const dialog = await screen.findByRole('dialog');
+    const confirm = within(dialog).getByRole('button', { name: 'সময়সীমা বাড়ান' });
+    await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'শীত বেশি');
+    const [day] = within(dialog).getAllByRole('spinbutton');
+    await user.click(day!);
+    await user.keyboard('31122026');
+    // the current end date is not later than itself
+    expect(confirm).toBeDisabled();
+    await user.click(day!);
+    await user.keyboard('15012027');
+    await waitFor(() => expect(confirm).toBeEnabled());
+    await user.click(confirm);
+    await waitFor(() =>
+      expect(moves).toEqual([
+        {
+          action: 'extend-deadline',
+          body: { reason: 'শীত বেশি', newApplyTo: '2027-01-15' },
+          ifMatch: '"p1"',
+        },
+      ]),
+    );
+  });
+
+  it('cancels a draft with a reason and no version', async () => {
+    refreshAs(PM);
+    serve('draft');
+    const user = userEvent.setup();
+    open();
+    const [cancel] = await buttons(['বাতিল করুন']);
+    await user.click(cancel!);
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'ভুল প্রকল্প');
+    await user.click(within(dialog).getByRole('button', { name: 'বাতিল করুন' }));
+    await waitFor(() =>
+      expect(moves).toEqual([{ action: 'cancel', body: { reason: 'ভুল প্রকল্প' }, ifMatch: null }]),
+    );
+  });
 });

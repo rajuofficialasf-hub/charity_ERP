@@ -61,28 +61,28 @@ export function ProjectOverviewPage() {
   const program = programList.data?.find((g) => g.id === p.programId);
   const none = t('detail.none');
   const day = (iso: string | null | undefined) => (iso ? formatDate(iso) : none);
-  const facts: [string, ReactNode][] = [
-    [t('column.code'), p.code],
-    [t('column.year'), String(p.year)],
-    ...(program
-      ? [[t('column.program'), localized(program.name, locale)] as [string, ReactNode]]
-      : []),
-    [t('dialog.workflow'), t(`workflow.${p.workflowKey}`)],
-    [t('detail.window'), `${day(p.applyFrom)} – ${day(p.applyTo)}`],
-    [
-      t('setup.limit'),
-      p.perVolunteerLimit === null ? none : formatCount(p.perVolunteerLimit, locale),
-    ],
-    ...('budgetPlanned' in p
-      ? [
-          [
-            t('detail.budget'),
-            p.budgetPlanned ? formatTaka(Number(p.budgetPlanned), locale) : none,
-          ] as [string, ReactNode],
-        ]
-      : []),
-    ...(p.activatedAt ? [[t('detail.activated'), day(p.activatedAt)] as [string, ReactNode]] : []),
-    ...(p.closedAt ? [[t('detail.closed'), day(p.closedAt)] as [string, ReactNode]] : []),
+  // the optional facts are left out when they are not there
+  const facts: { label: string; value: ReactNode; shown?: boolean }[] = [
+    { label: t('column.code'), value: p.code },
+    { label: t('column.year'), value: String(p.year) },
+    {
+      label: t('column.program'),
+      value: program ? localized(program.name, locale) : '',
+      shown: Boolean(program),
+    },
+    { label: t('dialog.workflow'), value: t(`workflow.${p.workflowKey}`) },
+    { label: t('detail.window'), value: `${day(p.applyFrom)} – ${day(p.applyTo)}` },
+    {
+      label: t('setup.limit'),
+      value: p.perVolunteerLimit === null ? none : formatCount(p.perVolunteerLimit, locale),
+    },
+    {
+      label: t('detail.budget'),
+      value: p.budgetPlanned ? formatTaka(Number(p.budgetPlanned), locale) : none,
+      shown: 'budgetPlanned' in p,
+    },
+    { label: t('detail.activated'), value: day(p.activatedAt), shown: Boolean(p.activatedAt) },
+    { label: t('detail.closed'), value: day(p.closedAt), shown: Boolean(p.closedAt) },
   ];
 
   return (
@@ -110,12 +110,14 @@ export function ProjectOverviewPage() {
         }
       >
         <dl className="grid gap-2 sm:grid-cols-[12rem_1fr]">
-          {facts.map(([label, value]) => (
-            <div key={label} className="contents">
-              <dt className="font-bold">{label}</dt>
-              <dd className="m-0">{value}</dd>
-            </div>
-          ))}
+          {facts
+            .filter((f) => f.shown !== false)
+            .map(({ label, value }) => (
+              <div key={label} className="contents">
+                <dt className="font-bold">{label}</dt>
+                <dd className="m-0">{value}</dd>
+              </div>
+            ))}
         </dl>
       </Card>
     </>
