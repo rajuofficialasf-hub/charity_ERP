@@ -18,6 +18,7 @@ const DIVISION = '01900000-0000-7000-8000-0000000000d1';
 const SESSION = '01900000-0000-7000-8000-0000000000e1';
 
 const actions = (over: Record<string, boolean> = {}) => ({
+  review: false,
   approve: false,
   requestCorrection: false,
   block: false,

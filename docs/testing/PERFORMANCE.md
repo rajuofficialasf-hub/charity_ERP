@@ -20,7 +20,7 @@ allows it, never under `NODE_ENV=production`; the dev and test databases are not
 - 300 projects over the years 2022 to 2026 and 500,000 applications (every fourth beneficiary), all
   statuses, owned by the volunteers in turn; 47,500 project assignments.
 
-The rows are made with `generate_series` in SQL; the load takes about 6.5 minutes and ends with
+The rows are made with `generate_series` in SQL; the load takes about 6 to 7 minutes and ends with
 `VACUUM ANALYZE` (the visibility map lets counts read an index alone, as autovacuum would on a live
 server). A settings row written last marks the data set complete; a run that stopped halfway is
 refused until `--fresh` drops and rebuilds the database. The guard `checkPerfDbAccess` allows only a
@@ -47,40 +47,40 @@ All 68 cases are under 300 ms at p95. Times in milliseconds, 20 runs each.
 
 | Call | Case | Head p50 / p95 | RPM p50 / p95 |
 |---|---|---|---|
-| `volunteers.list` | first page | 11 / 12 | 10 / 12 |
-| `volunteers.list` | next page | 10 / 14 | 9 / 11 |
-| `volunteers.list` | with total | 12 / 14 | 13 / 16 |
-| `volunteers.list` | district | 10 / 13 | 11 / 12 |
-| `volunteers.list` | state pending | 12 / 17 | 9 / 11 |
-| `volunteers.list` | type local_daee | 9 / 10 | 9 / 11 |
-| `volunteers.list` | category A | 9 / 10 | 9 / 12 |
-| `volunteers.list` | blocked | 16 / 22 | 17 / 36 |
-| `volunteers.list` | not blocked + total | 28 / 31 | 27 / 31 |
-| `volunteers.list` | project | 10 / 14 | 9 / 11 |
-| `volunteers.list` | name search | 10 / 11 | 9 / 11 |
-| `volunteers.list` | name search + total | 28 / 36 | 27 / 32 |
-| `volunteers.list` | mobile search | 8 / 10 | 9 / 12 |
-| `volunteers.list` | NID search | 10 / 13 | 11 / 16 |
-| `volunteers.statistics` | all | 69 / 78 | 71 / 78 |
-| `volunteers.statistics` | district | 21 / 26 | 23 / 28 |
+| `volunteers.list` | first page | 8 / 12 | 9 / 17 |
+| `volunteers.list` | next page | 8 / 11 | 9 / 10 |
+| `volunteers.list` | with total | 11 / 14 | 12 / 16 |
+| `volunteers.list` | district | 10 / 13 | 9 / 11 |
+| `volunteers.list` | state pending | 9 / 11 | 9 / 11 |
+| `volunteers.list` | type local_daee | 8 / 10 | 9 / 12 |
+| `volunteers.list` | category A | 8 / 9 | 8 / 10 |
+| `volunteers.list` | blocked | 15 / 38 | 16 / 23 |
+| `volunteers.list` | not blocked + total | 23 / 26 | 26 / 29 |
+| `volunteers.list` | project | 9 / 11 | 10 / 12 |
+| `volunteers.list` | name search | 13 / 16 | 9 / 10 |
+| `volunteers.list` | name search + total | 27 / 32 | 32 / 43 |
+| `volunteers.list` | mobile search | 8 / 19 | 8 / 9 |
+| `volunteers.list` | NID search | 9 / 21 | 11 / 13 |
+| `volunteers.statistics` | all | 74 / 81 | 70 / 77 |
+| `volunteers.statistics` | district | 23 / 26 | 21 / 25 |
 | `beneficiaries.list` | first page | 4 / 5 | 4 / 5 |
-| `beneficiaries.list` | next page | 4 / 5 | 4 / 5 |
-| `beneficiaries.list` | with total | 90 / 93 | 92 / 100 |
-| `beneficiaries.list` | district | 5 / 6 | 6 / 7 |
-| `beneficiaries.list` | upazila | 8 / 9 | 7 / 9 |
-| `beneficiaries.list` | union | 5 / 7 | 5 / 6 |
-| `beneficiaries.list` | type widow | 4 / 5 | 4 / 5 |
-| `beneficiaries.list` | blocked | 4 / 5 | 4 / 4 |
-| `beneficiaries.list` | project | 18 / 26 | 19 / 23 |
-| `beneficiaries.list` | year 2025 | 5 / 6 | 5 / 6 |
-| `beneficiaries.list` | district + year + total | 61 / 78 | 61 / 67 |
-| `beneficiaries.list` | name search | 8 / 10 | 5 / 6 |
-| `beneficiaries.list` | name search + total | 122 / 136 | 118 / 133 |
-| `beneficiaries.list` | mobile search | 4 / 4 | 4 / 5 |
-| `beneficiaries.list` | NID search | 6 / 10 | 8 / 9 |
-| `beneficiaries.statistics` | all | 172 / 181 | 173 / 185 |
-| `beneficiaries.statistics` | district | 38 / 49 | 37 / 46 |
-| `beneficiaries.profile` |  | 18 / 36 | 18 / 31 |
+| `beneficiaries.list` | next page | 4 / 5 | 4 / 8 |
+| `beneficiaries.list` | with total | 90 / 97 | 91 / 95 |
+| `beneficiaries.list` | district | 5 / 6 | 5 / 6 |
+| `beneficiaries.list` | upazila | 7 / 8 | 8 / 8 |
+| `beneficiaries.list` | union | 7 / 13 | 5 / 5 |
+| `beneficiaries.list` | type widow | 7 / 12 | 4 / 5 |
+| `beneficiaries.list` | blocked | 4 / 5 | 4 / 6 |
+| `beneficiaries.list` | project | 21 / 25 | 19 / 24 |
+| `beneficiaries.list` | year 2025 | 5 / 6 | 6 / 8 |
+| `beneficiaries.list` | district + year + total | 60 / 69 | 63 / 74 |
+| `beneficiaries.list` | name search | 5 / 6 | 5 / 5 |
+| `beneficiaries.list` | name search + total | 119 / 202 | 118 / 127 |
+| `beneficiaries.list` | mobile search | 3 / 4 | 4 / 4 |
+| `beneficiaries.list` | NID search | 6 / 10 | 7 / 8 |
+| `beneficiaries.statistics` | all | 172 / 189 | 163 / 179 |
+| `beneficiaries.statistics` | district | 36 / 40 | 36 / 41 |
+| `beneficiaries.profile` |  | 16 / 28 | 16 / 18 |
 
 "with total" asks for the row count as well (`include=total`); the tab asks for it only on the first
 page. The slowest calls are the counts over all 2,000,000 beneficiaries (about 90 to 190 ms); they
@@ -92,8 +92,8 @@ The first run (same data, before any change) had three cases over 300 ms, in two
 
 | Case | Before: Head / RPM p95 | After: Head / RPM p95 |
 |---|---|---|
-| `volunteers.statistics` all | 478 / 235 | 78 / 78 |
-| `beneficiaries.statistics` all | 570 / 626 | 181 / 185 |
+| `volunteers.statistics` all | 478 / 235 | 81 / 77 |
+| `beneficiaries.statistics` all | 570 / 626 | 189 / 179 |
 
 - **Volunteer statistics:** nine separate counts became three: the people grouped by account state,
   the inactive flag, and the applications grouped by status. Without a filter the applications are

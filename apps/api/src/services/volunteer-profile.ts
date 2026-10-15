@@ -208,6 +208,8 @@ export class VolunteerProfileService {
         ? { blocked: true, blockedAt: block.blockedAt.toISOString(), reason: block.reason }
         : { blocked: false },
       actions: {
+        // the caller decides on this pending registration, though a correction may hold it now
+        review: (allowed.approve || allowed.requestCorrection) && pending,
         // as the approve route: a pending registration, not blocklisted, with no correction pending
         approve: allowed.approve && pending && !block && !correcting,
         requestCorrection: allowed.requestCorrection && pending && !correcting,

@@ -82,7 +82,7 @@ describe('seed runner', () => {
         NODE_ENV: 'test',
         DATABASE_URL: url.replace(/\/[^/]+$/, '/postgres'),
       }),
-    ).rejects.toThrow(/not a css_erp_dev or css_erp_test/);
+    ).rejects.toThrow(/not a css_erp_dev, css_erp_test or css_erp_perf database/);
   });
 
   it('leaves the seed markers the production guard looks for (O-46 item 8)', async () => {

@@ -1094,8 +1094,14 @@ components:
         actions:
           type: object
           description: What the caller may do to this volunteer, decided like the action routes
-          required: [approve, requestCorrection, block, unblock, viewSessions, revokeSessions]
+          required: [review, approve, requestCorrection, block, unblock, viewSessions, revokeSessions]
           properties:
+            review:
+              type: boolean
+              description: >-
+                The caller may decide on this pending registration (approve, ask for a correction,
+                reject), even while a correction holds it; approve and requestCorrection say
+                whether that action is possible now
             approve: { type: boolean }
             requestCorrection: { type: boolean }
             block: { type: boolean }

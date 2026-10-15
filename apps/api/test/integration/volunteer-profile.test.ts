@@ -227,6 +227,8 @@ describe('the action flags of a volunteer profile', () => {
       [randomUUID(), correcting.volunteerId, world.users.rpmDhaka],
     );
     expect((await profile(rpm, correcting.volunteerId)).body.data.actions).toMatchObject({
+      // still the RPM's to decide: the review stays open with approval held back
+      review: true,
       approve: false,
       requestCorrection: false,
     });
@@ -236,6 +238,7 @@ describe('the action flags of a volunteer profile', () => {
     const pending = await someone(world.dhaka, 'pending');
     const daee = await staff('official_daee');
     expect((await profile(daee, pending.volunteerId)).body.data.actions).toEqual({
+      review: false,
       approve: false,
       requestCorrection: false,
       block: false,

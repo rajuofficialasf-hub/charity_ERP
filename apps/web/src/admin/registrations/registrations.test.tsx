@@ -176,8 +176,9 @@ function serve() {
           type: 'general',
           state: 'pending',
           actions: {
-            approve: true,
-            requestCorrection: true,
+            review: true,
+            approve: !profileHeld,
+            requestCorrection: !profileHeld,
             block: profileBlock,
             unblock: false,
             viewSessions: false,
@@ -274,6 +275,8 @@ const REVIEW = `/admin/volunteers/${VOLUNTEER_ID}`;
 let volunteerListCalls = 0;
 /** Whether the profile's flags allow the block action (the RPM yes, the Project Executive no). */
 let profileBlock = true;
+/** A correction holds the registration: the caller still reviews it, but cannot decide now. */
+let profileHeld = false;
 
 const renderPage = (me: Me, locale: 'bn' | 'en' = 'bn', path = '/admin/registrations') => {
   refreshAs(me);
@@ -300,6 +303,7 @@ beforeEach(() => {
   resetClientForTests();
   volunteerListCalls = 0;
   profileBlock = true;
+  profileHeld = false;
   calls = [];
   pending = [pendingVolunteer, pendingStaff];
   detail = volunteerDetail();
@@ -401,6 +405,15 @@ describe('volunteer registration detail', () => {
     expect(calls).toEqual([
       { method: 'POST', url: `/api/v1/registrations/${VOLUNTEER_USER}/approve`, body: null },
     ]);
+  });
+
+  it('keeps the review open while a correction holds it, with approval and correction held back', async () => {
+    profileHeld = true;
+    renderPage(RPM, 'bn', REVIEW);
+    await screen.findByRole('heading', { level: 1, name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' });
+    expect(screen.getByRole('button', { name: 'অনুমোদন' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'সংশোধনের অনুরোধ' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'প্রত্যাখ্যান' })).toBeEnabled();
   });
 
   it('a decision in the review refreshes the volunteer tab it returns to', async () => {

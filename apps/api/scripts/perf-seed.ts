@@ -10,6 +10,13 @@
 import 'dotenv/config';
 import { spawnSync } from 'node:child_process';
 import { Client } from 'pg';
+import {
+  FIRST_NAMES,
+  FORM_TITLE_BN,
+  LAST_NAMES,
+  PROJECT_NAME_BN,
+  VILLAGE_BN,
+} from '../seed/perf-data';
 import { perfDatabase } from './perf-db';
 
 const VOLUNTEERS = 50_000;
@@ -53,11 +60,16 @@ async function createDatabase(): Promise<boolean> {
   }
 }
 
-/** Bengali names from a few parts, so the name search meets realistic letters and repeats. */
+/** A fixed SQL text literal (the values are this script's own constants). */
+const lit = (value: string) => `'${value.replace(/'/g, "''")}'`;
+const array = (values: readonly string[]) => `ARRAY[${values.map(lit).join(',')}]`;
+const FIRST = array(FIRST_NAMES);
+const LAST = array(LAST_NAMES);
+/** A name of three parts chosen by the row number. */
 const NAME_SQL = (n: string) => `
-  (ARRAY['মোহাম্মদ','আব্দুল','আবু','নূর','হাফেজ','মাওলানা','ফাতেমা','আয়েশা','খাদিজা','মরিয়ম','শাহ','মো.'])[1 + ${n} % 12]
-  || ' ' || (ARRAY['রহিম','করিম','হাসান','হোসেন','ইসলাম','উদ্দিন','আলী','রহমান','খাতুন','বেগম','আক্তার','সিদ্দিকী','মিয়া','সরকার'])[1 + (${n} / 12) % 14]
-  || ' ' || (ARRAY['রহিম','করিম','হাসান','হোসেন','ইসলাম','উদ্দিন','আলী','রহমান','খাতুন','বেগম','আক্তার','সিদ্দিকী','মিয়া','সরকার'])[1 + (${n} / 168) % 14]`;
+  (${FIRST})[1 + ${n} % ${FIRST_NAMES.length}]
+  || ' ' || (${LAST})[1 + (${n} / ${FIRST_NAMES.length}) % ${LAST_NAMES.length}]
+  || ' ' || (${LAST})[1 + (${n} / ${FIRST_NAMES.length * LAST_NAMES.length}) % ${LAST_NAMES.length}]`;
 
 async function timed(db: Client, label: string, sql: string, params: unknown[] = []) {
   const start = Date.now();
@@ -155,13 +167,13 @@ async function load(db: Client): Promise<void> {
     `INSERT INTO projects (id, program_id, code, year, name_bn, name_en, status,
        workflow_definition_id, workflow_version)
      SELECT id, program_id, 'Q' || chr(65 + (i / 26) % 26) || chr(65 + i % 26), 2022 + i % 5,
-            'পরিমাপ প্রকল্প ' || i, 'Perf project ' || i, 'active', $1::uuid, 1
+            ${lit(PROJECT_NAME_BN)} || ' ' || i, 'Perf project ' || i, 'active', $1::uuid, 1
      FROM perf_projects`,
     [workflow],
   );
   await db.query(`
     INSERT INTO forms (id, project_id, key, title_bn, title_en)
-    SELECT form_id, id, 'default', 'ফর্ম', 'Form' FROM perf_projects;
+    SELECT form_id, id, 'default', ${lit(FORM_TITLE_BN)}, 'Form' FROM perf_projects;
     INSERT INTO form_versions (id, form_id, version_no, status)
     SELECT form_version_id, form_id, 1, 'published' FROM perf_projects;`);
   await timed(
@@ -195,7 +207,7 @@ async function load(db: Client): Promise<void> {
               CASE WHEN n % 2 = 0 THEN 'female' ELSE 'male' END, 18 + n % 70,
               CASE WHEN n % 9 = 0 THEN NULL
                    ELSE (ARRAY['elderly','widow','orphan','disabled','ill','labourer','extreme_poor','other'])[1 + n % 8] END,
-              u.division_id, u.district_id, u.upazila_id, u.union_id, 'গ্রাম ' || (n % 40),
+              u.division_id, u.district_id, u.upazila_id, u.union_id, ${lit(VILLAGE_BN)} || ' ' || (n % 40),
               CASE WHEN n % 500 = 0 THEN 'deceased' WHEN n % 700 = 0 THEN 'relocated' ELSE 'active' END,
               ts, ts
        FROM (SELECT n, now() - make_interval(secs => ($3::int - n) * 60.0) AS ts

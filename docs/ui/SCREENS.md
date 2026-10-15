@@ -770,7 +770,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 ### SCR-042 Volunteer tab
 
 - **Purpose.** The central, nationwide volunteer list (blueprint A5 "volunteer tab").
-- **T1.10.** Planned for T1.10 (O-67; plan `docs/plans/2026-10-15-1030-feat-volunteer-beneficiary-tabs-plan.md`): every volunteer in every state for each holder of `volunteer.view_all`, at `/admin/volunteers`. Filters (division to union, type, state, project, category, blocklisted) are kept in the URL; the search (name, mobile; NID only inside the `volunteer.view_sensitive` scope) is not. The statistics above the list follow the filters: volunteers (total, active, pending, blocked, deactivated; inactive only for those who see categories) and applications (total, approved, under review). The category column and filter appear only with `volunteer.rating.view`. The rating filter comes in Phase 5.
+- **T1.10.** Built in T1.10 (O-67; plan `docs/plans/2026-10-15-1030-feat-volunteer-beneficiary-tabs-plan.md`; `apps/web/src/admin/volunteers/`, E2E `apps/web/e2e/volunteers.spec.ts`): every volunteer in every state for each holder of `volunteer.view_all`, at `/admin/volunteers`. Filters (division to union, type, state, project, category, blocklisted) are kept in the URL; the search (name, mobile; NID only inside the `volunteer.view_sensitive` scope) is not. The statistics above the list follow the filters: volunteers (total, active, pending, blocked, deactivated; inactive only for those who see categories) and applications (total, approved, under review). The category column and filter appear only with `volunteer.rating.view`. The rating filter comes in Phase 5.
 - **Roles.** Officials with `volunteer.view_all`.
 - **Priority.** parity.
 - **Data shown.**
@@ -802,7 +802,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 ### SCR-043 Volunteer profile
 
 - **Purpose.** Everything about one volunteer (constitution §12 key screen): data, projects and permissions, team, work summary, ratings and categories, animal allocation, blocklist and transfer.
-- **T1.10.** Planned for T1.10 (O-67, D-094): `/admin/volunteers/:volunteerId` with the sections identity, address, education, profession and skills, projects and permission sets, team (name, type and state of each member), work summary placeholder, ratings and category, blocklist, device sessions. NID, NID photos, date of birth, blood group and bank appear only inside the caller's `volunteer.view_sensitive` scope. Each action button (approve, request correction, block, unblock, revoke a session) appears only when the server says the caller may do it to this volunteer.
+- **T1.10.** Built in T1.10 (O-67, D-094): `/admin/volunteers/:volunteerId` (a pending volunteer the caller decides on opens as the registration review, which stays open with approval held back while a correction is open) with the sections identity, address, education, profession and skills, projects and permission sets, team (name, type and state of each member), work summary placeholder, ratings and category, blocklist, device sessions. NID, NID photos, date of birth, blood group and bank appear only inside the caller's `volunteer.view_sensitive` scope. Each action button (approve, request correction, block, unblock, revoke a session) appears only when the server says the caller may do it to this volunteer.
 - **Roles.** Officials. Sensitive parts follow the field classes.
 - **Priority.** parity.
 - **Data shown, by tab.**
@@ -843,7 +843,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 ### SCR-044 Beneficiary tab
 
 - **Purpose.** The central list of beneficiary profiles across years and projects (blueprint A7 "beneficiary tab").
-- **T1.10.** Planned for T1.10 (O-67): `/admin/beneficiaries`, the same filter pattern (area, type, project, year, blocklisted), search by name, by mobile with the contact class, by NID inside the `beneficiary.view_nid` scope; statistics (total, assisted this year, blocked). The Media and Procurement Teams get the limited view of BR-253.
+- **T1.10.** Built in T1.10 (O-67; `apps/web/src/admin/beneficiaries/`, E2E `apps/web/e2e/beneficiaries.spec.ts`; the 360° shell at `/admin/beneficiaries/:beneficiaryId`, merge in T2.2): `/admin/beneficiaries`, the same filter pattern (area, type, project, year, blocklisted), search by name, by mobile with the contact class, by NID inside the `beneficiary.view_nid` scope; statistics (total, assisted this year, blocked). The Media and Procurement Teams get the limited view of BR-253.
 - **Roles.**
   - Officials with `beneficiary.view_all`.
   - Media Team (masked).

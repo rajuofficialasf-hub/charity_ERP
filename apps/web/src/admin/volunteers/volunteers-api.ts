@@ -102,6 +102,8 @@ export interface VolunteerProfile {
   ratings?: { projectId: string; workKind: string; finalScores: unknown; finalizedAt: string }[];
   blocklist: { blocked: boolean; blockedAt?: string; reason?: string };
   actions: {
+    /** The caller decides on this pending registration (a correction may hold it now). */
+    review: boolean;
     approve: boolean;
     requestCorrection: boolean;
     block: boolean;

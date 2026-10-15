@@ -12,6 +12,7 @@ import { createContainer } from '../src/container';
 import type { PrismaService } from '../src/core/prisma.service';
 import { PrismaClient } from '../src/generated/prisma/client';
 import type { BeneficiaryViewer } from '../src/services/beneficiaries';
+import { SEARCH_TERMS } from '../seed/perf-data';
 import { perfDatabase } from './perf-db';
 
 const arg = (name: string, fallback: number) => {
@@ -182,8 +183,8 @@ async function main(): Promise<void> {
       await v('blocked', { blocked: 'true' }),
       await v('not blocked + total', { blocked: 'false', include: 'total' }),
       await v('project', { projectId: project.id }),
-      await v('name search', { q: 'হাসান' }),
-      await v('name search + total', { q: 'আলী রহমান', include: 'total' }),
+      await v('name search', { q: SEARCH_TERMS.volunteerPart }),
+      await v('name search + total', { q: SEARCH_TERMS.volunteerPair, include: 'total' }),
       await v('mobile search', { q: vol.mobile }),
       await v('NID search', { q: vol.nid }),
       await measure(`${who} volunteers.statistics all`, () => c.volunteerList.statistics({}, vv)),
@@ -203,8 +204,8 @@ async function main(): Promise<void> {
       await b('project', { projectId: project.id }),
       await b('year 2025', { year: 2025 }),
       await b('district + year + total', { districtId: dhaka.id, year: 2025, include: 'total' }),
-      await b('name search', { q: 'খাতুন' }),
-      await b('name search + total', { q: 'ফাতেমা বেগম', include: 'total' }),
+      await b('name search', { q: SEARCH_TERMS.beneficiaryPart }),
+      await b('name search + total', { q: SEARCH_TERMS.beneficiaryPair, include: 'total' }),
       await b('mobile search', { q: ben.mobile }),
       await b('NID search', { q: ben.nid }),
       await measure(`${who} beneficiaries.statistics all`, () =>

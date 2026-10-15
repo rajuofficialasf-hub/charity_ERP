@@ -167,6 +167,7 @@ const volunteerProfile = z.object({
     reason: sensitive(z.string(), 'blocklist.reason').optional(),
   }),
   actions: z.object({
+    review: z.boolean(),
     approve: z.boolean(),
     requestCorrection: z.boolean(),
     block: z.boolean(),

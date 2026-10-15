@@ -75,7 +75,7 @@ export function VolunteerProfilePage() {
       </>
     );
   const p = profile.data;
-  const reviewing = p.state === 'pending' && (p.actions.approve || p.actions.requestCorrection);
+  const reviewing = p.state === 'pending' && p.actions.review;
   return (
     <>
       {back}

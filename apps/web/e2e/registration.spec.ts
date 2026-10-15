@@ -183,11 +183,14 @@ test.describe('registration approval', () => {
     // the RPM of Dhaka asks for a correction of the father's name
     await signIn(page, 'rpm.dhaka@example.org', DEMO_PASSWORD);
     await page.getByRole('link', { name: 'অ্যাডমিন' }).click();
+    // volunteer registrations are reviewed in the volunteer tab, under its pending shortcut
     await page
       .getByRole('navigation', { name: 'অ্যাডমিন মেনু' })
-      .getByRole('link', { name: 'নিবন্ধন' })
+      .getByRole('link', { name: 'স্বেচ্ছাসেবক' })
       .click();
-    await expect(page.getByRole('heading', { level: 1, name: 'নিবন্ধন' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক' })).toBeVisible();
+    await page.getByRole('button', { name: 'অপেক্ষমাণ', exact: true }).click();
+    await expect(page).toHaveURL(/state=pending/);
     await page.getByRole('link', { name: person.name }).click();
     await expect(page.getByRole('heading', { level: 1, name: person.name })).toBeVisible();
     await expect(page.getByText(person.nid)).toBeVisible();

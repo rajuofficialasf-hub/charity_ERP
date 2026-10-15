@@ -90,7 +90,13 @@ export function RegistrationReview({
    * What the server allows on this volunteer (the volunteer profile passes its action flags); a
    * button shows only for an allowed action. Without it the role lists decide, as before.
    */
-  allowed?: { approve: boolean; requestCorrection: boolean; block: boolean; unblock: boolean };
+  allowed?: {
+    review: boolean;
+    approve: boolean;
+    requestCorrection: boolean;
+    block: boolean;
+    unblock: boolean;
+  };
 }) {
   const { me } = useAuth();
   const t = useTranslations('admin.registrations');
@@ -172,7 +178,7 @@ export function RegistrationReview({
         <div className="flex flex-wrap gap-2">
           {r.kind === 'volunteer' ? (
             <>
-              {(!allowed || allowed.approve || allowed.requestCorrection) && (
+              {(!allowed || allowed.review) && (
                 <Button
                   icon={Check}
                   disabled={
@@ -183,12 +189,17 @@ export function RegistrationReview({
                   {t('approve')}
                 </Button>
               )}
-              {(!allowed || allowed.requestCorrection) && (
-                <Button variant="secondary" icon={FilePenLine} onPress={() => setDialog('correct')}>
+              {(!allowed || allowed.review) && (
+                <Button
+                  variant="secondary"
+                  icon={FilePenLine}
+                  disabled={allowed && !allowed.requestCorrection}
+                  onPress={() => setDialog('correct')}
+                >
                   {t('correct')}
                 </Button>
               )}
-              {(!allowed || allowed.approve || allowed.requestCorrection) && (
+              {(!allowed || allowed.review) && (
                 <Button variant="secondary" icon={X} onPress={() => setDialog('reject')}>
                   {t('reject')}
                 </Button>
