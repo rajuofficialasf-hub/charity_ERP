@@ -468,7 +468,13 @@
     "detail": {
       "back": "All projects",
       "setup": "Setup",
-      "not_found": "This project was not found."
+      "not_found": "This project was not found.",
+      "facts": "Project facts",
+      "window": "Application window",
+      "budget": "Planned budget",
+      "activated": "Activated",
+      "closed": "Closed",
+      "none": "Not set"
     },
     "picker": "Project",
     "picker_option": "{name} {year} ({code})",
@@ -640,6 +646,29 @@
       }
     },
     "picker_failed": "The projects could not be loaded.",
-    "picker_chosen": "The chosen project"
+    "picker_chosen": "The chosen project",
+    "lifecycle": {
+      "action": {
+        "activate": "Activate",
+        "extend": "Extend the deadline",
+        "start_closing": "Start closing",
+        "close": "Close",
+        "reopen": "Reopen",
+        "cancel": "Cancel the draft"
+      },
+      "title": {
+        "activate": "Activate the project",
+        "extend": "Extend the application deadline",
+        "start_closing": "Start closing the project",
+        "close": "Close the project",
+        "reopen": "Reopen the project",
+        "cancel": "Cancel the draft"
+      },
+      "reason": "Reason",
+      "reason_hint": "At least 3 characters; it is kept in the audit log.",
+      "new_apply_to": "New end date",
+      "after": "After {date}",
+      "missing": "The project cannot be activated yet. Still needed:"
+    }
   }
 }

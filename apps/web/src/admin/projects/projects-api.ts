@@ -49,3 +49,26 @@ export const project = (projectId: string) => api<Project>(`/projects/${projectI
 
 export const createProject = (body: ProjectCreate) =>
   api<Project>('/projects', { method: 'POST', body });
+
+/** The project with its version, for the If-Match of a write. */
+export const projectWithEtag = (projectId: string) =>
+  api<{ data: Project; meta: { etag: string } }>(`/projects/${projectId}`, { envelope: true });
+
+/** The lifecycle moves (POST /projects/{id}/<action>), each with the project's version. */
+export type LifecycleAction = 'activate' | 'extend-deadline' | 'start-closing' | 'close' | 'reopen';
+export const moveProject = (
+  projectId: string,
+  action: LifecycleAction,
+  etag: string,
+  body?: { reason: string; newApplyTo?: string },
+) =>
+  api<Project>(`/projects/${projectId}/${action}`, {
+    method: 'POST',
+    // activation takes no body
+    ...(body ? { body } : {}),
+    headers: { 'If-Match': etag },
+  });
+
+/** A draft that was never activated is cancelled with a reason. */
+export const cancelProject = (projectId: string, reason: string) =>
+  api<Project>(`/projects/${projectId}/cancel`, { method: 'POST', body: { reason } });

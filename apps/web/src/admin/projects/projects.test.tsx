@@ -7,7 +7,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { ME, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
-import { ProjectPage } from './ProjectPage';
 import { ProjectsPage } from './ProjectsPage';
 
 // The project list, the new-project dialog and the project page. Test data only.
@@ -171,23 +170,4 @@ describe('the new-project dialog', () => {
     });
     // many keystrokes: slower than the default timeout while the whole suite runs
   }, 20_000);
-});
-
-describe('the project page', () => {
-  it('shows the name, code and state, and links to the setup', async () => {
-    refreshAs(PM);
-    serve();
-    renderApp(<ProjectPage />, 'bn', {
-      path: '/admin/projects/:projectId',
-      initialPath: '/admin/projects/01900000-0000-7000-8000-0000000000c1',
-    });
-    expect(
-      await screen.findByRole('heading', { level: 1, name: 'শীতবস্ত্র বিতরণ' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('খসড়া')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'সেটআপ' })).toHaveAttribute(
-      'href',
-      '/admin/projects/01900000-0000-7000-8000-0000000000c1/setup',
-    );
-  });
 });

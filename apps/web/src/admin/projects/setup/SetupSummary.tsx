@@ -1,7 +1,7 @@
-import type { ComponentKey } from '@css/shared';
 import { type MissingItem, setupCheck, WORKFLOWS_WITHOUT_LIMIT } from '@css/shared/projects';
 import { Card } from '@css/ui';
 import { useTranslations } from 'use-intl';
+import { useMissingLabel } from './missing';
 import type { Area, FundSource, ProjectComponent } from './setup-api';
 import { useSetup } from './setup-context';
 
@@ -37,7 +37,7 @@ export function SetupSummary({
 }) {
   const { project } = useSetup();
   const t = useTranslations('admin.projects.setup');
-  const tk = useTranslations('admin.projects.component');
+  const label = useMissingLabel();
   const missing = setupCheck({
     name: project.name,
     year: project.year,
@@ -52,10 +52,6 @@ export function SetupSummary({
     areaCount: areas.length,
     components: components.map((c) => ({ ...c, settings: c.settings ?? {} })),
   });
-  const label = (item: MissingItem) =>
-    item.startsWith('component:')
-      ? t('missing.component', { name: tk(item.slice('component:'.length) as ComponentKey) })
-      : t(`missing.${item as Exclude<MissingItem, `component:${string}`>}`);
 
   return (
     <aside className="admin-setup-summary" aria-label={t('summary')}>

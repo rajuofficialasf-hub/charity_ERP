@@ -9,9 +9,7 @@ import type {
 import { api } from '../../../lib/api';
 import { type Project, PROJECTS_KEY } from '../projects-api';
 
-/** The project with its version, for the If-Match of its PATCH. */
-export const projectWithEtag = (projectId: string) =>
-  api<{ data: Project; meta: { etag: string } }>(`/projects/${projectId}`, { envelope: true });
+export { projectWithEtag } from '../projects-api';
 
 export const updateProject = (projectId: string, etag: string, body: ProjectUpdate) =>
   api<Project>(`/projects/${projectId}`, {
