@@ -22,6 +22,16 @@ export function ChangePasswordView() {
   const [done, setDone] = useState(false);
   const navigate = useNavigate();
 
+  /** The password is changed: the session is read again and the home page opens once it says so. */
+  const startWorking = async () => {
+    try {
+      const pair = await refreshSession();
+      if (pair && !pair.me.passwordChangeRequired) void navigate('/', { replace: true });
+    } catch {
+      // the change itself succeeded; the next page load reads the session again
+    }
+  };
+
   const submit = async (event: FormEvent<HTMLFormElement>, due: boolean) => {
     event.preventDefault();
     setErrors({});
@@ -41,11 +51,7 @@ export function ChangePasswordView() {
       setNext('');
       setConfirm('');
       setDone(true);
-      if (due) {
-        // the session now says nothing is due: read it again, then start working
-        await refreshSession();
-        void navigate('/', { replace: true });
-      }
+      if (due) void startWorking();
     } catch (failure) {
       if (failure instanceof ApiFailure && failure.details.length)
         setErrors(Object.fromEntries(failure.details.map((d) => [d.path ?? '', d.message])));

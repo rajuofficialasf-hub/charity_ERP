@@ -87,6 +87,15 @@ const FACEBOOK_HOSTS = new Set(['facebook.com', 'fb.com', 'www.fb.com', 'fb.me']
 /** Facebook's own redirect hosts: a link there can send the reader anywhere. */
 const FACEBOOK_REDIRECTS = new Set(['l.facebook.com', 'lm.facebook.com']);
 
+/** Control characters (C0, DEL, C1) and the invisible width and direction marks. */
+const isHidden = (code: number): boolean =>
+  code < 0x20 ||
+  (code >= 0x7f && code <= 0x9f) ||
+  (code >= 0x200b && code <= 0x200f) ||
+  (code >= 0x202a && code <= 0x202e) ||
+  (code >= 0x2066 && code <= 0x2069) ||
+  code === 0xfeff;
+
 /**
  * Whether the text is an https link to Facebook: it starts with `https://`, its authority (the
  * part before the first `/`, `?` or `#`) is a plain host without a user name, password or port,
@@ -96,11 +105,15 @@ const FACEBOOK_REDIRECTS = new Set(['l.facebook.com', 'lm.facebook.com']);
  * package has neither the DOM nor the Node types.
  */
 export function isFacebookLink(value: string): boolean {
-  if (/[\s\\]/.test(value) || [...value].some((c) => c.charCodeAt(0) < 32)) return false;
-  const match = /^https:\/\/([^/?#]*)(?:[/?#]|$)/i.exec(value);
+  // whitespace, a backslash, control characters (C0, DEL, C1) and the invisible direction and
+  // width marks that could make the shown text differ from the link
+  if (/[\s\\]/.test(value) || [...value].some((c) => isHidden(c.charCodeAt(0)))) return false;
+  const match = /^https:\/\/([^/?#]*)([/?#].*)?$/i.exec(value);
   if (!match) return false;
   const host = match[1]!.toLowerCase();
   if (!/^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/.test(host)) return false;
+  // Facebook's own "leaving Facebook" pages forward to any address
+  if (/^\/(?:l\.php|flx\/warn)(?:[/?#]|$)/i.test(match[2] ?? '')) return false;
   return (
     !FACEBOOK_REDIRECTS.has(host) && (FACEBOOK_HOSTS.has(host) || host.endsWith('.facebook.com'))
   );

@@ -535,7 +535,7 @@ export class RegistrationsService {
       }
       if (body.decision === 'reject') return this.close(tx, actor, userId, body.reason!);
       // a role with global scope asks for 12 characters; the 8 of the registration are not enough,
-      // so the person chooses a new password at the next sign-in (O-66)
+      // so the person chooses a new password at the next sign-in (DECISION_LOG O-66)
       // (the same stored flag that sets the password length in AuthService)
       const stored = await tx.role.findUnique({
         where: { key: body.roleKey! },
@@ -554,6 +554,8 @@ export class RegistrationsService {
         new: { kind: 'staff', role: body.roleKey },
       });
     });
+    // `bump` evicted inside the transaction; a request in between may have cached the old facts
+    this.sessions.evictUser(userId);
     this.events.emit({
       type: body.decision === 'approve' ? 'registration.approved' : 'registration.rejected',
       userId,

@@ -92,6 +92,15 @@ function Profile() {
   const [leaving, setLeaving] = useState<(typeof SECTIONS)[number]['key'] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const titleId = useId();
+  // the profile is read again (a permission change): the edit mode and its question start over
+  const [wasPending, setWasPending] = useState(profile.isPending);
+  if (profile.isPending !== wasPending) {
+    setWasPending(profile.isPending);
+    if (profile.isPending) {
+      setEditing(false);
+      setLeaving(null);
+    }
+  }
   if (profile.isPending) return <Skeleton count={3} />;
   if (profile.error instanceof ApiFailure && profile.error.status === 404)
     return <EmptyState title={t('profile.not_volunteer')} />;
@@ -152,8 +161,9 @@ function Profile() {
           waiting={waiting}
           busy={busy}
           onSelect={(key) => {
-            if (editing && dirty && key !== current) {
-              setLeaving(key);
+            // ticked details are never dropped without a question; the open section stays as it is
+            if (editing && dirty) {
+              if (key !== current) setLeaving(key);
               return;
             }
             setCurrent(key);

@@ -8,7 +8,8 @@ import { useTranslations } from 'use-intl';
 import { AddressNames } from '../../components/AddressNames';
 
 /**
- * The profession, the skills and the emergency contact as lines of text (DECISION_LOG O-65, D-092),
+ * The profession, the skills (with the full-time answer), the education and the permanent address
+ * as lines of text (DECISION_LOG O-65, O-66, D-092),
  * for the own profile and for the approver's registration: one line per given value, labelled in
  * the language of the page.
  */

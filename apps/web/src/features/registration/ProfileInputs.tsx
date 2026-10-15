@@ -14,7 +14,8 @@ import { useTranslations } from 'use-intl';
 import { type Address, AddressFields, EMPTY_ADDRESS } from './AddressFields';
 
 /**
- * The inputs of the profession, the skills and the emergency contact (DECISION_LOG O-65, D-092;
+ * The inputs of the profession, the skills (with the full-time answer), the education and the
+ * permanent address (DECISION_LOG O-65, O-66, D-092;
  * BR-246), used by the registration steps and by the edit mode of the own profile, so both ask the
  * same way. Each group holds its values as the form needs them (strings, one yes or no as text) and
  * turns them into the value the API takes with the `…Value` functions; blank values are dropped.

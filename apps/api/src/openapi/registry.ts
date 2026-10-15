@@ -27,7 +27,7 @@ export interface OperationSpec {
   /** A pending account may call this operation (AUTH.md 7). */
   allowPending?: boolean;
   /**
-   * An account that must set a new password (O-66) may call this operation. Exactly the own
+   * An account that must set a new password (DECISION_LOG O-66) may call this operation. Exactly the own
    * profile read, the language, the password change and the logout carry it.
    */
   allowPasswordChange?: boolean;

@@ -30,7 +30,7 @@ export interface SessionFacts {
   kind: string;
   state: string;
   permissionVersion: number;
-  /** A new password is due before anything else (O-66). */
+  /** A new password is due before anything else (DECISION_LOG O-66). */
   passwordChangeRequired: boolean;
   roles: string[];
   globalScope: boolean;

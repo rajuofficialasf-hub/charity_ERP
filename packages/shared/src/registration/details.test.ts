@@ -173,6 +173,8 @@ describe('the skills, the emergency contact and the personal values', () => {
       'https://web.facebook.com/nomuna',
       'https://fb.com/nomuna',
       'https://fb.me/nomuna',
+      'https://www.facebook.com/l.phpx',
+      'https://WWW.FACEBOOK.COM/nomuna',
     ])
       expect(ok(facebookLinkSchema, good), good).toBe(true);
     for (const bad of [
@@ -187,6 +189,13 @@ describe('the skills, the emergency contact and the personal values', () => {
       'https://lm.facebook.com/l.php?u=https://evil.example',
       'https://facebook.com\\@evil.example/x',
       'https://www.facebook.com/a b',
+      'https://www.facebook.com/l.php?u=https://evil.example',
+      'https://m.facebook.com/L.php?u=https://evil.example',
+      'https://www.facebook.com/flx/warn/?u=https://evil.example',
+      'https://www.facebook.com/abc\u202Egnp.exe',
+      'https://www.facebook.com/a\u200Bb',
+      'https://www.facebook.com/a\u0085b',
+      'https://www.facebook.com/a\u007Fb',
       'javascript:alert(1)',
       'nomuna.name',
       '100012345',

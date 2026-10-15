@@ -59,7 +59,7 @@ export function requireAccess(deps: AccessDeps): (rule: AccessRule) => RequestHa
         if (facts.state === 'blocked') throw new ApiError('auth.account_blocked', 403);
         if (facts.state === 'pending' && !rule.allowPending)
           throw new ApiError('auth.account_pending', 403);
-        // an account that must choose a new password reaches only the operations for that (O-66)
+        // an account that must choose a new password reaches only the operations for that (DECISION_LOG O-66)
         if (facts.passwordChangeRequired && !rule.allowPasswordChange)
           throw new ApiError('auth.password_change_required', 403);
 

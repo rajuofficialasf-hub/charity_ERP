@@ -576,6 +576,10 @@ describe('the personal, profession, education and skills data in the profile', (
     // a ticked detail: the question, "Cancel" stays with the tick, the other button leaves
     const address = await startEdit(user, 'Address');
     await user.click(within(address).getByRole('checkbox', { name: 'Change Address' }));
+    // the open section itself: nothing asked, nothing dropped
+    await openSection(user, 'Address');
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(within(address).getByRole('checkbox', { name: 'Change Address' })).toBeChecked();
     await openSection(user, 'Education');
     const dialog = await screen.findByRole('alertdialog');
     expect(within(dialog).getByText('Leave without sending?')).toBeInTheDocument();

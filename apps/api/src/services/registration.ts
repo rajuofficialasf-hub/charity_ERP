@@ -500,7 +500,7 @@ function volunteerColumns(
     addressLine: body.addressLine ?? null,
     // The volunteer form has no experience or work description: the profession covers them
     // (O-65), so a reused account clears the old values too. The education text and the earlier
-    // projects are not asked any more either, but their data stay (O-66).
+    // projects are not asked any more either, but their data stay (DECISION_LOG O-66).
     experience: null,
     workDescription: null,
     facebookId: body.facebookId ?? null,
