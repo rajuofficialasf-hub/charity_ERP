@@ -98,6 +98,13 @@ export function limitRequired(definition: WorkflowDefinition): boolean {
 }
 
 /**
+ * The workflows that count no application against a volunteer, as `limitRequired` reads them from
+ * the definitions; the screens use this list, which has no definition at hand (a test keeps the two
+ * equal).
+ */
+export const WORKFLOWS_WITHOUT_LIMIT: readonly WorkflowKey[] = ['open_application_visit'];
+
+/**
  * The photo rule of a workflow, a project-wide setting kept on the `distribution` row (the one
  * component with the photo-rule settings) whether that component is on or not. A fixed rule is
  * copied; "per project" means the PM must choose, so the rule starts missing and the activation

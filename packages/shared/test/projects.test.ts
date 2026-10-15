@@ -26,6 +26,7 @@ import {
   transitionFor,
   WORKFLOW_COMPONENTS,
   WORKFLOW_KEYS,
+  WORKFLOWS_WITHOUT_LIMIT,
 } from '../src/projects/index.js';
 
 // The workflow templates as the seed stores them: each yaml merged with its `extends` chain.
@@ -376,7 +377,7 @@ describe('the setup request bodies', () => {
 describe('the lifecycle helpers', () => {
   it('needs a per-volunteer limit except where applications come from the public', () => {
     for (const key of WORKFLOW_KEYS)
-      expect(limitRequired(definition(key)), key).toBe(key !== 'open_application_visit');
+      expect(limitRequired(definition(key)), key).toBe(!WORKFLOWS_WITHOUT_LIMIT.includes(key));
   });
 
   it('takes a deadline extension only as a date with a reason', () => {

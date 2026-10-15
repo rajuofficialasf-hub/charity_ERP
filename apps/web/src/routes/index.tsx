@@ -59,6 +59,13 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
               }),
             },
             {
+              path: 'projects/:projectId/setup',
+              lazy: async () => ({
+                Component: (await import('../admin/projects/setup/ProjectSetupPage'))
+                  .ProjectSetupPage,
+              }),
+            },
+            {
               path: 'volunteers',
               lazy: async () => ({
                 Component: (await import('../admin/volunteers/VolunteersPage')).VolunteersPage,

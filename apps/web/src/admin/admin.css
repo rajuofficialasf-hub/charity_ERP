@@ -181,3 +181,131 @@
   object-fit: cover;
   flex: none;
 }
+
+/*
+ * Project setup (SCR-060, mockup 12): the section index, the sections and the summary side by side
+ * from 1440 px (the admin sidebar takes its share of the width); from 1024 px the index runs above
+ * the sections and the summary beside them; on smaller screens everything stacks.
+ */
+.admin-setup {
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+@media (min-width: 1024px) {
+  .admin-setup {
+    grid-template-columns: minmax(0, 1fr) 260px;
+    align-items: start;
+  }
+  .admin-setup-index {
+    grid-column: 1 / -1;
+  }
+  .admin-setup-summary {
+    position: sticky;
+    top: calc(var(--app-bar-height) + var(--space-4));
+  }
+}
+@media (min-width: 1440px) {
+  .admin-setup {
+    grid-template-columns: 180px minmax(0, 1fr) 280px;
+  }
+  .admin-setup-index {
+    grid-column: auto;
+    position: sticky;
+    top: calc(var(--app-bar-height) + var(--space-4));
+  }
+}
+.admin-setup-index ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (min-width: 1440px) {
+  .admin-setup-index ol {
+    flex-direction: column;
+  }
+}
+.admin-setup-main {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.admin-setup-section {
+  scroll-margin-top: calc(var(--app-bar-height) + var(--space-4));
+}
+.admin-setup-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: var(--space-3) var(--space-4);
+}
+.admin-setup-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-3);
+  padding-block: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.admin-setup-row > * {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.admin-setup-row > .ui-btn,
+.admin-setup-order {
+  flex: 0 0 auto;
+}
+.admin-setup-order {
+  display: inline-flex;
+}
+.admin-setup-subtitle {
+  font-size: var(--text-title);
+  font-weight: var(--font-weight-bold);
+  margin: var(--space-4) 0 var(--space-2);
+}
+.admin-setup-list,
+.admin-setup-components,
+.admin-setup-missing {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-setup-list li,
+.admin-setup-components li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-block: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.admin-setup-components li > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.admin-setup-missing li {
+  padding-block: var(--space-1);
+}
+.admin-setup-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+.admin-setup-fieldset {
+  border: 0;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+}
+.admin-setup-fieldset legend {
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--space-2);
+}
+.admin-setup-save {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}

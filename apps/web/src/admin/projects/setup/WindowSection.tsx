@@ -1,0 +1,78 @@
+import { type ProjectUpdate, WORKFLOWS_WITHOUT_LIMIT } from '@css/shared/projects';
+import { DateField, NumberField } from '@css/ui';
+import { useMutation } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useTranslations } from 'use-intl';
+import { ApiFailure } from '../../../lib/api';
+import { updateProject } from './setup-api';
+import { SaveRow, SetupSection, useSetup } from './setup-context';
+
+/**
+ * The application window and the per-volunteer limit. Once active the end date moves only by the
+ * reasoned extension on the project's page.
+ */
+export function WindowSection() {
+  const { project, etag, editable, refresh } = useSetup();
+  const t = useTranslations('admin.projects.setup');
+  const [from, setFrom] = useState(project.applyFrom);
+  const [to, setTo] = useState(project.applyTo);
+  const [limit, setLimit] = useState(
+    project.perVolunteerLimit === null ? '' : String(project.perVolunteerLimit),
+  );
+  const noLimit = WORKFLOWS_WITHOUT_LIMIT.includes(project.workflowKey);
+
+  const body = (): ProjectUpdate => {
+    const out: ProjectUpdate = {};
+    if (from !== project.applyFrom) out.applyFrom = from;
+    if (to !== project.applyTo) out.applyTo = to;
+    const value = limit === '' ? null : Number(limit);
+    if (value !== project.perVolunteerLimit) out.perVolunteerLimit = value;
+    return out;
+  };
+  const save = useMutation({
+    mutationFn: () => updateProject(project.id, etag, body()),
+    onSuccess: refresh,
+    onError: (e) => e instanceof ApiFailure && e.status === 412 && refresh(),
+  });
+  const order = from && to && from > to ? t('window_order') : undefined;
+  const changed = Object.keys(body()).length > 0;
+  const canSave = editable('applyFrom') || editable('applyTo') || editable('perVolunteerLimit');
+
+  return (
+    <SetupSection id="window" title={t('section.window')}>
+      <div className="admin-setup-grid">
+        <DateField
+          label={t('apply_from')}
+          value={from}
+          onChange={setFrom}
+          readOnly={!editable('applyFrom')}
+        />
+        <DateField
+          label={t('apply_to')}
+          helper={project.status === 'active' ? t('apply_to_active') : undefined}
+          value={to}
+          onChange={setTo}
+          error={order}
+          readOnly={!editable('applyTo')}
+        />
+        {!noLimit && (
+          <NumberField
+            label={t('limit')}
+            helper={t('limit_hint')}
+            kind="integer"
+            value={limit}
+            onChange={setLimit}
+            readOnly={!editable('perVolunteerLimit')}
+          />
+        )}
+      </div>
+      {canSave && (
+        <SaveRow
+          mutation={save}
+          onSave={() => save.mutate()}
+          disabled={!changed || Boolean(order)}
+        />
+      )}
+    </SetupSection>
+  );
+}
