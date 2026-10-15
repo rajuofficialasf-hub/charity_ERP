@@ -638,6 +638,8 @@
           "dedup_identical": "Warn on identical photos"
         }
       }
-    }
+    },
+    "picker_failed": "The projects could not be loaded.",
+    "picker_chosen": "The chosen project"
   }
 }

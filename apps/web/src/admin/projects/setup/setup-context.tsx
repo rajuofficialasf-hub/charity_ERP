@@ -1,7 +1,7 @@
 import { editableIn, type SetupField } from '@css/shared/projects';
 import { Alert, Button, Card } from '@css/ui';
 import { type UseMutationResult } from '@tanstack/react-query';
-import { createContext, type ReactNode, useContext } from 'react';
+import { createContext, Fragment, type ReactNode, useContext, useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../../lib/api';
 import type { Project } from '../projects-api';
@@ -15,7 +15,7 @@ export interface SetupState {
   /** The caller configures the project (the PM and the global roles); others only read. */
   configure: boolean;
   /** Reloads the project and every part after a save or a stale version. */
-  refresh: () => void;
+  refresh: () => Promise<unknown>;
 }
 
 const SetupContext = createContext<SetupState | null>(null);
@@ -35,6 +35,23 @@ export function useSetup() {
       editableIn(state.project.status, field) &&
       (!state.phone || PHONE_FIELDS.includes(field)),
   };
+}
+
+/**
+ * Keeps a section's form as the user typed it while other sections save; only a stale save of its
+ * own (412) reloads the form from the server, after the new version has arrived, and the notice
+ * stays until the next save.
+ */
+export function Reseed({
+  children,
+}: {
+  children: (state: { stale: boolean; onStale: () => void }) => ReactNode;
+}) {
+  const { refresh } = useSetup();
+  const [state, setState] = useState({ version: 0, stale: false });
+  const onStale = () =>
+    void refresh().then(() => setState((s) => ({ version: s.version + 1, stale: true })));
+  return <Fragment key={state.version}>{children({ stale: state.stale, onStale })}</Fragment>;
 }
 
 /** One section of the setup: a card with its heading, an anchor for the index, and its content. */
@@ -67,11 +84,14 @@ export function SaveRow({
   onSave,
   disabled,
   label,
+  stale = false,
 }: {
   mutation: Pick<UseMutationResult<unknown, Error, void>, 'error' | 'isPending' | 'isSuccess'>;
   onSave: () => void;
   disabled?: boolean;
   label?: string;
+  /** The form was reloaded after a stale save (see `Reseed`). */
+  stale?: boolean;
 }) {
   const t = useTranslations('admin.projects.setup');
   const tc = useTranslations('common.action');
@@ -83,6 +103,11 @@ export function SaveRow({
           {error.status === 412
             ? t('stale')
             : (error.details.map((d) => d.message).find(Boolean) ?? error.message)}
+        </Alert>
+      )}
+      {stale && !error && !mutation.isSuccess && !mutation.isPending && (
+        <Alert tone="warning" live="alert">
+          {t('stale')}
         </Alert>
       )}
       {mutation.isSuccess && !mutation.isPending && (

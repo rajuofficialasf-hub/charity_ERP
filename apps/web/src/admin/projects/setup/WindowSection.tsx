@@ -5,13 +5,17 @@ import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../../lib/api';
 import { updateProject } from './setup-api';
-import { SaveRow, SetupSection, useSetup } from './setup-context';
+import { Reseed, SaveRow, SetupSection, useSetup } from './setup-context';
 
 /**
  * The application window and the per-volunteer limit. Once active the end date moves only by the
  * reasoned extension on the project's page.
  */
 export function WindowSection() {
+  return <Reseed>{(state) => <WindowForm {...state} />}</Reseed>;
+}
+
+function WindowForm({ stale, onStale }: { stale: boolean; onStale: () => void }) {
   const { project, etag, editable, refresh } = useSetup();
   const t = useTranslations('admin.projects.setup');
   const [from, setFrom] = useState(project.applyFrom);
@@ -32,7 +36,7 @@ export function WindowSection() {
   const save = useMutation({
     mutationFn: () => updateProject(project.id, etag, body()),
     onSuccess: refresh,
-    onError: (e) => e instanceof ApiFailure && e.status === 412 && refresh(),
+    onError: (e) => e instanceof ApiFailure && e.status === 412 && onStale(),
   });
   const order = from && to && from > to ? t('window_order') : undefined;
   const changed = Object.keys(body()).length > 0;
@@ -71,6 +75,7 @@ export function WindowSection() {
           mutation={save}
           onSave={() => save.mutate()}
           disabled={!changed || Boolean(order)}
+          stale={stale}
         />
       )}
     </SetupSection>

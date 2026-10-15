@@ -26,20 +26,27 @@ export function ProjectPicker({
     queryFn: pickerProjects,
     enabled: Boolean(me && canSeeProjects(me)),
   });
-  if (!list.data?.length) return null;
+  const projects = list.data ?? [];
+  // a chosen project stays visible and can be cleared, even when it is not among the listed ones
+  if (!projects.length && !value) return null;
+  const unlisted = value && !projects.some((p) => p.id === value);
   return (
     <Select
       label={t('picker')}
+      helper={list.error ? t('picker_failed') : undefined}
       value={value}
       onChange={onChange}
-      options={list.data.map((p) => ({
-        id: p.id,
-        label: t('picker_option', {
-          name: localized(p.name, locale),
-          year: String(p.year),
-          code: p.code,
-        }),
-      }))}
+      options={[
+        ...(unlisted ? [{ id: value, label: t('picker_chosen') }] : []),
+        ...projects.map((p) => ({
+          id: p.id,
+          label: t('picker_option', {
+            name: localized(p.name, locale),
+            year: String(p.year),
+            code: p.code,
+          }),
+        })),
+      ]}
     />
   );
 }

@@ -13,6 +13,10 @@ interface Item {
   code: string;
   label: { bn: string; en: string };
   active?: boolean;
+}
+interface Stage {
+  key: string;
+  label: { bn: string; en: string };
   photo_required?: boolean;
 }
 
@@ -53,10 +57,10 @@ const PHOTO_KINDS = [
 ] as const;
 const MAX_STAGES = 30;
 
-/** A new code that no item of the list has yet (codes are snake case). */
-const freshCode = (items: { code: string }[], prefix: string) => {
-  let n = items.length + 1;
-  while (items.some((i) => i.code === `${prefix}_${n}`)) n += 1;
+/** A new code that no entry of the list has yet (codes and stage keys are snake case). */
+const freshCode = (taken: string[], prefix: string) => {
+  let n = taken.length + 1;
+  while (taken.includes(`${prefix}_${n}`)) n += 1;
   return `${prefix}_${n}`;
 };
 const asItems = (value: unknown): Item[] => (Array.isArray(value) ? (value as Item[]) : []);
@@ -132,16 +136,8 @@ export function ComponentDrawer({
       )}
       {key === 'stages' && (
         <Stages
-          items={asItems(get(settings, 'list')).map((s) => ({
-            ...s,
-            code: (s as unknown as { key: string }).key,
-          }))}
-          onChange={(items) =>
-            set(
-              'list',
-              items.map(({ code, ...rest }) => ({ key: code, ...rest })),
-            )
-          }
+          items={Array.isArray(get(settings, 'list')) ? (get(settings, 'list') as Stage[]) : []}
+          onChange={(items) => set('list', items)}
           readOnly={readOnly}
         />
       )}
@@ -280,7 +276,16 @@ function CodeLabelList({
           icon={Plus}
           disabled={items.length >= max}
           onPress={() =>
-            onChange([...items, { code: freshCode(items, 'item'), label: { bn: '', en: '' } }])
+            onChange([
+              ...items,
+              {
+                code: freshCode(
+                  items.map((i) => i.code),
+                  'item',
+                ),
+                label: { bn: '', en: '' },
+              },
+            ])
           }
         >
           {t('add', { max: String(max) })}
@@ -296,8 +301,8 @@ function Stages({
   onChange,
   readOnly,
 }: {
-  items: Item[];
-  onChange: (items: Item[]) => void;
+  items: Stage[];
+  onChange: (items: Stage[]) => void;
   readOnly: boolean;
 }) {
   const t = useTranslations('admin.projects.setup.drawer');
@@ -307,13 +312,13 @@ function Stages({
     next.splice(i + by, 0, item!);
     onChange(next);
   };
-  const setItem = (i: number, patch: Partial<Item>) =>
+  const setItem = (i: number, patch: Partial<Stage>) =>
     onChange(items.map((item, j) => (j === i ? { ...item, ...patch } : item)));
   return (
     <fieldset className="admin-setup-fieldset">
       <legend>{t('list.stages')}</legend>
       {items.map((item, i) => (
-        <div key={item.code} className="admin-setup-row">
+        <div key={item.key} className="admin-setup-row">
           <TextField
             label={t('label_bn', { number: String(i + 1) })}
             maxLength={200}
@@ -378,7 +383,16 @@ function Stages({
           icon={Plus}
           disabled={items.length >= MAX_STAGES}
           onPress={() =>
-            onChange([...items, { code: freshCode(items, 'stage'), label: { bn: '', en: '' } }])
+            onChange([
+              ...items,
+              {
+                key: freshCode(
+                  items.map((i) => i.key),
+                  'stage',
+                ),
+                label: { bn: '', en: '' },
+              },
+            ])
           }
         >
           {t('add', { max: String(MAX_STAGES) })}

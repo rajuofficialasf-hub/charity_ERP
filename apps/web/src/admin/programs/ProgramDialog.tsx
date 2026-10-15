@@ -1,11 +1,18 @@
 import { programCode } from '@css/shared/projects';
 import { Alert, Button, Modal, Switch, TextField } from '@css/ui';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../lib/api';
 import { type PanelUser, UserSearch } from '../UserSearch';
-import { assignPm, createProgram, type Program, updateProgram } from './programs-api';
+import {
+  assignPm,
+  createProgram,
+  type Program,
+  PROGRAMS_KEY,
+  programWithEtag,
+  updateProgram,
+} from './programs-api';
 
 /**
  * Creates a program (code, name in both languages, an optional PM) or edits one: its name, whether
@@ -36,14 +43,23 @@ export function ProgramDialog({
       ? { id: program.pmUserId, displayName: program.pmName ?? '', designation: null, roles: [] }
       : null,
   );
+  const queryClient = useQueryClient();
+  // the version this edit started from: a change by someone else meanwhile answers 412
+  const version = useQuery({
+    queryKey: [...PROGRAMS_KEY, 'one', program?.id],
+    queryFn: () => programWithEtag(program!.id),
+    enabled: Boolean(program),
+    staleTime: Infinity,
+  });
   const save = useMutation({
     mutationFn: async () => {
       const name = { bn: nameBn.trim(), en: nameEn.trim() };
       if (!program) return createProgram({ code, name, ...(pm ? { pmUserId: pm.id } : {}) });
       let saved = program;
+      // the rename first: assigning the PM changes the program's version as well
       const renamed = name.bn !== program.name.bn || name.en !== program.name.en;
       if (renamed || active !== program.active)
-        saved = await updateProgram(program.id, {
+        saved = await updateProgram(program.id, version.data!.meta.etag, {
           ...(renamed ? { name } : {}),
           ...(active !== program.active ? { active } : {}),
         });
@@ -51,6 +67,8 @@ export function ProgramDialog({
       return saved;
     },
     onSuccess: onDone,
+    // a save that stopped halfway still changed the program: the list shows what is stored
+    onSettled: () => queryClient.invalidateQueries({ queryKey: PROGRAMS_KEY }),
   });
   const submit = () => {
     if (!program && !programCode.safeParse(code).success) {
@@ -60,7 +78,10 @@ export function ProgramDialog({
     setCodeError(undefined);
     save.mutate();
   };
-  const ready = nameBn.trim() !== '' && nameEn.trim() !== '' && (program || code !== '');
+  const ready =
+    nameBn.trim() !== '' &&
+    nameEn.trim() !== '' &&
+    (program ? version.data !== undefined : code !== '');
   return (
     <Modal
       title={program ? t('edit_title', { code: program.code }) : t('create_title')}

@@ -17,7 +17,11 @@ export function SyllabusSection({ topics }: { topics: Topic[] }) {
   const can = editable('syllabus');
   const save = useMutation({
     mutationFn: () => saveSyllabus(project.id, { topics: rows }),
-    onSuccess: refresh,
+    onSuccess: (saved) => {
+      // the new topics now have their ids, so the next save keeps them
+      setRows(saved);
+      void refresh();
+    },
   });
   const setTitle = (i: number, title: Row['title']) =>
     setRows(rows.map((r, j) => (j === i ? { ...r, title } : r)));

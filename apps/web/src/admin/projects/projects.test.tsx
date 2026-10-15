@@ -123,7 +123,9 @@ describe('the project list', () => {
     refreshAs(VOLUNTEER);
     serve();
     open();
-    expect(await screen.findByRole('heading', { level: 1 })).not.toHaveTextContent('প্রকল্প');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'প্রবেশাধিকার নেই' }),
+    ).toBeInTheDocument();
     expect(listUrls).toEqual([]);
   });
 });

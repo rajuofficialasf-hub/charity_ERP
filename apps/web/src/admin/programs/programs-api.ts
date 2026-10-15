@@ -19,17 +19,17 @@ export const programs = () => api<Program[]>('/programs');
 export const createProgram = (body: ProgramCreate) =>
   api<Program>('/programs', { method: 'POST', body });
 
-/** PATCH /programs/{id} with the program's current version (If-Match). */
-export async function updateProgram(programId: string, body: ProgramUpdate) {
-  const current = await api<{ meta: { etag: string } }>(`/programs/${programId}`, {
-    envelope: true,
-  });
-  return api<Program>(`/programs/${programId}`, {
+/** GET /programs/{id} with its version, read when the edit opens. */
+export const programWithEtag = (programId: string) =>
+  api<{ data: Program; meta: { etag: string } }>(`/programs/${programId}`, { envelope: true });
+
+/** PATCH /programs/{id} with the version read when the edit opened (If-Match). */
+export const updateProgram = (programId: string, etag: string, body: ProgramUpdate) =>
+  api<Program>(`/programs/${programId}`, {
     method: 'PATCH',
     body,
-    headers: { 'If-Match': current.meta.etag },
+    headers: { 'If-Match': etag },
   });
-}
 
 export const assignPm = (programId: string, pmUserId: string) =>
   api<Program>(`/programs/${programId}/pm`, { method: 'POST', body: { pmUserId } });

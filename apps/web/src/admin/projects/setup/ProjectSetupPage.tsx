@@ -103,7 +103,16 @@ export function ProjectSetupPage() {
       </>
     );
   const { data: project, meta } = one.data;
-  const refresh = () => void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY });
+  const refresh = () => queryClient.invalidateQueries({ queryKey: PROJECTS_KEY });
+  // a part that did not load is an error with a retry, never "nothing configured"
+  const failed = (query: { error: Error | null; refetch: () => unknown }) =>
+    query.error ? (
+      <ErrorState
+        title={tc('state.error.text')}
+        requestId={query.error instanceof ApiFailure ? query.error.requestId : undefined}
+        onRetry={() => void query.refetch()}
+      />
+    ) : null;
   const locked = !['draft', 'active'].includes(project.status);
   const index: SectionId[] = [
     'basics',
@@ -140,33 +149,24 @@ export function ProjectSetupPage() {
           </ol>
         </nav>
         <div className="admin-setup-main">
-          <BasicsSection key={`basics-${meta.etag}`} />
-          <ComponentsSection components={parts.data ?? []} />
-          {funds.data && (
-            <BudgetSection
-              key={`budget-${meta.etag}-${funds.dataUpdatedAt}`}
-              sources={funds.data}
-            />
-          )}
-          <WindowSection key={`window-${meta.etag}`} />
-          {areaList.data && <AreasSection areas={areaList.data} />}
-          {staffList.data && (
-            <StaffSection
-              staff={staffList.data}
-              areas={areaList.data ?? []}
-              manage={configure || rpm}
-            />
-          )}
-          {dawah && topics.data && (
-            <SyllabusSection key={`syllabus-${topics.dataUpdatedAt}`} topics={topics.data} />
-          )}
+          <BasicsSection />
+          {failed(parts) ?? <ComponentsSection components={parts.data ?? []} />}
+          {failed(funds) ?? (funds.data && <BudgetSection sources={funds.data} />)}
+          <WindowSection />
+          {failed(areaList) ?? (areaList.data && <AreasSection areas={areaList.data} />)}
+          {failed(staffList) ??
+            (staffList.data && (
+              <StaffSection
+                staff={staffList.data}
+                areas={areaList.data ?? []}
+                manage={configure || rpm}
+              />
+            ))}
+          {dawah && (failed(topics) ?? (topics.data && <SyllabusSection topics={topics.data} />))}
         </div>
-        {configure && (
-          <SetupSummary
-            components={parts.data ?? []}
-            fundSources={funds.data ?? []}
-            areas={areaList.data ?? []}
-          />
+        {/* the summary waits for every part it checks, so it never lists a part that failed */}
+        {configure && parts.data && funds.data && areaList.data && (
+          <SetupSummary components={parts.data} fundSources={funds.data} areas={areaList.data} />
         )}
       </div>
     </SetupProvider>

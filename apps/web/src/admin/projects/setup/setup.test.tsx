@@ -19,6 +19,7 @@ let project: Record<string, unknown>;
 let writes: { path: string; body: unknown }[];
 let patchStatus: number;
 let componentAnswer: { status: number; body: Record<string, unknown> } | null;
+let staffRows: Record<string, unknown>[];
 
 const criteria = (n: number) =>
   Array.from({ length: n }, (_, i) => ({
@@ -57,6 +58,7 @@ function serve(status = 'draft') {
   writes = [];
   patchStatus = 200;
   componentAnswer = null;
+  staffRows = [];
   server.use(
     http.get(`*/api/v1/projects/${ID}`, () =>
       HttpResponse.json({ data: project, meta: { etag: '"p1"' } }),
@@ -92,7 +94,34 @@ function serve(status = 'draft') {
       HttpResponse.json({ data: [], meta: {} }),
     ),
     http.get(`*/api/v1/projects/${ID}/areas`, () => HttpResponse.json({ data: [], meta: {} })),
-    http.get(`*/api/v1/projects/${ID}/staff`, () => HttpResponse.json({ data: [], meta: {} })),
+    http.get(`*/api/v1/projects/${ID}/staff`, () =>
+      HttpResponse.json({ data: staffRows, meta: {} }),
+    ),
+    http.patch(`*/api/v1/projects/${ID}/fund-sources`, async ({ request }) => {
+      writes.push({ path: 'fund-sources', body: await request.json() });
+      return HttpResponse.json({ data: [], meta: {} });
+    }),
+    http.post(`*/api/v1/projects/${ID}/staff`, async ({ request }) => {
+      writes.push({ path: 'staff', body: await request.json() });
+      return HttpResponse.json({ data: staffRows, meta: {} }, { status: 201 });
+    }),
+    http.post('*/api/v1/project-staff/:id/end', async ({ request, params }) => {
+      writes.push({ path: `end:${String(params.id)}`, body: await request.json() });
+      return new HttpResponse(null, { status: 204 });
+    }),
+    http.get('*/api/v1/users', () =>
+      HttpResponse.json({
+        data: [
+          {
+            id: '01900000-0000-7000-8000-0000000000e1',
+            displayName: 'নমুনা এক্সিকিউটিভ',
+            designation: null,
+            roles: ['project_executive'],
+          },
+        ],
+        meta: {},
+      }),
+    ),
     http.get('*/api/v1/programs', () =>
       HttpResponse.json({
         data: [
@@ -208,11 +237,15 @@ describe('the project setup', () => {
     const basics = await section('মৌলিক তথ্য');
     await user.type(within(basics).getByRole('textbox', { name: /ইংরেজিতে নাম/ }), ' 2026');
     await user.click(within(basics).getByRole('button', { name: 'সংরক্ষণ' }));
+    // the section reloads from the server, so it is looked up again
     expect(
-      await within(basics).findByText(
+      await screen.findByText(
         'এর মধ্যে অন্য কেউ এই অংশ বদলেছেন। সর্বশেষ তথ্য দেখানো হচ্ছে; আবার সংরক্ষণ করুন।',
       ),
     ).toBeInTheDocument();
+    expect(
+      within(await section('মৌলিক তথ্য')).getByRole('textbox', { name: /ইংরেজিতে নাম/ }),
+    ).toHaveValue('Winter clothing');
   });
 
   it('on a phone keeps only the name, the dates and the switches editable', async () => {
@@ -242,4 +275,107 @@ describe('the project setup', () => {
       screen.queryByRole('button', { name: 'রেটিংয়ের মানদণ্ড-এর সেটিংস' }),
     ).not.toBeInTheDocument();
   });
+
+  it('saves the budget with its fund sources, and holds an active save until they are equal', async () => {
+    serve('active');
+    project = { ...project, costPerBeneficiary: '100.00', targetBeneficiaries: 10 };
+    const user = userEvent.setup();
+    open();
+    const budget = await section('বাজেট ও তহবিলের উৎস');
+    await user.click(within(budget).getByRole('button', { name: 'তহবিলের উৎস যোগ করুন' }));
+    await user.type(within(budget).getByRole('textbox', { name: /পরিমাণ/ }), '900');
+    expect(
+      within(budget).getByText(
+        'তহবিলের উৎসগুলোর মোট পরিকল্পিত বাজেটের সমান নয়। সক্রিয় প্রকল্প সমান হলেই সংরক্ষণ হয়।',
+      ),
+    ).toBeInTheDocument();
+    expect(within(budget).getByRole('button', { name: 'সংরক্ষণ' })).toBeDisabled();
+    await user.type(
+      within(budget).getByRole('textbox', { name: /পরিমাণ/ }),
+      '{Backspace}{Backspace}{Backspace}1000',
+    );
+    await user.click(within(budget).getByRole('button', { name: 'সংরক্ষণ' }));
+    await waitFor(() =>
+      expect(writes).toEqual([
+        {
+          path: 'fund-sources',
+          body: {
+            costPerBeneficiary: '100.00',
+            targetBeneficiaries: 10,
+            fundSources: [{ source: 'general', amount: '1000' }],
+          },
+        },
+      ]),
+    );
+  }, 20_000);
+
+  it('gives staff access with its role and ends it only with a reason', async () => {
+    serve();
+    staffRows = [
+      {
+        id: '01900000-0000-7000-8000-0000000000f1',
+        userId: '01900000-0000-7000-8000-0000000000f2',
+        displayName: 'নমুনা দায়ী',
+        roleKey: 'official_daee',
+        areaLocationId: null,
+        canView: true,
+        canEdit: false,
+        canDelete: false,
+      },
+    ];
+    const user = userEvent.setup();
+    open();
+    const staff = await section('স্টাফের অ্যাক্সেস');
+    await user.type(within(staff).getByRole('combobox', { name: /কর্মকর্তা/ }), 'নমুনা');
+    await user.click(await screen.findByRole('option', { name: 'নমুনা এক্সিকিউটিভ' }));
+    await user.click(within(staff).getByRole('button', { name: /ভূমিকা/ }));
+    await user.click(await screen.findByRole('option', { name: 'প্রজেক্ট এক্সিকিউটিভ' }));
+    await user.click(within(staff).getByRole('checkbox', { name: 'সম্পাদনা' }));
+    await user.click(within(staff).getByRole('button', { name: 'অ্যাক্সেস দিন' }));
+    await waitFor(() =>
+      expect(writes.at(-1)).toEqual({
+        path: 'staff',
+        body: {
+          userId: '01900000-0000-7000-8000-0000000000e1',
+          roleKey: 'project_executive',
+          canView: true,
+          canEdit: true,
+          canDelete: false,
+        },
+      }),
+    );
+
+    await user.click(
+      within(staff).getByRole('button', { name: 'নমুনা দায়ী-এর অ্যাক্সেস শেষ করুন' }),
+    );
+    const dialog = await screen.findByRole('dialog');
+    const end = within(dialog).getByRole('button', { name: 'অ্যাক্সেস শেষ করুন' });
+    await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'বদ');
+    expect(end).toBeDisabled();
+    await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'লি');
+    await user.click(end);
+    await waitFor(() =>
+      expect(writes.at(-1)).toEqual({
+        path: 'end:01900000-0000-7000-8000-0000000000f1',
+        body: { reason: 'বদলি' },
+      }),
+    );
+  }, 20_000);
+
+  it('keeps what was typed in one section while another section saves', async () => {
+    serve();
+    const user = userEvent.setup();
+    open();
+    const basics = await section('মৌলিক তথ্য');
+    const english = within(basics).getByRole('textbox', { name: /ইংরেজিতে নাম/ });
+    await user.type(english, ' draft');
+    const window = await section('আবেদনের সময়সীমা ও সীমা');
+    await user.type(within(window).getByRole('textbox', { name: /আবেদন সীমা/ }), '25');
+    await user.click(within(window).getByRole('button', { name: 'সংরক্ষণ' }));
+    await waitFor(() => expect(writes).toHaveLength(1));
+    await waitFor(() => expect(within(window).getByText('সংরক্ষিত হয়েছে।')).toBeInTheDocument());
+    expect(
+      within(await section('মৌলিক তথ্য')).getByRole('textbox', { name: /ইংরেজিতে নাম/ }),
+    ).toHaveValue('Winter clothing draft');
+  }, 20_000);
 });

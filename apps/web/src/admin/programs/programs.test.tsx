@@ -26,12 +26,17 @@ const PROGRAM = {
 
 let created: unknown[];
 let patched: unknown[];
+let listed: number;
 
 function serve(rows: unknown[] = [PROGRAM]) {
   created = [];
   patched = [];
+  listed = 0;
   server.use(
-    http.get('*/api/v1/programs', () => HttpResponse.json({ data: rows, meta: {} })),
+    http.get('*/api/v1/programs', () => {
+      listed += 1;
+      return HttpResponse.json({ data: rows, meta: {} });
+    }),
     http.get('*/api/v1/programs/:id', () =>
       HttpResponse.json({ data: PROGRAM, meta: { etag: '"v1"' } }),
     ),
@@ -133,6 +138,9 @@ describe('the programs page', () => {
     refreshAs(VOLUNTEER);
     serve();
     open();
-    expect(await screen.findByRole('heading', { level: 1 })).not.toHaveTextContent('প্রোগ্রাম');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'প্রবেশাধিকার নেই' }),
+    ).toBeInTheDocument();
+    expect(listed).toBe(0);
   });
 });
