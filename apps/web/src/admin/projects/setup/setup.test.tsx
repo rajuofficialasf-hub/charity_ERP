@@ -189,7 +189,8 @@ describe('the setup wizard', () => {
     const { container, router } = open();
     // the photo rule is missing, so the components come first after the complete basics
     expect(await section('উপাদান')).toBeInTheDocument();
-    expect(router.state.location.search).toBe('');
+    // the opening step is written to the address, so a later save keeps the user on it
+    await waitFor(() => expect(router.state.location.search).toBe('?step=components'));
     const list = steps();
     expect(within(list).getByRole('button', { name: 'মৌলিক তথ্য' })).toBeInTheDocument();
     expect(within(list).getByRole('button', { name: 'উপাদান, বাকি আছে' })).toBeInTheDocument();
@@ -495,4 +496,33 @@ describe('a new project', () => {
     });
     await expectNoAxeViolations(container);
   }, 20_000);
+
+  it('is refused to a role that sees projects but cannot create them', async () => {
+    refreshAs({ ...ME, roles: ['regional_program_manager'] });
+    serve();
+    renderApp(<ProjectSetupPage />, 'bn', {
+      path: '/admin/projects/new',
+      initialPath: '/admin/projects/new',
+    });
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'প্রবেশাধিকার নেই' }),
+    ).toBeInTheDocument();
+    expect(writes).toEqual([]);
+  });
+});
+
+describe('a half-filled form', () => {
+  it('keeps the areas step open with its reason instead of dropping the choice', async () => {
+    serve();
+    const user = userEvent.setup();
+    const { router } = open('areas');
+    const areas = await section('এলাকা ও আরপিএম');
+    await user.type(within(areas).getByRole('combobox', { name: /আরপিএম/ }), 'নমুনা');
+    await user.click(await screen.findByRole('option', { name: 'নমুনা এক্সিকিউটিভ' }));
+    await user.click(next());
+    expect(
+      await within(areas).findByText('এলাকা যোগ করতে বিভাগ বা জেলা আর আরপিএম দুটোই দিন।'),
+    ).toBeInTheDocument();
+    expect(router.state.location.search).toBe('?step=areas');
+  });
 });

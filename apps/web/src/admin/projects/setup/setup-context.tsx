@@ -103,7 +103,8 @@ export function useStepSave(step: {
     });
     return () => register(null);
   }, [register]);
-  return problem;
+  // a problem fixed meanwhile is no longer shown; a different one is shown as it is now
+  return problem && step.invalid ? step.invalid : undefined;
 }
 
 /**

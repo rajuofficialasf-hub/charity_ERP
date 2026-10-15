@@ -59,7 +59,7 @@ export function CreateStep({ onCreated }: { onCreated: (project: Project) => voi
           maxLength={8}
           value={code}
           onChange={setCode}
-          error={problem === t('code_invalid') ? problem : undefined}
+          error={!codeOk ? problem : undefined}
         />
         <NumberField label={t('year')} required kind="integer" value={year} onChange={setYear} />
         <TextField
@@ -82,6 +82,8 @@ export function CreateStep({ onCreated }: { onCreated: (project: Project) => voi
           required
           value={programId}
           onChange={setProgramId}
+          // a list still loading cannot be opened empty
+          disabled={!list.data}
           // only an active program takes a new project
           options={(list.data ?? [])
             .filter((p) => p.active)
@@ -97,7 +99,7 @@ export function CreateStep({ onCreated }: { onCreated: (project: Project) => voi
           options={WORKFLOW_KEYS.map((key) => ({ id: key, label: tw(key) }))}
         />
       </div>
-      <SaveNotice mutation={save} problem={problem === t('code_invalid') ? undefined : problem} />
+      <SaveNotice mutation={save} problem={codeOk ? problem : undefined} />
     </SetupSection>
   );
 }

@@ -214,13 +214,36 @@ function ProjectWizard({ projectId }: { projectId: string }) {
   const topics = useSetupPart(projectId, 'syllabus', () => syllabus(projectId), dawah);
   const activate = useMutation({
     mutationFn: () => moveProject(projectId, 'activate', one.data!.meta.etag),
-    onSuccess: () =>
-      navigate(`/admin/projects/${projectId}`, { state: { notice: t('activated_notice') } }),
+    onSuccess: async () => {
+      // the project page shows the new state, not the cached draft
+      await queryClient.invalidateQueries({ queryKey: PROJECTS_KEY });
+      await navigate(`/admin/projects/${projectId}`, { state: { notice: t('activated_notice') } });
+    },
   });
 
+  const loaded = one.data?.data;
+  const loading =
+    one.isPending || parts.isPending || areaList.isPending || (configure && funds.isPending);
+  // the budget is a step of the PM and the global roles, also while its fund sources fail to load
+  const steps: StepId[] = STEP_IDS.filter(
+    (s) => (s !== 'budget' || configure) && (s !== 'syllabus' || dawah),
+  );
+  // the check reads every part: without one of them the marks and the missing list stay off
+  const missing =
+    configure && loaded && parts.data && funds.data && areaList.data
+      ? missingItems(loaded, parts.data, funds.data, areaList.data)
+      : null;
+  const asked = params.get('step');
+  const valid = isStepId(asked) && steps.includes(asked);
+  const opening = configure ? firstOpenStep(steps, missing) : 'basics';
+  // without a step in the address the opening step is written there once, so a save that
+  // completes it never moves the user away from the step on screen
+  useEffect(() => {
+    if (!loading && !valid) setParams({ step: opening }, { replace: true });
+  }, [loading, valid, opening, setParams]);
+
   const back = <Link to={`/admin/projects/${projectId}`}>{ts('back')}</Link>;
-  if (one.isPending || parts.isPending || (configure && funds.isPending))
-    return <Skeleton shape="card" count={3} />;
+  if (loading) return <Skeleton shape="card" count={3} />;
   if (one.error)
     return (
       <>
@@ -248,21 +271,7 @@ function ProjectWizard({ projectId }: { projectId: string }) {
       />
     ) : null;
 
-  const steps: StepId[] = STEP_IDS.filter(
-    (s) => (s !== 'budget' || funds.data !== undefined) && (s !== 'syllabus' || dawah),
-  );
-  // the check reads every part: without one of them the marks stay off
-  const missing =
-    configure && parts.data && funds.data && areaList.data
-      ? missingItems(project, parts.data, funds.data, areaList.data)
-      : null;
-  const asked = params.get('step');
-  const step: StepId =
-    isStepId(asked) && steps.includes(asked)
-      ? asked
-      : configure
-        ? firstOpenStep(steps, missing)
-        : 'basics';
+  const step: StepId = valid ? asked : opening;
   const index = steps.indexOf(step);
   const go = (next: StepId) =>
     run(() => {
@@ -307,8 +316,9 @@ function ProjectWizard({ projectId }: { projectId: string }) {
   ]);
   const last = index === steps.length - 1;
   const primary = !last
-    ? { label: t('next'), icon: ArrowRight, onPress: () => void go(steps[index + 1]!) }
-    : project.status === 'draft' && configure
+    ? { label: t('next'), icon: ArrowRight, onPress: () => void go(steps.at(index + 1)!) }
+    : // a draft is activated only when what it still needs is known
+      project.status === 'draft' && configure && missing !== null
       ? { label: t('activate'), icon: Rocket, onPress: () => activate.mutate() }
       : { label: t('to_project'), icon: ArrowRight, onPress: () => void toProject() };
 
@@ -323,7 +333,7 @@ function ProjectWizard({ projectId }: { projectId: string }) {
           steps={steps}
           current={index}
           marks={marksFor(steps, missing)}
-          onSelect={(i) => void go(steps[i]!)}
+          onSelect={(i) => void go(steps.at(i)!)}
         />
         {locked && (
           <Alert tone="info" live="status">
@@ -336,7 +346,7 @@ function ProjectWizard({ projectId }: { projectId: string }) {
         </StepSaveProvider>
         <WizardActions
           busy={busy || activate.isPending}
-          onBack={index > 0 ? () => void go(steps[index - 1]!) : undefined}
+          onBack={index > 0 ? () => void go(steps.at(index - 1)!) : undefined}
           saveExitLabel={project.status === 'draft' ? t('save_exit_draft') : t('save_exit')}
           onSaveExit={editable ? () => void run(toProject) : undefined}
           primary={primary}

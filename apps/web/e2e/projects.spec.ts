@@ -153,6 +153,13 @@ test.describe('programs and project setup', () => {
     await move(page, 'প্রকল্প বন্ধ করুন', 'বন্ধ');
     await page.getByRole('link', { name: 'সেটআপ' }).click();
     await expect(page.getByText(/এর সেটআপ বদলানো যায় না/)).toBeVisible();
+    await page
+      .getByRole('list', { name: 'সেটআপের ধাপ' })
+      .getByRole('button', { name: 'মৌলিক তথ্য' })
+      .click();
+    await expect(
+      section(page, 'মৌলিক তথ্য').getByRole('textbox', { name: /বাংলায় নাম/ }),
+    ).toHaveAttribute('readonly', '');
     await page.getByRole('link', { name: 'প্রকল্পে ফিরে যান' }).click();
 
     // reopen

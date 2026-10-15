@@ -69,8 +69,12 @@ export function marksFor(steps: StepId[], missing: string[] | null): StepMark[] 
   return steps.map((s) => (!CHECKED.has(s) ? undefined : open.has(s) ? 'missing' : 'complete'));
 }
 
-/** Where a return to the setup starts: the first step with something missing, else the review. */
+/**
+ * Where a return to the setup starts: the first step with something missing, else the review;
+ * the first step when what is missing is not known (a part did not load).
+ */
 export function firstOpenStep(steps: StepId[], missing: string[] | null): StepId {
-  const open = new Set((missing ?? []).map(stepOfMissing));
+  if (!missing) return steps[0] ?? 'basics';
+  const open = new Set(missing.map(stepOfMissing));
   return steps.find((s) => open.has(s)) ?? 'review';
 }

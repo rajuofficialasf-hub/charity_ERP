@@ -21,6 +21,7 @@ import { SaveRow, SetupSection, useSetup, useStepSave } from './setup-context';
 export function AreasSection({ areas }: { areas: Area[] }) {
   const { project, editable, refresh } = useSetup();
   const t = useTranslations('admin.projects.setup');
+  const tz = useTranslations('admin.projects.wizard');
   const locale = useLocale() as Locale;
   const [place, setPlace] = useState<Address>(EMPTY_ADDRESS);
   const [rpm, setRpm] = useState<PanelUser | null>(null);
@@ -39,8 +40,12 @@ export function AreasSection({ areas }: { areas: Area[] }) {
     },
   });
   const remove = useMutation({ mutationFn: removeArea, onSuccess: refresh });
-  // an area filled in but not added yet is added when the wizard moves on
-  useStepSave({ changed: can && Boolean(place.divisionId && rpm), save: () => add.mutateAsync() });
+  // an area filled in but not added yet is added when the wizard moves on; half of one stays
+  const problem = useStepSave({
+    changed: can && Boolean(place.divisionId || rpm),
+    invalid: place.divisionId && rpm ? undefined : tz('area_incomplete'),
+    save: () => add.mutateAsync(),
+  });
 
   return (
     <SetupSection id="areas" title={t('section.areas')}>
@@ -91,6 +96,11 @@ export function AreasSection({ areas }: { areas: Area[] }) {
               }}
             />
           </div>
+          {problem && (
+            <Alert tone="warning" live="alert">
+              {problem}
+            </Alert>
+          )}
           <SaveRow
             mutation={add}
             onSave={() => add.mutate()}

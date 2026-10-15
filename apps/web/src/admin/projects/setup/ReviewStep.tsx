@@ -1,5 +1,6 @@
 import { Alert, Button } from '@css/ui';
 import { ArrowRight } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../../lib/api';
 import { ProjectFacts } from '../ProjectFacts';
@@ -30,35 +31,38 @@ export function ReviewStep({
       ? activation.details.flatMap((d) => (d.path ? [d.path] : []))
       : [];
   const open = refused.length ? refused : (missing ?? []);
+  // an active project, an unknown check (a part did not load), a complete draft, or what is missing
+  let state: ReactNode;
+  if (project.status !== 'draft') state = <p className="admin-muted">{ts('summary_active')}</p>;
+  else if (missing === null) state = null;
+  else if (open.length === 0) state = <Alert tone="success">{t('ready')}</Alert>;
+  else
+    state = (
+      <div className="admin-wizard-missing" role={refused.length ? 'alert' : undefined}>
+        <p className="admin-setup-subtitle">{t('missing_title')}</p>
+        <ul>
+          {open.map((item) => (
+            <li key={item}>
+              <span>{label(item)}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={ArrowRight}
+                iconPosition="end"
+                onPress={() => onOpen(stepOfMissing(item))}
+              >
+                {t('open_step')}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
 
   return (
     <SetupSection id="review" title={t('review')}>
       <ProjectFacts project={project} />
-      {project.status !== 'draft' ? (
-        <p className="admin-muted">{ts('summary_active')}</p>
-      ) : missing === null ? null : open.length === 0 ? (
-        <Alert tone="success">{t('ready')}</Alert>
-      ) : (
-        <div className="admin-wizard-missing" role={refused.length ? 'alert' : undefined}>
-          <p className="admin-setup-subtitle">{t('missing_title')}</p>
-          <ul>
-            {open.map((item) => (
-              <li key={item}>
-                <span>{label(item)}</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon={ArrowRight}
-                  iconPosition="end"
-                  onPress={() => onOpen(stepOfMissing(item))}
-                >
-                  {t('open_step')}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {state}
       {activation instanceof ApiFailure && refused.length === 0 && (
         <Alert tone="danger" live="alert">
           {activation.message}

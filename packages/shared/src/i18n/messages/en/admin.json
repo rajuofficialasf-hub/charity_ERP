@@ -692,7 +692,9 @@
       "ready": "Everything activation needs is here.",
       "missing_title": "Still needed before activation:",
       "open_step": "Open the step",
-      "create_invalid": "Fill in every field of this step."
+      "create_invalid": "Fill in every field of this step.",
+      "area_incomplete": "To add an area, choose its division or district and its RPM.",
+      "staff_incomplete": "To give access, choose the role and the official (and the area, for an RPM)."
     }
   }
 }

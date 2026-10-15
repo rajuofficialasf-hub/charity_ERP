@@ -27,6 +27,7 @@ export function StaffSection({
 }) {
   const { project, phone, configure, refresh } = useSetup();
   const t = useTranslations('admin.projects.setup');
+  const tz = useTranslations('admin.projects.wizard');
   const tr = useTranslations('admin.projects.setup.role');
   const locale = useLocale() as Locale;
   const [person, setPerson] = useState<PanelUser | null>(null);
@@ -63,9 +64,10 @@ export function StaffSection({
     },
   });
 
-  // an access filled in but not given yet is given when the wizard moves on
-  useStepSave({
-    changed: can && Boolean(person && roleKey && (configure || areaId)),
+  // an access filled in but not given yet is given when the wizard moves on; half of one stays
+  const problem = useStepSave({
+    changed: can && Boolean(person || roleKey || areaId),
+    invalid: person && roleKey && (configure || areaId) ? undefined : tz('staff_incomplete'),
     save: () => add.mutateAsync(),
   });
 
@@ -157,6 +159,11 @@ export function StaffSection({
               </Checkbox>
             )}
           </div>
+          {problem && (
+            <Alert tone="warning" live="alert">
+              {problem}
+            </Alert>
+          )}
           <SaveRow
             mutation={add}
             onSave={() => add.mutate()}
