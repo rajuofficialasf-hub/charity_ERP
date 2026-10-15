@@ -41,7 +41,7 @@ export function createRateLimiters(env: Env): RateLimiters {
   return {
     for(cls, route) {
       if (cls === 'none') return [];
-      // Every route has its own budget per key (as the T1.6 guard had) unless a window is shared by
+      // Every route has its own budget per key unless a window is shared by
       // the routes of its class. IP windows run first, so a
       // flood of made-up ids is refused by the address before it fills the per-id counters; the
       // tightest window runs last so its headers reach the client.

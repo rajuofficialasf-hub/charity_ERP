@@ -21,8 +21,11 @@ import type { PrismaService, Tx } from '../core/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 
-/** The newest volunteers first; the id breaks ties (API_STANDARDS 4). */
-const SORT = parseSort(undefined, ['createdAt', 'id'], [{ field: 'createdAt', direction: 'desc' }]);
+/**
+ * The newest volunteers first, by id: the ids are UUID v7, so they follow the time of creation, and
+ * unlike `created_at` (microseconds, cut to milliseconds in a cursor) they page without gaps.
+ */
+const SORT = parseSort(undefined, ['id'], [{ field: 'id', direction: 'desc' }]);
 
 const ROW_SELECT = {
   id: true,
@@ -34,7 +37,6 @@ const ROW_SELECT = {
   photoFileId: true,
   category: true,
   inactiveFlag: true,
-  createdAt: true,
   user: { select: { displayName: true, state: true } },
   projectVolunteersVolunteer: {
     where: { endedAt: null },
@@ -52,12 +54,12 @@ function mobileOf(digits: string): string | null {
 /** The caller's view of the list: whether categories are visible, and the NID search scope. */
 export interface ListViewer {
   principal: Principal;
-  /** The protected field classes of the caller (RBAC.md 6). */
+  /** The protected field classes of the caller (docs/security/RBAC.md, "Field-level protection"). */
   fieldClasses: ReadonlySet<string>;
 }
 
 /**
- * The nationwide volunteer tab (MASTER_SPEC A5; DECISION_LOG O-67, D-094): every volunteer for a
+ * The nationwide volunteer tab (docs/MASTER_SPEC.md, "Volunteer tab"; DECISION_LOG O-67, D-094): every volunteer for a
  * holder of `volunteer.view_all`, filtered, searched and counted with one shared filter. A filter
  * or a search on something the caller may not see is refused or never matches, so the answer
  * cannot reveal what the field mask hides.
@@ -70,7 +72,11 @@ export class VolunteerListService {
   ) {}
 
   /** The filter of the list and of its counts; refuses a category filter the caller may not use. */
-  async where(filter: VolunteerFilter, viewer: ListViewer): Promise<Prisma.VolunteerWhereInput> {
+  async where(
+    filter: VolunteerFilter,
+    viewer: ListViewer,
+    db: Tx = this.prisma,
+  ): Promise<Prisma.VolunteerWhereInput> {
     const seesCategories = viewer.fieldClasses.has('volunteer.rating');
     if (filter.category && !seesCategories) {
       this.access.denied(viewer.principal.userId, 'volunteer.rating.view', 'volunteer');
@@ -93,7 +99,7 @@ export class VolunteerListService {
         filter.category === 'inactive' ? { inactiveFlag: true } : { category: filter.category },
       );
     if (filter.blocked) {
-      const blocked = await this.blockedIds();
+      const blocked = await this.blockedIds(db);
       and.push(filter.blocked === 'true' ? { id: { in: blocked } } : { id: { notIn: blocked } });
     }
     if (filter.q) and.push(await this.searchWhere(filter.q, viewer));
@@ -107,7 +113,10 @@ export class VolunteerListService {
   private async searchWhere(q: string, viewer: ListViewer): Promise<Prisma.VolunteerWhereInput> {
     const term = q.trim();
     if (!/^[+0-9\s-]+$/.test(term))
-      return { user: { displayName: { contains: term, mode: 'insensitive' } } };
+      // LIKE wildcards in the term are letters, not patterns
+      return {
+        user: { displayName: { contains: term.replace(/[\\%_]/g, '\\$&'), mode: 'insensitive' } },
+      };
     const digits = term.replace(/\D/g, '');
     const or: Prisma.VolunteerWhereInput[] = [];
     const mobile = mobileOf(digits);
@@ -144,8 +153,8 @@ export class VolunteerListService {
       ? decodeCursor(this.env.CURSOR_SECRET, binding, query.cursor)
       : undefined;
     const direction = cursor?.d ?? 'next';
-    const filter = await this.where(query, viewer);
     const { fetched, total, blocked } = await boundedRead(this.prisma, async (tx) => {
+      const filter = await this.where(query, viewer, tx);
       const fetched = await tx.volunteer.findMany({
         where: cursor ? { AND: [filter, keysetWhere(SORT, cursor)] } : filter,
         orderBy: orderBy(SORT, direction),
@@ -195,9 +204,9 @@ export class VolunteerListService {
 
   /** The counts for the filters in use: people by state, and their applications by stage. */
   async statistics(filter: VolunteerFilter, viewer: ListViewer) {
-    const where = await this.where(filter, viewer);
     const seesCategories = viewer.fieldClasses.has('volunteer.rating');
     return boundedRead(this.prisma, async (tx) => {
+      const where = await this.where(filter, viewer, tx);
       const count = (extra: Prisma.VolunteerWhereInput) =>
         tx.volunteer.count({ where: { AND: [where, extra] } });
       const applications = (status: Prisma.StringFilter) =>

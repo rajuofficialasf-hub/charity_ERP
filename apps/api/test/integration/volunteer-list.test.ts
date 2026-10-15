@@ -175,6 +175,19 @@ describe('the volunteer list', () => {
     expect((await statistics(daee, { category: 'A' })).status).toBe(403);
   });
 
+  it('answers 401 without a sign-in', async () => {
+    expect((await api().get('/api/v1/volunteers')).status).toBe(401);
+    expect((await api().get('/api/v1/volunteers/statistics')).status).toBe(401);
+  });
+
+  it('treats the LIKE wildcards of a name search as letters', async () => {
+    const tree = await f.locationTree(h.db);
+    await someone(tree, { name: 'Sample Karim' });
+    const head = await as(world.users.head);
+    expect(ids(await list(head, { unionId: tree.union, q: '%%' }))).toEqual([]);
+    expect(ids(await list(head, { unionId: tree.union, q: '__' }))).toEqual([]);
+  });
+
   it('answers 403 to volunteers, team members and paid volunteers, and no-store to officials', async () => {
     for (const role of ['volunteer_general', 'volunteer_team_member', 'volunteer_paid']) {
       const a = await account(h.db, { kind: 'volunteer', role });
