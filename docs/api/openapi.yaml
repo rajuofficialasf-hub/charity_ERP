@@ -990,41 +990,118 @@ components:
         data: { $ref: '#/components/schemas/VolunteerStatistics' }
         meta: { $ref: '#/components/schemas/Meta' }
     Volunteer:
-      allOf:
-        - $ref: '#/components/schemas/VolunteerSummary'
-        - $ref: '#/components/schemas/VolunteerProfileDetails'
-        - type: object
+      type: object
+      description: The official view of one volunteer (SCR-043, O-67, D-094)
+      required: [id, userId, displayName, type, state, fatherName, motherName, divisionId, districtId, upazilaId, unionId, photoFileId, registeredAt, approvedAt, projects, team, blocklist, actions]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        userId: { $ref: '#/components/schemas/Uuid' }
+        displayName: { type: string }
+        type: { type: string, enum: [general, local_daee, both, team_member, paid] }
+        state: { type: string, enum: [pending, active, blocked, deactivated] }
+        mobile: { type: [string, 'null'] }
+        email: { type: [string, 'null'] }
+        whatsapp: { type: [string, 'null'] }
+        fatherName: { type: string }
+        motherName: { type: string }
+        divisionId: { $ref: '#/components/schemas/Uuid' }
+        districtId: { $ref: '#/components/schemas/Uuid' }
+        upazilaId: { $ref: '#/components/schemas/Uuid' }
+        unionId: { $ref: '#/components/schemas/Uuid' }
+        addressLine: { type: [string, 'null'] }
+        facebookId: { type: [string, 'null'] }
+        education: { type: [string, 'null'] }
+        experience: { type: [string, 'null'] }
+        workDescription: { type: [string, 'null'] }
+        previousProjects: { type: [string, 'null'] }
+        tshirtSize: { type: [string, 'null'] }
+        volunteeringArea: { type: [string, 'null'] }
+        profession: { type: [string, 'null'] }
+        professionDetails: { type: object }
+        interestAreas: { type: array, items: { type: string } }
+        vehicle: { type: [string, 'null'] }
+        canSwim: { type: [boolean, 'null'] }
+        availability: { type: [string, 'null'] }
+        emergencyFullTime: { type: [boolean, 'null'] }
+        educationDetails: { $ref: '#/components/schemas/EducationDetails' }
+        permanentAddress: { oneOf: [{ $ref: '#/components/schemas/PermanentAddress' }, { type: 'null' }] }
+        bloodGroup: { type: [string, 'null'], x-sensitive-class: volunteer.identity, description: Only inside the volunteer.view_sensitive scope }
+        dateOfBirth: { type: [string, 'null'], format: date, x-sensitive-class: volunteer.identity, description: Only inside the volunteer.view_sensitive scope }
+        nid: { type: string, x-sensitive-class: volunteer.identity, description: Only inside the volunteer.view_sensitive scope }
+        nidPhotoFileId: { type: [string, 'null'], format: uuid, x-sensitive-class: volunteer.identity }
+        nidPhotoBackFileId: { type: [string, 'null'], format: uuid, x-sensitive-class: volunteer.identity }
+        bank:
+          type: object
+          x-sensitive-class: volunteer.bank
+          description: Only inside the volunteer.view_sensitive scope
           properties:
-            bloodGroup: { x-sensitive-class: volunteer.identity }
-            dateOfBirth: { x-sensitive-class: volunteer.identity }
-            fatherName: { type: string }
-            motherName: { type: string }
-            mobile: { type: string }
-            whatsapp: { type: [string, 'null'] }
-            divisionId: { $ref: '#/components/schemas/Uuid' }
-            unionId: { $ref: '#/components/schemas/Uuid' }
-            addressLine: { type: [string, 'null'] }
-            education: { type: [string, 'null'] }
-            experience: { type: [string, 'null'] }
-            workDescription: { type: [string, 'null'] }
-            previousProjects: { type: [string, 'null'] }
-            facebookId: { type: [string, 'null'] }
-            nid: { type: string, x-sensitive-class: volunteer.identity }
-            nidPhotoFileId: { type: [string, 'null'], format: uuid, x-sensitive-class: volunteer.identity }
-            nidPhotoBackFileId: { type: [string, 'null'], format: uuid, x-sensitive-class: volunteer.identity, description: The second page of the NID card (UX-18) }
-            bank:
-              type: object
-              x-sensitive-class: volunteer.bank
-              properties:
-                bankName: { type: [string, 'null'] }
-                accountName: { type: [string, 'null'] }
-                accountNumber: { type: [string, 'null'] }
-                branchName: { type: [string, 'null'] }
-                routingNumber: { type: [string, 'null'] }
-            photoFileId: { type: [string, 'null'], format: uuid }
-            referenceVolunteerId: { type: [string, 'null'], format: uuid }
-            approvedAt: { type: [string, 'null'], format: date-time }
-            projects: { type: array, items: { $ref: '#/components/schemas/ProjectVolunteer' } }
+            bankName: { type: string }
+            accountName: { type: string }
+            accountNumber: { type: string }
+            branchName: { type: string }
+            routingNumber: { type: string }
+        photoFileId: { type: [string, 'null'], format: uuid }
+        registeredAt: { type: string, format: date-time }
+        approvedAt: { type: [string, 'null'], format: date-time }
+        projects:
+          type: array
+          description: Active project assignments (read only here; assignment in T1.12)
+          items:
+            type: object
+            required: [id, code, nameBn, nameEn, year, permissionSet, isPaid, regionLocationId, assignedAt]
+            properties:
+              id: { $ref: '#/components/schemas/Uuid' }
+              code: { type: string }
+              nameBn: { type: string }
+              nameEn: { type: string }
+              year: { type: integer }
+              permissionSet: { type: string }
+              isPaid: { type: boolean }
+              regionLocationId: { $ref: '#/components/schemas/Uuid' }
+              assignedAt: { type: string, format: date-time }
+        team:
+          type: array
+          description: The members who registered with this volunteer as their reference (name, type and state only)
+          items:
+            type: object
+            required: [id, displayName, type, state]
+            properties:
+              id: { $ref: '#/components/schemas/Uuid' }
+              displayName: { type: string }
+              type: { type: string, enum: [general, local_daee, both, team_member, paid] }
+              state: { type: string, enum: [pending, active, blocked, deactivated] }
+        category: { type: [string, 'null'], enum: [A, B, C, D, null], x-sensitive-class: volunteer.rating }
+        inactiveFlag: { type: boolean, x-sensitive-class: volunteer.rating }
+        ratings:
+          type: array
+          x-sensitive-class: volunteer.rating
+          description: Finalized ratings per project and kind of work, never averaged (Phase 5)
+          items:
+            type: object
+            required: [projectId, workKind, finalScores, finalizedAt]
+            properties:
+              projectId: { $ref: '#/components/schemas/Uuid' }
+              workKind: { type: string }
+              finalScores: {}
+              finalizedAt: { type: string, format: date-time }
+        blocklist:
+          type: object
+          required: [blocked]
+          properties:
+            blocked: { type: boolean }
+            blockedAt: { type: string, format: date-time }
+            reason: { type: string, x-sensitive-class: blocklist.reason }
+        actions:
+          type: object
+          description: What the caller may do to this volunteer, decided like the action routes
+          required: [approve, requestCorrection, block, unblock, viewSessions, revokeSessions]
+          properties:
+            approve: { type: boolean }
+            requestCorrection: { type: boolean }
+            block: { type: boolean }
+            unblock: { type: boolean }
+            viewSessions: { type: boolean }
+            revokeSessions: { type: boolean }
     VolunteerResponse:
       type: object
       required: [data, meta]
@@ -3500,22 +3577,30 @@ paths:
     get:
       tags: [volunteers]
       operationId: volunteers.volunteer.get
-      summary: Volunteer profile with projects and work summary link (masks per role)
+      summary: The official view of one volunteer with what the caller may do (masks per role and record)
+      description: >-
+        Identity fields (NID, NID photos, date of birth, blood group) and bank details are sent only when
+        the caller's volunteer.view_sensitive scope reaches this volunteer, and then only with their
+        class (D-094). The action flags say what the caller may do to this volunteer; the action
+        routes still decide on their own.
       x-permission: volunteer.view_all
       x-scope: volunteer
       x-audit: none
       x-idempotency: none
-      x-rate-limit: default
-      x-sensitive-fields: [volunteer.identity, volunteer.bank, volunteer.rating]
+      x-rate-limit: list
+      x-sensitive-fields: [volunteer.identity, volunteer.bank, volunteer.rating, blocklist.reason]
       responses:
         '200':
           description: Volunteer
-          headers:
-            ETag: { $ref: '#/components/headers/ETag' }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/VolunteerResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServerError' }
   /volunteers/{volunteerId}/category:
     parameters:
       - $ref: '#/components/parameters/VolunteerId'

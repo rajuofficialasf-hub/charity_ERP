@@ -1,4 +1,4 @@
-import { VOLUNTEER_TYPES } from '@css/shared/registration';
+import { BLOOD_GROUPS, VOLUNTEER_TYPES } from '@css/shared/registration';
 import { type VolunteerFilter, volunteerFilterSchema } from '@css/shared/volunteers';
 import { reasonRequestSchema, type ReasonRequest, USER_STATES } from '@css/shared/auth';
 import { Router } from 'express';
@@ -84,6 +84,98 @@ const volunteerStatistics = z.object({
   applications: z.object({ total: count, approved: count, underReview: count }),
 });
 
+/** The official's view of one volunteer; protected parts per record and per class. */
+const identity = <T extends z.ZodType>(schema: T) => sensitive(schema, 'volunteer.identity');
+const volunteerProfile = z.object({
+  id: z.uuid(),
+  userId: z.uuid(),
+  displayName: z.string(),
+  type: z.enum(VOLUNTEER_TYPES),
+  state: z.enum(USER_STATES),
+  mobile: text,
+  email: text,
+  whatsapp: text,
+  fatherName: z.string(),
+  motherName: z.string(),
+  divisionId: z.uuid(),
+  districtId: z.uuid(),
+  upazilaId: z.uuid(),
+  unionId: z.uuid(),
+  addressLine: text,
+  facebookId: text,
+  education: text,
+  experience: text,
+  workDescription: text,
+  previousProjects: text,
+  ...volunteerDetailsShape(false),
+  // sent only inside the caller's sensitive scope, and only with the class
+  bloodGroup: identity(z.enum(BLOOD_GROUPS).nullable()).optional(),
+  dateOfBirth: identity(z.string().nullable()).optional(),
+  nid: identity(z.string()).optional(),
+  nidPhotoFileId: identity(z.uuid().nullable()).optional(),
+  nidPhotoBackFileId: identity(z.uuid().nullable()).optional(),
+  bank: sensitive(
+    z.object({
+      bankName: z.string().optional(),
+      accountName: z.string().optional(),
+      accountNumber: z.string().optional(),
+      branchName: z.string().optional(),
+      routingNumber: z.string().optional(),
+    }),
+    'volunteer.bank',
+  ).optional(),
+  photoFileId: z.uuid().nullable(),
+  registeredAt: z.string(),
+  approvedAt: z.string().nullable(),
+  projects: z.array(
+    z.object({
+      id: z.uuid(),
+      code: z.string(),
+      nameBn: z.string(),
+      nameEn: z.string(),
+      year: z.number().int(),
+      permissionSet: z.string(),
+      isPaid: z.boolean(),
+      regionLocationId: z.uuid(),
+      assignedAt: z.string(),
+    }),
+  ),
+  team: z.array(
+    z.object({
+      id: z.uuid(),
+      displayName: z.string(),
+      type: z.enum(VOLUNTEER_TYPES),
+      state: z.enum(USER_STATES),
+    }),
+  ),
+  category: sensitive(z.enum(['A', 'B', 'C', 'D']).nullable(), 'volunteer.rating'),
+  inactiveFlag: sensitive(z.boolean(), 'volunteer.rating'),
+  ratings: sensitive(
+    z.array(
+      z.object({
+        projectId: z.uuid(),
+        workKind: z.string(),
+        finalScores: z.unknown(),
+        finalizedAt: z.string(),
+      }),
+    ),
+    'volunteer.rating',
+  ),
+  blocklist: z.object({
+    blocked: z.boolean(),
+    blockedAt: z.string().optional(),
+    reason: sensitive(z.string(), 'blocklist.reason').optional(),
+  }),
+  actions: z.object({
+    approve: z.boolean(),
+    requestCorrection: z.boolean(),
+    block: z.boolean(),
+    unblock: z.boolean(),
+    viewSessions: z.boolean(),
+    revokeSessions: z.boolean(),
+  }),
+});
+
 const listQuery = pageQuery.omit({ sort: true }).extend(volunteerFilterSchema.shape);
 
 /** The caller as the list services need it: who asks, and which protected classes they see. */
@@ -108,7 +200,7 @@ const blocklistEntry = z.object({
  */
 export function volunteersRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'volunteers' | 'blocklist' | 'volunteerList'>,
+  c: Pick<Container, 'volunteers' | 'blocklist' | 'volunteerList' | 'volunteerProfile'>,
 ): Router {
   const router = Router();
 
@@ -205,6 +297,35 @@ export function volunteersRouter(
     responses: { 200: blocklistEntry, 401: null, 403: null, 404: null, 422: null },
     handler: ({ body, params, req }) =>
       c.blocklist.unblock(principalOf(req), scopeOf(req), params.volunteerId, body.reason),
+  });
+
+  // after /volunteers/me and /volunteers/statistics, so those paths are never read as an id
+  defineRoute<unknown, unknown, { volunteerId: string }>(router, deps, {
+    ...tabOp,
+    method: 'get',
+    path: '/volunteers/:volunteerId',
+    operationId: 'volunteers.volunteer.get',
+    summary:
+      'The official view of one volunteer with what the caller may do (masks per role and record)',
+    scope: 'volunteer',
+    sensitiveFields: [
+      'volunteer.identity',
+      'volunteer.bank',
+      'volunteer.rating',
+      'blocklist.reason',
+    ],
+    params: { volunteerId: z.uuid() },
+    responses: {
+      200: volunteerProfile,
+      401: null,
+      403: null,
+      404: null,
+      422: null,
+      429: null,
+      503: null,
+    },
+    handler: ({ params, req }) =>
+      c.volunteerProfile.profile(principalOf(req), scopeOf(req), params.volunteerId),
   });
 
   return router;
