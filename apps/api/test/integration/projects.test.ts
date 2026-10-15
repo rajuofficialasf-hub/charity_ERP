@@ -40,12 +40,11 @@ beforeAll(async () => {
 afterAll(async () => h.close());
 
 let n = 0;
-/** A project code of capital letters that no other test uses. */
+/** A project code of capital letters that no other test uses (each test file has its own database). */
 const code = () => {
   n += 1;
-  const letters = (v: number) => String.fromCharCode(65 + (v % 26));
-  const r = Math.floor(Math.random() * 26 * 26 * 26);
-  return `N${letters(n)}${letters(Math.floor(n / 26))}${letters(r)}${letters(r / 26)}${letters(r / 676)}`;
+  const letter = (v: number) => String.fromCharCode(65 + (Math.floor(v) % 26));
+  return `N${letter(n / 676)}${letter(n / 26)}${letter(n)}`;
 };
 const name = { bn: 'শীতবস্ত্র নমুনা', en: 'Winter sample' };
 
@@ -197,12 +196,94 @@ describe('updating a project', () => {
       applyFrom: '2026-11-01',
     });
     expect(renamed.status).toBe(200);
+    // the whole form sent back with the fixed fields unchanged is fine
+    current = await get(pm, id);
+    const resent = await patch(pm, id, current.headers.etag, {
+      name: current.body.data.name,
+      year: current.body.data.year,
+      programId: current.body.data.programId,
+      workflowKey: current.body.data.workflowKey,
+      applyTo: current.body.data.applyTo,
+      description: 'নতুন বর্ণনা',
+    });
+    expect(resent.status).toBe(200);
     for (const status of ['closing', 'closed']) {
       await setStatus(id, status);
       current = await get(pm, id);
       const res = await patch(pm, id, current.headers.etag, { name });
       expect(res.status, status).toBe(409);
     }
+  });
+
+  it('keeps what an active project needs, and a budget its column can hold', async () => {
+    const pm = await as(world.users.pm);
+    const created = await draft(pm, world.a1.program);
+    const id = created.body.data.id as string;
+    const set = await patch(pm, id, created.headers.etag, {
+      applyFrom: '2026-11-01',
+      perVolunteerLimit: 50,
+      costPerBeneficiary: '1000.00',
+      targetBeneficiaries: 100,
+    });
+    // the generated budget column holds at most twelve digits before the point
+    const huge = await patch(pm, id, set.headers.etag, {
+      costPerBeneficiary: '1000000',
+      targetBeneficiaries: 1_000_000,
+    });
+    expect(huge.status).toBe(422);
+    await setStatus(id, 'active');
+    const current = await get(pm, id);
+    for (const key of [
+      'applyFrom',
+      'perVolunteerLimit',
+      'costPerBeneficiary',
+      'targetBeneficiaries',
+    ]) {
+      const res = await patch(pm, id, current.headers.etag, { [key]: null });
+      expect(res.status, key).toBe(422);
+    }
+    const cheaper = await patch(pm, id, current.headers.etag, { costPerBeneficiary: '900.00' });
+    expect(cheaper.status).toBe(200);
+    expect(cheaper.body.data.budgetPlanned).toBe('90000.00');
+  });
+
+  it('starts a draft again from the components of a new workflow', async () => {
+    const pm = await as(world.users.pm);
+    const created = await draft(pm, world.a1.program);
+    const id = created.body.data.id as string;
+    expect(created.body.data.dawahEnabled).toBe(false);
+    const res = await patch(pm, id, created.headers.etag, {
+      workflowKey: 'implementation_evidence',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({
+      workflowKey: 'implementation_evidence',
+      dawahEnabled: true,
+    });
+    const { rows } = await h.db.query<{ component_key: string }>(
+      'SELECT component_key FROM project_components WHERE project_id = $1 AND enabled ORDER BY component_key',
+      [id],
+    );
+    expect(rows.map((r) => r.component_key)).toContain('exams');
+    expect(rows.map((r) => r.component_key)).not.toContain('dispatch_receive');
+  });
+
+  it('refuses the PM of another program and a volunteer', async () => {
+    const pm = await as(world.users.pm);
+    const created = await draft(pm, world.a1.program);
+    const id = created.body.data.id as string;
+    const other = await login(h, await account(h.db, { role: 'program_manager' }));
+    expect((await patch(other, id, created.headers.etag, { name })).status).toBe(404);
+    const volunteer = await as(world.users.general);
+    expect((await patch(volunteer, id, created.headers.etag, { name })).status).toBe(403);
+    expect(
+      (
+        await api()
+          .patch(`/api/v1/projects/${id}`)
+          .set('If-Match', String(created.headers.etag))
+          .send({ name })
+      ).status,
+    ).toBe(401);
   });
 
   it('refuses a stale If-Match, an unknown key, an empty body and a window that runs backwards', async () => {
@@ -234,6 +315,14 @@ describe('updating a project', () => {
     const res = await patch(pm, id, created.headers.etag, { programId: second.program });
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('program.inactive');
+
+    await h.db.query('UPDATE programs SET active = true WHERE id = $1', [second.program]);
+    const moved = await patch(pm, id, created.headers.etag, { programId: second.program });
+    expect(moved.status).toBe(200);
+    expect(moved.body.data.programId).toBe(second.program);
+    const [entry] = await audit(id, 'project.configure');
+    expect(entry?.old).toEqual({ programId: world.a1.program });
+    expect(entry?.new).toEqual({ programId: second.program });
   });
 });
 
@@ -272,6 +361,19 @@ describe('cancelling a draft', () => {
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('workflow.transition_not_allowed');
   });
+
+  it('refuses the PM of another program and a volunteer', async () => {
+    const pm = await as(world.users.pm);
+    const created = await draft(pm, world.a1.program);
+    const cancel = (s: Session) =>
+      api()
+        .post(`/api/v1/projects/${created.body.data.id}/cancel`)
+        .set(bearer(s))
+        .send({ reason: 'ভুল করে তৈরি' });
+    const other = await login(h, await account(h.db, { role: 'program_manager' }));
+    expect((await cancel(other)).status).toBe(404);
+    expect((await cancel(await as(world.users.general))).status).toBe(403);
+  });
 });
 
 describe('who sees which project', () => {
@@ -305,24 +407,24 @@ describe('who sees which project', () => {
     const before = await api().get('/api/v1/projects').set(bearer(volunteer));
     expect(before.body.data).toEqual([]);
 
+    // the volunteer is on A1 and A2 only: an active B1 stays out of its reach
     await setStatus(world.a1.id, 'active');
+    await setStatus(world.b1.id, 'active');
     try {
-      await h.db.query(
-        `UPDATE projects SET cost_per_beneficiary = 1000, target_beneficiaries = 10 WHERE id = $1`,
-        [world.a1.id],
-      );
       const after = await api().get('/api/v1/projects').set(bearer(volunteer));
       expect(after.body.data.map((p: { id: string }) => p.id)).toEqual([world.a1.id]);
+      expect((await get(volunteer, world.b1.id)).status).toBe(404);
       const one = await get(volunteer, world.a1.id);
       expect(one.status).toBe(200);
       for (const key of ['costPerBeneficiary', 'targetBeneficiaries', 'budgetPlanned', 'programId'])
         expect(one.body.data, key).not.toHaveProperty(key);
     } finally {
       await setStatus(world.a1.id, 'draft');
+      await setStatus(world.b1.id, 'draft');
     }
   });
 
-  it('refuses a sign-in without the permission and no sign-in', async () => {
+  it('answers 401 without a sign-in and 404 for a project that does not exist', async () => {
     expect((await api().get('/api/v1/projects')).status).toBe(401);
     expect((await api().get(`/api/v1/projects/${randomUUID()}`)).status).toBe(401);
     const head = await as(world.users.head);

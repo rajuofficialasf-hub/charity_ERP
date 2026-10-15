@@ -18,7 +18,7 @@ export const projectCreateSchema = z.strictObject({
   year,
   name: boundedLabel,
   description: z.string().max(2000).optional(),
-  // a master template and a copy of a project come as further kinds with T1.12
+  // a master template and a copy of a project come as further kinds of source
   source: z.strictObject({ kind: z.literal('workflow'), workflowKey: z.enum(WORKFLOW_KEYS) }),
 });
 export type ProjectCreate = z.infer<typeof projectCreateSchema>;

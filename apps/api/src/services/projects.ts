@@ -2,6 +2,7 @@ import { uuidv7, workflowDefinitionSchema } from '@css/shared';
 import {
   type CodeLabel,
   editableIn,
+  plannedBudgetPaisa,
   type ProjectCreate,
   type ProjectFilter,
   type ProjectStatus,
@@ -71,9 +72,9 @@ const toDate = (s: string | null | undefined) =>
   s === undefined ? undefined : s === null ? null : new Date(`${s}T00:00:00Z`);
 
 /**
- * What a project shows. A volunteer gets only the work facts of an active project it is on (the
- * owner's decision in the T1.11 plan review): never the budget, the program, or anything the
- * officials keep (fund sources, staff and areas have their own official-only routes).
+ * What a project shows. A volunteer gets only the work facts of an active project it is on: never
+ * the budget, the program, or anything the officials keep (fund sources, staff and areas have their
+ * own official-only routes).
  */
 function view(p: Row, forVolunteer: boolean) {
   const work = {
@@ -103,6 +104,17 @@ function view(p: Row, forVolunteer: boolean) {
   };
 }
 
+/** numeric(14,2): the planned budget column holds less than 10^14 paisa. */
+const BUDGET_LIMIT_PAISA = 10n ** 14n;
+
+/** Fields the activation check needs, which an activated project cannot lose again. */
+const REQUIRED_ONCE_ACTIVE: readonly (keyof ProjectUpdate)[] = [
+  'applyFrom',
+  'perVolunteerLimit',
+  'costPerBeneficiary',
+  'targetBeneficiaries',
+];
+
 const isUniqueViolation = (error: unknown) =>
   error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
 
@@ -119,6 +131,13 @@ const FIELDS: Record<keyof ProjectUpdate, SetupField> = {
   costPerBeneficiary: 'costPerBeneficiary',
   targetBeneficiaries: 'targetBeneficiaries',
 };
+
+/** Whether a request value equals the current one (money compared to the paisa). */
+function sameValue(key: keyof ProjectUpdate, value: unknown, current: unknown): boolean {
+  if (key === 'costPerBeneficiary' && typeof value === 'string' && typeof current === 'string')
+    return plannedBudgetPaisa(value, 1) === plannedBudgetPaisa(current, 1);
+  return JSON.stringify(value) === JSON.stringify(current);
+}
 
 /**
  * Projects (docs/MASTER_SPEC.md, A6; DECISION_LOG D-095): a PM creates a draft from a workflow in
@@ -156,14 +175,15 @@ export class ProjectsService {
         query.year ? { year: query.year } : {},
       ],
     };
-    const fetched = await this.prisma.project.findMany({
-      where: cursor ? { AND: [filter, keysetWhere(SORT, cursor)] } : filter,
-      orderBy: orderBy(SORT, direction),
-      take: query.limit + 1,
-      select: SELECT,
-    });
-    const total =
-      query.include === 'total' ? await this.prisma.project.count({ where: filter }) : undefined;
+    const [fetched, total] = await Promise.all([
+      this.prisma.project.findMany({
+        where: cursor ? { AND: [filter, keysetWhere(SORT, cursor)] } : filter,
+        orderBy: orderBy(SORT, direction),
+        take: query.limit + 1,
+        select: SELECT,
+      }),
+      query.include === 'total' ? this.prisma.project.count({ where: filter }) : undefined,
+    ]);
     const { rows, meta } = buildPage(fetched, {
       limit: query.limit,
       sort: SORT,
@@ -197,7 +217,8 @@ export class ProjectsService {
         const workflow = await this.workflow(tx, body.source.workflowKey);
         const id = uuidv7();
         const components = await this.components(tx, body.source.workflowKey, workflow.definition);
-        await tx.project.create({
+        const row = await tx.project.create({
+          select: SELECT,
           data: {
             id,
             programId: body.programId,
@@ -225,9 +246,8 @@ export class ProjectsService {
             updatedBy: actor,
           })),
         });
-        // the application numbers of this project (O-03) count from here
+        // the application numbers of this project count from here
         await tx.idSequence.create({ data: { scopeKey: `app:${id}`, lastValue: 0 } });
-        const row = await tx.project.findUniqueOrThrow({ where: { id }, select: SELECT });
         await this.audit.record(tx, {
           action: 'project.create',
           entityType: 'project',
@@ -254,20 +274,44 @@ export class ProjectsService {
       const before = await this.locked(tx, viewer, projectId);
       assertIfMatch(ifMatch, before.updatedAt);
       const status = before.status as ProjectStatus;
-      for (const key of Object.keys(body) as (keyof ProjectUpdate)[])
+      const current = view(before, false) as Record<string, unknown>;
+      // a field sent with its current value changes nothing, so a whole form may be sent back
+      const changing = (Object.keys(body) as (keyof ProjectUpdate)[]).filter(
+        // eslint-disable-next-line security/detect-object-injection -- keys of the strict body schema
+        (key) => !sameValue(key, body[key], current[key]),
+      );
+      for (const key of changing)
         // eslint-disable-next-line security/detect-object-injection -- key is a field of the strict body schema
         if (!editableIn(status, FIELDS[key])) throw new ApiError('project.read_only', 409);
+      if (status !== 'draft')
+        for (const key of REQUIRED_ONCE_ACTIVE)
+          // eslint-disable-next-line security/detect-object-injection -- a fixed list of body fields
+          if (body[key] === null) throw new ApiError('validation.required', 422);
+      const cost =
+        body.costPerBeneficiary === undefined
+          ? money(before.costPerBeneficiary)
+          : body.costPerBeneficiary;
+      const target =
+        body.targetBeneficiaries === undefined
+          ? before.targetBeneficiaries
+          : body.targetBeneficiaries;
+      const planned = plannedBudgetPaisa(cost, target);
+      if (planned !== null && planned >= BUDGET_LIMIT_PAISA)
+        throw new ApiError('validation.out_of_range', 422);
       if (body.programId && body.programId !== before.programId)
         await this.lockedProgram(tx, viewer, body.programId);
       const from = body.applyFrom === undefined ? day(before.applyFrom) : body.applyFrom;
       const to = body.applyTo === undefined ? day(before.applyTo) : body.applyTo;
       if (from && to && from > to) throw new ApiError('validation.out_of_range', 422);
-      let workflow: { id: string; version: number } | undefined;
+      let workflow: { id: string; version: number; dawahEnabled: boolean } | undefined;
       if (body.workflowKey && body.workflowKey !== before.workflowDefinition.key) {
         // a draft that changes its workflow starts again from that workflow's components
         const next = await this.workflow(tx, body.workflowKey);
-        workflow = next;
         const components = await this.components(tx, body.workflowKey, next.definition);
+        workflow = {
+          ...next,
+          dawahEnabled: components.some((c) => c.componentKey === 'dawah' && c.enabled),
+        };
         for (const c of components)
           await tx.projectComponent.update({
             where: {
@@ -280,8 +324,9 @@ export class ProjectsService {
             },
           });
       }
-      await tx.project.update({
+      const row = await tx.project.update({
         where: { id: projectId },
+        select: SELECT,
         data: {
           nameBn: body.name?.bn,
           nameEn: body.name?.en,
@@ -290,6 +335,7 @@ export class ProjectsService {
           year: body.year,
           workflowDefinitionId: workflow?.id,
           workflowVersion: workflow?.version,
+          dawahEnabled: workflow?.dawahEnabled,
           applyFrom: toDate(body.applyFrom),
           applyTo: toDate(body.applyTo),
           perVolunteerLimit: body.perVolunteerLimit,
@@ -298,8 +344,7 @@ export class ProjectsService {
           updatedBy: actor,
         },
       });
-      const row = await tx.project.findUniqueOrThrow({ where: { id: projectId }, select: SELECT });
-      const old = view(before, false) as Record<string, unknown>;
+      const old = current;
       const now = view(row, false) as Record<string, unknown>;
       // only what changed goes into the audit entry
       const changed = Object.keys(now).filter(
@@ -325,8 +370,9 @@ export class ProjectsService {
       const before = await this.locked(tx, viewer, projectId);
       if (!transitionFor('cancel', before.status as ProjectStatus))
         throw new ApiError('workflow.transition_not_allowed', 409);
-      await tx.project.update({
+      const row = await tx.project.update({
         where: { id: projectId },
+        select: SELECT,
         data: {
           status: 'cancelled',
           cancelledAt: this.clock.now(),
@@ -334,7 +380,6 @@ export class ProjectsService {
           updatedBy: viewer.principal.userId,
         },
       });
-      const row = await tx.project.findUniqueOrThrow({ where: { id: projectId }, select: SELECT });
       await this.audit.record(tx, {
         action: 'project.cancel',
         entityType: 'project',
