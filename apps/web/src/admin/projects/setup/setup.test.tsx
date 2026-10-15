@@ -109,19 +109,19 @@ function serve(status = 'draft') {
       writes.push({ path: `end:${String(params.id)}`, body: await request.json() });
       return new HttpResponse(null, { status: 204 });
     }),
-    http.get('*/api/v1/users', () =>
-      HttpResponse.json({
+    http.get(`*/api/v1/projects/${ID}/candidates`, ({ request }) => {
+      writes.push({ path: 'candidates', body: new URL(request.url).searchParams.get('role') });
+      return HttpResponse.json({
         data: [
           {
             id: '01900000-0000-7000-8000-0000000000e1',
             displayName: 'নমুনা এক্সিকিউটিভ',
             designation: null,
-            roles: ['project_executive'],
           },
         ],
         meta: {},
-      }),
-    ),
+      });
+    }),
     http.get('*/api/v1/programs', () =>
       HttpResponse.json({
         data: [
@@ -326,14 +326,16 @@ describe('the project setup', () => {
     const user = userEvent.setup();
     open();
     const staff = await section('স্টাফের অ্যাক্সেস');
-    await user.type(within(staff).getByRole('combobox', { name: /কর্মকর্তা/ }), 'নমুনা');
-    await user.click(await screen.findByRole('option', { name: 'নমুনা এক্সিকিউটিভ' }));
     await user.click(within(staff).getByRole('button', { name: /ভূমিকা/ }));
     await user.click(await screen.findByRole('option', { name: 'প্রজেক্ট এক্সিকিউটিভ' }));
+    await user.type(within(staff).getByRole('combobox', { name: /কর্মকর্তা/ }), 'নমুনা');
+    await user.click(await screen.findByRole('option', { name: 'নমুনা এক্সিকিউটিভ' }));
+    // the person is looked up among the holders of the chosen role
+    expect(writes).toContainEqual({ path: 'candidates', body: 'project_executive' });
     await user.click(within(staff).getByRole('checkbox', { name: 'সম্পাদনা' }));
     await user.click(within(staff).getByRole('button', { name: 'অ্যাক্সেস দিন' }));
     await waitFor(() =>
-      expect(writes.at(-1)).toEqual({
+      expect(writes.filter((w) => w.path === 'staff').at(-1)).toEqual({
         path: 'staff',
         body: {
           userId: '01900000-0000-7000-8000-0000000000e1',

@@ -437,6 +437,42 @@ describe('areas', () => {
   });
 });
 
+describe('people to assign', () => {
+  it('finds an RPM by name for the PM only, field officials also for an RPM, and names only', async () => {
+    const rpm = await staff('regional_program_manager');
+    await h.db.query('UPDATE users SET display_name = $1 WHERE id = $2', ['খোঁজার আরপিএম', rpm.id]);
+    const executive = await staff('project_executive');
+    await h.db.query('UPDATE users SET display_name = $1 WHERE id = $2', [
+      'খোঁজার এক্সিকিউটিভ',
+      executive.id,
+    ]);
+    const find = (s: Session, query: string) =>
+      at(s, 'get', `/projects/${world.a1.id}/candidates?${query}`);
+    const pm = await as(world.users.pm);
+    const rpms = await find(pm, `role=regional_program_manager&q=${encodeURIComponent('খোঁজার')}`);
+    expect(rpms.status).toBe(200);
+    expect(rpms.body.data).toEqual([
+      { id: rpm.id, displayName: 'খোঁজার আরপিএম', designation: null },
+    ]);
+    const dhaka = await as(world.users.rpmDhaka);
+    expect(
+      (await find(dhaka, `role=regional_program_manager&q=${encodeURIComponent('খোঁজার')}`)).status,
+    ).toBe(403);
+    const executives = await find(
+      dhaka,
+      `role=project_executive&q=${encodeURIComponent('খোঁজার')}`,
+    );
+    expect(executives.status).toBe(200);
+    expect(executives.body.data.map((c: { id: string }) => c.id)).toEqual([executive.id]);
+    expect((await find(pm, 'role=project_executive&q=x')).status).toBe(422);
+    expect((await find(pm, 'role=finance_team&q=abc')).status).toBe(422);
+    const volunteer = await as(world.users.general);
+    expect((await find(volunteer, 'role=project_executive&q=abc')).status).toBe(403);
+    const other = await staff('program_manager');
+    expect((await find(other.session, 'role=project_executive&q=abc')).status).toBe(404);
+  });
+});
+
 describe('staff access', () => {
   it('lets the RPM give view and edit in its own area, never delete, and only to field officials', async () => {
     const rpm = await as(world.users.rpmDhaka);

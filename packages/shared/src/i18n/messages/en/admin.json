@@ -652,7 +652,7 @@
         "activate": "Activate",
         "extend": "Extend the deadline",
         "start_closing": "Start closing",
-        "close": "Close",
+        "close": "Close the project",
         "reopen": "Reopen",
         "cancel": "Cancel the draft"
       },

@@ -2,6 +2,8 @@ import { type ReasonRequest, reasonRequestSchema } from '@css/shared/auth';
 import {
   type AreaCreate,
   areaCreateSchema,
+  type CandidateQuery,
+  candidateQuerySchema,
   type ComponentPatch,
   componentPatchSchema,
   type FundSources,
@@ -52,6 +54,11 @@ const staffView = z.object({
   endedAt: z.string().nullable(),
 });
 const topicView = z.object({ id: uuid, title: bilingual });
+const candidateView = z.object({
+  id: uuid,
+  displayName: z.string(),
+  designation: z.string().nullable(),
+});
 
 const viewerOf = (req: AuthedRequest) => ({ principal: principalOf(req), scope: scopeOf(req) });
 const projectParams = { projectId: uuid };
@@ -228,6 +235,21 @@ export function projectSetupRouter(deps: RouteDeps, c: Pick<Container, 'projectS
     responses: { 204: null, 401: null, 403: null, 404: null, 409: null, 422: null },
     handler: ({ body, params, req }) =>
       c.projectSetup.endStaff(viewerOf(req), params.assignmentId, body.reason),
+  });
+
+  defineRoute<unknown, CandidateQuery, { projectId: string }>(router, deps, {
+    ...op,
+    method: 'get',
+    path: '/projects/:projectId/candidates',
+    operationId: 'projects.candidate.list',
+    summary: 'Officials with a role, by name, to assign to the project (an RPM or field staff)',
+    permission: 'project.staff_access.manage',
+    audit: 'none',
+    params: projectParams,
+    query: candidateQuerySchema,
+    responses: { 200: z.array(candidateView), 401: null, 403: null, 404: null, 422: null },
+    handler: async ({ params, query, req }) =>
+      ok(await c.projectSetup.candidates(viewerOf(req), params.projectId, query)),
   });
 
   defineRoute<unknown, unknown, { projectId: string }>(router, deps, {

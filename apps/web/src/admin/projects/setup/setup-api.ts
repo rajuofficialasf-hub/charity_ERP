@@ -72,6 +72,14 @@ export interface StaffAccess {
   canEdit: boolean;
   canDelete: boolean;
 }
+/** GET /projects/{id}/candidates: officials with a role, by name, for an area or staff access. */
+export const candidates = async (projectId: string, role: string, q: string) =>
+  (
+    await api<{ id: string; displayName: string; designation: string | null }[]>(
+      `/projects/${projectId}/candidates?role=${role}&q=${encodeURIComponent(q)}`,
+    )
+  ).map((c) => ({ ...c, roles: [role] }));
+
 export const staff = (projectId: string) => api<StaffAccess[]>(`/projects/${projectId}/staff`);
 export const addStaff = (projectId: string, body: StaffCreate) =>
   api<StaffAccess[]>(`/projects/${projectId}/staff`, { method: 'POST', body });

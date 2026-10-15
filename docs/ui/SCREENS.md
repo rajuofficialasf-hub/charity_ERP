@@ -969,6 +969,8 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 
 ### SCR-060 Project setup with component toggles
 
+- **Built (T1.11).** `/admin/projects/:projectId/setup`: the section index, the sections (basic information, components with their settings in a dialog, budget and fund sources saved together, application window and limit, areas and RPMs, staff access, the dawah syllabus when dawah is on), each loaded and saved on its own, and the summary of what activation still needs (the shared setup check). Read-only with a notice while closing, closed or cancelled; on a phone only the name, the dates and the switches change. The project list (`/admin/projects`, state chips and the program and year filters in the address, the new-project dialog from a workflow) and the project overview (`/admin/projects/:projectId`, the facts and the lifecycle buttons with their reasons; a refused activation lists what is missing) are part of this task; the programs page is `/admin/programs`. Not yet: templates and copies, quotas, scoring, the rules texts, the form link and the document checklist (T1.12 and later), save as template.
+
 - **Purpose.** The PM creates and configures a project from a template or a previous project. They turn components on and off, set the form, budget, deadlines, areas, quotas, rules and the photo rule, and save a draft before activation (BD-09, BD-10, BD-16, BD-20; blueprint A6).
 - **Roles.** PM. Department Head and Monitoring Team.
 - **Priority.** desktop-first.

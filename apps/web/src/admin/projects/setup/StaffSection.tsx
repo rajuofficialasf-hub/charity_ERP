@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { ApiFailure } from '../../../lib/api';
 import { type PanelUser, UserSearch } from '../../UserSearch';
-import { addStaff, type Area, endStaff, type StaffAccess } from './setup-api';
+import { addStaff, type Area, candidates, endStaff, type StaffAccess } from './setup-api';
 import { SaveRow, SetupSection, useSetup } from './setup-context';
 
 /**
@@ -102,14 +102,28 @@ export function StaffSection({
         <>
           <h3 className="admin-setup-subtitle">{t('add_staff')}</h3>
           <div className="admin-setup-grid">
-            <UserSearch label={t('person')} selected={person} onSelect={setPerson} />
             <Select
               label={t('staff_role')}
               value={roleKey}
-              onChange={setRoleKey}
+              onChange={(role) => {
+                // the person is looked up among the holders of the role
+                setRoleKey(role);
+                setPerson(null);
+              }}
               searchable={false}
               options={STAFF_ACCESS_ROLES.map((r) => ({ id: r, label: tr(r) }))}
             />
+            {roleKey && (
+              <UserSearch
+                label={t('person')}
+                selected={person}
+                onSelect={setPerson}
+                search={{
+                  key: `${roleKey}:${project.id}`,
+                  find: (q) => candidates(project.id, roleKey, q),
+                }}
+              />
+            )}
             <Select
               label={t('staff_area')}
               helper={configure ? t('staff_area_hint') : undefined}

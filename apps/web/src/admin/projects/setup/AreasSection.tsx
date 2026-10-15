@@ -11,7 +11,7 @@ import {
 } from '../../../features/registration/AddressFields';
 import { ApiFailure } from '../../../lib/api';
 import { type PanelUser, UserSearch } from '../../UserSearch';
-import { addArea, type Area, removeArea } from './setup-api';
+import { addArea, type Area, candidates, removeArea } from './setup-api';
 import { SaveRow, SetupSection, useSetup } from './setup-context';
 
 /**
@@ -78,7 +78,16 @@ export function AreasSection({ areas }: { areas: Area[] }) {
           <h3 className="admin-setup-subtitle">{t('add_area')}</h3>
           <div className="admin-setup-grid">
             <AddressFields optional levels={2} value={place} onChange={setPlace} />
-            <UserSearch label={t('rpm')} helper={t('rpm_hint')} selected={rpm} onSelect={setRpm} />
+            <UserSearch
+              label={t('rpm')}
+              helper={t('rpm_hint')}
+              selected={rpm}
+              onSelect={setRpm}
+              search={{
+                key: `rpm:${project.id}`,
+                find: (q) => candidates(project.id, 'regional_program_manager', q),
+              }}
+            />
           </div>
           <SaveRow
             mutation={add}

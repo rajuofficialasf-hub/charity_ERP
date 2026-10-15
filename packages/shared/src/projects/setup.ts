@@ -50,6 +50,17 @@ export type AreaCreate = z.infer<typeof areaCreateSchema>;
 /** The official roles that work under an RPM and may get project access (DECISION_LOG D-095). */
 export const STAFF_ACCESS_ROLES = ['project_executive', 'official_daee', 'implementer'] as const;
 
+/**
+ * Officials a project may be given: an RPM for an area, or a field official for staff access. The
+ * search needs at least two characters and returns names only.
+ */
+export const CANDIDATE_ROLES = ['regional_program_manager', ...STAFF_ACCESS_ROLES] as const;
+export const candidateQuerySchema = z.strictObject({
+  role: z.enum(CANDIDATE_ROLES),
+  q: z.string().trim().min(2).max(100),
+});
+export type CandidateQuery = z.infer<typeof candidateQuerySchema>;
+
 export const staffCreateSchema = z.strictObject({
   userId: z.uuid(),
   roleKey: z.enum(STAFF_ACCESS_ROLES),

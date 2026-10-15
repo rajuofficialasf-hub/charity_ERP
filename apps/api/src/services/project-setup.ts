@@ -1,6 +1,7 @@
 import { componentSettingsSchema, isComponentKey, uuidv7 } from '@css/shared';
 import {
   type AreaCreate,
+  type CandidateQuery,
   type ComponentPatch,
   componentsCheck,
   editableIn,
@@ -414,6 +415,31 @@ export class ProjectSetupService {
         old: { areaId, ...area },
         new: { removed: true },
       });
+    });
+  }
+
+  // ---- people to assign
+
+  /**
+   * Active officials who hold a role and whose name contains the search, for the RPM of an area
+   * (the PM and the global roles) or for staff access (also an RPM of the project). Names and
+   * designations only, at most 20; the user list itself stays limited to the caller's scope.
+   */
+  async candidates(viewer: ProjectViewer, projectId: string, query: CandidateQuery) {
+    this.officialsOnly(viewer);
+    const { project } = await this.projects.get(viewer, projectId);
+    const programLevel = 'programId' in project && this.programLevel(viewer, project.programId);
+    if (query.role === 'regional_program_manager' && !programLevel) this.refuse(viewer);
+    return this.prisma.user.findMany({
+      where: {
+        kind: 'staff',
+        state: 'active',
+        displayName: { contains: query.q, mode: 'insensitive' },
+        userRolesUser: { some: { roleKey: query.role, revokedAt: null } },
+      },
+      orderBy: [{ displayName: 'asc' }, { id: 'asc' }],
+      take: 20,
+      select: { id: true, displayName: true, designation: true },
     });
   }
 

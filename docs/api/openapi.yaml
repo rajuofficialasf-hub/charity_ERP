@@ -1885,6 +1885,19 @@ components:
         canDelete: { type: boolean }
         extraPermissions: { type: array, items: { type: string } }
         endedAt: { type: [string, 'null'], format: date-time }
+    Candidate:
+      type: object
+      required: [id, displayName, designation]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        displayName: { type: string }
+        designation: { type: [string, 'null'] }
+    CandidateList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/Candidate' } }
+        meta: { $ref: '#/components/schemas/Meta' }
     StaffAssignmentList:
       type: object
       required: [data, meta]
@@ -5128,6 +5141,43 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /projects/{projectId}/candidates:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [projects]
+      operationId: projects.candidate.list
+      summary: Officials with a role, by name, to assign to the project (an RPM or field staff)
+      description: >-
+        Active officials holding the role whose name contains q (at least 2 characters), at most 20,
+        names and designations only. The RPM of an area is looked up by the PM and the global roles
+        only (403 otherwise); a field role also by an RPM of the project.
+      x-permission: project.staff_access.manage
+      x-scope: project
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - name: role
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [regional_program_manager, project_executive, official_daee, implementer]
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 2, maxLength: 100 }
+      responses:
+        '200':
+          description: Candidates
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CandidateList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /project-staff/{assignmentId}/end:
     parameters:
