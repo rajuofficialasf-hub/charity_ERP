@@ -1,4 +1,5 @@
 import { COMPONENT_KEYS, type ComponentKey } from '../components.js';
+import { photoRule, photoSource } from '../jsonb/component-settings.js';
 import type { WorkflowDefinition } from '../jsonb/workflow-definition.js';
 
 /** The six seeded workflow definitions a project is created from (the yaml files of WORKFLOW_ENGINE). */
@@ -86,27 +87,24 @@ export interface StartingComponent {
   settings: Record<string, unknown>;
 }
 
-const PHOTO_RULES = ['group', 'individual', 'both', 'per_application_type'] as const;
-const PHOTO_SOURCES = ['camera_only', 'camera_or_gallery'] as const;
-
 /**
- * The photo rule of a workflow. A fixed rule is copied; "per project" means the PM must choose,
- * so the settings start empty and the activation check reports the missing rule. The workflow's
- * single photo source applies to the proof photos; vouchers and payment copies start with the
- * gallery allowed, as UX-11 allows it for vouchers and paper documents.
+ * The photo rule of a workflow, a project-wide setting kept on the `distribution` row (the one
+ * component with the photo-rule settings) whether that component is on or not. A fixed rule is
+ * copied; "per project" means the PM must choose, so the rule starts missing and the activation
+ * check reports it. The workflow's single photo source applies to the proof photos; vouchers and
+ * payment copies start with the gallery allowed, as UX-11 allows it for vouchers and paper
+ * documents.
  */
 function photoRuleSettings(defaults: Record<string, unknown>): Record<string, unknown> {
-  const rule = defaults.photo_rule;
-  if (!(PHOTO_RULES as readonly unknown[]).includes(rule)) return {};
-  const proof = (PHOTO_SOURCES as readonly unknown[]).includes(defaults.photo_source)
-    ? (defaults.photo_source as string)
-    : 'camera_only';
+  const rule = photoRule.safeParse(defaults.photo_rule);
+  const proof = photoSource.safeParse(defaults.photo_source);
+  const source = proof.success ? proof.data : 'camera_only';
   return {
-    rule,
+    ...(rule.success ? { rule: rule.data } : {}),
     source: {
-      distribution_proof: proof,
-      construction_proof: proof,
-      evidence: proof,
+      distribution_proof: source,
+      construction_proof: source,
+      evidence: source,
       voucher: 'camera_or_gallery',
       payment_copy: 'camera_or_gallery',
     },

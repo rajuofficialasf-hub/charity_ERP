@@ -46,12 +46,12 @@ export type SetupField =
   | 'staff'
   | 'syllabus';
 
-/** The window moves only through the reasoned deadline extension once a project is active. */
-const FIXED_WHEN_ACTIVE: readonly SetupField[] = [...IDENTITY_FIELDS, 'applyFrom', 'applyTo'];
+/** The end date moves only through the reasoned deadline extension once a project is active. */
+const FIXED_WHEN_ACTIVE: readonly SetupField[] = [...IDENTITY_FIELDS, 'applyTo'];
 
 /**
  * Whether a setup field may change in this status: everything in a draft; everything but the
- * identity and the window while active; nothing while closing, closed or cancelled.
+ * identity and the end date while active; nothing while closing, closed or cancelled.
  */
 export function editableIn(status: ProjectStatus, field: SetupField): boolean {
   if (status === 'draft') return true;

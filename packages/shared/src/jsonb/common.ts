@@ -6,6 +6,9 @@ export const looseLabel = z.looseObject({ bn: z.string().optional(), en: z.strin
 /** `{ bn, en }` with both languages required (bilingual configuration, I18N.md). */
 export const bilingual = z.strictObject({ bn: z.string(), en: z.string() });
 
+/** A bilingual configuration label of at most 200 characters per language. */
+export const boundedLabel = z.strictObject({ bn: z.string().max(200), en: z.string().max(200) });
+
 /** Snake-case code used for options, criteria and question keys. */
 export const code64 = z.string().regex(/^[a-z0-9_]{1,64}$/);
 

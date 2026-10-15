@@ -62,8 +62,8 @@ describe('the starting components of a workflow', () => {
   it.each(WORKFLOW_KEYS)('%s: every enabled component with a rule has valid settings', (key) => {
     for (const r of start(key)) {
       const empty = Object.keys(r.settings).length === 0;
-      // a photo rule the PM must choose ("per project") starts empty on purpose
-      if (r.componentKey === 'distribution' && empty) continue;
+      // a photo rule the PM must choose ("per project") starts without its rule on purpose
+      if (r.componentKey === 'distribution' && !('rule' in r.settings)) continue;
       if (!empty || r.enabled)
         expect(
           componentSettingsSchema(r.componentKey).safeParse(r.settings).success,
@@ -72,9 +72,17 @@ describe('the starting components of a workflow', () => {
     }
   });
 
-  it('leaves the photo rule open when the workflow says the PM chooses it', () => {
-    expect(row(start('distribution'), 'distribution').settings).toEqual({});
-    expect(row(start('qurbani'), 'distribution').settings).toEqual({});
+  it('leaves the photo rule open when the workflow says the PM chooses it, keeping the source', () => {
+    for (const key of ['distribution', 'qurbani'] as const)
+      expect(row(start(key), 'distribution').settings, key).toEqual({
+        source: {
+          distribution_proof: 'camera_only',
+          construction_proof: 'camera_only',
+          evidence: 'camera_only',
+          voucher: 'camera_or_gallery',
+          payment_copy: 'camera_or_gallery',
+        },
+      });
   });
 
   it('copies a fixed photo rule and spreads the single photo source over the proof photos', () => {
@@ -155,12 +163,13 @@ describe('the project lifecycle', () => {
     expect(transitionFor('reopen', 'draft')).toBeNull();
   });
 
-  it('keeps the identity and the window fixed once active, and everything once closing', () => {
+  it('keeps the identity and the end date fixed once active, and everything once closing', () => {
     expect(IDENTITY_FIELDS).toEqual(['code', 'programId', 'year', 'workflowKey']);
     for (const field of [...IDENTITY_FIELDS, 'applyFrom', 'applyTo', 'name'] as const)
       expect(editableIn('draft', field), field).toBe(true);
     for (const field of IDENTITY_FIELDS) expect(editableIn('active', field), field).toBe(false);
     expect(editableIn('active', 'applyTo')).toBe(false);
+    expect(editableIn('active', 'applyFrom')).toBe(true);
     expect(editableIn('active', 'name')).toBe(true);
     expect(editableIn('active', 'components')).toBe(true);
     for (const status of ['closing', 'closed', 'cancelled'] as const)
@@ -169,14 +178,25 @@ describe('the project lifecycle', () => {
 });
 
 describe('money in paisa', () => {
-  it('adds amounts without floating point error', () => {
-    expect(sumPaisa(['1000.10', '499.90'])).toBe(toPaisa('1500.00'));
-    expect(sumPaisa(['0.10', '0.20'])).toBe(toPaisa('0.30'));
-    expect(fromPaisa(150000)).toBe('1500.00');
+  it('reads an amount as whole paisa', () => {
+    expect(toPaisa('1000.5')).toBe(100050n);
+    expect(toPaisa('0.07')).toBe(7n);
+    expect(toPaisa('12')).toBe(1200n);
+    expect(() => toPaisa('-1')).toThrow(RangeError);
+    expect(() => toPaisa('1.005')).toThrow(RangeError);
+    expect(() => toPaisa('1,000')).toThrow(RangeError);
   });
 
-  it('plans the budget as cost per beneficiary times the target', () => {
-    expect(plannedBudgetPaisa('1000.50', 100)).toBe(toPaisa('100050.00'));
+  it('adds amounts without floating point error', () => {
+    expect(sumPaisa(['1000.10', '499.90'])).toBe(150000n);
+    expect(sumPaisa(['0.10', '0.20'])).toBe(30n);
+    expect(fromPaisa(150000n)).toBe('1500.00');
+    expect(fromPaisa(7n)).toBe('0.07');
+  });
+
+  it('plans the budget as cost per beneficiary times the target, exactly at any size', () => {
+    expect(plannedBudgetPaisa('1000.50', 100)).toBe(10005000n);
+    expect(plannedBudgetPaisa('999999999999.99', 9_000_000)).toBe(899999999999991000000n);
     expect(plannedBudgetPaisa(null, 100)).toBeNull();
     expect(plannedBudgetPaisa('1000', null)).toBeNull();
   });
@@ -212,14 +232,72 @@ describe('the activation check', () => {
     expect(
       setupCheck({
         ...complete,
+        name: { bn: 'শীতবস্ত্র', en: ' ' },
+        year: null,
+        workflowKey: null,
         applyFrom: null,
         perVolunteerLimit: null,
         costPerBeneficiary: null,
+        targetBeneficiaries: null,
         fundSources: [],
         areaCount: 0,
-        components: [{ componentKey: 'distribution', enabled: true, settings: {} }],
+        components: [
+          { componentKey: 'distribution', enabled: true, settings: {} },
+          { componentKey: 'rating_criteria', enabled: true, settings: {} },
+        ],
       }),
-    ).toEqual(['window', 'limit', 'cost', 'fund_sources', 'area', 'component:distribution']);
+    ).toEqual([
+      'name',
+      'year',
+      'workflow',
+      'window',
+      'limit',
+      'cost',
+      'target',
+      'fund_sources',
+      'area',
+      'photo_rule',
+      'component:rating_criteria',
+    ]);
+  });
+
+  it('checks the values, not only their presence', () => {
+    expect(setupCheck({ ...complete, applyFrom: '2027-01-01' })).toEqual(['window']);
+    expect(setupCheck({ ...complete, perVolunteerLimit: 0 })).toEqual(['limit']);
+    expect(setupCheck({ ...complete, perVolunteerLimit: 2.5 })).toEqual(['limit']);
+    expect(
+      setupCheck({
+        ...complete,
+        costPerBeneficiary: '0.00',
+        fundSources: [{ source: 'zakat', amount: '0.00' }],
+      }),
+    ).toEqual(['cost']);
+    expect(setupCheck({ ...complete, targetBeneficiaries: 0 })).toEqual(['target']);
+  });
+
+  it('lists an unreadable amount instead of failing', () => {
+    expect(setupCheck({ ...complete, costPerBeneficiary: 'abc' })).toEqual(['cost']);
+    expect(
+      setupCheck({ ...complete, fundSources: [{ source: 'zakat', amount: '1,00,000' }] }),
+    ).toEqual(['fund_sources_total']);
+  });
+
+  it('needs a photo rule even where the distribution component is off', () => {
+    expect(
+      setupCheck({
+        ...complete,
+        components: [{ componentKey: 'distribution', enabled: false, settings: { source: {} } }],
+      }),
+    ).toEqual(['photo_rule']);
+    expect(
+      setupCheck({
+        ...complete,
+        components: [
+          { componentKey: 'distribution', enabled: false, settings: { rule: 'individual' } },
+        ],
+      }),
+    ).toEqual([]);
+    expect(setupCheck({ ...complete, components: [] })).toEqual(['photo_rule']);
   });
 
   it('needs the fund sources to add up to the planned budget, to the paisa', () => {

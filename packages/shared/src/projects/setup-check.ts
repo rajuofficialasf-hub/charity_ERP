@@ -1,5 +1,5 @@
-import { componentSettingsSchema } from '../jsonb/component-settings.js';
-import { plannedBudgetPaisa, sumPaisa } from './budget.js';
+import { componentSettingsSchema, componentSettingsSchemas } from '../jsonb/component-settings.js';
+import { isAmount, plannedBudgetPaisa, sumPaisa, toPaisa } from './budget.js';
 
 /** What the activation check reads of a project and its setup parts. */
 export interface SetupInput {
@@ -30,33 +30,53 @@ export type MissingItem =
   | 'fund_sources'
   | 'fund_sources_total'
   | 'area'
+  | 'photo_rule'
   | `component:${string}`;
 
 /**
  * Everything a draft needs before it can be activated (DECISION_LOG D-095): the basics, the
  * application window, the per-volunteer limit where the workflow has one, the budget, fund sources
- * that add up to the planned budget, at least one area with an RPM, and valid settings for every
- * enabled component. The published form and the rules texts join this check in later tasks.
- * An empty list means the project may be activated.
+ * that add up to the planned budget, at least one area with an RPM, a photo rule, and valid
+ * settings for every enabled component. The values are checked, not only their presence: the
+ * window runs forwards, the limit is a whole number of at least 1, cost and target are above zero.
+ * The published form and the rules texts join this check in later tasks. An empty list means the
+ * project may be activated.
  */
 export function setupCheck(input: SetupInput): MissingItem[] {
   const missing: MissingItem[] = [];
   if (!input.name?.bn.trim() || !input.name.en.trim()) missing.push('name');
   if (input.year === null) missing.push('year');
   if (!input.workflowKey) missing.push('workflow');
-  if (!input.applyFrom || !input.applyTo) missing.push('window');
-  if (input.limitRequired && input.perVolunteerLimit === null) missing.push('limit');
-  if (input.costPerBeneficiary === null) missing.push('cost');
-  if (input.targetBeneficiaries === null) missing.push('target');
+  // ISO dates (yyyy-mm-dd) compare correctly as strings
+  if (!input.applyFrom || !input.applyTo || input.applyFrom > input.applyTo) missing.push('window');
+  const limit = input.perVolunteerLimit;
+  if (input.limitRequired && (limit === null || !Number.isInteger(limit) || limit < 1))
+    missing.push('limit');
+  const cost = input.costPerBeneficiary;
+  const costOk = cost !== null && isAmount(cost) && toPaisa(cost) > 0n;
+  if (!costOk) missing.push('cost');
+  const target = input.targetBeneficiaries;
+  const targetOk = target !== null && Number.isInteger(target) && target > 0;
+  if (!targetOk) missing.push('target');
   if (input.fundSources.length === 0) missing.push('fund_sources');
-  else {
-    const planned = plannedBudgetPaisa(input.costPerBeneficiary, input.targetBeneficiaries);
-    if (planned !== null && sumPaisa(input.fundSources.map((f) => f.amount)) !== planned)
+  else if (input.fundSources.some((f) => !isAmount(f.amount))) missing.push('fund_sources_total');
+  else if (costOk && targetOk) {
+    const planned = plannedBudgetPaisa(cost, target);
+    if (sumPaisa(input.fundSources.map((f) => f.amount)) !== planned)
       missing.push('fund_sources_total');
   }
   if (input.areaCount === 0) missing.push('area');
+  // the photo rule is a project-wide setting on the distribution row, needed whether that
+  // component is on or not
+  const photo = input.components.find((c) => c.componentKey === 'distribution');
+  if (!photo || !componentSettingsSchemas.photo_rule.safeParse(photo.settings).success)
+    missing.push('photo_rule');
   for (const c of input.components)
-    if (c.enabled && !componentSettingsSchema(c.componentKey).safeParse(c.settings).success)
+    if (
+      c.enabled &&
+      c.componentKey !== 'distribution' &&
+      !componentSettingsSchema(c.componentKey).safeParse(c.settings).success
+    )
       missing.push(`component:${c.componentKey}`);
   return missing;
 }

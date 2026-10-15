@@ -1,19 +1,19 @@
 import { z } from 'zod';
 import { type ComponentKey, isComponentKey } from '../components.js';
-import { code64 } from './common.js';
+import { boundedLabel as label, code64 } from './common.js';
 
 // project_components.settings (docs/database/json-schemas/project-component-settings.schema.json).
 // The schema to apply is chosen by project_components.component_key; components without settings
-// store {} (T1.2: the docs schema uses anyOf so that {} stays valid). Every object is strict and
-// every list and label has a maximum, so a caller cannot store unbounded configuration.
-const label = z.strictObject({ bn: z.string().max(200), en: z.string().max(200) });
+// store {} (the docs schema uses anyOf so that {} stays valid). Every object is strict and every
+// list and label has a maximum, so a caller cannot store unbounded configuration.
 const codeLabel = z.strictObject({
   code: code64,
   label,
   active: z.boolean().optional(),
 });
 const codeLabels = (max: number) => z.array(codeLabel).max(max);
-const photoSource = z.enum(['camera_only', 'camera_or_gallery']);
+export const photoSource = z.enum(['camera_only', 'camera_or_gallery']);
+export const photoRule = z.enum(['group', 'individual', 'both', 'per_application_type']);
 
 export const componentSettingsSchemas = {
   application_form: z.strictObject({
@@ -28,7 +28,7 @@ export const componentSettingsSchemas = {
   }),
   volunteer_assignment: z.strictObject({ team_members_allowed: z.boolean().optional() }),
   photo_rule: z.strictObject({
-    rule: z.enum(['group', 'individual', 'both', 'per_application_type']),
+    rule: photoRule,
     source: z
       .strictObject({
         distribution_proof: photoSource.optional(),
