@@ -22,6 +22,9 @@ import {
 
 const ACCOUNT_KINDS = { in: ['staff', 'volunteer'] };
 
+/** The entities a per-record decision can be made for. */
+export type RecordEntity = 'user' | 'volunteer' | 'beneficiary';
+
 /** One record an access decision is about, by the id its entity uses. */
 export interface RecordTarget {
   userId?: string;
@@ -90,7 +93,7 @@ export class AccessService {
     principal: Principal,
     access: EffectiveAccess,
     permission: string,
-    entity: string,
+    entity: RecordEntity,
   ): Promise<Scope | null> {
     if (!holdsPermission(permission, access.grants)) return null;
     return this.scopeFor(principal, access, permission, entity);
@@ -121,7 +124,7 @@ export class AccessService {
           })) > 0
         );
       default:
-        return false;
+        throw new Error(`reaches: no per-record rule for the entity ${scope.entity}`);
     }
   }
 
@@ -133,11 +136,11 @@ export class AccessService {
   async allowedOn<K extends string>(
     principal: Principal,
     access: EffectiveAccess,
-    actions: Record<K, { permission: string; entity: string }>,
+    actions: Record<K, { permission: string; entity: RecordEntity }>,
     target: RecordTarget,
   ): Promise<Record<K, boolean>> {
     const entries = await Promise.all(
-      (Object.entries(actions) as [K, { permission: string; entity: string }][]).map(
+      (Object.entries(actions) as [K, { permission: string; entity: RecordEntity }][]).map(
         async ([key, { permission, entity }]) => {
           const scope = await this.sensitiveScope(principal, access, permission, entity);
           return [key, scope ? await this.reaches(scope, target) : false] as const;

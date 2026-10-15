@@ -162,7 +162,7 @@ export async function resolveInstances(
         else volunteerRegionProjects.add(g.projectId);
       }
       // the Procurement Team reaches beneficiaries only through the house-construction projects
-      // it is attached to (Q-46); the projects are checked below
+      // it is attached to (DECISION_LOG Q-46); the projects are checked below
       if (
         entity === 'beneficiary' &&
         g.condition === 'house_construction_project' &&

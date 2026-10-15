@@ -33,7 +33,7 @@ export function createRateLimiters(env: Env): RateLimiters {
           limit: window.limit * factor,
           standardHeaders: 'draft-6',
           legacyHeaders: false,
-          keyGenerator: (req) => `${cls}:${route}:${window.key(req)}`,
+          keyGenerator: (req) => `${cls}:${window.shared ? '*' : route}:${window.key(req)}`,
           ...(window.skip ? { skip: window.skip } : {}),
           validate: {
             keyGeneratorIpFallback: false,

@@ -24,6 +24,8 @@ interface Window {
   key: (req: Request) => string;
   /** Counts by the client address (runs before the per-id windows, NE-SEC-04). */
   byIp?: boolean;
+  /** One budget for every route of the class, not one per route. */
+  shared?: boolean;
   /** The window does not apply to this request (it names nothing to count by). */
   skip?: (req: Request) => boolean;
 }
@@ -122,8 +124,8 @@ export const RATE_LIMITS: Record<RateLimitClass, Window[]> = {
   // The nationwide volunteer and beneficiary lists, their counts and profiles are heavy reads
   // (DECISION_LOG O-67): a tighter budget per user, and one per address before it.
   list: [
-    { limit: 600, ttlMs: MINUTE, key: (r) => `ip:${ip(r)}`, byIp: true },
-    { limit: 60, ttlMs: MINUTE, key: caller },
+    { limit: 600, ttlMs: MINUTE, key: (r) => `ip:${ip(r)}`, byIp: true, shared: true },
+    { limit: 60, ttlMs: MINUTE, key: caller, shared: true },
   ],
   sync: [{ limit: 60, ttlMs: MINUTE, key: session }],
 };

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { beneficiaryWhere } from '../../src/access/scope';
+import type { RecordEntity } from '../../src/access/service';
 import type { Principal } from '../../src/auth/principal';
 import { boundedRead } from '../../src/core/bounded-read';
 import { accessWorld } from './support/access-fixtures';
@@ -32,7 +33,7 @@ beforeAll(async () => {
 });
 afterAll(async () => h.close());
 
-async function scopeOf(userId: string, permission: string, entity: string) {
+async function scopeOf(userId: string, permission: string, entity: RecordEntity) {
   const access = await h.container.access.load(userId);
   return h.container.access.sensitiveScope(principal(userId), access, permission, entity);
 }
@@ -62,7 +63,7 @@ describe('the action flags of one record', () => {
   const actions = {
     block: { permission: 'volunteer.block', entity: 'volunteer' },
     revokeSessions: { permission: 'session.revoke_user', entity: 'user' },
-  };
+  } as const;
 
   it('are true for the RPM on a volunteer of the region and false on another region', async () => {
     const access = await h.container.access.load(world.users.rpmDhaka);
@@ -141,6 +142,13 @@ describe('the time limit of a list read', () => {
     await expect(
       boundedRead(h.container.prisma, (tx) => tx.$queryRaw`SELECT pg_sleep(1)`, 100),
     ).rejects.toMatchObject({ code: 'server.busy', status: 503 });
+  });
+
+  it('passes any other failure through unchanged', async () => {
+    const failure = new Error('the read itself failed');
+    await expect(boundedRead(h.container.prisma, () => Promise.reject(failure))).rejects.toBe(
+      failure,
+    );
   });
 
   it('returns the result of a read within its limit', async () => {

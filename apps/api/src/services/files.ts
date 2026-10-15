@@ -1,5 +1,6 @@
 import { pipeline } from 'node:stream/promises';
 import type { Response } from 'express';
+import { volunteerWhere } from '../access/scope';
 import type { AccessService } from '../access/service';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Principal } from '../auth/principal';
@@ -109,13 +110,11 @@ export class FilesService {
         'volunteer.view_sensitive',
         'volunteer',
       );
-      const volunteer = await this.prisma.volunteer.findFirst({
-        where: { userId: ownerId },
-        select: { id: true },
+      if (!scope) return false;
+      const reached = await this.prisma.volunteer.count({
+        where: { AND: [{ userId: ownerId }, volunteerWhere(scope)] },
       });
-      return (
-        !!scope && !!volunteer && (await this.access.reaches(scope, { volunteerId: volunteer.id }))
-      );
+      return reached > 0;
     }
     for (const permission of REACHING_PERMISSIONS) {
       if (!access.grants.some((g) => g.permission === permission)) continue;
