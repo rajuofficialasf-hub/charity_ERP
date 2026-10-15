@@ -94,7 +94,7 @@ export class VolunteersService {
 }
 
 /** The bank details without their empty fields (the contract's BankDetails has no nulls). */
-function compact(bank: Record<string, string | null>): Record<string, string> {
+export function compact(bank: Record<string, string | null>): Record<string, string> {
   return Object.fromEntries(
     Object.entries(bank).filter((e): e is [string, string] => e[1] !== null),
   );

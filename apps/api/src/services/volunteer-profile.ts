@@ -4,7 +4,9 @@ import type { Principal } from '../auth/principal';
 import { boundedRead } from '../core/bounded-read';
 import type { PrismaService } from '../core/prisma.service';
 import { ApiError } from '../i18n/api-error';
+import { CORRECTION, UNFINISHED } from './registrations';
 import { DETAILS_SELECT, detailsView } from './volunteer-details';
+import { compact } from './volunteers';
 
 /**
  * What an official may do to the volunteer, as the action routes decide it: each permission with
@@ -17,6 +19,10 @@ const ACTIONS = {
   unblock: { permission: 'volunteer.unblock', entity: 'volunteer' },
   sessions: { permission: 'session.revoke_user', entity: 'user' },
 } as const;
+
+/** The most team members and ratings a profile carries. */
+const MAX_TEAM = 200;
+const MAX_RATINGS = 100;
 
 const PROFILE_SELECT = {
   id: true,
@@ -62,20 +68,22 @@ const PROFILE_SELECT = {
       project: { select: { id: true, code: true, nameBn: true, nameEn: true, year: true } },
     },
   },
-  // the team: the members who registered with this volunteer as their reference
-  volunteersReferenceVolunteer: {
-    orderBy: { createdAt: 'asc' },
-    select: { id: true, type: true, user: { select: { displayName: true, state: true } } },
-  },
   volunteerRatingsVolunteer: {
     where: { finalizedAt: { not: null } },
     orderBy: { finalizedAt: 'desc' },
+    take: MAX_RATINGS,
     select: { projectId: true, workKind: true, finalScores: true, finalizedAt: true },
+  },
+  // a correction still open or not yet resubmitted blocks the approval and a new correction
+  volunteerChangeRequestsVolunteer: {
+    where: { kind: CORRECTION, status: { in: UNFINISHED } },
+    select: { id: true },
+    take: 1,
   },
 } as const;
 
 /**
- * The official's view of one volunteer (SCR-043; DECISION_LOG O-67, D-094): everything the tab
+ * The official's view of one volunteer (the volunteer profile screen; DECISION_LOG O-67, D-094): everything the tab
  * holds about the person, read-only. The identity fields and the bank details are sent only when
  * the caller's `volunteer.view_sensitive` scope reaches this volunteer; the field mask then removes
  * every class the caller does not see. The flags say which actions the caller may take here.
@@ -87,17 +95,40 @@ export class VolunteerProfileService {
   ) {}
 
   async profile(principal: Principal, scope: Scope, volunteerId: string) {
-    const access = await this.access.load(principal.userId);
-    const v = await boundedRead(this.prisma, (tx) =>
-      tx.volunteer.findFirst({
-        where: { AND: [{ id: volunteerId }, volunteerWhere(scope)] },
-        select: PROFILE_SELECT,
+    const [access, found] = await Promise.all([
+      this.access.load(principal.userId),
+      boundedRead(this.prisma, async (tx) => {
+        const v = await tx.volunteer.findFirst({
+          where: { AND: [{ id: volunteerId }, volunteerWhere(scope)] },
+          select: {
+            ...PROFILE_SELECT,
+            // the team: the members who registered with this volunteer as their reference, as far
+            // as the caller's scope reaches
+            volunteersReferenceVolunteer: {
+              where: volunteerWhere(scope),
+              orderBy: { createdAt: 'asc' },
+              take: MAX_TEAM,
+              select: {
+                id: true,
+                type: true,
+                user: { select: { displayName: true, state: true } },
+              },
+            },
+          },
+        });
+        if (!v) return null;
+        const block = await tx.blocklist.findFirst({
+          where: { subjectType: 'volunteer', subjectId: v.id, active: true },
+          select: { reason: true, blockedAt: true },
+        });
+        return { v, block };
       }),
-    );
-    if (!v) {
+    ]);
+    if (!found) {
       this.access.denied(principal.userId, scope.permission, scope.entity);
       throw new ApiError('permission.not_found', 404);
     }
+    const { v, block } = found;
     // the user id comes from the loaded row, so every flag is decided about this one person
     const target = { volunteerId: v.id, userId: v.userId };
     const sensitive = await this.access.sensitiveScope(
@@ -107,14 +138,10 @@ export class VolunteerProfileService {
       'volunteer',
     );
     const seesIdentity = !!sensitive && (await this.access.reaches(sensitive, target));
-    const [allowed, block] = await Promise.all([
-      this.access.allowedOn(principal, access, ACTIONS, target),
-      this.prisma.blocklist.findFirst({
-        where: { subjectType: 'volunteer', subjectId: v.id, active: true },
-        select: { reason: true, blockedAt: true },
-      }),
-    ]);
+    // keyed lookups of the caller's own grants and of this one record, outside the time limit
+    const allowed = await this.access.allowedOn(principal, access, ACTIONS, target);
     const pending = v.user.state === 'pending';
+    const correcting = v.volunteerChangeRequestsVolunteer.length > 0;
     const details = detailsView(v);
     return {
       id: v.id,
@@ -181,8 +208,9 @@ export class VolunteerProfileService {
         ? { blocked: true, blockedAt: block.blockedAt.toISOString(), reason: block.reason }
         : { blocked: false },
       actions: {
-        approve: allowed.approve && pending,
-        requestCorrection: allowed.requestCorrection && pending,
+        // as the approve route: a pending registration, not blocklisted, with no correction pending
+        approve: allowed.approve && pending && !block && !correcting,
+        requestCorrection: allowed.requestCorrection && pending && !correcting,
         block: allowed.block && !block && v.user.state !== 'blocked',
         unblock: allowed.unblock && !!block,
         viewSessions: allowed.sessions,
@@ -190,11 +218,4 @@ export class VolunteerProfileService {
       },
     };
   }
-}
-
-/** The bank details without their empty fields. */
-function compact(bank: Record<string, string | null>): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(bank).filter((e): e is [string, string] => e[1] !== null),
-  );
 }

@@ -195,8 +195,9 @@ const blocklistEntry = z.object({
 });
 
 /**
- * Volunteer routes (openapi tag volunteers): the own profile and the blocklist (BR-047); the
- * volunteer tab follows with the next task of docs/PLAN.md.
+ * Volunteer routes (openapi tag volunteers): the own profile, the blocklist (BR-047), and the
+ * nationwide volunteer tab for officials: the list, its counts and the official view of one
+ * volunteer with what the caller may do (DECISION_LOG O-67, D-094).
  */
 export function volunteersRouter(
   deps: RouteDeps,

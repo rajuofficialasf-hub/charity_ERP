@@ -105,6 +105,11 @@ describe('the protected parts of a volunteer profile', () => {
   it('send the category, the ratings and the blocklist reason only with their classes', async () => {
     const rated = await someone(world.dhaka, 'active', { category: 'B' });
     await h.db.query(
+      `INSERT INTO volunteer_ratings (id, project_id, volunteer_id, work_kind, final_scores, finalized_by, finalized_at)
+       VALUES ($1, $2, $3, 'application_distribution', '{"timeliness": 4}', $4, now())`,
+      [randomUUID(), world.a1.id, rated.volunteerId, world.users.rpmDhaka],
+    );
+    await h.db.query(
       `INSERT INTO blocklist (id, subject_type, subject_id, reason, blocked_by) VALUES ($1, 'volunteer', $2, 'Sample reason', $3)`,
       [randomUUID(), rated.volunteerId, world.users.rpmDhaka],
     );
@@ -112,7 +117,14 @@ describe('the protected parts of a volunteer profile', () => {
     expect((await profile(rpm, rated.volunteerId)).body.data).toMatchObject({
       category: 'B',
       inactiveFlag: false,
-      ratings: [],
+      ratings: [
+        {
+          projectId: world.a1.id,
+          workKind: 'application_distribution',
+          finalScores: { timeliness: 4 },
+          finalizedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+        },
+      ],
       blocklist: { blocked: true, reason: 'Sample reason', blockedAt: expect.any(String) },
     });
     const implementer = await staff('implementer');
@@ -195,6 +207,29 @@ describe('the action flags of a volunteer profile', () => {
       (await api().get(`/api/v1/users/${world.users.rangpurVolunteer}/sessions`).set(bearer(rpm)))
         .status,
     ).toBe(404);
+  });
+
+  it('do not offer approval of a blocklisted registration or one with a correction pending', async () => {
+    const rpm = await as(world.users.rpmDhaka);
+    const blocked = await someone(world.dhaka, 'pending');
+    await h.db.query(
+      `INSERT INTO blocklist (id, subject_type, subject_id, reason, blocked_by) VALUES ($1, 'volunteer', $2, 'Reason', $3)`,
+      [randomUUID(), blocked.volunteerId, world.users.rpmDhaka],
+    );
+    expect((await profile(rpm, blocked.volunteerId)).body.data.actions).toMatchObject({
+      approve: false,
+      requestCorrection: true,
+    });
+    const correcting = await someone(world.dhaka, 'pending');
+    await h.db.query(
+      `INSERT INTO volunteer_change_requests (id, volunteer_id, kind, field, status, requested_by)
+       VALUES ($1, $2, 'registration_correction', 'name', 'open', $3)`,
+      [randomUUID(), correcting.volunteerId, world.users.rpmDhaka],
+    );
+    expect((await profile(rpm, correcting.volunteerId)).body.data.actions).toMatchObject({
+      approve: false,
+      requestCorrection: false,
+    });
   });
 
   it('are all false for an Official দায়ী', async () => {
