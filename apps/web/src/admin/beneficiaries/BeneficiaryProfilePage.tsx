@@ -35,6 +35,8 @@ export function BeneficiaryProfilePage() {
     queryKey: [...BENEFICIARIES_KEY, 'profile', beneficiaryId],
     queryFn: () => beneficiaryProfile(beneficiaryId),
     retry: false,
+    // a caller without the tab is shown the refusal without asking the server
+    enabled: !!me && canSeeBeneficiaries(me),
   });
   if (!me) return null;
   if (!canSeeBeneficiaries(me)) return <ForbiddenContent />;

@@ -40,7 +40,7 @@ export const BENEFICIARY_TAB_ROLES: readonly string[] = [
  * `beneficiary.profile_detail` and `beneficiary.care`), and who sees the union and the village
  * (`beneficiary.address_detail`, also the Procurement Team). The server masks them anyway.
  */
-export const BENEFICIARY_DETAIL_ROLES: readonly string[] = VOLUNTEER_TAB_ROLES;
+const BENEFICIARY_DETAIL_ROLES: readonly string[] = VOLUNTEER_TAB_ROLES;
 export const BENEFICIARY_ADDRESS_ROLES: readonly string[] = [
   ...BENEFICIARY_DETAIL_ROLES,
   'procurement_team',

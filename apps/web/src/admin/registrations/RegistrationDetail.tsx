@@ -41,6 +41,7 @@ import {
 } from './registrations-api';
 import type { ListNotice } from './RegistrationsPage';
 import { StaffDecisionDialog } from './StaffDecisionDialog';
+import { VOLUNTEERS_KEY } from '../volunteers/volunteers-api';
 
 type Dialog = 'approve' | 'reject' | 'correct' | 'staff' | null;
 
@@ -80,10 +81,16 @@ export function RegistrationDetail() {
 export function RegistrationReview({
   userId,
   finishedTo,
+  allowed,
 }: {
   userId: string;
   /** Where a final decision leads, with its message (the registration has left the list). */
   finishedTo: string;
+  /**
+   * What the server allows on this volunteer (the volunteer profile passes its action flags); a
+   * button shows only for an allowed action. Without it the role lists decide, as before.
+   */
+  allowed?: { approve: boolean; requestCorrection: boolean; block: boolean; unblock: boolean };
 }) {
   const { me } = useAuth();
   const t = useTranslations('admin.registrations');
@@ -98,15 +105,20 @@ export function RegistrationReview({
     retry: false,
   });
   /** A final decision: the registration leaves the list; the list shows the message. */
-  const finished = (message: string) => {
+  // the volunteer tab and its profiles show the same people, so their answers go stale too
+  const stale = () => {
     void queryClient.invalidateQueries({ queryKey: LIST_KEY });
+    void queryClient.invalidateQueries({ queryKey: VOLUNTEERS_KEY });
+  };
+  const finished = (message: string) => {
+    stale();
     void navigate(finishedTo, { state: { notice: message } satisfies ListNotice });
   };
   const changed = (message: string) => {
     setDialog(null);
     setNotice(message);
     void queryClient.invalidateQueries({ queryKey: detailKey(userId) });
-    void queryClient.invalidateQueries({ queryKey: LIST_KEY });
+    stale();
   };
   const approval = useMutation({
     mutationFn: () => approve(userId),
@@ -160,20 +172,28 @@ export function RegistrationReview({
         <div className="flex flex-wrap gap-2">
           {r.kind === 'volunteer' ? (
             <>
-              <Button
-                icon={Check}
-                disabled={r.blocklisted || r.status === 'in_correction'}
-                onPress={() => setDialog('approve')}
-              >
-                {t('approve')}
-              </Button>
-              <Button variant="secondary" icon={FilePenLine} onPress={() => setDialog('correct')}>
-                {t('correct')}
-              </Button>
-              <Button variant="secondary" icon={X} onPress={() => setDialog('reject')}>
-                {t('reject')}
-              </Button>
-              {canBlock(me) && r.volunteer && (
+              {(!allowed || allowed.approve || allowed.requestCorrection) && (
+                <Button
+                  icon={Check}
+                  disabled={
+                    r.blocklisted || r.status === 'in_correction' || (allowed && !allowed.approve)
+                  }
+                  onPress={() => setDialog('approve')}
+                >
+                  {t('approve')}
+                </Button>
+              )}
+              {(!allowed || allowed.requestCorrection) && (
+                <Button variant="secondary" icon={FilePenLine} onPress={() => setDialog('correct')}>
+                  {t('correct')}
+                </Button>
+              )}
+              {(!allowed || allowed.approve || allowed.requestCorrection) && (
+                <Button variant="secondary" icon={X} onPress={() => setDialog('reject')}>
+                  {t('reject')}
+                </Button>
+              )}
+              {(allowed ? allowed.block || allowed.unblock : canBlock(me)) && r.volunteer && (
                 <BlocklistAction
                   volunteerId={r.volunteer.id}
                   name={r.displayName}

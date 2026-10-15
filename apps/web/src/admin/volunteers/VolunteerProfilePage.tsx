@@ -45,6 +45,8 @@ export function VolunteerProfilePage() {
     queryKey: profileKey(volunteerId),
     queryFn: () => volunteerProfile(volunteerId),
     retry: false,
+    // a caller without the tab is shown the refusal without asking the server
+    enabled: !!me && canSeeVolunteers(me),
   });
   if (!me) return null;
   if (!canSeeVolunteers(me)) return <ForbiddenContent />;
@@ -78,7 +80,11 @@ export function VolunteerProfilePage() {
     <>
       {back}
       {reviewing ? (
-        <RegistrationReview userId={p.userId} finishedTo="/admin/volunteers?state=pending" />
+        <RegistrationReview
+          userId={p.userId}
+          finishedTo="/admin/volunteers?state=pending"
+          allowed={p.actions}
+        />
       ) : (
         <Profile profile={p} />
       )}

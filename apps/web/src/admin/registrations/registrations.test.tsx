@@ -1,6 +1,6 @@
 import type { Me } from '@css/shared/auth';
 import { expectNoAxeViolations } from '@css/ui/testing';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -163,7 +163,10 @@ function serve() {
         meta,
       }),
     ),
-    http.get('*/api/v1/volunteers', () => HttpResponse.json({ data: [], meta })),
+    http.get('*/api/v1/volunteers', () => {
+      volunteerListCalls += 1;
+      return HttpResponse.json({ data: [], meta });
+    }),
     http.get('*/api/v1/volunteers/:volunteerId', () =>
       HttpResponse.json({
         data: {
@@ -175,7 +178,7 @@ function serve() {
           actions: {
             approve: true,
             requestCorrection: true,
-            block: true,
+            block: profileBlock,
             unblock: false,
             viewSessions: false,
             revokeSessions: false,
@@ -268,6 +271,10 @@ function serve() {
 /** The profile of the pending volunteer, which opens as the registration review. */
 const REVIEW = `/admin/volunteers/${VOLUNTEER_ID}`;
 
+let volunteerListCalls = 0;
+/** Whether the profile's flags allow the block action (the RPM yes, the Project Executive no). */
+let profileBlock = true;
+
 const renderPage = (me: Me, locale: 'bn' | 'en' = 'bn', path = '/admin/registrations') => {
   refreshAs(me);
   return renderApp(<AdminLayout />, locale, {
@@ -291,6 +298,8 @@ async function openRow(user: ReturnType<typeof userEvent.setup>, name: string) {
 
 beforeEach(() => {
   resetClientForTests();
+  volunteerListCalls = 0;
+  profileBlock = true;
   calls = [];
   pending = [pendingVolunteer, pendingStaff];
   detail = volunteerDetail();
@@ -392,6 +401,21 @@ describe('volunteer registration detail', () => {
     expect(calls).toEqual([
       { method: 'POST', url: `/api/v1/registrations/${VOLUNTEER_USER}/approve`, body: null },
     ]);
+  });
+
+  it('a decision in the review refreshes the volunteer tab it returns to', async () => {
+    const user = userEvent.setup();
+    const { router } = renderPage(RPM, 'bn', '/admin/volunteers?state=pending');
+    await screen.findByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক' });
+    await waitFor(() => expect(volunteerListCalls).toBe(1));
+    await router.navigate(REVIEW);
+    await screen.findByRole('heading', { level: 1, name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' });
+    await user.click(screen.getByRole('button', { name: 'অনুমোদন' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'অনুমোদন করুন' }));
+    expect(await screen.findByText('নিবন্ধন অনুমোদিত হয়েছে')).toBeInTheDocument();
+    // the cached page is not shown as it was: the list asks the server again
+    await waitFor(() => expect(volunteerListCalls).toBeGreaterThan(1));
   });
 
   it('a hidden NID shows that it is not visible, never an empty value', async () => {
@@ -525,6 +549,7 @@ describe('volunteer registration detail', () => {
   });
 
   it('a Project Executive has no blocklist action', async () => {
+    profileBlock = false;
     renderPage({ ...RPM, roles: ['project_executive'] }, 'bn', REVIEW);
     await screen.findByRole('heading', { level: 1, name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' });
     expect(screen.getByRole('button', { name: 'অনুমোদন' })).toBeInTheDocument();

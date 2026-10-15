@@ -13,8 +13,7 @@ import {
 } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import { Users } from 'lucide-react';
-import { useCallback, useState } from 'react';
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
@@ -25,13 +24,8 @@ import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { canSeeCategories, canSeeVolunteers } from '../roles';
 import { StatisticsBar } from '../StatisticsBar';
-import {
-  FILTER_KEYS,
-  type FilterValues,
-  VOLUNTEERS_KEY,
-  volunteerPage,
-  volunteerStatistics,
-} from './volunteers-api';
+import { useTabView } from '../use-tab-view';
+import { FILTER_KEYS, VOLUNTEERS_KEY, volunteerPage, volunteerStatistics } from './volunteers-api';
 
 const STATES = ['pending', 'active', 'blocked', 'deactivated'] as const;
 const CATEGORIES = ['A', 'B', 'C', 'D', 'inactive'] as const;
@@ -75,34 +69,8 @@ function VolunteerTab({ categories }: { categories: boolean }) {
   const tc = useTranslations('common');
   const tr = useTranslations('registration.form.types');
   const locale = useLocale() as Locale;
-  const [params, setParams] = useSearchParams();
-  const [q, setQ] = useState('');
-  // a cursor belongs to the filters and the search it was made for; any other view starts at the
-  // first page, however the URL changed (a sidebar link, back and forward)
-  const view = `${params.toString()}|${q}`;
-  const [paging, setPaging] = useState<{ view: string; cursor: string | null }>({
-    view,
-    cursor: null,
-  });
-  const cursor = paging.view === view ? paging.cursor : null;
-  const setCursor = (next: string | null) => setPaging({ view, cursor: next });
-  const filters: FilterValues = Object.fromEntries(
-    FILTER_KEYS.flatMap((key) => {
-      const value = params.get(key);
-      return value ? [[key, value]] : [];
-    }),
-  );
-  const setFilters = (next: FilterValues) => {
-    const out = new URLSearchParams();
-    for (const key of FILTER_KEYS) {
-      // eslint-disable-next-line security/detect-object-injection -- a fixed list of filter keys
-      const value = next[key];
-      if (value) out.set(key, value);
-    }
-    setParams(out, { replace: true });
-  };
-  const change = (patch: FilterValues) => setFilters({ ...filters, ...patch });
-  const onSearch = useCallback((term: string) => setQ(term), []);
+  const { filters, setFilters, change, q, onSearch, cursor, setCursor, activeCount } =
+    useTabView(FILTER_KEYS);
 
   const page = useQuery({
     queryKey: [...VOLUNTEERS_KEY, 'page', filters, q, cursor],
@@ -176,9 +144,7 @@ function VolunteerTab({ categories }: { categories: boolean }) {
       : []),
   ];
 
-  const activeFilters = FILTER_KEYS.filter(
-    (key) => key !== 'state' && filters[key] !== undefined,
-  ).length;
+  const activeFilters = activeCount(['state']);
   const meta = page.data?.meta;
 
   return (

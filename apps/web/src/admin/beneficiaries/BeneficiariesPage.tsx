@@ -11,8 +11,7 @@ import {
 } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import { HandHeart } from 'lucide-react';
-import { useCallback, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
@@ -22,13 +21,13 @@ import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { canSeeBeneficiaries, canSeeBeneficiaryAddress, canSeeBeneficiaryDetails } from '../roles';
 import { StatisticsBar } from '../StatisticsBar';
+import { useTabView } from '../use-tab-view';
 import {
   BENEFICIARIES_KEY,
   BENEFICIARY_TYPES,
   beneficiaryPage,
   beneficiaryStatistics,
   FILTER_KEYS,
-  type FilterValues,
 } from './beneficiaries-api';
 
 /** The years offered by the year filter: this one and the five before it. */
@@ -60,33 +59,12 @@ export function BeneficiariesPage() {
 function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }) {
   const t = useTranslations('admin.beneficiaries');
   const tc = useTranslations('common');
-  const [params, setParams] = useSearchParams();
-  const [q, setQ] = useState('');
-  // a cursor belongs to the filters and the search it was made for
-  const view = `${params.toString()}|${q}`;
-  const [paging, setPaging] = useState<{ view: string; cursor: string | null }>({
-    view,
-    cursor: null,
-  });
-  const cursor = paging.view === view ? paging.cursor : null;
-  const setCursor = (next: string | null) => setPaging({ view, cursor: next });
-  const filters: FilterValues = Object.fromEntries(
-    FILTER_KEYS.flatMap((key) => {
-      const value = params.get(key);
-      return value ? [[key, value]] : [];
-    }),
+  // a filter the role may not use is never read from the URL (an older or shared link)
+  const keys = FILTER_KEYS.filter(
+    (key) => (details || (key !== 'type' && key !== 'blocked')) && (union || key !== 'unionId'),
   );
-  const setFilters = (next: FilterValues) => {
-    const out = new URLSearchParams();
-    for (const key of FILTER_KEYS) {
-      // eslint-disable-next-line security/detect-object-injection -- a fixed list of filter keys
-      const value = next[key];
-      if (value) out.set(key, value);
-    }
-    setParams(out, { replace: true });
-  };
-  const change = (patch: FilterValues) => setFilters({ ...filters, ...patch });
-  const onSearch = useCallback((term: string) => setQ(term), []);
+  const { filters, setFilters, change, q, onSearch, cursor, setCursor, activeCount } =
+    useTabView(keys);
 
   const page = useQuery({
     queryKey: [...BENEFICIARIES_KEY, 'page', filters, q, cursor],
@@ -143,7 +121,7 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
     { id: 'area', header: t('column.area'), cell: (r) => <Area row={r} />, priority: 2 },
     { id: 'status', header: t('column.status'), cell: status },
   ];
-  const activeFilters = FILTER_KEYS.filter((key) => filters[key] !== undefined).length;
+  const activeFilters = activeCount();
   const meta = page.data?.meta;
 
   return (

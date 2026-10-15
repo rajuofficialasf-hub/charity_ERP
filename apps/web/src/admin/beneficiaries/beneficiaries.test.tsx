@@ -3,7 +3,7 @@ import { expectNoAxeViolations } from '@css/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ME, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
@@ -76,6 +76,9 @@ const openProfile = () =>
 beforeEach(() => {
   resetClientForTests();
 });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('the beneficiary tab', () => {
   it('shows the counts and the rows, without accessibility violations', async () => {
@@ -93,12 +96,15 @@ describe('the beneficiary tab', () => {
   it('keeps the year filter in the URL and restores the filters from it', async () => {
     refreshAs(HEAD);
     serve(fullRow, { total: 1, assistedThisYear: 0, blocked: 0 });
+    // the year list counts back from today: a fixed date keeps the options the same
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-15T06:00:00Z'));
     const user = userEvent.setup();
     const { router } = openList(`/admin/beneficiaries?type=widow&blocked=false`);
     await waitFor(() => expect(listUrls.length).toBeGreaterThan(0));
     expect(listUrls[0]!.searchParams.get('type')).toBe('widow');
     expect(listUrls[0]!.searchParams.get('blocked')).toBe('false');
-    const year = String(new Date().getFullYear() - 1);
+    const year = '2025';
     await user.click(await screen.findByRole('button', { name: /বছর/ }));
     await user.click(await screen.findByRole('option', { name: year }));
     await waitFor(() => expect(router.state.location.search).toContain(`year=${year}`));
@@ -128,6 +134,8 @@ describe('the beneficiary tab', () => {
     serve(fullRow, {});
     openList();
     expect(await screen.findByRole('heading', { level: 1 })).not.toHaveTextContent('উপকারভোগী');
+    // give a stray request the time to arrive before saying there was none
+    await new Promise((resolve) => setTimeout(resolve, 50));
     expect(listUrls).toEqual([]);
   });
 });
@@ -218,6 +226,53 @@ describe('the 360° profile', () => {
     expect(await screen.findByText('1000000000777')).toBeInTheDocument();
     expect(screen.getByText('APP-2026-0001')).toBeInTheDocument();
     expect(screen.getAllByText(/শীতবস্ত্র 2026/).length).toBeGreaterThan(0);
+  });
+
+  it('refuses a volunteer without asking the server', async () => {
+    refreshAs({ ...ME, kind: 'volunteer', roles: ['volunteer_general'] });
+    let asked = false;
+    server.use(
+      http.get('*/api/v1/beneficiaries/:id', () => {
+        asked = true;
+        return HttpResponse.json({ data: empty360, meta: { requestId: 'req_test' } });
+      }),
+    );
+    openProfile();
+    expect(await screen.findByRole('heading', { level: 1 })).not.toHaveTextContent(
+      'নমুনা উপকারভোগী',
+    );
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(asked).toBe(false);
+  });
+
+  it('says when the beneficiary is not found, and offers a retry on an error', async () => {
+    refreshAs(HEAD);
+    server.use(
+      http.get('*/api/v1/beneficiaries/:id', () =>
+        HttpResponse.json(
+          { error: { code: 'permission.not_found', message: 'Not found.', requestId: 'r' } },
+          { status: 404 },
+        ),
+      ),
+    );
+    const first = openProfile();
+    expect(await screen.findByText('এই উপকারভোগীকে পাওয়া যায়নি।')).toBeInTheDocument();
+    first.unmount();
+    resetClientForTests();
+    let calls = 0;
+    server.use(
+      http.get('*/api/v1/beneficiaries/:id', () => {
+        calls += 1;
+        return HttpResponse.json(
+          { error: { code: 'rate_limit.exceeded', message: 'Too many.', requestId: 'r' } },
+          { status: 429 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    openProfile();
+    await user.click(await screen.findByRole('button', { name: /আবার চেষ্টা করুন/ }));
+    await waitFor(() => expect(calls).toBe(2));
   });
 
   it('shows the Media Team only the sections the server sent', async () => {
