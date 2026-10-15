@@ -85,7 +85,7 @@ describe('the volunteer list', () => {
       ['divisionId', tree.division],
       ['upazilaId', tree.upazila],
       ['unionId', tree.union],
-    ])
+    ] as [string, string][])
       expect(ids(await list(head, { [column]: value })).length, column).toBe(3);
     expect(ids(await list(head, { unionId: tree.union, type: 'local_daee' }))).toEqual([
       daee.volunteerId,
