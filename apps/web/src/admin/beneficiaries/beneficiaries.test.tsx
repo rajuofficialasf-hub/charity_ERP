@@ -12,6 +12,7 @@ import { BeneficiaryProfilePage } from './BeneficiaryProfilePage';
 
 // The beneficiary tab and the 360° shell (SCR-044, SCR-045; DECISION_LOG O-67, D-094): counts,
 // filters in the URL, the limited view of the Media Team and the sections. Test data only.
+const PROJECT_ID = '01900000-0000-7000-8000-0000000000c1';
 const HEAD: Me = { ...ME, roles: ['department_head'] };
 const MEDIA: Me = { ...ME, roles: ['media_team'] };
 const ID = '01900000-0000-7000-8000-0000000000b1';
@@ -48,6 +49,20 @@ let listUrls: URL[];
 function serve(row: unknown, stats: unknown, profile?: unknown) {
   listUrls = [];
   server.use(
+    http.get('*/api/v1/projects', () =>
+      HttpResponse.json({
+        data: [
+          {
+            id: PROJECT_ID,
+            code: 'WC',
+            year: 2026,
+            name: { bn: 'শীতবস্ত্র বিতরণ', en: 'Winter clothing' },
+            status: 'active',
+          },
+        ],
+        meta: { nextCursor: null, prevCursor: null },
+      }),
+    ),
     http.get('*/api/v1/beneficiaries', ({ request }) => {
       listUrls.push(new URL(request.url));
       return HttpResponse.json({

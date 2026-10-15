@@ -22,6 +22,7 @@ import { AddressFields } from '../../features/registration/AddressFields';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
+import { ProjectPicker } from '../projects/ProjectPicker';
 import { canSeeCategories, canSeeVolunteers } from '../roles';
 import { StatisticsBar } from '../StatisticsBar';
 import { useTabView } from '../use-tab-view';
@@ -205,6 +206,10 @@ function VolunteerTab({ categories }: { categories: boolean }) {
                       unionId: a.unionId ?? undefined,
                     })
                   }
+                />
+                <ProjectPicker
+                  value={filters.projectId ?? null}
+                  onChange={(id) => change({ projectId: id ?? undefined })}
                 />
                 <Select
                   label={t('filter.type')}

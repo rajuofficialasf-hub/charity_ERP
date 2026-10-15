@@ -52,6 +52,22 @@ export const CATEGORY_ROLES: readonly string[] = ADMIN_ROLES;
 /** The permission panel is for the Department Head and the Monitoring Team only (RBAC.md 7). */
 export const PERMISSION_PANEL_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
 
+/** Who sees the programs (`program.view`; the global roles and the PMs, each its own program). */
+export const PROGRAM_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'program_manager',
+];
+
+/** Who creates, renames, deactivates programs and assigns their PM (the global roles). */
+export const PROGRAM_ADMIN_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
+
+/** Who sees projects in the admin area (`project.view`: the PM, the RPM and the Executive). */
+export const PROJECT_ROLES: readonly string[] = ADMIN_ROLES;
+
+/** Who creates a draft project (`project.create`: the PM in its program, and the global roles). */
+export const PROJECT_CREATE_ROLES: readonly string[] = PROGRAM_ROLES;
+
 /** Volunteer registration approvers (`registration.approve`, Q-19, BR-029). */
 export const REGISTRATION_ROLES: readonly string[] = ADMIN_ROLES;
 
@@ -95,3 +111,7 @@ export const canApproveStaff = (me: Pick<Me, 'roles'>) => holds(me, STAFF_APPROV
 export const canDecideEdits = (me: Pick<Me, 'roles'>) => holds(me, EDIT_REQUEST_ROLES);
 export const canBlock = (me: Pick<Me, 'roles'>) => holds(me, BLOCKLIST_ROLES);
 export const canHandOver = (me: Pick<Me, 'roles'>) => holds(me, HANDOVER_ROLES);
+export const canSeePrograms = (me: Pick<Me, 'roles'>) => holds(me, PROGRAM_ROLES);
+export const canManagePrograms = (me: Pick<Me, 'roles'>) => holds(me, PROGRAM_ADMIN_ROLES);
+export const canSeeProjects = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_ROLES);
+export const canCreateProjects = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_CREATE_ROLES);

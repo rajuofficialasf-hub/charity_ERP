@@ -19,6 +19,7 @@ import { AddressFields } from '../../features/registration/AddressFields';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
+import { ProjectPicker } from '../projects/ProjectPicker';
 import { canSeeBeneficiaries, canSeeBeneficiaryAddress, canSeeBeneficiaryDetails } from '../roles';
 import { StatisticsBar } from '../StatisticsBar';
 import { useTabView } from '../use-tab-view';
@@ -189,6 +190,10 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
                     onChange={(id) => change({ type: id ?? undefined })}
                   />
                 )}
+                <ProjectPicker
+                  value={filters.projectId ?? null}
+                  onChange={(id) => change({ projectId: id ?? undefined })}
+                />
                 <Select
                   label={t('filter.year')}
                   value={filters.year ?? null}

@@ -7,7 +7,9 @@
     "beneficiaries": "Beneficiaries",
     "permissions": "Permissions",
     "registrations": "Registrations",
-    "handover": "Handover"
+    "handover": "Handover",
+    "projects": "Projects",
+    "programs": "Programs"
   },
   "bar": {
     "label": "Admin",
@@ -381,5 +383,94 @@
       "calls": "Calls",
       "evaluations": "Follow-up evaluations"
     }
+  },
+  "programs": {
+    "title": "Programs",
+    "table": "Programs",
+    "new": "New program",
+    "edit": "Edit {name}",
+    "empty": "No program yet.",
+    "no_pm": "No PM yet",
+    "column": {
+      "code": "Code",
+      "name": "Name",
+      "pm": "Program Manager",
+      "state": "State"
+    },
+    "state": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "notice": {
+      "created": "Program {code} was created.",
+      "saved": "Program {code} was saved."
+    },
+    "dialog": {
+      "create_title": "New program",
+      "edit_title": "Edit program {code}",
+      "code": "Program code",
+      "code_hint": "2 to 12 capital English letters, e.g. HUM.",
+      "code_invalid": "Use 2 to 12 capital English letters (A-Z).",
+      "name_bn": "Name in Bangla",
+      "name_en": "Name in English",
+      "pm": "Program Manager",
+      "pm_hint": "Search by name; only a Program Manager can be chosen.",
+      "active": "Active (takes new projects)"
+    }
+  },
+  "projects": {
+    "title": "Projects",
+    "table": "Projects",
+    "new": "New project",
+    "empty": "No project matches these filters.",
+    "column": {
+      "code": "Code",
+      "name": "Name",
+      "program": "Program",
+      "year": "Year",
+      "status": "State"
+    },
+    "chips": {
+      "all": "All"
+    },
+    "status": {
+      "draft": "Draft",
+      "active": "Active",
+      "closing": "Closing",
+      "closed": "Closed",
+      "cancelled": "Cancelled"
+    },
+    "filter": {
+      "program": "Program",
+      "year": "Year"
+    },
+    "workflow": {
+      "distribution": "Distribution",
+      "construction": "Construction",
+      "advance_voucher": "Advance + construction + voucher",
+      "implementation_evidence": "Implementation + evidence + follow-up",
+      "open_application_visit": "Open application + visit",
+      "qurbani": "Beneficiary + donor + animal (Qurbani)"
+    },
+    "dialog": {
+      "title": "New project",
+      "code": "Project code",
+      "code_hint": "2 to 8 capital English letters; application ids start with it, e.g. WC.",
+      "code_invalid": "Use 2 to 8 capital English letters (A-Z).",
+      "name_bn": "Name in Bangla",
+      "name_en": "Name in English",
+      "year": "Year",
+      "program": "Program",
+      "workflow": "Workflow",
+      "workflow_hint": "The project starts with this workflow’s components; you can change them in the setup.",
+      "submit": "Create draft"
+    },
+    "detail": {
+      "back": "All projects",
+      "setup": "Setup",
+      "not_found": "This project was not found."
+    },
+    "picker": "Project",
+    "picker_option": "{name} {year} ({code})"
   }
 }

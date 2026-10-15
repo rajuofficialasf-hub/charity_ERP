@@ -18,6 +18,7 @@ const DIVISION = '01900000-0000-7000-8000-0000000000d1';
 const DISTRICT = '01900000-0000-7000-8000-0000000000d2';
 const UPAZILA = '01900000-0000-7000-8000-0000000000d3';
 const UNION = '01900000-0000-7000-8000-0000000000d4';
+const PROJECT_ID = '01900000-0000-7000-8000-0000000000c1';
 
 const row = (over: Record<string, unknown> = {}) => ({
   id: '01900000-0000-7000-8000-0000000000a1',
@@ -70,6 +71,20 @@ function serve(
         meta: { requestId: 'req_test', limit: 25, nextCursor: null, prevCursor: null, total: 1 },
       });
     }),
+    http.get('*/api/v1/projects', () =>
+      HttpResponse.json({
+        data: [
+          {
+            id: PROJECT_ID,
+            code: 'WC',
+            year: 2026,
+            name: { bn: 'শীতবস্ত্র বিতরণ', en: 'Winter clothing' },
+            status: 'active',
+          },
+        ],
+        meta: { nextCursor: null, prevCursor: null },
+      }),
+    ),
     http.get('*/api/v1/volunteers/statistics', ({ request }) => {
       statUrls.push(new URL(request.url));
       if (fail.stats) return failure(fail.stats);
@@ -135,6 +150,18 @@ describe('the volunteer tab', () => {
     expect(first.get('districtId')).toBe(DISTRICT);
     expect(first.get('type')).toBe('both');
     expect(first.get('blocked')).toBe('true');
+  });
+
+  it('filters by a project picked by its name and sends its id', async () => {
+    refreshAs(HEAD);
+    serve();
+    const user = userEvent.setup();
+    const { router } = open();
+    const [picker] = await screen.findAllByRole('button', { name: /প্রকল্প/ });
+    await user.click(picker!);
+    await user.click(await screen.findByRole('option', { name: 'শীতবস্ত্র বিতরণ 2026 (WC)' }));
+    await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('projectId')).toBe(PROJECT_ID));
+    expect(router.state.location.search).toBe(`?projectId=${PROJECT_ID}`);
   });
 
   it('sends a search to the server and never puts it in the URL', async () => {
