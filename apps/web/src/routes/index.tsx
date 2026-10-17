@@ -6,6 +6,7 @@ import { HomeView } from '../features/account/HomeView';
 import { ProfileView } from '../features/account/ProfileView';
 import { SessionsView } from '../features/account/SessionsView';
 import { LoginPage } from '../features/auth/LoginPage';
+import { InvitePage } from '../features/auth/InvitePage';
 import { ResetPage } from '../features/auth/ResetPage';
 import { RegisterPage } from '../features/registration/RegisterPage';
 
@@ -25,6 +26,7 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
         { path: '/', element: <HomeView /> },
         { path: '/login', element: <LoginPage /> },
         { path: '/login/reset', element: <ResetPage /> },
+        { path: '/invite', element: <InvitePage /> },
         { path: '/register', element: <RegisterPage /> },
         { path: '/account/profile', element: <ProfileView /> },
         { path: '/account/sessions', element: <SessionsView /> },
