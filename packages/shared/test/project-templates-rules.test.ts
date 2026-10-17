@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { COMPONENT_KEYS } from '../src/components.js';
+import { componentSettingsSchemas } from '../src/jsonb/component-settings.js';
 import {
   acceptsEveryPart,
   applicationsLeft,
@@ -12,6 +13,7 @@ import {
   missingRuleParts,
   NOT_COPIED,
   permissionSetAllowed,
+  PROJECT_BOUND_SETTINGS,
   projectRulesSchema,
   requiredRuleParts,
   RULES_PARTS,
@@ -67,15 +69,15 @@ describe('the rules texts', () => {
   });
 
   it('takes a consent with its version, a decision and each part once', () => {
-    expect(consentSchema.parse({ rulesVersion: 2, decision: 'refuse' }).parts).toEqual([]);
+    expect(consentSchema.parse({ rulesVersion: 2, decision: 'refused' }).parts).toEqual([]);
     expect(
       consentSchema.safeParse({
         rulesVersion: 1,
-        decision: 'accept',
+        decision: 'accepted',
         parts: ['misconduct', 'misconduct'],
       }).success,
     ).toBe(false);
-    expect(consentSchema.safeParse({ rulesVersion: 0, decision: 'accept' }).success).toBe(false);
+    expect(consentSchema.safeParse({ rulesVersion: 0, decision: 'accepted' }).success).toBe(false);
     expect(consentSchema.safeParse({ rulesVersion: 1, decision: 'maybe' }).success).toBe(false);
   });
 
@@ -110,18 +112,57 @@ describe('templates and copies', () => {
         .map(([item]) => item)
         .sort(),
     ).toEqual(['document_checklist', 'form_as_version_1', 'scoring_criteria']);
-    for (const item of [
-      'applications',
-      'beneficiaries',
-      'budget_amounts',
-      'dates',
-      'volunteer_assignments',
-      'ratings',
-      'categories',
-      'logs',
-      'quota_targets',
-    ])
-      expect(NOT_COPIED, item).toContain(item);
+    // BD-10's list, and the setup parts that belong to one project only
+    expect([...NOT_COPIED].sort()).toEqual(
+      [
+        'applications',
+        'beneficiaries',
+        'budget_amounts',
+        'dates',
+        'volunteer_assignments',
+        'ratings',
+        'categories',
+        'logs',
+        'quota_targets',
+        'fund_sources',
+        'areas',
+        'staff_access',
+      ].sort(),
+    );
+  });
+
+  it('sorts every settings key into copied or bound to the source project', () => {
+    // a new settings key fails here until it is placed in one of the two groups
+    const keys = Object.entries(componentSettingsSchemas).flatMap(([definition, schema]) =>
+      Object.keys(schema.shape).map((key) => `${definition}.${key}`),
+    );
+    const bound = Object.entries(PROJECT_BOUND_SETTINGS).flatMap(([component, list]) =>
+      (list ?? []).map((key) => `${component}.${key}`),
+    );
+    expect(bound.sort()).toEqual([
+      'application_form.form_ids',
+      'public_link.form_ids',
+      'public_link.token',
+    ]);
+    expect(keys.filter((key) => !bound.includes(key)).sort()).toEqual(
+      [
+        'application_form.beneficiary_class_options',
+        'application_form.application_kinds',
+        'public_link.enabled',
+        'volunteer_assignment.team_members_allowed',
+        'photo_rule.rule',
+        'photo_rule.source',
+        'photo_rule.dedup_identical',
+        'stages.list',
+        'issue_log.issue_types',
+        'volunteer_expenses.categories',
+        'rating_criteria.criteria',
+        'scoring.criteria',
+        'follow_up.questions',
+        'dawah.family_attendance',
+        'dawah.gender_split',
+      ].sort(),
+    );
   });
 
   const source = {
@@ -177,6 +218,28 @@ describe('templates and copies', () => {
         components: [...definition.components, definition.components[0]],
       }).success,
     ).toBe(false);
+    // settings must fit their component, or be empty (a choice left open)
+    const withSettings = (componentKey: string, settings: Record<string, unknown>) => ({
+      ...definition,
+      components: definition.components.map((c) =>
+        c.componentKey === componentKey ? { ...c, settings } : c,
+      ),
+    });
+    expect(
+      templateDefinitionSchema.safeParse(withSettings('distribution', { rule: 'anything' }))
+        .success,
+    ).toBe(false);
+    expect(templateDefinitionSchema.safeParse(withSettings('distribution', {})).success).toBe(true);
+    expect(
+      templateDefinitionSchema.safeParse(withSettings('dispatch_receive', { secret: 'x' })).success,
+    ).toBe(false);
+    // settings of a source that do not fit are copied as none
+    expect(
+      definitionOf({
+        ...source,
+        components: [{ componentKey: 'stages', enabled: true, settings: { list: 'broken' } }],
+      }).components[0]!.settings,
+    ).toEqual({});
     // unreadable rules of a source are copied as none
     expect(definitionOf({ ...source, rules: 'broken' }).rules).toEqual({});
   });

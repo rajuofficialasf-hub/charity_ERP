@@ -49,7 +49,7 @@ export function missingRuleParts(rules: unknown, dawahEnabled: boolean): RulesPa
  */
 export const consentSchema = z.strictObject({
   rulesVersion: z.number().int().min(1),
-  decision: z.enum(['accept', 'refuse']),
+  decision: z.enum(['accepted', 'refused']),
   parts: z
     .array(z.enum(RULES_PARTS))
     .max(RULES_PARTS.length)

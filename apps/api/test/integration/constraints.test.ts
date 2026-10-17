@@ -717,7 +717,7 @@ describe('other uniques', () => {
   });
 });
 
-describe('rules, consent, teams and the application counter (BR-039, BR-040, BR-059)', () => {
+describe('rules versions, the consent log, team consent and the application counter', () => {
   async function assignment() {
     const p = await f.project(db);
     const owner = await f.user(db);
@@ -785,6 +785,13 @@ describe('rules, consent, teams and the application counter (BR-039, BR-040, BR-
 
   it('a consent belongs to one assignment or one membership, with a known decision and parts', async () => {
     const a = await assignment();
+    await f.insert(db, 'project_rules_versions', {
+      id: randomUUID(),
+      project_id: a.project,
+      version: 1,
+      texts: '{}',
+      created_by: a.owner,
+    });
     const consent = (over: Record<string, unknown>) =>
       f.insert(db, 'project_consents', {
         id: randomUUID(),
@@ -817,6 +824,67 @@ describe('rules, consent, teams and the application counter (BR-039, BR-040, BR-
       db.query('DELETE FROM project_consents'),
       SQLSTATE.insufficientPrivilege,
       /append_only_table/,
+    );
+    await expectSqlError(
+      db.query('TRUNCATE project_consents, project_rules_versions'),
+      SQLSTATE.insufficientPrivilege,
+      /append_only_table/,
+    );
+  });
+
+  it('a consent names the volunteer and project of its own assignment and a saved version', async () => {
+    const a = await assignment();
+    const other = await assignment();
+    await f.insert(db, 'project_rules_versions', {
+      id: randomUUID(),
+      project_id: a.project,
+      version: 1,
+      texts: '{}',
+      created_by: a.owner,
+    });
+    const consent = (over: Record<string, unknown>) =>
+      f.insert(db, 'project_consents', {
+        id: randomUUID(),
+        project_id: a.project,
+        volunteer_id: a.volunteer,
+        project_volunteer_id: a.assignment,
+        rules_version: 1,
+        decision: 'refused',
+        created_by: a.owner,
+        ...over,
+      });
+    // another volunteer's assignment, or another project's
+    await expectSqlError(
+      consent({ volunteer_id: other.volunteer }),
+      SQLSTATE.foreignKeyViolation,
+      /project_consent_link/,
+    );
+    await expectSqlError(
+      consent({ project_volunteer_id: other.assignment }),
+      SQLSTATE.foreignKeyViolation,
+      /project_consent_link/,
+    );
+    // a version the project never saved
+    await expectSqlError(
+      consent({ rules_version: 2 }),
+      SQLSTATE.foreignKeyViolation,
+      /project_consent_version/,
+    );
+    // a team member consents on their own membership, not on the lead's
+    const member = await f.volunteer(db, loc, await f.volunteerUser(db), { type: 'team_member' });
+    const team = await f.insert(db, 'volunteer_teams', {
+      id: randomUUID(),
+      project_id: a.project,
+      lead_volunteer_id: a.volunteer,
+      member_volunteer_id: member,
+    });
+    await expect(
+      consent({ project_volunteer_id: null, volunteer_team_id: team, volunteer_id: member }),
+    ).resolves.toBeTruthy();
+    await expectSqlError(
+      consent({ project_volunteer_id: null, volunteer_team_id: team }),
+      SQLSTATE.foreignKeyViolation,
+      /project_consent_link/,
     );
   });
 });

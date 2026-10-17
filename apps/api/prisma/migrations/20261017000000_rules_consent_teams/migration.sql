@@ -73,6 +73,35 @@ ALTER TABLE "project_consents" ADD CONSTRAINT "project_consents_project_voluntee
 ALTER TABLE "project_consents" ADD CONSTRAINT "project_consents_volunteer_team_id_fkey" FOREIGN KEY ("volunteer_team_id") REFERENCES "volunteer_teams"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
 ALTER TABLE "project_consents" ADD CONSTRAINT "project_consents_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
 
+-- A consent row is about its own assignment or membership: the project and the volunteer must be
+-- those of the linked row (the member, for a team), and the version one the project has saved. An
+-- append-only row can never be corrected, so a wrong one is refused at the door.
+CREATE FUNCTION check_project_consent() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  -- no link or two links: the one-link CHECK answers
+  IF (NEW.project_volunteer_id IS NULL) = (NEW.volunteer_team_id IS NULL) THEN
+    RETURN NEW;
+  END IF;
+  IF NEW.project_volunteer_id IS NOT NULL THEN
+    PERFORM 1 FROM project_volunteers
+      WHERE id = NEW.project_volunteer_id AND project_id = NEW.project_id AND volunteer_id = NEW.volunteer_id;
+  ELSE
+    PERFORM 1 FROM volunteer_teams
+      WHERE id = NEW.volunteer_team_id AND project_id = NEW.project_id AND member_volunteer_id = NEW.volunteer_id;
+  END IF;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'project_consent_link: the consent does not match its assignment or membership' USING ERRCODE = '23503';
+  END IF;
+  PERFORM 1 FROM project_rules_versions WHERE project_id = NEW.project_id AND version = NEW.rules_version;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'project_consent_version: rules version % of the project does not exist', NEW.rules_version USING ERRCODE = '23503';
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER project_consents_link BEFORE INSERT ON "project_consents" FOR EACH ROW EXECUTE FUNCTION check_project_consent();
+
 -- Both are logs: no row changes or disappears (D-060).
 CREATE TRIGGER project_rules_versions_append_only BEFORE UPDATE OR DELETE ON "project_rules_versions" FOR EACH ROW EXECUTE FUNCTION forbid_log_change();
 CREATE TRIGGER project_consents_append_only BEFORE UPDATE OR DELETE ON "project_consents" FOR EACH ROW EXECUTE FUNCTION forbid_log_change();
+CREATE TRIGGER project_rules_versions_no_truncate BEFORE TRUNCATE ON "project_rules_versions" FOR EACH STATEMENT EXECUTE FUNCTION forbid_log_change();
+CREATE TRIGGER project_consents_no_truncate BEFORE TRUNCATE ON "project_consents" FOR EACH STATEMENT EXECUTE FUNCTION forbid_log_change();

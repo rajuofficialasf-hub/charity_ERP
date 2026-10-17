@@ -5,6 +5,7 @@
 
 DROP TABLE IF EXISTS "project_consents";
 DROP TABLE IF EXISTS "project_rules_versions";
+DROP FUNCTION IF EXISTS check_project_consent();
 
 ALTER TABLE "project_volunteers" DROP CONSTRAINT "project_volunteers_applications_counted_check";
 ALTER TABLE "project_volunteers" DROP COLUMN "applications_counted";

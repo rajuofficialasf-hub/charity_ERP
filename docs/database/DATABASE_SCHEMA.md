@@ -476,7 +476,7 @@ Constraints: UNIQUE (key, version). Each template has its own key; replacing its
 | created_at | timestamptz | no | now() | — |
 | created_by | uuid | no | — | FK users; who saved this version |
 
-Constraints: UNIQUE (project_id, version). Append-only log (D-060 trigger; no UPDATE grant for css_app). Every saved version of a project's rules (BR-039, D-096; T1.12).
+Constraints: UNIQUE (project_id, version). Append-only log (D-060 triggers, TRUNCATE refused too; no UPDATE grant for css_app). Every saved version of a project's rules (BR-039, D-096; T1.12).
 
 ### project_consents
 | Column | Type | Null | Default | Comment |
@@ -492,7 +492,7 @@ Constraints: UNIQUE (project_id, version). Append-only log (D-060 trigger; no UP
 | created_at | timestamptz | no | now() | — |
 | created_by | uuid | no | — | FK users |
 
-Constraints: CHECK exactly one of project_volunteer_id and volunteer_team_id. Indexes: (project_id, volunteer_id); (volunteer_id); each FK. Append-only log (D-060). Who accepted or refused which rules version when (BR-039, D-096; T1.12).
+Constraints: CHECK exactly one of project_volunteer_id and volunteer_team_id. Indexes: (project_id, volunteer_id); (volunteer_id); each FK. Trigger `project_consents_link` refuses a row whose project and volunteer are not those of its assignment (the member, for a team) or whose version the project never saved. Append-only log, TRUNCATE refused too (D-060). Who accepted or refused which rules version when (BR-039, D-096; T1.12).
 
 ### project_quotas
 | Column | Type | Null | Default | Comment |

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { COMPONENT_KEYS } from '../components.js';
 import { boundedLabel } from '../jsonb/common.js';
+import { componentSettingsSchema } from '../jsonb/component-settings.js';
 import { projectRulesSchema } from './rules.js';
 import { WORKFLOW_KEYS } from './workflow-defaults.js';
 
@@ -48,15 +49,13 @@ export const NOT_COPIED = [
   'quota_targets',
 ] as const;
 
-/** The parts a template definition stores: the components, the syllabus and the rules texts. */
-export const TEMPLATE_PARTS = ['components', 'syllabus', 'rules'] as const;
-
 /**
  * Settings that point at things of the source project only, removed before they are copied: the
  * forms of the application form (the form is copied with its own task) and the token of a public
- * link (a copy must never answer on its source's link).
+ * link (a copy must never answer on its source's link). Every other settings key is copied; a test
+ * lists them all, so a new key has to be sorted into one of the two groups.
  */
-const PROJECT_BOUND_SETTINGS: Partial<Record<string, readonly string[]>> = {
+export const PROJECT_BOUND_SETTINGS: Partial<Record<string, readonly string[]>> = {
   application_form: ['form_ids'],
   public_link: ['token', 'form_ids'],
 };
@@ -76,11 +75,20 @@ export const templateDefinitionSchema = z.strictObject({
   workflowKey: z.enum(WORKFLOW_KEYS),
   components: z
     .array(
-      z.strictObject({
-        componentKey: z.enum(COMPONENT_KEYS),
-        enabled: z.boolean(),
-        settings: z.record(z.string(), z.unknown()),
-      }),
+      z
+        .strictObject({
+          componentKey: z.enum(COMPONENT_KEYS),
+          enabled: z.boolean(),
+          settings: z.record(z.string(), z.unknown()),
+        })
+        // valid settings of the component, or none: a choice the source left open (such as a photo
+        // rule chosen per project) stays open in the copy
+        .refine(
+          (c) =>
+            Object.keys(c.settings).length === 0 ||
+            componentSettingsSchema(c.componentKey).safeParse(c.settings).success,
+          { message: 'settings do not fit the component', path: ['settings'] },
+        ),
     )
     .max(COMPONENT_KEYS.length)
     .refine(
@@ -100,6 +108,14 @@ export interface TemplateSource {
   rules: unknown;
 }
 
+const settingsObject = z.record(z.string(), z.unknown());
+
+/** A component's settings as the copy takes them; settings that do not fit are copied as none. */
+function copiedComponentSettings(componentKey: string, settings: unknown): Record<string, unknown> {
+  const copied = copiedSettings(componentKey, settingsObject.safeParse(settings).data ?? {});
+  return componentSettingsSchema(componentKey).safeParse(copied).success ? copied : {};
+}
+
 /**
  * The definition of a project as a template or a copy takes it: only the copied parts, with the
  * project-bound settings removed. Reads only what it copies, so nothing else can leak through.
@@ -110,12 +126,7 @@ export function definitionOf(source: TemplateSource): TemplateDefinition {
     components: source.components.map((c) => ({
       componentKey: c.componentKey,
       enabled: c.enabled,
-      settings: copiedSettings(
-        c.componentKey,
-        c.settings !== null && typeof c.settings === 'object'
-          ? (c.settings as Record<string, unknown>)
-          : {},
-      ),
+      settings: copiedComponentSettings(c.componentKey, c.settings),
     })),
     syllabus: source.syllabus.map((t) => ({ bn: t.title.bn, en: t.title.en })),
     rules: projectRulesSchema.safeParse(source.rules).data ?? {},
