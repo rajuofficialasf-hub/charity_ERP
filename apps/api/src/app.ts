@@ -20,6 +20,8 @@ import { volunteersRouter } from './routes/volunteers';
 import { beneficiariesRouter } from './routes/beneficiaries';
 import { programsRouter } from './routes/programs';
 import { settingsRouter } from './routes/settings';
+import { auditRouter } from './routes/audit';
+import { sessionMonitorRouter } from './routes/session-monitor';
 import { projectsRouter } from './routes/projects';
 import { projectSetupRouter } from './routes/project-setup';
 import { myProjectsRouter } from './routes/my-projects';
@@ -82,6 +84,7 @@ export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
   const api = Router();
   api.use(authRouter(deps, c));
   api.use(meRouter(deps, c));
+  api.use(sessionMonitorRouter(deps, c));
   api.use(sessionsRouter(deps, c));
   api.use(usersRouter(deps, c));
   api.use(accessRouter(deps, c));
@@ -97,6 +100,7 @@ export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
   api.use(templatesRouter(deps, c));
   api.use(registrationsRouter(deps, c));
   api.use(settingsRouter(deps, c));
+  api.use(auditRouter(deps, c));
   for (const build of options.extraRouters ?? []) api.use(build(deps));
   app.use(`/${API_PREFIX}`, api);
 

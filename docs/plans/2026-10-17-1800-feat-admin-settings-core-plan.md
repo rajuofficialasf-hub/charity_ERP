@@ -134,7 +134,7 @@ None blocking. Each new decision above is recorded in `docs/DECISION_LOG.md` bef
   - integration, sessions: only active sessions (not revoked, not expired) with the person and the device; search by name; a global role ends another official's session with a reason (audit `auth.session_revoked_by_official`); ending the Main Admin's session → 409 `user.system_owner_protected`; an RPM → 403 on the list; no row carries a token, refresh hash or IP.
 - **Done when:** both lists answer within the existing bounded read on the dev seed, and the authorization matrix includes both routes.
 - **Depends on:** U1 · **Size:** L · **Risk area:** auth, personal data
-- **Status:** todo
+- **Status:** done
 
 ### U4. API: notification channels and system health
 - **Goal:** the channels page reads SMTP and the dummy OTP state and writes the SMS adapter config; the health page reads the checks and the storage growth.
@@ -255,8 +255,8 @@ None blocking. Each new decision above is recorded in `docs/DECISION_LOG.md` bef
 
 ## Progress
 - **Branch:** `feat/admin-settings-core` (stacked on `feat/official-accounts-organogram`, PR #5)
-- **Updated:** 2026-10-17 20:30
-- **Next:** U3: the audit viewer and the active sessions list (`services/users.ts` list as the example)
+- **Updated:** 2026-10-17 21:10
+- **Next:** checkpoint C3 (review U3), then U4: the channels and health API
 - **Reviewed through:** C2 at 3dd820d
 - **Uncommitted:** none
-- **Notes:** doc review on 2026-10-17: the owner chose the nisab limits and the withdrawal of a version not yet in effect. The `settings` table also holds the seed markers `seed.marker.*`; every settings read must keep to the known keys. The organisation's default names carry `i18n-allow-bengali` (bilingual data); the default contact is a placeholder. C1: plan IDs are kept out of new code comments (words or a doc path instead); the nisab trigger itself refuses withdrawing a version in effect (Dhaka date), so the service's 409 must be checked before the update. U2: the withdraw body reuses the shared reason schema (3 to 1000 characters), so the DB CHECK allows 1000; a nisab date error is 422 `validation.failed` with the detail `nisab.effective_date` on `effectiveFrom`; `isoDateInDhaka` in `@css/shared/format` is the one "today". C2 left open (P3): the nisab list shows who set a version to every signed-in user; a future date on in-force is allowed (Phase 4 must ask for today or earlier when it stores the version).
+- **Notes:** doc review on 2026-10-17: the owner chose the nisab limits and the withdrawal of a version not yet in effect. The `settings` table also holds the seed markers `seed.marker.*`; every settings read must keep to the known keys. The organisation's default names carry `i18n-allow-bengali` (bilingual data); the default contact is a placeholder. C1: plan IDs are kept out of new code comments (words or a doc path instead); the nisab trigger itself refuses withdrawing a version in effect (Dhaka date), so the service's 409 must be checked before the update. U2: the withdraw body reuses the shared reason schema (3 to 1000 characters), so the DB CHECK allows 1000; a nisab date error is 422 `validation.failed` with the detail `nisab.effective_date` on `effectiveFrom`; `isoDateInDhaka` in `@css/shared/format` is the one "today". C2 left open (P3): the nisab list shows who set a version to every signed-in user; a future date on in-force is allowed (Phase 4 must ask for today or earlier when it stores the version). U3: audit_log partitions start in October 2026, so test rows older than the start of the month fail to insert; the test harness knows only five roles (no Project Executive).

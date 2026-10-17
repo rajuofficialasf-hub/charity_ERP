@@ -56,6 +56,8 @@ tags:
     description: Asynchronous export jobs (API_STANDARDS section 14)
   - name: reference
     description: Locations, reference lists, settings, nisab versions
+  - name: audit
+    description: The audit viewer of the global roles (DECISION_LOG D-098)
   - name: sync
     description: Offline sync batch and snapshot (OFFLINE_SYNC.md)
 
@@ -3004,6 +3006,63 @@ components:
         data: { type: array, items: { $ref: '#/components/schemas/NisabVersion' } }
         meta: { $ref: '#/components/schemas/ListMeta' }
 
+    AuditEntry:
+      type: object
+      required: [id, createdAt, action, entityType, entityId, actor, actorRole, reason, ip, deviceSessionId, old, new]
+      properties:
+        id: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        action: { type: string }
+        entityType: { type: string }
+        entityId: { type: [string, 'null'], format: uuid }
+        actor:
+          anyOf:
+            - { $ref: '#/components/schemas/PersonRef' }
+            - { type: 'null' }
+        actorRole: { type: [string, 'null'] }
+        reason: { type: [string, 'null'] }
+        ip: { type: [string, 'null'] }
+        deviceSessionId: { type: [string, 'null'], format: uuid }
+        old: { description: 'Snapshot before the change, secrets dropped' }
+        new: { description: 'Snapshot after the change, secrets dropped' }
+    AuditEntryList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/AuditEntry' } }
+        meta:
+          allOf:
+            - { $ref: '#/components/schemas/ListMeta' }
+            - type: object
+              required: [from, to]
+              properties:
+                from: { type: string, format: date }
+                to: { type: string, format: date }
+    ActiveSession:
+      type: object
+      required: [id, person, deviceName, platform, appVersion, createdAt, lastSeenAt]
+      properties:
+        id: { type: string, format: uuid }
+        person:
+          type: object
+          required: [id, name, kind, systemOwner]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+            kind: { type: string, enum: [staff, volunteer] }
+            systemOwner: { type: boolean }
+        deviceName: { type: [string, 'null'] }
+        platform: { type: [string, 'null'] }
+        appVersion: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        lastSeenAt: { type: string, format: date-time }
+    ActiveSessionList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/ActiveSession' } }
+        meta: { $ref: '#/components/schemas/ListMeta' }
+
     # ---------------- sync ----------------
     SyncRecord:
       type: object
@@ -3423,6 +3482,40 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/DeviceSessionList' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+  /sessions/active:
+    get:
+      tags: [sessions]
+      operationId: sessions.active.list
+      summary: Every active device session, most recently seen first, with a search by person
+      description: >-
+        For the Department Head and the Monitoring Team (session.revoke_user at global scope;
+        DECISION_LOG D-098). Active means not revoked and not expired; the system actor is never
+        listed. A row carries the session id, the person, the device name, platform, app version,
+        start and last seen; never a token hash or an IP address. Ending a session uses
+        POST /users/{userId}/sessions/{sessionId}/revoke, which keeps the Main Admin's sessions for
+        the Main Admin.
+      x-permission: session.revoke_user
+      x-scope: global
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Search'
+        - name: kind
+          in: query
+          schema: { type: string, enum: [staff, volunteer] }
+      responses:
+        '200':
+          description: Active sessions
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActiveSessionList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/ServerError' }
   /sessions/{sessionId}/revoke:
     parameters:
       - $ref: '#/components/parameters/SessionId'
@@ -7652,6 +7745,56 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+
+  # ======================= audit =======================
+  /audit-log:
+    get:
+      tags: [audit]
+      operationId: audit.entry.list
+      summary: The audit log newest first, by actor, entity, action and a date range of at most a year
+      description: >-
+        For the Department Head and the Monitoring Team only for now (audit.view at global scope;
+        DECISION_LOG D-098). from and to are Dhaka dates, inclusive; without them the last 30 days;
+        a range over 366 days or reversed is 422 with the detail audit.range_required on from. The
+        drill-down of an entity is this list filtered by entityType and entityId. Keys that look like
+        secrets (password, hash, token, secret, otp) are dropped from old and new. meta carries the
+        range used.
+      x-permission: audit.view
+      x-scope: global
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - name: actorUserId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: entityType
+          in: query
+          schema: { type: string, pattern: '^[a-z_]{2,64}$' }
+        - name: entityId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: action
+          in: query
+          schema: { type: string, pattern: '^[a-z_.]{2,100}$' }
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Audit entries
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditEntryList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/ServerError' }
 
   # ======================= sync =======================
   /sync/batch:

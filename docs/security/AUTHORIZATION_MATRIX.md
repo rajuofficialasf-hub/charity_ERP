@@ -29,6 +29,7 @@ allowed endpoint is decided by the data scope and is tested separately (scope an
 | POST /auth/register/photos/:slot | public | self | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | POST /auth/password/reset/complete | public | self | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | PUT /me/language | authenticated | self | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| GET /sessions/active | session.revoke_user | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /sessions | session.revoke_own | self | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | POST /sessions/:sessionId/revoke | session.revoke_own | self | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | GET /users/:userId/sessions | session.revoke_user | user | ✗ | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
@@ -131,8 +132,9 @@ allowed endpoint is decided by the data scope and is tested separately (scope an
 | GET /nisab-versions/in-force | authenticated | system | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | POST /nisab-versions | nisab.set | global | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | POST /nisab-versions/:nisabVersionId/withdraw | nisab.set | global | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| GET /audit-log | audit.view | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 
-## Permissions no endpoint uses yet (105, D-077)
+## Permissions no endpoint uses yet (104, D-077)
 
 They belong to features of later tasks; the matrix covers them when their endpoints exist.
 
@@ -156,7 +158,6 @@ They belong to features of later tasks; the matrix covers them when their endpoi
 - `application.view_official_section`
 - `application.waitlist`
 - `audit.export`
-- `audit.view`
 - `beneficiary.block`
 - `beneficiary.consent.record`
 - `beneficiary.consent.view`
