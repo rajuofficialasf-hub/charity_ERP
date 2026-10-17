@@ -118,9 +118,10 @@ export class ReferenceListsService {
   ): Promise<ReferenceItemView> {
     if (!isEditableList(listKey)) throw new ApiError('permission.not_found', 404);
     return this.prisma.$transaction(async (tx) => {
+      // lock before reading, so the audit's old value is the one this change replaces
+      await this.lockList(tx, listKey);
       const before = await tx.referenceList.findFirst({ where: { listKey, code }, select: SELECT });
       if (!before) throw new ApiError('permission.not_found', 404);
-      await tx.$queryRaw`SELECT id FROM reference_lists WHERE id = ${before.id}::uuid FOR UPDATE`;
       const row = await tx.referenceList.update({
         where: { id: before.id },
         // Prisma leaves out the undefined fields
@@ -144,7 +145,7 @@ export class ReferenceListsService {
     });
   }
 
-  /** One addition at a time per list, so the next sort order is not taken twice. */
+  /** One change at a time per list: the next sort order is not taken twice, the old value is current. */
   private async lockList(tx: Tx, listKey: string): Promise<void> {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('reference_lists:' || ${listKey}))`;
   }

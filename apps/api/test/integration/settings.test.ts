@@ -138,6 +138,22 @@ describe('the settings page', () => {
   });
 });
 
+describe('without a session', () => {
+  it('answers 401 on the settings page and the list writes', async () => {
+    expect((await api().get('/api/v1/settings')).status).toBe(401);
+    expect((await api().patch('/api/v1/settings/organisation').send({ value: {} })).status).toBe(
+      401,
+    );
+    expect(
+      (
+        await api()
+          .post('/api/v1/reference-lists/issue_type_default')
+          .send({ code: 'x', label: {} })
+      ).status,
+    ).toBe(401);
+  });
+});
+
 describe('the public settings', () => {
   it('answer without a session with the language and the organisation only', async () => {
     const res = await api().get('/api/v1/public/settings');
@@ -222,6 +238,18 @@ describe('the expense category and issue type lists', () => {
       (await api().patch(`${list}/items/no_such_item`).set(bearer(head)).send({ active: false }))
         .status,
     ).toBe(404);
+  });
+
+  it('refuses a PM and a volunteer changing an item, which stays as it was', async () => {
+    for (const userId of [world.users.pm, world.users.general]) {
+      const s = await as(userId);
+      const res = await api().patch(`${list}/items/food`).set(bearer(s)).send({ active: false });
+      expect(res.status).toBe(403);
+    }
+    const { rows } = await h.db.query(
+      `SELECT active FROM reference_lists WHERE list_key = 'expense_category_default' AND code = 'food'`,
+    );
+    expect(rows[0].active).toBe(true);
   });
 
   it('refuses a PM and a volunteer', async () => {

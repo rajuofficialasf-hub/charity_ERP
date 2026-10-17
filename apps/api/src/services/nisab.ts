@@ -47,7 +47,7 @@ const view = (r: Row, inForceId: string | null): NisabVersionView => ({
 });
 
 /**
- * The zakat nisab (BR-211; docs/DECISION_LOG.md, the admin and settings decision of 2026-10-17):
+ * The zakat nisab (docs/BUSINESS_RULES.md, the nisab rule; docs/DECISION_LOG.md, the admin and settings decision of 2026-10-17):
  * one global list of versions, each in force from its effective date until the next live one. A
  * Program Manager or above adds a version that takes effect today or later (Dhaka date), at most a
  * year ahead and after the latest live version; a version is never edited or deleted. A version not
@@ -74,10 +74,7 @@ export class NisabService {
 
   /** The live version in force on a date (YYYY-MM-DD); 404 before the first one. */
   async inForceOn(date: string): Promise<NisabVersionView> {
-    const found = await this.inForceOnDate(this.prisma, date);
-    const row =
-      found &&
-      (await this.prisma.nisabVersion.findUnique({ where: { id: found.id }, select: SELECT }));
+    const row = await this.inForceOnDate(this.prisma, date);
     if (!row) throw new ApiError('permission.not_found', 404);
     const current = await this.inForceOnDate(this.prisma, this.todayDate());
     return view(row, current?.id ?? null);
@@ -160,7 +157,7 @@ export class NisabService {
     return db.nisabVersion.findFirst({
       where: { withdrawnAt: null, effectiveFrom: { lte: dateValue(date) } },
       orderBy: { effectiveFrom: 'desc' },
-      select: { id: true },
+      select: SELECT,
     });
   }
 

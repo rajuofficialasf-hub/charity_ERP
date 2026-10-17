@@ -31,7 +31,7 @@ const isGeneral = (key: string): key is GeneralSettingKey =>
   (GENERAL_SETTING_KEYS as readonly string[]).includes(key);
 
 /**
- * The system settings (docs/MASTER_SPEC.md, A21; docs/DECISION_LOG.md, the admin and settings
+ * The system settings (docs/MASTER_SPEC.md, admin and settings; docs/DECISION_LOG.md, the admin and settings
  * decision of 2026-10-17): typed keys with their defaults in `@css/shared/settings`. The settings
  * page reads and writes the organisation, the language defaults and the alert thresholds; the SMS
  * adapter configuration is written only through the channels page. Every change is audited with
@@ -50,9 +50,7 @@ export class SettingsService {
 
   /** The keys of the settings page with their values. */
   async list(): Promise<SettingView[]> {
-    const views: SettingView[] = [];
-    for (const key of GENERAL_SETTING_KEYS) views.push(await this.view(this.prisma, key));
-    return views;
+    return Promise.all(GENERAL_SETTING_KEYS.map((key) => this.view(this.prisma, key)));
   }
 
   /** What every visitor may read: the default language and the organisation's public details. */

@@ -1,4 +1,5 @@
 import {
+  isoDateSchema,
   type NisabAdd,
   nisabAddSchema,
   type NisabWithdraw,
@@ -20,12 +21,7 @@ const uuid = z.uuid();
 const listKey = z.string().regex(/^[a-z_]{2,64}$/);
 const itemCode = z.string().regex(/^[a-z0-9_]{1,64}$/);
 const settingKey = z.string().regex(/^[a-z0-9_.]{2,100}$/);
-const inForceQuery = z.strictObject({
-  date: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
-});
+const inForceQuery = z.strictObject({ date: isoDateSchema.optional() });
 const op = { tag: 'reference', idempotency: 'none' as const, rateLimit: 'default' as const };
 
 /**

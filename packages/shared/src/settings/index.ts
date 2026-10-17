@@ -219,7 +219,7 @@ export const NISAB_MAX_TAKA = 10_000_000;
 export const NISAB_MAX_DAYS_AHEAD = 366;
 
 /** A calendar date written YYYY-MM-DD that exists (no 31 February, 29 February in leap years). */
-const isoDate = z.iso.date({ message: 'validation.date_format' });
+export const isoDateSchema = z.iso.date({ message: 'validation.date_format' });
 
 export const nisabAddSchema = z.strictObject({
   value: z
@@ -233,7 +233,7 @@ export const nisabAddSchema = z.strictObject({
         message: 'validation.out_of_range',
       },
     ),
-  effectiveFrom: isoDate,
+  effectiveFrom: isoDateSchema,
   basisNote: z.string().trim().max(500, { message: 'validation.too_long' }).optional(),
 });
 export type NisabAdd = z.infer<typeof nisabAddSchema>;

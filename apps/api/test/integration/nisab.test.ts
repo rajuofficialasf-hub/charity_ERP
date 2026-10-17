@@ -144,6 +144,27 @@ describe('the nisab versions', () => {
     expect(later).toMatchObject({ effectiveFrom: day(40), value: '104000.00', withdrawn: null });
   });
 
+  it('answers 422 for a date that does not exist', async () => {
+    const volunteer = await as(world.users.general);
+    for (const date of ['2026-13-01', '2026-02-31']) {
+      const res = await api()
+        .get(`/api/v1/nisab-versions/in-force?date=${date}`)
+        .set(bearer(volunteer));
+      expect(res.status, date).toBe(422);
+    }
+  });
+
+  it('answers 401 without a session', async () => {
+    expect((await api().get('/api/v1/nisab-versions')).status).toBe(401);
+    expect(
+      (
+        await api()
+          .post('/api/v1/nisab-versions')
+          .send({ value: '1', effectiveFrom: day(1) })
+      ).status,
+    ).toBe(401);
+  });
+
   it('refuses an RPM and a volunteer adding or withdrawing', async () => {
     for (const userId of [world.users.rpmDhaka, world.users.general]) {
       const s = await as(userId);
