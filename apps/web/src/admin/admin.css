@@ -328,3 +328,10 @@
   gap: var(--space-2);
   margin-top: var(--space-4);
 }
+
+/* The save button under a settings form (T1.13). */
+.admin-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-4);
+}

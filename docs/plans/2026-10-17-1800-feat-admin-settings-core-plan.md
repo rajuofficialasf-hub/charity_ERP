@@ -169,7 +169,7 @@ None blocking. Each new decision above is recorded in `docs/DECISION_LOG.md` bef
   - component: each tab loads and saves, showing the server's field messages; the list tab adds, relabels and deactivates; the channels tab shows SMTP read-only, whether the key is set, and the red dummy OTP alert; a PM gets the forbidden content.
 - **Done when:** every tab works at 360 px and on a desktop.
 - **Depends on:** U2, U4 · **Size:** L · **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U7. Web: nisab
 - **Goal:** `/admin/nisab` with the nisab in force, the versions with their effective dates, the add dialog, and "প্রত্যাহার" with a reason on a version not yet in effect.
@@ -255,7 +255,7 @@ None blocking. Each new decision above is recorded in `docs/DECISION_LOG.md` bef
 ## Progress
 - **Branch:** `feat/admin-settings-core` (stacked on `feat/official-accounts-organogram`, PR #5)
 - **Updated:** 2026-10-17 21:10
-- **Next:** U6: the settings page (`/admin/settings`, tabs, `admin/programs` and `admin/staff` as examples)
+- **Next:** U7: the nisab page (`/admin/nisab`)
 - **Reviewed through:** C5 at a5c506a
 - **Uncommitted:** none
 - **Notes:** doc review on 2026-10-17: the owner chose the nisab limits and the withdrawal of a version not yet in effect. The `settings` table also holds the seed markers `seed.marker.*`; every settings read must keep to the known keys. The organisation's default names carry `i18n-allow-bengali` (bilingual data); the default contact is a placeholder. C1: plan IDs are kept out of new code comments (words or a doc path instead); the nisab trigger itself refuses withdrawing a version in effect (Dhaka date), so the service's 409 must be checked before the update. U2: the withdraw body reuses the shared reason schema (3 to 1000 characters), so the DB CHECK allows 1000; a nisab date error is 422 `validation.failed` with the detail `nisab.effective_date` on `effectiveFrom`; `isoDateInDhaka` in `@css/shared/format` is the one "today". C2 left open (P3): the nisab list shows who set a version to every signed-in user; a future date on in-force is allowed (Phase 4 must ask for today or earlier when it stores the version). U3: audit_log partitions start in October 2026, so test rows older than the start of the month fail to insert; the test harness knows only five roles (no Project Executive). C3: a keyset on a microsecond timestamp read into a JS date skips rows; the audit list pages by the boundary row id with a raw row comparison, the sessions list sorts by the time-ordered id. Left open (P3): reading the audit log is not itself audited; an idle session that can no longer refresh still shows as active (as the own session list); no 503 test on the two lists. U4: files can be deleted only when they are exports (CHECK), so the storage figures leave deleted exports out; `APP_VERSION` and `SMS_API_KEY` are new env values. C4: the storage figures are null when the database read fails (the checks then show it down). Left open (P3): the SMS endpoint is checked by host text only; the real adapter must check the resolved address or keep a host allowlist. U5: the owner kept O-43 (no Hijri date) when asked on 2026-10-17; the Hijri formatter was built and removed again. A volunteer account takes the request language of the registration; an official created without a language takes the system default. C5: a stored `localization` row with the old `hijriDates` key would fall back to the default; none exists outside this unpushed branch, so no data migration.

@@ -11,7 +11,8 @@
     "projects": "Projects",
     "programs": "Programs",
     "templates": "Templates",
-    "staff": "Officials"
+    "staff": "Officials",
+    "settings": "Settings"
   },
   "bar": {
     "label": "Admin",
@@ -955,6 +956,112 @@
     },
     "stats": {
       "label": "Officials by affiliation"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "tabs_label": "Parts of the settings",
+    "tab": {
+      "organisation": "Organisation",
+      "language": "Language",
+      "thresholds": "Thresholds",
+      "lists": "Lists",
+      "channels": "Notification channels"
+    },
+    "saved": "The settings are saved.",
+    "save": "Save",
+    "last_changed": "Last changed: {date}",
+    "default_in_force": "The default value is still in force.",
+    "organisation": {
+      "form": "Organisation details",
+      "hint": "These details head reports and emails. The logo stays a separate file.",
+      "foundation_bn": "Foundation name (Bangla)",
+      "foundation_en": "Foundation name (English)",
+      "department_bn": "Department name (Bangla)",
+      "department_en": "Department name (English)",
+      "address_bn": "Address (Bangla)",
+      "address_en": "Address (English)",
+      "phone": "Contact mobile",
+      "email": "Contact email"
+    },
+    "language": {
+      "form": "Default language",
+      "default": "Default language",
+      "hint": "Used on a device where nobody chose a language, and for a new official created without one."
+    },
+    "thresholds": {
+      "form": "Monitoring thresholds",
+      "intro": "When the monitoring alerts are raised.",
+      "review_pending_days": "Review pending days",
+      "approval_pending_days": "Approval pending days",
+      "no_update_days": "Days without an update",
+      "inactive_volunteer_days": "Inactive volunteer days",
+      "budget_alert_percent": "Budget use alert (%)",
+      "days_hint": "1 to 365 days",
+      "percent_hint": "1 to 100"
+    },
+    "lists": {
+      "intro": "New projects copy these lists. No item is deleted; switching one off keeps old records valid.",
+      "expense_category_default": "Expense categories",
+      "issue_type_default": "Issue types",
+      "add": "New item",
+      "empty": "This list has no items yet",
+      "edit": "Edit {name}",
+      "saved": "{name} is saved.",
+      "column": {
+        "label": "Name",
+        "code": "Code",
+        "order": "Order",
+        "state": "State"
+      },
+      "state": {
+        "active": "On",
+        "inactive": "Off"
+      },
+      "dialog": {
+        "create_title": "New item: {list}",
+        "edit_title": "Edit item: {name}",
+        "code": "Code",
+        "code_hint": "Small English letters, digits and _; cannot change later",
+        "code_invalid": "Use small English letters, digits and _, starting with a letter.",
+        "label_bn": "Name (Bangla)",
+        "label_en": "Name (English)",
+        "order": "Order",
+        "order_hint": "Left empty, the item goes to the end",
+        "active": "On"
+      }
+    },
+    "channels": {
+      "dummy_title": "The dummy OTP is on",
+      "dummy_text": "A fixed code stands in for the OTP. Switch it off and connect real SMS and email before production.",
+      "dummy_off": "The dummy OTP is off.",
+      "smtp_title": "Email (SMTP)",
+      "smtp_hint": "Read from the server's environment; it cannot be changed here.",
+      "smtp_host": "Host",
+      "smtp_port": "Port",
+      "smtp_secure": "Secure connection (TLS)",
+      "smtp_from": "Sender",
+      "smtp_login": "Login",
+      "yes": "Yes",
+      "no": "No",
+      "login_set": "Set",
+      "login_missing": "Not set",
+      "sms_title": "SMS provider",
+      "sms_hint": "Until a provider is chosen, SMS is written to the log. The provider's key stays only in the server's environment.",
+      "sms_mode": "Mode",
+      "mode": {
+        "logging": "Written to the log",
+        "dry_run": "Dry run"
+      },
+      "key": "Provider's key",
+      "key_present": "The key is set",
+      "key_missing": "The key is not set",
+      "provider": "Provider code",
+      "provider_hint": "For example sample_gateway",
+      "sender": "Sender ID",
+      "endpoint": "Endpoint",
+      "endpoint_hint": "An https address, without the key",
+      "enabled": "SMS on"
     }
   }
 }

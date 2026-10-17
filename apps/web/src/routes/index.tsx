@@ -161,6 +161,12 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
               }),
             },
             {
+              path: 'settings',
+              lazy: async () => ({
+                Component: (await import('../admin/settings/SettingsPage')).SettingsPage,
+              }),
+            },
+            {
               path: 'handover',
               lazy: async () => ({
                 Component: (await import('../admin/handover/HandoverPage')).HandoverPage,
