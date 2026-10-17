@@ -12,7 +12,8 @@ import {
 /**
  * The interface language of this device (I18N 2, D-067 as amended by D-073): the cookie
  * `css_locale` first (E2E and the language switch set it), then `localStorage`, then the system
- * default language the server last named (kept under its own key, D-098), then bn. The
+ * default language the server last named (kept under its own key; docs/DECISION_LOG.md, the admin
+ * and settings decision), then bn. The
  * pseudo-locale `qps` (I18N 4) is honoured only in `vite dev`. After login the account's language
  * is written here, so the choice follows the user (O-56).
  */

@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { messagesFor, readLocale, storedLocaleValue, writeLocale } from './locale';
+import {
+  messagesFor,
+  readLocale,
+  storedLocaleValue,
+  writeDefaultLocale,
+  writeLocale,
+} from './locale';
 
 const clear = () => {
   document.cookie = 'css_locale=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
@@ -15,6 +21,17 @@ describe('device locale', () => {
     window.localStorage.setItem('css_locale', 'en');
     expect(readLocale()).toBe('en');
     document.cookie = 'css_locale=bn; path=/';
+    expect(readLocale()).toBe('bn');
+  });
+
+  it('falls back to the system default language the server last named, never to an invalid one', () => {
+    writeDefaultLocale('en');
+    expect(readLocale()).toBe('en');
+    expect(storedLocaleValue()).toBeUndefined();
+    window.localStorage.setItem('css_default_locale', 'fr');
+    expect(readLocale()).toBe('bn');
+    window.localStorage.setItem('css_locale', 'bn');
+    window.localStorage.setItem('css_default_locale', 'en');
     expect(readLocale()).toBe('bn');
   });
 

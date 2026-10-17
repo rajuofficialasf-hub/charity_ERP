@@ -46,6 +46,14 @@ describe('the system default language', () => {
     expect(window.localStorage.getItem('css_locale')).toBeNull();
   });
 
+  it('speaks the catalogue of the language it renders when the stored value is unknown', async () => {
+    serverDefault('en');
+    document.cookie = 'css_locale=fr; path=/';
+    mount();
+    expect(await screen.findByText('Language')).toBeInTheDocument();
+    expect(document.documentElement.lang).toBe('en');
+  });
+
   it('keeps the choice made on the device', async () => {
     serverDefault('en');
     window.localStorage.setItem('css_locale', 'bn');

@@ -4,6 +4,7 @@ import { IntlProvider } from 'use-intl';
 import { usePublicSettings } from '../lib/public-settings';
 import {
   messagesFor,
+  PSEUDO,
   readLocale,
   storedLocaleValue,
   writeDefaultLocale,
@@ -49,7 +50,11 @@ export function LocaleProvider({
 
   return (
     <LocaleContext.Provider value={{ locale, setLocale }}>
-      <IntlProvider locale={locale} messages={messagesFor(stored ?? locale)} timeZone="Asia/Dhaka">
+      <IntlProvider
+        locale={locale}
+        messages={messagesFor(stored === PSEUDO ? stored : locale)}
+        timeZone="Asia/Dhaka"
+      >
         {children}
       </IntlProvider>
     </LocaleContext.Provider>

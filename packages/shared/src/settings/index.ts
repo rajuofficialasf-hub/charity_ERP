@@ -47,7 +47,7 @@ export const organisationSettingSchema = z.strictObject({
 });
 export type OrganisationSetting = z.infer<typeof organisationSettingSchema>;
 
-/** The language of a visitor without a choice and of a new account (no Hijri date, O-43). */
+/** The language of a visitor without a choice and of a new account; no Hijri date is shown. */
 export const localizationSettingSchema = z.strictObject({
   defaultLanguage: z.enum(SUPPORTED_LOCALES),
 });
