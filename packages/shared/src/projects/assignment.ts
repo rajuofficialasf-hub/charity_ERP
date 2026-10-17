@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { VolunteerType } from '../registration/index.js';
 
 /**
@@ -82,3 +83,46 @@ export function teamCapabilities(role: 'main' | 'member'): ReadonlySet<Applicati
 export function applicationsLeft(limit: number | null, counted: number): number | null {
   return limit === null ? null : Math.max(0, limit - counted);
 }
+
+/** The most volunteers one assignment request takes; a larger group is sent in parts. */
+export const ASSIGN_MAX = 100;
+
+/**
+ * Assigning volunteers to a project in one action: each with a set (else the type's default) and a
+ * paid flag. Each volunteer once.
+ */
+export const assignmentCreateSchema = z.strictObject({
+  volunteers: z
+    .array(
+      z.strictObject({
+        volunteerId: z.uuid(),
+        permissionSet: z.enum(PERMISSION_SETS).optional(),
+        isPaid: z.boolean().default(false),
+      }),
+    )
+    .min(1)
+    .max(ASSIGN_MAX)
+    .refine(
+      (list) => new Set(list.map((v) => v.volunteerId)).size === list.length,
+      'a volunteer appears twice',
+    ),
+});
+export type AssignmentCreate = z.infer<typeof assignmentCreateSchema>;
+
+/** A change of an assignment's set or paid flag; at least one of them. */
+export const assignmentUpdateSchema = z
+  .strictObject({
+    permissionSet: z.enum(PERMISSION_SETS).optional(),
+    isPaid: z.boolean().optional(),
+  })
+  .refine((b) => b.permissionSet !== undefined || b.isPaid !== undefined, 'nothing to change');
+export type AssignmentUpdate = z.infer<typeof assignmentUpdateSchema>;
+
+/** The filters of the volunteers an official may assign: an area inside the caller's own, a name or mobile. */
+export const candidateFilterSchema = z.strictObject({
+  districtId: z.uuid().optional(),
+  upazilaId: z.uuid().optional(),
+  unionId: z.uuid().optional(),
+  q: z.string().trim().min(2).max(100).optional(),
+});
+export type CandidateFilter = z.infer<typeof candidateFilterSchema>;

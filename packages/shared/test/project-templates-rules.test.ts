@@ -3,6 +3,9 @@ import { COMPONENT_KEYS } from '../src/components.js';
 import { componentSettingsSchemas } from '../src/jsonb/component-settings.js';
 import {
   acceptsEveryPart,
+  ASSIGN_MAX,
+  assignmentCreateSchema,
+  assignmentUpdateSchema,
   applicationsLeft,
   APPLICATION_CAPABILITIES,
   BD10_COPIED,
@@ -293,5 +296,39 @@ describe('assignment and teams', () => {
     expect(applicationsLeft(50, 12)).toBe(38);
     expect(applicationsLeft(50, 60)).toBe(0);
     expect(applicationsLeft(null, 12)).toBeNull();
+  });
+});
+
+describe('assignment requests', () => {
+  const id = (n: number) => `0190a4c4-0000-7000-8000-${String(n).padStart(12, '0')}`;
+  it('takes up to the maximum of different volunteers, each with a known set', () => {
+    const many = (k: number) => ({
+      volunteers: Array.from({ length: k }, (_, i) => ({ volunteerId: id(i) })),
+    });
+    expect(assignmentCreateSchema.parse(many(2)).volunteers[0]).toEqual({
+      volunteerId: id(0),
+      isPaid: false,
+    });
+    expect(assignmentCreateSchema.safeParse(many(ASSIGN_MAX)).success).toBe(true);
+    expect(assignmentCreateSchema.safeParse(many(ASSIGN_MAX + 1)).success).toBe(false);
+    expect(assignmentCreateSchema.safeParse(many(0)).success).toBe(false);
+    expect(
+      assignmentCreateSchema.safeParse({
+        volunteers: [{ volunteerId: id(1) }, { volunteerId: id(1) }],
+      }).success,
+    ).toBe(false);
+    expect(
+      assignmentCreateSchema.safeParse({
+        volunteers: [{ volunteerId: id(1), permissionSet: 'everything' }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('changes the set or the paid flag, at least one', () => {
+    expect(assignmentUpdateSchema.safeParse({ isPaid: true }).success).toBe(true);
+    expect(assignmentUpdateSchema.safeParse({}).success).toBe(false);
+    expect(assignmentUpdateSchema.safeParse({ permissionSet: 'work_progress', x: 1 }).success).toBe(
+      false,
+    );
   });
 });

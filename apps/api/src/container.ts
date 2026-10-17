@@ -40,6 +40,7 @@ import { ProjectsService } from './services/projects';
 import { ProjectLifecycleService } from './services/project-lifecycle';
 import { ProjectRulesService } from './services/project-rules';
 import { MyProjectsService } from './services/my-projects';
+import { ProjectVolunteersService } from './services/project-volunteers';
 import { ProjectSetupService } from './services/project-setup';
 import { RegistrationsService } from './services/registrations';
 import { ChangeRequestsService } from './services/change-requests';
@@ -97,6 +98,7 @@ export interface Container {
   projectLifecycle: ProjectLifecycleService;
   projectRules: ProjectRulesService;
   myProjects: MyProjectsService;
+  projectVolunteers: ProjectVolunteersService;
   registrations: RegistrationsService;
   changeRequests: ChangeRequestsService;
   blocklist: BlocklistService;
@@ -210,6 +212,9 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       o.projectLifecycle ?? new ProjectLifecycleService(prisma, audit, projects, clock),
     projectRules: o.projectRules ?? new ProjectRulesService(prisma, audit, access, projects),
     myProjects: o.myProjects ?? new MyProjectsService(prisma, audit, clock),
+    projectVolunteers:
+      o.projectVolunteers ??
+      new ProjectVolunteersService(env, prisma, audit, access, projects, clock),
     registrations:
       o.registrations ??
       new RegistrationsService(
