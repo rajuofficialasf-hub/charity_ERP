@@ -8,6 +8,8 @@ import {
   componentPatchSchema,
   type FundSources,
   fundSourcesSchema,
+  type ProjectRules,
+  projectRulesSchema,
   type StaffCreate,
   staffCreateSchema,
   type Syllabus,
@@ -54,6 +56,10 @@ const staffView = z.object({
   endedAt: z.string().nullable(),
 });
 const topicView = z.object({ id: uuid, title: bilingual });
+const rulesView = z.object({
+  version: z.number().int(),
+  rules: z.record(z.string(), bilingual),
+});
 const candidateView = z.object({
   id: uuid,
   displayName: z.string(),
@@ -65,9 +71,12 @@ const projectParams = { projectId: uuid };
 
 /**
  * The parts of a project's setup saved on their own (openapi tag projects; DECISION_LOG D-095):
- * components, fund sources, areas, staff access and the dawah syllabus.
+ * components, fund sources, areas, staff access, the dawah syllabus and the rules texts.
  */
-export function projectSetupRouter(deps: RouteDeps, c: Pick<Container, 'projectSetup'>): Router {
+export function projectSetupRouter(
+  deps: RouteDeps,
+  c: Pick<Container, 'projectSetup' | 'projectRules'>,
+): Router {
   const router = Router();
   const op = {
     tag: 'projects',
@@ -276,6 +285,33 @@ export function projectSetupRouter(deps: RouteDeps, c: Pick<Container, 'projectS
     responses: { 200: z.array(topicView), 401: null, 403: null, 404: null, 409: null, 422: null },
     handler: async ({ body, params, req }) =>
       ok(await c.projectSetup.replaceSyllabus(viewerOf(req), params.projectId, body)),
+  });
+
+  defineRoute<unknown, unknown, { projectId: string }>(router, deps, {
+    ...read,
+    method: 'get',
+    path: '/projects/:projectId/rules',
+    operationId: 'projects.rules.get',
+    summary:
+      'The four rules texts and their version (officials; volunteers read them as their own)',
+    responses: { 200: rulesView, 401: null, 403: null, 404: null },
+    handler: async ({ params, req }) =>
+      ok(await c.projectRules.get(viewerOf(req), params.projectId)),
+  });
+
+  defineRoute<ProjectRules, unknown, { projectId: string }>(router, deps, {
+    ...op,
+    method: 'put',
+    path: '/projects/:projectId/rules',
+    operationId: 'projects.rules.replace',
+    summary: 'Save the rules texts as a new version; every acceptance goes back to pending',
+    permission: 'project.configure',
+    audit: 'project.configure',
+    params: projectParams,
+    body: projectRulesSchema,
+    responses: { 200: rulesView, 401: null, 403: null, 404: null, 409: null, 422: null },
+    handler: async ({ body, params, req }) =>
+      ok(await c.projectRules.replace(viewerOf(req), params.projectId, body)),
   });
 
   return router;

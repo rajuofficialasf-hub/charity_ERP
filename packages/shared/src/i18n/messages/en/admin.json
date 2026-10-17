@@ -596,7 +596,8 @@
         "fund_sources_total": "Fund sources equal to the planned budget",
         "area": "An area with its RPM",
         "photo_rule": "Photo rule",
-        "component": "Settings of {name}"
+        "component": "Settings of {name}",
+        "rules": "Rules: {part}"
       },
       "drawer": {
         "title": "Settings: {name}",
@@ -695,6 +696,12 @@
       "create_invalid": "Fill in every field of this step.",
       "area_incomplete": "To add an area, choose its division or district and its RPM.",
       "staff_incomplete": "To give access, choose the role and the official (and the area, for an RPM)."
+    },
+    "rules_part": {
+      "volunteer_duties": "Volunteer duties",
+      "implementation_process": "Implementation process",
+      "daee_duties": "Local দায়ী duties",
+      "misconduct": "Consequences of misconduct"
     }
   }
 }

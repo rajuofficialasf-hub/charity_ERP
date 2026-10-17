@@ -81,7 +81,11 @@ export class ProjectLifecycleService {
       const [workflow, fundSources, areaCount, components] = await Promise.all([
         tx.project.findUniqueOrThrow({
           where: { id: projectId },
-          select: { workflowDefinition: { select: { definition: true } } },
+          select: {
+            rules: true,
+            dawahEnabled: true,
+            workflowDefinition: { select: { definition: true } },
+          },
         }),
         tx.fundSource.findMany({ where: { projectId }, select: { source: true, amount: true } }),
         tx.projectArea.count({ where: { projectId } }),
@@ -104,6 +108,8 @@ export class ProjectLifecycleService {
         fundSources: fundSources.map((f) => ({ source: f.source, amount: f.amount.toFixed(2) })),
         areaCount,
         components,
+        rules: workflow.rules,
+        dawahEnabled: workflow.dawahEnabled,
       });
       if (missing.length)
         throw new ApiError(

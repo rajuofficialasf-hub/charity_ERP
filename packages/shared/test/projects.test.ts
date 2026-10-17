@@ -229,6 +229,12 @@ describe('the activation check', () => {
       { componentKey: 'distribution', enabled: true, settings: { rule: 'group' } },
       { componentKey: 'stages', enabled: false, settings: {} },
     ],
+    rules: {
+      volunteer_duties: { bn: 'দায়িত্ব', en: 'Duties' },
+      implementation_process: { bn: 'প্রক্রিয়া', en: 'Process' },
+      misconduct: { bn: 'অনিয়ম', en: 'Misconduct' },
+    },
+    dawahEnabled: false,
   };
 
   it('finds nothing missing in a complete setup', () => {
@@ -262,6 +268,7 @@ describe('the activation check', () => {
           { componentKey: 'distribution', enabled: true, settings: {} },
           { componentKey: 'rating_criteria', enabled: true, settings: {} },
         ],
+        rules: { misconduct: { bn: 'অনিয়ম', en: 'Misconduct' } },
       }),
     ).toEqual([
       'name',
@@ -275,7 +282,28 @@ describe('the activation check', () => {
       'area',
       'photo_rule',
       'component:rating_criteria',
+      'rules:volunteer_duties',
+      'rules:implementation_process',
     ]);
+  });
+
+  it('needs the rules texts, and the Local দায়ী duties only while dawah is on', () => {
+    expect(setupCheck({ ...complete, rules: {} })).toEqual([
+      'rules:volunteer_duties',
+      'rules:implementation_process',
+      'rules:misconduct',
+    ]);
+    expect(setupCheck({ ...complete, dawahEnabled: true })).toEqual(['rules:daee_duties']);
+    expect(
+      setupCheck({
+        ...complete,
+        dawahEnabled: true,
+        rules: {
+          ...(complete.rules as object),
+          daee_duties: { bn: 'দায়ীর দায়িত্ব', en: 'Daee duties' },
+        },
+      }),
+    ).toEqual([]);
   });
 
   it('checks the values, not only their presence', () => {

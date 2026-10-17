@@ -12,6 +12,7 @@ import {
   definitionOf,
   missingRuleParts,
   NOT_COPIED,
+  PERMISSION_SETS,
   permissionSetAllowed,
   PROJECT_BOUND_SETTINGS,
   projectRulesSchema,
@@ -252,30 +253,28 @@ describe('templates and copies', () => {
 
 describe('assignment and teams', () => {
   it('starts the permission set from the volunteer type', () => {
-    expect(defaultPermissionSet('general', false)).toBe('application_distribution');
-    expect(defaultPermissionSet('local_daee', false)).toBe('application_distribution_dawah');
-    expect(defaultPermissionSet('both', false)).toBe('application_distribution_dawah');
-    expect(defaultPermissionSet('paid', false)).toBe('work_progress');
-    expect(defaultPermissionSet('general', true)).toBe('work_progress');
-    expect(defaultPermissionSet('team_member', false)).toBeNull();
+    expect(defaultPermissionSet('general')).toBe('application_distribution');
+    expect(defaultPermissionSet('local_daee')).toBe('application_distribution_dawah');
+    expect(defaultPermissionSet('both')).toBe('application_distribution_dawah');
+    expect(defaultPermissionSet('paid')).toBe('work_progress');
+    expect(defaultPermissionSet('team_member')).toBeNull();
+    // the default is always a set the type may hold
+    for (const type of VOLUNTEER_TYPES) {
+      const set = defaultPermissionSet(type);
+      if (set) expect(permissionSetAllowed(set, type), type).toBe(true);
+    }
   });
 
-  it('gives the dawah set only to a teacher or on a project with dawah', () => {
-    const general = { type: 'general' as const, dawahEnabled: false };
-    expect(permissionSetAllowed('application_distribution_dawah', general)).toBe(false);
-    expect(
-      permissionSetAllowed('application_distribution_dawah', { ...general, dawahEnabled: true }),
-    ).toBe(true);
-    expect(
-      permissionSetAllowed('application_distribution_dawah', {
-        type: 'local_daee',
-        dawahEnabled: false,
-      }),
-    ).toBe(true);
-    expect(permissionSetAllowed('work_progress', general)).toBe(true);
-    expect(
-      permissionSetAllowed('application_distribution', { type: 'team_member', dawahEnabled: true }),
-    ).toBe(false);
+  it('gives a set only to the types it is meant for; the dawah set only to a teacher', () => {
+    expect(permissionSetAllowed('application_distribution_dawah', 'general')).toBe(false);
+    expect(permissionSetAllowed('application_distribution_dawah', 'local_daee')).toBe(true);
+    expect(permissionSetAllowed('application_distribution', 'local_daee')).toBe(false);
+    expect(permissionSetAllowed('application_distribution', 'both')).toBe(true);
+    expect(permissionSetAllowed('application_distribution_dawah', 'both')).toBe(true);
+    expect(permissionSetAllowed('work_progress', 'general')).toBe(false);
+    expect(permissionSetAllowed('work_progress', 'paid')).toBe(true);
+    for (const set of PERMISSION_SETS)
+      expect(permissionSetAllowed(set, 'team_member'), set).toBe(false);
   });
 
   it('lets General and Both volunteers lead a team', () => {

@@ -1,5 +1,6 @@
 import { componentSettingsSchema, componentSettingsSchemas } from '../jsonb/component-settings.js';
 import { isAmount, plannedBudgetPaisa, sumPaisa, toPaisa } from './budget.js';
+import { missingRuleParts, type RulesPart } from './rules.js';
 
 /** What the activation check reads of a project and its setup parts. */
 export interface SetupInput {
@@ -16,6 +17,9 @@ export interface SetupInput {
   fundSources: { source: string; amount: string }[];
   areaCount: number;
   components: { componentKey: string; enabled: boolean; settings: unknown }[];
+  /** The current rules texts (`projects.rules`); the dawah part counts while dawah is on. */
+  rules: unknown;
+  dawahEnabled: boolean;
 }
 
 /** A missing item: a fixed key, or `component:<key>` for an enabled component with bad settings. */
@@ -31,7 +35,8 @@ export type MissingItem =
   | 'fund_sources_total'
   | 'area'
   | 'photo_rule'
-  | `component:${string}`;
+  | `component:${string}`
+  | `rules:${RulesPart}`;
 
 /**
  * Everything a draft needs before it can be activated (DECISION_LOG D-095): the basics, the
@@ -39,8 +44,10 @@ export type MissingItem =
  * that add up to the planned budget, at least one area with an RPM, a photo rule, and valid
  * settings for every enabled component. The values are checked, not only their presence: the
  * window runs forwards, the limit is a whole number of at least 1, cost and target are above zero.
- * The published form and the rules texts join this check in later tasks. An empty list means the
- * project may be activated.
+ * The rules texts every volunteer accepts are needed too: the volunteer's duties, the
+ * implementation process and the consequences of misconduct, and the Local দায়ী's duties while
+ * dawah is on (DECISION_LOG D-096). The published form joins this check in its task. An empty list
+ * means the project may be activated.
  */
 export function setupCheck(input: SetupInput): MissingItem[] {
   const missing: MissingItem[] = [];
@@ -67,6 +74,9 @@ export function setupCheck(input: SetupInput): MissingItem[] {
   }
   if (input.areaCount === 0) missing.push('area');
   missing.push(...componentsCheck(input.components));
+  missing.push(
+    ...missingRuleParts(input.rules, input.dawahEnabled).map((part) => `rules:${part}` as const),
+  );
   return missing;
 }
 

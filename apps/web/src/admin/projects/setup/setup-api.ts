@@ -2,6 +2,7 @@ import type {
   AreaCreate,
   ComponentPatch,
   FundSources,
+  ProjectRules,
   ProjectUpdate,
   StaffCreate,
   Syllabus,
@@ -91,6 +92,13 @@ export interface Topic {
   title: { bn: string; en: string };
 }
 export const syllabus = (projectId: string) => api<Topic[]>(`/projects/${projectId}/syllabus`);
+
+/** The four rules texts of a project and their version (0 while none is saved). */
+export interface RulesVersion {
+  version: number;
+  rules: ProjectRules;
+}
+export const rules = (projectId: string) => api<RulesVersion>(`/projects/${projectId}/rules`);
 export const saveSyllabus = (projectId: string, body: Syllabus) =>
   api<Topic[]>(`/projects/${projectId}/syllabus`, { method: 'PUT', body });
 

@@ -34,7 +34,10 @@ export interface AccessFacts {
   roles: string[];
   volunteerType: string | null;
   projectStaff: { projectId: string; roleKey: string; extraPermissions: string[] }[];
+  /** Assignments whose volunteer accepted the project's current rules (BR-039). */
   projectVolunteers: { projectId: string; permissionSet: string; extraPermissions: string[] }[];
+  /** Projects a team member works on through an accepted membership of a working team (BR-040). */
+  teamProjects: string[];
   overrides: PanelOverride[];
 }
 
@@ -112,7 +115,9 @@ export function effectiveAccess(
   // contains comes only through the set on a project (3a, R9 of
   // docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md); account permissions (module
   // M01: own sessions) stay direct; other non-SELF defaults count only on assigned projects.
-  const volunteerProjects = facts.projectVolunteers.map((pv) => pv.projectId);
+  const volunteerProjects = [
+    ...new Set([...facts.projectVolunteers.map((pv) => pv.projectId), ...facts.teamProjects]),
+  ];
   const governedBySet = (role: string, permission: string) =>
     registry.permissions.get(permission)?.module !== 'M01' &&
     [...registry.permissionSets.values()].some(
@@ -221,6 +226,34 @@ const overrideRow = z.object({
   scopeType: z.enum(SCOPES),
 });
 
+/**
+ * An assignment the volunteer works under: not ended, and the project's current rules accepted. A
+ * rules change sets every acceptance back to pending, so an older acceptance never counts
+ * (BR-039, DECISION_LOG D-096). Without it the volunteer holds no permission on the project.
+ */
+export const WORKING_ASSIGNMENT = { endedAt: null, consentStatus: 'accepted' } as const;
+
+/**
+ * The projects a team member works on: an accepted, not removed membership whose main volunteer's
+ * assignment on that project is working too (DECISION_LOG D-096). A blocked account does not get
+ * this far: authentication refuses it.
+ */
+export async function workingTeamProjects(db: Tx, memberVolunteerId: string): Promise<string[]> {
+  const memberships = await db.volunteerTeam.findMany({
+    where: { memberVolunteerId, removedAt: null, consentStatus: 'accepted' },
+    select: { projectId: true, leadVolunteerId: true },
+  });
+  if (!memberships.length) return [];
+  const leads = await db.projectVolunteer.findMany({
+    where: {
+      ...WORKING_ASSIGNMENT,
+      OR: memberships.map((m) => ({ projectId: m.projectId, volunteerId: m.leadVolunteerId })),
+    },
+    select: { projectId: true },
+  });
+  return [...new Set(leads.map((l) => l.projectId))];
+}
+
 /** Reads the rows of `effectivePermissions` for one user (one query per table). */
 export async function loadAccessFacts(db: Tx, userId: string): Promise<AccessFacts> {
   const [roles, volunteer, projectStaff, overrides] = await Promise.all([
@@ -243,17 +276,21 @@ export async function loadAccessFacts(db: Tx, userId: string): Promise<AccessFac
       },
     }),
   ]);
-  const projectVolunteers = volunteer
-    ? await db.projectVolunteer.findMany({
-        where: { volunteerId: volunteer.id, endedAt: null },
-        select: { projectId: true, permissionSet: true, extraPermissions: true },
-      })
-    : [];
+  const [projectVolunteers, teamProjects] = volunteer
+    ? await Promise.all([
+        db.projectVolunteer.findMany({
+          where: { volunteerId: volunteer.id, ...WORKING_ASSIGNMENT },
+          select: { projectId: true, permissionSet: true, extraPermissions: true },
+        }),
+        workingTeamProjects(db, volunteer.id),
+      ])
+    : [[], []];
   return {
     roles: roles.map((r) => r.roleKey),
     volunteerType: volunteer?.type ?? null,
     projectStaff,
     projectVolunteers,
+    teamProjects,
     overrides: overrides.map((o) => ({
       id: o.id,
       permission: o.permissionName,

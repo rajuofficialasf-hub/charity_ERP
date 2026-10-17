@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { PERMISSION_SET_TYPES, PERMISSION_SETS } from '@css/shared/projects';
 import { assertConditionsCovered, checkCondition } from './conditions';
 import {
   type AccessFacts,
@@ -18,6 +19,7 @@ const facts = (over: Partial<AccessFacts>): AccessFacts => ({
   volunteerType: null,
   projectStaff: [],
   projectVolunteers: [],
+  teamProjects: [],
   overrides: [],
   ...over,
 });
@@ -101,6 +103,37 @@ describe('effective permissions', () => {
       NOW,
     );
     expect(on(grants, PROJECT_A)).not.toContain('stock.receive');
+  });
+
+  it('gives a team member the project defaults of the role only on the projects of its team', () => {
+    const grants = effectivePermissions(
+      registry,
+      facts({
+        roles: ['volunteer_team_member'],
+        volunteerType: 'team_member',
+        teamProjects: [PROJECT_A],
+      }),
+      NOW,
+    );
+    expect(on(grants, PROJECT_A)).toContain('project.view');
+    expect(on(grants, PROJECT_A)).toContain('beneficiary.lookup');
+    expect(on(grants, PROJECT_B)).toEqual(new Set());
+    // without a working team the member reaches no project
+    const none = effectivePermissions(
+      registry,
+      facts({ roles: ['volunteer_team_member'], volunteerType: 'team_member' }),
+      NOW,
+    );
+    expect(none.filter((g) => g.projectId !== null)).toEqual([]);
+  });
+
+  it('meets the shared table of which volunteer types each permission set is for', () => {
+    for (const set of PERMISSION_SETS) {
+      const roles = registry.permissionSets.get(set)?.forRoles ?? [];
+      expect([...roles].sort(), set).toEqual(
+        PERMISSION_SET_TYPES[set].map((type) => `volunteer_${type}`).sort(),
+      );
+    }
   });
 
   it('gives the owner transfer only to a Department Head and never strips a Department Head', () => {

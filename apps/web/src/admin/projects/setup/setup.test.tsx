@@ -94,6 +94,20 @@ function serve(status = 'draft') {
     http.get(`*/api/v1/projects/${ID}/fund-sources`, () =>
       HttpResponse.json({ data: [], meta: {} }),
     ),
+    // saved rules: the rules texts are not what these tests look at
+    http.get(`*/api/v1/projects/${ID}/rules`, () =>
+      HttpResponse.json({
+        data: {
+          version: 1,
+          rules: {
+            volunteer_duties: { bn: 'দায়িত্ব', en: 'Duties' },
+            implementation_process: { bn: 'প্রক্রিয়া', en: 'Process' },
+            misconduct: { bn: 'অনিয়ম', en: 'Misconduct' },
+          },
+        },
+        meta: {},
+      }),
+    ),
     http.get(`*/api/v1/projects/${ID}/areas`, () => HttpResponse.json({ data: [], meta: {} })),
     http.get(`*/api/v1/projects/${ID}/staff`, () =>
       HttpResponse.json({ data: staffRows, meta: {} }),

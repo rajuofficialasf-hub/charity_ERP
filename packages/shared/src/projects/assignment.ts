@@ -14,31 +14,36 @@ export const PERMISSION_SETS = [
 ] as const;
 export type PermissionSet = (typeof PERMISSION_SETS)[number];
 
-/** Volunteer types that teach dawah classes (Local দায়ী, and দাঈ-স্বেচ্ছাসেবক who does both). */
-export const DAWAH_TYPES: readonly VolunteerType[] = ['local_daee', 'both'];
+/**
+ * The volunteer types each set is meant for, as `permission_sets.<set>.for` in
+ * docs/security/permissions.yaml says (a set gives nothing to a role outside that list; the API
+ * checks this table against the registry): General and Both apply and distribute, Local দায়ী and
+ * Both also teach, a paid volunteer posts work progress.
+ */
+export const PERMISSION_SET_TYPES: Record<PermissionSet, readonly VolunteerType[]> = {
+  application_distribution: ['general', 'both'],
+  application_distribution_dawah: ['local_daee', 'both'],
+  work_progress: ['paid'],
+};
 
 /**
- * The set an assignment starts with, from the volunteer's type: a paid volunteer posts work
- * progress, a dawah type also teaches, everyone else applies and distributes. A team member is
- * never assigned; they work through the main volunteer's team.
+ * The set an assignment starts with, from the volunteer's type: a Local দায়ী and a দাঈ-স্বেচ্ছাসেবক
+ * also teach, a paid volunteer posts work progress, a General volunteer applies and distributes. A
+ * team member is never assigned; they work through the main volunteer's team.
  */
-export function defaultPermissionSet(type: VolunteerType, paid: boolean): PermissionSet | null {
+export function defaultPermissionSet(type: VolunteerType): PermissionSet | null {
   if (type === 'team_member') return null;
-  if (paid || type === 'paid') return 'work_progress';
-  return DAWAH_TYPES.includes(type) ? 'application_distribution_dawah' : 'application_distribution';
+  if (type === 'paid') return 'work_progress';
+  return type === 'general' ? 'application_distribution' : 'application_distribution_dawah';
 }
 
-/** The dawah set goes only to a volunteer who teaches, or on a project that runs dawah classes. */
-export function permissionSetAllowed(
-  set: PermissionSet,
-  volunteer: { type: VolunteerType; dawahEnabled: boolean },
-): boolean {
-  if (volunteer.type === 'team_member') return false;
-  return (
-    set !== 'application_distribution_dawah' ||
-    DAWAH_TYPES.includes(volunteer.type) ||
-    volunteer.dawahEnabled
-  );
+/**
+ * Whether a set may be given to a volunteer of this type: only a set meant for the type, so the
+ * dawah set goes only to a volunteer who teaches. A দাঈ-স্বেচ্ছাসেবক is the one type with a choice.
+ */
+export function permissionSetAllowed(set: PermissionSet, type: VolunteerType): boolean {
+  // eslint-disable-next-line security/detect-object-injection -- set is a PermissionSet
+  return PERMISSION_SET_TYPES[set].includes(type);
 }
 
 /** General and দাঈ-স্বেচ্ছাসেবক volunteers may add team members (BR-040). */

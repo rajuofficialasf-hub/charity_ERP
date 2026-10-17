@@ -26,7 +26,14 @@ export function expectedAllowed(
   if (op.permission === 'authenticated' || op.permission === 'entity') return true;
   const { grants } = effectiveAccess(
     registry,
-    { roles: [role], volunteerType: null, projectStaff: [], projectVolunteers: [], overrides: [] },
+    {
+      roles: [role],
+      volunteerType: null,
+      projectStaff: [],
+      projectVolunteers: [],
+      teamProjects: [],
+      overrides: [],
+    },
     NOW,
   );
   const held = grants.filter((g) => g.permission === op.permission);

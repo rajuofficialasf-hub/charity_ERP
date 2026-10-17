@@ -92,8 +92,8 @@ export async function accessWorld(db: Client, makers: Partial<AccountMakers> = {
     extras: string[] = [],
   ) =>
     db.query(
-      `INSERT INTO project_volunteers (id, project_id, volunteer_id, region_location_id, permission_set, extra_permissions, assigned_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      `INSERT INTO project_volunteers (id, project_id, volunteer_id, region_location_id, permission_set, extra_permissions, assigned_by, consent_status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'accepted')`,
       [randomUUID(), projectId, volunteerId, region, set, extras, rpmDhaka],
     );
   const generalUser = await volunteerAccount('volunteer_both');

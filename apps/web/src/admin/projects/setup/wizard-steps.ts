@@ -34,7 +34,12 @@ const STEP_OF = new Map<MissingItem, StepId>([
   ['photo_rule', 'components'],
 ]);
 export const stepOfMissing = (item: string): StepId =>
-  item.startsWith('component:') ? 'components' : (STEP_OF.get(item as MissingItem) ?? 'basics');
+  item.startsWith('component:')
+    ? 'components'
+    : // the rules texts are listed on the review until their own step exists
+      item.startsWith('rules:')
+      ? 'review'
+      : (STEP_OF.get(item as MissingItem) ?? 'basics');
 
 /** The steps whose data the activation check reads: only they carry a complete or missing mark. */
 const CHECKED = new Set<StepId>(['basics', 'components', 'budget', 'window', 'areas']);
@@ -45,6 +50,7 @@ export function missingItems(
   components: ProjectComponent[],
   fundSources: FundSource[],
   areas: Area[],
+  rules: unknown,
 ): MissingItem[] {
   return setupCheck({
     name: project.name,
@@ -59,6 +65,8 @@ export function missingItems(
     fundSources,
     areaCount: areas.length,
     components: components.map((c) => ({ ...c, settings: c.settings ?? {} })),
+    rules,
+    dawahEnabled: project.dawahEnabled,
   });
 }
 

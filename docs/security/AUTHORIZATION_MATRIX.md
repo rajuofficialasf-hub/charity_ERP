@@ -84,6 +84,11 @@ allowed endpoint is decided by the data scope and is tested separately (scope an
 | GET /projects/:projectId/candidates | project.staff_access.manage | project | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /projects/:projectId/syllabus | project.view | project | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | PUT /projects/:projectId/syllabus | project.configure | project | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| GET /projects/:projectId/rules | project.view | project | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| PUT /projects/:projectId/rules | project.configure | project | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| GET /me/projects | volunteer.consent.accept | self | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| GET /me/projects/:projectId | volunteer.consent.accept | self | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| POST /me/projects/:projectId/consent | volunteer.consent.accept | self | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | GET /registrations | registration.approve | volunteer | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /registrations/:userId | registration.approve | volunteer | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | POST /registrations/:userId/approve | registration.approve | volunteer | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
@@ -99,7 +104,7 @@ allowed endpoint is decided by the data scope and is tested separately (scope an
 | POST /edit-requests/:requestId/decision | edit_request.approve | volunteer | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | POST /me/registration/resubmit | authenticated | self | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-## Permissions no endpoint uses yet (111, D-077)
+## Permissions no endpoint uses yet (110, D-077)
 
 They belong to features of later tasks; the matrix covers them when their endpoints exist.
 
@@ -203,7 +208,6 @@ They belong to features of later tasks; the matrix covers them when their endpoi
 - `user.deactivate_volunteer`
 - `volunteer.assign_project`
 - `volunteer.category.set`
-- `volunteer.consent.accept`
 - `volunteer.mark_paid`
 - `volunteer.rating.set`
 - `volunteer.rating.view`
