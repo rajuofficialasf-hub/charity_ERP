@@ -1,6 +1,7 @@
 import type { IconComponent } from '@css/ui';
 import {
   ArrowRightLeft,
+  Activity,
   FolderKanban,
   HandHeart,
   IdCard,
@@ -8,6 +9,7 @@ import {
   Layers,
   LayoutTemplate,
   LayoutDashboard,
+  MonitorSmartphone,
   Scale,
   ScrollText,
   Settings,
@@ -44,7 +46,9 @@ export interface AdminNavItem {
     | 'permissions'
     | 'settings'
     | 'nisab'
-    | 'audit';
+    | 'audit'
+    | 'sessions'
+    | 'health';
   href: string;
   icon: IconComponent;
   /** Only these roles see the item (the server checks the permission anyway); all when absent. */
@@ -86,6 +90,8 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
   { key: 'settings', href: '/admin/settings', icon: Settings, roles: SYSTEM_ADMIN_ROLES },
   { key: 'nisab', href: '/admin/nisab', icon: Scale, roles: NISAB_ROLES },
   { key: 'audit', href: '/admin/audit', icon: ScrollText, roles: SYSTEM_ADMIN_ROLES },
+  { key: 'sessions', href: '/admin/sessions', icon: MonitorSmartphone, roles: SYSTEM_ADMIN_ROLES },
+  { key: 'health', href: '/admin/health', icon: Activity, roles: SYSTEM_ADMIN_ROLES },
 ];
 
 /** The items a user with these roles sees. */

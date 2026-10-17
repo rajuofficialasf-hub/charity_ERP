@@ -179,6 +179,18 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
               }),
             },
             {
+              path: 'sessions',
+              lazy: async () => ({
+                Component: (await import('../admin/system/SessionsPage')).SessionsPage,
+              }),
+            },
+            {
+              path: 'health',
+              lazy: async () => ({
+                Component: (await import('../admin/system/HealthPage')).HealthPage,
+              }),
+            },
+            {
               path: 'handover',
               lazy: async () => ({
                 Component: (await import('../admin/handover/HandoverPage')).HandoverPage,

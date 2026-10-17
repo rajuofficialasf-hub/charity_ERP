@@ -14,7 +14,9 @@
     "staff": "Officials",
     "settings": "Settings",
     "nisab": "Nisab",
-    "audit": "Audit log"
+    "audit": "Audit log",
+    "sessions": "Sessions",
+    "health": "System health"
   },
   "bar": {
     "label": "Admin",
@@ -1147,6 +1149,61 @@
       "new": "New value",
       "nothing": "Nothing",
       "history": "The whole history of this entity"
+    }
+  },
+  "sessions": {
+    "title": "Active sessions",
+    "intro": "Who is signed in on which device now. End the session of a lost phone with a reason.",
+    "table": "Active sessions",
+    "search": "Search by name, mobile, email or job ID",
+    "empty": "No active session for these filters",
+    "unknown_device": "Unknown device",
+    "main_admin": "Main Admin",
+    "seen_at": "Last seen: {date}",
+    "end": "End the {device} session of {name}",
+    "end_short": "End the session",
+    "end_title": "End the session of {name}: {device}",
+    "reason": "Reason",
+    "ended": "The session of {name} has been ended.",
+    "column": {
+      "person": "Person",
+      "kind": "Account",
+      "device": "Device",
+      "version": "App version",
+      "last_seen": "Last seen",
+      "started": "Started"
+    },
+    "kind": {
+      "all": "All",
+      "staff": "Officials",
+      "volunteer": "Volunteers"
+    }
+  },
+  "health": {
+    "title": "System health",
+    "checks": "State of the services",
+    "check": {
+      "database": "Database",
+      "storage": "File storage",
+      "queue": "Job queue"
+    },
+    "up": "Up",
+    "down": "Down",
+    "version": "Version",
+    "environment": "Environment",
+    "audit_partitions": "Audit log partitions reach the month",
+    "unknown": "Not known",
+    "storage": "File storage growth",
+    "storage_unknown": "The database did not answer, so the storage figures cannot be shown.",
+    "figure": "{count} files, {size} in total",
+    "measured": "Measured at {date}",
+    "by_kind": "Files by kind",
+    "by_month": "Files of the last 12 months",
+    "column": {
+      "kind": "Kind",
+      "month": "Month",
+      "count": "Count",
+      "size": "Size"
     }
   }
 }
