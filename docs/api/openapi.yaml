@@ -3899,8 +3899,8 @@ paths:
       description: >-
         The volunteer, the assignment or team membership and the project come from the caller, never
         from the body. The project row is locked; a version that is no longer current answers 409
-        project.rules_changed, an acceptance without every required part 422. Every answer is logged
-        in project_consents.
+        project.rules_changed, rules with a required text never written 409 project.rules_incomplete,
+        an acceptance without every required part 422. Every answer is logged in project_consents.
       x-permission: volunteer.consent.accept
       x-scope: self
       x-audit: volunteer.consent
@@ -5536,7 +5536,8 @@ paths:
       description: >-
         Every saved change is a new version kept in project_rules_versions (BR-039, D-096); in the
         same transaction every accepted assignment and team membership of the project goes back to
-        pending. The same texts again make no new version.
+        pending. The same texts again make no new version. Once the project has been active, a body
+        without a required text answers 409 workflow.guard.project_setup_complete with the rules items.
       x-permission: project.configure
       x-scope: project
       x-audit: project.configure

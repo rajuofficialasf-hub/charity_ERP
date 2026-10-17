@@ -3,6 +3,7 @@ import {
   acceptsEveryPart,
   applicationsLeft,
   type Consent,
+  missingRuleParts,
   requiredRuleParts,
 } from '@css/shared/projects';
 import type { AuditWriter } from '../audit/audit-writer';
@@ -72,8 +73,9 @@ function item(p: ProjectRow, link: Link) {
  * The list shows running projects with the consent state; a project opens for work only after its
  * current rules are accepted (the access layer reads the same state). A team member is on the
  * project through a membership while the main volunteer's assignment lasts, and consents on their
- * own. Everything is read for the caller only: the volunteer, the project and the version never
- * come from someone else.
+ * own; the state shown is the member's own, while the team works only once the main volunteer has
+ * accepted too (access layer). A rules text never written cannot be accepted. Everything is read
+ * for the caller only: the volunteer, the project and the version never come from someone else.
  */
 export class MyProjectsService {
   constructor(
@@ -201,6 +203,13 @@ export class MyProjectsService {
       const { project, link } = row;
       if (body.rulesVersion !== project.rulesVersion)
         throw new ApiError('project.rules_changed', 409);
+      const stored = await tx.project.findUniqueOrThrow({
+        where: { id: projectId },
+        select: { rules: true },
+      });
+      // a text that was never written cannot be accepted
+      if (missingRuleParts(stored.rules, project.dawahEnabled).length)
+        throw new ApiError('project.rules_incomplete', 409);
       const accepted = body.decision === 'accepted';
       if (accepted && !acceptsEveryPart(body.parts, project.dawahEnabled))
         throw new ApiError('validation.failed', 422, undefined, [

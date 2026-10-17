@@ -22,6 +22,7 @@ import { literalContains } from '../core/search';
 import type { PrismaService, Tx } from '../core/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
+import { refuseIncompleteRules, storedRules, writeRulesVersion } from './project-rules';
 import type { ProjectViewer, ProjectsService } from './projects';
 
 const isUniqueViolation = (error: unknown) =>
@@ -184,17 +185,38 @@ export class ProjectSetupService {
         select: { componentKey: true, enabled: true, settings: true, updatedAt: true },
       });
       // the project's dawah flag follows its dawah component
-      if (componentKey === 'dawah' && body.enabled !== undefined)
+      let rulesChange: Awaited<ReturnType<typeof writeRulesVersion>> | undefined;
+      if (componentKey === 'dawah' && body.enabled !== undefined) {
+        // dawah switched on in a running project adds the Local দায়ী duties to what volunteers
+        // accept: the text must exist, and everyone accepts the rules again
+        if (body.enabled && !before.enabled && project.status !== 'draft') {
+          const current = await tx.project.findUniqueOrThrow({
+            where: { id: projectId },
+            select: { rules: true, rulesVersion: true },
+          });
+          const rules = storedRules(current.rules);
+          refuseIncompleteRules(rules, true);
+          rulesChange = await writeRulesVersion(tx, projectId, rules, current.rulesVersion, actor);
+        }
         await tx.project.update({
           where: { id: projectId },
           data: { dawahEnabled: body.enabled, updatedBy: actor },
         });
+      }
       await this.audit.record(tx, {
         action: 'project.component_change',
         entityType: 'project',
         entityId: projectId,
         old: { componentKey, enabled: before.enabled, settings: before.settings },
-        new: { componentKey, enabled: row.enabled, settings: row.settings },
+        new: {
+          componentKey,
+          enabled: row.enabled,
+          settings: row.settings,
+          ...(rulesChange && {
+            rulesVersion: rulesChange.version,
+            consentsReset: rulesChange.consentsReset,
+          }),
+        },
       });
       const { updatedAt, ...rest } = row;
       return { ...rest, etag: etagOf(updatedAt) };

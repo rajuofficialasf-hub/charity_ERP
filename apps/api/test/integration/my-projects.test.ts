@@ -78,8 +78,12 @@ const accept = (s: Session, projectId: string, rulesVersion = 1, parts = PARTS) 
     decision: 'accepted',
     parts,
   });
-const reaches = async (s: Session, projectId: string) =>
-  (await at(s, 'get', `/projects/${projectId}`)).status === 200;
+/** Whether the caller reaches the project: 200, or a refusal (403 without any project, else 404). */
+async function reaches(s: Session, projectId: string): Promise<boolean> {
+  const { status } = await at(s, 'get', `/projects/${projectId}`);
+  expect([200, 403, 404]).toContain(status);
+  return status === 200;
+}
 async function consents(projectId: string, volunteerId: string) {
   const { rows } = await h.db.query<{ decision: string; rules_version: number; parts: string[] }>(
     `SELECT decision, rules_version, parts FROM project_consents
@@ -209,6 +213,89 @@ describe('my projects and the consent', () => {
       (await at(s, 'get', '/me/projects')).body.data.map((x: { projectId: string }) => x.projectId),
     ).not.toContain(p.id);
     expect((await accept(s, p.id)).status).toBe(404);
+  });
+});
+
+describe('rules that change while the project runs', () => {
+  const daee = text('দায়ীর দায়িত্ব');
+  const dawahOn = async (projectId: string) => {
+    const pm = await as(world.users.pm);
+    const list = await at(pm, 'get', `/projects/${projectId}/components`);
+    const row = list.body.data.find((c: { componentKey: string }) => c.componentKey === 'dawah');
+    return api()
+      .patch(`/api/v1/projects/${projectId}/components/dawah`)
+      .set(bearer(pm))
+      .set('If-Match', row.etag)
+      .send({ enabled: true });
+  };
+
+  it('switching dawah on needs the Local দায়ী duties and asks everyone to accept again', async () => {
+    const project = await activeProject();
+    // a running project keeps its photo rule; dawah starts off
+    await h.db.query(
+      `INSERT INTO project_components (id, project_id, component_key, enabled, settings) VALUES
+       ($1, $3, 'distribution', true, '{"rule":"group"}'), ($2, $3, 'dawah', false, '{}')`,
+      [randomUUID(), randomUUID(), project],
+    );
+    const v = await newVolunteer();
+    await assign(project, v.volunteerId);
+    const s = await as(v.userId);
+    expect((await accept(s, project)).status).toBe(200);
+
+    const refused = await dawahOn(project);
+    expect(refused.status).toBe(409);
+    expect(refused.body.error.details).toMatchObject([
+      { path: 'rules:daee_duties', code: 'validation.required' },
+    ]);
+    expect(refused.body.error.details).toHaveLength(1);
+    const pm = await as(world.users.pm);
+    const withDaee = await at(pm, 'put', `/projects/${project}/rules`).send({
+      ...three,
+      daee_duties: daee,
+    });
+    expect(withDaee.body.data.version).toBe(2);
+    expect((await accept(s, project, 2)).status).toBe(200);
+    expect((await dawahOn(project)).status).toBe(200);
+
+    // a new version with the same texts: the volunteer reads the Local দায়ী part too
+    expect(await reaches(s, project)).toBe(false);
+    const detail = await at(s, 'get', `/me/projects/${project}`);
+    expect(detail.body.data.rules.version).toBe(3);
+    expect(detail.body.data.rules.parts.map((x: { part: string }) => x.part)).toEqual([
+      'volunteer_duties',
+      'implementation_process',
+      'daee_duties',
+      'misconduct',
+    ]);
+    expect((await accept(s, project, 3)).status).toBe(422);
+    expect((await accept(s, project, 3, [...PARTS, 'daee_duties'])).status).toBe(200);
+    expect(await reaches(s, project)).toBe(true);
+  });
+
+  it('a running project keeps every text its volunteers accept', async () => {
+    const project = await activeProject();
+    const pm = await as(world.users.pm);
+    const emptied = await at(pm, 'put', `/projects/${project}/rules`).send({
+      volunteer_duties: three.volunteer_duties,
+      implementation_process: three.implementation_process,
+      misconduct: { bn: ' ', en: 'x' },
+    });
+    expect(emptied.status).toBe(409);
+    expect(emptied.body.error.details).toMatchObject([
+      { path: 'rules:misconduct', code: 'validation.required' },
+    ]);
+    expect(emptied.body.error.details).toHaveLength(1);
+  });
+
+  it('refuses an acceptance of rules that are not complete', async () => {
+    const project = await activeProject();
+    // rules emptied outside the API: nothing can be accepted until they are complete again
+    await h.db.query(`UPDATE projects SET rules = '{}' WHERE id = $1`, [project]);
+    const v = await newVolunteer();
+    await assign(project, v.volunteerId);
+    const res = await accept(await as(v.userId), project);
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('project.rules_incomplete');
   });
 });
 
