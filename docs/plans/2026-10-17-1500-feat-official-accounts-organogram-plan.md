@@ -64,7 +64,7 @@ DECISION_LOG D-097 (owner answers in chat, 2026-10-17).
 - Size: M · Risk area: — · Depends on: U3
 
 ### U7 E2E and documents
-- Status: todo
+- Status: done
 - e2e: `/admin/staff` as head@example.org → "নতুন অফিসিয়াল" → fill → "লিঙ্ক কপি করুন" → open the link in a new context → set the password → log in with the job ID → the official is in the organogram; an outside partner is not.
 - Docs: AUTH.md, BUSINESS_RULES (BR-028, BR-261 to BR-263), RBAC.md, AUTHORIZATION_MATRIX, DATABASE_SCHEMA, ERD, SCREENS, DEMO_ACCOUNTS, STATUS, CLAUDE.md map.
 - Size: M · Risk area: — · Depends on: U4, U5, U6
@@ -78,7 +78,7 @@ DECISION_LOG D-097 (owner answers in chat, 2026-10-17).
 
 ## Progress
 - Branch: feat/official-accounts-organogram (from feat/templates-consent-assignment, stacked on PR #4)
-- Next: U7 the E2E journey and the documents
+- Next: checkpoint C2 (test and review of U4 to U7 and the whole branch)
 - Reviewed through: C1 at the C1 fix commit (U1 to U3)
 - Uncommitted: —
 - Notes: C1 review fixed: lock order users then link in accept; an unchanged supervisor stays valid; supervisor changes take one advisory lock and the organogram puts members of a loop at the top; emailed flag apart from the send; no SMTP message with an address in the log; a corrected email with a new link; the profile and the new link need GLOBAL scope. Kept on purpose: decision and rule ids in comments and test names (the repository's own convention, CLAUDE.md asks code to read like the surrounding code); guessable job IDs can lock an account like an email or mobile can (reported to the owner). The set-password token travels in the URL fragment (`/invite#token`) and in request bodies, never in a path, so no access log keeps it; `APP_ORIGIN` builds the link (https in production); SMTP calls time out after 10 s so a dead mail server never holds a create request. Staff registration tests now use drafts or pending accounts written in the database (the API refuses new ones). Job IDs are stored in capitals (CHECK) instead of an expression index, so the unique index stays a plain partial one Prisma can describe; a BEFORE INSERT trigger gives staff rows without an affiliation `department`.

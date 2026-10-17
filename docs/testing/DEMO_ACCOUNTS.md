@@ -2,26 +2,26 @@
 
 Created by `pnpm db:seed` (demo set, T1.3) in `css_erp_dev` and in test databases. **Never in staging or production**: the seed refuses `NODE_ENV=production` and any database that is not `css_erp_dev*` / `css_erp_test*`, and production refuses to start while a seed marker row exists (O-46 item 8). Every identity is fake (TEST_STRATEGY section 4): NIDs 1000000000 to 1000099999, mobiles 0170000xxxx, emails at example.org, names marked (নমুনা).
 
-Password of every demo account: `CssDemo2026` (development only; meets the O-05 rules). Staff log in with the email or the mobile, volunteers with the mobile (AUTH.md section 2); login works since T1.7 (http://localhost:3000/login with `pnpm dev`). The development OTP for password reset is the `OTP_DUMMY_CODE` of `apps/api/.env`; the E2E run uses its own database and the code 123456 (`apps/api/scripts/e2e-server.ts`). The Department Head and Monitoring Team need 12 characters when they set a new password (O-25); the demo password is only for the seed.
+Password of every demo account: `CssDemo2026` (development only; meets the O-05 rules). Staff log in with the job ID (any letter case), the email or the mobile, volunteers with the mobile (AUTH.md sections 1 and 2.2, DECISION_LOG D-097); every demo official is department staff, and the supervisors build the demo organogram; login works since T1.7 (http://localhost:3000/login with `pnpm dev`). The development OTP for password reset is the `OTP_DUMMY_CODE` of `apps/api/.env`; the E2E run uses its own database and the code 123456 (`apps/api/scripts/e2e-server.ts`). The Department Head and Monitoring Team need 12 characters when they set a new password (O-25); the demo password is only for the seed.
 
 ## Staff
 
-| Role | Email | Mobile | Notes |
-|---|---|---|---|
-| Department Head | head@example.org | 01700000001 | Main Admin (is_system_owner) |
-| Monitoring Team | monitoring@example.org | 01700000002 |  |
-| Program Manager | pm.ucd@example.org | 01700000003 | PM of program UCD |
-| Program Manager | pm.hum@example.org | 01700000004 | PM of program HUM |
-| Program Manager | pm.err@example.org | 01700000005 | PM of program ERR |
-| Regional Program Manager | rpm.dhaka@example.org | 01700000006 | RPM, Dhaka division |
-| Regional Program Manager | rpm.rangpur@example.org | 01700000007 | RPM, Rangpur division |
-| Regional Program Manager | handover.rpm@example.org | 01700000014 | RPM, Dhaka division; holds one project area (a Dhaka district of WNT). The official of the handover journey: the E2E spec hands the work to rpm.dhaka, deactivates the account and restores both at the end (T1.9 U14) |
-| Project Executive | executive@example.org | 01700000008 |  |
-| Official দায়ী | daee@example.org | 01700000009 |  |
-| Implementer | implementer@example.org | 01700000010 |  |
-| Procurement Team | procurement@example.org | 01700000011 |  |
-| Media Team | media@example.org | 01700000012 |  |
-| Finance Team | finance@example.org | 01700000013 |  |
+| Role | Job ID | Email | Mobile | Reports to | Notes |
+|---|---|---|---|---|---|
+| Department Head | CSS-001 | head@example.org | 01700000001 | — | Main Admin (is_system_owner) |
+| Monitoring Team | CSS-002 | monitoring@example.org | 01700000002 | CSS-001 |  |
+| Program Manager | CSS-101 | pm.ucd@example.org | 01700000003 | CSS-001 | PM of program UCD |
+| Program Manager | CSS-102 | pm.hum@example.org | 01700000004 | CSS-001 | PM of program HUM |
+| Program Manager | CSS-103 | pm.err@example.org | 01700000005 | CSS-001 | PM of program ERR |
+| Regional Program Manager | CSS-201 | rpm.dhaka@example.org | 01700000006 | CSS-102 | RPM, Dhaka division |
+| Regional Program Manager | CSS-202 | rpm.rangpur@example.org | 01700000007 | CSS-101 | RPM, Rangpur division |
+| Regional Program Manager | CSS-203 | handover.rpm@example.org | 01700000014 | CSS-103 | RPM, Dhaka division; holds one project area (a Dhaka district of WNT). The official of the handover journey: the E2E spec hands the work to rpm.dhaka, deactivates the account and restores both at the end (T1.9 U14) |
+| Project Executive | CSS-301 | executive@example.org | 01700000008 | CSS-201 |  |
+| Official দায়ী | CSS-302 | daee@example.org | 01700000009 | CSS-201 |  |
+| Implementer | CSS-303 | implementer@example.org | 01700000010 | CSS-201 |  |
+| Procurement Team | CSS-401 | procurement@example.org | 01700000011 | CSS-001 |  |
+| Media Team | CSS-402 | media@example.org | 01700000012 | CSS-001 |  |
+| Finance Team | CSS-403 | finance@example.org | 01700000013 | CSS-001 |  |
 
 ## Volunteers
 

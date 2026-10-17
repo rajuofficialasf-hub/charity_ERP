@@ -69,7 +69,7 @@ export function StaffPage() {
       <DocumentTitle title={t('title')} />
       <div className="admin-title-row">
         <h1 className="admin-title">{t('title')}</h1>
-        <span className="admin-row-actions">
+        <div className="admin-title-actions">
           <Button variant="secondary" icon={Network} href="/admin/staff/organogram">
             {t('organogram')}
           </Button>
@@ -78,7 +78,7 @@ export function StaffPage() {
               {t('new')}
             </Button>
           )}
-        </span>
+        </div>
       </div>
       {notice && (
         <Alert tone="success" live="status" onDismiss={() => setNotice(undefined)}>
