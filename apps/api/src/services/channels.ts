@@ -1,4 +1,4 @@
-import type { SmsProviderSetting } from '@css/shared/settings';
+import { type SmsProviderSetting, smsProviderSettingSchema } from '@css/shared/settings';
 import type { Principal } from '../auth/principal';
 import type { Env } from '../config/env';
 import type { SettingsService } from './settings';
@@ -41,7 +41,7 @@ export class ChannelsService {
       sms: {
         mode: this.env.SMS_MODE,
         keyPresent: Boolean(this.env.SMS_API_KEY),
-        config: sms.value as SmsProviderSetting,
+        config: smsProviderSettingSchema.parse(sms.value),
         updatedAt: sms.updatedAt,
       },
       otpDummy: this.env.OTP_DUMMY_ENABLED,

@@ -1,7 +1,8 @@
 import type { Env } from '../config/env';
 import type { Clock } from '../core/clock';
 import type { PrismaService } from '../core/prisma.service';
-import type { HealthService, Readiness } from '../health/service';
+import type { Prisma } from '../generated/prisma/client';
+import { CHECK_TIMEOUT_MS, type HealthService, type Readiness } from '../health/service';
 
 export interface StorageFigure {
   count: number;
@@ -12,21 +13,48 @@ export interface SystemHealthView extends Readiness {
   version: string;
   environment: Env['NODE_ENV'];
   otpDummy: boolean;
-  /** The last month (YYYY-MM) that has an audit log partition; entries after it cannot be written. */
+  /**
+   * The last month (YYYY-MM) that has an audit log partition; entries after it cannot be written.
+   * Null when the database did not answer.
+   */
   auditPartitionsUntil: string | null;
+  /** Null when the database did not answer in time; the checks then show it down. */
   storage: {
     total: StorageFigure;
     byKind: (StorageFigure & { kind: string })[];
     /** The twelve months up to this one (Dhaka), oldest first; a month without files counts zero. */
     byMonth: (StorageFigure & { month: string })[];
     measuredAt: string;
-  };
+  } | null;
 }
 
 /** How long the storage figures are reused: they are sums over every file record. */
 const STORAGE_CACHE_MS = 60_000;
 
-type Row = { kind: string | null; month: string | null; count: bigint; bytes: bigint | null };
+type Row = {
+  kind: string | null;
+  month: string | null;
+  count: bigint;
+  /** sum() over a bigint column is numeric, read as a decimal. */
+  bytes: Prisma.Decimal | null;
+};
+
+/** A database read of the page may fail or hang; the page then still answers with the checks. */
+async function orNull<T>(read: () => Promise<T>): Promise<T | null> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      read(),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), CHECK_TIMEOUT_MS);
+      }),
+    ]);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 /**
  * The system health page (docs/DECISION_LOG.md, the admin and settings decision of 2026-10-17):
@@ -34,7 +62,7 @@ type Row = { kind: string | null; month: string | null; count: bigint; bytes: bi
  * the storage growth from the file records (files not deleted) for the IT team.
  */
 export class SystemHealthService {
-  private cached: { at: number; storage: SystemHealthView['storage'] } | undefined;
+  private cached: { at: number; storage: NonNullable<SystemHealthView['storage']> } | undefined;
 
   constructor(
     private readonly env: Env,
@@ -46,13 +74,15 @@ export class SystemHealthService {
   async view(): Promise<SystemHealthView> {
     const [readiness, partitions, storage] = await Promise.all([
       this.health.readiness(),
-      this.prisma.$queryRaw<{ last: string | null }[]>`
-        SELECT max(c.relname) AS last FROM pg_inherits i
-        JOIN pg_class c ON c.oid = i.inhrelid JOIN pg_class p ON p.oid = i.inhparent
-        WHERE p.relname = 'audit_log'`,
-      this.storage(),
+      orNull(
+        () => this.prisma.$queryRaw<{ last: string | null }[]>`
+          SELECT max(c.relname) AS last FROM pg_inherits i
+          JOIN pg_class c ON c.oid = i.inhrelid JOIN pg_class p ON p.oid = i.inhparent
+          WHERE p.relname = 'audit_log'`,
+      ),
+      orNull(() => this.storage()),
     ]);
-    const last = partitions[0]?.last?.match(/(\d{4})_(\d{2})$/);
+    const last = partitions?.[0]?.last?.match(/(\d{4})_(\d{2})$/);
     return {
       ...readiness,
       version: this.env.APP_VERSION,
@@ -63,7 +93,7 @@ export class SystemHealthService {
     };
   }
 
-  private async storage(): Promise<SystemHealthView['storage']> {
+  private async storage(): Promise<NonNullable<SystemHealthView['storage']>> {
     const now = this.clock.now().getTime();
     if (this.cached && now - this.cached.at < STORAGE_CACHE_MS) return this.cached.storage;
     // one pass: the total, each kind and each Dhaka month of the last twelve
@@ -74,7 +104,7 @@ export class SystemHealthService {
       GROUP BY GROUPING SETS ((), (kind), (date_trunc('month', uploaded_at AT TIME ZONE 'Asia/Dhaka')))`;
     const figure = (r?: Row): StorageFigure => ({
       count: Number(r?.count ?? 0),
-      bytes: Number(r?.bytes ?? 0),
+      bytes: Number(r?.bytes?.toString() ?? 0),
     });
     const total = rows.find((r) => r.kind === null && r.month === null);
     const months = new Map(rows.filter((r) => r.month !== null).map((r) => [r.month!, r]));

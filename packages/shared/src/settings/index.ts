@@ -83,7 +83,8 @@ function isInternalIpv4(a: number, b: number): boolean {
 }
 
 /**
- * Whether a text is an https URL on a public host: a stored provider endpoint is called by the
+ * Whether a text is an https URL on a public host, without user info or a query string: a stored
+ * provider endpoint is called by the
  * server, so local names, internal domains, private, loopback, shared and link-local addresses and
  * IPv6 literals are refused. A host name that resolves to a private address is caught only where
  * the adapter connects; the real provider's adapter checks its host there.
@@ -95,7 +96,9 @@ export function isPublicHttpsUrl(raw: string): boolean {
   } catch {
     return false;
   }
-  if (url.protocol !== 'https:' || url.username !== '' || url.password !== '') return false;
+  // no credentials in the address: no user info, no query string (a key there would be stored)
+  if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash)
+    return false;
   // a fully qualified name may end in dots ("localhost."); the name is the same without them
   const host = url.hostname.toLowerCase().replace(/\.+$/, '');
   if (host === '' || host.startsWith('[') || INTERNAL_NAME.test(host)) return false;
@@ -107,20 +110,26 @@ export function isPublicHttpsUrl(raw: string): boolean {
  * The provider-agnostic SMS adapter configuration, kept until a provider is chosen. The provider's
  * key never lives here; it stays in the server's environment.
  */
-export const smsProviderSettingSchema = z.strictObject({
-  provider: z
-    .string()
-    .regex(/^[a-z][a-z0-9_]{1,39}$/, { message: 'validation.list_code' })
-    .nullable(),
-  senderId: text(20).nullable(),
-  enabled: z.boolean(),
-  endpoint: z
-    .string()
-    .trim()
-    .max(500, { message: 'validation.too_long' })
-    .refine(isPublicHttpsUrl, { message: 'validation.https_public_url' })
-    .nullable(),
-});
+export const smsProviderSettingSchema = z
+  .strictObject({
+    provider: z
+      .string()
+      .regex(/^[a-z][a-z0-9_]{1,39}$/, { message: 'validation.list_code' })
+      .nullable(),
+    senderId: text(20).nullable(),
+    enabled: z.boolean(),
+    endpoint: z
+      .string()
+      .trim()
+      .max(500, { message: 'validation.too_long' })
+      .refine(isPublicHttpsUrl, { message: 'validation.https_public_url' })
+      .nullable(),
+  })
+  // switched on only with a provider named, so SMS never looks on while nothing can send
+  .refine((v) => !v.enabled || v.provider !== null, {
+    path: ['provider'],
+    message: 'validation.required',
+  });
 export type SmsProviderSetting = z.infer<typeof smsProviderSettingSchema>;
 
 export const SETTING_SCHEMAS = {

@@ -101,6 +101,8 @@ describe('settings', () => {
       'https://100.64.0.1/send',
       'https://0.1.2.3/send',
       'https://user:pass@api.example.com/send',
+      'https://api.example.com/send?api_key=abc',
+      'https://api.example.com/send#key',
       'not a url',
     ]) {
       expect(isPublicHttpsUrl(bad), bad).toBe(false);
@@ -109,6 +111,16 @@ describe('settings', () => {
     expect(
       codes(smsProviderSettingSchema.safeParse({ ...base, endpoint: 'https://10.1.1.1/x' })),
     ).toEqual(['validation.https_public_url']);
+  });
+
+  it('switches SMS on only with a provider named', () => {
+    const base = SETTING_DEFAULTS['sms.provider'];
+    expect(codes(smsProviderSettingSchema.safeParse({ ...base, enabled: true }))).toEqual([
+      'validation.required',
+    ]);
+    expect(
+      smsProviderSettingSchema.safeParse({ ...base, enabled: true, provider: 'gateway' }).success,
+    ).toBe(true);
   });
 
   it('takes list codes in small letters, digits and _ only', () => {

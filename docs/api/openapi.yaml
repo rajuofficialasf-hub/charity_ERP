@@ -3080,7 +3080,8 @@ components:
             otpDummy: { type: boolean }
             auditPartitionsUntil: { type: [string, 'null'], pattern: '^[0-9]{4}-[0-9]{2}$' }
             storage:
-              type: object
+              description: Null when the database did not answer in time (the checks then show it down)
+              type: [object, 'null']
               required: [total, byKind, byMonth, measuredAt]
               properties:
                 total: { $ref: '#/components/schemas/StorageFigure' }
@@ -7869,7 +7870,9 @@ paths:
       summary: Replace the SMS adapter configuration (the key stays in the environment)
       description: >-
         Stored as the sms.provider setting, audited as settings.change. The endpoint is an https
-        address on a public host (422 validation.https_public_url). Answers the channels view.
+        address on a public host without user info or a query string (422
+        validation.https_public_url); enabled needs a provider (422 validation.required on provider).
+        Answers the channels view.
       x-permission: provider.settings.manage
       x-scope: global
       x-audit: settings.change
