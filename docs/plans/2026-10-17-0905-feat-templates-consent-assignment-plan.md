@@ -237,8 +237,8 @@ T1.11 creates projects only from a workflow, with no rules texts and no voluntee
 
 ## Progress
 - **Branch:** `feat/templates-consent-assignment` (from `feat/program-project-setup`, stacked on PR #3)
-- **Updated:** 2026-10-17 09:35
-- **Next:** C1 checkpoint (test and review of U1), then U2: the rules routes in routes/project-setup.ts
-- **Reviewed through:** none
+- **Updated:** 2026-10-17 09:42
+- **Next:** U2, the rules routes in `routes/project-setup.ts` (tests first in `test/integration/project-rules.test.ts`)
+- **Reviewed through:** C1 at ad797a1
 - **Uncommitted:** none
-- **Notes:** the branch starts from `feat/program-project-setup` (not develop): the project stacks its PRs #1 → #2 → #3 and this one follows. U1: the rules join setupCheck in U2 (with the activation change and its tests), so every U1 commit keeps activation unchanged; the shared module adds definitionOf (strips the source's form ids and public-link token), permissionSetAllowed and applicationsLeft; project_templates gained a description column; roles.sql revokes UPDATE on the two new logs.
+- **Notes:** the branch starts from `feat/program-project-setup` (not develop): the project stacks its PRs #1 → #2 → #3 and this one follows. U1: the rules join setupCheck in U2 (with the activation change and its tests), so every U1 commit keeps activation unchanged; the shared module adds definitionOf (strips the source's form ids and public-link token), permissionSetAllowed and applicationsLeft; project_templates gained a description column; roles.sql revokes UPDATE on the two new logs. C1 (logic, security, standards; no P0, one P1 fixed): a trigger refuses a consent row whose project and volunteer are not those of its assignment or membership, or whose version was never saved; the two logs refuse TRUNCATE; a template definition takes only settings that fit their component or none, and every settings key is listed as copied or bound to the source (test); the consent body uses `accepted` / `refused` like the log, while a refusal leaves the assignment `pending`. Kept: rule ids in comments (repo convention); the permission to give the dawah set on a dawah project to any type is the owner's security answer at doc review. U2 must reset `accepted` to `pending` in both tables in the rules-save transaction and take version, volunteer and assignment from the server, never from the body.
