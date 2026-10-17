@@ -721,6 +721,71 @@
       "invalid": "Write every required rule in both languages.",
       "version": "Version {version}",
       "new_version": "Saving a change makes a new version, and every volunteer accepts the rules again."
+    },
+    "volunteers": {
+      "title": "Volunteers: {name}",
+      "open": "Volunteers",
+      "back": "Back to the project",
+      "table": "Volunteers assigned to the project",
+      "empty": "No volunteer is assigned yet.",
+      "assign": "Assign volunteers",
+      "column": {
+        "name": "Name",
+        "type": "Type",
+        "set": "Permission set",
+        "paid": "Paid",
+        "consent": "Consent"
+      },
+      "paid_yes": "Paid",
+      "paid_no": "No",
+      "consent": {
+        "pending": "Waiting for consent",
+        "accepted": "Accepted"
+      },
+      "set": {
+        "application_distribution": "Application and distribution",
+        "application_distribution_dawah": "Application, distribution and dawah",
+        "work_progress": "Work progress"
+      },
+      "type": {
+        "general": "General",
+        "local_daee": "Local দায়ী",
+        "both": "দাঈ-স্বেচ্ছাসেবক",
+        "team_member": "Team member",
+        "paid": "Paid volunteer"
+      },
+      "change": "Change the set or paid flag of {name}",
+      "end": "End the assignment of {name}",
+      "end_title": "End the assignment",
+      "end_confirm": "End",
+      "notice": {
+        "assigned": "{count} volunteers assigned; they start once they accept the rules.",
+        "changed": "The assignment of {name} changed.",
+        "ended": "The assignment of {name} ended.",
+        "granted": "The permission is saved."
+      },
+      "dialog": {
+        "title": "Assign volunteers",
+        "search": "Name or mobile number",
+        "candidates": "Volunteers you can assign",
+        "no_candidates": "No volunteer in this area can be assigned.",
+        "set": "Permission set",
+        "set_by_type": "By type",
+        "paid": "Mark as paid volunteers",
+        "selected": "{count} selected",
+        "submit": "Assign",
+        "more": "Show more"
+      },
+      "change_dialog": {
+        "title": "Change the assignment",
+        "paid": "Paid volunteer"
+      },
+      "grant": {
+        "title": "Executive permissions",
+        "label": "{name}: may assign volunteers",
+        "reason_title": "Reason for the change of permission",
+        "confirm": "Save"
+      }
     }
   },
   "templates": {

@@ -72,6 +72,8 @@ export interface StaffAccess {
   canView: boolean;
   canEdit: boolean;
   canDelete: boolean;
+  /** The "if RPM grants" extras the person holds on the project. */
+  extraPermissions: string[];
 }
 /** GET /projects/{id}/candidates: officials with a role, by name, for an area or staff access. */
 export const candidates = async (projectId: string, role: string, q: string) =>
