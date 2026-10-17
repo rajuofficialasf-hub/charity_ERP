@@ -1,7 +1,6 @@
 import { uuidv7 } from '@css/shared';
 import {
   definitionOf,
-  missingRuleParts,
   RULES_PARTS,
   type TemplateDefinition,
   WORKFLOW_KEYS,
@@ -12,10 +11,12 @@ import { storedRules, writeRulesVersion } from './project-rules';
 
 /**
  * The copied parts of a project (BD-10, BR-065; DECISION_LOG D-096): its workflow, components with
- * their settings, syllabus and rules texts, read for a template or a copy. Nothing else is read,
- * so nothing else can travel.
+ * their settings, syllabus and rules texts, read for a template or a copy inside the caller's
+ * transaction. Nothing else is read, so nothing else can travel.
  */
 export async function projectDefinition(db: Tx, projectId: string): Promise<TemplateDefinition> {
+  // a setup change of the source waits until its parts are read, so they belong together
+  await db.$queryRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR SHARE`;
   const project = await db.project.findUniqueOrThrow({
     where: { id: projectId },
     select: {
@@ -71,7 +72,11 @@ export async function applyDefinition(
         updatedBy: actor,
       })),
     });
-  // rules with any text become the first version; an empty set stays at version 0
-  if (missingRuleParts(definition.rules, true).length < RULES_PARTS.length)
-    await writeRulesVersion(tx, projectId, definition.rules, 0, actor);
+  // rules with any text, even unfinished ones of a draft, become the first version; none stays at 0
+  const written = RULES_PARTS.some((part) => {
+    // eslint-disable-next-line security/detect-object-injection -- part comes from RULES_PARTS
+    const text = definition.rules[part];
+    return Boolean(text && (text.bn.trim() || text.en.trim()));
+  });
+  if (written) await writeRulesVersion(tx, projectId, definition.rules, 0, actor);
 }

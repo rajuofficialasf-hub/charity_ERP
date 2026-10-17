@@ -350,9 +350,60 @@ describe('master templates', () => {
     ).toBe(404);
   });
 
+  it('takes unfinished rules and no syllabus as they are', async () => {
+    const pm = await as(world.users.pm);
+    const created = await create(pm, { kind: 'workflow', workflowKey: 'distribution' });
+    const draft = created.body.data.id as string;
+    // one part in Bangla only: a draft may keep its rules unfinished
+    await h.db.query(`UPDATE projects SET rules = $1, rules_version = 0 WHERE id = $2`, [
+      JSON.stringify({ misconduct: { bn: 'অনিয়ম', en: '' } }),
+      draft,
+    ]);
+    const copy = (await create(pm, { kind: 'copy', projectId: draft })).body.data.id as string;
+    expect((await at(pm, 'get', `/projects/${copy}/rules`)).body.data).toEqual({
+      version: 1,
+      rules: { misconduct: { bn: 'অনিয়ম', en: '' } },
+    });
+    expect((await at(pm, 'get', `/projects/${copy}/syllabus`)).body.data).toEqual([]);
+    // nothing written: no rules version at all
+    const blank = (await create(pm, { kind: 'workflow', workflowKey: 'distribution' })).body.data
+      .id as string;
+    const empty = (await create(pm, { kind: 'copy', projectId: blank })).body.data.id as string;
+    expect((await at(pm, 'get', `/projects/${empty}/rules`)).body.data).toEqual({
+      version: 0,
+      rules: {},
+    });
+  });
+
   it('refuses a volunteer, an unknown template and a project outside reach', async () => {
     const volunteer = await as(world.users.general);
     expect((await at(volunteer, 'get', '/templates')).status).toBe(403);
+    const template = (
+      await at(
+        await as(world.users.pm),
+        'post',
+        `/projects/${await fullSource()}/save-as-template`,
+      ).send({
+        name: text('পরীক্ষার টেমপ্লেট'),
+      })
+    ).body.data;
+    expect((await at(volunteer, 'get', `/templates/${template.id}`)).status).toBe(403);
+    expect(
+      (await at(volunteer, 'patch', `/templates/${template.id}`).send({ active: false })).status,
+    ).toBe(403);
+    expect(
+      (
+        await at(volunteer, 'post', `/projects/${world.a1.id}/save-as-template`).send({
+          name: text('স্বেচ্ছাসেবকের'),
+        })
+      ).status,
+    ).toBe(403);
+    // an RPM creates no projects and manages no templates
+    const rpm = await as(world.users.rpmDhaka);
+    expect((await at(rpm, 'get', '/templates')).status).toBe(403);
+    expect(
+      (await at(rpm, 'patch', `/templates/${template.id}`).send({ active: false })).status,
+    ).toBe(403);
     const pm = await as(world.users.pm);
     expect(
       (await create(pm, { kind: 'template', templateId: '0190a4c4-0000-7000-8000-000000000999' }))

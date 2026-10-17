@@ -133,16 +133,19 @@ export function definitionOf(source: TemplateSource): TemplateDefinition {
   });
 }
 
+/** A template's name: written in both languages. */
+const templateName = boundedLabel.refine(
+  (n) => n.bn.trim() !== '' && n.en.trim() !== '',
+  'a name in both languages',
+);
+
 /**
  * Saving a project's setup as a template: a new one with its name, or the replacement of an
  * existing template's contents (its name stays).
  */
 export const templateSaveSchema = z.union([
   z.strictObject({
-    name: boundedLabel.refine(
-      (n) => n.bn.trim() !== '' && n.en.trim() !== '',
-      'a name in both languages',
-    ),
+    name: templateName,
     description: z.string().trim().max(2000).optional(),
   }),
   z.strictObject({ templateId: z.uuid() }),
@@ -152,9 +155,7 @@ export type TemplateSave = z.infer<typeof templateSaveSchema>;
 /** Renaming, describing, deactivating or activating a template; at least one. */
 export const templateUpdateSchema = z
   .strictObject({
-    name: boundedLabel
-      .refine((n) => n.bn.trim() !== '' && n.en.trim() !== '', 'a name in both languages')
-      .optional(),
+    name: templateName.optional(),
     description: z.string().trim().max(2000).nullable().optional(),
     active: z.boolean().optional(),
   })

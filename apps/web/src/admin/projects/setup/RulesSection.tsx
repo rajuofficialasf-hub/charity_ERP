@@ -14,6 +14,14 @@ import { SaveNotice, SetupSection, useSetup, useStepSave } from './setup-context
 type Texts = Record<RulesPart, { bn: string; en: string }>;
 const EMPTY = { bn: '', en: '' };
 
+/** Every part's texts, an empty pair where none is stored. */
+function textsOf(rules: ProjectRules): Texts {
+  const texts = {} as Texts;
+  // eslint-disable-next-line security/detect-object-injection -- part comes from RULES_PARTS
+  for (const part of RULES_PARTS) texts[part] = rules[part] ?? EMPTY;
+  return texts;
+}
+
 /** The texts to send: every part with something written, the hidden Local দায়ী part kept. */
 function body(texts: Texts): ProjectRules {
   return Object.fromEntries(
@@ -36,10 +44,7 @@ export function RulesSection({ current }: { current: RulesVersion }) {
   const t = useTranslations('admin.projects.rules');
   const tp = useTranslations('admin.projects.rules_part');
   const ts = useTranslations('admin.projects.setup.section');
-  const start = Object.fromEntries(
-    // eslint-disable-next-line security/detect-object-injection -- part comes from RULES_PARTS
-    RULES_PARTS.map((part) => [part, current.rules[part] ?? EMPTY]),
-  ) as Texts;
+  const start = textsOf(current.rules);
   const [texts, setTexts] = useState<Texts>(start);
   const [version, setVersion] = useState(current.version);
   const can = editable('rules');

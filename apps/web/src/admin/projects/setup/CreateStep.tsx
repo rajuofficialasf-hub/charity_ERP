@@ -35,7 +35,7 @@ export function CreateStep({ onCreated }: { onCreated: (project: Project) => voi
   const [nameEn, setNameEn] = useState('');
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [programId, setProgramId] = useState<string | null>(null);
-  const [workflowKey, setWorkflowKey] = useState<string | null>(null);
+  const [workflowKey, setWorkflowKey] = useState<WorkflowKey | null>(null);
   const [kind, setKind] = useState<SourceKind>('workflow');
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [copyOf, setCopyOf] = useState<string | null>(null);
@@ -50,12 +50,12 @@ export function CreateStep({ onCreated }: { onCreated: (project: Project) => voi
     queryFn: pickerProjects,
     enabled: kind === 'copy',
   });
-  const source = (): ProjectCreate['source'] =>
-    kind === 'template'
-      ? { kind, templateId: templateId! }
-      : kind === 'copy'
-        ? { kind, projectId: copyOf! }
-        : { kind, workflowKey: workflowKey as WorkflowKey };
+  /** The source the chosen starting point names, or null while nothing is picked. */
+  const source = (): ProjectCreate['source'] | null => {
+    if (kind === 'template') return templateId ? { kind, templateId } : null;
+    if (kind === 'copy') return copyOf ? { kind, projectId: copyOf } : null;
+    return workflowKey ? { kind, workflowKey } : null;
+  };
   const save = useMutation({
     mutationFn: () =>
       createProject({
@@ -63,7 +63,7 @@ export function CreateStep({ onCreated }: { onCreated: (project: Project) => voi
         code,
         year: Number(year),
         name: { bn: nameBn.trim(), en: nameEn.trim() },
-        source: source(),
+        source: source()!,
       }),
   });
   const codeOk = projectCode.safeParse(code).success;
@@ -72,7 +72,7 @@ export function CreateStep({ onCreated }: { onCreated: (project: Project) => voi
     nameEn.trim() !== '' &&
     /^\d{4}$/.test(year) &&
     programId !== null &&
-    (kind === 'workflow' ? workflowKey : kind === 'template' ? templateId : copyOf) !== null;
+    source() !== null;
   const problem = useStepSave({
     // a new project is always saved: Next creates it
     changed: true,
@@ -135,7 +135,7 @@ export function CreateStep({ onCreated }: { onCreated: (project: Project) => voi
             helper={t('workflow_hint')}
             required
             value={workflowKey}
-            onChange={setWorkflowKey}
+            onChange={(value) => setWorkflowKey(WORKFLOW_KEYS.find((k) => k === value) ?? null)}
             searchable={false}
             options={WORKFLOW_KEYS.map((key) => ({ id: key, label: tw(key) }))}
           />
