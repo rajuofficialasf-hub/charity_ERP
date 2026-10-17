@@ -155,6 +155,12 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
               }),
             },
             {
+              path: 'staff/organogram',
+              lazy: async () => ({
+                Component: (await import('../admin/staff/OrganogramPage')).OrganogramPage,
+              }),
+            },
+            {
               path: 'handover',
               lazy: async () => ({
                 Component: (await import('../admin/handover/HandoverPage')).HandoverPage,

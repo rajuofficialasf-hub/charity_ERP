@@ -1,0 +1,40 @@
+/*
+ * The organogram (SCR-066): nested lists with a line on the side of each level, so the reporting
+ * line reads the same at 360 px and on a desktop; from 960 px the programs sit side by side.
+ * Tokens only.
+ */
+.org-programs {
+  display: grid;
+  gap: var(--space-4);
+}
+@media (min-width: 960px) {
+  .org-programs {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    align-items: start;
+  }
+}
+.org-tree {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.org-tree .org-tree {
+  margin-top: var(--space-2);
+  margin-inline-start: var(--space-3);
+  padding-inline-start: var(--space-3);
+  border-inline-start: 2px solid var(--border-subtle);
+}
+.org-node {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-surface);
+}
+.org-meta {
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}

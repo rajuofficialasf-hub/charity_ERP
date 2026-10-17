@@ -836,6 +836,22 @@
     "empty": "No official matches these filters.",
     "more": "Show more",
     "renew_link": "New set-password link for {name}",
+    "chart": {
+      "title": "Organogram",
+      "back": "Back to the officials",
+      "intro": "The department's own staff by program, under the official they report to. Other departments of the Foundation and outside partners are not part of it.",
+      "leadership": "Department leadership",
+      "unplaced": "Not placed yet",
+      "unplaced_hint": "No program and no line to a Program Manager; set the program or the supervisor in the profile.",
+      "no_members": "No official in this program yet.",
+      "inactive": "Inactive program",
+      "empty": "No department official yet.",
+      "reports": "Officials reporting to {name}",
+      "state": {
+        "pending": "Waiting for the password",
+        "blocked": "Suspended"
+      }
+    },
     "edit": "Edit the profile of {name}",
     "renew": {
       "title": "New link for {name}",

@@ -80,3 +80,30 @@ export const findSupervisors = (text: string) =>
   api<StaffMember[]>(
     `/users?kind=staff&affiliation=department&state=active&limit=20&q=${encodeURIComponent(text)}`,
   );
+
+/** One official in the organogram with those who report to them inside the same part. */
+export interface OrganogramNode {
+  userId: string;
+  displayName: string;
+  jobId: string | null;
+  designation: string | null;
+  roles: string[];
+  state: 'pending' | 'active' | 'blocked';
+  homeDivisionId: string | null;
+  reports: OrganogramNode[];
+}
+
+/** GET /organogram: the department's own staff by program and supervisor (BR-263). */
+export interface Organogram {
+  leadership: OrganogramNode[];
+  programs: {
+    programId: string;
+    code: string;
+    name: { bn: string; en: string };
+    active: boolean;
+    members: OrganogramNode[];
+  }[];
+  unplaced: OrganogramNode[];
+}
+
+export const organogram = () => api<Organogram>('/organogram');
