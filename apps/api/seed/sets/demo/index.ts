@@ -26,6 +26,10 @@ export interface DemoStaff {
   email: string;
   mobileIndex: number;
   designation: string;
+  /** The organisation's job ID, the login id of an official (DECISION_LOG D-097). */
+  jobId: string;
+  /** The key of the official this one reports to (the organogram); listed before this one. */
+  supervisor?: string;
 }
 
 export const DEMO_PROGRAMS = [
@@ -57,6 +61,7 @@ export const DEMO_STAFF: DemoStaff[] = [
     email: 'head',
     mobileIndex: 1,
     designation: 'Department Head',
+    jobId: 'CSS-001',
   },
   {
     key: 'monitoring',
@@ -65,6 +70,8 @@ export const DEMO_STAFF: DemoStaff[] = [
     email: 'monitoring',
     mobileIndex: 2,
     designation: 'Monitoring Team',
+    jobId: 'CSS-002',
+    supervisor: 'department_head',
   },
   {
     key: 'pm_ucd',
@@ -73,6 +80,8 @@ export const DEMO_STAFF: DemoStaff[] = [
     email: 'pm.ucd',
     mobileIndex: 3,
     designation: 'Program Manager',
+    jobId: 'CSS-101',
+    supervisor: 'department_head',
   },
   {
     key: 'pm_hum',
@@ -81,6 +90,8 @@ export const DEMO_STAFF: DemoStaff[] = [
     email: 'pm.hum',
     mobileIndex: 4,
     designation: 'Program Manager',
+    jobId: 'CSS-102',
+    supervisor: 'department_head',
   },
   {
     key: 'pm_err',
@@ -89,6 +100,8 @@ export const DEMO_STAFF: DemoStaff[] = [
     email: 'pm.err',
     mobileIndex: 5,
     designation: 'Program Manager',
+    jobId: 'CSS-103',
+    supervisor: 'department_head',
   },
   {
     key: 'rpm_dhaka',
@@ -97,6 +110,8 @@ export const DEMO_STAFF: DemoStaff[] = [
     email: 'rpm.dhaka',
     mobileIndex: 6,
     designation: 'Regional Program Manager',
+    jobId: 'CSS-201',
+    supervisor: 'pm_hum',
   },
   {
     key: 'rpm_rangpur',
@@ -105,6 +120,8 @@ export const DEMO_STAFF: DemoStaff[] = [
     email: 'rpm.rangpur',
     mobileIndex: 7,
     designation: 'Regional Program Manager',
+    jobId: 'CSS-202',
+    supervisor: 'pm_ucd',
   },
   {
     // the official of the handover journey (plan docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U14): holds one project area, deactivated in E2E
@@ -114,6 +131,8 @@ export const DEMO_STAFF: DemoStaff[] = [
     email: 'handover.rpm',
     mobileIndex: 14,
     designation: 'Regional Program Manager',
+    jobId: 'CSS-203',
+    supervisor: 'pm_err',
   },
   {
     key: 'executive',
@@ -122,6 +141,8 @@ export const DEMO_STAFF: DemoStaff[] = [
     email: 'executive',
     mobileIndex: 8,
     designation: 'Project Executive',
+    jobId: 'CSS-301',
+    supervisor: 'rpm_dhaka',
   },
   {
     key: 'official_daee',
@@ -130,6 +151,8 @@ export const DEMO_STAFF: DemoStaff[] = [
     email: 'daee',
     mobileIndex: 9,
     designation: 'Official দায়ী',
+    jobId: 'CSS-302',
+    supervisor: 'rpm_dhaka',
   },
   {
     key: 'implementer',
@@ -138,6 +161,8 @@ export const DEMO_STAFF: DemoStaff[] = [
     email: 'implementer',
     mobileIndex: 10,
     designation: 'Implementer',
+    jobId: 'CSS-303',
+    supervisor: 'rpm_dhaka',
   },
   {
     key: 'procurement',
@@ -146,6 +171,8 @@ export const DEMO_STAFF: DemoStaff[] = [
     email: 'procurement',
     mobileIndex: 11,
     designation: 'Procurement Team',
+    jobId: 'CSS-401',
+    supervisor: 'department_head',
   },
   {
     key: 'media',
@@ -154,6 +181,8 @@ export const DEMO_STAFF: DemoStaff[] = [
     email: 'media',
     mobileIndex: 12,
     designation: 'Media Team',
+    jobId: 'CSS-402',
+    supervisor: 'department_head',
   },
   {
     key: 'finance',
@@ -162,6 +191,8 @@ export const DEMO_STAFF: DemoStaff[] = [
     email: 'finance',
     mobileIndex: 13,
     designation: 'Finance Team',
+    jobId: 'CSS-403',
+    supervisor: 'department_head',
   },
 ];
 
@@ -253,6 +284,9 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
       is_system_owner: s.key === 'department_head',
       display_name: demoName(s.name),
       designation: s.designation,
+      job_id: s.jobId,
+      affiliation: 'department',
+      supervisor_user_id: s.supervisor ? userId(s.supervisor) : null,
       home_division_id: s.role === 'regional_program_manager' ? divisionIdOf(s.key) : null,
       ...(withProgram ? { home_program_id: homeProgram(s) } : {}),
       language: 'bn',
