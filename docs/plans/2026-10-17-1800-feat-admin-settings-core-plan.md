@@ -256,7 +256,7 @@ None blocking. Each new decision above is recorded in `docs/DECISION_LOG.md` bef
 ## Progress
 - **Branch:** `feat/admin-settings-core` (stacked on `feat/official-accounts-organogram`, PR #5)
 - **Updated:** 2026-10-17 19:40
-- **Next:** checkpoint C1 (review U1), then U2: the settings, lists and nisab services and routes
-- **Reviewed through:** none
+- **Next:** U2: the settings, lists and nisab services and routes (`routes/programs.ts` as the example)
+- **Reviewed through:** C1 at 2f308ca
 - **Uncommitted:** none
-- **Notes:** doc review on 2026-10-17: the owner chose the nisab limits and the withdrawal of a version not yet in effect. The `settings` table also holds the seed markers `seed.marker.*`; every settings read must keep to the known keys. The organisation's default names carry `i18n-allow-bengali` (bilingual data); the default contact is a placeholder.
+- **Notes:** doc review on 2026-10-17: the owner chose the nisab limits and the withdrawal of a version not yet in effect. The `settings` table also holds the seed markers `seed.marker.*`; every settings read must keep to the known keys. The organisation's default names carry `i18n-allow-bengali` (bilingual data); the default contact is a placeholder. C1: plan IDs are kept out of new code comments (words or a doc path instead); the nisab trigger itself refuses withdrawing a version in effect (Dhaka date), so the service's 409 must be checked before the update.
