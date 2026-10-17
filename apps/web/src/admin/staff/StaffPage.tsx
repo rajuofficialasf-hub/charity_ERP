@@ -12,7 +12,7 @@ import {
   TableToolbar,
   Tabs,
 } from '@css/ui';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { IdCard, Link2, Network, Pencil, UserPlus } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useSearchParams } from 'react-router';
@@ -166,6 +166,8 @@ function StaffList({
       }
       return { data, next };
     },
+    // the rows read so far stay on screen while the next page or a new filter loads
+    placeholderData: keepPreviousData,
   });
   const programList = useQuery({ queryKey: PROGRAMS_KEY, queryFn: programs });
   const roleList = useQuery({ queryKey: ['admin', 'roles'], queryFn: roles });

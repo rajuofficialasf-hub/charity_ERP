@@ -5,7 +5,7 @@ import {
   JOB_ID_MAX_LENGTH,
 } from '@css/shared/auth';
 import { type Locale, localized } from '@css/shared/i18n';
-import { Alert, Button, Modal, RadioGroup, Select, TextField } from '@css/ui';
+import { Alert, Button, ErrorState, Modal, RadioGroup, Select, Skeleton, TextField } from '@css/ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -53,6 +53,67 @@ export function OfficialDialog({
   onSaved?: (saved: StaffMember) => void;
 }) {
   const t = useTranslations('admin.staff.dialog');
+  const tc = useTranslations('common');
+  const [stale, setStale] = useState(false);
+  // an edit starts from the record as stored now, with its version: never from the list row
+  const version = useQuery({
+    queryKey: ['admin', 'staff', 'edit', official?.id],
+    queryFn: () => staffWithEtag(official!.id),
+    enabled: Boolean(official),
+    staleTime: 0,
+    gcTime: 0,
+  });
+  if (!official) return <OfficialForm onClose={onClose} onCreated={onCreated} />;
+  if (version.isPending || version.error)
+    return (
+      <Modal title={t('edit_title', { name: official.displayName })} isOpen onClose={onClose}>
+        {version.error ? (
+          <ErrorState
+            title={tc('state.error.text')}
+            requestId={version.error instanceof ApiFailure ? version.error.requestId : undefined}
+            onRetry={() => void version.refetch()}
+          />
+        ) : (
+          <Skeleton shape="card" />
+        )}
+      </Modal>
+    );
+  return (
+    <OfficialForm
+      // a newer version starts the form again from what is stored
+      key={version.data.meta.etag}
+      official={version.data.data}
+      etag={version.data.meta.etag}
+      stale={stale}
+      onStale={() => {
+        setStale(true);
+        void version.refetch();
+      }}
+      onClose={onClose}
+      onSaved={onSaved}
+    />
+  );
+}
+
+function OfficialForm({
+  official,
+  etag,
+  stale = false,
+  onStale,
+  onClose,
+  onCreated,
+  onSaved,
+}: {
+  official?: StaffMember;
+  etag?: string;
+  /** The profile changed meanwhile and the form shows the stored one again. */
+  stale?: boolean;
+  onStale?: () => void;
+  onClose: () => void;
+  onCreated?: (name: string, issued: InvitationIssued) => void;
+  onSaved?: (saved: StaffMember) => void;
+}) {
+  const t = useTranslations('admin.staff.dialog');
   const ta = useTranslations('admin.staff.affiliation');
   const tc = useTranslations('common.action');
   const locale = useLocale() as Locale;
@@ -78,23 +139,17 @@ export function OfficialDialog({
     staleTime: 60 * 60_000,
   });
   const roleList = useQuery({ queryKey: ['admin', 'roles'], queryFn: roles, enabled: !official });
-  // the version this edit started from, and the name of the current supervisor
-  const version = useQuery({
-    queryKey: ['admin', 'staff', 'one', official?.id],
-    queryFn: () => staffWithEtag(official!.id),
-    enabled: Boolean(official),
-    staleTime: Infinity,
-  });
+  // the name of the current supervisor, for the field only: the id is on the record
   const currentSupervisor = useQuery({
     queryKey: ['admin', 'staff', 'one', official?.supervisorUserId],
     queryFn: () => staffWithEtag(official!.supervisorUserId!),
     enabled: Boolean(official?.supervisorUserId),
-    staleTime: Infinity,
   });
-  const chosenSupervisor =
-    supervisorTouched || !currentSupervisor.data
-      ? supervisor
-      : asPanelUser(currentSupervisor.data.data);
+  const shownSupervisor = supervisorTouched
+    ? supervisor
+    : currentSupervisor.data
+      ? asPanelUser(currentSupervisor.data.data)
+      : null;
 
   const profile = () => ({
     jobId: jobId.trim(),
@@ -104,12 +159,14 @@ export function OfficialDialog({
     affiliationUnit: affiliation === 'department' ? null : unit.trim() || null,
     homeProgramId: programId === NONE ? null : programId,
     homeDivisionId: divisionId === NONE ? null : divisionId,
-    supervisorUserId: chosenSupervisor?.id ?? null,
+    // untouched, the stored supervisor stays, whether or not the name has loaded
+    supervisorUserId: supervisorTouched
+      ? (supervisor?.id ?? null)
+      : (official?.supervisorUserId ?? null),
   });
   const save = useMutation({
     mutationFn: async () => {
-      if (official)
-        return { saved: await updateProfile(official.id, version.data!.meta.etag, profile()) };
+      if (official) return { saved: await updateProfile(official.id, etag!, profile()) };
       return {
         issued: await createOfficial({
           ...profile(),
@@ -124,6 +181,10 @@ export function OfficialDialog({
       if ('saved' in result && result.saved) onSaved?.(result.saved);
       if ('issued' in result && result.issued) onCreated?.(name.trim(), result.issued);
     },
+    // someone else saved the profile meanwhile: the stored one comes back to check first
+    onError: (error) => {
+      if (error instanceof ApiFailure && error.status === 412) onStale?.();
+    },
   });
   const failure = save.error instanceof ApiFailure ? save.error : undefined;
   /** The server's message for one field, when the refusal named it. */
@@ -134,7 +195,7 @@ export function OfficialDialog({
     name.trim() !== '' &&
     designation.trim() !== '' &&
     (affiliation === 'department' || unit.trim() !== '') &&
-    (official ? version.data !== undefined : email.trim() !== '' && roleKey !== null);
+    (official ? etag !== undefined : email.trim() !== '' && roleKey !== null);
   const roleOptions = (roleList.data ?? [])
     .filter((r) => r.kind === 'official' && r.key !== NOT_GIVEN)
     .map((r) => ({ id: r.key, label: localized(r.name, locale) }));
@@ -167,6 +228,11 @@ export function OfficialDialog({
         </Button>
       }
     >
+      {stale && !save.error && (
+        <Alert tone="warning" live="status">
+          {t('stale')}
+        </Alert>
+      )}
       {save.error && (
         <Alert tone="danger" live="alert">
           {failure ? (failure.details[0]?.message ?? failure.message) : t('offline')}
@@ -263,7 +329,7 @@ export function OfficialDialog({
       <UserSearch
         label={t('supervisor')}
         helper={fieldError('supervisorUserId') ?? t('supervisor_hint')}
-        selected={chosenSupervisor}
+        selected={shownSupervisor}
         onSelect={(u) => {
           setSupervisorTouched(true);
           setSupervisor(u);

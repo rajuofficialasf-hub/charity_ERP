@@ -306,6 +306,97 @@ describe('the officials page', () => {
     expect(await screen.findByText('আরপিএম ঢাকা-এর প্রোফাইল সংরক্ষিত হয়েছে।')).toBeInTheDocument();
   });
 
+  it('fills the edit from the stored record and keeps the supervisor whose name did not load', async () => {
+    refreshAs(HEAD);
+    serve();
+    const SUPERVISOR = '01900000-0000-7000-8000-0000000000f1';
+    server.use(
+      http.get('*/api/v1/users/:id', ({ params }) =>
+        params.id === SUPERVISOR
+          ? HttpResponse.json(
+              { error: { code: 'server.internal', message: 'x', requestId: 'r' } },
+              { status: 500 },
+            )
+          : HttpResponse.json({
+              data: official({ designation: 'Stored designation', supervisorUserId: SUPERVISOR }),
+              meta: { etag: '"u2"' },
+            }),
+      ),
+    );
+    const user = userEvent.setup();
+    open();
+    const [edit] = await screen.findAllByRole('button', {
+      name: 'আরপিএম ঢাকা-এর প্রোফাইল সম্পাদনা',
+    });
+    await user.click(edit!);
+    const dialog = await screen.findByRole('dialog');
+    // the list row says Regional Program Manager; the form shows what is stored now
+    expect(await within(dialog).findByRole('textbox', { name: /^পদবি/ })).toHaveValue(
+      'Stored designation',
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
+    await waitFor(() => expect(profiles).toHaveLength(1));
+    expect(profiles[0]).toMatchObject({
+      ifMatch: '"u2"',
+      body: { supervisorUserId: SUPERVISOR, designation: 'Stored designation' },
+    });
+  }, 15_000);
+
+  it('reads the stored profile again when someone else saved it meanwhile', async () => {
+    refreshAs(HEAD);
+    serve();
+    let reads = 0;
+    server.use(
+      http.get('*/api/v1/users/:id', () => {
+        reads += 1;
+        return HttpResponse.json({
+          data: official({ designation: reads === 1 ? 'Old' : 'Changed by another admin' }),
+          meta: { etag: `"r${reads}"` },
+        });
+      }),
+      http.put('*/api/v1/users/:id/profile', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'conflict.version',
+              message: 'অন্য কেউ এর মধ্যে পরিবর্তন করেছেন।',
+              requestId: 'req_x',
+            },
+          },
+          { status: 412 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    open();
+    const [edit] = await screen.findAllByRole('button', {
+      name: 'আরপিএম ঢাকা-এর প্রোফাইল সম্পাদনা',
+    });
+    await user.click(edit!);
+    const dialog = await screen.findByRole('dialog');
+    await within(dialog).findByDisplayValue('Old');
+    await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
+    expect(
+      await screen.findByText(/এর মধ্যে অন্য কেউ এই প্রোফাইল সংরক্ষণ করেছেন/),
+    ).toBeInTheDocument();
+    expect(await screen.findByDisplayValue('Changed by another admin')).toBeInTheDocument();
+  }, 15_000);
+
+  it('says when copying is not possible here', async () => {
+    refreshAs(HEAD);
+    serve();
+    const user = userEvent.setup();
+    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'));
+    open();
+    const [renew] = await screen.findAllByRole('button', {
+      name: 'নতুন কর্মকর্তা-এর জন্য নতুন পাসওয়ার্ড লিঙ্ক',
+    });
+    await user.click(renew!);
+    await user.click(await screen.findByRole('button', { name: 'নতুন লিঙ্ক পাঠান' }));
+    await user.click(await screen.findByRole('button', { name: 'লিঙ্ক কপি করুন' }));
+    expect(await screen.findByText(/এখানে কপি করা গেল না/)).toBeInTheDocument();
+  });
+
   it('shows the forbidden content to a volunteer', async () => {
     refreshAs(VOLUNTEER);
     serve();

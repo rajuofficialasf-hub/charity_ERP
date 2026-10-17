@@ -69,17 +69,31 @@ export function InvitePage() {
         </Alert>
       );
     if (view.isPending) return <Skeleton shape="card" />;
-    // the link is unknown, used, replaced or expired: on opening, or closed while the page was open
-    const dead = view.error ?? (failure && failure.status !== 422 ? failure : null);
+    // only an unknown (404) or a closed (410) link is dead, on opening or while the page was open;
+    // a busy server or a lost connection keeps the link, which the person tries again
+    const dead = [view.error, accept.error].find(
+      (e): e is ApiFailure => e instanceof ApiFailure && (e.status === 404 || e.status === 410),
+    );
     if (dead)
       return (
         <div className="auth-shell-stack">
           <Alert tone="danger" live="alert">
-            {dead instanceof ApiFailure ? dead.message : tl('offline')}
+            {dead.message}
           </Alert>
           <p className="m-0">{t('ask_admin')}</p>
           <Button variant="secondary" href="/login" fullWidth>
             {t('to_login')}
+          </Button>
+        </div>
+      );
+    if (view.error)
+      return (
+        <div className="auth-shell-stack">
+          <Alert tone="danger" live="alert">
+            {view.error instanceof ApiFailure ? view.error.message : tl('offline')}
+          </Alert>
+          <Button variant="secondary" onPress={() => void view.refetch()} fullWidth>
+            {t('retry')}
           </Button>
         </div>
       );
@@ -121,9 +135,9 @@ export function InvitePage() {
             required
             error={mismatch ? tp('mismatch') : undefined}
           />
-          {accept.error && !(accept.error instanceof ApiFailure) && (
+          {accept.error && !passwordError && (
             <Alert tone="danger" live="alert">
-              {tl('offline')}
+              {failure ? failure.message : tl('offline')}
             </Alert>
           )}
           <Button type="submit" fullWidth loading={accept.isPending}>

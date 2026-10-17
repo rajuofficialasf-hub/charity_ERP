@@ -132,6 +132,24 @@ describe('the set-password page', () => {
     expect(screen.queryByRole('button', { name: 'পাসওয়ার্ড সংরক্ষণ করুন' })).toBeNull();
   });
 
+  it('keeps a valid link when the server is busy: the person tries again', async () => {
+    serve(() =>
+      HttpResponse.json(
+        {
+          error: { code: 'rate_limit.exceeded', message: 'অনেকবার চেষ্টা হয়েছে।', requestId: 'r' },
+        },
+        { status: 429 },
+      ),
+    );
+    const user = userEvent.setup();
+    open();
+    expect(await screen.findByText('অনেকবার চেষ্টা হয়েছে।')).toBeInTheDocument();
+    expect(screen.queryByText(/নতুন লিঙ্কের জন্য/)).toBeNull();
+    serve();
+    await user.click(screen.getByRole('button', { name: 'আবার চেষ্টা করুন' }));
+    expect(await screen.findByText(/CSS-310/)).toBeInTheDocument();
+  });
+
   it('says the link is incomplete without a token and asks nothing of the server', async () => {
     serve();
     open('');

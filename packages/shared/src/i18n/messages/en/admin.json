@@ -918,6 +918,7 @@
       "no_division": "No division",
       "supervisor": "Reports to",
       "supervisor_hint": "Search an active official of the department by name or job ID.",
+      "stale": "Someone else saved this profile meanwhile. The form shows it as stored now; check it and save again.",
       "offline": "The server could not be reached. Check the connection and try again."
     },
     "link": {

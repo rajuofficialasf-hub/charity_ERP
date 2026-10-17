@@ -81,6 +81,24 @@ describe('the organogram', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('shows the error with a retry when the organogram cannot be read', async () => {
+    refreshAs(HEAD);
+    serve();
+    server.use(
+      http.get('*/api/v1/organogram', () =>
+        HttpResponse.json(
+          { error: { code: 'server.internal', message: 'x', requestId: 'req_x' } },
+          { status: 500 },
+        ),
+      ),
+    );
+    open();
+    // a server error is retried twice by the query client before the error state shows
+    expect(
+      await screen.findByRole('button', { name: /আবার চেষ্টা/ }, { timeout: 8000 }),
+    ).toBeInTheDocument();
+  }, 15_000);
+
   it('shows the forbidden content to a volunteer and asks nothing', async () => {
     refreshAs(VOLUNTEER);
     serve();
