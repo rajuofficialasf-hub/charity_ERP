@@ -838,7 +838,10 @@ components:
             - { type: string, pattern: '^01[3-9][0-9]{8}$' }
             - { type: 'null' }
         roleKey: { type: string, minLength: 1, maxLength: 64 }
-        language: { type: string, enum: [bn, en], default: bn }
+        language:
+          description: The account's language; the system default language when left out (D-098).
+          type: string
+          enum: [bn, en]
     StaffProfileRequest:
       description: >-
         The whole profile of an official, replacing the stored one (DECISION_LOG D-097, BR-261);

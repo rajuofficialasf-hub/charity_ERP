@@ -9,7 +9,7 @@ export async function seedSettings(ctx: SeedContext): Promise<void> {
   for (const key of SETTING_KEYS) {
     await ctx.upsert(
       'settings',
-       
+
       { key, value: json(SETTING_DEFAULTS[key]), updated_by: ctx.actorId },
       { key: ['key'], insertOnly: ['value', 'updated_by'] },
     );

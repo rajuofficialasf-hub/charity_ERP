@@ -25,7 +25,7 @@ Settings exist only as seed rows and environment values; nobody can change a thr
 - **R3** The Department Head and the Monitoring Team (`settings.manage`) edit the Foundation's and the department's names in Bengali and English, the address in Bengali and English, a contact phone and a contact email; each value is validated (phone 01XXXXXXXXX, email format, lengths). Every signed-in user can read them (they head reports and emails later). The logo stays a file in the repository.
 
 ### Localization defaults
-- **R4** The same roles set the default language (bn or en) used for a visitor without a choice and for a new account, and switch on or off the Hijri date beside the Gregorian date (off by default, O-56/§11); while on, long dates show the Hijri date beside, in English digits.
+- **R4** The same roles set the default language (bn or en) used for a visitor without a choice and for a new official created without one. ~~The Hijri date switch~~ (dropped: O-43 withdrew the Hijri date; the owner confirmed on 2026-10-17).
 
 ### Notification channels
 - **R5** The SMTP settings (host, port, secure, sender, whether a login is set) are read from the environment and shown read-only; no password or secret ever leaves the server.
@@ -94,7 +94,7 @@ None blocking. Each new decision above is recorded in `docs/DECISION_LOG.md` bef
 - **Rate limits**: the admin reads and writes use the `default` class; `GET /public/settings` uses `reference-read` (`apps/api/src/rate-limit/rate-limit.ts`, by IP). The storage figures of the health page are cached in memory for 60 seconds.
 - **Sessions monitor**: a new list of active sessions (not revoked, not expired) for the global roles with a person search. Each row carries only the session id, the person (id, name, account kind), device name, platform, app version, started and last seen; never a token, refresh hash or IP. The Main Admin's sessions are listed but cannot be ended by others. Ending a session reuses `POST /users/{userId}/sessions/{sessionId}/revoke` with its Main Admin protection (`services/sessions.ts`).
 - **Health**: the `HealthService` checks plus the app version, the dummy OTP flag, the last month that has an `audit_log` partition, and storage growth from `files` (count and bytes in total, by kind, and by month for 12 months; rows with `deleted_at` set are left out). The page reads `files` live; `storage_stats` stays for the periodic snapshot job of the growth report, which does not exist yet.
-- **Localization**: a public `GET /public/settings` (no session; the `reference-read` rate class) returns the default language and the organisation's names. The PWA uses that language when the device has no choice yet (`i18n/locale.ts`). New accounts (official created, volunteer registration) take it when the request names none. The Hijri date comes from the shared formatter (a `hijri` option on the long date; `Intl` calendar `islamic-umalqura`, numbering system `latn`, so English digits) while the setting is on.
+- **Localization**: a public `GET /public/settings` (no session; the `reference-read` rate class) returns the default language and the organisation's public details. The PWA uses that language when the device has no choice yet (`i18n/locale.ts`). A new official created without a language takes it; a volunteer keeps the language of the registration request. No Hijri date (O-43).
 
 ## Implementation units
 
@@ -149,17 +149,16 @@ None blocking. Each new decision above is recorded in `docs/DECISION_LOG.md` bef
 - **Status:** done
 
 ### U5. Localization defaults in effect
-- **Goal:** the default language greets visitors and new accounts; long dates show the Hijri date while the setting is on.
+- **Goal:** the default language greets visitors and new officials (the Hijri part was dropped, O-43).
 - **Requirements:** R4
-- **Files:** `packages/shared/src/format/index.ts` (+ its test), `apps/web/src/i18n/locale.ts`, `apps/web/src/app.tsx` (the public settings query), `apps/api/src/services/{staff-accounts,registration}.ts` (the language default), tests beside each
-- **Approach:** no Hijri example exists yet (new pattern): a `hijri` option on the long date using `Intl.DateTimeFormat` with `calendar: 'islamic-umalqura'` and `numberingSystem: 'latn'`.
+- **Files:** `apps/web/src/i18n/{locale.ts,LocaleProvider.tsx}` (+ `LocaleProvider.test.tsx`), `apps/web/src/lib/public-settings.ts`, `apps/web/test/msw/handlers.ts`, `apps/api/src/services/{staff-accounts,registration}.ts` (the language default), `packages/shared/src/auth/staff.ts`, tests beside each
+- **Approach:** the cached default sits next to the device choice in `i18n/locale.ts`; `usePublicSettings` (TanStack Query) feeds `LocaleProvider`.
 - **Tests:**
-  - unit: the Hijri date of a known day in bn and en with English digits; off by default.
-  - integration: a new official and a new volunteer get the default language when none is sent.
+  - integration: a new official gets the default language when none is sent; a volunteer keeps the registration language.
   - component: a device without a stored language starts in the server's default.
-- **Done when:** switching the setting changes a long date on the admin dashboard.
+- **Done when:** a device without a choice opens in the default language set by the admin.
 - **Depends on:** U1, U2 · **Size:** M · **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U6. Web: the settings page
 - **Goal:** `/admin/settings` with the tabs প্রতিষ্ঠান, ভাষা, থ্রেশহোল্ড, তালিকা, নোটিফিকেশন চ্যানেল.
@@ -227,7 +226,7 @@ None blocking. Each new decision above is recorded in `docs/DECISION_LOG.md` bef
 - **C2** after U2: risk (auth) and foundation for U5 to U7
 - **C3** after U3: risk (auth, personal data) and foundation for U8, U9
 - **C4** after U4: risk (secrets) and foundation for U6, U9
-- **C5** after U5: new pattern (Hijri formatting)
+- **C5** after U5: new pattern (the server default language in the PWA; the Hijri part dropped)
 - **C6** after U8: size (U6 to U8 near 700 lines and over 20 files)
 - **C7** after U10: the end; scripted checks on the whole branch
 
@@ -256,7 +255,7 @@ None blocking. Each new decision above is recorded in `docs/DECISION_LOG.md` bef
 ## Progress
 - **Branch:** `feat/admin-settings-core` (stacked on `feat/official-accounts-organogram`, PR #5)
 - **Updated:** 2026-10-17 21:10
-- **Next:** U5: localization defaults in effect (public settings in the PWA, new accounts, Hijri long dates)
+- **Next:** checkpoint C5 (review U5), then U6: the settings page
 - **Reviewed through:** C4 at 70b5f5a
 - **Uncommitted:** none
-- **Notes:** doc review on 2026-10-17: the owner chose the nisab limits and the withdrawal of a version not yet in effect. The `settings` table also holds the seed markers `seed.marker.*`; every settings read must keep to the known keys. The organisation's default names carry `i18n-allow-bengali` (bilingual data); the default contact is a placeholder. C1: plan IDs are kept out of new code comments (words or a doc path instead); the nisab trigger itself refuses withdrawing a version in effect (Dhaka date), so the service's 409 must be checked before the update. U2: the withdraw body reuses the shared reason schema (3 to 1000 characters), so the DB CHECK allows 1000; a nisab date error is 422 `validation.failed` with the detail `nisab.effective_date` on `effectiveFrom`; `isoDateInDhaka` in `@css/shared/format` is the one "today". C2 left open (P3): the nisab list shows who set a version to every signed-in user; a future date on in-force is allowed (Phase 4 must ask for today or earlier when it stores the version). U3: audit_log partitions start in October 2026, so test rows older than the start of the month fail to insert; the test harness knows only five roles (no Project Executive). C3: a keyset on a microsecond timestamp read into a JS date skips rows; the audit list pages by the boundary row id with a raw row comparison, the sessions list sorts by the time-ordered id. Left open (P3): reading the audit log is not itself audited; an idle session that can no longer refresh still shows as active (as the own session list); no 503 test on the two lists. U4: files can be deleted only when they are exports (CHECK), so the storage figures leave deleted exports out; `APP_VERSION` and `SMS_API_KEY` are new env values. C4: the storage figures are null when the database read fails (the checks then show it down). Left open (P3): the SMS endpoint is checked by host text only; the real adapter must check the resolved address or keep a host allowlist.
+- **Notes:** doc review on 2026-10-17: the owner chose the nisab limits and the withdrawal of a version not yet in effect. The `settings` table also holds the seed markers `seed.marker.*`; every settings read must keep to the known keys. The organisation's default names carry `i18n-allow-bengali` (bilingual data); the default contact is a placeholder. C1: plan IDs are kept out of new code comments (words or a doc path instead); the nisab trigger itself refuses withdrawing a version in effect (Dhaka date), so the service's 409 must be checked before the update. U2: the withdraw body reuses the shared reason schema (3 to 1000 characters), so the DB CHECK allows 1000; a nisab date error is 422 `validation.failed` with the detail `nisab.effective_date` on `effectiveFrom`; `isoDateInDhaka` in `@css/shared/format` is the one "today". C2 left open (P3): the nisab list shows who set a version to every signed-in user; a future date on in-force is allowed (Phase 4 must ask for today or earlier when it stores the version). U3: audit_log partitions start in October 2026, so test rows older than the start of the month fail to insert; the test harness knows only five roles (no Project Executive). C3: a keyset on a microsecond timestamp read into a JS date skips rows; the audit list pages by the boundary row id with a raw row comparison, the sessions list sorts by the time-ordered id. Left open (P3): reading the audit log is not itself audited; an idle session that can no longer refresh still shows as active (as the own session list); no 503 test on the two lists. U4: files can be deleted only when they are exports (CHECK), so the storage figures leave deleted exports out; `APP_VERSION` and `SMS_API_KEY` are new env values. C4: the storage figures are null when the database read fails (the checks then show it down). Left open (P3): the SMS endpoint is checked by host text only; the real adapter must check the resolved address or keep a host allowlist. U5: the owner kept O-43 (no Hijri date) when asked on 2026-10-17; the Hijri formatter was built and removed again. A volunteer account takes the request language of the registration; an official created without a language takes the system default.

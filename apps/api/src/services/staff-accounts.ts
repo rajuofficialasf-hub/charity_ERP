@@ -25,6 +25,7 @@ import { type PrismaService, type Tx } from '../core/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import { DeliveryError, type EmailAdapter } from '../notifications/adapters';
+import type { SettingsService } from './settings';
 import { isGivableOfficialRole } from './registrations';
 
 /** The set-password link (DECISION_LOG D-097, BR-262): 72 hours, once. */
@@ -60,6 +61,7 @@ export class StaffAccountsService {
     private readonly hasher: PasswordHasher,
     private readonly email: EmailAdapter,
     private readonly logger: Logger,
+    private readonly settings: SettingsService,
   ) {}
 
   /** Creates the pending account, gives the role and issues the link (BR-261). */
@@ -67,6 +69,8 @@ export class StaffAccountsService {
     if (!isGivableOfficialRole(this.registry, body.roleKey))
       throw invalid('roleKey', 'validation.option_unknown');
     const id = uuidv7();
+    // an official without a chosen language gets the system default language
+    const language = body.language ?? (await this.settings.get('localization')).defaultLanguage;
     let issued: { token: string; invitationId: string; expiresAt: Date };
     try {
       issued = await this.prisma.$transaction(async (tx) => {
@@ -88,7 +92,7 @@ export class StaffAccountsService {
             homeProgramId: body.homeProgramId,
             homeDivisionId: body.homeDivisionId,
             supervisorUserId: body.supervisorUserId,
-            language: body.language,
+            language,
             createdBy: actor.userId,
             updatedBy: actor.userId,
           },

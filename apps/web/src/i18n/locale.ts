@@ -11,7 +11,8 @@ import {
 
 /**
  * The interface language of this device (I18N 2, D-067 as amended by D-073): the cookie
- * `css_locale` first (E2E and the language switch set it), then `localStorage`, then bn. The
+ * `css_locale` first (E2E and the language switch set it), then `localStorage`, then the system
+ * default language the server last named (kept under its own key, D-098), then bn. The
  * pseudo-locale `qps` (I18N 4) is honoured only in `vite dev`. After login the account's language
  * is written here, so the choice follows the user (O-56).
  */
@@ -37,10 +38,30 @@ export function storedLocaleValue(): string | undefined {
   return readCookie(LOCALE_COOKIE) ?? readStorage();
 }
 
-/** The locale to render: a stored valid choice or bn. */
+/** The system default language as the server last named it, kept apart from the person's choice. */
+const DEFAULT_KEY = 'css_default_locale';
+
+export function writeDefaultLocale(value: Locale): void {
+  try {
+    window.localStorage.setItem(DEFAULT_KEY, value);
+  } catch {
+    // Private windows may refuse storage; the server is asked again on the next visit.
+  }
+}
+
+function readDefaultLocale(): Locale {
+  try {
+    const value = window.localStorage.getItem(DEFAULT_KEY);
+    return isLocale(value) ? value : 'bn';
+  } catch {
+    return 'bn';
+  }
+}
+
+/** The locale to render: a stored valid choice, else the system default language, else bn. */
 export function readLocale(): Locale {
   const value = storedLocaleValue();
-  return isLocale(value) ? value : 'bn';
+  return isLocale(value) ? value : readDefaultLocale();
 }
 
 /** Stores the choice on this device (cookie for the first paint of every tab, localStorage copy). */

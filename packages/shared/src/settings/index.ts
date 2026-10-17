@@ -47,10 +47,9 @@ export const organisationSettingSchema = z.strictObject({
 });
 export type OrganisationSetting = z.infer<typeof organisationSettingSchema>;
 
-/** The language of a visitor without a choice and of a new account; the Hijri date beside long dates. */
+/** The language of a visitor without a choice and of a new account (no Hijri date, O-43). */
 export const localizationSettingSchema = z.strictObject({
   defaultLanguage: z.enum(SUPPORTED_LOCALES),
-  hijriDates: z.boolean(),
 });
 export type LocalizationSetting = z.infer<typeof localizationSettingSchema>;
 
@@ -170,7 +169,7 @@ export const SETTING_DEFAULTS: { [K in SettingKey]: SettingValue<K> } = {
     phone: '01700000000',
     email: 'contact@example.org',
   },
-  localization: { defaultLanguage: 'bn', hijriDates: false },
+  localization: { defaultLanguage: 'bn' },
   'monitoring.thresholds': {
     reviewPendingDays: 7,
     approvalPendingDays: 5,

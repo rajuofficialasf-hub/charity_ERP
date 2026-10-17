@@ -76,7 +76,8 @@ export const staffCreateRequestSchema = z
     email,
     mobile: mobile.nullable(),
     roleKey: z.string().min(1).max(64),
-    language: z.enum(['bn', 'en']).default('bn'),
+    /** The account's language; the system default language when left out. */
+    language: z.enum(['bn', 'en']).optional(),
   })
   .refine(unitMatches, unitRule);
 export type StaffCreateRequest = z.infer<typeof staffCreateRequestSchema>;

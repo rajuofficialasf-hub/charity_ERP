@@ -63,14 +63,15 @@ describe('the official profile and the create request', () => {
     ).toBe(true);
   });
 
-  it('needs an email and a role, lower-cases the email and defaults the language to Bengali', () => {
+  it('needs an email and a role, lower-cases the email and leaves the language to the system default', () => {
     const parsed = staffCreateRequestSchema.parse({
       ...profile,
       email: 'Karim@Example.org',
       mobile: null,
       roleKey: 'project_executive',
     });
-    expect(parsed).toMatchObject({ email: 'karim@example.org', jobId: 'ASF-1023', language: 'bn' });
+    expect(parsed).toMatchObject({ email: 'karim@example.org', jobId: 'ASF-1023' });
+    expect(parsed.language).toBeUndefined();
     expect(
       staffCreateRequestSchema.safeParse({ ...profile, mobile: null, roleKey: 'x' }).success,
     ).toBe(false);

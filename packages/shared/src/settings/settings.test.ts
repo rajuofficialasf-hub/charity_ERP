@@ -79,9 +79,7 @@ describe('settings', () => {
   });
 
   it('allows only bn or en as the default language', () => {
-    expect(
-      localizationSettingSchema.safeParse({ defaultLanguage: 'ar', hijriDates: false }).success,
-    ).toBe(false);
+    expect(localizationSettingSchema.safeParse({ defaultLanguage: 'ar' }).success).toBe(false);
   });
 
   it('accepts only an https endpoint on a public host for SMS', () => {

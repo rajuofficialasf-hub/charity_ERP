@@ -225,6 +225,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         hasher,
         email,
         logger,
+        settings,
       ),
     organogram: o.organogram ?? new OrganogramService(prisma, access),
     accessPanel:

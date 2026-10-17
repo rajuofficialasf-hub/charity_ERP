@@ -126,10 +126,7 @@ describe('the settings page', () => {
     const head = await as(world.users.head);
     const organisation = { ...SETTING_DEFAULTS.organisation, phone: '01711000000' };
     expect((await patchSetting(head, 'organisation', organisation)).status).toBe(200);
-    expect(
-      (await patchSetting(head, 'localization', { defaultLanguage: 'en', hijriDates: true }))
-        .status,
-    ).toBe(200);
+    expect((await patchSetting(head, 'localization', { defaultLanguage: 'en' })).status).toBe(200);
     const pub = await api().get('/api/v1/public/settings');
     expect(pub.status).toBe(200);
     expect(pub.body.data).toEqual({ defaultLanguage: 'en', organisation });

@@ -136,6 +136,25 @@ describe('creating an official (BR-261)', () => {
     });
   });
 
+  it('gives an official without a chosen language the system default language', async () => {
+    const languageOf = async (userId: string) =>
+      (await h.db.query('SELECT language FROM users WHERE id = $1', [userId])).rows[0].language;
+    const first = await create(official());
+    expect(await languageOf(first.body.data.userId)).toBe('bn');
+    await h.db.query(
+      `INSERT INTO settings (key, value) VALUES ('localization', '{"defaultLanguage":"en"}')
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+    );
+    try {
+      const second = await create(official());
+      expect(await languageOf(second.body.data.userId)).toBe('en');
+      const chosen = await create(official({ language: 'bn' }));
+      expect(await languageOf(chosen.body.data.userId)).toBe('bn');
+    } finally {
+      await h.db.query(`DELETE FROM settings WHERE key = 'localization'`);
+    }
+  });
+
   it('still creates the account when the email cannot be sent, so the admin copies the link', async () => {
     failEmail = true;
     const res = await create(official());
