@@ -196,3 +196,56 @@ describe('the team of a main volunteer', () => {
     ).toBe(404);
   });
 });
+
+describe('who is offered and who may change a team', () => {
+  it('neither offers nor adds a blocked or not approved registrant', async () => {
+    const { project, lead, s } = await leadWithTwo();
+    const blocked = await volunteer('general', lead.volunteerId);
+    await h.db.query(
+      `INSERT INTO blocklist (id, subject_type, subject_id, reason, blocked_by) VALUES ($1, 'volunteer', $2, 'Test block', $3)`,
+      [randomUUID(), blocked.volunteerId, world.users.rpmDhaka],
+    );
+    const pending = await volunteer('general', lead.volunteerId);
+    await h.db.query(`UPDATE users SET state = 'pending' WHERE id = $1`, [pending.userId]);
+    const list = await at(s, 'get', `/me/projects/${project}/team`);
+    const offered = (list.body.data.candidates as { volunteerId: string }[]).map(
+      (c) => c.volunteerId,
+    );
+    expect(offered).not.toContain(blocked.volunteerId);
+    expect(offered).not.toContain(pending.volunteerId);
+    expect((await add(s, project, [blocked.volunteerId])).status).toBe(422);
+    expect((await add(s, project, [pending.volunteerId])).status).toBe(422);
+  });
+
+  it('lets another main volunteer of the project not touch this team', async () => {
+    const { project, one, s } = await leadWithTwo();
+    expect((await add(s, project, [one.volunteerId])).status).toBe(201);
+    const second = await volunteer('general');
+    await assign(project, second.volunteerId);
+    const other = await as(second.userId);
+    expect(
+      (await at(other, 'post', `/me/projects/${project}/team/${one.volunteerId}/remove`)).status,
+    ).toBe(404);
+    const { rows } = await h.db.query(
+      'SELECT removed_at FROM volunteer_teams WHERE project_id = $1 AND member_volunteer_id = $2',
+      [project, one.volunteerId],
+    );
+    expect(rows).toEqual([{ removed_at: null }]);
+  });
+
+  it('lets a main volunteer remove a member while their own consent waits', async () => {
+    const { project, lead, one, s } = await leadWithTwo();
+    expect((await add(s, project, [one.volunteerId])).status).toBe(201);
+    await h.db.query(
+      `UPDATE project_volunteers SET consent_status = 'pending' WHERE project_id = $1 AND volunteer_id = $2`,
+      [project, lead.volunteerId],
+    );
+    // the lead holds no team permission without an accepted project: they keep one elsewhere
+    const elsewhere = await activeProject();
+    await assign(elsewhere, lead.volunteerId);
+    expect(
+      (await at(s, 'post', `/me/projects/${project}/team/${one.volunteerId}/remove`)).status,
+    ).toBe(204);
+    expect((await add(s, project, [one.volunteerId])).status).toBe(403);
+  });
+});

@@ -26,8 +26,12 @@ export class VolunteerTeamsService {
     private readonly clock: Clock,
   ) {}
 
-  /** The caller as main volunteer on the project: 404 when not on it, 403 when not working or not a lead type. */
-  private async lead(db: Tx, principal: Principal, projectId: string) {
+  /**
+   * The caller as main volunteer on the project: 404 when not on it, 403 when not a lead type or,
+   * unless only removing, when the current rules are not accepted (a lead may always take a member
+   * off their team).
+   */
+  private async lead(db: Tx, principal: Principal, projectId: string, removing = false) {
     const row = await db.projectVolunteer.findFirst({
       where: {
         projectId,
@@ -39,7 +43,8 @@ export class VolunteerTeamsService {
     });
     if (!row) throw new ApiError('permission.not_found', 404);
     const type = VOLUNTEER_TYPES.find((t) => t === row.volunteer.type);
-    if (row.consentStatus !== 'accepted' || !type || !TEAM_LEAD_TYPES.includes(type)) {
+    const working = removing || row.consentStatus === 'accepted';
+    if (!working || !type || !TEAM_LEAD_TYPES.includes(type)) {
       this.access.denied(principal.userId, 'volunteer.team.manage', 'self');
       throw new ApiError('permission.denied', 403);
     }
@@ -47,6 +52,15 @@ export class VolunteerTeamsService {
   }
 
   private async read(db: Tx, projectId: string, leadId: string) {
+    // the blocked registrants of the lead leave the query, so the cap counts only those offered
+    const registrants = await db.volunteer.findMany({
+      where: { referenceVolunteerId: leadId },
+      select: { id: true },
+    });
+    const blocked = await this.blocked(
+      db,
+      registrants.map((r) => r.id),
+    );
     const [members, candidates] = await Promise.all([
       db.volunteerTeam.findMany({
         where: { projectId, leadVolunteerId: leadId, removedAt: null },
@@ -59,16 +73,12 @@ export class VolunteerTeamsService {
         },
       }),
       db.volunteer.findMany({
-        where: this.candidateWhere(projectId, leadId),
+        where: { ...this.candidateWhere(projectId, leadId), id: { notIn: [...blocked] } },
         orderBy: { id: 'asc' },
         take: 200,
         select: { id: true, type: true, user: { select: { displayName: true } } },
       }),
     ]);
-    const blocked = await this.blocked(
-      db,
-      candidates.map((c) => c.id),
-    );
     return {
       members: members.map((m) => ({
         volunteerId: m.memberVolunteerId,
@@ -77,9 +87,11 @@ export class VolunteerTeamsService {
         consentStatus: m.consentStatus === 'accepted' ? 'accepted' : 'pending',
         addedAt: m.addedAt.toISOString(),
       })),
-      candidates: candidates
-        .filter((c) => !blocked.has(c.id))
-        .map((c) => ({ volunteerId: c.id, displayName: c.user.displayName, type: c.type })),
+      candidates: candidates.map((c) => ({
+        volunteerId: c.id,
+        displayName: c.user.displayName,
+        type: c.type,
+      })),
     };
   }
 
@@ -154,7 +166,7 @@ export class VolunteerTeamsService {
 
   async remove(principal: Principal, projectId: string, memberId: string) {
     await this.prisma.$transaction(async (tx) => {
-      const leadId = await this.lead(tx, principal, projectId);
+      const leadId = await this.lead(tx, principal, projectId, true);
       const removed = await tx.volunteerTeam.updateMany({
         where: { projectId, leadVolunteerId: leadId, memberVolunteerId: memberId, removedAt: null },
         data: { removedAt: this.clock.now(), updatedBy: principal.userId },
