@@ -230,7 +230,6 @@ describe('assigning', () => {
     const body = [{ volunteerId: general.volunteerId }];
     expect((await assign(await as(world.users.pm), world.a1.id, body)).status).toBe(403);
     expect((await assign(await as(world.users.general), world.a1.id, body)).status).toBe(403);
-    expect((await assign(await as(world.users.executive), world.a1.id, body)).status).toBe(403);
     const many = Array.from({ length: 101 }, () => ({ volunteerId: randomUUID() }));
     expect((await assign(await as(world.users.rpmDhaka), world.a1.id, many)).status).toBe(422);
   });
@@ -239,6 +238,15 @@ describe('assigning', () => {
 describe('an executive with the RPM grant', () => {
   it('assigns in the area of their access, never marks paid, never outside it', async () => {
     const rpm = await as(world.users.rpmDhaka);
+    // without the grant the executive is refused
+    const first = await someone(world.dhaka);
+    expect(
+      (
+        await assign(await as(world.users.executive), world.a1.id, [
+          { volunteerId: first.volunteerId },
+        ])
+      ).status,
+    ).toBe(403);
     const grant = await at(rpm, 'post', `/projects/${world.a1.id}/grants`).send({
       userId: world.users.executive,
       permissions: ['application.approve', 'volunteer.assign_project'],
@@ -328,15 +336,19 @@ describe('changing and ending an assignment', () => {
       reason: 'কাজ শেষ',
     });
     expect(ended.status).toBe(204);
-    expect([403, 404]).toContain((await at(volunteer, 'get', `/projects/${world.a1.id}`)).status);
+    // with no other project the volunteer holds no project permission at all
+    expect((await at(volunteer, 'get', `/projects/${world.a1.id}`)).status).toBe(403);
     const { rows } = await h.db.query(
       `SELECT pv.ended_at IS NOT NULL AS ended, vt.removed_at IS NOT NULL AS removed
        FROM project_volunteers pv, volunteer_teams vt WHERE pv.id = $1 AND vt.id = $2`,
       [a.assignmentId, team],
     );
     expect(rows[0]).toEqual({ ended: true, removed: true });
-    const [entry] = await audit(world.a1.id, 'volunteer.assignment_ended');
-    expect(entry).toBeDefined();
+    const ends = await h.db.query<{ new: { assignmentId: string }; reason: string }>(
+      `SELECT new, reason FROM audit_log WHERE entity_id = $1 AND action = 'volunteer.assignment_ended'`,
+      [world.a1.id],
+    );
+    expect(ends.rows.find((r) => r.new.assignmentId === a.assignmentId)?.reason).toBe('কাজ শেষ');
     // ended once
     expect(
       (
@@ -345,5 +357,99 @@ describe('changing and ending an assignment', () => {
         })
       ).status,
     ).toBe(404);
+  });
+});
+
+describe('more of the rules', () => {
+  it('lists the assignments of the caller areas only, and never for a volunteer', async () => {
+    const rpm = await as(world.users.rpmDhaka);
+    const v = await someone(world.dhaka);
+    expect((await assign(rpm, world.a1.id, [{ volunteerId: v.volunteerId }])).status).toBe(201);
+    const ids = async (s: Session) =>
+      (
+        (await at(s, 'get', `/projects/${world.a1.id}/volunteers`).query({ limit: 100 })).body
+          .data as { volunteerId: string }[]
+      ).map((r) => r.volunteerId);
+    expect(await ids(rpm)).toContain(v.volunteerId);
+    expect(await ids(await as(world.users.rpmRangpur))).not.toContain(v.volunteerId);
+    expect(
+      (await at(await as(v.userId), 'get', `/projects/${world.a1.id}/volunteers`)).status,
+    ).toBe(403);
+  });
+
+  it('keeps an assignment with the area it was made in when the volunteer moves', async () => {
+    const rpm = await as(world.users.rpmDhaka);
+    const v = await someone(world.dhaka);
+    const res = await assign(rpm, world.a1.id, [{ volunteerId: v.volunteerId }]);
+    const id = res.body.data[0].id as string;
+    await h.db.query(
+      'UPDATE volunteers SET division_id = $1, district_id = $2, upazila_id = $3, union_id = $4 WHERE id = $5',
+      [
+        world.rangpur.division,
+        world.rangpur.district,
+        world.rangpur.upazila,
+        world.rangpur.union,
+        v.volunteerId,
+      ],
+    );
+    const rangpur = await as(world.users.rpmRangpur);
+    expect(
+      (await at(rangpur, 'patch', `/project-volunteers/${id}`).send({ isPaid: true })).status,
+    ).toBe(404);
+    expect(
+      (await at(rpm, 'patch', `/project-volunteers/${id}`).send({ isPaid: true })).status,
+    ).toBe(200);
+  });
+
+  it('refuses a paid flag by a caller without the paid permission, also on a change', async () => {
+    const rpm = await as(world.users.rpmDhaka);
+    // the executive holds the assignment grant from the test above, never the paid permission
+    await at(rpm, 'post', `/projects/${world.a1.id}/grants`).send({
+      userId: world.users.executive,
+      permissions: ['volunteer.assign_project'],
+      reason: 'সহায়তার জন্য',
+    });
+    const executive = await as(world.users.executive);
+    const v = await someone(world.dhaka);
+    const res = await assign(executive, world.a1.id, [{ volunteerId: v.volunteerId }]);
+    expect(res.status).toBe(201);
+    const id = res.body.data[0].id as string;
+    expect(
+      (await at(executive, 'patch', `/project-volunteers/${id}`).send({ isPaid: true })).status,
+    ).toBe(403);
+    // the same value again is no change of the flag
+    expect(
+      (await at(executive, 'patch', `/project-volunteers/${id}`).send({ isPaid: false })).status,
+    ).toBe(200);
+  });
+
+  it('searches by the exact mobile number', async () => {
+    const rpm = await as(world.users.rpmDhaka);
+    const v = await someone(world.dhaka);
+    const { rows } = await h.db.query<{ mobile: string }>(
+      'SELECT mobile FROM users WHERE id = $1',
+      [v.userId],
+    );
+    expect(await candidates(rpm, world.a1.id, { q: rows[0]!.mobile })).toEqual([v.volunteerId]);
+    expect(await candidates(rpm, world.a1.id, { q: '0123' })).toEqual([]);
+  });
+
+  it('assigns and changes nothing on a closing or closed project', async () => {
+    const rpm = await as(world.users.rpmDhaka);
+    const v = await someone(world.dhaka);
+    const res = await assign(rpm, world.a2.id, [{ volunteerId: v.volunteerId }]);
+    expect(res.status).toBe(201);
+    await h.db.query(`UPDATE projects SET status = 'closed' WHERE id = $1`, [world.a2.id]);
+    const other = await someone(world.dhaka);
+    const refused = await assign(rpm, world.a2.id, [{ volunteerId: other.volunteerId }]);
+    expect(refused.status).toBe(409);
+    expect(refused.body.error.code).toBe('project.read_only');
+    expect(
+      (
+        await at(rpm, 'patch', `/project-volunteers/${res.body.data[0].id as string}`).send({
+          isPaid: true,
+        })
+      ).status,
+    ).toBe(409);
   });
 });

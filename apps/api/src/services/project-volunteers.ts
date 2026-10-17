@@ -165,17 +165,7 @@ export class ProjectVolunteersService {
       const value = query[column];
       if (value) and.push({ [column]: value });
     }
-    if (query.q) {
-      const term = query.q;
-      const mobile = isNumberTerm(term) ? mobileOf(term.replace(/\D/g, '')) : null;
-      and.push(
-        isNumberTerm(term)
-          ? mobile
-            ? { user: { mobile } }
-            : { id: { in: [] } }
-          : { user: { displayName: { contains: literalContains(term), mode: 'insensitive' } } },
-      );
-    }
+    if (query.q) and.push(this.search(query.q));
     const where: Prisma.VolunteerWhereInput = { AND: and };
     const fetched = await this.prisma.volunteer.findMany({
       where: cursor ? { AND: [where, keysetWhere(SORT, cursor)] } : where,
@@ -214,6 +204,27 @@ export class ProjectVolunteersService {
     };
   }
 
+  /** A name matches by its letters (LIKE wildcards are letters); digits match the exact mobile only. */
+  private search(term: string): Prisma.VolunteerWhereInput {
+    if (!isNumberTerm(term))
+      return { user: { displayName: { contains: literalContains(term), mode: 'insensitive' } } };
+    const mobile = mobileOf(term.replace(/\D/g, ''));
+    return mobile ? { user: { mobile } } : { id: { in: [] } };
+  }
+
+  /**
+   * The assignment regions inside the caller's areas: the areas themselves and, for a division,
+   * its districts (an assignment made in a district of a split division keeps that district).
+   */
+  private async regions(db: Tx, areas: string[]): Promise<string[]> {
+    if (!areas.length) return [];
+    const districts = await db.location.findMany({
+      where: { parentId: { in: areas }, level: 'district' },
+      select: { id: true },
+    });
+    return [...new Set([...areas, ...districts.map((d) => d.id)])];
+  }
+
   // ---- the assigned volunteers
 
   async list(viewer: ProjectViewer, projectId: string, query: PageQuery) {
@@ -229,7 +240,7 @@ export class ProjectVolunteersService {
     const where: Prisma.ProjectVolunteerWhereInput = {
       projectId,
       endedAt: null,
-      regionLocationId: { in: areas },
+      regionLocationId: { in: await this.regions(this.prisma, areas) },
     };
     const fetched = await this.prisma.projectVolunteer.findMany({
       where: cursor ? { AND: [where, keysetWhere(SORT, cursor)] } : where,
@@ -351,7 +362,13 @@ export class ProjectVolunteersService {
     const project = await this.projects.locked(tx, viewer, found.projectId);
     const areas = await this.callerAreas(tx, viewer, project);
     const row = await tx.projectVolunteer.findFirst({
-      where: { id: assignmentId, endedAt: null, volunteer: inAreas(areas) },
+      // the region stored at assignment decides, as in the list; a later move of the volunteer's
+      // address never hands the assignment to another area
+      where: {
+        id: assignmentId,
+        endedAt: null,
+        regionLocationId: { in: await this.regions(tx, areas) },
+      },
       select: { ...ASSIGNMENT, projectId: true },
     });
     if (!row) {
@@ -366,8 +383,8 @@ export class ProjectVolunteersService {
     return this.prisma.$transaction(async (tx) => {
       const { project, row } = await this.own(tx, viewer, assignmentId);
       if (!ASSIGNABLE.includes(project.status)) throw new ApiError('project.read_only', 409);
-      if (body.isPaid !== undefined && body.isPaid !== row.isPaid)
-        if (!(await this.mayMarkPaid(viewer, project.id, tx))) this.refuse(viewer);
+      const paidChanges = body.isPaid !== undefined && body.isPaid !== row.isPaid;
+      if (paidChanges && !(await this.mayMarkPaid(viewer, project.id, tx))) this.refuse(viewer);
       if (
         body.permissionSet &&
         !permissionSetAllowed(body.permissionSet, typeOf(row.volunteer.type))
