@@ -1,0 +1,151 @@
+import { uuidv7 } from '@css/shared';
+import {
+  isEditableList,
+  type ReferenceItemCreate,
+  type ReferenceItemUpdate,
+} from '@css/shared/settings';
+import type { AuditWriter } from '../audit/audit-writer';
+import type { Principal } from '../auth/principal';
+import type { PrismaService, Tx } from '../core/prisma.service';
+import { Prisma } from '../generated/prisma/client';
+import { ApiError } from '../i18n/api-error';
+
+const SELECT = {
+  id: true,
+  code: true,
+  labelBn: true,
+  labelEn: true,
+  active: true,
+  sortOrder: true,
+} satisfies Prisma.ReferenceListSelect;
+
+type Row = Prisma.ReferenceListGetPayload<{ select: typeof SELECT }>;
+
+export interface ReferenceItemView {
+  code: string;
+  label: { bn: string; en: string };
+  active: boolean;
+  sortOrder: number;
+}
+
+const view = (r: Row): ReferenceItemView => ({
+  code: r.code,
+  label: { bn: r.labelBn, en: r.labelEn },
+  active: r.active,
+  sortOrder: r.sortOrder,
+});
+
+const isUniqueViolation = (error: unknown) =>
+  error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+
+/**
+ * The system-wide reference lists (DATABASE_SCHEMA 5.2 and 5.3). Every signed-in user reads them;
+ * the settings page keeps the expense categories and the issue types (`settings.manage`): items
+ * are added, relabelled, ordered, deactivated and activated, never deleted, and a code never
+ * changes, so old records keep their meaning. Every change is audited.
+ */
+export class ReferenceListsService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditWriter,
+  ) {}
+
+  /** The items of a list in their order, inactive ones included and marked; 404 for no such list. */
+  async items(listKey: string): Promise<ReferenceItemView[]> {
+    const rows = await this.prisma.referenceList.findMany({
+      where: { listKey },
+      orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+      select: SELECT,
+    });
+    if (!rows.length) throw new ApiError('permission.not_found', 404);
+    return rows.map(view);
+  }
+
+  async add(
+    actor: Principal,
+    listKey: string,
+    body: ReferenceItemCreate,
+  ): Promise<ReferenceItemView> {
+    if (!isEditableList(listKey)) throw new ApiError('permission.not_found', 404);
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        await this.lockList(tx, listKey);
+        if (
+          await tx.referenceList.findFirst({
+            where: { listKey, code: body.code },
+            select: { id: true },
+          })
+        )
+          throw new ApiError('reference.code_taken', 409);
+        const last = await tx.referenceList.aggregate({
+          where: { listKey },
+          _max: { sortOrder: true },
+        });
+        const row = await tx.referenceList.create({
+          data: {
+            id: uuidv7(),
+            listKey,
+            code: body.code,
+            labelBn: body.label.bn,
+            labelEn: body.label.en,
+            active: body.active ?? true,
+            sortOrder: body.sortOrder ?? (last._max.sortOrder ?? 0) + 1,
+            createdBy: actor.userId,
+            updatedBy: actor.userId,
+          },
+          select: SELECT,
+        });
+        await this.audit.record(tx, {
+          action: 'settings.change',
+          entityType: 'reference_list',
+          entityId: row.id,
+          new: { listKey, ...view(row) },
+        });
+        return view(row);
+      });
+    } catch (error) {
+      // two additions of one code at the same moment: the unique index decides
+      if (isUniqueViolation(error)) throw new ApiError('reference.code_taken', 409);
+      throw error;
+    }
+  }
+
+  async update(
+    actor: Principal,
+    listKey: string,
+    code: string,
+    body: ReferenceItemUpdate,
+  ): Promise<ReferenceItemView> {
+    if (!isEditableList(listKey)) throw new ApiError('permission.not_found', 404);
+    return this.prisma.$transaction(async (tx) => {
+      const before = await tx.referenceList.findFirst({ where: { listKey, code }, select: SELECT });
+      if (!before) throw new ApiError('permission.not_found', 404);
+      await tx.$queryRaw`SELECT id FROM reference_lists WHERE id = ${before.id}::uuid FOR UPDATE`;
+      const row = await tx.referenceList.update({
+        where: { id: before.id },
+        // Prisma leaves out the undefined fields
+        data: {
+          labelBn: body.label?.bn,
+          labelEn: body.label?.en,
+          active: body.active,
+          sortOrder: body.sortOrder,
+          updatedBy: actor.userId,
+        },
+        select: SELECT,
+      });
+      await this.audit.record(tx, {
+        action: 'settings.change',
+        entityType: 'reference_list',
+        entityId: row.id,
+        old: { listKey, ...view(before) },
+        new: { listKey, ...view(row) },
+      });
+      return view(row);
+    });
+  }
+
+  /** One addition at a time per list, so the next sort order is not taken twice. */
+  private async lockList(tx: Tx, listKey: string): Promise<void> {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('reference_lists:' || ${listKey}))`;
+  }
+}

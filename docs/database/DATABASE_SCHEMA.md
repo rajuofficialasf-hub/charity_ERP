@@ -387,7 +387,7 @@ Constraints: UNIQUE (list_key, code).
 | set_by | uuid | no | — | FK users (PM or above) |
 | withdrawn_at | timestamptz | yes | — | a version not yet in effect withdrawn (D-098) |
 | withdrawn_by | uuid | yes | — | FK users |
-| withdraw_reason | text | yes | — | 1 to 500 characters |
+| withdraw_reason | text | yes | — | 1 to 1000 characters |
 | [A] | | | | |
 
 Constraints: CHECK value > 0; CHECK the three withdrawal columns are set together; UNIQUE (effective_from) WHERE withdrawn_at IS NULL. Trigger `nisab_versions_protect`: no DELETE; value, effective_from, basis_note and set_by never change; a withdrawal is written once (applications store the version used at verification, BR-211). The service refuses a withdrawal once the version has taken effect.

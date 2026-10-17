@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { reasonRequestSchema } from '../auth/schemas.js';
 import { toEnglishDigits } from '../digits.js';
 import { bilingualText } from '../i18n/bilingual.js';
 import { SUPPORTED_LOCALES } from '../i18n/locales.js';
@@ -217,23 +218,15 @@ export const NISAB_MAX_TAKA = 10_000_000;
 /** How far ahead a new version may take effect, in days; the service checks it against today. */
 export const NISAB_MAX_DAYS_AHEAD = 366;
 
-/** A calendar date written YYYY-MM-DD that exists (no 31 February). */
-const isoDate = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'validation.date_format' })
-  .refine(
-    (v) => {
-      const d = new Date(`${v}T00:00:00Z`);
-      return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(v);
-    },
-    { message: 'validation.date_format' },
-  );
+/** A calendar date written YYYY-MM-DD that exists (no 31 February, 29 February in leap years). */
+const isoDate = z.iso.date({ message: 'validation.date_format' });
 
 export const nisabAddSchema = z.strictObject({
   value: z
     .string()
     .trim()
-    .refine(isAmount, { message: 'validation.amount_format' })
+    // eslint-disable-next-line security/detect-unsafe-regex -- bounded repetitions without nesting: linear
+    .regex(/^[0-9]{1,12}(\.[0-9]{1,2})?$/, { message: 'validation.amount_format' })
     .refine(
       (v) => !isAmount(v) || (toPaisa(v) > 0n && toPaisa(v) <= BigInt(NISAB_MAX_TAKA) * 100n),
       {
@@ -245,7 +238,8 @@ export const nisabAddSchema = z.strictObject({
 });
 export type NisabAdd = z.infer<typeof nisabAddSchema>;
 
-export const nisabWithdrawSchema = z.strictObject({ reason: text(500) });
+/** The reason for withdrawing a version, as every reason in the API (3 to 1000 characters). */
+export const nisabWithdrawSchema = reasonRequestSchema;
 export type NisabWithdraw = z.infer<typeof nisabWithdrawSchema>;
 
 export interface NisabVersionView {

@@ -35,7 +35,10 @@ import { VolunteersService } from './services/volunteers';
 import { VolunteerListService } from './services/volunteer-list';
 import { VolunteerProfileService } from './services/volunteer-profile';
 import { BeneficiariesService } from './services/beneficiaries';
+import { NisabService } from './services/nisab';
 import { ProgramsService } from './services/programs';
+import { ReferenceListsService } from './services/reference-lists';
+import { SettingsService } from './services/settings';
 import { ProjectsService } from './services/projects';
 import { ProjectLifecycleService } from './services/project-lifecycle';
 import { ProjectRulesService } from './services/project-rules';
@@ -99,6 +102,9 @@ export interface Container {
   volunteerProfile: VolunteerProfileService;
   beneficiaries: BeneficiariesService;
   programs: ProgramsService;
+  settings: SettingsService;
+  referenceLists: ReferenceListsService;
+  nisab: NisabService;
   projects: ProjectsService;
   projectSetup: ProjectSetupService;
   projectLifecycle: ProjectLifecycleService;
@@ -226,6 +232,9 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     volunteerProfile: o.volunteerProfile ?? new VolunteerProfileService(prisma, access),
     beneficiaries: o.beneficiaries ?? new BeneficiariesService(env, prisma, clock, access),
     programs: o.programs ?? new ProgramsService(prisma, audit),
+    settings: o.settings ?? new SettingsService(prisma, audit),
+    referenceLists: o.referenceLists ?? new ReferenceListsService(prisma, audit),
+    nisab: o.nisab ?? new NisabService(prisma, audit, clock),
     projects,
     projectSetup:
       o.projectSetup ??

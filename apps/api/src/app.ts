@@ -19,6 +19,7 @@ import { filesRouter } from './routes/files';
 import { volunteersRouter } from './routes/volunteers';
 import { beneficiariesRouter } from './routes/beneficiaries';
 import { programsRouter } from './routes/programs';
+import { settingsRouter } from './routes/settings';
 import { projectsRouter } from './routes/projects';
 import { projectSetupRouter } from './routes/project-setup';
 import { myProjectsRouter } from './routes/my-projects';
@@ -95,6 +96,7 @@ export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
   api.use(projectVolunteersRouter(deps, c));
   api.use(templatesRouter(deps, c));
   api.use(registrationsRouter(deps, c));
+  api.use(settingsRouter(deps, c));
   for (const build of options.extraRouters ?? []) api.use(build(deps));
   app.use(`/${API_PREFIX}`, api);
 

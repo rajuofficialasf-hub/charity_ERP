@@ -16,7 +16,7 @@ ALTER TABLE "nisab_versions" ADD CONSTRAINT "nisab_versions_withdrawn_by_fkey" F
 ALTER TABLE "nisab_versions" ADD CONSTRAINT "nisab_versions_withdrawal_check" CHECK (
   ("withdrawn_at" IS NULL) = ("withdrawn_by" IS NULL)
   AND ("withdrawn_at" IS NULL) = ("withdraw_reason" IS NULL)
-  AND ("withdraw_reason" IS NULL OR char_length("withdraw_reason") BETWEEN 1 AND 500)
+  AND ("withdraw_reason" IS NULL OR char_length("withdraw_reason") BETWEEN 1 AND 1000)
 );
 CREATE INDEX "nisab_versions_withdrawn_by_idx" ON "nisab_versions"("withdrawn_by");
 

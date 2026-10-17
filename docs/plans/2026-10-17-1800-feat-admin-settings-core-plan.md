@@ -122,7 +122,7 @@ None blocking. Each new decision above is recorded in `docs/DECISION_LOG.md` bef
   - integration, public: without a session → the default language and the organisation's details only, no thresholds and no SMS config.
 - **Done when:** the drift test and the matrix pass with the new operations.
 - **Depends on:** U1 · **Size:** L · **Risk area:** auth (permissions on admin writes)
-- **Status:** todo
+- **Status:** done
 
 ### U3. API: audit viewer and active sessions
 - **Goal:** the global roles read the audit log with filters and drill-down, and list and end active sessions.
@@ -255,8 +255,8 @@ None blocking. Each new decision above is recorded in `docs/DECISION_LOG.md` bef
 
 ## Progress
 - **Branch:** `feat/admin-settings-core` (stacked on `feat/official-accounts-organogram`, PR #5)
-- **Updated:** 2026-10-17 19:40
-- **Next:** U2: the settings, lists and nisab services and routes (`routes/programs.ts` as the example)
+- **Updated:** 2026-10-17 20:30
+- **Next:** checkpoint C2 (review U2), then U3: the audit viewer and the active sessions list
 - **Reviewed through:** C1 at 2f308ca
 - **Uncommitted:** none
-- **Notes:** doc review on 2026-10-17: the owner chose the nisab limits and the withdrawal of a version not yet in effect. The `settings` table also holds the seed markers `seed.marker.*`; every settings read must keep to the known keys. The organisation's default names carry `i18n-allow-bengali` (bilingual data); the default contact is a placeholder. C1: plan IDs are kept out of new code comments (words or a doc path instead); the nisab trigger itself refuses withdrawing a version in effect (Dhaka date), so the service's 409 must be checked before the update.
+- **Notes:** doc review on 2026-10-17: the owner chose the nisab limits and the withdrawal of a version not yet in effect. The `settings` table also holds the seed markers `seed.marker.*`; every settings read must keep to the known keys. The organisation's default names carry `i18n-allow-bengali` (bilingual data); the default contact is a placeholder. C1: plan IDs are kept out of new code comments (words or a doc path instead); the nisab trigger itself refuses withdrawing a version in effect (Dhaka date), so the service's 409 must be checked before the update. U2: the withdraw body reuses the shared reason schema (3 to 1000 characters), so the DB CHECK allows 1000; a nisab date error is 422 `validation.failed` with the detail `nisab.effective_date` on `effectiveFrom`; `isoDateInDhaka` in `@css/shared/format` is the one "today".
