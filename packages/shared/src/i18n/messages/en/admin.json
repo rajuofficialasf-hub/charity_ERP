@@ -837,7 +837,6 @@
     "renew_link": "New set-password link for {name}",
     "chart": {
       "title": "Organogram",
-      "leadership": "Department leadership",
       "unplaced": "Not placed yet",
       "no_members": "No official in this program yet.",
       "inactive": "Inactive program",
@@ -856,7 +855,13 @@
       "fold_all": "Fold all",
       "show": "Show the officials under {name}",
       "hide": "Hide the officials under {name}",
-      "members": "{count} officials"
+      "members": "{count} officials",
+      "zoom": "Size of the chart",
+      "zoom_out": "Smaller",
+      "zoom_in": "Larger",
+      "zoom_fit": "Fit to the screen",
+      "monitoring": "Monitoring Team",
+      "under_head": "Under the Department Head"
     },
     "edit": "Edit the profile of {name}",
     "renew": {

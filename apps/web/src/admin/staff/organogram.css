@@ -16,6 +16,27 @@
 .org-toolbar > :first-child {
   min-width: min(100%, 18rem);
 }
+/* the zoom of the chart: only where the chart is drawn (from 768 px) */
+.org-zoom {
+  display: none;
+  align-items: center;
+  gap: var(--space-1);
+  padding-inline: var(--space-1);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-surface);
+}
+.org-zoom-value {
+  min-width: 3rem;
+  text-align: center;
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-bold);
+}
+@media (min-width: 768px) {
+  .org-zoom {
+    display: inline-flex;
+  }
+}
 
 .org-canvas {
   --org-line: var(--color-border-strong);
@@ -36,7 +57,6 @@
 }
 .org-tree,
 .org-level,
-.org-lead-row,
 .org-grid {
   margin: 0;
   padding: 0;
@@ -126,20 +146,19 @@
   font-size: var(--text-label);
 }
 
-.org-lead {
-  display: grid;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border-radius: var(--radius-lg);
-  background: var(--gradient-soft);
-  border: 1px solid var(--border-subtle);
+.org-group-monitoring {
+  background: var(--color-brand-ink);
+  box-shadow: var(--elevation-2);
+}
+.org-root {
+  display: flex;
+  justify-content: center;
 }
 .org-group-title {
   margin: 0;
   font-size: var(--text-title);
   font-weight: var(--font-weight-bold);
 }
-.org-lead-row,
 .org-grid {
   display: grid;
   gap: var(--space-3);
@@ -192,10 +211,11 @@
   .org-canvas {
     padding: var(--space-5);
   }
+  /* as wide as the chart itself, centred: its width is what the zoom fits to the screen */
   .org-tree {
     display: flex;
-    justify-content: center;
-    min-width: max-content;
+    width: max-content;
+    margin-inline: auto;
   }
   .org-tree > li {
     display: flex;
@@ -203,11 +223,7 @@
     align-items: center;
     gap: 0;
   }
-  .org-lead-row {
-    display: flex;
-    gap: var(--space-3);
-  }
-  .org-lead .org-card,
+  .org-root .org-card,
   .org-level .org-card,
   .org-program {
     width: var(--org-card);
@@ -226,6 +242,10 @@
     margin: 0;
     padding: var(--org-gap) 0 0;
     border: 0;
+  }
+  /* without a Head in the caller's view the level below has no card above it */
+  .org-level-top::before {
+    display: none;
   }
   /* the trunk from the card above down to the bar */
   .org-level::before {

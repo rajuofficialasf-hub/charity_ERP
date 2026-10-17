@@ -8,7 +8,7 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
 import { OrganogramPage } from './OrganogramPage';
 
-// The department's organogram (DECISION_LOG D-097): leadership, programs with their reporting
+// The department's organogram (DECISION_LOG D-097): the Head, the Monitoring Team and the programs with their reporting
 // lines, and the officials without a place. Test data only.
 const HEAD: Me = { ...ME, roles: ['department_head'] };
 const VOLUNTEER: Me = { ...ME, kind: 'volunteer', roles: ['volunteer_general'] };
@@ -24,7 +24,10 @@ const node = (userId: string, displayName: string, jobId: string, reports: unkno
   reports,
 });
 const CHART = {
-  leadership: [node('h', 'ডিপার্টমেন্ট হেড', 'CSS-001')],
+  leadership: [
+    { ...node('h', 'ডিপার্টমেন্ট হেড', 'CSS-001'), roles: ['department_head'] },
+    { ...node('m', 'মনিটরিং কর্মকর্তা', 'CSS-002'), roles: ['monitoring_team'] },
+  ],
   programs: [
     {
       programId: 'p1',
@@ -75,7 +78,18 @@ describe('the organogram', () => {
       name: 'আরপিএম ঢাকা-এর অধীনের অফিসিয়াল',
     });
     expect(within(underRpm).getByText('প্রজেক্ট এক্সিকিউটিভ')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'ডিপার্টমেন্টের নেতৃত্ব' })).toBeInTheDocument();
+    // the Head on top; the Monitoring Team reports to the Head and stands beside the programs
+    const underHead = screen.getByRole('list', { name: 'ডিপার্টমেন্ট হেডের অধীনে' });
+    expect(within(underHead).queryByText('ডিপার্টমেন্ট হেড')).toBeNull();
+    expect(screen.getByText('ডিপার্টমেন্ট হেড')).toBeInTheDocument();
+    expect(
+      within(within(underHead).getByRole('list', { name: 'মনিটরিং টিম' })).getByText(
+        'মনিটরিং কর্মকর্তা',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(underHead).getByRole('list', { name: 'মানবিক সহায়তা (HUM)' }),
+    ).toBeInTheDocument();
     const unplaced = screen.getByRole('list', { name: 'এখনও স্থান নির্ধারিত হয়নি' });
     expect(within(unplaced).getByText('পাসওয়ার্ডের অপেক্ষায়')).toBeInTheDocument();
     await expectNoAxeViolations(container);

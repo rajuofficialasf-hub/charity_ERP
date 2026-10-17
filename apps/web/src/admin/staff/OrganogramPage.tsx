@@ -1,3 +1,4 @@
+import { formatPercent } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
 import {
   Avatar,
@@ -10,7 +11,16 @@ import {
   Skeleton,
 } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronsDownUp, ChevronsUpDown, Minus, Network, Plus } from 'lucide-react';
+import {
+  ChevronsDownUp,
+  ChevronsUpDown,
+  Maximize2,
+  Minus,
+  Network,
+  Plus,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
@@ -25,6 +35,12 @@ import './staff.css';
 import { StaffViewSwitch } from './StaffViewSwitch';
 
 const ALL = 'all';
+/** The zoom of the chart: never below 40 %, never above 150 %, in steps of 10 %. */
+const MIN_ZOOM = 0.4;
+const MAX_ZOOM = 1.5;
+const ZOOM_STEP = 0.1;
+/** The inner padding of the canvas from 768 px (--space-5), left free when the chart is fitted. */
+const PADDING = 24;
 
 /** The colour band of a card by the highest role: leadership, PM, RPM, field staff. */
 function tone(roles: string[]): 'lead' | 'pm' | 'rpm' | 'field' {
@@ -51,11 +67,12 @@ const count = (nodes: OrganogramNode[]): number =>
   nodes.reduce((sum, n) => sum + 1 + count(n.reports), 0);
 
 /**
- * The department's organogram (DECISION_LOG D-097, BR-263, SCR-064) as a chart: the leadership on
- * top, a branch per program, and every official under the supervisor, each branch folded or opened
- * with the button under its card; the last level stands in a column, so a wide team stays narrow.
- * The server computes it from roles, home programs, the programs' PMs and supervisors and leaves out
- * other departments and outside partners. On a phone the same lists read as an indented tree.
+ * The department's organogram (DECISION_LOG D-097, BR-263, SCR-064) as a chart: the Department
+ * Head on top; one level below, the Monitoring Team (who report to the Head) beside a branch per
+ * program; every official under the supervisor, each branch folded or opened with the button
+ * under its card; the last level stands in a column, so a wide team stays narrow. The server
+ * computes it from roles, home programs, the programs' PMs and supervisors and leaves out other
+ * departments and outside partners. On a phone the same lists read as an indented tree.
  */
 export function OrganogramPage() {
   const { me } = useAuth();
@@ -71,12 +88,44 @@ export function OrganogramPage() {
     queryFn: organogram,
     enabled: allowed,
   });
-  // a chart wider than the screen opens at its centre, where the leadership stands
   const canvas = useRef<HTMLElement>(null);
+  const tree = useRef<HTMLUListElement>(null);
+  // the chart follows the width of the screen until the person zooms in or out
+  const [zoom, setZoom] = useState(1);
+  const [fitting, setFitting] = useState(true);
+  const zoomNow = useRef(1);
+  // the zoom as drawn now, for the measurement of the chart (before the fit below runs)
+  useEffect(() => {
+    zoomNow.current = zoom;
+  }, [zoom]);
+  useEffect(() => {
+    const box = canvas.current;
+    const list = tree.current;
+    if (!box || !list || !fitting) return;
+    // an old browser without these keeps the chart at its size and lets it scroll
+    if (typeof window.matchMedia !== 'function' || typeof ResizeObserver === 'undefined') return;
+    const desktop = window.matchMedia('(min-width: 768px)');
+    const fit = () => {
+      // a phone reads the indented tree at its own size
+      if (!desktop.matches) return setZoom(1);
+      const natural = list.getBoundingClientRect().width / zoomNow.current;
+      const room = box.clientWidth - 2 * PADDING;
+      setZoom(natural > room ? Math.max(MIN_ZOOM, Math.floor((room / natural) * 20) / 20) : 1);
+    };
+    fit();
+    const watch = new ResizeObserver(fit);
+    watch.observe(box);
+    return () => watch.disconnect();
+  }, [chart.data, program, folded, fitting]);
+  // a chart still wider than the screen opens at its centre, where the leadership stands
   useEffect(() => {
     const el = canvas.current;
     if (el && chart.data) el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
-  }, [chart.data]);
+  }, [chart.data, zoom]);
+  const zoomBy = (step: number) => {
+    setFitting(false);
+    setZoom((z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round((z + step) * 20) / 20)));
+  };
   if (!me) return null;
   if (!allowed) return <ForbiddenContent />;
   const toggle = (id: string) =>
@@ -158,6 +207,12 @@ export function OrganogramPage() {
     if (!leadership.length && !programs.length && !unplaced.length)
       return <EmptyState icon={Network} title={t('empty')} headingLevel={2} />;
     const shown = program === ALL ? programs : programs.filter((p) => p.programId === program);
+    // the Department Head on top; the Monitoring Team reports to the Head and stands beside the
+    // programs, one level below (owner, 2026-10-17)
+    const heads = leadership.filter((n) => n.roles.includes('department_head'));
+    const monitoring = leadership.filter((n) => !n.roles.includes('department_head'));
+    const showMonitoring = program === ALL && monitoring.length > 0;
+    const groups = showMonitoring ? 1 : 0;
     const foldable = withReports(chart.data);
     return (
       <>
@@ -187,6 +242,40 @@ export function OrganogramPage() {
             ]}
           />
           <div className="admin-title-actions">
+            <span className="org-zoom" role="group" aria-label={t('zoom')}>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={ZoomOut}
+                iconOnly
+                onPress={() => zoomBy(-ZOOM_STEP)}
+                disabled={zoom <= MIN_ZOOM}
+              >
+                {t('zoom_out')}
+              </Button>
+              <span className="org-zoom-value" aria-live="polite">
+                {formatPercent(zoom, locale)}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={ZoomIn}
+                iconOnly
+                onPress={() => zoomBy(ZOOM_STEP)}
+                disabled={zoom >= MAX_ZOOM}
+              >
+                {t('zoom_in')}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={Maximize2}
+                iconOnly
+                onPress={() => setFitting(true)}
+              >
+                {t('zoom_fit')}
+              </Button>
+            </span>
             <Button
               variant="secondary"
               size="sm"
@@ -206,20 +295,27 @@ export function OrganogramPage() {
           </div>
         </div>
         <section ref={canvas} className="org-canvas" aria-label={t('title')} tabIndex={0}>
-          <ul className="org-tree">
+          <ul ref={tree} className="org-tree" style={{ zoom }}>
             <li>
-              {leadership.length > 0 && (
-                <div className="org-lead">
-                  <h2 className="org-group-title">{t('leadership')}</h2>
-                  <ul className="org-lead-row" aria-label={t('leadership')}>
-                    {leadership.map((n) => (
-                      <li key={n.userId}>{card(n, false)}</li>
-                    ))}
-                  </ul>
+              {heads.map((n) => (
+                <div key={n.userId} className="org-root">
+                  {card(n, false)}
                 </div>
-              )}
-              {shown.length > 0 && (
-                <ul className="org-level" aria-label={t('programs')}>
+              ))}
+              {(groups > 0 || shown.length > 0) && (
+                <ul
+                  className={heads.length ? 'org-level' : 'org-level org-level-top'}
+                  aria-label={t('under_head')}
+                >
+                  {showMonitoring && (
+                    <li>
+                      <div className="org-program org-group-monitoring">
+                        <strong>{t('monitoring')}</strong>
+                        <span>{t('members', { count: String(monitoring.length) })}</span>
+                      </div>
+                      {branch(monitoring, t('monitoring'))}
+                    </li>
+                  )}
                   {shown.map((p) => {
                     const name = `${localized(p.name, locale)} (${p.code})`;
                     return (
