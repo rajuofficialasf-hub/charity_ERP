@@ -36,11 +36,13 @@ import { VolunteerListService } from './services/volunteer-list';
 import { VolunteerProfileService } from './services/volunteer-profile';
 import { BeneficiariesService } from './services/beneficiaries';
 import { AuditLogService } from './services/audit-log';
+import { ChannelsService } from './services/channels';
 import { NisabService } from './services/nisab';
 import { ProgramsService } from './services/programs';
 import { ReferenceListsService } from './services/reference-lists';
 import { SessionMonitorService } from './services/session-monitor';
 import { SettingsService } from './services/settings';
+import { SystemHealthService } from './services/system-health';
 import { ProjectsService } from './services/projects';
 import { ProjectLifecycleService } from './services/project-lifecycle';
 import { ProjectRulesService } from './services/project-rules';
@@ -109,6 +111,8 @@ export interface Container {
   nisab: NisabService;
   auditLog: AuditLogService;
   sessionMonitor: SessionMonitorService;
+  channels: ChannelsService;
+  systemHealth: SystemHealthService;
   projects: ProjectsService;
   projectSetup: ProjectSetupService;
   projectLifecycle: ProjectLifecycleService;
@@ -179,6 +183,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const access = o.access ?? new AccessService(accessRegistry, prisma, clock, logger);
   const projects = o.projects ?? new ProjectsService(env, prisma, audit, access, clock);
   const registrationEvents = o.registrationEvents ?? new LoggingRegistrationEvents(logger);
+  const settings = o.settings ?? new SettingsService(prisma, audit);
   const registration =
     o.registration ??
     new RegistrationService(env, prisma, clock, otp, audit, registrationEvents, hasher);
@@ -236,11 +241,13 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     volunteerProfile: o.volunteerProfile ?? new VolunteerProfileService(prisma, access),
     beneficiaries: o.beneficiaries ?? new BeneficiariesService(env, prisma, clock, access),
     programs: o.programs ?? new ProgramsService(prisma, audit),
-    settings: o.settings ?? new SettingsService(prisma, audit),
+    settings,
     referenceLists: o.referenceLists ?? new ReferenceListsService(prisma, audit),
     nisab: o.nisab ?? new NisabService(prisma, audit, clock),
     auditLog: o.auditLog ?? new AuditLogService(env, prisma, clock),
     sessionMonitor: o.sessionMonitor ?? new SessionMonitorService(env, prisma, clock),
+    channels: o.channels ?? new ChannelsService(env, settings),
+    systemHealth: o.systemHealth ?? new SystemHealthService(env, prisma, health, clock),
     projects,
     projectSetup:
       o.projectSetup ??

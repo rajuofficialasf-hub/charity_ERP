@@ -58,6 +58,8 @@ tags:
     description: Locations, reference lists, settings, nisab versions
   - name: audit
     description: The audit viewer of the global roles (DECISION_LOG D-098)
+  - name: admin
+    description: Notification channels and system health (DECISION_LOG D-098)
   - name: sync
     description: Offline sync batch and snapshot (OFFLINE_SYNC.md)
 
@@ -3006,6 +3008,96 @@ components:
         data: { type: array, items: { $ref: '#/components/schemas/NisabVersion' } }
         meta: { $ref: '#/components/schemas/ListMeta' }
 
+    SmsProviderSetting:
+      type: object
+      additionalProperties: false
+      required: [provider, senderId, enabled, endpoint]
+      properties:
+        provider:
+          anyOf:
+            - { type: string, pattern: '^[a-z][a-z0-9_]{1,39}$' }
+            - { type: 'null' }
+        senderId:
+          anyOf:
+            - { type: string, minLength: 1, maxLength: 20 }
+            - { type: 'null' }
+        enabled: { type: boolean }
+        endpoint:
+          anyOf:
+            - { type: string, maxLength: 500 }
+            - { type: 'null' }
+    ChannelsResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [smtp, sms, otpDummy]
+          properties:
+            smtp:
+              type: object
+              required: [host, port, secure, from, loginSet]
+              properties:
+                host: { type: string }
+                port: { type: integer }
+                secure: { type: boolean }
+                from: { type: string }
+                loginSet: { type: boolean }
+            sms:
+              type: object
+              required: [mode, keyPresent, config, updatedAt]
+              properties:
+                mode: { type: string, enum: [logging, dry_run] }
+                keyPresent: { type: boolean }
+                config: { $ref: '#/components/schemas/SmsProviderSetting' }
+                updatedAt: { type: [string, 'null'], format: date-time }
+            otpDummy: { type: boolean }
+        meta: { $ref: '#/components/schemas/Meta' }
+    StorageFigure:
+      type: object
+      required: [count, bytes]
+      properties:
+        count: { type: integer }
+        bytes: { type: integer }
+    SystemHealthResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [ready, checks, version, environment, otpDummy, auditPartitionsUntil, storage]
+          properties:
+            ready: { type: boolean }
+            checks:
+              type: object
+              required: [database, storage, queue]
+              properties:
+                database: { type: string, enum: [up, down] }
+                storage: { type: string, enum: [up, down] }
+                queue: { type: string, enum: [up, down] }
+            version: { type: string }
+            environment: { type: string }
+            otpDummy: { type: boolean }
+            auditPartitionsUntil: { type: [string, 'null'], pattern: '^[0-9]{4}-[0-9]{2}$' }
+            storage:
+              type: object
+              required: [total, byKind, byMonth, measuredAt]
+              properties:
+                total: { $ref: '#/components/schemas/StorageFigure' }
+                byKind:
+                  type: array
+                  items:
+                    allOf:
+                      - { $ref: '#/components/schemas/StorageFigure' }
+                      - { type: object, required: [kind], properties: { kind: { type: string } } }
+                byMonth:
+                  type: array
+                  items:
+                    allOf:
+                      - { $ref: '#/components/schemas/StorageFigure' }
+                      - { type: object, required: [month], properties: { month: { type: string } } }
+                measuredAt: { type: string, format: date-time }
+        meta: { $ref: '#/components/schemas/Meta' }
     AuditEntry:
       type: object
       required: [id, createdAt, action, entityType, entityId, actor, actorRole, reason, ip, deviceSessionId, old, new]
@@ -7746,6 +7838,79 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+
+  # ======================= admin =======================
+  /admin/channels:
+    get:
+      tags: [admin]
+      operationId: admin.channels.get
+      summary: SMTP read-only, the SMS adapter configuration and the dummy OTP state
+      description: >-
+        DECISION_LOG D-098. SMTP comes from the server's environment (host, port, secure, sender,
+        whether a login is set), never its password; sms.keyPresent says whether SMS_API_KEY is set,
+        never the key; otpDummy true means the fixed development code is on (BD-44, BD-49).
+      x-permission: provider.settings.manage
+      x-scope: global
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: Channels
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChannelsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/channels/sms:
+    put:
+      tags: [admin]
+      operationId: admin.channels.setSms
+      summary: Replace the SMS adapter configuration (the key stays in the environment)
+      description: >-
+        Stored as the sms.provider setting, audited as settings.change. The endpoint is an https
+        address on a public host (422 validation.https_public_url). Answers the channels view.
+      x-permission: provider.settings.manage
+      x-scope: global
+      x-audit: settings.change
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SmsProviderSetting' }
+      responses:
+        '200':
+          description: Stored
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChannelsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /admin/health:
+    get:
+      tags: [admin]
+      operationId: admin.health.get
+      summary: Database, storage and queue, version, dummy OTP, audit partitions and storage growth
+      description: >-
+        DECISION_LOG D-098, BD-46. Storage figures count the file records not deleted, in total, by
+        kind and by Dhaka month for the last twelve months; they are reused for 60 seconds.
+        auditPartitionsUntil is the last month that has an audit log partition.
+      x-permission: system.health.view
+      x-scope: global
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: System health
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SystemHealthResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   # ======================= audit =======================
   /audit-log:

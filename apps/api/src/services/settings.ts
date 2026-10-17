@@ -96,6 +96,11 @@ export class SettingsService {
     });
   }
 
+  /** A key's value in force and when it last changed (null while the default holds). */
+  entry(key: SettingKey): Promise<SettingView> {
+    return this.view(this.prisma, key);
+  }
+
   private async view(db: Tx, key: SettingKey): Promise<SettingView> {
     const { value, updatedAt } = await this.read(db, key);
     return { key, value, updatedAt: updatedAt?.toISOString() ?? null };

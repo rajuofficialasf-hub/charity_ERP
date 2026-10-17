@@ -21,7 +21,7 @@ describe('access registry', () => {
   it('loads the real permissions.yaml with its roles, permissions, sets and field classes', () => {
     const registry = loadAccessRegistry(DEFAULT_PERMISSIONS_FILE);
     expect(registry.roles.size).toBe(15);
-    expect(registry.permissions.size).toBe(145);
+    expect(registry.permissions.size).toBe(146);
     expect(registry.roles.get('department_head')?.globalScope).toBe(true);
     expect(registry.permissions.get('system.owner.transfer')?.globalRolesExcluded).toEqual([
       'monitoring_team',

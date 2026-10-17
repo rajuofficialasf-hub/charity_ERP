@@ -133,8 +133,11 @@ allowed endpoint is decided by the data scope and is tested separately (scope an
 | POST /nisab-versions | nisab.set | global | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | POST /nisab-versions/:nisabVersionId/withdraw | nisab.set | global | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /audit-log | audit.view | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| GET /admin/channels | provider.settings.manage | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| PUT /admin/channels/sms | provider.settings.manage | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| GET /admin/health | system.health.view | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 
-## Permissions no endpoint uses yet (104, D-077)
+## Permissions no endpoint uses yet (103, D-077)
 
 They belong to features of later tasks; the matrix covers them when their endpoints exist.
 
@@ -219,7 +222,6 @@ They belong to features of later tasks; the matrix covers them when their endpoi
 - `payment.record`
 - `progress.update`
 - `project.quota.manage`
-- `provider.settings.manage`
 - `report.beneficiary_journey`
 - `site_verification.decide`
 - `site_verification.record`

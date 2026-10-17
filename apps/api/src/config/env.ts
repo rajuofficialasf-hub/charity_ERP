@@ -44,6 +44,10 @@ const envSchema = z
     SMTP_FROM: z.string().default('CSS ERP <no-reply@example.org>'),
     /** logging (dev/test: masked log line) or dry_run (staging until a provider exists, O-33). */
     SMS_MODE: z.enum(['logging', 'dry_run']).default('logging'),
+    /** The SMS provider's key; only its presence is ever shown (the channels page). */
+    SMS_API_KEY: z.string().optional(),
+    /** The release shown on the system health page. */
+    APP_VERSION: z.string().max(64).default('0.0.0-dev'),
     /** Signs access tokens (D-070); JWT_PREVIOUS_SECRET is still accepted during a rotation. */
     JWT_SECRET: z.string().min(32),
     JWT_PREVIOUS_SECRET: z.string().min(32).optional(),
