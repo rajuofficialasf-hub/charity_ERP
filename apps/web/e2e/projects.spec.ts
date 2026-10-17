@@ -1,13 +1,16 @@
-import { expect, type Locator, type Page, test, type TestInfo } from '@playwright/test';
+import { expect, type Page, test, type TestInfo } from '@playwright/test';
 import { openTab, rows as listRows, scan, signIn } from './support/admin';
-
-/** Picks an option of a Select inside a part of the page. */
-async function chooseIn(page: Page, scope: Locator, label: string, option: string) {
-  // the name is the value, then the label, then "(আবশ্যক)" for a required field
-  await scope.getByRole('button', { name: new RegExp(`\\s${label}( \\(আবশ্যক\\))?$`) }).click();
-  await page.getByRole('listbox').getByRole('option', { name: option, exact: true }).click();
-  await expect(page.getByRole('listbox')).toHaveCount(0);
-}
+import {
+  chooseIn,
+  code,
+  ERR,
+  newDraft,
+  next,
+  section,
+  state,
+  typeDate,
+  writeRules,
+} from './support/projects';
 
 // Programs and project setup against the API on its E2E database with the demo seed
 // (docs/testing/DEMO_ACCOUNTS.md): a PM starts a project in the setup wizard, walks its steps with
@@ -17,60 +20,8 @@ async function chooseIn(page: Page, scope: Locator, label: string, option: strin
 // its own project codes.
 const PM = 'pm.ucd@example.org';
 const COPY_PM = 'pm.err@example.org';
-const UCD = 'আন্ডারপ্রিভিলেজড কমিউনিটি ডেভেলপমেন্ট প্রোগ্রাম (UCD)';
-const ERR = 'ইমার্জেন্সি রেসপন্স অ্যান্ড রিহ্যাবিলিটেশন প্রোগ্রাম (ERR)';
 const VOLUNTEER = { desktop: '01700000101', mobile: '01700000103' } as const;
 const TAB = 'প্রকল্প';
-
-/** A project code of its own for this run: E and three random capital letters. */
-const code = () =>
-  `E${Array.from({ length: 3 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('')}`;
-
-const section = (page: Page, name: string): Locator => page.getByRole('region', { name });
-/** The state badge beside the project's name. */
-const state = (page: Page, badge: string): Locator =>
-  page.locator('.admin-title-row').getByText(badge, { exact: true });
-const next = (page: Page) => page.getByRole('button', { name: 'পরের ধাপ' });
-
-/** The first step of the wizard: Next creates the draft and opens the components step. */
-async function newDraft(page: Page, projectCode: string, name: string, program = UCD) {
-  await page.getByRole('button', { name: 'নতুন প্রকল্প' }).click();
-  await expect(page.getByRole('heading', { level: 1, name: 'নতুন প্রকল্প' })).toBeVisible();
-  const basics = section(page, 'মৌলিক তথ্য');
-  await basics.getByRole('textbox', { name: /প্রকল্প কোড/ }).fill(projectCode);
-  await basics.getByRole('textbox', { name: /বাংলায় নাম/ }).fill(name);
-  await basics.getByRole('textbox', { name: /ইংরেজিতে নাম/ }).fill(`${name} EN`);
-  await basics.getByRole('textbox', { name: /বছর/ }).fill('2026');
-  await chooseIn(page, basics, 'প্রোগ্রাম', program);
-  await chooseIn(page, basics, 'ওয়ার্কফ্লো', 'বিতরণ');
-  await next(page).click();
-  await expect(page.getByRole('heading', { level: 1, name: `সেটআপ: ${name}` })).toBeVisible();
-  await expect(page).toHaveURL(/step=components/);
-  await expect(state(page, 'খসড়া')).toBeVisible();
-}
-
-/** The three rules texts a project without dawah needs, in both languages. */
-async function writeRules(page: Page) {
-  const rules = section(page, 'নিয়মাবলি');
-  for (const part of [
-    'স্বেচ্ছাসেবকের দায়িত্ব',
-    'বাস্তবায়ন প্রক্রিয়া',
-    'অনিয়মের ক্ষেত্রে ব্যবস্থা',
-  ]) {
-    await rules
-      .getByRole('textbox', { name: new RegExp(`^${part} \\(বাংলা\\)`) })
-      .fill(`${part}: পরীক্ষা`);
-    await rules
-      .getByRole('textbox', { name: new RegExp(`^${part} \\(ইংরেজি\\)`) })
-      .fill(`${part}: test`);
-  }
-}
-
-/** Types a date into the segments of a date field (dd-mm-yyyy). */
-async function typeDate(page: Page, scope: Locator, label: string, ddmmyyyy: string) {
-  await scope.getByRole('group', { name: label }).getByRole('spinbutton').first().click();
-  await page.keyboard.type(ddmmyyyy);
-}
 
 /** A lifecycle move with its reason, then the new state badge. */
 async function move(page: Page, button: string, badge: string) {

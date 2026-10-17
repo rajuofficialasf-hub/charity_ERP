@@ -473,6 +473,8 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 
 ### SCR-030 My projects and project rules consent
 
+- **Built (T1.12).** `/my-projects` (from the home, "আমার প্রকল্প" for an active volunteer) lists the running projects with "নিয়মাবলিতে সম্মতির অপেক্ষায়" or "সক্রিয়"; `/my-projects/:projectId` walks the rules part by part (the Local দায়ী part only while dawah is on), each confirmed with "আমি পড়েছি এবং মেনে চলব", then "আমি রাজি এবং এই প্রকল্পে কাজ করতে আগ্রহী" and "সম্মতি দিন"; "প্রত্যাখ্যান করুন" keeps the project waiting; after consent it shows the work facts with the applications counted against the limit. A rules change asks again. The server refuses every project action without the accepted current version.
+
 - **Purpose.** Lists the volunteer's projects. Before the first work on a project, the volunteer reads and accepts the project rules (blueprint A6 "rules and consent", guard `consent.accepted`).
 - **Roles.** All volunteer types.
 - **Priority.** phone-first.
@@ -657,6 +659,8 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 
 ### SCR-035 My team
 
+- **Built (T1.12).** `/my-projects/:projectId/team` for a General or দাঈ-স্বেচ্ছাসেবক volunteer working on the project: the members with their own consent state, remove; the volunteers registered with the caller as reference (name only) to add. A member works only after their own consent and while the main volunteer's assignment lasts.
+
 - **Purpose.** The main volunteer adds Team Members registered with the main volunteer's NID as reference. They see and submit the team's drafts (blueprint A5 "teams"; BR-041).
 - **Roles.** volunteer_general and volunteer_both (Local দায়ী only if type Both).
 - **Priority.** phone-first.
@@ -798,6 +802,10 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
   - Tablet: a compact table.
   - Desktop: a dense table opening SCR-043 in the split view.
 - **Phase · task.** 1 · T1.10. **API.** tag volunteers.
+
+### SCR-043b Volunteers of a project (assignment)
+
+- **Built (T1.12).** `/admin/projects/:projectId/volunteers` ("স্বেচ্ছাসেবক" on the project page): the assignments in the caller's areas with permission set, paid flag and consent state; "স্বেচ্ছাসেবক অ্যাসাইন করুন" for the RPM, the executive with the RPM's grant and the global roles (approved, not blocked volunteers of the caller's areas, filtered by area and searched by name or mobile, several at once, one set by type or a chosen one, the paid flag for the RPM); change the set (only the sets of the type) or the paid flag; end with a reason; the RPM's switch per executive "স্বেচ্ছাসেবক অ্যাসাইন করতে পারবেন" with a reason. Works at 360 px.
 
 ### SCR-043 Volunteer profile
 
