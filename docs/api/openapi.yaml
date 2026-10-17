@@ -914,6 +914,11 @@ components:
       properties:
         data: { $ref: '#/components/schemas/InvitationIssued' }
         meta: { $ref: '#/components/schemas/Meta' }
+    InvitationRenewRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
     InvitationCheckRequest:
       type: object
       additionalProperties: false
@@ -3478,13 +3483,22 @@ paths:
     post:
       tags: [users]
       operationId: users.user.invite
-      summary: A new set-password link for an official without a password; the open link is revoked
-      description: BR-262. 409 user.invitation_not_needed once a password is set; 409 user.not_staff for a volunteer.
+      summary: A new set-password link for an official without a password, to a corrected email if given; the open link is revoked
+      description: >-
+        BR-262. A corrected email replaces the stored one first (audited as user.email_corrected),
+        so a link sent to a mistyped address dies. 409 user.invitation_not_needed once a password is
+        set; 409 user.not_staff for a volunteer; 409 registration.account_exists for an email of
+        another account. Held at GLOBAL scope only.
       x-permission: user.create
-      x-scope: user
+      x-scope: global
       x-audit: user.invited
       x-idempotency: none
       x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InvitationRenewRequest' }
       responses:
         '201':
           description: The new link, shown once
@@ -3495,6 +3509,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /users/{userId}:
     parameters:
       - $ref: '#/components/parameters/UserId'
@@ -3529,7 +3544,7 @@ paths:
         DECISION_LOG D-097, BR-261; existing officials too. Audited with the before and after
         values. 409 user.job_id_taken, user.not_staff; 422 user.supervisor_invalid.
       x-permission: user.profile.manage
-      x-scope: user
+      x-scope: global
       x-audit: user.profile_changed
       x-idempotency: none
       x-rate-limit: default

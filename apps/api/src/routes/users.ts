@@ -2,6 +2,8 @@ import {
   reasonRequestSchema,
   type ReasonRequest,
   AFFILIATIONS,
+  type InvitationRenewRequest,
+  invitationRenewRequestSchema,
   type StaffCreateRequest,
   staffCreateRequestSchema,
   type StaffProfileRequest,
@@ -111,20 +113,24 @@ export function usersRouter(
     },
   });
 
-  defineRoute<unknown, unknown, { userId: string }>(router, deps, {
+  defineRoute<InvitationRenewRequest, unknown, { userId: string }>(router, deps, {
     ...userOp,
     method: 'post',
     path: '/users/:userId/invitation',
     status: 201,
     operationId: 'users.user.invite',
-    summary: 'A new set-password link for an official without a password; the open link is revoked',
+    summary:
+      'A new set-password link for an official without a password, to a corrected email if given; the open link is revoked',
     permission: 'user.create',
+    // held at GLOBAL scope only: a narrower grant never reaches another official's link
+    scope: 'global',
     audit: 'user.invited',
     params: { userId: uuid },
-    responses: { 201: invitationIssued, 401: null, 403: null, 404: null, 409: null },
-    handler: ({ params, req, res }) => {
+    body: invitationRenewRequestSchema,
+    responses: { 201: invitationIssued, 401: null, 403: null, 404: null, 409: null, 422: null },
+    handler: ({ body, params, req, res }) => {
       res.setHeader('Cache-Control', 'no-store');
-      return c.staffAccounts.reissue(principalOf(req), scopeOf(req), params.userId);
+      return c.staffAccounts.reissue(principalOf(req), scopeOf(req), params.userId, body);
     },
   });
 
@@ -184,6 +190,8 @@ export function usersRouter(
     summary:
       "Replace an official's job ID, name, designation, affiliation, program, division and supervisor",
     permission: 'user.profile.manage',
+    // held at GLOBAL scope only: the profile moves an official between programs and supervisors
+    scope: 'global',
     audit: 'user.profile_changed',
     params: { userId: uuid },
     headers: [{ name: 'If-Match', required: true }],

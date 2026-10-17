@@ -85,6 +85,10 @@ export type StaffCreateRequest = z.infer<typeof staffCreateRequestSchema>;
 export const staffProfileRequestSchema = z.strictObject(profileShape).refine(unitMatches, unitRule);
 export type StaffProfileRequest = z.infer<typeof staffProfileRequestSchema>;
 
+/** POST /users/{userId}/invitation: a new link, to a corrected email while no password is set. */
+export const invitationRenewRequestSchema = z.strictObject({ email: email.optional() });
+export type InvitationRenewRequest = z.infer<typeof invitationRenewRequestSchema>;
+
 /** The link's token: 32 random bytes in base64url. */
 export const invitationTokenSchema = z
   .string()

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { seedAccessCatalogue } from './support/access-fixtures';
 import {
   type Account,
   account,
@@ -41,11 +42,7 @@ async function newProgram(code: string, pmUserId: string) {
 
 beforeAll(async () => {
   h = await authHarness();
-  for (const key of ['project_executive', 'official_daee'])
-    await h.db.query(
-      `INSERT INTO roles (key, name_bn, name_en, kind, global_scope) VALUES ($1, $1, $1, 'official', false)`,
-      [key],
-    );
+  await seedAccessCatalogue(h.db);
   head = await account(h.db, { role: 'department_head' });
   await place(head, { job_id: 'DIR-001' });
   headSession = await login(h, head);
@@ -190,6 +187,63 @@ describe('the official profile (BR-261)', () => {
   });
 });
 
+describe('the profile and the link at a narrower scope', () => {
+  it('a grant below GLOBAL scope never reaches another official', async () => {
+    const pm = people.pm!;
+    for (const permission of ['user.profile.manage', 'user.create'])
+      await h.db.query(
+        `INSERT INTO user_permissions (id, user_id, permission_name, effect, scope_type, scope_ref, reason, granted_by)
+         VALUES ($1, $2, $3, 'grant', 'PROGRAM', $4, 'Test override', $5)`,
+        [randomUUID(), pm.id, permission, programId, head.id],
+      );
+    await h.db.query('UPDATE users SET permission_version = permission_version + 1 WHERE id = $1', [
+      pm.id,
+    ]);
+    h.container.sessions.evictUser(pm.id);
+    const pmSession = await login(h, pm);
+    const wing = people.wing!;
+    const profile = await putProfile(
+      wing.id,
+      profileOf({
+        jobId: 'DIR-902',
+        affiliation: 'foundation',
+        affiliationUnit: 'আইটি বিভাগ',
+        homeProgramId: otherProgramId,
+      }),
+      await etagOf(wing.id),
+      pmSession,
+    );
+    expect(profile.status).toBe(403);
+    const link = await api()
+      .post(`/api/v1/users/${wing.id}/invitation`)
+      .set(bearer(pmSession))
+      .send({});
+    expect(link.status).toBe(403);
+  });
+
+  it('keeps an unchanged supervisor who has left since', async () => {
+    const who = people.loose!;
+    const gone = await account(h.db, { role: 'project_executive' });
+    await place(gone, { job_id: 'DIR-398' });
+    await place(who, { supervisor_user_id: gone.id });
+    await place(gone, { state: 'deactivated' });
+    const res = await putProfile(
+      who.id,
+      profileOf({ designation: 'Senior Project Executive', supervisorUserId: gone.id }),
+      await etagOf(who.id),
+    );
+    expect(res.status).toBe(200);
+    // choosing them anew is refused
+    await place(who, { supervisor_user_id: null });
+    const again = await putProfile(
+      who.id,
+      profileOf({ supervisorUserId: gone.id }),
+      await etagOf(who.id),
+    );
+    expect(again.status).toBe(422);
+  });
+});
+
 describe('the staff directory (R8)', () => {
   const ids = (res: request.Response) => res.body.data.map((u: { id: string }) => u.id);
 
@@ -254,6 +308,20 @@ describe('the organogram (BR-263)', () => {
     for (const outside of ['partner', 'wing', 'former'])
       expect(everyone, outside).not.toContain(people[outside]!.id);
     expect(new Set(everyone).size).toBe(everyone.length);
+  });
+
+  it('never loses officials whose supervisor line loops', async () => {
+    const x = await account(h.db, { role: 'project_executive' });
+    const y = await account(h.db, { role: 'project_executive' });
+    await place(x, { job_id: 'DIR-501', home_program_id: programId });
+    await place(y, { job_id: 'DIR-502', home_program_id: programId, supervisor_user_id: x.id });
+    // written past the service, which refuses a loop
+    await place(x, { supervisor_user_id: y.id });
+    const res = await api().get('/api/v1/organogram').set(bearer(headSession));
+    const a = (res.body.data.programs as { programId: string; members: Node[] }[]).find(
+      (p) => p.programId === programId,
+    )!;
+    expect(flat(a.members)).toEqual(expect.arrayContaining([x.id, y.id]));
   });
 
   it('is refused to a volunteer', async () => {

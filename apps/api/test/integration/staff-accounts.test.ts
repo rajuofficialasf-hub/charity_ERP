@@ -11,6 +11,7 @@ import {
   auditRows,
   bearer,
   login,
+  PASSWORD,
   type Session,
 } from './support/auth-app';
 import * as f from './support/fixtures';
@@ -18,6 +19,12 @@ import * as f from './support/fixtures';
 // Officials created by the admin with a set-password link, login by job ID, staff
 // self-registration closed (DECISION_LOG D-097; plan
 // docs/plans/2026-10-17-1500-feat-official-accounts-organogram-plan.md, unit U2).
+// test-only passwords for the rules of AUTH.md 3 (8 characters, 12 for a global role)
+const TOO_SHORT = 'Ab1';
+const UNDER_TWELVE = `${PASSWORD.slice(0, 4)} 20261`;
+const TWELVE_OR_MORE = `${PASSWORD} 1`.slice(0, 14);
+const WRONG = `${PASSWORD}x`;
+const RESET_TO = `${PASSWORD}7`;
 const sent: EmailMessage[] = [];
 let failEmail = false;
 let h: AuthHarness;
@@ -79,7 +86,7 @@ const create = (body: Record<string, unknown>, session: Session = headSession) =
   api().post('/api/v1/users').set(bearer(session)).send(body);
 const tokenOf = (link: string) => link.slice(link.indexOf('#') + 1);
 const check = (token: string) => api().post('/api/v1/auth/invitations/check').send({ token });
-const accept = (token: string, password = 'Nadi kul 2026') =>
+const accept = (token: string, password = PASSWORD) =>
   api().post('/api/v1/auth/invitations/accept').send({ token, password });
 
 describe('creating an official (BR-261)', () => {
@@ -201,7 +208,7 @@ describe('the set-password link (BR-262)', () => {
       jobId: (body.jobId as string).toUpperCase(),
       minPasswordLength: 8,
     });
-    const weak = await accept(token, 'short');
+    const weak = await accept(token, TOO_SHORT);
     expect(weak.status).toBe(422);
     expect(await accept(token).then((r) => r.status)).toBe(204);
     const user = (
@@ -222,7 +229,8 @@ describe('the set-password link (BR-262)', () => {
     // a new link is not needed any more
     const reissue = await api()
       .post(`/api/v1/users/${issued.userId}/invitation`)
-      .set(bearer(headSession));
+      .set(bearer(headSession))
+      .send({});
     expect(reissue.status).toBe(409);
     expect(reissue.body.error.code).toBe('user.invitation_not_needed');
   });
@@ -243,7 +251,8 @@ describe('the set-password link (BR-262)', () => {
     const issued = (await create(official())).body.data;
     const res = await api()
       .post(`/api/v1/users/${issued.userId}/invitation`)
-      .set(bearer(headSession));
+      .set(bearer(headSession))
+      .send({});
     expect(res.status).toBe(201);
     expect(res.body.data.link).not.toBe(issued.link);
     expect(sent).toHaveLength(2);
@@ -251,17 +260,42 @@ describe('the set-password link (BR-262)', () => {
     expect((await accept(tokenOf(res.body.data.link))).status).toBe(204);
     const pmRes = await api()
       .post(`/api/v1/users/${issued.userId}/invitation`)
-      .set(bearer(await login(h, pm)));
+      .set(bearer(await login(h, pm)))
+      .send({});
     expect(pmRes.status).toBe(403);
+  });
+
+  it('sends a new link to a corrected email; the link to the mistyped one dies', async () => {
+    const issued = (await create(official())).body.data;
+    const corrected = `fixed.${randomUUID().slice(0, 8)}@example.org`;
+    const res = await api()
+      .post(`/api/v1/users/${issued.userId}/invitation`)
+      .set(bearer(headSession))
+      .send({ email: corrected.toUpperCase() });
+    expect(res.status).toBe(201);
+    expect(sent.at(-1)!.to).toBe(corrected);
+    expect((await check(tokenOf(issued.link))).status).toBe(410);
+    const row = await h.db.query('SELECT email FROM users WHERE id = $1', [issued.userId]);
+    expect(row.rows[0].email).toBe(corrected);
+    expect((await auditRows(h.db, 'user.email_corrected')).at(-1)).toMatchObject({
+      entity_id: issued.userId,
+    });
+    // an address of another account is refused
+    const taken = await api()
+      .post(`/api/v1/users/${issued.userId}/invitation`)
+      .set(bearer(headSession))
+      .send({ email: head.email });
+    expect(taken.status).toBe(409);
+    expect(taken.body.error.code).toBe('registration.account_exists');
   });
 
   it('asks 12 characters of an official with a global role', async () => {
     const token = tokenOf((await create(official({ roleKey: 'monitoring_team' }))).body.data.link);
     expect((await check(token)).body.data.minPasswordLength).toBe(12);
-    const short = await accept(token, 'Nadi 20261');
+    const short = await accept(token, UNDER_TWELVE);
     expect(short.status).toBe(422);
     expect(short.body.error.details[0].code).toBe('validation.password_too_short');
-    expect((await accept(token, 'Nadi kul 20261')).status).toBe(204);
+    expect((await accept(token, TWELVE_OR_MORE)).status).toBe(204);
   });
 });
 
@@ -272,7 +306,7 @@ describe('login by job ID (BR-263)', () => {
     // no password yet: no login
     const before = await api()
       .post('/api/v1/auth/login')
-      .send({ loginId: body.jobId, password: 'Nadi kul 2026' });
+      .send({ loginId: body.jobId, password: PASSWORD });
     expect(before.status).toBe(401);
     await accept(tokenOf(issued.link));
     for (const loginId of [
@@ -281,15 +315,13 @@ describe('login by job ID (BR-263)', () => {
       body.email,
       body.mobile,
     ]) {
-      const res = await api()
-        .post('/api/v1/auth/login')
-        .send({ loginId, password: 'Nadi kul 2026' });
+      const res = await api().post('/api/v1/auth/login').send({ loginId, password: PASSWORD });
       expect(res.status, String(loginId)).toBe(200);
       expect(res.body.data.me.id).toBe(issued.userId);
     }
     const wrong = await api()
       .post('/api/v1/auth/login')
-      .send({ loginId: body.jobId, password: 'Wrong pass 1' });
+      .send({ loginId: body.jobId, password: WRONG });
     expect(wrong.status).toBe(401);
   });
 
@@ -298,7 +330,7 @@ describe('login by job ID (BR-263)', () => {
     const issued = (await create(body)).body.data;
     const waiting = await api()
       .post('/api/v1/auth/password/reset/complete')
-      .send({ loginId: body.jobId, code: '246810', newPassword: 'Nadi kul 2027' });
+      .send({ loginId: body.jobId, code: '246810', newPassword: RESET_TO });
     expect(waiting.status).toBe(422);
     await accept(tokenOf(issued.link));
     expect(
@@ -306,14 +338,11 @@ describe('login by job ID (BR-263)', () => {
     ).toBe(204);
     const done = await api()
       .post('/api/v1/auth/password/reset/complete')
-      .send({ loginId: body.jobId, code: '246810', newPassword: 'Nadi kul 2027' });
+      .send({ loginId: body.jobId, code: '246810', newPassword: RESET_TO });
     expect(done.status).toBe(204);
     expect(
-      (
-        await api()
-          .post('/api/v1/auth/login')
-          .send({ loginId: body.jobId, password: 'Nadi kul 2027' })
-      ).status,
+      (await api().post('/api/v1/auth/login').send({ loginId: body.jobId, password: RESET_TO }))
+        .status,
     ).toBe(200);
   });
 });

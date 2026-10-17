@@ -4,6 +4,7 @@ import {
   checkPassword,
   type InvitationAcceptRequest,
   type InvitationIssued,
+  type InvitationRenewRequest,
   type InvitationView,
   minPasswordLength,
   type StaffCreateRequest,
@@ -23,7 +24,7 @@ import { assertIfMatch } from '../core/etag';
 import { type PrismaService, type Tx } from '../core/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
-import type { EmailAdapter } from '../notifications/adapters';
+import { DeliveryError, type EmailAdapter } from '../notifications/adapters';
 import { isGivableOfficialRole } from './registrations';
 
 /** The set-password link (DECISION_LOG D-097, BR-262): 72 hours, once. */
@@ -122,21 +123,51 @@ export class StaffAccountsService {
     return this.deliver(id, issued);
   }
 
-  /** A new link for an account still without a password; the open one is revoked (BR-262). */
-  async reissue(actor: Principal, scope: Scope, userId: string): Promise<InvitationIssued> {
-    const issued = await this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
-      const user = await this.access.findUser(
-        scope,
-        userId,
-        { id: true, kind: true, state: true, passwordHash: true },
-        tx,
-      );
-      if (user.kind !== 'staff') throw new ApiError('user.not_staff', 409);
-      if (user.state !== 'pending' || user.passwordHash)
-        throw new ApiError('user.invitation_not_needed', 409);
-      return this.issue(tx, actor, userId, true);
-    });
+  /**
+   * A new link for an account still without a password; the open one is revoked (BR-262). A
+   * corrected email replaces the stored one first, so a link sent to a mistyped address dies.
+   */
+  async reissue(
+    actor: Principal,
+    scope: Scope,
+    userId: string,
+    body: InvitationRenewRequest,
+  ): Promise<InvitationIssued> {
+    let issued: { token: string; invitationId: string; expiresAt: Date };
+    try {
+      issued = await this.prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
+        const user = await this.access.findUser(
+          scope,
+          userId,
+          { id: true, kind: true, state: true, passwordHash: true, email: true },
+          tx,
+        );
+        if (user.kind !== 'staff') throw new ApiError('user.not_staff', 409);
+        if (user.state !== 'pending' || user.passwordHash)
+          throw new ApiError('user.invitation_not_needed', 409);
+        if (body.email && body.email !== user.email) {
+          if (await tx.user.count({ where: { email: body.email } }))
+            throw new ApiError('registration.account_exists', 409);
+          await tx.user.update({
+            where: { id: userId },
+            data: { email: body.email, updatedBy: actor.userId },
+          });
+          // the addresses stay out of the audit entry; the change itself is recorded
+          await this.audit.record(tx, {
+            action: 'user.email_corrected',
+            entityType: 'user',
+            entityId: userId,
+            new: { beforeSetPassword: true },
+          });
+        }
+        return this.issue(tx, actor, userId, true);
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')
+        throw new ApiError('registration.account_exists', 409);
+      throw error;
+    }
     return this.deliver(userId, issued);
   }
 
@@ -166,6 +197,8 @@ export class StaffAccountsService {
       );
     const passwordHash = await this.hasher.hash(body.password);
     await this.prisma.$transaction(async (tx) => {
+      // the account first, then its link: the order a new link takes them, so neither waits forever
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${first.user.id}::uuid FOR UPDATE`;
       await tx.$queryRaw`SELECT id FROM account_invitations WHERE id = ${first.invitation.id}::uuid FOR UPDATE`;
       // checked again under the lock: a second tab or a new link may have closed it meanwhile
       const { invitation, user } = await this.open(tx, body.token);
@@ -223,7 +256,7 @@ export class StaffAccountsService {
         );
         assertIfMatch(ifMatch, user.updatedAt);
         if (user.kind !== 'staff') throw new ApiError('user.not_staff', 409);
-        await this.assertRefs(tx, body, userId);
+        await this.assertRefs(tx, body, userId, user.supervisorUserId);
         if (body.jobId !== user.jobId) {
           const taken = await tx.user.count({
             where: { jobId: body.jobId, NOT: { id: userId } },
@@ -305,16 +338,22 @@ export class StaffAccountsService {
       try {
         await this.email.send({ to: user.email, subject: text.subject ?? '', text: text.body });
         emailed = true;
-        await this.prisma.accountInvitation.update({
-          where: { id: issued.invitationId },
-          data: { emailed: true },
-        });
       } catch (error) {
+        // the adapter's error names the SMTP class only, never the address
         this.logger.warn(
-          { userId, reason: (error as Error).message },
+          { userId, reason: error instanceof DeliveryError ? error.message : 'error' },
           'set-password link not emailed; the admin copies it',
         );
       }
+      if (emailed)
+        await this.prisma.accountInvitation
+          .update({ where: { id: issued.invitationId }, data: { emailed: true } })
+          .catch((error: unknown) =>
+            this.logger.warn(
+              { userId, reason: (error as Error).name },
+              'set-password link emailed but not marked',
+            ),
+          );
     }
     return { userId, link, expiresAt: issued.expiresAt.toISOString(), emailed };
   }
@@ -378,7 +417,12 @@ export class StaffAccountsService {
    * The program and the division exist; the supervisor is an active department official, never
    * the official themself, and the line above them never comes back to this official.
    */
-  private async assertRefs(tx: Tx, refs: ProfileRefs, userId: string | null): Promise<void> {
+  private async assertRefs(
+    tx: Tx,
+    refs: ProfileRefs,
+    userId: string | null,
+    currentSupervisor: string | null = null,
+  ): Promise<void> {
     if (refs.homeProgramId && !(await tx.program.count({ where: { id: refs.homeProgramId } })))
       throw invalid('homeProgramId', 'validation.option_unknown');
     if (
@@ -387,6 +431,12 @@ export class StaffAccountsService {
     )
       throw invalid('homeDivisionId', 'validation.option_unknown');
     if (!refs.supervisorUserId) return;
+    if (refs.supervisorUserId === userId)
+      throw invalid('supervisorUserId', 'user.supervisor_invalid');
+    // an unchanged supervisor stays even when they left the department or were deactivated since
+    if (userId && refs.supervisorUserId === currentSupervisor) return;
+    // one supervisor change at a time, so two edits cannot close a loop between them
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('users.supervisor_user_id'))`;
     const supervisor = await tx.user.findFirst({
       where: {
         id: refs.supervisorUserId,
@@ -396,8 +446,7 @@ export class StaffAccountsService {
       },
       select: { id: true },
     });
-    if (!supervisor || refs.supervisorUserId === userId)
-      throw invalid('supervisorUserId', 'user.supervisor_invalid');
+    if (!supervisor) throw invalid('supervisorUserId', 'user.supervisor_invalid');
     if (!userId) return;
     let next: string | null = refs.supervisorUserId;
     for (let step = 0; next && step < MAX_CHAIN; step += 1) {

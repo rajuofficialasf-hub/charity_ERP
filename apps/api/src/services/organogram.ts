@@ -158,11 +158,22 @@ export class OrganogramService {
         .map((p) => {
           const members = byProgram.get(p.id) ?? [];
           const ids = new Set(members.map((m) => m.id));
+          const byId = new Map(members.map((m) => [m.id, m]));
+          // a supervisor line that comes back to an official (never written, but never lost
+          // either): such an official stands at the top instead of disappearing
+          const inLoop = (m: Official) => {
+            let next = m.supervisorUserId;
+            for (let step = 0; next && step <= members.length; step += 1) {
+              if (next === m.id) return true;
+              next = byId.get(next)?.supervisorUserId ?? null;
+            }
+            return false;
+          };
           const children = new Map<string, Official[]>();
           const roots: Official[] = [];
           for (const m of members) {
             const parent = m.supervisorUserId;
-            if (parent && ids.has(parent))
+            if (parent && ids.has(parent) && !inLoop(m))
               children.set(parent, [...(children.get(parent) ?? []), m]);
             else roots.push(m);
           }

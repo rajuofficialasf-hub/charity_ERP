@@ -61,7 +61,8 @@ Implementation decisions of T1.9 (D-082, D-086, D-087, D-088): the draft lives i
                 returned once in the answer so the admin can copy it for WhatsApp or another way;
                 a failed email keeps the account (emailed false)
 3. New link     POST /users/{id}/invitation revokes the open link and issues a new one, only while
-                no password is set
+                no password is set; a corrected email given with it replaces the stored one first
+                (audit user.email_corrected), so a link sent to a mistyped address dies
 4. Set password the page reads the token from the URL fragment (never sent to a server in a URL,
                 so no access log holds it); POST /auth/invitations/check shows the name and the job
                 ID; POST /auth/invitations/accept sets the password under the rules of the role
@@ -70,7 +71,7 @@ Implementation decisions of T1.9 (D-082, D-086, D-087, D-088): the draft lives i
 5. Login        with the job ID (any letter case), the email or the mobile number (section 4)
 ```
 
-This link is the one exception to "OTP only" (O-05): registration and password reset stay OTP flows. A password reset is refused for an account that has not used its link yet (it has no password to reset). The job ID is 2 to 32 letters, digits or `. _ / -`, starts with a letter or a digit, is stored in capitals (so it is unique without regard to case) and may not read as a mobile number. The profile of an official (job ID, name, designation, affiliation, program, division, supervisor) is changed with `PUT /users/{id}/profile` (`user.profile.manage`), for officials who registered themselves too; a supervisor is an active department official and no supervisor line may loop. Every creation (`user.created`), link (`user.invited`), acceptance (`auth.invitation_accepted`) and profile change (`user.profile_changed`) is audited.
+This link is the one exception to "OTP only" (O-05): registration and password reset stay OTP flows. A password reset is refused for an account that has not used its link yet (it has no password to reset). The job ID is 2 to 32 letters, digits or `. _ / -`, starts with a letter or a digit, is stored in capitals (so it is unique without regard to case) and may not read as a mobile number. The profile of an official (job ID, name, designation, affiliation, program, division, supervisor) is changed with `PUT /users/{id}/profile` (`user.profile.manage`), for officials who registered themselves too; a supervisor is an active department official (a supervisor kept unchanged stays even after they left) and no supervisor line may loop (supervisor changes take one advisory lock, so two edits cannot close a loop between them). Both operations need their permission at GLOBAL scope. Every creation (`user.created`), link (`user.invited`), acceptance (`auth.invitation_accepted`) and profile change (`user.profile_changed`) is audited.
 
 ## 3. Password rules (O-05)
 
@@ -185,7 +186,7 @@ Every event below is written to `audit_log` (BR-179) with actor, target user, de
 | Event | Trigger |
 |---|---|
 | auth.register_started / otp_sent / otp_verified / otp_failed | Registration OTP flow (per channel) |
-| user.created / user.invited / auth.invitation_accepted / user.profile_changed | Officials created by the admin, their set-password link, and their profile (D-097) |
+| user.created / user.invited / user.email_corrected / auth.invitation_accepted / user.profile_changed | Officials created by the admin, their set-password link, and their profile (D-097) |
 | auth.registered | Account created in pending |
 | auth.approved / rejected / correction_requested | Registration review |
 | auth.login / login_failed / locked / lock_cleared | Login and lockout |
