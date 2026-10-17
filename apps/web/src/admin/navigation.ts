@@ -3,6 +3,7 @@ import {
   ArrowRightLeft,
   FolderKanban,
   HandHeart,
+  IdCard,
   KeyRound,
   Layers,
   LayoutTemplate,
@@ -18,6 +19,7 @@ import {
   PROJECT_CREATE_ROLES,
   PROJECT_ROLES,
   EDIT_REQUEST_ROLES,
+  STAFF_DIRECTORY_ROLES,
   STAFF_APPROVER_ROLES,
   VOLUNTEER_TAB_ROLES,
 } from './roles';
@@ -32,6 +34,7 @@ export interface AdminNavItem {
     | 'volunteers'
     | 'beneficiaries'
     | 'registrations'
+    | 'staff'
     | 'handover'
     | 'permissions';
   href: string;
@@ -64,6 +67,7 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
     icon: UserCheck,
     roles: [...new Set([...STAFF_APPROVER_ROLES, ...EDIT_REQUEST_ROLES])],
   },
+  { key: 'staff', href: '/admin/staff', icon: IdCard, roles: STAFF_DIRECTORY_ROLES },
   { key: 'handover', href: '/admin/handover', icon: ArrowRightLeft, roles: HANDOVER_ROLES },
   {
     key: 'permissions',
