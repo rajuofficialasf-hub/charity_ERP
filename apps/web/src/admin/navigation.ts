@@ -51,7 +51,7 @@ export interface AdminNavItem {
   roles?: readonly string[];
 }
 
-/** Admin destinations in sidebar order; T1.13 (settings, audit log) and T3.3/T6.1 add theirs. */
+/** Admin destinations in sidebar order; each item names the roles that see it. */
 export const ADMIN_NAV: readonly AdminNavItem[] = [
   { key: 'dashboard', href: '/admin', icon: LayoutDashboard },
   { key: 'projects', href: '/admin/projects', icon: FolderKanban, roles: PROJECT_ROLES },

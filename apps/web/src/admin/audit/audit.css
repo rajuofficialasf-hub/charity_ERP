@@ -1,4 +1,4 @@
-/* The old and new values of an audit entry side by side, one under the other on phones (T1.13). */
+/* The old and new values of an audit entry side by side, one under the other on phones. */
 .admin-audit-compare {
   display: grid;
   gap: var(--space-3);

@@ -31,15 +31,22 @@ const ENTRY = {
 
 let requests: URLSearchParams[];
 
-function serve() {
+function serve(answer?: (params: URLSearchParams) => Response | undefined) {
   requests = [];
   server.use(
     http.get('*/api/v1/audit-log', ({ request }) => {
       const params = new URL(request.url).searchParams;
       requests.push(params);
+      const special = answer?.(params);
+      if (special) return special;
       return HttpResponse.json({
         data: [ENTRY],
-        meta: { nextCursor: null, prevCursor: null, from: '2026-09-17', to: '2026-10-17' },
+        meta: {
+          nextCursor: params.get('cursor') ? null : 'page-2',
+          prevCursor: params.get('cursor') ? 'page-1' : null,
+          from: '2026-09-17',
+          to: '2026-10-17',
+        },
       });
     }),
   );
@@ -62,7 +69,65 @@ describe('the audit viewer', () => {
     await expectNoAxeViolations(container);
   });
 
-  it('sends the action and the dates as filters', async () => {
+  it('reads the next page with the cursor the server gave', async () => {
+    refreshAs(MONITORING);
+    serve();
+    open();
+    await screen.findByRole('grid', { name: 'অডিট লগের এন্ট্রি' });
+    await userEvent.setup().click(screen.getByRole('button', { name: /পরের/ }));
+    await waitFor(() => expect(requests.at(-1)?.get('cursor')).toBe('page-2'));
+  });
+
+  it('shows the message of a range the server refuses, and the error state of a refused read', async () => {
+    refreshAs(MONITORING);
+    serve((params) =>
+      params.get('action') === 'boom'
+        ? HttpResponse.json(
+            { error: { code: 'permission.denied', message: 'অনুমতি নেই।', requestId: 'req_y' } },
+            { status: 403 },
+          )
+        : HttpResponse.json(
+            {
+              error: {
+                code: 'validation.failed',
+                message: 'কিছু তথ্য সঠিক নয়।',
+                requestId: 'req_x',
+                details: [
+                  {
+                    path: 'from',
+                    code: 'audit.range_required',
+                    message: 'সর্বোচ্চ 366 দিনের একটি তারিখের পরিসর বেছে নিন।',
+                  },
+                ],
+              },
+            },
+            { status: 422 },
+          ),
+    );
+    open();
+    expect(
+      (await screen.findAllByText('সর্বোচ্চ 366 দিনের একটি তারিখের পরিসর বেছে নিন।')).length,
+    ).toBeGreaterThan(0);
+    const user = userEvent.setup();
+    await user.type(screen.getAllByRole('textbox', { name: /^কাজ/ })[0]!, 'boom');
+    await user.tab();
+    expect(await screen.findByText('কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।')).toBeInTheDocument();
+  });
+
+  it('says so when a typed action is not a valid code', async () => {
+    refreshAs(MONITORING);
+    serve();
+    open();
+    await screen.findByRole('grid', { name: 'অডিট লগের এন্ট্রি' });
+    const user = userEvent.setup();
+    const action = screen.getAllByRole('textbox', { name: /^কাজ/ })[0]!;
+    await user.type(action, 'settings change');
+    await user.tab();
+    expect(action).toHaveAttribute('aria-invalid', 'true');
+    expect(requests.every((r) => r.get('action') === null)).toBe(true);
+  });
+
+  it('sends the action as a filter', async () => {
     refreshAs(MONITORING);
     serve();
     open();

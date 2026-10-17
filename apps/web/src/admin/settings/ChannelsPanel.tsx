@@ -32,10 +32,23 @@ export function DummyOtpAlert({ on }: { on: boolean }) {
 function SmsForm({ data, onSaved }: { data: Channels; onSaved: () => void }) {
   const t = useTranslations('admin.settings.channels');
   const ts = useTranslations('admin.settings');
-  const [v, setV] = useState<SmsProviderSetting>(data.sms.config);
+  // the fields keep what is typed; the body is trimmed and empty text becomes null when sent
+  const [v, setV] = useState({
+    provider: data.sms.config.provider ?? '',
+    senderId: data.sms.config.senderId ?? '',
+    endpoint: data.sms.config.endpoint ?? '',
+    enabled: data.sms.config.enabled,
+  });
+  const text = (value: string) => (value.trim() === '' ? null : value.trim());
+  const body = (): SmsProviderSetting => ({
+    provider: text(v.provider),
+    senderId: text(v.senderId),
+    endpoint: text(v.endpoint),
+    enabled: v.enabled,
+  });
   const queryClient = useQueryClient();
   const save = useMutation({
-    mutationFn: () => setSms(v),
+    mutationFn: () => setSms(body()),
     onSuccess: (next) => {
       queryClient.setQueryData(CHANNELS_KEY, next);
       onSaved();
@@ -43,7 +56,6 @@ function SmsForm({ data, onSaved }: { data: Channels; onSaved: () => void }) {
   });
   const failure = save.error instanceof ApiFailure ? save.error : undefined;
   const detail = (path: string) => failure?.details.find((d) => d.path === path)?.message;
-  const text = (value: string) => (value.trim() === '' ? null : value.trim());
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     save.mutate();
@@ -56,16 +68,16 @@ function SmsForm({ data, onSaved }: { data: Channels; onSaved: () => void }) {
           helper={t('provider_hint')}
           lang="en"
           maxLength={40}
-          value={v.provider ?? ''}
-          onChange={(provider) => setV({ ...v, provider: text(provider) })}
+          value={v.provider}
+          onChange={(provider) => setV({ ...v, provider })}
           error={detail('provider')}
         />
         <TextField
           label={t('sender')}
           lang="en"
           maxLength={20}
-          value={v.senderId ?? ''}
-          onChange={(senderId) => setV({ ...v, senderId: text(senderId) })}
+          value={v.senderId}
+          onChange={(senderId) => setV({ ...v, senderId })}
           error={detail('senderId')}
         />
         <TextField
@@ -73,8 +85,8 @@ function SmsForm({ data, onSaved }: { data: Channels; onSaved: () => void }) {
           helper={t('endpoint_hint')}
           lang="en"
           maxLength={500}
-          value={v.endpoint ?? ''}
-          onChange={(endpoint) => setV({ ...v, endpoint: text(endpoint) })}
+          value={v.endpoint}
+          onChange={(endpoint) => setV({ ...v, endpoint })}
           error={detail('endpoint')}
         />
       </FormGrid>

@@ -89,9 +89,14 @@ export function NisabPage() {
       priority: 2,
     },
   ];
+  // each withdrawal dialog starts clean, without the answer of an earlier one
+  const askWithdraw = (v: NisabVersionView | null) => {
+    withdraw.reset();
+    setWithdrawing(v);
+  };
   const withdrawButton = (v: NisabVersionView) =>
     canWithdraw(v) ? (
-      <Button variant="ghost" size="sm" icon={Undo2} iconOnly onPress={() => setWithdrawing(v)}>
+      <Button variant="ghost" size="sm" icon={Undo2} iconOnly onPress={() => askWithdraw(v)}>
         {t('withdraw', { date: formatDate(v.effectiveFrom) })}
       </Button>
     ) : null;
@@ -147,7 +152,7 @@ export function NisabPage() {
             {state(v)}
             {v.basisNote && <span>{v.basisNote}</span>}
             {canWithdraw(v) && (
-              <Button variant="secondary" size="sm" onPress={() => setWithdrawing(v)}>
+              <Button variant="secondary" size="sm" onPress={() => askWithdraw(v)}>
                 {t('withdraw_short')}
               </Button>
             )}
@@ -173,7 +178,7 @@ export function NisabPage() {
           pending={withdraw.isPending}
           error={withdraw.error}
           onConfirm={({ reason }) => withdraw.mutate({ id: withdrawing.id, reason })}
-          onClose={() => setWithdrawing(null)}
+          onClose={() => askWithdraw(null)}
         />
       )}
     </>

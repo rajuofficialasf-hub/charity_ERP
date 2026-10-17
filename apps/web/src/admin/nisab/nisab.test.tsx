@@ -4,7 +4,7 @@ import { expectNoAxeViolations } from '@css/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ME, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
@@ -15,7 +15,9 @@ import { NisabPage } from './NisabPage';
 const PM: Me = { ...ME, roles: ['program_manager'] };
 const RPM: Me = { ...ME, roles: ['regional_program_manager'] };
 const DAY = 86_400_000;
-const day = (offset: number) => isoDateInDhaka(new Date(Date.now() + offset * DAY));
+/** A fixed noon in Dhaka, so the dates never cross a day boundary while the test runs. */
+const NOW = new Date('2026-10-17T06:00:00Z');
+const day = (offset: number) => isoDateInDhaka(new Date(NOW.getTime() + offset * DAY));
 const person = { id: '01900000-0000-7000-8000-0000000000c1', name: 'নমুনা পিএম' };
 
 const VERSIONS = [
@@ -43,12 +45,17 @@ const VERSIONS = [
 
 let added: unknown[];
 let withdrawn: { id: string; body: unknown }[];
+let listed: number;
 
 function serve() {
   added = [];
   withdrawn = [];
+  listed = 0;
   server.use(
-    http.get('*/api/v1/nisab-versions', () => HttpResponse.json({ data: VERSIONS, meta: {} })),
+    http.get('*/api/v1/nisab-versions', () => {
+      listed += 1;
+      return HttpResponse.json({ data: VERSIONS, meta: {} });
+    }),
     http.post('*/api/v1/nisab-versions', async ({ request }) => {
       const body = (await request.json()) as { effectiveFrom: string };
       added.push(body);
@@ -86,6 +93,11 @@ const open = () => renderApp(<NisabPage />, 'bn', { path: '/admin/nisab' });
 
 beforeEach(() => {
   resetClientForTests();
+  // only the date is fixed; timers stay real for the user events
+  vi.useFakeTimers({ toFake: ['Date'], now: NOW });
+});
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe('the nisab page', () => {
@@ -146,5 +158,6 @@ describe('the nisab page', () => {
     serve();
     open();
     expect(await screen.findByRole('heading', { level: 1 })).not.toHaveTextContent('নিসাব');
+    expect(listed).toBe(0);
   });
 });

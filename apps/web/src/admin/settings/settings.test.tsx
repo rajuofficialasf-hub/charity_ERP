@@ -49,14 +49,19 @@ let patched: { key: string; body: unknown }[];
 let added: unknown[];
 let itemPatches: unknown[];
 let smsPut: unknown[];
+let settingsRead: number;
 
 function serve() {
   patched = [];
   added = [];
   itemPatches = [];
   smsPut = [];
+  settingsRead = 0;
   server.use(
-    http.get('*/api/v1/settings', () => HttpResponse.json({ data: SETTINGS, meta: {} })),
+    http.get('*/api/v1/settings', () => {
+      settingsRead += 1;
+      return HttpResponse.json({ data: SETTINGS, meta: {} });
+    }),
     http.patch('*/api/v1/settings/:key', async ({ params, request }) => {
       const body = (await request.json()) as { value: { budgetAlertPercent?: number } };
       patched.push({ key: String(params.key), body });
@@ -231,10 +236,70 @@ describe('the settings page', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('says when the dummy OTP is off, and shows a refused endpoint on its field', async () => {
+    refreshAs(HEAD);
+    serve();
+    server.use(
+      http.get('*/api/v1/admin/channels', () =>
+        HttpResponse.json({ data: { ...CHANNELS, otpDummy: false }, meta: {} }),
+      ),
+      http.put('*/api/v1/admin/channels/sms', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'validation.failed',
+              message: 'কিছু তথ্য সঠিক নয়।',
+              requestId: 'req_x',
+              details: [
+                {
+                  path: 'endpoint',
+                  code: 'validation.https_public_url',
+                  message: 'প্রোভাইডারের ইন্টারনেটের https ঠিকানা দিন।',
+                },
+              ],
+            },
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+    open('channels');
+    expect(await screen.findByText('ডামি OTP বন্ধ আছে।')).toBeInTheDocument();
+    expect(screen.queryByText('ডামি OTP চালু আছে')).toBeNull();
+    const user = userEvent.setup();
+    await user.type(screen.getByRole('textbox', { name: /^এন্ডপয়েন্ট/ }), 'http://10.0.0.1/send');
+    await user.click(screen.getByRole('button', { name: 'সংরক্ষণ করুন' }));
+    expect(
+      await screen.findByText('প্রোভাইডারের ইন্টারনেটের https ঠিকানা দিন।'),
+    ).toBeInTheDocument();
+  });
+
+  it('refuses a list code in capitals before asking the server', async () => {
+    refreshAs(HEAD);
+    serve();
+    open('lists');
+    const expense = await screen.findByRole('heading', { level: 2, name: 'খরচের খাত' });
+    const card = expense.closest('.ui-card') as HTMLElement;
+    const user = userEvent.setup();
+    await user.click(within(card).getByRole('button', { name: 'নতুন আইটেম' }));
+    const dialog = await screen.findByRole('dialog', { name: 'নতুন আইটেম: খরচের খাত' });
+    await user.type(within(dialog).getByRole('textbox', { name: /^কোড/ }), 'Banner');
+    await user.type(within(dialog).getByRole('textbox', { name: /^নাম \(বাংলা\)/ }), 'ব্যানার');
+    await user.type(within(dialog).getByRole('textbox', { name: /^নাম \(ইংরেজি\)/ }), 'Banner');
+    await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
+    expect(
+      await within(dialog).findByText(
+        'ছোট হাতের ইংরেজি অক্ষর, সংখ্যা ও _ দিন; শুরু হবে অক্ষর দিয়ে।',
+      ),
+    ).toBeInTheDocument();
+    expect(added).toHaveLength(0);
+  }, 20_000);
+
   it('shows the forbidden content to a Program Manager', async () => {
     refreshAs(PM);
     serve();
     open();
     expect(await screen.findByRole('heading', { level: 1 })).not.toHaveTextContent('সেটিংস');
+    expect(settingsRead).toBe(0);
   });
 });

@@ -41,15 +41,19 @@ function CodeFilter({
   onCommit: (value: string | undefined) => void;
 }) {
   const [text, setText] = useState(value ?? '');
+  const [invalid, setInvalid] = useState(false);
   const [shown, setShown] = useState(value);
   // a filter changed elsewhere (cleared, drill-down) shows its new value
   if (shown !== value) {
     setShown(value);
     setText(value ?? '');
+    setInvalid(false);
   }
   const commit = () => {
     const next = text.trim().toLowerCase();
-    if (next === '' || pattern.test(next)) onCommit(next || undefined);
+    const valid = next === '' || pattern.test(next);
+    setInvalid(!valid);
+    if (valid) onCommit(next || undefined);
   };
   return (
     <TextField
@@ -60,6 +64,7 @@ function CodeFilter({
       value={text}
       onChange={setText}
       onBlur={commit}
+      error={invalid ? helper : undefined}
     />
   );
 }
@@ -123,7 +128,7 @@ export function AuditPage() {
             roles: [],
           };
   const rangeError =
-    page.error instanceof ApiFailure && page.error.details.some((d) => d.path === 'from')
+    page.error instanceof ApiFailure
       ? page.error.details.find((d) => d.path === 'from')?.message
       : undefined;
 

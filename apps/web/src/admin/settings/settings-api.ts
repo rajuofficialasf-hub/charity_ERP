@@ -65,7 +65,10 @@ export const addItem = (list: EditableList, body: ReferenceItemCreate) =>
   api<ReferenceItem>(`/reference-lists/${list}`, { method: 'POST', body });
 
 export const updateItem = (list: EditableList, code: string, body: ReferenceItemUpdate) =>
-  api<ReferenceItem>(`/reference-lists/${list}/items/${code}`, { method: 'PATCH', body });
+  api<ReferenceItem>(`/reference-lists/${list}/items/${encodeURIComponent(code)}`, {
+    method: 'PATCH',
+    body,
+  });
 
 export const channels = () => api<Channels>('/admin/channels');
 

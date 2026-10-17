@@ -10,4 +10,7 @@ export const addNisab = (body: NisabAdd) =>
   api<NisabVersionView>('/nisab-versions', { method: 'POST', body });
 
 export const withdrawNisab = (id: string, reason: string) =>
-  api<NisabVersionView>(`/nisab-versions/${id}/withdraw`, { method: 'POST', body: { reason } });
+  api<NisabVersionView>(`/nisab-versions/${encodeURIComponent(id)}/withdraw`, {
+    method: 'POST',
+    body: { reason },
+  });

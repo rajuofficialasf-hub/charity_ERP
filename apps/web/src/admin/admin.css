@@ -329,7 +329,7 @@
   margin-top: var(--space-4);
 }
 
-/* The save button under a settings form (T1.13). */
+/* The save button under a settings form, at the end of the row. */
 .admin-form-actions {
   display: flex;
   justify-content: flex-end;
