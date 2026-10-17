@@ -554,11 +554,11 @@ permissions:
     default:
       - { role: program_manager, scope: PROGRAM }
   - name: project.template.manage
-    description: Create and edit master project templates; save a project as template
+    description: Create and edit master project templates (organisation-wide, D-096); save a project the holder may view as template
     module: M06
     sensitive: false
     default:
-      - { role: program_manager, scope: PROGRAM }
+      - { role: program_manager, scope: GLOBAL }
   - name: project.quota.manage
     description: Set district and union quotas and scoring criteria
     module: M06

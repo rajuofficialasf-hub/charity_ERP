@@ -10,6 +10,8 @@ import {
   type ProjectUpdate,
   type SetupField,
   startingComponents,
+  type TemplateDefinition,
+  templateDefinitionSchema,
   sumPaisa,
   transitionFor,
   type WorkflowKey,
@@ -32,6 +34,7 @@ import type { PrismaService, Tx } from '../core/prisma.service';
 import type { Env } from '../config/env';
 import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
+import { applyDefinition, projectDefinition } from './project-definition';
 
 /** Newest first by id (UUID v7 follows the time of creation and pages without gaps). */
 const SORT = parseSort(undefined, ['id'], [{ field: 'id', direction: 'desc' }]);
@@ -213,9 +216,14 @@ export class ProjectsService {
         await this.lockedProgram(tx, viewer, body.programId);
         if (await tx.project.findUnique({ where: { code: body.code }, select: { id: true } }))
           throw new ApiError('project.code_taken', 409);
-        const workflow = await this.workflow(tx, body.source.workflowKey);
+        const start = await this.startingPoint(tx, viewer, body.source);
+        const workflow = await this.workflow(tx, start.workflowKey);
         const id = uuidv7();
-        const components = await this.components(tx, body.source.workflowKey, workflow.definition);
+        const components = await this.components(tx, start.workflowKey, workflow.definition);
+        // the dawah flag follows the dawah component the project starts with
+        const dawah = (start.definition?.components ?? components).some(
+          (c) => c.componentKey === 'dawah' && c.enabled,
+        );
         const row = await tx.project.create({
           select: SELECT,
           data: {
@@ -229,7 +237,9 @@ export class ProjectsService {
             status: 'draft',
             workflowDefinitionId: workflow.id,
             workflowVersion: workflow.version,
-            dawahEnabled: components.some((c) => c.componentKey === 'dawah' && c.enabled),
+            dawahEnabled: dawah,
+            sourceTemplateId: start.sourceTemplateId ?? null,
+            copiedFromProjectId: start.copiedFromProjectId ?? null,
             createdBy: actor,
             updatedBy: actor,
           },
@@ -245,6 +255,8 @@ export class ProjectsService {
             updatedBy: actor,
           })),
         });
+        // a template or a copy brings its components, syllabus and rules (BD-10)
+        if (start.definition) await applyDefinition(tx, id, start.definition, actor);
         // the application numbers of this project count from here
         await tx.idSequence.create({ data: { scopeKey: `app:${id}`, lastValue: 0 } });
         await this.audit.record(tx, {
@@ -452,6 +464,49 @@ export class ProjectsService {
       throw new ApiError('permission.denied', 403);
     }
     if (!program.active) throw new ApiError('program.inactive', 409);
+  }
+
+  /**
+   * Where a new project starts: a workflow's starting setup, an active master template (any in the
+   * organisation), or a copy of a project the caller may view. An unknown template or a project
+   * outside the caller's reach is not found; an inactive template starts nothing.
+   */
+  private async startingPoint(
+    tx: Tx,
+    viewer: ProjectViewer,
+    source: ProjectCreate['source'],
+  ): Promise<{
+    workflowKey: WorkflowKey;
+    definition?: TemplateDefinition;
+    sourceTemplateId?: string;
+    copiedFromProjectId?: string;
+  }> {
+    if (source.kind === 'workflow') return { workflowKey: source.workflowKey };
+    if (source.kind === 'template') {
+      const template = await tx.projectTemplate.findUnique({
+        where: { id: source.templateId },
+        select: { active: true, definition: true },
+      });
+      if (!template) throw new ApiError('permission.not_found', 404);
+      if (!template.active) throw new ApiError('template.inactive', 409);
+      const definition = templateDefinitionSchema.parse(template.definition);
+      return {
+        workflowKey: definition.workflowKey,
+        definition,
+        sourceTemplateId: source.templateId,
+      };
+    }
+    const actor = viewer.principal.userId;
+    if (!(await this.access.holdsOnProject(actor, 'project.view', source.projectId, tx))) {
+      this.access.denied(actor, 'project.view', 'project');
+      throw new ApiError('permission.not_found', 404);
+    }
+    const definition = await projectDefinition(tx, source.projectId);
+    return {
+      workflowKey: definition.workflowKey,
+      definition,
+      copiedFromProjectId: source.projectId,
+    };
   }
 
   /** The newest seeded definition of a workflow (422 when it is not seeded). */

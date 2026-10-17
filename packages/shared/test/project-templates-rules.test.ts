@@ -18,6 +18,9 @@ import {
   PERMISSION_SETS,
   permissionSetAllowed,
   teamAddSchema,
+  templateSaveSchema,
+  templateUpdateSchema,
+  projectCreateSchema,
   PROJECT_BOUND_SETTINGS,
   projectRulesSchema,
   requiredRuleParts,
@@ -342,5 +345,37 @@ describe('team requests', () => {
     expect(teamAddSchema.safeParse({ memberVolunteerIds: ids(51) }).success).toBe(false);
     expect(teamAddSchema.safeParse({ memberVolunteerIds: [] }).success).toBe(false);
     expect(teamAddSchema.safeParse({ memberVolunteerIds: [id(1), id(1)] }).success).toBe(false);
+  });
+});
+
+describe('template and creation requests', () => {
+  const uuid = '0190a4c4-0000-7000-8000-000000000001';
+  it('saves as a new template with a name in both languages, or onto an existing one', () => {
+    expect(templateSaveSchema.safeParse({ name: text('শীত') }).success).toBe(true);
+    expect(templateSaveSchema.safeParse({ templateId: uuid }).success).toBe(true);
+    expect(templateSaveSchema.safeParse({ name: { bn: ' ', en: 'Winter' } }).success).toBe(false);
+    expect(templateSaveSchema.safeParse({ name: text('শীত'), templateId: uuid }).success).toBe(
+      false,
+    );
+  });
+
+  it('changes a template by name, description or state, at least one', () => {
+    expect(templateUpdateSchema.safeParse({ active: false }).success).toBe(true);
+    expect(templateUpdateSchema.safeParse({ description: null }).success).toBe(true);
+    expect(templateUpdateSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('starts a project from a workflow, a template or a copy', () => {
+    const base = { programId: uuid, code: 'WC', year: 2027, name: text('শীত') };
+    for (const source of [
+      { kind: 'workflow', workflowKey: 'distribution' },
+      { kind: 'template', templateId: uuid },
+      { kind: 'copy', projectId: uuid },
+    ])
+      expect(projectCreateSchema.safeParse({ ...base, source }).success, source.kind).toBe(true);
+    expect(
+      projectCreateSchema.safeParse({ ...base, source: { kind: 'copy', templateId: uuid } })
+        .success,
+    ).toBe(false);
   });
 });

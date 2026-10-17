@@ -180,5 +180,8 @@
     "not_on_project": "This volunteer is not assigned to the project.",
     "team_lead_only": "Only a General or Both volunteer working on the project can have a team.",
     "already_on_team": "This volunteer is already on a team of the project."
+  },
+  "template": {
+    "inactive": "This template is deactivated; activate it in the template library first."
   }
 }

@@ -1862,23 +1862,29 @@ components:
         name: { $ref: '#/components/schemas/BoundedLabel' }
         description: { type: string, maxLength: 2000 }
         source:
-          type: object
-          description: The way the project is made; template and copy come with T1.12
-          additionalProperties: false
-          required: [kind, workflowKey]
-          properties:
-            kind: { type: string, const: workflow }
-            workflowKey:
-              type: string
-              enum:
-                [
-                  distribution,
-                  construction,
-                  advance_voucher,
-                  implementation_evidence,
-                  open_application_visit,
-                  qurbani,
-                ]
+          description: >-
+            Where the project starts (BD-10, D-096): a workflow's starting setup, an active master
+            template, or a copy of a project the caller may view. A template or a copy brings the
+            components with their settings, the syllabus and the rules texts, and nothing else.
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [kind, workflowKey]
+              properties:
+                kind: { type: string, const: workflow }
+                workflowKey: { type: string, enum: [distribution, construction, advance_voucher, implementation_evidence, open_application_visit, qurbani] }
+            - type: object
+              additionalProperties: false
+              required: [kind, templateId]
+              properties:
+                kind: { type: string, const: template }
+                templateId: { type: string, format: uuid }
+            - type: object
+              additionalProperties: false
+              required: [kind, projectId]
+              properties:
+                kind: { type: string, const: copy }
+                projectId: { type: string, format: uuid }
     ProjectUpdate:
       type: object
       description: Setup fields of the project row; at least one. Which may change depends on the project state.
@@ -2141,33 +2147,64 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     Template:
       type: object
-      required: [id, key, version, name, projectType]
+      required: [id, name, description, workflowKey, active, version, sourceProjectId, updatedAt, updatedByName]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
-        key: { type: string }
-        version: { type: integer }
         name: { $ref: '#/components/schemas/Bilingual' }
-        projectType: { type: string }
-        sourceProjectId: { type: [string, 'null'], format: uuid }
+        description: { type: [string, 'null'] }
+        workflowKey: { type: string }
         active: { type: boolean }
+        version: { type: integer, minimum: 1, description: Raised each time a project's setup replaces the contents }
+        sourceProjectId: { type: [string, 'null'], format: uuid }
+        updatedAt: { type: string, format: date-time }
+        updatedByName: { type: [string, 'null'] }
+    TemplateDetail:
+      allOf:
+        - $ref: '#/components/schemas/Template'
+        - type: object
+          required: [definition]
+          properties:
+            definition: { type: object, description: 'The copied parts: workflowKey, components with settings, syllabus, rules' }
     TemplateResponse:
       type: object
-      required: [data, meta]
+      required: [data]
       properties:
         data: { $ref: '#/components/schemas/Template' }
-        meta: { $ref: '#/components/schemas/Meta' }
+    TemplateDetailResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/TemplateDetail' }
     TemplateList:
       type: object
-      required: [data, meta]
+      required: [data]
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/Template' } }
-        meta: { $ref: '#/components/schemas/ListMeta' }
     SaveAsTemplateRequest:
+      description: A new template with its name, or the replacement of an existing template's contents.
+      anyOf:
+        - type: object
+          additionalProperties: false
+          required: [name]
+          properties:
+            name: { $ref: '#/components/schemas/BoundedLabel' }
+            description: { type: string, maxLength: 2000 }
+        - type: object
+          additionalProperties: false
+          required: [templateId]
+          properties:
+            templateId: { type: string, format: uuid }
+    TemplateUpdate:
       type: object
-      required: [key, name]
+      additionalProperties: false
+      description: At least one field.
       properties:
-        key: { type: string, pattern: '^[a-z0-9_]{2,64}$' }
-        name: { $ref: '#/components/schemas/Bilingual' }
+        name: { $ref: '#/components/schemas/BoundedLabel' }
+        description:
+          anyOf:
+            - { type: string, maxLength: 2000 }
+            - { type: 'null' }
+        active: { type: boolean }
 
     # ---------------- forms ----------------
     Form:
@@ -5690,10 +5727,13 @@ paths:
     post:
       tags: [templates]
       operationId: templates.template.saveFromProject
-      summary: Save the project's setup as a new template (BR-064)
+      summary: "Save a project's setup as a new template, or onto an existing one (its version goes up)"
+      description: >-
+        The caller must also be able to view the project (404 otherwise). Templates are
+        organisation-wide (BR-064, D-096); audited as template.create or template.update.
       x-permission: project.template.manage
       x-scope: project
-      x-audit: template.create
+      x-audit: template.save
       x-idempotency: none
       x-rate-limit: default
       requestBody:
@@ -5702,39 +5742,45 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/SaveAsTemplateRequest' }
       responses:
-        '201':
-          description: Template created
+        '200':
+          description: The template as it is now
           content:
             application/json:
               schema: { $ref: '#/components/schemas/TemplateResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
 
   # ======================= templates =======================
   /templates:
     get:
       tags: [templates]
       operationId: templates.template.list
-      summary: Master project templates; not paginated
+      summary: Master project templates of the organisation; the inactive ones only when asked
       x-permission: project.create
       x-scope: program
       x-audit: none
       x-idempotency: none
       x-rate-limit: default
+      parameters:
+        - { name: include, in: query, required: false, schema: { type: string, enum: [inactive] } }
       responses:
         '200':
-          description: Templates
+          description: Templates, not paginated
           content:
             application/json:
               schema: { $ref: '#/components/schemas/TemplateList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /templates/{templateId}:
     parameters:
       - $ref: '#/components/parameters/TemplateId'
     get:
       tags: [templates]
       operationId: templates.template.get
-      summary: Get a template
+      summary: A template with its definition
       x-permission: project.create
       x-scope: program
       x-audit: none
@@ -5745,8 +5791,34 @@ paths:
           description: Template
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/TemplateResponse' }
+              schema: { $ref: '#/components/schemas/TemplateDetailResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [templates]
+      operationId: templates.template.update
+      summary: Rename, describe, deactivate or activate a template (never deleted)
+      x-permission: project.template.manage
+      x-scope: global
+      x-audit: template.update
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TemplateUpdate' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TemplateResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
 
   # ======================= forms =======================
   /projects/{projectId}/forms:
