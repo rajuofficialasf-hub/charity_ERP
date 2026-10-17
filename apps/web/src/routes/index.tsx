@@ -29,6 +29,25 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
         { path: '/account/profile', element: <ProfileView /> },
         { path: '/account/sessions', element: <SessionsView /> },
         { path: '/account/password', element: <ChangePasswordView /> },
+        // the volunteer's own projects load with their own chunk, like the admin pages
+        {
+          path: '/my-projects',
+          lazy: async () => ({
+            Component: (await import('../features/projects/MyProjectsPage')).MyProjectsPage,
+          }),
+        },
+        {
+          path: '/my-projects/:projectId',
+          lazy: async () => ({
+            Component: (await import('../features/projects/MyProjectPage')).MyProjectPage,
+          }),
+        },
+        {
+          path: '/my-projects/:projectId/team',
+          lazy: async () => ({
+            Component: (await import('../features/projects/TeamPage')).TeamPage,
+          }),
+        },
         {
           // The admin area is its own chunk (UX-15): the other screens never load it.
           path: '/admin',

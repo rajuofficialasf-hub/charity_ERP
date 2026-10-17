@@ -10,6 +10,7 @@ export function HomeView() {
   const tc = useTranslations('common.app');
   const ta = useTranslations('admin');
   const tr = useTranslations('registration');
+  const tp = useTranslations('projects.mine');
   return (
     <AccountPage title={(me) => t('home.welcome', { name: me.displayName })}>
       {(me) => (
@@ -18,6 +19,11 @@ export function HomeView() {
           {me.state === 'pending' && <Alert tone="info">{t('account.pending')}</Alert>}
           {me.kind === 'volunteer' && (
             <div>
+              {me.state === 'active' && (
+                <Button variant="primary" href="/my-projects">
+                  {tp('open')}
+                </Button>
+              )}
               <Button variant="secondary" href="/account/profile">
                 {tr('profile.link')}
               </Button>
