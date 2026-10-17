@@ -13,7 +13,8 @@
     "templates": "Templates",
     "staff": "Officials",
     "settings": "Settings",
-    "nisab": "Nisab"
+    "nisab": "Nisab",
+    "audit": "Audit log"
   },
   "bar": {
     "label": "Admin",
@@ -1102,6 +1103,50 @@
       "effective_hint": "Today or later, at most a year ahead, after the latest version",
       "basis": "Basis",
       "basis_hint": "For example: by the price of silver"
+    }
+  },
+  "audit": {
+    "title": "Audit log",
+    "table": "Audit log entries",
+    "range": "Range: {from} to {to}",
+    "empty": "No entries for these filters",
+    "system": "System",
+    "open": "Show the details of {action}",
+    "open_short": "Details",
+    "history_of": "The whole history of one entity: {type} · {id}",
+    "history_clear": "Show all entries",
+    "column": {
+      "time": "Time",
+      "actor": "Person",
+      "action": "Action",
+      "entity": "Entity",
+      "reason": "Reason"
+    },
+    "filter": {
+      "actor": "Person",
+      "actor_chosen": "Chosen person",
+      "action": "Action",
+      "action_hint": "For example settings.change",
+      "entity_type": "Entity type",
+      "entity_type_hint": "For example setting or user",
+      "from": "From",
+      "to": "To"
+    },
+    "detail": {
+      "title": "Audit entry",
+      "time": "Time",
+      "actor": "Person",
+      "role": "Role",
+      "action": "Action",
+      "entity": "Entity",
+      "reason": "Reason",
+      "ip": "IP address",
+      "device": "Device session",
+      "system": "System",
+      "old": "Old value",
+      "new": "New value",
+      "nothing": "Nothing",
+      "history": "The whole history of this entity"
     }
   }
 }

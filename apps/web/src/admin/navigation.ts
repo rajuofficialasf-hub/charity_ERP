@@ -9,6 +9,7 @@ import {
   LayoutTemplate,
   LayoutDashboard,
   Scale,
+  ScrollText,
   Settings,
   UserCheck,
   Users,
@@ -42,7 +43,8 @@ export interface AdminNavItem {
     | 'handover'
     | 'permissions'
     | 'settings'
-    | 'nisab';
+    | 'nisab'
+    | 'audit';
   href: string;
   icon: IconComponent;
   /** Only these roles see the item (the server checks the permission anyway); all when absent. */
@@ -83,6 +85,7 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
   },
   { key: 'settings', href: '/admin/settings', icon: Settings, roles: SYSTEM_ADMIN_ROLES },
   { key: 'nisab', href: '/admin/nisab', icon: Scale, roles: NISAB_ROLES },
+  { key: 'audit', href: '/admin/audit', icon: ScrollText, roles: SYSTEM_ADMIN_ROLES },
 ];
 
 /** The items a user with these roles sees. */

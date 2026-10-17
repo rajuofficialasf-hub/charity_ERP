@@ -173,6 +173,12 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
               }),
             },
             {
+              path: 'audit',
+              lazy: async () => ({
+                Component: (await import('../admin/audit/AuditPage')).AuditPage,
+              }),
+            },
+            {
               path: 'handover',
               lazy: async () => ({
                 Component: (await import('../admin/handover/HandoverPage')).HandoverPage,
