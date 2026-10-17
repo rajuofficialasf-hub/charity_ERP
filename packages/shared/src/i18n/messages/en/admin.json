@@ -12,7 +12,8 @@
     "programs": "Programs",
     "templates": "Templates",
     "staff": "Officials",
-    "settings": "Settings"
+    "settings": "Settings",
+    "nisab": "Nisab"
   },
   "bar": {
     "label": "Admin",
@@ -1062,6 +1063,45 @@
       "endpoint": "Endpoint",
       "endpoint_hint": "An https address, without the key",
       "enabled": "SMS on"
+    }
+  },
+  "nisab": {
+    "title": "Nisab",
+    "new": "New nisab",
+    "table": "Nisab versions",
+    "in_force": "Nisab in force today",
+    "since": "In force since {date}",
+    "none": "No nisab is in force yet.",
+    "empty": "No nisab has been added yet",
+    "withdraw": "Withdraw the nisab of {date}",
+    "withdraw_short": "Withdraw",
+    "withdrawn_by": "Withdrawn by {name}: {reason}",
+    "column": {
+      "effective_from": "Effective date",
+      "value": "Amount",
+      "state": "State",
+      "basis": "Basis",
+      "set_by": "Added by"
+    },
+    "state": {
+      "in_force": "In force",
+      "upcoming": "Upcoming",
+      "past": "Earlier",
+      "withdrawn": "Withdrawn"
+    },
+    "notice": {
+      "added": "A new nisab from {date} is added.",
+      "withdrawn": "The nisab of {date} is withdrawn."
+    },
+    "dialog": {
+      "title": "New nisab",
+      "hint": "A version never changes once added. Before it takes effect it can be withdrawn with a reason.",
+      "value": "Amount (Taka)",
+      "value_hint": "At most 1,00,00,000 Taka",
+      "effective_from": "Effective date",
+      "effective_hint": "Today or later, at most a year ahead, after the latest version",
+      "basis": "Basis",
+      "basis_hint": "For example: by the price of silver"
     }
   }
 }

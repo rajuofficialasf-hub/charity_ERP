@@ -167,6 +167,12 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
               }),
             },
             {
+              path: 'nisab',
+              lazy: async () => ({
+                Component: (await import('../admin/nisab/NisabPage')).NisabPage,
+              }),
+            },
+            {
               path: 'handover',
               lazy: async () => ({
                 Component: (await import('../admin/handover/HandoverPage')).HandoverPage,

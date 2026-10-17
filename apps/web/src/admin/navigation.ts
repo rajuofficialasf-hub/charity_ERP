@@ -8,6 +8,7 @@ import {
   Layers,
   LayoutTemplate,
   LayoutDashboard,
+  Scale,
   Settings,
   UserCheck,
   Users,
@@ -21,6 +22,7 @@ import {
   PROJECT_ROLES,
   EDIT_REQUEST_ROLES,
   STAFF_DIRECTORY_ROLES,
+  NISAB_ROLES,
   STAFF_APPROVER_ROLES,
   SYSTEM_ADMIN_ROLES,
   VOLUNTEER_TAB_ROLES,
@@ -39,7 +41,8 @@ export interface AdminNavItem {
     | 'staff'
     | 'handover'
     | 'permissions'
-    | 'settings';
+    | 'settings'
+    | 'nisab';
   href: string;
   icon: IconComponent;
   /** Only these roles see the item (the server checks the permission anyway); all when absent. */
@@ -79,6 +82,7 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
     roles: PERMISSION_PANEL_ROLES,
   },
   { key: 'settings', href: '/admin/settings', icon: Settings, roles: SYSTEM_ADMIN_ROLES },
+  { key: 'nisab', href: '/admin/nisab', icon: Scale, roles: NISAB_ROLES },
 ];
 
 /** The items a user with these roles sees. */
