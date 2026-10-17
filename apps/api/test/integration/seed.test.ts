@@ -192,16 +192,21 @@ describe('base set', () => {
       budgetAlertPercent: 90,
     });
     // a value the admin changed stays when the seed runs again
-    await db.query(
-      `UPDATE settings SET value = jsonb_set(value, '{reviewPendingDays}', '9') WHERE key = 'monitoring.thresholds'`,
-    );
-    await runSeed(db, ['base'], { NODE_ENV: 'test', DATABASE_URL: url });
-    const kept = (await db.query(`SELECT value FROM settings WHERE key = 'monitoring.thresholds'`))
-      .rows[0].value;
-    expect(kept.reviewPendingDays).toBe(9);
-    await db.query(
-      `UPDATE settings SET value = jsonb_set(value, '{reviewPendingDays}', '7') WHERE key = 'monitoring.thresholds'`,
-    );
+    const setReview = (days: number) =>
+      db.query(
+        `UPDATE settings SET value = jsonb_set(value, '{reviewPendingDays}', $1::jsonb) WHERE key = 'monitoring.thresholds'`,
+        [String(days)],
+      );
+    await setReview(9);
+    try {
+      await runSeed(db, ['base'], { NODE_ENV: 'test', DATABASE_URL: url });
+      const kept = (
+        await db.query(`SELECT value FROM settings WHERE key = 'monitoring.thresholds'`)
+      ).rows[0].value;
+      expect(kept.reviewPendingDays).toBe(9);
+    } finally {
+      await setReview(7);
+    }
   });
 });
 

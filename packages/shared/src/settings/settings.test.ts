@@ -95,6 +95,11 @@ describe('settings', () => {
       'https://172.20.0.1/send',
       'https://169.254.169.254/latest',
       'https://[::1]/send',
+      'https://localhost./send',
+      'https://metadata.google.internal./latest',
+      'https://printer.local/x',
+      'https://100.64.0.1/send',
+      'https://0.1.2.3/send',
       'https://user:pass@api.example.com/send',
       'not a url',
     ]) {
@@ -128,6 +133,15 @@ describe('settings', () => {
     ).toEqual(['validation.amount_format']);
     expect(nisabAddSchema.safeParse({ value: '1000', effectiveFrom: '1/1/2027' }).success).toBe(
       false,
+    );
+    expect(codes(nisabAddSchema.safeParse({ value: '1000', effectiveFrom: '2031-02-31' }))).toEqual(
+      ['validation.date_format'],
+    );
+    expect(nisabAddSchema.safeParse({ value: '1000', effectiveFrom: '2031-13-01' }).success).toBe(
+      false,
+    );
+    expect(nisabAddSchema.safeParse({ value: '1000', effectiveFrom: '2032-02-29' }).success).toBe(
+      true,
     );
     expect(nisabWithdrawSchema.safeParse({ reason: '  ' }).success).toBe(false);
   });

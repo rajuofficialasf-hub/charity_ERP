@@ -985,7 +985,22 @@ describe('nisab versions', () => {
       `UPDATE nisab_versions SET withdrawn_at = now(), withdrawn_by = $2, withdraw_reason = 'ভুল তারিখ' WHERE id = $1`,
       [first, pm],
     );
-    await expect(add(pm, '2031-03-01')).resolves.toBeTruthy();
+    const again = await add(pm, '2031-03-01');
+    expect(again.rows).toHaveLength(1);
+    expect(again.rows[0].id).not.toBe(first);
+  });
+
+  it('never withdraws a version that is already in effect', async () => {
+    const pm = await f.user(db);
+    const id = (await add(pm, '2020-01-01')).rows[0].id as string;
+    await expectSqlError(
+      db.query(
+        `UPDATE nisab_versions SET withdrawn_at = now(), withdrawn_by = $2, withdraw_reason = 'ভুল' WHERE id = $1`,
+        [id, pm],
+      ),
+      SQLSTATE.restrictViolation,
+      /in effect is never withdrawn/,
+    );
   });
 
   it('sets the withdrawal columns together', async () => {

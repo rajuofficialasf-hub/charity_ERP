@@ -1,5 +1,5 @@
--- Admin and settings, core (DECISION_LOG D-098; plan
--- docs/plans/2026-10-17-1800-feat-admin-settings-core-plan.md). Additive: an index for the audit
+-- Admin and settings, core (docs/DECISION_LOG.md, the admin and settings decision of 2026-10-17;
+-- plan docs/plans/2026-10-17-1800-feat-admin-settings-core-plan.md). Additive: an index for the audit
 -- viewer's newest-first list, and the withdrawal of a nisab version that has not taken effect.
 
 -- The audit viewer lists the log newest first within a date range; the existing indexes all start
@@ -25,7 +25,8 @@ DROP INDEX "nisab_versions_effective_from_key";
 CREATE UNIQUE INDEX "nisab_versions_effective_from_key" ON "nisab_versions"("effective_from") WHERE (withdrawn_at IS NULL);
 
 -- Applications store the version used at verification, so a version never changes: no delete, the
--- amount, date, note and setter stay, and the withdrawal is written once.
+-- amount, date, note and setter stay, only a version not yet in effect (Dhaka date) is withdrawn, and
+-- the withdrawal is written once.
 CREATE FUNCTION protect_nisab_version() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF TG_OP = 'DELETE' THEN
@@ -41,6 +42,10 @@ BEGIN
       OR NEW.withdraw_reason IS DISTINCT FROM OLD.withdraw_reason)) THEN
     RAISE EXCEPTION 'a nisab version never changes; only a withdrawal is added once'
       USING ERRCODE = 'restrict_violation';
+  END IF;
+  IF OLD.withdrawn_at IS NULL AND NEW.withdrawn_at IS NOT NULL
+    AND OLD.effective_from <= (now() AT TIME ZONE 'Asia/Dhaka')::date THEN
+    RAISE EXCEPTION 'a nisab version in effect is never withdrawn' USING ERRCODE = 'restrict_violation';
   END IF;
   RETURN NEW;
 END;

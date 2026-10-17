@@ -28,11 +28,13 @@ const email = z
   .email({ message: 'validation.email_format' })
   .max(254)
   .transform((v) => v.toLowerCase());
-const days = z
-  .number({ message: 'validation.out_of_range' })
-  .int({ message: 'validation.out_of_range' })
-  .min(1, { message: 'validation.out_of_range' })
-  .max(365, { message: 'validation.out_of_range' });
+const intInRange = (min: number, max: number) =>
+  z
+    .number({ message: 'validation.out_of_range' })
+    .int({ message: 'validation.out_of_range' })
+    .min(min, { message: 'validation.out_of_range' })
+    .max(max, { message: 'validation.out_of_range' });
+const days = intInRange(1, 365);
 
 /** The Foundation's and the department's names, address and contact (heads reports and emails). */
 export const organisationSettingSchema = z.strictObject({
@@ -51,28 +53,39 @@ export const localizationSettingSchema = z.strictObject({
 });
 export type LocalizationSetting = z.infer<typeof localizationSettingSchema>;
 
-/** When the monitoring work raises an alert (O-04); read by the monitoring control centre later. */
+/** When the monitoring work raises an alert; read by the monitoring control centre later. */
 export const monitoringThresholdsSchema = z.strictObject({
   reviewPendingDays: days,
   approvalPendingDays: days,
   noUpdateDays: days,
   inactiveVolunteerDays: days,
-  budgetAlertPercent: z
-    .number({ message: 'validation.out_of_range' })
-    .int({ message: 'validation.out_of_range' })
-    .min(1, { message: 'validation.out_of_range' })
-    .max(100, { message: 'validation.out_of_range' }),
+  budgetAlertPercent: intInRange(1, 100),
 });
 export type MonitoringThresholds = z.infer<typeof monitoringThresholdsSchema>;
 
-/** Host names and addresses the server must never be pointed at. */
- 
-const INTERNAL_HOST =
-  /^(localhost|.*\.localhost|.*\.local|.*\.internal|0\.0\.0\.0|127\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|169\.254\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|\[.*\])$/i;
+/** Host names the server must never be pointed at: local names and internal domains. */
+const INTERNAL_NAME = /^(localhost|.+\.localhost|.+\.local|.+\.internal|.+\.home\.arpa)$/;
+const IPV4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+
+/** Whether an IPv4 address is not on the public internet (this network, private, loopback, shared, link-local). */
+function isInternalIpv4(a: number, b: number): boolean {
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    a >= 224
+  );
+}
 
 /**
  * Whether a text is an https URL on a public host: a stored provider endpoint is called by the
- * server, so loopback, private, link-local and IPv6-literal hosts are refused.
+ * server, so local names, internal domains, private, loopback, shared and link-local addresses and
+ * IPv6 literals are refused. A host name that resolves to a private address is caught only where
+ * the adapter connects; the real provider's adapter checks its host there.
  */
 export function isPublicHttpsUrl(raw: string): boolean {
   let url: URL;
@@ -81,17 +94,17 @@ export function isPublicHttpsUrl(raw: string): boolean {
   } catch {
     return false;
   }
-  return (
-    url.protocol === 'https:' &&
-    url.username === '' &&
-    url.password === '' &&
-    !INTERNAL_HOST.test(url.hostname)
-  );
+  if (url.protocol !== 'https:' || url.username !== '' || url.password !== '') return false;
+  // a fully qualified name may end in dots ("localhost."); the name is the same without them
+  const host = url.hostname.toLowerCase().replace(/\.+$/, '');
+  if (host === '' || host.startsWith('[') || INTERNAL_NAME.test(host)) return false;
+  const ip = IPV4.exec(host);
+  return !ip || !isInternalIpv4(Number(ip[1]), Number(ip[2]));
 }
 
 /**
- * The provider-agnostic SMS adapter configuration (BD-47, O-33). The provider's key never lives
- * here; it stays in the server's environment.
+ * The provider-agnostic SMS adapter configuration, kept until a provider is chosen. The provider's
+ * key never lives here; it stays in the server's environment.
  */
 export const smsProviderSettingSchema = z.strictObject({
   provider: z
@@ -132,7 +145,7 @@ export function isSettingKey(key: string): key is SettingKey {
 }
 
 /**
- * The values in force until someone changes them (O-04 thresholds; the department's names). The
+ * The values in force until someone changes them (the decided alert thresholds; the department's names). The
  * names are bilingual data the admin edits, not interface text; the contact is a placeholder the
  * admin replaces on the settings page.
  */
@@ -176,11 +189,13 @@ export const listCodeSchema = z
   .string()
   .regex(/^[a-z][a-z0-9_]{1,63}$/, { message: 'validation.list_code' });
 
+const sortOrder = intInRange(0, 10_000).optional();
+
 export const referenceItemCreateSchema = z.strictObject({
   code: listCodeSchema,
   label: bilingual(200),
   active: z.boolean().optional(),
-  sortOrder: z.number().int().min(0).max(10_000).optional(),
+  sortOrder,
 });
 export type ReferenceItemCreate = z.infer<typeof referenceItemCreateSchema>;
 
@@ -188,7 +203,7 @@ export const referenceItemUpdateSchema = z
   .strictObject({
     label: bilingual(200).optional(),
     active: z.boolean().optional(),
-    sortOrder: z.number().int().min(0).max(10_000).optional(),
+    sortOrder,
   })
   .refine((v) => v.label !== undefined || v.active !== undefined || v.sortOrder !== undefined, {
     message: 'validation.required',
@@ -199,10 +214,20 @@ export type ReferenceItemUpdate = z.infer<typeof referenceItemUpdateSchema>;
 
 /** The largest nisab accepted, in Taka: a mistyped amount must not become a version. */
 export const NISAB_MAX_TAKA = 10_000_000;
-/** How far ahead a new version may take effect, in days. */
+/** How far ahead a new version may take effect, in days; the service checks it against today. */
 export const NISAB_MAX_DAYS_AHEAD = 366;
 
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'validation.date_format' });
+/** A calendar date written YYYY-MM-DD that exists (no 31 February). */
+const isoDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'validation.date_format' })
+  .refine(
+    (v) => {
+      const d = new Date(`${v}T00:00:00Z`);
+      return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(v);
+    },
+    { message: 'validation.date_format' },
+  );
 
 export const nisabAddSchema = z.strictObject({
   value: z

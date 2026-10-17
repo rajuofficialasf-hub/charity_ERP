@@ -1,5 +1,5 @@
 -- Reverses 20261017180000_admin_settings_core (docs/architecture/ADR/ADR-003-prisma-with-down-sql.md;
--- DECISION_LOG D-098). The withdrawals go with their columns; the audit log still records each one.
+-- docs/DECISION_LOG.md, the admin and settings decision of 2026-10-17). The withdrawals go with their columns; the audit log still records each one.
 -- Refused while a withdrawn version shares its effective date with a live one, because the full
 -- unique index cannot come back then; resolve that by hand first.
 
