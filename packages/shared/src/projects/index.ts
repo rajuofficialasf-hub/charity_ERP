@@ -6,3 +6,6 @@ export * from './workflow-defaults.js';
 export * from './programs.js';
 export * from './requests.js';
 export * from './setup.js';
+export * from './rules.js';
+export * from './templates.js';
+export * from './assignment.js';

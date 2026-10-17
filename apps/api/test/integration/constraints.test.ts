@@ -716,3 +716,107 @@ describe('other uniques', () => {
     );
   });
 });
+
+describe('rules, consent, teams and the application counter (BR-039, BR-040, BR-059)', () => {
+  async function assignment() {
+    const p = await f.project(db);
+    const owner = await f.user(db);
+    const v = await f.volunteer(db, loc, await f.volunteerUser(db));
+    const pv = await f.insert(db, 'project_volunteers', {
+      id: randomUUID(),
+      project_id: p.id,
+      volunteer_id: v,
+      region_location_id: loc.division,
+      permission_set: 'application_distribution',
+      assigned_by: owner,
+    });
+    return { project: p.id, owner, volunteer: v, assignment: pv };
+  }
+
+  it('the application counter and the rules version never go below zero', async () => {
+    const a = await assignment();
+    await expectSqlError(
+      db.query('UPDATE project_volunteers SET applications_counted = -1 WHERE id = $1', [
+        a.assignment,
+      ]),
+      SQLSTATE.checkViolation,
+      /project_volunteers_applications_counted_check/,
+    );
+    await expectSqlError(
+      db.query('UPDATE projects SET rules_version = -1 WHERE id = $1', [a.project]),
+      SQLSTATE.checkViolation,
+      /projects_rules_version_check/,
+    );
+  });
+
+  it('a team membership has a consent state of its own, pending at first', async () => {
+    const a = await assignment();
+    const member = await f.volunteer(db, loc, await f.volunteerUser(db), { type: 'team_member' });
+    const team = await f.insert(db, 'volunteer_teams', {
+      id: randomUUID(),
+      project_id: a.project,
+      lead_volunteer_id: a.volunteer,
+      member_volunteer_id: member,
+    });
+    const row = await db.query('SELECT consent_status FROM volunteer_teams WHERE id = $1', [team]);
+    expect(row.rows[0].consent_status).toBe('pending');
+    await expectSqlError(
+      db.query(`UPDATE volunteer_teams SET consent_status = 'maybe' WHERE id = $1`, [team]),
+      SQLSTATE.checkViolation,
+      /volunteer_teams_consent_status_check/,
+    );
+  });
+
+  it('a rules version is unique per project and kept for good', async () => {
+    const a = await assignment();
+    const version = { project_id: a.project, version: 1, texts: '{}', created_by: a.owner };
+    await f.insert(db, 'project_rules_versions', { id: randomUUID(), ...version });
+    await expectSqlError(
+      f.insert(db, 'project_rules_versions', { id: randomUUID(), ...version }),
+      SQLSTATE.uniqueViolation,
+      /project_rules_versions_project_id_version_key/,
+    );
+    await expectSqlError(
+      db.query('UPDATE project_rules_versions SET texts = $1', ['{"x":1}']),
+      SQLSTATE.insufficientPrivilege,
+      /append_only_table/,
+    );
+  });
+
+  it('a consent belongs to one assignment or one membership, with a known decision and parts', async () => {
+    const a = await assignment();
+    const consent = (over: Record<string, unknown>) =>
+      f.insert(db, 'project_consents', {
+        id: randomUUID(),
+        project_id: a.project,
+        volunteer_id: a.volunteer,
+        project_volunteer_id: a.assignment,
+        rules_version: 1,
+        decision: 'accepted',
+        parts: ['volunteer_duties', 'misconduct'],
+        created_by: a.owner,
+        ...over,
+      });
+    await expect(consent({})).resolves.toBeTruthy();
+    await expectSqlError(
+      consent({ project_volunteer_id: null }),
+      SQLSTATE.checkViolation,
+      /project_consents_one_link_check/,
+    );
+    await expectSqlError(
+      consent({ decision: 'pending' }),
+      SQLSTATE.checkViolation,
+      /project_consents_decision_check/,
+    );
+    await expectSqlError(
+      consent({ parts: ['volunteer_duties', 'anything'] }),
+      SQLSTATE.checkViolation,
+      /project_consents_parts_check/,
+    );
+    await expectSqlError(
+      db.query('DELETE FROM project_consents'),
+      SQLSTATE.insufficientPrivilege,
+      /append_only_table/,
+    );
+  });
+});

@@ -279,6 +279,8 @@ model User {
   exportJobsRequestedBy                ExportJob[]                @relation("export_jobs_requested_by")
   exportJobsCreatedBy                  ExportJob[]                @relation("export_jobs_created_by")
   exportJobsUpdatedBy                  ExportJob[]                @relation("export_jobs_updated_by")
+  projectRulesVersionsCreatedBy        ProjectRulesVersion[]      @relation("project_rules_versions_created_by")
+  projectConsentsCreatedBy             ProjectConsent[]           @relation("project_consents_created_by")
 
   @@unique([mobile], where: raw("mobile IS NOT NULL"), map: "users_mobile_key")
   @@unique([email], where: raw("email IS NOT NULL"), map: "users_email_key")
@@ -635,77 +637,80 @@ model Program {
 }
 
 model Project {
-  id                            String               @id @db.Uuid
-  programId                     String               @map("program_id") @db.Uuid
+  id                            String                @id @db.Uuid
+  programId                     String                @map("program_id") @db.Uuid
   code                          String
-  year                          Int                  @db.SmallInt
-  nameBn                        String               @map("name_bn")
-  nameEn                        String               @map("name_en")
+  year                          Int                   @db.SmallInt
+  nameBn                        String                @map("name_bn")
+  nameEn                        String                @map("name_en")
   description                   String?
-  status                        String               @default("draft")
-  workflowDefinitionId          String               @map("workflow_definition_id") @db.Uuid
-  workflowVersion               Int                  @map("workflow_version")
-  workflowSnapshot              Json?                @map("workflow_snapshot")
-  applyFrom                     DateTime?            @map("apply_from") @db.Date
-  applyTo                       DateTime?            @map("apply_to") @db.Date
-  perVolunteerLimit             Int?                 @map("per_volunteer_limit")
-  costPerBeneficiary            Decimal?             @map("cost_per_beneficiary") @db.Decimal(14, 2)
-  targetBeneficiaries           Int?                 @map("target_beneficiaries")
-  budgetPlanned                 Decimal?             @default(dbgenerated("(cost_per_beneficiary * (target_beneficiaries)::numeric)")) @map("budget_planned") @db.Decimal(14, 2)
-  rules                         Json                 @default("{}")
-  dawahEnabled                  Boolean              @default(false) @map("dawah_enabled")
-  sourceTemplateId              String?              @map("source_template_id") @db.Uuid
-  copiedFromProjectId           String?              @map("copied_from_project_id") @db.Uuid
-  activatedAt                   DateTime?            @map("activated_at") @db.Timestamptz(6)
-  closedAt                      DateTime?            @map("closed_at") @db.Timestamptz(6)
-  closedBy                      String?              @map("closed_by") @db.Uuid
-  cancelledAt                   DateTime?            @map("cancelled_at") @db.Timestamptz(6)
-  cancelledBy                   String?              @map("cancelled_by") @db.Uuid
-  createdAt                     DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy                     String?              @map("created_by") @db.Uuid
-  updatedAt                     DateTime             @default(now()) @map("updated_at") @db.Timestamptz(6)
-  updatedBy                     String?              @map("updated_by") @db.Uuid
-  program                       Program              @relation("projects_program_id", fields: [programId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  workflowDefinition            WorkflowDefinition   @relation("projects_workflow_definition_id", fields: [workflowDefinitionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  sourceTemplate                ProjectTemplate?     @relation("projects_source_template_id", fields: [sourceTemplateId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  copiedFromProject             Project?             @relation("projects_copied_from_project_id", fields: [copiedFromProjectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  closedByRef                   User?                @relation("projects_closed_by", fields: [closedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  cancelledByRef                User?                @relation("projects_cancelled_by", fields: [cancelledBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  createdByRef                  User?                @relation("projects_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  updatedByRef                  User?                @relation("projects_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  projectsCopiedFromProject     Project[]            @relation("projects_copied_from_project_id")
-  projectComponentsProject      ProjectComponent[]   @relation("project_components_project_id")
-  projectAreasProject           ProjectArea[]        @relation("project_areas_project_id")
-  projectStaffProject           ProjectStaff[]       @relation("project_staff_project_id")
-  projectTemplatesSourceProject ProjectTemplate[]    @relation("project_templates_source_project_id")
-  projectQuotasProject          ProjectQuota[]       @relation("project_quotas_project_id")
-  fundSourcesProject            FundSource[]         @relation("fund_sources_project_id")
-  formsProject                  Form[]               @relation("forms_project_id")
-  volunteerTeamsProject         VolunteerTeam[]      @relation("volunteer_teams_project_id")
-  projectVolunteersProject      ProjectVolunteer[]   @relation("project_volunteers_project_id")
-  volunteerRatingsProject       VolunteerRating[]    @relation("volunteer_ratings_project_id")
-  workAssignmentsProject        WorkAssignment[]     @relation("work_assignments_project_id")
-  applicationsProject           Application[]        @relation("applications_project_id")
-  activitiesProject             Activity[]           @relation("activities_project_id")
-  stockMovementsProject         StockMovement[]      @relation("stock_movements_project_id")
-  issuesProject                 Issue[]              @relation("issues_project_id")
-  paymentsProject               Payment[]            @relation("payments_project_id")
-  expenseClaimsProject          ExpenseClaim[]       @relation("expense_claims_project_id")
-  vouchersProject               Voucher[]            @relation("vouchers_project_id")
-  budgetLedgerProject           BudgetLedger[]       @relation("budget_ledger_project_id")
-  donorsProject                 Donor[]              @relation("donors_project_id")
-  animalsProject                Animal[]             @relation("animals_project_id")
-  dawahSyllabusTopicsProject    DawahSyllabusTopic[] @relation("dawah_syllabus_topics_project_id")
-  dawahClassesProject           DawahClass[]         @relation("dawah_classes_project_id")
-  examsProject                  Exam[]               @relation("exams_project_id")
-  callLogsProject               CallLog[]            @relation("call_logs_project_id")
-  followupEvaluationsProject    FollowupEvaluation[] @relation("followup_evaluations_project_id")
-  documentsProject              Document[]           @relation("documents_project_id")
-  deficiencyReportsProject      DeficiencyReport[]   @relation("deficiency_reports_project_id")
-  mediaSubjectsProject          MediaSubject[]       @relation("media_subjects_project_id")
-  filesProject                  File[]               @relation("files_project_id")
-  alertsProject                 Alert[]              @relation("alerts_project_id")
-  storageStatsProject           StorageStat[]        @relation("storage_stats_project_id")
+  status                        String                @default("draft")
+  workflowDefinitionId          String                @map("workflow_definition_id") @db.Uuid
+  workflowVersion               Int                   @map("workflow_version")
+  workflowSnapshot              Json?                 @map("workflow_snapshot")
+  applyFrom                     DateTime?             @map("apply_from") @db.Date
+  applyTo                       DateTime?             @map("apply_to") @db.Date
+  perVolunteerLimit             Int?                  @map("per_volunteer_limit")
+  costPerBeneficiary            Decimal?              @map("cost_per_beneficiary") @db.Decimal(14, 2)
+  targetBeneficiaries           Int?                  @map("target_beneficiaries")
+  budgetPlanned                 Decimal?              @default(dbgenerated("(cost_per_beneficiary * (target_beneficiaries)::numeric)")) @map("budget_planned") @db.Decimal(14, 2)
+  rules                         Json                  @default("{}")
+  rulesVersion                  Int                   @default(0) @map("rules_version")
+  dawahEnabled                  Boolean               @default(false) @map("dawah_enabled")
+  sourceTemplateId              String?               @map("source_template_id") @db.Uuid
+  copiedFromProjectId           String?               @map("copied_from_project_id") @db.Uuid
+  activatedAt                   DateTime?             @map("activated_at") @db.Timestamptz(6)
+  closedAt                      DateTime?             @map("closed_at") @db.Timestamptz(6)
+  closedBy                      String?               @map("closed_by") @db.Uuid
+  cancelledAt                   DateTime?             @map("cancelled_at") @db.Timestamptz(6)
+  cancelledBy                   String?               @map("cancelled_by") @db.Uuid
+  createdAt                     DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy                     String?               @map("created_by") @db.Uuid
+  updatedAt                     DateTime              @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy                     String?               @map("updated_by") @db.Uuid
+  program                       Program               @relation("projects_program_id", fields: [programId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  workflowDefinition            WorkflowDefinition    @relation("projects_workflow_definition_id", fields: [workflowDefinitionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  sourceTemplate                ProjectTemplate?      @relation("projects_source_template_id", fields: [sourceTemplateId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  copiedFromProject             Project?              @relation("projects_copied_from_project_id", fields: [copiedFromProjectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  closedByRef                   User?                 @relation("projects_closed_by", fields: [closedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  cancelledByRef                User?                 @relation("projects_cancelled_by", fields: [cancelledBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef                  User?                 @relation("projects_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef                  User?                 @relation("projects_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  projectsCopiedFromProject     Project[]             @relation("projects_copied_from_project_id")
+  projectComponentsProject      ProjectComponent[]    @relation("project_components_project_id")
+  projectAreasProject           ProjectArea[]         @relation("project_areas_project_id")
+  projectStaffProject           ProjectStaff[]        @relation("project_staff_project_id")
+  projectTemplatesSourceProject ProjectTemplate[]     @relation("project_templates_source_project_id")
+  projectQuotasProject          ProjectQuota[]        @relation("project_quotas_project_id")
+  fundSourcesProject            FundSource[]          @relation("fund_sources_project_id")
+  formsProject                  Form[]                @relation("forms_project_id")
+  volunteerTeamsProject         VolunteerTeam[]       @relation("volunteer_teams_project_id")
+  projectVolunteersProject      ProjectVolunteer[]    @relation("project_volunteers_project_id")
+  volunteerRatingsProject       VolunteerRating[]     @relation("volunteer_ratings_project_id")
+  workAssignmentsProject        WorkAssignment[]      @relation("work_assignments_project_id")
+  applicationsProject           Application[]         @relation("applications_project_id")
+  activitiesProject             Activity[]            @relation("activities_project_id")
+  stockMovementsProject         StockMovement[]       @relation("stock_movements_project_id")
+  issuesProject                 Issue[]               @relation("issues_project_id")
+  paymentsProject               Payment[]             @relation("payments_project_id")
+  expenseClaimsProject          ExpenseClaim[]        @relation("expense_claims_project_id")
+  vouchersProject               Voucher[]             @relation("vouchers_project_id")
+  budgetLedgerProject           BudgetLedger[]        @relation("budget_ledger_project_id")
+  donorsProject                 Donor[]               @relation("donors_project_id")
+  animalsProject                Animal[]              @relation("animals_project_id")
+  dawahSyllabusTopicsProject    DawahSyllabusTopic[]  @relation("dawah_syllabus_topics_project_id")
+  dawahClassesProject           DawahClass[]          @relation("dawah_classes_project_id")
+  examsProject                  Exam[]                @relation("exams_project_id")
+  callLogsProject               CallLog[]             @relation("call_logs_project_id")
+  followupEvaluationsProject    FollowupEvaluation[]  @relation("followup_evaluations_project_id")
+  documentsProject              Document[]            @relation("documents_project_id")
+  deficiencyReportsProject      DeficiencyReport[]    @relation("deficiency_reports_project_id")
+  mediaSubjectsProject          MediaSubject[]        @relation("media_subjects_project_id")
+  filesProject                  File[]                @relation("files_project_id")
+  alertsProject                 Alert[]               @relation("alerts_project_id")
+  storageStatsProject           StorageStat[]         @relation("storage_stats_project_id")
+  projectRulesVersionsProject   ProjectRulesVersion[] @relation("project_rules_versions_project_id")
+  projectConsentsProject        ProjectConsent[]      @relation("project_consents_project_id")
 
   @@unique([code], map: "projects_code_key")
   @@index([programId, year], map: "projects_program_id_year_idx")
@@ -805,6 +810,7 @@ model ProjectTemplate {
   nameBn                 String    @map("name_bn")
   nameEn                 String    @map("name_en")
   projectType            String    @map("project_type")
+  description            String?
   sourceProjectId        String?   @map("source_project_id") @db.Uuid
   definition             Json
   active                 Boolean   @default(true)
@@ -1341,6 +1347,7 @@ model Volunteer {
   stockMovementsVolunteer           StockMovement[]          @relation("stock_movements_volunteer_id")
   expenseClaimsVolunteer            ExpenseClaim[]           @relation("expense_claims_volunteer_id")
   animalsAssignedVolunteer          Animal[]                 @relation("animals_assigned_volunteer_id")
+  projectConsentsVolunteer          ProjectConsent[]         @relation("project_consents_volunteer_id")
 
   @@unique([userId], map: "volunteers_user_id_key")
   @@unique([nid], map: "volunteers_nid_key")
@@ -1361,21 +1368,24 @@ model Volunteer {
 }
 
 model VolunteerTeam {
-  id                String    @id @db.Uuid
-  projectId         String    @map("project_id") @db.Uuid
-  leadVolunteerId   String    @map("lead_volunteer_id") @db.Uuid
-  memberVolunteerId String    @map("member_volunteer_id") @db.Uuid
-  addedAt           DateTime  @default(now()) @map("added_at") @db.Timestamptz(6)
-  removedAt         DateTime? @map("removed_at") @db.Timestamptz(6)
-  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy         String?   @map("created_by") @db.Uuid
-  updatedAt         DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-  updatedBy         String?   @map("updated_by") @db.Uuid
-  project           Project   @relation("volunteer_teams_project_id", fields: [projectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  leadVolunteer     Volunteer @relation("volunteer_teams_lead_volunteer_id", fields: [leadVolunteerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  memberVolunteer   Volunteer @relation("volunteer_teams_member_volunteer_id", fields: [memberVolunteerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  createdByRef      User?     @relation("volunteer_teams_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  updatedByRef      User?     @relation("volunteer_teams_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  id                           String           @id @db.Uuid
+  projectId                    String           @map("project_id") @db.Uuid
+  leadVolunteerId              String           @map("lead_volunteer_id") @db.Uuid
+  memberVolunteerId            String           @map("member_volunteer_id") @db.Uuid
+  addedAt                      DateTime         @default(now()) @map("added_at") @db.Timestamptz(6)
+  removedAt                    DateTime?        @map("removed_at") @db.Timestamptz(6)
+  consentStatus                String           @default("pending") @map("consent_status")
+  consentAt                    DateTime?        @map("consent_at") @db.Timestamptz(6)
+  createdAt                    DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy                    String?          @map("created_by") @db.Uuid
+  updatedAt                    DateTime         @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy                    String?          @map("updated_by") @db.Uuid
+  project                      Project          @relation("volunteer_teams_project_id", fields: [projectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  leadVolunteer                Volunteer        @relation("volunteer_teams_lead_volunteer_id", fields: [leadVolunteerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  memberVolunteer              Volunteer        @relation("volunteer_teams_member_volunteer_id", fields: [memberVolunteerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef                 User?            @relation("volunteer_teams_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef                 User?            @relation("volunteer_teams_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  projectConsentsVolunteerTeam ProjectConsent[] @relation("project_consents_volunteer_team_id")
 
   @@unique([projectId, memberVolunteerId], where: raw("removed_at IS NULL"), map: "volunteer_teams_project_id_member_volunteer_id_key")
   @@index([projectId, leadVolunteerId], map: "volunteer_teams_project_id_lead_volunteer_id_idx")
@@ -1387,27 +1397,29 @@ model VolunteerTeam {
 }
 
 model ProjectVolunteer {
-  id               String    @id @db.Uuid
-  projectId        String    @map("project_id") @db.Uuid
-  volunteerId      String    @map("volunteer_id") @db.Uuid
-  regionLocationId String    @map("region_location_id") @db.Uuid
-  permissionSet    String    @map("permission_set")
-  extraPermissions String[]  @default([]) @map("extra_permissions")
-  isPaid           Boolean   @default(false) @map("is_paid")
-  consentStatus    String    @default("pending") @map("consent_status")
-  consentAt        DateTime? @map("consent_at") @db.Timestamptz(6)
-  assignedBy       String    @map("assigned_by") @db.Uuid
-  endedAt          DateTime? @map("ended_at") @db.Timestamptz(6)
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy        String?   @map("created_by") @db.Uuid
-  updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-  updatedBy        String?   @map("updated_by") @db.Uuid
-  project          Project   @relation("project_volunteers_project_id", fields: [projectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  volunteer        Volunteer @relation("project_volunteers_volunteer_id", fields: [volunteerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  regionLocation   Location  @relation("project_volunteers_region_location_id", fields: [regionLocationId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  assignedByRef    User      @relation("project_volunteers_assigned_by", fields: [assignedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  createdByRef     User?     @relation("project_volunteers_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  updatedByRef     User?     @relation("project_volunteers_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  id                              String           @id @db.Uuid
+  projectId                       String           @map("project_id") @db.Uuid
+  volunteerId                     String           @map("volunteer_id") @db.Uuid
+  regionLocationId                String           @map("region_location_id") @db.Uuid
+  permissionSet                   String           @map("permission_set")
+  extraPermissions                String[]         @default([]) @map("extra_permissions")
+  isPaid                          Boolean          @default(false) @map("is_paid")
+  consentStatus                   String           @default("pending") @map("consent_status")
+  consentAt                       DateTime?        @map("consent_at") @db.Timestamptz(6)
+  assignedBy                      String           @map("assigned_by") @db.Uuid
+  endedAt                         DateTime?        @map("ended_at") @db.Timestamptz(6)
+  applicationsCounted             Int              @default(0) @map("applications_counted")
+  createdAt                       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy                       String?          @map("created_by") @db.Uuid
+  updatedAt                       DateTime         @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy                       String?          @map("updated_by") @db.Uuid
+  project                         Project          @relation("project_volunteers_project_id", fields: [projectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  volunteer                       Volunteer        @relation("project_volunteers_volunteer_id", fields: [volunteerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  regionLocation                  Location         @relation("project_volunteers_region_location_id", fields: [regionLocationId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  assignedByRef                   User             @relation("project_volunteers_assigned_by", fields: [assignedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef                    User?            @relation("project_volunteers_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef                    User?            @relation("project_volunteers_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  projectConsentsProjectVolunteer ProjectConsent[] @relation("project_consents_project_volunteer_id")
 
   @@unique([projectId, volunteerId], where: raw("ended_at IS NULL"), map: "project_volunteers_project_id_volunteer_id_key")
   @@index([volunteerId], where: raw("ended_at IS NULL"), map: "project_volunteers_volunteer_id_idx")
@@ -1417,6 +1429,46 @@ model ProjectVolunteer {
   @@index([createdBy], map: "project_volunteers_created_by_idx")
   @@index([updatedBy], map: "project_volunteers_updated_by_idx")
   @@map("project_volunteers")
+}
+
+model ProjectRulesVersion {
+  id           String   @id @db.Uuid
+  projectId    String   @map("project_id") @db.Uuid
+  version      Int
+  texts        Json
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy    String   @map("created_by") @db.Uuid
+  project      Project  @relation("project_rules_versions_project_id", fields: [projectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef User     @relation("project_rules_versions_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([projectId, version], map: "project_rules_versions_project_id_version_key")
+  @@index([createdBy], map: "project_rules_versions_created_by_idx")
+  @@map("project_rules_versions")
+}
+
+model ProjectConsent {
+  id                 String            @id @db.Uuid
+  projectId          String            @map("project_id") @db.Uuid
+  volunteerId        String            @map("volunteer_id") @db.Uuid
+  projectVolunteerId String?           @map("project_volunteer_id") @db.Uuid
+  volunteerTeamId    String?           @map("volunteer_team_id") @db.Uuid
+  rulesVersion       Int               @map("rules_version")
+  decision           String
+  parts              String[]          @default([])
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy          String            @map("created_by") @db.Uuid
+  project            Project           @relation("project_consents_project_id", fields: [projectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  volunteer          Volunteer         @relation("project_consents_volunteer_id", fields: [volunteerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  projectVolunteer   ProjectVolunteer? @relation("project_consents_project_volunteer_id", fields: [projectVolunteerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  volunteerTeam      VolunteerTeam?    @relation("project_consents_volunteer_team_id", fields: [volunteerTeamId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef       User              @relation("project_consents_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([projectId, volunteerId], map: "project_consents_project_id_volunteer_id_idx")
+  @@index([volunteerId], map: "project_consents_volunteer_id_idx")
+  @@index([projectVolunteerId], map: "project_consents_project_volunteer_id_idx")
+  @@index([volunteerTeamId], map: "project_consents_volunteer_team_id_idx")
+  @@index([createdBy], map: "project_consents_created_by_idx")
+  @@map("project_consents")
 }
 
 model VolunteerRating {

@@ -1,0 +1,123 @@
+import { z } from 'zod';
+import { COMPONENT_KEYS } from '../components.js';
+import { boundedLabel } from '../jsonb/common.js';
+import { projectRulesSchema } from './rules.js';
+import { WORKFLOW_KEYS } from './workflow-defaults.js';
+
+/**
+ * Master templates and copies of a project (BD-10, BR-064, BR-065). A new project started from a
+ * template or from a previous project takes the parts below as an independent snapshot; nothing
+ * links it back to its source afterwards.
+ */
+
+/**
+ * BD-10's list of what a copy takes, and where each item lives in a template's definition. Stages,
+ * the photo rule, rating criteria, issue types and expense categories are component settings, so
+ * they travel with the components. The form (as version 1), the document checklist and the scoring
+ * criteria have no storage yet and join the copy in their own tasks (DECISION_LOG D-096).
+ */
+export const BD10_COPIED = {
+  components_and_settings: 'components',
+  form_as_version_1: 'later',
+  workflow_stages: 'components',
+  photo_rule: 'components',
+  rating_criteria: 'components',
+  issue_types: 'components',
+  expense_categories: 'components',
+  dawah_syllabus: 'syllabus',
+  document_checklist: 'later',
+  scoring_criteria: 'later',
+} as const;
+
+/**
+ * BD-10's list of what a copy never takes, plus the setup parts that belong to one project only
+ * (fund sources, areas with their RPM, staff access).
+ */
+export const NOT_COPIED = [
+  'applications',
+  'beneficiaries',
+  'budget_amounts',
+  'fund_sources',
+  'dates',
+  'volunteer_assignments',
+  'staff_access',
+  'areas',
+  'ratings',
+  'categories',
+  'logs',
+  'quota_targets',
+] as const;
+
+/** The parts a template definition stores: the components, the syllabus and the rules texts. */
+export const TEMPLATE_PARTS = ['components', 'syllabus', 'rules'] as const;
+
+/**
+ * Settings that point at things of the source project only, removed before they are copied: the
+ * forms of the application form (the form is copied with its own task) and the token of a public
+ * link (a copy must never answer on its source's link).
+ */
+const PROJECT_BOUND_SETTINGS: Partial<Record<string, readonly string[]>> = {
+  application_form: ['form_ids'],
+  public_link: ['token', 'form_ids'],
+};
+
+/** A component's settings as a copy takes them. */
+export function copiedSettings(
+  componentKey: string,
+  settings: Record<string, unknown>,
+): Record<string, unknown> {
+  // eslint-disable-next-line security/detect-object-injection -- a lookup in a fixed table
+  const drop = PROJECT_BOUND_SETTINGS[componentKey] ?? [];
+  return Object.fromEntries(Object.entries(settings).filter(([key]) => !drop.includes(key)));
+}
+
+/** `project_templates.definition`: what a template or a copy hands to a new project. */
+export const templateDefinitionSchema = z.strictObject({
+  workflowKey: z.enum(WORKFLOW_KEYS),
+  components: z
+    .array(
+      z.strictObject({
+        componentKey: z.enum(COMPONENT_KEYS),
+        enabled: z.boolean(),
+        settings: z.record(z.string(), z.unknown()),
+      }),
+    )
+    .max(COMPONENT_KEYS.length)
+    .refine(
+      (components) => new Set(components.map((c) => c.componentKey)).size === components.length,
+      'a component appears twice',
+    ),
+  syllabus: z.array(boundedLabel).max(100),
+  rules: projectRulesSchema,
+});
+export type TemplateDefinition = z.infer<typeof templateDefinitionSchema>;
+
+/** The parts of a project a definition is built from. */
+export interface TemplateSource {
+  workflowKey: (typeof WORKFLOW_KEYS)[number];
+  components: { componentKey: string; enabled: boolean; settings: unknown }[];
+  syllabus: { title: { bn: string; en: string } }[];
+  rules: unknown;
+}
+
+/**
+ * The definition of a project as a template or a copy takes it: only the copied parts, with the
+ * project-bound settings removed. Reads only what it copies, so nothing else can leak through.
+ */
+export function definitionOf(source: TemplateSource): TemplateDefinition {
+  return templateDefinitionSchema.parse({
+    workflowKey: source.workflowKey,
+    components: source.components.map((c) => ({
+      componentKey: c.componentKey,
+      enabled: c.enabled,
+      settings: copiedSettings(
+        c.componentKey,
+        c.settings !== null && typeof c.settings === 'object'
+          ? (c.settings as Record<string, unknown>)
+          : {},
+      ),
+    })),
+    syllabus: source.syllabus.map((t) => ({ bn: t.title.bn, en: t.title.en })),
+    rules: projectRulesSchema.safeParse(source.rules).data ?? {},
+  });
+}

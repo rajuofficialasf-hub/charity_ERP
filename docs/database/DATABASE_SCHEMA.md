@@ -396,7 +396,8 @@ Constraints: UNIQUE (list_key, code).
 | cost_per_beneficiary | numeric(14,2) | yes | — | — |
 | target_beneficiaries | integer | yes | — | — |
 | budget_planned | numeric(14,2) | yes | generated | stored generated column: cost × target (BR-069) |
-| rules | jsonb | no | '{}' | four bilingual texts (`ProjectRules`) |
+| rules | jsonb | no | '{}' | four bilingual texts, the current version (`projectRulesSchema`, `@css/shared/projects`) |
+| rules_version | integer | no | 0 | CHECK >= 0; 0 = no rules saved yet; raised by every save (BR-039; T1.12) |
 | dawah_enabled | boolean | no | false | — |
 | source_template_id | uuid | yes | — | FK project_templates |
 | copied_from_project_id | uuid | yes | — | FK projects |
@@ -457,12 +458,41 @@ Constraints: partial UNIQUE (project_id, user_id) WHERE ended_at IS NULL. Index:
 | version | integer | no | 1 | — |
 | name_bn, name_en | text | no | — | — |
 | project_type | text | no | — | workflow template key |
+| description | text | yes | — | CHECK at most 2000 characters (T1.12) |
 | source_project_id | uuid | yes | — | FK projects |
-| definition | jsonb | no | — | `ProjectTemplate` (BR-065) |
+| definition | jsonb | no | — | `templateDefinitionSchema` (`@css/shared/projects`; BR-065, D-096) |
 | active | boolean | no | true | — |
 | [A] | | | | |
 
-Constraints: UNIQUE (key, version).
+Constraints: UNIQUE (key, version). Each template has its own key; replacing its contents from a project raises its version in place (T1.12).
+
+### project_rules_versions
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK |
+| project_id | uuid | no | — | FK projects |
+| version | integer | no | — | CHECK >= 1 |
+| texts | jsonb | no | — | the four texts of this version (`projectRulesSchema`) |
+| created_at | timestamptz | no | now() | — |
+| created_by | uuid | no | — | FK users; who saved this version |
+
+Constraints: UNIQUE (project_id, version). Append-only log (D-060 trigger; no UPDATE grant for css_app). Every saved version of a project's rules (BR-039, D-096; T1.12).
+
+### project_consents
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK |
+| project_id | uuid | no | — | FK projects |
+| volunteer_id | uuid | no | — | FK volunteers; who decided |
+| project_volunteer_id | uuid | yes | — | FK project_volunteers (an assigned volunteer) |
+| volunteer_team_id | uuid | yes | — | FK volunteer_teams (a team member) |
+| rules_version | integer | no | — | CHECK >= 1; the version read |
+| decision | text | no | — | CHECK accepted / refused |
+| parts | text[] | no | '{}' | CHECK a subset of the four part keys; the parts accepted |
+| created_at | timestamptz | no | now() | — |
+| created_by | uuid | no | — | FK users |
+
+Constraints: CHECK exactly one of project_volunteer_id and volunteer_team_id. Indexes: (project_id, volunteer_id); (volunteer_id); each FK. Append-only log (D-060). Who accepted or refused which rules version when (BR-039, D-096; T1.12).
 
 ### project_quotas
 | Column | Type | Null | Default | Comment |
@@ -739,6 +769,8 @@ Constraints: CHECK reference_volunteer_id <> id. Indexes: (reference_volunteer_i
 | member_volunteer_id | uuid | no | — | FK volunteers |
 | added_at | timestamptz | no | now() | — |
 | removed_at | timestamptz | yes | — | — |
+| consent_status | text | no | 'pending' | L-consent-status; the member's own consent (BR-040, D-096; T1.12) |
+| consent_at | timestamptz | yes | — | — |
 | [A] | | | | |
 
 Constraints: partial UNIQUE (project_id, member_volunteer_id) WHERE removed_at IS NULL; CHECK lead_volunteer_id <> member_volunteer_id. Index: (project_id, lead_volunteer_id).
@@ -757,6 +789,7 @@ Constraints: partial UNIQUE (project_id, member_volunteer_id) WHERE removed_at I
 | consent_at | timestamptz | yes | — | — |
 | assigned_by | uuid | no | — | FK users |
 | ended_at | timestamptz | yes | — | assignment ended (transfer, block) |
+| applications_counted | integer | no | 0 | CHECK >= 0; applications counted against the limit, the team's included (BR-059, D-096; raised by Phase 2) |
 | [A] | | | | |
 
 Constraints: partial UNIQUE (project_id, volunteer_id) WHERE ended_at IS NULL. Indexes: (volunteer_id) WHERE ended_at IS NULL; (project_id, region_location_id).
