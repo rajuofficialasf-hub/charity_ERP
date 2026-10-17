@@ -62,9 +62,20 @@ export function ProjectVolunteersPage() {
     queryFn: () => projectOf(projectId),
     enabled: allowed,
   });
+  // the pages read so far: "show more" follows the cursor of the last one
+  const [pages, setPages] = useState<(string | null)[]>([null]);
   const list = useQuery({
-    queryKey: volunteersKey(projectId),
-    queryFn: () => assignments(projectId, null),
+    queryKey: [...volunteersKey(projectId), pages],
+    queryFn: async () => {
+      const data: Assignment[] = [];
+      let next: string | null = null;
+      for (const cursor of pages) {
+        const page = await assignments(projectId, cursor);
+        data.push(...page.data);
+        next = page.meta.nextCursor;
+      }
+      return { data, next };
+    },
     enabled: allowed,
   });
   const executives = useQuery({
@@ -81,9 +92,11 @@ export function ProjectVolunteersPage() {
     },
   });
   const grant = useMutation({
-    mutationFn: (reason: string) => {
+    mutationFn: async (reason: string) => {
       const { person, on } = granting!;
-      const others = person.extraPermissions.filter((p) => p !== ASSIGN);
+      // the extras as they are now: the grant replaces the whole set
+      const fresh = (await staff(projectId)).find((s) => s.id === person.id) ?? person;
+      const others = fresh.extraPermissions.filter((p) => p !== ASSIGN);
       return setProjectGrants(projectId, {
         userId: person.userId,
         permissions: on ? [...others, ASSIGN] : others,
@@ -178,6 +191,11 @@ export function ProjectVolunteersPage() {
           </div>
         )}
       />
+      {list.data?.next && (
+        <Button variant="ghost" size="sm" onPress={() => setPages([...pages, list.data!.next])}>
+          {t('dialog.more')}
+        </Button>
+      )}
       {grants && execs.length > 0 && (
         <Card title={t('grant.title')} headingLevel={2}>
           {execs.map((person) => (

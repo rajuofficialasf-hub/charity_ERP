@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   canApproveStaff,
+  canAssignVolunteers,
+  canGrantOnProject,
+  canMarkPaid,
   canBlock,
   canCreateProjects,
   canDecideEdits,
@@ -85,5 +88,23 @@ describe('admin role lists', () => {
     expect(canSeeProjects(as('official_daee'))).toBe(false);
     expect(canCreateProjects(as('program_manager'))).toBe(true);
     expect(canCreateProjects(as('regional_program_manager'))).toBe(false);
+  });
+
+  it('gives assignment to the RPM, the executive and the global roles, never to the PM', () => {
+    for (const role of ['regional_program_manager', 'project_executive', 'department_head'])
+      expect(canAssignVolunteers(as(role)), role).toBe(true);
+    expect(canAssignVolunteers(as('program_manager'))).toBe(false);
+    expect(canAssignVolunteers(as('volunteer_general'))).toBe(false);
+  });
+
+  it('lets only the RPM and the global roles mark paid and grant an executive', () => {
+    for (const role of ['regional_program_manager', 'monitoring_team']) {
+      expect(canMarkPaid(as(role)), role).toBe(true);
+      expect(canGrantOnProject(as(role)), role).toBe(true);
+    }
+    for (const role of ['project_executive', 'program_manager']) {
+      expect(canMarkPaid(as(role)), role).toBe(false);
+      expect(canGrantOnProject(as(role)), role).toBe(false);
+    }
   });
 });

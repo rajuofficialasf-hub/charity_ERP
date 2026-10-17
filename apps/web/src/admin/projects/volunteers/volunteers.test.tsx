@@ -238,4 +238,14 @@ describe('the volunteers of a project', () => {
       },
     });
   });
+
+  it('is closed to a volunteer', async () => {
+    refreshAs({ ...ME, kind: 'volunteer', roles: ['volunteer_general'] });
+    serve();
+    open();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'প্রবেশাধিকার নেই' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('grid')).not.toBeInTheDocument();
+  });
 });

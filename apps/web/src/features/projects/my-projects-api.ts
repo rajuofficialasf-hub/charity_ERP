@@ -20,6 +20,8 @@ export interface MyProject {
   rulesVersion: number;
   applicationsCounted: number;
   applicationsLeft: number | null;
+  /** The caller may build a team here (an assigned General or দাঈ-স্বেচ্ছাসেবক volunteer). */
+  leadsTeam: boolean;
 }
 
 /** The project with the rules parts to read (GET /me/projects/{id}). */

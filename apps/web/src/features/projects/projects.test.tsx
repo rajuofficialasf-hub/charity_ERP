@@ -35,6 +35,7 @@ const base = {
   rulesVersion: 2,
   applicationsCounted: 7,
   applicationsLeft: 43,
+  leadsTeam: true,
 };
 const text = (bn: string) => ({ bn, en: `${bn} (en)` });
 const PARTS = [
@@ -147,6 +148,15 @@ describe('the consent to the rules', () => {
     );
   }, 20_000);
 
+  it('offers no team to a volunteer who cannot lead one', async () => {
+    serve({ consentStatus: 'accepted', leadsTeam: false });
+    openProject();
+    expect(
+      await screen.findByText('7 টি দেওয়া হয়েছে, আরও 43 টি দেওয়া যাবে'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'আমার টিম' })).not.toBeInTheDocument();
+  });
+
   it('asks the Local দায়ী part while dawah is on', async () => {
     serve({ dawahEnabled: true }, [
       PARTS[0]!,
@@ -191,7 +201,7 @@ describe('the consent to the rules', () => {
 });
 
 describe('the team', () => {
-  it('adds a volunteer registered under the main volunteer and removes a member', async () => {
+  it('adds a volunteer registered under the main volunteer', async () => {
     serve({ consentStatus: 'accepted' });
     const writes: { path: string; body: unknown }[] = [];
     server.use(
@@ -241,5 +251,41 @@ describe('the team', () => {
         'টিমে যোগ করা হয়েছে। প্রত্যেকে নিয়মাবলিতে সম্মতি দিলে কাজ শুরু করবেন।',
       ),
     ).toBeInTheDocument();
+  });
+
+  it('removes a member from the team', async () => {
+    serve({ consentStatus: 'accepted' });
+    const removed: unknown[] = [];
+    server.use(
+      http.get(`*/api/v1/me/projects/${ID}/team`, () =>
+        HttpResponse.json({
+          data: {
+            members: [
+              {
+                volunteerId: member,
+                displayName: 'সাকিব হাসান',
+                type: 'general',
+                consentStatus: 'accepted',
+                addedAt: '2026-10-17T05:00:00Z',
+              },
+            ],
+            candidates: [],
+          },
+          meta: {},
+        }),
+      ),
+      http.post(`*/api/v1/me/projects/${ID}/team/:volunteerId/remove`, ({ params }) => {
+        removed.push(params.volunteerId);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderApp(<TeamPage />, 'bn', {
+      path: '/my-projects/:projectId/team',
+      initialPath: `/my-projects/${ID}/team`,
+    });
+    await user.click(await screen.findByRole('button', { name: 'সাকিব হাসান-কে টিম থেকে সরান' }));
+    await waitFor(() => expect(removed).toEqual([member]));
+    expect(await screen.findByText('সাকিব হাসান-কে টিম থেকে সরানো হয়েছে।')).toBeInTheDocument();
   });
 });

@@ -109,6 +109,8 @@ describe('my projects and the consent', () => {
       via: 'assignment',
       permissionSet: 'application_distribution',
       applicationsCounted: 7,
+      // a General volunteer assigned to the project may build a team
+      leadsTeam: true,
     });
     const detail = await at(s, 'get', `/me/projects/${project}`);
     expect(detail.status).toBe(200);
@@ -313,7 +315,12 @@ describe('a team member', () => {
     const mine = await at(s, 'get', '/me/projects');
     expect(
       mine.body.data.find((p: { projectId: string }) => p.projectId === project),
-    ).toMatchObject({ via: 'team', consentStatus: 'pending', applicationsCounted: 7 });
+    ).toMatchObject({
+      via: 'team',
+      consentStatus: 'pending',
+      applicationsCounted: 7,
+      leadsTeam: false,
+    });
     expect(await reaches(s, project)).toBe(false);
     expect((await accept(s, project)).status).toBe(200);
     expect(await reaches(s, project)).toBe(true);

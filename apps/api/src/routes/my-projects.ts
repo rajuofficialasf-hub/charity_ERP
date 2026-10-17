@@ -25,6 +25,7 @@ const myProject = z.object({
   rulesVersion: z.number().int(),
   applicationsCounted: z.number().int(),
   applicationsLeft: z.number().int().nullable(),
+  leadsTeam: z.boolean(),
 });
 const teamView = z.object({
   members: z.array(

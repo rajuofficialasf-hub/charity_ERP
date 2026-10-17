@@ -40,7 +40,11 @@ function TeamView() {
   const [notice, setNotice] = useState<string>();
   const current = useQuery({ queryKey: key, queryFn: () => team(projectId) });
   const add = useMutation({
-    mutationFn: () => addToTeam(projectId, chosen),
+    mutationFn: () => {
+      remove.reset();
+      setNotice(undefined);
+      return addToTeam(projectId, chosen);
+    },
     onSuccess: (next) => {
       queryClient.setQueryData(key, next);
       setChosen([]);
@@ -48,7 +52,11 @@ function TeamView() {
     },
   });
   const remove = useMutation({
-    mutationFn: (member: TeamMember) => removeFromTeam(projectId, member.volunteerId),
+    mutationFn: (member: TeamMember) => {
+      add.reset();
+      setNotice(undefined);
+      return removeFromTeam(projectId, member.volunteerId);
+    },
     onSuccess: async (_, member) => {
       setNotice(t('removed', { name: member.displayName }));
       await queryClient.invalidateQueries({ queryKey: key });
@@ -100,6 +108,7 @@ function TeamView() {
                   icon={UserMinus}
                   iconOnly
                   onPress={() => remove.mutate(m)}
+                  disabled={remove.isPending}
                 >
                   {t('remove', { name: m.displayName })}
                 </Button>

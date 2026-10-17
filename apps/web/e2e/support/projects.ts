@@ -90,11 +90,13 @@ export async function activeProject(page: Page, name: string, program: string): 
   await next(page).click();
   const areas = section(page, 'এলাকা ও আরপিএম');
   await chooseIn(page, areas, 'বিভাগ', 'ঢাকা');
-  await areas.getByRole('combobox', { name: /আরপিএম/ }).fill('আরপিএম ঢাকা');
-  await page
-    .getByRole('option', { name: /^আরপিএম ঢাকা/ })
-    .first()
-    .click();
+  const rpm = areas.getByRole('combobox', { name: /আরপিএম/ });
+  await rpm.fill('আরপিএম ঢাকা');
+  await expect(page.getByRole('option', { name: /^আরপিএম ঢাকা/ }).first()).toBeVisible();
+  // chosen with the keyboard: a list that redraws while it loads never stops a key press
+  await rpm.press('ArrowDown');
+  await rpm.press('Enter');
+  await expect(rpm).toHaveValue(/আরপিএম ঢাকা/);
   await next(page).click();
   await expect(section(page, 'স্টাফের অ্যাক্সেস')).toBeVisible();
   await page

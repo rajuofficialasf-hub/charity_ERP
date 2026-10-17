@@ -1387,7 +1387,7 @@ components:
           items: { type: string, enum: [volunteer_duties, implementation_process, daee_duties, misconduct] }
     MyProject:
       type: object
-      required: [projectId, code, year, name, status, applyFrom, applyTo, perVolunteerLimit, dawahEnabled, via, permissionSet, isPaid, consentStatus, rulesVersion, applicationsCounted, applicationsLeft]
+      required: [projectId, code, year, name, status, applyFrom, applyTo, perVolunteerLimit, dawahEnabled, via, permissionSet, isPaid, consentStatus, rulesVersion, applicationsCounted, applicationsLeft, leadsTeam]
       properties:
         projectId: { $ref: '#/components/schemas/Uuid' }
         code: { type: string }
@@ -1405,6 +1405,7 @@ components:
         rulesVersion: { type: integer, minimum: 0 }
         applicationsCounted: { type: integer, minimum: 0, description: The main volunteer's count for a team member (BR-059) }
         applicationsLeft: { type: [integer, 'null'], minimum: 0 }
+        leadsTeam: { type: boolean, description: An assigned General or দাঈ-স্বেচ্ছাসেবক volunteer may build a team }
     MyProjectList:
       type: object
       required: [data]

@@ -3,6 +3,7 @@ import {
   Alert,
   Button,
   EmptyState,
+  ErrorState,
   Modal,
   Select,
   Switch,
@@ -41,7 +42,7 @@ export function AssignDialog({
 }) {
   const t = useTranslations('admin.projects.volunteers');
   const td = useTranslations('admin.projects.volunteers.dialog');
-  const tc = useTranslations('common.action');
+  const tc = useTranslations('common');
   const [area, setArea] = useState<Address>(NO_AREA);
   const [q, setQ] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -80,6 +81,8 @@ export function AssignDialog({
   });
   const changeFilter = (apply: () => void) => {
     apply();
+    // a choice is made among the volunteers on screen: a new filter starts a new choice
+    setSelected(new Set());
     setPages([null]);
   };
   const columns: TableColumn<Candidate>[] = [
@@ -101,7 +104,7 @@ export function AssignDialog({
       dismissible={!save.isPending}
       secondaryAction={
         <Button variant="secondary" onPress={onClose} disabled={save.isPending}>
-          {tc('cancel')}
+          {tc('action.cancel')}
         </Button>
       }
       primaryAction={
@@ -136,6 +139,15 @@ export function AssignDialog({
         selectionMode="multiple"
         selectedKeys={selected}
         onSelectionChange={setSelected}
+        error={
+          list.error ? (
+            <ErrorState
+              title={tc('state.error.text')}
+              requestId={list.error instanceof ApiFailure ? list.error.requestId : undefined}
+              onRetry={() => void list.refetch()}
+            />
+          ) : undefined
+        }
         emptyState={<EmptyState icon={Users} title={td('no_candidates')} headingLevel={3} />}
         cardRenderer={(c) => (
           <div className="admin-permission-card">

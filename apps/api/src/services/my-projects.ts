@@ -3,6 +3,7 @@ import {
   acceptsEveryPart,
   applicationsLeft,
   type Consent,
+  TEAM_LEAD_TYPES,
   missingRuleParts,
   requiredRuleParts,
 } from '@css/shared/projects';
@@ -47,7 +48,7 @@ type Link =
 
 const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 
-function item(p: ProjectRow, link: Link) {
+function item(p: ProjectRow, link: Link, volunteerType: string) {
   return {
     projectId: p.id,
     code: p.code,
@@ -65,6 +66,9 @@ function item(p: ProjectRow, link: Link) {
     rulesVersion: p.rulesVersion,
     applicationsCounted: link.applicationsCounted,
     applicationsLeft: applicationsLeft(p.perVolunteerLimit, link.applicationsCounted),
+    // a General or দাঈ-স্বেচ্ছাসেবক volunteer assigned to the project may build a team
+    leadsTeam:
+      link.via === 'assignment' && (TEAM_LEAD_TYPES as readonly string[]).includes(volunteerType),
   };
 }
 
@@ -84,12 +88,14 @@ export class MyProjectsService {
     private readonly clock: Clock,
   ) {}
 
-  private async volunteerOf(db: Tx, principal: Principal): Promise<string | null> {
-    const v = await db.volunteer.findUnique({
+  private async volunteerOf(
+    db: Tx,
+    principal: Principal,
+  ): Promise<{ id: string; type: string } | null> {
+    return db.volunteer.findUnique({
       where: { userId: principal.userId },
-      select: { id: true },
+      select: { id: true, type: true },
     });
-    return v?.id ?? null;
   }
 
   /** The caller's links on running projects, or on one project. */
@@ -161,15 +167,17 @@ export class MyProjectsService {
   }
 
   async list(principal: Principal) {
-    const volunteerId = await this.volunteerOf(this.prisma, principal);
-    if (!volunteerId) return [];
-    return (await this.links(this.prisma, volunteerId)).map((r) => item(r.project, r.link));
+    const volunteer = await this.volunteerOf(this.prisma, principal);
+    if (!volunteer) return [];
+    return (await this.links(this.prisma, volunteer.id)).map((r) =>
+      item(r.project, r.link, volunteer.type),
+    );
   }
 
   /** One of the caller's projects with the rules parts to read (404 when not theirs). */
   async get(principal: Principal, projectId: string) {
-    const volunteerId = await this.volunteerOf(this.prisma, principal);
-    const [row] = volunteerId ? await this.links(this.prisma, volunteerId, projectId) : [];
+    const volunteer = await this.volunteerOf(this.prisma, principal);
+    const [row] = volunteer ? await this.links(this.prisma, volunteer.id, projectId) : [];
     if (!row) throw new ApiError('permission.not_found', 404);
     const stored = await this.prisma.project.findUniqueOrThrow({
       where: { id: projectId },
@@ -177,7 +185,7 @@ export class MyProjectsService {
     });
     const rules = storedRules(stored.rules);
     return {
-      ...item(row.project, row.link),
+      ...item(row.project, row.link, volunteer!.type),
       rules: {
         version: row.project.rulesVersion,
         parts: requiredRuleParts(row.project.dawahEnabled).map((part) => ({
@@ -197,9 +205,10 @@ export class MyProjectsService {
   async consent(principal: Principal, projectId: string, body: Consent) {
     return this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
-      const volunteerId = await this.volunteerOf(tx, principal);
-      const [row] = volunteerId ? await this.links(tx, volunteerId, projectId) : [];
-      if (!row || !volunteerId) throw new ApiError('permission.not_found', 404);
+      const volunteer = await this.volunteerOf(tx, principal);
+      const [row] = volunteer ? await this.links(tx, volunteer.id, projectId) : [];
+      if (!row || !volunteer) throw new ApiError('permission.not_found', 404);
+      const volunteerId = volunteer.id;
       const { project, link } = row;
       if (body.rulesVersion !== project.rulesVersion)
         throw new ApiError('project.rules_changed', 409);
@@ -250,7 +259,7 @@ export class MyProjectsService {
           parts: body.parts,
         },
       });
-      return item(project, { ...link, consentStatus: data.consentStatus });
+      return item(project, { ...link, consentStatus: data.consentStatus }, volunteer.type);
     });
   }
 }

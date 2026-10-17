@@ -79,8 +79,7 @@ function ProjectFacts({ project: p }: { project: MyProjectDetail }) {
     [t('applications'), applications],
     ...(p.permissionSet ? [[t('set'), ts(p.permissionSet)] as [string, string]] : []),
   ];
-  // a General or দাঈ-স্বেচ্ছাসেবক volunteer on the project leads a team (the server checks the type)
-  const leads = p.via === 'assignment' && p.permissionSet !== 'work_progress';
+  const leads = p.leadsTeam;
   return (
     <Card
       title={`${localized(p.name, locale)} (${p.code})`}
@@ -182,6 +181,8 @@ function ConsentFlow({ project: p }: { project: MyProjectDetail }) {
         <Button
           variant="ghost"
           onPress={() => answer.mutate('refused')}
+          // one answer at a time: a second tap never sends the opposite decision
+          disabled={answer.isPending}
           loading={answer.isPending && answer.variables === 'refused'}
         >
           {t('refuse')}
@@ -193,7 +194,7 @@ function ConsentFlow({ project: p }: { project: MyProjectDetail }) {
         ) : (
           <Button
             onPress={() => answer.mutate('accepted')}
-            disabled={!agree || read.some((r) => !r)}
+            disabled={answer.isPending || !agree || read.some((r) => !r)}
             loading={answer.isPending && answer.variables === 'accepted'}
           >
             {t('accept')}
