@@ -24,6 +24,7 @@ const as = (userId: string) => login(h, accounts.get(userId)!);
 
 const entity = randomUUID();
 const other = randomUUID();
+const batch = randomUUID();
 
 beforeAll(async () => {
   h = await authHarness();
@@ -53,8 +54,15 @@ beforeAll(async () => {
     'test.secret',
     other,
     world.users.head,
-    { passwordHash: 'argon2id$abc', nested: { refreshToken: 'x', kept: 1 } },
-    { name: 'kept' },
+    { passwordHash: 'argon2id$abc', nested: { refreshToken: 'x', kept: 1 }, apiKey: 'k-123' },
+    { name: 'kept', smtpPassword: 'p-456' },
+  );
+  // seven entries of one transaction share one time to the microsecond
+  await h.db.query(
+    `INSERT INTO audit_log (id, created_at, action, entity_type, entity_id, new)
+     SELECT gen_random_uuid(), '2026-10-16 10:00:00.123456+00', 'test.batch', 'test_entity', $1, jsonb_build_object('n', n)
+     FROM generate_series(1, 7) AS n`,
+    [batch],
   );
   // two days ago: inside the default window, outside a range of today only
   await insert(
@@ -99,13 +107,49 @@ describe('the audit viewer', () => {
     expect(steps).toEqual([5, 4, 3, 2, 1]);
   });
 
+  it('pages through entries written at the same microsecond without losing one', async () => {
+    const head = await as(world.users.head);
+    const seen: number[] = [];
+    let cursor: string | null = null;
+    do {
+      const res = await list(head, {
+        entityType: 'test_entity',
+        entityId: batch,
+        limit: 2,
+        ...(cursor ? { cursor } : {}),
+      });
+      expect(res.status).toBe(200);
+      seen.push(...res.body.data.map((e: { new: { n: number } }) => e.new.n));
+      cursor = res.body.meta.nextCursor;
+    } while (cursor);
+    expect(seen.sort()).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  });
+
+  it('shows the last 30 days by default and the last year for one entity', async () => {
+    const head = await as(world.users.head);
+    const today = isoDateInDhaka(h.clock.now());
+    const plain = await list(head, { action: 'test.old' });
+    expect(plain.body.meta).toMatchObject({
+      from: isoDateInDhaka(new Date(h.clock.now().getTime() - 30 * 86_400_000)),
+      to: today,
+    });
+    expect(plain.body.data).toHaveLength(1);
+    const history = await list(head, { entityType: 'test_entity', entityId: other });
+    expect(history.body.meta.from).toBe(
+      isoDateInDhaka(new Date(h.clock.now().getTime() - 365 * 86_400_000)),
+    );
+    // the entries of today count when the range ends today
+    const todayOnly = await list(head, { action: 'test.other', from: today, to: today });
+    expect(todayOnly.body.data).toHaveLength(1);
+  });
+
   it('combines actor, action and dates', async () => {
     const monitoring = await as(world.users.monitoring);
     const byActor = await list(monitoring, { actorUserId: world.users.head, action: 'test.other' });
     expect(byActor.body.data).toHaveLength(1);
     expect(byActor.body.data[0].entityId).toBe(other);
-    const today = isoDateInDhaka(new Date());
-    const early = isoDateInDhaka(new Date(Date.now() - 3 * 86_400_000));
+    const today = isoDateInDhaka(h.clock.now());
+    const early = isoDateInDhaka(new Date(h.clock.now().getTime() - 3 * 86_400_000));
     expect(
       (await list(monitoring, { action: 'test.old', from: today, to: today })).body.data,
     ).toEqual([]);
@@ -118,7 +162,8 @@ describe('the audit viewer', () => {
     const head = await as(world.users.head);
     const res = await list(head, { action: 'test.secret' });
     expect(res.body.data[0].old).toEqual({ nested: { kept: 1 } });
-    expect(JSON.stringify(res.body)).not.toMatch(/argon2id|refreshToken|passwordHash/);
+    expect(res.body.data[0].new).toEqual({ name: 'kept' });
+    expect(JSON.stringify(res.body)).not.toMatch(/argon2id|refreshToken|passwordHash|k-123|p-456/);
   });
 
   it('refuses a range over a year, a reversed range and an impossible date', async () => {

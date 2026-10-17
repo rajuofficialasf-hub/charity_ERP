@@ -37,6 +37,15 @@ describe('the active sessions', () => {
     await login(h, volunteer);
     const ended = await newestSession(volunteer.id);
     await h.db.query(`UPDATE device_sessions SET revoked_at = now() WHERE id = $1`, [ended]);
+    // a session past its expiry, written as an old row would be
+    const expired = (
+      await h.db.query(
+        `INSERT INTO device_sessions (id, user_id, refresh_token_hash, expires_at, created_at, last_seen_at)
+         VALUES (gen_random_uuid(), $1, md5(random()::text), now() - interval '1 minute', now() - interval '100 days', now() - interval '20 days')
+         RETURNING id`,
+        [volunteer.id],
+      )
+    ).rows[0].id as string;
     const res = await api()
       .get('/api/v1/sessions/active')
       .query({ kind: 'volunteer' })
@@ -45,6 +54,9 @@ describe('the active sessions', () => {
     const ids = (res.body.data as { id: string }[]).map((s) => s.id);
     expect(ids).toContain(kept);
     expect(ids).not.toContain(ended);
+    expect(ids).not.toContain(expired);
+    // newest started first
+    expect(ids).toEqual([...ids].sort().reverse());
     const row = (res.body.data as { id: string }[]).find((s) => s.id === kept);
     expect(row).toMatchObject({
       person: { id: volunteer.id, kind: 'volunteer', systemOwner: false },

@@ -3486,10 +3486,11 @@ paths:
     get:
       tags: [sessions]
       operationId: sessions.active.list
-      summary: Every active device session, most recently seen first, with a search by person
+      summary: Every active device session, newest started first, with a search by person
       description: >-
         For the Department Head and the Monitoring Team (session.revoke_user at global scope;
-        DECISION_LOG D-098). Active means not revoked and not expired; the system actor is never
+        DECISION_LOG D-098). Active means not revoked and not past its expiry (as the own session
+        list; an idle session that can no longer refresh still shows); the system actor is never
         listed. A row carries the session id, the person, the device name, platform, app version,
         start and last seen; never a token hash or an IP address. Ending a session uses
         POST /users/{userId}/sessions/{sessionId}/revoke, which keeps the Main Admin's sessions for
@@ -7754,7 +7755,8 @@ paths:
       summary: The audit log newest first, by actor, entity, action and a date range of at most a year
       description: >-
         For the Department Head and the Monitoring Team only for now (audit.view at global scope;
-        DECISION_LOG D-098). from and to are Dhaka dates, inclusive; without them the last 30 days;
+        DECISION_LOG D-098). from and to are Dhaka dates, inclusive; without them the last 30 days
+        (the last 365 days when entityId is given, the drill-down of one entity);
         a range over 366 days or reversed is 422 with the detail audit.range_required on from. The
         drill-down of an entity is this list filtered by entityType and entityId. Keys that look like
         secrets (password, hash, token, secret, otp) are dropped from old and new. meta carries the

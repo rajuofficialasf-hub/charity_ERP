@@ -27,7 +27,7 @@ export function sessionMonitorRouter(
     method: 'get',
     path: '/sessions/active',
     operationId: 'sessions.active.list',
-    summary: 'Every active device session, most recently seen first, with a search by person',
+    summary: 'Every active device session, newest started first, with a search by person',
     permission: 'session.revoke_user',
     scope: 'global',
     audit: 'none',

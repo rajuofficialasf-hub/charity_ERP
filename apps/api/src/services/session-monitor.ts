@@ -43,7 +43,7 @@ const SELECT = {
 
 /**
  * Every active device session for the Department Head and the Monitoring Team (docs/DECISION_LOG.md,
- * the admin and settings decision of 2026-10-17), most recently seen first, with a search by
+ * the admin and settings decision of 2026-10-17), newest started first, with a search by
  * person. Ending one goes through the existing revoke of a user's session, which keeps the Main
  * Admin's sessions for the Main Admin.
  */
@@ -55,11 +55,9 @@ export class SessionMonitorService {
   ) {}
 
   async list(actor: Principal, query: ActiveSessionQuery) {
-    const sort = parseSort(
-      undefined,
-      ['lastSeenAt', 'id'],
-      [{ field: 'lastSeenAt', direction: 'desc' }],
-    );
+    // newest started first: session ids are time-ordered (UUID version 7) and unique, so the
+    // keyset holds exactly, which a microsecond timestamp read into milliseconds would not
+    const sort = parseSort(undefined, ['id'], [{ field: 'id', direction: 'desc' }]);
     const binding = `sessions.active|${actor.userId}`;
     const cursor = query.cursor
       ? decodeCursor(this.env.CURSOR_SECRET, binding, query.cursor)
