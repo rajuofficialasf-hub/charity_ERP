@@ -63,6 +63,20 @@ export const monitoringThresholdsSchema = z.strictObject({
 });
 export type MonitoringThresholds = z.infer<typeof monitoringThresholdsSchema>;
 
+/**
+ * The WHATWG URL parser, present in Node and in every browser; declared here because this package
+ * compiles without the DOM and Node type libraries, so it is typed here.
+ */
+interface ParsedUrl {
+  protocol: string;
+  username: string;
+  password: string;
+  search: string;
+  hash: string;
+  hostname: string;
+}
+const Url = (globalThis as unknown as { URL: new (input: string) => ParsedUrl }).URL;
+
 /** Host names the server must never be pointed at: local names and internal domains. */
 const INTERNAL_NAME = /^(localhost|.+\.localhost|.+\.local|.+\.internal|.+\.home\.arpa)$/;
 const IPV4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
@@ -89,9 +103,9 @@ function isInternalIpv4(a: number, b: number): boolean {
  * the adapter connects; the real provider's adapter checks its host there.
  */
 export function isPublicHttpsUrl(raw: string): boolean {
-  let url: URL;
+  let url: ParsedUrl;
   try {
-    url = new URL(raw);
+    url = new Url(raw);
   } catch {
     return false;
   }
