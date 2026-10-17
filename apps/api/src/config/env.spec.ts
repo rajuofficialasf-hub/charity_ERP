@@ -68,21 +68,23 @@ describe('loadEnv', () => {
   });
 
   it('refuses the dummy OTP and insecure auth cookies in production (BD-49, BR-024, D-070)', () => {
+    const production = { ...base, NODE_ENV: 'production', APP_ORIGIN: 'https://erp.example.org' };
     expect(() =>
       loadEnv({
-        ...base,
-        NODE_ENV: 'production',
+        ...production,
         OTP_DUMMY_ENABLED: 'true',
         OTP_DUMMY_CODE: '123456',
       }),
     ).toThrow(/OTP_DUMMY_ENABLED/);
-    expect(() => loadEnv({ ...base, NODE_ENV: 'production', AUTH_COOKIE_SECURE: 'false' })).toThrow(
+    expect(() => loadEnv({ ...production, AUTH_COOKIE_SECURE: 'false' })).toThrow(
       /AUTH_COOKIE_SECURE/,
     );
-    expect(() => loadEnv({ ...base, NODE_ENV: 'production', RATE_LIMITS_RELAXED: 'true' })).toThrow(
+    expect(() => loadEnv({ ...production, RATE_LIMITS_RELAXED: 'true' })).toThrow(
       /RATE_LIMITS_RELAXED/,
     );
-    expect(loadEnv({ ...base, NODE_ENV: 'production' })).toMatchObject({
+    // the set-password link goes out by email, so it must point at the https origin (D-097)
+    expect(() => loadEnv({ ...base, NODE_ENV: 'production' })).toThrow(/APP_ORIGIN/);
+    expect(loadEnv(production)).toMatchObject({
       OTP_DUMMY_ENABLED: false,
       AUTH_COOKIE_SECURE: true,
       TRUST_PROXY: 'loopback',

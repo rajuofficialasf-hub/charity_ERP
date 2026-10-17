@@ -791,6 +791,85 @@ components:
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/UserSummary' } }
         meta: { $ref: '#/components/schemas/ListMeta' }
+    StaffCreateRequest:
+      description: >-
+        A new official created by the admin (DECISION_LOG D-097, BR-261). The job ID is stored in
+        capitals and may not read as a mobile number; affiliationUnit is required for `foundation`
+        and `external` and null for `department`; the role is an official role other than
+        department_head.
+      type: object
+      additionalProperties: false
+      required: [jobId, displayName, designation, affiliation, affiliationUnit, homeProgramId, homeDivisionId, supervisorUserId, email, mobile, roleKey]
+      properties:
+        jobId: { type: string, maxLength: 64 }
+        displayName: { type: string, minLength: 1, maxLength: 200 }
+        designation: { type: string, minLength: 1, maxLength: 200 }
+        affiliation: { type: string, enum: [department, foundation, external] }
+        affiliationUnit:
+          anyOf:
+            - { type: string, minLength: 1, maxLength: 200 }
+            - { type: 'null' }
+        homeProgramId:
+          anyOf:
+            - { type: string, format: uuid }
+            - { type: 'null' }
+        homeDivisionId:
+          anyOf:
+            - { type: string, format: uuid }
+            - { type: 'null' }
+        supervisorUserId:
+          anyOf:
+            - { type: string, format: uuid }
+            - { type: 'null' }
+        email: { type: string, format: email, maxLength: 254 }
+        mobile:
+          anyOf:
+            - { type: string, pattern: '^01[3-9][0-9]{8}$' }
+            - { type: 'null' }
+        roleKey: { type: string, minLength: 1, maxLength: 64 }
+        language: { type: string, enum: [bn, en], default: bn }
+    InvitationIssued:
+      description: The set-password link, returned once so the admin can copy it; emailed tells whether the email went out.
+      type: object
+      required: [userId, link, expiresAt, emailed]
+      properties:
+        userId: { $ref: '#/components/schemas/Uuid' }
+        link: { type: string }
+        expiresAt: { type: string, format: date-time }
+        emailed: { type: boolean }
+    InvitationIssuedResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/InvitationIssued' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    InvitationCheckRequest:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token: { type: string, pattern: '^[A-Za-z0-9_-]{43}$' }
+    InvitationAcceptRequest:
+      type: object
+      additionalProperties: false
+      required: [token, password]
+      properties:
+        token: { type: string, pattern: '^[A-Za-z0-9_-]{43}$' }
+        password: { type: string, minLength: 1, maxLength: 128 }
+    InvitationView:
+      type: object
+      required: [displayName, jobId, minPasswordLength, expiresAt]
+      properties:
+        displayName: { type: string }
+        jobId: { type: string }
+        minPasswordLength: { type: integer }
+        expiresAt: { type: string, format: date-time }
+    InvitationViewResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/InvitationView' }
+        meta: { $ref: '#/components/schemas/Meta' }
     UserStateRequest:
       type: object
       additionalProperties: false
@@ -2819,6 +2898,60 @@ components:
 
 paths:
   # ======================= auth =======================
+  /auth/invitations/check:
+    post:
+      tags: [auth]
+      operationId: auth.invitation.check
+      summary: The name and job ID of an open set-password link (404 unknown, 410 used or expired)
+      description: >-
+        DECISION_LOG D-097, BR-262. The token comes from the fragment of the link and travels in
+        the body, never in a URL. 404 auth.invitation_invalid; 410 auth.invitation_expired.
+      security: []
+      x-permission: public
+      x-scope: self
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: public-form
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InvitationCheckRequest' }
+      responses:
+        '200':
+          description: The open link
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InvitationViewResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410': { $ref: '#/components/responses/Gone' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /auth/invitations/accept:
+    post:
+      tags: [auth]
+      operationId: auth.invitation.accept
+      summary: Set the first password through the link; the account becomes active and logs in with the job ID
+      description: >-
+        BR-262. The password follows the rules of the role (12 characters for a global role); the
+        link is used once.
+      security: []
+      x-permission: public
+      x-scope: self
+      x-audit: auth.invitation_accepted
+      x-idempotency: none
+      x-rate-limit: public-form
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InvitationAcceptRequest' }
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410': { $ref: '#/components/responses/Gone' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
   /auth/register/start:
     post:
       tags: [auth]
@@ -2976,7 +3109,7 @@ paths:
     post:
       tags: [auth]
       operationId: auth.session.login
-      summary: Log in with mobile or email and password; no OTP at login (O-05)
+      summary: Log in with job ID, mobile or email and password; no OTP at login (O-05, D-097)
       security: []
       x-permission: public
       x-scope: self
@@ -3228,6 +3361,58 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+    post:
+      tags: [users]
+      operationId: users.user.create
+      summary: Create an official with job ID, role and place; the set-password link is emailed and returned once
+      description: >-
+        DECISION_LOG D-097, BR-261. The account is pending without a password until the link is
+        used. A failed email keeps the account (emailed false); the admin copies the link. Errors
+        409 user.job_id_taken, registration.account_exists; 422 validation.option_unknown (roleKey,
+        homeProgramId, homeDivisionId), user.supervisor_invalid (supervisorUserId).
+      x-permission: user.create
+      x-scope: global
+      x-audit: user.created
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StaffCreateRequest' }
+      responses:
+        '201':
+          description: Created; the link is shown once
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InvitationIssuedResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /users/{userId}/invitation:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    post:
+      tags: [users]
+      operationId: users.user.invite
+      summary: A new set-password link for an official without a password; the open link is revoked
+      description: BR-262. 409 user.invitation_not_needed once a password is set; 409 user.not_staff for a volunteer.
+      x-permission: user.create
+      x-scope: user
+      x-audit: user.invited
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '201':
+          description: The new link, shown once
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InvitationIssuedResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /users/{userId}:
     parameters:
       - $ref: '#/components/parameters/UserId'

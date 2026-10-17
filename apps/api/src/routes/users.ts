@@ -1,6 +1,8 @@
 import {
   reasonRequestSchema,
   type ReasonRequest,
+  type StaffCreateRequest,
+  staffCreateRequestSchema,
   USER_STATES,
   userStateRequestSchema,
   type UserStateRequest,
@@ -55,6 +57,14 @@ const handoverView = z.object({
   outstandingCount: z.number().int(),
   completedAt: z.string().nullable(),
 });
+/** The link of a new official, shown once so the admin can copy it (D-097). */
+const invitationIssued = z.object({
+  userId: uuid,
+  link: z.string(),
+  expiresAt: z.string(),
+  emailed: z.boolean(),
+});
+
 const listQuery = pageQuery.omit({ sort: true }).extend({
   q: z.string().min(2).max(100).optional(),
   role: z.string().max(64).optional(),
@@ -69,8 +79,48 @@ const userOp = {
 };
 
 /** User administration (AUTH.md 6, 7, 11; O-59 item 1 and 2; openapi tag users). */
-export function usersRouter(deps: RouteDeps, c: Pick<Container, 'users' | 'handover'>): Router {
+export function usersRouter(
+  deps: RouteDeps,
+  c: Pick<Container, 'users' | 'handover' | 'staffAccounts'>,
+): Router {
   const router = Router();
+
+  // Officials are created by the admin with a set-password link (DECISION_LOG D-097, BR-261).
+  defineRoute<StaffCreateRequest>(router, deps, {
+    ...userOp,
+    method: 'post',
+    path: '/users',
+    status: 201,
+    operationId: 'users.user.create',
+    summary:
+      'Create an official with job ID, role and place; the set-password link is emailed and returned once',
+    permission: 'user.create',
+    scope: 'global',
+    audit: 'user.created',
+    body: staffCreateRequestSchema,
+    responses: { 201: invitationIssued, 401: null, 403: null, 409: null, 422: null },
+    handler: ({ body, req, res }) => {
+      res.setHeader('Cache-Control', 'no-store');
+      return c.staffAccounts.create(principalOf(req), body);
+    },
+  });
+
+  defineRoute<unknown, unknown, { userId: string }>(router, deps, {
+    ...userOp,
+    method: 'post',
+    path: '/users/:userId/invitation',
+    status: 201,
+    operationId: 'users.user.invite',
+    summary: 'A new set-password link for an official without a password; the open link is revoked',
+    permission: 'user.create',
+    audit: 'user.invited',
+    params: { userId: uuid },
+    responses: { 201: invitationIssued, 401: null, 403: null, 404: null, 409: null },
+    handler: ({ params, req, res }) => {
+      res.setHeader('Cache-Control', 'no-store');
+      return c.staffAccounts.reissue(principalOf(req), scopeOf(req), params.userId);
+    },
+  });
 
   defineRoute<unknown, UserListQuery>(router, deps, {
     ...userOp,

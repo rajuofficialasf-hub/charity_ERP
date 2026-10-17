@@ -64,13 +64,18 @@ export class AuthService {
     private readonly logger: Logger,
   ) {}
 
-  /** Account for a login id: staff by email or mobile, volunteers by mobile (AUTH.md 1). */
+  /**
+   * Account for a login id: staff by job ID, email or mobile, volunteers by mobile (AUTH.md 1,
+   * DECISION_LOG D-097).
+   */
   private findAccount(raw: string) {
     const id = normalizeLoginId(raw);
     const where =
       id.kind === 'email'
         ? { email: id.value, kind: 'staff' }
-        : { mobile: id.value, kind: { in: ['staff', 'volunteer'] } };
+        : id.kind === 'job_id'
+          ? { jobId: id.value, kind: 'staff' }
+          : { mobile: id.value, kind: { in: ['staff', 'volunteer'] } };
     return this.prisma.user
       .findFirst({ where, select: accountSelect })
       .then((user) => ({ user, key: identifierHash(this.env, `${id.kind}:${id.value}`) }));
@@ -338,6 +343,16 @@ export class AuthService {
     this.sessions.evictUser(user.id);
   }
 
+  /**
+   * A reset needs an account that is not deactivated and has a password: an official the admin
+   * created sets the first password through the link (D-097).
+   */
+  private resettable<T extends { state: string; passwordHash: string | null }>(
+    user: T | null,
+  ): user is T {
+    return Boolean(user && user.state !== 'deactivated' && user.passwordHash);
+  }
+
   /** Where the reset code goes: volunteers by SMS, staff by email (SMS without email). */
   private resetTarget(user: {
     kind: string;
@@ -363,7 +378,7 @@ export class AuthService {
       actorUserId: user?.id ?? null,
       new: { loginIdHash: key },
     });
-    const target = user && user.state !== 'deactivated' ? this.resetTarget(user) : null;
+    const target = this.resettable(user) ? this.resetTarget(user) : null;
     if (!user || !target) return;
     try {
       await this.otp.issue(target, {
@@ -383,7 +398,7 @@ export class AuthService {
   /** Completes a reset with the code; all device sessions are revoked and a lock is lifted. */
   async resetComplete(body: PasswordResetCompleteRequest): Promise<void> {
     const { user, key } = await this.findAccount(body.loginId);
-    const target = user && user.state !== 'deactivated' ? this.resetTarget(user) : null;
+    const target = this.resettable(user) ? this.resetTarget(user) : null;
     let otpId: string;
     try {
       if (!user || !target) throw new ApiError('otp.invalid', 422);

@@ -1,4 +1,7 @@
 import {
+  type InvitationAcceptRequest,
+  invitationAcceptRequestSchema,
+  invitationTokenSchema,
   loginRequestSchema,
   type LoginRequest,
   passwordChangeRequestSchema,
@@ -58,10 +61,18 @@ const meSchema = z.object({
   volunteerId: z.uuid().nullable().optional(),
 });
 
+/** What the set-password page shows (D-097). */
+const invitationView = z.object({
+  displayName: z.string(),
+  jobId: z.string(),
+  minPasswordLength: z.number().int(),
+  expiresAt: z.string(),
+});
+
 /** Login, refresh, logout, current user and passwords (AUTH.md 3 to 8, openapi tag auth). */
 export function authRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'auth' | 'env' | 'registration' | 'registrationPhotos'>,
+  c: Pick<Container, 'auth' | 'env' | 'registration' | 'registrationPhotos' | 'staffAccounts'>,
 ): Router {
   const router = Router();
   const answer = (res: Response, issued: IssuedSession) => {
@@ -75,7 +86,7 @@ export function authRouter(
     method: 'post',
     path: '/auth/login',
     operationId: 'auth.session.login',
-    summary: 'Log in with mobile or email and password; no OTP at login (O-05)',
+    summary: 'Log in with job ID, mobile or email and password; no OTP at login (O-05, D-097)',
     permission: 'public',
     audit: 'auth.login',
     rateLimit: 'login',
@@ -180,6 +191,41 @@ export function authRouter(
     body: passwordResetStartRequestSchema,
     responses: { 204: null, 422: null, 429: null },
     handler: ({ body }) => c.auth.resetStart(body.loginId, currentContext()?.locale ?? 'bn'),
+  });
+
+  // The set-password link of an official created by the admin (DECISION_LOG D-097, BR-262). The
+  // token travels in the body, never in a URL, so no access log keeps it.
+  defineRoute<{ token: string }>(router, deps, {
+    ...authOp,
+    method: 'post',
+    path: '/auth/invitations/check',
+    operationId: 'auth.invitation.check',
+    summary: 'The name and job ID of an open set-password link (404 unknown, 410 used or expired)',
+    permission: 'public',
+    audit: 'none',
+    rateLimit: 'public-form',
+    body: z.strictObject({ token: invitationTokenSchema }),
+    responses: { 200: invitationView, 404: null, 410: null, 422: null, 429: null },
+    handler: ({ body, res }) => {
+      res.setHeader('Cache-Control', 'no-store');
+      return c.staffAccounts.inspect(body.token);
+    },
+  });
+
+  defineRoute<InvitationAcceptRequest>(router, deps, {
+    ...authOp,
+    method: 'post',
+    path: '/auth/invitations/accept',
+    status: 204,
+    operationId: 'auth.invitation.accept',
+    summary:
+      'Set the first password through the link; the account becomes active and logs in with the job ID',
+    permission: 'public',
+    audit: 'auth.invitation_accepted',
+    rateLimit: 'public-form',
+    body: invitationAcceptRequestSchema,
+    responses: { 204: null, 404: null, 410: null, 422: null, 429: null },
+    handler: ({ body }) => c.staffAccounts.accept(body),
   });
 
   // Registration before login (AUTH.md 2; DECISION_LOG D-082, D-086, D-088).

@@ -80,6 +80,11 @@ const envSchema = z
           .map((o) => o.trim())
           .filter(Boolean),
       ),
+    /**
+     * The PWA's public origin, written into links sent by email (the set-password link,
+     * DECISION_LOG D-097); https in production.
+     */
+    APP_ORIGIN: z.url().default('http://127.0.0.1:3000'),
     /** Multiplies every rate limit by 100 for the E2E run (one shared address); never production. */
     RATE_LIMITS_RELAXED: flag,
     /** Secure attribute of the auth cookies; false only for development over a LAN address. */
@@ -112,6 +117,12 @@ const envSchema = z
         code: 'custom',
         path: ['OTP_DUMMY_CODE'],
         message: 'required when OTP_DUMMY_ENABLED=true',
+      });
+    if (env.NODE_ENV === 'production' && !env.APP_ORIGIN.startsWith('https://'))
+      ctx.addIssue({
+        code: 'custom',
+        path: ['APP_ORIGIN'],
+        message: 'must be an https origin in production (links sent by email)',
       });
     if (env.NODE_ENV === 'production' && env.RATE_LIMITS_RELAXED)
       ctx.addIssue({

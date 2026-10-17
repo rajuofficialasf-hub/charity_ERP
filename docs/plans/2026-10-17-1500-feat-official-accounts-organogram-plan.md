@@ -34,7 +34,7 @@ DECISION_LOG D-097 (owner answers in chat, 2026-10-17).
 - Size: M · Risk area: migration, auth · Depends on: —
 
 ### U2 Create, link, accept, login by job ID, staff self-registration closed
-- Status: todo
+- Status: done
 - Files: `apps/api/src/services/staff-accounts.ts` (new), `routes/users.ts`, `routes/auth.ts`, `services/auth.ts`, `auth/login-id.ts`, `services/registration.ts`, `notifications` email template, permissions.yaml, openapi.yaml.
 - Tests: integration (create 201 with link, 403 for an RPM, 409 job ID or email taken, role rules; link 404/410, single use, resend revokes; accept activates with role password length; login by job ID in any case, by email and by mobile; reset with job ID; staff start refused, pending staff decision still works).
 - Size: L · Risk area: auth · Depends on: U1
@@ -78,8 +78,8 @@ DECISION_LOG D-097 (owner answers in chat, 2026-10-17).
 
 ## Progress
 - Branch: feat/official-accounts-organogram (from feat/templates-consent-assignment, stacked on PR #4)
-- Next: U2, the staff account service
+- Next: U3, profile edit route, list filters, organogram API
 - Reviewed through: —
 - Uncommitted: —
-- Notes: job IDs are stored in capitals (CHECK) instead of an expression index, so the unique index stays a plain partial one Prisma can describe; a BEFORE INSERT trigger gives staff rows without an affiliation `department`.
+- Notes: the set-password token travels in the URL fragment (`/invite#token`) and in request bodies, never in a path, so no access log keeps it; `APP_ORIGIN` builds the link (https in production); SMTP calls time out after 10 s so a dead mail server never holds a create request. Staff registration tests now use drafts or pending accounts written in the database (the API refuses new ones). Job IDs are stored in capitals (CHECK) instead of an expression index, so the unique index stays a plain partial one Prisma can describe; a BEFORE INSERT trigger gives staff rows without an affiliation `department`.
 - Updated: 2026-10-17

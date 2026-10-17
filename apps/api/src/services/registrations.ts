@@ -44,8 +44,20 @@ export const CORRECTION = 'registration_correction';
 export const UNFINISHED = ['open', 'submitted'];
 /** Refused correction answers (invalid value, NID of another volunteer) an account allows. */
 const MAX_REFUSED_ANSWERS = 10;
-/** Roles a staff decision may not give: the Main Admin's role (AUTH.md 11). */
+/** Roles a staff decision or a new account may not give: the Main Admin's role (AUTH.md 11). */
 const NOT_BY_DECISION = new Set(['department_head']);
+
+/** An official role that a staff decision or the admin's new account may give (BR-028, D-097). */
+export function isGivableOfficialRole(registry: AccessRegistry, roleKey: string): boolean {
+  const role = registry.roles.get(roleKey);
+  return Boolean(role && role.kind === 'official' && !NOT_BY_DECISION.has(role.key));
+}
+
+/**
+ * A staff registration is an account the person registered themselves; an account the admin
+ * created waits for its set-password link and is never a registration to decide (D-097).
+ */
+const SELF_REGISTERED: Prisma.UserWhereInput = { accountInvitationsUser: { none: {} } };
 
 const pendingSelect = {
   id: true,
@@ -195,7 +207,9 @@ export class RegistrationsService {
     };
     // an official's registration has no corrections and no district of residence
     const staffRows: Prisma.UserWhereInput | null =
-      staff && query.status !== 'in_correction' && !query.districtId ? { kind: 'staff' } : null;
+      staff && query.status !== 'in_correction' && !query.districtId
+        ? { kind: 'staff', ...SELF_REGISTERED }
+        : null;
     const kinds =
       query.kind === 'volunteer'
         ? [volunteers]
@@ -517,8 +531,7 @@ export class RegistrationsService {
   /** The Department Head or the Monitoring Team decides a staff registration (BR-028, R9). */
   async decideStaff(actor: Principal, userId: string, body: StaffDecision): Promise<void> {
     if (body.decision === 'approve') {
-      const role = this.registry.roles.get(body.roleKey!);
-      if (!role || role.kind !== 'official' || NOT_BY_DECISION.has(role.key))
+      if (!isGivableOfficialRole(this.registry, body.roleKey!))
         throw new ApiError('validation.failed', 422, undefined, [
           { path: 'roleKey', code: 'validation.option_unknown' },
         ]);
@@ -526,7 +539,7 @@ export class RegistrationsService {
     await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
       const user = await tx.user.findFirst({
-        where: { id: userId, kind: 'staff', state: 'pending' },
+        where: { id: userId, kind: 'staff', state: 'pending', ...SELF_REGISTERED },
         select: { id: true },
       });
       if (!user) {

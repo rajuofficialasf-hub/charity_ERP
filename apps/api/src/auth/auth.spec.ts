@@ -119,6 +119,13 @@ describe('login id normalization (AUTH.md 1)', () => {
     expect(normalizeLoginId('০১৭০০০০০০০১')).toEqual({ kind: 'mobile', value: '01700000001' });
   });
 
+  it('reads anything else as a job ID in capitals, so an official logs in with it in any case', () => {
+    expect(normalizeLoginId(' css-১০১ ')).toEqual({ kind: 'job_id', value: 'CSS-101' });
+    expect(normalizeLoginId('1023')).toEqual({ kind: 'job_id', value: '1023' });
+    // eleven digits that are not a mobile number are a job ID too
+    expect(normalizeLoginId('12345678901')).toEqual({ kind: 'job_id', value: '12345678901' });
+  });
+
   it('hashes identifiers with the OTP secret, never in clear', () => {
     const value = identifierHash(env(), 'mobile:01700000001');
     expect(value).not.toContain('01700000001');
