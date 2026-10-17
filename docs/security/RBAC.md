@@ -227,6 +227,7 @@ As built in T1.8 (Express, ADR-014; the decorator names below are the design's, 
 - **Main Admin:** `system.owner.transfer` is the only permission the Monitoring Team lacks; the Department Head account cannot be deactivated, blocked or stripped by anyone (AUTH.md §11, BR-035).
 - **Blocked users:** authentication succeeds but every permission check fails with `account_blocked`; the block message endpoint is `@Public`-like for authenticated blocked users only (BR-047).
 - **Pending users:** only `edit_request.submit`-class self endpoints and own profile read.
+- **Officials' accounts (D-097):** `user.create` creates an official with one role (an official role other than the Department Head role) and issues the set-password link; `user.profile.manage` changes the job ID, designation, affiliation, program, division and supervisor. Both are held by the global roles only and the panel can grant them. The organogram (`GET /organogram`) reads with `permission.view` and shows the department's own staff of the caller's scope.
 - **Handover:** `user.handover` reassigns ownership rows; permissions of the leaving official are revoked at deactivation (AUTH.md §10).
 - **Needs-verification records:** visible to RPM and Executive of the region (`application.verify_needs_verification`); the volunteer sees the record's status only.
 - **Public form:** anonymous `@Public` endpoint creating a needs-verification application; rate-limited (O-08); no read-back of other records.
@@ -260,6 +261,8 @@ Generated on 2026-10-10 by the T0.10 check script from `permissions.yaml`; regen
 | `session.revoke_user` | M01 | no | List and revoke another user's device sessions (lost phone), with reason | regional_program_manager@REGION (own_region) |
 | `user.state.change` | M01 | no | Change an account state (pending/active/blocked/deactivated) with reason; blocklist uses volunteer.block | none (global roles only) |
 | `user.lock.clear` | M01 | no | Clear a login lock (5 failed attempts) on a user's account with reason (O-59, AUTH.md 6) | none (global roles only) |
+| `user.create` | M01 | no | Create an official's account with job ID, role and place, and send or renew its set-password link (D-097) | none (global roles only) |
+| `user.profile.manage` | M01 | no | Edit an official's job ID, name, designation, affiliation, program, division and supervisor (D-097) | none (global roles only) |
 | `user.deactivate_volunteer` | M03 | no | Deactivate a volunteer who has no open applications | program_manager@PROGRAM (no_open_applications); regional_program_manager@REGION (no_open_applications) |
 | `user.handover` | M03 | no | Run the staff handover and deactivate an official's account | none (global roles only) |
 | `system.owner.transfer` | M01 | no | Transfer the Main Admin (system owner) flag to another official | department_head@GLOBAL |

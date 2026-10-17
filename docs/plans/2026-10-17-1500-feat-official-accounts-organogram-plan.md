@@ -40,7 +40,7 @@ DECISION_LOG D-097 (owner answers in chat, 2026-10-17).
 - Size: L · Risk area: auth · Depends on: U1
 
 ### U3 Profile edit, list filters, organogram API
-- Status: todo
+- Status: done
 - Files: `services/staff-accounts.ts`, `services/users.ts`, `services/organogram.ts` (new), routes, openapi.yaml.
 - Tests: integration (profile audited with If-Match, supervisor loop refused, list by affiliation/program/role, organogram has department staff only, places by home program or supervisor chain).
 - Size: M · Risk area: auth · Depends on: U2
@@ -78,7 +78,7 @@ DECISION_LOG D-097 (owner answers in chat, 2026-10-17).
 
 ## Progress
 - Branch: feat/official-accounts-organogram (from feat/templates-consent-assignment, stacked on PR #4)
-- Next: U3, profile edit route, list filters, organogram API
+- Next: checkpoint C1 (test and review of U1 to U3), then U4 the staff directory screen
 - Reviewed through: —
 - Uncommitted: —
 - Notes: the set-password token travels in the URL fragment (`/invite#token`) and in request bodies, never in a path, so no access log keeps it; `APP_ORIGIN` builds the link (https in production); SMTP calls time out after 10 s so a dead mail server never holds a create request. Staff registration tests now use drafts or pending accounts written in the database (the API refuses new ones). Job IDs are stored in capitals (CHECK) instead of an expression index, so the unique index stays a plain partial one Prisma can describe; a BEFORE INSERT trigger gives staff rows without an affiliation `department`.

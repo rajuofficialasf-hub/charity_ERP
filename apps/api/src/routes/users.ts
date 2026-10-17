@@ -1,8 +1,11 @@
 import {
   reasonRequestSchema,
   type ReasonRequest,
+  AFFILIATIONS,
   type StaffCreateRequest,
   staffCreateRequestSchema,
+  type StaffProfileRequest,
+  staffProfileRequestSchema,
   USER_STATES,
   userStateRequestSchema,
   type UserStateRequest,
@@ -69,6 +72,9 @@ const listQuery = pageQuery.omit({ sort: true }).extend({
   q: z.string().min(2).max(100).optional(),
   role: z.string().max(64).optional(),
   state: z.enum(USER_STATES).optional(),
+  kind: z.enum(['staff', 'volunteer']).optional(),
+  affiliation: z.enum(AFFILIATIONS).optional(),
+  programId: uuid.optional(),
 });
 
 const userOp = {
@@ -81,7 +87,7 @@ const userOp = {
 /** User administration (AUTH.md 6, 7, 11; O-59 item 1 and 2; openapi tag users). */
 export function usersRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'users' | 'handover' | 'staffAccounts'>,
+  c: Pick<Container, 'users' | 'handover' | 'staffAccounts' | 'organogram'>,
 ): Router {
   const router = Router();
 
@@ -138,6 +144,20 @@ export function usersRouter(
     },
   });
 
+  // The department's organogram, computed from roles, programs and supervisors (D-097, BR-263).
+  defineRoute(router, deps, {
+    ...userOp,
+    method: 'get',
+    path: '/organogram',
+    operationId: 'users.organogram.get',
+    summary:
+      "The department's own staff by program and supervisor; other departments and partners are left out",
+    permission: 'permission.view',
+    audit: 'none',
+    responses: { 200: null, 401: null, 403: null },
+    handler: ({ req }) => c.organogram.build(scopeOf(req)),
+  });
+
   defineRoute<unknown, unknown, { userId: string }>(router, deps, {
     ...userOp,
     method: 'get',
@@ -149,6 +169,34 @@ export function usersRouter(
     params: { userId: uuid },
     responses: { 200: null, 401: null, 403: null, 404: null },
     handler: async ({ params, req, res }) => {
+      const { user, updatedAt } = await c.users.get(scopeOf(req), params.userId);
+      const etag = etagOf(updatedAt);
+      res.setHeader('ETag', etag);
+      return ok(user, { etag });
+    },
+  });
+
+  defineRoute<StaffProfileRequest, unknown, { userId: string }>(router, deps, {
+    ...userOp,
+    method: 'put',
+    path: '/users/:userId/profile',
+    operationId: 'users.user.updateProfile',
+    summary:
+      "Replace an official's job ID, name, designation, affiliation, program, division and supervisor",
+    permission: 'user.profile.manage',
+    audit: 'user.profile_changed',
+    params: { userId: uuid },
+    headers: [{ name: 'If-Match', required: true }],
+    body: staffProfileRequestSchema,
+    responses: { 200: null, 401: null, 403: null, 404: null, 409: null, 412: null, 422: null },
+    handler: async ({ body, params, req, res }) => {
+      await c.staffAccounts.updateProfile(
+        principalOf(req),
+        scopeOf(req),
+        params.userId,
+        body,
+        req.get('if-match'),
+      );
       const { user, updatedAt } = await c.users.get(scopeOf(req), params.userId);
       const etag = etagOf(updatedAt);
       res.setHeader('ETag', etag);

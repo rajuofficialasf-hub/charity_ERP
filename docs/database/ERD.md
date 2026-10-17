@@ -63,7 +63,8 @@ Cardinality notation below: `1 — n` one to many, `1 — 0..1` optional one, `n
 
 | Entity | Key columns | Relationships | Requirement |
 |---|---|---|---|
-| users | id; mobile (unique); email (unique, nullable for volunteers until verified); kind staff/volunteer; state pending/active/blocked/deactivated; is_system_owner; password_hash; permission_version; language; preferences (JSONB); designation, home program, home division (staff) | 1 — 0..1 volunteers; 1 — n user_roles, user_permissions, device_sessions | AUTH.md §1, §7; BR-025, BR-035; O-05, O-25 |
+| users | id; mobile (unique); email (unique, nullable for volunteers until verified); kind staff/volunteer; state pending/active/blocked/deactivated; is_system_owner; password_hash; permission_version; language; preferences (JSONB); designation, home program, home division, job_id, affiliation and its unit, supervisor (staff; D-097) | 1 — 0..1 volunteers; 1 — n user_roles, user_permissions, device_sessions, account_invitations; users 1 — n (supervisor) | AUTH.md §1, §2.2, §7; BR-025, BR-035, BR-261; O-05, O-25 |
+| account_invitations | id; user_id; token_hash; expires_at (72 hours); emailed; used_at; revoked_at; created_by | users 1 — n (one open at a time) | AUTH.md §2.2; BR-262; D-097 |
 | roles | key (text, from permissions.yaml); name_bn/en; kind; global_scope | 1 — n user_roles | RBAC.md §3 |
 | user_roles | user_id; role_key; granted_by; granted_at; revoked_at | users n — m roles | A4; RBAC.md §1 (addition, section 20) |
 | permissions | name (text, from permissions.yaml); module; sensitive | 1 — n user_permissions | permissions.yaml |

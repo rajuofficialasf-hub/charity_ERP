@@ -7,10 +7,12 @@ Status: complete, task T0.9 (2026-10-10); all proposals approved by the owner th
 | Account kind | Login id | Created by | Approved by | Notes |
 |---|---|---|---|---|
 | Volunteer (General, Local দায়ী, Both, Team Member, Paid Volunteer) | Mobile number (verified by OTP at registration; unique, BR-025) | Self-registration | Project Executive, RPM, PM, Monitoring Team or Department Head (BR-029) | Email also verified at registration and kept for password reset |
-| Staff / official (Department Head, Monitoring Team, PM, RPM, Project Executive, Implementer, Official দায়ী, Procurement, Media, Finance) | Mobile number or email (both verified) | Self-registration on the same form plus designation, program, region (BR-028) | Department Head or Monitoring Team, who also assign the role | The first Department Head account is created by the seed/installation step, never through self-registration |
+| Staff / official (Department Head, Monitoring Team, PM, RPM, Project Executive, Implementer, Official দায়ী, Procurement, Media, Finance) | Job ID (the organisation's own ID), or the email or mobile number | The Department Head or the Monitoring Team (`user.create`) with the job ID, name, designation, email, optional mobile, affiliation, program, division, supervisor and role; the person sets the password through a single-use link (section 2.2; D-097, BR-261). Self-registration of officials ended with D-097; registrations already pending are still decided | The account is active once the link is used; the role is given at creation | The first Department Head account is created by the seed/installation step. Officials who registered themselves before D-097 keep their accounts; the admin adds their job ID and place (section 2.2) |
 | Main Admin / system owner | The Department Head account | Installation | — | Cannot be deleted or deactivated through normal CRUD (BR-035); see section 11 |
 
 One person has one user account. A volunteer account and a staff account are never merged; if a volunteer later becomes staff, a new staff account is created and the volunteer account is deactivated after handover of its applications (application transfer, BR-049).
+
+Every official carries an affiliation (D-097): `department` (the department's own staff; existing and pending staff accounts are department staff), `foundation` (another department of the Foundation) or `external` (an outside partner), the last two with the name of their unit. Only department staff appear in the department's staff list and organogram; the others are listed apart. Access is decided by roles and permissions as for everyone else.
 
 Passwords are stored as Argon2id hashes (SECURITY_POLICY §4) with a per-user salt; plaintext passwords and OTP codes never appear in logs, audit entries or error messages.
 
@@ -46,12 +48,36 @@ Implementation decisions of T1.9 (D-082, D-086, D-087, D-088): the draft lives i
 - Real gateways in staging and production: SMS through the provider-agnostic adapter configured in admin settings (a real gateway before rollout beyond the Phase 3 pilot; the pilot may run with the dummy OTP only with the owner's written approval and an explicit, time-limited configuration flag, O-49); email through the organization's SMTP. In staging the SMS adapter may run in dry-run mode (logs instead of sending) until the provider exists; the email OTP still goes out.
 - Seed data for dev/test creates accounts with known passwords; such seeds never run in production (BR-024).
 
+### 2.2 Officials created by the admin (D-097, BR-261 to BR-263)
+
+```
+1. Create       the Department Head or the Monitoring Team (permission user.create; the panel can
+                grant it) enters job ID, name, designation, email, optional mobile, affiliation (and
+                the unit outside the department), program, division, supervisor and one official
+                role (never the Department Head role); POST /users
+2. Link         the account is created pending without a password; a 256-bit random token is
+                issued (only its SHA-256 hash is stored in account_invitations), valid 72 hours and
+                once; the link APP_ORIGIN/invite#token is emailed (template staff_invitation) and
+                returned once in the answer so the admin can copy it for WhatsApp or another way;
+                a failed email keeps the account (emailed false)
+3. New link     POST /users/{id}/invitation revokes the open link and issues a new one, only while
+                no password is set
+4. Set password the page reads the token from the URL fragment (never sent to a server in a URL,
+                so no access log holds it); POST /auth/invitations/check shows the name and the job
+                ID; POST /auth/invitations/accept sets the password under the rules of the role
+                (section 3) and makes the account active; a used, revoked or expired link answers
+                410 auth.invitation_expired, an unknown one 404 auth.invitation_invalid
+5. Login        with the job ID (any letter case), the email or the mobile number (section 4)
+```
+
+This link is the one exception to "OTP only" (O-05): registration and password reset stay OTP flows. A password reset is refused for an account that has not used its link yet (it has no password to reset). The job ID is 2 to 32 letters, digits or `. _ / -`, starts with a letter or a digit, is stored in capitals (so it is unique without regard to case) and may not read as a mobile number. The profile of an official (job ID, name, designation, affiliation, program, division, supervisor) is changed with `PUT /users/{id}/profile` (`user.profile.manage`), for officials who registered themselves too; a supervisor is an active department official and no supervisor line may loop. Every creation (`user.created`), link (`user.invited`), acceptance (`auth.invitation_accepted`) and profile change (`user.profile_changed`) is audited.
+
 ## 3. Password rules (O-05)
 
 - Minimum 8 characters with at least one upper-case letter and one digit; no maximum below 128; spaces allowed. That is the whole rule (O-64, D-091): the mobile or email inside the password and common passwords are not checked any more (the earlier O-05 and D-071 rules were dropped by the owner). The API enforces it for the registration, the reset and the change; the PWA shows the three conditions as a checklist while the person types.
 - No forced periodic rotation (NIST guidance); a change is required only after a reset or when the Monitoring Team forces it for a compromised account.
 - Password change (logged in): requires the current password; revokes every other device session (section 5) and keeps the current one.
-- Password reset (forgotten): start with the login id → OTP to the registered mobile (volunteers) or mobile or email (staff) → new password → all device sessions revoked. Reset links are not used; OTP only (O-05).
+- Password reset (forgotten): start with the login id (job ID, email or mobile) → OTP to the registered mobile (volunteers) or mobile or email (staff) → new password → all device sessions revoked. Reset links are not used; OTP only (O-05). The set-password link of a new official (section 2.2) is not a reset.
 - Officials with GLOBAL scope (Department Head, Monitoring Team): minimum 12 characters because of the access they hold (O-25).
 - Forced change (O-66, T1.9f): a staff registration is submitted with the 8-character rule, because the role is not known yet. When the approval gives a role with global scope, `users.password_change_required` is set. From then on the access middleware (after the blocked and pending checks, before the principal is filled) answers 403 `auth.password_change_required` to every operation except the own profile read (`auth.me.get`), the language (`auth.me.language.set`), the password change (`auth.password.change`) and the logout (`auth.session.logout`), which carry `allowPasswordChange`; `Me.passwordChangeRequired` tells the PWA to open the password screen. A change or a reset clears the flag, always under the 12-character rule of the role, and the new password must differ from the current one (`auth.password_unchanged`). The facts cache of the user's sessions is dropped at the approval and at the change, so the next request sees the new state. Accounts that exist today are not flagged, and a global role granted later through the permission panel does not set the flag.
 
@@ -62,7 +88,7 @@ POST /auth/login { loginId, password, device: { name, platform, appVersion } }
 ```
 
 1. Rate limit per login id and per IP (section 12).
-2. Look up the account by mobile (volunteers, staff) or email (staff). Unknown id and wrong password return the same error and the same timing class (no user enumeration).
+2. Look up the account: a login id with `@` is an email (staff), one that reads as a mobile number after removing spaces, dashes and the +88 prefix is a mobile (volunteers, staff), anything else is a job ID (staff, matched in capitals; D-097). Unknown id and wrong password return the same error and the same timing class (no user enumeration). An official who has not used the set-password link yet has no password, so the login fails like a wrong password.
 3. Check lockout (section 6).
 4. Verify the password hash.
 5. Check account state (section 7): pending → tokens with the pending restrictions; blocked → 403 `auth.account_blocked` with the catalogue message and no tokens (O-59 item 4; the block reason is never shown); deactivated → 403 `auth.account_deactivated`. The state is revealed only after a correct password.
@@ -102,12 +128,12 @@ Rules:
 
 | State | Meaning | Can log in | What is allowed |
 |---|---|---|---|
-| pending | Registered, both OTPs verified, awaiting approval | Yes | Own profile and registration correction only; project section shows "You have not participated in any project yet" (BR-031); every other endpoint returns 403 `auth.account_pending` (API_STANDARDS §8) |
+| pending | Registered, both OTPs verified, awaiting approval; or an official created by the admin who has not used the set-password link yet (no password, so no login) | Yes (registered); no (waiting for the link) | Own profile and registration correction only; project section shows "You have not participated in any project yet" (BR-031); every other endpoint returns 403 `auth.account_pending` (API_STANDARDS §8) |
 | active | Approved | Yes | Everything the role, project assignments and permissions allow |
 | blocked | On the blocklist (volunteer) or suspended by the Monitoring Team (staff) | No: login answers 403 `auth.account_blocked` with the catalogue message and creates no session (O-59 item 4, same as section 4) | No application creation or assignment; no visibility of own earlier applications (BR-047); a session that existed when the block was set is revoked |
 | deactivated | Left or transferred after handover (BR-034) | No | Nothing; all their work and audit entries remain |
 
-Transitions: pending → active (approval) · pending → deactivated (rejected registration, or after 90 days unapproved, O-25) · active ↔ blocked (blocklist set/lift, RPM or above with reason, BR-047; for staff, Monitoring Team or Department Head) · active → deactivated (only after a completed handover, section 10) · deactivated → active (reactivation by the Department Head or Monitoring Team with reason; audited).
+Transitions: pending → active (approval, or the set-password link of an official created by the admin) · pending → deactivated (rejected registration, or after 90 days unapproved, O-25) · active ↔ blocked (blocklist set/lift, RPM or above with reason, BR-047; for staff, Monitoring Team or Department Head) · active → deactivated (only after a completed handover, section 10) · deactivated → active (reactivation by the Department Head or Monitoring Team with reason; audited).
 
 Lifting a block or reactivating never restores revoked device sessions; the user logs in again.
 
@@ -159,6 +185,7 @@ Every event below is written to `audit_log` (BR-179) with actor, target user, de
 | Event | Trigger |
 |---|---|
 | auth.register_started / otp_sent / otp_verified / otp_failed | Registration OTP flow (per channel) |
+| user.created / user.invited / auth.invitation_accepted / user.profile_changed | Officials created by the admin, their set-password link, and their profile (D-097) |
 | auth.registered | Account created in pending |
 | auth.approved / rejected / correction_requested | Registration review |
 | auth.login / login_failed / locked / lock_cleared | Login and lockout |

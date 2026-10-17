@@ -52,6 +52,7 @@ import { RegistrationService } from './services/registration';
 import { RegistrationPhotosService } from './services/registration-photos';
 import { SessionsService } from './services/sessions';
 import { AccessPanelService } from './services/access';
+import { OrganogramService } from './services/organogram';
 import { StaffAccountsService } from './services/staff-accounts';
 import { UsersService } from './services/users';
 import { createStorage, type StorageDriver } from './storage';
@@ -85,6 +86,7 @@ export interface Container {
   deviceSessions: SessionsService;
   users: UsersService;
   staffAccounts: StaffAccountsService;
+  organogram: OrganogramService;
   accessPanel: AccessPanelService;
   locations: LocationsService;
   registrationEvents: RegistrationEvents;
@@ -209,6 +211,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         email,
         logger,
       ),
+    organogram: o.organogram ?? new OrganogramService(prisma, access),
     accessPanel:
       o.accessPanel ?? new AccessPanelService(prisma, access, audit, permissionVersions, clock),
     locations: o.locations ?? new LocationsService(prisma),
