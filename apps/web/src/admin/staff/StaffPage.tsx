@@ -2,6 +2,7 @@ import { type Affiliation, AFFILIATIONS, type InvitationIssued } from '@css/shar
 import { type Locale, localized } from '@css/shared/i18n';
 import {
   Alert,
+  Avatar,
   Badge,
   Button,
   EmptyState,
@@ -12,8 +13,8 @@ import {
   TableToolbar,
   Tabs,
 } from '@css/ui';
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
-import { IdCard, Link2, Network, Pencil, UserPlus } from 'lucide-react';
+import { keepPreviousData, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { CircleCheck, Clock, IdCard, Link2, Pencil, UserPlus } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -24,19 +25,23 @@ import { ForbiddenContent } from '../AdminLayout';
 import { PROGRAMS_KEY, programs } from '../programs/programs-api';
 import { roles } from '../registrations/registrations-api';
 import { canManageOfficials, canSeeStaff } from '../roles';
+import { StatisticsBar } from '../StatisticsBar';
 import { LinkDialog } from './LinkDialog';
 import { OfficialDialog } from './OfficialDialog';
 import { RenewLinkDialog } from './RenewLinkDialog';
-import { STAFF_KEY, type StaffMember, staffPage } from './staff-api';
+import { STAFF_KEY, type StaffMember, staffCount, staffPage } from './staff-api';
+import { StaffViewSwitch } from './StaffViewSwitch';
+import './staff.css';
 
 const ALL = 'all';
 
 /**
- * The officials (DECISION_LOG D-097, SCR-064): the department's own staff, the officials from
- * other departments of the Foundation and the outside partners, each in its own tab with filters
- * by program and role and a search by name, job ID, email or mobile. The Department Head and the
- * Monitoring Team create an official, edit a profile and send a new set-password link; the server
- * decides every list and every write.
+ * The officials (DECISION_LOG D-097, SCR-063): the counts by affiliation, then the department's
+ * own staff, the officials from other departments of the Foundation and the outside partners,
+ * each in its own tab with filters by program and role and a search by name, job ID, email or
+ * mobile. The Department Head and the Monitoring Team create an official, edit a profile and send
+ * a new set-password link; the server decides every list and every write. The switch beside the
+ * title opens the organogram.
  */
 export function StaffPage() {
   const { me } = useAuth();
@@ -51,8 +56,16 @@ export function StaffPage() {
   const [renewing, setRenewing] = useState<StaffMember | null>(null);
   const [link, setLink] = useState<{ name: string; issued: InvitationIssued } | null>(null);
   const [notice, setNotice] = useState<string>();
+  const allowed = Boolean(me && canSeeStaff(me));
+  const counts = useQueries({
+    queries: AFFILIATIONS.map((a) => ({
+      queryKey: [...STAFF_KEY, 'count', a],
+      queryFn: () => staffCount(a),
+      enabled: allowed,
+    })),
+  });
   if (!me) return null;
-  if (!canSeeStaff(me)) return <ForbiddenContent />;
+  if (!allowed) return <ForbiddenContent />;
   const manage = canManageOfficials(me);
   const refresh = () => void queryClient.invalidateQueries({ queryKey: STAFF_KEY });
   const list = (affiliation: Affiliation) => (
@@ -70,9 +83,7 @@ export function StaffPage() {
       <div className="admin-title-row">
         <h1 className="admin-title">{t('title')}</h1>
         <div className="admin-title-actions">
-          <Button variant="secondary" icon={Network} href="/admin/staff/organogram">
-            {t('organogram')}
-          </Button>
+          <StaffViewSwitch value="list" />
           {manage && (
             <Button icon={UserPlus} onPress={() => setCreating(true)}>
               {t('new')}
@@ -80,6 +91,15 @@ export function StaffPage() {
           )}
         </div>
       </div>
+      <StatisticsBar
+        label={t('stats.label')}
+        loading={counts.some((c) => c.isPending)}
+        items={AFFILIATIONS.map((a, i) => ({
+          key: a,
+          label: t(`tabs.${a}`),
+          value: counts.at(i)?.data ?? 0,
+        }))}
+      />
       {notice && (
         <Alert tone="success" live="status" onDismiss={() => setNotice(undefined)}>
           {notice}
@@ -189,11 +209,40 @@ function StaffList({
     setPages([null]);
   }, []);
 
+  const person = (u: StaffMember) => (
+    <span className="staff-person">
+      <Avatar name={u.displayName} size="sm" />
+      <span className="staff-person-text">
+        <strong>{u.displayName}</strong>
+        {u.jobId ? (
+          <span className="staff-job" lang="en">
+            {u.jobId}
+          </span>
+        ) : (
+          <span className="staff-job staff-job-missing">{t('no_job_id')}</span>
+        )}
+      </span>
+    </span>
+  );
+  const work = (u: StaffMember) => (
+    <span className="staff-work">
+      <span>{u.designation ?? ''}</span>
+      <span className="admin-badges">
+        {u.roles.map((r) => (
+          <Badge key={r} size="sm" label={roleName(r)} />
+        ))}
+      </span>
+    </span>
+  );
+  const place = (u: StaffMember) =>
+    (affiliation === 'department' ? programName(u.homeProgramId) : u.affiliationUnit) || '—';
   const state = (u: StaffMember) =>
     u.awaitingPassword ? (
-      <Badge tone="warning" label={t('state.awaiting')} />
+      <Badge tone="warning" icon={Clock} label={t('state.awaiting')} />
+    ) : u.state === 'active' ? (
+      <Badge tone="success" icon={CircleCheck} label={t('state.active')} />
     ) : (
-      <Badge tone={u.state === 'active' ? 'success' : 'neutral'} label={t(`state.${u.state}`)} />
+      <Badge label={t(`state.${u.state}`)} />
     );
   const actions = (u: StaffMember) => (
     <span className="admin-row-actions">
@@ -208,35 +257,14 @@ function StaffList({
     </span>
   );
   const columns: TableColumn<StaffMember>[] = [
-    { id: 'name', header: t('column.name'), cell: (u) => u.displayName, isRowHeader: true },
-    { id: 'job', header: t('column.job_id'), cell: (u) => u.jobId ?? t('no_job_id') },
+    { id: 'name', header: t('column.name'), cell: person, isRowHeader: true },
+    { id: 'designation', header: t('column.designation'), cell: work },
     {
-      id: 'designation',
-      header: t('column.designation'),
-      cell: (u) => (
-        <>
-          <span>{u.designation ?? ''}</span>
-          <span className="admin-muted block">{u.roles.map(roleName).join(', ')}</span>
-        </>
-      ),
+      id: 'place',
+      header: affiliation === 'department' ? t('column.program') : t('column.unit'),
+      cell: place,
+      priority: 2,
     },
-    ...(affiliation === 'department'
-      ? [
-          {
-            id: 'program',
-            header: t('column.program'),
-            cell: (u: StaffMember) => programName(u.homeProgramId),
-            priority: 2 as const,
-          },
-        ]
-      : [
-          {
-            id: 'unit',
-            header: t('column.unit'),
-            cell: (u: StaffMember) => u.affiliationUnit ?? '',
-            priority: 2 as const,
-          },
-        ]),
     { id: 'state', header: t('column.state'), cell: state },
   ];
 
@@ -301,20 +329,24 @@ function StaffList({
         emptyState={<EmptyState icon={IdCard} title={t('empty')} headingLevel={2} />}
         rowActions={manage ? actions : undefined}
         cardRenderer={(u) => (
-          <div className="admin-permission-card">
-            <strong>{u.displayName}</strong>
-            <span>
-              {u.jobId ?? t('no_job_id')} · {u.designation ?? ''}
-            </span>
-            <span className="admin-muted">{u.roles.map(roleName).join(', ')}</span>
-            {state(u)}
+          <div className="staff-card">
+            <div className="staff-card-head">
+              {person(u)}
+              {state(u)}
+            </div>
+            {work(u)}
+            {place(u) !== '—' && <span className="admin-muted">{place(u)}</span>}
             {manage && actions(u)}
           </div>
         )}
       />
       {list.data?.next && (
         <div>
-          <Button variant="ghost" size="sm" onPress={() => setPages([...pages, list.data!.next])}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onPress={() => setPages([...pages, list.data!.next])}
+          >
             {t('more')}
           </Button>
         </div>

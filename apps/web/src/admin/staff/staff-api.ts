@@ -54,6 +54,13 @@ export function staffPage(query: StaffQuery) {
   return api<StaffPage>(`/users?${params.toString()}`, { envelope: true });
 }
 
+/** How many officials an affiliation has in the caller's scope (the counts above the tabs). */
+export const staffCount = (affiliation: Affiliation) =>
+  api<StaffPage & { meta: { total?: number } }>(
+    `/users?kind=staff&affiliation=${affiliation}&limit=1&include=total`,
+    { envelope: true },
+  ).then((page) => page.meta.total ?? page.data.length);
+
 /** The official and its version, read when the profile edit opens (If-Match). */
 export const staffWithEtag = (userId: string) =>
   api<{ data: StaffMember; meta: { etag: string } }>(`/users/${userId}`, { envelope: true });

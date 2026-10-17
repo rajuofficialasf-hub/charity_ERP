@@ -832,17 +832,13 @@
   "staff": {
     "title": "Officials",
     "new": "New official",
-    "organogram": "Organogram",
     "empty": "No official matches these filters.",
     "more": "Show more",
     "renew_link": "New set-password link for {name}",
     "chart": {
       "title": "Organogram",
-      "back": "Back to the officials",
-      "intro": "The department's own staff by program, under the official they report to. Other departments of the Foundation and outside partners are not part of it.",
       "leadership": "Department leadership",
       "unplaced": "Not placed yet",
-      "unplaced_hint": "No program and no line to a Program Manager; set the program or the supervisor in the profile.",
       "no_members": "No official in this program yet.",
       "inactive": "Inactive program",
       "empty": "No department official yet.",
@@ -850,7 +846,17 @@
       "state": {
         "pending": "Waiting for the password",
         "blocked": "Suspended"
-      }
+      },
+      "stats": "The organogram in numbers",
+      "total": "Department staff",
+      "programs": "Programs",
+      "program": "Program",
+      "all_programs": "All programs",
+      "open_all": "Open all",
+      "fold_all": "Fold all",
+      "show": "Show the officials under {name}",
+      "hide": "Hide the officials under {name}",
+      "members": "{count} officials"
     },
     "edit": "Edit the profile of {name}",
     "renew": {
@@ -919,7 +925,12 @@
       "supervisor": "Reports to",
       "supervisor_hint": "Search an active official of the department by name or job ID.",
       "stale": "Someone else saved this profile meanwhile. The form shows it as stored now; check it and save again.",
-      "offline": "The server could not be reached. Check the connection and try again."
+      "offline": "The server could not be reached. Check the connection and try again.",
+      "steps": "Steps of the form",
+      "step_identity": "Identity and contact",
+      "step_place": "Role and place",
+      "back": "Back",
+      "next": "Next"
     },
     "link": {
       "title": "Set-password link for {name}",
@@ -931,6 +942,14 @@
       "copied": "The link was copied.",
       "copy_failed": "Copying was not possible here. Select the link in the field and copy it.",
       "once": "The link is shown only now. If it is lost, send a new link from the list."
+    },
+    "view": {
+      "label": "View of the officials",
+      "list": "List",
+      "chart": "Organogram"
+    },
+    "stats": {
+      "label": "Officials by affiliation"
     }
   }
 }

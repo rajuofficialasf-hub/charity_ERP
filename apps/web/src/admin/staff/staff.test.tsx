@@ -200,7 +200,8 @@ describe('the officials page', () => {
     await user.type(within(dialog).getByRole('textbox', { name: /^নাম/ }), 'নতুন কর্মকর্তা');
     await user.type(within(dialog).getByRole('textbox', { name: /^পদবি/ }), 'Project Executive');
     await user.type(within(dialog).getByRole('textbox', { name: /^ইমেইল/ }), 'New@Example.org');
-    await user.click(within(dialog).getByRole('button', { name: /ভূমিকা/ }));
+    await user.click(within(dialog).getByRole('button', { name: 'পরের ধাপ' }));
+    await user.click(within(dialog).getByRole('button', { name: /^বেছে নিন ভূমিকা/ }));
     // the Department Head role is never offered
     expect(screen.queryByRole('option', { name: 'ডিপার্টমেন্ট হেড' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('option', { name: 'প্রজেক্ট এক্সিকিউটিভ' }));
@@ -235,7 +236,8 @@ describe('the officials page', () => {
     await user.type(within(dialog).getByRole('textbox', { name: /^নাম/ }), 'নাম');
     await user.type(within(dialog).getByRole('textbox', { name: /^পদবি/ }), 'পদ');
     await user.type(within(dialog).getByRole('textbox', { name: /^ইমেইল/ }), 'x@example.org');
-    await user.click(within(dialog).getByRole('button', { name: /ভূমিকা/ }));
+    await user.click(within(dialog).getByRole('button', { name: 'পরের ধাপ' }));
+    await user.click(within(dialog).getByRole('button', { name: /^বেছে নিন ভূমিকা/ }));
     await user.click(screen.getByRole('option', { name: 'প্রজেক্ট এক্সিকিউটিভ' }));
     await user.click(within(dialog).getByRole('button', { name: 'অ্যাকাউন্ট তৈরি করুন' }));
     expect(
@@ -250,6 +252,11 @@ describe('the officials page', () => {
     open();
     await user.click(await screen.findByRole('button', { name: 'নতুন অফিসিয়াল' }));
     const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByRole('textbox', { name: /^Job ID/ }), 'PRT-1');
+    await user.type(within(dialog).getByRole('textbox', { name: /^নাম/ }), 'নাম');
+    await user.type(within(dialog).getByRole('textbox', { name: /^পদবি/ }), 'পদ');
+    await user.type(within(dialog).getByRole('textbox', { name: /^ইমেইল/ }), 'p@example.org');
+    await user.click(within(dialog).getByRole('button', { name: 'পরের ধাপ' }));
     expect(within(dialog).queryByRole('textbox', { name: /প্রতিষ্ঠানের নাম/ })).toBeNull();
     await user.click(within(dialog).getByRole('radio', { name: 'বাইরের সহযোগী' }));
     expect(within(dialog).getByRole('textbox', { name: /প্রতিষ্ঠানের নাম/ })).toBeInTheDocument();
@@ -288,6 +295,7 @@ describe('the officials page', () => {
     const designation = within(dialog).getByRole('textbox', { name: /^পদবি/ });
     await user.clear(designation);
     await user.type(designation, 'Senior RPM');
+    await user.click(within(dialog).getByRole('button', { name: 'পরের ধাপ' }));
     await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
     await waitFor(() => expect(profiles).toHaveLength(1));
     expect(profiles[0]).toEqual({
@@ -334,6 +342,7 @@ describe('the officials page', () => {
     expect(await within(dialog).findByRole('textbox', { name: /^পদবি/ })).toHaveValue(
       'Stored designation',
     );
+    await user.click(within(dialog).getByRole('button', { name: 'পরের ধাপ' }));
     await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
     await waitFor(() => expect(profiles).toHaveLength(1));
     expect(profiles[0]).toMatchObject({
@@ -375,6 +384,7 @@ describe('the officials page', () => {
     await user.click(edit!);
     const dialog = await screen.findByRole('dialog');
     await within(dialog).findByDisplayValue('Old');
+    await user.click(within(dialog).getByRole('button', { name: 'পরের ধাপ' }));
     await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
     expect(
       await screen.findByText(/এর মধ্যে অন্য কেউ এই প্রোফাইল সংরক্ষণ করেছেন/),
