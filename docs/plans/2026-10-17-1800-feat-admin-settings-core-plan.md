@@ -108,7 +108,7 @@ None blocking. Each new decision above is recorded in `docs/DECISION_LOG.md` bef
   - integration: `seed.test.ts` finds the four setting rows with the O-04 values; `migrations.test.ts` applies the migration and its `down.sql`; a withdrawn version with the same effective date as a new one is allowed, two live ones are not; withdrawal columns set only together.
 - **Done when:** the schemas are exported, the migration applies and reverses, the seed writes the defaults, D-098 is recorded.
 - **Depends on:** none · **Size:** M · **Risk area:** migration
-- **Status:** todo
+- **Status:** done
 
 ### U2. API: settings, lists, nisab, public settings
 - **Goal:** the contract's settings, reference-list and nisab operations work, plus the public settings and the nisab in force on a date.
@@ -255,8 +255,8 @@ None blocking. Each new decision above is recorded in `docs/DECISION_LOG.md` bef
 
 ## Progress
 - **Branch:** `feat/admin-settings-core` (stacked on `feat/official-accounts-organogram`, PR #5)
-- **Updated:** 2026-10-17 19:00
-- **Next:** U1, the migration and the shared settings schemas
+- **Updated:** 2026-10-17 19:40
+- **Next:** checkpoint C1 (review U1), then U2: the settings, lists and nisab services and routes
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** doc review on 2026-10-17: the owner chose the nisab limits and the withdrawal of a version not yet in effect.
+- **Notes:** doc review on 2026-10-17: the owner chose the nisab limits and the withdrawal of a version not yet in effect. The `settings` table also holds the seed markers `seed.marker.*`; every settings read must keep to the known keys. The organisation's default names carry `i18n-allow-bengali` (bilingual data); the default contact is a placeholder.

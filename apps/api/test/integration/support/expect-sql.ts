@@ -36,4 +36,5 @@ export const SQLSTATE = {
   foreignKeyViolation: '23503',
   notNullViolation: '23502',
   insufficientPrivilege: '42501',
+  restrictViolation: '23001',
 } as const;

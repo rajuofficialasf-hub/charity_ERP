@@ -91,6 +91,7 @@ model User {
   nisabVersionsSetBy                   NisabVersion[]             @relation("nisab_versions_set_by")
   nisabVersionsCreatedBy               NisabVersion[]             @relation("nisab_versions_created_by")
   nisabVersionsUpdatedBy               NisabVersion[]             @relation("nisab_versions_updated_by")
+  nisabVersionsWithdrawnBy             NisabVersion[]             @relation("nisab_versions_withdrawn_by")
   programsPmUser                       Program[]                  @relation("programs_pm_user_id")
   programsCreatedBy                    Program[]                  @relation("programs_created_by")
   programsUpdatedBy                    Program[]                  @relation("programs_updated_by")
@@ -630,15 +631,20 @@ model NisabVersion {
   createdBy                String?       @map("created_by") @db.Uuid
   updatedAt                DateTime      @default(now()) @map("updated_at") @db.Timestamptz(6)
   updatedBy                String?       @map("updated_by") @db.Uuid
+  withdrawnAt              DateTime?     @map("withdrawn_at") @db.Timestamptz(6)
+  withdrawnBy              String?       @map("withdrawn_by") @db.Uuid
+  withdrawReason           String?       @map("withdraw_reason")
   setByRef                 User          @relation("nisab_versions_set_by", fields: [setBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   createdByRef             User?         @relation("nisab_versions_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   updatedByRef             User?         @relation("nisab_versions_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  withdrawnByRef           User?         @relation("nisab_versions_withdrawn_by", fields: [withdrawnBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   applicationsNisabVersion Application[] @relation("applications_nisab_version_id")
 
-  @@unique([effectiveFrom], map: "nisab_versions_effective_from_key")
+  @@unique([effectiveFrom], where: raw("withdrawn_at IS NULL"), map: "nisab_versions_effective_from_key")
   @@index([setBy], map: "nisab_versions_set_by_idx")
   @@index([createdBy], map: "nisab_versions_created_by_idx")
   @@index([updatedBy], map: "nisab_versions_updated_by_idx")
+  @@index([withdrawnBy], map: "nisab_versions_withdrawn_by_idx")
   @@map("nisab_versions")
 }
 
@@ -2937,6 +2943,7 @@ model AuditLog {
   @@index([entityType, entityId, createdAt(sort: Desc)], map: "audit_log_entity_type_entity_id_created_at_idx")
   @@index([actorUserId, createdAt(sort: Desc)], map: "audit_log_actor_user_id_created_at_idx")
   @@index([action, createdAt(sort: Desc)], map: "audit_log_action_created_at_idx")
+  @@index([createdAt(sort: Desc), id(sort: Desc)], map: "audit_log_created_at_id_idx")
   @@map("audit_log")
 }
 

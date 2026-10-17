@@ -9,13 +9,14 @@ import { seedAccess } from './access';
 import { seedFormTemplates } from './forms';
 import { seedNotificationTemplates } from './notifications';
 import { seedReferenceLists } from './reference-lists';
+import { seedSettings } from './settings';
 import { seedWorkflows } from './workflows';
 
 export const SYSTEM_ACTOR_ID = seedId('user:system');
 
 /**
  * Base set: reference data every development and test database needs (TEST_STRATEGY section 4):
- * the system actor, locations, reference lists, roles and permissions, workflow definitions,
+ * the system actor, locations, reference lists, the system settings, roles and permissions, workflow definitions,
  * notification templates and the form library with the two current forms (appendix খ).
  */
 export async function seedBase(ctx: SeedContext): Promise<void> {
@@ -38,6 +39,7 @@ export async function seedBase(ctx: SeedContext): Promise<void> {
   });
   await inTransaction(ctx.db, async () => {
     await seedReferenceLists(ctx);
+    await seedSettings(ctx);
     await seedAccess(ctx);
     await seedWorkflows(ctx);
     await seedNotificationTemplates(ctx);

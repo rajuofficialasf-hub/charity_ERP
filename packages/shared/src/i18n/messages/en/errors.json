@@ -47,7 +47,11 @@
     "facebook_link": "Enter an https link to your Facebook account (for example https://www.facebook.com/your-name).",
     "job_id_format": "Use 2 to 32 letters, digits or . _ / - for the job ID, starting with a letter or a digit.",
     "job_id_mobile": "A job ID cannot be a mobile number.",
-    "affiliation_unit": "Write the department or organisation only for an official from outside the department."
+    "affiliation_unit": "Write the department or organisation only for an official from outside the department.",
+    "email_format": "Enter a valid email address.",
+    "amount_format": "Enter an amount in Taka, with at most two decimals.",
+    "list_code": "Use small English letters, digits and _ , starting with a letter.",
+    "https_public_url": "Enter an https address of the provider on the internet."
   },
   "beneficiary": {
     "identity_missing": "Enter the NID or the birth registration number.",
@@ -193,5 +197,16 @@
   },
   "template": {
     "inactive": "This template is deactivated; activate it in the template library first."
+  },
+  "nisab": {
+    "effective_date": "The effective date must be today or later, at most one year ahead, and after the latest version.",
+    "in_effect": "This version has already taken effect; it cannot be withdrawn.",
+    "withdrawn": "This version has already been withdrawn."
+  },
+  "reference": {
+    "code_taken": "This code is already in the list."
+  },
+  "audit": {
+    "range_required": "Choose a date range of at most 366 days."
   }
 }

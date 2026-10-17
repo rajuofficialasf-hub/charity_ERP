@@ -50,6 +50,11 @@
       "@css/source": "./src/projects/index.ts",
       "types": "./dist/projects/index.d.ts",
       "default": "./dist/projects/index.js"
+    },
+    "./settings": {
+      "@css/source": "./src/settings/index.ts",
+      "types": "./dist/settings/index.d.ts",
+      "default": "./dist/settings/index.js"
     }
   },
   "files": [

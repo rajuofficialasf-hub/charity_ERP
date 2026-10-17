@@ -7,6 +7,7 @@ import {
   mergeWorkflowTemplates,
   workflowDefinitionSchema,
 } from '@css/shared';
+import { SETTING_DEFAULTS } from '@css/shared/settings';
 import type { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { readPermissionsFile } from '../../seed/sets/base/access';
@@ -175,6 +176,31 @@ describe('base set', () => {
     ]);
     expect((await db.query('SELECT count(*)::int AS n FROM form_library_sections')).rows[0].n).toBe(
       10,
+    );
+  });
+
+  it('seeds every setting with its decided default, once', async () => {
+    const rows = (
+      await db.query("SELECT key, value FROM settings WHERE key NOT LIKE 'seed.%' ORDER BY key")
+    ).rows;
+    expect(Object.fromEntries(rows.map((r) => [r.key, r.value]))).toEqual(SETTING_DEFAULTS);
+    expect(SETTING_DEFAULTS['monitoring.thresholds']).toMatchObject({
+      reviewPendingDays: 7,
+      approvalPendingDays: 5,
+      noUpdateDays: 7,
+      inactiveVolunteerDays: 14,
+      budgetAlertPercent: 90,
+    });
+    // a value the admin changed stays when the seed runs again
+    await db.query(
+      `UPDATE settings SET value = jsonb_set(value, '{reviewPendingDays}', '9') WHERE key = 'monitoring.thresholds'`,
+    );
+    await runSeed(db, ['base'], { NODE_ENV: 'test', DATABASE_URL: url });
+    const kept = (await db.query(`SELECT value FROM settings WHERE key = 'monitoring.thresholds'`))
+      .rows[0].value;
+    expect(kept.reviewPendingDays).toBe(9);
+    await db.query(
+      `UPDATE settings SET value = jsonb_set(value, '{reviewPendingDays}', '7') WHERE key = 'monitoring.thresholds'`,
     );
   });
 });
