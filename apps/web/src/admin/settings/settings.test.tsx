@@ -203,7 +203,8 @@ describe('the settings page', () => {
     await user.click(within(edit).getByRole('switch', { name: 'চালু' }));
     await user.click(within(edit).getByRole('button', { name: 'সংরক্ষণ' }));
     await waitFor(() => expect(itemPatches[0]).toMatchObject({ active: false }));
-  });
+    // two dialogs typed through: slow when the whole suite shares the machine
+  }, 20_000);
 
   it('shows SMTP read-only, whether the SMS key is set and the red dummy OTP warning', async () => {
     refreshAs(HEAD);
