@@ -3,7 +3,7 @@ import type { StepMark } from '@css/ui';
 import type { Project } from '../projects-api';
 import type { Area, FundSource, ProjectComponent } from './setup-api';
 
-/** The steps of the project setup in their order (UX-20); budget and syllabus come when they apply. */
+/** The steps of the project setup in their order (UX-20); budget and syllabus come when they apply, the rules always. */
 export const STEP_IDS = [
   'basics',
   'components',
@@ -12,6 +12,7 @@ export const STEP_IDS = [
   'areas',
   'staff',
   'syllabus',
+  'rules',
   'review',
 ] as const;
 export type StepId = (typeof STEP_IDS)[number];
@@ -36,13 +37,12 @@ const STEP_OF = new Map<MissingItem, StepId>([
 export const stepOfMissing = (item: string): StepId =>
   item.startsWith('component:')
     ? 'components'
-    : // the rules texts are listed on the review until their own step exists
-      item.startsWith('rules:')
-      ? 'review'
+    : item.startsWith('rules:')
+      ? 'rules'
       : (STEP_OF.get(item as MissingItem) ?? 'basics');
 
 /** The steps whose data the activation check reads: only they carry a complete or missing mark. */
-const CHECKED = new Set<StepId>(['basics', 'components', 'budget', 'window', 'areas']);
+const CHECKED = new Set<StepId>(['basics', 'components', 'budget', 'window', 'areas', 'rules']);
 
 /** What activation still needs, from the same shared check the server runs. */
 export function missingItems(

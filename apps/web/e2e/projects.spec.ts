@@ -16,6 +16,9 @@ async function chooseIn(page: Page, scope: Locator, label: string, option: strin
 // phones in volunteers.spec.ts, so this journey runs as pm.ucd on the desktop only; each run makes
 // its own project codes.
 const PM = 'pm.ucd@example.org';
+const COPY_PM = 'pm.err@example.org';
+const UCD = 'আন্ডারপ্রিভিলেজড কমিউনিটি ডেভেলপমেন্ট প্রোগ্রাম (UCD)';
+const ERR = 'ইমার্জেন্সি রেসপন্স অ্যান্ড রিহ্যাবিলিটেশন প্রোগ্রাম (ERR)';
 const VOLUNTEER = { desktop: '01700000101', mobile: '01700000103' } as const;
 const TAB = 'প্রকল্প';
 
@@ -30,7 +33,7 @@ const state = (page: Page, badge: string): Locator =>
 const next = (page: Page) => page.getByRole('button', { name: 'পরের ধাপ' });
 
 /** The first step of the wizard: Next creates the draft and opens the components step. */
-async function newDraft(page: Page, projectCode: string, name: string) {
+async function newDraft(page: Page, projectCode: string, name: string, program = UCD) {
   await page.getByRole('button', { name: 'নতুন প্রকল্প' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'নতুন প্রকল্প' })).toBeVisible();
   const basics = section(page, 'মৌলিক তথ্য');
@@ -38,17 +41,29 @@ async function newDraft(page: Page, projectCode: string, name: string) {
   await basics.getByRole('textbox', { name: /বাংলায় নাম/ }).fill(name);
   await basics.getByRole('textbox', { name: /ইংরেজিতে নাম/ }).fill(`${name} EN`);
   await basics.getByRole('textbox', { name: /বছর/ }).fill('2026');
-  await chooseIn(
-    page,
-    basics,
-    'প্রোগ্রাম',
-    'আন্ডারপ্রিভিলেজড কমিউনিটি ডেভেলপমেন্ট প্রোগ্রাম (UCD)',
-  );
+  await chooseIn(page, basics, 'প্রোগ্রাম', program);
   await chooseIn(page, basics, 'ওয়ার্কফ্লো', 'বিতরণ');
   await next(page).click();
   await expect(page.getByRole('heading', { level: 1, name: `সেটআপ: ${name}` })).toBeVisible();
   await expect(page).toHaveURL(/step=components/);
   await expect(state(page, 'খসড়া')).toBeVisible();
+}
+
+/** The three rules texts a project without dawah needs, in both languages. */
+async function writeRules(page: Page) {
+  const rules = section(page, 'নিয়মাবলি');
+  for (const part of [
+    'স্বেচ্ছাসেবকের দায়িত্ব',
+    'বাস্তবায়ন প্রক্রিয়া',
+    'অনিয়মের ক্ষেত্রে ব্যবস্থা',
+  ]) {
+    await rules
+      .getByRole('textbox', { name: new RegExp(`^${part} \\(বাংলা\\)`) })
+      .fill(`${part}: পরীক্ষা`);
+    await rules
+      .getByRole('textbox', { name: new RegExp(`^${part} \\(ইংরেজি\\)`) })
+      .fill(`${part}: test`);
+  }
 }
 
 /** Types a date into the segments of a date field (dd-mm-yyyy). */
@@ -126,11 +141,14 @@ test.describe('programs and project setup', () => {
     await expect(section(page, 'স্টাফের অ্যাক্সেস')).toBeVisible();
     expect((await scan(page)).violations).toEqual([]);
 
-    // the review: everything is there, and activation opens the project
+    // the rules every volunteer accepts: three parts while dawah is off; Next opens the review
     await page
       .getByRole('list', { name: 'সেটআপের ধাপ' })
-      .getByRole('button', { name: /^পর্যালোচনা/ })
+      .getByRole('button', { name: /^নিয়মাবলি/ })
       .click();
+    await writeRules(page);
+    await next(page).click();
+    // the review: everything is there, and activation opens the project
     await expect(page.getByText('সক্রিয় করার জন্য দরকারি সব আছে।')).toBeVisible();
     await page.getByRole('button', { name: 'সক্রিয় করুন', exact: true }).click();
     await expect(page.getByText('প্রকল্প সক্রিয় হয়েছে।')).toBeVisible();
@@ -182,6 +200,56 @@ test.describe('programs and project setup', () => {
     await expect(listRows(page, TAB)).toBeVisible();
     await expect(page.getByText(/^\d+টির মধ্যে \d+টি$/).first()).toBeVisible();
     await expect(listRows(page, TAB).getByRole('link', { name })).toHaveCount(0);
+  });
+
+  test('a PM copies a previous project: its photo rule comes, its budget does not', async ({
+    page,
+  }, info) => {
+    test.skip(info.project.name !== 'desktop', 'one PM, one project');
+    test.setTimeout(120_000);
+    const name = `কপির উৎস ${code()}`;
+    // a PM of its own: the PM of the journey above already holds sessions on other devices
+    await signIn(page, COPY_PM);
+    await openTab(page, TAB);
+    await newDraft(page, code(), name, ERR);
+    await page.getByRole('button', { name: 'বিতরণ ও ছবি-এর সেটিংস' }).click();
+    const drawer = page.getByRole('dialog');
+    await drawer.getByText('শুধু দলের ছবি', { exact: true }).click();
+    await drawer.getByRole('button', { name: 'সংরক্ষণ' }).click();
+    await expect(drawer).toHaveCount(0);
+    await next(page).click();
+    const budget = section(page, 'বাজেট ও তহবিলের উৎস');
+    await budget.getByRole('textbox', { name: /প্রতিজনের খরচ/ }).fill('750');
+    await page.getByRole('button', { name: 'খসড়া সেভ করে বের হন' }).click();
+    await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+
+    // a new project from a copy of that draft
+    await page.getByRole('link', { name: 'সব প্রকল্প' }).click();
+    await page.getByRole('button', { name: 'নতুন প্রকল্প' }).click();
+    const basics = section(page, 'মৌলিক তথ্য');
+    const copyName = `কপি ${code()}`;
+    await basics.getByRole('textbox', { name: /প্রকল্প কোড/ }).fill(code());
+    await basics.getByRole('textbox', { name: /বাংলায় নাম/ }).fill(copyName);
+    await basics.getByRole('textbox', { name: /ইংরেজিতে নাম/ }).fill(`${copyName} EN`);
+    await chooseIn(page, basics, 'প্রোগ্রাম', ERR);
+    await basics.getByText('আগের প্রকল্প থেকে কপি', { exact: true }).click();
+    await basics.getByRole('button', { name: /যে প্রকল্প কপি হবে/ }).click();
+    await page
+      .getByRole('listbox')
+      .getByRole('option', { name: new RegExp(`^${name} \\(`) })
+      .click();
+    await next(page).click();
+    await expect(page.getByRole('heading', { level: 1, name: `সেটআপ: ${copyName}` })).toBeVisible();
+    await expect(page).toHaveURL(/step=components/);
+    await page.getByRole('button', { name: 'বিতরণ ও ছবি-এর সেটিংস' }).click();
+    await expect(
+      page.getByRole('dialog').getByRole('radio', { name: 'শুধু দলের ছবি' }),
+    ).toBeChecked();
+    await page.getByRole('dialog').getByRole('button', { name: 'বাতিল' }).click();
+    await next(page).click();
+    await expect(
+      section(page, 'বাজেট ও তহবিলের উৎস').getByRole('textbox', { name: /প্রতিজনের খরচ/ }),
+    ).toHaveValue('');
   });
 
   test('a volunteer has no project menu and is refused the list', async ({

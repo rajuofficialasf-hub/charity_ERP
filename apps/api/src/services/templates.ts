@@ -1,5 +1,9 @@
 import { uuidv7 } from '@css/shared';
-import type { TemplateSave, TemplateUpdate } from '@css/shared/projects';
+import {
+  type TemplateSave,
+  templateDefinitionSchema,
+  type TemplateUpdate,
+} from '@css/shared/projects';
 import type { AccessService } from '../access/service';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Principal } from '../auth/principal';
@@ -37,6 +41,13 @@ function view(t: Row) {
 }
 
 /**
+ * Whether a stored definition is a project template's. The form library (a later task) keeps its
+ * form templates in the same table; they are never listed, used or changed here.
+ */
+export const isProjectTemplate = (definition: unknown): boolean =>
+  templateDefinitionSchema.safeParse(definition).success;
+
+/**
  * The organisation's master project templates (BD-10, BR-064; DECISION_LOG D-096): everyone who
  * creates projects reads and uses every template; those who manage templates save a project's
  * setup as a new template or onto an existing one (its version goes up), rename, describe,
@@ -54,9 +65,9 @@ export class TemplatesService {
     const rows = await this.prisma.projectTemplate.findMany({
       where: includeInactive ? {} : { active: true },
       orderBy: [{ nameEn: 'asc' }, { id: 'asc' }],
-      select: SELECT,
+      select: { ...SELECT, definition: true },
     });
-    return rows.map(view);
+    return rows.filter((r) => isProjectTemplate(r.definition)).map(view);
   }
 
   async get(templateId: string) {
@@ -64,7 +75,7 @@ export class TemplatesService {
       where: { id: templateId },
       select: { ...SELECT, definition: true },
     });
-    if (!row) throw new ApiError('permission.not_found', 404);
+    if (!row || !isProjectTemplate(row.definition)) throw new ApiError('permission.not_found', 404);
     return { ...view(row), definition: row.definition };
   }
 
@@ -156,8 +167,11 @@ export class TemplatesService {
 
   private async lockedTemplate(tx: Tx, templateId: string): Promise<Row> {
     await tx.$queryRaw`SELECT id FROM project_templates WHERE id = ${templateId}::uuid FOR UPDATE`;
-    const row = await tx.projectTemplate.findUnique({ where: { id: templateId }, select: SELECT });
-    if (!row) throw new ApiError('permission.not_found', 404);
+    const row = await tx.projectTemplate.findUnique({
+      where: { id: templateId },
+      select: { ...SELECT, definition: true },
+    });
+    if (!row || !isProjectTemplate(row.definition)) throw new ApiError('permission.not_found', 404);
     return row;
   }
 }

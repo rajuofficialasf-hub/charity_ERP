@@ -487,9 +487,11 @@ export class ProjectsService {
         where: { id: source.templateId },
         select: { active: true, definition: true },
       });
-      if (!template) throw new ApiError('permission.not_found', 404);
+      // a form template of the form library shares the table and starts no project
+      const parsed = templateDefinitionSchema.safeParse(template?.definition);
+      if (!template || !parsed.success) throw new ApiError('permission.not_found', 404);
       if (!template.active) throw new ApiError('template.inactive', 409);
-      const definition = templateDefinitionSchema.parse(template.definition);
+      const definition = parsed.data;
       return {
         workflowKey: definition.workflowKey,
         definition,

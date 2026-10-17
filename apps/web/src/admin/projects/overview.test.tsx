@@ -200,3 +200,59 @@ describe('the project overview', () => {
     );
   });
 });
+
+describe('save as template', () => {
+  it('saves the project as a new template with its name, or onto an existing one', async () => {
+    refreshAs(PM);
+    serve('active');
+    const saved: unknown[] = [];
+    server.use(
+      http.post(`*/api/v1/projects/${ID}/save-as-template`, async ({ request }) => {
+        const body = await request.json();
+        saved.push(body);
+        return HttpResponse.json({
+          data: {
+            id: '01900000-0000-7000-8000-0000000000d1',
+            name: { bn: 'শীতবস্ত্র টেমপ্লেট', en: 'Winter template' },
+            description: null,
+            workflowKey: 'distribution',
+            active: true,
+            version: 1,
+            sourceProjectId: ID,
+            updatedAt: '2026-10-17T05:00:00Z',
+            updatedByName: null,
+          },
+          meta: {},
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    open();
+    await user.click(await screen.findByRole('button', { name: 'টেমপ্লেট হিসেবে সংরক্ষণ' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /বাংলায় নাম/ }),
+      'শীতবস্ত্র টেমপ্লেট',
+    );
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /ইংরেজিতে নাম/ }),
+      'Winter template',
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'সংরক্ষণ' }));
+    await waitFor(() => expect(saved).toHaveLength(1));
+    expect(saved[0]).toEqual({ name: { bn: 'শীতবস্ত্র টেমপ্লেট', en: 'Winter template' } });
+    expect(
+      await screen.findByText('টেমপ্লেট সংরক্ষিত হয়েছে: শীতবস্ত্র টেমপ্লেট'),
+    ).toBeInTheDocument();
+  });
+
+  it('is not offered to a role that cannot create projects', async () => {
+    refreshAs(RPM);
+    serve('active');
+    open();
+    expect(await screen.findByRole('link', { name: 'সেটআপ' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'টেমপ্লেট হিসেবে সংরক্ষণ' }),
+    ).not.toBeInTheDocument();
+  });
+});

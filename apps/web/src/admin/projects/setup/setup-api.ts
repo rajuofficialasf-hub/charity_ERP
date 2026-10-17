@@ -99,6 +99,8 @@ export interface RulesVersion {
   rules: ProjectRules;
 }
 export const rules = (projectId: string) => api<RulesVersion>(`/projects/${projectId}/rules`);
+export const saveRules = (projectId: string, body: ProjectRules) =>
+  api<RulesVersion>(`/projects/${projectId}/rules`, { method: 'PUT', body });
 export const saveSyllabus = (projectId: string, body: Syllabus) =>
   api<Topic[]>(`/projects/${projectId}/syllabus`, { method: 'PUT', body });
 

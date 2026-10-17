@@ -328,6 +328,28 @@ describe('master templates', () => {
     expect((await at(pm, 'get', `/templates/${template.id}`)).status).toBe(200);
   });
 
+  it('never lists, uses or changes a form template of the form library', async () => {
+    const pm = await as(world.users.pm);
+    const id = '0190a4c4-0000-7000-8000-00000000f001';
+    await h.db.query(
+      `INSERT INTO project_templates (id, key, version, name_bn, name_en, project_type, definition)
+       VALUES ($1, 'form_test', 1, 'ফর্ম', 'Form', 'distribution', $2)`,
+      [id, JSON.stringify({ kind: 'form_template', form: { sections: [] } })],
+    );
+    const listed = await at(pm, 'get', '/templates').query({ include: 'inactive' });
+    expect(listed.body.data.map((t: { id: string }) => t.id)).not.toContain(id);
+    expect((await at(pm, 'get', `/templates/${id}`)).status).toBe(404);
+    expect((await create(pm, { kind: 'template', templateId: id })).status).toBe(404);
+    expect((await at(pm, 'patch', `/templates/${id}`).send({ active: false })).status).toBe(404);
+    expect(
+      (
+        await at(pm, 'post', `/projects/${await fullSource()}/save-as-template`).send({
+          templateId: id,
+        })
+      ).status,
+    ).toBe(404);
+  });
+
   it('refuses a volunteer, an unknown template and a project outside reach', async () => {
     const volunteer = await as(world.users.general);
     expect((await at(volunteer, 'get', '/templates')).status).toBe(403);

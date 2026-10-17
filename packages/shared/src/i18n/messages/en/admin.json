@@ -9,7 +9,8 @@
     "registrations": "Registrations",
     "handover": "Handover",
     "projects": "Projects",
-    "programs": "Programs"
+    "programs": "Programs",
+    "templates": "Templates"
   },
   "bar": {
     "label": "Admin",
@@ -510,7 +511,8 @@
         "areas": "Areas and RPMs",
         "staff": "Staff access",
         "syllabus": "Dawah syllabus",
-        "review": "Review"
+        "review": "Review",
+        "rules": "Rules"
       },
       "saved": "Saved.",
       "stale": "Someone changed this part meanwhile. The latest version is shown now; save again.",
@@ -702,6 +704,63 @@
       "implementation_process": "Implementation process",
       "daee_duties": "Local দায়ী duties",
       "misconduct": "Consequences of misconduct"
+    },
+    "source": {
+      "label": "Start from",
+      "workflow": "A workflow",
+      "template": "A template",
+      "copy": "A copy of a previous project",
+      "template_field": "Template",
+      "copy_field": "Project to copy",
+      "copy_hint": "Components, settings, syllabus and rules are copied; budget, dates, areas and volunteers are not.",
+      "project_option": "{name} ({code}, {year})"
+    },
+    "rules": {
+      "field_bn": "{part} (Bangla)",
+      "field_en": "{part} (English)",
+      "invalid": "Write every required rule in both languages.",
+      "version": "Version {version}",
+      "new_version": "Saving a change makes a new version, and every volunteer accepts the rules again."
+    }
+  },
+  "templates": {
+    "title": "Project templates",
+    "table": "Templates",
+    "empty": "No templates yet. Save a project as a template.",
+    "show_inactive": "Show inactive ones too",
+    "edit": "Change {name}",
+    "column": {
+      "name": "Name",
+      "workflow": "Workflow",
+      "version": "Version",
+      "updated": "Last change",
+      "state": "State"
+    },
+    "state": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "updated_by": "{name}, {date}",
+    "notice": {
+      "saved": "{name} saved."
+    },
+    "dialog": {
+      "title": "Change template",
+      "name_bn": "Name in Bangla",
+      "name_en": "Name in English",
+      "description": "Description",
+      "active": "Active: new projects can start from it"
+    },
+    "save": {
+      "open": "Save as template",
+      "title": "Save as template",
+      "mode": "How to save",
+      "mode_new": "A new template",
+      "mode_replace": "In place of an existing template",
+      "template": "Template to replace",
+      "replace_hint": "The template keeps its name; its contents become this project's setup.",
+      "submit": "Save",
+      "notice": "Template saved: {name}"
     }
   }
 }

@@ -1,22 +1,34 @@
 import { type Locale, localized } from '@css/shared/i18n';
-import { projectCode, WORKFLOW_KEYS, type WorkflowKey } from '@css/shared/projects';
-import { NumberField, Select, TextField } from '@css/ui';
+import {
+  type ProjectCreate,
+  projectCode,
+  WORKFLOW_KEYS,
+  type WorkflowKey,
+} from '@css/shared/projects';
+import { NumberField, RadioGroup, Select, TextField } from '@css/ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { PROGRAMS_KEY, programs } from '../../programs/programs-api';
-import { createProject, type Project } from '../projects-api';
+import { templates, TEMPLATES_KEY } from '../../templates/templates-api';
+import { createProject, pickerProjects, type Project, PROJECTS_KEY } from '../projects-api';
 import { SaveNotice, SetupSection, useStepSave } from './setup-context';
+
+type SourceKind = ProjectCreate['source']['kind'];
+const SOURCE_KINDS: readonly SourceKind[] = ['workflow', 'template', 'copy'];
 
 /**
  * The first step of a new project: its code (capital letters, the prefix of its application ids),
- * name, year, program and the workflow it starts from. Next creates the draft.
+ * name, year, program, and where it starts: a workflow, a master template, or a copy of a previous
+ * project (BD-10; a template or a copy brings the components, settings, syllabus and rules). Next
+ * creates the draft.
  */
 export function CreateStep({ onCreated }: { onCreated: (project: Project) => void }) {
   const t = useTranslations('admin.projects.dialog');
   const ts = useTranslations('admin.projects.setup');
   const tz = useTranslations('admin.projects.wizard');
   const tw = useTranslations('admin.projects.workflow');
+  const tsrc = useTranslations('admin.projects.source');
   const locale = useLocale() as Locale;
   const [code, setCode] = useState('');
   const [nameBn, setNameBn] = useState('');
@@ -24,7 +36,26 @@ export function CreateStep({ onCreated }: { onCreated: (project: Project) => voi
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [programId, setProgramId] = useState<string | null>(null);
   const [workflowKey, setWorkflowKey] = useState<string | null>(null);
+  const [kind, setKind] = useState<SourceKind>('workflow');
+  const [templateId, setTemplateId] = useState<string | null>(null);
+  const [copyOf, setCopyOf] = useState<string | null>(null);
   const list = useQuery({ queryKey: PROGRAMS_KEY, queryFn: programs });
+  const library = useQuery({
+    queryKey: [...TEMPLATES_KEY, false],
+    queryFn: () => templates(),
+    enabled: kind === 'template',
+  });
+  const earlier = useQuery({
+    queryKey: [...PROJECTS_KEY, 'picker'],
+    queryFn: pickerProjects,
+    enabled: kind === 'copy',
+  });
+  const source = (): ProjectCreate['source'] =>
+    kind === 'template'
+      ? { kind, templateId: templateId! }
+      : kind === 'copy'
+        ? { kind, projectId: copyOf! }
+        : { kind, workflowKey: workflowKey as WorkflowKey };
   const save = useMutation({
     mutationFn: () =>
       createProject({
@@ -32,7 +63,7 @@ export function CreateStep({ onCreated }: { onCreated: (project: Project) => voi
         code,
         year: Number(year),
         name: { bn: nameBn.trim(), en: nameEn.trim() },
-        source: { kind: 'workflow', workflowKey: workflowKey as WorkflowKey },
+        source: source(),
       }),
   });
   const codeOk = projectCode.safeParse(code).success;
@@ -41,7 +72,7 @@ export function CreateStep({ onCreated }: { onCreated: (project: Project) => voi
     nameEn.trim() !== '' &&
     /^\d{4}$/.test(year) &&
     programId !== null &&
-    workflowKey !== null;
+    (kind === 'workflow' ? workflowKey : kind === 'template' ? templateId : copyOf) !== null;
   const problem = useStepSave({
     // a new project is always saved: Next creates it
     changed: true,
@@ -89,15 +120,57 @@ export function CreateStep({ onCreated }: { onCreated: (project: Project) => voi
             .filter((p) => p.active)
             .map((p) => ({ id: p.id, label: `${localized(p.name, locale)} (${p.code})` }))}
         />
-        <Select
-          label={t('workflow')}
-          helper={t('workflow_hint')}
-          required
-          value={workflowKey}
-          onChange={setWorkflowKey}
-          searchable={false}
-          options={WORKFLOW_KEYS.map((key) => ({ id: key, label: tw(key) }))}
-        />
+      </div>
+      <RadioGroup
+        label={tsrc('label')}
+        orientation="horizontal"
+        value={kind}
+        onChange={(value) => setKind(value as SourceKind)}
+        options={SOURCE_KINDS.map((k) => ({ id: k, label: tsrc(k) }))}
+      />
+      <div className="admin-setup-grid">
+        {kind === 'workflow' && (
+          <Select
+            label={t('workflow')}
+            helper={t('workflow_hint')}
+            required
+            value={workflowKey}
+            onChange={setWorkflowKey}
+            searchable={false}
+            options={WORKFLOW_KEYS.map((key) => ({ id: key, label: tw(key) }))}
+          />
+        )}
+        {kind === 'template' && (
+          <Select
+            label={tsrc('template_field')}
+            required
+            value={templateId}
+            onChange={setTemplateId}
+            disabled={!library.data}
+            options={(library.data ?? []).map((tpl) => ({
+              id: tpl.id,
+              label: `${localized(tpl.name, locale)} (${tw(tpl.workflowKey)})`,
+            }))}
+          />
+        )}
+        {kind === 'copy' && (
+          <Select
+            label={tsrc('copy_field')}
+            helper={tsrc('copy_hint')}
+            required
+            value={copyOf}
+            onChange={setCopyOf}
+            disabled={!earlier.data}
+            options={(earlier.data ?? []).map((p) => ({
+              id: p.id,
+              label: tsrc('project_option', {
+                name: localized(p.name, locale),
+                code: p.code,
+                year: String(p.year),
+              }),
+            }))}
+          />
+        )}
       </div>
       <SaveNotice mutation={save} problem={codeOk ? problem : undefined} />
     </SetupSection>

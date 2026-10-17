@@ -5,6 +5,7 @@ import {
   HandHeart,
   KeyRound,
   Layers,
+  LayoutTemplate,
   LayoutDashboard,
   UserCheck,
   Users,
@@ -14,6 +15,7 @@ import {
   HANDOVER_ROLES,
   PERMISSION_PANEL_ROLES,
   PROGRAM_ROLES,
+  PROJECT_CREATE_ROLES,
   PROJECT_ROLES,
   EDIT_REQUEST_ROLES,
   STAFF_APPROVER_ROLES,
@@ -26,6 +28,7 @@ export interface AdminNavItem {
     | 'dashboard'
     | 'projects'
     | 'programs'
+    | 'templates'
     | 'volunteers'
     | 'beneficiaries'
     | 'registrations'
@@ -42,6 +45,12 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
   { key: 'dashboard', href: '/admin', icon: LayoutDashboard },
   { key: 'projects', href: '/admin/projects', icon: FolderKanban, roles: PROJECT_ROLES },
   { key: 'programs', href: '/admin/programs', icon: Layers, roles: PROGRAM_ROLES },
+  {
+    key: 'templates',
+    href: '/admin/templates',
+    icon: LayoutTemplate,
+    roles: PROJECT_CREATE_ROLES,
+  },
   { key: 'volunteers', href: '/admin/volunteers', icon: Users, roles: VOLUNTEER_TAB_ROLES },
   {
     key: 'beneficiaries',
