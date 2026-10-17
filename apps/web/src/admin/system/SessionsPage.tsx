@@ -40,17 +40,20 @@ export function SessionsPage() {
   const { filters, change, q, onSearch, cursor, setCursor } = useTabView(['kind'] as const);
   const [target, setTarget] = useState<ActiveSession | null>(null);
   const [notice, setNotice] = useState<string>();
+  // a stale or edited link with another kind shows every session instead of an error
+  const kind = KINDS.find((k) => k === filters.kind);
   const allowed = Boolean(me && canAdministerSystem(me));
   const page = useQuery({
-    queryKey: [...SESSIONS_KEY, filters, q, cursor],
-    queryFn: () => activeSessions(q, filters.kind, cursor),
+    queryKey: [...SESSIONS_KEY, kind, q, cursor],
+    queryFn: () => activeSessions(q, kind, cursor),
     enabled: allowed,
     placeholderData: keepPreviousData,
   });
   const end = useMutation({
-    mutationFn: (reason: string) => endSession(target!.person.id, target!.id, reason.trim()),
-    onSuccess: () => {
-      setNotice(t('ended', { name: target!.person.name }));
+    mutationFn: ({ session, reason }: { session: ActiveSession; reason: string }) =>
+      endSession(session.person.id, session.id, reason.trim()),
+    onSuccess: (_, { session }) => {
+      setNotice(t('ended', { name: session.person.name }));
       setTarget(null);
       end.reset();
     },
@@ -132,7 +135,7 @@ export function SessionsPage() {
               { id: 'all', label: t('kind.all') },
               ...KINDS.map((k) => ({ id: k, label: t(`kind.${k}`) })),
             ]}
-            activeChip={filters.kind ?? 'all'}
+            activeChip={kind ?? 'all'}
             onChipChange={(id) => change({ kind: id === 'all' ? undefined : id })}
           />
         }
@@ -140,7 +143,8 @@ export function SessionsPage() {
           meta
             ? {
                 shown: rows.length,
-                total: rows.length,
+                // no total for this list: "25+" while another page follows
+                total: meta.nextCursor ? `${rows.length}+` : rows.length,
                 hasNext: meta.nextCursor !== null,
                 hasPrevious: meta.prevCursor !== null,
                 onNext: () => setCursor(meta.nextCursor),
@@ -170,7 +174,7 @@ export function SessionsPage() {
         reasonLabel={t('reason')}
         confirmLabel={t('end_short')}
         pending={end.isPending}
-        onConfirm={(reason) => end.mutate(reason)}
+        onConfirm={(reason) => target && end.mutate({ session: target, reason })}
         onCancel={() => {
           end.reset();
           setTarget(null);

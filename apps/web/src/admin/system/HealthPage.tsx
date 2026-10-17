@@ -25,7 +25,14 @@ export function HealthPage() {
   const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const allowed = Boolean(me && canAdministerSystem(me));
-  const health = useQuery({ queryKey: HEALTH_KEY, queryFn: systemHealth, enabled: allowed });
+  // never from the cache: an outage must show as soon as the page opens
+  const health = useQuery({
+    queryKey: HEALTH_KEY,
+    queryFn: systemHealth,
+    enabled: allowed,
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
   if (!me) return null;
   if (!allowed) return <ForbiddenContent />;
 

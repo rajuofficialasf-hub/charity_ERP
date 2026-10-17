@@ -5,7 +5,7 @@ import { typeDate } from './support/projects';
 // The admin and settings core (plan docs/plans/2026-10-17-1800-feat-admin-settings-core-plan.md):
 // a threshold is changed and found in the audit log, the dummy OTP warning is red, the sessions
 // and the health pages answer, and a Program Manager adds a nisab version with its effective date.
-// The Department Head works on a desktop and the Monitoring Team on a phone (DEMO_ACCOUNTS.md).
+// The Department Head works on a desktop and the Monitoring Team on a phone (docs/testing/DEMO_ACCOUNTS.md).
 const ADMIN = { desktop: 'head@example.org', mobile: 'monitoring@example.org' } as const;
 const PM = 'pm.hum@example.org';
 
@@ -26,44 +26,48 @@ test.describe('admin settings', () => {
     const value = String(10 + (Date.now() % 300));
     await signIn(page, ADMIN[isPhone(info) ? 'mobile' : 'desktop']);
 
-    await page.goto('/admin/settings?tab=thresholds');
-    await expect(page.getByRole('heading', { level: 1, name: 'সেটিংস' })).toBeVisible();
-    const review = page.getByRole('textbox', { name: /^রিভিউ অপেক্ষার দিন/ });
-    await review.fill(value);
-    await page.getByRole('button', { name: 'সংরক্ষণ করুন' }).click();
-    await expect(page.getByText('সেটিংস সংরক্ষিত হয়েছে।')).toBeVisible();
-    expect((await scan(page)).violations).toEqual([]);
+    try {
+      await page.goto('/admin/settings?tab=thresholds');
+      await expect(page.getByRole('heading', { level: 1, name: 'সেটিংস' })).toBeVisible();
+      const review = page.getByRole('textbox', { name: /^রিভিউ অপেক্ষার দিন/ });
+      await review.fill(value);
+      await page.getByRole('button', { name: 'সংরক্ষণ করুন' }).click();
+      await expect(page.getByText('সেটিংস সংরক্ষিত হয়েছে।')).toBeVisible();
+      expect((await scan(page)).violations).toEqual([]);
 
-    await page.getByRole('tab', { name: 'নোটিফিকেশন চ্যানেল' }).click();
-    await expect(page.getByText('ডামি OTP চালু আছে')).toBeVisible();
+      await page.getByRole('tab', { name: 'নোটিফিকেশন চ্যানেল' }).click();
+      await expect(page.getByText('ডামি OTP চালু আছে')).toBeVisible();
 
-    // the change in the audit log, with the new value in the detail; the other project changes
-    // the same setting at the same time, so its entry may be the newest
-    await page.goto('/admin/audit?action=settings.change&entityType=setting');
-    await expect(page.getByRole('heading', { level: 1, name: 'অডিট লগ' })).toBeVisible();
-    await expect(rows(page, 'অডিট লগের এন্ট্রি')).toBeVisible();
-    const details = page
-      .getByRole('button', { name: 'settings.change বিস্তারিত দেখুন' })
-      .or(page.getByRole('button', { name: 'বিস্তারিত', exact: true }));
-    await expect(details.first()).toBeVisible();
-    let found = false;
-    const shown = Math.min(await details.count(), 6);
-    for (let i = 0; i < shown && !found; i += 1) {
-      await details.nth(i).click();
-      const drawer = page.getByRole('dialog', { name: 'অডিট এন্ট্রি' });
-      const after = drawer.getByRole('region', { name: 'নতুন মান' });
-      await expect(after).toBeVisible();
-      found = ((await after.textContent()) ?? '').includes(`"reviewPendingDays": ${value}`);
-      await page.keyboard.press('Escape');
-      await expect(drawer).toHaveCount(0);
+      // the change in the audit log, with the new value in the detail; the other project changes
+      // the same setting at the same time, so its entry may be the newest
+      await page.goto('/admin/audit?action=settings.change&entityType=setting');
+      await expect(page.getByRole('heading', { level: 1, name: 'অডিট লগ' })).toBeVisible();
+      await expect(rows(page, 'অডিট লগের এন্ট্রি')).toBeVisible();
+      const details = page
+        .getByRole('button', { name: 'settings.change বিস্তারিত দেখুন' })
+        .or(page.getByRole('button', { name: 'বিস্তারিত', exact: true }));
+      await expect(details.first()).toBeVisible();
+      let found = false;
+      const shown = Math.min(await details.count(), 6);
+      for (let i = 0; i < shown && !found; i += 1) {
+        await details.nth(i).click();
+        const drawer = page.getByRole('dialog', { name: 'অডিট এন্ট্রি' });
+        const after = drawer.getByRole('region', { name: 'নতুন মান' });
+        await expect(after).toBeVisible();
+        found = new RegExp(`"reviewPendingDays": ${value}\\b`).test(
+          (await after.textContent()) ?? '',
+        );
+        await page.keyboard.press('Escape');
+        await expect(drawer).toHaveCount(0);
+      }
+      expect(found).toBe(true);
+    } finally {
+      // back to the decided value for the other runs
+      await page.goto('/admin/settings?tab=thresholds');
+      await page.getByRole('textbox', { name: /^রিভিউ অপেক্ষার দিন/ }).fill('7');
+      await page.getByRole('button', { name: 'সংরক্ষণ করুন' }).click();
+      await expect(page.getByText('সেটিংস সংরক্ষিত হয়েছে।')).toBeVisible();
     }
-    expect(found).toBe(true);
-
-    // back to the decided value for the other runs
-    await page.goto('/admin/settings?tab=thresholds');
-    await page.getByRole('textbox', { name: /^রিভিউ অপেক্ষার দিন/ }).fill('7');
-    await page.getByRole('button', { name: 'সংরক্ষণ করুন' }).click();
-    await expect(page.getByText('সেটিংস সংরক্ষিত হয়েছে।')).toBeVisible();
 
     await page.goto('/admin/sessions');
     await expect(page.getByRole('heading', { level: 1, name: 'সক্রিয় সেশন' })).toBeVisible();

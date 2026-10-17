@@ -233,7 +233,8 @@ export function AuditPage() {
           meta
             ? {
                 shown: rows.length,
-                total: rows.length,
+                // no total for this list: "25+" while another page follows
+                total: meta.nextCursor ? `${rows.length}+` : rows.length,
                 hasNext: meta.nextCursor !== null,
                 hasPrevious: meta.prevCursor !== null,
                 onNext: () => setCursor(meta.nextCursor),

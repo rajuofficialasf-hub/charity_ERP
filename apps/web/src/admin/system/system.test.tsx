@@ -59,10 +59,12 @@ const HEALTH = {
 
 let sessionRequests: URLSearchParams[];
 let revoked: { path: string; body: unknown }[];
+let healthReads: number;
 
 function serve() {
   sessionRequests = [];
   revoked = [];
+  healthReads = 0;
   server.use(
     http.get('*/api/v1/sessions/active', ({ request }) => {
       sessionRequests.push(new URL(request.url).searchParams);
@@ -87,7 +89,10 @@ function serve() {
         );
       return new HttpResponse(null, { status: 204 });
     }),
-    http.get('*/api/v1/admin/health', () => HttpResponse.json({ data: HEALTH, meta: {} })),
+    http.get('*/api/v1/admin/health', () => {
+      healthReads += 1;
+      return HttpResponse.json({ data: HEALTH, meta: {} });
+    }),
   );
 }
 
@@ -147,7 +152,59 @@ describe('the active sessions', () => {
   });
 });
 
+const refused = (requestId: string) =>
+  HttpResponse.json(
+    { error: { code: 'permission.denied', message: 'অনুমতি নেই।', requestId } },
+    { status: 403 },
+  );
+
+describe('when a read fails', () => {
+  it('shows the error state of the sessions list', async () => {
+    refreshAs(HEAD);
+    serve();
+    server.use(http.get('*/api/v1/sessions/active', () => refused('req_s')));
+    renderApp(<SessionsPage />, 'bn', { path: '/admin/sessions' });
+    expect(await screen.findByText('কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।')).toBeInTheDocument();
+  });
+
+  it('shows the error state of the health page', async () => {
+    refreshAs(HEAD);
+    serve();
+    server.use(http.get('*/api/v1/admin/health', () => refused('req_h')));
+    renderApp(<HealthPage />, 'bn', { path: '/admin/health' });
+    expect(await screen.findByText('কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।')).toBeInTheDocument();
+  });
+});
+
 describe('the system health', () => {
+  it('says so when the database did not answer for the figures', async () => {
+    refreshAs(HEAD);
+    serve();
+    server.use(
+      http.get('*/api/v1/admin/health', () =>
+        HttpResponse.json({
+          data: { ...HEALTH, auditPartitionsUntil: null, storage: null },
+          meta: {},
+        }),
+      ),
+    );
+    renderApp(<HealthPage />, 'bn', { path: '/admin/health' });
+    expect(
+      await screen.findByText('ডাটাবেস সাড়া দেয়নি, তাই স্টোরেজের হিসাব দেখানো যাচ্ছে না।'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('জানা যায়নি')).toBeInTheDocument();
+  });
+
+  it('shows the forbidden content to an RPM and asks for nothing', async () => {
+    refreshAs(RPM);
+    serve();
+    renderApp(<HealthPage />, 'bn', { path: '/admin/health' });
+    expect(await screen.findByRole('heading', { level: 1 })).not.toHaveTextContent(
+      'সিস্টেমের অবস্থা',
+    );
+    expect(healthReads).toBe(0);
+  });
+
   it('shows a failed check, the dummy OTP warning and the storage figures in English digits', async () => {
     refreshAs(HEAD);
     serve();
