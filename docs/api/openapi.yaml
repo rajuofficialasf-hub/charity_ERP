@@ -1440,20 +1440,41 @@ components:
                           text: { $ref: '#/components/schemas/Bilingual' }
     TeamMember:
       type: object
-      required: [id, projectId, leadVolunteerId, memberVolunteerId]
+      required: [volunteerId, displayName, type, consentStatus, addedAt]
       properties:
-        id: { $ref: '#/components/schemas/Uuid' }
-        projectId: { $ref: '#/components/schemas/Uuid' }
-        leadVolunteerId: { $ref: '#/components/schemas/Uuid' }
-        memberVolunteerId: { $ref: '#/components/schemas/Uuid' }
-        memberName: { type: string }
+        volunteerId: { $ref: '#/components/schemas/Uuid' }
+        displayName: { type: string }
+        type: { type: string }
+        consentStatus: { type: string, enum: [pending, accepted] }
         addedAt: { type: string, format: date-time }
-    TeamMemberList:
+    TeamCandidate:
       type: object
-      required: [data, meta]
+      required: [volunteerId, displayName, type]
       properties:
-        data: { type: array, items: { $ref: '#/components/schemas/TeamMember' } }
-        meta: { $ref: '#/components/schemas/ListMeta' }
+        volunteerId: { $ref: '#/components/schemas/Uuid' }
+        displayName: { type: string }
+        type: { type: string }
+    TeamResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [members, candidates]
+          properties:
+            members: { type: array, items: { $ref: '#/components/schemas/TeamMember' } }
+            candidates: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/TeamCandidate' } }
+    TeamAddRequest:
+      type: object
+      additionalProperties: false
+      required: [memberVolunteerIds]
+      properties:
+        memberVolunteerIds:
+          type: array
+          minItems: 1
+          maxItems: 50
+          description: Each volunteer once.
+          items: { type: string, format: uuid }
     CategoryRequest:
       type: object
       required: [comment]
@@ -3968,6 +3989,79 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+  /me/projects/{projectId}/team:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [volunteers]
+      operationId: volunteers.team.list
+      summary: Own team on the project and the volunteers registered with the caller as reference
+      description: >-
+        For a General or দাঈ-স্বেচ্ছাসেবক volunteer working on the project (assignment not ended,
+        rules accepted); 404 when the caller is not on the project, 403 otherwise (BR-040, D-096).
+        Candidates are approved, not blocked, and neither on a team of the project nor assigned to
+        it; they carry only name and type.
+      x-permission: volunteer.team.manage
+      x-scope: self
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: Members and candidates
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TeamResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [volunteers]
+      operationId: volunteers.team.add
+      summary: Add volunteers registered with the caller as reference to own team on the project
+      description: >-
+        All or nothing; the project row is locked. A volunteer not registered under the caller, not
+        approved or blocked answers 422; one on a team of the project 409 volunteer.already_on_team,
+        one assigned to it 409 volunteer.already_assigned. A new member accepts the rules on their own.
+      x-permission: volunteer.team.manage
+      x-scope: self
+      x-audit: volunteer.team_added
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TeamAddRequest' }
+      responses:
+        '201':
+          description: Added; the team as it is now
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TeamResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /me/projects/{projectId}/team/{volunteerId}/remove:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/VolunteerId'
+    post:
+      tags: [volunteers]
+      operationId: volunteers.team.remove
+      summary: Remove a member from own team on the project
+      x-permission: volunteer.team.manage
+      x-scope: self
+      x-audit: volunteer.team_removed
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /volunteers/me:
     get:
       tags: [volunteers]
@@ -4237,70 +4331,6 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
-  /projects/{projectId}/team:
-    parameters:
-      - $ref: '#/components/parameters/ProjectId'
-    get:
-      tags: [volunteers]
-      operationId: volunteers.team.list
-      summary: Own team on the project and candidates registered with own NID as reference
-      x-permission: volunteer.team.manage
-      x-scope: self
-      x-audit: none
-      x-idempotency: none
-      x-rate-limit: default
-      parameters:
-        - name: candidates
-          in: query
-          schema: { type: boolean, default: false }
-      responses:
-        '200':
-          description: Team members or candidates
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/TeamMemberList' }
-        '404': { $ref: '#/components/responses/NotFound' }
-    post:
-      tags: [volunteers]
-      operationId: volunteers.team.add
-      summary: Add team members to own project team (BR-040)
-      x-permission: volunteer.team.manage
-      x-scope: self
-      x-audit: volunteer.team_added
-      x-idempotency: none
-      x-rate-limit: default
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [memberVolunteerIds]
-              properties:
-                memberVolunteerIds: { type: array, minItems: 1, items: { type: string, format: uuid } }
-      responses:
-        '201':
-          description: Added
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/TeamMemberList' }
-        '422': { $ref: '#/components/responses/Unprocessable' }
-  /projects/{projectId}/team/{volunteerId}/remove:
-    parameters:
-      - $ref: '#/components/parameters/ProjectId'
-      - $ref: '#/components/parameters/VolunteerId'
-    post:
-      tags: [volunteers]
-      operationId: volunteers.team.remove
-      summary: Remove a member from own project team
-      x-permission: volunteer.team.manage
-      x-scope: self
-      x-audit: volunteer.team_removed
-      x-idempotency: none
-      x-rate-limit: default
-      responses:
-        '204': { $ref: '#/components/responses/NoContent' }
-        '404': { $ref: '#/components/responses/NotFound' }
   /projects/{projectId}/transfers:
     parameters:
       - $ref: '#/components/parameters/ProjectId'

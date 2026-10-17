@@ -1,4 +1,4 @@
-import { type Consent, consentSchema } from '@css/shared/projects';
+import { type Consent, consentSchema, type TeamAdd, teamAddSchema } from '@css/shared/projects';
 import { Router } from 'express';
 import { z } from 'zod';
 import { principalOf } from '../auth/principal';
@@ -26,6 +26,18 @@ const myProject = z.object({
   applicationsCounted: z.number().int(),
   applicationsLeft: z.number().int().nullable(),
 });
+const teamView = z.object({
+  members: z.array(
+    z.object({
+      volunteerId: uuid,
+      displayName: z.string(),
+      type: z.string(),
+      consentStatus: z.enum(['pending', 'accepted']),
+      addedAt: z.string(),
+    }),
+  ),
+  candidates: z.array(z.object({ volunteerId: uuid, displayName: z.string(), type: z.string() })),
+});
 const myProjectDetail = myProject.extend({
   rules: z.object({
     version: z.number().int(),
@@ -38,7 +50,10 @@ const myProjectDetail = myProject.extend({
  * DECISION_LOG D-096). Everything is the caller's own: the project must be one they are assigned to
  * or on a team for.
  */
-export function myProjectsRouter(deps: RouteDeps, c: Pick<Container, 'myProjects'>): Router {
+export function myProjectsRouter(
+  deps: RouteDeps,
+  c: Pick<Container, 'myProjects' | 'volunteerTeams'>,
+): Router {
   const router = Router();
   const own = {
     tag: 'volunteers',
@@ -85,6 +100,50 @@ export function myProjectsRouter(deps: RouteDeps, c: Pick<Container, 'myProjects
     responses: { 200: myProject, 401: null, 403: null, 404: null, 409: null, 422: null },
     handler: async ({ body, params, req }) =>
       ok(await c.myProjects.consent(principalOf(req), params.projectId, body)),
+  });
+
+  const team = { ...own, permission: 'volunteer.team.manage' };
+
+  defineRoute<unknown, unknown, { projectId: string }>(router, deps, {
+    ...team,
+    method: 'get',
+    path: '/me/projects/:projectId/team',
+    operationId: 'volunteers.team.list',
+    summary: 'Own team on the project and the volunteers registered with the caller as reference',
+    audit: 'none',
+    params: { projectId: uuid },
+    responses: { 200: teamView, 401: null, 403: null, 404: null },
+    handler: async ({ params, req }) =>
+      ok(await c.volunteerTeams.get(principalOf(req), params.projectId)),
+  });
+
+  defineRoute<TeamAdd, unknown, { projectId: string }>(router, deps, {
+    ...team,
+    method: 'post',
+    path: '/me/projects/:projectId/team',
+    status: 201,
+    operationId: 'volunteers.team.add',
+    summary: 'Add volunteers registered with the caller as reference to own team on the project',
+    audit: 'volunteer.team_added',
+    params: { projectId: uuid },
+    body: teamAddSchema,
+    responses: { 201: teamView, 401: null, 403: null, 404: null, 409: null, 422: null },
+    handler: async ({ body, params, req }) =>
+      ok(await c.volunteerTeams.add(principalOf(req), params.projectId, body.memberVolunteerIds)),
+  });
+
+  defineRoute<unknown, unknown, { projectId: string; volunteerId: string }>(router, deps, {
+    ...team,
+    method: 'post',
+    path: '/me/projects/:projectId/team/:volunteerId/remove',
+    status: 204,
+    operationId: 'volunteers.team.remove',
+    summary: 'Remove a member from own team on the project',
+    audit: 'volunteer.team_removed',
+    params: { projectId: uuid, volunteerId: uuid },
+    responses: { 204: null, 401: null, 403: null, 404: null },
+    handler: ({ params, req }) =>
+      c.volunteerTeams.remove(principalOf(req), params.projectId, params.volunteerId),
   });
 
   return router;

@@ -23,22 +23,23 @@ const permissions = new Set(
   ).permissions.map((p) => p.name),
 );
 
-// Fixtures use an operation of the contract that is not implemented yet (the project team, a
+// Fixtures use an operation of the contract that is not implemented yet (a new form version, a
 // later task of docs/PLAN.md).
 const contractOf = {
-  operationId: 'volunteers.team.remove',
-  tag: 'volunteers',
-  summary: 'Remove a member from own project team',
-  permission: 'volunteer.team.manage',
-  scope: 'self',
-  audit: 'volunteer.team_removed',
+  operationId: 'forms.version.createDraft',
+  tag: 'forms',
+  summary: 'Start a draft version of a form',
+  permission: 'form.build',
+  scope: 'project',
+  audit: 'form.version_created',
   idempotency: 'none' as const,
   rateLimit: 'default' as const,
-  status: 204,
-  params: { projectId: z.uuid(), volunteerId: z.uuid() },
-  responses: { 204: null, 404: null },
+  status: 201,
+  params: { formId: z.uuid() },
+  // a success with a body declares its schema (the field mask reads it)
+  responses: { 201: z.object({ id: z.uuid() }), 404: null, 409: null },
 };
-const FIXTURE_PATH = '/projects/:projectId/team/:volunteerId/remove';
+const FIXTURE_PATH = '/forms/:formId/versions';
 
 function matching(deps: RouteDeps): Router {
   const router = Router();
@@ -59,7 +60,7 @@ function drifting(deps: RouteDeps): Router {
     permission: 'user.state.change',
     body: z.strictObject({ language: z.string() }),
     status: 200,
-    responses: { 200: null },
+    responses: { 200: z.object({ id: z.uuid() }) },
     method: 'post',
     path: FIXTURE_PATH,
     handler: () => null,
@@ -83,9 +84,7 @@ describe('OpenAPI drift test (API_STANDARDS 16)', () => {
   it('an operation declared like the contract passes', async () => {
     open = buildTestApp({ routers: [matching] });
     const document = buildOpenApiDocument(open.registry);
-    expect(Object.keys(document.paths)).toContain(
-      '/projects/{projectId}/team/{volunteerId}/remove',
-    );
+    expect(Object.keys(document.paths)).toContain('/forms/{formId}/versions');
     expect(compareWithContract(document as never, contract as never, permissions)).toEqual([]);
   });
 
@@ -95,10 +94,8 @@ describe('OpenAPI drift test (API_STANDARDS 16)', () => {
     const problems = compareWithContract(document as never, contract as never, permissions).join(
       '\n',
     );
-    expect(problems).toMatch(/x-audit is "none", the contract says "volunteer.team_removed"/);
-    expect(problems).toMatch(
-      /x-permission is "user.state.change", the contract says "volunteer.team.manage"/,
-    );
+    expect(problems).toMatch(/x-audit is "none", the contract says "form.version_created"/);
+    expect(problems).toMatch(/x-permission is "user.state.change", the contract says "form.build"/);
     expect(problems).toMatch(/request body schema/);
     expect(problems).toMatch(/responses \["200"\] differ/);
   });

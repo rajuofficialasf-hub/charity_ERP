@@ -126,3 +126,13 @@ export const candidateFilterSchema = z.strictObject({
   q: z.string().trim().min(2).max(100).optional(),
 });
 export type CandidateFilter = z.infer<typeof candidateFilterSchema>;
+
+/** Members added to a main volunteer's team in one action, each once. */
+export const teamAddSchema = z.strictObject({
+  memberVolunteerIds: z
+    .array(z.uuid())
+    .min(1)
+    .max(50)
+    .refine((ids) => new Set(ids).size === ids.length, 'a volunteer appears twice'),
+});
+export type TeamAdd = z.infer<typeof teamAddSchema>;

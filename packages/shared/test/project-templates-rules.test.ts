@@ -17,6 +17,7 @@ import {
   NOT_COPIED,
   PERMISSION_SETS,
   permissionSetAllowed,
+  teamAddSchema,
   PROJECT_BOUND_SETTINGS,
   projectRulesSchema,
   requiredRuleParts,
@@ -330,5 +331,16 @@ describe('assignment requests', () => {
     expect(assignmentUpdateSchema.safeParse({ permissionSet: 'work_progress', x: 1 }).success).toBe(
       false,
     );
+  });
+});
+
+describe('team requests', () => {
+  it('takes up to fifty different members', () => {
+    const id = (n: number) => `0190a4c4-0000-7000-8000-${String(n).padStart(12, '0')}`;
+    const ids = (k: number) => Array.from({ length: k }, (_, i) => id(i));
+    expect(teamAddSchema.safeParse({ memberVolunteerIds: ids(50) }).success).toBe(true);
+    expect(teamAddSchema.safeParse({ memberVolunteerIds: ids(51) }).success).toBe(false);
+    expect(teamAddSchema.safeParse({ memberVolunteerIds: [] }).success).toBe(false);
+    expect(teamAddSchema.safeParse({ memberVolunteerIds: [id(1), id(1)] }).success).toBe(false);
   });
 });
