@@ -141,6 +141,13 @@ function ProjectList({ programNames }: { programNames: boolean }) {
                 options={years.map((y) => ({ id: y, label: y }))}
                 onChange={(id) => change({ year: id ?? undefined })}
               />
+              <Select
+                label={t('filter.window')}
+                value={filters.endingSoon ?? null}
+                searchable={false}
+                options={[{ id: 'true', label: t('filter.ending_soon') }]}
+                onChange={(id) => change({ endingSoon: id ?? undefined })}
+              />
             </>
           }
         />

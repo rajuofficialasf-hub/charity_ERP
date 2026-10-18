@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
+import { isoDateInDhaka } from '@css/shared/format';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { accessWorld } from './support/access-fixtures';
 import {
@@ -13,7 +14,7 @@ import {
 import * as f from './support/fixtures';
 
 // "Needs your attention" of the My Work home: counted items for the caller's own work and for
-// the records their roles reach, each counted as the list it opens counts it.
+// the records their roles reach, each linked to the list that holds them.
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();
@@ -93,21 +94,81 @@ describe('GET /me/attention', () => {
     expect(theirs.map((i) => i.kind)).toEqual([]);
   });
 
-  it('counts the registrations waiting in the caller’s region only', async () => {
+  it('counts the registrations waiting in the caller’s region only, volunteers and officials apart', async () => {
+    const before = countOf(await attention(world.users.head), 'registrations_pending');
     await pendingVolunteer(world.dhaka);
     await pendingVolunteer(world.dhaka);
     await pendingVolunteer(world.rangpur);
+    const staff = await account(h.db, { kind: 'staff', state: 'pending' });
     expect(countOf(await attention(world.users.rpmDhaka), 'registrations_pending')).toBe(2);
     expect(countOf(await attention(world.users.rpmRangpur), 'registrations_pending')).toBe(1);
-    expect(
-      countOf(await attention(world.users.head), 'registrations_pending'),
-    ).toBeGreaterThanOrEqual(3);
+    const head = await attention(world.users.head);
+    expect(countOf(head, 'registrations_pending')).toBe(before + 3);
+    expect(head).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'registrations_pending',
+          href: '/admin/volunteers?state=pending',
+        }),
+        expect.objectContaining({
+          kind: 'staff_registrations_pending',
+          href: '/admin/registrations',
+        }),
+      ]),
+    );
+    // an official's registration is decided by the global roles only
+    expect(countOf(await attention(world.users.rpmDhaka), 'staff_registrations_pending')).toBe(0);
     // a volunteer holds no registration permission
     expect(countOf(await attention(world.users.general), 'registrations_pending')).toBe(0);
+    await h.db.query(`UPDATE users SET state = 'deactivated' WHERE id = $1`, [staff.id]);
+  });
+
+  it('lets a pending registrant read their own corrections', async () => {
+    const { userId, volunteerId } = await pendingVolunteer(world.dhaka);
+    await h.db.query(
+      `INSERT INTO volunteer_change_requests (id, volunteer_id, kind, field, note, requested_by, status)
+       VALUES ($1, $2, 'registration_correction', 'education', 'আরও লিখুন', $3, 'open')`,
+      [randomUUID(), volunteerId, world.users.rpmDhaka],
+    );
+    expect(await attention(userId)).toEqual([
+      { kind: 'corrections', count: 1, href: '/account/profile' },
+    ]);
+  });
+
+  it('counts the edit requests waiting in the approver’s region, and tells the volunteer of a recent answer', async () => {
+    const a = await account(h.db, { kind: 'volunteer', role: 'volunteer_general' });
+    accounts.set(a.id, a);
+    const volunteerId = await f.volunteer(h.db, world.dhaka, a.id, { approved_at: new Date() });
+    const request = (status: string, decidedAt: Date | null) =>
+      h.db.query(
+        `INSERT INTO volunteer_change_requests (id, volunteer_id, kind, field, new_value, requested_by, status, decided_at)
+         VALUES ($1, $2, 'profile_edit', 'education', 'স্নাতক', $3, $4, $5)`,
+        [randomUUID(), volunteerId, a.id, status, decidedAt],
+      );
+    const rangpurBefore = countOf(await attention(world.users.rpmRangpur), 'edit_requests_pending');
+    await request('submitted', null);
+    const now = h.clock.now().getTime();
+    await request('approved', new Date(now - 86_400_000));
+    // answered too long ago to be news
+    await request('rejected', new Date(now - 30 * 86_400_000));
+    expect(await attention(world.users.rpmDhaka)).toEqual(
+      expect.arrayContaining([
+        { kind: 'edit_requests_pending', count: 1, href: '/admin/registrations?tab=edits' },
+      ]),
+    );
+    expect(countOf(await attention(world.users.rpmRangpur), 'edit_requests_pending')).toBe(
+      rangpurBefore,
+    );
+    expect(await attention(a.id)).toEqual(
+      expect.arrayContaining([{ kind: 'edit_answered', count: 1, href: '/account/profile' }]),
+    );
   });
 
   it('gives a PM the drafts of their program and the windows ending within a week, none of another program', async () => {
-    const soon = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10);
+    const day = 86_400_000;
+    const now = h.clock.now().getTime();
+    const soon = isoDateInDhaka(new Date(now + 3 * day));
+    const later = isoDateInDhaka(new Date(now + 30 * day));
     await h.db.query(`UPDATE projects SET status = 'draft' WHERE id = $1`, [world.a2.id]);
     await h.db.query(`UPDATE projects SET status = 'active', apply_to = $2 WHERE id = $1`, [
       world.a1.id,
@@ -118,10 +179,23 @@ describe('GET /me/attention', () => {
     expect(items).toEqual(
       expect.arrayContaining([
         { kind: 'projects_draft', count: 1, href: '/admin/projects?status=draft' },
-        { kind: 'deadlines_soon', count: 1, href: '/admin/projects?status=active' },
+        {
+          kind: 'deadlines_soon',
+          count: 1,
+          href: '/admin/projects?status=active&endingSoon=true',
+        },
       ]),
     );
     expect(countOf(await attention(world.users.rpmDhaka), 'projects_draft')).toBe(0);
+    // the list the item opens shows the same projects
+    const list = await api()
+      .get('/api/v1/projects?status=active&endingSoon=true')
+      .set(bearer(await login(h, accounts.get(world.users.pm)!)));
+    expect(list.status).toBe(200);
+    expect(list.body.data.map((p: { id: string }) => p.id)).toEqual([world.a1.id]);
+    // a window ending later is not near
+    await h.db.query(`UPDATE projects SET apply_to = $2 WHERE id = $1`, [world.a1.id, later]);
+    expect(countOf(await attention(world.users.pm), 'deadlines_soon')).toBe(0);
   });
 
   it('gives the global roles the handovers that are started and not completed', async () => {

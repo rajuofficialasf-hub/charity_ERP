@@ -366,6 +366,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         built.myProjects,
         built.registrations,
         built.changeRequests,
+        built.projects,
       ),
   };
 }

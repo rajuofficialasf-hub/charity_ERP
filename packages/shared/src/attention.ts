@@ -2,17 +2,20 @@ import { z } from 'zod';
 
 /**
  * The kinds of "needs your attention" items on the My Work home, and the page each one opens.
- * An item is counted as the list it opens counts it.
+ * Each link opens the list that holds the counted records, with the same filter where the list
+ * has one; the list may also show records that wait for someone else (a registration sent back
+ * to its volunteer, for example).
  */
 export const ATTENTION_ROUTES = {
   unread_notifications: '/notifications',
   consent_pending: '/my-projects',
   corrections: '/account/profile',
   edit_answered: '/account/profile',
-  registrations_pending: '/admin/registrations',
-  edit_requests_pending: '/admin/registrations',
+  registrations_pending: '/admin/volunteers?state=pending',
+  staff_registrations_pending: '/admin/registrations',
+  edit_requests_pending: '/admin/registrations?tab=edits',
   projects_draft: '/admin/projects?status=draft',
-  deadlines_soon: '/admin/projects?status=active',
+  deadlines_soon: '/admin/projects?status=active&endingSoon=true',
   handovers_open: '/admin/handover',
 } as const;
 

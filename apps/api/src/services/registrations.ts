@@ -256,9 +256,10 @@ export class RegistrationsService {
     return { rows: rows.map(pendingView), meta };
   }
 
-  /** How many registrations wait for a decision in the scope, as the list counts them (My Work). */
-  async waitingCount(actor: Principal, scope: Scope): Promise<number> {
+  /** How many registrations of one kind wait for a decision in the scope (the My Work home). */
+  async waitingCount(actor: Principal, scope: Scope, kind: 'volunteer' | 'staff'): Promise<number> {
     const filter = this.pendingWhere(scope, await this.decidesStaff(actor.userId), {
+      kind,
       status: 'awaiting_review',
     });
     return this.prisma.user.count({ where: filter });

@@ -34,7 +34,8 @@ export function RegistrationsPage() {
   const navigate = useNavigate();
   const notice = (location.state as ListNotice | null)?.notice;
   const [params] = useSearchParams();
-  const [tab, setTab] = useState('pending');
+  // the home's edit-request item opens the second tab
+  const [tab, setTab] = useState(params.get('tab') === 'edits' ? 'edits' : 'pending');
   // the volunteer registrations live in the volunteer tab now (an older link lands there)
   if (params.get('kind') === 'volunteer')
     return <Navigate to="/admin/volunteers?state=pending" replace />;

@@ -451,7 +451,9 @@
     },
     "filter": {
       "program": "Program",
-      "year": "Year"
+      "year": "Year",
+      "window": "Application window",
+      "ending_soon": "Ends within 7 days"
     },
     "workflow": {
       "distribution": "Distribution",

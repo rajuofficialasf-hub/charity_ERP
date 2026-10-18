@@ -24,7 +24,7 @@ export interface Project {
 }
 
 /** The keys of the filters the project list keeps in the page URL. */
-export const FILTER_KEYS = ['programId', 'year', 'status'] as const;
+export const FILTER_KEYS = ['programId', 'year', 'status', 'endingSoon'] as const;
 export type FilterValues = Partial<Record<(typeof FILTER_KEYS)[number], string>>;
 
 interface PageMeta {

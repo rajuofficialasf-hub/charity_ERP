@@ -28,7 +28,7 @@ export interface MenuButtonProps {
 
 /**
  * A button that opens a menu of links and actions on the APG menu button pattern (Enter, Space
- * and arrow keys, Escape returns focus): the profile menu of the app bar (DESIGN_SYSTEM 4.1).
+ * and arrow keys, Escape returns focus): the profile menu of the app bar (docs/ui/DESIGN_SYSTEM.md, section "App shell").
  */
 export function MenuButton({ label, items, children, icon, className }: MenuButtonProps) {
   return (
@@ -48,8 +48,8 @@ export function MenuButton({ label, items, children, icon, className }: MenuButt
               id={item.id}
               className="ui-menu-item"
               textValue={item.label}
-              {...(item.href ? { href: item.href } : {})}
-              {...(item.onAction ? { onAction: item.onAction } : {})}
+              href={item.href}
+              onAction={item.onAction}
             >
               {item.icon && <Icon icon={item.icon} size="sm" />}
               <span>{item.label}</span>

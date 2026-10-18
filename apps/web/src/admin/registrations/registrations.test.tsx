@@ -366,6 +366,13 @@ describe('registration list', () => {
     expect(screen.queryByRole('tab', { name: 'পরিবর্তনের অনুরোধ' })).not.toBeInTheDocument();
   });
 
+  it('opens on the edit requests when the link asks for that tab', async () => {
+    renderPage(HEAD, 'bn', '/admin/registrations?tab=edits');
+    expect(
+      await screen.findByRole('tab', { name: 'পরিবর্তনের অনুরোধ', selected: true }),
+    ).toBeInTheDocument();
+  });
+
   it('a Finance Team user sees the no-access screen', async () => {
     renderPage(FINANCE);
     expect(await screen.findByRole('heading', { name: 'প্রবেশাধিকার নেই' })).toBeInTheDocument();

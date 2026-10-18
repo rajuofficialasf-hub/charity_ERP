@@ -451,7 +451,9 @@
     },
     "filter": {
       "program": "প্রোগ্রাম",
-      "year": "বছর"
+      "year": "বছর",
+      "window": "আবেদনের সময়সীমা",
+      "ending_soon": "7 দিনের মধ্যে শেষ হবে"
     },
     "workflow": {
       "distribution": "বিতরণ",
