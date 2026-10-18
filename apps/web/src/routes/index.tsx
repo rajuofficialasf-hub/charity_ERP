@@ -198,6 +198,19 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
               }),
             },
             {
+              path: 'notification-templates',
+              lazy: async () => ({
+                Component: (await import('../admin/notifications/NotificationTemplatesPage'))
+                  .NotificationTemplatesPage,
+              }),
+            },
+            {
+              path: 'deliveries',
+              lazy: async () => ({
+                Component: (await import('../admin/notifications/DeliveriesPage')).DeliveriesPage,
+              }),
+            },
+            {
               path: 'handover',
               lazy: async () => ({
                 Component: (await import('../admin/handover/HandoverPage')).HandoverPage,
