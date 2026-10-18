@@ -229,7 +229,7 @@ None blocking. Each new decision above is recorded in `docs/DECISION_LOG.md` bef
 ## Progress
 - **Branch:** `feat/notifications` (stacked on `feat/admin-settings-core`)
 - **Updated:** 2026-10-18 09:40
-- **Next:** checkpoint C1 (review U1), then U2: the notification core (catalogue, recipients, publish)
-- **Reviewed through:** none
+- **Next:** U2: the notification core (catalogue, recipients, publish); store `inAppParams(params)` on the in-app row
+- **Reviewed through:** C1 at fee14bd
 - **Uncommitted:** none
-- **Notes:** doc review on 2026-10-18: the owner chose no other person's name in in-app entries (R16) and that a declared variable may be left out of a template. U1: a template variable may be bilingual data ({ bn, en }) or a number, rendered in the reader's language by `renderTemplateText`; `project_consent_result` takes the answer as bilingual data; in-app texts drop every person variable (tested), emails to officials keep them.
+- **Notes:** doc review on 2026-10-18: the owner chose no other person's name in in-app entries (R16) and that a declared variable may be left out of a template. U1: a template variable may be bilingual data ({ bn, en }) or a number, rendered in the reader's language by `renderTemplateText`; `project_consent_result` takes the answer as bilingual data; in-app texts drop every person variable (tested), emails to officials keep them. C1: `PLACEHOLDER` is the one pattern for the renderer and the editor check; a value that is not text, a finite number or { bn, en } fails closed; U2 stores `inAppParams` (no person variables) on in-app rows; U6 must refuse a person variable in an in-app text, render each inbox row with a per-row fallback, and U3 must always escape the HTML part. Open: the base seed is the only path that writes templates and it refuses production, so a deploy step that inserts missing template keys (never overwriting edits) is needed before production: planned with U3 (`notifications:sync` in `db:migrate`).
