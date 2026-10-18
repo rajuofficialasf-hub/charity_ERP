@@ -1,3 +1,4 @@
+/* eslint-disable security/detect-object-injection -- keys are checked with Object.hasOwn before use */
 /**
  * Where an in-app notification leads (NOTIFICATIONS.md §12): a fixed relative route of the PWA for
  * the template key, filled only with record ids, never a stored or sent URL. Officials and
