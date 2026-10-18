@@ -130,6 +130,11 @@ describe('GET /me/attention', () => {
        VALUES ($1, $2, 'registration_correction', 'education', 'আরও লিখুন', $3, 'open')`,
       [randomUUID(), volunteerId, world.users.rpmDhaka],
     );
+    // an unread notification is not offered: the inbox opens after the approval
+    await h.db.query(
+      `INSERT INTO notifications (id, user_id, template_key, template_version, params) VALUES ($1, $2, 'registration_approved', 1, '{}')`,
+      [randomUUID(), userId],
+    );
     expect(await attention(userId)).toEqual([
       { kind: 'corrections', count: 1, href: '/account/profile' },
     ]);

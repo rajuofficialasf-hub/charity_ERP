@@ -1,6 +1,6 @@
 import type { Me } from '@css/shared/auth';
 import { expectNoAxeViolations } from '@css/ui/testing';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -125,7 +125,23 @@ describe('My Work home', () => {
     expect(screen.getByRole('link', { name: 'টেমপ্লেট দেখুন' })).toHaveAttribute(
       'href',
       '/admin/templates',
+    ); // the shortcuts of the global roles are not a PM's
+    expect(screen.queryByRole('link', { name: 'পারমিশন প্যানেল' })).toBeNull();
+  });
+
+  it('never shows a count it could not read as zero', async () => {
+    server.use(
+      http.get('*/api/v1/projects', () => apiError(500, 'server.error', 'Something went wrong')),
+      http.get('*/api/v1/templates', () => apiError(500, 'server.error', 'Something went wrong')),
     );
+    openHome({ ...ME, roles: ['program_manager'] });
+    // four state counts and the templates, each with its retry
+    await waitFor(
+      () => expect(screen.getAllByRole('button', { name: /আবার চেষ্টা/ })).toHaveLength(5),
+      { timeout: 5000 },
+    );
+    expect(screen.queryByRole('link', { name: /খসড়া/ })).toBeNull();
+    expect(screen.queryByText(/0টি সক্রিয় টেমপ্লেট/)).toBeNull();
   });
 
   it('gives the Department Head the shortcuts', async () => {

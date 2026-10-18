@@ -60,7 +60,11 @@ export class AttentionService {
     };
     const now = this.clock.now();
     const counts: [AttentionKind, Promise<number>][] = [
-      ['unread_notifications', this.inbox.unreadCount(principal)],
+      // the inbox opens once the registration is approved
+      [
+        'unread_notifications',
+        principal.state === 'active' ? this.inbox.unreadCount(principal) : Promise.resolve(0),
+      ],
       ['consent_pending', this.consentPending(principal)],
       [
         'corrections',

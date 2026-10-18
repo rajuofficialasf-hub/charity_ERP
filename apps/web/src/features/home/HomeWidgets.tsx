@@ -1,18 +1,8 @@
 import type { Me } from '@css/shared/auth';
 import { formatCount, formatDate, formatDateTime } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import {
-  Badge,
-  Button,
-  Card,
-  EmptyState,
-  ErrorState,
-  Icon,
-  type IconComponent,
-  Skeleton,
-  StatCard,
-} from '@css/ui';
-import { type UseQueryResult, useQuery } from '@tanstack/react-query';
+import { Badge, Button, Card, ErrorState, Icon, type IconComponent, StatCard } from '@css/ui';
+import { useQuery } from '@tanstack/react-query';
 import {
   Bell,
   CircleAlert,
@@ -23,7 +13,6 @@ import {
   ScrollText,
   Settings,
 } from 'lucide-react';
-import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import {
@@ -32,41 +21,18 @@ import {
   SYSTEM_ADMIN_ROLES,
 } from '../../admin/roles';
 import { TEMPLATES_KEY, templates } from '../../admin/templates/templates-api';
-import { ApiFailure } from '../../lib/api';
 import { MY_PROJECTS_KEY, myProjects } from '../projects/my-projects-api';
 import {
+  HOME_PROJECT_STATES,
   HOME_PROJECTS_KEY,
+  type HomeProjectState,
   LATEST_NOTIFICATIONS_KEY,
   latestNotifications,
   projectCount,
   runningProjects,
 } from './home-api';
+import { Loaded } from './Loaded';
 import type { LaterWidget, LiveWidget } from './widgets';
-
-/** The loading, error and empty states every data widget shares. */
-function Loaded<T>({
-  query,
-  empty,
-  isEmpty,
-  children,
-}: {
-  query: UseQueryResult<T>;
-  empty: string;
-  isEmpty: (data: T) => boolean;
-  children: (data: T) => ReactNode;
-}) {
-  const tc = useTranslations('common');
-  if (query.isPending) return <Skeleton shape="card" />;
-  if (query.error)
-    return (
-      <ErrorState
-        title={tc('state.error.text')}
-        requestId={query.error instanceof ApiFailure ? query.error.requestId : undefined}
-        onRetry={() => void query.refetch()}
-      />
-    );
-  return isEmpty(query.data) ? <EmptyState title={empty} /> : children(query.data);
-}
 
 /** The volunteer's running projects with the deadline and the applications used. */
 function MyProjects() {
@@ -164,15 +130,15 @@ function OfficialProjects() {
   );
 }
 
-const STATES = ['draft', 'active', 'closing', 'closed'] as const;
-
 /** One count per project state, each opening the list of that state. */
-function StateCount({ status }: { status: (typeof STATES)[number] }) {
+function StateCount({ status }: { status: HomeProjectState }) {
   const t = useTranslations('admin.projects.status');
   const count = useQuery({
     queryKey: [...HOME_PROJECTS_KEY, 'count', status],
     queryFn: () => projectCount(status),
   });
+  // a count that could not be read is never shown as zero
+  if (count.error) return <ErrorState title={t(status)} onRetry={() => void count.refetch()} />;
   return (
     <StatCard
       label={t(status)}
@@ -188,7 +154,7 @@ function ProjectStates() {
   return (
     <Card title={t('project_states')} headingLevel={2}>
       <div className="my-work-stats">
-        {STATES.map((s) => (
+        {HOME_PROJECT_STATES.map((s) => (
           <StateCount key={s} status={s} />
         ))}
       </div>
@@ -210,46 +176,49 @@ function Templates() {
         </Button>
       }
     >
-      {list.isPending ? (
-        <Skeleton shape="text" />
-      ) : (
-        <p className="m-0">
-          {t('templates_count', {
-            n: list.data?.length ?? 0,
-            count: formatCount(list.data?.length ?? 0, locale),
-          })}
-        </p>
-      )}
+      <Loaded query={list} empty="" isEmpty={() => false}>
+        {(active) => (
+          <p className="m-0">
+            {t('templates_count', {
+              n: active.length,
+              count: formatCount(active.length, locale),
+            })}
+          </p>
+        )}
+      </Loaded>
     </Card>
   );
 }
 
-const SHORTCUTS: { key: string; href: string; icon: IconComponent; roles: readonly string[] }[] = [
+const SHORTCUTS = [
   {
-    key: 'permission_panel',
     href: '/admin/permissions',
     icon: KeyRound,
     roles: PERMISSION_PANEL_ROLES,
+    home: 'permission_panel',
   },
-  { key: 'audit', href: '/admin/audit', icon: ScrollText, roles: SYSTEM_ADMIN_ROLES },
-  { key: 'staff', href: '/admin/staff', icon: IdCard, roles: STAFF_DIRECTORY_ROLES },
-  { key: 'settings', href: '/admin/settings', icon: Settings, roles: SYSTEM_ADMIN_ROLES },
-];
+  { href: '/admin/audit', icon: ScrollText, roles: SYSTEM_ADMIN_ROLES, nav: 'audit' },
+  { href: '/admin/staff', icon: IdCard, roles: STAFF_DIRECTORY_ROLES, nav: 'staff' },
+  { href: '/admin/settings', icon: Settings, roles: SYSTEM_ADMIN_ROLES, nav: 'settings' },
+] as const satisfies readonly ({
+  href: string;
+  icon: IconComponent;
+  roles: readonly string[];
+} & ({ home: 'permission_panel' } | { nav: 'audit' | 'staff' | 'settings' }))[];
 
 /** The Department Head's and the Monitoring Team's ways into their tools. */
 function Shortcuts({ me }: { me: Me }) {
   const t = useTranslations('home.widget');
   const tn = useTranslations('nav');
-  const label = (key: string) =>
-    key === 'permission_panel' ? t('permission_panel') : tn(key as 'audit');
+  const label = (s: (typeof SHORTCUTS)[number]) => ('home' in s ? t(s.home) : tn(s.nav));
   return (
     <Card title={t('shortcuts')} headingLevel={2}>
       <ul className="my-work-shortcuts">
         {SHORTCUTS.filter((s) => s.roles.some((r) => me.roles.includes(r))).map((s) => (
-          <li key={s.key}>
+          <li key={s.href}>
             <Link to={s.href} className="my-work-shortcut">
               <Icon icon={s.icon} />
-              <span>{label(s.key)}</span>
+              <span>{label(s)}</span>
             </Link>
           </li>
         ))}

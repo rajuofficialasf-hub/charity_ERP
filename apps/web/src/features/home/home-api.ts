@@ -24,8 +24,12 @@ export interface HomeProject {
 /** The running projects in the caller's scope, the newest five. */
 export const runningProjects = () => api<HomeProject[]>('/projects?status=active&limit=5');
 
+/** The project states a PM's home counts. */
+export const HOME_PROJECT_STATES = ['draft', 'active', 'closing', 'closed'] as const;
+export type HomeProjectState = (typeof HOME_PROJECT_STATES)[number];
+
 /** How many projects in the caller's scope have this state. */
-export const projectCount = (status: string) =>
+export const projectCount = (status: HomeProjectState) =>
   api<{ data: unknown[]; meta: { total?: number } }>(
     `/projects?status=${status}&limit=1&include=total`,
     { envelope: true },

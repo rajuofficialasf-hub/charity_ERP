@@ -1,7 +1,7 @@
 import type { AttentionKind } from '@css/shared';
 import { formatCount } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { AttentionCard, EmptyState, ErrorState, type IconComponent, Skeleton } from '@css/ui';
+import { AttentionCard, type IconComponent } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowRightLeft,
@@ -16,8 +16,8 @@ import {
   UserRoundCheck,
 } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
 import { ATTENTION_KEY, attention } from './home-api';
+import { Loaded } from './Loaded';
 
 const LOOK: Record<AttentionKind, { icon: IconComponent; tone: 'info' | 'warning' }> = {
   unread_notifications: { icon: Bell, tone: 'info' },
@@ -38,41 +38,42 @@ const LOOK: Record<AttentionKind, { icon: IconComponent; tone: 'info' | 'warning
  */
 export function AttentionList() {
   const t = useTranslations('home.attention');
-  const tc = useTranslations('common');
   const locale = useLocale() as Locale;
-  const items = useQuery({ queryKey: ATTENTION_KEY, queryFn: attention });
+  // asked again each time the home opens: the person may just have acted on an item
+  const items = useQuery({
+    queryKey: ATTENTION_KEY,
+    queryFn: attention,
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
   return (
     <section className="my-work-attention" aria-labelledby="attention-title">
       <h2 id="attention-title" className="my-work-heading">
         {t('title')}
       </h2>
-      {items.isPending ? (
-        <Skeleton shape="card" />
-      ) : items.error ? (
-        <ErrorState
-          title={tc('state.error.text')}
-          requestId={items.error instanceof ApiFailure ? items.error.requestId : undefined}
-          onRetry={() => void items.refetch()}
-        />
-      ) : items.data.length === 0 ? (
-        <EmptyState icon={CircleCheck} title={t('empty')} />
-      ) : (
-        <ul className="my-work-list">
-          {items.data.map((item) => (
-            <li key={item.kind}>
-              <AttentionCard
-                // eslint-disable-next-line security/detect-object-injection -- a typed kind
-                {...LOOK[item.kind]}
-                title={t(`kind.${item.kind}`, {
-                  n: item.count,
-                  count: formatCount(item.count, locale),
-                })}
-                href={item.href}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
+      <Loaded
+        query={items}
+        empty={t('empty')}
+        emptyIcon={CircleCheck}
+        isEmpty={(data) => data.length === 0}
+      >
+        {(data) => (
+          <ul className="my-work-list">
+            {data.map((item) => (
+              <li key={item.kind}>
+                <AttentionCard
+                  {...LOOK[item.kind]}
+                  title={t(`kind.${item.kind}`, {
+                    n: item.count,
+                    count: formatCount(item.count, locale),
+                  })}
+                  href={item.href}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </Loaded>
     </section>
   );
 }
