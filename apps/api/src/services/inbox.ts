@@ -60,7 +60,7 @@ export class InboxService {
       : undefined;
     const direction = cursor?.d ?? 'next';
     const mine = { userId: principal.userId, ...(query.unread ? { readAt: null } : {}) };
-    const [fetched, unreadCount, user] = await Promise.all([
+    const [fetched, unreadCount] = await Promise.all([
       this.prisma.notification.findMany({
         where: cursor ? { AND: [mine, keysetWhere(SORT, cursor)] } : mine,
         orderBy: orderBy(SORT, direction),
@@ -76,10 +76,6 @@ export class InboxService {
         },
       }),
       this.unreadCount(principal),
-      this.prisma.user.findUniqueOrThrow({
-        where: { id: principal.userId },
-        select: { kind: true },
-      }),
     ]);
     const { rows, meta } = buildPage(fetched, {
       limit: query.limit,
@@ -90,7 +86,7 @@ export class InboxService {
       binding,
     });
     const texts = await this.texts(rows, locale);
-    const audience = user.kind === 'staff' ? 'staff' : 'volunteer';
+    const audience = principal.kind === 'staff' ? 'staff' : 'volunteer';
     return {
       rows: rows.map((r): InboxEntry => {
         const params = (r.params ?? {}) as Record<string, NotificationParam>;

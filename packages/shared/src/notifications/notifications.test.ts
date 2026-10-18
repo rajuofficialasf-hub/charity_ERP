@@ -166,8 +166,31 @@ describe('the notification request bodies', () => {
   it('keep links and markup out of a template text', () => {
     const ok = { subject: 'S', body: 'Hello {{count}}' };
     expect(templateTextSchema.safeParse(ok).success).toBe(true);
-    for (const body of ['<b>x</b>', 'see https://example.org', 'www.example.org'])
-      expect(templateTextSchema.safeParse({ ...ok, body }).success).toBe(false);
+    for (const body of [
+      '<b>x</b>',
+      'see https://example.org',
+      'www.example.org',
+      'Verify at evil.example/login',
+      'open //evil.example',
+      'javascript:alert(1)',
+      'ftp://files',
+    ])
+      expect(templateTextSchema.safeParse({ ...ok, body }).success, body).toBe(false);
+    // ordinary text with a colon, a decimal or an abbreviation passes
+    for (const body of ['Reason: {{reason}}', 'Paid 1.5 times', 'See the list, e.g. this one'])
+      expect(templateTextSchema.safeParse({ ...ok, body }).success, body).toBe(true);
+  });
+
+  it('accept every seeded in-app and email text, so an unchanged text can be saved again', () => {
+    for (const t of NOTIFICATION_TEMPLATES)
+      for (const channel of ['in_app', 'email'] as const)
+        for (const locale of ['bn', 'en'] as const) {
+          const text = t.channels[channel]?.[locale];
+          if (!text || t.key.startsWith('otp_') || t.key === 'staff_invitation') continue;
+          expect(templateTextSchema.safeParse(text).success, `${t.key} ${channel} ${locale}`).toBe(
+            true,
+          );
+        }
   });
 
   it('need at least one preference', () => {

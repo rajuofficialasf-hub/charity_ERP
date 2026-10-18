@@ -1,3 +1,4 @@
+import { uuidv7 } from '@css/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { NotificationInput } from '../../src/notifications/service';
@@ -66,7 +67,7 @@ describe('the inbox', () => {
     expect(next.body.data).toHaveLength(1);
     expect(next.body.data[0].body).toContain('কারণ 0');
     const bn = await inbox(readerSession, { limit: '1' }, 'bn');
-    expect(bn.body.data[0].title).not.toBe('Registration not accepted');
+    expect(bn.body.data[0].title).toBe('নিবন্ধন গৃহীত হয়নি');
   });
 
   it('keeps an entry on the version it was written with after the template changes', async () => {
@@ -94,8 +95,9 @@ describe('the inbox', () => {
   it('shows a plain fallback for one entry that cannot be rendered, and the rest as usual', async () => {
     await h.db.query(
       `INSERT INTO notifications (id, user_id, template_key, template_version, params)
-       VALUES (gen_random_uuid(), $1, 'registration_rejected', 1, '{}')`,
-      [other.id],
+       VALUES ($2, $1, 'registration_rejected', 1, '{}')`,
+      // a time-ordered id like every entry, so it is the newest
+      [other.id, uuidv7()],
     );
     const res = await inbox(otherSession);
     expect(res.status).toBe(200);

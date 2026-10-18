@@ -34,9 +34,9 @@ export interface DeliveryQuery {
 export interface DeliveryView {
   id: string;
   createdAt: string;
-  channel: string;
+  channel: (typeof DELIVERY_CHANNELS)[number];
   templateKey: string;
-  status: string;
+  status: (typeof DELIVERY_STATUSES)[number];
   recipient: { id: string; name: string } | null;
   address: string;
   attempts: number;
@@ -110,9 +110,10 @@ export class DeliveriesService {
       rows: rows.map((r): DeliveryView => ({
         id: r.id,
         createdAt: r.createdAt.toISOString(),
-        channel: r.channel,
+        // the columns hold only these values (check constraints)
+        channel: r.channel as DeliveryView['channel'],
         templateKey: r.templateKey,
-        status: r.status,
+        status: r.status as DeliveryView['status'],
         recipient: r.recipientUser
           ? { id: r.recipientUser.id, name: r.recipientUser.displayName }
           : null,

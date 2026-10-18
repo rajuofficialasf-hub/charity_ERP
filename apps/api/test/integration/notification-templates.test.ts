@@ -64,6 +64,21 @@ describe('the notification templates', () => {
     expect(rows[0].n).toBe(2);
   });
 
+  it('refuses a preview of an unknown key or channel, and of an undeclared placeholder', async () => {
+    const preview = (path: string, body: object) =>
+      api().post(`${URL}/${path}/preview`).set(bearer(head)).send(body);
+    expect((await preview('no_such_key/email', handover)).status).toBe(404);
+    expect((await preview('registration_pending/email', handover)).status).toBe(404);
+    const unknown = await preview('handover_items_assigned/email', {
+      bn: handover.bn,
+      en: { subject: 'S', body: 'Hello {{nid}}' },
+    });
+    expect(unknown.status).toBe(422);
+    expect(unknown.body.error.details).toContainEqual(
+      expect.objectContaining({ path: 'en.body', code: 'notification.placeholder_unknown' }),
+    );
+  });
+
   it('saves a new version, audited, and keeps the old one for what it rendered', async () => {
     const res = await api()
       .put(`${URL}/handover_items_assigned/email`)

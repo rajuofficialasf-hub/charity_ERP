@@ -16,7 +16,7 @@ export const markReadSchema = z
   });
 export type MarkRead = z.infer<typeof markReadSchema>;
 
-/** The email mode of an official; digest-eligible events only (Phase 2), the rest is immediate. */
+/** The email mode of an official, for digest-eligible events only; every other email goes at once. */
 export const EMAIL_MODES = ['digest', 'immediate'] as const;
 export type EmailMode = (typeof EMAIL_MODES)[number];
 export const preferencesUpdateSchema = z
@@ -32,6 +32,13 @@ export const preferencesUpdateSchema = z
   });
 export type PreferencesUpdate = z.infer<typeof preferencesUpdateSchema>;
 
+/**
+ * Markup, a scheme, `//` and anything shaped like a web address (`name.tld`): a template text
+ * carries no link of its own, the app builds the link from the record.
+ */
+const LINK_OR_MARKUP =
+  /[<>]|\/\/|\b[a-z][a-z0-9+.-]*:\/|\b(?:javascript|data|vbscript|mailto|tel|ftp):|\bwww\.|\b[a-z0-9-]+\.[a-z]{2,}\b/i;
+
 /** A template text may hold no markup and no link: values are escaped, links are built by the app. */
 const plainText = (max: number) =>
   z
@@ -39,7 +46,7 @@ const plainText = (max: number) =>
     .trim()
     .min(1)
     .max(max)
-    .refine((v) => !/[<>]|https?:|www\./i.test(v), { message: 'notification.unsafe_text' });
+    .refine((v) => !LINK_OR_MARKUP.test(v), { message: 'notification.unsafe_text' });
 
 export const templateTextSchema = z.strictObject({
   subject: plainText(200).optional(),
