@@ -3,6 +3,8 @@
 // 2. The workflow templates validate against workflow-templates/schema.json.
 // 3. The JSON Schemas in docs/database/json-schemas compile.
 // 4. Redocly lints openapi.yaml with docs/api/redocly.yaml.
+// 5. Every testable business rule of Phase 1 has a test-status register line (tested, deferred or
+//    manual) that names existing files (scripts/check-rules.mjs, `pnpm rules:status --phase 1`).
 import { spawnSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -10,6 +12,7 @@ import { join } from 'node:path';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import yaml from 'js-yaml';
+import { phaseRules, problemsOf } from './check-rules.mjs';
 
 const failures = [];
 const ok = (message) => console.warn(`ok   ${message}`);
@@ -91,6 +94,22 @@ if (redocly.status === 0) {
 } else {
   console.error(redocly.stdout, redocly.stderr);
   fail('openapi.yaml fails Redocly lint');
+}
+
+const phaseOneRules = phaseRules(1);
+const ruleProblems = problemsOf(phaseOneRules);
+if (ruleProblems.length === 0) {
+  ok(
+    `BUSINESS_RULES.md: every testable Phase 1 rule is tested, deferred or manual (${phaseOneRules.length} rules)`,
+  );
+} else {
+  const untested = phaseOneRules.filter((r) => r.state === 'untested').map((r) => r.id);
+  const missing = ruleProblems.filter((p) => p.includes('missing file'));
+  fail(
+    `BUSINESS_RULES.md: ${untested.length} untested Phase 1 rule(s) (${untested.join(', ')})` +
+      (missing.length ? `; ${missing.join('; ')}` : '') +
+      ' (pnpm rules:status --phase 1)',
+  );
 }
 
 if (failures.length > 0) {

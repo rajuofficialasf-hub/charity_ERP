@@ -169,8 +169,9 @@ Merging to `main` requires the push stages to pass. Gate tags (`gate-phase-N`) r
 
 - Each rule row names the expected test type (unit, integration, API, E2E, manual, none).
 - When a test exists and runs, the test-status register (BUSINESS_RULES §19) gets one line in the same commit: `BR-nnn: <test file>::<test name> — passing (date)`.
-- Tests reference their rule in the test name (`BR-097 score recomputed on answer change`) so a script can match tests and rules.
-- Before each gate, a script lists the testable rules of the phase's modules without a register line; the gate report shows that list with a reason per rule (T1.16 and the later consolidation tasks).
+- A test name says the behaviour it proves (the organization's comment rules keep ids out of code); the register line is the link between the rule and the test. Older tests that carry the id in their name stay as they are.
+- A rule of a phase whose feature is not built yet gets a register line `BR-nnn: deferred to <task> (feature not built)` instead of a test; it counts as answered until that task.
+- `pnpm rules:status --phase <n>` (`scripts/check-rules.mjs`) lists every testable rule of the phase's modules (the phase map of MODULE_CATALOG.md section 4; a rule with several modules belongs to every phase of them; `all` and `UI` rules belong to every phase) as tested, deferred, manual or untested, and reports a register line that names a file missing from the repository. `pnpm docs:check` runs it for Phase 1 and fails on an untested rule or a missing file; the gate report quotes its table (T1.16 and the later consolidation tasks).
 - Rules tested only by hand (policy rules, physical procedures) are marked manual with the reason in the register; retired rules need no test.
 
 ## 8. Environments

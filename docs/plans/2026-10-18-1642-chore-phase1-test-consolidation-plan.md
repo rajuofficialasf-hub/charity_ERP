@@ -75,7 +75,7 @@ Phase 1 built its features in the tasks T1.5 to T1.15, each with its own tests, 
   - unit: a fixture BUSINESS_RULES text with four rules (tested, deferred, manual, untested) and a fixture Phase map gives the four states and only the rules of the asked phase; a register line whose file does not exist is reported; a rule with `Test: none` or `manual` in the table is never "untested"; a register line that names several ids (`BR-181, BR-182: …`) marks each; the CLI exits 1 on an untested rule and 0 with `--report-only`.
 - **Done when:** the command prints the Phase 1 table on the real documents and `pnpm docs:check` reports the untested count (it may fail until U3 ends).
 - **Depends on:** none · **Size:** M · **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U2. Every response against the contract
 - **Goal:** every response of the API tests is validated against `docs/api/openapi.yaml`, and every registered operation has a recorded success response.
@@ -174,8 +174,8 @@ Phase 1 built its features in the tasks T1.5 to T1.15, each with its own tests, 
 
 ## Progress
 - **Branch:** `chore/phase1-test-consolidation` (stacked on `feat/media-roles-d101`, PR #9)
-- **Updated:** 2026-10-18 17:05
-- **Next:** U1: the untested-rules script, tests first (`packages/shared/test/rules-status.test.ts`)
+- **Updated:** 2026-10-18 17:30
+- **Next:** checkpoint C1 (review U1), then U2: the response recorder, tests first (`apps/api/test/api/contract.test.ts`)
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** doc review on 2026-10-18 (plan-reviewer): the migration round trip is already tested in `apps/api/test/integration/migrations.test.ts`, so R11 is recording work only; the Department Head and the Monitoring Team have no denial row in `roles.spec.ts` (their only exception, the Main Admin transfer, has no endpoint yet).
+- **Notes:** doc review on 2026-10-18 (plan-reviewer): the migration round trip is already tested in `apps/api/test/integration/migrations.test.ts`, so R11 is recording work only; the Department Head and the Monitoring Team have no denial row in `roles.spec.ts` (their only exception, the Main Admin transfer, has no endpoint yet). U1: on the real documents the Phase 1 table is tested 37, untested 99 (so `pnpm docs:check` fails until U3 ends); one register line (BR-201) names the old Next.js path `apps/web/app/_lib/api.test.ts`, to fix in U3; a rule whose Test column is `manual` or `none` is not counted at all, the register's `manual` state is for rules that expected a test.
