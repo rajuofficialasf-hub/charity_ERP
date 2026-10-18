@@ -36,8 +36,8 @@ import {
 const LOCALES = ['bn', 'en'] as const;
 
 /**
- * The notification texts for the Department Head and the Monitoring Team (NOTIFICATIONS.md
- * templates, D-099): every notification with its channels; one channel is edited in both
+ * The notification texts for the Department Head and the Monitoring Team (docs/architecture/
+ * NOTIFICATIONS.md, templates): every notification with its channels; one channel is edited in both
  * languages at once, previewed with sample values, and saved as a new version, so what was
  * already written keeps its text. The server refuses a value the notification does not have.
  */
@@ -194,6 +194,7 @@ function TemplateEditor({
   const heading = channel === 'email' ? 'subject' : 'title';
   const change = (l: 'bn' | 'en', field: 'subject' | 'title' | 'body', value: string) => {
     preview.reset();
+    save.reset();
     setDraft((d) => ({ ...d, [l]: { ...d[l], [field]: value } }));
   };
   const switchTo = (next: string) => {

@@ -127,6 +127,44 @@ describe('NotificationTemplatesPage', () => {
     ).toBeVisible();
   });
 
+  it('saves a new version, closes the editor and says which version was saved', async () => {
+    refreshAs(HEAD);
+    const user = userEvent.setup();
+    const saved: unknown[] = [];
+    server.use(
+      http.get('*/api/v1/admin/notification-templates', () =>
+        HttpResponse.json({ data: [HANDOVER], meta: {} }),
+      ),
+      http.put('*/api/v1/admin/notification-templates/:key/:channel', async ({ request }) => {
+        saved.push(await request.json());
+        return HttpResponse.json({
+          data: {
+            ...HANDOVER,
+            channels: {
+              ...HANDOVER.channels,
+              in_app: { ...HANDOVER.channels.in_app!, version: 2 },
+            },
+          },
+          meta: {},
+        });
+      }),
+    );
+    renderApp(<NotificationTemplatesPage />, 'en');
+    await user.click(
+      (await screen.findAllByRole('button', { name: 'Edit handover_items_assigned' }))[0]!,
+    );
+    const dialog = await screen.findByRole('dialog', { name: 'Edit handover_items_assigned' });
+    await user.click(within(dialog).getByRole('button', { name: 'Save as new version' }));
+    expect(await screen.findByText('handover_items_assigned saved as version 2.')).toBeVisible();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(saved).toEqual([
+      {
+        bn: { title: 'হস্তান্তরের কাজ', body: '{{count}}টি কাজ আপনাকে দেওয়া হয়েছে।' },
+        en: { title: 'Handed-over work', body: '{{count}} items have been handed over to you.' },
+      },
+    ]);
+  });
+
   it('shows the forbidden content to a PM', async () => {
     refreshAs(PM);
     renderApp(<NotificationTemplatesPage />, 'en');
@@ -154,6 +192,27 @@ describe('DeliveriesPage', () => {
     await expectNoAxeViolations(container);
     await user.click(screen.getByRole('button', { name: 'Failed', pressed: false }));
     await waitFor(() => expect(requests.at(-1)?.get('status')).toBe('failed'));
+  });
+
+  it('shows the error state when the list cannot be loaded', async () => {
+    refreshAs(HEAD);
+    server.use(
+      http.get('*/api/v1/admin/deliveries', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'validation.failed',
+              messageKey: 'errors.validation.failed',
+              message: 'x',
+              requestId: 'req_test',
+            },
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+    renderApp(<DeliveriesPage />, 'en');
+    expect(await screen.findByRole('button', { name: /Retry/ })).toBeVisible();
   });
 
   it('shows the forbidden content to a PM', async () => {

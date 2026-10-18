@@ -226,8 +226,13 @@ function ProjectWizard({ projectId }: { projectId: string }) {
   });
 
   const loaded = one.data?.data;
+  // the opening step needs the missing list, which reads the rules too
   const loading =
-    one.isPending || parts.isPending || areaList.isPending || (configure && funds.isPending);
+    one.isPending ||
+    parts.isPending ||
+    areaList.isPending ||
+    rulesText.isPending ||
+    (configure && funds.isPending);
   // the budget is a step of the PM and the global roles, also while its fund sources fail to load
   const steps: StepId[] = STEP_IDS.filter(
     (s) => (s !== 'budget' || configure) && (s !== 'syllabus' || dawah),

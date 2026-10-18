@@ -1,4 +1,4 @@
-/* The bell with its unread count, and the inbox list (SCR-004). Brand tokens only. */
+/* The bell with its unread count, and the inbox list (docs/ui/SCREENS.md). Brand tokens only. */
 .notification-bell {
   position: relative;
   display: inline-flex;

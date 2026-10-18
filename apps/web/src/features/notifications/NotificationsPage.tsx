@@ -30,7 +30,7 @@ import {
 import './notifications.css';
 
 /**
- * The own inbox for everyone with an account (SCR-004): all or only unread entries, newest first,
+ * The own inbox for everyone with an account (docs/ui/SCREENS.md, notifications inbox): all or only unread entries, newest first,
  * grouped by day; an entry opens its record and is then marked read; all can be marked read at
  * once. An official also chooses how emails that can wait reach them.
  */
@@ -92,7 +92,8 @@ function Inbox({ unread }: { unread: boolean }) {
   });
   const read = useMutation({
     mutationFn: markRead,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
+    // the lists refresh in the background; nothing waits for them
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
   });
 
   if (list.isPending) return <Skeleton shape="row" count={4} />;
@@ -113,9 +114,11 @@ function Inbox({ unread }: { unread: boolean }) {
     if (last?.day === day) last.items.push(e);
     else days.push({ day, items: [e] });
   }
-  const open = async (e: InboxEntry) => {
-    if (!e.readAt) await read.mutateAsync({ ids: [e.id] });
-    if (e.link) void navigate(e.link);
+  // the record opens even when marking the entry read fails
+  const open = (e: InboxEntry) => {
+    if (!e.readAt) read.mutate({ ids: [e.id] });
+    // only a path of this app: the server builds it from fixed routes and record ids
+    if (e.link && /^\/(?!\/)/.test(e.link)) void navigate(e.link);
   };
 
   return (
@@ -156,7 +159,7 @@ function Inbox({ unread }: { unread: boolean }) {
                 </div>
                 <div className="notification-actions">
                   {e.link && (
-                    <Button size="sm" variant="secondary" onPress={() => void open(e)}>
+                    <Button size="sm" variant="secondary" onPress={() => open(e)}>
                       {t('open')}
                     </Button>
                   )}
@@ -209,9 +212,11 @@ function EmailPreference() {
               { id: 'immediate', label: t('immediate') },
             ]}
             value={current.data.email_mode ?? 'digest'}
-            onChange={(id) =>
-              save.mutate({ email_mode: id === 'immediate' ? 'immediate' : 'digest' })
-            }
+            onChange={(id) => {
+              // one save at a time, so the last answer is the last choice
+              if (!save.isPending)
+                save.mutate({ email_mode: id === 'immediate' ? 'immediate' : 'digest' });
+            }}
           />
           <p className="admin-muted m-0">{t('help')}</p>
           {save.isSuccess && (

@@ -9,7 +9,7 @@ import { resetClientForTests } from '../../lib/api';
 import type { InboxEntry } from './notifications-api';
 import { NotificationsPage } from './NotificationsPage';
 
-// SCR-004 the inbox: own entries, newest first by day, marked read one by one or all at once; the
+// The inbox: own entries, newest first by day, marked read one by one or all at once; the
 // email setting for officials only.
 const entry = (over: Partial<InboxEntry>): InboxEntry => ({
   id: '0190a1b2-0000-7000-8000-000000000001',

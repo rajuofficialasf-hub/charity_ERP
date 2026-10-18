@@ -41,8 +41,8 @@ const TONE: Record<Delivery['status'], BadgeTone> = {
 };
 
 /**
- * The delivery page of the Department Head and the Monitoring Team (SCR-066 notification
- * channels; NOTIFICATIONS.md delivery status): every queued email and SMS newest first, by status,
+ * The delivery page of the Department Head and the Monitoring Team (docs/ui/SCREENS.md, message
+ * deliveries; docs/architecture/NOTIFICATIONS.md, delivery status): every queued email and SMS newest first, by status,
  * channel and dates, with the attempts and the cleaned last error. The server hides most of each
  * address and never sends the text. The filters live in the address.
  */

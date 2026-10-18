@@ -2,11 +2,11 @@ import { type APIRequestContext, expect, test } from '@playwright/test';
 import { isPhone, PASSWORD, scan, signIn } from './support/admin';
 
 // Notifications in the browser (docs/architecture/NOTIFICATIONS.md; plan
-// docs/plans/2026-10-18-0911-feat-notifications-plan.md, U9): a permission change reaches its
+// docs/plans/2026-10-18-0911-feat-notifications-plan.md): a permission change reaches its
 // official's inbox with an unread badge that "mark all read" clears; the template preview shows
 // both languages; the delivery page opens for the global roles. Mobile and desktop share the
 // database, so each project uses its own official.
-const TARGET = { desktop: 'implementer@example.org', mobile: 'media@example.org' } as const;
+const TARGET = { desktop: 'procurement@example.org', mobile: 'media@example.org' } as const;
 
 /** The Department Head through the API, for the permission change and its end. */
 async function asHead(request: APIRequestContext) {

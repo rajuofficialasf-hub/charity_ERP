@@ -12,8 +12,8 @@ import './notifications.css';
 const REFRESH_MS = 60_000;
 
 /**
- * The bell of the top bar and the admin bar (SCR-004): opens the inbox; the number of unread
- * entries sits on it and disappears at zero. Only for a signed-in user.
+ * The bell of the top bar and the admin bar (docs/ui/SCREENS.md, notifications inbox): opens the
+ * inbox; the number of unread entries sits on it and disappears at zero. Only for a signed-in user.
  */
 export function NotificationBell() {
   const { me } = useAuth();
