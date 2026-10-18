@@ -175,7 +175,7 @@ CI runs on GitHub Actions (O-51), in `.github/workflows/ci.yml`. The pipeline fa
 
 | When | Stages, in order |
 |---|---|
-| Every push and pull request | 1. Install with the frozen lockfile. 2. Lint (including the i18n literal-text rule) and typecheck. 3. i18n catalogue check (I18N §4). 4. Unit and component tests with axe. 5. Integration and API tests, including the authorization matrix. 6. Contract: drift test and Redocly lint. 7. Migrations up, down, up. 8. Build. 9. E2E smoke subset with axe. 10. `pnpm audit` and gitleaks |
+| Every push and pull request | 1. Install with the frozen lockfile. 2. Lint (including the i18n literal-text rule) and typecheck. 3. i18n catalogue check (I18N §4). 4. Unit and component tests with axe. 5. Integration and API tests, including the authorization matrix, every response validated by the contract recorder. 6. Contract: drift test, Redocly lint, and `contract:coverage --no-run` (every registered operation answered its success status in a test). 7. Migrations up, down, up. 8. Build. 9. E2E smoke subset with axe. 10. `pnpm audit` and gitleaks |
 | Nightly and before every gate | Full E2E on Chromium and WebKit, visual regression, full axe in both languages, bundle-size check against NFR-15, OWASP ZAP baseline against staging (from Phase 3) |
 | Before a field rollout | k6 load test (§3.5) |
 | After every deployment | Smoke tests (§3.12) |
@@ -212,6 +212,32 @@ Merging to `main` requires the push stages to pass. Gate tags (`gate-phase-N`) r
 | Phase 6 (T6.3 to T6.6; documentation module T5.4 runs after T6.1, O-34) | Every BR tested or marked manual | Full suite | All 12 | T6.3 security audit (OWASP ASVS level 2 checklist), T6.4 performance audit, full restore drill against RPO and RTO (O-06), migration rollback rehearsal, the pre-production checklist of SECURITY_POLICY §20 | UAT closure, go/no-go |
 
 Each gate produces `docs/testing/uat/PHASE_N_UAT_BN.md` before the session and `docs/gates/PHASE_N_SIGNOFF.md` with the executed commands, outputs, coverage per layer and the untested-rules list.
+
+### 9.1 Phase 1 state (T1.16, 2026-10-19)
+
+What the Phase 1 gate (T1.17) can rely on, from the runs on the final state of branch `chore/phase1-test-consolidation` (plan `docs/plans/2026-10-18-1642-chore-phase1-test-consolidation-plan.md`). Every command below was executed on that state; the numbers are its output.
+
+| Command | Output |
+|---|---|
+| `pnpm typecheck` | every package `Done`, no error |
+| `pnpm lint` | ESLint 0 errors (155 warnings, all `security/*` advisories in files this task did not touch); Prettier clean; `i18n check: 0 error(s), 0 warning(s); 152 error codes checked` |
+| `pnpm docs:check` | `All document checks passed.`, including `BUSINESS_RULES.md: every testable Phase 1 rule is tested, deferred or manual (136 rules)` |
+| `pnpm rules:status --phase 1 --report-only` | `Phase 1 rules: tested 104, deferred 32, manual 0, untested 0` |
+| `pnpm test` | `Test Files 169 passed (169)`, `Tests 1558 passed (1558)` in 461 s: `shared` 18 files / 315 tests, `ui` 20 / 80, `api` 31 / 238, `api-db` 57 / 584 (the migration round trip up-down-up and the down.sql completeness check among them, `apps/api/test/integration/migrations.test.ts`), `web` 43 / 341 |
+| `pnpm --filter @css/api contract:coverage --no-run` (after `pnpm test`) | `contract coverage: 132 of 132 operations answered their success status in a test`; the recorder reported no violation in either API project |
+| `pnpm e2e` (builds, then the three Playwright projects) | `154 passed, 21 skipped, 0 failed` in 3.6 min: `mobile` 63 passed / 13 skipped, `desktop` 72 / 4, `iphone` 19 / 4 (the skips are journeys a spec runs on one project only, by design) |
+| `npx playwright test e2e/registration.spec.ts e2e/roles.spec.ts e2e/admin-permissions.spec.ts --repeat-each 3 --workers 1` | `81 passed, 9 skipped` |
+| `npx playwright test --project iphone --repeat-each 3 --workers 1` | `57 passed, 12 skipped` |
+| `npx playwright test e2e/a11y.spec.ts` | `12 passed` (every listed screen, both languages, both Chromium projects, no page skipped) |
+
+Coverage per layer:
+
+- **Rules (section 7):** 136 testable Phase 1 rules; 104 are proven by a named test in the register of `docs/BUSINESS_RULES.md` section 19, 32 are deferred to the phase and module that builds their feature (ratings and categories, application transfer and applications, the form platform, profile merge, house construction and the issue log, payments, Qurbani, dawah beneficiaries, the document register, follow-up evaluations, offline sync and the outbox, photo-quality alerts, the Media Team module). No rule is untested. Two contradictions found on the way are recorded in BUSINESS_RULES section 20 (items 25 and 26: BR-040's registration reference removed by O-64; BR-233's unbuilt parts).
+- **API and contract (section 3.3):** the drift test, the authorization matrix (every endpoint × every role, the committed report up to date), the contract recorder on every response of both API Vitest projects, and the coverage of all 132 registered operations. The recorder found and the task fixed six places where the YAML disagreed with the real answers (PermissionGrant nullables, the pending registration's volunteer shape and the approve answer, the programs list meta, a fixture's partial address, the pending photo rule of a draft).
+- **E2E (section 3.4):** the Phase 1 checklist above, every journey green on Chromium as a phone and a desktop; the sign-in, registration and home journeys also on WebKit as an iPhone. Found and fixed on the way: the E2E server set Secure cookies over http, which WebKit drops (the real iPhone over https is unaffected); the shared demo accounts hit the five-device limit under the parallel run (D-102 relaxes it for the E2E server only); the password journeys run on Chromium only because every demo account is spoken for.
+- **Accessibility (section 3.6):** axe on every Phase 1 screen in bn and en on both Chromium projects, plus the component-level axe of every `packages/ui` and `apps/web` component test and the gallery spec. The sweep found and the task fixed two defects: the inbox empty state jumped from h1 to h3, and the setup stepper's step buttons had no accessible name on phones.
+- **Database:** every test file on a database cloned from a migrated template; the migration round trip and the down.sql completeness check in `migrations.test.ts`; the constraints and triggers suites.
+- **Not in this task, for T1.17:** the visual baselines (section 3.7), the Bengali UAT script and the keyboard walkthrough (manual), the gate sign-off document.
 
 ## 10. Reporting and flaky tests
 
