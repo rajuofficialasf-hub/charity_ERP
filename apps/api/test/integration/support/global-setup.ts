@@ -1,5 +1,6 @@
 import type { TestProject } from 'vitest/node';
 import { installJobs } from '../../../src/jobs/install';
+import { syncNotificationTemplates } from '../../../src/notifications/template-sync';
 import { createDatabase, dropDatabase, runMigrations, uniqueName, urlFor } from './db';
 
 declare module 'vitest' {
@@ -15,6 +16,8 @@ export async function setup(project: TestProject): Promise<() => Promise<void>> 
   await runMigrations(template, 'up');
   // the job queues too: an event writes its outbox row and enqueues its delivery in one transaction
   await installJobs(urlFor(template));
+  // the templates, as `pnpm db:migrate` writes them: the delivery renders from them
+  await syncNotificationTemplates(urlFor(template));
   project.provide('templateDb', template);
   return async () => {
     await dropDatabase(template);

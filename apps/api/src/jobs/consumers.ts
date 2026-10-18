@@ -1,5 +1,7 @@
 import type { Logger } from 'pino';
 import type { Env } from '../config/env';
+import type { NotificationDelivery } from '../notifications/delivery';
+import type { DeliveryJob } from '../notifications/service';
 import type { JobRunner } from './job-runner';
 import { REGISTRATION_CLEANUP_CRON, type RegistrationCleanup } from './registration-cleanup';
 
@@ -19,25 +21,35 @@ export interface RegistrationCleanupData {
 
 type MaintenanceData = HeartbeatData | RegistrationCleanupData;
 
+/** The services the consumers call; a missing one leaves its queue unconsumed. */
+export interface ConsumerServices {
+  registrationCleanup?: RegistrationCleanup;
+  delivery?: NotificationDelivery;
+}
+
 /** Registers the consumers and schedules; runs in the worker, or in the api with JOBS_INLINE. */
 export class JobConsumers {
   constructor(
     private readonly jobs: JobRunner,
     private readonly logger: Logger,
-    private readonly registrationCleanup?: RegistrationCleanup,
+    private readonly services: ConsumerServices = {},
   ) {}
 
   async register(): Promise<void> {
     await this.jobs.work<MaintenanceData>(HEARTBEAT_QUEUE, async (job) => {
       if (job.data.kind === 'registration-cleanup') {
-        if (!this.registrationCleanup) throw new Error('registration cleanup not configured');
-        return this.registrationCleanup.run();
+        if (!this.services.registrationCleanup)
+          throw new Error('registration cleanup not configured');
+        return this.services.registrationCleanup.run();
       }
       this.logger.info({ jobId: job.id }, 'heartbeat');
       return { kind: job.data.kind, handledAt: new Date().toISOString() };
     });
     await this.jobs.schedule(HEARTBEAT_QUEUE, HEARTBEAT_CRON, { kind: 'heartbeat' });
-    if (this.registrationCleanup)
+    const { delivery } = this.services;
+    // emails and SMS of the outbox, one at a time (the delivery throttles itself)
+    if (delivery) await this.jobs.work<DeliveryJob>('notify', (job) => delivery.deliver(job.data));
+    if (this.services.registrationCleanup)
       await this.jobs.schedule(
         HEARTBEAT_QUEUE,
         REGISTRATION_CLEANUP_CRON,
@@ -56,11 +68,11 @@ export async function startInlineConsumers(
   env: Pick<Env, 'JOBS_INLINE' | 'NODE_ENV'>,
   jobs: JobRunner,
   logger: Logger,
-  registrationCleanup?: RegistrationCleanup,
+  services: ConsumerServices = {},
 ): Promise<boolean> {
   if (!env.JOBS_INLINE || env.NODE_ENV === 'test') return false;
   try {
-    await new JobConsumers(jobs, logger, registrationCleanup).register();
+    await new JobConsumers(jobs, logger, services).register();
     return true;
   } catch (error) {
     logger.error({ err: error }, 'inline job consumers failed to start');

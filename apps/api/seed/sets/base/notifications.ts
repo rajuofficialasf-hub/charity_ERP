@@ -7,19 +7,24 @@ export async function seedNotificationTemplates(ctx: SeedContext): Promise<void>
     for (const [channel, texts] of Object.entries(t.channels)) {
       for (const locale of ['bn', 'en'] as const) {
         const text = texts![locale];
-        await ctx.upsert('notification_templates', {
-          id: seedId(`notification-template:${t.key}:${channel}:${locale}:1`),
-          key: t.key,
-          channel,
-          locale,
-          subject: text.subject ?? null,
-          title: text.title ?? null,
-          body: text.body,
-          variables: t.variables,
-          version: 1,
-          active: true,
-          ...ctx.audit(),
-        });
+        await ctx.upsert(
+          'notification_templates',
+          {
+            id: seedId(`notification-template:${t.key}:${channel}:${locale}:1`),
+            key: t.key,
+            channel,
+            locale,
+            subject: text.subject ?? null,
+            title: text.title ?? null,
+            body: text.body,
+            variables: t.variables,
+            version: 1,
+            active: true,
+            ...ctx.audit(),
+          },
+          // the row may already exist from `pnpm db:migrate` (notifications:sync) with another id
+          { key: ['key', 'channel', 'locale', 'version'], insertOnly: ['id'] },
+        );
       }
     }
   }

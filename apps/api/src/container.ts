@@ -35,6 +35,7 @@ import { VolunteersService } from './services/volunteers';
 import { VolunteerListService } from './services/volunteer-list';
 import { VolunteerProfileService } from './services/volunteer-profile';
 import { BeneficiariesService } from './services/beneficiaries';
+import { NotificationDelivery } from './notifications/delivery';
 import { NotificationService } from './notifications/service';
 import { RecipientResolver } from './notifications/recipients';
 import { AuditLogService } from './services/audit-log';
@@ -115,6 +116,7 @@ export interface Container {
   sessionMonitor: SessionMonitorService;
   channels: ChannelsService;
   notifications: NotificationService;
+  delivery: NotificationDelivery;
   systemHealth: SystemHealthService;
   projects: ProjectsService;
   projectSetup: ProjectSetupService;
@@ -255,6 +257,18 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     sessionMonitor: o.sessionMonitor ?? new SessionMonitorService(env, prisma, clock),
     channels: o.channels ?? new ChannelsService(env, settings),
     notifications,
+    delivery:
+      o.delivery ??
+      new NotificationDelivery(
+        prisma,
+        email,
+        sms,
+        jobs,
+        notifications,
+        clock,
+        logger,
+        env.EMAIL_PER_MINUTE,
+      ),
     systemHealth: o.systemHealth ?? new SystemHealthService(env, prisma, health, clock),
     projects,
     projectSetup:

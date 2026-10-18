@@ -43,7 +43,9 @@ describe('the registration cleanup on the maintenance queue (DECISION_LOG D-082)
   it('is scheduled under its own key and dispatched by kind', async () => {
     const { runner, work, schedule } = fakeRunner();
     const run = vi.fn(async () => ({ files: 2 }));
-    await new JobConsumers(runner, quiet, { run } as unknown as RegistrationCleanup).register();
+    await new JobConsumers(runner, quiet, {
+      registrationCleanup: { run } as unknown as RegistrationCleanup,
+    }).register();
     expect(schedule).toHaveBeenCalledWith(
       HEARTBEAT_QUEUE,
       REGISTRATION_CLEANUP_CRON,

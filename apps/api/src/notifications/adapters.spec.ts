@@ -41,6 +41,8 @@ describe('notification adapters (ADR-007)', () => {
     const logging = new StubSmsAdapter('logging', logger);
     const result = await logging.send({ to: '01700000001', body: 'Your code is 482913' });
     expect(result.providerMessageId).toMatch(/^logging:/);
+    // the stub sends nothing: the outbox marks the message as a dry run
+    expect(result.dryRun).toBe(true);
     const line = lines.join('\n');
     expect(line).toContain('017******01');
     expect(line).not.toContain('482913');
