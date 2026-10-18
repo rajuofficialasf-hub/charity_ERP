@@ -1,0 +1,34 @@
+{
+  "title": "Notifications",
+  "bell": "Notifications",
+  "bell_unread": "Notifications, {count} unread",
+  "tab": {
+    "all": "All",
+    "unread": "Unread",
+    "label": "Show"
+  },
+  "mark_all": "Mark all as read",
+  "mark_read": "Mark as read",
+  "open": "Open",
+  "unread": "Unread",
+  "times": "{count} times",
+  "load_more": "Show more",
+  "today": "Today",
+  "yesterday": "Yesterday",
+  "empty": {
+    "title": "No notifications",
+    "message": "When something needs you, it appears here."
+  },
+  "empty_unread": {
+    "title": "Nothing unread"
+  },
+  "error": "Notifications could not be loaded.",
+  "email": {
+    "title": "Email",
+    "label": "Email for events that can wait",
+    "help": "Security notices and work assigned to you always arrive at once.",
+    "immediate": "At once",
+    "digest": "Daily summary",
+    "saved": "Saved."
+  }
+}

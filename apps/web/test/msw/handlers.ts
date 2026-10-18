@@ -25,4 +25,8 @@ export const handlers = [
   http.get('*/api/v1/public/settings', () =>
     HttpResponse.json({ data: PUBLIC_SETTINGS, meta: { requestId: 'test' } }),
   ),
+  // the bell of every signed-in page asks for the unread count
+  http.get('*/api/v1/notifications/unread-count', () =>
+    HttpResponse.json({ data: { count: 0 }, meta: { requestId: 'test' } }),
+  ),
 ];

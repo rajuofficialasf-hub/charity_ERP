@@ -31,6 +31,13 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
         { path: '/account/profile', element: <ProfileView /> },
         { path: '/account/sessions', element: <SessionsView /> },
         { path: '/account/password', element: <ChangePasswordView /> },
+        {
+          path: '/notifications',
+          lazy: async () => ({
+            Component: (await import('../features/notifications/NotificationsPage'))
+              .NotificationsPage,
+          }),
+        },
         // the volunteer's own projects load with their own chunk, like the admin pages
         {
           path: '/my-projects',

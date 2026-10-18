@@ -4,6 +4,7 @@ import { useTranslations } from 'use-intl';
 import { LogoutButton } from '../components/AccountPage';
 import { DocumentTitle } from '../components/DocumentTitle';
 import { LanguageSwitch } from '../components/LanguageSwitch';
+import { NotificationBell } from '../features/notifications/NotificationBell';
 import { RequireAuth } from '../lib/auth';
 import './admin.css';
 import { navFor } from './navigation';
@@ -56,6 +57,7 @@ export function AdminLayout() {
                 {tc('name')}
               </a>
               <div className="admin-bar-actions">
+                <NotificationBell />
                 <span className="admin-user">{t('bar.user', { name: me.displayName })}</span>
                 <LogoutButton />
               </div>
