@@ -8,7 +8,6 @@ import { ME, refreshAs, renderInShell } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
 import { AdminLayout } from '../AdminLayout';
-import { DashboardPage } from '../DashboardPage';
 import { HandoverPage } from './HandoverPage';
 
 // The handover page (SCR-105, BD-08, BR-034; plan
@@ -117,10 +116,7 @@ const renderPage = (me: Me, locale: 'bn' | 'en' = 'bn') => {
       {
         path: 'admin',
         element: <AdminLayout />,
-        children: [
-          { index: true, element: <DashboardPage /> },
-          { path: 'handover', element: <HandoverPage /> },
-        ],
+        children: [{ path: 'handover', element: <HandoverPage /> }],
       },
     ],
     '/admin/handover',

@@ -29,4 +29,14 @@ export const handlers = [
   http.get('*/api/v1/notifications/unread-count', () =>
     HttpResponse.json({ data: { count: 0 }, meta: { requestId: 'test' } }),
   ),
+  // the home asks what waits for the person and shows the latest notifications
+  http.get('*/api/v1/me/attention', () =>
+    HttpResponse.json({ data: [], meta: { requestId: 'test' } }),
+  ),
+  http.get('*/api/v1/notifications', () =>
+    HttpResponse.json({
+      data: [],
+      meta: { requestId: 'test', nextCursor: null, prevCursor: null, unreadCount: 0 },
+    }),
+  ),
 ];

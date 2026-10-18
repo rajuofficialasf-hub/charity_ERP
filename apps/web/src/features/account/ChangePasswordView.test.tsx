@@ -7,7 +7,7 @@ import { ME, pair, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
 import { ChangePasswordView } from './ChangePasswordView';
-import { HomeView } from './HomeView';
+import { MyWorkPage } from '../home/MyWorkPage';
 
 // SCR-006 change password (AUTH.md 3).
 beforeEach(() => {
@@ -103,7 +103,7 @@ describe('ChangePasswordView', () => {
 
     it('sends a signed-in user from another page to the password screen', async () => {
       refreshAs(DUE);
-      renderApp(<HomeView />, 'en');
+      renderApp(<MyWorkPage />, 'en');
       expect(await screen.findByTestId('location')).toHaveTextContent('/account/password');
     });
 

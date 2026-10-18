@@ -1,0 +1,97 @@
+{
+  "attention": {
+    "title": "এখন আপনার কাজ",
+    "empty": "এখন অপেক্ষায় কিছু নেই",
+    "kind": {
+      "unread_notifications": "{n, plural, other {{count}টি না-পড়া নোটিফিকেশন}}",
+      "consent_pending": "{n, plural, other {{count}টি প্রকল্পের নিয়মাবলিতে আপনার সম্মতি দরকার}}",
+      "corrections": "{n, plural, other {নিবন্ধনে {count}টি সংশোধন চাওয়া হয়েছে}}",
+      "edit_answered": "{n, plural, other {{count}টি পরিবর্তনের অনুরোধের উত্তর এসেছে}}",
+      "registrations_pending": "{n, plural, other {{count}টি স্বেচ্ছাসেবক নিবন্ধন অনুমোদনের অপেক্ষায়}}",
+      "staff_registrations_pending": "{n, plural, other {{count}টি কর্মকর্তা নিবন্ধন অনুমোদনের অপেক্ষায়}}",
+      "edit_requests_pending": "{n, plural, other {{count}টি পরিবর্তনের অনুরোধ সিদ্ধান্তের অপেক্ষায়}}",
+      "projects_draft": "{n, plural, other {{count}টি প্রকল্প খসড়ায়, এখনো চালু হয়নি}}",
+      "deadlines_soon": "{n, plural, other {{count}টি প্রকল্পে 7 দিনের মধ্যে আবেদনের সময় শেষ}}",
+      "handovers_open": "{n, plural, other {{count}টি হ্যান্ডওভার শেষ হয়নি}}"
+    }
+  },
+  "widget": {
+    "my_projects": "আমার প্রকল্প",
+    "deadline": "আবেদনের শেষ দিন: {date}",
+    "limit_used": "{limit}টির মধ্যে {used}টি আবেদন",
+    "consent_needed": "সম্মতি দরকার",
+    "my_team": "আমার টিম",
+    "team_of": "{project}: টিম দেখুন",
+    "official_projects": "আমার প্রকল্প",
+    "official_projects_empty": "এখন কোনো চলমান প্রকল্প নেই",
+    "all_projects": "সব প্রকল্প",
+    "project_states": "প্রকল্পের অবস্থা",
+    "templates": "টেমপ্লেট",
+    "templates_count": "{n, plural, other {{count}টি সক্রিয় টেমপ্লেট}}",
+    "open_templates": "টেমপ্লেট দেখুন",
+    "shortcuts": "শর্টকাট",
+    "permission_panel": "পারমিশন প্যানেল",
+    "notifications": "সাম্প্রতিক নোটিফিকেশন",
+    "notifications_empty": "কোনো নোটিফিকেশন নেই",
+    "all_notifications": "সব নোটিফিকেশন"
+  },
+  "later": {
+    "badge": "শিগগিরই আসছে",
+    "my_applications": {
+      "title": "আমার আবেদন",
+      "text": "খসড়া, অপেক্ষমাণ ও অনুমোদিত আবেদন এখানে দেখা যাবে।"
+    },
+    "today_distribution": {
+      "title": "আজকের বিতরণ",
+      "text": "আজ যাঁদের কাছে বিতরণ করবেন, তাঁদের তালিকা এখানে আসবে।"
+    },
+    "today_class": {
+      "title": "আজকের ক্লাস",
+      "text": "আজকের ক্লাস আর হাজিরা এখানে দেখা যাবে।"
+    },
+    "today_work": {
+      "title": "আজকের কাজ",
+      "text": "আপনার বাড়ি বা সাইটের কাজ কোন ধাপে আছে, তা এখানে দেখা যাবে।"
+    },
+    "daee_tracking": {
+      "title": "লোকাল দায়ীদের খোঁজখবর",
+      "text": "কোন লোকাল দায়ী নিয়মিত ক্লাসের আপডেট দিচ্ছেন, তা এখানে দেখা যাবে।"
+    },
+    "exam_schedule": {
+      "title": "পরীক্ষার সূচি",
+      "text": "প্রাথমিক ও চূড়ান্ত পরীক্ষার তারিখ এখানে আসবে।"
+    },
+    "review_queue": {
+      "title": "পর্যালোচনার তালিকা",
+      "text": "পর্যালোচনা ও অনুমোদনের অপেক্ষায় থাকা আবেদন এখানে আসবে।"
+    },
+    "program_dashboard": {
+      "title": "প্রোগ্রাম ড্যাশবোর্ড",
+      "text": "আপনার প্রোগ্রামের অগ্রগতি এখানে দেখা যাবে।"
+    },
+    "work_progress": {
+      "title": "কাজের অগ্রগতি",
+      "text": "সব প্রোগ্রামে আবেদন, অনুমোদন ও বিতরণ কতদূর হলো, তা এখানে দেখা যাবে।"
+    },
+    "alerts": {
+      "title": "মনিটরিং সতর্কতা",
+      "text": "মনিটরিংয়ের সতর্কতাগুলো ধরন অনুযায়ী এখানে আসবে।"
+    },
+    "safe_water": {
+      "title": "নিরাপদ পানির প্রকল্প",
+      "text": "প্রতিটি সাইটের অগ্রগতি এখানে দেখা যাবে।"
+    },
+    "media_work": {
+      "title": "মিডিয়ার কাজের তালিকা",
+      "text": "বাছাই করা উপকারভোগী আর তাঁদের গল্প এখানে দেখা যাবে।"
+    },
+    "finance_overview": {
+      "title": "বাজেট ও পেমেন্ট",
+      "text": "প্রোগ্রাম ও প্রকল্পের বাজেট আর পেমেন্ট এখানে দেখা যাবে।"
+    },
+    "procurement_issues": {
+      "title": "সমাধানের অপেক্ষায় থাকা সমস্যা",
+      "text": "গৃহনির্মাণ প্রকল্পের সমস্যাগুলো এখানে আসবে।"
+    }
+  }
+}

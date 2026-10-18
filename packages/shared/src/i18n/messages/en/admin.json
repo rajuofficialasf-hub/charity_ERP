@@ -1,9 +1,4 @@
 {
-  "open": "Admin",
-  "dashboard": {
-    "title": "Dashboard",
-    "today": "Today: {date}"
-  },
   "permissions": {
     "title": "Permission panel",
     "search": "Find a user",

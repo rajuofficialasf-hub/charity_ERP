@@ -40,6 +40,13 @@ describe('routes', () => {
     expect(router.state.location.pathname).toBe('/login');
   });
 
+  it('sends the address of the old admin dashboard to the home page', async () => {
+    const router = mount('/admin', false);
+    // signed out, the home page in turn asks for the login
+    expect(await screen.findByRole('heading', { level: 2, name: 'Log in' })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/login');
+  });
+
   it('has the gallery route only when enabled', () => {
     expect(routes({ gallery: true })[0]?.children?.some((r) => r.path === '/dev/components')).toBe(
       true,

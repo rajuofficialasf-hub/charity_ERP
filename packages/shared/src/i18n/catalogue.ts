@@ -5,6 +5,7 @@ import bn_codes from './messages/bn/codes.json' with { type: 'json' };
 import bn_common from './messages/bn/common.json' with { type: 'json' };
 import bn_errors from './messages/bn/errors.json' with { type: 'json' };
 import bn_gallery from './messages/bn/gallery.json' with { type: 'json' };
+import bn_home from './messages/bn/home.json' with { type: 'json' };
 import bn_nav from './messages/bn/nav.json' with { type: 'json' };
 import bn_notifications from './messages/bn/notifications.json' with { type: 'json' };
 import bn_projects from './messages/bn/projects.json' with { type: 'json' };
@@ -16,6 +17,7 @@ import en_codes from './messages/en/codes.json' with { type: 'json' };
 import en_common from './messages/en/common.json' with { type: 'json' };
 import en_errors from './messages/en/errors.json' with { type: 'json' };
 import en_gallery from './messages/en/gallery.json' with { type: 'json' };
+import en_home from './messages/en/home.json' with { type: 'json' };
 import en_nav from './messages/en/nav.json' with { type: 'json' };
 import en_notifications from './messages/en/notifications.json' with { type: 'json' };
 import en_projects from './messages/en/projects.json' with { type: 'json' };
@@ -30,6 +32,7 @@ export const bn = {
   common: bn_common,
   errors: bn_errors,
   gallery: bn_gallery,
+  home: bn_home,
   nav: bn_nav,
   notifications: bn_notifications,
   projects: bn_projects,
@@ -47,6 +50,7 @@ export const en: Messages = {
   common: en_common,
   errors: en_errors,
   gallery: en_gallery,
+  home: en_home,
   nav: en_nav,
   notifications: en_notifications,
   projects: en_projects,
@@ -61,6 +65,7 @@ export const NAMESPACES = [
   'common',
   'errors',
   'gallery',
+  'home',
   'nav',
   'projects',
   'registration',

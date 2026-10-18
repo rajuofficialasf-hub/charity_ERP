@@ -100,8 +100,7 @@ test.describe('permission panel', () => {
 
   test('a Program Manager has no panel item and no access to the panel', async ({ page }) => {
     await signIn(page, 'pm.err@example.org');
-    await page.goto('/admin');
-    await expect(page.getByRole('heading', { level: 1, name: 'ড্যাশবোর্ড' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'প্রধান মেনু' })).toBeVisible();
     await expect(
       page.getByRole('navigation', { name: 'প্রধান মেনু' }).getByRole('link', { name: 'পারমিশন' }),
     ).toHaveCount(0);

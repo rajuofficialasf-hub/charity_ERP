@@ -1,9 +1,9 @@
 import { lazy, Suspense } from 'react';
-import { createBrowserRouter, type RouteObject } from 'react-router';
+import { createBrowserRouter, Navigate, type RouteObject } from 'react-router';
 import { RouteError } from '../components/RouteError';
 import { AppShell } from '../components/shell/AppShell';
 import { ChangePasswordView } from '../features/account/ChangePasswordView';
-import { HomeView } from '../features/account/HomeView';
+import { MyWorkPage } from '../features/home/MyWorkPage';
 import { ProfileView } from '../features/account/ProfileView';
 import { SessionsView } from '../features/account/SessionsView';
 import { LoginPage } from '../features/auth/LoginPage';
@@ -31,7 +31,7 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
         {
           element: <AppShell />,
           children: [
-            { path: '/', element: <HomeView /> },
+            { path: '/', element: <MyWorkPage /> },
             { path: '/account/profile', element: <ProfileView /> },
             { path: '/account/sessions', element: <SessionsView /> },
             { path: '/account/password', element: <ChangePasswordView /> },
@@ -66,12 +66,8 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
               path: '/admin',
               lazy: async () => ({ Component: (await import('../admin/AdminLayout')).AdminLayout }),
               children: [
-                {
-                  index: true,
-                  lazy: async () => ({
-                    Component: (await import('../admin/DashboardPage')).DashboardPage,
-                  }),
-                },
+                // My Work is the home of the officials too
+                { index: true, element: <Navigate to="/" replace /> },
                 {
                   path: 'programs',
                   lazy: async () => ({

@@ -8,7 +8,6 @@ import { ME, refreshAs, renderInShell } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
 import { AdminLayout } from '../AdminLayout';
-import { DashboardPage } from '../DashboardPage';
 import { RegistrationDetail } from './RegistrationDetail';
 import { RegistrationsPage } from './RegistrationsPage';
 import { VolunteerProfilePage } from '../volunteers/VolunteerProfilePage';
@@ -286,7 +285,6 @@ const renderPage = (me: Me, locale: 'bn' | 'en' = 'bn', path = '/admin/registrat
         path: 'admin',
         element: <AdminLayout />,
         children: [
-          { index: true, element: <DashboardPage /> },
           { path: 'registrations', element: <RegistrationsPage /> },
           { path: 'registrations/:userId', element: <RegistrationDetail /> },
           { path: 'volunteers', element: <VolunteersPage /> },

@@ -8,7 +8,6 @@ import { ME, refreshAs, renderInShell } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
 import { AdminLayout } from '../AdminLayout';
-import { DashboardPage } from '../DashboardPage';
 import { PermissionsPage } from './PermissionsPage';
 
 // The permission panel screen (SCR-062, RBAC.md 7; plan
@@ -70,10 +69,7 @@ const renderPanel = (me: Me, locale: 'bn' | 'en' = 'bn', path = '/admin/permissi
       {
         path: 'admin',
         element: <AdminLayout />,
-        children: [
-          { index: true, element: <DashboardPage /> },
-          { path: 'permissions', element: <PermissionsPage /> },
-        ],
+        children: [{ path: 'permissions', element: <PermissionsPage /> }],
       },
     ],
     path,

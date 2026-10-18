@@ -1,8 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
 
-// The admin area shell on packages/ui (UX-15; plan
-// docs/plans/2026-10-11-1742-chore-stack-adoption-admin-minimal-plan.md, U11) against the API on its
+// The admin area inside the app shell against the API on its
 // E2E database. Mobile and desktop share the database, so each project signs in with its own
 // accounts (docs/testing/DEMO_ACCOUNTS.md). The language switch here is saved on the account, so
 // these accounts are used by no other spec: another spec signing in while the account is English
@@ -42,14 +41,12 @@ test.describe('admin area', () => {
     const phone = info.project.name === 'mobile';
     const name = await signIn(page, accounts(info.project.name).manager);
 
-    await page.goto('/admin');
-    await expect(page.getByRole('heading', { level: 1, name: 'ড্যাশবোর্ড' })).toBeVisible();
-    await expect(page).toHaveTitle('ড্যাশবোর্ড');
+    await page.goto('/admin/beneficiaries');
+    await expect(page.getByRole('heading', { level: 1, name: 'উপকারভোগী' })).toBeVisible();
+    await expect(page).toHaveTitle('উপকারভোগী');
     await expect(mainMenu(page)).toBeVisible();
     const profile = page.getByRole('banner').getByRole('button', { name: 'প্রোফাইল মেনু' });
     await expect(profile).toContainText(name);
-    // dates in English digits (UX-05)
-    await expect(page.getByText(/^আজ: \d{2}-\d{2}-\d{4}$/)).toBeVisible();
 
     // the UX-04 notice only on phones
     const notice = page.getByText('এই পর্দা বড় স্ক্রিনে ভালো চলে।');
@@ -60,20 +57,20 @@ test.describe('admin area', () => {
     if (phone) {
       await profile.click();
       await page.getByRole('menuitem', { name: 'English' }).click();
-      await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
+      await expect(page.getByRole('heading', { level: 1, name: 'Beneficiaries' })).toBeVisible();
       await page.getByRole('banner').getByRole('button', { name: 'Profile menu' }).click();
       await page.getByRole('menuitem', { name: 'বাংলা' }).click();
     } else {
       const toggle = page.getByRole('banner').getByRole('radiogroup', { name: 'ভাষা' });
       await toggle.getByRole('radio', { name: 'English' }).click({ force: true });
-      await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
+      await expect(page.getByRole('heading', { level: 1, name: 'Beneficiaries' })).toBeVisible();
       await page
         .getByRole('banner')
         .getByRole('radiogroup', { name: 'Language' })
         .getByRole('radio', { name: 'বাংলা' })
         .click({ force: true });
     }
-    await expect(page.getByRole('heading', { level: 1, name: 'ড্যাশবোর্ড' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'উপকারভোগী' })).toBeVisible();
     // the page never scrolls sideways
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
@@ -94,7 +91,7 @@ test.describe('admin area', () => {
       .evaluateAll((links) => links.map((link) => link.getAttribute('href') ?? ''));
     expect(destinations.filter((href) => href.startsWith('/admin'))).toEqual([]);
 
-    await page.goto('/admin');
+    await page.goto('/admin/volunteers');
     await expect(page.getByRole('heading', { level: 1, name: 'প্রবেশাধিকার নেই' })).toBeVisible();
     await expect(page.getByText('এই পাতায় আপনার প্রবেশাধিকার নেই।')).toBeVisible();
     expect((await scan(page)).violations).toEqual([]);

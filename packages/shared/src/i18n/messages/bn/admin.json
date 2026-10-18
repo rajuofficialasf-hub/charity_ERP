@@ -1,9 +1,4 @@
 {
-  "open": "অ্যাডমিন",
-  "dashboard": {
-    "title": "ড্যাশবোর্ড",
-    "today": "আজ: {date}"
-  },
   "permissions": {
     "title": "পারমিশন প্যানেল",
     "search": "ব্যবহারকারী খুঁজুন",

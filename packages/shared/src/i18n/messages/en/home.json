@@ -1,0 +1,97 @@
+{
+  "attention": {
+    "title": "Needs your attention",
+    "empty": "Nothing is waiting right now",
+    "kind": {
+      "unread_notifications": "{n, plural, one {{count} unread notification} other {{count} unread notifications}}",
+      "consent_pending": "{n, plural, one {{count} project needs your consent to its rules} other {{count} projects need your consent to their rules}}",
+      "corrections": "{n, plural, one {{count} correction asked on your registration} other {{count} corrections asked on your registration}}",
+      "edit_answered": "{n, plural, one {{count} edit request was answered} other {{count} edit requests were answered}}",
+      "registrations_pending": "{n, plural, one {{count} volunteer registration waits for approval} other {{count} volunteer registrations wait for approval}}",
+      "staff_registrations_pending": "{n, plural, one {{count} official registration waits for approval} other {{count} official registrations wait for approval}}",
+      "edit_requests_pending": "{n, plural, one {{count} edit request waits for a decision} other {{count} edit requests wait for a decision}}",
+      "projects_draft": "{n, plural, one {{count} draft project not yet activated} other {{count} draft projects not yet activated}}",
+      "deadlines_soon": "{n, plural, one {{count} application window ends within 7 days} other {{count} application windows end within 7 days}}",
+      "handovers_open": "{n, plural, one {{count} handover not completed} other {{count} handovers not completed}}"
+    }
+  },
+  "widget": {
+    "my_projects": "My projects",
+    "deadline": "Applications until {date}",
+    "limit_used": "{used} of {limit} applications",
+    "consent_needed": "Consent needed",
+    "my_team": "My team",
+    "team_of": "{project}: open the team",
+    "official_projects": "My projects",
+    "official_projects_empty": "No running projects right now",
+    "all_projects": "All projects",
+    "project_states": "Projects by state",
+    "templates": "Templates",
+    "templates_count": "{n, plural, one {{count} active template} other {{count} active templates}}",
+    "open_templates": "Open templates",
+    "shortcuts": "Shortcuts",
+    "permission_panel": "Permission panel",
+    "notifications": "Latest notifications",
+    "notifications_empty": "No notifications",
+    "all_notifications": "All notifications"
+  },
+  "later": {
+    "badge": "Coming later",
+    "my_applications": {
+      "title": "My applications",
+      "text": "Your draft, pending and approved applications will show here."
+    },
+    "today_distribution": {
+      "title": "Today's distribution",
+      "text": "The people you distribute to today will be listed here."
+    },
+    "today_class": {
+      "title": "Today's class",
+      "text": "Today's class and its attendance will show here."
+    },
+    "today_work": {
+      "title": "Today's work",
+      "text": "The stage of each of your houses or sites will show here."
+    },
+    "daee_tracking": {
+      "title": "Local দায়ী tracking",
+      "text": "Which Local দায়ীs post their class updates regularly will show here."
+    },
+    "exam_schedule": {
+      "title": "Exam schedule",
+      "text": "The dates of the initial and final exams will show here."
+    },
+    "review_queue": {
+      "title": "Review queue",
+      "text": "Applications waiting for review and approval will show here."
+    },
+    "program_dashboard": {
+      "title": "Program dashboard",
+      "text": "The progress of your program will show here."
+    },
+    "work_progress": {
+      "title": "Work progress",
+      "text": "Applications, approvals and distribution across all programs will show here."
+    },
+    "alerts": {
+      "title": "Monitoring alerts",
+      "text": "Monitoring alerts by kind will show here."
+    },
+    "safe_water": {
+      "title": "Safe-water projects",
+      "text": "The progress of each site will show here."
+    },
+    "media_work": {
+      "title": "Media work list",
+      "text": "Selected beneficiaries and their stories will show here."
+    },
+    "finance_overview": {
+      "title": "Budget and payments",
+      "text": "Budgets and payments of programs and projects will show here."
+    },
+    "procurement_issues": {
+      "title": "Issues to resolve",
+      "text": "Issues of the house-construction projects will show here."
+    }
+  }
+}

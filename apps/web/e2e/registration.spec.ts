@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { fakeEmail, fakeMobile, fakeNid } from '@css/shared';
 import { devices, expect, type Page, test, type TestInfo } from '@playwright/test';
-import { openTab } from './support/admin';
+import { fromProfileMenu, openTab } from './support/admin';
 
 // Registration on a phone from the login page to the pending confirmation (plans
 // docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U11, and
@@ -206,7 +206,7 @@ test.describe('registration approval', () => {
     await expect(
       mobile.getByText('আপনার নিবন্ধন অনুমোদনের অপেক্ষায়', { exact: false }),
     ).toBeVisible();
-    await mobile.getByRole('link', { name: 'আমার প্রোফাইল' }).click();
+    await fromProfileMenu(mobile, 'আমার প্রোফাইল');
     await mobile.getByRole('textbox', { name: /পিতার নাম/ }).fill('সংশোধিত পিতা');
     await mobile.getByRole('button', { name: 'উত্তর দিন' }).click();
     await mobile.getByRole('button', { name: 'আবার জমা দিন' }).click();
