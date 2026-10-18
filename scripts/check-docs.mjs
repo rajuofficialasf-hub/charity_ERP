@@ -12,7 +12,8 @@ import { join } from 'node:path';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import yaml from 'js-yaml';
-import { phaseRules, problemsOf } from './check-rules.mjs';
+import { describeProblems, phaseRules } from './check-rules.mjs';
+import { problemsOf } from './lib/rules-status.mjs';
 
 const failures = [];
 const ok = (message) => console.warn(`ok   ${message}`);
@@ -96,20 +97,19 @@ if (redocly.status === 0) {
   fail('openapi.yaml fails Redocly lint');
 }
 
-const phaseOneRules = phaseRules(1);
-const ruleProblems = problemsOf(phaseOneRules);
-if (ruleProblems.length === 0) {
-  ok(
-    `BUSINESS_RULES.md: every testable Phase 1 rule is tested, deferred or manual (${phaseOneRules.length} rules)`,
-  );
-} else {
-  const untested = phaseOneRules.filter((r) => r.state === 'untested').map((r) => r.id);
-  const missing = ruleProblems.filter((p) => p.includes('missing file'));
-  fail(
-    `BUSINESS_RULES.md: ${untested.length} untested Phase 1 rule(s) (${untested.join(', ')})` +
-      (missing.length ? `; ${missing.join('; ')}` : '') +
-      ' (pnpm rules:status --phase 1)',
-  );
+try {
+  const phaseOneRules = phaseRules(1);
+  const problems = describeProblems(problemsOf(phaseOneRules));
+  if (problems.length === 0) {
+    ok(
+      `BUSINESS_RULES.md: every testable Phase 1 rule is tested, deferred or manual (${phaseOneRules.length} rules)`,
+    );
+  } else {
+    for (const problem of problems)
+      fail(`BUSINESS_RULES.md (Phase 1): ${problem} (pnpm rules:status --phase 1)`);
+  }
+} catch (error) {
+  fail(`BUSINESS_RULES.md: ${error instanceof Error ? error.message : String(error)}`);
 }
 
 if (failures.length > 0) {
