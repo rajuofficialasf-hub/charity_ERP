@@ -1,6 +1,8 @@
+import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { join } from 'node:path';
 import type { TestProject } from 'vitest/node';
 import { installJobs } from '../../../src/jobs/install';
-import { syncNotificationTemplates } from '../../../src/notifications/template-sync';
 import { createDatabase, dropDatabase, runMigrations, uniqueName, urlFor } from './db';
 
 declare module 'vitest' {
@@ -16,10 +18,23 @@ export async function setup(project: TestProject): Promise<() => Promise<void>> 
   await runMigrations(template, 'up');
   // the job queues too: an event writes its outbox row and enqueues its delivery in one transaction
   await installJobs(urlFor(template));
-  // the templates, as `pnpm db:migrate` writes them: the delivery renders from them
-  await syncNotificationTemplates(urlFor(template));
+  // the templates, as `pnpm db:migrate` writes them: the delivery renders from them. The script runs
+  // in its own process, because a global setup does not resolve workspace packages to their sources
+  syncTemplates(urlFor(template));
   project.provide('templateDb', template);
   return async () => {
     await dropDatabase(template);
   };
+}
+
+function syncTemplates(url: string): void {
+  const tsx = createRequire(import.meta.url).resolve('tsx/cli');
+  const api = join(import.meta.dirname, '..', '..', '..');
+  const result = spawnSync(
+    process.execPath,
+    [tsx, '--conditions=@css/source', 'scripts/notifications-sync.ts'],
+    { cwd: api, env: { ...process.env, DATABASE_URL: url }, encoding: 'utf8' },
+  );
+  if (result.status !== 0)
+    throw new Error(`notification templates not synced: ${result.stderr || result.stdout}`);
 }
