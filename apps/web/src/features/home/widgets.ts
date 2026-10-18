@@ -77,6 +77,8 @@ export const ROLE_WIDGETS: Readonly<Record<string, readonly Widget[]>> = {
   monitoring_team: ['shortcuts', 'work_progress', 'alerts', 'notifications'],
   implementer: ['safe_water', 'notifications'],
   media_team: ['media_work', 'notifications'],
+  media_director: ['media_work', 'notifications'],
+  media_assistant_director: ['media_work', 'notifications'],
   finance_team: ['finance_overview', 'notifications'],
   procurement_team: ['procurement_issues', 'notifications'],
 };

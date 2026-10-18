@@ -33,6 +33,8 @@ describe('admin role lists', () => {
       'official_daee',
       'implementer',
       'media_team',
+      'media_director',
+      'media_assistant_director',
       'procurement_team',
     ])
       expect(canOpenAdmin(as(role)), role).toBe(true);

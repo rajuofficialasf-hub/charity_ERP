@@ -36,7 +36,9 @@ permission: { name, description, module, sensitive, default: [ { role, scope, co
 | implementer | official | no | SOP role for safe water: Project Executive-level rights limited by `safe_water_only`, plus document ownership (interpretation, section 11) |
 | official_daee | official | no | REGION scope: exams, zakat decision, call log, tracking, follow-up; reads the volunteer and beneficiary tabs (A5) |
 | procurement_team | official | no | House-construction projects only: view applications, raise issues, resolve own or paid-volunteer issues (Q-46) |
-| media_team | official | no | GLOBAL read of applications and beneficiaries; own stories and media only |
+| media_director | official | no | Head of the Media Team at the PM's level (D-101): decides on referrals, runs the works, final review before publication; GLOBAL read of applications and beneficiaries |
+| media_assistant_director | official | no | Decides on referrals and runs the works with the director (D-101); GLOBAL read of applications and beneficiaries |
+| media_team | official | no | Member of the Media Team: works assigned to them, scripts and publications (D-101); GLOBAL read of applications and beneficiaries |
 | finance_team | official | no | GLOBAL viewer of budgets, ledger, dashboards; exports; no entry (BD-31, O-24) |
 | volunteer_general, volunteer_local_daee, volunteer_both, volunteer_team_member, volunteer_paid | volunteer | no | Permissions through project permission sets (section 6); SELF or ASSIGNED scope |
 
@@ -144,12 +146,13 @@ Rows of the blueprint's first table and the permissions that implement them: row
 
 ### 5.2 Media, Finance and Procurement Teams (blueprint A4, second table)
 
-| Permission | Media Team | Finance Team | Procurement Team |
+| Permission | Media Team (director, assistant director, members) | Finance Team | Procurement Team |
 |---|---|---|---|
 | application.view, beneficiary.view_all | ✓ [GLOBAL] | — | ✓ [PROJECT, house construction] |
 | application.view_official_section | ✓ [GLOBAL] | — | ✓ [PROJECT, house construction] |
 | application.create, application.edit_draft, application.edit_pending, application.delete_pending, any beneficiary or project write | — | — | — |
-| media.subject.manage (Media tab: add beneficiaries to the media work list, set media status; O-28), story.manage, story.view, media.publishable.manage | ✓ | — | — |
+| media.referral.decide, media.publication.review (the director; the assistant director decides too), media.work.view, media.work.manage, story.manage, story.view (D-101; members at ASSIGNED on their works) | ✓ | — | — |
+| media.referral.create (a PM in own program, an RPM in own region refer an approved application; D-101) | — (referrers only) | — | — |
 | beneficiary.consent.view | ✓ | — | — |
 | file.upload | own part | — | own part |
 | budget.view, ledger.view, dashboard.project.view, dashboard.program.view | — | ✓ [GLOBAL] | — |
@@ -161,7 +164,7 @@ Rows of the blueprint's first table and the permissions that implement them: row
 | volunteer.rating.view, volunteer.category.set, beneficiary.view_nid, volunteer.view_sensitive, donor.* | — | — | — |
 | program.view, project.view (read) | ✓ | ✓ | ✓ [house construction] |
 
-Finance stays a viewer (BD-31, O-24). Media changes only own stories and media content (A4). Procurement never edits or deletes applications (Q-46).
+Finance stays a viewer (BD-31, O-24). Media changes only its own works, scripts and publications (A4, D-101). Procurement never edits or deletes applications (Q-46).
 
 ### 5.3 Official দায়ী and Implementer (interpretation of A4 text rows, section 11)
 
@@ -242,37 +245,37 @@ As built in T1.8 (Express, ADR-014; the decorator names below are the design's, 
 - Panel tests: revoke beats grant; volunteer cannot receive sensitive permissions; permission_version bump forces refresh.
 - Boot-time checks: unknown permission in code (built); permissions no endpoint uses yet are listed in the matrix report (D-077).
 
-## 11. Interpretations, confirmed by the owner on 2026-10-10 (O-26, O-27, O-28)
+## 11. Interpretations, confirmed by the owner on 2026-10-10 (O-26, O-27, O-28) and amended by D-101 (2026-10-18)
 
 1. **Implementer** (SOP role, safe water): modelled as Project Executive-level rights restricted to safe-water projects (`safe_water_only`) plus document register rights. Confirmed (O-26).
 2. **Official দায়ী**: exams, zakat decision (Q-30), call log, tracking view, follow-up, Local দায়ী assignment, GLOBAL read of the volunteer and beneficiary tabs (A5), application view at ASSIGNED (own area's beneficiaries). Not a reviewer or approver by default; **the RPM may grant application approval (approve, reject, waitlist) per project** like the Executive's "if RPM grants" extras, and the grant extends application view to REGION on that project (O-27).
-3. **Media Team**: works in its own **Media tab**; "add beneficiary" selects beneficiaries from the nationwide list into the media work list (`media.subject.manage`); per beneficiary the media status, stories, channel and date and a writing area; reads beneficiary and application data at GLOBAL without NID, bank, ratings or donor data; changes nothing outside its own media records (O-28).
+3. **Media Team**: O-28's Media tab is replaced by D-101 (2026-10-18): a PM or an RPM refers an approved application as publishable (`media.referral.create`, consent required); the Media Director or the Media Assistant Director accepts, returns or rejects it (`media.referral.decide`); the team runs the work through editable stages with production roles, scripts and publications on the platforms (`media.work.manage`, `story.manage`), the director reviews before publication (`media.publication.review`); referrers follow the media status (`media.work.view`). On a referred application the team sees the beneficiary's mobile, full address and occupation (BR-265); NID, ratings, categories and donor data stay hidden.
 4. **`nisab.set`** given to the PM at GLOBAL (Q-29 "PM or above"); the nisab is one global table (O-15). Confirmed (O-26).
 5. **Stock reconciliation** (`stock.reconcile`) entered by the volunteer and verified by RPM/Executive, both under the same permission name with different scopes. Confirmed (O-26).
 6. **`beneficiary.merge`** at PROGRAM for the PM (BD-05 names PM, Monitoring Team, Department Head); RPM proposes only. Confirmed (O-26).
 
-## 12. Permission catalogue (generated from permissions.yaml, 143 permissions)
+## 12. Permission catalogue (generated from permissions.yaml, 150 permissions)
 
-Generated on 2026-10-10 by the T0.10 check script from `permissions.yaml`; regenerate whenever the YAML changes (T1.8 adds this to CI). Department Head and Monitoring Team hold every permission at GLOBAL and are not repeated per row.
+Generated on 2026-10-18 from `permissions.yaml` (last regenerated for D-101); regenerate whenever the YAML changes (T1.8 adds this to CI). Department Head and Monitoring Team hold every permission at GLOBAL and are not repeated per row.
 
 | Permission | Module | Sensitive | Description | Default grants (role@scope, condition) |
 |---|---|---|---|---|
-| `session.revoke_own` | M01 | no | Revoke one of the user's own device sessions | program_manager@SELF; regional_program_manager@SELF; project_executive@SELF; implementer@SELF; official_daee@SELF; procurement_team@SELF; media_team@SELF; finance_team@SELF; volunteer_general@SELF; volunteer_local_daee@SELF; volunteer_both@SELF; volunteer_team_member@SELF; volunteer_paid@SELF |
+| `session.revoke_own` | M01 | no | Revoke one of the user's own device sessions | program_manager@SELF; regional_program_manager@SELF; project_executive@SELF; implementer@SELF; official_daee@SELF; procurement_team@SELF; media_team@SELF; media_director@SELF; media_assistant_director@SELF; finance_team@SELF; volunteer_general@SELF; volunteer_local_daee@SELF; volunteer_both@SELF; volunteer_team_member@SELF; volunteer_paid@SELF |
 | `session.revoke_user` | M01 | no | List and revoke another user's device sessions (lost phone), with reason | regional_program_manager@REGION (own_region) |
-| `user.state.change` | M01 | no | Change an account state (pending/active/blocked/deactivated) with reason; blocklist uses volunteer.block | none (global roles only) |
-| `user.lock.clear` | M01 | no | Clear a login lock (5 failed attempts) on a user's account with reason (O-59, AUTH.md 6) | none (global roles only) |
-| `user.create` | M01 | no | Create an official's account with job ID, role and place, and send or renew its set-password link (D-097) | none (global roles only) |
-| `user.profile.manage` | M01 | no | Edit an official's job ID, name, designation, affiliation, program, division and supervisor (D-097) | none (global roles only) |
+| `user.state.change` | M01 | no | Change an account state (pending/active/blocked/deactivated) with reason; blocklist uses volunteer.block | — |
+| `user.lock.clear` | M01 | no | Clear a login lock (5 failed attempts) on a user's account with reason (O-59, AUTH.md 6) | — |
+| `user.create` | M01 | no | Create an official's account with job ID, role and place, and send or renew its set-password link (D-097) | — |
+| `user.profile.manage` | M01 | no | Edit an official's job ID, name, designation, affiliation, program, division and supervisor (D-097) | — |
 | `user.deactivate_volunteer` | M03 | no | Deactivate a volunteer who has no open applications | program_manager@PROGRAM (no_open_applications); regional_program_manager@REGION (no_open_applications) |
-| `user.handover` | M03 | no | Run the staff handover and deactivate an official's account | none (global roles only) |
+| `user.handover` | M03 | no | Run the staff handover and deactivate an official's account | — |
 | `system.owner.transfer` | M01 | no | Transfer the Main Admin (system owner) flag to another official | department_head@GLOBAL |
-| `permission.panel.manage` | M02 | no | Grant or revoke any permission for any user at a chosen scope (permission panel) | none (global roles only) |
+| `permission.panel.manage` | M02 | no | Grant or revoke any permission for any user at a chosen scope (permission panel) | — |
 | `permission.view` | M02 | no | View a user's effective permissions | program_manager@PROGRAM; regional_program_manager@REGION |
 | `project.staff_access.manage` | M02 | no | Give staff under the RPM view/edit/delete access on a project | program_manager@PROGRAM; regional_program_manager@REGION |
 | `project.volunteer_grant.manage` | M02 | no | Grant 'if RPM grants' extras (approve, add volunteers, transfer, exam, site decision) to own team members and volunteers per project | regional_program_manager@REGION |
 | `registration.approve` | M03 | no | Approve a volunteer registration | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION |
 | `registration.request_correction` | M03 | no | Send a field-level correction request on a pending registration | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION |
-| `staff.registration.approve` | M03 | no | Approve a staff registration and assign the role | none (global roles only) |
+| `staff.registration.approve` | M03 | no | Approve a staff registration and assign the role | — |
 | `edit_request.approve` | M03 | no | Approve a volunteer's profile edit request and open the field | regional_program_manager@REGION; project_executive@REGION |
 | `edit_request.submit` | M03 | no | Submit an edit request on own profile | volunteer_general@SELF; volunteer_local_daee@SELF; volunteer_both@SELF; volunteer_team_member@SELF; volunteer_paid@SELF |
 | `volunteer.view_all` | M04 | no | Nationwide volunteer tab with filters and statistics (sensitive fields masked per sensitive_fields) | program_manager@GLOBAL; regional_program_manager@GLOBAL; project_executive@GLOBAL; official_daee@GLOBAL; implementer@GLOBAL |
@@ -287,24 +290,24 @@ Generated on 2026-10-10 by the T0.10 check script from `permissions.yaml`; regen
 | `volunteer.block` | M04 | no | Put a volunteer on the blocklist with reason | program_manager@PROGRAM; regional_program_manager@REGION |
 | `volunteer.unblock` | M04 | no | Lift a volunteer block with reason | program_manager@PROGRAM; regional_program_manager@REGION |
 | `application.transfer` | M04 | no | Transfer all or selected applications from one volunteer to another | regional_program_manager@REGION; project_executive@REGION (if_rpm_grants) |
-| `volunteer.consent.accept` | M04 | no | Accept the project rules and consent texts for own assignment | volunteer_general@SELF; volunteer_local_daee@SELF; volunteer_both@SELF; volunteer_team_member@SELF; volunteer_paid@SELF |
-| `beneficiary.view_all` | M05 | no | Nationwide beneficiary tab and 360 profiles (sensitive fields masked per sensitive_fields) | program_manager@GLOBAL; regional_program_manager@GLOBAL; project_executive@GLOBAL; official_daee@GLOBAL; implementer@GLOBAL; media_team@GLOBAL; procurement_team@PROJECT (house_construction_project) |
+| `volunteer.consent.accept` | M04 | no | Accept the project rules and consent texts for own assignment or team membership, and read own projects (every assigned volunteer consents, BR-039) | volunteer_general@SELF; volunteer_local_daee@SELF; volunteer_both@SELF; volunteer_team_member@SELF; volunteer_paid@SELF; volunteer_paid@SELF |
+| `beneficiary.view_all` | M05 | no | Nationwide beneficiary tab and 360 profiles (sensitive fields masked per sensitive_fields) | program_manager@GLOBAL; regional_program_manager@GLOBAL; project_executive@GLOBAL; official_daee@GLOBAL; implementer@GLOBAL; media_team@GLOBAL; media_director@GLOBAL; media_assistant_director@GLOBAL; procurement_team@PROJECT (house_construction_project) |
 | `beneficiary.view_nid` | M05 | yes | See beneficiary NID / birth-registration number and NID photo | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; implementer@REGION (safe_water_only); official_daee@REGION |
 | `beneficiary.lookup` | M05 | no | Look up a beneficiary by NID or birth-registration number for auto-fill (returns only the auto-fill fields) | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; implementer@REGION (safe_water_only); volunteer_general@PROJECT; volunteer_both@PROJECT; volunteer_team_member@PROJECT |
 | `beneficiary.correction.request` | M05 | no | Request correction of a locked beneficiary field (name, father/husband name, identity number) | regional_program_manager@REGION; project_executive@REGION |
 | `beneficiary.correction.approve` | M05 | no | Approve a profile correction request and change the locked field | program_manager@PROGRAM; regional_program_manager@REGION |
 | `beneficiary.merge.propose` | M05 | no | Propose a merge of two beneficiary profiles | regional_program_manager@REGION |
 | `beneficiary.merge` | M05 | no | Merge two beneficiary profiles | program_manager@PROGRAM |
-| `beneficiary.merge.revert` | M05 | no | Revert a profile merge | none (global roles only) |
+| `beneficiary.merge.revert` | M05 | no | Revert a profile merge | — |
 | `beneficiary.block` | M05 | no | Put a beneficiary on the blocklist with reason | program_manager@PROGRAM; regional_program_manager@REGION |
 | `beneficiary.unblock` | M05 | no | Lift a beneficiary block with reason | program_manager@PROGRAM; regional_program_manager@REGION |
 | `beneficiary.consent.record` | M05 | no | Record or change media consent on a beneficiary profile | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION |
-| `beneficiary.consent.view` | M05 | no | View media-consent status | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; media_team@GLOBAL |
+| `beneficiary.consent.view` | M05 | no | View media-consent status | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; media_team@GLOBAL; media_director@GLOBAL; media_assistant_director@GLOBAL |
 | `beneficiary.status.change` | M05 | no | Change a beneficiary profile status (active, deceased, relocated) with reason | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION |
-| `program.create` | M06 | no | Create a program | none (global roles only) |
-| `program.assign_pm` | M06 | no | Assign the Program Manager of a program | none (global roles only) |
-| `program.update` | M06 | no | Rename a program, deactivate it and activate it again | none (global roles only) |
-| `program.view` | M06 | no | View the program list and program details | program_manager@PROGRAM; regional_program_manager@PROGRAM; project_executive@PROGRAM; official_daee@PROGRAM; implementer@PROGRAM; finance_team@GLOBAL; media_team@GLOBAL |
+| `program.create` | M06 | no | Create a program | — |
+| `program.assign_pm` | M06 | no | Assign the Program Manager of a program | — |
+| `program.update` | M06 | no | Rename a program, deactivate it and activate it again | — |
+| `program.view` | M06 | no | View the program list and program details | program_manager@PROGRAM; regional_program_manager@PROGRAM; project_executive@PROGRAM; official_daee@PROGRAM; implementer@PROGRAM; finance_team@GLOBAL; media_team@GLOBAL; media_director@GLOBAL; media_assistant_director@GLOBAL |
 | `project.create` | M06 | no | Create a project in own program (from a workflow; from a template or a copy with T1.12) | program_manager@PROGRAM |
 | `project.configure` | M06 | no | Configure components, form, budget, deadlines, rules, syllabus, rating criteria, photo rule, limits, stages, settings | program_manager@PROGRAM |
 | `project.activate` | M06 | no | Move a project from Draft to Active | program_manager@PROGRAM |
@@ -313,20 +316,20 @@ Generated on 2026-10-10 by the T0.10 check script from `permissions.yaml`; regen
 | `project.reopen` | M06 | no | Reopen a closing or closed project with reason | program_manager@PROGRAM |
 | `project.cancel` | M06 | no | Cancel a draft project that was never activated, with reason | program_manager@PROGRAM |
 | `project.area.assign` | M06 | no | Assign areas and RPMs; split districts among RPMs | program_manager@PROGRAM |
-| `project.template.manage` | M06 | no | Create and edit master project templates; save a project as template | program_manager@PROGRAM |
+| `project.template.manage` | M06 | no | Create and edit master project templates (organisation-wide, D-096); save a project the holder may view as template | program_manager@GLOBAL |
 | `project.quota.manage` | M06 | no | Set district and union quotas and scoring criteria | program_manager@PROGRAM |
-| `project.view` | M06 | no | View project configuration and status | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; official_daee@REGION; implementer@REGION; procurement_team@PROJECT (house_construction_project); finance_team@GLOBAL; media_team@GLOBAL; volunteer_general@PROJECT; volunteer_local_daee@PROJECT; volunteer_both@PROJECT; volunteer_team_member@PROJECT; volunteer_paid@PROJECT |
+| `project.view` | M06 | no | View project configuration and status | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; official_daee@REGION; implementer@REGION; procurement_team@PROJECT (house_construction_project); finance_team@GLOBAL; media_team@GLOBAL; media_director@GLOBAL; media_assistant_director@GLOBAL; volunteer_general@PROJECT; volunteer_local_daee@PROJECT; volunteer_both@PROJECT; volunteer_team_member@PROJECT; volunteer_paid@PROJECT |
 | `form.build` | M07 | no | Edit a project's form draft (sections, fields, logic) | program_manager@PROGRAM |
 | `form.publish` | M07 | no | Publish a form version | program_manager@PROGRAM |
 | `form.public_link.manage` | M07 | no | Enable, disable and configure the public application link | program_manager@PROGRAM |
-| `form.library.manage` | M07 | no | Edit the section and field libraries | none (global roles only) |
+| `form.library.manage` | M07 | no | Edit the section and field libraries | — |
 | `application.create` | M08 | no | Create an application (draft) | regional_program_manager@REGION; project_executive@REGION; implementer@REGION (safe_water_only); volunteer_general@SELF; volunteer_both@SELF; volunteer_team_member@SELF |
 | `application.submit` | M08 | no | Submit a draft to the office | regional_program_manager@REGION; project_executive@REGION; implementer@REGION (safe_water_only); volunteer_general@SELF; volunteer_both@SELF |
 | `application.edit_draft` | M08 | no | Edit a draft before submission | regional_program_manager@REGION; project_executive@REGION; volunteer_general@SELF; volunteer_both@SELF; volunteer_team_member@SELF (own_created) |
 | `application.edit_pending` | M08 | no | Edit a submitted (pending) application before review starts | volunteer_general@SELF; volunteer_both@SELF |
 | `application.delete_pending` | M08 | no | Delete a draft or pending application (soft delete) | volunteer_general@SELF; volunteer_both@SELF |
-| `application.view` | M08 | no | View applications (basic data for volunteers; official section needs application.view_official_section) | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; implementer@REGION (safe_water_only); official_daee@ASSIGNED; procurement_team@PROJECT (house_construction_project); media_team@GLOBAL; volunteer_general@SELF; volunteer_both@SELF; volunteer_team_member@SELF (own_created); volunteer_local_daee@ASSIGNED; volunteer_paid@PROJECT |
-| `application.view_official_section` | M08 | yes | See official-only form sections, scores and reviewer comments | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; implementer@REGION (safe_water_only); official_daee@ASSIGNED; procurement_team@PROJECT (house_construction_project); media_team@GLOBAL |
+| `application.view` | M08 | no | View applications (basic data for volunteers; official section needs application.view_official_section) | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; implementer@REGION (safe_water_only); official_daee@ASSIGNED; procurement_team@PROJECT (house_construction_project); media_team@GLOBAL; media_director@GLOBAL; media_assistant_director@GLOBAL; volunteer_general@SELF; volunteer_both@SELF; volunteer_team_member@SELF (own_created); volunteer_local_daee@ASSIGNED; volunteer_paid@PROJECT |
+| `application.view_official_section` | M08 | yes | See official-only form sections, scores and reviewer comments | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; implementer@REGION (safe_water_only); official_daee@ASSIGNED; procurement_team@PROJECT (house_construction_project); media_team@GLOBAL; media_director@GLOBAL; media_assistant_director@GLOBAL |
 | `application.review` | M08 | no | Take an application under review and edit the whole form | regional_program_manager@REGION; project_executive@REGION; implementer@REGION (safe_water_only) |
 | `application.approve` | M08 | no | Approve a reviewed application | program_manager@PROGRAM (house_construction_only); regional_program_manager@REGION; project_executive@REGION (if_rpm_grants); official_daee@REGION (if_rpm_grants) |
 | `application.reject` | M08 | no | Reject a reviewed application with reason | program_manager@PROGRAM (house_construction_only); regional_program_manager@REGION; project_executive@REGION (if_rpm_grants); official_daee@REGION (if_rpm_grants) |
@@ -373,34 +376,37 @@ Generated on 2026-10-10 by the T0.10 check script from `permissions.yaml`; regen
 | `deficiency.report` | M13 | no | File a deficiency report | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; implementer@REGION |
 | `document.audit.run` | M13 | no | Produce the quarterly audit report | program_manager@PROGRAM |
 | `monitoring.view` | M14 | no | Monitoring control centre and alerts | program_manager@PROGRAM; regional_program_manager@REGION |
-| `alert.settings.manage` | M14 | no | Change alert thresholds | none (global roles only) |
+| `alert.settings.manage` | M14 | no | Change alert thresholds | — |
 | `work_summary.view` | M14 | no | Work summaries of staff and volunteers with CSV/PDF export | program_manager@PROGRAM; regional_program_manager@REGION (own_region) |
 | `audit.view` | M15 | yes | View the audit log by project, beneficiary or person | program_manager@PROGRAM; regional_program_manager@REGION |
-| `audit.export` | M15 | yes | Export audit log entries | none (global roles only) |
+| `audit.export` | M15 | yes | Export audit log entries | — |
 | `dashboard.project.view` | M16 | no | Project dashboard | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; finance_team@GLOBAL |
 | `dashboard.program.view` | M16 | no | Program dashboard | program_manager@PROGRAM; finance_team@GLOBAL |
-| `dashboard.central.view` | M16 | no | Central dashboard | none (global roles only) |
+| `dashboard.central.view` | M16 | no | Central dashboard | — |
 | `dashboard.dawah.view` | M16 | no | Dawah dashboard | program_manager@PROGRAM; regional_program_manager@REGION; official_daee@REGION |
-| `export.list` | M16 | no | Export any filtered list the user may view (masks applied) | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; implementer@REGION; official_daee@REGION; finance_team@GLOBAL; media_team@GLOBAL (own_part); procurement_team@PROJECT (own_part) |
+| `export.list` | M16 | no | Export any filtered list the user may view (masks applied) | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; implementer@REGION; official_daee@REGION; finance_team@GLOBAL; media_team@GLOBAL (own_part); media_director@GLOBAL (own_part); media_assistant_director@GLOBAL (own_part); procurement_team@PROJECT (own_part) |
 | `export.beneficiaries` | M16 | yes | Export beneficiary data including identity fields (audited as a sensitive export) | program_manager@PROGRAM; regional_program_manager@REGION |
 | `export.volunteers` | M16 | yes | Export volunteer data including identity and bank fields (audited as a sensitive export) | program_manager@PROGRAM; regional_program_manager@REGION |
 | `export.finance` | M16 | no | Export budgets, payments, vouchers and expense accounts | program_manager@PROGRAM; finance_team@GLOBAL |
 | `export.forms` | M16 | yes | Export all form data of a project (volunteer and official sections) | program_manager@PROGRAM; regional_program_manager@REGION |
 | `report.beneficiary_journey` | M16 | no | Beneficiary 360 / journey report as PDF | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; official_daee@REGION |
-| `notification.read_own` | M17 | no | Read own in-app notifications | program_manager@SELF; regional_program_manager@SELF; project_executive@SELF; implementer@SELF; official_daee@SELF; procurement_team@SELF; media_team@SELF; finance_team@SELF; volunteer_general@SELF; volunteer_local_daee@SELF; volunteer_both@SELF; volunteer_team_member@SELF; volunteer_paid@SELF |
-| `notification.template.manage` | M17 | no | Edit notification templates | none (global roles only) |
-| `notification.delivery.view` | M17 | no | See the delivery state of outbound emails and SMS, addresses partly hidden, never an OTP (D-099) | none (global roles only) |
-| `file.upload` | M18 | no | Upload photos, vouchers and documents within the user's permitted actions | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; implementer@REGION; official_daee@REGION; media_team@GLOBAL (own_part); procurement_team@PROJECT (own_part); volunteer_general@SELF; volunteer_local_daee@ASSIGNED; volunteer_both@SELF; volunteer_paid@ASSIGNED |
-| `media.subject.manage` | M18 | no | In the Media tab, add beneficiaries to the media work list and set their media status (O-28) | media_team@GLOBAL |
-| `story.manage` | M18 | no | Read, write and edit media stories and the publication tracker for beneficiaries on the media work list | media_team@GLOBAL |
-| `story.view` | M18 | no | Read media stories | program_manager@PROGRAM; regional_program_manager@REGION; media_team@GLOBAL |
-| `media.publishable.manage` | M18 | no | Collect photos and videos into the publishable list (consent-gated) | media_team@GLOBAL |
-| `location.manage` | M19 | no | Add, rename and deactivate divisions, districts, upazilas and unions | none (global roles only) |
-| `settings.manage` | M21 | no | Edit system settings (thresholds, photo defaults, payment methods, expense categories) | none (global roles only) |
+| `notification.read_own` | M17 | no | Read own in-app notifications | program_manager@SELF; regional_program_manager@SELF; project_executive@SELF; implementer@SELF; official_daee@SELF; procurement_team@SELF; media_team@SELF; media_director@SELF; media_assistant_director@SELF; finance_team@SELF; volunteer_general@SELF; volunteer_local_daee@SELF; volunteer_both@SELF; volunteer_team_member@SELF; volunteer_paid@SELF |
+| `notification.template.manage` | M17 | no | Edit notification templates | — |
+| `notification.delivery.view` | M17 | no | See the delivery state of outbound emails and SMS (addresses partly hidden; never an OTP) | — |
+| `file.upload` | M18 | no | Upload photos, vouchers and documents within the user's permitted actions | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; implementer@REGION; official_daee@REGION; media_team@GLOBAL (own_part); media_director@GLOBAL (own_part); media_assistant_director@GLOBAL (own_part); procurement_team@PROJECT (own_part); volunteer_general@SELF; volunteer_local_daee@ASSIGNED; volunteer_both@SELF; volunteer_paid@ASSIGNED |
+| `media.referral.create` | M18 | no | Refer an approved application of the caller's scope to the Media Team as publishable, with a priority and a note; refused without the beneficiary's recorded media consent (D-101) | program_manager@PROGRAM; regional_program_manager@REGION |
+| `media.referral.decide` | M18 | no | Accept a media referral, send it back for review with a comment, or reject it with a reason (D-101) | media_director@GLOBAL; media_assistant_director@GLOBAL |
+| `media.work.view` | M18 | no | See media works with their stage, team, publications, comments and history; a referrer sees the media status of own referrals (D-101) | media_director@GLOBAL; media_assistant_director@GLOBAL; media_team@GLOBAL; program_manager@PROGRAM; regional_program_manager@REGION |
+| `media.work.manage` | M18 | no | Run a media work: stage, members and their production roles, content type, publications on the platforms and notes; members on the works assigned to them (D-101) | media_director@GLOBAL; media_assistant_director@GLOBAL; media_team@ASSIGNED |
+| `media.publication.review` | M18 | no | Final review of a media work before it may be published (D-101) | media_director@GLOBAL |
+| `story.manage` | M18 | no | Write and edit the script or story of a media work (summary, interview questions, scenes, voice-over, notes) with its state draft, in review or final; members on the works assigned to them (D-101) | media_director@GLOBAL; media_assistant_director@GLOBAL; media_team@ASSIGNED |
+| `story.view` | M18 | no | Read the script or story of a media work | program_manager@PROGRAM; regional_program_manager@REGION; media_director@GLOBAL; media_assistant_director@GLOBAL; media_team@GLOBAL |
+| `location.manage` | M19 | no | Add, rename and deactivate divisions, districts, upazilas and unions | — |
+| `settings.manage` | M21 | no | Edit system settings (thresholds, photo defaults, payment methods, expense categories) | — |
 | `nisab.set` | M21 | no | Add a nisab version | program_manager@GLOBAL |
-| `holiday.manage` | M21 | no | Maintain the holiday calendar | none (global roles only) |
-| `provider.settings.manage` | M21 | no | See the SMTP settings and configure the SMS provider adapter (secrets stay in the environment; D-098) | none (global roles only) |
-| `system.health.view` | M21 | no | See the system health page: database, storage, queue, dummy OTP, audit partitions, storage growth (D-098) | none (global roles only) |
+| `holiday.manage` | M21 | no | Maintain the holiday calendar | — |
+| `provider.settings.manage` | M21 | no | See the SMTP settings and configure the SMS provider adapter (secrets stay in the environment) | — |
+| `system.health.view` | M21 | no | See the system health page (database, storage, queue, dummy OTP, audit partitions, storage growth) | — |
 | `template.checklist.manage` | M21 | no | Edit document checklist templates | program_manager@PROGRAM |
-| `i18n.manage` | M20 | no | Edit translations of bilingual data (no runtime message overrides, O-43) | none (global roles only) |
+| `i18n.manage` | M20 | no | Edit translations of bilingual data (no runtime message overrides, O-43) | — |
 | `sync.batch` | M22 | no | Submit offline records and photos for own assignments | regional_program_manager@SELF; project_executive@SELF; official_daee@SELF; volunteer_general@SELF; volunteer_local_daee@SELF; volunteer_both@SELF; volunteer_team_member@SELF; volunteer_paid@SELF |

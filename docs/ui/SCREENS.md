@@ -48,7 +48,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 | SCR-016 | My Work: PM | parity | program_manager | 1 · T1.15 |
 | SCR-017 | My Work: Department Head and Monitoring Team | parity | department_head, monitoring_team | 1 · T1.15; full in 3 · T3.3 and 6 · T6.1 |
 | SCR-018 | My Work: Implementer (derived) | parity | implementer | 1 · T1.15; safe water 4 · T4.3 |
-| SCR-019 | My Work: Media Team (derived, Media tab) | parity | media_team | 5 · T5.5 (placeholder in T1.15) |
+| SCR-019 | My Work: Media Team (D-101) | parity | media_director, media_assistant_director, media_team | 2 · T2.8b (placeholder in T1.15) |
 | SCR-020 | My Work: Finance Team (derived) | parity | finance_team | 3 · T3.2 (placeholder in T1.15) |
 | SCR-021 | My Work: Procurement Team (derived) | parity | procurement_team | 4 · T4.1 (placeholder in T1.15) |
 | SCR-030 | My projects and project rules consent | phone-first | volunteers | 1 · T1.12 |
@@ -451,19 +451,19 @@ This home is derived from O-26: Project Executive-level rights on safe-water pro
 
 - **Priority.** parity.
 
-### SCR-019 My Work: Media Team (derived, the Media tab)
+### SCR-019 My Work: Media Team (D-101)
 
-This home is derived from O-28 and the second A4 table. The Media tab is the team's home. The owner may adjust it.
+The home of the Media Director, the Media Assistant Director and the members (DECISION_LOG D-101). The work starts with referrals from PMs and RPMs; the team never picks beneficiaries itself.
 
 | Widget | Data | Action and permission | From phase |
 |---|---|---|---|
-| Media work list | Selected beneficiaries with media status (planned, in progress, published) | Open SCR-108; `media.subject.manage` | 5 |
-| Add beneficiary | Search the nationwide beneficiary list, with NID, bank, rating and donor data masked | `media.subject.manage`, `beneficiary.view_all` | 5 |
-| Stories | Drafts and published stories | `story.manage`, `story.view` | 5 |
-| Publishable photos | Only beneficiaries with media consent (BD-38) | `media.publishable.manage`, `beneficiary.consent.view` | 5 |
+| Needs your attention | New referrals waiting for a decision; works in review; works ready to publish | Open SCR-108; `media.referral.decide`, `media.publication.review` | 2 |
+| Counts | By program and overall: referrals, new, in review, in progress, waiting for shooting, in editing, done, published, rejected | `media.work.view` | 2 |
+| Works | Beneficiary, program, team, stage, last update, priority, decision | Open SCR-108; `media.work.view` | 2 |
+| My portfolio | The member's published works, by production role | `media.work.view` | 2 |
 
 - **Priority.** parity.
-- **Before Phase 5.** The home is the notification list with a "coming later" empty state.
+- **Phase 1.** The home shows the attention list, the notifications and a "coming later" card.
 
 ### SCR-020 My Work: Finance Team (derived)
 
@@ -1335,7 +1335,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 | SCR-105 | Staff handover | Reassign pending work before deactivation (BD-08). Built (T1.9, plan U14): `/admin/handover` finds an official, lists the pending work by category, hands one item or all to an official, completes the handover and deactivates with a reason; tests `apps/web/src/admin/handover/handover.test.tsx`, `apps/web/e2e/handover.spec.ts` | Head, Monitoring | `user.handover`, `user.state.change` | desktop-first | 1 · T1.9 |
 | SCR-106 | Admin settings | Organization, nisab, holidays, providers, alert thresholds, notification templates, i18n | Head, Monitoring, PM (nisab) | `settings.manage`, `nisab.set`, `holiday.manage`, `provider.settings.manage`, `notification.template.manage`, `i18n.manage` | desktop-first | 1 · T1.13, 6 · T6.2 |
 | SCR-107 | Locations and reference lists | Division to union master (four levels, O-09); reference lists (O-38) | Head, Monitoring | `location.manage`, `settings.manage` | desktop-first | 1 · T1.13 |
-| SCR-108 | Media tab and story editor | Media work list, story writing, channel and date, publishable photos (O-28, BD-38) | Media Team | `media.subject.manage`, `story.manage` | parity | 5 · T5.5 |
+| SCR-108 | Media referral and work | The referral (PM, RPM) with priority and note; the decision; the work with stages, members and production roles, script, content type, publications per platform, comments and history; the member profile with portfolio; the media section of the beneficiary profile (D-101) | PM, RPM (refer); Media Team | `media.referral.create`, `media.referral.decide`, `media.work.manage`, `story.manage`, `media.publication.review` | parity | 2 · T2.8b |
 | SCR-109 | Deficiency report | The deficiency report fields (SOP), escalation of repeats (BD-37) | officials | `deficiency.report` | parity | after 6 · T6.1: T5.4 (O-34) |
 | SCR-110 | Checklist template editor | Document checklist templates (BD-35) | Head, Monitoring, PM | `template.checklist.manage` | desktop-first | after 6 · T6.1: T5.4 (moved from T1.13 by O-34) |
 | SCR-111 | Public application form (tree planting) | Public link without login; entries go to needs verification (O-08, O-13) | the public | `public` | phone-first | 4 · T4.3 |

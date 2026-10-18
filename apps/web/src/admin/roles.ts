@@ -32,6 +32,8 @@ export const VOLUNTEER_TAB_ROLES: readonly string[] = [
 export const BENEFICIARY_TAB_ROLES: readonly string[] = [
   ...VOLUNTEER_TAB_ROLES,
   'media_team',
+  'media_director',
+  'media_assistant_director',
   'procurement_team',
 ];
 
