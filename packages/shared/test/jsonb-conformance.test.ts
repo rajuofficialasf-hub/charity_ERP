@@ -354,7 +354,14 @@ describe('project-component-settings as a whole', () => {
   it('has a zod mirror for every component definition of the JSON Schema', () => {
     const defs = Object.keys(
       read(join(schemaDir, 'project-component-settings.schema.json')).$defs,
-    ).filter((d) => !['bilingual', 'codeLabel', 'photoSource'].includes(d));
+      // the helpers, and the pending photo rule: the state a draft's distribution row is seeded
+      // in before the PM chooses the rule, never a shape the API accepts in a write
+    ).filter(
+      (d) =>
+        !['bilingual', 'codeLabel', 'photoSource', 'photoSources', 'photo_rule_pending'].includes(
+          d,
+        ),
+    );
     expect(Object.keys(componentSettingsSchemas).sort()).toEqual(defs.sort());
   });
 });

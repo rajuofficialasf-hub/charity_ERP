@@ -1079,15 +1079,22 @@ components:
         reason: { type: string, minLength: 3, maxLength: 1000 }
         expiresAt: { type: string, format: date-time }
     PermissionGrant:
-      allOf:
-        - $ref: '#/components/schemas/PermissionGrantRequest'
-        - type: object
-          required: [id, grantedBy, createdAt]
-          properties:
-            id: { $ref: '#/components/schemas/Uuid' }
-            grantedBy: { $ref: '#/components/schemas/Uuid' }
-            createdAt: { type: string, format: date-time }
-            revokedAt: { type: [string, 'null'], format: date-time }
+      type: object
+      description: A panel override as stored; the parts the request left out are null
+      required: [id, userId, permission, effect, scopeType, reason, grantedBy, createdAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        userId: { $ref: '#/components/schemas/Uuid' }
+        permission: { type: string }
+        effect: { type: string, enum: [grant, revoke] }
+        scopeType: { type: string, enum: [GLOBAL, PROGRAM, PROJECT, REGION, DISTRICT, UPAZILA, UNION, ASSIGNED, SELF] }
+        scopeRef: { type: [string, 'null'], format: uuid }
+        condition: { type: [string, 'null'] }
+        reason: { type: string }
+        expiresAt: { type: [string, 'null'], format: date-time }
+        grantedBy: { $ref: '#/components/schemas/Uuid' }
+        createdAt: { type: string, format: date-time }
+        revokedAt: { type: [string, 'null'], format: date-time }
     PermissionGrantResponse:
       type: object
       required: [data, meta]
@@ -1385,9 +1392,62 @@ components:
             photoFileId: { type: [string, 'null'], format: uuid }
             homeProgramId: { type: [string, 'null'], format: uuid }
             homeDivisionId: { type: [string, 'null'], format: uuid }
-            volunteer: { oneOf: [{ $ref: '#/components/schemas/Volunteer' }, { type: 'null' }] }
+            volunteer: { oneOf: [{ $ref: '#/components/schemas/PendingVolunteerDetail' }, { type: 'null' }] }
             blocklisted: { type: boolean }
             corrections: { type: array, items: { $ref: '#/components/schemas/ChangeRequest' } }
+    RegistrationVolunteer:
+      type: object
+      description: The volunteer of a registration as the approval answers it
+      required: [id, userId, displayName, type, state, districtId, upazilaId, approvedAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        userId: { $ref: '#/components/schemas/Uuid' }
+        displayName: { type: string }
+        type: { type: string, enum: [general, local_daee, both, team_member, paid] }
+        state: { type: string, enum: [pending, active, blocked, deactivated] }
+        districtId: { $ref: '#/components/schemas/Uuid' }
+        upazilaId: { $ref: '#/components/schemas/Uuid' }
+        approvedAt: { type: [string, 'null'], format: date-time }
+    RegistrationVolunteerResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/RegistrationVolunteer' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    PendingVolunteerDetail:
+      description: The volunteer of a pending registration as the approver opens it; NID, NID photos, bank, blood group and date of birth only inside the caller's field classes (RBAC.md 6)
+      allOf:
+        - $ref: '#/components/schemas/RegistrationVolunteer'
+        - $ref: '#/components/schemas/VolunteerProfileDetails'
+        - type: object
+          required: [fatherName, motherName, divisionId, unionId, photoFileId, referenceVolunteerId]
+          properties:
+            fatherName: { type: string }
+            motherName: { type: string }
+            mobile: { type: [string, 'null'] }
+            whatsapp: { type: [string, 'null'] }
+            divisionId: { $ref: '#/components/schemas/Uuid' }
+            unionId: { $ref: '#/components/schemas/Uuid' }
+            addressLine: { type: [string, 'null'] }
+            education: { type: [string, 'null'] }
+            experience: { type: [string, 'null'] }
+            workDescription: { type: [string, 'null'] }
+            previousProjects: { type: [string, 'null'] }
+            facebookId: { type: [string, 'null'] }
+            nid: { type: string, x-sensitive-class: volunteer.identity }
+            nidPhotoFileId: { type: [string, 'null'], format: uuid, x-sensitive-class: volunteer.identity }
+            nidPhotoBackFileId: { type: [string, 'null'], format: uuid, x-sensitive-class: volunteer.identity }
+            bank:
+              type: object
+              x-sensitive-class: volunteer.bank
+              properties:
+                bankName: { type: [string, 'null'] }
+                accountName: { type: [string, 'null'] }
+                accountNumber: { type: [string, 'null'] }
+                branchName: { type: [string, 'null'] }
+                routingNumber: { type: [string, 'null'] }
+            photoFileId: { type: [string, 'null'], format: uuid }
+            referenceVolunteerId: { type: [string, 'null'], format: uuid }
     RegistrationDetailResponse:
       type: object
       required: [data, meta]
@@ -4278,7 +4338,7 @@ paths:
           description: Approved
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/VolunteerResponse' }
+              schema: { $ref: '#/components/schemas/RegistrationVolunteerResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }

@@ -72,6 +72,9 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm docs:check
       - run: pnpm test
+      # every registered API operation answered its success status in a test (the responses were
+      # validated against docs/api/openapi.yaml by the contract recorder during `pnpm test`)
+      - run: pnpm --filter @css/api contract:coverage --no-run
       - run: pnpm build
       # the first route of the PWA stays within 250 KB of compressed JavaScript
       - run: pnpm --filter @css/web bundle:report

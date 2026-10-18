@@ -54,7 +54,11 @@ export function programsRouter(deps: RouteDeps, c: Pick<Container, 'programs'>):
     scope: 'program',
     audit: 'none',
     responses: { 200: z.array(programView), 401: null, 403: null },
-    handler: async ({ req }) => ok(await c.programs.list(scopeOf(req))),
+    handler: async ({ req }) => {
+      // the whole list at once, in the list envelope every list answers with
+      const rows = await c.programs.list(scopeOf(req));
+      return ok(rows, { limit: rows.length, nextCursor: null, prevCursor: null });
+    },
   });
 
   defineRoute<ProgramCreate>(router, deps, {

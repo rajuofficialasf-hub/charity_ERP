@@ -9,6 +9,7 @@ export default defineProject({
   test: {
     name: 'api-db',
     environment: 'node',
+    setupFiles: ['test/support/setup.ts'],
     // pg-boss's optional @opentelemetry/api ships an ESM build with extensionless imports that
     // only a bundler resolves; Vitest inlines it (the Node runtime loads its CommonJS build).
     server: { deps: { inline: ['pg-boss', '@opentelemetry/api'] } },

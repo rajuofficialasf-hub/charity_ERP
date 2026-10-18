@@ -30,21 +30,30 @@
       "type": "object", "additionalProperties": false,
       "properties": { "team_members_allowed": { "type": "boolean" } }
     },
+    "photoSources": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "distribution_proof": { "$ref": "#/$defs/photoSource" },
+        "construction_proof": { "$ref": "#/$defs/photoSource" },
+        "evidence": { "$ref": "#/$defs/photoSource" },
+        "voucher": { "$ref": "#/$defs/photoSource" },
+        "payment_copy": { "$ref": "#/$defs/photoSource" }
+      }
+    },
     "photo_rule": {
       "type": "object", "additionalProperties": false, "required": ["rule"],
       "properties": {
         "rule": { "enum": ["group", "individual", "both", "per_application_type"] },
-        "source": {
-          "type": "object", "additionalProperties": false,
-          "properties": {
-            "distribution_proof": { "$ref": "#/$defs/photoSource" },
-            "construction_proof": { "$ref": "#/$defs/photoSource" },
-            "evidence": { "$ref": "#/$defs/photoSource" },
-            "voucher": { "$ref": "#/$defs/photoSource" },
-            "payment_copy": { "$ref": "#/$defs/photoSource" }
-          }
-        },
+        "source": { "$ref": "#/$defs/photoSources" },
         "dedup_identical": { "type": "boolean", "default": true, "description": "project-level deduplication policy (O-30)" }
+      }
+    },
+    "photo_rule_pending": {
+      "type": "object", "additionalProperties": false,
+      "description": "The distribution row of a draft whose workflow leaves the photo rule to the PM: the sources are set, the rule is still missing, and the activation check reports it (T1.11)",
+      "properties": {
+        "source": { "$ref": "#/$defs/photoSources" },
+        "dedup_identical": { "type": "boolean" }
       }
     },
     "stages": {
@@ -95,6 +104,7 @@
     { "$ref": "#/$defs/public_link" },
     { "$ref": "#/$defs/volunteer_assignment" },
     { "$ref": "#/$defs/photo_rule" },
+    { "$ref": "#/$defs/photo_rule_pending" },
     { "$ref": "#/$defs/stages" },
     { "$ref": "#/$defs/issue_log" },
     { "$ref": "#/$defs/volunteer_expenses" },

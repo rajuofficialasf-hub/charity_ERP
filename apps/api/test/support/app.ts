@@ -8,6 +8,7 @@ import {
   createContainer,
 } from '../../src/container';
 import type { RouteRegistry } from '../../src/openapi/registry';
+import { contractRecorder } from './contract';
 import { testEnv } from './env';
 
 export interface TestApp {
@@ -39,5 +40,11 @@ export function buildTestApp(
     logStream: options.logStream,
     extraRouters: options.routers,
   });
-  return { app, registry, container, close: () => closeContainer(container) };
+  // every JSON response is checked against the contract (test/support/contract.ts)
+  return {
+    app: contractRecorder.wrap(app),
+    registry,
+    container,
+    close: () => closeContainer(container),
+  };
 }
