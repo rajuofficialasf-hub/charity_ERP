@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { renderTemplateText } from '../i18n/notifications.js';
 import { notificationLink } from './links.js';
 import {
+  IN_APP_PARAMS,
   inAppParams,
   NOTIFICATION_TEMPLATES,
   PERSON_VARIABLES,
@@ -24,6 +25,17 @@ describe('the notification templates', () => {
           for (const name of used) expect(t.variables, `${t.key}: ${name}`).toContain(name);
         }
       }
+    }
+  });
+
+  it('fill every in-app text from the values an in-app row keeps', () => {
+    for (const t of NOTIFICATION_TEMPLATES) {
+      const inApp = t.channels.in_app;
+      if (!inApp) continue;
+      for (const locale of ['bn', 'en'] as const)
+        for (const s of [inApp[locale].title, inApp[locale].body])
+          for (const name of s ? templateVariables(s) : [])
+            expect(IN_APP_PARAMS, `${t.key}: ${name}`).toContain(name);
     }
   });
 
@@ -81,7 +93,13 @@ describe('the notification templates', () => {
 
   it('keep no person value on an in-app row', () => {
     expect(
-      inAppParams({ applicant_name: 'x', from_name: 'y', count: 2, region_name: 'z' }),
+      inAppParams({
+        applicant_name: 'x',
+        from_name: 'y',
+        mobile: '017',
+        count: 2,
+        region_name: 'z',
+      }),
     ).toEqual({
       count: 2,
       region_name: 'z',

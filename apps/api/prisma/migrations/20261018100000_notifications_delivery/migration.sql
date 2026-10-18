@@ -5,3 +5,8 @@
 ALTER TABLE "notifications" ADD COLUMN "template_version" INTEGER;
 UPDATE "notifications" SET "template_version" = 1 WHERE "template_version" IS NULL;
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_template_version_check" CHECK ("template_version" IS NULL OR "template_version" >= 1);
+
+-- An outbound message keeps what its event is about, so the same email within 15 minutes is sent
+-- once while an email about another record still goes.
+ALTER TABLE "outbound_messages" ADD COLUMN "coalesce_key" TEXT;
+CREATE INDEX "outbound_messages_recipient_user_id_coalesce_key_idx" ON "outbound_messages"("recipient_user_id", "coalesce_key", "created_at" DESC);

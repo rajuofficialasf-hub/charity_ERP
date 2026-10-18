@@ -2879,6 +2879,7 @@ model OutboundMessage {
   address                      String
   channel                      String
   templateKey                  String         @map("template_key")
+  coalesceKey                  String?        @map("coalesce_key")
   templateVersion              Int            @map("template_version")
   params                       Json           @default("{}")
   idempotencyKey               String         @map("idempotency_key")
@@ -2901,6 +2902,7 @@ model OutboundMessage {
   @@index([recipientUserId], map: "outbound_messages_recipient_user_id_idx")
   @@index([recipientDonorId], map: "outbound_messages_recipient_donor_id_idx")
   @@index([createdBy], map: "outbound_messages_created_by_idx")
+  @@index([recipientUserId, coalesceKey, createdAt(sort: Desc)], map: "outbound_messages_recipient_user_id_coalesce_key_idx")
   @@map("outbound_messages")
 }
 

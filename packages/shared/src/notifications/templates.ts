@@ -587,9 +587,29 @@ export function templateVariables(text: string): string[] {
   return [...text.matchAll(PLACEHOLDER)].map((m) => m[1] as string);
 }
 
-/** The params an in-app row may keep: every value that names a person is left out. */
+/**
+ * The values an in-app row may keep: what happened, the place, the project, counts, the reader's
+ * own text and the record ids of the link. Anything else, a person's name above all, is left out.
+ */
+export const IN_APP_PARAMS: readonly string[] = [
+  'count',
+  'minutes',
+  'date',
+  'new_date',
+  'region_name',
+  'field_name',
+  'project_name',
+  'result',
+  'reason',
+  'note',
+  'summary',
+  'device_name',
+  'userId',
+  'projectId',
+];
+
 export function inAppParams<T>(params: Record<string, T>): Record<string, T> {
   return Object.fromEntries(
-    Object.entries(params).filter(([name]) => !PERSON_VARIABLES.includes(name)),
+    Object.entries(params).filter(([name]) => IN_APP_PARAMS.includes(name)),
   );
 }

@@ -53,8 +53,8 @@ export class AccessService {
    * The effective grants and instance revokes of a user, computed per request, and the protected
    * field classes the user's roles (account and project roles) may see.
    */
-  async load(userId: string): Promise<RequestAccess> {
-    const facts = await loadAccessFacts(this.prisma, userId);
+  async load(userId: string, db: Tx = this.prisma): Promise<RequestAccess> {
+    const facts = await loadAccessFacts(db, userId);
     return {
       ...effectiveAccess(this.registry, facts, this.clock.now()),
       fieldClasses: visibleFieldClasses(this.registry, [
@@ -70,18 +70,13 @@ export class AccessService {
     access: EffectiveAccess,
     permission: string,
     entity: string,
+    db: Tx = this.prisma,
   ): Promise<Scope> {
     if (entity === 'self' || permission === 'authenticated' || permission === 'entity')
       return makeScope(principal.userId, permission, entity, { ...NO_INSTANCES, self: true });
     const grants = access.grants.filter((g) => g.permission === permission);
     const revokes = access.instanceRevokes.filter((r) => r.permission === permission);
-    const instances = await resolveInstances(
-      this.prisma,
-      principal.userId,
-      entity,
-      grants,
-      revokes,
-    );
+    const instances = await resolveInstances(db, principal.userId, entity, grants, revokes);
     return makeScope(principal.userId, permission, entity, instances);
   }
 
@@ -150,9 +145,23 @@ export class AccessService {
     return Object.fromEntries(entries) as Record<K, boolean>;
   }
 
-  /** The scope a user holds for a permission on another entity than the route's (one request). */
-  async scopeOfUser(userId: string, permission: string, entity: string): Promise<Scope> {
-    return this.scopeFor({ userId } as Principal, await this.load(userId), permission, entity);
+  /**
+   * The scope a user holds for a permission on another entity than the route's (one request); in
+   * `db` when given, so a transaction sees its own writes.
+   */
+  async scopeOfUser(
+    userId: string,
+    permission: string,
+    entity: string,
+    db: Tx = this.prisma,
+  ): Promise<Scope> {
+    return this.scopeFor(
+      { userId } as Principal,
+      await this.load(userId, db),
+      permission,
+      entity,
+      db,
+    );
   }
 
   /** Logs a refusal without any record content (user, permission, entity, request id only). */

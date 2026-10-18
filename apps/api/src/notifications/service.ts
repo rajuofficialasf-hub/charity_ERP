@@ -14,8 +14,13 @@ export interface NotificationInput {
   recipients: readonly RecipientRule[];
   /** Template values and the record ids the in-app link needs (`userId`, `projectId`). */
   params: Record<string, NotificationParam>;
-  /** What the event is about; identical events on it within 15 minutes collapse into one entry. */
+  /**
+   * What the event is about (a record id, a day); identical events on it within 15 minutes collapse
+   * into one entry and one email. Required when the params name a record.
+   */
   about?: string;
+  /** The business event's id when it has one, so a replay never queues a second email. */
+  eventId?: string;
   /** The person who acted; they never get a copy. */
   actorId?: string | null;
 }
@@ -49,17 +54,25 @@ export class NotificationService {
       ? NOTIFICATION_CATALOGUE[input.key]
       : undefined;
     if (!entry) throw new Error(`no notification catalogue entry for ${input.key}`);
+    // events about different records must never collapse into one
+    if (
+      !input.about &&
+      (Object.hasOwn(input.params, 'userId') || Object.hasOwn(input.params, 'projectId'))
+    )
+      throw new Error(`notification ${input.key}: the record it is about is missing`);
     const people = await this.recipients.resolve(tx, input.recipients, input.actorId);
     if (!people.length) return { inApp: 0, emails: 0 };
     const now = this.clock.now();
     const since = new Date(now.getTime() - COALESCE_MS);
     const coalesceKey = `${input.key}:${input.about ?? ''}`;
     const versions = await this.activeVersions(tx, input.key);
-    const eventId = uuidv7();
+    const eventId = input.eventId ?? uuidv7();
     let inApp = 0;
     let emails = 0;
 
     for (const person of people) {
+      // one publish at a time per person and event, so two at once never both insert
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${person.id}:${coalesceKey}`}, 0))`;
       if (entry.inApp) {
         const params = inAppParams(input.params) as Prisma.InputJsonValue;
         const recent = await tx.notification.findFirst({
@@ -91,12 +104,18 @@ export class NotificationService {
         const queued = await tx.outboundMessage.count({
           where: {
             recipientUserId: person.id,
-            templateKey: input.key,
+            coalesceKey,
             channel: 'email',
             createdAt: { gte: since },
           },
         });
         if (queued) continue;
+        const idempotencyKey = `${eventId}:${person.id}:email`;
+        // a replayed event never queues its email again
+        if (
+          await tx.outboundMessage.findUnique({ where: { idempotencyKey }, select: { id: true } })
+        )
+          continue;
         const id = uuidv7();
         await tx.outboundMessage.create({
           data: {
@@ -106,9 +125,10 @@ export class NotificationService {
             address: person.email,
             channel: 'email',
             templateKey: input.key,
+            coalesceKey,
             templateVersion: versions.get(`email:${locale(person.language)}`) ?? 1,
             params: input.params as Prisma.InputJsonValue,
-            idempotencyKey: `${eventId}:${person.id}:email`,
+            idempotencyKey,
             createdBy: input.actorId ?? null,
           },
         });

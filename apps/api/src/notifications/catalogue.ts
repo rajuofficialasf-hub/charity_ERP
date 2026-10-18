@@ -13,18 +13,17 @@ export interface CatalogueEntry {
   category: NotificationCategory;
 }
 
-const entry = (category: NotificationCategory, email = false, inApp = true): CatalogueEntry => ({
-  inApp,
-  email,
-  category,
-});
+const entry = (
+  category: NotificationCategory,
+  channels: { email?: boolean; inApp?: boolean } = {},
+): CatalogueEntry => ({ inApp: channels.inApp ?? true, email: channels.email ?? false, category });
 
 export const NOTIFICATION_CATALOGUE: Readonly<Record<string, CatalogueEntry>> = {
   registration_pending: entry('work'),
   registration_correction_requested: entry('work'),
   registration_approved: entry('info'),
   registration_rejected: entry('info'),
-  staff_registration_pending: entry('work', true),
+  staff_registration_pending: entry('work', { email: true }),
   edit_request_submitted: entry('work'),
   edit_request_approved: entry('info'),
   edit_request_closed: entry('info'),
@@ -33,9 +32,9 @@ export const NOTIFICATION_CATALOGUE: Readonly<Record<string, CatalogueEntry>> = 
   account_unblocked: entry('security'),
   session_revoked: entry('security'),
   account_locked: entry('security'),
-  security_lockout_alert: entry('alert', true, false),
-  security_refresh_reuse: entry('security', true),
-  handover_items_assigned: entry('work', true),
+  security_lockout_alert: entry('alert', { email: true, inApp: false }),
+  security_refresh_reuse: entry('security', { email: true }),
+  handover_items_assigned: entry('work', { email: true }),
   handover_completed: entry('info'),
   project_activated: entry('info'),
   project_assignment: entry('work'),

@@ -90,8 +90,14 @@ describe('publishing an event', () => {
     expect(outbox).toHaveLength(1);
     expect(outbox[0]).toMatchObject({ recipient_user_id: world.users.rpmDhaka, status: 'queued' });
     expect(outbox[0]!.params).toMatchObject({ from_name: 'নমুনা অফিসিয়াল' });
-    const { rows: jobs } = await h.db.query(`SELECT data FROM pgboss.job WHERE name = 'notify'`);
-    expect(jobs.map((j) => j.data.messageId)).toHaveLength(1);
+    const { rows: ids } = await h.db.query<{ id: string }>(
+      `SELECT id FROM outbound_messages WHERE template_key = 'handover_items_assigned'`,
+    );
+    const { rows: jobs } = await h.db.query(
+      `SELECT data FROM pgboss.job WHERE name = 'notify' AND data->>'messageId' = $1`,
+      [ids[0]!.id],
+    );
+    expect(jobs).toHaveLength(1);
   });
 
   it('collapses the same event within 15 minutes into one entry and one email', async () => {
@@ -112,6 +118,41 @@ describe('publishing an event', () => {
       (m) => m.recipient_user_id === world.users.monitoring,
     );
     expect(emails).toHaveLength(1);
+  });
+
+  it('sends the email about another record, and never twice for one event', async () => {
+    const about = (record: string, eventId?: string): NotificationInput => ({
+      key: 'security_refresh_reuse',
+      recipients: [{ user: world.users.monitoring }],
+      params: { device_name: 'Phone' },
+      about: record,
+      eventId,
+    });
+    await publish(about('session-a'));
+    await publish(about('session-b'));
+    const emails = (await outboxOf('security_refresh_reuse')).filter(
+      (m) => m.recipient_user_id === world.users.monitoring,
+    );
+    expect(emails).toHaveLength(2);
+    // the same event id never queues a second email, even when nothing else would stop it
+    const eventId = '01900000-0000-7000-8000-00000000000c';
+    await publish(about('session-c', eventId));
+    await publish(about('session-d', eventId));
+    expect(
+      (await outboxOf('security_refresh_reuse')).filter(
+        (m) => m.recipient_user_id === world.users.monitoring,
+      ),
+    ).toHaveLength(3);
+  });
+
+  it('refuses an event that names a record without saying which one it is about', async () => {
+    await expect(
+      publish({
+        key: 'registration_approved',
+        recipients: [{ user: world.users.general }],
+        params: { userId: world.users.general },
+      }),
+    ).rejects.toThrow(/about/);
   });
 
   it('writes nothing when the event transaction rolls back', async () => {
@@ -135,6 +176,7 @@ describe('publishing an event', () => {
         { project: { projectId: world.a1.id, rpms: true, staff: true, volunteers: true } },
       ],
       params: { project_name: { bn: 'প্রকল্প', en: 'Project' }, projectId: world.a1.id },
+      about: world.a1.id,
       actorId: world.users.rpmDhaka,
     });
     const people = (await rowsOf('project_activated')).map((r) => r.user_id);

@@ -118,13 +118,14 @@ export class RecipientResolver {
       },
       select: SELECT,
     });
-    const kept = await Promise.all(
-      candidates.map(async (c) => {
-        const scope = await this.access.scopeOfUser(c.id, rule.permission, rule.entity);
-        return (await this.access.reaches(scope, rule.target, tx)) ? this.recipient(c) : null;
-      }),
-    );
-    return kept.filter((r): r is Recipient => r !== null);
+    // one after another on the event's own connection: the transaction sees its own writes, and a
+    // publish never asks the pool for more connections while it holds one
+    const kept: Recipient[] = [];
+    for (const c of candidates) {
+      const scope = await this.access.scopeOfUser(c.id, rule.permission, rule.entity, tx);
+      if (await this.access.reaches(scope, rule.target, tx)) kept.push(this.recipient(c));
+    }
+    return kept;
   }
 
   private async projectPeople(

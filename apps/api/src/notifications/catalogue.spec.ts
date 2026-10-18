@@ -9,8 +9,12 @@ describe('the notification catalogue', () => {
     for (const [key, entry] of Object.entries(NOTIFICATION_CATALOGUE)) {
       const template = NOTIFICATION_TEMPLATES.find((t) => t.key === key);
       expect(template, key).toBeDefined();
-      if (entry.inApp) expect(template!.channels.in_app, `${key} in-app`).toBeDefined();
-      if (entry.email) expect(template!.channels.email, `${key} email`).toBeDefined();
+      for (const locale of ['bn', 'en'] as const) {
+        if (entry.inApp)
+          expect(template!.channels.in_app?.[locale], `${key} in-app ${locale}`).toBeDefined();
+        if (entry.email)
+          expect(template!.channels.email?.[locale], `${key} email ${locale}`).toBeDefined();
+      }
     }
   });
 
