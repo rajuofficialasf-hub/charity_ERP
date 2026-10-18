@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { RegistrationEvent } from '../../src/notifications/registration-events';
 import { jpeg, png } from '../support/images';
 import {
   account,
@@ -12,19 +11,19 @@ import {
   PASSWORD,
 } from './support/auth-app';
 import * as f from './support/fixtures';
+import { notificationsOf } from './support/notifications';
 import { TOKEN_HEADER, verifiedDraft, verifyContacts } from './support/registration';
 
 // Submit and the pending account (AUTH.md 2, 7; DECISION_LOG D-081, D-086; plan
 // docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, unit U6).
-const events: RegistrationEvent[] = [];
 let h: AuthHarness;
 let loc: Awaited<ReturnType<typeof f.locationTree>>;
 let programId: string;
+let head: string;
 
 beforeAll(async () => {
-  h = await authHarness({
-    overrides: { registrationEvents: { emit: (event) => void events.push(event) } },
-  });
+  h = await authHarness();
+  head = (await account(h.db, { role: 'department_head' })).id;
   loc = await f.locationTree(h.db);
   programId = (await f.project(h.db)).program;
 });
@@ -124,7 +123,10 @@ describe('POST /auth/register/submit', () => {
     ).rows;
     expect(audit).toHaveLength(1);
     expect(JSON.stringify(audit[0].new)).not.toContain(form.nid);
-    expect(events).toContainEqual({ type: 'registration.submitted', userId });
+    // the approvers whose scope reaches the volunteer are told, in the same transaction
+    const pending = await notificationsOf(h.db, 'registration_pending', head);
+    expect(pending.map((n) => n.params.userId)).toContain(userId);
+    expect(await notificationsOf(h.db, 'registration_pending', userId)).toEqual([]);
     // the draft token is spent
     expect((await submit(d.token, volunteerForm(d))).status).toBe(401);
   });

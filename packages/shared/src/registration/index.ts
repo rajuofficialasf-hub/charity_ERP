@@ -302,6 +302,39 @@ export const EDIT_FIELDS = Object.keys(EDIT_FIELD_VALUES) as EditField[];
 export const CONTACT_FIELDS = ['mobile', 'email'] as const;
 export const PHOTO_FIELDS = PHOTO_SLOTS;
 
+/**
+ * The catalogue label key of each field a correction or edit request may name (registration
+ * namespace): the screens and the notifications name a field the same way.
+ */
+export const REQUEST_FIELD_LABEL = {
+  name: 'form.name',
+  fatherName: 'form.father_name',
+  motherName: 'form.mother_name',
+  nid: 'form.nid',
+  whatsapp: 'form.whatsapp',
+  address: 'form.address',
+  addressLine: 'form.address_line',
+  education: 'form.education',
+  experience: 'form.experience',
+  workDescription: 'form.work_description',
+  previousProjects: 'form.previous_projects',
+  facebookId: 'form.facebook',
+  bloodGroup: 'form.blood_group',
+  dateOfBirth: 'form.date_of_birth',
+  tshirtSize: 'form.tshirt_size',
+  volunteeringArea: 'form.volunteering_area',
+  profession: 'form.profession_group',
+  skills: 'form.skills',
+  educationDetails: 'form.education_group',
+  permanentAddress: 'form.address_permanent',
+  bank: 'form.bank',
+  photo: 'form.photo',
+  nid_photo: 'form.nid_photo',
+  nid_photo_back: 'form.nid_photo_back',
+  mobile: 'form.mobile',
+  email: 'form.email',
+} as const;
+
 export const editRequestCreateSchema = z
   .strictObject({
     field: z.enum(EDIT_FIELDS as [EditField, ...EditField[]]),

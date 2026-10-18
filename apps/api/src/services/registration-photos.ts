@@ -8,6 +8,7 @@ import type { Principal } from '../auth/principal';
 import type { PrismaService, Tx } from '../core/prisma.service';
 import { cleanImage, type CleanImage } from '../files/images';
 import { ApiError } from '../i18n/api-error';
+import type { AccountEvents } from '../notifications/account-events';
 import type { StorageDriver } from '../storage';
 import type { RegistrationService } from './registration';
 
@@ -39,6 +40,7 @@ export class RegistrationPhotosService {
     private readonly audit: AuditWriter,
     private readonly registration: RegistrationService,
     private readonly logger: Logger,
+    private readonly events: AccountEvents,
   ) {}
 
   /** Upload to a verified draft; a second upload to the slot replaces the first. */
@@ -103,8 +105,8 @@ export class RegistrationPhotosService {
       `users/${principal.userId}`,
       { slot: input.slot, source: input.source, uploadedBy: principal.userId },
       async (tx, id) => {
-        const [locked] = await tx.$queryRaw<{ new_value: string | null }[]>`
-          SELECT new_value FROM volunteer_change_requests
+        const [locked] = await tx.$queryRaw<{ new_value: string | null; status: string }[]>`
+          SELECT new_value, status FROM volunteer_change_requests
            WHERE id = ${request.id}::uuid AND status IN ('open', 'submitted') FOR UPDATE`;
         if (!locked) throw new ApiError('permission.not_found', 404);
         // a profile edit with its photo goes to the approvers; a correction waits for the answer
@@ -115,6 +117,8 @@ export class RegistrationPhotosService {
             ...(request.kind === 'profile_edit' ? { status: 'submitted' } : {}),
           },
         });
+        if (request.kind === 'profile_edit' && locked.status === 'open')
+          await this.events.editRequestSubmitted(tx, request.id);
         return discard(tx, locked.new_value);
       },
       { requestId: request.id },

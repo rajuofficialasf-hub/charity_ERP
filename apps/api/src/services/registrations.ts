@@ -27,7 +27,7 @@ import {
 import type { PrismaService, Tx } from '../core/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
-import type { RegistrationEvents } from '../notifications/registration-events';
+import type { AccountEvents } from '../notifications/account-events';
 import { addressProblem } from './registration';
 import { DETAILS_SELECT, detailsUpdate, detailsView } from './volunteer-details';
 
@@ -167,7 +167,7 @@ export class RegistrationsService {
     private readonly registry: AccessRegistry,
     private readonly versions: PermissionVersionService,
     private readonly sessions: SessionService,
-    private readonly events: RegistrationEvents,
+    private readonly events: AccountEvents,
   ) {}
 
   /** Whether the caller decides staff registrations (a GLOBAL grant of the staff permission). */
@@ -441,9 +441,9 @@ export class RegistrationsService {
         action: 'auth.approved',
         new: { kind: 'volunteer', role },
       });
+      await this.events.registrationDecided(tx, userId, { approved: true }, actor.userId);
       return approved;
     });
-    this.events.emit({ type: 'registration.approved', userId });
     return {
       id: result.id,
       userId: result.userId,
@@ -460,13 +460,14 @@ export class RegistrationsService {
   async reject(actor: Principal, scope: Scope, userId: string, reason: string): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       const { volunteer } = await this.pendingVolunteer(tx, scope, userId);
+      // told before the account closes: the notice waits for the person who registers again
+      await this.events.registrationDecided(tx, userId, { approved: false, reason }, actor.userId);
       await this.close(tx, actor, userId, reason);
       await tx.volunteerChangeRequest.updateMany({
         where: { volunteerId: volunteer.id, kind: CORRECTION, status: { in: UNFINISHED } },
         data: { status: 'closed', decidedBy: actor.userId, decidedAt: this.clock.now() },
       });
     });
-    this.events.emit({ type: 'registration.rejected', userId });
   }
 
   /** A rejected account: deactivated, its sessions ended, the reason audited. */
@@ -522,9 +523,9 @@ export class RegistrationsService {
         new: { fields },
         reason: body.note,
       });
+      await this.events.correctionRequested(tx, userId, fields, body.note, actor.userId);
       return created;
     });
-    this.events.emit({ type: 'registration.correction_requested', userId });
     return rows.map((r) => changeView(r, false));
   }
 
@@ -546,7 +547,15 @@ export class RegistrationsService {
         this.access.denied(actor.userId, 'staff.registration.approve', 'global');
         throw new ApiError('permission.not_found', 404);
       }
-      if (body.decision === 'reject') return this.close(tx, actor, userId, body.reason!);
+      if (body.decision === 'reject') {
+        await this.events.registrationDecided(
+          tx,
+          userId,
+          { approved: false, reason: body.reason! },
+          actor.userId,
+        );
+        return this.close(tx, actor, userId, body.reason!);
+      }
       // a role with global scope asks for 12 characters; the 8 of the registration are not enough,
       // so the person chooses a new password at the next sign-in (DECISION_LOG O-66)
       // (the same stored flag that sets the password length in AuthService)
@@ -566,13 +575,10 @@ export class RegistrationsService {
         action: 'auth.approved',
         new: { kind: 'staff', role: body.roleKey },
       });
+      await this.events.registrationDecided(tx, userId, { approved: true }, actor.userId);
     });
     // `bump` evicted inside the transaction; a request in between may have cached the old facts
     this.sessions.evictUser(userId);
-    this.events.emit({
-      type: body.decision === 'approve' ? 'registration.approved' : 'registration.rejected',
-      userId,
-    });
   }
 
   /** The caller's own open correction and edit requests, with their values (own data, D-081). */
@@ -695,8 +701,9 @@ export class RegistrationsService {
         entityId: principal.userId,
         new: { requests: rows.length },
       });
+      // the corrected registration waits for the approvers again
+      await this.events.registrationPending(tx, principal.userId);
     });
-    this.events.emit({ type: 'registration.resubmitted', userId: principal.userId });
   }
 }
 

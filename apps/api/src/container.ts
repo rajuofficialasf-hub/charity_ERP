@@ -25,10 +25,7 @@ import {
 } from './notifications/adapters';
 import { AuthService } from './services/auth';
 import { RegistrationCleanup } from './jobs/registration-cleanup';
-import {
-  LoggingRegistrationEvents,
-  type RegistrationEvents,
-} from './notifications/registration-events';
+import { AccountEvents } from './notifications/account-events';
 import { LocationsService } from './services/locations';
 import { FilesService } from './services/files';
 import { VolunteersService } from './services/volunteers';
@@ -99,7 +96,7 @@ export interface Container {
   organogram: OrganogramService;
   accessPanel: AccessPanelService;
   locations: LocationsService;
-  registrationEvents: RegistrationEvents;
+  accountEvents: AccountEvents;
   registration: RegistrationService;
   registrationCleanup: RegistrationCleanup;
   registrationPhotos: RegistrationPhotosService;
@@ -187,14 +184,14 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   assertConditionsCovered(accessRegistry);
   const access = o.access ?? new AccessService(accessRegistry, prisma, clock, logger);
   const projects = o.projects ?? new ProjectsService(env, prisma, audit, access, clock);
-  const registrationEvents = o.registrationEvents ?? new LoggingRegistrationEvents(logger);
   const settings = o.settings ?? new SettingsService(prisma, audit);
   const notifications =
     o.notifications ??
     new NotificationService(new RecipientResolver(access, accessRegistry, clock), jobs, clock);
+  const accountEvents = o.accountEvents ?? new AccountEvents(notifications);
   const registration =
     o.registration ??
-    new RegistrationService(env, prisma, clock, otp, audit, registrationEvents, hasher);
+    new RegistrationService(env, prisma, clock, otp, audit, accountEvents, hasher);
   return {
     env,
     logger,
@@ -239,11 +236,11 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     accessPanel:
       o.accessPanel ?? new AccessPanelService(prisma, access, audit, permissionVersions, clock),
     locations: o.locations ?? new LocationsService(prisma),
-    registrationEvents,
+    accountEvents,
     registration,
     registrationPhotos:
       o.registrationPhotos ??
-      new RegistrationPhotosService(prisma, storage, audit, registration, logger),
+      new RegistrationPhotosService(prisma, storage, audit, registration, logger, accountEvents),
     files: o.files ?? new FilesService(prisma, storage, access, audit),
     volunteers: o.volunteers ?? new VolunteersService(prisma),
     volunteerList: o.volunteerList ?? new VolunteerListService(env, prisma, access),
@@ -294,14 +291,13 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         accessRegistry,
         permissionVersions,
         sessions,
-        registrationEvents,
+        accountEvents,
       ),
     handover:
       o.handover ??
-      new HandoverService(prisma, clock, audit, access, permissionVersions, registrationEvents),
+      new HandoverService(prisma, clock, audit, access, permissionVersions, accountEvents),
     blocklist:
-      o.blocklist ??
-      new BlocklistService(prisma, clock, audit, access, sessions, registrationEvents),
+      o.blocklist ?? new BlocklistService(prisma, clock, audit, access, sessions, accountEvents),
     changeRequests:
       o.changeRequests ??
       new ChangeRequestsService(
@@ -313,7 +309,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         access,
         permissionVersions,
         sessions,
-        registrationEvents,
+        accountEvents,
       ),
     registrationCleanup: o.registrationCleanup ?? new RegistrationCleanup(prisma, storage, logger),
   };

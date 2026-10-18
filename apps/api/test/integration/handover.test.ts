@@ -13,6 +13,7 @@ import {
   type Session,
 } from './support/auth-app';
 import * as f from './support/fixtures';
+import { notificationsOf } from './support/notifications';
 
 // Staff handover before deactivation (BD-08, BR-034; plan
 // docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, unit U10).
@@ -124,6 +125,18 @@ describe('the handover of an official', () => {
     ).rows.map((r) => r.action as string);
     expect(actions.filter((a) => a === 'auth.handover_started')).toHaveLength(1);
     expect(actions).toContain('auth.handover_assigned');
+
+    // the official who receives the work: the two steps on one entry within 15 minutes, one email
+    const told = await notificationsOf(h.db, 'handover_items_assigned', target.id);
+    expect(told).toHaveLength(1);
+    expect(told[0]!.count).toBe(2);
+    const emails = await h.db.query(
+      `SELECT params FROM outbound_messages WHERE recipient_user_id = $1 AND template_key = 'handover_items_assigned'`,
+      [target.id],
+    );
+    expect(emails.rows).toHaveLength(1);
+    expect(emails.rows[0].params).toMatchObject({ count: 1, from_name: expect.any(String) });
+    expect(await notificationsOf(h.db, 'handover_items_assigned', leaving.id)).toEqual([]);
   });
 
   it('refuses a volunteer, a closed official, an unfitting role and the person as target', async () => {
@@ -199,6 +212,12 @@ describe('the handover of an official', () => {
       await h.db.query(`SELECT action FROM audit_log WHERE entity_id = $1`, [leaving.id])
     ).rows.map((r) => r.action as string);
     expect(actions).toContain('auth.handover_completed');
+    // the Department Head is told how much was handed over; the Monitoring Team member who acted is not
+    const headTold = (await notificationsOf(h.db, 'handover_completed', world.users.head)).filter(
+      (n) => n.params.count === 2,
+    );
+    expect(headTold.length).toBeGreaterThan(0);
+    expect(await notificationsOf(h.db, 'handover_completed', world.users.monitoring)).toEqual([]);
   });
 
   it('a project staff row moves to an official holding the same role', async () => {

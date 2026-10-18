@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { RegistrationEvent } from '../../src/notifications/registration-events';
 import { jpeg } from '../support/images';
 import { makeScope, NO_INSTANCES } from '../../src/access/scope';
 import type { Principal } from '../../src/auth/principal';
@@ -15,12 +14,12 @@ import {
   login,
   type Session,
 } from './support/auth-app';
+import { notificationsOf } from './support/notifications';
 import * as f from './support/fixtures';
 import { DUMMY_CODE } from './support/registration';
 
 // Edit requests after approval and contact changes (BR-031 as amended by DECISION_LOG D-085; plan
 // docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, unit U8).
-const events: RegistrationEvent[] = [];
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();
@@ -28,9 +27,7 @@ const api = () => request(h.server());
 const as = (userId: string) => login(h, accounts.get(userId)!);
 
 beforeAll(async () => {
-  h = await authHarness({
-    overrides: { registrationEvents: { emit: (event) => void events.push(event) } },
-  });
+  h = await authHarness();
   const make = (kind: 'staff' | 'volunteer') => async (role: string) => {
     const a = await account(h.db, { kind, role });
     accounts.set(a.id, a);
@@ -85,7 +82,12 @@ describe('edit requests', () => {
     expect(res.body.data.status).toBe('approved');
     const row = await h.db.query('SELECT union_id FROM volunteers WHERE id = $1', [v.volunteerId]);
     expect(row.rows[0].union_id).toBe(other.union);
-    expect(events).toContainEqual({ type: 'registration.edit_decided', userId: v.account.id });
+    // the RPM of the region was told of the request, the volunteer of the decision
+    const asked = await notificationsOf(h.db, 'edit_request_submitted', world.users.rpmDhaka);
+    expect(asked.length).toBeGreaterThan(0);
+    const told = await notificationsOf(h.db, 'edit_request_approved', v.account.id);
+    expect(told).toHaveLength(1);
+    expect(told[0]!.params.field_name).toMatchObject({ en: expect.any(String) });
   });
 
   it('a refusal needs a reason and changes nothing', async () => {

@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { RegistrationEvent } from '../../src/notifications/registration-events';
 import { jpeg } from '../support/images';
 import { accessWorld } from './support/access-fixtures';
 import {
@@ -14,12 +13,12 @@ import {
   PASSWORD,
   type Session,
 } from './support/auth-app';
+import { notificationsOf } from './support/notifications';
 import * as f from './support/fixtures';
 import { pendingStaffRegistration, TOKEN_HEADER, verifiedDraft } from './support/registration';
 
 // Approval, rejection and correction requests (BR-028 to BR-030; DECISION_LOG D-084; plan
 // docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, unit U7).
-const events: RegistrationEvent[] = [];
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 let sylhet: Awaited<ReturnType<typeof f.locationTree>>;
@@ -28,9 +27,7 @@ const api = () => request(h.server());
 const as = (userId: string) => login(h, accounts.get(userId)!);
 
 beforeAll(async () => {
-  h = await authHarness({
-    overrides: { registrationEvents: { emit: (event) => void events.push(event) } },
-  });
+  h = await authHarness();
   const make = (kind: 'staff' | 'volunteer') => async (role: string) => {
     const a = await account(h.db, { kind, role });
     accounts.set(a.id, a);
@@ -127,9 +124,11 @@ describe('the pending list and approval in scope', () => {
     );
     expect(roles.rows).toEqual([{ role_key: 'volunteer_general' }]);
     expect((await auditOf(dhaka.userId)).map((a) => a.action)).toContain('auth.approved');
-    expect(events).toContainEqual({ type: 'registration.approved', userId: dhaka.userId });
+    expect(await notificationsOf(h.db, 'registration_approved', dhaka.userId)).toHaveLength(1);
     // approved once: a second approval is a conflict
     expect((await approve(rpm, dhaka.userId)).status).toBe(404);
+    // the refused second approval tells nobody
+    expect(await notificationsOf(h.db, 'registration_approved', dhaka.userId)).toHaveLength(1);
   });
 
   it("the PM approves in the divisions of the program's projects only", async () => {
@@ -221,7 +220,8 @@ describe('rejection', () => {
       action: 'auth.rejected',
       reason: 'তথ্য মেলেনি',
     });
-    expect(events).toContainEqual({ type: 'registration.rejected', userId: dhaka.userId });
+    const rejected = await notificationsOf(h.db, 'registration_rejected', dhaka.userId);
+    expect(rejected.map((n) => n.params)).toEqual([{ reason: 'তথ্য মেলেনি' }]);
     const me = await api().get('/api/v1/volunteers/me').set(bearer(own));
     expect(me.status).toBe(401);
   });
@@ -373,11 +373,12 @@ describe('correction requests', () => {
     const actions = (await auditOf(dhaka.userId)).map((a) => a.action);
     for (const action of ['auth.correction_requested', 'auth.correction_resubmitted'])
       expect(actions).toContain(action);
-    expect(events).toContainEqual({
-      type: 'registration.correction_requested',
-      userId: dhaka.userId,
-    });
-    expect(events).toContainEqual({ type: 'registration.resubmitted', userId: dhaka.userId });
+    const asked = await notificationsOf(h.db, 'registration_correction_requested', dhaka.userId);
+    expect(asked).toHaveLength(1);
+    expect(asked[0]!.params.field_name).toMatchObject({ bn: expect.any(String) });
+    // the corrected registration waits for the RPM of its region again
+    const again = await notificationsOf(h.db, 'registration_pending', world.users.rpmDhaka);
+    expect(again.map((n) => n.params.userId)).toContain(dhaka.userId);
   });
 
   it('checks the value of an answer by its field', async () => {
@@ -501,7 +502,7 @@ describe('staff registrations', () => {
       roles: ['project_executive'],
     });
     expect((await auditOf(staff.userId)).map((a) => a.action)).toContain('auth.approved');
-    expect(events).toContainEqual({ type: 'registration.approved', userId: staff.userId });
+    expect(await notificationsOf(h.db, 'registration_approved', staff.userId)).toHaveLength(1);
   });
 
   it('staff registrations are listed for staff approvers only', async () => {

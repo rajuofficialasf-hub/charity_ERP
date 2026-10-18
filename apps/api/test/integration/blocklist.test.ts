@@ -1,6 +1,5 @@
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { RegistrationEvent } from '../../src/notifications/registration-events';
 import { accessWorld } from './support/access-fixtures';
 import {
   type Account,
@@ -12,11 +11,11 @@ import {
   PASSWORD,
   type Session,
 } from './support/auth-app';
+import { notificationsOf } from './support/notifications';
 import * as f from './support/fixtures';
 
 // The volunteer blocklist (BD-06, BR-047; DECISION_LOG D-088; plan
 // docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, unit U9).
-const events: RegistrationEvent[] = [];
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();
@@ -24,9 +23,7 @@ const api = () => request(h.server());
 const as = (userId: string) => login(h, accounts.get(userId)!);
 
 beforeAll(async () => {
-  h = await authHarness({
-    overrides: { registrationEvents: { emit: (event) => void events.push(event) } },
-  });
+  h = await authHarness();
   const make = (kind: 'staff' | 'volunteer') => async (role: string) => {
     const a = await account(h.db, { kind, role });
     accounts.set(a.id, a);
@@ -70,7 +67,7 @@ describe('blocking a volunteer', () => {
     const denied = await tryLogin(v.account.loginId);
     expect(denied.status).toBe(403);
     expect(denied.body.error.code).toBe('auth.account_blocked');
-    expect(events).toContainEqual({ type: 'volunteer.blocked', userId: v.account.id });
+    expect(await notificationsOf(h.db, 'account_blocked', v.account.id)).toHaveLength(1);
 
     expect((await block(rpm, v.volunteerId, { reason: 'আবার' })).status).toBe(409);
     expect((await unblock(rpm, v.volunteerId, {})).status).toBe(422);
@@ -78,6 +75,7 @@ describe('blocking a volunteer', () => {
     expect(lifted.status).toBe(200);
     expect(lifted.body.data).toMatchObject({ active: false, releasedAt: expect.any(String) });
     expect(lifted.body.data).not.toHaveProperty('reason');
+    expect(await notificationsOf(h.db, 'account_unblocked', v.account.id)).toHaveLength(1);
     expect((await tryLogin(v.account.loginId)).status).toBe(200);
     expect((await unblock(rpm, v.volunteerId, { reason: 'আবার' })).status).toBe(404);
 

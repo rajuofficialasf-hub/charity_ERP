@@ -15,7 +15,7 @@ import {
   providerOf,
 } from '../handover/providers';
 import { ApiError } from '../i18n/api-error';
-import type { RegistrationEvents } from '../notifications/registration-events';
+import type { AccountEvents } from '../notifications/account-events';
 
 type HandoverScope = z.infer<typeof handoverScopeSchema>;
 type HandoverRow = { id: string; scope: unknown; completedAt: Date | null };
@@ -41,7 +41,7 @@ export class HandoverService {
     private readonly audit: AuditWriter,
     private readonly access: AccessService,
     private readonly versions: PermissionVersionService,
-    private readonly events: RegistrationEvents,
+    private readonly events: AccountEvents,
   ) {}
 
   private pending(db: Tx, userId: string): Promise<HandoverItem[]> {
@@ -160,15 +160,18 @@ export class HandoverService {
           action: 'auth.handover_received',
           new: { ...entry, fromUserId: userId },
         });
+        await this.events.handoverAssigned(
+          tx,
+          handover.id,
+          userId,
+          target.id,
+          picked.length,
+          actor.userId,
+        );
       }
       const left = picked.length ? await this.pending(tx, userId) : pending;
       return { view: this.view(userId, saved, left), started, moved: picked.length, to: target.id };
     });
-    if (result.started) this.events.emit({ type: 'user.handover_started', userId });
-    if (result.moved) {
-      this.events.emit({ type: 'user.handover_assigned', userId });
-      this.events.emit({ type: 'user.handover_received', userId: result.to });
-    }
     return result.view;
   }
 
@@ -193,9 +196,10 @@ export class HandoverService {
         entityId: userId,
         new: { handoverId: saved.id },
       });
+      const handedOver = handoverScopeSchema.parse(saved.scope).items.length;
+      await this.events.handoverCompleted(tx, userId, handedOver, actor.userId);
       return this.view(userId, saved, pending);
     });
-    this.events.emit({ type: 'user.handover_completed', userId });
     return result;
   }
 }
