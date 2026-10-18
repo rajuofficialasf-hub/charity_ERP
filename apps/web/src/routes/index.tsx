@@ -1,15 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate, type RouteObject } from 'react-router';
 import { RouteError } from '../components/RouteError';
-import { AppShell } from '../components/shell/AppShell';
-import { ChangePasswordView } from '../features/account/ChangePasswordView';
-import { MyWorkPage } from '../features/home/MyWorkPage';
-import { ProfileView } from '../features/account/ProfileView';
-import { SessionsView } from '../features/account/SessionsView';
 import { LoginPage } from '../features/auth/LoginPage';
-import { InvitePage } from '../features/auth/InvitePage';
-import { ResetPage } from '../features/auth/ResetPage';
-import { RegisterPage } from '../features/registration/RegisterPage';
 
 /** The dev-only component gallery (T1.4) exists in `vite dev` and in the E2E build only. */
 export const GALLERY_ENABLED = import.meta.env.DEV || import.meta.env.VITE_DEV_GALLERY === '1';
@@ -17,7 +9,11 @@ export const GALLERY_ENABLED = import.meta.env.DEV || import.meta.env.VITE_DEV_G
 // Constant-folded at build time, so a normal production build has no gallery chunk at all.
 const GalleryPage = GALLERY_ENABLED ? lazy(() => import('../dev/GalleryPage')) : null;
 
-/** Every screen of the PWA: the sign-in pages alone, every signed-in page inside the app shell. */
+/**
+ * Every screen of the PWA: the sign-in pages alone, every signed-in page inside the app shell.
+ * Only the login is in the first load; every other screen, the shell too, is its own chunk, so the
+ * first route stays within the budget of docs/NON_FUNCTIONAL_REQUIREMENTS.md (NFR-15).
+ */
 export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
   const gallery = options.gallery ?? GALLERY_ENABLED;
   return [
@@ -25,16 +21,52 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
       errorElement: <RouteError />,
       children: [
         { path: '/login', element: <LoginPage /> },
-        { path: '/login/reset', element: <ResetPage /> },
-        { path: '/invite', element: <InvitePage /> },
-        { path: '/register', element: <RegisterPage /> },
         {
-          element: <AppShell />,
+          path: '/login/reset',
+          lazy: async () => ({ Component: (await import('../features/auth/ResetPage')).ResetPage }),
+        },
+        {
+          path: '/invite',
+          lazy: async () => ({
+            Component: (await import('../features/auth/InvitePage')).InvitePage,
+          }),
+        },
+        {
+          path: '/register',
+          lazy: async () => ({
+            Component: (await import('../features/registration/RegisterPage')).RegisterPage,
+          }),
+        },
+        {
+          lazy: async () => ({
+            Component: (await import('../components/shell/AppShell')).AppShell,
+          }),
           children: [
-            { path: '/', element: <MyWorkPage /> },
-            { path: '/account/profile', element: <ProfileView /> },
-            { path: '/account/sessions', element: <SessionsView /> },
-            { path: '/account/password', element: <ChangePasswordView /> },
+            {
+              path: '/',
+              lazy: async () => ({
+                Component: (await import('../features/home/MyWorkPage')).MyWorkPage,
+              }),
+            },
+            {
+              path: '/account/profile',
+              lazy: async () => ({
+                Component: (await import('../features/account/ProfileView')).ProfileView,
+              }),
+            },
+            {
+              path: '/account/sessions',
+              lazy: async () => ({
+                Component: (await import('../features/account/SessionsView')).SessionsView,
+              }),
+            },
+            {
+              path: '/account/password',
+              lazy: async () => ({
+                Component: (await import('../features/account/ChangePasswordView'))
+                  .ChangePasswordView,
+              }),
+            },
             {
               path: '/notifications',
               lazy: async () => ({

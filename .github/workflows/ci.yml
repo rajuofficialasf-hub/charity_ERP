@@ -73,6 +73,8 @@ jobs:
       - run: pnpm docs:check
       - run: pnpm test
       - run: pnpm build
+      # the first route of the PWA stays within 250 KB of compressed JavaScript (NFR-15)
+      - run: pnpm --filter @css/web bundle:report
 
   security:
     name: Dependency audit and secret scan

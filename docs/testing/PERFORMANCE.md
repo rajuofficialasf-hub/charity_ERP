@@ -1,7 +1,7 @@
-# Performance of the nationwide lists
+# Performance
 
 The volunteer tab and the beneficiary tab (T1.10; DECISION_LOG O-67, D-094) list everyone in the
-country. This document records how they were measured on a large data set, the results, and the
+country; section 6 covers the first load of the PWA. This document records how they were measured on a large data set, the results, and the
 indexes and query changes the measurement led to. The target is a p95 under 300 ms for every list
 page and statistics call; a call that misses it is reported here with a proposal, never passed
 silently.
@@ -122,3 +122,30 @@ decision for the owner).
 - before a phase gate, once the real number of beneficiaries passes about 2,000,000, or when a count
   call reaches 200 ms at p95 in production logs. The next step for the counts would then be a
   counter maintained by the writes, which needs the owner's decision first.
+
+## 6. First load of the PWA (NFR-15)
+
+NFR-15 allows at most 250 KB of compressed JavaScript for the first route. The first route is the
+entry script of `apps/web/dist/index.html` and every chunk it preloads, gzip level 9, as
+`pnpm --filter @css/web bundle:report` (after `pnpm --filter @css/web build`) prints and CI checks
+after the build; the command fails over the budget. A first visit always opens the login, because
+a device without a session is sent there; after it the service worker precaches every chunk.
+
+| Measured 2026-10-18 (T1.15) | First route (gzip) | Files |
+|---|---|---|
+| Before: every page except the admin area in the entry | 390.0 KB | 17 |
+| After: only the login in the entry, every other page and the app shell lazy | 216.6 KB | 18 |
+
+What a signed-in page adds on top of the first route when it is not yet cached (static import
+closure of its chunks, gzip): the home with the shell 76.0 KB, my projects with the shell 72.1 KB,
+the volunteer tab with the shell and the admin area 134.2 KB, the registration page 162.6 KB.
+
+The message catalogue (both languages, every namespace, about 45 KB gzip) stays in the entry; it
+is the next step if the first route grows past the budget (load the active language only, and the
+gallery namespace only in the gallery build).
+
+Lighthouse 12 on the mobile profile against the production build (`vite preview`, simulated slow
+4G, `/login`), 2026-10-18: Performance 78, Accessibility 100, Best Practices 100; First Contentful
+Paint 3.7 s, Largest Contentful Paint 4.0 s, Total Blocking Time 100 ms, Cumulative Layout Shift
+0.002, total transfer 430 KiB (fonts and styles included). axe runs on every screen of the E2E
+suite on the mobile and the desktop profile.

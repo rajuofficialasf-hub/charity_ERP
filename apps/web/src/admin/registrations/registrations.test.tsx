@@ -349,8 +349,9 @@ describe('registration list', () => {
 
   it('sends an older link to the volunteer registrations to the volunteer tab', async () => {
     renderPage(HEAD, 'bn', '/admin/registrations?kind=volunteer');
+    // the volunteer tab renders inside the shell after the redirect
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক' }),
+      await screen.findByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক' }, { timeout: 3000 }),
     ).toBeInTheDocument();
   });
 
