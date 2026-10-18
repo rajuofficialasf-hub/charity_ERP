@@ -73,6 +73,22 @@ Test environment for automated layers (O-46 item 1): object storage through the 
 
 Additional E2E coverage per phase is listed in the gate test tasks of `docs/PLAN.md` (T1.16, T2.9, T3.5, T4.6, T5.6). Journeys run on Chromium; journeys 2, 3, 6 and 12 also run on WebKit for iOS behaviour (NFR-13).
 
+The Phase 1 checklist (T1.16): each journey of the gate and the Playwright spec that runs it in `apps/web/e2e/`, on the `mobile` (Pixel 7) and `desktop` projects unless the spec says one of them.
+
+| Journey | Spec and test |
+|---|---|
+| Login and logout; the session survives a reload; a device is logged out from another one and has to log in again | `auth.spec.ts` (logs in, logs out and refuses the protected page afterwards; keeps the session across a reload; lists the devices and logs out another one) |
+| Role-based denial for every role: the forbidden screen and the API's 403 `permission.denied` | `roles.spec.ts` (one test per demo role: volunteer, Finance, Media, Procurement, Official দায়ী, Implementer, Project Executive, RPM, PM; the Department Head and the Monitoring Team hold every permission, so they have no row) |
+| Volunteer registration with two OTPs → correction request → resubmit → approval → assignment → consent → the project visible | `registration.spec.ts` (a volunteer registers with two codes and reaches the pending confirmation, on the phone; an RPM asks for a correction, the volunteer fixes it, the RPM approves, then the RPM assigns the volunteer to a project of this run, who consents and sees it active) |
+| A team member: added by the main volunteer, consents on their own, sees the project | `registration.spec.ts` (a main volunteer adds a team member, who consents on their own and then works on the project; the NID reference comes from the demo seed, since O-64 removed it from the registration form, BUSINESS_RULES section 20 item 25) |
+| Staff handover before deactivation | `handover.spec.ts` (deactivation waits for the handover of all pending work) |
+| Permission panel change with its audit entry | `admin-permissions.spec.ts` (a manager grants a permission and ends it again, and finds the grant with its reason in the audit log) |
+| Project draft → activate → close → reopen; a draft cancelled; a copy of a previous project | `projects.spec.ts` (a PM walks the setup wizard, activates, closes and reopens a project; a draft that was never activated is cancelled; a PM copies a previous project) |
+| Language switch that persists | `registration.spec.ts` (the registration page switches to English from the bar and keeps it), `gallery.spec.ts` (the language switch turns the gallery to English and back, and the choice persists) |
+| Device revocation ends the session | `auth.spec.ts` (lists the devices and logs out another one, which then has to log in again) |
+| A threshold changed and audited; nisab versions | `admin-settings.spec.ts` |
+| The shell: bottom tabs, sidebar, profile menu, offline banner; each role's home | `shell.spec.ts`, `home.spec.ts` |
+
 ### 3.5 Load (NFR-01, NFR-02)
 
 - Scenario: 2,000 virtual users over 30 minutes on the distribution-day mix (today's distribution bulk save, photo upload start, application submit, sync batches, NID lookup) against staging with production-like data volume.

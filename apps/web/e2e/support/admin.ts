@@ -1,5 +1,12 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, type Locator, type Page, type TestInfo } from '@playwright/test';
+import {
+  type APIRequestContext,
+  type APIResponse,
+  expect,
+  type Locator,
+  type Page,
+  type TestInfo,
+} from '@playwright/test';
 
 // Shared steps of the admin tab specs (volunteers.spec.ts, beneficiaries.spec.ts) against the demo
 // seed (docs/testing/DEMO_ACCOUNTS.md).
@@ -21,6 +28,27 @@ export async function signIn(page: Page, loginId: string): Promise<void> {
     .fill(PASSWORD);
   await page.getByRole('button', { name: 'লগইন', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: /^স্বাগতম, / })).toBeVisible();
+}
+
+/**
+ * A small API client signed in as a demo account, for checks the server decides (a 403 behind a
+ * forbidden screen) and for set-up facts; the answer is returned as it is, whatever its status.
+ */
+export async function apiAs(
+  request: APIRequestContext,
+  loginId: string,
+): Promise<{ get: (path: string) => Promise<APIResponse> }> {
+  const login = await request.post('/api/v1/auth/login', {
+    data: {
+      loginId,
+      password: PASSWORD,
+      device: { name: 'E2E', platform: 'desktop', appVersion: 'e2e' },
+    },
+  });
+  expect(login.ok(), `login as ${loginId}: ${login.status()}`).toBe(true);
+  const token = ((await login.json()) as { data: { accessToken: string } }).data.accessToken;
+  const headers = { Authorization: `Bearer ${token}` };
+  return { get: (path) => request.get(`/api/v1${path}`, { headers }) };
 }
 
 /** The navigation of the app shell: the sidebar, the rail or the bottom tabs. */

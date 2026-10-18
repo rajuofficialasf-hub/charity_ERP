@@ -5,7 +5,9 @@ import { fromProfileMenu } from './support/admin';
 // Login, logout, devices and passwords against the API on its E2E database (T1.7; AUTH.md 3 to 8).
 // Demo accounts and their password: docs/testing/DEMO_ACCOUNTS.md. The API runs with the dummy
 // OTP 123456 (apps/api/scripts/e2e-server.ts). Mobile and desktop share the database, so every
-// test uses its own account per project.
+// test uses its own account per project; the devices, change and reset accounts are signed in by
+// no other spec (another session would be one more device, and a changed password ends every
+// other login), see the account table of DEMO_ACCOUNTS.md.
 const PASSWORD = 'CssDemo2026';
 const OTP = '123456';
 
@@ -13,9 +15,9 @@ const ACCOUNTS = {
   desktop: {
     login: 'pm.ucd@example.org',
     reload: 'pm.hum@example.org',
-    devices: 'finance@example.org',
-    change: 'executive@example.org',
-    reset: 'implementer@example.org',
+    devices: '01700000102',
+    change: 'media.director@example.org',
+    reset: 'media.ad@example.org',
   },
   mobile: {
     login: '01700000105',

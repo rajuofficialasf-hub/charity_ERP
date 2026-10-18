@@ -50,6 +50,10 @@ Password of every demo account: `CssDemo2026` (development only; meets the O-05 
 | 19 | Team Member (reference: volunteer 1) | 01700000119 | Dhaka |
 | 20 | Paid Volunteer | 01700000120 | Rangpur |
 
+### Accounts the E2E specs change (T1.16)
+
+The Playwright projects share one E2E database, so a spec that changes an account's state signs in with an account no other spec touches (`apps/web/e2e/auth.spec.ts`): the desktop project revokes a device of volunteer 2 (01700000102), changes the password of the Media Director (`media.director@example.org`) and resets the Media Assistant Director's (`media.ad@example.org`); the mobile project does the same with volunteers 7, 8 and 9 (01700000107 to 01700000109). Any other spec signing in with one of them would add a device to count or fail on the changed password. `roles.spec.ts` signs in as every other role only to read a refusal, and the registration journey assigns volunteer 1 (01700000101) to a project of its own run and adds volunteer 19 to that team.
+
 ## Other demo data
 
 - Programs UCD, HUM and ERR (the three SOP programs), each with its PM.
