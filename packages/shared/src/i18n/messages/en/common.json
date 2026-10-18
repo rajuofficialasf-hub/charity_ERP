@@ -42,5 +42,14 @@
   },
   "unit": {
     "million": "million"
+  },
+  "notification": {
+    "permission_granted": "{permission} granted",
+    "permission_denied": "{permission} withheld",
+    "permission_ended": "the separate setting for {permission} ended",
+    "project_permissions": "{count} extra permissions on this project",
+    "consent_accepted": "accepted",
+    "consent_declined": "declined",
+    "unknown_device": "an unnamed device"
   }
 }

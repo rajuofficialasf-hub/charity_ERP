@@ -11,6 +11,7 @@ import {
   PASSWORD,
   systemOwner,
 } from './support/auth-app';
+import { notificationsOf } from './support/notifications';
 
 // Device lists and revocation, user administration, Main Admin protection and the
 // permission-version bump (AUTH.md 6 to 11; BR-034, BR-035, BR-201; O-59).
@@ -95,6 +96,9 @@ describe("an official revokes another user's device", () => {
     expect(await auditRows(h.db, 'auth.session_revoked_by_official')).toEqual([
       expect.objectContaining({ reason: 'Phone lost in the field', new: { userId: volunteer.id } }),
     ]);
+    // the owner of the device is told; the official who ended it is not
+    expect(await notificationsOf(h.db, 'session_revoked', volunteer.id)).toHaveLength(1);
+    expect(await notificationsOf(h.db, 'session_revoked')).toHaveLength(1);
   });
 
   it("answers 404 to an RPM for a volunteer outside the RPM's region (RBAC.md 8.4)", async () => {

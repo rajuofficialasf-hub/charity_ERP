@@ -1,8 +1,11 @@
+import { NOTIFICATION_TEMPLATES, TEMPLATE_SAMPLES } from '@css/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { NOTIFICATION_CATALOGUE } from '../../src/notifications/catalogue';
 import { MONITORING } from '../../src/notifications/recipients';
 import type { NotificationInput } from '../../src/notifications/service';
 import { accessWorld } from './support/access-fixtures';
 import { account, type AuthHarness, authHarness } from './support/auth-app';
+import * as f from './support/fixtures';
 
 // Publishing an event: in-app rows and the email outbox are written in the event's transaction,
 // for the people the rules reach and nobody else (plan
@@ -185,6 +188,50 @@ describe('publishing an event', () => {
     expect(people).toContain(world.users.general);
     expect(people).not.toContain(world.users.rpmDhaka);
     expect(people).not.toContain(world.users.outsider);
+  });
+
+  it('walks every event and reaches staff and volunteers only, never a beneficiary', async () => {
+    const ben = await f.beneficiary(h.db, world.dhaka);
+    const contact = (
+      await h.db.query<{ mobile: string }>('SELECT mobile FROM beneficiaries WHERE id = $1', [ben])
+    ).rows[0]!.mobile;
+    for (const key of Object.keys(NOTIFICATION_CATALOGUE)) {
+      const template = NOTIFICATION_TEMPLATES.find((t) => t.key === key)!;
+      await publish({
+        key,
+        recipients: [
+          { roles: MONITORING },
+          { project: { projectId: world.a1.id, rpms: true, staff: true, volunteers: true } },
+        ],
+        params: Object.fromEntries(
+          template.variables.map((v) => [
+            v,
+            Object.hasOwn(TEMPLATE_SAMPLES, v) ? TEMPLATE_SAMPLES[v]! : 'x',
+          ]),
+        ),
+        about: `walk:${key}`,
+      });
+    }
+    const inApp = await h.db.query<{ kind: string }>(
+      'SELECT DISTINCT u.kind FROM notifications n JOIN users u ON u.id = n.user_id',
+    );
+    expect(inApp.rows.map((r) => r.kind).sort()).toEqual(['staff', 'volunteer']);
+    const outbox = await h.db.query<{
+      kind: string;
+      channel: string;
+      address: string;
+      donor: string | null;
+    }>(
+      `SELECT u.kind, o.channel, o.address, o.recipient_donor_id AS donor
+         FROM outbound_messages o JOIN users u ON u.id = o.recipient_user_id`,
+    );
+    expect(outbox.rows.length).toBeGreaterThan(0);
+    for (const m of outbox.rows) {
+      expect(m).toMatchObject({ kind: 'staff', channel: 'email', donor: null });
+      expect(m.address).not.toBe(contact);
+    }
+    const all = await h.db.query('SELECT count(*)::int AS n FROM outbound_messages');
+    expect(all.rows[0].n).toBe(outbox.rows.length);
   });
 
   it('refuses a key that is not in the catalogue', async () => {

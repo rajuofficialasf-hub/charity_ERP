@@ -15,6 +15,7 @@ import type { PrismaService, Tx } from '../core/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import type { ProjectViewer, ProjectsService } from './projects';
+import type { ProjectEvents } from '../notifications/project-events';
 
 /**
  * The close guards a workflow may list. A guard whose module exists checks it here; the guards of
@@ -46,6 +47,7 @@ export class ProjectLifecycleService {
     private readonly audit: AuditWriter,
     private readonly projects: ProjectsService,
     private readonly clock: Clock,
+    private readonly events: ProjectEvents,
   ) {}
 
   /** Locks the project and refuses a move its state does not allow, then a stale If-Match. */
@@ -132,6 +134,7 @@ export class ProjectLifecycleService {
         old: { status: from },
         new: { status: to, workflowVersion: project.workflowVersion },
       });
+      await this.events.lifecycle(tx, 'project_activated', projectId, actor);
       return result;
     });
   }
@@ -163,6 +166,7 @@ export class ProjectLifecycleService {
         new: { applyTo: body.newApplyTo },
         reason: body.reason,
       });
+      await this.events.deadlineExtended(tx, projectId, body.newApplyTo, viewer.principal.userId);
       return result;
     });
   }
@@ -188,6 +192,7 @@ export class ProjectLifecycleService {
         new: { status: to },
         reason,
       });
+      await this.events.lifecycle(tx, 'project_closing', projectId, viewer.principal.userId);
       return result;
     });
   }
@@ -236,6 +241,7 @@ export class ProjectLifecycleService {
         new: { status: to },
         reason,
       });
+      await this.events.lifecycle(tx, 'project_closed', projectId, actor);
       return result;
     });
   }
@@ -263,6 +269,13 @@ export class ProjectLifecycleService {
         new: { status: to },
         reason,
       });
+      await this.events.lifecycle(
+        tx,
+        'project_reopened',
+        projectId,
+        viewer.principal.userId,
+        reason,
+      );
       return result;
     });
   }

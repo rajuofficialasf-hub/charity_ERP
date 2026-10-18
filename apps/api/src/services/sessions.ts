@@ -6,6 +6,7 @@ import type { Principal } from '../auth/principal';
 import type { SessionService } from '../auth/session.service';
 import type { PrismaService, Tx } from '../core/prisma.service';
 import { ApiError } from '../i18n/api-error';
+import type { AccountEvents } from '../notifications/account-events';
 
 type SessionRow = Awaited<ReturnType<SessionService['list']>>[number];
 
@@ -29,6 +30,7 @@ export class SessionsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditWriter,
     private readonly access: AccessService,
+    private readonly events: AccountEvents,
   ) {}
 
   async listOwn(user: Principal): Promise<DeviceSession[]> {
@@ -37,10 +39,14 @@ export class SessionsService {
   }
 
   /** One of the user's open sessions, or 404 (an unknown or already revoked id looks the same). */
-  private async openSession(tx: Tx, userId: string, sessionId: string): Promise<{ id: string }> {
+  private async openSession(
+    tx: Tx,
+    userId: string,
+    sessionId: string,
+  ): Promise<{ id: string; deviceName: string | null }> {
     const session = await tx.deviceSession.findFirst({
       where: { id: sessionId, userId, revokedAt: null },
-      select: { id: true },
+      select: { id: true, deviceName: true },
     });
     if (!session) throw new ApiError('permission.not_found', 404);
     return session;
@@ -91,6 +97,7 @@ export class SessionsService {
         new: { userId: user.id },
         reason,
       });
+      await this.events.sessionRevoked(tx, user.id, session.id, session.deviceName, actor.userId);
     });
   }
 }

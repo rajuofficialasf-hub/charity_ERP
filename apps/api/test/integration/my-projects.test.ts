@@ -14,6 +14,7 @@ import {
   login,
   type Session,
 } from './support/auth-app';
+import { notificationsOf } from './support/notifications';
 import * as f from './support/fixtures';
 
 // A volunteer's own projects and the consent to their rules: no project access without accepting
@@ -124,6 +125,15 @@ describe('my projects and the consent', () => {
 
   it('accepts with every part of the current version, then the project opens', async () => {
     const project = await activeProject();
+    // two areas: only the RPM of the volunteer's area hears of the answer
+    for (const [location, rpm] of [
+      [world.dhaka.division, world.users.rpmDhaka],
+      [world.rangpur.division, world.users.rpmRangpur],
+    ])
+      await h.db.query(
+        'INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)',
+        [randomUUID(), project, location, rpm],
+      );
     const v = await newVolunteer();
     await assign(project, v.volunteerId);
     const s = await as(v.userId);
@@ -148,6 +158,14 @@ describe('my projects and the consent', () => {
     expect(await reaches(s, project)).toBe(true);
     const list = await at(s, 'get', '/projects');
     expect(list.body.data.map((p: { id: string }) => p.id)).toContain(project);
+    const ofProject = async (userId: string) =>
+      (await notificationsOf(h.db, 'project_consent_result', userId)).filter(
+        (n) => n.params.projectId === project,
+      );
+    const told = await ofProject(world.users.rpmDhaka);
+    expect(told).toHaveLength(1);
+    expect(told[0]!.params.result).toMatchObject({ en: 'accepted' });
+    expect(await ofProject(world.users.rpmRangpur)).toEqual([]);
   });
 
   it('keeps a refusal pending and logs it', async () => {

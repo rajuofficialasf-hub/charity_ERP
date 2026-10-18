@@ -26,6 +26,7 @@ import {
 import { AuthService } from './services/auth';
 import { RegistrationCleanup } from './jobs/registration-cleanup';
 import { AccountEvents } from './notifications/account-events';
+import { ProjectEvents } from './notifications/project-events';
 import { LocationsService } from './services/locations';
 import { FilesService } from './services/files';
 import { VolunteersService } from './services/volunteers';
@@ -97,6 +98,7 @@ export interface Container {
   accessPanel: AccessPanelService;
   locations: LocationsService;
   accountEvents: AccountEvents;
+  projectEvents: ProjectEvents;
   registration: RegistrationService;
   registrationCleanup: RegistrationCleanup;
   registrationPhotos: RegistrationPhotosService;
@@ -175,20 +177,21 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   // Authentication (AUTH.md): built in dependency order, so each service gets its instances.
   const hasher = o.hasher ?? new PasswordHasher();
   const tokens = o.tokens ?? new TokenService(env, clock);
-  const sessions = o.sessions ?? new SessionService(prisma, tokens, audit, clock);
-  const permissionVersions = o.permissionVersions ?? new PermissionVersionService(audit, sessions);
-  const otpDelivery = o.otpDelivery ?? new OtpDeliveryService(env, sms, email, logger);
-  const otp = o.otp ?? new OtpService(env, prisma, clock, otpDelivery);
   // permissions.yaml must name only conditions the access module can check (RBAC.md 2).
   const accessRegistry = o.accessRegistry ?? loadAccessRegistry(env.PERMISSIONS_FILE);
   assertConditionsCovered(accessRegistry);
   const access = o.access ?? new AccessService(accessRegistry, prisma, clock, logger);
-  const projects = o.projects ?? new ProjectsService(env, prisma, audit, access, clock);
-  const settings = o.settings ?? new SettingsService(prisma, audit);
   const notifications =
     o.notifications ??
     new NotificationService(new RecipientResolver(access, accessRegistry, clock), jobs, clock);
   const accountEvents = o.accountEvents ?? new AccountEvents(notifications);
+  const projectEvents = o.projectEvents ?? new ProjectEvents(notifications);
+  const sessions = o.sessions ?? new SessionService(prisma, tokens, audit, clock, accountEvents);
+  const permissionVersions = o.permissionVersions ?? new PermissionVersionService(audit, sessions);
+  const otpDelivery = o.otpDelivery ?? new OtpDeliveryService(env, sms, email, logger);
+  const otp = o.otp ?? new OtpService(env, prisma, clock, otpDelivery);
+  const projects = o.projects ?? new ProjectsService(env, prisma, audit, access, clock);
+  const settings = o.settings ?? new SettingsService(prisma, audit);
   const registration =
     o.registration ??
     new RegistrationService(env, prisma, clock, otp, audit, accountEvents, hasher);
@@ -214,8 +217,21 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     otpDelivery,
     otp,
     auth:
-      o.auth ?? new AuthService(env, prisma, clock, hasher, tokens, sessions, otp, audit, logger),
-    deviceSessions: o.deviceSessions ?? new SessionsService(sessions, prisma, audit, access),
+      o.auth ??
+      new AuthService(
+        env,
+        prisma,
+        clock,
+        hasher,
+        tokens,
+        sessions,
+        otp,
+        audit,
+        logger,
+        accountEvents,
+      ),
+    deviceSessions:
+      o.deviceSessions ?? new SessionsService(sessions, prisma, audit, access, accountEvents),
     users:
       o.users ?? new UsersService(env, prisma, audit, sessions, permissionVersions, clock, access),
     staffAccounts:
@@ -234,9 +250,19 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       ),
     organogram: o.organogram ?? new OrganogramService(prisma, access),
     accessPanel:
-      o.accessPanel ?? new AccessPanelService(prisma, access, audit, permissionVersions, clock),
+      o.accessPanel ??
+      new AccessPanelService(
+        prisma,
+        access,
+        audit,
+        permissionVersions,
+        clock,
+        accountEvents,
+        projectEvents,
+      ),
     locations: o.locations ?? new LocationsService(prisma),
     accountEvents,
+    projectEvents,
     registration,
     registrationPhotos:
       o.registrationPhotos ??
@@ -272,13 +298,15 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       o.projectSetup ??
       new ProjectSetupService(prisma, audit, access, projects, permissionVersions),
     projectLifecycle:
-      o.projectLifecycle ?? new ProjectLifecycleService(prisma, audit, projects, clock),
+      o.projectLifecycle ??
+      new ProjectLifecycleService(prisma, audit, projects, clock, projectEvents),
     projectRules: o.projectRules ?? new ProjectRulesService(prisma, audit, access, projects),
-    myProjects: o.myProjects ?? new MyProjectsService(prisma, audit, clock),
+    myProjects: o.myProjects ?? new MyProjectsService(prisma, audit, clock, projectEvents),
     projectVolunteers:
       o.projectVolunteers ??
-      new ProjectVolunteersService(env, prisma, audit, access, projects, clock),
-    volunteerTeams: o.volunteerTeams ?? new VolunteerTeamsService(prisma, audit, access, clock),
+      new ProjectVolunteersService(env, prisma, audit, access, projects, clock, projectEvents),
+    volunteerTeams:
+      o.volunteerTeams ?? new VolunteerTeamsService(prisma, audit, access, clock, projectEvents),
     templates: o.templates ?? new TemplatesService(prisma, audit, access),
     registrations:
       o.registrations ??

@@ -11,6 +11,7 @@ import {
   bearer,
   login,
 } from './support/auth-app';
+import { notificationsOf } from './support/notifications';
 
 // Project grants of "if RPM grants" extras (docs/security/RBAC.md 3 and 7; plan
 // docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, U5).
@@ -81,6 +82,12 @@ describe('project grants', () => {
       [world.users.executive],
     );
     expect(audit.rows).toEqual([{ reason: REASON }]);
+    const told = await notificationsOf(h.db, 'project_grant_changed', world.users.executive);
+    expect(told).toHaveLength(1);
+    expect(told[0]!.params).toMatchObject({
+      projectId: world.a1.id,
+      summary: { en: expect.any(String) },
+    });
   });
 
   it("answers 404 on another RPM's project and for a user who is not on the project", async () => {

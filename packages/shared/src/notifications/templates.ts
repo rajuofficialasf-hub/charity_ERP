@@ -315,21 +315,21 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
       ...inApp(
         {
           title: 'নিরাপত্তা সতর্কতা',
-          body: 'আপনার একটি সেশনের টোকেন আবার ব্যবহারের চেষ্টা হয়েছে, তাই সব ডিভাইস থেকে লগআউট করা হয়েছে। আবার লগইন করুন এবং পাসওয়ার্ড বদলান।',
+          body: 'আপনার একটি সেশনের টোকেন আবার ব্যবহারের চেষ্টা হয়েছে, তাই সেই ডিভাইসের সেশন বন্ধ করা হয়েছে। আবার লগইন করুন এবং পাসওয়ার্ড বদলান।',
         },
         {
           title: 'Security alert',
-          body: 'A token of one of your sessions was used again, so all your devices were logged out. Log in again and change your password.',
+          body: 'A token of one of your sessions was used again, so the session on that device was ended. Log in again and change your password.',
         },
       ),
       email: {
         bn: {
           subject: 'নিরাপত্তা সতর্কতা: টোকেন পুনর্ব্যবহার',
-          body: '{{user_name}}-এর একটি রিফ্রেশ টোকেন আবার ব্যবহারের চেষ্টা হয়েছে। সব সেশন বন্ধ করা হয়েছে; অডিট লগ দেখুন।',
+          body: '{{user_name}}-এর একটি রিফ্রেশ টোকেন আবার ব্যবহারের চেষ্টা হয়েছে। সেই সেশন বন্ধ করা হয়েছে; অডিট লগ দেখুন।',
         },
         en: {
           subject: 'Security alert: token reuse',
-          body: 'A refresh token of {{user_name}} was used again. All sessions were ended; please check the audit log.',
+          body: 'A refresh token of {{user_name}} was used again. That session was ended; please check the audit log.',
         },
       },
     },

@@ -11,6 +11,7 @@ import {
   login,
   type Session,
 } from './support/auth-app';
+import { notificationsOf } from './support/notifications';
 import * as f from './support/fixtures';
 
 // Volunteers assigned to a project by the RPM of their area, with a permission set and a paid flag;
@@ -161,6 +162,18 @@ describe('assigning', () => {
       isPaid: true,
     });
     expect(await audit(world.a1.id, 'volunteer.assigned')).not.toHaveLength(0);
+    // each volunteer is told in the app; volunteers never get an email
+    const { rows: users } = await h.db.query<{ user_id: string }>(
+      'SELECT user_id FROM volunteers WHERE id = $1',
+      [general.volunteerId],
+    );
+    const told = await notificationsOf(h.db, 'project_assignment', users[0]!.user_id);
+    expect(told.map((n) => n.params.projectId)).toContain(world.a1.id);
+    const emails = await h.db.query(
+      `SELECT 1 FROM outbound_messages WHERE recipient_user_id = $1`,
+      [users[0]!.user_id],
+    );
+    expect(emails.rowCount).toBe(0);
     const list = await at(rpm, 'get', `/projects/${world.a1.id}/volunteers`).query({ limit: 100 });
     expect(list.status).toBe(200);
     expect((list.body.data as { volunteerId: string }[]).map((r) => r.volunteerId)).toEqual(

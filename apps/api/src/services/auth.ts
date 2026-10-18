@@ -23,6 +23,7 @@ import { type PasswordHasher } from '../auth/password-hasher';
 import type { Principal } from '../auth/principal';
 import { type SessionService } from '../auth/session.service';
 import { type TokenService } from '../auth/token.service';
+import type { AccountEvents } from '../notifications/account-events';
 
 /** What the controller needs to answer a login or refresh: the body and the cookie values. */
 export interface IssuedSession {
@@ -62,6 +63,7 @@ export class AuthService {
     private readonly otp: OtpService,
     private readonly audit: AuditWriter,
     private readonly logger: Logger,
+    private readonly events: AccountEvents,
   ) {}
 
   /**
@@ -120,7 +122,7 @@ export class AuthService {
             actorUserId: user.id,
             new: { loginIdHash: key },
           });
-          if (next.lockedUntil)
+          if (next.lockedUntil) {
             await this.audit.record(tx, {
               action: 'auth.locked',
               entityType: 'user',
@@ -128,6 +130,8 @@ export class AuthService {
               actorUserId: user.id,
               new: { lockedUntil: next.lockedUntil.toISOString() },
             });
+            await this.events.accountLocked(tx, user.id, minutesLeft(next.lockedUntil, now), now);
+          }
         });
       } else {
         lockedUntil = this.unknownIds.fail(key, now);

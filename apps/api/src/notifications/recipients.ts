@@ -17,7 +17,16 @@ export type RecipientRule =
   | { user: string }
   | { holders: { permission: string; entity: 'user' | 'volunteer'; target: RecordTarget } }
   | { roles: readonly string[] }
-  | { project: { projectId: string; rpms?: boolean; staff?: boolean; volunteers?: boolean } };
+  | {
+      project: {
+        projectId: string;
+        rpms?: boolean;
+        /** Only the RPMs of this area of the project. */
+        regionLocationId?: string;
+        staff?: boolean;
+        volunteers?: boolean;
+      };
+    };
 
 export interface Recipient {
   id: string;
@@ -130,12 +139,21 @@ export class RecipientResolver {
 
   private async projectPeople(
     tx: Tx,
-    rule: { projectId: string; rpms?: boolean; staff?: boolean; volunteers?: boolean },
+    rule: {
+      projectId: string;
+      rpms?: boolean;
+      regionLocationId?: string;
+      staff?: boolean;
+      volunteers?: boolean;
+    },
   ): Promise<Recipient[]> {
     const ids = new Set<string>();
     if (rule.rpms)
       for (const a of await tx.projectArea.findMany({
-        where: { projectId: rule.projectId },
+        where: {
+          projectId: rule.projectId,
+          ...(rule.regionLocationId ? { locationId: rule.regionLocationId } : {}),
+        },
         select: { rpmUserId: true },
       }))
         ids.add(a.rpmUserId);

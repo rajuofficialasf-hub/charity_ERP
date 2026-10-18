@@ -23,6 +23,11 @@ export interface NotificationInput {
   eventId?: string;
   /** The person who acted; they never get a copy. */
   actorId?: string | null;
+  /**
+   * Turns a channel of the catalogue off for this call, when one event reaches people whose text
+   * differs by channel (the person concerned in-app, the Monitoring Team by email).
+   */
+  only?: 'in_app' | 'email';
 }
 
 /** Identical events within this window collapse into one entry and one email. */
@@ -70,10 +75,12 @@ export class NotificationService {
     let inApp = 0;
     let emails = 0;
 
+    const inAppOn = entry.inApp && input.only !== 'email';
+    const emailOn = entry.email && input.only !== 'in_app';
     for (const person of people) {
       // one publish at a time per person and event, so two at once never both insert
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${person.id}:${coalesceKey}`}, 0))`;
-      if (entry.inApp) {
+      if (inAppOn) {
         const params = inAppParams(input.params) as Prisma.InputJsonValue;
         const recent = await tx.notification.findFirst({
           where: { userId: person.id, coalesceKey, readAt: null, createdAt: { gte: since } },
@@ -99,7 +106,7 @@ export class NotificationService {
           });
         inApp += 1;
       }
-      if (entry.email && person.kind === 'staff' && person.email) {
+      if (emailOn && person.kind === 'staff' && person.email) {
         // the same email to the same person within 15 minutes is sent once
         const queued = await tx.outboundMessage.count({
           where: {

@@ -10,6 +10,7 @@ import {
   login,
   type Session,
 } from './support/auth-app';
+import { notificationsOf } from './support/notifications';
 
 // The permission panel API (RBAC.md 7; plan
 // docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, U5).
@@ -146,6 +147,12 @@ describe('grant and revoke', () => {
     expect(entry.reason).toBe(REASON);
     expect(JSON.stringify(entry.old)).not.toContain('panel_grant');
     expect(JSON.stringify(entry.new)).toContain('panel_grant');
+    // the person is told, in both languages, what changed
+    const told = await notificationsOf(h.db, 'permission_changed', world.users.executive);
+    expect(told).toHaveLength(1);
+    expect(told[0]!.params.summary).toMatchObject({
+      en: expect.stringContaining('permission.view'),
+    });
   });
 
   it('hides a role default with a revoke override and restores it when the override ends', async () => {

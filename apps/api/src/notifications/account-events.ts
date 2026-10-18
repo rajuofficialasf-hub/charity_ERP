@@ -1,4 +1,5 @@
-import type { Bilingual, MessageKey } from '@css/shared/i18n';
+import { formatDate, isoDateInDhaka } from '@css/shared/format';
+import type { Bilingual, MessageKey, MessageParams } from '@css/shared/i18n';
 import { translate } from '@css/shared/i18n';
 import { REQUEST_FIELD_LABEL } from '@css/shared/registration';
 import type { Tx } from '../core/prisma.service';
@@ -20,6 +21,14 @@ export function fieldName(fields: readonly string[]): Bilingual {
       .join(', ');
   return { bn: name('bn'), en: name('en') };
 }
+
+/** A catalogue text in both languages. */
+export function bilingualText(key: MessageKey, params?: MessageParams): Bilingual {
+  return { bn: translate('bn', key, params), en: translate('en', key, params) };
+}
+
+/** Lockouts in one Dhaka day that send the Monitoring Team an email (O-25). */
+export const LOCKOUT_ALERT_PER_DAY = 10;
 
 /**
  * The registration, account and handover events of the notification matrix
@@ -168,6 +177,97 @@ export class AccountEvents {
       params: { count },
       about: userId,
       actorId,
+    });
+  }
+
+  /** A panel override of the person's permissions was set or ended. */
+  async permissionChanged(
+    tx: Tx,
+    userId: string,
+    change: 'granted' | 'denied' | 'ended',
+    permission: string,
+    actorId: string,
+  ): Promise<void> {
+    await this.notifications.publish(tx, {
+      key: 'permission_changed',
+      recipients: [{ user: userId }],
+      params: {
+        summary: bilingualText(`common.notification.permission_${change}` as MessageKey, {
+          permission,
+        }),
+      },
+      about: userId,
+      actorId,
+    });
+  }
+
+  /** An official ended one of the person's device sessions. */
+  async sessionRevoked(
+    tx: Tx,
+    userId: string,
+    sessionId: string,
+    deviceName: string | null,
+    actorId: string,
+  ): Promise<void> {
+    await this.notifications.publish(tx, {
+      key: 'session_revoked',
+      recipients: [{ user: userId }],
+      params: {
+        device_name: deviceName ?? bilingualText('common.notification.unknown_device'),
+      },
+      about: sessionId,
+      actorId,
+    });
+  }
+
+  /**
+   * The account was locked after wrong passwords; the tenth lockout of a Dhaka day also emails the
+   * Monitoring Team. Counted from the audit entries, the one of this lockout included.
+   */
+  async accountLocked(tx: Tx, userId: string, minutes: number, now: Date): Promise<void> {
+    await this.notifications.publish(tx, {
+      key: 'account_locked',
+      recipients: [{ user: userId }],
+      params: { minutes },
+      about: userId,
+    });
+    const day = isoDateInDhaka(now);
+    const [row] = await tx.$queryRaw<{ count: number }[]>`
+      SELECT count(*)::int AS count FROM audit_log
+       WHERE action = 'auth.locked' AND created_at >= ${new Date(`${day}T00:00:00+06:00`)}`;
+    const count = row?.count ?? 0;
+    if (count !== LOCKOUT_ALERT_PER_DAY) return;
+    await this.notifications.publish(tx, {
+      key: 'security_lockout_alert',
+      recipients: [{ roles: MONITORING }],
+      params: { count, date: formatDate(now) },
+      about: day,
+    });
+  }
+
+  /**
+   * A rotated refresh token was used again and its session ended: the person in the app, the
+   * Monitoring Team by email (the texts speak to each).
+   */
+  async refreshReused(tx: Tx, userId: string, sessionId: string): Promise<void> {
+    await this.notifications.publish(tx, {
+      key: 'security_refresh_reuse',
+      recipients: [{ user: userId }],
+      params: {},
+      about: sessionId,
+      only: 'in_app',
+    });
+    const user = await tx.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { displayName: true },
+    });
+    await this.notifications.publish(tx, {
+      key: 'security_refresh_reuse',
+      recipients: [{ roles: MONITORING }],
+      params: { user_name: user.displayName },
+      about: sessionId,
+      actorId: userId,
+      only: 'email',
     });
   }
 }

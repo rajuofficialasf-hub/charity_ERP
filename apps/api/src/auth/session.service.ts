@@ -5,6 +5,7 @@ import type { Clock } from '../core/clock';
 import { type PrismaService, type Tx } from '../core/prisma.service';
 import { ApiError } from '../i18n/api-error';
 import { hashRefreshToken, type TokenService } from './token.service';
+import type { AccountEvents } from '../notifications/account-events';
 
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
@@ -69,6 +70,7 @@ export class SessionService {
     private readonly tokens: TokenService,
     private readonly audit: AuditWriter,
     private readonly clock: Clock,
+    private readonly events: AccountEvents,
   ) {}
 
   /** Creates a session; the sixth active session of a user revokes the oldest (O-25). */
@@ -180,6 +182,7 @@ export class SessionService {
         entityId: stolen.id,
         actorUserId: stolen.userId,
       });
+      await this.events.refreshReused(tx, stolen.userId, stolen.id);
     });
     throw new ApiError('auth.refresh_reused', 401);
   }

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -10,6 +11,7 @@ import {
   PASSWORD,
   sessionFrom,
 } from './support/auth-app';
+import { notificationsOf } from './support/notifications';
 
 // Login, lockout, account states, refresh and logout (AUTH.md 4 to 9; BR-023, BR-032, BR-033,
 // BR-201, BR-203, BR-209; O-05, O-25, O-59, D-070).
@@ -110,6 +112,36 @@ describe('POST /auth/login', () => {
       [staff.id],
     );
     expect(row.rows[0]).toEqual({ failed_login_count: 0, locked_until: null });
+    // the person is told of the lock in the app
+    expect(await notificationsOf(h.db, 'account_locked', staff.id)).toHaveLength(1);
+  });
+
+  it('emails the Monitoring Team at the tenth lockout of a day, once', async () => {
+    const monitoring = await account(h.db, { role: 'monitoring_team' });
+    const { rows } = await h.db.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM audit_log WHERE action = 'auth.locked'`,
+    );
+    // the lockouts of the day so far, up to nine
+    for (let i = rows[0]!.n; i < 9; i++)
+      await h.db.query(
+        `INSERT INTO audit_log (id, action, entity_type, created_at) VALUES ($1, 'auth.locked', 'user', now())`,
+        [randomUUID()],
+      );
+    const lockOut = async () => {
+      const person = await account(h.db);
+      for (let i = 1; i <= 5; i++)
+        await post('/auth/login').send({ loginId: person.email, password: 'bad pass 1' });
+    };
+    await lockOut();
+    await lockOut();
+    const emails = await h.db.query(
+      `SELECT params FROM outbound_messages WHERE template_key = 'security_lockout_alert' AND recipient_user_id = $1`,
+      [monitoring.id],
+    );
+    expect(emails.rows).toHaveLength(1);
+    expect(emails.rows[0].params).toMatchObject({ count: 10 });
+    // email only: no in-app entry
+    expect(await notificationsOf(h.db, 'security_lockout_alert')).toEqual([]);
   });
 
   it('a success resets the failure counter', async () => {
@@ -271,7 +303,8 @@ describe('POST /auth/refresh', () => {
   });
 
   it('revokes the session when an old refresh token is replayed (theft)', async () => {
-    const s = await login(h, await account(h.db));
+    const owner = await account(h.db);
+    const s = await login(h, owner);
     const first = sessionFrom(
       await post('/auth/refresh')
         .set('Cookie', s.cookieHeader)
@@ -296,6 +329,13 @@ describe('POST /auth/refresh', () => {
       .expect(401);
     expect(after.body.error.code).toBe('auth.session_revoked');
     expect((await auditRows(h.db, 'auth.refresh_reuse_detected')).length).toBeGreaterThan(0);
+    // the person in the app, never by email with the Monitoring Team's text
+    expect(await notificationsOf(h.db, 'security_refresh_reuse', owner.id)).toHaveLength(1);
+    const own = await h.db.query(
+      `SELECT 1 FROM outbound_messages WHERE template_key = 'security_refresh_reuse' AND recipient_user_id = $1`,
+      [owner.id],
+    );
+    expect(own.rowCount).toBe(0);
   });
 
   it('refuses an unknown token, and sessions idle too long or past their limits', async () => {
