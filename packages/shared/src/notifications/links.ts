@@ -1,8 +1,9 @@
 /* eslint-disable security/detect-object-injection -- keys are checked with Object.hasOwn before use */
 /**
- * Where an in-app notification leads (NOTIFICATIONS.md §12): a fixed relative route of the PWA for
- * the template key, filled only with record ids, never a stored or sent URL. Officials and
- * volunteers open a project in different areas. Null when the entry has nothing to open.
+ * Where an in-app notification leads (docs/architecture/NOTIFICATIONS.md, security and privacy): a
+ * fixed relative route of the PWA for the template key, filled only with record ids, never a stored
+ * or sent URL. Officials and volunteers open a project in different areas. Null when the entry has
+ * nothing to open.
  */
 export type NotificationAudience = 'staff' | 'volunteer';
 
@@ -14,14 +15,14 @@ const idOf = (params: Record<string, unknown>, name: string): string | null => {
   return typeof value === 'string' && UUID.test(value) ? value : null;
 };
 
-const ROUTES: Record<
-  string,
-  (p: Record<string, unknown>, who: NotificationAudience) => string | null
-> = {
-  registration_pending: (p) => {
-    const id = idOf(p, 'userId');
-    return id ? `/admin/registrations/${id}` : '/admin/registrations';
-  },
+/** `base/<id>` for the record the param names, else the base list. */
+const withId = (params: Record<string, unknown>, name: string, base: string) => {
+  const id = idOf(params, name);
+  return id ? `${base}/${id}` : base;
+};
+
+const ROUTES: Record<string, (p: Record<string, unknown>) => string | null> = {
+  registration_pending: (p) => withId(p, 'userId', '/admin/registrations'),
   staff_registration_pending: () => '/admin/registrations',
   registration_correction_requested: () => '/account/profile',
   registration_approved: () => '/',
@@ -38,18 +39,9 @@ const ROUTES: Record<
   handover_items_assigned: () => '/admin/handover',
   handover_completed: () => '/admin/handover',
   system_owner_transferred: () => '/admin/permissions',
-  project_assignment: (p) => {
-    const id = idOf(p, 'projectId');
-    return id ? `/my-projects/${id}` : '/my-projects';
-  },
-  team_member_added: (p) => {
-    const id = idOf(p, 'projectId');
-    return id ? `/my-projects/${id}` : '/my-projects';
-  },
-  project_consent_result: (p) => {
-    const id = idOf(p, 'projectId');
-    return id ? `/admin/projects/${id}` : '/admin/projects';
-  },
+  project_assignment: (p) => withId(p, 'projectId', '/my-projects'),
+  team_member_added: (p) => withId(p, 'projectId', '/my-projects'),
+  project_consent_result: (p) => withId(p, 'projectId', '/admin/projects'),
   ops_alert: () => '/admin/deliveries',
 };
 
@@ -68,11 +60,12 @@ export function notificationLink(
   params: Record<string, unknown>,
   audience: NotificationAudience,
 ): string | null {
-  if (PROJECT_KEYS.includes(key)) {
-    const id = idOf(params, 'projectId');
-    if (audience === 'volunteer') return id ? `/my-projects/${id}` : '/my-projects';
-    return id ? `/admin/projects/${id}` : '/admin/projects';
-  }
+  if (PROJECT_KEYS.includes(key))
+    return withId(
+      params,
+      'projectId',
+      audience === 'volunteer' ? '/my-projects' : '/admin/projects',
+    );
   const route = Object.hasOwn(ROUTES, key) ? ROUTES[key] : undefined;
-  return route ? route(params, audience) : null;
+  return route ? route(params) : null;
 }

@@ -579,7 +579,17 @@ export const TEMPLATE_SAMPLES: Record<string, string | number | { bn: string; en
   new_date: '31-12-2026',
 };
 
+/** A {{name}} placeholder; the renderer and the editor's check read the same pattern. */
+export const PLACEHOLDER = /\{\{\s*(\w+)\s*\}\}/g;
+
 /** Placeholders used in a text, e.g. "{{code}}" → "code". */
 export function templateVariables(text: string): string[] {
-  return [...text.matchAll(/\{\{\s*([a-z_]+)\s*\}\}/g)].map((m) => m[1] as string);
+  return [...text.matchAll(PLACEHOLDER)].map((m) => m[1] as string);
+}
+
+/** The params an in-app row may keep: every value that names a person is left out. */
+export function inAppParams<T>(params: Record<string, T>): Record<string, T> {
+  return Object.fromEntries(
+    Object.entries(params).filter(([name]) => !PERSON_VARIABLES.includes(name)),
+  );
 }

@@ -1209,12 +1209,12 @@ permissions:
     sensitive: false
     default: []
 
-  # ---- M18 Files & Media ---------------------------------------------------------------------------
   - name: notification.delivery.view
     description: See the delivery state of outbound emails and SMS (addresses partly hidden; never an OTP)
     module: M17
     sensitive: false
     default: []
+  # ---- M18 Files & Media ---------------------------------------------------------------------------
   - name: file.upload
     description: Upload photos, vouchers and documents within the user's permitted actions
     module: M18

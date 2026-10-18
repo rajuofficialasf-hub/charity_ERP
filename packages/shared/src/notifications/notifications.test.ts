@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { renderTemplateText } from '../i18n/notifications.js';
 import { notificationLink } from './links.js';
 import {
+  inAppParams,
   NOTIFICATION_TEMPLATES,
   PERSON_VARIABLES,
   TEMPLATE_SAMPLES,
@@ -72,6 +73,26 @@ describe('the notification templates', () => {
     expect(en.body).toBe('1,200 — &lt;script&gt;x&lt;/script&gt;');
     const bn = renderTemplateText('k', text, ['project_name', 'count', 'note'], 'bn', params);
     expect(bn.title).toBe('<b>শীত</b>');
+  });
+
+  it('see every placeholder shape the renderer fills', () => {
+    expect(templateVariables('{{code2}} {{Code}} {{ name }}')).toEqual(['code2', 'Code', 'name']);
+  });
+
+  it('keep no person value on an in-app row', () => {
+    expect(
+      inAppParams({ applicant_name: 'x', from_name: 'y', count: 2, region_name: 'z' }),
+    ).toEqual({
+      count: 2,
+      region_name: 'z',
+    });
+  });
+
+  it('fail closed on a value that is not text, a number or bilingual data', () => {
+    for (const bad of [null, true, {}, { bn: 'x' }, [1], Number.NaN])
+      expect(() =>
+        renderTemplateText('k', { body: '{{v}}' }, ['v'], 'bn', { v: bad as never }),
+      ).toThrow(/v/);
   });
 
   it('fail closed on an undeclared or a missing variable', () => {

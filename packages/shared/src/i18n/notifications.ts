@@ -1,6 +1,10 @@
 /* eslint-disable security/detect-object-injection -- keys are typed unions, or checked with Object.hasOwn before use */
 import { formatCount } from '../format/index.js';
-import type { NotificationChannel, NotificationTemplateSeed } from '../notifications/templates.js';
+import {
+  type NotificationChannel,
+  type NotificationTemplateSeed,
+  PLACEHOLDER,
+} from '../notifications/templates.js';
 import { type Bilingual, localized } from './bilingual.js';
 import { DEFAULT_LOCALE, type Locale } from './locales.js';
 
@@ -23,19 +27,27 @@ export interface TemplateText {
   body: string;
 }
 
-/** Recipient language of a queued message (I18N 5): the user's stored language, else bn. */
+/** Recipient language of a queued message: the user's stored language, else bn. */
 export function recipientLocale(user: { language?: string | null } | null | undefined): Locale {
   return user?.language === 'en' ? 'en' : DEFAULT_LOCALE;
 }
 
-function show(value: NotificationParam, locale: Locale): string {
-  if (typeof value === 'number') return formatCount(value, locale);
+/** A value as text; anything else than text, a finite number or { bn, en } fails closed. */
+function show(key: string, name: string, value: unknown, locale: Locale): string {
   if (typeof value === 'string') return value;
-  return localized(value, locale);
+  if (typeof value === 'number' && Number.isFinite(value)) return formatCount(value, locale);
+  if (
+    value !== null &&
+    typeof value === 'object' &&
+    typeof (value as Bilingual).bn === 'string' &&
+    typeof (value as Bilingual).en === 'string'
+  )
+    return localized(value as Bilingual, locale);
+  throw new Error(`template ${key}: variable "${name}" has no usable value`);
 }
 
 /**
- * Fills the {{name}} placeholders of one template text (NOTIFICATIONS 6). A placeholder that is
+ * Fills the {{name}} placeholders of one template text. A placeholder that is
  * not declared for the key, or a declared one without a value, fails closed. `escape` is applied
  * to every substituted value (an email's HTML part), never to the template's own text.
  */
@@ -48,10 +60,10 @@ export function renderTemplateText(
   options: { escape?: (value: string) => string } = {},
 ): RenderedNotification {
   const fill = (s?: string | null) =>
-    s?.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, name: string) => {
+    s?.replace(PLACEHOLDER, (_, name: string) => {
       if (!declared.includes(name) || !Object.hasOwn(params, name))
         throw new Error(`template ${key}: variable "${name}" missing`);
-      const value = show(params[name] as NotificationParam, locale);
+      const value = show(key, name, params[name], locale);
       return options.escape ? options.escape(value) : value;
     }) ?? undefined;
   return {
@@ -62,9 +74,8 @@ export function renderTemplateText(
 }
 
 /**
- * Renders a seeded notification template for a channel and language (NOTIFICATIONS 6, I18N 5).
- * A missing language falls back to en, then bn (I18N 8); an unknown variable or channel is a
- * programming error.
+ * Renders a seeded notification template for a channel and language. A missing language falls
+ * back to en, then bn; an unknown variable or channel is a programming error.
  */
 export function renderNotification(
   template: NotificationTemplateSeed,
