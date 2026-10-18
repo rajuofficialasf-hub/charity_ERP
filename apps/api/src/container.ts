@@ -27,6 +27,7 @@ import { AuthService } from './services/auth';
 import { RegistrationCleanup } from './jobs/registration-cleanup';
 import { AccountEvents } from './notifications/account-events';
 import { DeliveriesService } from './services/deliveries';
+import { AttentionService } from './services/attention';
 import { InboxService } from './services/inbox';
 import { NotificationTemplatesService } from './services/notification-templates';
 import { ProjectEvents } from './notifications/project-events';
@@ -116,6 +117,7 @@ export interface Container {
   nisab: NisabService;
   auditLog: AuditLogService;
   inbox: InboxService;
+  attention: AttentionService;
   notificationTemplates: NotificationTemplatesService;
   deliveries: DeliveriesService;
   sessionMonitor: SessionMonitorService;
@@ -201,7 +203,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const registration =
     o.registration ??
     new RegistrationService(env, prisma, clock, otp, audit, accountEvents, hasher);
-  return {
+  const built = {
     env,
     logger,
     clock,
@@ -350,6 +352,21 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         accountEvents,
       ),
     registrationCleanup: o.registrationCleanup ?? new RegistrationCleanup(prisma, storage, logger),
+  };
+  return {
+    ...built,
+    // the My Work home's attention list reads the services above
+    attention:
+      o.attention ??
+      new AttentionService(
+        prisma,
+        access,
+        clock,
+        built.inbox,
+        built.myProjects,
+        built.registrations,
+        built.changeRequests,
+      ),
   };
 }
 

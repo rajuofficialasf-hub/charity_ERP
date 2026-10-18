@@ -34,6 +34,10 @@ import { addressProblem } from './registration';
 import { applyField, changeView, OBJECT_FIELDS } from './registrations';
 
 const EDIT = 'profile_edit';
+
+/** The edit requests waiting for a decision in a scope: the approvers' list and its count. */
+const waitingWhere = (scope: Scope) =>
+  ({ kind: EDIT, status: 'submitted', volunteer: volunteerWhere(scope) }) as const;
 /** Contact-change codes one account may send per hour, across all its requests. */
 const CODES_PER_ACCOUNT_HOUR = 5;
 const isContact = (field: string): field is (typeof CONTACT_FIELDS)[number] =>
@@ -274,7 +278,7 @@ export class ChangeRequestsService {
       ? decodeCursor(this.env.CURSOR_SECRET, binding, query.cursor)
       : undefined;
     const direction = cursor?.d ?? 'next';
-    const filter = { kind: EDIT, status: 'submitted', volunteer: volunteerWhere(scope) };
+    const filter = waitingWhere(scope);
     const fetched = await this.prisma.volunteerChangeRequest.findMany({
       where: cursor ? { AND: [filter, keysetWhere(sort, cursor)] } : filter,
       orderBy: orderBy(sort, direction),
@@ -297,6 +301,11 @@ export class ChangeRequestsService {
       })),
       meta,
     };
+  }
+
+  /** How many edit requests wait for a decision in the scope (the My Work home). */
+  waitingCount(scope: Scope): Promise<number> {
+    return this.prisma.volunteerChangeRequest.count({ where: waitingWhere(scope) });
   }
 
   /** Approves (the value applies at once) or refuses with a reason an edit request in scope. */

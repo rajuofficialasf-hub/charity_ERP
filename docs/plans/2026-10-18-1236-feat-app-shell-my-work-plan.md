@@ -130,7 +130,7 @@ After login, people land on a placeholder page with a few buttons. Volunteers ge
     - the drift test and the authorization matrix pass.
 - **Done when:** the contract is in `openapi.yaml`, and each role's counts match its scope.
 - **Depends on:** none · **Size:** M · **Risk area:** auth
-- **Status:** todo
+- **Status:** done
 
 ### U3. The app shell
 - **Goal:** every signed-in page sits in one shell: the app bar, the sidebar on a desktop, the rail on a tablet, the bottom tabs with "more" on a phone, the profile menu and the offline banner.
@@ -268,8 +268,8 @@ After login, people land on a placeholder page with a few buttons. Volunteers ge
 
 ## Progress
 - **Branch:** `feat/app-shell-my-work` (stacked on `feat/notifications`)
-- **Updated:** 2026-10-18 14:10
-- **Next:** U2: the attention API (start with `attention.test.ts`)
+- **Updated:** 2026-10-18 14:50
+- **Next:** checkpoint C1 (review U1 and U2), then U3: the app shell
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** doc review on 2026-10-18 (two reviewers): the owner chose a side rail for volunteers from 640 px and hiding an official's tabs they may not use. FYI items not taken into the plan: no stop rule if the first load cannot reach 250 KB (then report the measured size to the owner and ask), no rate limit on `/me/attention`, Lighthouse version not pinned, no direct-URL test of `/admin/*` for a volunteer, a few shortcut and coming-later cards without their own test.
+- **Notes:** doc review on 2026-10-18 (two reviewers): the owner chose a side rail for volunteers from 640 px and hiding an official's tabs they may not use. FYI items not taken into the plan: no stop rule if the first load cannot reach 250 KB (then report the measured size to the owner and ask), no rate limit on `/me/attention`, Lighthouse version not pinned, no direct-URL test of `/admin/*` for a volunteer, a few shortcut and coming-later cards without their own test. U2: `GET /me/attention` in `routes/me.ts` (allowed for a pending registrant), `services/attention.ts` composing the inbox count, the volunteer's own projects, own corrections and recently answered edit requests, and the scoped counts through `RegistrationsService.waitingCount` and `ChangeRequestsService.waitingCount` (the same filters as their lists), `projectWhere` for drafts and windows, and open handovers through `userFilter`; staff registrations come through the registration list's own staff branch, so there is no separate item; kinds and routes in `@css/shared` (`ATTENTION_ROUTES`); the container builds it after the services it reads.

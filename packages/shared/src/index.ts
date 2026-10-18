@@ -2,6 +2,7 @@ export { COMPONENT_KEYS, type ComponentKey, isComponentKey } from './components.
 export { hasOnlyEnglishDigits, toEnglishDigits } from './digits.js';
 export { uuidv7, uuidv7Time } from './ids.js';
 export * from './jsonb/index.js';
+export * from './attention.js';
 export * from './notifications/api.js';
 export * from './notifications/links.js';
 export * from './notifications/templates.js';
