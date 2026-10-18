@@ -174,8 +174,8 @@ Phase 1 built its features in the tasks T1.5 to T1.15, each with its own tests, 
 
 ## Progress
 - **Branch:** `chore/phase1-test-consolidation` (stacked on `feat/media-roles-d101`, PR #9)
-- **Updated:** 2026-10-18 17:30
-- **Next:** checkpoint C1 (review U1), then U2: the response recorder, tests first (`apps/api/test/api/contract.test.ts`)
-- **Reviewed through:** none
+- **Updated:** 2026-10-18 18:05
+- **Next:** U2: the response recorder, tests first (`apps/api/test/api/contract.test.ts` on `buildTestApp` with a probe router)
+- **Reviewed through:** C1 at 01ebbb2
 - **Uncommitted:** none
-- **Notes:** doc review on 2026-10-18 (plan-reviewer): the migration round trip is already tested in `apps/api/test/integration/migrations.test.ts`, so R11 is recording work only; the Department Head and the Monitoring Team have no denial row in `roles.spec.ts` (their only exception, the Main Admin transfer, has no endpoint yet). U1: on the real documents the Phase 1 table is tested 37, untested 99 (so `pnpm docs:check` fails until U3 ends); one register line (BR-201) names the old Next.js path `apps/web/app/_lib/api.test.ts`, to fix in U3; a rule whose Test column is `manual` or `none` is not counted at all, the register's `manual` state is for rules that expected a test.
+- **Notes:** doc review on 2026-10-18 (plan-reviewer): the migration round trip is already tested in `apps/api/test/integration/migrations.test.ts`, so R11 is recording work only; the Department Head and the Monitoring Team have no denial row in `roles.spec.ts` (their only exception, the Main Admin transfer, has no endpoint yet). U1: on the real documents the Phase 1 table is tested 37, untested 99 (so `pnpm docs:check` fails until U3 ends); one register line (BR-201) names the old Next.js path `apps/web/app/_lib/api.test.ts`, to fix in U3; a rule whose Test column is `manual` or `none` is not counted at all, the register's `manual` state is for rules that expected a test. C1 review (logic, security, standards; no P0/P1): the state of a register line is read from its form only (a test file plus `— passing (date…)` at the end; `failing` explicit), test paths in any folder are checked, the CLI has its own tests through `--docs <fixture dir>` and exits 2 on a usage error; a TypeScript test importing an `.mjs` needs the `.d.mts` beside it (the shared package has no `allowJs`).
