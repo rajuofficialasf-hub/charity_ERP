@@ -73,7 +73,7 @@ jobs:
       - run: pnpm docs:check
       - run: pnpm test
       - run: pnpm build
-      # the first route of the PWA stays within 250 KB of compressed JavaScript (NFR-15)
+      # the first route of the PWA stays within 250 KB of compressed JavaScript
       - run: pnpm --filter @css/web bundle:report
 
   security:

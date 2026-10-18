@@ -48,11 +48,31 @@ test.describe('home page', () => {
 
 // The My Work home of each demo role (docs/testing/DEMO_ACCOUNTS.md), on a phone and a desktop:
 // "needs your attention" first, then the widgets of the role. The accounts are only read here.
-const HOMES: { role: string; loginId: string; widgets: string[] }[] = [
-  { role: 'a General Volunteer', loginId: '01700000101', widgets: ['আমার প্রকল্প', 'আমার আবেদন'] },
-  { role: 'a Team Member', loginId: '01700000119', widgets: ['আমার প্রকল্প', 'আমার আবেদন'] },
-  { role: 'a Local দায়ী', loginId: '01700000118', widgets: ['আমার প্রকল্প', 'আজকের ক্লাস'] },
-  { role: 'a Paid Volunteer', loginId: '01700000120', widgets: ['আমার প্রকল্প', 'আজকের কাজ'] },
+const HOMES: { role: string; loginId: string; widgets: string[]; volunteer?: boolean }[] = [
+  {
+    role: 'a General Volunteer',
+    loginId: '01700000101',
+    widgets: ['আমার প্রকল্প', 'আমার আবেদন'],
+    volunteer: true,
+  },
+  {
+    role: 'a Team Member',
+    loginId: '01700000119',
+    widgets: ['আমার প্রকল্প', 'আমার আবেদন'],
+    volunteer: true,
+  },
+  {
+    role: 'a Local দায়ী',
+    loginId: '01700000118',
+    widgets: ['আমার প্রকল্প', 'আজকের ক্লাস'],
+    volunteer: true,
+  },
+  {
+    role: 'a Paid Volunteer',
+    loginId: '01700000120',
+    widgets: ['আমার প্রকল্প', 'আজকের কাজ'],
+    volunteer: true,
+  },
   {
     role: 'the Official দায়ী',
     loginId: 'daee@example.org',
@@ -87,7 +107,7 @@ test.describe('My Work home per role', () => {
       for (const widget of home.widgets)
         await expect(main.getByRole('heading', { level: 2, name: widget })).toBeVisible();
       // volunteers never see ratings or categories
-      if (/^017/.test(home.loginId)) await expect(main).not.toContainText(/রেটিং|ক্যাটাগরি/);
+      if (home.volunteer) await expect(main).not.toContainText(/রেটিং|ক্যাটাগরি/);
       // wait for the widgets to load before the scan
       await page.waitForLoadState('networkidle');
       if (isPhone(info))

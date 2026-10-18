@@ -12,7 +12,7 @@ const GalleryPage = GALLERY_ENABLED ? lazy(() => import('../dev/GalleryPage')) :
 /**
  * Every screen of the PWA: the sign-in pages alone, every signed-in page inside the app shell.
  * Only the login is in the first load; every other screen, the shell too, is its own chunk, so the
- * first route stays within the budget of docs/NON_FUNCTIONAL_REQUIREMENTS.md (NFR-15).
+ * first route stays within the JavaScript budget of docs/NON_FUNCTIONAL_REQUIREMENTS.md.
  */
 export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
   const gallery = options.gallery ?? GALLERY_ENABLED;

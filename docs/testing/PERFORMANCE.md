@@ -128,8 +128,11 @@ decision for the owner).
 NFR-15 allows at most 250 KB of compressed JavaScript for the first route. The first route is the
 entry script of `apps/web/dist/index.html` and every chunk it preloads, gzip level 9, as
 `pnpm --filter @css/web bundle:report` (after `pnpm --filter @css/web build`) prints and CI checks
-after the build; the command fails over the budget. A first visit always opens the login, because
-a device without a session is sent there; after it the service worker precaches every chunk.
+after the build; the command fails over the budget, and also fails when `index.html` names no entry
+script, so a changed build can never pass by measuring nothing. The budget applies to this first
+route, the login: a first visit always opens it, because a device without a session is sent there,
+and after it the service worker precaches every chunk. The command also prints what the home of a
+signed-in person adds when it is not cached yet, without failing on it.
 
 | Measured 2026-10-18 (T1.15) | First route (gzip) | Files |
 |---|---|---|

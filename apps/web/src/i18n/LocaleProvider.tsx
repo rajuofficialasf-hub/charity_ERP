@@ -21,8 +21,8 @@ const LocaleContext = createContext<LocaleValue>({ locale: 'bn', setLocale: () =
 
 /**
  * Gives the app its language and catalogue (use-intl) and keeps `<html lang>` in step. Messages
- * are the whole catalogue of the language; the bundle carries both languages (I18N 3; together
- * about 45 KB gzip of the first route, docs/testing/PERFORMANCE.md, section "First load of the
+ * are the whole catalogue of the language; the bundle carries both languages (docs/ui/I18N.md;
+ * their share of the first load is in docs/testing/PERFORMANCE.md, section "First load of the
  * PWA"), so switching needs no network.
  */
 export function LocaleProvider({
