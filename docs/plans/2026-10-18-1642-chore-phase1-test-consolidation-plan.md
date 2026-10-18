@@ -1,7 +1,7 @@
 ---
 title: Phase 1 test consolidation (T1.16)
 type: chore
-status: in-progress
+status: done
 source: brainstorm
 date: 2026-10-18
 doc_review: 2026-10-18
@@ -145,6 +145,32 @@ Phase 1 built its features in the tasks T1.5 to T1.15, each with its own tests, 
 - **Done when:** every command in the section was run on the final branch state and its output is quoted; `pnpm docs:check` passes.
 - **Depends on:** U1, U2, U3, U4, U5, U6 · **Size:** S · **Risk area:** none
 - **Status:** done
+
+## Checkpoints
+- **Mode:** grouped (one by one 4, grouped 12, all at once 3; N is over 4, so one by one's points go to grouped)
+- **Signals:** N 7, L 1,700, R 0, Fd 4 (U1, U2, U4, U5 each feed two or more later units), C 4 (U4 → U5 → U6 → U7), P 1 (U2's response recorder)
+- **C1** after U1: foundation for U3 and U7
+- **C2** after U2: a new pattern (the recorder and the coverage check) and a foundation for U3
+- **C3** after U5: U4 and U5 are foundations for U6 and U7 (two checkpoints in a row kept as one), and the code since C2 would pass 1,000 lines with U6
+- **C4** after U7: end; scripted checks on the whole branch
+
+## Verification
+- `pnpm typecheck` · `pnpm lint` · `pnpm test` (includes `apps/api/vitest.db.config.mts` with `migrations.test.ts`; needs `docker compose up -d`)
+- `pnpm docs:check` (now with the Phase 1 rules check) · `pnpm rules:status --phase 1`
+- `pnpm --filter @css/api contract:coverage` · `pnpm --filter @css/api authz:matrix`
+- `pnpm e2e` (mobile, desktop and iphone), and from `apps/web`: `npx playwright test e2e/registration.spec.ts e2e/roles.spec.ts e2e/a11y.spec.ts --repeat-each 3 --workers 1` and `npx playwright test --project iphone --repeat-each 3`
+
+## Risks and rollback
+- **Flaky end-to-end runs:** the preview server stopped midway in two full runs on this machine (STATUS known issues); every spec is run alone with `--repeat-each 3 --workers 1` before it counts, and a failure under the full run is rerun once before it is called a regression.
+- **The response check finds real contract gaps:** a server answer outside the YAML is a bug in one of them; the fix follows the contract (the YAML is the agreement with the web app) and goes through the drift test; none is silenced in the recorder.
+- **Shared E2E database:** the new chain in `registration.spec.ts` and `roles.spec.ts` use generated people and read-only accounts, so the three projects can run in parallel; the account allocation is written in DEMO_ACCOUNTS.md.
+- No migration; production code changes only where a Phase 1 rule's test or the contract check exposes a defect (Scope), never in the recorder itself; a revert of the branch restores the previous test setup.
+
+## Definition of done
+- All units done and their tests pass
+- Verification commands pass
+- `ae-review` has run, with no open P0 or P1
+- Code from abandoned attempts is removed
 
 ## Checkpoints
 - **Mode:** grouped (one by one 4, grouped 12, all at once 3; N is over 4, so one by one's points go to grouped)
