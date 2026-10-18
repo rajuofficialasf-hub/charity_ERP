@@ -36,7 +36,10 @@ export function ProfileMenu({ me, withLanguage }: { me: Me; withLanguage: boolea
       label: ta('logout'),
       icon: LogOut,
       onAction: () => {
-        void logout().finally(() => void navigate('/login?ended=logout', { replace: true }));
+        // the device is wiped even when the server cannot be told (logout rethrows then)
+        void logout()
+          .catch(() => undefined)
+          .then(() => navigate('/login?ended=logout', { replace: true }));
       },
     },
   ];

@@ -62,7 +62,7 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
               }),
             },
             {
-              // The admin area is its own chunk (UX-15): the other screens never load it.
+              // The admin area is its own chunk: the other screens never load it.
               path: '/admin',
               lazy: async () => ({ Component: (await import('../admin/AdminLayout')).AdminLayout }),
               children: [

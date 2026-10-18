@@ -209,7 +209,11 @@ test.describe('programs and project setup', () => {
     page,
   }, info: TestInfo) => {
     await signIn(page, VOLUNTEER[info.project.name === 'mobile' ? 'mobile' : 'desktop']);
-    await expect(mainMenu(page).locator('a[href^="/admin"]')).toHaveCount(0);
+    await expect(mainMenu(page)).toBeVisible();
+    const destinations = await mainMenu(page)
+      .getByRole('link')
+      .evaluateAll((links) => links.map((link) => link.getAttribute('href') ?? ''));
+    expect(destinations.filter((href) => href.startsWith('/admin'))).toEqual([]);
     await page.goto('/admin/projects');
     await expect(page.getByRole('heading', { level: 1, name: 'প্রবেশাধিকার নেই' })).toBeVisible();
   });

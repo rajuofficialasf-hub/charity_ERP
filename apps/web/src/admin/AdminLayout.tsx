@@ -24,7 +24,7 @@ export function ForbiddenContent() {
 }
 
 /**
- * The admin area (UX-15, SYSTEM_ARCHITECTURE 4.2 management screens) inside the app shell: the
+ * The admin area (docs/architecture/SYSTEM_ARCHITECTURE.md, section "Route groups of the PWA") inside the app shell: the
  * management audience sees the page, with the notice on a phone that setup screens are best on a
  * larger one; everyone else sees the "no access" content (the server denies anyway). Loaded as its
  * own route chunk.

@@ -88,7 +88,11 @@ test.describe('admin area', () => {
 
   test('a volunteer sees the forbidden screen and no admin destination', async ({ page }, info) => {
     await signIn(page, accounts(info.project.name).volunteer);
-    await expect(mainMenu(page).locator('a[href^="/admin"]')).toHaveCount(0);
+    await expect(mainMenu(page)).toBeVisible();
+    const destinations = await mainMenu(page)
+      .getByRole('link')
+      .evaluateAll((links) => links.map((link) => link.getAttribute('href') ?? ''));
+    expect(destinations.filter((href) => href.startsWith('/admin'))).toEqual([]);
 
     await page.goto('/admin');
     await expect(page.getByRole('heading', { level: 1, name: 'প্রবেশাধিকার নেই' })).toBeVisible();

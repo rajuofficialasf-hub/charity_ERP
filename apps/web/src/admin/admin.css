@@ -1,4 +1,4 @@
-/* Admin area content inside the app shell (UX-15). Tokens only. */
+/* Admin area content inside the app shell. Tokens only. */
 .admin-content {
   display: grid;
   /* one column that never grows past the screen: a long tab list scrolls inside it instead */

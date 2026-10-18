@@ -33,8 +33,8 @@ beforeEach(() => {
   resetClientForTests();
 });
 
-// The admin area inside the app shell (UX-15): management roles only; the API enforces every
-// admin permission, the frame only decides what to show (RE-SEC-05).
+// The admin area inside the app shell: management roles only; the API enforces every admin
+// permission, the frame only decides what to show.
 describe('admin area', () => {
   it('shows a Department Head the dashboard inside the shell, without accessibility violations', async () => {
     refreshAs(HEAD);

@@ -1,14 +1,15 @@
 import type { Me } from '@css/shared/auth';
-import { NavItem, OfflineBanner } from '@css/ui';
+import { OfflineBanner } from '@css/ui';
 import { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { useTranslations } from 'use-intl';
-import { isCurrent, sidebarFor } from '../../admin/navigation';
+import { sidebarFor } from '../../admin/navigation';
 import { RequireAuth } from '../../lib/auth';
 import { AppProviders } from '../AppProviders';
 import { AppBar } from './AppBar';
 import { BottomTabs } from './BottomTabs';
 import { MoreSheet } from './MoreSheet';
+import { NavLinks } from './NavLinks';
 import './shell.css';
 import { useOnline, useShellWidth } from './use-online';
 
@@ -27,9 +28,13 @@ function Shell({ me }: { me: Me }) {
   const { pathname } = useLocation();
   const width = useShellWidth();
   const online = useOnline();
-  // the sheet stays open on the page it was opened on; a destination chosen in it closes it
-  const [moreOn, setMoreOn] = useState<string | null>(null);
-  const moreOpen = moreOn === pathname;
+  const [moreOpen, setMoreOpen] = useState(false);
+  // any change of page (a destination of the sheet, the back button) closes the sheet
+  const [shownPath, setShownPath] = useState(pathname);
+  if (shownPath !== pathname) {
+    setShownPath(pathname);
+    setMoreOpen(false);
+  }
   const sidebar = width === 'desktop' && me.kind !== 'volunteer';
   return (
     <AppProviders navigate={(href) => void navigate(href)}>
@@ -38,12 +43,12 @@ function Shell({ me }: { me: Me }) {
       >
         <AppBar me={me} phone={width === 'phone'} />
         {sidebar ? (
-          <Sidebar me={me} pathname={pathname} />
+          <Sidebar me={me} />
         ) : (
           <BottomTabs
             me={me}
             variant={width === 'phone' ? 'tab-bar' : 'rail'}
-            onMore={() => setMoreOn(pathname)}
+            onMore={() => setMoreOpen(true)}
           />
         )}
         <div className="app-main">
@@ -52,13 +57,13 @@ function Shell({ me }: { me: Me }) {
             <Outlet />
           </main>
         </div>
-        <MoreSheet me={me} isOpen={moreOpen} onClose={() => setMoreOn(null)} />
+        <MoreSheet me={me} isOpen={moreOpen} onClose={() => setMoreOpen(false)} />
       </div>
     </AppProviders>
   );
 }
 
-function Sidebar({ me, pathname }: { me: Me; pathname: string }) {
+function Sidebar({ me }: { me: Me }) {
   const t = useTranslations('nav');
   return (
     <nav className="app-sidebar" aria-label={t('label')}>
@@ -72,15 +77,7 @@ function Sidebar({ me, pathname }: { me: Me; pathname: string }) {
           <span id={`nav-group-${group}`} className="app-nav-group-title">
             {t(`group.${group}`)}
           </span>
-          {items.map((item) => (
-            <NavItem
-              key={item.key}
-              icon={item.icon}
-              label={t(item.key)}
-              href={item.href}
-              active={isCurrent(item, pathname)}
-            />
-          ))}
+          <NavLinks items={items} />
         </div>
       ))}
     </nav>

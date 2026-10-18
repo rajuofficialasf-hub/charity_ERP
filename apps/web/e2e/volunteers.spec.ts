@@ -78,7 +78,11 @@ test.describe('the volunteer tab', () => {
     page,
   }, info) => {
     await signIn(page, accounts(info).volunteer);
-    await expect(mainMenu(page).locator('a[href^="/admin"]')).toHaveCount(0);
+    await expect(mainMenu(page)).toBeVisible();
+    const destinations = await mainMenu(page)
+      .getByRole('link')
+      .evaluateAll((links) => links.map((link) => link.getAttribute('href') ?? ''));
+    expect(destinations.filter((href) => href.startsWith('/admin'))).toEqual([]);
     for (const path of ['/admin/volunteers', '/admin/beneficiaries']) {
       await page.goto(path);
       await expect(page.getByRole('heading', { level: 1, name: 'প্রবেশাধিকার নেই' })).toBeVisible();

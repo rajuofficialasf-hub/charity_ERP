@@ -38,6 +38,7 @@ const renderShell = (path = '/', locale: 'bn' | 'en' = 'bn') =>
       { index: true, element: <h1>হোম পাতা</h1> },
       { path: 'admin/audit', element: <h1>অডিট পাতা</h1> },
       { path: 'my-projects', element: <h1>প্রকল্প পাতা</h1> },
+      { path: 'account/profile', element: <h1>প্রোফাইল পাতা</h1> },
     ],
   });
 
@@ -52,6 +53,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe('app shell', () => {
@@ -171,6 +173,37 @@ describe('app shell', () => {
       'আমার প্রোফাইল',
       'আমার ডিভাইস',
     ]);
+  });
+
+  it('closes "more" on the page chosen, and it stays closed when the person comes back', async () => {
+    atWidth(360);
+    refreshAs(VOLUNTEER);
+    const user = userEvent.setup();
+    const { router } = renderShell();
+    await user.click(await screen.findByRole('button', { name: 'আরও' }));
+    await user.click(
+      within(await screen.findByRole('dialog', { name: 'আরও' })).getByRole('link', {
+        name: 'আমার প্রোফাইল',
+      }),
+    );
+    expect(await screen.findByRole('heading', { name: 'প্রোফাইল পাতা' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await act(async () => {
+      await router.navigate(-1);
+    });
+    expect(await screen.findByRole('heading', { name: 'হোম পাতা' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    // the link of the page already shown closes the sheet too
+    await act(async () => {
+      await router.navigate('/account/profile');
+    });
+    await user.click(await screen.findByRole('button', { name: 'আরও' }));
+    await user.click(
+      within(await screen.findByRole('dialog', { name: 'আরও' })).getByRole('link', {
+        name: 'আমার প্রোফাইল',
+      }),
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
   it('offers the profile, the devices, the password and logout; logout ends the session', async () => {

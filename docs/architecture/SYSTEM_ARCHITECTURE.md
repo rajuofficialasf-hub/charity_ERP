@@ -126,7 +126,7 @@ Each module exposes a small public API (its application services, constructed in
 
 ### 4.2 Route groups of the PWA (`apps/web/src`, React Router)
 
-The groups below are the planned React Router layout routes (T1.15 adds the app shell); today `src/routes/index.tsx` holds the auth and account screens of T1.7 and the dev-only gallery route.
+The groups below are the audiences of the screens. Since T1.15 one layout route, the app shell (`src/components/shell/AppShell.tsx`), wraps every signed-in screen with the app bar, the navigation of the screen's width and the offline banner; the sign-in screens and the dev-only gallery stand alone, and the admin pages are one lazy route chunk inside the shell.
 
 | Route group | Audience and device priority (DESIGN_BRIEF §5) | Screens (SCREENS.md) |
 |---|---|---|
