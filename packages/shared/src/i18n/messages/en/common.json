@@ -50,6 +50,8 @@
     "project_permissions": "{count} extra permissions on this project",
     "consent_accepted": "accepted",
     "consent_declined": "declined",
-    "unknown_device": "an unnamed device"
+    "unknown_device": "an unnamed device",
+    "fallback_title": "Notification",
+    "fallback_body": "This notification cannot be shown. Open the related page to see what happened."
   }
 }

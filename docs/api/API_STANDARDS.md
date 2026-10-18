@@ -159,6 +159,10 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | nisab | nisab.in_effect | 409 | withdrawing a version that has already taken effect (D-098) |
 | audit | audit.range_required | 422 (as detail of validation.failed) | the audit viewer's date range is reversed or longer than 366 days (D-098) |
 | nisab | nisab.withdrawn | 409 | withdrawing a version already withdrawn (D-098) |
+| notification | notification.no_email_for_volunteers | 422 (as detail of validation.failed) | a volunteer asks for an email setting; volunteers get notifications in the app only (D-099) |
+| notification | notification.unsafe_text | 422 (as detail of validation.failed) | a template text holds a link or the characters < or > (D-099) |
+| notification | notification.placeholder_unknown | 422 (as detail of validation.failed) | a template text uses a placeholder that is not declared for its key (D-099) |
+| notification | notification.person_in_app | 422 (as detail of validation.failed) | an in-app template text uses a person's name; only an email may (D-099) |
 | session | session.use_logout | 409 | the current device session is ended with logout, not revoke (T1.7) |
 | user | user.system_owner_protected | 409 | the Main Admin cannot be blocked, deactivated or have its sessions revoked by others (BR-035, AUTH.md §11) |
 | user | user.handover_required | 409 | deactivation before a completed handover (BR-034) |

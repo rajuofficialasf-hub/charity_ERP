@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderTemplateText } from '../i18n/notifications.js';
+import { markReadSchema, preferencesUpdateSchema, templateTextSchema } from './api.js';
 import { notificationLink } from './links.js';
 import {
   IN_APP_PARAMS,
@@ -150,5 +151,28 @@ describe('the notification links', () => {
       '/admin/registrations',
     );
     expect(notificationLink('no_such_key', {}, 'staff')).toBeNull();
+  });
+});
+
+describe('the notification request bodies', () => {
+  it('take either some ids or all, never both or neither', () => {
+    const id = '01900000-0000-7000-8000-000000000001';
+    expect(markReadSchema.safeParse({ ids: [id] }).success).toBe(true);
+    expect(markReadSchema.safeParse({ all: true }).success).toBe(true);
+    expect(markReadSchema.safeParse({}).success).toBe(false);
+    expect(markReadSchema.safeParse({ ids: [id], all: true }).success).toBe(false);
+  });
+
+  it('keep links and markup out of a template text', () => {
+    const ok = { subject: 'S', body: 'Hello {{count}}' };
+    expect(templateTextSchema.safeParse(ok).success).toBe(true);
+    for (const body of ['<b>x</b>', 'see https://example.org', 'www.example.org'])
+      expect(templateTextSchema.safeParse({ ...ok, body }).success).toBe(false);
+  });
+
+  it('need at least one preference', () => {
+    expect(preferencesUpdateSchema.safeParse({}).success).toBe(false);
+    expect(preferencesUpdateSchema.safeParse({ email_mode: 'immediate' }).success).toBe(true);
+    expect(preferencesUpdateSchema.safeParse({ digest_time: '25:00' }).success).toBe(false);
   });
 });

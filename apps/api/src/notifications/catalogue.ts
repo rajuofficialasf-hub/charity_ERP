@@ -11,6 +11,8 @@ export interface CatalogueEntry {
   /** An email to each official recipient with an address. */
   email: boolean;
   category: NotificationCategory;
+  /** The entry's {{count}} is the number of events collapsed into it, not a value of one event. */
+  countsEvents?: boolean;
 }
 
 const entry = (
@@ -45,7 +47,7 @@ export const NOTIFICATION_CATALOGUE: Readonly<Record<string, CatalogueEntry>> = 
   project_closed: entry('info'),
   project_reopened: entry('info'),
   project_grant_changed: entry('security'),
-  ops_alert: entry('alert'),
+  ops_alert: { ...entry('alert'), countsEvents: true },
 };
 
 /** Security and alerts go first, then work assigned, then the rest (pg-boss priority). */

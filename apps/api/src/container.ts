@@ -26,6 +26,9 @@ import {
 import { AuthService } from './services/auth';
 import { RegistrationCleanup } from './jobs/registration-cleanup';
 import { AccountEvents } from './notifications/account-events';
+import { DeliveriesService } from './services/deliveries';
+import { InboxService } from './services/inbox';
+import { NotificationTemplatesService } from './services/notification-templates';
 import { ProjectEvents } from './notifications/project-events';
 import { LocationsService } from './services/locations';
 import { FilesService } from './services/files';
@@ -112,6 +115,9 @@ export interface Container {
   referenceLists: ReferenceListsService;
   nisab: NisabService;
   auditLog: AuditLogService;
+  inbox: InboxService;
+  notificationTemplates: NotificationTemplatesService;
+  deliveries: DeliveriesService;
   sessionMonitor: SessionMonitorService;
   channels: ChannelsService;
   notifications: NotificationService;
@@ -277,6 +283,10 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     referenceLists: o.referenceLists ?? new ReferenceListsService(prisma, audit),
     nisab: o.nisab ?? new NisabService(prisma, audit, clock),
     auditLog: o.auditLog ?? new AuditLogService(env, prisma, clock),
+    inbox: o.inbox ?? new InboxService(env, prisma, clock, logger),
+    notificationTemplates:
+      o.notificationTemplates ?? new NotificationTemplatesService(prisma, audit),
+    deliveries: o.deliveries ?? new DeliveriesService(env, prisma),
     sessionMonitor: o.sessionMonitor ?? new SessionMonitorService(env, prisma, clock),
     channels: o.channels ?? new ChannelsService(env, settings),
     notifications,
