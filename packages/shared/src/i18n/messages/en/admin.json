@@ -1,29 +1,5 @@
 {
   "open": "Admin",
-  "nav": {
-    "label": "Admin menu",
-    "dashboard": "Dashboard",
-    "volunteers": "Volunteers",
-    "beneficiaries": "Beneficiaries",
-    "permissions": "Permissions",
-    "registrations": "Registrations",
-    "handover": "Handover",
-    "projects": "Projects",
-    "programs": "Programs",
-    "templates": "Templates",
-    "staff": "Officials",
-    "settings": "Settings",
-    "nisab": "Nisab",
-    "audit": "Audit log",
-    "sessions": "Sessions",
-    "health": "System health",
-    "notification_templates": "Notification texts",
-    "deliveries": "Deliveries"
-  },
-  "bar": {
-    "label": "Admin",
-    "user": "Signed in: {name}"
-  },
   "dashboard": {
     "title": "Dashboard",
     "today": "Today: {date}"

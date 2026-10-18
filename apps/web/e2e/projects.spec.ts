@@ -1,5 +1,5 @@
 import { expect, type Page, test, type TestInfo } from '@playwright/test';
-import { openTab, rows as listRows, scan, signIn } from './support/admin';
+import { mainMenu, openTab, rows as listRows, scan, signIn } from './support/admin';
 import {
   chooseIn,
   code,
@@ -209,7 +209,7 @@ test.describe('programs and project setup', () => {
     page,
   }, info: TestInfo) => {
     await signIn(page, VOLUNTEER[info.project.name === 'mobile' ? 'mobile' : 'desktop']);
-    await expect(page.getByRole('link', { name: 'অ্যাডমিন' })).toHaveCount(0);
+    await expect(mainMenu(page).locator('a[href^="/admin"]')).toHaveCount(0);
     await page.goto('/admin/projects');
     await expect(page.getByRole('heading', { level: 1, name: 'প্রবেশাধিকার নেই' })).toBeVisible();
   });

@@ -6,6 +6,7 @@ import { http, HttpResponse } from 'msw';
 import type { ReactNode } from 'react';
 import { createMemoryRouter, type RouteObject, RouterProvider, useLocation } from 'react-router';
 import { AppProviders } from '../src/components/AppProviders';
+import { AppShell } from '../src/components/shell/AppShell';
 import { LocaleProvider } from '../src/i18n/LocaleProvider';
 import { AuthProvider } from '../src/lib/auth';
 import { createQueryClient } from '../src/lib/query-client';
@@ -88,4 +89,12 @@ export function refreshAs(me: Me | null) {
         : apiError(401, 'auth.refresh_invalid', 'Log in again.'),
     ),
   );
+}
+
+/**
+ * The app shell (desktop width unless `matchMedia` is stubbed) at `/` with these child routes,
+ * opened at `initialPath`: a page as the person sees it, with the app bar and the navigation.
+ */
+export function renderInShell(children: RouteObject[], initialPath: string, locale: Locale = 'bn') {
+  return renderApp(<AppShell />, locale, { path: '/', initialPath, children });
 }

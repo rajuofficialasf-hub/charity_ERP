@@ -1,7 +1,7 @@
 import { expectNoAxeViolations } from '@css/ui/testing';
 import { screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ME, refreshAs, renderApp } from '../../../test/auth';
+import { ME, refreshAs, renderApp, renderInShell } from '../../../test/auth';
 import { resetClientForTests } from '../../lib/api';
 import { HomeView } from './HomeView';
 
@@ -10,17 +10,13 @@ beforeEach(() => {
 });
 
 describe('HomeView', () => {
-  it('welcomes a signed-in user with account links, without accessibility violations', async () => {
+  it('welcomes a signed-in user inside the shell, without accessibility violations', async () => {
     refreshAs(ME);
-    const { container } = renderApp(<HomeView />);
+    const { container } = renderInShell([{ index: true, element: <HomeView /> }], '/');
     expect(
       await screen.findByRole('heading', { level: 1, name: 'স্বাগতম, নমুনা কর্মকর্তা' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'আমার ডিভাইস' })).toHaveAttribute(
-      'href',
-      '/account/sessions',
-    );
-    expect(screen.getByRole('button', { name: 'লগআউট' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'প্রোফাইল মেনু' })).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 

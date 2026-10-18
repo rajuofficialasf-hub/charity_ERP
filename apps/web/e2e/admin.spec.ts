@@ -33,55 +33,66 @@ async function signIn(page: Page, loginId: string): Promise<string> {
   return ((await heading.textContent()) ?? '').replace(/^স্বাগতম, /, '');
 }
 
+const mainMenu = (page: Page) => page.getByRole('navigation', { name: 'প্রধান মেনু' });
+
 test.describe('admin area', () => {
-  test('a manager opens the admin shell from the home page and logs out from it', async ({
+  test('a manager opens the admin area inside the app shell and logs out from the profile menu', async ({
     page,
   }, info) => {
+    const phone = info.project.name === 'mobile';
     const name = await signIn(page, accounts(info.project.name).manager);
 
-    await page.getByRole('link', { name: 'অ্যাডমিন' }).click();
-    await expect(page).toHaveURL(/\/admin$/);
+    await page.goto('/admin');
     await expect(page.getByRole('heading', { level: 1, name: 'ড্যাশবোর্ড' })).toBeVisible();
     await expect(page).toHaveTitle('ড্যাশবোর্ড');
-    const nav = page.getByRole('navigation', { name: 'অ্যাডমিন মেনু' });
-    await expect(nav.getByRole('link', { name: 'ড্যাশবোর্ড' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
-    await expect(page.getByText(`লগইন করা: ${name}`)).toBeVisible();
+    await expect(mainMenu(page)).toBeVisible();
+    const profile = page.getByRole('banner').getByRole('button', { name: 'প্রোফাইল মেনু' });
+    await expect(profile).toContainText(name);
     // dates in English digits (UX-05)
     await expect(page.getByText(/^আজ: \d{2}-\d{2}-\d{4}$/)).toBeVisible();
 
     // the UX-04 notice only on phones
     const notice = page.getByText('এই পর্দা বড় স্ক্রিনে ভালো চলে।');
-    if (info.project.name === 'mobile') await expect(notice).toBeVisible();
+    if (phone) await expect(notice).toBeVisible();
     else await expect(notice).toBeHidden();
 
-    // the language toggle ends the sidebar (UX-19), in view, and the page never scrolls sideways
-    const toggle = page.locator('nav.admin-sidebar').getByRole('radiogroup');
-    await expect(toggle).toBeInViewport();
-    await toggle.getByRole('radio', { name: 'English' }).click({ force: true });
-    await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
-    await toggle.getByRole('radio', { name: 'বাংলা' }).click({ force: true });
+    // the language: in the app bar, or in the profile menu on a phone
+    if (phone) {
+      await profile.click();
+      await page.getByRole('menuitem', { name: 'English' }).click();
+      await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
+      await page.getByRole('banner').getByRole('button', { name: 'Profile menu' }).click();
+      await page.getByRole('menuitem', { name: 'বাংলা' }).click();
+    } else {
+      const toggle = page.getByRole('banner').getByRole('radiogroup', { name: 'ভাষা' });
+      await toggle.getByRole('radio', { name: 'English' }).click({ force: true });
+      await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
+      await page
+        .getByRole('banner')
+        .getByRole('radiogroup', { name: 'Language' })
+        .getByRole('radio', { name: 'বাংলা' })
+        .click({ force: true });
+    }
     await expect(page.getByRole('heading', { level: 1, name: 'ড্যাশবোর্ড' })).toBeVisible();
+    // the page never scrolls sideways
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
 
     expect((await scan(page)).violations).toEqual([]);
 
-    await page.getByRole('button', { name: 'লগআউট' }).click();
+    await profile.click();
+    await page.getByRole('menuitem', { name: 'লগআউট' }).click();
     await expect(page).toHaveURL(/\/login\?ended=logout$/);
   });
 
-  test('a volunteer sees the forbidden screen and no admin link', async ({ page }, info) => {
+  test('a volunteer sees the forbidden screen and no admin destination', async ({ page }, info) => {
     await signIn(page, accounts(info.project.name).volunteer);
-    await expect(page.getByRole('link', { name: 'অ্যাডমিন' })).toHaveCount(0);
+    await expect(mainMenu(page).locator('a[href^="/admin"]')).toHaveCount(0);
 
     await page.goto('/admin');
     await expect(page.getByRole('heading', { level: 1, name: 'প্রবেশাধিকার নেই' })).toBeVisible();
     await expect(page.getByText('এই পাতায় আপনার প্রবেশাধিকার নেই।')).toBeVisible();
-    await expect(page.getByRole('navigation', { name: 'অ্যাডমিন মেনু' })).toHaveCount(0);
     expect((await scan(page)).violations).toEqual([]);
   });
 });

@@ -4,7 +4,7 @@ import { screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ME, refreshAs, renderApp } from '../../../test/auth';
+import { ME, refreshAs, renderInShell } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
 import { AdminLayout } from '../AdminLayout';
@@ -112,14 +112,20 @@ function serve() {
 
 const renderPage = (me: Me, locale: 'bn' | 'en' = 'bn') => {
   refreshAs(me);
-  return renderApp(<AdminLayout />, locale, {
-    path: '/admin',
-    children: [
-      { index: true, element: <DashboardPage /> },
-      { path: 'handover', element: <HandoverPage /> },
+  return renderInShell(
+    [
+      {
+        path: 'admin',
+        element: <AdminLayout />,
+        children: [
+          { index: true, element: <DashboardPage /> },
+          { path: 'handover', element: <HandoverPage /> },
+        ],
+      },
     ],
-    initialPath: '/admin/handover',
-  });
+    '/admin/handover',
+    locale,
+  );
 };
 
 async function pick(user: ReturnType<typeof userEvent.setup>, label: RegExp, text: string) {
@@ -160,7 +166,7 @@ describe('handover page', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'হ্যান্ডওভার' }),
     ).toBeInTheDocument();
-    const nav = screen.getByRole('navigation', { name: 'অ্যাডমিন মেনু' });
+    const nav = screen.getByRole('navigation', { name: 'প্রধান মেনু' });
     expect(within(nav).getByRole('link', { name: 'হ্যান্ডওভার' })).toHaveAttribute(
       'aria-current',
       'page',
@@ -276,7 +282,7 @@ describe('handover page', () => {
   it('is only for the Department Head and the Monitoring Team', async () => {
     renderPage({ ...ME, roles: ['regional_program_manager'] });
     expect(await screen.findByRole('heading', { name: 'প্রবেশাধিকার নেই' })).toBeInTheDocument();
-    const nav = screen.getByRole('navigation', { name: 'অ্যাডমিন মেনু' });
+    const nav = screen.getByRole('navigation', { name: 'প্রধান মেনু' });
     expect(within(nav).queryByRole('link', { name: 'হ্যান্ডওভার' })).not.toBeInTheDocument();
   });
 });

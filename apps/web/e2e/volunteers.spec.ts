@@ -1,5 +1,5 @@
 import { expect, type Page, test, type TestInfo } from '@playwright/test';
-import { filterBy, openTab, rows as listRows, scan, signIn } from './support/admin';
+import { filterBy, mainMenu, openTab, rows as listRows, scan, signIn } from './support/admin';
 
 // The nationwide volunteer tab (docs/ui/SCREENS.md, the volunteer tab and the volunteer profile)
 // against the API on its E2E database with the demo seed (docs/testing/DEMO_ACCOUNTS.md): the
@@ -78,7 +78,7 @@ test.describe('the volunteer tab', () => {
     page,
   }, info) => {
     await signIn(page, accounts(info).volunteer);
-    await expect(page.getByRole('link', { name: 'অ্যাডমিন' })).toHaveCount(0);
+    await expect(mainMenu(page).locator('a[href^="/admin"]')).toHaveCount(0);
     for (const path of ['/admin/volunteers', '/admin/beneficiaries']) {
       await page.goto(path);
       await expect(page.getByRole('heading', { level: 1, name: 'প্রবেশাধিকার নেই' })).toBeVisible();

@@ -1,7 +1,35 @@
 {
+  "label": "প্রধান মেনু",
   "home": "হোম",
   "review": "পর্যালোচনা",
   "people": "মানুষ",
   "projects": "প্রকল্প",
-  "more": "আরও"
+  "more": "আরও",
+  "my_work": "আমার কাজ",
+  "my_projects": "আমার প্রকল্প",
+  "notifications": "নোটিফিকেশন",
+  "profile": "আমার প্রোফাইল",
+  "devices": "আমার ডিভাইস",
+  "more_title": "আরও",
+  "profile_menu": "প্রোফাইল মেনু",
+  "group": {
+    "work": "কাজ",
+    "people": "মানুষ",
+    "admin": "প্রশাসন"
+  },
+  "volunteers": "স্বেচ্ছাসেবক",
+  "beneficiaries": "উপকারভোগী",
+  "permissions": "পারমিশন",
+  "registrations": "নিবন্ধন",
+  "handover": "হ্যান্ডওভার",
+  "programs": "প্রোগ্রাম",
+  "templates": "টেমপ্লেট",
+  "staff": "কর্মী",
+  "settings": "সেটিংস",
+  "nisab": "নিসাব",
+  "audit": "অডিট লগ",
+  "sessions": "সেশন",
+  "health": "সিস্টেমের অবস্থা",
+  "notification_templates": "নোটিফিকেশনের লেখা",
+  "deliveries": "বার্তার অবস্থা"
 }

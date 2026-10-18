@@ -4,7 +4,7 @@ import { screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ME, refreshAs, renderApp } from '../../../test/auth';
+import { ME, refreshAs, renderInShell } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
 import { AdminLayout } from '../AdminLayout';
@@ -65,14 +65,20 @@ function catalogue() {
 
 const renderPanel = (me: Me, locale: 'bn' | 'en' = 'bn', path = '/admin/permissions') => {
   refreshAs(me);
-  return renderApp(<AdminLayout />, locale, {
-    path: '/admin',
-    children: [
-      { index: true, element: <DashboardPage /> },
-      { path: 'permissions', element: <PermissionsPage /> },
+  return renderInShell(
+    [
+      {
+        path: 'admin',
+        element: <AdminLayout />,
+        children: [
+          { index: true, element: <DashboardPage /> },
+          { path: 'permissions', element: <PermissionsPage /> },
+        ],
+      },
     ],
-    initialPath: path,
-  });
+    path,
+    locale,
+  );
 };
 
 async function chooseExecutive(user: ReturnType<typeof userEvent.setup>) {
@@ -96,7 +102,7 @@ describe('permission panel', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'পারমিশন প্যানেল' }),
     ).toBeInTheDocument();
-    const nav = screen.getByRole('navigation', { name: 'অ্যাডমিন মেনু' });
+    const nav = screen.getByRole('navigation', { name: 'প্রধান মেনু' });
     expect(within(nav).getByRole('link', { name: 'পারমিশন' })).toHaveAttribute(
       'aria-current',
       'page',
@@ -333,8 +339,8 @@ describe('permission panel', () => {
 
   it('hides the menu item from a Program Manager', async () => {
     renderPanel(ME, 'bn', '/admin');
-    const nav = await screen.findByRole('navigation', { name: 'অ্যাডমিন মেনু' });
-    expect(within(nav).getByRole('link', { name: 'ড্যাশবোর্ড' })).toBeInTheDocument();
+    const nav = await screen.findByRole('navigation', { name: 'প্রধান মেনু' });
+    expect(within(nav).getByRole('link', { name: 'আমার কাজ' })).toBeInTheDocument();
     expect(within(nav).queryByRole('link', { name: 'পারমিশন' })).not.toBeInTheDocument();
   });
 

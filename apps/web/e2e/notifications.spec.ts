@@ -59,7 +59,9 @@ test.describe('notifications', () => {
     const grantId = await head.grant(await head.userId(login));
     try {
       await signIn(page, login);
-      const bell = page.getByRole('link', { name: /^নোটিফিকেশন, \d+টি না-পড়া$/ });
+      const bell = page
+        .getByRole('banner')
+        .getByRole('link', { name: /^নোটিফিকেশন, \d+টি না-পড়া$/ });
       await expect(bell).toBeVisible();
       await bell.click();
       await expect(page.getByRole('heading', { level: 1, name: 'নোটিফিকেশন' })).toBeVisible();
@@ -70,7 +72,9 @@ test.describe('notifications', () => {
       expect((await scan(page)).violations).toEqual([]);
       await page.getByRole('button', { name: 'সবগুলো পড়া হয়েছে' }).click();
       await expect(page.getByRole('button', { name: 'সবগুলো পড়া হয়েছে' })).toHaveCount(0);
-      await expect(page.getByRole('link', { name: 'নোটিফিকেশন', exact: true })).toBeVisible();
+      await expect(
+        page.getByRole('banner').getByRole('link', { name: 'নোটিফিকেশন', exact: true }),
+      ).toBeVisible();
     } finally {
       await head.end(grantId);
     }

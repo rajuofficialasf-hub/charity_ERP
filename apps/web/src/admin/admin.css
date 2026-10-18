@@ -1,67 +1,4 @@
-/*
- * Admin area layout (UX-15; DESIGN_SYSTEM 4.1 desktop sidebar, mockup 11-management-home.html):
- * a sticky top bar, a fixed sidebar from 640 px and the content area; on phones the destinations
- * sit in a row above the content. Tokens only.
- */
-.admin-shell {
-  min-height: 100dvh;
-  background: var(--color-bg-canvas);
-}
-.admin-bar {
-  position: sticky;
-  top: 0;
-  z-index: var(--z-sticky);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  min-height: var(--app-bar-height);
-  padding: var(--space-2) var(--space-4);
-  background: var(--color-bg-surface);
-  border-bottom: 1px solid var(--border-subtle);
-  box-shadow: var(--elevation-1);
-}
-.admin-brand {
-  font-size: var(--text-title);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-brand-ink);
-  text-decoration: none;
-}
-.admin-brand:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-  border-radius: var(--radius-sm);
-}
-.admin-bar-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-}
-.admin-user {
-  color: var(--color-text-secondary);
-}
-.admin-body {
-  display: block;
-}
-.admin-sidebar {
-  display: flex;
-  gap: var(--space-1);
-  overflow-x: auto;
-  padding: var(--space-2) var(--space-4);
-  background: var(--color-bg-surface);
-  border-bottom: 1px solid var(--border-subtle);
-}
-/* UX-19: the language toggle is the last item of the sidebar, at its end in the row on phones. */
-.admin-language {
-  margin-inline-start: auto;
-  flex: none;
-  align-self: center;
-  /* in the scrolling row of a phone the toggle stays in view at the end */
-  position: sticky;
-  inset-inline-end: 0;
-}
+/* Admin area content inside the app shell (UX-15). Tokens only. */
 .admin-content {
   display: grid;
   /* one column that never grows past the screen: a long tab list scrolls inside it instead */
@@ -98,26 +35,6 @@
   color: var(--color-text-secondary);
 }
 @media (min-width: 640px) {
-  .admin-body {
-    display: grid;
-    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
-  }
-  .admin-sidebar {
-    flex-direction: column;
-    position: sticky;
-    top: var(--app-bar-height);
-    height: calc(100dvh - var(--app-bar-height));
-    overflow-y: auto;
-    padding: var(--space-2);
-    border-bottom: 0;
-    border-right: 1px solid var(--border-subtle);
-  }
-  .admin-language {
-    position: static;
-    margin-inline-start: 0;
-    margin-top: auto;
-    align-self: flex-start;
-  }
   .admin-content {
     padding: var(--space-5);
   }
