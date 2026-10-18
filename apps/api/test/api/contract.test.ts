@@ -1,6 +1,9 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { Router } from 'express';
 import request from 'supertest';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { buildTestApp, type TestApp } from '../support/app';
 import { contractRecorder } from '../support/contract';
 
@@ -34,6 +37,20 @@ afterEach(async () => {
   await open?.close();
   open = undefined;
   contractRecorder.reset();
+});
+
+// the probes of this file never count as coverage of the real operations they borrow
+let scratch: string;
+let realCoverageDir: string;
+beforeAll(() => {
+  realCoverageDir = contractRecorder.coverageDir;
+  scratch = mkdtempSync(join(tmpdir(), 'css-contract-'));
+  contractRecorder.coverageDir = scratch;
+});
+afterAll(() => {
+  contractRecorder.flushCoverage();
+  contractRecorder.coverageDir = realCoverageDir;
+  rmSync(scratch, { recursive: true, force: true });
 });
 
 describe('the contract recorder', () => {

@@ -1,5 +1,7 @@
-import { afterAll, afterEach, expect } from 'vitest';
+import { afterAll, afterEach, expect, inject } from 'vitest';
 import { contractRecorder } from './contract';
+
+contractRecorder.coverageDir = inject('contractCoverageDir');
 
 // Every test of the API fails when one of its responses broke docs/api/openapi.yaml (the contract
 // recorder of test/support/contract.ts); the responses seen are kept as coverage lines for

@@ -91,11 +91,13 @@ export async function authHarness(
     logStream: options.logStream,
     extraRouters: options.extraRouters,
   });
-  // every JSON response is checked against the contract (test/support/contract.ts)
-  const listening = createServer(contractRecorder.wrap(app));
+  // every response is checked against the contract (test/support/contract.ts), through the
+  // listening server and through the app a test serves itself
+  const wrapped = contractRecorder.wrap(app);
+  const listening = createServer(wrapped);
   await new Promise<void>((resolve) => listening.listen(0, '127.0.0.1', resolve));
   return {
-    app,
+    app: wrapped,
     container,
     registry,
     db: clone.client,

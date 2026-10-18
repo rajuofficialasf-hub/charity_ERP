@@ -16,7 +16,8 @@ import yaml from 'js-yaml';
 
 const REPO = join(__dirname, '../../../..');
 const API_PREFIX = '/api/v1';
-const COVERAGE_DIR =
+/** Where the coverage lines go: one folder per Vitest project, emptied by the global setup. */
+export const COVERAGE_ROOT =
   process.env.CONTRACT_COVERAGE_DIR ?? join(__dirname, '../../test-results/contract');
 
 interface Operation {
@@ -125,6 +126,8 @@ class ContractRecorder {
   private readonly seen: ContractRecord[] = [];
   private readonly problems: ContractViolation[] = [];
   private pending: ContractRecord[] = [];
+  /** The folder of this run's coverage lines; the setup file points it at the project's folder. */
+  coverageDir = COVERAGE_ROOT;
 
   /**
    * Records one response of the API: `path` is the request path without the API prefix, `body`
@@ -137,8 +140,8 @@ class ContractRecorder {
     const entry = { operationId: op?.operationId ?? null, status };
     this.seen.push(entry);
     this.pending.push(entry);
-    // a path the contract does not know is a test probe: the drift test proves every registered
-    // route is in the contract, so nothing of the app itself can reach this branch
+    // a path the contract does not know is a test probe or the app's own 404 for one: the drift
+    // test proves every registered route is in the contract
     if (!op) return;
     if (status === 204) return;
     const declared = op.responses[String(status)];
@@ -210,9 +213,9 @@ class ContractRecorder {
     const lines = this.pending;
     this.pending = [];
     if (lines.length === 0) return lines;
-    mkdirSync(COVERAGE_DIR, { recursive: true });
+    mkdirSync(this.coverageDir, { recursive: true });
     appendFileSync(
-      join(COVERAGE_DIR, `${process.pid}.jsonl`),
+      join(this.coverageDir, `${process.pid}.jsonl`),
       `${lines.map((l) => JSON.stringify(l)).join('\n')}\n`,
     );
     return lines;
@@ -229,7 +232,9 @@ class ContractRecorder {
       res.json = (body: unknown) => {
         if (!recorded) {
           recorded = true;
-          this.record(req.method, path, res.statusCode, body);
+          // the value the client receives: a Date is a string on the wire, undefined is dropped
+          const wire: unknown = body === undefined ? undefined : JSON.parse(JSON.stringify(body));
+          this.record(req.method, path, res.statusCode, wire);
         }
         return json(body);
       };

@@ -26,8 +26,12 @@ function runTests(): void {
 
 function seenStatuses(): Map<string, Set<number>> {
   const seen = new Map<string, Set<number>>();
+  // one folder per Vitest project, each emptied by that project's global setup; a loose file in
+  // the root is a leftover of an older layout and not read
   const files = existsSync(coverageDir)
-    ? readdirSync(coverageDir).filter((f) => f.endsWith('.jsonl'))
+    ? readdirSync(coverageDir, { recursive: true, encoding: 'utf8' }).filter(
+        (f) => f.endsWith('.jsonl') && /[\\/]/.test(f),
+      )
     : [];
   for (const file of files)
     for (const line of readFileSync(join(coverageDir, file), 'utf8').split('\n')) {
