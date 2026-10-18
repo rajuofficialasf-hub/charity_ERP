@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+import { isPhone, scan, signIn } from './support/admin';
 
 test.describe('home page', () => {
   test('sends a visitor to the login screen with the system name and the PWA manifest', async ({
@@ -43,4 +44,56 @@ test.describe('home page', () => {
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);
   });
+});
+
+// The My Work home of each demo role (docs/testing/DEMO_ACCOUNTS.md), on a phone and a desktop:
+// "needs your attention" first, then the widgets of the role. The accounts are only read here.
+const HOMES: { role: string; loginId: string; widgets: string[] }[] = [
+  { role: 'a General Volunteer', loginId: '01700000101', widgets: ['আমার প্রকল্প', 'আমার আবেদন'] },
+  { role: 'a Team Member', loginId: '01700000119', widgets: ['আমার প্রকল্প', 'আমার আবেদন'] },
+  { role: 'a Local দায়ী', loginId: '01700000118', widgets: ['আমার প্রকল্প', 'আজকের ক্লাস'] },
+  { role: 'a Paid Volunteer', loginId: '01700000120', widgets: ['আমার প্রকল্প', 'আজকের কাজ'] },
+  {
+    role: 'the Official দায়ী',
+    loginId: 'daee@example.org',
+    widgets: ['লোকাল দায়ীদের খোঁজখবর', 'পরীক্ষার সূচি'],
+  },
+  {
+    role: 'an RPM',
+    loginId: 'rpm.dhaka@example.org',
+    widgets: ['আমার প্রকল্প', 'পর্যালোচনার তালিকা'],
+  },
+  {
+    role: 'a PM',
+    loginId: 'pm.hum@example.org',
+    widgets: ['প্রকল্পের অবস্থা', 'টেমপ্লেট', 'প্রোগ্রাম ড্যাশবোর্ড'],
+  },
+  {
+    role: 'the Department Head',
+    loginId: 'head@example.org',
+    widgets: ['শর্টকাট', 'কাজের অগ্রগতি', 'মনিটরিং সতর্কতা'],
+  },
+  // the Finance Team's account is the devices journey of auth.spec.ts, so the Media Team stands in
+  { role: 'the Media Team', loginId: 'media@example.org', widgets: ['মিডিয়ার কাজের তালিকা'] },
+];
+
+test.describe('My Work home per role', () => {
+  for (const home of HOMES)
+    test(`${home.role} opens their own home`, async ({ page }, info) => {
+      await signIn(page, home.loginId);
+      await expect(page).toHaveURL(/\/$/);
+      const main = page.getByRole('main');
+      await expect(main.getByRole('heading', { level: 2, name: 'এখন আপনার কাজ' })).toBeVisible();
+      for (const widget of home.widgets)
+        await expect(main.getByRole('heading', { level: 2, name: widget })).toBeVisible();
+      // volunteers never see ratings or categories
+      if (/^017/.test(home.loginId)) await expect(main).not.toContainText(/রেটিং|ক্যাটাগরি/);
+      // wait for the widgets to load before the scan
+      await page.waitForLoadState('networkidle');
+      if (isPhone(info))
+        expect(
+          await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+        ).toBe(true);
+      expect((await scan(page)).violations).toEqual([]);
+    });
 });
