@@ -21,11 +21,11 @@ import { MONITORING } from './recipients';
 import type { DeliveryJob, NotificationService } from './service';
 
 /** The waits after the first, second, third and fourth failed attempt; hourly after that. */
-export const RETRY_DELAYS_MS: readonly number[] = [30_000, 2 * 60_000, 10 * 60_000, 60 * 60_000];
+const RETRY_DELAYS_MS: readonly number[] = [30_000, 2 * 60_000, 10 * 60_000, 60 * 60_000];
 const HOURLY_MS = 60 * 60_000;
 /** A message still failing this long after it was queued fails for good. */
 export const GIVE_UP_MS = 24 * 60 * 60_000;
-/** A job may start this much before its row's next attempt (clocks of two machines). */
+/** A job may start this much before its row's next attempt. */
 const EARLY_MS = 5_000;
 
 /** The wait before the next attempt after `attempts` failed ones. */
@@ -67,12 +67,13 @@ export class Throttle {
 
   constructor(
     private readonly gapMs: number,
+    private readonly now: () => number = Date.now,
     private readonly sleep: (ms: number) => Promise<void> = (ms) =>
       new Promise((resolve) => setTimeout(resolve, ms)),
   ) {}
 
   async wait(): Promise<void> {
-    const now = Date.now();
+    const now = this.now();
     const at = Math.max(now, this.next);
     this.next = at + this.gapMs;
     if (at > now) await this.sleep(at - now);
@@ -135,8 +136,9 @@ export class NotificationDelivery {
     private readonly clock: Clock,
     private readonly logger: Logger,
     emailsPerMinute: number,
+    throttle?: Throttle,
   ) {
-    this.throttle = new Throttle(Math.ceil(60_000 / emailsPerMinute));
+    this.throttle = throttle ?? new Throttle(Math.ceil(60_000 / emailsPerMinute));
   }
 
   async deliver(job: DeliveryJob): Promise<DeliveryOutcome> {
@@ -145,12 +147,29 @@ export class NotificationDelivery {
       select: { channel: true, status: true },
     });
     if (peek?.status !== 'queued') return 'skipped';
-    if (peek.channel === 'email') await this.throttle.wait();
     // the provider call runs inside the lock; its own timeouts end well within this one
-    return this.prisma.$transaction((tx) => this.attempt(tx, job.messageId), {
+    const outcome = await this.prisma.$transaction((tx) => this.attempt(tx, job.messageId), {
       maxWait: 10_000,
       timeout: 90_000,
     });
+    // after the commit and on its own: an alert that cannot be written never undoes the status
+    if (outcome === 'failed') await this.alertMonitoring();
+    return outcome;
+  }
+
+  private async alertMonitoring(): Promise<void> {
+    try {
+      await this.prisma.$transaction((tx) =>
+        this.notifications.publish(tx, {
+          key: 'ops_alert',
+          recipients: [{ roles: MONITORING }],
+          params: { count: 1 },
+          about: 'delivery-failed',
+        }),
+      );
+    } catch (error) {
+      this.logger.error({ err: error }, 'operations alert not written');
+    }
   }
 
   private async attempt(tx: Tx, messageId: string): Promise<DeliveryOutcome> {
@@ -160,9 +179,11 @@ export class NotificationDelivery {
     const now = this.clock.now();
     const head = locked[0];
     if (head?.status !== 'queued') return 'skipped';
-    // an older job of a message that already waits for its next attempt
-    if (head.next_attempt_at && head.next_attempt_at.getTime() > now.getTime() + EARLY_MS)
+    // a job ahead of the row's next attempt: the attempt keeps a job at its time
+    if (head.next_attempt_at && head.next_attempt_at.getTime() > now.getTime() + EARLY_MS) {
+      await this.schedule(tx, messageId, null, head.next_attempt_at.getTime() - now.getTime());
       return 'skipped';
+    }
     const row = await tx.outboundMessage.findUniqueOrThrow({
       where: { id: messageId },
       select: {
@@ -177,13 +198,15 @@ export class NotificationDelivery {
         recipientUser: { select: { language: true } },
       },
     });
+    // only a message that is really sent takes a slot of the email rate
+    if (row.channel === 'email') await this.throttle.wait();
     let delivered: Delivered;
     try {
       delivered = await this.send(row, await this.render(tx, row));
     } catch (error) {
-      const failure =
-        error instanceof DeliveryError ? error : new DeliveryError('transient', 'delivery error');
-      return this.failed(tx, row, now, failure);
+      if (error instanceof DeliveryError) return this.failed(tx, row, now, error);
+      this.logger.warn({ err: error, messageId: row.id }, 'delivery error');
+      return this.failed(tx, row, now, new DeliveryError('transient', 'delivery error'));
     }
     const status = delivered.dryRun ? 'dry_run' : 'sent';
     await tx.outboundMessage.update({
@@ -202,6 +225,10 @@ export class NotificationDelivery {
 
   /** The texts of the stored template version; a template that cannot render is permanent. */
   private async render(tx: Tx, row: QueuedRow): Promise<EmailMessage> {
+    const params = row.params;
+    // the stored values are checked again by the renderer, one by one
+    if (params === null || typeof params !== 'object' || Array.isArray(params))
+      throw new DeliveryError('permanent', 'params are not an object');
     const locale = recipientLocale(row.recipientUser);
     const where = { key: row.templateKey, channel: row.channel, locale };
     const template =
@@ -214,7 +241,7 @@ export class NotificationDelivery {
         row.templateKey,
         template,
         locale,
-        row.params as Record<string, NotificationParam>,
+        params as Record<string, NotificationParam>,
         row.address,
       );
     } catch (error) {
@@ -236,18 +263,14 @@ export class NotificationDelivery {
   ): Promise<DeliveryOutcome> {
     const attempts = row.attempts + 1;
     const lastError = safeError(`${failure.kind}: ${failure.message}`);
+    const delay = retryDelay(attempts);
+    // the next attempt would come after the 24 hours: this one was the last
     const giveUp =
-      failure.kind === 'permanent' || now.getTime() - row.createdAt.getTime() >= GIVE_UP_MS;
+      failure.kind === 'permanent' || now.getTime() + delay - row.createdAt.getTime() > GIVE_UP_MS;
     if (giveUp) {
       await tx.outboundMessage.update({
         where: { id: row.id },
         data: { status: 'failed', attempts, lastError, nextAttemptAt: null },
-      });
-      await this.notifications.publish(tx, {
-        key: 'ops_alert',
-        recipients: [{ roles: MONITORING }],
-        params: { count: 1 },
-        about: 'delivery-failed',
       });
       this.logger.warn(
         { messageId: row.id, template: row.templateKey, channel: row.channel, attempts },
@@ -255,25 +278,40 @@ export class NotificationDelivery {
       );
       return 'failed';
     }
-    const nextAttemptAt = new Date(now.getTime() + retryDelay(attempts));
     await tx.outboundMessage.update({
       where: { id: row.id },
-      data: { attempts, lastError, nextAttemptAt },
+      data: { attempts, lastError, nextAttemptAt: new Date(now.getTime() + delay) },
     });
-    const category = Object.hasOwn(NOTIFICATION_CATALOGUE, row.templateKey)
-      ? NOTIFICATION_CATALOGUE[row.templateKey]?.category
-      : undefined;
+    await this.schedule(tx, row.id, row.templateKey, delay, attempts);
+    return 'retry';
+  }
+
+  /**
+   * The job of the next attempt, in the same transaction. The wait is relative, so the database
+   * clock that starts the job never runs it early against this process's clock.
+   */
+  private async schedule(
+    tx: Tx,
+    messageId: string,
+    templateKey: string | null,
+    delayMs: number,
+    attempts?: number,
+  ): Promise<void> {
+    const category =
+      templateKey && Object.hasOwn(NOTIFICATION_CATALOGUE, templateKey)
+        ? // eslint-disable-next-line security/detect-object-injection -- checked with Object.hasOwn
+          NOTIFICATION_CATALOGUE[templateKey]?.category
+        : undefined;
     await this.jobs.enqueue<DeliveryJob>(
       'notify',
-      { messageId: row.id },
+      { messageId },
       {
         tx,
-        singletonKey: `${row.id}:${attempts}`,
-        startAfter: nextAttemptAt,
+        singletonKey: attempts === undefined ? undefined : `${messageId}:${attempts}`,
+        startAfter: Math.ceil(delayMs / 1000),
         // eslint-disable-next-line security/detect-object-injection -- a typed category
         priority: category ? EMAIL_PRIORITY[category] : undefined,
       },
     );
-    return 'retry';
   }
 }

@@ -1,6 +1,7 @@
 import pino from 'pino';
 import { describe, expect, it, vi } from 'vitest';
 import { HEARTBEAT_CRON, HEARTBEAT_QUEUE, JobConsumers, startInlineConsumers } from './consumers';
+import type { NotificationDelivery } from '../notifications/delivery';
 import type { JobRunner } from './job-runner';
 import { REGISTRATION_CLEANUP_CRON, type RegistrationCleanup } from './registration-cleanup';
 
@@ -36,6 +37,29 @@ describe('startInlineConsumers (ADR-004)', () => {
     const { runner } = fakeRunner(new Error('pg-boss is not installed'));
     expect(await startInlineConsumers(dev, runner, logger)).toBe(false);
     expect(lines.join('')).toContain('inline job consumers failed to start');
+  });
+});
+
+describe('the delivery consumer', () => {
+  it('hands each notify job to the delivery', async () => {
+    const { runner, work } = fakeRunner();
+    const deliver = vi.fn(async () => 'sent' as const);
+    await new JobConsumers(runner, quiet, {
+      delivery: { deliver } as unknown as NotificationDelivery,
+    }).register();
+    const call = work.mock.calls.find((c) => (c as unknown[])[0] === 'notify') as unknown as [
+      string,
+      (job: { data: { messageId: string } }) => Promise<unknown>,
+    ];
+    expect(call).toBeDefined();
+    await call[1]({ data: { messageId: 'm-1' } });
+    expect(deliver).toHaveBeenCalledWith({ messageId: 'm-1' });
+  });
+
+  it('is not registered without a delivery', async () => {
+    const { runner, work } = fakeRunner();
+    await new JobConsumers(runner, quiet).register();
+    expect(work.mock.calls.some((c) => (c as unknown[])[0] === 'notify')).toBe(false);
   });
 });
 

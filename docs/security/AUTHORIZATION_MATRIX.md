@@ -137,7 +137,7 @@ allowed endpoint is decided by the data scope and is tested separately (scope an
 | PUT /admin/channels/sms | provider.settings.manage | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /admin/health | system.health.view | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 
-## Permissions no endpoint uses yet (103, D-077)
+## Permissions no endpoint uses yet (104, D-077)
 
 They belong to features of later tasks; the matrix covers them when their endpoints exist.
 
@@ -217,6 +217,7 @@ They belong to features of later tasks; the matrix covers them when their endpoi
 - `media.publishable.manage`
 - `media.subject.manage`
 - `monitoring.view`
+- `notification.delivery.view`
 - `notification.read_own`
 - `notification.template.manage`
 - `payment.record`

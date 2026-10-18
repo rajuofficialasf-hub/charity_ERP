@@ -1,6 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { composeEmail, escapeHtml, GIVE_UP_MS, retryDelay, safeError, Throttle } from './delivery';
 
+/** A clock that moves only when the throttle sleeps. */
+function fakeTime() {
+  let t = 1_000_000;
+  const waits: number[] = [];
+  return {
+    now: () => t,
+    sleep: async (ms: number) => {
+      waits.push(ms);
+      t += ms;
+    },
+    waits,
+  };
+}
+
 // The pure parts of the delivery: the retry schedule, the stored error, the throttle and the
 // composed email (docs/architecture/NOTIFICATIONS.md, delivery and outbox).
 describe('the delivery rules', () => {
@@ -27,14 +41,12 @@ describe('the delivery rules', () => {
   });
 
   it('keeps the set gap between two sends', async () => {
-    const waits: number[] = [];
-    const throttle = new Throttle(2_000, async (ms) => void waits.push(ms));
+    const time = fakeTime();
+    const throttle = new Throttle(2_000, time.now, time.sleep);
     await throttle.wait();
     await throttle.wait();
     await throttle.wait();
-    expect(waits).toHaveLength(2);
-    expect(waits[0]).toBeGreaterThan(1_900);
-    expect(waits[1]).toBeGreaterThan(3_900);
+    expect(time.waits).toEqual([2_000, 2_000]);
   });
 });
 
