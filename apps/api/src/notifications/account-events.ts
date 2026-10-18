@@ -2,6 +2,7 @@ import { formatDate, isoDateInDhaka } from '@css/shared/format';
 import type { Bilingual, MessageKey, MessageParams } from '@css/shared/i18n';
 import { translate } from '@css/shared/i18n';
 import { REQUEST_FIELD_LABEL } from '@css/shared/registration';
+import type { Logger } from 'pino';
 import type { Tx } from '../core/prisma.service';
 import { MONITORING } from './recipients';
 import type { NotificationService } from './service';
@@ -27,6 +28,12 @@ export function bilingualText(key: MessageKey, params?: MessageParams): Bilingua
   return { bn: translate('bn', key, params), en: translate('en', key, params) };
 }
 
+const PERMISSION_CHANGE = {
+  granted: 'common.notification.permission_granted',
+  denied: 'common.notification.permission_denied',
+  ended: 'common.notification.permission_ended',
+} as const satisfies Record<string, MessageKey>;
+
 /** Lockouts in one Dhaka day that send the Monitoring Team an email (O-25). */
 export const LOCKOUT_ALERT_PER_DAY = 10;
 
@@ -36,7 +43,25 @@ export const LOCKOUT_ALERT_PER_DAY = 10;
  * transaction of the business write, so a rolled-back write tells nobody.
  */
 export class AccountEvents {
-  constructor(private readonly notifications: NotificationService) {}
+  constructor(
+    private readonly notifications: NotificationService,
+    private readonly logger: Logger,
+  ) {}
+
+  /**
+   * Notices of a security write (a lockout, a revoked stolen session) in a savepoint: a notice
+   * that cannot be written is logged and never undoes the write it reports.
+   */
+  private async apart(tx: Tx, key: string, write: () => Promise<void>): Promise<void> {
+    await tx.$executeRaw`SAVEPOINT security_notice`;
+    try {
+      await write();
+      await tx.$executeRaw`RELEASE SAVEPOINT security_notice`;
+    } catch (error) {
+      await tx.$executeRaw`ROLLBACK TO SAVEPOINT security_notice`;
+      this.logger.error({ err: error, key }, 'security notice not written');
+    }
+  }
 
   /** A volunteer registration waits: the officials whose scope reaches the volunteer. */
   async registrationPending(tx: Tx, userId: string): Promise<void> {
@@ -184,18 +209,15 @@ export class AccountEvents {
   async permissionChanged(
     tx: Tx,
     userId: string,
-    change: 'granted' | 'denied' | 'ended',
+    change: keyof typeof PERMISSION_CHANGE,
     permission: string,
     actorId: string,
   ): Promise<void> {
     await this.notifications.publish(tx, {
       key: 'permission_changed',
       recipients: [{ user: userId }],
-      params: {
-        summary: bilingualText(`common.notification.permission_${change}` as MessageKey, {
-          permission,
-        }),
-      },
+      // eslint-disable-next-line security/detect-object-injection -- a typed key
+      params: { summary: bilingualText(PERMISSION_CHANGE[change], { permission }) },
       about: userId,
       actorId,
     });
@@ -225,13 +247,21 @@ export class AccountEvents {
    * Monitoring Team. Counted from the audit entries, the one of this lockout included.
    */
   async accountLocked(tx: Tx, userId: string, minutes: number, now: Date): Promise<void> {
-    await this.notifications.publish(tx, {
-      key: 'account_locked',
-      recipients: [{ user: userId }],
-      params: { minutes },
-      about: userId,
+    await this.apart(tx, 'account_locked', async () => {
+      await this.notifications.publish(tx, {
+        key: 'account_locked',
+        recipients: [{ user: userId }],
+        params: { minutes },
+        about: userId,
+      });
+      await this.lockoutAlert(tx, now);
     });
+  }
+
+  private async lockoutAlert(tx: Tx, now: Date): Promise<void> {
     const day = isoDateInDhaka(now);
+    // lockouts of one day are counted one after another, so exactly one of them sees the tenth
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`lockout-alert:${day}`}, 0))`;
     const [row] = await tx.$queryRaw<{ count: number }[]>`
       SELECT count(*)::int AS count FROM audit_log
        WHERE action = 'auth.locked' AND created_at >= ${new Date(`${day}T00:00:00+06:00`)}`;
@@ -250,6 +280,10 @@ export class AccountEvents {
    * Monitoring Team by email (the texts speak to each).
    */
   async refreshReused(tx: Tx, userId: string, sessionId: string): Promise<void> {
+    await this.apart(tx, 'security_refresh_reuse', () => this.reuseNotices(tx, userId, sessionId));
+  }
+
+  private async reuseNotices(tx: Tx, userId: string, sessionId: string): Promise<void> {
     await this.notifications.publish(tx, {
       key: 'security_refresh_reuse',
       recipients: [{ user: userId }],
@@ -265,7 +299,8 @@ export class AccountEvents {
       key: 'security_refresh_reuse',
       recipients: [{ roles: MONITORING }],
       params: { user_name: user.displayName },
-      about: sessionId,
+      // one email per person within 15 minutes, however many sessions are replayed
+      about: userId,
       actorId: userId,
       only: 'email',
     });

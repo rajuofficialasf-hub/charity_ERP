@@ -17,16 +17,17 @@ export type RecipientRule =
   | { user: string }
   | { holders: { permission: string; entity: 'user' | 'volunteer'; target: RecordTarget } }
   | { roles: readonly string[] }
-  | {
-      project: {
-        projectId: string;
-        rpms?: boolean;
-        /** Only the RPMs of this area of the project. */
-        regionLocationId?: string;
-        staff?: boolean;
-        volunteers?: boolean;
-      };
-    };
+  | { project: ProjectRule };
+
+/** The people working on a project: its RPMs, its staff, its volunteers. */
+export interface ProjectRule {
+  projectId: string;
+  rpms?: boolean;
+  /** Only the RPMs of this area of the project. */
+  regionLocationId?: string;
+  staff?: boolean;
+  volunteers?: boolean;
+}
 
 export interface Recipient {
   id: string;
@@ -137,16 +138,7 @@ export class RecipientResolver {
     return kept;
   }
 
-  private async projectPeople(
-    tx: Tx,
-    rule: {
-      projectId: string;
-      rpms?: boolean;
-      regionLocationId?: string;
-      staff?: boolean;
-      volunteers?: boolean;
-    },
-  ): Promise<Recipient[]> {
+  private async projectPeople(tx: Tx, rule: ProjectRule): Promise<Recipient[]> {
     const ids = new Set<string>();
     if (rule.rpms)
       for (const a of await tx.projectArea.findMany({

@@ -23,13 +23,7 @@ export class ProjectEvents {
   }
 
   /** Activation reaches the RPMs of every area too; the later steps the people working on it. */
-  async lifecycle(
-    tx: Tx,
-    key: LifecycleKey,
-    projectId: string,
-    actorId: string,
-    reason?: string,
-  ): Promise<void> {
+  async lifecycle(tx: Tx, key: LifecycleKey, projectId: string, actorId: string): Promise<void> {
     await this.notifications.publish(tx, {
       key,
       recipients: [
@@ -42,11 +36,8 @@ export class ProjectEvents {
           },
         },
       ],
-      params: {
-        project_name: await this.projectName(tx, projectId),
-        projectId,
-        ...(key === 'project_reopened' && reason ? { reason } : {}),
-      },
+      // the reason of a reopening stays on the project page: this entry reaches everyone on it
+      params: { project_name: await this.projectName(tx, projectId), projectId },
       about: projectId,
       actorId,
     });
@@ -121,11 +112,11 @@ export class ProjectEvents {
     accepted: boolean,
     actorId: string,
   ): Promise<void> {
+    // an answer without a known area tells nobody rather than every RPM of the project
+    if (!regionLocationId) return;
     await this.notifications.publish(tx, {
       key: 'project_consent_result',
-      recipients: [
-        { project: { projectId, rpms: true, ...(regionLocationId ? { regionLocationId } : {}) } },
-      ],
+      recipients: [{ project: { projectId, rpms: true, regionLocationId } }],
       params: {
         project_name: await this.projectName(tx, projectId),
         result: bilingualText(

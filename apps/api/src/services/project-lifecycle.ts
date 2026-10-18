@@ -269,13 +269,7 @@ export class ProjectLifecycleService {
         new: { status: to },
         reason,
       });
-      await this.events.lifecycle(
-        tx,
-        'project_reopened',
-        projectId,
-        viewer.principal.userId,
-        reason,
-      );
+      await this.events.lifecycle(tx, 'project_reopened', projectId, viewer.principal.userId);
       return result;
     });
   }

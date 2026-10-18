@@ -184,7 +184,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const notifications =
     o.notifications ??
     new NotificationService(new RecipientResolver(access, accessRegistry, clock), jobs, clock);
-  const accountEvents = o.accountEvents ?? new AccountEvents(notifications);
+  const accountEvents = o.accountEvents ?? new AccountEvents(notifications, logger);
   const projectEvents = o.projectEvents ?? new ProjectEvents(notifications);
   const sessions = o.sessions ?? new SessionService(prisma, tokens, audit, clock, accountEvents);
   const permissionVersions = o.permissionVersions ?? new PermissionVersionService(audit, sessions);

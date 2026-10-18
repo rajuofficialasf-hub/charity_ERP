@@ -1,5 +1,7 @@
 import { NOTIFICATION_TEMPLATES, TEMPLATE_SAMPLES } from '@css/shared';
+import pino from 'pino';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { AccountEvents } from '../../src/notifications/account-events';
 import { NOTIFICATION_CATALOGUE } from '../../src/notifications/catalogue';
 import { MONITORING } from '../../src/notifications/recipients';
 import type { NotificationInput } from '../../src/notifications/service';
@@ -232,6 +234,27 @@ describe('publishing an event', () => {
     }
     const all = await h.db.query('SELECT count(*)::int AS n FROM outbound_messages');
     expect(all.rows[0].n).toBe(outbox.rows.length);
+  });
+
+  it('never undoes a security write when its notice cannot be written', async () => {
+    const failing = new AccountEvents(
+      {
+        publish: async () => {
+          throw new Error('notifications down');
+        },
+      } as never,
+      pino({ level: 'silent' }),
+    );
+    const person = await account(h.db);
+    await h.container.prisma.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: person.id }, data: { failedLoginCount: 5 } });
+      await failing.accountLocked(tx, person.id, 15, new Date());
+      await failing.refreshReused(tx, person.id, person.id);
+    });
+    const { rows } = await h.db.query('SELECT failed_login_count FROM users WHERE id = $1', [
+      person.id,
+    ]);
+    expect(rows[0].failed_login_count).toBe(5);
   });
 
   it('refuses a key that is not in the catalogue', async () => {

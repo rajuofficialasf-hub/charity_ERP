@@ -495,15 +495,15 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
   },
   {
     key: 'project_reopened',
-    variables: ['project_name', 'reason'],
+    variables: ['project_name'],
     channels: inApp(
       {
         title: 'প্রকল্প আবার খোলা হয়েছে',
-        body: '"{{project_name}}" প্রকল্প আবার খোলা হয়েছে। কারণ: {{reason}}',
+        body: '"{{project_name}}" প্রকল্প আবার খোলা হয়েছে। কারণ প্রকল্পের পাতায় দেখুন।',
       },
       {
         title: 'Project reopened',
-        body: 'The project "{{project_name}}" has been reopened. Reason: {{reason}}',
+        body: 'The project "{{project_name}}" has been reopened. See the project page for the reason.',
       },
     ),
   },

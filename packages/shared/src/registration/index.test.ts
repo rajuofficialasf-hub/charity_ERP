@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { bn, en } from '../i18n/catalogue.js';
+import { createTranslator } from '../i18n/translate.js';
 import {
   decisionRequestSchema,
   EDIT_FIELD_VALUES,
+  CORRECTION_FIELDS,
   EDIT_FIELDS,
+  PHOTO_FIELDS,
+  REQUEST_FIELD_LABEL,
   draftExpiry,
   editRequestCreateSchema,
   otpSendRequestSchema,
@@ -269,5 +274,21 @@ describe('the edit request schemas', () => {
     expect(
       decisionRequestSchema.safeParse({ decision: 'reject', reason: 'প্রমাণ নেই' }).success,
     ).toBe(true);
+  });
+});
+
+describe('REQUEST_FIELD_LABEL', () => {
+  it('names every field a correction or edit request may name, in bn and en', () => {
+    const missing: string[] = [];
+    const translator = createTranslator({ bn, en }, (key, locale) =>
+      missing.push(`${locale}:${key}`),
+    );
+    for (const field of [...new Set([...CORRECTION_FIELDS, ...EDIT_FIELDS, ...PHOTO_FIELDS])]) {
+      expect(Object.hasOwn(REQUEST_FIELD_LABEL, field), field).toBe(true);
+      const key = `registration.${REQUEST_FIELD_LABEL[field as keyof typeof REQUEST_FIELD_LABEL]}`;
+      translator('bn', key);
+      translator('en', key);
+    }
+    expect(missing).toEqual([]);
   });
 });
