@@ -39,4 +39,11 @@ export {
   type CatalogueReport,
 } from './check.js';
 export { PSEUDO_LOCALE, pseudoLocalize } from './pseudo.js';
-export { recipientLocale, renderNotification, type RenderedNotification } from './notifications.js';
+export {
+  type NotificationParam,
+  recipientLocale,
+  renderNotification,
+  renderTemplateText,
+  type RenderedNotification,
+  type TemplateText,
+} from './notifications.js';

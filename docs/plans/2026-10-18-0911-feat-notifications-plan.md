@@ -101,7 +101,7 @@ None blocking. Each new decision above is recorded in `docs/DECISION_LOG.md` bef
   - integration: migration up and down (`migrations.test.ts`); seed counts.
 - **Done when:** the seed holds every Phase 1 key in both languages and the migration round-trips.
 - **Depends on:** none · **Size:** M · **Risk area:** migration
-- **Status:** todo
+- **Status:** done
 
 ### U2. Notification core: publish, recipients, in-app rows and the outbox
 - **Goal:** `NotificationService.publish(tx, event)` writes the in-app rows (coalesced) and the email and SMS outbox rows for the resolved recipients, and enqueues delivery in the same transaction.
@@ -229,7 +229,7 @@ None blocking. Each new decision above is recorded in `docs/DECISION_LOG.md` bef
 ## Progress
 - **Branch:** `feat/notifications` (stacked on `feat/admin-settings-core`)
 - **Updated:** 2026-10-18 09:40
-- **Next:** U1, the migration and the templates
+- **Next:** checkpoint C1 (review U1), then U2: the notification core (catalogue, recipients, publish)
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** doc review on 2026-10-18: the owner chose no other person's name in in-app entries (R16) and that a declared variable may be left out of a template.
+- **Notes:** doc review on 2026-10-18: the owner chose no other person's name in in-app entries (R16) and that a declared variable may be left out of a template. U1: a template variable may be bilingual data ({ bn, en }) or a number, rendered in the reader's language by `renderTemplateText`; `project_consent_result` takes the answer as bilingual data; in-app texts drop every person variable (tested), emails to officials keep them.

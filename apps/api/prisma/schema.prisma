@@ -2827,17 +2827,18 @@ model UploadSession {
 }
 
 model Notification {
-  id           String    @id @db.Uuid
-  userId       String    @map("user_id") @db.Uuid
-  templateKey  String    @map("template_key")
-  params       Json      @default("{}")
-  coalesceKey  String?   @map("coalesce_key")
-  count        Int       @default(1)
-  readAt       DateTime? @map("read_at") @db.Timestamptz(6)
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy    String?   @map("created_by") @db.Uuid
-  user         User      @relation("notifications_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  createdByRef User?     @relation("notifications_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  id              String    @id @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  templateKey     String    @map("template_key")
+  templateVersion Int?      @map("template_version")
+  params          Json      @default("{}")
+  coalesceKey     String?   @map("coalesce_key")
+  count           Int       @default(1)
+  readAt          DateTime? @map("read_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy       String?   @map("created_by") @db.Uuid
+  user            User      @relation("notifications_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef    User?     @relation("notifications_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
   @@index([userId, readAt, createdAt(sort: Desc)], map: "notifications_user_id_read_at_created_at_idx")
   @@index([userId, coalesceKey], where: raw("read_at IS NULL"), map: "notifications_user_id_coalesce_key_idx")
