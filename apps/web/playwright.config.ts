@@ -5,8 +5,8 @@ const baseURL = `http://127.0.0.1:${PORT}`;
 
 // E2E tests run against the E2E build served by `vite preview` (`pnpm e2e` builds first). Every spec
 // runs on Chromium as a phone and a desktop; the sign-in, registration and home specs also run on
-// WebKit as an iPhone (NFR-13, some volunteers on iPhones: UX-06). Offline emulation comes with
-// the offline PWA (T2.7).
+// WebKit as an iPhone (some volunteers use iPhones). Offline emulation comes with the offline
+// PWA, which is not built yet.
 export default defineConfig({
   testDir: 'e2e',
   fullyParallel: true,
@@ -27,7 +27,7 @@ export default defineConfig({
     },
   ],
   // The API on its own E2E database (seeded with the demo accounts, dummy OTP), then the web
-  // build whose /api/v1 rewrite points at it (T1.7). The projects share the database, so specs
+  // build whose /api/v1 rewrite points at it. The projects share the database, so specs
   // that change data use different accounts per project.
   webServer: [
     {

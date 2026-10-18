@@ -95,7 +95,7 @@ const envSchema = z
     RATE_LIMITS_RELAXED: flag,
     /**
      * Multiplies the device limit of a user by 100 for the E2E run, whose specs sign in with the
-     * same few demo accounts in parallel (D-102); never production.
+     * same few demo accounts in parallel; never production.
      */
     SESSION_DEVICE_LIMIT_RELAXED: flag,
     /** Secure attribute of the auth cookies; false only for development over a LAN address. */

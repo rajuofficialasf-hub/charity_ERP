@@ -4,7 +4,7 @@ import { openDestination, rows } from './support/admin';
 
 // The permission panel against the API on its E2E database (SCR-062, RBAC.md 7; plan
 // docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, U8), and the audit entry the
-// change leaves (BR-180: every panel change is audited with its reason). Mobile and desktop share
+// change leaves (every panel change is audited with its reason). Mobile and desktop share
 // the database, so each project changes the permissions of its own target account and signs its
 // reasons (docs/testing/DEMO_ACCOUNTS.md).
 const PASSWORD = 'CssDemo2026';

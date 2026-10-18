@@ -64,7 +64,7 @@ async function main(): Promise<void> {
     // Every browser of the run shares one address; the limits are covered by the API tests (D-072).
     RATE_LIMITS_RELAXED: 'true',
     // The specs sign in with the same few demo accounts in parallel; the device limit is covered
-    // by the API tests (D-102).
+    // by the API tests.
     SESSION_DEVICE_LIMIT_RELAXED: 'true',
     // the set-password link of a new official opens the E2E build (D-097)
     APP_ORIGIN: process.env.E2E_APP_ORIGIN ?? 'http://127.0.0.1:3100',

@@ -71,8 +71,8 @@ export class SessionService {
     private readonly audit: AuditWriter,
     private readonly clock: Clock,
     private readonly events: AccountEvents,
-    /** Active sessions a user may hold; the E2E run raises it (D-102). */
-    private readonly deviceLimit: number = SESSION_RULES.deviceLimit,
+    /** Active sessions a user may hold; the E2E run raises it. */
+    private readonly deviceLimit: number,
   ) {}
 
   /** Creates a session; the sixth active session of a user revokes the oldest (O-25). */

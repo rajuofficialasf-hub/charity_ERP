@@ -194,7 +194,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     new NotificationService(new RecipientResolver(access, accessRegistry, clock), jobs, clock);
   const accountEvents = o.accountEvents ?? new AccountEvents(notifications, logger);
   const projectEvents = o.projectEvents ?? new ProjectEvents(notifications);
-  // the E2E run signs in with the same few demo accounts in parallel (D-102)
+  // the E2E run signs in with the same few demo accounts in parallel
   const deviceLimit = SESSION_RULES.deviceLimit * (env.SESSION_DEVICE_LIMIT_RELAXED ? 100 : 1);
   const sessions =
     o.sessions ?? new SessionService(prisma, tokens, audit, clock, accountEvents, deviceLimit);

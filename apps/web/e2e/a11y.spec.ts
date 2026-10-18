@@ -1,16 +1,29 @@
-import { expect, type Page, test } from '@playwright/test';
-import { PASSWORD, scan, switchLanguage } from './support/admin';
+import {
+  type APIRequestContext,
+  type Browser,
+  devices,
+  expect,
+  type Page,
+  test,
+} from '@playwright/test';
+import { apiAs, openTab, PASSWORD, scan, signIn, switchLanguage } from './support/admin';
+import { activeProject, code, ERR } from './support/projects';
 
 // axe on every built Phase 1 screen in Bengali and in English, on the phone and the desktop
-// project (constitution section 10, NFR-46; the gate's accessibility check of
-// docs/testing/TEST_STRATEGY.md section 3.6). The screens are those of docs/ui/SCREENS.md with a
-// Phase 1 task; a record page takes the first row of its list and is left out with a note when
-// the list is empty. A role sweeps only the pages it may open: the sweep never asserts on a
-// forbidden page. The accounts are only read here (docs/testing/DEMO_ACCOUNTS.md): the sign-in
-// goes through the API with the language already chosen on the device, because the login form
-// would otherwise write the language onto the shared account and change what the other specs see.
+// project (docs/MASTER_PROMPT.md, the accessibility line of the non-functional requirements; the
+// gate's accessibility check of docs/testing/TEST_STRATEGY.md section 3.6). The screens are those
+// of docs/ui/SCREENS.md with a Phase 1 task. A role sweeps only the pages it may open: the sweep
+// never asserts on a forbidden page. The project pages use a project of this run's own, made
+// through the setup wizard by the ERR Program Manager, with volunteer 3 assigned and consenting
+// through the API, so no other spec decides whether a record page exists; the volunteer and the
+// beneficiary come from the demo seed. The sign-in goes through the API with the language already
+// chosen on the device, because the login form would otherwise write the language onto the shared
+// account and change what the other specs see (docs/testing/DEMO_ACCOUNTS.md).
 const LANGUAGES = ['bn', 'en'] as const;
 type Lang = (typeof LANGUAGES)[number];
+const PM = 'pm.err@example.org';
+const HEAD = 'head@example.org';
+const VOLUNTEER = '01700000103';
 
 /** Signs in through the API in the page's own context, with `lang` as the device language. */
 async function signInAs(page: Page, loginId: string, lang: Lang): Promise<void> {
@@ -31,14 +44,6 @@ async function signInAs(page: Page, loginId: string, lang: Lang): Promise<void> 
   await expect(page.locator('html')).toHaveAttribute('lang', lang);
 }
 
-/** A link to a record page of the kind, taken from the first row of the list on the page. */
-const firstRecord = async (page: Page, prefix: string): Promise<string | null> => {
-  const hrefs = await page
-    .locator(`main a[href^="${prefix}/"]`)
-    .evaluateAll((as) => as.map((a) => (a as HTMLAnchorElement).getAttribute('href') ?? ''));
-  return hrefs.find((h) => /\/[0-9a-f-]{36}$/.test(h)) ?? null;
-};
-
 /** Opens a page, waits for its heading, switches the language and checks it with axe. */
 async function sweep(page: Page, path: string, lang: Lang): Promise<void> {
   await page.goto(path);
@@ -49,8 +54,54 @@ async function sweep(page: Page, path: string, lang: Lang): Promise<void> {
   expect(results.violations, `${path} (${lang})`).toEqual([]);
 }
 
-const skipped = (path: string, why: string) =>
-  test.info().annotations.push({ type: 'skipped page', description: `${path}: ${why}` });
+/** The first record link of the kind on the page; the demo seed guarantees one. */
+async function firstRecord(page: Page, prefix: string): Promise<string> {
+  const links = page.locator(`main a[href^="${prefix}/"]`);
+  // the rows arrive after the heading; on a phone the card's link is clipped, so attached is enough
+  await expect(links.first()).toBeAttached();
+  const hrefs = await links.evaluateAll((as) =>
+    as.map((a) => (a as HTMLAnchorElement).getAttribute('href') ?? ''),
+  );
+  const href = hrefs.find((h) => /\/[0-9a-f-]{36}$/.test(h));
+  expect(href, `a record under ${prefix}`).toBeTruthy();
+  return href!;
+}
+
+/** An active project of this run (the ERR PM, the Dhaka division) with volunteer 3 assigned. */
+async function projectWithVolunteer(browser: Browser, request: APIRequestContext): Promise<string> {
+  const officials = await browser.newContext({ ...devices['Desktop Chrome'] });
+  const desk = await officials.newPage();
+  await signIn(desk, PM);
+  await openTab(desk, 'প্রকল্প');
+  const projectId = await activeProject(desk, `অ্যাক্সেসিবিলিটির পরীক্ষা ${code()}`, ERR);
+  await officials.close();
+  const head = await apiAs(request, HEAD);
+  const volunteers = await head.get(`/volunteers?q=${VOLUNTEER}`);
+  expect(volunteers.ok()).toBe(true);
+  const { data } = (await volunteers.json()) as { data: { id: string }[] };
+  expect(data).toHaveLength(1);
+  const assigned = await head.post(`/projects/${projectId}/volunteers`, {
+    volunteers: [{ volunteerId: data[0]!.id }],
+  });
+  expect(assigned.status(), 'the assignment').toBe(201);
+  return projectId;
+}
+
+/** Volunteer 3 accepts the rules of the project through the API, as the consent screen would. */
+async function consentThroughApi(request: APIRequestContext, projectId: string): Promise<void> {
+  const me = await apiAs(request, VOLUNTEER);
+  const detail = await me.get(`/me/projects/${projectId}`);
+  expect(detail.ok()).toBe(true);
+  const { data } = (await detail.json()) as {
+    data: { rules: { version: number; parts: { part: string }[] } };
+  };
+  const consent = await me.post(`/me/projects/${projectId}/consent`, {
+    rulesVersion: data.rules.version,
+    decision: 'accepted',
+    parts: data.rules.parts.map((p) => p.part),
+  });
+  expect(consent.ok(), 'the consent').toBe(true);
+}
 
 test.describe('accessibility of the Phase 1 screens', () => {
   for (const lang of LANGUAGES) {
@@ -60,8 +111,10 @@ test.describe('accessibility of the Phase 1 screens', () => {
       await sweep(page, '/invite#not-a-link-of-this-run', lang);
     });
 
-    test(`a volunteer, in ${lang}`, async ({ page }) => {
-      await signInAs(page, '01700000116', lang);
+    test(`a volunteer, in ${lang}`, async ({ browser, page, request }) => {
+      test.setTimeout(180_000);
+      const projectId = await projectWithVolunteer(browser, request);
+      await signInAs(page, VOLUNTEER, lang);
       for (const path of [
         '/',
         '/account/profile',
@@ -71,29 +124,18 @@ test.describe('accessibility of the Phase 1 screens', () => {
         '/my-projects',
       ])
         await sweep(page, path, lang);
-      await page.goto('/my-projects');
-      const project = await firstRecord(page, '/my-projects');
-      if (!project) skipped('/my-projects/:id', 'this volunteer is on no project');
-      else await sweep(page, project, lang);
+      // the project waiting for the consent, then the open project and the team
+      await sweep(page, `/my-projects/${projectId}`, lang);
+      await consentThroughApi(request, projectId);
+      await sweep(page, `/my-projects/${projectId}`, lang);
+      await expect(page.getByRole('link', { name: /^(আমার টিম|My team)$/ })).toBeVisible();
+      await sweep(page, `/my-projects/${projectId}/team`, lang);
     });
 
-    test(`a main volunteer with a team, in ${lang}`, async ({ page }) => {
-      await signInAs(page, '01700000117', lang);
-      await page.goto('/my-projects');
-      const project = await firstRecord(page, '/my-projects');
-      if (!project) {
-        skipped('/my-projects/:id/team', 'this volunteer is on no project yet');
-        return;
-      }
-      await sweep(page, project, lang);
-      const team = page.getByRole('link', { name: /^(আমার টিম|My team)$/ });
-      if ((await team.count()) === 0) skipped(`${project}/team`, 'the project is not open yet');
-      else await sweep(page, `${project}/team`, lang);
-    });
-
-    test(`the Department Head, in ${lang}`, async ({ page }) => {
-      test.setTimeout(240_000);
-      await signInAs(page, 'head@example.org', lang);
+    test(`the Department Head, in ${lang}`, async ({ browser, page, request }) => {
+      test.setTimeout(300_000);
+      const projectId = await projectWithVolunteer(browser, request);
+      await signInAs(page, HEAD, lang);
       for (const path of [
         '/',
         '/admin/volunteers',
@@ -106,6 +148,9 @@ test.describe('accessibility of the Phase 1 screens', () => {
         '/admin/templates',
         '/admin/projects',
         '/admin/projects/new',
+        `/admin/projects/${projectId}`,
+        `/admin/projects/${projectId}/setup`,
+        `/admin/projects/${projectId}/volunteers`,
         '/admin/settings',
         '/admin/nisab',
         '/admin/audit',
@@ -117,23 +162,11 @@ test.describe('accessibility of the Phase 1 screens', () => {
       ])
         await sweep(page, path, lang);
       // the record pages: the first row of each list
-      for (const [list, record] of [
-        ['/admin/volunteers', '/admin/volunteers'],
-        ['/admin/beneficiaries', '/admin/beneficiaries'],
-      ] as const) {
+      for (const list of ['/admin/volunteers', '/admin/beneficiaries']) {
         await page.goto(list);
         await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
-        const href = await firstRecord(page, record);
-        if (!href) skipped(`${record}/:id`, 'the list is empty');
-        else await sweep(page, href, lang);
+        await sweep(page, await firstRecord(page, list), lang);
       }
-      await page.goto('/admin/projects');
-      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
-      const project = await firstRecord(page, '/admin/projects');
-      if (!project) skipped('/admin/projects/:id', 'the list is empty');
-      else
-        for (const sub of ['', '/setup', '/volunteers'])
-          await sweep(page, `${project}${sub}`, lang);
     });
   }
 });

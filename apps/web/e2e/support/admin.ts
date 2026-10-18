@@ -39,7 +39,10 @@ export async function signIn(page: Page, loginId: string): Promise<void> {
 export async function apiAs(
   request: APIRequestContext,
   loginId: string,
-): Promise<{ get: (path: string) => Promise<APIResponse> }> {
+): Promise<{
+  get: (path: string) => Promise<APIResponse>;
+  post: (path: string, data: unknown) => Promise<APIResponse>;
+}> {
   const login = await request.post('/api/v1/auth/login', {
     data: {
       loginId,
@@ -50,7 +53,10 @@ export async function apiAs(
   expect(login.ok(), `login as ${loginId}: ${login.status()}`).toBe(true);
   const token = ((await login.json()) as { data: { accessToken: string } }).data.accessToken;
   const headers = { Authorization: `Bearer ${token}` };
-  return { get: (path) => request.get(`/api/v1${path}`, { headers }) };
+  return {
+    get: (path) => request.get(`/api/v1${path}`, { headers }),
+    post: (path, data) => request.post(`/api/v1${path}`, { headers, data }),
+  };
 }
 
 /** The navigation of the app shell: the sidebar, the rail or the bottom tabs. */

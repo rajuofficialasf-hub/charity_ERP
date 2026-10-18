@@ -222,7 +222,7 @@ describe('POST /auth/login', () => {
     expect(active.rows[0].n).toBe(5);
   });
 
-  it('keeps every device of the E2E run, whose specs share the demo accounts (D-102)', async () => {
+  it('keeps every device of the E2E run, whose specs share the demo accounts', async () => {
     const relaxed = await authHarness({ relaxedDeviceLimit: true });
     try {
       const volunteer = await account(relaxed.db, { kind: 'volunteer' });

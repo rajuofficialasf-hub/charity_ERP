@@ -95,7 +95,7 @@ const HOMES: { role: string; loginId: string; widgets: string[]; volunteer?: boo
     loginId: 'head@example.org',
     widgets: ['শর্টকাট', 'কাজের অগ্রগতি', 'মনিটরিং সতর্কতা'],
   },
-  // the Finance Team's account is the devices journey of auth.spec.ts, so the Media Team stands in
+  // one reader of the other officials' homes; which accounts each spec signs in with is in DEMO_ACCOUNTS.md
   { role: 'the Media Team', loginId: 'media@example.org', widgets: ['মিডিয়ার কাজের তালিকা'] },
 ];
 

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { apiAs, signIn } from './support/admin';
 
-// Role-based denial for every demo role (constitution section 14, the first critical journey;
+// Role-based denial for every demo role (docs/MASTER_PROMPT.md, the first critical E2E journey;
 // docs/testing/DEMO_ACCOUNTS.md): each role opens a page of another role and sees the forbidden
 // screen, and the API refuses an operation the role does not hold with 403 `permission.denied`
 // (docs/security/AUTHORIZATION_MATRIX.md). The Department Head and the Monitoring Team hold every
