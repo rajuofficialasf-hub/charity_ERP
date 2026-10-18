@@ -132,7 +132,9 @@ jobs:
       # The Prisma client lives in apps/api/src/generated (not committed); typecheck, tests and the
       # API build need it. Generation needs no database.
       - run: pnpm --filter @css/api db:generate
-      - run: pnpm --filter @css/web exec playwright install --with-deps chromium
+      # Chromium runs every spec as a phone and a desktop; WebKit runs the sign-in, registration and
+      # home specs as an iPhone (the `iphone` project of apps/web/playwright.config.ts)
+      - run: pnpm --filter @css/web exec playwright install --with-deps chromium webkit
       - run: pnpm e2e
       - if: failure()
         uses: actions/upload-artifact@v7

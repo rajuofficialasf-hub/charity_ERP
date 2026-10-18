@@ -41,6 +41,8 @@ test.describe('home page', () => {
   test('has no accessibility violations', async ({ page }) => {
     await page.goto('/');
     await expect(page).toHaveURL(/\/login$/);
+    // the login page is a lazy chunk: axe waits for it, not for the loading state
+    await expect(page.getByRole('heading', { level: 2, name: 'লগইন করুন' })).toBeVisible();
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);
   });

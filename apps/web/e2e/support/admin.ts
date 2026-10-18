@@ -12,7 +12,9 @@ import {
 // seed (docs/testing/DEMO_ACCOUNTS.md).
 export const PASSWORD = 'CssDemo2026';
 
-export const isPhone = (info: TestInfo) => info.project.name === 'mobile';
+/** The projects that run as a phone: Chromium as a Pixel 7 and WebKit as an iPhone. */
+const PHONE_PROJECTS = new Set(['mobile', 'iphone']);
+export const isPhone = (info: TestInfo) => PHONE_PROJECTS.has(info.project.name);
 
 /** axe on the page; React Aria's live announcer node is excluded as in auth.spec.ts. */
 export const scan = (page: Page) =>
@@ -80,6 +82,26 @@ export async function openDestination(page: Page, name: string): Promise<void> {
 export async function openTab(page: Page, name: string): Promise<void> {
   await openDestination(page, name);
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+}
+
+/**
+ * Switches the language of the page: through the switch of the bar (the sign-in pages, and the
+ * app bar on a desktop), else through the profile menu, where a phone keeps it.
+ */
+export async function switchLanguage(page: Page, lang: 'bn' | 'en'): Promise<void> {
+  const current = await page.locator('html').getAttribute('lang');
+  if (current === lang) return;
+  const name = lang === 'en' ? 'English' : 'বাংলা';
+  const toggle = page.getByRole('banner').getByRole('radiogroup', { name: /^(ভাষা|Language)$/ });
+  if ((await toggle.count()) > 0) await toggle.getByRole('radio', { name }).click({ force: true });
+  else {
+    await page
+      .getByRole('banner')
+      .getByRole('button', { name: /^(প্রোফাইল মেনু|Profile menu)$/ })
+      .click();
+    await page.getByRole('menuitem', { name }).click();
+  }
+  await expect(page.locator('html')).toHaveAttribute('lang', lang);
 }
 
 /** Opens the profile menu of the app bar and picks an item. */

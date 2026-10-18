@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { fakeEmail, fakeMobile, fakeNid } from '@css/shared';
 import { devices, expect, type Page, test, type TestInfo } from '@playwright/test';
-import { fromProfileMenu, mainMenu, openTab } from './support/admin';
+import { fromProfileMenu, isPhone, mainMenu, openTab } from './support/admin';
 import { activeProject, code, ERR } from './support/projects';
 
 // Registration on a phone from the login page to the pending confirmation (plans
@@ -35,8 +35,8 @@ const scan = (page: Page) => new AxeBuilder({ page }).exclude('[data-live-announ
 
 /** Contacts, an NID and a name nobody else of this run uses (project, repeat and retry). */
 function personFor(info: TestInfo) {
-  const n =
-    5100 + (info.project.name === 'desktop' ? 500 : 0) + info.repeatEachIndex * 10 + info.retry;
+  const project = { mobile: 0, desktop: 500, iphone: 1000 }[info.project.name] ?? 1500;
+  const n = 5100 + project + info.repeatEachIndex * 10 + info.retry;
   return {
     mobile: fakeMobile(n),
     email: fakeEmail(`reg-e2e-${n}`),
@@ -223,7 +223,9 @@ test.describe('registration on a phone', () => {
   test('a volunteer registers with two codes and reaches the pending confirmation', async ({
     page,
   }, info) => {
-    test.skip(info.project.name !== 'mobile', 'the phone journey');
+    test.skip(!isPhone(info), 'the phone journey');
+    // seven steps with three photos; WebKit takes longer than Chromium
+    test.setTimeout(90_000);
     await register(page, personFor(info));
     expect((await scan(page)).violations).toEqual([]);
   });

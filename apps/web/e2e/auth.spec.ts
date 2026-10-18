@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page, test, type TestInfo } from '@playwright/test';
 import { fromProfileMenu } from './support/admin';
 
 // Login, logout, devices and passwords against the API on its E2E database (T1.7; AUTH.md 3 to 8).
@@ -26,6 +26,15 @@ const ACCOUNTS = {
     change: '01700000108',
     reset: '01700000109',
   },
+  // the iPhone project reads with volunteers 4 and 5 (a login makes a session, nothing more) and
+  // revokes a device of volunteer 10; it changes no password (see the password tests)
+  iphone: {
+    login: '01700000104',
+    reload: '01700000105',
+    devices: '01700000110',
+    change: '',
+    reset: '',
+  },
 } as const;
 
 /**
@@ -36,7 +45,10 @@ const scan = (page: Page) => new AxeBuilder({ page }).exclude('[data-live-announ
 
 type Purpose = keyof (typeof ACCOUNTS)['desktop'];
 const account = (project: string, purpose: Purpose) =>
-  ACCOUNTS[project === 'mobile' ? 'mobile' : 'desktop'][purpose];
+  ACCOUNTS[project === 'mobile' || project === 'iphone' ? project : 'desktop'][purpose];
+/** The password screens are the same on every engine; one phone project changes them. */
+const passwordsOnWebKit = (info: TestInfo) =>
+  test.skip(info.project.name === 'iphone', 'the password screens are changed on Chromium');
 
 /**
  * Waits until the form is interactive: its submit button stays disabled until the page has
@@ -128,11 +140,15 @@ test.describe('devices', () => {
     await expect(otherPage).toHaveURL(/\/login\?ended=revoked$/);
     await expect(otherPage.getByText('এই ডিভাইসের সেশন শেষ হয়েছে। আবার লগইন করুন।')).toBeVisible();
     await other.close();
+    // this device signs out too, so a repeat of the test finds one other device again
+    await fromProfileMenu(page, 'লগআউট');
+    await expect(page).toHaveURL(/\/login/);
   });
 });
 
 test.describe('passwords', () => {
   test('changes the password and logs in with the new one', async ({ page }, info) => {
+    passwordsOnWebKit(info);
     const id = account(info.project.name, 'change');
     await signIn(page, id);
     await fromProfileMenu(page, 'পাসওয়ার্ড পরিবর্তন');
@@ -157,6 +173,7 @@ test.describe('passwords', () => {
   });
 
   test('resets a forgotten password with the OTP', async ({ page }, info) => {
+    passwordsOnWebKit(info);
     const id = account(info.project.name, 'reset');
     await page.goto('/login');
     await ready(page, 'লগইন');

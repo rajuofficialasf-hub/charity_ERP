@@ -55,6 +55,9 @@ async function main(): Promise<void> {
     OTP_SECRET: 'e2e-only-otp-secret-0123456789abcdef0123',
     OTP_DUMMY_ENABLED: 'true',
     OTP_DUMMY_CODE: process.env.E2E_OTP_CODE ?? '123456',
+    // The E2E build is served over plain http. Chromium treats 127.0.0.1 as a secure context and
+    // keeps a Secure cookie there, WebKit does not and loses the session on the next reload.
+    AUTH_COOKIE_SECURE: 'false',
     STORAGE_DRIVER: 'filesystem',
     STORAGE_FS_ROOT: mkdtempSync(join(tmpdir(), 'css-e2e-storage-')),
     JOBS_INLINE: 'false',
