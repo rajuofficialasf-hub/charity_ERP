@@ -99,27 +99,27 @@ export class AccessService {
     return this.scopeFor(principal, access, permission, entity);
   }
 
-  /** Whether a scope reaches one record, named by the id of the scope's entity. */
-  async reaches(scope: Scope, target: RecordTarget): Promise<boolean> {
+  /** Whether a scope reaches one record, named by the id of the scope's entity (in `db` when given). */
+  async reaches(scope: Scope, target: RecordTarget, db: Tx = this.prisma): Promise<boolean> {
     switch (scope.entity) {
       case 'user':
         return (
           !!target.userId &&
-          (await this.prisma.user.count({
+          (await db.user.count({
             where: { AND: [{ id: target.userId }, this.userFilter(scope)] },
           })) > 0
         );
       case 'volunteer':
         return (
           !!target.volunteerId &&
-          (await this.prisma.volunteer.count({
+          (await db.volunteer.count({
             where: { AND: [{ id: target.volunteerId }, volunteerWhere(scope)] },
           })) > 0
         );
       case 'beneficiary':
         return (
           !!target.beneficiaryId &&
-          (await this.prisma.beneficiary.count({
+          (await db.beneficiary.count({
             where: { AND: [{ id: target.beneficiaryId }, beneficiaryWhere(scope)] },
           })) > 0
         );

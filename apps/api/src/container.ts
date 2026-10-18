@@ -35,6 +35,8 @@ import { VolunteersService } from './services/volunteers';
 import { VolunteerListService } from './services/volunteer-list';
 import { VolunteerProfileService } from './services/volunteer-profile';
 import { BeneficiariesService } from './services/beneficiaries';
+import { NotificationService } from './notifications/service';
+import { RecipientResolver } from './notifications/recipients';
 import { AuditLogService } from './services/audit-log';
 import { ChannelsService } from './services/channels';
 import { NisabService } from './services/nisab';
@@ -112,6 +114,7 @@ export interface Container {
   auditLog: AuditLogService;
   sessionMonitor: SessionMonitorService;
   channels: ChannelsService;
+  notifications: NotificationService;
   systemHealth: SystemHealthService;
   projects: ProjectsService;
   projectSetup: ProjectSetupService;
@@ -184,6 +187,9 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const projects = o.projects ?? new ProjectsService(env, prisma, audit, access, clock);
   const registrationEvents = o.registrationEvents ?? new LoggingRegistrationEvents(logger);
   const settings = o.settings ?? new SettingsService(prisma, audit);
+  const notifications =
+    o.notifications ??
+    new NotificationService(new RecipientResolver(access, accessRegistry, clock), jobs, clock);
   const registration =
     o.registration ??
     new RegistrationService(env, prisma, clock, otp, audit, registrationEvents, hasher);
@@ -248,6 +254,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     auditLog: o.auditLog ?? new AuditLogService(env, prisma, clock),
     sessionMonitor: o.sessionMonitor ?? new SessionMonitorService(env, prisma, clock),
     channels: o.channels ?? new ChannelsService(env, settings),
+    notifications,
     systemHealth: o.systemHealth ?? new SystemHealthService(env, prisma, health, clock),
     projects,
     projectSetup:
