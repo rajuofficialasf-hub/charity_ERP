@@ -71,6 +71,8 @@ export class SessionService {
     private readonly audit: AuditWriter,
     private readonly clock: Clock,
     private readonly events: AccountEvents,
+    /** Active sessions a user may hold; the E2E run raises it (D-102). */
+    private readonly deviceLimit: number = SESSION_RULES.deviceLimit,
   ) {}
 
   /** Creates a session; the sixth active session of a user revokes the oldest (O-25). */
@@ -84,7 +86,7 @@ export class SessionService {
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       select: { id: true },
     });
-    const surplus = active.length - (SESSION_RULES.deviceLimit - 1);
+    const surplus = active.length - (this.deviceLimit - 1);
     for (const old of active.slice(0, Math.max(0, surplus)))
       await this.revoke(tx, old.id, { by: null, reason: 'device_limit' });
 

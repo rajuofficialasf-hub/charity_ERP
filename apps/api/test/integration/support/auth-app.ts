@@ -58,6 +58,8 @@ export interface AuthHarness {
 export async function authHarness(
   options: {
     realRateLimits?: boolean;
+    /** The device limit of the E2E run (a hundredfold) instead of the real one. */
+    relaxedDeviceLimit?: boolean;
     logStream?: DestinationStream;
     extraRouters?: AppOptions['extraRouters'];
     /** A fixture permission catalogue instead of docs/security/permissions.yaml. */
@@ -76,6 +78,7 @@ export async function authHarness(
   const env = testEnv({
     DATABASE_URL: clone.url,
     RATE_LIMITS_RELAXED: options.realRateLimits ? 'false' : 'true',
+    SESSION_DEVICE_LIMIT_RELAXED: options.relaxedDeviceLimit ? 'true' : 'false',
     // a captured log stream needs log lines (the test env is silent otherwise)
     ...(options.logStream ? { LOG_LEVEL: 'info' } : {}),
   });
