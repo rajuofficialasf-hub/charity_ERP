@@ -5,6 +5,7 @@
   "sections": {
     "type": "Typography",
     "button": "Button",
+    "menu": "Menu button",
     "badge": "Badge and status",
     "card": "Card and stat",
     "field": "Field: text, number, phone, password",
@@ -299,5 +300,12 @@
     "purba_para": "Purba Para",
     "karim_uddin": "Karim Uddin (sample)"
   },
-  "project_code": "WNT"
+  "project_code": "WNT",
+  "menu": {
+    "label": "Profile menu",
+    "name": "Sample official",
+    "profile": "My profile",
+    "devices": "My devices",
+    "logout": "Log out"
+  }
 }

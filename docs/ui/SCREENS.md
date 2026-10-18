@@ -296,12 +296,12 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 
 Every role opens the app on its My Work home (BR-226). The home is a list of widgets in a fixed order, beginning with "needs your attention".
 
-**Shared shell.** DS §4.1, with role-dependent bottom tabs on phones and a sidebar on desktop.
+**Shared shell.** DS §4.1, with role-dependent bottom tabs on phones, a side rail from 640 px and, for officials, a sidebar from 1024 px (D-100). Phase 1 tabs: volunteers home, my projects, notifications, more; officials home, people, projects, notifications, more, a tab the official may not use hidden.
 
 **Shared rules.**
 - **First widget.** Every home starts with **Needs your attention**. It holds attention cards (DS §5.3) for corrections, returned items, pending approvals, unsynced and failed records and deadlines. Each card links to the record.
 - **Multiple roles.** A user with several roles or projects sees the union of their widgets, grouped by project. A project switcher sits at the top when the user has more than one project.
-- **Placeholders.** Widgets whose module arrives in a later phase are not shown before that phase. T1.15 builds the frame and the widgets that exist by Phase 1.
+- **Placeholders.** A widget whose module arrives in a later phase shows a calm "coming later" card, without an action or counts, on the homes that will have it (D-100). T1.15 builds the frame, the widgets that exist by Phase 1 and these cards.
 - **Layouts.**
   - Phone: one column of cards.
   - Tablet: two columns.

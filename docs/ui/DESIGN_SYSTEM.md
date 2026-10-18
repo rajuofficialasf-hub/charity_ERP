@@ -333,8 +333,8 @@ From DESIGN_BRIEF §5. Officials work equally on desktop and phone (UX-03); setu
 ### 4.1 App shell
 
 - **App bar** (all sizes): logo and system name, then on the right the sync indicator, the notification bell with an unread count, the language switch and the profile menu (profile, device sessions, logout). On phones the language switch moves into the profile menu.
-- **Phone bottom tab bar:** four role-dependent tabs plus "more". Volunteers: home, applications, today's work, notifications, more. Officials: home, review, people (volunteers and beneficiaries), projects, more. Tabs are links with an icon and a label, never icon only. The bar respects `env(safe-area-inset-bottom)`.
-- **Tablet side rail:** the same destinations as icons with labels underneath, collapsible to icons with tooltips.
+- **Phone bottom tab bar:** four role-dependent tabs plus "more". Volunteers: home, applications, today's work, notifications, more. Officials: home, review, people (volunteers and beneficiaries), projects, more. Phase 1 (D-100) shows only destinations that exist: volunteers home, my projects, notifications, more; officials home, people, projects, notifications, more, a tab the official may not use hidden; applications, today's work and review join with their modules. Tabs are links with an icon and a label, never icon only. The bar respects `env(safe-area-inset-bottom)`.
+- **Tablet side rail:** the same destinations as icons with labels underneath, collapsible to icons with tooltips. Volunteers have no sidebar; from 640 px their four destinations sit in the rail (D-100).
 - **Desktop sidebar:** grouped destinations (My Work, projects, review, volunteers, beneficiaries, dashboards, administration), each item an icon and a label; the active item uses `--color-bg-brand-soft` with a 4 px green left bar. The sidebar may use the ink surface with white text.
 - **Banners** sit between the app bar and the content: offline, update available, iOS storage warning, install guidance (§7, §8).
 - Navigation is built from the user's effective permissions; a destination the user cannot use is not shown. The server still denies by default.
@@ -360,6 +360,8 @@ Form builder, project setup, permission panel, template and checklist editors, a
 - Phone: readable, small edits only (rename, toggle, change a date); a persistent Alert (info) reads "best on a larger screen". Structural edits (adding sections, reordering, bulk permission changes) are hidden on phones. No drag and drop anywhere; ordering uses move-up and move-down buttons.
 
 ### 4.5 Admin area layout (UX-15)
+
+Since T1.15 (D-100) the admin pages sit inside the app shell of §4.1: its app bar replaces the admin top bar below, and its sidebar, rail and bottom tabs replace the admin sidebar and the phone menu row. The addresses under `/admin`, the audience gate and the "best on a larger screen" notice stay.
 
 The management screens and admin settings live under `/admin` (`apps/web/src/admin/`), loaded as their own route chunk. They use this design system and `packages/ui` like every other screen; no second UI library is used (the MUI Minimal template was not adopted, UX-15).
 - Top bar: the system name (link to the admin home), then the signed-in user ("লগইন করা: name"), the language switch and log out.

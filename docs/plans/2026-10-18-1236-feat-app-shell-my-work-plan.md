@@ -111,7 +111,7 @@ After login, people land on a placeholder page with a few buttons. Volunteers ge
   - unit (ui): the button opens the menu with Enter and with a click; arrow keys move between items; Escape closes it and returns focus to the button; an item with `href` is a link, and an item with an action calls it; no axe violations.
 - **Done when:** the menu works by keyboard and pointer in the gallery, and the docs say what the owner decided.
 - **Depends on:** none · **Size:** M · **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U2. The attention API
 - **Goal:** `GET /me/attention` returns the counted items for the caller's roles and scopes.
@@ -268,8 +268,8 @@ After login, people land on a placeholder page with a few buttons. Volunteers ge
 
 ## Progress
 - **Branch:** `feat/app-shell-my-work` (stacked on `feat/notifications`)
-- **Updated:** 2026-10-18 13:30
-- **Next:** U1: D-100 in DECISION_LOG, then the MenuButton test in packages/ui
+- **Updated:** 2026-10-18 14:10
+- **Next:** U2: the attention API (start with `attention.test.ts`)
 - **Reviewed through:** none
 - **Uncommitted:** none
 - **Notes:** doc review on 2026-10-18 (two reviewers): the owner chose a side rail for volunteers from 640 px and hiding an official's tabs they may not use. FYI items not taken into the plan: no stop rule if the first load cannot reach 250 KB (then report the measured size to the owner and ask), no rate limit on `/me/attention`, Lighthouse version not pinned, no direct-URL test of `/admin/*` for a volunteer, a few shortcut and coming-later cards without their own test.
