@@ -28,8 +28,8 @@ export async function setup(project: TestProject): Promise<() => Promise<void>> 
 }
 
 function syncTemplates(url: string): void {
-  const tsx = createRequire(import.meta.url).resolve('tsx/cli');
-  const api = join(import.meta.dirname, '..', '..', '..');
+  const tsx = createRequire(__filename).resolve('tsx/cli');
+  const api = join(__dirname, '..', '..', '..');
   const result = spawnSync(
     process.execPath,
     [tsx, '--conditions=@css/source', 'scripts/notifications-sync.ts'],
