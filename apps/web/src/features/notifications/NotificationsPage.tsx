@@ -102,9 +102,14 @@ function Inbox({ unread }: { unread: boolean }) {
   const unreadCount = list.data.pages[0]?.meta.unreadCount ?? 0;
   if (!entries.length)
     return unread ? (
-      <EmptyState icon={Bell} title={t('empty_unread.title')} />
+      <EmptyState icon={Bell} title={t('empty_unread.title')} headingLevel={2} />
     ) : (
-      <EmptyState icon={Bell} title={t('empty.title')} message={t('empty.message')} />
+      <EmptyState
+        icon={Bell}
+        title={t('empty.title')}
+        message={t('empty.message')}
+        headingLevel={2}
+      />
     );
 
   const days: { day: string; items: InboxEntry[] }[] = [];
