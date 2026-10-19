@@ -57,4 +57,11 @@
     box-shadow: none;
     border-bottom: 1px solid var(--color-border-default);
   }
+
+  /* ghost buttons on a status tint use ink: dark green reaches only 4.49:1 on the danger tint */
+  .ui-alert .ui-btn-ghost {
+    color: var(--color-text-primary);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
 }

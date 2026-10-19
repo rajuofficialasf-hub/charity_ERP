@@ -6,7 +6,6 @@
 @import './fonts.css';
 @import './base.css';
 @import '../components/Spinner/Spinner.css';
-@import '../components/Button/Button.css';
 @import '../components/Badge/Badge.css';
 @import '../components/Avatar/Avatar.css';
 @import '../components/ProgressBar/ProgressBar.css';

@@ -1,4 +1,5 @@
 import type { ComponentType, ReactNode } from 'react';
+import type { IconComponent } from './components/Icon/Icon.js';
 
 /**
  * The contract of the component set (the organization's UI rules, recorded in
@@ -15,7 +16,37 @@ export interface TemplateProviderProps {
   children: ReactNode;
 }
 
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+
+export interface ButtonProps {
+  /** primary (one per region), secondary, ghost (tertiary and row actions), danger. */
+  variant?: ButtonVariant;
+  /** md: 44 px on phones, 40 px on desktop; sm: 36/32 px with a 44 px hit area on phones. */
+  size?: 'md' | 'sm';
+  icon?: IconComponent;
+  iconPosition?: 'start' | 'end';
+  /** Shows only the icon; the children become the accessible name (visually hidden). */
+  iconOnly?: boolean;
+  /**
+   * A spinner replaces the start icon and the label stays; the button stays focusable, is marked
+   * busy and disabled for assistive technology, and ignores presses.
+   */
+  loading?: boolean;
+  disabled?: boolean;
+  fullWidth?: boolean;
+  type?: 'button' | 'submit';
+  onPress?: () => void;
+  /** Renders a link styled as a button; only for navigation. */
+  href?: string;
+  autoFocus?: boolean;
+  /** Layout only (margin, grid placement); never colours or typography. */
+  className?: string;
+  'aria-describedby'?: string;
+  children: ReactNode;
+}
+
 /** Everything a template supplies. */
 export interface UiTemplate {
   TemplateProvider: ComponentType<TemplateProviderProps>;
+  Button: ComponentType<ButtonProps>;
 }

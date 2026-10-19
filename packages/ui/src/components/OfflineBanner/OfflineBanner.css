@@ -43,4 +43,11 @@
   .ui-offline-spin {
     animation: ui-spin 1.2s linear infinite;
   }
+
+  /* ghost buttons on a status tint use ink: dark green reaches only 4.49:1 on the danger tint */
+  .ui-offline .ui-btn-ghost {
+    color: var(--color-text-primary);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
 }

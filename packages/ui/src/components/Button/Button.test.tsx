@@ -19,7 +19,7 @@ describe('Button (DESIGN_SYSTEM 5.1)', () => {
     expect(onPress).toHaveBeenCalledTimes(3);
   });
 
-  it('renders every variant and size with design-system classes', () => {
+  it('keeps the design-system classes of every variant and size as hooks', () => {
     const { container } = renderWithUi(
       <>
         <Button>p</Button>
@@ -32,13 +32,11 @@ describe('Button (DESIGN_SYSTEM 5.1)', () => {
         </Button>
       </>,
     );
-    const classes = [...container.querySelectorAll('button')].map((b) => b.className);
-    expect(classes).toEqual([
-      'ui-btn ui-btn-primary',
-      'ui-btn ui-btn-secondary',
-      'ui-btn ui-btn-ghost ui-btn-sm',
-      'ui-btn ui-btn-danger',
-    ]);
+    const [primary, secondary, ghost, danger] = [...container.querySelectorAll('button')];
+    expect(primary).toHaveClass('ui-btn', 'ui-btn-primary');
+    expect(secondary).toHaveClass('ui-btn', 'ui-btn-secondary');
+    expect(ghost).toHaveClass('ui-btn', 'ui-btn-ghost', 'ui-btn-sm');
+    expect(danger).toHaveClass('ui-btn', 'ui-btn-danger');
   });
 
   it('gives an icon-only button its accessible name from the children', async () => {
@@ -62,6 +60,7 @@ describe('Button (DESIGN_SYSTEM 5.1)', () => {
     );
     const button = screen.getByRole('button', { name: /Save/ });
     expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).toHaveAttribute('aria-busy', 'true');
     expect(button).toHaveAttribute('data-pending', 'true');
     expect(button).not.toBeDisabled(); // stays focusable while pending
     await user.click(button);
