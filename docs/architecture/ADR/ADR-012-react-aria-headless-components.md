@@ -1,6 +1,6 @@
 # ADR-012: React Aria Components as the headless primitive library of packages/ui
 
-Status: approved 2026-10-11 (DECISION_LOG D-064; the owner chose React Aria while T1.4 was planned). Written in task T1.4.
+Status: superseded by ADR-015 on 2026-10-19 (DECISION_LOG D-103: the set moves to MUI core). Approved 2026-10-11 (DECISION_LOG D-064; the owner chose React Aria while T1.4 was planned). Written in task T1.4.
 
 ## Context
 

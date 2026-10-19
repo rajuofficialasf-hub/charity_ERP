@@ -61,7 +61,11 @@
   },
   "dependencies": {
     "@css/shared": "workspace:*",
+    "@emotion/cache": "11.14.0",
+    "@emotion/react": "11.14.0",
+    "@emotion/styled": "11.14.1",
     "@internationalized/date": "3.12.4",
+    "@mui/material": "9.4.0",
     "lucide-react": "1.55.0",
     "react-aria-components": "1.22.1"
   }

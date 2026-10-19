@@ -62,7 +62,7 @@ The organization's standard (ae-standards `RE-UI-*`) puts every app's UI on MUI 
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U2. Actions, feedback and display on MUI
 - **Goal:** the simple components are MUI-based with the same props and look.
@@ -224,8 +224,8 @@ The organization's standard (ae-standards `RE-UI-*`) puts every app's UI on MUI 
 
 ## Progress
 - **Branch:** `refactor/mui-core-ui` (from `chore/phase1-test-consolidation`, which is not pushed yet)
-- **Updated:** 2026-10-19 09:40
-- **Next:** U1: D-103 and ADR-015, the MUI dependencies, `tokens.ts`, the theme and the template provider beside the React Aria providers
+- **Updated:** 2026-10-19 10:35
+- **Next:** the owner's decision on the first-route budget (see Notes), then checkpoint C1 over U1, then U2
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** the owner chose MUI core in chat on 2026-10-19 after the licence question (Minimal needs a paid licence per end product; MUI core is MIT); the plan review (2026-10-19) kept the table a `grid` with its keyboard model. Prop types move into `contract.ts` unit by unit: until a component's unit, `contract.ts` re-exports its type from the component file, so the template never imports from a component file it replaces.
+- **Notes:** the owner chose MUI core in chat on 2026-10-19 after the licence question (Minimal needs a paid licence per end product; MUI core is MIT); the plan review (2026-10-19) kept the table a `grid` with its keyboard model. Prop types move into `contract.ts` unit by unit: until a component's unit, `contract.ts` re-exports its type from the component file, so the template never imports from a component file it replaces. U1 bundle gate: the first route grew from 216.6 KB to 250.4 KB gzip (budget 250) with only the MUI theme, Emotion and the provider (about 31 KB, as an esbuild probe confirms). Probes: the React Aria pieces of the login route are about 21 KB gzip; MUI's theme plus the login components (Button, TextField, Alert, RadioGroup, Radio, FormControlLabel, InputAdornment, IconButton) about 74 KB. After the whole migration the login route lands near 260 to 270 KB without another change. The message catalogue (both languages, bn 29.3 KB and en 24.0 KB gzip) sits in the eager LanguageSwitch chunk (51.3 KB); loading only the device language at start would save about 24 to 29 KB. MUI's `theme.spacing()` answers `calc(n * var(--mui-spacing, 4px))` with `cssVariables: true`.

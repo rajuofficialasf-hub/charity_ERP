@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { I18nProvider, RouterProvider } from 'react-aria-components';
+import { TemplateProvider } from '../template.js';
 import type { UiMessages } from './messages.js';
 
 export type UiLocale = 'bn' | 'en';
@@ -30,7 +31,11 @@ export interface UiProviderProps extends UiContextValue {
   children: ReactNode;
 }
 
-/** Supplies locale, texts and number formatting to every design-system component. */
+/**
+ * Supplies locale, texts and number formatting to every design-system component, inside the
+ * template's provider (the MUI theme, ADR-015). React Aria's providers stay beside it until the
+ * last component has moved to the template.
+ */
 export function UiProvider({
   locale,
   messages,
@@ -49,7 +54,11 @@ export function UiProvider({
       <I18nProvider locale={ariaLocale}>{children}</I18nProvider>
     </UiContext.Provider>
   );
-  return navigate ? <RouterProvider navigate={navigate}>{content}</RouterProvider> : content;
+  return (
+    <TemplateProvider navigate={navigate}>
+      {navigate ? <RouterProvider navigate={navigate}>{content}</RouterProvider> : content}
+    </TemplateProvider>
+  );
 }
 
 /** Reads the UiProvider values; components fail loudly when it is missing. */

@@ -43,7 +43,7 @@ ERP for the Charity & Social Service Department of As-Sunnah Foundation. The pro
 - Storage: one adapter (`apps/api/src/storage`), S3 driver on self-hosted MinIO marked `TEMP:` until the NAS driver exists, filesystem driver for tests; private buckets, files streamed by the API, no signed URLs (NS-30…NS-44; D-074).
 - Jobs: pg-boss in PostgreSQL, separate worker process (ADR-004) — no Redis. Email: Nodemailer over the organization's SMTP (Mailpit in dev). SMS: provider-agnostic stub until a provider is chosen (O-33).
 - Monorepo and tooling: pnpm 12 workspaces with `@css/*` packages (D-050; the kit's npm layout is not used), Vitest 4, Playwright, ESLint flat config, Prettier; CI on GitHub Actions (O-51). Ajv 8 with ajv-formats (dev only) validates every API test response against `docs/api/openapi.yaml` (T1.16), as `scripts/check-docs.mjs` already compiles the JSON Schemas with it.
-- UI: `packages/ui` on React Aria + Tailwind 4 with the brand tokens for every screen, the admin area included (D-064, UX-15; the MUI Minimal template is not adopted because its licence cannot be confirmed).
+- UI: `packages/ui` is the org component set; its implementation moves to MUI core (`@mui/material` 9.4 with Emotion, MIT; template folder `packages/ui/src/templates/mui/`, selected by `src/template.ts`, prop types in `src/contract.ts`) with the brand tokens for every screen (D-103, ADR-015, ae-standards RE-UI-01 to RE-UI-05); React Aria and Tailwind 4 stay until the migration plan `docs/plans/2026-10-19-0912-refactor-mui-core-ui-plan.md` removes them; the paid Minimal template only once its licence for this product is confirmed.
 
 ## Repository map and commands
 

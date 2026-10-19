@@ -5,6 +5,7 @@ import { brotliDecompressSync } from 'node:zlib';
 import { compile } from '@tailwindcss/node';
 import { describe, expect, it } from 'vitest';
 import { BREAKPOINTS } from '../breakpoints.js';
+import { DESKTOP_TOKENS, ROOT_TOKENS } from '../tokens.js';
 
 const root = join(__dirname, '../..');
 const repo = join(root, '../..');
@@ -29,6 +30,32 @@ describe('tokens (DESIGN_SYSTEM 2.9)', () => {
     const tokens = read(join(root, 'src/styles/tokens.css'));
     // Prettier writes hex in lower case; values are compared case-insensitively.
     expect(squash(tokens).toLowerCase()).toBe(squash(block).toLowerCase());
+  });
+
+  it('tokens.ts holds the same names and values as the design system', () => {
+    const ds = read(join(repo, 'docs/ui/DESIGN_SYSTEM.md'));
+    const section = ds.slice(ds.indexOf('### 2.9 Complete token block'));
+    const start = section.indexOf('```css') + 6;
+    const block = section
+      .slice(start, section.indexOf('```', start))
+      .replace(/\/\*[\s\S]*?\*\//g, '');
+    const variables = (css: string) =>
+      Object.fromEntries(
+        [...css.matchAll(/--([a-z0-9-]+):\s*([^;]+);/g)].map((m) => [
+          m[1]!,
+          m[2]!.replace(/\s+/g, '').toLowerCase(),
+        ]),
+      );
+    const squashed = (record: Record<string, string>) =>
+      Object.fromEntries(
+        Object.entries(record).map(([k, v]) => [k, v.replace(/\s+/g, '').toLowerCase()]),
+      );
+    const rootBlock = block.slice(block.indexOf(':root'), block.indexOf('@media'));
+    const desktop = block.slice(block.indexOf('@media (min-width: 1024px)'));
+    expect(squashed(ROOT_TOKENS)).toEqual(variables(rootBlock));
+    expect(squashed(DESKTOP_TOKENS)).toEqual(
+      variables(desktop.slice(0, desktop.indexOf('@media', 10))),
+    );
   });
 
   it('no component or base style writes a raw hex colour (DESIGN_SYSTEM 10)', () => {
