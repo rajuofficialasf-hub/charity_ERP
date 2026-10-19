@@ -171,6 +171,8 @@ export const canDecideEdits = (me: Pick<Me, 'roles'>) => holds(me, EDIT_REQUEST_
 export const canBlock = (me: Pick<Me, 'roles'>) => holds(me, BLOCKLIST_ROLES);
 export const canHandOver = (me: Pick<Me, 'roles'>) => holds(me, HANDOVER_ROLES);
 export const canEndSessions = (me: Pick<Me, 'roles'>) => holds(me, SESSION_ROLES);
+/** Who may see and end another official's device sessions: the global roles only (an RPM reaches volunteers). */
+export const canEndStaffSessions = (me: Pick<Me, 'roles'>) => holds(me, PERMISSION_PANEL_ROLES);
 export const canSeePrograms = (me: Pick<Me, 'roles'>) => holds(me, PROGRAM_ROLES);
 export const canManagePrograms = (me: Pick<Me, 'roles'>) => holds(me, PROGRAM_ADMIN_ROLES);
 export const canSeeProjects = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_ROLES);
