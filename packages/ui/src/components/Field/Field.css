@@ -248,6 +248,11 @@
     min-width: 0;
     padding: 0;
     font-variant-numeric: tabular-nums;
+    opacity: 1;
+  }
+  /* an empty part shows its placeholder (dd, mm, yyyy) in the secondary text colour */
+  .ui-date-group .MuiPickersInputBase-sectionContent:not([aria-valuenow]) {
+    color: var(--color-text-secondary);
   }
   .ui-date-group .MuiPickersInputBase-sectionContent {
     padding: 0 2px;
