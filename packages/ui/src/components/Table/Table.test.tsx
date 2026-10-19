@@ -112,6 +112,48 @@ describe('Table (DESIGN_SYSTEM 5.7)', () => {
     expect(onRowAction).toHaveBeenCalledTimes(3);
   });
 
+  it('moves between rows and cells with the arrow keys and selects a row with Space', async () => {
+    const onSelectionChange = vi.fn();
+    const user = userEvent.setup();
+    renderWithUi(
+      <Table {...base} selectionMode="multiple" onSelectionChange={onSelectionChange} />,
+    );
+    const [, first, second] = within(screen.getByRole('grid')).getAllByRole('row');
+    act(() => first!.focus());
+    await user.keyboard('{ArrowDown}');
+    expect(second).toHaveFocus();
+    await user.keyboard('{ArrowRight}');
+    expect(second).not.toHaveFocus();
+    expect(second).toContainElement(document.activeElement as HTMLElement);
+    await user.keyboard('{ArrowLeft}');
+    expect(second).toHaveFocus();
+    await user.keyboard(' ');
+    expect(onSelectionChange).toHaveBeenLastCalledWith(new Set(['a2']));
+    expect(second).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('sorts from a focused header with Enter', async () => {
+    const onSortChange = vi.fn();
+    const user = userEvent.setup();
+    renderWithUi(
+      <Table
+        {...base}
+        sort={{ column: 'score', direction: 'ascending' }}
+        onSortChange={onSortChange}
+      />,
+    );
+    const header = within(screen.getByRole('grid')).getByRole('columnheader', { name: /স্কোর/ });
+    act(() => header.focus());
+    await user.keyboard('{Enter}');
+    expect(onSortChange).toHaveBeenLastCalledWith({ column: 'score', direction: 'descending' });
+  });
+
+  it('marks the columns a split view hides', () => {
+    const { container } = renderWithUi(<Table {...base} inSplitView />);
+    expect(container.querySelector('.ui-table-split')).not.toBeNull();
+    expect(container.querySelectorAll('.p4')).toHaveLength(3);
+  });
+
   it('shows the empty state, announces the result count and pages with previous, next and load more', async () => {
     const onNext = vi.fn();
     const onLoadMore = vi.fn();
