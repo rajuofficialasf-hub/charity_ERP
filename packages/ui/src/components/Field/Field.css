@@ -202,7 +202,7 @@
     cursor: pointer;
     color: var(--color-text-primary);
   }
-  .ui-select-trigger[data-focus-visible] {
+  .ui-select-trigger:focus-visible {
     outline: none;
     border-color: var(--color-brand-primary-dark);
     box-shadow: var(--ring-brand);
@@ -313,14 +313,19 @@
     }
   }
   .ui-option[data-focused],
-  .ui-option[data-hovered] {
+  .ui-option.Mui-focused,
+  .ui-option.Mui-focusVisible,
+  .ui-option:focus-visible,
+  .ui-option:hover {
     background: var(--color-bg-muted);
   }
-  .ui-option[data-selected] {
+  .ui-option[data-selected],
+  .ui-option[aria-selected='true'] {
     font-weight: var(--font-weight-bold);
     color: var(--color-brand-ink);
   }
-  .ui-option[data-disabled] {
+  .ui-option[data-disabled],
+  .ui-option[aria-disabled='true'] {
     color: var(--color-text-secondary);
     cursor: not-allowed;
   }

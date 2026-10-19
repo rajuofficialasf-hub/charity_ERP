@@ -1,4 +1,5 @@
 import type { AnchorHTMLAttributes, ComponentType, ReactNode, RefAttributes } from 'react';
+import type { FieldBaseProps } from './components/Field/FieldParts.js';
 import type { IconComponent } from './components/Icon/Icon.js';
 
 /**
@@ -45,10 +46,52 @@ export interface ButtonProps {
   children: ReactNode;
 }
 
+export interface SelectOption {
+  id: string;
+  label: string;
+  disabled?: boolean;
+}
+
+/** An "other" option opens a text box inside the same field (অন্যান্য). */
+export interface OtherOptionProps {
+  /** Id of the option that means "other". */
+  otherOptionId?: string;
+  otherValue?: string;
+  onOtherChange?: (value: string) => void;
+}
+
+export interface SelectProps extends FieldBaseProps, OtherOptionProps {
+  options: SelectOption[];
+  value?: string | null;
+  defaultValue?: string | null;
+  onChange?: (id: string | null) => void;
+  placeholder?: string;
+  /** Search box in the list; on by default when there are more than 10 options. */
+  searchable?: boolean;
+}
+
+export interface ComboboxProps extends FieldBaseProps {
+  options: SelectOption[];
+  value?: string | null;
+  defaultValue?: string | null;
+  onChange?: (id: string | null) => void;
+  placeholder?: string;
+  /** Allows text that is not one of the options (reported through onInputChange). */
+  allowsCustomValue?: boolean;
+  onInputChange?: (text: string) => void;
+  /**
+   * Options come from a server search on the typed text: they are not filtered again here, and
+   * the list stays open while it is empty, so it fills when the answer arrives.
+   */
+  serverSearch?: boolean;
+}
+
 /** Everything a template supplies. */
 export interface UiTemplate {
   TemplateProvider: ComponentType<TemplateProviderProps>;
   /** A plain anchor whose same-site clicks go through the app's router (cards, navigation). */
   Link: ComponentType<AnchorHTMLAttributes<HTMLAnchorElement> & RefAttributes<HTMLAnchorElement>>;
   Button: ComponentType<ButtonProps>;
+  Select: ComponentType<SelectProps>;
+  Combobox: ComponentType<ComboboxProps>;
 }
