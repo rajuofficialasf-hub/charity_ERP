@@ -324,7 +324,9 @@
       "year": "Year",
       "blocked": "Blocklist",
       "blocked_yes": "Blocked",
-      "blocked_no": "Not blocked"
+      "blocked_no": "Not blocked",
+      "group_area": "Area",
+      "group_other": "Other"
     },
     "types": {
       "elderly": "Elderly",
@@ -377,6 +379,12 @@
       "exams": "Exams passed {passed} of {total}",
       "calls": "Calls",
       "evaluations": "Follow-up evaluations"
+    },
+    "none": "None",
+    "summary": "Showing {from}–{to} of {total} beneficiaries",
+    "action": {
+      "menu": "Actions for {name}",
+      "profile": "View profile"
     }
   },
   "programs": {

@@ -46,7 +46,7 @@ The owner's reference images for the volunteer tab (chat, 2026-10-20) become the
 ### U4. The beneficiary tab
 - **Files:** `apps/web/src/admin/beneficiaries/BeneficiariesPage.tsx` and its API client.
 - **Tests:** `beneficiaries.test.tsx`, `apps/web/e2e/beneficiaries.spec.ts`.
-- **Status:** todo
+- **Status:** done
 
 ### U5. Documents and the final run
 - **Files:** `docs/ui/SCREENS.md`, `docs/ui/DESIGN_SYSTEM.md`, `docs/STATUS.md`.

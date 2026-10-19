@@ -324,7 +324,9 @@
       "year": "বছর",
       "blocked": "ব্লকলিস্ট",
       "blocked_yes": "ব্লক করা",
-      "blocked_no": "ব্লক নয়"
+      "blocked_no": "ব্লক নয়",
+      "group_area": "এলাকা",
+      "group_other": "অন্যান্য"
     },
     "types": {
       "elderly": "বৃদ্ধ",
@@ -377,6 +379,12 @@
       "exams": "পরীক্ষায় পাস {total}টির মধ্যে {passed}টি",
       "calls": "ফোন কল",
       "evaluations": "ফলো-আপ মূল্যায়ন"
+    },
+    "none": "নেই",
+    "summary": "{from}–{to} দেখানো হচ্ছে · মোট {total} জন",
+    "action": {
+      "menu": "{name}-এর কাজ",
+      "profile": "প্রোফাইল দেখুন"
     }
   },
   "programs": {
