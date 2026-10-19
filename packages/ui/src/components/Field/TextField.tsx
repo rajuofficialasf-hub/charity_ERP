@@ -3,16 +3,17 @@
 import { toEnglishDigits } from '@css/shared';
 import { Eye, EyeOff } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type HTMLAttributes, type ReactNode } from 'react';
-import {
-  Button as AriaButton,
-  Input,
-  TextArea as AriaTextArea,
-  TextField as AriaTextField,
-} from 'react-aria-components';
 import { useUi } from '../../provider/UiProvider.js';
 import { useTextValue } from '../../utils/useTextValue.js';
 import { Icon } from '../Icon/Icon.js';
-import { FieldFooter, FieldLabel, fieldClass, type FieldBaseProps } from './FieldParts.js';
+import {
+  controlProps,
+  fieldClass,
+  NativeFieldFooter,
+  NativeFieldLabel,
+  useFieldIds,
+  type FieldBaseProps,
+} from './FieldParts.js';
 
 export interface TextFieldProps extends FieldBaseProps {
   value?: string;
@@ -62,30 +63,28 @@ export function TextField({
   const [current, set] = useTextValue(value, defaultValue, onChange, (v) =>
     numeric ? toEnglishDigits(v).replace(/\D/g, '') : v,
   );
+  const ids = useFieldIds(field.id);
   return (
-    <AriaTextField
-      className={fieldClass(field)}
-      id={field.id}
-      name={field.name}
-      value={current}
-      onChange={set}
-      onBlur={onBlur}
-      type={type === 'email' ? 'email' : 'text'}
-      inputMode={inputMode ?? (numeric ? 'numeric' : type === 'email' ? 'email' : undefined)}
-      isRequired={field.required}
-      isInvalid={!!field.error}
-      isReadOnly={field.readOnly || field.locked}
-      isDisabled={field.disabled}
-      maxLength={maxLength ?? (numeric ? 17 : undefined)}
-      autoComplete={autoComplete ?? (numeric ? 'off' : undefined)}
-      validationBehavior="aria"
-    >
-      <FieldLabel {...field} />
+    <div className={fieldClass(field)}>
+      <NativeFieldLabel {...field} htmlFor={ids.inputId} />
       <WithAction action={endAction}>
-        <Input className="ui-input" placeholder={placeholder} lang={lang} />
+        <input
+          {...controlProps(ids, field)}
+          className="ui-input"
+          name={field.name}
+          value={current}
+          onChange={(event) => set(event.target.value)}
+          onBlur={onBlur}
+          type={type === 'email' ? 'email' : 'text'}
+          inputMode={inputMode ?? (numeric ? 'numeric' : type === 'email' ? 'email' : undefined)}
+          maxLength={maxLength ?? (numeric ? 17 : undefined)}
+          autoComplete={autoComplete ?? (numeric ? 'off' : undefined)}
+          placeholder={placeholder}
+          lang={lang}
+        />
       </WithAction>
-      <FieldFooter {...field} />
-    </AriaTextField>
+      <NativeFieldFooter {...field} ids={ids} />
+    </div>
   );
 }
 
@@ -120,35 +119,29 @@ export function TextArea({
     el.style.height = `${el.scrollHeight + 2}px`;
   };
   useLayoutEffect(grow, [value]);
+  const ids = useFieldIds(field.id);
   return (
-    <AriaTextField
-      className={fieldClass(field)}
-      id={field.id}
-      name={field.name}
-      value={value}
-      defaultValue={defaultValue}
-      onChange={(v) => {
-        onChange?.(v);
-        grow();
-      }}
-      onBlur={onBlur}
-      isRequired={field.required}
-      isInvalid={!!field.error}
-      isReadOnly={field.readOnly || field.locked}
-      isDisabled={field.disabled}
-      maxLength={maxLength}
-      validationBehavior="aria"
-    >
-      <FieldLabel {...field} />
-      <AriaTextArea
+    <div className={fieldClass(field)}>
+      <NativeFieldLabel {...field} htmlFor={ids.inputId} />
+      <textarea
+        {...controlProps(ids, field)}
         ref={ref}
         className="ui-input ui-textarea"
+        name={field.name}
+        value={value}
+        defaultValue={defaultValue}
+        onChange={(event) => {
+          onChange?.(event.target.value);
+          grow();
+        }}
+        onBlur={onBlur}
+        maxLength={maxLength}
         placeholder={placeholder}
         rows={rows}
         lang={lang}
       />
-      <FieldFooter {...field} />
-    </AriaTextField>
+      <NativeFieldFooter {...field} ids={ids} />
+    </div>
   );
 }
 
@@ -184,29 +177,26 @@ export function NumberField({
   };
   const prefix: HTMLAttributes<HTMLSpanElement> = { 'aria-hidden': true };
   const [current, set] = useTextValue(value, defaultValue, onChange, clean);
+  const ids = useFieldIds(field.id);
   return (
-    <AriaTextField
-      className={fieldClass(field)}
-      id={field.id}
-      name={field.name}
-      value={current}
-      onChange={set}
-      onBlur={onBlur}
-      inputMode={kind === 'integer' ? 'numeric' : 'decimal'}
-      isRequired={field.required}
-      isInvalid={!!field.error}
-      isReadOnly={field.readOnly || field.locked}
-      isDisabled={field.disabled}
-      autoComplete="off"
-      validationBehavior="aria"
-    >
-      <FieldLabel {...field} />
+    <div className={fieldClass(field)}>
+      <NativeFieldLabel {...field} htmlFor={ids.inputId} />
       <div className={kind === 'money' ? 'ui-input-prefix' : undefined}>
         {kind === 'money' && <span {...prefix}>৳</span>}
-        <Input className="ui-input ui-tnum" placeholder={placeholder} />
+        <input
+          {...controlProps(ids, field)}
+          className="ui-input ui-tnum"
+          name={field.name}
+          value={current}
+          onChange={(event) => set(event.target.value)}
+          onBlur={onBlur}
+          inputMode={kind === 'integer' ? 'numeric' : 'decimal'}
+          autoComplete="off"
+          placeholder={placeholder}
+        />
       </div>
-      <FieldFooter {...field} />
-    </AriaTextField>
+      <NativeFieldFooter {...field} ids={ids} />
+    </div>
   );
 }
 
@@ -236,30 +226,27 @@ export function PhoneField({
   const [current, set] = useTextValue(value, defaultValue, onChange, (v) =>
     toEnglishDigits(v).replace(/[^\d+]/g, ''),
   );
+  const ids = useFieldIds(field.id);
   return (
-    <AriaTextField
-      className={fieldClass(field)}
-      id={field.id}
-      name={field.name}
-      value={current}
-      onChange={set}
-      onBlur={onBlur}
-      type="tel"
-      inputMode="tel"
-      maxLength={14}
-      isRequired={field.required}
-      isInvalid={!!field.error}
-      isReadOnly={field.readOnly || field.locked}
-      isDisabled={field.disabled}
-      autoComplete={autoComplete}
-      validationBehavior="aria"
-    >
-      <FieldLabel {...field} />
+    <div className={fieldClass(field)}>
+      <NativeFieldLabel {...field} htmlFor={ids.inputId} />
       <WithAction action={endAction}>
-        <Input className="ui-input ui-tnum" placeholder={placeholder} />
+        <input
+          {...controlProps(ids, field)}
+          className="ui-input ui-tnum"
+          name={field.name}
+          value={current}
+          onChange={(event) => set(event.target.value)}
+          onBlur={onBlur}
+          type="tel"
+          inputMode="tel"
+          maxLength={14}
+          autoComplete={autoComplete}
+          placeholder={placeholder}
+        />
       </WithAction>
-      <FieldFooter {...field} />
-    </AriaTextField>
+      <NativeFieldFooter {...field} ids={ids} />
+    </div>
   );
 }
 
@@ -289,36 +276,37 @@ export function PasswordField({
   const { messages } = useUi();
   const [visible, setVisible] = useState(false);
   const [current, set] = useTextValue(value, defaultValue, onChange, (v) => v);
+  const ids = useFieldIds(field.id);
   return (
-    <AriaTextField
-      className={fieldClass(field)}
-      id={field.id}
-      name={field.name}
-      value={current}
-      onChange={set}
-      onBlur={onBlur}
-      type={visible ? 'text' : 'password'}
-      isRequired={field.required}
-      isInvalid={!!field.error}
-      isDisabled={field.disabled}
-      maxLength={maxLength}
-      autoComplete={autoComplete}
-      validationBehavior="aria"
-    >
-      <FieldLabel {...field} />
+    <div className={fieldClass(field)}>
+      <NativeFieldLabel {...field} htmlFor={ids.inputId} />
       <div className="ui-input-wrap">
-        <Input className="ui-input" spellCheck={false} autoCapitalize="none" autoCorrect="off" />
-        <AriaButton
+        <input
+          {...controlProps(ids, { ...field, readOnly: false, locked: false })}
+          className="ui-input"
+          name={field.name}
+          value={current}
+          onChange={(event) => set(event.target.value)}
+          onBlur={onBlur}
+          type={visible ? 'text' : 'password'}
+          maxLength={maxLength}
+          autoComplete={autoComplete}
+          spellCheck={false}
+          autoCapitalize="none"
+          autoCorrect="off"
+        />
+        <button
+          type="button"
           className="ui-input-button"
           aria-label={visible ? messages.field.hidePassword : messages.field.showPassword}
           aria-pressed={visible}
-          isDisabled={field.disabled}
-          onPress={() => setVisible((v) => !v)}
+          disabled={field.disabled}
+          onClick={() => setVisible((v) => !v)}
         >
           <Icon icon={visible ? EyeOff : Eye} />
-        </AriaButton>
+        </button>
       </div>
-      <FieldFooter {...field} />
-    </AriaTextField>
+      <NativeFieldFooter {...field} ids={ids} />
+    </div>
   );
 }
