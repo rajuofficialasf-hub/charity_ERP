@@ -425,6 +425,40 @@ describe('who sees which project', () => {
     }
   });
 
+  it('shows the budget amounts only to a caller with budget.view on the project', async () => {
+    const amounts = ['costPerBeneficiary', 'targetBeneficiaries', 'budgetPlanned'];
+    const media = await as(
+      await (async () => {
+        const a = await account(h.db, { kind: 'staff', role: 'media_team' });
+        accounts.set(a.id, a);
+        return a.id;
+      })(),
+    );
+    const finance = await as(
+      await (async () => {
+        const a = await account(h.db, { kind: 'staff', role: 'finance_team' });
+        accounts.set(a.id, a);
+        return a.id;
+      })(),
+    );
+    // the Media Team reads every project (project.view at GLOBAL) but holds no budget.view
+    const one = await get(media, world.a1.id);
+    expect(one.status).toBe(200);
+    for (const key of amounts) expect(one.body.data, key).not.toHaveProperty(key);
+    const list = await api().get('/api/v1/projects').set(bearer(media)).query({ limit: 100 });
+    const row = list.body.data.find((p: { id: string }) => p.id === world.a1.id);
+    expect(row).toBeDefined();
+    for (const key of amounts) expect(row, key).not.toHaveProperty(key);
+    // the PM of the program and the Finance Team see them
+    for (const s of [await as(world.users.pm), finance]) {
+      const seen = await get(s, world.a1.id);
+      for (const key of amounts) expect(seen.body.data, key).toHaveProperty(key);
+    }
+    // the RPM of Dhaka sees them on its own project, not on another program's
+    const rpm = await as(world.users.rpmDhaka);
+    for (const key of amounts) expect((await get(rpm, world.a1.id)).body.data).toHaveProperty(key);
+  });
+
   it('answers 401 without a sign-in and 404 for a project that does not exist', async () => {
     expect((await api().get('/api/v1/projects')).status).toBe(401);
     expect((await api().get(`/api/v1/projects/${randomUUID()}`)).status).toBe(401);
