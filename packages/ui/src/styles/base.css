@@ -4,14 +4,107 @@
  * src/components/<Name>/<Name>.css.
  */
 @layer base {
+  /*
+   * Element reset: no element brings its own spacing, border or list marker, and media and form
+   * controls follow the text around them. The rules after it give the elements the design
+   * system's own defaults.
+   */
   *,
   *::before,
-  *::after {
+  *::after,
+  ::backdrop,
+  ::file-selector-button {
     box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0 solid;
   }
   html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+    line-height: 1.5;
+    font-family: var(--font-sans);
+    -webkit-tap-highlight-color: transparent;
+  }
+  hr {
+    height: 0;
+    color: inherit;
+    border-top-width: 1px;
+  }
+  h5,
+  h6 {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+  a {
+    text-decoration: inherit;
+  }
+  b,
+  strong {
+    font-weight: bolder;
+  }
+  small {
+    font-size: 80%;
+  }
+  table {
+    text-indent: 0;
+    border-color: inherit;
+    border-collapse: collapse;
+  }
+  ol,
+  ul,
+  menu {
+    list-style: none;
+  }
+  img,
+  svg,
+  video,
+  canvas,
+  audio,
+  iframe,
+  embed,
+  object {
+    display: block;
+    vertical-align: middle;
+  }
+  img,
+  video {
+    height: auto;
+  }
+  button,
+  input,
+  select,
+  optgroup,
+  textarea,
+  ::file-selector-button {
+    font-feature-settings: inherit;
+    font-variation-settings: inherit;
+    letter-spacing: inherit;
+    border-radius: 0;
+    background-color: transparent;
+    opacity: 1;
+  }
+  button,
+  input:where([type='button'], [type='reset'], [type='submit']),
+  ::file-selector-button {
+    appearance: button;
+  }
+  ::placeholder {
+    opacity: 1;
+    color: color-mix(in oklab, currentcolor 50%, transparent);
+  }
+  textarea {
+    resize: vertical;
+  }
+  ::-webkit-search-decoration {
+    -webkit-appearance: none;
+  }
+  ::-webkit-inner-spin-button,
+  ::-webkit-outer-spin-button {
+    height: auto;
+  }
+  summary {
+    display: list-item;
   }
   body {
     margin: 0;

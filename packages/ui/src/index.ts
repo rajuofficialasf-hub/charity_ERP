@@ -27,6 +27,18 @@ export {
 } from './components/Breadcrumb/Breadcrumb.js';
 export { Button, type ButtonProps, type ButtonVariant } from './components/Button/Button.js';
 export {
+  DescriptionList,
+  Grid,
+  Stack,
+  Text,
+  type DescriptionItem,
+  type DescriptionListProps,
+  type GridProps,
+  type SpaceStep,
+  type StackProps,
+  type TextProps,
+} from './components/Layout/Layout.js';
+export {
   AttentionCard,
   Card,
   StatCard,

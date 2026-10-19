@@ -5,6 +5,7 @@
 @import './tokens.css';
 @import './fonts.css';
 @import './base.css';
+@import '../components/Layout/Layout.css';
 @import '../components/Spinner/Spinner.css';
 @import '../components/Badge/Badge.css';
 @import '../components/Avatar/Avatar.css';
