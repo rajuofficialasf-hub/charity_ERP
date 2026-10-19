@@ -17,12 +17,22 @@ interface BlocklistTarget {
  * Puts a volunteer on the blocklist or lifts the block, each with a mandatory reason (BD-06,
  * BR-047; POST /volunteers/{id}/block and /unblock). The reason stays in the audit log only.
  */
-export function BlocklistAction(target: BlocklistTarget) {
+export function BlocklistAction({
+  danger = false,
+  ...target
+}: BlocklistTarget & {
+  /** A block shows in the danger colour (a profile's action panel); a lift never does. */
+  danger?: boolean;
+}) {
   const t = useTranslations('admin.registrations');
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button variant="secondary" icon={target.blocked ? Undo2 : Ban} onPress={() => setOpen(true)}>
+      <Button
+        variant={danger && !target.blocked ? 'danger' : 'secondary'}
+        icon={target.blocked ? Undo2 : Ban}
+        onPress={() => setOpen(true)}
+      >
         {target.blocked ? t('unblock') : t('block')}
       </Button>
       <BlocklistDialog {...target} isOpen={open} onClose={() => setOpen(false)} />

@@ -152,9 +152,12 @@ export function ProfileSection({
   const id = useId();
   const Heading = headingLevel === 2 ? 'h2' : 'h3';
   return (
-    <section className={cx('ui-profile-section', open ? 'is-open' : undefined, className)}>
+    <section
+      aria-labelledby={`${id}-title`}
+      className={cx('ui-profile-section', open ? 'is-open' : undefined, className)}
+    >
       <div className="ui-profile-section-head">
-        <Heading className="ui-profile-section-title">
+        <Heading id={`${id}-title`} className="ui-profile-section-title">
           <button
             type="button"
             className="ui-profile-toggle"
@@ -190,6 +193,8 @@ export interface ContactItem {
   href?: string;
   /** The words of the action link ("Call"). */
   actionLabel?: string;
+  /** The action link leads to another site (WhatsApp, Facebook): it opens in a new tab. */
+  external?: boolean;
   copy?: boolean;
 }
 
@@ -213,6 +218,7 @@ export function ContactList({ items, className }: { items: ContactItem[]; classN
               size="sm"
               icon={item.icon}
               href={item.href}
+              newTab={item.external}
               className="ui-contact-action"
             >
               {item.actionLabel}

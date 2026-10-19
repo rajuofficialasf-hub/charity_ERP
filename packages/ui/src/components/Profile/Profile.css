@@ -7,8 +7,8 @@
   }
   @media (min-width: 1024px) {
     .ui-profile-head.has-actions {
-      grid-template-columns: minmax(0, 1fr) 15rem;
-      align-items: stretch;
+      grid-template-columns: minmax(0, 1fr) 13rem;
+      align-items: start;
     }
   }
   .ui-profile-card {
@@ -28,14 +28,14 @@
       padding: var(--space-5);
     }
     .ui-profile-aside {
-      padding-left: var(--space-5);
+      padding-left: var(--space-4);
       border-left: 1px solid var(--color-border-default);
     }
   }
   .ui-profile-who {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-4);
+    gap: var(--space-3);
     align-items: center;
     min-width: 0;
   }
@@ -83,7 +83,7 @@
   }
   .ui-profile-fact {
     display: inline-flex;
-    gap: var(--space-2);
+    gap: var(--space-1);
     align-items: center;
     min-height: 32px;
     max-width: 100%;
@@ -96,6 +96,9 @@
   }
   .ui-profile-fact:not(:has(.ui-copy)) {
     padding-right: var(--space-3);
+  }
+  .ui-profile-fact > .ui-icon + span {
+    margin-left: var(--space-1);
   }
   .ui-profile-fact > .ui-icon {
     flex: none;

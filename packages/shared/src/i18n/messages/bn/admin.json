@@ -288,7 +288,35 @@
       "revoke_reason": "কারণ",
       "revoke_confirm": "লগআউট করুন",
       "revoked": "ডিভাইসটি থেকে লগআউট করা হয়েছে।",
-      "unknown_device": "অজানা ডিভাইস"
+      "unknown_device": "অজানা ডিভাইস",
+      "tabs_label": "প্রোফাইলের অংশ",
+      "tabs": {
+        "info": "তথ্য",
+        "documents": "ডকুমেন্ট",
+        "work": "কাজ ও প্রজেক্ট",
+        "history": "ইতিহাস",
+        "devices": "ডিভাইস"
+      },
+      "actions_label": "কাজ",
+      "documents_title": "ডকুমেন্ট ({count}টি)",
+      "view_document": "{name} বড় করে দেখুন",
+      "no_photo": "ছবি নেই",
+      "contact": "যোগাযোগ",
+      "call": "কল করুন",
+      "send_email": "ইমেইল করুন",
+      "open_whatsapp": "হোয়াটসঅ্যাপ",
+      "open_facebook": "প্রোফাইল দেখুন",
+      "personal": "ব্যক্তিগত তথ্য",
+      "education_skills": "শিক্ষা ও দক্ষতা",
+      "work_section": "পেশা ও কাজ",
+      "history_title": "নিবন্ধনের ইতিহাস",
+      "history": {
+        "submitted": "নিবন্ধন জমা দেওয়া হয়েছে",
+        "correction": "সংশোধন চাওয়া হয়েছে: {field}",
+        "awaiting": "অনুমোদনের অপেক্ষায়",
+        "approved": "নিবন্ধন অনুমোদিত হয়েছে",
+        "blocked": "ব্লকলিস্টে দেওয়া হয়েছে"
+      }
     },
     "none": "নেই",
     "summary": "{from}–{to} দেখানো হচ্ছে · মোট {total} জন",

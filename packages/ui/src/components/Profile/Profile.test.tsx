@@ -1,6 +1,6 @@
 import { screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { Hash, Mail, Pencil, Phone, User } from 'lucide-react';
+import { Globe, Hash, Mail, Pencil, Phone, User } from 'lucide-react';
 import { describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations, renderWithUi } from '../../testing/index.js';
 import { Avatar } from '../Avatar/Avatar.js';
@@ -71,6 +71,8 @@ describe('the profile pieces', () => {
         />
       </ProfileSection>,
     );
+    // the section is a region named by its title
+    expect(screen.getByRole('region', { name: 'Personal details' })).toBeInTheDocument();
     const toggle = screen.getByRole('button', { name: 'Personal details' });
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText('Sample Father')).toBeVisible();
@@ -106,12 +108,27 @@ describe('the profile pieces', () => {
             copy: true,
           },
           { id: 'email', icon: Mail, label: 'Email', value: 'a@example.org' },
+          {
+            id: 'facebook',
+            icon: Globe,
+            label: 'Facebook',
+            value: 'https://facebook.com/sample',
+            href: 'https://facebook.com/sample',
+            actionLabel: 'Open profile',
+            external: true,
+          },
         ]}
       />,
     );
     expect(screen.getByRole('link', { name: 'Call' })).toHaveAttribute('href', 'tel:01700005600');
+    expect(screen.getByRole('link', { name: 'Call' })).not.toHaveAttribute('target');
+    expect(screen.getByRole('link', { name: 'Open profile' })).toHaveAttribute('target', '_blank');
+    expect(screen.getByRole('link', { name: 'Open profile' })).toHaveAttribute(
+      'rel',
+      'noopener noreferrer',
+    );
     expect(screen.getByRole('button', { name: 'Copy Mobile' })).toBeInTheDocument();
-    expect(screen.getAllByRole('link')).toHaveLength(1);
+    expect(screen.getAllByRole('link')).toHaveLength(2);
     await expectNoAxeViolations(container);
   });
 });

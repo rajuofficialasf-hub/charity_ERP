@@ -93,7 +93,7 @@ test.describe('the volunteer tab', () => {
     await expect(
       page.getByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক 2 (নমুনা)' }),
     ).toBeVisible();
-    await expect(page.getByRole('heading', { level: 2, name: 'পরিচয়' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'ব্যক্তিগত তথ্য' })).toBeVisible();
     await expect(page.getByText('আপনার জন্য দেখানো হয় না').first()).toBeVisible();
     await expect(page.getByText('1000000002')).toHaveCount(0);
     expect((await scan(page)).violations).toEqual([]);
@@ -104,7 +104,9 @@ test.describe('the volunteer tab', () => {
     await expect(
       page.getByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক 1 (নমুনা)' }),
     ).toBeVisible();
-    await expect(page.getByText('1000000001')).toBeVisible();
+    // the NID in its section and, with its label, as a chip of the header
+    await expect(page.getByText('1000000001', { exact: true })).toBeVisible();
+    await expect(page.getByText('NID নম্বর: 1000000001')).toBeVisible();
   });
 
   test('a volunteer has no admin link, and the tab shows the forbidden page', async ({

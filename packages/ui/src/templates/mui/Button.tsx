@@ -114,6 +114,7 @@ export function Button({
   type = 'button',
   onPress,
   href,
+  newTab = false,
   autoFocus,
   className,
   children,
@@ -157,7 +158,12 @@ export function Button({
   };
   if (href)
     return (
-      <Root {...common} href={href} disabled={disabled}>
+      <Root
+        {...common}
+        href={href}
+        disabled={disabled}
+        {...(newTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+      >
         {content}
       </Root>
     );

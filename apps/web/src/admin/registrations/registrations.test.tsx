@@ -174,6 +174,13 @@ function serve() {
           displayName: pendingVolunteer.displayName,
           type: 'general',
           state: 'pending',
+          // the parts of the profile the registration's answers do not replace
+          photoFileId: null,
+          registeredAt: '2026-10-12T04:00:00.000Z',
+          approvedAt: null,
+          projects: [],
+          team: [],
+          blocklist: { blocked: false },
           actions: {
             review: true,
             approve: !profileHeld,
@@ -450,7 +457,7 @@ describe('volunteer registration detail', () => {
     detail = { ...masked, volunteer: rest };
     renderPage(HEAD, 'bn', REVIEW);
     await screen.findByRole('heading', { level: 1, name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' });
-    expect(screen.getAllByText('আপনার দেখার অনুমতি নেই').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('আপনার জন্য দেখানো হয় না').length).toBeGreaterThan(0);
   });
 
   it('shows the personal, profession and skills data (O-65), and hides the protected ones without the class', async () => {
@@ -481,7 +488,7 @@ describe('volunteer registration detail', () => {
     // each protected row says it is not visible, none shows an empty value
     for (const label of ['NID নম্বর', 'জন্মতারিখ', 'রক্তের গ্রুপ']) {
       const row = screen.getByText(label).parentElement!;
-      expect(within(row).getByText('আপনার দেখার অনুমতি নেই'), label).toBeInTheDocument();
+      expect(within(row).getByText('আপনার জন্য দেখানো হয় না'), label).toBeInTheDocument();
     }
     expect(screen.queryByText('17-05-1990')).not.toBeInTheDocument();
     // the other new data stays
@@ -499,9 +506,12 @@ describe('volunteer registration detail', () => {
         }),
       ),
     );
+    const user = userEvent.setup();
     renderPage(RPM, 'bn', REVIEW);
     await screen.findByRole('heading', { level: 1, name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' });
-    const img = await screen.findByRole('img', { name: 'ছবি' });
+    // the documents beside the header open larger in a dialog
+    await user.click(await screen.findByRole('button', { name: 'ছবি বড় করে দেখুন' }));
+    const img = await within(await screen.findByRole('dialog')).findByRole('img', { name: 'ছবি' });
     expect(img.getAttribute('src')).toMatch(/^data:image\/png;base64,/);
   });
 

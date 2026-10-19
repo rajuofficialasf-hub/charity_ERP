@@ -45,7 +45,7 @@ The owner's profile picture (chat, 2026-10-20: a pending volunteer with a green 
 - **Files:** `apps/web/src/admin/volunteers/VolunteerProfilePage.tsx`, `registrations/RegistrationDetail.tsx` (the decision actions reused), i18n `admin.json`.
 - **Tests:** `volunteer-profile.test.tsx` updated: header, tabs in the URL, hidden NID never in a chip, actions by flag, the pending layout with approve; e2e `volunteers.spec.ts` and `registration-approval` journeys keep passing.
 - **Depends on:** U1 · **Size:** L · **Risk area:** personal data on screen
-- **Status:** todo
+- **Status:** done
 
 ### U3. The beneficiary profile
 - **Files:** `apps/web/src/admin/beneficiaries/BeneficiaryProfilePage.tsx`, i18n.

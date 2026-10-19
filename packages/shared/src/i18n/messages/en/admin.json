@@ -288,7 +288,35 @@
       "revoke_reason": "Reason",
       "revoke_confirm": "Sign out",
       "revoked": "The device was signed out.",
-      "unknown_device": "Unknown device"
+      "unknown_device": "Unknown device",
+      "tabs_label": "Parts of the profile",
+      "tabs": {
+        "info": "Details",
+        "documents": "Documents",
+        "work": "Work and projects",
+        "history": "History",
+        "devices": "Devices"
+      },
+      "actions_label": "Actions",
+      "documents_title": "Documents ({count})",
+      "view_document": "View {name} larger",
+      "no_photo": "No photo",
+      "contact": "Contact",
+      "call": "Call",
+      "send_email": "Email",
+      "open_whatsapp": "WhatsApp",
+      "open_facebook": "View profile",
+      "personal": "Personal details",
+      "education_skills": "Education and skills",
+      "work_section": "Profession and work",
+      "history_title": "Registration history",
+      "history": {
+        "submitted": "Registration submitted",
+        "correction": "Correction asked: {field}",
+        "awaiting": "Awaiting approval",
+        "approved": "Registration approved",
+        "blocked": "Put on the blocklist"
+      }
     },
     "none": "None",
     "summary": "Showing {from}–{to} of {total} volunteers",

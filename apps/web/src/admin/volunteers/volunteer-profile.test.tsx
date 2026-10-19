@@ -115,24 +115,51 @@ beforeEach(() => {
 });
 
 describe('the volunteer profile for officials', () => {
-  it('shows the sections and says what is not shown, never an empty value', async () => {
+  it('shows the header and the details by section, and says what is not shown, never an empty value', async () => {
     serve(profile());
-    const { container } = open();
+    const user = userEvent.setup();
+    const { container, router } = open();
     expect(
       await screen.findByRole('heading', { level: 1, name: 'নমুনা স্বেচ্ছাসেবক' }),
     ).toBeInTheDocument();
-    for (const section of ['পরিচয়', 'ঠিকানা', 'শিক্ষা', 'কাজ', 'প্রজেক্ট ও অনুমতি', 'টিম'])
-      expect(screen.getByRole('heading', { level: 2, name: section })).toBeInTheDocument();
-    const identity = screen.getByRole('region', { name: 'পরিচয়' });
+    for (const section of [
+      'ব্যক্তিগত তথ্য',
+      'ঠিকানা',
+      'শিক্ষা ও দক্ষতা',
+      'পেশা ও কাজ',
+      'ব্যাংকের তথ্য',
+      'যোগাযোগ',
+      'নিবন্ধনের ইতিহাস',
+    ])
+      expect(screen.getByRole('region', { name: section })).toBeInTheDocument();
+    const personal = screen.getByRole('region', { name: 'ব্যক্তিগত তথ্য' });
     // the NID, the date of birth and the blood group were left out by the server
-    expect(within(identity).getAllByText('আপনার জন্য দেখানো হয় না')).toHaveLength(3);
-    expect(screen.getByText('এখনো কোনো প্রজেক্টে যুক্ত হননি।')).toBeInTheDocument();
-    expect(screen.getByText('কোনো টিম মেম্বার নেই।')).toBeInTheDocument();
-    // no rating section without the category, and no action button without a flag
-    expect(screen.queryByRole('heading', { name: 'রেটিং ও ক্যাটাগরি' })).not.toBeInTheDocument();
+    expect(within(personal).getAllByText('আপনার জন্য দেখানো হয় না')).toHaveLength(3);
+    // a value the caller may not see is never a chip of the header
+    expect(screen.queryByText(/^NID নম্বর:/)).not.toBeInTheDocument();
+    // the header and the contact card each copy the mobile number
+    expect(screen.getAllByRole('button', { name: 'মোবাইল নম্বর কপি করুন' })).toHaveLength(2);
+    // the bank details open only on a press
+    expect(screen.getByRole('button', { name: 'ব্যাংকের তথ্য' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.getByRole('link', { name: 'কল করুন' })).toHaveAttribute(
+      'href',
+      'tel:01700000501',
+    );
+    // no action panel and no devices tab without a flag
+    expect(screen.queryByRole('group', { name: 'কাজ' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'ব্লকলিস্টে দিন' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'ডিভাইস' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'ডিভাইস' })).not.toBeInTheDocument();
     await expectNoAxeViolations(container);
+
+    await user.click(screen.getByRole('tab', { name: 'কাজ ও প্রজেক্ট' }));
+    await waitFor(() => expect(router.state.location.search).toBe('?tab=work'));
+    expect(await screen.findByText('এখনো কোনো প্রজেক্টে যুক্ত হননি।')).toBeInTheDocument();
+    expect(screen.getByText('কোনো টিম মেম্বার নেই।')).toBeInTheDocument();
+    // no rating section without the category
+    expect(screen.queryByRole('region', { name: 'রেটিং ও ক্যাটাগরি' })).not.toBeInTheDocument();
   });
 
   it('shows the NID, the projects, the team and the category when the answer has them', async () => {
@@ -166,18 +193,22 @@ describe('the volunteer profile for officials', () => {
         ratings: [],
       }),
     );
+    const user = userEvent.setup();
     open();
     expect(await screen.findByText('1000000000501')).toBeInTheDocument();
     expect(screen.getByText('17-05-1990')).toBeInTheDocument();
-    expect(screen.getByText('শীতবস্ত্র 2026')).toBeInTheDocument();
+    // the header shows the visible key facts with a copy button
+    expect(screen.getByText('NID নম্বর: 1000000000501')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'NID নম্বর কপি করুন' })).toBeInTheDocument();
+    expect(screen.getByText('রক্তের গ্রুপ: O+')).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: 'কাজ ও প্রজেক্ট' }));
+    expect(await screen.findByText('শীতবস্ত্র 2026')).toBeInTheDocument();
     expect(screen.getByText('পেইড ভলান্টিয়ার')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'টিম সদস্য' })).toHaveAttribute(
       'href',
       '/admin/volunteers/01900000-0000-7000-8000-0000000000c1',
     );
-    expect(
-      screen.getByRole('heading', { level: 2, name: 'রেটিং ও ক্যাটাগরি' }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'রেটিং ও ক্যাটাগরি' })).toBeInTheDocument();
     expect(screen.getByText('B')).toBeInTheDocument();
   });
 
@@ -185,7 +216,9 @@ describe('the volunteer profile for officials', () => {
     serve(profile({ actions: actions({ block: true, viewSessions: true, revokeSessions: true }) }));
     const user = userEvent.setup();
     open();
-    expect(await screen.findByRole('button', { name: 'ব্লকলিস্টে দিন' })).toBeInTheDocument();
+    const panel = await screen.findByRole('group', { name: 'কাজ' });
+    expect(within(panel).getByRole('button', { name: 'ব্লকলিস্টে দিন' })).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: 'ডিভাইস' }));
     expect(await screen.findByText('নমুনা ফোন')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'এই ডিভাইস থেকে লগআউট করুন' }));
     const dialog = await screen.findByRole('alertdialog');
