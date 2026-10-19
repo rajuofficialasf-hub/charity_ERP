@@ -325,6 +325,17 @@ describe('the 360° profile', () => {
     await waitFor(() => expect(calls).toBe(2));
   });
 
+  it('shows no identity chip when the server left the NID out, even with a birth registration number', async () => {
+    refreshAs(HEAD);
+    const { nid: _nid, ...withoutNid } = empty360 as typeof empty360 & { nid?: unknown };
+    serve(fullRow, {}, { ...withoutNid, birthReg: '20171234567890123' });
+    openProfile();
+    await screen.findByRole('heading', { level: 1, name: 'নমুনা উপকারভোগী' });
+    expect(screen.queryByText(/^NID বা জন্মনিবন্ধন:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/20171234567890123/)).not.toBeInTheDocument();
+    expect(screen.getByText('আপনার জন্য দেখানো হয় না')).toBeInTheDocument();
+  });
+
   it('shows the Media Team only the sections the server sent', async () => {
     refreshAs(MEDIA);
     serve(

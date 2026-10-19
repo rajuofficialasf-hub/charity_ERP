@@ -75,7 +75,7 @@ import {
 import { VolunteerSessions } from './VolunteerSessions';
 
 /**
- * One volunteer for an official (SCR-043, UX-22): the header card with the key facts, the
+ * One volunteer for an official in the one profile layout: the header card with the key facts, the
  * documents and the actions, then the profile by tab. A pending registration the caller decides on
  * opens in the same layout with the decisions (approve, ask for a correction, reject) and its
  * correction requests. The server sends only what the caller may see (an absent NID or bank detail

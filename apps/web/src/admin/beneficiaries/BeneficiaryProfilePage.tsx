@@ -52,7 +52,7 @@ import {
 } from './beneficiaries-api';
 
 /**
- * The 360° profile of one beneficiary (SCR-045 shell, UX-22): the header card with the key facts,
+ * The 360° profile of one beneficiary in the one profile layout: the header card with the key facts,
  * then the basic details and address, the family, the application history, distribution and
  * implementation, dawah and follow-ups beside the contact, the projects by year and the activity
  * history. Each section shows real data where it exists and an empty state otherwise; a section the
@@ -119,7 +119,8 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
   const optional = (key: keyof BeneficiaryProfile, label: string, value: ReactNode) =>
     key in p ? [{ label, value }] : [];
   const none = <Text className="admin-muted">{tp('no_rows')}</Text>;
-  const identity = p.nid ?? p.birthReg;
+  // the NID or the birth registration number only for a caller who sees identity numbers
+  const identity = 'nid' in p ? (p.nid ?? p.birthReg ?? null) : null;
 
   const facts: ProfileFact[] = [
     ...(identity

@@ -1,4 +1,4 @@
-/* The profile pieces (UX-22): header card, section cards, contact rows, copy button. */
+/* The profile pieces: header card, section cards, contact rows, copy button. */
 @layer components {
   .ui-profile-head {
     display: grid;

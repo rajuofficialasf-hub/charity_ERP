@@ -500,6 +500,50 @@ describe('the official profile', () => {
     expect(screen.getByRole('region', { name: 'ডিভাইস' })).toBeInTheDocument();
   });
 
+  it("says the official was not found, for a missing id and for a volunteer's id", async () => {
+    refreshAs(HEAD);
+    serve();
+    server.use(
+      http.get('*/api/v1/users/:id', ({ params }) =>
+        params.id === 'missing'
+          ? HttpResponse.json(
+              { error: { code: 'permission.not_found', message: 'Not found.', requestId: 'r' } },
+              { status: 404 },
+            )
+          : HttpResponse.json({
+              data: { ...official(), kind: 'volunteer', mobile: null, email: null },
+              meta: { etag: '"u1"' },
+            }),
+      ),
+    );
+    const missing = openProfile('missing');
+    expect(await screen.findByText('এই অফিসিয়ালকে পাওয়া যায়নি।')).toBeInTheDocument();
+    missing.unmount();
+    resetClientForTests();
+    openProfile(official().id);
+    expect(await screen.findByText('এই অফিসিয়ালকে পাওয়া যায়নি।')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'প্রোফাইল সম্পাদনা' })).not.toBeInTheDocument();
+  });
+
+  it('shows an error with a retry that reads the official again', async () => {
+    refreshAs(HEAD);
+    serve();
+    let reads = 0;
+    server.use(
+      http.get('*/api/v1/users/:id', () => {
+        reads += 1;
+        return HttpResponse.json(
+          { error: { code: 'server.error', message: 'Failed.', requestId: 'req_x' } },
+          { status: 500 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    openProfile(official().id);
+    await user.click(await screen.findByRole('button', { name: /আবার চেষ্টা করুন/ }));
+    await waitFor(() => expect(reads).toBe(2));
+  });
+
   it('shows the forbidden content to a volunteer without asking the server', async () => {
     refreshAs(VOLUNTEER);
     serve();

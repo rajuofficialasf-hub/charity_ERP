@@ -50,7 +50,7 @@ import { RenewLinkDialog } from './RenewLinkDialog';
 import { STAFF_KEY, type StaffDetail, staffDetail, staffDetailKey } from './staff-api';
 
 /**
- * One official's profile (UX-22) from the existing user API: the header card with the Job ID and
+ * One official's profile in the one profile layout, from the existing user API: the header card with the Job ID and
  * the contact, the role and place, the account and the devices. Editing the profile and a new
  * set-password link are for the Department Head and the Monitoring Team; the devices for those who
  * may end another person's sessions. The server checks every read and action again.
@@ -75,7 +75,11 @@ export function StaffProfilePage() {
     </div>
   );
   if (official.isPending) return <Skeleton count={4} />;
-  if (official.error instanceof ApiFailure && official.error.status === 404)
+  // a volunteer's id answers too, but is not an official: the same as not found
+  if (
+    (official.error instanceof ApiFailure && official.error.status === 404) ||
+    (official.data && official.data.kind !== 'staff')
+  )
     return (
       <>
         {back}

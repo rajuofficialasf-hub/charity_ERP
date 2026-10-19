@@ -1,5 +1,5 @@
 import { Check, ChevronDown, Copy } from 'lucide-react';
-import { type ReactNode, useEffect, useId, useState } from 'react';
+import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { fill } from '../../provider/messages.js';
 import { useUi } from '../../provider/UiProvider.js';
 import { Button } from '../Button/Button.js';
@@ -14,18 +14,20 @@ export interface CopyButtonProps {
   className?: string;
 }
 
-/** A small button that copies a value and says so for a moment (UX-22). */
+/** A small button that copies a value and says so for a moment. */
 export function CopyButton({ value, label, className }: CopyButtonProps) {
   const { messages } = useUi();
   // each press is its own result, so a second copy is announced again
   const [result, setResult] = useState<{ press: number; ok: boolean } | null>(null);
+  const presses = useRef(0);
   useEffect(() => {
     if (!result) return;
     const timer = setTimeout(() => setResult(null), 2000);
     return () => clearTimeout(timer);
   }, [result]);
   const copy = () => {
-    const press = (result?.press ?? 0) + 1;
+    presses.current += 1;
+    const press = presses.current;
     const done = (ok: boolean) => setResult({ press, ok });
     if (!navigator.clipboard) return done(false);
     navigator.clipboard.writeText(value).then(
@@ -75,7 +77,7 @@ export interface ProfileHeaderProps {
   className?: string;
 }
 
-/** The header card of a profile: who, the state, the key facts, the documents and the actions (UX-22). */
+/** The header card of a profile: who, the state, the key facts, the documents and the actions. */
 export function ProfileHeader({
   name,
   avatar,
@@ -141,7 +143,7 @@ export interface ProfileSectionProps {
   className?: string;
 }
 
-/** A section card of a profile whose title opens and closes it (UX-22). */
+/** A section card of a profile whose title opens and closes it. */
 export function ProfileSection({
   title,
   icon,
@@ -201,7 +203,7 @@ export interface ContactItem {
   copy?: boolean;
 }
 
-/** The contact rows of a profile: the value, a copy button and an action link (UX-22). */
+/** The contact rows of a profile: the value, a copy button and an action link. */
 export function ContactList({ items, className }: { items: ContactItem[]; className?: string }) {
   return (
     <ul className={cx('ui-contact-list', className)}>
