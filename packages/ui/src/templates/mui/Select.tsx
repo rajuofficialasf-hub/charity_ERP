@@ -74,7 +74,9 @@ export function Select({
   const listId = `${ids.inputId}-list`;
   const [inner, setInner] = useState<string | null>(defaultValue ?? null);
   const selected = value === undefined ? inner : value;
+  // the anchor stays after closing, so the list keeps its width while it fades out
   const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const [query, setQuery] = useState('');
   const trigger = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLUListElement>(null);
@@ -90,9 +92,10 @@ export function Select({
   const open = () => {
     setQuery('');
     setAnchor(trigger.current);
+    setExpanded(true);
   };
   const close = () => {
-    setAnchor(null);
+    setExpanded(false);
     trigger.current?.focus();
   };
   const pick = (id: string) => {
@@ -117,8 +120,8 @@ export function Select({
         type="button"
         className="ui-input ui-select-trigger"
         aria-haspopup="listbox"
-        aria-expanded={anchor !== null}
-        aria-controls={anchor ? listId : undefined}
+        aria-expanded={expanded}
+        aria-controls={expanded ? listId : undefined}
         aria-labelledby={`${valueId} ${labelId}`}
         aria-describedby={describedBy || undefined}
         aria-invalid={field.error ? true : undefined}
@@ -143,7 +146,7 @@ export function Select({
       </button>
       <NativeFieldFooter {...field} ids={ids} />
       <Popover
-        open={anchor !== null}
+        open={expanded}
         anchorEl={anchor}
         onClose={close}
         disableRestoreFocus
@@ -210,7 +213,7 @@ export function Select({
         show={!!otherOptionId && selected === otherOptionId}
         value={otherValue}
         onChange={onOtherChange}
-        disabled={field.disabled}
+        disabled={field.disabled || field.readOnly || field.locked}
       />
     </div>
   );

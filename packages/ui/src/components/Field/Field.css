@@ -86,7 +86,6 @@
       box-shadow var(--motion-fast) var(--ease-standard);
   }
   .ui-input:hover,
-  .ui-input:hover,
   .ui-native-select:hover {
     border-color: var(--color-text-secondary);
   }

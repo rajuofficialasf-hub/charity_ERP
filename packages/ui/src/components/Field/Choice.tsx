@@ -32,7 +32,7 @@ export interface CheckboxProps {
 
 /**
  * Restyled checkbox on a native input: keyboard and screen reader as the browser gives them, a
- * dark-green fill with a white check (UX-14). The states the CSS reads are set as data attributes.
+ * dark-green fill with a white check. The states the CSS reads are set as data attributes.
  */
 export function Checkbox({
   children,
@@ -171,7 +171,7 @@ export function CheckboxGroup({
         show={!!otherOptionId && current.includes(otherOptionId)}
         value={otherValue}
         onChange={onOtherChange}
-        disabled={field.disabled}
+        disabled={field.disabled || field.readOnly || field.locked}
       />
       <NativeFieldFooter {...field} ids={ids} />
     </div>
@@ -253,7 +253,7 @@ export function RadioGroup({
         show={!!otherOptionId && current === otherOptionId}
         value={otherValue}
         onChange={onOtherChange}
-        disabled={field.disabled}
+        disabled={field.disabled || field.readOnly || field.locked}
       />
       <NativeFieldFooter {...field} ids={ids} />
     </div>

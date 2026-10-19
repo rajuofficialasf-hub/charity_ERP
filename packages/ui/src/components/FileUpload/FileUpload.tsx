@@ -226,16 +226,17 @@ export function FileUpload({
         data-drop-target={dropTarget || undefined}
         data-disabled={off || undefined}
         onDragOver={(event) => {
-          if (off || !event.dataTransfer.types.includes('Files')) return;
+          if (!event.dataTransfer.types.includes('Files')) return;
+          // cancelled for every file drag, so the browser never opens the file in place of the page
           event.preventDefault();
-          event.dataTransfer.dropEffect = 'copy';
-          setDropTarget(true);
+          event.dataTransfer.dropEffect = off ? 'none' : 'copy';
+          setDropTarget(!off);
         }}
         onDragLeave={() => setDropTarget(false)}
         onDrop={(event) => {
           setDropTarget(false);
-          if (off) return;
           event.preventDefault();
+          if (off) return;
           take(event.dataTransfer.files);
         }}
       >
