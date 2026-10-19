@@ -36,10 +36,10 @@ The owner's profile picture (chat, 2026-10-20: a pending volunteer with a green 
 ## Implementation units
 
 ### U1. The profile pieces in the set
-- **Files:** `packages/ui/src/components/Profile/` (new: `ProfileHeader`, `ProfileSection`, `CopyButton`, `InfoGrid`, `ContactList`), `contract.ts` if a template piece is needed, `messages.ts` and `ui.json` (copy, copied, collapse, expand), `index.ts`, the gallery.
+- **Files:** `packages/ui/src/components/Profile/` (new: `ProfileHeader`, `ProfileSection`, `CopyButton`, `InfoGrid`, `ContactList`), `contract.ts` if a template piece is needed, `messages.ts` and `ui.json` (copy, copied, collapse, expand), `index.ts` (the gallery has no list pieces yet, so none is added).
 - **Tests:** unit and axe for each piece: the copy button writes to the clipboard and says so, a section collapses with `aria-expanded`, the header shows only the chips given, the grid in one column under 640 px.
 - **Depends on:** none · **Size:** M · **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U2. The volunteer profile
 - **Files:** `apps/web/src/admin/volunteers/VolunteerProfilePage.tsx`, `registrations/RegistrationDetail.tsx` (the decision actions reused), i18n `admin.json`.

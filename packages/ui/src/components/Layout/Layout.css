@@ -92,6 +92,33 @@
   .ui-dl dt {
     font-weight: var(--font-weight-bold);
   }
+  .ui-dl-icon {
+    margin-right: var(--space-2);
+    color: var(--color-text-secondary);
+    vertical-align: -3px;
+  }
+  /* a profile section: muted labels, two pairs side by side on a desktop */
+  .ui-dl-two {
+    column-gap: var(--space-5);
+  }
+  .ui-dl-two dt {
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-regular);
+  }
+  .ui-dl-two dd {
+    overflow-wrap: anywhere;
+  }
+  @media (min-width: 1024px) {
+    .ui-dl-two.ui-dl-sm {
+      grid-template-columns: 10rem minmax(0, 1fr) 10rem minmax(0, 1fr);
+    }
+    .ui-dl-two.ui-dl-md {
+      grid-template-columns: 12rem minmax(0, 1fr) 12rem minmax(0, 1fr);
+    }
+    .ui-dl-two.ui-dl-lg {
+      grid-template-columns: 14rem minmax(0, 1fr) 14rem minmax(0, 1fr);
+    }
+  }
 
   .ui-text {
     margin: 0;

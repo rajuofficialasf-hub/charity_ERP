@@ -137,6 +137,12 @@ export interface UiMessages {
     /** "{value} of {max} ({percent}%)". */
     progressText: string;
   };
+  profile: {
+    /** Name of a copy button: "Copy {label}". */
+    copy: string;
+    /** Said after a copy: "{label} copied". */
+    copied: string;
+  };
   timeline: {
     done: string;
     current: string;
