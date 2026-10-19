@@ -41,20 +41,15 @@
     z-index: 1;
     padding: 10px var(--space-3);
     border-bottom: 1px solid var(--color-border-default);
-    background: rgba(238, 242, 240, 0.92);
-    color: var(--color-text-secondary);
+    /* the brand's soft green marks the header row (owner, 2026-10-20) */
+    background: var(--color-bg-brand-soft);
+    color: var(--color-brand-ink);
     /* body size: Bengali at the label size is too small to read in a header */
     font-size: var(--text-body);
     font-weight: var(--font-weight-bold);
     text-align: left;
     white-space: nowrap;
     outline: none;
-  }
-  @media (min-width: 1024px) {
-    .ui-th {
-      -webkit-backdrop-filter: blur(6px);
-      backdrop-filter: blur(6px);
-    }
   }
   .ui-th[data-sortable] {
     cursor: pointer;
@@ -374,9 +369,6 @@
     border: 0;
     border-radius: 0;
     box-shadow: none;
-  }
-  .ui-table-panel .ui-th {
-    background: var(--color-bg-surface);
   }
   .ui-table-panel .ui-td {
     padding-top: var(--space-4);

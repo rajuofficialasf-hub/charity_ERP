@@ -100,7 +100,7 @@ Font stack: `--font-sans: UbuntuSans, Bornomala, sans-serif`. Weights 400 and 70
 | `--text-display` | 20px | 20px | 700 | 1.4 | Page title, big stat number |
 | `--text-title` | 16px | 16px | 700 | 1.5 | Card and section titles, dialog titles |
 | `--text-body` | 16px | 14px | 400 | 1.5 | Body text, table cells, form values |
-| `--text-body-strong` | 16px | 14px | 700 | 1.5 | Emphasis inside body text; table headers (owner, 2026-10-20: the label size was too small to read in Bengali) |
+| `--text-body-strong` | 16px | 14px | 700 | 1.5 | Emphasis inside body text; table headers, in `--color-brand-ink` on `--color-bg-brand-soft` (owner, 2026-10-20: the label size was too small to read in Bengali, and the header row gets the soft green) |
 | `--text-label` | 12px | 12px | 700 | 1.5 | Field labels, badge labels, tab labels |
 | `--text-caption` | 12px | 12px | 400 | 1.5 | Helper text, metadata, timestamps |
 | `--text-input` | 16px | 14px | 400 | 1.5 | Text inside inputs. Never below 16px on phones, because iOS Safari zooms on smaller inputs |
