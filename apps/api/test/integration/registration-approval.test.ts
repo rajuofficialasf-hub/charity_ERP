@@ -412,6 +412,29 @@ describe('correction requests', () => {
     expect(v.rows[0].nid).toBe(nid);
   });
 
+  it('counts refused answers within the hour only, so old mistakes never lock the answer', async () => {
+    const dhaka = await registerVolunteer(world.dhaka);
+    const rpm = await as(world.users.rpmDhaka);
+    const own = await login(h, dhaka.mobile);
+    const created = await correct(rpm, dhaka.userId, { fields: ['nid'], note: 'ঠিক করুন' });
+    const rowId = (created.body.data as { id: string }[])[0]!.id;
+    const answer = (newValue: unknown) =>
+      api().patch(`/api/v1/me/change-requests/${rowId}`).set(bearer(own)).send({ newValue });
+    const refusals = (ageMs: number) =>
+      h.db.query(
+        `INSERT INTO audit_log (id, action, entity_type, entity_id, created_at)
+         SELECT gen_random_uuid(), 'auth.correction_refused', 'user', $1, now() - make_interval(secs => $2)
+         FROM generate_series(1, 10)`,
+        [dhaka.userId, ageMs / 1000],
+      );
+    // ten refusals two hours ago: the answer is still taken
+    await refusals(2 * 3_600_000);
+    expect((await answer('12345')).status).toBe(422);
+    // ten more within the hour: the eleventh answer waits
+    await refusals(60_000);
+    expect((await answer(f.fakeNid())).status).toBe(429);
+  });
+
   it('answers a photo row only with the file the own upload stored on it', async () => {
     const dhaka = await registerVolunteer(world.dhaka);
     const rpm = await as(world.users.rpmDhaka);
