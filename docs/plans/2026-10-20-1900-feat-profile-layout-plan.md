@@ -1,7 +1,7 @@
 ---
 title: One profile layout for volunteers, beneficiaries and officials
 type: feat
-status: in-progress
+status: done
 source: plan
 date: 2026-10-20
 ---
@@ -61,7 +61,7 @@ The owner's profile picture (chat, 2026-10-20: a pending volunteer with a green 
 
 ### U5. Documents and the final run
 - **Files:** `docs/ui/SCREENS.md` (SCR-043, SCR-045, SCR-063 and the new official profile), `docs/ui/DESIGN_SYSTEM.md`, `docs/STATUS.md`.
-- **Status:** todo
+- **Status:** done
 
 ## Checkpoints
 
