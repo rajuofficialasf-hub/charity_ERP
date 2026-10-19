@@ -97,6 +97,15 @@ components:
       required: false
       description: Opaque, signed keyset cursor from meta.nextCursor or meta.prevCursor.
       schema: { type: string }
+    PageNumber:
+      name: page
+      in: query
+      required: false
+      description: >-
+        Page number (1-based) of the volunteer and the beneficiary lists (D-105): an offset into the
+        same order as the cursor pages. Allowed only inside the counted range of 10,000 rows and
+        never together with `cursor` (422); the answer still carries the cursors for the pages after.
+      schema: { type: integer, minimum: 1 }
     Limit:
       name: limit
       in: query
@@ -4662,6 +4671,7 @@ paths:
       x-sensitive-fields: [volunteer.rating]
       parameters:
         - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageNumber'
         - $ref: '#/components/parameters/Limit'
         - $ref: '#/components/parameters/IncludeTotal'
         - $ref: '#/components/parameters/Search'
@@ -5182,6 +5192,7 @@ paths:
       x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care, beneficiary.profile_detail]
       parameters:
         - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/PageNumber'
         - $ref: '#/components/parameters/Limit'
         - $ref: '#/components/parameters/IncludeTotal'
         - $ref: '#/components/parameters/Search'

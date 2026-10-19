@@ -126,6 +126,30 @@ describe('the volunteer list', () => {
     expect((await list(head, { divisionId: 'dhaka' })).status).toBe(422);
   });
 
+  it('jumps to a page number inside the counted range, and goes on with its cursors', async () => {
+    const tree = await f.locationTree(h.db);
+    for (let i = 0; i < 5; i += 1) await someone(tree);
+    const head = await as(world.users.head);
+    const all = ids(await list(head, { unionId: tree.union, limit: '5' }));
+    const third = await list(head, { unionId: tree.union, limit: '2', page: '3' });
+    expect(third.status).toBe(200);
+    expect(ids(third)).toEqual(all.slice(4));
+    // the page before the third one, through its cursor
+    const back = await list(head, {
+      unionId: tree.union,
+      limit: '2',
+      cursor: third.body.meta.prevCursor,
+    });
+    expect(ids(back)).toEqual(all.slice(2, 4));
+    const second = await list(head, { unionId: tree.union, limit: '2', page: '2' });
+    expect(ids(second)).toEqual(all.slice(2, 4));
+    expect(second.body.meta.nextCursor).not.toBeNull();
+    // a page and a cursor together, a page past the counted range and page 0 are refused
+    expect((await list(head, { page: '2', cursor: second.body.meta.nextCursor })).status).toBe(422);
+    expect((await list(head, { limit: '100', page: '101' })).status).toBe(422);
+    expect((await list(head, { page: '0' })).status).toBe(422);
+  });
+
   it('searches by name and by the exact mobile number', async () => {
     const tree = await f.locationTree(h.db);
     const named = await someone(tree, { name: 'Sample Rahima Khatun' });

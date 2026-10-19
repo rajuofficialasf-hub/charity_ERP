@@ -186,6 +186,19 @@ describe('the beneficiary list', () => {
     expect(new Set(seen).size).toBe(5);
   });
 
+  it('jumps to a page number inside the counted range and refuses one past it', async () => {
+    const tree = await f.locationTree(h.db);
+    for (let i = 0; i < 5; i += 1) await person(tree);
+    const head = await as(world.users.head);
+    const all = ids(await list(head, { unionId: tree.union, limit: '5' }));
+    const second = await list(head, { unionId: tree.union, limit: '2', page: '2' });
+    expect(second.status).toBe(200);
+    expect(ids(second)).toEqual(all.slice(2, 4));
+    expect(second.body.meta.prevCursor).not.toBeNull();
+    expect((await list(head, { page: '2', cursor: second.body.meta.nextCursor })).status).toBe(422);
+    expect((await list(head, { limit: '100', page: '101' })).status).toBe(422);
+  });
+
   it('answers 401 without a sign-in and 403 to volunteers', async () => {
     expect((await api().get('/api/v1/beneficiaries')).status).toBe(401);
     const volunteer = await as(world.users.general);

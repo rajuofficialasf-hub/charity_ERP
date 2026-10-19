@@ -4,7 +4,7 @@ import { z, type ZodType } from 'zod';
 import { sensitive } from '../access/field-mask';
 import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal';
 import type { Container } from '../container';
-import { type PageQuery, pageQuery } from '../core/pagination';
+import { type PageQuery, pageNumberQuery, pageQuery } from '../core/pagination';
 import { page } from '../http/send';
 import { defineRoute, type RouteDeps } from '../openapi/define-route';
 
@@ -151,7 +151,10 @@ const beneficiaryProfile = z.object({
   ),
 });
 
-const listQuery = pageQuery.omit({ sort: true }).extend(beneficiaryFilterSchema.shape);
+const listQuery = pageQuery
+  .omit({ sort: true })
+  .extend(pageNumberQuery.shape)
+  .extend(beneficiaryFilterSchema.shape);
 
 const viewerOf = (req: AuthedRequest) => ({
   principal: principalOf(req),

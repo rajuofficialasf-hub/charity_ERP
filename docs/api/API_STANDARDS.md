@@ -94,6 +94,7 @@ Why: lists change while people work (applications arrive during review, distribu
 - `meta.total` is exact up to 10,000 rows and `"10000+"` beyond, so screens can show "statistics everywhere" (BR-224) without full counts on huge tables; dashboards use their own aggregate endpoints.
 - Officials' tables navigate with next/previous and narrow with filters instead of jumping to page N.
 - Small bounded lists (at most 500 rows, e.g. reference lists, a project's components, locations under one parent) return all rows without paging and say so in the OpenAPI description.
+- Page numbers (D-105): the volunteer and the beneficiary lists also accept `page` (1-based), an offset into the same order, so a person can jump to a numbered page. It is allowed only inside the counted range of 10,000 rows, where the offset stays cheap, and never together with `cursor` (422 `validation.failed` on `page`); the answer carries the cursors as usual, so the rows past the counted range page by cursor.
 - Offline snapshots use `since=<timestamp>` deltas (OFFLINE_SYNC §4), not cursors.
 
 ## 5. Filtering, sorting and searching
