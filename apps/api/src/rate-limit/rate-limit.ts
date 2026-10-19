@@ -98,7 +98,15 @@ export const RATE_LIMITS: Record<RateLimitClass, RateWindow[]> = {
     { limit: 20, ttlMs: HOUR, key: ip, byIp: true },
   ],
   'password-reset': [
-    { limit: 5, ttlMs: HOUR, key: loginId },
+    // a reset names its login id; a change of a signed-in user names none and counts per user
+    {
+      limit: 5,
+      ttlMs: HOUR,
+      key: (r) => {
+        const id = loginId(r);
+        return id === 'none' ? `user:${caller(r)}` : id;
+      },
+    },
     { limit: 20, ttlMs: HOUR, key: ip, byIp: true },
   ],
   refresh: [{ limit: 60, ttlMs: HOUR, key: refreshSession }],

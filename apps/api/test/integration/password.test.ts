@@ -227,3 +227,41 @@ describe('password reset with the OTP', () => {
     expect(rows.rows[0].n).toBe(5);
   });
 });
+
+describe('the request budget of the password change', () => {
+  let limited: AuthHarness;
+  beforeAll(async () => {
+    limited = await authHarness({ realRateLimits: true });
+  });
+  afterAll(async () => limited.close());
+
+  const change = (s: Awaited<ReturnType<typeof login>>, from: string, to: string) =>
+    request(limited.server())
+      .post('/api/v1/auth/password/change')
+      .set(bearer(s))
+      .send({ currentPassword: from, newPassword: to });
+
+  it('counts the changes per user, so one user never uses up the window of the others', async () => {
+    // six people change their password within the hour: each has a window of its own
+    for (let i = 0; i < 6; i += 1) {
+      const staff = await account(limited.db);
+      const s = await login(limited, staff);
+      expect((await change(s, PASSWORD, `Shapla phul ${70 + i}`)).status).toBe(204);
+    }
+    // one person gets five changes an hour
+    const staff = await account(limited.db);
+    const s = await login(limited, staff);
+    const words = [
+      PASSWORD,
+      'Shapla phul 80',
+      'Shapla phul 81',
+      'Shapla phul 82',
+      'Shapla phul 83',
+      'Shapla phul 84',
+      'Shapla phul 85',
+    ];
+    for (let i = 0; i < 5; i += 1)
+      expect((await change(s, words[i]!, words[i + 1]!)).status).toBe(204);
+    expect((await change(s, words[5]!, words[6]!)).status).toBe(429);
+  });
+});
