@@ -224,7 +224,7 @@ function EmailPreference() {
                 save.mutate({ email_mode: id === 'immediate' ? 'immediate' : 'digest' });
             }}
           />
-          <Text className="admin-muted">{t('help')}</Text>
+          <Text tone="muted">{t('help')}</Text>
           {save.isSuccess && <Text role="status">{t('saved')}</Text>}
           {save.isError && <Alert tone="danger">{tc('state.error.text')}</Alert>}
         </>

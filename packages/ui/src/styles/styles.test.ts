@@ -207,7 +207,7 @@ function woff2Table(file: Buffer, tag: string): Buffer {
   return data.subarray(entry.offset, entry.offset + entry.length);
 }
 
-describe('fonts (DESIGN_SYSTEM 2.5, D-065)', () => {
+describe('fonts: the UbuntuSans subset and the Bornomala files', () => {
   const fonts = join(root, 'fonts');
 
   it('ships the UbuntuSans subset under the derivative name, weights 400 to 700', () => {
