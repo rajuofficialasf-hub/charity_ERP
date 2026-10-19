@@ -1,5 +1,6 @@
 /*
- * Base layer of the design system (DESIGN_SYSTEM 2.7, 3, 7, 9), from the approved mockups
+ * Base layer of the design system (docs/ui/DESIGN_SYSTEM.md, motion, typography, accessibility and
+ * focus), from the approved mockups
  * (docs/ui/mockups/components.css, "base"). Element defaults only; components live in
  * src/components/<Name>/<Name>.css.
  */
@@ -173,7 +174,7 @@
     vertical-align: middle;
   }
 
-  /* Touch devices animate only transform and opacity (DESIGN_SYSTEM 7 item 4). */
+  /* Touch devices animate only transform and opacity, which phones draw without stutter. */
   @media (hover: none) {
     [class^='ui-'],
     [class*=' ui-'] {
@@ -182,7 +183,7 @@
   }
 }
 
-/* Reduced motion switches every animation and transition off (DESIGN_SYSTEM 2.7, UX-14). */
+/* Reduced motion switches every animation and transition off for people who ask for it. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
