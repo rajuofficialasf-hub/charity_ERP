@@ -86,6 +86,16 @@ export interface ComboboxProps extends FieldBaseProps {
   serverSearch?: boolean;
 }
 
+export interface DateFieldProps extends FieldBaseProps {
+  /** ISO date yyyy-mm-dd, or null when empty. */
+  value?: string | null;
+  defaultValue?: string | null;
+  onChange?: (iso: string | null) => void;
+  /** Earliest and latest allowed ISO dates. */
+  min?: string;
+  max?: string;
+}
+
 /** Everything a template supplies. */
 export interface UiTemplate {
   TemplateProvider: ComponentType<TemplateProviderProps>;
@@ -94,4 +104,5 @@ export interface UiTemplate {
   Button: ComponentType<ButtonProps>;
   Select: ComponentType<SelectProps>;
   Combobox: ComponentType<ComboboxProps>;
+  DateField: ComponentType<DateFieldProps>;
 }

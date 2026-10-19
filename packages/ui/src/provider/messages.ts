@@ -34,6 +34,16 @@ export interface UiMessages {
     openCalendar: string;
     previousMonth: string;
     nextMonth: string;
+    /** Names of the parts of a date field, read by screen readers. */
+    day: string;
+    month: string;
+    year: string;
+    /** Shown in an empty part of a date field. */
+    dayPlaceholder: string;
+    monthPlaceholder: string;
+    yearPlaceholder: string;
+    /** Read by screen readers for an empty part of a date field. */
+    emptyPart: string;
     errorSummaryTitle: string;
     /** Tag beside labels of fields visible to officials only (DESIGN_SYSTEM 5.4). */
     officialOnly: string;

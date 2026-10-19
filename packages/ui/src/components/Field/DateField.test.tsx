@@ -1,6 +1,6 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations, renderWithUi } from '../../testing/index.js';
 import { DateField } from './DateField.js';
 
@@ -42,13 +42,14 @@ describe('DateField', () => {
     expect(onChange).toHaveBeenLastCalledWith('2026-12-31');
   });
 
-  it('reports a date before the earliest allowed one, so the page can explain it', async () => {
+  it('reports a date before the earliest allowed one and marks it invalid', async () => {
     const onChange = vi.fn();
     const user = userEvent.setup();
     renderWithUi(<DateField label="Date" min="2026-11-01" onChange={onChange} />);
     await user.click(sections(/Date/)[0]!);
     await user.keyboard('31102026');
     expect(onChange).toHaveBeenLastCalledWith('2026-10-31');
+    expect(sections(/Date/)[0]).toHaveAttribute('aria-invalid', 'true');
   });
 
   it('shows the error the page gives and ties it to the field', () => {
@@ -92,5 +93,47 @@ describe('DateField', () => {
       />,
     );
     await expectNoAxeViolations(container);
+  });
+
+  it('keeps the ISO date under the field name for a form', async () => {
+    const user = userEvent.setup();
+    const { container } = renderWithUi(<DateField label="Date" name="birth" />);
+    await user.click(sections(/Date/)[0]!);
+    await user.keyboard('05031990');
+    expect(container.querySelector('input[name="birth"]')).toHaveValue('1990-03-05');
+  });
+
+  describe('on a phone', () => {
+    const wide = window.matchMedia;
+    beforeEach(() => {
+      window.matchMedia = vi.fn((query: string) => ({
+        matches: query.includes('max-width'),
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      }));
+    });
+    afterEach(() => {
+      window.matchMedia = wide;
+    });
+
+    it('opens the calendar as a bottom sheet that a picked day closes', async () => {
+      const onChange = vi.fn();
+      const user = userEvent.setup();
+      renderWithUi(<DateField label="Date" defaultValue="2026-10-11" onChange={onChange} />);
+      await user.click(screen.getByRole('button', { name: /Open calendar/ }));
+      const sheet = await screen.findByRole('dialog', { name: 'Date' });
+      expect(sheet).toHaveClass('ui-date-sheet');
+      await user.click(within(sheet).getByRole('gridcell', { name: '15' }));
+      expect(onChange).toHaveBeenLastCalledWith('2026-10-15');
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      expect(screen.getByRole('group', { name: /Date/ })).toHaveTextContent(
+        /15\D*-\D*10\D*-\D*2026/,
+      );
+    });
   });
 });

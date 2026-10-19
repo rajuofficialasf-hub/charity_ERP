@@ -2,7 +2,6 @@
 
 import { CircleAlert, Lock, ShieldCheck } from 'lucide-react';
 import { useId } from 'react';
-import { FieldError, Label, Text } from 'react-aria-components';
 import { fill } from '../../provider/messages.js';
 import { useUi } from '../../provider/UiProvider.js';
 import { Button } from '../Button/Button.js';
@@ -32,85 +31,6 @@ export interface FieldBaseProps {
   id?: string;
   /** Layout only. */
   className?: string;
-}
-
-export function FieldLabel({
-  label,
-  required,
-  locked,
-  changed,
-  previousValue,
-  officialOnly,
-  elementType,
-}: Pick<
-  FieldBaseProps,
-  'label' | 'required' | 'locked' | 'changed' | 'previousValue' | 'officialOnly'
-> & {
-  elementType?: 'label' | 'span';
-}) {
-  const { messages } = useUi();
-  return (
-    <div className="ui-field-label-row">
-      <Label className="ui-field-label" elementType={elementType}>
-        {label}
-        {required && <span className="ui-field-req"> {messages.field.required}</span>}
-        {locked && (
-          <>
-            <Icon icon={Lock} size="sm" className="ui-field-lock" />
-            <span className="ui-sr-only"> ({messages.field.locked})</span>
-          </>
-        )}
-      </Label>
-      {officialOnly && (
-        <span className="ui-field-official">
-          <Icon icon={ShieldCheck} size="sm" />
-          {messages.field.officialOnly}
-        </span>
-      )}
-      {changed && (
-        <span className="ui-field-changed" title={previousValue}>
-          {messages.field.changed}
-          {previousValue !== undefined && (
-            <span className="ui-sr-only">
-              , {fill(messages.field.previousValue, { value: previousValue })}
-            </span>
-          )}
-        </span>
-      )}
-    </div>
-  );
-}
-
-export function FieldFooter({
-  helper,
-  error,
-  locked,
-  onRequestCorrection,
-}: Pick<FieldBaseProps, 'helper' | 'error' | 'locked' | 'onRequestCorrection'>) {
-  const { messages } = useUi();
-  return (
-    <>
-      {helper && (
-        <Text slot="description" className="ui-field-helper">
-          {helper}
-        </Text>
-      )}
-      <FieldError className="ui-field-error">
-        <Icon icon={CircleAlert} size="sm" />
-        <span>{error}</span>
-      </FieldError>
-      {locked && onRequestCorrection && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="ui-field-correction"
-          onPress={onRequestCorrection}
-        >
-          {messages.field.requestCorrection}
-        </Button>
-      )}
-    </>
-  );
 }
 
 /** Class names of the field wrapper for its states. */

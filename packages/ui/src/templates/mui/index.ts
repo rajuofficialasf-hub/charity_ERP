@@ -2,6 +2,7 @@
 // imports MUI or Emotion lives in this folder; pages import "@css/ui" only.
 import type { UiTemplate } from '../../contract.js';
 import { Button } from './Button.js';
+import { DateField } from './DateField.js';
 import { Combobox, Select } from './Select.js';
 import { RouterLink as Link, TemplateProvider } from './provider.js';
 
@@ -12,7 +13,8 @@ export const muiTemplate = {
   Button,
   Select,
   Combobox,
+  DateField,
 } satisfies UiTemplate;
 
-export { Button, Combobox, Link, Select, TemplateProvider };
+export { Button, Combobox, DateField, Link, Select, TemplateProvider };
 export { createUiTheme, SPACING_PX } from './theme.js';

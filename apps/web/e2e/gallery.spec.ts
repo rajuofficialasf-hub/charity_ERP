@@ -124,14 +124,25 @@ test.describe('gallery keyboard flows', () => {
 
   test('date picker opens the calendar and keeps dd-mm-yyyy with English digits', async ({
     page,
-  }) => {
+  }, info) => {
     const field = page.locator('#select .ui-date-group');
-    await expect(field).toContainText('01-12-2026');
+    await expect(field).toContainText(/01\D*-\D*12\D*-\D*2026/);
     await field.getByRole('button', { name: /Open calendar/ }).click();
     const grid = page.getByRole('grid', { name: /December 2026/ });
     await expect(grid).toBeVisible();
-    await grid.getByRole('button', { name: /15/ }).first().click();
-    await expect(field).toContainText('15-12-2026');
+    if (info.project.name === 'mobile') {
+      // on a phone the calendar is a bottom sheet
+      const sheet = page.getByRole('dialog', { name: 'Distribution date' });
+      await expect
+        .poll(async () => {
+          const box = await sheet.boundingBox();
+          return box && Math.round(box.y + box.height);
+        })
+        .toBe(640);
+    }
+    await grid.getByRole('gridcell', { name: '15' }).click();
+    await expect(grid).toBeHidden();
+    await expect(field).toContainText(/15\D*-\D*12\D*-\D*2026/);
   });
 
   test('table sorts by a header and selects rows', async ({ page }, info) => {

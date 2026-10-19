@@ -216,32 +216,58 @@
     color: var(--color-text-secondary);
   }
 
-  /* date: segments with dd-mm-yyyy literals */
+  /* date: day, month and year parts with dd-mm-yyyy separators (MUI's picker field) */
   .ui-date-group {
     display: flex;
     align-items: center;
     padding-right: 0;
+    color: var(--color-text-primary);
   }
-  .ui-date-input {
-    display: flex;
+  .ui-date-group.Mui-focused {
+    outline: none;
+    border-color: var(--color-brand-primary-dark);
+    box-shadow: var(--ring-brand);
+  }
+  .ui-date-group.Mui-error {
+    border: 2px solid var(--color-status-danger);
+  }
+  .ui-date-group.Mui-disabled {
+    background: var(--color-bg-muted);
+    color: var(--color-text-secondary);
+    cursor: not-allowed;
+  }
+  .ui-field.is-locked .ui-date-group,
+  .ui-date-group.MuiPickersInputBase-readOnly {
+    background: var(--color-bg-muted);
+  }
+  .ui-date-group .MuiPickersOutlinedInput-notchedOutline {
+    display: none;
+  }
+  .ui-date-group .MuiPickersInputBase-sectionsContainer {
     flex: 1 1 auto;
-    align-items: center;
     min-width: 0;
+    padding: 0;
     font-variant-numeric: tabular-nums;
   }
-  .ui-date-segment {
+  .ui-date-group .MuiPickersInputBase-sectionContent {
     padding: 0 2px;
     border-radius: var(--radius-sm);
     outline: none;
   }
-  .ui-date-segment[data-placeholder] {
-    color: var(--color-text-secondary);
-  }
-  .ui-date-segment[data-focused] {
+  .ui-date-group .MuiPickersInputBase-sectionContent:focus {
     background: var(--color-brand-primary-dark);
     color: var(--color-text-on-brand);
   }
-  .ui-date-literal {
+  .ui-date-group .MuiPickersInputBase-sectionBefore,
+  .ui-date-group .MuiPickersInputBase-sectionAfter {
+    color: var(--color-text-secondary);
+  }
+  .ui-date-group .MuiInputAdornment-root {
+    height: auto;
+    max-height: none;
+    margin: 0;
+  }
+  .ui-date-group .ui-input-button {
     color: var(--color-text-secondary);
   }
 
@@ -265,12 +291,12 @@
       transform: translateY(-4px);
     }
   }
-  .ui-popover-calendar {
+  .ui-date-paper {
     min-width: 0;
-  }
-  .ui-popover-dialog {
     padding: var(--space-3);
-    outline: none;
+  }
+  .ui-date-popper {
+    z-index: 1400;
   }
   .ui-popover-search {
     position: relative;
@@ -337,78 +363,93 @@
     color: var(--color-text-secondary);
   }
 
-  .ui-calendar {
+  /* the calendar of the date field (MUI's date calendar), in the popover or the phone sheet */
+  .ui-calendar .MuiDateCalendar-root {
     width: min(320px, 100%);
+    height: auto;
+    max-height: none;
     margin: 0 auto;
   }
-  .ui-calendar-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-2);
-    margin-bottom: var(--space-2);
+  .ui-calendar .MuiPickersCalendarHeader-root {
+    margin: 0 0 var(--space-2);
+    padding: 0;
+    min-height: 44px;
   }
-  .ui-calendar-title {
-    margin: 0;
+  .ui-calendar .MuiPickersCalendarHeader-label {
     font-size: var(--text-title);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
   }
-  .ui-calendar-nav {
-    display: inline-grid;
-    place-items: center;
+  .ui-calendar .MuiPickersArrowSwitcher-button {
     min-width: 44px;
     min-height: 44px;
-    border: 0;
     border-radius: var(--radius-md);
-    background: transparent;
-    cursor: pointer;
-    outline: none;
+    color: var(--color-text-primary);
   }
-  .ui-calendar-nav[data-hovered] {
+  .ui-calendar .MuiPickersArrowSwitcher-button:hover {
     background: var(--color-bg-muted);
   }
-  .ui-calendar-nav[data-focus-visible] {
+  .ui-calendar .MuiPickersArrowSwitcher-button:focus-visible {
     outline: 2px solid var(--color-brand-primary);
   }
-  .ui-calendar-grid {
-    width: 100%;
-    border-collapse: collapse;
-  }
-  .ui-calendar-grid th {
-    padding-bottom: var(--space-1);
+  .ui-calendar .MuiDayCalendar-weekDayLabel {
+    width: 40px;
+    margin: 0 1px;
     font-size: var(--text-caption);
     font-weight: var(--font-weight-bold);
     color: var(--color-text-secondary);
   }
-  .ui-calendar-cell {
-    display: grid;
-    place-items: center;
+  .ui-calendar .MuiDayCalendar-slideTransition {
+    min-height: 252px;
+  }
+  .ui-calendar .MuiPickersDay-root {
     width: 40px;
     height: 40px;
-    margin: 1px auto;
+    margin: 1px;
+    border: 0;
     border-radius: var(--radius-full);
+    font-family: inherit;
+    font-size: var(--text-body);
     font-variant-numeric: tabular-nums;
-    cursor: pointer;
-    outline: none;
+    color: var(--color-text-primary);
   }
-  .ui-calendar-cell[data-outside-month] {
-    display: none;
-  }
-  .ui-calendar-cell[data-hovered] {
+  .ui-calendar .MuiPickersDay-root:hover {
     background: var(--color-bg-muted);
   }
-  .ui-calendar-cell[data-selected] {
+  .ui-calendar .MuiPickersDay-today:not(.Mui-selected) {
+    border: 1px solid var(--color-border-strong);
+  }
+  .ui-calendar .MuiPickersDay-root.Mui-selected {
     background: var(--color-brand-primary-dark);
     color: var(--color-text-on-brand);
     font-weight: var(--font-weight-bold);
   }
-  .ui-calendar-cell[data-focus-visible] {
+  .ui-calendar .MuiPickersDay-root:focus-visible {
     outline: 2px solid var(--color-brand-primary);
     outline-offset: 2px;
   }
-  .ui-calendar-cell[data-disabled],
-  .ui-calendar-cell[data-unavailable] {
+  .ui-calendar .MuiPickersDay-root.Mui-disabled {
     color: var(--color-text-secondary);
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  /* the calendar as a bottom sheet on phones */
+  .ui-date-sheet {
+    max-height: 90dvh;
+    padding: 0 var(--space-3) calc(var(--space-3) + env(safe-area-inset-bottom));
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    background: var(--color-bg-surface);
+  }
+  .ui-date-sheet > .ui-sheet-handle {
+    display: block;
+    width: 40px;
+    height: 4px;
+    margin: var(--space-2) auto var(--space-2);
+    border-radius: var(--radius-full);
+    background: var(--color-border-strong);
+  }
+  .ui-date-sheet .MuiDialogContent-root {
+    padding: 0;
   }
 }

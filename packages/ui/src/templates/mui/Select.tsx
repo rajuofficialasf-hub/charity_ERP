@@ -15,6 +15,7 @@ import { Icon } from '../../components/Icon/Icon.js';
 import type { ComboboxProps, SelectOption, SelectProps } from '../../contract.js';
 import { useUi } from '../../provider/UiProvider.js';
 import { cx } from '../../utils/cx.js';
+import { insideDialog } from './portal.js';
 
 /** A text box in the same field when the "other" option is chosen (অন্যান্য). */
 function OtherText({
@@ -39,11 +40,6 @@ function OtherText({
       className="ui-field-other"
     />
   );
-}
-
-/** The dialog a control sits in, where its list must render, else the page body. */
-function insideDialog(element: HTMLElement | null): HTMLElement {
-  return element?.closest<HTMLElement>('[role="dialog"], [role="alertdialog"]') ?? document.body;
 }
 
 /** Case-insensitive search inside an option's label, the same in both languages. */
