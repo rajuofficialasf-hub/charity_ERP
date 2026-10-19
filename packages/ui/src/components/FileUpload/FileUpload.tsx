@@ -1,6 +1,6 @@
 'use client';
 
-import { useId } from 'react';
+import { useId, useRef, useState } from 'react';
 import {
   Ban,
   Camera,
@@ -15,7 +15,6 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import { DropZone, FileTrigger, Text } from 'react-aria-components';
 import { fill } from '../../provider/messages.js';
 import { useUi } from '../../provider/UiProvider.js';
 import { cx } from '../../utils/cx.js';
@@ -23,7 +22,7 @@ import { Badge, type BadgeTone } from '../Badge/Badge.js';
 import { Button } from '../Button/Button.js';
 import type { IconComponent } from '../Icon/Icon.js';
 import { ProgressBar } from '../ProgressBar/ProgressBar.js';
-import { FieldLabel, type FieldBaseProps } from '../Field/FieldParts.js';
+import { NativeFieldLabel, type FieldBaseProps } from '../Field/FieldParts.js';
 
 export type UploadState =
   | 'selected'
@@ -91,6 +90,59 @@ function matches(file: File, accept?: string[]): boolean {
   );
 }
 
+/**
+ * A button that opens the browser's file picker through a hidden file input; the camera one asks
+ * for the back camera. The input is emptied after each choice, so the same file can be picked again.
+ */
+function FilePicker({
+  accept,
+  multiple,
+  camera,
+  disabled,
+  onSelect,
+  variant,
+  icon,
+  describedBy,
+  children,
+}: {
+  accept?: string[] | undefined;
+  multiple: boolean;
+  camera: boolean;
+  disabled: boolean;
+  onSelect: (files: FileList | null) => void;
+  variant: 'primary' | 'secondary';
+  icon: IconComponent;
+  describedBy?: string | undefined;
+  children: string;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <input
+        ref={input}
+        type="file"
+        hidden
+        accept={accept?.join(',')}
+        multiple={multiple}
+        capture={camera ? 'environment' : undefined}
+        onChange={(event) => {
+          onSelect(event.target.files);
+          event.target.value = '';
+        }}
+      />
+      <Button
+        variant={variant}
+        icon={icon}
+        disabled={disabled}
+        aria-describedby={describedBy}
+        onPress={() => input.current?.click()}
+      >
+        {children}
+      </Button>
+    </>
+  );
+}
+
 /** File and photo upload with previews and per-file states (DESIGN_SYSTEM 5.12). */
 export function FileUpload({
   label,
@@ -138,28 +190,27 @@ export function FileUpload({
   };
 
   const describedBy = [helper && helperId, error && errorId].filter(Boolean).join(' ') || undefined;
+  const off = disabled || full;
   const trigger = (kind: 'camera' | 'gallery' | 'file') => (
-    <FileTrigger
+    <FilePicker
       key={kind}
-      acceptedFileTypes={accept}
-      allowsMultiple={multiple && kind !== 'camera'}
-      defaultCamera={kind === 'camera' ? 'environment' : undefined}
+      accept={accept}
+      multiple={multiple && kind !== 'camera'}
+      camera={kind === 'camera'}
+      disabled={off}
       onSelect={take}
+      variant={kind === 'gallery' ? 'secondary' : 'primary'}
+      icon={kind === 'camera' ? Camera : kind === 'gallery' ? Images : Upload}
+      describedBy={describedBy}
     >
-      <Button
-        variant={kind === 'gallery' ? 'secondary' : 'primary'}
-        icon={kind === 'camera' ? Camera : kind === 'gallery' ? Images : Upload}
-        disabled={disabled || full}
-        aria-describedby={describedBy}
-      >
-        {kind === 'camera'
-          ? messages.file.takePhoto
-          : kind === 'gallery'
-            ? messages.file.chooseFromGallery
-            : messages.file.chooseFile}
-      </Button>
-    </FileTrigger>
+      {kind === 'camera'
+        ? messages.file.takePhoto
+        : kind === 'gallery'
+          ? messages.file.chooseFromGallery
+          : messages.file.chooseFile}
+    </FilePicker>
   );
+  const [dropTarget, setDropTarget] = useState(false);
   const kinds: ('camera' | 'gallery' | 'file')[] =
     source === 'camera_or_gallery' ? ['camera', 'gallery'] : [source];
 
@@ -169,29 +220,28 @@ export function FileUpload({
       role="group"
       aria-labelledby={`${helperId}-label`}
     >
-      <div id={`${helperId}-label`}>
-        <FieldLabel label={label} required={required} elementType="span" />
-      </div>
-      <DropZone
+      <NativeFieldLabel label={label} required={required} labelId={`${helperId}-label`} />
+      <div
         className="ui-upload-zone"
-        isDisabled={disabled || full}
-        getDropOperation={() => 'copy'}
-        onDrop={async (event) => {
-          const files = await Promise.all(
-            event.items
-              .filter((item) => item.kind === 'file')
-              .map((item) => (item as { getFile: () => Promise<File> }).getFile()),
-          );
-          take(files);
+        data-drop-target={dropTarget || undefined}
+        data-disabled={off || undefined}
+        onDragOver={(event) => {
+          if (off || !event.dataTransfer.types.includes('Files')) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'copy';
+          setDropTarget(true);
+        }}
+        onDragLeave={() => setDropTarget(false)}
+        onDrop={(event) => {
+          setDropTarget(false);
+          if (off) return;
+          event.preventDefault();
+          take(event.dataTransfer.files);
         }}
       >
         <div className="ui-upload-actions">{kinds.map(trigger)}</div>
-        {source !== 'camera' && (
-          <Text slot="label" className="ui-upload-drop">
-            {messages.file.dropHere}
-          </Text>
-        )}
-      </DropZone>
+        {source !== 'camera' && <p className="ui-upload-drop">{messages.file.dropHere}</p>}
+      </div>
       {helper && (
         <p className="ui-field-helper" id={helperId}>
           {helper}
