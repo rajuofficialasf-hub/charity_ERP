@@ -51,7 +51,7 @@ The owner's profile picture (chat, 2026-10-20: a pending volunteer with a green 
 - **Files:** `apps/web/src/admin/beneficiaries/BeneficiaryProfilePage.tsx`, i18n.
 - **Tests:** `beneficiaries.test.tsx` profile cases updated (every section, the Media Team's sections only); e2e `beneficiaries.spec.ts`.
 - **Depends on:** U1 · **Size:** M · **Risk area:** personal data on screen
-- **Status:** todo
+- **Status:** done (one page without tabs: the 360° view shows every section at once, the contact, the projects by year and the activity history in the side column)
 
 ### U4. The official profile page
 - **Files:** `apps/web/src/admin/staff/StaffProfilePage.tsx` (new), `routes/index.tsx`, `StaffPage.tsx` (names link to the profile), `staff-api.ts`, i18n.

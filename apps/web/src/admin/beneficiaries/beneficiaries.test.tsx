@@ -232,7 +232,8 @@ describe('the 360° profile', () => {
       expect(screen.getByRole('heading', { level: 2, name: section })).toBeInTheDocument();
     expect(screen.getAllByText('এখনো কিছু নেই।').length).toBeGreaterThan(5);
     expect(screen.getByText('আপনার জন্য দেখানো হয় না')).toBeInTheDocument();
-    expect(screen.getByText('নারী')).toBeInTheDocument();
+    // the gender in its section and as a chip of the header
+    expect(screen.getAllByText('নারী')).toHaveLength(2);
     await expectNoAxeViolations(container);
   });
 
