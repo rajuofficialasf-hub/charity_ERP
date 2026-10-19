@@ -50,9 +50,10 @@ test.describe('the beneficiary tab', () => {
       await expect(page.getByRole('heading', { level: 2, name: section })).toBeVisible();
 
     await page.setViewportSize({ width: 360, height: 780 });
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
-    ).toBe(true);
+    // measured once the phone layout has replaced the table
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+      .toBe(true);
     expect((await scan(page)).violations).toEqual([]);
   });
 

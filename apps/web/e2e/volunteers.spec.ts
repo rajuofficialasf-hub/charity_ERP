@@ -32,10 +32,7 @@ test.describe('the volunteer tab', () => {
     await signIn(page, accounts(info).official);
     await openTab(page, TAB);
     await find(page, 'স্বেচ্ছাসেবক 2 (নমুনা)');
-    const row = rows(page)
-      .locator(':scope tr, :scope li')
-      .filter({ hasText: 'স্বেচ্ছাসেবক 2 (নমুনা)' });
-    await row.getByRole('button', { name: 'স্বেচ্ছাসেবক 2 (নমুনা)-এর কাজ' }).click();
+    await rows(page).getByRole('button', { name: 'স্বেচ্ছাসেবক 2 (নমুনা)-এর কাজ' }).click();
     await page.getByRole('menuitem', { name: 'প্রোফাইল দেখুন' }).click();
     await expect(
       page.getByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক 2 (নমুনা)' }),
@@ -70,12 +67,17 @@ test.describe('the volunteer tab', () => {
     await page.reload();
     await expect(page).toHaveURL(/districtId=/);
     await expect(page.getByRole('button', { name: /^জেলা: ঢাকা সরান$/ })).toBeVisible();
+    await find(page, 'স্বেচ্ছাসেবক 1 (নমুনা)');
+    await expect(rows(page).getByRole('link', { name: 'স্বেচ্ছাসেবক 1 (নমুনা)' })).toBeVisible();
+    await find(page, 'স্বেচ্ছাসেবক 2 (নমুনা)');
+    await expect(rows(page).getByRole('link', { name: 'স্বেচ্ছাসেবক 2 (নমুনা)' })).toHaveCount(0);
 
     // a phone of 360 px never scrolls sideways
     await page.setViewportSize({ width: 360, height: 780 });
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
-    ).toBe(true);
+    // measured once the phone layout has replaced the table
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+      .toBe(true);
     expect((await scan(page)).violations).toEqual([]);
   });
 

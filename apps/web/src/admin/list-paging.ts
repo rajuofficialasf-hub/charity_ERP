@@ -46,7 +46,9 @@ export function numberedPaging({
     total,
     page,
     pageCount,
-    onPage: (p) => goTo(p),
+    onPage: (p) => {
+      if (p !== page) goTo(numbered(p) ? p : COUNTED / PAGE_SIZE);
+    },
     hasPrevious: page > 1,
     hasNext: meta.nextCursor !== null,
     onPrevious: () => (numbered(page - 1) ? goTo(page - 1) : goTo(page - 1, meta.prevCursor)),

@@ -142,7 +142,7 @@ export const NISAB_ROLES: readonly string[] = [
 ];
 
 /** The staff handover and the deactivation after it (`user.handover`, `user.state.change`; BD-08). */
-/** Who may see and end another person's device sessions (session.revoke_user, BR-233). */
+/** Who may see and end another person's device sessions (the permission `session.revoke_user`). */
 export const SESSION_ROLES: readonly string[] = [
   'department_head',
   'monitoring_team',

@@ -46,6 +46,7 @@ import { AddressFields } from '../../features/registration/AddressFields';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
+import { EmptyValue } from '../EmptyValue';
 import { useAreaChips } from '../area-chips';
 import { numberedPaging } from '../list-paging';
 import { ProjectPicker } from '../projects/ProjectPicker';
@@ -116,9 +117,16 @@ function VolunteerTab({ categories }: { categories: boolean }) {
     queryKey: [...VOLUNTEERS_KEY, 'page', filters, q, page, cursor],
     queryFn: () => volunteerPage(filters, q, page, cursor),
   });
+  // a count card filters the list, not the counts: every card keeps its number when one is chosen
+  const inactiveCard = filters.category === 'inactive';
+  const statFilters = {
+    ...filters,
+    state: undefined,
+    category: inactiveCard ? undefined : filters.category,
+  };
   const stats = useQuery({
-    queryKey: [...VOLUNTEERS_KEY, 'statistics', filters, q],
-    queryFn: () => volunteerStatistics(filters, q),
+    queryKey: [...VOLUNTEERS_KEY, 'statistics', statFilters, q],
+    queryFn: () => volunteerStatistics(statFilters, q),
   });
   const projects = useQuery({
     queryKey: [...PROJECTS_KEY, 'picker'],
@@ -185,13 +193,13 @@ function VolunteerTab({ categories }: { categories: boolean }) {
         },
       ]
     : [];
-  const selectedCount = filters.state ?? (filters.category === 'inactive' ? 'inactive' : 'all');
+  const selectedCount = filters.state ?? (inactiveCard ? 'inactive' : 'all');
   const selectCount = (id: string) =>
     id === 'inactive'
       ? change({ category: 'inactive', state: undefined })
       : change({
           state: id === 'all' ? undefined : id,
-          category: filters.category === 'inactive' ? undefined : filters.category,
+          category: inactiveCard ? undefined : filters.category,
         });
 
   const rows = list.data?.data ?? [];
@@ -382,9 +390,14 @@ function VolunteerTab({ categories }: { categories: boolean }) {
             onSearch={onSearch}
             searchPlaceholder={t('search')}
             filterMode="panel"
-            activeFilterCount={activeCount(['state'])}
+            activeFilterCount={activeCount(inactiveCard ? ['state', 'category'] : ['state'])}
             activeFilters={activeFilters}
-            onClearFilters={() => setFilters(filters.state ? { state: filters.state } : {})}
+            onClearFilters={() =>
+              setFilters({
+                ...(filters.state ? { state: filters.state } : {}),
+                ...(inactiveCard ? { category: 'inactive' } : {}),
+              })
+            }
             filters={
               <>
                 <FilterGroup title={t('filter.group_area')}>
@@ -493,18 +506,6 @@ const STATE_TONE: Record<string, 'success' | 'warning' | 'danger' | 'neutral'> =
   blocked: 'danger',
   deactivated: 'neutral',
 };
-
-/** A dash for an empty value, read out as words. */
-function EmptyValue({ label }: { label: string }) {
-  return (
-    <>
-      <span aria-hidden="true" className="admin-dash">
-        —
-      </span>
-      <span className="ui-sr-only">{label}</span>
-    </>
-  );
-}
 
 /** The volunteer's own photo beside the name, or the first letter of the name without one. */
 function RowAvatar({ row }: { row: VolunteerRow }) {

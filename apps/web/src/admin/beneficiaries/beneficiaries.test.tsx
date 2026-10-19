@@ -45,9 +45,11 @@ const mediaRow = {
 };
 
 let listUrls: URL[];
+let statUrls: URL[];
 
 function serve(row: unknown, stats: unknown, profile?: unknown) {
   listUrls = [];
+  statUrls = [];
   server.use(
     http.get('*/api/v1/projects', () =>
       HttpResponse.json({
@@ -70,9 +72,10 @@ function serve(row: unknown, stats: unknown, profile?: unknown) {
         meta: { requestId: 'req_test', limit: 25, nextCursor: null, prevCursor: null, total: 1 },
       });
     }),
-    http.get('*/api/v1/beneficiaries/statistics', () =>
-      HttpResponse.json({ data: stats, meta: { requestId: 'req_test' } }),
-    ),
+    http.get('*/api/v1/beneficiaries/statistics', ({ request }) => {
+      statUrls.push(new URL(request.url));
+      return HttpResponse.json({ data: stats, meta: { requestId: 'req_test' } });
+    }),
     http.get('*/api/v1/beneficiaries/:id', () =>
       HttpResponse.json({ data: profile, meta: { requestId: 'req_test' } }),
     ),
@@ -152,18 +155,21 @@ describe('the beneficiary tab', () => {
     expect(within(counts).queryByText('ব্লক করা')).not.toBeInTheDocument();
   });
 
-  it('filters by the assisted count, which sets this year, and offers the profile from the row menu', async () => {
+  it('filters by the blocked count without narrowing the counts, shows the assisted count as a number, and offers the profile from the row menu', async () => {
     refreshAs(HEAD);
-    serve(fullRow, { total: 3, assistedThisYear: 2, blocked: 0 });
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date('2026-10-15T06:00:00Z'));
+    serve(fullRow, { total: 3, assistedThisYear: 2, blocked: 1 });
     const user = userEvent.setup();
     const { router } = openList();
     const counts = await screen.findByRole('group', { name: 'উপকারভোগীর হিসাব' });
-    await user.click(
-      await within(counts).findByRole('button', { name: /^এই বছর সহায়তা পেয়েছেন/ }),
-    );
-    await waitFor(() => expect(router.state.location.search).toBe('?year=2026'));
+    // approved help this year matches no list filter, so its card is not a button
+    expect(await within(counts).findByText('এই বছর সহায়তা পেয়েছেন')).toBeInTheDocument();
+    expect(
+      within(counts).queryByRole('button', { name: /^এই বছর সহায়তা পেয়েছেন/ }),
+    ).not.toBeInTheDocument();
+    await user.click(within(counts).getByRole('button', { name: 'ব্লক করা 1', pressed: false }));
+    await waitFor(() => expect(router.state.location.search).toBe('?blocked=true'));
+    await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('blocked')).toBe('true'));
+    expect(statUrls.at(-1)?.searchParams.get('blocked')).toBeNull();
     const table = screen.getByRole('grid', { name: 'উপকারভোগী' });
     await user.click(within(table).getByRole('button', { name: 'নমুনা উপকারভোগী-এর কাজ' }));
     expect(await screen.findByRole('menuitem', { name: 'প্রোফাইল দেখুন' })).toHaveAttribute(

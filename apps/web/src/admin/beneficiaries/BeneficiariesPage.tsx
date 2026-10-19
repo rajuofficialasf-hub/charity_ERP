@@ -26,6 +26,7 @@ import { AddressFields } from '../../features/registration/AddressFields';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
+import { EmptyValue } from '../EmptyValue';
 import { useAreaChips } from '../area-chips';
 import { numberedPaging } from '../list-paging';
 import { ProjectPicker } from '../projects/ProjectPicker';
@@ -77,15 +78,17 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
   );
   const { filters, setFilters, change, q, onSearch, page, cursor, goTo, activeCount } =
     useTabView(keys);
-  const thisYear = String(new Date().getFullYear());
 
   const list = useQuery({
     queryKey: [...BENEFICIARIES_KEY, 'page', filters, q, page, cursor],
     queryFn: () => beneficiaryPage(filters, q, page, cursor),
   });
+  // a count card filters the list, not the counts: every card keeps its number when one is chosen
+  const blockedCard = filters.blocked === 'true';
+  const statFilters = { ...filters, blocked: blockedCard ? undefined : filters.blocked };
   const stats = useQuery({
-    queryKey: [...BENEFICIARIES_KEY, 'statistics', filters, q],
-    queryFn: () => beneficiaryStatistics(filters, q),
+    queryKey: [...BENEFICIARIES_KEY, 'statistics', statFilters, q],
+    queryFn: () => beneficiaryStatistics(statFilters, q),
   });
   const projects = useQuery({
     queryKey: [...PROJECTS_KEY, 'picker'],
@@ -104,19 +107,17 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
           value: counts.assistedThisYear,
           icon: HandHeart,
           tone: 'success',
+          // approved help this year: no list filter matches it, so the card is a number only
+          selectable: false,
         },
         ...(counts.blocked === undefined
           ? []
           : [{ id: 'blocked', label: t('stats.blocked'), value: counts.blocked, icon: Ban }]),
       ]
     : [];
-  const selectedCount =
-    filters.blocked === 'true' ? 'blocked' : filters.year === thisYear ? 'assisted' : 'all';
+  const selectedCount = blockedCard ? 'blocked' : 'all';
   const selectCount = (id: string) =>
-    change({
-      year: id === 'assisted' ? thisYear : filters.year === thisYear ? undefined : filters.year,
-      blocked: id === 'blocked' ? 'true' : filters.blocked === 'true' ? undefined : filters.blocked,
-    });
+    change({ blocked: id === 'blocked' ? 'true' : blockedCard ? undefined : filters.blocked });
 
   const rows = list.data?.data ?? [];
   const typeLabel = (code: string | null | undefined) =>
@@ -198,7 +199,7 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
           },
         ]
       : []),
-    ...(filters.year && filters.year !== thisYear
+    ...(filters.year
       ? [
           {
             id: 'year',
@@ -262,9 +263,9 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
             onSearch={onSearch}
             searchPlaceholder={t('search')}
             filterMode="panel"
-            activeFilterCount={activeCount()}
+            activeFilterCount={activeCount(blockedCard ? ['blocked'] : [])}
             activeFilters={activeFilters}
-            onClearFilters={() => setFilters({})}
+            onClearFilters={() => setFilters(blockedCard ? { blocked: 'true' } : {})}
             filters={
               <>
                 <FilterGroup title={t('filter.group_area')}>
@@ -348,18 +349,6 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
           </div>
         )}
       />
-    </>
-  );
-}
-
-/** A dash for an empty value, read out as words. */
-function EmptyValue({ label }: { label: string }) {
-  return (
-    <>
-      <span aria-hidden="true" className="admin-dash">
-        —
-      </span>
-      <span className="ui-sr-only">{label}</span>
     </>
   );
 }

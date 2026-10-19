@@ -9,7 +9,7 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
 import { VolunteersPage } from './VolunteersPage';
 
-// The volunteer tab (SCR-042; DECISION_LOG O-67, UX-21): counts that filter, search, filters that
+// The volunteer tab: counts that filter, search, filters that
 // open in place with their chips, the row menu, numbered pages; the filters in the URL and the
 // search never. Test data only.
 const HEAD: Me = { ...ME, roles: ['department_head'] };
@@ -140,7 +140,7 @@ describe('the volunteer tab', () => {
     await expectNoAxeViolations(container);
   });
 
-  it('filters by a count card, keeps it in the URL and asks the server with it', async () => {
+  it('filters by a count card, keeps it in the URL and asks the list, not the counts, with it', async () => {
     refreshAs(HEAD);
     serve();
     const user = userEvent.setup();
@@ -148,7 +148,11 @@ describe('the volunteer tab', () => {
     await user.click(await screen.findByRole('button', { name: 'অপেক্ষমাণ 75', pressed: false }));
     await waitFor(() => expect(router.state.location.search).toBe('?state=pending'));
     await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('state')).toBe('pending'));
-    expect(statUrls.at(-1)?.searchParams.get('state')).toBe('pending');
+    // the other cards keep their numbers
+    expect(statUrls.at(-1)?.searchParams.get('state')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'সক্রিয় 1,100', pressed: false }),
+    ).toBeInTheDocument();
   });
 
   it('restores the filters from the URL of a reload or a shared link', async () => {
@@ -246,6 +250,15 @@ describe('the volunteer tab', () => {
     const counts = await screen.findByRole('group', { name: 'স্বেচ্ছাসেবকের হিসাব' });
     await user.click(within(counts).getByRole('button', { name: 'আরও অবস্থা' }));
     await user.click(await screen.findByRole('menuitem', { name: 'নিষ্ক্রিয় · 7' }));
+    await waitFor(() => expect(router.state.location.search).toBe('?category=inactive'));
+    await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('category')).toBe('inactive'));
+    expect(statUrls.at(-1)?.searchParams.get('category')).toBeNull();
+    // the card is not a filter of the panel: no count on the button, and clearing keeps it
+    await openFilters(user);
+    await user.click(await screen.findByRole('button', { name: /ধরন/ }));
+    await user.click(await screen.findByRole('option', { name: 'স্থানীয় দায়ী' }));
+    await waitFor(() => expect(router.state.location.search).toContain('type=local_daee'));
+    await user.click(screen.getByRole('button', { name: 'সব মুছুন' }));
     await waitFor(() => expect(router.state.location.search).toBe('?category=inactive'));
   });
 
