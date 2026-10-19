@@ -114,14 +114,15 @@
     overflow-wrap: anywhere;
   }
   @media (min-width: 1024px) {
+    /* two pairs share the width, so the labels take less of it than in one column */
     .ui-dl-two.ui-dl-sm {
-      grid-template-columns: 10rem minmax(0, 1fr) 10rem minmax(0, 1fr);
+      grid-template-columns: 8rem minmax(0, 1fr) 8rem minmax(0, 1fr);
     }
     .ui-dl-two.ui-dl-md {
-      grid-template-columns: 12rem minmax(0, 1fr) 12rem minmax(0, 1fr);
+      grid-template-columns: 9.5rem minmax(0, 1fr) 9.5rem minmax(0, 1fr);
     }
     .ui-dl-two.ui-dl-lg {
-      grid-template-columns: 14rem minmax(0, 1fr) 14rem minmax(0, 1fr);
+      grid-template-columns: 11rem minmax(0, 1fr) 11rem minmax(0, 1fr);
     }
   }
 

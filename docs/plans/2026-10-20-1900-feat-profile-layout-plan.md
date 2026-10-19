@@ -57,7 +57,7 @@ The owner's profile picture (chat, 2026-10-20: a pending volunteer with a green 
 - **Files:** `apps/web/src/admin/staff/StaffProfilePage.tsx` (new), `routes/index.tsx`, `StaffPage.tsx` (names link to the profile), `staff-api.ts`, i18n.
 - **Tests:** `staff.test.tsx`: the page with the existing APIs, edit and new link by role, a PM or RPM read-only; e2e: the head opens an official from the staff list.
 - **Depends on:** U1 · **Size:** M · **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U5. Documents and the final run
 - **Files:** `docs/ui/SCREENS.md` (SCR-043, SCR-045, SCR-063 and the new official profile), `docs/ui/DESIGN_SYSTEM.md`, `docs/STATUS.md`.

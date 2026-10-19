@@ -194,6 +194,12 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                   }),
                 },
                 {
+                  path: 'staff/:userId',
+                  lazy: async () => ({
+                    Component: (await import('../admin/staff/StaffProfilePage')).StaffProfilePage,
+                  }),
+                },
+                {
                   path: 'staff/organogram',
                   lazy: async () => ({
                     Component: (await import('../admin/staff/OrganogramPage')).OrganogramPage,

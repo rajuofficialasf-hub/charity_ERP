@@ -990,6 +990,27 @@
     },
     "stats": {
       "label": "Officials by affiliation"
+    },
+    "profile": {
+      "back": "All staff",
+      "not_found": "This official was not found.",
+      "actions_label": "Actions",
+      "edit": "Edit the profile",
+      "renew": "New password link",
+      "sections": {
+        "identity": "Identity",
+        "place": "Role and place",
+        "account": "Account",
+        "contact": "Contact",
+        "devices": "Devices"
+      },
+      "last_login": "Last sign-in",
+      "never": "Not signed in yet",
+      "state": "State",
+      "system_owner": "Main Admin",
+      "call": "Call",
+      "send_email": "Email",
+      "none": "Not given"
     }
   },
   "settings": {
