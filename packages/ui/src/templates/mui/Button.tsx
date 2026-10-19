@@ -64,8 +64,6 @@ const Root = styled(MuiButton, {
   '&:hover': {
     boxShadow: 'inset 0 0 0 999px rgba(15, 41, 32, 0.06)',
     ...(look === 'primary' && {
-      background:
-        'var(--color-brand-primary-dark) linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 100%)',
       boxShadow:
         'inset 0 0 0 999px rgba(15, 41, 32, 0.1), 0 2px 4px rgba(0, 123, 62, 0.24), 0 10px 22px rgba(0, 123, 62, 0.28)',
       transform: 'translateY(-1px)',
@@ -74,8 +72,6 @@ const Root = styled(MuiButton, {
       background: 'var(--color-bg-brand-soft)',
       boxShadow: 'var(--elevation-2)',
     }),
-    ...(look === 'ghost' && { background: 'transparent' }),
-    ...(look === 'danger' && { background: 'var(--color-status-danger)' }),
   },
   '&:active': {
     transform: 'translateY(0) scale(0.98)',

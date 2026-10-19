@@ -38,7 +38,9 @@ export function ProgressBar({
 }: ProgressBarProps) {
   const { messages, formatNumber } = useUi();
   const safeMax = max > 0 ? max : 1;
-  const percent = Math.round((Math.min(value, safeMax) / safeMax) * 100);
+  // the bar's value stays between zero and the maximum (a negative correction shows as empty)
+  const now = Math.min(Math.max(value, 0), safeMax);
+  const percent = Math.round((now / safeMax) * 100);
   const text = fill(messages.feedback.progressText, {
     value: formatNumber(value),
     max: formatNumber(max),
@@ -49,7 +51,7 @@ export function ProgressBar({
     <div
       role="progressbar"
       className={cx('ui-progress-block', className)}
-      aria-valuenow={Math.min(value, safeMax)}
+      aria-valuenow={now}
       aria-valuemin={0}
       aria-valuemax={safeMax}
       aria-valuetext={text}

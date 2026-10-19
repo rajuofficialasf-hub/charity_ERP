@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { bn, en } from '@css/shared/i18n';
+import { en } from '@css/shared/i18n';
 import { Bell } from 'lucide-react';
 import { describe, expect, it, vi } from 'vitest';
 import { UiProvider } from '../../provider/UiProvider.js';
@@ -64,24 +64,34 @@ describe('Breadcrumb', () => {
 });
 
 describe('ProgressBar', () => {
-  it('is a progressbar with its value as text, in English digits in both languages', async () => {
-    const { container } = renderWithUi(<ProgressBar label="Spent" value={1240} max={2000} />, {
-      locale: 'bn',
+  for (const locale of ['bn', 'en'] as const)
+    it(`is a progressbar with its value as text in English digits (${locale})`, async () => {
+      const { container } = renderWithUi(<ProgressBar label="Spent" value={1240} max={2000} />, {
+        locale,
+      });
+      const bar = screen.getByRole('progressbar', { name: 'Spent' });
+      expect(bar).toHaveAttribute('aria-valuenow', '1240');
+      expect(bar).toHaveAttribute('aria-valuemax', '2000');
+      const text = bar.getAttribute('aria-valuetext') ?? '';
+      expect(text).toMatch(/1,240/);
+      expect(text).toMatch(/62/);
+      expect(text).not.toMatch(/[০-৯]/);
+      await expectNoAxeViolations(container);
     });
-    const bar = screen.getByRole('progressbar', { name: 'Spent' });
-    expect(bar).toHaveAttribute('aria-valuenow', '1240');
-    expect(bar).toHaveAttribute('aria-valuemax', '2000');
-    expect(bar.getAttribute('aria-valuetext')).toMatch(/62/);
-    expect(bar.getAttribute('aria-valuetext')).not.toMatch(/[০-৯]/);
-    expect(bn.ui.feedback.progressText).toBeTruthy();
-    await expectNoAxeViolations(container);
-  });
 
-  it('never runs past its maximum', () => {
-    renderWithUi(<ProgressBar label="Quota" value={2500} max={2000} />);
+  it('stays between zero and its maximum', () => {
+    renderWithUi(
+      <>
+        <ProgressBar label="Quota" value={2500} max={2000} />
+        <ProgressBar label="Refund" value={-50} max={2000} />
+      </>,
+    );
     expect(screen.getByRole('progressbar', { name: 'Quota' })).toHaveAttribute(
       'aria-valuenow',
       '2000',
     );
+    const refund = screen.getByRole('progressbar', { name: 'Refund' });
+    expect(refund).toHaveAttribute('aria-valuenow', '0');
+    expect(refund.getAttribute('aria-valuetext')).toMatch(/\(0%\)|0%/);
   });
 });
