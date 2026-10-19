@@ -1,4 +1,4 @@
-import { Alert, Button, Form, PasswordField, TextField } from '@css/ui';
+import { Alert, Button, Form, PasswordField, Text, TextField } from '@css/ui';
 import { useTranslations } from 'use-intl';
 import { type FormEvent, useState } from 'react';
 import { PasswordRules } from '../../components/PasswordRules';
@@ -87,7 +87,7 @@ export function ResetForm() {
     return (
       <Form onSubmit={start} aria-label={t('title')}>
         <div className="auth-shell-stack">
-          <p className="m-0">{t('intro')}</p>
+          <Text>{t('intro')}</Text>
           <TextField
             label={tl('login_id')}
             name="loginId"

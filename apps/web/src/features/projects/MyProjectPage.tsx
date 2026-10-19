@@ -92,7 +92,7 @@ function ProjectFacts({ project: p }: { project: MyProjectDetail }) {
         ) : undefined
       }
     >
-      <p className="my-project-state">{tm('accepted')}</p>
+      <p>{tm('accepted')}</p>
       <dl className="my-project-facts">
         {facts.map(([label, value]) => (
           <div key={label}>

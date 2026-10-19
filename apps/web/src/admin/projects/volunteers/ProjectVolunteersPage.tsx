@@ -136,7 +136,7 @@ export function ProjectVolunteersPage() {
     { id: 'consent', header: t('column.consent'), cell: consent },
   ];
   const actions = (a: Assignment) => (
-    <span className="admin-row-actions">
+    <span>
       <Button variant="ghost" size="sm" icon={Pencil} iconOnly onPress={() => setChanging(a)}>
         {t('change', { name: a.displayName })}
       </Button>

@@ -123,7 +123,7 @@ export function Value({
       if (!link) return empty;
       // a link only when it passes the shared check; an older plain id stays text
       return isFacebookLink(link) ? (
-        <a href={link} target="_blank" rel="noopener noreferrer nofollow" className="profile-link">
+        <a href={link} target="_blank" rel="noopener noreferrer nofollow">
           {link}
         </a>
       ) : (

@@ -1,3 +1,4 @@
+import { Text } from '@css/ui';
 import { hasDigit, hasUppercase, PASSWORD_MIN_LENGTH, passwordLength } from '@css/shared/auth';
 import { formatCount } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
@@ -34,7 +35,7 @@ export function PasswordRules({
   ];
   return (
     <div id={id}>
-      <p className="m-0">{t('rules_title')}</p>
+      <Text>{t('rules_title')}</Text>
       <ul className="rule-list">
         {rules.map((rule) => (
           <li key={rule.key} data-met={rule.met}>

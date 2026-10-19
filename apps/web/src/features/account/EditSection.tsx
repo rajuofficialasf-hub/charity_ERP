@@ -1,4 +1,4 @@
-import { Alert, Button, Checkbox, Form, TextField } from '@css/ui';
+import { Alert, Button, Checkbox, Form, Text, TextField } from '@css/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'use-intl';
@@ -173,7 +173,7 @@ export function EditSection({
                       <div className="profile-editor">
                         {isPhoto(field) ? (
                           <>
-                            <p className="m-0">{t('profile.edit.photo_intro')}</p>
+                            <Text>{t('profile.edit.photo_intro')}</Text>
                             {errors[field] && <p className="profile-error">{errors[field]}</p>}
                           </>
                         ) : (
@@ -185,9 +185,7 @@ export function EditSection({
                               onChange={(value) => setValues((now) => ({ ...now, [field]: value }))}
                               error={errors[field]}
                             />
-                            {isContact(field) && (
-                              <p className="m-0">{t('profile.edit.code_intro')}</p>
-                            )}
+                            {isContact(field) && <Text>{t('profile.edit.code_intro')}</Text>}
                           </>
                         )}
                       </div>

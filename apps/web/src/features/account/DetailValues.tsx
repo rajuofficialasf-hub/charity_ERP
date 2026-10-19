@@ -18,7 +18,7 @@ const isProfession = (value: string | null): value is Profession =>
 
 function Lines({ lines }: { lines: string[] }) {
   return (
-    <div className="profile-lines">
+    <div>
       {lines.map((line, i) => (
         <div key={i}>{line}</div>
       ))}

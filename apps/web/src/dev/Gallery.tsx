@@ -32,6 +32,7 @@ import {
   FormGrid,
   FormSection,
   Icon,
+  MenuButton,
   Modal,
   NavItem,
   NumberField,
@@ -44,18 +45,19 @@ import {
   Select,
   Skeleton,
   Spinner,
+  Stack,
   StatCard,
-  StatusBadge,
   STATUS_STYLES,
+  StatusBadge,
+  type StatusKey,
   Table,
+  type TableColumn,
   TableToolbar,
-  MenuButton,
   Tabs,
+  Text,
   TextArea,
   TextField,
   Timeline,
-  type StatusKey,
-  type TableColumn,
   type UploadItem,
 } from '@css/ui';
 import {
@@ -74,6 +76,7 @@ import {
 import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { LanguageSwitch } from '../components/LanguageSwitch';
+import './gallery.css';
 
 // Sample data of the gallery (TEST_STRATEGY 4): fake numbers and fixed moments, formatted by the
 // central formatter so digits stay English in both languages (UX-05).
@@ -110,16 +113,20 @@ const SECTION_KEYS = ['type', 'button', 'badge', 'card', 'field', 'select', 'cho
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
     <section id={id} aria-labelledby={`${id}-title`}>
-      <h2 id={`${id}-title`} className="mb-3">
+      <h2 id={`${id}-title`} className="gallery-section-title">
         {title}
       </h2>
-      <div className="flex flex-col gap-4">{children}</div>
+      <Stack gap={4}>{children}</Stack>
     </section>
   );
 }
 
 function Row({ children }: { children: ReactNode }) {
-  return <div className="flex flex-wrap items-center gap-2">{children}</div>;
+  return (
+    <Stack direction="row" wrap align="center" gap={2}>
+      {children}
+    </Stack>
+  );
 }
 
 interface AppRow {
@@ -249,20 +256,20 @@ function GalleryBody() {
   const bulkRows = rows.slice(0, 2);
 
   return (
-    <main className="mx-auto max-w-content p-4 sm:p-5">
-      <header className="mb-5 flex flex-wrap items-end justify-between gap-4">
+    <main className="gallery">
+      <header className="gallery-head">
         <div>
           <h1>{t('title')}</h1>
-          <p className="text-text-secondary">{t('intro')}</p>
+          <p className="gallery-muted">{t('intro')}</p>
         </div>
-        <LanguageSwitch className="mb-0" />
+        <LanguageSwitch />
       </header>
 
-      <div className="flex flex-col gap-6">
+      <Stack gap={6}>
         <Section id="type" title={t('sections.type')}>
-          <p className="text-display font-bold">{t('type.display')}</p>
-          <p className="text-title font-bold">{t('type.title')}</p>
-          <p className="text-body">
+          <p className="gallery-display">{t('type.display')}</p>
+          <p className="gallery-title">{t('type.title')}</p>
+          <p className="gallery-body">
             {t('type.body', {
               name: t('sample.rahima'),
               village: t('sample.char_bagdanga'),
@@ -270,8 +277,8 @@ function GalleryBody() {
               amount: formatTaka(300000, locale),
             })}
           </p>
-          <p className="text-label font-bold">{t('type.label')}</p>
-          <p className="text-caption text-text-secondary">
+          <p className="gallery-label">{t('type.label')}</p>
+          <p className="gallery-caption">
             {t('type.caption', { datetime: formatDateTime(SAMPLE_MOMENT, locale) })}
           </p>
         </Section>
@@ -329,7 +336,7 @@ function GalleryBody() {
         </Section>
 
         <Section id="card" title={t('sections.card')}>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+          <div className="gallery-stats">
             <StatCard
               label={t('card.statApplications')}
               value={1840}
@@ -344,7 +351,7 @@ function GalleryBody() {
               prefix={TAKA_SIGN}
             />
           </div>
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="gallery-cols-2">
             <Card
               title={t('card.projectTitle')}
               subtitle={t('card.projectSub')}
@@ -358,7 +365,7 @@ function GalleryBody() {
                 {t('card.projectBody', { target: count(2000), date: formatDate('2026-12-01') })}
               </p>
             </Card>
-            <div className="flex flex-col gap-3">
+            <Stack gap={3}>
               <AttentionCard
                 tone="warning"
                 icon={Clock}
@@ -377,10 +384,10 @@ function GalleryBody() {
                   </Button>
                 }
               />
-            </div>
+            </Stack>
             <Card title={t('card.linked')} href="#card" />
             <Card accent>
-              <p className="mb-0">{t('card.accent')}</p>
+              <Text>{t('card.accent')}</Text>
             </Card>
             <StatCard label={t('card.statApproved')} value={0} loading />
           </div>
@@ -541,19 +548,13 @@ function GalleryBody() {
         </Section>
 
         <Section id="nav" title={t('sections.nav')}>
-          <div className="grid gap-4 lg:grid-cols-3">
-            <nav
-              aria-label={t('nav.sidebar')}
-              className="flex flex-col gap-1 rounded-lg bg-bg-surface p-2 shadow-1"
-            >
+          <div className="gallery-cols-3">
+            <nav aria-label={t('nav.sidebar')} className="gallery-panel gallery-sidebar">
               <NavItem icon={Home} label={t('nav.home')} href="#nav" active />
               <NavItem icon={ClipboardList} label={t('nav.review')} href="#table" badge={12} />
               <NavItem icon={Users} label={t('nav.people')} href="#nav" />
             </nav>
-            <nav
-              aria-label={t('nav.rail')}
-              className="flex w-[72px] flex-col gap-1 rounded-lg bg-bg-surface p-1 shadow-1"
-            >
+            <nav aria-label={t('nav.rail')} className="gallery-panel gallery-rail">
               <NavItem icon={Home} label={t('nav.home')} href="#nav" variant="rail" active />
               <NavItem
                 icon={ClipboardList}
@@ -563,10 +564,7 @@ function GalleryBody() {
                 badge={150}
               />
             </nav>
-            <nav
-              aria-label={t('nav.tabBar')}
-              className="grid grid-cols-5 rounded-lg bg-bg-surface shadow-1"
-            >
+            <nav aria-label={t('nav.tabBar')} className="gallery-panel gallery-tabbar">
               <NavItem icon={Home} label={t('nav.home')} href="#nav" variant="tab-bar" active />
               <NavItem
                 icon={ClipboardList}
@@ -588,7 +586,7 @@ function GalleryBody() {
         </Section>
 
         <Section id="row" title={t('sections.row')}>
-          <div className="rounded-lg bg-bg-surface px-4 shadow-1">
+          <div className="gallery-panel gallery-rows">
             <RowToggle
               control="switch"
               title={t('row.distribution')}
@@ -614,15 +612,15 @@ function GalleryBody() {
             rowKey={(r) => r.id}
             rowLabel={(r) => r.name}
             cardRenderer={(r) => (
-              <div className="flex flex-col gap-1">
-                <p className="m-0 font-bold">{r.name}</p>
-                <p className="m-0 text-caption text-text-secondary">
+              <Stack gap={1}>
+                <Text weight="bold">{r.name}</Text>
+                <Text className="gallery-caption">
                   <span className="ui-tnum">{r.number}</span> · {r.village}
-                </p>
+                </Text>
                 <div>
                   <StatusBadge status={r.status} label={statusLabel(r.status)} size="sm" />
                 </div>
-              </div>
+              </Stack>
             )}
             selectionMode="multiple"
             selectedKeys={selection}
@@ -658,7 +656,7 @@ function GalleryBody() {
               onLoadMore: () => {},
             }}
           />
-          <p className="text-caption text-text-secondary" data-testid="table-state">
+          <p className="gallery-caption" data-testid="table-state">
             {t('table.selected')}: {count(selection.size)}
             {opened && ` · ${t('table.openRow')}: ${opened}`}
           </p>
@@ -783,7 +781,7 @@ function GalleryBody() {
         </Section>
 
         <Section id="states" title={t('sections.states')}>
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="gallery-cols-3">
             <Card>
               <EmptyState
                 title={t('states.emptyTitle')}
@@ -858,9 +856,7 @@ function GalleryBody() {
                 onExpandedChange={i === 0 ? setExpanded : undefined}
               >
                 {i === 0 ? (
-                  <p className="m-0">
-                    {t('bulk.quantity', { blanket: count(1), shawl: count(1) })}
-                  </p>
+                  <Text>{t('bulk.quantity', { blanket: count(1), shawl: count(1) })}</Text>
                 ) : undefined}
               </BulkRow>
             ))}
@@ -868,7 +864,7 @@ function GalleryBody() {
         </Section>
 
         <Section id="timeline" title={t('sections.timeline')}>
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="gallery-cols-2">
             <Timeline
               label={t('timeline.label')}
               showActor
@@ -941,7 +937,7 @@ function GalleryBody() {
             <Icon icon={TriangleAlert} label={t('misc.icon')} />
           </Row>
         </Section>
-      </div>
+      </Stack>
     </main>
   );
 }

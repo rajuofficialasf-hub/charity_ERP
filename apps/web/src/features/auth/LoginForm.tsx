@@ -1,6 +1,6 @@
 import { formatCount } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Alert, Button, Form, PasswordField, TextField } from '@css/ui';
+import { Alert, Button, Form, PasswordField, Text, TextField } from '@css/ui';
 import { useNavigate } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { useLocaleSwitch } from '../../i18n/LocaleProvider';
@@ -100,7 +100,7 @@ export function LoginForm({ ended }: { ended?: string }) {
         <Button variant="ghost" href="/login/reset">
           {t('forgot')}
         </Button>
-        <p className="m-0">{tr('link_intro')}</p>
+        <Text>{tr('link_intro')}</Text>
         <Button variant="secondary" href="/register" fullWidth>
           {tr('link')}
         </Button>

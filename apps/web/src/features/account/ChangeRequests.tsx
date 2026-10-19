@@ -1,5 +1,5 @@
 import { PHOTO_SLOTS, type PhotoSlot } from '@css/shared/registration';
-import { Alert, Badge, Button, Card, Form, TextField } from '@css/ui';
+import { Alert, Badge, Button, Card, Form, Stack, Text, TextField } from '@css/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CircleCheck } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
@@ -58,7 +58,7 @@ export function Corrections({ requests }: { requests: ChangeRequest[] }) {
   if (!rows.length && !again.isSuccess) return null;
   const allAnswered = rows.every((r) => r.status === 'submitted');
   return (
-    <section aria-labelledby="corrections-title" className="flex flex-col gap-4">
+    <Stack gap={4} as="section" aria-labelledby="corrections-title">
       <h2 id="corrections-title">{t('title')}</h2>
       {again.isSuccess ? (
         <Alert tone="success" live="status">
@@ -66,7 +66,7 @@ export function Corrections({ requests }: { requests: ChangeRequest[] }) {
         </Alert>
       ) : (
         <>
-          <p className="m-0">{t('intro')}</p>
+          <Text>{t('intro')}</Text>
           {rows.map((row) => (
             <CorrectionRow key={row.id} row={row} onAnswered={refresh} />
           ))}
@@ -82,7 +82,7 @@ export function Corrections({ requests }: { requests: ChangeRequest[] }) {
           )}
         </>
       )}
-    </section>
+    </Stack>
   );
 }
 
@@ -104,14 +104,14 @@ function CorrectionRow({ row, onAnswered }: { row: ChangeRequest; onAnswered: ()
   return (
     <Card>
       <Form onSubmit={submit} aria-label={label}>
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-2">
+        <Stack gap={3}>
+          <Stack direction="row" align="center" gap={2}>
             <strong>{label}</strong>
             {answered && (
               <Badge tone="success" icon={CircleCheck} label={t('profile.corrections.answered')} />
             )}
-          </div>
-          {row.note && <p className="m-0">{t('profile.corrections.note', { note: row.note })}</p>}
+          </Stack>
+          {row.note && <Text>{t('profile.corrections.note', { note: row.note })}</Text>}
           {isPhoto(field) ? (
             <PhotoField
               label={label}
@@ -133,7 +133,7 @@ function CorrectionRow({ row, onAnswered }: { row: ChangeRequest; onAnswered: ()
               </Button>
             </>
           )}
-        </div>
+        </Stack>
       </Form>
     </Card>
   );
@@ -169,7 +169,7 @@ export function RequestState({
     );
   if (!isContact(field)) return null;
   return (
-    <div className="flex flex-col gap-3">
+    <Stack gap={3}>
       <TextField
         label={t('profile.edit.code')}
         name={`code-${row.id}`}
@@ -205,6 +205,6 @@ export function RequestState({
           {t('profile.edit.verify_code')}
         </Button>
       </div>
-    </div>
+    </Stack>
   );
 }

@@ -2,9 +2,9 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { brotliDecompressSync } from 'node:zlib';
-import { compile } from '@tailwindcss/node';
 import { describe, expect, it } from 'vitest';
 import { BREAKPOINTS } from '../breakpoints.js';
+import { createUiTheme } from '../templates/mui/theme.js';
 import { DESKTOP_TOKENS, ROOT_TOKENS } from '../tokens.js';
 
 const root = join(__dirname, '../..');
@@ -96,46 +96,12 @@ describe('tokens (DESIGN_SYSTEM 2.9)', () => {
       [...read(f).matchAll(/\((?:min|max)-width:\s*(\d+px)\)/g)].map((m) => m[1]!),
     );
     expect(widths.filter((w) => !edges.has(w))).toEqual([]);
-    const preset = read(join(root, 'src/styles/tailwind.css'));
-    for (const [name, px] of Object.entries(BREAKPOINTS))
-      expect(preset).toContain(`--breakpoint-${name}: ${px}px;`);
-  });
-});
-
-describe('Tailwind preset (D-066)', () => {
-  it('produces design-system utilities only', async () => {
-    const css = [
-      "@import 'tailwindcss/theme.css' layer(theme);",
-      "@import 'tailwindcss/utilities.css' layer(utilities);",
-      "@import './src/styles/tailwind.css';",
-    ].join('\n');
-    const compiler = await compile(css, { base: root, onDependency: () => {} });
-    const out = compiler.build([
-      'bg-brand-primary',
-      'text-text-secondary',
-      'p-5',
-      'gap-3',
-      'rounded-lg',
-      'shadow-2',
-      'text-display',
-      'lg:p-4',
-      // must not exist:
-      'bg-red-500',
-      'p-7',
-      'md:p-1',
-      'tracking-wide',
-      'text-xl',
-      'shadow-xl',
-    ]);
-    expect(out).toContain('background-color: var(--color-brand-primary)');
-    expect(out).toContain('padding: var(--space-5)');
-    expect(out).toContain('--tw-shadow: var(--elevation-2)');
-    expect(out).toContain('font-size: var(--text-display)');
-    expect(out).toContain('@media (width >= 1024px)');
-    for (const absent of ['bg-red-500', 'p-7', 'md\\:p-1', 'tracking-wide', 'text-xl', 'shadow-xl'])
-      expect(out).not.toContain(`.${absent} `);
-    // No theme variables are emitted: every value lives once, in tokens.css.
-    expect(out).not.toMatch(/--color-brand-primary:/);
+    // the MUI theme names the same widths sm, md and lg
+    expect(createUiTheme().breakpoints.values).toMatchObject({
+      sm: BREAKPOINTS.sm,
+      md: BREAKPOINTS.lg,
+      lg: BREAKPOINTS.xl,
+    });
   });
 });
 

@@ -1,7 +1,7 @@
 import type { Me } from '@css/shared/auth';
 import { formatCount, formatDate, formatDateTime } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import { Badge, Button, Card, ErrorState, Icon, type IconComponent, StatCard } from '@css/ui';
+import { Badge, Button, Card, ErrorState, Icon, type IconComponent, StatCard, Text } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import {
   Bell,
@@ -178,12 +178,12 @@ function Templates() {
     >
       <Loaded query={list} empty="" isEmpty={() => false}>
         {(active) => (
-          <p className="m-0">
+          <Text>
             {t('templates_count', {
               n: active.length,
               count: formatCount(active.length, locale),
             })}
-          </p>
+          </Text>
         )}
       </Loaded>
     </Card>

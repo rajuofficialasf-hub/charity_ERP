@@ -1,7 +1,13 @@
 /*
- * Global styles: Tailwind (layout utilities bound to the design tokens, D-066), then the design
- * system (tokens, fonts, base and component styles from packages/ui).
+ * Global styles: the design system (tokens, fonts, the element reset and defaults, and the
+ * component styles from packages/ui), then the few classes the whole app shares.
  */
-@import 'tailwindcss';
-@import '@css/ui/tailwind.css';
 @import '@css/ui/styles.css';
+
+/* The whole screen while the session is restored: the spinner in its middle. */
+.app-loading {
+  display: flex;
+  min-height: 100dvh;
+  align-items: center;
+  justify-content: center;
+}

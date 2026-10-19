@@ -1,5 +1,5 @@
 import type { RegistrationChannel, RegistrationKind } from '@css/shared/registration';
-import { Alert, Badge, Button, PhoneField, Spinner, TextField } from '@css/ui';
+import { Alert, Badge, Button, PhoneField, Spinner, Text, TextField } from '@css/ui';
 import { BadgeCheck, Hand } from 'lucide-react';
 import { useTranslations } from 'use-intl';
 import { EMAIL, MOBILE, type RegistrationValues } from './form-state';
@@ -124,8 +124,8 @@ export function ContactStep({
           </span>
           <div>
             <p className="register-notice-title">{t('verify.notice_title')}</p>
-            <p className="m-0">{t('verify.notice')}</p>
-            {DUMMY_OTP_NOTE && <p className="register-muted m-0">{t('dummy_note')}</p>}
+            <Text>{t('verify.notice')}</Text>
+            {DUMMY_OTP_NOTE && <Text className="register-muted">{t('dummy_note')}</Text>}
           </div>
         </div>
       )}

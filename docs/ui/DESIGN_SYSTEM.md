@@ -19,7 +19,7 @@ Sources and precedence: the owner's latest instruction, then `docs/ui/DESIGN_BRI
 
 ## 2. Tokens
 
-All tokens are CSS custom properties on `:root`, defined once in `packages/ui` (T1.4) and bound to Tailwind's theme. Components use semantic tokens only, never raw hex values, so a brand change or a future dark theme is a token change (§11).
+All tokens are CSS custom properties on `:root`, defined once in `packages/ui` (T1.4) and read by the MUI theme of the component set (D-103). Components use semantic tokens only, never raw hex values, so a brand change or a future dark theme is a token change (§11).
 
 ### 2.1 Colour
 
@@ -178,7 +178,7 @@ Movement uses only `transform` and `opacity`. Colour and shadow transitions run 
 | lg (desktop) | 1024 px and up | Fixed sidebar, dense tables, split view |
 | xl | 1280 px and up | Dashboard content max 1280 px; the split-view detail panel widens to 480 px only from 1440 px (O-41) |
 
-CSS custom properties cannot be used inside media queries, so the breakpoints are also written into the Tailwind configuration (`sm: 640px`, `lg: 1024px`, `xl: 1280px`) from the same constants file in `packages/ui`. The minimum supported width is 360 px.
+CSS custom properties cannot be used inside media queries, so the breakpoints are also written into the component CSS and the MUI theme (`sm: 640px`, `md: 1024px`, `lg: 1280px` in MUI's names) from the same constants file in `packages/ui`; a test keeps them equal. The minimum supported width is 360 px.
 
 | Size | Phone | Desktop |
 |---|---|---|
@@ -372,7 +372,7 @@ The management screens and admin settings live under `/admin` (`apps/web/src/adm
 
 ## 5. Component inventory
 
-Every base component of constitution §12, built once in `packages/ui` (T1.4) and reused everywhere. Each component accepts `className` only for layout (margin, grid placement), never to change its colours or typography. All visible text comes from i18n keys. Accessibility behaviour follows the WAI-ARIA Authoring Practices pattern named; the headless primitive library is React Aria Components (D-064, ADR-012). The components' own texts ("required", "close", pager words) come from the app through `UiProvider` (`UiMessages`); `packages/ui` ships no text.
+Every base component of constitution §12, built once in `packages/ui` (T1.4) and reused everywhere. Each component accepts `className` only for layout (margin, grid placement), never to change its colours or typography. All visible text comes from i18n keys. Accessibility behaviour follows the WAI-ARIA Authoring Practices pattern named. Since D-103 (ADR-015) the components that need behaviour (button, select, combobox, date field, dialogs, drawer, menu, tabs, table) are built on MUI core inside the set's template folder `packages/ui/src/templates/mui/`; the text fields, checkboxes, radios, switch, segmented control, form and file upload are native elements, and the display components are semantic markup. Pages lay out with the set's `Stack`, `Grid`, `DescriptionList` and `Text` or their own CSS on the tokens; there are no utility classes. The components' own texts ("required", "close", pager words) come from the app through `UiProvider` (`UiMessages`); `packages/ui` ships no text.
 
 **Premium finish (UX-14).** Every component below follows the same finish, implemented in the refreshed mockups (`docs/ui/mockups/components.css`):
 - **Surfaces:** cards, tables, attention items and panels use `--elevation-1` with `--border-subtle`; clickable cards lift 2 px with `--elevation-hover` on hover; stat cards carry the `--gradient-accent-line` top line and a 24 px (phone) / 28 px (desktop) value in brand ink.
@@ -405,7 +405,7 @@ Supporting pieces used by several components: **Icon** (Lucide, 20 px default, 1
 - **secondary:** fill `--color-bg-muted`, text `--color-brand-primary-dark`, 1 px `--color-brand-primary-dark` border (the website's soft button with the accessible green).
 - **ghost:** no fill, text `--color-brand-primary-dark`; for tertiary actions and table row actions.
 - **danger:** fill `--color-status-danger`, white text (5.44:1); only for destructive or rejecting actions and always followed by a Confirm dialog.
-- States: hover, focus (`--focus-ring`), pressed, disabled (fill `--color-bg-muted`, text `--color-text-secondary`, no pointer events; a tooltip explaining why arrives with the Tooltip component when a screen needs it), loading (spinner replaces the start icon, label stays, clicks ignored; React Aria keeps the button focusable, marks it `aria-disabled` and announces the pending state instead of `aria-busy`, T1.4).
+- States: hover, focus (`--focus-ring`), pressed, disabled (fill `--color-bg-muted`, text `--color-text-secondary`, no pointer events; a tooltip explaining why arrives with the Tooltip component when a screen needs it), loading (spinner replaces the start icon, label stays, clicks ignored; the button stays focusable, is marked `aria-disabled` and announces the pending state with `aria-busy`).
 - On status tints (alerts, offline banner) a ghost button uses ink with an underline, because dark green reaches only 4.49:1 on the danger tint (found by axe in T1.4).
 - Accessibility: native `<button>`; links that navigate are `<a>` styled as buttons. Icon-only buttons need `aria-label` and a tooltip. One primary button per region.
 - Do not: put two primary buttons side by side; use amber or status colours other than danger; use a button for navigation between pages.
@@ -478,7 +478,7 @@ Control types:
 - **Text** (`text`, `long_text` with auto-growing textarea, `email`, `phone` with `inputmode="tel"`, `nid` with `inputmode="numeric"` and length hint 10/13/17).
 - **Number** (`number`, `decimal`, `money` with ৳ prefix): `inputmode="numeric"` or `"decimal"`, English digits only, Bengali digits typed by a user are converted on input by the formatting utility.
 - **Select** (single, with search when more than 10 options; multi-select as a checkbox list in a sheet on phones); **Radio** group; **Checkbox** group; the "অন্যান্য" (other) option opens a text input inside the same field (BD-14).
-- **Date / time / datetime**: the React Aria date picker at every size (O-55): segments typed with the numeric keypad and shown as dd-mm-yyyy with English digits; the calendar opens as a popover on desktop and as a bottom sheet on phones. Native date inputs are not used because they show the phone's own format.
+- **Date / time / datetime**: MUI's date picker at every size (O-55, D-103): day, month and year parts typed with the numeric keypad and shown as dd-mm-yyyy with English digits; the calendar opens below the field on desktop and as a bottom sheet on phones; a date outside the allowed range is marked invalid. Native date inputs are not used because they show the phone's own format.
 - **File**: see File upload (§5.12).
 - **Address**: the Bangladesh address cascade (division, district, upazila, union; no ward, O-09) as chained selects from the cached locations master; each select is disabled until its parent is chosen.
 
@@ -626,7 +626,7 @@ Props: `steps` (state or stage name, actor, time, comment, status `done`, `curre
 
 **Stepper (UX-16):** the steps of a form split into small parts: numbered dots joined by a line, done steps with a check, the current one with the brand ring and `aria-current="step"`; the names show from 640 px, on phones the form's section title names the step while each name stays in the accessibility tree (visually hidden, never `display: none`), so a step button keeps its name for a screen reader (found by the T1.16 axe sweep). Props `steps`, `current`, `label`. A wizard (UX-20) adds `marks` (per step `complete`, `missing` or none; a missing step shows a warning sign in the status warning colour and the hidden words of `missingLabel`, never colour alone) and `onSelect` (each step becomes a button of at least 44 px height that opens it); on phones the gaps shrink so eight dots fit 360 px. The wizard's action bar under the step (Back, save and exit, the main action) stays in view at the bottom and fills the width on phones.
 
-**Segmented control (UX-19):** a compact pill of two or three options built on a React Aria radio group (arrow keys select, one tab stop), the selected option raised in `--color-brand-primary-dark`; props `label`, `options` (`id`, `label`, optional `lang`), `value`, `onChange`. Used for the language toggle. `TopBar` (apps/web) is the slim bar above the pages without a sidebar, with the system name at the start and the toggle at the end; in the admin area the toggle ends the sidebar.
+**Segmented control (UX-19):** a compact pill of two or three options built on native radio buttons (arrow keys select, one tab stop), the selected option raised in `--color-brand-primary-dark`; props `label`, `options` (`id`, `label`, optional `lang`), `value`, `onChange`. Used for the language toggle. `TopBar` (apps/web) is the slim bar above the pages without a sidebar, with the system name at the start and the toggle at the end; in the admin area the toggle ends the sidebar.
 
 **Page band (UX-16):** the green title band at the head of a public page's card: the h1 and one short line in white on `--color-brand-primary-dark` (4.5:1 for small text), optional controls such as a segmented choice. Used by the registration.
 
@@ -781,11 +781,11 @@ Light theme only for now (DESIGN_BRIEF §2 item 3). The system is ready for a da
 
 - **T0.19b mockups:** `docs/ui/mockups/tokens.css` copies §2.9 exactly; `components.css` implements §5 including the UX-14 premium finish (refreshed 2026-10-11); Lucide SVGs and the font files are copied locally; nothing loads from the internet at view time.
 - **T1.4 packages/ui (done 2026-10-11):**
-  - Tokens: `src/styles/tokens.css` equals §2.9 (a test compares them); `src/breakpoints.ts` holds the breakpoints; `@css/ui/tailwind.css` is the Tailwind 4 preset (D-066): utilities resolve to the token variables, Tailwind's default palette, spacing, type scale, shadows, radii and letter spacing are removed, so `p-5` is `--space-5` (24 px) and `bg-red-500` does not exist.
-  - Styles: `@css/ui/styles.css` (tokens, fonts, base layer, one CSS file per component in `@layer components`, `ui-` class prefix), ported from the approved `docs/ui/mockups/components.css`; components style React Aria state attributes (`data-hovered`, `data-pressed`, `data-focus-visible`, `data-selected`).
+  - Tokens: `src/styles/tokens.css` equals §2.9 (a test compares them); `src/breakpoints.ts` holds the breakpoints. The Tailwind 4 preset of D-066 was removed with D-103: the set's base layer carries the element reset the pages relied on, and its `Stack`, `Grid`, `DescriptionList` and `Text` replace the layout utilities.
+  - Styles: `@css/ui/styles.css` (tokens, fonts, base layer, one CSS file per component in `@layer components`, `ui-` class prefix), ported from the approved `docs/ui/mockups/components.css`; components style native states (`:hover`, `:focus-visible`, `aria-current`, `aria-selected`), the data attributes the set's own components set (`data-selected`, `data-invalid`) and MUI's state classes (`Mui-selected`, `Mui-focusVisible`); MUI's styles live in the `mui` cascade layer, between the base layer and the set's components.
   - Components: Button, Badge and StatusBadge, Card, StatCard, AttentionCard, TextField (text, email, NID), TextArea, NumberField (integer, decimal, money), PhoneField, Select, Combobox, DateField, Checkbox, CheckboxGroup, RadioGroup, FileUpload, Form, FormSection, FormGrid, FormActions, ErrorSummary, NavItem, RowToggle and Switch, Table and TableToolbar, Modal, Drawer, ConfirmDialog, Alert, Tabs, Breadcrumb, EmptyState, Skeleton, ErrorState, OfflineBanner, BulkList and BulkRow, Timeline, ProgressBar; supporting Icon, Avatar, Spinner. Each has RTL, keyboard and axe tests in both languages.
   - Gallery: `/dev/components` in `apps/web` (dev and E2E builds only) shows every component in bn and en; Playwright checks it at 360×640 and 1280×800 with axe including colour contrast.
-  - Deviations from the mockups and gaps: listed in `docs/ui/mockups/README.md` ("T1.4 implementation deviations"). React Aria has no Bengali strings; where a component has no prop for one of its built-in screen-reader texts, the English text is read in the Bengali interface.
+  - Deviations from the mockups and gaps: listed in `docs/ui/mockups/README.md` ("T1.4 implementation deviations"). Every screen-reader text of the set, MUI's date picker included, comes from the set's messages in both languages.
   - Not in T1.4: app shell, hero header, toast, photo tile, sticky action bar and tooltip (page-level or later tasks: T1.15, T2.7, T3.1).
 - **T1.5 (done 2026-10-11):** the formatter `@css/shared/format` (I18N.md §6); the components' texts (`UiMessages`) come from the `ui` namespace of the catalogue and the number formatter from `formatCount`, both passed to `UiProvider` by `apps/web`.
 - **T1.15:** app shell and My Work homes per SCREENS.md.
