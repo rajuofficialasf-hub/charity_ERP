@@ -78,6 +78,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 | SCR-073 | System health | parity | Head, Monitoring | 1 · T1.13 (D-098) |
 | SCR-074 | Notification texts: list, preview in bn and en, edit as a new version | parity | Head, Monitoring | 1 · T1.14 (D-099) |
 | SCR-075 | Message deliveries | parity | Head, Monitoring | 1 · T1.14 (D-099) |
+| SCR-076 | Official profile | parity | Head, Monitoring (writes); PM, RPM (read) | 1 · UX-22 |
 | SCR-070 | Issue log | parity | Paid Volunteer, Procurement, RPM, Executive, PM | 4 · T4.1 |
 | SCR-071 | Donor list | parity | PM, RPM, Executive | 4 · T4.4 |
 | SCR-072 | Document register | parity | officials | after 6 · T6.1: T5.4 (built last, O-34) |
@@ -835,6 +836,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 
 ### SCR-043 Volunteer profile
 
+- **Layout (UX-22, 2026-10-20).** The one profile layout, merged from the owner's picture and the earlier page: a breadcrumb; a header card on the brand's soft green with the photo or the initial, the name, the state as badges and the key facts as chips with copy buttons (only values the caller sees; a hidden value is never a chip); the documents beside the facts (photo, NID front and back for those who see them), each opened larger in a dialog; an action panel beside the card on a desktop and under it on a phone (every button with its words); tabs kept in the address: তথ্য (section cards that open and close: ব্যক্তিগত তথ্য, ঠিকানা, শিক্ষা ও দক্ষতা, পেশা ও কাজ, ব্যাংকের তথ্য closed at first; beside them যোগাযোগ with call, email, WhatsApp and Facebook links and নিবন্ধনের ইতিহাস as a timeline), ডকুমেন্ট, কাজ ও প্রজেক্ট (projects, team, work summary, ratings), ইতিহাস (the timeline and the blocklist) and ডিভাইস (with `session.revoke_user`). A pending registration the caller decides on opens in the same layout with অনুমোদন, সংশোধনের অনুরোধ and প্রত্যাখ্যান in the action panel and its corrections in the history; if the registration cannot be read, the profile still shows with the error and a retry above it. Plan `docs/plans/2026-10-20-1900-feat-profile-layout-plan.md`.
 - **Purpose.** Everything about one volunteer (constitution §12 key screen): data, projects and permissions, team, work summary, ratings and categories, animal allocation, blocklist and transfer.
 - **T1.10.** Built in T1.10 (O-67, D-094): `/admin/volunteers/:volunteerId` (a pending volunteer the caller decides on opens as the registration review, which stays open with approval held back while a correction is open) with the sections identity, address, education, profession and skills, projects and permission sets, team (name, type and state of each member), work summary placeholder, ratings and category, blocklist, device sessions. NID, NID photos, date of birth, blood group and bank appear only inside the caller's `volunteer.view_sensitive` scope. Each action button (approve, request correction, block, unblock, revoke a session) appears only when the server says the caller may do it to this volunteer.
 - **Roles.** Officials. Sensitive parts follow the field classes.
@@ -914,6 +916,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 
 ### SCR-045 Beneficiary 360 profile and merge
 
+- **Layout (UX-22, 2026-10-20).** The one profile layout, merged from the owner's picture and the earlier page: a breadcrumb; a header card on the brand's soft green with the photo or the initial, the name, the state as badges and the key facts as chips with copy buttons (only values the caller sees; a hidden value is never a chip); an action panel beside the card on a desktop and under it on a phone (every button with its words); one page without tabs, since the 360° view shows everything at once: the section cards on the left (মূল তথ্য, ঠিকানা, পরিবার, আবেদনের ইতিহাস, বিতরণ ও বাস্তবায়ন, দাওয়াহ, ফলো-আপ) and যোগাযোগ, বছরভিত্তিক প্রজেক্ট and কার্যক্রমের ইতিহাস as a timeline on the right; no action panel yet. Plan `docs/plans/2026-10-20-1900-feat-profile-layout-plan.md`.
 - **Purpose.** One beneficiary's full history (blueprint A7 "profile 360"). It covers identity, family, all applications across years, assistance received, photos, follow-ups, media consent, blocklist and status. It also hosts the merge flow for duplicates (BD-05).
 - **T1.10.** A shell is built in T1.10 (O-67): `/admin/beneficiaries/:beneficiaryId` with the sections basic data and address, projects by year, application history, distribution and implementation, dawah, follow-ups and activity history, each with real data where it exists and an empty state otherwise. Merge and corrections stay in T2.2.
 - **Roles.** Officials. Merge by PM, Monitoring Team and Department Head. The RPM may propose a merge. Only the Monitoring Team reverts one.
@@ -1009,7 +1012,20 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Actions.** "নতুন অফিসিয়াল" in two steps with a step indicator (1 পরিচয় ও যোগাযোগ: job ID, name, designation, email, mobile, checked before the second step opens; 2 ভূমিকা ও অবস্থান: role without the Department Head role, affiliation and unit, program, division, supervisor), two columns from 640 px, a bottom sheet on a phone; the profile edit uses the same steps without email, mobile and role; after saving, the link dialog shows once whether the email went out and the link with "লিঙ্ক কপি করুন"; per row the profile edit (with the version read when it opened) and, while no password is set, "নতুন লিঙ্ক" with an optional corrected email; "অর্গানোগ্রাম" opens SCR-064.
 - **States.** Loading, empty per filter, error with retry; server messages per field (`user.job_id_taken`, `user.supervisor_invalid`, …).
 - **Components.** Tabs, Table with TableToolbar, Badge, Modal, TextField, Select, RadioGroup, UserSearch, Alert.
-- **Built.** `apps/web/src/admin/staff/StaffPage.tsx`, `OfficialDialog.tsx`, `LinkDialog.tsx`, `RenewLinkDialog.tsx`; tests `staff.test.tsx`, `apps/web/e2e/staff-accounts.spec.ts`.
+- **Built.** `apps/web/src/admin/staff/StaffPage.tsx`, `OfficialDialog.tsx`, `LinkDialog.tsx`, `RenewLinkDialog.tsx`; tests `staff.test.tsx`, `apps/web/e2e/staff-accounts.spec.ts`. The names in the list open SCR-076.
+
+### SCR-076 Official profile
+
+- **Purpose.** One official at a glance (UX-22): who they are, where they sit, their account and devices.
+- **Route.** `/admin/staff/:userId`, from the names of SCR-063 and the supervisor link of another profile.
+- **Roles.** Read: as SCR-063 (`permission.view`). Edit the profile: `user.profile.manage`; a new set-password link: `user.create` (both global roles only); devices: `session.revoke_user`.
+- **Priority.** parity.
+- - **Layout (UX-22, 2026-10-20).** The one profile layout, merged from the owner's picture and the earlier page: a breadcrumb; a header card on the brand's soft green with the photo or the initial, the name, the state as badges and the key facts as chips with copy buttons (only values the caller sees; a hidden value is never a chip); an action panel beside the card on a desktop and under it on a phone (every button with its words); the section cards পরিচয় (name, Job ID, designation, mobile, email), ভূমিকা ও অবস্থান (affiliation and unit, program, division, the supervisor as a link, roles) and অ্যাকাউন্ট (state, last sign-in) on the left, যোগাযোগ and ডিভাইস on the right. Plan `docs/plans/2026-10-20-1900-feat-profile-layout-plan.md`.
+- **Data.** The existing `GET /users/{userId}` (with the mobile, the email and the last sign-in), the program and role lists, `GET /users/{userId}/sessions`; no new API.
+- **Actions.** প্রোফাইল সম্পাদনা (the edit dialog of SCR-063); নতুন পাসওয়ার্ড লিঙ্ক while the password is not set; ending a device session.
+- **States.** Loading, not found, error with retry; a role that only reads sees no action panel.
+- **Components.** Breadcrumb, ProfileHeader, ProfileSection, DescriptionList (two columns), ContactList, CopyButton, Badge, Modal.
+- **Built.** `apps/web/src/admin/staff/StaffProfilePage.tsx`; tests `staff.test.tsx`, `apps/web/e2e/staff-accounts.spec.ts`.
 
 ### SCR-064 Organogram
 
