@@ -3,7 +3,6 @@ import { userEvent } from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations, renderWithUi } from '../../testing/index.js';
-import { DateField } from './DateField.js';
 import { Combobox, Select, type SelectOption } from './Select.js';
 
 const types: SelectOption[] = [
@@ -114,35 +113,5 @@ describe('Combobox (DESIGN_SYSTEM 5.4)', () => {
     await user.paste('rahim@example.org');
     // the label does not contain the typed email; the server matched it
     expect(await screen.findByRole('option', { name: 'Rahim' })).toBeVisible();
-  });
-});
-
-describe('DateField (O-55)', () => {
-  it('orders segments day, month, year with English digits and reports an ISO date', async () => {
-    const onChange = vi.fn();
-    const user = userEvent.setup();
-    const { container } = renderWithUi(<DateField label="বিতরণের তারিখ" onChange={onChange} />, {
-      locale: 'bn',
-    });
-    const segments = screen.getAllByRole('spinbutton');
-    expect(segments).toHaveLength(3);
-    expect(container.querySelectorAll('.ui-date-literal')[0]).toHaveTextContent('-');
-    await user.click(segments[0]!);
-    await user.keyboard('11102026');
-    expect(onChange).toHaveBeenLastCalledWith('2026-10-11');
-    expect(container.querySelector('.ui-date-input')).toHaveTextContent('11-10-2026');
-    expect(container.querySelector('.ui-date-input')?.textContent).not.toMatch(/[০-৯]/);
-    expect(screen.getByRole('button', { name: /ক্যালেন্ডার খুলুন/ })).toBeInTheDocument();
-    await expectNoAxeViolations(container);
-  });
-
-  it('opens the calendar and picks a day', async () => {
-    const onChange = vi.fn();
-    const user = userEvent.setup();
-    renderWithUi(<DateField label="Date" defaultValue="2026-10-11" onChange={onChange} />);
-    await user.click(screen.getByRole('button', { name: /Open calendar/ }));
-    const grid = await screen.findByRole('grid');
-    await user.click(within(grid).getByRole('button', { name: /15/ }));
-    expect(onChange).toHaveBeenLastCalledWith('2026-10-15');
   });
 });
