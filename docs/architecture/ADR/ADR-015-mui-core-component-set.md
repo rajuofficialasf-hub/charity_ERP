@@ -30,6 +30,18 @@ Positive: the app follows the organization's UI standard; other teams' MUI knowl
 
 Negative: MUI and Emotion add JavaScript to the eager login route, so the first-route budget of 250 KB (NFR-15) is measured from the first migration step on; MUI core has no grid keyboard model for tables, so the set implements it; the migration touches every component and, for Tailwind, many page files.
 
+## How it was built (2026-10-19 to 2026-10-20)
+
+Choices made while building, recorded with the plan `docs/plans/2026-10-19-0912-refactor-mui-core-ui-plan.md`:
+
+- MUI is used where it brings behaviour: Button, Select (a button that opens MUI's popover with a list box), Combobox (Autocomplete around the set's own input), DateField (MUI X `DesktopDatePicker` or `MobileDatePicker` chosen by width, a bottom sheet on phones, dayjs `bn` and `en-gb` for the names with English digits), Modal and ConfirmDialog (MUI's dialog, `role="alertdialog"` for the confirmation), Drawer, MenuButton (MUI's menu, links through the router), Tabs (MUI's tabs with the set's own panel) and the Table (MUI's table with the set's own `grid` keyboard model and one tab stop).
+- The text fields, checkboxes, radios, switch, segmented control, form and file upload are native elements, and the display components without behaviour (alerts, badges, cards, states, timeline and the like) and the layout pieces `Stack`, `Grid`, `DescriptionList` and `Text` are semantic markup on the tokens: MUI would add weight to the eager login route and per-instance style work without adding behaviour. A Minimal template can still replace any of them through the contract.
+- MUI's Emotion styles are written into the `mui` cascade layer (`StyledEngineProvider enableCssLayer`), declared in `apps/web/index.html` between the set's `base` and `components` layers, so the set's component CSS and the pages' CSS win over MUI's defaults.
+- Lists, calendars and menus render inside the dialog their control sits in (`packages/ui/src/templates/mui/portal.ts`), so a modal never hides them from assistive technology.
+- Tailwind's preflight reset was part of the look, so the set's base layer carries the same element reset; a computed-style capture of 27 screens on the phone and desktop projects matched element by element before and after the removal.
+- The app loads only the device language's message catalogue at start (D-104), which made room for MUI within the 250 KB budget: the first route ends at 212.1 KB, from 216.6 KB before the work.
+- Guards: a lint rule keeps MUI, Emotion and React Aria inside `packages/ui/src/templates/` (`apps/web/test/template-boundary.test.ts` proves it), and `apps/web/test/class-names.test.ts` fails on a class name no stylesheet the page loads defines.
+
 ## Related
 
 D-103, D-064, D-066, UX-15, ADR-012, ae-standards `react.md` (RE-UI-01 to RE-UI-05), DESIGN_SYSTEM.
