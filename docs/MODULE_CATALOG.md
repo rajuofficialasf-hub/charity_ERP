@@ -1,6 +1,6 @@
 # MODULE CATALOG
 
-Status: complete first draft, task T0.1 (2026-10-10). Sources: blueprint B1 (ten core modules), Part A chapters, constitution §4 (scope), §8 (phases), `docs/MASTER_SPEC.md`, `docs/PLAN.md` §4 (task ids). "Needs decision" entries point to the numbered open questions in `docs/DECISION_LOG.md` (section "Open").
+Status: complete first draft, task T0.1 (2026-10-10); a "Phase 1 status" line per module built in Phase 1 added at the Phase 1 gate (2026-10-20). Sources: blueprint B1 (ten core modules), Part A chapters, constitution §4 (scope), §8 (phases), `docs/MASTER_SPEC.md`, `docs/PLAN.md` §4 (task ids). "Needs decision" entries point to the numbered open questions in `docs/DECISION_LOG.md` (section "Open").
 
 ## 1. Blueprint core modules (B1) and how this catalogue maps to them
 
@@ -27,10 +27,11 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 ### M01 Auth & Sessions
 - Purpose: login with mobile/email and password, OTP for registration (dummy in dev/test), device sessions, revocation for lost phones, lockout, session refresh on role change.
 - Primary users: everyone.
-- Key entities: users, device_sessions, otp_codes (dev dummy), password resets.
+- Key entities: users, device_sessions, otp_codes (dev dummy), account_invitations (the set-password link of an official, D-097), password resets.
 - Depends on: M02, M17 (OTP delivery), M21 (settings).
 - B1: shared service. Phase: 1. Blueprint: A5 (OTP), B8 (session and login), B10 (account security). Tasks: T0.9, T1.7.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 5 (password rules, token lifetimes, lockout, OTP at login).
+- Phase 1 status: built (T1.7, T1.9, D-097, T1.13). Login by mobile, email or job ID with Argon2id and lockout, rotating refresh tokens bound to device sessions (five devices, 180-day limit), CSRF, password reset and the forced password change (BR-249), the dummy OTP guarded against production, the set-password link of a new official (BR-262), lost-phone revocation and the list of active sessions. Open: the real SMS gateway (O-33) before production.
 
 ### M02 Users, Roles & Permissions
 - Purpose: roles, permission names, data scopes (GLOBAL … SELF), permission = role × scope, project-level permission sets, permission panel with full audit, field-level protection rules.
@@ -39,22 +40,25 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Depends on: M01, M15, M06 (project assignments).
 - B1: shared service (B4). Phase: 1. Blueprint: A4 (both matrices, permission panel), B4, B8 (field-level). Tasks: T0.10, T1.8.
 - Needs decision: none beyond permissions.yaml authoring (T0.10).
+- Phase 1 status: built (T1.8, D-097). The permissions.yaml registry checked at start, effective grants (global roles, role defaults, project permission sets, RPM extras, panel overrides with revoke and expiry), scope filters with 404 outside the scope, the response field mask, the permission panel and the project grants, the generated authorization matrix; officials created by the admin with a profile, supervisor and organogram, and state changes with the Main Admin protection. Open: the application-level scopes follow with M08.
 
 ### M03 Registration & Approval
 - Purpose: staff and volunteer registration forms, two-OTP verification, pending state in the volunteer tab, field-level correction requests, approval and activation, profile edit requests, staff handover before deactivation.
 - Primary users: volunteers (self-registration), Department Head/Monitoring Team (staff), Project Executive/RPM/PM/Monitoring/Head (volunteer approval).
-- Key entities: users (state pending/active/blocked/deactivated), volunteers, volunteer_change_requests (registration corrections and profile edits), otp_codes, handovers.
+- Key entities: users (state pending/active/blocked/deactivated), volunteers, registration_drafts (a registration between the first code and the submit), volunteer_change_requests (registration corrections and profile edits), otp_codes, handovers.
 - Depends on: M01, M02, M18 (photo, NID photo), M17, M19.
 - B1: 3 Volunteer. Phase: 1. Blueprint: A5 (registration, verification and approval, profile rules, staff exit and handover), Q-19, Q-42; BD-08, BD-44. Tasks: T1.9.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 20 (volunteer NID uniqueness, volunteer also a beneficiary).
+- Phase 1 status: built (T1.9 to T1.9f; owner decisions O-64 to O-66, D-091 to D-093). Volunteer registration on one page with two codes, draft resume and the photos, approval and rejection in the region, correction requests, edit requests with their codes, the blocklist and the staff handover before deactivation (BR-023 to BR-034, BR-246 to BR-248). Officials no longer register themselves: the admin creates them (D-097).
 
 ### M04 Volunteer Management
 - Purpose: volunteer tab (nationwide list, filters, statistics), assignment to projects by region with permission sets and the paid flag, rules-and-consent acceptance, team management by NID reference, ratings (max 5 criteria, 1–5, proposed from work data at close), categories A/B/C/D plus inactive flag with mandatory comment, blocklist, application transfer, work summary link.
 - Primary users: RPM, Project Executive, PM; volunteers (team assignment, consent).
-- Key entities: volunteers, project_volunteers (permission set, consent), volunteer_teams, volunteer_ratings (criteria in project_components.settings), volunteer_categories_log, blocklist, application_transfers, work_assignments.
+- Key entities: volunteers, project_volunteers (permission set, consent), project_consents (who accepted or refused which rules version), volunteer_teams, volunteer_ratings (criteria in project_components.settings), volunteer_categories_log, blocklist, application_transfers, work_assignments.
 - Depends on: M03, M06, M08 (transfers), M14 (work summary), M15.
 - B1: 3 Volunteer. Phase: 1 (tab, assignment, teams, blocklist, transfer basics), 2 (transfer of applications), 5 (ratings and categories). Blueprint: A5, A4 volunteer types, Q-07, Q-16, Q-20, Q-25, Q-32, Q-34, Q-45; BD-06, BD-07, BD-40. Tasks: T1.10, T1.12, T2.6, T5.3.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 10 (rating averages).
+- Phase 1 status: built in part (T1.10, T1.12, UX-21, UX-22). The volunteer tab with counts, filters and search, the official volunteer profile, assignment to projects by area with permission sets and the paid flag, rules-and-consent acceptance, teams under a main volunteer, the blocklist. Not built: application transfer (Phase 2), ratings and categories with their log (Phase 5; the category is only shown).
 
 ### M05 Beneficiary Master
 - Purpose: permanent BEN-ID profile keyed by NID or birth registration (format validation), auto-fill and locked fields, profile correction request, mobile and address change log, volunteer-own-number block, family-duplicate warning at review, duplicate-candidate detection and profile merge with reversal, beneficiary blocklist, profile statuses, beneficiary tab and 360° profile, media consent status.
@@ -63,14 +67,16 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Depends on: M07 (standard fields), M08, M19, M15, M18 (photo).
 - B1: 2 Beneficiary. Phase: 1 (tab shell), 2 (full master). Blueprint: A7 (360°, blocklist, duplicates and merge), B2, B3 (NID identification), Q-21, Q-44, Q-45; BD-01…BD-06. Tasks: T1.10, T2.2.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 2 (mobile uniqueness), 3 (BEN-ID format), 18 (profile status list), 17 (media consent capture).
+- Phase 1 status: shell only (T1.10, UX-22). The beneficiary tab with counts, filters and search, the 360° profile shell with its sections and the limited views of the Media and Procurement Teams. Not built: the beneficiary master with NID logic, duplicates, merge and correction requests (Phase 2).
 
 ### M06 Programs & Projects
 - Purpose: programs with PM assignment; project setup with draft save; configuration groups (basic data, budget, deadline, areas and RPMs with district split, staff access, form, rules and consent, dawah toggle and syllabus, photo rule and source, rating criteria, limits and stages, document checklist); components with settings (project_components); master templates and copy-from-project with the copy/not-copy list; lifecycle draft → active → closing → closed and reopen; deadline extension with reason; project code.
 - Primary users: Department Head (programs), PM (projects), Monitoring/Head (templates).
-- Key entities: programs, projects (settings and `rules`), project_areas, project_components, project_templates, project_quotas, project_staff, fund_sources (with M10).
+- Key entities: programs, projects (settings, `rules` and `rules_version`), project_rules_versions (every saved version of the rules; the acceptances are project_consents of M04), project_areas, project_components, project_templates, project_quotas, project_staff, fund_sources (with M10).
 - Depends on: M02, M07, M10, M19, M15.
 - B1: 1 Program & Project. Phase: 1 (core setup, templates, consent, assignment), 5 (close/reopen complete). Blueprint: A2, A6, Q-08, Q-12, Q-33, Q-35, Q-38; BD-09, BD-10, BD-16, BD-20, UX-11. Tasks: T1.11, T1.12, T5.3.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 3 (project code), 12 (Closing state), 23 (follow-up template).
+- Phase 1 status: built (T1.11, T1.12, UX-20). Programs with their PM, the step-by-step project setup with draft save, components and settings, budget and fund sources, areas, staff access and syllabus, the rules texts with versions, the template library and copy from a previous project, the lifecycle (activate with the setup check and snapshot, extend the deadline, two-step close, reopen, cancel a draft), the project list and project page. Not built: the form step (M07) and the document checklist (M13); the close checklist and ratings follow in Phase 5.
 
 ### M07 Form Platform
 - Purpose: section library, standard field library (Appendix B), custom fields, field types incl. Bangladesh address, repeat group, calculation; bilingual labels; visibility (volunteer / official only); no-code conditional logic; mandatory toggles with the fixed mandatory set; "অন্যান্য" text box; immutable published versions; public application link; shared evaluator used by server and client.
@@ -143,6 +149,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Depends on: M01 (actor), M02.
 - B1: 10 Reports & Audit. Phase: 1 (writer and basic viewer), 5 (viewer complete). Blueprint: A10 (audit log), B8 (record structure), Q-39; BD-46, constitution §13 audit list. Tasks: T1.6, T5.2.
 - Needs decision: none.
+- Phase 1 status: writer and viewer built (T1.6, T1.13). Every write route declares its audit action and the test fails when an entry is missing; the audit viewer filters by entity, actor, action and date with exact keyset paging and never shows secret keys. Not built: the download (M16, Phase 2).
 
 ### M16 Dashboards, Reports & Exports
 - Purpose: project, program, central and dawah dashboards with year/area filters; the seven KPI groups; statistics on every list; Excel/CSV and PDF exports with field-level protection; beneficiary journey report; fund-source reports; exam comparison PDF; work summary export; storage growth report.
@@ -159,9 +166,10 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Depends on: M21, M20, background jobs.
 - B1: shared service. Phase: 1 (in-app, email, SMS adapter), 4 (donor messaging). Blueprint: B9 (notifications), A8.6, Q-11; BD-34, BD-47, UX-12. Tasks: T0.14, T1.14.
 - Needs decision: none (Web Push decided by O-35; SMS provider timing by O-49: a real gateway before rollout beyond the Phase 3 pilot).
+- Phase 1 status: built (T1.14, D-099). In-app inbox and bell, coalesced for 15 minutes, email through the organization's SMTP in the recipient language with retries and a throttle, the provider-agnostic SMS adapter with its stub (OTP only), bilingual templates with versions, per-user email mode, the delivery list with the operations alert. Not built: deadline reminders, donor messages and Web Push (their modules).
 
 ### M18 Files & Media
-- Purpose: object storage adapter (MinIO; filesystem in tests), signed expiring URLs after authorization, upload validation (type, size, virus-scan hook), client-side compression and resumable upload, photo metadata (capture time, GPS, source camera/gallery per project setting), duplicate-photo detection, voucher and document files, and the Media Team module (D-101): referrals of approved applications by PMs and RPMs, the director's decision, works with editable stages, production roles, scripts, publications on the platforms (consent-gated), the team's dashboard, member portfolios and the works on the beneficiary profile.
+- Purpose: object storage adapter (MinIO; filesystem in tests), private files streamed by the API after the permission and scope check (no signed URLs, D-074), upload validation (type, size, virus-scan hook), client-side compression and resumable upload, photo metadata (capture time, GPS, source camera/gallery per project setting), duplicate-photo detection, voucher and document files, and the Media Team module (D-101): referrals of approved applications by PMs and RPMs, the director's decision, works with editable stages, production roles, scripts, publications on the platforms (consent-gated), the team's dashboard, member portfolios and the works on the beneficiary profile.
 - Primary users: volunteers and paid volunteers (photos, vouchers), officials (documents), Media Team (works, scripts, publications), PMs and RPMs (referrals).
 - Key entities: files (with photo metadata columns), media referrals, media works, media assignments, media publications, media comments (replacing media_subjects; designed in T2.8b), media_consents (owned by M05).
 - Depends on: M02, M15, M05.
@@ -175,6 +183,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Depends on: M15 (audit), M21 (admin).
 - B1: shared service. Phase: 1. Blueprint: B2 (locations), B3 (address component); O-09; BR-084, BR-228. Tasks: T1.2, T1.13.
 - Needs decision: none (resolved by O-09).
+- Phase 1 status: built (T1.2, T1.3). The four-level master (division to union) loaded from the committed CSV, the public cascade API used by the registration form, the area filters and the project areas; the data stays unverified by the owner (docs/source/data/README.md). Not built: the admin screen to add, rename or deactivate a location.
 
 ### M20 i18n
 - Purpose: bn and en as first-class languages, per-user switch, central message catalogue, bilingual data fields (labels, options, statuses, stages), one formatting utility with English digits (no Hijri display, O-43), third language without rewrite.
@@ -183,6 +192,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Depends on: none.
 - B1: shared service. Phase: 1. Blueprint: B9 (language), Q-17; constitution §11, UX-05. Tasks: T0.20, T1.5.
 - Needs decision: none.
+- Phase 1 status: built (T1.5). One message catalogue in bn and en with the lint and catalogue checks, the server-side translate with fallback, the language switch and device language, the central formatter with English digits (Taka, dates, 12-hour time). Bilingual data columns are checked against the schema; publishing and activation checks follow with M07.
 
 ### M21 Admin & Settings
 - Purpose: system settings (monitoring thresholds, photo defaults, payment methods, expense categories defaults, holiday calendar, nisab versions, SMS/SMTP provider settings, dummy OTP toggle restricted to non-production), master template editors (project, document checklist, rating criteria), Department Head account protection (not deletable).
@@ -191,6 +201,7 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Depends on: M02, M15.
 - B1: shared service. Phase: 1 (core), 6 (rest). Blueprint: A6 (templates), A8.3 (nisab), B9; BD-28, BD-44, BD-49, constitution §5 (Head account). Tasks: T1.13, T6.2.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 4, 15, 16, 22.
+- Phase 1 status: core built (T1.13, D-098). Typed settings with audit (organisation, language, thresholds), the editable expense category and issue type lists, nisab versions with withdrawal, the notification channels page with the dummy-OTP alert, active sessions and system health. Not built: the holiday calendar, payment methods and the checklist and rating criteria editors (their modules; Phase 6 for the rest).
 
 ### M22 Offline Sync
 - Purpose: installable PWA, IndexedDB outbox with client_uuid and sync_status, separate compressed photo queue, text before photos, retry with backoff, server-side idempotency, conflict rules (server wins on approved, last write on drafts and field updates, both logged), "needs verification" on NID collision, offline data set (forms, own beneficiaries and applications, syllabus, locations), encrypted local data wiped on logout or revocation, iOS Safari constraints.

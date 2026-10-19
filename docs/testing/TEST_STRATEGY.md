@@ -115,7 +115,7 @@ The Phase 1 checklist (T1.16): each journey of the gate and the Playwright spec 
 | Field-level masks | Every `sensitive_fields` class absent for every non-permitted role in JSON, CSV, XLSX and PDF (one serializer, NFR-38) |
 | Authentication | Lockout after 5 failures, token expiry and rotation, refresh CSRF check, device revocation ends the session and wipes local data, permission change forces a refresh (AUTH.md) |
 | Rate limits | Each class of API_STANDARDS §10 returns 429 with `Retry-After` |
-| Upload | Type, size, path traversal in names, quarantine, EICAR, signed URL expiry after 15 minutes |
+| Upload | Type, size, path traversal in names, quarantine, EICAR; API-streamed file access (D-074): permission and scope checked on every request to `/files/{id}/content`, an out-of-scope or revoked caller answers 404 or 403 at once, no file reachable without a token, responses carry `Cache-Control: no-store` and `nosniff` |
 | Errors | No stack trace, SQL or internal path in any error response |
 | Secrets | gitleaks finds nothing; production configuration refuses dummy OTP and seed markers (O-46 item 8) |
 | Dependencies | `pnpm audit` without high or critical findings, or a recorded exception |
@@ -138,7 +138,7 @@ All tests of I18N.md §12: formatter outputs, NFC normalization, catalogue and l
 
 ### 3.12 Smoke tests after each deployment
 
-Health and readiness endpoints; login with a dedicated smoke account; one read and one write in a dedicated smoke project; a signed URL issued and expired; the job queue processes a no-op job; the version header matches the release. A failing smoke test triggers the rollback in DEPLOYMENT.md (T3.0).
+Health and readiness endpoints; login with a dedicated smoke account; one read and one write in a dedicated smoke project; a private file streamed through its authorized API route (and refused without a token); the job queue processes a no-op job; the version header matches the release. A failing smoke test triggers the rollback in DEPLOYMENT.md (T3.0).
 
 ## 4. Test data strategy (O-46 item 8)
 

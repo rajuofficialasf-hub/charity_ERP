@@ -1003,8 +1003,8 @@ NID/birth registration, mobile number, address-GPS and donor data are sensitive.
 |---|---|---|
 | Database | PostgreSQL + JSONB | Relational master data and dynamic answers together; strong indexing and reporting |
 | Backend / API | REST (OpenAPI spec); workflow / activity / form / budget services | Language by the developer team's choice (Node.js/TypeScript or other) |
-| Frontend | React/Next.js, PWA (service worker, IndexedDB) | One codebase for desktop and mobile, offline |
-| File storage | Object storage (photos, vouchers, documents), signed URLs | Secure and economical |
+| Frontend | React single-page application built with Vite, PWA (service worker, IndexedDB); approved stack, D-073 | One codebase for desktop and mobile, offline |
+| File storage | Object storage (photos, vouchers, documents) behind one storage adapter; private files are streamed by the API after a permission and scope check on every request, no signed URLs (D-074) | Secure and economical |
 | Notifications | In-app notifications only for staff and volunteers; nothing to beneficiaries for now. Email from the organization's own mail server (SMTP); provider-agnostic SMS settings, provider chosen before production; dummy OTP during testing | Qurbani donors, correction requests, reminders |
 | Language | i18n, Bangla and English from the start; form labels in both languages | Decided (Q-17) |
 | Hosting and backup | Hosting on the organization's own server; development by the organization's own team (decided, Q-40) | Where the data lives |
@@ -1085,7 +1085,7 @@ The blueprint says these are Part B proposals that become decisions when managem
 | Q-37 | Budget bucket model including volunteer operational expenses (B6) | Yes; ledger-based, advance ≠ actual expense, operational expenses in a separate bucket | Decided |
 | Q-38 | Project templates and component-based project creation (A6) | Both options: master template and copy of a previous project; copy list in A6; everyone with project-creation access can build templates | Decided |
 | Q-39 | Audit log fields and personal-data retention policy (B8) | No time limit: audit log, beneficiary history, photos and documents are all permanent | Decided |
-| Q-40 | Technology stack and hosting (B9) | Hosting on own server; development by the organization's own team. Stack proposal (PostgreSQL + JSONB, React/Next.js PWA, REST API) to be finalized with the team | Decided |
+| Q-40 | Technology stack and hosting (B9) | Hosting on own server; development by the organization's own team. Stack proposal (PostgreSQL + JSONB, React PWA, REST API) to be finalized with the team; finalized as D-050…D-053, with the Vite React SPA of D-073 and the Express 5 backend and API-streamed files of D-074 | Decided |
 | Q-41 | Central dashboard KPI list (also answers Q-13) | Start with the seven proposed KPI groups of A11; more later if needed | Decided |
 | Q-42 | Staff and volunteer registration form fields and OTP verification (A5) | Decided: form after mobile and email OTP verification; full field list in A5 | Decided |
 | Q-43 | Offline sync conflict rule (B7) | The server's value stays on approved data; last write on drafts and field updates; both in the audit log | Decided |
