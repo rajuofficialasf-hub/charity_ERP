@@ -43,7 +43,8 @@
     border-bottom: 1px solid var(--color-border-default);
     background: rgba(238, 242, 240, 0.92);
     color: var(--color-text-secondary);
-    font-size: var(--text-label);
+    /* body size: Bengali at the label size is too small to read in a header */
+    font-size: var(--text-body);
     font-weight: var(--font-weight-bold);
     text-align: left;
     white-space: nowrap;
@@ -376,7 +377,6 @@
   }
   .ui-table-panel .ui-th {
     background: var(--color-bg-surface);
-    font-weight: var(--font-weight-regular);
   }
   .ui-table-panel .ui-td {
     padding-top: var(--space-4);

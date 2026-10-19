@@ -100,8 +100,8 @@ Font stack: `--font-sans: UbuntuSans, Bornomala, sans-serif`. Weights 400 and 70
 | `--text-display` | 20px | 20px | 700 | 1.4 | Page title, big stat number |
 | `--text-title` | 16px | 16px | 700 | 1.5 | Card and section titles, dialog titles |
 | `--text-body` | 16px | 14px | 400 | 1.5 | Body text, table cells, form values |
-| `--text-body-strong` | 16px | 14px | 700 | 1.5 | Emphasis inside body text |
-| `--text-label` | 12px | 12px | 700 | 1.5 | Field labels, table headers, badge labels, tab labels |
+| `--text-body-strong` | 16px | 14px | 700 | 1.5 | Emphasis inside body text; table headers (owner, 2026-10-20: the label size was too small to read in Bengali) |
+| `--text-label` | 12px | 12px | 700 | 1.5 | Field labels, badge labels, tab labels |
 | `--text-caption` | 12px | 12px | 400 | 1.5 | Helper text, metadata, timestamps |
 | `--text-input` | 16px | 14px | 400 | 1.5 | Text inside inputs. Never below 16px on phones, because iOS Safari zooms on smaller inputs |
 
@@ -785,6 +785,7 @@ Light theme only for now (DESIGN_BRIEF §2 item 3). The system is ready for a da
   - Styles: `@css/ui/styles.css` (tokens, fonts, base layer, one CSS file per component in `@layer components`, `ui-` class prefix), ported from the approved `docs/ui/mockups/components.css`; components style native states (`:hover`, `:focus-visible`, `aria-current`, `aria-selected`), the data attributes the set's own components set (`data-selected`, `data-invalid`) and MUI's state classes (`Mui-selected`, `Mui-focusVisible`); MUI's styles live in the `mui` cascade layer, between the base layer and the set's components.
   - Components: Button, Badge and StatusBadge, Card, StatCard, AttentionCard, TextField (text, email, NID), TextArea, NumberField (integer, decimal, money), PhoneField, Select, Combobox, DateField, Checkbox, CheckboxGroup, RadioGroup, FileUpload, Form, FormSection, FormGrid, FormActions, ErrorSummary, NavItem, RowToggle and Switch, Table and TableToolbar, Modal, Drawer, ConfirmDialog, Alert, Tabs, Breadcrumb, EmptyState, Skeleton, ErrorState, OfflineBanner, BulkList and BulkRow, Timeline, ProgressBar; supporting Icon, Avatar, Spinner. Each has RTL, keyboard and axe tests in both languages.
   - Since D-103 (2026-10-20): every component above keeps its name and props, the implementation of Button, Select, Combobox, DateField, Modal, Drawer, ConfirmDialog, MenuButton, Tabs and Table is MUI core in `packages/ui/src/templates/mui/`, their prop types are in `packages/ui/src/contract.ts`; MenuButton (the profile menu and row menus), Stack, Grid, DescriptionList and Text joined the set.
+  - Since UX-21 (2026-10-20): `StatFilterBar` (count cards that filter a list, the rest behind a last card), `TableToolbar` with `filterMode="panel"` (the filters open in place under the search, the active ones as removable chips with "clear all"), `Table` with `layout="panel"` (one white card for the toolbar, the table and the pager, the row actions always shown) and numbered pages (`page`, `pageCount`, `onPage`, `summary`), `Badge variant="dot"`, `Avatar letters={1}` and `FilterGroup` (a titled grid of filters).
   - Gallery: `/dev/components` in `apps/web` (dev and E2E builds only) shows every component in bn and en; Playwright checks it at 360×640 and 1280×800 with axe including colour contrast.
   - Deviations from the mockups and gaps: listed in `docs/ui/mockups/README.md` ("T1.4 implementation deviations"). Every screen-reader text of the set, MUI's date picker included, comes from the set's messages in both languages.
   - Not in T1.4: app shell, hero header, toast, photo tile, sticky action bar and tooltip (page-level or later tasks: T1.15, T2.7, T3.1).
