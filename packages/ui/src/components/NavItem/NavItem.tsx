@@ -1,6 +1,6 @@
 'use client';
 
-import { Link as AriaLink } from 'react-aria-components';
+import { Link as UiLink } from '../../template.js';
 import { fill } from '../../provider/messages.js';
 import { useUi } from '../../provider/UiProvider.js';
 import { cx } from '../../utils/cx.js';
@@ -37,7 +37,7 @@ export function NavItem({
         : formatNumber(badge)
       : null;
   return (
-    <AriaLink
+    <UiLink
       href={href}
       className={cx('ui-nav-item', `ui-nav-${variant}`, className)}
       aria-current={active ? 'page' : undefined}
@@ -50,6 +50,6 @@ export function NavItem({
           {count}
         </span>
       )}
-    </AriaLink>
+    </UiLink>
   );
 }

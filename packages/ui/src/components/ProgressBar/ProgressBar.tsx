@@ -1,6 +1,5 @@
 'use client';
 
-import { ProgressBar as AriaProgressBar } from 'react-aria-components';
 import { fill } from '../../provider/messages.js';
 import { useUi } from '../../provider/UiProvider.js';
 import { cx } from '../../utils/cx.js';
@@ -47,12 +46,13 @@ export function ProgressBar({
   });
   const parts = segments?.slice(0, 4) ?? [{ label, value }];
   return (
-    <AriaProgressBar
+    <div
+      role="progressbar"
       className={cx('ui-progress-block', className)}
-      value={Math.min(value, safeMax)}
-      minValue={0}
-      maxValue={safeMax}
-      valueLabel={text}
+      aria-valuenow={Math.min(value, safeMax)}
+      aria-valuemin={0}
+      aria-valuemax={safeMax}
+      aria-valuetext={text}
       aria-label={label}
     >
       <div className="ui-progress-label">
@@ -78,6 +78,6 @@ export function ProgressBar({
           ))}
         </ul>
       )}
-    </AriaProgressBar>
+    </div>
   );
 }

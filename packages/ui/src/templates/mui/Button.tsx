@@ -49,6 +49,12 @@ const Root = styled(MuiButton, {
   ...(look === 'ghost' && {
     background: 'transparent',
     color: 'var(--color-brand-primary-dark)',
+    // on a status tint ghost buttons use ink: dark green reaches only 4.49:1 on the danger tint
+    '.ui-alert &, .ui-offline &': {
+      color: 'var(--color-text-primary)',
+      textDecoration: 'underline',
+      textUnderlineOffset: 3,
+    },
   }),
   ...(look === 'danger' && {
     background: 'var(--color-status-danger)',

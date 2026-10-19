@@ -1,6 +1,4 @@
-import createCache from '@emotion/cache';
-import { CacheProvider } from '@emotion/react';
-import { ThemeProvider } from '@mui/material/styles';
+import { StyledEngineProvider, ThemeProvider } from '@mui/material/styles';
 import {
   createContext,
   forwardRef,
@@ -11,12 +9,6 @@ import {
 } from 'react';
 import type { TemplateProviderProps } from '../../contract.js';
 import { createUiTheme } from './theme.js';
-
-/**
- * Emotion's styles go first in the document head, so the set's base CSS and the pages' own CSS
- * (loaded as stylesheets) keep their precedence over MUI's defaults.
- */
-const emotionCache = createCache({ key: 'mui', prepend: true });
 
 /** The app's router, for the links of the set. */
 const NavigateContext = createContext<((href: string) => void) | undefined>(undefined);
@@ -35,7 +27,7 @@ function isClientNavigation(event: MouseEvent<HTMLAnchorElement>, href: string |
  * the whole app and reads the current router from the provider, so a caller that passes a new
  * `navigate` on every render never rebuilds the theme or remounts the links.
  */
-const RouterLink = forwardRef<HTMLAnchorElement, AnchorHTMLAttributes<HTMLAnchorElement>>(
+export const RouterLink = forwardRef<HTMLAnchorElement, AnchorHTMLAttributes<HTMLAnchorElement>>(
   function RouterLink({ href, onClick, ...props }, ref) {
     const navigate = useContext(NavigateContext);
     return (
@@ -54,15 +46,17 @@ const RouterLink = forwardRef<HTMLAnchorElement, AnchorHTMLAttributes<HTMLAnchor
   },
 );
 
-/** The MUI theme and Emotion cache of the set; links navigate through the app's router. */
+/** The MUI theme and style engine of the set; links navigate through the app's router. */
 export function TemplateProvider({ navigate, children }: TemplateProviderProps) {
   const routed = navigate !== undefined;
   const theme = useMemo(() => createUiTheme(routed ? RouterLink : undefined), [routed]);
   return (
-    <CacheProvider value={emotionCache}>
+    // MUI's styles go into the `mui` cascade layer, which the page declares under the design
+    // system's components and the pages' own rules (apps/web/index.html), so those keep winning
+    <StyledEngineProvider enableCssLayer>
       <NavigateContext.Provider value={navigate}>
         <ThemeProvider theme={theme}>{children}</ThemeProvider>
       </NavigateContext.Provider>
-    </CacheProvider>
+    </StyledEngineProvider>
   );
 }

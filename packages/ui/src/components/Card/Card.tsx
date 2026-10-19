@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
-import { Link as AriaLink } from 'react-aria-components';
+import { Link as UiLink } from '../../template.js';
 import { fill } from '../../provider/messages.js';
 import { useUi } from '../../provider/UiProvider.js';
 import { cx } from '../../utils/cx.js';
@@ -70,10 +70,10 @@ export function Card({
   const body = loading ? <Skeleton shape="text" count={3} /> : children;
   if (href) {
     return (
-      <AriaLink href={href} className={classes}>
+      <UiLink href={href} className={classes}>
         {head}
         {body}
-      </AriaLink>
+      </UiLink>
     );
   }
   return (
@@ -149,9 +149,9 @@ export function StatCard({
     </>
   );
   return href ? (
-    <AriaLink href={href} className={classes}>
+    <UiLink href={href} className={classes}>
       {content}
-    </AriaLink>
+    </UiLink>
   ) : (
     <div className={classes}>{content}</div>
   );
@@ -195,9 +195,9 @@ export function AttentionCard({
     </>
   );
   return href ? (
-    <AriaLink href={href} className={classes}>
+    <UiLink href={href} className={classes}>
       {content}
-    </AriaLink>
+    </UiLink>
   ) : (
     <div className={classes}>{content}</div>
   );

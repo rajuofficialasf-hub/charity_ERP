@@ -1,9 +1,9 @@
 'use client';
 
 import { ChevronLeft } from 'lucide-react';
-import { Breadcrumb as AriaBreadcrumb, Breadcrumbs, Link as AriaLink } from 'react-aria-components';
 import { fill } from '../../provider/messages.js';
 import { useUi } from '../../provider/UiProvider.js';
+import { Link as UiLink } from '../../template.js';
 import { cx } from '../../utils/cx.js';
 import { Icon } from '../Icon/Icon.js';
 
@@ -29,20 +29,30 @@ export function Breadcrumb({ items, className }: BreadcrumbProps) {
   return (
     <nav className={cx('ui-breadcrumb', className)} aria-label={messages.nav.breadcrumb}>
       {parent?.href && (
-        <AriaLink href={parent.href} className="ui-breadcrumb-back">
+        <UiLink href={parent.href} className="ui-breadcrumb-back">
           <Icon icon={ChevronLeft} />
           <span>{fill(messages.nav.backTo, { parent: parent.label })}</span>
-        </AriaLink>
+        </UiLink>
       )}
-      <Breadcrumbs className="ui-breadcrumb-trail" items={items}>
-        {(item) => (
-          <AriaBreadcrumb id={item.id} className="ui-breadcrumb-item">
-            <AriaLink href={item.href} className="ui-breadcrumb-link">
-              <span title={item.label}>{item.label}</span>
-            </AriaLink>
-          </AriaBreadcrumb>
-        )}
-      </Breadcrumbs>
+      <ol className="ui-breadcrumb-trail">
+        {items.map((item, i) => {
+          const current = i === items.length - 1;
+          const label = <span title={item.label}>{item.label}</span>;
+          return (
+            <li key={item.id} className="ui-breadcrumb-item">
+              {current || !item.href ? (
+                <span className="ui-breadcrumb-link" aria-current={current ? 'page' : undefined}>
+                  {label}
+                </span>
+              ) : (
+                <UiLink href={item.href} className="ui-breadcrumb-link">
+                  {label}
+                </UiLink>
+              )}
+            </li>
+          );
+        })}
+      </ol>
     </nav>
   );
 }

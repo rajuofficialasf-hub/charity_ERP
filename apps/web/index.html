@@ -2,6 +2,15 @@
 <html lang="bn">
   <head>
     <meta charset="utf-8" />
+    <!--
+      The order of the CSS cascade layers, before any style of the page: MUI's styles (the mui
+      layer, inserted at the emotion insertion point below) sit above the base element defaults and
+      under the design system's components and the pages' own rules.
+    -->
+    <style>
+      @layer theme, base, mui, components, utilities;
+    </style>
+    <meta name="emotion-insertion-point" content="" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#008E48" />
     <link rel="manifest" href="/manifest.webmanifest" />

@@ -1,4 +1,4 @@
-import type { ComponentType, ReactNode } from 'react';
+import type { AnchorHTMLAttributes, ComponentType, ReactNode, RefAttributes } from 'react';
 import type { IconComponent } from './components/Icon/Icon.js';
 
 /**
@@ -48,5 +48,7 @@ export interface ButtonProps {
 /** Everything a template supplies. */
 export interface UiTemplate {
   TemplateProvider: ComponentType<TemplateProviderProps>;
+  /** A plain anchor whose same-site clicks go through the app's router (cards, navigation). */
+  Link: ComponentType<AnchorHTMLAttributes<HTMLAnchorElement> & RefAttributes<HTMLAnchorElement>>;
   Button: ComponentType<ButtonProps>;
 }
