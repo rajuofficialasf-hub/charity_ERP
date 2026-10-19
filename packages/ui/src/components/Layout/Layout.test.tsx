@@ -57,7 +57,7 @@ describe('layout pieces of the set', () => {
         labelWidth="lg"
         items={[
           { label: 'Name', value: 'Rahima Khatun' },
-          { label: 'Mobile', value: '01700000103' },
+          { label: 'Mobile', value: '01700000103', lang: 'en' },
         ]}
       />,
     );
@@ -69,6 +69,11 @@ describe('layout pieces of the set', () => {
         .map((t) => t.textContent),
     ).toEqual(['Name', 'Mobile']);
     expect(within(list).getAllByRole('definition')[1]).toHaveTextContent('01700000103');
+    expect(within(list).getAllByRole('definition')[1]).toHaveAttribute('lang', 'en');
+    // a label and its value share one group
+    expect(within(list).getByText('Mobile').parentElement).toContainElement(
+      within(list).getByText('01700000103'),
+    );
     await expectNoAxeViolations(container);
   });
 

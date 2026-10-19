@@ -80,6 +80,22 @@
   flex-wrap: wrap;
   gap: var(--space-4);
 }
+.admin-photos figcaption,
+.admin-legend {
+  font-weight: var(--font-weight-bold);
+}
+/* A muted note on its own line under a table cell's main text. */
+.admin-line {
+  display: block;
+}
+/* A message text that keeps the line breaks its author typed. */
+.admin-pre-line {
+  white-space: pre-line;
+}
+/* The facts of the system health card, below its checks. */
+.admin-health-facts {
+  margin-top: var(--space-4);
+}
 
 /* The counts above a nationwide tab: two cards a row on a phone, more as the width allows. */
 .admin-stats {

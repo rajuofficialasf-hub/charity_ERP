@@ -1,21 +1,35 @@
-import { createElement, type AriaRole, type ReactNode } from 'react';
+import { createElement, type HTMLAttributes, type ReactNode } from 'react';
 import { cx } from '../../utils/cx.js';
 
 /** A step of the spacing scale: 1 is 4 px, 2 is 8 px, 3 is 12 px, 4 is 16 px, 5 is 24 px, 6 is 32 px. */
 export type SpaceStep = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
-interface LayoutBaseProps {
+/** The elements a layout piece can render as. */
+export type LayoutElement =
+  | 'div'
+  | 'section'
+  | 'article'
+  | 'aside'
+  | 'header'
+  | 'footer'
+  | 'nav'
+  | 'ul'
+  | 'ol'
+  | 'li'
+  | 'dl'
+  | 'figure'
+  | 'fieldset'
+  | 'form'
+  | 'label'
+  | 'p'
+  | 'span';
+
+interface LayoutBaseProps extends HTMLAttributes<HTMLElement> {
   gap?: SpaceStep;
-  className?: string;
-  children?: ReactNode;
-  id?: string;
-  role?: AriaRole;
-  'aria-label'?: string;
-  'aria-labelledby'?: string;
 }
 
 export interface StackProps extends LayoutBaseProps {
-  as?: 'div' | 'section' | 'header' | 'footer' | 'nav' | 'ul' | 'ol' | 'li' | 'p' | 'span';
+  as?: LayoutElement;
   /** column (default) stacks the children; row puts them side by side. */
   direction?: 'column' | 'row';
   /** A row wraps onto further lines when it runs out of room. */
@@ -55,7 +69,7 @@ export function Stack({
 }
 
 export interface GridProps extends LayoutBaseProps {
-  as?: 'div' | 'section' | 'ul' | 'ol' | 'dl';
+  as?: LayoutElement;
   /** Equal columns; one column, the default, stacks the children. */
   columns?: 1 | 2 | 3 | 4 | 5;
 }
@@ -80,6 +94,8 @@ export function Grid({ as = 'div', columns, gap = 0, className, children, ...res
 export interface DescriptionItem {
   label: string;
   value: ReactNode;
+  /** The language of the value when it differs from the page's (an English address). */
+  lang?: string;
 }
 
 export interface DescriptionListProps {
@@ -96,32 +112,37 @@ export interface DescriptionListProps {
 export function DescriptionList({ items, labelWidth = 'md', className }: DescriptionListProps) {
   return (
     <dl className={cx('ui-dl', `ui-dl-${labelWidth}`, className)}>
-      {items.map(({ label, value }) => (
+      {items.map(({ label, value, lang }) => (
+        // each pair in its own group, so a label and its value belong together
         <div key={label} className="ui-dl-item">
           <dt>{label}</dt>
-          <dd>{value}</dd>
+          <dd lang={lang}>{value}</dd>
         </div>
       ))}
     </dl>
   );
 }
 
-export interface TextProps {
-  as?: 'p' | 'span' | 'div';
+export interface TextProps extends HTMLAttributes<HTMLElement> {
+  as?: 'p' | 'span' | 'div' | 'strong' | 'small';
   /** muted is the secondary text colour. */
   tone?: 'default' | 'muted';
   weight?: 'regular' | 'bold';
-  className?: string;
-  children?: ReactNode;
-  id?: string;
 }
 
 /** A line or paragraph of text without outer margins: the layout around it sets the spacing. */
-export function Text({ as = 'p', tone = 'default', weight, className, children, id }: TextProps) {
+export function Text({
+  as = 'p',
+  tone = 'default',
+  weight,
+  className,
+  children,
+  ...rest
+}: TextProps) {
   return createElement(
     as,
     {
-      id,
+      ...rest,
       className: cx(
         'ui-text',
         tone === 'muted' && 'ui-text-muted',

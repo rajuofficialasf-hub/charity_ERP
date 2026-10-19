@@ -4,6 +4,7 @@ import {
   ConfirmDialog,
   EmptyState,
   ErrorState,
+  Stack,
   Table,
   type TableColumn,
 } from '@css/ui';
@@ -99,7 +100,7 @@ export function EditRequests() {
     return String(r.newValue);
   };
   const actions = (r: EditRequestRow) => (
-    <div className="flex flex-wrap gap-2">
+    <Stack direction="row" wrap gap={2}>
       <Button
         size="sm"
         icon={Check}
@@ -119,7 +120,7 @@ export function EditRequests() {
       >
         {t('reject')}
       </Button>
-    </div>
+    </Stack>
   );
   const columns: TableColumn<EditRequestRow>[] = [
     { id: 'volunteer', header: t('column.volunteer'), cell: who, isRowHeader: true },

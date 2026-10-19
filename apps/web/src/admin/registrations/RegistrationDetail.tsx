@@ -6,9 +6,13 @@ import {
   Button,
   Card,
   ConfirmDialog,
+  DescriptionList,
   EmptyState,
   ErrorState,
+  Grid,
   Skeleton,
+  Stack,
+  Text,
 } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, FilePenLine, UserCheck, X } from 'lucide-react';
@@ -160,13 +164,13 @@ export function RegistrationReview({
     <>
       <DocumentTitle title={r.displayName} />
       <h1 className="admin-title">{r.displayName}</h1>
-      <div className="flex flex-wrap gap-2">
+      <Stack direction="row" wrap gap={2}>
         <Badge label={r.kind === 'staff' ? t('kind.staff') : t('kind.volunteer')} />
         <Badge
           tone={r.status === 'in_correction' ? 'warning' : 'info'}
           label={t(`status.${r.status}`)}
         />
-      </div>
+      </Stack>
       {notice && (
         <Alert tone="success" live="status" onDismiss={() => setNotice(null)}>
           {notice}
@@ -175,7 +179,7 @@ export function RegistrationReview({
       {r.blocklisted && <Alert tone="danger">{t('blocklisted')}</Alert>}
 
       <Section title={t('actions')}>
-        <div className="flex flex-wrap gap-2">
+        <Stack direction="row" wrap gap={2}>
           {r.kind === 'volunteer' ? (
             <>
               {(!allowed || allowed.review) && (
@@ -220,7 +224,7 @@ export function RegistrationReview({
               </Button>
             )
           )}
-        </div>
+        </Stack>
       </Section>
 
       <Details registration={r} />
@@ -359,17 +363,10 @@ function Details({ registration: r }: { registration: RegistrationDetailView }) 
   return (
     <Section title={t('details')}>
       <Card>
-        <p className="admin-muted m-0">
+        <Text className="admin-muted">
           {t('column.submitted')}: {formatDateTime(r.submittedAt, locale)}
-        </p>
-        <dl className="grid gap-2 sm:grid-cols-[12rem_1fr]">
-          {rows.map(([label, value]) => (
-            <div key={label} className="contents">
-              <dt className="font-bold">{label}</dt>
-              <dd className="m-0">{value}</dd>
-            </div>
-          ))}
-        </dl>
+        </Text>
+        <DescriptionList items={rows.map(([label, value]) => ({ label, value }))} />
       </Card>
     </Section>
   );
@@ -389,8 +386,8 @@ function Photos({ registration: r }: { registration: RegistrationDetailView }) {
     <Section title={t('photos')}>
       <div className="admin-photos">
         {slots.map(([label, fileId, visible]) => (
-          <figure key={label} className="m-0 grid gap-1">
-            <figcaption className="font-bold">{label}</figcaption>
+          <Grid gap={1} as="figure" key={label}>
+            <figcaption>{label}</figcaption>
             {!visible ? (
               <span>{t('hidden')}</span>
             ) : fileId ? (
@@ -398,7 +395,7 @@ function Photos({ registration: r }: { registration: RegistrationDetailView }) {
             ) : (
               <span>{t('no_photo')}</span>
             )}
-          </figure>
+          </Grid>
         ))}
       </div>
     </Section>
@@ -410,9 +407,9 @@ function Corrections({ registration: r }: { registration: RegistrationDetailView
   const tf = useTranslations('registration');
   return (
     <Section title={t('corrections.title')}>
-      <ul className="m-0 grid gap-2 p-0" role="list">
+      <Grid gap={2} as="ul" role="list">
         {r.corrections.map((c) => (
-          <li key={c.id} className="flex flex-wrap items-center gap-2">
+          <Stack direction="row" wrap align="center" gap={2} as="li" key={c.id}>
             <strong>
               {c.field in FIELD_LABEL ? tf(FIELD_LABEL[c.field as RequestField]) : c.field}
             </strong>
@@ -421,10 +418,10 @@ function Corrections({ registration: r }: { registration: RegistrationDetailView
               tone={c.status === 'open' ? 'warning' : 'info'}
               label={t(`corrections.status.${c.status}`)}
             />
-            {c.note && <span className="admin-muted m-0">{c.note}</span>}
-          </li>
+            {c.note && <span className="admin-muted">{c.note}</span>}
+          </Stack>
         ))}
-      </ul>
+      </Grid>
     </Section>
   );
 }

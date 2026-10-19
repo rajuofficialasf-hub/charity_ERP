@@ -1,5 +1,5 @@
 import type { InvitationIssued } from '@css/shared/auth';
-import { Alert, Button, Modal, TextField } from '@css/ui';
+import { Alert, Button, Modal, Text, TextField } from '@css/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
@@ -49,7 +49,7 @@ export function RenewLinkDialog({
           {failure ? (failure.details[0]?.message ?? failure.message) : t('offline')}
         </Alert>
       )}
-      <p className="m-0">{t('explain')}</p>
+      <Text>{t('explain')}</Text>
       <TextField
         label={t('email')}
         helper={t('email_hint')}

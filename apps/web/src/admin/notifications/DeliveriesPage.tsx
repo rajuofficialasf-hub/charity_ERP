@@ -7,6 +7,7 @@ import {
   EmptyState,
   ErrorState,
   Select,
+  Stack,
   Table,
   type TableColumn,
   TableToolbar,
@@ -183,10 +184,10 @@ export function DeliveriesPage() {
         }
         cardRenderer={(d) => (
           <div className="admin-permission-card">
-            <span className="flex flex-wrap items-center gap-2">
+            <Stack direction="row" wrap align="center" gap={2} as="span">
               <code lang="en">{d.templateKey}</code>
               {statusBadge(d)}
-            </span>
+            </Stack>
             <span>
               {recipient(d)} · <span lang="en">{d.address}</span> · {channelName(d)}
             </span>

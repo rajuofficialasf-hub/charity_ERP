@@ -102,7 +102,7 @@ function PendingList() {
       cell: (r) => (
         <>
           <span>{kind(r)}</span>
-          <span className="admin-muted block">{type(r)}</span>
+          <span className="admin-muted admin-line">{type(r)}</span>
         </>
       ),
     },

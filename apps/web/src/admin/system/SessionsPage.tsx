@@ -7,6 +7,7 @@ import {
   ConfirmDialog,
   EmptyState,
   ErrorState,
+  Stack,
   Table,
   type TableColumn,
   TableToolbar,
@@ -67,10 +68,10 @@ export function SessionsPage() {
   const device = (s: ActiveSession) =>
     [s.deviceName ?? t('unknown_device'), s.platform].filter(Boolean).join(' · ');
   const person = (s: ActiveSession) => (
-    <span className="flex flex-wrap items-center gap-2">
+    <Stack direction="row" wrap align="center" gap={2} as="span">
       <strong>{s.person.name}</strong>
       {s.person.systemOwner && <Badge tone="info" label={t('main_admin')} />}
-    </span>
+    </Stack>
   );
   const columns: TableColumn<ActiveSession>[] = [
     { id: 'person', header: t('column.person'), cell: person, isRowHeader: true },

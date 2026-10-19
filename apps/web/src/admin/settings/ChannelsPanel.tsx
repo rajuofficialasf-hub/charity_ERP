@@ -4,9 +4,11 @@ import {
   Badge,
   Button,
   Card,
+  DescriptionList,
   ErrorState,
   Form,
   FormGrid,
+  Grid,
   Skeleton,
   Switch,
   TextField,
@@ -124,40 +126,36 @@ export function ChannelsPanel({ onSaved }: { onSaved: () => void }) {
   const { smtp, sms, otpDummy } = query.data;
   const yesNo = (value: boolean) => (value ? t('yes') : t('no'));
   return (
-    <div className="grid gap-4">
+    <Grid gap={4}>
       <DummyOtpAlert on={otpDummy} />
       <Card title={t('smtp_title')} subtitle={t('smtp_hint')} headingLevel={2}>
-        <dl className="grid gap-2 sm:grid-cols-[12rem_1fr]">
-          <dt className="font-bold">{t('smtp_host')}</dt>
-          <dd className="m-0" lang="en">
-            {smtp.host}
-          </dd>
-          <dt className="font-bold">{t('smtp_port')}</dt>
-          <dd className="m-0">{smtp.port}</dd>
-          <dt className="font-bold">{t('smtp_secure')}</dt>
-          <dd className="m-0">{yesNo(smtp.secure)}</dd>
-          <dt className="font-bold">{t('smtp_from')}</dt>
-          <dd className="m-0" lang="en">
-            {smtp.from}
-          </dd>
-          <dt className="font-bold">{t('smtp_login')}</dt>
-          <dd className="m-0">{smtp.loginSet ? t('login_set') : t('login_missing')}</dd>
-        </dl>
+        <DescriptionList
+          items={[
+            { label: t('smtp_host'), value: smtp.host, lang: 'en' },
+            { label: t('smtp_port'), value: smtp.port },
+            { label: t('smtp_secure'), value: yesNo(smtp.secure) },
+            { label: t('smtp_from'), value: smtp.from, lang: 'en' },
+            { label: t('smtp_login'), value: smtp.loginSet ? t('login_set') : t('login_missing') },
+          ]}
+        />
       </Card>
       <Card title={t('sms_title')} subtitle={t('sms_hint')} headingLevel={2}>
-        <dl className="grid gap-2 sm:grid-cols-[12rem_1fr]">
-          <dt className="font-bold">{t('sms_mode')}</dt>
-          <dd className="m-0">{t(`mode.${sms.mode}`)}</dd>
-          <dt className="font-bold">{t('key')}</dt>
-          <dd className="m-0">
-            <Badge
-              tone={sms.keyPresent ? 'success' : 'warning'}
-              label={sms.keyPresent ? t('key_present') : t('key_missing')}
-            />
-          </dd>
-        </dl>
+        <DescriptionList
+          items={[
+            { label: t('sms_mode'), value: t(`mode.${sms.mode}`) },
+            {
+              label: t('key'),
+              value: (
+                <Badge
+                  tone={sms.keyPresent ? 'success' : 'warning'}
+                  label={sms.keyPresent ? t('key_present') : t('key_missing')}
+                />
+              ),
+            },
+          ]}
+        />
         <SmsForm data={query.data} onSaved={onSaved} />
       </Card>
-    </div>
+    </Grid>
   );
 }

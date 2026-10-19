@@ -1,6 +1,17 @@
 import { formatCount, formatDateTime, formatFileSize } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Badge, Card, ErrorState, Skeleton, Table, type TableColumn } from '@css/ui';
+import {
+  Badge,
+  Card,
+  DescriptionList,
+  ErrorState,
+  Grid,
+  Skeleton,
+  Stack,
+  Table,
+  type TableColumn,
+  Text,
+} from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
@@ -84,9 +95,9 @@ export function HealthPage() {
       {title}
       <DummyOtpAlert on={h.otpDummy} />
       <Card title={t('checks')} headingLevel={2}>
-        <ul className="m-0 grid gap-2 p-0" role="list">
+        <Grid gap={2} as="ul" role="list">
           {CHECKS.map((check) => (
-            <li key={check} className="flex flex-wrap items-center gap-2">
+            <Stack direction="row" wrap align="center" gap={2} as="li" key={check}>
               <strong>{t(`check.${check}`)}</strong>
               {/* eslint-disable-next-line security/detect-object-injection -- check is one of CHECKS */}
               {h.checks[check] === 'up' ? (
@@ -94,28 +105,25 @@ export function HealthPage() {
               ) : (
                 <Badge tone="danger" label={t('down')} />
               )}
-            </li>
+            </Stack>
           ))}
-        </ul>
-        <dl className="mt-4 grid gap-2 sm:grid-cols-[14rem_1fr]">
-          <dt className="font-bold">{t('version')}</dt>
-          <dd className="m-0" lang="en">
-            {h.version}
-          </dd>
-          <dt className="font-bold">{t('environment')}</dt>
-          <dd className="m-0" lang="en">
-            {h.environment}
-          </dd>
-          <dt className="font-bold">{t('audit_partitions')}</dt>
-          <dd className="m-0">{h.auditPartitionsUntil ?? t('unknown')}</dd>
-        </dl>
+        </Grid>
+        <DescriptionList
+          labelWidth="lg"
+          className="admin-health-facts"
+          items={[
+            { label: t('version'), value: h.version, lang: 'en' },
+            { label: t('environment'), value: h.environment, lang: 'en' },
+            { label: t('audit_partitions'), value: h.auditPartitionsUntil ?? t('unknown') },
+          ]}
+        />
       </Card>
       {h.storage ? (
         <>
           <Card title={t('storage')} subtitle={figure(h.storage.total)} headingLevel={2}>
-            <p className="admin-muted m-0">
+            <Text className="admin-muted">
               {t('measured', { date: formatDateTime(h.storage.measuredAt, locale) })}
-            </p>
+            </Text>
           </Card>
           <Table
             label={t('by_kind')}
@@ -146,7 +154,7 @@ export function HealthPage() {
         </>
       ) : (
         <Card title={t('storage')} headingLevel={2}>
-          <p className="m-0">{t('storage_unknown')}</p>
+          <Text>{t('storage_unknown')}</Text>
         </Card>
       )}
     </>

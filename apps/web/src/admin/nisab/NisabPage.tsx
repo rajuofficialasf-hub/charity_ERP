@@ -11,6 +11,7 @@ import {
   StatCard,
   Table,
   type TableColumn,
+  Text,
 } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Scale, Undo2 } from 'lucide-react';
@@ -123,7 +124,7 @@ export function NisabPage() {
       ) : (
         !list.isPending && (
           <Card>
-            <p className="m-0">{t('none')}</p>
+            <Text>{t('none')}</Text>
           </Card>
         )
       )}

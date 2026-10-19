@@ -1,3 +1,4 @@
+import { DescriptionList } from '@css/ui';
 import { formatCount, formatDate, formatTaka } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
 import { useQuery } from '@tanstack/react-query';
@@ -49,15 +50,8 @@ export function ProjectFacts({ project: p }: { project: Project }) {
     { label: t('detail.closed'), value: day(p.closedAt), shown: Boolean(p.closedAt) },
   ];
   return (
-    <dl className="grid gap-2 sm:grid-cols-[12rem_1fr]">
-      {facts
-        .filter((f) => f.shown !== false)
-        .map(({ label, value }) => (
-          <div key={label} className="contents">
-            <dt className="font-bold">{label}</dt>
-            <dd className="m-0">{value}</dd>
-          </div>
-        ))}
-    </dl>
+    <DescriptionList
+      items={facts.filter((f) => f.shown !== false).map(({ label, value }) => ({ label, value }))}
+    />
   );
 }

@@ -9,10 +9,13 @@ import {
   Card,
   EmptyState,
   ErrorState,
+  Grid,
   Modal,
   SegmentedControl,
+  Stack,
   Table,
   type TableColumn,
+  Text,
   TextArea,
   TextField,
 } from '@css/ui';
@@ -58,7 +61,7 @@ export function NotificationTemplatesPage() {
   if (!allowed) return <ForbiddenContent />;
 
   const channels = (n: NotificationTemplate) => (
-    <span className="flex flex-wrap gap-2">
+    <Stack direction="row" wrap gap={2} as="span">
       {(Object.keys(n.channels) as EditableChannel[]).map((c) => (
         <Badge
           key={c}
@@ -69,7 +72,7 @@ export function NotificationTemplatesPage() {
           })}
         />
       ))}
-    </span>
+    </Stack>
   );
   const columns: TableColumn<NotificationTemplate>[] = [
     {
@@ -233,15 +236,15 @@ function TemplateEditor({
           onChange={switchTo}
         />
       )}
-      <p className="admin-muted m-0">
+      <Text className="admin-muted">
         {template.variables.length
           ? t('variables', { list: template.variables.map((v) => `{{${v}}}`).join(', ') })
           : t('variables_none')}
-      </p>
+      </Text>
       {failure && !failure.details.length && <Alert tone="danger">{failure.message}</Alert>}
       {LOCALES.map((l) => (
-        <fieldset key={l} className="grid gap-3 border-0 p-0">
-          <legend className="font-bold">{t(`language.${l}`)}</legend>
+        <Grid gap={3} as="fieldset" key={l}>
+          <legend className="admin-legend">{t(`language.${l}`)}</legend>
           <TextField
             label={t(heading === 'subject' ? 'subject' : 'heading')}
             lang={l}
@@ -259,22 +262,22 @@ function TemplateEditor({
             onChange={(v) => change(l, 'body', v)}
             error={errorAt(`${l}.body`)}
           />
-        </fieldset>
+        </Grid>
       ))}
       {preview.data && (
-        <section aria-label={t('preview_title')} className="grid gap-3">
-          <h3 className="m-0">{t('preview_title')}</h3>
+        <Grid gap={3} as="section" aria-label={t('preview_title')}>
+          <h3>{t('preview_title')}</h3>
           {LOCALES.map((l) => {
             const r = preview.data[l];
             return (
               <Card key={l} title={r.subject ?? r.title ?? t(`language.${l}`)} headingLevel={4}>
-                <p className="m-0 whitespace-pre-line" lang={l}>
+                <Text className="admin-pre-line" lang={l}>
                   {r.body}
-                </p>
+                </Text>
               </Card>
             );
           })}
-        </section>
+        </Grid>
       )}
       {save.isError && !(save.error instanceof ApiFailure) && (
         <Alert tone="danger">{tc('state.error.text')}</Alert>
