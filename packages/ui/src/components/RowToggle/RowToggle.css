@@ -14,10 +14,10 @@
   .ui-row:last-child {
     border-bottom: 0;
   }
-  .ui-row-link[data-hovered] {
+  .ui-row-link:hover {
     background: var(--color-bg-muted);
   }
-  .ui-row-link[data-focus-visible] {
+  .ui-row-link:focus-visible {
     outline: 2px solid var(--color-brand-primary);
     outline-offset: 2px;
   }
@@ -112,7 +112,7 @@
   [data-selected] > .ui-switch-track .ui-switch-off {
     display: none;
   }
-  [data-focus-visible] > .ui-switch-track {
+  :has(> input:focus-visible) > .ui-switch-track {
     box-shadow: 0 0 0 3px rgba(0, 142, 72, 0.35);
   }
   .ui-row-switch[data-disabled],

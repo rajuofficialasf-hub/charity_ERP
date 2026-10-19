@@ -75,8 +75,8 @@
     border-radius: 1px;
     background: var(--color-text-on-brand);
   }
-  .ui-choice[data-hovered] .ui-check-box,
-  .ui-choice[data-hovered] .ui-radio-dot {
+  .ui-choice:hover .ui-check-box,
+  .ui-choice:hover .ui-radio-dot {
     border-color: var(--color-brand-primary-dark);
     box-shadow: var(--ring-brand);
   }
@@ -97,8 +97,8 @@
   .ui-choice[data-selected] .ui-radio-dot {
     border: 6px solid var(--color-brand-primary-dark);
   }
-  .ui-choice[data-focus-visible] .ui-check-box,
-  .ui-choice[data-focus-visible] .ui-radio-dot {
+  .ui-choice:has(input:focus-visible) .ui-check-box,
+  .ui-choice:has(input:focus-visible) .ui-radio-dot {
     outline: 2px solid var(--color-brand-primary);
     outline-offset: 2px;
   }

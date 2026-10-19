@@ -22,6 +22,7 @@ import { useUi } from '../../provider/UiProvider.js';
 import { cx } from '../../utils/cx.js';
 import { Button } from '../Button/Button.js';
 import { Checkbox } from '../Field/Choice.js';
+import { SelectionCheckbox } from './SelectionCheckbox.js';
 import { Icon } from '../Icon/Icon.js';
 import { Drawer } from '../Modal/Modal.js';
 import { Skeleton } from '../Skeleton/Skeleton.js';
@@ -180,7 +181,7 @@ export function Table<T>({
               <TableHeader>
                 {selectionMode === 'multiple' && (
                   <Column className="ui-th ui-th-select">
-                    <Checkbox slot="selection" aria-label={messages.table.selectAll} />
+                    <SelectionCheckbox aria-label={messages.table.selectAll} />
                   </Column>
                 )}
                 {columns.map((column) => (
@@ -217,7 +218,7 @@ export function Table<T>({
                     <Row key={key} id={key} className={cx('ui-tr', onRowAction && 'is-clickable')}>
                       {selectionMode === 'multiple' && (
                         <Cell className="ui-td ui-td-select">
-                          <Checkbox slot="selection" aria-label={messages.table.select} />
+                          <SelectionCheckbox aria-label={messages.table.select} />
                         </Cell>
                       )}
                       {columns.map((column) => (
