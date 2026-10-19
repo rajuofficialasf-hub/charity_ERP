@@ -52,4 +52,14 @@ describe('MenuButton', () => {
     // focus comes back once the menu has closed
     await waitFor(() => expect(button).toHaveFocus());
   });
+
+  it('a link item navigates inside the app and closes the menu', async () => {
+    const navigate = vi.fn();
+    const user = userEvent.setup();
+    renderWithUi(<MenuButton label="Profile menu" items={items()} />, { navigate });
+    await user.click(screen.getByRole('button', { name: 'Profile menu' }));
+    await user.click(screen.getByRole('menuitem', { name: 'আমার ডিভাইস' }));
+    expect(navigate.mock.calls[0]?.[0]).toBe('/account/sessions');
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+  });
 });
