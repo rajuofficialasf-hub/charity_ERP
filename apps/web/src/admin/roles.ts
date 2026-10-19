@@ -142,6 +142,12 @@ export const NISAB_ROLES: readonly string[] = [
 ];
 
 /** The staff handover and the deactivation after it (`user.handover`, `user.state.change`; BD-08). */
+/** Who may see and end another person's device sessions (session.revoke_user, BR-233). */
+export const SESSION_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'regional_program_manager',
+];
 export const HANDOVER_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
 
 const holds = (me: Pick<Me, 'roles'>, roles: readonly string[]) =>
@@ -164,6 +170,7 @@ export const canApproveStaff = (me: Pick<Me, 'roles'>) => holds(me, STAFF_APPROV
 export const canDecideEdits = (me: Pick<Me, 'roles'>) => holds(me, EDIT_REQUEST_ROLES);
 export const canBlock = (me: Pick<Me, 'roles'>) => holds(me, BLOCKLIST_ROLES);
 export const canHandOver = (me: Pick<Me, 'roles'>) => holds(me, HANDOVER_ROLES);
+export const canEndSessions = (me: Pick<Me, 'roles'>) => holds(me, SESSION_ROLES);
 export const canSeePrograms = (me: Pick<Me, 'roles'>) => holds(me, PROGRAM_ROLES);
 export const canManagePrograms = (me: Pick<Me, 'roles'>) => holds(me, PROGRAM_ADMIN_ROLES);
 export const canSeeProjects = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_ROLES);

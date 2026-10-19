@@ -41,7 +41,7 @@ The owner's reference images for the volunteer tab (chat, 2026-10-20) become the
 ### U3. The volunteer tab
 - **Files:** `apps/web/src/admin/volunteers/VolunteersPage.tsx`, `volunteers-api.ts`, `admin.css`, the shared `StatisticsBar.tsx` and `use-tab-view.ts`, the message catalogues.
 - **Tests:** `volunteers.test.tsx` (cards filter, filter panel and chips, row menu actions by role, page jump), `apps/web/e2e/volunteers.spec.ts`.
-- **Status:** todo
+- **Status:** done
 
 ### U4. The beneficiary tab
 - **Files:** `apps/web/src/admin/beneficiaries/BeneficiariesPage.tsx` and its API client.

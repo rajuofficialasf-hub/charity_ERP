@@ -3,6 +3,7 @@ import type { DeviceSession } from '@css/shared/auth';
 import type { VolunteerType } from '@css/shared/registration';
 import { api } from '../../lib/api';
 import { listQuery } from '../list-query';
+import { PAGE_SIZE, pageParams } from '../list-paging';
 
 /** The keys of the filters the volunteer tab keeps in the page URL (the search stays out). */
 export const FILTER_KEYS = [
@@ -25,10 +26,21 @@ interface PageMeta {
   total?: number | '10000+';
 }
 
-/** GET /volunteers: one page of the tab for the filters, the search and a cursor. */
-export function volunteerPage(filters: FilterValues, q: string, cursor: string | null) {
+/** GET /volunteers: one page of the tab for the filters and the search, by number or cursor. */
+export function volunteerPage(
+  filters: FilterValues,
+  q: string,
+  page: number,
+  cursor: string | null,
+) {
   return api<{ data: VolunteerRow[]; meta: PageMeta }>(
-    `/volunteers${listQuery({ ...filters, q: q || undefined, cursor: cursor ?? undefined, include: 'total' })}`,
+    `/volunteers${listQuery({
+      ...filters,
+      q: q || undefined,
+      ...pageParams(page, cursor),
+      limit: String(PAGE_SIZE),
+      include: 'total',
+    })}`,
     { envelope: true },
   );
 }

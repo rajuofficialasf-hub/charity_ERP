@@ -110,17 +110,44 @@
   gap: var(--space-1);
 }
 
+/* A person in a list: the avatar, the name in bold and a muted line under it. */
 .admin-person {
   display: inline-flex;
   align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.admin-person-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.admin-person-name {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-bold);
+  text-decoration: none;
+}
+.admin-person-name:hover {
+  color: var(--color-brand-primary-dark);
+  text-decoration: underline;
+}
+.admin-person-meta {
+  font-size: var(--text-caption);
+  color: var(--color-text-secondary);
+}
+.admin-person-card {
+  display: grid;
   gap: var(--space-2);
 }
-.admin-avatar {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  object-fit: cover;
-  flex: none;
+.admin-person-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+/* An empty value in a list: a muted dash. */
+.admin-dash {
+  color: var(--color-text-secondary);
 }
 
 /*

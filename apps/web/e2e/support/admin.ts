@@ -135,7 +135,11 @@ export async function filterBy(
   info: TestInfo,
   picks: [label: string, option: string][],
 ): Promise<void> {
-  if (isPhone(info)) await page.getByRole('button', { name: /^ফিল্টার/ }).click();
+  const toggle = page.getByRole('button', { name: /^ফিল্টার/ });
+  // a phone opens the filter sheet; a desktop opens filters kept in place under the search
+  if (isPhone(info)) await toggle.click();
+  else if ((await toggle.count()) && (await toggle.getAttribute('aria-expanded')) === 'false')
+    await toggle.click();
   for (const [label, option] of picks) await choose(page, label, option);
   if (isPhone(info)) await page.getByRole('button', { name: 'ফিল্টার প্রয়োগ' }).click();
 }

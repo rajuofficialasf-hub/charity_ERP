@@ -217,7 +217,9 @@
       "inactive": "নিষ্ক্রিয়",
       "applications": "আবেদন",
       "approved": "অনুমোদিত",
-      "under_review": "রিভিউ চলছে"
+      "under_review": "রিভিউ চলছে",
+      "more": "আরও অবস্থা",
+      "more_value": "{count}টি"
     },
     "column": {
       "name": "নাম",
@@ -234,7 +236,9 @@
       "blocked_yes": "ব্লকলিস্টে আছে",
       "blocked_no": "ব্লকলিস্টে নেই",
       "inactive": "নিষ্ক্রিয়",
-      "any": "যেকোনো"
+      "any": "যেকোনো",
+      "group_area": "এলাকা",
+      "group_other": "অন্যান্য"
     },
     "state": {
       "pending": "অপেক্ষমাণ",
@@ -285,6 +289,17 @@
       "revoke_confirm": "লগআউট করুন",
       "revoked": "ডিভাইসটি থেকে লগআউট করা হয়েছে।",
       "unknown_device": "অজানা ডিভাইস"
+    },
+    "none": "নেই",
+    "summary": "{from}–{to} দেখানো হচ্ছে · মোট {total} জন",
+    "action": {
+      "menu": "{name}-এর কাজ",
+      "profile": "প্রোফাইল দেখুন",
+      "review": "নিবন্ধন রিভিউ করুন",
+      "block": "ব্লক করুন",
+      "unblock": "ব্লক তুলুন",
+      "sessions": "ডিভাইস ও সেশন",
+      "sessions_title": "{name}-এর ডিভাইস"
     }
   },
   "beneficiaries": {

@@ -9,8 +9,9 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
 import { VolunteersPage } from './VolunteersPage';
 
-// The volunteer tab (SCR-042; DECISION_LOG O-67): counts, state chips, search and filters, the
-// filters in the URL and the search never. Test data only.
+// The volunteer tab (SCR-042; DECISION_LOG O-67, UX-21): counts that filter, search, filters that
+// open in place with their chips, the row menu, numbered pages; the filters in the URL and the
+// search never. Test data only.
 const HEAD: Me = { ...ME, roles: ['department_head'] };
 const DAEE: Me = { ...ME, roles: ['official_daee'] };
 const VOLUNTEER: Me = { ...ME, kind: 'volunteer', roles: ['volunteer_general'] };
@@ -68,7 +69,7 @@ function serve(
       if (fail.list) return failure(fail.list);
       return HttpResponse.json({
         data: rows,
-        meta: { requestId: 'req_test', limit: 25, nextCursor: null, prevCursor: null, total: 1 },
+        meta: { requestId: 'req_test', limit: 10, nextCursor: null, prevCursor: null, total: 1 },
       });
     }),
     http.get('*/api/v1/projects', () =>
@@ -110,6 +111,11 @@ function serve(
 const open = (initialPath = '/admin/volunteers') =>
   renderApp(<VolunteersPage />, 'bn', { path: '/admin/volunteers', initialPath });
 
+/** Opens the filters in place, under the search. */
+async function openFilters(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: /^ফিল্টার/, expanded: false }));
+}
+
 beforeEach(() => {
   resetClientForTests();
 });
@@ -122,20 +128,24 @@ describe('the volunteer tab', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক' }),
     ).toBeInTheDocument();
-    const counts = await screen.findByRole('region', { name: 'স্বেচ্ছাসেবকের হিসাব' });
-    expect(await within(counts).findByText('1,250')).toBeInTheDocument();
-    expect(within(counts).getByText('রিভিউ চলছে')).toBeInTheDocument();
+    const counts = await screen.findByRole('group', { name: 'স্বেচ্ছাসেবকের হিসাব' });
+    expect(await within(counts).findByRole('button', { name: 'সব 1,250' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    // the application counts sit behind the last card
+    expect(within(counts).getByRole('button', { name: 'আরও অবস্থা' })).toHaveTextContent('3টি');
     expect((await screen.findAllByText('নমুনা স্বেচ্ছাসেবক')).length).toBeGreaterThan(0);
     expect((await screen.findAllByText('সাভার উপজেলা, ঢাকা জেলা')).length).toBeGreaterThan(0);
     await expectNoAxeViolations(container);
   });
 
-  it('keeps a state chip in the URL and asks the server with it', async () => {
+  it('filters by a count card, keeps it in the URL and asks the server with it', async () => {
     refreshAs(HEAD);
     serve();
     const user = userEvent.setup();
     const { router } = open();
-    await user.click(await screen.findByRole('button', { name: 'অপেক্ষমাণ', pressed: false }));
+    await user.click(await screen.findByRole('button', { name: 'অপেক্ষমাণ 75', pressed: false }));
     await waitFor(() => expect(router.state.location.search).toBe('?state=pending'));
     await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('state')).toBe('pending'));
     expect(statUrls.at(-1)?.searchParams.get('state')).toBe('pending');
@@ -157,11 +167,15 @@ describe('the volunteer tab', () => {
     serve();
     const user = userEvent.setup();
     const { router } = open();
+    await openFilters(user);
     const [picker] = await screen.findAllByRole('button', { name: /প্রকল্প/ });
     await user.click(picker!);
     await user.click(await screen.findByRole('option', { name: 'শীতবস্ত্র বিতরণ 2026 (WC)' }));
     await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('projectId')).toBe(PROJECT_ID));
     expect(router.state.location.search).toBe(`?projectId=${PROJECT_ID}`);
+    // the active filter shows as a chip that removes it
+    await user.click(await screen.findByRole('button', { name: 'প্রকল্প: শীতবস্ত্র বিতরণ সরান' }));
+    await waitFor(() => expect(router.state.location.search).toBe(''));
   });
 
   it('sends a search to the server and never puts it in the URL', async () => {
@@ -177,10 +191,12 @@ describe('the volunteer tab', () => {
   it('offers the category filter and column only to roles that see categories', async () => {
     refreshAs(HEAD);
     serve([row({ category: 'A', inactiveFlag: false })]);
+    const user = userEvent.setup();
     open();
     expect(
       (await screen.findAllByRole('columnheader', { name: 'ক্যাটাগরি' })).length,
     ).toBeGreaterThan(0);
+    await openFilters(user);
     expect(screen.getAllByRole('button', { name: /ক্যাটাগরি/ }).length).toBeGreaterThan(0);
   });
 
@@ -219,22 +235,26 @@ describe('the volunteer tab', () => {
     open();
     expect((await screen.findAllByText('নমুনা স্বেচ্ছাসেবক')).length).toBeGreaterThan(0);
     expect(await screen.findByText('কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।')).toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: 'স্বেচ্ছাসেবকের হিসাব' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'স্বেচ্ছাসেবকের হিসাব' })).not.toBeInTheDocument();
   });
 
   it('shows the inactive count only when the answer has it', async () => {
     refreshAs(HEAD);
     serve([row()], { ...STATS, volunteers: { ...STATS.volunteers, inactive: 7 } });
-    open();
-    const counts = await screen.findByRole('region', { name: 'স্বেচ্ছাসেবকের হিসাব' });
-    expect(await within(counts).findByText('নিষ্ক্রিয়')).toBeInTheDocument();
+    const user = userEvent.setup();
+    const { router } = open();
+    const counts = await screen.findByRole('group', { name: 'স্বেচ্ছাসেবকের হিসাব' });
+    await user.click(within(counts).getByRole('button', { name: 'আরও অবস্থা' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'নিষ্ক্রিয় · 7' }));
+    await waitFor(() => expect(router.state.location.search).toBe('?category=inactive'));
   });
 
-  it('sets the type and the blocklist filters in the URL, and clearing keeps the state chip', async () => {
+  it('sets the type and the blocklist filters in the URL, and clearing keeps the chosen count', async () => {
     refreshAs(HEAD);
     serve();
     const user = userEvent.setup();
     const { router } = open('/admin/volunteers?state=pending');
+    await openFilters(user);
     await user.click(await screen.findByRole('button', { name: /ধরন/ }));
     await user.click(await screen.findByRole('option', { name: 'স্থানীয় দায়ী' }));
     await waitFor(() => expect(router.state.location.search).toContain('type=local_daee'));
@@ -249,11 +269,12 @@ describe('the volunteer tab', () => {
         'true',
       ]);
     });
-    await user.click(screen.getByRole('button', { name: 'ফিল্টার মুছুন' }));
+    expect(screen.getByRole('button', { name: 'ধরন: স্থানীয় দায়ী সরান' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'সব মুছুন' }));
     await waitFor(() => expect(router.state.location.search).toBe('?state=pending'));
   });
 
-  it('starts at the first page when the URL changes from outside the tab', async () => {
+  it('opens a page by its number, says what it shows, and starts again at the first page when the URL changes', async () => {
     refreshAs(HEAD);
     serve();
     server.use(
@@ -261,17 +282,73 @@ describe('the volunteer tab', () => {
         listUrls.push(new URL(request.url));
         return HttpResponse.json({
           data: [row()],
-          meta: { requestId: 'req_test', limit: 25, nextCursor: 'next-page', prevCursor: null },
+          meta: {
+            requestId: 'req_test',
+            limit: 10,
+            nextCursor: 'next-page',
+            prevCursor: null,
+            total: 23,
+          },
         });
       }),
     );
     const user = userEvent.setup();
     const { router } = open();
-    const next = await screen.findAllByRole('button', { name: 'পরের পাতা' });
-    await user.click(next[0]!);
-    await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('cursor')).toBe('next-page'));
+    const pager = await screen.findByRole('navigation', { name: 'পাতা বদল' });
+    expect(await within(pager).findByText('1–1 দেখানো হচ্ছে · মোট 23 জন')).toBeInTheDocument();
+    expect(listUrls.at(-1)?.searchParams.get('limit')).toBe('10');
+    await user.click(within(pager).getByRole('button', { name: 'পাতা 3' }));
+    await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('page')).toBe('3'));
+    expect(listUrls.at(-1)?.searchParams.get('cursor')).toBeNull();
     await router.navigate('/admin/volunteers?state=active');
     await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('state')).toBe('active'));
-    expect(listUrls.at(-1)?.searchParams.get('cursor')).toBeNull();
+    expect(listUrls.at(-1)?.searchParams.get('page')).toBeNull();
+  });
+
+  it('offers the row actions each role may use, and opens the block and device dialogs', async () => {
+    refreshAs(HEAD);
+    serve([
+      row(),
+      row({ id: '01900000-0000-7000-8000-0000000000a3', displayName: 'নতুন জন', state: 'pending' }),
+    ]);
+    server.use(
+      http.get('*/api/v1/users/:userId/sessions', () =>
+        HttpResponse.json({ data: [], meta: { requestId: 'req_test' } }),
+      ),
+    );
+    const user = userEvent.setup();
+    open();
+    const table = await screen.findByRole('grid', { name: 'স্বেচ্ছাসেবক' });
+    await user.click(within(table).getByRole('button', { name: 'নতুন জন-এর কাজ' }));
+    const menu = await screen.findByRole('menu');
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((m) => m.textContent),
+    ).toEqual(['প্রোফাইল দেখুন', 'নিবন্ধন রিভিউ করুন', 'ব্লক করুন', 'ডিভাইস ও সেশন']);
+    await user.click(within(menu).getByRole('menuitem', { name: 'ব্লক করুন' }));
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'বাতিল' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    await user.click(within(table).getByRole('button', { name: 'নমুনা স্বেচ্ছাসেবক-এর কাজ' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'ডিভাইস ও সেশন' }));
+    expect(
+      await screen.findByRole('dialog', { name: 'নমুনা স্বেচ্ছাসেবক-এর ডিভাইস' }),
+    ).toBeInTheDocument();
+  });
+
+  it('offers only the profile to a role without the other actions', async () => {
+    refreshAs(DAEE);
+    serve();
+    const user = userEvent.setup();
+    open();
+    const table = await screen.findByRole('grid', { name: 'স্বেচ্ছাসেবক' });
+    await user.click(within(table).getByRole('button', { name: 'নমুনা স্বেচ্ছাসেবক-এর কাজ' }));
+    const menu = await screen.findByRole('menu');
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((m) => m.textContent),
+    ).toEqual(['প্রোফাইল দেখুন']);
   });
 });
