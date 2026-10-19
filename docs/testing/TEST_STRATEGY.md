@@ -239,6 +239,23 @@ Coverage per layer:
 - **Database:** every test file on a database cloned from a migrated template; the migration round trip and the down.sql completeness check in `migrations.test.ts`; the constraints and triggers suites.
 - **Not in this task, for T1.17:** the visual baselines (section 3.7), the Bengali UAT script and the keyboard walkthrough (manual), the gate sign-off document.
 
+### 9.2 After the component set moved to MUI core (2026-10-20)
+
+The runs on the final state of branch `refactor/mui-core-ui` (plan `docs/plans/2026-10-19-0912-refactor-mui-core-ui-plan.md`), which replaced React Aria and Tailwind in `packages/ui` and `apps/web`:
+
+| Command | Output |
+|---|---|
+| `pnpm typecheck` | every package `Done`, no error |
+| `pnpm lint` | ESLint 0 errors (159 warnings, all pre-existing `security/*` advisories); Prettier clean; `i18n check: 0 error(s), 0 warning(s); 152 error codes checked` |
+| `pnpm docs:check` | `All document checks passed.` |
+| `pnpm rules:status --phase 1 --report-only` | `Phase 1 rules: tested 104, deferred 32, manual 0, untested 0` |
+| `pnpm test` | 179 files, 1628 tests: `shared` 18 / 317, `ui` 28 / 138, `api` 31 / 238, `api-db` 57 / 584, `web` 45 / 351; one run lost a Vitest worker (section 10, the machine's known issue) and its file passed alone |
+| `pnpm --filter @css/api contract:coverage` | `contract coverage: 132 of 132 operations answered their success status in a test` |
+| `pnpm e2e` | `154 passed, 21 skipped, 0 failed` on `mobile`, `desktop` and `iphone`, the axe sweep of every Phase 1 screen included |
+| `pnpm --filter @css/web bundle:report` | first route 212.1 KB gzip of 250 KB; the signed-in home adds 64.0 KB |
+
+New tests of this work: the keyboard model of the table (rows, cells, Home, End, Enter, Space, one tab stop), the date field on MUI's picker (dd-mm-yyyy, limits, the phone sheet, inside a dialog), the overlays (alert dialog, pending confirmation, focus return), the menu's links through the router, the layout pieces, the lint boundary that keeps MUI inside the template folder (`apps/web/test/template-boundary.test.ts`) and the class check (`apps/web/test/class-names.test.ts`: every class name a page writes is defined by a stylesheet it loads). The look was checked with a computed-style capture of 27 screens on the phone and desktop projects before and after the Tailwind removal: no element differed; that capture is a one-off measuring tool, not a committed suite, so the visual baselines of section 3.7 remain the T1.17 task.
+
 ## 10. Reporting and flaky tests
 
 - Every task report uses the §15 template; the Tests section shows the commands run and their summary output.

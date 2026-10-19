@@ -140,6 +140,7 @@ signed-in person adds when it is not cached yet, without failing on it.
 | After: only the login in the entry, every other page and the app shell lazy | 216.6 KB | 18 |
 | 2026-10-19 (D-104): only the device language's catalogue at start, the MUI theme in | 229.7 KB | 18 |
 | 2026-10-20: the component set on MUI core, React Aria removed (D-103) | 211.8 KB | 18 |
+| 2026-10-20: Tailwind removed, the final state of the MUI work | 212.1 KB | 18 |
 
 What a signed-in page adds on top of the first route when it is not yet cached (static import
 closure of its chunks, gzip): the home with the shell 76.0 KB, my projects with the shell 72.1 KB,
