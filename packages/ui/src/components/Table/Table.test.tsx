@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations, renderWithUi } from '../../testing/index.js';
 import { StatusBadge } from '../Badge/Badge.js';
 import { BulkList, BulkRow } from '../BulkRow/BulkRow.js';
+import { MenuButton } from '../Menu/MenuButton.js';
 import { EmptyState } from '../States/States.js';
 import { Table, TableToolbar, type TableColumn } from './Table.js';
 
@@ -132,6 +133,96 @@ describe('Table (DESIGN_SYSTEM 5.7)', () => {
     expect(second).toHaveAttribute('aria-selected', 'true');
   });
 
+  it('is one tab stop: its checkboxes are reached through their rows', async () => {
+    const user = userEvent.setup();
+    renderWithUi(
+      <>
+        <button type="button">before</button>
+        <Table {...base} selectionMode="multiple" />
+        <button type="button">after</button>
+      </>,
+    );
+    const grid = screen.getByRole('grid');
+    const [, first] = within(grid).getAllByRole('row');
+    screen.getByRole('button', { name: 'before' }).focus();
+    await user.tab();
+    expect(first).toHaveFocus();
+    // the next stop is past the grid (the phone card list, which CSS hides on a desktop)
+    await user.tab();
+    expect(grid).not.toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it('a click in a menu opened from a row never opens the row', async () => {
+    const onRowAction = vi.fn();
+    const onArchive = vi.fn();
+    const user = userEvent.setup();
+    renderWithUi(
+      <Table
+        {...base}
+        onRowAction={onRowAction}
+        rowActions={(row) => (
+          <MenuButton
+            label={`More: ${row.name}`}
+            items={[{ id: 'archive', label: 'Archive', onAction: onArchive }]}
+          />
+        )}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'More: করিম মিয়া' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Archive' }));
+    expect(onArchive).toHaveBeenCalledOnce();
+    expect(onRowAction).not.toHaveBeenCalled();
+  });
+
+  it('moves up to the previous row and to the first and last cell with Home and End', async () => {
+    const user = userEvent.setup();
+    renderWithUi(<Table {...base} />);
+    const [, first, second] = within(screen.getByRole('grid')).getAllByRole('row');
+    act(() => second!.focus());
+    await user.keyboard('{ArrowUp}');
+    expect(first).toHaveFocus();
+    await user.keyboard('{ArrowRight}{End}');
+    expect(document.activeElement).toHaveTextContent('82');
+    await user.keyboard('{Home}');
+    expect(document.activeElement).toHaveTextContent('রহিমা খাতুন');
+    await user.keyboard('{ArrowUp}');
+    expect(document.activeElement).toHaveAttribute('role', 'columnheader');
+    await user.keyboard('{ArrowLeft}');
+    expect(document.activeElement).toHaveAttribute('role', 'columnheader');
+  });
+
+  it('a click on a row checkbox selects without opening the row', async () => {
+    const onRowAction = vi.fn();
+    const onSelectionChange = vi.fn();
+    const user = userEvent.setup();
+    renderWithUi(
+      <Table
+        {...base}
+        selectionMode="multiple"
+        onRowAction={onRowAction}
+        onSelectionChange={onSelectionChange}
+      />,
+    );
+    const table = screen.getByRole('grid');
+    await user.click(within(table).getByRole('checkbox', { name: 'Select করিম মিয়া' }));
+    expect(onSelectionChange).toHaveBeenCalledOnce();
+    expect(onSelectionChange).toHaveBeenLastCalledWith(new Set(['a2']));
+    expect(onRowAction).not.toHaveBeenCalled();
+  });
+
+  it('a row click selects inside a dialog too', async () => {
+    const onSelectionChange = vi.fn();
+    const user = userEvent.setup();
+    renderWithUi(
+      <div role="dialog" aria-label="Choose volunteers">
+        <Table {...base} selectionMode="multiple" onSelectionChange={onSelectionChange} />
+      </div>,
+    );
+    const [, , second] = within(screen.getByRole('grid')).getAllByRole('row');
+    await user.click(within(second!).getAllByRole('gridcell')[1]!);
+    expect(onSelectionChange).toHaveBeenLastCalledWith(new Set(['a2']));
+  });
+
   it('sorts from a focused header with Enter', async () => {
     const onSortChange = vi.fn();
     const user = userEvent.setup();
@@ -194,6 +285,21 @@ describe('Table toolbar (DESIGN_SYSTEM 5.7)', () => {
     act(() => vi.advanceTimersByTime(300));
     expect(onSearch).toHaveBeenLastCalledWith('রহি');
     vi.useRealTimers();
+  });
+
+  it('Escape and the clear button empty the search', async () => {
+    const onSearch = vi.fn();
+    const user = userEvent.setup();
+    renderWithUi(<TableToolbar onSearch={onSearch} />);
+    const box = screen.getByRole('searchbox', { name: 'Search' });
+    await user.type(box, 'রহি');
+    await user.keyboard('{Escape}');
+    expect(box).toHaveValue('');
+    await user.type(box, 'কর');
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(box).toHaveValue('');
+    expect(box).toHaveFocus();
+    await vi.waitFor(() => expect(onSearch).toHaveBeenLastCalledWith(''));
   });
 
   it('status chips are toggle buttons and filters open in a sheet with the active count', async () => {

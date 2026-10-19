@@ -25,8 +25,8 @@ import { cx } from '../../utils/cx.js';
 
 const priorityClass = (p?: number) => (p && p > 1 ? `p${p}` : undefined);
 
-/** The header row's key in the grid's focus position. */
-const HEADER = '\u0000header';
+/** The header row's key in the grid's focus position; a row key is never empty. */
+const HEADER = '';
 
 /** Where the grid's single tab stop is: a body row (cell -1) or a cell of a row. */
 interface GridPosition {
@@ -87,6 +87,8 @@ export function Table<T>({
   const tabStop = (row: string, cell: number) =>
     position.row === row && position.cell === cell ? 0 : -1;
 
+  const allSelected = keys.length > 0 && keys.every((k) => selection.has(k));
+  const someSelected = keys.some((k) => selection.has(k));
   const select = (next: Set<string>) => {
     setInnerSelection(next);
     onSelectionChange?.(next);
@@ -103,8 +105,7 @@ export function Table<T>({
     onSortChange({ column: columnId, direction: descending ? 'descending' : 'ascending' });
   };
   const sortable = (index: number) => {
-    const offset = selectionMode === 'multiple' ? 1 : 0;
-    const column = columns[index - offset];
+    const column = columns[index - (selectionMode === 'multiple' ? 1 : 0)];
     return column?.sortable ? column : undefined;
   };
 
@@ -134,17 +135,22 @@ export function Table<T>({
       event.preventDefault();
       next.focus();
     };
-    const inRow = (r: HTMLElement | undefined) =>
-      r && (index < 0 && r.dataset.gridRow !== HEADER ? r : rowCells(r)[index]);
+    // rows move between the body rows; cells move through the header too, keeping their column
+    const lines = index < 0 ? body : all;
+    const at = lines.indexOf(row);
+    const inRow = (r: HTMLElement | undefined) => (r && index >= 0 ? rowCells(r)[index] : r);
+    // Left from a body row's first cell goes back to the row itself; the header has no row stop
+    const leftOf = () =>
+      index > 0 ? cells[index - 1] : index === 0 && key !== HEADER ? row : undefined;
     switch (event.key) {
       case 'ArrowDown':
-        return move(inRow((index < 0 ? body : all)[(index < 0 ? body : all).indexOf(row) + 1]));
+        return move(inRow(lines[at + 1]));
       case 'ArrowUp':
-        return move(inRow((index < 0 ? body : all)[(index < 0 ? body : all).indexOf(row) - 1]));
+        return move(inRow(lines[at - 1]));
       case 'ArrowRight':
         return move(cells[index + 1]);
       case 'ArrowLeft':
-        return move(index > 0 || key === HEADER ? cells[index - 1] : index === 0 ? row : undefined);
+        return move(leftOf());
       case 'Home':
         return move(index < 0 ? body[0] : cells[0]);
       case 'End':
@@ -153,6 +159,8 @@ export function Table<T>({
       case ' ': {
         event.preventDefault();
         if (key === HEADER) {
+          if (selectionMode === 'multiple' && index === 0)
+            return select(allSelected ? new Set() : new Set(keys));
           const column = sortable(index);
           if (column) sortBy(column.id);
           return;
@@ -165,7 +173,13 @@ export function Table<T>({
   };
 
   const onRowClick = (event: MouseEvent<HTMLElement>, key: string) => {
-    if ((event.target as HTMLElement).closest(INNER_CONTROL)) return;
+    const target = event.target as HTMLElement;
+    const row = event.currentTarget;
+    // clicks bubble through portals: a menu or dialog opened from the row is not the row
+    if (!row.contains(target)) return;
+    // only a control inside the row counts; the table itself may sit in a dialog or a label
+    const control = target.closest(INNER_CONTROL);
+    if (control && row.contains(control)) return;
     if (onRowAction) onRowAction(key);
     else if (selectionMode !== 'none') toggle(key, !selection.has(key));
   };
@@ -185,9 +199,9 @@ export function Table<T>({
           typeof pagination.total === 'number' ? formatNumber(pagination.total) : pagination.total,
       })
     : null;
-  const allSelected = keys.length > 0 && keys.every((k) => selection.has(k));
-  const someSelected = keys.some((k) => selection.has(k));
-  let headerCell = 0;
+  // a cell's place in its row: the selection column first, the actions column last
+  const first = selectionMode === 'multiple' ? 1 : 0;
+  const actionsCell = first + columns.length;
 
   return (
     <div className={cx('ui-table-block', inSplitView && 'ui-table-split', className)}>
@@ -215,7 +229,7 @@ export function Table<T>({
                     <TableCell
                       role="columnheader"
                       data-grid-cell=""
-                      tabIndex={tabStop(HEADER, headerCell++)}
+                      tabIndex={tabStop(HEADER, 0)}
                       className="ui-th ui-th-select"
                     >
                       <Checkbox
@@ -223,17 +237,18 @@ export function Table<T>({
                         isIndeterminate={!allSelected && someSelected}
                         onChange={(on) => select(on ? new Set(keys) : new Set())}
                         aria-label={messages.table.selectAll}
+                        excludeFromTabOrder
                       />
                     </TableCell>
                   )}
-                  {columns.map((column) => {
+                  {columns.map((column, i) => {
                     const sorted = sort?.column === column.id ? sort.direction : undefined;
                     return (
                       <TableCell
                         key={column.id}
                         role="columnheader"
                         data-grid-cell=""
-                        tabIndex={tabStop(HEADER, headerCell++)}
+                        tabIndex={tabStop(HEADER, first + i)}
                         aria-sort={sorted}
                         data-sortable={column.sortable || undefined}
                         className={cx(
@@ -256,7 +271,7 @@ export function Table<T>({
                     <TableCell
                       role="columnheader"
                       data-grid-cell=""
-                      tabIndex={tabStop(HEADER, headerCell++)}
+                      tabIndex={tabStop(HEADER, actionsCell)}
                       className="ui-th ui-th-actions"
                     >
                       <span className="ui-sr-only">{messages.table.rowActions}</span>
@@ -268,7 +283,6 @@ export function Table<T>({
                 {rows.map((row) => {
                   const key = rowKey(row);
                   const selected = selection.has(key);
-                  let cellIndex = 0;
                   return (
                     <TableRow
                       key={key}
@@ -284,24 +298,25 @@ export function Table<T>({
                         <TableCell
                           role="gridcell"
                           data-grid-cell=""
-                          tabIndex={tabStop(key, cellIndex++)}
+                          tabIndex={tabStop(key, 0)}
                           className="ui-td ui-td-select"
                         >
                           <Checkbox
                             isSelected={selected}
                             onChange={(on) => toggle(key, on)}
+                            excludeFromTabOrder
                             aria-label={fill(messages.table.selectRow, { name: rowLabel(row) })}
                           />
                         </TableCell>
                       )}
-                      {columns.map((column) => (
+                      {columns.map((column, i) => (
                         <TableCell
                           key={column.id}
                           {...(column.isRowHeader
                             ? { component: 'th', scope: 'row', role: 'rowheader' }
                             : { role: 'gridcell' })}
                           data-grid-cell=""
-                          tabIndex={tabStop(key, cellIndex++)}
+                          tabIndex={tabStop(key, first + i)}
                           className={cx(
                             'ui-td',
                             column.numeric && 'num',
@@ -316,7 +331,7 @@ export function Table<T>({
                         <TableCell
                           role="gridcell"
                           data-grid-cell=""
-                          tabIndex={tabStop(key, cellIndex++)}
+                          tabIndex={tabStop(key, actionsCell)}
                           className="ui-td ui-td-actions"
                         >
                           <div className="ui-row-actions">{rowActions(row)}</div>

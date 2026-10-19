@@ -27,6 +27,8 @@ export interface CheckboxProps {
   name?: string;
   /** 44 px hit area (bulk rows and table selection on phones). */
   hitArea?: boolean;
+  /** Not a tab stop of its own: a grid reaches it through its row or cell. */
+  excludeFromTabOrder?: boolean;
   className?: string;
 }
 
@@ -45,6 +47,7 @@ export function Checkbox({
   isDisabled = false,
   value,
   name,
+  excludeFromTabOrder = false,
   'aria-label': label,
 }: CheckboxProps) {
   const [inner, setInner] = useState(defaultSelected ?? false);
@@ -69,6 +72,7 @@ export function Checkbox({
         value={value}
         name={name}
         aria-label={label}
+        tabIndex={excludeFromTabOrder ? -1 : undefined}
         onChange={(event) => {
           setInner(event.target.checked);
           onChange?.(event.target.checked);
