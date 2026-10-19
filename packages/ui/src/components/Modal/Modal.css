@@ -1,26 +1,17 @@
-/* Modal, Drawer, Confirm dialog and bottom sheet (DESIGN_SYSTEM 5.8-5.10, UX-14 entrance). */
+/* Modal, Drawer, Confirm dialog and bottom sheet (DESIGN_SYSTEM 5.8-5.10, UX-14 entrance), on
+   MUI's dialog and drawer: `.ui-overlay` is the modal root, its backdrop is the scrim. */
 @layer components {
-  .ui-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-modal);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-5) var(--space-4);
+  .ui-overlay .MuiBackdrop-root {
     background: var(--color-scrim);
   }
   @media (min-width: 1024px) {
-    .ui-overlay {
+    .ui-overlay .MuiBackdrop-root {
       -webkit-backdrop-filter: blur(3px);
       backdrop-filter: blur(3px);
     }
   }
-  .ui-overlay[data-entering] {
-    animation: ui-fade-in var(--motion-slow) var(--ease-standard);
-  }
-  .ui-overlay[data-exiting] {
-    animation: ui-fade-in var(--motion-base) var(--ease-standard) reverse;
+  .ui-overlay .MuiDialog-container {
+    padding: var(--space-5) var(--space-4);
   }
   .ui-dialog {
     display: flex;
@@ -28,13 +19,15 @@
     width: 100%;
     max-width: 560px;
     max-height: calc(100dvh - 48px);
+    margin: 0;
+    overflow: hidden;
     border-radius: var(--radius-lg);
     background: var(--color-bg-surface);
     color: var(--color-text-primary);
     box-shadow: var(--elevation-3);
     outline: none;
   }
-  .ui-dialog[data-entering] {
+  .ui-dialog:not(.ui-drawer) {
     animation: ui-dialog-in var(--motion-slow) var(--ease-out);
   }
   .ui-dialog-sm {
@@ -49,18 +42,6 @@
       transform: translateY(12px) scale(0.98);
     }
   }
-  @keyframes ui-fade-in {
-    from {
-      opacity: 0;
-    }
-  }
-  .ui-dialog-frame {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    max-height: inherit;
-    outline: none;
-  }
   .ui-dialog-head {
     display: flex;
     align-items: center;
@@ -74,6 +55,8 @@
     font-size: var(--text-title);
   }
   .ui-dialog-body {
+    flex: 1 1 auto;
+    min-height: 0;
     padding: var(--space-4);
     overflow-y: auto;
   }
@@ -102,45 +85,26 @@
     margin: var(--space-3) 0 0;
   }
 
-  /* drawer: full-height side panel from 640 px */
-  @media (min-width: 640px) {
-    .ui-overlay:has(.ui-drawer-right) {
-      justify-content: flex-end;
-      padding: 0;
-    }
-    .ui-drawer-right {
-      width: 420px;
-      max-width: 100%;
-      height: 100dvh;
-      max-height: 100dvh;
-      border-radius: 0;
-    }
-    .ui-drawer-right[data-entering] {
-      animation: ui-drawer-in var(--motion-base) var(--ease-out);
-    }
-    .ui-drawer-right .ui-dialog-foot {
-      border-radius: 0;
-    }
-    .ui-overlay:has(.ui-drawer-bottom) {
-      align-items: flex-end;
-      padding: 0;
-    }
-    .ui-drawer-bottom {
-      max-width: 100%;
-      max-height: 90dvh;
-      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    }
+  /* drawer: a full-height side panel from 640 px, or a sheet from the bottom */
+  .ui-drawer-right {
+    width: 420px;
+    max-width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
   }
-  @keyframes ui-drawer-in {
-    from {
-      transform: translateX(24px);
-      opacity: 0;
-    }
+  .ui-drawer-right .ui-dialog-foot {
+    border-radius: 0;
+  }
+  .ui-drawer-bottom {
+    max-width: 100%;
+    max-height: 90dvh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   }
 
   /* phones: every modal and drawer is a bottom sheet with a drag handle */
   @media (max-width: 639px) {
-    .ui-overlay {
+    .ui-overlay .MuiDialog-container {
       align-items: flex-end;
       padding: 0;
     }
@@ -150,7 +114,7 @@
       padding-bottom: env(safe-area-inset-bottom);
       border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     }
-    .ui-dialog[data-entering] {
+    .ui-dialog:not(.ui-drawer) {
       animation: ui-sheet-in var(--motion-slow) var(--ease-out);
     }
     .ui-dialog-full {

@@ -96,6 +96,95 @@ export interface DateFieldProps extends FieldBaseProps {
   max?: string;
 }
 
+export interface ModalProps {
+  title: string;
+  /** sm 400 px, md 560 px (default), lg 720 px; a bottom sheet on phones (DESIGN_SYSTEM 5.8). */
+  size?: 'sm' | 'md' | 'lg';
+  isOpen: boolean;
+  onClose: () => void;
+  /** Footer buttons; the primary action last. */
+  primaryAction?: ReactNode;
+  secondaryAction?: ReactNode;
+  /** false while saving: Escape and the scrim no longer close the dialog. */
+  dismissible?: boolean;
+  /** Full screen on phones (long forms). */
+  fullOnPhone?: boolean;
+  children?: ReactNode;
+  className?: string;
+}
+
+export interface DrawerProps {
+  title: string;
+  /** right (default) or bottom; every drawer is a bottom sheet on phones (DESIGN_SYSTEM 5.9). */
+  side?: 'right' | 'bottom';
+  isOpen: boolean;
+  onClose: () => void;
+  footer?: ReactNode;
+  children?: ReactNode;
+  className?: string;
+}
+
+export interface ConfirmDialogProps {
+  /** Names the record and what will happen, in plain words. */
+  title: string;
+  message?: ReactNode;
+  tone?: 'default' | 'danger';
+  /** Adds a required reason (reject, waitlist, blocklist, field unlock, deciding against the score). */
+  reasonRequired?: boolean;
+  reasonLabel?: string;
+  /** A verb naming the action ("reject application"), never "OK". */
+  confirmLabel: string;
+  /** Effects listed before confirming, for example "the volunteer loses access to 12 applications". */
+  consequence?: string[];
+  isOpen: boolean;
+  onConfirm: (reason: string) => void;
+  onCancel: () => void;
+  /** The action is running: confirm shows a spinner and the dialog cannot be dismissed. */
+  pending?: boolean;
+}
+
+export interface MenuAction {
+  id: string;
+  label: string;
+  icon?: IconComponent;
+  /** A link to another page; the menu closes on navigation. */
+  href?: string;
+  /** An action instead of a link (log out). */
+  onAction?: () => void;
+}
+
+export interface MenuButtonProps {
+  /** Accessible name of the button and its menu ("profile menu"). */
+  label: string;
+  items: MenuAction[];
+  /** What the button shows (the person's name); only the icon when left out. */
+  children?: ReactNode;
+  /** The icon of the button; a person by default in the app bar. */
+  icon?: IconComponent;
+  className?: string;
+}
+
+export interface TabItem {
+  id: string;
+  label: string;
+  /** Count shown beside the label (English digits through the formatter). */
+  count?: number;
+  content: ReactNode;
+}
+
+export interface TabsProps {
+  items: TabItem[];
+  /** Controlled selection; keep it in the URL for shareable views (DESIGN_SYSTEM 5.13). */
+  selectedId?: string;
+  defaultSelectedId?: string;
+  onChange?: (id: string) => void;
+  /** line (default) or segmented for two or three short options. */
+  variant?: 'line' | 'segmented';
+  /** Accessible name of the tab list. */
+  label: string;
+  className?: string;
+}
+
 /** Everything a template supplies. */
 export interface UiTemplate {
   TemplateProvider: ComponentType<TemplateProviderProps>;
@@ -105,4 +194,9 @@ export interface UiTemplate {
   Select: ComponentType<SelectProps>;
   Combobox: ComponentType<ComboboxProps>;
   DateField: ComponentType<DateFieldProps>;
+  Modal: ComponentType<ModalProps>;
+  Drawer: ComponentType<DrawerProps>;
+  ConfirmDialog: ComponentType<ConfirmDialogProps>;
+  MenuButton: ComponentType<MenuButtonProps>;
+  Tabs: ComponentType<TabsProps>;
 }

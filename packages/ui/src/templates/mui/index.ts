@@ -3,8 +3,11 @@
 import type { UiTemplate } from '../../contract.js';
 import { Button } from './Button.js';
 import { DateField } from './DateField.js';
+import { MenuButton } from './Menu.js';
+import { ConfirmDialog, Drawer, Modal } from './Overlay.js';
 import { Combobox, Select } from './Select.js';
 import { RouterLink as Link, TemplateProvider } from './provider.js';
+import { Tabs } from './Tabs.js';
 
 // A component missing here, or one whose props differ from the contract, fails the typecheck.
 export const muiTemplate = {
@@ -14,7 +17,24 @@ export const muiTemplate = {
   Select,
   Combobox,
   DateField,
+  Modal,
+  Drawer,
+  ConfirmDialog,
+  MenuButton,
+  Tabs,
 } satisfies UiTemplate;
 
-export { Button, Combobox, DateField, Link, Select, TemplateProvider };
+export {
+  Button,
+  Combobox,
+  ConfirmDialog,
+  DateField,
+  Drawer,
+  Link,
+  MenuButton,
+  Modal,
+  Select,
+  Tabs,
+  TemplateProvider,
+};
 export { createUiTheme, SPACING_PX } from './theme.js';

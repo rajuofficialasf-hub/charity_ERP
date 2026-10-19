@@ -570,7 +570,8 @@ describe('volunteer registration detail', () => {
     expect(
       await screen.findByText('এই স্বেচ্ছাসেবক ব্লকলিস্টে আছেন। অনুমোদনের আগে ব্লক তুলুন।'),
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'অনুমোদন' })).toBeDisabled();
+    // the page is hidden from assistive technology until the dialog has faded out
+    expect(await screen.findByRole('button', { name: 'অনুমোদন' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'ব্লক তুলুন' })).toBeInTheDocument();
   });
 

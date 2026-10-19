@@ -102,13 +102,13 @@
       background-color var(--motion-fast) var(--ease-standard),
       transform var(--motion-fast) var(--ease-standard);
   }
-  .ui-icon-button[data-hovered] {
+  .ui-icon-button:hover {
     background: var(--color-bg-muted);
   }
-  .ui-icon-button[data-pressed] {
+  .ui-icon-button:active {
     transform: scale(0.94);
   }
-  .ui-icon-button[data-focus-visible] {
+  .ui-icon-button:focus-visible {
     outline: 2px solid var(--color-brand-primary);
     outline-offset: 2px;
   }
