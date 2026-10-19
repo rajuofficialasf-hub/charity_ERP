@@ -102,7 +102,6 @@ export function BulkRow({
             <MenuButton
               label={`${messages.bulk.moreActions}: ${title}`}
               icon={EllipsisVertical}
-              className="ui-bulk-menu"
               items={menuActions}
             />
           )}

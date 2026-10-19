@@ -103,4 +103,25 @@ describe('Confirm dialog (DESIGN_SYSTEM 5.10)', () => {
     expect(onConfirm).toHaveBeenCalledWith('Income above the limit');
     await expectNoAxeViolations(dialog);
   });
+
+  it('a pending confirmation ignores Escape and the scrim', async () => {
+    const onCancel = vi.fn();
+    const user = userEvent.setup();
+    renderWithUi(
+      <ConfirmDialog
+        isOpen
+        pending
+        title="Close the project?"
+        confirmLabel="Close project"
+        onConfirm={() => {}}
+        onCancel={onCancel}
+      />,
+    );
+    await screen.findByRole('alertdialog');
+    await user.keyboard('{Escape}');
+    await user.click(document.querySelector('.MuiBackdrop-root')!);
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+  });
 });

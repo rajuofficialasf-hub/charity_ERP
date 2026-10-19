@@ -44,7 +44,7 @@ describe('BulkRow and BulkList', () => {
     await user.click(screen.getByRole('checkbox', { name: /Rahima Khatun/ }));
     expect(screen.getByRole('checkbox', { name: /Rahima Khatun/ })).toBeChecked();
     expect(screen.getByRole('checkbox', { name: 'Select all remaining' })).toBeChecked();
-    expect(screen.getByRole('status')).toHaveTextContent('1');
+    expect(screen.getByRole('status')).toHaveTextContent(/^1 selected$/);
     await expectNoAxeViolations(container);
   });
 
@@ -69,9 +69,13 @@ describe('BulkRow and BulkList', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     await user.click(toggle);
     expect(screen.getByText('Quantity and note')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Hide details' })).toHaveAttribute(
+    const hide = screen.getByRole('button', { name: 'Hide details' });
+    expect(hide).toHaveAttribute('aria-expanded', 'true');
+    await user.click(hide);
+    expect(screen.getByText('Quantity and note')).not.toBeVisible();
+    expect(screen.getByRole('button', { name: 'Show details' })).toHaveAttribute(
       'aria-expanded',
-      'true',
+      'false',
     );
   });
 });

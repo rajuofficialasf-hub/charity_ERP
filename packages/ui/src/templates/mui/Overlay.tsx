@@ -108,7 +108,7 @@ export function Drawer({
     <MuiDrawer
       anchor={anchor}
       open={isOpen}
-      onClose={onClose}
+      onClose={() => onClose()}
       className="ui-overlay"
       slotProps={{
         paper: {

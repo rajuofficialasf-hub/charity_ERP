@@ -25,6 +25,7 @@ describe('MenuButton', () => {
     const button = screen.getByRole('button', { name: 'প্রোফাইল মেনু' });
     expect(button).toHaveTextContent('নমুনা কর্মকর্তা');
     expect(button).toHaveAttribute('aria-haspopup', 'true');
+    expect(button).toHaveAttribute('aria-expanded', 'false');
     await user.click(button);
     const menu = screen.getByRole('menu', { name: 'প্রোফাইল মেনু' });
     expect(menu).toBeVisible();

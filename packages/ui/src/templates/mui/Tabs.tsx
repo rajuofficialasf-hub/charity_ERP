@@ -96,6 +96,7 @@ export function Tabs({
           role="tabpanel"
           id={panelId(shown.id)}
           aria-labelledby={tabId(shown.id)}
+          // always a tab stop, as the tabs pattern allows: a panel of plain text is still reachable
           tabIndex={0}
           className="ui-tabpanel"
         >

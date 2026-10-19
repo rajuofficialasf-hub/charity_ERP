@@ -1,4 +1,4 @@
-/* Modal, Drawer, Confirm dialog and bottom sheet (DESIGN_SYSTEM 5.8-5.10, UX-14 entrance), on
+/* Modal, Drawer, Confirm dialog and bottom sheet (DESIGN_SYSTEM 5.8-5.10, with the soft entrance), on
    MUI's dialog and drawer: `.ui-overlay` is the modal root, its backdrop is the scrim. */
 @layer components {
   .ui-overlay .MuiBackdrop-root {

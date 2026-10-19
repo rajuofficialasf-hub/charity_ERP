@@ -33,7 +33,7 @@ export function MenuButton({ label, items, children, icon, className }: MenuButt
         type="button"
         aria-label={label}
         aria-haspopup="true"
-        aria-expanded={open || undefined}
+        aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         className={cx('ui-btn', 'ui-btn-ghost', 'ui-menu-button', className)}
         onClick={() => setOpen((now) => !now)}
@@ -55,32 +55,21 @@ export function MenuButton({ label, items, children, icon, className }: MenuButt
           list: { className: 'ui-menu', 'aria-label': label },
         }}
       >
-        {items.map((item) =>
-          item.href ? (
-            <MenuItem
-              key={item.id}
-              component={RouterLink}
-              href={item.href}
-              className="ui-menu-item"
-              disableRipple
-              onClick={close}
-            >
-              <ItemContent item={item} />
-            </MenuItem>
-          ) : (
-            <MenuItem
-              key={item.id}
-              className="ui-menu-item"
-              disableRipple
-              onClick={() => {
-                close();
-                item.onAction?.();
-              }}
-            >
-              <ItemContent item={item} />
-            </MenuItem>
-          ),
-        )}
+        {items.map((item) => (
+          <MenuItem
+            key={item.id}
+            // a link item renders the router's anchor and only closes the menu; the router navigates
+            {...(item.href ? { component: RouterLink, href: item.href } : {})}
+            className="ui-menu-item"
+            disableRipple
+            onClick={() => {
+              close();
+              if (!item.href) item.onAction?.();
+            }}
+          >
+            <ItemContent item={item} />
+          </MenuItem>
+        ))}
       </MuiMenu>
     </>
   );
