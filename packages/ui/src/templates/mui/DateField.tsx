@@ -33,15 +33,14 @@ const toIso = (day: Dayjs | null): string | null =>
   day !== null && day.isValid() ? day.format(STORED) : null;
 
 /** The calendar of a phone as a bottom sheet, in place of the picker's centred dialog. */
-function BottomSheet({ open, onClose, children, ...props }: DialogProps) {
+function BottomSheet({ open, onClose, children, container, ...props }: DialogProps) {
   const label = props['aria-label'];
-  const sheet = useRef<HTMLDivElement>(null);
   return (
     <Drawer
       anchor="bottom"
       open={open}
-      onClose={(event) => onClose?.(event, 'backdropClick')}
-      container={() => insideDialog(sheet.current)}
+      onClose={(event, reason) => onClose?.(event, reason)}
+      container={container}
       slotProps={{
         paper: {
           className: 'ui-date-sheet',
@@ -68,11 +67,13 @@ export function DateField({ value, defaultValue, onChange, min, max, ...field }:
   const labelId = `${ids.inputId}-label`;
   const wrapper = useRef<HTMLDivElement>(null);
   const phone = useMediaQuery('(max-width: 639.95px)');
-  const [outOfRange, setOutOfRange] = useState(false);
   const [inner, setInner] = useState<string | null>(defaultValue ?? null);
   const iso = value === undefined ? inner : value;
-  const shown = useMemo(() => toDay(value), [value]);
-  const first = useMemo(() => toDay(defaultValue), [defaultValue]);
+  // the picker always shows the field's own value, so a switch between the phone and the wider
+  // picker keeps what was entered
+  const shown = useMemo(() => toDay(iso) ?? null, [iso]);
+  // ISO dates compare correctly as text
+  const outOfRange = !!iso && ((!!min && iso < min) || (!!max && iso > max));
   const minDate = useMemo(() => (min ? dayjs(min, STORED) : undefined), [min]);
   const maxDate = useMemo(() => (max ? dayjs(max, STORED) : undefined), [max]);
   const invalid = !!field.error || outOfRange;
@@ -104,13 +105,10 @@ export function DateField({ value, defaultValue, onChange, min, max, ...field }:
         localeText={localeText}
       >
         <Picker
-          {...(value === undefined ? { defaultValue: first ?? null } : { value: shown ?? null })}
-          onChange={(next, context) => {
+          value={shown}
+          onChange={(next) => {
             const reported = toIso(next);
             setInner(reported);
-            setOutOfRange(
-              context.validationError === 'minDate' || context.validationError === 'maxDate',
-            );
             onChange?.(reported);
           }}
           format={SHOWN}
@@ -145,7 +143,10 @@ export function DateField({ value, defaultValue, onChange, min, max, ...field }:
             openPickerButton: { className: 'ui-input-button', disableRipple: true },
             toolbar: { hidden: true },
             actionBar: { actions: [] },
-            dialog: { 'aria-label': field.label },
+            dialog: {
+              'aria-label': field.label,
+              container: () => insideDialog(wrapper.current),
+            },
             popper: {
               className: 'ui-date-popper',
               container: () => insideDialog(wrapper.current),

@@ -5,6 +5,10 @@ import { expectNoAxeViolations, renderWithUi } from '../../testing/index.js';
 import { DateField } from './DateField.js';
 
 /** The day, month and year sections of a date field, in the order they are shown. */
+/** The text a date field shows, without spaces and invisible marks. */
+const shownText = (element: HTMLElement) =>
+  (element.textContent ?? '').replace(/[\s\u200b\u2066-\u2069]/g, '');
+
 const sections = (label: RegExp | string) =>
   within(screen.getByRole('group', { name: label })).getAllByRole('spinbutton');
 
@@ -21,7 +25,7 @@ describe('DateField', () => {
     await user.keyboard('11102026');
     expect(onChange).toHaveBeenLastCalledWith('2026-10-11');
     const group = screen.getByRole('group', { name: /বিতরণের তারিখ/ });
-    expect(group).toHaveTextContent(/11\D*-\D*10\D*-\D*2026/);
+    expect(shownText(group)).toBe('11-10-2026');
     expect(group.textContent).not.toMatch(/[০-৯]/);
     expect(screen.getByRole('button', { name: /ক্যালেন্ডার খুলুন/ })).toBeInTheDocument();
     await expectNoAxeViolations(container);
@@ -29,7 +33,7 @@ describe('DateField', () => {
 
   it('shows a stored date as day-month-year', async () => {
     const { container } = renderWithUi(<DateField label="Date" value="2026-11-01" />);
-    expect(screen.getByRole('group', { name: /Date/ })).toHaveTextContent(/01\D*-\D*11\D*-\D*2026/);
+    expect(shownText(screen.getByRole('group', { name: /Date/ }))).toBe('01-11-2026');
     await expectNoAxeViolations(container);
   });
 
@@ -50,6 +54,27 @@ describe('DateField', () => {
     await user.keyboard('31102026');
     expect(onChange).toHaveBeenLastCalledWith('2026-10-31');
     expect(sections(/Date/)[0]).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('marks a stored date outside the limits at once and clears it when the page replaces it', () => {
+    const { rerender } = renderWithUi(
+      <DateField label="Date" value="2026-10-31" min="2026-11-01" />,
+    );
+    expect(sections(/Date/)[0]).toHaveAttribute('aria-invalid', 'true');
+    rerender(<DateField label="Date" value="2026-11-05" min="2026-11-01" />);
+    expect(sections(/Date/)[0]).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('opens the calendar inside the dialog the field sits in', async () => {
+    const user = userEvent.setup();
+    renderWithUi(
+      <div role="dialog" aria-label="Box">
+        <DateField label="Date" defaultValue="2026-10-11" />
+      </div>,
+    );
+    await user.click(screen.getByRole('button', { name: /Open calendar/ }));
+    const dialog = screen.getByRole('dialog', { name: 'Box' });
+    expect(await within(dialog).findByRole('grid')).toBeInTheDocument();
   });
 
   it('shows the error the page gives and ties it to the field', () => {
@@ -131,9 +156,19 @@ describe('DateField', () => {
       await user.click(within(sheet).getByRole('gridcell', { name: '15' }));
       expect(onChange).toHaveBeenLastCalledWith('2026-10-15');
       await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-      expect(screen.getByRole('group', { name: /Date/ })).toHaveTextContent(
-        /15\D*-\D*10\D*-\D*2026/,
+      expect(shownText(screen.getByRole('group', { name: /Date/ }))).toBe('15-10-2026');
+    });
+
+    it('opens the sheet inside the dialog the field sits in', async () => {
+      const user = userEvent.setup();
+      renderWithUi(
+        <div role="dialog" aria-label="Box">
+          <DateField label="Date" defaultValue="2026-10-11" />
+        </div>,
       );
+      await user.click(screen.getByRole('button', { name: /Open calendar/ }));
+      const sheet = await screen.findByRole('dialog', { name: 'Date' });
+      expect(screen.getByRole('dialog', { name: 'Box' })).toContainElement(sheet);
     });
   });
 });

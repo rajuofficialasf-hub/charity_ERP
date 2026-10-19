@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 
 // Dev-only component gallery (T1.4). The E2E build includes it (CSS_DEV_GALLERY=1); a normal
 // production build does not. Every component is checked at 360x640 (mobile project) and
@@ -28,6 +28,10 @@ const SECTIONS = [
   'progress',
   'misc',
 ];
+
+/** The text a date field shows, without spaces and invisible marks. */
+const shownDate = async (field: Locator) =>
+  ((await field.textContent()) ?? '').replace(/[\s\u200b\u2066-\u2069]/g, '');
 
 test.beforeEach(async ({ page }, info) => {
   await page.setViewportSize(
@@ -126,7 +130,7 @@ test.describe('gallery keyboard flows', () => {
     page,
   }, info) => {
     const field = page.locator('#select .ui-date-group');
-    await expect(field).toContainText(/01\D*-\D*12\D*-\D*2026/);
+    await expect.poll(() => shownDate(field)).toBe('01-12-2026');
     await field.getByRole('button', { name: /Open calendar/ }).click();
     const grid = page.getByRole('grid', { name: /December 2026/ });
     await expect(grid).toBeVisible();
@@ -142,7 +146,7 @@ test.describe('gallery keyboard flows', () => {
     }
     await grid.getByRole('gridcell', { name: '15' }).click();
     await expect(grid).toBeHidden();
-    await expect(field).toContainText(/15\D*-\D*12\D*-\D*2026/);
+    await expect.poll(() => shownDate(field)).toBe('15-12-2026');
   });
 
   test('table sorts by a header and selects rows', async ({ page }, info) => {
