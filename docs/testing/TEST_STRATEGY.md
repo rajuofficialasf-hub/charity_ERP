@@ -256,6 +256,23 @@ The runs on the final state of branch `refactor/mui-core-ui` (plan `docs/plans/2
 
 New tests of this work: the keyboard model of the table (rows, cells, Home, End, Enter, Space, one tab stop), the date field on MUI's picker (dd-mm-yyyy, limits, the phone sheet, inside a dialog), the overlays (alert dialog, pending confirmation, focus return), the menu's links through the router, the layout pieces, the lint boundary that keeps MUI inside the template folder (`apps/web/test/template-boundary.test.ts`) and the class check (`apps/web/test/class-names.test.ts`: every class name a page writes is defined by a stylesheet it loads). The look was checked with a computed-style capture of 27 screens on the phone and desktop projects before and after the Tailwind removal: no element differed; that capture is a one-off measuring tool, not a committed suite, so the visual baselines of section 3.7 remain the T1.17 task.
 
+### 9.3 Phase 1 gate (T1.17, 2026-10-20)
+
+The runs on the final state of branch `chore/phase1-gate`, after the six fixes of the gate review (`docs/gates/PHASE_1_RELEASE_NOTES.md` section 3):
+
+| Command | Output |
+|---|---|
+| `pnpm typecheck` | every package `Done`, no error |
+| `pnpm lint` | ESLint 0 errors (163 warnings, all `security/*` advisories); Prettier clean; `i18n check: 0 error(s), 0 warning(s); 152 error codes checked` |
+| `pnpm docs:check` | `All document checks passed.` (incl. the Phase 1 rules check, 136 rules) |
+| `pnpm test` | `Test Files  184 passed (184)`, `Tests  1666 passed (1666)` (shared, ui, api, api-db, web) |
+| `pnpm --filter @css/api contract:coverage --no-run` | `contract coverage: 132 of 132 operations answered their success status in a test` |
+| `pnpm rules:status --phase 1 --report-only` | `Phase 1 rules: tested 104, deferred 32, manual 0, untested 0` |
+| `pnpm e2e` | `156 passed`, `21 skipped`, 0 failed on `mobile`, `desktop` and `iphone`; the axe sweep `a11y.spec.ts` of every Phase 1 screen in both languages included |
+| `pnpm --filter @css/web bundle:report` | first route 212.8 KB gzip of 250 KB; the signed-in home adds 62.3 KB |
+
+New tests of the gate: the project budget amounts by `budget.view` (`apps/api/test/integration/projects.test.ts`), the password change's rate window per user under the real limits (`password.test.ts`), an RPM against another official's devices in the same area (`sessions-users.test.ts`), parallel wrong passwords toward the lock (`auth.test.ts`), refused correction answers within the hour (`registration-approval.test.ts`), the replaced template's old definition in its audit entry (`templates.test.ts`). The 32 deferred rules are the features of later phases (application transfer, ratings, follow-up, forms, construction, Qurbani, dawah, documents, offline sync, the Media Team module), listed with their phase in `docs/BUSINESS_RULES.md` section 19. Not run at this gate: the visual baselines of section 3.7 and a recorded keyboard walkthrough, deferred until the owner's review of the new list and profile layouts settles the screens (`docs/gates/PHASE_1_SIGNOFF.md` section 5).
+
 ## 10. Reporting and flaky tests
 
 - Every task report uses the §15 template; the Tests section shows the commands run and their summary output.
