@@ -6,15 +6,6 @@ import type { UiMessages } from './messages.js';
 
 export type UiLocale = 'bn' | 'en';
 
-/**
- * The locales for formatting in each language: the `nu-latn` extension keeps English digits in
- * both languages, and both order dates day, month, year.
- */
-export const FORMAT_LOCALE: Record<UiLocale, string> = {
-  bn: 'bn-BD-u-nu-latn',
-  en: 'en-GB-u-nu-latn',
-};
-
 export interface UiContextValue {
   locale: UiLocale;
   messages: UiMessages;

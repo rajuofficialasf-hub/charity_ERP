@@ -1,6 +1,5 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
-import { fromProfileMenu } from './support/admin';
+import { fromProfileMenu, scan } from './support/admin';
 
 // The own profile by section with one edit mode (plan
 // docs/plans/2026-10-13-1500-feat-profile-redesign-plan.md, U3) against the API on its E2E
@@ -28,8 +27,6 @@ const DETAILS = {
     { section: 'ব্যক্তিগত তথ্য', label: 'মাতার নাম', value: 'নতুন তথ্য' },
   ],
 } as const;
-
-const scan = (page: Page) => new AxeBuilder({ page }).analyze();
 
 async function signIn(page: Page, loginId: string) {
   await page.goto('/login');

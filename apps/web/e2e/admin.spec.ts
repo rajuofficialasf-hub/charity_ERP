@@ -1,5 +1,5 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
+import { scan } from './support/admin';
 
 // The admin area inside the app shell against the API on its
 // E2E database. Mobile and desktop share the database, so each project signs in with its own
@@ -12,9 +12,6 @@ const ACCOUNTS = {
   mobile: { manager: 'procurement@example.org', volunteer: '01700000112' },
 } as const;
 const accounts = (project: string) => ACCOUNTS[project === 'mobile' ? 'mobile' : 'desktop'];
-
-/** axe on the page; React Aria's live announcer node is excluded as in auth.spec.ts. */
-const scan = (page: Page) => new AxeBuilder({ page }).analyze();
 
 /** Signs in and returns the display name from the home heading ("স্বাগতম, <name>"). */
 async function signIn(page: Page, loginId: string): Promise<string> {

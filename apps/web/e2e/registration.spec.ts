@@ -1,7 +1,6 @@
-import AxeBuilder from '@axe-core/playwright';
 import { fakeEmail, fakeMobile, fakeNid } from '@css/shared';
 import { devices, expect, type Page, test, type TestInfo } from '@playwright/test';
-import { fromProfileMenu, isPhone, mainMenu, openTab } from './support/admin';
+import { fromProfileMenu, isPhone, mainMenu, openTab, scan } from './support/admin';
 import { activeProject, code, ERR } from './support/projects';
 
 // Registration on a phone from the login page to the pending confirmation (plans
@@ -30,8 +29,6 @@ const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
   'base64',
 );
-
-const scan = (page: Page) => new AxeBuilder({ page }).analyze();
 
 /** Contacts, an NID and a name nobody else of this run uses (project, repeat and retry). */
 function personFor(info: TestInfo) {

@@ -1,6 +1,5 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
-import { openDestination, rows } from './support/admin';
+import { openDestination, rows, scan } from './support/admin';
 
 // The permission panel against the API on its E2E database (SCR-062, RBAC.md 7; plan
 // docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, the panel unit), and the audit entry the
@@ -31,8 +30,6 @@ const settle = (page: Page) =>
   page.evaluate(() =>
     Promise.all(document.getAnimations().map((a) => a.finished.catch(() => undefined))),
   );
-
-const scan = (page: Page) => new AxeBuilder({ page }).analyze();
 
 // Signs in through the form in each test, as admin.spec.ts and auth.spec.ts do: the journey starts
 // at the login screen, and each test stays independent of a stored session.

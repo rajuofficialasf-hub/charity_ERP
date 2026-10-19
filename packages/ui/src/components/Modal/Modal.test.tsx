@@ -43,7 +43,7 @@ describe('Modal (DESIGN_SYSTEM 5.8)', () => {
     expect(dialog).toContainElement(document.activeElement as HTMLElement);
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    // React Aria restores focus after the dialog has unmounted, a frame later on slow machines.
+    // focus returns once the dialog has faded out and unmounted, a frame later on slow machines
     await waitFor(() => expect(trigger).toHaveFocus());
   });
 

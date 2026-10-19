@@ -92,7 +92,7 @@ export interface UiMessages {
     /** "{shown} of {total}". */
     resultCount: string;
     selectAll: string;
-    /** Row checkbox inside the table; React Aria adds the row's name after it. */
+    /** Row checkbox inside a table; the table names it after the row. */
     select: string;
     /** "Select {name}". */
     selectRow: string;

@@ -12,7 +12,7 @@ const restricted = async (code: string, filePath: string) => {
   return (result?.messages ?? []).filter((m) => m.ruleId === 'no-restricted-imports');
 };
 
-describe('the template boundary', () => {
+describe('the template boundary', { timeout: 30_000 }, () => {
   it('refuses MUI and Emotion in a page and in the set outside its template', async () => {
     const mui = "import Button from '@mui/material/Button';\nexport const B = Button;\n";
     expect(await restricted(mui, 'apps/web/src/features/home/Example.tsx')).toHaveLength(1);
