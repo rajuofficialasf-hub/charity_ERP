@@ -27,7 +27,7 @@
       background var(--motion-fast) var(--ease-standard),
       color var(--motion-fast) var(--ease-standard);
   }
-  .ui-segmented-option[data-hovered] {
+  .ui-segmented-option:hover {
     color: var(--color-text-primary);
   }
   .ui-segmented-option[data-selected] {
@@ -35,7 +35,7 @@
     color: var(--color-text-on-brand);
     box-shadow: var(--elevation-1);
   }
-  .ui-segmented-option[data-focus-visible] {
+  .ui-segmented-option:has(input:focus-visible) {
     box-shadow: var(--focus-ring);
   }
 }
