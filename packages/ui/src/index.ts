@@ -1,7 +1,7 @@
 export { BREAKPOINTS, MIN_WIDTH, VERIFY_VIEWPORTS } from './breakpoints.js';
 export { fill, type UiMessages } from './provider/messages.js';
 export {
-  ARIA_LOCALE,
+  FORMAT_LOCALE,
   UiProvider,
   useUi,
   type UiContextValue,

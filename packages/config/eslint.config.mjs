@@ -86,7 +86,34 @@ export const sharedPurity = {
   },
 };
 
-/** Test files may use dev-only helpers and looser rules. */
+/**
+ * Pages and components use the component set only: the libraries behind the set live in its
+ * template folder, packages/ui/src/templates/<name>/, so a template can be replaced without touching
+ * a page (docs/architecture/ADR/ADR-015-mui-core-component-set.md).
+ */
+export const templateBoundary = {
+  files: ['apps/web/**/*.{ts,tsx}', 'packages/ui/**/*.{ts,tsx}'],
+  ignores: ['packages/ui/src/templates/**'],
+  rules: {
+    'no-restricted-imports': [
+      'error',
+      {
+        patterns: [
+          {
+            group: ['@mui/*', '@emotion/*'],
+            message:
+              'Use the component set (@css/ui); MUI and Emotion belong in packages/ui/src/templates/.',
+          },
+          {
+            group: ['react-aria', 'react-aria-components', 'react-stately', '@internationalized/*'],
+            message: 'React Aria is not part of the component set any more; use @css/ui.',
+          },
+        ],
+      },
+    ],
+  },
+};
+
 /** No hard-coded user-facing text in the PWA and the design system (I18N 4, D-067). */
 export const i18n = {
   files: ['apps/web/src/**/*.tsx', 'packages/ui/src/**/*.tsx'],
@@ -94,6 +121,7 @@ export const i18n = {
   rules: { 'css/no-literal-ui-text': 'error' },
 };
 
+/** Test files may use dev-only helpers and looser rules. */
 export const tests = {
   files: ['**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}', '**/test/**/*.{ts,tsx}', '**/e2e/**/*.ts'],
   rules: {
@@ -118,4 +146,15 @@ export const scripts = {
   },
 };
 
-export default [ignores, ...base, node, react, sharedPurity, i18n, tests, scripts, prettier];
+export default [
+  ignores,
+  ...base,
+  node,
+  react,
+  sharedPurity,
+  templateBoundary,
+  i18n,
+  tests,
+  scripts,
+  prettier,
+];

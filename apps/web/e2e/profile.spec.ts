@@ -29,7 +29,7 @@ const DETAILS = {
   ],
 } as const;
 
-const scan = (page: Page) => new AxeBuilder({ page }).exclude('[data-live-announcer]').analyze();
+const scan = (page: Page) => new AxeBuilder({ page }).analyze();
 
 async function signIn(page: Page, loginId: string) {
   await page.goto('/login');

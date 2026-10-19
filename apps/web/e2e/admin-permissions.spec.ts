@@ -32,7 +32,7 @@ const settle = (page: Page) =>
     Promise.all(document.getAnimations().map((a) => a.finished.catch(() => undefined))),
   );
 
-const scan = (page: Page) => new AxeBuilder({ page }).exclude('[data-live-announcer]').analyze();
+const scan = (page: Page) => new AxeBuilder({ page }).analyze();
 
 // Signs in through the form in each test, as admin.spec.ts and auth.spec.ts do: the journey starts
 // at the login screen, and each test stays independent of a stored session.

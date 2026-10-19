@@ -37,11 +37,8 @@ const ACCOUNTS = {
   },
 } as const;
 
-/**
- * axe on the page. React Aria's live announcer (`[data-live-announcer]`) briefly keeps an
- * announcement node that points at a button already gone after a pending state; it is excluded.
- */
-const scan = (page: Page) => new AxeBuilder({ page }).exclude('[data-live-announcer]').analyze();
+/** axe on the whole page. */
+const scan = (page: Page) => new AxeBuilder({ page }).analyze();
 
 type Purpose = keyof (typeof ACCOUNTS)['desktop'];
 const account = (project: string, purpose: Purpose) =>

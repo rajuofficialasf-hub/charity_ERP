@@ -14,7 +14,7 @@ const ACCOUNTS = {
 const accounts = (project: string) => ACCOUNTS[project === 'mobile' ? 'mobile' : 'desktop'];
 
 /** axe on the page; React Aria's live announcer node is excluded as in auth.spec.ts. */
-const scan = (page: Page) => new AxeBuilder({ page }).exclude('[data-live-announcer]').analyze();
+const scan = (page: Page) => new AxeBuilder({ page }).analyze();
 
 /** Signs in and returns the display name from the home heading ("স্বাগতম, <name>"). */
 async function signIn(page: Page, loginId: string): Promise<string> {

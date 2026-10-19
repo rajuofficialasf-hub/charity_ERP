@@ -1,17 +1,16 @@
 'use client';
 
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
-import { I18nProvider, RouterProvider } from 'react-aria-components';
 import { TemplateProvider } from '../template.js';
 import type { UiMessages } from './messages.js';
 
 export type UiLocale = 'bn' | 'en';
 
 /**
- * Locales handed to React Aria (D-064): the `nu-latn` extension keeps English digits in both
- * languages (UX-05) and both locales order dates day, month, year (O-43).
+ * The locales for formatting in each language: the `nu-latn` extension keeps English digits in
+ * both languages, and both order dates day, month, year.
  */
-export const ARIA_LOCALE: Record<UiLocale, string> = {
+export const FORMAT_LOCALE: Record<UiLocale, string> = {
   bn: 'bn-BD-u-nu-latn',
   en: 'en-GB-u-nu-latn',
 };
@@ -33,8 +32,7 @@ export interface UiProviderProps extends UiContextValue {
 
 /**
  * Supplies locale, texts and number formatting to every design-system component, inside the
- * template's provider (the MUI theme). React Aria's providers stay beside it until the
- * last component has moved to the template.
+ * template's provider (the MUI theme); links navigate through `navigate`.
  */
 export function UiProvider({
   locale,
@@ -47,16 +45,9 @@ export function UiProvider({
     () => ({ locale, messages, formatNumber }),
     [locale, messages, formatNumber],
   );
-  // eslint-disable-next-line security/detect-object-injection -- typed union key into a constant table
-  const ariaLocale = ARIA_LOCALE[locale];
-  const content = (
-    <UiContext.Provider value={value}>
-      <I18nProvider locale={ariaLocale}>{children}</I18nProvider>
-    </UiContext.Provider>
-  );
   return (
     <TemplateProvider navigate={navigate}>
-      {navigate ? <RouterProvider navigate={navigate}>{content}</RouterProvider> : content}
+      <UiContext.Provider value={value}>{children}</UiContext.Provider>
     </TemplateProvider>
   );
 }

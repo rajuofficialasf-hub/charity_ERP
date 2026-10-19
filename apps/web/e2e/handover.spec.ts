@@ -15,7 +15,7 @@ const OFFICIAL = 'handover.rpm@example.org';
 const REFUSED =
   /অ্যাকাউন্ট বন্ধের আগে ব্যবহারকারীর অপেক্ষমাণ কাজ হস্তান্তর করুন।|কিছু অপেক্ষমাণ কাজ এখনও হস্তান্তর করা হয়নি।/;
 
-const scan = (page: Page) => new AxeBuilder({ page }).exclude('[data-live-announcer]').analyze();
+const scan = (page: Page) => new AxeBuilder({ page }).analyze();
 
 /** Picks a user in a search combobox by typing a part of the email. */
 async function pickUser(page: Page, label: RegExp, text: string, option: RegExp) {

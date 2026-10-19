@@ -31,7 +31,7 @@ const PNG = Buffer.from(
   'base64',
 );
 
-const scan = (page: Page) => new AxeBuilder({ page }).exclude('[data-live-announcer]').analyze();
+const scan = (page: Page) => new AxeBuilder({ page }).analyze();
 
 /** Contacts, an NID and a name nobody else of this run uses (project, repeat and retry). */
 function personFor(info: TestInfo) {
