@@ -19,8 +19,27 @@ import {
   stateLabel,
   translate,
 } from '../src/i18n/index.js';
+import { bn as bnAlone } from '../src/i18n/bn.js';
+import { en as enAlone } from '../src/i18n/en.js';
 
 const repo = join(__dirname, '../../..');
+
+// The web app loads one language at a time through these entries; each must be the same catalogue
+// the server and the checks use, and must carry no other language.
+describe('one catalogue per language entry', () => {
+  it('gives the same Bengali and English catalogues as the shared entry', () => {
+    expect(bnAlone).toBe(bn);
+    expect(enAlone).toBe(en);
+    expect(enAlone.common.language.label).toBe('Language');
+    expect(bnAlone.common.language.label).toBe('ভাষা');
+  });
+
+  it('keeps each entry free of the other language', () => {
+    const source = (file: string) => readFileSync(join(__dirname, '../src/i18n', file), 'utf8');
+    expect(source('catalogue-bn.ts')).not.toMatch(/messages\/en\//);
+    expect(source('catalogue-en.ts')).not.toMatch(/messages\/bn\//);
+  });
+});
 
 describe('locale resolution (I18N 2, API_STANDARDS 7)', () => {
   it('uses Accept-Language, then the stored language, then bn', () => {

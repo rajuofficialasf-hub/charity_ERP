@@ -3,7 +3,7 @@ import type { ElementType } from 'react';
 import { BREAKPOINTS } from '../../breakpoints.js';
 import { ROOT_TOKENS, tokenVar } from '../../tokens.js';
 
-/** Pixels per MUI spacing step: the design system's 4 px scale (DESIGN_SYSTEM 2.2). */
+/** Pixels per MUI spacing step: the 4 px spacing scale of docs/ui/DESIGN_SYSTEM.md. */
 export const SPACING_PX = 4;
 
 /** The MUI shadows from the elevation tokens: none, the three levels, then the top level. */
@@ -18,7 +18,7 @@ function shadows(): Shadows {
 
 /**
  * The MUI theme of the set, built from the design tokens so the approved brand look stays
- * (docs/ui/brand/colors.md, DESIGN_SYSTEM 2.9): green for actions, amber only as decoration,
+ * (docs/ui/brand/colors.md and the token block of docs/ui/DESIGN_SYSTEM.md): green for actions, amber only as decoration,
  * status colours only for status, UbuntuSans and Bornomala at 400 and 700, radius 8 for
  * controls and the 4 px spacing scale. Sizes that change at the desktop breakpoint are read
  * through their CSS variables. `linkComponent` gives every MUI link client-side navigation.
@@ -66,7 +66,7 @@ export function createUiTheme(linkComponent?: ElementType): Theme {
       fontFamily: ROOT_TOKENS['font-sans'],
       fontWeightLight: 400,
       fontWeightRegular: 400,
-      // the brand fonts have no medium or semibold: bold stands in for both (O-40)
+      // the brand fonts have no medium or semibold: bold stands in for both
       fontWeightMedium: 700,
       fontWeightBold: 700,
       h1: { fontSize: tokenVar('text-display'), fontWeight: 700, lineHeight: 1.4 },

@@ -75,7 +75,7 @@ export function writeLocale(value: string): void {
 }
 
 /**
- * The catalogues this tab has (D-104): the device language's is loaded before the first render,
+ * The catalogues this tab has (docs/ui/I18N.md): the device language's is loaded before the first render,
  * the other one when the person switches, so the first load carries one language.
  */
 const loaded = new Map<Locale, Messages>();
@@ -117,6 +117,20 @@ export function primeMessages(locale: Locale, messages: Messages): void {
 export function forgetMessages(): void {
   loaded.clear();
   loading.clear();
+}
+
+/**
+ * The language and catalogue to render: the wanted language once its catalogue is loaded, else a
+ * language that is loaded (the one shown before a switch), else nothing yet.
+ */
+export function shownCatalogue(
+  key: string | undefined,
+  wanted: Locale,
+): { locale: Locale; messages: Messages } | undefined {
+  const messages = messagesFor(key);
+  if (messages) return { locale: wanted, messages };
+  const [locale, other] = [...loaded.entries()][0] ?? [];
+  return locale && other ? { locale, messages: other } : undefined;
 }
 
 /**

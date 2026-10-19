@@ -55,7 +55,7 @@ describe('device locale', () => {
   });
 });
 
-// One language at a time (D-104): the device language's catalogue is loaded before the first
+// One language at a time (docs/ui/I18N.md): the device language's catalogue is loaded before the first
 // render, the other one when the person switches.
 describe('loading a catalogue', () => {
   afterEach(() => {

@@ -33,7 +33,7 @@ export interface UiProviderProps extends UiContextValue {
 
 /**
  * Supplies locale, texts and number formatting to every design-system component, inside the
- * template's provider (the MUI theme, ADR-015). React Aria's providers stay beside it until the
+ * template's provider (the MUI theme). React Aria's providers stay beside it until the
  * last component has moved to the template.
  */
 export function UiProvider({

@@ -1,4 +1,4 @@
-// The MUI core implementation of the set's contract (src/contract.ts, ADR-015). Everything that
+// The MUI core implementation of the set's contract (src/contract.ts). Everything that
 // imports MUI or Emotion lives in this folder; pages import "@css/ui" only.
 import type { UiTemplate } from '../../contract.js';
 import { TemplateProvider } from './provider.js';

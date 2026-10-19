@@ -1,7 +1,14 @@
 import createCache from '@emotion/cache';
 import { CacheProvider } from '@emotion/react';
 import { ThemeProvider } from '@mui/material/styles';
-import { forwardRef, useMemo, type AnchorHTMLAttributes, type MouseEvent } from 'react';
+import {
+  createContext,
+  forwardRef,
+  useContext,
+  useMemo,
+  type AnchorHTMLAttributes,
+  type MouseEvent,
+} from 'react';
 import type { TemplateProviderProps } from '../../contract.js';
 import { createUiTheme } from './theme.js';
 
@@ -10,6 +17,9 @@ import { createUiTheme } from './theme.js';
  * (loaded as stylesheets) keep their precedence over MUI's defaults.
  */
 const emotionCache = createCache({ key: 'mui', prepend: true });
+
+/** The app's router, for the links of the set. */
+const NavigateContext = createContext<((href: string) => void) | undefined>(undefined);
 
 /** A plain click on a same-site link: the router handles it instead of a page load. */
 function isClientNavigation(event: MouseEvent<HTMLAnchorElement>, href: string | undefined) {
@@ -20,37 +30,39 @@ function isClientNavigation(event: MouseEvent<HTMLAnchorElement>, href: string |
   return href.startsWith('/') && !href.startsWith('//');
 }
 
-/** An anchor that hands same-site navigation to the app's router. */
-function routerLink(navigate: (href: string) => void) {
-  const RouterLink = forwardRef<HTMLAnchorElement, AnchorHTMLAttributes<HTMLAnchorElement>>(
-    function RouterLink({ href, onClick, ...props }, ref) {
-      return (
-        <a
-          ref={ref}
-          href={href}
-          {...props}
-          onClick={(event) => {
-            onClick?.(event);
-            if (!isClientNavigation(event, href)) return;
-            event.preventDefault();
-            navigate(href!);
-          }}
-        />
-      );
-    },
-  );
-  return RouterLink;
-}
+/**
+ * An anchor that hands same-site navigation to the app's router. It is one component type for
+ * the whole app and reads the current router from the provider, so a caller that passes a new
+ * `navigate` on every render never rebuilds the theme or remounts the links.
+ */
+const RouterLink = forwardRef<HTMLAnchorElement, AnchorHTMLAttributes<HTMLAnchorElement>>(
+  function RouterLink({ href, onClick, ...props }, ref) {
+    const navigate = useContext(NavigateContext);
+    return (
+      <a
+        ref={ref}
+        href={href}
+        {...props}
+        onClick={(event) => {
+          onClick?.(event);
+          if (!navigate || !isClientNavigation(event, href)) return;
+          event.preventDefault();
+          navigate(href!);
+        }}
+      />
+    );
+  },
+);
 
 /** The MUI theme and Emotion cache of the set; links navigate through the app's router. */
 export function TemplateProvider({ navigate, children }: TemplateProviderProps) {
-  const theme = useMemo(
-    () => createUiTheme(navigate ? routerLink(navigate) : undefined),
-    [navigate],
-  );
+  const routed = navigate !== undefined;
+  const theme = useMemo(() => createUiTheme(routed ? RouterLink : undefined), [routed]);
   return (
     <CacheProvider value={emotionCache}>
-      <ThemeProvider theme={theme}>{children}</ThemeProvider>
+      <NavigateContext.Provider value={navigate}>
+        <ThemeProvider theme={theme}>{children}</ThemeProvider>
+      </NavigateContext.Provider>
     </CacheProvider>
   );
 }

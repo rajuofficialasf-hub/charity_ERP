@@ -68,6 +68,34 @@ describe('the template provider', () => {
     expect(navigate).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps the theme and the links when the router callback changes on a re-render', () => {
+    const themes: unknown[] = [];
+    function Probe() {
+      themes.push(useTheme());
+      return null;
+    }
+    const first = vi.fn();
+    const second = vi.fn();
+    const view = render(
+      <TemplateProvider navigate={first}>
+        <Probe />
+        <Button href="/admin">Admin</Button>
+      </TemplateProvider>,
+    );
+    const link = screen.getByRole('link', { name: 'Admin' });
+    view.rerender(
+      <TemplateProvider navigate={second}>
+        <Probe />
+        <Button href="/admin">Admin</Button>
+      </TemplateProvider>,
+    );
+    expect(themes.at(-1)).toBe(themes[0]);
+    expect(screen.getByRole('link', { name: 'Admin' })).toBe(link);
+    fireEvent.click(link);
+    expect(second).toHaveBeenCalledWith('/admin');
+    expect(first).not.toHaveBeenCalled();
+  });
+
   it('leaves a click with a modifier key to the browser', () => {
     const navigate = vi.fn();
     render(

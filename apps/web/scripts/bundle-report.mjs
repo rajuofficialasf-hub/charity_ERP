@@ -25,7 +25,7 @@ const gzipBytes = (/** @type {string} */ dist, /** @type {string} */ file) =>
  * @param {string} dist the build folder
  * @param {number} [budgetKb]
  * @param {string[]} [alsoLoaded] chunks the first render loads on its own (the device language's
- *   catalogue, D-104), named by their module
+ *   catalogue, docs/ui/I18N.md), named by their module
  */
 export function measureFirstRoute(dist, budgetKb = BUDGET_KB, alsoLoaded = []) {
   const html = readFileSync(join(dist, 'index.html'), 'utf8');
@@ -90,7 +90,7 @@ const kb = (/** @type {number} */ bytes) => (bytes / 1024).toFixed(1);
 // `node scripts/bundle-report.mjs [dist]`: prints the files and fails over the budget
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const dist = process.argv[2] ?? 'dist';
-  // the default language's catalogue is part of the first render (D-104)
+  // the default language's catalogue is part of the first render
   const report = measureFirstRoute(dist, BUDGET_KB, ['bn']);
   const lines = report.files.map((f) => `${kb(f.bytes).padStart(8)} KB  ${f.file}`);
   lines.push(
