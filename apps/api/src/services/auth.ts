@@ -108,9 +108,20 @@ export class AuthService {
     if (!ok || !user) {
       let lockedUntil: Date | null;
       if (user) {
-        const next = afterFailure(user.failedLoginCount, now);
-        lockedUntil = next.lockedUntil;
+        lockedUntil = null;
         await this.prisma.$transaction(async (tx) => {
+          // the counter is read again under a row lock, so wrong passwords sent in parallel are
+          // counted one by one and cannot slip past the lock (AUTH.md 6)
+          const [fresh] = await tx.$queryRaw<
+            { failed_login_count: number; locked_until: Date | null }[]
+          >`SELECT failed_login_count, locked_until FROM users WHERE id = ${user.id}::uuid FOR UPDATE`;
+          if (fresh?.locked_until && fresh.locked_until > now) {
+            // a parallel attempt has just locked the account: the lock stands as it is
+            lockedUntil = fresh.locked_until;
+            return;
+          }
+          const next = afterFailure(fresh?.failed_login_count ?? user.failedLoginCount, now);
+          lockedUntil = next.lockedUntil;
           await tx.user.update({
             where: { id: user.id },
             data: { failedLoginCount: next.failedCount, lockedUntil: next.lockedUntil },
