@@ -1,4 +1,5 @@
 import { ChevronDown } from 'lucide-react';
+import type { CSSProperties } from 'react';
 import { useUi } from '../../provider/UiProvider.js';
 import { cx } from '../../utils/cx.js';
 import { Icon, type IconComponent } from '../Icon/Icon.js';
@@ -82,7 +83,12 @@ export function StatFilterBar({
   const hidden = items.slice(visible);
   const chosenHidden = hidden.find((item) => item.id === selectedId);
   return (
-    <div role="group" aria-label={label} className={cx('ui-statfilter', className)}>
+    <div
+      role="group"
+      aria-label={label}
+      className={cx('ui-statfilter', className)}
+      style={{ '--statfilter-columns': shown.length + (hidden.length ? 1 : 0) } as CSSProperties}
+    >
       {shown.map((item) => {
         const selectable = item.selectable !== false;
         const selected = selectable && item.id === selectedId;

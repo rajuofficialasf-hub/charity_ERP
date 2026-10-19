@@ -2,9 +2,15 @@
 @layer components {
   .ui-statfilter {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-3);
     margin-block-end: var(--space-4);
+  }
+  /* every card in one row on a wide screen */
+  @media (min-width: 1024px) {
+    .ui-statfilter {
+      grid-template-columns: repeat(var(--statfilter-columns, 6), minmax(0, 1fr));
+    }
   }
   .ui-statfilter .ui-statfilter-card {
     display: flex;

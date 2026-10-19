@@ -401,8 +401,24 @@
   /* the filter button with its count, and the filters opened in place */
   .ui-filter-toggle {
     display: inline-flex;
+    flex: none;
     align-items: center;
     gap: var(--space-2);
+    min-height: var(--control-height);
+    padding: 0 var(--space-4);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-surface);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-bold);
+    cursor: pointer;
+  }
+  .ui-filter-toggle:hover {
+    border-color: var(--color-border-strong);
+  }
+  .ui-filter-toggle:focus-visible {
+    outline: 2px solid var(--color-brand-primary);
+    outline-offset: 2px;
   }
   .ui-filter-toggle.is-active {
     border-color: var(--color-brand-primary-dark);
