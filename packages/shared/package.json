@@ -16,6 +16,16 @@
       "types": "./dist/i18n/index.d.ts",
       "default": "./dist/i18n/index.js"
     },
+    "./i18n/bn": {
+      "@css/source": "./src/i18n/bn.ts",
+      "types": "./dist/i18n/bn.d.ts",
+      "default": "./dist/i18n/bn.js"
+    },
+    "./i18n/en": {
+      "@css/source": "./src/i18n/en.ts",
+      "types": "./dist/i18n/en.d.ts",
+      "default": "./dist/i18n/en.js"
+    },
     "./format": {
       "@css/source": "./src/format/index.ts",
       "types": "./dist/format/index.d.ts",

@@ -25,6 +25,7 @@ The organization's standard (ae-standards `RE-UI-*`) puts every app's UI on MUI 
 - **R7** Tailwind is gone: no `tailwindcss` dependency, no utility classes; layout comes from set components and page CSS on the design tokens.
 - **R8** The template is replaceable: one export line in the set selects `templates/mui`, so a Minimal template can replace it later.
 - **R9** The decision and every affected document are updated: DECISION_LOG, an ADR, the CLAUDE.md stack profile, DESIGN_SYSTEM.
+- **R10** The app loads only the device language's message catalogue at start and the other language when the person switches, so the first route has room for MUI (owner, 2026-10-19).
 
 ## Scope
 - In: `packages/ui` (all 26 component folders and `VisuallyHidden`, 28 exported component families, provider, styles, tests), `apps/web` (pages' class names and CSS, the shell, the gallery, component tests and E2E specs where they read implementation details), lint, docs.
@@ -35,6 +36,7 @@ The organization's standard (ae-standards `RE-UI-*`) puts every app's UI on MUI 
 - **The approved brand look stays** (UX-01, UX-13, UX-14, O-40 are unchanged): only the implementation moves. Governs R3.
 - **Tailwind leaves at the end** (recommended in chat, no objection): one styling system, as the standard has. Governs R7.
 - **Before the Phase 1 gate** (recommended in chat): the gate's baselines and UAT run on the final design.
+- **One language at start** (owner, 2026-10-19, after the U1 bundle gate showed 250.4 KB with only the MUI theme): the catalogue is split by language instead of raising the 250 KB budget (D-104). Governs R6, R10.
 
 ## Technical decisions
 - **Versions** (ST-34): `@mui/material` 9.4.0 (the version the ae kit's Minimal template is tested on, 2026-08-27, MIT), `@emotion/react` 11.14.0 and `@emotion/styled` 11.14.1 (MIT); for the date field `@mui/x-date-pickers` 9.x community (MIT; peer `@mui/material ^9.0.0`), the newest 9.x released at least two weeks before the install, with `dayjs` as its adapter. No `@mui/lab`, no paid MUI X. Icons stay `lucide-react` through the set's `Icon`.
@@ -60,6 +62,20 @@ The organization's standard (ae-standards `RE-UI-*`) puts every app's UI on MUI 
   - existing: covered by `packages/ui/src/styles/styles.test.ts` (token drift) and every component test (they render through `renderWithUi`).
 - **Done when:** `pnpm --filter @css/ui test`, `pnpm --filter @css/web test` and `pnpm typecheck` pass with both provider stacks and no component changed yet, and `pnpm --filter @css/web build` then `bundle:report` prints the first route with the MUI provider (the budget gate for every later unit).
 - **Depends on:** none
+- **Size:** M
+- **Risk area:** none
+- **Status:** done
+
+### U11. The message catalogue by language
+- **Goal:** the first route carries one language's texts; switching the language loads the other once.
+- **Requirements:** R6, R10
+- **Files:** `docs/DECISION_LOG.md` (D-104), `docs/ui/I18N.md`, `packages/shared/src/i18n/{catalogue.ts,catalogue-bn.ts,catalogue-en.ts,bn.ts,en.ts}`, `packages/shared/package.json` (exports `./i18n/bn`, `./i18n/en`), `apps/web/src/i18n/{locale.ts,LocaleProvider.tsx,locale.test.ts,LocaleProvider.test.tsx}`, `apps/web/src/main.tsx`, `apps/web/test/` setup (both catalogues primed), `apps/web/scripts/bundle-report.mjs` (the first route counts the default language's catalogue chunk)
+- **Approach:** the existing `messagesFor` in `apps/web/src/i18n/locale.ts` becomes `loadMessages` with a cache; `main.tsx` renders after the device language's catalogue is loaded; the server and tests keep `bn` and `en` from `@css/shared/i18n`.
+- **Tests:**
+  - unit: `loadMessages('en')` gives the English catalogue and caches it; the pseudo-locale still works in development; a primed catalogue is used without a load.
+  - existing: covered by `apps/web/src/i18n/{locale.test.ts,LocaleProvider.test.tsx}` (the switch re-renders in the other language), `apps/web/e2e/registration.spec.ts` and `gallery.spec.ts` (the language switch persists), the whole web suite.
+- **Done when:** the web suite and the language-switch specs pass, and `bundle:report` counts the first route with one language at about 25 KB less than with both.
+- **Depends on:** U1
 - **Size:** M
 - **Risk area:** none
 - **Status:** done
@@ -192,8 +208,8 @@ The organization's standard (ae-standards `RE-UI-*`) puts every app's UI on MUI 
 
 ## Checkpoints
 - **Mode:** grouped, split at every unit by the size limit and the foundation and new-pattern rules (one by one 7, grouped 13, all at once 2; N is over 4, so one by one's points go to grouped)
-- **Signals:** N 10, L 2,900, R 0, Fd 3 (U1, U3, U5), C 7 (U1 → U3 → U6 → U7 → U8 → U9 → U10), P 2 (U1 the MUI theme and template folder, U4 the MUI X picker)
-- **C1** after U1: foundation for every later unit and a new pattern
+- **Signals:** N 11, L 3,050, R 0, Fd 3 (U1, U3, U5), C 7 (U1 → U3 → U6 → U7 → U8 → U9 → U10), P 2 (U1 the MUI theme and template folder, U4 the MUI X picker)
+- **C1** after U11 (U1 and U11): U1 is the foundation for every later unit and a new pattern, U11 a new pattern of loading; two checkpoints in a row kept as one
 - **C2** after U2: the size limit (about 45 files before U3)
 - **C3** after U3: foundation for U4 and U6
 - **C4** after U4: new pattern (MUI X picker)
@@ -224,8 +240,8 @@ The organization's standard (ae-standards `RE-UI-*`) puts every app's UI on MUI 
 
 ## Progress
 - **Branch:** `refactor/mui-core-ui` (from `chore/phase1-test-consolidation`, which is not pushed yet)
-- **Updated:** 2026-10-19 10:35
-- **Next:** the owner's decision on the first-route budget (see Notes), then checkpoint C1 over U1, then U2
+- **Updated:** 2026-10-19 12:10
+- **Next:** checkpoint C1 over U1 and U11 (ae-review on b3ac610..HEAD), then U2
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** the owner chose MUI core in chat on 2026-10-19 after the licence question (Minimal needs a paid licence per end product; MUI core is MIT); the plan review (2026-10-19) kept the table a `grid` with its keyboard model. Prop types move into `contract.ts` unit by unit: until a component's unit, `contract.ts` re-exports its type from the component file, so the template never imports from a component file it replaces. U1 bundle gate: the first route grew from 216.6 KB to 250.4 KB gzip (budget 250) with only the MUI theme, Emotion and the provider (about 31 KB, as an esbuild probe confirms). Probes: the React Aria pieces of the login route are about 21 KB gzip; MUI's theme plus the login components (Button, TextField, Alert, RadioGroup, Radio, FormControlLabel, InputAdornment, IconButton) about 74 KB. After the whole migration the login route lands near 260 to 270 KB without another change. The message catalogue (both languages, bn 29.3 KB and en 24.0 KB gzip) sits in the eager LanguageSwitch chunk (51.3 KB); loading only the device language at start would save about 24 to 29 KB. MUI's `theme.spacing()` answers `calc(n * var(--mui-spacing, 4px))` with `cssVariables: true`.
+- **Notes:** the owner chose MUI core in chat on 2026-10-19 after the licence question (Minimal needs a paid licence per end product; MUI core is MIT); the plan review (2026-10-19) kept the table a `grid` with its keyboard model. Prop types move into `contract.ts` unit by unit: until a component's unit, `contract.ts` re-exports its type from the component file, so the template never imports from a component file it replaces. U1 bundle gate: the first route grew from 216.6 KB to 250.4 KB gzip (budget 250) with only the MUI theme, Emotion and the provider (about 31 KB, as an esbuild probe confirms). Probes: the React Aria pieces of the login route are about 21 KB gzip; MUI's theme plus the login components (Button, TextField, Alert, RadioGroup, Radio, FormControlLabel, InputAdornment, IconButton) about 74 KB. After the whole migration the login route lands near 260 to 270 KB without another change. The message catalogue (both languages, bn 29.3 KB and en 24.0 KB gzip) sits in the eager LanguageSwitch chunk (51.3 KB); loading only the device language at start would save about 24 to 29 KB. MUI's `theme.spacing()` answers `calc(n * var(--mui-spacing, 4px))` with `cssVariables: true`. U11: the first route is 229.7 KB gzip with the bn catalogue (27.1 KB) counted, 20 KB under the budget with the MUI theme in; the owner chose this over a budget change (D-104). Tests prime both catalogues in `apps/web/test/setup.ts`. Docker Desktop had stopped between sessions; after a restart Postgres recovered its data directory and the first E2E server start failed on a seed parent while it was still settling, a second start passed.

@@ -24,8 +24,10 @@ const gzipBytes = (/** @type {string} */ dist, /** @type {string} */ file) =>
  * error, never an empty pass.
  * @param {string} dist the build folder
  * @param {number} [budgetKb]
+ * @param {string[]} [alsoLoaded] chunks the first render loads on its own (the device language's
+ *   catalogue, D-104), named by their module
  */
-export function measureFirstRoute(dist, budgetKb = BUDGET_KB) {
+export function measureFirstRoute(dist, budgetKb = BUDGET_KB, alsoLoaded = []) {
   const html = readFileSync(join(dist, 'index.html'), 'utf8');
   const entries = [...html.matchAll(/<script\b[^>]*>/g)]
     .map((m) => m[0])
@@ -39,7 +41,13 @@ export function measureFirstRoute(dist, budgetKb = BUDGET_KB) {
     .filter((tag) => attribute(tag, 'rel') === 'modulepreload')
     .map((tag) => attribute(tag, 'href'))
     .filter((href) => href !== undefined);
-  const files = [...new Set([...entries, ...preloads].map(local))]
+  const assets = alsoLoaded.length > 0 ? readdirSync(join(dist, 'assets')) : [];
+  const extra = alsoLoaded.map((name) => {
+    const file = assets.find((f) => f.startsWith(`${name}-`) && f.endsWith('.js'));
+    if (!file) throw new Error(`no chunk named ${name} in ${join(dist, 'assets')}`);
+    return `assets/${file}`;
+  });
+  const files = [...new Set([...entries, ...preloads].map(local).concat(extra))]
     .map((file) => ({ file, bytes: gzipBytes(dist, file) }))
     .sort((a, b) => a.bytes - b.bytes);
   const totalBytes = files.reduce((sum, f) => sum + f.bytes, 0);
@@ -82,10 +90,11 @@ const kb = (/** @type {number} */ bytes) => (bytes / 1024).toFixed(1);
 // `node scripts/bundle-report.mjs [dist]`: prints the files and fails over the budget
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const dist = process.argv[2] ?? 'dist';
-  const report = measureFirstRoute(dist);
+  // the default language's catalogue is part of the first render (D-104)
+  const report = measureFirstRoute(dist, BUDGET_KB, ['bn']);
   const lines = report.files.map((f) => `${kb(f.bytes).padStart(8)} KB  ${f.file}`);
   lines.push(
-    `first route (login): ${kb(report.totalBytes)} KB gzip of ${report.budgetKb} KB (${report.files.length} files)`,
+    `first route (login, with the bn catalogue): ${kb(report.totalBytes)} KB gzip of ${report.budgetKb} KB (${report.files.length} files)`,
     `the home of a signed-in person adds: ${kb(measureAddedRoute(dist, ['AppShell', 'MyWorkPage']))} KB gzip when not cached`,
   );
   process.stdout.write(`${lines.join('\n')}\n`);

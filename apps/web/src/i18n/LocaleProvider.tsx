@@ -1,8 +1,9 @@
-import type { Locale } from '@css/shared/i18n';
+import type { Locale, Messages } from '@css/shared/i18n';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 import { IntlProvider } from 'use-intl';
 import { usePublicSettings } from '../lib/public-settings';
 import {
+  loadMessages,
   messagesFor,
   PSEUDO,
   readLocale,
@@ -21,9 +22,9 @@ const LocaleContext = createContext<LocaleValue>({ locale: 'bn', setLocale: () =
 
 /**
  * Gives the app its language and catalogue (use-intl) and keeps `<html lang>` in step. Messages
- * are the whole catalogue of the language; the bundle carries both languages (docs/ui/I18N.md;
- * their share of the first load is in docs/testing/PERFORMANCE.md, section "First load of the
- * PWA"), so switching needs no network.
+ * are the whole catalogue of the language. Only the device language's catalogue is in the first
+ * load (D-104; docs/ui/I18N.md); a switch to the other language loads it once and changes the
+ * language when it has arrived, so the page never shows keys.
  */
 export function LocaleProvider({
   children,
@@ -39,23 +40,50 @@ export function LocaleProvider({
   useEffect(() => {
     if (serverDefault) writeDefaultLocale(serverDefault);
   }, [serverDefault]);
-  const locale: Locale = readLocaleOf(stored, serverDefault);
+  const wanted: Locale = readLocaleOf(stored, serverDefault);
+  const key = stored === PSEUDO ? stored : wanted;
+  const [shown, setShown] = useState<{ locale: Locale; messages: Messages } | undefined>(() => {
+    const messages = messagesFor(key);
+    return messages ? { locale: wanted, messages } : undefined;
+  });
+  useEffect(() => {
+    const ready = messagesFor(key);
+    if (ready) {
+      setShown((now) =>
+        now?.locale === wanted && now.messages === ready
+          ? now
+          : { locale: wanted, messages: ready },
+      );
+      return;
+    }
+    let current = true;
+    void loadMessages(wanted).then(
+      () => {
+        const messages = messagesFor(key);
+        if (current && messages) setShown({ locale: wanted, messages });
+      },
+      () => {
+        // the language stays as it is; the next switch or reload tries again
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [key, wanted]);
   const setLocale = useCallback((next: string) => {
     writeLocale(next);
     setStored(next);
   }, []);
 
+  const locale = shown?.locale ?? wanted;
   useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);
 
+  if (!shown) return null;
   return (
     <LocaleContext.Provider value={{ locale, setLocale }}>
-      <IntlProvider
-        locale={locale}
-        messages={messagesFor(stored === PSEUDO ? stored : locale)}
-        timeZone="Asia/Dhaka"
-      >
+      <IntlProvider locale={shown.locale} messages={shown.messages} timeZone="Asia/Dhaka">
         {children}
       </IntlProvider>
     </LocaleContext.Provider>

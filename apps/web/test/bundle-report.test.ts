@@ -62,6 +62,15 @@ describe('first-route bundle report', () => {
     expect(measureFirstRoute(dist).files).toHaveLength(2);
   });
 
+  it('adds the chunks the first render loads on its own, such as the device language', () => {
+    fixture();
+    write('assets/bn-f.js', 'export const bn = {};'.repeat(100));
+    const report = measureFirstRoute(dist, 250, ['bn']);
+    expect(report.files.map((f) => f.file)).toContain('assets/bn-f.js');
+    expect(report.files).toHaveLength(3);
+    expect(() => measureFirstRoute(dist, 250, ['xx'])).toThrow(/no chunk named xx/);
+  });
+
   it('fails instead of passing when the page names no entry script', () => {
     fixture();
     write('index.html', '<!doctype html><html><head></head><body></body></html>');

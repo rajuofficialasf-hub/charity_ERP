@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { bn, en } from '@css/shared/i18n';
 import {
+  forgetMessages,
+  loadMessages,
   messagesFor,
+  primeMessages,
   readLocale,
   storedLocaleValue,
   writeDefaultLocale,
@@ -45,8 +49,35 @@ describe('device locale', () => {
   });
 
   it('pseudo-localizes only in development (I18N 4)', () => {
-    expect(messagesFor('qps', true).common.app.name).not.toBe(messagesFor('bn').common.app.name);
+    expect(messagesFor('qps', true)?.common.app.name).not.toBe(messagesFor('bn')?.common.app.name);
     expect(messagesFor('qps', false)).toBe(messagesFor('bn'));
-    expect(messagesFor('en').common.language.label).toBe('Language');
+    expect(messagesFor('en')?.common.language.label).toBe('Language');
+  });
+});
+
+// One language at a time (D-104): the device language's catalogue is loaded before the first
+// render, the other one when the person switches.
+describe('loading a catalogue', () => {
+  afterEach(() => {
+    primeMessages('bn', bn);
+    primeMessages('en', en);
+  });
+
+  it('loads a language that is not there yet, once, and keeps it', async () => {
+    forgetMessages();
+    expect(messagesFor('en')).toBeUndefined();
+    const first = loadMessages('en');
+    expect(loadMessages('en')).toBe(first);
+    const messages = await first;
+    expect(messages.common.language.label).toBe('Language');
+    expect(messagesFor('en')).toBe(messages);
+    expect(messagesFor('bn')).toBeUndefined();
+  });
+
+  it('answers a primed catalogue without loading it', async () => {
+    forgetMessages();
+    primeMessages('bn', bn);
+    expect(messagesFor('bn')).toBe(bn);
+    await expect(loadMessages('bn')).resolves.toBe(bn);
   });
 });
