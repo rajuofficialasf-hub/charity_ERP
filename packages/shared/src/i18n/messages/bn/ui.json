@@ -70,7 +70,11 @@
     "select": "বেছে নিন",
     "selectRow": "{name} বেছে নিন",
     "rowActions": "কাজ",
-    "pagination": "পাতা বদল"
+    "pagination": "পাতা বদল",
+    "page": "পাতা {page}",
+    "range": "{from}–{to} দেখানো হচ্ছে · মোট {total}",
+    "removeFilter": "{label} সরান",
+    "clearAll": "সব মুছুন"
   },
   "bulk": {
     "selectedCount": "{count}টি বেছে নেওয়া",

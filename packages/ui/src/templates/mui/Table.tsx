@@ -3,9 +3,20 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Filter, Search, X } from 'lucide-react';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  Search,
+  SlidersHorizontal,
+  X,
+} from 'lucide-react';
 import {
   useEffect,
+  useId,
   useRef,
   useState,
   type FocusEvent,
@@ -69,6 +80,7 @@ export function Table<T>({
   emptyState,
   pagination,
   toolbar,
+  layout = 'default',
   className,
 }: TableProps<T>): ReactElement {
   const { messages, formatNumber } = useUi();
@@ -193,18 +205,26 @@ export function Table<T>({
   ) : null;
 
   const countText = pagination
-    ? fill(messages.table.resultCount, {
+    ? (pagination.summary ??
+      fill(messages.table.resultCount, {
         shown: formatNumber(pagination.shown),
         total:
           typeof pagination.total === 'number' ? formatNumber(pagination.total) : pagination.total,
-      })
+      }))
     : null;
   // a cell's place in its row: the selection column first, the actions column last
   const first = selectionMode === 'multiple' ? 1 : 0;
   const actionsCell = first + columns.length;
 
   return (
-    <div className={cx('ui-table-block', inSplitView && 'ui-table-split', className)}>
+    <div
+      className={cx(
+        'ui-table-block',
+        layout === 'panel' && 'ui-table-panel',
+        inSplitView && 'ui-table-split',
+        className,
+      )}
+    >
       {toolbar}
       {countText && (
         <p className="ui-sr-only" role="status">
@@ -380,20 +400,95 @@ export function Table<T>({
   );
 }
 
+/** The page numbers to show: the first, the last and the ones around the current page. */
+export function pageWindow(page: number, count: number): (number | 'gap')[] {
+  if (count <= 7) return Array.from({ length: count }, (_, i) => i + 1);
+  const near = [1, page - 1, page, page + 1, count].filter((p) => p >= 1 && p <= count);
+  const pages = [...new Set(near)].sort((a, b) => a - b);
+  return pages.flatMap((p, i) => (i > 0 && p - pages[i - 1]! > 1 ? ['gap' as const, p] : [p]));
+}
+
 function Pagination({
   hasPrevious,
   hasNext,
   onPrevious,
   onNext,
   onLoadMore,
+  page,
+  pageCount,
+  onPage,
   countText,
 }: TablePagination & { countText: string }) {
-  const { messages } = useUi();
+  const { messages, formatNumber } = useUi();
+  const numbered = page !== undefined && pageCount !== undefined && onPage !== undefined;
   return (
     <nav className="ui-pager" aria-label={messages.table.pagination}>
       <span className="ui-pager-count ui-tnum" aria-hidden="true">
         {countText}
       </span>
+      {numbered ? (
+        <div className="ui-pager-numbers">
+          <button
+            type="button"
+            className="ui-pager-step"
+            aria-label={messages.table.previous}
+            disabled={!hasPrevious}
+            onClick={onPrevious}
+          >
+            <Icon icon={ChevronLeft} size="sm" />
+          </button>
+          {pageWindow(page, pageCount).map((p, i) =>
+            p === 'gap' ? (
+              <span key={`gap-${i}`} className="ui-pager-gap" aria-hidden="true">
+                …
+              </span>
+            ) : (
+              <button
+                key={p}
+                type="button"
+                className="ui-pager-page ui-tnum"
+                aria-current={p === page ? 'page' : undefined}
+                aria-label={fill(messages.table.page, { page: formatNumber(p) })}
+                onClick={() => onPage(p)}
+              >
+                {formatNumber(p)}
+              </button>
+            ),
+          )}
+          <button
+            type="button"
+            className="ui-pager-step"
+            aria-label={messages.table.next}
+            disabled={!hasNext}
+            onClick={onNext}
+          >
+            <Icon icon={ChevronRight} size="sm" />
+          </button>
+        </div>
+      ) : (
+        <PagerButtons
+          hasPrevious={hasPrevious}
+          hasNext={hasNext}
+          onPrevious={onPrevious}
+          onNext={onNext}
+          onLoadMore={onLoadMore}
+        />
+      )}
+    </nav>
+  );
+}
+
+/** Previous and next, and "load more" on phones, for lists without page numbers. */
+function PagerButtons({
+  hasPrevious,
+  hasNext,
+  onPrevious,
+  onNext,
+  onLoadMore,
+}: Pick<TablePagination, 'hasPrevious' | 'hasNext' | 'onPrevious' | 'onNext' | 'onLoadMore'>) {
+  const { messages } = useUi();
+  return (
+    <>
       <div className="ui-pager-desktop">
         <Button
           variant="secondary"
@@ -422,7 +517,7 @@ function Pagination({
           </Button>
         </div>
       )}
-    </nav>
+    </>
   );
 }
 
@@ -436,12 +531,18 @@ export function TableToolbar({
   filters,
   activeFilterCount = 0,
   onClearFilters,
+  filterMode = 'inline',
+  activeFilters,
   className,
 }: TableToolbarProps) {
   const { messages, formatNumber } = useUi();
   const [term, setTerm] = useState('');
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const phone = useMediaQuery('(max-width: 639.95px)');
+  const panelId = useId();
   const search = useRef<HTMLInputElement>(null);
+  const inPanel = filterMode === 'panel' && !phone;
 
   useEffect(() => {
     if (!onSearch) return;
@@ -487,7 +588,30 @@ export function TableToolbar({
             </button>
           </div>
         )}
-        {filters && (
+        {filters && filterMode === 'panel' && (
+          <button
+            type="button"
+            className={cx(
+              'ui-btn',
+              'ui-btn-secondary',
+              'ui-filter-toggle',
+              (panelOpen || activeFilterCount > 0) && 'is-active',
+            )}
+            aria-label={filterButtonLabel}
+            aria-expanded={inPanel ? panelOpen : undefined}
+            aria-controls={inPanel && panelOpen ? panelId : undefined}
+            onClick={() => (inPanel ? setPanelOpen((open) => !open) : setSheetOpen(true))}
+          >
+            <Icon icon={SlidersHorizontal} size="sm" />
+            <span>{messages.table.filters}</span>
+            {activeFilterCount > 0 && (
+              <span className="ui-filter-count ui-tnum" aria-hidden="true">
+                {formatNumber(activeFilterCount)}
+              </span>
+            )}
+          </button>
+        )}
+        {filters && filterMode === 'inline' && (
           <Button
             variant="secondary"
             icon={Filter}
@@ -498,6 +622,35 @@ export function TableToolbar({
           </Button>
         )}
       </div>
+      {activeFilters && activeFilters.length > 0 && (
+        <div className="ui-active-filters">
+          <ul className="ui-active-filter-list" aria-label={messages.table.filters}>
+            {activeFilters.map((filter) => (
+              <li key={filter.id} className="ui-active-filter">
+                <span>{filter.label}</span>
+                <button
+                  type="button"
+                  className="ui-active-filter-remove"
+                  aria-label={fill(messages.table.removeFilter, { label: filter.label })}
+                  onClick={filter.onRemove}
+                >
+                  <Icon icon={X} size="sm" />
+                </button>
+              </li>
+            ))}
+          </ul>
+          {onClearFilters && (
+            <button type="button" className="ui-clear-all" onClick={onClearFilters}>
+              {messages.table.clearAll}
+            </button>
+          )}
+        </div>
+      )}
+      {filters && inPanel && panelOpen && (
+        <div id={panelId} className="ui-filter-panel">
+          {filters}
+        </div>
+      )}
       {chips && chips.length > 0 && (
         <div className="ui-chips" role="group" aria-label={messages.table.filters}>
           {chips.map((chip) => {
@@ -520,7 +673,7 @@ export function TableToolbar({
           })}
         </div>
       )}
-      {filters && (
+      {filters && filterMode === 'inline' && (
         <div className="ui-toolbar-filters">
           {filters}
           {activeFilterCount > 0 && onClearFilters && (

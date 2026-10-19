@@ -123,6 +123,23 @@ export function DescriptionList({ items, labelWidth = 'md', className }: Descrip
   );
 }
 
+export interface FilterGroupProps {
+  /** The group's title ("এলাকা"). */
+  title: string;
+  children?: ReactNode;
+  className?: string;
+}
+
+/** A titled group of filter fields: one under the other on phones, two from 640 px, four from 1024 px. */
+export function FilterGroup({ title, children, className }: FilterGroupProps) {
+  return (
+    <fieldset className={cx('ui-filter-group', className)}>
+      <legend className="ui-filter-group-title">{title}</legend>
+      <div className="ui-filter-grid">{children}</div>
+    </fieldset>
+  );
+}
+
 export interface TextProps extends HTMLAttributes<HTMLElement> {
   as?: 'p' | 'span' | 'div' | 'strong' | 'small';
   /** muted is the secondary text colour. */

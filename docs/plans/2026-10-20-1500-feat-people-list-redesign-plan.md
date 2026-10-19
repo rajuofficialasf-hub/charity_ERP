@@ -36,7 +36,7 @@ The owner's reference images for the volunteer tab (chat, 2026-10-20) become the
 ### U2. The pieces in the component set
 - **Files:** `packages/ui` (count cards that filter with a "more" card, the toolbar's filter panel in place with active chips, numbered pages in the table's pager, the status dot of the badge, the row actions always visible).
 - **Tests:** component tests with axe in both languages for each piece.
-- **Status:** todo
+- **Status:** done
 
 ### U3. The volunteer tab
 - **Files:** `apps/web/src/admin/volunteers/VolunteersPage.tsx`, `volunteers-api.ts`, `admin.css`, the shared `StatisticsBar.tsx` and `use-tab-view.ts`, the message catalogues.

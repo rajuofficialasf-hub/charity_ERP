@@ -1,0 +1,109 @@
+/* Counts that filter a list: cards with an icon tile, a label and a number; the chosen one outlined. */
+@layer components {
+  .ui-statfilter {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+    gap: var(--space-3);
+    margin-block-end: var(--space-4);
+  }
+  .ui-statfilter .ui-statfilter-card {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: 72px;
+    margin: 0;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-surface);
+    color: var(--color-text-primary);
+    box-shadow: var(--elevation-1);
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+    transition:
+      border-color var(--motion-fast) var(--ease-standard),
+      box-shadow var(--motion-fast) var(--ease-standard);
+  }
+  .ui-statfilter .ui-statfilter-card.is-static {
+    cursor: default;
+  }
+  .ui-statfilter .ui-statfilter-card:not(.is-static):hover {
+    border-color: var(--color-border-strong);
+  }
+  .ui-statfilter .ui-statfilter-card:focus-visible {
+    outline: 2px solid var(--color-brand-primary);
+    outline-offset: 2px;
+  }
+  .ui-statfilter .ui-statfilter-card[aria-pressed='true'],
+  .ui-statfilter .ui-statfilter-card.is-chosen {
+    border: 2px solid var(--color-brand-primary-dark);
+    padding: calc(var(--space-3) - 1px) calc(var(--space-4) - 1px);
+    background: var(--color-bg-brand-soft);
+  }
+  .ui-statfilter-icon {
+    display: inline-grid;
+    flex: none;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-md);
+    background: var(--color-bg-muted);
+    color: var(--color-text-secondary);
+  }
+  .ui-statfilter-icon.t-brand {
+    background: var(--color-bg-brand-soft);
+    color: var(--color-brand-primary-dark);
+  }
+  .ui-statfilter-icon.t-success {
+    background: var(--color-bg-success-soft);
+    color: var(--color-status-success);
+  }
+  .ui-statfilter-icon.t-warning {
+    background: var(--color-bg-warning-soft);
+    color: var(--color-status-warning);
+  }
+  .ui-statfilter-icon.t-danger {
+    background: var(--color-bg-danger-soft);
+    color: var(--color-status-danger);
+  }
+  .ui-statfilter-icon.t-info {
+    background: var(--color-bg-info-soft);
+    color: var(--color-status-info);
+  }
+  .ui-statfilter-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .ui-statfilter-label {
+    font-size: var(--text-caption);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+  }
+  .ui-statfilter-value {
+    font-size: 24px;
+    font-weight: var(--font-weight-bold);
+    line-height: 1.25;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-brand-ink);
+  }
+  .ui-statfilter-card[aria-pressed='true'] .ui-statfilter-label,
+  .ui-statfilter-card[aria-pressed='true'] .ui-statfilter-value,
+  .ui-statfilter-card.is-chosen .ui-statfilter-label,
+  .ui-statfilter-card.is-chosen .ui-statfilter-value {
+    color: var(--color-brand-primary-dark);
+  }
+  .ui-statfilter-card[aria-pressed='true'] .ui-statfilter-icon {
+    background: var(--color-bg-surface);
+  }
+  @media (max-width: 639px) {
+    .ui-statfilter {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--space-2);
+    }
+    .ui-statfilter-value {
+      font-size: 20px;
+    }
+  }
+}

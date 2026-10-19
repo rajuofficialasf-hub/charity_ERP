@@ -70,7 +70,11 @@
     "select": "Select",
     "selectRow": "Select {name}",
     "rowActions": "Actions",
-    "pagination": "Pagination"
+    "pagination": "Pagination",
+    "page": "Page {page}",
+    "range": "Showing {from}–{to} of {total}",
+    "removeFilter": "Remove {label}",
+    "clearAll": "Clear all"
   },
   "bulk": {
     "selectedCount": "{count} selected",

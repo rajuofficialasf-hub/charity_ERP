@@ -27,12 +27,19 @@ export {
 } from './components/Breadcrumb/Breadcrumb.js';
 export { Button, type ButtonProps, type ButtonVariant } from './components/Button/Button.js';
 export {
+  StatFilterBar,
+  type StatFilterBarProps,
+  type StatFilterItem,
+} from './components/StatFilter/StatFilter.js';
+export {
   DescriptionList,
+  FilterGroup,
   Grid,
   Stack,
   Text,
   type DescriptionItem,
   type DescriptionListProps,
+  type FilterGroupProps,
   type GridProps,
   type SpaceStep,
   type StackProps,
@@ -151,6 +158,7 @@ export {
 export {
   Table,
   TableToolbar,
+  type ActiveFilter,
   type FilterChip,
   type TableColumn,
   type TablePagination,
