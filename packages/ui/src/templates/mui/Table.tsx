@@ -1,0 +1,540 @@
+import MuiTable from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Filter, Search, X } from 'lucide-react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FocusEvent,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactElement,
+} from 'react';
+import { Button } from '../../components/Button/Button.js';
+import { Checkbox } from '../../components/Field/Choice.js';
+import { Icon } from '../../components/Icon/Icon.js';
+import { Drawer } from '../../components/Modal/Modal.js';
+import { Skeleton } from '../../components/Skeleton/Skeleton.js';
+import type { TablePagination, TableProps, TableToolbarProps } from '../../contract.js';
+import { fill } from '../../provider/messages.js';
+import { useUi } from '../../provider/UiProvider.js';
+import { cx } from '../../utils/cx.js';
+
+const priorityClass = (p?: number) => (p && p > 1 ? `p${p}` : undefined);
+
+/** The header row's key in the grid's focus position. */
+const HEADER = '\u0000header';
+
+/** Where the grid's single tab stop is: a body row (cell -1) or a cell of a row. */
+interface GridPosition {
+  row: string;
+  cell: number;
+}
+
+/** A click on a control inside a row acts on that control, never on the row. */
+const INNER_CONTROL = 'a, button, input, label, select, textarea, [role="button"]';
+
+/** The rows of the grid in the order they are shown, the header first. */
+const gridRows = (grid: HTMLElement) =>
+  Array.from(grid.querySelectorAll<HTMLElement>('[data-grid-row]'));
+const rowCells = (row: HTMLElement) =>
+  Array.from(row.querySelectorAll<HTMLElement>(':scope > [data-grid-cell]'));
+
+/**
+ * Table with filters, search and pagination: a grid on MUI's table from 640 px and a card list on
+ * phones (DESIGN_SYSTEM 5.7). The grid has one tab stop; the arrow keys move between rows and into
+ * and out of cells, Enter opens a row or sorts by a header, Space selects a row.
+ */
+export function Table<T>({
+  label,
+  columns,
+  rows,
+  rowKey,
+  rowLabel,
+  cardRenderer,
+  selectionMode = 'none',
+  selectedKeys,
+  onSelectionChange,
+  sort,
+  onSortChange,
+  onRowAction,
+  rowActions,
+  density = 'comfortable',
+  inSplitView = false,
+  loading = false,
+  error,
+  emptyState,
+  pagination,
+  toolbar,
+  className,
+}: TableProps<T>): ReactElement {
+  const { messages, formatNumber } = useUi();
+  const grid = useRef<HTMLTableElement>(null);
+  const [innerSelection, setInnerSelection] = useState<Set<string>>(new Set());
+  const selection = selectedKeys ?? innerSelection;
+  const keys = rows.map(rowKey);
+  const [focused, setFocused] = useState<GridPosition | null>(null);
+  // the tab stop falls back to the first row when its row has gone
+  const position: GridPosition =
+    focused && (focused.row === HEADER || keys.includes(focused.row))
+      ? focused
+      : keys[0] !== undefined
+        ? { row: keys[0], cell: -1 }
+        : { row: HEADER, cell: 0 };
+  const tabStop = (row: string, cell: number) =>
+    position.row === row && position.cell === cell ? 0 : -1;
+
+  const select = (next: Set<string>) => {
+    setInnerSelection(next);
+    onSelectionChange?.(next);
+  };
+  const toggle = (key: string, on: boolean) => {
+    const next = new Set(selectionMode === 'single' ? [] : selection);
+    if (on) next.add(key);
+    else next.delete(key);
+    select(next);
+  };
+  const sortBy = (columnId: string) => {
+    if (!onSortChange) return;
+    const descending = sort?.column === columnId && sort.direction === 'ascending';
+    onSortChange({ column: columnId, direction: descending ? 'descending' : 'ascending' });
+  };
+  const sortable = (index: number) => {
+    const offset = selectionMode === 'multiple' ? 1 : 0;
+    const column = columns[index - offset];
+    return column?.sortable ? column : undefined;
+  };
+
+  const onFocus = (event: FocusEvent<HTMLTableElement>) => {
+    const target = event.target as HTMLElement;
+    const row = target.closest<HTMLElement>('[data-grid-row]');
+    if (!row) return;
+    const cell = target.closest<HTMLElement>('[data-grid-cell]');
+    const key = row.dataset.gridRow!;
+    setFocused({ row: key, cell: cell ? rowCells(row).indexOf(cell) : -1 });
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLTableElement>) => {
+    const target = event.target as HTMLElement;
+    const row = target.closest<HTMLElement>('[data-grid-row]');
+    if (!row || !grid.current) return;
+    const cell = target.closest<HTMLElement>('[data-grid-cell]');
+    // keys typed into a control inside a cell stay with that control
+    if (target !== row && target !== cell) return;
+    const key = row.dataset.gridRow!;
+    const cells = rowCells(row);
+    const index = cell ? cells.indexOf(cell) : -1;
+    const all = gridRows(grid.current);
+    const body = all.filter((r) => r.dataset.gridRow !== HEADER);
+    const move = (next: HTMLElement | undefined) => {
+      if (!next) return;
+      event.preventDefault();
+      next.focus();
+    };
+    const inRow = (r: HTMLElement | undefined) =>
+      r && (index < 0 && r.dataset.gridRow !== HEADER ? r : rowCells(r)[index]);
+    switch (event.key) {
+      case 'ArrowDown':
+        return move(inRow((index < 0 ? body : all)[(index < 0 ? body : all).indexOf(row) + 1]));
+      case 'ArrowUp':
+        return move(inRow((index < 0 ? body : all)[(index < 0 ? body : all).indexOf(row) - 1]));
+      case 'ArrowRight':
+        return move(cells[index + 1]);
+      case 'ArrowLeft':
+        return move(index > 0 || key === HEADER ? cells[index - 1] : index === 0 ? row : undefined);
+      case 'Home':
+        return move(index < 0 ? body[0] : cells[0]);
+      case 'End':
+        return move(index < 0 ? body.at(-1) : cells.at(-1));
+      case 'Enter':
+      case ' ': {
+        event.preventDefault();
+        if (key === HEADER) {
+          const column = sortable(index);
+          if (column) sortBy(column.id);
+          return;
+        }
+        if (event.key === 'Enter' && onRowAction) return onRowAction(key);
+        if (selectionMode !== 'none') toggle(key, !selection.has(key));
+        return;
+      }
+    }
+  };
+
+  const onRowClick = (event: MouseEvent<HTMLElement>, key: string) => {
+    if ((event.target as HTMLElement).closest(INNER_CONTROL)) return;
+    if (onRowAction) onRowAction(key);
+    else if (selectionMode !== 'none') toggle(key, !selection.has(key));
+  };
+
+  const body = error ? (
+    error
+  ) : loading ? (
+    <Skeleton shape="row" count={5} />
+  ) : rows.length === 0 ? (
+    emptyState
+  ) : null;
+
+  const countText = pagination
+    ? fill(messages.table.resultCount, {
+        shown: formatNumber(pagination.shown),
+        total:
+          typeof pagination.total === 'number' ? formatNumber(pagination.total) : pagination.total,
+      })
+    : null;
+  const allSelected = keys.length > 0 && keys.every((k) => selection.has(k));
+  const someSelected = keys.some((k) => selection.has(k));
+  let headerCell = 0;
+
+  return (
+    <div className={cx('ui-table-block', inSplitView && 'ui-table-split', className)}>
+      {toolbar}
+      {countText && (
+        <p className="ui-sr-only" role="status">
+          {countText}
+        </p>
+      )}
+      {body ?? (
+        <>
+          <div className="ui-table-wrap">
+            <MuiTable
+              ref={grid}
+              role="grid"
+              aria-label={label}
+              aria-multiselectable={selectionMode === 'multiple' || undefined}
+              className={cx('ui-table', density === 'compact' && 'ui-table-compact')}
+              onFocus={onFocus}
+              onKeyDown={onKeyDown}
+            >
+              <TableHead>
+                <TableRow role="row" data-grid-row={HEADER}>
+                  {selectionMode === 'multiple' && (
+                    <TableCell
+                      role="columnheader"
+                      data-grid-cell=""
+                      tabIndex={tabStop(HEADER, headerCell++)}
+                      className="ui-th ui-th-select"
+                    >
+                      <Checkbox
+                        isSelected={allSelected}
+                        isIndeterminate={!allSelected && someSelected}
+                        onChange={(on) => select(on ? new Set(keys) : new Set())}
+                        aria-label={messages.table.selectAll}
+                      />
+                    </TableCell>
+                  )}
+                  {columns.map((column) => {
+                    const sorted = sort?.column === column.id ? sort.direction : undefined;
+                    return (
+                      <TableCell
+                        key={column.id}
+                        role="columnheader"
+                        data-grid-cell=""
+                        tabIndex={tabStop(HEADER, headerCell++)}
+                        aria-sort={sorted}
+                        data-sortable={column.sortable || undefined}
+                        className={cx(
+                          'ui-th',
+                          column.numeric && 'num',
+                          priorityClass(column.priority),
+                        )}
+                        onClick={column.sortable ? () => sortBy(column.id) : undefined}
+                      >
+                        <span className="ui-th-inner">
+                          {column.header}
+                          {sorted && (
+                            <Icon icon={sorted === 'ascending' ? ArrowUp : ArrowDown} size="sm" />
+                          )}
+                        </span>
+                      </TableCell>
+                    );
+                  })}
+                  {rowActions && (
+                    <TableCell
+                      role="columnheader"
+                      data-grid-cell=""
+                      tabIndex={tabStop(HEADER, headerCell++)}
+                      className="ui-th ui-th-actions"
+                    >
+                      <span className="ui-sr-only">{messages.table.rowActions}</span>
+                    </TableCell>
+                  )}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {rows.map((row) => {
+                  const key = rowKey(row);
+                  const selected = selection.has(key);
+                  let cellIndex = 0;
+                  return (
+                    <TableRow
+                      key={key}
+                      role="row"
+                      data-grid-row={key}
+                      tabIndex={tabStop(key, -1)}
+                      aria-selected={selectionMode === 'none' ? undefined : selected}
+                      data-selected={selected || undefined}
+                      className={cx('ui-tr', onRowAction && 'is-clickable')}
+                      onClick={(event) => onRowClick(event, key)}
+                    >
+                      {selectionMode === 'multiple' && (
+                        <TableCell
+                          role="gridcell"
+                          data-grid-cell=""
+                          tabIndex={tabStop(key, cellIndex++)}
+                          className="ui-td ui-td-select"
+                        >
+                          <Checkbox
+                            isSelected={selected}
+                            onChange={(on) => toggle(key, on)}
+                            aria-label={fill(messages.table.selectRow, { name: rowLabel(row) })}
+                          />
+                        </TableCell>
+                      )}
+                      {columns.map((column) => (
+                        <TableCell
+                          key={column.id}
+                          {...(column.isRowHeader
+                            ? { component: 'th', scope: 'row', role: 'rowheader' }
+                            : { role: 'gridcell' })}
+                          data-grid-cell=""
+                          tabIndex={tabStop(key, cellIndex++)}
+                          className={cx(
+                            'ui-td',
+                            column.numeric && 'num',
+                            column.isRowHeader && 'cell-title',
+                            priorityClass(column.priority),
+                          )}
+                        >
+                          {column.cell(row)}
+                        </TableCell>
+                      ))}
+                      {rowActions && (
+                        <TableCell
+                          role="gridcell"
+                          data-grid-cell=""
+                          tabIndex={tabStop(key, cellIndex++)}
+                          className="ui-td ui-td-actions"
+                        >
+                          <div className="ui-row-actions">{rowActions(row)}</div>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </MuiTable>
+          </div>
+          <ul className="ui-card-list" aria-label={label}>
+            {rows.map((row) => {
+              const key = rowKey(row);
+              const selected = selection.has(key);
+              return (
+                <li key={key} className={cx('ui-row-card', selected && 'is-selected')}>
+                  {selectionMode === 'multiple' && (
+                    <Checkbox
+                      hitArea
+                      isSelected={selected}
+                      onChange={(on) => toggle(key, on)}
+                      aria-label={fill(messages.table.selectRow, { name: rowLabel(row) })}
+                    />
+                  )}
+                  <div className="ui-row-card-body">{cardRenderer(row)}</div>
+                  {(onRowAction || selectionMode === 'single') && (
+                    <button
+                      type="button"
+                      className="ui-row-card-open"
+                      aria-label={rowLabel(row)}
+                      aria-pressed={selectionMode === 'single' ? selected : undefined}
+                      onClick={() => (onRowAction ? onRowAction(key) : toggle(key, !selected))}
+                    >
+                      <Icon icon={ChevronRight} />
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+      {pagination && !body && <Pagination {...pagination} countText={countText ?? ''} />}
+    </div>
+  );
+}
+
+function Pagination({
+  hasPrevious,
+  hasNext,
+  onPrevious,
+  onNext,
+  onLoadMore,
+  countText,
+}: TablePagination & { countText: string }) {
+  const { messages } = useUi();
+  return (
+    <nav className="ui-pager" aria-label={messages.table.pagination}>
+      <span className="ui-pager-count ui-tnum" aria-hidden="true">
+        {countText}
+      </span>
+      <div className="ui-pager-desktop">
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={ChevronLeft}
+          onPress={onPrevious}
+          disabled={!hasPrevious}
+        >
+          {messages.table.previous}
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={ChevronRight}
+          iconPosition="end"
+          onPress={onNext}
+          disabled={!hasNext}
+        >
+          {messages.table.next}
+        </Button>
+      </div>
+      {onLoadMore && hasNext && (
+        <div className="ui-pager-phone">
+          <Button variant="secondary" fullWidth onPress={onLoadMore}>
+            {messages.table.loadMore}
+          </Button>
+        </div>
+      )}
+    </nav>
+  );
+}
+
+/** Search box, status chips and filters above a table. */
+export function TableToolbar({
+  onSearch,
+  searchPlaceholder,
+  chips,
+  activeChip,
+  onChipChange,
+  filters,
+  activeFilterCount = 0,
+  onClearFilters,
+  className,
+}: TableToolbarProps) {
+  const { messages, formatNumber } = useUi();
+  const [term, setTerm] = useState('');
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const search = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!onSearch) return;
+    const timer = setTimeout(() => onSearch(term.trim().length >= 2 ? term.trim() : ''), 300);
+    return () => clearTimeout(timer);
+  }, [term, onSearch]);
+
+  const filterButtonLabel =
+    activeFilterCount > 0
+      ? `${messages.table.filters} (${fill(messages.table.filtersActive, { count: formatNumber(activeFilterCount) })})`
+      : messages.table.filters;
+
+  return (
+    <div className={cx('ui-toolbar', className)}>
+      <div className="ui-toolbar-row">
+        {onSearch && (
+          <div className="ui-search" data-empty={term === '' || undefined}>
+            <Icon icon={Search} size="sm" />
+            <input
+              ref={search}
+              type="search"
+              className="ui-input"
+              aria-label={messages.table.search}
+              placeholder={searchPlaceholder ?? messages.table.search}
+              value={term}
+              onChange={(event) => setTerm(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== 'Escape' || term === '') return;
+                event.preventDefault();
+                setTerm('');
+              }}
+            />
+            <button
+              type="button"
+              className="ui-search-clear"
+              aria-label={messages.common.dismiss}
+              onClick={() => {
+                setTerm('');
+                search.current?.focus();
+              }}
+            >
+              <Icon icon={X} size="sm" />
+            </button>
+          </div>
+        )}
+        {filters && (
+          <Button
+            variant="secondary"
+            icon={Filter}
+            className="ui-toolbar-filter-button"
+            onPress={() => setSheetOpen(true)}
+          >
+            {filterButtonLabel}
+          </Button>
+        )}
+      </div>
+      {chips && chips.length > 0 && (
+        <div className="ui-chips" role="group" aria-label={messages.table.filters}>
+          {chips.map((chip) => {
+            const selected = chip.id === activeChip;
+            return (
+              <button
+                key={chip.id}
+                type="button"
+                className="ui-chip"
+                aria-pressed={selected}
+                data-selected={selected || undefined}
+                onClick={() => onChipChange?.(chip.id)}
+              >
+                {chip.label}
+                {chip.count !== undefined && (
+                  <span className="ui-chip-count ui-tnum">{formatNumber(chip.count)}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {filters && (
+        <div className="ui-toolbar-filters">
+          {filters}
+          {activeFilterCount > 0 && onClearFilters && (
+            <Button variant="ghost" size="sm" onPress={onClearFilters}>
+              {messages.table.clearFilters}
+            </Button>
+          )}
+        </div>
+      )}
+      {filters && (
+        <Drawer
+          title={messages.table.filters}
+          side="bottom"
+          isOpen={sheetOpen}
+          onClose={() => setSheetOpen(false)}
+          footer={
+            <>
+              {onClearFilters && (
+                <Button variant="secondary" onPress={onClearFilters}>
+                  {messages.table.clearFilters}
+                </Button>
+              )}
+              <Button onPress={() => setSheetOpen(false)}>{messages.table.applyFilters}</Button>
+            </>
+          }
+        >
+          {filters}
+        </Drawer>
+      )}
+    </div>
+  );
+}

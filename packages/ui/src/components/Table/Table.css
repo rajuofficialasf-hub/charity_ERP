@@ -1,4 +1,4 @@
-/* Table (DESIGN_SYSTEM 5.7): dense table from 640 px, a card list on phones (UX-14 finish). */
+/* Table (DESIGN_SYSTEM 5.7): a dense grid on MUI's table from 640 px, a card list on phones. */
 @layer components {
   .ui-table-block {
     min-width: 0;
@@ -33,6 +33,9 @@
     outline: none;
   }
   .ui-th {
+    font: inherit;
+    letter-spacing: normal;
+    line-height: var(--leading-body);
     position: sticky;
     top: 0;
     z-index: 1;
@@ -52,14 +55,14 @@
       backdrop-filter: blur(6px);
     }
   }
-  .ui-th[data-allows-sorting] {
+  .ui-th[data-sortable] {
     cursor: pointer;
   }
-  .ui-th[data-hovered] {
+  .ui-th[data-sortable]:hover {
     color: var(--color-text-primary);
   }
-  .ui-th[data-focus-visible],
-  .ui-td[data-focus-visible] {
+  .ui-th:focus-visible,
+  .ui-td:focus-visible {
     outline: 2px solid var(--color-brand-primary);
     outline-offset: -2px;
   }
@@ -80,6 +83,10 @@
     outline: none;
   }
   .ui-td {
+    font: inherit;
+    letter-spacing: normal;
+    line-height: var(--leading-body);
+    color: inherit;
     padding: 12px var(--space-3);
     border-bottom: 1px solid var(--border-subtle);
     vertical-align: middle;
@@ -95,7 +102,7 @@
   .ui-tr.is-clickable {
     cursor: pointer;
   }
-  .ui-tr[data-hovered] .ui-td {
+  .ui-tr:hover .ui-td {
     background: rgba(206, 245, 227, 0.32);
   }
   .ui-tr[data-selected] .ui-td {
@@ -104,10 +111,10 @@
   .ui-tr[data-selected] .ui-td:first-child {
     box-shadow: inset 4px 0 0 var(--color-brand-primary);
   }
-  .ui-tr[data-focus-visible] .ui-td:first-child {
+  .ui-tr:focus-visible .ui-td:first-child {
     box-shadow: inset 4px 0 0 var(--color-brand-primary);
   }
-  .ui-tr[data-focus-visible] {
+  .ui-tr:focus-visible {
     outline: 2px solid var(--color-brand-primary);
     outline-offset: -2px;
   }
@@ -133,7 +140,7 @@
         opacity var(--motion-fast) var(--ease-standard),
         transform var(--motion-base) var(--ease-out);
     }
-    .ui-tr[data-hovered] .ui-row-actions,
+    .ui-tr:hover .ui-row-actions,
     .ui-tr:focus-within .ui-row-actions,
     .ui-tr[data-selected] .ui-row-actions {
       opacity: 1;
@@ -195,7 +202,7 @@
     inset: 0;
     border-radius: var(--radius-lg);
   }
-  .ui-row-card-open[data-focus-visible]::after {
+  .ui-row-card-open:focus-visible::after {
     outline: 2px solid var(--color-brand-primary);
     outline-offset: 2px;
   }
@@ -330,7 +337,7 @@
       border-color var(--motion-fast) var(--ease-standard),
       box-shadow var(--motion-fast) var(--ease-standard);
   }
-  .ui-chip[data-hovered] {
+  .ui-chip:hover {
     border-color: var(--color-brand-primary-dark);
     box-shadow: var(--elevation-1);
   }
@@ -341,7 +348,7 @@
     font-weight: var(--font-weight-bold);
     box-shadow: inset 0 0 0 1px rgba(0, 123, 62, 0.25);
   }
-  .ui-chip[data-focus-visible] {
+  .ui-chip:focus-visible {
     outline: 2px solid var(--color-brand-primary);
     outline-offset: 2px;
   }

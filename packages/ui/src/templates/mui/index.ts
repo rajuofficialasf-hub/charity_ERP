@@ -7,6 +7,7 @@ import { MenuButton } from './Menu.js';
 import { ConfirmDialog, Drawer, Modal } from './Overlay.js';
 import { Combobox, Select } from './Select.js';
 import { RouterLink as Link, TemplateProvider } from './provider.js';
+import { Table, TableToolbar } from './Table.js';
 import { Tabs } from './Tabs.js';
 
 // A component missing here, or one whose props differ from the contract, fails the typecheck.
@@ -22,6 +23,8 @@ export const muiTemplate = {
   ConfirmDialog,
   MenuButton,
   Tabs,
+  Table,
+  TableToolbar,
 } satisfies UiTemplate;
 
 export {
@@ -34,6 +37,8 @@ export {
   MenuButton,
   Modal,
   Select,
+  Table,
+  TableToolbar,
   Tabs,
   TemplateProvider,
 };

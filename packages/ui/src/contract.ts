@@ -1,4 +1,10 @@
-import type { AnchorHTMLAttributes, ComponentType, ReactNode, RefAttributes } from 'react';
+import type {
+  AnchorHTMLAttributes,
+  ComponentType,
+  ReactElement,
+  ReactNode,
+  RefAttributes,
+} from 'react';
 import type { FieldBaseProps } from './components/Field/FieldParts.js';
 import type { IconComponent } from './components/Icon/Icon.js';
 
@@ -185,6 +191,92 @@ export interface TabsProps {
   className?: string;
 }
 
+export interface TableColumn<T> {
+  id: string;
+  header: string;
+  cell: (row: T) => ReactNode;
+  /**
+   * 1 always shown, 2 from 640 px, 3 desktop only, 4 desktop but hidden in the split view between
+   * 1024 and 1439 px (DESIGN_SYSTEM 5.7, O-41).
+   */
+  priority?: 1 | 2 | 3 | 4;
+  /** Numbers are right-aligned with tabular digits. */
+  numeric?: boolean;
+  sortable?: boolean;
+  /** The column that names the row for screen readers (usually the name). */
+  isRowHeader?: boolean;
+}
+
+export interface TableSort {
+  column: string;
+  direction: 'ascending' | 'descending';
+}
+
+export interface TablePagination {
+  /** Rows shown so far and the capped total text such as "10000+" (cursor paging, API_STANDARDS). */
+  shown: number;
+  total: number | string;
+  hasPrevious?: boolean;
+  hasNext?: boolean;
+  onPrevious?: () => void;
+  onNext?: () => void;
+  /** Phones use "load more" instead of previous and next. */
+  onLoadMore?: () => void;
+}
+
+export interface TableProps<T> {
+  /** Accessible name of the table and the card list. */
+  label: string;
+  columns: TableColumn<T>[];
+  rows: T[];
+  rowKey: (row: T) => string;
+  /** Name of a row for its checkbox and its card ("Select {name}"). */
+  rowLabel: (row: T) => string;
+  /** How a row renders as a card on phones (DESIGN_SYSTEM 5.7). */
+  cardRenderer: (row: T) => ReactNode;
+  selectionMode?: 'none' | 'single' | 'multiple';
+  selectedKeys?: Set<string>;
+  onSelectionChange?: (keys: Set<string>) => void;
+  sort?: TableSort;
+  onSortChange?: (sort: TableSort) => void;
+  /** Opens a row (split-view detail); Enter on the focused row also opens it. */
+  onRowAction?: (key: string) => void;
+  /** Ghost buttons or a menu at the row end; visible on hover or focus on desktop. */
+  rowActions?: (row: T) => ReactNode;
+  density?: 'comfortable' | 'compact';
+  /** Hides priority 4 columns between 1024 and 1439 px. */
+  inSplitView?: boolean;
+  loading?: boolean;
+  /** ErrorState element shown instead of rows. */
+  error?: ReactNode;
+  /** EmptyState element shown when there are no rows. */
+  emptyState?: ReactNode;
+  pagination?: TablePagination;
+  /** TableToolbar element (search, chips, filters). */
+  toolbar?: ReactNode;
+  className?: string;
+}
+
+export interface FilterChip {
+  id: string;
+  label: string;
+  count?: number;
+}
+
+export interface TableToolbarProps {
+  /** Called 300 ms after typing stops, with '' when fewer than 2 characters (DESIGN_SYSTEM 5.7). */
+  onSearch?: (term: string) => void;
+  searchPlaceholder?: string;
+  chips?: FilterChip[];
+  activeChip?: string;
+  onChipChange?: (id: string) => void;
+  /** Filter controls: inline from 640 px, in a bottom sheet behind a "filter" button on phones. */
+  filters?: ReactNode;
+  activeFilterCount?: number;
+  onClearFilters?: () => void;
+  className?: string;
+}
+
 /** Everything a template supplies. */
 export interface UiTemplate {
   TemplateProvider: ComponentType<TemplateProviderProps>;
@@ -199,4 +291,7 @@ export interface UiTemplate {
   ConfirmDialog: ComponentType<ConfirmDialogProps>;
   MenuButton: ComponentType<MenuButtonProps>;
   Tabs: ComponentType<TabsProps>;
+  /** Generic over the row type, so it is a function type rather than a component type. */
+  Table: <T>(props: TableProps<T>) => ReactElement;
+  TableToolbar: ComponentType<TableToolbarProps>;
 }
