@@ -64,6 +64,7 @@ import {
   type RegistrationDetailView,
 } from '../registrations/registrations-api';
 import { VolunteerDecisions } from '../registrations/VolunteerDecisions';
+import { mailLink, telLink } from '../contact-links';
 import { canSeeVolunteers } from '../roles';
 import {
   profileKey,
@@ -140,12 +141,16 @@ function PendingProfile({ profile: p }: { profile: VolunteerProfile }) {
   if (reg.error instanceof ApiFailure && reg.error.status === 404)
     return <EmptyState icon={UserX} title={t('not_found')} />;
   if (reg.error || !reg.data)
+    // the profile still shows (and its block and devices); the decisions wait for the registration
     return (
-      <ErrorState
-        title={tc('state.error.text')}
-        requestId={reg.error instanceof ApiFailure ? reg.error.requestId : undefined}
-        onRetry={() => void reg.refetch()}
-      />
+      <Grid gap={3}>
+        <ErrorState
+          title={tc('state.error.text')}
+          requestId={reg.error instanceof ApiFailure ? reg.error.requestId : undefined}
+          onRetry={() => void reg.refetch()}
+        />
+        <Profile profile={p} />
+      </Grid>
     );
   return <Profile profile={p} registration={reg.data} />;
 }
@@ -305,8 +310,7 @@ function Profile({
         ]
       : []),
   ];
-  const asked = params.get('tab');
-  const selected = tabs.some((tab) => tab.id === asked) ? asked! : 'info';
+  const selected = tabs.find((tab) => tab.id === params.get('tab'))?.id ?? 'info';
 
   return (
     <Grid gap={4}>
@@ -361,39 +365,39 @@ function HeaderAvatar({ name, fileId }: { name: string; fileId: string | null })
   return <Avatar name={name} letters={1} size="lg" src={photo.data ?? undefined} />;
 }
 
-/** The document slots the caller may see: the photo, and the NID pages with the identity class. */
-function documentSlots(view: View, tf: (key: string) => string) {
-  const slots: {
-    id: string;
-    label: string;
-    fileId: string | null | undefined;
-    visible: boolean;
-  }[] = [
-    { id: 'photo', label: tf('form.photo'), fileId: view.photoFileId, visible: true },
+interface DocumentSlot {
+  id: string;
+  label: string;
+  fileId: string | null | undefined;
+  /** False when the server left the file out for this caller (the NID pages). */
+  visible: boolean;
+}
+
+/** The photo and the NID pages; the NID pages are visible only with the identity class. */
+function useDocumentSlots(view: View): DocumentSlot[] {
+  const tf = useTranslations('registration.form');
+  return [
+    { id: 'photo', label: tf('photo'), fileId: view.photoFileId, visible: true },
     {
       id: 'nid',
-      label: tf('form.nid_photo'),
+      label: tf('nid_photo'),
       fileId: view.nidPhotoFileId,
       visible: 'nidPhotoFileId' in view,
     },
     {
       id: 'nid_back',
-      label: tf('form.nid_photo_back'),
+      label: tf('nid_photo_back'),
       fileId: view.nidPhotoBackFileId,
       visible: 'nidPhotoBackFileId' in view,
     },
   ];
-  return slots;
 }
 
 /** The documents beside the header: a thumbnail each, opened larger in a dialog. */
 function DocumentStrip({ view }: { view: View }) {
   const t = useTranslations('admin.volunteers.profile');
-  const tf = useTranslations('registration');
   const [open, setOpen] = useState<{ label: string; fileId: string } | null>(null);
-  const slots = documentSlots(view, (key) => tf(key as 'form.photo')).filter(
-    (slot) => slot.visible,
-  );
+  const slots = useDocumentSlots(view).filter((slot) => slot.visible);
   return (
     <div className="admin-docs">
       <p className="admin-docs-title">{t('documents_title', { count: slots.length })}</p>
@@ -401,17 +405,11 @@ function DocumentStrip({ view }: { view: View }) {
         {slots.map((slot) => (
           <li key={slot.id}>
             {slot.fileId ? (
-              <button
-                type="button"
-                className="admin-doc-thumb"
-                onClick={() => setOpen({ label: slot.label, fileId: slot.fileId! })}
-              >
-                <Thumb fileId={slot.fileId} />
-                <span className="admin-doc-zoom" aria-hidden="true">
-                  <ZoomIn size={16} />
-                </span>
-                <span className="ui-sr-only">{t('view_document', { name: slot.label })}</span>
-              </button>
+              <Thumb
+                fileId={slot.fileId}
+                label={slot.label}
+                onOpen={(fileId) => setOpen({ label: slot.label, fileId })}
+              />
             ) : (
               <span className="admin-doc-thumb is-empty">{t('no_photo')}</span>
             )}
@@ -431,9 +429,28 @@ function DocumentStrip({ view }: { view: View }) {
   );
 }
 
-function Thumb({ fileId }: { fileId: string }) {
+/** A document's thumbnail that opens it larger; a file that failed to load says so instead. */
+function Thumb({
+  fileId,
+  label,
+  onOpen,
+}: {
+  fileId: string;
+  label: string;
+  onOpen: (fileId: string) => void;
+}) {
+  const t = useTranslations('admin.volunteers.profile');
   const file = useFileDataUrl(fileId);
-  return file.data ? <img src={file.data} alt="" /> : <Skeleton shape="card" />;
+  if (file.error) return <span className="admin-doc-thumb is-empty">{t('photo_failed')}</span>;
+  return (
+    <button type="button" className="admin-doc-thumb" onClick={() => onOpen(fileId)}>
+      {file.data ? <img src={file.data} alt="" /> : <Skeleton shape="card" />}
+      <span className="admin-doc-zoom" aria-hidden="true">
+        <ZoomIn size={16} />
+      </span>
+      <span className="ui-sr-only">{t('view_document', { name: label })}</span>
+    </button>
+  );
 }
 
 function InfoTab({ view: p, registration }: { view: View; registration?: RegistrationDetailView }) {
@@ -453,7 +470,7 @@ function InfoTab({ view: p, registration }: { view: View; registration?: Registr
             icon: Phone,
             label: tf('form.mobile'),
             value: p.mobile,
-            href: `tel:${p.mobile}`,
+            href: telLink(p.mobile),
             actionLabel: t('call'),
             copy: true,
           },
@@ -466,7 +483,7 @@ function InfoTab({ view: p, registration }: { view: View; registration?: Registr
             icon: Mail,
             label: tf('form.email'),
             value: p.email,
-            href: `mailto:${p.email}`,
+            href: mailLink(p.email),
             actionLabel: t('send_email'),
             copy: true,
           },
@@ -654,18 +671,24 @@ function RegistrationTimeline({
       comment: [tr(`corrections.status.${c.status}`), c.note].filter(Boolean).join(' · '),
       status: c.status === 'open' ? 'current' : 'done',
     })),
-    registration
-      ? {
-          id: 'decision',
-          title: t('history.awaiting'),
-          status: registration.status === 'in_correction' ? 'upcoming' : 'current',
-        }
-      : {
-          id: 'decision',
-          title: t('history.approved'),
-          time: p.approvedAt ? formatDateTime(p.approvedAt, locale) : undefined,
-          status: p.approvedAt ? 'done' : 'skipped',
-        },
+    ...(registration
+      ? [
+          {
+            id: 'decision',
+            title: t('history.awaiting'),
+            status: registration.status === 'in_correction' ? 'upcoming' : 'current',
+          } satisfies TimelineStep,
+        ]
+      : p.approvedAt
+        ? [
+            {
+              id: 'decision',
+              title: t('history.approved'),
+              time: formatDateTime(p.approvedAt, locale),
+              status: 'done',
+            } satisfies TimelineStep,
+          ]
+        : []),
     ...(p.blocklist.blocked
       ? [
           {
@@ -683,10 +706,9 @@ function RegistrationTimeline({
 
 function DocumentsTab({ view }: { view: View }) {
   const t = useTranslations('admin.volunteers.profile');
-  const tf = useTranslations('registration');
   return (
     <div className="admin-photos">
-      {documentSlots(view, (key) => tf(key as 'form.photo')).map((slot) => (
+      {useDocumentSlots(view).map((slot) => (
         <Grid gap={1} as="figure" key={slot.id}>
           <figcaption>{slot.label}</figcaption>
           {!slot.visible ? (

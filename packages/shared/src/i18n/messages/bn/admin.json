@@ -316,7 +316,8 @@
         "awaiting": "অনুমোদনের অপেক্ষায়",
         "approved": "নিবন্ধন অনুমোদিত হয়েছে",
         "blocked": "ব্লকলিস্টে দেওয়া হয়েছে"
-      }
+      },
+      "photo_failed": "ছবি খোলা যায়নি"
     },
     "none": "নেই",
     "summary": "{from}–{to} দেখানো হচ্ছে · মোট {total} জন",
@@ -406,7 +407,10 @@
       "attendance": "ক্লাসে উপস্থিতি {total}টির মধ্যে {present}টি",
       "exams": "পরীক্ষায় পাস {total}টির মধ্যে {passed}টি",
       "calls": "ফোন কল",
-      "evaluations": "ফলো-আপ মূল্যায়ন"
+      "evaluations": "ফলো-আপ মূল্যায়ন",
+      "contact": "যোগাযোগ",
+      "call": "কল করুন",
+      "age_value": "{age} বছর"
     },
     "none": "নেই",
     "summary": "{from}–{to} দেখানো হচ্ছে · মোট {total} জন",

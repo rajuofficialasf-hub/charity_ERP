@@ -175,6 +175,32 @@ function serve() {
           type: 'general',
           state: 'pending',
           // the parts of the profile the registration's answers do not replace
+          mobile: null,
+          email: null,
+          whatsapp: null,
+          fatherName: 'নমুনা পিতা',
+          motherName: 'নমুনা মাতা',
+          divisionId: DIVISION,
+          districtId: DISTRICT,
+          upazilaId: UPAZILA,
+          unionId: UNION,
+          addressLine: null,
+          facebookId: null,
+          education: null,
+          experience: null,
+          workDescription: null,
+          previousProjects: null,
+          tshirtSize: null,
+          volunteeringArea: null,
+          profession: null,
+          professionDetails: {},
+          interestAreas: [],
+          vehicle: null,
+          canSwim: null,
+          availability: null,
+          emergencyFullTime: null,
+          educationDetails: {},
+          permanentAddress: null,
           photoFileId: null,
           registeredAt: '2026-10-12T04:00:00.000Z',
           approvedAt: null,
@@ -591,6 +617,30 @@ describe('volunteer registration detail', () => {
     await screen.findByRole('heading', { level: 1, name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' });
     expect(screen.getByRole('button', { name: 'অনুমোদন' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'ব্লকলিস্টে দিন' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the profile when the registration cannot be read, with the error and a retry', async () => {
+    let reads = 0;
+    server.use(
+      http.get('*/api/v1/registrations/:userId', () => {
+        reads += 1;
+        return HttpResponse.json(
+          { error: { code: 'server.error', message: 'Failed.', requestId: 'req_x' } },
+          { status: 500 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    renderPage(RPM, 'bn', REVIEW);
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'নতুন স্বেচ্ছাসেবক (নমুনা)' }),
+    ).toBeInTheDocument();
+    // no decision without the registration, but the block stays
+    expect(screen.queryByRole('button', { name: 'অনুমোদন' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'ব্লকলিস্টে দিন' })).toBeInTheDocument();
+    const before = reads;
+    await user.click(screen.getByRole('button', { name: 'আবার চেষ্টা করুন' }));
+    await waitFor(() => expect(reads).toBeGreaterThan(before));
   });
 
   it('a registration no longer pending shows the not-found message', async () => {

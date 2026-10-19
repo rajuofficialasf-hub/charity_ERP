@@ -17,27 +17,30 @@ export interface CopyButtonProps {
 /** A small button that copies a value and says so for a moment (UX-22). */
 export function CopyButton({ value, label, className }: CopyButtonProps) {
   const { messages } = useUi();
-  const [copied, setCopied] = useState(false);
+  // each press is its own result, so a second copy is announced again
+  const [result, setResult] = useState<{ press: number; ok: boolean } | null>(null);
   useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 2000);
+    if (!result) return;
+    const timer = setTimeout(() => setResult(null), 2000);
     return () => clearTimeout(timer);
-  }, [copied]);
+  }, [result]);
+  const copy = () => {
+    const press = (result?.press ?? 0) + 1;
+    const done = (ok: boolean) => setResult({ press, ok });
+    if (!navigator.clipboard) return done(false);
+    navigator.clipboard.writeText(value).then(
+      () => done(true),
+      () => done(false),
+    );
+  };
+  const copied = result?.ok === true;
   return (
     <span className={cx('ui-copy', className)}>
-      <Button
-        variant="ghost"
-        size="sm"
-        iconOnly
-        icon={copied ? Check : Copy}
-        onPress={() => {
-          void navigator.clipboard?.writeText(value).then(() => setCopied(true));
-        }}
-      >
+      <Button variant="ghost" size="sm" iconOnly icon={copied ? Check : Copy} onPress={copy}>
         {fill(messages.profile.copy, { label })}
       </Button>
-      <span className="ui-sr-only" role="status">
-        {copied ? fill(messages.profile.copied, { label }) : ''}
+      <span className="ui-sr-only" role="status" key={result?.press}>
+        {result ? fill(messages.profile[result.ok ? 'copied' : 'copyFailed'], { label }) : ''}
       </span>
     </span>
   );

@@ -316,7 +316,8 @@
         "awaiting": "Awaiting approval",
         "approved": "Registration approved",
         "blocked": "Put on the blocklist"
-      }
+      },
+      "photo_failed": "Could not load"
     },
     "none": "None",
     "summary": "Showing {from}–{to} of {total} volunteers",
@@ -406,7 +407,10 @@
       "attendance": "Class attendance {present} of {total}",
       "exams": "Exams passed {passed} of {total}",
       "calls": "Calls",
-      "evaluations": "Follow-up evaluations"
+      "evaluations": "Follow-up evaluations",
+      "contact": "Contact",
+      "call": "Call",
+      "age_value": "{age} years"
     },
     "none": "None",
     "summary": "Showing {from}–{to} of {total} beneficiaries",

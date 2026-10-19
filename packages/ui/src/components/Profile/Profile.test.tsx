@@ -49,6 +49,15 @@ describe('the profile pieces', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Mobile copied');
   });
 
+  it('says when the browser refuses the copy', async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'));
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    renderWithUi(<CopyButton value="01700005600" label="Mobile" />);
+    await user.click(screen.getByRole('button', { name: 'Copy Mobile' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('Could not copy Mobile');
+  });
+
   it('opens and closes a section by its title, and keeps the edit button outside the toggle', async () => {
     const user = userEvent.setup();
     const onEdit = vi.fn();
