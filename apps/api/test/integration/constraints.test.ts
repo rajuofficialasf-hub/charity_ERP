@@ -113,6 +113,13 @@ describe('BEN numbers and duplicate dismissals', () => {
       `INSERT INTO beneficiary_merge_dismissals (id, low_id, high_id, reason, dismissed_by) VALUES ($1, $2, $3, $4, $5)`,
       [randomUUID(), low, high, reason, by],
     );
+  const marks = async (low: string, high: string) =>
+    (
+      await db.query(
+        'SELECT low_id, high_id, lifted_at FROM beneficiary_merge_dismissals WHERE low_id = $1 AND high_id = $2 ORDER BY dismissed_at, id',
+        [low, high],
+      )
+    ).rows;
   const pair = async () => {
     const ids = [await f.beneficiary(db, loc), await f.beneficiary(db, loc)].sort();
     return { low: ids[0]!, high: ids[1]! };
@@ -123,7 +130,8 @@ describe('BEN numbers and duplicate dismissals', () => {
     const { low, high } = await pair();
     await expectSqlError(dismiss(high, low, by), SQLSTATE.checkViolation, /dismissals_pair_check/);
     await expectSqlError(dismiss(low, low, by), SQLSTATE.checkViolation, /dismissals_pair_check/);
-    await expect(dismiss(low, high, by)).resolves.toBeTruthy();
+    await dismiss(low, high, by);
+    expect(await marks(low, high)).toEqual([{ low_id: low, high_id: high, lifted_at: null }]);
   });
 
   it('holds one active dismissal per pair, and a new one after the mark is lifted', async () => {
@@ -139,7 +147,10 @@ describe('BEN numbers and duplicate dismissals', () => {
       `UPDATE beneficiary_merge_dismissals SET lifted_by = $1, lifted_at = now(), lift_reason = 'আবার যাচাই করা হবে' WHERE low_id = $2 AND high_id = $3`,
       [by, low, high],
     );
-    await expect(dismiss(low, high, by)).resolves.toBeTruthy();
+    await dismiss(low, high, by);
+    const rows = await marks(low, high);
+    expect(rows).toHaveLength(2);
+    expect(rows.filter((r) => r.lifted_at === null)).toHaveLength(1);
   });
 
   it('needs a reason of 3 to 1,000 characters, and lifts only with who, when and why', async () => {
@@ -162,13 +173,57 @@ describe('BEN numbers and duplicate dismissals', () => {
     );
   });
 
+  it('lifts a mark once and changes nothing else of it', async () => {
+    const by = await f.user(db);
+    const { low, high } = await pair();
+    await dismiss(low, high, by);
+    const where = 'WHERE low_id = $1 AND high_id = $2';
+    await expectSqlError(
+      db.query(`UPDATE beneficiary_merge_dismissals SET reason = 'অন্য কারণ লেখা হলো' ${where}`, [
+        low,
+        high,
+      ]),
+      SQLSTATE.insufficientPrivilege,
+      /merge_dismissal_is_fixed/,
+    );
+    await db.query(
+      `UPDATE beneficiary_merge_dismissals SET lifted_by = $3, lifted_at = now(), lift_reason = 'আবার যাচাই করা হবে' ${where}`,
+      [low, high, by],
+    );
+    await expectSqlError(
+      db.query(
+        `UPDATE beneficiary_merge_dismissals SET lifted_by = NULL, lifted_at = NULL, lift_reason = NULL ${where}`,
+        [low, high],
+      ),
+      SQLSTATE.insufficientPrivilege,
+      /merge_dismissal_is_fixed/,
+    );
+  });
+
+  it('refuses a reason of white space only', async () => {
+    const by = await f.user(db);
+    const { low, high } = await pair();
+    await expectSqlError(dismiss(low, high, by, '     '), SQLSTATE.checkViolation, /reason/);
+  });
+
+  it('compares names with tabs, line breaks and extra spaces as the same name', async () => {
+    const { rows } = await db.query(
+      `SELECT person_name_key($1) = person_name_key($2) AND person_name_key($1) = 'মোছাঃ রহিমা খাতুন' AS same`,
+      ['\tমোছাঃ  রহিমা\nখাতুন \n', 'মোছাঃ রহিমা খাতুন'],
+    );
+    expect(rows[0].same).toBe(true);
+  });
+
   it('never deletes a dismissal', async () => {
     const by = await f.user(db);
     const { low, high } = await pair();
     await dismiss(low, high, by);
-    await expect(
+    await expectSqlError(
       db.query('DELETE FROM beneficiary_merge_dismissals WHERE low_id = $1', [low]),
-    ).rejects.toThrow();
+      SQLSTATE.insufficientPrivilege,
+      /append_only_table beneficiary_merge_dismissals/,
+    );
+    expect(await marks(low, high)).toHaveLength(1);
   });
 });
 

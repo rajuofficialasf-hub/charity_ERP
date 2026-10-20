@@ -1,8 +1,9 @@
--- Reverses 20261020160000_beneficiary_master (docs/architecture/ADR/ADR-003-prisma-with-down-sql.md;
--- DECISION_LOG D-112, D-113). The marks on duplicate pairs go with their table and the BEN numbers
+-- Reverses 20261020160000_beneficiary_master (every migration ships its hand-written reverse,
+-- docs/architecture/ADR/ADR-003-prisma-with-down-sql.md). The marks on duplicate pairs go with their table and the BEN numbers
 -- with their column; the audit log still records every mark, merge and lookup.
 
 DROP TABLE IF EXISTS "beneficiary_merge_dismissals";
+DROP FUNCTION IF EXISTS guard_merge_dismissal();
 
 DROP INDEX IF EXISTS "beneficiaries_dup_name_dob_union_idx";
 DROP INDEX IF EXISTS "beneficiaries_dup_name_father_mobile_idx";

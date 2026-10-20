@@ -19,7 +19,7 @@ GRANT ALL ON SCHEMA public TO css_migrate;
 GRANT USAGE ON SCHEMA public TO css_app;
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO css_app;
 GRANT DELETE ON fund_sources, project_areas, dawah_syllabus_topics TO css_app;
--- The BEN number of a new beneficiary comes from its sequence (D-112).
+-- A new beneficiary draws its BEN number from this sequence, so the application role uses it.
 GRANT USAGE, SELECT ON SEQUENCE beneficiaries_ben_no_seq TO css_app;
 -- Append-only logs: INSERT only (the triggers of D-060 refuse changes for every role as well).
 REVOKE UPDATE ON audit_log, budget_ledger, stock_movements, document_events, application_transfers,

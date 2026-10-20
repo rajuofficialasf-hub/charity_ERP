@@ -56,6 +56,27 @@ describe('effective permissions', () => {
     expect(names(executive)).not.toContain('application.approve');
   });
 
+  it('lets the PM, RPM and executive edit beneficiary contacts, and only those who propose or merge mark a false pair', () => {
+    const of = (role: string) => effectivePermissions(registry, facts({ roles: [role] }), NOW);
+    const scopeOf = (grants: EffectiveGrant[], permission: string) =>
+      grants.filter((g) => g.permission === permission).map((g) => g.scopeType);
+    expect(scopeOf(of('program_manager'), 'beneficiary.contact.edit')).toEqual(['PROGRAM']);
+    expect(scopeOf(of('regional_program_manager'), 'beneficiary.contact.edit')).toEqual(['REGION']);
+    expect(scopeOf(of('project_executive'), 'beneficiary.contact.edit')).toEqual(['REGION']);
+    expect(scopeOf(of('program_manager'), 'beneficiary.merge.dismiss')).toEqual(['PROGRAM']);
+    expect(scopeOf(of('regional_program_manager'), 'beneficiary.merge.dismiss')).toEqual([
+      'REGION',
+    ]);
+    expect(scopeOf(of('project_executive'), 'beneficiary.merge.dismiss')).toEqual([]);
+    for (const role of ['media_team', 'procurement_team', 'volunteer_general'])
+      expect(names(of(role)), role).not.toContain('beneficiary.contact.edit');
+    // a merge is reverted by the two global roles only
+    for (const role of ['program_manager', 'regional_program_manager'])
+      expect(names(of(role)), role).not.toContain('beneficiary.merge.revert');
+    expect(names(of('monitoring_team'))).toContain('beneficiary.merge.revert');
+    expect(names(of('department_head'))).toContain('beneficiary.merge.revert');
+  });
+
   it('gives a volunteer without a project only its account permissions, nothing a set governs', () => {
     const grants = effectivePermissions(
       registry,

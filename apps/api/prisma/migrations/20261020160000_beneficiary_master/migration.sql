@@ -1,6 +1,5 @@
--- The beneficiary master (DECISION_LOG D-112, D-113; plan
--- docs/plans/2026-10-20-1536-feat-beneficiary-master-plan.md). Additive: the short BEN number of
--- every profile, the marks on suggested duplicate pairs that are not the same person, and the two
+-- The beneficiary master (the decisions on the BEN number and on merges in docs/DECISION_LOG.md,
+-- technical decisions). Additive: the short BEN number of every profile, the marks on suggested duplicate pairs that are not the same person, and the two
 -- indexes the duplicate suggestions read.
 
 -- The short number officials read out: given once from a sequence, never reused, never changed.
@@ -30,11 +29,12 @@ BEGIN
 END $$;
 CREATE TRIGGER beneficiaries_keep_ben_no BEFORE UPDATE OF "ben_no" ON "beneficiaries" FOR EACH ROW EXECUTE FUNCTION keep_ben_no();
 
--- The comparable form of a person's name: trimmed, inner spaces collapsed, letter case folded.
+-- The comparable form of a person's name: every run of white space (tabs and line breaks too)
+-- made one space, then trimmed, letter case folded.
 -- The duplicate suggestions and the family warning compare names through it, and the indexes
 -- below are built on it, so a query and its index always agree.
 CREATE FUNCTION person_name_key(value TEXT) RETURNS TEXT LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
-  SELECT lower(regexp_replace(btrim(value), '\s+', ' ', 'g'))
+  SELECT lower(btrim(regexp_replace(value, '\s+', ' ', 'g')))
 $$;
 CREATE INDEX "beneficiaries_dup_name_father_mobile_idx" ON "beneficiaries"(person_name_key("name"), person_name_key("father_or_husband_name"), "mobile") WHERE (merged_into_id IS NULL);
 CREATE INDEX "beneficiaries_dup_name_dob_union_idx" ON "beneficiaries"(person_name_key("name"), "dob", "union_id") WHERE (merged_into_id IS NULL AND dob IS NOT NULL);
@@ -54,11 +54,11 @@ CREATE TABLE "beneficiary_merge_dismissals" (
 
     CONSTRAINT "beneficiary_merge_dismissals_pkey" PRIMARY KEY ("id"),
     CONSTRAINT "beneficiary_merge_dismissals_pair_check" CHECK ("low_id" < "high_id"),
-    CONSTRAINT "beneficiary_merge_dismissals_reason_check" CHECK (char_length("reason") BETWEEN 3 AND 1000),
+    CONSTRAINT "beneficiary_merge_dismissals_reason_check" CHECK (char_length(btrim("reason")) BETWEEN 3 AND 1000),
     CONSTRAINT "beneficiary_merge_dismissals_lift_check" CHECK (
       ("lifted_at" IS NULL) = ("lifted_by" IS NULL)
       AND ("lifted_at" IS NULL) = ("lift_reason" IS NULL)
-      AND ("lift_reason" IS NULL OR char_length("lift_reason") BETWEEN 3 AND 1000)
+      AND ("lift_reason" IS NULL OR char_length(btrim("lift_reason")) BETWEEN 3 AND 1000)
     )
 );
 CREATE UNIQUE INDEX "beneficiary_merge_dismissals_active_key" ON "beneficiary_merge_dismissals"("low_id", "high_id") WHERE (lifted_at IS NULL);
@@ -69,6 +69,19 @@ ALTER TABLE "beneficiary_merge_dismissals" ADD CONSTRAINT "beneficiary_merge_dis
 ALTER TABLE "beneficiary_merge_dismissals" ADD CONSTRAINT "beneficiary_merge_dismissals_high_id_fkey" FOREIGN KEY ("high_id") REFERENCES "beneficiaries"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
 ALTER TABLE "beneficiary_merge_dismissals" ADD CONSTRAINT "beneficiary_merge_dismissals_dismissed_by_fkey" FOREIGN KEY ("dismissed_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
 ALTER TABLE "beneficiary_merge_dismissals" ADD CONSTRAINT "beneficiary_merge_dismissals_lifted_by_fkey" FOREIGN KEY ("lifted_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
--- Every mark stays (D-060): no row disappears.
+-- Every mark stays, as every log of decisions does: no row disappears, and the only change a row
+-- takes is being lifted once; who marked it, why, and the pair stay as written.
+CREATE FUNCTION guard_merge_dismissal() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF OLD.lifted_at IS NOT NULL
+    OR NEW.lifted_at IS NULL
+    OR (NEW.id, NEW.low_id, NEW.high_id, NEW.reason, NEW.dismissed_by, NEW.dismissed_at)
+       IS DISTINCT FROM (OLD.id, OLD.low_id, OLD.high_id, OLD.reason, OLD.dismissed_by, OLD.dismissed_at)
+  THEN
+    RAISE EXCEPTION 'merge_dismissal_is_fixed: a mark is only lifted, once' USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER beneficiary_merge_dismissals_lift_only BEFORE UPDATE ON "beneficiary_merge_dismissals" FOR EACH ROW EXECUTE FUNCTION guard_merge_dismissal();
 CREATE TRIGGER beneficiary_merge_dismissals_no_delete BEFORE DELETE ON "beneficiary_merge_dismissals" FOR EACH ROW EXECUTE FUNCTION forbid_log_change();
 CREATE TRIGGER beneficiary_merge_dismissals_no_truncate BEFORE TRUNCATE ON "beneficiary_merge_dismissals" FOR EACH STATEMENT EXECUTE FUNCTION forbid_log_change();
