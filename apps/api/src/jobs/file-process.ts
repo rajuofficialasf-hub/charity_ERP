@@ -31,6 +31,25 @@ export function enqueueFileProcess(jobs: JobRunner, tx: Tx, fileId: string): Pro
   return jobs.enqueue<FileProcessJob>(FILE_PROCESS_QUEUE, { fileId }, { tx, singletonKey: fileId });
 }
 
+/**
+ * Queues every file still waiting for its scan, so files stored before the processing existed (the
+ * registration photos) and files whose job was lost are processed; run when the consumers start.
+ * A file already queued is not queued twice (one job per file id).
+ */
+export async function enqueuePendingFiles(prisma: PrismaService, jobs: JobRunner): Promise<number> {
+  const pending = await prisma.file.findMany({
+    where: { virusScan: 'pending', kind: { not: 'export' } },
+    select: { id: true },
+  });
+  for (const file of pending)
+    await jobs.enqueue<FileProcessJob>(
+      FILE_PROCESS_QUEUE,
+      { fileId: file.id },
+      { singletonKey: file.id },
+    );
+  return pending.length;
+}
+
 /** Where the thumbnails of a stored object go: a `thumb` folder beside it. */
 export function thumbnailKey(objectKey: string, fileId: string, size: 's' | 'm'): string {
   const folder = objectKey.slice(0, objectKey.lastIndexOf('/'));
@@ -170,6 +189,11 @@ export class FileProcessor {
       this.logger.warn({ fileId, reason }, 'photo not processed; it stays quarantined');
       return null;
     }
+  }
+
+  /** Queues the files still waiting for their scan (see `enqueuePendingFiles`). */
+  queuePending(jobs: JobRunner): Promise<number> {
+    return enqueuePendingFiles(this.prisma, jobs);
   }
 
   private async setScan(fileId: string, virusScan: ScanResult | 'failed'): Promise<void> {

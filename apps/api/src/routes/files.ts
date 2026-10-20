@@ -6,14 +6,34 @@ import {
 } from '@css/shared/registration';
 import { Router } from 'express';
 import { z } from 'zod';
-import { principalOf } from '../auth/principal';
+import { type AuthedRequest, principalOf } from '../auth/principal';
+import { sensitive } from '../access/field-mask';
 import type { Container } from '../container';
 import { photoBody } from '../files/photo-body';
 import { defineRoute, type RouteDeps } from '../openapi/define-route';
+import type { FileVariant } from '../services/files';
+
+const fileInfoSchema = z.object({
+  data: z.object({
+    id: z.uuid(),
+    kind: z.string(),
+    mime: z.string(),
+    sizeBytes: z.int(),
+    capturedAt: z.string().nullable(),
+    uploadedAt: z.string(),
+    gps: sensitive(
+      z.object({ lat: z.number(), lng: z.number(), accuracyM: z.number().nullable() }).nullable(),
+      'file.location',
+    ),
+    virusScan: z.enum(['pending', 'clean', 'infected', 'failed', 'skipped']),
+    flags: z.array(z.string()),
+    duplicateOf: z.uuid().nullable(),
+  }),
+});
 
 /**
- * Stored files: the photo stream and the volunteer's own photo upload (DECISION_LOG D-087; the
- * metadata, signed-URL-free download and upload sessions of the file service follow in T2.1).
+ * Stored files: the stream of a file or its thumbnail, its metadata, and the volunteer's own photo
+ * upload (the chunked uploads are in routes/uploads.ts).
  */
 export function filesRouter(
   deps: RouteDeps,
@@ -21,13 +41,13 @@ export function filesRouter(
 ): Router {
   const router = Router();
 
-  defineRoute<unknown, unknown, { fileId: string }>(router, deps, {
+  defineRoute<unknown, { variant?: FileVariant }, { fileId: string }>(router, deps, {
     tag: 'files',
     method: 'get',
     path: '/files/:fileId/content',
     operationId: 'files.file.content',
     summary:
-      'Stream a registration or profile photo to its owner and to allowed officials; the NID photo only to the volunteer.identity roles (Cache-Control no-store, nosniff; D-087)',
+      'Stream a file or its thumbnail to its owner and to the officials whose scope reaches its record, once the scan cleared it; the NID photo only with the identity class (Cache-Control no-store, nosniff, the type from the stored bytes, inline only for images and PDF)',
     permission: 'entity',
     scope: 'file',
     allowPending: true,
@@ -35,9 +55,37 @@ export function filesRouter(
     idempotency: 'none',
     rateLimit: 'default',
     params: { fileId: z.uuid() },
+    query: z.strictObject({ variant: z.enum(['small', 'medium']).optional() }),
     streams: true,
-    responses: { 200: null, 401: null, 404: null },
-    handler: ({ params, req, res }) => c.files.streamContent(principalOf(req), params.fileId, res),
+    responses: { 200: null, 401: null, 404: null, 410: null, 422: null, 423: null },
+    handler: ({ params, query, req, res }) =>
+      c.files.streamContent(principalOf(req), params.fileId, res, query.variant),
+  });
+
+  defineRoute<unknown, unknown, { fileId: string }>(router, deps, {
+    tag: 'files',
+    method: 'get',
+    path: '/files/:fileId',
+    operationId: 'files.file.get',
+    summary:
+      'File metadata, scan state and data-quality flags; the GPS position under file.location',
+    permission: 'entity',
+    scope: 'file',
+    audit: 'none',
+    idempotency: 'none',
+    rateLimit: 'default',
+    params: { fileId: z.uuid() },
+    sensitiveFields: ['file.location'],
+    responses: { 200: fileInfoSchema, 404: null },
+    handler: async ({ params, req }) => {
+      const { view, ownUpload } = await c.files.info(principalOf(req), params.fileId);
+      // the person who uploaded a file sees its position, whatever the role (RBAC.md 8.6)
+      if (ownUpload) {
+        const authed = req as AuthedRequest;
+        authed.fieldClasses = new Set([...(authed.fieldClasses ?? []), 'file.location']);
+      }
+      return view;
+    },
   });
 
   defineRoute<unknown, { requestId: string; source?: PhotoSource }, { slot: PhotoSlot }>(

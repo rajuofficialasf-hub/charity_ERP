@@ -284,8 +284,16 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     registration,
     registrationPhotos:
       o.registrationPhotos ??
-      new RegistrationPhotosService(prisma, storage, audit, registration, logger, accountEvents),
-    files: o.files ?? new FilesService(prisma, storage, access, audit),
+      new RegistrationPhotosService(
+        prisma,
+        storage,
+        audit,
+        registration,
+        logger,
+        accountEvents,
+        jobs,
+      ),
+    files: o.files ?? new FilesService(env, prisma, storage, access, audit),
     uploads: o.uploads ?? new UploadsService(prisma, storage, audit, access, jobs, clock, logger),
     volunteers: o.volunteers ?? new VolunteersService(prisma),
     volunteerList: o.volunteerList ?? new VolunteerListService(env, prisma, access),

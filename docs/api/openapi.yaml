@@ -7513,6 +7513,7 @@ paths:
       x-audit: none
       x-idempotency: none
       x-rate-limit: default
+      x-sensitive-fields: [file.location]
       responses:
         '200':
           description: File
@@ -7532,6 +7533,12 @@ paths:
       x-audit: none
       x-idempotency: none
       x-rate-limit: default
+      parameters:
+        - name: variant
+          in: query
+          required: false
+          description: 'A thumbnail instead of the file: small (320 px) or medium (1,024 px), JPEG; 404 when the file has none'
+          schema: { type: string, enum: [small, medium] }
       responses:
         '200':
           description: The file or its thumbnail (thumbnails are JPEG)
@@ -7542,12 +7549,13 @@ paths:
               schema: { type: string, format: binary }
             image/webp:
               schema: { type: string, format: binary }
-            image/heic:
-              schema: { type: string, format: binary }
             application/pdf:
               schema: { type: string, format: binary }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '410': { $ref: '#/components/responses/Gone' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '423': { $ref: '#/components/responses/Locked' }
   /files:
     get:
       tags: [files]

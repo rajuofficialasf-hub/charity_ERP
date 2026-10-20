@@ -192,13 +192,20 @@ describe('POST /auth/register/photos/{slot}', () => {
 });
 
 describe('GET /files/{fileId}/content', () => {
-  /** A volunteer whose profile holds the photo and the NID photo uploaded through a draft. */
-  async function volunteerWithPhotos() {
+  /**
+   * A volunteer whose profile holds the photo and the NID photo uploaded through a draft; unless
+   * `pending`, both have been through the processing job without a scanner (`skipped`).
+   */
+  async function volunteerWithPhotos(options: { pending?: boolean } = {}) {
     const d = await verifiedDraft(h);
     const photo = (await upload(d, 'photo', jpeg())).body.data.fileId as string;
     const nidPhoto = (await upload(d, 'nid_photo', png(), 'image/png')).body.data.fileId as string;
     const owner = await account(h.db, { kind: 'volunteer' });
     await f.volunteer(h.db, loc, owner.id, { photo_file_id: photo, nid_photo_file_id: nidPhoto });
+    if (!options.pending)
+      await h.db.query(`UPDATE files SET virus_scan = 'skipped' WHERE id = ANY ($1::uuid[])`, [
+        [photo, nidPhoto],
+      ]);
     return { owner, photo, nidPhoto };
   }
 
@@ -222,6 +229,26 @@ describe('GET /files/{fileId}/content', () => {
       res.on('end', () => done(null, Buffer.concat(chunks)));
     });
   };
+
+  it('keeps a photo the scan has not cleared from everyone: 423 to who may see it, 410 once infected', async () => {
+    const { owner, photo, nidPhoto } = await volunteerWithPhotos({ pending: true });
+    const s = await login(h, owner);
+    // the upload queued the processing job, which runs in the worker
+    const queued = await h.db.query(
+      `SELECT count(*)::int AS n FROM pgboss.job WHERE name = 'photos' AND data->>'fileId' = $1`,
+      [photo],
+    );
+    expect(queued.rows[0].n).toBe(1);
+    const pending = await content(photo, s);
+    expect(pending.status).toBe(423);
+    expect(JSON.parse(pending.body.toString()).error.code).toBe('file.quarantined');
+    const other = await login(h, await account(h.db, { kind: 'volunteer' }));
+    expect((await content(photo, other)).status).toBe(404);
+    await h.db.query(`UPDATE files SET virus_scan = 'infected' WHERE id = $1`, [nidPhoto]);
+    const infected = await content(nidPhoto, s);
+    expect(infected.status).toBe(410);
+    expect(JSON.parse(infected.body.toString()).error.code).toBe('file.infected');
+  });
 
   it('streams the photo to its owner with no-store and nosniff', async () => {
     const { owner, photo, nidPhoto } = await volunteerWithPhotos();
@@ -322,7 +349,10 @@ describe('POST /me/photos/{slot}', () => {
     expect(res.status).toBe(201);
     const row = (await fileRow(res.body.data.fileId))!;
     expect(row).toMatchObject({ kind: 'profile_photo', uploaded_by: user.id, source: 'gallery' });
-    // the uploader can see their own upload
+    // the uploader can see their own upload once the processing cleared it
+    await h.db.query(`UPDATE files SET virus_scan = 'skipped' WHERE id = $1`, [
+      res.body.data.fileId,
+    ]);
     const seen = await request(h.server())
       .get(`/api/v1/files/${res.body.data.fileId}/content`)
       .set(bearer(session));

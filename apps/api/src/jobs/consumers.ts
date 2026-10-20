@@ -64,10 +64,13 @@ export class JobConsumers {
     if (delivery) await this.jobs.work<DeliveryJob>('notify', (job) => delivery.deliver(job.data));
     // each uploaded file: the scan, the photo metadata, the thumbnails and the near duplicates
     const { fileProcessor } = this.services;
-    if (fileProcessor)
+    if (fileProcessor) {
       await this.jobs.work<FileProcessJob>(FILE_PROCESS_QUEUE, (job) =>
         fileProcessor.process(job.data.fileId),
       );
+      const queued = await fileProcessor.queuePending(this.jobs);
+      if (queued) this.logger.info({ files: queued }, 'pending files queued for processing');
+    }
     if (this.services.registrationCleanup)
       await this.jobs.schedule(
         HEARTBEAT_QUEUE,

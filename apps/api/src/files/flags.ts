@@ -11,6 +11,9 @@ export type PhotoFlag =
   | 'gallery_under_camera_only'
   | 'duplicate_suspect';
 
+/** Documents and identity photos are no field evidence: they carry no data-quality flags. */
+const NO_FLAGS = new Set(['document', 'profile_photo', 'nid_photo']);
+
 export interface PhotoFacts {
   kind: string;
   mime: string;
@@ -32,7 +35,7 @@ export interface PhotoFacts {
  * project asks for the camera. Documents and PDF files carry none.
  */
 export function photoFlags(f: PhotoFacts): PhotoFlag[] {
-  if (!f.mime.startsWith('image/') || f.kind === 'document') return [];
+  if (!f.mime.startsWith('image/') || NO_FLAGS.has(f.kind)) return [];
   const flags: PhotoFlag[] = [];
   if (!f.capturedAt) flags.push('no_capture_time');
   if (!f.hasPosition) flags.push('no_gps');
