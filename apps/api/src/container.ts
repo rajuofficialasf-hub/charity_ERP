@@ -45,6 +45,7 @@ import { BeneficiariesService } from './services/beneficiaries';
 import { BeneficiaryIdentityService } from './services/beneficiary-identity';
 import { BeneficiaryContactService } from './services/beneficiary-contact';
 import { BeneficiaryCorrectionsService } from './services/beneficiary-corrections';
+import { BeneficiaryFamilyService } from './services/beneficiary-family';
 import { NotificationDelivery } from './notifications/delivery';
 import { NotificationService } from './notifications/service';
 import { RecipientResolver } from './notifications/recipients';
@@ -126,6 +127,7 @@ export interface Container {
   beneficiaryIdentity: BeneficiaryIdentityService;
   beneficiaryContact: BeneficiaryContactService;
   beneficiaryCorrections: BeneficiaryCorrectionsService;
+  beneficiaryFamily: BeneficiaryFamilyService;
   programs: ProgramsService;
   settings: SettingsService;
   referenceLists: ReferenceListsService;
@@ -314,6 +316,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     beneficiaryContact:
       o.beneficiaryContact ??
       new BeneficiaryContactService(prisma, access, audit, beneficiaryIdentity),
+    beneficiaryFamily: o.beneficiaryFamily ?? new BeneficiaryFamilyService(),
     beneficiaryCorrections:
       o.beneficiaryCorrections ??
       new BeneficiaryCorrectionsService(prisma, access, audit, beneficiaryIdentity),

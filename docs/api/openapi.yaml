@@ -2691,13 +2691,20 @@ components:
                 decision: { type: [string, 'null'], enum: [eligible, not_eligible, null] }
             familyDuplicateWarnings:
               type: array
-              description: BR-011 family-duplicate warnings shown at review
+              description: >-
+                BR-011 family-duplicate warnings shown at review (D-116): another applicant of the
+                project with the same mobile, or the same union, village and father's or husband's
+                name; never a refusal
               items:
                 type: object
+                required: [beneficiaryId, benNo, name, matchedOn]
                 properties:
                   beneficiaryId: { $ref: '#/components/schemas/Uuid' }
+                  benNo: { type: string, description: 'BEN- and 7 digits' }
                   name: { type: string }
-                  matchedOn: { type: string, enum: [union_village, father_or_husband_name, mobile] }
+                  matchedOn:
+                    type: array
+                    items: { type: string, enum: [mobile, union_village_father] }
             availableActions: { type: array, items: { type: string }, description: Actions the caller may perform now }
     ApplicationResponse:
       type: object
