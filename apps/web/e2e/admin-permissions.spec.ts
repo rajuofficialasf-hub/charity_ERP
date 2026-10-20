@@ -1,11 +1,12 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
-import { openDestination } from './support/admin';
+import { openDestination, rows } from './support/admin';
 
 // The permission panel against the API on its E2E database (SCR-062, RBAC.md 7; plan
-// docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, U8). Mobile and desktop share the
-// database, so each project changes the permissions of its own target account
-// (docs/testing/DEMO_ACCOUNTS.md).
+// docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, the panel unit), and the audit entry the
+// change leaves (every panel change is audited with its reason). Mobile and desktop share
+// the database, so each project changes the permissions of its own target account and signs its
+// reasons (docs/testing/DEMO_ACCOUNTS.md).
 const PASSWORD = 'CssDemo2026';
 const CASES = {
   desktop: {
@@ -76,7 +77,8 @@ test.describe('permission panel', () => {
     await expect(page.getByRole('option', { name: 'সারা দেশ (GLOBAL)' })).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(dialog.getByRole('button', { name: /স্কোপ/ })).toContainText('সারা দেশ (GLOBAL)');
-    await dialog.getByRole('textbox', { name: /কারণ/ }).fill('E2E: monitoring help');
+    const reason = `E2E: monitoring help (${info.project.name} ${Date.now() % 100000})`;
+    await dialog.getByRole('textbox', { name: /কারণ/ }).fill(reason);
     await dialog.getByRole('button', { name: 'দিন', exact: true }).click();
     await expect(page.getByText('পারমিশন দেওয়া হয়েছে')).toBeVisible();
     await expect(effective.getByText('প্যানেল').filter({ visible: true }).first()).toBeVisible();
@@ -96,6 +98,29 @@ test.describe('permission panel', () => {
     if (info.project.name === 'mobile') await expect(notice).toBeVisible();
     else await expect(notice).toBeHidden();
     expect((await scan(page)).violations).toEqual([]);
+
+    // the grant is in the audit log as a permission change of the target, with its reason; the
+    // other project changes its own target at the same time, so its entries may be newer
+    await page.goto('/admin/audit?action=permission_change&entityType=user');
+    await expect(page.getByRole('heading', { level: 1, name: 'অডিট লগ' })).toBeVisible();
+    await expect(rows(page, 'অডিট লগের এন্ট্রি')).toBeVisible();
+    const details = page
+      .getByRole('button', { name: 'permission_change বিস্তারিত দেখুন' })
+      .or(page.getByRole('button', { name: 'বিস্তারিত', exact: true }));
+    await expect(details.first()).toBeVisible();
+    let found = false;
+    const shown = Math.min(await details.count(), 8);
+    for (let i = 0; i < shown && !found; i += 1) {
+      await details.nth(i).click();
+      const drawer = page.getByRole('dialog', { name: 'অডিট এন্ট্রি' });
+      await expect(drawer).toBeVisible();
+      const text = (await drawer.textContent()) ?? '';
+      // the reason is this run's own; the entity line names the user kind
+      found = text.includes(reason) && text.includes('user');
+      await page.keyboard.press('Escape');
+      await expect(drawer).toHaveCount(0);
+    }
+    expect(found, 'the grant with its reason in the audit log').toBe(true);
   });
 
   test('a Program Manager has no panel item and no access to the panel', async ({ page }) => {

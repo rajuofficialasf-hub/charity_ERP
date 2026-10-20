@@ -72,6 +72,9 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm docs:check
       - run: pnpm test
+      # every registered API operation answered its success status in a test (the responses were
+      # validated against docs/api/openapi.yaml by the contract recorder during `pnpm test`)
+      - run: pnpm --filter @css/api contract:coverage --no-run
       - run: pnpm build
       # the first route of the PWA stays within 250 KB of compressed JavaScript
       - run: pnpm --filter @css/web bundle:report
@@ -129,7 +132,9 @@ jobs:
       # The Prisma client lives in apps/api/src/generated (not committed); typecheck, tests and the
       # API build need it. Generation needs no database.
       - run: pnpm --filter @css/api db:generate
-      - run: pnpm --filter @css/web exec playwright install --with-deps chromium
+      # Chromium runs every spec as a phone and a desktop; WebKit runs the sign-in, registration and
+      # home specs as an iPhone (the `iphone` project of apps/web/playwright.config.ts)
+      - run: pnpm --filter @css/web exec playwright install --with-deps chromium webkit
       - run: pnpm e2e
       - if: failure()
         uses: actions/upload-artifact@v7

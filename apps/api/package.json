@@ -24,7 +24,8 @@
     "jobs:install": "tsx --conditions=@css/source scripts/jobs-install.ts",
     "notifications:sync": "tsx --env-file-if-exists=.env --conditions=@css/source scripts/notifications-sync.ts",
     "worker": "node dist/worker.js",
-    "dev:worker": "tsx watch --env-file-if-exists=.env --conditions=@css/source src/worker.ts"
+    "dev:worker": "tsx watch --env-file-if-exists=.env --conditions=@css/source src/worker.ts",
+    "contract:coverage": "tsx --conditions=@css/source scripts/contract-coverage.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1149.0",
@@ -54,6 +55,8 @@
     "@types/node": "24.19.2",
     "@types/pg": "8.23.1",
     "@types/supertest": "7.2.1",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
     "dotenv": "18.0.7",
     "prisma": "7.10.0",
     "supertest": "7.3.1",

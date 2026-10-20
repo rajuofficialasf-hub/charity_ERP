@@ -87,15 +87,22 @@
     outline: none;
     box-shadow: var(--focus-ring);
   }
+  /* on a phone only the dots fit; the name stays in the accessibility tree as the button's text */
   .ui-stepper-name {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
     overflow: hidden;
-    text-overflow: ellipsis;
+    clip: rect(0 0 0 0);
     white-space: nowrap;
   }
   @media (min-width: 640px) {
     .ui-stepper-name {
-      display: inline;
+      position: static;
+      width: auto;
+      height: auto;
+      clip: auto;
+      text-overflow: ellipsis;
     }
   }
   /* on a phone the dots alone must fit 360 px, also for seven or eight steps */

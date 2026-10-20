@@ -57,8 +57,8 @@ test.describe('staff handover', () => {
     request,
   }, info) => {
     test.skip(info.project.name !== 'desktop', 'a management screen on a desktop');
-    // a long journey with API set-up and restore; under the full parallel run it needs more than 30 s
-    test.slow();
+    // a long journey with API set-up and restore; under the full parallel run it needs minutes
+    test.setTimeout(180_000);
     const head = await asHead(request);
     const officialId = await head.userId(OFFICIAL);
     const receiverId = await head.userId('rpm.dhaka@example.org');

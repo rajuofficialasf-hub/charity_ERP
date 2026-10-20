@@ -187,6 +187,8 @@ describe('who reads and who changes programs', () => {
     const own = await api().get('/api/v1/programs').set(bearer(pm));
     expect(own.status).toBe(200);
     expect(own.body.data.map((p: { id: string }) => p.id)).toEqual([world.a1.program]);
+    // the whole list in one page, in the list envelope
+    expect(own.body.meta).toMatchObject({ limit: 1, nextCursor: null, prevCursor: null });
     const finance = (await staff('finance_team')).session;
     const all = await api().get('/api/v1/programs').set(bearer(finance));
     expect(all.status).toBe(200);

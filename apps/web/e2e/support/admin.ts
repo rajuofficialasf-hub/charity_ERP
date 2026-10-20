@@ -1,11 +1,20 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, type Locator, type Page, type TestInfo } from '@playwright/test';
+import {
+  type APIRequestContext,
+  type APIResponse,
+  expect,
+  type Locator,
+  type Page,
+  type TestInfo,
+} from '@playwright/test';
 
 // Shared steps of the admin tab specs (volunteers.spec.ts, beneficiaries.spec.ts) against the demo
 // seed (docs/testing/DEMO_ACCOUNTS.md).
 export const PASSWORD = 'CssDemo2026';
 
-export const isPhone = (info: TestInfo) => info.project.name === 'mobile';
+/** The projects that run as a phone: Chromium as a Pixel 7 and WebKit as an iPhone. */
+const PHONE_PROJECTS = new Set(['mobile', 'iphone']);
+export const isPhone = (info: TestInfo) => PHONE_PROJECTS.has(info.project.name);
 
 /** axe on the page; React Aria's live announcer node is excluded as in auth.spec.ts. */
 export const scan = (page: Page) =>
@@ -21,6 +30,33 @@ export async function signIn(page: Page, loginId: string): Promise<void> {
     .fill(PASSWORD);
   await page.getByRole('button', { name: 'লগইন', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: /^স্বাগতম, / })).toBeVisible();
+}
+
+/**
+ * A small API client signed in as a demo account, for checks the server decides (a 403 behind a
+ * forbidden screen) and for set-up facts; the answer is returned as it is, whatever its status.
+ */
+export async function apiAs(
+  request: APIRequestContext,
+  loginId: string,
+): Promise<{
+  get: (path: string) => Promise<APIResponse>;
+  post: (path: string, data: unknown) => Promise<APIResponse>;
+}> {
+  const login = await request.post('/api/v1/auth/login', {
+    data: {
+      loginId,
+      password: PASSWORD,
+      device: { name: 'E2E', platform: 'desktop', appVersion: 'e2e' },
+    },
+  });
+  expect(login.ok(), `login as ${loginId}: ${login.status()}`).toBe(true);
+  const token = ((await login.json()) as { data: { accessToken: string } }).data.accessToken;
+  const headers = { Authorization: `Bearer ${token}` };
+  return {
+    get: (path) => request.get(`/api/v1${path}`, { headers }),
+    post: (path, data) => request.post(`/api/v1${path}`, { headers, data }),
+  };
 }
 
 /** The navigation of the app shell: the sidebar, the rail or the bottom tabs. */
@@ -52,6 +88,26 @@ export async function openDestination(page: Page, name: string): Promise<void> {
 export async function openTab(page: Page, name: string): Promise<void> {
   await openDestination(page, name);
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+}
+
+/**
+ * Switches the language of the page: through the switch of the bar (the sign-in pages, and the
+ * app bar on a desktop), else through the profile menu, where a phone keeps it.
+ */
+export async function switchLanguage(page: Page, lang: 'bn' | 'en'): Promise<void> {
+  const current = await page.locator('html').getAttribute('lang');
+  if (current === lang) return;
+  const name = lang === 'en' ? 'English' : 'বাংলা';
+  const toggle = page.getByRole('banner').getByRole('radiogroup', { name: /^(ভাষা|Language)$/ });
+  if ((await toggle.count()) > 0) await toggle.getByRole('radio', { name }).click({ force: true });
+  else {
+    await page
+      .getByRole('banner')
+      .getByRole('button', { name: /^(প্রোফাইল মেনু|Profile menu)$/ })
+      .click();
+    await page.getByRole('menuitem', { name }).click();
+  }
+  await expect(page.locator('html')).toHaveAttribute('lang', lang);
 }
 
 /** Opens the profile menu of the app bar and picks an item. */

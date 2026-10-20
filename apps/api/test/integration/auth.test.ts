@@ -221,6 +221,26 @@ describe('POST /auth/login', () => {
     );
     expect(active.rows[0].n).toBe(5);
   });
+
+  it('keeps every device of the E2E run, whose specs share the demo accounts', async () => {
+    const relaxed = await authHarness({ relaxedDeviceLimit: true });
+    try {
+      const volunteer = await account(relaxed.db, { kind: 'volunteer' });
+      const sessions = [];
+      for (let i = 0; i < 7; i++) {
+        sessions.push(await login(relaxed, volunteer));
+        relaxed.clock.advance(1000);
+      }
+      await request(relaxed.server()).get('/api/v1/auth/me').set(bearer(sessions[0]!)).expect(200);
+      const active = await relaxed.db.query(
+        'SELECT count(*)::int AS n FROM device_sessions WHERE user_id = $1 AND revoked_at IS NULL',
+        [volunteer.id],
+      );
+      expect(active.rows[0].n).toBe(7);
+    } finally {
+      await relaxed.close();
+    }
+  });
 });
 
 describe('access tokens on every request', () => {

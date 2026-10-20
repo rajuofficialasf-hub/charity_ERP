@@ -55,11 +55,17 @@ async function main(): Promise<void> {
     OTP_SECRET: 'e2e-only-otp-secret-0123456789abcdef0123',
     OTP_DUMMY_ENABLED: 'true',
     OTP_DUMMY_CODE: process.env.E2E_OTP_CODE ?? '123456',
+    // The E2E build is served over plain http. Chromium treats 127.0.0.1 as a secure context and
+    // keeps a Secure cookie there, WebKit does not and loses the session on the next reload.
+    AUTH_COOKIE_SECURE: 'false',
     STORAGE_DRIVER: 'filesystem',
     STORAGE_FS_ROOT: mkdtempSync(join(tmpdir(), 'css-e2e-storage-')),
     JOBS_INLINE: 'false',
     // Every browser of the run shares one address; the limits are covered by the API tests (D-072).
     RATE_LIMITS_RELAXED: 'true',
+    // The specs sign in with the same few demo accounts in parallel; the device limit is covered
+    // by the API tests.
+    SESSION_DEVICE_LIMIT_RELAXED: 'true',
     // the set-password link of a new official opens the E2E build (D-097)
     APP_ORIGIN: process.env.E2E_APP_ORIGIN ?? 'http://127.0.0.1:3100',
   };

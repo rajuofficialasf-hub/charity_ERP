@@ -1,15 +1,26 @@
 import AxeBuilder from '@axe-core/playwright';
 import { fakeEmail, fakeMobile, fakeNid } from '@css/shared';
 import { devices, expect, type Page, test, type TestInfo } from '@playwright/test';
-import { fromProfileMenu, openTab } from './support/admin';
+import { fromProfileMenu, isPhone, mainMenu, openTab } from './support/admin';
+import { activeProject, code, ERR } from './support/projects';
 
 // Registration on a phone from the login page to the pending confirmation (plans
 // docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U11, and
 // docs/plans/2026-10-13-0922-feat-registration-redesign-plan.md, U4: one page, UX-16; AUTH.md 2), and the
 // approval journey of U13: an RPM asks for a correction, the volunteer fixes it on the phone and
-// submits again, the RPM approves. The API runs with the dummy OTP 123456 on a fresh E2E database
-// (recreated per run); every project, repeat and retry uses its own fake mobile, email and NID in
-// the ranges the demo seed leaves free.
+// submits again, the RPM approves. The chain then continues to the first project (the second
+// critical journey of the Phase 1 gate, docs/testing/TEST_STRATEGY.md section 3.4): the Dhaka RPM
+// assigns the new volunteer to an active project of the division, the volunteer reads the rules
+// and consents, and the project shows as active; a main volunteer of the demo seed adds a team
+// member, who consents on their own. The API runs with the dummy OTP 123456 on a fresh E2E
+// database (recreated per run); every project, repeat and retry uses its own fake mobile, email
+// and NID in the ranges the demo seed leaves free, and makes its own project.
+// the PM of ERR creates the projects of this spec; the Monitoring Team's sessions are for the others
+const PM = 'pm.err@example.org';
+const RPM = 'rpm.dhaka@example.org';
+// the main volunteer of the demo seed and the team member registered under their NID
+const LEAD = '01700000101';
+const MEMBER = { mobile: '01700000119', name: 'স্বেচ্ছাসেবক 19 (নমুনা)' } as const;
 const OTP = '123456';
 const PASSWORD = 'Nadi kul 2026';
 const DEMO_PASSWORD = 'CssDemo2026';
@@ -24,8 +35,8 @@ const scan = (page: Page) => new AxeBuilder({ page }).exclude('[data-live-announ
 
 /** Contacts, an NID and a name nobody else of this run uses (project, repeat and retry). */
 function personFor(info: TestInfo) {
-  const n =
-    5100 + (info.project.name === 'desktop' ? 500 : 0) + info.repeatEachIndex * 10 + info.retry;
+  const project = { mobile: 0, desktop: 500, iphone: 1000 }[info.project.name] ?? 1500;
+  const n = 5100 + project + info.repeatEachIndex * 10 + info.retry;
   return {
     mobile: fakeMobile(n),
     email: fakeEmail(`reg-e2e-${n}`),
@@ -146,6 +157,56 @@ async function register(page: Page, person: Person) {
   await expect(page.getByText('অনুমোদনের পর আপনি কাজ শুরু করতে পারবেন।')).toBeVisible();
 }
 
+/** An active ERR project of this run in the Dhaka division, made by its PM on `desk`. */
+async function projectOfThisRun(desk: Page, name: string): Promise<string> {
+  await desk.context().clearCookies();
+  await signIn(desk, PM, DEMO_PASSWORD);
+  await openTab(desk, 'প্রকল্প');
+  return activeProject(desk, name, ERR);
+}
+
+/** The Dhaka RPM assigns the volunteer with this mobile number to the project on `desk`. */
+async function assign(desk: Page, projectId: string, name: string, mobile: string) {
+  await desk.context().clearCookies();
+  await signIn(desk, RPM, DEMO_PASSWORD);
+  await desk.goto(`/admin/projects/${projectId}/volunteers`);
+  await expect(
+    desk.getByRole('heading', { level: 1, name: `স্বেচ্ছাসেবক: ${name}` }),
+  ).toBeVisible();
+  await desk.getByRole('button', { name: 'স্বেচ্ছাসেবক অ্যাসাইন করুন' }).click();
+  const dialog = desk.getByRole('dialog');
+  await dialog.getByRole('textbox', { name: 'নাম বা মোবাইল নম্বর' }).fill(mobile);
+  const candidates = dialog.getByRole('grid', { name: 'অ্যাসাইন করা যায় এমন স্বেচ্ছাসেবক' });
+  await expect(candidates.getByRole('row')).toHaveCount(2);
+  await candidates.getByRole('row').nth(1).getByRole('gridcell').nth(1).click();
+  await dialog.getByRole('button', { name: 'অ্যাসাইন করুন', exact: true }).click();
+  await expect(desk.getByText(/1 জন স্বেচ্ছাসেবক অ্যাসাইন হয়েছেন/)).toBeVisible();
+}
+
+/** On the phone: the project waits, the rules are read part by part, the consent is given. */
+async function consent(mobile: Page, name: string) {
+  await mobile.goto('/');
+  await mainMenu(mobile).getByRole('link', { name: 'আমার প্রকল্প' }).click();
+  const list = mobile.getByRole('list', { name: 'আমার প্রকল্পের তালিকা' });
+  const card = list.getByRole('listitem').filter({ hasText: name });
+  await expect(card.getByText('নিয়মাবলিতে সম্মতির অপেক্ষায়')).toBeVisible();
+  await card.getByRole('link', { name: 'নিয়মাবলি পড়ুন' }).click();
+  for (let part = 0; part < 3; part += 1) {
+    await mobile.getByText('আমি পড়েছি এবং মেনে চলব').click();
+    await mobile.getByRole('button', { name: 'পরের ধাপ' }).click();
+  }
+  await mobile.getByText('আমি রাজি এবং এই প্রকল্পে কাজ করতে আগ্রহী').click();
+  await mobile.getByRole('button', { name: 'সম্মতি দিন' }).click();
+  // the project is open: its applications against the limit
+  await expect(mobile.getByText('0 টি দেওয়া হয়েছে, আরও 50 টি দেওয়া যাবে')).toBeVisible();
+  await mobile.getByRole('link', { name: 'আমার প্রকল্পে ফিরে যান' }).click();
+  await expect(
+    mobile.getByRole('list', { name: 'আমার প্রকল্পের তালিকা' }).getByRole('listitem').filter({
+      hasText: name,
+    }),
+  ).toContainText('সক্রিয়');
+}
+
 async function signIn(page: Page, loginId: string, password: string) {
   await page.goto('/login');
   await expect(page.getByRole('button', { name: 'লগইন', exact: true })).toBeEnabled();
@@ -162,7 +223,9 @@ test.describe('registration on a phone', () => {
   test('a volunteer registers with two codes and reaches the pending confirmation', async ({
     page,
   }, info) => {
-    test.skip(info.project.name !== 'mobile', 'the phone journey');
+    test.skip(!isPhone(info), 'the phone journey');
+    // seven steps with three photos; WebKit takes longer than Chromium
+    test.setTimeout(90_000);
     await register(page, personFor(info));
     expect((await scan(page)).violations).toEqual([]);
   });
@@ -175,8 +238,9 @@ test.describe('registration approval', () => {
     baseURL,
   }, info) => {
     test.skip(info.project.name !== 'desktop', 'the approver works on a desktop');
-    test.setTimeout(120_000);
+    test.setTimeout(300_000);
     const person = personFor(info);
+    const project = `নিবন্ধনের পরীক্ষা ${code()}`;
     const phone = await browser.newContext({ ...devices['Pixel 7'], baseURL });
     const mobile = await phone.newPage();
     await register(mobile, person);
@@ -226,7 +290,53 @@ test.describe('registration approval', () => {
     await expect(
       mobile.getByText('আপনার নিবন্ধন অনুমোদনের অপেক্ষায়', { exact: false }),
     ).toHaveCount(0);
+
+    // the RPM assigns the new volunteer to an active project of the division; the volunteer
+    // reads the rules, consents, and the project is open
+    const projectId = await projectOfThisRun(page, project);
+    await assign(page, projectId, project, person.mobile);
+    await consent(mobile, project);
+    expect((await scan(mobile)).violations).toEqual([]);
     await phone.close();
+  });
+});
+
+test.describe('team members', () => {
+  test('a main volunteer adds a team member, who consents on their own and then works on the project', async ({
+    page,
+    browser,
+    baseURL,
+  }, info) => {
+    test.skip(info.project.name !== 'desktop', 'the officials work on a desktop');
+    test.setTimeout(300_000);
+    const project = `টিমের পরীক্ষা ${code()}`;
+    const projectId = await projectOfThisRun(page, project);
+    await assign(page, projectId, project, LEAD);
+
+    // the main volunteer consents and adds the member registered under their NID
+    const lead = await browser.newContext({ ...devices['Pixel 7'], baseURL });
+    const leadPage = await lead.newPage();
+    await signIn(leadPage, LEAD, DEMO_PASSWORD);
+    await consent(leadPage, project);
+    await leadPage.goto(`/my-projects/${projectId}`);
+    await leadPage.getByRole('link', { name: 'আমার টিম' }).click();
+    await expect(leadPage.getByRole('heading', { level: 1, name: 'আমার টিম' })).toBeVisible();
+    // the member is a candidate (registered under the main volunteer's NID), then on the team
+    await leadPage.getByRole('checkbox', { name: MEMBER.name }).check({ force: true });
+    await leadPage.getByRole('button', { name: 'টিমে যোগ করুন' }).click();
+    await expect(leadPage.getByText(/টিমে যোগ করা হয়েছে/)).toBeVisible();
+    await expect(leadPage.getByRole('checkbox', { name: MEMBER.name })).toHaveCount(0);
+    await expect(leadPage.getByText(MEMBER.name, { exact: true })).toBeVisible();
+    await expect(leadPage.getByText('সম্মতির অপেক্ষায়')).toBeVisible();
+    expect((await scan(leadPage)).violations).toEqual([]);
+    await lead.close();
+
+    // the member consents on their own phone and sees the project active
+    const member = await browser.newContext({ ...devices['Pixel 7'], baseURL });
+    const memberPage = await member.newPage();
+    await signIn(memberPage, MEMBER.mobile, DEMO_PASSWORD);
+    await consent(memberPage, project);
+    await member.close();
   });
 });
 

@@ -93,6 +93,11 @@ const envSchema = z
     APP_ORIGIN: z.url().default('http://127.0.0.1:3000'),
     /** Multiplies every rate limit by 100 for the E2E run (one shared address); never production. */
     RATE_LIMITS_RELAXED: flag,
+    /**
+     * Multiplies the device limit of a user by 100 for the E2E run, whose specs sign in with the
+     * same few demo accounts in parallel; never production.
+     */
+    SESSION_DEVICE_LIMIT_RELAXED: flag,
     /** Secure attribute of the auth cookies; false only for development over a LAN address. */
     AUTH_COOKIE_SECURE: z
       .enum(['true', 'false', '1', '0'])
@@ -135,6 +140,12 @@ const envSchema = z
         code: 'custom',
         path: ['RATE_LIMITS_RELAXED'],
         message: 'must be false in production (D-072)',
+      });
+    if (env.NODE_ENV === 'production' && env.SESSION_DEVICE_LIMIT_RELAXED)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SESSION_DEVICE_LIMIT_RELAXED'],
+        message: 'must be false in production (D-102)',
       });
     if (env.NODE_ENV === 'production' && !env.AUTH_COOKIE_SECURE)
       ctx.addIssue({

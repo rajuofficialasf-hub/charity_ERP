@@ -530,10 +530,19 @@ describe('the personal, profession, education and address fields', () => {
               interest_areas = '["media","first_aid"]', vehicle = 'none', can_swim = true,
               availability = 'anytime', emergency_full_time = false,
               education_details = '{"highestQualification":"hsc","passingYear":2012}',
-              permanent_address = '{"addressLine":"নমুনা গ্রাম"}',
+              permanent_address = $2,
               facebook_id = 'https://www.facebook.com/nomuna'
         WHERE id = $1`,
-      [v.volunteerId],
+      [
+        v.volunteerId,
+        JSON.stringify({
+          divisionId: world.dhaka.division,
+          districtId: world.dhaka.district,
+          upazilaId: world.dhaka.upazila,
+          unionId: world.dhaka.union,
+          addressLine: 'নমুনা গ্রাম',
+        }),
+      ],
     );
     const res = await api().get('/api/v1/volunteers/me').set(bearer(v.session));
     expect(res.status).toBe(200);
@@ -550,7 +559,7 @@ describe('the personal, profession, education and address fields', () => {
       availability: 'anytime',
       emergencyFullTime: false,
       educationDetails: { highestQualification: 'hsc', passingYear: 2012 },
-      permanentAddress: { addressLine: 'নমুনা গ্রাম' },
+      permanentAddress: { unionId: world.dhaka.union, addressLine: 'নমুনা গ্রাম' },
       facebookId: 'https://www.facebook.com/nomuna',
     });
     expect(res.body.data).not.toHaveProperty('emergencyContact');

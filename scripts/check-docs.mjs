@@ -3,6 +3,8 @@
 // 2. The workflow templates validate against workflow-templates/schema.json.
 // 3. The JSON Schemas in docs/database/json-schemas compile.
 // 4. Redocly lints openapi.yaml with docs/api/redocly.yaml.
+// 5. Every testable business rule of Phase 1 has a test-status register line (tested, deferred or
+//    manual) that names existing files (scripts/check-rules.mjs, `pnpm rules:status --phase 1`).
 import { spawnSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -10,6 +12,8 @@ import { join } from 'node:path';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import yaml from 'js-yaml';
+import { describeProblems, phaseRules } from './check-rules.mjs';
+import { problemsOf } from './lib/rules-status.mjs';
 
 const failures = [];
 const ok = (message) => console.warn(`ok   ${message}`);
@@ -91,6 +95,21 @@ if (redocly.status === 0) {
 } else {
   console.error(redocly.stdout, redocly.stderr);
   fail('openapi.yaml fails Redocly lint');
+}
+
+try {
+  const phaseOneRules = phaseRules(1);
+  const problems = describeProblems(problemsOf(phaseOneRules));
+  if (problems.length === 0) {
+    ok(
+      `BUSINESS_RULES.md: every testable Phase 1 rule is tested, deferred or manual (${phaseOneRules.length} rules)`,
+    );
+  } else {
+    for (const problem of problems)
+      fail(`BUSINESS_RULES.md (Phase 1): ${problem} (pnpm rules:status --phase 1)`);
+  }
+} catch (error) {
+  fail(`BUSINESS_RULES.md: ${error instanceof Error ? error.message : String(error)}`);
 }
 
 if (failures.length > 0) {

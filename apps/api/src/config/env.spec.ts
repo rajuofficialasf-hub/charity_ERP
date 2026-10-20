@@ -82,6 +82,9 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ ...production, RATE_LIMITS_RELAXED: 'true' })).toThrow(
       /RATE_LIMITS_RELAXED/,
     );
+    expect(() => loadEnv({ ...production, SESSION_DEVICE_LIMIT_RELAXED: 'true' })).toThrow(
+      /SESSION_DEVICE_LIMIT_RELAXED/,
+    );
     // the set-password link goes out by email, so it must point at the https origin (D-097)
     expect(() => loadEnv({ ...base, NODE_ENV: 'production' })).toThrow(/APP_ORIGIN/);
     expect(loadEnv(production)).toMatchObject({
@@ -89,6 +92,7 @@ describe('loadEnv', () => {
       AUTH_COOKIE_SECURE: true,
       TRUST_PROXY: 'loopback',
       RATE_LIMITS_RELAXED: false,
+      SESSION_DEVICE_LIMIT_RELAXED: false,
     });
   });
 

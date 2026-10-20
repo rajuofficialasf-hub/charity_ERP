@@ -3,8 +3,10 @@ import { defineConfig, devices } from '@playwright/test';
 const PORT = 3100;
 const baseURL = `http://127.0.0.1:${PORT}`;
 
-// E2E tests run against the E2E build served by `vite preview` (`pnpm e2e` builds first). Chromium only for now;
-// WebKit for iPhone behaviour and offline emulation are added with the offline PWA (T2.7).
+// E2E tests run against the E2E build served by `vite preview` (`pnpm e2e` builds first). Every spec
+// runs on Chromium as a phone and a desktop; the sign-in, registration and home specs also run on
+// WebKit as an iPhone (some volunteers use iPhones). Offline emulation comes with the offline
+// PWA, which is not built yet.
 export default defineConfig({
   testDir: 'e2e',
   fullyParallel: true,
@@ -18,10 +20,15 @@ export default defineConfig({
       name: 'desktop',
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
     },
+    {
+      name: 'iphone',
+      use: { ...devices['iPhone 13'] },
+      testMatch: ['**/auth.spec.ts', '**/registration.spec.ts', '**/home.spec.ts'],
+    },
   ],
   // The API on its own E2E database (seeded with the demo accounts, dummy OTP), then the web
-  // build whose /api/v1 rewrite points at it (T1.7). Mobile and desktop share the database, so
-  // specs that change data use different accounts per project.
+  // build whose /api/v1 rewrite points at it. The projects share the database, so specs
+  // that change data use different accounts per project.
   webServer: [
     {
       command: 'pnpm --filter @css/api e2e:server',
