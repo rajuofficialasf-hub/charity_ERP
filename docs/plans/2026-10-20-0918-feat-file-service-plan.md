@@ -194,7 +194,7 @@ Today the only upload is a registration or profile photo of up to 2 MB in one re
 ## Progress
 - **Branch:** `feat/file-service`
 - **Updated:** 2026-10-20 09:50
-- **Next:** checkpoint C1 (review of U1), then U2: the multipart operations in `apps/api/src/storage/types.ts`
-- **Reviewed through:** none
+- **Next:** U2: the multipart operations in `apps/api/src/storage/types.ts`
+- **Reviewed through:** C1 at da9239b
 - **Uncommitted:** none
-- **Notes:** U1 kept the `variant` parameter of the content route out of the contract until U5 builds it (the drift test compares built operations). API_STANDARDS already fixed `file.quarantined` 423 and `file.infected` 410, so a quarantined file answers those to a caller who may see it (R4, U5). The capture time stays an ordinary field; only the GPS position is the class `file.location` (R11).
+- **Notes:** U1 kept the `variant` parameter of the content route out of the contract until U5 builds it (the drift test compares built operations). API_STANDARDS already fixed `file.quarantined` 423 and `file.infected` 410, so a quarantined file answers those to a caller who may see it (R4, U5). The capture time stays an ordinary field; only the GPS position is the class `file.location` (R11). C1 (tier T0, docs only): no finding; for U6, the file list's `x-scope: file` needs the record's scope instead (a list has no file id), changed with its code.
