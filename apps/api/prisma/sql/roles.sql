@@ -14,9 +14,11 @@ END $$;
 -- css_migrate owns the schema and runs DDL (one-shot migration container, ADR-003).
 GRANT ALL ON SCHEMA public TO css_migrate;
 
--- css_app: read and write business data, no DELETE, no DDL.
+-- css_app: read and write business data, no DDL, and DELETE only on three kinds of project setup
+-- rows that are removed while unused and audited (DECISION_LOG D-106; DATABASE_SCHEMA 21).
 GRANT USAGE ON SCHEMA public TO css_app;
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO css_app;
+GRANT DELETE ON fund_sources, project_areas, dawah_syllabus_topics TO css_app;
 -- Append-only logs: INSERT only (the triggers of D-060 refuse changes for every role as well).
 REVOKE UPDATE ON audit_log, budget_ledger, stock_movements, document_events, application_transfers,
   volunteer_categories_log, workflow_transitions, project_rules_versions, project_consents FROM css_app;

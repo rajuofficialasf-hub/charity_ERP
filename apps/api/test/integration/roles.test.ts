@@ -1,0 +1,53 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import type { Client } from 'pg';
+import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
+import { cloneTemplate } from './support/db';
+
+// The database roles of DATABASE_SCHEMA section 23 after the role script runs: the application
+// role deletes only the three kinds of project setup rows of DECISION_LOG D-106, nothing else.
+let db: Client;
+let drop: () => Promise<void>;
+const script = readFileSync(
+  fileURLToPath(new URL('../../prisma/sql/roles.sql', import.meta.url)),
+  'utf8',
+);
+
+beforeAll(async () => {
+  ({ client: db, drop } = await cloneTemplate(inject('templateDb')));
+  await db.query(script);
+});
+afterAll(async () => drop());
+
+const can = async (role: string, table: string, privilege: string) =>
+  (
+    await db.query<{ ok: boolean }>('SELECT has_table_privilege($1, $2, $3) AS ok', [
+      role,
+      table,
+      privilege,
+    ])
+  ).rows[0]!.ok;
+
+describe('the application role after the role script', () => {
+  it('deletes the project setup rows the setup removes', async () => {
+    for (const table of ['fund_sources', 'project_areas', 'dawah_syllabus_topics'])
+      expect(await can('css_app', table, 'DELETE'), table).toBe(true);
+  });
+
+  it('deletes nothing else of the business data', async () => {
+    const { rows } = await db.query<{ table_name: string }>(
+      `SELECT table_name FROM information_schema.tables
+       WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`,
+    );
+    const deletable: string[] = [];
+    for (const { table_name } of rows)
+      if (await can('css_app', table_name, 'DELETE')) deletable.push(table_name);
+    expect(deletable.sort()).toEqual(['dawah_syllabus_topics', 'fund_sources', 'project_areas']);
+  });
+
+  it('still writes the append-only logs by insert only', async () => {
+    expect(await can('css_app', 'audit_log', 'INSERT')).toBe(true);
+    expect(await can('css_app', 'audit_log', 'UPDATE')).toBe(false);
+    expect(await can('css_app', 'audit_log', 'DELETE')).toBe(false);
+  });
+});
