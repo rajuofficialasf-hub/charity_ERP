@@ -110,6 +110,7 @@ All ports listen on 127.0.0.1 only. Overrides (ports, dev passwords) go in `infr
 - **Port already in use** (for example a PostgreSQL installed on Windows holds 5432, which is why the dev database uses 5433): set another port in `infra/.env` and the same port in `DATABASE_URL` of `apps/api/.env`.
 - **`pnpm install` reports ignored build scripts**: only the packages listed under `allowBuilds` in `pnpm-workspace.yaml` may run install scripts; add a package there only after reviewing it.
 - **Prisma client missing**: run `pnpm --filter @css/api db:generate`.
+- **Bad Gateway on the login page, and the API log in Docker says `Cannot find module ...`**: a pull added a package; the containers keep their own Linux dependencies in a volume, so install them there and restart: `docker compose run --rm setup`, `docker compose run --rm migrate`, then `docker compose restart api web`.
 - **`/health/ready` reports storage down after an update**: a new bucket was added to `infra/minio/bootstrap.sh`; run `docker compose run --rm minio-init` once (it only adds what is missing).
 - **Playwright cannot find a browser**: run `pnpm --filter @css/web exec playwright install chromium`.
 - **The web app cannot reach the API** (`ECONNREFUSED 127.0.0.1:4000` in the Vite log): start the API (`pnpm dev` starts both) or set `CSS_API_ORIGIN` in `apps/web/.env` to where it runs.
