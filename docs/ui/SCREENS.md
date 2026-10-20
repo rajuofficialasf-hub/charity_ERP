@@ -1080,6 +1080,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Roles.** Department Head and Monitoring Team (`system.health.view`).
 - **Route.** `/admin/health`; sidebar "সিস্টেমের অবস্থা".
 - **Data.** The dummy OTP alert; ডাটাবেস, ফাইল স্টোরেজ, জব কিউ each চালু or বন্ধ; version, environment and the month the audit partitions reach; the stored files in total, by kind and by month for the last twelve months (English digits), with when they were measured; a notice instead of the figures when the database did not answer.
+- **Storage by bucket (T2.1).** A table before the kinds: each bucket with its files, bytes and the growth since the nightly snapshot of at least 30 days ago ("এখনো জানা নেই" until one exists); on a phone a list of cards.
 - **Built.** `apps/web/src/admin/system/HealthPage.tsx`; tests `system.test.tsx`, E2E above.
 
 ### SCR-074 Notification texts

@@ -45,7 +45,7 @@ Test environment for automated layers (O-46 item 1): object storage through the 
 - Database constraints and triggers: unique NID and birth registration, unique `transaction_id`, `client_uuid`, (animal, assigned volunteer), the BD-03 volunteer-mobile trigger, published form immutability, `[L]` log tables append-only (O-46 item 9), `updated_at` backstop.
 - Cross-module effects inside one transaction: approval posting to the ledger and quota, audit entries written with the business write, notifications queued in the outbox (NOTIFICATIONS §7).
 - Jobs: retries, timeouts, idempotent handlers keyed by entity id or `client_uuid`, graceful shutdown (D-054, NFR-60).
-- File pipeline: quarantine until the scan is clean, EICAR rejected, a stopped scanner never marks a file clean (O-30, O-46 item 7).
+- File pipeline: quarantine until the scan is clean, EICAR rejected, a stopped scanner never marks a file clean (O-30, O-46 item 7). Since T2.1: `apps/api/test/integration/uploads.test.ts` (sessions, parts, resume, finalize checks, replays and races, the sweep), `file-process.test.ts` (scan states, EXIF, thumbnails, near duplicates, the 40-megapixel refusal, the catch-up of uncleared files; photos made with sharp in `test/support/photos.ts`), `files.test.ts` (who streams a file and its thumbnails, quarantine answers, the metadata and its position, the list and CSV); the web client and hook in `apps/web/src/lib/uploads.test.ts` and `use-file-upload.test.tsx` against the in-memory upload routes of `apps/web/test/upload-server.ts`. EICAR waits for the real scanner (T3.0). The contract recorder accepts an answer in another declared type than JSON (the CSV of a list).
 
 ### 3.3 API and contract
 
