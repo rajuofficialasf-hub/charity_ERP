@@ -58,7 +58,16 @@
     "mobile_is_volunteer_mobile": "The volunteer's own mobile number cannot be used as the beneficiary's number.",
     "blocked": "This beneficiary cannot make a new application.",
     "already_applied": "This beneficiary already has an application in this project.",
-    "locked_field": "This information can be changed only through a correction request."
+    "locked_field": "This information can be changed only through a correction request.",
+    "identity_taken": "Another profile already has this number. If it is the same person, propose a merge.",
+    "correction_own": "Another official must decide on your own correction request.",
+    "correction_pending": "A correction request for this field is already waiting for a decision.",
+    "correction_stale": "The value changed after the request was made. Make a new request.",
+    "merge_conflict": "These profiles cannot be merged yet. First resolve the items listed.",
+    "merge_revert_order": "The kept profile was merged again later. Revert that merge first.",
+    "merge_stale": "One of these profiles has already been merged. This proposal can no longer be carried out.",
+    "mobile_shared": "This mobile number is also on another beneficiary profile.",
+    "dismissed": "This pair is already marked as two different people."
   },
   "payment": {
     "transaction_id_exists": "This transaction id has already been used.",

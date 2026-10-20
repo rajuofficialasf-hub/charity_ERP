@@ -267,7 +267,7 @@ Phase 2 starts the application cycle (T2.3 to T2.6), and every application hangs
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U3. Identity, lookup, search and profile creation
 - **Goal:** look up a profile by NID or birth registration with auto-fill and locks, find profiles by BEN number and by retired ids, and create a profile with every identity check.
@@ -590,8 +590,8 @@ Phase 2 starts the application cycle (T2.3 to T2.6), and every application hangs
 
 ## Progress
 - **Branch:** `feat/beneficiary-master`
-- **Updated:** 2026-10-20 16:40
-- **Next:** U2: the shared identity rules and request schemas (error texts under `errors.beneficiary`, screen texts under `admin.beneficiaries`; no new namespace)
+- **Updated:** 2026-10-20 17:20
+- **Next:** U3: identity, lookup, search and profile creation (start with `apps/api/test/integration/beneficiary-identity.test.ts`)
 - **Uncommitted:** none
 - **Reviewed through:** C1 at d0351c8
-- **Notes:** the plan was reviewed on 2026-10-20 (plan and security reviewers); the owner decided in chat: full auto-fill across regions with audit and limits; an application past pending stays on the retired profile at a merge. The Prisma model of the dismissal table is `MergeDismissal` (a longer name re-aligned the whole schema file). The dev database got the migration through the host `pnpm db:migrate` (its `jobs:install` step then stops without `apps/api/.env`, a known issue); the API container needs `docker compose run --rm setup` or a restart to regenerate its Prisma client before the U3 routes run there. C1 (T2, three reviewers): the name key collapses all white space before it trims; a dismissal row can only be lifted, once (trigger); no decision ids in the SQL comments; the tests read back stored rows. Carried forward from C1: a BEN-number search is walkable, so it gets the `lookup` limits and audit like an NID (U3); the create service and its schema never accept `ben_no`; the dismiss and lift routes check both profiles against the scope; the correction decider is never the requester (service, and a CHECK if it fits); the runbook notes that the two duplicate-search indexes are rebuilt after a restore into another collation (U12).
+- **Notes:** the plan was reviewed on 2026-10-20 (plan and security reviewers); the owner decided in chat: full auto-fill across regions with audit and limits; an application past pending stays on the retired profile at a merge. The Prisma model of the dismissal table is `MergeDismissal` (a longer name re-aligned the whole schema file). The dev database got the migration through the host `pnpm db:migrate` (its `jobs:install` step then stops without `apps/api/.env`, a known issue); the API container needs `docker compose run --rm setup` or a restart to regenerate its Prisma client before the U3 routes run there. U2: the rules live in `@css/shared/beneficiaries` (`identity.ts`, `requests.ts`, tests in `rules.test.ts`); the error texts went into the existing `errors.beneficiary` group and the screen texts go into `admin.beneficiaries`, so no new namespace. The request schemas reuse `nidSchema`, `mobileSchema` and `reasonRequestSchema`; they keep plain patterns (no transforms) so the generated contract stays comparable, and the app turns Bengali digits into English ones with `normalizeIdentityNumber` before it sends. C1 (T2, three reviewers): the name key collapses all white space before it trims; a dismissal row can only be lifted, once (trigger); no decision ids in the SQL comments; the tests read back stored rows. Carried forward from C1: a BEN-number search is walkable, so it gets the `lookup` limits and audit like an NID (U3); the create service and its schema never accept `ben_no`; the dismiss and lift routes check both profiles against the scope; the correction decider is never the requester (service, and a CHECK if it fits); the runbook notes that the two duplicate-search indexes are rebuilt after a restore into another collation (U12).
