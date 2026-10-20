@@ -39,9 +39,9 @@ export interface RegistrationListQuery extends Omit<PageQuery, 'sort'> {
   districtId?: string;
 }
 
-const CORRECTION = 'registration_correction';
+export const CORRECTION = 'registration_correction';
 /** Correction rows that keep a registration away from the approvers. */
-const UNFINISHED = ['open', 'submitted'];
+export const UNFINISHED = ['open', 'submitted'];
 /** Refused correction answers (invalid value, NID of another volunteer) an account allows. */
 const MAX_REFUSED_ANSWERS = 10;
 /** Roles a staff decision may not give: the Main Admin's role (AUTH.md 11). */

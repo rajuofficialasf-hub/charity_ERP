@@ -3,6 +3,8 @@
   "nav": {
     "label": "Admin menu",
     "dashboard": "Dashboard",
+    "volunteers": "Volunteers",
+    "beneficiaries": "Beneficiaries",
     "permissions": "Permissions",
     "registrations": "Registrations",
     "handover": "Handover"
@@ -211,5 +213,173 @@
     "message": "You do not have access to this page.",
     "home": "Back to home"
   },
-  "phone_notice": "This screen works best on a larger screen."
+  "phone_notice": "This screen works best on a larger screen.",
+  "volunteers": {
+    "title": "Volunteers",
+    "table": "Volunteers",
+    "search": "Search by name or mobile number",
+    "chips": {
+      "all": "All",
+      "pending": "Pending",
+      "active": "Active",
+      "blocked": "Blocked",
+      "deactivated": "Closed"
+    },
+    "stats": {
+      "label": "Volunteer counts",
+      "total": "Total",
+      "active": "Active",
+      "pending": "Pending",
+      "blocked": "Blocked",
+      "deactivated": "Closed",
+      "inactive": "Inactive",
+      "applications": "Applications",
+      "approved": "Approved",
+      "under_review": "Under review"
+    },
+    "column": {
+      "name": "Name",
+      "type": "Type",
+      "area": "Area",
+      "projects": "Projects",
+      "state": "State",
+      "category": "Category"
+    },
+    "filter": {
+      "type": "Type",
+      "category": "Category",
+      "blocked": "Blocklist",
+      "blocked_yes": "On the blocklist",
+      "blocked_no": "Not on the blocklist",
+      "inactive": "Inactive",
+      "any": "Any"
+    },
+    "state": {
+      "pending": "Pending",
+      "active": "Active",
+      "blocked": "Blocked",
+      "deactivated": "Closed"
+    },
+    "blocklisted": "On the blocklist",
+    "no_projects": "No project",
+    "empty": "No volunteer matches these filters.",
+    "profile": {
+      "back": "All volunteers",
+      "not_found": "This volunteer was not found.",
+      "hidden": "Not shown to you",
+      "registered": "Registered",
+      "approved": "Approved",
+      "sections": {
+        "identity": "Identity",
+        "address": "Address",
+        "education": "Education",
+        "work": "Work",
+        "skills": "Skills and time",
+        "bank": "Bank details",
+        "photos": "Photos",
+        "projects": "Projects and permissions",
+        "team": "Team",
+        "summary": "Work summary",
+        "ratings": "Ratings and category",
+        "blocklist": "Blocklist",
+        "sessions": "Devices"
+      },
+      "no_projects": "Not in any project yet.",
+      "paid": "Paid volunteer",
+      "permission_set": "Permission set",
+      "no_team": "No team members.",
+      "summary_later": "The work summary comes with the ratings.",
+      "no_ratings": "No rating yet.",
+      "category": "Category",
+      "inactive": "Inactive",
+      "not_blocked": "Not on the blocklist.",
+      "blocked_since": "On the blocklist since {date}",
+      "reason": "Reason",
+      "no_sessions": "No device is signed in.",
+      "last_seen": "Last seen {date}",
+      "revoke": "Sign out this device",
+      "revoke_title": "Sign out {device}?",
+      "revoke_reason": "Reason",
+      "revoke_confirm": "Sign out",
+      "revoked": "The device was signed out.",
+      "unknown_device": "Unknown device"
+    }
+  },
+  "beneficiaries": {
+    "title": "Beneficiaries",
+    "table": "Beneficiaries",
+    "search": "Search by name or number",
+    "stats": {
+      "label": "Beneficiary counts",
+      "total": "Total",
+      "assisted": "Assisted this year",
+      "blocked": "Blocked"
+    },
+    "column": {
+      "name": "Name",
+      "father": "Father's or husband's name",
+      "type": "Type",
+      "area": "Area",
+      "status": "Status"
+    },
+    "filter": {
+      "type": "Type",
+      "year": "Year",
+      "blocked": "Blocklist",
+      "blocked_yes": "Blocked",
+      "blocked_no": "Not blocked"
+    },
+    "types": {
+      "elderly": "Elderly",
+      "widow": "Widow",
+      "orphan": "Orphan",
+      "disabled": "Person with disability",
+      "ill": "Ill",
+      "labourer": "Labourer",
+      "extreme_poor": "Extremely poor",
+      "other": "Other"
+    },
+    "status": {
+      "active": "Active",
+      "deceased": "Deceased",
+      "relocated": "Moved away"
+    },
+    "gender": {
+      "female": "Female",
+      "male": "Male",
+      "other": "Other"
+    },
+    "blocked": "Blocked",
+    "empty": "No beneficiary matches these filters.",
+    "profile": {
+      "back": "All beneficiaries",
+      "not_found": "This beneficiary was not found.",
+      "hidden": "Not shown to you",
+      "sections": {
+        "basic": "Basic details",
+        "address": "Address",
+        "family": "Family",
+        "projects": "Projects by year",
+        "applications": "Application history",
+        "distributions": "Distribution and implementation",
+        "dawah": "Dawah",
+        "followups": "Follow-ups",
+        "activities": "Activity history"
+      },
+      "mother": "Mother's name",
+      "gender": "Gender",
+      "age": "Age",
+      "occupation": "Occupation",
+      "mobile": "Mobile",
+      "nid": "NID or birth registration",
+      "village": "Village",
+      "post_office": "Post office",
+      "landmark": "Landmark",
+      "no_rows": "Nothing yet.",
+      "attendance": "Class attendance {present} of {total}",
+      "exams": "Exams passed {passed} of {total}",
+      "calls": "Calls",
+      "evaluations": "Follow-up evaluations"
+    }
+  }
 }

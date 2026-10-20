@@ -196,6 +196,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | export | export.not_ready, export.expired | 409, 410 | job still running; file removed after 30 days |
 | client | client.upgrade_required | 426 | PWA version below the minimum supported version; sync the outbox, then update (section 17) |
 | server | server.unavailable | 503 | maintenance or dependency down, with `Retry-After` |
+| server | server.busy | 503 | a list, statistics or profile query ran over its 5-second limit; try a narrower filter (O-67) |
 | server | server.internal | 500 | unexpected; message never contains stack traces or SQL (BR-210) |
 
 Mapping of codes written in earlier documents (same meaning, normalized here): `session_revoked` → `auth.session_revoked`; `token_stale` → `auth.token_stale`; `account_blocked` → `auth.account_blocked`; `locked_on_server` → `conflict.locked_on_server`; `deadline_passed` → `sync.deadline_passed`; `limit_exceeded` → `sync.limit_exceeded`; `project_closed` → `sync.project_closed`; `not_permitted` → `sync.not_permitted`; `retry_exhausted` → `sync.retry_exhausted`; `beneficiary_mobile_is_volunteer_mobile` → `beneficiary.mobile_is_volunteer_mobile`; `file.type_not_allowed`, `file.too_large`, `file.source_not_allowed` unchanged.
@@ -232,6 +233,7 @@ Implementation (T1.6, O-57): `IdempotencyService` in apps/api: `replayByClientUu
 | registration | 10 registrations started per IP per day, plus the `otp-request` windows (D-082) | IP, address |
 | reference-read | 300 per hour (public reference data, D-083) | IP |
 | default | 600 per minute per user (PROPOSAL, tuned by the load test T3.4) | user |
+| list | 60 per minute per user and 600 per minute per address; each read stops after 5 seconds with `server.busy` (O-67) | user, IP |
 | sync | 60 batches per minute per device session (PROPOSAL) | device session |
 
 Responses include `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`; a 429 carries `Retry-After`, which the PWA honours (O-29). Limits are enforced in the API (not only in Caddy) so they apply per account.

@@ -4,16 +4,16 @@ import { Alert, Badge, EmptyState, ErrorState, Table, Tabs, type TableColumn } f
 import { useQuery } from '@tanstack/react-query';
 import { UserCheck } from 'lucide-react';
 import { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router';
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
-import { canDecideEdits, canOpenAdmin } from '../roles';
+import { canApproveStaff, canDecideEdits } from '../roles';
 import { EditRequests } from './EditRequests';
-import { LIST_KEY, type PendingRegistration, pendingRegistrations } from './registrations-api';
+import { LIST_KEY, type PendingRegistration, pendingStaffRegistrations } from './registrations-api';
 
 /** A message handed over by the detail page after a final decision (the row has left the list). */
 export interface ListNotice {
@@ -33,9 +33,15 @@ export function RegistrationsPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const notice = (location.state as ListNotice | null)?.notice;
+  const [params] = useSearchParams();
   const [tab, setTab] = useState('pending');
+  // the volunteer registrations live in the volunteer tab now (an older link lands there)
+  if (params.get('kind') === 'volunteer')
+    return <Navigate to="/admin/volunteers?state=pending" replace />;
   if (!me) return null;
-  if (!canOpenAdmin(me)) return <ForbiddenContent />;
+  const staff = canApproveStaff(me);
+  const edits = canDecideEdits(me);
+  if (!staff && !edits) return <ForbiddenContent />;
   return (
     <>
       <DocumentTitle title={t('title')} />
@@ -49,7 +55,7 @@ export function RegistrationsPage() {
           {notice}
         </Alert>
       )}
-      {canDecideEdits(me) ? (
+      {staff && edits ? (
         <Tabs
           label={t('tabs.label')}
           selectedId={tab}
@@ -59,8 +65,10 @@ export function RegistrationsPage() {
             { id: 'edits', label: t('tabs.edits'), content: <EditRequests /> },
           ]}
         />
-      ) : (
+      ) : staff ? (
         <PendingList />
+      ) : (
+        <EditRequests />
       )}
     </>
   );
@@ -71,7 +79,7 @@ function PendingList() {
   const tc = useTranslations('common');
   const tr = useTranslations('registration.form.types');
   const locale = useLocale() as Locale;
-  const list = useQuery({ queryKey: LIST_KEY, queryFn: pendingRegistrations });
+  const list = useQuery({ queryKey: LIST_KEY, queryFn: pendingStaffRegistrations });
   const kind = (r: PendingRegistration) =>
     r.kind === 'staff' ? t('kind.staff') : t('kind.volunteer');
   const type = (r: PendingRegistration) =>

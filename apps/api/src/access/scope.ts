@@ -65,6 +65,8 @@ export function holdsPermission(permission: string, grants: EffectiveGrant[]): b
 }
 
 const AREA_SCOPES: readonly string[] = ['REGION', 'DISTRICT', 'UPAZILA', 'UNION'];
+/** The workflow key of house construction (docs/architecture/workflow-templates, conditions.ts). */
+const HOUSE_CONSTRUCTION_WORKFLOW = 'construction';
 const areaKey = (a: Area) => `${a.projectId}|${a.locationId}`;
 
 /**
@@ -150,12 +152,25 @@ export async function resolveInstances(
   let ownProjects = false;
   const regionProjects = new Set<string | null>();
   const volunteerRegionProjects = new Set<string | null>();
+  const houseProjects: string[] = [];
+  let ownHouseProjects = false;
   for (const g of grants) {
     if (g.condition !== null) {
       if (entity === 'user' && g.condition === 'own_region' && AREA_SCOPES.includes(g.scopeType)) {
         if (g.scopeRef)
           inst.volunteerAreas.push({ projectId: g.projectId, locationId: g.scopeRef });
         else volunteerRegionProjects.add(g.projectId);
+      }
+      // the Procurement Team reaches beneficiaries only through the house-construction projects
+      // it is attached to (DECISION_LOG Q-46); the projects are checked below
+      if (
+        entity === 'beneficiary' &&
+        g.condition === 'house_construction_project' &&
+        g.scopeType === 'PROJECT'
+      ) {
+        const project = g.scopeRef ?? g.projectId;
+        if (project) houseProjects.push(project);
+        else ownHouseProjects = true;
       }
       continue;
     }
@@ -206,6 +221,19 @@ export async function resolveInstances(
       }),
     ]);
     inst.projectIds.push(...staff.map((s) => s.projectId), ...volunteer.map((v) => v.projectId));
+  }
+  if (houseProjects.length || ownHouseProjects) {
+    // a project counts only when it runs the house-construction workflow and the caller is on it
+    const attached = await db.projectStaff.findMany({
+      where: {
+        userId: actorId,
+        endedAt: null,
+        ...(ownHouseProjects ? {} : { projectId: { in: houseProjects } }),
+        project: { workflowDefinition: { key: HOUSE_CONSTRUCTION_WORKFLOW } },
+      },
+      select: { projectId: true },
+    });
+    inst.projectIds.push(...attached.map((s) => s.projectId));
   }
   if (regionProjects.size) inst.areas.push(...(await ownAreas(db, actorId, regionProjects)));
   if (volunteerRegionProjects.size)
@@ -316,6 +344,40 @@ export function volunteerWhere(scope: Scope): Prisma.VolunteerWhereInput {
   if (i.programIds.length) or.push(...inAreasOf({ project: { programId: { in: i.programIds } } }));
   if (i.projectIds.length) or.push(...inAreasOf({ projectId: { in: i.projectIds } }));
   return or.length ? { OR: or } : { id: { in: [] } };
+}
+
+/**
+ * The beneficiaries a scope reaches (entity `beneficiary`; DECISION_LOG D-094): everyone at GLOBAL;
+ * for an area the beneficiaries whose division, district, upazila or union is that location; for
+ * PROGRAM and PROJECT the beneficiaries with an application in those projects (the Procurement
+ * Team's house-construction projects among them). A beneficiary has no account, so SELF reaches
+ * nobody.
+ */
+export function beneficiaryWhere(scope: Scope): Prisma.BeneficiaryWhereInput {
+  const i = scope.instances;
+  if (i.global) return {};
+  const or: Prisma.BeneficiaryWhereInput[] = [];
+  const locations = [...new Set(i.areas.map((a) => a.locationId))];
+  if (locations.length)
+    for (const column of ADDRESS_COLUMNS) or.push({ [column]: { in: locations } });
+  if (i.programIds.length)
+    or.push({
+      applicationsBeneficiary: { some: { project: { programId: { in: i.programIds } } } },
+    });
+  if (i.projectIds.length)
+    or.push({ applicationsBeneficiary: { some: { projectId: { in: i.projectIds } } } });
+  return or.length ? { OR: or } : { id: { in: [] } };
+}
+
+/**
+ * The projects whose rows a caller sees inside one beneficiary's profile: no limit at GLOBAL or
+ * for an area scope (the person is theirs), otherwise only the scope's projects, so a team
+ * attached to a few projects never reads the person's other projects (DECISION_LOG D-094).
+ */
+export function beneficiaryRowsProjectWhere(scope: Scope): Prisma.ProjectWhereInput | null {
+  const i = scope.instances;
+  if (i.global || i.areas.length) return null;
+  return projectWhere(scope);
 }
 
 /**

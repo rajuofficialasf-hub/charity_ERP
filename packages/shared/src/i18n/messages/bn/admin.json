@@ -3,6 +3,8 @@
   "nav": {
     "label": "অ্যাডমিন মেনু",
     "dashboard": "ড্যাশবোর্ড",
+    "volunteers": "স্বেচ্ছাসেবক",
+    "beneficiaries": "উপকারভোগী",
     "permissions": "পারমিশন",
     "registrations": "নিবন্ধন",
     "handover": "হ্যান্ডওভার"
@@ -211,5 +213,173 @@
     "message": "এই পাতায় আপনার প্রবেশাধিকার নেই।",
     "home": "হোমে ফিরে যান"
   },
-  "phone_notice": "এই পর্দা বড় স্ক্রিনে ভালো চলে।"
+  "phone_notice": "এই পর্দা বড় স্ক্রিনে ভালো চলে।",
+  "volunteers": {
+    "title": "স্বেচ্ছাসেবক",
+    "table": "স্বেচ্ছাসেবক",
+    "search": "নাম বা মোবাইল নম্বর দিয়ে খুঁজুন",
+    "chips": {
+      "all": "সব",
+      "pending": "অপেক্ষমাণ",
+      "active": "সক্রিয়",
+      "blocked": "ব্লক করা",
+      "deactivated": "বন্ধ"
+    },
+    "stats": {
+      "label": "স্বেচ্ছাসেবকের হিসাব",
+      "total": "মোট",
+      "active": "সক্রিয়",
+      "pending": "অপেক্ষমাণ",
+      "blocked": "ব্লক করা",
+      "deactivated": "বন্ধ",
+      "inactive": "নিষ্ক্রিয়",
+      "applications": "আবেদন",
+      "approved": "অনুমোদিত",
+      "under_review": "রিভিউ চলছে"
+    },
+    "column": {
+      "name": "নাম",
+      "type": "ধরন",
+      "area": "এলাকা",
+      "projects": "প্রজেক্ট",
+      "state": "অবস্থা",
+      "category": "ক্যাটাগরি"
+    },
+    "filter": {
+      "type": "ধরন",
+      "category": "ক্যাটাগরি",
+      "blocked": "ব্লকলিস্ট",
+      "blocked_yes": "ব্লকলিস্টে আছে",
+      "blocked_no": "ব্লকলিস্টে নেই",
+      "inactive": "নিষ্ক্রিয়",
+      "any": "যেকোনো"
+    },
+    "state": {
+      "pending": "অপেক্ষমাণ",
+      "active": "সক্রিয়",
+      "blocked": "ব্লক করা",
+      "deactivated": "বন্ধ"
+    },
+    "blocklisted": "ব্লকলিস্টে আছে",
+    "no_projects": "কোনো প্রজেক্ট নেই",
+    "empty": "এই ফিল্টারে কোনো স্বেচ্ছাসেবক পাওয়া যায়নি।",
+    "profile": {
+      "back": "সব স্বেচ্ছাসেবক",
+      "not_found": "এই স্বেচ্ছাসেবককে পাওয়া যায়নি।",
+      "hidden": "আপনার জন্য দেখানো হয় না",
+      "registered": "নিবন্ধন",
+      "approved": "অনুমোদন",
+      "sections": {
+        "identity": "পরিচয়",
+        "address": "ঠিকানা",
+        "education": "শিক্ষা",
+        "work": "কাজ",
+        "skills": "দক্ষতা ও সময়",
+        "bank": "ব্যাংকের তথ্য",
+        "photos": "ছবি",
+        "projects": "প্রজেক্ট ও অনুমতি",
+        "team": "টিম",
+        "summary": "কাজের সারসংক্ষেপ",
+        "ratings": "রেটিং ও ক্যাটাগরি",
+        "blocklist": "ব্লকলিস্ট",
+        "sessions": "ডিভাইস"
+      },
+      "no_projects": "এখনো কোনো প্রজেক্টে যুক্ত হননি।",
+      "paid": "পেইড ভলান্টিয়ার",
+      "permission_set": "অনুমতির সেট",
+      "no_team": "কোনো টিম মেম্বার নেই।",
+      "summary_later": "রেটিংয়ের সঙ্গে কাজের সারসংক্ষেপ যোগ হবে।",
+      "no_ratings": "এখনো কোনো রেটিং নেই।",
+      "category": "ক্যাটাগরি",
+      "inactive": "নিষ্ক্রিয়",
+      "not_blocked": "ব্লকলিস্টে নেই।",
+      "blocked_since": "{date} থেকে ব্লকলিস্টে",
+      "reason": "কারণ",
+      "no_sessions": "কোনো ডিভাইসে লগইন নেই।",
+      "last_seen": "সর্বশেষ সক্রিয় {date}",
+      "revoke": "এই ডিভাইস থেকে লগআউট করুন",
+      "revoke_title": "{device} থেকে লগআউট করবেন?",
+      "revoke_reason": "কারণ",
+      "revoke_confirm": "লগআউট করুন",
+      "revoked": "ডিভাইসটি থেকে লগআউট করা হয়েছে।",
+      "unknown_device": "অজানা ডিভাইস"
+    }
+  },
+  "beneficiaries": {
+    "title": "উপকারভোগী",
+    "table": "উপকারভোগী",
+    "search": "নাম বা নম্বর দিয়ে খুঁজুন",
+    "stats": {
+      "label": "উপকারভোগীর হিসাব",
+      "total": "মোট",
+      "assisted": "এই বছর সহায়তা পেয়েছেন",
+      "blocked": "ব্লক করা"
+    },
+    "column": {
+      "name": "নাম",
+      "father": "পিতা বা স্বামীর নাম",
+      "type": "ধরন",
+      "area": "এলাকা",
+      "status": "অবস্থা"
+    },
+    "filter": {
+      "type": "ধরন",
+      "year": "বছর",
+      "blocked": "ব্লকলিস্ট",
+      "blocked_yes": "ব্লক করা",
+      "blocked_no": "ব্লক নয়"
+    },
+    "types": {
+      "elderly": "বৃদ্ধ",
+      "widow": "বিধবা",
+      "orphan": "এতিম",
+      "disabled": "প্রতিবন্ধী",
+      "ill": "অসুস্থ",
+      "labourer": "শ্রমজীবী",
+      "extreme_poor": "অতিদরিদ্র",
+      "other": "অন্যান্য"
+    },
+    "status": {
+      "active": "সক্রিয়",
+      "deceased": "মৃত",
+      "relocated": "অন্যত্র চলে গেছেন"
+    },
+    "gender": {
+      "female": "নারী",
+      "male": "পুরুষ",
+      "other": "অন্যান্য"
+    },
+    "blocked": "ব্লক করা",
+    "empty": "এই ফিল্টারে কোনো উপকারভোগী পাওয়া যায়নি।",
+    "profile": {
+      "back": "সব উপকারভোগী",
+      "not_found": "এই উপকারভোগীকে পাওয়া যায়নি।",
+      "hidden": "আপনার জন্য দেখানো হয় না",
+      "sections": {
+        "basic": "মূল তথ্য",
+        "address": "ঠিকানা",
+        "family": "পরিবার",
+        "projects": "বছরভিত্তিক প্রজেক্ট",
+        "applications": "আবেদনের ইতিহাস",
+        "distributions": "বিতরণ ও বাস্তবায়ন",
+        "dawah": "দাওয়াহ",
+        "followups": "ফলো-আপ",
+        "activities": "কার্যক্রমের ইতিহাস"
+      },
+      "mother": "মাতার নাম",
+      "gender": "লিঙ্গ",
+      "age": "বয়স",
+      "occupation": "পেশা",
+      "mobile": "মোবাইল",
+      "nid": "NID বা জন্মনিবন্ধন",
+      "village": "গ্রাম",
+      "post_office": "ডাকঘর",
+      "landmark": "পরিচিত স্থান",
+      "no_rows": "এখনো কিছু নেই।",
+      "attendance": "ক্লাসে উপস্থিতি {total}টির মধ্যে {present}টি",
+      "exams": "পরীক্ষায় পাস {total}টির মধ্যে {passed}টি",
+      "calls": "ফোন কল",
+      "evaluations": "ফলো-আপ মূল্যায়ন"
+    }
+  }
 }

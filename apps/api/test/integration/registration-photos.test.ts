@@ -202,6 +202,17 @@ describe('GET /files/{fileId}/content', () => {
     return { owner, photo, nidPhoto };
   }
 
+  /** An RPM whose region is the division of a location tree (a project area). */
+  async function rpmOf(tree: Awaited<ReturnType<typeof f.locationTree>>) {
+    const rpm = await account(h.db, { role: 'regional_program_manager' });
+    const p = await f.project(h.db);
+    await h.db.query(
+      'INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)',
+      [randomUUID(), p.id, tree.division, rpm.id],
+    );
+    return rpm;
+  }
+
   const content = (fileId: string, session?: Awaited<ReturnType<typeof login>>) => {
     const req = request(h.server()).get(`/api/v1/files/${fileId}/content`);
     if (session) req.set(bearer(session));
@@ -227,9 +238,9 @@ describe('GET /files/{fileId}/content', () => {
     expect((await content(nidPhoto, s)).status).toBe(200);
   });
 
-  it('streams both photos to an RPM; Finance and another volunteer get 404', async () => {
+  it('streams both photos to the RPM of the region; Finance and another volunteer get 404', async () => {
     const { photo, nidPhoto } = await volunteerWithPhotos();
-    const rpm = await login(h, await account(h.db, { role: 'regional_program_manager' }));
+    const rpm = await login(h, await rpmOf(loc));
     expect((await content(photo, rpm)).status).toBe(200);
     expect((await content(nidPhoto, rpm)).status).toBe(200);
     const finance = await login(h, await account(h.db, { role: 'finance_team' }));
@@ -250,6 +261,16 @@ describe('GET /files/{fileId}/content', () => {
     expect((await content(nidPhoto, daee)).status).toBe(404);
   });
 
+  it('keeps the NID photo from an RPM of another region, who still sees the photo', async () => {
+    const { photo, nidPhoto } = await volunteerWithPhotos();
+    const elsewhere = await login(h, await rpmOf(await f.locationTree(h.db)));
+    expect((await content(photo, elsewhere)).status).toBe(200);
+    expect((await content(nidPhoto, elsewhere)).status).toBe(404);
+    // an RPM with no region at all sees no NID photo either
+    const none = await login(h, await account(h.db, { role: 'regional_program_manager' }));
+    expect((await content(nidPhoto, none)).status).toBe(404);
+  });
+
   it("audits an official's view of an NID photo, not the owner's", async () => {
     const { owner, nidPhoto } = await volunteerWithPhotos();
     const views = async () =>
@@ -261,7 +282,7 @@ describe('GET /files/{fileId}/content', () => {
       ).rows;
     await content(nidPhoto, await login(h, owner));
     expect(await views()).toEqual([]);
-    const rpm = await account(h.db, { role: 'regional_program_manager' });
+    const rpm = await rpmOf(loc);
     await content(nidPhoto, await login(h, rpm));
     expect(await views()).toEqual([{ new: { ownerUserId: owner.id } }]);
   });

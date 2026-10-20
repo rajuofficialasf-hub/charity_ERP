@@ -13,7 +13,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, FilePenLine, UserCheck, X } from 'lucide-react';
 import { type ReactNode, useId, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import {
@@ -26,7 +26,7 @@ import { FIELD_LABEL, type RequestField } from '../../features/account/profile-a
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
-import { canApproveStaff, canBlock, canOpenAdmin } from '../roles';
+import { canApproveStaff, canBlock, canApproveRegistrations } from '../roles';
 import { AddressNames } from '../../components/AddressNames';
 import { BlocklistAction } from './Blocklist';
 import { CorrectionDialog } from './CorrectionDialog';
@@ -41,18 +41,64 @@ import {
 } from './registrations-api';
 import type { ListNotice } from './RegistrationsPage';
 import { StaffDecisionDialog } from './StaffDecisionDialog';
+import { VOLUNTEERS_KEY } from '../volunteers/volunteers-api';
 
 type Dialog = 'approve' | 'reject' | 'correct' | 'staff' | null;
 
 /**
- * One pending registration (SCR-040; plan
- * docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, R7 to R9, R12): the
- * submitted details and photos, the correction requests, and the decisions the user's role
- * allows. The server checks permission and scope again on every action.
+ * The page of one pending staff registration (SCR-040). A volunteer's registration is reviewed in
+ * the volunteer tab (DECISION_LOG O-67), so an older link to it opens the volunteer's profile.
  */
 export function RegistrationDetail() {
   const { me } = useAuth();
   const { userId = '' } = useParams();
+  const t = useTranslations('admin.registrations');
+  const reg = useQuery({
+    queryKey: detailKey(userId),
+    queryFn: () => registrationDetail(userId),
+    retry: false,
+  });
+  if (!me) return null;
+  if (!canApproveRegistrations(me)) return <ForbiddenContent />;
+  if (reg.data?.kind === 'volunteer' && reg.data.volunteer)
+    return <Navigate to={`/admin/volunteers/${reg.data.volunteer.id}`} replace />;
+  return (
+    <>
+      <div>
+        <Link to="/admin/registrations">{t('back')}</Link>
+      </div>
+      <RegistrationReview userId={userId} finishedTo="/admin/registrations" />
+    </>
+  );
+}
+
+/**
+ * One pending registration (plan docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md,
+ * R7 to R9, R12): the submitted details and photos, the correction requests, and the decisions the
+ * user's role allows. Used by the staff registration page and by the volunteer profile of a pending
+ * volunteer. The server checks permission and scope again on every action.
+ */
+export function RegistrationReview({
+  userId,
+  finishedTo,
+  allowed,
+}: {
+  userId: string;
+  /** Where a final decision leads, with its message (the registration has left the list). */
+  finishedTo: string;
+  /**
+   * What the server allows on this volunteer (the volunteer profile passes its action flags); a
+   * button shows only for an allowed action. Without it the role lists decide, as before.
+   */
+  allowed?: {
+    review: boolean;
+    approve: boolean;
+    requestCorrection: boolean;
+    block: boolean;
+    unblock: boolean;
+  };
+}) {
+  const { me } = useAuth();
   const t = useTranslations('admin.registrations');
   const tc = useTranslations('common');
   const navigate = useNavigate();
@@ -65,15 +111,20 @@ export function RegistrationDetail() {
     retry: false,
   });
   /** A final decision: the registration leaves the list; the list shows the message. */
-  const finished = (message: string) => {
+  // the volunteer tab and its profiles show the same people, so their answers go stale too
+  const stale = () => {
     void queryClient.invalidateQueries({ queryKey: LIST_KEY });
-    void navigate('/admin/registrations', { state: { notice: message } satisfies ListNotice });
+    void queryClient.invalidateQueries({ queryKey: VOLUNTEERS_KEY });
+  };
+  const finished = (message: string) => {
+    stale();
+    void navigate(finishedTo, { state: { notice: message } satisfies ListNotice });
   };
   const changed = (message: string) => {
     setDialog(null);
     setNotice(message);
     void queryClient.invalidateQueries({ queryKey: detailKey(userId) });
-    void queryClient.invalidateQueries({ queryKey: LIST_KEY });
+    stale();
   };
   const approval = useMutation({
     mutationFn: () => approve(userId),
@@ -85,30 +136,16 @@ export function RegistrationDetail() {
   });
 
   if (!me) return null;
-  if (!canOpenAdmin(me)) return <ForbiddenContent />;
-  const back = (
-    <div>
-      <Link to="/admin/registrations">{t('back')}</Link>
-    </div>
-  );
   if (reg.isPending) return <Skeleton count={4} />;
   if (reg.error instanceof ApiFailure && reg.error.status === 404)
-    return (
-      <>
-        {back}
-        <EmptyState icon={UserCheck} title={t('not_found')} />
-      </>
-    );
+    return <EmptyState icon={UserCheck} title={t('not_found')} />;
   if (reg.error || !reg.data)
     return (
-      <>
-        {back}
-        <ErrorState
-          title={tc('state.error.text')}
-          requestId={reg.error instanceof ApiFailure ? reg.error.requestId : undefined}
-          onRetry={() => void reg.refetch()}
-        />
-      </>
+      <ErrorState
+        title={tc('state.error.text')}
+        requestId={reg.error instanceof ApiFailure ? reg.error.requestId : undefined}
+        onRetry={() => void reg.refetch()}
+      />
     );
   const r = reg.data;
   const decisionError = [approval.error, rejection.error].find((e) => e instanceof ApiFailure) as
@@ -122,7 +159,6 @@ export function RegistrationDetail() {
   return (
     <>
       <DocumentTitle title={r.displayName} />
-      {back}
       <h1 className="admin-title">{r.displayName}</h1>
       <div className="flex flex-wrap gap-2">
         <Badge label={r.kind === 'staff' ? t('kind.staff') : t('kind.volunteer')} />
@@ -142,20 +178,33 @@ export function RegistrationDetail() {
         <div className="flex flex-wrap gap-2">
           {r.kind === 'volunteer' ? (
             <>
-              <Button
-                icon={Check}
-                disabled={r.blocklisted || r.status === 'in_correction'}
-                onPress={() => setDialog('approve')}
-              >
-                {t('approve')}
-              </Button>
-              <Button variant="secondary" icon={FilePenLine} onPress={() => setDialog('correct')}>
-                {t('correct')}
-              </Button>
-              <Button variant="secondary" icon={X} onPress={() => setDialog('reject')}>
-                {t('reject')}
-              </Button>
-              {canBlock(me) && r.volunteer && (
+              {(!allowed || allowed.review) && (
+                <Button
+                  icon={Check}
+                  disabled={
+                    r.blocklisted || r.status === 'in_correction' || (allowed && !allowed.approve)
+                  }
+                  onPress={() => setDialog('approve')}
+                >
+                  {t('approve')}
+                </Button>
+              )}
+              {(!allowed || allowed.review) && (
+                <Button
+                  variant="secondary"
+                  icon={FilePenLine}
+                  disabled={allowed && !allowed.requestCorrection}
+                  onPress={() => setDialog('correct')}
+                >
+                  {t('correct')}
+                </Button>
+              )}
+              {(!allowed || allowed.review) && (
+                <Button variant="secondary" icon={X} onPress={() => setDialog('reject')}>
+                  {t('reject')}
+                </Button>
+              )}
+              {(allowed ? allowed.block || allowed.unblock : canBlock(me)) && r.volunteer && (
                 <BlocklistAction
                   volunteerId={r.volunteer.id}
                   name={r.displayName}

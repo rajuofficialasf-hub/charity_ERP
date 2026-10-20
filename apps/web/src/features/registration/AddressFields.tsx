@@ -30,6 +30,7 @@ export function AddressFields({
   errors = {},
   optional = false,
   labelSuffix = '',
+  levels = 4,
 }: {
   value: Address;
   onChange: (next: Address) => void;
@@ -38,6 +39,8 @@ export function AddressFields({
   optional?: boolean;
   /** Told after each label when two addresses are on one page, e.g. "(permanent)". */
   labelSuffix?: string;
+  /** How many levels are offered (a filter that may not use the union stops at the upazila). */
+  levels?: 3 | 4;
 }) {
   const t = useTranslations('registration.form');
   const locale = useLocale();
@@ -53,7 +56,7 @@ export function AddressFields({
   ];
   return (
     <>
-      {LEVELS.map((level, i) => (
+      {LEVELS.slice(0, levels).map((level, i) => (
         <Select
           key={level}
           label={labels[i]!}

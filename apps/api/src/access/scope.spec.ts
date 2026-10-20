@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { EffectiveGrant, PanelOverride } from './effective';
 import {
   applyInstanceRevokes,
+  beneficiaryRowsProjectWhere,
+  beneficiaryWhere,
   holdsPermission,
   makeScope,
   NO_INSTANCES,
@@ -194,5 +196,41 @@ describe('the volunteer filter by address (DECISION_LOG D-084)', () => {
 
   it('SELF reaches the own volunteer row', () => {
     expect(where({ self: true })).toEqual({ OR: [{ userId: 'actor' }] });
+  });
+});
+
+describe('beneficiaryWhere and the rows inside a profile', () => {
+  const none: ScopeInstances = { ...NO_INSTANCES, programIds: [], projectIds: [], areas: [] };
+  const scope = (i: Partial<ScopeInstances>) =>
+    makeScope('actor', 'beneficiary.view_all', 'beneficiary', { ...none, ...i });
+
+  it('reaches every beneficiary at GLOBAL and none without an instance or for SELF', () => {
+    expect(beneficiaryWhere(scope({ global: true }))).toEqual({});
+    expect(beneficiaryWhere(scope({}))).toEqual({ id: { in: [] } });
+    expect(beneficiaryWhere(scope({ self: true }))).toEqual({ id: { in: [] } });
+  });
+
+  it('reaches by address for an area and by application for a project or a program', () => {
+    const area = beneficiaryWhere(scope({ areas: [{ projectId: P1, locationId: DHAKA }] })) as {
+      OR: unknown[];
+    };
+    for (const column of ['divisionId', 'districtId', 'upazilaId', 'unionId'])
+      expect(area.OR).toContainEqual({ [column]: { in: [DHAKA] } });
+    expect(beneficiaryWhere(scope({ projectIds: [P1] }))).toEqual({
+      OR: [{ applicationsBeneficiary: { some: { projectId: { in: [P1] } } } }],
+    });
+    expect(beneficiaryWhere(scope({ programIds: [P2] }))).toEqual({
+      OR: [{ applicationsBeneficiary: { some: { project: { programId: { in: [P2] } } } } }],
+    });
+  });
+
+  it('limits the rows of a profile to the projects of a project scope only', () => {
+    expect(beneficiaryRowsProjectWhere(scope({ global: true }))).toBeNull();
+    expect(
+      beneficiaryRowsProjectWhere(scope({ areas: [{ projectId: null, locationId: RANGPUR }] })),
+    ).toBeNull();
+    expect(beneficiaryRowsProjectWhere(scope({ projectIds: [P1] }))).toEqual({
+      OR: [{ id: { in: [P1] } }],
+    });
   });
 });

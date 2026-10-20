@@ -1,0 +1,243 @@
+// pnpm --filter @css/api perf:lists [--runs 20] [--explain-over 100] [--only <text>]: measures
+// the volunteer and beneficiary tabs on the large data set of perf:seed (docs/testing/PERFORMANCE.md,
+// section "Method"). Each case calls the real service (the same code as the route, without HTTP and the rate
+// limit) as the Department Head (GLOBAL) and as the Dhaka RPM, twice to warm up and then --runs
+// times, and prints p50, p95 and the slowest SQL statement. For every case whose p95 is over
+// --explain-over ms, the slowest statement is run again under EXPLAIN (ANALYZE, BUFFERS).
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Client } from 'pg';
+import type { Principal } from '../src/auth/principal';
+import { loadEnv } from '../src/config/env';
+import { createContainer } from '../src/container';
+import type { PrismaService } from '../src/core/prisma.service';
+import { PrismaClient } from '../src/generated/prisma/client';
+import type { BeneficiaryViewer } from '../src/services/beneficiaries';
+import { SEARCH_TERMS } from '../seed/perf-data';
+import { perfDatabase } from './perf-db';
+
+const arg = (name: string, fallback: number) => {
+  const i = process.argv.indexOf(name);
+  return i >= 0 ? Number(process.argv[i + 1]) : fallback;
+};
+/** The report goes to stdout (console.log is kept out of the code by the lint rules). */
+const out = (line = '') =>
+  process.stdout.write(`${line}
+`);
+const RUNS = arg('--runs', 20);
+const EXPLAIN_OVER = arg('--explain-over', 100);
+const TARGET_MS = 300;
+/** --only <text>: measure only the cases whose name contains the text. */
+const ONLY = process.argv.includes('--only')
+  ? process.argv[process.argv.indexOf('--only') + 1]
+  : undefined;
+
+const { url } = perfDatabase('perf:lists');
+const env = loadEnv({ ...process.env, DATABASE_URL: url, LOG_LEVEL: 'warn' });
+
+interface Statement {
+  query: string;
+  params: string;
+  duration: number;
+}
+let captured: Statement[] | null = null;
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: url }),
+  log: [{ emit: 'event', level: 'query' }],
+});
+prisma.$on('query', (e) => {
+  captured?.push({ query: e.query, params: e.params, duration: Number(e.duration) });
+});
+const c = createContainer(env, { overrides: { prisma: prisma as unknown as PrismaService } });
+
+async function viewerOf(email: string, permission: string, entity: string) {
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { email },
+    select: {
+      id: true,
+      kind: true,
+      state: true,
+      permissionVersion: true,
+      isSystemOwner: true,
+      userRolesUser: {
+        where: { revokedAt: null },
+        select: { roleKey: true, role: { select: { globalScope: true } } },
+      },
+    },
+  });
+  const principal: Principal = {
+    userId: user.id,
+    sessionId: 'perf',
+    kind: user.kind,
+    state: user.state,
+    roles: user.userRolesUser.map((r) => r.roleKey).sort(),
+    globalScope: user.userRolesUser.some((r) => r.role.globalScope),
+    isSystemOwner: user.isSystemOwner,
+    permissionVersion: user.permissionVersion,
+  };
+  const access = await c.access.load(user.id);
+  const scope = await c.access.scopeFor(principal, access, permission, entity);
+  return { principal, scope, fieldClasses: access.fieldClasses };
+}
+
+type VolunteerQuery = Parameters<typeof c.volunteerList.list>[0];
+type BeneficiaryQuery = Parameters<typeof c.beneficiaries.list>[0];
+
+const percentile = (sorted: number[], p: number) =>
+  sorted[Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1)]!;
+
+interface Result {
+  name: string;
+  p50: number;
+  p95: number;
+  max: number;
+  slowest: Statement;
+}
+
+async function measure(name: string, call: () => Promise<unknown>): Promise<Result> {
+  if (ONLY && !name.includes(ONLY))
+    return { name, p50: 0, p95: 0, max: 0, slowest: { query: '', params: '[]', duration: 0 } };
+  await call();
+  await call();
+  const times: number[] = [];
+  let slowest: Statement = { query: '', params: '[]', duration: -1 };
+  for (let i = 0; i < RUNS; i += 1) {
+    captured = [];
+    const start = performance.now();
+    await call();
+    times.push(performance.now() - start);
+    for (const s of captured)
+      if (/^\s*SELECT/i.test(s.query) && s.duration > slowest.duration) slowest = s;
+    captured = null;
+  }
+  times.sort((a, b) => a - b);
+  const result = {
+    name,
+    p50: Math.round(percentile(times, 50)),
+    p95: Math.round(percentile(times, 95)),
+    max: Math.round(times.at(-1)!),
+    slowest,
+  };
+  const flag = result.p95 > TARGET_MS ? '  OVER' : '';
+  out(
+    `${name.padEnd(58)} p50 ${String(result.p50).padStart(5)}  p95 ${String(result.p95).padStart(5)}  max ${String(result.max).padStart(5)}  slowest sql ${slowest.duration} ms${flag}`,
+  );
+  return result;
+}
+
+async function main(): Promise<void> {
+  const pg = new Client({ connectionString: url });
+  await pg.connect();
+  const one = async (sql: string) => (await pg.query(sql)).rows[0] as Record<string, unknown>;
+  const counts = await one(`SELECT (SELECT count(*) FROM volunteers) AS volunteers,
+    (SELECT count(*) FROM beneficiaries) AS beneficiaries,
+    (SELECT count(*) FROM applications) AS applications,
+    (SELECT count(*) FROM projects) AS projects`);
+  out(`data set: ${JSON.stringify(counts)}; ${RUNS} runs per case\n`);
+  const dhaka = (await one(
+    `SELECT id FROM locations WHERE level = 'district' AND name_en = 'Dhaka'`,
+  )) as { id: string };
+  const upazila = (await one(
+    `SELECT upazila_id AS id FROM beneficiaries WHERE district_id = '${dhaka.id}' LIMIT 1`,
+  )) as { id: string };
+  const union = (await one(
+    `SELECT union_id AS id FROM beneficiaries WHERE upazila_id = '${upazila.id}' LIMIT 1`,
+  )) as { id: string };
+  const project = (await one(`SELECT id FROM projects WHERE code = 'QAK'`)) as { id: string };
+  const ben = (await one(
+    `SELECT b.id, b.mobile, b.nid FROM beneficiaries b JOIN applications a ON a.beneficiary_id = b.id
+     WHERE b.nid IS NOT NULL ORDER BY b.id LIMIT 1 OFFSET 1000`,
+  )) as { id: string; mobile: string; nid: string };
+  const vol = (await one(
+    `SELECT u.mobile, v.nid FROM volunteers v JOIN users u ON u.id = v.user_id WHERE v.nid LIKE '77%'
+     ORDER BY v.id LIMIT 1 OFFSET 777`,
+  )) as { mobile: string; nid: string };
+
+  const results: Result[] = [];
+  const page = { limit: 25 } as const;
+  for (const [who, email] of [
+    ['head', 'head@example.org'],
+    ['rpm', 'rpm.dhaka@example.org'],
+  ] as const) {
+    const vv = await viewerOf(email, 'volunteer.view_all', 'global');
+    const bv: BeneficiaryViewer = await viewerOf(email, 'beneficiary.view_all', 'beneficiary');
+    const v = (name: string, filter: Record<string, string>) =>
+      measure(`${who} volunteers.list ${name}`, () =>
+        c.volunteerList.list({ ...page, ...filter } as VolunteerQuery, vv),
+      );
+    const b = (name: string, filter: Record<string, string | number>) =>
+      measure(`${who} beneficiaries.list ${name}`, () =>
+        c.beneficiaries.list({ ...page, ...filter } as BeneficiaryQuery, bv),
+      );
+    const firstVolunteers = await c.volunteerList.list({ ...page }, vv);
+    const firstBeneficiaries = await c.beneficiaries.list({ ...page }, bv);
+    results.push(
+      await v('first page', {}),
+      await measure(`${who} volunteers.list next page`, () =>
+        c.volunteerList.list({ ...page, cursor: firstVolunteers.meta.nextCursor! }, vv),
+      ),
+      await v('with total', { include: 'total' }),
+      await v('district', { districtId: dhaka.id }),
+      await v('state pending', { state: 'pending' }),
+      await v('type local_daee', { type: 'local_daee' }),
+      await v('category A', { category: 'A' }),
+      await v('blocked', { blocked: 'true' }),
+      await v('not blocked + total', { blocked: 'false', include: 'total' }),
+      await v('project', { projectId: project.id }),
+      await v('name search', { q: SEARCH_TERMS.volunteerPart }),
+      await v('name search + total', { q: SEARCH_TERMS.volunteerPair, include: 'total' }),
+      await v('mobile search', { q: vol.mobile }),
+      await v('NID search', { q: vol.nid }),
+      await measure(`${who} volunteers.statistics all`, () => c.volunteerList.statistics({}, vv)),
+      await measure(`${who} volunteers.statistics district`, () =>
+        c.volunteerList.statistics({ districtId: dhaka.id }, vv),
+      ),
+      await b('first page', {}),
+      await measure(`${who} beneficiaries.list next page`, () =>
+        c.beneficiaries.list({ ...page, cursor: firstBeneficiaries.meta.nextCursor! }, bv),
+      ),
+      await b('with total', { include: 'total' }),
+      await b('district', { districtId: dhaka.id }),
+      await b('upazila', { upazilaId: upazila.id }),
+      await b('union', { unionId: union.id }),
+      await b('type widow', { type: 'widow' }),
+      await b('blocked', { blocked: 'true' }),
+      await b('project', { projectId: project.id }),
+      await b('year 2025', { year: 2025 }),
+      await b('district + year + total', { districtId: dhaka.id, year: 2025, include: 'total' }),
+      await b('name search', { q: SEARCH_TERMS.beneficiaryPart }),
+      await b('name search + total', { q: SEARCH_TERMS.beneficiaryPair, include: 'total' }),
+      await b('mobile search', { q: ben.mobile }),
+      await b('NID search', { q: ben.nid }),
+      await measure(`${who} beneficiaries.statistics all`, () =>
+        c.beneficiaries.statistics({}, bv),
+      ),
+      await measure(`${who} beneficiaries.statistics district`, () =>
+        c.beneficiaries.statistics({ districtId: dhaka.id }, bv),
+      ),
+      await measure(`${who} beneficiaries.profile`, () => c.beneficiaries.profile(bv, ben.id)),
+    );
+    out();
+  }
+
+  const over = results.filter((r) => r.p95 > EXPLAIN_OVER);
+  out(
+    `${results.filter((r) => r.p95 > TARGET_MS).length} of ${results.length} cases over ${TARGET_MS} ms at p95; plans of the ${over.length} cases over ${EXPLAIN_OVER} ms follow.\n`,
+  );
+  for (const r of over) {
+    out(`=== ${r.name} (p95 ${r.p95} ms; slowest statement ${r.slowest.duration} ms)`);
+    out(r.slowest.query.replace(/\s+/g, ' ').slice(0, 1500));
+    const plan = await pg.query(
+      `EXPLAIN (ANALYZE, BUFFERS) ${r.slowest.query}`,
+      JSON.parse(r.slowest.params) as unknown[],
+    );
+    out(plan.rows.map((row: Record<string, string>) => row['QUERY PLAN']).join('\n'));
+    out();
+  }
+  await pg.end();
+  await prisma.$disconnect();
+}
+
+main().catch((error: unknown) => {
+  console.error(error);
+  process.exit(1);
+});

@@ -14,15 +14,18 @@ export type RateLimitClass =
   | 'reference-read'
   | 'registration'
   | 'default'
+  | 'list'
   | 'sync';
 
-interface Window {
+export interface RateWindow {
   limit: number;
   ttlMs: number;
   /** The key this window counts by. */
   key: (req: Request) => string;
   /** Counts by the client address (runs before the per-id windows, NE-SEC-04). */
   byIp?: boolean;
+  /** One budget for every route of the class, not one per route. */
+  shared?: boolean;
   /** The window does not apply to this request (it names nothing to count by). */
   skip?: (req: Request) => boolean;
 }
@@ -72,7 +75,7 @@ const refreshSession = (req: Request) => {
 const caller = (req: Request) => currentContext()?.userId ?? `ip:${ip(req)}`;
 
 /** Limits and keys per class (API_STANDARDS 10, O-08, O-25; default and sync are proposals tuned in T3.4). */
-export const RATE_LIMITS: Record<RateLimitClass, Window[]> = {
+export const RATE_LIMITS: Record<RateLimitClass, RateWindow[]> = {
   login: [
     { limit: 10, ttlMs: MINUTE, key: (r) => `id:${loginId(r)}` },
     { limit: 100, ttlMs: HOUR, key: (r) => `id:${loginId(r)}` },
@@ -118,5 +121,11 @@ export const RATE_LIMITS: Record<RateLimitClass, Window[]> = {
     { limit: 20, ttlMs: HOUR, key: ip, byIp: true },
   ],
   default: [{ limit: 600, ttlMs: MINUTE, key: caller }],
+  // The nationwide volunteer and beneficiary lists, their counts and profiles are heavy reads
+  // (DECISION_LOG O-67): a tighter budget per user, and one per address before it.
+  list: [
+    { limit: 600, ttlMs: MINUTE, key: (r) => `ip:${ip(r)}`, byIp: true, shared: true },
+    { limit: 60, ttlMs: MINUTE, key: caller, shared: true },
+  ],
   sync: [{ limit: 60, ttlMs: MINUTE, key: session }],
 };

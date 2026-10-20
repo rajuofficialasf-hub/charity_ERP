@@ -96,6 +96,26 @@ sensitive_fields:
     fields: [beneficiaries.nid, beneficiaries.birth_reg, "files where kind = nid_photo (beneficiary)"]
     visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee]
     source: "B8: NID number and photo visible to all official staff who do project work, never to volunteers, Media, Finance, Procurement"
+  - key: beneficiary.contact
+    fields: [beneficiaries.mobile, beneficiary_family_members.*]
+    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee]
+    source: "O-67, D-094: not to the Media or Procurement Team, in lists, profiles, search and filters"
+  - key: beneficiary.address_detail
+    fields: [beneficiaries.union_id, beneficiaries.village, beneficiaries.post_office, beneficiaries.post_code, beneficiaries.landmark, beneficiaries.latitude, beneficiaries.longitude]
+    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee, procurement_team]
+    source: "O-67, D-094: the Media Team sees the area down to the upazila only"
+  - key: beneficiary.profile_detail
+    fields: [beneficiaries.father_or_husband_name, beneficiaries.mother_name, beneficiaries.gender_code, beneficiaries.age_years, beneficiaries.class_code, beneficiaries.class_other_text, beneficiaries.occupation_code, beneficiaries.photo_file_id]
+    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee]
+    source: "O-67, D-094: the Media and Procurement Teams get only the name, the area, the projects and distribution"
+  - key: beneficiary.application_history
+    fields: [applications.app_no, applications.submitted_at, applications.reviewed_at, applications.approved_at]
+    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee, procurement_team]
+    source: "O-67, D-094: the Procurement Team sees its own projects' applications, the Media Team none"
+  - key: beneficiary.care
+    fields: [call_logs.*, followup_evaluations.*, class_attendance.*, learning_progress.*, exam_results.*, activities.*, beneficiaries.is_blocked]
+    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee]
+    source: "O-67, D-094: care and follow-up data and the blocklist status, not to the Media or Procurement Team"
   - key: volunteer.identity
     fields: [volunteers.nid, volunteers.nid_photo_file_id, volunteers.nid_photo_back_file_id, volunteers.blood_group, volunteers.date_of_birth]
     visible_to: [program_manager, regional_program_manager, project_executive]
@@ -105,7 +125,7 @@ sensitive_fields:
     visible_to: [program_manager, regional_program_manager, project_executive, finance_team]
     source: "A5 (used when paying operational expenses), B8"
   - key: volunteer.rating
-    fields: [volunteer_ratings.*, volunteers.category, volunteer_categories_log.comment]
+    fields: [volunteer_ratings.*, volunteers.category, volunteers.inactive_flag, volunteer_categories_log.comment]
     visible_to: [program_manager, regional_program_manager, project_executive]
     source: "A4, A5, BD-40: never to volunteers; not to Media, Finance, Procurement"
   - key: donor.data

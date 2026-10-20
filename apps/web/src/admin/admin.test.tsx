@@ -85,6 +85,23 @@ describe('admin area', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows the tabs to an Official দায়ী and only the beneficiary tab to the Media Team', async () => {
+    refreshAs({ ...ME, roles: ['official_daee'] });
+    renderAdmin();
+    const nav = await screen.findByRole('navigation', { name: 'অ্যাডমিন মেনু' });
+    expect(within(nav).getByRole('link', { name: 'স্বেচ্ছাসেবক' })).toBeInTheDocument();
+    expect(within(nav).getByRole('link', { name: 'উপকারভোগী' })).toBeInTheDocument();
+    expect(within(nav).queryByRole('link', { name: 'নিবন্ধন' })).not.toBeInTheDocument();
+  });
+
+  it('shows the Media Team the beneficiary tab and no volunteer tab', async () => {
+    refreshAs({ ...ME, roles: ['media_team'] });
+    renderAdmin();
+    const nav = await screen.findByRole('navigation', { name: 'অ্যাডমিন মেনু' });
+    expect(within(nav).getByRole('link', { name: 'উপকারভোগী' })).toBeInTheDocument();
+    expect(within(nav).queryByRole('link', { name: 'স্বেচ্ছাসেবক' })).not.toBeInTheDocument();
+  });
+
   it('shows the forbidden screen to a volunteer, without the admin menu', async () => {
     refreshAs(VOLUNTEER);
     renderAdmin();

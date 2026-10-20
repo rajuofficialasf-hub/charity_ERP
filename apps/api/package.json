@@ -16,6 +16,8 @@
     "db:migrate:dev": "prisma migrate dev --create-only",
     "db:load-locations": "tsx --conditions=@css/source scripts/load-locations.ts",
     "locations:convert": "tsx --conditions=@css/source scripts/convert-locations.ts",
+    "perf:seed": "tsx --conditions=@css/source scripts/perf-seed.ts",
+    "perf:lists": "tsx --env-file-if-exists=.env --conditions=@css/source scripts/perf-lists.ts",
     "openapi:generate": "tsx --conditions=@css/source scripts/openapi-generate.ts",
     "authz:matrix": "node scripts/authz-matrix.mjs",
     "e2e:server": "tsx --conditions=@css/source scripts/e2e-server.ts",
