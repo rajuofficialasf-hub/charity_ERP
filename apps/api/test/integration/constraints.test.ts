@@ -73,6 +73,105 @@ describe('beneficiary identity (BR-001, BR-002, BR-003)', () => {
   });
 });
 
+describe('BEN numbers and duplicate dismissals', () => {
+  const benNo = async (id: string) =>
+    (await db.query('SELECT ben_no FROM beneficiaries WHERE id = $1', [id])).rows[0]
+      .ben_no as number;
+
+  it('gives each new profile the next BEN number', async () => {
+    const first = await benNo(await f.beneficiary(db, loc));
+    const second = await benNo(await f.beneficiary(db, loc));
+    expect(first).toBeGreaterThan(0);
+    expect(second).toBeGreaterThan(first);
+  });
+
+  it('refuses a BEN number another profile holds', async () => {
+    const taken = await benNo(await f.beneficiary(db, loc));
+    await expectSqlError(
+      f.beneficiary(db, loc, { ben_no: taken }),
+      SQLSTATE.uniqueViolation,
+      /beneficiaries_ben_no_key/,
+    );
+  });
+
+  it('never changes a BEN number once given', async () => {
+    const id = await f.beneficiary(db, loc);
+    await expectSqlError(
+      db.query('UPDATE beneficiaries SET ben_no = ben_no + 1000000 WHERE id = $1', [id]),
+      SQLSTATE.checkViolation,
+      /ben_no/,
+    );
+  });
+
+  const dismiss = (
+    low: string,
+    high: string,
+    by: string,
+    reason = 'আলাদা মানুষ, বাবার নাম ভিন্ন',
+  ) =>
+    db.query(
+      `INSERT INTO beneficiary_merge_dismissals (id, low_id, high_id, reason, dismissed_by) VALUES ($1, $2, $3, $4, $5)`,
+      [randomUUID(), low, high, reason, by],
+    );
+  const pair = async () => {
+    const ids = [await f.beneficiary(db, loc), await f.beneficiary(db, loc)].sort();
+    return { low: ids[0]!, high: ids[1]! };
+  };
+
+  it('keeps a dismissed pair in one order, the lower id first', async () => {
+    const by = await f.user(db);
+    const { low, high } = await pair();
+    await expectSqlError(dismiss(high, low, by), SQLSTATE.checkViolation, /dismissals_pair_check/);
+    await expectSqlError(dismiss(low, low, by), SQLSTATE.checkViolation, /dismissals_pair_check/);
+    await expect(dismiss(low, high, by)).resolves.toBeTruthy();
+  });
+
+  it('holds one active dismissal per pair, and a new one after the mark is lifted', async () => {
+    const by = await f.user(db);
+    const { low, high } = await pair();
+    await dismiss(low, high, by);
+    await expectSqlError(
+      dismiss(low, high, by),
+      SQLSTATE.uniqueViolation,
+      /beneficiary_merge_dismissals_active_key/,
+    );
+    await db.query(
+      `UPDATE beneficiary_merge_dismissals SET lifted_by = $1, lifted_at = now(), lift_reason = 'আবার যাচাই করা হবে' WHERE low_id = $2 AND high_id = $3`,
+      [by, low, high],
+    );
+    await expect(dismiss(low, high, by)).resolves.toBeTruthy();
+  });
+
+  it('needs a reason of 3 to 1,000 characters, and lifts only with who, when and why', async () => {
+    const by = await f.user(db);
+    const { low, high } = await pair();
+    await expectSqlError(dismiss(low, high, by, 'না'), SQLSTATE.checkViolation, /reason/);
+    await expectSqlError(
+      dismiss(low, high, by, 'ক'.repeat(1001)),
+      SQLSTATE.checkViolation,
+      /reason/,
+    );
+    await dismiss(low, high, by);
+    await expectSqlError(
+      db.query(
+        'UPDATE beneficiary_merge_dismissals SET lifted_at = now() WHERE low_id = $1 AND high_id = $2',
+        [low, high],
+      ),
+      SQLSTATE.checkViolation,
+      /lift/,
+    );
+  });
+
+  it('never deletes a dismissal', async () => {
+    const by = await f.user(db);
+    const { low, high } = await pair();
+    await dismiss(low, high, by);
+    await expect(
+      db.query('DELETE FROM beneficiary_merge_dismissals WHERE low_id = $1', [low]),
+    ).rejects.toThrow();
+  });
+});
+
 describe('applications', () => {
   it('BR-016 one live application per beneficiary per project; allowed again after soft delete', async () => {
     const p = await f.project(db);

@@ -2,7 +2,7 @@
 
 Status: complete, task T0.16 (2026-10-10); implemented in T1.2 (2026-10-11) as `apps/api/prisma/schema.prisma` and the initial migration `apps/api/prisma/migrations/20261011000000_init/` with a hand-written `down.sql` (ADR-003); seeds follow in T1.3. This dictionary is the physical form of `docs/database/ERD.md` (95 tables: the 90 entities of T0.15, `id_sequences`, and the four added in Phase 1: `project_rules_versions`, `project_consents`, `registration_drafts`, `account_invitations`); every table, column, constraint and index here must appear in the migrations, and a change here is a change there in the same commit (PROJECT_RULES §5). JSON Schemas for JSONB columns: `docs/database/json-schemas/`. The proposals of the first draft were accepted by the owner on 2026-10-10 (O-38, O-39); where the text says PROPOSAL the value is decided as listed in section 24.
 
-Note on human ids: the T0.16 prompt mentions "BEN-" ids "per DECISION_LOG". DECISION_LOG O-03 decided that the BEN-ID **is** the beneficiary's UUID v7; there is no `BEN-` sequence. Only applications carry a human id. This dictionary follows O-03.
+Note on human ids: the T0.16 prompt mentions "BEN-" ids "per DECISION_LOG". DECISION_LOG O-03 decided that the BEN-ID **is** the beneficiary's UUID v7. Since T2.2 (D-112) every profile also has a short sequential number `ben_no`, shown as `BEN-0000123`, from the sequence `beneficiaries_ben_no_seq`; the UUID stays the key and the merge pointer. Applications carry their own human id.
 
 ## 1. Scope and how to read it
 
@@ -645,6 +645,7 @@ Constraints: UNIQUE (form_field_id, code).
 | Column | Type | Null | Default | Comment |
 |---|---|---|---|---|
 | id | uuid | no | — | PK; the BEN-ID (O-03) |
+| ben_no | integer | no | nextval(`beneficiaries_ben_no_seq`) | the short BEN number, shown as `BEN-` and 7 digits (D-112); UNIQUE, CHECK > 0, never changed (trigger `beneficiaries_keep_ben_no`); existing rows numbered in `created_at, id` order |
 | nid | text | yes | — | CHECK `^([0-9]{10}|[0-9]{13}|[0-9]{17})$` (BR-002) |
 | birth_reg | text | yes | — | CHECK `^[0-9]{17}$` |
 | name | text | no | — | locked after creation (BR-006) |
@@ -677,7 +678,7 @@ Constraints: UNIQUE (form_field_id, code).
 | merged_into_id | uuid | yes | — | FK beneficiaries; retired profiles point to the kept one |
 | [A] | | | | |
 
-Constraints: CHECK nid IS NOT NULL OR birth_reg IS NOT NULL (BR-001); UNIQUE (nid) WHERE nid IS NOT NULL; UNIQUE (birth_reg) WHERE birth_reg IS NOT NULL (BR-003); CHECK merged_into_id <> id. Indexes: (mobile); GIN trigram on name and father_or_husband_name (pg_trgm, PROPOSAL); (union_id, village); (district_id); (status) WHERE merged_into_id IS NULL; (id) WHERE merged_into_id IS NULL and (id) WHERE is_blocked AND merged_into_id IS NULL (the counts and the blocklist filter of the beneficiary tab, T1.10; docs/testing/PERFORMANCE.md).
+Constraints: CHECK nid IS NOT NULL OR birth_reg IS NOT NULL (BR-001); UNIQUE (nid) WHERE nid IS NOT NULL; UNIQUE (birth_reg) WHERE birth_reg IS NOT NULL (BR-003); CHECK merged_into_id <> id. Indexes: (mobile); GIN trigram on name and father_or_husband_name (pg_trgm, PROPOSAL); (union_id, village); (district_id); (status) WHERE merged_into_id IS NULL; (id) WHERE merged_into_id IS NULL and (id) WHERE is_blocked AND merged_into_id IS NULL (the counts and the blocklist filter of the beneficiary tab, T1.10; docs/testing/PERFORMANCE.md). The duplicate suggestions (T2.2, D-113) read `beneficiaries_dup_name_father_mobile_idx` on (person_name_key(name), person_name_key(father_or_husband_name), mobile) and `beneficiaries_dup_name_dob_union_idx` on (person_name_key(name), dob, union_id), both WHERE merged_into_id IS NULL (the second also needs a dob); `person_name_key(text)` is an immutable SQL function (trimmed, inner spaces collapsed, lower case) that the queries use too, so a query and its index agree.
 
 ### beneficiary_family_members
 | Column | Type | Null | Default | Comment |
@@ -707,14 +708,14 @@ Index: (beneficiary_id) WHERE active.
 | reason | text | no | — | — |
 | proposed_by | uuid | no | — | FK users |
 | proposed_at | timestamptz | no | now() | — |
-| snapshot | jsonb | yes | — | both profiles before merge (for revert); set when merged |
+| snapshot | jsonb | yes | — | set when merged: the ids of every row moved to the kept profile, per table, the applications left on the retired profile, and the blocklist rows moved or released (ids only, never a reason); the revert moves exactly these back (D-113) |
 | merged_by | uuid | yes | — | FK users |
 | merged_at | timestamptz | yes | — | — |
 | reverted_by | uuid | yes | — | FK users |
 | reverted_at | timestamptz | yes | — | — |
 | [A] | | | | |
 
-Constraints: CHECK kept_id <> merged_id; CHECK (status NOT IN ('merged', 'reverted') OR merged_at IS NOT NULL); CHECK (status <> 'reverted' OR reverted_at IS NOT NULL); partial UNIQUE (merged_id) WHERE status = 'merged'. A proposal (status proposed) is created by an RPM with `beneficiary.merge.propose`; PM, Monitoring Team or Department Head merge it with `beneficiary.merge` (BD-05); the Monitoring Team reverts (T0.22 gate correction, matches openapi.yaml).
+Constraints: CHECK kept_id <> merged_id; CHECK (status NOT IN ('merged', 'reverted') OR merged_at IS NOT NULL); CHECK (status <> 'reverted' OR reverted_at IS NOT NULL); partial UNIQUE (merged_id) WHERE status = 'merged'. A proposal (status proposed) is created by an RPM with `beneficiary.merge.propose`; PM, Monitoring Team or Department Head merge it with `beneficiary.merge` (BD-05), or merge without a proposal (proposed_by = merged_by); the Monitoring Team or the Department Head reverts (`beneficiary.merge.revert`, D-113), and only while the kept profile is live.
 
 ### profile_correction_requests
 | Column | Type | Null | Default | Comment |
@@ -725,12 +726,24 @@ Constraints: CHECK kept_id <> merged_id; CHECK (status NOT IN ('merged', 'revert
 | old_value, new_value | text | no | — | — |
 | reason | text | no | — | — |
 | requested_by | uuid | no | — | FK users |
-| status | text | no | 'submitted' | L-request-status |
-| decided_by | uuid | yes | — | FK users |
+| status | text | no | 'submitted' | L-request-status; the correction flow writes `submitted`, `approved` and `rejected` only (`open` and `closed` are allowed by the CHECK and unused); a merge rejects the submitted requests of the retired profile with a merge reason |
+| decided_by | uuid | yes | — | FK users; never the requester (D-115) |
 | decided_at | timestamptz | yes | — | — |
 | [A] | | | | |
 
 Indexes: (beneficiary_id); (status).
+
+### beneficiary_merge_dismissals
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK |
+| low_id, high_id | uuid | no | — | FK beneficiaries; the pair in one order, CHECK low_id < high_id |
+| reason | text | no | — | why the two are different people; CHECK 3 to 1,000 characters |
+| dismissed_by | uuid | no | — | FK users |
+| dismissed_at | timestamptz | no | now() | — |
+| lifted_by, lifted_at, lift_reason | uuid, timestamptz, text | yes | — | set together when the mark is lifted (CHECK); the row stays |
+
+A suggested duplicate pair an official marked as not the same person (T2.2, D-113, `beneficiary.merge.dismiss`); the pair leaves the suggestions while the mark is active. Partial UNIQUE (low_id, high_id) WHERE lifted_at IS NULL; indexes (high_id), (dismissed_by), (lifted_by); no DELETE or TRUNCATE (D-060).
 
 ### media_consents
 | Column | Type | Null | Default | Comment |

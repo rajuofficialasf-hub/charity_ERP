@@ -153,7 +153,7 @@ allowed endpoint is decided by the data scope and is tested separately (scope an
 | PUT /admin/notification-templates/:key/:channel | notification.template.manage | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /admin/deliveries | notification.delivery.view | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 
-## Permissions no endpoint uses yet (103, D-077)
+## Permissions no endpoint uses yet (105, D-077)
 
 They belong to features of later tasks; the matrix covers them when their endpoints exist.
 
@@ -180,10 +180,12 @@ They belong to features of later tasks; the matrix covers them when their endpoi
 - `beneficiary.block`
 - `beneficiary.consent.record`
 - `beneficiary.consent.view`
+- `beneficiary.contact.edit`
 - `beneficiary.correction.approve`
 - `beneficiary.correction.request`
 - `beneficiary.lookup`
 - `beneficiary.merge`
+- `beneficiary.merge.dismiss`
 - `beneficiary.merge.propose`
 - `beneficiary.merge.revert`
 - `beneficiary.status.change`

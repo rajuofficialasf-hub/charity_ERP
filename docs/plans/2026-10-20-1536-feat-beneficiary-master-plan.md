@@ -246,7 +246,7 @@ Phase 2 starts the application cycle (T2.3 to T2.6), and every application hangs
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** migration
-- **Status:** todo
+- **Status:** done
 
 ### U2. Shared rules and request schemas
 - **Goal:** one place for the identity formats, the BEN number formatter and parser, the family-match normalization and the zod schemas of every new request.
@@ -590,8 +590,8 @@ Phase 2 starts the application cycle (T2.3 to T2.6), and every application hangs
 
 ## Progress
 - **Branch:** `feat/beneficiary-master`
-- **Updated:** 2026-10-20 16:20
-- **Next:** U1: append the decisions to `docs/DECISION_LOG.md`, then the permissions and the migration
+- **Updated:** 2026-10-20 16:40
+- **Next:** C1 (review of U1), then U2: the shared identity rules and request schemas
 - **Uncommitted:** none
 - **Reviewed through:** none
-- **Notes:** the plan was reviewed on 2026-10-20 (plan and security reviewers); the owner decided in chat: full auto-fill across regions with audit and limits; an application past pending stays on the retired profile at a merge.
+- **Notes:** the plan was reviewed on 2026-10-20 (plan and security reviewers); the owner decided in chat: full auto-fill across regions with audit and limits; an application past pending stays on the retired profile at a merge. The Prisma model of the dismissal table is `MergeDismissal` (a longer name re-aligned the whole schema file). The dev database got the migration through the host `pnpm db:migrate` (its `jobs:install` step then stops without `apps/api/.env`, a known issue); the API container needs `docker compose run --rm setup` or a restart to regenerate its Prisma client before the U3 routes run there.

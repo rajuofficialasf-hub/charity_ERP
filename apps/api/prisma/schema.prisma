@@ -60,6 +60,8 @@ model User {
   reports                              User[]                     @relation("users_supervisor_user_id")
   accountInvitationsUser               AccountInvitation[]        @relation("account_invitations_user_id")
   accountInvitationsCreatedBy          AccountInvitation[]        @relation("account_invitations_created_by")
+  mergeDismissalsDismissedBy           MergeDismissal[]           @relation("beneficiary_merge_dismissals_dismissed_by")
+  mergeDismissalsLiftedBy              MergeDismissal[]           @relation("beneficiary_merge_dismissals_lifted_by")
   usersCreatedBy                       User[]                     @relation("users_created_by")
   usersUpdatedBy                       User[]                     @relation("users_updated_by")
   userRolesUser                        UserRole[]                 @relation("user_roles_user_id")
@@ -1091,6 +1093,8 @@ model FormLibraryField {
 
 model Beneficiary {
   id                                   String                     @id @db.Uuid
+  /// the short BEN number officials read out (BEN-0000123); given once, never changed
+  benNo                                Int                        @unique(map: "beneficiaries_ben_no_key") @default(autoincrement()) @map("ben_no")
   nid                                  String?
   birthReg                             String?                    @map("birth_reg")
   name                                 String
@@ -1159,6 +1163,8 @@ model Beneficiary {
   callLogsBeneficiary                  CallLog[]                  @relation("call_logs_beneficiary_id")
   followupEvaluationsBeneficiary       FollowupEvaluation[]       @relation("followup_evaluations_beneficiary_id")
   mediaSubjectsBeneficiary             MediaSubject[]             @relation("media_subjects_beneficiary_id")
+  mergeDismissalsLow                   MergeDismissal[]           @relation("beneficiary_merge_dismissals_low_id")
+  mergeDismissalsHigh                  MergeDismissal[]           @relation("beneficiary_merge_dismissals_high_id")
 
   @@unique([nid], where: raw("nid IS NOT NULL"), map: "beneficiaries_nid_key")
   @@unique([birthReg], where: raw("birth_reg IS NOT NULL"), map: "beneficiaries_birth_reg_key")
@@ -1180,6 +1186,29 @@ model Beneficiary {
   @@index([id], where: raw("merged_into_id IS NULL"), map: "beneficiaries_live_id_idx")
   @@index([id], where: raw("is_blocked AND merged_into_id IS NULL"), map: "beneficiaries_blocked_idx")
   @@map("beneficiaries")
+}
+
+/// A suggested duplicate pair an official marked as two different people (the lower id first)
+model MergeDismissal {
+  id           String      @id @db.Uuid
+  lowId        String      @map("low_id") @db.Uuid
+  highId       String      @map("high_id") @db.Uuid
+  reason       String
+  dismissedBy  String      @map("dismissed_by") @db.Uuid
+  dismissedAt  DateTime    @default(now()) @map("dismissed_at") @db.Timestamptz(6)
+  liftedBy     String?     @map("lifted_by") @db.Uuid
+  liftedAt     DateTime?   @map("lifted_at") @db.Timestamptz(6)
+  liftReason   String?     @map("lift_reason")
+  low          Beneficiary @relation("beneficiary_merge_dismissals_low_id", fields: [lowId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  high         Beneficiary @relation("beneficiary_merge_dismissals_high_id", fields: [highId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  dismissedRef User        @relation("beneficiary_merge_dismissals_dismissed_by", fields: [dismissedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  liftedRef    User?       @relation("beneficiary_merge_dismissals_lifted_by", fields: [liftedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([lowId, highId], where: raw("lifted_at IS NULL"), map: "beneficiary_merge_dismissals_active_key")
+  @@index([highId], map: "beneficiary_merge_dismissals_high_id_idx")
+  @@index([dismissedBy], map: "beneficiary_merge_dismissals_dismissed_by_idx")
+  @@index([liftedBy], map: "beneficiary_merge_dismissals_lifted_by_idx")
+  @@map("beneficiary_merge_dismissals")
 }
 
 model BeneficiaryFamilyMember {
@@ -2807,22 +2836,22 @@ model FileLink {
 }
 
 model UploadSession {
-  id                String   @id @db.Uuid
-  userId            String   @map("user_id") @db.Uuid
-  declared          Json
-  clientUuid        String   @map("client_uuid") @db.Uuid
-  bucket            String
-  objectKey         String   @map("object_key")
-  partCount         Int      @map("part_count")
-  partsReceived     Int[]    @default([]) @map("parts_received")
-  bytesReceived     BigInt   @default(0) @map("bytes_received")
-  expiresAt         DateTime @map("expires_at") @db.Timestamptz(6)
-  finalizedFileId   String?  @map("finalized_file_id") @db.Uuid
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy         String?  @map("created_by") @db.Uuid
-  user              User     @relation("upload_sessions_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  finalizedFile     File?    @relation("upload_sessions_finalized_file_id", fields: [finalizedFileId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  createdByRef      User?    @relation("upload_sessions_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  id              String   @id @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  declared        Json
+  clientUuid      String   @map("client_uuid") @db.Uuid
+  bucket          String
+  objectKey       String   @map("object_key")
+  partCount       Int      @map("part_count")
+  partsReceived   Int[]    @default([]) @map("parts_received")
+  bytesReceived   BigInt   @default(0) @map("bytes_received")
+  expiresAt       DateTime @map("expires_at") @db.Timestamptz(6)
+  finalizedFileId String?  @map("finalized_file_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy       String?  @map("created_by") @db.Uuid
+  user            User     @relation("upload_sessions_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  finalizedFile   File?    @relation("upload_sessions_finalized_file_id", fields: [finalizedFileId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef    User?    @relation("upload_sessions_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
   @@unique([userId, clientUuid], map: "upload_sessions_user_id_client_uuid_key")
   @@index([userId], map: "upload_sessions_user_id_idx")

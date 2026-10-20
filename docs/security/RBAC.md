@@ -105,7 +105,9 @@ Legend: ✓ default · G = if RPM grants · H = house construction only · W = s
 | beneficiary.view_nid, volunteer.view_sensitive | ✓ | ✓ | ✓ | — | — | — | — |
 | beneficiary.correction.request | — | ✓ | ✓ | — | — | — | — |
 | beneficiary.correction.approve | ✓ | ✓ | — | — | — | — | — |
+| beneficiary.contact.edit | ✓ | ✓ | ✓ | — | — | — | — |
 | beneficiary.merge | ✓ | propose | — | — | — | — | — |
+| beneficiary.merge.dismiss (suggested pairs, proposals, not the same person) | ✓ | ✓ | — | — | — | — | — |
 | beneficiary.consent.record / status.change | ✓ | ✓ | ✓ | — | — | — | — |
 | stock.dispatch | — | ✓ | ✓ | — | — | — | — |
 | stock.receive | — | — | — | ✓ | — | — | — |
@@ -296,9 +298,11 @@ Generated on 2026-10-18 from `permissions.yaml` (last regenerated for D-101); re
 | `beneficiary.lookup` | M05 | no | Look up a beneficiary by NID or birth-registration number for auto-fill (returns only the auto-fill fields) | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; implementer@REGION (safe_water_only); volunteer_general@PROJECT; volunteer_both@PROJECT; volunteer_team_member@PROJECT |
 | `beneficiary.correction.request` | M05 | no | Request correction of a locked beneficiary field (name, father/husband name, identity number) | regional_program_manager@REGION; project_executive@REGION |
 | `beneficiary.correction.approve` | M05 | no | Approve a profile correction request and change the locked field | program_manager@PROGRAM; regional_program_manager@REGION |
+| `beneficiary.contact.edit` | M05 | no | Edit a beneficiary's mobile and address outside an application; every change is logged with old and new value (D-115) | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION |
 | `beneficiary.merge.propose` | M05 | no | Propose a merge of two beneficiary profiles | regional_program_manager@REGION |
 | `beneficiary.merge` | M05 | no | Merge two beneficiary profiles | program_manager@PROGRAM |
-| `beneficiary.merge.revert` | M05 | no | Revert a profile merge | — |
+| `beneficiary.merge.revert` | M05 | no | Revert a profile merge (the two global roles only, D-113) | — |
+| `beneficiary.merge.dismiss` | M05 | no | See the suggested duplicate pairs and the merge proposals, and mark a pair as not the same person (or lift the mark) with reason (D-113) | regional_program_manager@REGION; program_manager@PROGRAM |
 | `beneficiary.block` | M05 | no | Put a beneficiary on the blocklist with reason | program_manager@PROGRAM; regional_program_manager@REGION |
 | `beneficiary.unblock` | M05 | no | Lift a beneficiary block with reason | program_manager@PROGRAM; regional_program_manager@REGION |
 | `beneficiary.consent.record` | M05 | no | Record or change media consent on a beneficiary profile | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION |
