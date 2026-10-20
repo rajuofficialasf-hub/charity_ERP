@@ -56,11 +56,11 @@ function resolve(doc: unknown, value: unknown, seen = new Set<string>()): unknow
 }
 
 /** Formats whose regular expression zod writes next to the format in generated schemas. */
-const ZOD_FORMATS = new Set(['uuid', 'date-time', 'email']);
+const ZOD_FORMATS = new Set(['uuid', 'date', 'date-time', 'email']);
 
 /**
  * Canonical form of a JSON Schema: descriptive keywords removed, keys and `required` sorted. On
- * the generated side only, the `pattern` zod adds to a uuid, date-time or email format is dropped
+ * the generated side only, the `pattern` zod adds to a uuid, date, date-time or email format is dropped
  * (the format implies it); a pattern in the contract is always compared.
  */
 export function canonicalSchema(schema: unknown, generated = false): unknown {

@@ -7,7 +7,7 @@
   "$defs": {
     "bilingual": {
       "type": "object", "additionalProperties": false, "required": ["bn", "en"],
-      "properties": { "bn": { "type": "string" }, "en": { "type": "string" } }
+      "properties": { "bn": { "type": "string", "maxLength": 200 }, "en": { "type": "string", "maxLength": 200 } }
     },
     "codeLabel": {
       "type": "object", "additionalProperties": false, "required": ["code", "label"],
@@ -17,13 +17,14 @@
     "application_form": {
       "type": "object", "additionalProperties": false,
       "properties": {
-        "form_ids": { "type": "array", "items": { "type": "string", "format": "uuid" } },
-        "beneficiary_class_options": { "type": "array", "items": { "$ref": "#/$defs/codeLabel" } }
+        "form_ids": { "type": "array", "maxItems": 20, "items": { "type": "string", "format": "uuid" } },
+        "beneficiary_class_options": { "type": "array", "maxItems": 30, "items": { "$ref": "#/$defs/codeLabel" } },
+        "application_kinds": { "type": "array", "maxItems": 20, "items": { "$ref": "#/$defs/codeLabel" }, "description": "application kinds of an open-application project, e.g. tree planting (BR-068)" }
       }
     },
     "public_link": {
       "type": "object", "additionalProperties": false, "required": ["enabled"],
-      "properties": { "enabled": { "type": "boolean" }, "token": { "type": "string", "minLength": 16 }, "form_ids": { "type": "array", "items": { "type": "string", "format": "uuid" } } }
+      "properties": { "enabled": { "type": "boolean" }, "token": { "type": "string", "minLength": 16, "maxLength": 128 }, "form_ids": { "type": "array", "maxItems": 20, "items": { "type": "string", "format": "uuid" } } }
     },
     "volunteer_assignment": {
       "type": "object", "additionalProperties": false,
@@ -48,15 +49,15 @@
     },
     "stages": {
       "type": "object", "additionalProperties": false, "required": ["list"],
-      "properties": { "list": { "type": "array", "minItems": 1, "items": { "type": "object", "additionalProperties": false, "required": ["key", "label"], "properties": { "key": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }, "label": { "$ref": "#/$defs/bilingual" }, "photo_required": { "type": "boolean" } } } } }
+      "properties": { "list": { "type": "array", "minItems": 1, "maxItems": 30, "items": { "type": "object", "additionalProperties": false, "required": ["key", "label"], "properties": { "key": { "type": "string", "maxLength": 64, "pattern": "^[a-z][a-z0-9_]*$" }, "label": { "$ref": "#/$defs/bilingual" }, "photo_required": { "type": "boolean" } } } } }
     },
     "issue_log": {
       "type": "object", "additionalProperties": false,
-      "properties": { "issue_types": { "type": "array", "items": { "$ref": "#/$defs/codeLabel" } } }
+      "properties": { "issue_types": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/codeLabel" } } }
     },
     "volunteer_expenses": {
       "type": "object", "additionalProperties": false,
-      "properties": { "categories": { "type": "array", "items": { "$ref": "#/$defs/codeLabel" } } }
+      "properties": { "categories": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/codeLabel" } } }
     },
     "rating_criteria": {
       "type": "object", "additionalProperties": false, "required": ["criteria"],
@@ -67,10 +68,11 @@
       "properties": {
         "criteria": {
           "type": "array",
+          "maxItems": 20,
           "items": {
             "type": "object", "additionalProperties": false, "required": ["key", "label", "max_points", "rule"],
             "properties": {
-              "key": { "type": "string" },
+              "key": { "type": "string", "maxLength": 64 },
               "label": { "$ref": "#/$defs/bilingual" },
               "max_points": { "type": "number", "minimum": 0, "maximum": 100 },
               "rule": { "type": "object", "description": "points by field value: bands for numbers, points per option code, or a not_previously_assisted flag" }
@@ -81,7 +83,7 @@
     },
     "follow_up": {
       "type": "object", "additionalProperties": false,
-      "properties": { "questions": { "type": "array", "items": { "$ref": "#/$defs/codeLabel" } } }
+      "properties": { "questions": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/codeLabel" } } }
     },
     "dawah": {
       "type": "object", "additionalProperties": false,

@@ -71,7 +71,7 @@ Legend: ✓ default · G = if RPM grants · H = house construction only · W = s
 | Permission | PM | RPM | Executive | Volunteer (General/Both) | Team Member | Local দায়ী | Paid Vol. |
 |---|---|---|---|---|---|---|---|
 | project.create, project.configure, project.activate, project.quota.manage, project.template.manage, fund_source.manage | ✓ | — | — | — | — | — | — |
-| project.deadline.extend / close / reopen | ✓ | — | — | — | — | — | — |
+| project.deadline.extend / close / reopen / cancel | ✓ | — | — | — | — | — | — |
 | project.area.assign | ✓ | — | — | — | — | — | — |
 | form.build / publish / public_link.manage | ✓ | — | — | — | — | — | — |
 | project.staff_access.manage | ✓ | ✓ | — | — | — | — | — |
@@ -248,7 +248,7 @@ As built in T1.8 (Express, ADR-014; the decorator names below are the design's, 
 5. **Stock reconciliation** (`stock.reconcile`) entered by the volunteer and verified by RPM/Executive, both under the same permission name with different scopes. Confirmed (O-26).
 6. **`beneficiary.merge`** at PROGRAM for the PM (BD-05 names PM, Monitoring Team, Department Head); RPM proposes only. Confirmed (O-26).
 
-## 12. Permission catalogue (generated from permissions.yaml, 141 permissions)
+## 12. Permission catalogue (generated from permissions.yaml, 143 permissions)
 
 Generated on 2026-10-10 by the T0.10 check script from `permissions.yaml`; regenerate whenever the YAML changes (T1.8 adds this to CI). Department Head and Monitoring Team hold every permission at GLOBAL and are not repeated per row.
 
@@ -298,13 +298,15 @@ Generated on 2026-10-10 by the T0.10 check script from `permissions.yaml`; regen
 | `beneficiary.status.change` | M05 | no | Change a beneficiary profile status (active, deceased, relocated) with reason | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION |
 | `program.create` | M06 | no | Create a program | none (global roles only) |
 | `program.assign_pm` | M06 | no | Assign the Program Manager of a program | none (global roles only) |
+| `program.update` | M06 | no | Rename a program, deactivate it and activate it again | none (global roles only) |
 | `program.view` | M06 | no | View the program list and program details | program_manager@PROGRAM; regional_program_manager@PROGRAM; project_executive@PROGRAM; official_daee@PROGRAM; implementer@PROGRAM; finance_team@GLOBAL; media_team@GLOBAL |
-| `project.create` | M06 | no | Create a project in own program (from template or copy) | program_manager@PROGRAM |
+| `project.create` | M06 | no | Create a project in own program (from a workflow; from a template or a copy with T1.12) | program_manager@PROGRAM |
 | `project.configure` | M06 | no | Configure components, form, budget, deadlines, rules, syllabus, rating criteria, photo rule, limits, stages, settings | program_manager@PROGRAM |
 | `project.activate` | M06 | no | Move a project from Draft to Active | program_manager@PROGRAM |
 | `project.deadline.extend` | M06 | no | Extend the application deadline with reason | program_manager@PROGRAM |
 | `project.close` | M06 | no | Move a project to Closing and to Closed | program_manager@PROGRAM |
-| `project.reopen` | M06 | no | Reopen a closed project with reason | program_manager@PROGRAM |
+| `project.reopen` | M06 | no | Reopen a closing or closed project with reason | program_manager@PROGRAM |
+| `project.cancel` | M06 | no | Cancel a draft project that was never activated, with reason | program_manager@PROGRAM |
 | `project.area.assign` | M06 | no | Assign areas and RPMs; split districts among RPMs | program_manager@PROGRAM |
 | `project.template.manage` | M06 | no | Create and edit master project templates; save a project as template | program_manager@PROGRAM |
 | `project.quota.manage` | M06 | no | Set district and union quotas and scoring criteria | program_manager@PROGRAM |

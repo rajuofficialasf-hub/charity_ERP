@@ -23,7 +23,8 @@ export interface OperationSpec {
   idempotency: 'none' | 'clientUuid' | 'header';
   rateLimit: RateLimitClass;
   sensitiveFields?: string[];
-  workflow?: string;
+  /** The transition an action endpoint performs (`x-workflow`). */
+  workflow?: { scope: string; action: string };
   /** A pending account may call this operation (AUTH.md 7). */
   allowPending?: boolean;
   /**

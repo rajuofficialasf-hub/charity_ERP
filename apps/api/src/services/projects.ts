@@ -1,0 +1,491 @@
+import { uuidv7, workflowDefinitionSchema } from '@css/shared';
+import {
+  BUDGET_LIMIT_PAISA,
+  type CodeLabel,
+  editableIn,
+  plannedBudgetPaisa,
+  type ProjectCreate,
+  type ProjectFilter,
+  type ProjectStatus,
+  type ProjectUpdate,
+  type SetupField,
+  startingComponents,
+  sumPaisa,
+  transitionFor,
+  type WorkflowKey,
+} from '@css/shared/projects';
+import type { AccessService } from '../access/service';
+import { programWhere, projectWhere, type Scope } from '../access/scope';
+import type { AuditWriter } from '../audit/audit-writer';
+import type { Principal } from '../auth/principal';
+import type { Clock } from '../core/clock';
+import { assertIfMatch } from '../core/etag';
+import {
+  buildPage,
+  decodeCursor,
+  keysetWhere,
+  orderBy,
+  type PageQuery,
+  parseSort,
+} from '../core/pagination';
+import type { PrismaService, Tx } from '../core/prisma.service';
+import type { Env } from '../config/env';
+import { Prisma } from '../generated/prisma/client';
+import { ApiError } from '../i18n/api-error';
+
+/** Newest first by id (UUID v7 follows the time of creation and pages without gaps). */
+const SORT = parseSort(undefined, ['id'], [{ field: 'id', direction: 'desc' }]);
+
+const SELECT = {
+  id: true,
+  programId: true,
+  code: true,
+  year: true,
+  nameBn: true,
+  nameEn: true,
+  description: true,
+  status: true,
+  workflowVersion: true,
+  applyFrom: true,
+  applyTo: true,
+  perVolunteerLimit: true,
+  costPerBeneficiary: true,
+  targetBeneficiaries: true,
+  budgetPlanned: true,
+  dawahEnabled: true,
+  activatedAt: true,
+  closedAt: true,
+  cancelledAt: true,
+  updatedAt: true,
+  workflowDefinition: { select: { key: true } },
+} satisfies Prisma.ProjectSelect;
+
+type Row = Prisma.ProjectGetPayload<{ select: typeof SELECT }>;
+
+/** The caller of a project route: who it is and what its route scope reaches. */
+export interface ProjectViewer {
+  principal: Principal;
+  scope: Scope;
+}
+
+const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
+const money = (d: Prisma.Decimal | null) => (d === null ? null : d.toFixed(2));
+const toDate = (s: string | null | undefined) =>
+  s === undefined ? undefined : s === null ? null : new Date(`${s}T00:00:00Z`);
+
+/**
+ * What a project shows. A volunteer gets only the work facts of an active project it is on: never
+ * the budget, the program, or anything the officials keep (fund sources, staff and areas have their
+ * own official-only routes).
+ */
+function view(p: Row, forVolunteer: boolean) {
+  const work = {
+    id: p.id,
+    code: p.code,
+    year: p.year,
+    name: { bn: p.nameBn, en: p.nameEn },
+    status: p.status as ProjectStatus,
+    workflowKey: p.workflowDefinition.key,
+    applyFrom: day(p.applyFrom),
+    applyTo: day(p.applyTo),
+    perVolunteerLimit: p.perVolunteerLimit,
+    dawahEnabled: p.dawahEnabled,
+  };
+  if (forVolunteer) return work;
+  return {
+    ...work,
+    programId: p.programId,
+    description: p.description,
+    workflowVersion: p.workflowVersion,
+    costPerBeneficiary: money(p.costPerBeneficiary),
+    targetBeneficiaries: p.targetBeneficiaries,
+    budgetPlanned: money(p.budgetPlanned),
+    activatedAt: p.activatedAt?.toISOString() ?? null,
+    closedAt: p.closedAt?.toISOString() ?? null,
+    cancelledAt: p.cancelledAt?.toISOString() ?? null,
+  };
+}
+
+/** Fields the activation check needs, which an activated project cannot lose again. */
+const REQUIRED_ONCE_ACTIVE: readonly (keyof ProjectUpdate)[] = [
+  'applyFrom',
+  'perVolunteerLimit',
+  'costPerBeneficiary',
+  'targetBeneficiaries',
+];
+
+const isUniqueViolation = (error: unknown) =>
+  error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+
+/** The request fields as the setup fields `editableIn` knows. */
+const FIELDS: Record<keyof ProjectUpdate, SetupField> = {
+  name: 'name',
+  description: 'description',
+  programId: 'programId',
+  year: 'year',
+  workflowKey: 'workflowKey',
+  applyFrom: 'applyFrom',
+  applyTo: 'applyTo',
+  perVolunteerLimit: 'perVolunteerLimit',
+  costPerBeneficiary: 'costPerBeneficiary',
+  targetBeneficiaries: 'targetBeneficiaries',
+};
+
+/** Whether a request value equals the current one (money compared to the paisa). */
+function sameValue(key: keyof ProjectUpdate, value: unknown, current: unknown): boolean {
+  if (key === 'costPerBeneficiary' && typeof value === 'string' && typeof current === 'string')
+    return plannedBudgetPaisa(value, 1) === plannedBudgetPaisa(current, 1);
+  return JSON.stringify(value) === JSON.stringify(current);
+}
+
+/**
+ * Projects (docs/MASTER_SPEC.md, A6; DECISION_LOG D-095): a PM creates a draft from a workflow in
+ * its program; the setup changes as the project's state allows; a draft that was never activated
+ * can be cancelled. Every write locks the project (or, on creation, the program) and is audited in
+ * its transaction.
+ */
+export class ProjectsService {
+  constructor(
+    private readonly env: Env,
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditWriter,
+    private readonly access: AccessService,
+    private readonly clock: Clock,
+  ) {}
+
+  /** The projects a caller reaches; a volunteer only the active ones it is on. */
+  private where(viewer: ProjectViewer): Prisma.ProjectWhereInput {
+    const reach = projectWhere(viewer.scope);
+    return viewer.principal.kind === 'volunteer' ? { AND: [reach, { status: 'active' }] } : reach;
+  }
+
+  async list(query: ProjectFilter & PageQuery, viewer: ProjectViewer) {
+    const binding = `projects.list|${viewer.principal.userId}`;
+    const cursor = query.cursor
+      ? decodeCursor(this.env.CURSOR_SECRET, binding, query.cursor)
+      : undefined;
+    const direction = cursor?.d ?? 'next';
+    const filter: Prisma.ProjectWhereInput = {
+      AND: [
+        this.where(viewer),
+        // a cancelled draft leaves the lists unless asked for
+        { status: query.status ?? { not: 'cancelled' } },
+        query.programId ? { programId: query.programId } : {},
+        query.year ? { year: query.year } : {},
+      ],
+    };
+    const [fetched, total] = await Promise.all([
+      this.prisma.project.findMany({
+        where: cursor ? { AND: [filter, keysetWhere(SORT, cursor)] } : filter,
+        orderBy: orderBy(SORT, direction),
+        take: query.limit + 1,
+        select: SELECT,
+      }),
+      query.include === 'total' ? this.prisma.project.count({ where: filter }) : undefined,
+    ]);
+    const { rows, meta } = buildPage(fetched, {
+      limit: query.limit,
+      sort: SORT,
+      direction,
+      hadCursor: Boolean(cursor),
+      secret: this.env.CURSOR_SECRET,
+      binding,
+      total,
+    });
+    const forVolunteer = viewer.principal.kind === 'volunteer';
+    return { rows: rows.map((p) => view(p, forVolunteer)), meta };
+  }
+
+  async get(viewer: ProjectViewer, projectId: string) {
+    const row = await this.prisma.project.findFirst({
+      where: { AND: [{ id: projectId }, this.where(viewer)] },
+      select: SELECT,
+    });
+    if (!row) throw new ApiError('permission.not_found', 404);
+    return { project: view(row, viewer.principal.kind === 'volunteer'), updatedAt: row.updatedAt };
+  }
+
+  async create(viewer: ProjectViewer, body: ProjectCreate) {
+    const actor = viewer.principal.userId;
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        // the program row is locked, so a deactivation running at the same moment waits
+        await this.lockedProgram(tx, viewer, body.programId);
+        if (await tx.project.findUnique({ where: { code: body.code }, select: { id: true } }))
+          throw new ApiError('project.code_taken', 409);
+        const workflow = await this.workflow(tx, body.source.workflowKey);
+        const id = uuidv7();
+        const components = await this.components(tx, body.source.workflowKey, workflow.definition);
+        const row = await tx.project.create({
+          select: SELECT,
+          data: {
+            id,
+            programId: body.programId,
+            code: body.code,
+            year: body.year,
+            nameBn: body.name.bn,
+            nameEn: body.name.en,
+            description: body.description ?? null,
+            status: 'draft',
+            workflowDefinitionId: workflow.id,
+            workflowVersion: workflow.version,
+            dawahEnabled: components.some((c) => c.componentKey === 'dawah' && c.enabled),
+            createdBy: actor,
+            updatedBy: actor,
+          },
+        });
+        await tx.projectComponent.createMany({
+          data: components.map((c) => ({
+            id: uuidv7(),
+            projectId: id,
+            componentKey: c.componentKey,
+            enabled: c.enabled,
+            settings: c.settings as Prisma.InputJsonValue,
+            createdBy: actor,
+            updatedBy: actor,
+          })),
+        });
+        // the application numbers of this project count from here
+        await tx.idSequence.create({ data: { scopeKey: `app:${id}`, lastValue: 0 } });
+        await this.audit.record(tx, {
+          action: 'project.create',
+          entityType: 'project',
+          entityId: id,
+          new: { ...view(row, false), source: body.source },
+        });
+        return { project: view(row, false), updatedAt: row.updatedAt };
+      });
+    } catch (error) {
+      // two creations with one code at the same moment: the unique index decides
+      if (isUniqueViolation(error)) throw new ApiError('project.code_taken', 409);
+      throw error;
+    }
+  }
+
+  async update(
+    viewer: ProjectViewer,
+    projectId: string,
+    body: ProjectUpdate,
+    ifMatch: string | undefined,
+  ) {
+    const actor = viewer.principal.userId;
+    return this.prisma.$transaction(async (tx) => {
+      const before = await this.locked(tx, viewer, projectId);
+      assertIfMatch(ifMatch, before.updatedAt);
+      const status = before.status as ProjectStatus;
+      const current = view(before, false) as Record<string, unknown>;
+      // a field sent with its current value changes nothing, so a whole form may be sent back
+      const changing = (Object.keys(body) as (keyof ProjectUpdate)[]).filter(
+        // eslint-disable-next-line security/detect-object-injection -- keys of the strict body schema
+        (key) => !sameValue(key, body[key], current[key]),
+      );
+      for (const key of changing)
+        // eslint-disable-next-line security/detect-object-injection -- key is a field of the strict body schema
+        if (!editableIn(status, FIELDS[key])) throw new ApiError('project.read_only', 409);
+      if (status !== 'draft')
+        for (const key of REQUIRED_ONCE_ACTIVE)
+          // eslint-disable-next-line security/detect-object-injection -- a fixed list of body fields
+          if (body[key] === null) throw new ApiError('validation.required', 422);
+      const cost =
+        body.costPerBeneficiary === undefined
+          ? money(before.costPerBeneficiary)
+          : body.costPerBeneficiary;
+      const target =
+        body.targetBeneficiaries === undefined
+          ? before.targetBeneficiaries
+          : body.targetBeneficiaries;
+      if (changing.includes('costPerBeneficiary') || changing.includes('targetBeneficiaries'))
+        await this.checkBudget(tx, projectId, status, cost, target);
+      if (body.programId && body.programId !== before.programId)
+        await this.lockedProgram(tx, viewer, body.programId);
+      const from = body.applyFrom === undefined ? day(before.applyFrom) : body.applyFrom;
+      const to = body.applyTo === undefined ? day(before.applyTo) : body.applyTo;
+      if (from && to && from > to) throw new ApiError('validation.out_of_range', 422);
+      let workflow: { id: string; version: number; dawahEnabled: boolean } | undefined;
+      if (body.workflowKey && body.workflowKey !== before.workflowDefinition.key) {
+        // a draft that changes its workflow starts again from that workflow's components
+        const next = await this.workflow(tx, body.workflowKey);
+        const components = await this.components(tx, body.workflowKey, next.definition);
+        workflow = {
+          ...next,
+          dawahEnabled: components.some((c) => c.componentKey === 'dawah' && c.enabled),
+        };
+        for (const c of components)
+          await tx.projectComponent.update({
+            where: {
+              projectId_componentKey: { projectId, componentKey: c.componentKey },
+            },
+            data: {
+              enabled: c.enabled,
+              settings: c.settings as Prisma.InputJsonValue,
+              updatedBy: actor,
+            },
+          });
+      }
+      const row = await tx.project.update({
+        where: { id: projectId },
+        select: SELECT,
+        data: {
+          nameBn: body.name?.bn,
+          nameEn: body.name?.en,
+          description: body.description,
+          programId: body.programId,
+          year: body.year,
+          workflowDefinitionId: workflow?.id,
+          workflowVersion: workflow?.version,
+          dawahEnabled: workflow?.dawahEnabled,
+          applyFrom: toDate(body.applyFrom),
+          applyTo: toDate(body.applyTo),
+          perVolunteerLimit: body.perVolunteerLimit,
+          costPerBeneficiary: body.costPerBeneficiary,
+          targetBeneficiaries: body.targetBeneficiaries,
+          updatedBy: actor,
+        },
+      });
+      const old = current;
+      const now = view(row, false) as Record<string, unknown>;
+      // only what changed goes into the audit entry
+      const changed = Object.keys(now).filter(
+        // eslint-disable-next-line security/detect-object-injection -- keys of the view object
+        (k) => JSON.stringify(old[k]) !== JSON.stringify(now[k]),
+      );
+      await this.audit.record(tx, {
+        action: 'project.configure',
+        entityType: 'project',
+        entityId: projectId,
+        // eslint-disable-next-line security/detect-object-injection -- keys of the view object
+        old: Object.fromEntries(changed.map((k) => [k, old[k]])) as Prisma.InputJsonValue,
+        // eslint-disable-next-line security/detect-object-injection -- keys of the view object
+        new: Object.fromEntries(changed.map((k) => [k, now[k]])) as Prisma.InputJsonValue,
+      });
+      return { project: view(row, false), updatedAt: row.updatedAt };
+    });
+  }
+
+  /**
+   * Refuses a planned budget the column cannot hold and, once the project is active, one its fund
+   * sources no longer add up to: an active project's budget changes together with its fund sources
+   * (DECISION_LOG D-095). Pass the fund sources about to be saved, or leave them out to use the
+   * stored ones.
+   */
+  async checkBudget(
+    tx: Tx,
+    projectId: string,
+    status: ProjectStatus,
+    cost: string | null,
+    target: number | null,
+    fundSources?: readonly string[],
+  ): Promise<void> {
+    const planned = plannedBudgetPaisa(cost, target);
+    if (planned !== null && planned >= BUDGET_LIMIT_PAISA)
+      throw new ApiError('validation.out_of_range', 422);
+    if (status === 'draft') return;
+    const amounts =
+      fundSources ??
+      (await tx.fundSource.findMany({ where: { projectId }, select: { amount: true } })).map((f) =>
+        f.amount.toFixed(2),
+      );
+    if (amounts.length === 0 || planned === null || sumPaisa(amounts) !== planned)
+      throw new ApiError('project.budget_mismatch', 422);
+  }
+
+  /** A draft that was never activated is cancelled with a reason; it keeps its row and code. */
+  async cancel(viewer: ProjectViewer, projectId: string, reason: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const before = await this.locked(tx, viewer, projectId);
+      if (!transitionFor('cancel', before.status as ProjectStatus))
+        throw new ApiError('workflow.transition_not_allowed', 409);
+      const row = await tx.project.update({
+        where: { id: projectId },
+        select: SELECT,
+        data: {
+          status: 'cancelled',
+          cancelledAt: this.clock.now(),
+          cancelledBy: viewer.principal.userId,
+          updatedBy: viewer.principal.userId,
+        },
+      });
+      await this.audit.record(tx, {
+        action: 'project.cancel',
+        entityType: 'project',
+        entityId: projectId,
+        old: { status: before.status },
+        new: { status: 'cancelled' },
+        reason,
+      });
+      return { project: view(row, false), updatedAt: row.updatedAt };
+    });
+  }
+
+  /**
+   * Writes a lifecycle change of a locked project and returns the project as an official sees it.
+   * The caller has checked the move and audits it in the same transaction.
+   */
+  async writeState(tx: Tx, projectId: string, data: Prisma.ProjectUncheckedUpdateInput) {
+    const row = await tx.project.update({ where: { id: projectId }, select: SELECT, data });
+    return { project: view(row, false), updatedAt: row.updatedAt };
+  }
+
+  /** The project inside the caller's scope (404 outside), with its row locked for the write. */
+  async locked(tx: Tx, viewer: ProjectViewer, projectId: string): Promise<Row> {
+    await tx.$queryRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
+    const row = await tx.project.findFirst({
+      where: { AND: [{ id: projectId }, this.where(viewer)] },
+      select: SELECT,
+    });
+    if (!row) throw new ApiError('permission.not_found', 404);
+    return row;
+  }
+
+  /**
+   * A program the caller may put a project in: inside its scope (403 otherwise, the program comes
+   * from the body) and active (409). The row is locked against a deactivation at the same moment.
+   */
+  private async lockedProgram(tx: Tx, viewer: ProjectViewer, programId: string): Promise<void> {
+    await tx.$queryRaw`SELECT id FROM programs WHERE id = ${programId}::uuid FOR UPDATE`;
+    const program = await tx.program.findFirst({
+      where: { AND: [{ id: programId }, programWhere(viewer.scope)] },
+      select: { active: true },
+    });
+    if (!program) {
+      this.access.denied(viewer.principal.userId, viewer.scope.permission, viewer.scope.entity);
+      throw new ApiError('permission.denied', 403);
+    }
+    if (!program.active) throw new ApiError('program.inactive', 409);
+  }
+
+  /** The newest seeded definition of a workflow (422 when it is not seeded). */
+  private async workflow(tx: Tx, key: WorkflowKey) {
+    const row = await tx.workflowDefinition.findFirst({
+      where: { key },
+      orderBy: { version: 'desc' },
+      select: { id: true, version: true, definition: true },
+    });
+    if (!row) throw new ApiError('validation.option_unknown', 422);
+    return { ...row, definition: workflowDefinitionSchema.parse(row.definition) };
+  }
+
+  /** The starting components of a workflow, with the list defaults from the reference lists. */
+  private async components(
+    tx: Tx,
+    key: WorkflowKey,
+    definition: ReturnType<typeof workflowDefinitionSchema.parse>,
+  ) {
+    const lists = await tx.referenceList.findMany({
+      where: {
+        listKey: { in: ['beneficiary_class_default', 'application_kind_default'] },
+        active: true,
+      },
+      orderBy: { sortOrder: 'asc' },
+      select: { listKey: true, code: true, labelBn: true, labelEn: true },
+    });
+    const of = (listKey: string): CodeLabel[] =>
+      lists
+        .filter((l) => l.listKey === listKey)
+        .map((l) => ({ code: l.code, label: { bn: l.labelBn, en: l.labelEn } }));
+    return startingComponents(key, definition, {
+      beneficiaryClasses: of('beneficiary_class_default'),
+      applicationKinds: of('application_kind_default'),
+    });
+  }
+}

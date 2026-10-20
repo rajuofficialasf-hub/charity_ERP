@@ -166,6 +166,21 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | registration | registration.request_open | 409 | an edit request for a field that already has an open one (D-085) |
 | handover | handover.target_invalid | 422 | the receiving user is not an active official with a fitting role, or is the person handed over (BR-034) |
 | handover | handover.items_outstanding | 409 | completion while items are still unassigned (BR-034) |
+| program | program.code_taken | 409 | a program code already in use (T1.11) |
+| program | program.inactive | 409 | a new project, or a project moved, into an inactive program (BR-256) |
+| program | program.has_open_projects | 409 | deactivation of a program with a draft, active or closing project (BR-256) |
+| program | program.pm_role_required | 422 | the assigned PM does not hold the Program Manager role |
+| project | project.code_taken | 409 | a project code already in use (O-03) |
+| project | project.read_only | 409 | a setup change the project's state does not allow: identity or window while active, anything while closing, closed or cancelled (BR-257) |
+| project | project.deadline_not_later | 409 | a deadline extension to a date not after the current end date (BR-058) |
+| project | project.rpm_role_required | 422 | an area's RPM does not hold the RPM role (BR-060) |
+| project | project.staff_role_required | 422 | staff access for someone who is not a Project Executive, Official দায়ী or Implementer (D-095) |
+| project | project.area_exists | 409 | the same area with the same RPM is already on the project (BR-060) |
+| project | project.staff_exists | 409 | the person already has an active access on the project |
+| project | project.budget_mismatch | 422 | an active project whose fund sources would no longer add up to its planned budget; budget and fund sources change together (D-095) |
+| project | project.fund_source_in_use | 409 | removal of a fund source that budget ledger entries already use |
+| project | project.area_in_use | 409 | removal of an area whose location still carries active staff access and no other RPM covers it |
+| project | project.topic_in_use | 409 | removal of a syllabus topic that classes or progress entries already use |
 | business | beneficiary.identity_missing | 422 | neither NID nor birth registration (BR-001) |
 | business | beneficiary.mobile_is_volunteer_mobile | 422 | BD-03 / BR-008 (also raised by the database trigger, DATABASE_SCHEMA §18) |
 | business | beneficiary.blocked | 422 | blocked beneficiary cannot apply (BR-010) |

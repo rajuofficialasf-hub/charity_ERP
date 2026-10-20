@@ -1,8 +1,10 @@
 import type { IconComponent } from '@css/ui';
 import {
   ArrowRightLeft,
+  FolderKanban,
   HandHeart,
   KeyRound,
+  Layers,
   LayoutDashboard,
   UserCheck,
   Users,
@@ -11,6 +13,8 @@ import {
   BENEFICIARY_TAB_ROLES,
   HANDOVER_ROLES,
   PERMISSION_PANEL_ROLES,
+  PROGRAM_ROLES,
+  PROJECT_ROLES,
   EDIT_REQUEST_ROLES,
   STAFF_APPROVER_ROLES,
   VOLUNTEER_TAB_ROLES,
@@ -18,7 +22,15 @@ import {
 
 /** One destination of the admin sidebar; the label is a key of the `admin.nav` messages. */
 export interface AdminNavItem {
-  key: 'dashboard' | 'volunteers' | 'beneficiaries' | 'registrations' | 'handover' | 'permissions';
+  key:
+    | 'dashboard'
+    | 'projects'
+    | 'programs'
+    | 'volunteers'
+    | 'beneficiaries'
+    | 'registrations'
+    | 'handover'
+    | 'permissions';
   href: string;
   icon: IconComponent;
   /** Only these roles see the item (the server checks the permission anyway); all when absent. */
@@ -28,6 +40,8 @@ export interface AdminNavItem {
 /** Admin destinations in sidebar order; T1.13 (settings, audit log) and T3.3/T6.1 add theirs. */
 export const ADMIN_NAV: readonly AdminNavItem[] = [
   { key: 'dashboard', href: '/admin', icon: LayoutDashboard },
+  { key: 'projects', href: '/admin/projects', icon: FolderKanban, roles: PROJECT_ROLES },
+  { key: 'programs', href: '/admin/programs', icon: Layers, roles: PROGRAM_ROLES },
   { key: 'volunteers', href: '/admin/volunteers', icon: Users, roles: VOLUNTEER_TAB_ROLES },
   {
     key: 'beneficiaries',

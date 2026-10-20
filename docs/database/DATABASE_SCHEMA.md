@@ -80,7 +80,7 @@ Technical table added in T0.16 for O-03 (ERD.md §20).
 | L-channel-otp | sms, email | otp_codes.channel |
 | L-location-level | division, district, upazila, union | locations.level |
 | L-location-kind | division, district, upazila, city_corporation, union, pourosova, thana | locations.kind (D-061; city_corporation at upazila level, pourosova and thana at union level) |
-| L-project-status | draft, active, closing, closed | projects.status |
+| L-project-status | draft, active, closing, closed, cancelled (a never-activated draft, BR-255) | projects.status |
 | L-quota-level | district, union | project_quotas.level |
 | L-fund-source | zakat, sadaqah, general, donor | fund_sources.source |
 | L-form-version-status | draft, published, retired | form_versions.status |
@@ -158,7 +158,7 @@ Enforcement pattern: the referencing column `x_code text` plus a stored generate
 
 Beneficiary class options (BD-14; defaults from `reference_lists` `beneficiary_class_default`), expense categories (O-14), issue types, outcome labels, stage keys, application statuses beyond the common ones, follow-up questions. They are copied into a project with its template and can be edited per project (BR-065, BR-079), so a database FK to one global list would be wrong. Columns store the code (`class_code`, `category_code`, `type_code`, `stage`, `outcome`), and the service validates them against `projects.workflow_snapshot` and `project_components.settings` on every write; reports join labels from the same snapshot.
 
-`reference_lists` also holds the **defaults** for these lists (`beneficiary_class_default`, `expense_category_default`, `issue_type_default`) used when a template is created. Seed values (T1.3): beneficiary classes of BD-14, expense categories of O-14, issue types of O-53.
+`reference_lists` also holds the **defaults** for these lists (`beneficiary_class_default`, `expense_category_default`, `issue_type_default`, `application_kind_default`) used when a template or a project is created. Seed values (T1.3): beneficiary classes of BD-14, expense categories of O-14, issue types of O-53; the application kinds of open-application projects (educational institution, personal garden; T1.11, D-095).
 
 ## 6. Identity and access
 
@@ -402,6 +402,8 @@ Constraints: UNIQUE (list_key, code).
 | copied_from_project_id | uuid | yes | — | FK projects |
 | activated_at, closed_at | timestamptz | yes | — | — |
 | closed_by | uuid | yes | — | FK users |
+| cancelled_at | timestamptz | yes | — | set when a draft is cancelled (BR-255; T1.11) |
+| cancelled_by | uuid | yes | — | FK users; indexed |
 | [A] | | | | |
 
 Indexes: (program_id, year); (status).

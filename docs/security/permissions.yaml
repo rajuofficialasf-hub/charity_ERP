@@ -487,6 +487,11 @@ permissions:
     module: M06
     sensitive: false
     default: []
+  - name: program.update
+    description: Rename a program, deactivate it and activate it again
+    module: M06
+    sensitive: false
+    default: []
   - name: program.view
     description: View the program list and program details
     module: M06
@@ -500,7 +505,7 @@ permissions:
       - { role: finance_team, scope: GLOBAL }
       - { role: media_team, scope: GLOBAL }
   - name: project.create
-    description: Create a project in own program (from template or copy)
+    description: Create a project in own program (from a workflow; from a template or a copy with T1.12)
     module: M06
     sensitive: false
     default:
@@ -530,7 +535,13 @@ permissions:
     default:
       - { role: program_manager, scope: PROGRAM }
   - name: project.reopen
-    description: Reopen a closed project with reason
+    description: Reopen a closing or closed project with reason
+    module: M06
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+  - name: project.cancel
+    description: Cancel a draft project that was never activated, with reason
     module: M06
     sensitive: false
     default:

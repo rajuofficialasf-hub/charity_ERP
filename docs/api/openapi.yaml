@@ -1650,21 +1650,39 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
 
     # ---------------- programs and projects ----------------
+    BoundedLabel:
+      type: object
+      description: A bilingual configuration label of at most 200 characters per language
+      additionalProperties: false
+      required: [bn, en]
+      properties:
+        bn: { type: string, maxLength: 200 }
+        en: { type: string, maxLength: 200 }
     ProgramCreate:
       type: object
+      additionalProperties: false
       required: [code, name]
       properties:
         code: { type: string, pattern: '^[A-Z]{2,12}$' }
-        name: { $ref: '#/components/schemas/Bilingual' }
-        pmUserId: { $ref: '#/components/schemas/Uuid' }
+        name: { $ref: '#/components/schemas/BoundedLabel' }
+        pmUserId: { type: string, format: uuid }
+    ProgramUpdate:
+      type: object
+      description: At least one of name and active
+      additionalProperties: false
+      properties:
+        name: { $ref: '#/components/schemas/BoundedLabel' }
+        active: { type: boolean }
     Program:
-      allOf:
-        - $ref: '#/components/schemas/ProgramCreate'
-        - type: object
-          required: [id, active]
-          properties:
-            id: { $ref: '#/components/schemas/Uuid' }
-            active: { type: boolean }
+      type: object
+      required: [id, code, name, pmUserId, pmName, active]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        code: { type: string }
+        name: { $ref: '#/components/schemas/Bilingual' }
+        pmUserId: { type: [string, 'null'], format: uuid }
+        pmName: { type: [string, 'null'] }
+        active: { type: boolean }
     ProgramResponse:
       type: object
       required: [data, meta]
@@ -1679,62 +1697,99 @@ components:
         meta: { $ref: '#/components/schemas/ListMeta' }
     ProjectCreate:
       type: object
+      additionalProperties: false
       required: [programId, code, year, name, source]
       properties:
-        programId: { $ref: '#/components/schemas/Uuid' }
+        programId: { type: string, format: uuid }
         code: { type: string, pattern: '^[A-Z]{2,8}$', description: Unique project code (O-03) }
         year: { type: integer, minimum: 2020, maximum: 2100 }
-        name: { $ref: '#/components/schemas/Bilingual' }
-        description: { type: string }
+        name: { $ref: '#/components/schemas/BoundedLabel' }
+        description: { type: string, maxLength: 2000 }
         source:
           type: object
-          required: [kind]
+          description: The way the project is made; template and copy come with T1.12
+          additionalProperties: false
+          required: [kind, workflowKey]
           properties:
-            kind: { type: string, enum: [template, copy] }
-            templateId: { $ref: '#/components/schemas/Uuid' }
-            projectId: { $ref: '#/components/schemas/Uuid' }
+            kind: { type: string, const: workflow }
+            workflowKey:
+              type: string
+              enum:
+                [
+                  distribution,
+                  construction,
+                  advance_voucher,
+                  implementation_evidence,
+                  open_application_visit,
+                  qurbani,
+                ]
     ProjectUpdate:
       type: object
-      description: Draft-time setup fields (A6); after activation only the deadline action changes dates
+      description: Setup fields of the project row; at least one. Which may change depends on the project state.
+      additionalProperties: false
       properties:
-        name: { $ref: '#/components/schemas/Bilingual' }
-        description: { type: string }
-        applyFrom: { type: string, format: date }
-        applyTo: { type: string, format: date }
-        perVolunteerLimit: { type: integer, minimum: 1 }
-        costPerBeneficiary: { $ref: '#/components/schemas/Money' }
-        targetBeneficiaries: { type: integer, minimum: 0 }
-        dawahEnabled: { type: boolean }
-        rules:
-          type: object
-          description: Four bilingual texts (A6 rules and consent)
-          properties:
-            volunteerDuties: { $ref: '#/components/schemas/Bilingual' }
-            implementation: { $ref: '#/components/schemas/Bilingual' }
-            daeeDuties: { $ref: '#/components/schemas/Bilingual' }
-            measures: { $ref: '#/components/schemas/Bilingual' }
+        name: { $ref: '#/components/schemas/BoundedLabel' }
+        description:
+          anyOf:
+            - { type: string, maxLength: 2000 }
+            - { type: 'null' }
+        programId: { type: string, format: uuid }
+        year: { type: integer, minimum: 2020, maximum: 2100 }
+        workflowKey:
+          type: string
+          enum:
+            [
+              distribution,
+              construction,
+              advance_voucher,
+              implementation_evidence,
+              open_application_visit,
+              qurbani,
+            ]
+        applyFrom:
+          anyOf:
+            - { type: string, format: date }
+            - { type: 'null' }
+        applyTo:
+          anyOf:
+            - { type: string, format: date }
+            - { type: 'null' }
+        perVolunteerLimit:
+          anyOf:
+            - { type: integer, minimum: 1, maximum: 100000 }
+            - { type: 'null' }
+        costPerBeneficiary:
+          anyOf:
+            - { type: string, pattern: '^\d{1,12}(\.\d{1,2})?$' }
+            - { type: 'null' }
+        targetBeneficiaries:
+          anyOf:
+            - { type: integer, minimum: 1, maximum: 10000000 }
+            - { type: 'null' }
     Project:
       type: object
-      required: [id, programId, code, year, name, status, workflowKey]
+      description: The official view; a volunteer receives only id, code, year, name, status, workflowKey, the window, the limit and dawahEnabled
+      required: [id, code, year, name, status, workflowKey, applyFrom, applyTo, perVolunteerLimit, dawahEnabled]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
-        programId: { $ref: '#/components/schemas/Uuid' }
         code: { type: string }
         year: { type: integer }
         name: { $ref: '#/components/schemas/Bilingual' }
-        description: { type: [string, 'null'] }
-        status: { type: string, enum: [draft, active, closing, closed] }
+        status: { type: string, enum: [draft, active, closing, closed, cancelled] }
         workflowKey: { type: string }
-        workflowVersion: { type: integer }
         applyFrom: { type: [string, 'null'], format: date }
         applyTo: { type: [string, 'null'], format: date }
         perVolunteerLimit: { type: [integer, 'null'] }
-        costPerBeneficiary: { $ref: '#/components/schemas/Money' }
-        targetBeneficiaries: { type: [integer, 'null'] }
-        budgetPlanned: { $ref: '#/components/schemas/Money' }
         dawahEnabled: { type: boolean }
+        programId: { $ref: '#/components/schemas/Uuid' }
+        description: { type: [string, 'null'] }
+        workflowVersion: { type: integer }
+        costPerBeneficiary: { type: [string, 'null'] }
+        targetBeneficiaries: { type: [integer, 'null'] }
+        budgetPlanned: { type: [string, 'null'] }
         activatedAt: { type: [string, 'null'], format: date-time }
         closedAt: { type: [string, 'null'], format: date-time }
+        cancelledAt: { type: [string, 'null'], format: date-time }
     ProjectResponse:
       type: object
       required: [data, meta]
@@ -1747,18 +1802,29 @@ components:
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/Project' } }
         meta: { $ref: '#/components/schemas/ListMeta' }
-    ProjectActionRequest:
+    ExtendDeadlineRequest:
       type: object
+      additionalProperties: false
+      required: [newApplyTo, reason]
       properties:
-        reason: { type: string, minLength: 3, description: Required for reopen and extend_deadline }
-        newApplyTo: { type: string, format: date, description: extend_deadline only }
+        newApplyTo: { type: string, format: date }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
     Component:
       type: object
-      required: [componentKey, enabled, settings]
+      description: A volunteer receives only the enabled components, with the settings of the photo rule only
+      required: [componentKey, enabled]
       properties:
         componentKey: { type: string }
         enabled: { type: boolean }
         settings: { $ref: '../database/json-schemas/project-component-settings.schema.json' }
+        etag: { type: string, description: "The component's own version, for If-Match" }
+    ComponentPatch:
+      type: object
+      description: At least one of enabled and settings; settings are checked against the component's schema
+      additionalProperties: false
+      properties:
+        enabled: { type: boolean }
+        settings: { type: object, additionalProperties: {}, propertyNames: { type: string } }
     ComponentResponse:
       type: object
       required: [data, meta]
@@ -1770,51 +1836,101 @@ components:
       required: [data, meta]
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/Component' } }
-        meta: { $ref: '#/components/schemas/ListMeta' }
+        meta: { $ref: '#/components/schemas/Meta' }
     Area:
       type: object
-      required: [id, locationId, rpmUserId]
+      required: [id, locationId, level, locationName, rpmUserId, rpmName]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         locationId: { $ref: '#/components/schemas/Uuid' }
+        level: { type: string, enum: [division, district] }
+        locationName: { $ref: '#/components/schemas/Bilingual' }
         rpmUserId: { $ref: '#/components/schemas/Uuid' }
+        rpmName: { type: string }
     AreaCreate:
       type: object
+      additionalProperties: false
       required: [locationId, rpmUserId]
       properties:
-        locationId: { $ref: '#/components/schemas/Uuid' }
-        rpmUserId: { $ref: '#/components/schemas/Uuid' }
+        locationId: { type: string, format: uuid }
+        rpmUserId: { type: string, format: uuid }
     AreaList:
       type: object
       required: [data, meta]
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/Area' } }
-        meta: { $ref: '#/components/schemas/ListMeta' }
+        meta: { $ref: '#/components/schemas/Meta' }
     StaffAssignmentCreate:
       type: object
+      additionalProperties: false
       required: [userId, roleKey]
       properties:
-        userId: { $ref: '#/components/schemas/Uuid' }
-        roleKey: { type: string }
-        areaLocationId: { $ref: '#/components/schemas/Uuid' }
+        userId: { type: string, format: uuid }
+        roleKey: { type: string, enum: [project_executive, official_daee, implementer] }
+        areaLocationId: { type: string, format: uuid }
         canView: { type: boolean, default: true }
         canEdit: { type: boolean, default: false }
         canDelete: { type: boolean, default: false }
     StaffAssignment:
-      allOf:
-        - $ref: '#/components/schemas/StaffAssignmentCreate'
-        - type: object
-          required: [id]
-          properties:
-            id: { $ref: '#/components/schemas/Uuid' }
-            extraPermissions: { type: array, items: { type: string } }
-            endedAt: { type: [string, 'null'], format: date-time }
+      type: object
+      required: [id, userId, displayName, roleKey, areaLocationId, canView, canEdit, canDelete, extraPermissions, endedAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        userId: { $ref: '#/components/schemas/Uuid' }
+        displayName: { type: string }
+        roleKey: { type: string }
+        areaLocationId: { type: [string, 'null'], format: uuid }
+        canView: { type: boolean }
+        canEdit: { type: boolean }
+        canDelete: { type: boolean }
+        extraPermissions: { type: array, items: { type: string } }
+        endedAt: { type: [string, 'null'], format: date-time }
+    Candidate:
+      type: object
+      required: [id, displayName, designation]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        displayName: { type: string }
+        designation: { type: [string, 'null'] }
+    CandidateList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/Candidate' } }
+        meta: { $ref: '#/components/schemas/Meta' }
     StaffAssignmentList:
       type: object
       required: [data, meta]
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/StaffAssignment' } }
-        meta: { $ref: '#/components/schemas/ListMeta' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    SyllabusTopic:
+      type: object
+      required: [id, title]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        title: { $ref: '#/components/schemas/Bilingual' }
+    SyllabusList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/SyllabusTopic' } }
+        meta: { $ref: '#/components/schemas/Meta' }
+    SyllabusReplace:
+      type: object
+      additionalProperties: false
+      required: [topics]
+      properties:
+        topics:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            required: [title]
+            properties:
+              id: { type: string, format: uuid }
+              title: { $ref: '#/components/schemas/BoundedLabel' }
     Quota:
       type: object
       required: [level, locationId, target]
@@ -1837,22 +1953,36 @@ components:
         quotas: { type: array, items: { $ref: '#/components/schemas/Quota' } }
     FundSource:
       type: object
-      required: [source, amount]
+      required: [source, label, amount]
       properties:
         source: { type: string, enum: [zakat, sadaqah, general, donor] }
-        label: { type: string }
+        label: { type: [string, 'null'], description: The donor's name for a specific donor }
         amount: { $ref: '#/components/schemas/Money' }
     FundSourceReplace:
       type: object
+      additionalProperties: false
       required: [fundSources]
       properties:
-        fundSources: { type: array, items: { $ref: '#/components/schemas/FundSource' } }
+        costPerBeneficiary: { type: string, pattern: '^\d{1,12}(\.\d{1,2})?$' }
+        targetBeneficiaries: { type: integer, minimum: 1, maximum: 10000000 }
+        fundSources:
+          type: array
+          maxItems: 10
+          items:
+            type: object
+            description: A specific donor (source donor) needs its label
+            additionalProperties: false
+            required: [source, amount]
+            properties:
+              source: { type: string, enum: [zakat, sadaqah, general, donor] }
+              label: { type: string, minLength: 1, maxLength: 200 }
+              amount: { type: string, pattern: '^\d{1,12}(\.\d{1,2})?$' }
     FundSourceList:
       type: object
       required: [data, meta]
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/FundSource' } }
-        meta: { $ref: '#/components/schemas/ListMeta' }
+        meta: { $ref: '#/components/schemas/Meta' }
     Template:
       type: object
       required: [id, key, version, name, projectType]
@@ -4402,7 +4532,7 @@ paths:
     get:
       tags: [programs]
       operationId: programs.program.list
-      summary: Programs (officials only); not paginated
+      summary: Programs in the caller scope (officials only); not paginated
       x-permission: program.view
       x-scope: program
       x-audit: none
@@ -4414,6 +4544,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProgramList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
     post:
       tags: [programs]
@@ -4435,6 +4566,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProgramResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /programs/{programId}:
@@ -4455,14 +4588,47 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProgramResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [programs]
+      operationId: programs.program.update
+      summary: Rename a program, deactivate it or activate it again (never deleted)
+      description: >-
+        Deactivation is refused with 409 program.has_open_projects while the program has a draft,
+        active or closing project (BR-256); a deactivated program takes no new project.
+      x-permission: program.update
+      x-scope: global
+      x-audit: program.update
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProgramUpdate' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProgramResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /programs/{programId}/pm:
     parameters:
       - $ref: '#/components/parameters/ProgramId'
     post:
       tags: [programs]
       operationId: programs.program.assignPm
-      summary: Assign the Program Manager
+      summary: Assign the Program Manager (an active official holding the PM role)
       x-permission: program.assign_pm
       x-scope: global
       x-audit: program.assign_pm
@@ -4474,6 +4640,7 @@ paths:
           application/json:
             schema:
               type: object
+              additionalProperties: false
               required: [pmUserId]
               properties:
                 pmUserId: { type: string, format: uuid }
@@ -4483,7 +4650,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProgramResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
 
   # ======================= projects =======================
   /projects:
@@ -4491,6 +4662,9 @@ paths:
       tags: [projects]
       operationId: projects.project.list
       summary: Projects within scope (volunteers see only active projects they are assigned to)
+      description: >-
+        Cancelled projects are left out unless `status=cancelled` asks for them. A volunteer gets
+        only the work facts of a project (no program, budget or dates of the lifecycle).
       x-permission: project.view
       x-scope: project
       x-audit: none
@@ -4505,21 +4679,27 @@ paths:
           schema: { type: string, format: uuid }
         - name: year
           in: query
-          schema: { type: integer }
+          schema: { type: integer, minimum: 2020, maximum: 2100 }
         - name: status
           in: query
-          schema: { type: string }
+          schema: { type: string, enum: [draft, active, closing, closed, cancelled] }
       responses:
         '200':
           description: Projects
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProjectList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
     post:
       tags: [projects]
       operationId: projects.project.create
-      summary: Create a draft project from a master template or by copying a project (BD-10)
+      summary: Create a draft project from a workflow in a program of the caller
+      description: >-
+        The project starts with the components and settings of its workflow (D-095). The program
+        must be in the caller's scope (403) and active (409 program.inactive); a taken code answers
+        409 project.code_taken. A master template and a copy of a project come with T1.12.
       x-permission: project.create
       x-scope: program
       x-audit: project.create
@@ -4536,6 +4716,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProjectResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}:
@@ -4558,11 +4740,18 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProjectResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       tags: [projects]
       operationId: projects.project.update
-      summary: Update setup fields while draft (A6)
+      summary: Update setup fields as the project state allows
+      description: >-
+        A draft changes every field; an active project everything but its code, program, year and
+        workflow, and its end date only through extend-deadline; closing, closed and cancelled
+        projects are read-only (409 project.read_only, BR-257). Moving a draft to another program
+        needs project.configure there and an active program.
       x-permission: project.configure
       x-scope: project
       x-audit: project.configure
@@ -4581,9 +4770,39 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProjectResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /projects/{projectId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    post:
+      tags: [projects]
+      operationId: projects.project.cancel
+      summary: Cancel a draft that was never activated, with a reason (BR-255)
+      x-permission: project.cancel
+      x-scope: project
+      x-audit: project.cancel
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReasonRequest' }
+      responses:
+        '200':
+          description: Cancelled
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}/activate:
     parameters:
@@ -4591,7 +4810,12 @@ paths:
     post:
       tags: [projects]
       operationId: projects.project.activate
-      summary: Activate a draft project (guard project.setup_complete; snapshots the workflow)
+      summary: Activate a complete draft (guard project.setup_complete; snapshots the workflow)
+      description: >-
+        An incomplete draft answers 409 workflow.guard.project_setup_complete with the missing
+        items in details (BR-258). On success the workflow definition is stored as the
+        project's workflow snapshot, so later workflow versions never change a running project.
+        A draft of an inactive program answers 409 program.inactive.
       x-permission: project.activate
       x-scope: project
       x-audit: project.activate
@@ -4606,16 +4830,54 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProjectResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
+  /projects/{projectId}/start-closing:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    post:
+      tags: [projects]
+      operationId: projects.project.startClosing
+      summary: Move an active project to closing with a reason (no new applications)
+      x-permission: project.close
+      x-scope: project
+      x-audit: project.closing
+      x-idempotency: none
+      x-rate-limit: default
+      x-workflow: { scope: project, action: start_closing }
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReasonRequest' }
+      responses:
+        '200':
+          description: Closing
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}/close:
     parameters:
       - $ref: '#/components/parameters/ProjectId'
     post:
       tags: [projects]
       operationId: projects.project.close
-      summary: Move to Closing, then to Closed (guards from the template's project_close_guards)
+      summary: Close a closing project with a reason, once the workflow's close guards pass
+      description: >-
+        The guards come from the snapshot's project_close_guards. Guards of modules not built
+        yet (stock.balanced, animal_photos.complete) pass; any other unknown guard fails the close
+        with 409 workflow.guard.template_project_close_guards (D-095).
       x-permission: project.close
       x-scope: project
       x-audit: project.close
@@ -4624,22 +4886,32 @@ paths:
       x-workflow: { scope: project, action: close }
       parameters:
         - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReasonRequest' }
       responses:
         '200':
-          description: Closing or closed
+          description: Closed
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProjectResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}/reopen:
     parameters:
       - $ref: '#/components/parameters/ProjectId'
     post:
       tags: [projects]
       operationId: projects.project.reopen
-      summary: Reopen a closed project with a reason (BD-20)
+      summary: Reopen a closing or closed project with a reason (BD-20)
+      description: >-
+        A project of an inactive program is not reopened (409 program.inactive).
       x-permission: project.reopen
       x-scope: project
       x-audit: project.reopen
@@ -4659,16 +4931,22 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProjectResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}/extend-deadline:
     parameters:
       - $ref: '#/components/parameters/ProjectId'
     post:
       tags: [projects]
       operationId: projects.project.extendDeadline
-      summary: Extend the application deadline with a reason (BD-16)
+      summary: Extend the application deadline of an active project with a reason (BD-16)
+      description: >-
+        Only while active (409 workflow.transition_not_allowed otherwise); the new end date must be
+        after the current one (409 project.deadline_not_later).
       x-permission: project.deadline.extend
       x-scope: project
       x-audit: project.deadline_extend
@@ -4680,14 +4958,17 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/ProjectActionRequest' }
+            schema: { $ref: '#/components/schemas/ExtendDeadlineRequest' }
       responses:
         '200':
           description: Extended
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProjectResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}/components:
@@ -4696,7 +4977,7 @@ paths:
     get:
       tags: [projects]
       operationId: projects.component.list
-      summary: Project components and settings; not paginated
+      summary: Project components and settings (a volunteer gets the enabled ones and the photo rule)
       x-permission: project.view
       x-scope: project
       x-audit: none
@@ -4704,10 +4985,12 @@ paths:
       x-rate-limit: default
       responses:
         '200':
-          description: Components
+          description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ComponentList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
   /projects/{projectId}/components/{componentKey}:
     parameters:
@@ -4716,7 +4999,9 @@ paths:
     patch:
       tags: [projects]
       operationId: projects.component.update
-      summary: Enable, disable or configure a component (BD-09)
+      summary: Switch a component on or off and replace its settings (checked against its JSON Schema; BD-09)
+      description: >-
+        If-Match carries the component's own etag from the list. Settings that fail the component's schema answer 422 with the field paths; a closing, closed or cancelled project answers 409 project.read_only.
       x-permission: project.configure
       x-scope: project
       x-audit: project.component_change
@@ -4728,23 +5013,26 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/Component' }
+            schema: { $ref: '#/components/schemas/ComponentPatch' }
       responses:
         '200':
-          description: Updated
+          description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ComponentResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
-        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
   /projects/{projectId}/areas:
     parameters:
       - $ref: '#/components/parameters/ProjectId'
     get:
       tags: [projects]
       operationId: projects.area.list
-      summary: Project areas and their RPMs; not paginated
+      summary: Project areas and their RPMs (officials only); not paginated
       x-permission: project.view
       x-scope: project
       x-audit: none
@@ -4752,15 +5040,17 @@ paths:
       x-rate-limit: default
       responses:
         '200':
-          description: Areas
+          description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AreaList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     post:
       tags: [projects]
       operationId: projects.area.add
-      summary: Add an area with its RPM, or a district split (Q-08)
+      summary: Add a division or a district with its RPM (a district split among RPMs, Q-08)
       x-permission: project.area.assign
       x-scope: project
       x-audit: project.area_assign
@@ -4773,19 +5063,44 @@ paths:
             schema: { $ref: '#/components/schemas/AreaCreate' }
       responses:
         '201':
-          description: Added
+          description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AreaList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /project-areas/{areaId}/remove:
+    parameters:
+      - name: areaId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [projects]
+      operationId: projects.area.remove
+      summary: Remove an area and its RPM from the project (an active project keeps one)
+      x-permission: project.area.assign
+      x-scope: project
+      x-audit: project.area_assign
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}/staff:
     parameters:
       - $ref: '#/components/parameters/ProjectId'
     get:
       tags: [projects]
       operationId: projects.staff.list
-      summary: Staff on the project with their access; not paginated
+      summary: Staff on the project with their access (officials only); not paginated
       x-permission: project.view
       x-scope: project
       x-audit: none
@@ -4793,15 +5108,19 @@ paths:
       x-rate-limit: default
       responses:
         '200':
-          description: Staff
+          description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/StaffAssignmentList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     post:
       tags: [projects]
       operationId: projects.staff.add
-      summary: Give a staff member view, edit or delete access on the project
+      summary: Give a field official view, edit or delete access on the project
+      description: >-
+        Only a Project Executive, Official দায়ী or Implementer (422 project.staff_role_required). An RPM gives view and edit in its own areas of the project only; delete access only the PM (D-095).
       x-permission: project.staff_access.manage
       x-scope: project
       x-audit: permission_change
@@ -4814,19 +5133,59 @@ paths:
             schema: { $ref: '#/components/schemas/StaffAssignmentCreate' }
       responses:
         '201':
-          description: Added
+          description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/StaffAssignmentList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /projects/{projectId}/candidates:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [projects]
+      operationId: projects.candidate.list
+      summary: Officials with a role, by name, to assign to the project (an RPM or field staff)
+      description: >-
+        Active officials holding the role whose name contains q (at least 2 characters), at most 20,
+        names and designations only. The RPM of an area is looked up by the PM and the global roles
+        only (403 otherwise); a field role also by an RPM of the project.
+      x-permission: project.staff_access.manage
+      x-scope: project
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - name: role
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [regional_program_manager, project_executive, official_daee, implementer]
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 2, maxLength: 100 }
+      responses:
+        '200':
+          description: Candidates
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CandidateList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /project-staff/{assignmentId}/end:
     parameters:
       - $ref: '#/components/parameters/AssignmentId'
     post:
       tags: [projects]
       operationId: projects.staff.end
-      summary: End a staff member's project access
+      summary: End a staff member's project access, with a reason (an RPM only in its own areas)
       x-permission: project.staff_access.manage
       x-scope: project
       x-audit: permission_change
@@ -4839,7 +5198,11 @@ paths:
             schema: { $ref: '#/components/schemas/ReasonRequest' }
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}/grants:
     parameters:
       - $ref: '#/components/parameters/ProjectId'
@@ -4914,7 +5277,7 @@ paths:
     get:
       tags: [projects]
       operationId: projects.fundSource.list
-      summary: Fund-source tags of the budget (BD-30); not paginated
+      summary: Fund-source tags of the budget (BD-30; the program's PM and the global roles only); not paginated
       x-permission: project.view
       x-scope: project
       x-audit: none
@@ -4922,15 +5285,22 @@ paths:
       x-rate-limit: default
       responses:
         '200':
-          description: Fund sources
+          description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/FundSourceList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       tags: [projects]
       operationId: projects.fundSource.replace
-      summary: Replace the fund-source tags
+      summary: Replace the fund-source tags with their amounts, and the budget when it changes with them
+      description: >-
+        Once a project is active its fund sources always add up to its planned budget (cost per
+        beneficiary × target), so a budget change comes with its fund sources in this one request;
+        otherwise 422 project.budget_mismatch (D-095). A draft may save them apart. A fund source
+        that budget entries already use cannot be removed (409 project.fund_source_in_use).
       x-permission: fund_source.manage
       x-scope: project
       x-audit: project.fund_source_change
@@ -4943,11 +5313,60 @@ paths:
             schema: { $ref: '#/components/schemas/FundSourceReplace' }
       responses:
         '200':
-          description: Fund sources
+          description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/FundSourceList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /projects/{projectId}/syllabus:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [projects]
+      operationId: projects.syllabus.list
+      summary: The dawah syllabus topics in order
+      x-permission: project.view
+      x-scope: project
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SyllabusList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [projects]
+      operationId: projects.syllabus.replace
+      summary: Replace the dawah syllabus topics in their order (a topic sent with its id keeps it)
+      x-permission: project.configure
+      x-scope: project
+      x-audit: project.configure
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SyllabusReplace' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SyllabusList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}/save-as-template:
     parameters:

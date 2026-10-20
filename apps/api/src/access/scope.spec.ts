@@ -7,6 +7,7 @@ import {
   holdsPermission,
   makeScope,
   NO_INSTANCES,
+  programWhere,
   projectWhere,
   type ScopeInstances,
   userWhere,
@@ -132,6 +133,27 @@ describe('the user filter', () => {
     };
     expect(v.OR).toHaveLength(1);
     expect(JSON.stringify(v.OR[0])).toContain('volunteersUser');
+  });
+});
+
+describe('the program filter', () => {
+  const where = (i: Partial<ScopeInstances>) =>
+    programWhere(makeScope('actor', 'program.view', 'program', { ...NO_INSTANCES, ...i }));
+
+  it('reaches every program at GLOBAL and none without an instance', () => {
+    expect(where({ global: true })).toEqual({});
+    expect(where({})).toEqual({ id: { in: [] } });
+  });
+
+  it('reaches the own programs and the programs of the projects reached', () => {
+    expect(where({ programIds: [P1] })).toEqual({ OR: [{ id: { in: [P1] } }] });
+    const w = where({ projectIds: [P2], areas: [{ projectId: P1, locationId: DHAKA }] }) as {
+      OR: { projectsProgram: { some: unknown } }[];
+    };
+    expect(w.OR).toHaveLength(1);
+    expect(w.OR[0]!.projectsProgram.some).toEqual({
+      OR: [{ id: { in: [P2] } }, { id: P1 }],
+    });
   });
 });
 

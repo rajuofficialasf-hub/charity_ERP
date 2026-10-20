@@ -87,6 +87,7 @@ model User {
   programsCreatedBy                    Program[]                  @relation("programs_created_by")
   programsUpdatedBy                    Program[]                  @relation("programs_updated_by")
   projectsClosedBy                     Project[]                  @relation("projects_closed_by")
+  projectsCancelledBy                  Project[]                  @relation("projects_cancelled_by")
   projectsCreatedBy                    Project[]                  @relation("projects_created_by")
   projectsUpdatedBy                    Project[]                  @relation("projects_updated_by")
   projectComponentsCreatedBy           ProjectComponent[]         @relation("project_components_created_by")
@@ -658,6 +659,8 @@ model Project {
   activatedAt                   DateTime?            @map("activated_at") @db.Timestamptz(6)
   closedAt                      DateTime?            @map("closed_at") @db.Timestamptz(6)
   closedBy                      String?              @map("closed_by") @db.Uuid
+  cancelledAt                   DateTime?            @map("cancelled_at") @db.Timestamptz(6)
+  cancelledBy                   String?              @map("cancelled_by") @db.Uuid
   createdAt                     DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy                     String?              @map("created_by") @db.Uuid
   updatedAt                     DateTime             @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -667,6 +670,7 @@ model Project {
   sourceTemplate                ProjectTemplate?     @relation("projects_source_template_id", fields: [sourceTemplateId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   copiedFromProject             Project?             @relation("projects_copied_from_project_id", fields: [copiedFromProjectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   closedByRef                   User?                @relation("projects_closed_by", fields: [closedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  cancelledByRef                User?                @relation("projects_cancelled_by", fields: [cancelledBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   createdByRef                  User?                @relation("projects_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   updatedByRef                  User?                @relation("projects_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   projectsCopiedFromProject     Project[]            @relation("projects_copied_from_project_id")
@@ -710,6 +714,7 @@ model Project {
   @@index([sourceTemplateId], map: "projects_source_template_id_idx")
   @@index([copiedFromProjectId], map: "projects_copied_from_project_id_idx")
   @@index([closedBy], map: "projects_closed_by_idx")
+  @@index([cancelledBy], map: "projects_cancelled_by_idx")
   @@index([createdBy], map: "projects_created_by_idx")
   @@index([updatedBy], map: "projects_updated_by_idx")
   @@map("projects")

@@ -35,6 +35,10 @@ import { VolunteersService } from './services/volunteers';
 import { VolunteerListService } from './services/volunteer-list';
 import { VolunteerProfileService } from './services/volunteer-profile';
 import { BeneficiariesService } from './services/beneficiaries';
+import { ProgramsService } from './services/programs';
+import { ProjectsService } from './services/projects';
+import { ProjectLifecycleService } from './services/project-lifecycle';
+import { ProjectSetupService } from './services/project-setup';
 import { RegistrationsService } from './services/registrations';
 import { ChangeRequestsService } from './services/change-requests';
 import { BlocklistService } from './services/blocklist';
@@ -85,6 +89,10 @@ export interface Container {
   volunteerList: VolunteerListService;
   volunteerProfile: VolunteerProfileService;
   beneficiaries: BeneficiariesService;
+  programs: ProgramsService;
+  projects: ProjectsService;
+  projectSetup: ProjectSetupService;
+  projectLifecycle: ProjectLifecycleService;
   registrations: RegistrationsService;
   changeRequests: ChangeRequestsService;
   blocklist: BlocklistService;
@@ -145,6 +153,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const accessRegistry = o.accessRegistry ?? loadAccessRegistry(env.PERMISSIONS_FILE);
   assertConditionsCovered(accessRegistry);
   const access = o.access ?? new AccessService(accessRegistry, prisma, clock, logger);
+  const projects = o.projects ?? new ProjectsService(env, prisma, audit, access, clock);
   const registrationEvents = o.registrationEvents ?? new LoggingRegistrationEvents(logger);
   const registration =
     o.registration ??
@@ -188,6 +197,13 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     volunteerList: o.volunteerList ?? new VolunteerListService(env, prisma, access),
     volunteerProfile: o.volunteerProfile ?? new VolunteerProfileService(prisma, access),
     beneficiaries: o.beneficiaries ?? new BeneficiariesService(env, prisma, clock, access),
+    programs: o.programs ?? new ProgramsService(prisma, audit),
+    projects,
+    projectSetup:
+      o.projectSetup ??
+      new ProjectSetupService(prisma, audit, access, projects, permissionVersions),
+    projectLifecycle:
+      o.projectLifecycle ?? new ProjectLifecycleService(prisma, audit, projects, clock),
     registrations:
       o.registrations ??
       new RegistrationsService(

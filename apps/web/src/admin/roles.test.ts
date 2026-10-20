@@ -2,13 +2,17 @@ import { describe, expect, it } from 'vitest';
 import {
   canApproveStaff,
   canBlock,
+  canCreateProjects,
   canDecideEdits,
   canHandOver,
   canApproveRegistrations,
   canManagePermissions,
+  canManagePrograms,
   canOpenAdmin,
   canSeeBeneficiaries,
   canSeeCategories,
+  canSeePrograms,
+  canSeeProjects,
   canSeeVolunteers,
 } from './roles';
 
@@ -65,5 +69,21 @@ describe('admin role lists', () => {
     expect(canBlock(as('program_manager'))).toBe(true);
     expect(canBlock(as('regional_program_manager'))).toBe(true);
     expect(canBlock(as('project_executive'))).toBe(false);
+  });
+
+  it('gives the programs to the PM read-only and their changes to the global roles', () => {
+    expect(canSeePrograms(as('program_manager'))).toBe(true);
+    expect(canManagePrograms(as('program_manager'))).toBe(false);
+    expect(canSeePrograms(as('regional_program_manager'))).toBe(false);
+    for (const role of ['department_head', 'monitoring_team'])
+      expect(canManagePrograms(as(role)), role).toBe(true);
+  });
+
+  it('shows projects to the field management and lets the PM and the global roles create them', () => {
+    for (const role of ['regional_program_manager', 'project_executive', 'program_manager'])
+      expect(canSeeProjects(as(role)), role).toBe(true);
+    expect(canSeeProjects(as('official_daee'))).toBe(false);
+    expect(canCreateProjects(as('program_manager'))).toBe(true);
+    expect(canCreateProjects(as('regional_program_manager'))).toBe(false);
   });
 });

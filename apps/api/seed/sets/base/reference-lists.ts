@@ -69,6 +69,10 @@ export const REFERENCE_LISTS: Record<string, Entry[]> = {
     ['extreme_poor', 'অতিদরিদ্র', 'Extremely poor'],
     ['other', 'অন্যান্য', 'Other'],
   ],
+  application_kind_default: [
+    ['educational_institution', 'শিক্ষাপ্রতিষ্ঠান', 'Educational institution'],
+    ['personal_garden', 'ব্যক্তিগত বাগান', 'Personal garden'],
+  ],
   expense_category_default: [
     ['decoration', 'সাজসজ্জা', 'Decoration'],
     ['vehicle_hire', 'গাড়ি ভাড়া', 'Vehicle hire'],

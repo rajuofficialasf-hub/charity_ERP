@@ -7,7 +7,9 @@
     "beneficiaries": "Beneficiaries",
     "permissions": "Permissions",
     "registrations": "Registrations",
-    "handover": "Handover"
+    "handover": "Handover",
+    "projects": "Projects",
+    "programs": "Programs"
   },
   "bar": {
     "label": "Admin",
@@ -380,6 +382,319 @@
       "exams": "Exams passed {passed} of {total}",
       "calls": "Calls",
       "evaluations": "Follow-up evaluations"
+    }
+  },
+  "programs": {
+    "title": "Programs",
+    "table": "Programs",
+    "new": "New program",
+    "edit": "Edit {name}",
+    "empty": "No program yet.",
+    "no_pm": "No PM yet",
+    "column": {
+      "code": "Code",
+      "name": "Name",
+      "pm": "Program Manager",
+      "state": "State"
+    },
+    "state": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "notice": {
+      "created": "Program {code} was created.",
+      "saved": "Program {code} was saved."
+    },
+    "dialog": {
+      "create_title": "New program",
+      "edit_title": "Edit program {code}",
+      "code": "Program code",
+      "code_hint": "2 to 12 capital English letters, e.g. HUM.",
+      "code_invalid": "Use 2 to 12 capital English letters (A-Z).",
+      "name_bn": "Name in Bangla",
+      "name_en": "Name in English",
+      "pm": "Program Manager",
+      "pm_hint": "Search by name; only a Program Manager can be chosen.",
+      "active": "Active (takes new projects)"
+    }
+  },
+  "projects": {
+    "title": "Projects",
+    "table": "Projects",
+    "new": "New project",
+    "empty": "No project matches these filters.",
+    "column": {
+      "code": "Code",
+      "name": "Name",
+      "program": "Program",
+      "year": "Year",
+      "status": "State"
+    },
+    "chips": {
+      "all": "All"
+    },
+    "status": {
+      "draft": "Draft",
+      "active": "Active",
+      "closing": "Closing",
+      "closed": "Closed",
+      "cancelled": "Cancelled"
+    },
+    "filter": {
+      "program": "Program",
+      "year": "Year"
+    },
+    "workflow": {
+      "distribution": "Distribution",
+      "construction": "Construction",
+      "advance_voucher": "Advance + construction + voucher",
+      "implementation_evidence": "Implementation + evidence + follow-up",
+      "open_application_visit": "Open application + visit",
+      "qurbani": "Beneficiary + donor + animal (Qurbani)"
+    },
+    "dialog": {
+      "title": "New project",
+      "code": "Project code",
+      "code_hint": "2 to 8 capital English letters; application ids start with it, e.g. WC.",
+      "code_invalid": "Use 2 to 8 capital English letters (A-Z).",
+      "name_bn": "Name in Bangla",
+      "name_en": "Name in English",
+      "year": "Year",
+      "program": "Program",
+      "workflow": "Workflow",
+      "workflow_hint": "The project starts with this workflow’s components; you can change them in the setup.",
+      "submit": "Create draft"
+    },
+    "detail": {
+      "back": "All projects",
+      "setup": "Setup",
+      "not_found": "This project was not found.",
+      "facts": "Project facts",
+      "window": "Application window",
+      "budget": "Planned budget",
+      "activated": "Activated",
+      "closed": "Closed",
+      "none": "Not set"
+    },
+    "picker": "Project",
+    "picker_option": "{name} {year} ({code})",
+    "component": {
+      "application_form": "Application form",
+      "public_link": "Public link",
+      "volunteer_assignment": "Volunteer assignment and limits",
+      "dispatch_receive": "Dispatch and receive",
+      "distribution": "Distribution and photos",
+      "site_verification": "Site verification",
+      "stages": "Stage progress",
+      "issue_log": "Issue log",
+      "dawah": "Dawah classes",
+      "exams": "Exams",
+      "beneficiary_payment": "Beneficiary payment",
+      "materials_placard": "Materials and placard photo",
+      "vouchers": "Vouchers",
+      "volunteer_expenses": "Volunteer expenses",
+      "donors_animals": "Donors and animals",
+      "follow_up": "Follow-up",
+      "rating_criteria": "Rating criteria",
+      "document_checklist": "Document checklist"
+    },
+    "setup": {
+      "title": "Setup: {name}",
+      "back": "Back to the project",
+      "index": "Setup sections",
+      "section": {
+        "basics": "Basic information",
+        "components": "Components",
+        "budget": "Budget and fund sources",
+        "window": "Application window and limit",
+        "areas": "Areas and RPMs",
+        "staff": "Staff access",
+        "syllabus": "Dawah syllabus",
+        "review": "Review"
+      },
+      "saved": "Saved.",
+      "stale": "Someone changed this part meanwhile. The latest version is shown now; save again.",
+      "read_only": "The project is {status}; its setup cannot change.",
+      "phone_limits": "On a phone only the name, the dates and the switches can change. Use a computer for the rest.",
+      "locked": "Cannot change in this state",
+      "workflow_change": "Changing the workflow starts the components again from that workflow.",
+      "description": "Description",
+      "apply_from": "Applications from",
+      "apply_to": "Applications until",
+      "apply_to_active": "An active project extends its end date on the project page, with a reason.",
+      "window_order": "The end date must not be before the start date.",
+      "limit": "Applications per volunteer",
+      "limit_hint": "A whole number of at least 1.",
+      "cost": "Cost per beneficiary",
+      "target": "Target beneficiaries",
+      "planned": "Planned budget: {amount}",
+      "fund_sources": "Fund sources",
+      "fund_source": "Fund source",
+      "donor_name": "Donor name",
+      "amount": "Amount",
+      "add_source": "Add a fund source",
+      "remove_source": "Remove fund source {number}",
+      "fund_total": "Fund sources in total: {amount}",
+      "fund_mismatch": "The fund sources do not add up to the planned budget. An active project saves only when they do.",
+      "source": {
+        "zakat": "Zakat",
+        "sadaqah": "Sadaqah",
+        "general": "General donation",
+        "donor": "Specific donor"
+      },
+      "no_areas": "No area yet.",
+      "level": {
+        "division": "Division",
+        "district": "District"
+      },
+      "remove_area": "Remove the area {name}",
+      "add_area": "Add an area",
+      "rpm": "RPM",
+      "rpm_hint": "Search by name; only a Regional Program Manager can be chosen.",
+      "no_staff": "No staff access yet.",
+      "whole_project": "Whole project",
+      "access": {
+        "view": "View",
+        "edit": "Edit",
+        "delete": "Delete"
+      },
+      "end_access": "End the access of {name}",
+      "end": "End access",
+      "reason": "Reason",
+      "add_staff": "Give access",
+      "person": "Official",
+      "staff_role": "Role",
+      "staff_area": "Area",
+      "staff_area_hint": "Leave empty for the whole project.",
+      "role": {
+        "project_executive": "Project Executive",
+        "official_daee": "Official দায়ী",
+        "implementer": "Implementer"
+      },
+      "components_hint": "{on} components are on. Only what is on comes into the project.",
+      "settings_of": "Settings of {name}",
+      "no_topics": "No topic yet.",
+      "topic_bn": "Topic {number} in Bangla",
+      "topic_en": "Topic {number} in English",
+      "topic_up": "Move topic {number} up",
+      "topic_down": "Move topic {number} down",
+      "topic_remove": "Remove topic {number}",
+      "add_topic": "Add a topic",
+      "summary": "Summary",
+      "summary_active": "The project has been activated.",
+      "ready": "Everything needed for activation is here.",
+      "missing_title": "Still needed before activation ({count}):",
+      "missing": {
+        "name": "Name in both languages",
+        "year": "Year",
+        "workflow": "Workflow",
+        "window": "Application window (start before end)",
+        "limit": "Applications per volunteer",
+        "cost": "Cost per beneficiary",
+        "target": "Target beneficiaries",
+        "fund_sources": "A fund source",
+        "fund_sources_total": "Fund sources equal to the planned budget",
+        "area": "An area with its RPM",
+        "photo_rule": "Photo rule",
+        "component": "Settings of {name}"
+      },
+      "drawer": {
+        "title": "Settings: {name}",
+        "stale": "Someone changed this component meanwhile. Close and open it again.",
+        "field_error": "Not accepted: {field}",
+        "photo_rule": "Photo rule",
+        "rule": {
+          "group": "Group photo only",
+          "individual": "One photo per beneficiary",
+          "both": "Both",
+          "per_application_type": "By application type"
+        },
+        "photo_kind": {
+          "distribution_proof": "Distribution proof",
+          "construction_proof": "Construction proof",
+          "evidence": "Evidence",
+          "voucher": "Voucher",
+          "payment_copy": "Payment copy"
+        },
+        "source": {
+          "camera_only": "Camera only",
+          "camera_or_gallery": "Camera or gallery"
+        },
+        "list": {
+          "beneficiary_class_options": "Beneficiary types",
+          "application_kinds": "Application kinds",
+          "criteria": "Rating criteria",
+          "issue_types": "Issue types",
+          "categories": "Expense categories",
+          "questions": "Follow-up questions",
+          "stages": "Stages"
+        },
+        "label_bn": "Item {number} in Bangla",
+        "label_en": "Item {number} in English",
+        "in_use": "In use",
+        "remove": "Remove item {number}",
+        "add": "Add (at most {max})",
+        "photo_required": "Photo required",
+        "up": "Move item {number} up",
+        "down": "Move item {number} down",
+        "flag": {
+          "enabled": "The public link is open",
+          "team_members_allowed": "Team members allowed",
+          "family_attendance": "Classes for the whole family",
+          "gender_split": "Split by gender",
+          "dedup_identical": "Warn on identical photos"
+        }
+      }
+    },
+    "picker_failed": "The projects could not be loaded.",
+    "picker_chosen": "The chosen project",
+    "lifecycle": {
+      "action": {
+        "activate": "Activate",
+        "extend": "Extend the deadline",
+        "start_closing": "Start closing",
+        "close": "Close the project",
+        "reopen": "Reopen",
+        "cancel": "Cancel the draft"
+      },
+      "title": {
+        "activate": "Activate the project",
+        "extend": "Extend the application deadline",
+        "start_closing": "Start closing the project",
+        "close": "Close the project",
+        "reopen": "Reopen the project",
+        "cancel": "Cancel the draft"
+      },
+      "reason": "Reason",
+      "reason_hint": "At least 3 characters; it is kept in the audit log.",
+      "new_apply_to": "New end date",
+      "after": "After {date}",
+      "missing": "The project cannot be activated yet. Still needed:"
+    },
+    "wizard": {
+      "new_title": "New project",
+      "steps": "Setup steps",
+      "step_of": "Step {n} of {total}",
+      "missing_mark": "something is missing",
+      "back": "Back",
+      "next": "Next",
+      "save_exit_draft": "Save draft and exit",
+      "save_exit": "Save and exit",
+      "create": "Create the draft",
+      "to_project": "Back to the project",
+      "activate": "Activate",
+      "basics_invalid": "Give the name in both languages and a four-digit year.",
+      "budget_invalid": "Give every fund source an amount, and a specific donor its name.",
+      "topics_invalid": "Give every topic its title in both languages.",
+      "saved_notice": "The draft is saved.",
+      "activated_notice": "The project is active.",
+      "review": "Review",
+      "ready": "Everything activation needs is here.",
+      "missing_title": "Still needed before activation:",
+      "open_step": "Open the step",
+      "create_invalid": "Fill in every field of this step.",
+      "area_incomplete": "To add an area, choose its division or district and its RPM.",
+      "staff_incomplete": "To give access, choose the role and the official (and the area, for an RPM)."
     }
   }
 }
