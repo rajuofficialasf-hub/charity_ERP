@@ -41,6 +41,7 @@ export const ROOT_TOKENS = {
   'font-sans': 'UbuntuSans, Bornomala, sans-serif',
   'font-weight-regular': '400',
   'font-weight-bold': '700',
+  'text-hero': '24px',
   'text-display': '20px',
   'text-title': '16px',
   'text-body': '16px',
@@ -90,6 +91,7 @@ export const ROOT_TOKENS = {
 export const DESKTOP_TOKENS = {
   'text-body': '14px',
   'text-input': '14px',
+  'text-hero': '36px',
   'control-height': '40px',
   'app-bar-height': '64px',
 } as const satisfies Partial<Record<keyof typeof ROOT_TOKENS, string>>;

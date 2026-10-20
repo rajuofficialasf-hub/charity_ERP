@@ -239,7 +239,7 @@ CSS custom properties cannot be used inside media queries, so the breakpoints ar
   --font-sans: UbuntuSans, Bornomala, sans-serif;
   --font-weight-regular: 400;
   --font-weight-bold: 700;
-  --text-hero: 24px; /* 36px from 1024 px */
+  --text-hero: 24px; /* the title of a hero area only; 36px from 1024 px */
   --text-display: 20px;
   --text-title: 16px;
   --text-body: 16px;
@@ -314,6 +314,7 @@ CSS custom properties cannot be used inside media queries, so the breakpoints ar
   :root {
     --text-body: 14px;
     --text-input: 14px;
+    --text-hero: 36px;
     --control-height: 40px;
     --app-bar-height: 64px;
   }

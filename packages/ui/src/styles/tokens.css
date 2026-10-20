@@ -48,9 +48,8 @@
   --font-sans: UbuntuSans, Bornomala, sans-serif;
   --font-weight-regular: 400;
   --font-weight-bold: 700;
+  --text-hero: 24px; /* the title of a hero area only; 36px from 1024 px */
   --text-display: 20px;
-  /* the title of a hero area only (UX-23): the brand panel of the registration */
-  --text-hero: 24px;
   --text-title: 16px;
   --text-body: 16px;
   --text-label: 12px;
