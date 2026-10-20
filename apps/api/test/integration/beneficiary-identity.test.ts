@@ -285,6 +285,15 @@ describe('the creation of a profile', () => {
     expect(unseen.details?.[0]?.params).toBeUndefined();
   });
 
+  it('creates a profile by birth registration and refuses one another profile holds', async () => {
+    const birthReg = '20261020000000099';
+    const created = await create(world.users.rpmDhaka, { nid: undefined, birthReg });
+    expect(await row(created.id)).toMatchObject({ nid: null, birth_reg: birthReg });
+    const e = await refusal(create(world.users.rpmDhaka, { nid: undefined, birthReg }));
+    expect(e).toMatchObject({ code: 'beneficiary.identity_taken', status: 409 });
+    expect(e.details?.[0]?.path).toBe('birthReg');
+  });
+
   it('refuses a number in a wrong format with the format message', async () => {
     const e = await refusal(create(world.users.rpmDhaka, { nid: '12345' }));
     expect(e).toMatchObject({ code: 'validation.nid_format', status: 422 });
@@ -307,7 +316,38 @@ describe('the creation of a profile', () => {
     const { mobile, ben_no } = await row(other);
     const created = await create(world.users.rpmDhaka, { mobile });
     expect(created.warnings).toEqual([
-      { code: 'beneficiary.mobile_shared', benNos: [`BEN-${String(ben_no).padStart(7, '0')}`] },
+      {
+        code: 'beneficiary.mobile_shared',
+        count: 1,
+        benNos: [`BEN-${String(ben_no).padStart(7, '0')}`],
+      },
     ]);
+  });
+
+  it('counts a shared mobile but names no profile the caller cannot see', async () => {
+    const other = await person(world.rangpur);
+    const { mobile } = await row(other);
+    const created = await create(world.users.general, { mobile });
+    expect(created.warnings).toEqual([{ code: 'beneficiary.mobile_shared', count: 1, benNos: [] }]);
+  });
+
+  it("refuses a mobile in another spelling than the stored one, so a volunteer's own number cannot slip through", async () => {
+    const own = accounts.get(world.users.general)!.mobile;
+    for (const mobile of [`+88${own}`, `88${own}`, `${own.slice(0, 5)}-${own.slice(5)}`]) {
+      const e = await refusal(create(world.users.general, { mobile }));
+      expect(e, mobile).toMatchObject({ code: 'validation.mobile_format', status: 422 });
+    }
+  });
+
+  it('fails loudly on a merge chain that does not end, instead of answering not found', async () => {
+    const a = await person(world.dhaka);
+    const b = await person(world.dhaka);
+    // a loop, as broken data would make it
+    await retire(a, b);
+    await retire(b, a);
+    await expect(h.container.beneficiaryIdentity.liveOf(h.container.prisma, a)).rejects.toThrow(
+      /does not end/,
+    );
+    await h.db.query('UPDATE beneficiaries SET merged_into_id = NULL WHERE id IN ($1, $2)', [a, b]);
   });
 });

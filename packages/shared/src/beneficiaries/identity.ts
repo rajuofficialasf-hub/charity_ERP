@@ -1,7 +1,7 @@
 import { toEnglishDigits } from '../digits.js';
 
 /**
- * The identity of a beneficiary (BD-01): an NID of 10, 13 or 17 digits or a birth registration of
+ * The identity of a beneficiary: an NID of 10, 13 or 17 digits or a birth registration of
  * 17 digits, each unique; the database checks the same patterns. Mobile is contact data only.
  */
 export const NID_PATTERN = /^([0-9]{10}|[0-9]{13}|[0-9]{17})$/;

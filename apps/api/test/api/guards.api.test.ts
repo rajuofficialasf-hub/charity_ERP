@@ -154,7 +154,7 @@ describe('rate limits and audit enforcement (API_STANDARDS 10, 15; D-068)', () =
       .expect(200);
   });
 
-  it('allows 60 beneficiary lookups a minute, then answers 429, and counts a day as well', async () => {
+  it('allows 60 beneficiary lookups a minute, then answers 429; a day and an address have windows of their own', async () => {
     for (let i = 0; i < 60; i++)
       await request(t.app).post('/api/v1/guard-probe/lookup').send({}).expect(200);
     const blocked = await request(t.app).post('/api/v1/guard-probe/lookup').send({}).expect(429);

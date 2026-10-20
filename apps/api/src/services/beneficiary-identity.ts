@@ -17,6 +17,8 @@ import { ApiError } from '../i18n/api-error';
 
 /** How far a chain of merges is followed (a kept profile can itself be merged later). */
 const MERGE_HOPS = 10;
+/** The one stored spelling of a Bangladesh mobile number (the database checks the same). */
+const MOBILE_PATTERN = /^01[3-9][0-9]{8}$/;
 
 /** A unique index refused the row, through the client (P2002) or a raw statement (P2010, 23505). */
 const isUniqueViolation = (error: unknown) =>
@@ -30,7 +32,7 @@ export interface LookupViewer {
   scope: Scope;
 }
 
-/** The details of a new profile; the application of T2.5 brings them from its form. */
+/** The details of a new profile; the application brings them from its form. */
 export interface NewProfile {
   nid?: string;
   birthReg?: string;
@@ -55,6 +57,9 @@ export interface NewProfile {
 
 export interface ProfileWarning {
   code: 'beneficiary.mobile_shared';
+  /** The other live profiles with this mobile. */
+  count: number;
+  /** The BEN numbers of those the caller's beneficiary scope reaches. */
   benNos: string[];
 }
 
@@ -82,7 +87,7 @@ const AUTOFILL = {
 } as const;
 
 /**
- * The identity of a beneficiary (BD-01, BD-02, BD-03): the lookup of the application form with its
+ * The identity of a beneficiary: the lookup of the application form with its
  * auto-fill and locked fields, the live profile behind a retired one, and the creation of a
  * profile with every identity check. The lookup returns the full auto-fill wherever the profile
  * lives, because a beneficiary comes back in other projects and regions; it is watched instead,
@@ -97,7 +102,8 @@ export class BeneficiaryIdentityService {
 
   /**
    * The live profile a profile id leads to: itself, or the kept profile at the end of its merges;
-   * null when the id names nothing.
+   * null when the id names nothing. A chain that does not end within its hops is broken data, never
+   * an unknown person, so it fails loudly instead of answering "not found".
    */
   async liveOf(db: Tx, beneficiaryId: string): Promise<string | null> {
     let id = beneficiaryId;
@@ -110,7 +116,7 @@ export class BeneficiaryIdentityService {
       if (!found.mergedIntoId) return id;
       id = found.mergedIntoId;
     }
-    return null;
+    throw new Error(`the merge chain of beneficiary ${beneficiaryId} does not end`);
   }
 
   /**
@@ -121,15 +127,15 @@ export class BeneficiaryIdentityService {
   async idsByIdentity(term: string, identityScope: Scope | null): Promise<string[] | null> {
     const benNo = parseBenNo(term);
     const digits = term.replace(/\D/g, '');
-    const where: Prisma.BeneficiaryWhereInput[] = [];
-    if (benNo !== null) where.push({ benNo });
+    let where: Prisma.BeneficiaryWhereInput;
+    if (benNo !== null) where = { benNo };
     else if (identityScope && [10, 13, 17].includes(digits.length))
-      where.push({
+      where = {
         AND: [{ OR: [{ nid: digits }, { birthReg: digits }] }, beneficiaryWhere(identityScope)],
-      });
+      };
     else return null;
     const rows = await this.prisma.beneficiary.findMany({
-      where: { OR: where },
+      where,
       select: { id: true },
     });
     const live = await Promise.all(rows.map((r) => this.liveOf(this.prisma, r.id)));
@@ -149,9 +155,10 @@ export class BeneficiaryIdentityService {
     return this.prisma.$transaction(async (tx) => {
       const match = await tx.beneficiary.findFirst({
         where: body.nid ? { nid: body.nid } : { birthReg: body.birthReg },
-        select: { id: true },
+        select: { id: true, mergedIntoId: true },
       });
-      const liveId = match ? await this.liveOf(tx, match.id) : null;
+      // only a retired profile needs its chain followed
+      const liveId = match?.mergedIntoId ? await this.liveOf(tx, match.mergedIntoId) : match?.id;
       const b = liveId
         ? await tx.beneficiary.findUnique({ where: { id: liveId }, select: AUTOFILL })
         : null;
@@ -177,6 +184,7 @@ export class BeneficiaryIdentityService {
         new: { found: true, projectId: project.id, outsideScope: !inScope },
       });
       const retired = match && match.id !== b.id;
+      const { id, dob, isBlocked: _blocked, ...details } = b;
       return {
         found: true as const,
         blocked: b.isBlocked,
@@ -184,25 +192,9 @@ export class BeneficiaryIdentityService {
         mobileIsCallerOwn: !!caller?.mobile && caller.mobile === b.mobile,
         ...(retired ? { mergedInto: { benNo: b.benNo } } : {}),
         autofill: {
-          beneficiaryId: b.id,
-          benNo: b.benNo,
-          name: b.name,
-          fatherOrHusbandName: b.fatherOrHusbandName,
-          motherName: b.motherName,
-          mobile: b.mobile,
-          genderCode: b.genderCode,
-          dob: b.dob ? b.dob.toISOString().slice(0, 10) : null,
-          ageYears: b.ageYears,
-          divisionId: b.divisionId,
-          districtId: b.districtId,
-          upazilaId: b.upazilaId,
-          unionId: b.unionId,
-          village: b.village,
-          postOffice: b.postOffice,
-          postCode: b.postCode,
-          landmark: b.landmark,
-          members14Plus: b.members14Plus,
-          childrenUnder14: b.childrenUnder14,
+          ...details,
+          beneficiaryId: id,
+          dob: dob ? dob.toISOString().slice(0, 10) : null,
           lockedFields: [...LOCKED_FIELDS],
         },
       };
@@ -211,7 +203,7 @@ export class BeneficiaryIdentityService {
 
   /**
    * Refuses a mobile that belongs to the volunteer entering the profile, or to the volunteer an
-   * application belongs to (BD-03); the database refuses the same on every application as well.
+   * application belongs to; the database refuses the same on every application as well.
    */
   async assertNotVolunteerMobile(db: Tx, mobile: string, userIds: string[]): Promise<void> {
     const ids = [...new Set(userIds)];
@@ -220,17 +212,41 @@ export class BeneficiaryIdentityService {
     if (holders > 0) throw new ApiError('beneficiary.mobile_is_volunteer_mobile', 409);
   }
 
-  /** The BEN numbers of the other live profiles with this mobile (a warning, never a refusal). */
-  async sharedMobile(db: Tx, mobile: string, exceptId?: string): Promise<ProfileWarning[]> {
-    const others = await db.beneficiary.findMany({
-      where: { mobile, mergedIntoId: null, ...(exceptId ? { id: { not: exceptId } } : {}) },
-      select: { benNo: true },
-      orderBy: { benNo: 'asc' },
-      take: 10,
-    });
-    return others.length
-      ? [{ code: 'beneficiary.mobile_shared', benNos: others.map((o) => formatBenNo(o.benNo)) }]
+  /**
+   * The other live profiles with this mobile, a warning and never a refusal: how many, and the BEN
+   * numbers of those the caller's beneficiary scope reaches (the rest are not named).
+   */
+  async sharedMobile(
+    db: Tx,
+    actor: Principal,
+    mobile: string,
+    exceptId?: string,
+  ): Promise<ProfileWarning[]> {
+    const others: Prisma.BeneficiaryWhereInput = {
+      mobile,
+      mergedIntoId: null,
+      ...(exceptId ? { id: { not: exceptId } } : {}),
+    };
+    const count = await db.beneficiary.count({ where: others });
+    if (!count) return [];
+    const access = await this.access.load(actor.userId, db);
+    const scope = await this.access.sensitiveScope(
+      actor,
+      access,
+      'beneficiary.view_all',
+      'beneficiary',
+    );
+    const named = scope
+      ? await db.beneficiary.findMany({
+          where: { AND: [others, beneficiaryWhere(scope)] },
+          select: { benNo: true },
+          orderBy: { benNo: 'asc' },
+          take: 10,
+        })
       : [];
+    return [
+      { code: 'beneficiary.mobile_shared', count, benNos: named.map((o) => formatBenNo(o.benNo)) },
+    ];
   }
 
   /**
@@ -266,7 +282,7 @@ export class BeneficiaryIdentityService {
   }
 
   /**
-   * Creates a profile inside the caller's transaction: exactly one valid identity number that no
+   * Creates a profile inside the caller's transaction: at least one valid identity number that no
    * other profile holds, a mobile that is not the volunteer's own, and a warning when another
    * profile has the same mobile. The BEN number comes from its sequence.
    */
@@ -276,6 +292,8 @@ export class BeneficiaryIdentityService {
     if (nid !== undefined && !isNidNumber(nid)) throw new ApiError('validation.nid_format', 422);
     if (birthReg !== undefined && !isBirthRegNumber(birthReg))
       throw new ApiError('validation.birth_reg_format', 422);
+    // one spelling of a mobile, so the comparison with a volunteer's own number cannot be dodged
+    if (!MOBILE_PATTERN.test(input.mobile)) throw new ApiError('validation.mobile_format', 422);
     const holder = await tx.beneficiary.findFirst({
       where: { OR: [...(nid ? [{ nid }] : []), ...(birthReg ? [{ birthReg }] : [])] },
       select: { id: true, nid: true },
@@ -291,7 +309,7 @@ export class BeneficiaryIdentityService {
       actor.userId,
       ...(input.ownerUserId ? [input.ownerUserId] : []),
     ]);
-    const warnings = await this.sharedMobile(tx, input.mobile);
+    const warnings = await this.sharedMobile(tx, actor, input.mobile);
     try {
       // an explicit insert: the reference-list columns are generated by the database, and Prisma
       // would send their schema default

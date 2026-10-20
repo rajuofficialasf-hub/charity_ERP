@@ -353,7 +353,7 @@ export class BeneficiariesService {
     const latest = { orderBy: { createdAt: 'desc' as const }, take: SECTION_ROWS };
     const projectRows = inProjects.project ? { OR: [{ projectId: null }, inProjects] } : {};
     const b = await tx.beneficiary.findFirst({
-      // a profile merged into another one is read through the kept profile (T2.2)
+      // a profile merged into another one is read through the kept profile
       where: { AND: [{ id: beneficiaryId, mergedIntoId: null }, beneficiaryWhere(viewer.scope)] },
       select: {
         id: true,
