@@ -65,6 +65,17 @@ export const staffCount = (affiliation: Affiliation) =>
 export const staffWithEtag = (userId: string) =>
   api<{ data: StaffMember; meta: { etag: string } }>(`/users/${userId}`, { envelope: true });
 
+/** GET /users/{userId} as the official's profile reads it: the contact and the last sign-in too. */
+export interface StaffDetail extends StaffMember {
+  mobile: string | null;
+  email: string | null;
+  lastLoginAt: string | null;
+  isSystemOwner: boolean;
+}
+
+export const staffDetail = (userId: string) => api<StaffDetail>(`/users/${userId}`);
+export const staffDetailKey = (userId: string) => [...STAFF_KEY, 'detail', userId] as const;
+
 export const createOfficial = (body: StaffCreateRequest) =>
   api<InvitationIssued>('/users', { method: 'POST', body });
 

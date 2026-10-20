@@ -45,6 +45,8 @@ export interface ButtonProps {
   onPress?: () => void;
   /** Renders a link styled as a button; only for navigation. */
   href?: string;
+  /** With `href`: opens another site in a new tab (a WhatsApp or Facebook link), never the app's pages. */
+  newTab?: boolean;
   autoFocus?: boolean;
   /** Layout only (margin, grid placement); never colours or typography. */
   className?: string;

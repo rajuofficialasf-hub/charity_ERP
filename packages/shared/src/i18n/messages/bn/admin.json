@@ -288,7 +288,36 @@
       "revoke_reason": "কারণ",
       "revoke_confirm": "লগআউট করুন",
       "revoked": "ডিভাইসটি থেকে লগআউট করা হয়েছে।",
-      "unknown_device": "অজানা ডিভাইস"
+      "unknown_device": "অজানা ডিভাইস",
+      "tabs_label": "প্রোফাইলের অংশ",
+      "tabs": {
+        "info": "তথ্য",
+        "documents": "ডকুমেন্ট",
+        "work": "কাজ ও প্রজেক্ট",
+        "history": "ইতিহাস",
+        "devices": "ডিভাইস"
+      },
+      "actions_label": "কাজ",
+      "documents_title": "ডকুমেন্ট ({count}টি)",
+      "view_document": "{name} বড় করে দেখুন",
+      "no_photo": "ছবি নেই",
+      "contact": "যোগাযোগ",
+      "call": "কল করুন",
+      "send_email": "ইমেইল করুন",
+      "open_whatsapp": "হোয়াটসঅ্যাপ",
+      "open_facebook": "প্রোফাইল দেখুন",
+      "personal": "ব্যক্তিগত তথ্য",
+      "education_skills": "শিক্ষা ও দক্ষতা",
+      "work_section": "পেশা ও কাজ",
+      "history_title": "নিবন্ধনের ইতিহাস",
+      "history": {
+        "submitted": "নিবন্ধন জমা দেওয়া হয়েছে",
+        "correction": "সংশোধন চাওয়া হয়েছে: {field}",
+        "awaiting": "অনুমোদনের অপেক্ষায়",
+        "approved": "নিবন্ধন অনুমোদিত হয়েছে",
+        "blocked": "ব্লকলিস্টে দেওয়া হয়েছে"
+      },
+      "photo_failed": "ছবি খোলা যায়নি"
     },
     "none": "নেই",
     "summary": "{from}–{to} দেখানো হচ্ছে · মোট {total} জন",
@@ -378,7 +407,10 @@
       "attendance": "ক্লাসে উপস্থিতি {total}টির মধ্যে {present}টি",
       "exams": "পরীক্ষায় পাস {total}টির মধ্যে {passed}টি",
       "calls": "ফোন কল",
-      "evaluations": "ফলো-আপ মূল্যায়ন"
+      "evaluations": "ফলো-আপ মূল্যায়ন",
+      "contact": "যোগাযোগ",
+      "call": "কল করুন",
+      "age_value": "{age} বছর"
     },
     "none": "নেই",
     "summary": "{from}–{to} দেখানো হচ্ছে · মোট {total} জন",
@@ -958,6 +990,27 @@
     },
     "stats": {
       "label": "কোথাকার অফিসিয়াল কতজন"
+    },
+    "profile": {
+      "back": "সব কর্মী",
+      "not_found": "এই অফিসিয়ালকে পাওয়া যায়নি।",
+      "actions_label": "কাজ",
+      "edit": "প্রোফাইল সম্পাদনা",
+      "renew": "নতুন পাসওয়ার্ড লিঙ্ক",
+      "sections": {
+        "identity": "পরিচয়",
+        "place": "ভূমিকা ও অবস্থান",
+        "account": "অ্যাকাউন্ট",
+        "contact": "যোগাযোগ",
+        "devices": "ডিভাইস"
+      },
+      "last_login": "সর্বশেষ লগইন",
+      "never": "এখনও লগইন করেননি",
+      "state": "অবস্থা",
+      "system_owner": "প্রধান অ্যাডমিন",
+      "call": "কল করুন",
+      "send_email": "ইমেইল করুন",
+      "none": "দেওয়া হয়নি"
     }
   },
   "settings": {

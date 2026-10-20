@@ -8,12 +8,14 @@ import { ME, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
 import { StaffPage } from './StaffPage';
+import { StaffProfilePage } from './StaffProfilePage';
 
 // The officials' directory, the new official, the set-password link and the profile edit
 // (DECISION_LOG D-097). Test data only.
 const HEAD: Me = { ...ME, roles: ['department_head'] };
 const PM: Me = { ...ME, roles: ['program_manager'] };
 const VOLUNTEER: Me = { ...ME, kind: 'volunteer', roles: ['volunteer_general'] };
+const RPM: Me = { ...ME, roles: ['regional_program_manager'] };
 
 const PROGRAM = {
   id: '01900000-0000-7000-8000-0000000000c1',
@@ -115,10 +117,17 @@ function serve() {
     }),
     http.get('*/api/v1/users/:id', ({ params }) =>
       HttpResponse.json({
-        data: params.id === WAITING.id ? WAITING : official(),
+        data: {
+          ...(params.id === WAITING.id ? WAITING : official()),
+          mobile: '01711000201',
+          email: 'rpm.dhaka@example.org',
+          lastLoginAt: '2026-10-18T04:00:00.000Z',
+          isSystemOwner: false,
+        },
         meta: { etag: '"u1"' },
       }),
     ),
+    http.get('*/api/v1/users/:id/sessions', () => HttpResponse.json({ data: [], meta: {} })),
     http.post('*/api/v1/users', async ({ request }) => {
       const body = (await request.json()) as { jobId: string };
       created.push(body);
@@ -415,5 +424,132 @@ describe('the officials page', () => {
       await screen.findByRole('heading', { level: 1, name: 'প্রবেশাধিকার নেই' }),
     ).toBeInTheDocument();
     expect(listQueries).toHaveLength(0);
+  });
+});
+
+describe('the official profile', () => {
+  const openProfile = (id: string) =>
+    renderApp(<StaffProfilePage />, 'bn', {
+      path: '/admin/staff/:userId',
+      initialPath: `/admin/staff/${id}`,
+    });
+
+  it('shows the header, the role and place, the account and the contact, without accessibility violations', async () => {
+    refreshAs(HEAD);
+    serve();
+    const { container } = openProfile(official().id);
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Job ID: CSS-201')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Job ID কপি করুন' })).toBeInTheDocument();
+    for (const section of ['পরিচয়', 'ভূমিকা ও অবস্থান', 'অ্যাকাউন্ট', 'যোগাযোগ', 'ডিভাইস'])
+      expect(screen.getByRole('region', { name: section })).toBeInTheDocument();
+    const place = screen.getByRole('region', { name: 'ভূমিকা ও অবস্থান' });
+    expect(await within(place).findByText('মানবিক সহায়তা')).toBeInTheDocument();
+    expect(await within(place).findByText('রিজিওনাল প্রোগ্রাম ম্যানেজার')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'কল করুন' })).toHaveAttribute(
+      'href',
+      'tel:01711000201',
+    );
+    expect(screen.getByRole('link', { name: 'ইমেইল করুন' })).toHaveAttribute(
+      'href',
+      'mailto:rpm.dhaka%40example.org',
+    );
+    const actions = screen.getByRole('group', { name: 'কাজ' });
+    expect(within(actions).getByRole('button', { name: 'প্রোফাইল সম্পাদনা' })).toBeInTheDocument();
+    // a new link only while the password is not set
+    expect(
+      within(actions).queryByRole('button', { name: 'নতুন পাসওয়ার্ড লিঙ্ক' }),
+    ).not.toBeInTheDocument();
+    await expectNoAxeViolations(container);
+  });
+
+  it('edits the profile from the header and offers a new link to an official still waiting', async () => {
+    refreshAs(HEAD);
+    serve();
+    const user = userEvent.setup();
+    openProfile(WAITING.id);
+    await screen.findByRole('heading', { level: 1, name: 'নতুন কর্মকর্তা' });
+    expect(screen.getAllByText('পাসওয়ার্ডের অপেক্ষায়').length).toBeGreaterThan(0);
+    await user.click(screen.getByRole('button', { name: 'নতুন পাসওয়ার্ড লিঙ্ক' }));
+    await user.click(await screen.findByRole('button', { name: 'নতুন লিঙ্ক পাঠান' }));
+    await waitFor(() => expect(renewed).toHaveLength(1));
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: 'প্রোফাইল সম্পাদনা' }));
+    expect(
+      await screen.findByRole('dialog', { name: 'নতুন কর্মকর্তা-এর প্রোফাইল' }),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the profile without actions or devices to a role that only reads', async () => {
+    refreshAs(PM);
+    serve();
+    openProfile(official().id);
+    await screen.findByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' });
+    expect(screen.queryByRole('group', { name: 'কাজ' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'ডিভাইস' })).not.toBeInTheDocument();
+  });
+
+  it("shows the devices to an RPM, who may end another person's sessions", async () => {
+    refreshAs(RPM);
+    serve();
+    openProfile(official().id);
+    await screen.findByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' });
+    expect(screen.queryByRole('group', { name: 'কাজ' })).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'ডিভাইস' })).toBeInTheDocument();
+  });
+
+  it("says the official was not found, for a missing id and for a volunteer's id", async () => {
+    refreshAs(HEAD);
+    serve();
+    server.use(
+      http.get('*/api/v1/users/:id', ({ params }) =>
+        params.id === 'missing'
+          ? HttpResponse.json(
+              { error: { code: 'permission.not_found', message: 'Not found.', requestId: 'r' } },
+              { status: 404 },
+            )
+          : HttpResponse.json({
+              data: { ...official(), kind: 'volunteer', mobile: null, email: null },
+              meta: { etag: '"u1"' },
+            }),
+      ),
+    );
+    const missing = openProfile('missing');
+    expect(await screen.findByText('এই অফিসিয়ালকে পাওয়া যায়নি।')).toBeInTheDocument();
+    missing.unmount();
+    resetClientForTests();
+    openProfile(official().id);
+    expect(await screen.findByText('এই অফিসিয়ালকে পাওয়া যায়নি।')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'প্রোফাইল সম্পাদনা' })).not.toBeInTheDocument();
+  });
+
+  it('shows an error with a retry that reads the official again', async () => {
+    refreshAs(HEAD);
+    serve();
+    let reads = 0;
+    server.use(
+      http.get('*/api/v1/users/:id', () => {
+        reads += 1;
+        return HttpResponse.json(
+          { error: { code: 'server.error', message: 'Failed.', requestId: 'req_x' } },
+          { status: 500 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    openProfile(official().id);
+    await user.click(await screen.findByRole('button', { name: /আবার চেষ্টা করুন/ }));
+    await waitFor(() => expect(reads).toBe(2));
+  });
+
+  it('shows the forbidden content to a volunteer without asking the server', async () => {
+    refreshAs(VOLUNTEER);
+    serve();
+    openProfile(official().id);
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'প্রবেশাধিকার নেই' }),
+    ).toBeInTheDocument();
   });
 });

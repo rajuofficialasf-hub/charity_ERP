@@ -1,5 +1,6 @@
 import { createElement, type HTMLAttributes, type ReactNode } from 'react';
 import { cx } from '../../utils/cx.js';
+import { Icon, type IconComponent } from '../Icon/Icon.js';
 
 /** A step of the spacing scale: 1 is 4 px, 2 is 8 px, 3 is 12 px, 4 is 16 px, 5 is 24 px, 6 is 32 px. */
 export type SpaceStep = 0 | 1 | 2 | 3 | 4 | 5 | 6;
@@ -96,12 +97,16 @@ export interface DescriptionItem {
   value: ReactNode;
   /** The language of the value when it differs from the page's (an English address). */
   lang?: string;
+  /** An icon before the label (a profile section). */
+  icon?: IconComponent;
 }
 
 export interface DescriptionListProps {
   items: DescriptionItem[];
   /** Width of the label column from 640 px: sm 10rem, md 12rem (default), lg 14rem. */
   labelWidth?: 'sm' | 'md' | 'lg';
+  /** Two label-and-value pairs side by side from 1024 px (a profile section); one by default. */
+  columns?: 1 | 2;
   className?: string;
 }
 
@@ -109,13 +114,28 @@ export interface DescriptionListProps {
  * Labels and their values (a record's facts): one under the other on phones, two columns from
  * 640 px, labels in bold.
  */
-export function DescriptionList({ items, labelWidth = 'md', className }: DescriptionListProps) {
+export function DescriptionList({
+  items,
+  labelWidth = 'md',
+  columns = 1,
+  className,
+}: DescriptionListProps) {
   return (
-    <dl className={cx('ui-dl', `ui-dl-${labelWidth}`, className)}>
-      {items.map(({ label, value, lang }) => (
+    <dl
+      className={cx(
+        'ui-dl',
+        `ui-dl-${labelWidth}`,
+        columns === 2 ? 'ui-dl-two' : undefined,
+        className,
+      )}
+    >
+      {items.map(({ label, value, lang, icon }) => (
         // each pair in its own group, so a label and its value belong together
         <div key={label} className="ui-dl-item">
-          <dt>{label}</dt>
+          <dt>
+            {icon && <Icon icon={icon} size="sm" className="ui-dl-icon" />}
+            {label}
+          </dt>
           <dd lang={lang}>{value}</dd>
         </div>
       ))}

@@ -232,7 +232,8 @@ describe('the 360° profile', () => {
       expect(screen.getByRole('heading', { level: 2, name: section })).toBeInTheDocument();
     expect(screen.getAllByText('এখনো কিছু নেই।').length).toBeGreaterThan(5);
     expect(screen.getByText('আপনার জন্য দেখানো হয় না')).toBeInTheDocument();
-    expect(screen.getByText('নারী')).toBeInTheDocument();
+    // the gender in its section and as a chip of the header
+    expect(screen.getAllByText('নারী')).toHaveLength(2);
     await expectNoAxeViolations(container);
   });
 
@@ -322,6 +323,17 @@ describe('the 360° profile', () => {
     openProfile();
     await user.click(await screen.findByRole('button', { name: /আবার চেষ্টা করুন/ }));
     await waitFor(() => expect(calls).toBe(2));
+  });
+
+  it('shows no identity chip when the server left the NID out, even with a birth registration number', async () => {
+    refreshAs(HEAD);
+    const { nid: _nid, ...withoutNid } = empty360 as typeof empty360 & { nid?: unknown };
+    serve(fullRow, {}, { ...withoutNid, birthReg: '20171234567890123' });
+    openProfile();
+    await screen.findByRole('heading', { level: 1, name: 'নমুনা উপকারভোগী' });
+    expect(screen.queryByText(/^NID বা জন্মনিবন্ধন:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/20171234567890123/)).not.toBeInTheDocument();
+    expect(screen.getByText('আপনার জন্য দেখানো হয় না')).toBeInTheDocument();
   });
 
   it('shows the Media Team only the sections the server sent', async () => {

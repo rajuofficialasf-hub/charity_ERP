@@ -16,7 +16,7 @@ import {
 import { keepPreviousData, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CircleCheck, Clock, IdCard, Link2, Pencil, UserPlus } from 'lucide-react';
 import { useCallback, useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../lib/api';
@@ -213,7 +213,9 @@ function StaffList({
     <span className="staff-person">
       <Avatar name={u.displayName} size="sm" />
       <span className="staff-person-text">
-        <strong>{u.displayName}</strong>
+        <Link to={`/admin/staff/${u.id}`} className="admin-person-name">
+          {u.displayName}
+        </Link>
         {u.jobId ? (
           <span className="staff-job" lang="en">
             {u.jobId}

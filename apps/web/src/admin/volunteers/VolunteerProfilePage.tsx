@@ -1,35 +1,70 @@
-import { formatDate } from '@css/shared/format';
+import { formatDate, formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import {
   Alert,
+  Avatar,
   Badge,
+  Breadcrumb,
+  type ContactItem,
+  ContactList,
   DescriptionList,
   EmptyState,
   ErrorState,
   Grid,
+  Modal,
+  type ProfileFact,
+  ProfileHeader,
+  ProfileSection,
   Skeleton,
   Stack,
+  Tabs,
   Text,
+  Timeline,
+  type TimelineStep,
 } from '@css/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { UserX } from 'lucide-react';
-import { type ReactNode, useId, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import {
+  Ban,
+  Briefcase,
+  CalendarDays,
+  Droplet,
+  Globe,
+  GraduationCap,
+  Hash,
+  Landmark,
+  Mail,
+  MapPin,
+  MessageCircle,
+  Phone,
+  User,
+  UserX,
+  ZoomIn,
+} from 'lucide-react';
+import { type ReactNode, useState } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { AddressNames } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { FileImage } from '../../components/FileImage';
+import { FileImage, useFileDataUrl } from '../../components/FileImage';
 import {
   EducationText,
   PermanentAddressText,
   ProfessionText,
   SkillsText,
 } from '../../features/account/DetailValues';
+import { FIELD_LABEL, type RequestField } from '../../features/account/profile-api';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { BlocklistAction } from '../registrations/Blocklist';
-import { RegistrationReview } from '../registrations/RegistrationDetail';
+import {
+  detailKey,
+  LIST_KEY,
+  registrationDetail,
+  type RegistrationDetailView,
+} from '../registrations/registrations-api';
+import { VolunteerDecisions } from '../registrations/VolunteerDecisions';
+import { mailLink, telLink } from '../contact-links';
 import { canSeeVolunteers } from '../roles';
 import {
   profileKey,
@@ -40,11 +75,12 @@ import {
 import { VolunteerSessions } from './VolunteerSessions';
 
 /**
- * One volunteer for an official (SCR-043; DECISION_LOG O-67, D-094). A pending registration the
- * caller may decide on opens as the registration review (approve, correct, reject); every other
- * volunteer opens as the profile by section. The server sends only what the caller may see (an
- * absent NID or bank detail is "not shown to you", never empty) and says which actions the caller
- * may take; a button appears only for those.
+ * One volunteer for an official in the one profile layout: the header card with the key facts, the
+ * documents and the actions, then the profile by tab. A pending registration the caller decides on
+ * opens in the same layout with the decisions (approve, ask for a correction, reject) and its
+ * correction requests. The server sends only what the caller may see (an absent NID or bank detail
+ * is "not shown to you", never empty, and never a chip) and says which actions the caller may take;
+ * a button appears only for those.
  */
 export function VolunteerProfilePage() {
   const { me } = useAuth();
@@ -85,166 +121,617 @@ export function VolunteerProfilePage() {
       </>
     );
   const p = profile.data;
-  const reviewing = p.state === 'pending' && p.actions.review;
-  return (
-    <>
-      {back}
-      {reviewing ? (
-        <RegistrationReview
-          userId={p.userId}
-          finishedTo="/admin/volunteers?state=pending"
-          allowed={p.actions}
-        />
-      ) : (
-        <Profile profile={p} />
-      )}
-    </>
+  return p.state === 'pending' && p.actions.review ? (
+    <PendingProfile profile={p} />
+  ) : (
+    <Profile profile={p} />
   );
 }
 
-function Profile({ profile: p }: { profile: VolunteerProfile }) {
+/** A pending registration the caller decides on: the registration's details and its corrections. */
+function PendingProfile({ profile: p }: { profile: VolunteerProfile }) {
+  const t = useTranslations('admin.registrations');
+  const tc = useTranslations('common');
+  const reg = useQuery({
+    queryKey: detailKey(p.userId),
+    queryFn: () => registrationDetail(p.userId),
+    retry: false,
+  });
+  if (reg.isPending) return <Skeleton count={4} />;
+  if (reg.error instanceof ApiFailure && reg.error.status === 404)
+    return <EmptyState icon={UserX} title={t('not_found')} />;
+  if (reg.error || !reg.data)
+    // the profile still shows (and its block and devices); the decisions wait for the registration
+    return (
+      <Grid gap={3}>
+        <ErrorState
+          title={tc('state.error.text')}
+          requestId={reg.error instanceof ApiFailure ? reg.error.requestId : undefined}
+          onRetry={() => void reg.refetch()}
+        />
+        <Profile profile={p} />
+      </Grid>
+    );
+  return <Profile profile={p} registration={reg.data} />;
+}
+
+type View = VolunteerProfile & { volunteeringArea: string | null; tshirtSize: string | null };
+
+/** The registration's answers over the profile's, so the review shows what was submitted. */
+function merged(p: VolunteerProfile, r?: RegistrationDetailView): View {
+  if (!r?.volunteer) return p;
+  const { referenceVolunteerId: _reference, ...answers } = r.volunteer;
+  return {
+    ...p,
+    ...answers,
+    id: p.id,
+    type: p.type,
+    mobile: r.mobile,
+    email: r.email,
+    registeredAt: r.submittedAt,
+  } as View;
+}
+
+function Profile({
+  profile,
+  registration,
+}: {
+  profile: VolunteerProfile;
+  registration?: RegistrationDetailView;
+}) {
   const t = useTranslations('admin.volunteers.profile');
   const tv = useTranslations('admin.volunteers');
+  const tr = useTranslations('admin.registrations');
   const tf = useTranslations('registration');
-  const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
+  const [params, setParams] = useSearchParams();
   const [notice, setNotice] = useState<string | null>(null);
-  const empty = tf('profile.empty');
-  const hidden = t('hidden');
+  const p = merged(profile, registration);
   const changed = (message: string) => {
     setNotice(message);
     void queryClient.invalidateQueries({ queryKey: VOLUNTEERS_KEY });
+    // a block or a correction changes the pending registration and its list too
+    void queryClient.invalidateQueries({ queryKey: detailKey(p.userId) });
+    void queryClient.invalidateQueries({ queryKey: LIST_KEY });
   };
-  const rows = (items: [string, ReactNode][]) => (
-    <DescriptionList items={items.map(([label, value]) => ({ label, value }))} />
-  );
-  const photos: [string, string | null | undefined, boolean][] = [
-    [tf('form.photo'), p.photoFileId, true],
-    [tf('form.nid_photo'), p.nidPhotoFileId, 'nidPhotoFileId' in p],
-    [tf('form.nid_photo_back'), p.nidPhotoBackFileId, 'nidPhotoBackFileId' in p],
+  const pending = registration !== undefined;
+  const inCorrection = registration?.status === 'in_correction';
+  const blocked = registration ? registration.blocklisted : p.blocklist.blocked;
+
+  const facts: ProfileFact[] = [
+    ...(p.nid
+      ? [
+          {
+            id: 'nid',
+            label: tf('form.nid'),
+            value: p.nid,
+            icon: Hash,
+            showLabel: true,
+            copy: true,
+          },
+        ]
+      : []),
+    ...(p.mobile
+      ? [{ id: 'mobile', label: tf('form.mobile'), value: p.mobile, icon: Phone, copy: true }]
+      : []),
+    ...(p.email
+      ? [{ id: 'email', label: tf('form.email'), value: p.email, icon: Mail, copy: true }]
+      : []),
+    ...(p.dateOfBirth
+      ? [
+          {
+            id: 'dob',
+            label: tf('form.date_of_birth'),
+            value: formatDate(p.dateOfBirth),
+            icon: CalendarDays,
+            showLabel: true,
+          },
+        ]
+      : []),
+    ...(p.bloodGroup
+      ? [
+          {
+            id: 'blood',
+            label: tf('form.blood_group'),
+            value: p.bloodGroup,
+            icon: Droplet,
+            showLabel: true,
+          },
+        ]
+      : []),
   ];
-  return (
+
+  const status = (
     <>
-      <DocumentTitle title={p.displayName} />
-      <h1 className="admin-title">{p.displayName}</h1>
-      <div className="admin-badges">
-        <Badge label={tf(`form.types.${p.type}`)} />
+      <Badge label={tf(`form.types.${p.type}`)} />
+      {pending ? (
         <Badge
+          variant="dot"
+          tone="warning"
+          label={tr(`status.${inCorrection ? 'in_correction' : 'awaiting_review'}`)}
+        />
+      ) : (
+        <Badge
+          variant="dot"
           tone={p.state === 'active' ? 'success' : p.state === 'pending' ? 'info' : 'warning'}
           label={tv(`state.${p.state}`)}
         />
-        {p.blocklist.blocked && <Badge tone="danger" label={tv('blocklisted')} />}
-      </div>
+      )}
+      {blocked && <Badge variant="dot" tone="danger" label={tv('blocklisted')} />}
+    </>
+  );
+
+  const actions = (
+    <>
+      {registration && (
+        <VolunteerDecisions
+          userId={p.userId}
+          name={p.displayName}
+          inCorrection={inCorrection}
+          blocklisted={registration.blocklisted}
+          allowed={p.actions}
+          finishedTo="/admin/volunteers?state=pending"
+          onChanged={changed}
+        />
+      )}
+      {(p.actions.block || p.actions.unblock) && (
+        <BlocklistAction
+          danger
+          volunteerId={p.id}
+          name={p.displayName}
+          blocked={blocked}
+          onDone={changed}
+        />
+      )}
+    </>
+  );
+  const hasActions = Boolean(registration) || p.actions.block || p.actions.unblock;
+
+  const tabs = [
+    {
+      id: 'info',
+      label: t('tabs.info'),
+      content: <InfoTab view={p} registration={registration} />,
+    },
+    { id: 'documents', label: t('tabs.documents'), content: <DocumentsTab view={p} /> },
+    { id: 'work', label: t('tabs.work'), content: <WorkTab view={p} /> },
+    {
+      id: 'history',
+      label: t('tabs.history'),
+      content: <HistoryTab view={p} registration={registration} />,
+    },
+    ...(p.actions.viewSessions
+      ? [
+          {
+            id: 'devices',
+            label: t('tabs.devices'),
+            content: <VolunteerSessions userId={p.userId} canRevoke={p.actions.revokeSessions} />,
+          },
+        ]
+      : []),
+  ];
+  const selected = tabs.find((tab) => tab.id === params.get('tab'))?.id ?? 'info';
+
+  return (
+    <Grid gap={4}>
+      <DocumentTitle title={p.displayName} />
+      <Breadcrumb
+        items={[
+          {
+            id: 'list',
+            label: t('back'),
+            href: pending ? '/admin/volunteers?state=pending' : '/admin/volunteers',
+          },
+          { id: 'profile', label: p.displayName },
+        ]}
+      />
+      <ProfileHeader
+        name={p.displayName}
+        avatar={<HeaderAvatar name={p.displayName} fileId={p.photoFileId} />}
+        status={status}
+        facts={facts}
+        aside={<DocumentStrip view={p} />}
+        actions={hasActions ? actions : undefined}
+        actionsLabel={t('actions_label')}
+      />
       {notice && (
         <Alert tone="success" live="status" onDismiss={() => setNotice(null)}>
           {notice}
         </Alert>
       )}
+      {pending && registration?.blocklisted && <Alert tone="danger">{tr('blocklisted')}</Alert>}
+      <Tabs
+        label={t('tabs_label')}
+        items={tabs}
+        selectedId={selected}
+        onChange={(id) =>
+          setParams(
+            (current) => {
+              const next = new URLSearchParams(current);
+              if (id === 'info') next.delete('tab');
+              else next.set('tab', id);
+              return next;
+            },
+            { replace: true },
+          )
+        }
+      />
+    </Grid>
+  );
+}
 
-      <Section title={t('sections.identity')}>
-        {rows([
-          [tf('form.father_name'), p.fatherName],
-          [tf('form.mother_name'), p.motherName],
-          [tf('form.nid'), p.nid ?? hidden],
-          [
-            tf('form.date_of_birth'),
-            p.dateOfBirth === undefined
-              ? hidden
-              : p.dateOfBirth
-                ? formatDate(p.dateOfBirth)
-                : empty,
-          ],
-          [tf('form.blood_group'), p.bloodGroup === undefined ? hidden : (p.bloodGroup ?? empty)],
-          [tf('form.mobile'), p.mobile ?? empty],
-          [tf('form.email'), p.email ?? empty],
-          [tf('form.whatsapp'), p.whatsapp ?? empty],
-          [tf('form.facebook'), p.facebookId ?? empty],
-          [t('registered'), formatDate(p.registeredAt)],
-          [t('approved'), p.approvedAt ? formatDate(p.approvedAt) : empty],
-        ])}
-      </Section>
+function HeaderAvatar({ name, fileId }: { name: string; fileId: string | null }) {
+  const photo = useFileDataUrl(fileId);
+  return <Avatar name={name} letters={1} size="lg" src={photo.data ?? undefined} />;
+}
 
-      <Section title={t('sections.address')}>
-        {rows([
-          [tf('form.address'), <AddressNames key="address" address={p} />],
-          [tf('form.address_line'), p.addressLine ?? empty],
-          [
-            tf('form.address_permanent'),
-            <PermanentAddressText key="permanent" address={p.permanentAddress} />,
-          ],
-        ])}
-      </Section>
+interface DocumentSlot {
+  id: string;
+  label: string;
+  fileId: string | null | undefined;
+  /** False when the server left the file out for this caller (the NID pages). */
+  visible: boolean;
+}
 
-      <Section title={t('sections.education')}>
-        {rows([
-          [
-            tf('form.education_group'),
-            <EducationText key="education" education={p.educationDetails} />,
-          ],
-          ...(p.education ? [[tf('form.education'), p.education] as [string, ReactNode]] : []),
-        ])}
-      </Section>
+/** The photo and the NID pages; the NID pages are visible only with the identity class. */
+function useDocumentSlots(view: View): DocumentSlot[] {
+  const tf = useTranslations('registration.form');
+  return [
+    { id: 'photo', label: tf('photo'), fileId: view.photoFileId, visible: true },
+    {
+      id: 'nid',
+      label: tf('nid_photo'),
+      fileId: view.nidPhotoFileId,
+      visible: 'nidPhotoFileId' in view,
+    },
+    {
+      id: 'nid_back',
+      label: tf('nid_photo_back'),
+      fileId: view.nidPhotoBackFileId,
+      visible: 'nidPhotoBackFileId' in view,
+    },
+  ];
+}
 
-      <Section title={t('sections.work')}>
-        {rows([
-          [
-            tf('form.profession_group'),
-            <ProfessionText
-              key="profession"
-              profession={p.profession}
-              details={p.professionDetails}
-            />,
-          ],
-          ...(p.experience ? [[tf('form.experience'), p.experience] as [string, ReactNode]] : []),
-          ...(p.workDescription
-            ? [[tf('form.work_description'), p.workDescription] as [string, ReactNode]]
-            : []),
-          ...(p.previousProjects
-            ? [[tf('form.previous_projects'), p.previousProjects] as [string, ReactNode]]
-            : []),
-        ])}
-      </Section>
+/** The documents beside the header: a thumbnail each, opened larger in a dialog. */
+function DocumentStrip({ view }: { view: View }) {
+  const t = useTranslations('admin.volunteers.profile');
+  const [open, setOpen] = useState<{ label: string; fileId: string } | null>(null);
+  const slots = useDocumentSlots(view).filter((slot) => slot.visible);
+  return (
+    <div className="admin-docs">
+      <p className="admin-docs-title">{t('documents_title', { count: slots.length })}</p>
+      <ul className="admin-docs-list">
+        {slots.map((slot) => (
+          <li key={slot.id}>
+            {slot.fileId ? (
+              <Thumb
+                fileId={slot.fileId}
+                label={slot.label}
+                onOpen={(fileId) => setOpen({ label: slot.label, fileId })}
+              />
+            ) : (
+              <span className="admin-doc-thumb is-empty">{t('no_photo')}</span>
+            )}
+            <span className="admin-doc-label">{slot.label}</span>
+          </li>
+        ))}
+      </ul>
+      <Modal
+        title={open?.label ?? ''}
+        size="lg"
+        isOpen={open !== null}
+        onClose={() => setOpen(null)}
+      >
+        {open && <FileImage fileId={open.fileId} alt={open.label} />}
+      </Modal>
+    </div>
+  );
+}
 
-      <Section title={t('sections.skills')}>
-        <SkillsText
-          interestAreas={p.interestAreas}
-          vehicle={p.vehicle}
-          canSwim={p.canSwim}
-          availability={p.availability}
-          emergencyFullTime={p.emergencyFullTime}
-        />
-      </Section>
+/** A document's thumbnail that opens it larger; a file that failed to load says so instead. */
+function Thumb({
+  fileId,
+  label,
+  onOpen,
+}: {
+  fileId: string;
+  label: string;
+  onOpen: (fileId: string) => void;
+}) {
+  const t = useTranslations('admin.volunteers.profile');
+  const file = useFileDataUrl(fileId);
+  if (file.error) return <span className="admin-doc-thumb is-empty">{t('photo_failed')}</span>;
+  return (
+    <button type="button" className="admin-doc-thumb" onClick={() => onOpen(fileId)}>
+      {file.data ? <img src={file.data} alt="" /> : <Skeleton shape="card" />}
+      <span className="admin-doc-zoom" aria-hidden="true">
+        <ZoomIn size={16} />
+      </span>
+      <span className="ui-sr-only">{t('view_document', { name: label })}</span>
+    </button>
+  );
+}
 
-      <Section title={t('sections.bank')}>
-        {p.bank
-          ? rows([
-              [tf('form.bank_name'), p.bank.bankName ?? empty],
-              [tf('form.account_name'), p.bank.accountName ?? empty],
-              [tf('form.account_number'), p.bank.accountNumber ?? empty],
-              [tf('form.branch_name'), p.bank.branchName ?? empty],
-              [tf('form.routing_number'), p.bank.routingNumber ?? empty],
-            ])
-          : hidden}
-      </Section>
+function InfoTab({ view: p, registration }: { view: View; registration?: RegistrationDetailView }) {
+  const t = useTranslations('admin.volunteers.profile');
+  const tf = useTranslations('registration');
+  const empty = tf('profile.empty');
+  const hidden = t('hidden');
+  const items = (rows: [string, ReactNode, typeof User?][]) =>
+    rows.map(([label, value, icon]) => ({ label, value, icon }));
+  const facebookUrl = p.facebookId && /^https?:\/\//i.test(p.facebookId) ? p.facebookId : null;
+  const whatsappDigits = p.whatsapp?.replace(/\D/g, '');
+  const contacts: ContactItem[] = [
+    ...(p.mobile
+      ? [
+          {
+            id: 'mobile',
+            icon: Phone,
+            label: tf('form.mobile'),
+            value: p.mobile,
+            href: telLink(p.mobile),
+            actionLabel: t('call'),
+            copy: true,
+          },
+        ]
+      : []),
+    ...(p.email
+      ? [
+          {
+            id: 'email',
+            icon: Mail,
+            label: tf('form.email'),
+            value: p.email,
+            href: mailLink(p.email),
+            actionLabel: t('send_email'),
+            copy: true,
+          },
+        ]
+      : []),
+    ...(p.whatsapp && whatsappDigits
+      ? [
+          {
+            id: 'whatsapp',
+            icon: MessageCircle,
+            label: tf('form.whatsapp'),
+            value: p.whatsapp,
+            // a Bangladeshi number without its country code gets one
+            href: `https://wa.me/${whatsappDigits.startsWith('0') ? `88${whatsappDigits}` : whatsappDigits}`,
+            actionLabel: t('open_whatsapp'),
+            external: true,
+          },
+        ]
+      : []),
+    ...(p.facebookId
+      ? [
+          {
+            id: 'facebook',
+            icon: Globe,
+            label: tf('form.facebook'),
+            value: p.facebookId,
+            ...(facebookUrl
+              ? { href: facebookUrl, actionLabel: t('open_facebook'), external: true }
+              : {}),
+          },
+        ]
+      : []),
+  ];
+  return (
+    <div className="admin-profile-grid">
+      <Grid gap={3}>
+        <ProfileSection title={t('personal')} icon={User}>
+          <DescriptionList
+            columns={2}
+            items={items([
+              [tf('form.father_name'), p.fatherName, User],
+              [tf('form.mother_name'), p.motherName, User],
+              [tf('form.nid'), p.nid ?? hidden, Hash],
+              [
+                tf('form.date_of_birth'),
+                p.dateOfBirth === undefined
+                  ? hidden
+                  : p.dateOfBirth
+                    ? formatDate(p.dateOfBirth)
+                    : empty,
+                CalendarDays,
+              ],
+              [
+                tf('form.blood_group'),
+                p.bloodGroup === undefined ? hidden : (p.bloodGroup ?? empty),
+                Droplet,
+              ],
+              [tf('form.mobile'), p.mobile ?? empty, Phone],
+              [tf('form.email'), p.email ?? empty, Mail],
+              [tf('form.whatsapp'), p.whatsapp ?? empty, MessageCircle],
+              [tf('form.facebook'), p.facebookId ?? empty, Globe],
+              [
+                tf('form.volunteering_area'),
+                p.volunteeringArea
+                  ? tf(`lists.volunteering_area.${p.volunteeringArea as 'anywhere'}`)
+                  : empty,
+                MapPin,
+              ],
+              [tf('form.tshirt_size'), p.tshirtSize ?? empty],
+              [t('registered'), formatDate(p.registeredAt)],
+              ...(registration
+                ? []
+                : [
+                    [t('approved'), p.approvedAt ? formatDate(p.approvedAt) : empty] as [
+                      string,
+                      ReactNode,
+                    ],
+                  ]),
+            ])}
+          />
+        </ProfileSection>
+        <ProfileSection title={t('sections.address')} icon={MapPin}>
+          <DescriptionList
+            items={[
+              { label: tf('form.address'), value: <AddressNames address={p} /> },
+              { label: tf('form.address_line'), value: p.addressLine ?? empty },
+              {
+                label: tf('form.address_permanent'),
+                value: <PermanentAddressText address={p.permanentAddress} />,
+              },
+            ]}
+          />
+        </ProfileSection>
+        <ProfileSection title={t('education_skills')} icon={GraduationCap}>
+          <DescriptionList
+            items={[
+              {
+                label: tf('form.education_group'),
+                value: <EducationText education={p.educationDetails} />,
+              },
+              ...(p.education ? [{ label: tf('form.education'), value: p.education }] : []),
+              {
+                label: tf('form.skills'),
+                value: (
+                  <SkillsText
+                    interestAreas={p.interestAreas}
+                    vehicle={p.vehicle}
+                    canSwim={p.canSwim}
+                    availability={p.availability}
+                    emergencyFullTime={p.emergencyFullTime}
+                  />
+                ),
+              },
+            ]}
+          />
+        </ProfileSection>
+        <ProfileSection title={t('work_section')} icon={Briefcase}>
+          <DescriptionList
+            items={[
+              {
+                label: tf('form.profession_group'),
+                value: <ProfessionText profession={p.profession} details={p.professionDetails} />,
+              },
+              ...(p.experience ? [{ label: tf('form.experience'), value: p.experience }] : []),
+              ...(p.workDescription
+                ? [{ label: tf('form.work_description'), value: p.workDescription }]
+                : []),
+              { label: tf('form.previous_projects'), value: p.previousProjects ?? empty },
+            ]}
+          />
+        </ProfileSection>
+        <ProfileSection title={t('sections.bank')} icon={Landmark} defaultOpen={false}>
+          {p.bank ? (
+            <DescriptionList
+              columns={2}
+              items={[
+                { label: tf('form.bank_name'), value: p.bank.bankName ?? empty },
+                { label: tf('form.account_name'), value: p.bank.accountName ?? empty },
+                { label: tf('form.account_number'), value: p.bank.accountNumber ?? empty },
+                { label: tf('form.branch_name'), value: p.bank.branchName ?? empty },
+                { label: tf('form.routing_number'), value: p.bank.routingNumber ?? empty },
+              ]}
+            />
+          ) : (
+            <Text>{hidden}</Text>
+          )}
+        </ProfileSection>
+      </Grid>
+      <Grid gap={3} as="aside">
+        <ProfileSection title={t('contact')} icon={Phone}>
+          {contacts.length > 0 ? <ContactList items={contacts} /> : <Text>{empty}</Text>}
+        </ProfileSection>
+        <ProfileSection title={t('history_title')} icon={CalendarDays}>
+          <RegistrationTimeline view={p} registration={registration} />
+        </ProfileSection>
+      </Grid>
+    </div>
+  );
+}
 
-      <Section title={t('sections.photos')}>
-        <div className="admin-photos">
-          {photos.map(([label, fileId, visible]) => (
-            <Grid gap={1} as="figure" key={label}>
-              <figcaption>{label}</figcaption>
-              {!visible ? (
-                <span>{hidden}</span>
-              ) : fileId ? (
-                <FileImage fileId={fileId} alt={label} />
-              ) : (
-                <span>{empty}</span>
-              )}
-            </Grid>
-          ))}
-        </div>
-      </Section>
+/** The registration's way so far: submitted, the corrections asked, the decision, a block. */
+function RegistrationTimeline({
+  view: p,
+  registration,
+}: {
+  view: View;
+  registration?: RegistrationDetailView;
+}) {
+  const t = useTranslations('admin.volunteers.profile');
+  const tr = useTranslations('admin.registrations');
+  const tf = useTranslations('registration');
+  const locale = useLocale() as Locale;
+  const steps: TimelineStep[] = [
+    {
+      id: 'submitted',
+      title: t('history.submitted'),
+      time: formatDateTime(p.registeredAt, locale),
+      status: 'done',
+    },
+    ...(registration?.corrections ?? []).map((c): TimelineStep => ({
+      id: c.id,
+      title: t('history.correction', {
+        field: c.field in FIELD_LABEL ? tf(FIELD_LABEL[c.field as RequestField]) : c.field,
+      }),
+      comment: [tr(`corrections.status.${c.status}`), c.note].filter(Boolean).join(' · '),
+      status: c.status === 'open' ? 'current' : 'done',
+    })),
+    ...(registration
+      ? [
+          {
+            id: 'decision',
+            title: t('history.awaiting'),
+            status: registration.status === 'in_correction' ? 'upcoming' : 'current',
+          } satisfies TimelineStep,
+        ]
+      : p.approvedAt
+        ? [
+            {
+              id: 'decision',
+              title: t('history.approved'),
+              time: formatDateTime(p.approvedAt, locale),
+              status: 'done',
+            } satisfies TimelineStep,
+          ]
+        : []),
+    ...(p.blocklist.blocked
+      ? [
+          {
+            id: 'blocked',
+            title: t('history.blocked'),
+            time: p.blocklist.blockedAt ? formatDateTime(p.blocklist.blockedAt, locale) : undefined,
+            comment: p.blocklist.reason,
+            status: 'rejected' as const,
+          },
+        ]
+      : []),
+  ];
+  return <Timeline label={t('history_title')} steps={steps} />;
+}
 
-      <Section title={t('sections.projects')}>
+function DocumentsTab({ view }: { view: View }) {
+  const t = useTranslations('admin.volunteers.profile');
+  return (
+    <div className="admin-photos">
+      {useDocumentSlots(view).map((slot) => (
+        <Grid gap={1} as="figure" key={slot.id}>
+          <figcaption>{slot.label}</figcaption>
+          {!slot.visible ? (
+            <span>{t('hidden')}</span>
+          ) : slot.fileId ? (
+            <FileImage fileId={slot.fileId} alt={slot.label} />
+          ) : (
+            <span>{t('no_photo')}</span>
+          )}
+        </Grid>
+      ))}
+    </div>
+  );
+}
+
+function WorkTab({ view: p }: { view: View }) {
+  const t = useTranslations('admin.volunteers.profile');
+  const tf = useTranslations('registration');
+  const locale = useLocale() as Locale;
+  const empty = tf('profile.empty');
+  return (
+    <Grid gap={3}>
+      <ProfileSection title={t('sections.projects')} icon={Briefcase}>
         {p.projects.length === 0 ? (
           <Text className="admin-muted">{t('no_projects')}</Text>
         ) : (
@@ -261,9 +748,8 @@ function Profile({ profile: p }: { profile: VolunteerProfile }) {
             ))}
           </Grid>
         )}
-      </Section>
-
-      <Section title={t('sections.team')}>
+      </ProfileSection>
+      <ProfileSection title={t('sections.team')} icon={User}>
         {p.team.length === 0 ? (
           <Text className="admin-muted">{t('no_team')}</Text>
         ) : (
@@ -275,26 +761,43 @@ function Profile({ profile: p }: { profile: VolunteerProfile }) {
             ))}
           </Grid>
         )}
-      </Section>
-
-      <Section title={t('sections.summary')}>
+      </ProfileSection>
+      <ProfileSection title={t('sections.summary')}>
         <Text className="admin-muted">{t('summary_later')}</Text>
-      </Section>
-
+      </ProfileSection>
       {'category' in p && (
-        <Section title={t('sections.ratings')}>
-          {rows([
-            [
-              t('category'),
-              [p.category, p.inactiveFlag ? t('inactive') : null].filter(Boolean).join(' · ') ||
-                empty,
-            ],
-          ])}
+        <ProfileSection title={t('sections.ratings')}>
+          <DescriptionList
+            items={[
+              {
+                label: t('category'),
+                value:
+                  [p.category, p.inactiveFlag ? t('inactive') : null].filter(Boolean).join(' · ') ||
+                  empty,
+              },
+            ]}
+          />
           {p.ratings?.length === 0 && <Text className="admin-muted">{t('no_ratings')}</Text>}
-        </Section>
+        </ProfileSection>
       )}
+    </Grid>
+  );
+}
 
-      <Section title={t('sections.blocklist')}>
+function HistoryTab({
+  view: p,
+  registration,
+}: {
+  view: View;
+  registration?: RegistrationDetailView;
+}) {
+  const t = useTranslations('admin.volunteers.profile');
+  return (
+    <Grid gap={3}>
+      <ProfileSection title={t('history_title')} icon={CalendarDays}>
+        <RegistrationTimeline view={p} registration={registration} />
+      </ProfileSection>
+      <ProfileSection title={t('sections.blocklist')} icon={Ban}>
         <Grid gap={2}>
           <Text>
             {p.blocklist.blocked && p.blocklist.blockedAt
@@ -306,36 +809,8 @@ function Profile({ profile: p }: { profile: VolunteerProfile }) {
               {t('reason')}: {p.blocklist.reason}
             </Text>
           )}
-          {(p.actions.block || p.actions.unblock) && (
-            <div>
-              <BlocklistAction
-                volunteerId={p.id}
-                name={p.displayName}
-                blocked={p.blocklist.blocked}
-                onDone={changed}
-              />
-            </div>
-          )}
         </Grid>
-      </Section>
-
-      {p.actions.viewSessions && (
-        <Section title={t('sections.sessions')}>
-          <VolunteerSessions userId={p.userId} canRevoke={p.actions.revokeSessions} />
-        </Section>
-      )}
-    </>
-  );
-}
-
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  const id = useId();
-  return (
-    <section aria-labelledby={id} className="admin-panel-section">
-      <h2 id={id} className="admin-subtitle">
-        {title}
-      </h2>
-      {children}
-    </section>
+      </ProfileSection>
+    </Grid>
   );
 }

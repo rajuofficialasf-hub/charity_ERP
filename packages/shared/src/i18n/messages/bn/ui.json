@@ -100,6 +100,11 @@
     "valueOfMax": "{max}-এর মধ্যে {value}",
     "progressText": "{max}-এর মধ্যে {value} ({percent}%)"
   },
+  "profile": {
+    "copy": "{label} কপি করুন",
+    "copied": "{label} কপি হয়েছে",
+    "copyFailed": "{label} কপি করা যায়নি"
+  },
   "timeline": {
     "done": "সম্পন্ন",
     "current": "চলমান",

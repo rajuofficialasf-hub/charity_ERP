@@ -100,6 +100,11 @@
     "valueOfMax": "{value} of {max}",
     "progressText": "{value} of {max} ({percent}%)"
   },
+  "profile": {
+    "copy": "Copy {label}",
+    "copied": "{label} copied",
+    "copyFailed": "Could not copy {label}"
+  },
   "timeline": {
     "done": "Done",
     "current": "Current",

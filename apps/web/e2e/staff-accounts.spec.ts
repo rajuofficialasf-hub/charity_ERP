@@ -46,6 +46,13 @@ test.describe('officials created by the admin', () => {
     await page.getByRole('searchbox', { name: 'খুঁজুন' }).fill(jobId);
     // the table on a desktop and the cards on a phone: the visible one
     await expect(page.getByText('পাসওয়ার্ডের অপেক্ষায়').filter({ visible: true })).toHaveCount(1);
+    // the name opens the official's profile with the Job ID and the new-link action
+    await page.getByRole('link', { name }).filter({ visible: true }).click();
+    await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+    await expect(page.getByText(new RegExp(`^Job ID: ${jobId}$`, 'i'))).toBeVisible();
+    await expect(page.getByRole('button', { name: 'নতুন পাসওয়ার্ড লিঙ্ক' })).toBeVisible();
+    expect((await scan(page)).violations).toEqual([]);
+    expect(await noSideways()).toBe(true);
 
     // the official opens the link in a browser of their own
     const other = await browser.newContext({

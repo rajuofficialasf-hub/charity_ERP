@@ -244,13 +244,17 @@ test.describe('registration approval', () => {
 
     // the RPM of Dhaka asks for a correction of the father's name
     await signIn(page, 'rpm.dhaka@example.org', DEMO_PASSWORD);
-    // volunteer registrations are reviewed in the volunteer tab, under its pending shortcut
+    // volunteer registrations are reviewed in the volunteer tab, under its pending count card
     await openTab(page, 'স্বেচ্ছাসেবক');
-    await page.getByRole('button', { name: 'অপেক্ষমাণ', exact: true }).click();
+    await page
+      .getByRole('group', { name: 'স্বেচ্ছাসেবকের হিসাব' })
+      .getByRole('button', { name: /^অপেক্ষমাণ \d/ })
+      .click();
     await expect(page).toHaveURL(/state=pending/);
     await page.getByRole('link', { name: person.name }).click();
     await expect(page.getByRole('heading', { level: 1, name: person.name })).toBeVisible();
-    await expect(page.getByText(person.nid)).toBeVisible();
+    // the NID in its section; the header shows it again with its label
+    await expect(page.getByText(person.nid, { exact: true })).toBeVisible();
     expect((await scan(page)).violations).toEqual([]);
     await page.getByRole('button', { name: 'সংশোধনের অনুরোধ' }).click();
     const dialog = page.getByRole('dialog', { name: 'সংশোধনের অনুরোধ' });

@@ -5,7 +5,6 @@ import {
   Badge,
   Button,
   Card,
-  ConfirmDialog,
   DescriptionList,
   EmptyState,
   ErrorState,
@@ -14,8 +13,8 @@ import {
   Stack,
   Text,
 } from '@css/ui';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, FilePenLine, UserCheck, X } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Check, UserCheck } from 'lucide-react';
 import { type ReactNode, useId, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -33,21 +32,17 @@ import { ForbiddenContent } from '../AdminLayout';
 import { canApproveStaff, canBlock, canApproveRegistrations } from '../roles';
 import { AddressNames } from '../../components/AddressNames';
 import { BlocklistAction } from './Blocklist';
-import { CorrectionDialog } from './CorrectionDialog';
 import { FileImage } from '../../components/FileImage';
 import {
-  approve,
   detailKey,
   LIST_KEY,
   registrationDetail,
   type RegistrationDetailView,
-  reject,
 } from './registrations-api';
 import type { ListNotice } from './RegistrationsPage';
 import { StaffDecisionDialog } from './StaffDecisionDialog';
+import { VolunteerDecisions } from './VolunteerDecisions';
 import { VOLUNTEERS_KEY } from '../volunteers/volunteers-api';
-
-type Dialog = 'approve' | 'reject' | 'correct' | 'staff' | null;
 
 /**
  * The page of one pending staff registration (SCR-040). A volunteer's registration is reviewed in
@@ -107,7 +102,7 @@ export function RegistrationReview({
   const tc = useTranslations('common');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [dialog, setDialog] = useState<Dialog>(null);
+  const [staffOpen, setStaffOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const reg = useQuery({
     queryKey: detailKey(userId),
@@ -125,19 +120,10 @@ export function RegistrationReview({
     void navigate(finishedTo, { state: { notice: message } satisfies ListNotice });
   };
   const changed = (message: string) => {
-    setDialog(null);
     setNotice(message);
     void queryClient.invalidateQueries({ queryKey: detailKey(userId) });
     stale();
   };
-  const approval = useMutation({
-    mutationFn: () => approve(userId),
-    onSuccess: () => finished(t('approved')),
-  });
-  const rejection = useMutation({
-    mutationFn: (reason: string) => reject(userId, reason.trim()),
-    onSuccess: () => finished(t('rejected')),
-  });
 
   if (!me) return null;
   if (reg.isPending) return <Skeleton count={4} />;
@@ -152,13 +138,6 @@ export function RegistrationReview({
       />
     );
   const r = reg.data;
-  const decisionError = [approval.error, rejection.error].find((e) => e instanceof ApiFailure) as
-    ApiFailure | undefined;
-  const closeDialog = () => {
-    approval.reset();
-    rejection.reset();
-    setDialog(null);
-  };
 
   return (
     <>
@@ -182,32 +161,15 @@ export function RegistrationReview({
         <Stack direction="row" wrap gap={2}>
           {r.kind === 'volunteer' ? (
             <>
-              {(!allowed || allowed.review) && (
-                <Button
-                  icon={Check}
-                  disabled={
-                    r.blocklisted || r.status === 'in_correction' || (allowed && !allowed.approve)
-                  }
-                  onPress={() => setDialog('approve')}
-                >
-                  {t('approve')}
-                </Button>
-              )}
-              {(!allowed || allowed.review) && (
-                <Button
-                  variant="secondary"
-                  icon={FilePenLine}
-                  disabled={allowed && !allowed.requestCorrection}
-                  onPress={() => setDialog('correct')}
-                >
-                  {t('correct')}
-                </Button>
-              )}
-              {(!allowed || allowed.review) && (
-                <Button variant="secondary" icon={X} onPress={() => setDialog('reject')}>
-                  {t('reject')}
-                </Button>
-              )}
+              <VolunteerDecisions
+                userId={userId}
+                name={r.displayName}
+                inCorrection={r.status === 'in_correction'}
+                blocklisted={r.blocklisted}
+                allowed={allowed}
+                finishedTo={finishedTo}
+                onChanged={changed}
+              />
               {(allowed ? allowed.block || allowed.unblock : canBlock(me)) && r.volunteer && (
                 <BlocklistAction
                   volunteerId={r.volunteer.id}
@@ -219,7 +181,7 @@ export function RegistrationReview({
             </>
           ) : (
             canApproveStaff(me) && (
-              <Button icon={Check} onPress={() => setDialog('staff')}>
+              <Button icon={Check} onPress={() => setStaffOpen(true)}>
                 {t('staff.decide')}
               </Button>
             )
@@ -231,43 +193,11 @@ export function RegistrationReview({
       <Photos registration={r} />
       {r.corrections.length > 0 && <Corrections registration={r} />}
 
-      <ConfirmDialog
-        isOpen={dialog === 'approve'}
-        title={t('approve_title', { name: r.displayName })}
-        message={
-          <>
-            {t('approve_body')}
-            {decisionError && <p className="admin-error">{decisionError.message}</p>}
-          </>
-        }
-        confirmLabel={t('approve_confirm')}
-        pending={approval.isPending}
-        onConfirm={() => approval.mutate()}
-        onCancel={closeDialog}
-      />
-      <ConfirmDialog
-        isOpen={dialog === 'reject'}
-        title={t('reject_title', { name: r.displayName })}
-        message={decisionError && <p className="admin-error">{decisionError.message}</p>}
-        tone="danger"
-        reasonRequired
-        reasonLabel={t('reason')}
-        confirmLabel={t('reject_confirm')}
-        pending={rejection.isPending}
-        onConfirm={(reason) => rejection.mutate(reason)}
-        onCancel={closeDialog}
-      />
-      <CorrectionDialog
-        userId={userId}
-        isOpen={dialog === 'correct'}
-        onClose={closeDialog}
-        onDone={() => changed(t('corrected'))}
-      />
       <StaffDecisionDialog
         userId={userId}
         name={r.displayName}
-        isOpen={dialog === 'staff'}
-        onClose={closeDialog}
+        isOpen={staffOpen}
+        onClose={() => setStaffOpen(false)}
         onDone={(decision) =>
           finished(decision === 'approve' ? t('staff.approved') : t('rejected'))
         }

@@ -92,6 +92,39 @@
   .ui-dl dt {
     font-weight: var(--font-weight-bold);
   }
+  .ui-dl dt:has(.ui-dl-icon) {
+    display: flex;
+    gap: var(--space-2);
+    align-items: flex-start;
+  }
+  .ui-dl-icon {
+    flex: none;
+    margin-top: 3px;
+    color: var(--color-text-secondary);
+  }
+  /* a profile section: muted labels, two pairs side by side on a desktop */
+  .ui-dl-two {
+    column-gap: var(--space-5);
+  }
+  .ui-dl-two dt {
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-regular);
+  }
+  .ui-dl-two dd {
+    overflow-wrap: anywhere;
+  }
+  @media (min-width: 1024px) {
+    /* two pairs share the width, so the labels take less of it than in one column */
+    .ui-dl-two.ui-dl-sm {
+      grid-template-columns: 8rem minmax(0, 1fr) 8rem minmax(0, 1fr);
+    }
+    .ui-dl-two.ui-dl-md {
+      grid-template-columns: 9.5rem minmax(0, 1fr) 9.5rem minmax(0, 1fr);
+    }
+    .ui-dl-two.ui-dl-lg {
+      grid-template-columns: 11rem minmax(0, 1fr) 11rem minmax(0, 1fr);
+    }
+  }
 
   .ui-text {
     margin: 0;
