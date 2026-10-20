@@ -70,7 +70,10 @@ client                                     api                                  
 
 - The offline photo queue (OFFLINE_SYNC §5) uses exactly this pipeline; a photo uploads only after its owning record has a server id, text first, photos later.
 - A session that is not finalized within its expiry is aborted by a nightly sweep, which also removes its stored parts; an interrupted upload resumes from the parts the server holds (NFR-24).
-- Finalize is idempotent on `client_uuid` + slot: a repeated finalize returns the existing file.
+- Finalize is idempotent on `client_uuid` + slot: a repeated finalize returns the existing file (200 with `Idempotent-Replay: true`, as a resent create returns its session).
+- Records a chunked upload links to, and the kinds each takes (`@css/shared/files`, T2.1): application (distribution, construction and evidence photos, voucher, payment copy), activity (the three photo kinds), issue (issue photo), voucher (voucher), expense claim (voucher), payment (payment copy), animal (animal photo), document (document). Profile and NID photos keep the registration upload (D-087); beneficiary photos and media assets come with their modules. Any other pair answers 422 `file.kind_not_allowed`.
+- Who reaches a record (RBAC.md 8): a global, program or project grant of `file.upload` reaches every record of the project; an area grant the records of its place (an application's region, district, upazila or union, or of the application the record belongs to) and project-wide records; SELF the caller's own records (the application's owner volunteer or creator, the issue's raiser, the voucher's submitter, the claim's volunteer, the animal's volunteer, the creator otherwise) on a project the caller works on. ASSIGNED reaches nothing until the work assignments exist; the Media and Procurement Teams' `own_part` grants likewise. A project takes files while active or closing (409 `project.read_only` otherwise).
+- The flags the declaration decides are set at finalize for photos (`no_capture_time`, `no_gps`, `stale_capture`); the processing job confirms them from the file and adds the others.
 
 ## 5. Validation table
 
@@ -126,9 +129,9 @@ Flagged-photo monitoring (O-30, BR-241): the data-quality flags that count are `
 
 | Bucket | Key pattern | Notes |
 |---|---|---|
-| `documents` | `{program_code}/{project_code}/{year}/{district_code}/{document_id}-{slug}.{ext}` | SOP clause 10 structure Program → Project → Year → District (BR-168); district of the document's scope, `_central` for project-wide documents |
-| `photos` | `{project_code}/{application_id}/{kind}/{file_id}.jpg`; animals `{project_code}/animals/{animal_no}/{kind}/{file_id}.jpg`; issues `{project_code}/issues/{issue_id}/{file_id}.jpg` | thumbnails `.../thumb/{file_id}-s.jpg`, `-m.jpg` |
-| `vouchers` | `{project_code}/applications/{application_id}/{file_id}.{ext}`; `{project_code}/claims/{claim_id}/{file_id}.{ext}`; `{project_code}/payments/{payment_id}/{file_id}.{ext}` | includes payment copies |
+| `documents` | `{program_code}/{project_code}/{year}/{district_code}/{document_id}-{file_id}.{ext}` (a file id, never a slug of the document's name) | SOP clause 10 structure Program → Project → Year → District (BR-168); district of the document's scope, `_central` for project-wide documents |
+| `photos` | `{project_code}/{application_id}/{kind}/{file_id}.{ext}`; an activity without an application `{project_code}/activity/{activity_id}/{kind}/{file_id}.{ext}`; animals `{project_code}/animals/{animal_id}/{kind}/{file_id}.{ext}` (the id: a cow and a goat may share a number); issues `{project_code}/issues/{issue_id}/{file_id}.{ext}` | thumbnails `.../thumb/{file_id}-s.jpg`, `-m.jpg` |
+| `vouchers` | `{project_code}/applications/{application_id}/{file_id}.{ext}`; `{project_code}/claims/{claim_id}/{file_id}.{ext}`; `{project_code}/payments/{payment_id}/{file_id}.{ext}`; `{project_code}/vouchers/{voucher_id}/{file_id}.{ext}` | includes payment copies |
 | `profiles` | `volunteers/{volunteer_id}/photo/{file_id}.jpg`, `volunteers/{volunteer_id}/nid/{file_id}.jpg` | most restricted bucket policy; dedicated backup encryption key separate from the primary storage key, with key management, access restrictions, rotation and documented restore testing (O-30; procedures in RUNBOOK.md) |
 | `media` | `{project_code}/{beneficiary_id}/{file_id}.{ext}` | Media Team assets |
 | `exports` | `{yyyy}/{mm}/{job_id}/{file_name}` | lifecycle rule: generated export files deleted after 30 days; the export job row and the source records are never touched (O-30) |

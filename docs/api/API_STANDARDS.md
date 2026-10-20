@@ -222,7 +222,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | file | file.type_not_allowed | 415 | type not allowed for the kind (FILES_AND_DOCUMENTS §5) |
 | file | file.too_large | 413 | above the size limit |
 | file | file.source_not_allowed | 422 | gallery under camera_only (UX-11) |
-| file | file.duplicate | 409 | identical bytes already in the project (O-30) |
+| file | file.duplicate | 409 | identical bytes already in the project (O-30); `params.fileId` names the other file only to a caller whose scope reaches one of its records |
 | file | file.quarantined | 423 | not scanned yet; cannot be previewed or downloaded (O-30) |
 | file | file.infected | 410 | blocked by the scanner |
 | file | file.session_expired | 410 | upload session expired |

@@ -25,6 +25,7 @@ import {
 } from './notifications/adapters';
 import { AuthService } from './services/auth';
 import { RegistrationCleanup } from './jobs/registration-cleanup';
+import { UploadSweep } from './jobs/upload-sweep';
 import { AccountEvents } from './notifications/account-events';
 import { DeliveriesService } from './services/deliveries';
 import { AttentionService } from './services/attention';
@@ -33,6 +34,7 @@ import { NotificationTemplatesService } from './services/notification-templates'
 import { ProjectEvents } from './notifications/project-events';
 import { LocationsService } from './services/locations';
 import { FilesService } from './services/files';
+import { UploadsService } from './services/uploads';
 import { VolunteersService } from './services/volunteers';
 import { VolunteerListService } from './services/volunteer-list';
 import { VolunteerProfileService } from './services/volunteer-profile';
@@ -105,6 +107,8 @@ export interface Container {
   projectEvents: ProjectEvents;
   registration: RegistrationService;
   registrationCleanup: RegistrationCleanup;
+  uploadSweep: UploadSweep;
+  uploads: UploadsService;
   registrationPhotos: RegistrationPhotosService;
   files: FilesService;
   volunteers: VolunteersService;
@@ -279,6 +283,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       o.registrationPhotos ??
       new RegistrationPhotosService(prisma, storage, audit, registration, logger, accountEvents),
     files: o.files ?? new FilesService(prisma, storage, access, audit),
+    uploads: o.uploads ?? new UploadsService(prisma, storage, audit, access, clock, logger),
     volunteers: o.volunteers ?? new VolunteersService(prisma),
     volunteerList: o.volunteerList ?? new VolunteerListService(env, prisma, access),
     volunteerProfile: o.volunteerProfile ?? new VolunteerProfileService(prisma, access),
@@ -355,6 +360,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         accountEvents,
       ),
     registrationCleanup: o.registrationCleanup ?? new RegistrationCleanup(prisma, storage, logger),
+    uploadSweep: o.uploadSweep ?? new UploadSweep(prisma, storage, logger),
   };
   return {
     ...built,

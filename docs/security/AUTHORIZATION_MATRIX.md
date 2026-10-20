@@ -55,6 +55,10 @@ allowed endpoint is decided by the data scope and is tested separately (scope an
 | GET /locations | public | system | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | GET /files/:fileId/content | entity | file | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | POST /me/photos/:slot | authenticated | self | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| POST /upload-sessions | file.upload | project | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| GET /upload-sessions/:uploadSessionId | file.upload | self | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| PUT /upload-sessions/:uploadSessionId/parts/:partNumber | file.upload | self | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| POST /upload-sessions/:uploadSessionId/finalize | file.upload | project | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /volunteers | volunteer.view_all | global | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /volunteers/statistics | volunteer.view_all | global | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /volunteers/me | authenticated | self | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -147,7 +151,7 @@ allowed endpoint is decided by the data scope and is tested separately (scope an
 | PUT /admin/notification-templates/:key/:channel | notification.template.manage | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /admin/deliveries | notification.delivery.view | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 
-## Permissions no endpoint uses yet (104, D-077)
+## Permissions no endpoint uses yet (103, D-077)
 
 They belong to features of later tasks; the matrix covers them when their endpoints exist.
 
@@ -211,7 +215,6 @@ They belong to features of later tasks; the matrix covers them when their endpoi
 - `export.forms`
 - `export.list`
 - `export.volunteers`
-- `file.upload`
 - `followup.record`
 - `form.build`
 - `form.library.manage`

@@ -15,7 +15,8 @@ export type RateLimitClass =
   | 'registration'
   | 'default'
   | 'list'
-  | 'sync';
+  | 'sync'
+  | 'upload';
 
 export interface RateWindow {
   limit: number;
@@ -136,4 +137,6 @@ export const RATE_LIMITS: Record<RateLimitClass, RateWindow[]> = {
     { limit: 60, ttlMs: MINUTE, key: caller, shared: true },
   ],
   sync: [{ limit: 60, ttlMs: MINUTE, key: session }],
+  // The parts of chunked uploads: one budget per user across every upload (FILES_AND_DOCUMENTS 4).
+  upload: [{ limit: 600, ttlMs: HOUR, key: caller, shared: true }],
 };

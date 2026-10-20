@@ -4,6 +4,7 @@ import type { NotificationDelivery } from '../notifications/delivery';
 import type { DeliveryJob } from '../notifications/service';
 import type { JobRunner } from './job-runner';
 import { REGISTRATION_CLEANUP_CRON, type RegistrationCleanup } from './registration-cleanup';
+import { UPLOAD_SWEEP_CRON, type UploadSweep } from './upload-sweep';
 
 /** The sample heartbeat job: proves enqueue, consume and scheduling end to end (ADR-004). */
 export const HEARTBEAT_QUEUE = 'maintenance' as const;
@@ -19,11 +20,17 @@ export interface RegistrationCleanupData {
   kind: 'registration-cleanup';
 }
 
-type MaintenanceData = HeartbeatData | RegistrationCleanupData;
+/** The daily sweep of upload sessions that expired before they were finalized. */
+export interface UploadSweepData {
+  kind: 'upload-sweep';
+}
+
+type MaintenanceData = HeartbeatData | RegistrationCleanupData | UploadSweepData;
 
 /** The services the consumers call; a missing one leaves its queue unconsumed. */
 export interface ConsumerServices {
   registrationCleanup?: RegistrationCleanup;
+  uploadSweep?: UploadSweep;
   delivery?: NotificationDelivery;
 }
 
@@ -42,6 +49,10 @@ export class JobConsumers {
           throw new Error('registration cleanup not configured');
         return this.services.registrationCleanup.run();
       }
+      if (job.data.kind === 'upload-sweep') {
+        if (!this.services.uploadSweep) throw new Error('upload sweep not configured');
+        return this.services.uploadSweep.run();
+      }
       this.logger.info({ jobId: job.id }, 'heartbeat');
       return { kind: job.data.kind, handledAt: new Date().toISOString() };
     });
@@ -55,6 +66,13 @@ export class JobConsumers {
         REGISTRATION_CLEANUP_CRON,
         { kind: 'registration-cleanup' },
         'registration-cleanup',
+      );
+    if (this.services.uploadSweep)
+      await this.jobs.schedule(
+        HEARTBEAT_QUEUE,
+        UPLOAD_SWEEP_CRON,
+        { kind: 'upload-sweep' },
+        'upload-sweep',
       );
   }
 }

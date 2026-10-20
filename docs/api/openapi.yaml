@@ -2784,15 +2784,16 @@ components:
     # ---------------- files ----------------
     UploadSessionCreate:
       type: object
+      additionalProperties: false
       required: [clientUuid, kind, entityType, entityId, slot, mime, sizeBytes, sha256, source]
       properties:
         clientUuid: { $ref: '#/components/schemas/Uuid' }
         kind: { type: string, enum: [distribution_proof, construction_proof, evidence, voucher, payment_copy, document, animal_photo, profile_photo, nid_photo, media_asset, issue_photo] }
-        entityType: { type: string, description: The record type the file links to; each kind allows its own record types (D-108) }
+        entityType: { type: string, minLength: 1, maxLength: 40, description: 'The record type the file links to: application, activity, issue, voucher, expense_claim, payment, animal or document; each takes its own kinds (D-108)' }
         entityId: { type: string, format: uuid, description: The record the file links to; its scope is checked at create and at finalize }
-        slot: { type: string }
-        mime: { type: string }
-        sizeBytes: { type: integer, minimum: 1 }
+        slot: { type: string, pattern: '^[a-z][a-z0-9_]{0,39}$' }
+        mime: { type: string, minLength: 1, maxLength: 100 }
+        sizeBytes: { type: integer, minimum: 1, maximum: 20971520 }
         sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
         capturedAt: { type: string, format: date-time }
         recordCreatedAt: { type: string, format: date-time }
@@ -7395,7 +7396,7 @@ paths:
       operationId: files.uploadSession.create
       summary: Start a resumable upload (256 KB parts, O-29, D-108); checks the record's scope, the kind, the declared size and type, and the open sessions (at most 20)
       x-permission: file.upload
-      x-scope: self
+      x-scope: project
       x-audit: none
       x-idempotency: clientUuid
       x-rate-limit: default
@@ -7405,6 +7406,11 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/UploadSessionCreate' }
       responses:
+        '200':
+          description: 'The session an earlier create with the same clientUuid made (Idempotent-Replay: true)'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UploadSessionResponse' }
         '201':
           description: Upload session; the parts are sent to the part route
           content:
@@ -7412,6 +7418,7 @@ paths:
               schema: { $ref: '#/components/schemas/UploadSessionResponse' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/Unprocessable' }
@@ -7472,11 +7479,16 @@ paths:
       operationId: files.uploadSession.finalize
       summary: Complete the upload after the record's scope is checked again; the size, SHA-256 and the type by magic bytes are verified, an identical file in the project is refused; the file stays quarantined until the scan clears it (O-30)
       x-permission: file.upload
-      x-scope: self
+      x-scope: project
       x-audit: file.uploaded
       x-idempotency: clientUuid
       x-rate-limit: default
       responses:
+        '200':
+          description: 'The file an earlier finalize of the session made (Idempotent-Replay: true)'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FileInfoResponse' }
         '201':
           description: File created (virusScan pending)
           content:

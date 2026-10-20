@@ -1,12 +1,11 @@
 import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
+import { UPLOAD_RULES } from '@css/shared/files';
 import { ApiError } from '../i18n/api-error';
 import { type Bucket, NotFoundError, type StorageDriver } from '../storage';
 
-/** One part of a chunked upload: 256 KB, small enough to resend on a 2G connection. */
-export const PART_SIZE = 262_144;
-/** The most parts a session may have: the largest kind, a 20 MB document. */
-export const MAX_PARTS = 80;
+export const PART_SIZE = UPLOAD_RULES.partSize;
+export const MAX_PARTS = UPLOAD_RULES.maxParts;
 /** The bucket that holds the parts of uploads in progress (unversioned, emptied after two days). */
 const PARTS_BUCKET: Bucket = 'uploads';
 const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;

@@ -31,6 +31,8 @@ GRANT SELECT, UPDATE ON files TO css_jobs_cleanup;
 -- Expired unsubmitted registration drafts and their photo rows go only through the purge
 -- function, never a table-wide DELETE on files (DECISION_LOG D-082; DATABASE_SCHEMA 21).
 GRANT EXECUTE ON FUNCTION purge_expired_registration_drafts(integer) TO css_jobs_cleanup;
+-- Upload sessions that expired before they were finalized, the same narrow way.
+GRANT EXECUTE ON FUNCTION purge_expired_upload_sessions(integer) TO css_jobs_cleanup;
 -- A replaced registration photo (second upload to a draft slot), the same narrow way.
 GRANT EXECUTE ON FUNCTION discard_registration_photo(uuid) TO css_app;
 
