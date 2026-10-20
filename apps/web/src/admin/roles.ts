@@ -113,6 +113,19 @@ export const PROJECT_GRANT_ROLES: readonly string[] = [
   'regional_program_manager',
 ];
 
+/**
+ * The officials' directory and organogram (`permission.view`: the global roles, the PM in its
+ * program, the RPM in its region; DECISION_LOG D-097).
+ */
+export const STAFF_DIRECTORY_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'program_manager',
+  'regional_program_manager',
+];
+/** Who creates officials, edits their profile and renews their link (`user.create`, `user.profile.manage`). */
+export const OFFICIAL_ADMIN_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
+
 /** The staff handover and the deactivation after it (`user.handover`, `user.state.change`; BD-08). */
 export const HANDOVER_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
 
@@ -141,3 +154,5 @@ export const canCreateProjects = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_CR
 export const canAssignVolunteers = (me: Pick<Me, 'roles'>) => holds(me, ASSIGN_ROLES);
 export const canMarkPaid = (me: Pick<Me, 'roles'>) => holds(me, MARK_PAID_ROLES);
 export const canGrantOnProject = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_GRANT_ROLES);
+export const canSeeStaff = (me: Pick<Me, 'roles'>) => holds(me, STAFF_DIRECTORY_ROLES);
+export const canManageOfficials = (me: Pick<Me, 'roles'>) => holds(me, OFFICIAL_ADMIN_ROLES);

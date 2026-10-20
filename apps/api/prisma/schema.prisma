@@ -40,6 +40,10 @@ model User {
   designation                          String?
   homeProgramId                        String?                    @map("home_program_id") @db.Uuid
   homeDivisionId                       String?                    @map("home_division_id") @db.Uuid
+  jobId                                String?                    @map("job_id")
+  affiliation                          String?
+  affiliationUnit                      String?                    @map("affiliation_unit")
+  supervisorUserId                     String?                    @map("supervisor_user_id") @db.Uuid
   failedLoginCount                     Int                        @default(0) @map("failed_login_count") @db.SmallInt
   lockedUntil                          DateTime?                  @map("locked_until") @db.Timestamptz(6)
   lastLoginAt                          DateTime?                  @map("last_login_at") @db.Timestamptz(6)
@@ -52,6 +56,10 @@ model User {
   homeDivision                         Location?                  @relation("users_home_division_id", fields: [homeDivisionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   createdByRef                         User?                      @relation("users_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   updatedByRef                         User?                      @relation("users_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  supervisor                           User?                      @relation("users_supervisor_user_id", fields: [supervisorUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  reports                              User[]                     @relation("users_supervisor_user_id")
+  accountInvitationsUser               AccountInvitation[]        @relation("account_invitations_user_id")
+  accountInvitationsCreatedBy          AccountInvitation[]        @relation("account_invitations_created_by")
   usersCreatedBy                       User[]                     @relation("users_created_by")
   usersUpdatedBy                       User[]                     @relation("users_updated_by")
   userRolesUser                        UserRole[]                 @relation("user_roles_user_id")
@@ -285,6 +293,9 @@ model User {
   @@unique([mobile], where: raw("mobile IS NOT NULL"), map: "users_mobile_key")
   @@unique([email], where: raw("email IS NOT NULL"), map: "users_email_key")
   @@unique([isSystemOwner], where: raw("is_system_owner"), map: "users_is_system_owner_key")
+  @@unique([jobId], where: raw("job_id IS NOT NULL"), map: "users_job_id_key")
+  @@index([affiliation], where: raw("affiliation IS NOT NULL"), map: "users_affiliation_idx")
+  @@index([supervisorUserId], map: "users_supervisor_user_id_idx")
   @@index([state], map: "users_state_idx")
   @@index([kind, state], map: "users_kind_state_idx")
   @@index([homeProgramId], map: "users_home_program_id_idx")
@@ -293,6 +304,25 @@ model User {
   @@index([updatedBy], map: "users_updated_by_idx")
   @@index([displayName(ops: raw("gin_trgm_ops"))], type: Gin, map: "users_display_name_trgm_idx")
   @@map("users")
+}
+
+model AccountInvitation {
+  id           String    @id @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  tokenHash    String    @unique(map: "account_invitations_token_hash_key") @map("token_hash")
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(6)
+  emailed      Boolean   @default(false)
+  usedAt       DateTime? @map("used_at") @db.Timestamptz(6)
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy    String    @map("created_by") @db.Uuid
+  user         User      @relation("account_invitations_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef User      @relation("account_invitations_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([userId], where: raw("used_at IS NULL AND revoked_at IS NULL"), map: "account_invitations_user_id_open_key")
+  @@index([userId], map: "account_invitations_user_id_idx")
+  @@index([createdBy], map: "account_invitations_created_by_idx")
+  @@map("account_invitations")
 }
 
 model Role {

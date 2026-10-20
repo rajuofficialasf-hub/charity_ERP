@@ -10,7 +10,8 @@
     "handover": "Handover",
     "projects": "Projects",
     "programs": "Programs",
-    "templates": "Templates"
+    "templates": "Templates",
+    "staff": "Officials"
   },
   "bar": {
     "label": "Admin",
@@ -826,6 +827,134 @@
       "replace_hint": "The template keeps its name; its contents become this project's setup.",
       "submit": "Save",
       "notice": "Template saved: {name}"
+    }
+  },
+  "staff": {
+    "title": "Officials",
+    "new": "New official",
+    "empty": "No official matches these filters.",
+    "more": "Show more",
+    "renew_link": "New set-password link for {name}",
+    "chart": {
+      "title": "Organogram",
+      "unplaced": "Not placed yet",
+      "no_members": "No official in this program yet.",
+      "inactive": "Inactive program",
+      "empty": "No department official yet.",
+      "reports": "Officials reporting to {name}",
+      "state": {
+        "pending": "Waiting for the password",
+        "blocked": "Suspended"
+      },
+      "stats": "The organogram in numbers",
+      "total": "Department staff",
+      "programs": "Programs",
+      "program": "Program",
+      "all_programs": "All programs",
+      "open_all": "Open all",
+      "fold_all": "Fold all",
+      "show": "Show the officials under {name}",
+      "hide": "Hide the officials under {name}",
+      "members": "{count} officials",
+      "zoom": "Size of the chart",
+      "zoom_out": "Smaller",
+      "zoom_in": "Larger",
+      "zoom_fit": "Fit to the screen",
+      "monitoring": "Monitoring Team",
+      "under_head": "Under the Department Head"
+    },
+    "edit": "Edit the profile of {name}",
+    "renew": {
+      "title": "New link for {name}",
+      "submit": "Send a new link",
+      "explain": "The earlier link stops working. If the email was wrong, write the right one below.",
+      "email": "Corrected email (optional)",
+      "email_hint": "Leave empty to send to the email already given.",
+      "offline": "The server could not be reached. Check the connection and try again."
+    },
+    "no_job_id": "No job ID yet",
+    "tabs": {
+      "label": "Officials by affiliation",
+      "department": "Department staff",
+      "foundation": "Other departments of the Foundation",
+      "external": "Outside partners"
+    },
+    "column": {
+      "name": "Name",
+      "job_id": "Job ID",
+      "designation": "Designation and role",
+      "program": "Program",
+      "unit": "Department or organisation",
+      "state": "State"
+    },
+    "state": {
+      "awaiting": "Waiting for the password",
+      "pending": "Waiting for approval",
+      "active": "Active",
+      "blocked": "Suspended",
+      "deactivated": "Deactivated"
+    },
+    "filter": {
+      "search": "Search by name, job ID, email or mobile",
+      "program": "Program",
+      "role": "Role",
+      "all": "All"
+    },
+    "notice": {
+      "saved": "The profile of {name} was saved."
+    },
+    "affiliation": {
+      "department": "Staff of this department",
+      "foundation": "Another department of the Foundation",
+      "external": "Outside partner"
+    },
+    "dialog": {
+      "create_title": "New official",
+      "edit_title": "Profile of {name}",
+      "create": "Create the account",
+      "job_id": "Job ID",
+      "job_id_hint": "The organisation's ID: letters, digits or . _ / -, not a mobile number.",
+      "name": "Name",
+      "designation": "Designation",
+      "email": "Email",
+      "email_hint": "The set-password link goes to this email.",
+      "mobile": "Mobile number",
+      "role": "Role",
+      "affiliation": "Belongs to",
+      "unit_foundation": "Name of the department",
+      "unit_external": "Name of the organisation",
+      "program": "Program",
+      "no_program": "No program",
+      "division": "Division (region)",
+      "no_division": "No division",
+      "supervisor": "Reports to",
+      "supervisor_hint": "Search an active official of the department by name or job ID.",
+      "stale": "Someone else saved this profile meanwhile. The form shows it as stored now; check it and save again.",
+      "offline": "The server could not be reached. Check the connection and try again.",
+      "steps": "Steps of the form",
+      "step_identity": "Identity and contact",
+      "step_place": "Role and place",
+      "back": "Back",
+      "next": "Next"
+    },
+    "link": {
+      "title": "Set-password link for {name}",
+      "emailed": "The link was emailed. You can also copy it and send it another way.",
+      "not_emailed": "The email could not be sent. Copy the link and send it another way, for example on WhatsApp.",
+      "field": "Link",
+      "valid_until": "Works once, until {time}.",
+      "copy": "Copy the link",
+      "copied": "The link was copied.",
+      "copy_failed": "Copying was not possible here. Select the link in the field and copy it.",
+      "once": "The link is shown only now. If it is lost, send a new link from the list."
+    },
+    "view": {
+      "label": "View of the officials",
+      "list": "List",
+      "chart": "Organogram"
+    },
+    "stats": {
+      "label": "Officials by affiliation"
     }
   }
 }

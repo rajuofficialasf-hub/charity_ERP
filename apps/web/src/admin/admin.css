@@ -64,6 +64,8 @@
 }
 .admin-content {
   display: grid;
+  /* one column that never grows past the screen: a long tab list scrolls inside it instead */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
   align-content: start;
   width: 100%;
@@ -84,6 +86,12 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+}
+/* several actions beside a title wrap among themselves instead of widening the page */
+.admin-title-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 .admin-muted {
   margin: var(--space-2) 0 0;

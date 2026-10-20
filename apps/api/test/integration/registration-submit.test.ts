@@ -123,28 +123,12 @@ describe('POST /auth/register/submit', () => {
     expect((await submit(d.token, volunteerForm(d))).status).toBe(401);
   });
 
-  it('creates a pending official with designation only, no program, no workplace and no volunteer row', async () => {
+  it('refuses the submit of a staff draft left open from before and creates nothing (D-097)', async () => {
     const d = await verifiedDraft(h, 'staff');
-    const photoId = (await photo(d, 'photo', jpeg(), 'image/jpeg')).body.data.fileId as string;
     const res = await submit(d.token, staffForm(d));
-    expect(res.status).toBe(201);
-    const userId = res.body.data.id as string;
-    const user = (await h.db.query('SELECT * FROM users WHERE id = $1', [userId])).rows[0];
-    expect(user).toMatchObject({
-      kind: 'staff',
-      state: 'pending',
-      designation: 'Project Officer',
-      home_program_id: null,
-      home_division_id: null,
-    });
-    expect(
-      (await h.db.query('SELECT 1 FROM volunteers WHERE user_id = $1', [userId])).rowCount,
-    ).toBe(0);
-    const link = await h.db.query(
-      `SELECT file_id FROM file_links WHERE entity_type = 'user' AND entity_id = $1 AND slot = 'photo'`,
-      [userId],
-    );
-    expect(link.rows).toEqual([{ file_id: photoId }]);
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('registration.staff_by_invitation');
+    expect((await h.db.query('SELECT 1 FROM users WHERE email = $1', [d.email])).rowCount).toBe(0);
   });
 
   it('refuses the form of the other kind, a broken address and a weak password (422)', async () => {
@@ -474,26 +458,6 @@ describe('submit refusals', () => {
     for (let i = 0; i < 5; i += 1)
       expect((await submit(d.token, volunteerForm(d, { nid }))).status).toBe(409);
     expect((await submit(d.token, volunteerForm(d))).status).toBe(429);
-  });
-
-  it("replaces a returning official's photo link instead of adding one", async () => {
-    const d = await verifiedDraft(h, 'staff');
-    const firstPhoto = (await photo(d, 'photo', jpeg(), 'image/jpeg')).body.data.fileId as string;
-    const userId = (await submit(d.token, staffForm(d))).body.data.id as string;
-    await h.db.query(`UPDATE users SET state = 'deactivated' WHERE id = $1`, [userId]);
-    const again = await verifyFor(d.mobile, d.email, 'staff');
-    expect(again.res.status).toBe(200);
-    const draft = { ...d, registrationId: again.registrationId, token: again.token! };
-    const secondPhoto = (await photo(draft, 'photo', png(), 'image/png')).body.data
-      .fileId as string;
-    expect((await submit(draft.token, staffForm(draft))).status).toBe(201);
-    const links = await h.db.query(
-      `SELECT file_id FROM file_links WHERE entity_type = 'user' AND entity_id = $1 AND slot = 'photo'`,
-      [userId],
-    );
-    expect(links.rows).toEqual([{ file_id: secondPhoto }]);
-    // the earlier photo stays with the earlier submitted registration (BD-46)
-    expect((await h.db.query('SELECT 1 FROM files WHERE id = $1', [firstPhoto])).rowCount).toBe(1);
   });
 });
 

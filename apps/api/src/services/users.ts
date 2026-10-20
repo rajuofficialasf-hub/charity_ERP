@@ -1,4 +1,4 @@
-import type { UserState, UserStateRequest } from '@css/shared/auth';
+import type { Affiliation, UserState, UserStateRequest } from '@css/shared/auth';
 import type { Scope } from '../access/scope';
 import type { AccessService } from '../access/service';
 import { type AuditWriter } from '../audit/audit-writer';
@@ -25,7 +25,28 @@ export interface UserListQuery extends Omit<PageQuery, 'sort'> {
   q?: string;
   role?: string;
   state?: UserState;
+  /** Staff or volunteers; an affiliation implies staff (D-097). */
+  kind?: 'staff' | 'volunteer';
+  affiliation?: Affiliation;
+  /** The official's home program. */
+  programId?: string;
 }
+
+/** The place of an official in the organisation (D-097); null for a volunteer. */
+const placeSelect = {
+  jobId: true,
+  affiliation: true,
+  affiliationUnit: true,
+  homeProgramId: true,
+  homeDivisionId: true,
+  supervisorUserId: true,
+  // only to tell whether the official still waits for the set-password link; never returned
+  passwordHash: true,
+} as const;
+
+/** An official the admin created who has not used the set-password link yet. */
+const awaitingPassword = (u: { kind: string; state: string; passwordHash: string | null }) =>
+  u.kind === 'staff' && u.state === 'pending' && u.passwordHash === null;
 
 /**
  * Account transitions this endpoint performs (AUTH.md 7, O-59): staff suspension and its lift,
@@ -47,12 +68,11 @@ const userSelect = {
   designation: true,
   mobile: true,
   email: true,
-  homeProgramId: true,
-  homeDivisionId: true,
   isSystemOwner: true,
   lastLoginAt: true,
   lockedUntil: true,
   updatedAt: true,
+  ...placeSelect,
   userRolesUser: { where: { revokedAt: null }, select: { roleKey: true } },
 } as const;
 
@@ -83,7 +103,10 @@ export class UsersService {
       AND: [this.access.userFilter(scope)],
       ...(query.state ? { state: query.state } : {}),
       ...(query.role ? { userRolesUser: { some: { roleKey: query.role, revokedAt: null } } } : {}),
-      ...(searchWhere(query.q, ['displayName', 'mobile', 'email']) ?? {}),
+      ...(query.kind ? { kind: query.kind } : {}),
+      ...(query.affiliation ? { affiliation: query.affiliation } : {}),
+      ...(query.programId ? { homeProgramId: query.programId } : {}),
+      ...(searchWhere(query.q, ['displayName', 'mobile', 'email', 'jobId']) ?? {}),
     };
     const fetched = await this.prisma.user.findMany({
       where: cursor ? { AND: [filter, keysetWhere(sort, cursor)] } : filter,
@@ -95,6 +118,7 @@ export class UsersService {
         kind: true,
         state: true,
         designation: true,
+        ...placeSelect,
         userRolesUser: { where: { revokedAt: null }, select: { roleKey: true } },
       },
     });
@@ -110,9 +134,10 @@ export class UsersService {
       total,
     });
     return {
-      rows: rows.map(({ userRolesUser, ...u }) => ({
+      rows: rows.map(({ userRolesUser, passwordHash, ...u }) => ({
         ...u,
         roles: userRolesUser.map((r) => r.roleKey).sort(),
+        awaitingPassword: awaitingPassword({ ...u, passwordHash }),
       })),
       meta,
     };
@@ -123,6 +148,7 @@ export class UsersService {
     const {
       userRolesUser,
       lockedUntil: _locked,
+      passwordHash,
       updatedAt,
       ...user
     } = await this.access.findUser(scope, userId, userSelect);
@@ -130,6 +156,7 @@ export class UsersService {
       user: {
         ...user,
         roles: userRolesUser.map((r) => r.roleKey).sort(),
+        awaitingPassword: awaitingPassword({ ...user, passwordHash }),
         lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
       },
       updatedAt,

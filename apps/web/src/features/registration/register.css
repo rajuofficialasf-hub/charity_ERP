@@ -115,35 +115,9 @@
   color: var(--color-brand-primary-dark);
   font-weight: var(--font-weight-bold);
 }
-.register-kind {
-  display: inline-flex;
-  margin-top: var(--space-2);
-  padding: var(--space-1);
-  border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--color-text-on-brand) 16%, transparent);
-}
-.register-kind-option {
-  min-height: 36px;
-  padding: 0 var(--space-4);
-  border: 0;
-  border-radius: var(--radius-full);
-  background: transparent;
+.register-band-note {
+  margin: var(--space-2) 0 0;
   color: var(--color-text-on-brand);
-  font: inherit;
-  font-weight: var(--font-weight-bold);
-  cursor: pointer;
-}
-.register-kind-option[aria-pressed='true'] {
-  background: var(--color-bg-surface);
-  color: var(--color-brand-primary-dark);
-}
-.register-kind-option:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-.register-kind-option:focus-visible {
-  outline: 2px solid var(--color-text-on-brand);
-  outline-offset: 2px;
 }
 .register-foot {
   display: flex;

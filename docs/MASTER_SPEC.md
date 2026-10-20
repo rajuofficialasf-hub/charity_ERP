@@ -213,6 +213,8 @@ Entry into the system starts with two forms: staff registration and volunteer re
 
 Name, photo, contact details, designation, program and region. Approval and role assignment by the Department Head or Monitoring Team.
 
+Amended by the owner on 2026-10-17 (DECISION_LOG D-097): officials no longer register themselves. The Department Head or the Monitoring Team creates the account with the job ID, name, designation, email, mobile, affiliation (the department, another department of the Foundation, or an outside partner), program, division, supervisor and role, and the official sets the password through a single-use link (72 hours, emailed and copyable); afterwards the official logs in with the job ID (or the email or mobile). Only the department's own staff appear in the staff list and the organogram, which is computed by program from roles and supervisors. Volunteer registration below is unchanged.
+
 #### Volunteer registration
 
 During testing (Phases 1–2) the OTP is a dummy: one fixed code, so that registration can be tested without SMS or email services. Before production the real SMS and email gateways are connected and the dummy code is switched off (B9). (Approved by BD-44 and BD-49.)

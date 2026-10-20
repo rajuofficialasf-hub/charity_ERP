@@ -181,6 +181,16 @@ permissions:
     module: M01
     sensitive: false
     default: []
+  - name: user.create
+    description: Create an official's account with job ID, role and place, and send or renew its set-password link (D-097)
+    module: M01
+    sensitive: false
+    default: []
+  - name: user.profile.manage
+    description: Edit an official's job ID, name, designation, affiliation, program, division and supervisor (D-097)
+    module: M01
+    sensitive: false
+    default: []
   - name: user.deactivate_volunteer
     description: Deactivate a volunteer who has no open applications
     module: M03

@@ -888,3 +888,80 @@ describe('rules versions, the consent log, team consent and the application coun
     );
   });
 });
+
+describe('official accounts (DECISION_LOG D-097)', () => {
+  it('stores a job ID in capitals, unique, and never one that reads as a mobile number', async () => {
+    await expect(f.user(db, { job_id: 'CON-0001' })).resolves.toBeTruthy();
+    await expectSqlError(
+      f.user(db, { job_id: 'CON-0001' }),
+      SQLSTATE.uniqueViolation,
+      /users_job_id_key/,
+    );
+    for (const bad of ['con-0002', 'CON 0002', '017-1234-5678', '8801712345678'])
+      await expectSqlError(
+        f.user(db, { job_id: bad }),
+        SQLSTATE.checkViolation,
+        /users_job_id_check/,
+      );
+    // a volunteer has no job ID
+    await expectSqlError(
+      f.user(db, { kind: 'volunteer', email: null, mobile: f.fakeMobile(), job_id: 'CON-0003' }),
+      SQLSTATE.checkViolation,
+      /users_job_id_check/,
+    );
+  });
+
+  it('makes a staff row without an affiliation department staff; a unit only outside it', async () => {
+    const staff = await f.user(db);
+    const row = await db.query('SELECT affiliation FROM users WHERE id = $1', [staff]);
+    expect(row.rows[0].affiliation).toBe('department');
+    const volunteer = await f.volunteerUser(db);
+    const v = await db.query('SELECT affiliation FROM users WHERE id = $1', [volunteer]);
+    expect(v.rows[0].affiliation).toBeNull();
+    await expect(
+      f.user(db, { affiliation: 'external', affiliation_unit: 'সহযোগী সংস্থা' }),
+    ).resolves.toBeTruthy();
+    await expectSqlError(
+      f.user(db, { affiliation: 'external' }),
+      SQLSTATE.checkViolation,
+      /users_affiliation_unit_check/,
+    );
+    await expectSqlError(
+      f.user(db, { affiliation: 'department', affiliation_unit: 'আইটি' }),
+      SQLSTATE.checkViolation,
+      /users_affiliation_unit_check/,
+    );
+    await expectSqlError(
+      f.user(db, { affiliation: 'partner', affiliation_unit: 'আইটি' }),
+      SQLSTATE.checkViolation,
+      /users_affiliation_check/,
+    );
+  });
+
+  it('never lets an official report to themself', async () => {
+    const id = randomUUID();
+    await expectSqlError(
+      f.user(db, { id, supervisor_user_id: id }),
+      SQLSTATE.checkViolation,
+      /users_supervisor_check/,
+    );
+  });
+
+  it('keeps one open link per account and every link for good', async () => {
+    const official = await f.user(db, { state: 'pending' });
+    const link = () =>
+      db.query(
+        `INSERT INTO account_invitations (id, user_id, token_hash, expires_at, created_by) VALUES ($1, $2, $3, now() + interval '72 hours', $2) RETURNING id`,
+        [randomUUID(), official, randomUUID()],
+      );
+    const first = (await link()).rows[0].id as string;
+    await expectSqlError(link(), SQLSTATE.uniqueViolation, /account_invitations_user_id_open_key/);
+    await db.query('UPDATE account_invitations SET revoked_at = now() WHERE id = $1', [first]);
+    await expect(link()).resolves.toBeTruthy();
+    await expectSqlError(
+      db.query('DELETE FROM account_invitations WHERE id = $1', [first]),
+      SQLSTATE.insufficientPrivilege,
+      /append_only_table/,
+    );
+  });
+});

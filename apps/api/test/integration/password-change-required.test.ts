@@ -13,7 +13,7 @@ import {
   PASSWORD,
   type Session,
 } from './support/auth-app';
-import { DUMMY_CODE, TOKEN_HEADER, verifiedDraft } from './support/registration';
+import { DUMMY_CODE, pendingStaffRegistration } from './support/registration';
 
 // A staff registration approved with a global role asks for a new password at the next sign-in
 // (O-66; plan docs/plans/2026-10-14-1400-feat-volunteer-form-refine-plan.md, U6).
@@ -34,19 +34,8 @@ beforeAll(async () => {
 });
 afterAll(async () => h.close());
 
-/** A staff registration submitted through the API; returns the new user and the email. */
-async function registerStaff() {
-  const d = await verifiedDraft(h, 'staff');
-  const res = await api().post('/api/v1/auth/register/submit').set(TOKEN_HEADER, d.token).send({
-    kind: 'staff',
-    registrationId: d.registrationId,
-    password: PASSWORD,
-    name: 'নতুন কর্মকর্তা',
-    designation: 'Project Officer',
-  });
-  if (res.status !== 201) throw new Error(`staff submit ${res.status}`);
-  return { userId: res.body.data.id as string, email: d.email };
-}
+// officials no longer register themselves (D-097): a registration left pending from before
+const registerStaff = () => pendingStaffRegistration(h);
 
 const decide = async (userId: string, roleKey: string) => {
   const head = await login(h, accounts.get(world.users.head)!);

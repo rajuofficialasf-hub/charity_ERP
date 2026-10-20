@@ -1,0 +1,356 @@
+/*
+ * The organogram (SCR-064). One markup, two drawings:
+ * - a phone reads it as an indented tree: each level a column with a line on its left;
+ * - from 768 px it is a chart from the top down: connectors drawn by the lists themselves, the
+ *   cards centred under their supervisor, a level of only leaves standing in a column, and the
+ *   canvas scrolling sideways inside the page when the chart is wider than the screen.
+ * Tokens only; the colour band of a card follows the role (leadership, PM, RPM, field staff).
+ */
+.org-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.org-toolbar > :first-child {
+  min-width: min(100%, 18rem);
+}
+/* the zoom of the chart: only where the chart is drawn (from 768 px) */
+.org-zoom {
+  display: none;
+  align-items: center;
+  gap: var(--space-1);
+  padding-inline: var(--space-1);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-surface);
+}
+.org-zoom-value {
+  min-width: 3rem;
+  text-align: center;
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-bold);
+}
+@media (min-width: 768px) {
+  .org-zoom {
+    display: inline-flex;
+  }
+}
+
+.org-canvas {
+  --org-line: var(--color-border-strong);
+  --org-card: 15rem;
+  --org-gap: 2rem;
+  overflow-x: auto;
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(circle, var(--border-subtle) 1px, transparent 1px) 0 0 / 20px 20px,
+    var(--color-bg-surface);
+  box-shadow: var(--elevation-1);
+}
+.org-canvas:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.org-tree,
+.org-level,
+.org-grid {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ---- cards ---- */
+.org-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-default);
+  border-top: 4px solid var(--color-brand-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  box-shadow: var(--elevation-1);
+  text-align: start;
+  transition: box-shadow var(--motion-fast);
+}
+.org-card:hover {
+  box-shadow: var(--elevation-hover);
+}
+.org-tone-lead {
+  border-top-color: var(--color-brand-ink);
+}
+.org-tone-pm {
+  border-top-color: var(--color-brand-primary-dark);
+}
+.org-tone-rpm {
+  border-top-color: var(--color-brand-primary);
+}
+.org-card-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.org-card-text strong {
+  overflow-wrap: anywhere;
+}
+.org-meta {
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+.org-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: 2px;
+}
+.org-toggle {
+  position: absolute;
+  bottom: -12px;
+  left: var(--space-3);
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+.org-toggle:hover {
+  border-color: var(--color-brand-primary);
+  color: var(--color-brand-primary-dark);
+}
+.org-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.org-program {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-brand-primary-dark);
+  color: var(--color-text-on-brand);
+  box-shadow: var(--elevation-brand);
+}
+.org-program span {
+  font-size: var(--text-label);
+}
+
+.org-group-monitoring {
+  background: var(--color-brand-ink);
+  box-shadow: var(--elevation-2);
+}
+.org-root {
+  display: flex;
+  justify-content: center;
+}
+.org-group-title {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: var(--font-weight-bold);
+}
+.org-grid {
+  display: grid;
+  gap: var(--space-3);
+}
+.org-empty {
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-secondary);
+}
+.org-unplaced {
+  display: grid;
+  gap: var(--space-3);
+}
+@media (min-width: 640px) {
+  .org-grid {
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  }
+}
+
+/* ---- phone: an indented tree ---- */
+.org-tree > li {
+  display: grid;
+  gap: var(--space-4);
+}
+.org-level {
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+  padding-inline-start: var(--space-5);
+  border-inline-start: 2px solid var(--org-line);
+}
+.org-tree > li > .org-level {
+  margin-top: 0;
+  padding-inline-start: 0;
+  border: 0;
+}
+.org-level > li {
+  position: relative;
+}
+.org-level .org-level > li::before {
+  content: '';
+  position: absolute;
+  top: 1.75rem;
+  inset-inline-start: calc(-1 * var(--space-5));
+  width: calc(var(--space-5) - 2px);
+  border-top: 2px solid var(--org-line);
+}
+
+/* ---- from 768 px: a chart from the top down ---- */
+@media (min-width: 768px) {
+  .org-canvas {
+    padding: var(--space-5);
+  }
+  /* as wide as the chart itself, centred: its width is what the zoom fits to the screen */
+  .org-tree {
+    display: flex;
+    width: max-content;
+    margin-inline: auto;
+  }
+  .org-tree > li {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  .org-root .org-card,
+  .org-level .org-card,
+  .org-program {
+    width: var(--org-card);
+  }
+  .org-toggle {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .org-level,
+  .org-tree > li > .org-level {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    margin: 0;
+    padding: var(--org-gap) 0 0;
+    border: 0;
+  }
+  /* without a Head in the caller's view the level below has no card above it */
+  .org-level-top::before {
+    display: none;
+  }
+  /* the trunk from the card above down to the bar */
+  .org-level::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    height: var(--org-gap);
+    border-left: 2px solid var(--org-line);
+  }
+  .org-level > li {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--org-gap) var(--space-2) 0;
+  }
+  /* the bar between siblings and the drop to each card */
+  .org-level > li::before,
+  .org-level > li::after,
+  .org-level .org-level > li::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    inset-inline-start: auto;
+    width: 50%;
+    height: var(--org-gap);
+    border-top: 2px solid var(--org-line);
+  }
+  .org-level > li::before,
+  .org-level .org-level > li::before {
+    right: 50%;
+    left: auto;
+  }
+  .org-level > li::after {
+    left: 50%;
+    border-left: 2px solid var(--org-line);
+  }
+  .org-level > li:first-child::before,
+  .org-level .org-level > li:first-child::before,
+  .org-level > li:last-child::after {
+    border: 0;
+  }
+  .org-level > li:last-child::before,
+  .org-level .org-level > li:last-child::before {
+    border-right: 2px solid var(--org-line);
+    border-top-right-radius: var(--radius-md);
+  }
+  .org-level > li:first-child::after {
+    border-top-left-radius: var(--radius-md);
+  }
+  .org-level > li:only-child::before,
+  .org-level .org-level > li:only-child::before {
+    display: none;
+  }
+  .org-level > li:only-child::after {
+    border-top: 0;
+    border-radius: 0;
+  }
+
+  /* a level of only leaves: a column hanging from the line under the supervisor's centre */
+  .org-level.org-stack {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+    margin-inline-start: calc(var(--org-card) + 4px);
+    padding: var(--org-gap) 0 0 28px;
+  }
+  .org-level.org-stack::before {
+    display: none;
+  }
+  .org-level.org-stack > li {
+    padding: 0;
+  }
+  .org-level.org-stack > li::before,
+  .org-level.org-stack > li:first-child::before,
+  .org-level.org-stack > li:last-child::before {
+    top: 2.5rem;
+    right: auto;
+    left: -16px;
+    width: 16px;
+    height: 0;
+    border: 0;
+    border-top: 2px solid var(--org-line);
+    border-radius: 0;
+    display: block;
+  }
+  /* each card draws its part of the column's line: from the one above down to its own tick */
+  .org-level.org-stack > li::after {
+    display: block;
+    top: calc(-1 * var(--space-3));
+    left: -16px;
+    width: 0;
+    height: calc(100% + var(--space-3));
+    border: 0;
+    border-left: 2px solid var(--org-line);
+    border-radius: 0;
+  }
+  .org-level.org-stack > li:first-child::after {
+    top: calc(-1 * var(--org-gap));
+    height: calc(100% + var(--org-gap));
+  }
+  /* the line ends at the tick of the last card */
+  .org-level.org-stack > li:last-child::after {
+    display: block;
+    height: calc(2.5rem + var(--space-3));
+  }
+}

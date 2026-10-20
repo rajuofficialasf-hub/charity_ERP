@@ -60,6 +60,8 @@ async function main(): Promise<void> {
     JOBS_INLINE: 'false',
     // Every browser of the run shares one address; the limits are covered by the API tests (D-072).
     RATE_LIMITS_RELAXED: 'true',
+    // the set-password link of a new official opens the E2E build (D-097)
+    APP_ORIGIN: process.env.E2E_APP_ORIGIN ?? 'http://127.0.0.1:3100',
   };
   run('pnpm', ['exec', 'prisma', 'migrate', 'deploy'], env);
   run('pnpm', ['run', 'jobs:install'], env);

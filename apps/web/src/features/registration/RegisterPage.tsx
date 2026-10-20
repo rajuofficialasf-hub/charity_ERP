@@ -49,7 +49,8 @@ export function RegisterPage() {
   const t = useTranslations('registration');
   const tr = useTranslations();
   const tl = useTranslations('auth.login');
-  const [kind, setKind] = useState<RegistrationKind>('volunteer');
+  // officials no longer register themselves: the admin creates their account (D-097)
+  const kind: RegistrationKind = 'volunteer';
   const [draft, setDraft] = useState<Draft | null>(null);
   const [channels, setChannels] = useState<Channels>(NEW_CHANNELS);
   const [values, setValues] = useState<RegistrationValues>(EMPTY_VALUES);
@@ -70,7 +71,6 @@ export function RegisterPage() {
     setChannels((old) => ({ ...old, [c]: { ...old[c], ...patch } }));
   // the draft holds its token only once both contacts are verified (D-090)
   const verified = Boolean(draft?.token) && channels.sms.verified && channels.email.verified;
-  const busy = channels.sms.busy || channels.email.busy;
   /** What a refused call says: its own message, the first field message, else the generic text. */
   const messageOf = (f: ReturnType<typeof failureOf>) =>
     f.message ?? Object.values(f.fields)[0] ?? tr('common.state.error.text');
@@ -149,15 +149,6 @@ export function RegisterPage() {
     if (!draft?.token) channel(c, { ...NEW_CHANNEL, address: channels[c].address });
   };
 
-  const switchKind = (next: RegistrationKind) => {
-    // a draft being started belongs to the current kind
-    if (next === kind || verified || busy) return;
-    setKind(next);
-    setDraft(null);
-    setChannels(NEW_CHANNELS);
-    setErrors({});
-  };
-
   const translated = (problems: Record<string, Problem>) =>
     Object.fromEntries(Object.entries(problems).map(([field, problem]) => [field, tr(problem)]));
 
@@ -232,20 +223,7 @@ export function RegisterPage() {
         <DocumentTitle title={title} />
         <section className="register-card">
           <PageBand title={title} subtitle={t(`band.${kind}_line`)}>
-            <div className="register-kind" role="group" aria-label={t('kind.label')}>
-              {(['volunteer', 'staff'] as const).map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  className="register-kind-option"
-                  aria-pressed={kind === k}
-                  disabled={(verified || busy) && kind !== k}
-                  onClick={() => switchKind(k)}
-                >
-                  {t(`kind.${k}`)}
-                </button>
-              ))}
-            </div>
+            <p className="register-band-note">{t('staff_by_admin')}</p>
           </PageBand>
           <form className="register-body" onSubmit={next} noValidate aria-label={title}>
             <Stepper label={t('steps.label')} steps={stepNames} current={step} />

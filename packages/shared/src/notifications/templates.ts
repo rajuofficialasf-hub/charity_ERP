@@ -104,6 +104,23 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
     },
   },
   {
+    // the set-password link of an official created by the admin (DECISION_LOG D-097)
+    key: 'staff_invitation',
+    variables: ['name', 'job_id', 'link', 'hours'],
+    channels: {
+      email: {
+        bn: {
+          subject: 'CSS ERP-এ আপনার অ্যাকাউন্ট',
+          body: 'আসসালামু আলাইকুম {{name}},\n\nচ্যারিটি এন্ড সোশ্যাল সার্ভিস ডিপার্টমেন্টের ERP-তে আপনার জন্য একটি অ্যাকাউন্ট তৈরি করা হয়েছে। আপনার Job ID: {{job_id}}\n\nনিচের লিঙ্কে গিয়ে পাসওয়ার্ড দিন। লিঙ্কটি {{hours}} ঘণ্টা বৈধ এবং একবারই ব্যবহার করা যাবে:\n{{link}}\n\nএরপর Job ID ও পাসওয়ার্ড দিয়ে লগিন করবেন। আপনি এই অ্যাকাউন্টের কথা না জানলে ইমেইলটি উপেক্ষা করুন।',
+        },
+        en: {
+          subject: 'Your CSS ERP account',
+          body: 'Assalamu alaikum {{name}},\n\nAn account has been created for you in the ERP of the Charity & Social Service Department. Your job ID: {{job_id}}\n\nOpen the link below and choose a password. The link is valid for {{hours}} hours and works once:\n{{link}}\n\nThen log in with your job ID and password. If you do not know about this account, ignore this email.',
+        },
+      },
+    },
+  },
+  {
     key: 'registration_pending',
     variables: ['applicant_name', 'region_name'],
     channels: inApp(

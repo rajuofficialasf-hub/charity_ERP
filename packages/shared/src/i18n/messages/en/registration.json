@@ -1,6 +1,6 @@
 {
   "link": "Register",
-  "link_intro": "New volunteer or official?",
+  "link_intro": "A new volunteer?",
   "title": "Registration",
   "dummy_note": "Development mode: use the fixed test code of the configuration.",
   "band": {
@@ -8,11 +8,6 @@
     "staff": "Official registration",
     "volunteer_line": "Give the details below to become a volunteer of As-Sunnah Foundation.",
     "staff_line": "Give your details to open an official account of the department."
-  },
-  "kind": {
-    "label": "Registering as",
-    "volunteer": "Volunteer",
-    "staff": "Official"
   },
   "steps": {
     "label": "Registration steps",
@@ -304,5 +299,6 @@
       "studying": "Studying",
       "completed": "Completed"
     }
-  }
+  },
+  "staff_by_admin": "For volunteers. Officials do not register here: the admin creates the account and sends a link."
 }

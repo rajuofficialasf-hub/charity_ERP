@@ -34,7 +34,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 | Id | Screen | Priority | Main roles | Phase · task |
 |---|---|---|---|---|
 | SCR-001 | Login and password reset | parity | everyone | 1 · T1.7 |
-| SCR-002 | Registration with two OTP steps | phone-first | new volunteers and staff | 1 · T1.9 |
+| SCR-002 | Registration with two OTP steps | phone-first | new volunteers (officials since D-097: created by the admin, SCR-063) | 1 · T1.9 |
 | SCR-003 | Registration status and correction | phone-first | applicants | 1 · T1.9 |
 | SCR-004 | Notifications inbox | parity | everyone | 1 · T1.14 |
 | SCR-005 | Sync status and outbox | phone-first | volunteers, field officials | 2 · T2.7 |
@@ -68,6 +68,9 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 | SCR-060 | Project setup with component toggles | desktop-first | PM | 1 · T1.11, T1.12 |
 | SCR-061 | Form builder | desktop-first | PM | 2 · T2.4 |
 | SCR-062 | Permission panel | desktop-first | Head, Monitoring | 1 · T1.8 |
+| SCR-063 | Officials: department staff, other departments, partners; new official, link, profile | parity | Head, Monitoring (writes); PM, RPM (read) | 1 · D-097 |
+| SCR-064 | Organogram | parity | Head, Monitoring, PM, RPM | 1 · D-097 |
+| SCR-065 | Set-password link of a new official (`/invite`) | phone-first | the new official | 1 · D-097 |
 | SCR-070 | Issue log | parity | Paid Volunteer, Procurement, RPM, Executive, PM | 4 · T4.1 |
 | SCR-071 | Donor list | parity | PM, RPM, Executive | 4 · T4.4 |
 | SCR-072 | Document register | parity | officials | after 6 · T6.1: T5.4 (built last, O-34) |
@@ -108,8 +111,17 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
   - Tablet and desktop: centered card 400 px on canvas.
 - **Phase · task.** 1 · T1.7. **API.** tag auth.
 
+### SCR-065 Set-password link of a new official
+
+- **Purpose.** An official created by the admin chooses the first password (AUTH.md 2.2, BR-262).
+- **Route.** `/invite#<token>`: the token is read from the fragment, sent only in request bodies and cleared from the address bar at once.
+- **Data shown.** Greeting with the name, the job ID to log in with, the password and its repetition with the rule checklist of the account (12 characters for a global role).
+- **States.** Done: "লগইনে যান"; a used, replaced or expired link and an unknown one: the server message and "ask the Department Head or the Monitoring Team for a new link"; no token: the link is incomplete.
+- **Built.** `apps/web/src/features/auth/InvitePage.tsx`; tests `InvitePage.test.tsx`, E2E `staff-accounts.spec.ts`.
+
 ### SCR-002 Registration with two OTP steps
 
+- **Since D-097 (2026-10-17).** Volunteers only: the page names no kind and says that officials do not register here; the admin creates their accounts (SCR-063) and they set the password through a link (SCR-065). Staff drafts are refused by the API (`registration.staff_by_invitation`).
 - **Purpose.** Volunteer and staff registration (BD-44, blueprint A5):
   1. Verify the mobile number by OTP.
   2. Verify the email by a second OTP.
@@ -972,6 +984,26 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Entry.** The "অ্যাডমিন" / "Admin" button on the home page, shown to the three roles; the URL `/admin`.
 - **Layout and components.** DS §4.5: `NavItem`, `Alert`, `Card`, the language switch and the log-out button of the account screens; lazy route chunk.
 - **Built.** T1.7d (plan `docs/plans/2026-10-11-1742-chore-stack-adoption-admin-minimal-plan.md`, U11); tests `apps/web/src/admin/admin.test.tsx`, `apps/web/e2e/admin.spec.ts`.
+
+### SCR-063 Officials
+
+- **Purpose.** The officials of the ERP kept apart by affiliation (DECISION_LOG D-097): the department's own staff, other departments of the Foundation, outside partners; the Department Head and the Monitoring Team create an official and keep the profile.
+- **Roles.** Read: Department Head, Monitoring Team, PM (program), RPM (region) through `permission.view`. Create and new link: `user.create`; profile: `user.profile.manage` (both global roles only, GLOBAL scope).
+- **Priority.** parity; the title actions wrap on a phone and the tab list scrolls inside the page.
+- **Data shown.** The view switch "তালিকা | অর্গানোগ্রাম" beside the title; three stat cards with the count of each affiliation; three tabs (ডিপার্টমেন্ট কর্মী, ফাউন্ডেশনের অন্য বিভাগ, বাইরের সহযোগী) with search (name, job ID, email, mobile) and the program and role filters; rows: initials and name with the job ID as a chip (or "Job ID এখনও নেই"), designation with the roles as badges, program (department) or unit (others, "—" when none), state with an icon ("পাসওয়ার্ডের অপেক্ষায়" for an account whose link is still open); a card per official on a phone.
+- **Actions.** "নতুন অফিসিয়াল" in two steps with a step indicator (1 পরিচয় ও যোগাযোগ: job ID, name, designation, email, mobile, checked before the second step opens; 2 ভূমিকা ও অবস্থান: role without the Department Head role, affiliation and unit, program, division, supervisor), two columns from 640 px, a bottom sheet on a phone; the profile edit uses the same steps without email, mobile and role; after saving, the link dialog shows once whether the email went out and the link with "লিঙ্ক কপি করুন"; per row the profile edit (with the version read when it opened) and, while no password is set, "নতুন লিঙ্ক" with an optional corrected email; "অর্গানোগ্রাম" opens SCR-064.
+- **States.** Loading, empty per filter, error with retry; server messages per field (`user.job_id_taken`, `user.supervisor_invalid`, …).
+- **Components.** Tabs, Table with TableToolbar, Badge, Modal, TextField, Select, RadioGroup, UserSearch, Alert.
+- **Built.** `apps/web/src/admin/staff/StaffPage.tsx`, `OfficialDialog.tsx`, `LinkDialog.tsx`, `RenewLinkDialog.tsx`; tests `staff.test.tsx`, `apps/web/e2e/staff-accounts.spec.ts`.
+
+### SCR-064 Organogram
+
+- **Purpose.** The department's structure by program, computed from roles, home programs, the programs' PMs and the supervisor line (BR-263); never drawn by hand.
+- **Roles.** Department Head, Monitoring Team, PM, RPM (`permission.view`, the officials of their scope).
+- **Entry and exit.** The breadcrumb কর্মী / অর্গানোগ্রাম (a back link on a phone) and the view switch "তালিকা | অর্গানোগ্রাম" beside the title.
+- **Data shown.** Three stat cards (department staff, programs, not placed yet), a program filter and "সব খুলুন" / "সব গুটিয়ে নিন"; the chart: the Department Head on top; one level below, side by side, a dark card "মনিটরিং টিম" with the Monitoring Team under it (they report to the Head) and a green card per program with its member count (owner, 2026-10-17); each official nested under the supervisor (name, job ID, designation, roles, a badge while waiting for the password or suspended), "এখনও স্থান নির্ধারিত হয়নি" for officials without a place. Other departments, outside partners and deactivated officials never appear.
+- **Layout.** From 768 px a chart from the top down on a dotted canvas, fitted to the width of the screen when it opens (zoom 40 % to 150 % with "ছোট করুন", "বড় করুন", "পর্দায় মানান"; scrolling sideways when zoomed in): connector lines between the levels, a fold or open button under each card with reports, the last level of only leaves standing in a column; the card shows the initials, name, designation and job ID with a colour band by role (leadership, PM, RPM, field staff). On a phone the same lists read as an indented tree with a line per level. Officials not placed yet stand in a grid of cards below.
+- **Built.** `apps/web/src/admin/staff/OrganogramPage.tsx`, `organogram.css`; tests `organogram.test.tsx`, E2E above.
 
 ## 8. Setup screens (desktop first, UX-04)
 

@@ -82,6 +82,8 @@ export class RegistrationService {
 
   /** Starts a draft of the kind; nothing is sent, each contact comes with its own code (D-090). */
   async start(body: RegistrationStartRequest): Promise<RegistrationStart> {
+    // officials no longer register themselves: the admin creates the account (D-097)
+    if (body.kind === 'staff') throw new ApiError('registration.staff_by_invitation', 422);
     const id = uuidv7();
     await this.prisma.$transaction(async (tx) => {
       await tx.registrationDraft.create({
@@ -284,6 +286,8 @@ export class RegistrationService {
     body: RegistrationSubmitRequest,
   ): Promise<string> {
     if (body.kind !== draft.kind) throw invalid('kind', 'validation.option_unknown');
+    // a staff draft started before staff self-registration closed is not submitted (D-097)
+    if (draft.kind === 'staff') throw new ApiError('registration.staff_by_invitation', 422);
     const problems = checkPassword(body.password, { minLength: minPasswordLength(false) });
     if (problems.length)
       throw new ApiError(

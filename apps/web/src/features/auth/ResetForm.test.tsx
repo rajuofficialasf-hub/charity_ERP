@@ -29,7 +29,10 @@ describe('ResetForm', () => {
       }),
     );
     const { container } = renderApp(<ResetForm />, 'en');
-    await user.type(screen.getByRole('textbox', { name: /Mobile number or email/ }), '01700000101');
+    await user.type(
+      screen.getByRole('textbox', { name: /mobile number or email/i }),
+      '01700000101',
+    );
     await user.click(screen.getByRole('button', { name: 'Send code' }));
     expect(await screen.findByText(/a 6-digit code has been sent/)).toBeInTheDocument();
     const code = screen.getByRole('textbox', { name: /Code/ });
@@ -84,7 +87,7 @@ describe('ResetForm', () => {
     );
     renderApp(<ResetForm />, 'en');
     await user.type(
-      screen.getByRole('textbox', { name: /Mobile number or email/ }),
+      screen.getByRole('textbox', { name: /mobile number or email/i }),
       'a@example.org',
     );
     await user.click(screen.getByRole('button', { name: 'Send code' }));

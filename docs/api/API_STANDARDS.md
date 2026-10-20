@@ -139,6 +139,8 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | auth | auth.csrf_failed | 403 | refresh without a valid CSRF token |
 | auth | auth.current_password_invalid | 422 (as detail of validation.failed) | password change with a wrong current password (T1.7) |
 | auth | auth.password_unchanged | 422 (as detail of validation.failed) | password change to the password the account already has (O-66) |
+| auth | auth.invitation_invalid | 404 | the set-password link is unknown; ask the admin for a new link (D-097) |
+| auth | auth.invitation_expired | 410 | the set-password link was used, replaced or is older than 72 hours (BR-262) |
 | otp | otp.invalid | 422 | wrong code |
 | otp | otp.expired | 422 | code older than 5 minutes |
 | otp | otp.attempts_exceeded | 429 | more than 5 attempts on one code |
@@ -150,11 +152,16 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | validation | validation.malformed | 400 | unparsable JSON or wrong content type |
 | validation | validation.nid_format, validation.birth_reg_format, validation.mobile_format, validation.required, validation.too_long, validation.out_of_range, validation.option_unknown, validation.bangla_text, validation.date_format, validation.date_future, validation.facebook_link | 422 (as details) | field-level problems |
 | validation | validation.password_too_short, validation.password_uppercase_digit | 422 (as details) | password rules of AUTH.md §3 (T1.7, D-071) |
+| validation | validation.job_id_format, validation.job_id_mobile, validation.affiliation_unit | 422 (as details) | an official's job ID (2 to 32 letters, digits or . _ / -; never a mobile number) and the unit named only outside the department (D-097) |
 | session | session.use_logout | 409 | the current device session is ended with logout, not revoke (T1.7) |
 | user | user.system_owner_protected | 409 | the Main Admin cannot be blocked, deactivated or have its sessions revoked by others (BR-035, AUTH.md §11) |
 | user | user.handover_required | 409 | deactivation before a completed handover (BR-034) |
 | user | user.transition_not_allowed | 409 | account state change not allowed (AUTH.md §7, O-59): same state, own account, pending account (registration flow), volunteer block (blocklist flow) |
 | user | user.not_locked | 409 | lock clearing on an account that is not locked (O-59) |
+| user | user.job_id_taken | 409 | the job ID belongs to another account, in any letter case (BR-261) |
+| user | user.supervisor_invalid | 422 (as detail of validation.failed) | the supervisor is not an active department official, is the official themself, or the line would loop (BR-261) |
+| user | user.invitation_not_needed | 409 | a new set-password link for an account that already has a password (BR-262) |
+| user | user.not_staff | 409 | an official's action (link, profile) on a volunteer account (D-097) |
 | registration | registration.account_exists | 409 | after both codes: the mobile or email belongs to an active, pending or blocked account; log in instead (D-086) |
 | registration | registration.already_verified | 409 | a code is sent or checked for a contact that is already verified, or the draft already holds its token (D-090) |
 | registration | registration.token_invalid | 401 | missing or wrong draft token on lookup, upload or submit (D-082) |
@@ -163,6 +170,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | registration | registration.not_resubmitted | 409 | approval of a registration still in correction |
 | registration | registration.blocklisted | 409 | approval of a blocklisted registration (BR-047) |
 | registration | registration.nid_exists | 409 | a volunteer registration with an NID another volunteer already holds (O-20) |
+| registration | registration.staff_by_invitation | 422 | officials do not register themselves; the admin creates the account (D-097) |
 | registration | registration.request_open | 409 | an edit request for a field that already has an open one (D-085) |
 | handover | handover.target_invalid | 422 | the receiving user is not an active official with a fitting role, or is the person handed over (BR-034) |
 | handover | handover.items_outstanding | 409 | completion while items are still unassigned (BR-034) |

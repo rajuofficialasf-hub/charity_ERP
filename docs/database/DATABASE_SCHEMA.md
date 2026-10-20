@@ -180,13 +180,34 @@ Beneficiary class options (BD-14; defaults from `reference_lists` `beneficiary_c
 | designation | text | yes | — | staff only |
 | home_program_id | uuid | yes | — | FK programs; staff |
 | home_division_id | uuid | yes | — | FK locations (division); staff |
+| job_id | text | yes | — | staff only; the organisation's own ID, the official's login id (D-097); stored in capitals; CHECK `^[A-Z0-9][A-Z0-9._/-]{1,31}$` and never a mobile number once dashes are removed |
+| affiliation | text | yes | — | staff only, required for staff: `department` (the department's own staff), `foundation` (another department of the Foundation) or `external` (an outside partner); a BEFORE INSERT trigger sets `department` for a staff row without one (D-097) |
+| affiliation_unit | text | yes | — | the other department or the partner organisation, ≤ 200; required exactly when the affiliation is not `department` |
+| supervisor_user_id | uuid | yes | — | FK users; staff only, never the row itself; the organogram line (D-097; loops are refused by the service) |
 | failed_login_count | smallint | no | 0 | lockout (O-05) |
 | locked_until | timestamptz | yes | — | lockout end |
 | last_login_at | timestamptz | yes | — | — |
 | deactivated_at | timestamptz | yes | — | set after handover |
 | [A] | | | | |
 
-Keys and constraints: PK id; UNIQUE (mobile) WHERE mobile IS NOT NULL; UNIQUE (email) WHERE email IS NOT NULL; CHECK kind <> 'volunteer' OR mobile IS NOT NULL; CHECK kind <> 'staff' OR email IS NOT NULL; partial UNIQUE (is_system_owner) WHERE is_system_owner (at most one owner; "at least one" enforced by the service and a deferred trigger). Indexes: (state), (kind, state), GIN trigram on display_name (name search of the volunteer tab, T1.10).
+Keys and constraints: PK id; UNIQUE (mobile) WHERE mobile IS NOT NULL; UNIQUE (email) WHERE email IS NOT NULL; CHECK kind <> 'volunteer' OR mobile IS NOT NULL; CHECK kind <> 'staff' OR email IS NOT NULL; partial UNIQUE (is_system_owner) WHERE is_system_owner (at most one owner; "at least one" enforced by the service and a deferred trigger); partial UNIQUE (job_id) WHERE job_id IS NOT NULL; CHECK `users_job_id_check`, `users_affiliation_check`, `users_affiliation_unit_check`, `users_supervisor_check` (migration `20261017120000_official_accounts`, D-097). Indexes: (state), (kind, state), GIN trigram on display_name (name search of the volunteer tab, T1.10), (affiliation) WHERE affiliation IS NOT NULL, (supervisor_user_id).
+
+### account_invitations
+The set-password link of an official created by the admin (D-097, BR-262, AUTH.md §2.2). Rows are never deleted (BEFORE DELETE and TRUNCATE triggers with `forbid_log_change`); a new link revokes the open one.
+
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK |
+| user_id | uuid | no | — | FK users |
+| token_hash | text | no | — | SHA-256 of the 256-bit random token; UNIQUE; the token itself is never stored |
+| expires_at | timestamptz | no | — | 72 hours after creation; CHECK expires_at > created_at |
+| emailed | boolean | no | false | the email with the link went out |
+| used_at | timestamptz | yes | — | the password was set through it |
+| revoked_at | timestamptz | yes | — | a newer link replaced it; CHECK not both used and revoked |
+| created_at | timestamptz | no | now() | — |
+| created_by | uuid | no | — | FK users; the admin |
+
+Constraints: partial UNIQUE (user_id) WHERE used_at IS NULL AND revoked_at IS NULL (one open link per account). Indexes: (user_id), (created_by).
 
 ### roles
 | Column | Type | Null | Default | Comment |

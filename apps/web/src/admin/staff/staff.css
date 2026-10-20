@@ -1,0 +1,67 @@
+/*
+ * The officials list (SCR-063): the person cell with the initials and the job ID chip, the work
+ * cell with the role badges, and the phone card. Tokens only.
+ */
+.staff-person {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.staff-person-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.staff-person-text strong {
+  overflow-wrap: anywhere;
+}
+.staff-job {
+  justify-self: start;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-brand-soft);
+  color: var(--color-brand-primary-dark);
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.02em;
+  line-height: 1.6;
+}
+.staff-job-missing {
+  background: var(--color-bg-muted);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-regular);
+}
+.staff-work {
+  display: grid;
+  gap: var(--space-1);
+}
+.staff-card {
+  display: grid;
+  gap: var(--space-2);
+}
+.staff-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+/* The new official and the profile, two steps: two columns from 640 px, the wide fields across. */
+.official-form {
+  display: grid;
+  gap: var(--space-4);
+}
+@media (min-width: 640px) {
+  .official-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-5);
+  }
+  .official-form-wide {
+    grid-column: 1 / -1;
+  }
+}
+.official-steps {
+  margin-block-end: var(--space-3);
+}

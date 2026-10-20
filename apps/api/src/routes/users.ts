@@ -1,6 +1,13 @@
 import {
   reasonRequestSchema,
   type ReasonRequest,
+  AFFILIATIONS,
+  type InvitationRenewRequest,
+  invitationRenewRequestSchema,
+  type StaffCreateRequest,
+  staffCreateRequestSchema,
+  type StaffProfileRequest,
+  staffProfileRequestSchema,
   USER_STATES,
   userStateRequestSchema,
   type UserStateRequest,
@@ -55,10 +62,21 @@ const handoverView = z.object({
   outstandingCount: z.number().int(),
   completedAt: z.string().nullable(),
 });
+/** The link of a new official, shown once so the admin can copy it (D-097). */
+const invitationIssued = z.object({
+  userId: uuid,
+  link: z.string(),
+  expiresAt: z.string(),
+  emailed: z.boolean(),
+});
+
 const listQuery = pageQuery.omit({ sort: true }).extend({
   q: z.string().min(2).max(100).optional(),
   role: z.string().max(64).optional(),
   state: z.enum(USER_STATES).optional(),
+  kind: z.enum(['staff', 'volunteer']).optional(),
+  affiliation: z.enum(AFFILIATIONS).optional(),
+  programId: uuid.optional(),
 });
 
 const userOp = {
@@ -69,8 +87,52 @@ const userOp = {
 };
 
 /** User administration (AUTH.md 6, 7, 11; O-59 item 1 and 2; openapi tag users). */
-export function usersRouter(deps: RouteDeps, c: Pick<Container, 'users' | 'handover'>): Router {
+export function usersRouter(
+  deps: RouteDeps,
+  c: Pick<Container, 'users' | 'handover' | 'staffAccounts' | 'organogram'>,
+): Router {
   const router = Router();
+
+  // Officials are created by the admin with a set-password link (DECISION_LOG D-097, BR-261).
+  defineRoute<StaffCreateRequest>(router, deps, {
+    ...userOp,
+    method: 'post',
+    path: '/users',
+    status: 201,
+    operationId: 'users.user.create',
+    summary:
+      'Create an official with job ID, role and place; the set-password link is emailed and returned once',
+    permission: 'user.create',
+    scope: 'global',
+    audit: 'user.created',
+    body: staffCreateRequestSchema,
+    responses: { 201: invitationIssued, 401: null, 403: null, 409: null, 422: null },
+    handler: ({ body, req, res }) => {
+      res.setHeader('Cache-Control', 'no-store');
+      return c.staffAccounts.create(principalOf(req), body);
+    },
+  });
+
+  defineRoute<InvitationRenewRequest, unknown, { userId: string }>(router, deps, {
+    ...userOp,
+    method: 'post',
+    path: '/users/:userId/invitation',
+    status: 201,
+    operationId: 'users.user.invite',
+    summary:
+      'A new set-password link for an official without a password, to a corrected email if given; the open link is revoked',
+    permission: 'user.create',
+    // held at GLOBAL scope only: a narrower grant never reaches another official's link
+    scope: 'global',
+    audit: 'user.invited',
+    params: { userId: uuid },
+    body: invitationRenewRequestSchema,
+    responses: { 201: invitationIssued, 401: null, 403: null, 404: null, 409: null, 422: null },
+    handler: ({ body, params, req, res }) => {
+      res.setHeader('Cache-Control', 'no-store');
+      return c.staffAccounts.reissue(principalOf(req), scopeOf(req), params.userId, body);
+    },
+  });
 
   defineRoute<unknown, UserListQuery>(router, deps, {
     ...userOp,
@@ -88,6 +150,20 @@ export function usersRouter(deps: RouteDeps, c: Pick<Container, 'users' | 'hando
     },
   });
 
+  // The department's organogram, computed from roles, programs and supervisors (D-097, BR-263).
+  defineRoute(router, deps, {
+    ...userOp,
+    method: 'get',
+    path: '/organogram',
+    operationId: 'users.organogram.get',
+    summary:
+      "The department's own staff by program and supervisor; other departments and partners are left out",
+    permission: 'permission.view',
+    audit: 'none',
+    responses: { 200: null, 401: null, 403: null },
+    handler: ({ req }) => c.organogram.build(scopeOf(req)),
+  });
+
   defineRoute<unknown, unknown, { userId: string }>(router, deps, {
     ...userOp,
     method: 'get',
@@ -99,6 +175,36 @@ export function usersRouter(deps: RouteDeps, c: Pick<Container, 'users' | 'hando
     params: { userId: uuid },
     responses: { 200: null, 401: null, 403: null, 404: null },
     handler: async ({ params, req, res }) => {
+      const { user, updatedAt } = await c.users.get(scopeOf(req), params.userId);
+      const etag = etagOf(updatedAt);
+      res.setHeader('ETag', etag);
+      return ok(user, { etag });
+    },
+  });
+
+  defineRoute<StaffProfileRequest, unknown, { userId: string }>(router, deps, {
+    ...userOp,
+    method: 'put',
+    path: '/users/:userId/profile',
+    operationId: 'users.user.updateProfile',
+    summary:
+      "Replace an official's job ID, name, designation, affiliation, program, division and supervisor",
+    permission: 'user.profile.manage',
+    // held at GLOBAL scope only: the profile moves an official between programs and supervisors
+    scope: 'global',
+    audit: 'user.profile_changed',
+    params: { userId: uuid },
+    headers: [{ name: 'If-Match', required: true }],
+    body: staffProfileRequestSchema,
+    responses: { 200: null, 401: null, 403: null, 404: null, 409: null, 412: null, 422: null },
+    handler: async ({ body, params, req, res }) => {
+      await c.staffAccounts.updateProfile(
+        principalOf(req),
+        scopeOf(req),
+        params.userId,
+        body,
+        req.get('if-match'),
+      );
       const { user, updatedAt } = await c.users.get(scopeOf(req), params.userId);
       const etag = etagOf(updatedAt);
       res.setHeader('ETag', etag);

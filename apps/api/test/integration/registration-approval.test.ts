@@ -15,7 +15,7 @@ import {
   type Session,
 } from './support/auth-app';
 import * as f from './support/fixtures';
-import { TOKEN_HEADER, verifiedDraft } from './support/registration';
+import { pendingStaffRegistration, TOKEN_HEADER, verifiedDraft } from './support/registration';
 
 // Approval, rejection and correction requests (BR-028 to BR-030; DECISION_LOG D-084; plan
 // docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, unit U7).
@@ -73,18 +73,8 @@ async function registerVolunteer(tree: Tree, over: Record<string, unknown> = {})
   return { userId: res.body.data.id as string, mobile: d.mobile };
 }
 
-async function registerStaff() {
-  const d = await verifiedDraft(h, 'staff');
-  const res = await api().post('/api/v1/auth/register/submit').set(TOKEN_HEADER, d.token).send({
-    kind: 'staff',
-    registrationId: d.registrationId,
-    password: PASSWORD,
-    name: 'নতুন কর্মকর্তা',
-    designation: 'Project Officer',
-  });
-  if (res.status !== 201) throw new Error(`staff submit ${res.status}`);
-  return { userId: res.body.data.id as string, email: d.email };
-}
+// officials no longer register themselves (D-097): a registration left pending from before
+const registerStaff = () => pendingStaffRegistration(h);
 
 const list = (s: Session, query = '') => api().get(`/api/v1/registrations${query}`).set(bearer(s));
 const approve = (s: Session, userId: string) =>

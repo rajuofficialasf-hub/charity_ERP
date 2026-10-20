@@ -41,10 +41,17 @@ const contacts = () => ({
 const api = () => request(h.server());
 type Channel = 'sms' | 'email';
 
+/**
+ * Starts a draft. Officials no longer start one (D-097), so a staff draft is one left open from
+ * before: a volunteer draft turned into a staff draft in the database.
+ */
 async function start(kind: 'volunteer' | 'staff' = 'volunteer') {
-  const res = await api().post('/api/v1/auth/register/start').send({ kind });
+  const res = await api().post('/api/v1/auth/register/start').send({ kind: 'volunteer' });
   expect(res.status).toBe(201);
-  return res.body.data.registrationId as string;
+  const id = res.body.data.registrationId as string;
+  if (kind === 'staff')
+    await h.db.query(`UPDATE registration_drafts SET kind = 'staff' WHERE id = $1`, [id]);
+  return id;
 }
 
 const send = (registrationId: string, channel: Channel, address: string) =>
@@ -100,7 +107,12 @@ describe('POST /auth/register/start', () => {
     });
     expect(await auditActions(id)).toEqual(['auth.register_started']);
     expect(events).toContainEqual({ type: 'registration.started', draftId: id });
-    expect((await draftRow(await start('staff'))).kind).toBe('staff');
+  });
+
+  it('refuses a staff draft: the admin creates officials (D-097)', async () => {
+    const res = await api().post('/api/v1/auth/register/start').send({ kind: 'staff' });
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('registration.staff_by_invitation');
   });
 
   it('refuses contacts in the start body and an unknown kind (422)', async () => {

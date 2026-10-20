@@ -14,7 +14,9 @@
     "refresh_reused": "The session was revoked for security reasons. Log in again.",
     "csrf_failed": "The request could not be verified. Reload the page.",
     "current_password_invalid": "The current password is incorrect.",
-    "password_unchanged": "The new password must differ from the current one."
+    "password_unchanged": "The new password must differ from the current one.",
+    "invitation_invalid": "This link is not valid. Ask the admin for a new link.",
+    "invitation_expired": "This link has expired or was already used. Ask the admin for a new link."
   },
   "otp": {
     "invalid": "The code is incorrect.",
@@ -42,7 +44,10 @@
     "password_uppercase_digit": "Use at least one upper-case letter and one digit in the password.",
     "date_format": "Enter a valid date.",
     "date_future": "The date cannot be in the future.",
-    "facebook_link": "Enter an https link to your Facebook account (for example https://www.facebook.com/your-name)."
+    "facebook_link": "Enter an https link to your Facebook account (for example https://www.facebook.com/your-name).",
+    "job_id_format": "Use 2 to 32 letters, digits or . _ / - for the job ID, starting with a letter or a digit.",
+    "job_id_mobile": "A job ID cannot be a mobile number.",
+    "affiliation_unit": "Write the department or organisation only for an official from outside the department."
   },
   "beneficiary": {
     "identity_missing": "Enter the NID or the birth registration number.",
@@ -136,7 +141,11 @@
     "system_owner_protected": "The system owner account cannot be changed this way.",
     "handover_required": "Hand over the user's pending work before closing the account.",
     "transition_not_allowed": "This change of account state is not possible.",
-    "not_locked": "This account is not locked."
+    "not_locked": "This account is not locked.",
+    "job_id_taken": "This job ID belongs to another account.",
+    "supervisor_invalid": "Choose an active department official who does not report to this person.",
+    "invitation_not_needed": "This account already has a password; a link is no longer needed.",
+    "not_staff": "This action is only for officials."
   },
   "registration": {
     "account_exists": "An account with this mobile number or email already exists. Log in instead.",
@@ -147,7 +156,8 @@
     "not_resubmitted": "The corrections have not been submitted yet.",
     "blocklisted": "A blocklisted registration cannot be approved.",
     "nid_exists": "This NID is already registered for another volunteer.",
-    "request_open": "There is already an open request for this field."
+    "request_open": "There is already an open request for this field.",
+    "staff_by_invitation": "Officials do not register themselves. The admin creates the account and sends a link."
   },
   "handover": {
     "target_invalid": "Choose an active official who can take over this work.",

@@ -142,11 +142,9 @@ const contactField = (name: RegExp) =>
     .find((el) => within(el).queryByRole('textbox', { name }))!;
 
 /** Name, father's name and both contacts verified inside their fields. */
-async function verifyContacts(user: User, kind: 'volunteer' | 'staff' = 'volunteer') {
-  if (kind === 'staff') await user.click(screen.getByRole('button', { name: 'Official' }));
+async function verifyContacts(user: User) {
   await user.type(screen.getByRole('textbox', { name: /^Name/ }), 'New Person');
-  if (kind === 'volunteer')
-    await user.type(screen.getByRole('textbox', { name: /Father's name/ }), 'Father');
+  await user.type(screen.getByRole('textbox', { name: /Father's name/ }), 'Father');
   await user.type(screen.getByRole('textbox', { name: /Mobile number/ }), '01712345678');
   await user.click(within(contactField(/Mobile number/)).getByRole('button', { name: 'Verify' }));
   await user.type(
@@ -572,38 +570,15 @@ describe('the steps after the contacts', () => {
     await vi.waitFor(() => expect(stepName()).toBe('5Profession'));
   }, 60_000);
 
-  it('an official has three steps: designation with the contacts, the password, the own photo', async () => {
-    const user = userEvent.setup();
-    api({ kind: 'staff' });
-    const { container } = renderApp(<RegisterPage />, 'en', { path: '/register' });
-    await user.click(screen.getByRole('button', { name: 'Official' }));
-    // no program, no workplace and no volunteer fields anywhere
-    expect(screen.queryByRole('button', { name: /Program/ })).not.toBeInTheDocument();
-    expect(screen.queryByText(/workplace/i)).not.toBeInTheDocument();
-    await user.type(screen.getByRole('textbox', { name: /Designation/ }), 'Project Officer');
-    await verifyContacts(user, 'staff');
+  it('offers no official registration: the admin creates officials (D-097)', async () => {
+    api();
+    renderApp(<RegisterPage />, 'en', { path: '/register' });
     expect(
-      screen.getByRole('heading', { level: 1, name: 'Official registration' }),
+      await screen.findByText(/Officials do not register here: the admin creates the account/),
     ).toBeInTheDocument();
-    expect(bodiesOf('/auth/register/start')).toEqual([{ kind: 'staff' }]);
-    await next(user);
-    expect(stepName()).toBe('2Account');
-    await user.type(screen.getByLabelText(/^Password/), 'Nadi kul 2026');
-    await user.type(screen.getByLabelText(/^Repeat the password/), 'Nadi kul 2026');
-    await next(user);
-    expect(stepName()).toBe('3Photos');
-    expect(screen.queryByRole('group', { name: /NID card/ })).not.toBeInTheDocument();
-    await uploadAll(user, container, 1);
-    await user.click(screen.getByRole('button', { name: 'Submit' }));
-    await screen.findByRole('heading', { level: 1, name: 'Registration submitted' });
-    expect(seen.find((s) => s.path === '/auth/register/submit')!.body).toEqual({
-      kind: 'staff',
-      registrationId: DRAFT,
-      password: 'Nadi kul 2026',
-      name: 'New Person',
-      designation: 'Project Officer',
-    });
-  }, 30_000);
+    expect(screen.queryByRole('button', { name: 'Official' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /Designation/ })).not.toBeInTheDocument();
+  });
 
   it('a refused NID at submit goes back to its step and shows there', async () => {
     const user = userEvent.setup();
@@ -631,18 +606,16 @@ describe('the steps after the contacts', () => {
   it('an expired draft at submit goes back to the contacts with the message', async () => {
     const user = userEvent.setup();
     api({
-      kind: 'staff',
       submit: () => apiError(410, 'registration.draft_expired', 'The registration has expired.'),
     });
     const { container } = renderApp(<RegisterPage />, 'en', { path: '/register' });
-    await user.click(screen.getByRole('button', { name: 'Official' }));
-    await user.type(screen.getByRole('textbox', { name: /Designation/ }), 'Project Officer');
-    await verifyContacts(user, 'staff');
+    await verifyContacts(user);
+    await minimumToSkills(user);
     await next(user);
     await user.type(screen.getByLabelText(/^Password/), 'Nadi kul 2026');
     await user.type(screen.getByLabelText(/^Repeat the password/), 'Nadi kul 2026');
     await next(user);
-    await uploadAll(user, container, 1);
+    await uploadAll(user, container, 3);
     await user.click(screen.getByRole('button', { name: 'Submit' }));
     expect(await screen.findByText('The registration has expired.')).toBeInTheDocument();
     expect(stepName()).toBe('1Contact');

@@ -87,6 +87,10 @@ export class SmtpEmailAdapter implements EmailAdapter {
         host: options.host,
         port: options.port,
         secure: options.secure,
+        // an unreachable server fails within seconds, not after the library's two minutes
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 30_000,
         ...(options.user ? { auth: { user: options.user, pass: options.password } } : {}),
       });
   }

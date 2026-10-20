@@ -11,3 +11,4 @@ export {
   passwordLength,
 } from './password.js';
 export * from './schemas.js';
+export * from './staff.js';
