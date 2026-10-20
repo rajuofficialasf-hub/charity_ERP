@@ -3,6 +3,7 @@ import { Alert, Button, ProgressBar } from '@css/ui';
 import { ArrowLeft, ArrowRight, Check, Send } from 'lucide-react';
 import { type FormEvent, useRef, useState } from 'react';
 import { useTranslations } from 'use-intl';
+import { BrandPhoto } from '../../components/BrandPhoto';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { TopBar } from '../../components/TopBar';
 import { type ChannelState, ContactStep, NEW_CHANNEL } from './ContactStep';
@@ -329,15 +330,7 @@ function RegisterBrand(props: {
   const { steps = [], current = 0 } = props;
   return (
     <aside className="register-brand">
-      {/* the Foundation's building, given by the owner (UX-23); decoration, so no text for it */}
-      <picture className="register-photo">
-        <source
-          type="image/webp"
-          srcSet="/brand/register-photo-800.webp 800w, /brand/register-photo-1200.webp 1200w"
-          sizes="(min-width: 1024px) 40vw, 100vw"
-        />
-        <img src="/brand/register-photo-1200.jpg" alt="" width={1200} height={675} />
-      </picture>
+      <BrandPhoto className="register-photo" />
       <a href="/" className="register-logo">
         <img src="/brand/logo.svg" alt={t('logo_alt')} width={113} height={72} />
       </a>
