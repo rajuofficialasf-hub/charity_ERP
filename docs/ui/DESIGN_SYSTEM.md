@@ -23,43 +23,44 @@ All tokens are CSS custom properties on `:root`, defined once in `packages/ui` (
 
 ### 2.1 Colour
 
-| Token | Value | Origin | Use |
-|---|---|---|---|
-| `--color-brand-primary` | #008E48 | site | Large surfaces, icons, charts, focus ring, header accents. Not for small text |
-| `--color-brand-primary-dark` | #007B3E | derived (colors.md) | Filled buttons with text, links, hover and pressed states, small green text |
-| `--color-brand-ink` | #0F2920 | site | Dark surfaces such as the desktop sidebar |
-| `--color-brand-accent` | #E8B65D | site | Decorative highlight panels and accents only. Never status, never a control boundary |
-| `--color-brand-accent-ink` | #9B6119 | derived (colors.md) | Amber used as small text |
-| `--color-bg-canvas` | #F2F3F7 | site | Page background |
-| `--color-bg-surface` | #FFFFFF | site | Cards, tables, dialogs, sheets |
-| `--color-bg-muted` | #EEF2F0 | site | Secondary buttons, zebra rows, quiet panels, disabled fields |
-| `--color-bg-brand-soft` | #CEF5E3 | site | Selected rows, selected nav item, soft badges |
-| `--color-bg-success-soft` | #E6EFEA | derived (O-40) | Success badge and alert background |
-| `--color-bg-warning-soft` | #F7EFE2 | derived (O-40) | Warning badge and alert background |
-| `--color-bg-danger-soft` | #F7E7E6 | derived (O-40) | Danger badge and alert background |
-| `--color-bg-info-soft` | #E6EDF6 | derived (O-40) | Info badge and alert background |
-| `--color-border-default` | #DFE3E8 | site | Hairlines, card and table borders (decorative only) |
-| `--color-border-strong` | #7F8E9D | derived (colors.md) | Input and control boundaries (3.36:1 on surface) |
-| `--color-text-primary` | #0F2920 | site | Headings and body text, status badge labels |
-| `--color-text-secondary` | #526961 | derived (colors.md) | Helper text, captions, metadata |
-| `--color-text-on-brand` | #FFFFFF | site | Text on dark green, ink and danger fills |
-| `--color-status-success` | #2E7D4F | constitution §12 | Status icons, borders and fills only |
-| `--color-status-warning` | #B9770E | constitution §12 | Status icons, borders and fills only. Never text |
-| `--color-status-danger` | #C0392B | constitution §12 | Status icons, borders, destructive button fill |
-| `--color-status-info` | #2B6CB0 | constitution §12 | Status icons, borders and fills only |
+| Token                        | Value   | Origin              | Use                                                                                  |
+| ---------------------------- | ------- | ------------------- | ------------------------------------------------------------------------------------ |
+| `--color-brand-primary`      | #008E48 | site                | Large surfaces, icons, charts, focus ring, header accents. Not for small text        |
+| `--color-brand-primary-dark` | #007B3E | derived (colors.md) | Filled buttons with text, links, hover and pressed states, small green text          |
+| `--color-brand-ink`          | #0F2920 | site                | Dark surfaces such as the desktop sidebar                                            |
+| `--color-brand-accent`       | #E8B65D | site                | Decorative highlight panels and accents only. Never status, never a control boundary |
+| `--color-brand-accent-ink`   | #9B6119 | derived (colors.md) | Amber used as small text                                                             |
+| `--color-bg-canvas`          | #F2F3F7 | site                | Page background                                                                      |
+| `--color-bg-surface`         | #FFFFFF | site                | Cards, tables, dialogs, sheets                                                       |
+| `--color-bg-muted`           | #EEF2F0 | site                | Secondary buttons, zebra rows, quiet panels, disabled fields                         |
+| `--color-bg-brand-soft`      | #CEF5E3 | site                | Selected rows, selected nav item, soft badges                                        |
+| `--color-bg-success-soft`    | #E6EFEA | derived (O-40)      | Success badge and alert background                                                   |
+| `--color-bg-warning-soft`    | #F7EFE2 | derived (O-40)      | Warning badge and alert background                                                   |
+| `--color-bg-danger-soft`     | #F7E7E6 | derived (O-40)      | Danger badge and alert background                                                    |
+| `--color-bg-info-soft`       | #E6EDF6 | derived (O-40)      | Info badge and alert background                                                      |
+| `--color-border-default`     | #DFE3E8 | site                | Hairlines, card and table borders (decorative only)                                  |
+| `--color-border-strong`      | #7F8E9D | derived (colors.md) | Input and control boundaries (3.36:1 on surface)                                     |
+| `--color-text-primary`       | #0F2920 | site                | Headings and body text, status badge labels                                          |
+| `--color-text-secondary`     | #526961 | derived (colors.md) | Helper text, captions, metadata                                                      |
+| `--color-text-on-brand`      | #FFFFFF | site                | Text on dark green, ink and danger fills                                             |
+| `--color-status-success`     | #2E7D4F | constitution §12    | Status icons, borders and fills only                                                 |
+| `--color-status-warning`     | #B9770E | constitution §12    | Status icons, borders and fills only. Never text                                     |
+| `--color-status-danger`      | #C0392B | constitution §12    | Status icons, borders, destructive button fill                                       |
+| `--color-status-info`        | #2B6CB0 | constitution §12    | Status icons, borders and fills only                                                 |
 
 The four soft status tints are the status colour mixed 12 percent into white, precomputed as hex so older browsers without `color-mix()` render them (O-40). Their contrast, computed with the WCAG 2.x formula in task T0.19:
 
-| Tint | Ink #0F2920 on tint | Status icon on tint | Text secondary on tint |
-|---|---|---|---|
-| success #E6EFEA | 13.18 | 4.30 | 5.04 |
-| warning #F7EFE2 | 13.55 | 3.22 | 5.18 |
-| danger #F7E7E6 | 12.90 | 4.54 | 4.93 |
-| info #E6EDF6 | 13.11 | 4.60 | 5.01 |
+| Tint            | Ink #0F2920 on tint | Status icon on tint | Text secondary on tint |
+| --------------- | ------------------- | ------------------- | ---------------------- |
+| success #E6EFEA | 13.18               | 4.30                | 5.04                   |
+| warning #F7EFE2 | 13.55               | 3.22                | 5.18                   |
+| danger #F7E7E6  | 12.90               | 4.54                | 4.93                   |
+| info #E6EDF6    | 13.11               | 4.60                | 5.01                   |
 
 Ink and secondary text pass AA for normal text on every tint. Status icons pass the 3:1 rule for graphical objects on every tint. Tints against white reach only 1.14 to 1.20, so a tinted badge or alert always also carries its icon and label, and an alert carries a 4 px status-colour left border.
 
 Contrast rules (from colors.md §3 and §6):
+
 1. Small text on green is white on `--color-brand-primary-dark` only (5.38:1). White on `--color-brand-primary` (4.23:1) is allowed only for large text (24 px, or 18.66 px bold) and icons.
 2. Green text uses `--color-brand-primary-dark` (5.38:1 on surface, 4.85:1 on canvas, 4.56:1 on brand-soft).
 3. Amber text uses `--color-brand-accent-ink`. Text on an amber fill is ink.
@@ -71,41 +72,43 @@ Overlays and shadows use ink at an alpha, so no new hue appears: scrim `rgba(15,
 
 ### 2.2 Spacing
 
-| Token | Value | Typical use |
-|---|---|---|
-| `--space-1` | 4px | Icon to label gap, badge padding |
-| `--space-2` | 8px | Gap inside controls, between chips |
-| `--space-3` | 12px | Card padding on phones, row padding in dense tables |
-| `--space-4` | 16px | Page gutter on phones, card padding, form field gap |
-| `--space-5` | 24px | Section gap, page gutter on desktop |
-| `--space-6` | 32px | Between page regions |
+| Token       | Value | Typical use                                         |
+| ----------- | ----- | --------------------------------------------------- |
+| `--space-1` | 4px   | Icon to label gap, badge padding                    |
+| `--space-2` | 8px   | Gap inside controls, between chips                  |
+| `--space-3` | 12px  | Card padding on phones, row padding in dense tables |
+| `--space-4` | 16px  | Page gutter on phones, card padding, form field gap |
+| `--space-5` | 24px  | Section gap, page gutter on desktop                 |
+| `--space-6` | 32px  | Between page regions                                |
 
 No other spacing values. Component dimensions (control heights, header heights, touch targets) are sizes, not spacing, and are listed with each component.
 
 ### 2.3 Radius (O-40)
 
-| Token | Value | Use |
-|---|---|---|
-| `--radius-sm` | 6px | Badges, chips, checkboxes, tooltips |
-| `--radius-md` | 8px | Buttons, inputs, selects, toggles, menus, photo tiles (as on the website) |
-| `--radius-lg` | 16px | Cards, dialogs, drawers, bottom sheets (top corners only) |
-| `--radius-full` | 9999px | Avatars, progress bars, the switch track |
+| Token           | Value  | Use                                                                       |
+| --------------- | ------ | ------------------------------------------------------------------------- |
+| `--radius-sm`   | 6px    | Badges, chips, checkboxes, tooltips                                       |
+| `--radius-md`   | 8px    | Buttons, inputs, selects, toggles, menus, photo tiles (as on the website) |
+| `--radius-lg`   | 16px   | Cards, dialogs, drawers, bottom sheets (top corners only)                 |
+| `--radius-full` | 9999px | Avatars, progress bars, the switch track                                  |
 
 ### 2.4 Typography (UX-13, O-40)
 
 Font stack: `--font-sans: UbuntuSans, Bornomala, sans-serif`. Weights 400 and 700 only. Bold replaces Medium and SemiBold everywhere.
 
-| Token | Phone and tablet (below 1024 px) | Desktop (1024 px and up) | Weight | Line height | Use |
-|---|---|---|---|---|---|
-| `--text-display` | 20px | 20px | 700 | 1.4 | Page title, big stat number |
-| `--text-title` | 16px | 16px | 700 | 1.5 | Card and section titles, dialog titles |
-| `--text-body` | 16px | 14px | 400 | 1.5 | Body text, table cells, form values |
-| `--text-body-strong` | 16px | 14px | 700 | 1.5 | Emphasis inside body text; table headers, in `--color-brand-ink` on `--color-bg-brand-soft` (owner, 2026-10-20: the label size was too small to read in Bengali, and the header row gets the soft green) |
-| `--text-label` | 12px | 12px | 700 | 1.5 | Field labels, badge labels, tab labels |
-| `--text-caption` | 12px | 12px | 400 | 1.5 | Helper text, metadata, timestamps |
-| `--text-input` | 16px | 14px | 400 | 1.5 | Text inside inputs. Never below 16px on phones, because iOS Safari zooms on smaller inputs |
+| Token                | Phone and tablet (below 1024 px) | Desktop (1024 px and up) | Weight | Line height | Use                                                                                                                                                                                                      |
+| -------------------- | -------------------------------- | ------------------------ | ------ | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--text-hero`        | 24px                             | 36px                     | 700    | 1.3         | The title of a hero area only: the brand panel of the registration (UX-23)                                                                                                                               |
+| `--text-display`     | 20px                             | 20px                     | 700    | 1.4         | Page title, big stat number                                                                                                                                                                              |
+| `--text-title`       | 16px                             | 16px                     | 700    | 1.5         | Card and section titles, dialog titles                                                                                                                                                                   |
+| `--text-body`        | 16px                             | 14px                     | 400    | 1.5         | Body text, table cells, form values                                                                                                                                                                      |
+| `--text-body-strong` | 16px                             | 14px                     | 700    | 1.5         | Emphasis inside body text; table headers, in `--color-brand-ink` on `--color-bg-brand-soft` (owner, 2026-10-20: the label size was too small to read in Bengali, and the header row gets the soft green) |
+| `--text-label`       | 12px                             | 12px                     | 700    | 1.5         | Field labels, badge labels, tab labels                                                                                                                                                                   |
+| `--text-caption`     | 12px                             | 12px                     | 400    | 1.5         | Helper text, metadata, timestamps                                                                                                                                                                        |
+| `--text-input`       | 16px                             | 14px                     | 400    | 1.5         | Text inside inputs. Never below 16px on phones, because iOS Safari zooms on smaller inputs                                                                                                               |
 
 Rules:
+
 - The phone body is 16 px; dense desktop tables and panels use 14 px (colors.md §4 recommendation, O-40). T0.19b checks the 16 px phone body on rendered screens and reports any problem.
 - Caption is 12 px, not the constitution's 11 px, because Bengali conjuncts and vowel signs are unreadable at 11 px (O-40).
 - Line height is 1.5 for body text and never below 1.4 for any text that may contain Bengali (Bornomala's vowel signs above and below the line need the room).
@@ -113,11 +116,11 @@ Rules:
 
 ### 2.5 Font files
 
-| Family | File | Declaration |
-|---|---|---|
+| Family     | File                                           | Declaration                                  |
+| ---------- | ---------------------------------------------- | -------------------------------------------- |
 | UbuntuSans | `UbuntuSans.woff2` (variable, axis 100 to 800) | one `@font-face` with `font-weight: 400 700` |
-| Bornomala | `Bornomala-Regular.woff2` | `font-weight: 400` |
-| Bornomala | `Bornomala-Bold.woff2` | `font-weight: 700` |
+| Bornomala  | `Bornomala-Regular.woff2`                      | `font-weight: 400`                           |
+| Bornomala  | `Bornomala-Bold.woff2`                         | `font-weight: 700`                           |
 
 All three use `font-display: swap`, are self-hosted (no font CDN at runtime) and precached by the service worker (T2.7). The licence texts travel with the files (fonts README). UbuntuSans draws Latin letters and all digits. Bornomala draws Bengali, the danda (।) and the taka sign (৳). The application ships a Latin subset of UbuntuSans renamed "Ubuntu Sans derivative CSS ERP" as the Ubuntu Font Licence clause 2(c) requires: Basic Latin, Latin-1, general punctuation and the minus sign, weight axis 400 to 700, 25 KB instead of 318 KB (D-065, T1.4). Its `@font-face` carries the matching `unicode-range`; the files and licences are in `packages/ui/fonts/` and are served at `/fonts/`. The mockups use the original files.
 
@@ -125,97 +128,97 @@ All three use `font-display: swap`, are self-hosted (no font CDN at runtime) and
 
 Layered shadows tinted with brand ink (UX-14): a tight contact shadow plus a soft ambient one; never pure black.
 
-| Token | Value | Use |
-|---|---|---|
-| `--elevation-0` | none | Flat content, table rows, page regions |
-| `--elevation-1` | `0 1px 2px rgba(15, 41, 32, 0.04), 0 2px 8px rgba(15, 41, 32, 0.05)` with a 1px `--border-subtle` border | Cards, stat cards, attention items, tables, inputs (contact shadow only) |
-| `--elevation-2` | `0 2px 4px rgba(15, 41, 32, 0.05), 0 8px 24px rgba(15, 41, 32, 0.09)` | Menus, dropdowns, drawers, bottom sheets, the split-view panel |
-| `--elevation-3` | `0 4px 8px rgba(15, 41, 32, 0.06), 0 20px 48px rgba(15, 41, 32, 0.16)` | Modals, confirm dialogs, toasts, the login card |
-| `--elevation-hover` | `0 4px 8px rgba(15, 41, 32, 0.06), 0 14px 32px rgba(15, 41, 32, 0.12)` | Hover on clickable cards and attention items (pointer devices) |
-| `--elevation-brand` | `0 1px 2px rgba(0, 123, 62, 0.24), 0 6px 16px rgba(0, 123, 62, 0.22)` | Primary buttons |
-| `--border-subtle` | `rgba(15, 41, 32, 0.08)` | Card, table and panel borders (replaces the hard default border on raised surfaces) |
+| Token               | Value                                                                                                    | Use                                                                                 |
+| ------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `--elevation-0`     | none                                                                                                     | Flat content, table rows, page regions                                              |
+| `--elevation-1`     | `0 1px 2px rgba(15, 41, 32, 0.04), 0 2px 8px rgba(15, 41, 32, 0.05)` with a 1px `--border-subtle` border | Cards, stat cards, attention items, tables, inputs (contact shadow only)            |
+| `--elevation-2`     | `0 2px 4px rgba(15, 41, 32, 0.05), 0 8px 24px rgba(15, 41, 32, 0.09)`                                    | Menus, dropdowns, drawers, bottom sheets, the split-view panel                      |
+| `--elevation-3`     | `0 4px 8px rgba(15, 41, 32, 0.06), 0 20px 48px rgba(15, 41, 32, 0.16)`                                   | Modals, confirm dialogs, toasts, the login card                                     |
+| `--elevation-hover` | `0 4px 8px rgba(15, 41, 32, 0.06), 0 14px 32px rgba(15, 41, 32, 0.12)`                                   | Hover on clickable cards and attention items (pointer devices)                      |
+| `--elevation-brand` | `0 1px 2px rgba(0, 123, 62, 0.24), 0 6px 16px rgba(0, 123, 62, 0.22)`                                    | Primary buttons                                                                     |
+| `--border-subtle`   | `rgba(15, 41, 32, 0.08)`                                                                                 | Card, table and panel borders (replaces the hard default border on raised surfaces) |
 
 ### 2.6a Gradients and glow (UX-14)
 
 Gradients are built only from brand tokens and appear only in headers, hero areas and dashboard highlights; never behind forms, tables or running text.
 
-| Token | Value | Use |
-|---|---|---|
-| `--gradient-hero` | `linear-gradient(135deg, var(--color-brand-primary-dark) 0%, var(--color-brand-ink) 100%)` | Hero headers of home screens and dashboards (`.page-head.hero`) |
-| `--gradient-brand` | `linear-gradient(135deg, var(--color-brand-primary) 0%, var(--color-brand-primary-dark) 100%)` | Progress fills, chart bars, active indicators (nav, tab, tab bar); never behind small text |
-| `--gradient-soft` | `linear-gradient(180deg, var(--color-bg-brand-soft) 0%, var(--color-bg-surface) 100%)` | Avatars, selected chips, photo placeholders, empty-state halo |
-| `--gradient-accent-line` | `linear-gradient(90deg, var(--color-brand-primary) 0%, var(--color-brand-accent) 100%)` | The 3 px top line of stat cards (decoration; amber stays decorative) |
-| `--glow-accent` | amber radial glow at 16 % in the hero's top right corner | Decoration of the hero only |
-| `--ring-brand` | `0 0 0 4px rgba(0, 142, 72, 0.16)` | Focus glow of inputs and hover glow of custom checkboxes |
+| Token                    | Value                                                                                          | Use                                                                                        |
+| ------------------------ | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `--gradient-hero`        | `linear-gradient(135deg, var(--color-brand-primary-dark) 0%, var(--color-brand-ink) 100%)`     | Hero headers of home screens and dashboards (`.page-head.hero`)                            |
+| `--gradient-brand`       | `linear-gradient(135deg, var(--color-brand-primary) 0%, var(--color-brand-primary-dark) 100%)` | Progress fills, chart bars, active indicators (nav, tab, tab bar); never behind small text |
+| `--gradient-soft`        | `linear-gradient(180deg, var(--color-bg-brand-soft) 0%, var(--color-bg-surface) 100%)`         | Avatars, selected chips, photo placeholders, empty-state halo                              |
+| `--gradient-accent-line` | `linear-gradient(90deg, var(--color-brand-primary) 0%, var(--color-brand-accent) 100%)`        | The 3 px top line of stat cards (decoration; amber stays decorative)                       |
+| `--glow-accent`          | amber radial glow at 16 % in the hero's top right corner                                       | Decoration of the hero only                                                                |
+| `--ring-brand`           | `0 0 0 4px rgba(0, 142, 72, 0.16)`                                                             | Focus glow of inputs and hover glow of custom checkboxes                                   |
 
 Contrast on gradients is checked against the lightest stop: white text on `--gradient-hero` is 5.38:1 at #007B3E; secondary text on the hero is white at 94 % (4.95:1); translucent elements on the hero (secondary button, chips) use at most 8 % white fill (4.64:1). The primary button keeps #007B3E with at most a 6 % white sheen (4.82:1 at the top edge).
 
 ### 2.7 Focus, motion and layers
 
-| Token | Value | Note |
-|---|---|---|
-| `--focus-ring` | `0 0 0 2px var(--color-bg-surface), 0 0 0 4px var(--color-brand-primary)` | A 2 px green ring with a 2 px surface-colour gap; #008E48 reaches 4.23:1 on surface and 3.75:1 on muted, above the 3:1 rule. It may also be drawn as a 2 px `--color-brand-primary` outline with a 2 px offset, which components with their own shadow cannot hide (O-41) |
-| `--motion-fast` | 120ms | Hover, pressed and toggle feedback |
-| `--motion-base` | 200ms | Drawers, sheets, toggles, card lift; the maximum for feedback |
-| `--motion-slow` | 320ms | Entrances only: dialogs, toasts, the page content (UX-14) |
-| `--ease-standard` | `cubic-bezier(0.2, 0, 0, 1)` | Colour and shadow transitions |
-| `--ease-out` | `cubic-bezier(0.16, 1, 0.3, 1)` | Movement: lifts, entrances, the one-time 700 ms growth of progress and chart bars |
-| `--z-sticky` | 10 | Sticky table headers, sticky action bar |
-| `--z-nav` | 20 | App bar, bottom tab bar, sidebar |
-| `--z-banner` | 30 | Offline and update banners |
-| `--z-drawer` | 40 | Drawers and bottom sheets |
-| `--z-modal` | 50 | Modals and confirm dialogs |
-| `--z-toast` | 60 | Toasts |
+| Token             | Value                                                                     | Note                                                                                                                                                                                                                                                                      |
+| ----------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--focus-ring`    | `0 0 0 2px var(--color-bg-surface), 0 0 0 4px var(--color-brand-primary)` | A 2 px green ring with a 2 px surface-colour gap; #008E48 reaches 4.23:1 on surface and 3.75:1 on muted, above the 3:1 rule. It may also be drawn as a 2 px `--color-brand-primary` outline with a 2 px offset, which components with their own shadow cannot hide (O-41) |
+| `--motion-fast`   | 120ms                                                                     | Hover, pressed and toggle feedback                                                                                                                                                                                                                                        |
+| `--motion-base`   | 200ms                                                                     | Drawers, sheets, toggles, card lift; the maximum for feedback                                                                                                                                                                                                             |
+| `--motion-slow`   | 320ms                                                                     | Entrances only: dialogs, toasts, the page content (UX-14)                                                                                                                                                                                                                 |
+| `--ease-standard` | `cubic-bezier(0.2, 0, 0, 1)`                                              | Colour and shadow transitions                                                                                                                                                                                                                                             |
+| `--ease-out`      | `cubic-bezier(0.16, 1, 0.3, 1)`                                           | Movement: lifts, entrances, the one-time 700 ms growth of progress and chart bars                                                                                                                                                                                         |
+| `--z-sticky`      | 10                                                                        | Sticky table headers, sticky action bar                                                                                                                                                                                                                                   |
+| `--z-nav`         | 20                                                                        | App bar, bottom tab bar, sidebar                                                                                                                                                                                                                                          |
+| `--z-banner`      | 30                                                                        | Offline and update banners                                                                                                                                                                                                                                                |
+| `--z-drawer`      | 40                                                                        | Drawers and bottom sheets                                                                                                                                                                                                                                                 |
+| `--z-modal`       | 50                                                                        | Modals and confirm dialogs                                                                                                                                                                                                                                                |
+| `--z-toast`       | 60                                                                        | Toasts                                                                                                                                                                                                                                                                    |
 
 Movement uses only `transform` and `opacity`. Colour and shadow transitions run only on hover-capable devices; on touch devices they change without transition (§7). With `prefers-reduced-motion: reduce`, all durations become 0, keyframe animations are switched off and nothing slides.
 
 ### 2.8 Breakpoints and sizes (O-40)
 
-| Name | Range | Layout (§4) |
-|---|---|---|
-| phone | 0 to 639 px | Top app bar plus bottom tab bar, cards, full-screen detail |
-| sm (tablet) | 640 to 1023 px | Collapsible side rail, compact tables, drawer detail |
-| lg (desktop) | 1024 px and up | Fixed sidebar, dense tables, split view |
-| xl | 1280 px and up | Dashboard content max 1280 px; the split-view detail panel widens to 480 px only from 1440 px (O-41) |
+| Name         | Range          | Layout (§4)                                                                                          |
+| ------------ | -------------- | ---------------------------------------------------------------------------------------------------- |
+| phone        | 0 to 639 px    | Top app bar plus bottom tab bar, cards, full-screen detail                                           |
+| sm (tablet)  | 640 to 1023 px | Collapsible side rail, compact tables, drawer detail                                                 |
+| lg (desktop) | 1024 px and up | Fixed sidebar, dense tables, split view                                                              |
+| xl           | 1280 px and up | Dashboard content max 1280 px; the split-view detail panel widens to 480 px only from 1440 px (O-41) |
 
 CSS custom properties cannot be used inside media queries, so the breakpoints are also written into the component CSS and the MUI theme (`sm: 640px`, `md: 1024px`, `lg: 1280px` in MUI's names) from the same constants file in `packages/ui`; a test keeps them equal. The minimum supported width is 360 px.
 
-| Size | Phone | Desktop |
-|---|---|---|
-| Touch target | at least 44 by 44 px | at least 24 by 24 px (WCAG 2.5.8), 32 px preferred |
-| Control height (button, input, select) | 44 px | 40 px |
-| Small control (table actions, chips) | 36 px with a 44 px hit area | 32 px |
-| App bar height | 56 px | 64 px |
-| Bottom tab bar height | 56 px plus the safe-area inset | none |
-| Sidebar width | none | 248 px (rail 72 px on tablet) |
+| Size                                   | Phone                          | Desktop                                            |
+| -------------------------------------- | ------------------------------ | -------------------------------------------------- |
+| Touch target                           | at least 44 by 44 px           | at least 24 by 24 px (WCAG 2.5.8), 32 px preferred |
+| Control height (button, input, select) | 44 px                          | 40 px                                              |
+| Small control (table actions, chips)   | 36 px with a 44 px hit area    | 32 px                                              |
+| App bar height                         | 56 px                          | 64 px                                              |
+| Bottom tab bar height                  | 56 px plus the safe-area inset | none                                               |
+| Sidebar width                          | none                           | 248 px (rail 72 px on tablet)                      |
 
 ### 2.9 Complete token block
 
 ```css
 :root {
   /* colour (colors.md section 7, plus O-40 status tints) */
-  --color-brand-primary: #008E48;
-  --color-brand-primary-dark: #007B3E;
-  --color-brand-ink: #0F2920;
-  --color-brand-accent: #E8B65D;
-  --color-brand-accent-ink: #9B6119;
-  --color-bg-canvas: #F2F3F7;
-  --color-bg-surface: #FFFFFF;
-  --color-bg-muted: #EEF2F0;
-  --color-bg-brand-soft: #CEF5E3;
-  --color-bg-success-soft: #E6EFEA;
-  --color-bg-warning-soft: #F7EFE2;
-  --color-bg-danger-soft: #F7E7E6;
-  --color-bg-info-soft: #E6EDF6;
-  --color-border-default: #DFE3E8;
-  --color-border-strong: #7F8E9D;
-  --color-text-primary: #0F2920;
+  --color-brand-primary: #008e48;
+  --color-brand-primary-dark: #007b3e;
+  --color-brand-ink: #0f2920;
+  --color-brand-accent: #e8b65d;
+  --color-brand-accent-ink: #9b6119;
+  --color-bg-canvas: #f2f3f7;
+  --color-bg-surface: #ffffff;
+  --color-bg-muted: #eef2f0;
+  --color-bg-brand-soft: #cef5e3;
+  --color-bg-success-soft: #e6efea;
+  --color-bg-warning-soft: #f7efe2;
+  --color-bg-danger-soft: #f7e7e6;
+  --color-bg-info-soft: #e6edf6;
+  --color-border-default: #dfe3e8;
+  --color-border-strong: #7f8e9d;
+  --color-text-primary: #0f2920;
   --color-text-secondary: #526961;
-  --color-text-on-brand: #FFFFFF;
-  --color-status-success: #2E7D4F;
-  --color-status-warning: #B9770E;
-  --color-status-danger: #C0392B;
-  --color-status-info: #2B6CB0;
+  --color-text-on-brand: #ffffff;
+  --color-status-success: #2e7d4f;
+  --color-status-warning: #b9770e;
+  --color-status-danger: #c0392b;
+  --color-status-info: #2b6cb0;
   --color-scrim: rgba(15, 41, 32, 0.48);
 
   /* spacing */
@@ -236,6 +239,7 @@ CSS custom properties cannot be used inside media queries, so the breakpoints ar
   --font-sans: UbuntuSans, Bornomala, sans-serif;
   --font-weight-regular: 400;
   --font-weight-bold: 700;
+  --text-hero: 24px; /* the title of a hero area only; 36px from 1024 px */
   --text-display: 20px;
   --text-title: 16px;
   --text-body: 16px;
@@ -255,11 +259,31 @@ CSS custom properties cannot be used inside media queries, so the breakpoints ar
   --border-subtle: rgba(15, 41, 32, 0.08);
 
   /* gradients (UX-14): only in headers, hero areas and dashboard highlights; built from brand tokens */
-  --gradient-brand: linear-gradient(135deg, var(--color-brand-primary) 0%, var(--color-brand-primary-dark) 100%);
-  --gradient-hero: linear-gradient(135deg, var(--color-brand-primary-dark) 0%, var(--color-brand-ink) 100%);
-  --gradient-soft: linear-gradient(180deg, var(--color-bg-brand-soft) 0%, var(--color-bg-surface) 100%);
-  --gradient-accent-line: linear-gradient(90deg, var(--color-brand-primary) 0%, var(--color-brand-accent) 100%);
-  --glow-accent: radial-gradient(circle at 88% 0%, rgba(232, 182, 93, 0.16) 0, rgba(232, 182, 93, 0) 38%);
+  --gradient-brand: linear-gradient(
+    135deg,
+    var(--color-brand-primary) 0%,
+    var(--color-brand-primary-dark) 100%
+  );
+  --gradient-hero: linear-gradient(
+    135deg,
+    var(--color-brand-primary-dark) 0%,
+    var(--color-brand-ink) 100%
+  );
+  --gradient-soft: linear-gradient(
+    180deg,
+    var(--color-bg-brand-soft) 0%,
+    var(--color-bg-surface) 100%
+  );
+  --gradient-accent-line: linear-gradient(
+    90deg,
+    var(--color-brand-primary) 0%,
+    var(--color-brand-accent) 100%
+  );
+  --glow-accent: radial-gradient(
+    circle at 88% 0%,
+    rgba(232, 182, 93, 0.16) 0,
+    rgba(232, 182, 93, 0) 38%
+  );
   --ring-brand: 0 0 0 4px rgba(0, 142, 72, 0.16);
 
   /* focus and motion */
@@ -290,13 +314,18 @@ CSS custom properties cannot be used inside media queries, so the breakpoints ar
   :root {
     --text-body: 14px;
     --text-input: 14px;
+    --text-hero: 36px;
     --control-height: 40px;
     --app-bar-height: 64px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root { --motion-fast: 0ms; --motion-base: 0ms; --motion-slow: 0ms; }
+  :root {
+    --motion-fast: 0ms;
+    --motion-base: 0ms;
+    --motion-slow: 0ms;
+  }
 }
 ```
 
@@ -324,11 +353,11 @@ CSS custom properties cannot be used inside media queries, so the breakpoints ar
 
 From DESIGN_BRIEF §5. Officials work equally on desktop and phone (UX-03); setup screens are desktop first (UX-04).
 
-| Width | Navigation | Lists and tables | Detail and actions |
-|---|---|---|---|
-| Phone, below 640 px | Top app bar plus a bottom tab bar (four tabs and a "more" sheet) | Cards, one per row; filters in a bottom sheet | Full-screen detail; sticky action bar |
-| Tablet, 640 to 1023 px | Collapsible side rail | Compact tables or two-column cards | Drawer detail from the right |
-| Desktop, 1024 px and up | Fixed sidebar | Dense tables with filters, search and pagination | Split view: list left, detail panel with timeline and change log right |
+| Width                   | Navigation                                                       | Lists and tables                                 | Detail and actions                                                     |
+| ----------------------- | ---------------------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------- |
+| Phone, below 640 px     | Top app bar plus a bottom tab bar (four tabs and a "more" sheet) | Cards, one per row; filters in a bottom sheet    | Full-screen detail; sticky action bar                                  |
+| Tablet, 640 to 1023 px  | Collapsible side rail                                            | Compact tables or two-column cards               | Drawer detail from the right                                           |
+| Desktop, 1024 px and up | Fixed sidebar                                                    | Dense tables with filters, search and pagination | Split view: list left, detail panel with timeline and change log right |
 
 ### 4.1 App shell
 
@@ -355,6 +384,7 @@ From DESIGN_BRIEF §5. Officials work equally on desktop and phone (UX-03); setu
 ### 4.4 Setup screens (desktop first, UX-04)
 
 Form builder, project setup, permission panel, template and checklist editors, admin settings.
+
 - Desktop: multi-column editors with a live preview.
 - Tablet: single column, preview in a drawer.
 - Phone: readable, small edits only (rename, toggle, change a date); a persistent Alert (info) reads "best on a larger screen". Structural edits (adding sections, reordering, bulk permission changes) are hidden on phones. No drag and drop anywhere; ordering uses move-up and move-down buttons.
@@ -364,6 +394,7 @@ Form builder, project setup, permission panel, template and checklist editors, a
 Since T1.15 (D-100) the admin pages sit inside the app shell of §4.1: its app bar replaces the admin top bar below, and its sidebar, rail and bottom tabs replace the admin sidebar and the phone menu row. The addresses under `/admin`, the audience gate and the "best on a larger screen" notice stay.
 
 The management screens and admin settings live under `/admin` (`apps/web/src/admin/`), loaded as their own route chunk. They use this design system and `packages/ui` like every other screen; no second UI library is used (the MUI Minimal template was not adopted, UX-15).
+
 - Top bar: the system name (link to the admin home), then the signed-in user ("লগইন করা: name"), the language switch and log out.
 - Sidebar from 640 px: destinations as `NavItem` (icon and label, active item per §5.5), sticky below the top bar; on phones the destinations sit in a scrolling row above the content.
 - Content: page title (Display), then cards; maximum width `--content-max`.
@@ -375,6 +406,7 @@ The management screens and admin settings live under `/admin` (`apps/web/src/adm
 Every base component of constitution §12, built once in `packages/ui` (T1.4) and reused everywhere. Each component accepts `className` only for layout (margin, grid placement), never to change its colours or typography. All visible text comes from i18n keys. Accessibility behaviour follows the WAI-ARIA Authoring Practices pattern named. Since D-103 (ADR-015) the components that need behaviour (button, select, combobox, date field, dialogs, drawer, menu, tabs, table) are built on MUI core inside the set's template folder `packages/ui/src/templates/mui/`; the text fields, checkboxes, radios, switch, segmented control, form and file upload are native elements, and the display components are semantic markup. Pages lay out with the set's `Stack`, `Grid`, `DescriptionList` and `Text` or their own CSS on the tokens; there are no utility classes. The components' own texts ("required", "close", pager words) come from the app through `UiProvider` (`UiMessages`); `packages/ui` ships no text.
 
 **Premium finish (UX-14).** Every component below follows the same finish, implemented in the refreshed mockups (`docs/ui/mockups/components.css`):
+
 - **Surfaces:** cards, tables, attention items and panels use `--elevation-1` with `--border-subtle`; clickable cards lift 2 px with `--elevation-hover` on hover; stat cards carry the `--gradient-accent-line` top line and a 24 px (phone) / 28 px (desktop) value in brand ink.
 - **Buttons:** primary on #007B3E with a 6 % sheen and `--elevation-brand`, lifting 1 px on hover and pressing to 98 % on tap; secondary on surface with a translucent dark-green border, brand-soft on hover; danger with a red-tinted shadow.
 - **Fields:** a contact shadow at rest, darker border on hover, `--color-brand-primary-dark` border plus `--ring-brand` glow on focus; checkboxes and radios are restyled native inputs (dark-green fill with a white check, radio as a thick ring) that stay keyboard- and screen-reader-native.
@@ -390,16 +422,16 @@ Supporting pieces used by several components: **Icon** (Lucide, 20 px default, 1
 
 ### 5.1 Button
 
-| Prop | Values | Default |
-|---|---|---|
-| `variant` | `primary`, `secondary`, `ghost`, `danger` | `primary` |
-| `size` | `md` (44 px phone, 40 px desktop), `sm` (36/32 px with a 44 px hit area on phones) | `md` |
-| `icon`, `iconPosition` | Lucide name; `start`, `end` | none |
-| `iconOnly` | boolean; requires `aria-label` | false |
-| `loading` | boolean | false |
-| `disabled` | boolean | false |
-| `fullWidth` | boolean (phones: primary actions in sheets and action bars) | false |
-| `type` | `button`, `submit` | `button` |
+| Prop                   | Values                                                                             | Default   |
+| ---------------------- | ---------------------------------------------------------------------------------- | --------- |
+| `variant`              | `primary`, `secondary`, `ghost`, `danger`                                          | `primary` |
+| `size`                 | `md` (44 px phone, 40 px desktop), `sm` (36/32 px with a 44 px hit area on phones) | `md`      |
+| `icon`, `iconPosition` | Lucide name; `start`, `end`                                                        | none      |
+| `iconOnly`             | boolean; requires `aria-label`                                                     | false     |
+| `loading`              | boolean                                                                            | false     |
+| `disabled`             | boolean                                                                            | false     |
+| `fullWidth`            | boolean (phones: primary actions in sheets and action bars)                        | false     |
+| `type`                 | `button`, `submit`                                                                 | `button`  |
 
 - **primary:** fill `--color-brand-primary-dark`, white text, no border. Hover: 8 percent ink overlay. Pressed: 16 percent ink overlay.
 - **secondary:** fill `--color-bg-muted`, text `--color-brand-primary-dark`, 1 px `--color-brand-primary-dark` border (the website's soft button with the accessible green).
@@ -412,30 +444,30 @@ Supporting pieces used by several components: **Icon** (Lucide, 20 px default, 1
 
 ### 5.2 Badge / Status
 
-| Prop | Values |
-|---|---|
-| `tone` | `neutral`, `brand`, `success`, `warning`, `danger`, `info` |
-| `icon` | Lucide name; required for the status tones |
-| `label` | i18n key or bilingual data value |
-| `size` | `md` (24 px high), `sm` (20 px, dense tables) |
+| Prop    | Values                                                     |
+| ------- | ---------------------------------------------------------- |
+| `tone`  | `neutral`, `brand`, `success`, `warning`, `danger`, `info` |
+| `icon`  | Lucide name; required for the status tones                 |
+| `label` | i18n key or bilingual data value                           |
+| `size`  | `md` (24 px high), `sm` (20 px, dense tables)              |
 
 - Look: tinted background (`--color-bg-*-soft`, brand-soft for `brand`, muted for `neutral`), ink label (`--text-label`), icon in the status colour, `--radius-sm` (colors.md §6 rule 6).
 - Workflow state mapping (WORKFLOW_ENGINE.md, common cycle), used by every list and detail:
 
-| State | Tone | Icon |
-|---|---|---|
-| draft | neutral | `circle-dashed` |
-| needs_verification | warning | `triangle-alert` |
-| submitted | info | `send` |
-| under_review | info | `search` |
-| reviewed | info | `clipboard-check` |
-| waitlisted | warning | `clock` |
-| approved | success | `circle-check` |
-| rejected | danger | `circle-x` |
-| implementation (and its stages) | brand | `hammer` (stage name as label) |
-| completed | success | `badge-check` |
-| closed | neutral | `lock` |
-| deleted | neutral | `trash-2` |
+| State                           | Tone    | Icon                           |
+| ------------------------------- | ------- | ------------------------------ |
+| draft                           | neutral | `circle-dashed`                |
+| needs_verification              | warning | `triangle-alert`               |
+| submitted                       | info    | `send`                         |
+| under_review                    | info    | `search`                       |
+| reviewed                        | info    | `clipboard-check`              |
+| waitlisted                      | warning | `clock`                        |
+| approved                        | success | `circle-check`                 |
+| rejected                        | danger  | `circle-x`                     |
+| implementation (and its stages) | brand   | `hammer` (stage name as label) |
+| completed                       | success | `badge-check`                  |
+| closed                          | neutral | `lock`                         |
+| deleted                         | neutral | `trash-2`                      |
 
 - Other statuses use the same tones: sync (pending neutral `clock`, syncing info `refresh-cw`, synced success `check`, failed danger `circle-alert`); photo (verified success `shield-check`, flagged warning `flag`, pending upload neutral `cloud-upload`); blocklisted danger `ban`.
 - Accessibility: the label is real text; the icon is decorative. A badge is not interactive; if it filters a list it is wrapped in a button.
@@ -443,14 +475,14 @@ Supporting pieces used by several components: **Icon** (Lucide, 20 px default, 1
 
 ### 5.3 Card / Stat
 
-| Prop | Values |
-|---|---|
-| `variant` | `default`, `stat`, `attention`, `accent` |
-| `title`, `subtitle` | text |
-| `actions` | up to two buttons or a menu |
-| `href` | makes the whole card a link |
-| `value`, `target`, `delta`, `unit` | (`stat`) numbers |
-| `loading` | boolean, shows a skeleton |
+| Prop                               | Values                                   |
+| ---------------------------------- | ---------------------------------------- |
+| `variant`                          | `default`, `stat`, `attention`, `accent` |
+| `title`, `subtitle`                | text                                     |
+| `actions`                          | up to two buttons or a menu              |
+| `href`                             | makes the whole card a link              |
+| `value`, `target`, `delta`, `unit` | (`stat`) numbers                         |
+| `loading`                          | boolean, shows a skeleton                |
 
 - `default`: surface, `--elevation-1`, `--radius-lg`, padding 12 px on phones and 16 px from 640 px.
 - `stat`: label (Label), value (Display, tabular digits), optional target and a Progress bar ("1,240 of 2,000"). Progress-first dashboards (UX-10) use stat cards in their first row.
@@ -463,18 +495,19 @@ Supporting pieces used by several components: **Icon** (Lucide, 20 px default, 1
 
 One wrapper (label, control, helper text, error message, required mark, lock state) around each control type.
 
-| Prop | Values |
-|---|---|
-| `label` | required; i18n key or bilingual data |
-| `helper` | optional helper text (Caption, secondary) |
-| `error` | error message key; sets `aria-invalid` |
-| `required` | boolean; shows a "required" text mark, not only an asterisk |
-| `locked` | boolean; read-only with a lock icon and an optional `onRequestCorrection` link (BD-02, BD-18) |
-| `readOnly`, `disabled` | boolean |
-| `visibility` | `all`, `official_only` (renders only for officials; the server never sends official-only fields to volunteers) |
-| `changed` | boolean; shows a "changed" marker with old value on hover/focus (change log) |
+| Prop                   | Values                                                                                                         |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `label`                | required; i18n key or bilingual data                                                                           |
+| `helper`               | optional helper text (Caption, secondary)                                                                      |
+| `error`                | error message key; sets `aria-invalid`                                                                         |
+| `required`             | boolean; shows a "required" text mark, not only an asterisk                                                    |
+| `locked`               | boolean; read-only with a lock icon and an optional `onRequestCorrection` link (BD-02, BD-18)                  |
+| `readOnly`, `disabled` | boolean                                                                                                        |
+| `visibility`           | `all`, `official_only` (renders only for officials; the server never sends official-only fields to volunteers) |
+| `changed`              | boolean; shows a "changed" marker with old value on hover/focus (change log)                                   |
 
 Control types:
+
 - **Text** (`text`, `long_text` with auto-growing textarea, `email`, `phone` with `inputmode="tel"`, `nid` with `inputmode="numeric"` and length hint 10/13/17).
 - **Number** (`number`, `decimal`, `money` with ৳ prefix): `inputmode="numeric"` or `"decimal"`, English digits only, Bengali digits typed by a user are converted on input by the formatting utility.
 - **Select** (single, with search when more than 10 options; multi-select as a checkbox list in a sheet on phones); **Radio** group; **Checkbox** group; the "অন্যান্য" (other) option opens a text input inside the same field (BD-14).
@@ -492,13 +525,13 @@ Do not: use placeholders as labels; validate on every keystroke (validate on blu
 
 ### 5.5 Nav / Item
 
-| Prop | Values |
-|---|---|
-| `icon`, `label` | required (icon plus text everywhere) |
-| `href` | destination |
-| `active` | boolean, sets `aria-current="page"` |
-| `badge` | count (unread, pending), English digits, "99+" above 99 |
-| `variant` | `sidebar`, `rail`, `tab-bar`, `sheet` |
+| Prop            | Values                                                  |
+| --------------- | ------------------------------------------------------- |
+| `icon`, `label` | required (icon plus text everywhere)                    |
+| `href`          | destination                                             |
+| `active`        | boolean, sets `aria-current="page"`                     |
+| `badge`         | count (unread, pending), English digits, "99+" above 99 |
+| `variant`       | `sidebar`, `rail`, `tab-bar`, `sheet`                   |
 
 Active: brand-soft background and a 4 px green indicator (left in the sidebar, top in the tab bar). Focus: `--focus-ring`. Accessibility: `<nav>` landmarks with a label; counts are part of the accessible name ("review, 12 pending").
 
@@ -506,29 +539,29 @@ Active: brand-soft background and a 4 px green indicator (left in the sidebar, t
 
 A settings or list row with a title, optional description and a trailing control (switch, chevron or value). Used by component toggles in project setup, notification preferences and permission rows.
 
-| Prop | Values |
-|---|---|
-| `title`, `description` | text |
-| `control` | `switch`, `chevron`, `value`, `none` |
-| `checked`, `onChange` | for `switch` |
+| Prop                       | Values                                                                                         |
+| -------------------------- | ---------------------------------------------------------------------------------------------- |
+| `title`, `description`     | text                                                                                           |
+| `control`                  | `switch`, `chevron`, `value`, `none`                                                           |
+| `checked`, `onChange`      | for `switch`                                                                                   |
 | `disabled`, `lockedReason` | a locked toggle shows why (for example a component that cannot be turned off after activation) |
 
 Switch: track 44 by 24 px (`--radius-full`), on = `--color-brand-primary-dark`, off = `--color-border-strong`; a check or cross glyph inside the thumb so the state does not depend on colour. Accessibility: `role="switch"` with `aria-checked`; the whole row is the label; Space toggles.
 
 ### 5.7 Table (with filters, search and pagination)
 
-| Prop | Values |
-|---|---|
-| `columns` | id, header key, cell renderer, `priority` (1 = always shown, 2 = tablet and up, 3 = desktop only, 4 = desktop but hidden in the split view between 1024 and 1439 px, with key flags shown as icons beside the title; O-41), alignment (numbers right) |
-| `rows`, `rowKey` | data |
-| `selectable` | `none`, `single` (split view), `multiple` (bulk) |
-| `filters` | filter definitions (select, date range, status chips) |
-| `search` | boolean; search box with 300 ms debounce, minimum 2 characters |
-| `sort` | allowed sort keys (API_STANDARDS sorting) |
-| `pagination` | keyset cursor: "load more" or next/previous; shows "25 of 10000+" with capped totals |
-| `density` | `comfortable` (48 px rows), `compact` (40 px rows, desktop) |
-| `cardRenderer` | how a row renders as a card on phones |
-| `emptyState`, `loading`, `error` | §8 states |
+| Prop                             | Values                                                                                                                                                                                                                                                |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `columns`                        | id, header key, cell renderer, `priority` (1 = always shown, 2 = tablet and up, 3 = desktop only, 4 = desktop but hidden in the split view between 1024 and 1439 px, with key flags shown as icons beside the title; O-41), alignment (numbers right) |
+| `rows`, `rowKey`                 | data                                                                                                                                                                                                                                                  |
+| `selectable`                     | `none`, `single` (split view), `multiple` (bulk)                                                                                                                                                                                                      |
+| `filters`                        | filter definitions (select, date range, status chips)                                                                                                                                                                                                 |
+| `search`                         | boolean; search box with 300 ms debounce, minimum 2 characters                                                                                                                                                                                        |
+| `sort`                           | allowed sort keys (API_STANDARDS sorting)                                                                                                                                                                                                             |
+| `pagination`                     | keyset cursor: "load more" or next/previous; shows "25 of 10000+" with capped totals                                                                                                                                                                  |
+| `density`                        | `comfortable` (48 px rows), `compact` (40 px rows, desktop)                                                                                                                                                                                           |
+| `cardRenderer`                   | how a row renders as a card on phones                                                                                                                                                                                                                 |
+| `emptyState`, `loading`, `error` | §8 states                                                                                                                                                                                                                                             |
 
 - Desktop: sticky header, zebra rows in `--color-bg-muted` optional, hover row highlight, selected row brand-soft, row actions as ghost buttons or a menu at the row end.
 - Tablet: only priority 1 and 2 columns; the rest in the drawer detail.
@@ -541,13 +574,13 @@ Switch: track 44 by 24 px (`--radius-full`), on = `--color-brand-primary-dark`, 
 
 For focused tasks that must be finished or cancelled (a reason dialog, a field unlock form).
 
-| Prop | Values |
-|---|---|
-| `title` | required |
-| `size` | `sm` (400 px), `md` (560 px), `lg` (720 px) |
-| `open`, `onClose` | control |
-| `primaryAction`, `secondaryAction` | buttons in the footer |
-| `dismissible` | boolean; false while saving |
+| Prop                               | Values                                      |
+| ---------------------------------- | ------------------------------------------- |
+| `title`                            | required                                    |
+| `size`                             | `sm` (400 px), `md` (560 px), `lg` (720 px) |
+| `open`, `onClose`                  | control                                     |
+| `primaryAction`, `secondaryAction` | buttons in the footer                       |
+| `dismissible`                      | boolean; false while saving                 |
 
 Phone: a modal becomes a full-height bottom sheet with the footer actions sticky. Accessibility (APG dialog pattern): `role="dialog"`, `aria-modal`, labelled by the title; focus moves to the first field and is trapped; Escape closes when dismissible; focus returns to the trigger. Scrim `--color-scrim`, `--elevation-3`.
 
@@ -559,38 +592,38 @@ A side panel for detail without leaving the list (tablet split view, filters on 
 
 A small Modal for irreversible or significant actions (approve, reject, waitlist, close project, blocklist, merge, transfer, revoke session).
 
-| Prop | Values |
-|---|---|
-| `title`, `message` | what will happen, in plain words, naming the record |
-| `tone` | `default`, `danger` |
-| `reasonRequired` | boolean; adds a required textarea (reject, waitlist, blocklist, field unlock, deciding against the score, BD-17) |
-| `confirmLabel` | verb naming the action ("reject application"), never "OK" |
-| `consequence` | optional list of effects (for example "the volunteer loses access to 12 applications") |
+| Prop               | Values                                                                                                           |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `title`, `message` | what will happen, in plain words, naming the record                                                              |
+| `tone`             | `default`, `danger`                                                                                              |
+| `reasonRequired`   | boolean; adds a required textarea (reject, waitlist, blocklist, field unlock, deciding against the score, BD-17) |
+| `confirmLabel`     | verb naming the action ("reject application"), never "OK"                                                        |
+| `consequence`      | optional list of effects (for example "the volunteer loses access to 12 applications")                           |
 
 The confirm button stays disabled until a required reason is entered. Focus starts on the cancel button for danger dialogs. Accessibility: `role="alertdialog"`.
 
 ### 5.11 Alert
 
-| Prop | Values |
-|---|---|
-| `tone` | `info`, `success`, `warning`, `danger` |
-| `title`, `message` | text |
-| `action` | optional button or link |
-| `dismissible` | boolean (never for blocking or legal messages) |
-| `variant` | `inline`, `banner` (full width under the app bar) |
+| Prop               | Values                                            |
+| ------------------ | ------------------------------------------------- |
+| `tone`             | `info`, `success`, `warning`, `danger`            |
+| `title`, `message` | text                                              |
+| `action`           | optional button or link                           |
+| `dismissible`      | boolean (never for blocking or legal messages)    |
+| `variant`          | `inline`, `banner` (full width under the app bar) |
 
 Look: tinted background, 4 px status-colour left border, icon, ink text. Accessibility: `role="status"` for info and success, `role="alert"` only for errors that just happened. Uses: family-duplicate warning (BD-04), blocklist message (BD-06), "best on a larger screen" (UX-04), closed-project read-only notice (BD-20), stale-version notice.
 
 ### 5.12 File upload with preview
 
-| Prop | Values |
-|---|---|
-| `kind` | file kind from FILES_AND_DOCUMENTS (photo, document, voucher, nid_photo, media) |
-| `source` | `camera`, `gallery`, `camera_or_gallery` (per project photo-source setting, UX-11) |
-| `accept`, `maxSize` | from the kind's validation table |
-| `multiple`, `maxFiles` | count rules (for example one photo per beneficiary, BD-21) |
-| `required` | boolean |
-| `value` | list of files with upload state |
+| Prop                   | Values                                                                             |
+| ---------------------- | ---------------------------------------------------------------------------------- |
+| `kind`                 | file kind from FILES_AND_DOCUMENTS (photo, document, voucher, nid_photo, media)    |
+| `source`               | `camera`, `gallery`, `camera_or_gallery` (per project photo-source setting, UX-11) |
+| `accept`, `maxSize`    | from the kind's validation table                                                   |
+| `multiple`, `maxFiles` | count rules (for example one photo per beneficiary, BD-21)                         |
+| `required`             | boolean                                                                            |
+| `value`                | list of files with upload state                                                    |
 
 States per file: selected (local preview), compressing, queued (offline, pending), uploading (progress), quarantined (waiting for the virus scan, O-30), ready, failed (retry), rejected (type or size, with reason). Photos show the Photo tile (§6.5) with capture time and GPS. Removing a file before submission needs no confirmation; removing after submission is not offered (corrections follow the field-unlock flow). Accessibility: the trigger is a button ("take photo" or "choose file"); upload progress uses `role="progressbar"`; status changes are announced politely.
 
@@ -604,11 +637,11 @@ Props: `items` (label, href). Shown on tablet and desktop; on phones replaced by
 
 ### 5.15 Empty / Loading / Error states
 
-| Component | Props | Look |
-|---|---|---|
-| EmptyState | `icon`, `title`, `message`, `action` | The simple illustration of UX-14: the icon in brand dark green on a `--gradient-soft` disc with two faint rings, title, one sentence, one action (for example "create the first application") |
-| Skeleton | `shape` (`text`, `row`, `card`, `stat`), `count` | Muted blocks matching the final layout, no shimmer animation when reduced motion is set; lists show 3 to 5 skeleton rows |
-| ErrorState | `title`, `message`, `requestId`, `onRetry` | Icon, plain message from the error key, "retry" button, and the request id in Caption so support can trace it (API_STANDARDS error envelope) |
+| Component  | Props                                            | Look                                                                                                                                                                                          |
+| ---------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| EmptyState | `icon`, `title`, `message`, `action`             | The simple illustration of UX-14: the icon in brand dark green on a `--gradient-soft` disc with two faint rings, title, one sentence, one action (for example "create the first application") |
+| Skeleton   | `shape` (`text`, `row`, `card`, `stat`), `count` | Muted blocks matching the final layout, no shimmer animation when reduced motion is set; lists show 3 to 5 skeleton rows                                                                      |
+| ErrorState | `title`, `message`, `requestId`, `onRetry`       | Icon, plain message from the error key, "retry" button, and the request id in Caption so support can trace it (API_STANDARDS error envelope)                                                  |
 
 Full rules in §8.
 
@@ -639,6 +672,7 @@ Props: `value`, `max`, `label`, `showValue` (text such as "1,240 / 2,000 (62%)")
 ### 6.1 Bulk-update list (today's distribution, class, work)
 
 Blueprint B5 "bulk-update screens", A9, WORKFLOW_ENGINE activity model.
+
 1. **Header:** project, date, area; a summary strip of stat counts (assigned, done, remaining, pending photos) and, for distribution, the stock summary (received, distributed, remaining, damaged; BD-22) with a Progress bar.
 2. **Filter chips:** all, remaining, done, problems; search by name or app number.
 3. **List:** Bulk-update rows (§5.17), 25 at a time from the local cache, ordered by village then name.
@@ -650,6 +684,7 @@ Blueprint B5 "bulk-update screens", A9, WORKFLOW_ENGINE activity model.
 ### 6.2 Review detail with timeline
 
 Blueprint A7, BD-04, BD-17, BD-18, O-20.
+
 1. **Header:** beneficiary name, application number, project and area, status badge, waiting time in this state ("waiting 6 days", UX-07), the assigned volunteer.
 2. **Signals block** (only when present): family-duplicate warning (Alert warning, with links to the other applications, BD-04); volunteer-is-beneficiary flag (O-20); needs-verification reason (BD-48); blocklist notice.
 3. **Score and quota:** priority score with the criteria breakdown and the area quota bar (used / target), shown to officials only (BD-17).
@@ -662,6 +697,7 @@ Blueprint A7, BD-04, BD-17, BD-18, O-20.
 ### 6.3 Form renderer
 
 Renders a published form version (BD-12) for volunteers and officials, online and offline (T2.4).
+
 - **Field types** (L-field-type): short_text, long_text, number, decimal, money, phone, email, date, time, datetime, single_select, multi_select, radio, checkbox, photo, file, signature, gps, bd_address, repeat_group, calculation, note. Each maps to a Field control (§5.4); signature is a canvas pad with clear and redo; gps shows a "capture location" button with accuracy; calculation is a read-only computed value with its formula hint; note is static text.
 - **Sections:** one section per screen on phones with a step indicator ("section 2 of 6") and next/back; all sections on one scrolling page on desktop with a section index on the left. Section progress shows answered required fields.
 - **Conditional logic:** fields and sections appear and disappear by their conditions (form-field-logic schema); hidden fields are not validated and their values are cleared on submit. Branching options (BD-14) refresh the option list when the parent answer changes.
@@ -676,6 +712,7 @@ Renders a published form version (BD-12) for volunteers and officials, online an
 ### 6.4 NID lookup with auto-fill
 
 Blueprint B3, BD-01, BD-02, BD-06.
+
 1. The first field of a new application is the identity type (NID or birth registration) and number, with format hints (10, 13 or 17 digits; 17 for birth registration).
 2. "Find" checks the number online. Found: name, father or husband name, mobile and address are filled; name, father or husband name and the id are locked; mobile and address stay editable with a change log. Not found: an empty form for a new beneficiary.
 3. Blocked beneficiary: a danger Alert stops the application (BD-06); the reason is not shown to volunteers.
@@ -692,6 +729,7 @@ Blueprint B3, BD-01, BD-02, BD-06.
 ### 6.6 Dashboard, progress first
 
 UX-10, BD-43, blueprint A11.
+
 1. **First row:** progress stat cards: applications, approved, distributed or completed, each against target with a Progress bar.
 2. **Second:** alerts (monitoring alerts as attention cards with counts and links).
 3. **Third:** budget (stacked Progress bar of buckets with numbers), then area view (table by district or upazila with progress).
@@ -705,6 +743,7 @@ Fields of the sensitive classes in permissions.yaml (NID and birth registration,
 ## 7. Mobile-first rules (2 GB Android phones and iPhones)
 
 Targets: low-cost Android phones with 2 GB RAM and Chrome (primary), iPhones with Safari and installed PWAs (UX-06), 2G/3G and intermittent networks (NFR-12).
+
 1. **Bundle:** the volunteer PWA's first route is at most 250 KB of compressed JavaScript (NFR-15); dashboards, charts, the form builder and the permission panel load on demand and never ship in the volunteer bundle.
 2. **Lists:** 25 items per page with cursor paging; "load more" instead of infinite scroll; never keep more than about 200 rows in the DOM.
 3. **Images:** thumbnails lazy-loaded at small sizes; full images only on tap; photos compressed on the phone before upload (NFR-25).
@@ -721,28 +760,30 @@ Targets: low-cost Android phones with 2 GB RAM and Chrome (primary), iPhones wit
 
 Every screen documents these states in SCREENS.md. Copy comes from i18n keys following the pattern `<module>.<screen>.state.<state>.title|message|action`, with shared defaults under `common.state.*` (I18N.md, T0.20).
 
-| State | When | Component | Behaviour |
-|---|---|---|---|
-| Empty | No data yet, or no result for the filter | EmptyState | Explains why and offers the next action; a filtered empty state offers "clear filters" |
-| Loading | First load or page change | Skeleton | Skeletons in the final layout; no full-page spinners for lists; a button shows its own loading state |
-| Error | Request failed | ErrorState or Alert (danger) | Plain message from the error key, retry, request id in Caption; form errors stay on the form with entered data kept |
-| Offline | No network | Offline banner | Field screens keep working from the cache and outbox; online-only actions (NID lookup, approvals, reports) are disabled with a short reason |
-| Pending sync | Local changes not yet on the server | Badge (sync) and banner count | Each record shows pending, syncing, synced or failed; failed opens the outbox with retry |
-| Denied | Record outside the user's scope | ErrorState (not found) | Shown as "not found" (the API returns 404 for out-of-scope records); actions the user lacks are not rendered |
-| Read-only | Closed project (BD-20), approved application (BD-18), published form (BD-12) | Alert (info) and read-only fields | Explains why and, where allowed, the path to change (reopen, unlock, new version) |
-| Stale version | Someone else saved first (412) | Alert (warning) | "This record was changed; reload to see the latest"; entered values are kept for re-entry |
-| Upgrade required | Client too old (426) | Banner (danger) | "Update the app" action; the outbox is kept |
-| Quarantined file | Upload waiting for the virus scan | Photo tile or file row badge | Shown as "being checked"; not viewable until ready (O-30) |
+| State            | When                                                                         | Component                         | Behaviour                                                                                                                                   |
+| ---------------- | ---------------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Empty            | No data yet, or no result for the filter                                     | EmptyState                        | Explains why and offers the next action; a filtered empty state offers "clear filters"                                                      |
+| Loading          | First load or page change                                                    | Skeleton                          | Skeletons in the final layout; no full-page spinners for lists; a button shows its own loading state                                        |
+| Error            | Request failed                                                               | ErrorState or Alert (danger)      | Plain message from the error key, retry, request id in Caption; form errors stay on the form with entered data kept                         |
+| Offline          | No network                                                                   | Offline banner                    | Field screens keep working from the cache and outbox; online-only actions (NID lookup, approvals, reports) are disabled with a short reason |
+| Pending sync     | Local changes not yet on the server                                          | Badge (sync) and banner count     | Each record shows pending, syncing, synced or failed; failed opens the outbox with retry                                                    |
+| Denied           | Record outside the user's scope                                              | ErrorState (not found)            | Shown as "not found" (the API returns 404 for out-of-scope records); actions the user lacks are not rendered                                |
+| Read-only        | Closed project (BD-20), approved application (BD-18), published form (BD-12) | Alert (info) and read-only fields | Explains why and, where allowed, the path to change (reopen, unlock, new version)                                                           |
+| Stale version    | Someone else saved first (412)                                               | Alert (warning)                   | "This record was changed; reload to see the latest"; entered values are kept for re-entry                                                   |
+| Upgrade required | Client too old (426)                                                         | Banner (danger)                   | "Update the app" action; the outbox is kept                                                                                                 |
+| Quarantined file | Upload waiting for the virus scan                                            | Photo tile or file row badge      | Shown as "being checked"; not viewable until ready (O-30)                                                                                   |
 
 ## 9. Content and accessibility
 
 Content:
+
 - Status names are the workflow state names in the user's language (bilingual data); never synonyms on different screens.
 - Buttons are verbs naming the result ("approve application", "send to office"); dialogs name the record they act on.
 - Errors say what happened and what to do, without codes in the message; the code and request id are available in Caption for support.
 - Numbers, dates and amounts come from the formatting utility with English digits (UX-05).
 
 Accessibility (WCAG 2.2 AA, constitution §10):
+
 - Contrast per §2.1; focus always visible with `--focus-ring`; nothing relies on colour alone.
 - Every page has landmarks (header, nav, main), one `<h1>`, a logical heading order and a "skip to content" link.
 - All functions work with a keyboard on desktop; focus order follows the visual order; dialogs trap and return focus.
@@ -754,23 +795,24 @@ Accessibility (WCAG 2.2 AA, constitution §10):
 
 ## 10. Do and do not
 
-| Do | Do not |
-|---|---|
-| Use tokens and the components of §5 | Write raw hex values or per-page styles |
-| Show status with icon plus label | Show status by colour alone or with amber |
-| Use dark green for small green text | Put small white text on #008E48 |
-| Turn tables into cards on phones | Scroll tables horizontally on phones |
-| Keep primary actions in a sticky bottom bar on phones | Hide approve and reject in a menu on phones |
-| Wrap Bengali text to two lines | Truncate names, ids or amounts on detail screens |
-| Use one primary button per region | Place two primary buttons side by side |
-| Use the Confirm dialog with a reason for reject, waitlist, blocklist, unlock | Execute irreversible actions on a single tap |
-| Use gradients only in hero headers and dashboard highlights (UX-14) | Put gradients behind forms, tables or running text |
-| Check text contrast against the lightest gradient stop | Rely on the dark end of a gradient for contrast |
-| Lift and glow on hover with the elevation tokens | Invent shadows, colours or animation timings per page |
+| Do                                                                           | Do not                                                |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Use tokens and the components of §5                                          | Write raw hex values or per-page styles               |
+| Show status with icon plus label                                             | Show status by colour alone or with amber             |
+| Use dark green for small green text                                          | Put small white text on #008E48                       |
+| Turn tables into cards on phones                                             | Scroll tables horizontally on phones                  |
+| Keep primary actions in a sticky bottom bar on phones                        | Hide approve and reject in a menu on phones           |
+| Wrap Bengali text to two lines                                               | Truncate names, ids or amounts on detail screens      |
+| Use one primary button per region                                            | Place two primary buttons side by side                |
+| Use the Confirm dialog with a reason for reject, waitlist, blocklist, unlock | Execute irreversible actions on a single tap          |
+| Use gradients only in hero headers and dashboard highlights (UX-14)          | Put gradients behind forms, tables or running text    |
+| Check text contrast against the lightest gradient stop                       | Rely on the dark end of a gradient for contrast       |
+| Lift and glow on hover with the elevation tokens                             | Invent shadows, colours or animation timings per page |
 
 ## 11. Theming note: future dark theme
 
 Light theme only for now (DESIGN_BRIEF §2 item 3). The system is ready for a dark theme without component changes:
+
 - Components use only semantic tokens (`--color-bg-*`, `--color-text-*`, `--color-border-*`, `--color-status-*`), never brand hex values directly.
 - A dark theme is a second token block under `[data-theme="dark"]` (and optionally `prefers-color-scheme: dark`), with new values recorded in colors.md and contrast-checked, and a decision in DECISION_LOG.md before use.
 - The status tints and shadows need dark equivalents; shadows become lighter borders on dark surfaces.
