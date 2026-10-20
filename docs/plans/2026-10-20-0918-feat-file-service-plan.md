@@ -35,7 +35,7 @@ Today the only upload is a registration or profile photo of up to 2 MB in one re
 
 ## Key decisions
 - **Uploads go through the API in chunks** (D-108, to record): a session, `PUT` of each part as raw bytes, a status read for resume, then finalize; the storage driver gets a multipart interface. Implements D-074 for uploads; ADR-005 is amended (its presigned URLs replaced by streaming through the API), and the OpenAPI parts with presigned URLs and `POST /files/{id}/url` are removed.
-- **Virus-scan hook** (D-109, to record as proposed until the owner confirms the production scanner): one `ScannerAdapter`; dev and test mark `skipped`, which the policy treats as viewable outside production only; production refuses a missing scanner at start, like the dummy OTP; ClamAV on the own server recommended.
+- **Virus-scan hook** (D-109, approved by the owner on 2026-10-20 with ClamAV on the own server as the default production scanner, replaceable by the IT team through the adapter): one `ScannerAdapter`; dev and test mark `skipped`, which the policy treats as viewable outside production only; production refuses a missing scanner at start, like the dummy OTP; ClamAV on the own server by default.
 - **Perceptual hash** (D-110, to record): a 64-bit difference hash computed with sharp (9 × 8 grayscale), compared by Hamming distance ≤ 6 against the photos of the same project by a scan of that project's rows in SQL (`bit_count(phash # $1)`), acceptable at the expected thousands of photos per project; revisit past 100,000.
 
 ## Technical decisions

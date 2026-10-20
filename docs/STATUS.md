@@ -104,6 +104,7 @@ Needed for development: met on 2026-10-11 (Node 24.15.0, pnpm 12.10.1, Docker en
 
 Resolved before production, not now (O-36); none blocks Phase 0 or development:
 - SMS provider (O-33); the adapter runs in dry-run mode until then.
+- Virus scanner (D-109, approved 2026-10-20): ClamAV on the organization's own server, installed before T3.0; the API refuses to start in production without it, and the IT team may replace it later through the scanner adapter.
 - Server details, domain names and backup target (needed by T3.0 for the pilot deployment, finalized in T6.5).
 - SOP v2.3 text (with the documentation module at the end, O-34).
 - Other input files (samples, locations CSV): see docs/source/README.md; requested by the task that needs them.
