@@ -1,8 +1,19 @@
 import type { Readable } from 'node:stream';
 import { ApiError } from '../i18n/api-error';
 
-/** Buckets of FILES_AND_DOCUMENTS 8 (created by infra/minio/bootstrap.sh, never by the app). */
-export const BUCKETS = ['documents', 'photos', 'vouchers', 'profiles', 'media', 'exports'] as const;
+/**
+ * Buckets of FILES_AND_DOCUMENTS 8 (created by infra/minio/bootstrap.sh, never by the app); `uploads`
+ * holds the 256 KB parts of an upload in progress, unversioned and emptied after two days (D-108).
+ */
+export const BUCKETS = [
+  'documents',
+  'photos',
+  'vouchers',
+  'profiles',
+  'media',
+  'exports',
+  'uploads',
+] as const;
 export type Bucket = (typeof BUCKETS)[number];
 
 export interface ObjectInfo {

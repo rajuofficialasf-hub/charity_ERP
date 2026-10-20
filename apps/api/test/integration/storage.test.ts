@@ -9,6 +9,7 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { dropParts, joinParts, PART_SIZE, storePart } from '../../src/files/parts';
 import { type Bucket, BUCKETS, createStorage, NotFoundError } from '../../src/storage';
 import { testEnv } from '../support/env';
 
@@ -113,6 +114,26 @@ describe('S3 storage driver on MinIO (ADR-005, NS-4x)', () => {
     expect(back.length).toBe(size);
     expect(sha256(back)).toBe(digest());
   }, 30_000);
+
+  it('joins the 256 KB parts of an upload into one object and drops the parts (D-108)', async () => {
+    const session = randomUUID();
+    const parts = [Buffer.alloc(PART_SIZE, 7), Buffer.alloc(PART_SIZE, 8), Buffer.from('tail')];
+    for (const [i, part] of parts.entries()) await storePart(storage, session, i + 1, part);
+    const whole = Buffer.concat(parts);
+    const joined = await joinParts(storage, {
+      sessionId: session,
+      count: parts.length,
+      bucket: 'exports',
+      key: key('joined.bin'),
+      contentType: 'application/octet-stream',
+    });
+    expect(joined).toEqual({ size: whole.length, sha256: sha256(whole) });
+    expect((await buffer(await storage.get('exports', key('joined.bin')))).equals(whole)).toBe(
+      true,
+    );
+    await dropParts(storage, session, parts.length);
+    expect(await storage.stat('uploads', `${session}/1`)).toBeNull();
+  });
 
   it('throws NotFoundError for a missing key', async () => {
     await expect(storage.get('exports', key('missing.bin'))).rejects.toBeInstanceOf(NotFoundError);

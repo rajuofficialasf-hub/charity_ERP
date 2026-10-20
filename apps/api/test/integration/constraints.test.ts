@@ -1042,3 +1042,48 @@ describe('nisab versions', () => {
     );
   });
 });
+
+describe('upload sessions of the chunked upload (DECISION_LOG D-108)', () => {
+  const session = async () => {
+    const userId = await f.volunteerUser(db);
+    const id = randomUUID();
+    await db.query(
+      `INSERT INTO upload_sessions (id, user_id, declared, client_uuid, bucket, object_key, part_count, expires_at)
+       VALUES ($1, $2, '{}', $3, 'photos', $4, 3, now() + interval '1 hour')`,
+      [id, userId, randomUUID(), `p/a/photo/${id}.jpg`],
+    );
+    return { id, userId };
+  };
+
+  it('records the parts, bytes and expiry of an upload, but never moves its target or deletes it', async () => {
+    const { id } = await session();
+    await db.query(
+      `UPDATE upload_sessions SET parts_received = '{1,2}', bytes_received = 524288,
+       expires_at = now() + interval '1 hour' WHERE id = $1`,
+      [id],
+    );
+    await expectSqlError(
+      db.query(`UPDATE upload_sessions SET object_key = 'elsewhere.jpg' WHERE id = $1`, [id]),
+      SQLSTATE.insufficientPrivilege,
+    );
+    await expectSqlError(
+      db.query('DELETE FROM upload_sessions WHERE id = $1', [id]),
+      SQLSTATE.insufficientPrivilege,
+    );
+  });
+
+  it('keeps one session per client id of a user, at most 80 parts, in a storage bucket', async () => {
+    const { userId } = await session();
+    const insert = (clientUuid: string, bucket: string, parts: number) =>
+      db.query(
+        `INSERT INTO upload_sessions (id, user_id, declared, client_uuid, bucket, object_key, part_count, expires_at)
+         VALUES ($1, $2, '{}', $3, $4, 'k.jpg', $5, now())`,
+        [randomUUID(), userId, clientUuid, bucket, parts],
+      );
+    const client = randomUUID();
+    await insert(client, 'photos', 1);
+    await expectSqlError(insert(client, 'photos', 1), SQLSTATE.uniqueViolation);
+    await expectSqlError(insert(randomUUID(), 'photos', 81), SQLSTATE.checkViolation);
+    await expectSqlError(insert(randomUUID(), 'uploads', 1), SQLSTATE.checkViolation);
+  });
+});

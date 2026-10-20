@@ -2810,8 +2810,12 @@ model UploadSession {
   id                String   @id @db.Uuid
   userId            String   @map("user_id") @db.Uuid
   declared          Json
-  multipartUploadId String   @map("multipart_upload_id")
-  partsAcknowledged Int      @default(0) @map("parts_acknowledged")
+  clientUuid        String   @map("client_uuid") @db.Uuid
+  bucket            String
+  objectKey         String   @map("object_key")
+  partCount         Int      @map("part_count")
+  partsReceived     Int[]    @default([]) @map("parts_received")
+  bytesReceived     BigInt   @default(0) @map("bytes_received")
   expiresAt         DateTime @map("expires_at") @db.Timestamptz(6)
   finalizedFileId   String?  @map("finalized_file_id") @db.Uuid
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -2820,7 +2824,9 @@ model UploadSession {
   finalizedFile     File?    @relation("upload_sessions_finalized_file_id", fields: [finalizedFileId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   createdByRef      User?    @relation("upload_sessions_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
+  @@unique([userId, clientUuid], map: "upload_sessions_user_id_client_uuid_key")
   @@index([userId], map: "upload_sessions_user_id_idx")
+  @@index([expiresAt], where: raw("finalized_file_id IS NULL"), map: "upload_sessions_open_expires_at_idx")
   @@index([finalizedFileId], map: "upload_sessions_finalized_file_id_idx")
   @@index([createdBy], map: "upload_sessions_created_by_idx")
   @@map("upload_sessions")

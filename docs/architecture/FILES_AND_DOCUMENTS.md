@@ -131,7 +131,8 @@ Flagged-photo monitoring (O-30, BR-241): the data-quality flags that count are `
 | `vouchers` | `{project_code}/applications/{application_id}/{file_id}.{ext}`; `{project_code}/claims/{claim_id}/{file_id}.{ext}`; `{project_code}/payments/{payment_id}/{file_id}.{ext}` | includes payment copies |
 | `profiles` | `volunteers/{volunteer_id}/photo/{file_id}.jpg`, `volunteers/{volunteer_id}/nid/{file_id}.jpg` | most restricted bucket policy; dedicated backup encryption key separate from the primary storage key, with key management, access restrictions, rotation and documented restore testing (O-30; procedures in RUNBOOK.md) |
 | `media` | `{project_code}/{beneficiary_id}/{file_id}.{ext}` | Media Team assets |
-| `exports` | `{yyyy}/{mm}/{job_id}/{file_name}` | only bucket with a lifecycle rule: generated export files deleted after 30 days; the export job row and the source records are never touched (O-30) |
+| `exports` | `{yyyy}/{mm}/{job_id}/{file_name}` | lifecycle rule: generated export files deleted after 30 days; the export job row and the source records are never touched (O-30) |
+| `uploads` | `{upload_session_id}/{part_number}` | the 256 KB parts of uploads in progress (D-108); not versioned, not mirrored, emptied after two days by a lifecycle rule; the parts of a finalized or expired session are removed by the API |
 
 Keys contain system ids and codes only, never names, NIDs or phone numbers. Versioning is enabled on `documents` and `photos` (ADR-005). Buckets are mirrored to the backup target (O-06) except `exports`.
 

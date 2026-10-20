@@ -1518,12 +1518,16 @@ Constraints: UNIQUE (file_id, entity_type, entity_id, slot); partial UNIQUE (cli
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
 | user_id | uuid | no | — | FK users |
-| declared | jsonb | no | — | kind, entity, slot, mime, size, sha256, capture metadata |
-| multipart_upload_id | text | no | — | MinIO id |
-| parts_acknowledged | integer | no | 0 | — |
-| expires_at | timestamptz | no | — | +1 hour |
+| declared | jsonb | no | — | kind, record, slot, mime, size, sha256, capture metadata, source |
+| client_uuid | uuid | no | — | unique with user_id: a resent create answers the same session (D-108) |
+| bucket | text | no | — | the target bucket; CHECK documents, photos, vouchers, profiles, media |
+| object_key | text | no | — | the target key (FILES_AND_DOCUMENTS 8) |
+| part_count | integer | no | — | the 256 KB parts the declared size needs; CHECK 1–80 |
+| parts_received | integer[] | no | '{}' | the parts stored in the bucket `uploads` |
+| bytes_received | bigint | no | 0 | never more than the declared size |
+| expires_at | timestamptz | no | — | one hour after the last part |
 | finalized_file_id | uuid | yes | — | FK files |
-| [L] | | | | expired unfinalized rows deleted by a job |
+| [L] | | | | status log: an update may change parts_received, bytes_received, expires_at, finalized_file_id; expired unfinalized rows deleted by the nightly sweep (index on expires_at of the open ones) |
 
 ### notifications
 | Column | Type | Null | Default | Comment |

@@ -40,7 +40,7 @@ Today the only upload is a registration or profile photo of up to 2 MB in one re
 
 ## Technical decisions
 - **New dependencies**: `sharp` (API: thumbnails, pixels for the hash, `limitInputPixels` at 40 MP; prebuilt binaries for win32-x64 on the developers' machines and linux-x64 glibc on the bookworm image and CI; named in the T2.1 prompt) and `exifr` (API and web: capture time and GPS). Before installing each, confirm the npm package, its maintainers and its install scripts (ST-32, ST-34). No `file-type`: `apps/api/src/files/policy.ts` extends the magic-byte detection of `apps/api/src/files/images.ts` (JPEG, PNG) to HEIC/HEIF, WebP and PDF, which is all the allowlist needs (a deviation from NS-03's library, recorded in the plan). No multer, no tus: chunks arrive as `express.raw` bodies as the photo route already does (`apps/api/src/files/photo-body.ts`).
-- **Storage** (NS-31, NS-32, NS-40, NS-41, NS-42): the multipart operations go into `StorageDriver` (`apps/api/src/storage/types.ts`); the AWS SDK stays in `drivers/s3.ts` only, with raw `CreateMultipartUpload`, `UploadPart`, `CompleteMultipartUpload` and `AbortMultipartUpload` because the chunks arrive in separate requests (`lib-storage`'s `Upload` keeps serving single streams); `CreateMultipartUpload` sets server-side encryption as `put` does. The filesystem driver keeps the parts under `STORAGE_ROOT/.parts/<session uuid>/<integer part number>`, built only from the server's session id and an integer, resolved and checked under `STORAGE_ROOT`. Buckets stay private; nothing returns an object URL.
+- **Storage** (NS-31, NS-32, NS-40, NS-41, NS-42): each 256 KB part is a small object in the bucket `uploads` keyed `<session uuid>/<integer part number>` (only the server's id and an integer reach a key); finalize streams the parts in order into one `put` of the target object, hashing on the way (`apps/api/src/files/parts.ts`). S3 multipart was dropped at U2: S3 and MinIO refuse parts under 5 MiB (D-108 amended). The driver interface and the AWS SDK in `drivers/s3.ts` stay as they are. Encryption at rest is a server setting of the deployment (T3.0: MinIO auto-encryption or an encrypted disk), as for `put` today; nothing sets it per request. Buckets stay private; nothing returns an object URL.
 - **Routes** through `defineRoute` with the contract in `docs/api/openapi.yaml` first (the drift test): permission `file.upload` scope `self` on the session routes with the record check in the service at create and finalize (`access.findProject` / the record's own scope helper, as `services/project-volunteers.ts` checks its project); `entity` scope `file` for reads (the linked record decides); a named rate class `upload` for the part route (600 parts an hour per user); responses through the field mask, GPS and capture time under a field class.
 - **Jobs**: pg-boss queue `file.process` beside `notify` (`apps/api/src/jobs/consumers.ts`), run by the worker, inline in development; idempotent by file id; a 2-minute timeout per file; retries as `notify`. The session sweep runs with the existing cleanup role `css_jobs_cleanup`, which already holds DELETE on `upload_sessions` (`apps/api/prisma/sql/roles.sql`).
 - **Stack profile**: unchanged (CLAUDE.md); the storage adapter and pg-boss already exist.
@@ -62,19 +62,19 @@ Today the only upload is a registration or profile photo of up to 2 MB in one re
 - **Risk area:** none
 - **Status:** done
 
-### U2. Multipart storage and the session columns
-- **Goal:** the storage driver can take parts, complete and abort a multipart object, and an upload session records what it holds.
+### U2. Part storage and the session columns
+- **Goal:** the 256 KB parts of an upload are stored and joined in order into the target object, and an upload session records what it holds.
 - **Requirements:** R1, R12
-- **Files:** `apps/api/src/storage/types.ts`, `drivers/s3.ts`, `drivers/filesystem.ts`, `drivers/filesystem.spec.ts`, the migration `apps/api/prisma/migrations/20261020100000_upload_session_parts/` (`migration.sql`, `down.sql`), `apps/api/prisma/schema.prisma`, `apps/api/test/integration/storage.test.ts`, `docs/database/DATABASE_SCHEMA.md` and `docs/database/ERD.md` (the table).
-- **Approach:** the existing `put`/`get` pair of both drivers; a migration with a hand-written `down.sql` as `20261018100000_notifications_delivery`. The migration replaces the count `parts_acknowledged` by `parts_received int[] NOT NULL DEFAULT '{}'`, adds `bytes_received bigint NOT NULL DEFAULT 0`, `client_uuid uuid` (unique with `user_id`), `bucket text` and `object_key text` (NOT NULL, refused by the migration if any session row exists, since no code has written one), and keeps `declared` (kind, mime, size, SHA-256, entity, slot, capture data, source) and `multipart_upload_id` (the S3 upload id; the filesystem driver stores the session id). `down.sql` restores `parts_acknowledged` from the array length and drops the new columns.
+- **Files:** `apps/api/src/files/parts.ts` and `parts.spec.ts` (new), `apps/api/src/storage/types.ts` (the bucket `uploads`), `infra/minio/bootstrap.sh` (the bucket and its two-day expiry), the migration `apps/api/prisma/migrations/20261020100000_upload_session_parts/` (`migration.sql`, `down.sql`), `apps/api/prisma/schema.prisma`, `apps/api/test/integration/storage.test.ts`, `apps/api/test/integration/constraints.test.ts`, `docs/database/DATABASE_SCHEMA.md`, `docs/database/ERD.md`, `docs/database/erd.mermaid`, `docs/architecture/FILES_AND_DOCUMENTS.md` (the bucket row).
+- **Approach:** the existing `put`/`get`/`stat`/`delete` of both drivers, no new driver operation; a migration with a hand-written `down.sql` as `20261018100000_notifications_delivery`. The migration drops `multipart_upload_id` and `parts_acknowledged`, adds `parts_received int[] NOT NULL DEFAULT '{}'`, `bytes_received bigint NOT NULL DEFAULT 0`, `client_uuid uuid` (unique with `user_id`), `bucket text`, `object_key text` and `part_count` (NOT NULL, refused by the migration if any session row exists, since no code has written one), and recreates the status-log trigger so an update may change only the parts, the bytes, the expiry and the finalized file; `declared` keeps kind, mime, size, SHA-256, record, slot, capture data and source. `down.sql` empties the table (the sessions are temporary) and restores the first design's columns and trigger.
 - **Tests:**
-  - unit: the filesystem driver joins three parts in order, refuses a missing part, refuses a part number that is not a positive integer and any path outside `STORAGE_ROOT`, aborts and leaves nothing.
-  - integration: the S3 driver against MinIO completes a two-part object with server-side encryption and reads it back; abort leaves no object; the migration applies and its down.sql reverses it.
-- **Done when:** both drivers pass the same multipart cases and the migration round-trips.
+  - unit: three parts sent out of order and one twice join in order with the right size and SHA-256; a missing part answers `file.parts_missing` and leaves no object; a part key is built only from a session uuid and an integer 1–80; an empty part or one over 256 KB is refused; dropping the parts twice is fine.
+  - integration: the parts join against MinIO and read back; the trigger lets the parts, bytes and expiry change and refuses another column and a delete; one session per user and client id; 81 parts and the bucket `uploads` as a target are refused; the migration applies and its down.sql reverses it.
+- **Done when:** the parts join on both drivers and the migration round-trips.
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** file storage
-- **Status:** todo
+- **Status:** done
 
 ### U3. Upload sessions and their sweep
 - **Goal:** create a session, accept chunks, report what is held, finalize into a checked file linked to its record, and sweep the abandoned sessions.
@@ -193,8 +193,8 @@ Today the only upload is a registration or profile photo of up to 2 MB in one re
 
 ## Progress
 - **Branch:** `feat/file-service`
-- **Updated:** 2026-10-20 09:50
-- **Next:** U2: the multipart operations in `apps/api/src/storage/types.ts`
+- **Updated:** 2026-10-20 11:40
+- **Next:** C2 (review of U2), then U3: `apps/api/src/services/uploads.ts` with the create, part and finalize operations
 - **Reviewed through:** C1 at da9239b
 - **Uncommitted:** none
-- **Notes:** U1 kept the `variant` parameter of the content route out of the contract until U5 builds it (the drift test compares built operations). API_STANDARDS already fixed `file.quarantined` 423 and `file.infected` 410, so a quarantined file answers those to a caller who may see it (R4, U5). The capture time stays an ordinary field; only the GPS position is the class `file.location` (R11). C1 (tier T0, docs only): no finding; for U6, the file list's `x-scope: file` needs the record's scope instead (a list has no file id), changed with its code.
+- **Notes:** U1 kept the `variant` parameter of the content route out of the contract until U5 builds it (the drift test compares built operations). API_STANDARDS already fixed `file.quarantined` 423 and `file.infected` 410, so a quarantined file answers those to a caller who may see it (R4, U5). The capture time stays an ordinary field; only the GPS position is the class `file.location` (R11). C1 (tier T0, docs only): no finding; for U6, the file list's `x-scope: file` needs the record's scope instead (a list has no file id), changed with its code. U2: S3 and MinIO refuse multipart parts under 5 MiB, so each 256 KB part is an object of its own in the bucket `uploads` and finalize joins them (D-108 amended); the dev MinIO needs `docker compose run --rm minio-init` once for the new bucket, and the dev database `pnpm db:migrate`.

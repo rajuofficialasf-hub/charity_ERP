@@ -202,7 +202,7 @@ Cardinality notation below: `1 — n` one to many, `1 — 0..1` optional one, `n
 |---|---|---|---|
 | files | id; bucket; key; kind; mime; size; sha256; project_id; uploaded_by, uploaded_at; captured_at; gps; source; flags (list); phash; thumbnail keys; virus_scan; locked_at; client_uuid; deleted_at (exports only) | 1 — n file_links | FILES_AND_DOCUMENTS §2; O-30; BR-109, BR-239, BR-240 |
 | file_links | id; file_id; entity_type; entity_id; slot; position | files 1 — n; polymorphic to the owning entity | FILES_AND_DOCUMENTS §2 (addition) |
-| upload_sessions | id; user_id; declared metadata; parts acknowledged; expires_at; finalized_file_id | users 1 — n; files 1 — 0..1 | FILES_AND_DOCUMENTS §4 (addition) |
+| upload_sessions | id; user_id; declared metadata; client_uuid; target bucket and key; part count; parts received; bytes received; expires_at; finalized_file_id | users 1 — n; files 1 — 0..1 | FILES_AND_DOCUMENTS §4 (addition), D-108 |
 | notifications | id; user_id; template_key; params (JSONB); read_at; coalesce_key; count | users 1 — n | NOTIFICATIONS §7 |
 | notification_templates | id; key; channel; locale; subject/title; body; variables; version; active | 1 — n outbound_messages (by key and version) | NOTIFICATIONS §6 |
 | outbound_messages | id; event_id; recipient; address; channel; template key and version; params (JSONB); idempotency_key (unique); status; provider_message_id; attempts; next_attempt_at; last_error; sent_at; delivered_at | 1 — 0..1 donor_messages | NOTIFICATIONS §7; ADR-007 (addition) |
