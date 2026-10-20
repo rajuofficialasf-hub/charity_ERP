@@ -40,25 +40,26 @@ Rules: a file may be linked to several entities (a distribution photo to the act
 
 ## 3. Access control
 
-- **Note (D-074, 2026-10-11):** presigned URLs are dropped with the organization's storage standard (NS-41): the API streams every download and upload through authorized routes (`GET /api/v1/files/{id}/content`, upload sessions over the API), with the same checks as below; the storage adapter (`apps/api/src/storage`, an S3 driver on MinIO until the NAS driver exists) exposes no URL. The route shapes are detailed in T2.1; the paragraphs below describe the earlier presigned design and are rewritten there.
-- No file is ever public. Every download starts with `POST /api/v1/files/{id}/url`; the API runs the full request lifecycle (SYSTEM_ARCHITECTURE §6): permission (`application.view`, `document.register.view`, `volunteer.view_sensitive` for NID photos, …), scope, object-level check through the file's links, and the sensitive-field class of the file kind (BR-183). Only then it issues a presigned GET URL valid for 15 minutes (NFR-28), bound to the exact object key. Thumbnails use the same path.
-- Caddy forwards only presigned requests to MinIO's object endpoint; the MinIO admin API and bucket listing are never reachable from outside (D-056).
-- Downloads of sensitive classes (nid_photo, document register files, exports containing identity fields) write an audit entry (`file.download_sensitive`) with the file id and the requester (BR-179, BR-224).
-- Uploads also start with the API (section 4): the client never holds long-lived credentials, only short presigned PUT URLs per chunk.
-- Volunteers never receive URLs for files outside their SELF/ASSIGNED scope; the Media Team receives media assets and consent state, never NID photos or vouchers (sensitive_fields catalogue in `permissions.yaml`).
+- No file is ever public and no URL to an object is ever issued (D-074, NS-41; D-108). Every download is `GET /api/v1/files/{id}/content` (with `variant` for the 320 px and 1,024 px thumbnails); the API runs the full request lifecycle (SYSTEM_ARCHITECTURE §6): the caller's permission on the record the file links to, its scope, the object-level check through the file's links, the sensitive-field class of the file kind (BR-183) and the scan state (section 5), then streams the object from the storage adapter (`apps/api/src/storage`; an S3 driver on MinIO until the NAS driver exists) with `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, the type taken from the stored bytes, and `inline` only for images and PDF (`attachment` otherwise, the original name encoded and never part of a key). A refusal answers 404.
+- The MinIO endpoint is reachable only by the API on the internal network; its admin API and bucket listing are never reachable from outside (D-056).
+- Views of sensitive classes write an audit entry: a NID photo `file.nid_viewed`; a file list or CSV export of a record `file.list_exported`, and `file.nid_viewed` when it holds NID photos (BR-179, BR-224).
+- Uploads go through the API in 256 KB parts (section 4); the client never holds storage credentials or a storage URL.
+- The GPS position of a file is the field class `file.location`: officials doing the project's work and the uploader see it; volunteers see their own files only; the Media Team receives media assets and consent state, never NID photos or vouchers (sensitive_fields catalogue in `permissions.yaml`).
 
 ## 4. Upload pipeline
 
 ```
 client                                     api                                         minio / worker
- 1 initiate ───────────────────────────►  policy check: kind allowed for the entity, mime and size per
-   { kind, entity, slot, mime, size,      section 5, project photo_source setting (section 7),
-     sha256, captured_at, gps, source,    quota (NFR-22 on device; per-project soft cap on server),
-     client_uuid }                        permission file.upload + the entity's own permission
- 2 ◄── upload session { session_id, chunk_size 256 KB, presigned PUT URLs per chunk, expires 1 h }
- 3 PUT chunks ──────────────────────────────────────────────────────────────────────►  multipart parts
-   (resumable: GET session status returns acknowledged parts after a drop)
- 4 finalize { session_id } ────────────►  complete multipart; verify size and sha256; read magic bytes;
+ 1 POST /upload-sessions ──────────────►  policy check: kind allowed for the record type, declared type
+   { kind, entityType, entityId, slot,    and size per section 5, project photo_source setting (section 7),
+     mime, size, sha256, captured_at,     at most 20 open sessions per user; permission file.upload and
+     gps, source, client_uuid }           the caller's scope over the record (404 out of reach)
+ 2 ◄── session { id, chunk_size 256 KB, part_count, parts_received, expires 1 h after the last part }
+ 3 PUT /upload-sessions/{id}/parts/{n} ─►  part ≤ 256 KB, n inside the declared size ──►  multipart part
+   (resumable: GET /upload-sessions/{id} returns the parts held after a drop; a held part sent again
+    answers the same; bytes received never pass the declared size)
+ 4 POST …/finalize ────────────────────►  the record's scope checked again; complete multipart; verify
+                                          size and sha256; read magic bytes;
                                           write files row (virus_scan pending, flags from metadata);
                                           link to entity; enqueue photos job; return file id + flags
  5                                                        photos job (worker): virus-scan hook, EXIF read
@@ -68,7 +69,7 @@ client                                     api                                  
 ```
 
 - The offline photo queue (OFFLINE_SYNC §5) uses exactly this pipeline; a photo uploads only after its owning record has a server id, text first, photos later.
-- A session that is not finalized within its expiry is garbage-collected; an interrupted upload resumes from the last acknowledged part (NFR-24).
+- A session that is not finalized within its expiry is aborted by a nightly sweep, which also removes its stored parts; an interrupted upload resumes from the parts the server holds (NFR-24).
 - Finalize is idempotent on `client_uuid` + slot: a repeated finalize returns the existing file.
 
 ## 5. Validation table
@@ -197,7 +198,7 @@ The register also exports its full columns to Excel/CSV, replacing the SOP track
 
 ## 15. Tests and open items
 
-Tests (T2.1, T3.1, T5.4): upload validation per kind (type, size, source); resumable upload after a dropped chunk; finalize idempotency; signed URL expiry and denial outside scope (IDOR, 404); sensitive download audit; EXIF/metadata capture and flag setting; duplicate detection warns without blocking; photo-source policy per project; virus-scan quarantine behaviour; document status chain and events; working-day countdown with Friday and holidays; soft warning and non-compliance job; extension stops the countdown; escalation on a second report within 365 days; legacy exemption; quarterly report content; consent gating of the publishable list; locks after verification and close; storage-stats job output.
+Tests (T2.1, T3.1, T5.4): upload validation per kind (type, size, source); resumable upload after a dropped chunk; finalize idempotency; the record's scope checked at create and finalize; part and session limits; denial outside scope on every read (IDOR, 404); the response headers of a streamed file; sensitive view and export audit; EXIF/metadata capture and flag setting; duplicate detection warns without blocking; photo-source policy per project; virus-scan quarantine behaviour; document status chain and events; working-day countdown with Friday and holidays; soft warning and non-compliance job; extension stops the countdown; escalation on a second report within 365 days; legacy exemption; quarterly report content; consent gating of the publishable list; locks after verification and close; storage-stats job output.
 
 Decided by O-30 (2026-10-10), binding:
 1. Virus scanning: every upload quarantined until the scan succeeds; `scan_pending` never grants access; infected files blocked; scanner failure never treated as clean (section 5).

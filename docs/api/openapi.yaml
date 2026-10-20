@@ -49,7 +49,7 @@ tags:
   - name: activities
     description: Activities and bulk-update screens (B5, WORKFLOW_ENGINE.md section 8)
   - name: files
-    description: Upload sessions and signed download URLs (FILES_AND_DOCUMENTS.md)
+    description: Upload sessions and files streamed through the API (FILES_AND_DOCUMENTS.md, D-074, D-108)
   - name: notifications
     description: In-app inbox and preferences (NOTIFICATIONS.md)
   - name: exports
@@ -255,6 +255,12 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    PartNumber:
+      name: partNumber
+      in: path
+      required: true
+      description: 1-based number of a 256 KB part inside the declared size (D-108)
+      schema: { type: integer, minimum: 1, maximum: 80 }
     JobId:
       name: jobId
       in: path
@@ -2778,12 +2784,12 @@ components:
     # ---------------- files ----------------
     UploadSessionCreate:
       type: object
-      required: [clientUuid, kind, entityType, slot, mime, sizeBytes, sha256, source]
+      required: [clientUuid, kind, entityType, entityId, slot, mime, sizeBytes, sha256, source]
       properties:
         clientUuid: { $ref: '#/components/schemas/Uuid' }
         kind: { type: string, enum: [distribution_proof, construction_proof, evidence, voucher, payment_copy, document, animal_photo, profile_photo, nid_photo, media_asset, issue_photo] }
-        entityType: { type: string }
-        entityId: { type: string, format: uuid, description: Omit when the owning record is not yet synced }
+        entityType: { type: string, description: The record type the file links to; each kind allows its own record types (D-108) }
+        entityId: { type: string, format: uuid, description: The record the file links to; its scope is checked at create and at finalize }
         slot: { type: string }
         mime: { type: string }
         sizeBytes: { type: integer, minimum: 1 }
@@ -2794,20 +2800,15 @@ components:
         source: { type: string, enum: [camera, gallery, scan] }
     UploadSession:
       type: object
-      required: [id, chunkSize, parts, expiresAt]
+      required: [id, chunkSize, partCount, partsReceived, bytesReceived, expiresAt]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         chunkSize: { type: integer, const: 262144 }
-        parts:
-          type: array
-          items:
-            type: object
-            required: [partNumber, url]
-            properties:
-              partNumber: { type: integer }
-              url: { type: string, format: uri }
-              acknowledged: { type: boolean }
+        partCount: { type: integer, minimum: 1, description: The parts the declared size needs }
+        partsReceived: { type: array, items: { type: integer, minimum: 1 }, description: 'The parts the server holds, for a resume after a dropped connection' }
+        bytesReceived: { type: integer, minimum: 0 }
         expiresAt: { type: string, format: date-time }
+        fileId: { type: [string, 'null'], format: uuid, description: Set once the session is finalized }
     UploadSessionResponse:
       type: object
       required: [data, meta]
@@ -2824,29 +2825,28 @@ components:
         sizeBytes: { type: integer }
         capturedAt: { type: [string, 'null'], format: date-time }
         uploadedAt: { type: string, format: date-time }
+        gps:
+          type: [object, 'null']
+          x-sensitive-class: file.location
+          required: [lat, lng]
+          properties:
+            lat: { type: number }
+            lng: { type: number }
+            accuracyM: { type: [number, 'null'] }
         virusScan: { type: string, enum: [pending, clean, infected, failed, skipped] }
         flags: { type: array, items: { type: string, enum: [no_capture_time, no_gps, gallery_under_camera_only, stale_capture, duplicate_suspect] } }
-        duplicateOf: { type: [string, 'null'], format: uuid }
+        duplicateOf: { type: [string, 'null'], format: uuid, description: 'The near or exact duplicate, named only to a caller whose scope reaches it' }
+    FileListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/FileInfo' } }
+        meta: { $ref: '#/components/schemas/ListMeta' }
     FileInfoResponse:
       type: object
       required: [data, meta]
       properties:
         data: { $ref: '#/components/schemas/FileInfo' }
-        meta: { $ref: '#/components/schemas/Meta' }
-    FileUrlRequest:
-      type: object
-      properties:
-        variant: { type: string, enum: [original, thumb_small, thumb_medium], default: original }
-    FileUrlResponse:
-      type: object
-      required: [data, meta]
-      properties:
-        data:
-          type: object
-          required: [url, expiresAt]
-          properties:
-            url: { type: string, format: uri }
-            expiresAt: { type: string, format: date-time }
         meta: { $ref: '#/components/schemas/Meta' }
 
     # ---------------- notifications and exports ----------------
@@ -7393,7 +7393,7 @@ paths:
     post:
       tags: [files]
       operationId: files.uploadSession.create
-      summary: Start a resumable upload (256 KB parts, O-29); checks kind, size, type and the project photo-source setting
+      summary: Start a resumable upload (256 KB parts, O-29, D-108); checks the record's scope, the kind, the declared size and type, and the open sessions (at most 20)
       x-permission: file.upload
       x-scope: self
       x-audit: none
@@ -7406,13 +7406,16 @@ paths:
             schema: { $ref: '#/components/schemas/UploadSessionCreate' }
       responses:
         '201':
-          description: Upload session with presigned part URLs
+          description: Upload session; the parts are sent to the part route
           content:
             application/json:
               schema: { $ref: '#/components/schemas/UploadSessionResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
   /upload-sessions/{uploadSessionId}:
     parameters:
       - $ref: '#/components/parameters/UploadSessionId'
@@ -7427,19 +7430,47 @@ paths:
       x-rate-limit: default
       responses:
         '200':
-          description: Session with acknowledged parts
+          description: Session with the parts the server holds
           content:
             application/json:
               schema: { $ref: '#/components/schemas/UploadSessionResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
         '410': { $ref: '#/components/responses/Gone' }
+  /upload-sessions/{uploadSessionId}/parts/{partNumber}:
+    parameters:
+      - $ref: '#/components/parameters/UploadSessionId'
+      - $ref: '#/components/parameters/PartNumber'
+    put:
+      tags: [files]
+      operationId: files.uploadSession.putPart
+      summary: Store one part of at most 256 KB as raw bytes; a part sent again replaces nothing and answers the same (D-108)
+      x-permission: file.upload
+      x-scope: self
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: upload
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary, maxLength: 262144 }
+      responses:
+        '200':
+          description: Session with the parts the server holds
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UploadSessionResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410': { $ref: '#/components/responses/Gone' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /upload-sessions/{uploadSessionId}/finalize:
     parameters:
       - $ref: '#/components/parameters/UploadSessionId'
     post:
       tags: [files]
       operationId: files.uploadSession.finalize
-      summary: Complete the upload; the file stays quarantined until the scan is clean (O-30)
+      summary: Complete the upload after the record's scope is checked again; the size, SHA-256 and the type by magic bytes are verified, an identical file in the project is refused; the file stays quarantined until the scan clears it (O-30)
       x-permission: file.upload
       x-scope: self
       x-audit: file.uploaded
@@ -7451,9 +7482,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/FileInfoResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '410': { $ref: '#/components/responses/Gone' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /files/{fileId}:
     parameters:
@@ -7461,7 +7494,7 @@ paths:
     get:
       tags: [files]
       operationId: files.file.get
-      summary: File metadata, scan state and data-quality flags
+      summary: File metadata, scan state and data-quality flags; the GPS position under file.location
       x-permission: entity
       x-scope: file
       x-audit: none
@@ -7480,7 +7513,7 @@ paths:
     get:
       tags: [files]
       operationId: files.file.content
-      summary: Stream a registration or profile photo to its owner and to allowed officials; the NID photo only to the volunteer.identity roles (Cache-Control no-store, nosniff; D-087)
+      summary: Stream a file or its thumbnail to its owner and to the officials whose scope reaches its record, once the scan cleared it; the NID photo only with the identity class (Cache-Control no-store, nosniff, the type from the stored bytes, inline only for images and PDF; D-074, D-087, D-108)
       x-permission: entity
       x-scope: file
       x-audit: none
@@ -7488,41 +7521,45 @@ paths:
       x-rate-limit: default
       responses:
         '200':
-          description: The image
+          description: The file or its thumbnail (thumbnails are JPEG)
           content:
             image/jpeg:
               schema: { type: string, format: binary }
             image/png:
               schema: { type: string, format: binary }
+            image/webp:
+              schema: { type: string, format: binary }
+            image/heic:
+              schema: { type: string, format: binary }
+            application/pdf:
+              schema: { type: string, format: binary }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
-  /files/{fileId}/url:
-    parameters:
-      - $ref: '#/components/parameters/FileId'
-    post:
+  /files:
+    get:
       tags: [files]
-      operationId: files.file.signedUrl
-      summary: Signed download URL valid 15 minutes, after the linked entity's read permission and field-class checks
+      operationId: files.file.list
+      summary: The files of one record, for a caller whose scope reaches the record; as CSV (at most 5,000 rows, no free text) with format=csv; every export is audited, a list with NID photos as file.nid_viewed (D-108)
       x-permission: entity
       x-scope: file
-      x-audit: file.download_sensitive
+      x-audit: none
       x-idempotency: none
-      x-rate-limit: default
-      x-sensitive-fields: [volunteer.identity, beneficiary.nid]
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/FileUrlRequest' }
+      x-rate-limit: list
+      parameters:
+        - { name: entityType, in: query, required: true, schema: { type: string } }
+        - { name: entityId, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: format, in: query, required: false, schema: { type: string, enum: [json, csv], default: json } }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
       responses:
         '200':
-          description: Signed URL
+          description: The files of the record
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/FileUrlResponse' }
+              schema: { $ref: '#/components/schemas/FileListResponse' }
+            text/csv:
+              schema: { type: string }
         '404': { $ref: '#/components/responses/NotFound' }
-        '410': { $ref: '#/components/responses/Gone' }
-        '423': { $ref: '#/components/responses/Locked' }
 
   # ======================= notifications =======================
   /notifications:

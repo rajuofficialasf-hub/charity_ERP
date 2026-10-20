@@ -19,14 +19,14 @@ Today the only upload is a registration or profile photo of up to 2 MB in one re
 - **R1** An upload is a session of 256 KB chunks sent through the API; a broken connection resumes from the chunks the server already holds, and finalizing twice with the same client id gives the same file (O-29, `FILES_AND_DOCUMENTS.md` 4).
 - **R2** The server checks, at session create and again at finalize, that the caller holds `file.upload` and that its scope reaches the record the file links to (404 when the record is out of reach, 403 when it is in reach but the caller may not upload); the kind is allowed for that record type; the declared size fits the kind (images 5 MB, voucher PDF 10 MB, document 20 MB); every part is at most 256 KB with a part number inside the declared size; the bytes received never pass the declared size (413); the type comes from the magic bytes (JPEG, PNG, HEIC/HEIF and WebP for images, PDF for vouchers and documents; never SVG or HTML); and the SHA-256 matches.
 - **R3** No signed URLs anywhere: files and thumbnails are streamed by the API after the permission and scope check of the linked record, with `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, the stored type from the bytes and `inline` only for images and PDF (`attachment` otherwise); the original name is never part of a key or path and is encoded in the header; a refusal answers 404 (D-074).
-- **R4** Every file stays quarantined until the virus-scan hook clears it: no preview, download or thumbnail while pending, infected or failed; the development and test adapter marks files `skipped`; production refuses to start without a real scanner (O-30), which makes the scanner a prerequisite of the first deployment (T3.0), recorded as D-109.
+- **R4** Every file stays quarantined until the virus-scan hook clears it: no preview, download or thumbnail while pending, infected or failed (423 `file.quarantined`, 410 `file.infected`, API_STANDARDS); the development and test adapter marks files `skipped`; production refuses to start without a real scanner (O-30), which makes the scanner a prerequisite of the first deployment (T3.0), recorded as D-109.
 - **R5** For photos the server reads capture time and GPS, sets the flags `no_capture_time`, `no_gps`, `stale_capture` (over 10 minutes from the record) and `gallery_under_camera_only` (against the project's photo source setting), and makes thumbnails of 320 and 1,024 px; images over 40 megapixels are not decoded and end `failed`, never clean.
 - **R6** An identical file (same SHA-256) within a project is refused, and a near duplicate by perceptual hash (Hamming distance 6 or less) is accepted with `duplicate_suspect` on both files; the refusal and the flag name the other file only to a caller whose scope reaches it, otherwise they say "a file like this is already in the project".
 - **R7** The web app has one reusable upload: read capture time and GPS before compressing, compress photos to 1,600 px, send the chunks with progress, resume and retry, and show the states of the `FileUpload` component.
 - **R8** Storage keys follow `FILES_AND_DOCUMENTS.md` 8 (documents Program → Project → Year → District; photos and vouchers under project and application), built from ids and codes only.
 - **R9** A nightly job records bytes and objects per bucket and project, and the system health page shows them with the monthly growth.
 - **R10** The files of one record can be listed and exported as CSV (at most 5,000 rows, no free text) by a caller who may see that record; every export is audited, and a list or export with NID photos as `file.nid_viewed`.
-- **R11** Capture time and GPS are personal data of the place a beneficiary lives or a distribution happened: officials whose scope reaches the record and the person who uploaded the file see them; nobody else, and they never reach a log.
+- **R11** The GPS position is personal data of the place a beneficiary lives or a distribution happened: it is the field class `file.location`, seen by the officials doing the project's work whose scope reaches the record and by the person who uploaded the file, and it never reaches a log; the capture time stays an ordinary field (it locates nothing and drives the flags).
 - **R12** Open sessions are bounded: at most 20 per user, each expiring after 1 hour without a part, and a nightly sweep aborts expired sessions and removes their stored parts.
 
 ## Scope
@@ -60,7 +60,7 @@ Today the only upload is a registration or profile photo of up to 2 MB in one re
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U2. Multipart storage and the session columns
 - **Goal:** the storage driver can take parts, complete and abort a multipart object, and an upload session records what it holds.
@@ -107,10 +107,10 @@ Today the only upload is a registration or profile photo of up to 2 MB in one re
 ### U5. Reading files and thumbnails
 - **Goal:** every kind of file and its thumbnails stream through one checked route, and the registration photos lose their scan exception.
 - **Requirements:** R3, R4, R6, R11
-- **Files:** `apps/api/src/services/files.ts`, `apps/api/src/routes/files.ts`, `apps/api/src/jobs/` (a one-time backfill of `file.process` for the registration and profile photos, run at start in development and by the deployment), `apps/api/test/integration/registration-photos.test.ts`, `apps/api/test/integration/files.test.ts` (new).
+- **Files:** `docs/api/openapi.yaml` (the `variant` query parameter of `GET /files/{fileId}/content`, added with its code so the drift test stays green), `apps/api/src/services/files.ts`, `apps/api/src/routes/files.ts`, `apps/api/src/jobs/` (a one-time backfill of `file.process` for the registration and profile photos, run at start in development and by the deployment), `apps/api/test/integration/registration-photos.test.ts`, `apps/api/test/integration/files.test.ts` (new).
 - **Approach:** extend `FilesService.streamContent` (`services/files.ts`, the owner, field-class and scope checks, `access.denied` with 404, `no-store`) from the two photo kinds to the linked record of any kind; the field mask (`src/access/field-mask.ts`) for capture time and GPS.
 - **Tests:**
-  - integration: an official who reaches the record streams a photo and its 320 px thumbnail with `nosniff` and the type from the bytes; a PDF is `inline`, any other type `attachment` with the encoded name; another region's official and a volunteer not on the record get 404 and a `permission_denied` log; a pending or infected file answers 404 for everyone but shows in `GET /files/{id}` with its state; a NID photo still needs the identity class and audits `file.nid_viewed`; `GET /files/{id}` returns the flags and `duplicateOf` only when the caller reaches the other file; capture time and GPS are absent for a caller without the field class and present for the uploader.
+  - integration: an official who reaches the record streams a photo and its 320 px thumbnail with `nosniff` and the type from the bytes; a PDF is `inline`, any other type `attachment` with the encoded name; another region's official and a volunteer not on the record get 404 and a `permission_denied` log; a pending file answers 423 `file.quarantined` and an infected one 410 `file.infected` to a caller who may see it (404 to everyone else), and shows in `GET /files/{id}` with its state; a NID photo still needs the identity class and audits `file.nid_viewed`; `GET /files/{id}` returns the flags and `duplicateOf` only when the caller reaches the other file; capture time and GPS are absent for a caller without the field class and present for the uploader.
   - existing: the photo route's owner, NID and deny cases are covered by `apps/api/test/integration/registration-photos.test.ts`; update them for the scan state instead of adding new ones.
 - **Done when:** the cases pass and no response carries an object URL.
 - **Depends on:** U4
@@ -194,7 +194,7 @@ Today the only upload is a registration or profile photo of up to 2 MB in one re
 ## Progress
 - **Branch:** `feat/file-service`
 - **Updated:** 2026-10-20 09:50
-- **Next:** U1, record D-108 to D-110 in the decision log
+- **Next:** checkpoint C1 (review of U1), then U2: the multipart operations in `apps/api/src/storage/types.ts`
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** none
+- **Notes:** U1 kept the `variant` parameter of the content route out of the contract until U5 builds it (the drift test compares built operations). API_STANDARDS already fixed `file.quarantined` 423 and `file.infected` 410, so a quarantined file answers those to a caller who may see it (R4, U5). The capture time stays an ordinary field; only the GPS position is the class `file.location` (R11).
