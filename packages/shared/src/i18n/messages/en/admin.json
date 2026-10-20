@@ -217,7 +217,9 @@
       "inactive": "Inactive",
       "applications": "Applications",
       "approved": "Approved",
-      "under_review": "Under review"
+      "under_review": "Under review",
+      "more": "More states",
+      "more_value": "{count} more"
     },
     "column": {
       "name": "Name",
@@ -234,7 +236,9 @@
       "blocked_yes": "On the blocklist",
       "blocked_no": "Not on the blocklist",
       "inactive": "Inactive",
-      "any": "Any"
+      "any": "Any",
+      "group_area": "Area",
+      "group_other": "Other"
     },
     "state": {
       "pending": "Pending",
@@ -285,6 +289,17 @@
       "revoke_confirm": "Sign out",
       "revoked": "The device was signed out.",
       "unknown_device": "Unknown device"
+    },
+    "none": "None",
+    "summary": "Showing {from}–{to} of {total} volunteers",
+    "action": {
+      "menu": "Actions for {name}",
+      "profile": "View profile",
+      "review": "Review registration",
+      "block": "Block",
+      "unblock": "Lift block",
+      "sessions": "Devices and sessions",
+      "sessions_title": "Devices of {name}"
     }
   },
   "beneficiaries": {
@@ -309,7 +324,9 @@
       "year": "Year",
       "blocked": "Blocklist",
       "blocked_yes": "Blocked",
-      "blocked_no": "Not blocked"
+      "blocked_no": "Not blocked",
+      "group_area": "Area",
+      "group_other": "Other"
     },
     "types": {
       "elderly": "Elderly",
@@ -362,6 +379,12 @@
       "exams": "Exams passed {passed} of {total}",
       "calls": "Calls",
       "evaluations": "Follow-up evaluations"
+    },
+    "none": "None",
+    "summary": "Showing {from}–{to} of {total} beneficiaries",
+    "action": {
+      "menu": "Actions for {name}",
+      "profile": "View profile"
     }
   },
   "programs": {

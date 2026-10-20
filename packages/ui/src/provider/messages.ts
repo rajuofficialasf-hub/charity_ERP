@@ -98,6 +98,14 @@ export interface UiMessages {
     selectRow: string;
     rowActions: string;
     pagination: string;
+    /** "Page {page}", the name of a numbered page button. */
+    page: string;
+    /** "Showing {from}–{to} of {total}". */
+    range: string;
+    /** "Remove {label}", the name of an active filter's remove button. */
+    removeFilter: string;
+    /** Removes every active filter at once. */
+    clearAll: string;
   };
   bulk: {
     /** "{count} selected". */

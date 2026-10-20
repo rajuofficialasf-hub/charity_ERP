@@ -11,10 +11,14 @@ export function useTabView<Key extends string>(keys: readonly Key[]) {
   const [params, setParams] = useSearchParams();
   const [q, setQ] = useState('');
   const view = `${params.toString()}|${q}`;
-  const [paging, setPaging] = useState<{ view: string; cursor: string | null }>({
+  // the page belongs to the filters and the search it was opened for: a page number inside the
+  // counted range, or a cursor past it
+  const [paging, setPaging] = useState<{ view: string; page: number; cursor: string | null }>({
     view,
+    page: 1,
     cursor: null,
   });
+  const current = paging.view === view ? paging : { view, page: 1, cursor: null };
   const filters: Partial<Record<Key, string>> = Object.fromEntries(
     keys.flatMap((key) => {
       const value = params.get(key);
@@ -38,8 +42,12 @@ export function useTabView<Key extends string>(keys: readonly Key[]) {
       setFilters({ ...filters, ...patch } as Partial<Record<Key, string>>),
     q,
     onSearch: useCallback((term: string) => setQ(term), []),
-    cursor: paging.view === view ? paging.cursor : null,
-    setCursor: (cursor: string | null) => setPaging({ view, cursor }),
+    cursor: current.cursor,
+    setCursor: (cursor: string | null) => setPaging({ view, page: 1, cursor }),
+    /** The page number shown, 1 for the first. */
+    page: current.page,
+    /** Opens a page by its number, or by a cursor for a page past the counted range. */
+    goTo: (page: number, cursor: string | null = null) => setPaging({ view, page, cursor }),
     /** How many filters are set, leaving out the given ones (a chip row of its own). */
     activeCount: (except: readonly Key[] = []) =>
       keys.filter((key) => !except.includes(key) && filters[key] !== undefined).length,

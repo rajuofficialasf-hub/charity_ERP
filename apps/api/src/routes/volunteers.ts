@@ -5,7 +5,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { sensitive } from '../access/field-mask';
 import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal';
-import { type PageQuery, pageQuery } from '../core/pagination';
+import { type PageQuery, pageNumberQuery, pageQuery } from '../core/pagination';
 import { page } from '../http/send';
 import type { Container } from '../container';
 import { defineRoute, type RouteDeps } from '../openapi/define-route';
@@ -177,7 +177,10 @@ const volunteerProfile = z.object({
   }),
 });
 
-const listQuery = pageQuery.omit({ sort: true }).extend(volunteerFilterSchema.shape);
+const listQuery = pageQuery
+  .omit({ sort: true })
+  .extend(pageNumberQuery.shape)
+  .extend(volunteerFilterSchema.shape);
 
 /** The caller as the list services need it: who asks, and which protected classes they see. */
 const viewerOf = (req: AuthedRequest) => ({

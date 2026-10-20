@@ -797,6 +797,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 
 - **Purpose.** The central, nationwide volunteer list (blueprint A5 "volunteer tab").
 - **T1.10.** Built in T1.10 (O-67; plan `docs/plans/2026-10-15-1030-feat-volunteer-beneficiary-tabs-plan.md`; `apps/web/src/admin/volunteers/`, E2E `apps/web/e2e/volunteers.spec.ts`): every volunteer in every state for each holder of `volunteer.view_all`, at `/admin/volunteers`. Filters (division to union, type, state, project, category, blocklisted) are kept in the URL; the search (name, mobile; NID only inside the `volunteer.view_sensitive` scope) is not. The statistics above the list follow the filters: volunteers (total, active, pending, blocked, deactivated; inactive only for those who see categories) and applications (total, approved, under review). The category column and filter appear only with `volunteer.rating.view`. The rating filter comes in Phase 5.
+- **Layout (UX-21, 2026-10-20).** The owner's reference layout: count cards with an icon, the label and the number that also filter the list (the chosen one outlined and the other numbers unchanged; the counts beyond five behind a last "আরও অবস্থা" card; the application counts are numbers only); one white panel with the search, a "ফিল্টার" button that opens the filters in place grouped as এলাকা and অন্যান্য (a bottom sheet on phones), the active filters as removable chips with "সব মুছুন", the table (a letter avatar or the photo, the name in bold with a muted line under it, the state as a coloured dot with its word, a dash for an empty value, a ⋮ action button per row) and numbered pages of ten with "1–10 দেখানো হচ্ছে · মোট N জন" (page numbers inside the counted range, D-105). Plan `docs/plans/2026-10-20-1500-feat-people-list-redesign-plan.md`.
 - **Roles.** Officials with `volunteer.view_all`.
 - **Priority.** parity.
 - **Data shown.**
@@ -812,7 +813,10 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 
 | Action | Permission |
 |---|---|
-| View the list and open a profile | `volunteer.view_all` |
+| View the list and open a profile (the row menu's "প্রোফাইল দেখুন") | `volunteer.view_all` |
+| Review a pending registration (row menu, pending rows) | `registration.approve` |
+| Block or lift a block, with the reason (row menu) | `volunteer.block` |
+| See and end the device sessions (row menu) | `session.revoke_user` |
 | Export volunteers | `export.volunteers` |
 
 - **States.**
@@ -874,6 +878,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 
 - **Purpose.** The central list of beneficiary profiles across years and projects (blueprint A7 "beneficiary tab").
 - **T1.10.** Built in T1.10 (O-67; `apps/web/src/admin/beneficiaries/`, E2E `apps/web/e2e/beneficiaries.spec.ts`; the 360° shell at `/admin/beneficiaries/:beneficiaryId`, merge in T2.2): `/admin/beneficiaries`, the same filter pattern (area, type, project, year, blocklisted), search by name, by mobile with the contact class, by NID inside the `beneficiary.view_nid` scope; statistics (total, assisted this year, blocked). The Media and Procurement Teams get the limited view of BR-253.
+- **Layout (UX-21, 2026-10-20).** The owner's reference layout: count cards with an icon, the label and the number: total and blocked filter the list (the blocklist filter), assisted this year (approved help) is a number only because no list filter matches it, and a chosen card never narrows the counts; one white panel with the search, a "ফিল্টার" button that opens the filters in place grouped as এলাকা and অন্যান্য (a bottom sheet on phones), the active filters as removable chips with "সব মুছুন", the table (a letter avatar or the photo, the name in bold with a muted line under it, the status as a coloured dot with its word, a dash for an empty value, a ⋮ action button per row with the profile) and numbered pages of ten with "1–10 দেখানো হচ্ছে · মোট N জন" (page numbers inside the counted range, D-105). Plan `docs/plans/2026-10-20-1500-feat-people-list-redesign-plan.md`.
 - **Roles.**
   - Officials with `beneficiary.view_all`.
   - Media Team (masked).

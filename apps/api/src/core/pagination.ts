@@ -23,6 +23,33 @@ export const pageQuery = z.strictObject({
 });
 export type PageQuery = z.infer<typeof pageQuery>;
 
+/**
+ * The page number the volunteer and the beneficiary lists accept besides the cursor (D-105): an
+ * offset into the same order, so a person can jump to any page the counted total shows.
+ */
+export const pageNumberQuery = z.strictObject({
+  page: z.coerce.number().int().min(1).optional(),
+});
+export type PageNumberQuery = z.infer<typeof pageNumberQuery>;
+
+/**
+ * The rows a page number skips. It is refused together with a cursor, and past the counted range
+ * of the totals, which keeps the offset cheap on the largest list; later rows page by cursor.
+ */
+export function pageOffset(query: {
+  page?: number | undefined;
+  cursor?: string | undefined;
+  limit: number;
+}): number | undefined {
+  if (query.page === undefined) return undefined;
+  const offset = (query.page - 1) * query.limit;
+  if (query.cursor || offset >= TOTAL_CAP)
+    throw new ApiError('validation.failed', 422, undefined, [
+      { path: 'page', code: 'validation.failed' },
+    ]);
+  return offset;
+}
+
 export interface SortField {
   field: string;
   direction: 'asc' | 'desc';

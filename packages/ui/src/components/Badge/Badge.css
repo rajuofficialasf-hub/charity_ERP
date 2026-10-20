@@ -53,4 +53,34 @@
   .ui-badge.t-info .ui-icon {
     color: var(--color-status-info);
   }
+
+  /* the dot form: a dot in the tone's colour before the word, the word in the text colour */
+  .ui-status-dot {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    white-space: nowrap;
+  }
+  .ui-status-dot-mark {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-full);
+    background: var(--color-text-secondary);
+  }
+  .ui-status-dot.t-success .ui-status-dot-mark {
+    background: var(--color-status-success);
+  }
+  .ui-status-dot.t-warning .ui-status-dot-mark {
+    background: var(--color-status-warning);
+  }
+  .ui-status-dot.t-danger .ui-status-dot-mark {
+    background: var(--color-status-danger);
+  }
+  .ui-status-dot.t-info .ui-status-dot-mark {
+    background: var(--color-status-info);
+  }
+  .ui-status-dot.t-brand .ui-status-dot-mark {
+    background: var(--color-brand-primary);
+  }
 }

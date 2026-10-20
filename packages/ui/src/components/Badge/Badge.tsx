@@ -31,13 +31,30 @@ export interface BadgeProps {
   /** Visible text (i18n value or bilingual data in the user's language). */
   label: string;
   size?: 'md' | 'sm';
+  /** pill (default), or dot: a small dot in the tone's colour before the word, for dense lists. */
+  variant?: 'pill' | 'dot';
   /** `lang` of the label when it is shown in the other language. */
   lang?: string;
   className?: string;
 }
 
 /** Non-interactive pill with an icon and a label (DESIGN_SYSTEM 5.2). */
-export function Badge({ tone = 'neutral', icon, label, size = 'md', lang, className }: BadgeProps) {
+export function Badge({
+  tone = 'neutral',
+  icon,
+  label,
+  size = 'md',
+  variant = 'pill',
+  lang,
+  className,
+}: BadgeProps) {
+  if (variant === 'dot')
+    return (
+      <span className={cx('ui-status-dot', `t-${tone}`, className)} lang={lang}>
+        <span className="ui-status-dot-mark" aria-hidden="true" />
+        {label}
+      </span>
+    );
   return (
     <span
       className={cx('ui-badge', `t-${tone}`, size === 'sm' && 'ui-badge-sm', className)}

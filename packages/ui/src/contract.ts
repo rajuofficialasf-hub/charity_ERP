@@ -222,6 +222,12 @@ export interface TablePagination {
   onNext?: () => void;
   /** Phones use "load more" instead of previous and next. */
   onLoadMore?: () => void;
+  /** Numbered pages: the current page, how many there are and how to open one. */
+  page?: number;
+  pageCount?: number;
+  onPage?: (page: number) => void;
+  /** The count line in the caller's words ("1–10 দেখানো হচ্ছে · মোট 23 জন"). */
+  summary?: string;
 }
 
 export interface TableProps<T> {
@@ -254,6 +260,11 @@ export interface TableProps<T> {
   pagination?: TablePagination;
   /** TableToolbar element (search, chips, filters). */
   toolbar?: ReactNode;
+  /**
+   * default: the table in its own frame; panel: one white card holding the toolbar, the table and
+   * the pager, with the row actions always shown.
+   */
+  layout?: 'default' | 'panel';
   className?: string;
 }
 
@@ -274,7 +285,21 @@ export interface TableToolbarProps {
   filters?: ReactNode;
   activeFilterCount?: number;
   onClearFilters?: () => void;
+  /**
+   * inline (default): the filters always show from 640 px; panel: they open in place under the
+   * search with the filter button. Phones use a bottom sheet in both.
+   */
+  filterMode?: 'inline' | 'panel';
+  /** The active filters as removable chips, with a "clear all" after them (panel mode). */
+  activeFilters?: ActiveFilter[];
   className?: string;
+}
+
+export interface ActiveFilter {
+  id: string;
+  /** What is filtered, in words ("বিভাগ: ঢাকা"). */
+  label: string;
+  onRemove: () => void;
 }
 
 /** Everything a template supplies. */

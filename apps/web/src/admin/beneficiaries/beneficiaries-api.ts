@@ -5,6 +5,7 @@ import type {
 } from '@css/shared/beneficiaries';
 import { api } from '../../lib/api';
 import { listQuery } from '../list-query';
+import { PAGE_SIZE, pageParams } from '../list-paging';
 
 /** The filters the beneficiary tab keeps in the page URL (the search stays out). */
 export const FILTER_KEYS = [
@@ -38,9 +39,20 @@ interface PageMeta {
   total?: number | '10000+';
 }
 
-export function beneficiaryPage(filters: FilterValues, q: string, cursor: string | null) {
+export function beneficiaryPage(
+  filters: FilterValues,
+  q: string,
+  page: number,
+  cursor: string | null,
+) {
   return api<{ data: BeneficiaryRow[]; meta: PageMeta }>(
-    `/beneficiaries${listQuery({ ...filters, q: q || undefined, cursor: cursor ?? undefined, include: 'total' })}`,
+    `/beneficiaries${listQuery({
+      ...filters,
+      q: q || undefined,
+      ...pageParams(page, cursor),
+      limit: String(PAGE_SIZE),
+      include: 'total',
+    })}`,
     { envelope: true },
   );
 }

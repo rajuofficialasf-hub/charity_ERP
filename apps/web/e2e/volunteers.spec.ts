@@ -16,14 +16,40 @@ const accounts = (info: TestInfo) =>
 const TAB = 'স্বেচ্ছাসেবক';
 const rows = (page: Page) => listRows(page, TAB);
 
+/** Narrows the list to one volunteer by name, so the test never depends on which page holds them. */
+async function find(page: Page, name: string) {
+  const box = page.getByRole('searchbox');
+  await box.fill(name);
+  await expect(
+    rows(page)
+      .getByRole('link', { name })
+      .or(page.getByText(/পাওয়া যায়নি/)),
+  ).toBeVisible();
+}
+
 test.describe('the volunteer tab', () => {
+  test("a row's action button opens the volunteer's profile", async ({ page }, info) => {
+    await signIn(page, accounts(info).official);
+    await openTab(page, TAB);
+    await find(page, 'স্বেচ্ছাসেবক 2 (নমুনা)');
+    await rows(page).getByRole('button', { name: 'স্বেচ্ছাসেবক 2 (নমুনা)-এর কাজ' }).click();
+    await page.getByRole('menuitem', { name: 'প্রোফাইল দেখুন' }).click();
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক 2 (নমুনা)' }),
+    ).toBeVisible();
+  });
+
   test('an official filters by district, and the filter stays in the address', async ({
     page,
   }, info) => {
     await signIn(page, accounts(info).official);
     await openTab(page, TAB);
-    const counts = page.getByRole('region', { name: 'স্বেচ্ছাসেবকের হিসাব' });
-    await expect(counts.getByText('মোট')).toBeVisible();
+    const counts = page.getByRole('group', { name: 'স্বেচ্ছাসেবকের হিসাব' });
+    await expect(counts.getByRole('button', { name: /^সব \d/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await find(page, 'স্বেচ্ছাসেবক 2 (নমুনা)');
     await expect(rows(page).getByRole('link', { name: 'স্বেচ্ছাসেবক 2 (নমুনা)' })).toBeVisible();
 
     await filterBy(page, info, [
@@ -31,22 +57,27 @@ test.describe('the volunteer tab', () => {
       ['জেলা', 'ঢাকা'],
     ]);
     await expect(page).toHaveURL(/districtId=/);
-    await expect(rows(page).getByRole('link', { name: 'স্বেচ্ছাসেবক 1 (নমুনা)' })).toBeVisible();
     // the Rangpur volunteers live in Dinajpur
-    await expect(rows(page).getByText('দিনাজপুর')).toHaveCount(0);
     await expect(rows(page).getByRole('link', { name: 'স্বেচ্ছাসেবক 2 (নমুনা)' })).toHaveCount(0);
+    await find(page, 'স্বেচ্ছাসেবক 1 (নমুনা)');
+    await expect(rows(page).getByRole('link', { name: 'স্বেচ্ছাসেবক 1 (নমুনা)' })).toBeVisible();
+    await expect(rows(page).getByText('দিনাজপুর')).toHaveCount(0);
 
-    // a reload shows the same view
+    // a reload shows the same view: the address keeps the filter and its chip shows it
     await page.reload();
     await expect(page).toHaveURL(/districtId=/);
+    await expect(page.getByRole('button', { name: /^জেলা: ঢাকা সরান$/ })).toBeVisible();
+    await find(page, 'স্বেচ্ছাসেবক 1 (নমুনা)');
     await expect(rows(page).getByRole('link', { name: 'স্বেচ্ছাসেবক 1 (নমুনা)' })).toBeVisible();
+    await find(page, 'স্বেচ্ছাসেবক 2 (নমুনা)');
     await expect(rows(page).getByRole('link', { name: 'স্বেচ্ছাসেবক 2 (নমুনা)' })).toHaveCount(0);
 
     // a phone of 360 px never scrolls sideways
     await page.setViewportSize({ width: 360, height: 780 });
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
-    ).toBe(true);
+    // measured once the phone layout has replaced the table
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+      .toBe(true);
     expect((await scan(page)).violations).toEqual([]);
   });
 
@@ -57,6 +88,7 @@ test.describe('the volunteer tab', () => {
     await signIn(page, accounts(info).official);
     await openTab(page, TAB);
 
+    await find(page, 'স্বেচ্ছাসেবক 2 (নমুনা)');
     await rows(page).getByRole('link', { name: 'স্বেচ্ছাসেবক 2 (নমুনা)' }).click();
     await expect(
       page.getByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক 2 (নমুনা)' }),
@@ -67,6 +99,7 @@ test.describe('the volunteer tab', () => {
     expect((await scan(page)).violations).toEqual([]);
 
     await page.getByRole('link', { name: 'সব স্বেচ্ছাসেবক' }).click();
+    await find(page, 'স্বেচ্ছাসেবক 1 (নমুনা)');
     await rows(page).getByRole('link', { name: 'স্বেচ্ছাসেবক 1 (নমুনা)' }).click();
     await expect(
       page.getByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক 1 (নমুনা)' }),

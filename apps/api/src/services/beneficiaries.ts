@@ -13,6 +13,8 @@ import {
   keysetWhere,
   orderBy,
   type PageQuery,
+  type PageNumberQuery,
+  pageOffset,
   parseSort,
 } from '../core/pagination';
 import type { PrismaService, Tx } from '../core/prisma.service';
@@ -133,17 +135,19 @@ export class BeneficiariesService {
     );
   }
 
-  async list(query: BeneficiaryFilter & PageQuery, viewer: BeneficiaryViewer) {
+  async list(query: BeneficiaryFilter & PageQuery & PageNumberQuery, viewer: BeneficiaryViewer) {
     const binding = `beneficiaries.list|${viewer.principal.userId}`;
     const cursor = query.cursor
       ? decodeCursor(this.env.CURSOR_SECRET, binding, query.cursor)
       : undefined;
     const direction = cursor?.d ?? 'next';
+    const offset = pageOffset(query);
     const filter = await this.where(query, viewer);
     const { fetched, total } = await boundedRead(this.prisma, async (tx) => ({
       fetched: await tx.beneficiary.findMany({
         where: cursor ? { AND: [filter, keysetWhere(SORT, cursor)] } : filter,
         orderBy: orderBy(SORT, direction),
+        skip: offset,
         take: query.limit + 1,
         select: {
           id: true,
@@ -166,7 +170,8 @@ export class BeneficiariesService {
       limit: query.limit,
       sort: SORT,
       direction,
-      hadCursor: Boolean(cursor),
+      // a page past the first has a page before it, as a cursor does
+      hadCursor: Boolean(cursor) || Boolean(offset),
       secret: this.env.CURSOR_SECRET,
       binding,
       total,

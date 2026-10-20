@@ -45,9 +45,11 @@ const mediaRow = {
 };
 
 let listUrls: URL[];
+let statUrls: URL[];
 
 function serve(row: unknown, stats: unknown, profile?: unknown) {
   listUrls = [];
+  statUrls = [];
   server.use(
     http.get('*/api/v1/projects', () =>
       HttpResponse.json({
@@ -70,9 +72,10 @@ function serve(row: unknown, stats: unknown, profile?: unknown) {
         meta: { requestId: 'req_test', limit: 25, nextCursor: null, prevCursor: null, total: 1 },
       });
     }),
-    http.get('*/api/v1/beneficiaries/statistics', () =>
-      HttpResponse.json({ data: stats, meta: { requestId: 'req_test' } }),
-    ),
+    http.get('*/api/v1/beneficiaries/statistics', ({ request }) => {
+      statUrls.push(new URL(request.url));
+      return HttpResponse.json({ data: stats, meta: { requestId: 'req_test' } });
+    }),
     http.get('*/api/v1/beneficiaries/:id', () =>
       HttpResponse.json({ data: profile, meta: { requestId: 'req_test' } }),
     ),
@@ -100,9 +103,12 @@ describe('the beneficiary tab', () => {
     refreshAs(HEAD);
     serve(fullRow, { total: 2000000, assistedThisYear: 125000, blocked: 12 });
     const { container } = openList();
-    const counts = await screen.findByRole('region', { name: 'উপকারভোগীর হিসাব' });
+    const counts = await screen.findByRole('group', { name: 'উপকারভোগীর হিসাব' });
     expect(await within(counts).findByText('20,00,000')).toBeInTheDocument();
-    expect(within(counts).getByText('ব্লক করা')).toBeInTheDocument();
+    expect(within(counts).getByRole('button', { name: 'ব্লক করা 12' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
     expect((await screen.findAllByText('নমুনা উপকারভোগী')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('বিধবা').length).toBeGreaterThan(0);
     await expectNoAxeViolations(container);
@@ -120,7 +126,10 @@ describe('the beneficiary tab', () => {
     expect(listUrls[0]!.searchParams.get('type')).toBe('widow');
     expect(listUrls[0]!.searchParams.get('blocked')).toBe('false');
     const year = '2025';
-    await user.click(await screen.findByRole('button', { name: /বছর/ }));
+    await user.click(await screen.findByRole('button', { name: /^ফিল্টার/, expanded: false }));
+    // the filters from the URL show as chips
+    expect(screen.getByRole('button', { name: 'ধরন: বিধবা সরান' })).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: /বছর$/ }));
     await user.click(await screen.findByRole('option', { name: year }));
     await waitFor(() => expect(router.state.location.search).toContain(`year=${year}`));
     await user.type(screen.getByRole('searchbox'), '01911000001');
@@ -131,8 +140,10 @@ describe('the beneficiary tab', () => {
   it('gives the Media Team no type, blocklist or union filter and no hidden columns', async () => {
     refreshAs(MEDIA);
     serve(mediaRow, { total: 1, assistedThisYear: 0 });
+    const user = userEvent.setup();
     openList();
     expect((await screen.findAllByText('নমুনা উপকারভোগী')).length).toBeGreaterThan(0);
+    await user.click(await screen.findByRole('button', { name: /^ফিল্টার/, expanded: false }));
     expect(screen.queryByRole('button', { name: /ধরন/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /ব্লকলিস্ট/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /ইউনিয়ন/ })).not.toBeInTheDocument();
@@ -140,8 +151,31 @@ describe('the beneficiary tab', () => {
     expect(
       screen.queryByRole('columnheader', { name: 'পিতা বা স্বামীর নাম' }),
     ).not.toBeInTheDocument();
-    const counts = await screen.findByRole('region', { name: 'উপকারভোগীর হিসাব' });
+    const counts = await screen.findByRole('group', { name: 'উপকারভোগীর হিসাব' });
     expect(within(counts).queryByText('ব্লক করা')).not.toBeInTheDocument();
+  });
+
+  it('filters by the blocked count without narrowing the counts, shows the assisted count as a number, and offers the profile from the row menu', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, { total: 3, assistedThisYear: 2, blocked: 1 });
+    const user = userEvent.setup();
+    const { router } = openList();
+    const counts = await screen.findByRole('group', { name: 'উপকারভোগীর হিসাব' });
+    // approved help this year matches no list filter, so its card is not a button
+    expect(await within(counts).findByText('এই বছর সহায়তা পেয়েছেন')).toBeInTheDocument();
+    expect(
+      within(counts).queryByRole('button', { name: /^এই বছর সহায়তা পেয়েছেন/ }),
+    ).not.toBeInTheDocument();
+    await user.click(within(counts).getByRole('button', { name: 'ব্লক করা 1', pressed: false }));
+    await waitFor(() => expect(router.state.location.search).toBe('?blocked=true'));
+    await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('blocked')).toBe('true'));
+    expect(statUrls.at(-1)?.searchParams.get('blocked')).toBeNull();
+    const table = screen.getByRole('grid', { name: 'উপকারভোগী' });
+    await user.click(within(table).getByRole('button', { name: 'নমুনা উপকারভোগী-এর কাজ' }));
+    expect(await screen.findByRole('menuitem', { name: 'প্রোফাইল দেখুন' })).toHaveAttribute(
+      'href',
+      expect.stringContaining('/admin/beneficiaries/'),
+    );
   });
 
   it('shows the forbidden content to a volunteer', async () => {

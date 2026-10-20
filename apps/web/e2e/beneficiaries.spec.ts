@@ -30,7 +30,7 @@ test.describe('the beneficiary tab', () => {
   }, info) => {
     await signIn(page, official(info));
     await openTab(page, TAB);
-    const counts = page.getByRole('region', { name: 'উপকারভোগীর হিসাব' });
+    const counts = page.getByRole('group', { name: 'উপকারভোগীর হিসাব' });
     await expect(counts.getByText('মোট')).toBeVisible();
     await expect(counts.getByText('ব্লক করা')).toBeVisible();
 
@@ -50,9 +50,10 @@ test.describe('the beneficiary tab', () => {
       await expect(page.getByRole('heading', { level: 2, name: section })).toBeVisible();
 
     await page.setViewportSize({ width: 360, height: 780 });
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
-    ).toBe(true);
+    // measured once the phone layout has replaced the table
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+      .toBe(true);
     expect((await scan(page)).violations).toEqual([]);
   });
 
@@ -64,12 +65,13 @@ test.describe('the beneficiary tab', () => {
     await openTab(page, TAB);
     // no type, blocklist or union filter, and no blocked count (the Procurement Team's view is
     // proved by the API tests in apps/api/test/integration/beneficiary-tab.test.ts)
-    await expect(page.getByRole('region', { name: 'উপকারভোগীর হিসাব' })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'উপকারভোগীর হিসাব' })).toBeVisible();
+    await page.getByRole('button', { name: /^ফিল্টার/, expanded: false }).click();
     await expect(select(page, 'উপজেলা')).toBeVisible();
     for (const label of ['ধরন', 'ব্লকলিস্ট', 'ইউনিয়ন'])
       await expect(select(page, label)).toHaveCount(0);
     await expect(
-      page.getByRole('region', { name: 'উপকারভোগীর হিসাব' }).getByText('ব্লক করা'),
+      page.getByRole('group', { name: 'উপকারভোগীর হিসাব' }).getByText('ব্লক করা'),
     ).toHaveCount(0);
     await expect(rows(page).getByText(/^017000010\d\d$/)).toHaveCount(0);
 
