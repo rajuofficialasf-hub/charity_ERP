@@ -1,7 +1,7 @@
 ---
 title: The file service (T2.1)
 type: feat
-status: ready
+status: in-progress
 source: plan
 date: 2026-10-20
 doc_review: 2026-10-20
@@ -190,3 +190,11 @@ Today the only upload is a registration or profile photo of up to 2 MB in one re
 - The migration changes only `upload_sessions`, which no code has written yet (it refuses to run if a row exists); its `down.sql` restores the count column and drops the new ones (DB-MIG-05, ADR-003).
 - sharp is a native module: if its binary fails on a machine, the job fails the file as `failed` (never clean) and nothing else stops; the uploads keep working.
 - The scan policy makes registration photos invisible until the backfill job has run once; it runs at start in development and as a deployment step. Production cannot start without a scanner (D-109), so the first deployment (T3.0) needs the scanner chosen and installed.
+
+## Progress
+- **Branch:** `feat/file-service`
+- **Updated:** 2026-10-20 09:50
+- **Next:** U1, record D-108 to D-110 in the decision log
+- **Reviewed through:** none
+- **Uncommitted:** none
+- **Notes:** none
