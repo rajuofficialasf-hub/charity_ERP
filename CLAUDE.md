@@ -37,7 +37,7 @@ ERP for the Charity & Social Service Department of As-Sunnah Foundation. The pro
 (ST-40…ST-45 of the organization's standard; one line per piece with its reason. Changing a line is a decision: DECISION_LOG first.)
 
 - Frontend: React 19 + Vite 8 single-page PWA, React Router 8, TanStack Query 5, use-intl, Serwist (ST-01; D-073, ADR-013) — officials and volunteers on phones and desktop, offline-first (constitution §9).
-- Backend: Node.js 24 LTS + Express 5 + TypeScript, plain modules wired by `createContainer`, `defineRoute` registry with the OpenAPI drift test (ST-02; D-074, ADR-014) — the organization's standard; the contract and audit enforcement of the constitution are kept.
+- Backend: Node.js 24 LTS (24.16.0 or later, D-112) + Express 5 + TypeScript, plain modules wired by `createContainer`, `defineRoute` registry with the OpenAPI drift test (ST-02; D-074, ADR-014) — the organization's standard; the contract and audit enforcement of the constitution are kept.
 - Database: PostgreSQL 17 through Prisma 7, every migration with a hand-written `down.sql` (ST-03; ADR-003; this file wins over the standard's DB-MIG-05 per constitution §9).
 - Authentication: own implementation of AUTH.md (Argon2id, JWT access token in memory, rotating refresh cookie, device sessions, OTP, lockout); auth-core later when its login pack and source exist (ST-04 deviation recorded in D-074 §4).
 - Storage: one adapter (`apps/api/src/storage`), S3 driver on self-hosted MinIO marked `TEMP:` until the NAS driver exists, filesystem driver for tests; private buckets, files streamed by the API, no signed URLs (NS-30…NS-44; D-074).
