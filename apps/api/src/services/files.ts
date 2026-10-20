@@ -7,7 +7,7 @@ import type { AuditWriter } from '../audit/audit-writer';
 import type { Principal } from '../auth/principal';
 import type { Env } from '../config/env';
 import { buildPage, decodeCursor, keysetWhere, orderBy, type SortField } from '../core/pagination';
-import type { PrismaService } from '../core/prisma.service';
+import type { PrismaService, Tx } from '../core/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
 import type { PageMeta } from '../http/send';
 import { NEAR_DUPLICATE_BITS } from '../files/images-process';
@@ -44,23 +44,29 @@ function viewPermissions(kind: string): string[] {
 
 export type FileVariant = 'small' | 'medium';
 
-/** The rows of a file list and its CSV. */
-const ROW_SELECT = {
-  id: true,
-  kind: true,
-  mime: true,
-  sizeBytes: true,
-  capturedAt: true,
-  uploadedAt: true,
-  uploadedBy: true,
-  latitude: true,
-  longitude: true,
-  gpsAccuracyM: true,
-  virusScan: true,
-  flags: true,
-  fileLinksFile: { select: { slot: true }, take: 1, orderBy: { createdAt: 'asc' } },
-} as const;
-type ListedFile = Prisma.FileGetPayload<{ select: typeof ROW_SELECT }>;
+/** The rows of a file list and its CSV, with the slot of the link to the record listed. */
+const rowSelect = (entityType: string, entityId: string) =>
+  ({
+    id: true,
+    kind: true,
+    mime: true,
+    sizeBytes: true,
+    capturedAt: true,
+    uploadedAt: true,
+    uploadedBy: true,
+    latitude: true,
+    longitude: true,
+    gpsAccuracyM: true,
+    virusScan: true,
+    flags: true,
+    fileLinksFile: {
+      where: { entityType, entityId },
+      select: { slot: true },
+      take: 1,
+      orderBy: { createdAt: 'asc' },
+    },
+  }) as const;
+type ListedFile = Prisma.FileGetPayload<{ select: ReturnType<typeof rowSelect> }>;
 
 /** A file in the list of its record. */
 export interface FileListRow {
@@ -251,8 +257,8 @@ export class FilesService {
   }
 
   /**
-   * The files of one record, newest first (docs/architecture/FILES_AND_DOCUMENTS.md, "Access
-   * control"): the kinds whose view permission reaches the record, and the caller's own uploads to
+   * The files of one record, the latest upload start first (the time-ordered file id is made when
+   * the upload starts; docs/architecture/FILES_AND_DOCUMENTS.md, "Access control"): the kinds whose view permission reaches the record, and the caller's own uploads to
    * it; 404 when the caller sees none of it. The position of each row only reaches a caller with
    * its class or the uploader; no row carries a key, a name or any free text.
    */
@@ -271,7 +277,7 @@ export class FilesService {
       where: { AND: [where, ...(cursor ? [keysetWhere(sort, cursor)] : [])] },
       orderBy: orderBy(sort, direction),
       take: query.limit + 1,
-      select: ROW_SELECT,
+      select: rowSelect(query.entityType, query.entityId),
     });
     const { rows, meta } = buildPage(fetched, {
       limit: query.limit,
@@ -281,7 +287,7 @@ export class FilesService {
       secret: this.env.CURSOR_SECRET,
       binding,
     });
-    await this.auditNidRows(rows, query, 'list');
+    await this.prisma.$transaction((tx) => this.auditNidRows(tx, rows, query, 'list'));
     return { rows: rows.map((row) => listRow(row, principal, access)), meta };
   }
 
@@ -298,17 +304,17 @@ export class FilesService {
       where,
       orderBy: { id: 'desc' },
       take: CSV_MAX_ROWS,
-      select: ROW_SELECT,
+      select: rowSelect(query.entityType, query.entityId),
     });
-    await this.prisma.$transaction((tx) =>
-      this.audit.record(tx, {
+    await this.prisma.$transaction(async (tx) => {
+      await this.audit.record(tx, {
         action: 'file.list_exported',
         entityType: query.entityType,
         entityId: query.entityId,
         new: { rows: rows.length, format: 'csv' },
-      }),
-    );
-    await this.auditNidRows(rows, query, 'csv');
+      });
+      await this.auditNidRows(tx, rows, query, 'csv');
+    });
     const lines = rows.map((row) => {
       const view = listRow(row, principal, access);
       return [
@@ -364,20 +370,19 @@ export class FilesService {
 
   /** A list or export that holds NID photos leaves the trace of their view. */
   private async auditNidRows(
+    tx: Tx,
     rows: { id: string; kind: string }[],
     query: { entityType: string; entityId: string },
     format: 'list' | 'csv',
   ): Promise<void> {
     const nid = rows.filter((row) => row.kind === 'nid_photo').map((row) => row.id);
     if (!nid.length) return;
-    await this.prisma.$transaction((tx) =>
-      this.audit.record(tx, {
-        action: 'file.nid_viewed',
-        entityType: query.entityType,
-        entityId: query.entityId,
-        new: { fileIds: nid, format },
-      }),
-    );
+    await this.audit.record(tx, {
+      action: 'file.nid_viewed',
+      entityType: query.entityType,
+      entityId: query.entityId,
+      new: { fileIds: nid, format },
+    });
   }
 
   private async findFile(fileId: string): Promise<StoredFile> {

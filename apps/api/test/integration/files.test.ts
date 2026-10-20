@@ -272,6 +272,7 @@ describe('the files of a record', () => {
   let listApplication: string;
   let photo: string;
   let voucher: string;
+  let photoSize: number;
 
   beforeAll(async () => {
     const volunteer = (
@@ -282,7 +283,9 @@ describe('the files of a record', () => {
       { project: world.a1, loc: world.dhaka },
       { owner_volunteer_id: volunteer, beneficiary_id: await f.beneficiary(h.db, world.dhaka) },
     );
-    photo = await upload('general', await picture({ variant: 20 }), {
+    const photoBytes = await picture({ variant: 20 });
+    photoSize = photoBytes.length;
+    photo = await upload('general', photoBytes, {
       entityId: listApplication,
       capturedAt: new Date(h.clock.now().getTime() - 60_000).toISOString(),
       gps: { lat: 23.75, lng: 90.39 },
@@ -300,7 +303,10 @@ describe('the files of a record', () => {
     const res = await list('rpmDhaka', {});
     expect(res.status).toBe(200);
     expect(res.body.data.map((r: { id: string }) => r.id)).toEqual([voucher, photo]);
+    expect(res.body.data[0]).toMatchObject({ kind: 'voucher', mime: 'application/pdf', flags: [] });
     expect(res.body.data[1]).toMatchObject({
+      sizeBytes: photoSize,
+      flags: [],
       kind: 'distribution_proof',
       slot: 'distribution_proof',
       mime: 'image/jpeg',
@@ -319,7 +325,7 @@ describe('the files of a record', () => {
     expect(next.body.data[0].id).toBe(photo);
   });
 
-  it('keeps the position from the Media Team and the money papers too', async () => {
+  it('masks the position and the money papers from the Media Team, and shows the position to the uploader', async () => {
     const res = await list('media', {});
     expect(res.status).toBe(200);
     expect(res.body.data.map((r: { id: string }) => r.id)).toEqual([photo]);
@@ -365,6 +371,45 @@ describe('the files of a record', () => {
     expect(audits.rows[0].new).toMatchObject({ rows: 2, format: 'csv' });
   });
 
+  it('refuses a bad query (422) and a caller without a token (401)', async () => {
+    for (const query of [
+      { format: 'xml' },
+      { entityId: 'not-a-uuid' },
+      { entityType: 'x'.repeat(41) },
+      { limit: '101' },
+    ] as Record<string, string>[])
+      expect((await list('rpmDhaka', query)).status).toBe(422);
+    const anonymous = await request(h.server())
+      .get('/api/v1/files')
+      .query({ entityType: 'application', entityId: listApplication });
+    expect(anonymous.status).toBe(401);
+  });
+
+  it('caps the CSV at 5,000 rows', async () => {
+    const many = await f.application(
+      h.db,
+      { project: world.a1, loc: world.dhaka },
+      { beneficiary_id: await f.beneficiary(h.db, world.dhaka) },
+    );
+    await h.db.query(
+      `WITH made AS (
+         INSERT INTO files (id, bucket, object_key, kind, mime, size_bytes, sha256, project_id, uploaded_by, source, virus_scan)
+         SELECT gen_random_uuid(), 'photos', 'cap/' || n || '.jpg', 'evidence', 'image/jpeg', 10,
+                md5('cap' || n) || md5('cap-' || n), $1, $2, 'camera', 'skipped'
+           FROM generate_series(1, 5001) AS n
+         RETURNING id)
+       INSERT INTO file_links (id, file_id, entity_type, entity_id, slot)
+       SELECT gen_random_uuid(), id, 'application', $3, 'evidence' FROM made`,
+      [world.a1.id, world.users.rpmDhaka, many],
+    );
+    const res = await request(h.server())
+      .get('/api/v1/files')
+      .query({ entityType: 'application', entityId: many, format: 'csv' })
+      .set(as('rpmDhaka'));
+    expect(res.status).toBe(200);
+    expect(res.text.trim().split('\r\n')).toHaveLength(5001);
+  });
+
   it('audits a list that holds NID photos as their view', async () => {
     const nid = randomUUID();
     await h.db.query(
@@ -383,5 +428,23 @@ describe('the files of a record', () => {
       [listApplication],
     );
     expect(audits.rows[0].new).toMatchObject({ fileIds: [nid], format: 'list' });
+    await list('general', { format: 'csv' });
+    const both = await h.db.query(
+      `SELECT new FROM audit_log WHERE action = 'file.nid_viewed' AND entity_id = $1 ORDER BY created_at, id`,
+      [listApplication],
+    );
+    expect(both.rows[1].new).toMatchObject({ fileIds: [nid], format: 'csv' });
+  });
+
+  it('shows the slot of the link to the record listed when a file links to two records', async () => {
+    const activity = randomUUID();
+    await h.db.query(
+      `INSERT INTO file_links (id, file_id, entity_type, entity_id, slot) VALUES ($1, $2, 'activity', $3, 'final_photo')`,
+      [randomUUID(), photo, activity],
+    );
+    const res = await list('rpmDhaka', {});
+    expect(res.body.data.find((r: { id: string }) => r.id === photo).slot).toBe(
+      'distribution_proof',
+    );
   });
 });
