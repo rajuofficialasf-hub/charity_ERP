@@ -1,6 +1,5 @@
--- Reverses 20261020100000_upload_session_parts (docs/architecture/ADR, the reversible migrations
--- record). The sessions of the chunked upload are temporary: the rows go with the columns, and
--- the first design's columns come back on an empty table.
+-- Reverses 20261020100000_upload_session_parts. Upload sessions are temporary, so the rows are
+-- removed with the columns and the dropped columns come back on an empty table.
 -- the status-log guard refuses a delete unless the cleanup setting is on for this transaction
 SELECT set_config('css.cleanup', 'on', true);
 DELETE FROM "upload_sessions";

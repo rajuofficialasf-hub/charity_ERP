@@ -17,12 +17,12 @@ mc version enable local/photos
 if ! mc ilm rule export local/exports >/dev/null 2>&1; then
   mc ilm rule add --expire-days 30 local/exports
 fi
-# the parts of uploads in progress (D-108): never versioned, anything left after two days goes
+# the parts of uploads in progress: never versioned, anything left after two days goes
 if ! mc ilm rule export local/uploads >/dev/null 2>&1; then
   mc ilm rule add --expire-days 2 local/uploads
 fi
 
-# No bucket is public: files are only reached through signed, expiring URLs (BR-204).
+# No bucket is public: files are only reached through the API, which streams them.
 for bucket in documents photos vouchers profiles media exports uploads; do
   mc anonymous set none "local/$bucket"
 done

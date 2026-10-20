@@ -3,7 +3,7 @@ import { ApiError } from '../i18n/api-error';
 
 /**
  * Buckets of FILES_AND_DOCUMENTS 8 (created by infra/minio/bootstrap.sh, never by the app); `uploads`
- * holds the 256 KB parts of an upload in progress, unversioned and emptied after two days (D-108).
+ * holds the 256 KB parts of an upload in progress, unversioned and emptied after two days.
  */
 export const BUCKETS = [
   'documents',
@@ -24,9 +24,8 @@ export interface ObjectInfo {
 /**
  * The one interface every storage driver implements (NS-31), with streams in and out (NS-04).
  * Only the API reads and writes files: no bucket is public and the browser never receives a
- * storage URL (NS-41); authorized routes stream the bytes (NS-10; the file routes come with the
- * files task of docs/PLAN.md, T2.1). Object keys carry
- * entity ids, never personal data.
+ * storage URL (NS-41); authorized routes stream the bytes (NS-10). Object keys carry entity ids,
+ * never personal data.
  */
 export interface StorageDriver {
   /** TEMP: `s3` (MinIO, D-074) is the first driver; the NAS driver arrives with the NAS. */

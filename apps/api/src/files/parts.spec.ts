@@ -10,22 +10,34 @@ import {
   dropParts,
   firstBytes,
   joinParts,
+  MAX_PARTS,
   PART_SIZE,
   partCount,
   partKey,
   storePart,
 } from './parts';
 
-// The parts of a chunked upload (D-108), on the filesystem driver the tests use.
+// The parts of a chunked upload, on the filesystem driver the tests use.
 const fresh = () => createFilesystemDriver(mkdtempSync(join(tmpdir(), 'css-parts-')));
 const code = (error: unknown) => (error instanceof ApiError ? error.code : String(error));
+const codeOf = (run: () => unknown) => {
+  try {
+    run();
+    return 'no error';
+  } catch (error) {
+    return code(error);
+  }
+};
+const sha256 = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
 
 describe('the parts of a chunked upload', () => {
-  it('counts the parts a size needs', () => {
+  it('counts the parts a size needs, refusing an empty file and one over 20 MB', () => {
     expect(partCount(1)).toBe(1);
     expect(partCount(PART_SIZE)).toBe(1);
     expect(partCount(PART_SIZE + 1)).toBe(2);
-    expect(partCount(20 * 1024 * 1024)).toBe(80);
+    expect(partCount(MAX_PARTS * PART_SIZE)).toBe(MAX_PARTS);
+    for (const size of [0, -1, 1.5, MAX_PARTS * PART_SIZE + 1])
+      expect(codeOf(() => partCount(size))).toBe('file.too_large');
   });
 
   it('builds a part key only from a session id and an integer in range', () => {
@@ -38,10 +50,10 @@ describe('the parts of a chunked upload', () => {
       ['../../etc', 1],
       [`${id}/..`, 1],
     ] as const)
-      expect(() => partKey(session, part)).toThrow(ApiError);
+      expect(codeOf(() => partKey(session, part))).toBe('file.part_out_of_range');
   });
 
-  it('joins three parts in order into the object with its size and SHA-256, and drops them after', async () => {
+  it('joins three parts in order into the object when the whole matches, and drops them after', async () => {
     const storage = fresh();
     const session = randomUUID();
     const parts = [Buffer.alloc(PART_SIZE, 1), Buffer.alloc(PART_SIZE, 2), Buffer.from('end')];
@@ -51,38 +63,63 @@ describe('the parts of a chunked upload', () => {
     await storePart(storage, session, 2, parts[1]!);
     await storePart(storage, session, 2, parts[1]!);
     const whole = Buffer.concat(parts);
-    const joined = await joinParts(storage, {
+    await joinParts(storage, {
       sessionId: session,
       count: 3,
+      size: whole.length,
+      sha256: sha256(whole).toUpperCase(),
       bucket: 'photos',
       key: 'p/a/photo/f.jpg',
       contentType: 'image/jpeg',
     });
-    expect(joined).toEqual({
-      size: whole.length,
-      sha256: createHash('sha256').update(whole).digest('hex'),
-    });
     expect((await buffer(await storage.get('photos', 'p/a/photo/f.jpg'))).equals(whole)).toBe(true);
+    expect(await storage.stat('uploads', `${session}/joined`)).toBeNull();
     expect((await firstBytes(storage, session, 4)).equals(parts[0]!.subarray(0, 4))).toBe(true);
-    await dropParts(storage, session, 3);
+    await dropParts(storage, session);
     expect(await storage.stat('uploads', `${session}/1`)).toBeNull();
     // dropping again is fine
-    await expect(dropParts(storage, session, 3)).resolves.toBeUndefined();
+    await expect(dropParts(storage, session)).resolves.toBeUndefined();
   });
 
-  it('refuses a missing part, leaving no object, and a part over 256 KB or empty', async () => {
+  it('writes nothing to the target when the size or SHA-256 differs from the declaration', async () => {
+    const storage = fresh();
+    const session = randomUUID();
+    const bytes = Buffer.from('declared');
+    await storePart(storage, session, 1, bytes);
+    const target = {
+      sessionId: session,
+      count: 1,
+      bucket: 'photos' as const,
+      key: 'p/a/photo/h.jpg',
+      contentType: 'image/jpeg',
+    };
+    for (const declared of [
+      { size: bytes.length, sha256: sha256(Buffer.from('another')) },
+      { size: bytes.length + 1, sha256: sha256(bytes) },
+    ])
+      expect(await joinParts(storage, { ...target, ...declared }).catch(code)).toBe(
+        'file.checksum_mismatch',
+      );
+    expect(await storage.stat('photos', target.key)).toBeNull();
+    expect(await storage.stat('uploads', `${session}/joined`)).toBeNull();
+  });
+
+  it('answers parts missing for a missing part, leaving no object, and refuses odd parts', async () => {
     const storage = fresh();
     const session = randomUUID();
     await storePart(storage, session, 1, Buffer.from('one'));
     const missing = await joinParts(storage, {
       sessionId: session,
       count: 2,
+      size: 6,
+      sha256: sha256(Buffer.from('one')),
       bucket: 'photos',
       key: 'p/a/photo/g.jpg',
       contentType: 'image/jpeg',
     }).catch(code);
     expect(missing).toBe('file.parts_missing');
     expect(await storage.stat('photos', 'p/a/photo/g.jpg')).toBeNull();
+    expect(await firstBytes(storage, randomUUID(), 4).catch(code)).toBe('file.parts_missing');
     expect(await storePart(storage, session, 2, Buffer.alloc(PART_SIZE + 1)).catch(code)).toBe(
       'file.too_large',
     );

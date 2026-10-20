@@ -1043,13 +1043,13 @@ describe('nisab versions', () => {
   });
 });
 
-describe('upload sessions of the chunked upload (DECISION_LOG D-108)', () => {
+describe('upload sessions of the chunked upload', () => {
   const session = async () => {
     const userId = await f.volunteerUser(db);
     const id = randomUUID();
     await db.query(
       `INSERT INTO upload_sessions (id, user_id, declared, client_uuid, bucket, object_key, part_count, expires_at)
-       VALUES ($1, $2, '{}', $3, 'photos', $4, 3, now() + interval '1 hour')`,
+       VALUES ($1, $2, '{"size": 600000}', $3, 'photos', $4, 3, now() + interval '1 hour')`,
       [id, userId, randomUUID(), `p/a/photo/${id}.jpg`],
     );
     return { id, userId };
@@ -1061,6 +1061,15 @@ describe('upload sessions of the chunked upload (DECISION_LOG D-108)', () => {
       `UPDATE upload_sessions SET parts_received = '{1,2}', bytes_received = 524288,
        expires_at = now() + interval '1 hour' WHERE id = $1`,
       [id],
+    );
+    const stored = await db.query(
+      'SELECT parts_received, bytes_received FROM upload_sessions WHERE id = $1',
+      [id],
+    );
+    expect(stored.rows[0]).toEqual({ parts_received: [1, 2], bytes_received: '524288' });
+    await expectSqlError(
+      db.query('UPDATE upload_sessions SET bytes_received = 600001 WHERE id = $1', [id]),
+      SQLSTATE.checkViolation,
     );
     await expectSqlError(
       db.query(`UPDATE upload_sessions SET object_key = 'elsewhere.jpg' WHERE id = $1`, [id]),
