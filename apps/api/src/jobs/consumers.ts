@@ -4,6 +4,7 @@ import type { NotificationDelivery } from '../notifications/delivery';
 import type { DeliveryJob } from '../notifications/service';
 import type { JobRunner } from './job-runner';
 import { REGISTRATION_CLEANUP_CRON, type RegistrationCleanup } from './registration-cleanup';
+import { STORAGE_STATS_CRON, STORAGE_STATS_QUEUE, type StorageStats } from './storage-stats';
 import { UPLOAD_SWEEP_CRON, type UploadSweep } from './upload-sweep';
 import { FILE_PROCESS_QUEUE, type FileProcessJob, type FileProcessor } from './file-process';
 
@@ -32,6 +33,7 @@ type MaintenanceData = HeartbeatData | RegistrationCleanupData | UploadSweepData
 export interface ConsumerServices {
   registrationCleanup?: RegistrationCleanup;
   uploadSweep?: UploadSweep;
+  storageStats?: StorageStats;
   fileProcessor?: FileProcessor;
   delivery?: NotificationDelivery;
 }
@@ -82,6 +84,12 @@ export class JobConsumers {
         { kind: 'upload-sweep' },
         'upload-sweep',
       );
+    // the nightly storage figures of the system health page
+    const { storageStats } = this.services;
+    if (storageStats) {
+      await this.jobs.work(STORAGE_STATS_QUEUE, () => storageStats.run());
+      await this.jobs.schedule(STORAGE_STATS_QUEUE, STORAGE_STATS_CRON, {}, 'storage-stats');
+    }
     // the files the scan has not cleared yet; a catch-up that fails is logged and tried at the
     // next start, never in the way of the consumers and schedules above
     if (fileProcessor)

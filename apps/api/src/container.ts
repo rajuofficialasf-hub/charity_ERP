@@ -26,6 +26,7 @@ import {
 import { AuthService } from './services/auth';
 import { RegistrationCleanup } from './jobs/registration-cleanup';
 import { UploadSweep } from './jobs/upload-sweep';
+import { StorageStats } from './jobs/storage-stats';
 import { FileProcessor } from './jobs/file-process';
 import { createScanner } from './files/scanner';
 import { AccountEvents } from './notifications/account-events';
@@ -110,6 +111,7 @@ export interface Container {
   registration: RegistrationService;
   registrationCleanup: RegistrationCleanup;
   uploadSweep: UploadSweep;
+  storageStats: StorageStats;
   fileProcessor: FileProcessor;
   uploads: UploadsService;
   registrationPhotos: RegistrationPhotosService;
@@ -372,6 +374,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       ),
     registrationCleanup: o.registrationCleanup ?? new RegistrationCleanup(prisma, storage, logger),
     uploadSweep: o.uploadSweep ?? new UploadSweep(prisma, storage, logger),
+    storageStats: o.storageStats ?? new StorageStats(prisma, clock, logger),
     fileProcessor:
       o.fileProcessor ?? new FileProcessor(prisma, storage, createScanner(env), logger),
   };

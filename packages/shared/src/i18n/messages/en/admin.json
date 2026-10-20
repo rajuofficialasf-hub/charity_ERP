@@ -1248,13 +1248,18 @@
     "storage_unknown": "The database did not answer, so the storage figures cannot be shown.",
     "figure": "{count} files, {size} in total",
     "measured": "Measured at {date}",
+    "by_bucket": "Storage by bucket",
+    "growth": "In the last month: {size}",
+    "growth_unknown": "Not known yet",
     "by_kind": "Files by kind",
     "by_month": "Files of the last 12 months",
     "column": {
       "kind": "Kind",
       "month": "Month",
+      "bucket": "Bucket",
       "count": "Count",
-      "size": "Size"
+      "size": "Size",
+      "growth": "Last month"
     }
   },
   "notification_templates": {

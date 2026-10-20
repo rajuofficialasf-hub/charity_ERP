@@ -52,6 +52,10 @@ const HEALTH = {
       { kind: 'profile_photo', count: 2, bytes: 3000 },
       { kind: 'nid_photo', count: 3, bytes: 2000 },
     ],
+    byBucket: [
+      { bucket: 'photos', count: 4, bytes: 2_621_440, monthGrowth: 1_048_576 },
+      { bucket: 'profiles', count: 1, bytes: 1000, monthGrowth: null },
+    ],
     byMonth: [{ month: '2026-10', count: 3, bytes: 3500 }],
     measuredAt: '2026-10-17T05:00:00.000Z',
   },
@@ -218,6 +222,14 @@ describe('the system health', () => {
     expect(screen.getByText(/^5টি ফাইল, মোট /)).toBeInTheDocument();
     expect(screen.getByRole('grid', { name: 'ধরন অনুযায়ী ফাইল' })).toHaveTextContent(
       'profile_photo',
+    );
+    // each bucket with its growth since a month ago, in English digits
+    const buckets = screen.getByRole('grid', { name: 'বাকেট অনুযায়ী স্টোরেজ' });
+    const photos = within(buckets).getByRole('row', { name: /photos/ });
+    expect(photos).toHaveTextContent('+1');
+    expect(photos).toHaveTextContent(/2\.5/);
+    expect(within(buckets).getByRole('row', { name: /profiles/ })).toHaveTextContent(
+      'এখনো জানা নেই',
     );
     await expectNoAxeViolations(container);
   });

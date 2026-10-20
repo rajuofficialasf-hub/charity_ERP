@@ -76,6 +76,9 @@ test.describe('admin settings', () => {
     await page.goto('/admin/health');
     await expect(page.getByRole('heading', { level: 1, name: 'সিস্টেমের অবস্থা' })).toBeVisible();
     await expect(page.getByRole('listitem').filter({ hasText: 'ডাটাবেস' })).toContainText('চালু');
+    // the storage by bucket: a table on the desktop, a list on the phone (the E2E database holds
+    // no files yet, so it has no rows)
+    await expect(page.getByLabel('বাকেট অনুযায়ী স্টোরেজ').first()).toBeAttached();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);

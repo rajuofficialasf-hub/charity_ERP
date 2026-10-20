@@ -3272,9 +3272,20 @@ components:
             storage:
               description: Null when the database did not answer in time (the checks then show it down)
               type: [object, 'null']
-              required: [total, byKind, byMonth, measuredAt]
+              required: [total, byKind, byBucket, byMonth, measuredAt]
               properties:
                 total: { $ref: '#/components/schemas/StorageFigure' }
+                byBucket:
+                  type: array
+                  description: Each bucket now, and its growth in bytes since the nightly snapshot of at least 30 days ago (null until one exists)
+                  items:
+                    allOf:
+                      - { $ref: '#/components/schemas/StorageFigure' }
+                      - type: object
+                        required: [bucket, monthGrowth]
+                        properties:
+                          bucket: { type: string }
+                          monthGrowth: { type: [integer, 'null'] }
                 byKind:
                   type: array
                   items:
