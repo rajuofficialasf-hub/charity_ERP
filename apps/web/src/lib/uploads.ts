@@ -37,7 +37,7 @@ export interface UploadTarget {
 }
 
 /**
- * A part that did not arrive is sent again after these pauses, or after the server's
+ * A request that did not arrive (the start or a part) is sent again after these pauses, or after the server's
  * `Retry-After`; then the upload stops as failed and the person may try again, which resumes from
  * the parts the server holds. (Uploads that wait for a connection belong to the offline queue,
  * which follows the long schedule of docs/architecture/OFFLINE_SYNC.md.)
@@ -63,6 +63,16 @@ export interface UploadOptions {
   onProgress?: (percent: number) => void;
   /** A pause, replaced in tests. */
   sleep?: (ms: number) => Promise<void>;
+  /** Stops the upload between two requests (the file was taken off the field). */
+  signal?: AbortSignal;
+}
+
+/** The upload was stopped through its signal. */
+export class UploadStopped extends Error {
+  constructor() {
+    super('upload stopped');
+    this.name = 'UploadStopped';
+  }
 }
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -81,23 +91,31 @@ export async function uploadFile(
   const sleep = options.sleep ?? wait;
   const progress = (bytes: number) =>
     options.onProgress?.(blob.size ? Math.min(100, Math.round((bytes / blob.size) * 100)) : 100);
-  const session = await api<UploadSession>('/upload-sessions', {
-    method: 'POST',
-    body: {
-      clientUuid: options.clientUuid,
-      kind: target.kind,
-      entityType: target.entityType,
-      entityId: target.entityId,
-      slot: target.slot,
-      mime: blob.type,
-      sizeBytes: blob.size,
-      sha256: await sha256Hex(blob),
-      source: target.source,
-      ...(target.capturedAt ? { capturedAt: target.capturedAt } : {}),
-      ...(target.recordCreatedAt ? { recordCreatedAt: target.recordCreatedAt } : {}),
-      ...(target.gps ? { gps: target.gps } : {}),
-    },
-  });
+  const stopIfAsked = () => {
+    if (options.signal?.aborted) throw new UploadStopped();
+  };
+  const sha256 = await sha256Hex(blob);
+  stopIfAsked();
+  // a refused or lost create is sent again like a part: the client id makes it the same session
+  const session = await withRetries(sleep, () =>
+    api<UploadSession>('/upload-sessions', {
+      method: 'POST',
+      body: {
+        clientUuid: options.clientUuid,
+        kind: target.kind,
+        entityType: target.entityType,
+        entityId: target.entityId,
+        slot: target.slot,
+        mime: blob.type,
+        sizeBytes: blob.size,
+        sha256,
+        source: target.source,
+        ...(target.capturedAt ? { capturedAt: target.capturedAt } : {}),
+        ...(target.recordCreatedAt ? { recordCreatedAt: target.recordCreatedAt } : {}),
+        ...(target.gps ? { gps: target.gps } : {}),
+      },
+    }),
+  );
   const finalize = () =>
     api<UploadedFile>(`/upload-sessions/${session.id}/finalize`, { method: 'POST' });
   if (session.fileId) return finalize();
@@ -106,32 +124,34 @@ export async function uploadFile(
   progress(sent);
   for (let part = 1; part <= session.partCount; part += 1) {
     if (held.has(part)) continue;
+    stopIfAsked();
     const bytes = blob.slice(
       (part - 1) * UPLOAD_RULES.partSize,
       Math.min(part * UPLOAD_RULES.partSize, blob.size),
     );
-    await sendPart(session.id, part, bytes, sleep);
-    sent += bytes.size;
-    progress(sent);
-  }
-  return finalize();
-}
-
-async function sendPart(
-  sessionId: string,
-  part: number,
-  bytes: Blob,
-  sleep: (ms: number) => Promise<void>,
-): Promise<void> {
-  const body = await bytes.arrayBuffer();
-  for (let attempt = 0; ; attempt += 1) {
-    try {
-      await api<UploadSession>(`/upload-sessions/${sessionId}/parts/${part}`, {
+    const body = await bytes.arrayBuffer();
+    await withRetries(sleep, () =>
+      api<UploadSession>(`/upload-sessions/${session.id}/parts/${part}`, {
         method: 'PUT',
         rawBody: body,
         headers: { 'Content-Type': 'application/octet-stream' },
-      });
-      return;
+      }),
+    );
+    sent += bytes.size;
+    progress(sent);
+  }
+  stopIfAsked();
+  return finalize();
+}
+
+/** One request, sent again after the pauses on a transient failure. */
+async function withRetries<T>(
+  sleep: (ms: number) => Promise<void>,
+  request: () => Promise<T>,
+): Promise<T> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await request();
     } catch (error) {
       const delay = PART_RETRY_DELAYS_MS[attempt];
       if (delay === undefined || !isTransient(error)) throw error;

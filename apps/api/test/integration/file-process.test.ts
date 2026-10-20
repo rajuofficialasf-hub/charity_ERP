@@ -112,15 +112,27 @@ describe('the processing job', () => {
     expect((await fileRow(id)).flags).toEqual(['no_capture_time', 'no_gps']);
   });
 
-  it('keeps what the phone declared over the photo metadata', async () => {
-    const id = await upload(await photoWithExif('2026:10:19 10:00:00'), {
+  it("takes the photo's own capture time over a declared one, flagging a declared time far from it", async () => {
+    // declared a minute before the photo's own time (10:00 Dhaka is 04:00 UTC): no flag for that
+    const close = await upload(await photoWithExif('2026:10:19 10:00:00'), {
       capturedAt: '2026-10-19T03:59:00.000Z',
       gps: { lat: 22.5, lng: 91.8 },
     });
-    await processFile(id);
-    const row = await fileRow(id);
-    expect(row.captured_at.toISOString()).toBe('2026-10-19T03:59:00.000Z');
-    expect(Number(row.latitude)).toBeCloseTo(22.5, 3);
+    await processFile(close);
+    const near = await fileRow(close);
+    expect(near.captured_at.toISOString()).toBe('2026-10-19T04:00:00.000Z');
+    // the declared position stays
+    expect(Number(near.latitude)).toBeCloseTo(22.5, 3);
+    expect(near.flags).not.toContain('stale_capture');
+    // declared as taken now, but the photo says it was taken a day earlier
+    const far = await upload(await photoWithExif('2026:10:18 10:00:00'), {
+      capturedAt: '2026-10-19T04:00:00.000Z',
+      gps: { lat: 22.5, lng: 91.8 },
+    });
+    await processFile(far);
+    const old = await fileRow(far);
+    expect(old.captured_at.toISOString()).toBe('2026-10-18T04:00:00.000Z');
+    expect(old.flags).toContain('stale_capture');
   });
 
   it('flags near duplicates in the same project on both files, and not across projects', async () => {

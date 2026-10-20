@@ -2,7 +2,16 @@ import { createHash } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { fakeUploadServer } from '../../test/upload-server';
 import { resetClientForTests } from './api';
-import { PART_RETRY_DELAYS_MS, sha256Hex, uploadFile, type UploadTarget } from './uploads';
+import { server } from '../../test/msw/server';
+import { apiError } from '../../test/auth';
+import { http } from 'msw';
+import {
+  PART_RETRY_DELAYS_MS,
+  sha256Hex,
+  uploadFile,
+  UploadStopped,
+  type UploadTarget,
+} from './uploads';
 
 // The client of the chunked upload: the parts in order with progress, a retried part, the resume.
 const PART = 262_144;
@@ -84,5 +93,35 @@ describe('uploadFile', () => {
     ).rejects.toThrow();
     expect(fake.parts).toEqual(Array(PART_RETRY_DELAYS_MS.length + 1).fill(1));
     expect(fake.finalized).toBe(0);
+  });
+
+  it('sends a refused start again when the server is busy', async () => {
+    const fake = fakeUploadServer();
+    let busy = true;
+    server.use(
+      http.post('*/api/v1/upload-sessions', () => {
+        if (!busy) return undefined;
+        busy = false;
+        return apiError(429, 'file.sessions_limit', 'Too many uploads.');
+      }),
+    );
+    await uploadFile(photo(10), target, {
+      clientUuid: '0190a1b2-c3d4-7e5f-8a9b-000000000005',
+      sleep: async () => undefined,
+    });
+    expect(fake.finalized).toBe(1);
+  });
+
+  it('stops between two requests when its signal says so', async () => {
+    const fake = fakeUploadServer();
+    const stop = new AbortController();
+    stop.abort();
+    await expect(
+      uploadFile(photo(10), target, {
+        clientUuid: '0190a1b2-c3d4-7e5f-8a9b-000000000006',
+        signal: stop.signal,
+      }),
+    ).rejects.toBeInstanceOf(UploadStopped);
+    expect(fake.creates).toHaveLength(0);
   });
 });

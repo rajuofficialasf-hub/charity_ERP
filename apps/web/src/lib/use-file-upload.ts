@@ -6,7 +6,13 @@ import type { UploadItem } from '@css/ui';
 import { ApiFailure } from './api';
 import { compressImage } from './compress';
 import { readPhotoMeta } from './photo-meta';
-import { type UploadedFile, uploadFile, type UploadOptions, type UploadTarget } from './uploads';
+import {
+  type UploadedFile,
+  uploadFile,
+  type UploadOptions,
+  UploadStopped,
+  type UploadTarget,
+} from './uploads';
 
 /** Where the files go and what to do with each stored one. */
 export interface FileUploadTarget extends Omit<UploadTarget, 'capturedAt' | 'gps'> {
@@ -19,7 +25,14 @@ export interface FileUploadTarget extends Omit<UploadTarget, 'capturedAt' | 'gps
 interface Entry {
   file: File;
   clientUuid: string;
+  /** The compressed photo and its metadata, made once: a retry sends the same bytes. */
+  prepared?: { blob: Blob; meta: Awaited<ReturnType<typeof readPhotoMeta>> };
+  /** Stops the upload when the file is taken off the field. */
+  stop: AbortController;
 }
+
+/** Files sent at the same time; the rest wait their turn (a phone's link and the open sessions). */
+const PARALLEL_UPLOADS = 3;
 
 /**
  * The upload of one field (docs/ui/DESIGN_SYSTEM.md, the file upload): for each file, the photo's
@@ -45,6 +58,8 @@ export function useFileUpload(target: FileUploadTarget) {
     () => () => {
       for (const item of itemsRef.current)
         if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      // uploads still on their way stop with the field
+      for (const entry of entries.current.values()) entry.stop.abort();
     },
     [],
   );
@@ -53,7 +68,10 @@ export function useFileUpload(target: FileUploadTarget) {
     setItems((list) => list.map((item) => (item.id === id ? { ...item, ...change } : item)));
   }, []);
 
-  const run = useCallback(
+  const running = useRef(0);
+  const waiting = useRef<string[]>([]);
+
+  const upload = useCallback(
     async (id: string) => {
       const entry = entries.current.get(id);
       if (!entry) return;
@@ -61,8 +79,10 @@ export function useFileUpload(target: FileUploadTarget) {
       const isImage = entry.file.type.startsWith('image/');
       patch(id, { state: isImage ? 'compressing' : 'queued', reason: undefined });
       // the metadata goes when the photo is drawn smaller, so it is read first
-      const meta = isImage ? await readPhotoMeta(entry.file) : {};
-      const blob = isImage ? await compressImage(entry.file) : entry.file;
+      entry.prepared ??= isImage
+        ? { meta: await readPhotoMeta(entry.file), blob: await compressImage(entry.file) }
+        : { meta: {}, blob: entry.file };
+      const { blob, meta } = entry.prepared;
       const limit = maxSizeOf(where.kind, blob.type);
       if (limit === null || blob.size > limit) {
         patch(id, {
@@ -73,25 +93,20 @@ export function useFileUpload(target: FileUploadTarget) {
         return;
       }
       patch(id, { state: 'uploading', progress: 0 });
+      let stored;
       try {
-        const stored = await uploadFile(
+        stored = await uploadFile(
           blob,
           { ...where, ...meta },
           {
             clientUuid: entry.clientUuid,
             onProgress: (progress) => patch(id, { progress }),
+            signal: entry.stop.signal,
             ...(sleep ? { sleep } : {}),
           },
         );
-        const cleared = stored.virusScan === 'clean' || stored.virusScan === 'skipped';
-        patch(id, {
-          state: cleared ? 'ready' : 'quarantined',
-          progress: 100,
-          reason: cleared ? undefined : t('file.quarantined'),
-          removable: false,
-        });
-        onUploaded?.(stored);
       } catch (error) {
+        if (error instanceof UploadStopped) return;
         // the server refused the file: show its reason; anything else may be tried again
         const refused =
           error instanceof ApiFailure &&
@@ -103,16 +118,56 @@ export function useFileUpload(target: FileUploadTarget) {
           reason: refused ? error.message : t('server.unavailable'),
           removable: true,
         });
+        return;
+      }
+      const cleared = stored.virusScan === 'clean' || stored.virusScan === 'skipped';
+      patch(id, {
+        state: cleared ? 'ready' : 'quarantined',
+        progress: 100,
+        reason: cleared ? undefined : t('file.quarantined'),
+        removable: false,
+      });
+      // the caller's own handling of the stored file never turns it into a failed one
+      try {
+        onUploaded?.(stored);
+      } catch {
+        // nothing to undo: the file is stored
       }
     },
     [patch, t],
+  );
+
+  /** Starts the next waiting files while fewer than three are on their way. */
+  const next = useRef<() => void>(() => undefined);
+  const pump = useCallback(() => {
+    while (running.current < PARALLEL_UPLOADS && waiting.current.length) {
+      const id = waiting.current.shift()!;
+      running.current += 1;
+      void upload(id).finally(() => {
+        running.current -= 1;
+        next.current();
+      });
+    }
+  }, [upload]);
+  useEffect(() => {
+    next.current = pump;
+  }, [pump]);
+
+  const run = useCallback(
+    (id: string) => {
+      if (!entries.current.has(id) || waiting.current.includes(id)) return;
+      waiting.current.push(id);
+      patch(id, { state: 'queued', reason: undefined });
+      pump();
+    },
+    [patch, pump],
   );
 
   const add = useCallback(
     (files: File[]) => {
       const added = files.map((file) => {
         const id = uuidv7();
-        entries.current.set(id, { file, clientUuid: uuidv7() });
+        entries.current.set(id, { file, clientUuid: uuidv7(), stop: new AbortController() });
         return {
           id,
           name: file.name,
@@ -121,17 +176,19 @@ export function useFileUpload(target: FileUploadTarget) {
         };
       });
       setItems((list) => [...list, ...added]);
-      for (const item of added) void run(item.id);
+      for (const item of added) run(item.id);
     },
     [run],
   );
 
   /** Sends a failed file again; the same client id resumes the server's session. */
-  const retry = useCallback((id: string) => void run(id), [run]);
+  const retry = useCallback((id: string) => run(id), [run]);
 
   /** Takes a file off the field; one already stored stays on the server. */
   const remove = useCallback((id: string) => {
+    entries.current.get(id)?.stop.abort();
     entries.current.delete(id);
+    waiting.current = waiting.current.filter((w) => w !== id);
     setItems((list) => {
       const gone = list.find((item) => item.id === id);
       if (gone?.previewUrl) URL.revokeObjectURL(gone.previewUrl);

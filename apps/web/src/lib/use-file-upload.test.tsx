@@ -125,5 +125,64 @@ describe('useFileUpload', () => {
     await waitFor(() => expect(hook.items[0]?.state).toBe('quarantined'));
     expect(fake.creates).toHaveLength(2);
     expect(fake.creates[1]!.clientUuid).toBe(fake.creates[0]!.clientUuid);
+    // the retry sends the same compressed bytes: the photo is not prepared again
+    expect(order.filter((o) => o.startsWith('compress:'))).toHaveLength(1);
+    expect(fake.creates[1]!.sha256).toBe(fake.creates[0]!.sha256);
+  });
+
+  it('sends at most three files at a time', async () => {
+    const fake = fakeUploadServer();
+    renderApp(
+      <Probe
+        options={target}
+        onHook={(h) => {
+          hook = h;
+        }}
+      />,
+      'en',
+    );
+    await waitFor(() => expect(hook).toBeDefined());
+    act(() => hook.add([1, 2, 3, 4, 5].map((n) => jpeg(`p${n}.jpg`, 1000))));
+    await waitFor(() => expect(hook.items.every((i) => i.state === 'quarantined')).toBe(true));
+    expect(fake.finalized).toBe(5);
+    expect(fake.peakOpen).toBeLessThanOrEqual(3);
+  });
+
+  it('stops an upload whose file is taken off the field', async () => {
+    const fake = fakeUploadServer();
+    fake.dropOnce.add(2);
+    let resume: () => void = () => undefined;
+    const paused = new Promise<void>((resolve) => {
+      resume = resolve;
+    });
+    renderApp(
+      <Probe
+        options={{ ...target, sleep: () => paused }}
+        onHook={(h) => {
+          hook = h;
+        }}
+      />,
+      'en',
+    );
+    await waitFor(() => expect(hook).toBeDefined());
+    act(() => hook.add([jpeg()]));
+    // part 2 dropped and the upload waits before sending it again
+    await waitFor(() => expect(fake.parts).toEqual([1, 2]));
+    act(() => hook.remove(hook.items[0]!.id));
+    resume();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(hook.items).toHaveLength(0);
+    expect(fake.finalized).toBe(0);
+  });
+
+  it('keeps a stored file stored when the caller fails to handle it', async () => {
+    fakeUploadServer();
+    const item = await start(jpeg(), {
+      ...target,
+      onUploaded: () => {
+        throw new Error('the page failed');
+      },
+    });
+    expect(item.state).toBe('quarantined');
   });
 });

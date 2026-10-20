@@ -17,6 +17,8 @@ export interface FakeUpload {
   alwaysDrop: Set<number>;
   /** The scan state finalize answers. */
   virusScan: 'pending' | 'skipped';
+  /** The most sessions open at the same time (created, not yet finalized). */
+  peakOpen: number;
 }
 
 /**
@@ -32,7 +34,9 @@ export function fakeUploadServer(): FakeUpload {
     dropOnce: new Set(),
     alwaysDrop: new Set(),
     virusScan: 'pending',
+    peakOpen: 0,
   };
+  let open = 0;
   const sessions = new Map<string, { size: number; received: Set<number>; kind: string }>();
   const view = (id: string) => {
     const s = sessions.get(id)!;
@@ -53,6 +57,8 @@ export function fakeUploadServer(): FakeUpload {
     http.post('*/api/v1/upload-sessions', async ({ request }) => {
       const body = (await request.json()) as Record<string, unknown>;
       state.creates.push(body);
+      open += 1;
+      state.peakOpen = Math.max(state.peakOpen, open);
       const id = `0190a1b2-c3d4-7e5f-8a9b-${String(state.creates.length).padStart(12, '0')}`;
       sessions.set(id, {
         size: body.sizeBytes as number,
@@ -75,6 +81,7 @@ export function fakeUploadServer(): FakeUpload {
     }),
     http.post('*/api/v1/upload-sessions/:id/finalize', ({ params }) => {
       state.finalized += 1;
+      open -= 1;
       const s = sessions.get(String(params.id))!;
       return HttpResponse.json(
         {

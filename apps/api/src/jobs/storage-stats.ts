@@ -6,11 +6,14 @@ import type { PrismaService } from '../core/prisma.service';
 export const STORAGE_STATS_CRON = '15 2 * * *';
 export const STORAGE_STATS_QUEUE = 'storage-stats' as const;
 
+/** A sum over every file record may take a while on a large table. */
+const SNAPSHOT_TRANSACTION = { maxWait: 10_000, timeout: 120_000 };
+
 /** Dhaka is six hours ahead of UTC all year. */
 const DHAKA_OFFSET_MS = 6 * 3_600_000;
 
 /** The start of the Dhaka day of `at`, as an instant. */
-export function dhakaDayStart(at: Date): Date {
+function dhakaDayStart(at: Date): Date {
   const local = at.getTime() + DHAKA_OFFSET_MS;
   return new Date(local - (local % 86_400_000) - DHAKA_OFFSET_MS);
 }
@@ -43,7 +46,7 @@ export class StorageStats {
         SELECT gen_random_uuid(), ${now}, bucket, project_id, sum(size_bytes), count(*)
           FROM files WHERE deleted_at IS NULL
          GROUP BY bucket, project_id`;
-    });
+    }, SNAPSHOT_TRANSACTION);
     this.logger.info({ rows }, 'storage figures recorded');
     return { rows };
   }

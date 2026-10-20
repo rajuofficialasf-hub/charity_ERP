@@ -5,6 +5,7 @@ import type { NotificationDelivery } from '../notifications/delivery';
 import type { JobRunner } from './job-runner';
 import type { FileProcessor } from './file-process';
 import { REGISTRATION_CLEANUP_CRON, type RegistrationCleanup } from './registration-cleanup';
+import { STORAGE_STATS_CRON, STORAGE_STATS_QUEUE, type StorageStats } from './storage-stats';
 import type { UploadSweep } from './upload-sweep';
 
 function fakeRunner(failWith?: Error) {
@@ -112,5 +113,31 @@ describe('the processing of uploaded files', () => {
     expect(queuePending).toHaveBeenCalledTimes(1);
     expect(order.at(-1)).toBe('catch-up');
     expect(order.filter((o) => o === 'schedule')).toHaveLength(2);
+  });
+});
+
+describe('the nightly storage figures', () => {
+  it('works and schedules the storage-stats queue, and neither without the service', async () => {
+    const { runner, work, schedule } = fakeRunner();
+    const run = vi.fn(async () => ({ rows: 3 }));
+    await new JobConsumers(runner, quiet, {
+      storageStats: { run } as unknown as StorageStats,
+    }).register();
+    const call = (work.mock.calls as unknown as [string, () => Promise<unknown>][]).find(
+      (c) => c[0] === STORAGE_STATS_QUEUE,
+    );
+    expect(call).toBeDefined();
+    expect(await call![1]()).toEqual({ rows: 3 });
+    expect(schedule).toHaveBeenCalledWith(
+      STORAGE_STATS_QUEUE,
+      STORAGE_STATS_CRON,
+      {},
+      'storage-stats',
+    );
+    const bare = fakeRunner();
+    await new JobConsumers(bare.runner, quiet).register();
+    expect(bare.work.mock.calls.some((c) => (c as unknown[])[0] === STORAGE_STATS_QUEUE)).toBe(
+      false,
+    );
   });
 });

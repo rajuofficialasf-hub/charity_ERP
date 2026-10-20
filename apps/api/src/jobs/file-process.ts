@@ -2,6 +2,7 @@ import { buffer } from 'node:stream/consumers';
 import { Readable } from 'node:stream';
 import type { Logger } from 'pino';
 import type { PrismaService, Tx } from '../core/prisma.service';
+import { UPLOAD_RULES } from '@css/shared/files';
 import { readPhotoMetadata } from '../files/exif';
 import { photoFlags, projectPhotoSource } from '../files/flags';
 import {
@@ -143,9 +144,15 @@ export class FileProcessor {
         contentType: 'image/jpeg',
         size: image.length,
       });
-    // what the phone declared stays; the photo's own metadata fills only what is missing
+    // the photo's own capture time wins over a declared one; a declared position stays (the
+    // phone's location service at capture), the photo's own fills one that is missing
     const declaredPosition = file.latitude !== null && file.longitude !== null;
-    const capturedAt = file.capturedAt ?? photo.metadata.capturedAt;
+    const capturedAt = photo.metadata.capturedAt ?? file.capturedAt;
+    const declaredElsewhere =
+      !!photo.metadata.capturedAt &&
+      !!file.capturedAt &&
+      Math.abs(photo.metadata.capturedAt.getTime() - file.capturedAt.getTime()) >
+        UPLOAD_RULES.staleCaptureMs;
     const gps = declaredPosition ? null : photo.metadata.gps;
     try {
       await this.prisma.$transaction(async (tx) => {
@@ -173,6 +180,8 @@ export class FileProcessor {
             ? await projectPhotoSource(tx, file.projectId, file.kind)
             : null,
         });
+        // a declared time far from the photo's own says the photo is not the one it claims
+        if (declaredElsewhere && !flags.includes('stale_capture')) flags.push('stale_capture');
         if (near.length || current?.flags.includes('duplicate_suspect'))
           flags.push('duplicate_suspect');
         await tx.file.update({

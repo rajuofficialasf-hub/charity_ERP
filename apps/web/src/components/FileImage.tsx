@@ -7,6 +7,10 @@ import './file-image.css';
 /** The photo types the API stores and the thumbnails it makes; anything else is not shown. */
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
+/** The answers of a photo the scan has not cleared yet, and of one it blocked. */
+const QUARANTINED = 423;
+const BLOCKED = 410;
+
 /** Reads a photo as a data URL: nothing to revoke, and the cache drops it with the query. */
 const dataUrl = (blob: Blob) =>
   new Promise<string>((resolve, reject) => {
@@ -31,11 +35,11 @@ export function FileImage({ fileId, alt }: { fileId: string; alt: string }) {
   const file = useFileDataUrl(fileId);
   if (file.error) {
     // a photo the scan has not cleared yet, or one it blocked, says so instead of a failure
-    const state = file.error instanceof ApiFailure ? file.error.status : 0;
+    const status = file.error instanceof ApiFailure ? file.error.status : 0;
     const text =
-      state === 423
+      status === QUARANTINED
         ? errors('file.quarantined')
-        : state === 410
+        : status === BLOCKED
           ? errors('file.infected')
           : t('state.error.text');
     return <p className="file-image-error">{text}</p>;
