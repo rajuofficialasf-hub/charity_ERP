@@ -13,6 +13,7 @@ import {
 } from './support/auth-app';
 import { notificationsOf } from './support/notifications';
 import * as f from './support/fixtures';
+import type { Tx } from '../../src/core/prisma.service';
 
 // The volunteer blocklist (BD-06, BR-047; DECISION_LOG D-088; plan
 // docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, unit U9).
@@ -215,13 +216,38 @@ describe('blocking a beneficiary', () => {
     await expect(mayApply(retired)).rejects.toMatchObject({ code: 'beneficiary.blocked' });
   });
 
+  /**
+   * Holds a profile row in a transaction of its own until `release()`; `waiting()` resolves once
+   * another session waits for that row's lock, so the order is proven without fixed sleeps.
+   */
+  function holdRow(id: string, thenWrite: (tx: Tx) => Promise<unknown>) {
+    let release!: () => void;
+    const released = new Promise<void>((r) => (release = r));
+    let locked!: () => void;
+    const lockTaken = new Promise<void>((r) => (locked = r));
+    const done = h.container.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM beneficiaries WHERE id = ${id}::uuid FOR UPDATE`;
+      locked();
+      await released;
+      await thenWrite(tx);
+    });
+    const waiting = async () => {
+      for (let i = 0; i < 200; i++) {
+        const { rows } = await h.db.query(
+          `SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`,
+        );
+        if (rows[0].n > 0) return;
+        await new Promise((r) => setImmediate(r));
+      }
+      throw new Error('no session ever waited for the row');
+    };
+    return { lockTaken, waiting, release, done };
+  }
+
   it('waits for a block in progress before it lets an application through', async () => {
     const id = await f.beneficiary(h.db, world.dhaka);
-    // the block holds the profile row; the gate of an application waits for it and then sees it
-    const blocker = h.container.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT id FROM beneficiaries WHERE id = ${id}::uuid FOR UPDATE`;
-      await new Promise((r) => setTimeout(r, 300));
-      await tx.blocklist.create({
+    const block = holdRow(id, (tx) =>
+      tx.blocklist.create({
         data: {
           id: crypto.randomUUID(),
           subjectType: 'beneficiary',
@@ -229,12 +255,51 @@ describe('blocking a beneficiary', () => {
           reason: 'একসাথে চলা পরীক্ষা',
           blockedBy: world.users.rpmDhaka,
         },
-      });
-    });
-    await new Promise((r) => setTimeout(r, 50));
+      }),
+    );
+    await block.lockTaken;
     const gate = mayApply(id);
-    await blocker;
+    await block.waiting();
+    block.release();
+    await block.done;
     await expect(gate).rejects.toMatchObject({ code: 'beneficiary.blocked' });
+  });
+
+  it('follows a merge that commits while the gate waits, to the blocked kept profile', async () => {
+    const retiring = await f.beneficiary(h.db, world.dhaka);
+    const kept = await f.beneficiary(h.db, world.dhaka);
+    await blockB(await as(world.users.rpmDhaka), kept, { reason: 'যাচাই চলছে' }).expect(201);
+    const merge = holdRow(
+      retiring,
+      (tx) =>
+        tx.$executeRaw`UPDATE beneficiaries SET merged_into_id = ${kept}::uuid WHERE id = ${retiring}::uuid`,
+    );
+    await merge.lockTaken;
+    const gate = mayApply(retiring);
+    await merge.waiting();
+    merge.release();
+    await merge.done;
+    await expect(gate).rejects.toMatchObject({ code: 'beneficiary.blocked' });
+  });
+
+  it("refuses a block on a retired profile's id: the block belongs on the kept profile", async () => {
+    const kept = await f.beneficiary(h.db, world.dhaka);
+    const retired = await f.beneficiary(h.db, world.dhaka);
+    await h.db.query('UPDATE beneficiaries SET merged_into_id = $2 WHERE id = $1', [retired, kept]);
+    const res = await blockB(await as(world.users.rpmDhaka), retired, { reason: 'ভুল প্রোফাইল' });
+    expect(res.status).toBe(404);
+    expect(await flag(kept)).toBe(false);
+  });
+
+  it('refuses the lift to an RPM of another region, an executive, a volunteer and no login', async () => {
+    const id = await f.beneficiary(h.db, world.dhaka);
+    await blockB(await as(world.users.rpmDhaka), id, { reason: 'যাচাই চলছে' }).expect(201);
+    const body = { reason: 'ব্লক তোলা হলো' };
+    expect((await unblockB(await as(world.users.rpmRangpur), id, body)).status).toBe(404);
+    expect((await unblockB(await as(world.users.executive), id, body)).status).toBe(403);
+    expect((await unblockB(await as(world.users.general), id, body)).status).toBe(403);
+    expect((await api().post(`/api/v1/beneficiaries/${id}/unblock`).send(body)).status).toBe(401);
+    expect(await flag(id)).toBe(true);
   });
 
   it('refuses a second block and a lift without a block', async () => {

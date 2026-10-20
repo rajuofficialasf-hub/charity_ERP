@@ -121,7 +121,7 @@ export class BlocklistService {
   }
 
   /**
-   * Blocks a beneficiary with a reason (BD-06): no new application in any project from now on,
+   * Blocks a beneficiary with a reason: no new application in any project from now on,
    * the ongoing ones go on unchanged. The trigger `sync_blocklist_flags` sets the profile's flag;
    * the reason stays with the entry and the audit log, for officials only.
    */

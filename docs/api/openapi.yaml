@@ -5529,7 +5529,7 @@ paths:
     post:
       tags: [beneficiaries]
       operationId: beneficiaries.correction.create
-      summary: Request correction of a locked field (BR-006)
+      summary: Request correction of a locked field
       x-permission: beneficiary.correction.request
       x-scope: beneficiary
       x-audit: beneficiary.correction_requested

@@ -242,11 +242,20 @@ export class BeneficiaryIdentityService {
    * Ongoing applications of a blocked person are not affected.
    */
   async assertMayApply(tx: Tx, beneficiaryId: string): Promise<void> {
-    const liveId = await this.liveOf(tx, beneficiaryId);
-    if (!liveId) throw new ApiError('permission.not_found', 404);
-    const [row] = await tx.$queryRaw<{ is_blocked: boolean }[]>`
-      SELECT is_blocked FROM beneficiaries WHERE id = ${liveId}::uuid FOR UPDATE`;
-    if (row?.is_blocked) throw new ApiError('beneficiary.blocked', 409);
+    // each profile of the chain is locked before its pointer is read, so a merge that commits in
+    // between cannot leave the gate on a retired profile whose block moved on
+    let id = beneficiaryId;
+    for (let hop = 0; hop <= MERGE_HOPS; hop++) {
+      const [row] = await tx.$queryRaw<{ is_blocked: boolean; merged_into_id: string | null }[]>`
+        SELECT is_blocked, merged_into_id FROM beneficiaries WHERE id = ${id}::uuid FOR UPDATE`;
+      if (!row) throw new ApiError('permission.not_found', 404);
+      if (!row.merged_into_id) {
+        if (row.is_blocked) throw new ApiError('beneficiary.blocked', 409);
+        return;
+      }
+      id = row.merged_into_id;
+    }
+    throw new Error(`the merge chain of beneficiary ${beneficiaryId} does not end`);
   }
 
   /**
