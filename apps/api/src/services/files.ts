@@ -197,12 +197,10 @@ export class FilesService {
    * registration photo, which the NID audit names.
    */
   private async viewer(principal: Principal, file: StoredFile): Promise<string | null> {
-    let owner: string | null = null;
-    let allowed = false;
-    if (PHOTO_KINDS.includes(file.kind)) {
-      owner = await this.ownerOf(file);
-      allowed = !!owner && (await this.mayViewPhoto(principal, owner, file.kind));
-    } else allowed = await this.mayViewLinked(principal, file);
+    const owner = PHOTO_KINDS.includes(file.kind) ? await this.ownerOf(file) : null;
+    const allowed = PHOTO_KINDS.includes(file.kind)
+      ? !!owner && (await this.mayViewPhoto(principal, owner, file.kind))
+      : await this.mayViewLinked(principal, file);
     if (!allowed) {
       this.access.denied(principal.userId, 'entity', 'file');
       throw new ApiError('permission.not_found', 404);
