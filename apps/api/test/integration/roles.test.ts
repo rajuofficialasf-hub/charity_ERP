@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import type { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { cloneTemplate } from './support/db';
@@ -8,10 +8,7 @@ import { cloneTemplate } from './support/db';
 // role deletes only the three kinds of project setup rows of DECISION_LOG D-106, nothing else.
 let db: Client;
 let drop: () => Promise<void>;
-const script = readFileSync(
-  fileURLToPath(new URL('../../prisma/sql/roles.sql', import.meta.url)),
-  'utf8',
-);
+const script = readFileSync(join(__dirname, '../../prisma/sql/roles.sql'), 'utf8');
 
 beforeAll(async () => {
   ({ client: db, drop } = await cloneTemplate(inject('templateDb')));
