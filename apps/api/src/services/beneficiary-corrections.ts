@@ -6,8 +6,9 @@ import { beneficiaryWhere, type Scope } from '../access/scope';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Principal } from '../auth/principal';
 import type { PrismaService, Tx } from '../core/prisma.service';
+import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
-import type { BeneficiaryIdentityService } from './beneficiary-identity';
+import { type BeneficiaryIdentityService, isUniqueViolation } from './beneficiary-identity';
 
 /** The column of each locked field. */
 const COLUMN = {
@@ -32,7 +33,7 @@ const VIEW = {
 } as const;
 
 /**
- * A profile correction request (BD-02): the only way the name, the father's or husband's name and
+ * A profile correction request: the only way the name, the father's or husband's name and
  * the identity numbers of a beneficiary change. One official requests it with the new value and a
  * reason; another official decides, never the requester; an approval re-checks that the value is
  * still the one the request saw and applies it in the same transaction, logged and audited. One
@@ -58,14 +59,30 @@ export class BeneficiaryCorrectionsService {
     return b;
   }
 
-  /** Refuses a new identity number another profile holds; the approval checks it again. */
-  private async assertIdentityFree(tx: Tx, actor: Principal, field: LockedField, value: string) {
+  /**
+   * Refuses a new identity number another profile holds. At the request the refusal comes only
+   * when the holder lies inside the requester's NID scope, so a request never tells whether a
+   * number exists elsewhere; the approval checks every holder, and a second person sees that.
+   */
+  private async assertIdentityFree(
+    tx: Tx,
+    actor: Principal,
+    beneficiaryId: string,
+    field: LockedField,
+    value: string,
+    at: 'request' | 'approval',
+  ) {
     if (field !== 'nid' && field !== 'birth_reg') return;
     const holder = await tx.beneficiary.findFirst({
-      where: field === 'nid' ? { nid: value } : { birthReg: value },
+      where: {
+        ...(field === 'nid' ? { nid: value } : { birthReg: value }),
+        id: { not: beneficiaryId },
+      },
       select: { id: true },
     });
-    if (holder) throw await this.identity.identityTaken(tx, actor, holder.id, 'newValue');
+    if (!holder) return;
+    if (at === 'request' && !(await this.identity.seesHolder(tx, actor, holder.id))) return;
+    throw await this.identity.identityTaken(tx, actor, holder.id, 'newValue');
   }
 
   async request(
@@ -81,8 +98,13 @@ export class BeneficiaryCorrectionsService {
         where: { beneficiaryId, field: body.field, status: 'submitted' },
       });
       if (waiting) throw new ApiError('beneficiary.correction_pending', 409);
-      await this.assertIdentityFree(tx, actor, body.field, body.newValue);
       const current = b[COLUMN[body.field]];
+      // a correction to the value the profile already holds changes nothing
+      if (body.newValue === current)
+        throw new ApiError('validation.failed', 422, undefined, [
+          { path: 'newValue', code: 'validation.failed' },
+        ]);
+      await this.assertIdentityFree(tx, actor, beneficiaryId, body.field, body.newValue, 'request');
       const row = await tx.profileCorrectionRequest.create({
         data: {
           id: uuidv7(),
@@ -135,11 +157,24 @@ export class BeneficiaryCorrectionsService {
         const b = await this.live(tx, actor, scope, found.beneficiaryId);
         if ((b[column] ?? '') !== found.oldValue)
           throw new ApiError('beneficiary.correction_stale', 409);
-        await this.assertIdentityFree(tx, actor, field, found.newValue);
-        await tx.beneficiary.update({
-          where: { id: found.beneficiaryId },
-          data: { [column]: found.newValue, updatedBy: actor.userId },
-        });
+        await this.assertIdentityFree(
+          tx,
+          actor,
+          found.beneficiaryId,
+          field,
+          found.newValue,
+          'approval',
+        );
+        try {
+          await tx.beneficiary.update({
+            where: { id: found.beneficiaryId },
+            data: { [column]: found.newValue, updatedBy: actor.userId },
+          });
+        } catch (error) {
+          // another profile took the number in between
+          if (isUniqueViolation(error)) throw new ApiError('beneficiary.identity_taken', 409);
+          throw error;
+        }
         await tx.fieldChange.create({
           data: {
             id: uuidv7(),
@@ -189,19 +224,7 @@ export class BeneficiaryCorrectionsService {
   private async view(
     tx: Tx,
     actor: Principal,
-    row: {
-      id: string;
-      beneficiaryId: string;
-      field: string;
-      oldValue: string;
-      newValue: string;
-      reason: string;
-      status: string;
-      requestedBy: string;
-      createdAt: Date;
-      decidedBy: string | null;
-      decidedAt: Date | null;
-    },
+    row: Prisma.ProfileCorrectionRequestGetPayload<{ select: typeof VIEW }>,
   ) {
     let seesValues = row.field !== 'nid' && row.field !== 'birth_reg';
     if (!seesValues) {

@@ -33,7 +33,7 @@ const dhakaDayStart = (now: Date) => {
 };
 
 /** A unique index refused the row, through the client (P2002) or a raw statement (P2010, 23505). */
-const isUniqueViolation = (error: unknown) =>
+export const isUniqueViolation = (error: unknown) =>
   error instanceof Prisma.PrismaClientKnownRequestError &&
   (error.code === 'P2002' ||
     (error.code === 'P2010' && JSON.stringify(error.meta).includes('23505')));
@@ -166,6 +166,8 @@ export class BeneficiaryIdentityService {
       'beneficiary',
     );
     const answer = await this.prisma.$transaction(async (tx) => {
+      // one user's lookups run one after another, so parallel requests cannot pass the daily count
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'lookup:' + viewer.principal.userId}))`;
       const match = await tx.beneficiary.findFirst({
         where: body.nid ? { nid: body.nid } : { birthReg: body.birthReg },
         select: { id: true, mergedIntoId: true },
@@ -234,6 +236,20 @@ export class BeneficiaryIdentityService {
   }
 
   /**
+   * The gate of a new application: the live profile behind the id (a retired one leads to its kept
+   * profile) must not be blocked. The profile row is locked, as a block locks it, so an application
+   * and a block in progress cannot cross; call it in the transaction that inserts the application.
+   * Ongoing applications of a blocked person are not affected.
+   */
+  async assertMayApply(tx: Tx, beneficiaryId: string): Promise<void> {
+    const liveId = await this.liveOf(tx, beneficiaryId);
+    if (!liveId) throw new ApiError('permission.not_found', 404);
+    const [row] = await tx.$queryRaw<{ is_blocked: boolean }[]>`
+      SELECT is_blocked FROM beneficiaries WHERE id = ${liveId}::uuid FOR UPDATE`;
+    if (row?.is_blocked) throw new ApiError('beneficiary.blocked', 409);
+  }
+
+  /**
    * Refuses a mobile that belongs to the volunteer entering the profile, or to the volunteer an
    * application belongs to; the database refuses the same on every application as well.
    */
@@ -282,8 +298,23 @@ export class BeneficiaryIdentityService {
   }
 
   /**
+   * Whether a number another profile holds may be named to the caller: only inside the caller's
+   * `beneficiary.view_nid` scope, where a search by that number would find the holder anyway.
+   */
+  async seesHolder(db: Tx, actor: Principal, holderId: string): Promise<boolean> {
+    const access = await this.access.load(actor.userId, db);
+    const scope = await this.access.sensitiveScope(
+      actor,
+      access,
+      'beneficiary.view_nid',
+      'beneficiary',
+    );
+    return !!scope && (await this.access.reaches(scope, { beneficiaryId: holderId }, db));
+  }
+
+  /**
    * A refusal of an identity number another profile holds; it names that profile's BEN number only
-   * to a caller whose beneficiary scope reaches it.
+   * to a caller whose NID scope reaches it.
    */
   async identityTaken(
     db: Tx,
@@ -291,19 +322,11 @@ export class BeneficiaryIdentityService {
     holderId: string,
     path: 'nid' | 'birthReg' | 'newValue',
   ): Promise<ApiError> {
-    const access = await this.access.load(actor.userId, db);
-    const scope = await this.access.sensitiveScope(
-      actor,
-      access,
-      'beneficiary.view_all',
-      'beneficiary',
-    );
     const holder = await db.beneficiary.findUnique({
       where: { id: holderId },
       select: { benNo: true },
     });
-    const sees =
-      !!scope && !!holder && (await this.access.reaches(scope, { beneficiaryId: holderId }, db));
+    const sees = !!holder && (await this.seesHolder(db, actor, holderId));
     return new ApiError('beneficiary.identity_taken', 409, undefined, [
       {
         path,

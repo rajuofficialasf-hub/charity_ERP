@@ -113,6 +113,42 @@ describe('the contact edit of a beneficiary', () => {
     }
   });
 
+  it('moves the address to another place as a whole chain, logging each place', async () => {
+    const id = await applicant();
+    const head = await as(world.users.head);
+    const other = await f.locationTree(h.db);
+    const res = await edit(
+      head,
+      id,
+      {
+        divisionId: other.division,
+        districtId: other.district,
+        upazilaId: other.upazila,
+        unionId: other.union,
+        village: 'নদীর ওপারের গ্রাম',
+        postOffice: 'চরপাড়া',
+        postCode: '5400',
+      },
+      await etag(head, id),
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({
+      divisionId: other.division,
+      unionId: other.union,
+      postOffice: 'চরপাড়া',
+      postCode: '5400',
+    });
+    expect((await changes(id)).map((c) => c.field)).toEqual([
+      'district_id',
+      'division_id',
+      'post_code',
+      'post_office',
+      'union_id',
+      'upazila_id',
+      'village',
+    ]);
+  });
+
   it('moves the address only as a whole chain of places', async () => {
     const id = await applicant();
     const rpm = await as(world.users.rpmDhaka);

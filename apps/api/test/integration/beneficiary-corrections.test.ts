@@ -169,6 +169,34 @@ describe('the correction of a locked field', () => {
     expect(late.body.error.code).toBe('beneficiary.identity_taken');
   });
 
+  it("accepts a request for a number held outside the requester's NID scope, and the approval refuses it", async () => {
+    // a Rangpur profile holds the number; the Dhaka RPM cannot see Rangpur NIDs
+    const holder = await f.beneficiary(h.db, world.rangpur);
+    const taken = (await profileRow(holder)).nid;
+    const id = await applicant();
+    const created = await requestCorrection(await as(world.users.rpmDhaka), id, {
+      ...NAME,
+      field: 'nid',
+      newValue: taken,
+    });
+    expect(created.status).toBe(201);
+    const late = await decide(await as(world.users.head), created.body.data.id, {
+      decision: 'approve',
+    });
+    expect(late.status).toBe(409);
+    expect(late.body.error.code).toBe('beneficiary.identity_taken');
+  });
+
+  it('refuses a correction to the value the profile already holds', async () => {
+    const id = await applicant({ name: 'একই নাম' });
+    const res = await requestCorrection(await as(world.users.rpmDhaka), id, {
+      ...NAME,
+      newValue: 'একই নাম',
+    });
+    expect(res.status).toBe(422);
+    expect(res.body.error.details[0].path).toBe('newValue');
+  });
+
   it('refuses a new NID in a wrong format', async () => {
     const id = await applicant();
     const res = await requestCorrection(await as(world.users.rpmDhaka), id, {
