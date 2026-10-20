@@ -84,7 +84,6 @@ const PROTECTED_KEYS = [
   'bankRoutingNumber',
   'bloodGroup',
   'dateOfBirth',
-  'emergencyContact',
   'category',
   'ratings',
 ];

@@ -26,6 +26,11 @@ export interface OperationSpec {
   workflow?: string;
   /** A pending account may call this operation (AUTH.md 7). */
   allowPending?: boolean;
+  /**
+   * An account that must set a new password (DECISION_LOG O-66) may call this operation. Exactly the own
+   * profile read, the language, the password change and the logout carry it.
+   */
+  allowPasswordChange?: boolean;
   /** Security of a public operation that is not bearer, e.g. the refresh cookie. */
   cookieAuth?: string;
   /** Header parameters of the contract (Accept-Language, X-Client-Version, If-Match, …). */

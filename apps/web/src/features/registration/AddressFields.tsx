@@ -28,15 +28,23 @@ export function AddressFields({
   value,
   onChange,
   errors = {},
+  optional = false,
+  labelSuffix = '',
 }: {
   value: Address;
   onChange: (next: Address) => void;
   errors?: Record<string, string | undefined>;
+  /** The levels are not mandatory (the permanent address, O-66). */
+  optional?: boolean;
+  /** Told after each label when two addresses are on one page, e.g. "(permanent)". */
+  labelSuffix?: string;
 }) {
   const t = useTranslations('registration.form');
   const locale = useLocale();
   const parents = [undefined, value.divisionId, value.districtId, value.upazilaId];
-  const labels = [t('division'), t('district'), t('upazila'), t('union')];
+  const labels = [t('division'), t('district'), t('upazila'), t('union')].map((l) =>
+    labelSuffix ? `${l} ${labelSuffix}` : l,
+  );
   const lists = [
     useLevel(undefined),
     useLevel(value.divisionId),
@@ -49,12 +57,12 @@ export function AddressFields({
         <Select
           key={level}
           label={labels[i]!}
-          name={level}
-          required
+          name={labelSuffix ? `permanent-${level}` : level}
+          required={!optional}
           value={value[level]}
           // a list still loading cannot be opened empty
           disabled={(i > 0 && !parents[i]) || !lists[i]}
-          error={errors[level]}
+          error={errors[labelSuffix ? `permanent-${level}` : level]}
           options={(lists[i] ?? []).map((l) => ({ id: l.id, label: l.name[locale] }))}
           onChange={(id) => {
             const next = { ...value, [level]: id };

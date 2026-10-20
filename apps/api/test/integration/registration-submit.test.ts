@@ -45,7 +45,6 @@ const volunteerForm = (d: Pick<Draft, 'registrationId'>, over: Record<string, un
   upazilaId: loc.upazila,
   unionId: loc.union,
   whatsapp: f.fakeMobile(),
-  education: 'স্নাতক',
   profession: 'student',
   ...over,
 });
@@ -238,7 +237,8 @@ describe('POST /auth/register/submit', () => {
               blood_group = 'A+', date_of_birth = '1980-01-01', tshirt_size = 'XL', volunteering_area = 'anywhere',
               profession = 'imam', profession_details = '{"mosqueName":"Old"}', interest_areas = '["media"]',
               vehicle = 'bicycle', can_swim = true, availability = 'anytime',
-              emergency_contact_name = 'Old', emergency_contact_mobile = '01712345678'
+              emergency_full_time = true, education_details = '{"institutionName":"Old"}',
+              permanent_address = '{"addressLine":"Old"}', facebook_id = 'https://www.facebook.com/old'
         WHERE user_id = $1`,
       [userId, f.fakeNid()],
     );
@@ -264,7 +264,7 @@ describe('POST /auth/register/submit', () => {
         `SELECT v.bank_name, v.bank_account_number, v.bank_branch_name, v.reference_nid, v.type, u.home_program_id,
                 v.blood_group, v.date_of_birth, v.tshirt_size, v.volunteering_area, v.profession,
                 v.profession_details, v.interest_areas, v.vehicle, v.can_swim, v.availability,
-                v.emergency_contact_name, v.emergency_contact_mobile
+                v.emergency_full_time, v.education_details, v.permanent_address, v.facebook_id
            FROM volunteers v JOIN users u ON u.id = v.user_id WHERE u.id = $1`,
         [userId],
       )
@@ -287,8 +287,10 @@ describe('POST /auth/register/submit', () => {
       vehicle: null,
       can_swim: null,
       availability: null,
-      emergency_contact_name: null,
-      emergency_contact_mobile: null,
+      emergency_full_time: null,
+      education_details: {},
+      permanent_address: null,
+      facebook_id: null,
     });
     expect(
       (await h.db.query('SELECT 1 FROM volunteers WHERE user_id = $1', [userId])).rowCount,
@@ -304,8 +306,15 @@ describe('POST /auth/register/submit', () => {
   });
 });
 
-describe('the personal, profession and skills data (O-65, D-092; BR-246)', () => {
-  const FULL = {
+describe('the personal, profession, education and address data', () => {
+  // the locations exist only after the setup has run, so the data are built when a test asks
+  const place = () => ({
+    divisionId: loc.division,
+    districtId: loc.district,
+    upazilaId: loc.upazila,
+    unionId: loc.union,
+  });
+  const full = () => ({
     dateOfBirth: '1990-05-17',
     bloodGroup: 'O+',
     tshirtSize: 'L',
@@ -320,14 +329,24 @@ describe('the personal, profession and skills data (O-65, D-092; BR-246)', () =>
     vehicle: 'motorcycle',
     canSwim: true,
     availability: 'on_call',
-    emergencyContact: { name: 'নমুনা অভিভাবক', mobile: '01812345678' },
-  };
+    emergencyFullTime: true,
+    facebookId: 'https://www.facebook.com/nomuna.name',
+    educationDetails: {
+      highestQualification: 'masters',
+      institutionName: 'নমুনা বিশ্ববিদ্যালয়',
+      subject: 'ইতিহাস',
+      passingYear: 2018,
+      result: 'CGPA 3.80',
+      status: 'completed',
+    },
+    permanentAddress: { ...place(), addressLine: 'নমুনা গ্রাম' },
+  });
   const columnsOf = async (userId: string) =>
     (
       await h.db.query(
         `SELECT to_char(date_of_birth, 'YYYY-MM-DD') AS dob, blood_group, tshirt_size, volunteering_area,
                 profession, profession_details, interest_areas, vehicle, can_swim, availability,
-                emergency_contact_name, emergency_contact_mobile
+                emergency_full_time, facebook_id, education_details, permanent_address
            FROM volunteers WHERE user_id = $1`,
         [userId],
       )
@@ -335,7 +354,7 @@ describe('the personal, profession and skills data (O-65, D-092; BR-246)', () =>
 
   it('stores every new field, the profession details as one object', async () => {
     const d = await verifiedDraft(h);
-    const res = await submit(d.token, volunteerForm(d, FULL));
+    const res = await submit(d.token, volunteerForm(d, full()));
     expect(res.status).toBe(201);
     expect(await columnsOf(res.body.data.id)).toEqual({
       dob: '1990-05-17',
@@ -343,13 +362,15 @@ describe('the personal, profession and skills data (O-65, D-092; BR-246)', () =>
       tshirt_size: 'L',
       volunteering_area: 'own_upazila',
       profession: 'teacher',
-      profession_details: FULL.professionDetails,
+      profession_details: full().professionDetails,
       interest_areas: ['field_relief', 'first_aid'],
       vehicle: 'motorcycle',
       can_swim: true,
       availability: 'on_call',
-      emergency_contact_name: 'নমুনা অভিভাবক',
-      emergency_contact_mobile: '01812345678',
+      emergency_full_time: true,
+      facebook_id: 'https://www.facebook.com/nomuna.name',
+      education_details: full().educationDetails,
+      permanent_address: full().permanentAddress,
     });
   });
 
@@ -368,8 +389,10 @@ describe('the personal, profession and skills data (O-65, D-092; BR-246)', () =>
       vehicle: null,
       can_swim: null,
       availability: null,
-      emergency_contact_name: null,
-      emergency_contact_mobile: null,
+      emergency_full_time: null,
+      facebook_id: null,
+      education_details: {},
+      permanent_address: null,
     });
   });
 
@@ -383,9 +406,23 @@ describe('the personal, profession and skills data (O-65, D-092; BR-246)', () =>
       [{ profession: undefined }, 'profession'],
       [{ bloodGroup: 'Z+' }, 'bloodGroup'],
       [{ dateOfBirth: '2999-01-01' }, 'dateOfBirth'],
-      [{ emergencyContact: { mobile: '123' } }, 'emergencyContact.mobile'],
+      [{ facebookId: 'nomuna.name' }, 'facebookId'],
+      [{ facebookId: 'https://facebook.com@evil.example/x' }, 'facebookId'],
+      [
+        { educationDetails: { highestQualification: 'everything' } },
+        'educationDetails.highestQualification',
+      ],
+      [{ educationDetails: { grade: 'A' } }, 'educationDetails.grade'],
+      [
+        { permanentAddress: { ...place(), districtId: loc.upazila } },
+        'permanentAddress.districtId',
+      ],
       [{ interestAreas: ['media', 'media'] }, 'interestAreas'],
+      // no longer asked: covered by the profession (O-65), the education section or dropped (O-66)
       [{ experience: 'পুরনো ফিল্ড' }, 'experience'],
+      [{ education: 'স্নাতক' }, 'education'],
+      [{ previousProjects: 'আগের প্রজেক্ট' }, 'previousProjects'],
+      [{ emergencyContact: { name: 'অভিভাবক' } }, 'emergencyContact'],
     ];
     for (const [over, path] of cases) {
       const d = await verifiedDraft(h);

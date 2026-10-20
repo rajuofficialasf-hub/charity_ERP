@@ -115,6 +115,7 @@ export function defineRoute<B = unknown, Q = unknown, P = Record<string, unknown
   };
   router[method](
     path,
+    ...(spec.permission === 'public' ? [] : [noStore]),
     ...deps.access(spec),
     ...deps.limiters.for(spec.rateLimit, where),
     ...before,
@@ -122,6 +123,16 @@ export function defineRoute<B = unknown, Q = unknown, P = Record<string, unknown
     run,
   );
 }
+
+/**
+ * A signed-in answer holds the caller's own or other people's personal data, so no browser or
+ * proxy keeps it (R7 of docs/plans/2026-10-14-1400-feat-volunteer-form-refine-plan.md). Public
+ * routes carry no personal data; the ones that do (a draft) set the header themselves.
+ */
+const noStore: RequestHandler = (_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+};
 
 /** Entities whose records carry protected fields: their routes always declare a response schema. */
 const MASKED_ENTITIES = new Set([

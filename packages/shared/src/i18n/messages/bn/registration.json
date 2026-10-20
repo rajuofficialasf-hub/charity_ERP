@@ -23,7 +23,8 @@
     "workplace": "কর্মস্থল",
     "address": "ঠিকানা",
     "profession": "পেশা",
-    "skills": "দক্ষতা ও সময়"
+    "skills": "দক্ষতা ও সময়",
+    "education": "শিক্ষা"
   },
   "verify": {
     "button": "যাচাই করুন",
@@ -68,11 +69,11 @@
       "team_member": "টিম মেম্বার",
       "paid": "পেইড ভলান্টিয়ার"
     },
-    "education": "শিক্ষাগত যোগ্যতা",
+    "education": "আগের শিক্ষাগত যোগ্যতা",
     "experience": "অভিজ্ঞতা",
     "work_description": "কী ধরনের কাজ করেন",
     "previous_projects": "আগের প্রজেক্টে কাজ",
-    "facebook": "ফেসবুক আইডি",
+    "facebook": "ফেসবুক অ্যাকাউন্টের লিঙ্ক",
     "bank": "ব্যাংকের তথ্য",
     "bank_name": "ব্যাংকের নাম",
     "account_name": "হিসাবের নাম",
@@ -102,16 +103,26 @@
     "can_swim": "সাঁতার জানেন কি?",
     "availability": "কখন সময় দিতে পারবেন?",
     "skills": "দক্ষতা ও সময়",
-    "emergency_contact": "জরুরি যোগাযোগ",
-    "emergency_name": "অভিভাবকের নাম",
-    "emergency_mobile": "অভিভাবকের মোবাইল নম্বর",
     "yes": "হ্যাঁ",
     "no": "না",
     "choose": "বেছে নিন",
     "profession_group": "পেশা",
     "vehicle_short": "বাহন",
     "swimming_short": "সাঁতার",
-    "availability_short": "সময়"
+    "availability_short": "সময়",
+    "address_present": "বর্তমান ঠিকানা",
+    "address_permanent": "স্থায়ী ঠিকানা",
+    "same_address": "বর্তমান ঠিকানাই আমার স্থায়ী ঠিকানা",
+    "education_group": "শিক্ষা",
+    "highest_qualification": "সর্বশেষ শিক্ষাগত যোগ্যতা",
+    "institution_name": "শিক্ষাপ্রতিষ্ঠানের নাম",
+    "edu_subject": "বিভাগ বা বিষয়",
+    "passing_year": "পাসের বছর",
+    "result": "ফলাফল (জিপিএ বা বিভাগ)",
+    "edu_status": "অবস্থা",
+    "emergency_full_time": "জরুরি কাজে পূর্ণ সময় দিতে পারবেন কি?",
+    "emergency_full_time_short": "জরুরি কাজে পূর্ণ সময়",
+    "permanent_suffix": "(স্থায়ী)"
   },
   "done": {
     "title": "নিবন্ধন জমা হয়েছে",
@@ -141,7 +152,8 @@
       "work": "কাজের তথ্য",
       "bank": "ব্যাংকের তথ্য",
       "photos": "ছবি",
-      "skills": "দক্ষতা ও সময়"
+      "skills": "দক্ষতা ও সময়",
+      "education": "শিক্ষা"
     },
     "edit": {
       "button": "সম্পাদনা",
@@ -162,7 +174,10 @@
       "pick": "যা বদলাতে চান, তা বেছে নিন।",
       "change_field": "{field} বদলাতে চাই",
       "form_label": "{section} পরিবর্তনের অনুরোধ",
-      "partial": "কিছু অনুরোধ পাঠানো যায়নি। চিহ্নিত তথ্যগুলো দেখুন।"
+      "partial": "কিছু অনুরোধ পাঠানো যায়নি। চিহ্নিত তথ্যগুলো দেখুন।",
+      "leave_title": "না পাঠিয়ে চলে যাবেন?",
+      "leave_message": "আপনার টিক দেওয়া তথ্য ও লেখা এখনো পাঠানো হয়নি। চলে গেলে সেগুলো হারিয়ে যাবে।",
+      "leave_confirm": "এই অংশ ছেড়ে যান"
     },
     "nav_label": "প্রোফাইলের অংশ",
     "state": {
@@ -261,9 +276,7 @@
         "businessAddress": "ঠিকানা বা বাজারের নাম"
       },
       "job_seeker": {
-        "highestQualification": "সর্বশেষ শিক্ষাগত যোগ্যতা",
-        "skills": "বিশেষ দক্ষতা (কম্পিউটার, ড্রাইভিং, হিসাবরক্ষণ…)",
-        "fullTimeAvailable": "জরুরি কাজে পূর্ণ সময় দিতে পারবেন কি?"
+        "skills": "বিশেষ দক্ষতা (কম্পিউটার, ড্রাইভিং, হিসাবরক্ষণ…)"
       },
       "service_holder": {
         "sector": "পেশা বা খাতের নাম",
@@ -271,6 +284,25 @@
         "designation": "পদবি",
         "workplaceLocation": "কর্মস্থলের এলাকা"
       }
+    },
+    "qualification": {
+      "psc": "পিএসসি (পঞ্চম শ্রেণি)",
+      "jsc": "জেএসসি (অষ্টম শ্রেণি)",
+      "ssc": "এসএসসি",
+      "dakhil": "দাখিল",
+      "hsc": "এইচএসসি",
+      "alim": "আলিম",
+      "diploma": "ডিপ্লোমা",
+      "bachelor": "স্নাতক (অনার্স বা ডিগ্রি)",
+      "fazil": "ফাজিল",
+      "masters": "স্নাতকোত্তর",
+      "kamil": "কামিল",
+      "hafez": "হাফেজ",
+      "other": "অন্যান্য"
+    },
+    "education_status": {
+      "studying": "পড়ছি",
+      "completed": "শেষ করেছি"
     }
   }
 }

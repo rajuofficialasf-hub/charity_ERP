@@ -45,8 +45,6 @@ const optionalText = (max: number) =>
     .transform((v) => v || undefined)
     .optional();
 
-const mobile = z.string().regex(/^01[3-9][0-9]{8}$/, { message: 'validation.mobile_format' });
-
 /** The date of birth: a real calendar date in the past, not before 1900. */
 export const dateOfBirthSchema = z
   .string()
@@ -78,15 +76,90 @@ export const skillsValueSchema = z.strictObject({
   vehicle: z.enum(VEHICLES).optional(),
   canSwim: z.boolean().optional(),
   availability: z.enum(AVAILABILITIES).optional(),
+  /** Can give full time in an emergency (a yes or no; O-66: only here, not in a profession). */
+  emergencyFullTime: z.boolean().optional(),
 });
 export type SkillsValue = z.infer<typeof skillsValueSchema>;
 
-/** The emergency contact (the guardian) as one value: a name and a Bangladeshi mobile. */
-export const emergencyContactSchema = z.strictObject({
-  name: optionalText(200),
-  mobile: mobile.optional(),
+/** The hosts a Facebook account link may have besides the subdomains of facebook.com (O-66). */
+const FACEBOOK_HOSTS = new Set(['facebook.com', 'fb.com', 'www.fb.com', 'fb.me']);
+
+/** Facebook's own redirect hosts: a link there can send the reader anywhere. */
+const FACEBOOK_REDIRECTS = new Set(['l.facebook.com', 'lm.facebook.com']);
+
+/** Control characters (C0, DEL, C1) and the invisible width and direction marks. */
+const isHidden = (code: number): boolean =>
+  code < 0x20 ||
+  (code >= 0x7f && code <= 0x9f) ||
+  (code >= 0x200b && code <= 0x200f) ||
+  (code >= 0x202a && code <= 0x202e) ||
+  (code >= 0x2066 && code <= 0x2069) ||
+  code === 0xfeff;
+
+/**
+ * Whether the text is an https link to Facebook: it starts with `https://`, its authority (the
+ * part before the first `/`, `?` or `#`) is a plain host without a user name, password or port,
+ * that host is exactly one of the hosts above or a subdomain of facebook.com, and the text has no
+ * whitespace, control character or backslash. Shared with the PWA, which draws an anchor only when
+ * this holds; the server never fetches the link. Written without the `URL` class because this
+ * package has neither the DOM nor the Node types.
+ */
+export function isFacebookLink(value: string): boolean {
+  // whitespace, a backslash, control characters (C0, DEL, C1) and the invisible direction and
+  // width marks that could make the shown text differ from the link
+  if (/[\s\\]/.test(value) || [...value].some((c) => isHidden(c.charCodeAt(0)))) return false;
+  const match = /^https:\/\/([^/?#]*)([/?#].*)?$/i.exec(value);
+  if (!match) return false;
+  const host = match[1]!.toLowerCase();
+  if (!/^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/.test(host)) return false;
+  // Facebook's own "leaving Facebook" pages forward to any address
+  if (/^\/(?:l\.php|flx\/warn)(?:[/?#]|$)/i.test(match[2] ?? '')) return false;
+  return (
+    !FACEBOOK_REDIRECTS.has(host) && (FACEBOOK_HOSTS.has(host) || host.endsWith('.facebook.com'))
+  );
+}
+
+/** The Facebook account as a link: https, a Facebook host, no credentials, at most 300 characters. */
+export const facebookLinkSchema = z
+  .string()
+  .trim()
+  .max(300)
+  .refine(isFacebookLink, { message: 'validation.facebook_link' });
+
+export const QUALIFICATIONS = [
+  'psc',
+  'jsc',
+  'ssc',
+  'dakhil',
+  'hsc',
+  'alim',
+  'diploma',
+  'bachelor',
+  'fazil',
+  'masters',
+  'kamil',
+  'hafez',
+  'other',
+] as const;
+export const EDUCATION_STATUSES = ['studying', 'completed'] as const;
+export type Qualification = (typeof QUALIFICATIONS)[number];
+export type EducationStatus = (typeof EDUCATION_STATUSES)[number];
+
+/** Education as one value (O-66, BR-248); every part is optional. */
+export const educationValueSchema = z.strictObject({
+  highestQualification: z.enum(QUALIFICATIONS).optional(),
+  institutionName: optionalText(200),
+  subject: optionalText(200),
+  passingYear: z
+    .number()
+    .int()
+    .min(1950)
+    .refine((v) => v <= new Date().getFullYear() + 8, { message: 'validation.out_of_range' })
+    .optional(),
+  result: optionalText(60),
+  status: z.enum(EDUCATION_STATUSES).optional(),
 });
-export type EmergencyContact = z.infer<typeof emergencyContactSchema>;
+export type EducationValue = z.infer<typeof educationValueSchema>;
 
 /** The options of the profession fields that are a choice, in the order the form shows them. */
 export const DETAIL_OPTIONS = {
@@ -124,9 +197,7 @@ export const PROFESSION_DETAILS = {
     businessAddress: optionalText(400),
   }),
   job_seeker: z.strictObject({
-    highestQualification: optionalText(200),
     skills: optionalText(400),
-    fullTimeAvailable: z.boolean().optional(),
   }),
   service_holder: z.strictObject({
     sector: optionalText(200),

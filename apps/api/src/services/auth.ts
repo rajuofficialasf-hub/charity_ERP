@@ -261,6 +261,7 @@ export class AuthService {
         state: true,
         language: true,
         permissionVersion: true,
+        passwordChangeRequired: true,
         userRolesUser: { where: { revokedAt: null }, select: { roleKey: true } },
         volunteersUser: { select: { id: true } },
       },
@@ -273,6 +274,7 @@ export class AuthService {
       roles: user.userRolesUser.map((r) => r.roleKey).sort(),
       language: user.language as Me['language'],
       permissionVersion: user.permissionVersion,
+      passwordChangeRequired: user.passwordChangeRequired,
       blockMessage: null,
       volunteerId: user.volunteersUser?.id ?? null,
     };
@@ -307,9 +309,18 @@ export class AuthService {
         { path: 'currentPassword', code: 'auth.current_password_invalid' },
       ]);
     await this.assertPasswordRules(this.prisma, user, body.newPassword, 'newPassword');
+    // the same password is no change: it would keep a short password that a new role asks to replace
+    if (await this.hasher.verify(user.passwordHash, body.newPassword))
+      throw new ApiError('validation.failed', 422, undefined, [
+        { path: 'newPassword', code: 'auth.password_unchanged' },
+      ]);
     const passwordHash = await this.hasher.hash(body.newPassword);
     await this.prisma.$transaction(async (tx) => {
-      await tx.user.update({ where: { id: user.id }, data: { passwordHash } });
+      // the rules above hold the new password to the length of the role, so the flag ends here
+      await tx.user.update({
+        where: { id: user.id },
+        data: { passwordHash, passwordChangeRequired: false },
+      });
       const revoked = await this.sessions.revokeAll(
         tx,
         user.id,
@@ -323,6 +334,8 @@ export class AuthService {
         new: { otherSessionsRevoked: revoked.length },
       });
     });
+    // the facts of the kept session still say "password due" until they are read again
+    this.sessions.evictUser(user.id);
   }
 
   /** Where the reset code goes: volunteers by SMS, staff by email (SMS without email). */
@@ -395,7 +408,12 @@ export class AuthService {
       if (!(await this.otp.consume(tx, otpId))) throw new ApiError('otp.invalid', 422);
       await tx.user.update({
         where: { id: user.id },
-        data: { passwordHash, failedLoginCount: 0, lockedUntil: null },
+        data: {
+          passwordHash,
+          failedLoginCount: 0,
+          lockedUntil: null,
+          passwordChangeRequired: false,
+        },
       });
       const revoked = await this.sessions.revokeAll(tx, user.id, {
         by: user.id,

@@ -23,7 +23,8 @@
     "workplace": "Workplace",
     "address": "Address",
     "profession": "Profession",
-    "skills": "Skills and time"
+    "skills": "Skills and time",
+    "education": "Education"
   },
   "verify": {
     "button": "Verify",
@@ -68,11 +69,11 @@
       "team_member": "Team member",
       "paid": "Paid volunteer"
     },
-    "education": "Education",
+    "education": "Education (earlier)",
     "experience": "Experience",
     "work_description": "What work you do",
     "previous_projects": "Work in earlier projects",
-    "facebook": "Facebook id",
+    "facebook": "Facebook account link",
     "bank": "Bank details",
     "bank_name": "Bank name",
     "account_name": "Account name",
@@ -102,16 +103,26 @@
     "can_swim": "Can you swim?",
     "availability": "When can you give time?",
     "skills": "Skills and time",
-    "emergency_contact": "Emergency contact",
-    "emergency_name": "Guardian's name",
-    "emergency_mobile": "Guardian's mobile number",
     "yes": "Yes",
     "no": "No",
     "choose": "Choose",
     "profession_group": "Profession",
     "vehicle_short": "Vehicle",
     "swimming_short": "Swimming",
-    "availability_short": "Availability"
+    "availability_short": "Availability",
+    "address_present": "Present address",
+    "address_permanent": "Permanent address",
+    "same_address": "My present address is my permanent address",
+    "education_group": "Education",
+    "highest_qualification": "Highest qualification",
+    "institution_name": "Institution name",
+    "edu_subject": "Department or subject",
+    "passing_year": "Passing year",
+    "result": "Result (GPA or division)",
+    "edu_status": "Status",
+    "emergency_full_time": "Can you give full time in an emergency?",
+    "emergency_full_time_short": "Full time in an emergency",
+    "permanent_suffix": "(permanent)"
   },
   "done": {
     "title": "Registration submitted",
@@ -141,7 +152,8 @@
       "work": "Work details",
       "bank": "Bank details",
       "photos": "Photos",
-      "skills": "Skills and time"
+      "skills": "Skills and time",
+      "education": "Education"
     },
     "edit": {
       "button": "Edit",
@@ -162,7 +174,10 @@
       "pick": "Tick what you want to change.",
       "change_field": "Change {field}",
       "form_label": "Request to change {section}",
-      "partial": "Some requests were not sent. Check the marked details."
+      "partial": "Some requests were not sent. Check the marked details.",
+      "leave_title": "Leave without sending?",
+      "leave_message": "The details you ticked and what you typed are not sent yet. If you leave, they are lost.",
+      "leave_confirm": "Leave this section"
     },
     "nav_label": "Profile sections",
     "state": {
@@ -261,9 +276,7 @@
         "businessAddress": "Address or market name"
       },
       "job_seeker": {
-        "highestQualification": "Highest qualification",
-        "skills": "Special skills (computer, driving, accounting…)",
-        "fullTimeAvailable": "Can you give full time in an emergency?"
+        "skills": "Special skills (computer, driving, accounting…)"
       },
       "service_holder": {
         "sector": "Profession or sector",
@@ -271,6 +284,25 @@
         "designation": "Designation",
         "workplaceLocation": "Workplace area"
       }
+    },
+    "qualification": {
+      "psc": "PSC (class five)",
+      "jsc": "JSC (class eight)",
+      "ssc": "SSC",
+      "dakhil": "Dakhil",
+      "hsc": "HSC",
+      "alim": "Alim",
+      "diploma": "Diploma",
+      "bachelor": "Bachelor (honours or pass)",
+      "fazil": "Fazil",
+      "masters": "Masters",
+      "kamil": "Kamil",
+      "hafez": "Hafez",
+      "other": "Other"
+    },
+    "education_status": {
+      "studying": "Studying",
+      "completed": "Completed"
     }
   }
 }

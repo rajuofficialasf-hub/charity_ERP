@@ -1,7 +1,8 @@
-import { Alert, Button, Card, EmptyState, ErrorState, Skeleton } from '@css/ui';
+import { Alert, Button, Card, ConfirmDialog, EmptyState, ErrorState, Skeleton } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import {
   Briefcase,
+  GraduationCap,
   Image,
   Landmark,
   MapPin,
@@ -28,25 +29,28 @@ const SECTIONS = [
   {
     key: 'personal',
     icon: User,
-    fields: ['name', 'fatherName', 'motherName', 'nid', 'dateOfBirth', 'bloodGroup', 'tshirtSize'],
+    fields: [
+      'name',
+      'fatherName',
+      'motherName',
+      'nid',
+      'dateOfBirth',
+      'bloodGroup',
+      'tshirtSize',
+      'facebookId',
+    ],
   },
+  { key: 'contact', icon: Phone, fields: ['mobile', 'email', 'whatsapp'] },
   {
-    key: 'contact',
-    icon: Phone,
-    fields: ['mobile', 'email', 'whatsapp', 'facebookId', 'emergencyContact'],
+    key: 'address',
+    icon: MapPin,
+    fields: ['address', 'addressLine', 'permanentAddress', 'volunteeringArea'],
   },
-  { key: 'address', icon: MapPin, fields: ['address', 'addressLine', 'volunteeringArea'] },
+  { key: 'education', icon: GraduationCap, fields: ['educationDetails', 'education'] },
   {
     key: 'work',
     icon: Briefcase,
-    fields: [
-      'type',
-      'profession',
-      'education',
-      'previousProjects',
-      'experience',
-      'workDescription',
-    ],
+    fields: ['type', 'profession', 'previousProjects', 'experience', 'workDescription'],
   },
   { key: 'skills', icon: Sparkles, fields: ['skills'] },
   { key: 'bank', icon: Landmark, fields: ['bank'] },
@@ -83,8 +87,20 @@ function Profile() {
   const [current, setCurrent] = useState<(typeof SECTIONS)[number]['key']>('personal');
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
+  // something is ticked in the edit mode; another section asks before it opens (R9)
+  const [dirty, setDirty] = useState(false);
+  const [leaving, setLeaving] = useState<(typeof SECTIONS)[number]['key'] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const titleId = useId();
+  // the profile is read again (a permission change): the edit mode and its question start over
+  const [wasPending, setWasPending] = useState(profile.isPending);
+  if (profile.isPending !== wasPending) {
+    setWasPending(profile.isPending);
+    if (profile.isPending) {
+      setEditing(false);
+      setLeaving(null);
+    }
+  }
   if (profile.isPending) return <Skeleton count={3} />;
   if (profile.error instanceof ApiFailure && profile.error.status === 404)
     return <EmptyState title={t('profile.not_volunteer')} />;
@@ -145,6 +161,11 @@ function Profile() {
           waiting={waiting}
           busy={busy}
           onSelect={(key) => {
+            // ticked details are never dropped without a question; the open section stays as it is
+            if (editing && dirty) {
+              if (key !== current) setLeaving(key);
+              return;
+            }
             setCurrent(key);
             setEditing(false);
           }}
@@ -178,6 +199,7 @@ function Profile() {
                 fields={fieldsOf}
                 edits={edits}
                 onBusy={setBusy}
+                onDirty={setDirty}
                 onCancel={() => setEditing(false)}
                 onSent={() => {
                   setEditing(false);
@@ -199,6 +221,18 @@ function Profile() {
           </section>
         </Card>
       </div>
+      <ConfirmDialog
+        isOpen={leaving !== null}
+        title={t('profile.edit.leave_title')}
+        message={t('profile.edit.leave_message')}
+        confirmLabel={t('profile.edit.leave_confirm')}
+        onConfirm={() => {
+          if (leaving) setCurrent(leaving);
+          setLeaving(null);
+          setEditing(false);
+        }}
+        onCancel={() => setLeaving(null)}
+      />
     </div>
   );
 }

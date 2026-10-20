@@ -91,7 +91,7 @@ describe('the registration submit schemas', () => {
     expect(issues({ ...staff, nid: '1000000000123' }).length).toBe(1);
   });
 
-  it('accepts the full form of O-65 with the profession details as one nested object', () => {
+  it('accepts the full form of O-65 and O-66 with the details as nested objects', () => {
     expect(
       issues({
         ...volunteer,
@@ -106,7 +106,23 @@ describe('the registration submit schemas', () => {
         vehicle: 'bicycle',
         canSwim: true,
         availability: 'on_call',
-        emergencyContact: { name: 'নমুনা অভিভাবক', mobile: '01812345678' },
+        emergencyFullTime: true,
+        facebookId: 'https://www.facebook.com/nomuna.name',
+        educationDetails: {
+          highestQualification: 'masters',
+          institutionName: 'নমুনা বিশ্ববিদ্যালয়',
+          subject: 'ইতিহাস',
+          passingYear: 2018,
+          result: 'CGPA 3.80',
+          status: 'completed',
+        },
+        permanentAddress: {
+          divisionId: uuid,
+          districtId: uuid,
+          upazilaId: uuid,
+          unionId: uuid,
+          addressLine: 'নমুনা গ্রাম',
+        },
       }),
     ).toEqual([]);
   });
@@ -125,16 +141,24 @@ describe('the registration submit schemas', () => {
       expect(issues({ ...volunteer, profession }).length, profession).toBeGreaterThan(0);
   });
 
-  it('checks the personal values and the emergency contact', () => {
+  it('checks the personal values, the Facebook link, the education and the permanent address', () => {
     for (const bad of [
       { bloodGroup: 'C+' },
       { tshirtSize: 'XXXL' },
       { dateOfBirth: '2999-01-01' },
       { volunteeringArea: 'abroad' },
-      { emergencyContact: { mobile: '123' } },
+      { facebookId: 'nomuna.name' },
+      { facebookId: 'http://www.facebook.com/nomuna' },
+      { educationDetails: { highestQualification: 'everything' } },
       { interestAreas: ['cooking'] },
     ])
       expect(issues({ ...volunteer, ...bad }).length, JSON.stringify(bad)).toBe(1);
+  });
+
+  it('needs the four levels of the permanent address', () => {
+    expect(issues({ ...volunteer, permanentAddress: { divisionId: uuid } }).length).toBeGreaterThan(
+      0,
+    );
   });
 
   it('checks the NID format', () => {
@@ -147,9 +171,12 @@ describe('the registration submit schemas', () => {
       { type: 'paid' },
       { referenceNid: '1000000000999' },
       { bank: { bankName: 'Test Bank' } },
-      // covered by the profession part now (O-65)
+      // covered by the profession part (O-65), then by the education section (O-66), or not asked any more
       { experience: 'ব্যাংকে কাজ' },
       { workDescription: 'শিক্ষকতা' },
+      { education: 'স্নাতক' },
+      { previousProjects: 'আগের প্রজেক্ট' },
+      { emergencyContact: { name: 'অভিভাবক' } },
     ])
       expect(issues({ ...volunteer, ...extra }).length, JSON.stringify(extra)).toBe(1);
     for (const extra of [{ homeProgramId: uuid }, { homeDivisionId: uuid }])
@@ -198,7 +225,7 @@ describe('the edit request schemas', () => {
     expect(ok({ field: 'category', newValue: 'A' })).toBe(false);
   });
 
-  it('the new profile fields are editable: single values and the grouped profession, skills and emergency contact (BR-247)', () => {
+  it('the new profile fields are editable: single values and the grouped profession, skills, education and permanent address (BR-247)', () => {
     for (const field of [
       'bloodGroup',
       'dateOfBirth',
@@ -206,9 +233,11 @@ describe('the edit request schemas', () => {
       'volunteeringArea',
       'profession',
       'skills',
-      'emergencyContact',
+      'educationDetails',
+      'permanentAddress',
     ])
       expect(EDIT_FIELDS, field).toContain(field);
+    expect(EDIT_FIELDS).not.toContain('emergencyContact');
     const good = (field: keyof typeof EDIT_FIELD_VALUES, value: unknown) =>
       EDIT_FIELD_VALUES[field].safeParse(value).success;
     expect(good('bloodGroup', 'AB-')).toBe(true);
@@ -221,8 +250,15 @@ describe('the edit request schemas', () => {
     expect(good('profession', { profession: 'imam', details: { sector: 'x' } })).toBe(false);
     expect(good('skills', { interestAreas: ['media'], canSwim: false })).toBe(true);
     expect(good('skills', { canSwim: 'no' })).toBe(false);
-    expect(good('emergencyContact', { name: 'অভিভাবক', mobile: '01712345678' })).toBe(true);
-    expect(good('emergencyContact', { mobile: '1' })).toBe(false);
+    expect(good('skills', { emergencyFullTime: true })).toBe(true);
+    expect(good('educationDetails', { highestQualification: 'hsc', passingYear: 2012 })).toBe(true);
+    expect(good('educationDetails', { passingYear: 1900 })).toBe(false);
+    const place = '01890000-0000-7000-8000-000000000001';
+    const chain = { divisionId: place, districtId: place, upazilaId: place, unionId: place };
+    expect(good('permanentAddress', { ...chain, addressLine: 'নমুনা গ্রাম' })).toBe(true);
+    expect(good('permanentAddress', { divisionId: place })).toBe(false);
+    expect(good('facebookId', 'https://fb.me/nomuna')).toBe(true);
+    expect(good('facebookId', 'nomuna')).toBe(false);
     // the old work texts stay editable for the volunteers that have them
     expect(good('experience', 'ব্যাংকে কাজ')).toBe(true);
   });

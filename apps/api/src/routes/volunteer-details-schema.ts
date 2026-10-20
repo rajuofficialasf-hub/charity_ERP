@@ -12,7 +12,7 @@ import { sensitive } from '../access/field-mask';
 
 /**
  * The response fields of the personal, profession and skills data (DECISION_LOG O-65, D-092;
- * BR-246). The blood group, the date of birth and the emergency contact belong to the class
+ * BR-246, BR-248). The blood group and the date of birth belong to the class
  * `volunteer.identity`; `protect` marks them for a view an approver opens. The own profile passes
  * `false`: it answers only for the signed-in volunteer, who may see their own values (as for the NID).
  */
@@ -30,8 +30,8 @@ export function volunteerDetailsShape(protect: boolean) {
     vehicle: z.enum(VEHICLES).nullable(),
     canSwim: z.boolean().nullable(),
     availability: z.enum(AVAILABILITIES).nullable(),
-    emergencyContact: mark(
-      z.object({ name: z.string().nullable(), mobile: z.string().nullable() }),
-    ),
+    emergencyFullTime: z.boolean().nullable(),
+    educationDetails: z.record(z.string(), z.unknown()),
+    permanentAddress: z.record(z.string(), z.unknown()).nullable(),
   };
 }

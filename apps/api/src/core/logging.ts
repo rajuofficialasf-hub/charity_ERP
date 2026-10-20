@@ -33,9 +33,9 @@ export const SENSITIVE_KEYS = [
   'branchName',
   'dateOfBirth',
   'bloodGroup',
-  'emergencyContact',
-  'emergencyContactName',
-  'emergencyContactMobile',
+  'educationDetails',
+  'permanentAddress',
+  'facebookId',
   'professionDetails',
   // the value of a change request: it may be a protected one (NID, blood group, guardian)
   'newValue',

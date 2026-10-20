@@ -18,6 +18,7 @@ export function meRouter(deps: RouteDeps, c: Pick<Container, 'auth'>): Router {
     permission: 'authenticated',
     scope: 'self',
     allowPending: true,
+    allowPasswordChange: true,
     audit: 'user.language_changed',
     idempotency: 'none',
     rateLimit: 'default',

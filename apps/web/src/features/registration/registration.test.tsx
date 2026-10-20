@@ -195,6 +195,8 @@ async function minimumToSkills(user: User) {
   await next(user);
   await chooseAddress(user);
   await next(user);
+  // the education is optional
+  await next(user);
   await chooseProfession(user, 'Student');
   await next(user);
 }
@@ -353,16 +355,60 @@ describe('the steps after the contacts', () => {
     );
     await user.type(screen.getByRole('textbox', { name: /Mother's name/ }), 'Mother');
     await user.type(screen.getByRole('textbox', { name: /NID number/ }), '1000000000555');
+    // the Facebook account is a link
+    await user.type(screen.getByRole('textbox', { name: /Facebook account link/ }), 'nomuna.name');
+    await next(user);
+    expect(
+      screen.getByRole('textbox', { name: /Facebook account link/ }),
+    ).toHaveAccessibleDescription(/https link to your Facebook account/);
+    await user.clear(screen.getByRole('textbox', { name: /Facebook account link/ }));
+    await user.type(
+      screen.getByRole('textbox', { name: /Facebook account link/ }),
+      'https://www.facebook.com/nomuna.name',
+    );
     await next(user);
     expect(stepName()).toBe('3Address');
     await chooseAddress(user);
+    // the present address is the permanent one until the box is cleared
+    expect(
+      screen.queryByRole('button', { name: /Division \(permanent\)/ }),
+    ).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole('checkbox', { name: 'My present address is my permanent address' }),
+    );
+    for (const [label, option] of [
+      [/Division \(permanent\)/, 'Rangpur'],
+      [/District \(permanent\)/, 'Rangpur district'],
+      [/Upazila \(permanent\)/, 'Pirganj'],
+      [/Union \(permanent\)/, 'Chatra'],
+    ] as const) {
+      await user.click(screen.getByRole('button', { name: label }));
+      await user.click(await screen.findByRole('option', { name: option }));
+    }
+    await user.type(
+      screen.getByRole('textbox', { name: /Village, road or house \(permanent\)/ }),
+      'Old village',
+    );
     await user.click(screen.getByRole('button', { name: /Where you want to serve/ }));
     await user.click(await screen.findByRole('option', { name: 'My own upazila' }));
     await next(user);
-    expect(stepName()).toBe('4Profession');
-    await user.click(screen.getByRole('button', { name: 'Previous step' }));
-    expect(screen.getByRole('textbox', { name: /Village, road or house/ })).toBeInTheDocument();
+    expect(stepName()).toBe('4Education');
+    await user.click(screen.getByRole('button', { name: /Highest qualification/ }));
+    await user.click(await screen.findByRole('option', { name: 'Masters' }));
+    await user.type(screen.getByRole('textbox', { name: /Institution name/ }), 'Sample University');
+    await user.type(screen.getByRole('textbox', { name: /Passing year/ }), '2016');
+    await user.click(screen.getByRole('radio', { name: 'Completed' }));
     await next(user);
+    expect(stepName()).toBe('5Profession');
+    await user.click(screen.getByRole('button', { name: 'Previous step' }));
+    expect(screen.getByRole('textbox', { name: /Institution name/ })).toHaveValue(
+      'Sample University',
+    );
+    await next(user);
+    // the profession step holds only the profession and its own fields
+    expect(
+      screen.queryByRole('textbox', { name: /Education|earlier projects|Facebook/ }),
+    ).not.toBeInTheDocument();
     // the profession is mandatory
     await next(user);
     expect(screen.getByRole('button', { name: /current profession/ })).toHaveAccessibleDescription(
@@ -370,22 +416,26 @@ describe('the steps after the contacts', () => {
     );
     await chooseProfession(user, 'Teacher');
     await user.type(screen.getByRole('textbox', { name: /^Designation/ }), 'Lecturer');
-    await user.type(screen.getByRole('textbox', { name: /Education/ }), 'MA');
     await next(user);
-    expect(stepName()).toBe('5Skills and time');
+    expect(stepName()).toBe('6Skills and time');
     await user.click(screen.getByRole('checkbox', { name: 'First aid and rescue' }));
     await user.click(screen.getByRole('radio', { name: 'Motorcycle' }));
     await user.click(
       within(screen.getByRole('radiogroup', { name: /swim/ })).getByRole('radio', { name: 'Yes' }),
     );
-    await user.type(screen.getByRole('textbox', { name: /Guardian's name/ }), 'Guardian');
-    await user.type(screen.getByRole('textbox', { name: /Guardian's mobile/ }), '01812345678');
+    await user.click(
+      within(screen.getByRole('radiogroup', { name: /full time/ })).getByRole('radio', {
+        name: 'Yes',
+      }),
+    );
+    // there is no emergency contact (O-66)
+    expect(screen.queryByRole('textbox', { name: /Guardian/ })).not.toBeInTheDocument();
     await next(user);
-    expect(stepName()).toBe('6Account');
+    expect(stepName()).toBe('7Account');
     await user.type(screen.getByLabelText(/^Password/), 'Nadi kul 2026');
     await user.type(screen.getByLabelText(/^Repeat the password/), 'Nadi kul 2026');
     await next(user);
-    expect(stepName()).toBe('7Photos');
+    expect(stepName()).toBe('8Photos');
     for (const label of ['Own photo', 'NID card, first page', 'NID card, second page'])
       expect(screen.getByRole('group', { name: new RegExp(label) })).toBeInTheDocument();
     // no submit without the three photos
@@ -407,13 +457,24 @@ describe('the steps after the contacts', () => {
       divisionId: RANGPUR,
       unionId: UNION,
       volunteeringArea: 'own_upazila',
-      education: 'MA',
+      facebookId: 'https://www.facebook.com/nomuna.name',
+      permanentAddress: {
+        divisionId: RANGPUR,
+        unionId: UNION,
+        addressLine: 'Old village',
+      },
+      educationDetails: {
+        highestQualification: 'masters',
+        institutionName: 'Sample University',
+        passingYear: 2016,
+        status: 'completed',
+      },
       profession: 'teacher',
       professionDetails: { designation: 'Lecturer' },
       interestAreas: ['first_aid'],
       vehicle: 'motorcycle',
       canSwim: true,
-      emergencyContact: { name: 'Guardian', mobile: '01812345678' },
+      emergencyFullTime: true,
     });
     // nothing the owner removed is sent: no type, no bank, no reference, no old work texts
     for (const removed of [
@@ -423,6 +484,9 @@ describe('the steps after the contacts', () => {
       'homeProgramId',
       'experience',
       'workDescription',
+      'education',
+      'previousProjects',
+      'emergencyContact',
     ])
       expect(submit.body).not.toHaveProperty(removed);
     expect(submit.headers.get('X-Registration-Token')).toBe(TOKEN);
@@ -442,6 +506,7 @@ describe('the steps after the contacts', () => {
     await user.type(screen.getByRole('textbox', { name: /NID number/ }), '1000000000555');
     await next(user);
     await chooseAddress(user);
+    await next(user);
     await next(user);
     await chooseProfession(user, 'Teacher');
     const fields = () =>
@@ -504,7 +569,7 @@ describe('the steps after the contacts', () => {
     await next(user);
     await uploadAll(user, container, 3);
     await user.click(screen.getByRole('button', { name: 'Submit' }));
-    await vi.waitFor(() => expect(stepName()).toBe('4Profession'));
+    await vi.waitFor(() => expect(stepName()).toBe('5Profession'));
   }, 60_000);
 
   it('an official has three steps: designation with the contacts, the password, the own photo', async () => {
@@ -590,11 +655,11 @@ describe('the steps after the contacts', () => {
     renderApp(<RegisterPage />, 'en', { path: '/register' });
     await verifyContacts(user);
     await minimumToSkills(user);
-    expect(stepName()).toBe('5Skills and time');
+    expect(stepName()).toBe('6Skills and time');
     for (const gone of [/Volunteer type/, /Main volunteer/, /Bank/, /Account number/, /Branch/])
       expect(screen.queryByText(gone)).not.toBeInTheDocument();
     await next(user);
-    expect(stepName()).toBe('6Account');
+    expect(stepName()).toBe('7Account');
     expect(screen.queryByText(/Bank/)).not.toBeInTheDocument();
   }, 30_000);
 });
@@ -637,7 +702,7 @@ describe('the password checklist', () => {
     await user.type(screen.getByLabelText(/^Repeat the password/), 'abcdefghA');
     await next(user);
     // one condition is still missing: the step stays and the field says so
-    expect(stepName()).toBe('6Account');
+    expect(stepName()).toBe('7Account');
     expect(screen.getByLabelText(/^Password/)).toHaveAccessibleDescription(
       /upper-case letter and one digit/,
     );
@@ -656,6 +721,6 @@ describe('the password checklist', () => {
     await user.type(screen.getByLabelText(/^Password/), 'A01712345678');
     await user.type(screen.getByLabelText(/^Repeat the password/), 'A01712345678');
     await next(user);
-    expect(stepName()).toBe('7Photos');
+    expect(stepName()).toBe('8Photos');
   }, 30_000);
 });

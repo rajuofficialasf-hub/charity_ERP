@@ -15,6 +15,9 @@ import {
 } from './profile-api';
 import { cleanValue, initialValue, ValueEditor } from './ValueEditor';
 
+/** Marks a detail whose value the form could not make (nothing was sent for it). */
+const MISSING = Symbol('missing');
+
 /**
  * The edit mode of one section (T1.9d; BR-031 as amended by DECISION_LOG D-085): the person ticks
  * one or more details, gives the new values and one optional reason, and one request per ticked
@@ -28,6 +31,7 @@ export function EditSection({
   fields,
   edits,
   onBusy,
+  onDirty,
   onCancel,
   onSent,
 }: {
@@ -38,12 +42,15 @@ export function EditSection({
   edits: ChangeRequest[];
   /** Tells the page a send is running, so the section can not be left meanwhile. */
   onBusy: (busy: boolean) => void;
+  /** Tells the page whether a detail is ticked, so leaving the section can ask first. */
+  onDirty: (dirty: boolean) => void;
   onCancel: () => void;
   onSent: () => void;
 }) {
   const t = useTranslations('registration');
   const tc = useTranslations('common.action');
   const offline = useTranslations('auth.login')('offline');
+  const tv = useTranslations('errors.validation');
   const queryClient = useQueryClient();
   const [picked, setPicked] = useState<ReadonlySet<RequestField>>(new Set());
   const [values, setValues] = useState<Partial<Record<RequestField, unknown>>>({});
@@ -60,10 +67,16 @@ export function EditSection({
       for (const field of fields) {
         // a detail whose request appeared meanwhile is not asked for twice
         if (field === 'type' || !picked.has(field) || waitingFor(field)) continue;
+        const value = isPhoto(field) ? undefined : cleanValue(field, values[field]);
+        // a value the form cannot make (a permanent address without its four levels) is not sent
+        if (!isPhoto(field) && value === undefined) {
+          failed.push([field, MISSING]);
+          continue;
+        }
         try {
           await askEdit({
             field,
-            ...(isPhoto(field) ? {} : { newValue: cleanValue(field, values[field]) }),
+            ...(isPhoto(field) ? {} : { newValue: value }),
             ...(note.trim() ? { note: note.trim() } : {}),
           });
           sent.push(field);
@@ -81,11 +94,17 @@ export function EditSection({
         return;
       }
       const message = (error: unknown) =>
-        error instanceof ApiFailure ? (error.details[0]?.message ?? error.message) : offline;
+        error === MISSING
+          ? tv('required')
+          : error instanceof ApiFailure
+            ? (error.details[0]?.message ?? error.message)
+            : offline;
       setPicked((now) => new Set([...now].filter((f) => !sent.includes(f))));
       setErrors(Object.fromEntries(failed.map(([field, error]) => [field, message(error)])));
       // a call that reached no server, or no field to blame, gets an alert of its own
-      const unplaced = failed.find(([, error]) => !(error instanceof ApiFailure));
+      const unplaced = failed.find(
+        ([, error]) => !(error instanceof ApiFailure) && error !== MISSING,
+      );
       setAlert(sent.length ? t('profile.edit.partial') : unplaced ? message(unplaced[1]) : null);
     },
   });
@@ -95,6 +114,12 @@ export function EditSection({
     onBusy(sending);
     return () => onBusy(false);
   }, [sending, onBusy]);
+
+  const dirty = picked.size > 0;
+  useEffect(() => {
+    onDirty(dirty);
+    return () => onDirty(false);
+  }, [dirty, onDirty]);
 
   const toggle = (field: RequestField, on: boolean) => {
     setPicked((now) => {

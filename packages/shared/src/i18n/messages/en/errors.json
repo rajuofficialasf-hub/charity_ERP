@@ -5,6 +5,7 @@
     "account_pending": "Your registration is still waiting for approval.",
     "account_blocked": "This account is blocked.",
     "account_deactivated": "This account has been closed.",
+    "password_change_required": "Choose a new password of at least 12 characters before you continue.",
     "token_missing": "You need to log in.",
     "token_expired": "The session has expired. Trying again.",
     "token_stale": "Your permissions have changed. Refreshing.",
@@ -12,7 +13,8 @@
     "refresh_invalid": "Log in again. Your pending work is kept on this phone.",
     "refresh_reused": "The session was revoked for security reasons. Log in again.",
     "csrf_failed": "The request could not be verified. Reload the page.",
-    "current_password_invalid": "The current password is incorrect."
+    "current_password_invalid": "The current password is incorrect.",
+    "password_unchanged": "The new password must differ from the current one."
   },
   "otp": {
     "invalid": "The code is incorrect.",
@@ -39,7 +41,8 @@
     "password_too_short": "The password is too short.",
     "password_uppercase_digit": "Use at least one upper-case letter and one digit in the password.",
     "date_format": "Enter a valid date.",
-    "date_future": "The date cannot be in the future."
+    "date_future": "The date cannot be in the future.",
+    "facebook_link": "Enter an https link to your Facebook account (for example https://www.facebook.com/your-name)."
   },
   "beneficiary": {
     "identity_missing": "Enter the NID or the birth registration number.",

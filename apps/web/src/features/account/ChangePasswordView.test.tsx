@@ -3,10 +3,11 @@ import { screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ME, refreshAs, renderApp } from '../../../test/auth';
+import { ME, pair, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
 import { ChangePasswordView } from './ChangePasswordView';
+import { HomeView } from './HomeView';
 
 // SCR-006 change password (AUTH.md 3).
 beforeEach(() => {
@@ -95,5 +96,53 @@ describe('ChangePasswordView', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Change password' }));
     expect(await screen.findByText('The current password is incorrect.')).toBeInTheDocument();
+  });
+
+  describe('when a new password is due (a global role was approved)', () => {
+    const DUE = { ...ME, roles: ['monitoring_team'], passwordChangeRequired: true };
+
+    it('sends a signed-in user from another page to the password screen', async () => {
+      refreshAs(DUE);
+      renderApp(<HomeView />, 'en');
+      expect(await screen.findByTestId('location')).toHaveTextContent('/account/password');
+    });
+
+    it('says why, asks 12 characters, and after the change shows the home page', async () => {
+      const user = userEvent.setup();
+      refreshAs(DUE);
+      let changed = false;
+      server.use(
+        http.post('*/api/v1/auth/password/change', () => {
+          changed = true;
+          return new HttpResponse(null, { status: 204 });
+        }),
+        // the session read after the change no longer has the flag
+        http.post('*/api/v1/auth/refresh', () =>
+          HttpResponse.json({
+            data: pair(changed ? { ...DUE, passwordChangeRequired: false } : DUE),
+            meta: {},
+          }),
+        ),
+      );
+      renderApp(<ChangePasswordView />, 'en', { path: '/account/password' });
+      expect(
+        await screen.findByText(/Your role needs a new password of at least 12 characters/),
+      ).toBeInTheDocument();
+      expect(screen.getByText('At least 12 characters')).toBeInTheDocument();
+      await user.type(
+        screen.getByLabelText(/^Current password/, { selector: 'input' }),
+        'Nadi kul 2026',
+      );
+      await user.type(
+        screen.getByLabelText(/^New password/, { selector: 'input' }),
+        'Shapla phul 2026',
+      );
+      await user.type(
+        screen.getByLabelText(/^Confirm the new password/, { selector: 'input' }),
+        'Shapla phul 2026',
+      );
+      await user.click(screen.getByRole('button', { name: 'Change password' }));
+      expect(await screen.findByTestId('location')).toHaveTextContent(/^\/$/);
+    }, 30_000);
   });
 });

@@ -234,6 +234,7 @@ describe('access tokens on every request', () => {
       roles: ['department_head'],
       language: 'bn',
       permissionVersion: 1,
+      passwordChangeRequired: false,
       blockMessage: null,
       volunteerId: null,
     });

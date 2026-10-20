@@ -19,6 +19,7 @@ import {
 import {
   AccountStep,
   AddressStep,
+  EducationStep,
   IdentityStep,
   PhotosStep,
   ProfessionStep,
@@ -267,6 +268,7 @@ export function RegisterPage() {
               )}
               {key === 'identity' && <IdentityStep values={values} set={set} errors={errors} />}
               {key === 'address' && <AddressStep values={values} set={set} errors={errors} />}
+              {key === 'education' && <EducationStep values={values} set={set} errors={errors} />}
               {key === 'profession' && <ProfessionStep values={values} set={set} errors={errors} />}
               {key === 'skills' && <SkillsStep values={values} set={set} errors={errors} />}
               {key === 'account' && <AccountStep values={values} set={set} errors={errors} />}

@@ -1,12 +1,17 @@
 import type { PhotoSlot } from '@css/shared/registration';
 import { BLOOD_GROUPS, TSHIRT_SIZES, VOLUNTEERING_AREAS } from '@css/shared/registration';
-import { DateField, PasswordField, Select, TextField } from '@css/ui';
+import { Checkbox, DateField, PasswordField, Select, TextField } from '@css/ui';
 import { useTranslations } from 'use-intl';
 import { PasswordRules } from '../../components/PasswordRules';
 import { AddressFields } from './AddressFields';
-import { PHOTOS, type RegistrationValues, TEXT_FIELDS } from './form-state';
+import { PHOTOS, type RegistrationValues } from './form-state';
 import { PhotoField } from './PhotoField';
-import { EmergencyContactFields, ProfessionFields, SkillsFields } from './ProfileInputs';
+import {
+  EducationFields,
+  PermanentAddressFields,
+  ProfessionFields,
+  SkillsFields,
+} from './ProfileInputs';
 import { type Draft, uploadDraftPhoto } from './registration-api';
 
 interface StepProps {
@@ -16,12 +21,6 @@ interface StepProps {
 }
 
 const digits = (max: number) => (v: string) => v.replace(/\D/g, '').slice(0, max);
-
-const TEXT_LABELS = {
-  education: 'form.education',
-  previousProjects: 'form.previous_projects',
-  facebookId: 'form.facebook',
-} as const;
 
 /** Volunteer step 2: the mother's name, the NID, WhatsApp, the date of birth, the blood group and the T-shirt size. */
 export function IdentityStep({ values, set, errors }: StepProps) {
@@ -52,6 +51,13 @@ export function IdentityStep({ values, set, errors }: StepProps) {
         onChange={(v) => set({ whatsapp: digits(11)(v) })}
         inputMode="numeric"
         error={errors.whatsapp}
+      />
+      <TextField
+        label={t('form.facebook')}
+        name="facebookId"
+        value={values.facebookId}
+        onChange={(facebookId) => set({ facebookId })}
+        error={errors.facebookId}
       />
       <DateField
         label={t('form.date_of_birth')}
@@ -84,23 +90,42 @@ export function IdentityStep({ values, set, errors }: StepProps) {
   );
 }
 
-/** Volunteer step 3: the address and where the person wants to serve. */
+/** Volunteer step 3: the present address, the permanent address and where the person wants to serve. */
 export function AddressStep({ values, set, errors }: StepProps) {
   const t = useTranslations('registration');
   return (
-    <div className="register-grid">
-      <AddressFields
-        value={values.address}
-        onChange={(address) => set({ address })}
-        errors={errors}
-      />
-      <TextField
-        label={t('form.address_line')}
-        name="addressLine"
-        value={values.addressLine}
-        onChange={(addressLine) => set({ addressLine })}
-        error={errors.addressLine}
-      />
+    <div className="register-stack">
+      <h3 className="register-subtitle">{t('form.address_present')}</h3>
+      <div className="register-grid">
+        <AddressFields
+          value={values.address}
+          onChange={(address) => set({ address })}
+          errors={errors}
+        />
+        <TextField
+          label={t('form.address_line')}
+          name="addressLine"
+          value={values.addressLine}
+          onChange={(addressLine) => set({ addressLine })}
+          error={errors.addressLine}
+        />
+      </div>
+      <h3 className="register-subtitle">{t('form.address_permanent')}</h3>
+      <Checkbox
+        isSelected={values.permanentSame}
+        onChange={(permanentSame) => set({ permanentSame })}
+      >
+        {t('form.same_address')}
+      </Checkbox>
+      {!values.permanentSame && (
+        <div className="register-grid">
+          <PermanentAddressFields
+            value={values.permanent}
+            onChange={(permanent) => set({ permanent })}
+            errors={errors}
+          />
+        </div>
+      )}
       <Select
         label={t('form.volunteering_area')}
         name="volunteeringArea"
@@ -117,45 +142,32 @@ export function AddressStep({ values, set, errors }: StepProps) {
   );
 }
 
-/** Volunteer step 4: the profession with its own fields, then the optional earlier work details. */
-export function ProfessionStep({ values, set, errors }: StepProps) {
-  const t = useTranslations('registration');
+/** Volunteer step 4: the education (all optional). */
+export function EducationStep({ values, set, errors }: StepProps) {
   return (
-    <div className="register-stack">
-      <ProfessionFields
-        value={values.profession}
-        onChange={(profession) => set({ profession })}
-        errors={errors}
-      />
-      <div className="register-grid">
-        {TEXT_FIELDS.map((key) => (
-          <TextField
-            key={key}
-            label={t(TEXT_LABELS[key])}
-            name={key}
-            value={values[key]}
-            onChange={(v) => set({ [key]: v })}
-            error={errors[key]}
-          />
-        ))}
-      </div>
-    </div>
+    <EducationFields
+      value={values.education}
+      onChange={(education) => set({ education })}
+      errors={errors}
+    />
   );
 }
 
-/** Volunteer step 5: the areas of interest, the vehicle, swimming, the availability and the guardian. */
-export function SkillsStep({ values, set, errors }: StepProps) {
-  const t = useTranslations('registration');
+/** Volunteer step 5: the profession with the fields of that profession only. */
+export function ProfessionStep({ values, set, errors }: StepProps) {
   return (
-    <div className="register-stack">
-      <SkillsFields value={values.skills} onChange={(skills) => set({ skills })} errors={errors} />
-      <h3 className="register-subtitle">{t('form.emergency_contact')}</h3>
-      <EmergencyContactFields
-        value={values.emergency}
-        onChange={(emergency) => set({ emergency })}
-        errors={errors}
-      />
-    </div>
+    <ProfessionFields
+      value={values.profession}
+      onChange={(profession) => set({ profession })}
+      errors={errors}
+    />
+  );
+}
+
+/** Volunteer step 6: the areas of interest, the vehicle, swimming, the availability and the full-time answer. */
+export function SkillsStep({ values, set, errors }: StepProps) {
+  return (
+    <SkillsFields value={values.skills} onChange={(skills) => set({ skills })} errors={errors} />
   );
 }
 

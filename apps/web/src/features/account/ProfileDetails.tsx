@@ -1,12 +1,13 @@
 import { VOLUNTEER_TYPES, type VolunteerType } from '@css/shared/registration';
 import { formatDate } from '@css/shared/format';
+import { isFacebookLink } from '@css/shared/registration';
 import { Badge } from '@css/ui';
 import { Clock } from 'lucide-react';
 import { useTranslations } from 'use-intl';
 import { AddressNames } from '../../components/AddressNames';
 import { FileImage } from '../../components/FileImage';
 import { RequestState } from './ChangeRequests';
-import { emergencyText, ProfessionText, SkillsText } from './DetailValues';
+import { EducationText, PermanentAddressText, ProfessionText, SkillsText } from './DetailValues';
 import { type ChangeRequest, FIELD_LABEL, type OwnProfile, type RequestField } from './profile-api';
 
 /** A detail of the profile: the editable fields of a request, and the type (no request). */
@@ -110,11 +111,24 @@ export function Value({
           vehicle={me.vehicle}
           canSwim={me.canSwim}
           availability={me.availability}
+          emergencyFullTime={me.emergencyFullTime}
         />
       );
-    case 'emergencyContact': {
-      const text = emergencyText(me.emergencyContact);
-      return text ? <>{text}</> : empty;
+    case 'educationDetails':
+      return <EducationText education={me.educationDetails} />;
+    case 'permanentAddress':
+      return <PermanentAddressText address={me.permanentAddress} />;
+    case 'facebookId': {
+      const link = me.facebookId?.trim();
+      if (!link) return empty;
+      // a link only when it passes the shared check; an older plain id stays text
+      return isFacebookLink(link) ? (
+        <a href={link} target="_blank" rel="noopener noreferrer nofollow" className="profile-link">
+          {link}
+        </a>
+      ) : (
+        <>{link}</>
+      );
     }
     case 'address':
       return <AddressNames address={me} />;
@@ -143,8 +157,13 @@ export function Value({
   }
 }
 
-/** The earlier work texts: shown (and asked for) only for a volunteer who has them (O-65). */
-export const LEGACY_FIELDS: readonly ProfileField[] = ['experience', 'workDescription'];
+/** The earlier texts: shown (and asked for) only for a volunteer who has them (O-65, O-66). */
+export const LEGACY_FIELDS: readonly ProfileField[] = [
+  'education',
+  'experience',
+  'workDescription',
+  'previousProjects',
+];
 export const hasValue = (me: OwnProfile, field: ProfileField): boolean => {
   const value = field === 'type' ? me.type : me[field as keyof OwnProfile];
   return typeof value === 'string' ? value !== '' : value !== null && value !== undefined;

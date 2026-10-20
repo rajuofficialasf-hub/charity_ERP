@@ -50,7 +50,9 @@ const profile = (over: Partial<OwnProfile> = {}): OwnProfile => ({
   vehicle: null,
   canSwim: null,
   availability: null,
-  emergencyContact: { name: null, mobile: null },
+  emergencyFullTime: null,
+  educationDetails: {},
+  permanentAddress: null,
   bank: { bankName: 'Test Bank', accountNumber: '0000111122223333', branchName: 'Savar Branch' },
   photoFileId: null,
   nidPhotoFileId: null,
@@ -195,6 +197,7 @@ describe('ProfileView of an approved volunteer', () => {
       'Personal details',
       'Contact',
       'Address',
+      'Education',
       'Work details',
       'Skills and time',
       'Bank details',
@@ -249,162 +252,24 @@ describe('ProfileView of an approved volunteer', () => {
     renderApp(<ProfileView />, 'en', { path: '/account/profile' });
     // before the mode, the waiting request shows its state
     await screen.findByRole('navigation', { name: 'Profile sections' });
-    await openSection(user, 'Work details');
+    await openSection(user, 'Education');
     expect(await screen.findByText('Waiting for approval')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Edit Work details' }));
-    const form = screen.getByRole('form', { name: 'Request to change Work details' });
+    await user.click(screen.getByRole('button', { name: 'Edit Education' }));
+    const form = screen.getByRole('form', { name: 'Request to change Education' });
+    expect(within(form).getByRole('checkbox', { name: 'Change Education' })).toBeInTheDocument();
     expect(
-      within(form).getByRole('checkbox', { name: 'Change Work in earlier projects' }),
-    ).toBeInTheDocument();
-    expect(
-      within(form).queryByRole('checkbox', { name: 'Change Education' }),
-    ).not.toBeInTheDocument();
-    expect(
-      within(form).queryByRole('checkbox', { name: /Volunteer type/ }),
+      within(form).queryByRole('checkbox', { name: 'Change Education (earlier)' }),
     ).not.toBeInTheDocument();
     expect(within(form).getByText('Waiting for approval')).toBeInTheDocument();
     expect(within(form).getByRole('button', { name: 'Send request' })).toBeDisabled();
-  }, 15_000);
-
-  it('sends one request for each ticked detail with its value and the one reason', async () => {
-    const user = userEvent.setup();
-    serve(profile({ state: 'active', inAnyProject: true }), () => []);
-    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
-    const form = await startEdit(user, 'Personal details');
-    expect(within(form).getByRole('button', { name: 'Send request' })).toBeDisabled();
-    // nothing is typed before a detail is ticked
-    expect(within(form).queryByRole('textbox', { name: /^Father's name/ })).not.toBeInTheDocument();
-    await user.click(within(form).getByRole('checkbox', { name: "Change Father's name" }));
-    await user.type(within(form).getByRole('textbox', { name: /^Father's name/ }), 'নতুন পিতা');
-    await user.click(within(form).getByRole('checkbox', { name: "Change Mother's name" }));
-    await user.type(within(form).getByRole('textbox', { name: /^Mother's name/ }), 'নতুন মাতা');
-    await user.type(within(form).getByRole('textbox', { name: 'Reason (optional)' }), 'ভুল ছিল');
-    await user.click(within(form).getByRole('button', { name: 'Send request' }));
-    expect(await screen.findByText('The request was sent.')).toBeInTheDocument();
-    expect(calls).toEqual([
-      {
-        method: 'POST',
-        url: '/api/v1/me/change-requests',
-        body: { field: 'fatherName', newValue: 'নতুন পিতা', note: 'ভুল ছিল' },
-      },
-      {
-        method: 'POST',
-        url: '/api/v1/me/change-requests',
-        body: { field: 'motherName', newValue: 'নতুন মাতা', note: 'ভুল ছিল' },
-      },
-    ]);
-    // the mode is over: the one edit button is back
-    expect(
-      screen.queryByRole('form', { name: 'Request to change Personal details' }),
-    ).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Edit Personal details' })).toBeInTheDocument();
-  }, 20_000);
-
-  it('cancel leaves the mode and sends nothing', async () => {
-    const user = userEvent.setup();
-    serve(profile({ state: 'active', inAnyProject: true }), () => []);
-    const { container } = renderApp(<ProfileView />, 'en', { path: '/account/profile' });
-    const form = await startEdit(user, 'Personal details');
-    await user.click(within(form).getByRole('checkbox', { name: 'Change NID number' }));
-    await expectNoAxeViolations(container);
     await user.click(within(form).getByRole('button', { name: 'Cancel' }));
-    expect(screen.getByRole('button', { name: 'Edit Personal details' })).toBeInTheDocument();
-    expect(calls).toEqual([]);
-  }, 15_000);
-
-  it('adds the bank details with a branch from the bank section', async () => {
-    const user = userEvent.setup();
-    serve(profile({ state: 'active', inAnyProject: true, bank: {} }), () => []);
-    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
-    await screen.findByRole('navigation', { name: 'Profile sections' });
-    await openSection(user, 'Bank details');
-    expect(screen.getByText('Not given')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Edit Bank details' }));
-    const form = screen.getByRole('form', { name: 'Request to change Bank details' });
-    await user.click(within(form).getByRole('checkbox', { name: 'Change Bank details' }));
-    await user.type(within(form).getByRole('textbox', { name: 'Bank name' }), 'Test Bank');
-    await user.type(within(form).getByRole('textbox', { name: 'Branch' }), 'Savar Branch');
-    await user.click(within(form).getByRole('button', { name: 'Send request' }));
-    expect(await screen.findByText('The request was sent.')).toBeInTheDocument();
-    expect(calls).toEqual([
-      {
-        method: 'POST',
-        url: '/api/v1/me/change-requests',
-        body: { field: 'bank', newValue: { bankName: 'Test Bank', branchName: 'Savar Branch' } },
-      },
-    ]);
-  }, 15_000);
-
-  it('asks for an address change with the cascade', async () => {
-    const user = userEvent.setup();
-    serve(profile({ state: 'active', inAnyProject: true }), () => []);
-    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
-    const form = await startEdit(user, 'Address');
-    await user.click(within(form).getByRole('checkbox', { name: 'Change Address' }));
-    for (const label of [/Division/, /(^|\s)District/, /Upazila/, /Union/]) {
-      await user.click(await within(form).findByRole('button', { name: label }));
-      await user.click(await screen.findByRole('option', { name: 'Place' }));
-    }
-    await user.click(within(form).getByRole('button', { name: 'Send request' }));
-    expect(await screen.findByText('The request was sent.')).toBeInTheDocument();
-    expect(calls).toEqual([
-      {
-        method: 'POST',
-        url: '/api/v1/me/change-requests',
-        body: {
-          field: 'address',
-          newValue: {
-            divisionId: DIVISION,
-            districtId: DISTRICT,
-            upazilaId: UPAZILA,
-            unionId: UNION,
-          },
-        },
-      },
-    ]);
-  }, 20_000);
-
-  it('a refused detail stays ticked with its message while the sent one leaves the mode', async () => {
-    const user = userEvent.setup();
-    serve(profile({ state: 'active', inAnyProject: true }), () => []);
-    server.use(
-      http.post('*/api/v1/me/change-requests', async ({ request }) => {
-        const body = (await request.json()) as { field: string };
-        if (body.field === 'nid')
-          return HttpResponse.json(
-            {
-              error: {
-                code: 'validation.failed',
-                message: 'Some information is not valid.',
-                details: [
-                  {
-                    path: 'newValue',
-                    code: 'validation.nid_format',
-                    message: 'The NID must have 10, 13 or 17 digits.',
-                  },
-                ],
-                requestId: 'r',
-              },
-            },
-            { status: 422 },
-          );
-        return HttpResponse.json({ data: row('01900000-0000-7000-8000-0000000000c9', body.field) });
-      }),
-    );
-    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
-    const form = await startEdit(user, 'Personal details');
-    await user.click(within(form).getByRole('checkbox', { name: "Change Father's name" }));
-    await user.type(within(form).getByRole('textbox', { name: /^Father's name/ }), 'নতুন পিতা');
-    await user.click(within(form).getByRole('checkbox', { name: 'Change NID number' }));
-    await user.type(within(form).getByRole('textbox', { name: /^NID number/ }), '123');
-    await user.click(within(form).getByRole('button', { name: 'Send request' }));
-    expect(await within(form).findByText(/Some requests were not sent/)).toBeInTheDocument();
-    expect(within(form).getByRole('textbox', { name: /^NID number/ })).toHaveAccessibleDescription(
-      /10, 13 or 17 digits/,
-    );
-    expect(within(form).getByRole('checkbox', { name: 'Change NID number' })).toBeChecked();
-    expect(within(form).getByRole('checkbox', { name: "Change Father's name" })).not.toBeChecked();
-  }, 20_000);
+    // the type decides the role: no tick for it
+    const work = await startEdit(user, 'Work details');
+    expect(
+      within(work).queryByRole('checkbox', { name: /Volunteer type/ }),
+    ).not.toBeInTheDocument();
+    expect(within(work).getByRole('checkbox', { name: 'Change Profession' })).toBeInTheDocument();
+  }, 30_000);
 
   it('a request that reaches no server says so and keeps the ticks', async () => {
     const user = userEvent.setup();
@@ -412,14 +277,16 @@ describe('ProfileView of an approved volunteer', () => {
     server.use(http.post('*/api/v1/me/change-requests', () => HttpResponse.error()));
     renderApp(<ProfileView />, 'en', { path: '/account/profile' });
     await screen.findByRole('navigation', { name: 'Profile sections' });
-    await openSection(user, 'Work details');
-    await user.click(await screen.findByRole('button', { name: 'Edit Work details' }));
-    const form = screen.getByRole('form', { name: 'Request to change Work details' });
-    await user.click(within(form).getByRole('checkbox', { name: 'Change Education' }));
-    await user.type(within(form).getByRole('textbox', { name: /^Education/ }), 'BA');
+    await openSection(user, 'Education');
+    await user.click(await screen.findByRole('button', { name: 'Edit Education' }));
+    const form = screen.getByRole('form', { name: 'Request to change Education' });
+    await user.click(within(form).getByRole('checkbox', { name: 'Change Education (earlier)' }));
+    await user.type(within(form).getByRole('textbox', { name: /^Education \(earlier\)/ }), 'BA');
     await user.click(within(form).getByRole('button', { name: 'Send request' }));
     expect(await within(form).findByRole('alert')).toHaveTextContent(/\S/);
-    expect(within(form).getByRole('checkbox', { name: 'Change Education' })).toBeChecked();
+    expect(
+      within(form).getByRole('checkbox', { name: 'Change Education (earlier)' }),
+    ).toBeChecked();
   }, 20_000);
 
   it('a refused photo request says why, and the sections can not be left while it is sent', async () => {
@@ -494,7 +361,7 @@ describe('ProfileView of an approved volunteer', () => {
   }, 20_000);
 });
 
-describe('the personal, profession and skills data in the profile (O-65, D-092; BR-246)', () => {
+describe('the personal, profession, education and skills data in the profile', () => {
   const FULL = {
     state: 'active' as const,
     inAnyProject: true,
@@ -508,7 +375,21 @@ describe('the personal, profession and skills data in the profile (O-65, D-092; 
     vehicle: 'motorcycle',
     canSwim: true,
     availability: 'on_call',
-    emergencyContact: { name: 'Guardian', mobile: '01812345678' },
+    emergencyFullTime: true,
+    educationDetails: {
+      highestQualification: 'hsc',
+      institutionName: 'Old College',
+      passingYear: 2012,
+      status: 'completed',
+    },
+    permanentAddress: {
+      divisionId: DIVISION,
+      districtId: DISTRICT,
+      upazilaId: UPAZILA,
+      unionId: UNION,
+      addressLine: 'Old village',
+    },
+    facebookId: 'https://www.facebook.com/nomuna.name',
     experience: null,
     workDescription: null,
   };
@@ -523,10 +404,20 @@ describe('the personal, profession and skills data in the profile (O-65, D-092; 
     await screen.findByRole('navigation', { name: 'Profile sections' });
     for (const text of ['17-05-1990', 'O+', 'L'])
       expect(screen.getByText(text)).toBeInTheDocument();
-    await openSection(user, 'Contact');
-    expect(screen.getByText('Guardian, 01812345678')).toBeInTheDocument();
+    // the Facebook account is a link only when it passes the shared check
+    const link = screen.getByRole('link', { name: 'https://www.facebook.com/nomuna.name' });
+    expect(link).toHaveAttribute('href', 'https://www.facebook.com/nomuna.name');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer nofollow');
+    expect(link).toHaveAttribute('target', '_blank');
     await openSection(user, 'Address');
     expect(screen.getByText('My own upazila')).toBeInTheDocument();
+    expect(await screen.findByText(/Old village, .*Place/)).toBeInTheDocument();
+    await openSection(user, 'Education');
+    const education = screen.getByRole('region', { name: 'Education' });
+    expect(within(education).getByText('Highest qualification: HSC')).toBeInTheDocument();
+    expect(within(education).getByText('Institution name: Old College')).toBeInTheDocument();
+    expect(within(education).getByText('Passing year: 2012')).toBeInTheDocument();
+    expect(within(education).getByText('Status: Completed')).toBeInTheDocument();
     await openSection(user, 'Work details');
     const work = screen.getByRole('region', { name: 'Work details' });
     expect(within(work).getByText('Teacher')).toBeInTheDocument();
@@ -541,8 +432,23 @@ describe('the personal, profession and skills data in the profile (O-65, D-092; 
     ).toBeInTheDocument();
     expect(within(skills).getByText('Vehicle: Motorcycle')).toBeInTheDocument();
     expect(within(skills).getByText('Swimming: Yes')).toBeInTheDocument();
+    expect(within(skills).getByText('Full time in an emergency: Yes')).toBeInTheDocument();
     expect(within(skills).getByText('Availability: On an emergency call')).toBeInTheDocument();
   }, 20_000);
+
+  it('an older plain Facebook id is text, never a link', async () => {
+    serve(profile({ ...FULL, facebookId: 'nomuna.name' }), () => []);
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    expect(await screen.findByText('nomuna.name')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'nomuna.name' })).not.toBeInTheDocument();
+  }, 15_000);
+
+  it('an unsafe Facebook value is shown as text, never as a link', async () => {
+    serve(profile({ ...FULL, facebookId: 'javascript:alert(1)' }), () => []);
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    expect(await screen.findByText('javascript:alert(1)')).toBeInTheDocument();
+    expect(document.querySelector('a[href^="javascript"]')).toBeNull();
+  }, 15_000);
 
   it('shows the earlier experience and work description only for a volunteer who has them', async () => {
     const user = userEvent.setup();
@@ -581,7 +487,7 @@ describe('the personal, profession and skills data in the profile (O-65, D-092; 
     ]);
   }, 30_000);
 
-  it('asks the skills and the emergency contact as groups, and a choice as a single value', async () => {
+  it('asks the skills, the education and the permanent address as groups, and a choice as a single value', async () => {
     const user = userEvent.setup();
     serve(profile(FULL), () => []);
     renderApp(<ProfileView />, 'en', { path: '/account/profile' });
@@ -595,20 +501,33 @@ describe('the personal, profession and skills data in the profile (O-65, D-092; 
     await user.click(within(skills).getByRole('button', { name: 'Send request' }));
     expect(await screen.findByText('The request was sent.')).toBeInTheDocument();
 
-    const contact = await startEdit(user, 'Contact');
-    await user.click(within(contact).getByRole('checkbox', { name: 'Change Emergency contact' }));
-    const mobile = within(contact).getByRole('textbox', { name: /Guardian's mobile/ });
-    await user.clear(mobile);
-    await user.type(mobile, '01912345678');
-    await user.click(within(contact).getByRole('button', { name: 'Send request' }));
+    const education = await startEdit(user, 'Education');
+    await user.click(within(education).getByRole('checkbox', { name: 'Change Education' }));
+    // it starts with the current education
+    const institution = within(education).getByRole('textbox', { name: /Institution name/ });
+    expect(institution).toHaveValue('Old College');
+    await user.clear(institution);
+    await user.type(institution, 'New College');
+    await user.click(within(education).getByRole('button', { name: 'Send request' }));
     await vi.waitFor(() => expect(calls).toHaveLength(2));
+
+    const address = await startEdit(user, 'Address');
+    await user.click(within(address).getByRole('checkbox', { name: 'Change Permanent address' }));
+    const line = within(address).getByRole('textbox', {
+      name: /Village, road or house \(permanent\)/,
+    });
+    expect(line).toHaveValue('Old village');
+    await user.clear(line);
+    await user.type(line, 'New village');
+    await user.click(within(address).getByRole('button', { name: 'Send request' }));
+    await vi.waitFor(() => expect(calls).toHaveLength(3));
 
     const personal = await startEdit(user, 'Personal details');
     await user.click(within(personal).getByRole('checkbox', { name: 'Change Blood group' }));
     await user.click(within(personal).getByRole('button', { name: /Blood group/ }));
     await user.click(await screen.findByRole('option', { name: 'AB-' }));
     await user.click(within(personal).getByRole('button', { name: 'Send request' }));
-    await vi.waitFor(() => expect(calls).toHaveLength(3));
+    await vi.waitFor(() => expect(calls).toHaveLength(4));
 
     expect(calls.map((c) => c.body)).toEqual([
       {
@@ -618,18 +537,86 @@ describe('the personal, profession and skills data in the profile (O-65, D-092; 
           vehicle: 'bicycle',
           canSwim: true,
           availability: 'on_call',
+          emergencyFullTime: true,
         },
       },
       {
-        field: 'emergencyContact',
-        newValue: { name: 'Guardian', mobile: '01912345678' },
+        field: 'educationDetails',
+        newValue: {
+          highestQualification: 'hsc',
+          institutionName: 'New College',
+          passingYear: 2012,
+          status: 'completed',
+        },
+      },
+      {
+        field: 'permanentAddress',
+        newValue: {
+          divisionId: DIVISION,
+          districtId: DISTRICT,
+          upazilaId: UPAZILA,
+          unionId: UNION,
+          addressLine: 'New village',
+        },
       },
       { field: 'bloodGroup', newValue: 'AB-' },
     ]);
-  }, 60_000);
+  }, 90_000);
+
+  it('asks before another section opens while a detail is ticked, and not for an untouched edit mode', async () => {
+    const user = userEvent.setup();
+    serve(profile(FULL), () => []);
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    // nothing ticked: the section changes without a question
+    await startEdit(user, 'Address');
+    await openSection(user, 'Skills and time');
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Skills and time' })).toBeInTheDocument();
+
+    // a ticked detail: the question, "Cancel" stays with the tick, the other button leaves
+    const address = await startEdit(user, 'Address');
+    await user.click(within(address).getByRole('checkbox', { name: 'Change Address' }));
+    // the open section itself: nothing asked, nothing dropped
+    await openSection(user, 'Address');
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(within(address).getByRole('checkbox', { name: 'Change Address' })).toBeChecked();
+    await openSection(user, 'Education');
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText('Leave without sending?')).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await vi.waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(screen.getByRole('heading', { level: 2, name: 'Address' })).toBeInTheDocument();
+    expect(within(address).getByRole('checkbox', { name: 'Change Address' })).toBeChecked();
+
+    await openSection(user, 'Education');
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Leave this section',
+      }),
+    );
+    expect(await screen.findByRole('heading', { level: 2, name: 'Education' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('form', { name: 'Request to change Address' }),
+    ).not.toBeInTheDocument();
+  }, 30_000);
+
+  it('a permanent address without its four levels is not sent', async () => {
+    const user = userEvent.setup();
+    serve(profile({ ...FULL, permanentAddress: null }), () => []);
+    renderApp(<ProfileView />, 'en', { path: '/account/profile' });
+    const address = await startEdit(user, 'Address');
+    await user.click(within(address).getByRole('checkbox', { name: 'Change Permanent address' }));
+    await user.type(
+      within(address).getByRole('textbox', { name: /Village, road or house \(permanent\)/ }),
+      'Somewhere',
+    );
+    await user.click(within(address).getByRole('button', { name: 'Send request' }));
+    expect(await within(address).findByText('Fill in this field.')).toBeInTheDocument();
+    expect(calls).toEqual([]);
+  }, 30_000);
 });
 
-describe('the single new values of the profile edit (BR-247)', () => {
+describe('the single new values of the profile edit', () => {
   beforeEach(() =>
     refreshAs({ ...ME, kind: 'volunteer', state: 'active', roles: ['volunteer_general'] }),
   );

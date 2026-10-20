@@ -9,14 +9,22 @@ const PASSWORD = 'CssDemo2026';
 const VOLUNTEER = { desktop: '01700000113', mobile: '01700000114' } as const;
 const DETAILS = {
   desktop: [
-    { section: 'যোগাযোগ', label: 'ফেসবুক আইডি' },
-    { section: 'কাজের তথ্য', label: 'শিক্ষাগত যোগ্যতা' },
-    { section: 'কাজের তথ্য', label: 'আগের প্রজেক্টে কাজ' },
+    {
+      section: 'ব্যক্তিগত তথ্য',
+      label: 'ফেসবুক অ্যাকাউন্টের লিঙ্ক',
+      value: 'https://www.facebook.com/nomuna.name',
+    },
+    { section: 'ব্যক্তিগত তথ্য', label: 'মাতার নাম', value: 'নতুন তথ্য' },
+    { section: 'ঠিকানা', label: 'গ্রাম, রাস্তা বা বাড়ি', value: 'নতুন তথ্য' },
   ],
   mobile: [
-    { section: 'কাজের তথ্য', label: 'আগের প্রজেক্টে কাজ' },
-    { section: 'কাজের তথ্য', label: 'শিক্ষাগত যোগ্যতা' },
-    { section: 'যোগাযোগ', label: 'ফেসবুক আইডি' },
+    { section: 'ঠিকানা', label: 'গ্রাম, রাস্তা বা বাড়ি', value: 'নতুন তথ্য' },
+    {
+      section: 'ব্যক্তিগত তথ্য',
+      label: 'ফেসবুক অ্যাকাউন্টের লিঙ্ক',
+      value: 'https://www.facebook.com/nomuna.name',
+    },
+    { section: 'ব্যক্তিগত তথ্য', label: 'মাতার নাম', value: 'নতুন তথ্য' },
   ],
 } as const;
 
@@ -66,7 +74,7 @@ test.describe('own profile', () => {
     expect((await scan(page)).violations).toEqual([]);
     await expect(form.getByRole('button', { name: 'অনুরোধ পাঠান' })).toBeDisabled();
     await form.getByText(`${detail.label} বদলাতে চাই`).click();
-    await form.getByRole('textbox', { name: new RegExp(`^${detail.label}`) }).fill('নতুন তথ্য');
+    await form.getByRole('textbox', { name: new RegExp(`^${detail.label}`) }).fill(detail.value);
     await form.getByRole('button', { name: 'অনুরোধ পাঠান' }).click();
     await expect(page.getByText('অনুরোধ পাঠানো হয়েছে।')).toBeVisible();
     await expect(page.getByText('অনুমোদনের অপেক্ষায়', { exact: true }).first()).toBeVisible();

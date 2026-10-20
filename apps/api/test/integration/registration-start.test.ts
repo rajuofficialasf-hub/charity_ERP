@@ -471,7 +471,9 @@ describe('logs', () => {
         bank: { branchName: 'Savar Branch Secret' },
         dateOfBirth: '1971-02-03',
         bloodGroup: 'AB-',
-        emergencyContact: { name: 'Secret Guardian', mobile: '01712340000' },
+        facebookId: 'https://www.facebook.com/secret.person',
+        educationDetails: { institutionName: 'Secret University' },
+        permanentAddress: { addressLine: 'Secret Village' },
         professionDetails: { institutionName: 'Secret Institution' },
       });
     const text = logLines.join('');
@@ -484,8 +486,9 @@ describe('logs', () => {
       nid,
       'Savar Branch Secret',
       '1971-02-03',
-      'Secret Guardian',
-      '01712340000',
+      'secret.person',
+      'Secret University',
+      'Secret Village',
       'Secret Institution',
     ])
       expect(text).not.toContain(secret);

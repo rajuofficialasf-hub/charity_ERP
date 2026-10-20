@@ -5,16 +5,14 @@ import { CLASS_OF } from './change-requests';
 // The field class of an edit request's value (RBAC.md 6; DECISION_LOG O-65, D-092).
 describe('the field class of the edit request values', () => {
   it('names the identity class for the NID, its photos and the new personal data', () => {
-    for (const field of [
-      'nid',
-      'nid_photo',
-      'nid_photo_back',
-      'bloodGroup',
-      'dateOfBirth',
-      'emergencyContact',
-    ])
+    for (const field of ['nid', 'nid_photo', 'nid_photo_back', 'bloodGroup', 'dateOfBirth'])
       expect(CLASS_OF[field], field).toBe('volunteer.identity');
     expect(CLASS_OF.bank).toBe('volunteer.bank');
+  });
+
+  it('names no class for the emergency contact, which is not collected, and none for the education', () => {
+    expect(CLASS_OF.emergencyContact).toBeUndefined();
+    expect(CLASS_OF.educationDetails).toBeUndefined();
   });
 
   it('only names fields that can be edited, so a misspelled key can not leave a value open', () => {

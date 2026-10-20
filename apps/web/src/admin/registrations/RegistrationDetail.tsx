@@ -16,7 +16,12 @@ import { type ReactNode, useId, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { emergencyText, ProfessionText, SkillsText } from '../../features/account/DetailValues';
+import {
+  EducationText,
+  PermanentAddressText,
+  ProfessionText,
+  SkillsText,
+} from '../../features/account/DetailValues';
 import { FIELD_LABEL, type RequestField } from '../../features/account/profile-api';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -248,6 +253,14 @@ function Details({ registration: r }: { registration: RegistrationDetailView }) 
         [tf('form.whatsapp'), v.whatsapp ?? empty],
         [tf('form.address'), <AddressNames key="address" address={v} />],
         [tf('form.address_line'), v.addressLine ?? empty],
+        [
+          tf('form.address_permanent'),
+          <PermanentAddressText key="permanent" address={v.permanentAddress} />,
+        ],
+        [
+          tf('form.education_group'),
+          <EducationText key="education" education={v.educationDetails} />,
+        ],
         [tf('form.education'), v.education ?? empty],
         // the earlier work texts only when the volunteer has them (O-65)
         ...(v.experience ? [[tf('form.experience'), v.experience] as [string, ReactNode]] : []),
@@ -285,11 +298,8 @@ function Details({ registration: r }: { registration: RegistrationDetailView }) 
             vehicle={v.vehicle}
             canSwim={v.canSwim}
             availability={v.availability}
+            emergencyFullTime={v.emergencyFullTime}
           />,
-        ],
-        [
-          tf('form.emergency_contact'),
-          v.emergencyContact === undefined ? hidden : (emergencyText(v.emergencyContact) ?? empty),
         ],
       ]
     : [

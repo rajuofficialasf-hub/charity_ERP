@@ -30,6 +30,8 @@ export interface SessionFacts {
   kind: string;
   state: string;
   permissionVersion: number;
+  /** A new password is due before anything else (DECISION_LOG O-66). */
+  passwordChangeRequired: boolean;
   roles: string[];
   globalScope: boolean;
   isSystemOwner: boolean;
@@ -229,6 +231,7 @@ export class SessionService {
             kind: true,
             state: true,
             permissionVersion: true,
+            passwordChangeRequired: true,
             isSystemOwner: true,
             userRolesUser: {
               where: { revokedAt: null },
@@ -248,6 +251,7 @@ export class SessionService {
       kind: row.user.kind,
       state: row.user.state,
       permissionVersion: row.user.permissionVersion,
+      passwordChangeRequired: row.user.passwordChangeRequired,
       roles: roles.map((r) => r.roleKey).sort(),
       globalScope: roles.some((r) => r.role.globalScope),
       isSystemOwner: row.user.isSystemOwner,

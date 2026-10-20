@@ -87,6 +87,9 @@ async function register(page: Page, person: Person) {
   // identity: the mother, the NID and the optional personal data
   await page.getByRole('textbox', { name: /মাতার নাম/ }).fill('নমুনা মাতা');
   await page.getByRole('textbox', { name: /NID নম্বর/ }).fill(person.nid);
+  await page
+    .getByRole('textbox', { name: /ফেসবুক অ্যাকাউন্টের লিঙ্ক/ })
+    .fill('https://www.facebook.com/nomuna.name');
   await choose(page, /রক্তের গ্রুপ/, 'O+');
   await next(page);
 
@@ -95,6 +98,15 @@ async function register(page: Page, person: Person) {
   await choose(page, /(^|\s)জেলা/, 'ঢাকা');
   await choose(page, /(^|\s)উপজেলা/, 'সাভার');
   await choose(page, /(^|\s)ইউনিয়ন/, 'সাভার');
+  // the present address is the permanent one unless the box is cleared (O-66)
+  await expect(
+    page.getByRole('checkbox', { name: 'বর্তমান ঠিকানাই আমার স্থায়ী ঠিকানা' }),
+  ).toBeChecked();
+  await next(page);
+
+  // the education is its own step and optional (O-66)
+  await choose(page, /সর্বশেষ শিক্ষাগত যোগ্যতা/, 'স্নাতক (অনার্স বা ডিগ্রি)');
+  await page.getByRole('textbox', { name: /শিক্ষাপ্রতিষ্ঠানের নাম/ }).fill('নমুনা বিশ্ববিদ্যালয়');
   await next(page);
 
   // the profession is mandatory and shows its own fields only (O-65)
@@ -105,8 +117,9 @@ async function register(page: Page, person: Person) {
   await page.getByRole('textbox', { name: /শিক্ষাপ্রতিষ্ঠানের নাম/ }).fill('নমুনা বিদ্যালয়');
   await next(page);
 
-  // skills and the emergency contact, all optional
+  // skills and the full-time answer, all optional; there is no emergency contact (O-66)
   await page.getByRole('checkbox', { name: 'প্রাথমিক চিকিৎসা ও উদ্ধারকাজ' }).check({ force: true });
+  await expect(page.getByRole('textbox', { name: /জরুরি যোগাযোগ|অভিভাবক/ })).toHaveCount(0);
   await next(page);
   // nobody is asked for a type, a reference or bank details (O-64)
   await expect(page.getByRole('button', { name: /স্বেচ্ছাসেবকের ধরন/ })).toHaveCount(0);

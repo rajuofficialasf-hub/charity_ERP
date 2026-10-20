@@ -35,7 +35,9 @@ export interface OwnProfile {
   vehicle: string | null;
   canSwim: boolean | null;
   availability: string | null;
-  emergencyContact: { name: string | null; mobile: string | null };
+  emergencyFullTime: boolean | null;
+  educationDetails: Record<string, unknown>;
+  permanentAddress: Record<string, unknown> | null;
   bank: {
     bankName?: string;
     accountName?: string;
@@ -105,7 +107,8 @@ export const FIELD_LABEL = {
   volunteeringArea: 'form.volunteering_area',
   profession: 'form.profession_group',
   skills: 'form.skills',
-  emergencyContact: 'form.emergency_contact',
+  educationDetails: 'form.education_group',
+  permanentAddress: 'form.address_permanent',
   bank: 'form.bank',
   photo: 'form.photo',
   nid_photo: 'form.nid_photo',

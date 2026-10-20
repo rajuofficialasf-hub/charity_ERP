@@ -82,7 +82,13 @@ const volunteerDetail = (over: Record<string, unknown> = {}) => ({
     facebookId: null,
     bloodGroup: 'O+',
     dateOfBirth: '1990-05-17',
-    emergencyContact: { name: 'Guardian', mobile: '01812345678' },
+    emergencyFullTime: true,
+    educationDetails: {
+      highestQualification: 'hsc',
+      institutionName: 'Sample College',
+      passingYear: 2012,
+    },
+    permanentAddress: { addressLine: 'Old village' },
     tshirtSize: 'M',
     volunteeringArea: 'own_union',
     profession: 'student',
@@ -362,19 +368,22 @@ describe('volunteer registration detail', () => {
     const user = userEvent.setup();
     renderPage(RPM);
     await openRow(user, 'নতুন স্বেচ্ছাসেবক (নমুনা)');
-    for (const text of ['17-05-1990', 'O+', 'Guardian, 01812345678', 'নিজ ইউনিয়ন', 'ছাত্র'])
+    for (const text of ['17-05-1990', 'O+', 'নিজ ইউনিয়ন', 'ছাত্র'])
       expect(screen.getByText(text)).toBeInTheDocument();
     expect(screen.getByText(/Sample School/)).toBeInTheDocument();
+    // the education, the permanent address and the full-time answer are not protected
+    expect(screen.getByText(/Sample College/)).toBeInTheDocument();
+    expect(screen.getByText(/Old village/)).toBeInTheDocument();
+    expect(screen.getByText(/জরুরি কাজে পূর্ণ সময়: হ্যাঁ/)).toBeInTheDocument();
     expect(screen.getByText(/মিডিয়া, ফটোগ্রাফি ও ভিডিওগ্রাফি/)).toBeInTheDocument();
   });
 
-  it('shows that a masked blood group, date of birth and emergency contact are not visible', async () => {
+  it('shows that a masked blood group and date of birth are not visible', async () => {
     const user = userEvent.setup();
     const masked = volunteerDetail();
     const {
       bloodGroup: _blood,
       dateOfBirth: _dob,
-      emergencyContact: _contact,
       nid: _nid,
       nidPhotoFileId: _photo,
       ...rest
@@ -383,12 +392,11 @@ describe('volunteer registration detail', () => {
     renderPage(HEAD);
     await openRow(user, 'নতুন স্বেচ্ছাসেবক (নমুনা)');
     // each protected row says it is not visible, none shows an empty value
-    for (const label of ['NID নম্বর', 'জন্মতারিখ', 'রক্তের গ্রুপ', 'জরুরি যোগাযোগ']) {
+    for (const label of ['NID নম্বর', 'জন্মতারিখ', 'রক্তের গ্রুপ']) {
       const row = screen.getByText(label).parentElement!;
       expect(within(row).getByText('আপনার দেখার অনুমতি নেই'), label).toBeInTheDocument();
     }
     expect(screen.queryByText('17-05-1990')).not.toBeInTheDocument();
-    expect(screen.queryByText('Guardian, 01812345678')).not.toBeInTheDocument();
     // the other new data stays
     expect(screen.getByText('নিজ ইউনিয়ন')).toBeInTheDocument();
   });
@@ -420,7 +428,7 @@ describe('volunteer registration detail', () => {
     const send = within(dialog).getByRole('button', { name: 'পাঠান' });
     expect(send).toBeDisabled();
     await user.click(within(dialog).getByRole('checkbox', { name: 'পিতার নাম' }));
-    await user.click(within(dialog).getByRole('checkbox', { name: 'শিক্ষাগত যোগ্যতা' }));
+    await user.click(within(dialog).getByRole('checkbox', { name: 'আগের শিক্ষাগত যোগ্যতা' }));
     await user.type(
       within(dialog).getByRole('textbox', { name: /কী ঠিক করতে হবে/ }),
       'পিতার নাম NID-এর মতো লিখুন',
@@ -545,12 +553,12 @@ describe('edit requests', () => {
     const row = within(table)
       .getByText('অনুমোদিত স্বেচ্ছাসেবক (নমুনা)')
       .closest<HTMLElement>('[role="row"]')!;
-    expect(within(row).getByText('শিক্ষাগত যোগ্যতা')).toBeInTheDocument();
+    expect(within(row).getByText('আগের শিক্ষাগত যোগ্যতা')).toBeInTheDocument();
     expect(within(row).getByText('স্নাতক')).toBeInTheDocument();
     expect(within(row).getByText('নতুন সনদ')).toBeInTheDocument();
     await user.click(
       within(row).getByRole('button', {
-        name: 'অনুমোদিত স্বেচ্ছাসেবক (নমুনা)-এর শিক্ষাগত যোগ্যতা অনুমোদন',
+        name: 'অনুমোদিত স্বেচ্ছাসেবক (নমুনা)-এর আগের শিক্ষাগত যোগ্যতা অনুমোদন',
       }),
     );
     expect(await screen.findByText('নতুন মান প্রয়োগ হয়েছে')).toBeInTheDocument();
@@ -564,7 +572,7 @@ describe('edit requests', () => {
     expect(await screen.findByText('কোনো পরিবর্তনের অনুরোধ অপেক্ষায় নেই।')).toBeInTheDocument();
   });
 
-  it('shows the profession, the skills and the emergency contact as labelled text, with "No" kept (O-65)', async () => {
+  it('shows the profession, the skills, the education and the permanent address as labelled text, with "No" kept', async () => {
     const user = userEvent.setup();
     const base = {
       volunteerId: VOLUNTEER_ID,
@@ -583,13 +591,28 @@ describe('edit requests', () => {
         ...base,
         id: '01900000-0000-7000-8000-0000000000e2',
         field: 'skills',
-        newValue: { interestAreas: ['first_aid'], vehicle: 'bicycle', canSwim: false },
+        newValue: {
+          interestAreas: ['first_aid'],
+          vehicle: 'bicycle',
+          canSwim: false,
+          emergencyFullTime: false,
+        },
       },
       {
         ...base,
         id: '01900000-0000-7000-8000-0000000000e3',
-        field: 'emergencyContact',
-        newValue: { name: 'Guardian', mobile: '01812345678' },
+        field: 'educationDetails',
+        newValue: {
+          highestQualification: 'masters',
+          institutionName: 'Sample University',
+          passingYear: 2016,
+        },
+      },
+      {
+        ...base,
+        id: '01900000-0000-7000-8000-0000000000e4',
+        field: 'permanentAddress',
+        newValue: { addressLine: 'New village' },
       },
     ];
     renderPage(RPM);
@@ -600,7 +623,9 @@ describe('edit requests', () => {
     expect(within(table).getByText(/খতিব/)).toBeInTheDocument();
     expect(within(table).getByText(/সাঁতার: না/)).toBeInTheDocument();
     expect(within(table).getByText(/বাহন: সাইকেল/)).toBeInTheDocument();
-    expect(within(table).getByText('Guardian, 01812345678')).toBeInTheDocument();
+    expect(within(table).getByText(/জরুরি কাজে পূর্ণ সময়: না/)).toBeInTheDocument();
+    expect(within(table).getByText(/Sample University/)).toBeInTheDocument();
+    expect(within(table).getByText(/New village/)).toBeInTheDocument();
     expect(table.textContent).not.toContain('[object Object]');
   });
 
@@ -611,7 +636,7 @@ describe('edit requests', () => {
     const table = await screen.findByRole('grid', { name: 'পরিবর্তনের অনুরোধ' });
     await user.click(
       within(table).getByRole('button', {
-        name: 'অনুমোদিত স্বেচ্ছাসেবক (নমুনা)-এর শিক্ষাগত যোগ্যতা নাকচ',
+        name: 'অনুমোদিত স্বেচ্ছাসেবক (নমুনা)-এর আগের শিক্ষাগত যোগ্যতা নাকচ',
       }),
     );
     const dialog = await screen.findByRole('alertdialog');

@@ -9,7 +9,6 @@ describe('the registration detail and the field mask', () => {
     nid: '1000000000123',
     bloodGroup: 'O+',
     dateOfBirth: '1990-05-17',
-    emergencyContact: { name: 'অভিভাবক', mobile: '01712345678' },
     tshirtSize: 'M',
     volunteeringArea: 'own_union',
     profession: 'imam',
@@ -23,10 +22,10 @@ describe('the registration detail and the field mask', () => {
     (maskData(registrationDetail, { volunteer }, new Set(classes)) as { volunteer: object })
       .volunteer;
 
-  it('marks the blood group, the date of birth and the emergency contact with the identity class', () => {
+  it('marks the blood group and the date of birth with the identity class', () => {
     expect(sensitiveClassesOf(registrationDetail)).toContain('volunteer.identity');
     const seen = run([]);
-    for (const key of ['nid', 'bloodGroup', 'dateOfBirth', 'emergencyContact'])
+    for (const key of ['nid', 'bloodGroup', 'dateOfBirth'])
       expect(Object.hasOwn(seen, key), key).toBe(false);
   });
 
@@ -46,7 +45,6 @@ describe('the registration detail and the field mask', () => {
       nid: '1000000000123',
       bloodGroup: 'O+',
       dateOfBirth: '1990-05-17',
-      emergencyContact: { name: 'অভিভাবক', mobile: '01712345678' },
     });
   });
 });

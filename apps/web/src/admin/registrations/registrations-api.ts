@@ -46,10 +46,12 @@ export interface RegistrationDetailView extends PendingRegistration {
     workDescription: string | null;
     previousProjects: string | null;
     facebookId: string | null;
-    // the blood group, the date of birth and the emergency contact only with the identity class
+    // the blood group and the date of birth only with the identity class
     bloodGroup?: string | null;
     dateOfBirth?: string | null;
-    emergencyContact?: { name: string | null; mobile: string | null };
+    emergencyFullTime: boolean | null;
+    educationDetails: Record<string, unknown>;
+    permanentAddress: Record<string, unknown> | null;
     tshirtSize: string | null;
     volunteeringArea: string | null;
     profession: string | null;
