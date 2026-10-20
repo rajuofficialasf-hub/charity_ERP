@@ -72,6 +72,8 @@ allowed endpoint is decided by the data scope and is tested separately (scope an
 | GET /beneficiaries/statistics | beneficiary.view_all | beneficiary | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /beneficiaries/:beneficiaryId | beneficiary.view_all | beneficiary | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | PATCH /beneficiaries/:beneficiaryId/contact | beneficiary.contact.edit | beneficiary | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| POST /beneficiaries/:beneficiaryId/block | beneficiary.block | beneficiary | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| POST /beneficiaries/:beneficiaryId/unblock | beneficiary.unblock | beneficiary | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | POST /beneficiaries/:beneficiaryId/correction-requests | beneficiary.correction.request | beneficiary | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | POST /beneficiary-corrections/:requestId/decision | beneficiary.correction.approve | beneficiary | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /programs | program.view | program | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
@@ -157,7 +159,7 @@ allowed endpoint is decided by the data scope and is tested separately (scope an
 | PUT /admin/notification-templates/:key/:channel | notification.template.manage | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /admin/deliveries | notification.delivery.view | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 
-## Permissions no endpoint uses yet (101, D-077)
+## Permissions no endpoint uses yet (99, D-077)
 
 They belong to features of later tasks; the matrix covers them when their endpoints exist.
 
@@ -181,7 +183,6 @@ They belong to features of later tasks; the matrix covers them when their endpoi
 - `application.view_official_section`
 - `application.waitlist`
 - `audit.export`
-- `beneficiary.block`
 - `beneficiary.consent.record`
 - `beneficiary.consent.view`
 - `beneficiary.merge`
@@ -189,7 +190,6 @@ They belong to features of later tasks; the matrix covers them when their endpoi
 - `beneficiary.merge.propose`
 - `beneficiary.merge.revert`
 - `beneficiary.status.change`
-- `beneficiary.unblock`
 - `beneficiary.view_nid`
 - `budget.view`
 - `call_log.record`

@@ -9,6 +9,7 @@ import {
   LOCKED_FIELDS,
   lookupRequestSchema,
 } from '@css/shared/beneficiaries';
+import { type ReasonRequest, reasonRequestSchema } from '@css/shared/auth';
 import { type DecisionRequest, decisionRequestSchema } from '@css/shared/registration';
 import { Router } from 'express';
 import { z, type ZodType } from 'zod';
@@ -19,6 +20,7 @@ import { type PageQuery, pageNumberQuery, pageQuery } from '../core/pagination';
 import { etagOf } from '../core/etag';
 import { ok, page } from '../http/send';
 import { defineRoute, type RouteDeps } from '../openapi/define-route';
+import { blocklistEntry } from './volunteers';
 
 // Each marked field gets a schema of its own: `sensitive` marks the instance it is given.
 const contact = <T extends ZodType>(schema: T) => sensitive(schema, 'beneficiary.contact');
@@ -259,7 +261,11 @@ export function beneficiariesRouter(
   deps: RouteDeps,
   c: Pick<
     Container,
-    'beneficiaries' | 'beneficiaryIdentity' | 'beneficiaryContact' | 'beneficiaryCorrections'
+    | 'beneficiaries'
+    | 'beneficiaryIdentity'
+    | 'beneficiaryContact'
+    | 'beneficiaryCorrections'
+    | 'blocklist'
   >,
 ): Router {
   const router = Router();
@@ -406,6 +412,47 @@ export function beneficiariesRouter(
       res.setHeader('ETag', etag);
       return ok(contact, { etag });
     },
+  });
+
+  defineRoute<ReasonRequest, unknown, { beneficiaryId: string }>(router, deps, {
+    ...writeOp,
+    method: 'post',
+    path: '/beneficiaries/:beneficiaryId/block',
+    operationId: 'beneficiaries.blocklist.set',
+    summary: 'Block a beneficiary with a reason: no new application in any project (BR-015)',
+    permission: 'beneficiary.block',
+    audit: 'blocklist.set',
+    status: 201,
+    params: { beneficiaryId: z.uuid() },
+    body: reasonRequestSchema,
+    responses: { 201: blocklistEntry, 401: null, 403: null, 404: null, 409: null, 422: null },
+    handler: ({ body, params, req }) =>
+      c.blocklist.blockBeneficiary(
+        principalOf(req),
+        scopeOf(req),
+        params.beneficiaryId,
+        body.reason,
+      ),
+  });
+
+  defineRoute<ReasonRequest, unknown, { beneficiaryId: string }>(router, deps, {
+    ...writeOp,
+    method: 'post',
+    path: '/beneficiaries/:beneficiaryId/unblock',
+    operationId: 'beneficiaries.blocklist.lift',
+    summary: 'Lift a beneficiary block with a reason',
+    permission: 'beneficiary.unblock',
+    audit: 'blocklist.lift',
+    params: { beneficiaryId: z.uuid() },
+    body: reasonRequestSchema,
+    responses: { 200: blocklistEntry, 401: null, 403: null, 404: null, 409: null, 422: null },
+    handler: ({ body, params, req }) =>
+      c.blocklist.unblockBeneficiary(
+        principalOf(req),
+        scopeOf(req),
+        params.beneficiaryId,
+        body.reason,
+      ),
   });
 
   defineRoute<CorrectionRequestCreate, unknown, { beneficiaryId: string }>(router, deps, {

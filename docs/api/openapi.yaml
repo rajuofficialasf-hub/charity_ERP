@@ -5695,8 +5695,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/BlocklistResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /beneficiaries/{beneficiaryId}/unblock:
     parameters:
       - $ref: '#/components/parameters/BeneficiaryId'
@@ -5720,7 +5723,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/BlocklistResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /beneficiaries/{beneficiaryId}/status:
     parameters:
       - $ref: '#/components/parameters/BeneficiaryId'
