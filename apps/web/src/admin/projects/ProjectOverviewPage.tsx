@@ -1,6 +1,7 @@
 import { type Locale, localized } from '@css/shared/i18n';
 import { Alert, Button, Card, ErrorState, Skeleton } from '@css/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
@@ -8,6 +9,7 @@ import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { canCreateProjects, canSeeProjects } from '../roles';
+import { SaveTemplateDialog } from '../templates/SaveTemplateDialog';
 import { LifecycleActions } from './LifecycleActions';
 import { ProjectFacts } from './ProjectFacts';
 import { ProjectStatusBadge } from './ProjectStatusBadge';
@@ -23,12 +25,15 @@ export function ProjectOverviewPage() {
   const { projectId = '' } = useParams();
   const t = useTranslations('admin.projects');
   const tc = useTranslations('common');
+  const tt = useTranslations('admin.templates.save');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
   // the setup wizard says what it did: the draft saved, or the project activated
   const notice = (location.state as { notice?: string } | null)?.notice;
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState<string>();
   const allowed = Boolean(me && canSeeProjects(me));
   const one = useQuery({
     queryKey: [...PROJECTS_KEY, 'one', projectId],
@@ -72,6 +77,11 @@ export function ProjectOverviewPage() {
           {notice}
         </Alert>
       )}
+      {saved && (
+        <Alert tone="success" live="status" onDismiss={() => setSaved(undefined)}>
+          {saved}
+        </Alert>
+      )}
       {canCreateProjects(me) && (
         <LifecycleActions
           project={p}
@@ -83,13 +93,34 @@ export function ProjectOverviewPage() {
         title={t('detail.facts')}
         headingLevel={2}
         actions={
-          <Button variant="secondary" size="sm" href={`/admin/projects/${p.id}/setup`}>
-            {t('detail.setup')}
-          </Button>
+          <>
+            <Button variant="secondary" size="sm" href={`/admin/projects/${p.id}/setup`}>
+              {t('detail.setup')}
+            </Button>
+            <Button variant="secondary" size="sm" href={`/admin/projects/${p.id}/volunteers`}>
+              {t('volunteers.open')}
+            </Button>
+            {/* the template managers are the project creators (organisation-wide templates) */}
+            {canCreateProjects(me) && (
+              <Button variant="ghost" size="sm" onPress={() => setSaving(true)}>
+                {tt('open')}
+              </Button>
+            )}
+          </>
         }
       >
         <ProjectFacts project={p} />
       </Card>
+      {saving && (
+        <SaveTemplateDialog
+          projectId={p.id}
+          onClose={() => setSaving(false)}
+          onDone={(template) => {
+            setSaving(false);
+            setSaved(tt('notice', { name: localized(template.name, locale) }));
+          }}
+        />
+      )}
     </>
   );
 }

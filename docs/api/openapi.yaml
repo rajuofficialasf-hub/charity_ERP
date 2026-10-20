@@ -1271,54 +1271,211 @@ components:
         reason: { type: string, minLength: 3, maxLength: 1000 }
     ProjectVolunteerCreate:
       type: object
-      required: [volunteerIds, regionLocationId, permissionSet]
+      additionalProperties: false
+      required: [volunteers]
       properties:
-        volunteerIds: { type: array, minItems: 1, maxItems: 200, items: { $ref: '#/components/schemas/Uuid' } }
-        regionLocationId: { $ref: '#/components/schemas/Uuid' }
+        volunteers:
+          type: array
+          minItems: 1
+          maxItems: 100
+          description: Each volunteer once; the set defaults to the one of the volunteer's type.
+          items:
+            type: object
+            additionalProperties: false
+            required: [volunteerId]
+            properties:
+              volunteerId: { type: string, format: uuid }
+              permissionSet: { type: string, enum: [application_distribution, application_distribution_dawah, work_progress] }
+              isPaid: { type: boolean, default: false }
+    ProjectVolunteerUpdate:
+      type: object
+      additionalProperties: false
+      description: At least one of the two.
+      properties:
         permissionSet: { type: string, enum: [application_distribution, application_distribution_dawah, work_progress] }
-        isPaid: { type: boolean, default: false }
+        isPaid: { type: boolean }
     ProjectVolunteer:
       type: object
-      required: [id, projectId, volunteerId, permissionSet, consentStatus]
+      required: [id, volunteerId, displayName, type, regionLocationId, permissionSet, isPaid, consentStatus, consentAt, applicationsCounted, assignedAt]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
-        projectId: { $ref: '#/components/schemas/Uuid' }
         volunteerId: { $ref: '#/components/schemas/Uuid' }
+        displayName: { type: string }
+        type: { type: string }
         regionLocationId: { $ref: '#/components/schemas/Uuid' }
         permissionSet: { type: string, enum: [application_distribution, application_distribution_dawah, work_progress] }
-        extraPermissions: { type: array, items: { type: string } }
         isPaid: { type: boolean }
-        consentStatus: { type: string, enum: [pending, accepted, rejected] }
+        consentStatus: { type: string, enum: [pending, accepted] }
         consentAt: { type: [string, 'null'], format: date-time }
-        endedAt: { type: [string, 'null'], format: date-time }
+        applicationsCounted: { type: integer, minimum: 0 }
+        assignedAt: { type: string, format: date-time }
     ProjectVolunteerList:
       type: object
       required: [data, meta]
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/ProjectVolunteer' } }
         meta: { $ref: '#/components/schemas/ListMeta' }
-    ConsentRequest:
+    ProjectVolunteerListResponse:
       type: object
-      required: [accepted]
+      required: [data]
       properties:
-        accepted: { type: boolean }
-        acceptedSections: { type: array, items: { type: string, enum: [volunteer_duties, implementation, daee_duties, measures] } }
-    TeamMember:
+        data: { type: array, items: { $ref: '#/components/schemas/ProjectVolunteer' } }
+    ProjectVolunteerResponse:
       type: object
-      required: [id, projectId, leadVolunteerId, memberVolunteerId]
+      required: [data]
       properties:
-        id: { $ref: '#/components/schemas/Uuid' }
-        projectId: { $ref: '#/components/schemas/Uuid' }
-        leadVolunteerId: { $ref: '#/components/schemas/Uuid' }
-        memberVolunteerId: { $ref: '#/components/schemas/Uuid' }
-        memberName: { type: string }
-        addedAt: { type: string, format: date-time }
-    TeamMemberList:
+        data: { $ref: '#/components/schemas/ProjectVolunteer' }
+    VolunteerCandidate:
+      type: object
+      required: [volunteerId, displayName, type, divisionId, districtId, upazilaId, unionId, defaultPermissionSet]
+      properties:
+        volunteerId: { $ref: '#/components/schemas/Uuid' }
+        displayName: { type: string }
+        type: { type: string }
+        divisionId: { $ref: '#/components/schemas/Uuid' }
+        districtId: { $ref: '#/components/schemas/Uuid' }
+        upazilaId: { $ref: '#/components/schemas/Uuid' }
+        unionId: { $ref: '#/components/schemas/Uuid' }
+        defaultPermissionSet: { type: [string, 'null'] }
+    VolunteerCandidateList:
       type: object
       required: [data, meta]
       properties:
-        data: { type: array, items: { $ref: '#/components/schemas/TeamMember' } }
+        data: { type: array, items: { $ref: '#/components/schemas/VolunteerCandidate' } }
         meta: { $ref: '#/components/schemas/ListMeta' }
+    RulesPart:
+      type: string
+      enum: [volunteer_duties, implementation_process, daee_duties, misconduct]
+    RuleText:
+      type: object
+      additionalProperties: false
+      required: [bn, en]
+      properties:
+        bn: { type: string, maxLength: 10000 }
+        en: { type: string, maxLength: 10000 }
+    ProjectRules:
+      type: object
+      additionalProperties: false
+      description: The four rules texts; any part may be absent while a draft is set up (BR-039).
+      properties:
+        volunteer_duties: { $ref: '#/components/schemas/RuleText' }
+        implementation_process: { $ref: '#/components/schemas/RuleText' }
+        daee_duties: { $ref: '#/components/schemas/RuleText' }
+        misconduct: { $ref: '#/components/schemas/RuleText' }
+    ProjectRulesResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [version, rules]
+          properties:
+            version: { type: integer, minimum: 0, description: 0 while no rules are saved }
+            rules: { $ref: '#/components/schemas/ProjectRules' }
+    ConsentRequest:
+      type: object
+      additionalProperties: false
+      required: [rulesVersion, decision]
+      properties:
+        rulesVersion: { type: integer, minimum: 1, maximum: 9007199254740991 }
+        decision: { type: string, enum: [accepted, refused] }
+        parts:
+          type: array
+          maxItems: 4
+          default: []
+          description: The parts accepted, each once; an acceptance names every required part.
+          items: { type: string, enum: [volunteer_duties, implementation_process, daee_duties, misconduct] }
+    MyProject:
+      type: object
+      required: [projectId, code, year, name, status, applyFrom, applyTo, perVolunteerLimit, dawahEnabled, via, permissionSet, isPaid, consentStatus, rulesVersion, applicationsCounted, applicationsLeft, leadsTeam]
+      properties:
+        projectId: { $ref: '#/components/schemas/Uuid' }
+        code: { type: string }
+        year: { type: integer }
+        name: { $ref: '#/components/schemas/Bilingual' }
+        status: { type: string, enum: [active, closing] }
+        applyFrom: { type: [string, 'null'], format: date }
+        applyTo: { type: [string, 'null'], format: date }
+        perVolunteerLimit: { type: [integer, 'null'] }
+        dawahEnabled: { type: boolean }
+        via: { type: string, enum: [assignment, team], description: "Own assignment, or a membership of a main volunteer's team" }
+        permissionSet: { type: [string, 'null'], description: Null for a team member }
+        isPaid: { type: boolean }
+        consentStatus: { type: string, enum: [pending, accepted], description: The project opens for work only when accepted }
+        rulesVersion: { type: integer, minimum: 0 }
+        applicationsCounted: { type: integer, minimum: 0, description: The main volunteer's count for a team member (BR-059) }
+        applicationsLeft: { type: [integer, 'null'], minimum: 0 }
+        leadsTeam: { type: boolean, description: An assigned General or দাঈ-স্বেচ্ছাসেবক volunteer may build a team }
+    MyProjectList:
+      type: object
+      required: [data]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/MyProject' } }
+    MyProjectResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/MyProject' }
+    MyProjectDetail:
+      type: object
+      required: [data]
+      properties:
+        data:
+          allOf:
+            - $ref: '#/components/schemas/MyProject'
+            - type: object
+              required: [rules]
+              properties:
+                rules:
+                  type: object
+                  required: [version, parts]
+                  properties:
+                    version: { type: integer }
+                    parts:
+                      type: array
+                      items:
+                        type: object
+                        required: [part, text]
+                        properties:
+                          part: { $ref: '#/components/schemas/RulesPart' }
+                          text: { $ref: '#/components/schemas/Bilingual' }
+    TeamMember:
+      type: object
+      required: [volunteerId, displayName, type, consentStatus, addedAt]
+      properties:
+        volunteerId: { $ref: '#/components/schemas/Uuid' }
+        displayName: { type: string }
+        type: { type: string }
+        consentStatus: { type: string, enum: [pending, accepted] }
+        addedAt: { type: string, format: date-time }
+    TeamCandidate:
+      type: object
+      required: [volunteerId, displayName, type]
+      properties:
+        volunteerId: { $ref: '#/components/schemas/Uuid' }
+        displayName: { type: string }
+        type: { type: string }
+    TeamResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [members, candidates]
+          properties:
+            members: { type: array, items: { $ref: '#/components/schemas/TeamMember' } }
+            candidates: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/TeamCandidate' } }
+    TeamAddRequest:
+      type: object
+      additionalProperties: false
+      required: [memberVolunteerIds]
+      properties:
+        memberVolunteerIds:
+          type: array
+          minItems: 1
+          maxItems: 50
+          description: Each volunteer once.
+          items: { type: string, format: uuid }
     CategoryRequest:
       type: object
       required: [comment]
@@ -1706,23 +1863,29 @@ components:
         name: { $ref: '#/components/schemas/BoundedLabel' }
         description: { type: string, maxLength: 2000 }
         source:
-          type: object
-          description: The way the project is made; template and copy come with T1.12
-          additionalProperties: false
-          required: [kind, workflowKey]
-          properties:
-            kind: { type: string, const: workflow }
-            workflowKey:
-              type: string
-              enum:
-                [
-                  distribution,
-                  construction,
-                  advance_voucher,
-                  implementation_evidence,
-                  open_application_visit,
-                  qurbani,
-                ]
+          description: >-
+            Where the project starts (BD-10, D-096): a workflow's starting setup, an active master
+            template, or a copy of a project the caller may view. A template or a copy brings the
+            components with their settings, the syllabus and the rules texts, and nothing else.
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [kind, workflowKey]
+              properties:
+                kind: { type: string, const: workflow }
+                workflowKey: { type: string, enum: [distribution, construction, advance_voucher, implementation_evidence, open_application_visit, qurbani] }
+            - type: object
+              additionalProperties: false
+              required: [kind, templateId]
+              properties:
+                kind: { type: string, const: template }
+                templateId: { type: string, format: uuid }
+            - type: object
+              additionalProperties: false
+              required: [kind, projectId]
+              properties:
+                kind: { type: string, const: copy }
+                projectId: { type: string, format: uuid }
     ProjectUpdate:
       type: object
       description: Setup fields of the project row; at least one. Which may change depends on the project state.
@@ -1985,33 +2148,64 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     Template:
       type: object
-      required: [id, key, version, name, projectType]
+      required: [id, name, description, workflowKey, active, version, sourceProjectId, updatedAt, updatedByName]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
-        key: { type: string }
-        version: { type: integer }
         name: { $ref: '#/components/schemas/Bilingual' }
-        projectType: { type: string }
-        sourceProjectId: { type: [string, 'null'], format: uuid }
+        description: { type: [string, 'null'] }
+        workflowKey: { type: string }
         active: { type: boolean }
+        version: { type: integer, minimum: 1, description: Raised each time a project's setup replaces the contents }
+        sourceProjectId: { type: [string, 'null'], format: uuid }
+        updatedAt: { type: string, format: date-time }
+        updatedByName: { type: [string, 'null'] }
+    TemplateDetail:
+      allOf:
+        - $ref: '#/components/schemas/Template'
+        - type: object
+          required: [definition]
+          properties:
+            definition: { type: object, description: 'The copied parts: workflowKey, components with settings, syllabus, rules' }
     TemplateResponse:
       type: object
-      required: [data, meta]
+      required: [data]
       properties:
         data: { $ref: '#/components/schemas/Template' }
-        meta: { $ref: '#/components/schemas/Meta' }
+    TemplateDetailResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/TemplateDetail' }
     TemplateList:
       type: object
-      required: [data, meta]
+      required: [data]
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/Template' } }
-        meta: { $ref: '#/components/schemas/ListMeta' }
     SaveAsTemplateRequest:
+      description: A new template with its name, or the replacement of an existing template's contents.
+      anyOf:
+        - type: object
+          additionalProperties: false
+          required: [name]
+          properties:
+            name: { $ref: '#/components/schemas/BoundedLabel' }
+            description: { type: string, maxLength: 2000 }
+        - type: object
+          additionalProperties: false
+          required: [templateId]
+          properties:
+            templateId: { type: string, format: uuid }
+    TemplateUpdate:
       type: object
-      required: [key, name]
+      additionalProperties: false
+      description: At least one field.
       properties:
-        key: { type: string, pattern: '^[a-z0-9_]{2,64}$' }
-        name: { $ref: '#/components/schemas/Bilingual' }
+        name: { $ref: '#/components/schemas/BoundedLabel' }
+        description:
+          anyOf:
+            - { type: string, maxLength: 2000 }
+            - { type: 'null' }
+        active: { type: boolean }
 
     # ---------------- forms ----------------
     Form:
@@ -3761,6 +3955,151 @@ paths:
         '422': { $ref: '#/components/responses/Unprocessable' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '503': { $ref: '#/components/responses/ServerError' }
+  /me/projects:
+    get:
+      tags: [volunteers]
+      operationId: volunteers.myProject.list
+      summary: Own running projects with the consent state, permission set and application count (BR-039, D-096)
+      x-permission: volunteer.consent.accept
+      x-scope: self
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: Own active and closing projects, through an assignment or a team membership
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MyProjectList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /me/projects/{projectId}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [volunteers]
+      operationId: volunteers.myProject.get
+      summary: One own project with the rules parts to read before accepting
+      x-permission: volunteer.consent.accept
+      x-scope: self
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: The project and the parts of its current rules (the Local দায়ী part only with dawah)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MyProjectDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /me/projects/{projectId}/consent:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    post:
+      tags: [volunteers]
+      operationId: volunteers.myProject.consent
+      summary: Accept every part of the current rules, or refuse them (the project stays pending)
+      description: >-
+        The volunteer, the assignment or team membership and the project come from the caller, never
+        from the body. The project row is locked; a version that is no longer current answers 409
+        project.rules_changed, rules with a required text never written 409 project.rules_incomplete,
+        an acceptance without every required part 422. Every answer is logged in project_consents.
+      x-permission: volunteer.consent.accept
+      x-scope: self
+      x-audit: volunteer.consent
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConsentRequest' }
+      responses:
+        '200':
+          description: The project with its new consent state
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MyProjectResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /me/projects/{projectId}/team:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [volunteers]
+      operationId: volunteers.team.list
+      summary: Own team on the project and the volunteers registered with the caller as reference
+      description: >-
+        For a General or দাঈ-স্বেচ্ছাসেবক volunteer working on the project (assignment not ended,
+        rules accepted); 404 when the caller is not on the project, 403 otherwise (BR-040, D-096).
+        Candidates are approved, not blocked, and neither on a team of the project nor assigned to
+        it; they carry only name and type.
+      x-permission: volunteer.team.manage
+      x-scope: self
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: Members and candidates
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TeamResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [volunteers]
+      operationId: volunteers.team.add
+      summary: Add volunteers registered with the caller as reference to own team on the project
+      description: >-
+        All or nothing; the project row is locked. A volunteer not registered under the caller, not
+        approved or blocked answers 422; one on a team of the project 409 volunteer.already_on_team,
+        one assigned to it 409 volunteer.already_assigned. A new member accepts the rules on their own.
+      x-permission: volunteer.team.manage
+      x-scope: self
+      x-audit: volunteer.team_added
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TeamAddRequest' }
+      responses:
+        '201':
+          description: Added; the team as it is now
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TeamResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /me/projects/{projectId}/team/{volunteerId}/remove:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/VolunteerId'
+    post:
+      tags: [volunteers]
+      operationId: volunteers.team.remove
+      summary: Remove a member from own team on the project
+      x-permission: volunteer.team.manage
+      x-scope: self
+      x-audit: volunteer.team_removed
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /volunteers/me:
     get:
       tags: [volunteers]
@@ -3890,35 +4229,74 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+  /projects/{projectId}/volunteer-candidates:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [volunteers]
+      operationId: volunteers.assignment.candidates
+      summary: Approved, not blocked volunteers of the caller areas who are not on the project yet (BR-037)
+      description: >-
+        The caller's own areas of the project (a division, or a district when the division is split;
+        every area for a global role). Team-member volunteers, volunteers already assigned and
+        volunteers on a team of the project are left out. Only name, type and address ids are sent.
+      x-permission: volunteer.assign_project
+      x-scope: project
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - { name: districtId, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: upazilaId, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: unionId, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: q, in: query, required: false, description: "A name, or an exact mobile number", schema: { type: string, minLength: 2, maxLength: 100 } }
+      responses:
+        '200':
+          description: Candidates
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VolunteerCandidateList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}/volunteers:
     parameters:
       - $ref: '#/components/parameters/ProjectId'
     get:
       tags: [volunteers]
       operationId: volunteers.assignment.list
-      summary: Volunteers assigned to a project within scope
+      summary: Volunteers assigned to the project in the caller areas, with set, paid flag and consent
       x-permission: project.view
       x-scope: project
       x-audit: none
       x-idempotency: none
       x-rate-limit: default
       parameters:
-        - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
-        - name: regionLocationId
-          in: query
-          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/Cursor'
       responses:
         '200':
-          description: Assignments
+          description: Assignments that have not ended
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ProjectVolunteerList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
     post:
       tags: [volunteers]
       operationId: volunteers.assignment.create
-      summary: Assign one or many approved volunteers of own region with a permission set (BR-037, BR-038)
+      summary: Assign up to 100 volunteers of the caller areas with a permission set and a paid flag
+      description: >-
+        All or nothing (BR-037, BR-038, D-096). A volunteer outside the caller areas, not approved,
+        blocked or of the team-member type answers 404; one already assigned 409
+        volunteer.already_assigned, one on a team of the project 409 volunteer.on_team; a set not
+        meant for the volunteer's type 422. A paid flag needs volunteer.mark_paid. Each volunteer
+        must accept the rules before working.
       x-permission: volunteer.assign_project
       x-scope: project
       x-audit: volunteer.assigned
@@ -3931,11 +4309,42 @@ paths:
             schema: { $ref: '#/components/schemas/ProjectVolunteerCreate' }
       responses:
         '201':
-          description: Assigned; volunteers must accept the rules before working
+          description: Assigned, consent pending
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ProjectVolunteerList' }
+              schema: { $ref: '#/components/schemas/ProjectVolunteerListResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /project-volunteers/{assignmentId}:
+    parameters:
+      - $ref: '#/components/parameters/AssignmentId'
+    patch:
+      tags: [volunteers]
+      operationId: volunteers.assignment.update
+      summary: Change the permission set or the paid flag (the paid flag needs volunteer.mark_paid)
+      x-permission: volunteer.assign_project
+      x-scope: project
+      x-audit: volunteer.assignment_changed
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProjectVolunteerUpdate' }
+      responses:
+        '200':
+          description: Changed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectVolunteerResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /project-volunteers/{assignmentId}/end:
     parameters:
@@ -3943,7 +4352,7 @@ paths:
     post:
       tags: [volunteers]
       operationId: volunteers.assignment.end
-      summary: End a volunteer's assignment with a reason
+      summary: End an assignment with a reason; the team of that volunteer on the project ends too
       x-permission: volunteer.assign_project
       x-scope: project
       x-audit: volunteer.assignment_ended
@@ -3956,116 +4365,10 @@ paths:
             schema: { $ref: '#/components/schemas/ReasonRequest' }
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
-        '404': { $ref: '#/components/responses/NotFound' }
-  /project-volunteers/{assignmentId}/paid:
-    parameters:
-      - $ref: '#/components/parameters/AssignmentId'
-    post:
-      tags: [volunteers]
-      operationId: volunteers.assignment.markPaid
-      summary: Mark or unmark the volunteer as paid on the project
-      x-permission: volunteer.mark_paid
-      x-scope: project
-      x-audit: volunteer.marked_paid
-      x-idempotency: none
-      x-rate-limit: default
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [isPaid]
-              properties:
-                isPaid: { type: boolean }
-      responses:
-        '204': { $ref: '#/components/responses/NoContent' }
-        '404': { $ref: '#/components/responses/NotFound' }
-  /project-volunteers/{assignmentId}/consent:
-    parameters:
-      - $ref: '#/components/parameters/AssignmentId'
-    post:
-      tags: [volunteers]
-      operationId: volunteers.assignment.consent
-      summary: Accept or reject the project's rules and consent texts (BR-039)
-      x-permission: volunteer.consent.accept
-      x-scope: self
-      x-audit: volunteer.consent
-      x-idempotency: none
-      x-rate-limit: default
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/ConsentRequest' }
-      responses:
-        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
-  /projects/{projectId}/team:
-    parameters:
-      - $ref: '#/components/parameters/ProjectId'
-    get:
-      tags: [volunteers]
-      operationId: volunteers.team.list
-      summary: Own team on the project and candidates registered with own NID as reference
-      x-permission: volunteer.team.manage
-      x-scope: self
-      x-audit: none
-      x-idempotency: none
-      x-rate-limit: default
-      parameters:
-        - name: candidates
-          in: query
-          schema: { type: boolean, default: false }
-      responses:
-        '200':
-          description: Team members or candidates
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/TeamMemberList' }
-        '404': { $ref: '#/components/responses/NotFound' }
-    post:
-      tags: [volunteers]
-      operationId: volunteers.team.add
-      summary: Add team members to own project team (BR-040)
-      x-permission: volunteer.team.manage
-      x-scope: self
-      x-audit: volunteer.team_added
-      x-idempotency: none
-      x-rate-limit: default
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [memberVolunteerIds]
-              properties:
-                memberVolunteerIds: { type: array, minItems: 1, items: { type: string, format: uuid } }
-      responses:
-        '201':
-          description: Added
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/TeamMemberList' }
-        '422': { $ref: '#/components/responses/Unprocessable' }
-  /projects/{projectId}/team/{volunteerId}/remove:
-    parameters:
-      - $ref: '#/components/parameters/ProjectId'
-      - $ref: '#/components/parameters/VolunteerId'
-    post:
-      tags: [volunteers]
-      operationId: volunteers.team.remove
-      summary: Remove a member from own project team
-      x-permission: volunteer.team.manage
-      x-scope: self
-      x-audit: volunteer.team_removed
-      x-idempotency: none
-      x-rate-limit: default
-      responses:
-        '204': { $ref: '#/components/responses/NoContent' }
-        '404': { $ref: '#/components/responses/NotFound' }
   /projects/{projectId}/transfers:
     parameters:
       - $ref: '#/components/parameters/ProjectId'
@@ -5368,16 +5671,70 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+  /projects/{projectId}/rules:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [projects]
+      operationId: projects.rules.get
+      summary: The four rules texts and their version (officials; volunteers read them as their own)
+      x-permission: project.view
+      x-scope: project
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectRulesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [projects]
+      operationId: projects.rules.replace
+      summary: Save the rules texts as a new version; every acceptance goes back to pending
+      description: >-
+        Every saved change is a new version kept in project_rules_versions (BR-039, D-096); in the
+        same transaction every accepted assignment and team membership of the project goes back to
+        pending. The same texts again make no new version. Once the project has been active, a body
+        without a required text answers 409 workflow.guard.project_setup_complete with the rules items.
+      x-permission: project.configure
+      x-scope: project
+      x-audit: project.configure
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProjectRules' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectRulesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}/save-as-template:
     parameters:
       - $ref: '#/components/parameters/ProjectId'
     post:
       tags: [templates]
       operationId: templates.template.saveFromProject
-      summary: Save the project's setup as a new template (BR-064)
+      summary: "Save a project's setup as a new template, or onto an existing one (its version goes up)"
+      description: >-
+        The caller must also be able to view the project (404 otherwise). Templates are
+        organisation-wide (BR-064, D-096); audited as template.create or template.update.
       x-permission: project.template.manage
       x-scope: project
-      x-audit: template.create
+      x-audit: template.save
       x-idempotency: none
       x-rate-limit: default
       requestBody:
@@ -5386,39 +5743,45 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/SaveAsTemplateRequest' }
       responses:
-        '201':
-          description: Template created
+        '200':
+          description: The template as it is now
           content:
             application/json:
               schema: { $ref: '#/components/schemas/TemplateResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
 
   # ======================= templates =======================
   /templates:
     get:
       tags: [templates]
       operationId: templates.template.list
-      summary: Master project templates; not paginated
+      summary: Master project templates of the organisation; the inactive ones only when asked
       x-permission: project.create
       x-scope: program
       x-audit: none
       x-idempotency: none
       x-rate-limit: default
+      parameters:
+        - { name: include, in: query, required: false, schema: { type: string, enum: [inactive] } }
       responses:
         '200':
-          description: Templates
+          description: Templates, not paginated
           content:
             application/json:
               schema: { $ref: '#/components/schemas/TemplateList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /templates/{templateId}:
     parameters:
       - $ref: '#/components/parameters/TemplateId'
     get:
       tags: [templates]
       operationId: templates.template.get
-      summary: Get a template
+      summary: A template with its definition
       x-permission: project.create
       x-scope: program
       x-audit: none
@@ -5429,8 +5792,34 @@ paths:
           description: Template
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/TemplateResponse' }
+              schema: { $ref: '#/components/schemas/TemplateDetailResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [templates]
+      operationId: templates.template.update
+      summary: Rename, describe, deactivate or activate a template (never deleted)
+      x-permission: project.template.manage
+      x-scope: global
+      x-audit: template.update
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TemplateUpdate' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TemplateResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
 
   # ======================= forms =======================
   /projects/{projectId}/forms:

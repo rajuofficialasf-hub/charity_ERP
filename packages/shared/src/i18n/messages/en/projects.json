@@ -1,0 +1,50 @@
+{
+  "mine": {
+    "title": "My projects",
+    "open": "My projects",
+    "empty": "You are not on a running project yet.",
+    "list": "My projects",
+    "pending": "Waiting for your consent to the rules",
+    "accepted": "Active",
+    "read_rules": "Read the rules",
+    "open_project": "Open the project",
+    "back": "Back to my projects"
+  },
+  "detail": {
+    "window": "Application window",
+    "limit": "Application limit",
+    "applications": "Applications",
+    "applications_value": "{counted} made, {left} more allowed",
+    "applications_counted": "{counted} made",
+    "set": "Your work",
+    "team": "My team",
+    "none": "Not set"
+  },
+  "consent": {
+    "title": "Rules: {name}",
+    "steps": "Steps of the rules",
+    "read": "I have read this and will follow it",
+    "final": "Consent",
+    "agree": "I agree and am interested in working on this project",
+    "accept": "Give consent",
+    "refuse": "Refuse",
+    "next": "Next step",
+    "back": "Previous step",
+    "accepted": "Consent given. You can now work on the project.",
+    "refused": "You refused the rules; the project waits for your consent.",
+    "changed": "The rules have changed. Read the new rules again."
+  },
+  "team": {
+    "title": "My team: {name}",
+    "members": "Team members",
+    "no_members": "Nobody is on the team yet.",
+    "candidates": "Volunteers registered with you as reference",
+    "no_candidates": "Nobody to add.",
+    "add": "Add to the team",
+    "remove": "Remove {name} from the team",
+    "pending": "Waiting for consent",
+    "accepted": "Accepted",
+    "added": "Added to the team. Each starts work after accepting the rules.",
+    "removed": "{name} removed from the team."
+  }
+}

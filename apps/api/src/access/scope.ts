@@ -1,7 +1,12 @@
 import type { Tx } from '../core/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
 import { PERMISSION_MARKERS } from '../openapi/drift';
-import type { EffectiveGrant, PanelOverride } from './effective';
+import {
+  type EffectiveGrant,
+  type PanelOverride,
+  WORKING_ASSIGNMENT,
+  workingTeamProjects,
+} from './effective';
 
 /** A location, optionally inside one project (an area of a project or a panel-granted location). */
 export interface Area {
@@ -210,17 +215,24 @@ export async function resolveInstances(
     inst.programIds.push(...programs.map((p) => p.id));
   }
   if (ownProjects) {
-    const [staff, volunteer] = await Promise.all([
+    const [staff, volunteer, member] = await Promise.all([
       db.projectStaff.findMany({
         where: { userId: actorId, endedAt: null },
         select: { projectId: true },
       }),
+      // a volunteer reaches a project only after accepting its current rules
       db.projectVolunteer.findMany({
-        where: { endedAt: null, volunteer: { userId: actorId } },
+        where: { ...WORKING_ASSIGNMENT, volunteer: { userId: actorId } },
         select: { projectId: true },
       }),
+      db.volunteer.findUnique({ where: { userId: actorId }, select: { id: true } }),
     ]);
-    inst.projectIds.push(...staff.map((s) => s.projectId), ...volunteer.map((v) => v.projectId));
+    const team = member ? await workingTeamProjects(db, member.id) : [];
+    inst.projectIds.push(
+      ...staff.map((s) => s.projectId),
+      ...volunteer.map((v) => v.projectId),
+      ...team,
+    );
   }
   if (houseProjects.length || ownHouseProjects) {
     // a project counts only when it runs the house-construction workflow and the caller is on it

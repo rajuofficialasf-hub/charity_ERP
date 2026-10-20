@@ -207,8 +207,8 @@ describe('components', () => {
       [world.users.general],
     );
     await h.db.query(
-      `INSERT INTO project_volunteers (id, project_id, volunteer_id, region_location_id, permission_set, assigned_by)
-       VALUES (gen_random_uuid(), $1, $2, $3, 'application_distribution', $4)`,
+      `INSERT INTO project_volunteers (id, project_id, volunteer_id, region_location_id, permission_set, assigned_by, consent_status)
+       VALUES (gen_random_uuid(), $1, $2, $3, 'application_distribution', $4, 'accepted')`,
       [id, rows[0]!.id, world.dhaka.division, world.users.pm],
     );
     await setStatus(id, 'active');
@@ -448,11 +448,14 @@ describe('people to assign', () => {
     ]);
     // an RPM who left and one whose role was taken back are not offered
     const gone = await staff('regional_program_manager');
-    await h.db.query("UPDATE users SET display_name = 'খোঁজার বিদায়ী', state = 'deactivated' WHERE id = $1", [
-      gone.id,
-    ]);
+    await h.db.query(
+      "UPDATE users SET display_name = 'খোঁজার বিদায়ী', state = 'deactivated' WHERE id = $1",
+      [gone.id],
+    );
     const revoked = await staff('regional_program_manager');
-    await h.db.query("UPDATE users SET display_name = 'খোঁজার প্রত্যাহৃত' WHERE id = $1", [revoked.id]);
+    await h.db.query("UPDATE users SET display_name = 'খোঁজার প্রত্যাহৃত' WHERE id = $1", [
+      revoked.id,
+    ]);
     await h.db.query('UPDATE user_roles SET revoked_at = now() WHERE user_id = $1', [revoked.id]);
     const find = (s: Session, query: string) =>
       at(s, 'get', `/projects/${world.a1.id}/candidates?${query}`);

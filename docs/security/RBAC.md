@@ -189,6 +189,8 @@ The three sets of blueprint A5 are lists of permission names in `permission_sets
 
 Extras marked "if RPM grants" in the YAML (`condition: if_rpm_grants`) are stored per project on `project_volunteers.extra_permissions` (volunteers) or `project_staff.extra_permissions` (Executives: approve/reject/waitlist, assign volunteers, transfer applications) through `project.volunteer_grant.manage`; each grant and revoke is audited and bumps the user's `permission_version`. An RPM can grant only permissions the RPM holds (no escalation beyond own region), and only within own projects.
 
+A set and an extra count only while the volunteer works under the assignment: it is not ended and the volunteer accepted the project's current rules (`consent_status = 'accepted'`; BR-039, D-096). Every saved change of the rules sets the acceptances of the project back to pending, so a volunteer holds no permission on the project, and reaches no project row, until they accept the new version. A team member has no assignment: an accepted, not removed `volunteer_teams` membership gives the member the project-scoped defaults of `volunteer_team_member` on that project while the main volunteer's assignment is working too. A set is given only to the volunteer types in its `for` list (the API checks `PERMISSION_SET_TYPES` of `@css/shared/projects` against this file); the paid flag does not change the set.
+
 Stock reconciliation and the Qurbani animal photos are not in the base sets because they belong to specific project templates; the engine exposes them only when the component is enabled, and the permission set still gates them (`stock.reconcile`, `animal.photo.upload` default for General/Both at SELF/ASSIGNED).
 
 ## 7. Permission panel

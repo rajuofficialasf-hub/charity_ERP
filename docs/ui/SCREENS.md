@@ -473,6 +473,8 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 
 ### SCR-030 My projects and project rules consent
 
+- **Built (T1.12).** `/my-projects` (from the home, "আমার প্রকল্প" for an active volunteer) lists the running projects with "নিয়মাবলিতে সম্মতির অপেক্ষায়" or "সক্রিয়"; `/my-projects/:projectId` walks the rules part by part (the Local দায়ী part only while dawah is on), each confirmed with "আমি পড়েছি এবং মেনে চলব", then "আমি রাজি এবং এই প্রকল্পে কাজ করতে আগ্রহী" and "সম্মতি দিন"; "প্রত্যাখ্যান করুন" keeps the project waiting; after consent it shows the work facts with the applications counted against the limit. A rules change asks again. The server refuses every project action without the accepted current version.
+
 - **Purpose.** Lists the volunteer's projects. Before the first work on a project, the volunteer reads and accepts the project rules (blueprint A6 "rules and consent", guard `consent.accepted`).
 - **Roles.** All volunteer types.
 - **Priority.** phone-first.
@@ -657,6 +659,8 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 
 ### SCR-035 My team
 
+- **Built (T1.12).** `/my-projects/:projectId/team` for a General or দাঈ-স্বেচ্ছাসেবক volunteer working on the project: the members with their own consent state, remove; the volunteers registered with the caller as reference (name only) to add. A member works only after their own consent and while the main volunteer's assignment lasts.
+
 - **Purpose.** The main volunteer adds Team Members registered with the main volunteer's NID as reference. They see and submit the team's drafts (blueprint A5 "teams"; BR-041).
 - **Roles.** volunteer_general and volunteer_both (Local দায়ী only if type Both).
 - **Priority.** phone-first.
@@ -798,6 +802,10 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
   - Tablet: a compact table.
   - Desktop: a dense table opening SCR-043 in the split view.
 - **Phase · task.** 1 · T1.10. **API.** tag volunteers.
+
+### SCR-043b Volunteers of a project (assignment)
+
+- **Built (T1.12).** `/admin/projects/:projectId/volunteers` ("স্বেচ্ছাসেবক" on the project page): the assignments in the caller's areas with permission set, paid flag and consent state; "স্বেচ্ছাসেবক অ্যাসাইন করুন" for the RPM, the executive with the RPM's grant and the global roles (approved, not blocked volunteers of the caller's areas, filtered by area and searched by name or mobile, several at once, one set by type or a chosen one, the paid flag for the RPM); change the set (only the sets of the type) or the paid flag; end with a reason; the RPM's switch per executive "স্বেচ্ছাসেবক অ্যাসাইন করতে পারবেন" with a reason. Works at 360 px.
 
 ### SCR-043 Volunteer profile
 
@@ -970,6 +978,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 ### SCR-060 Project setup with component toggles
 
 - **Built (T1.11, a wizard since UX-20).** `/admin/projects/new` starts the step-by-step setup: step 1 basic information (code, names, year, program, workflow) creates the draft with Next; `/admin/projects/:projectId/setup?step=` walks the other steps one at a time: components with their settings in a dialog, budget and fund sources saved together (the PM and the global roles only), application window and limit, areas and RPMs, staff access, the dawah syllabus while dawah is on, and the review with the project's facts, the missing items (each opens its step) and "সক্রিয় করুন". Back, Next and a step of the indicator save the step on screen first; "খসড়া সেভ করে বের হন" saves and opens the project; a return without `?step=` opens the first step with something missing. The step indicator marks the checked steps complete or missing. Read-only with a notice while closing, closed or cancelled; on a phone only the name, the dates and the switches change. The project list (`/admin/projects`, state chips and the program and year filters in the address) and the project overview (`/admin/projects/:projectId`, the facts and the lifecycle buttons with their reasons; a refused activation lists what is missing) are part of this task; the programs page is `/admin/programs`. Not yet: templates and copies, quotas, scoring, the rules texts, the form link and the document checklist (T1.12 and later), save as template.
+- **Built (T1.12).** Step 1 offers three starting points: a workflow, a template of the library, or a copy of a previous project (only the projects the caller may view); a template or a copy brings the components with their settings, the syllabus and the rules, never the budget, dates, areas, staff or volunteers. A "নিয়মাবলি" step before the review edits the four rules texts in both languages (the Local দায়ী part only while dawah is on; a draft may keep them unfinished, a running project keeps every required text; each saved change is a new version that every volunteer accepts again), and the review lists the missing rules with a link to that step. The project page offers "টেমপ্লেট হিসেবে সংরক্ষণ" (a new template, or in place of an existing one). The template library is at `/admin/templates` (sidebar "টেমপ্লেট", the project-creating roles): every template of the organisation with workflow, version, last change and state; rename, describe, deactivate or activate (never delete); inactive ones on request.
 
 - **Purpose.** The PM creates and configures a project from a template or a previous project. They turn components on and off, set the form, budget, deadlines, areas, quotas, rules and the photo rule, and save a draft before activation (BD-09, BD-10, BD-16, BD-20; blueprint A6).
 - **Roles.** PM. Department Head and Monitoring Team.

@@ -90,6 +90,29 @@ export const BLOCKLIST_ROLES: readonly string[] = [
   'regional_program_manager',
 ];
 
+/**
+ * Who assigns volunteers to a project (`volunteer.assign_project`: the RPM in its areas, an
+ * executive only with the RPM's grant, and the global roles; the server decides per project).
+ */
+export const ASSIGN_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'regional_program_manager',
+  'project_executive',
+];
+/** Who marks a volunteer as paid on a project (`volunteer.mark_paid`). */
+export const MARK_PAID_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'regional_program_manager',
+];
+/** Who grants "if RPM grants" extras to the staff of a project (`project.volunteer_grant.manage`). */
+export const PROJECT_GRANT_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'regional_program_manager',
+];
+
 /** The staff handover and the deactivation after it (`user.handover`, `user.state.change`; BD-08). */
 export const HANDOVER_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
 
@@ -115,3 +138,6 @@ export const canSeePrograms = (me: Pick<Me, 'roles'>) => holds(me, PROGRAM_ROLES
 export const canManagePrograms = (me: Pick<Me, 'roles'>) => holds(me, PROGRAM_ADMIN_ROLES);
 export const canSeeProjects = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_ROLES);
 export const canCreateProjects = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_CREATE_ROLES);
+export const canAssignVolunteers = (me: Pick<Me, 'roles'>) => holds(me, ASSIGN_ROLES);
+export const canMarkPaid = (me: Pick<Me, 'roles'>) => holds(me, MARK_PAID_ROLES);
+export const canGrantOnProject = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_GRANT_ROLES);

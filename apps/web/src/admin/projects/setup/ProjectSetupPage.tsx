@@ -18,11 +18,13 @@ import { BudgetSection } from './BudgetSection';
 import { ComponentsSection } from './ComponentsSection';
 import { CreateStep } from './CreateStep';
 import { ReviewStep } from './ReviewStep';
+import { RulesSection } from './RulesSection';
 import {
   areas,
   components,
   fundSources,
   projectWithEtag,
+  rules,
   setupKey,
   staff,
   syllabus,
@@ -212,6 +214,8 @@ function ProjectWizard({ projectId }: { projectId: string }) {
   const funds = useSetupPart(projectId, 'fund-sources', () => fundSources(projectId), configure);
   const dawah = parts.data?.some((c) => c.componentKey === 'dawah' && c.enabled) === true;
   const topics = useSetupPart(projectId, 'syllabus', () => syllabus(projectId), dawah);
+  // every official of the project reads the rules; the step is read-only without setup rights
+  const rulesText = useSetupPart(projectId, 'rules', () => rules(projectId), true);
   const activate = useMutation({
     mutationFn: () => moveProject(projectId, 'activate', one.data!.meta.etag),
     onSuccess: async () => {
@@ -230,8 +234,8 @@ function ProjectWizard({ projectId }: { projectId: string }) {
   );
   // the check reads every part: without one of them the marks and the missing list stay off
   const missing =
-    configure && loaded && parts.data && funds.data && areaList.data
-      ? missingItems(loaded, parts.data, funds.data, areaList.data)
+    configure && loaded && parts.data && funds.data && areaList.data && rulesText.data
+      ? missingItems(loaded, parts.data, funds.data, areaList.data, rulesText.data.rules)
       : null;
   const asked = params.get('step');
   const valid = isStepId(asked) && steps.includes(asked);
@@ -304,6 +308,7 @@ function ProjectWizard({ projectId }: { projectId: string }) {
         )),
     ],
     ['syllabus', failed(topics) ?? (topics.data && <SyllabusSection topics={topics.data} />)],
+    ['rules', failed(rulesText) ?? (rulesText.data && <RulesSection current={rulesText.data} />)],
     [
       'review',
       <ReviewStep

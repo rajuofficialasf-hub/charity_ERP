@@ -43,8 +43,8 @@ beforeAll(async () => {
   // field roles of A1 in Dhaka that the shared world does not assign
   const assign = (volunteerId: string, set: string) =>
     h.db.query(
-      `INSERT INTO project_volunteers (id, project_id, volunteer_id, region_location_id, permission_set, assigned_by)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+      `INSERT INTO project_volunteers (id, project_id, volunteer_id, region_location_id, permission_set, assigned_by, consent_status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'accepted')`,
       [randomUUID(), world.a1.id, volunteerId, world.dhaka.division, set, world.users.rpmDhaka],
     );
   const paidUser = await make('volunteer')('volunteer_paid');

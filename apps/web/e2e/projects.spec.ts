@@ -1,13 +1,16 @@
-import { expect, type Locator, type Page, test, type TestInfo } from '@playwright/test';
+import { expect, type Page, test, type TestInfo } from '@playwright/test';
 import { openTab, rows as listRows, scan, signIn } from './support/admin';
-
-/** Picks an option of a Select inside a part of the page. */
-async function chooseIn(page: Page, scope: Locator, label: string, option: string) {
-  // the name is the value, then the label, then "(আবশ্যক)" for a required field
-  await scope.getByRole('button', { name: new RegExp(`\\s${label}( \\(আবশ্যক\\))?$`) }).click();
-  await page.getByRole('listbox').getByRole('option', { name: option, exact: true }).click();
-  await expect(page.getByRole('listbox')).toHaveCount(0);
-}
+import {
+  chooseIn,
+  code,
+  ERR,
+  newDraft,
+  next,
+  section,
+  state,
+  typeDate,
+  writeRules,
+} from './support/projects';
 
 // Programs and project setup against the API on its E2E database with the demo seed
 // (docs/testing/DEMO_ACCOUNTS.md): a PM starts a project in the setup wizard, walks its steps with
@@ -16,46 +19,9 @@ async function chooseIn(page: Page, scope: Locator, label: string, option: strin
 // phones in volunteers.spec.ts, so this journey runs as pm.ucd on the desktop only; each run makes
 // its own project codes.
 const PM = 'pm.ucd@example.org';
+const COPY_PM = 'pm.err@example.org';
 const VOLUNTEER = { desktop: '01700000101', mobile: '01700000103' } as const;
 const TAB = 'প্রকল্প';
-
-/** A project code of its own for this run: E and three random capital letters. */
-const code = () =>
-  `E${Array.from({ length: 3 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('')}`;
-
-const section = (page: Page, name: string): Locator => page.getByRole('region', { name });
-/** The state badge beside the project's name. */
-const state = (page: Page, badge: string): Locator =>
-  page.locator('.admin-title-row').getByText(badge, { exact: true });
-const next = (page: Page) => page.getByRole('button', { name: 'পরের ধাপ' });
-
-/** The first step of the wizard: Next creates the draft and opens the components step. */
-async function newDraft(page: Page, projectCode: string, name: string) {
-  await page.getByRole('button', { name: 'নতুন প্রকল্প' }).click();
-  await expect(page.getByRole('heading', { level: 1, name: 'নতুন প্রকল্প' })).toBeVisible();
-  const basics = section(page, 'মৌলিক তথ্য');
-  await basics.getByRole('textbox', { name: /প্রকল্প কোড/ }).fill(projectCode);
-  await basics.getByRole('textbox', { name: /বাংলায় নাম/ }).fill(name);
-  await basics.getByRole('textbox', { name: /ইংরেজিতে নাম/ }).fill(`${name} EN`);
-  await basics.getByRole('textbox', { name: /বছর/ }).fill('2026');
-  await chooseIn(
-    page,
-    basics,
-    'প্রোগ্রাম',
-    'আন্ডারপ্রিভিলেজড কমিউনিটি ডেভেলপমেন্ট প্রোগ্রাম (UCD)',
-  );
-  await chooseIn(page, basics, 'ওয়ার্কফ্লো', 'বিতরণ');
-  await next(page).click();
-  await expect(page.getByRole('heading', { level: 1, name: `সেটআপ: ${name}` })).toBeVisible();
-  await expect(page).toHaveURL(/step=components/);
-  await expect(state(page, 'খসড়া')).toBeVisible();
-}
-
-/** Types a date into the segments of a date field (dd-mm-yyyy). */
-async function typeDate(page: Page, scope: Locator, label: string, ddmmyyyy: string) {
-  await scope.getByRole('group', { name: label }).getByRole('spinbutton').first().click();
-  await page.keyboard.type(ddmmyyyy);
-}
 
 /** A lifecycle move with its reason, then the new state badge. */
 async function move(page: Page, button: string, badge: string) {
@@ -116,21 +82,26 @@ test.describe('programs and project setup', () => {
         .getByRole('button', { name: /^এলাকা ও আরপিএম ?, বাকি আছে$/ }),
     ).toBeVisible();
     await chooseIn(page, areas, 'বিভাগ', 'ঢাকা');
-    await areas.getByRole('combobox', { name: /আরপিএম/ }).fill('আরপিএম ঢাকা');
-    await page
-      .getByRole('option', { name: /^আরপিএম ঢাকা/ })
-      .first()
-      .click();
+    const rpm = areas.getByRole('combobox', { name: /আরপিএম/ });
+    await rpm.fill('আরপিএম ঢাকা');
+    await expect(page.getByRole('option', { name: /^আরপিএম ঢাকা/ }).first()).toBeVisible();
+    // chosen with the keyboard: a list that redraws while it loads never stops a key press
+    await rpm.press('ArrowDown');
+    await rpm.press('Enter');
+    await expect(rpm).toHaveValue(/আরপিএম ঢাকা/);
     // the area filled in is added by Next
     await next(page).click();
     await expect(section(page, 'স্টাফের অ্যাক্সেস')).toBeVisible();
     expect((await scan(page)).violations).toEqual([]);
 
-    // the review: everything is there, and activation opens the project
+    // the rules every volunteer accepts: three parts while dawah is off; Next opens the review
     await page
       .getByRole('list', { name: 'সেটআপের ধাপ' })
-      .getByRole('button', { name: /^পর্যালোচনা/ })
+      .getByRole('button', { name: /^নিয়মাবলি/ })
       .click();
+    await writeRules(page);
+    await next(page).click();
+    // the review: everything is there, and activation opens the project
     await expect(page.getByText('সক্রিয় করার জন্য দরকারি সব আছে।')).toBeVisible();
     await page.getByRole('button', { name: 'সক্রিয় করুন', exact: true }).click();
     await expect(page.getByText('প্রকল্প সক্রিয় হয়েছে।')).toBeVisible();
@@ -182,6 +153,56 @@ test.describe('programs and project setup', () => {
     await expect(listRows(page, TAB)).toBeVisible();
     await expect(page.getByText(/^\d+টির মধ্যে \d+টি$/).first()).toBeVisible();
     await expect(listRows(page, TAB).getByRole('link', { name })).toHaveCount(0);
+  });
+
+  test('a PM copies a previous project: its photo rule comes, its budget does not', async ({
+    page,
+  }, info) => {
+    test.skip(info.project.name !== 'desktop', 'one PM, one project');
+    test.setTimeout(120_000);
+    const name = `কপির উৎস ${code()}`;
+    // a PM of its own: the PM of the journey above already holds sessions on other devices
+    await signIn(page, COPY_PM);
+    await openTab(page, TAB);
+    await newDraft(page, code(), name, ERR);
+    await page.getByRole('button', { name: 'বিতরণ ও ছবি-এর সেটিংস' }).click();
+    const drawer = page.getByRole('dialog');
+    await drawer.getByText('শুধু দলের ছবি', { exact: true }).click();
+    await drawer.getByRole('button', { name: 'সংরক্ষণ' }).click();
+    await expect(drawer).toHaveCount(0);
+    await next(page).click();
+    const budget = section(page, 'বাজেট ও তহবিলের উৎস');
+    await budget.getByRole('textbox', { name: /প্রতিজনের খরচ/ }).fill('750');
+    await page.getByRole('button', { name: 'খসড়া সেভ করে বের হন' }).click();
+    await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+
+    // a new project from a copy of that draft
+    await page.getByRole('link', { name: 'সব প্রকল্প' }).click();
+    await page.getByRole('button', { name: 'নতুন প্রকল্প' }).click();
+    const basics = section(page, 'মৌলিক তথ্য');
+    const copyName = `কপি ${code()}`;
+    await basics.getByRole('textbox', { name: /প্রকল্প কোড/ }).fill(code());
+    await basics.getByRole('textbox', { name: /বাংলায় নাম/ }).fill(copyName);
+    await basics.getByRole('textbox', { name: /ইংরেজিতে নাম/ }).fill(`${copyName} EN`);
+    await chooseIn(page, basics, 'প্রোগ্রাম', ERR);
+    await basics.getByText('আগের প্রকল্প থেকে কপি', { exact: true }).click();
+    await basics.getByRole('button', { name: /যে প্রকল্প কপি হবে/ }).click();
+    await page
+      .getByRole('listbox')
+      .getByRole('option', { name: new RegExp(`^${name} \\(`) })
+      .click();
+    await next(page).click();
+    await expect(page.getByRole('heading', { level: 1, name: `সেটআপ: ${copyName}` })).toBeVisible();
+    await expect(page).toHaveURL(/step=components/);
+    await page.getByRole('button', { name: 'বিতরণ ও ছবি-এর সেটিংস' }).click();
+    await expect(
+      page.getByRole('dialog').getByRole('radio', { name: 'শুধু দলের ছবি' }),
+    ).toBeChecked();
+    await page.getByRole('dialog').getByRole('button', { name: 'বাতিল' }).click();
+    await next(page).click();
+    await expect(
+      section(page, 'বাজেট ও তহবিলের উৎস').getByRole('textbox', { name: /প্রতিজনের খরচ/ }),
+    ).toHaveValue('');
   });
 
   test('a volunteer has no project menu and is refused the list', async ({

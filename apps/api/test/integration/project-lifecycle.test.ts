@@ -98,6 +98,16 @@ async function draft(complete: boolean, fundTotal = '100000.00') {
     .set('If-Match', distribution.etag)
     .send({ settings: { ...distribution.settings, rule: 'group' } });
   expect(photo.status).toBe(200);
+  const text = (bn: string) => ({ bn, en: `${bn} (en)` });
+  const rules = await api()
+    .put(`/api/v1/projects/${id}/rules`)
+    .set(bearer(pm))
+    .send({
+      volunteer_duties: text('দায়িত্ব'),
+      implementation_process: text('প্রক্রিয়া'),
+      misconduct: text('অনিয়ম'),
+    });
+  expect(rules.status).toBe(200);
   return id;
 }
 async function activated() {

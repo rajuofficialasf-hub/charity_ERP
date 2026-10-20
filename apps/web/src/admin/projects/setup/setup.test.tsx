@@ -94,6 +94,20 @@ function serve(status = 'draft') {
     http.get(`*/api/v1/projects/${ID}/fund-sources`, () =>
       HttpResponse.json({ data: [], meta: {} }),
     ),
+    // saved rules: the rules texts are not what these tests look at
+    http.get(`*/api/v1/projects/${ID}/rules`, () =>
+      HttpResponse.json({
+        data: {
+          version: 1,
+          rules: {
+            volunteer_duties: { bn: 'দায়িত্ব', en: 'Duties' },
+            implementation_process: { bn: 'প্রক্রিয়া', en: 'Process' },
+            misconduct: { bn: 'অনিয়ম', en: 'Misconduct' },
+          },
+        },
+        meta: {},
+      }),
+    ),
     http.get(`*/api/v1/projects/${ID}/areas`, () => HttpResponse.json({ data: [], meta: {} })),
     http.get(`*/api/v1/projects/${ID}/staff`, () =>
       HttpResponse.json({ data: staffRows, meta: {} }),
@@ -197,7 +211,7 @@ describe('the setup wizard', () => {
     expect(
       within(list).getByRole('button', { name: 'বাজেট ও তহবিলের উৎস, বাকি আছে' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('ধাপ 2/7')).toBeInTheDocument();
+    expect(screen.getByText('ধাপ 2/8')).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 
@@ -525,4 +539,155 @@ describe('a half-filled form', () => {
     ).toBeInTheDocument();
     expect(router.state.location.search).toBe('?step=areas');
   });
+});
+
+describe('the rules step', () => {
+  const rulesWith = (rules: Record<string, unknown>, version = 1) =>
+    http.get(`*/api/v1/projects/${ID}/rules`, () =>
+      HttpResponse.json({ data: { version, rules }, meta: {} }),
+    );
+
+  it('saves the texts in both languages with Next, and lists what is missing on the review', async () => {
+    serve();
+    const saved: unknown[] = [];
+    server.use(
+      rulesWith({}, 0),
+      http.put(`*/api/v1/projects/${ID}/rules`, async ({ request }) => {
+        const body = await request.json();
+        saved.push(body);
+        return HttpResponse.json({ data: { version: 1, rules: body }, meta: {} });
+      }),
+    );
+    const user = userEvent.setup();
+    const { router } = open('rules');
+    const rules = await section('নিয়মাবলি');
+    // without dawah the Local দায়ী part is not asked
+    expect(
+      within(rules).queryByRole('textbox', { name: /স্থানীয় দায়ীর দায়িত্ব/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(steps()).getByRole('button', { name: 'নিয়মাবলি, বাকি আছে' }),
+    ).toBeInTheDocument();
+    await user.type(
+      within(rules).getByRole('textbox', { name: /স্বেচ্ছাসেবকের দায়িত্ব \(বাংলা\)/ }),
+      'সময়মতো উপস্থিত থাকুন',
+    );
+    await user.type(
+      within(rules).getByRole('textbox', { name: /স্বেচ্ছাসেবকের দায়িত্ব \(ইংরেজি\)/ }),
+      'Be on time',
+    );
+    await user.click(next());
+    await waitFor(() => expect(router.state.location.search).toBe('?step=review'));
+    expect(saved).toEqual([
+      { volunteer_duties: { bn: 'সময়মতো উপস্থিত থাকুন', en: 'Be on time' } },
+    ]);
+    // a draft keeps unfinished rules: the review names the parts still missing
+    expect(await screen.findByText('নিয়মাবলি: বাস্তবায়ন প্রক্রিয়া')).toBeInTheDocument();
+  }, 20_000);
+
+  it('asks the Local দায়ী duties while dawah is on', async () => {
+    serve();
+    project = { ...project, dawahEnabled: true };
+    server.use(rulesWith({}, 0));
+    open('rules');
+    const rules = await section('নিয়মাবলি');
+    expect(
+      within(rules).getByRole('textbox', { name: /স্থানীয় দায়ীর দায়িত্ব \(বাংলা\)/ }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps an active project from saving a required text empty', async () => {
+    serve('active');
+    const full = {
+      volunteer_duties: { bn: 'দায়িত্ব', en: 'Duties' },
+      implementation_process: { bn: 'প্রক্রিয়া', en: 'Process' },
+      misconduct: { bn: 'অনিয়ম', en: 'Misconduct' },
+    };
+    server.use(rulesWith(full, 3));
+    const user = userEvent.setup();
+    const { router } = open('rules');
+    const rules = await section('নিয়মাবলি');
+    expect(within(rules).getByText(/সংস্করণ 3/)).toBeInTheDocument();
+    await user.clear(
+      within(rules).getByRole('textbox', { name: /অনিয়মের ক্ষেত্রে ব্যবস্থা \(ইংরেজি\)/ }),
+    );
+    await user.click(next());
+    expect(await screen.findByText('দরকারি প্রতিটি নিয়ম দুই ভাষায় লিখুন।')).toBeInTheDocument();
+    expect(router.state.location.search).toBe('?step=rules');
+  });
+});
+
+describe('where a new project starts', () => {
+  const TEMPLATE = '01900000-0000-7000-8000-0000000000d1';
+  const OLD = '01900000-0000-7000-8000-0000000000e1';
+  const startNew = async () => {
+    const user = userEvent.setup();
+    renderApp(<ProjectSetupPage />, 'bn', {
+      path: '/admin/projects/new',
+      initialPath: '/admin/projects/new',
+    });
+    const basics = await section('মৌলিক তথ্য');
+    await user.type(within(basics).getByRole('textbox', { name: /প্রকল্প কোড/ }), 'NEW');
+    await user.type(within(basics).getByRole('textbox', { name: /বাংলায় নাম/ }), 'নতুন');
+    await user.type(within(basics).getByRole('textbox', { name: /ইংরেজিতে নাম/ }), 'New');
+    await user.click(within(basics).getByRole('button', { name: /প্রোগ্রাম/ }));
+    await user.click(await screen.findByRole('option', { name: /মানবিক সহায়তা/ }));
+    return { user, basics };
+  };
+
+  it('starts from a template of the library', async () => {
+    serve();
+    server.use(
+      http.get('*/api/v1/templates', () =>
+        HttpResponse.json({
+          data: [
+            {
+              id: TEMPLATE,
+              name: { bn: 'শীতবস্ত্র টেমপ্লেট', en: 'Winter template' },
+              description: null,
+              workflowKey: 'distribution',
+              active: true,
+              version: 1,
+              sourceProjectId: null,
+              updatedAt: '2026-10-17T00:00:00Z',
+              updatedByName: null,
+            },
+          ],
+          meta: {},
+        }),
+      ),
+    );
+    const { user, basics } = await startNew();
+    await user.click(within(basics).getByText('টেমপ্লেট থেকে'));
+    await user.click(within(basics).getByRole('button', { name: /টেমপ্লেট/ }));
+    await user.click(await screen.findByRole('option', { name: /শীতবস্ত্র টেমপ্লেট/ }));
+    await user.click(next());
+    await waitFor(() => expect(writes.find((w) => w.path === 'create')).toBeDefined());
+    expect((writes.find((w) => w.path === 'create')!.body as { source: unknown }).source).toEqual({
+      kind: 'template',
+      templateId: TEMPLATE,
+    });
+  }, 20_000);
+
+  it('copies a previous project', async () => {
+    serve();
+    server.use(
+      http.get('*/api/v1/projects', () =>
+        HttpResponse.json({
+          data: [{ ...project, id: OLD, code: 'OLD', year: 2025 }],
+          meta: { nextCursor: null, prevCursor: null },
+        }),
+      ),
+    );
+    const { user, basics } = await startNew();
+    await user.click(within(basics).getByText('আগের প্রকল্প থেকে কপি'));
+    await user.click(within(basics).getByRole('button', { name: /যে প্রকল্প কপি হবে/ }));
+    await user.click(await screen.findByRole('option', { name: /OLD, 2025/ }));
+    await user.click(next());
+    await waitFor(() => expect(writes.find((w) => w.path === 'create')).toBeDefined());
+    expect((writes.find((w) => w.path === 'create')!.body as { source: unknown }).source).toEqual({
+      kind: 'copy',
+      projectId: OLD,
+    });
+  }, 20_000);
 });

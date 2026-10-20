@@ -2,6 +2,7 @@ import type {
   AreaCreate,
   ComponentPatch,
   FundSources,
+  ProjectRules,
   ProjectUpdate,
   StaffCreate,
   Syllabus,
@@ -71,6 +72,8 @@ export interface StaffAccess {
   canView: boolean;
   canEdit: boolean;
   canDelete: boolean;
+  /** The "if RPM grants" extras the person holds on the project. */
+  extraPermissions: string[];
 }
 /** GET /projects/{id}/candidates: officials with a role, by name, for an area or staff access. */
 export const candidates = async (projectId: string, role: string, q: string) =>
@@ -91,6 +94,15 @@ export interface Topic {
   title: { bn: string; en: string };
 }
 export const syllabus = (projectId: string) => api<Topic[]>(`/projects/${projectId}/syllabus`);
+
+/** The four rules texts of a project and their version (0 while none is saved). */
+export interface RulesVersion {
+  version: number;
+  rules: ProjectRules;
+}
+export const rules = (projectId: string) => api<RulesVersion>(`/projects/${projectId}/rules`);
+export const saveRules = (projectId: string, body: ProjectRules) =>
+  api<RulesVersion>(`/projects/${projectId}/rules`, { method: 'PUT', body });
 export const saveSyllabus = (projectId: string, body: Syllabus) =>
   api<Topic[]>(`/projects/${projectId}/syllabus`, { method: 'PUT', body });
 

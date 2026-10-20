@@ -360,7 +360,7 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION, condition: if_rpm_grants }
   - name: volunteer.consent.accept
-    description: Accept the project rules and consent texts for own assignment
+    description: Accept the project rules and consent texts for own assignment or team membership, and read own projects (every assigned volunteer consents, BR-039)
     module: M04
     sensitive: false
     default:
@@ -368,6 +368,7 @@ permissions:
       - { role: volunteer_local_daee, scope: SELF }
       - { role: volunteer_both, scope: SELF }
       - { role: volunteer_team_member, scope: SELF }
+      - { role: volunteer_paid, scope: SELF }
       - { role: volunteer_paid, scope: SELF }
 
   # ---- M05 Beneficiary Master ----------------------------------------------------------------------
@@ -553,11 +554,11 @@ permissions:
     default:
       - { role: program_manager, scope: PROGRAM }
   - name: project.template.manage
-    description: Create and edit master project templates; save a project as template
+    description: Create and edit master project templates (organisation-wide, D-096); save a project the holder may view as template
     module: M06
     sensitive: false
     default:
-      - { role: program_manager, scope: PROGRAM }
+      - { role: program_manager, scope: GLOBAL }
   - name: project.quota.manage
     description: Set district and union quotas and scoring criteria
     module: M06

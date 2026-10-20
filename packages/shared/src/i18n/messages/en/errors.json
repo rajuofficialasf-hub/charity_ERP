@@ -164,12 +164,24 @@
     "budget_mismatch": "The fund sources must add up to the planned budget (cost per beneficiary × target).",
     "fund_source_in_use": "A fund source that budget entries already use cannot be removed.",
     "area_in_use": "Staff still work in this area; end their access first.",
-    "topic_in_use": "A syllabus topic that classes already use cannot be removed."
+    "topic_in_use": "A syllabus topic that classes already use cannot be removed.",
+    "rules_changed": "The project's rules have changed since you opened them. Read them again.",
+    "rules_incomplete": "The project's rules are not complete yet. Ask the project's officials."
   },
   "program": {
     "inactive": "This program is inactive; it takes no new projects.",
     "has_open_projects": "A program with a draft, active or closing project cannot be deactivated.",
     "pm_role_required": "Choose someone who holds the Program Manager role.",
     "code_taken": "This program code is already in use."
+  },
+  "volunteer": {
+    "already_assigned": "This volunteer is already on the project.",
+    "on_team": "This volunteer works on the project in a team; they cannot be assigned as well.",
+    "not_on_project": "This volunteer is not assigned to the project.",
+    "team_lead_only": "Only a General or Both volunteer working on the project can have a team.",
+    "already_on_team": "This volunteer is already on a team of the project."
+  },
+  "template": {
+    "inactive": "This template is deactivated; activate it in the template library first."
   }
 }
