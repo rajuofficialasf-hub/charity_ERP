@@ -29,7 +29,7 @@ import {
 } from '../core/pagination';
 import type { PrismaService, Tx } from '../core/prisma.service';
 import { ApiError } from '../i18n/api-error';
-import type { RegistrationEvents } from '../notifications/registration-events';
+import type { AccountEvents } from '../notifications/account-events';
 import { addressProblem } from './registration';
 import { applyField, changeView, OBJECT_FIELDS } from './registrations';
 
@@ -89,7 +89,7 @@ export class ChangeRequestsService {
     private readonly access: AccessService,
     private readonly versions: PermissionVersionService,
     private readonly sessions: SessionService,
-    private readonly events: RegistrationEvents,
+    private readonly events: AccountEvents,
   ) {}
 
   async create(principal: Principal, body: EditRequestCreate) {
@@ -136,9 +136,10 @@ export class ChangeRequestsService {
         entityId: principal.userId,
         new: { field: body.field, requestId: created.id },
       });
+      // a contact waits for its code and a photo for its upload before the approvers are told
+      if (created.status === 'submitted') await this.events.editRequestSubmitted(tx, created.id);
       return created;
     });
-    this.events.emit({ type: 'registration.edit_requested', userId: principal.userId });
     return editView(row, true);
   }
 
@@ -246,6 +247,7 @@ export class ChangeRequestsService {
         data: { status: 'submitted' },
       });
       if (!moved.count) throw new ApiError('user.transition_not_allowed', 409);
+      await this.events.editRequestSubmitted(tx, row.id);
       await this.audit.record(tx, {
         action: 'auth.otp_verified',
         entityType: 'user',
@@ -305,7 +307,7 @@ export class ChangeRequestsService {
     body: DecisionRequest,
     classes: ReadonlySet<string>,
   ) {
-    const { row, userId } = await this.prisma.$transaction(async (tx) => {
+    const row = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM volunteer_change_requests WHERE id = ${requestId}::uuid FOR UPDATE`;
       const found = await tx.volunteerChangeRequest.findFirst({
         where: { id: requestId, kind: EDIT, volunteer: volunteerWhere(scope) },
@@ -338,9 +340,16 @@ export class ChangeRequestsService {
         await this.sessions.revokeAll(tx, owner, { by: actor.userId, reason: 'contact_changed' });
         await this.versions.bump(tx, owner, entry);
       } else await this.audit.record(tx, { ...entry, entityType: 'user', entityId: owner });
-      return { row: saved, userId: owner };
+      await this.events.editRequestDecided(
+        tx,
+        found.id,
+        owner,
+        field,
+        body.decision === 'approve',
+        actor.userId,
+      );
+      return saved;
     });
-    this.events.emit({ type: 'registration.edit_decided', userId });
     return editView(row, visible(row.field, classes));
   }
 

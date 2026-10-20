@@ -13,6 +13,7 @@ import {
   login,
   type Session,
 } from './support/auth-app';
+import { notificationsOf } from './support/notifications';
 
 // The life of a project: activation of a complete draft, the deadline extension, the two-step
 // close with the workflow's close guards, and the reopen.
@@ -146,6 +147,18 @@ describe('activation', () => {
     expect(rows[0]!.snapshot.template).toBe('distribution');
     const [entry] = await audit(id, 'project.activate');
     expect(entry).toMatchObject({ old: { status: 'draft' }, new: { status: 'active' } });
+    // the RPMs of the areas are told, with the project to open
+    const { rows: areaRpms } = await h.db.query<{ rpm_user_id: string }>(
+      'SELECT rpm_user_id FROM project_areas WHERE project_id = $1',
+      [id],
+    );
+    expect(areaRpms.length).toBeGreaterThan(0);
+    for (const { rpm_user_id } of areaRpms)
+      expect(
+        (await notificationsOf(h.db, 'project_activated', rpm_user_id)).map(
+          (n) => n.params.projectId,
+        ),
+      ).toContain(id);
     // a second activation finds the project active
     const again = await at(pm, `/projects/${id}/activate`).set('If-Match', await etag(pm, id));
     expect(again.status).toBe(409);
@@ -193,6 +206,13 @@ describe('the deadline extension', () => {
     const later = await extend({ newApplyTo: '2027-01-15', reason: 'শীত বেশি' });
     expect(later.status).toBe(200);
     expect(later.body.data.applyTo).toBe('2027-01-15');
+    const { rows: areaRpms } = await h.db.query<{ rpm_user_id: string }>(
+      'SELECT rpm_user_id FROM project_areas WHERE project_id = $1',
+      [id],
+    );
+    expect(areaRpms.length).toBeGreaterThan(0);
+    const told = await notificationsOf(h.db, 'deadline_extended', areaRpms[0]!.rpm_user_id);
+    expect(told.find((n) => n.params.projectId === id)?.params.new_date).toBe('15-01-2027');
     const [entry] = await audit(id, 'project.deadline_extend');
     expect(entry).toMatchObject({
       old: { applyTo: '2026-12-31' },

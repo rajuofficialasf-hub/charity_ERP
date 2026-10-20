@@ -76,6 +76,8 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 | SCR-068 | Audit viewer | parity | Head, Monitoring | 1 · T1.13 (D-098) |
 | SCR-069 | Active sessions | parity | Head, Monitoring | 1 · T1.13 (D-098) |
 | SCR-073 | System health | parity | Head, Monitoring | 1 · T1.13 (D-098) |
+| SCR-074 | Notification texts: list, preview in bn and en, edit as a new version | parity | Head, Monitoring | 1 · T1.14 (D-099) |
+| SCR-075 | Message deliveries | parity | Head, Monitoring | 1 · T1.14 (D-099) |
 | SCR-070 | Issue log | parity | Paid Volunteer, Procurement, RPM, Executive, PM | 4 · T4.1 |
 | SCR-071 | Donor list | parity | PM, RPM, Executive | 4 · T4.4 |
 | SCR-072 | Document register | parity | officials | after 6 · T6.1: T5.4 (built last, O-34) |
@@ -221,6 +223,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
   - Tablet: drawer from the bell.
   - Desktop: a dropdown panel with the last 10, and a full page.
 - **Phase · task.** 1 · T1.14. **API.** tag notifications.
+- **Built (T1.14).** `/notifications` (`apps/web/src/features/notifications/NotificationsPage.tsx`) inside the account frame: tabs সব and না-পড়া, the entries grouped by Dhaka day with the unread mark and the count of collapsed events, "খুলুন" marks the entry read and opens its record, "পড়া হয়েছে" and "সবগুলো পড়া হয়েছে"; an official also sets the email mode (দৈনিক সংক্ষিপ্তসার or সঙ্গে সঙ্গে). The bell with the unread count sits in the top bar of the signed-in pages and in the admin bar. Not built: the desktop dropdown of the last 10 (the bell opens the page), filtering by kind, the offline cache and Web Push.
 
 ### SCR-005 Sync status and outbox
 
@@ -1050,6 +1053,22 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Route.** `/admin/health`; sidebar "সিস্টেমের অবস্থা".
 - **Data.** The dummy OTP alert; ডাটাবেস, ফাইল স্টোরেজ, জব কিউ each চালু or বন্ধ; version, environment and the month the audit partitions reach; the stored files in total, by kind and by month for the last twelve months (English digits), with when they were measured; a notice instead of the figures when the database did not answer.
 - **Built.** `apps/web/src/admin/system/HealthPage.tsx`; tests `system.test.tsx`, E2E above.
+
+### SCR-074 Notification texts
+
+- **Purpose.** The texts of the notifications in both languages (NOTIFICATIONS.md §6, D-099).
+- **Roles.** Department Head and Monitoring Team (`notification.template.manage`).
+- **Route.** `/admin/notification-templates`; sidebar "নোটিফিকেশনের লেখা".
+- **Data and actions.** Every notification of the catalogue with its kind and the version of each channel; "বদলান" opens the editor: the channel (in the app or email), the title or subject and the text in Bangla and English, the values the notification can fill in, "প্রিভিউ" with sample values in both languages, and "নতুন ভার্সন হিসেবে সংরক্ষণ". A text with markup or a link, an unknown value or a person's name in an in-app text is refused with the message beside its field. Messages already written keep their version.
+- **Built.** `apps/web/src/admin/notifications/NotificationTemplatesPage.tsx`; tests `notifications-admin.test.tsx`, E2E `notifications.spec.ts`.
+
+### SCR-075 Message deliveries
+
+- **Purpose.** Whether the queued emails and SMS went out (NOTIFICATIONS.md §7, D-099).
+- **Roles.** Department Head and Monitoring Team (`notification.delivery.view`).
+- **Route.** `/admin/deliveries`; sidebar "বার্তার অবস্থা".
+- **Data.** Newest first: when queued, the notification, the recipient, the address partly hidden, the channel, the status (অপেক্ষায়, পাঠানো হচ্ছে, পাঠানো হয়েছে, পাঠানো যায়নি, পরীক্ষামূলক, বন্ধ রাখা), the attempts and the cleaned last error; status chips, channel and dates in the address; cards on phones. The text of a message is never shown.
+- **Built.** `apps/web/src/admin/notifications/DeliveriesPage.tsx`; tests `notifications-admin.test.tsx`, E2E `notifications.spec.ts`.
 
 ## 8. Setup screens (desktop first, UX-04)
 

@@ -2827,17 +2827,18 @@ model UploadSession {
 }
 
 model Notification {
-  id           String    @id @db.Uuid
-  userId       String    @map("user_id") @db.Uuid
-  templateKey  String    @map("template_key")
-  params       Json      @default("{}")
-  coalesceKey  String?   @map("coalesce_key")
-  count        Int       @default(1)
-  readAt       DateTime? @map("read_at") @db.Timestamptz(6)
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy    String?   @map("created_by") @db.Uuid
-  user         User      @relation("notifications_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  createdByRef User?     @relation("notifications_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  id              String    @id @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  templateKey     String    @map("template_key")
+  templateVersion Int?      @map("template_version")
+  params          Json      @default("{}")
+  coalesceKey     String?   @map("coalesce_key")
+  count           Int       @default(1)
+  readAt          DateTime? @map("read_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy       String?   @map("created_by") @db.Uuid
+  user            User      @relation("notifications_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef    User?     @relation("notifications_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
   @@index([userId, readAt, createdAt(sort: Desc)], map: "notifications_user_id_read_at_created_at_idx")
   @@index([userId, coalesceKey], where: raw("read_at IS NULL"), map: "notifications_user_id_coalesce_key_idx")
@@ -2878,6 +2879,7 @@ model OutboundMessage {
   address                      String
   channel                      String
   templateKey                  String         @map("template_key")
+  coalesceKey                  String?        @map("coalesce_key")
   templateVersion              Int            @map("template_version")
   params                       Json           @default("{}")
   idempotencyKey               String         @map("idempotency_key")
@@ -2900,6 +2902,7 @@ model OutboundMessage {
   @@index([recipientUserId], map: "outbound_messages_recipient_user_id_idx")
   @@index([recipientDonorId], map: "outbound_messages_recipient_donor_id_idx")
   @@index([createdBy], map: "outbound_messages_created_by_idx")
+  @@index([recipientUserId, coalesceKey, createdAt(sort: Desc)], map: "outbound_messages_recipient_user_id_coalesce_key_idx")
   @@map("outbound_messages")
 }
 

@@ -7,7 +7,10 @@ async function main(): Promise<void> {
   const env = loadEnv(process.env);
   const container = createContainer(env);
   const { logger } = container;
-  await new JobConsumers(container.jobs, logger, container.registrationCleanup).register();
+  await new JobConsumers(container.jobs, logger, {
+    registrationCleanup: container.registrationCleanup,
+    delivery: container.delivery,
+  }).register();
   logger.info('worker started');
 
   let stopping = false;

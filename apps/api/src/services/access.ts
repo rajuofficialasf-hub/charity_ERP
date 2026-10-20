@@ -14,6 +14,8 @@ import type { Principal } from '../auth/principal';
 import type { Clock } from '../core/clock';
 import type { PrismaService, Tx } from '../core/prisma.service';
 import { ApiError, type ApiErrorDetail } from '../i18n/api-error';
+import type { AccountEvents } from '../notifications/account-events';
+import type { ProjectEvents } from '../notifications/project-events';
 
 /** Rules of `permission.grant_refused` (D-078, RBAC.md 7). */
 export type RefusalRule =
@@ -67,6 +69,8 @@ export class AccessPanelService {
     private readonly audit: AuditWriter,
     private readonly versions: PermissionVersionService,
     private readonly clock: Clock,
+    private readonly accountEvents: AccountEvents,
+    private readonly projectEvents: ProjectEvents,
   ) {}
 
   private get registry() {
@@ -257,6 +261,13 @@ export class AccessPanelService {
         new: { grants: await this.grantsOf(target.id, tx), override: id },
         reason: body.reason,
       });
+      await this.accountEvents.permissionChanged(
+        tx,
+        target.id,
+        body.effect === 'revoke' ? 'denied' : 'granted',
+        body.permission,
+        actor.userId,
+      );
       return { refused: null, created };
     });
     if (outcome.refused) return this.refuse(body.userId, outcome.refused, attempted, body.reason);
@@ -282,7 +293,7 @@ export class AccessPanelService {
     const outcome = await this.prisma.$transaction(async (tx) => {
       const grant = await tx.userPermission.findFirst({
         where: { id: grantId, revokedAt: null },
-        select: { id: true, userId: true },
+        select: { id: true, userId: true, permissionName: true },
       });
       if (!grant) throw new ApiError('permission.not_found', 404);
       await this.lockUser(tx, grant.userId);
@@ -301,6 +312,13 @@ export class AccessPanelService {
         new: { grants: await this.grantsOf(grant.userId, tx) },
         reason,
       });
+      await this.accountEvents.permissionChanged(
+        tx,
+        grant.userId,
+        'ended',
+        grant.permissionName,
+        actor.userId,
+      );
       return { refused: null };
     });
     if (outcome.refused)
@@ -383,6 +401,13 @@ export class AccessPanelService {
         new: { projectId, grants: await this.grantsOf(target.id, tx, projectId) },
         reason: body.reason,
       });
+      await this.projectEvents.grantsChanged(
+        tx,
+        projectId,
+        target.id,
+        permissions.length,
+        actor.userId,
+      );
       return { refused: null, permission: null };
     });
     if (outcome.refused)

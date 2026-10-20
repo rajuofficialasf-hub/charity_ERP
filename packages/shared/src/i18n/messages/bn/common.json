@@ -42,5 +42,16 @@
   },
   "unit": {
     "million": "মিলিয়ন"
+  },
+  "notification": {
+    "permission_granted": "{permission} অনুমতি দেওয়া হয়েছে",
+    "permission_denied": "{permission} অনুমতি বন্ধ করা হয়েছে",
+    "permission_ended": "{permission}-এর আলাদা সেটিং শেষ হয়েছে",
+    "project_permissions": "এই প্রকল্পে {count}টি অতিরিক্ত অনুমতি",
+    "consent_accepted": "সম্মতি দিয়েছেন",
+    "consent_declined": "সম্মতি দেননি",
+    "unknown_device": "নামহীন একটি ডিভাইস",
+    "fallback_title": "নোটিফিকেশন",
+    "fallback_body": "এই নোটিফিকেশনটি দেখানো যাচ্ছে না। কী হয়েছে দেখতে সংশ্লিষ্ট পাতা খুলুন।"
   }
 }

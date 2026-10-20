@@ -2,7 +2,7 @@ import pino from 'pino';
 import { describe, expect, it, vi } from 'vitest';
 import { loadEnv } from '../config/env';
 import { ApiError } from '../i18n/api-error';
-import type { EmailAdapter, SmsAdapter } from '../notifications/adapters';
+import { type EmailAdapter, type SmsAdapter, StubSmsAdapter } from '../notifications/adapters';
 import { RATE_LIMITS } from '../rate-limit/rate-limit';
 import { afterFailure, LOCKOUT_RULES, minutesLeft, UnknownIdLockout } from './lockout';
 import { normalizeLoginId } from './login-id';
@@ -274,5 +274,28 @@ describe('registration rate-limit windows', () => {
     const a = byAddress!.key(req({ registrationId: 'A', channel: 'sms' }));
     expect(a).not.toBe('none');
     expect(byAddress!.key(req({ registrationId: 'B', channel: 'sms' }))).not.toBe(a);
+  });
+});
+
+describe('the direct OTP path through the SMS stub', () => {
+  it('logs no code and no full number', async () => {
+    const lines: string[] = [];
+    const logger = pino({ level: 'info' }, { write: (line: string) => void lines.push(line) });
+    const email: EmailAdapter = { send: vi.fn(async () => ({ providerMessageId: 'e' })) };
+    const delivery = new OtpDeliveryService(
+      env(),
+      new StubSmsAdapter('logging', logger),
+      email,
+      logger,
+    );
+    await delivery.deliver(
+      { purpose: 'password_reset', channel: 'sms', address: '01700000001' },
+      '864209',
+      'bn',
+      'otp_password_reset',
+    );
+    expect(lines.length).toBeGreaterThan(0);
+    expect(lines.join('\n')).not.toContain('864209');
+    expect(lines.join('\n')).not.toContain('01700000001');
   });
 });

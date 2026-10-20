@@ -26,7 +26,7 @@ import { currentContext } from '../core/request-context';
 import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import { registrationDetailsColumns } from './volunteer-details';
-import type { RegistrationEvents } from '../notifications/registration-events';
+import type { AccountEvents } from '../notifications/account-events';
 
 type Draft = NonNullable<Awaited<ReturnType<PrismaService['registrationDraft']['findUnique']>>>;
 /** A draft with its token: both contacts are set and verified (CHECKs of D-090). */
@@ -64,7 +64,7 @@ export class RegistrationService {
     private readonly clock: Clock,
     private readonly otp: OtpService,
     private readonly audit: AuditWriter,
-    private readonly events: RegistrationEvents,
+    private readonly events: AccountEvents,
     private readonly hasher: PasswordHasher,
   ) {}
 
@@ -97,7 +97,6 @@ export class RegistrationService {
         new: { kind: body.kind },
       });
     });
-    this.events.emit({ type: 'registration.started', draftId: id });
     return { registrationId: id };
   }
 
@@ -221,7 +220,6 @@ export class RegistrationService {
     });
     if (!outcome.done) return { verified: [body.channel] };
     if (outcome.exists) throw new ApiError('registration.account_exists', 409);
-    this.events.emit({ type: 'registration.verified', draftId: draft.id });
     return {
       verified: ['sms', 'email'],
       registrationToken: token,
@@ -365,6 +363,7 @@ export class RegistrationService {
             ...(body.kind === 'volunteer' ? { type: 'general' } : {}),
           },
         });
+        await this.events.registrationPending(tx, id);
         return id;
       });
     } catch (error) {
@@ -379,7 +378,6 @@ export class RegistrationService {
         );
       throw error;
     }
-    this.events.emit({ type: 'registration.submitted', userId });
     return userId;
   }
 

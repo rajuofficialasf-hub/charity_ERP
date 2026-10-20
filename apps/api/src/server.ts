@@ -20,7 +20,10 @@ const { app } = createApp(container);
 const otpMode = otpStartupMessage(container.otpDelivery.dummy);
 logger[otpMode.level](otpMode.text);
 
-void startInlineConsumers(env, container.jobs, logger, container.registrationCleanup);
+void startInlineConsumers(env, container.jobs, logger, {
+  registrationCleanup: container.registrationCleanup,
+  delivery: container.delivery,
+});
 
 const server = createServer(app);
 server.listen(env.PORT, () => {

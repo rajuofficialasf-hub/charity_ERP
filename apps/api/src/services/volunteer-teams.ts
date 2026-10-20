@@ -7,6 +7,7 @@ import type { Principal } from '../auth/principal';
 import type { Clock } from '../core/clock';
 import type { PrismaService, Tx } from '../core/prisma.service';
 import { ApiError } from '../i18n/api-error';
+import type { ProjectEvents } from '../notifications/project-events';
 
 /** A team is built while the project runs. */
 const RUNNING = ['active', 'closing'];
@@ -24,6 +25,7 @@ export class VolunteerTeamsService {
     private readonly audit: AuditWriter,
     private readonly access: AccessService,
     private readonly clock: Clock,
+    private readonly events: ProjectEvents,
   ) {}
 
   /**
@@ -160,6 +162,7 @@ export class VolunteerTeamsService {
         entityId: projectId,
         new: { leadVolunteerId: leadId, memberVolunteerIds: ids },
       });
+      await this.events.teamMembersAdded(tx, projectId, ids, principal.userId);
       return this.read(tx, projectId, leadId);
     });
   }

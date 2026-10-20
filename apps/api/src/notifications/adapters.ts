@@ -33,6 +33,8 @@ export interface SmsMessage {
 
 export interface Delivered {
   providerMessageId: string;
+  /** Accepted without leaving the server (the SMS stub until a provider exists). */
+  dryRun?: boolean;
 }
 
 export interface EmailAdapter {
@@ -129,7 +131,7 @@ export class StubSmsAdapter implements SmsAdapter {
         { to: maskMobile(message.to), characters: message.body.length, id },
         'sms (stub)',
       );
-    return { providerMessageId: id };
+    return { providerMessageId: id, dryRun: true };
   }
 }
 

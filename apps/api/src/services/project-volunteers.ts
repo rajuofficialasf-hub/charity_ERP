@@ -25,6 +25,7 @@ import { isNumberTerm, literalContains, mobileOf } from '../core/search';
 import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import type { ProjectViewer, ProjectsService } from './projects';
+import type { ProjectEvents } from '../notifications/project-events';
 
 /** Newest first, by id (UUID v7 follows the time of creation and pages without gaps). */
 const SORT = parseSort(undefined, ['id'], [{ field: 'id', direction: 'desc' }]);
@@ -89,6 +90,7 @@ export class ProjectVolunteersService {
     private readonly access: AccessService,
     private readonly projects: ProjectsService,
     private readonly clock: Clock,
+    private readonly events: ProjectEvents,
   ) {}
 
   private refuse(viewer: ProjectViewer): never {
@@ -335,6 +337,12 @@ export class ProjectVolunteersService {
             })),
           },
         });
+        await this.events.assigned(
+          tx,
+          projectId,
+          rows.map((r) => r.volunteerId),
+          actor,
+        );
         const created = await tx.projectVolunteer.findMany({
           where: { id: { in: rows.map((r) => r.id) } },
           select: ASSIGNMENT,

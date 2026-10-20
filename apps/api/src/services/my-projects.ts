@@ -14,6 +14,7 @@ import type { PrismaService, Tx } from '../core/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import { storedRules } from './project-rules';
+import type { ProjectEvents } from '../notifications/project-events';
 
 /** A volunteer sees the projects that are running: never a draft, a closed or a cancelled one. */
 const SHOWN = ['active', 'closing'];
@@ -86,6 +87,7 @@ export class MyProjectsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditWriter,
     private readonly clock: Clock,
+    private readonly events: ProjectEvents,
   ) {}
 
   private async volunteerOf(
@@ -202,6 +204,28 @@ export class MyProjectsService {
    * moment either comes first (the version no longer matches: 409) or waits; an acceptance names
    * every part the volunteer had to read. A refusal leaves the link pending.
    */
+  /** The area of the assignment, or for a team member the area of the main volunteer's one. */
+  private async regionOf(
+    tx: Tx,
+    projectId: string,
+    link: { via: string; id: string },
+  ): Promise<string | null> {
+    const leadId =
+      link.via === 'assignment'
+        ? null
+        : (
+            await tx.volunteerTeam.findUnique({
+              where: { id: link.id },
+              select: { leadVolunteerId: true },
+            })
+          )?.leadVolunteerId;
+    const assignment = await tx.projectVolunteer.findFirst({
+      where: link.via === 'assignment' ? { id: link.id } : { projectId, volunteerId: leadId ?? '' },
+      select: { regionLocationId: true },
+    });
+    return assignment?.regionLocationId ?? null;
+  }
+
   async consent(principal: Principal, projectId: string, body: Consent) {
     return this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
@@ -259,6 +283,13 @@ export class MyProjectsService {
           parts: body.parts,
         },
       });
+      await this.events.consentResult(
+        tx,
+        projectId,
+        await this.regionOf(tx, projectId, link),
+        accepted,
+        principal.userId,
+      );
       return item(project, { ...link, consentStatus: data.consentStatus }, volunteer.type);
     });
   }

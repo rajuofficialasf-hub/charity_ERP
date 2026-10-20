@@ -7,7 +7,7 @@ import type { SessionService } from '../auth/session.service';
 import type { Clock } from '../core/clock';
 import type { PrismaService, Tx } from '../core/prisma.service';
 import { ApiError } from '../i18n/api-error';
-import type { RegistrationEvents } from '../notifications/registration-events';
+import type { AccountEvents } from '../notifications/account-events';
 
 type Entry = {
   id: string;
@@ -44,7 +44,7 @@ export class BlocklistService {
     private readonly audit: AuditWriter,
     private readonly access: AccessService,
     private readonly sessions: SessionService,
-    private readonly events: RegistrationEvents,
+    private readonly events: AccountEvents,
   ) {}
 
   private notFound(scope: Scope): never {
@@ -98,11 +98,11 @@ export class BlocklistService {
         new: { blocklistId: created.id },
         reason,
       });
+      await this.events.blockChanged(tx, volunteer.userId, true, actor.userId);
       return { entry: created, userId: volunteer.userId };
     });
     // revokeAll evicted inside the transaction; a request in between may have cached the old facts
     this.sessions.evictUser(userId);
-    this.events.emit({ type: 'volunteer.blocked', userId });
     return entryView(entry);
   }
 
@@ -130,11 +130,11 @@ export class BlocklistService {
         new: { blocklistId: released.id },
         reason,
       });
+      await this.events.blockChanged(tx, volunteer.userId, false, actor.userId);
       return { entry: released, userId: volunteer.userId };
     });
     // the trigger changed the account state: the cached session facts must not keep the old one
     this.sessions.evictUser(userId);
-    this.events.emit({ type: 'volunteer.unblocked', userId });
     return entryView(entry);
   }
 }

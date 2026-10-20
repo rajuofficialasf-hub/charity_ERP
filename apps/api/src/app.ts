@@ -22,6 +22,7 @@ import { programsRouter } from './routes/programs';
 import { settingsRouter } from './routes/settings';
 import { auditRouter } from './routes/audit';
 import { adminSystemRouter } from './routes/admin-system';
+import { notificationsRouter } from './routes/notifications';
 import { sessionMonitorRouter } from './routes/session-monitor';
 import { projectsRouter } from './routes/projects';
 import { projectSetupRouter } from './routes/project-setup';
@@ -103,6 +104,7 @@ export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
   api.use(settingsRouter(deps, c));
   api.use(auditRouter(deps, c));
   api.use(adminSystemRouter(deps, c));
+  api.use(notificationsRouter(deps, c));
   for (const build of options.extraRouters ?? []) api.use(build(deps));
   app.use(`/${API_PREFIX}`, api);
 

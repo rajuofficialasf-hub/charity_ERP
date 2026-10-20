@@ -125,7 +125,7 @@ describe('base set', () => {
         .sort((a, b) => a.name.localeCompare(b.name)),
     );
     expect(roles).toHaveLength(15);
-    expect(permissions).toHaveLength(146);
+    expect(permissions).toHaveLength(147);
   });
 
   it('stores every workflow template merged and valid, with all its transitions', async () => {
@@ -167,7 +167,7 @@ describe('base set', () => {
       )
     ).rows[0];
     expect(notif.bn).toBe(notif.en);
-    expect(notif.keys).toBe(31);
+    expect(notif.keys).toBe(33);
     const forms = (await db.query('SELECT key, project_type FROM project_templates ORDER BY key'))
       .rows;
     expect(forms).toEqual([

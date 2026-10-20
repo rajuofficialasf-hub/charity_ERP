@@ -45,12 +45,19 @@ export class JobRunner {
   async enqueue<T extends object>(
     queue: QueueName,
     data: T,
-    options: { tx?: Tx; singletonKey?: string; startAfter?: Date } = {},
+    options: {
+      tx?: Tx;
+      singletonKey?: string;
+      /** A time, or a number of seconds from now on the database clock. */
+      startAfter?: Date | number;
+      priority?: number;
+    } = {},
   ): Promise<string | null> {
     const boss = await this.start();
     return boss.send(queue, data, {
       ...(options.singletonKey ? { singletonKey: options.singletonKey } : {}),
-      ...(options.startAfter ? { startAfter: options.startAfter } : {}),
+      ...(options.priority ? { priority: options.priority } : {}),
+      ...(options.startAfter !== undefined ? { startAfter: options.startAfter } : {}),
       ...(options.tx ? { db: fromPrisma(options.tx as never) } : {}),
     });
   }

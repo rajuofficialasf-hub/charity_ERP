@@ -44,6 +44,8 @@ const envSchema = z
     SMTP_FROM: z.string().default('CSS ERP <no-reply@example.org>'),
     /** logging (dev/test: masked log line) or dry_run (staging until a provider exists, O-33). */
     SMS_MODE: z.enum(['logging', 'dry_run']).default('logging'),
+    /** Emails sent per minute by the delivery worker (30 decided); the gap between two is 60 s divided by it. */
+    EMAIL_PER_MINUTE: z.coerce.number().int().min(1).max(600).default(30),
     /** The SMS provider's key; only its presence is ever shown (the channels page). */
     SMS_API_KEY: z.string().optional(),
     /** The release shown on the system health page. */

@@ -7,6 +7,8 @@ import {
   IdCard,
   KeyRound,
   Layers,
+  MessageSquareText,
+  Send,
   LayoutTemplate,
   LayoutDashboard,
   MonitorSmartphone,
@@ -48,7 +50,9 @@ export interface AdminNavItem {
     | 'nisab'
     | 'audit'
     | 'sessions'
-    | 'health';
+    | 'health'
+    | 'notification_templates'
+    | 'deliveries';
   href: string;
   icon: IconComponent;
   /** Only these roles see the item (the server checks the permission anyway); all when absent. */
@@ -92,6 +96,13 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
   { key: 'audit', href: '/admin/audit', icon: ScrollText, roles: SYSTEM_ADMIN_ROLES },
   { key: 'sessions', href: '/admin/sessions', icon: MonitorSmartphone, roles: SYSTEM_ADMIN_ROLES },
   { key: 'health', href: '/admin/health', icon: Activity, roles: SYSTEM_ADMIN_ROLES },
+  {
+    key: 'notification_templates',
+    href: '/admin/notification-templates',
+    icon: MessageSquareText,
+    roles: SYSTEM_ADMIN_ROLES,
+  },
+  { key: 'deliveries', href: '/admin/deliveries', icon: Send, roles: SYSTEM_ADMIN_ROLES },
 ];
 
 /** The items a user with these roles sees. */

@@ -208,5 +208,11 @@
   },
   "audit": {
     "range_required": "Choose a date range of at most 366 days."
+  },
+  "notification": {
+    "no_email_for_volunteers": "Volunteers receive notifications in the app only; there is no email setting.",
+    "unsafe_text": "Remove links and the characters < and > from the text.",
+    "placeholder_unknown": "This placeholder is not available for this notification.",
+    "person_in_app": "An in-app text may not name a person; use it in the email only."
   }
 }

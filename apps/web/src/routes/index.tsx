@@ -31,6 +31,13 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
         { path: '/account/profile', element: <ProfileView /> },
         { path: '/account/sessions', element: <SessionsView /> },
         { path: '/account/password', element: <ChangePasswordView /> },
+        {
+          path: '/notifications',
+          lazy: async () => ({
+            Component: (await import('../features/notifications/NotificationsPage'))
+              .NotificationsPage,
+          }),
+        },
         // the volunteer's own projects load with their own chunk, like the admin pages
         {
           path: '/my-projects',
@@ -188,6 +195,19 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
               path: 'health',
               lazy: async () => ({
                 Component: (await import('../admin/system/HealthPage')).HealthPage,
+              }),
+            },
+            {
+              path: 'notification-templates',
+              lazy: async () => ({
+                Component: (await import('../admin/notifications/NotificationTemplatesPage'))
+                  .NotificationTemplatesPage,
+              }),
+            },
+            {
+              path: 'deliveries',
+              lazy: async () => ({
+                Component: (await import('../admin/notifications/DeliveriesPage')).DeliveriesPage,
               }),
             },
             {

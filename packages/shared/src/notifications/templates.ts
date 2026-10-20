@@ -3,8 +3,10 @@
  * §4.2. Loaded into notification_templates by the base seed; officials edit them later through the
  * admin screens, each change a new version. Variables use {{name}}; numbers and dates are formatted
  * with English digits before rendering (UX-05). SMS texts carry no personal data except the
- * recipient's own code. Later phases add their keys here. The Bengali texts are reviewed by the
- * owner in T1.14.
+ * recipient's own code. An in-app text never names another person (only what happened, the project
+ * and counts; docs/DECISION_LOG.md, the notifications decision of 2026-10-18): emails to officials
+ * may. A variable may be bilingual data ({ bn, en }); it is shown in the reader's language. Later
+ * phases add their keys here.
  */
 export type NotificationChannel = 'in_app' | 'email' | 'sms';
 export type Locale = 'bn' | 'en';
@@ -122,15 +124,15 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
   },
   {
     key: 'registration_pending',
-    variables: ['applicant_name', 'region_name'],
+    variables: ['region_name'],
     channels: inApp(
       {
         title: 'নতুন নিবন্ধন অপেক্ষমাণ',
-        body: '{{region_name}} থেকে {{applicant_name}} নিবন্ধন করেছেন। যাচাই করে অনুমোদন দিন।',
+        body: '{{region_name}} থেকে একটি নতুন নিবন্ধন এসেছে। যাচাই করে অনুমোদন দিন।',
       },
       {
         title: 'New registration waiting',
-        body: '{{applicant_name}} from {{region_name}} has registered. Please review and approve.',
+        body: 'A new registration from {{region_name}} is waiting. Please review and approve.',
       },
     ),
   },
@@ -177,11 +179,11 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
       ...inApp(
         {
           title: 'কর্মীর নিবন্ধন অপেক্ষমাণ',
-          body: '{{applicant_name}} কর্মী হিসেবে নিবন্ধন করেছেন। যাচাই করে অনুমোদন দিন।',
+          body: 'একজন কর্মী নিবন্ধন করেছেন। যাচাই করে অনুমোদন দিন।',
         },
         {
           title: 'Staff registration waiting',
-          body: '{{applicant_name}} has registered as staff. Please review and approve.',
+          body: 'A staff member has registered. Please review and approve.',
         },
       ),
       email: {
@@ -198,15 +200,15 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
   },
   {
     key: 'edit_request_submitted',
-    variables: ['volunteer_name', 'field_name'],
+    variables: ['field_name'],
     channels: inApp(
       {
         title: 'প্রোফাইল সম্পাদনার অনুরোধ',
-        body: '{{volunteer_name}} "{{field_name}}" বদলানোর অনুরোধ করেছেন।',
+        body: 'একজন স্বেচ্ছাসেবক "{{field_name}}" বদলানোর অনুরোধ করেছেন।',
       },
       {
         title: 'Profile edit request',
-        body: '{{volunteer_name}} asked to change "{{field_name}}".',
+        body: 'A volunteer asked to change "{{field_name}}".',
       },
     ),
   },
@@ -216,6 +218,17 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
     channels: inApp(
       { title: 'সম্পাদনার অনুরোধ অনুমোদিত', body: '"{{field_name}}" এখন বদলানো যাবে।' },
       { title: 'Edit request approved', body: 'You can now change "{{field_name}}".' },
+    ),
+  },
+  {
+    key: 'edit_request_closed',
+    variables: ['field_name'],
+    channels: inApp(
+      {
+        title: 'সম্পাদনার অনুরোধ বন্ধ',
+        body: '"{{field_name}}" বদলানোর অনুরোধটি বন্ধ করা হয়েছে।',
+      },
+      { title: 'Edit request closed', body: 'Your request to change "{{field_name}}" was closed.' },
     ),
   },
   {
@@ -302,21 +315,21 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
       ...inApp(
         {
           title: 'নিরাপত্তা সতর্কতা',
-          body: 'আপনার একটি সেশনের টোকেন আবার ব্যবহারের চেষ্টা হয়েছে, তাই সব ডিভাইস থেকে লগআউট করা হয়েছে। আবার লগইন করুন এবং পাসওয়ার্ড বদলান।',
+          body: 'আপনার একটি সেশনের টোকেন আবার ব্যবহারের চেষ্টা হয়েছে, তাই সেই ডিভাইসের সেশন বন্ধ করা হয়েছে। আবার লগইন করুন এবং পাসওয়ার্ড বদলান।',
         },
         {
           title: 'Security alert',
-          body: 'A token of one of your sessions was used again, so all your devices were logged out. Log in again and change your password.',
+          body: 'A token of one of your sessions was used again, so the session on that device was ended. Log in again and change your password.',
         },
       ),
       email: {
         bn: {
           subject: 'নিরাপত্তা সতর্কতা: টোকেন পুনর্ব্যবহার',
-          body: '{{user_name}}-এর একটি রিফ্রেশ টোকেন আবার ব্যবহারের চেষ্টা হয়েছে। সব সেশন বন্ধ করা হয়েছে; অডিট লগ দেখুন।',
+          body: '{{user_name}}-এর একটি রিফ্রেশ টোকেন আবার ব্যবহারের চেষ্টা হয়েছে। সেই সেশন বন্ধ করা হয়েছে; অডিট লগ দেখুন।',
         },
         en: {
           subject: 'Security alert: token reuse',
-          body: 'A refresh token of {{user_name}} was used again. All sessions were ended; please check the audit log.',
+          body: 'A refresh token of {{user_name}} was used again. That session was ended; please check the audit log.',
         },
       },
     },
@@ -328,11 +341,11 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
       ...inApp(
         {
           title: 'হস্তান্তরিত কাজ',
-          body: '{{from_name}}-এর {{count}}টি কাজ আপনাকে দেওয়া হয়েছে।',
+          body: '{{count}}টি কাজ আপনাকে হস্তান্তর করা হয়েছে।',
         },
         {
           title: 'Handed-over work',
-          body: '{{count}} items of {{from_name}} have been assigned to you.',
+          body: '{{count}} items have been handed over to you.',
         },
       ),
       email: {
@@ -349,15 +362,15 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
   },
   {
     key: 'handover_completed',
-    variables: ['from_name'],
+    variables: ['count'],
     channels: inApp(
       {
         title: 'হস্তান্তর সম্পন্ন',
-        body: '{{from_name}}-এর সব কাজ হস্তান্তর হয়েছে এবং অ্যাকাউন্ট নিষ্ক্রিয় করা হয়েছে।',
+        body: 'একজন অফিসিয়ালের {{count}}টি কাজ হস্তান্তর হয়েছে এবং অ্যাকাউন্ট নিষ্ক্রিয় করা হয়েছে।',
       },
       {
         title: 'Handover completed',
-        body: 'All work of {{from_name}} has been handed over and the account has been deactivated.',
+        body: '{{count}} items of an official were handed over and the account was deactivated.',
       },
     ),
   },
@@ -368,11 +381,11 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
       ...inApp(
         {
           title: 'মেইন অ্যাডমিন বদল',
-          body: 'মেইন অ্যাডমিনের দায়িত্ব {{previous_name}} থেকে {{new_name}}-এর কাছে গেছে।',
+          body: 'মেইন অ্যাডমিনের দায়িত্ব অন্য একজনের কাছে গেছে।',
         },
         {
           title: 'Main Admin changed',
-          body: 'The Main Admin role moved from {{previous_name}} to {{new_name}}.',
+          body: 'The Main Admin role has moved to another person.',
         },
       ),
       email: {
@@ -412,29 +425,29 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
   },
   {
     key: 'project_consent_result',
-    variables: ['volunteer_name', 'project_name', 'result'],
+    variables: ['project_name', 'result'],
     channels: inApp(
       {
         title: 'প্রকল্পে সম্মতির ফল',
-        body: '{{volunteer_name}} "{{project_name}}" প্রকল্পে {{result}}।',
+        body: '"{{project_name}}" প্রকল্পে একজন স্বেচ্ছাসেবক {{result}}।',
       },
       {
         title: 'Project consent result',
-        body: '{{volunteer_name}} has {{result}} the project "{{project_name}}".',
+        body: 'A volunteer has {{result}} the project "{{project_name}}".',
       },
     ),
   },
   {
     key: 'team_member_added',
-    variables: ['lead_name', 'project_name'],
+    variables: ['project_name'],
     channels: inApp(
       {
         title: 'টিমে যুক্ত হয়েছেন',
-        body: '{{lead_name}} আপনাকে "{{project_name}}" প্রকল্পের টিমে যুক্ত করেছেন।',
+        body: 'আপনাকে "{{project_name}}" প্রকল্পের একটি টিমে যুক্ত করা হয়েছে।',
       },
       {
         title: 'Added to a team',
-        body: '{{lead_name}} has added you to the team for "{{project_name}}".',
+        body: 'You have been added to a team for "{{project_name}}".',
       },
     ),
   },
@@ -482,15 +495,15 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
   },
   {
     key: 'project_reopened',
-    variables: ['project_name', 'reason'],
+    variables: ['project_name'],
     channels: inApp(
       {
         title: 'প্রকল্প আবার খোলা হয়েছে',
-        body: '"{{project_name}}" প্রকল্প আবার খোলা হয়েছে। কারণ: {{reason}}',
+        body: '"{{project_name}}" প্রকল্প আবার খোলা হয়েছে। কারণ প্রকল্পের পাতায় দেখুন।',
       },
       {
         title: 'Project reopened',
-        body: 'The project "{{project_name}}" has been reopened. Reason: {{reason}}',
+        body: 'The project "{{project_name}}" has been reopened. See the project page for the reason.',
       },
     ),
   },
@@ -508,9 +521,95 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
       },
     ),
   },
+  // ---- 4.5 Operations alerts from launch ----
+  {
+    key: 'ops_alert',
+    variables: ['count'],
+    channels: inApp(
+      {
+        title: 'বার্তা পাঠানো যায়নি',
+        body: '{{count}}টি ইমেইল বা SMS বারবার চেষ্টার পরও পাঠানো যায়নি। ডেলিভারির পাতায় কারণ দেখুন।',
+      },
+      {
+        title: 'Messages could not be sent',
+        body: '{{count}} emails or SMS could not be sent after repeated tries. See the deliveries page for the cause.',
+      },
+    ),
+  },
 ];
+
+/** Variables that name a person; an in-app text never uses them (only emails to officials may). */
+export const PERSON_VARIABLES: readonly string[] = [
+  'name',
+  'applicant_name',
+  'volunteer_name',
+  'user_name',
+  'from_name',
+  'previous_name',
+  'new_name',
+  'lead_name',
+];
+
+/**
+ * Sample values of every declared variable, for the template preview in both languages; numbers
+ * are numbers and bilingual data is { bn, en } as at a real event.
+ */
+export const TEMPLATE_SAMPLES: Record<string, string | number | { bn: string; en: string }> = {
+  code: '123456',
+  minutes: 5,
+  hours: 72,
+  name: 'নমুনা নাম',
+  job_id: 'CSS-123',
+  link: 'https://erp.example.org/invite#token',
+  region_name: { bn: 'ঢাকা বিভাগ', en: 'Dhaka division' },
+  applicant_name: 'নমুনা আবেদনকারী',
+  field_name: { bn: 'মোবাইল নম্বর', en: 'Mobile number' },
+  note: 'সঠিক নম্বর দিন',
+  reason: 'নমুনা কারণ',
+  summary: { bn: 'অনুমোদনের অনুমতি যোগ হয়েছে', en: 'the approval permission was added' },
+  device_name: 'Pixel 7',
+  count: 3,
+  date: '17-10-2026',
+  user_name: 'নমুনা ব্যবহারকারী',
+  from_name: 'নমুনা অফিসিয়াল',
+  previous_name: 'নমুনা আগের জন',
+  new_name: 'নমুনা নতুন জন',
+  project_name: { bn: 'শীতবস্ত্র 2026', en: 'Winter Clothing 2026' },
+  result: { bn: 'সম্মতি দিয়েছেন', en: 'accepted' },
+  new_date: '31-12-2026',
+};
+
+/** A {{name}} placeholder; the renderer and the editor's check read the same pattern. */
+export const PLACEHOLDER = /\{\{\s*(\w+)\s*\}\}/g;
 
 /** Placeholders used in a text, e.g. "{{code}}" → "code". */
 export function templateVariables(text: string): string[] {
-  return [...text.matchAll(/\{\{\s*([a-z_]+)\s*\}\}/g)].map((m) => m[1] as string);
+  return [...text.matchAll(PLACEHOLDER)].map((m) => m[1] as string);
+}
+
+/**
+ * The values an in-app row may keep: what happened, the place, the project, counts, the reader's
+ * own text and the record ids of the link. Anything else, a person's name above all, is left out.
+ */
+export const IN_APP_PARAMS: readonly string[] = [
+  'count',
+  'minutes',
+  'date',
+  'new_date',
+  'region_name',
+  'field_name',
+  'project_name',
+  'result',
+  'reason',
+  'note',
+  'summary',
+  'device_name',
+  'userId',
+  'projectId',
+];
+
+export function inAppParams<T>(params: Record<string, T>): Record<string, T> {
+  return Object.fromEntries(
+    Object.entries(params).filter(([name]) => IN_APP_PARAMS.includes(name)),
+  );
 }

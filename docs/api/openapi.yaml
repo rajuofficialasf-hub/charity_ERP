@@ -80,6 +80,17 @@ components:
         the readable cookie css_csrf (path /, SameSite=Strict) whose value the PWA sends as X-CSRF-Token.
 
   parameters:
+    TemplateKey:
+      name: key
+      in: path
+      required: true
+      description: A key of the notification catalogue.
+      schema: { type: string, pattern: '^[a-z_]{2,64}$' }
+    TemplateChannel:
+      name: channel
+      in: path
+      required: true
+      schema: { type: string, enum: [in_app, email] }
     Cursor:
       name: cursor
       in: query
@@ -2795,9 +2806,93 @@ components:
                 unreadCount: { type: integer }
     MarkReadRequest:
       type: object
+      additionalProperties: false
+      description: Exactly one of ids and all.
       properties:
-        ids: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
-        all: { type: boolean }
+        ids: { type: array, minItems: 1, maxItems: 100, items: { $ref: '#/components/schemas/Uuid' } }
+        all: { type: boolean, const: true }
+    PreferencesUpdate:
+      type: object
+      additionalProperties: false
+      description: At least one field; officials only (a volunteer has no email setting).
+      properties:
+        email_mode: { type: string, enum: [digest, immediate] }
+        digest_time: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }
+    NotificationTemplateText:
+      type: object
+      additionalProperties: false
+      required: [body]
+      description: >-
+        Plain text without links and without < or >; an email has a subject and no title, an in-app
+        entry a title and no subject; a {{placeholder}} must be declared for the key
+        (notification.placeholder_unknown), and an in-app text may not use a person's name
+        (notification.person_in_app).
+      properties:
+        subject: { type: string, minLength: 1, maxLength: 200 }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        body: { type: string, minLength: 1, maxLength: 2000 }
+    NotificationTemplateEdit:
+      type: object
+      additionalProperties: false
+      required: [bn, en]
+      properties:
+        bn: { $ref: '#/components/schemas/NotificationTemplateText' }
+        en: { $ref: '#/components/schemas/NotificationTemplateText' }
+    NotificationTemplate:
+      type: object
+      required: [key, category, variables, channels]
+      properties:
+        key: { type: string }
+        category: { type: string, enum: [security, work, info, alert] }
+        variables: { type: array, items: { type: string } }
+        channels:
+          type: object
+          properties:
+            in_app: { $ref: '#/components/schemas/NotificationTemplateChannel' }
+            email: { $ref: '#/components/schemas/NotificationTemplateChannel' }
+    NotificationTemplateChannel:
+      type: object
+      required: [version, bn, en]
+      properties:
+        version: { type: integer, minimum: 1 }
+        bn: { $ref: '#/components/schemas/StoredTemplateText' }
+        en: { $ref: '#/components/schemas/StoredTemplateText' }
+    StoredTemplateText:
+      type: object
+      required: [subject, title, body]
+      properties:
+        subject: { type: [string, 'null'] }
+        title: { type: [string, 'null'] }
+        body: { type: string }
+    RenderedNotification:
+      type: object
+      required: [body]
+      properties:
+        subject: { type: string }
+        title: { type: string }
+        body: { type: string }
+    Delivery:
+      type: object
+      required: [id, createdAt, channel, templateKey, status, recipient, address, attempts]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        createdAt: { type: string, format: date-time }
+        channel: { type: string, enum: [email, sms, push] }
+        templateKey: { type: string }
+        status: { type: string, enum: [queued, sending, sent, failed, dry_run, suppressed] }
+        recipient:
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [id, name]
+              properties:
+                id: { $ref: '#/components/schemas/Uuid' }
+                name: { type: string }
+        address: { type: string, description: 'Partly hidden: the first letter and the domain, or 3 and 2 digits' }
+        attempts: { type: integer, minimum: 0 }
+        lastError: { type: [string, 'null'], description: 'Cleaned: no address or number' }
+        nextAttemptAt: { type: [string, 'null'], format: date-time }
+        sentAt: { type: [string, 'null'], format: date-time }
     PreferencesResponse:
       type: object
       required: [data, meta]
@@ -7360,6 +7455,11 @@ paths:
       tags: [notifications]
       operationId: notifications.inbox.list
       summary: Own in-app notifications, newest first, with the unread count
+      description: >-
+        Each entry is rendered in the reader's language from the template version stored on it
+        (D-099), so an edited template never changes old entries; an entry that cannot be rendered
+        shows a plain fallback. It never names another person (R16); link is a fixed route of the
+        PWA filled with the record id, and the record checks access again when opened.
       x-permission: notification.read_own
       x-scope: self
       x-audit: none
@@ -7370,7 +7470,7 @@ paths:
         - $ref: '#/components/parameters/Limit'
         - name: unread
           in: query
-          schema: { type: boolean }
+          schema: { type: string, enum: ['true', 'false'] }
       responses:
         '200':
           description: Notifications
@@ -7378,11 +7478,41 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/NotificationList' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /notifications/unread-count:
+    get:
+      tags: [notifications]
+      operationId: notifications.inbox.unreadCount
+      summary: The number of own unread notifications (the badge of the top bar)
+      x-permission: notification.read_own
+      x-scope: self
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: Unread count
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: object
+                    required: [count]
+                    properties:
+                      count: { type: integer, minimum: 0 }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
   /notifications/read:
     post:
       tags: [notifications]
       operationId: notifications.inbox.markRead
-      summary: Mark own notifications as read
+      summary: Mark own notifications as read, some or all; another user’s entry is not found
+      description: >-
+        Either ids (1 to 100 of the caller's own entries) or all: true. An id that is not the
+        caller's answers 404 and nothing is marked.
       x-permission: notification.read_own
       x-scope: self
       x-audit: none
@@ -7396,6 +7526,8 @@ paths:
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /me/language:
     put:
       tags: [auth]
@@ -7426,7 +7558,7 @@ paths:
     get:
       tags: [notifications]
       operationId: notifications.preferences.get
-      summary: Own preferences (email mode, digest time, push opt-in)
+      summary: 'Own preferences: the email mode and digest time of an official; none for a volunteer'
       x-permission: notification.read_own
       x-scope: self
       x-audit: none
@@ -7442,7 +7574,11 @@ paths:
     patch:
       tags: [notifications]
       operationId: notifications.preferences.update
-      summary: Update own preferences; mandatory notification classes cannot be switched off
+      summary: Update own preferences; a volunteer has no email setting
+      description: >-
+        The email mode applies to digest-eligible events, which start in Phase 2; security and
+        work-assigned emails are always sent at once (D-099). A volunteer answers 422 with the
+        detail notification.no_email_for_volunteers.
       x-permission: notification.read_own
       x-scope: self
       x-audit: none
@@ -7452,13 +7588,156 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '../database/json-schemas/user-preferences.schema.json' }
+            schema: { $ref: '#/components/schemas/PreferencesUpdate' }
       responses:
         '200':
           description: Preferences
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PreferencesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /admin/notification-templates:
+    get:
+      tags: [notifications]
+      operationId: notifications.template.list
+      summary: 'The editable templates: active text per channel in bn and en, and the variables'
+      description: >-
+        The keys of the Phase 1 notification catalogue with their in-app and email texts; the OTP and
+        set-password texts are sent directly and are not listed (D-099).
+      x-permission: notification.template.manage
+      x-scope: global
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: Templates
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/NotificationTemplate' } }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/notification-templates/{key}/{channel}/preview:
+    post:
+      tags: [notifications]
+      operationId: notifications.template.preview
+      summary: Render a draft of one channel in bn and en with sample values, without saving
+      x-permission: notification.template.manage
+      x-scope: global
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/TemplateKey'
+        - $ref: '#/components/parameters/TemplateChannel'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NotificationTemplateEdit' }
+      responses:
+        '200':
+          description: The draft rendered in both languages
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: object
+                    required: [bn, en]
+                    properties:
+                      bn: { $ref: '#/components/schemas/RenderedNotification' }
+                      en: { $ref: '#/components/schemas/RenderedNotification' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /admin/notification-templates/{key}/{channel}:
+    put:
+      tags: [notifications]
+      operationId: notifications.template.update
+      summary: Save a new version of one channel in bn and en (audited); old messages keep theirs
+      x-permission: notification.template.manage
+      x-scope: global
+      x-audit: notification.template.change
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/TemplateKey'
+        - $ref: '#/components/parameters/TemplateChannel'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NotificationTemplateEdit' }
+      responses:
+        '200':
+          description: The template with its new version
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { $ref: '#/components/schemas/NotificationTemplate' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /admin/deliveries:
+    get:
+      tags: [notifications]
+      operationId: notifications.delivery.list
+      summary: >-
+        Queued emails and SMS newest first with status, attempts and the last error; addresses
+        partly hidden
+      description: >-
+        For the Department Head and the Monitoring Team (notification.delivery.view, D-099). The
+        message text is never shown; OTP codes never enter the outbox. from and to are dates.
+      x-permission: notification.delivery.view
+      x-scope: global
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - name: status
+          in: query
+          schema: { type: string, enum: [queued, sending, sent, failed, dry_run, suppressed] }
+        - name: channel
+          in: query
+          schema: { type: string, enum: [email, sms, push] }
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Deliveries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Delivery' } }
+                  meta: { $ref: '#/components/schemas/ListMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/Unprocessable' }
 
   # ======================= exports =======================

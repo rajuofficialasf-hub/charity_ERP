@@ -5,7 +5,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pino from 'pino';
 import { identifierHash } from '../../src/auth/otp.service';
 import { RegistrationCleanup } from '../../src/jobs/registration-cleanup';
-import type { RegistrationEvent } from '../../src/notifications/registration-events';
 import type { StorageDriver } from '../../src/storage';
 import { account, authHarness, type AuthHarness } from './support/auth-app';
 import * as f from './support/fixtures';
@@ -17,7 +16,6 @@ import * as f from './support/fixtures';
 const CODE = '246810';
 const TOKEN_HEADER = 'X-Registration-Token';
 const logLines: string[] = [];
-const events: RegistrationEvent[] = [];
 let h: AuthHarness;
 let n = 0;
 
@@ -29,7 +27,6 @@ beforeAll(async () => {
         done();
       },
     }),
-    overrides: { registrationEvents: { emit: (event) => void events.push(event) } },
   });
 });
 afterAll(async () => h.close());
@@ -106,7 +103,8 @@ describe('POST /auth/register/start', () => {
       token_hash: null,
     });
     expect(await auditActions(id)).toEqual(['auth.register_started']);
-    expect(events).toContainEqual({ type: 'registration.started', draftId: id });
+    // starting tells nobody: the matrix has no entry before the submit
+    expect((await h.db.query('SELECT 1 FROM notifications')).rowCount).toBe(0);
   });
 
   it('refuses a staff draft: the admin creates officials (D-097)', async () => {
@@ -241,7 +239,6 @@ describe('POST /auth/register/otp/verify', () => {
       'auth.otp_sent',
       'auth.otp_verified',
     ]);
-    expect(events).toContainEqual({ type: 'registration.verified', draftId: id });
     // a verified draft takes no further code
     expect((await verify(id, 'email')).status).toBe(409);
   });

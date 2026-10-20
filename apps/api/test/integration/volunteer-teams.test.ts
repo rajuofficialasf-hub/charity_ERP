@@ -11,6 +11,7 @@ import {
   login,
   type Session,
 } from './support/auth-app';
+import { notificationsOf } from './support/notifications';
 import * as f from './support/fixtures';
 
 // A main volunteer's team on a project: the volunteers registered with the main volunteer as their
@@ -114,6 +115,17 @@ describe('the team of a main volunteer', () => {
       ),
     ).toEqual(['pending', 'pending']);
     expect(added.body.data.candidates).toEqual([]);
+    // each member added is told in the app
+    const { rows: members } = await h.db.query<{ user_id: string }>(
+      'SELECT user_id FROM volunteers WHERE id = ANY($1::uuid[])',
+      [[one.volunteerId, two.volunteerId]],
+    );
+    for (const m of members)
+      expect(
+        (await notificationsOf(h.db, 'team_member_added', m.user_id)).map(
+          (n) => n.params.projectId,
+        ),
+      ).toContain(project);
 
     const removed = await at(s, 'post', `/me/projects/${project}/team/${one.volunteerId}/remove`);
     expect(removed.status).toBe(204);

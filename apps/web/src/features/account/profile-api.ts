@@ -1,4 +1,4 @@
-import type { PhotoSlot } from '@css/shared/registration';
+import { type PhotoSlot, REQUEST_FIELD_LABEL } from '@css/shared/registration';
 import { api } from '../../lib/api';
 
 /** The own volunteer profile as GET /volunteers/me answers (DECISION_LOG D-081). */
@@ -88,32 +88,5 @@ export const uploadOwnPhoto = async (requestId: string, slot: PhotoSlot, photo: 
   });
 
 /** The catalogue label key of each field a request may name (registration namespace). */
-export const FIELD_LABEL = {
-  name: 'form.name',
-  fatherName: 'form.father_name',
-  motherName: 'form.mother_name',
-  nid: 'form.nid',
-  whatsapp: 'form.whatsapp',
-  address: 'form.address',
-  addressLine: 'form.address_line',
-  education: 'form.education',
-  experience: 'form.experience',
-  workDescription: 'form.work_description',
-  previousProjects: 'form.previous_projects',
-  facebookId: 'form.facebook',
-  bloodGroup: 'form.blood_group',
-  dateOfBirth: 'form.date_of_birth',
-  tshirtSize: 'form.tshirt_size',
-  volunteeringArea: 'form.volunteering_area',
-  profession: 'form.profession_group',
-  skills: 'form.skills',
-  educationDetails: 'form.education_group',
-  permanentAddress: 'form.address_permanent',
-  bank: 'form.bank',
-  photo: 'form.photo',
-  nid_photo: 'form.nid_photo',
-  nid_photo_back: 'form.nid_photo_back',
-  mobile: 'form.mobile',
-  email: 'form.email',
-} as const;
+export const FIELD_LABEL = REQUEST_FIELD_LABEL;
 export type RequestField = keyof typeof FIELD_LABEL;

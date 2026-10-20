@@ -16,7 +16,9 @@
     "nisab": "Nisab",
     "audit": "Audit log",
     "sessions": "Sessions",
-    "health": "System health"
+    "health": "System health",
+    "notification_templates": "Notification texts",
+    "deliveries": "Deliveries"
   },
   "bar": {
     "label": "Admin",
@@ -1205,5 +1207,80 @@
       "count": "Count",
       "size": "Size"
     }
+  },
+  "notification_templates": {
+    "title": "Notification templates",
+    "intro": "The texts of the notifications in both languages. A change is saved as a new version; messages already written keep theirs.",
+    "table": "Templates",
+    "column": {
+      "key": "Notification",
+      "category": "Kind",
+      "channels": "Channels"
+    },
+    "category": {
+      "security": "Security",
+      "work": "Work",
+      "info": "Information",
+      "alert": "Alert"
+    },
+    "channel": {
+      "label": "Channel",
+      "in_app": "In the app",
+      "email": "Email"
+    },
+    "version": "{channel}, version {version}",
+    "edit": "Edit {key}",
+    "edit_short": "Edit",
+    "editor_title": "Edit {key}",
+    "variables": "Values you can use: {list}",
+    "variables_none": "This notification has no values to fill in.",
+    "language": {
+      "bn": "Bangla",
+      "en": "English"
+    },
+    "subject": "Subject",
+    "heading": "Title",
+    "body": "Text",
+    "preview": "Preview",
+    "preview_title": "Preview with sample values",
+    "save": "Save as new version",
+    "cancel": "Cancel",
+    "saved": "{key} saved as version {version}."
+  },
+  "deliveries": {
+    "title": "Message deliveries",
+    "intro": "Emails and SMS the system queued, newest first. Addresses are partly hidden and the text is never shown.",
+    "table": "Deliveries",
+    "column": {
+      "time": "Queued",
+      "template": "Notification",
+      "recipient": "Recipient",
+      "address": "Address",
+      "channel": "Channel",
+      "status": "Status",
+      "attempts": "Attempts",
+      "error": "Last error"
+    },
+    "status": {
+      "all": "All",
+      "queued": "Queued",
+      "sending": "Sending",
+      "sent": "Sent",
+      "failed": "Failed",
+      "dry_run": "Dry run",
+      "suppressed": "Suppressed"
+    },
+    "channel": {
+      "label": "Channel",
+      "all": "All",
+      "email": "Email",
+      "sms": "SMS",
+      "push": "Push"
+    },
+    "from": "From",
+    "to": "To",
+    "empty": "No messages.",
+    "system": "System",
+    "attempts": "Attempts: {count}"
   }
 }
