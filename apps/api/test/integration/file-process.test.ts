@@ -3,7 +3,7 @@ import pino from 'pino';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { UPLOAD_RULES } from '@css/shared/files';
-import { FileProcessor } from '../../src/jobs/file-process';
+import { enqueuePendingFiles, FileProcessor } from '../../src/jobs/file-process';
 import { skippingScanner } from '../../src/files/scanner';
 import { oversizedPng, photoWithExif, picture } from '../support/photos';
 import { accessWorld } from './support/access-fixtures';
@@ -213,5 +213,29 @@ describe('the processing job', () => {
     const before = await fileRow(id);
     expect(await processFile(id)).toEqual({ virusScan: 'skipped' });
     expect(await fileRow(id)).toEqual(before);
+  });
+
+  it('queues every uncleared file once when the consumers start, never a cleared one', async () => {
+    const pending = await upload(await picture({ variant: 14 }));
+    const failed = await upload(await picture({ variant: 15 }));
+    const cleared = await upload(await picture({ variant: 16 }));
+    await h.db.query(`UPDATE files SET virus_scan = 'failed' WHERE id = $1`, [failed]);
+    await h.db.query(`UPDATE files SET virus_scan = 'skipped' WHERE id = $1`, [cleared]);
+    // the finalize queued each upload once; empty the queue to see what the catch-up adds
+    await h.db.query(`DELETE FROM pgboss.job WHERE name = 'photos'`);
+    const jobsOf = async (id: string) =>
+      (
+        await h.db.query(
+          `SELECT count(*)::int AS n FROM pgboss.job WHERE name = 'photos' AND data->>'fileId' = $1`,
+          [id],
+        )
+      ).rows[0].n as number;
+    expect(
+      await enqueuePendingFiles(h.container.prisma, h.container.jobs, 2),
+    ).toBeGreaterThanOrEqual(2);
+    await enqueuePendingFiles(h.container.prisma, h.container.jobs, 2);
+    expect(await jobsOf(pending)).toBe(1);
+    expect(await jobsOf(failed)).toBe(1);
+    expect(await jobsOf(cleared)).toBe(0);
   });
 });

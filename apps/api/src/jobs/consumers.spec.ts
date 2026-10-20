@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { HEARTBEAT_CRON, HEARTBEAT_QUEUE, JobConsumers, startInlineConsumers } from './consumers';
 import type { NotificationDelivery } from '../notifications/delivery';
 import type { JobRunner } from './job-runner';
+import type { FileProcessor } from './file-process';
 import { REGISTRATION_CLEANUP_CRON, type RegistrationCleanup } from './registration-cleanup';
+import type { UploadSweep } from './upload-sweep';
 
 function fakeRunner(failWith?: Error) {
   const work = vi.fn(async () => {
@@ -86,5 +88,29 @@ describe('the registration cleanup on the maintenance queue (DECISION_LOG D-082)
       kind: 'heartbeat',
     });
     expect(run).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the processing of uploaded files', () => {
+  it('works the photos queue, schedules first, and survives a failing catch-up of uncleared files', async () => {
+    const { runner, work, schedule } = fakeRunner();
+    const order: string[] = [];
+    schedule.mockImplementation(async () => {
+      order.push('schedule');
+    });
+    const queuePending = vi.fn(async () => {
+      order.push('catch-up');
+      throw new Error('database away');
+    });
+    await expect(
+      new JobConsumers(runner, quiet, {
+        fileProcessor: { queuePending, process: vi.fn() } as unknown as FileProcessor,
+        uploadSweep: { run: vi.fn() } as unknown as UploadSweep,
+      }).register(),
+    ).resolves.toBeUndefined();
+    expect(work.mock.calls.some((c) => (c as unknown[])[0] === 'photos')).toBe(true);
+    expect(queuePending).toHaveBeenCalledTimes(1);
+    expect(order.at(-1)).toBe('catch-up');
+    expect(order.filter((o) => o === 'schedule')).toHaveLength(2);
   });
 });

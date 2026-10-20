@@ -3,6 +3,7 @@ import { Writable } from 'node:stream';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { UPLOAD_RULES } from '@css/shared/files';
+import { FilesService } from '../../src/services/files';
 import { picture } from '../support/photos';
 import { accessWorld } from './support/access-fixtures';
 import {
@@ -114,6 +115,8 @@ const content = (who: string, fileId: string, variant?: string) =>
       res.on('data', (c: Buffer) => chunks.push(c));
       res.on('end', () => done(null, Buffer.concat(chunks)));
     });
+const fileRowScan = async (id: string) =>
+  (await h.db.query('SELECT virus_scan FROM files WHERE id = $1', [id])).rows[0];
 const info = (who: string, fileId: string) =>
   request(h.server()).get(`/api/v1/files/${fileId}`).set(as(who));
 
@@ -183,6 +186,24 @@ describe('streaming a file linked to a record', () => {
     expect(infected.status).toBe(410);
     expect(JSON.parse(infected.body.toString()).error.code).toBe('file.infected');
     expect((await info('rpmDhaka', id)).body.data.virusScan).toBe('infected');
+  });
+
+  it('keeps a file without a scanner from production, while development may view it', async () => {
+    const id = await upload('general', await picture({ variant: 6 }));
+    await h.container.fileProcessor.process(id);
+    expect((await fileRowScan(id)).virus_scan).toBe('skipped');
+    const production = new FilesService(
+      { NODE_ENV: 'production' },
+      h.container.prisma,
+      h.container.storage,
+      h.container.access,
+      h.container.audit,
+    );
+    const refused = await production
+      .streamContent({ userId: world.users.general } as never, id, {} as never)
+      .catch((error: { code?: string }) => error.code);
+    expect(refused).toBe('file.quarantined');
+    expect((await content('general', id)).status).toBe(200);
   });
 
   it('answers 404 for a thumbnail a file does not have', async () => {

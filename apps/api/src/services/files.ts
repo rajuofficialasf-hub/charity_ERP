@@ -2,7 +2,7 @@ import { pipeline } from 'node:stream/promises';
 import type { Response } from 'express';
 import { UPLOAD_RECORD_KINDS, type UploadRecordType } from '@css/shared/files';
 import { volunteerWhere } from '../access/scope';
-import type { AccessService } from '../access/service';
+import type { AccessService, RequestAccess } from '../access/service';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Principal } from '../auth/principal';
 import type { Env } from '../config/env';
@@ -10,9 +10,11 @@ import type { PrismaService } from '../core/prisma.service';
 import { NEAR_DUPLICATE_BITS } from '../files/images-process';
 import { loadUploadRecord, scopeReachesRecord } from '../files/records';
 import { ApiError } from '../i18n/api-error';
-import { BUCKETS, NotFoundError, type StorageDriver } from '../storage';
+import { knownBucket, NotFoundError, type StorageDriver } from '../storage';
 
 const PHOTO_KINDS = ['profile_photo', 'nid_photo'];
+/** The near duplicates looked at for the one a caller may see; enough for any real burst. */
+const NEAR_DUPLICATES_CHECKED = 20;
 /** Permissions through which an official reaches the person a registration photo belongs to. */
 const REACHING_PERMISSIONS = [
   'volunteer.view_all',
@@ -67,8 +69,8 @@ interface StoredFile {
 }
 
 /**
- * Streams stored files to the people allowed to see them (x-permission `entity`; NS-10, NS-41;
- * docs/architecture/FILES_AND_DOCUMENTS.md, "Access control"). Registration and profile photos:
+ * Streams stored files to the people allowed to see them, never through a storage address
+ * (x-permission `entity`; docs/architecture/FILES_AND_DOCUMENTS.md, "Access control"). Registration and profile photos:
  * their owner, and an official whose reaching permission covers the owner; the NID photo only with
  * the `volunteer.identity` class and a `volunteer.view_sensitive` scope that reaches the volunteer.
  * A file linked to a record: its uploader, and whoever holds a view permission of its kind whose
@@ -100,7 +102,8 @@ export class FilesService {
         : file.thumbnailMediumKey
       : file.objectKey;
     if (!key) throw new ApiError('permission.not_found', 404);
-    // An official opening an identity document leaves a trace (RBAC.md 6).
+    // an official opening an identity document leaves a trace (docs/security/RBAC.md,
+    // "Field-level protection")
     if (file.kind === 'nid_photo' && owner && principal.userId !== owner)
       await this.prisma.$transaction((tx) =>
         this.audit.record(tx, {
@@ -110,7 +113,7 @@ export class FilesService {
           new: { ownerUserId: owner, ...(variant ? { variant } : {}) },
         }),
       );
-    const bucket = bucketOf(file);
+    const bucket = knownBucket(file.bucket);
     let body;
     let size: number;
     try {
@@ -136,16 +139,26 @@ export class FilesService {
 
   /**
    * The metadata of a file, its scan state and its flags (also while it is quarantined), the near
-   * duplicate named only when the caller reaches it; `ownUpload` lets the route show the uploader
-   * the position of the own file.
+   * duplicate named only when the caller reaches it. `fieldClasses` are the protected classes this
+   * caller sees on this file beyond the role's: the position of the own upload (docs/security/
+   * RBAC.md, "Field-level protection"). Reading an NID photo's metadata is audited as its view.
    */
   async info(
     principal: Principal,
     fileId: string,
-  ): Promise<{ view: FileView; ownUpload: boolean }> {
-    const file = await this.findFile(fileId);
-    await this.viewer(principal, file);
-    const row = await this.prisma.file.findUniqueOrThrow({ where: { id: fileId } });
+  ): Promise<{ view: FileView; fieldClasses: string[] }> {
+    const row = await this.prisma.file.findFirst({ where: { id: fileId, deletedAt: null } });
+    if (!row) throw new ApiError('permission.not_found', 404);
+    const owner = await this.viewer(principal, row);
+    if (row.kind === 'nid_photo' && owner && principal.userId !== owner)
+      await this.prisma.$transaction((tx) =>
+        this.audit.record(tx, {
+          action: 'file.nid_viewed',
+          entityType: 'file',
+          entityId: row.id,
+          new: { ownerUserId: owner, metadata: true },
+        }),
+      );
     return {
       view: {
         id: row.id,
@@ -168,13 +181,14 @@ export class FilesService {
           ? await this.nearDuplicateInReach(principal, row)
           : null,
       },
-      ownUpload: row.uploadedBy === principal.userId,
+      fieldClasses: row.uploadedBy === principal.userId ? ['file.location'] : [],
     };
   }
 
   private async findFile(fileId: string): Promise<StoredFile> {
-    const file = await this.prisma.file.findUnique({
-      where: { id: fileId },
+    // a deleted file is gone for everyone
+    const file = await this.prisma.file.findFirst({
+      where: { id: fileId, deletedAt: null },
       select: {
         id: true,
         bucket: true,
@@ -216,7 +230,11 @@ export class FilesService {
     throw new ApiError('file.quarantined', 423);
   }
 
-  private async mayViewLinked(principal: Principal, file: StoredFile): Promise<boolean> {
+  private async mayViewLinked(
+    principal: Principal,
+    file: StoredFile,
+    loaded?: RequestAccess,
+  ): Promise<boolean> {
     if (file.uploadedBy === principal.userId) return true;
     const links = await this.prisma.fileLink.findMany({
       where: { fileId: file.id },
@@ -233,7 +251,7 @@ export class FilesService {
       if (record) records.push(record);
     }
     if (!records.length) return false;
-    const access = await this.access.load(principal.userId);
+    const access = loaded ?? (await this.access.load(principal.userId));
     for (const permission of viewPermissions(file.kind)) {
       if (!access.grants.some((g) => g.permission === permission)) continue;
       const scope = await this.access.scopeFor(principal, access, permission, 'project');
@@ -254,10 +272,13 @@ export class FilesService {
        WHERE project_id = ${file.projectId}::uuid AND id <> ${file.id}::uuid
          AND phash IS NOT NULL AND deleted_at IS NULL
          AND bit_count((phash # ${file.phash})::bit(64)) <= ${NEAR_DUPLICATE_BITS}
-       ORDER BY uploaded_at`;
+       ORDER BY uploaded_at
+       LIMIT ${NEAR_DUPLICATES_CHECKED}`;
+    if (!near.length) return null;
+    const access = await this.access.load(principal.userId);
     for (const other of near) {
       const stored = await this.findFile(other.id);
-      if (await this.mayViewLinked(principal, stored)) return other.id;
+      if (await this.mayViewLinked(principal, stored, access)) return other.id;
     }
     return null;
   }
@@ -315,12 +336,6 @@ export class FilesService {
     }
     return false;
   }
-}
-
-function bucketOf(file: StoredFile) {
-  const bucket = BUCKETS.find((b) => b === file.bucket);
-  if (!bucket) throw new Error(`file ${file.id} names an unknown bucket`);
-  return bucket;
 }
 
 /**

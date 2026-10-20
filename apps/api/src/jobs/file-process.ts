@@ -13,8 +13,10 @@ import {
   thumbnail,
 } from '../files/images-process';
 import type { ScanResult, Scanner } from '../files/scanner';
-import { BUCKETS, type StorageDriver } from '../storage';
+import { knownBucket, type StorageDriver } from '../storage';
+import { Prisma } from '../generated/prisma/client';
 import type { JobRunner } from './job-runner';
+import { JOBS_SCHEMA } from './queues';
 
 /** The queue of photo post-processing and duplicate hashing (jobs/queues.ts). */
 export const FILE_PROCESS_QUEUE = 'photos' as const;
@@ -32,22 +34,52 @@ export function enqueueFileProcess(jobs: JobRunner, tx: Tx, fileId: string): Pro
 }
 
 /**
- * Queues every file still waiting for its scan, so files stored before the processing existed (the
- * registration photos) and files whose job was lost are processed; run when the consumers start.
- * A file already queued is not queued twice (one job per file id).
+ * Queues every file the scan has not cleared yet: files stored before the processing existed (the
+ * registration photos), files whose job was lost, and files that ended `failed` (a scanner outage
+ * longer than the retries, or a photo the processing refused, which is then refused again). Run
+ * when the consumers start, a page at a time; a file whose job still waits or runs is skipped.
  */
-export async function enqueuePendingFiles(prisma: PrismaService, jobs: JobRunner): Promise<number> {
-  const pending = await prisma.file.findMany({
-    where: { virusScan: 'pending', kind: { not: 'export' } },
-    select: { id: true },
-  });
-  for (const file of pending)
-    await jobs.enqueue<FileProcessJob>(
-      FILE_PROCESS_QUEUE,
-      { fileId: file.id },
-      { singletonKey: file.id },
+export async function enqueuePendingFiles(
+  prisma: PrismaService,
+  jobs: JobRunner,
+  pageSize = 500,
+): Promise<number> {
+  let queued = 0;
+  let after: string | undefined;
+  for (;;) {
+    const page = await prisma.file.findMany({
+      where: {
+        virusScan: { in: ['pending', 'failed'] },
+        kind: { not: 'export' },
+        deletedAt: null,
+        ...(after ? { id: { gt: after } } : {}),
+      },
+      select: { id: true },
+      orderBy: { id: 'asc' },
+      take: pageSize,
+    });
+    // a file whose job still waits or runs is not queued again
+    const open = page.length
+      ? await prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
+          SELECT data->>'fileId' AS id FROM ${Prisma.raw(`${JOBS_SCHEMA}.job`)}
+           WHERE name = ${FILE_PROCESS_QUEUE} AND state IN ('created', 'retry', 'active')
+             AND data->>'fileId' = ANY (${page.map((f) => f.id)}::text[])`)
+      : [];
+    const waiting = new Set(open.map((o) => o.id));
+    const fresh = page.filter((file) => !waiting.has(file.id));
+    await Promise.all(
+      fresh.map((file) =>
+        jobs.enqueue<FileProcessJob>(
+          FILE_PROCESS_QUEUE,
+          { fileId: file.id },
+          { singletonKey: file.id },
+        ),
+      ),
     );
-  return pending.length;
+    queued += fresh.length;
+    if (page.length < pageSize) return queued;
+    after = page[page.length - 1]!.id;
+  }
 }
 
 /** Where the thumbnails of a stored object go: a `thumb` folder beside it. */
@@ -74,10 +106,9 @@ export class FileProcessor {
 
   async process(fileId: string): Promise<{ virusScan: string }> {
     const file = await this.prisma.file.findUnique({ where: { id: fileId } });
-    if (!file) return { virusScan: 'missing' };
+    if (!file || file.deletedAt) return { virusScan: 'missing' };
     if (DONE.has(file.virusScan)) return { virusScan: file.virusScan };
-    const bucket = BUCKETS.find((b) => b === file.bucket);
-    if (!bucket) throw new Error(`file ${fileId} names an unknown bucket`);
+    const bucket = knownBucket(file.bucket);
     const bytes = await buffer(await this.storage.get(bucket, file.objectKey));
     let scan: ScanResult;
     try {

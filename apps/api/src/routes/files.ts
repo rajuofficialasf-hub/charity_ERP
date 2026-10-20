@@ -78,12 +78,11 @@ export function filesRouter(
     sensitiveFields: ['file.location'],
     responses: { 200: fileInfoSchema, 404: null },
     handler: async ({ params, req }) => {
-      const { view, ownUpload } = await c.files.info(principalOf(req), params.fileId);
-      // the person who uploaded a file sees its position, whatever the role (RBAC.md 8.6)
-      if (ownUpload) {
-        const authed = req as AuthedRequest;
-        authed.fieldClasses = new Set([...(authed.fieldClasses ?? []), 'file.location']);
-      }
+      const { view, fieldClasses } = await c.files.info(principalOf(req), params.fileId);
+      // the classes the service grants this caller on this file join the role's for the mask
+      const authed = req as AuthedRequest;
+      if (fieldClasses.length)
+        authed.fieldClasses = new Set([...(authed.fieldClasses ?? []), ...fieldClasses]);
       return view;
     },
   });

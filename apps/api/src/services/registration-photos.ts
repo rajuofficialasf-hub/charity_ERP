@@ -32,7 +32,8 @@ const EXTENSION = { 'image/jpeg': 'jpg', 'image/png': 'png' } as const;
  * The photo and the NID photo of a registration (plan
  * docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, R4; DECISION_LOG D-087):
  * a JPEG or PNG of at most 2 MB, metadata stripped, stored privately under a key of ids only. The
- * object is written first and removed again when the database write fails (NS-06). The file is
+ * object is written first and removed again when the database write fails, so no orphan object
+ * stays behind. The file is
  * queued for processing and stays quarantined until the scan clears it.
  */
 export class RegistrationPhotosService {

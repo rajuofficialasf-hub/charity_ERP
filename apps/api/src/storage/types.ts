@@ -16,6 +16,13 @@ export const BUCKETS = [
 ] as const;
 export type Bucket = (typeof BUCKETS)[number];
 
+/** A bucket name read from the database, or an error for a name the storage does not know. */
+export function knownBucket(name: string): Bucket {
+  const bucket = BUCKETS.find((b) => b === name);
+  if (!bucket) throw new Error(`unknown bucket ${name}`);
+  return bucket;
+}
+
 export interface ObjectInfo {
   size: number;
   contentType: string | undefined;
