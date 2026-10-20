@@ -124,8 +124,8 @@ describe('base set', () => {
         }))
         .sort((a, b) => a.name.localeCompare(b.name)),
     );
-    expect(roles).toHaveLength(15);
-    expect(permissions).toHaveLength(147);
+    expect(roles).toHaveLength(17);
+    expect(permissions).toHaveLength(150);
   });
 
   it('stores every workflow template merged and valid, with all its transitions', async () => {
@@ -227,6 +227,8 @@ describe('demo set', () => {
       implementer: 1,
       procurement_team: 1,
       media_team: 1,
+      media_director: 1,
+      media_assistant_director: 1,
       finance_team: 1,
       volunteer_general: 16,
       volunteer_both: 1,
@@ -237,7 +239,7 @@ describe('demo set', () => {
     expect(
       (await db.query('SELECT count(*)::int AS n FROM users WHERE is_system_owner')).rows[0].n,
     ).toBe(1);
-    expect(DEMO_STAFF).toHaveLength(14);
+    expect(DEMO_STAFF).toHaveLength(16);
     // the dedicated official of the handover journey holds one project area of its own (plan docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U14)
     const areas = (
       await db.query(
@@ -318,6 +320,6 @@ describe('demo set', () => {
       `SELECT count(*)::int AS n, count(*) FILTER (WHERE password_hash LIKE '$argon2id$v=19$m=19456,t=2,p=1$%')::int AS argon FROM users WHERE kind <> 'system'`,
     );
     expect(rows[0].argon).toBe(rows[0].n);
-    expect(rows[0].n).toBe(34);
+    expect(rows[0].n).toBe(36);
   });
 });

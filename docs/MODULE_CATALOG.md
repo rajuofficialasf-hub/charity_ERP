@@ -161,11 +161,11 @@ Columns: purpose · primary users · key entities · depends on · B1 core modul
 - Needs decision: none (Web Push decided by O-35; SMS provider timing by O-49: a real gateway before rollout beyond the Phase 3 pilot).
 
 ### M18 Files & Media
-- Purpose: object storage adapter (MinIO; filesystem in tests), signed expiring URLs after authorization, upload validation (type, size, virus-scan hook), client-side compression and resumable upload, photo metadata (capture time, GPS, source camera/gallery per project setting), duplicate-photo detection, voucher and document files, media consent gating of the "publishable" list, and the Media tab (O-28): a media work list of selected beneficiaries (`media_subjects`) with per-beneficiary media status, stories, channel and date and a writing area.
-- Primary users: volunteers and paid volunteers (photos, vouchers), officials (documents), Media Team (stories, publishable list).
-- Key entities: files (with photo metadata columns), media_subjects, media_stories, media_consents (owned by M05).
+- Purpose: object storage adapter (MinIO; filesystem in tests), signed expiring URLs after authorization, upload validation (type, size, virus-scan hook), client-side compression and resumable upload, photo metadata (capture time, GPS, source camera/gallery per project setting), duplicate-photo detection, voucher and document files, and the Media Team module (D-101): referrals of approved applications by PMs and RPMs, the director's decision, works with editable stages, production roles, scripts, publications on the platforms (consent-gated), the team's dashboard, member portfolios and the works on the beneficiary profile.
+- Primary users: volunteers and paid volunteers (photos, vouchers), officials (documents), Media Team (works, scripts, publications), PMs and RPMs (referrals).
+- Key entities: files (with photo metadata columns), media referrals, media works, media assignments, media publications, media comments (replacing media_subjects; designed in T2.8b), media_consents (owned by M05).
 - Depends on: M02, M15, M05.
-- B1: shared service. Phase: 2 (file service), 3 (photo rules), 5 (media tracker). Blueprint: B8 (file access), B10 (photos), A8.1 (photo rule and metadata), A10 (media team), Q-12; BD-21, BD-38, UX-11. Tasks: T0.13, T2.1, T3.1, T5.5.
+- B1: shared service. Phase: 2 (file service; the Media Team module, T2.8b, D-101), 3 (photo rules). Blueprint: B8 (file access), B10 (photos), A8.1 (photo rule and metadata), A10 (media team), Q-12; BD-21, BD-38, UX-11. Tasks: T0.13, T2.1, T2.8b, T3.1.
 - Needs decision: resolved 2026-10-10 by O-id = question number; was open question(s) 17 (consent capture and channels).
 
 ### M19 Locations
@@ -223,10 +223,10 @@ M22 Offline ◄── M07, M08, M09, M12, M18
 |---|---|
 | 0 | Documents only: data model for all modules (ERD), workflow templates, permissions.yaml, screens |
 | 1 | M01, M02, M03, M04 (tab, assignment, teams, blocklist, consent), M06 (core setup, templates), M15 (writer), M17, M19, M20, M21 (core); My Work home |
-| 2 | M05, M07, M08, M04 (application transfer), M16 (export service), M18 (file service), M22 |
+| 2 | M05, M07, M08, M04 (application transfer), M16 (export service), M18 (file service, Media Team module), M22 |
 | 3 | M09 (distribution, dispatch/receive, reconciliation, expense claims and payments), M10 (basic), M16 (project dashboard), M18 (photo rules); deployment pipeline; load test; pilot |
 | 4 | M09 (construction, safe water, self-reliance, tree planting), M10 (full buckets), M11, M12 (exam minimum) |
-| 5 | M12 (full), M14, M15 (viewer), M04 (ratings, categories), M06 (close/reopen), M18 (media tracker) |
+| 5 | M12 (full), M14, M15 (viewer), M04 (ratings, categories), M06 (close/reopen) |
 | 6 | M16 (program, central, dawah dashboards, journey report); then M13 (checklist template editor and full register, built last by O-34, before the security audit); M21 (rest), hardening, backup drill, manuals |
 
 ## 5. Needs-decision index

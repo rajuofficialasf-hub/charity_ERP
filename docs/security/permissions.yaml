@@ -42,6 +42,8 @@ roles:
   official_daee: { name_en: "Official দায়ী", name_bn: "অফিসিয়াল দায়ী", kind: official, global_scope: false }
   procurement_team: { name_en: Procurement Team, name_bn: "প্রকিউরমেন্ট টিম", kind: official, global_scope: false }
   media_team: { name_en: Media Team, name_bn: "মিডিয়া টিম", kind: official, global_scope: false }
+  media_director: { name_en: Media Director, name_bn: "মিডিয়া ডিরেক্টর", kind: official, global_scope: false }
+  media_assistant_director: { name_en: Media Assistant Director, name_bn: "মিডিয়া অ্যাসিস্ট্যান্ট ডিরেক্টর", kind: official, global_scope: false }
   finance_team: { name_en: Finance Team, name_bn: "ফাইন্যান্স টিম", kind: official, global_scope: false }
   volunteer_general: { name_en: General Volunteer, name_bn: "জেনারেল স্বেচ্ছাসেবক", kind: volunteer, global_scope: false }
   volunteer_local_daee: { name_en: "Local দায়ী", name_bn: "স্থানীয় দায়ী", kind: volunteer, global_scope: false }
@@ -134,7 +136,7 @@ sensitive_fields:
     source: "A4 second table, B8"
   - key: application.official_section
     fields: [form sections with visibility official_only, application_scores.*]
-    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee, procurement_team, media_team]
+    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee, procurement_team, media_team, media_director, media_assistant_director]
     source: "B3, B4: never returned to volunteers; Procurement and Media read applications (A4)"
   - key: blocklist.reason
     fields: [blocklist.reason, blocklist.blocked_by]
@@ -159,6 +161,8 @@ permissions:
       - { role: official_daee, scope: SELF }
       - { role: procurement_team, scope: SELF }
       - { role: media_team, scope: SELF }
+      - { role: media_director, scope: SELF }
+      - { role: media_assistant_director, scope: SELF }
       - { role: finance_team, scope: SELF }
       - { role: volunteer_general, scope: SELF }
       - { role: volunteer_local_daee, scope: SELF }
@@ -393,6 +397,8 @@ permissions:
       - { role: official_daee, scope: GLOBAL }
       - { role: implementer, scope: GLOBAL }
       - { role: media_team, scope: GLOBAL }
+      - { role: media_director, scope: GLOBAL }
+      - { role: media_assistant_director, scope: GLOBAL }
       - { role: procurement_team, scope: PROJECT, condition: house_construction_project }
   - name: beneficiary.view_nid
     description: See beneficiary NID / birth-registration number and NID photo
@@ -478,6 +484,8 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: project_executive, scope: REGION }
       - { role: media_team, scope: GLOBAL }
+      - { role: media_director, scope: GLOBAL }
+      - { role: media_assistant_director, scope: GLOBAL }
   - name: beneficiary.status.change
     description: Change a beneficiary profile status (active, deceased, relocated) with reason
     module: M05
@@ -515,6 +523,8 @@ permissions:
       - { role: implementer, scope: PROGRAM }
       - { role: finance_team, scope: GLOBAL }
       - { role: media_team, scope: GLOBAL }
+      - { role: media_director, scope: GLOBAL }
+      - { role: media_assistant_director, scope: GLOBAL }
   - name: project.create
     description: Create a project in own program (from a workflow; from a template or a copy with T1.12)
     module: M06
@@ -588,6 +598,8 @@ permissions:
       - { role: procurement_team, scope: PROJECT, condition: house_construction_project }
       - { role: finance_team, scope: GLOBAL }
       - { role: media_team, scope: GLOBAL }
+      - { role: media_director, scope: GLOBAL }
+      - { role: media_assistant_director, scope: GLOBAL }
       - { role: volunteer_general, scope: PROJECT }
       - { role: volunteer_local_daee, scope: PROJECT }
       - { role: volunteer_both, scope: PROJECT }
@@ -677,6 +689,8 @@ permissions:
       - { role: official_daee, scope: ASSIGNED }
       - { role: procurement_team, scope: PROJECT, condition: house_construction_project }
       - { role: media_team, scope: GLOBAL }
+      - { role: media_director, scope: GLOBAL }
+      - { role: media_assistant_director, scope: GLOBAL }
       - { role: volunteer_general, scope: SELF }
       - { role: volunteer_both, scope: SELF }
       - { role: volunteer_team_member, scope: SELF, condition: own_created }
@@ -694,6 +708,8 @@ permissions:
       - { role: official_daee, scope: ASSIGNED }
       - { role: procurement_team, scope: PROJECT, condition: house_construction_project }
       - { role: media_team, scope: GLOBAL }
+      - { role: media_director, scope: GLOBAL }
+      - { role: media_assistant_director, scope: GLOBAL }
   - name: application.review
     description: Take an application under review and edit the whole form
     module: M08
@@ -1145,6 +1161,8 @@ permissions:
       - { role: official_daee, scope: REGION }
       - { role: finance_team, scope: GLOBAL }
       - { role: media_team, scope: GLOBAL, condition: own_part }
+      - { role: media_director, scope: GLOBAL, condition: own_part }
+      - { role: media_assistant_director, scope: GLOBAL, condition: own_part }
       - { role: procurement_team, scope: PROJECT, condition: own_part }
   - name: export.beneficiaries
     description: Export beneficiary data including identity fields (audited as a sensitive export)
@@ -1197,6 +1215,8 @@ permissions:
       - { role: official_daee, scope: SELF }
       - { role: procurement_team, scope: SELF }
       - { role: media_team, scope: SELF }
+      - { role: media_director, scope: SELF }
+      - { role: media_assistant_director, scope: SELF }
       - { role: finance_team, scope: SELF }
       - { role: volunteer_general, scope: SELF }
       - { role: volunteer_local_daee, scope: SELF }
@@ -1226,36 +1246,68 @@ permissions:
       - { role: implementer, scope: REGION }
       - { role: official_daee, scope: REGION }
       - { role: media_team, scope: GLOBAL, condition: own_part }
+      - { role: media_director, scope: GLOBAL, condition: own_part }
+      - { role: media_assistant_director, scope: GLOBAL, condition: own_part }
       - { role: procurement_team, scope: PROJECT, condition: own_part }
       - { role: volunteer_general, scope: SELF }
       - { role: volunteer_local_daee, scope: ASSIGNED }
       - { role: volunteer_both, scope: SELF }
       - { role: volunteer_paid, scope: ASSIGNED }
-  - name: media.subject.manage
-    description: In the Media tab, add beneficiaries to the media work list and set their media status (O-28)
-    module: M18
-    sensitive: false
-    default:
-      - { role: media_team, scope: GLOBAL }
-  - name: story.manage
-    description: Read, write and edit media stories and the publication tracker for beneficiaries on the media work list
-    module: M18
-    sensitive: false
-    default:
-      - { role: media_team, scope: GLOBAL }
-  - name: story.view
-    description: Read media stories
+  - name: media.referral.create
+    description: Refer an approved application of the caller's scope to the Media Team as publishable, with a priority and a note; refused without the beneficiary's recorded media consent (D-101)
     module: M18
     sensitive: false
     default:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
-      - { role: media_team, scope: GLOBAL }
-  - name: media.publishable.manage
-    description: Collect photos and videos into the publishable list (consent-gated)
+  - name: media.referral.decide
+    description: Accept a media referral, send it back for review with a comment, or reject it with a reason (D-101)
     module: M18
     sensitive: false
     default:
+      - { role: media_director, scope: GLOBAL }
+      - { role: media_assistant_director, scope: GLOBAL }
+  - name: media.work.view
+    description: See media works with their stage, team, publications, comments and history; a referrer sees the media status of own referrals (D-101)
+    module: M18
+    sensitive: false
+    default:
+      - { role: media_director, scope: GLOBAL }
+      - { role: media_assistant_director, scope: GLOBAL }
+      - { role: media_team, scope: GLOBAL }
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+  - name: media.work.manage
+    description: "Run a media work: stage, members and their production roles, content type, publications on the platforms and notes; members on the works assigned to them (D-101)"
+    module: M18
+    sensitive: false
+    default:
+      - { role: media_director, scope: GLOBAL }
+      - { role: media_assistant_director, scope: GLOBAL }
+      - { role: media_team, scope: ASSIGNED }
+  - name: media.publication.review
+    description: Final review of a media work before it may be published (D-101)
+    module: M18
+    sensitive: false
+    default:
+      - { role: media_director, scope: GLOBAL }
+  - name: story.manage
+    description: Write and edit the script or story of a media work (summary, interview questions, scenes, voice-over, notes) with its state draft, in review or final; members on the works assigned to them (D-101)
+    module: M18
+    sensitive: false
+    default:
+      - { role: media_director, scope: GLOBAL }
+      - { role: media_assistant_director, scope: GLOBAL }
+      - { role: media_team, scope: ASSIGNED }
+  - name: story.view
+    description: Read the script or story of a media work
+    module: M18
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: media_director, scope: GLOBAL }
+      - { role: media_assistant_director, scope: GLOBAL }
       - { role: media_team, scope: GLOBAL }
 
   # ---- M19 Locations -------------------------------------------------------------------------------

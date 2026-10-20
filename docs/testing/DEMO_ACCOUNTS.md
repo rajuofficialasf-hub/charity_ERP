@@ -20,7 +20,9 @@ Password of every demo account: `CssDemo2026` (development only; meets the O-05 
 | Official দায়ী | CSS-302 | daee@example.org | 01700000009 | CSS-201 |  |
 | Implementer | CSS-303 | implementer@example.org | 01700000010 | CSS-201 |  |
 | Procurement Team | CSS-401 | procurement@example.org | 01700000011 | CSS-001 |  |
-| Media Team | CSS-402 | media@example.org | 01700000012 | CSS-001 |  |
+| Media Team | CSS-402 | media@example.org | 01700000012 | CSS-405 |  |
+| Media Director | CSS-404 | media.director@example.org | 01700000015 | CSS-001 | D-101; at the PM's level |
+| Media Assistant Director | CSS-405 | media.ad@example.org | 01700000016 | CSS-404 | D-101 |
 | Finance Team | CSS-403 | finance@example.org | 01700000013 | CSS-001 |  |
 
 ## Volunteers
