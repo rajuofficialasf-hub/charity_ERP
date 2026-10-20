@@ -20,7 +20,10 @@ import type { Clock } from '../core/clock';
 import type { PrismaService, Tx } from '../core/prisma.service';
 import { dropParts, joinParts, partCount, storePart } from '../files/parts';
 import { bucketOf, detectType, MAGIC_LENGTH, objectKeyOf } from '../files/policy';
+import { photoFlags, projectPhotoSource } from '../files/flags';
 import { loadUploadRecord, scopeReachesRecord, type UploadRecord } from '../files/records';
+import { enqueueFileProcess } from '../jobs/file-process';
+import type { JobRunner } from '../jobs/job-runner';
 import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import type { Bucket, StorageDriver } from '../storage';
@@ -88,6 +91,7 @@ export class UploadsService {
     private readonly storage: StorageDriver,
     private readonly audit: AuditWriter,
     private readonly access: AccessService,
+    private readonly jobs: JobRunner,
     private readonly clock: Clock,
     private readonly logger: Logger,
   ) {}
@@ -276,7 +280,16 @@ export class UploadsService {
     const recordCreatedAt =
       record.clientCreatedAt ??
       (declared.recordCreatedAt ? new Date(declared.recordCreatedAt) : null);
-    const flags = photoFlags(declared, type, recordCreatedAt, this.clock.now());
+    const flags = photoFlags({
+      kind: declared.kind,
+      mime: type,
+      capturedAt: declared.capturedAt ? new Date(declared.capturedAt) : null,
+      hasPosition: !!declared.gps,
+      recordCreatedAt,
+      receivedAt: this.clock.now(),
+      source: declared.source,
+      projectSource: await projectPhotoSource(tx, record.projectId, declared.kind),
+    });
     await tx.file.create({
       data: {
         id: declared.fileId,
@@ -329,6 +342,7 @@ export class UploadsService {
         flags,
       },
     });
+    await enqueueFileProcess(this.jobs, tx, declared.fileId);
   }
 
   /**
@@ -475,32 +489,6 @@ function acceptedType(head: Buffer, declared: Declared): FileType {
   if (!type || !sameFileType(type, declared.mime) || maxSizeOf(declared.kind, type) === null)
     throw new ApiError('file.type_not_allowed', 415);
   return type;
-}
-
-/**
- * The data-quality flags the declaration already decides for a photo: no capture time, no
- * position, and a stale capture: more than ten minutes from the record's creation, or after the
- * server's clock. They never block.
- */
-function photoFlags(
-  declared: Declared,
-  type: FileType,
-  recordCreatedAt: Date | null,
-  now: Date,
-): string[] {
-  if (!type.startsWith('image/') || declared.kind === 'document') return [];
-  const flags: string[] = [];
-  if (!declared.capturedAt) flags.push('no_capture_time');
-  if (!declared.gps) flags.push('no_gps');
-  const captured = declared.capturedAt ? Date.parse(declared.capturedAt) : null;
-  const far = (a: number, b: number) => Math.abs(a - b) > UPLOAD_RULES.staleCaptureMs;
-  if (
-    captured !== null &&
-    ((recordCreatedAt && far(captured, recordCreatedAt.getTime())) ||
-      captured - now.getTime() > UPLOAD_RULES.staleCaptureMs)
-  )
-    flags.push('stale_capture');
-  return flags;
 }
 
 const isUniqueViolation = (error: unknown) =>

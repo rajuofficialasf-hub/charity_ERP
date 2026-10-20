@@ -10,6 +10,7 @@ async function main(): Promise<void> {
   await new JobConsumers(container.jobs, logger, {
     registrationCleanup: container.registrationCleanup,
     uploadSweep: container.uploadSweep,
+    fileProcessor: container.fileProcessor,
     delivery: container.delivery,
   }).register();
   logger.info('worker started');

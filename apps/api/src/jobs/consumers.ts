@@ -5,6 +5,7 @@ import type { DeliveryJob } from '../notifications/service';
 import type { JobRunner } from './job-runner';
 import { REGISTRATION_CLEANUP_CRON, type RegistrationCleanup } from './registration-cleanup';
 import { UPLOAD_SWEEP_CRON, type UploadSweep } from './upload-sweep';
+import { FILE_PROCESS_QUEUE, type FileProcessJob, type FileProcessor } from './file-process';
 
 /** The sample heartbeat job: proves enqueue, consume and scheduling end to end (ADR-004). */
 export const HEARTBEAT_QUEUE = 'maintenance' as const;
@@ -31,6 +32,7 @@ type MaintenanceData = HeartbeatData | RegistrationCleanupData | UploadSweepData
 export interface ConsumerServices {
   registrationCleanup?: RegistrationCleanup;
   uploadSweep?: UploadSweep;
+  fileProcessor?: FileProcessor;
   delivery?: NotificationDelivery;
 }
 
@@ -60,6 +62,12 @@ export class JobConsumers {
     const { delivery } = this.services;
     // emails and SMS of the outbox, one at a time (the delivery throttles itself)
     if (delivery) await this.jobs.work<DeliveryJob>('notify', (job) => delivery.deliver(job.data));
+    // each uploaded file: the scan, the photo metadata, the thumbnails and the near duplicates
+    const { fileProcessor } = this.services;
+    if (fileProcessor)
+      await this.jobs.work<FileProcessJob>(FILE_PROCESS_QUEUE, (job) =>
+        fileProcessor.process(job.data.fileId),
+      );
     if (this.services.registrationCleanup)
       await this.jobs.schedule(
         HEARTBEAT_QUEUE,

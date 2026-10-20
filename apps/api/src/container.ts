@@ -26,6 +26,8 @@ import {
 import { AuthService } from './services/auth';
 import { RegistrationCleanup } from './jobs/registration-cleanup';
 import { UploadSweep } from './jobs/upload-sweep';
+import { FileProcessor } from './jobs/file-process';
+import { createScanner } from './files/scanner';
 import { AccountEvents } from './notifications/account-events';
 import { DeliveriesService } from './services/deliveries';
 import { AttentionService } from './services/attention';
@@ -108,6 +110,7 @@ export interface Container {
   registration: RegistrationService;
   registrationCleanup: RegistrationCleanup;
   uploadSweep: UploadSweep;
+  fileProcessor: FileProcessor;
   uploads: UploadsService;
   registrationPhotos: RegistrationPhotosService;
   files: FilesService;
@@ -283,7 +286,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       o.registrationPhotos ??
       new RegistrationPhotosService(prisma, storage, audit, registration, logger, accountEvents),
     files: o.files ?? new FilesService(prisma, storage, access, audit),
-    uploads: o.uploads ?? new UploadsService(prisma, storage, audit, access, clock, logger),
+    uploads: o.uploads ?? new UploadsService(prisma, storage, audit, access, jobs, clock, logger),
     volunteers: o.volunteers ?? new VolunteersService(prisma),
     volunteerList: o.volunteerList ?? new VolunteerListService(env, prisma, access),
     volunteerProfile: o.volunteerProfile ?? new VolunteerProfileService(prisma, access),
@@ -361,6 +364,8 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       ),
     registrationCleanup: o.registrationCleanup ?? new RegistrationCleanup(prisma, storage, logger),
     uploadSweep: o.uploadSweep ?? new UploadSweep(prisma, storage, logger),
+    fileProcessor:
+      o.fileProcessor ?? new FileProcessor(prisma, storage, createScanner(env), logger),
   };
   return {
     ...built,

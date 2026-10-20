@@ -87,13 +87,29 @@ describe('loadEnv', () => {
     );
     // the set-password link goes out by email, so it must point at the https origin (D-097)
     expect(() => loadEnv({ ...base, NODE_ENV: 'production' })).toThrow(/APP_ORIGIN/);
-    expect(loadEnv(production)).toMatchObject({
-      OTP_DUMMY_ENABLED: false,
-      AUTH_COOKIE_SECURE: true,
-      TRUST_PROXY: 'loopback',
-      RATE_LIMITS_RELAXED: false,
-      SESSION_DEVICE_LIMIT_RELAXED: false,
-    });
+    // production starts only with a real virus scanner, which joins with the first deployment;
+    // until then the scanner is the one thing a production configuration lacks
+    const refusal = (() => {
+      try {
+        loadEnv(production);
+        return '';
+      } catch (error) {
+        return String(error);
+      }
+    })();
+    expect(refusal).toMatch(/FILE_SCANNER/);
+    for (const name of [
+      'OTP_DUMMY_ENABLED',
+      'AUTH_COOKIE_SECURE',
+      'RATE_LIMITS_RELAXED',
+      'APP_ORIGIN',
+    ])
+      expect(refusal).not.toContain(name);
+  });
+
+  it('marks files skipped outside production and refuses that scanner in production', () => {
+    expect(loadEnv(base).FILE_SCANNER).toBe('skip');
+    expect(() => loadEnv({ ...base, FILE_SCANNER: 'none' })).toThrow(/FILE_SCANNER/);
   });
 
   it('needs a six-digit dummy code when the dummy OTP is on, and long auth secrets', () => {
