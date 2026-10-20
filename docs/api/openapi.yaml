@@ -5355,7 +5355,10 @@ paths:
         The full auto-fill of a found profile wherever it lives, with the identity fields marked
         locked; never the other identity number or a block reason. A retired profile's number leads
         to the kept profile (`mergedInto`). Every lookup writes an audit row without the number,
-        and the `lookup` rate limit counts per user and per address (D-114).
+        and the `lookup` rate limit counts per user and per address (D-114). A profile outside the
+        caller's own scope is filled in 20 times a day per user; after that the lookup answers 429
+        `beneficiary.lookup_outside_limit` until the next day in Bangladesh, while profiles inside
+        the scope go on.
       x-permission: beneficiary.lookup
       x-scope: project
       x-audit: beneficiary.looked_up

@@ -11,6 +11,7 @@ import type { AccessService } from '../access/service';
 import { beneficiaryWhere, type Scope } from '../access/scope';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Principal } from '../auth/principal';
+import type { Clock } from '../core/clock';
 import type { PrismaService, Tx } from '../core/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
@@ -19,6 +20,17 @@ import { ApiError } from '../i18n/api-error';
 const MERGE_HOPS = 10;
 /** The one stored spelling of a Bangladesh mobile number (the database checks the same). */
 const MOBILE_PATTERN = /^01[3-9][0-9]{8}$/;
+/**
+ * The lookups a user may make in a day that fill in a profile outside the user's own scope (the
+ * owner's limit on top of the rate limit); inside the scope the rate limit alone applies.
+ */
+export const OUTSIDE_LOOKUPS_PER_DAY = 20;
+const HOUR_MS = 3_600_000;
+/** The start of the calendar day in Bangladesh (UTC+6) that `now` falls on. */
+const dhakaDayStart = (now: Date) => {
+  const local = now.getTime() + 6 * HOUR_MS;
+  return new Date(local - (local % (24 * HOUR_MS)) - 6 * HOUR_MS);
+};
 
 /** A unique index refused the row, through the client (P2002) or a raw statement (P2010, 23505). */
 const isUniqueViolation = (error: unknown) =>
@@ -98,6 +110,7 @@ export class BeneficiaryIdentityService {
     private readonly prisma: PrismaService,
     private readonly access: AccessService,
     private readonly audit: AuditWriter,
+    private readonly clock: Clock,
   ) {}
 
   /**
@@ -152,7 +165,7 @@ export class BeneficiaryIdentityService {
       'beneficiary.lookup',
       'beneficiary',
     );
-    return this.prisma.$transaction(async (tx) => {
+    const answer = await this.prisma.$transaction(async (tx) => {
       const match = await tx.beneficiary.findFirst({
         where: body.nid ? { nid: body.nid } : { birthReg: body.birthReg },
         select: { id: true, mergedIntoId: true },
@@ -177,12 +190,29 @@ export class BeneficiaryIdentityService {
         tx.user.findUnique({ where: { id: viewer.principal.userId }, select: { mobile: true } }),
         nearScope ? this.access.reaches(nearScope, { beneficiaryId: b.id }, tx) : false,
       ]);
+      const limited =
+        !inScope &&
+        (await tx.auditLog.count({
+          where: {
+            actorUserId: viewer.principal.userId,
+            action: 'beneficiary.looked_up',
+            createdAt: { gte: dhakaDayStart(this.clock.now()) },
+            new: { path: ['outsideScope'], equals: true },
+          },
+        })) >= OUTSIDE_LOOKUPS_PER_DAY;
       await this.audit.record(tx, {
         action: 'beneficiary.looked_up',
         entityType: 'beneficiary',
         entityId: b.id,
-        new: { found: true, projectId: project.id, outsideScope: !inScope },
+        new: {
+          found: true,
+          projectId: project.id,
+          outsideScope: !inScope,
+          ...(limited ? { limited: true } : {}),
+        },
       });
+      // the refusal is answered after the commit, so its audit row stays
+      if (limited) return null;
       const retired = match && match.id !== b.id;
       const { id, dob, isBlocked: _blocked, ...details } = b;
       return {
@@ -199,6 +229,8 @@ export class BeneficiaryIdentityService {
         },
       };
     });
+    if (!answer) throw new ApiError('beneficiary.lookup_outside_limit', 429);
+    return answer;
   }
 
   /**

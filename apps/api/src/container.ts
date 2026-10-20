@@ -218,7 +218,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     o.registration ??
     new RegistrationService(env, prisma, clock, otp, audit, accountEvents, hasher);
   const beneficiaryIdentity =
-    o.beneficiaryIdentity ?? new BeneficiaryIdentityService(prisma, access, audit);
+    o.beneficiaryIdentity ?? new BeneficiaryIdentityService(prisma, access, audit, clock);
   const built = {
     env,
     logger,

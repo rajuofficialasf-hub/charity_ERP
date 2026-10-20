@@ -161,6 +161,28 @@ describe('the lookup of the application form', () => {
     });
   });
 
+  it('stops filling in profiles of other regions after 20 a day, and goes on inside the region', async () => {
+    const rpm = await as(world.users.rpmRangpur);
+    const outside = await person(world.dhaka);
+    const inside = await person(world.rangpur);
+    const today = h.clock.now();
+    for (let i = 0; i < 20; i++)
+      await h.db.query(
+        `INSERT INTO audit_log (id, created_at, actor_user_id, action, entity_type, entity_id, new)
+         VALUES (gen_random_uuid(), $1, $2, 'beneficiary.looked_up', 'beneficiary', $3, '{"found": true, "outsideScope": true}')`,
+        [today, world.users.rpmRangpur, outside],
+      );
+    const refused = await lookup(rpm, { nid: (await row(outside)).nid, projectId: world.a1.id });
+    expect(refused.status).toBe(429);
+    expect(refused.body.error.code).toBe('beneficiary.lookup_outside_limit');
+    expect(JSON.stringify(refused.body)).not.toContain((await row(outside)).mobile);
+    const audit = (await lookupAudits(world.users.rpmRangpur)).at(-1)!;
+    expect(audit).toMatchObject({ entity_id: outside, new: { limited: true, outsideScope: true } });
+    const allowed = await lookup(rpm, { nid: (await row(inside)).nid, projectId: world.a1.id });
+    expect(allowed.status).toBe(200);
+    expect(allowed.body.data.autofill.beneficiaryId).toBe(inside);
+  });
+
   it('refuses a project the caller does not work on, a caller without the permission, and no token', async () => {
     const nid = (await row(await person(world.dhaka))).nid;
     const volunteer = await as(world.users.general);
