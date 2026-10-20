@@ -276,6 +276,7 @@ Implementation (T1.6, O-57): `IdempotencyService` in apps/api: `replayByClientUu
 | list | 60 per minute per user and 600 per minute per address; each read stops after 5 seconds with `server.busy` (O-67) | user, IP |
 | sync | 60 batches per minute per device session (PROPOSAL) | device session |
 | upload | 600 parts per hour per user (a photo of 1.6 MB is 7 parts; D-108) | user |
+| lookup | the beneficiary lookup by NID or birth registration: 60 per minute and 600 per day per user, and 120 per minute per address; every lookup is audited without the number (D-114) | user, IP |
 
 Responses include `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`; a 429 carries `Retry-After`, which the PWA honours (O-29). Limits are enforced in the API (not only in Caddy) so they apply per account.
 

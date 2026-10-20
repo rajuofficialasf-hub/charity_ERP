@@ -1,4 +1,4 @@
-import type { BeneficiaryFilter } from '@css/shared/beneficiaries';
+import { type BeneficiaryFilter, parseBenNo } from '@css/shared/beneficiaries';
 import { APPROVED_STATES } from '@css/shared/volunteers';
 import type { AccessService } from '../access/service';
 import { beneficiaryRowsProjectWhere, beneficiaryWhere, type Scope } from '../access/scope';
@@ -20,6 +20,7 @@ import {
 import type { PrismaService, Tx } from '../core/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
+import type { BeneficiaryIdentityService } from './beneficiary-identity';
 
 /** Newest first by id (UUID v7 follows the time of creation and pages without gaps). */
 const SORT = parseSort(undefined, ['id'], [{ field: 'id', direction: 'desc' }]);
@@ -54,6 +55,7 @@ export class BeneficiariesService {
     private readonly prisma: PrismaService,
     private readonly clock: Clock,
     private readonly access: AccessService,
+    private readonly identity: BeneficiaryIdentityService,
   ) {}
 
   private refuse(viewer: BeneficiaryViewer, cls: string): never {
@@ -99,14 +101,18 @@ export class BeneficiariesService {
   }
 
   /**
-   * Letters match the name; digits match the exact mobile for callers who see it, and the exact NID
-   * or birth-registration number only inside the caller's `beneficiary.view_nid` scope.
+   * A BEN number matches its profile; letters match the name; digits match the exact mobile for
+   * callers who see it, and the exact NID or birth-registration number only inside the caller's
+   * `beneficiary.view_nid` scope. A retired profile's numbers lead to the kept profile, which the
+   * list's own scope then filters like any other.
    */
   private async searchWhere(
     q: string,
     viewer: BeneficiaryViewer,
   ): Promise<Prisma.BeneficiaryWhereInput> {
     const term = q.trim();
+    if (parseBenNo(term) !== null)
+      return { id: { in: (await this.identity.idsByIdentity(term, null)) ?? [] } };
     if (!isNumberTerm(term))
       // LIKE wildcards in the term are letters, not patterns
       return { name: { contains: literalContains(term), mode: 'insensitive' } };
@@ -116,10 +122,8 @@ export class BeneficiariesService {
     if (mobile && viewer.fieldClasses.has(CONTACT)) or.push({ mobile });
     if ([10, 13, 17].includes(digits.length)) {
       const scope = await this.nidScope(viewer);
-      if (scope)
-        or.push({
-          AND: [{ OR: [{ nid: digits }, { birthReg: digits }] }, beneficiaryWhere(scope)],
-        });
+      const ids = scope ? await this.identity.idsByIdentity(digits, scope) : null;
+      if (ids?.length) or.push({ id: { in: ids } });
     }
     return or.length ? { OR: or } : { id: { in: [] } };
   }
@@ -151,6 +155,7 @@ export class BeneficiariesService {
         take: query.limit + 1,
         select: {
           id: true,
+          benNo: true,
           name: true,
           fatherOrHusbandName: true,
           classCode: true,
@@ -244,6 +249,7 @@ export class BeneficiariesService {
     }
     return {
       id: b.id,
+      benNo: b.benNo,
       name: b.name,
       fatherOrHusbandName: b.fatherOrHusbandName,
       motherName: b.motherName,
@@ -351,6 +357,7 @@ export class BeneficiariesService {
       where: { AND: [{ id: beneficiaryId, mergedIntoId: null }, beneficiaryWhere(viewer.scope)] },
       select: {
         id: true,
+        benNo: true,
         nid: sees('beneficiary.nid'),
         birthReg: sees('beneficiary.nid'),
         name: true,

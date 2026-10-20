@@ -67,6 +67,7 @@ allowed endpoint is decided by the data scope and is tested separately (scope an
 | POST /volunteers/:volunteerId/block | volunteer.block | volunteer | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | POST /volunteers/:volunteerId/unblock | volunteer.unblock | volunteer | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /volunteers/:volunteerId | volunteer.view_all | volunteer | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| POST /beneficiaries/lookup | beneficiary.lookup | project | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /beneficiaries | beneficiary.view_all | beneficiary | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /beneficiaries/statistics | beneficiary.view_all | beneficiary | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /beneficiaries/:beneficiaryId | beneficiary.view_all | beneficiary | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
@@ -153,7 +154,7 @@ allowed endpoint is decided by the data scope and is tested separately (scope an
 | PUT /admin/notification-templates/:key/:channel | notification.template.manage | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /admin/deliveries | notification.delivery.view | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 
-## Permissions no endpoint uses yet (105, D-077)
+## Permissions no endpoint uses yet (104, D-077)
 
 They belong to features of later tasks; the matrix covers them when their endpoints exist.
 
@@ -183,7 +184,6 @@ They belong to features of later tasks; the matrix covers them when their endpoi
 - `beneficiary.contact.edit`
 - `beneficiary.correction.approve`
 - `beneficiary.correction.request`
-- `beneficiary.lookup`
 - `beneficiary.merge`
 - `beneficiary.merge.dismiss`
 - `beneficiary.merge.propose`

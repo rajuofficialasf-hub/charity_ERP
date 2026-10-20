@@ -291,11 +291,10 @@ Phase 2 starts the application cycle (T2.3 to T2.6), and every application hangs
     - a retired NID resolves to the kept profile with `mergedInto`;
     - the other identity number is never returned;
     - `mobileIsCallerOwn` is true when the profile's mobile is the caller's;
-    - a volunteer outside the project is refused (403), and an unknown project gives 404;
-    - an RPM of another region gets 403;
+    - a volunteer outside the project, an unknown project and an RPM on another region's project get 404 (the project lies outside the scope), a caller without the permission 403;
     - 401 without a token, 422 on a wrong format;
     - the 61st lookup in a minute by one user gets 429, and so does the 601st in a day;
-    - a lookup that finds a profile writes the `beneficiary.looked_up` audit row without the number, and one that finds nothing writes none;
+    - every lookup writes the `beneficiary.looked_up` audit row without the number, a found one with the profile and `outsideScope`, an empty one with `found: false` (failed attempts are what an enumeration leaves);
     - a profile of another region is found with the full auto-fill, and its audit row marks it as outside the region;
     - search finds a profile by BEN number and by a retired NID;
     - a retired NID in the caller's scope whose kept profile is outside it answers as not found in search, without naming the kept profile;
@@ -305,7 +304,7 @@ Phase 2 starts the application cycle (T2.3 to T2.6), and every application hangs
 - **Depends on:** U1, U2
 - **Size:** L
 - **Risk area:** personal data
-- **Status:** todo
+- **Status:** done
 
 ### U4. Contact edit and correction requests
 - **Goal:** officials edit mobile and address with a change log, and the locked fields change only through a reviewed correction request.
@@ -590,8 +589,8 @@ Phase 2 starts the application cycle (T2.3 to T2.6), and every application hangs
 
 ## Progress
 - **Branch:** `feat/beneficiary-master`
-- **Updated:** 2026-10-20 17:20
-- **Next:** U3: identity, lookup, search and profile creation (start with `apps/api/test/integration/beneficiary-identity.test.ts`)
+- **Updated:** 2026-10-20 18:10
+- **Next:** C2 (review of U2 and U3), then U4: contact edit and correction requests
 - **Uncommitted:** none
 - **Reviewed through:** C1 at d0351c8
-- **Notes:** the plan was reviewed on 2026-10-20 (plan and security reviewers); the owner decided in chat: full auto-fill across regions with audit and limits; an application past pending stays on the retired profile at a merge. The Prisma model of the dismissal table is `MergeDismissal` (a longer name re-aligned the whole schema file). The dev database got the migration through the host `pnpm db:migrate` (its `jobs:install` step then stops without `apps/api/.env`, a known issue); the API container needs `docker compose run --rm setup` or a restart to regenerate its Prisma client before the U3 routes run there. U2: the rules live in `@css/shared/beneficiaries` (`identity.ts`, `requests.ts`, tests in `rules.test.ts`); the error texts went into the existing `errors.beneficiary` group and the screen texts go into `admin.beneficiaries`, so no new namespace. The request schemas reuse `nidSchema`, `mobileSchema` and `reasonRequestSchema`; they keep plain patterns (no transforms) so the generated contract stays comparable, and the app turns Bengali digits into English ones with `normalizeIdentityNumber` before it sends. C1 (T2, three reviewers): the name key collapses all white space before it trims; a dismissal row can only be lifted, once (trigger); no decision ids in the SQL comments; the tests read back stored rows. Carried forward from C1: a BEN-number search is walkable, so it gets the `lookup` limits and audit like an NID (U3); the create service and its schema never accept `ben_no`; the dismiss and lift routes check both profiles against the scope; the correction decider is never the requester (service, and a CHECK if it fits); the runbook notes that the two duplicate-search indexes are rebuilt after a restore into another collation (U12).
+- **Notes:** the plan was reviewed on 2026-10-20 (plan and security reviewers); the owner decided in chat: full auto-fill across regions with audit and limits; an application past pending stays on the retired profile at a merge. The Prisma model of the dismissal table is `MergeDismissal` (a longer name re-aligned the whole schema file). The dev database got the migration through the host `pnpm db:migrate` (its `jobs:install` step then stops without `apps/api/.env`, a known issue); the API container needs `docker compose run --rm setup` or a restart to regenerate its Prisma client before the U3 routes run there. U2: the rules live in `@css/shared/beneficiaries` (`identity.ts`, `requests.ts`, tests in `rules.test.ts`); the error texts went into the existing `errors.beneficiary` group and the screen texts go into `admin.beneficiaries`, so no new namespace. The request schemas reuse `nidSchema`, `mobileSchema` and `reasonRequestSchema`; they keep plain patterns (no transforms) so the generated contract stays comparable, and the app turns Bengali digits into English ones with `normalizeIdentityNumber` before it sends. U3: the lookup audits every call (also the empty ones) and answers 404 for a project outside the scope; a new profile is inserted with explicit SQL, because Prisma writes the schema default of the generated reference-list columns (`gender_list` and the two others), which the database refuses, and making them `dbgenerated` in schema.prisma would need a migration; a search by BEN number needs no lookup limit, since the tab's own scope already lists those profiles. C1 (T2, three reviewers): the name key collapses all white space before it trims; a dismissal row can only be lifted, once (trigger); no decision ids in the SQL comments; the tests read back stored rows. Carried forward from C1: a BEN-number search is walkable, so it gets the `lookup` limits and audit like an NID (U3); the create service and its schema never accept `ben_no`; the dismiss and lift routes check both profiles against the scope; the correction decider is never the requester (service, and a CHECK if it fits); the runbook notes that the two duplicate-search indexes are rebuilt after a restore into another collation (U12).

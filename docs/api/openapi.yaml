@@ -372,7 +372,10 @@ components:
     Conflict:
       description: >-
         workflow.transition_not_allowed, workflow.guard.<guard_name>, conflict.locked_on_server,
-        beneficiary.already_applied, payment.transaction_id_exists, payment.claim_already_paid,
+        beneficiary.already_applied, beneficiary.identity_taken, beneficiary.mobile_is_volunteer_mobile,
+        beneficiary.correction_pending, beneficiary.correction_stale, beneficiary.merge_conflict,
+        beneficiary.merge_revert_order, beneficiary.merge_stale, beneficiary.dismissed,
+        payment.transaction_id_exists, payment.claim_already_paid,
         animal.already_allocated, file.duplicate, export.not_ready, session.use_logout,
         user.system_owner_protected, user.handover_required, user.transition_not_allowed, user.not_locked.
       content:
@@ -1779,12 +1782,17 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
 
     # ---------------- beneficiaries ----------------
+    BenNo:
+      type: integer
+      minimum: 1
+      description: The short BEN number of a profile, shown as BEN- and 7 digits (D-112); given once, never changed
     BeneficiarySummary:
       type: object
       description: One row of the beneficiary tab (O-67)
-      required: [id, name, status, divisionId, districtId, upazilaId]
+      required: [id, benNo, name, status, divisionId, districtId, upazilaId]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
+        benNo: { $ref: '#/components/schemas/BenNo' }
         name: { type: string }
         fatherOrHusbandName: { type: string, x-sensitive-class: beneficiary.profile_detail }
         classCode: { type: [string, 'null'], x-sensitive-class: beneficiary.profile_detail }
@@ -1812,9 +1820,10 @@ components:
     Beneficiary:
       type: object
       description: The 360° profile shell (SCR-045, O-67, D-094); each section an empty array when nothing exists
-      required: [id, name, status, divisionId, districtId, upazilaId, projectsByYear, distributions]
+      required: [id, benNo, name, status, divisionId, districtId, upazilaId, projectsByYear, distributions]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
+        benNo: { $ref: '#/components/schemas/BenNo' }
         name: { type: string }
         fatherOrHusbandName: { type: string, x-sensitive-class: beneficiary.profile_detail }
         motherName: { type: [string, 'null'], x-sensitive-class: beneficiary.profile_detail }
@@ -1915,13 +1924,13 @@ components:
         meta: { $ref: '#/components/schemas/ListMeta' }
     LookupRequest:
       type: object
+      additionalProperties: false
+      description: Exactly one of nid and birthReg (422 `beneficiary.identity_missing` without one, `validation.malformed` with both)
+      required: [projectId]
       properties:
         nid: { type: string, pattern: '^([0-9]{10}|[0-9]{13}|[0-9]{17})$' }
         birthReg: { type: string, pattern: '^[0-9]{17}$' }
         projectId: { $ref: '#/components/schemas/Uuid' }
-      oneOf:
-        - required: [nid]
-        - required: [birthReg]
     LookupResult:
       type: object
       required: [data, meta]
@@ -1933,20 +1942,43 @@ components:
             found: { type: boolean }
             blocked: { type: boolean, description: true means a new application is refused (BR-010) }
             alreadyAppliedInProject: { type: boolean }
-            autofill:
-              description: Only the auto-fill fields (BR-005); locked fields are marked
+            mobileIsCallerOwn:
+              type: boolean
+              description: The profile's mobile is the caller's own, so the form asks for another (BD-03)
+            mergedInto:
+              description: The number led to a retired profile; the auto-fill is the kept one's
               type: object
+              required: [benNo]
+              properties:
+                benNo: { $ref: '#/components/schemas/BenNo' }
+            autofill:
+              description: The auto-fill fields (BR-005); locked fields are marked
+              type: object
+              required:
+                [beneficiaryId, benNo, name, fatherOrHusbandName, mobile, genderCode, divisionId, districtId, upazilaId, unionId, village, lockedFields]
               properties:
                 beneficiaryId: { $ref: '#/components/schemas/Uuid' }
+                benNo: { $ref: '#/components/schemas/BenNo' }
                 name: { type: string }
                 fatherOrHusbandName: { type: string }
+                motherName: { type: [string, 'null'] }
                 mobile: { type: string }
+                genderCode: { type: string }
+                dob: { type: [string, 'null'], format: date }
+                ageYears: { type: [integer, 'null'] }
                 divisionId: { $ref: '#/components/schemas/Uuid' }
                 districtId: { $ref: '#/components/schemas/Uuid' }
                 upazilaId: { $ref: '#/components/schemas/Uuid' }
                 unionId: { $ref: '#/components/schemas/Uuid' }
                 village: { type: string }
-                lockedFields: { type: array, items: { type: string } }
+                postOffice: { type: [string, 'null'] }
+                postCode: { type: [string, 'null'] }
+                landmark: { type: [string, 'null'] }
+                members14Plus: { type: [integer, 'null'] }
+                childrenUnder14: { type: [integer, 'null'] }
+                lockedFields:
+                  type: array
+                  items: { type: string, enum: [name, father_or_husband_name, nid, birth_reg] }
         meta: { $ref: '#/components/schemas/Meta' }
     FamilyMember:
       type: object
@@ -5319,11 +5351,16 @@ paths:
       tags: [beneficiaries]
       operationId: beneficiaries.beneficiary.lookup
       summary: Look up by NID or birth registration for auto-fill (number in the body, never in the URL)
+      description: >-
+        The full auto-fill of a found profile wherever it lives, with the identity fields marked
+        locked; never the other identity number or a block reason. A retired profile's number leads
+        to the kept profile (`mergedInto`). Every lookup writes an audit row without the number,
+        and the `lookup` rate limit counts per user and per address (D-114).
       x-permission: beneficiary.lookup
       x-scope: project
-      x-audit: none
+      x-audit: beneficiary.looked_up
       x-idempotency: none
-      x-rate-limit: default
+      x-rate-limit: lookup
       requestBody:
         required: true
         content:
@@ -5335,7 +5372,9 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/LookupResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
   /beneficiaries/{beneficiaryId}:

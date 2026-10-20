@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { AuditWriter } from '../../src/audit/audit-writer';
 import type { Tx } from '../../src/core/prisma.service';
 import { defineRoute, type RouteDeps } from '../../src/openapi/define-route';
+import { RATE_LIMITS } from '../../src/rate-limit/rate-limit';
 import { buildTestApp, type TestApp } from '../support/app';
 
 // A transaction stand-in: the audit insert succeeds without a database.
@@ -40,6 +41,16 @@ function probes(deps: RouteDeps): Router {
     summary: 'password reset start',
     audit: 'none',
     rateLimit: 'password-reset',
+    handler: () => ({ ok: true }),
+  });
+  defineRoute(router, deps, {
+    ...base,
+    method: 'post',
+    path: '/guard-probe/lookup',
+    operationId: 'probe.lookup',
+    summary: 'beneficiary lookup',
+    audit: 'none',
+    rateLimit: 'lookup',
     handler: () => ({ ok: true }),
   });
   defineRoute(router, deps, {
@@ -141,6 +152,18 @@ describe('rate limits and audit enforcement (API_STANDARDS 10, 15; D-068)', () =
       .set('X-Forwarded-For', '203.0.113.9')
       .send({ loginId: 'c@example.org' })
       .expect(200);
+  });
+
+  it('allows 60 beneficiary lookups a minute, then answers 429, and counts a day as well', async () => {
+    for (let i = 0; i < 60; i++)
+      await request(t.app).post('/api/v1/guard-probe/lookup').send({}).expect(200);
+    const blocked = await request(t.app).post('/api/v1/guard-probe/lookup').send({}).expect(429);
+    expect(blocked.body.error.code).toBe('rate_limit.exceeded');
+    expect(RATE_LIMITS.lookup.map((w) => [w.limit, w.ttlMs, w.byIp ?? false])).toEqual([
+      [120, 60_000, true],
+      [60, 60_000, false],
+      [600, 24 * 3_600_000, false],
+    ]);
   });
 
   it('counts every spelling of one login id in the same window (AUTH.md 1)', async () => {

@@ -1,4 +1,10 @@
-import { type BeneficiaryFilter, beneficiaryFilterSchema } from '@css/shared/beneficiaries';
+import {
+  type BeneficiaryFilter,
+  beneficiaryFilterSchema,
+  type LookupRequest,
+  LOCKED_FIELDS,
+  lookupRequestSchema,
+} from '@css/shared/beneficiaries';
 import { Router } from 'express';
 import { z, type ZodType } from 'zod';
 import { sensitive } from '../access/field-mask';
@@ -16,8 +22,11 @@ const detail = <T extends ZodType>(schema: T) => sensitive(schema, 'beneficiary.
 const history = <T extends ZodType>(schema: T) =>
   sensitive(schema, 'beneficiary.application_history');
 
+const benNo = () => z.number().int().positive();
+
 const beneficiaryRow = z.object({
   id: z.uuid(),
+  benNo: benNo(),
   name: z.string(),
   fatherOrHusbandName: detail(z.string()),
   classCode: detail(z.string().nullable()),
@@ -40,6 +49,7 @@ const beneficiaryStatistics = z.object({
 
 const beneficiaryProfile = z.object({
   id: z.uuid(),
+  benNo: benNo(),
   name: z.string(),
   fatherOrHusbandName: detail(z.string()),
   motherName: detail(z.string().nullable()),
@@ -151,6 +161,42 @@ const beneficiaryProfile = z.object({
   ),
 });
 
+/**
+ * The lookup answer of the application form: the full auto-fill of a found profile wherever it
+ * lives, the identity fields marked locked, never the other identity number or a block reason.
+ */
+const lookupResult = z.object({
+  found: z.boolean(),
+  blocked: z.boolean().optional(),
+  alreadyAppliedInProject: z.boolean().optional(),
+  mobileIsCallerOwn: z.boolean().optional(),
+  mergedInto: z.object({ benNo: benNo() }).optional(),
+  autofill: z
+    .object({
+      beneficiaryId: z.uuid(),
+      benNo: benNo(),
+      name: z.string(),
+      fatherOrHusbandName: z.string(),
+      motherName: z.string().nullable(),
+      mobile: z.string(),
+      genderCode: z.string(),
+      dob: z.iso.date().nullable(),
+      ageYears: z.number().int().nullable(),
+      divisionId: z.uuid(),
+      districtId: z.uuid(),
+      upazilaId: z.uuid(),
+      unionId: z.uuid(),
+      village: z.string(),
+      postOffice: z.string().nullable(),
+      postCode: z.string().nullable(),
+      landmark: z.string().nullable(),
+      members14Plus: z.number().int().nullable(),
+      childrenUnder14: z.number().int().nullable(),
+      lockedFields: z.array(z.enum(LOCKED_FIELDS)),
+    })
+    .optional(),
+});
+
 const listQuery = pageQuery
   .omit({ sort: true })
   .extend(pageNumberQuery.shape)
@@ -167,8 +213,30 @@ const viewerOf = (req: AuthedRequest) => ({
  * DECISION_LOG O-67, D-094). The scope entity is the beneficiary, so a team that reaches only some
  * projects (the Procurement Team) sees only their beneficiaries.
  */
-export function beneficiariesRouter(deps: RouteDeps, c: Pick<Container, 'beneficiaries'>): Router {
+export function beneficiariesRouter(
+  deps: RouteDeps,
+  c: Pick<Container, 'beneficiaries' | 'beneficiaryIdentity'>,
+): Router {
   const router = Router();
+
+  defineRoute<LookupRequest>(router, deps, {
+    tag: 'beneficiaries',
+    method: 'post',
+    path: '/beneficiaries/lookup',
+    operationId: 'beneficiaries.beneficiary.lookup',
+    summary:
+      'Look up a beneficiary by NID or birth registration for the application form (full auto-fill, locked fields marked, every lookup audited)',
+    permission: 'beneficiary.lookup',
+    scope: 'project',
+    audit: 'beneficiary.looked_up',
+    idempotency: 'none',
+    rateLimit: 'lookup',
+    status: 200,
+    body: lookupRequestSchema,
+    responses: { 200: lookupResult, 401: null, 403: null, 404: null, 422: null, 429: null },
+    handler: ({ body, req }) =>
+      c.beneficiaryIdentity.lookup({ principal: principalOf(req), scope: scopeOf(req) }, body),
+  });
   const tabOp = {
     tag: 'beneficiaries',
     permission: 'beneficiary.view_all',
