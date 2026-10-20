@@ -1,7 +1,15 @@
 import type { Locale } from '@css/shared/i18n';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 import { IntlProvider } from 'use-intl';
-import { messagesFor, readLocale, storedLocaleValue, writeLocale } from './locale';
+import { usePublicSettings } from '../lib/public-settings';
+import {
+  messagesFor,
+  PSEUDO,
+  readLocale,
+  storedLocaleValue,
+  writeDefaultLocale,
+  writeLocale,
+} from './locale';
 
 interface LocaleValue {
   locale: Locale;
@@ -25,7 +33,12 @@ export function LocaleProvider({
   initial?: Locale;
 }) {
   const [stored, setStored] = useState<string | undefined>(() => initial ?? storedLocaleValue());
-  const locale: Locale = readLocaleOf(stored);
+  // a device without a choice follows the system default language set by the admin
+  const serverDefault = usePublicSettings().data?.defaultLanguage;
+  useEffect(() => {
+    if (serverDefault) writeDefaultLocale(serverDefault);
+  }, [serverDefault]);
+  const locale: Locale = readLocaleOf(stored, serverDefault);
   const setLocale = useCallback((next: string) => {
     writeLocale(next);
     setStored(next);
@@ -37,15 +50,19 @@ export function LocaleProvider({
 
   return (
     <LocaleContext.Provider value={{ locale, setLocale }}>
-      <IntlProvider locale={locale} messages={messagesFor(stored)} timeZone="Asia/Dhaka">
+      <IntlProvider
+        locale={locale}
+        messages={messagesFor(stored === PSEUDO ? stored : locale)}
+        timeZone="Asia/Dhaka"
+      >
         {children}
       </IntlProvider>
     </LocaleContext.Provider>
   );
 }
 
-function readLocaleOf(stored: string | undefined): Locale {
-  return stored === 'en' ? 'en' : stored === 'bn' ? 'bn' : readLocale();
+function readLocaleOf(stored: string | undefined, serverDefault: Locale | undefined): Locale {
+  return stored === 'en' ? 'en' : stored === 'bn' ? 'bn' : (serverDefault ?? readLocale());
 }
 
 export function useLocaleSwitch(): LocaleValue {

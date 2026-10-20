@@ -109,6 +109,12 @@ function parts(input: Date | string): {
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
+/** The calendar date in Dhaka as YYYY-MM-DD: what "today" means for dates the department sets. */
+export function isoDateInDhaka(input: Date | string): string {
+  const { y, m, d } = parts(input);
+  return `${y}-${pad(m)}-${pad(d)}`;
+}
+
 /** Every date in screens, lists and exports: dd-mm-yyyy (O-43). */
 export function formatDate(input: Date | string): string {
   const { y, m, d } = parts(input);

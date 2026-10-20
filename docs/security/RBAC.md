@@ -398,7 +398,8 @@ Generated on 2026-10-10 by the T0.10 check script from `permissions.yaml`; regen
 | `settings.manage` | M21 | no | Edit system settings (thresholds, photo defaults, payment methods, expense categories) | none (global roles only) |
 | `nisab.set` | M21 | no | Add a nisab version | program_manager@GLOBAL |
 | `holiday.manage` | M21 | no | Maintain the holiday calendar | none (global roles only) |
-| `provider.settings.manage` | M21 | no | Configure SMTP and SMS provider settings | none (global roles only) |
+| `provider.settings.manage` | M21 | no | See the SMTP settings and configure the SMS provider adapter (secrets stay in the environment; D-098) | none (global roles only) |
+| `system.health.view` | M21 | no | See the system health page: database, storage, queue, dummy OTP, audit partitions, storage growth (D-098) | none (global roles only) |
 | `template.checklist.manage` | M21 | no | Edit document checklist templates | program_manager@PROGRAM |
 | `i18n.manage` | M20 | no | Edit translations of bilingual data (no runtime message overrides, O-43) | none (global roles only) |
 | `sync.batch` | M22 | no | Submit offline records and photos for own assignments | regional_program_manager@SELF; project_executive@SELF; official_daee@SELF; volunteer_general@SELF; volunteer_local_daee@SELF; volunteer_both@SELF; volunteer_team_member@SELF; volunteer_paid@SELF |

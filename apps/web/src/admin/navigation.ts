@@ -1,6 +1,7 @@
 import type { IconComponent } from '@css/ui';
 import {
   ArrowRightLeft,
+  Activity,
   FolderKanban,
   HandHeart,
   IdCard,
@@ -8,6 +9,10 @@ import {
   Layers,
   LayoutTemplate,
   LayoutDashboard,
+  MonitorSmartphone,
+  Scale,
+  ScrollText,
+  Settings,
   UserCheck,
   Users,
 } from 'lucide-react';
@@ -20,7 +25,9 @@ import {
   PROJECT_ROLES,
   EDIT_REQUEST_ROLES,
   STAFF_DIRECTORY_ROLES,
+  NISAB_ROLES,
   STAFF_APPROVER_ROLES,
+  SYSTEM_ADMIN_ROLES,
   VOLUNTEER_TAB_ROLES,
 } from './roles';
 
@@ -36,14 +43,19 @@ export interface AdminNavItem {
     | 'registrations'
     | 'staff'
     | 'handover'
-    | 'permissions';
+    | 'permissions'
+    | 'settings'
+    | 'nisab'
+    | 'audit'
+    | 'sessions'
+    | 'health';
   href: string;
   icon: IconComponent;
   /** Only these roles see the item (the server checks the permission anyway); all when absent. */
   roles?: readonly string[];
 }
 
-/** Admin destinations in sidebar order; T1.13 (settings, audit log) and T3.3/T6.1 add theirs. */
+/** Admin destinations in sidebar order; each item names the roles that see it. */
 export const ADMIN_NAV: readonly AdminNavItem[] = [
   { key: 'dashboard', href: '/admin', icon: LayoutDashboard },
   { key: 'projects', href: '/admin/projects', icon: FolderKanban, roles: PROJECT_ROLES },
@@ -75,6 +87,11 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
     icon: KeyRound,
     roles: PERMISSION_PANEL_ROLES,
   },
+  { key: 'settings', href: '/admin/settings', icon: Settings, roles: SYSTEM_ADMIN_ROLES },
+  { key: 'nisab', href: '/admin/nisab', icon: Scale, roles: NISAB_ROLES },
+  { key: 'audit', href: '/admin/audit', icon: ScrollText, roles: SYSTEM_ADMIN_ROLES },
+  { key: 'sessions', href: '/admin/sessions', icon: MonitorSmartphone, roles: SYSTEM_ADMIN_ROLES },
+  { key: 'health', href: '/admin/health', icon: Activity, roles: SYSTEM_ADMIN_ROLES },
 ];
 
 /** The items a user with these roles sees. */

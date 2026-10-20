@@ -89,7 +89,13 @@ describe('POST /auth/register/submit', () => {
     });
     const userId = res.body.data.id as string;
     const user = (await h.db.query('SELECT * FROM users WHERE id = $1', [userId])).rows[0];
-    expect(user).toMatchObject({ mobile: d.mobile, email: d.email, state: 'pending' });
+    // the account keeps the language the person registered in (here the request default)
+    expect(user).toMatchObject({
+      mobile: d.mobile,
+      email: d.email,
+      state: 'pending',
+      language: 'bn',
+    });
     expect(user.password_hash).toMatch(/^\$argon2id\$/);
     const v = (await h.db.query('SELECT * FROM volunteers WHERE user_id = $1', [userId])).rows[0];
     expect(v).toMatchObject({
@@ -144,6 +150,23 @@ describe('POST /auth/register/submit', () => {
       path: 'password',
       code: 'validation.password_uppercase_digit',
     });
+  });
+
+  it('keeps the language the person registered in', async () => {
+    const d = await verifiedDraft(h);
+    await photo(d, 'photo', jpeg(), 'image/jpeg');
+    await photo(d, 'nid_photo', png(), 'image/png');
+    await photo(d, 'nid_photo_back', jpeg(), 'image/jpeg');
+    const res = await request(h.server())
+      .post('/api/v1/auth/register/submit')
+      .set(TOKEN_HEADER, d.token)
+      .set('Accept-Language', 'en')
+      .send(volunteerForm(d));
+    expect(res.status).toBe(201);
+    const { rows } = await h.db.query('SELECT language FROM users WHERE id = $1', [
+      res.body.data.id,
+    ]);
+    expect(rows[0].language).toBe('en');
   });
 
   it('refuses a duplicate NID (409)', async () => {

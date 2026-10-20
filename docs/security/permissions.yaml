@@ -1278,7 +1278,12 @@ permissions:
     sensitive: false
     default: []
   - name: provider.settings.manage
-    description: Configure SMTP and SMS provider settings
+    description: See the SMTP settings and configure the SMS provider adapter (secrets stay in the environment)
+    module: M21
+    sensitive: false
+    default: []
+  - name: system.health.view
+    description: See the system health page (database, storage, queue, dummy OTP, audit partitions, storage growth)
     module: M21
     sensitive: false
     default: []

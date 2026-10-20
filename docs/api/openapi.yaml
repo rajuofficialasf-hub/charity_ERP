@@ -56,6 +56,10 @@ tags:
     description: Asynchronous export jobs (API_STANDARDS section 14)
   - name: reference
     description: Locations, reference lists, settings, nisab versions
+  - name: audit
+    description: The audit viewer of the global roles (DECISION_LOG D-098)
+  - name: admin
+    description: Notification channels and system health (DECISION_LOG D-098)
   - name: sync
     description: Offline sync batch and snapshot (OFFLINE_SYNC.md)
 
@@ -834,7 +838,10 @@ components:
             - { type: string, pattern: '^01[3-9][0-9]{8}$' }
             - { type: 'null' }
         roleKey: { type: string, minLength: 1, maxLength: 64 }
-        language: { type: string, enum: [bn, en], default: bn }
+        language:
+          description: The account's language; the system default language when left out (D-098).
+          type: string
+          enum: [bn, en]
     StaffProfileRequest:
       description: >-
         The whole profile of an official, replacing the stored one (DECISION_LOG D-097, BR-261);
@@ -2860,12 +2867,40 @@ components:
         meta: { $ref: '#/components/schemas/ListMeta' }
     ReferenceItem:
       type: object
-      required: [code, label, active]
+      required: [code, label, active, sortOrder]
       properties:
         code: { type: string, pattern: '^[a-z0-9_]{1,64}$' }
         label: { $ref: '#/components/schemas/Bilingual' }
         active: { type: boolean }
         sortOrder: { type: integer }
+    ReferenceItemCreate:
+      description: >-
+        A new item of an editable list (DECISION_LOG D-098). The code is small English letters,
+        digits and _, starting with a letter, and never changes; each label at most 200 characters.
+      type: object
+      additionalProperties: false
+      required: [code, label]
+      properties:
+        code: { type: string, pattern: '^[a-z][a-z0-9_]{1,63}$' }
+        label: { $ref: '#/components/schemas/BilingualInput' }
+        active: { type: boolean }
+        sortOrder: { type: integer, minimum: 0, maximum: 10000 }
+    ReferenceItemUpdate:
+      description: At least one of label, active and sortOrder.
+      type: object
+      additionalProperties: false
+      properties:
+        label: { $ref: '#/components/schemas/BilingualInput' }
+        active: { type: boolean }
+        sortOrder: { type: integer, minimum: 0, maximum: 10000 }
+    BilingualInput:
+      description: A configuration text in both languages, both required (BR-245).
+      type: object
+      additionalProperties: false
+      required: [bn, en]
+      properties:
+        bn: { type: string }
+        en: { type: string }
     ReferenceList:
       type: object
       required: [data, meta]
@@ -2879,12 +2914,19 @@ components:
         data: { $ref: '#/components/schemas/ReferenceItem' }
         meta: { $ref: '#/components/schemas/Meta' }
     Setting:
+      description: >-
+        One setting key with its whole value; updatedAt is null while the default is in force.
+        Keys and value shapes are in @css/shared/settings (organisation, localization,
+        monitoring.thresholds; sms.provider through the channels page).
       type: object
-      required: [key, value]
+      required: [key, value, updatedAt]
       properties:
         key: { type: string }
         value: {}
-        updatedAt: { type: string, format: date-time }
+        updatedAt:
+          anyOf:
+            - { type: string, format: date-time }
+            - { type: 'null' }
     SettingResponse:
       type: object
       required: [data, meta]
@@ -2899,17 +2941,63 @@ components:
         meta: { $ref: '#/components/schemas/ListMeta' }
     SettingUpdate:
       type: object
+      additionalProperties: false
       required: [value]
       properties:
         value: {}
-    NisabVersion:
+    PublicSettingsResponse:
       type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [defaultLanguage, organisation]
+          properties:
+            defaultLanguage: { type: string, enum: [bn, en] }
+            organisation:
+              type: object
+              required: [foundationName, departmentName, address, phone, email]
+              properties:
+                foundationName: { $ref: '#/components/schemas/Bilingual' }
+                departmentName: { $ref: '#/components/schemas/Bilingual' }
+                address: { $ref: '#/components/schemas/Bilingual' }
+                phone: { type: string }
+                email: { type: string }
+        meta: { $ref: '#/components/schemas/Meta' }
+    NisabAddRequest:
+      type: object
+      additionalProperties: false
       required: [value, effectiveFrom]
       properties:
-        id: { type: string, format: uuid, readOnly: true }
         value: { $ref: '#/components/schemas/Money' }
         effectiveFrom: { type: string, format: date }
-        basisNote: { type: string }
+        basisNote: { type: string, maxLength: 500 }
+    NisabVersion:
+      type: object
+      required: [id, value, effectiveFrom, basisNote, setBy, createdAt, inForce, withdrawn]
+      properties:
+        id: { type: string, format: uuid }
+        value: { $ref: '#/components/schemas/Money' }
+        effectiveFrom: { type: string, format: date }
+        basisNote: { type: [string, 'null'] }
+        setBy: { $ref: '#/components/schemas/PersonRef' }
+        createdAt: { type: string, format: date-time }
+        inForce: { type: boolean, description: In force today (Dhaka date) }
+        withdrawn:
+          anyOf:
+            - type: object
+              required: [at, by, reason]
+              properties:
+                at: { type: string, format: date-time }
+                by: { $ref: '#/components/schemas/PersonRef' }
+                reason: { type: string }
+            - { type: 'null' }
+    PersonRef:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
     NisabResponse:
       type: object
       required: [data, meta]
@@ -2921,6 +3009,154 @@ components:
       required: [data, meta]
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/NisabVersion' } }
+        meta: { $ref: '#/components/schemas/ListMeta' }
+
+    SmsProviderSetting:
+      type: object
+      additionalProperties: false
+      required: [provider, senderId, enabled, endpoint]
+      properties:
+        provider:
+          anyOf:
+            - { type: string, pattern: '^[a-z][a-z0-9_]{1,39}$' }
+            - { type: 'null' }
+        senderId:
+          anyOf:
+            - { type: string, minLength: 1, maxLength: 20 }
+            - { type: 'null' }
+        enabled: { type: boolean }
+        endpoint:
+          anyOf:
+            - { type: string, maxLength: 500 }
+            - { type: 'null' }
+    ChannelsResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [smtp, sms, otpDummy]
+          properties:
+            smtp:
+              type: object
+              required: [host, port, secure, from, loginSet]
+              properties:
+                host: { type: string }
+                port: { type: integer }
+                secure: { type: boolean }
+                from: { type: string }
+                loginSet: { type: boolean }
+            sms:
+              type: object
+              required: [mode, keyPresent, config, updatedAt]
+              properties:
+                mode: { type: string, enum: [logging, dry_run] }
+                keyPresent: { type: boolean }
+                config: { $ref: '#/components/schemas/SmsProviderSetting' }
+                updatedAt: { type: [string, 'null'], format: date-time }
+            otpDummy: { type: boolean }
+        meta: { $ref: '#/components/schemas/Meta' }
+    StorageFigure:
+      type: object
+      required: [count, bytes]
+      properties:
+        count: { type: integer }
+        bytes: { type: integer }
+    SystemHealthResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [ready, checks, version, environment, otpDummy, auditPartitionsUntil, storage]
+          properties:
+            ready: { type: boolean }
+            checks:
+              type: object
+              required: [database, storage, queue]
+              properties:
+                database: { type: string, enum: [up, down] }
+                storage: { type: string, enum: [up, down] }
+                queue: { type: string, enum: [up, down] }
+            version: { type: string }
+            environment: { type: string }
+            otpDummy: { type: boolean }
+            auditPartitionsUntil: { type: [string, 'null'], pattern: '^[0-9]{4}-[0-9]{2}$' }
+            storage:
+              description: Null when the database did not answer in time (the checks then show it down)
+              type: [object, 'null']
+              required: [total, byKind, byMonth, measuredAt]
+              properties:
+                total: { $ref: '#/components/schemas/StorageFigure' }
+                byKind:
+                  type: array
+                  items:
+                    allOf:
+                      - { $ref: '#/components/schemas/StorageFigure' }
+                      - { type: object, required: [kind], properties: { kind: { type: string } } }
+                byMonth:
+                  type: array
+                  items:
+                    allOf:
+                      - { $ref: '#/components/schemas/StorageFigure' }
+                      - { type: object, required: [month], properties: { month: { type: string } } }
+                measuredAt: { type: string, format: date-time }
+        meta: { $ref: '#/components/schemas/Meta' }
+    AuditEntry:
+      type: object
+      required: [id, createdAt, action, entityType, entityId, actor, actorRole, reason, ip, deviceSessionId, old, new]
+      properties:
+        id: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        action: { type: string }
+        entityType: { type: string }
+        entityId: { type: [string, 'null'], format: uuid }
+        actor:
+          anyOf:
+            - { $ref: '#/components/schemas/PersonRef' }
+            - { type: 'null' }
+        actorRole: { type: [string, 'null'] }
+        reason: { type: [string, 'null'] }
+        ip: { type: [string, 'null'] }
+        deviceSessionId: { type: [string, 'null'], format: uuid }
+        old: { description: 'Snapshot before the change, secrets dropped' }
+        new: { description: 'Snapshot after the change, secrets dropped' }
+    AuditEntryList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/AuditEntry' } }
+        meta:
+          allOf:
+            - { $ref: '#/components/schemas/ListMeta' }
+            - type: object
+              required: [from, to]
+              properties:
+                from: { type: string, format: date }
+                to: { type: string, format: date }
+    ActiveSession:
+      type: object
+      required: [id, person, deviceName, platform, appVersion, createdAt, lastSeenAt]
+      properties:
+        id: { type: string, format: uuid }
+        person:
+          type: object
+          required: [id, name, kind, systemOwner]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+            kind: { type: string, enum: [staff, volunteer] }
+            systemOwner: { type: boolean }
+        deviceName: { type: [string, 'null'] }
+        platform: { type: [string, 'null'] }
+        appVersion: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        lastSeenAt: { type: string, format: date-time }
+    ActiveSessionList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/ActiveSession' } }
         meta: { $ref: '#/components/schemas/ListMeta' }
 
     # ---------------- sync ----------------
@@ -3342,6 +3578,41 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/DeviceSessionList' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+  /sessions/active:
+    get:
+      tags: [sessions]
+      operationId: sessions.active.list
+      summary: Every active device session, newest started first, with a search by person
+      description: >-
+        For the Department Head and the Monitoring Team (session.revoke_user at global scope;
+        DECISION_LOG D-098). Active means not revoked and not past its expiry (as the own session
+        list; an idle session that can no longer refresh still shows); the system actor is never
+        listed. A row carries the session id, the person, the device name, platform, app version,
+        start and last seen; never a token hash or an IP address. Ending a session uses
+        POST /users/{userId}/sessions/{sessionId}/revoke, which keeps the Main Admin's sessions for
+        the Main Admin.
+      x-permission: session.revoke_user
+      x-scope: global
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Search'
+        - name: kind
+          in: query
+          schema: { type: string, enum: [staff, volunteer] }
+      responses:
+        '200':
+          description: Active sessions
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActiveSessionList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/ServerError' }
   /sessions/{sessionId}/revoke:
     parameters:
       - $ref: '#/components/parameters/SessionId'
@@ -7311,13 +7582,35 @@ paths:
               schema: { $ref: '#/components/schemas/LocationResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
+  /public/settings:
+    get:
+      tags: [reference]
+      operationId: reference.setting.public
+      summary: The default language and the organisation details, for every visitor
+      security: []
+      description: >-
+        No session needed (DECISION_LOG D-098). Carries only the default language and the
+        organisation's public names, address and contact; never the thresholds or the SMS
+        configuration.
+      x-permission: public
+      x-scope: system
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: reference-read
+      responses:
+        '200':
+          description: Public settings
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicSettingsResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
   /reference-lists/{listKey}:
     parameters:
       - $ref: '#/components/parameters/ListKey'
     get:
       tags: [reference]
       operationId: reference.list.get
-      summary: Items of a system-wide reference list (gender, payment_method, consent_channel, ...); not paginated
+      summary: Items of a system-wide reference list, inactive ones marked; not paginated
       x-permission: authenticated
       x-scope: system
       x-audit: none
@@ -7325,15 +7618,20 @@ paths:
       x-rate-limit: default
       responses:
         '200':
-          description: Items
+          description: Items in their order
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ReferenceList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
     post:
       tags: [reference]
       operationId: reference.list.addItem
-      summary: Add an item to a reference list
+      summary: Add an item to the expense category or issue type list
+      description: >-
+        Only expense_category_default and issue_type_default are kept here (404 for any other
+        list; DECISION_LOG D-098). The item goes to the end unless sortOrder is given. Errors 409
+        reference.code_taken; 422 validation.list_code.
       x-permission: settings.manage
       x-scope: global
       x-audit: settings.change
@@ -7343,13 +7641,16 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/ReferenceItem' }
+            schema: { $ref: '#/components/schemas/ReferenceItemCreate' }
       responses:
         '201':
           description: Added
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ReferenceItemResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /reference-lists/{listKey}/items/{code}:
@@ -7362,7 +7663,9 @@ paths:
     patch:
       tags: [reference]
       operationId: reference.list.updateItem
-      summary: Relabel or deactivate a reference item; old rows stay valid
+      summary: Relabel, reorder, deactivate or activate an item; its code never changes
+      description: >-
+        Old rows keep their code and stay valid; nothing is deleted (DECISION_LOG D-098).
       x-permission: settings.manage
       x-scope: global
       x-audit: settings.change
@@ -7372,24 +7675,26 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              properties:
-                label: { $ref: '#/components/schemas/Bilingual' }
-                active: { type: boolean }
-                sortOrder: { type: integer }
+            schema: { $ref: '#/components/schemas/ReferenceItemUpdate' }
       responses:
         '200':
           description: Updated
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ReferenceItemResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /settings:
     get:
       tags: [reference]
       operationId: reference.setting.list
-      summary: System settings (thresholds, photo defaults, limits); provider secrets are never returned
+      summary: 'The settings page: organisation, language defaults and alert thresholds'
+      description: >-
+        Keys organisation, localization and monitoring.thresholds, each with its default while
+        unchanged (updatedAt null). The SMS adapter configuration is read through the channels page;
+        provider secrets are never returned (DECISION_LOG D-098).
       x-permission: settings.manage
       x-scope: global
       x-audit: none
@@ -7401,6 +7706,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/SettingList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
   /settings/{settingKey}:
     parameters:
@@ -7409,6 +7715,9 @@ paths:
       tags: [reference]
       operationId: reference.setting.update
       summary: Change a setting (validated per key; audited)
+      description: >-
+        The whole value of one of the keys of GET /settings, validated by the key's schema (422
+        names the field as value.<field>); any other key is 404.
       x-permission: settings.manage
       x-scope: global
       x-audit: settings.change
@@ -7425,13 +7734,15 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/SettingResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /nisab-versions:
     get:
       tags: [reference]
       operationId: reference.nisab.list
-      summary: Nisab versions, newest first; not paginated (O-15)
+      summary: Nisab versions, newest first, the one in force today marked; not paginated (O-15)
       x-permission: authenticated
       x-scope: system
       x-audit: none
@@ -7448,6 +7759,10 @@ paths:
       tags: [reference]
       operationId: reference.nisab.add
       summary: Add a nisab version (PM or above); never edits old versions
+      description: >-
+        BR-211, DECISION_LOG D-098. The effective date is today (Dhaka) or later, at most one year
+        ahead and after the latest version not withdrawn (422 with detail nisab.effective_date on
+        effectiveFrom); the amount is above zero and at most 10000000 Taka.
       x-permission: nisab.set
       x-scope: global
       x-audit: nisab.change
@@ -7457,15 +7772,202 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/NisabVersion' }
+            schema: { $ref: '#/components/schemas/NisabAddRequest' }
       responses:
         '201':
           description: Added
           content:
             application/json:
               schema: { $ref: '#/components/schemas/NisabResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /nisab-versions/in-force:
+    get:
+      tags: [reference]
+      operationId: reference.nisab.inForce
+      summary: The nisab version in force on a date (today when omitted)
+      description: >-
+        The latest version not withdrawn whose effective date is on or before the date; zakat
+        verification stores it on the application (BR-211). 404 before the first version.
+      x-permission: authenticated
+      x-scope: system
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - name: date
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: The version in force
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NisabResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /nisab-versions/{nisabVersionId}/withdraw:
+    parameters:
+      - name: nisabVersionId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [reference]
+      operationId: reference.nisab.withdraw
+      summary: Withdraw a nisab version that has not taken effect, with a reason
+      description: >-
+        DECISION_LOG D-098. The version stays listed as withdrawn and frees its date. Errors 409
+        nisab.in_effect (it has taken effect), nisab.withdrawn (already withdrawn).
+      x-permission: nisab.set
+      x-scope: global
+      x-audit: nisab.change
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReasonRequest' }
+      responses:
+        '200':
+          description: Withdrawn
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NisabResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+
+  # ======================= admin =======================
+  /admin/channels:
+    get:
+      tags: [admin]
+      operationId: admin.channels.get
+      summary: SMTP read-only, the SMS adapter configuration and the dummy OTP state
+      description: >-
+        DECISION_LOG D-098. SMTP comes from the server's environment (host, port, secure, sender,
+        whether a login is set), never its password; sms.keyPresent says whether SMS_API_KEY is set,
+        never the key; otpDummy true means the fixed development code is on (BD-44, BD-49).
+      x-permission: provider.settings.manage
+      x-scope: global
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: Channels
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChannelsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/channels/sms:
+    put:
+      tags: [admin]
+      operationId: admin.channels.setSms
+      summary: Replace the SMS adapter configuration (the key stays in the environment)
+      description: >-
+        Stored as the sms.provider setting, audited as settings.change. The endpoint is an https
+        address on a public host without user info or a query string (422
+        validation.https_public_url); enabled needs a provider (422 validation.required on provider).
+        Answers the channels view.
+      x-permission: provider.settings.manage
+      x-scope: global
+      x-audit: settings.change
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SmsProviderSetting' }
+      responses:
+        '200':
+          description: Stored
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChannelsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /admin/health:
+    get:
+      tags: [admin]
+      operationId: admin.health.get
+      summary: Database, storage and queue, version, dummy OTP, audit partitions and storage growth
+      description: >-
+        DECISION_LOG D-098, BD-46. Storage figures count the file records not deleted, in total, by
+        kind and by Dhaka month for the last twelve months; they are reused for 60 seconds.
+        auditPartitionsUntil is the last month that has an audit log partition.
+      x-permission: system.health.view
+      x-scope: global
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: System health
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SystemHealthResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ======================= audit =======================
+  /audit-log:
+    get:
+      tags: [audit]
+      operationId: audit.entry.list
+      summary: The audit log newest first, by actor, entity, action and a date range of at most a year
+      description: >-
+        For the Department Head and the Monitoring Team only for now (audit.view at global scope;
+        DECISION_LOG D-098). from and to are Dhaka dates, inclusive; without them the last 30 days
+        (the last 365 days when entityId is given, the drill-down of one entity);
+        a range over 366 days or reversed is 422 with the detail audit.range_required on from. The
+        drill-down of an entity is this list filtered by entityType and entityId. Keys that look like
+        secrets (password, hash, token, secret, otp) are dropped from old and new. meta carries the
+        range used.
+      x-permission: audit.view
+      x-scope: global
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - name: actorUserId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: entityType
+          in: query
+          schema: { type: string, pattern: '^[a-z_]{2,64}$' }
+        - name: entityId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: action
+          in: query
+          schema: { type: string, pattern: '^[a-z_.]{2,100}$' }
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Audit entries
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditEntryList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '503': { $ref: '#/components/responses/ServerError' }
 
   # ======================= sync =======================
   /sync/batch:

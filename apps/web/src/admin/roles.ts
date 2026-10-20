@@ -126,6 +126,19 @@ export const STAFF_DIRECTORY_ROLES: readonly string[] = [
 /** Who creates officials, edits their profile and renews their link (`user.create`, `user.profile.manage`). */
 export const OFFICIAL_ADMIN_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
 
+/**
+ * The settings page, the audit log, the active sessions and the system health: the global roles
+ * only (`settings.manage`, `provider.settings.manage`, `audit.view` and `session.revoke_user` at
+ * global scope, `system.health.view`; docs/DECISION_LOG.md, the admin and settings decision).
+ */
+export const SYSTEM_ADMIN_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
+/** The nisab versions: the Program Manager and above (`nisab.set`). */
+export const NISAB_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'program_manager',
+];
+
 /** The staff handover and the deactivation after it (`user.handover`, `user.state.change`; BD-08). */
 export const HANDOVER_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
 
@@ -133,6 +146,8 @@ const holds = (me: Pick<Me, 'roles'>, roles: readonly string[]) =>
   me.roles.some((role) => roles.includes(role));
 
 export const canManagePermissions = (me: Pick<Me, 'roles'>) => holds(me, PERMISSION_PANEL_ROLES);
+export const canAdministerSystem = (me: Pick<Me, 'roles'>) => holds(me, SYSTEM_ADMIN_ROLES);
+export const canKeepNisab = (me: Pick<Me, 'roles'>) => holds(me, NISAB_ROLES);
 /** Everyone with at least one destination in the admin area. */
 export const canOpenAdmin = (me: Pick<Me, 'roles'>) => holds(me, BENEFICIARY_TAB_ROLES);
 export const canApproveRegistrations = (me: Pick<Me, 'roles'>) => holds(me, REGISTRATION_ROLES);

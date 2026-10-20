@@ -153,6 +153,12 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | validation | validation.nid_format, validation.birth_reg_format, validation.mobile_format, validation.required, validation.too_long, validation.out_of_range, validation.option_unknown, validation.bangla_text, validation.date_format, validation.date_future, validation.facebook_link | 422 (as details) | field-level problems |
 | validation | validation.password_too_short, validation.password_uppercase_digit | 422 (as details) | password rules of AUTH.md §3 (T1.7, D-071) |
 | validation | validation.job_id_format, validation.job_id_mobile, validation.affiliation_unit | 422 (as details) | an official's job ID (2 to 32 letters, digits or . _ / -; never a mobile number) and the unit named only outside the department (D-097) |
+| validation | validation.email_format, validation.amount_format, validation.list_code, validation.https_public_url | 422 (as details) | settings and lists: an email, a Taka amount with at most two decimals, a list item code (small letters, digits and _), an https endpoint on a public host (D-098) |
+| reference | reference.code_taken | 409 | a list item code already in the list (D-098) |
+| nisab | nisab.effective_date | 422 (as detail of validation.failed) | the effective date is before today (Dhaka), more than a year ahead, or not after the latest version not withdrawn (BR-211, D-098) |
+| nisab | nisab.in_effect | 409 | withdrawing a version that has already taken effect (D-098) |
+| audit | audit.range_required | 422 (as detail of validation.failed) | the audit viewer's date range is reversed or longer than 366 days (D-098) |
+| nisab | nisab.withdrawn | 409 | withdrawing a version already withdrawn (D-098) |
 | session | session.use_logout | 409 | the current device session is ended with logout, not revoke (T1.7) |
 | user | user.system_owner_protected | 409 | the Main Admin cannot be blocked, deactivated or have its sessions revoked by others (BR-035, AUTH.md §11) |
 | user | user.handover_required | 409 | deactivation before a completed handover (BR-034) |

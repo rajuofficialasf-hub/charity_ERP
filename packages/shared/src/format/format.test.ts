@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  isoDateInDhaka,
   formatCount,
   formatDate,
   formatDateLong,
@@ -105,5 +106,12 @@ describe('formatter (I18N 6.2, BR-219)', () => {
       formatFileSize(5_000_000, 'bn'),
     ];
     for (const text of outputs) expect(text).not.toMatch(BENGALI_DIGIT);
+  });
+});
+
+describe('isoDateInDhaka', () => {
+  it('gives the Dhaka calendar date, six hours ahead of UTC', () => {
+    expect(isoDateInDhaka(new Date('2026-10-17T17:59:00Z'))).toBe('2026-10-17');
+    expect(isoDateInDhaka(new Date('2026-10-17T18:00:00Z'))).toBe('2026-10-18');
   });
 });

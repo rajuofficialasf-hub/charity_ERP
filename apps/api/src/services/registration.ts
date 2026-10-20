@@ -22,6 +22,7 @@ import type { PasswordHasher } from '../auth/password-hasher';
 import type { Env } from '../config/env';
 import type { Clock } from '../core/clock';
 import type { PrismaService, Tx } from '../core/prisma.service';
+import { currentContext } from '../core/request-context';
 import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import { registrationDetailsColumns } from './volunteer-details';
@@ -320,6 +321,8 @@ export class RegistrationService {
           passwordHash,
           state: 'pending',
           displayName: body.name,
+          // the language the person registered in (the device's choice, or the system default)
+          language: currentContext()?.locale ?? 'bn',
           designation: body.kind === 'staff' ? body.designation : null,
           // a rejected account that registers again starts clean: what the old form held and the
           // new one no longer asks for is cleared (DECISION_LOG O-64, D-091)

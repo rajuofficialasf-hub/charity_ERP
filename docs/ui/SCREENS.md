@@ -71,6 +71,11 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 | SCR-063 | Officials: department staff, other departments, partners; new official, link, profile | parity | Head, Monitoring (writes); PM, RPM (read) | 1 · D-097 |
 | SCR-064 | Organogram | parity | Head, Monitoring, PM, RPM | 1 · D-097 |
 | SCR-065 | Set-password link of a new official (`/invite`) | phone-first | the new official | 1 · D-097 |
+| SCR-066 | Settings: organisation, default language, thresholds, lists, notification channels | parity | Head, Monitoring | 1 · T1.13 (D-098) |
+| SCR-067 | Nisab versions | parity | PM, Head, Monitoring | 1 · T1.13 (D-098) |
+| SCR-068 | Audit viewer | parity | Head, Monitoring | 1 · T1.13 (D-098) |
+| SCR-069 | Active sessions | parity | Head, Monitoring | 1 · T1.13 (D-098) |
+| SCR-073 | System health | parity | Head, Monitoring | 1 · T1.13 (D-098) |
 | SCR-070 | Issue log | parity | Paid Volunteer, Procurement, RPM, Executive, PM | 4 · T4.1 |
 | SCR-071 | Donor list | parity | PM, RPM, Executive | 4 · T4.4 |
 | SCR-072 | Document register | parity | officials | after 6 · T6.1: T5.4 (built last, O-34) |
@@ -976,7 +981,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 
 ### SCR-051 Admin area shell
 
-- **Purpose.** The frame of the management screens and admin settings (UX-15): later admin pages (settings and audit log in T1.13, dashboards in T3.3 and T6.1) open inside it.
+- **Purpose.** The frame of the management screens and admin settings (UX-15): later admin pages open inside it: settings, nisab, audit log, sessions and health since T1.13 (SCR-066 to SCR-069, SCR-073), dashboards in T3.3 and T6.1.
 - **Roles.** Department Head, Monitoring Team, Program Manager, and since T1.9 the RPM and the Project Executive for the registrations page. Any other signed-in user sees a "no access" page; a signed-out visitor goes to the login screen. The server enforces every admin permission; the shell only hides.
 - **Priority.** parity, with the "best on a larger screen" notice under 768 px (UX-04).
 - **Data shown.** Top bar: system name, the signed-in user's name, log out. Sidebar: the admin destinations, with the language toggle as its last item (UX-19; at the end of the row on phones). Content: the dashboard placeholder with today's date (dd-mm-yyyy, English digits).
@@ -1004,6 +1009,47 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Data shown.** Three stat cards (department staff, programs, not placed yet), a program filter and "সব খুলুন" / "সব গুটিয়ে নিন"; the chart: the Department Head on top; one level below, side by side, a dark card "মনিটরিং টিম" with the Monitoring Team under it (they report to the Head) and a green card per program with its member count (owner, 2026-10-17); each official nested under the supervisor (name, job ID, designation, roles, a badge while waiting for the password or suspended), "এখনও স্থান নির্ধারিত হয়নি" for officials without a place. Other departments, outside partners and deactivated officials never appear.
 - **Layout.** From 768 px a chart from the top down on a dotted canvas, fitted to the width of the screen when it opens (zoom 40 % to 150 % with "ছোট করুন", "বড় করুন", "পর্দায় মানান"; scrolling sideways when zoomed in): connector lines between the levels, a fold or open button under each card with reports, the last level of only leaves standing in a column; the card shows the initials, name, designation and job ID with a colour band by role (leadership, PM, RPM, field staff). On a phone the same lists read as an indented tree with a line per level. Officials not placed yet stand in a grid of cards below.
 - **Built.** `apps/web/src/admin/staff/OrganogramPage.tsx`, `organogram.css`; tests `organogram.test.tsx`, E2E above.
+
+### SCR-066 Settings
+
+- **Purpose.** The settings of the system (DECISION_LOG D-098): the organisation's details, the default language, the monitoring thresholds, the expense category and issue type lists, and the notification channels.
+- **Roles.** Department Head and Monitoring Team (`settings.manage`; the channels `provider.settings.manage`; both without role default). The server checks every write.
+- **Route.** `/admin/settings?tab=` with the tabs প্রতিষ্ঠান, ভাষা, থ্রেশহোল্ড, তালিকা, নোটিফিকেশন চ্যানেল; sidebar "সেটিংস".
+- **Data and actions.** প্রতিষ্ঠান: the Foundation's and the department's names and the address in both languages, a contact mobile and email (two columns from 640 px), "সংরক্ষণ করুন". ভাষা: the default language for a device without a choice and a new official without one (no Hijri date, O-43). থ্রেশহোল্ড: review pending, approval pending, no update and inactive volunteer days (1 to 365), the budget alert percent (1 to 100). Each form says when it last changed or that the default holds; a saved change shows "সেটিংস সংরক্ষিত হয়েছে।" and the server's message on the field it names. তালিকা: a card per list (খরচের খাত, ইস্যুর ধরন) with the items in order and their state; "নতুন আইটেম" (code, names, order) and an edit dialog (names, order, on or off; the code never changes); nothing is deleted. নোটিফিকেশন চ্যানেল: the red "ডামি OTP চালু আছে" alert while the fixed code is on (green when off), SMTP read-only (host, port, TLS, sender, whether a login is set), the SMS mode and whether the provider's key is set, and the adapter form (provider code, sender ID, https endpoint without a key, SMS on).
+- **States.** Loading per tab, error with retry, forbidden content for other roles.
+- **Built.** `apps/web/src/admin/settings/` (`SettingsPage.tsx`, `SettingsForms.tsx`, `ListsPanel.tsx`, `ChannelsPanel.tsx`); tests `settings.test.tsx`, `apps/web/e2e/admin-settings.spec.ts`.
+
+### SCR-067 Nisab versions
+
+- **Purpose.** The zakat nisab, versioned with effective dates (BR-211, D-098).
+- **Roles.** Program Manager and above (`nisab.set`).
+- **Route.** `/admin/nisab`; sidebar "নিসাব".
+- **Data and actions.** The nisab in force today as a stat card; every version newest first with its effective date, amount, state (কার্যকর, আসন্ন, আগের, প্রত্যাহার করা), basis and who added or withdrew it. "নতুন নিসাব": amount in Taka (at most 1,00,00,000), an effective date from today to a year ahead and after the latest version, an optional basis; the server's message stands on the field it refuses. A version not yet in effect is withdrawn with a reason; a version is never edited.
+- **Built.** `apps/web/src/admin/nisab/`; tests `nisab.test.tsx`, E2E above.
+
+### SCR-068 Audit viewer
+
+- **Purpose.** The audit log for the global roles (D-098); PM and RPM histories come inside their pages later.
+- **Roles.** Department Head and Monitoring Team (`audit.view` at GLOBAL scope).
+- **Route.** `/admin/audit` with the filters in the address (`actorUserId`, `action`, `entityType`, `entityId`, `from`, `to`); sidebar "অডিট লগ".
+- **Data and actions.** The range the server used ("সময়সীমা: … থেকে …", the last 30 days by default, a year at most); rows newest first (time, person, action, entity, reason), page by page; filters: person search, action and entity type codes (an invalid code is marked), from and to dates. "বিস্তারিত" opens a drawer with time, person, role, action, entity, reason, IP, device session and the old and new values side by side (one under the other on a phone); "এই বিষয়ের পুরো ইতিহাস" filters the list to that entity for the last year, shown as a notice with "সব এন্ট্রি দেখুন". Secret-looking keys never reach the screen.
+- **Built.** `apps/web/src/admin/audit/`; tests `audit.test.tsx`, E2E above.
+
+### SCR-069 Active sessions
+
+- **Purpose.** Every device someone is signed in on, and ending a session (a lost phone).
+- **Roles.** Department Head and Monitoring Team (`session.revoke_user` at GLOBAL scope); the RPM keeps the own-region volunteer sessions on the volunteer profile.
+- **Route.** `/admin/sessions`; sidebar "সেশন".
+- **Data and actions.** Search by name, mobile, email or job ID; chips সব / অফিসিয়াল / স্বেচ্ছাসেবক; rows newest started first: person (with a "মেইন অ্যাডমিন" badge), account kind, device and platform, app version, last seen, started; "সেশন বন্ধ করুন" with a reason; the server refuses the Main Admin's sessions and the message shows in the dialog.
+- **Built.** `apps/web/src/admin/system/SessionsPage.tsx`; tests `system.test.tsx`, E2E above.
+
+### SCR-073 System health
+
+- **Purpose.** The state of the system and the storage growth for the IT team (BD-46, D-098).
+- **Roles.** Department Head and Monitoring Team (`system.health.view`).
+- **Route.** `/admin/health`; sidebar "সিস্টেমের অবস্থা".
+- **Data.** The dummy OTP alert; ডাটাবেস, ফাইল স্টোরেজ, জব কিউ each চালু or বন্ধ; version, environment and the month the audit partitions reach; the stored files in total, by kind and by month for the last twelve months (English digits), with when they were measured; a notice instead of the figures when the database did not answer.
+- **Built.** `apps/web/src/admin/system/HealthPage.tsx`; tests `system.test.tsx`, E2E above.
 
 ## 8. Setup screens (desktop first, UX-04)
 

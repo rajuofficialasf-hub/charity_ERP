@@ -161,6 +161,36 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
               }),
             },
             {
+              path: 'settings',
+              lazy: async () => ({
+                Component: (await import('../admin/settings/SettingsPage')).SettingsPage,
+              }),
+            },
+            {
+              path: 'nisab',
+              lazy: async () => ({
+                Component: (await import('../admin/nisab/NisabPage')).NisabPage,
+              }),
+            },
+            {
+              path: 'audit',
+              lazy: async () => ({
+                Component: (await import('../admin/audit/AuditPage')).AuditPage,
+              }),
+            },
+            {
+              path: 'sessions',
+              lazy: async () => ({
+                Component: (await import('../admin/system/SessionsPage')).SessionsPage,
+              }),
+            },
+            {
+              path: 'health',
+              lazy: async () => ({
+                Component: (await import('../admin/system/HealthPage')).HealthPage,
+              }),
+            },
+            {
               path: 'handover',
               lazy: async () => ({
                 Component: (await import('../admin/handover/HandoverPage')).HandoverPage,

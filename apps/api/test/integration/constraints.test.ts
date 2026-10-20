@@ -965,3 +965,80 @@ describe('official accounts (DECISION_LOG D-097)', () => {
     );
   });
 });
+
+describe('nisab versions', () => {
+  const add = (setBy: string, effectiveFrom: string) =>
+    db.query(
+      `INSERT INTO nisab_versions (id, value, effective_from, set_by) VALUES ($1, 98500, $2, $3) RETURNING id`,
+      [randomUUID(), effectiveFrom, setBy],
+    );
+
+  it('keeps one live version per date; a withdrawn one frees its date', async () => {
+    const pm = await f.user(db);
+    const first = (await add(pm, '2031-03-01')).rows[0].id as string;
+    await expectSqlError(
+      add(pm, '2031-03-01'),
+      SQLSTATE.uniqueViolation,
+      /nisab_versions_effective_from_key/,
+    );
+    await db.query(
+      `UPDATE nisab_versions SET withdrawn_at = now(), withdrawn_by = $2, withdraw_reason = 'ভুল তারিখ' WHERE id = $1`,
+      [first, pm],
+    );
+    const again = await add(pm, '2031-03-01');
+    expect(again.rows).toHaveLength(1);
+    expect(again.rows[0].id).not.toBe(first);
+  });
+
+  it('never withdraws a version that is already in effect', async () => {
+    const pm = await f.user(db);
+    const id = (await add(pm, '2020-01-01')).rows[0].id as string;
+    await expectSqlError(
+      db.query(
+        `UPDATE nisab_versions SET withdrawn_at = now(), withdrawn_by = $2, withdraw_reason = 'ভুল' WHERE id = $1`,
+        [id, pm],
+      ),
+      SQLSTATE.restrictViolation,
+      /in effect is never withdrawn/,
+    );
+  });
+
+  it('sets the withdrawal columns together', async () => {
+    const pm = await f.user(db);
+    const id = (await add(pm, '2031-04-01')).rows[0].id as string;
+    await expectSqlError(
+      db.query('UPDATE nisab_versions SET withdrawn_at = now() WHERE id = $1', [id]),
+      SQLSTATE.checkViolation,
+      /nisab_versions_withdrawal_check/,
+    );
+  });
+
+  it('never changes or deletes a version, and writes a withdrawal once', async () => {
+    const pm = await f.user(db);
+    const id = (await add(pm, '2031-05-01')).rows[0].id as string;
+    await expectSqlError(
+      db.query('UPDATE nisab_versions SET value = 1 WHERE id = $1', [id]),
+      SQLSTATE.restrictViolation,
+      /never changes/,
+    );
+    await expectSqlError(
+      db.query("UPDATE nisab_versions SET effective_from = '2031-05-02' WHERE id = $1", [id]),
+      SQLSTATE.restrictViolation,
+      /never changes/,
+    );
+    await expectSqlError(
+      db.query('DELETE FROM nisab_versions WHERE id = $1', [id]),
+      SQLSTATE.restrictViolation,
+      /never deleted/,
+    );
+    await db.query(
+      `UPDATE nisab_versions SET withdrawn_at = now(), withdrawn_by = $2, withdraw_reason = 'ভুল অংক' WHERE id = $1`,
+      [id, pm],
+    );
+    await expectSqlError(
+      db.query(`UPDATE nisab_versions SET withdraw_reason = 'অন্য কারণ' WHERE id = $1`, [id]),
+      SQLSTATE.restrictViolation,
+      /never changes/,
+    );
+  });
+});

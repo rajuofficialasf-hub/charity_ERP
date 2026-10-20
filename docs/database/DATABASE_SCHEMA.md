@@ -365,8 +365,8 @@ Constraints: UNIQUE (list_key, code).
 ### settings
 | Column | Type | Null | Default | Comment |
 |---|---|---|---|---|
-| key | text | no | — | PK (e.g. `alerts.review_pending_days`, `photos.flagged_share_threshold`) |
-| value | jsonb | no | — | validated per key by zod |
+| key | text | no | — | PK: `organisation`, `localization`, `monitoring.thresholds`, `sms.provider` (D-098; seed markers `seed.marker.*`); later keys such as photo defaults are added with their modules |
+| value | jsonb | no | — | validated per key by the zod schemas of `@css/shared/settings`, which also hold the defaults |
 | updated_by | uuid | yes | — | FK users |
 | updated_at | timestamptz | no | now() | every change audited |
 
@@ -382,10 +382,15 @@ Constraints: UNIQUE (list_key, code).
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
 | value | numeric(14,2) | no | — | BDT, CHECK > 0 |
-| effective_from | date | no | — | UNIQUE |
+| effective_from | date | no | — | UNIQUE among versions not withdrawn |
 | basis_note | text | yes | — | gold or silver basis |
 | set_by | uuid | no | — | FK users (PM or above) |
+| withdrawn_at | timestamptz | yes | — | a version not yet in effect withdrawn (D-098) |
+| withdrawn_by | uuid | yes | — | FK users |
+| withdraw_reason | text | yes | — | 1 to 1000 characters |
 | [A] | | | | |
+
+Constraints: CHECK value > 0; CHECK the three withdrawal columns are set together; UNIQUE (effective_from) WHERE withdrawn_at IS NULL. Trigger `nisab_versions_protect`: no DELETE; value, effective_from, basis_note and set_by never change; a withdrawal is written once (applications store the version used at verification, BR-211). The service refuses a withdrawal once the version has taken effect.
 
 ## 8. Programs and projects
 
@@ -1603,7 +1608,7 @@ Constraints: CHECK num_nonnulls(recipient_user_id, recipient_donor_id) <= 1. Ind
 | client_uuid | uuid | yes | — | offline records |
 | request_id | text | yes | — | correlates with logs |
 
-Partitioned by RANGE (created_at), one partition per month (section 22). PK (id, created_at). Indexes per partition: (entity_type, entity_id, created_at desc); (actor_user_id, created_at desc); (action, created_at desc). No UPDATE or DELETE privilege for any application role.
+Partitioned by RANGE (created_at), one partition per month (section 22). PK (id, created_at). Indexes per partition: (entity_type, entity_id, created_at desc); (actor_user_id, created_at desc); (action, created_at desc); (created_at desc, id desc) for the audit viewer's newest-first list (D-098, migration `20261017180000_admin_settings_core`). No UPDATE or DELETE privilege for any application role.
 
 ### sync_batches
 | Column | Type | Null | Default | Comment |
