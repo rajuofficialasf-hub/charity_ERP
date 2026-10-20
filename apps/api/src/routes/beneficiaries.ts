@@ -1,17 +1,23 @@
 import {
   type BeneficiaryFilter,
   beneficiaryFilterSchema,
+  type ContactUpdate,
+  contactUpdateSchema,
+  type CorrectionRequestCreate,
+  correctionRequestSchema,
   type LookupRequest,
   LOCKED_FIELDS,
   lookupRequestSchema,
 } from '@css/shared/beneficiaries';
+import { type DecisionRequest, decisionRequestSchema } from '@css/shared/registration';
 import { Router } from 'express';
 import { z, type ZodType } from 'zod';
 import { sensitive } from '../access/field-mask';
 import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal';
 import type { Container } from '../container';
 import { type PageQuery, pageNumberQuery, pageQuery } from '../core/pagination';
-import { page } from '../http/send';
+import { etagOf } from '../core/etag';
+import { ok, page } from '../http/send';
 import { defineRoute, type RouteDeps } from '../openapi/define-route';
 
 // Each marked field gets a schema of its own: `sensitive` marks the instance it is given.
@@ -197,6 +203,42 @@ const lookupResult = z.object({
     .optional(),
 });
 
+const warning = z.object({
+  code: z.literal('beneficiary.mobile_shared'),
+  count: z.number().int().positive(),
+  benNos: z.array(z.string()),
+});
+
+/** The contact data after an edit, with the warning about a mobile other profiles have. */
+const contactView = z.object({
+  id: z.uuid(),
+  mobile: z.string(),
+  divisionId: z.uuid(),
+  districtId: z.uuid(),
+  upazilaId: z.uuid(),
+  unionId: z.uuid(),
+  village: z.string(),
+  postOffice: z.string().nullable(),
+  postCode: z.string().nullable(),
+  landmark: z.string().nullable(),
+  warnings: z.array(warning),
+});
+
+/** A correction request; the values of an identity number only inside the caller's NID scope. */
+const correctionView = z.object({
+  id: z.uuid(),
+  beneficiaryId: z.uuid(),
+  field: z.enum(LOCKED_FIELDS),
+  oldValue: z.string().nullable(),
+  newValue: z.string().nullable(),
+  reason: z.string(),
+  status: z.enum(['submitted', 'approved', 'rejected']),
+  requestedBy: z.uuid(),
+  requestedAt: z.iso.datetime({ offset: true }),
+  decidedBy: z.uuid().nullable(),
+  decidedAt: z.iso.datetime({ offset: true }).nullable(),
+});
+
 const listQuery = pageQuery
   .omit({ sort: true })
   .extend(pageNumberQuery.shape)
@@ -215,7 +257,10 @@ const viewerOf = (req: AuthedRequest) => ({
  */
 export function beneficiariesRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'beneficiaries' | 'beneficiaryIdentity'>,
+  c: Pick<
+    Container,
+    'beneficiaries' | 'beneficiaryIdentity' | 'beneficiaryContact' | 'beneficiaryCorrections'
+  >,
 ): Router {
   const router = Router();
 
@@ -312,7 +357,86 @@ export function beneficiariesRouter(
       429: null,
       503: null,
     },
-    handler: ({ params, req }) => c.beneficiaries.profile(viewerOf(req), params.beneficiaryId),
+    handler: async ({ params, req, res }) => {
+      const profile = await c.beneficiaries.profile(viewerOf(req), params.beneficiaryId);
+      // the version a contact edit carries back in If-Match
+      const etag = etagOf(profile.updatedAt);
+      res.setHeader('ETag', etag);
+      return ok(profile, { etag });
+    },
+  });
+
+  const writeOp = {
+    tag: 'beneficiaries',
+    scope: 'beneficiary',
+    idempotency: 'none' as const,
+    rateLimit: 'default' as const,
+  };
+
+  defineRoute<ContactUpdate, unknown, { beneficiaryId: string }>(router, deps, {
+    ...writeOp,
+    method: 'patch',
+    path: '/beneficiaries/:beneficiaryId/contact',
+    operationId: 'beneficiaries.contact.update',
+    summary:
+      'Edit the mobile and the address of a beneficiary outside an application (each change logged; identity fields refused)',
+    permission: 'beneficiary.contact.edit',
+    audit: 'beneficiary.contact_updated',
+    params: { beneficiaryId: z.uuid() },
+    headers: [{ name: 'If-Match', required: true }],
+    body: contactUpdateSchema,
+    responses: {
+      200: contactView,
+      401: null,
+      403: null,
+      404: null,
+      409: null,
+      412: null,
+      422: null,
+    },
+    handler: async ({ body, params, req, res }) => {
+      const { contact, updatedAt } = await c.beneficiaryContact.update(
+        principalOf(req),
+        scopeOf(req),
+        params.beneficiaryId,
+        body,
+        req.get('if-match'),
+      );
+      const etag = etagOf(updatedAt);
+      res.setHeader('ETag', etag);
+      return ok(contact, { etag });
+    },
+  });
+
+  defineRoute<CorrectionRequestCreate, unknown, { beneficiaryId: string }>(router, deps, {
+    ...writeOp,
+    method: 'post',
+    path: '/beneficiaries/:beneficiaryId/correction-requests',
+    operationId: 'beneficiaries.correction.create',
+    summary: 'Request correction of a locked field (BR-006)',
+    permission: 'beneficiary.correction.request',
+    audit: 'beneficiary.correction_requested',
+    status: 201,
+    params: { beneficiaryId: z.uuid() },
+    body: correctionRequestSchema,
+    responses: { 201: correctionView, 401: null, 403: null, 404: null, 409: null, 422: null },
+    handler: ({ body, params, req }) =>
+      c.beneficiaryCorrections.request(principalOf(req), scopeOf(req), params.beneficiaryId, body),
+  });
+
+  defineRoute<DecisionRequest, unknown, { requestId: string }>(router, deps, {
+    ...writeOp,
+    method: 'post',
+    path: '/beneficiary-corrections/:requestId/decision',
+    operationId: 'beneficiaries.correction.decide',
+    summary: 'Approve or reject a correction; approval changes the locked field',
+    permission: 'beneficiary.correction.approve',
+    audit: 'beneficiary.correction_decided',
+    params: { requestId: z.uuid() },
+    body: decisionRequestSchema,
+    responses: { 200: correctionView, 401: null, 403: null, 404: null, 409: null, 422: null },
+    handler: ({ body, params, req }) =>
+      c.beneficiaryCorrections.decide(principalOf(req), scopeOf(req), params.requestId, body),
   });
 
   return router;

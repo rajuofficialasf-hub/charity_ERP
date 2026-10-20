@@ -250,6 +250,8 @@ export class BeneficiariesService {
     return {
       id: b.id,
       benNo: b.benNo,
+      /** The version of the profile for the ETag; not part of the answer's data. */
+      updatedAt: b.updatedAt,
       name: b.name,
       fatherOrHusbandName: b.fatherOrHusbandName,
       motherName: b.motherName,
@@ -358,6 +360,7 @@ export class BeneficiariesService {
       select: {
         id: true,
         benNo: true,
+        updatedAt: true,
         nid: sees('beneficiary.nid'),
         birthReg: sees('beneficiary.nid'),
         name: true,

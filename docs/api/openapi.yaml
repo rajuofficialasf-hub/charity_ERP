@@ -2002,21 +2002,75 @@ components:
         meta: { $ref: '#/components/schemas/ListMeta' }
     CorrectionRequestCreate:
       type: object
+      additionalProperties: false
+      description: A new NID has 10, 13 or 17 digits and a new birth registration 17 (validation.nid_format, validation.birth_reg_format)
       required: [field, newValue, reason]
       properties:
         field: { type: string, enum: [name, father_or_husband_name, nid, birth_reg] }
-        newValue: { type: string }
-        reason: { type: string, minLength: 3 }
+        newValue: { type: string, minLength: 1, maxLength: 200 }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
     CorrectionRequest:
-      allOf:
-        - $ref: '#/components/schemas/CorrectionRequestCreate'
-        - type: object
-          required: [id, beneficiaryId, status]
+      type: object
+      description: The values of an identity number are null outside the caller's beneficiary.view_nid scope
+      required: [id, beneficiaryId, field, oldValue, newValue, reason, status, requestedBy, requestedAt, decidedBy, decidedAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        beneficiaryId: { $ref: '#/components/schemas/Uuid' }
+        field: { type: string, enum: [name, father_or_husband_name, nid, birth_reg] }
+        oldValue: { type: [string, 'null'] }
+        newValue: { type: [string, 'null'] }
+        reason: { type: string }
+        status: { type: string, enum: [submitted, approved, rejected] }
+        requestedBy: { $ref: '#/components/schemas/Uuid' }
+        requestedAt: { type: string, format: date-time }
+        decidedBy: { type: [string, 'null'], format: uuid }
+        decidedAt: { type: [string, 'null'], format: date-time }
+    ContactUpdate:
+      type: object
+      additionalProperties: false
+      description: At least one field; divisionId, districtId, upazilaId and unionId together; name, fatherOrHusbandName, nid and birthReg are refused with beneficiary.locked_field
+      properties:
+        mobile: { type: string, pattern: '^01[3-9][0-9]{8}$' }
+        divisionId: { $ref: '#/components/schemas/Uuid' }
+        districtId: { $ref: '#/components/schemas/Uuid' }
+        upazilaId: { $ref: '#/components/schemas/Uuid' }
+        unionId: { $ref: '#/components/schemas/Uuid' }
+        village: { type: string, minLength: 1, maxLength: 200 }
+        postOffice: { type: string, minLength: 1, maxLength: 100 }
+        postCode: { type: string, pattern: '^[0-9]{4}$' }
+        landmark: { type: string, minLength: 1, maxLength: 200 }
+        name: { not: {} }
+        fatherOrHusbandName: { not: {} }
+        nid: { not: {} }
+        birthReg: { not: {} }
+    ContactResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [id, mobile, divisionId, districtId, upazilaId, unionId, village, postOffice, postCode, landmark, warnings]
           properties:
             id: { $ref: '#/components/schemas/Uuid' }
-            beneficiaryId: { $ref: '#/components/schemas/Uuid' }
-            oldValue: { type: string }
-            status: { type: string, enum: [submitted, approved, rejected] }
+            mobile: { type: string }
+            divisionId: { $ref: '#/components/schemas/Uuid' }
+            districtId: { $ref: '#/components/schemas/Uuid' }
+            upazilaId: { $ref: '#/components/schemas/Uuid' }
+            unionId: { $ref: '#/components/schemas/Uuid' }
+            village: { type: string }
+            postOffice: { type: [string, 'null'] }
+            postCode: { type: [string, 'null'] }
+            landmark: { type: [string, 'null'] }
+            warnings:
+              type: array
+              items:
+                type: object
+                required: [code, count, benNos]
+                properties:
+                  code: { type: string, enum: [beneficiary.mobile_shared] }
+                  count: { type: integer, minimum: 1 }
+                  benNos: { type: array, items: { type: string } }
+        meta: { $ref: '#/components/schemas/Meta' }
     CorrectionRequestResponse:
       type: object
       required: [data, meta]
@@ -5428,6 +5482,47 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/FamilyMemberList' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /beneficiaries/{beneficiaryId}/contact:
+    parameters:
+      - $ref: '#/components/parameters/BeneficiaryId'
+    patch:
+      tags: [beneficiaries]
+      operationId: beneficiaries.contact.update
+      summary: Edit the mobile and the address of a beneficiary outside an application (each change logged; identity fields refused)
+      description: >-
+        The mobile and the address down to village, post office and landmark (D-115); the four
+        places of the address change together as one chain. Each changed field writes a change-log
+        row of kind `contact_update`. A name or an identity number answers 422
+        `beneficiary.locked_field`; the mobile of a volunteer an application of the person belongs
+        to answers 409 `beneficiary.mobile_is_volunteer_mobile`; a mobile other live profiles have
+        is saved with the `beneficiary.mobile_shared` warning, which names only the profiles the
+        caller's scope reaches.
+      x-permission: beneficiary.contact.edit
+      x-scope: beneficiary
+      x-audit: beneficiary.contact_updated
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ContactUpdate' }
+      responses:
+        '200':
+          description: The contact data after the edit, with the ETag of the new version
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContactResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /beneficiaries/{beneficiaryId}/correction-requests:
     parameters:
       - $ref: '#/components/parameters/BeneficiaryId'
@@ -5451,7 +5546,10 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/CorrectionRequestResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /beneficiary-corrections/{requestId}/decision:
     parameters:
@@ -5460,6 +5558,11 @@ paths:
       tags: [beneficiaries]
       operationId: beneficiaries.correction.decide
       summary: Approve or reject a correction; approval changes the locked field
+      description: >-
+        Never by the official who requested it (403 `beneficiary.correction_own`); an approval
+        re-checks that the field still holds the old value (409 `beneficiary.correction_stale`) and
+        that a new identity number is unused (409 `beneficiary.identity_taken`), and applies it in
+        the same transaction with a change-log row (D-115).
       x-permission: beneficiary.correction.approve
       x-scope: beneficiary
       x-audit: beneficiary.correction_decided
@@ -5476,8 +5579,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/CorrectionRequestResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /beneficiaries/merge-candidates:
     get:
       tags: [beneficiaries]
