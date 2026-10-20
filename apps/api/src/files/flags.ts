@@ -1,5 +1,6 @@
 import { UPLOAD_RULES } from '@css/shared/files';
 import { photoSource } from '@css/shared';
+import { z } from 'zod';
 import type { Tx } from '../core/prisma.service';
 
 /** The data-quality flags of a photo; they are shown to officials and never block anything. */
@@ -57,6 +58,9 @@ const DEFAULT_SOURCE = new Map<string, 'camera_only' | 'camera_or_gallery'>([
   ['payment_copy', 'camera_or_gallery'],
 ]);
 
+/** The photo sources of the distribution row's settings; its other settings are not read here. */
+const PHOTO_SOURCES = z.object({ source: z.record(z.string(), z.unknown()).optional() });
+
 /**
  * The project's photo source for a kind, from the photo-rule settings kept on the project's
  * `distribution` component row; null for a kind the setting does not cover.
@@ -72,8 +76,10 @@ export async function projectPhotoSource(
     where: { projectId_componentKey: { projectId, componentKey: 'distribution' } },
     select: { settings: true },
   });
-  const sources = (row?.settings as { source?: Record<string, unknown> } | null)?.source;
-  const chosen = Object.entries(sources ?? {}).find(([key]) => key === kind)?.[1];
+  const settings = PHOTO_SOURCES.safeParse(row?.settings);
+  const chosen = settings.success
+    ? new Map(Object.entries(settings.data.source ?? {})).get(kind)
+    : undefined;
   const parsed = photoSource.safeParse(chosen);
   return parsed.success ? parsed.data : fallback;
 }

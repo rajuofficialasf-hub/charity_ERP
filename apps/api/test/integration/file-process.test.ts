@@ -176,6 +176,29 @@ describe('the processing job', () => {
     expect((await fileRow(id)).thumbnail_small_key).toBeNull();
   });
 
+  it("flags a gallery photo where the project's photo rule asks for the camera", async () => {
+    const setSource = (source: unknown) =>
+      h.db.query(
+        `INSERT INTO project_components (id, project_id, component_key, enabled, settings)
+         VALUES ($1, $2, 'distribution', true, $3)
+         ON CONFLICT (project_id, component_key) DO UPDATE SET settings = EXCLUDED.settings`,
+        [randomUUID(), world.a1.id, JSON.stringify({ rule: 'individual', source })],
+      );
+    await setSource({ distribution_proof: 'camera_only' });
+    const flagged = await upload(await picture({ variant: 11 }), { source: 'gallery' });
+    await processFile(flagged);
+    expect((await fileRow(flagged)).flags).toContain('gallery_under_camera_only');
+    await setSource({ distribution_proof: 'camera_or_gallery' });
+    const allowed = await upload(await picture({ variant: 12 }), { source: 'gallery' });
+    await processFile(allowed);
+    expect((await fileRow(allowed)).flags).not.toContain('gallery_under_camera_only');
+    // a setting that is not a photo source falls back to the camera for proof photos
+    await setSource({ distribution_proof: 'anything' });
+    const fallback = await upload(await picture({ variant: 13 }), { source: 'gallery' });
+    await processFile(fallback);
+    expect((await fileRow(fallback)).flags).toContain('gallery_under_camera_only');
+  });
+
   it('ends an image over 40 megapixels failed without decoding it', async () => {
     const id = await upload(oversizedPng(), { mime: 'image/png' });
     expect(await processFile(id)).toEqual({ virusScan: 'failed' });

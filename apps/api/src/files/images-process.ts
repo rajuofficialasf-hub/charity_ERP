@@ -1,5 +1,9 @@
 import sharp from 'sharp';
 
+// the worker decodes one photo at a time and keeps no decoded images between files
+sharp.cache(false);
+sharp.concurrency(1);
+
 /** Images above this many pixels are never decoded (a small file can claim a huge canvas). */
 export const MAX_INPUT_PIXELS = 40_000_000;
 /** The thumbnails of a photo: 320 px for lists, 1,024 px for the verification view. */
@@ -8,7 +12,7 @@ export const THUMBNAILS = { small: 320, medium: 1024 } as const;
 export const NEAR_DUPLICATE_BITS = 6;
 
 /** The formats the processing decodes; anything else is refused before a pixel is read. */
-const DECODED = new Set(['jpeg', 'png', 'webp', 'heif']);
+const DECODED = new Set(['jpeg', 'png', 'webp']);
 
 /** The image is not one the processing may decode: too many pixels or another format. */
 export class ImageRefused extends Error {

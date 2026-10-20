@@ -49,7 +49,8 @@ export const FILE_TYPES = [
 export type FileType = (typeof FILE_TYPES)[number];
 
 const MB = 1024 * 1024;
-const IMAGES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'] as const;
+/** Photos the server can decode; a phone's HEIC is turned into JPEG by the app before it is sent. */
+const IMAGES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 const sizes = (types: readonly FileType[], max: number) =>
   Object.fromEntries(types.map((type) => [type, max])) as Partial<Record<FileType, number>>;
 const PHOTO = sizes(IMAGES, 5 * MB);

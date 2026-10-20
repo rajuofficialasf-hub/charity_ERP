@@ -7,12 +7,13 @@ import { photoFlags, projectPhotoSource } from '../files/flags';
 import {
   checkImage,
   differenceHash,
+  ImageRefused,
   NEAR_DUPLICATE_BITS,
   THUMBNAILS,
   thumbnail,
 } from '../files/images-process';
-import type { Scanner } from '../files/scanner';
-import type { Bucket, StorageDriver } from '../storage';
+import type { ScanResult, Scanner } from '../files/scanner';
+import { BUCKETS, type StorageDriver } from '../storage';
 import type { JobRunner } from './job-runner';
 
 /** The queue of photo post-processing and duplicate hashing (jobs/queues.ts). */
@@ -56,9 +57,10 @@ export class FileProcessor {
     const file = await this.prisma.file.findUnique({ where: { id: fileId } });
     if (!file) return { virusScan: 'missing' };
     if (DONE.has(file.virusScan)) return { virusScan: file.virusScan };
-    const bucket = file.bucket as Bucket;
+    const bucket = BUCKETS.find((b) => b === file.bucket);
+    if (!bucket) throw new Error(`file ${fileId} names an unknown bucket`);
     const bytes = await buffer(await this.storage.get(bucket, file.objectKey));
-    let scan: Awaited<ReturnType<Scanner['scan']>>;
+    let scan: ScanResult;
     try {
       scan = await this.scanner.scan(bytes);
     } catch (error) {
@@ -76,86 +78,101 @@ export class FileProcessor {
       await this.setScan(fileId, scan);
       return { virusScan: scan };
     }
-    const photo = await this.photoParts(bytes);
+    const photo = await this.photoParts(fileId, bytes);
     if (!photo) {
       await this.setScan(fileId, 'failed');
-      this.logger.warn({ fileId }, 'photo not processed: refused before decoding or damaged');
       return { virusScan: 'failed' };
     }
     const small = thumbnailKey(file.objectKey, fileId, 's');
     const medium = thumbnailKey(file.objectKey, fileId, 'm');
-    await this.storage.put(bucket, small, Readable.from([photo.small]), {
-      contentType: 'image/jpeg',
-      size: photo.small.length,
-    });
-    await this.storage.put(bucket, medium, Readable.from([photo.medium]), {
-      contentType: 'image/jpeg',
-      size: photo.medium.length,
-    });
+    for (const [key, image] of [
+      [small, photo.small],
+      [medium, photo.medium],
+    ] as const)
+      await this.storage.put(bucket, key, Readable.from([image]), {
+        contentType: 'image/jpeg',
+        size: image.length,
+      });
     // what the phone declared stays; the photo's own metadata fills only what is missing
+    const declaredPosition = file.latitude !== null && file.longitude !== null;
     const capturedAt = file.capturedAt ?? photo.metadata.capturedAt;
-    const gps = file.latitude !== null && file.longitude !== null ? null : photo.metadata.gps;
-    const hasPosition = (file.latitude !== null && file.longitude !== null) || gps !== null;
-    await this.prisma.$transaction(async (tx) => {
-      const near = file.projectId
-        ? await tx.$queryRaw<{ id: string }[]>`
-            SELECT id FROM files
-             WHERE project_id = ${file.projectId}::uuid AND id <> ${fileId}::uuid
-               AND phash IS NOT NULL AND deleted_at IS NULL
-               AND bit_count((phash # ${photo.hash})::bit(64)) <= ${NEAR_DUPLICATE_BITS}`
-        : [];
-      const flags: string[] = photoFlags({
-        kind: file.kind,
-        mime: file.mime,
-        capturedAt,
-        hasPosition,
-        recordCreatedAt: file.recordCreatedAt,
-        receivedAt: file.uploadedAt,
-        source: file.source,
-        projectSource: file.projectId
-          ? await projectPhotoSource(tx, file.projectId, file.kind)
-          : null,
-      });
-      if (near.length || file.flags.includes('duplicate_suspect')) flags.push('duplicate_suspect');
-      await tx.file.update({
-        where: { id: fileId },
-        data: {
-          virusScan: scan,
+    const gps = declaredPosition ? null : photo.metadata.gps;
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        // one file of a project at a time, so two near copies processed together see each other
+        if (file.projectId)
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${file.projectId}, 2))`;
+        const [current] = await tx.$queryRaw<{ flags: string[] }[]>`
+          SELECT flags FROM files WHERE id = ${fileId}::uuid FOR UPDATE`;
+        const near = file.projectId
+          ? await tx.$queryRaw<{ id: string }[]>`
+              SELECT id FROM files
+               WHERE project_id = ${file.projectId}::uuid AND id <> ${fileId}::uuid
+                 AND phash IS NOT NULL AND deleted_at IS NULL
+                 AND bit_count((phash # ${photo.hash})::bit(64)) <= ${NEAR_DUPLICATE_BITS}`
+          : [];
+        const flags: string[] = photoFlags({
+          kind: file.kind,
+          mime: file.mime,
           capturedAt,
-          ...(gps ? { latitude: gps.lat, longitude: gps.lng } : {}),
-          flags,
-          phash: photo.hash,
-          thumbnailSmallKey: small,
-          thumbnailMediumKey: medium,
-        },
+          hasPosition: declaredPosition || gps !== null,
+          recordCreatedAt: file.recordCreatedAt,
+          receivedAt: file.uploadedAt,
+          source: file.source,
+          projectSource: file.projectId
+            ? await projectPhotoSource(tx, file.projectId, file.kind)
+            : null,
+        });
+        if (near.length || current?.flags.includes('duplicate_suspect'))
+          flags.push('duplicate_suspect');
+        await tx.file.update({
+          where: { id: fileId },
+          data: {
+            virusScan: scan,
+            capturedAt,
+            ...(gps ? { latitude: gps.lat, longitude: gps.lng } : {}),
+            flags,
+            phash: photo.hash,
+            thumbnailSmallKey: small,
+            thumbnailMediumKey: medium,
+          },
+        });
+        if (near.length)
+          await tx.$executeRaw`
+            UPDATE files SET flags = array_append(flags, 'duplicate_suspect')
+             WHERE id = ANY (${near.map((n) => n.id)}::uuid[])
+               AND NOT ('duplicate_suspect' = ANY (flags))`;
       });
-      if (near.length)
-        await tx.$executeRaw`
-          UPDATE files SET flags = array_append(flags, 'duplicate_suspect')
-           WHERE id = ANY (${near.map((n) => n.id)}::uuid[])
-             AND NOT ('duplicate_suspect' = ANY (flags))`;
-    });
+    } catch (error) {
+      // the job is tried again and writes the same keys; until then nothing points at them
+      for (const key of [small, medium])
+        await this.storage.remove(bucket, key).catch(() => undefined);
+      throw error;
+    }
     return { virusScan: scan };
   }
 
-  /** The thumbnails, the hash and the metadata, or null when the photo may not be decoded. */
-  private async photoParts(bytes: Buffer) {
+  /**
+   * The thumbnails, the hash and the metadata, or null when the photo may not be decoded: refused
+   * from its header (over 40 megapixels, another format) or damaged. Decoded once: the small
+   * thumbnail and the hash come from the medium one, which bounds the worker's memory.
+   */
+  private async photoParts(fileId: string, bytes: Buffer) {
     try {
       await checkImage(bytes);
-      const [small, medium, hash, metadata] = await Promise.all([
-        thumbnail(bytes, THUMBNAILS.small),
-        thumbnail(bytes, THUMBNAILS.medium),
-        differenceHash(bytes),
-        readPhotoMetadata(bytes),
-      ]);
+      const medium = await thumbnail(bytes, THUMBNAILS.medium);
+      const small = await thumbnail(medium, THUMBNAILS.small);
+      const hash = await differenceHash(medium);
+      const metadata = await readPhotoMetadata(bytes);
       return { small, medium, hash, metadata };
     } catch (error) {
-      this.logger.debug({ err: error }, 'photo refused');
+      const reason = error instanceof ImageRefused ? error.reason : 'damaged';
+      this.logger.warn({ fileId, reason }, 'photo not processed; it stays quarantined');
       return null;
     }
   }
 
-  private async setScan(fileId: string, virusScan: string): Promise<void> {
+  private async setScan(fileId: string, virusScan: ScanResult | 'failed'): Promise<void> {
     await this.prisma.file.update({ where: { id: fileId }, data: { virusScan } });
   }
 }

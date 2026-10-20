@@ -97,14 +97,10 @@ describe('loadEnv', () => {
         return String(error);
       }
     })();
-    expect(refusal).toMatch(/FILE_SCANNER/);
-    for (const name of [
-      'OTP_DUMMY_ENABLED',
-      'AUTH_COOKIE_SECURE',
-      'RATE_LIMITS_RELAXED',
-      'APP_ORIGIN',
-    ])
-      expect(refusal).not.toContain(name);
+    // exactly one problem: every other production setting and default is valid
+    expect(refusal).toBe(
+      'Error: Invalid configuration: FILE_SCANNER: a real virus scanner is required in production',
+    );
   });
 
   it('marks files skipped outside production and refuses that scanner in production', () => {

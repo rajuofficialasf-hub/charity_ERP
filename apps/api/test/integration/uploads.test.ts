@@ -202,6 +202,8 @@ describe('a chunked upload', () => {
     // a declared size over the kind's limit, and a type the kind does not take
     expect((await start('general', bytes, { sizeBytes: 5 * 1024 * 1024 + 1 })).status).toBe(413);
     expect((await start('general', bytes, { mime: 'image/svg+xml' })).status).toBe(415);
+    // a phone's HEIC is turned into JPEG by the app; the server does not decode it
+    expect((await start('general', bytes, { mime: 'image/heic' })).status).toBe(415);
     expect((await start('general', bytes, { kind: 'issue_photo' })).body.error.code).toBe(
       'file.kind_not_allowed',
     );

@@ -280,10 +280,11 @@ export class UploadsService {
     const recordCreatedAt =
       record.clientCreatedAt ??
       (declared.recordCreatedAt ? new Date(declared.recordCreatedAt) : null);
+    const capturedAt = declared.capturedAt ? new Date(declared.capturedAt) : null;
     const flags = photoFlags({
       kind: declared.kind,
       mime: type,
-      capturedAt: declared.capturedAt ? new Date(declared.capturedAt) : null,
+      capturedAt,
       hasPosition: !!declared.gps,
       recordCreatedAt,
       receivedAt: this.clock.now(),
@@ -301,7 +302,7 @@ export class UploadsService {
         sha256: declared.sha256,
         projectId: record.projectId,
         uploadedBy: principal.userId,
-        capturedAt: declared.capturedAt ? new Date(declared.capturedAt) : null,
+        capturedAt,
         recordCreatedAt,
         latitude: declared.gps?.lat ?? null,
         longitude: declared.gps?.lng ?? null,

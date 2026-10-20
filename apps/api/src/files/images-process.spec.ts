@@ -50,6 +50,14 @@ describe('thumbnails and the difference hash', () => {
     await expect(checkImage(oversizedPng())).rejects.toBeInstanceOf(ImageRefused);
     await expect(checkImage(await picture())).resolves.toBeUndefined();
   });
+
+  it('refuses a format it does not decode and damaged bytes, as a refusal of the format', async () => {
+    const gif = await sharp({ create: { width: 8, height: 8, channels: 3, background: '#000' } })
+      .gif()
+      .toBuffer();
+    for (const bytes of [gif, Buffer.from('not an image at all')])
+      await expect(checkImage(bytes)).rejects.toMatchObject({ reason: 'format' });
+  });
 });
 
 describe('the data-quality flags of a photo', () => {
