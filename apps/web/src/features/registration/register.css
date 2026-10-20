@@ -1,8 +1,8 @@
 /*
- * Registration (SCR-002, UX-23; the owner's reference design): on the desktop a dark brand panel
- * with the logo, the title and the steps on the left, the form on the right; on a phone the brand
- * panel is a short band above the form. Tokens only (colors.md, DESIGN_SYSTEM): the brand ink
- * with white text, green circles as decoration, green as the action colour.
+ * Registration (SCR-002, UX-23; the owner's reference design): on the desktop the brand panel on
+ * the left (the photo of the Foundation's building with the logo, then the title and the steps on
+ * the brand ink), the form on the right; on a phone the panel is a short band above the form.
+ * Tokens only (colors.md, DESIGN_SYSTEM): white text on the ink, green as the action colour.
  */
 .register-page {
   /* the page runs up under the top bar (UX-19), so the bar has no seam */
@@ -14,49 +14,50 @@
 }
 
 /* ---- the brand panel ---- */
+/* the photo of the Foundation's building on top, bright as it is; it fades into the brand ink, on
+   which the white text stands (colors.md 6: dark surfaces use ink with white text) */
 .register-brand {
   position: relative;
   overflow: hidden;
   display: grid;
   gap: var(--space-4);
   align-content: start;
-  padding: calc(var(--app-bar-height) + var(--space-3)) var(--space-4) var(--space-5);
-  background: var(--glow-accent), var(--gradient-hero);
+  padding-bottom: var(--space-5);
+  background: var(--color-brand-ink);
   color: var(--color-text-on-brand);
   isolation: isolate;
 }
-/* two soft green circles on the hero gradient: decoration only (colors.md 6; DESIGN_SYSTEM: white
-   secondary text at 94 % at the least, translucent fills at most 8 %) */
-.register-brand::before,
-.register-brand::after {
+.register-photo {
+  position: relative;
+  display: block;
+  height: calc(var(--app-bar-height) + 180px);
+}
+.register-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 55% 45%;
+}
+.register-photo::after {
   content: '';
   position: absolute;
-  z-index: -1;
-  border-radius: var(--radius-full);
-  pointer-events: none;
-}
-.register-brand::before {
-  width: 360px;
-  height: 360px;
-  top: -140px;
-  right: -120px;
-  background: radial-gradient(
-    circle at 35% 35%,
-    var(--color-brand-primary) 0%,
-    rgba(0, 142, 72, 0.35) 55%,
-    rgba(0, 142, 72, 0) 72%
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(15, 41, 32, 0) 55%,
+    rgba(15, 41, 32, 0.6) 82%,
+    var(--color-brand-ink) 100%
   );
 }
-.register-brand::after {
-  width: 260px;
-  height: 260px;
-  bottom: -150px;
-  left: -110px;
-  background: radial-gradient(circle, rgba(0, 142, 72, 0.45) 0%, rgba(0, 142, 72, 0) 70%);
+.register-brand > :not(.register-photo):not(.register-logo) {
+  margin-inline: var(--space-4);
 }
-/* the logo keeps its colours (colors.md 6.5), so it sits on a white tile */
+/* the logo keeps its colours (colors.md 6.5), so it sits on a white tile over the sky */
 .register-logo {
-  justify-self: start;
+  position: absolute;
+  top: calc(var(--app-bar-height) + var(--space-2));
+  left: var(--space-4);
   display: inline-grid;
   place-items: center;
   padding: var(--space-2) var(--space-3);
@@ -67,7 +68,7 @@
 .register-logo img {
   display: block;
   width: auto;
-  height: 44px;
+  height: 40px;
 }
 .register-logo:focus-visible {
   outline: none;
@@ -301,18 +302,19 @@
     position: sticky;
     top: 0;
     height: 100dvh;
-    align-content: center;
-    gap: var(--space-5);
-    padding: calc(var(--app-bar-height) + var(--space-5)) var(--space-6) var(--space-6);
+    grid-template-rows: minmax(0, 1fr) auto;
+    align-content: stretch;
+    gap: var(--space-4);
+    padding-bottom: var(--space-6);
   }
-  .register-brand::before {
-    width: 520px;
-    height: 520px;
-    top: 10%;
-    right: -260px;
+  .register-photo {
+    height: auto;
+    min-height: 0;
+  }
+  .register-brand > :not(.register-photo):not(.register-logo) {
+    margin-inline: var(--space-6);
   }
   .register-logo {
-    position: absolute;
     top: var(--space-5);
     left: var(--space-6);
   }
@@ -333,7 +335,8 @@
     clip-path: none;
     white-space: normal;
     display: grid;
-    gap: var(--space-3);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3) var(--space-5);
     margin: 0;
     padding: 0;
     list-style: none;

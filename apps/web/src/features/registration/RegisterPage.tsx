@@ -313,9 +313,10 @@ export function RegisterPage() {
 }
 
 /**
- * The brand panel of the registration (UX-23): the Foundation's logo, the page title and its line,
- * and the steps as a list, done ones ticked and the current one lit. On a phone it is a short
- * band above the form and the list stays for screen readers only.
+ * The brand panel of the registration (UX-23): the photo of the Foundation's building with the logo
+ * over it, then the page title and its line, and the steps as a list, done ones ticked and the
+ * current one lit. On a phone it is a short band above the form and the list stays for screen
+ * readers only.
  */
 function RegisterBrand(props: {
   title: string;
@@ -328,6 +329,15 @@ function RegisterBrand(props: {
   const { steps = [], current = 0 } = props;
   return (
     <aside className="register-brand">
+      {/* the Foundation's building, given by the owner (UX-23); decoration, so no text for it */}
+      <picture className="register-photo">
+        <source
+          type="image/webp"
+          srcSet="/brand/register-photo-800.webp 800w, /brand/register-photo-1200.webp 1200w"
+          sizes="(min-width: 1024px) 40vw, 100vw"
+        />
+        <img src="/brand/register-photo-1200.jpg" alt="" width={1200} height={675} />
+      </picture>
       <a href="/" className="register-logo">
         <img src="/brand/logo.svg" alt={t('logo_alt')} width={113} height={72} />
       </a>
