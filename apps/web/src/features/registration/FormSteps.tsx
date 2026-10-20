@@ -95,7 +95,7 @@ export function AddressStep({ values, set, errors }: StepProps) {
   const t = useTranslations('registration');
   return (
     <div className="register-stack">
-      <h3 className="register-subtitle">{t('form.address_present')}</h3>
+      <h3>{t('form.address_present')}</h3>
       <div className="register-grid">
         <AddressFields
           value={values.address}
@@ -110,7 +110,7 @@ export function AddressStep({ values, set, errors }: StepProps) {
           error={errors.addressLine}
         />
       </div>
-      <h3 className="register-subtitle">{t('form.address_permanent')}</h3>
+      <h3>{t('form.address_permanent')}</h3>
       <Checkbox
         isSelected={values.permanentSame}
         onChange={(permanentSame) => set({ permanentSame })}

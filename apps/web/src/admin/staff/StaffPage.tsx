@@ -245,7 +245,7 @@ function StaffList({
       <Badge label={t(`state.${u.state}`)} />
     );
   const actions = (u: StaffMember) => (
-    <span className="admin-row-actions">
+    <span>
       <Button variant="ghost" size="sm" icon={Pencil} iconOnly onPress={() => onEdit(u)}>
         {t('edit', { name: u.displayName })}
       </Button>

@@ -1,6 +1,4 @@
 import {
-  bn,
-  en,
   isLocale,
   type Locale,
   LOCALE_COOKIE,
@@ -76,8 +74,74 @@ export function writeLocale(value: string): void {
   }
 }
 
-/** The catalogue for a stored value; `qps` pseudo-localizes bn in development only. */
-export function messagesFor(value: string | undefined, dev = import.meta.env.DEV): Messages {
-  if (value === PSEUDO && dev) return pseudoLocalize(bn);
-  return value === 'en' ? en : bn;
+/**
+ * The catalogues this tab has (docs/ui/I18N.md): the device language's is loaded before the first render,
+ * the other one when the person switches, so the first load carries one language.
+ */
+const loaded = new Map<Locale, Messages>();
+const loading = new Map<Locale, Promise<Messages>>();
+
+/** Loads a language's catalogue once; later calls answer the same promise or the cached one. */
+export function loadMessages(locale: Locale): Promise<Messages> {
+  const ready = loaded.get(locale);
+  if (ready) return Promise.resolve(ready);
+  let pending = loading.get(locale);
+  if (!pending) {
+    const load =
+      locale === 'en'
+        ? import('@css/shared/i18n/en').then((m) => m.en)
+        : import('@css/shared/i18n/bn').then((m) => m.bn);
+    pending = load.then(
+      (messages) => {
+        loaded.set(locale, messages);
+        loading.delete(locale);
+        return messages;
+      },
+      (error: unknown) => {
+        // a failed load (no network on a first visit) is tried again on the next call
+        loading.delete(locale);
+        throw error;
+      },
+    );
+    loading.set(locale, pending);
+  }
+  return pending;
+}
+
+/** Hands over a catalogue that is already in memory (the tests), so nothing has to load. */
+export function primeMessages(locale: Locale, messages: Messages): void {
+  loaded.set(locale, messages);
+}
+
+/** Forgets every catalogue (tests of the loading). */
+export function forgetMessages(): void {
+  loaded.clear();
+  loading.clear();
+}
+
+/**
+ * The language and catalogue to render: the wanted language once its catalogue is loaded, else a
+ * language that is loaded (the one shown before a switch), else nothing yet.
+ */
+export function shownCatalogue(
+  key: string | undefined,
+  wanted: Locale,
+): { locale: Locale; messages: Messages } | undefined {
+  const messages = messagesFor(key);
+  if (messages) return { locale: wanted, messages };
+  const [locale, other] = [...loaded.entries()][0] ?? [];
+  return locale && other ? { locale, messages: other } : undefined;
+}
+
+/**
+ * The catalogue for a stored value once it is loaded; `qps` pseudo-localizes bn in development
+ * only.
+ */
+export function messagesFor(
+  value: string | undefined,
+  dev = import.meta.env.DEV,
+): Messages | undefined {
+  const messages = loaded.get(value === 'en' ? 'en' : 'bn');
+  if (value === PSEUDO && dev && messages) return pseudoLocalize(messages);
+  return messages;
 }

@@ -25,6 +25,7 @@ describe('MenuButton', () => {
     const button = screen.getByRole('button', { name: 'প্রোফাইল মেনু' });
     expect(button).toHaveTextContent('নমুনা কর্মকর্তা');
     expect(button).toHaveAttribute('aria-haspopup', 'true');
+    expect(button).toHaveAttribute('aria-expanded', 'false');
     await user.click(button);
     const menu = screen.getByRole('menu', { name: 'প্রোফাইল মেনু' });
     expect(menu).toBeVisible();
@@ -51,5 +52,15 @@ describe('MenuButton', () => {
     expect(screen.queryByRole('menu')).toBeNull();
     // focus comes back once the menu has closed
     await waitFor(() => expect(button).toHaveFocus());
+  });
+
+  it('a link item navigates inside the app and closes the menu', async () => {
+    const navigate = vi.fn();
+    const user = userEvent.setup();
+    renderWithUi(<MenuButton label="Profile menu" items={items()} />, { navigate });
+    await user.click(screen.getByRole('button', { name: 'Profile menu' }));
+    await user.click(screen.getByRole('menuitem', { name: 'আমার ডিভাইস' }));
+    expect(navigate.mock.calls[0]?.[0]).toBe('/account/sessions');
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
   });
 });

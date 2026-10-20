@@ -1,4 +1,4 @@
-import { Alert, Button } from '@css/ui';
+import { Alert, Button, Text } from '@css/ui';
 import { Outlet } from 'react-router';
 import { useTranslations } from 'use-intl';
 import { DocumentTitle } from '../components/DocumentTitle';
@@ -13,7 +13,7 @@ export function ForbiddenContent() {
     <>
       <DocumentTitle title={t('title')} />
       <h1 className="admin-title">{t('title')}</h1>
-      <p className="m-0">{t('message')}</p>
+      <Text>{t('message')}</Text>
       <div>
         <Button variant="secondary" href="/">
           {t('home')}

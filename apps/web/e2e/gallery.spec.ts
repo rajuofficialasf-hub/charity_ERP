@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 
 // Dev-only component gallery (T1.4). The E2E build includes it (CSS_DEV_GALLERY=1); a normal
 // production build does not. Every component is checked at 360x640 (mobile project) and
@@ -28,6 +28,10 @@ const SECTIONS = [
   'progress',
   'misc',
 ];
+
+/** The text a date field shows, without spaces and invisible marks. */
+const shownDate = async (field: Locator) =>
+  ((await field.textContent()) ?? '').replace(/[\s\u200b\u2066-\u2069]/g, '');
 
 test.beforeEach(async ({ page }, info) => {
   await page.setViewportSize(
@@ -124,14 +128,25 @@ test.describe('gallery keyboard flows', () => {
 
   test('date picker opens the calendar and keeps dd-mm-yyyy with English digits', async ({
     page,
-  }) => {
+  }, info) => {
     const field = page.locator('#select .ui-date-group');
-    await expect(field).toContainText('01-12-2026');
+    await expect.poll(() => shownDate(field)).toBe('01-12-2026');
     await field.getByRole('button', { name: /Open calendar/ }).click();
     const grid = page.getByRole('grid', { name: /December 2026/ });
     await expect(grid).toBeVisible();
-    await grid.getByRole('button', { name: /15/ }).first().click();
-    await expect(field).toContainText('15-12-2026');
+    if (info.project.name === 'mobile') {
+      // on a phone the calendar is a bottom sheet
+      const sheet = page.getByRole('dialog', { name: 'Distribution date' });
+      await expect
+        .poll(async () => {
+          const box = await sheet.boundingBox();
+          return box && Math.round(box.y + box.height);
+        })
+        .toBe(640);
+    }
+    await grid.getByRole('gridcell', { name: '15' }).click();
+    await expect(grid).toBeHidden();
+    await expect.poll(() => shownDate(field)).toBe('15-12-2026');
   });
 
   test('table sorts by a header and selects rows', async ({ page }, info) => {

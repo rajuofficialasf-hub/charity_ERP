@@ -1,6 +1,16 @@
 import { formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Alert, Badge, Button, ConfirmDialog, ErrorState, Skeleton } from '@css/ui';
+import {
+  Alert,
+  Badge,
+  Button,
+  ConfirmDialog,
+  ErrorState,
+  Grid,
+  Skeleton,
+  Stack,
+  Text,
+} from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRightLeft, CheckCheck, UserX } from 'lucide-react';
 import { useId, useState } from 'react';
@@ -160,13 +170,13 @@ function Handover({ official }: { official: PanelUser }) {
 
   return (
     <div className="admin-panel-section">
-      <div className="flex flex-wrap items-center gap-2">
+      <Stack direction="row" wrap align="center" gap={2}>
         <h2 className="admin-subtitle">{user.displayName}</h2>
         <Badge
           tone={deactivated ? 'neutral' : user.state === 'active' ? 'success' : 'warning'}
           label={t(`state.${user.state}`)}
         />
-      </div>
+      </Stack>
       {notice && (
         <Alert tone="success" live="status" onDismiss={() => setNotice(null)}>
           {notice}
@@ -208,9 +218,7 @@ function Handover({ official }: { official: PanelUser }) {
             />
           ))}
           {view.completedAt && view.pending.length === 0 ? (
-            <p className="m-0">
-              {t('completed', { date: formatDateTime(view.completedAt, locale) })}
-            </p>
+            <Text>{t('completed', { date: formatDateTime(view.completedAt, locale) })}</Text>
           ) : (
             <div>
               <Button
@@ -281,13 +289,17 @@ function CategoryItems({
         {t(`category.${category}`)}
       </h4>
       {items.length === 0 ? (
-        <p className="admin-muted m-0">{t('category_empty')}</p>
+        <Text className="admin-muted">{t('category_empty')}</Text>
       ) : (
-        <ul className="m-0 grid gap-2 p-0" role="list">
+        <Grid gap={2} as="ul" role="list">
           {items.map((item) => (
-            <li
+            <Stack
+              direction="row"
+              wrap
+              align="center"
+              gap={2}
+              as="li"
               key={`${item.itemType}:${item.itemId}`}
-              className="flex flex-wrap items-center gap-2"
             >
               <span>{item.label}</span>
               <Button
@@ -299,9 +311,9 @@ function CategoryItems({
               >
                 {t('assign_one')}
               </Button>
-            </li>
+            </Stack>
           ))}
-        </ul>
+        </Grid>
       )}
     </section>
   );

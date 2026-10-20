@@ -1,7 +1,7 @@
 /**
- * Breakpoints of the design system (DESIGN_SYSTEM 2.8, O-40 item 7). CSS variables cannot be read
- * inside media queries, so these numbers are also written into tailwind.css and the component CSS;
- * a test keeps all of them equal.
+ * Breakpoints of the design system (docs/ui/DESIGN_SYSTEM.md, "Breakpoints"). CSS variables cannot
+ * be read inside media queries, so these numbers are also written into the component CSS and the
+ * MUI theme; a test keeps all of them equal.
  */
 export const BREAKPOINTS = { sm: 640, lg: 1024, xl: 1280 } as const;
 

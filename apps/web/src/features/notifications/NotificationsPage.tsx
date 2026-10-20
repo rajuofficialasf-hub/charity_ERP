@@ -10,6 +10,7 @@ import {
   SegmentedControl,
   Skeleton,
   Tabs,
+  Text,
 } from '@css/ui';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell, CheckCheck } from 'lucide-react';
@@ -223,12 +224,8 @@ function EmailPreference() {
                 save.mutate({ email_mode: id === 'immediate' ? 'immediate' : 'digest' });
             }}
           />
-          <p className="admin-muted m-0">{t('help')}</p>
-          {save.isSuccess && (
-            <p role="status" className="m-0">
-              {t('saved')}
-            </p>
-          )}
+          <Text tone="muted">{t('help')}</Text>
+          {save.isSuccess && <Text role="status">{t('saved')}</Text>}
           {save.isError && <Alert tone="danger">{tc('state.error.text')}</Alert>}
         </>
       )}

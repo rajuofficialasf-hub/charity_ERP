@@ -16,9 +16,8 @@ export const PASSWORD = 'CssDemo2026';
 const PHONE_PROJECTS = new Set(['mobile', 'iphone']);
 export const isPhone = (info: TestInfo) => PHONE_PROJECTS.has(info.project.name);
 
-/** axe on the page; React Aria's live announcer node is excluded as in auth.spec.ts. */
-export const scan = (page: Page) =>
-  new AxeBuilder({ page }).exclude('[data-live-announcer]').analyze();
+/** axe on the whole page. */
+export const scan = (page: Page) => new AxeBuilder({ page }).analyze();
 
 export async function signIn(page: Page, loginId: string): Promise<void> {
   await page.goto('/login');

@@ -1,6 +1,15 @@
 import { formatDate } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Badge, EmptyState, ErrorState, Skeleton } from '@css/ui';
+import {
+  Badge,
+  DescriptionList,
+  EmptyState,
+  ErrorState,
+  Grid,
+  Skeleton,
+  Stack,
+  Text,
+} from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import { UserX } from 'lucide-react';
 import { type ReactNode, useId } from 'react';
@@ -90,7 +99,7 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
       : (code ?? empty);
   const optional = (key: keyof BeneficiaryProfile, label: string, value: ReactNode) =>
     key in p ? [[label, value] as [string, ReactNode]] : [];
-  const none = <p className="admin-muted m-0">{tp('no_rows')}</p>;
+  const none = <Text className="admin-muted">{tp('no_rows')}</Text>;
   return (
     <>
       <DocumentTitle title={p.name} />
@@ -138,11 +147,11 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
           {p.familyMembers.length === 0 ? (
             none
           ) : (
-            <ul className="m-0 grid gap-1 p-0" role="list">
+            <Grid gap={1} as="ul" role="list">
               {p.familyMembers.map((m) => (
                 <li key={m.id}>{m.name}</li>
               ))}
-            </ul>
+            </Grid>
           )}
         </Section>
       )}
@@ -151,13 +160,13 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
         {p.projectsByYear.length === 0 ? (
           none
         ) : (
-          <ul className="m-0 grid gap-2 p-0" role="list">
+          <Grid gap={2} as="ul" role="list">
             {p.projectsByYear.map((y) => (
               <li key={y.year}>
                 <strong>{y.year}</strong>: {y.projects.map(nameOf).join(', ')}
               </li>
             ))}
-          </ul>
+          </Grid>
         )}
       </Section>
 
@@ -166,17 +175,17 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
           {p.applications.length === 0 ? (
             none
           ) : (
-            <ul className="m-0 grid gap-2 p-0" role="list">
+            <Grid gap={2} as="ul" role="list">
               {p.applications.map((a) => (
-                <li key={a.id} className="flex flex-wrap gap-2">
+                <Stack direction="row" wrap gap={2} as="li" key={a.id}>
                   <strong>{a.appNo ?? projectName.get(a.projectId) ?? ''}</strong>
                   <span>{projectName.get(a.projectId)}</span>
                   <span className="admin-muted">
                     {a.submittedAt ? formatDate(a.submittedAt) : empty}
                   </span>
-                </li>
+                </Stack>
               ))}
-            </ul>
+            </Grid>
           )}
         </Section>
       )}
@@ -185,13 +194,13 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
         {p.distributions.length === 0 ? (
           none
         ) : (
-          <ul className="m-0 grid gap-2 p-0" role="list">
+          <Grid gap={2} as="ul" role="list">
             {p.distributions.map((d) => (
               <li key={d.id}>
                 {projectName.get(d.projectId) ?? ''} · {formatDate(d.doneAt)}
               </li>
             ))}
-          </ul>
+          </Grid>
         )}
       </Section>
 
@@ -200,7 +209,7 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
           {p.dawah.attendance.length + p.dawah.exams.length === 0 ? (
             none
           ) : (
-            <ul className="m-0 grid gap-1 p-0" role="list">
+            <Grid gap={1} as="ul" role="list">
               <li>
                 {tp('attendance', {
                   present: p.dawah.attendance.filter((a) => a.present).length,
@@ -213,7 +222,7 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
                   total: p.dawah.exams.length,
                 })}
               </li>
-            </ul>
+            </Grid>
           )}
         </Section>
       )}
@@ -238,13 +247,13 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
           {p.activities.length === 0 ? (
             none
           ) : (
-            <ul className="m-0 grid gap-1 p-0" role="list">
+            <Grid gap={1} as="ul" role="list">
               {p.activities.map((a) => (
                 <li key={a.id}>
                   {projectName.get(a.projectId) ?? ''} · {formatDate(a.doneAt)}
                 </li>
               ))}
-            </ul>
+            </Grid>
           )}
         </Section>
       )}
@@ -253,16 +262,7 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
 }
 
 function Rows({ items }: { items: [string, ReactNode][] }) {
-  return (
-    <dl className="grid gap-2 sm:grid-cols-[12rem_1fr]">
-      {items.map(([label, value]) => (
-        <div key={label} className="contents">
-          <dt className="font-bold">{label}</dt>
-          <dd className="m-0">{value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
+  return <DescriptionList items={items.map(([label, value]) => ({ label, value }))} />;
 }
 
 /** The union (when sent), the upazila, the district and the division of the beneficiary. */

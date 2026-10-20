@@ -2,9 +2,10 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { brotliDecompressSync } from 'node:zlib';
-import { compile } from '@tailwindcss/node';
 import { describe, expect, it } from 'vitest';
 import { BREAKPOINTS } from '../breakpoints.js';
+import { createUiTheme } from '../templates/mui/theme.js';
+import { DESKTOP_TOKENS, ROOT_TOKENS } from '../tokens.js';
 
 const root = join(__dirname, '../..');
 const repo = join(root, '../..');
@@ -29,6 +30,32 @@ describe('tokens (DESIGN_SYSTEM 2.9)', () => {
     const tokens = read(join(root, 'src/styles/tokens.css'));
     // Prettier writes hex in lower case; values are compared case-insensitively.
     expect(squash(tokens).toLowerCase()).toBe(squash(block).toLowerCase());
+  });
+
+  it('tokens.ts holds the same names and values as the design system', () => {
+    const ds = read(join(repo, 'docs/ui/DESIGN_SYSTEM.md'));
+    const section = ds.slice(ds.indexOf('### 2.9 Complete token block'));
+    const start = section.indexOf('```css') + 6;
+    const block = section
+      .slice(start, section.indexOf('```', start))
+      .replace(/\/\*[\s\S]*?\*\//g, '');
+    const variables = (css: string) =>
+      Object.fromEntries(
+        [...css.matchAll(/--([a-z0-9-]+):\s*([^;]+);/g)].map((m) => [
+          m[1]!,
+          m[2]!.replace(/\s+/g, '').toLowerCase(),
+        ]),
+      );
+    const squashed = (record: Record<string, string>) =>
+      Object.fromEntries(
+        Object.entries(record).map(([k, v]) => [k, v.replace(/\s+/g, '').toLowerCase()]),
+      );
+    const rootBlock = block.slice(block.indexOf(':root'), block.indexOf('@media'));
+    const desktop = block.slice(block.indexOf('@media (min-width: 1024px)'));
+    expect(squashed(ROOT_TOKENS)).toEqual(variables(rootBlock));
+    expect(squashed(DESKTOP_TOKENS)).toEqual(
+      variables(desktop.slice(0, desktop.indexOf('@media', 10))),
+    );
   });
 
   it('no component or base style writes a raw hex colour (DESIGN_SYSTEM 10)', () => {
@@ -69,46 +96,12 @@ describe('tokens (DESIGN_SYSTEM 2.9)', () => {
       [...read(f).matchAll(/\((?:min|max)-width:\s*(\d+px)\)/g)].map((m) => m[1]!),
     );
     expect(widths.filter((w) => !edges.has(w))).toEqual([]);
-    const preset = read(join(root, 'src/styles/tailwind.css'));
-    for (const [name, px] of Object.entries(BREAKPOINTS))
-      expect(preset).toContain(`--breakpoint-${name}: ${px}px;`);
-  });
-});
-
-describe('Tailwind preset (D-066)', () => {
-  it('produces design-system utilities only', async () => {
-    const css = [
-      "@import 'tailwindcss/theme.css' layer(theme);",
-      "@import 'tailwindcss/utilities.css' layer(utilities);",
-      "@import './src/styles/tailwind.css';",
-    ].join('\n');
-    const compiler = await compile(css, { base: root, onDependency: () => {} });
-    const out = compiler.build([
-      'bg-brand-primary',
-      'text-text-secondary',
-      'p-5',
-      'gap-3',
-      'rounded-lg',
-      'shadow-2',
-      'text-display',
-      'lg:p-4',
-      // must not exist:
-      'bg-red-500',
-      'p-7',
-      'md:p-1',
-      'tracking-wide',
-      'text-xl',
-      'shadow-xl',
-    ]);
-    expect(out).toContain('background-color: var(--color-brand-primary)');
-    expect(out).toContain('padding: var(--space-5)');
-    expect(out).toContain('--tw-shadow: var(--elevation-2)');
-    expect(out).toContain('font-size: var(--text-display)');
-    expect(out).toContain('@media (width >= 1024px)');
-    for (const absent of ['bg-red-500', 'p-7', 'md\\:p-1', 'tracking-wide', 'text-xl', 'shadow-xl'])
-      expect(out).not.toContain(`.${absent} `);
-    // No theme variables are emitted: every value lives once, in tokens.css.
-    expect(out).not.toMatch(/--color-brand-primary:/);
+    // the MUI theme names the same widths sm, md and lg
+    expect(createUiTheme().breakpoints.values).toMatchObject({
+      sm: BREAKPOINTS.sm,
+      md: BREAKPOINTS.lg,
+      lg: BREAKPOINTS.xl,
+    });
   });
 });
 
@@ -214,7 +207,7 @@ function woff2Table(file: Buffer, tag: string): Buffer {
   return data.subarray(entry.offset, entry.offset + entry.length);
 }
 
-describe('fonts (DESIGN_SYSTEM 2.5, D-065)', () => {
+describe('fonts: the UbuntuSans subset and the Bornomala files', () => {
   const fonts = join(root, 'fonts');
 
   it('ships the UbuntuSans subset under the derivative name, weights 400 to 700', () => {

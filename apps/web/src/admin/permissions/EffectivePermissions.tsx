@@ -1,6 +1,15 @@
 import type { EffectivePermission, PermissionInfo, Role } from '@css/shared/access';
 import type { Locale } from '@css/shared/i18n';
-import { Alert, Button, EmptyState, ErrorState, Skeleton, Table, type TableColumn } from '@css/ui';
+import {
+  Alert,
+  Button,
+  EmptyState,
+  ErrorState,
+  Skeleton,
+  Table,
+  type TableColumn,
+  Text,
+} from '@css/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { KeyRound } from 'lucide-react';
 import { useId, useState } from 'react';
@@ -82,9 +91,9 @@ export function EffectivePermissions({ user }: { user: PanelUser }) {
       <h2 id={headingId} className="admin-subtitle">
         {t('effective')}
       </h2>
-      <p className="m-0">
+      <Text>
         <strong>{t('roles')}:</strong> {user.roles.map(roleName).join(', ')}
-      </p>
+      </Text>
       <div>
         <Button icon={KeyRound} onPress={() => setGranting(true)}>
           {t('grant')}

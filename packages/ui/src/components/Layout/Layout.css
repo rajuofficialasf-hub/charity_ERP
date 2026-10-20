@@ -1,0 +1,105 @@
+/* Layout pieces of the set: stack, grid, description list and text, on the spacing tokens. */
+@layer components {
+  .ui-stack {
+    display: flex;
+    flex-direction: column;
+  }
+  .ui-stack-row {
+    flex-direction: row;
+  }
+  .ui-stack-wrap {
+    flex-wrap: wrap;
+  }
+  .ui-grid {
+    display: grid;
+  }
+  .ui-grid-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ui-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .ui-grid-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .ui-grid-5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .ui-gap-1 {
+    gap: var(--space-1);
+  }
+  .ui-gap-2 {
+    gap: var(--space-2);
+  }
+  .ui-gap-3 {
+    gap: var(--space-3);
+  }
+  .ui-gap-4 {
+    gap: var(--space-4);
+  }
+  .ui-gap-5 {
+    gap: var(--space-5);
+  }
+  .ui-gap-6 {
+    gap: var(--space-6);
+  }
+  .ui-align-start {
+    align-items: flex-start;
+  }
+  .ui-align-center {
+    align-items: center;
+  }
+  .ui-align-end {
+    align-items: flex-end;
+  }
+  .ui-align-baseline {
+    align-items: baseline;
+  }
+  .ui-align-stretch {
+    align-items: stretch;
+  }
+  .ui-justify-start {
+    justify-content: flex-start;
+  }
+  .ui-justify-center {
+    justify-content: center;
+  }
+  .ui-justify-end {
+    justify-content: flex-end;
+  }
+  .ui-justify-between {
+    justify-content: space-between;
+  }
+
+  .ui-dl {
+    display: grid;
+    gap: var(--space-2);
+  }
+  @media (min-width: 640px) {
+    .ui-dl-sm {
+      grid-template-columns: 10rem 1fr;
+    }
+    .ui-dl-md {
+      grid-template-columns: 12rem 1fr;
+    }
+    .ui-dl-lg {
+      grid-template-columns: 14rem 1fr;
+    }
+  }
+  .ui-dl-item {
+    display: contents;
+  }
+  .ui-dl dt {
+    font-weight: var(--font-weight-bold);
+  }
+
+  .ui-text {
+    margin: 0;
+  }
+  .ui-text-muted {
+    color: var(--color-text-secondary);
+  }
+  .ui-text-bold {
+    font-weight: var(--font-weight-bold);
+  }
+}

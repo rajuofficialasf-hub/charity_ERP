@@ -22,13 +22,13 @@
       padding: var(--space-4);
     }
   }
-  .ui-card-link[data-hovered] {
+  .ui-card-link:hover {
     box-shadow: var(--elevation-hover);
     transform: translateY(-2px);
     border-color: rgba(0, 123, 62, 0.25);
   }
-  .ui-card-link[data-focus-visible],
-  .ui-attention[data-focus-visible] {
+  .ui-card-link:focus-visible,
+  .ui-attention:focus-visible {
     outline: 2px solid var(--color-brand-primary);
     outline-offset: 2px;
   }
@@ -124,7 +124,7 @@
       box-shadow var(--motion-base) var(--ease-standard),
       transform var(--motion-base) var(--ease-out);
   }
-  a.ui-attention[data-hovered] {
+  a.ui-attention:hover {
     box-shadow: var(--elevation-hover);
     transform: translateY(-1px);
   }
@@ -171,7 +171,7 @@
     color: var(--color-text-secondary);
     transition: transform var(--motion-base) var(--ease-out);
   }
-  a.ui-attention[data-hovered] .ui-attention-chevron {
+  a.ui-attention:hover .ui-attention-chevron {
     transform: translateX(3px);
   }
 }

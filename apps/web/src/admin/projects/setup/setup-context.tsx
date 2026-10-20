@@ -158,7 +158,7 @@ export function SetupSection({
   children: ReactNode;
 }) {
   return (
-    <section id={id} className="admin-setup-section" aria-label={title}>
+    <section id={id} aria-label={title}>
       <Card title={title} headingLevel={2} actions={actions}>
         {children}
       </Card>

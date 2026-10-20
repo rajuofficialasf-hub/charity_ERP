@@ -7,6 +7,7 @@ import {
   Card,
   EmptyState,
   ErrorState,
+  Grid,
   Modal,
   Switch,
   Table,
@@ -238,11 +239,11 @@ function ListCard({ list, onNotice }: { list: EditableList; onNotice: (text: str
 export function ListsPanel({ onNotice }: { onNotice: (text: string) => void }) {
   const t = useTranslations('admin.settings.lists');
   return (
-    <div className="grid gap-4">
+    <Grid gap={4}>
       <p className="admin-muted">{t('intro')}</p>
       {EDITABLE_LISTS.map((list) => (
         <ListCard key={list} list={list} onNotice={onNotice} />
       ))}
-    </div>
+    </Grid>
   );
 }

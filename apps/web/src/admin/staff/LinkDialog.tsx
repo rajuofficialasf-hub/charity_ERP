@@ -1,7 +1,7 @@
 import type { InvitationIssued } from '@css/shared/auth';
 import { formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Alert, Button, Modal, TextField } from '@css/ui';
+import { Alert, Button, Modal, Text, TextField } from '@css/ui';
 import { Copy } from 'lucide-react';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -60,7 +60,7 @@ export function LinkDialog({
           {copied === 'yes' ? t('copied') : t('copy_failed')}
         </Alert>
       )}
-      <p className="m-0">{t('once')}</p>
+      <Text>{t('once')}</Text>
     </Modal>
   );
 }

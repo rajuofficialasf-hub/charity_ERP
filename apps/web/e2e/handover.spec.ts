@@ -1,6 +1,5 @@
-import AxeBuilder from '@axe-core/playwright';
 import { type APIRequestContext, expect, type Page, test } from '@playwright/test';
-import { openTab } from './support/admin';
+import { openTab, scan } from './support/admin';
 
 // The staff handover (BD-08, BR-034; plan
 // docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U14): the Department
@@ -14,8 +13,6 @@ const OFFICIAL = 'handover.rpm@example.org';
 /** Either refusal of a deactivation with pending work (the first run, or after a repeat). */
 const REFUSED =
   /অ্যাকাউন্ট বন্ধের আগে ব্যবহারকারীর অপেক্ষমাণ কাজ হস্তান্তর করুন।|কিছু অপেক্ষমাণ কাজ এখনও হস্তান্তর করা হয়নি।/;
-
-const scan = (page: Page) => new AxeBuilder({ page }).exclude('[data-live-announcer]').analyze();
 
 /** Picks a user in a search combobox by typing a part of the email. */
 async function pickUser(page: Page, label: RegExp, text: string, option: RegExp) {

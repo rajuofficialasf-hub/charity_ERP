@@ -1,6 +1,6 @@
 import { formatDate } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import { Badge, Button, Card, EmptyState, ErrorState, Skeleton } from '@css/ui';
+import { Badge, Button, Card, EmptyState, ErrorState, Skeleton, Text } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import { FolderKanban } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -66,7 +66,7 @@ function ProjectList() {
               tone={p.consentStatus === 'accepted' ? 'success' : 'warning'}
               label={p.consentStatus === 'accepted' ? t('accepted') : t('pending')}
             />
-            {window(p) && <p className="admin-muted">{window(p)}</p>}
+            {window(p) && <Text tone="muted">{window(p)}</Text>}
           </Card>
         </li>
       ))}

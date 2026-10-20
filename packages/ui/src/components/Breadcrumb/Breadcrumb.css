@@ -48,12 +48,12 @@
     white-space: nowrap;
     outline: none;
   }
-  .ui-breadcrumb-link[data-current] {
+  .ui-breadcrumb-link[aria-current='page'] {
     color: var(--color-text-secondary);
     text-decoration: none;
   }
-  .ui-breadcrumb-back[data-focus-visible],
-  .ui-breadcrumb-link[data-focus-visible] {
+  .ui-breadcrumb-back:focus-visible,
+  .ui-breadcrumb-link:focus-visible {
     outline: 2px solid var(--color-brand-primary);
     outline-offset: 2px;
   }

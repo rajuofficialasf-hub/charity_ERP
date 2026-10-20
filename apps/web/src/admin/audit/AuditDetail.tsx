@@ -1,6 +1,6 @@
 import { formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Button, Drawer } from '@css/ui';
+import { Button, DescriptionList, Drawer } from '@css/ui';
 import { History } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import type { AuditEntry } from './audit-api';
@@ -65,14 +65,11 @@ export function AuditDetail({
         ) : undefined
       }
     >
-      <dl className="grid gap-2 sm:grid-cols-[10rem_1fr]">
-        {facts.map(([label, value]) => (
-          <div key={label} className="contents">
-            <dt className="font-bold">{label}</dt>
-            <dd className="m-0 break-all">{value}</dd>
-          </div>
-        ))}
-      </dl>
+      <DescriptionList
+        labelWidth="sm"
+        className="admin-audit-facts"
+        items={facts.map(([label, value]) => ({ label, value }))}
+      />
       <div className="admin-audit-compare">
         <Snapshot label={t('old')} value={entry.old} />
         <Snapshot label={t('new')} value={entry.new} />

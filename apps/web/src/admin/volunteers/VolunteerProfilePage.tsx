@@ -1,6 +1,16 @@
 import { formatDate } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Alert, Badge, EmptyState, ErrorState, Skeleton } from '@css/ui';
+import {
+  Alert,
+  Badge,
+  DescriptionList,
+  EmptyState,
+  ErrorState,
+  Grid,
+  Skeleton,
+  Stack,
+  Text,
+} from '@css/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { UserX } from 'lucide-react';
 import { type ReactNode, useId, useState } from 'react';
@@ -106,14 +116,7 @@ function Profile({ profile: p }: { profile: VolunteerProfile }) {
     void queryClient.invalidateQueries({ queryKey: VOLUNTEERS_KEY });
   };
   const rows = (items: [string, ReactNode][]) => (
-    <dl className="grid gap-2 sm:grid-cols-[12rem_1fr]">
-      {items.map(([label, value]) => (
-        <div key={label} className="contents">
-          <dt className="font-bold">{label}</dt>
-          <dd className="m-0">{value}</dd>
-        </div>
-      ))}
-    </dl>
+    <DescriptionList items={items.map(([label, value]) => ({ label, value }))} />
   );
   const photos: [string, string | null | undefined, boolean][] = [
     [tf('form.photo'), p.photoFileId, true],
@@ -227,8 +230,8 @@ function Profile({ profile: p }: { profile: VolunteerProfile }) {
       <Section title={t('sections.photos')}>
         <div className="admin-photos">
           {photos.map(([label, fileId, visible]) => (
-            <figure key={label} className="m-0 grid gap-1">
-              <figcaption className="font-bold">{label}</figcaption>
+            <Grid gap={1} as="figure" key={label}>
+              <figcaption>{label}</figcaption>
               {!visible ? (
                 <span>{hidden}</span>
               ) : fileId ? (
@@ -236,46 +239,46 @@ function Profile({ profile: p }: { profile: VolunteerProfile }) {
               ) : (
                 <span>{empty}</span>
               )}
-            </figure>
+            </Grid>
           ))}
         </div>
       </Section>
 
       <Section title={t('sections.projects')}>
         {p.projects.length === 0 ? (
-          <p className="admin-muted m-0">{t('no_projects')}</p>
+          <Text className="admin-muted">{t('no_projects')}</Text>
         ) : (
-          <ul className="m-0 grid gap-2 p-0" role="list">
+          <Grid gap={2} as="ul" role="list">
             {p.projects.map((project) => (
-              <li key={project.id} className="flex flex-wrap items-center gap-2">
+              <Stack direction="row" wrap align="center" gap={2} as="li" key={project.id}>
                 <strong>{locale === 'en' ? project.nameEn : project.nameBn}</strong>
                 <span className="admin-muted">{project.year}</span>
                 <span>
                   {t('permission_set')}: {project.permissionSet}
                 </span>
                 {project.isPaid && <Badge tone="info" label={t('paid')} />}
-              </li>
+              </Stack>
             ))}
-          </ul>
+          </Grid>
         )}
       </Section>
 
       <Section title={t('sections.team')}>
         {p.team.length === 0 ? (
-          <p className="admin-muted m-0">{t('no_team')}</p>
+          <Text className="admin-muted">{t('no_team')}</Text>
         ) : (
-          <ul className="m-0 grid gap-2 p-0" role="list">
+          <Grid gap={2} as="ul" role="list">
             {p.team.map((m) => (
               <li key={m.id}>
                 <Link to={`/admin/volunteers/${m.id}`}>{m.displayName}</Link>
               </li>
             ))}
-          </ul>
+          </Grid>
         )}
       </Section>
 
       <Section title={t('sections.summary')}>
-        <p className="admin-muted m-0">{t('summary_later')}</p>
+        <Text className="admin-muted">{t('summary_later')}</Text>
       </Section>
 
       {'category' in p && (
@@ -287,21 +290,21 @@ function Profile({ profile: p }: { profile: VolunteerProfile }) {
                 empty,
             ],
           ])}
-          {p.ratings?.length === 0 && <p className="admin-muted m-0">{t('no_ratings')}</p>}
+          {p.ratings?.length === 0 && <Text className="admin-muted">{t('no_ratings')}</Text>}
         </Section>
       )}
 
       <Section title={t('sections.blocklist')}>
-        <div className="grid gap-2">
-          <p className="m-0">
+        <Grid gap={2}>
+          <Text>
             {p.blocklist.blocked && p.blocklist.blockedAt
               ? t('blocked_since', { date: formatDate(p.blocklist.blockedAt) })
               : t('not_blocked')}
-          </p>
+          </Text>
           {p.blocklist.reason && (
-            <p className="m-0">
+            <Text>
               {t('reason')}: {p.blocklist.reason}
-            </p>
+            </Text>
           )}
           {(p.actions.block || p.actions.unblock) && (
             <div>
@@ -313,7 +316,7 @@ function Profile({ profile: p }: { profile: VolunteerProfile }) {
               />
             </div>
           )}
-        </div>
+        </Grid>
       </Section>
 
       {p.actions.viewSessions && (

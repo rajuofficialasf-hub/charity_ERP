@@ -63,8 +63,8 @@ export function LifecycleActions({
       : [];
 
   return (
-    <div className="admin-lifecycle">
-      <div className="admin-lifecycle-buttons">
+    <div>
+      <div>
         {moves.map((m) => (
           <Button
             key={m}

@@ -1,22 +1,35 @@
 /* Tabs (DESIGN_SYSTEM 5.13): 3 px brand-gradient underline (UX-14); segmented track variant. */
 @layer components {
   .ui-tablist {
-    display: flex;
-    gap: var(--space-1);
+    min-height: 0;
     margin-bottom: var(--space-4);
-    overflow-x: auto;
     border-bottom: 1px solid var(--color-border-default);
+  }
+  .ui-tablist .MuiTabs-list {
+    gap: var(--space-1);
+  }
+  .ui-tablist .MuiTabs-scroller {
     scrollbar-width: none;
   }
-  .ui-tablist::-webkit-scrollbar {
+  .ui-tablist .MuiTabs-scroller::-webkit-scrollbar {
+    display: none;
+  }
+  .ui-tab-indicator {
     display: none;
   }
   .ui-tab {
     display: inline-flex;
     flex: none;
+    flex-direction: row;
     align-items: center;
     gap: var(--space-1);
+    min-width: 0;
+    max-width: none;
     min-height: 44px;
+    font: inherit;
+    letter-spacing: normal;
+    text-transform: none;
+    opacity: 1;
     margin-bottom: -1px;
     padding: 0 var(--space-3);
     border-bottom: 3px solid transparent;
@@ -28,20 +41,20 @@
       color var(--motion-fast) var(--ease-standard),
       border-color var(--motion-base) var(--ease-standard);
   }
-  .ui-tab[data-hovered] {
+  .ui-tab:hover {
     color: var(--color-text-primary);
   }
-  .ui-tab[data-selected] {
+  .ui-tab.Mui-selected {
     color: var(--color-brand-ink);
     font-weight: var(--font-weight-bold);
     border-image: var(--gradient-brand) 1;
   }
-  .ui-tab[data-focus-visible] {
+  .ui-tab.Mui-focusVisible {
     outline: 2px solid var(--color-brand-primary);
     outline-offset: -2px;
     border-radius: var(--radius-sm);
   }
-  .ui-tab[data-disabled] {
+  .ui-tab.Mui-disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
@@ -55,7 +68,7 @@
   .ui-tabpanel {
     outline: none;
   }
-  .ui-tabpanel[data-focus-visible] {
+  .ui-tabpanel:focus-visible {
     outline: 2px solid var(--color-brand-primary);
     outline-offset: 2px;
   }
@@ -63,7 +76,6 @@
   /* segmented: muted track with a raised white segment */
   .ui-tabs-segmented .ui-tablist {
     display: inline-flex;
-    gap: 2px;
     padding: 3px;
     border: 0;
     border-radius: var(--radius-md);
@@ -77,7 +89,10 @@
     border: 0;
     border-radius: var(--radius-sm);
   }
-  .ui-tabs-segmented .ui-tab[data-selected] {
+  .ui-tabs-segmented .ui-tablist .MuiTabs-list {
+    gap: 2px;
+  }
+  .ui-tabs-segmented .ui-tab.Mui-selected {
     background: var(--color-bg-surface);
     border-image: none;
     box-shadow: var(--elevation-1);

@@ -13,6 +13,7 @@
   }
   .ui-menu-item {
     display: flex;
+    font: inherit;
     align-items: center;
     gap: var(--space-2);
     min-height: 44px;
@@ -23,11 +24,12 @@
     cursor: pointer;
     outline: none;
   }
-  .ui-menu-item[data-focused],
-  .ui-menu-item[data-hovered] {
+  .ui-menu-item:hover,
+  .ui-menu-item.Mui-focusVisible,
+  .ui-menu-item:focus {
     background: var(--color-bg-brand-soft);
   }
-  .ui-menu-item[data-focus-visible] {
+  .ui-menu-item.Mui-focusVisible {
     box-shadow: var(--focus-ring);
   }
 }

@@ -103,7 +103,7 @@ export function RequireAuth({ children }: { children: (me: Me) => ReactNode }) {
     return <Navigate to={PASSWORD_PATH} replace />;
   if (status !== 'signed-in' || !me)
     return (
-      <div className="flex min-h-dvh items-center justify-center" role="status" aria-busy="true">
+      <div className="app-loading" role="status" aria-busy="true">
         <Spinner />
         <VisuallyHidden>{t('loading')}</VisuallyHidden>
       </div>

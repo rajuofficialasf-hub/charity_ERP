@@ -138,14 +138,20 @@ signed-in person adds when it is not cached yet, without failing on it.
 |---|---|---|
 | Before: every page except the admin area in the entry | 390.0 KB | 17 |
 | After: only the login in the entry, every other page and the app shell lazy | 216.6 KB | 18 |
+| 2026-10-19 (D-104): only the device language's catalogue at start, the MUI theme in | 229.7 KB | 18 |
+| 2026-10-20: the component set on MUI core, React Aria removed (D-103) | 211.8 KB | 18 |
+| 2026-10-20: Tailwind removed, the final state of the MUI work | 212.1 KB | 18 |
 
 What a signed-in page adds on top of the first route when it is not yet cached (static import
 closure of its chunks, gzip): the home with the shell 76.0 KB, my projects with the shell 72.1 KB,
 the volunteer tab with the shell and the admin area 134.2 KB, the registration page 162.6 KB.
 
-The message catalogue (both languages, every namespace, about 45 KB gzip) stays in the entry; it
-is the next step if the first route grows past the budget (load the active language only, and the
-gallery namespace only in the gallery build).
+Since D-104 the entry loads only the device language's catalogue (the Bengali one, about 27 KB
+gzip, is counted in the first route) and fetches the other when the person switches. With the
+component set on MUI core (D-103) the login's fields are native elements and MUI's theme, button
+and style engine are the only MUI code on the first route; the home of a signed-in person adds
+63.9 KB on top (it was 76.0 KB with React Aria). The next step if the first route grows past the
+budget is the gallery namespace, which only the gallery build needs.
 
 Lighthouse 12 on the mobile profile against the production build (`vite preview`, simulated slow
 4G, `/login`), 2026-10-18: Performance 78, Accessibility 100, Best Practices 100; First Contentful

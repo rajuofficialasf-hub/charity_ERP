@@ -1,12 +1,14 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { bn, en } from '@css/shared/i18n';
+import { act, render, screen } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useTranslations } from 'use-intl';
 import { PUBLIC_SETTINGS } from '../../test/msw/handlers';
 import { server } from '../../test/msw/server';
 import { createQueryClient } from '../lib/query-client';
-import { LocaleProvider } from './LocaleProvider';
+import { forgetMessages, primeMessages } from './locale';
+import { LocaleProvider, useLocaleSwitch } from './LocaleProvider';
 
 function Probe() {
   const t = useTranslations('common.language');
@@ -59,5 +61,62 @@ describe('the system default language', () => {
     window.localStorage.setItem('css_locale', 'bn');
     mount();
     expect(await screen.findByText('ভাষা')).toBeInTheDocument();
+  });
+});
+
+function Switch() {
+  const { setLocale } = useLocaleSwitch();
+  return (
+    <button type="button" onClick={() => setLocale('en')}>
+      switch
+    </button>
+  );
+}
+
+// One language at a time (docs/ui/I18N.md): nothing renders before the first catalogue, and a
+// switch shows the other language only once its catalogue has arrived, never keys.
+describe('loading the catalogues', () => {
+  afterEach(() => {
+    document.cookie = 'css_locale=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+    window.localStorage.clear();
+    primeMessages('bn', bn);
+    primeMessages('en', en);
+  });
+
+  it('renders nothing until the device language has loaded, then the page in it', async () => {
+    forgetMessages();
+    serverDefault('bn');
+    const view = render(
+      <QueryClientProvider client={createQueryClient()}>
+        <LocaleProvider initial="en">
+          <Probe />
+        </LocaleProvider>
+      </QueryClientProvider>,
+    );
+    expect(view.container).toBeEmptyDOMElement();
+    expect(await screen.findByText('Language')).toBeInTheDocument();
+    expect(document.documentElement.lang).toBe('en');
+  });
+
+  it('keeps the shown language while the other one loads, then switches without keys', async () => {
+    forgetMessages();
+    primeMessages('bn', bn);
+    serverDefault('bn');
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <LocaleProvider initial="bn">
+          <Probe />
+          <Switch />
+        </LocaleProvider>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText('ভাষা')).toBeInTheDocument();
+    act(() => {
+      screen.getByRole('button', { name: 'switch' }).click();
+    });
+    // the catalogue has not arrived yet: still Bengali, never a key
+    expect(screen.queryByText('common.language.label')).toBeNull();
+    expect(await screen.findByText('Language')).toBeInTheDocument();
+    expect(document.documentElement.lang).toBe('en');
   });
 });

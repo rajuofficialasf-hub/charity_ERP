@@ -1,6 +1,5 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test, type TestInfo } from '@playwright/test';
-import { fromProfileMenu } from './support/admin';
+import { fromProfileMenu, scan } from './support/admin';
 
 // Login, logout, devices and passwords against the API on its E2E database (T1.7; AUTH.md 3 to 8).
 // Demo accounts and their password: docs/testing/DEMO_ACCOUNTS.md. The API runs with the dummy
@@ -36,12 +35,6 @@ const ACCOUNTS = {
     reset: '',
   },
 } as const;
-
-/**
- * axe on the page. React Aria's live announcer (`[data-live-announcer]`) briefly keeps an
- * announcement node that points at a button already gone after a pending state; it is excluded.
- */
-const scan = (page: Page) => new AxeBuilder({ page }).exclude('[data-live-announcer]').analyze();
 
 type Purpose = keyof (typeof ACCOUNTS)['desktop'];
 const account = (project: string, purpose: Purpose) =>

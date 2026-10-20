@@ -1,5 +1,5 @@
 import { type InvitationView, PASSWORD_MIN_LENGTH } from '@css/shared/auth';
-import { Alert, Button, Form, PasswordField, Skeleton } from '@css/ui';
+import { Alert, Button, Form, PasswordField, Skeleton, Text } from '@css/ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
 import { useTranslations } from 'use-intl';
@@ -80,7 +80,7 @@ export function InvitePage() {
           <Alert tone="danger" live="alert">
             {dead.message}
           </Alert>
-          <p className="m-0">{t('ask_admin')}</p>
+          <Text>{t('ask_admin')}</Text>
           <Button variant="secondary" href="/login" fullWidth>
             {t('to_login')}
           </Button>
@@ -114,8 +114,8 @@ export function InvitePage() {
     return (
       <Form onSubmit={submit} aria-label={t('title')}>
         <div className="auth-shell-stack">
-          <p className="m-0">{t('greeting', { name: data.displayName })}</p>
-          <p className="m-0">{t('job_id', { jobId: data.jobId })}</p>
+          <Text>{t('greeting', { name: data.displayName })}</Text>
+          <Text>{t('job_id', { jobId: data.jobId })}</Text>
           <PasswordField
             label={tp('new')}
             name="password"

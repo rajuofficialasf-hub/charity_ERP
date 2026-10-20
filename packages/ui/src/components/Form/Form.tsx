@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, type FormEvent, type ReactNode } from 'react';
-import { Form as AriaForm } from 'react-aria-components';
 import { CircleAlert } from 'lucide-react';
 import { useUi } from '../../provider/UiProvider.js';
 import { cx } from '../../utils/cx.js';
@@ -9,30 +8,28 @@ import { Icon } from '../Icon/Icon.js';
 
 export interface FormProps {
   onSubmit?: (event: FormEvent<HTMLFormElement>) => void;
-  /** Server validation errors by field name, shown on the fields (API_STANDARDS error envelope). */
-  validationErrors?: Record<string, string | string[]>;
   children: ReactNode;
   className?: string;
   'aria-label'?: string;
 }
 
 /**
- * Form wrapper: validation on blur and submit, never on every keystroke (DESIGN_SYSTEM 5.4, 6.3).
+ * Form wrapper: validation on blur and submit, never on every keystroke (DESIGN_SYSTEM 5.4, 6.3);
+ * the fields show their own errors, the browser's own bubbles stay off (noValidate).
  * The method is always POST: forms are handled in JavaScript, and a native submission before the
  * page is interactive must never put field values (a password, an NID) into the URL.
  */
-export function Form({ onSubmit, validationErrors, children, className, ...aria }: FormProps) {
+export function Form({ onSubmit, children, className, ...aria }: FormProps) {
   return (
-    <AriaForm
+    <form
       method="post"
+      noValidate
       className={cx('ui-form', className)}
       onSubmit={onSubmit}
-      validationErrors={validationErrors}
-      validationBehavior="aria"
       {...aria}
     >
       {children}
-    </AriaForm>
+    </form>
   );
 }
 

@@ -2,7 +2,6 @@
 
 import { useId, type ReactNode } from 'react';
 import { ChevronDown, EllipsisVertical } from 'lucide-react';
-import { Button as AriaButton, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components';
 import { fill } from '../../provider/messages.js';
 import { useUi } from '../../provider/UiProvider.js';
 import { cx } from '../../utils/cx.js';
@@ -10,6 +9,7 @@ import { StatusBadge, type StatusKey } from '../Badge/Badge.js';
 import { Button } from '../Button/Button.js';
 import { Checkbox } from '../Field/Choice.js';
 import { Icon, type IconComponent } from '../Icon/Icon.js';
+import { MenuButton } from '../Menu/MenuButton.js';
 
 export interface BulkBadge {
   status: StatusKey;
@@ -99,37 +99,23 @@ export function BulkRow({
             </Button>
           )}
           {menuActions && menuActions.length > 0 && (
-            <MenuTrigger>
-              <AriaButton
-                className="ui-icon-button"
-                aria-label={`${messages.bulk.moreActions}: ${title}`}
-              >
-                <Icon icon={EllipsisVertical} />
-              </AriaButton>
-              <Popover className="ui-popover" placement="bottom end">
-                <Menu
-                  className="ui-listbox"
-                  onAction={(key) => menuActions.find((a) => a.id === String(key))?.onAction()}
-                >
-                  {menuActions.map((action) => (
-                    <MenuItem key={action.id} id={action.id} className="ui-option">
-                      {action.label}
-                    </MenuItem>
-                  ))}
-                </Menu>
-              </Popover>
-            </MenuTrigger>
+            <MenuButton
+              label={`${messages.bulk.moreActions}: ${title}`}
+              icon={EllipsisVertical}
+              items={menuActions}
+            />
           )}
           {children !== undefined && onExpandedChange && (
-            <AriaButton
+            <button
+              type="button"
               className="ui-icon-button ui-bulk-expand"
               aria-expanded={expanded}
               aria-controls={detailId}
               aria-label={expanded ? messages.bulk.hideDetails : messages.bulk.showDetails}
-              onPress={() => onExpandedChange(!expanded)}
+              onClick={() => onExpandedChange(!expanded)}
             >
               <Icon icon={ChevronDown} />
-            </AriaButton>
+            </button>
           )}
         </div>
       </div>

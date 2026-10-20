@@ -1,7 +1,7 @@
 import type { DeviceSession } from '@css/shared/auth';
 import { formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import { Alert, Button, ConfirmDialog, ErrorState, Skeleton } from '@css/ui';
+import { Alert, Button, ConfirmDialog, ErrorState, Grid, Skeleton, Stack, Text } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LogOut } from 'lucide-react';
 import { useState } from 'react';
@@ -50,11 +50,11 @@ export function VolunteerSessions({ userId, canRevoke }: { userId: string; canRe
         </Alert>
       )}
       {sessions.data.length === 0 ? (
-        <p className="admin-muted m-0">{t('no_sessions')}</p>
+        <Text className="admin-muted">{t('no_sessions')}</Text>
       ) : (
-        <ul className="m-0 grid gap-2 p-0" role="list">
+        <Grid gap={2} as="ul" role="list">
           {sessions.data.map((s) => (
-            <li key={s.id} className="flex flex-wrap items-center gap-2">
+            <Stack direction="row" wrap align="center" gap={2} as="li" key={s.id}>
               <strong>{device(s)}</strong>
               <span className="admin-muted">
                 {t('last_seen', { date: formatDateTime(s.lastSeenAt, locale) })}
@@ -64,9 +64,9 @@ export function VolunteerSessions({ userId, canRevoke }: { userId: string; canRe
                   {t('revoke')}
                 </Button>
               )}
-            </li>
+            </Stack>
           ))}
-        </ul>
+        </Grid>
       )}
       <ConfirmDialog
         isOpen={target !== null}

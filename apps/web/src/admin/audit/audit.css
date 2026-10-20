@@ -1,3 +1,8 @@
+/* Ids and keys in the facts of an audit entry break anywhere rather than overflow. */
+.admin-audit-facts dd {
+  word-break: break-all;
+}
+
 /* The old and new values of an audit entry side by side, one under the other on phones. */
 .admin-audit-compare {
   display: grid;

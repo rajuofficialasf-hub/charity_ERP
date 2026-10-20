@@ -68,7 +68,7 @@ The web app runs at http://127.0.0.1:3000 (Vite, proxying `/api/v1` to the API) 
 | `apps/api` | Express 5 REST API (`/api/v1`, `src/server.ts`) and the pg-boss worker (`src/worker.ts`), Prisma schema and migrations in `prisma/` |
 | `apps/web` | Vite React single-page PWA (`src/`: React Router, TanStack Query, use-intl, Serwist service worker), Playwright tests in `e2e/` |
 | `packages/shared` | Pure TypeScript shared by API and PWA: zod schemas, permission names, i18n keys, business-rule functions |
-| `packages/ui` | Design system: React Aria components, design tokens, Tailwind preset, self-hosted fonts |
+| `packages/ui` | The component set: components on MUI core (template folder `src/templates/mui/`), layout pieces, design tokens, self-hosted fonts |
 | `packages/config` | Shared tsconfig, ESLint and Prettier configuration |
 | `infra/` | Docker Compose file for development services |
 | `scripts/` | Repository checks (`check-docs.mjs`) |
