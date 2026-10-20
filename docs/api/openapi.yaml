@@ -2837,11 +2837,33 @@ components:
         virusScan: { type: string, enum: [pending, clean, infected, failed, skipped] }
         flags: { type: array, items: { type: string, enum: [no_capture_time, no_gps, gallery_under_camera_only, stale_capture, duplicate_suspect] } }
         duplicateOf: { type: [string, 'null'], format: uuid, description: 'The near or exact duplicate, named only to a caller whose scope reaches it' }
+    FileListRow:
+      type: object
+      required: [id, kind, slot, mime, sizeBytes, capturedAt, uploadedAt, gps, virusScan, flags]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        kind: { type: string }
+        slot: { type: [string, 'null'] }
+        mime: { type: string }
+        sizeBytes: { type: integer }
+        capturedAt: { type: [string, 'null'], format: date-time }
+        uploadedAt: { type: string, format: date-time }
+        gps:
+          type: [object, 'null']
+          x-sensitive-class: file.location
+          description: 'Null for a caller without file.location, except on the caller''s own uploads'
+          required: [lat, lng]
+          properties:
+            lat: { type: number }
+            lng: { type: number }
+            accuracyM: { type: [number, 'null'] }
+        virusScan: { type: string, enum: [pending, clean, infected, failed, skipped] }
+        flags: { type: array, items: { type: string } }
     FileListResponse:
       type: object
       required: [data, meta]
       properties:
-        data: { type: array, items: { $ref: '#/components/schemas/FileInfo' } }
+        data: { type: array, items: { $ref: '#/components/schemas/FileListRow' } }
         meta: { $ref: '#/components/schemas/ListMeta' }
     FileInfoResponse:
       type: object
@@ -7567,7 +7589,7 @@ paths:
       x-idempotency: none
       x-rate-limit: list
       parameters:
-        - { name: entityType, in: query, required: true, schema: { type: string } }
+        - { name: entityType, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 40 } }
         - { name: entityId, in: query, required: true, schema: { type: string, format: uuid } }
         - { name: format, in: query, required: false, schema: { type: string, enum: [json, csv], default: json } }
         - $ref: '#/components/parameters/Cursor'
@@ -7581,6 +7603,7 @@ paths:
             text/csv:
               schema: { type: string }
         '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
 
   # ======================= notifications =======================
   /notifications:

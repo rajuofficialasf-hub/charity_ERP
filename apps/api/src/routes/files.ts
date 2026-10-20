@@ -10,6 +10,8 @@ import { type AuthedRequest, principalOf } from '../auth/principal';
 import { sensitive } from '../access/field-mask';
 import type { Container } from '../container';
 import { photoBody } from '../files/photo-body';
+import { pageQuery } from '../core/pagination';
+import { page, send } from '../http/send';
 import { defineRoute, type RouteDeps } from '../openapi/define-route';
 import type { FileVariant } from '../services/files';
 
@@ -40,6 +42,46 @@ export function filesRouter(
   c: Pick<Container, 'files' | 'registrationPhotos'>,
 ): Router {
   const router = Router();
+
+  defineRoute<
+    unknown,
+    { entityType: string; entityId: string; format: 'json' | 'csv'; cursor?: string; limit: number }
+  >(router, deps, {
+    tag: 'files',
+    method: 'get',
+    path: '/files',
+    operationId: 'files.file.list',
+    summary:
+      'The files of one record, for a caller whose scope reaches the record; as CSV (at most 5,000 rows, no free text) with format=csv; every export is audited, a list with NID photos as file.nid_viewed',
+    permission: 'entity',
+    scope: 'file',
+    audit: 'none',
+    idempotency: 'none',
+    rateLimit: 'list',
+    query: pageQuery.pick({ limit: true, cursor: true }).extend({
+      entityType: z.string().min(1).max(40),
+      entityId: z.uuid(),
+      format: z.enum(['json', 'csv']).default('json'),
+    }),
+    // the service masks the position row by row (the uploader sees it on the own files), so the
+    // route writes its answer itself, as JSON or as a CSV download
+    streams: true,
+    responses: { 200: null, 404: null, 422: null },
+    handler: async ({ query, req, res }) => {
+      const principal = principalOf(req);
+      if (query.format === 'csv') {
+        const csv = await c.files.exportCsv(principal, query);
+        res.status(200);
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="files-${query.entityId}.csv"`);
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.send(csv);
+        return;
+      }
+      const { rows, meta } = await c.files.list(principal, query);
+      send(res, page(rows, meta));
+    },
+  });
 
   defineRoute<unknown, { variant?: FileVariant }, { fileId: string }>(router, deps, {
     tag: 'files',

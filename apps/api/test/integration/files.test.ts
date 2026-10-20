@@ -193,7 +193,7 @@ describe('streaming a file linked to a record', () => {
     await h.container.fileProcessor.process(id);
     expect((await fileRowScan(id)).virus_scan).toBe('skipped');
     const production = new FilesService(
-      { NODE_ENV: 'production' },
+      { NODE_ENV: 'production', CURSOR_SECRET: 'c'.repeat(32) },
       h.container.prisma,
       h.container.storage,
       h.container.access,
@@ -260,5 +260,128 @@ describe('the metadata of a file', () => {
       .get(`/api/v1/files/${second}`)
       .set(bearer(await login(h, pm)));
     expect(pmInfo.body.data.duplicateOf).toBe(first);
+  });
+});
+
+describe('the files of a record', () => {
+  const list = (who: string, query: Record<string, string>) =>
+    request(h.server())
+      .get('/api/v1/files')
+      .query({ entityType: 'application', entityId: listApplication, ...query })
+      .set(as(who));
+  let listApplication: string;
+  let photo: string;
+  let voucher: string;
+
+  beforeAll(async () => {
+    const volunteer = (
+      await h.db.query('SELECT id FROM volunteers WHERE user_id = $1', [world.users.general])
+    ).rows[0].id as string;
+    listApplication = await f.application(
+      h.db,
+      { project: world.a1, loc: world.dhaka },
+      { owner_volunteer_id: volunteer, beneficiary_id: await f.beneficiary(h.db, world.dhaka) },
+    );
+    photo = await upload('general', await picture({ variant: 20 }), {
+      entityId: listApplication,
+      capturedAt: new Date(h.clock.now().getTime() - 60_000).toISOString(),
+      gps: { lat: 23.75, lng: 90.39 },
+    });
+    voucher = await upload('rpmDhaka', Buffer.from('%PDF-1.7\n%%EOF\n'), {
+      entityId: listApplication,
+      kind: 'voucher',
+      slot: 'voucher',
+      mime: 'application/pdf',
+      source: 'gallery',
+    });
+  });
+
+  it('lists kind, size, capture time, flags and scan state, newest first, never a key or an address', async () => {
+    const res = await list('rpmDhaka', {});
+    expect(res.status).toBe(200);
+    expect(res.body.data.map((r: { id: string }) => r.id)).toEqual([voucher, photo]);
+    expect(res.body.data[1]).toMatchObject({
+      kind: 'distribution_proof',
+      slot: 'distribution_proof',
+      mime: 'image/jpeg',
+      virusScan: 'pending',
+      gps: { lat: 23.75, lng: 90.39 },
+    });
+    expect(res.body.data[1].capturedAt).not.toBeNull();
+    const text = JSON.stringify(res.body);
+    expect(text).not.toMatch(/https?:\/\//);
+    expect(text).not.toContain('objectKey');
+    expect(text).not.toContain(listApplication + '/');
+    // pages by cursor
+    const first = await list('rpmDhaka', { limit: '1' });
+    expect(first.body.data).toHaveLength(1);
+    const next = await list('rpmDhaka', { limit: '1', cursor: first.body.meta.nextCursor });
+    expect(next.body.data[0].id).toBe(photo);
+  });
+
+  it('keeps the position from the Media Team and the money papers too', async () => {
+    const res = await list('media', {});
+    expect(res.status).toBe(200);
+    expect(res.body.data.map((r: { id: string }) => r.id)).toEqual([photo]);
+    expect(res.body.data[0].gps).toBeNull();
+    const own = await list('general', {});
+    expect(own.body.data.find((r: { id: string }) => r.id === photo).gps).toEqual({
+      lat: 23.75,
+      lng: 90.39,
+      accuracyM: null,
+    });
+  });
+
+  it('refuses a caller who does not see the record, and a record type without files (404)', async () => {
+    expect((await list('rpmRangpur', {})).status).toBe(404);
+    expect((await list('daee', {})).status).toBe(404);
+    expect((await list('rpmDhaka', { entityType: 'beneficiary' })).status).toBe(404);
+    expect((await list('rpmDhaka', { entityId: randomUUID() })).status).toBe(404);
+  });
+
+  it('exports the same rows as CSV, audited for every export', async () => {
+    const res = await list('rpmDhaka', { format: 'csv' });
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('text/csv; charset=utf-8');
+    expect(res.headers['content-disposition']).toBe(
+      `attachment; filename="files-${listApplication}.csv"`,
+    );
+    const lines = res.text.trim().split('\r\n');
+    expect(lines[0]).toBe(
+      'id,kind,slot,mime,size_bytes,captured_at,uploaded_at,virus_scan,flags,latitude,longitude',
+    );
+    expect(lines).toHaveLength(3);
+    expect(lines[2]).toMatch(
+      new RegExp(`^${photo},distribution_proof,distribution_proof,image/jpeg,`),
+    );
+    expect(lines[2]).toMatch(/,23\.75,90\.39$/);
+    const media = await list('media', { format: 'csv' });
+    expect(media.text.trim().split('\r\n')[1]).toMatch(/,,$/);
+    const audits = await h.db.query(
+      `SELECT new FROM audit_log WHERE action = 'file.list_exported' AND entity_id = $1 ORDER BY created_at, id`,
+      [listApplication],
+    );
+    expect(audits.rows).toHaveLength(2);
+    expect(audits.rows[0].new).toMatchObject({ rows: 2, format: 'csv' });
+  });
+
+  it('audits a list that holds NID photos as their view', async () => {
+    const nid = randomUUID();
+    await h.db.query(
+      `INSERT INTO files (id, bucket, object_key, kind, mime, size_bytes, sha256, project_id, uploaded_by, source, virus_scan)
+       VALUES ($1, 'profiles', $2, 'nid_photo', 'image/jpeg', 10, $3, $4, $5, 'camera', 'skipped')`,
+      [nid, `beneficiaries/${nid}.jpg`, sha256(Buffer.from(nid)), world.a1.id, world.users.general],
+    );
+    await h.db.query(
+      `INSERT INTO file_links (id, file_id, entity_type, entity_id, slot) VALUES ($1, $2, 'application', $3, 'nid_photo')`,
+      [randomUUID(), nid, listApplication],
+    );
+    const res = await list('general', {});
+    expect(res.body.data.map((r: { id: string }) => r.id)).toContain(nid);
+    const audits = await h.db.query(
+      `SELECT new FROM audit_log WHERE action = 'file.nid_viewed' AND entity_id = $1`,
+      [listApplication],
+    );
+    expect(audits.rows[0].new).toMatchObject({ fileIds: [nid], format: 'list' });
   });
 });
