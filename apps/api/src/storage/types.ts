@@ -29,10 +29,10 @@ export interface ObjectInfo {
 }
 
 /**
- * The one interface every storage driver implements (NS-31), with streams in and out (NS-04).
- * Only the API reads and writes files: no bucket is public and the browser never receives a
- * storage URL (NS-41); authorized routes stream the bytes (NS-10). Object keys carry entity ids,
- * never personal data.
+ * The one interface every storage driver implements, with streams in and out so no file sits
+ * whole in memory. Only the API reads and writes files: no bucket is public and the browser never
+ * receives a storage address; the routes stream the bytes after their access check. Object keys
+ * carry entity ids, never personal data.
  */
 export interface StorageDriver {
   /** TEMP: `s3` (MinIO, D-074) is the first driver; the NAS driver arrives with the NAS. */
