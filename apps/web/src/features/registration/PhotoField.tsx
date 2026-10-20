@@ -3,7 +3,7 @@ import { FileUpload, type UploadItem } from '@css/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../lib/api';
-import { compressImage } from './compress';
+import { compressImage } from '../../lib/compress';
 
 const ACCEPT = ['image/jpeg', 'image/png'];
 
