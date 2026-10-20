@@ -61,8 +61,9 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 | SCR-041 | Application review list and detail | parity | Executive, RPM, PM | 2 · T2.5, T2.6 |
 | SCR-042 | Volunteer tab | parity | officials | 1 · T1.10 |
 | SCR-043 | Volunteer profile | parity | officials | 1 · T1.10, T1.12; later tabs per phase |
+| SCR-043b | Volunteers of a project (assignment) | parity | RPM, Executive (with the RPM's grant), PM, Head, Monitoring | 1 · T1.12 |
 | SCR-044 | Beneficiary tab | parity | officials, Media | 1 · T1.10 (list), 2 · T2.2 |
-| SCR-045 | Beneficiary 360 profile and merge | parity | officials | 2 · T2.2 |
+| SCR-045 | Beneficiary 360 profile and merge | parity | officials | 1 · T1.10 (the shell, O-67; one profile layout, UX-22), 2 · T2.2 (merge and corrections) |
 | SCR-050 | Project dashboard | parity | PM, RPM, Executive, Head, Monitoring, Finance | 3 · T3.3 |
 | SCR-051 | Admin area shell (`/admin`) with the dashboard placeholder | parity (notice on phones) | Head, Monitoring, PM | 1 · T1.7d (UX-15); pages in T1.13, T3.3, T6.1 |
 | SCR-060 | Project setup with component toggles | desktop-first | PM | 1 · T1.11, T1.12 |
@@ -79,10 +80,14 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 | SCR-074 | Notification texts: list, preview in bn and en, edit as a new version | parity | Head, Monitoring | 1 · T1.14 (D-099) |
 | SCR-075 | Message deliveries | parity | Head, Monitoring | 1 · T1.14 (D-099) |
 | SCR-076 | Official profile | parity | Head, Monitoring (writes); PM, RPM (read) | 1 · UX-22 |
+| SCR-077 | Project list and project page (`/admin/projects`) | parity | Head, Monitoring, PM, RPM, Executive (lifecycle: PM, Head, Monitoring) | 1 · T1.11, T1.12, T1.15 |
+| SCR-097 | Templates (the template library, `/admin/templates`) | desktop-first | PM, Head, Monitoring | 1 · T1.12 |
+| SCR-105 | Staff handover (`/admin/handover`) | desktop-first | Head, Monitoring | 1 · T1.9 |
+| SCR-112 | Programs (`/admin/programs`) | desktop-first | Head, Monitoring (writes); PM (read) | 1 · T1.11 |
 | SCR-070 | Issue log | parity | Paid Volunteer, Procurement, RPM, Executive, PM | 4 · T4.1 |
 | SCR-071 | Donor list | parity | PM, RPM, Executive | 4 · T4.4 |
 | SCR-072 | Document register | parity | officials | after 6 · T6.1: T5.4 (built last, O-34) |
-| SCR-080 … SCR-112 | Remaining screens (section 10) | per row | per row | per row |
+| SCR-080 … SCR-112 | Remaining screens (section 10; SCR-097, SCR-105 and SCR-112 are built in Phase 1 and listed above) | per row | per row | per row |
 
 ## 3. Shared screens
 
@@ -1092,6 +1097,18 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Route.** `/admin/deliveries`; sidebar "বার্তার অবস্থা".
 - **Data.** Newest first: when queued, the notification, the recipient, the address partly hidden, the channel, the status (অপেক্ষায়, পাঠানো হচ্ছে, পাঠানো হয়েছে, পাঠানো যায়নি, পরীক্ষামূলক, বন্ধ রাখা), the attempts and the cleaned last error; status chips, channel and dates in the address; cards on phones. The text of a message is never shown.
 - **Built.** `apps/web/src/admin/notifications/DeliveriesPage.tsx`; tests `notifications-admin.test.tsx`, E2E `notifications.spec.ts`.
+
+### SCR-077 Project list and project page
+
+- **Purpose.** The projects in the caller's scope, and one project at a glance: its state, facts and lifecycle (DECISION_LOG D-096; BD-09, BD-16, BD-20). The setup wizard (SCR-060) and the volunteers of a project (SCR-043b) open from here.
+- **Routes.** `/admin/projects` (list), `/admin/projects/:projectId` (project page); the new-project wizard `/admin/projects/new` is SCR-060.
+- **Roles.** Read: Department Head, Monitoring Team, PM (program), RPM (region) and Project Executive through `project.view`; the server filters the list by scope and answers 404 outside it. Create a draft: `project.create` (PM in the own program, and the global roles). Lifecycle buttons: `project.activate`, `project.cancel`, `project.deadline.extend`, `project.close`, `project.reopen` (the PM of the program and the global roles).
+- **Priority.** parity; the table turns into cards on a phone.
+- **Data shown.** List: code, name (links to the project page), program, year and state badge; state chips (all, draft, active, closing, closed, cancelled) and the program, year and "ending soon" filters in the page URL (the home page's attention items open the list with them); keyset paging with the total. Project page: breadcrumb back to the list, name and state badge, the facts card (code, year, program, workflow, application window, per-volunteer limit, budget, activation date), a notice after the wizard saved or activated.
+- **Actions.** "নতুন প্রকল্প" (wizard, SCR-060); open a project; on the project page: activate a complete draft (a refusal lists what is missing, each item opens its setup step), cancel a draft with a reason (it leaves the list and stays in the audit log), extend the deadline of an active project to a later date with a reason, start closing, close, reopen (each with a reason); open the setup, open the volunteers (SCR-043b), save as a template (SCR-097).
+- **States.** Loading skeleton, empty per filter, error with retry and request id, not found, "no access" page for other roles.
+- **Components.** Table with TableToolbar, Select, Badge, Card, Alert, ReasonDialog, Skeleton, EmptyState, ErrorState.
+- **Built.** `apps/web/src/admin/projects/ProjectsPage.tsx`, `ProjectOverviewPage.tsx`, `LifecycleActions.tsx`, `ProjectFacts.tsx`, `ReasonDialog.tsx`; tests `projects.test.tsx`, `overview.test.tsx`, `apps/web/e2e/projects.spec.ts`. The progress figures and the budget bars come with the dashboards (SCR-050).
 
 ## 8. Setup screens (desktop first, UX-04)
 

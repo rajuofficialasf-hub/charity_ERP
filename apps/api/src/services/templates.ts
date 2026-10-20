@@ -136,7 +136,12 @@ export class TemplatesService {
           action: 'template.update',
           entityType: 'project_template',
           entityId: after.id,
-          old: { version: before.version, sourceProjectId: before.sourceProjectId },
+          // the replaced contents stay readable in the audit log (before and after, BD-10)
+          old: {
+            version: before.version,
+            sourceProjectId: before.sourceProjectId,
+            definition: before.definition,
+          },
           new: { version: after.version, sourceProjectId: projectId, definition },
         });
         return view(after);
@@ -165,7 +170,10 @@ export class TemplatesService {
     });
   }
 
-  private async lockedTemplate(tx: Tx, templateId: string): Promise<Row> {
+  private async lockedTemplate(
+    tx: Tx,
+    templateId: string,
+  ): Promise<Row & { definition: Prisma.JsonValue }> {
     await tx.$queryRaw`SELECT id FROM project_templates WHERE id = ${templateId}::uuid FOR UPDATE`;
     const row = await tx.projectTemplate.findUnique({
       where: { id: templateId },

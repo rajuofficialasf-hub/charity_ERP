@@ -11,6 +11,7 @@ import {
   PASSWORD,
   systemOwner,
 } from './support/auth-app';
+import { locationTree, project } from './support/fixtures';
 import { notificationsOf } from './support/notifications';
 
 // Device lists and revocation, user administration, Main Admin protection and the
@@ -109,6 +110,29 @@ describe("an official revokes another user's device", () => {
       .set(bearer(rpm))
       .expect(404);
     expect(res.body.error.code).toBe('permission.not_found');
+  });
+
+  it("answers 404 to an RPM for another official's devices in the same area, never the Monitoring Team", async () => {
+    const division = (await locationTree(h.db)).division;
+    const p = await project(h.db);
+    const rpm = await account(h.db, { role: 'regional_program_manager' });
+    const colleague = await account(h.db, { role: 'regional_program_manager' });
+    for (const who of [rpm, colleague])
+      await h.db.query(
+        `INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)`,
+        [randomUUID(), p.id, division, who.id],
+      );
+    await login(h, colleague);
+    const asRpm = await login(h, rpm);
+    const list = await api().get(`/api/v1/users/${colleague.id}/sessions`).set(bearer(asRpm));
+    expect(list.status).toBe(404);
+    expect(list.body.error.code).toBe('permission.not_found');
+    const monitoring = await login(h, await account(h.db, { role: 'monitoring_team' }));
+    const seen = await api()
+      .get(`/api/v1/users/${colleague.id}/sessions`)
+      .set(bearer(monitoring))
+      .expect(200);
+    expect(seen.body.data.length).toBeGreaterThan(0);
   });
 
   it("protects the Main Admin's sessions from everyone else (BR-035)", async () => {

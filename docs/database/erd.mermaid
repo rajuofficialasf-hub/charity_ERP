@@ -10,6 +10,19 @@ erDiagram
     text kind
     text state
     bool is_system_owner
+    text job_id UK
+    text affiliation
+    text affiliation_unit
+    uuid supervisor_user_id FK
+    bool password_change_required
+  }
+  account_invitations {
+    uuid id PK
+    uuid user_id FK
+    text token_hash UK
+    timestamptz expires_at
+    timestamptz used_at
+    timestamptz revoked_at
   }
   roles {
     text key PK
@@ -41,6 +54,21 @@ erDiagram
     uuid id PK
     text purpose
     text address_hash
+  }
+  registration_drafts {
+    uuid id PK
+    text kind
+    text mobile
+    text email
+    timestamptz mobile_verified_at
+    timestamptz email_verified_at
+    text token_hash
+    timestamptz expires_at
+    uuid photo_file_id FK
+    uuid nid_photo_file_id FK
+    uuid nid_photo_back_file_id FK
+    uuid submitted_user_id FK
+    timestamptz submitted_at
   }
   handovers {
     uuid id PK
@@ -75,6 +103,8 @@ erDiagram
     uuid id PK
     date effective_from UK
     numeric value
+    timestamptz withdrawn_at
+    uuid withdrawn_by FK
   }
 
   %% ---------------- Programs and projects ----------------
@@ -92,6 +122,15 @@ erDiagram
     uuid workflow_definition_id FK
     jsonb workflow_snapshot
     jsonb rules
+    int rules_version
+    timestamptz cancelled_at
+    uuid cancelled_by FK
+  }
+  project_rules_versions {
+    uuid id PK
+    uuid project_id FK
+    int version
+    jsonb texts
   }
   project_components {
     uuid id PK
@@ -209,6 +248,7 @@ erDiagram
     text nid UK
     text type
     uuid reference_volunteer_id FK
+    uuid nid_photo_back_file_id FK
     text category
   }
   volunteer_teams {
@@ -216,6 +256,7 @@ erDiagram
     uuid project_id FK
     uuid lead_volunteer_id FK
     uuid member_volunteer_id FK
+    text consent_status
   }
   project_volunteers {
     uuid id PK
@@ -223,6 +264,17 @@ erDiagram
     uuid volunteer_id FK
     text permission_set
     bool is_paid
+    text consent_status
+    int applications_counted
+  }
+  project_consents {
+    uuid id PK
+    uuid project_id FK
+    uuid volunteer_id FK
+    uuid project_volunteer_id FK
+    uuid volunteer_team_id FK
+    int rules_version
+    text decision
   }
   volunteer_ratings {
     uuid id PK
@@ -571,6 +623,11 @@ erDiagram
   users ||--o{ device_sessions : "logs in on"
   users ||--o{ handovers : "hands over"
   users ||--o| volunteers : "is (volunteer)"
+  users ||--o{ users : "supervises"
+  users ||--o{ account_invitations : "invited by link"
+  users ||--o| registration_drafts : "created on submit"
+  files ||--o{ registration_drafts : "photo slots (3)"
+  users ||--o{ nisab_versions : "withdraws"
   device_sessions ||--o{ push_subscriptions : has
   device_sessions ||--o{ sync_batches : sends
 
@@ -587,6 +644,7 @@ erDiagram
   projects ||--o{ project_quotas : sets
   locations ||--o{ project_quotas : "quota for"
   projects ||--o{ fund_sources : "funded by"
+  projects ||--o{ project_rules_versions : "rules versions"
   workflow_definitions ||--o{ projects : "snapshotted by"
   workflow_definitions ||--o{ workflow_transitions : defines
 
@@ -609,6 +667,11 @@ erDiagram
   volunteers ||--o{ project_volunteers : "assigned to"
   projects ||--o{ volunteer_teams : teams
   volunteers ||--o{ volunteer_teams : "leads or joins"
+  projects ||--o{ project_consents : "consents recorded"
+  volunteers ||--o{ project_consents : "accepts or refuses"
+  project_volunteers ||--o{ project_consents : "for assignment"
+  volunteer_teams ||--o{ project_consents : "for team"
+  files ||--o{ volunteers : "NID photo back"
   volunteers ||--o{ volunteer_ratings : rated
   volunteers ||--o{ volunteer_categories_log : categorised
   volunteers ||--o{ volunteer_change_requests : requests

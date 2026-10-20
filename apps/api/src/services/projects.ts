@@ -18,7 +18,7 @@ import {
   type WorkflowKey,
 } from '@css/shared/projects';
 import type { AccessService } from '../access/service';
-import { programWhere, projectWhere, type Scope } from '../access/scope';
+import { holdsPermission, programWhere, projectWhere, type Scope } from '../access/scope';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Principal } from '../auth/principal';
 import type { Clock } from '../core/clock';
@@ -78,12 +78,22 @@ const money = (d: Prisma.Decimal | null) => (d === null ? null : d.toFixed(2));
 const toDate = (s: string | null | undefined) =>
   s === undefined ? undefined : s === null ? null : new Date(`${s}T00:00:00Z`);
 
+/** What a reader of a project sees: a volunteer the work facts only, an official the rest. */
+interface ViewOf {
+  forVolunteer: boolean;
+  /** The budget amounts, only inside the caller's `budget.view` scope (RBAC.md, the budget rows). */
+  budget: boolean;
+}
+
+/** An official who changes a project sees all of it: the editors hold `budget.view` by default. */
+const EDITOR: ViewOf = { forVolunteer: false, budget: true };
+
 /**
  * What a project shows. A volunteer gets only the work facts of an active project it is on: never
  * the budget, the program, or anything the officials keep (fund sources, staff and areas have their
- * own official-only routes).
+ * own official-only routes). An official without `budget.view` on the project gets no amounts.
  */
-function view(p: Row, forVolunteer: boolean) {
+function view(p: Row, { forVolunteer, budget }: ViewOf) {
   const work = {
     id: p.id,
     code: p.code,
@@ -102,9 +112,13 @@ function view(p: Row, forVolunteer: boolean) {
     programId: p.programId,
     description: p.description,
     workflowVersion: p.workflowVersion,
-    costPerBeneficiary: money(p.costPerBeneficiary),
-    targetBeneficiaries: p.targetBeneficiaries,
-    budgetPlanned: money(p.budgetPlanned),
+    ...(budget
+      ? {
+          costPerBeneficiary: money(p.costPerBeneficiary),
+          targetBeneficiaries: p.targetBeneficiaries,
+          budgetPlanned: money(p.budgetPlanned),
+        }
+      : {}),
     activatedAt: p.activatedAt?.toISOString() ?? null,
     closedAt: p.closedAt?.toISOString() ?? null,
     cancelledAt: p.cancelledAt?.toISOString() ?? null,
@@ -157,6 +171,19 @@ export class ProjectsService {
     private readonly access: AccessService,
     private readonly clock: Clock,
   ) {}
+
+  /** Of the given projects, those whose budget the caller may see (`budget.view` in its scope). */
+  private async budgetVisible(viewer: ProjectViewer, ids: string[]): Promise<Set<string>> {
+    if (viewer.principal.kind === 'volunteer' || ids.length === 0) return new Set();
+    const access = await this.access.load(viewer.principal.userId);
+    if (!holdsPermission('budget.view', access.grants)) return new Set();
+    const scope = await this.access.scopeFor(viewer.principal, access, 'budget.view', 'project');
+    const rows = await this.prisma.project.findMany({
+      where: { AND: [{ id: { in: ids } }, projectWhere(scope)] },
+      select: { id: true },
+    });
+    return new Set(rows.map((r) => r.id));
+  }
 
   /** The projects a caller reaches; a volunteer only the active ones it is on. */
   private where(viewer: ProjectViewer): Prisma.ProjectWhereInput {
@@ -214,7 +241,14 @@ export class ProjectsService {
       total,
     });
     const forVolunteer = viewer.principal.kind === 'volunteer';
-    return { rows: rows.map((p) => view(p, forVolunteer)), meta };
+    const budget = await this.budgetVisible(
+      viewer,
+      rows.map((p) => p.id),
+    );
+    return {
+      rows: rows.map((p) => view(p, { forVolunteer, budget: budget.has(p.id) })),
+      meta,
+    };
   }
 
   async get(viewer: ProjectViewer, projectId: string) {
@@ -223,7 +257,14 @@ export class ProjectsService {
       select: SELECT,
     });
     if (!row) throw new ApiError('permission.not_found', 404);
-    return { project: view(row, viewer.principal.kind === 'volunteer'), updatedAt: row.updatedAt };
+    const budget = await this.budgetVisible(viewer, [row.id]);
+    return {
+      project: view(row, {
+        forVolunteer: viewer.principal.kind === 'volunteer',
+        budget: budget.has(row.id),
+      }),
+      updatedAt: row.updatedAt,
+    };
   }
 
   async create(viewer: ProjectViewer, body: ProjectCreate) {
@@ -281,9 +322,9 @@ export class ProjectsService {
           action: 'project.create',
           entityType: 'project',
           entityId: id,
-          new: { ...view(row, false), source: body.source },
+          new: { ...view(row, EDITOR), source: body.source },
         });
-        return { project: view(row, false), updatedAt: row.updatedAt };
+        return { project: view(row, EDITOR), updatedAt: row.updatedAt };
       });
     } catch (error) {
       // two creations with one code at the same moment: the unique index decides
@@ -303,7 +344,7 @@ export class ProjectsService {
       const before = await this.locked(tx, viewer, projectId);
       assertIfMatch(ifMatch, before.updatedAt);
       const status = before.status as ProjectStatus;
-      const current = view(before, false) as Record<string, unknown>;
+      const current = view(before, EDITOR) as Record<string, unknown>;
       // a field sent with its current value changes nothing, so a whole form may be sent back
       const changing = (Object.keys(body) as (keyof ProjectUpdate)[]).filter(
         // eslint-disable-next-line security/detect-object-injection -- keys of the strict body schema
@@ -373,7 +414,7 @@ export class ProjectsService {
         },
       });
       const old = current;
-      const now = view(row, false) as Record<string, unknown>;
+      const now = view(row, EDITOR) as Record<string, unknown>;
       // only what changed goes into the audit entry
       const changed = Object.keys(now).filter(
         // eslint-disable-next-line security/detect-object-injection -- keys of the view object
@@ -388,7 +429,7 @@ export class ProjectsService {
         // eslint-disable-next-line security/detect-object-injection -- keys of the view object
         new: Object.fromEntries(changed.map((k) => [k, now[k]])) as Prisma.InputJsonValue,
       });
-      return { project: view(row, false), updatedAt: row.updatedAt };
+      return { project: view(row, EDITOR), updatedAt: row.updatedAt };
     });
   }
 
@@ -443,7 +484,7 @@ export class ProjectsService {
         new: { status: 'cancelled' },
         reason,
       });
-      return { project: view(row, false), updatedAt: row.updatedAt };
+      return { project: view(row, EDITOR), updatedAt: row.updatedAt };
     });
   }
 
@@ -453,7 +494,7 @@ export class ProjectsService {
    */
   async writeState(tx: Tx, projectId: string, data: Prisma.ProjectUncheckedUpdateInput) {
     const row = await tx.project.update({ where: { id: projectId }, select: SELECT, data });
-    return { project: view(row, false), updatedAt: row.updatedAt };
+    return { project: view(row, EDITOR), updatedAt: row.updatedAt };
   }
 
   /** The project inside the caller's scope (404 outside), with its row locked for the write. */

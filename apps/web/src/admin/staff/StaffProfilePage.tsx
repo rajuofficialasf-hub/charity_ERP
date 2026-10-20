@@ -42,7 +42,7 @@ import { ForbiddenContent } from '../AdminLayout';
 import { mailLink, telLink } from '../contact-links';
 import { PROGRAMS_KEY, programs } from '../programs/programs-api';
 import { roles } from '../registrations/registrations-api';
-import { canEndSessions, canManageOfficials, canSeeStaff } from '../roles';
+import { canEndStaffSessions, canManageOfficials, canSeeStaff } from '../roles';
 import { VolunteerSessions } from '../volunteers/VolunteerSessions';
 import { LinkDialog } from './LinkDialog';
 import { OfficialDialog } from './OfficialDialog';
@@ -101,7 +101,7 @@ export function StaffProfilePage() {
     <Profile
       official={official.data}
       manage={canManageOfficials(me)}
-      sessions={canEndSessions(me)}
+      sessions={canEndStaffSessions(me)}
     />
   );
 }

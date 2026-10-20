@@ -1,6 +1,6 @@
 # DATABASE SCHEMA AND DATA DICTIONARY (PostgreSQL 17)
 
-Status: complete, task T0.16 (2026-10-10); implemented in T1.2 (2026-10-11) as `apps/api/prisma/schema.prisma` and the initial migration `apps/api/prisma/migrations/20261011000000_init/` with a hand-written `down.sql` (ADR-003); seeds follow in T1.3. This dictionary is the physical form of `docs/database/ERD.md` (91 tables: the 90 entities of T0.15 plus `id_sequences`); every table, column, constraint and index here must appear in the migrations, and a change here is a change there in the same commit (PROJECT_RULES §5). JSON Schemas for JSONB columns: `docs/database/json-schemas/`. The proposals of the first draft were accepted by the owner on 2026-10-10 (O-38, O-39); where the text says PROPOSAL the value is decided as listed in section 24.
+Status: complete, task T0.16 (2026-10-10); implemented in T1.2 (2026-10-11) as `apps/api/prisma/schema.prisma` and the initial migration `apps/api/prisma/migrations/20261011000000_init/` with a hand-written `down.sql` (ADR-003); seeds follow in T1.3. This dictionary is the physical form of `docs/database/ERD.md` (95 tables: the 90 entities of T0.15, `id_sequences`, and the four added in Phase 1: `project_rules_versions`, `project_consents`, `registration_drafts`, `account_invitations`); every table, column, constraint and index here must appear in the migrations, and a change here is a change there in the same commit (PROJECT_RULES §5). JSON Schemas for JSONB columns: `docs/database/json-schemas/`. The proposals of the first draft were accepted by the owner on 2026-10-10 (O-38, O-39); where the text says PROPOSAL the value is decided as listed in section 24.
 
 Note on human ids: the T0.16 prompt mentions "BEN-" ids "per DECISION_LOG". DECISION_LOG O-03 decided that the BEN-ID **is** the beneficiary's UUID v7; there is no `BEN-` sequence. Only applications carry a human id. This dictionary follows O-03.
 
@@ -1738,7 +1738,7 @@ Machine-readable schemas live in `docs/database/json-schemas/` (JSON Schema 2020
 
 ## 21. Soft delete policy
 
-- Nothing of business value is hard-deleted (constitution §2, BR-207). The application database role has **no DELETE privilege** on business tables.
+- Nothing of business value is hard-deleted (constitution §2, BR-207). The application database role has **no DELETE privilege** on business tables, with one exception: three kinds of project setup rows, `fund_sources`, `project_areas` and `dawah_syllabus_topics`, which the project setup removes only while nothing refers to them (the foreign keys refuse a used row) and audits with their before state (DECISION_LOG D-106).
 - Allowed "deleted" states: `applications.status = 'deleted'` with `deleted_at` (only drafts and pending applications, by the owner or an official with the permission; BR-091); `files.deleted_at` only for `kind = 'export'` (regenerable).
 - Ending instead of deleting: `revoked_at` (roles, permissions, sessions, push subscriptions), `ended_at` (project staff and volunteer assignments), `removed_at` (team members), `released_at` (blocklist), `active = false` (locations, reference lists, templates, programs), `deactivated_at` (users), `reverted_at` (merges).
 - Technical rows the system may delete: expired `otp_codes`, expired unfinalized `upload_sessions`, export files after 30 days (O-30), expired unsubmitted `registration_drafts` with their photo `files` rows (D-082). These deletions are performed by jobs running under a dedicated role with DELETE only on those tables; the drafts and their photos only through the `SECURITY DEFINER` function `purge_expired_registration_drafts`, so the role has no DELETE on `files`.
@@ -1757,7 +1757,7 @@ Machine-readable schemas live in `docs/database/json-schemas/` (JSON Schema 2020
 | Role | Privileges | Used by |
 |---|---|---|
 | css_migrate | owner of the schema; DDL | one-shot migration container (ADR-003) |
-| css_app | SELECT, INSERT, UPDATE on business tables; EXECUTE on discard_registration_photo (a replaced draft or change-request photo, D-082, D-087); INSERT only on append-only logs (audit_log, field_changes, budget_ledger, document_events, application_transfers, stock_movements); no DELETE; no DDL | api and worker |
+| css_app | SELECT, INSERT, UPDATE on business tables; EXECUTE on discard_registration_photo (a replaced draft or change-request photo, D-082, D-087); INSERT only on append-only logs (audit_log, field_changes, budget_ledger, document_events, application_transfers, stock_movements); DELETE only on `fund_sources`, `project_areas` and `dawah_syllabus_topics` (D-106); no DDL | api and worker |
 | css_jobs_cleanup | DELETE on otp_codes, upload_sessions; UPDATE on files (exports); EXECUTE on purge_expired_registration_drafts | worker cleanup jobs only |
 | css_readonly | SELECT on reporting views without sensitive columns | optional reporting, IT diagnostics |
 | css_backup | replication / pg_dump | backup tooling (O-06) |

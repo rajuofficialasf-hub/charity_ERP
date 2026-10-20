@@ -65,13 +65,24 @@ export class SessionsService {
     });
   }
 
-  /** The target account inside the caller's scope, or 404 (unknown, out of scope, system actor). */
-  private target(scope: Scope, userId: string) {
-    return this.access.findUser(scope, userId, { id: true, isSystemOwner: true });
+  /**
+   * The target account inside the caller's scope, or 404 (unknown, out of scope, system actor). An
+   * official below the global roles reaches only volunteers' devices (RBAC.md: an RPM sees the
+   * sessions of volunteers), never another official's, even one working in the same area.
+   */
+  private async target(actor: Principal, scope: Scope, userId: string) {
+    const user = await this.access.findUser(scope, userId, {
+      id: true,
+      kind: true,
+      isSystemOwner: true,
+    });
+    if (!actor.globalScope && user.kind !== 'volunteer' && user.id !== actor.userId)
+      throw new ApiError('permission.not_found', 404);
+    return user;
   }
 
   async listUser(actor: Principal, scope: Scope, userId: string): Promise<DeviceSession[]> {
-    const user = await this.target(scope, userId);
+    const user = await this.target(actor, scope, userId);
     const rows = await this.sessions.list(user.id);
     return rows.map((r) => view(r, user.id === actor.userId ? actor.sessionId : null));
   }
@@ -83,7 +94,7 @@ export class SessionsService {
     sessionId: string,
     reason: string,
   ): Promise<void> {
-    const user = await this.target(scope, userId);
+    const user = await this.target(actor, scope, userId);
     // The Main Admin's sessions are revoked only by the Main Admin (AUTH.md 11, BR-035).
     if (user.isSystemOwner && user.id !== actor.userId)
       throw new ApiError('user.system_owner_protected', 409);

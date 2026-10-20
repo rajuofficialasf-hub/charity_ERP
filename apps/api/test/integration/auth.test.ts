@@ -116,6 +116,22 @@ describe('POST /auth/login', () => {
     expect(await notificationsOf(h.db, 'account_locked', staff.id)).toHaveLength(1);
   });
 
+  it('counts wrong passwords sent in parallel one by one, so they still lock the account', async () => {
+    const staff = await account(h.db);
+    const tries = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        post('/auth/login').send({ loginId: staff.email, password: 'bad pass 1' }),
+      ),
+    );
+    expect(tries.every((r) => r.status === 401 || r.status === 423)).toBe(true);
+    // the right password does not open the account the parallel guesses locked
+    await post('/auth/login').send({ loginId: staff.email, password: PASSWORD }).expect(423);
+    const locks = (await auditRows(h.db, 'auth.locked')).filter((r) => r.entity_id === staff.id);
+    expect(locks).toHaveLength(1);
+    h.clock.advance(15 * 60_000 + 1000);
+    await post('/auth/login').send({ loginId: staff.email, password: PASSWORD }).expect(200);
+  });
+
   it('emails the Monitoring Team at the tenth lockout of a day, once', async () => {
     const monitoring = await account(h.db, { role: 'monitoring_team' });
     const { rows } = await h.db.query<{ n: number }>(

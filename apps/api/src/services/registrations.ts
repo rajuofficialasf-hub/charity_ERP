@@ -42,8 +42,9 @@ export interface RegistrationListQuery extends Omit<PageQuery, 'sort'> {
 export const CORRECTION = 'registration_correction';
 /** Correction rows that keep a registration away from the approvers. */
 export const UNFINISHED = ['open', 'submitted'];
-/** Refused correction answers (invalid value, NID of another volunteer) an account allows. */
+/** Refused correction answers (invalid value, NID of another volunteer) an account allows per hour. */
 const MAX_REFUSED_ANSWERS = 10;
+const REFUSAL_WINDOW_MS = 3_600_000;
 /** Roles a staff decision or a new account may not give: the Main Admin's role (AUTH.md 11). */
 const NOT_BY_DECISION = new Set(['department_head']);
 
@@ -604,8 +605,14 @@ export class RegistrationsService {
    * pending profile at once; the row waits for the resubmit (BR-030).
    */
   async answer(principal: Principal, requestId: string, body: ChangeRequestAnswer) {
+    // counted within the last hour: typing mistakes of earlier days never lock a registrant out
     const refused = await this.prisma.auditLog.count({
-      where: { action: 'auth.correction_refused', entityType: 'user', entityId: principal.userId },
+      where: {
+        action: 'auth.correction_refused',
+        entityType: 'user',
+        entityId: principal.userId,
+        createdAt: { gt: new Date(this.clock.now().getTime() - REFUSAL_WINDOW_MS) },
+      },
     });
     if (refused >= MAX_REFUSED_ANSWERS) throw new ApiError('rate_limit.exceeded', 429);
     try {

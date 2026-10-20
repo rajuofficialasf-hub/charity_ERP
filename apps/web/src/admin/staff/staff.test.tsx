@@ -491,12 +491,20 @@ describe('the official profile', () => {
     expect(screen.queryByRole('region', { name: 'ডিভাইস' })).not.toBeInTheDocument();
   });
 
-  it("shows the devices to an RPM, who may end another person's sessions", async () => {
+  it("shows no devices to an RPM, who reaches volunteers' devices only", async () => {
     refreshAs(RPM);
     serve();
     openProfile(official().id);
     await screen.findByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' });
     expect(screen.queryByRole('group', { name: 'কাজ' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'ডিভাইস' })).not.toBeInTheDocument();
+  });
+
+  it('shows the devices to the Monitoring Team', async () => {
+    refreshAs({ ...ME, roles: ['monitoring_team'] });
+    serve();
+    openProfile(official().id);
+    await screen.findByRole('heading', { level: 1, name: 'আরপিএম ঢাকা' });
     expect(screen.getByRole('region', { name: 'ডিভাইস' })).toBeInTheDocument();
   });
 

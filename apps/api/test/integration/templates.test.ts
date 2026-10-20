@@ -276,10 +276,19 @@ describe('master templates', () => {
       (await componentsOf(pm, again)).find((c) => c.componentKey === 'distribution')!.settings,
     ).toEqual({ rule: 'group' });
     const actions = await h.db.query(
-      `SELECT action FROM audit_log WHERE entity_id = $1 ORDER BY created_at`,
+      `SELECT action, old FROM audit_log WHERE entity_id = $1 ORDER BY created_at`,
       [template.id],
     );
     expect(actions.rows.map((r) => r.action)).toEqual(['template.create', 'template.update']);
+    // the replaced contents are kept in the audit entry of the replacement
+    const replacedOld = actions.rows[1].old as {
+      version: number;
+      definition: { components: { componentKey: string; settings: unknown }[] };
+    };
+    expect(replacedOld.version).toBe(1);
+    expect(
+      replacedOld.definition.components.find((c) => c.componentKey === 'distribution')!.settings,
+    ).toEqual({ rule: 'individual' });
   });
 
   it('are shared by everyone who creates projects: another program renames and uses them', async () => {

@@ -6,7 +6,7 @@ Sources: blueprint B2 (entity tables, key rules) and B3 (hybrid storage); BD-01�
 
 ## 1. Scope
 
-91 entities in 12 clusters. Every entity cites the requirement it serves. Entities of the documentation module (M13) are included now so the data model does not change later, although the module is built last (O-34).
+95 entities in 12 clusters (the 91 of the T0.16 freeze plus the four added in Phase 1, section 20). Every entity cites the requirement it serves. Entities of the documentation module (M13) are included now so the data model does not change later, although the module is built last (O-34).
 
 ## 2. Conventions
 
@@ -63,14 +63,15 @@ Cardinality notation below: `1 — n` one to many, `1 — 0..1` optional one, `n
 
 | Entity | Key columns | Relationships | Requirement |
 |---|---|---|---|
-| users | id; mobile (unique); email (unique, nullable for volunteers until verified); kind staff/volunteer; state pending/active/blocked/deactivated; is_system_owner; password_hash; permission_version; language; preferences (JSONB); designation, home program, home division, job_id, affiliation and its unit, supervisor (staff; D-097) | 1 — 0..1 volunteers; 1 — n user_roles, user_permissions, device_sessions, account_invitations; users 1 — n (supervisor) | AUTH.md §1, §2.2, §7; BR-025, BR-035, BR-261; O-05, O-25 |
+| users | id; mobile (unique); email (unique, nullable for volunteers until verified); kind staff/volunteer; state pending/active/blocked/deactivated; is_system_owner; password_hash; permission_version; language; preferences (JSONB); designation, home program, home division, job_id, affiliation and its unit, supervisor (staff; D-097); password_change_required (true for an account created with a temporary password until its owner chooses a new one) | 1 — 0..1 volunteers; 1 — n user_roles, user_permissions, device_sessions, account_invitations; users 1 — n (supervisor) | AUTH.md §1, §2.2, §7; BR-025, BR-035, BR-261; O-05, O-25 |
 | account_invitations | id; user_id; token_hash; expires_at (72 hours); emailed; used_at; revoked_at; created_by | users 1 — n (one open at a time) | AUTH.md §2.2; BR-262; D-097 |
 | roles | key (text, from permissions.yaml); name_bn/en; kind; global_scope | 1 — n user_roles | RBAC.md §3 |
 | user_roles | user_id; role_key; granted_by; granted_at; revoked_at | users n — m roles | A4; RBAC.md §1 (addition, section 20) |
 | permissions | name (text, from permissions.yaml); module; sensitive | 1 — n user_permissions | permissions.yaml |
 | user_permissions | user_id; permission_name; effect grant/revoke; scope_type; scope_ref (program, project or location id); condition; reason; granted_by; expires_at; revoked_at | users n — m permissions (panel overrides) | RBAC.md §7; BR-180 |
 | device_sessions | id; user_id; device name/platform/app version; refresh_token_hash; last_seen_at; last_ip; expires_at (≤ 180 days); revoked_at, revoked_by, reason | users 1 — n; 1 — n push_subscriptions, sync_batches | AUTH.md §5, §8; BR-201, BR-232 |
-| otp_codes | id; purpose registration/password_reset; channel; address_hash; code_hash; expires_at; attempts; consumed_at | — | AUTH.md §2; BR-231 |
+| otp_codes | id; purpose registration/password_reset/contact_change; channel; address_hash; code_hash; expires_at; attempts; consumed_at | — | AUTH.md §2; BR-231 |
+| registration_drafts | id; kind volunteer/staff; mobile, email (nullable until given); mobile_verified_at, email_verified_at (each channel verified by its own OTP); otp_sends; token_hash (the verified-draft token, null once spent); verified_at; expires_at; reference_lookups (0..5); photo_file_id, nid_photo_file_id, nid_photo_back_file_id; submitted_user_id, submitted_at (set when the registration is submitted) | files 1 — n (the three photo slots); users 1 — 0..1 (the account created on submit); expired unsubmitted rows are purged by a daily job | BD-44; BR-231; T1.9 (addition, section 20) |
 | handovers | id; from_user_id; to_user_id (default receiver); scope (JSONB: items with new owners); approved_by; completed_at | users 1 — n (from), users 1 — n (to) | BD-08; BR-034 |
 
 ## 6. Locations, reference data and settings (M19, M21)
@@ -81,20 +82,21 @@ Cardinality notation below: `1 — n` one to many, `1 — 0..1` optional one, `n
 | reference_lists | id; list_key (payment_method, consent_channel, expense_category_default, beneficiary_class_default, issue_type_default); code; label_bn/en; active; sort | — (referenced by code) | O-14, O-17, O-22, BD-14 (addition) |
 | settings | key; value (JSONB); updated_by | — | O-04, O-29, O-30, O-35; BR-213 (addition) |
 | holiday_calendar | date; name_bn/en | — | O-16 (addition) |
-| nisab_versions | id; value (BDT); effective_from (unique); basis note; set_by | 1 — n applications (snapshot reference) | O-15; BR-211 (addition) |
+| nisab_versions | id; value (BDT); effective_from (unique); basis note; set_by; withdrawn_at, withdrawn_by, withdraw_reason (a version is withdrawn, never deleted; T1.13) | 1 — n applications (snapshot reference) | O-15; BR-211 (addition) |
 
 ## 7. Programs and projects (M06, M10)
 
 | Entity | Key columns | Relationships | Requirement |
 |---|---|---|---|
 | programs | id; code; name_bn/en; pm_user_id | 1 — n projects; users 1 — n (PM) | B2; A2 |
-| projects | id; program_id; code (unique); year; name_bn/en; status draft/active/closing/closed; workflow_definition_id, workflow_version, workflow_snapshot (JSONB); apply_from, apply_to; per_volunteer_limit; cost_per_beneficiary; target_beneficiaries; rules (JSONB, four bilingual texts); dawah_enabled; source template or copied-from project | programs 1 — n; 1 — n everything project-scoped | B2; A6; BD-09, BD-10, BD-16, BD-20; O-03, O-12 |
+| projects | id; program_id; code (unique); year; name_bn/en; status draft/active/closing/closed/cancelled; cancelled_at, cancelled_by (a draft is cancelled, never deleted); workflow_definition_id, workflow_version, workflow_snapshot (JSONB); apply_from, apply_to; per_volunteer_limit; cost_per_beneficiary; target_beneficiaries; rules (JSONB, four bilingual texts); rules_version (number of the current version, 0 until rules are saved; T1.12); dawah_enabled; source template or copied-from project | programs 1 — n; 1 — n everything project-scoped | B2; A6; BD-09, BD-10, BD-16, BD-20; O-03, O-12 |
 | project_components | id; project_id; component_key; enabled; settings (JSONB) | projects 1 — n; unique (project, component) | B2 additions; BD-09; BR-062 |
 | project_areas | id; project_id; location_id (division, or district when split); rpm_user_id | projects 1 — n; users 1 — n (RPM) | B2; A6; Q-08; BR-060 |
 | project_staff | id; project_id; user_id; role_key; area location_id; access view/edit/delete; extra_permissions (list) | projects n — m users (staff) | A6 staff assignment; BR-061, BR-234; RBAC.md §6 |
 | project_templates | id; key; name_bn/en; project_type; source_project_id; description; definition (JSONB: workflow key, components with their settings (stages, photo rule, rating criteria, issue types, expense categories), syllabus, rules texts; the form v1, scoring criteria and document checklist join with their tasks, D-096); version | projects 1 — n (created from) | A6 templates; BD-10; BR-064, BR-065 |
 | project_quotas | id; project_id; level district/union; location_id; target; approved_count | projects 1 — n; unique (project, location) | B2 additions; BD-17; BR-098 |
 | fund_sources | id; project_id; source zakat/sadaqah/general/donor; label; amount | projects 1 — n; 1 — n budget_ledger | B2 additions; BD-30; BR-071 |
+| project_rules_versions | id; project_id; version (unique per project); texts (JSONB, the four bilingual rules texts of that version); created_by, created_at | projects 1 — n; append-only, `projects.rules_version` names the current one; saving a new version resets every acceptance | BD-09; BR-039; D-096 (T1.12) |
 
 ## 8. Forms (M07)
 
@@ -122,9 +124,10 @@ Cardinality notation below: `1 — n` one to many, `1 — 0..1` optional one, `n
 
 | Entity | Key columns | Relationships | Requirement |
 |---|---|---|---|
-| volunteers | id; user_id (unique); nid (unique, O-20); type general/local_daee/both/team_member/paid; father_name; mother_name; whatsapp; division/district/upazila/union ids; education; experience; work description; previous projects; facebook_id; bank name/account name/account number/routing number (sensitive, nullable); reference_nid; reference_volunteer_id; photo_file_id; nid_photo_file_id; category A/B/C/D; inactive flag; approved_by, approved_at | users 1 — 0..1; self 1 — n (reference → team members); 1 — n project_volunteers, volunteer_teams, volunteer_ratings, volunteer_categories_log, volunteer_change_requests, expense_claims, applications (owner), animals (assigned) | B2; A5; BD-44; O-20; BR-025…033, BR-230 |
+| volunteers | id; user_id (unique); nid (unique, O-20); type general/local_daee/both/team_member/paid; father_name; mother_name; whatsapp; division/district/upazila/union ids; education; experience; work description; previous projects; facebook_id; bank name/account name/account number/branch name/routing number (sensitive, nullable); reference_nid; reference_volunteer_id; photo_file_id; nid_photo_file_id; nid_photo_back_file_id; profile details (blood group, date of birth, t-shirt size, volunteering area, profession and its details, interest areas, vehicle, can swim, availability, emergency full time, education details (JSONB), permanent address (JSONB)); address line; category A/B/C/D; inactive flag; approved_by, approved_at | users 1 — 0..1; self 1 — n (reference → team members); 1 — n project_volunteers, volunteer_teams, volunteer_ratings, volunteer_categories_log, volunteer_change_requests, expense_claims, applications (owner), animals (assigned) | B2; A5; BD-44; O-20; BR-025…033, BR-230 |
 | volunteer_teams | id; project_id; lead_volunteer_id; member_volunteer_id; added_at; removed_at; consent_status, consent_at (T1.12) | projects 1 — n; unique (project, member) | B2; A5 teams; BR-040, BR-041 |
 | project_volunteers | id; project_id; volunteer_id; region location_id; permission_set; extra_permissions (list); is_paid; consent_status, consent_at; assigned_by; applications_counted (T1.12) | projects n — m volunteers; unique (project, volunteer) | B2; A5 assignment; BR-037…039, BR-051 |
+| project_consents | id; project_id; volunteer_id; project_volunteer_id and volunteer_team_id (exactly one is set); rules_version; decision accepted/refused; parts (the rules parts accepted); created_by, created_at | projects 1 — n; volunteers 1 — n; project_volunteers 1 — n; volunteer_teams 1 — n; append-only, the latest row for the current rules version decides whether the volunteer may work | BD-09; BR-039, BR-040; D-096 (T1.12) |
 | volunteer_ratings | id; project_id; volunteer_id; work_kind application_distribution/dawah; proposed_scores (JSONB); final_scores (JSONB); finalized_by, finalized_at | unique (project, volunteer, work_kind) | A5 ratings; BD-40; O-10; BR-042…044 |
 | volunteer_categories_log | id; volunteer_id; from_category; to_category; inactive change; comment (required); changed_by, at | volunteers 1 — n | BD-40; BR-045 |
 | blocklist | id; subject_type volunteer/beneficiary; subject_id; reason; blocked_by, blocked_at; released_by, released_at, release_reason; active | polymorphic to volunteers or beneficiaries; one active row per subject | B2 additions; BD-06; BR-010, BR-015, BR-047 |
@@ -278,7 +281,7 @@ Cardinality notation below: `1 — n` one to many, `1 — 0..1` optional one, `n
 
 ## 20. Additions, folded entities and ambiguities (resolved by O-37, 2026-10-10)
 
-Entities added beyond the T0.15 list, each with its documented requirement: user_roles (A4), work_assignments (BD-24, BD-26, B4 ASSIGNED), volunteer_change_requests (BR-030, BR-031), form_library_sections and form_library_fields (BD-12), nisab_versions (O-15), holiday_calendar (O-16), reference_lists (O-14, O-17, O-22), settings (O-04, O-29, O-30, O-35), alerts (BD-42), outbound_messages (T0.14), push_subscriptions (O-35), file_links and upload_sessions (T0.13), document_events (T0.13), media_subjects (O-28), storage_stats (BD-46), export_jobs (NFR-10). Added in T0.16: id_sequences (O-03 application number counter), bringing the physical model to 91 tables. Added in T1.12 (D-096): project_rules_versions (every saved version of a project's rules, BR-039) and project_consents (who accepted or refused which version, BR-039, BR-040), both append-only logs; 93 tables.
+Entities added beyond the T0.15 list, each with its documented requirement: user_roles (A4), work_assignments (BD-24, BD-26, B4 ASSIGNED), volunteer_change_requests (BR-030, BR-031), form_library_sections and form_library_fields (BD-12), nisab_versions (O-15), holiday_calendar (O-16), reference_lists (O-14, O-17, O-22), settings (O-04, O-29, O-30, O-35), alerts (BD-42), outbound_messages (T0.14), push_subscriptions (O-35), file_links and upload_sessions (T0.13), document_events (T0.13), media_subjects (O-28), storage_stats (BD-46), export_jobs (NFR-10). Added in T0.16: id_sequences (O-03 application number counter), bringing the physical model to 91 tables. Added in T1.12 (D-096): project_rules_versions (every saved version of a project's rules, BR-039) and project_consents (who accepted or refused which version, BR-039, BR-040), both append-only logs; 93 tables. Added in T1.9 and T1.11: registration_drafts (the volunteer or staff registration before it is submitted, BD-44, BR-231) and account_invitations (the set-password link of an official, BR-262, D-097); 95 tables.
 
 Folded (no own table): blueprint project_settings → projects and project_components.settings; beneficiary contact changes and correction history → field_changes; public form links and rating criteria → project_components.settings; handover items → handovers.scope; notification preferences → users.preferences.
 
