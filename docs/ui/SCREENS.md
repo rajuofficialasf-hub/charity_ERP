@@ -134,6 +134,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 
 ### SCR-002 Registration with two OTP steps
 
+- **Two panels (UX-23, 2026-10-20; the owner's reference design).** On the desktop a dark brand panel on the left (`--gradient-hero` with green circles; the logo on a white tile, the badge "চ্যারিটি ও সোশ্যাল সার্ভিস বিভাগ", the title at `--text-hero`, its line, the eight steps as a vertical list with the done ones ticked and the current one lit, the note that officials do not register here) and the form on the right ("ধাপ N / M" with a progress bar, the step's name as the heading with one hint line, the fields, "আগের ধাপ" and "পরের ধাপ"); on a phone the brand panel is a band above the form and the list is for screen readers only. Replaces the green title band and the horizontal step row, which had made the form wider than its card.
 - **Since D-097 (2026-10-17).** Volunteers only: the page names no kind and says that officials do not register here; the admin creates their accounts (SCR-063) and they set the password through a link (SCR-065). Staff drafts are refused by the API (`registration.staff_by_invitation`).
 - **Purpose.** Volunteer and staff registration (BD-44, blueprint A5):
   1. Verify the mobile number by OTP.

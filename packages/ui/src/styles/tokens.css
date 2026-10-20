@@ -49,6 +49,8 @@
   --font-weight-regular: 400;
   --font-weight-bold: 700;
   --text-display: 20px;
+  /* the title of a hero area only (UX-23): the brand panel of the registration */
+  --text-hero: 24px;
   --text-title: 16px;
   --text-body: 16px;
   --text-label: 12px;
@@ -122,6 +124,7 @@
   :root {
     --text-body: 14px;
     --text-input: 14px;
+    --text-hero: 36px;
     --control-height: 40px;
     --app-bar-height: 64px;
   }

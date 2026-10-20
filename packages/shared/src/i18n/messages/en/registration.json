@@ -300,5 +300,20 @@
       "completed": "Completed"
     }
   },
-  "staff_by_admin": "For volunteers. Officials do not register here: the admin creates the account and sends a link."
+  "staff_by_admin": "For volunteers. Officials do not register here: the admin creates the account and sends a link.",
+  "badge": "Charity & Social Service Department",
+  "logo_alt": "As-Sunnah Foundation",
+  "progress": "Step {current} of {total}",
+  "step_done": "done",
+  "hint": {
+    "contact": "Verify your mobile number and your email.",
+    "identity": "Give your details as they are on your NID card.",
+    "address": "The address where you live now.",
+    "education": "You may skip this step.",
+    "profession": "Tell us what you do now.",
+    "skills": "What you can help with, and when.",
+    "account": "Choose the password you will log in with.",
+    "photos": "Your own photo and both sides of your NID card.",
+    "workplace": "Where you work."
+  }
 }
