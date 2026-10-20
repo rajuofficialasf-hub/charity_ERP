@@ -1,4 +1,5 @@
 import type { Logger } from 'pino';
+import { z } from 'zod';
 import { uuidv7 } from '@css/shared';
 import {
   type FileType,
@@ -9,6 +10,7 @@ import {
   UPLOAD_RULES,
   type UploadRecordType,
   type UploadSessionCreate,
+  uploadSessionCreateSchema,
 } from '@css/shared/files';
 import type { AccessService } from '../access/service';
 import type { Scope } from '../access/scope';
@@ -16,7 +18,7 @@ import type { AuditWriter } from '../audit/audit-writer';
 import type { Principal } from '../auth/principal';
 import type { Clock } from '../core/clock';
 import type { PrismaService, Tx } from '../core/prisma.service';
-import { dropParts, firstBytes, joinParts, partCount, storePart } from '../files/parts';
+import { dropParts, joinParts, partCount, storePart } from '../files/parts';
 import { bucketOf, detectType, MAGIC_LENGTH, objectKeyOf } from '../files/policy';
 import { loadUploadRecord, scopeReachesRecord, type UploadRecord } from '../files/records';
 import { Prisma } from '../generated/prisma/client';
@@ -44,6 +46,7 @@ export interface UploadedFileView {
   uploadedAt: string;
   virusScan: string;
   flags: string[];
+  /** Named by the file routes once the processing job finds a near duplicate; empty here. */
   duplicateOf: string | null;
 }
 
@@ -53,8 +56,9 @@ export interface Replayable<T> {
   replay: boolean;
 }
 
-/** What a session keeps of its create request, with the file id and key chosen then. */
-type Declared = UploadSessionCreate & { fileId: string };
+/** What a session keeps of its create request, with the file id chosen then. */
+const declaredSchema = uploadSessionCreateSchema.extend({ fileId: z.uuid() });
+type Declared = z.infer<typeof declaredSchema>;
 
 interface SessionRow {
   id: string;
@@ -67,13 +71,15 @@ interface SessionRow {
 
 /** Projects that still take files: running, or closing while the last documents arrive. */
 const OPEN_PROJECT = new Set(['active', 'closing']);
-const PHOTO_FLAG_KINDS = new Set(['document']);
+/** A finalize waits this long for another finalize of the session, and may run this long. */
+const FINALIZE_WAIT_MS = 10_000;
+const FINALIZE_TIMEOUT_MS = 120_000;
 
 /**
  * Uploads through the API in 256 KB parts (docs/architecture/FILES_AND_DOCUMENTS.md, "Upload
  * pipeline"): a session checked against the record the file links to, the parts with a status for
- * resuming, and a finalize that checks the record again, the type by its first bytes, the size and
- * the SHA-256, refuses the same bytes twice in a project, and writes the file, its link and the
+ * resuming, and a finalize that checks the record again, the size, the SHA-256 and the type of the
+ * joined bytes, refuses the same bytes twice in a project, and writes the file, its link and the
  * audit entry in one transaction. The file stays quarantined until the scan clears it.
  */
 export class UploadsService {
@@ -93,11 +99,11 @@ export class UploadsService {
     body: UploadSessionCreate,
   ): Promise<Replayable<UploadSessionView>> {
     const userId = principal.userId;
-    // a resent create answers the session the first one made
+    // a resent create answers the session the first one made, while it is still usable
     const existing = await this.prisma.uploadSession.findUnique({
       where: { userId_clientUuid: { userId, clientUuid: body.clientUuid } },
     });
-    if (existing) return { value: sessionView(existing), replay: true };
+    if (existing) return { value: replayOf(existing, body, this.clock.now()), replay: true };
     if (!kindAllowedOn(body.entityType, body.kind))
       throw new ApiError('file.kind_not_allowed', 422);
     const limit = maxSizeOf(body.kind, body.mime);
@@ -108,37 +114,42 @@ export class UploadsService {
       body.entityType as UploadRecordType,
       body.entityId,
     );
-    const now = this.clock.now();
-    const open = await this.prisma.uploadSession.count({
-      where: { userId, finalizedFileId: null, expiresAt: { gt: now } },
-    });
-    if (open >= UPLOAD_RULES.openSessions) throw new ApiError('file.sessions_limit', 429);
     const fileId = uuidv7();
     const declared: Declared = { ...body, sha256: body.sha256.toLowerCase(), fileId };
+    const objectKey = objectKeyOf({
+      fileId,
+      kind: body.kind,
+      type: body.mime as FileType,
+      entityType: body.entityType,
+      entityId: body.entityId,
+      projectCode: record.projectCode,
+      programCode: record.programCode,
+      year: record.year,
+      applicationId: record.applicationId,
+      districtCode: record.districtCode,
+    });
     try {
-      const created = await this.prisma.uploadSession.create({
-        data: {
-          id: uuidv7(),
-          userId,
-          clientUuid: body.clientUuid,
-          declared: declared as unknown as Prisma.InputJsonValue,
-          bucket: bucketOf(body.kind),
-          objectKey: objectKeyOf({
-            fileId,
-            kind: body.kind,
-            type: body.mime as FileType,
-            entityType: body.entityType,
-            entityId: body.entityId,
-            projectCode: record.projectCode,
-            programCode: record.programCode,
-            year: record.year,
-            applicationId: record.applicationId,
-            districtCode: record.districtCode,
-          }),
-          partCount: partCount(body.sizeBytes),
-          expiresAt: expiry(now),
-          createdBy: userId,
-        },
+      const created = await this.prisma.$transaction(async (tx) => {
+        // one create of a user at a time, so the count of open sessions holds
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${userId}, 1))`;
+        const now = this.clock.now();
+        const open = await tx.uploadSession.count({
+          where: { userId, finalizedFileId: null, expiresAt: { gt: now } },
+        });
+        if (open >= UPLOAD_RULES.openSessions) throw new ApiError('file.sessions_limit', 429);
+        return tx.uploadSession.create({
+          data: {
+            id: uuidv7(),
+            userId,
+            clientUuid: body.clientUuid,
+            declared: declared as unknown as Prisma.InputJsonValue,
+            bucket: bucketOf(body.kind),
+            objectKey,
+            partCount: partCount(body.sizeBytes),
+            expiresAt: expiry(now),
+            createdBy: userId,
+          },
+        });
       });
       return { value: sessionView(created), replay: false };
     } catch (error) {
@@ -148,7 +159,7 @@ export class UploadsService {
         where: { userId_clientUuid: { userId, clientUuid: body.clientUuid } },
       });
       if (!raced) throw error;
-      return { value: sessionView(raced), replay: true };
+      return { value: replayOf(raced, body, this.clock.now()), replay: true };
     }
   }
 
@@ -193,7 +204,10 @@ export class UploadsService {
     return sessionView(await this.openSession(principal, sessionId));
   }
 
-  /** The new file, or the file an earlier finalize of the session made (`replay`). */
+  /**
+   * The new file, or the file an earlier finalize of the session made (`replay`). One finalize of
+   * a session runs at a time: a second one waits for the first and then answers its file.
+   */
   async finalize(
     principal: Principal,
     scope: Scope,
@@ -211,40 +225,45 @@ export class UploadsService {
     );
     if (session.partsReceived.length < session.partCount)
       throw new ApiError('file.parts_missing', 409);
-    const type = detectType(await firstBytes(this.storage, session.id, MAGIC_LENGTH));
-    if (!type || !sameFileType(type, declared.mime) || maxSizeOf(declared.kind, type) === null)
-      throw new ApiError('file.type_not_allowed', 415);
-    await this.refuseDuplicate(scope, record.projectId, declared.sha256);
+    await this.refuseDuplicate(scope, record.projectId, declared);
     const bucket = session.bucket as Bucket;
-    await joinParts(this.storage, {
-      sessionId: session.id,
-      count: session.partCount,
-      size: declared.sizeBytes,
-      sha256: declared.sha256,
-      bucket,
-      key: session.objectKey,
-      contentType: type,
-    });
-    let fileId: string;
+    let wrote = false;
     try {
-      fileId = await this.prisma.$transaction((tx) =>
-        this.writeFile(tx, principal, session, declared, record, type),
+      const outcome = await this.prisma.$transaction(
+        async (tx) => {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${session.id}, 0))`;
+          // the row lock also keeps the nightly sweep away until this finalize ends
+          const [locked] = await tx.$queryRaw<{ finalized_file_id: string | null }[]>`
+            SELECT finalized_file_id FROM upload_sessions WHERE id = ${session.id}::uuid FOR UPDATE`;
+          if (!locked) throw new ApiError('file.session_expired', 410);
+          if (locked.finalized_file_id) return { fileId: locked.finalized_file_id, replay: true };
+          const type = (await joinParts(this.storage, {
+            sessionId: session.id,
+            count: session.partCount,
+            size: declared.sizeBytes,
+            sha256: declared.sha256,
+            bucket,
+            key: session.objectKey,
+            headLength: MAGIC_LENGTH,
+            accept: (head) => acceptedType(head, declared),
+          })) as FileType;
+          wrote = true;
+          await this.writeFile(tx, principal, session, declared, record, type);
+          return { fileId: declared.fileId, replay: false };
+        },
+        { maxWait: FINALIZE_WAIT_MS, timeout: FINALIZE_TIMEOUT_MS },
       );
+      if (!outcome.replay) await this.dropPartsQuietly(session.id);
+      return { value: await this.fileView(outcome.fileId), replay: outcome.replay };
     } catch (error) {
-      await this.removeQuietly(bucket, session.objectKey);
+      // only the finalize that wrote the object removes it; a waiting one never touches it
+      if (wrote) await this.removeQuietly(bucket, session.objectKey);
       if (isUniqueViolation(error)) throw new ApiError('file.duplicate', 409);
       throw error;
     }
-    try {
-      await dropParts(this.storage, session.id);
-    } catch (error) {
-      // the uploads bucket empties itself after two days; nothing points at the parts any more
-      this.logger.warn({ err: error }, 'upload parts not removed');
-    }
-    return { value: await this.fileView(fileId), replay: false };
   }
 
-  /** The file row, its link and the audit entry, once: a finalize that lost the race answers the winner's file. */
+  /** The file row, its link, the finalized session and the audit entry, in the finalize's transaction. */
   private async writeFile(
     tx: Tx,
     principal: Principal,
@@ -252,11 +271,12 @@ export class UploadsService {
     declared: Declared,
     record: UploadRecord,
     type: FileType,
-  ): Promise<string> {
-    const [locked] = await tx.$queryRaw<{ finalized_file_id: string | null }[]>`
-      SELECT finalized_file_id FROM upload_sessions WHERE id = ${session.id}::uuid FOR UPDATE`;
-    if (locked?.finalized_file_id) return locked.finalized_file_id;
-    const flags = photoFlags(declared, type);
+  ): Promise<void> {
+    // the record's own device time where it keeps one, else what the phone declared
+    const recordCreatedAt =
+      record.clientCreatedAt ??
+      (declared.recordCreatedAt ? new Date(declared.recordCreatedAt) : null);
+    const flags = photoFlags(declared, type, recordCreatedAt, this.clock.now());
     await tx.file.create({
       data: {
         id: declared.fileId,
@@ -269,7 +289,7 @@ export class UploadsService {
         projectId: record.projectId,
         uploadedBy: principal.userId,
         capturedAt: declared.capturedAt ? new Date(declared.capturedAt) : null,
-        recordCreatedAt: declared.recordCreatedAt ? new Date(declared.recordCreatedAt) : null,
+        recordCreatedAt,
         latitude: declared.gps?.lat ?? null,
         longitude: declared.gps?.lng ?? null,
         gpsAccuracyM: declared.gps?.accuracyM ?? null,
@@ -309,16 +329,24 @@ export class UploadsService {
         flags,
       },
     });
-    return declared.fileId;
   }
 
   /**
    * The same bytes are already in the project: refused, naming the other file only to a caller
    * whose scope reaches one of its records; anyone else learns only that such a file exists.
    */
-  private async refuseDuplicate(scope: Scope, projectId: string, sha256: string): Promise<void> {
+  private async refuseDuplicate(
+    scope: Scope,
+    projectId: string,
+    declared: Declared,
+  ): Promise<void> {
     const other = await this.prisma.file.findFirst({
-      where: { projectId, sha256, kind: { not: 'export' } },
+      where: {
+        projectId,
+        sha256: declared.sha256,
+        kind: { not: 'export' },
+        id: { not: declared.fileId },
+      },
       select: { id: true, fileLinksFile: { select: { entityType: true, entityId: true } } },
     });
     if (!other) return;
@@ -382,6 +410,15 @@ export class UploadsService {
     };
   }
 
+  private async dropPartsQuietly(sessionId: string): Promise<void> {
+    try {
+      await dropParts(this.storage, sessionId);
+    } catch (error) {
+      // the uploads bucket empties itself after two days; nothing points at the parts any more
+      this.logger.warn({ err: error }, 'upload parts not removed');
+    }
+  }
+
   private async removeQuietly(bucket: Bucket, key: string): Promise<void> {
     try {
       await this.storage.remove(bucket, key);
@@ -394,7 +431,7 @@ export class UploadsService {
 const expiry = (now: Date) => new Date(now.getTime() + UPLOAD_RULES.sessionLifeMs);
 
 function declaredOf(session: { declared: unknown }): Declared {
-  return session.declared as Declared;
+  return declaredSchema.parse(session.declared);
 }
 
 function sessionView(session: SessionRow): UploadSessionView {
@@ -409,20 +446,58 @@ function sessionView(session: SessionRow): UploadSessionView {
   };
 }
 
+/** The fields that make two creates the same upload. */
+const SAME_UPLOAD = ['kind', 'entityType', 'entityId', 'slot', 'mime', 'sizeBytes'] as const;
+
+/**
+ * The session an earlier create with the same client id made: refused once it expired unfinished
+ * (the device starts over with a new id), and when the request describes another file.
+ */
+function replayOf(
+  session: SessionRow & { declared: unknown },
+  body: UploadSessionCreate,
+  now: Date,
+): UploadSessionView {
+  if (!session.finalizedFileId && session.expiresAt <= now)
+    throw new ApiError('file.session_expired', 410);
+  const declared = declaredOf(session);
+  if (
+    SAME_UPLOAD.some((field) => declared[field] !== body[field]) ||
+    declared.sha256 !== body.sha256.toLowerCase()
+  )
+    throw new ApiError('file.session_mismatch', 409);
+  return sessionView(session);
+}
+
+/** The type of the joined bytes, when it is the declared one and the kind takes it; else 415. */
+function acceptedType(head: Buffer, declared: Declared): FileType {
+  const type = detectType(head);
+  if (!type || !sameFileType(type, declared.mime) || maxSizeOf(declared.kind, type) === null)
+    throw new ApiError('file.type_not_allowed', 415);
+  return type;
+}
+
 /**
  * The data-quality flags the declaration already decides for a photo: no capture time, no
- * position, and a capture more than ten minutes from the record's creation. They never block.
+ * position, and a stale capture: more than ten minutes from the record's creation, or after the
+ * server's clock. They never block.
  */
-function photoFlags(declared: Declared, type: FileType): string[] {
-  if (!type.startsWith('image/') || PHOTO_FLAG_KINDS.has(declared.kind)) return [];
+function photoFlags(
+  declared: Declared,
+  type: FileType,
+  recordCreatedAt: Date | null,
+  now: Date,
+): string[] {
+  if (!type.startsWith('image/') || declared.kind === 'document') return [];
   const flags: string[] = [];
   if (!declared.capturedAt) flags.push('no_capture_time');
   if (!declared.gps) flags.push('no_gps');
+  const captured = declared.capturedAt ? Date.parse(declared.capturedAt) : null;
+  const far = (a: number, b: number) => Math.abs(a - b) > UPLOAD_RULES.staleCaptureMs;
   if (
-    declared.capturedAt &&
-    declared.recordCreatedAt &&
-    Math.abs(Date.parse(declared.capturedAt) - Date.parse(declared.recordCreatedAt)) >
-      UPLOAD_RULES.staleCaptureMs
+    captured !== null &&
+    ((recordCreatedAt && far(captured, recordCreatedAt.getTime())) ||
+      captured - now.getTime() > UPLOAD_RULES.staleCaptureMs)
   )
     flags.push('stale_capture');
   return flags;

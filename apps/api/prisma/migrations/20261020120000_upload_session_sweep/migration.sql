@@ -12,6 +12,8 @@ BEGIN
      WHERE s.id IN (SELECT x.id FROM upload_sessions x
                      WHERE x.finalized_file_id IS NULL AND x.expires_at < now()
                      ORDER BY x.expires_at LIMIT p_limit)
+       -- checked again on the row itself: a finalize that held the row may have just finished it
+       AND s.finalized_file_id IS NULL AND s.expires_at < now()
     RETURNING s.id;
   PERFORM set_config('css.cleanup', 'off', true);
 END $$;

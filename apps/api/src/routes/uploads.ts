@@ -64,7 +64,7 @@ export function uploadsRouter(
     status: 201,
     operationId: 'files.uploadSession.create',
     summary:
-      "Start a resumable upload (256 KB parts, O-29, D-108); checks the record's scope, the kind, the declared size and type, and the open sessions (at most 20)",
+      "Start a resumable upload in 256 KB parts; checks the record's scope, the kind, the declared size and type, and the open sessions (at most 20)",
     permission: 'file.upload',
     scope: 'project',
     audit: 'none',
@@ -77,6 +77,7 @@ export function uploadsRouter(
       403: null,
       404: null,
       409: null,
+      410: null,
       413: null,
       415: null,
       422: null,
@@ -108,7 +109,7 @@ export function uploadsRouter(
     path: '/upload-sessions/:uploadSessionId/parts/:partNumber',
     operationId: 'files.uploadSession.putPart',
     summary:
-      'Store one part of at most 256 KB as raw bytes; a part sent again replaces nothing and answers the same (D-108)',
+      'Store one part of at most 256 KB as raw bytes; a part sent again replaces nothing and answers the same',
     permission: 'file.upload',
     scope: 'self',
     audit: 'none',
@@ -131,7 +132,7 @@ export function uploadsRouter(
     status: 201,
     operationId: 'files.uploadSession.finalize',
     summary:
-      "Complete the upload after the record's scope is checked again; the size, SHA-256 and the type by magic bytes are verified, an identical file in the project is refused; the file stays quarantined until the scan clears it (O-30)",
+      "Complete the upload after the record's scope is checked again; the size, SHA-256 and the type by magic bytes are verified, an identical file in the project is refused; the file stays quarantined until the scan clears it",
     permission: 'file.upload',
     scope: 'project',
     audit: 'file.uploaded',

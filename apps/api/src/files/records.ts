@@ -19,6 +19,8 @@ export interface UploadRecord {
   /** The places of the record (division, district, upazila, union); empty for a project-wide one. */
   locations: string[];
   districtCode: string | null;
+  /** The device time the record was made, where the record keeps one (an application). */
+  clientCreatedAt: Date | null;
 }
 
 interface Row {
@@ -27,6 +29,7 @@ interface Row {
   owners: string[];
   locations: string[];
   district_code: string | null;
+  client_created_at: Date | null;
 }
 
 /** The places of an application: its region, district and union, and the union's upazila. */
@@ -43,7 +46,8 @@ function recordQuery(type: UploadRecordType, id: string): Prisma.Sql {
       return Prisma.sql`
         SELECT a.project_id, a.id AS application_id,
                array_remove(ARRAY[v.user_id, a.created_by_user_id], NULL) AS owners,
-               ${APPLICATION_PLACES} AS locations, NULL::text AS district_code
+               ${APPLICATION_PLACES} AS locations, NULL::text AS district_code,
+               a.client_created_at
           FROM applications a
           LEFT JOIN volunteers v ON v.id = a.owner_volunteer_id
           LEFT JOIN locations u ON u.id = a.union_id
@@ -51,25 +55,29 @@ function recordQuery(type: UploadRecordType, id: string): Prisma.Sql {
     case 'activity':
       return Prisma.sql`
         SELECT t.project_id, t.application_id, array_remove(ARRAY[t.created_by], NULL) AS owners,
-               coalesce(${APPLICATION_PLACES}, '{}') AS locations, NULL::text AS district_code
+               coalesce(${APPLICATION_PLACES}, '{}') AS locations, NULL::text AS district_code,
+               NULL::timestamptz AS client_created_at
           FROM activities t ${APPLICATION_JOIN}
          WHERE t.id = ${id}::uuid`;
     case 'issue':
       return Prisma.sql`
         SELECT t.project_id, t.application_id, ARRAY[t.raised_by] AS owners,
-               coalesce(${APPLICATION_PLACES}, '{}') AS locations, NULL::text AS district_code
+               coalesce(${APPLICATION_PLACES}, '{}') AS locations, NULL::text AS district_code,
+               NULL::timestamptz AS client_created_at
           FROM issues t ${APPLICATION_JOIN}
          WHERE t.id = ${id}::uuid`;
     case 'voucher':
       return Prisma.sql`
         SELECT t.project_id, t.application_id, ARRAY[t.submitted_by] AS owners,
-               coalesce(${APPLICATION_PLACES}, '{}') AS locations, NULL::text AS district_code
+               coalesce(${APPLICATION_PLACES}, '{}') AS locations, NULL::text AS district_code,
+               NULL::timestamptz AS client_created_at
           FROM vouchers t ${APPLICATION_JOIN}
          WHERE t.id = ${id}::uuid`;
     case 'payment':
       return Prisma.sql`
         SELECT t.project_id, t.application_id, array_remove(ARRAY[t.created_by], NULL) AS owners,
-               coalesce(${APPLICATION_PLACES}, '{}') AS locations, NULL::text AS district_code
+               coalesce(${APPLICATION_PLACES}, '{}') AS locations, NULL::text AS district_code,
+               NULL::timestamptz AS client_created_at
           FROM payments t ${APPLICATION_JOIN}
          WHERE t.id = ${id}::uuid`;
     case 'expense_claim':
@@ -77,7 +85,8 @@ function recordQuery(type: UploadRecordType, id: string): Prisma.Sql {
       return Prisma.sql`
         SELECT c.project_id, NULL::uuid AS application_id, ARRAY[v.user_id] AS owners,
                array_remove(ARRAY[pv.region_location_id], NULL) AS locations,
-               NULL::text AS district_code
+               NULL::text AS district_code,
+               NULL::timestamptz AS client_created_at
           FROM expense_claims c
           JOIN volunteers v ON v.id = c.volunteer_id
           LEFT JOIN project_volunteers pv
@@ -87,7 +96,8 @@ function recordQuery(type: UploadRecordType, id: string): Prisma.Sql {
       return Prisma.sql`
         SELECT n.project_id, NULL::uuid AS application_id,
                array_remove(ARRAY[v.user_id], NULL) AS owners, '{}'::uuid[] AS locations,
-               NULL::text AS district_code
+               NULL::text AS district_code,
+               NULL::timestamptz AS client_created_at
           FROM animals n
           LEFT JOIN volunteers v ON v.id = n.assigned_volunteer_id
          WHERE n.id = ${id}::uuid`;
@@ -96,7 +106,7 @@ function recordQuery(type: UploadRecordType, id: string): Prisma.Sql {
         SELECT d.project_id, NULL::uuid AS application_id,
                array_remove(ARRAY[d.created_by], NULL) AS owners,
                array_remove(ARRAY[d.district_id, l.parent_id], NULL) AS locations,
-               l.code AS district_code
+               l.code AS district_code, NULL::timestamptz AS client_created_at
           FROM documents d
           LEFT JOIN locations l ON l.id = d.district_id
          WHERE d.id = ${id}::uuid`;
@@ -133,11 +143,12 @@ export async function loadUploadRecord(
     owners: row.owners,
     locations: row.locations,
     districtCode: row.district_code,
+    clientCreatedAt: row.client_created_at,
   };
 }
 
 /**
- * Whether the caller's upload scope reaches the record (RBAC.md 8, object-level checks): a global,
+ * Whether the caller's upload scope reaches the record (docs/security/RBAC.md, "Object-level checks for ASSIGNED and SELF"): a global,
  * program or project grant reaches every record of the project; an area grant reaches the records
  * of its place, and project-wide records; a SELF grant reaches the caller's own records on a
  * project the caller works on (an accepted assignment or a staff place). ASSIGNED reaches nothing

@@ -231,6 +231,7 @@ Codes are dotted, lower-case, stable and documented; the i18n key is `errors.<co
 | file | file.checksum_mismatch | 422 | the joined bytes do not match the declared SHA-256 or size (D-108) |
 | file | file.parts_missing | 409 | finalize before every part of the declared size arrived (D-108) |
 | file | file.sessions_limit | 429 | more than 20 open upload sessions (D-108) |
+| file | file.session_mismatch | 409 | a create repeats a client id of an earlier session with other file details (kind, record, slot, type, size or SHA-256) |
 | rate_limit | rate_limit.exceeded | 429 | with `Retry-After` |
 | export | export.not_ready, export.expired | 409, 410 | job still running; file removed after 30 days |
 | client | client.upgrade_required | 426 | PWA version below the minimum supported version; sync the outbox, then update (section 17) |

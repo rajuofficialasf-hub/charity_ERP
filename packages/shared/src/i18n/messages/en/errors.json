@@ -126,7 +126,8 @@
     "part_out_of_range": "This part lies outside the declared file size.",
     "checksum_mismatch": "The file did not arrive whole or has changed. Upload it again.",
     "parts_missing": "Not every part of the file has arrived yet.",
-    "sessions_limit": "Too many uploads are open at once. Try again when the earlier ones finish."
+    "sessions_limit": "Too many uploads are open at once. Try again when the earlier ones finish.",
+    "session_mismatch": "This upload was already started for a different file. Start it again."
   },
   "rate_limit": {
     "exceeded": "Too many requests. Try again shortly."

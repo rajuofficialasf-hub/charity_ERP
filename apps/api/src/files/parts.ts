@@ -60,9 +60,11 @@ const missingPart = (error: unknown): never => {
 
 /**
  * Joins parts 1 to `count` in order, streaming, and writes the target object only when the whole
- * has the declared size and SHA-256. The whole is first written beside the parts, so bytes that
- * fail the check never reach a target bucket (some keep every version). A part that is gone answers
- * `file.parts_missing`, a whole that differs from the declaration `file.checksum_mismatch`.
+ * has the declared size and SHA-256 and `accept` takes its first bytes (it answers the content type
+ * or throws). The whole is first written beside the parts, so bytes that fail a check never reach a
+ * target bucket (some keep every version), and the type is read from the same checked bytes that
+ * are stored. A part that is gone answers `file.parts_missing`, a whole that differs from the
+ * declaration `file.checksum_mismatch`. Returns the content type.
  */
 export async function joinParts(
   storage: StorageDriver,
@@ -73,9 +75,10 @@ export async function joinParts(
     sha256: string;
     bucket: Bucket;
     key: string;
-    contentType: string;
+    headLength: number;
+    accept: (head: Buffer) => string;
   },
-): Promise<void> {
+): Promise<string> {
   if (!Number.isInteger(input.count) || input.count < 1)
     throw new ApiError('file.part_out_of_range', 422);
   const keys = Array.from({ length: input.count }, (_, i) => partKey(input.sessionId, i + 1));
@@ -94,34 +97,35 @@ export async function joinParts(
   }
   try {
     await storage
-      .put(PARTS_BUCKET, joined, Readable.from(bytes()), { contentType: input.contentType })
+      .put(PARTS_BUCKET, joined, Readable.from(bytes()), {
+        contentType: 'application/octet-stream',
+      })
       .catch(missingPart);
     if (size !== input.size || hash.digest('hex') !== input.sha256.toLowerCase())
       throw new ApiError('file.checksum_mismatch', 422);
+    const contentType = input.accept(
+      await headOf(await storage.get(PARTS_BUCKET, joined), input.headLength),
+    );
     await storage.put(input.bucket, input.key, await storage.get(PARTS_BUCKET, joined), {
-      contentType: input.contentType,
+      contentType,
       size,
     });
+    return contentType;
   } finally {
     await storage.remove(PARTS_BUCKET, joined);
   }
 }
 
-/** Reads the start of part 1, enough to tell the type by its magic bytes. */
-export async function firstBytes(
-  storage: StorageDriver,
-  sessionId: string,
-  length: number,
-): Promise<Buffer> {
-  const part = await storage.get(PARTS_BUCKET, partKey(sessionId, 1)).catch(missingPart);
+/** The first bytes of a stream, which is then closed. */
+async function headOf(stream: Readable, length: number): Promise<Buffer> {
   const chunks: Buffer[] = [];
   let total = 0;
-  for await (const chunk of part as AsyncIterable<Buffer>) {
+  for await (const chunk of stream as AsyncIterable<Buffer>) {
     chunks.push(chunk);
     total += chunk.length;
     if (total >= length) break;
   }
-  part.destroy();
+  stream.destroy();
   return Buffer.concat(chunks).subarray(0, length);
 }
 

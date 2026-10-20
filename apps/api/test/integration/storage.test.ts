@@ -125,7 +125,8 @@ describe('S3 storage driver on MinIO (ADR-005, NS-4x)', () => {
       count: parts.length,
       size: whole.length,
       bucket: 'exports' as const,
-      contentType: 'application/octet-stream',
+      headLength: 4,
+      accept: () => 'application/octet-stream',
     };
     // a whole that differs from the declaration never reaches the target bucket
     expect(

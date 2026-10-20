@@ -25,6 +25,9 @@ let dhakaApplication: string;
 let rangpurApplication: string;
 const sessions: Record<string, Session> = {};
 
+/** A time this many minutes from the test clock's now. */
+const minutesFromNow = (minutes: number) =>
+  new Date(h.clock.now().getTime() + minutes * 60_000).toISOString();
 const sha256 = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
 /** A JPEG of three parts: its first bytes are a real JPEG, the rest is padding. */
 const photo = (fill = 1, size = PART * 2 + 1000) =>
@@ -82,8 +85,8 @@ function start(who: string, bytes: Buffer, over: Record<string, unknown> = {}) {
       mime: 'image/jpeg',
       sizeBytes: bytes.length,
       sha256: sha256(bytes),
-      capturedAt: '2026-10-20T08:00:00.000Z',
-      recordCreatedAt: '2026-10-20T08:30:00.000Z',
+      capturedAt: minutesFromNow(-40),
+      recordCreatedAt: minutesFromNow(-10),
       source: 'camera',
       ...over,
     });
@@ -150,7 +153,7 @@ describe('a chunked upload', () => {
     // taken five minutes after the record was made, with a position: no flag
     const created = await start('general', bytes, {
       gps: { lat: 23.81, lng: 90.41 },
-      recordCreatedAt: '2026-10-20T07:55:00.000Z',
+      recordCreatedAt: minutesFromNow(-45),
     });
     const id = created.body.data.id as string;
     expect(created.body.data).toMatchObject({ chunkSize: PART, partCount: 3, partsReceived: [] });
@@ -325,6 +328,61 @@ describe('who may upload to a record', () => {
     const over = await open(99);
     expect(over.status).toBe(429);
     expect(over.body.error.code).toBe('file.sessions_limit');
+  });
+});
+
+describe('replays and races', () => {
+  it('answers two finalizes at once with one file, and only one file.uploaded entry', async () => {
+    const bytes = photo(10);
+    const created = await start('general', bytes);
+    const id = created.body.data.id as string;
+    for (const [i, part] of partsOf(bytes).entries()) await put('general', id, i + 1, part);
+    const [a, b] = await Promise.all([finalize('general', id), finalize('general', id)]);
+    expect([a.status, b.status].sort()).toEqual([200, 201]);
+    expect(a.body.data.id).toBe(b.body.data.id);
+    const entries = (await auditRows(h.db, 'file.uploaded')).filter(
+      (row) => row.entity_id === a.body.data.id,
+    );
+    expect(entries).toHaveLength(1);
+  });
+
+  it('refuses a resent create once its session expired, and one that describes another file', async () => {
+    const bytes = photo(11);
+    const clientUuid = randomUUID();
+    const created = await start('general', bytes, { clientUuid });
+    expect(created.status).toBe(201);
+    const other = await start('general', photo(12), { clientUuid });
+    expect(other.status).toBe(409);
+    expect(other.body.error.code).toBe('file.session_mismatch');
+    await h.db.query('UPDATE upload_sessions SET expires_at = $2 WHERE id = $1', [
+      created.body.data.id,
+      new Date(h.clock.now().getTime() - 1000),
+    ]);
+    const late = await start('general', bytes, { clientUuid });
+    expect(late.status).toBe(410);
+    expect(late.body.error.code).toBe('file.session_expired');
+  });
+
+  it('flags a capture time later than the server clock as stale', async () => {
+    const future = new Date(h.clock.now().getTime() + 60 * 60_000).toISOString();
+    const { done } = await upload('general', photo(13), {
+      capturedAt: future,
+      recordCreatedAt: future,
+      gps: { lat: 23.81, lng: 90.41 },
+    });
+    expect(done.status).toBe(201);
+    expect(done.body.data.flags).toEqual(['stale_capture']);
+  });
+
+  it('refuses an upload to a project that no longer takes files (409)', async () => {
+    await h.db.query(`UPDATE projects SET status = 'closed' WHERE id = $1`, [world.a1.id]);
+    try {
+      const res = await start('general', photo(14));
+      expect(res.status).toBe(409);
+      expect(res.body.error.code).toBe('project.read_only');
+    } finally {
+      await h.db.query(`UPDATE projects SET status = 'active' WHERE id = $1`, [world.a1.id]);
+    }
   });
 });
 

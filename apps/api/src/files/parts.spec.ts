@@ -6,16 +6,7 @@ import { buffer } from 'node:stream/consumers';
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '../i18n/api-error';
 import { createFilesystemDriver } from '../storage/drivers/filesystem';
-import {
-  dropParts,
-  firstBytes,
-  joinParts,
-  MAX_PARTS,
-  PART_SIZE,
-  partCount,
-  partKey,
-  storePart,
-} from './parts';
+import { dropParts, joinParts, MAX_PARTS, PART_SIZE, partCount, partKey, storePart } from './parts';
 
 // The parts of a chunked upload, on the filesystem driver the tests use.
 const fresh = () => createFilesystemDriver(mkdtempSync(join(tmpdir(), 'css-parts-')));
@@ -63,18 +54,25 @@ describe('the parts of a chunked upload', () => {
     await storePart(storage, session, 2, parts[1]!);
     await storePart(storage, session, 2, parts[1]!);
     const whole = Buffer.concat(parts);
-    await joinParts(storage, {
+    const heads: Buffer[] = [];
+    const type = await joinParts(storage, {
       sessionId: session,
       count: 3,
       size: whole.length,
       sha256: sha256(whole).toUpperCase(),
       bucket: 'photos',
       key: 'p/a/photo/f.jpg',
-      contentType: 'image/jpeg',
+      headLength: 4,
+      accept: (head) => {
+        heads.push(head);
+        return 'image/jpeg';
+      },
     });
+    expect(type).toBe('image/jpeg');
+    // the type is read from the joined, checked bytes
+    expect(heads).toEqual([parts[0]!.subarray(0, 4)]);
     expect((await buffer(await storage.get('photos', 'p/a/photo/f.jpg'))).equals(whole)).toBe(true);
     expect(await storage.stat('uploads', `${session}/joined`)).toBeNull();
-    expect((await firstBytes(storage, session, 4)).equals(parts[0]!.subarray(0, 4))).toBe(true);
     await dropParts(storage, session);
     expect(await storage.stat('uploads', `${session}/1`)).toBeNull();
     // dropping again is fine
@@ -91,7 +89,8 @@ describe('the parts of a chunked upload', () => {
       count: 1,
       bucket: 'photos' as const,
       key: 'p/a/photo/h.jpg',
-      contentType: 'image/jpeg',
+      headLength: 4,
+      accept: () => 'image/jpeg',
     };
     for (const declared of [
       { size: bytes.length, sha256: sha256(Buffer.from('another')) },
@@ -100,6 +99,16 @@ describe('the parts of a chunked upload', () => {
       expect(await joinParts(storage, { ...target, ...declared }).catch(code)).toBe(
         'file.checksum_mismatch',
       );
+    // bytes whose type is refused never reach the target either
+    const refused = await joinParts(storage, {
+      ...target,
+      size: bytes.length,
+      sha256: sha256(bytes),
+      accept: () => {
+        throw new ApiError('file.type_not_allowed', 415);
+      },
+    }).catch(code);
+    expect(refused).toBe('file.type_not_allowed');
     expect(await storage.stat('photos', target.key)).toBeNull();
     expect(await storage.stat('uploads', `${session}/joined`)).toBeNull();
   });
@@ -115,11 +124,11 @@ describe('the parts of a chunked upload', () => {
       sha256: sha256(Buffer.from('one')),
       bucket: 'photos',
       key: 'p/a/photo/g.jpg',
-      contentType: 'image/jpeg',
+      headLength: 4,
+      accept: () => 'image/jpeg',
     }).catch(code);
     expect(missing).toBe('file.parts_missing');
     expect(await storage.stat('photos', 'p/a/photo/g.jpg')).toBeNull();
-    expect(await firstBytes(storage, randomUUID(), 4).catch(code)).toBe('file.parts_missing');
     expect(await storePart(storage, session, 2, Buffer.alloc(PART_SIZE + 1)).catch(code)).toBe(
       'file.too_large',
     );
