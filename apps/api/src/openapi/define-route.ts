@@ -101,14 +101,16 @@ export function defineRoute<B = unknown, Q = unknown, P = Record<string, unknown
         req,
         res,
       });
-      if (WRITE_METHODS.has(method)) assertAudited(spec.audit, where, deps.logger);
+      // a replay of an earlier create wrote nothing, so it has nothing to audit (API_STANDARDS 9)
+      const replay = res.getHeader('Idempotent-Replay') === 'true';
+      if (WRITE_METHODS.has(method) && !replay) assertAudited(spec.audit, where, deps.logger);
       if (streams) return;
       // Only the declared fields leave, minus the classes the caller may not see (RBAC.md 6).
       const visible = (req as AuthedRequest).fieldClasses ?? new Set<string>();
       const body = dataSchema
         ? mapData(value, (data) => maskData(dataSchema, parseResponse(dataSchema, data), visible))
         : value;
-      send(res, body, status);
+      send(res, body, replay ? 200 : status);
     } catch (error) {
       next(error);
     }

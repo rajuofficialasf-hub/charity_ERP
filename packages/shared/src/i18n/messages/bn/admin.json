@@ -1248,13 +1248,18 @@
     "storage_unknown": "ডাটাবেস সাড়া দেয়নি, তাই স্টোরেজের হিসাব দেখানো যাচ্ছে না।",
     "figure": "{count}টি ফাইল, মোট {size}",
     "measured": "হিসাবের সময়: {date}",
+    "by_bucket": "বাকেট অনুযায়ী স্টোরেজ",
+    "growth": "গত এক মাসে: {size}",
+    "growth_unknown": "এখনো জানা নেই",
     "by_kind": "ধরন অনুযায়ী ফাইল",
     "by_month": "গত 12 মাসের ফাইল",
     "column": {
       "kind": "ধরন",
       "month": "মাস",
+      "bucket": "বাকেট",
       "count": "সংখ্যা",
-      "size": "আকার"
+      "size": "আকার",
+      "growth": "গত এক মাস"
     }
   },
   "notification_templates": {

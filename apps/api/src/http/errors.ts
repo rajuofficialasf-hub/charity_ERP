@@ -32,7 +32,7 @@ function bodyParserError(err: unknown): { status: number; code: string } | undef
 }
 
 /** Codes whose params are part of the contract and sent to the client (API_STANDARDS 3 and 8). */
-const PUBLIC_PARAMS = new Set(['permission.grant_refused']);
+const PUBLIC_PARAMS = new Set(['permission.grant_refused', 'file.duplicate']);
 
 /**
  * Renders the error block of API_STANDARDS 3 in the request language (I18N 5):

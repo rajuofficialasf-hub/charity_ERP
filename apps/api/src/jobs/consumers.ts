@@ -4,6 +4,9 @@ import type { NotificationDelivery } from '../notifications/delivery';
 import type { DeliveryJob } from '../notifications/service';
 import type { JobRunner } from './job-runner';
 import { REGISTRATION_CLEANUP_CRON, type RegistrationCleanup } from './registration-cleanup';
+import { STORAGE_STATS_CRON, STORAGE_STATS_QUEUE, type StorageStats } from './storage-stats';
+import { UPLOAD_SWEEP_CRON, type UploadSweep } from './upload-sweep';
+import { FILE_PROCESS_QUEUE, type FileProcessJob, type FileProcessor } from './file-process';
 
 /** The sample heartbeat job: proves enqueue, consume and scheduling end to end (ADR-004). */
 export const HEARTBEAT_QUEUE = 'maintenance' as const;
@@ -19,11 +22,19 @@ export interface RegistrationCleanupData {
   kind: 'registration-cleanup';
 }
 
-type MaintenanceData = HeartbeatData | RegistrationCleanupData;
+/** The daily sweep of upload sessions that expired before they were finalized. */
+export interface UploadSweepData {
+  kind: 'upload-sweep';
+}
+
+type MaintenanceData = HeartbeatData | RegistrationCleanupData | UploadSweepData;
 
 /** The services the consumers call; a missing one leaves its queue unconsumed. */
 export interface ConsumerServices {
   registrationCleanup?: RegistrationCleanup;
+  uploadSweep?: UploadSweep;
+  storageStats?: StorageStats;
+  fileProcessor?: FileProcessor;
   delivery?: NotificationDelivery;
 }
 
@@ -42,6 +53,10 @@ export class JobConsumers {
           throw new Error('registration cleanup not configured');
         return this.services.registrationCleanup.run();
       }
+      if (job.data.kind === 'upload-sweep') {
+        if (!this.services.uploadSweep) throw new Error('upload sweep not configured');
+        return this.services.uploadSweep.run();
+      }
       this.logger.info({ jobId: job.id }, 'heartbeat');
       return { kind: job.data.kind, handledAt: new Date().toISOString() };
     });
@@ -49,6 +64,12 @@ export class JobConsumers {
     const { delivery } = this.services;
     // emails and SMS of the outbox, one at a time (the delivery throttles itself)
     if (delivery) await this.jobs.work<DeliveryJob>('notify', (job) => delivery.deliver(job.data));
+    // each uploaded file: the scan, the photo metadata, the thumbnails and the near duplicates
+    const { fileProcessor } = this.services;
+    if (fileProcessor)
+      await this.jobs.work<FileProcessJob>(FILE_PROCESS_QUEUE, (job) =>
+        fileProcessor.process(job.data.fileId),
+      );
     if (this.services.registrationCleanup)
       await this.jobs.schedule(
         HEARTBEAT_QUEUE,
@@ -56,6 +77,28 @@ export class JobConsumers {
         { kind: 'registration-cleanup' },
         'registration-cleanup',
       );
+    if (this.services.uploadSweep)
+      await this.jobs.schedule(
+        HEARTBEAT_QUEUE,
+        UPLOAD_SWEEP_CRON,
+        { kind: 'upload-sweep' },
+        'upload-sweep',
+      );
+    // the nightly storage figures of the system health page
+    const { storageStats } = this.services;
+    if (storageStats) {
+      await this.jobs.work(STORAGE_STATS_QUEUE, () => storageStats.run());
+      await this.jobs.schedule(STORAGE_STATS_QUEUE, STORAGE_STATS_CRON, {}, 'storage-stats');
+    }
+    // the files the scan has not cleared yet; a catch-up that fails is logged and tried at the
+    // next start, never in the way of the consumers and schedules above
+    if (fileProcessor)
+      try {
+        const queued = await fileProcessor.queuePending(this.jobs);
+        if (queued) this.logger.info({ files: queued }, 'uncleared files queued for processing');
+      } catch (error) {
+        this.logger.error({ err: error }, 'uncleared files not queued');
+      }
   }
 }
 

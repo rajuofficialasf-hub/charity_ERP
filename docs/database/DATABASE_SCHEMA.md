@@ -1518,12 +1518,16 @@ Constraints: UNIQUE (file_id, entity_type, entity_id, slot); partial UNIQUE (cli
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
 | user_id | uuid | no | — | FK users |
-| declared | jsonb | no | — | kind, entity, slot, mime, size, sha256, capture metadata |
-| multipart_upload_id | text | no | — | MinIO id |
-| parts_acknowledged | integer | no | 0 | — |
-| expires_at | timestamptz | no | — | +1 hour |
+| declared | jsonb | no | — | kind, record, slot, mime, size, sha256, capture metadata, source |
+| client_uuid | uuid | no | — | unique with user_id: a resent create answers the same session (D-108) |
+| bucket | text | no | — | the target bucket; CHECK documents, photos, vouchers, profiles, media |
+| object_key | text | no | — | the target key (FILES_AND_DOCUMENTS 8) |
+| part_count | integer | no | — | the 256 KB parts the declared size needs; CHECK 1–80 |
+| parts_received | integer[] | no | '{}' | the parts stored in the bucket `uploads` |
+| bytes_received | bigint | no | 0 | never more than the declared size |
+| expires_at | timestamptz | no | — | one hour after the last part |
 | finalized_file_id | uuid | yes | — | FK files |
-| [L] | | | | expired unfinalized rows deleted by a job |
+| [L] | | | | status log: an update may change parts_received, bytes_received, expires_at, finalized_file_id; expired unfinalized rows deleted by the nightly sweep (index on expires_at of the open ones) |
 
 ### notifications
 | Column | Type | Null | Default | Comment |
@@ -1741,7 +1745,7 @@ Machine-readable schemas live in `docs/database/json-schemas/` (JSON Schema 2020
 - Nothing of business value is hard-deleted (constitution §2, BR-207). The application database role has **no DELETE privilege** on business tables, with one exception: three kinds of project setup rows, `fund_sources`, `project_areas` and `dawah_syllabus_topics`, which the project setup removes only while nothing refers to them (the foreign keys refuse a used row) and audits with their before state (DECISION_LOG D-106).
 - Allowed "deleted" states: `applications.status = 'deleted'` with `deleted_at` (only drafts and pending applications, by the owner or an official with the permission; BR-091); `files.deleted_at` only for `kind = 'export'` (regenerable).
 - Ending instead of deleting: `revoked_at` (roles, permissions, sessions, push subscriptions), `ended_at` (project staff and volunteer assignments), `removed_at` (team members), `released_at` (blocklist), `active = false` (locations, reference lists, templates, programs), `deactivated_at` (users), `reverted_at` (merges).
-- Technical rows the system may delete: expired `otp_codes`, expired unfinalized `upload_sessions`, export files after 30 days (O-30), expired unsubmitted `registration_drafts` with their photo `files` rows (D-082). These deletions are performed by jobs running under a dedicated role with DELETE only on those tables; the drafts and their photos only through the `SECURITY DEFINER` function `purge_expired_registration_drafts`, so the role has no DELETE on `files`.
+- Technical rows the system may delete: expired `otp_codes`, expired unfinalized `upload_sessions`, export files after 30 days (O-30), expired unsubmitted `registration_drafts` with their photo `files` rows (D-082). These deletions are performed by jobs running under a dedicated role with DELETE only on those tables; the drafts and their photos only through the `SECURITY DEFINER` function `purge_expired_registration_drafts`, so the role has no DELETE on `files`; the expired unfinalized upload sessions through `purge_expired_upload_sessions(limit)`, which returns their ids so the nightly sweep removes the stored parts.
 
 ## 22. Retention, partitioning and archiving
 
@@ -1758,7 +1762,7 @@ Machine-readable schemas live in `docs/database/json-schemas/` (JSON Schema 2020
 |---|---|---|
 | css_migrate | owner of the schema; DDL | one-shot migration container (ADR-003) |
 | css_app | SELECT, INSERT, UPDATE on business tables; EXECUTE on discard_registration_photo (a replaced draft or change-request photo, D-082, D-087); INSERT only on append-only logs (audit_log, field_changes, budget_ledger, document_events, application_transfers, stock_movements); DELETE only on `fund_sources`, `project_areas` and `dawah_syllabus_topics` (D-106); no DDL | api and worker |
-| css_jobs_cleanup | DELETE on otp_codes, upload_sessions; UPDATE on files (exports); EXECUTE on purge_expired_registration_drafts | worker cleanup jobs only |
+| css_jobs_cleanup | DELETE on otp_codes, upload_sessions; UPDATE on files (exports); EXECUTE on purge_expired_registration_drafts, purge_expired_upload_sessions | worker cleanup jobs only |
 | css_readonly | SELECT on reporting views without sensitive columns | optional reporting, IT diagnostics |
 | css_backup | replication / pg_dump | backup tooling (O-06) |
 

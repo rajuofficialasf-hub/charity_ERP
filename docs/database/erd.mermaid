@@ -560,6 +560,12 @@ erDiagram
   upload_sessions {
     uuid id PK
     uuid user_id FK
+    uuid client_uuid
+    text bucket
+    text object_key
+    int part_count
+    int_array parts_received
+    bigint bytes_received
     uuid finalized_file_id FK
   }
   notifications {

@@ -22,6 +22,9 @@ logger[otpMode.level](otpMode.text);
 
 void startInlineConsumers(env, container.jobs, logger, {
   registrationCleanup: container.registrationCleanup,
+  uploadSweep: container.uploadSweep,
+  storageStats: container.storageStats,
+  fileProcessor: container.fileProcessor,
   delivery: container.delivery,
 });
 

@@ -53,7 +53,7 @@ Status: complete first draft, task T0.1 (2026-10-10). Sources: blueprint B7 (off
 | NFR-25 | Maximum photo size after compression 300 KB at the longest edge 1,600 px (JPEG quality about 80); originals are not kept on the server | B10 | decided (O-47) |
 | NFR-26 | Each photo keeps capture date-time and GPS where available; EXIF is read on the device before compression and stored as metadata | A8.1, BD-21 | decided |
 | NFR-27 | Upload validation: allowed types and size limits per file kind as in `docs/architecture/FILES_AND_DOCUMENTS.md` §5 (O-30), including photos JPEG, PNG, WebP up to 5 MB before compression, documents up to 20 MB, vouchers, NID photos and media video; every upload quarantined until the virus scan is clean | §13 | decided (O-47) |
-| NFR-28 | Private files served only through signed URLs that expire within 15 minutes, after an authorization check; the only exception is the donor photo links of Qurbani emails, valid 30 days (O-35, NOTIFICATIONS.md) | B8, §9 | decided (O-47) |
+| NFR-28 | Private files served only through the API, streamed after an authorization check on every request, never through a URL to the object (D-074 replaced the 15-minute signed URLs; D-108); the donor photo links of Qurbani emails (O-35) are decided again with the Qurbani module | B8, §9 | decided (O-47), amended by D-074 |
 
 ## 6. Data volume, retention and storage growth
 

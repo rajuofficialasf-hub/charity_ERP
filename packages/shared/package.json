@@ -46,6 +46,11 @@
       "types": "./dist/registration/index.d.ts",
       "default": "./dist/registration/index.js"
     },
+    "./files": {
+      "@css/source": "./src/files/index.ts",
+      "types": "./dist/files/index.d.ts",
+      "default": "./dist/files/index.js"
+    },
     "./volunteers": {
       "@css/source": "./src/volunteers/index.ts",
       "types": "./dist/volunteers/index.d.ts",

@@ -89,7 +89,7 @@ returns only changed rows of the data sets of section 2, with field-level masks 
 
 - Photos are captured through the in-app camera (or gallery where the project setting allows, UX-11), compressed on the device to at most 300 KB / 1,600 px (NFR-25) before they enter the **photo queue**, a separate Dexie table of blobs keyed by `client_uuid` + attachment slot, with capture time, GPS (if available) and source.
 - Text first, photos later (BR-196): the outbox flushes before the photo queue; a photo uploads only after its owning record is `synced` and has a server id.
-- Upload is chunked and resumable (ADR-005): the client asks the API for an upload session, uploads 256 KB chunks (O-29) to presigned URLs, resumes from the last acknowledged chunk after a drop, and finalizes through the API, which validates, stores metadata and runs the duplicate check (BR-109).
+- Upload is chunked and resumable (ADR-005, D-108): the client asks the API for an upload session, sends 256 KB parts (O-29) to the API, resumes from the parts the server holds after a drop, and finalizes through the API, which validates, stores metadata and runs the duplicate check (BR-109).
 - A distribution or any photo-gated step cannot complete while its photos are pending: the engine guard `photos.not_pending_sync` fails and the record shows "photos pending" (WORKFLOW_ENGINE §6). The activity is already recorded; only the completion waits.
 - Budget (O-29): 200 MB on Android, 100 MB on iOS; at 80% the app warns and suggests syncing; at 100% new photos are refused and the user is notified with a "free space" action that offers only safe cleanup, i.e. deleting eligible **synchronized** files whose server copy is confirmed. **Unsynchronized photos or attachments are never deleted automatically** to free space (BR-237). Uploaded photos are deleted from the queue once the server confirms the stored object (the server copy is permanent).
 
@@ -176,7 +176,7 @@ PWA                                   API                              worker
  │                                     │ guards, effects, audit         │
  │◄──── per-record results ────────────│ (jobs enqueued in tx) ────────►│ notify, alerts
  │ mark synced / failed / needs_verif. │                                │
- │ photo queue: upload session ───────►│ presigned chunk URLs           │
+ │ photo queue: upload session ───────►│ 256 KB parts to the API        │
  │ chunks ─────────────────────► MinIO │                                │
  │ finalize ──────────────────────────►│ validate, metadata, duplicate ─►│ photos job
  │◄──── photo linked; completion guard re-evaluated ─────────────────────│
