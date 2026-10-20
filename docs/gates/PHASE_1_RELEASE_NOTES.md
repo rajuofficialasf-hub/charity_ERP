@@ -58,7 +58,9 @@ Executed 2026-10-20 on the final state of `chore/phase1-gate` (also in `docs/tes
 | `pnpm e2e` | `156 passed`, `21 skipped`, 0 failed on `mobile`, `desktop` and `iphone`; the axe sweep `a11y.spec.ts` of every Phase 1 screen in both languages included |
 | `pnpm --filter @css/web bundle:report` | first route 212.8 KB gzip of 250 KB; the signed-in home adds 62.3 KB |
 
-## 5. Decisions needed from the owner
+## 5. Decisions taken at the gate (owner in chat, 2026-10-20)
+
+D-106 grants the deletion below as recommended; D-072, D-079 and D-102 are approved; D-107 lets Phase 2 start after the merge while the UAT runs. The questions as they were put:
 
 1. **Deletion in project setup.** Saving fund sources, removing a project area and editing the dawah syllabus delete rows (`apps/api/src/services/project-setup.ts`), but the production database role `css_app` has no DELETE (`apps/api/prisma/sql/roles.sql`, DATABASE_SCHEMA section 21). Under the real role these three actions would fail; the tests run as a superuser. Recommendation: grant DELETE on exactly `fund_sources`, `project_areas` and `dawah_syllabus_topics` to `css_app` (they are setup rows of a project, deleted only while unused, foreign keys protect used rows, every deletion is audited with its before state; D-095 already approved removing an area), recorded as a new decision with the role script, DATABASE_SCHEMA section 21 and a test under the real role. Alternative: end the rows instead of deleting them (a migration and more code).
 2. **Proposed decisions to confirm:** D-072 (trusted proxy and relaxed limits for E2E), D-079 (optional `EffectivePermission` field), D-102 (relaxed device limit for E2E).

@@ -48,13 +48,15 @@
 
 Rules not tested in Phase 1: none untested. The 32 deferred rules belong to features of later phases — BR-014 (profile merge), BR-043 to BR-045 (ratings and categories), BR-048 to BR-050 (application transfer), BR-070 and BR-176 (follow-up), BR-073 (forms), BR-093 and BR-102 (applications), BR-117, BR-118, BR-120, BR-190, BR-191 (construction, issue log, progress), BR-138 (payments), BR-144, BR-147, BR-148, BR-150, BR-151 (Qurbani), BR-160 (dawah), BR-163, BR-166, BR-171 (documents), BR-192 (dashboard), BR-199 and BR-238 (offline sync), BR-241 (photo quality and alerts), BR-268 (Media Team module) — each with its phase in `docs/BUSINESS_RULES.md` section 19.
 
-## 4. Decisions needed before the sign-off
+## 4. Decisions taken at the gate (owner in chat, 2026-10-20)
 
-1. The deletion in project setup against the `css_app` role (release notes section 5, item 1).
-2. Confirm or change the proposed D-072, D-079 and D-102.
+1. D-106: `css_app` deletes exactly `fund_sources`, `project_areas` and `dawah_syllabus_topics` (the project setup's removals), checked by `apps/api/test/integration/roles.test.ts`.
+2. D-072, D-079 and D-102 approved.
+3. D-107: Phase 2 starts once the Phase 1 branches are merged into `main`; the UAT runs alongside and the sign-off with the tag follows it.
 
 ## 5. Deferred to after the UAT
 
+- The CI of the component-set branch failed in two web tests that run in the node environment (they found no `packages/shared/dist` in CI); fixed at the gate by the ssr conditions of the web test project.
 - Visual regression baselines (TEST_STRATEGY 3.7) and a recorded keyboard walkthrough of the Phase 1 screens: the owner is still reviewing the new list and profile layouts, so baselines taken now would be retaken; they follow the owner's review and the UAT fixes.
 - The known issues of the gate review (STATUS, release notes section 6), none blocking the UAT.
 
