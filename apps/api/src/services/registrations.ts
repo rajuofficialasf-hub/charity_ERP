@@ -256,6 +256,15 @@ export class RegistrationsService {
     return { rows: rows.map(pendingView), meta };
   }
 
+  /** How many registrations of one kind wait for a decision in the scope (the My Work home). */
+  async waitingCount(actor: Principal, scope: Scope, kind: 'volunteer' | 'staff'): Promise<number> {
+    const filter = this.pendingWhere(scope, await this.decidesStaff(actor.userId), {
+      kind,
+      status: 'awaiting_review',
+    });
+    return this.prisma.user.count({ where: filter });
+  }
+
   /** One pending registration in scope, or 404 (RBAC.md 8.4). */
   async detail(actor: Principal, scope: Scope, userId: string) {
     const staff = await this.decidesStaff(actor.userId);

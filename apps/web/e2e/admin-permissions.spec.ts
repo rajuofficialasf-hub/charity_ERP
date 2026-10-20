@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
+import { openDestination } from './support/admin';
 
 // The permission panel against the API on its E2E database (SCR-062, RBAC.md 7; plan
 // docs/plans/2026-10-12-1100-feat-rbac-permission-panel-plan.md, U8). Mobile and desktop share the
@@ -50,11 +51,7 @@ test.describe('permission panel', () => {
   test('a manager grants a permission and ends it again', async ({ page }, info) => {
     const c = caseOf(info.project.name);
     await signIn(page, c.manager);
-    await page.goto('/admin');
-    await page
-      .getByRole('navigation', { name: 'অ্যাডমিন মেনু' })
-      .getByRole('link', { name: 'পারমিশন' })
-      .click();
+    await openDestination(page, 'পারমিশন');
     await expect(page.getByRole('heading', { level: 1, name: 'পারমিশন প্যানেল' })).toBeVisible();
 
     await page.getByRole('combobox', { name: /ব্যবহারকারী খুঁজুন/ }).fill(c.target);
@@ -103,12 +100,9 @@ test.describe('permission panel', () => {
 
   test('a Program Manager has no panel item and no access to the panel', async ({ page }) => {
     await signIn(page, 'pm.err@example.org');
-    await page.goto('/admin');
-    await expect(page.getByRole('heading', { level: 1, name: 'ড্যাশবোর্ড' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'প্রধান মেনু' })).toBeVisible();
     await expect(
-      page
-        .getByRole('navigation', { name: 'অ্যাডমিন মেনু' })
-        .getByRole('link', { name: 'পারমিশন' }),
+      page.getByRole('navigation', { name: 'প্রধান মেনু' }).getByRole('link', { name: 'পারমিশন' }),
     ).toHaveCount(0);
     await page.goto('/admin/permissions');
     await expect(page.getByText('এই পাতায় আপনার প্রবেশাধিকার নেই।')).toBeVisible();

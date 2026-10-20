@@ -49,6 +49,7 @@ import {
   STATUS_STYLES,
   Table,
   TableToolbar,
+  MenuButton,
   Tabs,
   TextArea,
   TextField,
@@ -68,6 +69,7 @@ import {
   Save,
   TriangleAlert,
   Users,
+  CircleUser,
 } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -295,6 +297,22 @@ function GalleryBody() {
             <Button href="#card" variant="ghost">
               {t('button.link')}
             </Button>
+          </Row>
+        </Section>
+
+        <Section id="menu" title={t('sections.menu')}>
+          <Row>
+            <MenuButton
+              label={t('menu.label')}
+              icon={CircleUser}
+              items={[
+                { id: 'profile', label: t('menu.profile'), href: '#menu' },
+                { id: 'devices', label: t('menu.devices'), href: '#menu' },
+                { id: 'logout', label: t('menu.logout'), onAction: () => undefined },
+              ]}
+            >
+              {t('menu.name')}
+            </MenuButton>
           </Row>
         </Section>
 

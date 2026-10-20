@@ -1,5 +1,5 @@
 import { devices, expect, test } from '@playwright/test';
-import { isPhone, openTab, scan, signIn } from './support/admin';
+import { isPhone, mainMenu, openTab, scan, signIn } from './support/admin';
 import { activeProject, code, ERR } from './support/projects';
 
 // Assign → consent → the project appears (plan
@@ -57,7 +57,7 @@ test.describe('assigning volunteers and their consent', () => {
 
     // the volunteer sees the project waiting, reads the rules part by part and accepts
     await signIn(page, mobile);
-    await page.getByRole('link', { name: 'আমার প্রকল্প' }).click();
+    await mainMenu(page).getByRole('link', { name: 'আমার প্রকল্প' }).click();
     const list = page.getByRole('list', { name: 'আমার প্রকল্পের তালিকা' });
     const card = list.getByRole('listitem').filter({ hasText: name });
     await expect(card.getByText('নিয়মাবলিতে সম্মতির অপেক্ষায়')).toBeVisible();
@@ -85,7 +85,7 @@ test.describe('assigning volunteers and their consent', () => {
   test('a volunteer who is not assigned never sees the project', async ({ page }, info) => {
     test.skip(isPhone(info), 'one volunteer is enough');
     await signIn(page, OTHER);
-    await page.getByRole('link', { name: 'আমার প্রকল্প' }).click();
+    await mainMenu(page).getByRole('link', { name: 'আমার প্রকল্প' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'আমার প্রকল্প' })).toBeVisible();
     await expect(page.getByText(/অ্যাসাইনের পরীক্ষা/)).toHaveCount(0);
   });

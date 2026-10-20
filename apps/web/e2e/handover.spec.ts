@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { type APIRequestContext, expect, type Page, test } from '@playwright/test';
+import { openTab } from './support/admin';
 
 // The staff handover (BD-08, BR-034; plan
 // docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U14): the Department
@@ -56,6 +57,8 @@ test.describe('staff handover', () => {
     request,
   }, info) => {
     test.skip(info.project.name !== 'desktop', 'a management screen on a desktop');
+    // a long journey with API set-up and restore; under the full parallel run it needs more than 30 s
+    test.slow();
     const head = await asHead(request);
     const officialId = await head.userId(OFFICIAL);
     const receiverId = await head.userId('rpm.dhaka@example.org');
@@ -72,12 +75,7 @@ test.describe('staff handover', () => {
         .first()
         .fill(PASSWORD);
       await page.getByRole('button', { name: 'লগইন', exact: true }).click();
-      await page.getByRole('link', { name: 'অ্যাডমিন' }).click();
-      await page
-        .getByRole('navigation', { name: 'অ্যাডমিন মেনু' })
-        .getByRole('link', { name: 'হ্যান্ডওভার' })
-        .click();
-      await expect(page.getByRole('heading', { level: 1, name: 'হ্যান্ডওভার' })).toBeVisible();
+      await openTab(page, 'হ্যান্ডওভার');
       await pickUser(page, /কর্মকর্তা খুঁজুন/, 'handover.rpm', /আরপিএম হ্যান্ডওভার \(নমুনা\)/);
       await expect(
         page.getByRole('region', { name: 'প্রজেক্ট' }).getByRole('listitem'),

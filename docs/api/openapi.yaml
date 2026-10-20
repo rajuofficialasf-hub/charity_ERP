@@ -5693,6 +5693,10 @@ paths:
         - name: status
           in: query
           schema: { type: string, enum: [draft, active, closing, closed, cancelled] }
+        - name: endingSoon
+          in: query
+          description: Only the projects whose application window ends today or within the next 7 days (Dhaka dates)
+          schema: { type: string, enum: ['true'] }
       responses:
         '200':
           description: Projects
@@ -7554,6 +7558,47 @@ paths:
         '204': { $ref: '#/components/responses/NoContent' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+  /me/attention:
+    get:
+      tags: [auth]
+      operationId: auth.me.attention
+      summary: What needs the caller now, counted per kind for their own work and the records their roles reach
+      description: >-
+        The "needs your attention" list of the My Work home (D-100): unread notifications (once the account is active), project
+        consent waiting, corrections asked, an edit request answered in the last 7 days, and for
+        officials the volunteer and official registrations and the edit requests waiting, draft
+        projects, application windows ending within 7 days and open handovers. An item for
+        officials' work is counted only when the caller holds its permission, in its scope, and
+        links to the list that holds those records with the same filter where that list has one
+        (project items also stay inside the scope of the project list); items with nothing waiting
+        are left out. A pending registrant may call it.
+      x-permission: authenticated
+      x-scope: self
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: Attention items
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [kind, count, href]
+                      properties:
+                        kind:
+                          type: string
+                          enum: [unread_notifications, consent_pending, corrections, edit_answered, registrations_pending, staff_registrations_pending, edit_requests_pending, projects_draft, deadlines_soon, handovers_open]
+                        count: { type: integer, minimum: 1 }
+                        href: { type: string, description: A fixed route of the PWA }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
   /me/preferences:
     get:
       tags: [notifications]

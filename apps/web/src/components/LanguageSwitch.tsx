@@ -12,18 +12,7 @@ import { useAuth } from '../lib/auth';
  */
 export function LanguageSwitch({ className }: { className?: string }) {
   const t = useTranslations('common.language');
-  const { locale, setLocale } = useLocaleSwitch();
-  const { status } = useAuth();
-
-  const choose = (next: string) => {
-    if (next === locale) return;
-    setLocale(next);
-    // The device keeps the choice even when the account cannot be updated right now.
-    if (status === 'signed-in')
-      void api<void>('/me/language', { method: 'PUT', body: { language: next } }).catch(
-        () => undefined,
-      );
-  };
+  const { locale, choose } = useChooseLanguage();
 
   return (
     <SegmentedControl
@@ -37,4 +26,20 @@ export function LanguageSwitch({ className }: { className?: string }) {
       className={className}
     />
   );
+}
+
+/** The current language and the change of it, also kept on the account when signed in. */
+export function useChooseLanguage() {
+  const { locale, setLocale } = useLocaleSwitch();
+  const { status } = useAuth();
+  const choose = (next: string) => {
+    if (next === locale) return;
+    setLocale(next);
+    // The device keeps the choice even when the account cannot be updated right now.
+    if (status === 'signed-in')
+      void api<void>('/me/language', { method: 'PUT', body: { language: next } }).catch(
+        () => undefined,
+      );
+  };
+  return { locale, choose };
 }

@@ -23,11 +23,41 @@ export async function signIn(page: Page, loginId: string): Promise<void> {
   await expect(page.getByRole('heading', { level: 1, name: /^স্বাগতম, / })).toBeVisible();
 }
 
-/** Opens a destination of the admin menu from the home page and waits for its heading. */
+/** The navigation of the app shell: the sidebar, the rail or the bottom tabs. */
+export const mainMenu = (page: Page) => page.getByRole('navigation', { name: 'প্রধান মেনু' });
+
+/**
+ * Opens a destination from the app shell: from the menu, else from "more", else (the volunteer or
+ * beneficiary list on a phone) from the people tab.
+ */
+export async function openDestination(page: Page, name: string): Promise<void> {
+  const nav = mainMenu(page);
+  await expect(nav).toBeVisible();
+  const direct = nav.getByRole('link', { name, exact: true });
+  if ((await direct.count()) > 0) await direct.click();
+  else {
+    await nav.getByRole('button', { name: 'আরও' }).click();
+    const sheet = page.getByRole('dialog', { name: 'আরও' });
+    await expect(sheet).toBeVisible();
+    const inSheet = sheet.getByRole('link', { name, exact: true });
+    if ((await inSheet.count()) > 0) await inSheet.click();
+    else {
+      await page.keyboard.press('Escape');
+      await nav.getByRole('link', { name: 'মানুষ' }).click();
+    }
+  }
+}
+
+/** Opens a destination from the app shell and waits for its heading of the same name. */
 export async function openTab(page: Page, name: string): Promise<void> {
-  await page.getByRole('link', { name: 'অ্যাডমিন' }).click();
-  await page.getByRole('navigation', { name: 'অ্যাডমিন মেনু' }).getByRole('link', { name }).click();
+  await openDestination(page, name);
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+}
+
+/** Opens the profile menu of the app bar and picks an item. */
+export async function fromProfileMenu(page: Page, item: string): Promise<void> {
+  await page.getByRole('banner').getByRole('button', { name: 'প্রোফাইল মেনু' }).click();
+  await page.getByRole('menuitem', { name: item }).click();
 }
 
 /**

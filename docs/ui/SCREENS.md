@@ -296,12 +296,14 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 
 Every role opens the app on its My Work home (BR-226). The home is a list of widgets in a fixed order, beginning with "needs your attention".
 
-**Shared shell.** DS §4.1, with role-dependent bottom tabs on phones and a sidebar on desktop.
+**Shared shell.** DS §4.1, with role-dependent bottom tabs on phones, a side rail from 640 px and, for officials, a sidebar from 1024 px (D-100). Phase 1 tabs: volunteers home, my projects, notifications, more; officials home, people, projects, notifications, more, a tab the official may not use hidden.
+
+**Built (T1.15).** `/` is the My Work home of every account (`apps/web/src/features/home/`), inside the app shell (`apps/web/src/components/shell/`). The app bar holds the logo with the system name, the bell, the language switch (inside the profile menu on a phone) and the profile menu (আমার প্রোফাইল, আমার ডিভাইস, পাসওয়ার্ড পরিবর্তন, লগআউট). Officials get the grouped sidebar (কাজ, মানুষ, প্রশাসন; "আমার কাজ" first) from 1024 px; a tablet, and a volunteer on any larger screen, get the rail; a phone gets the bottom tabs with "আরও", whose sheet lists the other destinations and the account pages. The offline banner follows the browser. The home starts with "এখন আপনার কাজ" from `GET /me/attention` (each count links to the list that holds it; "এখন অপেক্ষায় কিছু নেই" when nothing waits), then the widgets of the role table in `widgets.ts`: আমার প্রকল্প with the deadline and the applications used, আমার টিম, an RPM's or Executive's running projects, a PM's projects by state and টেমপ্লেট, the global roles' শর্টকাট, the latest notifications, and a "শিগগিরই আসছে" card for each later widget. `/admin` opens the home; the old admin dashboard is gone.
 
 **Shared rules.**
 - **First widget.** Every home starts with **Needs your attention**. It holds attention cards (DS §5.3) for corrections, returned items, pending approvals, unsynced and failed records and deadlines. Each card links to the record.
 - **Multiple roles.** A user with several roles or projects sees the union of their widgets, grouped by project. A project switcher sits at the top when the user has more than one project.
-- **Placeholders.** Widgets whose module arrives in a later phase are not shown before that phase. T1.15 builds the frame and the widgets that exist by Phase 1.
+- **Placeholders.** A widget whose module arrives in a later phase shows a calm "coming later" card, without an action or counts, on the homes that will have it (D-100). T1.15 builds the frame, the widgets that exist by Phase 1 and these cards.
 - **Layouts.**
   - Phone: one column of cards.
   - Tablet: two columns.

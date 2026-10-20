@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
+import { fromProfileMenu } from './support/admin';
 
 // Login, logout, devices and passwords against the API on its E2E database (T1.7; AUTH.md 3 to 8).
 // Demo accounts and their password: docs/testing/DEMO_ACCOUNTS.md. The API runs with the dummy
@@ -68,7 +69,7 @@ test.describe('login and logout', () => {
     const home = await scan(page);
     expect(home.violations).toEqual([]);
 
-    await page.getByRole('button', { name: 'লগআউট' }).click();
+    await fromProfileMenu(page, 'লগআউট');
     await expect(page).toHaveURL(/\/login\?ended=logout$/);
     await expect(page.getByText('আপনি লগআউট করেছেন।')).toBeVisible();
     await page.goto('/account/sessions');
@@ -110,7 +111,7 @@ test.describe('devices', () => {
     await signIn(otherPage, id);
     await signIn(page, id);
 
-    await page.getByRole('link', { name: 'আমার ডিভাইস' }).click();
+    await fromProfileMenu(page, 'আমার ডিভাইস');
     await expect(page.getByRole('heading', { level: 1, name: 'আমার ডিভাইস' })).toBeVisible();
     await expect(page).toHaveTitle('আমার ডিভাইস');
     await expect(page.getByText('এই ডিভাইস', { exact: true })).toBeVisible();
@@ -132,7 +133,7 @@ test.describe('passwords', () => {
   test('changes the password and logs in with the new one', async ({ page }, info) => {
     const id = account(info.project.name, 'change');
     await signIn(page, id);
-    await page.getByRole('link', { name: 'পাসওয়ার্ড পরিবর্তন' }).click();
+    await fromProfileMenu(page, 'পাসওয়ার্ড পরিবর্তন');
     await ready(page, 'পাসওয়ার্ড পরিবর্তন করুন');
     await page
       .getByLabel(/^বর্তমান পাসওয়ার্ড/)
@@ -148,7 +149,7 @@ test.describe('passwords', () => {
       .fill('Shapla phul 2027');
     await page.getByRole('button', { name: 'পাসওয়ার্ড পরিবর্তন করুন' }).click();
     await expect(page.getByText(/পাসওয়ার্ড বদলানো হয়েছে/)).toBeVisible();
-    await page.getByRole('button', { name: 'লগআউট' }).click();
+    await fromProfileMenu(page, 'লগআউট');
     await expect(page).toHaveURL(/\/login/);
     await signIn(page, id, 'Shapla phul 2027');
   });

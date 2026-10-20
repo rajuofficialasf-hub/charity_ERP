@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { fakeEmail, fakeMobile, fakeNid } from '@css/shared';
 import { devices, expect, type Page, test, type TestInfo } from '@playwright/test';
+import { fromProfileMenu, openTab } from './support/admin';
 
 // Registration on a phone from the login page to the pending confirmation (plans
 // docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, U11, and
@@ -182,13 +183,8 @@ test.describe('registration approval', () => {
 
     // the RPM of Dhaka asks for a correction of the father's name
     await signIn(page, 'rpm.dhaka@example.org', DEMO_PASSWORD);
-    await page.getByRole('link', { name: 'অ্যাডমিন' }).click();
     // volunteer registrations are reviewed in the volunteer tab, under its pending shortcut
-    await page
-      .getByRole('navigation', { name: 'অ্যাডমিন মেনু' })
-      .getByRole('link', { name: 'স্বেচ্ছাসেবক' })
-      .click();
-    await expect(page.getByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক' })).toBeVisible();
+    await openTab(page, 'স্বেচ্ছাসেবক');
     await page.getByRole('button', { name: 'অপেক্ষমাণ', exact: true }).click();
     await expect(page).toHaveURL(/state=pending/);
     await page.getByRole('link', { name: person.name }).click();
@@ -210,7 +206,7 @@ test.describe('registration approval', () => {
     await expect(
       mobile.getByText('আপনার নিবন্ধন অনুমোদনের অপেক্ষায়', { exact: false }),
     ).toBeVisible();
-    await mobile.getByRole('link', { name: 'আমার প্রোফাইল' }).click();
+    await fromProfileMenu(mobile, 'আমার প্রোফাইল');
     await mobile.getByRole('textbox', { name: /পিতার নাম/ }).fill('সংশোধিত পিতা');
     await mobile.getByRole('button', { name: 'উত্তর দিন' }).click();
     await mobile.getByRole('button', { name: 'আবার জমা দিন' }).click();

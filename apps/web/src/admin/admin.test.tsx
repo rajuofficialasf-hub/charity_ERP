@@ -2,11 +2,9 @@ import type { Me } from '@css/shared/auth';
 import { expectNoAxeViolations } from '@css/ui/testing';
 import { screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ME, refreshAs, renderApp } from '../../test/auth';
-import { HomeView } from '../features/account/HomeView';
+import { ME, refreshAs, renderInShell } from '../../test/auth';
 import { resetClientForTests } from '../lib/api';
 import { AdminLayout } from './AdminLayout';
-import { DashboardPage } from './DashboardPage';
 
 const HEAD: Me = { ...ME, displayName: 'ডিপার্টমেন্ট হেড (নমুনা)', roles: ['department_head'] };
 const VOLUNTEER: Me = {
@@ -17,63 +15,45 @@ const VOLUNTEER: Me = {
 };
 
 const renderAdmin = (locale: 'bn' | 'en' = 'bn') =>
-  renderApp(<AdminLayout />, locale, {
-    path: '/admin',
-    children: [{ index: true, element: <DashboardPage /> }],
-  });
+  renderInShell(
+    [
+      {
+        path: 'admin',
+        element: <AdminLayout />,
+        children: [{ path: 'page', element: <h1>অ্যাডমিন পাতা</h1> }],
+      },
+    ],
+    '/admin/page',
+    locale,
+  );
 
 beforeEach(() => {
   resetClientForTests();
 });
 
-// Admin area shell on packages/ui (UX-15; docs/plans/2026-10-11-1742-chore-stack-adoption-admin-minimal-plan.md, U11): management roles only; the API enforces
-// every admin permission, the shell only decides what to show (RE-SEC-05).
+// The admin area inside the app shell: management roles only; the API enforces every admin
+// permission, the frame only decides what to show.
 describe('admin area', () => {
-  it('shows a Department Head the shell with the dashboard, without accessibility violations', async () => {
+  it('shows a Department Head an admin page inside the shell, without accessibility violations', async () => {
     refreshAs(HEAD);
     const { container } = renderAdmin();
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'ড্যাশবোর্ড' }),
+      await screen.findByRole('heading', { level: 1, name: 'অ্যাডমিন পাতা' }),
     ).toBeInTheDocument();
-    const nav = screen.getByRole('navigation', { name: 'অ্যাডমিন মেনু' });
-    expect(within(nav).getByRole('link', { name: 'ড্যাশবোর্ড' })).toHaveAttribute(
-      'aria-current',
-      'page',
+    expect(screen.getByRole('navigation', { name: 'প্রধান মেনু' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'প্রোফাইল মেনু' })).toHaveTextContent(
+      'ডিপার্টমেন্ট হেড (নমুনা)',
     );
-    expect(screen.getByText('লগইন করা: ডিপার্টমেন্ট হেড (নমুনা)')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'লগআউট' })).toBeInTheDocument();
-    // dates in English digits through the shared formatter (UX-05)
-    expect(screen.getByText(/^আজ: \d{2}-\d{2}-\d{4}$/)).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 
-  it('puts the language toggle at the bottom of the sidebar, not in the top bar', async () => {
-    refreshAs(HEAD);
-    renderAdmin();
-    const nav = await screen.findByRole('navigation', { name: 'অ্যাডমিন মেনু' });
-    const toggle = within(nav).getByRole('radiogroup', { name: 'ভাষা' });
-    expect(nav.lastElementChild).toBe(toggle);
-    expect(within(screen.getByRole('banner')).queryByRole('radiogroup')).not.toBeInTheDocument();
-  });
-
-  it('marks the dashboard as the current page on /admin/ as well', async () => {
-    refreshAs(HEAD);
-    renderApp(<AdminLayout />, 'bn', {
-      path: '/admin/',
-      children: [{ index: true, element: <DashboardPage /> }],
-    });
-    const nav = await screen.findByRole('navigation', { name: 'অ্যাডমিন মেনু' });
-    expect(within(nav).getByRole('link', { name: 'ড্যাশবোর্ড' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
-  });
-
-  it('renders the shell in English', async () => {
+  it('renders in English', async () => {
     refreshAs({ ...ME, roles: ['monitoring_team'] });
     const { container } = renderAdmin('en');
-    expect(await screen.findByRole('heading', { level: 1, name: 'Dashboard' })).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: 'Admin menu' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'অ্যাডমিন পাতা' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Main menu' })).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 
@@ -81,14 +61,14 @@ describe('admin area', () => {
     refreshAs(ME);
     renderAdmin();
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'ড্যাশবোর্ড' }),
+      await screen.findByRole('heading', { level: 1, name: 'অ্যাডমিন পাতা' }),
     ).toBeInTheDocument();
   });
 
   it('shows the tabs to an Official দায়ী and only the beneficiary tab to the Media Team', async () => {
     refreshAs({ ...ME, roles: ['official_daee'] });
     renderAdmin();
-    const nav = await screen.findByRole('navigation', { name: 'অ্যাডমিন মেনু' });
+    const nav = await screen.findByRole('navigation', { name: 'প্রধান মেনু' });
     expect(within(nav).getByRole('link', { name: 'স্বেচ্ছাসেবক' })).toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: 'উপকারভোগী' })).toBeInTheDocument();
     expect(within(nav).queryByRole('link', { name: 'নিবন্ধন' })).not.toBeInTheDocument();
@@ -97,19 +77,24 @@ describe('admin area', () => {
   it('shows the Media Team the beneficiary tab and no volunteer tab', async () => {
     refreshAs({ ...ME, roles: ['media_team'] });
     renderAdmin();
-    const nav = await screen.findByRole('navigation', { name: 'অ্যাডমিন মেনু' });
+    const nav = await screen.findByRole('navigation', { name: 'প্রধান মেনু' });
     expect(within(nav).getByRole('link', { name: 'উপকারভোগী' })).toBeInTheDocument();
     expect(within(nav).queryByRole('link', { name: 'স্বেচ্ছাসেবক' })).not.toBeInTheDocument();
   });
 
-  it('shows the forbidden screen to a volunteer, without the admin menu', async () => {
+  it('shows the forbidden content to a volunteer, whose menu holds no admin destination', async () => {
     refreshAs(VOLUNTEER);
     renderAdmin();
     expect(
       await screen.findByRole('heading', { level: 1, name: 'প্রবেশাধিকার নেই' }),
     ).toBeInTheDocument();
     expect(screen.getByText('এই পাতায় আপনার প্রবেশাধিকার নেই।')).toBeInTheDocument();
-    expect(screen.queryByRole('navigation', { name: 'অ্যাডমিন মেনু' })).not.toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: 'প্রধান মেনু' });
+    expect(
+      within(nav)
+        .getAllByRole('link')
+        .filter((link) => link.getAttribute('href')?.startsWith('/admin')),
+    ).toEqual([]);
     expect(screen.getByRole('link', { name: 'হোমে ফিরে যান' })).toHaveAttribute('href', '/');
   });
 
@@ -117,20 +102,5 @@ describe('admin area', () => {
     refreshAs(null);
     const { router } = renderAdmin();
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
-  });
-});
-
-describe('admin link on the home page', () => {
-  it('is offered to the management roles', async () => {
-    refreshAs(HEAD);
-    renderApp(<HomeView />);
-    expect(await screen.findByRole('link', { name: 'অ্যাডমিন' })).toHaveAttribute('href', '/admin');
-  });
-
-  it('is not offered to a volunteer', async () => {
-    refreshAs(VOLUNTEER);
-    renderApp(<HomeView />);
-    await screen.findByRole('heading', { level: 1 });
-    expect(screen.queryByRole('link', { name: 'অ্যাডমিন' })).not.toBeInTheDocument();
   });
 });

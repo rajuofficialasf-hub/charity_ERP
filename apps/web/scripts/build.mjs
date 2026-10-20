@@ -9,6 +9,9 @@ const here = dirname(fileURLToPath(import.meta.url));
 const e2e = process.argv.includes('--e2e');
 const env = {
   ...process.env,
+  // always a production build, whatever NODE_ENV the caller has (CI runs its tests with `test`,
+  // which would make Vite ship React's development build and double the first route)
+  NODE_ENV: 'production',
   ...(e2e
     ? {
         VITE_DEV_GALLERY: '1',

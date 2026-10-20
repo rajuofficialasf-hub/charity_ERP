@@ -4,11 +4,10 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ME, refreshAs, renderApp } from '../../../test/auth';
+import { ME, refreshAs, renderInShell } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
 import { AdminLayout } from '../AdminLayout';
-import { DashboardPage } from '../DashboardPage';
 import { RegistrationDetail } from './RegistrationDetail';
 import { RegistrationsPage } from './RegistrationsPage';
 import { VolunteerProfilePage } from '../volunteers/VolunteerProfilePage';
@@ -280,17 +279,22 @@ let profileHeld = false;
 
 const renderPage = (me: Me, locale: 'bn' | 'en' = 'bn', path = '/admin/registrations') => {
   refreshAs(me);
-  return renderApp(<AdminLayout />, locale, {
-    path: '/admin',
-    children: [
-      { index: true, element: <DashboardPage /> },
-      { path: 'registrations', element: <RegistrationsPage /> },
-      { path: 'registrations/:userId', element: <RegistrationDetail /> },
-      { path: 'volunteers', element: <VolunteersPage /> },
-      { path: 'volunteers/:volunteerId', element: <VolunteerProfilePage /> },
+  return renderInShell(
+    [
+      {
+        path: 'admin',
+        element: <AdminLayout />,
+        children: [
+          { path: 'registrations', element: <RegistrationsPage /> },
+          { path: 'registrations/:userId', element: <RegistrationDetail /> },
+          { path: 'volunteers', element: <VolunteersPage /> },
+          { path: 'volunteers/:volunteerId', element: <VolunteerProfilePage /> },
+        ],
+      },
     ],
-    initialPath: path,
-  });
+    path,
+    locale,
+  );
 };
 
 /** Opens a row of the list (the table and the phone cards both carry the link). */
@@ -327,7 +331,7 @@ describe('registration list', () => {
   it('shows the pending staff registrations only; volunteers are reviewed in the volunteer tab', async () => {
     const { container } = renderPage(HEAD);
     expect(await screen.findByRole('heading', { level: 1, name: 'নিবন্ধন' })).toBeInTheDocument();
-    const nav = screen.getByRole('navigation', { name: 'অ্যাডমিন মেনু' });
+    const nav = screen.getByRole('navigation', { name: 'প্রধান মেনু' });
     expect(within(nav).getByRole('link', { name: 'নিবন্ধন' })).toHaveAttribute(
       'aria-current',
       'page',
@@ -345,8 +349,9 @@ describe('registration list', () => {
 
   it('sends an older link to the volunteer registrations to the volunteer tab', async () => {
     renderPage(HEAD, 'bn', '/admin/registrations?kind=volunteer');
+    // the volunteer tab renders inside the shell after the redirect
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক' }),
+      await screen.findByRole('heading', { level: 1, name: 'স্বেচ্ছাসেবক' }, { timeout: 3000 }),
     ).toBeInTheDocument();
   });
 
@@ -358,7 +363,7 @@ describe('registration list', () => {
 
   it('opens for an RPM with the edit requests only, without the permission panel', async () => {
     renderPage(RPM);
-    const nav = await screen.findByRole('navigation', { name: 'অ্যাডমিন মেনু' });
+    const nav = await screen.findByRole('navigation', { name: 'প্রধান মেনু' });
     expect(within(nav).getByRole('link', { name: 'নিবন্ধন' })).toBeInTheDocument();
     expect(within(nav).queryByRole('link', { name: 'পারমিশন' })).not.toBeInTheDocument();
     // the RPM decides edit requests and no staff registrations
@@ -366,15 +371,23 @@ describe('registration list', () => {
     expect(screen.queryByRole('tab', { name: 'পরিবর্তনের অনুরোধ' })).not.toBeInTheDocument();
   });
 
+  it('opens on the edit requests when the link asks for that tab', async () => {
+    renderPage(HEAD, 'bn', '/admin/registrations?tab=edits');
+    expect(
+      await screen.findByRole('tab', { name: 'পরিবর্তনের অনুরোধ', selected: true }),
+    ).toBeInTheDocument();
+  });
+
   it('a Finance Team user sees the no-access screen', async () => {
     renderPage(FINANCE);
     expect(await screen.findByRole('heading', { name: 'প্রবেশাধিকার নেই' })).toBeInTheDocument();
-    expect(screen.queryByRole('navigation', { name: 'অ্যাডমিন মেনু' })).not.toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: 'প্রধান মেনু' });
+    expect(within(nav).queryByRole('link', { name: 'নিবন্ধন' })).not.toBeInTheDocument();
   });
 
   it('a Program Manager reviews volunteers in the tab and has no registrations page', async () => {
     renderPage(PM);
-    const nav = await screen.findByRole('navigation', { name: 'অ্যাডমিন মেনু' });
+    const nav = await screen.findByRole('navigation', { name: 'প্রধান মেনু' });
     expect(within(nav).queryByRole('link', { name: 'নিবন্ধন' })).not.toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: 'স্বেচ্ছাসেবক' })).toBeInTheDocument();
   });

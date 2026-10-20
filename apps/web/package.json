@@ -8,6 +8,7 @@
     "dev": "node scripts/fonts.mjs && vite",
     "build": "node scripts/build.mjs",
     "build:e2e": "node scripts/build.mjs --e2e",
+    "bundle:report": "node scripts/bundle-report.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "e2e": "playwright test"

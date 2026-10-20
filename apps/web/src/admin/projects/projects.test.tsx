@@ -110,6 +110,15 @@ describe('the project list', () => {
     await waitFor(() => expect(listUrls.at(-1)?.searchParams.get('status')).toBe('closing'));
   });
 
+  it('asks for the windows ending soon when the link of the home carries that filter', async () => {
+    refreshAs(PM);
+    serve();
+    open('/admin/projects?status=active&endingSoon=true');
+    await waitFor(() => expect(listUrls.length).toBeGreaterThan(0));
+    expect(listUrls[0]!.searchParams.get('endingSoon')).toBe('true');
+    expect(listUrls[0]!.searchParams.get('status')).toBe('active');
+  });
+
   it('offers a new project only to those who may create one', async () => {
     refreshAs(RPM);
     serve();

@@ -58,5 +58,7 @@ export const projectFilterSchema = z.strictObject({
   programId: z.uuid().optional(),
   year: z.coerce.number().int().min(2020).max(2100).optional(),
   status: z.enum(PROJECT_STATUSES).optional(),
+  /** Only the projects whose application window ends within the next few days. */
+  endingSoon: z.enum(['true']).optional(),
 });
 export type ProjectFilter = z.infer<typeof projectFilterSchema>;

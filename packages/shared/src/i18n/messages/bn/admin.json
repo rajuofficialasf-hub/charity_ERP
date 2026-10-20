@@ -1,33 +1,4 @@
 {
-  "open": "অ্যাডমিন",
-  "nav": {
-    "label": "অ্যাডমিন মেনু",
-    "dashboard": "ড্যাশবোর্ড",
-    "volunteers": "স্বেচ্ছাসেবক",
-    "beneficiaries": "উপকারভোগী",
-    "permissions": "পারমিশন",
-    "registrations": "নিবন্ধন",
-    "handover": "হ্যান্ডওভার",
-    "projects": "প্রকল্প",
-    "programs": "প্রোগ্রাম",
-    "templates": "টেমপ্লেট",
-    "staff": "কর্মী",
-    "settings": "সেটিংস",
-    "nisab": "নিসাব",
-    "audit": "অডিট লগ",
-    "sessions": "সেশন",
-    "health": "সিস্টেমের অবস্থা",
-    "notification_templates": "নোটিফিকেশনের লেখা",
-    "deliveries": "বার্তার অবস্থা"
-  },
-  "bar": {
-    "label": "অ্যাডমিন",
-    "user": "লগইন করা: {name}"
-  },
-  "dashboard": {
-    "title": "ড্যাশবোর্ড",
-    "today": "আজ: {date}"
-  },
   "permissions": {
     "title": "পারমিশন প্যানেল",
     "search": "ব্যবহারকারী খুঁজুন",
@@ -451,7 +422,9 @@
     },
     "filter": {
       "program": "প্রোগ্রাম",
-      "year": "বছর"
+      "year": "বছর",
+      "window": "আবেদনের সময়সীমা",
+      "ending_soon": "7 দিনের মধ্যে শেষ হবে"
     },
     "workflow": {
       "distribution": "বিতরণ",

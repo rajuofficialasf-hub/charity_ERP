@@ -1,4 +1,5 @@
-import { uuidv7, workflowDefinitionSchema } from '@css/shared';
+import { DEADLINE_SOON_DAYS, uuidv7, workflowDefinitionSchema } from '@css/shared';
+import { isoDateInDhaka } from '@css/shared/format';
 import {
   BUDGET_LIMIT_PAISA,
   type CodeLabel,
@@ -37,6 +38,7 @@ import { ApiError } from '../i18n/api-error';
 import { applyDefinition, projectDefinition } from './project-definition';
 
 /** Newest first by id (UUID v7 follows the time of creation and pages without gaps). */
+const DAY = 86_400_000;
 const SORT = parseSort(undefined, ['id'], [{ field: 'id', direction: 'desc' }]);
 
 const SELECT = {
@@ -162,21 +164,37 @@ export class ProjectsService {
     return viewer.principal.kind === 'volunteer' ? { AND: [reach, { status: 'active' }] } : reach;
   }
 
-  async list(query: ProjectFilter & PageQuery, viewer: ProjectViewer) {
-    const binding = `projects.list|${viewer.principal.userId}`;
-    const cursor = query.cursor
-      ? decodeCursor(this.env.CURSOR_SECRET, binding, query.cursor)
-      : undefined;
-    const direction = cursor?.d ?? 'next';
-    const filter: Prisma.ProjectWhereInput = {
+  /** The rows of the project list for these filters; the home counts with it too. */
+  listWhere(query: ProjectFilter, viewer: ProjectViewer): Prisma.ProjectWhereInput {
+    return {
       AND: [
         this.where(viewer),
         // a cancelled draft leaves the lists unless asked for
         { status: query.status ?? { not: 'cancelled' } },
         query.programId ? { programId: query.programId } : {},
         query.year ? { year: query.year } : {},
+        query.endingSoon ? this.endingSoonWhere() : {},
       ],
     };
+  }
+
+  /** The application window ends today or within the next few days (Dhaka dates). */
+  private endingSoonWhere(): Prisma.ProjectWhereInput {
+    const now = this.clock.now();
+    const today = isoDateInDhaka(now);
+    const last = isoDateInDhaka(new Date(now.getTime() + DEADLINE_SOON_DAYS * DAY));
+    return {
+      applyTo: { gte: new Date(`${today}T00:00:00Z`), lte: new Date(`${last}T00:00:00Z`) },
+    };
+  }
+
+  async list(query: ProjectFilter & PageQuery, viewer: ProjectViewer) {
+    const binding = `projects.list|${viewer.principal.userId}`;
+    const cursor = query.cursor
+      ? decodeCursor(this.env.CURSOR_SECRET, binding, query.cursor)
+      : undefined;
+    const direction = cursor?.d ?? 'next';
+    const filter = this.listWhere(query, viewer);
     const [fetched, total] = await Promise.all([
       this.prisma.project.findMany({
         where: cursor ? { AND: [filter, keysetWhere(SORT, cursor)] } : filter,
