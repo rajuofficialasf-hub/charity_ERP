@@ -94,6 +94,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 
 ### SCR-001 Login and password reset
 
+- **Photo panel (UX-24, 2026-10-20).** From 1024 px the photo of the Foundation's building fills the left two fifths of the window, sticky at the window height, and the card sits centred on the right; the set-password page of an invitation uses the same frame. On a phone the photo is hidden and not downloaded (`BrandPhoto`).
 - **Built (T1.7).** `/login` and `/login/reset` in apps/web (centered card on the brand wash of mockup 01; the reset flow is login id → code and new password → done; the dummy-OTP note appears only in development and E2E builds). Not yet: install state on iOS, the 426 banner (T1.13), registration link (T1.9).
 
 - **Purpose.** Sign in with mobile number and password; reset a forgotten password by OTP (AUTH.md).
@@ -135,6 +136,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 
 ### SCR-002 Registration with two OTP steps
 
+- **Two panels (UX-23, 2026-10-20; the owner's reference design).** On the desktop a brand panel on the left (since the same day the photo of the Foundation's building on top, fading into the brand ink; the logo on a white tile over the sky, the badge "চ্যারিটি ও সোশ্যাল সার্ভিস বিভাগ", the title at `--text-hero`, its line, the eight steps in two columns with the done ones ticked and the current one lit, the note that officials do not register here) and the form on the right ("ধাপ N / M" with a progress bar, the step's name as the heading with one hint line, the fields, "আগের ধাপ" and "পরের ধাপ"); on a phone the brand panel is a band of the logo, title and line above the form, without the photo (hidden and not downloaded), and the list is for screen readers only. Replaces the green title band and the horizontal step row, which had made the form wider than its card.
 - **Since D-097 (2026-10-17).** Volunteers only: the page names no kind and says that officials do not register here; the admin creates their accounts (SCR-063) and they set the password through a link (SCR-065). Staff drafts are refused by the API (`registration.staff_by_invitation`).
 - **Purpose.** Volunteer and staff registration (BD-44, blueprint A5):
   1. Verify the mobile number by OTP.
