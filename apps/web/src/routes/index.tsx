@@ -167,6 +167,20 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                   }),
                 },
                 {
+                  path: 'beneficiaries/duplicates',
+                  lazy: async () => ({
+                    Component: (await import('../admin/beneficiaries/duplicates/DuplicatesPage'))
+                      .DuplicatesPage,
+                  }),
+                },
+                {
+                  path: 'beneficiaries/duplicates/compare',
+                  lazy: async () => ({
+                    Component: (await import('../admin/beneficiaries/duplicates/ComparePage'))
+                      .ComparePage,
+                  }),
+                },
+                {
                   path: 'beneficiaries/:beneficiaryId',
                   lazy: async () => ({
                     Component: (await import('../admin/beneficiaries/BeneficiaryProfilePage'))

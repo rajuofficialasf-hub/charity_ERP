@@ -14,6 +14,8 @@ export interface ApiErrorDetail {
   path?: string;
   code: string;
   message: string;
+  /** The values a few codes name, such as the project of a merge conflict (API_STANDARDS 8). */
+  params?: Record<string, string>;
 }
 
 /** An error answer of the API: catalogue code, localized message, details and Retry-After. */

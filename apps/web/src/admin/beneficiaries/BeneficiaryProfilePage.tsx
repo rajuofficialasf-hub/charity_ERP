@@ -42,9 +42,8 @@ import {
   UserX,
 } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
-import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { useFileDataUrl } from '../../components/FileImage';
 import { ApiFailure } from '../../lib/api';
@@ -60,9 +59,16 @@ import {
   beneficiaryProfile,
   type ContactSaved,
 } from './beneficiaries-api';
+import { BeneficiaryArea } from './BeneficiaryArea';
 import { ContactDialog } from './ContactDialog';
 import { CorrectionDialog } from './CorrectionDialog';
+import { RevertMergeAction } from './duplicates/RevertMergeAction';
 import { ContactLog, Corrections, useFileKind } from './ProfileHistory';
+
+/** A message another page hands over when it leads here (the merge leads to the kept profile). */
+export interface ProfileNotice {
+  notice?: string;
+}
 
 /**
  * The 360° profile of one beneficiary in the one profile layout: the header card with the key facts,
@@ -120,8 +126,17 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
   const fileKind = useFileKind();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [dialog, setDialog] = useState<'contact' | 'correction' | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(
+    () => (location.state as ProfileNotice | null)?.notice ?? null,
+  );
+  const dismissNotice = () => {
+    setNotice(null);
+    // a handed-over message is shown once, not again after a reload
+    if (location.state) void navigate(location.pathname, { replace: true, state: null });
+  };
   const [shared, setShared] = useState<ContactSaved['warnings']>([]);
   const changed = (message: string) => {
     setDialog(null);
@@ -259,7 +274,7 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
         </Alert>
       )}
       {notice && (
-        <Alert tone="success" live="status" onDismiss={() => setNotice(null)}>
+        <Alert tone="success" live="status" onDismiss={dismissNotice}>
           {notice}
         </Alert>
       )}
@@ -311,7 +326,7 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
             <DescriptionList
               columns={2}
               items={[
-                { label: t('column.area'), value: <Area profile={p} /> },
+                { label: t('column.area'), value: <BeneficiaryArea profile={p} /> },
                 ...optional('village', tp('village'), p.village),
                 ...optional('postOffice', tp('post_office'), p.postOffice ?? empty),
                 ...optional('landmark', tp('landmark'), p.landmark ?? empty),
@@ -507,6 +522,15 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
                           <Badge variant="dot" tone="warning" label={tp('merge_reverted')} />
                         )}
                       </Stack>
+                      {m.status === 'merged' && a.revertMerge && (
+                        <div>
+                          <RevertMergeAction
+                            mergeId={m.id}
+                            benNo={formatBenNo(m.otherBenNo)}
+                            onDone={changed}
+                          />
+                        </div>
+                      )}
                       <Text tone="muted">
                         {[
                           m.mergedAt && formatDate(m.mergedAt),
@@ -548,23 +572,4 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
 function HeaderAvatar({ name, fileId }: { name: string; fileId: string | null }) {
   const photo = useFileDataUrl(fileId);
   return <Avatar name={name} letters={1} size="lg" src={photo.data ?? undefined} />;
-}
-
-/** The union (when sent), the upazila, the district and the division of the beneficiary. */
-function Area({ profile: p }: { profile: BeneficiaryProfile }) {
-  const locale = useLocale() as Locale;
-  const names = [
-    useLocationName(p.upazilaId, p.unionId ?? null),
-    useLocationName(p.districtId, p.upazilaId),
-    useLocationName(p.divisionId, p.districtId),
-    useLocationName(undefined, p.divisionId),
-  ];
-  return (
-    <>
-      {names
-        .map((n) => n?.[locale])
-        .filter(Boolean)
-        .join(', ')}
-    </>
-  );
 }

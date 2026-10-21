@@ -12,6 +12,7 @@ import {
   MenuButton,
   Modal,
   Select,
+  Stack,
   StatFilterBar,
   type StatFilterItem,
   Table,
@@ -19,7 +20,7 @@ import {
   TableToolbar,
 } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
-import { Ban, EllipsisVertical, HandHeart, Search, User, Users } from 'lucide-react';
+import { Ban, Copy, EllipsisVertical, HandHeart, Search, User, Users } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -37,6 +38,7 @@ import { ProjectPicker } from '../projects/ProjectPicker';
 import { PROJECTS_KEY, pickerProjects } from '../projects/projects-api';
 import {
   canLookUpBeneficiaries,
+  canReviewDuplicates,
   canSeeBeneficiaries,
   canSeeBeneficiaryAddress,
   canSeeBeneficiaryDetails,
@@ -49,6 +51,7 @@ import {
   beneficiaryStatistics,
   FILTER_KEYS,
 } from './beneficiaries-api';
+import { DUPLICATES_PATH } from './duplicates/merge-api';
 
 /** The years offered by the year filter: this one and the five before it. */
 const yearsBack = () => {
@@ -73,10 +76,19 @@ export function BeneficiariesPage() {
       <DocumentTitle title={t('title')} />
       <div className="admin-title-row">
         <h1 className="admin-title">{t('title')}</h1>
-        {canLookUpBeneficiaries(me) && (
-          <Button variant="secondary" icon={Search} onPress={() => setLookup(true)}>
-            {t('lookup.open')}
-          </Button>
+        {(canLookUpBeneficiaries(me) || canReviewDuplicates(me)) && (
+          <Stack direction="row" wrap gap={2}>
+            {canReviewDuplicates(me) && (
+              <Button variant="secondary" icon={Copy} href={DUPLICATES_PATH}>
+                {t('duplicates.title')}
+              </Button>
+            )}
+            {canLookUpBeneficiaries(me) && (
+              <Button variant="secondary" icon={Search} onPress={() => setLookup(true)}>
+                {t('lookup.open')}
+              </Button>
+            )}
+          </Stack>
         )}
       </div>
       {lookup && <LookupDialog onClose={() => setLookup(false)} />}
