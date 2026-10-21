@@ -243,12 +243,26 @@ describe('uploading', () => {
     expect((await upload(token, randomUUID(), jpeg({ pad: 7 }))).status).toBe(201);
   });
 
-  it('refuses the same bytes twice on one project', async () => {
+  it('stores the same bytes twice on one project, telling the applicant nothing', async () => {
     const { token } = await linkedProject();
-    expect((await upload(token, randomUUID(), jpeg({ pad: 3 }))).status).toBe(201);
+    const first = await upload(token, randomUUID(), jpeg({ pad: 3 }));
+    expect(first.status).toBe(201);
     const again = await upload(token, randomUUID(), jpeg({ pad: 3 }));
-    expect(again.status).toBe(409);
-    expect(again.body.error.code).toBe('file.duplicate');
+    expect(again.status).toBe(201);
+    expect(again.body.data.fileId).not.toBe(first.body.data.fileId);
+  });
+
+  it('refuses a submission naming more photos than one application may hold', async () => {
+    const { token } = await linkedProject();
+    const client = randomUUID();
+    const ids: string[] = [];
+    for (let i = 1; i <= 5; i += 1)
+      ids.push((await upload(token, client, jpeg({ pad: 40 + i }))).body.data.fileId as string);
+    const tooMany = await submit(token, client, [...ids, ids[0]!]);
+    expect(tooMany.status).toBe(422);
+    expect(tooMany.body.error.details).toEqual([
+      expect.objectContaining({ path: 'house_photo', code: 'public.photo_limit' }),
+    ]);
   });
 
   it('holds at most 200 unclaimed photos per link until a submission claims one', async () => {
@@ -269,6 +283,17 @@ describe('uploading', () => {
     const submitted = await submit(token, client, [first.body.data.fileId]);
     expect(submitted.status, JSON.stringify(submitted.body)).toBe(201);
     expect((await upload(token, randomUUID(), jpeg({ pad: 13 }))).status).toBe(201);
+  });
+
+  it('holds at most 500 MB of unclaimed photos per link', async () => {
+    const { projectId, token } = await linkedProject();
+    const first = await upload(token, randomUUID(), jpeg({ pad: 14 }));
+    expect(first.status).toBe(201);
+    const folder = (await fileRow(first.body.data.fileId)).object_key.split('/', 2).join('/');
+    await plantUnclaimed(projectId, folder, 5, 100 * 1024 * 1024);
+    const full = await upload(token, randomUUID(), jpeg({ pad: 15 }));
+    expect(full.status).toBe(429);
+    expect(full.body.error.code).toBe('public.link_full');
   });
 
   it('answers the closed-link 404 on a draft project', async () => {

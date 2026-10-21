@@ -5,7 +5,6 @@ import { uuidv7 } from '@css/shared';
 import { PUBLIC_PHOTO_LIMITS } from '@css/shared/files';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Clock } from '../core/clock';
-import { isUniqueViolation } from '../core/db-errors';
 import type { PrismaService, Tx } from '../core/prisma.service';
 import { cleanImage, type CleanImage } from '../files/images';
 import { ApiError } from '../i18n/api-error';
@@ -19,11 +18,11 @@ const BUCKET = 'photos' as const;
 const KIND = 'form_photo' as const;
 const EXTENSION = { 'image/jpeg': 'jpg', 'image/png': 'png' } as const;
 /** The link entity a photo waits under until a submission claims it; never readable through the file routes. */
-export const PENDING_CLAIM = 'public_submission' as const;
+const PENDING_CLAIM = 'public_submission' as const;
 const HOUR_SECONDS = 3600;
 
 /** The folder of a link's photos: the token is hashed, so a key never carries the capability. */
-export function linkFolder(token: string): string {
+function linkFolder(token: string): string {
   return `public/${createHash('sha256').update(token).digest('hex').slice(0, 32)}`;
 }
 
@@ -60,7 +59,6 @@ export class PublicPhotosService {
         { path: input.fieldKey, code: 'form.unknown_field' },
       ]);
     const image = imageOf(input.body);
-    await this.assertRoom(input.token, input.clientUuid);
     const id = uuidv7();
     const key = `${linkFolder(input.token)}/${input.clientUuid}/${id}.${EXTENSION[image.mime]}`;
     await this.storage.put(BUCKET, key, Readable.from(image.bytes), {
@@ -69,6 +67,11 @@ export class PublicPhotosService {
     });
     try {
       await this.prisma.$transaction(async (tx) => {
+        // the counts and the insert under one lock per client id and one per link, so parallel
+        // uploads cannot pass the ceilings together or take the same position
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'public-photo:' + input.clientUuid}))`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'public-link:' + linkFolder(input.token)}))`;
+        await this.assertRoom(tx, input.token, input.clientUuid);
         await tx.file.create({
           data: {
             id,
@@ -108,8 +111,6 @@ export class PublicPhotosService {
       });
     } catch (error) {
       await this.removeQuietly(key);
-      // the same bytes already stored on this project (the identical-file rule of every upload)
-      if (isUniqueViolation(error)) throw new ApiError('file.duplicate', 409);
       throw error;
     }
     return { fileId: id };
@@ -127,6 +128,11 @@ export class PublicPhotosService {
     named: { fieldKey: string; fileIds: string[] }[],
   ): Promise<void> {
     if (!named.some((n) => n.fileIds.length)) return;
+    const total = named.reduce((n, item) => n + item.fileIds.length, 0);
+    if (total > PUBLIC_PHOTO_LIMITS.perSubmission)
+      throw new ApiError('validation.failed', 422, undefined, [
+        { path: named[0]!.fieldKey, code: 'public.photo_limit' },
+      ]);
     const own = await tx.fileLink.findMany({
       where: {
         entityType: PENDING_CLAIM,
@@ -157,12 +163,12 @@ export class PublicPhotosService {
   }
 
   /** Room for one more photo: five per client id, and the link's unclaimed ceiling. */
-  private async assertRoom(token: string, clientUuid: string): Promise<void> {
+  private async assertRoom(tx: Tx, token: string, clientUuid: string): Promise<void> {
     const [mine, [unclaimed]] = await Promise.all([
-      this.prisma.fileLink.count({
+      tx.fileLink.count({
         where: { entityType: PENDING_CLAIM, entityId: clientUuid, file: { deletedAt: null } },
       }),
-      this.prisma.$queryRaw<{ files: bigint; bytes: bigint | null }[]>`
+      tx.$queryRaw<{ files: bigint; bytes: bigint | null }[]>`
         SELECT count(*) AS files, sum(f.size_bytes) AS bytes
           FROM files f
           JOIN file_links l ON l.file_id = f.id AND l.entity_type = ${PENDING_CLAIM}
@@ -190,7 +196,7 @@ export class PublicPhotosService {
 /**
  * Removes the public photos no submission claimed within a day: the rows go through the narrow
  * database function (the only way a file row is deleted), then the objects and thumbnails they
- * named. Idempotent: a second run finds nothing.
+ * named, a batch at a time until the backlog is empty. Idempotent: a second run finds nothing.
  */
 export async function sweepUnclaimedPublicPhotos(
   prisma: PrismaService,
@@ -198,32 +204,38 @@ export async function sweepUnclaimedPublicPhotos(
   logger: Logger,
   now: Date,
   batch = 200,
+  maxBatches = 20,
 ): Promise<number> {
   const before = new Date(now.getTime() - PUBLIC_PHOTO_LIMITS.unclaimedLifeMs);
-  const rows = await prisma.$queryRaw<
-    {
-      file_id: string;
-      object_key: string;
-      thumbnail_small_key: string | null;
-      thumbnail_medium_key: string | null;
-    }[]
-  >`SELECT file_id, object_key, thumbnail_small_key, thumbnail_medium_key
-      FROM purge_unclaimed_public_photos(${before}, ${batch}::int)`;
-  for (const row of rows) {
-    const keys = [
-      row.object_key,
-      row.thumbnail_small_key ?? thumbnailKey(row.object_key, row.file_id, 's'),
-      row.thumbnail_medium_key ?? thumbnailKey(row.object_key, row.file_id, 'm'),
-    ];
-    for (const key of keys) {
-      try {
-        await storage.remove(BUCKET, key);
-      } catch (error) {
-        logger.warn({ err: error, key }, 'unclaimed public photo object not removed');
+  let removed = 0;
+  for (let i = 0; i < maxBatches; i += 1) {
+    const rows = await prisma.$queryRaw<
+      {
+        file_id: string;
+        object_key: string;
+        thumbnail_small_key: string | null;
+        thumbnail_medium_key: string | null;
+      }[]
+    >`SELECT file_id, object_key, thumbnail_small_key, thumbnail_medium_key
+        FROM purge_unclaimed_public_photos(${before}, ${batch}::int)`;
+    for (const row of rows) {
+      const keys = [
+        row.object_key,
+        row.thumbnail_small_key ?? thumbnailKey(row.object_key, row.file_id, 's'),
+        row.thumbnail_medium_key ?? thumbnailKey(row.object_key, row.file_id, 'm'),
+      ];
+      for (const key of keys) {
+        try {
+          await storage.remove(BUCKET, key);
+        } catch (error) {
+          logger.warn({ err: error, key }, 'unclaimed public photo object not removed');
+        }
       }
     }
+    removed += rows.length;
+    if (rows.length < batch) break;
   }
-  return rows.length;
+  return removed;
 }
 
 /** The raw body as a cleaned JPEG or PNG, or 415 `file.type_not_allowed`. */

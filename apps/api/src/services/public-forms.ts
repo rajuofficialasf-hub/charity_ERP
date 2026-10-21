@@ -1,6 +1,7 @@
 import { uuidv7 } from '@css/shared';
 import { type PublicApplicationCreate, validate } from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
+import { z } from 'zod';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Clock } from '../core/clock';
 import { isUniqueViolation } from '../core/db-errors';
@@ -45,20 +46,15 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 type AddressChain = [string, string, string, string];
 
+const photoAnswerSchema = z.object({ t: z.literal('photo'), v: z.array(z.string()) });
+
 /** The file ids every photo answer names, by field. */
 function photoAnswers(
   answers: { fieldKey: string; value: unknown }[],
 ): { fieldKey: string; fileIds: string[] }[] {
   return answers.flatMap((a) => {
-    const value = a.value as { t?: string; v?: unknown };
-    return value.t === 'photo' && Array.isArray(value.v)
-      ? [
-          {
-            fieldKey: a.fieldKey,
-            fileIds: value.v.filter((id): id is string => typeof id === 'string'),
-          },
-        ]
-      : [];
+    const photo = photoAnswerSchema.safeParse(a.value);
+    return photo.success ? [{ fieldKey: a.fieldKey, fileIds: photo.data.v }] : [];
   });
 }
 

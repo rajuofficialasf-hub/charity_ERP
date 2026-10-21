@@ -86,7 +86,6 @@ export function publicRouter(
     responses: {
       201: z.object({ fileId: z.uuid() }),
       404: null,
-      409: null,
       413: null,
       415: null,
       422: null,
