@@ -24,21 +24,15 @@ import { ApiFailure } from '../../../lib/api';
 import { useAuth } from '../../../lib/auth';
 import { ForbiddenContent } from '../../AdminLayout';
 import { canReviewDuplicates } from '../../roles';
+import type { HandedNotice } from '../../use-handed-notice';
 import {
   BENEFICIARIES_KEY,
   type BeneficiaryProfile,
   beneficiaryProfile,
 } from '../beneficiaries-api';
 import { BeneficiaryArea } from '../BeneficiaryArea';
-import type { ProfileNotice } from '../BeneficiaryProfilePage';
 import { MergeDialog, type MergeMode } from './MergeDialog';
-import {
-  DUPLICATES_KEY,
-  DUPLICATES_PATH,
-  type ListNotice,
-  type MergeView,
-  mergeProposals,
-} from './merge-api';
+import { DUPLICATES_KEY, DUPLICATES_PATH, type MergeView, mergeProposals } from './merge-api';
 
 /**
  * Two beneficiary profiles side by side (a suggested pair or a proposal): the official chooses the
@@ -131,14 +125,42 @@ function Compare({ a, b, proposalId }: { a: string; b: string; proposalId: strin
       </>
     );
 
-  const sides = [first.data.data, second.data.data] as const;
+  // a comparison opened for a proposal carries that proposal out or nothing: never a fresh merge
+  // without the proposer's reason, which would leave the proposal open
+  if (proposalId !== null && proposals.error)
+    return (
+      <>
+        {heading}
+        <ErrorState
+          title={tc('state.error.text')}
+          requestId={proposals.error instanceof ApiFailure ? proposals.error.requestId : undefined}
+          onRetry={() => void proposals.refetch()}
+        />
+      </>
+    );
   const proposal: MergeView | undefined = proposals.data?.find((m) => m.id === proposalId);
+  if (proposalId !== null && !proposal)
+    return (
+      <>
+        {heading}
+        <EmptyState icon={GitMerge} title={tm('proposal_missing')} />
+      </>
+    );
+
+  const sides = [first.data.data, second.data.data] as const;
   const kept = chosen ?? proposal?.keptId ?? null;
   const live = sides.every((p) => !p.mergedInto);
   const merges = live && sides.every((p) => p.actions.merge);
   const proposes = live && sides.every((p) => p.actions.proposeMerge);
-  const mode: MergeMode | null =
-    proposal && merges ? 'execute' : merges ? 'direct' : proposes && !proposal ? 'propose' : null;
+  const mode: MergeMode | null = proposal
+    ? merges
+      ? 'execute'
+      : null
+    : merges
+      ? 'direct'
+      : proposes
+        ? 'propose'
+        : null;
 
   const nameOf = (project: { nameBn: string; nameEn: string }) =>
     locale === 'en' ? project.nameEn : project.nameBn;
@@ -155,10 +177,10 @@ function Compare({ a, b, proposalId }: { a: string; b: string; proposalId: strin
     setDialog(false);
     void queryClient.invalidateQueries({ queryKey: BENEFICIARIES_KEY });
     if (mode === 'propose')
-      void navigate(DUPLICATES_PATH, { state: { notice: tm('proposed') } satisfies ListNotice });
+      void navigate(DUPLICATES_PATH, { state: { notice: tm('proposed') } satisfies HandedNotice });
     else
       void navigate(`/admin/beneficiaries/${view.keptId}`, {
-        state: { notice: tm('merged') } satisfies ProfileNotice,
+        state: { notice: tm('merged') } satisfies HandedNotice,
       });
   };
   const start = () => {

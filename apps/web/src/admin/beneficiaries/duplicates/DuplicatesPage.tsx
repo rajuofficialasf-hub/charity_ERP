@@ -14,7 +14,7 @@ import {
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { GitCompare, GitMerge, Users, UserX } from 'lucide-react';
 import { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router';
+import { Link } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../../components/DocumentTitle';
 import { ApiFailure } from '../../../lib/api';
@@ -22,6 +22,7 @@ import { useAuth } from '../../../lib/auth';
 import { ForbiddenContent } from '../../AdminLayout';
 import { ReasonDialog } from '../../projects/ReasonDialog';
 import { canReviewDuplicates } from '../../roles';
+import { useHandedNotice } from '../../use-handed-notice';
 import { BENEFICIARIES_KEY } from '../beneficiaries-api';
 import {
   candidatePage,
@@ -31,7 +32,6 @@ import {
   type MergeCandidate,
   mergeProposals,
   type MergeView,
-  type ListNotice,
 } from './merge-api';
 
 /**
@@ -42,17 +42,9 @@ import {
 export function DuplicatesPage() {
   const { me } = useAuth();
   const t = useTranslations('admin.beneficiaries');
-  const location = useLocation();
-  const navigate = useNavigate();
-  const [notice, setNotice] = useState<string | null>(
-    () => (location.state as ListNotice | null)?.notice ?? null,
-  );
+  const { notice, setNotice, dismiss } = useHandedNotice();
   if (!me) return null;
   if (!canReviewDuplicates(me)) return <ForbiddenContent />;
-  const dismissNotice = () => {
-    setNotice(null);
-    if (location.state) void navigate(location.pathname, { replace: true, state: null });
-  };
   return (
     <>
       <DocumentTitle title={t('duplicates.title')} />
@@ -64,7 +56,7 @@ export function DuplicatesPage() {
       />
       <h1 className="admin-title">{t('duplicates.title')}</h1>
       {notice && (
-        <Alert tone="success" live="status" onDismiss={dismissNotice}>
+        <Alert tone="success" live="status" onDismiss={dismiss}>
           {notice}
         </Alert>
       )}

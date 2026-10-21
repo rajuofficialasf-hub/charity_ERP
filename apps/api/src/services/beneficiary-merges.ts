@@ -12,6 +12,13 @@ import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates';
 
+/** A UUID may arrive in capitals; the pair map and the stored rows use lower case. */
+const lowerIds = (body: MergeRequest): MergeRequest => ({
+  ...body,
+  keptId: body.keptId.toLowerCase(),
+  mergedId: body.mergedId.toLowerCase(),
+});
+
 /**
  * Every row that points to a beneficiary, by table and column: a merge moves them from the retired
  * profile to the kept one, and a revert moves exactly the same ids back. The names are fixed here,
@@ -111,7 +118,8 @@ export class BeneficiaryMergesService {
     return new Map(found.map((r) => [r.id, r]));
   }
 
-  async propose(actor: Principal, scope: Scope, body: MergeRequest) {
+  async propose(actor: Principal, scope: Scope, request: MergeRequest) {
+    const body = lowerIds(request);
     return this.prisma.$transaction(async (tx) => {
       const pair = await this.lockPair(tx, actor, scope, body.keptId, body.mergedId);
       if ([...pair.values()].some((p) => p.mergedIntoId)) this.notFound(actor, scope);
@@ -149,7 +157,8 @@ export class BeneficiaryMergesService {
   }
 
   /** A merge without a proposal: the caller proposes and merges in one step. */
-  async direct(actor: Principal, scope: Scope, body: MergeRequest) {
+  async direct(actor: Principal, scope: Scope, request: MergeRequest) {
+    const body = lowerIds(request);
     return this.guard(() =>
       this.prisma.$transaction(async (tx) => {
         const pair = await this.lockPair(tx, actor, scope, body.keptId, body.mergedId);

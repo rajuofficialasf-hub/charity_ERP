@@ -243,8 +243,20 @@ const DEMO_BLOCKED_BENEFICIARY = 3;
  * Playwright project, since the projects share the database.
  */
 export const DEMO_DUPLICATE_PAIRS = [
-  { n: [51, 52], name: 'রাবেয়া খাতুন', father: 'আব্দুল মজিদ', mobile: 1050 },
-  { n: [53, 54], name: 'আনোয়ারা বেগম', father: 'মো. হারুন', mobile: 1051 },
+  {
+    n: [51, 52],
+    nids: ['1000001050', '1000001051'],
+    name: 'রাবেয়া খাতুন',
+    father: 'আব্দুল মজিদ',
+    mobile: 1050,
+  },
+  {
+    n: [53, 54],
+    nids: ['1000001052', '1000001053'],
+    name: 'আনোয়ারা বেগম',
+    father: 'মো. হারুন',
+    mobile: 1051,
+  },
 ] as const;
 
 const FEMALE = [
@@ -535,7 +547,7 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
         const beneficiaryId = seedId(`beneficiary:${n}`);
         await ctx.upsert('beneficiaries', {
           id: beneficiaryId,
-          nid: fakeNid(999 + n),
+          nid: pair.nids[i],
           birth_reg: null,
           name: demoName(pair.name),
           father_or_husband_name: demoName(pair.father),

@@ -187,11 +187,11 @@ describe('a merge proposed by an RPM and carried out by the PM', () => {
     expect((await pointer(kept)).merged_into_id).toBe(retired);
   });
 
-  it('lets the Department Head merge without a proposal', async () => {
+  it('lets the Department Head merge without a proposal, with the ids in any case', async () => {
     const { kept, retired } = await duplicate();
     const done = await direct(await as(world.users.head), {
-      keptId: kept,
-      mergedId: retired,
+      keptId: kept.toUpperCase(),
+      mergedId: retired.toUpperCase(),
       reason: REASON,
     });
     expect(done.status).toBe(201);

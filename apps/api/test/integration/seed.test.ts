@@ -309,8 +309,7 @@ describe('demo set', () => {
     ).rows;
     expect(pairs).toHaveLength(DEMO_DUPLICATE_PAIRS.length);
     for (const [i, pair] of pairs.entries()) {
-      const nids = DEMO_DUPLICATE_PAIRS[i]!.n.map((n) => String(1000000999 + n));
-      expect([pair.low_nid, pair.high_nid].sort()).toEqual(nids);
+      expect([pair.low_nid, pair.high_nid].sort()).toEqual([...DEMO_DUPLICATE_PAIRS[i]!.nids]);
       expect(pair).toMatchObject({
         rules: ['name_father_mobile', 'same_mobile'],
         active: true,
@@ -329,8 +328,8 @@ describe('demo set', () => {
     ).rows;
     expect(applications).toEqual(
       DEMO_DUPLICATE_PAIRS.flatMap((pair) =>
-        pair.n.map((n) => ({
-          nid: String(1000000999 + n),
+        pair.nids.map((nid) => ({
+          nid,
           status: 'under_review',
           code: 'WNT',
           program: 'HUM',

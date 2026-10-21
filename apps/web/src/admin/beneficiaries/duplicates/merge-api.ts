@@ -46,11 +46,6 @@ export const comparePath = (a: string, b: string, proposalId?: string) =>
     ...(proposalId ? { proposal: proposalId } : {}),
   }).toString()}`;
 
-/** A message the comparison hands over to the list (a proposal sent). */
-export interface ListNotice {
-  notice?: string;
-}
-
 /** Every answer of the duplicates and merges; the profiles go stale with them. */
 export const DUPLICATES_KEY = [...BENEFICIARIES_KEY, 'duplicates'] as const;
 

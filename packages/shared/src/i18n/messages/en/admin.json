@@ -583,6 +583,7 @@
       "merged": "Profiles merged",
       "proposed": "Merge proposal sent",
       "not_found": "One of the two profiles was not found.",
+      "proposal_missing": "This merge proposal is no longer waiting.",
       "conflict": {
         "application": "{project}: an application still waiting for a decision",
         "project_unknown": "A project",

@@ -42,7 +42,7 @@ import {
   UserX,
 } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { useFileDataUrl } from '../../components/FileImage';
@@ -52,6 +52,7 @@ import { ForbiddenContent } from '../AdminLayout';
 import { telLink } from '../contact-links';
 import { BlocklistAction } from '../registrations/Blocklist';
 import { canSeeBeneficiaries } from '../roles';
+import { useHandedNotice } from '../use-handed-notice';
 import {
   BENEFICIARIES_KEY,
   BENEFICIARY_TYPES,
@@ -64,11 +65,6 @@ import { ContactDialog } from './ContactDialog';
 import { CorrectionDialog } from './CorrectionDialog';
 import { RevertMergeAction } from './duplicates/RevertMergeAction';
 import { ContactLog, Corrections, useFileKind } from './ProfileHistory';
-
-/** A message another page hands over when it leads here (the merge leads to the kept profile). */
-export interface ProfileNotice {
-  notice?: string;
-}
 
 /**
  * The 360° profile of one beneficiary in the one profile layout: the header card with the key facts,
@@ -126,17 +122,8 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
   const fileKind = useFileKind();
-  const location = useLocation();
-  const navigate = useNavigate();
   const [dialog, setDialog] = useState<'contact' | 'correction' | null>(null);
-  const [notice, setNotice] = useState<string | null>(
-    () => (location.state as ProfileNotice | null)?.notice ?? null,
-  );
-  const dismissNotice = () => {
-    setNotice(null);
-    // a handed-over message is shown once, not again after a reload
-    if (location.state) void navigate(location.pathname, { replace: true, state: null });
-  };
+  const { notice, setNotice, dismiss: dismissNotice } = useHandedNotice();
   const [shared, setShared] = useState<ContactSaved['warnings']>([]);
   const changed = (message: string) => {
     setDialog(null);

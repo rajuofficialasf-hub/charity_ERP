@@ -175,6 +175,32 @@ describe('the duplicates list', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('keeps the pair in the list when the mark is refused', async () => {
+    refreshAs(PM);
+    server.use(
+      http.get('*/api/v1/beneficiaries/merge-candidates', () =>
+        envelope([PAIR], { nextCursor: null, prevCursor: null, limit: 10 }),
+      ),
+      http.get('*/api/v1/beneficiary-merges', () => envelope([])),
+      http.post('*/api/v1/beneficiaries/merge-dismissals', () =>
+        failure(409, 'beneficiary.dismissed', 'এই জোড়া আগেই চিহ্নিত করা হয়েছে।'),
+      ),
+    );
+    const user = userEvent.setup();
+    renderApp(<DuplicatesPage />, 'bn', { path: '/admin/beneficiaries/duplicates' });
+    await user.click((await screen.findAllByRole('button', { name: 'একই ব্যক্তি নন' }))[0]!);
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'দুজন আলাদা মানুষ');
+    await user.click(within(dialog).getByRole('button', { name: 'একই ব্যক্তি নন' }));
+    expect(await within(dialog).findByText('এই জোড়া আগেই চিহ্নিত করা হয়েছে।')).toBeVisible();
+    expect(
+      screen.queryByText('জোড়াটি আলাদা ব্যক্তি হিসেবে চিহ্নিত হয়েছে'),
+    ).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'বাতিল' }));
+    expect((await screen.findAllByText('একই নাম, পিতা/স্বামী ও মোবাইল')).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: 'তুলনা করুন' }).length).toBeGreaterThan(0);
+  });
+
   it('is for the roles that review duplicates only', () => {
     for (const role of [
       'department_head',
@@ -258,6 +284,128 @@ describe('the comparison', () => {
       await within(dialog).findByText('শীতবস্ত্র: সিদ্ধান্তের অপেক্ষায় থাকা আবেদন'),
     ).toBeVisible();
     expect(within(dialog).getByText('আপনার এখতিয়ারের বাইরের একটি প্রকল্পের আবেদন')).toBeVisible();
+    // the dialog stays open with the reason typed; the page does not lead anywhere
+    expect(screen.getByRole('dialog')).toBeVisible();
+    expect(within(dialog).getByRole('textbox', { name: /কারণ/ })).toHaveValue(
+      'একই ব্যক্তি, দুইবার এসেছেন',
+    );
+    expect(screen.queryByTestId('location')).not.toBeInTheDocument();
+  });
+
+  it('keeps the dialog open on a validation refusal', async () => {
+    refreshAs(PM);
+    serveProfiles({ merge: true });
+    server.use(
+      http.post('*/api/v1/beneficiary-merges/direct', () =>
+        failure(422, 'validation.failed', 'দেওয়া তথ্য ঠিক নেই।'),
+      ),
+    );
+    const user = userEvent.setup();
+    openCompare();
+    const dialog = await chooseAndOpen(user);
+    await user.click(within(dialog).getByRole('button', { name: 'মার্জ করুন' }));
+    expect(await within(dialog).findByText('দেওয়া তথ্য ঠিক নেই।')).toBeVisible();
+    expect(screen.getByRole('dialog')).toBeVisible();
+    expect(screen.queryByTestId('location')).not.toBeInTheDocument();
+    expect(screen.queryByText('প্রোফাইল মার্জ হয়েছে')).not.toBeInTheDocument();
+  });
+
+  it('shows the not-found state when a profile is gone and the error state when a read fails', async () => {
+    refreshAs(PM);
+    server.use(
+      http.get('*/api/v1/beneficiaries/:id', ({ params }) =>
+        params.id === B
+          ? failure(404, 'permission.not_found', 'পাওয়া যায়নি।')
+          : HttpResponse.json(
+              { data: profile(A, 51, { actions: { ...NONE, merge: true } }), meta: { etag: ETAG } },
+              { headers: { ETag: ETAG } },
+            ),
+      ),
+      http.get('*/api/v1/locations', () => envelope([])),
+    );
+    const first = openCompare();
+    expect(await screen.findByText('দুটি প্রোফাইলের একটি পাওয়া যায়নি।')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'মার্জ করুন' })).not.toBeInTheDocument();
+    first.unmount();
+    resetClientForTests();
+    server.use(
+      http.get('*/api/v1/beneficiaries/:id', () =>
+        failure(503, 'server.busy', 'সার্ভার ব্যস্ত। একটু পরে আবার চেষ্টা করুন।'),
+      ),
+    );
+    openCompare();
+    expect(await screen.findByText('কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'আবার চেষ্টা করুন' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'মার্জ করুন' })).not.toBeInTheDocument();
+  });
+
+  it('carries out a proposal only when the list holds it, and never falls back to a fresh merge', async () => {
+    refreshAs(HEAD);
+    serveProfiles({ merge: true });
+    const openProposal = () =>
+      renderApp(<ComparePage />, 'bn', {
+        path: '/admin/beneficiaries/duplicates/compare',
+        initialPath: `/admin/beneficiaries/duplicates/compare?a=${A}&b=${B}&proposal=${MERGE_ID}`,
+      });
+    // the proposal is no longer among the open ones
+    server.use(http.get('*/api/v1/beneficiary-merges', () => envelope([])));
+    const first = openProposal();
+    expect(await screen.findByText('এই মার্জের প্রস্তাবটি আর অপেক্ষায় নেই।')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'মার্জ করুন' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    first.unmount();
+    resetClientForTests();
+    // the list cannot be read (a client error: the cache retries server errors first)
+    server.use(
+      http.get('*/api/v1/beneficiary-merges', () =>
+        failure(403, 'permission.denied', 'এই কাজের অনুমতি আপনার নেই।'),
+      ),
+    );
+    const second = openProposal();
+    expect(await screen.findByText('কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'আবার চেষ্টা করুন' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'মার্জ করুন' })).not.toBeInTheDocument();
+    second.unmount();
+    resetClientForTests();
+    // the proposal is open: its reason shows and the merge confirms without a new reason
+    let executed: unknown;
+    server.use(
+      http.get('*/api/v1/beneficiary-merges', () =>
+        envelope([
+          {
+            id: MERGE_ID,
+            keptId: B,
+            mergedId: A,
+            keptBenNo: 'BEN-0000052',
+            mergedBenNo: 'BEN-0000051',
+            keptName: 'নমুনা রাবেয়া',
+            mergedName: 'নমুনা রাবেয়া',
+            status: 'proposed',
+            reason: 'একই গ্রামের একই মানুষ',
+            proposedBy: ME.id,
+            proposedAt: '2026-10-20T04:00:00.000Z',
+            mergedAt: null,
+            revertedAt: null,
+            leftBehind: 0,
+          },
+        ]),
+      ),
+      http.post(`*/api/v1/beneficiary-merges/${MERGE_ID}/execute`, async ({ request }) => {
+        executed = await request.json();
+        return envelope({ id: MERGE_ID, keptId: B, mergedId: A }, {});
+      }),
+    );
+    const user = userEvent.setup();
+    openProposal();
+    expect(await screen.findByText('প্রস্তাবের কারণ: একই গ্রামের একই মানুষ')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'মার্জ করুন' }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).queryByRole('textbox')).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'মার্জ করুন' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('location')).toHaveTextContent(`/admin/beneficiaries/${B}`),
+    );
+    expect(executed).toEqual({ keptId: B });
   });
 
   it('shows why a merge needs the global roles', async () => {
@@ -364,5 +512,32 @@ describe('the revert from the merge history', () => {
     expect(await screen.findByText('মার্জ ফেরত নেওয়া হয়েছে')).toBeVisible();
     expect(body).toEqual({ reason: 'ভুল করে মার্জ হয়েছিল' });
     await expectNoAxeViolations(container);
+  });
+
+  it('shows why a revert is refused and no success notice', async () => {
+    refreshAs(HEAD);
+    serveProfiles({ revertMerge: true }, { merges: [merged] });
+    server.use(
+      http.post(`*/api/v1/beneficiary-merges/${MERGE_ID}/revert`, () =>
+        failure(
+          409,
+          'beneficiary.merge_revert_order',
+          'রাখা প্রোফাইলটি পরে আবার মার্জ হয়েছে। আগে সেই মার্জ ফেরত নিন।',
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    openProfile();
+    await user.click(await screen.findByRole('button', { name: 'মার্জ ফেরত নিন' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'ভুল করে মার্জ হয়েছিল');
+    await user.click(within(dialog).getByRole('button', { name: 'মার্জ ফেরত নিন' }));
+    expect(
+      await within(dialog).findByText(
+        'রাখা প্রোফাইলটি পরে আবার মার্জ হয়েছে। আগে সেই মার্জ ফেরত নিন।',
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole('dialog')).toBeVisible();
+    expect(screen.queryByText('মার্জ ফেরত নেওয়া হয়েছে')).not.toBeInTheDocument();
   });
 });
