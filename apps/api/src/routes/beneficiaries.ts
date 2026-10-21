@@ -22,6 +22,7 @@ import { type PageQuery, pageNumberQuery, pageQuery } from '../core/pagination';
 import { etagOf } from '../core/etag';
 import { ok, page } from '../http/send';
 import { defineRoute, type RouteDeps } from '../openapi/define-route';
+import { DUPLICATE_RULES } from '../services/beneficiary-merge-candidates';
 import { blocklistEntry } from './volunteers';
 
 // Each marked field gets a schema of its own: `sensitive` marks the instance it is given.
@@ -251,7 +252,7 @@ const mergeCandidate = z.object({
   otherBenNo: z.string(),
   name: z.string(),
   otherName: z.string(),
-  matchedOn: z.array(z.enum(['name_dob_union', 'name_father_mobile', 'same_mobile'])),
+  matchedOn: z.array(z.enum(DUPLICATE_RULES)),
 });
 
 /** A pair marked as two different people, with who marked it and why. */

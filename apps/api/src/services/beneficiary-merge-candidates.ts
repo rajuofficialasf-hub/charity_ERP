@@ -8,33 +8,56 @@ import type { Env } from '../config/env';
 import { boundedRead } from '../core/bounded-read';
 import { decodeCursor, encodeCursor, type PageQuery } from '../core/pagination';
 import type { PrismaService, Tx } from '../core/prisma.service';
+import { z } from 'zod';
 import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import { isUniqueViolation } from './beneficiary-identity';
 
 /** Why two profiles look like one person, in the order the suggestions name the rules. */
-export type DuplicateRule = 'name_dob_union' | 'name_father_mobile' | 'same_mobile';
+export const DUPLICATE_RULES = ['name_dob_union', 'name_father_mobile', 'same_mobile'] as const;
+export type DuplicateRule = (typeof DUPLICATE_RULES)[number];
 
-type PairRow = { low: string; high: string; rules: DuplicateRule[] };
+type PairRow = {
+  low: string;
+  high: string;
+  rules: DuplicateRule[];
+  low_ben_no: number;
+  low_name: string;
+  high_ben_no: number;
+  high_name: string;
+};
+
+/** The position a page of suggestions continues after: the last pair of the page before. */
+const pairCursor = z.tuple([z.uuid(), z.uuid()]);
 
 /** The nightly recomputation reads every profile once; it may take a while on a large table. */
 const FULL_REFRESH = { maxWait: 10_000, timeout: 600_000 };
 
 /**
- * The pairs of one rule set as SQL over the live profiles `x` and `y` (`x.id < y.id`): by one
- * mobile (with the stronger rule of the same name and father's or husband's name), and by the same
- * name, date of birth and union. Names compare through `person_name_key`, as the indexes do.
+ * A mobile held by more live profiles than this is a shared phone (an office, a family member who
+ * helps many): its profiles are not suggested as pairs by the mobile alone, which would grow with
+ * the square of the group; a pair that also has the same name and father's or husband's name is.
  */
-const PAIRS_BY_MOBILE = Prisma.sql`
-  SELECT x.id AS low, y.id AS high,
-    array_remove(ARRAY[
-      CASE WHEN person_name_key(x.name) = person_name_key(y.name)
-        AND person_name_key(x.father_or_husband_name) = person_name_key(y.father_or_husband_name)
-        THEN 'name_father_mobile' END,
-      'same_mobile'], NULL) AS rules
+export const MOBILE_GROUP_LIMIT = 20;
+
+/**
+ * The pairs as SQL over the live profiles `x` and `y` (`x.id < y.id`) for the nightly job: the
+ * same name, father's or husband's name and mobile; the same mobile in a group within the limit;
+ * the same name, date of birth and union. Names compare through `person_name_key`, as the indexes do.
+ */
+const PAIRS_BY_NAME_FATHER_MOBILE = Prisma.sql`
+  SELECT x.id AS low, y.id AS high, ARRAY['name_father_mobile'] AS rules
   FROM beneficiaries x
-  JOIN beneficiaries y ON y.mobile = x.mobile AND x.id < y.id AND y.merged_into_id IS NULL
+  JOIN beneficiaries y ON person_name_key(y.name) = person_name_key(x.name)
+    AND person_name_key(y.father_or_husband_name) = person_name_key(x.father_or_husband_name)
+    AND y.mobile = x.mobile AND x.id < y.id AND y.merged_into_id IS NULL
   WHERE x.merged_into_id IS NULL`;
+const PAIRS_BY_MOBILE = Prisma.sql`
+  SELECT x.id AS low, y.id AS high, ARRAY['same_mobile'] AS rules
+  FROM (SELECT mobile FROM beneficiaries WHERE merged_into_id IS NULL
+        GROUP BY mobile HAVING count(*) BETWEEN 2 AND ${MOBILE_GROUP_LIMIT}) g
+  JOIN beneficiaries x ON x.mobile = g.mobile AND x.merged_into_id IS NULL
+  JOIN beneficiaries y ON y.mobile = g.mobile AND x.id < y.id AND y.merged_into_id IS NULL`;
 const PAIRS_BY_DOB = Prisma.sql`
   SELECT x.id AS low, y.id AS high, ARRAY['name_dob_union'] AS rules
   FROM beneficiaries x
@@ -43,7 +66,8 @@ const PAIRS_BY_DOB = Prisma.sql`
   WHERE x.merged_into_id IS NULL AND x.dob IS NOT NULL`;
 
 /**
- * The suggested duplicate profiles (the merge rules in docs/DECISION_LOG.md): pairs of live
+ * The suggested duplicate profiles (docs/DECISION_LOG.md, the decisions on profile merges and on
+ * the kept duplicate pairs): pairs of live
  * profiles with the same name, father's or husband's name and mobile; the same name, date of birth
  * and union; or the same mobile. The pairs are kept in `beneficiary_merge_candidates`: a profile's
  * own pairs are recomputed in the transaction that changes it, and a nightly job recomputes them all;
@@ -64,10 +88,21 @@ export class BeneficiaryMergeCandidatesService {
    * active pair.
    */
   async refreshFor(tx: Tx, beneficiaryIds: string[]): Promise<void> {
+    // shared with other writes, exclusive against the nightly run, so neither undoes the other
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock_shared(hashtextextended('merge-candidates', 0))`;
     for (const id of new Set(beneficiaryIds)) {
       await tx.$executeRaw`
         WITH me AS (
-          SELECT * FROM beneficiaries WHERE id = ${id}::uuid AND merged_into_id IS NULL
+          SELECT b.*, (SELECT count(*) FROM beneficiaries s
+                       WHERE s.mobile = b.mobile AND s.merged_into_id IS NULL) <= ${MOBILE_GROUP_LIMIT} AS small
+          FROM beneficiaries b WHERE b.id = ${id}::uuid AND b.merged_into_id IS NULL
+        ), named AS (
+          SELECT o.* FROM me JOIN beneficiaries o ON o.id <> me.id AND o.merged_into_id IS NULL
+            AND person_name_key(o.name) = person_name_key(me.name)
+            AND (o.mobile = me.mobile OR (o.dob = me.dob AND o.union_id = me.union_id))
+          UNION
+          SELECT o.* FROM me JOIN beneficiaries o ON o.id <> me.id AND o.merged_into_id IS NULL
+            AND o.mobile = me.mobile AND me.small
         ), found AS (
           SELECT LEAST(me.id, o.id) AS low, GREATEST(me.id, o.id) AS high,
             array_remove(ARRAY[
@@ -76,11 +111,8 @@ export class BeneficiaryMergeCandidatesService {
               CASE WHEN o.mobile = me.mobile AND person_name_key(o.name) = person_name_key(me.name)
                 AND person_name_key(o.father_or_husband_name) = person_name_key(me.father_or_husband_name)
                 THEN 'name_father_mobile' END,
-              CASE WHEN o.mobile = me.mobile THEN 'same_mobile' END], NULL) AS rules
-          FROM me JOIN beneficiaries o ON o.id <> me.id AND o.merged_into_id IS NULL
-            AND (o.mobile = me.mobile
-              OR (person_name_key(o.name) = person_name_key(me.name) AND o.dob = me.dob
-                AND o.union_id = me.union_id))
+              CASE WHEN o.mobile = me.mobile AND me.small THEN 'same_mobile' END], NULL) AS rules
+          FROM me JOIN named o ON true
         ), gone AS (
           UPDATE beneficiary_merge_candidates c SET active = false, computed_at = now()
           WHERE (c.low_id = ${id}::uuid OR c.high_id = ${id}::uuid) AND c.active
@@ -105,7 +137,8 @@ export class BeneficiaryMergeCandidatesService {
       await tx.$executeRaw(Prisma.sql`
         INSERT INTO beneficiary_merge_candidates (low_id, high_id, rules, active, computed_at)
         SELECT p.low, p.high, array_agg(DISTINCT r ORDER BY r), true, ${started}
-        FROM (${PAIRS_BY_MOBILE} UNION ALL ${PAIRS_BY_DOB}) p, unnest(p.rules) AS r
+        FROM (${PAIRS_BY_NAME_FATHER_MOBILE} UNION ALL ${PAIRS_BY_MOBILE} UNION ALL ${PAIRS_BY_DOB}) p,
+          unnest(p.rules) AS r
         GROUP BY p.low, p.high
         ON CONFLICT (low_id, high_id) DO UPDATE
           SET rules = EXCLUDED.rules, active = true, computed_at = EXCLUDED.computed_at`);
@@ -120,14 +153,16 @@ export class BeneficiaryMergeCandidatesService {
   async list(actor: Principal, scope: Scope, query: Omit<PageQuery, 'sort'>) {
     const binding = `beneficiaries.mergeCandidates|${actor.userId}`;
     const after = query.cursor ? decodeCursor(this.env.CURSOR_SECRET, binding, query.cursor) : null;
-    if (after && after.d !== 'next')
+    const position = after ? pairCursor.safeParse(after.v) : null;
+    if (after && (after.d !== 'next' || !position?.success))
       throw new ApiError('validation.failed', 422, undefined, [
         { path: 'cursor', code: 'validation.failed' },
       ]);
-    const [low, high] = (after?.v ?? []) as [string?, string?];
+    const [low, high] = position?.success ? position.data : [];
     const fetched = await boundedRead(this.prisma, async (tx) => {
       const pairs = await tx.$queryRaw<PairRow[]>(Prisma.sql`
-        SELECT c.low_id AS low, c.high_id AS high, c.rules
+        SELECT c.low_id AS low, c.high_id AS high, c.rules,
+          x.ben_no AS low_ben_no, x.name AS low_name, y.ben_no AS high_ben_no, y.name AS high_name
         FROM beneficiary_merge_candidates c
         JOIN beneficiaries x ON x.id = c.low_id AND x.merged_into_id IS NULL
         JOIN beneficiaries y ON y.id = c.high_id AND y.merged_into_id IS NULL
@@ -139,29 +174,20 @@ export class BeneficiaryMergeCandidatesService {
           ${low && high ? Prisma.sql`AND (c.low_id, c.high_id) > (${low}::uuid, ${high}::uuid)` : Prisma.empty}
         ORDER BY c.low_id, c.high_id
         LIMIT ${query.limit + 1}`);
-      const ids = [...new Set(pairs.flatMap((p) => [p.low, p.high]))];
-      const people = await tx.beneficiary.findMany({
-        where: { id: { in: ids } },
-        select: { id: true, benNo: true, name: true },
-      });
-      return { pairs, people: new Map(people.map((p) => [p.id, p])) };
+      return pairs;
     });
-    const more = fetched.pairs.length > query.limit;
-    const pairs = fetched.pairs.slice(0, query.limit);
+    const more = fetched.length > query.limit;
+    const pairs = fetched.slice(0, query.limit);
     const last = pairs.at(-1);
-    const rows = pairs.map((p) => {
-      const a = fetched.people.get(p.low)!;
-      const b = fetched.people.get(p.high)!;
-      return {
-        beneficiaryId: p.low,
-        otherBeneficiaryId: p.high,
-        benNo: formatBenNo(a.benNo),
-        otherBenNo: formatBenNo(b.benNo),
-        name: a.name,
-        otherName: b.name,
-        matchedOn: [...p.rules].sort(),
-      };
-    });
+    const rows = pairs.map((p) => ({
+      beneficiaryId: p.low,
+      otherBeneficiaryId: p.high,
+      benNo: formatBenNo(p.low_ben_no),
+      otherBenNo: formatBenNo(p.high_ben_no),
+      name: p.low_name,
+      otherName: p.high_name,
+      matchedOn: [...p.rules].sort(),
+    }));
     return {
       rows,
       meta: {
@@ -189,7 +215,10 @@ export class BeneficiaryMergeCandidatesService {
   }
 
   async dismiss(actor: Principal, scope: Scope, body: DismissalRequest) {
-    const [low, high] = [body.beneficiaryId, body.otherBeneficiaryId].sort() as [string, string];
+    // the database orders uuids by their value; a lower-cased text sorts the same way
+    const [low, high] = [body.beneficiaryId, body.otherBeneficiaryId]
+      .map((id) => id.toLowerCase())
+      .sort() as [string, string];
     try {
       return await this.prisma.$transaction(async (tx) => {
         const people = await this.pairInScope(tx, actor, scope, [low, high]);

@@ -13,6 +13,8 @@ import {
   type Session,
 } from './support/auth-app';
 import * as f from './support/fixtures';
+import { encodeCursor } from '../../src/core/pagination';
+import { testEnv } from '../support/env';
 
 // The suggested duplicate profiles: pairs by name, father's or husband's name and mobile; by name,
 // date of birth and union; or by one mobile; in the caller's scope, and a pair marked as two
@@ -182,7 +184,22 @@ describe('the suggested duplicate pairs', () => {
     expect(first.body.data).toHaveLength(2);
     const next = await candidates(rpm, { limit: '2', cursor: first.body.meta.nextCursor });
     expect(next.status).toBe(200);
-    expect(pairsOf(next)[0]).not.toEqual(pairsOf(first)[1]);
+    // the second page continues after the first one, never repeating a pair of it
+    for (const p of pairsOf(next)) expect(pairsOf(first)).not.toContainEqual(p);
+    const [low, high] = pairsOf(first)[1]!;
+    expect(
+      String(pairsOf(next)[0]![0]) + String(pairsOf(next)[0]![1]) > String(low) + String(high),
+    ).toBe(true);
+  });
+
+  it('refuses a cursor made for another direction or another list', async () => {
+    const rpm = await as(world.users.rpmDhaka);
+    const binding = `beneficiaries.mergeCandidates|${world.users.rpmDhaka}`;
+    const secret = testEnv().CURSOR_SECRET;
+    const backward = encodeCursor(secret, binding, { v: ['x', 'y'], d: 'prev' });
+    const malformed = encodeCursor(secret, binding, { v: ['not-a-uuid', 'x'], d: 'next' });
+    expect((await candidates(rpm, { cursor: backward })).status).toBe(422);
+    expect((await candidates(rpm, { cursor: malformed })).status).toBe(422);
   });
 
   it('refuses an executive, a volunteer and no login', async () => {
@@ -241,6 +258,33 @@ describe('keeping the pairs up to date', () => {
     expect(await stored([older, created.id].sort() as [string, string])).toMatchObject({
       active: true,
     });
+  });
+
+  it('suggests no pairs by a mobile that many profiles share, but still those with the same name', async () => {
+    const shared = '01577000099';
+    const ids: string[] = [];
+    for (let i = 0; i < 25; i++)
+      ids.push(
+        await f.beneficiary(h.db, world.dhaka, {
+          mobile: shared,
+          name: i < 2 ? 'একই নামের মানুষ' : `ভিন্ন নাম ${i}`,
+          father_or_husband_name: 'একই পিতা',
+        }),
+      );
+    await h.container.beneficiaryMergeCandidates.refreshAll();
+    await refresh(ids[0]!);
+    const { rows } = await h.db.query(
+      `SELECT low_id, high_id, rules FROM beneficiary_merge_candidates
+       WHERE active AND (low_id = ANY($1::uuid[]) OR high_id = ANY($1::uuid[]))`,
+      [ids],
+    );
+    expect(rows).toEqual([
+      {
+        low_id: [ids[0], ids[1]].sort()[0],
+        high_id: [ids[0], ids[1]].sort()[1],
+        rules: ['name_father_mobile'],
+      },
+    ]);
   });
 
   it('recomputes every pair nightly, finding new ones and marking gone ones inactive', async () => {
@@ -304,5 +348,25 @@ describe('marking a pair as two different people', () => {
     const mixed = await pair(world.dhaka, 'same_mobile', world.rangpur);
     expect((await dismiss(rpm, mixed)).status).toBe(404);
     expect((await dismiss(await as(world.users.executive), p)).status).toBe(403);
+  });
+
+  it('refuses the marks list and the lift to an executive, a volunteer and no login', async () => {
+    const p = await pair(world.dhaka, 'same_mobile');
+    const marked = await dismiss(await as(world.users.rpmDhaka), p).expect(201);
+    const lift = (s?: Session) => {
+      const call = api()
+        .post(`/api/v1/beneficiary-merge-dismissals/${marked.body.data.id}/lift`)
+        .send({ reason: 'আবার যাচাই করা দরকার' });
+      return s ? call.set(bearer(s)) : call;
+    };
+    for (const user of [world.users.executive, world.users.general]) {
+      const s = await as(user);
+      expect((await api().get('/api/v1/beneficiary-merge-dismissals').set(bearer(s))).status).toBe(
+        403,
+      );
+      expect((await lift(s)).status).toBe(403);
+    }
+    expect((await api().get('/api/v1/beneficiary-merge-dismissals')).status).toBe(401);
+    expect((await lift()).status).toBe(401);
   });
 });

@@ -81,7 +81,9 @@ export type ContactUpdate = z.infer<typeof contactUpdateSchema>;
 const differentPair =
   <T extends Record<string, unknown>>(a: keyof T & string, b: keyof T & string) =>
   (v: T, ctx: z.RefinementCtx) => {
-    if (v[a] === v[b]) ctx.addIssue({ code: 'custom', path: [b], message: 'validation.failed' });
+    // an id in upper and in lower case names the same profile
+    if (String(v[a]).toLowerCase() === String(v[b]).toLowerCase())
+      ctx.addIssue({ code: 'custom', path: [b], message: 'validation.failed' });
   };
 
 /** A merge proposal or a direct merge: the profile to keep, the one to retire, and why. */
