@@ -1,7 +1,7 @@
 ---
 title: Form platform engine and API (T2.3)
 type: feat
-status: ready
+status: in-progress
 source: brainstorm
 date: 2026-10-21
 doc_review: 2026-10-21
@@ -230,3 +230,11 @@ Plan IDs (R, U, BD, BR, O, D, M and the standards rule IDs) stay in this plan. C
 - Verification commands pass
 - `ae-review` has run, with no open P0 or P1
 - Code from abandoned attempts is removed
+
+## Progress
+- **Branch:** `feat/form-engine`
+- **Updated:** 2026-10-21 13:45
+- **Next:** U1: the migration `form_version_rules` (one draft per form, the status trigger) and U2: the shared engine, built in parallel
+- **Uncommitted:** none
+- **Reviewed through:** none
+- **Notes:** the owner chose on 2026-10-21 that this work starts right after T2.2 merged, with no further questions; the T2.4 brainstorm (builder and renderer) was started and stopped by the owner and comes after this task.
