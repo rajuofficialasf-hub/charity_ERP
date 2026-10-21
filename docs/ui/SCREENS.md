@@ -62,8 +62,9 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 | SCR-042 | Volunteer tab | parity | officials | 1 · T1.10 |
 | SCR-043 | Volunteer profile | parity | officials | 1 · T1.10, T1.12; later tabs per phase |
 | SCR-043b | Volunteers of a project (assignment) | parity | RPM, Executive (with the RPM's grant), PM, Head, Monitoring | 1 · T1.12 |
-| SCR-044 | Beneficiary tab | parity | officials, Media | 1 · T1.10 (list), 2 · T2.2 |
-| SCR-045 | Beneficiary 360 profile and merge | parity | officials | 1 · T1.10 (the shell, O-67; one profile layout, UX-22), 2 · T2.2 (merge and corrections) |
+| SCR-044 | Beneficiary tab | parity | officials, Media | 1 · T1.10 (list), 2 · T2.2 (BEN numbers, the lookup dialog) |
+| SCR-045 | Beneficiary 360 profile and merge | parity | officials | 1 · T1.10 (the shell, O-67; one profile layout, UX-22), 2 · T2.2 (history, actions, corrections, block, the revert) |
+| SCR-045b | Duplicate profiles and the comparison | parity | PM, RPM, Head, Monitoring | 2 · T2.2 |
 | SCR-050 | Project dashboard | parity | PM, RPM, Executive, Head, Monitoring, Finance | 3 · T3.3 |
 | SCR-051 | Admin area shell (`/admin`) with the dashboard placeholder | parity (notice on phones) | Head, Monitoring, PM | 1 · T1.7d (UX-15); pages in T1.13, T3.3, T6.1 |
 | SCR-060 | Project setup with component toggles | desktop-first | PM | 1 · T1.11, T1.12 |
@@ -93,6 +94,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 
 ### SCR-001 Login and password reset
 
+- **Photo panel (UX-24, 2026-10-20).** From 1024 px the photo of the Foundation's building fills the left two fifths of the window, sticky at the window height, and the card sits centred on the right; the set-password page of an invitation uses the same frame. On a phone the photo is hidden and not downloaded (`BrandPhoto`).
 - **Built (T1.7).** `/login` and `/login/reset` in apps/web (centered card on the brand wash of mockup 01; the reset flow is login id → code and new password → done; the dummy-OTP note appears only in development and E2E builds). Not yet: install state on iOS, the 426 banner (T1.13), registration link (T1.9).
 
 - **Purpose.** Sign in with mobile number and password; reset a forgotten password by OTP (AUTH.md).
@@ -134,6 +136,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 
 ### SCR-002 Registration with two OTP steps
 
+- **Two panels (UX-23, 2026-10-20; the owner's reference design).** On the desktop a brand panel on the left (since the same day the photo of the Foundation's building on top, fading into the brand ink; the logo on a white tile over the sky, the badge "চ্যারিটি ও সোশ্যাল সার্ভিস বিভাগ", the title at `--text-hero`, its line, the eight steps in two columns with the done ones ticked and the current one lit, the note that officials do not register here) and the form on the right ("ধাপ N / M" with a progress bar, the step's name as the heading with one hint line, the fields, "আগের ধাপ" and "পরের ধাপ"); on a phone the brand panel is a band of the logo, title and line above the form, without the photo (hidden and not downloaded), and the list is for screen readers only. Replaces the green title band and the horizontal step row, which had made the form wider than its card.
 - **Since D-097 (2026-10-17).** Volunteers only: the page names no kind and says that officials do not register here; the admin creates their accounts (SCR-063) and they set the password through a link (SCR-065). Staff drafts are refused by the API (`registration.staff_by_invitation`).
 - **Purpose.** Volunteer and staff registration (BD-44, blueprint A5):
   1. Verify the mobile number by OTP.
@@ -803,6 +806,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 
 - **Purpose.** The central, nationwide volunteer list (blueprint A5 "volunteer tab").
 - **T1.10.** Built in T1.10 (O-67; plan `docs/plans/2026-10-15-1030-feat-volunteer-beneficiary-tabs-plan.md`; `apps/web/src/admin/volunteers/`, E2E `apps/web/e2e/volunteers.spec.ts`): every volunteer in every state for each holder of `volunteer.view_all`, at `/admin/volunteers`. Filters (division to union, type, state, project, category, blocklisted) are kept in the URL; the search (name, mobile; NID only inside the `volunteer.view_sensitive` scope) is not. The statistics above the list follow the filters: volunteers (total, active, pending, blocked, deactivated; inactive only for those who see categories) and applications (total, approved, under review). The category column and filter appear only with `volunteer.rating.view`. The rating filter comes in Phase 5.
+- **T2.2.** The list shows the BEN number (`BEN-0000123`, D-112) of every row and finds a profile by it; a retired profile's number leads to the kept profile. "NID / জন্মনিবন্ধন দিয়ে খুঁজুন" opens the lookup dialog for the roles with a project list (PM, RPM, Project Executive, the global roles): a project picker, then the reusable `LookupField` of `apps/web/src/features/beneficiaries/` (the application form of T2.5 uses the same field): the number in Bengali or English digits, and the answer: the auto-fill with name, father or husband name and the number locked and the mobile editable, a link to the profile; or "এই নম্বরে কোনো প্রোফাইল নেই"; or "এই ব্যক্তি ব্লক করা আছেন" (nothing else); or "এই প্রকল্পে এই ব্যক্তির (BEN-…) আবেদন আগেই আছে"; a changed number, kind or project drops the answer. "সম্ভাব্য ডুপ্লিকেট" leads to SCR-045b for the roles that hold a merge permission. E2E `apps/web/e2e/beneficiaries.spec.ts`.
 - **Layout (UX-21, 2026-10-20).** The owner's reference layout: count cards with an icon, the label and the number that also filter the list (the chosen one outlined and the other numbers unchanged; the counts beyond five behind a last "আরও অবস্থা" card; the application counts are numbers only); one white panel with the search, a "ফিল্টার" button that opens the filters in place grouped as এলাকা and অন্যান্য (a bottom sheet on phones), the active filters as removable chips with "সব মুছুন", the table (a letter avatar or the photo, the name in bold with a muted line under it, the state as a coloured dot with its word, a dash for an empty value, a ⋮ action button per row) and numbered pages of ten with "1–10 দেখানো হচ্ছে · মোট N জন" (page numbers inside the counted range, D-105). Plan `docs/plans/2026-10-20-1500-feat-people-list-redesign-plan.md`.
 - **Roles.** Officials with `volunteer.view_all`.
 - **Priority.** parity.
@@ -923,7 +927,8 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 
 - **Layout (UX-22, 2026-10-20).** The one profile layout, merged from the owner's picture and the earlier page: a breadcrumb; a header card on the brand's soft green with the photo or the initial, the name, the state as badges and the key facts as chips with copy buttons (only values the caller sees; a hidden value is never a chip); an action panel beside the card on a desktop and under it on a phone (every button with its words); one page without tabs, since the 360° view shows everything at once: the section cards on the left (মূল তথ্য, ঠিকানা, পরিবার, আবেদনের ইতিহাস, বিতরণ ও বাস্তবায়ন, দাওয়াহ, ফলো-আপ) and যোগাযোগ, বছরভিত্তিক প্রজেক্ট and কার্যক্রমের ইতিহাস as a timeline on the right; no action panel yet. Plan `docs/plans/2026-10-20-1900-feat-profile-layout-plan.md`.
 - **Purpose.** One beneficiary's full history (blueprint A7 "profile 360"). It covers identity, family, all applications across years, assistance received, photos, follow-ups, media consent, blocklist and status. It also hosts the merge flow for duplicates (BD-05).
-- **T1.10.** A shell is built in T1.10 (O-67): `/admin/beneficiaries/:beneficiaryId` with the sections basic data and address, projects by year, application history, distribution and implementation, dawah, follow-ups and activity history, each with real data where it exists and an empty state otherwise. Merge and corrections stay in T2.2.
+- **T1.10.** A shell is built in T1.10 (O-67): `/admin/beneficiaries/:beneficiaryId` with the sections basic data and address, projects by year, application history, distribution and implementation, dawah, follow-ups and activity history, each with real data where it exists and an empty state otherwise.
+- **T2.2.** The header shows the BEN number; a retired profile shows "এই প্রোফাইল BEN-… প্রোফাইলে মার্জ হয়েছে।" with the link to the kept one. The action panel offers only what the API's action flags allow (`actions` of the profile answer, each true by permission, scope and state): "যোগাযোগের তথ্য বদলান" (`ContactDialog`: mobile and the address as one chain, saved with If-Match; the shared-mobile warning names the profiles in scope), "সংশোধনের অনুরোধ করুন" (`CorrectionDialog`: one locked field, the new value and a reason), "ব্লকলিস্টে দিন" and "ব্লক তুলুন" (through `registrations/Blocklist.tsx` with a reason), and in the merge history "মার্জ ফেরত নিন" for the global roles. The history sections (`ProfileHistory.tsx`): the contact changes (mobile with the contact class, address with the address class), the correction requests with "অনুমোদন করুন" and "নাকচ করুন" for a deciding official who is not the requester, the block history with reasons (officials only), the merges (kept or retired, the other profile named only inside the caller's scope, the left-behind count), and the files (an NID photo only inside the NID scope). Applications left on a retired profile show on the kept one marked as coming through the merge. E2E `beneficiaries.spec.ts`, `beneficiary-merge.spec.ts`.
 - **Roles.** Officials. Merge by PM, Monitoring Team and Department Head. The RPM may propose a merge. Only the Monitoring Team reverts one.
 - **Priority.** parity.
 - **Data shown, by tab.**
@@ -961,6 +966,16 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
   - Phone: a header card and scrollable tabs. The merge comparison is stacked field by field.
   - Desktop: a header, tabs and two-column content. The merge comparison is shown side by side.
 - **Phase · task.** 2 · T2.2. Follow-up 5 · T5.3. Consent 5 · T5.5. **API.** tag beneficiaries.
+
+### SCR-045b Duplicate profiles and the comparison
+
+- **Purpose.** The suggested duplicate pairs of the caller's scope (BD-05, D-117: name with father or husband and mobile; name with date of birth and union; one mobile on several profiles), the merge proposals waiting, the side-by-side comparison and the merge.
+- **T2.2.** `/admin/beneficiaries/duplicates` (`apps/web/src/admin/beneficiaries/duplicates/`): the heading "সম্ভাব্য ডুপ্লিকেট", two tabs (the matching pairs, the proposals), each pair with both names and BEN numbers and its rules as badges ("একই নাম, পিতা/স্বামী ও মোবাইল", "একই নাম, জন্মতারিখ ও ইউনিয়ন", "একই মোবাইল নম্বর"), the actions "তুলনা করুন" and "একই ব্যক্তি নন" (a mark with a reason, for the RPM and those who propose or merge), a cursor list. `/admin/beneficiaries/duplicates/compare?a=&b=` (`ComparePage`): two cards side by side (stacked under 640 px) with father or husband, mobile, area, village, the NID where the caller sees it, applications and projects; a radio "এই প্রোফাইল রাখুন" on each; then "মার্জ করুন" with a reason (the holders of merge; D-118: a PM only inside the PM's program, else the message of `beneficiary.merge_needs_global`), or "মার্জের প্রস্তাব দিন" (the proposers); a proposal is carried out from the proposals tab with a confirmation. A conflict (`beneficiary.merge_conflict`) lists the project of each pending application with the clash. Success: "প্রোফাইল মার্জ হয়েছে" on the kept profile; the revert lives on the profile (SCR-045) and ends with "মার্জ ফেরত নেওয়া হয়েছে". Not yet on the screen: listing and lifting the "not the same person" marks (`GET /beneficiary-merge-dismissals`, `/lift`).
+- **Roles.** PM, RPM, Department Head, Monitoring Team (the holders of `beneficiary.merge.dismiss`, `beneficiary.merge.propose` or `beneficiary.merge`); a volunteer and the Media Team never reach it.
+- **Priority.** parity.
+- **Components.** Tabs, Badge, Card, RadioGroup, ReasonDialog, ConfirmDialog, Alert.
+- **Layouts.** Phone: cards and a stacked comparison. Desktop: a table and two columns.
+- **Phase · task.** 2 · T2.2. **API.** tag beneficiaries (`/beneficiary-merge-candidates`, `/beneficiary-merge-dismissals`, `/beneficiary-merges`).
 
 ## 7. Management screens
 
@@ -1080,6 +1095,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Roles.** Department Head and Monitoring Team (`system.health.view`).
 - **Route.** `/admin/health`; sidebar "সিস্টেমের অবস্থা".
 - **Data.** The dummy OTP alert; ডাটাবেস, ফাইল স্টোরেজ, জব কিউ each চালু or বন্ধ; version, environment and the month the audit partitions reach; the stored files in total, by kind and by month for the last twelve months (English digits), with when they were measured; a notice instead of the figures when the database did not answer.
+- **Storage by bucket (T2.1).** A table before the kinds: each bucket with its files, bytes and the growth since the nightly snapshot of at least 30 days ago ("এখনো জানা নেই" until one exists); on a phone a list of cards.
 - **Built.** `apps/web/src/admin/system/HealthPage.tsx`; tests `system.test.tsx`, E2E above.
 
 ### SCR-074 Notification texts

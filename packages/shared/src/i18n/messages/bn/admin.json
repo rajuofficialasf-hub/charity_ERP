@@ -334,7 +334,7 @@
   "beneficiaries": {
     "title": "উপকারভোগী",
     "table": "উপকারভোগী",
-    "search": "নাম বা নম্বর দিয়ে খুঁজুন",
+    "search": "নাম, নম্বর বা BEN নম্বর দিয়ে খুঁজুন",
     "stats": {
       "label": "উপকারভোগীর হিসাব",
       "total": "মোট",
@@ -346,7 +346,8 @@
       "father": "পিতা বা স্বামীর নাম",
       "type": "ধরন",
       "area": "এলাকা",
-      "status": "অবস্থা"
+      "status": "অবস্থা",
+      "ben": "BEN নম্বর"
     },
     "filter": {
       "type": "ধরন",
@@ -392,7 +393,12 @@
         "distributions": "বিতরণ ও বাস্তবায়ন",
         "dawah": "দাওয়াহ",
         "followups": "ফলো-আপ",
-        "activities": "কার্যক্রমের ইতিহাস"
+        "activities": "কার্যক্রমের ইতিহাস",
+        "corrections": "সংশোধনের অনুরোধ",
+        "contact_log": "যোগাযোগের তথ্যের পরিবর্তন",
+        "blocks": "ব্লকের ইতিহাস",
+        "merges": "মার্জের ইতিহাস",
+        "files": "ছবি ও ফাইল"
       },
       "mother": "মাতার নাম",
       "gender": "লিঙ্গ",
@@ -410,13 +416,189 @@
       "evaluations": "ফলো-আপ মূল্যায়ন",
       "contact": "যোগাযোগ",
       "call": "কল করুন",
-      "age_value": "{age} বছর"
+      "age_value": "{age} বছর",
+      "ben": "BEN নম্বর",
+      "actions_label": "কাজ",
+      "edit_contact": "যোগাযোগের তথ্য বদলান",
+      "request_correction": "সংশোধনের অনুরোধ করুন",
+      "contact_saved": "যোগাযোগের তথ্য সংরক্ষণ হয়েছে",
+      "correction_sent": "সংশোধনের অনুরোধ পাঠানো হয়েছে",
+      "correction_approved": "সংশোধন অনুমোদিত হয়েছে, নতুন তথ্য প্রোফাইলে বসেছে",
+      "correction_rejected": "সংশোধনের অনুরোধ নাকচ করা হয়েছে",
+      "correction_approve": "অনুমোদন করুন",
+      "correction_reject": "নাকচ করুন",
+      "correction_approve_title": "{field}-এর সংশোধন অনুমোদন করবেন?",
+      "correction_reject_title": "{field}-এর সংশোধনের অনুরোধ নাকচ করবেন?",
+      "correction_status": {
+        "submitted": "সিদ্ধান্তের অপেক্ষায়",
+        "approved": "অনুমোদিত",
+        "rejected": "নাকচ"
+      },
+      "mobile_shared": "এই মোবাইল নম্বর আরও {count}টি প্রোফাইলে আছে।",
+      "mobile_shared_list": "এই মোবাইল নম্বর আরও {count}টি প্রোফাইলে আছে: {benNos}",
+      "merged_into": "এই প্রোফাইল {benNo} প্রোফাইলে মার্জ হয়েছে।",
+      "merged_open": "রাখা প্রোফাইল দেখুন",
+      "merge_kept": "{benNo} এর সাথে মার্জ হয়েছে",
+      "merge_merged": "{benNo} প্রোফাইলে মার্জ হয়েছে",
+      "merge_reverted": "মার্জ ফেরত নেওয়া হয়েছে",
+      "left_behind": "আগের প্রোফাইলে {count}টি আবেদন রয়ে গেছে",
+      "through_merge": "মার্জ হওয়া প্রোফাইল থেকে",
+      "blocked_on": "{date} থেকে ব্লক",
+      "released_on": "{date}-এ ব্লক তোলা হয়েছে। কারণ: {reason}",
+      "reason": "কারণ: {reason}",
+      "requested_on": "{date}-এ অনুরোধ করা হয়েছে",
+      "change": "{old} থেকে {new}",
+      "place_changed": "এলাকা বদলানো হয়েছে",
+      "empty_value": "খালি",
+      "fields": {
+        "mobile": "মোবাইল",
+        "division_id": "বিভাগ",
+        "district_id": "জেলা",
+        "upazila_id": "উপজেলা",
+        "union_id": "ইউনিয়ন",
+        "village": "গ্রাম",
+        "post_office": "ডাকঘর",
+        "post_code": "পোস্ট কোড",
+        "landmark": "পরিচিত স্থান",
+        "name": "নাম",
+        "father_or_husband_name": "পিতা/স্বামীর নাম",
+        "nid": "NID",
+        "birth_reg": "জন্মনিবন্ধন নম্বর"
+      },
+      "file_kinds": {
+        "distribution_proof": "বিতরণের প্রমাণ",
+        "construction_proof": "নির্মাণের প্রমাণ",
+        "evidence": "প্রমাণপত্র",
+        "voucher": "ভাউচার",
+        "payment_copy": "পেমেন্টের কপি",
+        "document": "ডকুমেন্ট",
+        "animal_photo": "পশুর ছবি",
+        "profile_photo": "প্রোফাইল ছবি",
+        "nid_photo": "NID-এর ছবি",
+        "media_asset": "মিডিয়া ফাইল",
+        "issue_photo": "সমস্যার ছবি"
+      }
     },
     "none": "নেই",
     "summary": "{from}–{to} দেখানো হচ্ছে · মোট {total} জন",
     "action": {
       "menu": "{name}-এর কাজ",
       "profile": "প্রোফাইল দেখুন"
+    },
+    "block": {
+      "consequence": "ব্লক থাকা অবস্থায় এই ব্যক্তির জন্য কোনো প্রকল্পে নতুন আবেদন করা যাবে না। চলমান আবেদন আগের মতোই চলবে।",
+      "done": "উপকারভোগীকে ব্লকলিস্টে দেওয়া হয়েছে"
+    },
+    "lookup": {
+      "open": "NID / জন্মনিবন্ধন দিয়ে খুঁজুন",
+      "title": "NID বা জন্মনিবন্ধন দিয়ে খুঁজুন",
+      "kind": "নম্বরের ধরন",
+      "kind_nid": "NID",
+      "kind_birth_reg": "জন্মনিবন্ধন",
+      "number_nid": "NID নম্বর",
+      "number_birth_reg": "জন্মনিবন্ধন নম্বর",
+      "search": "খুঁজুন",
+      "pick_project": "আগে প্রকল্প বেছে নিন",
+      "not_found": "এই নম্বরে কোনো প্রোফাইল নেই",
+      "blocked": "এই ব্যক্তি ব্লক করা আছেন",
+      "already_applied": "এই প্রকল্পে এই ব্যক্তির ({benNo}) আবেদন আগেই আছে",
+      "own_mobile": "এটি আপনার নিজের মোবাইল নম্বর। উপকারভোগীর অন্য একটি নম্বর দিন।",
+      "merged": "এই নম্বরের প্রোফাইল {benNo}-এ মার্জ হয়েছে, তাই সেই প্রোফাইলের তথ্য দেখানো হচ্ছে।",
+      "found": "প্রোফাইল পাওয়া গেছে: {benNo}",
+      "name": "নাম",
+      "father": "পিতা/স্বামীর নাম",
+      "mobile": "মোবাইল",
+      "mother": "মাতার নাম",
+      "gender": "লিঙ্গ",
+      "age": "বয়স",
+      "village": "গ্রাম",
+      "area": "এলাকা",
+      "profile": "প্রোফাইল দেখুন"
+    },
+    "contact": {
+      "title": "যোগাযোগের তথ্য বদলান",
+      "mobile": "মোবাইল",
+      "village": "গ্রাম",
+      "post_office": "ডাকঘর",
+      "post_code": "পোস্ট কোড",
+      "landmark": "পরিচিত স্থান",
+      "save": "সংরক্ষণ করুন"
+    },
+    "correction": {
+      "title": "সংশোধনের অনুরোধ",
+      "field": "কোন তথ্য ঠিক করতে হবে",
+      "new_value": "সঠিক মান",
+      "current": "এখন আছে: {value}",
+      "reason": "কারণ",
+      "send": "অনুরোধ পাঠান"
+    },
+    "duplicates": {
+      "title": "সম্ভাব্য ডুপ্লিকেট",
+      "tabs": {
+        "label": "ডুপ্লিকেট ও মার্জ",
+        "pairs": "মিলে যাওয়া জোড়া",
+        "proposals": "মার্জের প্রস্তাব"
+      },
+      "table": "সম্ভাব্য ডুপ্লিকেট জোড়া",
+      "column": {
+        "first": "প্রথম প্রোফাইল",
+        "second": "দ্বিতীয় প্রোফাইল",
+        "rules": "যে তথ্যে মিল"
+      },
+      "rules": {
+        "name_father_mobile": "একই নাম, পিতা/স্বামী ও মোবাইল",
+        "name_dob_union": "একই নাম, জন্মতারিখ ও ইউনিয়ন",
+        "same_mobile": "একই মোবাইল নম্বর"
+      },
+      "pair": "{first} ও {second}",
+      "compare": "তুলনা করুন",
+      "dismiss": "একই ব্যক্তি নন",
+      "dismiss_title": "{first} ও {second} আলাদা ব্যক্তি?",
+      "dismissed": "জোড়াটি আলাদা ব্যক্তি হিসেবে চিহ্নিত হয়েছে",
+      "empty": "এখন কোনো সম্ভাব্য ডুপ্লিকেট নেই।",
+      "summary": "{count}টি জোড়া দেখানো হচ্ছে",
+      "proposals": {
+        "table": "মার্জের প্রস্তাব",
+        "kept": "যে প্রোফাইল থাকবে",
+        "merged": "যে প্রোফাইল মার্জ হবে",
+        "reason": "কারণ",
+        "proposed_at": "প্রস্তাবের তারিখ",
+        "open": "দেখে মার্জ করুন",
+        "empty": "কোনো মার্জের প্রস্তাব অপেক্ষায় নেই।"
+      }
+    },
+    "merge": {
+      "title": "প্রোফাইল তুলনা",
+      "keep": "এই প্রোফাইল রাখুন",
+      "keep_required": "কোন প্রোফাইল রাখবেন, বেছে নিন",
+      "applications": "আবেদন",
+      "applications_value": "{count}টি",
+      "projects": "প্রকল্প",
+      "merge": "মার্জ করুন",
+      "propose": "মার্জের প্রস্তাব দিন",
+      "merge_title": "{merged} প্রোফাইলটি {kept}-এ মার্জ করবেন?",
+      "propose_title": "{merged} প্রোফাইলটি {kept}-এ মার্জের প্রস্তাব দেবেন?",
+      "execute_title": "প্রস্তাব অনুযায়ী {merged} প্রোফাইলটি {kept}-এ মার্জ করবেন?",
+      "proposal_reason": "প্রস্তাবের কারণ: {reason}",
+      "merged": "প্রোফাইল মার্জ হয়েছে",
+      "proposed": "মার্জের প্রস্তাব পাঠানো হয়েছে",
+      "not_found": "দুটি প্রোফাইলের একটি পাওয়া যায়নি।",
+      "proposal_missing": "এই মার্জের প্রস্তাবটি আর অপেক্ষায় নেই।",
+      "conflict": {
+        "application": "{project}: সিদ্ধান্তের অপেক্ষায় থাকা আবেদন",
+        "project_unknown": "একটি প্রকল্প",
+        "hidden": "আপনার এখতিয়ারের বাইরের একটি প্রকল্পের আবেদন",
+        "class_attendance": "দুই প্রোফাইলেই একই ক্লাসের হাজিরা আছে",
+        "learning_progress": "দুই প্রোফাইলেই একই বিষয়ের শেখার অগ্রগতি আছে",
+        "exam_results": "দুই প্রোফাইলেই একই পরীক্ষার ফল আছে",
+        "media_subjects": "দুই প্রোফাইলেই একই প্রকল্পের মিডিয়া তথ্য আছে",
+        "file_links": "দুই প্রোফাইলেই একই ফাইল আছে",
+        "alerts": "দুই প্রোফাইলেই একই ধরনের খোলা সতর্কবার্তা আছে",
+        "other": "দুই প্রোফাইলের একটি রেকর্ড মেলানো যাচ্ছে না"
+      },
+      "revert": "মার্জ ফেরত নিন",
+      "revert_title": "{benNo}-এর সাথে মার্জ ফেরত নেবেন?",
+      "reverted": "মার্জ ফেরত নেওয়া হয়েছে"
     }
   },
   "programs": {
@@ -1248,13 +1430,18 @@
     "storage_unknown": "ডাটাবেস সাড়া দেয়নি, তাই স্টোরেজের হিসাব দেখানো যাচ্ছে না।",
     "figure": "{count}টি ফাইল, মোট {size}",
     "measured": "হিসাবের সময়: {date}",
+    "by_bucket": "বাকেট অনুযায়ী স্টোরেজ",
+    "growth": "গত এক মাসে: {size}",
+    "growth_unknown": "এখনো জানা নেই",
     "by_kind": "ধরন অনুযায়ী ফাইল",
     "by_month": "গত 12 মাসের ফাইল",
     "column": {
       "kind": "ধরন",
       "month": "মাস",
+      "bucket": "বাকেট",
       "count": "সংখ্যা",
-      "size": "আকার"
+      "size": "আকার",
+      "growth": "গত এক মাস"
     }
   },
   "notification_templates": {

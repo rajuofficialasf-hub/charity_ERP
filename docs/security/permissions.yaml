@@ -146,6 +146,10 @@ sensitive_fields:
     fields: [audit_log.old, audit_log.new, audit_log.ip]
     visible_to: [program_manager, regional_program_manager]
     source: "A10: audit viewer for monitoring and management"
+  - key: file.location
+    fields: [files.latitude, files.longitude, files.gps_accuracy_m]
+    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee, procurement_team]
+    source: "T2.1 (D-108): the GPS position of a photo locates a beneficiary's home or a site; officials doing the project's work and the person who uploaded the file see it, never another volunteer or the Media and Finance Teams"
 
 permissions:
   # ---- M01 Auth & Sessions -------------------------------------------------------------------------
@@ -436,6 +440,14 @@ permissions:
     default:
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
+  - name: beneficiary.contact.edit
+    description: Edit a beneficiary's mobile and address outside an application; every change is logged with old and new value (D-115)
+    module: M05
+    sensitive: false
+    default:
+      - { role: program_manager, scope: PROGRAM }
+      - { role: regional_program_manager, scope: REGION }
+      - { role: project_executive, scope: REGION }
   - name: beneficiary.merge.propose
     description: Propose a merge of two beneficiary profiles
     module: M05
@@ -453,6 +465,13 @@ permissions:
     module: M05
     sensitive: false
     default: []
+  - name: beneficiary.merge.dismiss
+    description: See the suggested duplicate pairs and the merge proposals, and mark a pair as not the same person (or lift the mark) with reason (D-113)
+    module: M05
+    sensitive: false
+    default:
+      - { role: regional_program_manager, scope: REGION }
+      - { role: program_manager, scope: PROGRAM }
   - name: beneficiary.block
     description: Put a beneficiary on the blocklist with reason
     module: M05

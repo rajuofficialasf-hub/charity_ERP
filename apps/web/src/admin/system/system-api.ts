@@ -32,6 +32,8 @@ export interface SystemHealth {
   storage: {
     total: StorageFigure;
     byKind: (StorageFigure & { kind: string })[];
+    /** Each bucket, and its growth since the snapshot of a month ago (null until one exists). */
+    byBucket: (StorageFigure & { bucket: string; monthGrowth: number | null })[];
     byMonth: (StorageFigure & { month: string })[];
     measuredAt: string;
   } | null;

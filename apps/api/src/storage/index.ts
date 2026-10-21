@@ -10,6 +10,7 @@ export {
   assertKey,
   type Bucket,
   BUCKETS,
+  knownBucket,
   NotFoundError,
   type ObjectInfo,
   type StorageDriver,

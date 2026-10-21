@@ -19,6 +19,8 @@ GRANT ALL ON SCHEMA public TO css_migrate;
 GRANT USAGE ON SCHEMA public TO css_app;
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO css_app;
 GRANT DELETE ON fund_sources, project_areas, dawah_syllabus_topics TO css_app;
+-- A new beneficiary draws its BEN number from this sequence, so the application role uses it.
+GRANT USAGE, SELECT ON SEQUENCE beneficiaries_ben_no_seq TO css_app;
 -- Append-only logs: INSERT only (the triggers of D-060 refuse changes for every role as well).
 REVOKE UPDATE ON audit_log, budget_ledger, stock_movements, document_events, application_transfers,
   volunteer_categories_log, workflow_transitions, project_rules_versions, project_consents FROM css_app;
@@ -31,6 +33,8 @@ GRANT SELECT, UPDATE ON files TO css_jobs_cleanup;
 -- Expired unsubmitted registration drafts and their photo rows go only through the purge
 -- function, never a table-wide DELETE on files (DECISION_LOG D-082; DATABASE_SCHEMA 21).
 GRANT EXECUTE ON FUNCTION purge_expired_registration_drafts(integer) TO css_jobs_cleanup;
+-- Upload sessions that expired before they were finalized, the same narrow way.
+GRANT EXECUTE ON FUNCTION purge_expired_upload_sessions(integer) TO css_jobs_cleanup;
 -- A replaced registration photo (second upload to a draft slot), the same narrow way.
 GRANT EXECUTE ON FUNCTION discard_registration_photo(uuid) TO css_app;
 

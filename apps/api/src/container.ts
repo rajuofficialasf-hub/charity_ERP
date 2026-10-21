@@ -25,6 +25,10 @@ import {
 } from './notifications/adapters';
 import { AuthService } from './services/auth';
 import { RegistrationCleanup } from './jobs/registration-cleanup';
+import { UploadSweep } from './jobs/upload-sweep';
+import { StorageStats } from './jobs/storage-stats';
+import { FileProcessor } from './jobs/file-process';
+import { createScanner } from './files/scanner';
 import { AccountEvents } from './notifications/account-events';
 import { DeliveriesService } from './services/deliveries';
 import { AttentionService } from './services/attention';
@@ -33,10 +37,17 @@ import { NotificationTemplatesService } from './services/notification-templates'
 import { ProjectEvents } from './notifications/project-events';
 import { LocationsService } from './services/locations';
 import { FilesService } from './services/files';
+import { UploadsService } from './services/uploads';
 import { VolunteersService } from './services/volunteers';
 import { VolunteerListService } from './services/volunteer-list';
 import { VolunteerProfileService } from './services/volunteer-profile';
 import { BeneficiariesService } from './services/beneficiaries';
+import { BeneficiaryIdentityService } from './services/beneficiary-identity';
+import { BeneficiaryContactService } from './services/beneficiary-contact';
+import { BeneficiaryCorrectionsService } from './services/beneficiary-corrections';
+import { BeneficiaryFamilyService } from './services/beneficiary-family';
+import { BeneficiaryMergeCandidatesService } from './services/beneficiary-merge-candidates';
+import { BeneficiaryMergesService } from './services/beneficiary-merges';
 import { NotificationDelivery } from './notifications/delivery';
 import { NotificationService } from './notifications/service';
 import { RecipientResolver } from './notifications/recipients';
@@ -105,12 +116,22 @@ export interface Container {
   projectEvents: ProjectEvents;
   registration: RegistrationService;
   registrationCleanup: RegistrationCleanup;
+  uploadSweep: UploadSweep;
+  storageStats: StorageStats;
+  fileProcessor: FileProcessor;
+  uploads: UploadsService;
   registrationPhotos: RegistrationPhotosService;
   files: FilesService;
   volunteers: VolunteersService;
   volunteerList: VolunteerListService;
   volunteerProfile: VolunteerProfileService;
   beneficiaries: BeneficiariesService;
+  beneficiaryIdentity: BeneficiaryIdentityService;
+  beneficiaryContact: BeneficiaryContactService;
+  beneficiaryCorrections: BeneficiaryCorrectionsService;
+  beneficiaryFamily: BeneficiaryFamilyService;
+  beneficiaryMergeCandidates: BeneficiaryMergeCandidatesService;
+  beneficiaryMerges: BeneficiaryMergesService;
   programs: ProgramsService;
   settings: SettingsService;
   referenceLists: ReferenceListsService;
@@ -206,6 +227,12 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const registration =
     o.registration ??
     new RegistrationService(env, prisma, clock, otp, audit, accountEvents, hasher);
+  const beneficiaryMergeCandidates =
+    o.beneficiaryMergeCandidates ??
+    new BeneficiaryMergeCandidatesService(env, prisma, access, audit);
+  const beneficiaryIdentity =
+    o.beneficiaryIdentity ??
+    new BeneficiaryIdentityService(prisma, access, audit, clock, beneficiaryMergeCandidates);
   const built = {
     env,
     logger,
@@ -277,12 +304,46 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     registration,
     registrationPhotos:
       o.registrationPhotos ??
-      new RegistrationPhotosService(prisma, storage, audit, registration, logger, accountEvents),
-    files: o.files ?? new FilesService(prisma, storage, access, audit),
+      new RegistrationPhotosService(
+        prisma,
+        storage,
+        audit,
+        registration,
+        logger,
+        accountEvents,
+        jobs,
+      ),
+    files: o.files ?? new FilesService(env, prisma, storage, access, audit),
+    uploads: o.uploads ?? new UploadsService(prisma, storage, audit, access, jobs, clock, logger),
     volunteers: o.volunteers ?? new VolunteersService(prisma),
     volunteerList: o.volunteerList ?? new VolunteerListService(env, prisma, access),
     volunteerProfile: o.volunteerProfile ?? new VolunteerProfileService(prisma, access),
-    beneficiaries: o.beneficiaries ?? new BeneficiariesService(env, prisma, clock, access),
+    beneficiaries:
+      o.beneficiaries ?? new BeneficiariesService(env, prisma, clock, access, beneficiaryIdentity),
+    beneficiaryIdentity,
+    beneficiaryContact:
+      o.beneficiaryContact ??
+      new BeneficiaryContactService(
+        prisma,
+        access,
+        audit,
+        beneficiaryIdentity,
+        beneficiaryMergeCandidates,
+      ),
+    beneficiaryFamily: o.beneficiaryFamily ?? new BeneficiaryFamilyService(),
+    beneficiaryMergeCandidates,
+    beneficiaryMerges:
+      o.beneficiaryMerges ??
+      new BeneficiaryMergesService(prisma, access, audit, clock, beneficiaryMergeCandidates),
+    beneficiaryCorrections:
+      o.beneficiaryCorrections ??
+      new BeneficiaryCorrectionsService(
+        prisma,
+        access,
+        audit,
+        beneficiaryIdentity,
+        beneficiaryMergeCandidates,
+      ),
     programs: o.programs ?? new ProgramsService(prisma, audit),
     settings,
     referenceLists: o.referenceLists ?? new ReferenceListsService(prisma, audit),
@@ -355,6 +416,10 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         accountEvents,
       ),
     registrationCleanup: o.registrationCleanup ?? new RegistrationCleanup(prisma, storage, logger),
+    uploadSweep: o.uploadSweep ?? new UploadSweep(prisma, storage, logger),
+    storageStats: o.storageStats ?? new StorageStats(prisma, clock, logger),
+    fileProcessor:
+      o.fileProcessor ?? new FileProcessor(prisma, storage, createScanner(env), logger),
   };
   return {
     ...built,

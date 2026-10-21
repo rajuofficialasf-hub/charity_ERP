@@ -12,7 +12,7 @@ import { inTransaction } from '../util';
 
 /**
  * Demo set (T1.3): one account per official role, 20 volunteers, 50 beneficiaries in two
- * divisions and one draft winter project. Every identity is obviously fake (TEST_STRATEGY §4);
+ * divisions (one of them blocked) and one draft winter project. Every identity is obviously fake (TEST_STRATEGY §4);
  * the shared password is listed in docs/testing/DEMO_ACCOUNTS.md (development only).
  * Later tasks extend this set as their entities become functional.
  */
@@ -233,6 +233,32 @@ export const DEMO_VOLUNTEERS: { n: number; type: VolunteerType }[] = Array.from(
   }),
 );
 
+/** The demo beneficiary (number n of `beneficiary:n`, Dhaka division) that stands on the blocklist. */
+const DEMO_BLOCKED_BENEFICIARY = 3;
+
+/**
+ * Two suggested duplicate pairs after the 50 beneficiaries (numbers n of `beneficiary:n`): each
+ * pair has the same name, father's or husband's name and mobile, and both people applied to
+ * project WNT, so the PM of program HUM reaches them. The merge journey uses one pair per
+ * Playwright project, since the projects share the database.
+ */
+export const DEMO_DUPLICATE_PAIRS = [
+  {
+    n: [51, 52],
+    nids: ['1000001050', '1000001051'],
+    name: 'রাবেয়া খাতুন',
+    father: 'আব্দুল মজিদ',
+    mobile: 1050,
+  },
+  {
+    n: [53, 54],
+    nids: ['1000001052', '1000001053'],
+    name: 'আনোয়ারা বেগম',
+    father: 'মো. হারুন',
+    mobile: 1051,
+  },
+] as const;
+
 const FEMALE = [
   'রহিমা খাতুন',
   'আমেনা বেগম',
@@ -408,6 +434,17 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
         ...ctx.audit(),
       });
     }
+    // one blocked person in the Dhaka division, for the lookup's "blocked" answer
+    await ctx.upsert('blocklist', {
+      id: seedId(`blocklist:beneficiary:${DEMO_BLOCKED_BENEFICIARY}`),
+      subject_type: 'beneficiary',
+      subject_id: seedId(`beneficiary:${DEMO_BLOCKED_BENEFICIARY}`),
+      reason: demoName('একই মানুষ দুটি নম্বরে আবেদন করেছেন'),
+      blocked_by: userId('rpm_dhaka'),
+      blocked_at: SEED_AT,
+      active: true,
+      ...ctx.audit(),
+    });
 
     // one draft winter project (distribution workflow) with its components
     const projectId = seedId('project:WNT:2026');
@@ -483,6 +520,82 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
         settings: json(settings),
         ...ctx.audit(),
       });
+    }
+
+    // the duplicate pairs: a draft form version of WNT for their applications, the four
+    // profiles, one application each (under review, so a merge leaves the retired one's in place),
+    // and the pair as the duplicate search keeps it
+    const formId = seedId('form:WNT:default');
+    await ctx.upsert('forms', {
+      id: formId,
+      project_id: projectId,
+      key: 'default',
+      title_bn: 'আবেদন ফর্ম',
+      title_en: 'Application form',
+      ...ctx.audit(),
+    });
+    const formVersionId = seedId('form-version:WNT:default:1');
+    await ctx.upsert('form_versions', {
+      id: formVersionId,
+      form_id: formId,
+      version_no: 1,
+      ...ctx.audit(),
+    });
+    const place = dhaka[0]!;
+    for (const pair of DEMO_DUPLICATE_PAIRS) {
+      for (const [i, n] of pair.n.entries()) {
+        const beneficiaryId = seedId(`beneficiary:${n}`);
+        await ctx.upsert('beneficiaries', {
+          id: beneficiaryId,
+          nid: pair.nids[i],
+          birth_reg: null,
+          name: demoName(pair.name),
+          father_or_husband_name: demoName(pair.father),
+          mobile: fakeMobile(pair.mobile),
+          gender_code: 'female',
+          age_years: 40 + i,
+          marital_status_code: 'married',
+          education_code: 'primary',
+          division_id: place.division,
+          district_id: place.district,
+          upazila_id: place.upazila,
+          union_id: place.union,
+          village: 'নমুনা গ্রাম 3',
+          members_14_plus: 2,
+          children_under_14: 1,
+          daily_income: '300',
+          ...ctx.audit(),
+        });
+        // a merge or its revert moves rows; a later seed run leaves them where they are
+        await ctx.upsert(
+          'applications',
+          {
+            id: seedId(`application:WNT:${n}`),
+            project_id: projectId,
+            form_version_id: formVersionId,
+            beneficiary_id: beneficiaryId,
+            status: 'under_review',
+            region_location_id: place.division,
+            district_id: place.district,
+            union_id: place.union,
+            submitted_at: SEED_AT,
+            ...ctx.audit(),
+          },
+          { insertOnly: ['beneficiary_id', 'status'] },
+        );
+      }
+      const [low, high] = pair.n.map((n) => seedId(`beneficiary:${n}`)).sort();
+      await ctx.upsert(
+        'beneficiary_merge_candidates',
+        {
+          low_id: low,
+          high_id: high,
+          rules: ['name_father_mobile', 'same_mobile'],
+          active: true,
+          computed_at: SEED_AT,
+        },
+        { key: ['low_id', 'high_id'], insertOnly: ['rules', 'active', 'computed_at'] },
+      );
     }
   });
 }

@@ -13,6 +13,7 @@ import {
 } from './support/auth-app';
 import { notificationsOf } from './support/notifications';
 import * as f from './support/fixtures';
+import type { Tx } from '../../src/core/prisma.service';
 
 // The volunteer blocklist (BD-06, BR-047; DECISION_LOG D-088; plan
 // docs/plans/2026-10-12-1541-feat-registration-approval-handover-plan.md, unit U9).
@@ -146,5 +147,176 @@ describe('blocking a volunteer', () => {
       .set(bearer(await as(world.users.rpmDhaka)));
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('registration.blocklisted');
+  });
+});
+
+describe('blocking a beneficiary', () => {
+  const blockB = (s: Session, id: string, body: object) =>
+    api().post(`/api/v1/beneficiaries/${id}/block`).set(bearer(s)).send(body);
+  const unblockB = (s: Session, id: string, body: object) =>
+    api().post(`/api/v1/beneficiaries/${id}/unblock`).set(bearer(s)).send(body);
+  const flag = async (id: string) =>
+    (await h.db.query('SELECT is_blocked FROM beneficiaries WHERE id = $1', [id])).rows[0]
+      .is_blocked as boolean;
+  const mayApply = (id: string) =>
+    h.container.prisma.$transaction((tx) => h.container.beneficiaryIdentity.assertMayApply(tx, id));
+
+  it('the Dhaka RPM blocks a Dhaka beneficiary with a reason, and the lookup says blocked', async () => {
+    const id = await f.beneficiary(h.db, world.dhaka);
+    const rpm = await as(world.users.rpmDhaka);
+    expect((await blockB(rpm, id, {})).status).toBe(422);
+    const res = await blockB(rpm, id, { reason: 'একই পরিবার থেকে বারবার আবেদন' });
+    expect(res.status).toBe(201);
+    expect(res.body.data).toMatchObject({
+      subjectType: 'beneficiary',
+      subjectId: id,
+      active: true,
+    });
+    expect(JSON.stringify(res.body)).not.toContain('বারবার আবেদন');
+    expect(await flag(id)).toBe(true);
+    const audit = await h.db.query(
+      `SELECT reason FROM audit_log WHERE action = 'blocklist.set' AND entity_type = 'beneficiary' AND entity_id = $1`,
+      [id],
+    );
+    expect(audit.rows).toEqual([{ reason: 'একই পরিবার থেকে বারবার আবেদন' }]);
+    const nid = (await h.db.query('SELECT nid FROM beneficiaries WHERE id = $1', [id])).rows[0].nid;
+    const lookup = await api()
+      .post('/api/v1/beneficiaries/lookup')
+      .set(bearer(await as(world.users.general)))
+      .send({ nid, projectId: world.a1.id });
+    expect(lookup.body.data.blocked).toBe(true);
+  });
+
+  it('refuses a new application while blocked, keeps the ongoing ones, and allows again after the lift', async () => {
+    const id = await f.beneficiary(h.db, world.dhaka);
+    const ongoing = await f.application(
+      h.db,
+      { project: world.a1, loc: world.dhaka },
+      { beneficiary_id: id, status: 'under_review' },
+    );
+    const rpm = await as(world.users.rpmDhaka);
+    await blockB(rpm, id, { reason: 'যাচাই চলছে' }).expect(201);
+    await expect(mayApply(id)).rejects.toMatchObject({ code: 'beneficiary.blocked', status: 409 });
+    const status = (await h.db.query('SELECT status FROM applications WHERE id = $1', [ongoing]))
+      .rows[0].status;
+    expect(status).toBe('under_review');
+    expect((await unblockB(rpm, id, {})).status).toBe(422);
+    const lifted = await unblockB(rpm, id, { reason: 'যাচাই শেষ, সব ঠিক আছে' });
+    expect(lifted.status).toBe(200);
+    expect(lifted.body.data.active).toBe(false);
+    expect(await flag(id)).toBe(false);
+    await expect(mayApply(id)).resolves.toBeUndefined();
+  });
+
+  it("refuses a new application for a retired profile's id when the kept profile is blocked", async () => {
+    const kept = await f.beneficiary(h.db, world.dhaka);
+    const retired = await f.beneficiary(h.db, world.dhaka);
+    await h.db.query('UPDATE beneficiaries SET merged_into_id = $2 WHERE id = $1', [retired, kept]);
+    await blockB(await as(world.users.rpmDhaka), kept, { reason: 'যাচাই চলছে' }).expect(201);
+    await expect(mayApply(retired)).rejects.toMatchObject({ code: 'beneficiary.blocked' });
+  });
+
+  /**
+   * Holds a profile row in a transaction of its own until `release()`; `waiting()` resolves once
+   * another session waits for that row's lock, so the order is proven without fixed sleeps.
+   */
+  function holdRow(id: string, thenWrite: (tx: Tx) => Promise<unknown>) {
+    let release!: () => void;
+    const released = new Promise<void>((r) => (release = r));
+    let locked!: () => void;
+    const lockTaken = new Promise<void>((r) => (locked = r));
+    const done = h.container.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM beneficiaries WHERE id = ${id}::uuid FOR UPDATE`;
+      locked();
+      await released;
+      await thenWrite(tx);
+    });
+    const waiting = async () => {
+      for (let i = 0; i < 200; i++) {
+        const { rows } = await h.db.query(
+          `SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`,
+        );
+        if (rows[0].n > 0) return;
+        await new Promise((r) => setImmediate(r));
+      }
+      throw new Error('no session ever waited for the row');
+    };
+    return { lockTaken, waiting, release, done };
+  }
+
+  it('waits for a block in progress before it lets an application through', async () => {
+    const id = await f.beneficiary(h.db, world.dhaka);
+    const block = holdRow(id, (tx) =>
+      tx.blocklist.create({
+        data: {
+          id: crypto.randomUUID(),
+          subjectType: 'beneficiary',
+          subjectId: id,
+          reason: 'একসাথে চলা পরীক্ষা',
+          blockedBy: world.users.rpmDhaka,
+        },
+      }),
+    );
+    await block.lockTaken;
+    const gate = mayApply(id);
+    await block.waiting();
+    block.release();
+    await block.done;
+    await expect(gate).rejects.toMatchObject({ code: 'beneficiary.blocked' });
+  });
+
+  it('follows a merge that commits while the gate waits, to the blocked kept profile', async () => {
+    const retiring = await f.beneficiary(h.db, world.dhaka);
+    const kept = await f.beneficiary(h.db, world.dhaka);
+    await blockB(await as(world.users.rpmDhaka), kept, { reason: 'যাচাই চলছে' }).expect(201);
+    const merge = holdRow(
+      retiring,
+      (tx) =>
+        tx.$executeRaw`UPDATE beneficiaries SET merged_into_id = ${kept}::uuid WHERE id = ${retiring}::uuid`,
+    );
+    await merge.lockTaken;
+    const gate = mayApply(retiring);
+    await merge.waiting();
+    merge.release();
+    await merge.done;
+    await expect(gate).rejects.toMatchObject({ code: 'beneficiary.blocked' });
+  });
+
+  it("refuses a block on a retired profile's id: the block belongs on the kept profile", async () => {
+    const kept = await f.beneficiary(h.db, world.dhaka);
+    const retired = await f.beneficiary(h.db, world.dhaka);
+    await h.db.query('UPDATE beneficiaries SET merged_into_id = $2 WHERE id = $1', [retired, kept]);
+    const res = await blockB(await as(world.users.rpmDhaka), retired, { reason: 'ভুল প্রোফাইল' });
+    expect(res.status).toBe(404);
+    expect(await flag(kept)).toBe(false);
+  });
+
+  it('refuses the lift to an RPM of another region, an executive, a volunteer and no login', async () => {
+    const id = await f.beneficiary(h.db, world.dhaka);
+    await blockB(await as(world.users.rpmDhaka), id, { reason: 'যাচাই চলছে' }).expect(201);
+    const body = { reason: 'ব্লক তোলা হলো' };
+    expect((await unblockB(await as(world.users.rpmRangpur), id, body)).status).toBe(404);
+    expect((await unblockB(await as(world.users.executive), id, body)).status).toBe(403);
+    expect((await unblockB(await as(world.users.general), id, body)).status).toBe(403);
+    expect((await api().post(`/api/v1/beneficiaries/${id}/unblock`).send(body)).status).toBe(401);
+    expect(await flag(id)).toBe(true);
+  });
+
+  it('refuses a second block and a lift without a block', async () => {
+    const id = await f.beneficiary(h.db, world.dhaka);
+    const rpm = await as(world.users.rpmDhaka);
+    expect((await unblockB(rpm, id, { reason: 'কোনো ব্লক নেই' })).status).toBe(409);
+    await blockB(rpm, id, { reason: 'প্রথম ব্লক' }).expect(201);
+    expect((await blockB(rpm, id, { reason: 'দ্বিতীয় ব্লক' })).status).toBe(409);
+  });
+
+  it('refuses an RPM of another region, an executive, a volunteer and no login', async () => {
+    const id = await f.beneficiary(h.db, world.dhaka);
+    const body = { reason: 'কারণ লেখা হলো' };
+    expect((await blockB(await as(world.users.rpmRangpur), id, body)).status).toBe(404);
+    expect((await blockB(await as(world.users.executive), id, body)).status).toBe(403);
+    expect((await blockB(await as(world.users.general), id, body)).status).toBe(403);
+    expect((await api().post(`/api/v1/beneficiaries/${id}/block`).send(body)).status).toBe(401);
+    expect(await flag(id)).toBe(false);
   });
 });

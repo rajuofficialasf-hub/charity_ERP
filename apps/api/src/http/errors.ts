@@ -32,7 +32,14 @@ function bodyParserError(err: unknown): { status: number; code: string } | undef
 }
 
 /** Codes whose params are part of the contract and sent to the client (API_STANDARDS 3 and 8). */
-const PUBLIC_PARAMS = new Set(['permission.grant_refused']);
+const PUBLIC_PARAMS = new Set([
+  'permission.grant_refused',
+  'file.duplicate',
+  // the BEN number of the profile that holds a number, named only to a caller who may see it
+  'beneficiary.identity_taken',
+  // the project and application, or the class, topic, exam or file, that stops a merge
+  'beneficiary.merge_conflict',
+]);
 
 /**
  * Renders the error block of API_STANDARDS 3 in the request language (I18N 5):
@@ -70,6 +77,7 @@ export function sendApiError(
                 code: d.code,
                 messageKey: `errors.${d.code}`,
                 message: render(d.code, d.params),
+                ...(d.params && PUBLIC_PARAMS.has(d.code) ? { params: d.params } : {}),
               })),
             }
           : {}),

@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { runSeed } from '../../seed/run';
+import { beneficiary, locationTree } from './support/fixtures';
 import {
   createDatabase,
   dropDatabase,
@@ -158,6 +159,61 @@ describe('migrations', () => {
       expect(await rows('SELECT purpose AS v FROM otp_codes')).toEqual(['registration']);
       expect(await rows('SELECT entity_type AS v FROM file_links')).toEqual(['volunteer']);
       expect(await rows('SELECT id AS v FROM files')).toEqual([file]);
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('the beneficiary master migration numbers existing profiles in the order they were created', async () => {
+    const dirs = migrationDirs();
+    const at = dirs.indexOf('20261020160000_beneficiary_master');
+    expect(at).toBeGreaterThan(0);
+    const db = await freshDatabase('benno');
+    const client = newClient(urlFor(db));
+    await client.connect();
+    try {
+      const apply = (dir: string, file: 'migration.sql' | 'down.sql' = 'migration.sql') =>
+        client.query(readFileSync(join(MIGRATIONS_DIR, dir, file), 'utf8'));
+      for (const dir of dirs.slice(0, at)) await apply(dir);
+      const loc = await locationTree(client);
+      // created out of id order, so the numbers must follow the creation time
+      const late = await beneficiary(client, loc, { created_at: '2026-10-03T00:00:00Z' });
+      const early = await beneficiary(client, loc, { created_at: '2026-10-01T00:00:00Z' });
+      const middle = await beneficiary(client, loc, { created_at: '2026-10-02T00:00:00Z' });
+      const before = (await client.query('SELECT id, updated_at FROM beneficiaries ORDER BY id'))
+        .rows;
+      await apply(dirs[at]!);
+      const numbers = async () =>
+        Object.fromEntries(
+          (await client.query('SELECT id, ben_no FROM beneficiaries')).rows.map((r) => [
+            r.id as string,
+            r.ben_no as number,
+          ]),
+        );
+      expect(await numbers()).toEqual({ [early]: 1, [middle]: 2, [late]: 3 });
+      // numbering is not an edit of the profile
+      expect(
+        (await client.query('SELECT id, updated_at FROM beneficiaries ORDER BY id')).rows,
+      ).toEqual(before);
+      const next = await beneficiary(client, loc);
+      expect((await numbers())[next]).toBe(4);
+      const indexes = async () =>
+        (
+          await client.query(
+            `SELECT indexname AS v FROM pg_indexes WHERE tablename = 'beneficiaries' AND indexname LIKE 'beneficiaries_dup_%'`,
+          )
+        ).rows
+          .map((r) => r.v as string)
+          .sort();
+      expect(await indexes()).toEqual([
+        'beneficiaries_dup_name_dob_union_idx',
+        'beneficiaries_dup_name_father_mobile_idx',
+      ]);
+      await apply(dirs[at]!, 'down.sql');
+      expect(await indexes()).toEqual([]);
+      expect(
+        (await client.query(`SELECT to_regclass('beneficiary_merge_dismissals') AS t`)).rows[0].t,
+      ).toBeNull();
     } finally {
       await client.end();
     }

@@ -57,13 +57,16 @@ async function sweep(page: Page, path: string, lang: Lang): Promise<void> {
 /** The first record link of the kind on the page; the demo seed guarantees one. */
 async function firstRecord(page: Page, prefix: string): Promise<string> {
   const links = page.locator(`main a[href^="${prefix}/"]`);
-  // the rows arrive after the heading; on a phone the card's link is clipped, so attached is enough
-  await expect(links.first()).toBeAttached();
-  const hrefs = await links.evaluateAll((as) =>
-    as.map((a) => (a as HTMLAnchorElement).getAttribute('href') ?? ''),
-  );
-  const href = hrefs.find((h) => /\/[0-9a-f-]{36}$/.test(h));
-  expect(href, `a record under ${prefix}`).toBeTruthy();
+  let href: string | undefined;
+  // the rows arrive after the heading, and a page link under the same prefix (the duplicates page)
+  // is there before them; on a phone the card's link is clipped, so attached is enough
+  await expect(async () => {
+    const hrefs = await links.evaluateAll((as) =>
+      as.map((a) => (a as HTMLAnchorElement).getAttribute('href') ?? ''),
+    );
+    href = hrefs.find((h) => /\/[0-9a-f-]{36}$/.test(h));
+    expect(href, `a record under ${prefix}`).toBeTruthy();
+  }).toPass();
   return href!;
 }
 

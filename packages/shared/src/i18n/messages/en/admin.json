@@ -334,7 +334,7 @@
   "beneficiaries": {
     "title": "Beneficiaries",
     "table": "Beneficiaries",
-    "search": "Search by name or number",
+    "search": "Search by name, number or BEN number",
     "stats": {
       "label": "Beneficiary counts",
       "total": "Total",
@@ -346,7 +346,8 @@
       "father": "Father's or husband's name",
       "type": "Type",
       "area": "Area",
-      "status": "Status"
+      "status": "Status",
+      "ben": "BEN number"
     },
     "filter": {
       "type": "Type",
@@ -392,7 +393,12 @@
         "distributions": "Distribution and implementation",
         "dawah": "Dawah",
         "followups": "Follow-ups",
-        "activities": "Activity history"
+        "activities": "Activity history",
+        "corrections": "Correction requests",
+        "contact_log": "Contact changes",
+        "blocks": "Block history",
+        "merges": "Merge history",
+        "files": "Photos and files"
       },
       "mother": "Mother's name",
       "gender": "Gender",
@@ -410,13 +416,189 @@
       "evaluations": "Follow-up evaluations",
       "contact": "Contact",
       "call": "Call",
-      "age_value": "{age} years"
+      "age_value": "{age} years",
+      "ben": "BEN number",
+      "actions_label": "Actions",
+      "edit_contact": "Edit contact details",
+      "request_correction": "Request a correction",
+      "contact_saved": "Contact details saved",
+      "correction_sent": "Correction request sent",
+      "correction_approved": "Correction approved; the new value is on the profile",
+      "correction_rejected": "Correction request rejected",
+      "correction_approve": "Approve",
+      "correction_reject": "Reject",
+      "correction_approve_title": "Approve the correction of {field}?",
+      "correction_reject_title": "Reject the correction request for {field}?",
+      "correction_status": {
+        "submitted": "Awaiting decision",
+        "approved": "Approved",
+        "rejected": "Rejected"
+      },
+      "mobile_shared": "This mobile number is also on {count} other profiles.",
+      "mobile_shared_list": "This mobile number is also on {count} other profiles: {benNos}",
+      "merged_into": "This profile was merged into {benNo}.",
+      "merged_open": "Open the kept profile",
+      "merge_kept": "Merged with {benNo}",
+      "merge_merged": "Merged into {benNo}",
+      "merge_reverted": "Merge reverted",
+      "left_behind": "{count} applications stayed on the earlier profile",
+      "through_merge": "From a merged profile",
+      "blocked_on": "Blocked since {date}",
+      "released_on": "Block lifted on {date}. Reason: {reason}",
+      "reason": "Reason: {reason}",
+      "requested_on": "Requested on {date}",
+      "change": "{old} to {new}",
+      "place_changed": "Area changed",
+      "empty_value": "empty",
+      "fields": {
+        "mobile": "Mobile",
+        "division_id": "Division",
+        "district_id": "District",
+        "upazila_id": "Upazila",
+        "union_id": "Union",
+        "village": "Village",
+        "post_office": "Post office",
+        "post_code": "Post code",
+        "landmark": "Landmark",
+        "name": "Name",
+        "father_or_husband_name": "Father's/husband's name",
+        "nid": "NID",
+        "birth_reg": "Birth registration number"
+      },
+      "file_kinds": {
+        "distribution_proof": "Distribution proof",
+        "construction_proof": "Construction proof",
+        "evidence": "Evidence",
+        "voucher": "Voucher",
+        "payment_copy": "Payment copy",
+        "document": "Document",
+        "animal_photo": "Animal photo",
+        "profile_photo": "Profile photo",
+        "nid_photo": "NID photo",
+        "media_asset": "Media file",
+        "issue_photo": "Issue photo"
+      }
     },
     "none": "None",
     "summary": "Showing {from}–{to} of {total} beneficiaries",
     "action": {
       "menu": "Actions for {name}",
       "profile": "View profile"
+    },
+    "block": {
+      "consequence": "While blocked, no new application can be made for this person in any project. Ongoing applications continue as before.",
+      "done": "The beneficiary is on the blocklist"
+    },
+    "lookup": {
+      "open": "Find by NID / birth registration",
+      "title": "Find by NID or birth registration",
+      "kind": "Type of number",
+      "kind_nid": "NID",
+      "kind_birth_reg": "Birth registration",
+      "number_nid": "NID number",
+      "number_birth_reg": "Birth registration number",
+      "search": "Search",
+      "pick_project": "Choose a project first",
+      "not_found": "No profile has this number",
+      "blocked": "This person is blocked",
+      "already_applied": "This person ({benNo}) has already applied in this project",
+      "own_mobile": "This is your own mobile number. Enter another number for the beneficiary.",
+      "merged": "The profile with this number was merged into {benNo}, so that profile is shown.",
+      "found": "Profile found: {benNo}",
+      "name": "Name",
+      "father": "Father's/husband's name",
+      "mobile": "Mobile",
+      "mother": "Mother's name",
+      "gender": "Gender",
+      "age": "Age",
+      "village": "Village",
+      "area": "Area",
+      "profile": "View profile"
+    },
+    "contact": {
+      "title": "Edit contact details",
+      "mobile": "Mobile",
+      "village": "Village",
+      "post_office": "Post office",
+      "post_code": "Post code",
+      "landmark": "Landmark",
+      "save": "Save"
+    },
+    "correction": {
+      "title": "Request a correction",
+      "field": "Detail to correct",
+      "new_value": "Correct value",
+      "current": "Now: {value}",
+      "reason": "Reason",
+      "send": "Send request"
+    },
+    "duplicates": {
+      "title": "Possible duplicates",
+      "tabs": {
+        "label": "Duplicates and merges",
+        "pairs": "Matching pairs",
+        "proposals": "Merge proposals"
+      },
+      "table": "Possible duplicate pairs",
+      "column": {
+        "first": "First profile",
+        "second": "Second profile",
+        "rules": "Matched on"
+      },
+      "rules": {
+        "name_father_mobile": "Same name, father/husband and mobile",
+        "name_dob_union": "Same name, date of birth and union",
+        "same_mobile": "Same mobile number"
+      },
+      "pair": "{first} and {second}",
+      "compare": "Compare",
+      "dismiss": "Not the same person",
+      "dismiss_title": "Are {first} and {second} different people?",
+      "dismissed": "The pair is marked as two different people",
+      "empty": "There are no possible duplicates now.",
+      "summary": "Showing {count} pairs",
+      "proposals": {
+        "table": "Merge proposals",
+        "kept": "Profile to keep",
+        "merged": "Profile to merge",
+        "reason": "Reason",
+        "proposed_at": "Proposed on",
+        "open": "Review and merge",
+        "empty": "No merge proposal is waiting."
+      }
+    },
+    "merge": {
+      "title": "Compare profiles",
+      "keep": "Keep this profile",
+      "keep_required": "Choose the profile to keep",
+      "applications": "Applications",
+      "applications_value": "{count}",
+      "projects": "Projects",
+      "merge": "Merge",
+      "propose": "Propose a merge",
+      "merge_title": "Merge {merged} into {kept}?",
+      "propose_title": "Propose merging {merged} into {kept}?",
+      "execute_title": "Merge {merged} into {kept} as proposed?",
+      "proposal_reason": "Reason of the proposal: {reason}",
+      "merged": "Profiles merged",
+      "proposed": "Merge proposal sent",
+      "not_found": "One of the two profiles was not found.",
+      "proposal_missing": "This merge proposal is no longer waiting.",
+      "conflict": {
+        "application": "{project}: an application still waiting for a decision",
+        "project_unknown": "A project",
+        "hidden": "An application in a project outside your reach",
+        "class_attendance": "Both profiles have attendance in the same class",
+        "learning_progress": "Both profiles have progress on the same topic",
+        "exam_results": "Both profiles have a result in the same exam",
+        "media_subjects": "Both profiles have media data for the same project",
+        "file_links": "Both profiles have the same file",
+        "alerts": "Both profiles have an open alert of the same kind",
+        "other": "A record of the two profiles cannot be combined"
+      },
+      "revert": "Revert merge",
+      "revert_title": "Revert the merge with {benNo}?",
+      "reverted": "Merge reverted"
     }
   },
   "programs": {
@@ -1248,13 +1430,18 @@
     "storage_unknown": "The database did not answer, so the storage figures cannot be shown.",
     "figure": "{count} files, {size} in total",
     "measured": "Measured at {date}",
+    "by_bucket": "Storage by bucket",
+    "growth": "In the last month: {size}",
+    "growth_unknown": "Not known yet",
     "by_kind": "Files by kind",
     "by_month": "Files of the last 12 months",
     "column": {
       "kind": "Kind",
       "month": "Month",
+      "bucket": "Bucket",
       "count": "Count",
-      "size": "Size"
+      "size": "Size",
+      "growth": "Last month"
     }
   },
   "notification_templates": {

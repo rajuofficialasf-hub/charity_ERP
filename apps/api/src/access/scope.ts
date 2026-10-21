@@ -1,5 +1,5 @@
 import type { Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
+import { Prisma } from '../generated/prisma/client';
 import { PERMISSION_MARKERS } from '../openapi/drift';
 import {
   type EffectiveGrant,
@@ -379,6 +379,35 @@ export function beneficiaryWhere(scope: Scope): Prisma.BeneficiaryWhereInput {
   if (i.projectIds.length)
     or.push({ applicationsBeneficiary: { some: { projectId: { in: i.projectIds } } } });
   return or.length ? { OR: or } : { id: { in: [] } };
+}
+
+/**
+ * The reach of `beneficiaryWhere` as an SQL condition on the beneficiary row named `alias`, for the
+ * raw queries over many profiles (the duplicate suggestions); a test proves both select the same
+ * profiles. The alias is one of a fixed few, never input.
+ */
+export function beneficiaryScopeSql(scope: Scope, alias: 'b' | 'x' | 'y'): Prisma.Sql {
+  const i = scope.instances;
+  if (i.global) return Prisma.sql`TRUE`;
+  const row = Prisma.raw(alias);
+  const uuids = (ids: string[]) => Prisma.sql`ARRAY[${Prisma.join(ids)}]::uuid[]`;
+  const or: Prisma.Sql[] = [];
+  const locations = [...new Set(i.areas.map((a) => a.locationId))];
+  if (locations.length) {
+    const ids = uuids(locations);
+    or.push(
+      Prisma.sql`(${row}.division_id = ANY(${ids}) OR ${row}.district_id = ANY(${ids}) OR ${row}.upazila_id = ANY(${ids}) OR ${row}.union_id = ANY(${ids}))`,
+    );
+  }
+  if (i.programIds.length)
+    or.push(
+      Prisma.sql`EXISTS (SELECT 1 FROM applications ap JOIN projects pr ON pr.id = ap.project_id WHERE ap.beneficiary_id = ${row}.id AND pr.program_id = ANY(${uuids(i.programIds)}))`,
+    );
+  if (i.projectIds.length)
+    or.push(
+      Prisma.sql`EXISTS (SELECT 1 FROM applications ap WHERE ap.beneficiary_id = ${row}.id AND ap.project_id = ANY(${uuids(i.projectIds)}))`,
+    );
+  return or.length ? Prisma.sql`(${Prisma.join(or, ' OR ')})` : Prisma.sql`FALSE`;
 }
 
 /**

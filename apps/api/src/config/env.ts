@@ -48,6 +48,12 @@ const envSchema = z
     EMAIL_PER_MINUTE: z.coerce.number().int().min(1).max(600).default(30),
     /** The SMS provider's key; only its presence is ever shown (the channels page). */
     SMS_API_KEY: z.string().optional(),
+    /**
+     * The virus scanner of uploaded files. `skip` marks files skipped and is for development and
+     * test only; the organization's scanner (ClamAV on its own server) joins with the first
+     * deployment, and production refuses to start without it.
+     */
+    FILE_SCANNER: z.enum(['skip']).default('skip'),
     /** The release shown on the system health page. */
     APP_VERSION: z.string().max(64).default('0.0.0-dev'),
     /** Signs access tokens (D-070); JWT_PREVIOUS_SECRET is still accepted during a rotation. */
@@ -134,6 +140,12 @@ const envSchema = z
         code: 'custom',
         path: ['APP_ORIGIN'],
         message: 'must be an https origin in production (links sent by email)',
+      });
+    if (env.NODE_ENV === 'production' && env.FILE_SCANNER === 'skip')
+      ctx.addIssue({
+        code: 'custom',
+        path: ['FILE_SCANNER'],
+        message: 'a real virus scanner is required in production',
       });
     if (env.NODE_ENV === 'production' && env.RATE_LIMITS_RELAXED)
       ctx.addIssue({

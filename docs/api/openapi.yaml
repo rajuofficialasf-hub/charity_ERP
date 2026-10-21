@@ -49,7 +49,7 @@ tags:
   - name: activities
     description: Activities and bulk-update screens (B5, WORKFLOW_ENGINE.md section 8)
   - name: files
-    description: Upload sessions and signed download URLs (FILES_AND_DOCUMENTS.md)
+    description: Upload sessions and files streamed through the API (FILES_AND_DOCUMENTS.md, D-074, D-108)
   - name: notifications
     description: In-app inbox and preferences (NOTIFICATIONS.md)
   - name: exports
@@ -255,6 +255,12 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    PartNumber:
+      name: partNumber
+      in: path
+      required: true
+      description: 1-based number of a 256 KB part inside the declared size (D-108)
+      schema: { type: integer, minimum: 1, maximum: 80 }
     JobId:
       name: jobId
       in: path
@@ -366,7 +372,10 @@ components:
     Conflict:
       description: >-
         workflow.transition_not_allowed, workflow.guard.<guard_name>, conflict.locked_on_server,
-        beneficiary.already_applied, payment.transaction_id_exists, payment.claim_already_paid,
+        beneficiary.already_applied, beneficiary.identity_taken, beneficiary.mobile_is_volunteer_mobile,
+        beneficiary.correction_pending, beneficiary.correction_stale, beneficiary.merge_conflict,
+        beneficiary.merge_revert_order, beneficiary.merge_stale, beneficiary.dismissed,
+        payment.transaction_id_exists, payment.claim_already_paid,
         animal.already_allocated, file.duplicate, export.not_ready, session.use_logout,
         user.system_owner_protected, user.handover_required, user.transition_not_allowed, user.not_locked.
       content:
@@ -475,6 +484,10 @@ components:
         code: { type: string }
         messageKey: { type: string }
         message: { type: string }
+        params:
+          type: object
+          additionalProperties: { type: string }
+          description: Only for codes that document them in API_STANDARDS section 8 (beneficiary.identity_taken, beneficiary.merge_conflict)
     ErrorResponse:
       type: object
       required: [error]
@@ -1773,12 +1786,17 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
 
     # ---------------- beneficiaries ----------------
+    BenNo:
+      type: integer
+      minimum: 1
+      description: The short BEN number of a profile, shown as BEN- and 7 digits (D-112); given once, never changed
     BeneficiarySummary:
       type: object
       description: One row of the beneficiary tab (O-67)
-      required: [id, name, status, divisionId, districtId, upazilaId]
+      required: [id, benNo, name, status, divisionId, districtId, upazilaId]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
+        benNo: { $ref: '#/components/schemas/BenNo' }
         name: { type: string }
         fatherOrHusbandName: { type: string, x-sensitive-class: beneficiary.profile_detail }
         classCode: { type: [string, 'null'], x-sensitive-class: beneficiary.profile_detail }
@@ -1806,9 +1824,81 @@ components:
     Beneficiary:
       type: object
       description: The 360° profile shell (SCR-045, O-67, D-094); each section an empty array when nothing exists
-      required: [id, name, status, divisionId, districtId, upazilaId, projectsByYear, distributions]
+      required: [id, benNo, name, status, divisionId, districtId, upazilaId, projectsByYear, distributions, mergedInto, actions, corrections, merges]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
+        benNo: { $ref: '#/components/schemas/BenNo' }
+        mergedInto:
+          description: The kept profile a retired one leads to; null for a live profile
+          type: [object, 'null']
+          properties:
+            id: { $ref: '#/components/schemas/Uuid' }
+            benNo: { $ref: '#/components/schemas/BenNo' }
+        actions:
+          type: object
+          description: What the caller may do to this person; each true only where the action's own permission and scope reach the person (the routes check again)
+          properties:
+            block: { type: boolean }
+            unblock: { type: boolean }
+            editContact: { type: boolean }
+            requestCorrection: { type: boolean }
+            decideCorrection: { type: boolean }
+            proposeMerge: { type: boolean }
+            merge: { type: boolean }
+            revertMerge: { type: boolean }
+        contactLog:
+          type: array
+          x-sensitive-class: beneficiary.contact
+          description: The latest mobile and address changes (old and new value, who, when)
+          items:
+            type: object
+            properties:
+              field: { type: string }
+              oldValue: { type: [string, 'null'] }
+              newValue: { type: [string, 'null'] }
+              by: { type: [string, 'null'], format: uuid }
+              at: { type: string, format: date-time }
+        corrections:
+          type: array
+          description: Correction requests, to every caller who holds either correction permission on the person; identity values null outside the NID scope
+          items: { $ref: '#/components/schemas/CorrectionRequest' }
+        blocks:
+          type: array
+          x-sensitive-class: blocklist.reason
+          description: The block history with reasons, for officials only
+          items:
+            type: object
+            properties:
+              id: { $ref: '#/components/schemas/Uuid' }
+              reason: { type: string }
+              active: { type: boolean }
+              blockedAt: { type: string, format: date-time }
+              releasedAt: { type: [string, 'null'], format: date-time }
+              releaseReason: { type: [string, 'null'] }
+        merges:
+          type: array
+          description: The merges this profile took part in, as the kept or the retired one
+          items:
+            type: object
+            properties:
+              id: { $ref: '#/components/schemas/Uuid' }
+              role: { type: string, enum: [kept, merged] }
+              otherId: { type: [string, 'null'], format: uuid, description: null when the other profile lies outside the caller scope }
+              otherBenNo: { $ref: '#/components/schemas/BenNo' }
+              status: { type: string, enum: [merged, reverted] }
+              mergedAt: { type: [string, 'null'], format: date-time }
+              revertedAt: { type: [string, 'null'], format: date-time }
+              leftBehind: { type: integer, minimum: 0 }
+        files:
+          type: array
+          x-sensitive-class: beneficiary.profile_detail
+          description: The files linked to the person (an NID photo only inside the NID scope)
+          items:
+            type: object
+            properties:
+              fileId: { $ref: '#/components/schemas/Uuid' }
+              slot: { type: string }
+              kind: { type: string }
         name: { type: string }
         fatherOrHusbandName: { type: string, x-sensitive-class: beneficiary.profile_detail }
         motherName: { type: [string, 'null'], x-sensitive-class: beneficiary.profile_detail }
@@ -1871,6 +1961,7 @@ components:
               submittedAt: { type: [string, 'null'], format: date-time }
               reviewedAt: { type: [string, 'null'], format: date-time }
               approvedAt: { type: [string, 'null'], format: date-time }
+              throughMerge: { type: boolean, description: 'An application left on a retired profile at a merge, shown on the kept one' }
         distributions:
           type: array
           description: Distribution and implementation activities, latest 20
@@ -1909,13 +2000,13 @@ components:
         meta: { $ref: '#/components/schemas/ListMeta' }
     LookupRequest:
       type: object
+      additionalProperties: false
+      description: Exactly one of nid and birthReg (422 `beneficiary.identity_missing` without one, `validation.malformed` with both)
+      required: [projectId]
       properties:
         nid: { type: string, pattern: '^([0-9]{10}|[0-9]{13}|[0-9]{17})$' }
         birthReg: { type: string, pattern: '^[0-9]{17}$' }
         projectId: { $ref: '#/components/schemas/Uuid' }
-      oneOf:
-        - required: [nid]
-        - required: [birthReg]
     LookupResult:
       type: object
       required: [data, meta]
@@ -1925,22 +2016,45 @@ components:
           required: [found]
           properties:
             found: { type: boolean }
-            blocked: { type: boolean, description: true means a new application is refused (BR-010) }
+            blocked: { type: boolean, description: true means a new application is refused (BR-010); the answer then carries nothing else }
             alreadyAppliedInProject: { type: boolean }
-            autofill:
-              description: Only the auto-fill fields (BR-005); locked fields are marked
+            mobileIsCallerOwn:
+              type: boolean
+              description: The profile's mobile is the caller's own, so the form asks for another (BD-03)
+            mergedInto:
+              description: The number led to a retired profile; the auto-fill is the kept one's
               type: object
+              required: [benNo]
+              properties:
+                benNo: { $ref: '#/components/schemas/BenNo' }
+            autofill:
+              description: The auto-fill fields (BR-005); locked fields are marked
+              type: object
+              required:
+                [beneficiaryId, benNo, name, fatherOrHusbandName, mobile, genderCode, divisionId, districtId, upazilaId, unionId, village, lockedFields]
               properties:
                 beneficiaryId: { $ref: '#/components/schemas/Uuid' }
+                benNo: { $ref: '#/components/schemas/BenNo' }
                 name: { type: string }
                 fatherOrHusbandName: { type: string }
+                motherName: { type: [string, 'null'] }
                 mobile: { type: string }
+                genderCode: { type: string }
+                dob: { type: [string, 'null'], format: date }
+                ageYears: { type: [integer, 'null'] }
                 divisionId: { $ref: '#/components/schemas/Uuid' }
                 districtId: { $ref: '#/components/schemas/Uuid' }
                 upazilaId: { $ref: '#/components/schemas/Uuid' }
                 unionId: { $ref: '#/components/schemas/Uuid' }
                 village: { type: string }
-                lockedFields: { type: array, items: { type: string } }
+                postOffice: { type: [string, 'null'] }
+                postCode: { type: [string, 'null'] }
+                landmark: { type: [string, 'null'] }
+                members14Plus: { type: [integer, 'null'] }
+                childrenUnder14: { type: [integer, 'null'] }
+                lockedFields:
+                  type: array
+                  items: { type: string, enum: [name, father_or_husband_name, nid, birth_reg] }
         meta: { $ref: '#/components/schemas/Meta' }
     FamilyMember:
       type: object
@@ -1964,21 +2078,75 @@ components:
         meta: { $ref: '#/components/schemas/ListMeta' }
     CorrectionRequestCreate:
       type: object
+      additionalProperties: false
+      description: A new NID has 10, 13 or 17 digits and a new birth registration 17 (validation.nid_format, validation.birth_reg_format)
       required: [field, newValue, reason]
       properties:
         field: { type: string, enum: [name, father_or_husband_name, nid, birth_reg] }
-        newValue: { type: string }
-        reason: { type: string, minLength: 3 }
+        newValue: { type: string, minLength: 1, maxLength: 200 }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
     CorrectionRequest:
-      allOf:
-        - $ref: '#/components/schemas/CorrectionRequestCreate'
-        - type: object
-          required: [id, beneficiaryId, status]
+      type: object
+      description: The values of an identity number are null outside the caller's beneficiary.view_nid scope
+      required: [id, beneficiaryId, field, oldValue, newValue, reason, status, requestedBy, requestedAt, decidedBy, decidedAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        beneficiaryId: { $ref: '#/components/schemas/Uuid' }
+        field: { type: string, enum: [name, father_or_husband_name, nid, birth_reg] }
+        oldValue: { type: [string, 'null'] }
+        newValue: { type: [string, 'null'] }
+        reason: { type: string }
+        status: { type: string, enum: [submitted, approved, rejected] }
+        requestedBy: { $ref: '#/components/schemas/Uuid' }
+        requestedAt: { type: string, format: date-time }
+        decidedBy: { type: [string, 'null'], format: uuid }
+        decidedAt: { type: [string, 'null'], format: date-time }
+    ContactUpdate:
+      type: object
+      additionalProperties: false
+      description: At least one field; divisionId, districtId, upazilaId and unionId together; name, fatherOrHusbandName, nid and birthReg are refused with beneficiary.locked_field
+      properties:
+        mobile: { type: string, pattern: '^01[3-9][0-9]{8}$' }
+        divisionId: { $ref: '#/components/schemas/Uuid' }
+        districtId: { $ref: '#/components/schemas/Uuid' }
+        upazilaId: { $ref: '#/components/schemas/Uuid' }
+        unionId: { $ref: '#/components/schemas/Uuid' }
+        village: { type: string, minLength: 1, maxLength: 200 }
+        postOffice: { type: string, minLength: 1, maxLength: 100 }
+        postCode: { type: string, pattern: '^[0-9]{4}$' }
+        landmark: { type: string, minLength: 1, maxLength: 200 }
+        name: { not: {} }
+        fatherOrHusbandName: { not: {} }
+        nid: { not: {} }
+        birthReg: { not: {} }
+    ContactResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [id, mobile, divisionId, districtId, upazilaId, unionId, village, postOffice, postCode, landmark, warnings]
           properties:
             id: { $ref: '#/components/schemas/Uuid' }
-            beneficiaryId: { $ref: '#/components/schemas/Uuid' }
-            oldValue: { type: string }
-            status: { type: string, enum: [submitted, approved, rejected] }
+            mobile: { type: string }
+            divisionId: { $ref: '#/components/schemas/Uuid' }
+            districtId: { $ref: '#/components/schemas/Uuid' }
+            upazilaId: { $ref: '#/components/schemas/Uuid' }
+            unionId: { $ref: '#/components/schemas/Uuid' }
+            village: { type: string }
+            postOffice: { type: [string, 'null'] }
+            postCode: { type: [string, 'null'] }
+            landmark: { type: [string, 'null'] }
+            warnings:
+              type: array
+              items:
+                type: object
+                required: [code, count, benNos]
+                properties:
+                  code: { type: string, enum: [beneficiary.mobile_shared] }
+                  count: { type: integer, minimum: 1 }
+                  benNos: { type: array, items: { type: string } }
+        meta: { $ref: '#/components/schemas/Meta' }
     CorrectionRequestResponse:
       type: object
       required: [data, meta]
@@ -1987,11 +2155,47 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     MergeCandidate:
       type: object
-      required: [beneficiaryId, otherBeneficiaryId, matchedOn]
+      description: The pair with the lower id first; every rule the pair meets
+      required: [beneficiaryId, otherBeneficiaryId, benNo, otherBenNo, name, otherName, matchedOn]
       properties:
         beneficiaryId: { $ref: '#/components/schemas/Uuid' }
         otherBeneficiaryId: { $ref: '#/components/schemas/Uuid' }
-        matchedOn: { type: string, enum: [name_father_mobile, name_dob_union, same_mobile, requested] }
+        benNo: { type: string }
+        otherBenNo: { type: string }
+        name: { type: string }
+        otherName: { type: string }
+        matchedOn:
+          type: array
+          items: { type: string, enum: [name_dob_union, name_father_mobile, same_mobile] }
+    MergeDismissalRequest:
+      type: object
+      additionalProperties: false
+      required: [beneficiaryId, otherBeneficiaryId, reason]
+      properties:
+        beneficiaryId: { $ref: '#/components/schemas/Uuid' }
+        otherBeneficiaryId: { $ref: '#/components/schemas/Uuid' }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
+    MergeDismissal:
+      type: object
+      required: [id, beneficiaryId, otherBeneficiaryId, benNo, otherBenNo, name, otherName, reason, dismissedBy, dismissedAt, liftedAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        beneficiaryId: { $ref: '#/components/schemas/Uuid' }
+        otherBeneficiaryId: { $ref: '#/components/schemas/Uuid' }
+        benNo: { type: string }
+        otherBenNo: { type: string }
+        name: { type: string }
+        otherName: { type: string }
+        reason: { type: string }
+        dismissedBy: { $ref: '#/components/schemas/Uuid' }
+        dismissedAt: { type: string, format: date-time }
+        liftedAt: { type: [string, 'null'], format: date-time }
+    MergeDismissalResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/MergeDismissal' }
+        meta: { $ref: '#/components/schemas/Meta' }
     MergeCandidateList:
       type: object
       required: [data, meta]
@@ -2000,21 +2204,42 @@ components:
         meta: { $ref: '#/components/schemas/ListMeta' }
     MergeRequest:
       type: object
+      additionalProperties: false
       required: [keptId, mergedId, reason]
       properties:
         keptId: { $ref: '#/components/schemas/Uuid' }
         mergedId: { $ref: '#/components/schemas/Uuid' }
-        reason: { type: string, minLength: 3 }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
+    MergeExecuteRequest:
+      type: object
+      additionalProperties: false
+      description: keptId, when given, must be one of the pair; the other profile is retired
+      properties:
+        keptId: { $ref: '#/components/schemas/Uuid' }
     Merge:
-      allOf:
-        - $ref: '#/components/schemas/MergeRequest'
-        - type: object
-          required: [id, mergedAt]
-          properties:
-            id: { $ref: '#/components/schemas/Uuid' }
-            status: { type: string, enum: [proposed, merged, reverted] }
-            mergedAt: { type: [string, 'null'], format: date-time }
-            revertedAt: { type: [string, 'null'], format: date-time }
+      type: object
+      required: [id, keptId, mergedId, keptBenNo, mergedBenNo, keptName, mergedName, status, reason, proposedBy, proposedAt, mergedBy, mergedAt, revertedBy, revertedAt, moved, leftBehind]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        keptId: { $ref: '#/components/schemas/Uuid' }
+        mergedId: { $ref: '#/components/schemas/Uuid' }
+        keptBenNo: { type: string }
+        mergedBenNo: { type: string }
+        keptName: { type: string }
+        mergedName: { type: string }
+        status: { type: string, enum: [proposed, merged, reverted] }
+        reason: { type: string }
+        proposedBy: { $ref: '#/components/schemas/Uuid' }
+        proposedAt: { type: string, format: date-time }
+        mergedBy: { type: [string, 'null'], format: uuid }
+        mergedAt: { type: [string, 'null'], format: date-time }
+        revertedBy: { type: [string, 'null'], format: uuid }
+        revertedAt: { type: [string, 'null'], format: date-time }
+        moved:
+          type: object
+          description: How many rows moved per kind (the ids stay in the snapshot, never returned)
+          additionalProperties: { type: integer, minimum: 0 }
+        leftBehind: { type: integer, minimum: 0, description: Applications past pending left on the retired profile }
     MergeResponse:
       type: object
       required: [data, meta]
@@ -2599,13 +2824,20 @@ components:
                 decision: { type: [string, 'null'], enum: [eligible, not_eligible, null] }
             familyDuplicateWarnings:
               type: array
-              description: BR-011 family-duplicate warnings shown at review
+              description: >-
+                BR-011 family-duplicate warnings shown at review (D-116): another applicant of the
+                project with the same mobile, or the same union, village and father's or husband's
+                name; never a refusal
               items:
                 type: object
+                required: [beneficiaryId, benNo, name, matchedOn]
                 properties:
                   beneficiaryId: { $ref: '#/components/schemas/Uuid' }
+                  benNo: { type: string, description: 'BEN- and 7 digits' }
                   name: { type: string }
-                  matchedOn: { type: string, enum: [union_village, father_or_husband_name, mobile] }
+                  matchedOn:
+                    type: array
+                    items: { type: string, enum: [mobile, union_village_father] }
             availableActions: { type: array, items: { type: string }, description: Actions the caller may perform now }
     ApplicationResponse:
       type: object
@@ -2778,15 +3010,16 @@ components:
     # ---------------- files ----------------
     UploadSessionCreate:
       type: object
-      required: [clientUuid, kind, entityType, slot, mime, sizeBytes, sha256, source]
+      additionalProperties: false
+      required: [clientUuid, kind, entityType, entityId, slot, mime, sizeBytes, sha256, source]
       properties:
         clientUuid: { $ref: '#/components/schemas/Uuid' }
         kind: { type: string, enum: [distribution_proof, construction_proof, evidence, voucher, payment_copy, document, animal_photo, profile_photo, nid_photo, media_asset, issue_photo] }
-        entityType: { type: string }
-        entityId: { type: string, format: uuid, description: Omit when the owning record is not yet synced }
-        slot: { type: string }
-        mime: { type: string }
-        sizeBytes: { type: integer, minimum: 1 }
+        entityType: { type: string, minLength: 1, maxLength: 40, description: 'The record type the file links to: application, activity, issue, voucher, expense_claim, payment, animal or document; each takes its own kinds (D-108)' }
+        entityId: { type: string, format: uuid, description: The record the file links to; its scope is checked at create and at finalize }
+        slot: { type: string, pattern: '^[a-z][a-z0-9_]{0,39}$' }
+        mime: { type: string, minLength: 1, maxLength: 100 }
+        sizeBytes: { type: integer, minimum: 1, maximum: 20971520 }
         sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
         capturedAt: { type: string, format: date-time }
         recordCreatedAt: { type: string, format: date-time }
@@ -2794,20 +3027,15 @@ components:
         source: { type: string, enum: [camera, gallery, scan] }
     UploadSession:
       type: object
-      required: [id, chunkSize, parts, expiresAt]
+      required: [id, chunkSize, partCount, partsReceived, bytesReceived, expiresAt]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         chunkSize: { type: integer, const: 262144 }
-        parts:
-          type: array
-          items:
-            type: object
-            required: [partNumber, url]
-            properties:
-              partNumber: { type: integer }
-              url: { type: string, format: uri }
-              acknowledged: { type: boolean }
+        partCount: { type: integer, minimum: 1, description: The parts the declared size needs }
+        partsReceived: { type: array, items: { type: integer, minimum: 1 }, description: 'The parts the server holds, for a resume after a dropped connection' }
+        bytesReceived: { type: integer, minimum: 0 }
         expiresAt: { type: string, format: date-time }
+        fileId: { type: [string, 'null'], format: uuid, description: Set once the session is finalized }
     UploadSessionResponse:
       type: object
       required: [data, meta]
@@ -2824,29 +3052,50 @@ components:
         sizeBytes: { type: integer }
         capturedAt: { type: [string, 'null'], format: date-time }
         uploadedAt: { type: string, format: date-time }
+        gps:
+          type: [object, 'null']
+          x-sensitive-class: file.location
+          required: [lat, lng]
+          properties:
+            lat: { type: number }
+            lng: { type: number }
+            accuracyM: { type: [number, 'null'] }
         virusScan: { type: string, enum: [pending, clean, infected, failed, skipped] }
         flags: { type: array, items: { type: string, enum: [no_capture_time, no_gps, gallery_under_camera_only, stale_capture, duplicate_suspect] } }
-        duplicateOf: { type: [string, 'null'], format: uuid }
+        duplicateOf: { type: [string, 'null'], format: uuid, description: 'The near or exact duplicate, named only to a caller whose scope reaches it' }
+    FileListRow:
+      type: object
+      required: [id, kind, slot, mime, sizeBytes, capturedAt, uploadedAt, gps, virusScan, flags]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        kind: { type: string }
+        slot: { type: [string, 'null'] }
+        mime: { type: string }
+        sizeBytes: { type: integer }
+        capturedAt: { type: [string, 'null'], format: date-time }
+        uploadedAt: { type: string, format: date-time }
+        gps:
+          type: [object, 'null']
+          x-sensitive-class: file.location
+          description: 'Null for a caller without file.location, except on the caller''s own uploads'
+          required: [lat, lng]
+          properties:
+            lat: { type: number }
+            lng: { type: number }
+            accuracyM: { type: [number, 'null'] }
+        virusScan: { type: string, enum: [pending, clean, infected, failed, skipped] }
+        flags: { type: array, items: { type: string } }
+    FileListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/FileListRow' } }
+        meta: { $ref: '#/components/schemas/ListMeta' }
     FileInfoResponse:
       type: object
       required: [data, meta]
       properties:
         data: { $ref: '#/components/schemas/FileInfo' }
-        meta: { $ref: '#/components/schemas/Meta' }
-    FileUrlRequest:
-      type: object
-      properties:
-        variant: { type: string, enum: [original, thumb_small, thumb_medium], default: original }
-    FileUrlResponse:
-      type: object
-      required: [data, meta]
-      properties:
-        data:
-          type: object
-          required: [url, expiresAt]
-          properties:
-            url: { type: string, format: uri }
-            expiresAt: { type: string, format: date-time }
         meta: { $ref: '#/components/schemas/Meta' }
 
     # ---------------- notifications and exports ----------------
@@ -3249,9 +3498,20 @@ components:
             storage:
               description: Null when the database did not answer in time (the checks then show it down)
               type: [object, 'null']
-              required: [total, byKind, byMonth, measuredAt]
+              required: [total, byKind, byBucket, byMonth, measuredAt]
               properties:
                 total: { $ref: '#/components/schemas/StorageFigure' }
+                byBucket:
+                  type: array
+                  description: Each bucket now, and its growth in bytes since the nightly snapshot of at least 30 days ago (null until one exists)
+                  items:
+                    allOf:
+                      - { $ref: '#/components/schemas/StorageFigure' }
+                      - type: object
+                        required: [bucket, monthGrowth]
+                        properties:
+                          bucket: { type: string }
+                          monthGrowth: { type: [integer, 'null'] }
                 byKind:
                   type: array
                   items:
@@ -5285,11 +5545,19 @@ paths:
       tags: [beneficiaries]
       operationId: beneficiaries.beneficiary.lookup
       summary: Look up by NID or birth registration for auto-fill (number in the body, never in the URL)
+      description: >-
+        The full auto-fill of a found profile wherever it lives, with the identity fields marked
+        locked; never the other identity number or a block reason. A retired profile's number leads
+        to the kept profile (`mergedInto`). Every lookup writes an audit row without the number,
+        and the `lookup` rate limit counts per user and per address (D-114). A profile outside the
+        caller's own scope is filled in 20 times a day per user; after that the lookup answers 429
+        `beneficiary.lookup_outside_limit` until the next day in Bangladesh, while profiles inside
+        the scope go on.
       x-permission: beneficiary.lookup
       x-scope: project
-      x-audit: none
+      x-audit: beneficiary.looked_up
       x-idempotency: none
-      x-rate-limit: default
+      x-rate-limit: lookup
       requestBody:
         required: true
         content:
@@ -5301,7 +5569,9 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/LookupResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/Unprocessable' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
   /beneficiaries/{beneficiaryId}:
@@ -5320,7 +5590,7 @@ paths:
       x-audit: none
       x-idempotency: none
       x-rate-limit: list
-      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care, beneficiary.profile_detail, beneficiary.application_history, beneficiary.nid]
+      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care, beneficiary.profile_detail, beneficiary.application_history, beneficiary.nid, blocklist.reason]
       responses:
         '200':
           description: Profile
@@ -5352,13 +5622,54 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/FamilyMemberList' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /beneficiaries/{beneficiaryId}/contact:
+    parameters:
+      - $ref: '#/components/parameters/BeneficiaryId'
+    patch:
+      tags: [beneficiaries]
+      operationId: beneficiaries.contact.update
+      summary: Edit the mobile and the address of a beneficiary outside an application (each change logged; identity fields refused)
+      description: >-
+        The mobile and the address down to village, post office and landmark (D-115); the four
+        places of the address change together as one chain. Each changed field writes a change-log
+        row of kind `contact_update`. A name or an identity number answers 422
+        `beneficiary.locked_field`; the mobile of a volunteer an application of the person belongs
+        to answers 409 `beneficiary.mobile_is_volunteer_mobile`; a mobile other live profiles have
+        is saved with the `beneficiary.mobile_shared` warning, which names only the profiles the
+        caller's scope reaches.
+      x-permission: beneficiary.contact.edit
+      x-scope: beneficiary
+      x-audit: beneficiary.contact_updated
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ContactUpdate' }
+      responses:
+        '200':
+          description: The contact data after the edit, with the ETag of the new version
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContactResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /beneficiaries/{beneficiaryId}/correction-requests:
     parameters:
       - $ref: '#/components/parameters/BeneficiaryId'
     post:
       tags: [beneficiaries]
       operationId: beneficiaries.correction.create
-      summary: Request correction of a locked field (BR-006)
+      summary: Request correction of a locked field
       x-permission: beneficiary.correction.request
       x-scope: beneficiary
       x-audit: beneficiary.correction_requested
@@ -5375,7 +5686,10 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/CorrectionRequestResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /beneficiary-corrections/{requestId}/decision:
     parameters:
@@ -5384,6 +5698,11 @@ paths:
       tags: [beneficiaries]
       operationId: beneficiaries.correction.decide
       summary: Approve or reject a correction; approval changes the locked field
+      description: >-
+        Never by the official who requested it (403 `beneficiary.correction_own`); an approval
+        re-checks that the field still holds the old value (409 `beneficiary.correction_stale`) and
+        that a new identity number is unused (409 `beneficiary.identity_taken`), and applies it in
+        the same transaction with a change-log row (D-115).
       x-permission: beneficiary.correction.approve
       x-scope: beneficiary
       x-audit: beneficiary.correction_decided
@@ -5400,18 +5719,25 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/CorrectionRequestResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /beneficiaries/merge-candidates:
     get:
       tags: [beneficiaries]
       operationId: beneficiaries.merge.candidates
-      summary: Suspected duplicate profiles found by the system (BR-012)
-      x-permission: beneficiary.merge.propose
+      summary: Suggested duplicate profiles in the caller scope (name, father or husband and mobile; name, date of birth and union; one mobile)
+      description: >-
+        Pairs of live profiles both inside the caller's scope (D-113), in id order, paged forward
+        by cursor; a pair marked as two different people is left out until the mark is lifted.
+        Never an identity number or a mobile.
+      x-permission: beneficiary.merge.dismiss
       x-scope: beneficiary
       x-audit: none
       x-idempotency: none
-      x-rate-limit: default
+      x-rate-limit: list
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
@@ -5421,12 +5747,95 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/MergeCandidateList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServerError' }
+  /beneficiaries/merge-dismissals:
+    post:
+      tags: [beneficiaries]
+      operationId: beneficiaries.merge.dismiss
+      summary: Mark a suggested pair as two different people, with a reason
+      description: Both profiles live and in the caller's scope; one active mark per pair (409 `beneficiary.dismissed`).
+      x-permission: beneficiary.merge.dismiss
+      x-scope: beneficiary
+      x-audit: beneficiary.merge_dismissed
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MergeDismissalRequest' }
+      responses:
+        '201':
+          description: Marked
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MergeDismissalResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /beneficiary-merge-dismissals:
+    get:
+      tags: [beneficiaries]
+      operationId: beneficiaries.merge.dismissals
+      summary: The pairs marked as two different people in the caller scope, newest first
+      x-permission: beneficiary.merge.dismiss
+      x-scope: beneficiary
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: list
+      responses:
+        '200':
+          description: Active marks (at most 100)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/MergeDismissal' } }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /beneficiary-merge-dismissals/{dismissalId}/lift:
+    parameters:
+      - { name: dismissalId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    post:
+      tags: [beneficiaries]
+      operationId: beneficiaries.merge.dismissal_lift
+      summary: Lift the mark of a pair with a reason; the pair is suggested again
+      x-permission: beneficiary.merge.dismiss
+      x-scope: beneficiary
+      x-audit: beneficiary.merge_dismissal_lifted
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReasonRequest' }
+      responses:
+        '200':
+          description: Lifted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MergeDismissalResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /beneficiary-merges:
     post:
       tags: [beneficiaries]
       operationId: beneficiaries.merge.propose
-      summary: Propose a merge of two profiles
+      summary: Propose a merge of two profiles with a reason
+      description: Both profiles live and in the caller's scope (404 otherwise, without naming either); one open proposal per pair.
       x-permission: beneficiary.merge.propose
       x-scope: beneficiary
       x-audit: beneficiary.merge_proposed
@@ -5443,7 +5852,66 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/MergeResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    get:
+      tags: [beneficiaries]
+      operationId: beneficiaries.merge.list
+      summary: The merge proposals and merges of profiles in the caller scope, newest first
+      x-permission: beneficiary.merge.dismiss
+      x-scope: beneficiary
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: list
+      parameters:
+        - { name: status, in: query, required: false, schema: { type: string, enum: [proposed, merged, reverted] } }
+      responses:
+        '200':
+          description: At most 100 merges
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Merge' } }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /beneficiary-merges/direct:
+    post:
+      tags: [beneficiaries]
+      operationId: beneficiaries.merge.direct
+      summary: Merge two profiles without a proposal, keeping the one named and a reason
+      description: >-
+        The same merge as an executed proposal (D-113); the caller is proposer and merger. A merge
+        that moves an application outside the caller's merge reach (another program, for a PM)
+        answers 403 `beneficiary.merge_needs_global` (D-118).
+      x-permission: beneficiary.merge
+      x-scope: beneficiary
+      x-audit: beneficiary.merge
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MergeRequest' }
+      responses:
+        '201':
+          description: Merged
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MergeResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /beneficiary-merges/{requestId}/execute:
     parameters:
@@ -5452,26 +5920,42 @@ paths:
       tags: [beneficiaries]
       operationId: beneficiaries.merge.execute
       summary: Execute a merge; the retired BEN-ID points to the kept profile (BR-013)
+      description: >-
+        Everything that points to the retired profile moves to the kept one and is listed in the
+        snapshot; a pending application of the retired profile in a project both applied to answers
+        409 `beneficiary.merge_conflict` (details name the project), one past pending stays on the
+        retired profile (`leftBehind`); a block moves to the kept profile; a proposal whose profiles
+        are no longer both live answers 409 `beneficiary.merge_stale` (D-113); an application of
+        another program than the caller reaches answers 403 `beneficiary.merge_needs_global` (D-118).
       x-permission: beneficiary.merge
       x-scope: beneficiary
       x-audit: beneficiary.merge
       x-idempotency: none
       x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MergeExecuteRequest' }
       responses:
         '200':
           description: Merged
           content:
             application/json:
               schema: { $ref: '#/components/schemas/MergeResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /beneficiary-merges/{requestId}/revert:
     parameters:
       - $ref: '#/components/parameters/RequestId'
     post:
       tags: [beneficiaries]
       operationId: beneficiaries.merge.revert
-      summary: Revert a merge (Monitoring Team)
+      summary: Revert a merge (Monitoring Team or Department Head)
+      description: Exactly what moved goes back; rows added to the kept profile later stay. Only while the kept profile is live (409 `beneficiary.merge_revert_order`).
       x-permission: beneficiary.merge.revert
       x-scope: beneficiary
       x-audit: beneficiary.merge_reverted
@@ -5488,8 +5972,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/MergeResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /beneficiaries/{beneficiaryId}/block:
     parameters:
       - $ref: '#/components/parameters/BeneficiaryId'
@@ -5513,8 +6000,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/BlocklistResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /beneficiaries/{beneficiaryId}/unblock:
     parameters:
       - $ref: '#/components/parameters/BeneficiaryId'
@@ -5538,7 +6028,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/BlocklistResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /beneficiaries/{beneficiaryId}/status:
     parameters:
       - $ref: '#/components/parameters/BeneficiaryId'
@@ -7393,9 +7887,9 @@ paths:
     post:
       tags: [files]
       operationId: files.uploadSession.create
-      summary: Start a resumable upload (256 KB parts, O-29); checks kind, size, type and the project photo-source setting
+      summary: Start a resumable upload (256 KB parts, O-29, D-108); checks the record's scope, the kind, the declared size and type, and the open sessions (at most 20)
       x-permission: file.upload
-      x-scope: self
+      x-scope: project
       x-audit: none
       x-idempotency: clientUuid
       x-rate-limit: default
@@ -7405,14 +7899,24 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/UploadSessionCreate' }
       responses:
-        '201':
-          description: Upload session with presigned part URLs
+        '200':
+          description: 'The session an earlier create with the same clientUuid made (Idempotent-Replay: true)'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/UploadSessionResponse' }
+        '201':
+          description: Upload session; the parts are sent to the part route
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UploadSessionResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '410': { $ref: '#/components/responses/Gone' }
         '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
   /upload-sessions/{uploadSessionId}:
     parameters:
       - $ref: '#/components/parameters/UploadSessionId'
@@ -7427,33 +7931,68 @@ paths:
       x-rate-limit: default
       responses:
         '200':
-          description: Session with acknowledged parts
+          description: Session with the parts the server holds
           content:
             application/json:
               schema: { $ref: '#/components/schemas/UploadSessionResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
         '410': { $ref: '#/components/responses/Gone' }
+  /upload-sessions/{uploadSessionId}/parts/{partNumber}:
+    parameters:
+      - $ref: '#/components/parameters/UploadSessionId'
+      - $ref: '#/components/parameters/PartNumber'
+    put:
+      tags: [files]
+      operationId: files.uploadSession.putPart
+      summary: Store one part of at most 256 KB as raw bytes; a part sent again replaces nothing and answers the same (D-108)
+      x-permission: file.upload
+      x-scope: self
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: upload
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary, maxLength: 262144 }
+      responses:
+        '200':
+          description: Session with the parts the server holds
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UploadSessionResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410': { $ref: '#/components/responses/Gone' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /upload-sessions/{uploadSessionId}/finalize:
     parameters:
       - $ref: '#/components/parameters/UploadSessionId'
     post:
       tags: [files]
       operationId: files.uploadSession.finalize
-      summary: Complete the upload; the file stays quarantined until the scan is clean (O-30)
+      summary: Complete the upload after the record's scope is checked again; the size, SHA-256 and the type by magic bytes are verified, an identical file in the project is refused; the file stays quarantined until the scan clears it (O-30)
       x-permission: file.upload
-      x-scope: self
+      x-scope: project
       x-audit: file.uploaded
       x-idempotency: clientUuid
       x-rate-limit: default
       responses:
+        '200':
+          description: 'The file an earlier finalize of the session made (Idempotent-Replay: true)'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FileInfoResponse' }
         '201':
           description: File created (virusScan pending)
           content:
             application/json:
               schema: { $ref: '#/components/schemas/FileInfoResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '410': { $ref: '#/components/responses/Gone' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /files/{fileId}:
     parameters:
@@ -7461,12 +8000,13 @@ paths:
     get:
       tags: [files]
       operationId: files.file.get
-      summary: File metadata, scan state and data-quality flags
+      summary: File metadata, scan state and data-quality flags; the GPS position under file.location
       x-permission: entity
       x-scope: file
       x-audit: none
       x-idempotency: none
       x-rate-limit: default
+      x-sensitive-fields: [file.location]
       responses:
         '200':
           description: File
@@ -7480,49 +8020,61 @@ paths:
     get:
       tags: [files]
       operationId: files.file.content
-      summary: Stream a registration or profile photo to its owner and to allowed officials; the NID photo only to the volunteer.identity roles (Cache-Control no-store, nosniff; D-087)
+      summary: Stream a file or its thumbnail to its owner and to the officials whose scope reaches its record, once the scan cleared it; the NID photo only with the identity class (Cache-Control no-store, nosniff, the type from the stored bytes, inline only for images and PDF; D-074, D-087, D-108)
       x-permission: entity
       x-scope: file
       x-audit: none
       x-idempotency: none
       x-rate-limit: default
+      parameters:
+        - name: variant
+          in: query
+          required: false
+          description: 'A thumbnail instead of the file: small (320 px) or medium (1,024 px), JPEG; 404 when the file has none'
+          schema: { type: string, enum: [small, medium] }
       responses:
         '200':
-          description: The image
+          description: The file or its thumbnail (thumbnails are JPEG)
           content:
             image/jpeg:
               schema: { type: string, format: binary }
             image/png:
               schema: { type: string, format: binary }
+            image/webp:
+              schema: { type: string, format: binary }
+            application/pdf:
+              schema: { type: string, format: binary }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
-  /files/{fileId}/url:
-    parameters:
-      - $ref: '#/components/parameters/FileId'
-    post:
+        '410': { $ref: '#/components/responses/Gone' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '423': { $ref: '#/components/responses/Locked' }
+  /files:
+    get:
       tags: [files]
-      operationId: files.file.signedUrl
-      summary: Signed download URL valid 15 minutes, after the linked entity's read permission and field-class checks
+      operationId: files.file.list
+      summary: The files of one record, for a caller whose scope reaches the record; as CSV (at most 5,000 rows, no free text) with format=csv; every export is audited, a list with NID photos as file.nid_viewed (D-108)
       x-permission: entity
       x-scope: file
-      x-audit: file.download_sensitive
+      x-audit: none
       x-idempotency: none
-      x-rate-limit: default
-      x-sensitive-fields: [volunteer.identity, beneficiary.nid]
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/FileUrlRequest' }
+      x-rate-limit: list
+      parameters:
+        - { name: entityType, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 40 } }
+        - { name: entityId, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: format, in: query, required: false, schema: { type: string, enum: [json, csv], default: json } }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
       responses:
         '200':
-          description: Signed URL
+          description: The files of the record
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/FileUrlResponse' }
+              schema: { $ref: '#/components/schemas/FileListResponse' }
+            text/csv:
+              schema: { type: string }
         '404': { $ref: '#/components/responses/NotFound' }
-        '410': { $ref: '#/components/responses/Gone' }
-        '423': { $ref: '#/components/responses/Locked' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
 
   # ======================= notifications =======================
   /notifications:

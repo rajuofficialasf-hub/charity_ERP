@@ -84,6 +84,22 @@ export function HealthPage() {
     { id: 'count', header: t('column.count'), cell: (k) => formatCount(k.count, locale) },
     { id: 'size', header: t('column.size'), cell: (k) => formatFileSize(k.bytes, locale) },
   ];
+  type Bucket = StorageFigure & { bucket: string; monthGrowth: number | null };
+  const growth = (b: Bucket) =>
+    b.monthGrowth === null
+      ? t('growth_unknown')
+      : `${b.monthGrowth < 0 ? '−' : '+'}${formatFileSize(Math.abs(b.monthGrowth), locale)}`;
+  const bucketColumns: TableColumn<Bucket>[] = [
+    {
+      id: 'bucket',
+      header: t('column.bucket'),
+      cell: (b) => <span lang="en">{b.bucket}</span>,
+      isRowHeader: true,
+    },
+    { id: 'count', header: t('column.count'), cell: (b) => formatCount(b.count, locale) },
+    { id: 'size', header: t('column.size'), cell: (b) => formatFileSize(b.bytes, locale) },
+    { id: 'growth', header: t('column.growth'), cell: growth },
+  ];
   const monthColumns: TableColumn<StorageFigure & { month: string }>[] = [
     { id: 'month', header: t('column.month'), cell: (m) => m.month, isRowHeader: true },
     { id: 'count', header: t('column.count'), cell: (m) => formatCount(m.count, locale) },
@@ -125,6 +141,20 @@ export function HealthPage() {
               {t('measured', { date: formatDateTime(h.storage.measuredAt, locale) })}
             </Text>
           </Card>
+          <Table
+            label={t('by_bucket')}
+            columns={bucketColumns}
+            rows={h.storage.byBucket}
+            rowKey={(b) => b.bucket}
+            rowLabel={(b) => b.bucket}
+            cardRenderer={(b) => (
+              <div className="admin-permission-card">
+                <strong lang="en">{b.bucket}</strong>
+                <span>{figure(b)}</span>
+                <span>{t('growth', { size: growth(b) })}</span>
+              </div>
+            )}
+          />
           <Table
             label={t('by_kind')}
             columns={kindColumns}

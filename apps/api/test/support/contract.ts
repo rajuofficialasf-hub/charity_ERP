@@ -26,7 +26,7 @@ interface Operation {
   template: string;
   matcher: RegExp;
   params: number;
-  responses: Record<string, { pointer: string; json: boolean } | null>;
+  responses: Record<string, { pointer: string; json: boolean; others: string[] } | null>;
 }
 
 export interface ContractRecord {
@@ -89,6 +89,8 @@ function loadContract() {
           : `/paths/${pointerSegment(template)}/${method}/responses/${status}`;
         responses[status] = {
           json: Boolean(content?.['application/json']),
+          // the other types the answer may come as instead (a CSV download of a list)
+          others: Object.keys(content ?? {}).filter((type) => type !== 'application/json'),
           pointer: `#${base}/content/application~1json/schema`,
         };
       }
@@ -131,9 +133,10 @@ class ContractRecorder {
 
   /**
    * Records one response of the API: `path` is the request path without the API prefix, `body`
-   * the JSON sent, or undefined when the answer had no JSON body (a 204, a streamed file).
+   * the JSON sent, or undefined when the answer had no JSON body (a 204, a streamed file), and
+   * `contentType` the type the answer was sent as.
    */
-  record(method: string, path: string, status: number, body: unknown): void {
+  record(method: string, path: string, status: number, body: unknown, contentType = ''): void {
     const { operations, validatorFor } = loaded();
     const m = method.toLowerCase();
     const op = operations.find((o) => o.method === m && o.matcher.test(path));
@@ -148,6 +151,8 @@ class ContractRecorder {
     let pointer: string;
     if (declared) {
       if (!declared.json) return;
+      // an answer in another declared type than JSON (the CSV of a list) has no JSON to check
+      if (body === undefined && declared.others.includes(contentType.split(';')[0]!.trim())) return;
       if (body === undefined) {
         this.problems.push({
           ...entry,
@@ -242,7 +247,13 @@ class ContractRecorder {
       res.on('finish', () => {
         if (recorded) return;
         recorded = true;
-        this.record(req.method, path, res.statusCode, undefined);
+        this.record(
+          req.method,
+          path,
+          res.statusCode,
+          undefined,
+          String(res.getHeader('Content-Type') ?? ''),
+        );
       });
       next();
     });

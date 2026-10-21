@@ -2,7 +2,7 @@
 
 Status: complete, task T0.16 (2026-10-10); implemented in T1.2 (2026-10-11) as `apps/api/prisma/schema.prisma` and the initial migration `apps/api/prisma/migrations/20261011000000_init/` with a hand-written `down.sql` (ADR-003); seeds follow in T1.3. This dictionary is the physical form of `docs/database/ERD.md` (95 tables: the 90 entities of T0.15, `id_sequences`, and the four added in Phase 1: `project_rules_versions`, `project_consents`, `registration_drafts`, `account_invitations`); every table, column, constraint and index here must appear in the migrations, and a change here is a change there in the same commit (PROJECT_RULES §5). JSON Schemas for JSONB columns: `docs/database/json-schemas/`. The proposals of the first draft were accepted by the owner on 2026-10-10 (O-38, O-39); where the text says PROPOSAL the value is decided as listed in section 24.
 
-Note on human ids: the T0.16 prompt mentions "BEN-" ids "per DECISION_LOG". DECISION_LOG O-03 decided that the BEN-ID **is** the beneficiary's UUID v7; there is no `BEN-` sequence. Only applications carry a human id. This dictionary follows O-03.
+Note on human ids: the T0.16 prompt mentions "BEN-" ids "per DECISION_LOG". DECISION_LOG O-03 decided that the BEN-ID **is** the beneficiary's UUID v7. Since T2.2 (D-112) every profile also has a short sequential number `ben_no`, shown as `BEN-0000123`, from the sequence `beneficiaries_ben_no_seq`; the UUID stays the key and the merge pointer. Applications carry their own human id.
 
 ## 1. Scope and how to read it
 
@@ -645,6 +645,7 @@ Constraints: UNIQUE (form_field_id, code).
 | Column | Type | Null | Default | Comment |
 |---|---|---|---|---|
 | id | uuid | no | — | PK; the BEN-ID (O-03) |
+| ben_no | integer | no | nextval(`beneficiaries_ben_no_seq`) | the short BEN number, shown as `BEN-` and 7 digits (D-112); UNIQUE, CHECK > 0, never changed (trigger `beneficiaries_keep_ben_no`); existing rows numbered in `created_at, id` order |
 | nid | text | yes | — | CHECK `^([0-9]{10}|[0-9]{13}|[0-9]{17})$` (BR-002) |
 | birth_reg | text | yes | — | CHECK `^[0-9]{17}$` |
 | name | text | no | — | locked after creation (BR-006) |
@@ -677,7 +678,7 @@ Constraints: UNIQUE (form_field_id, code).
 | merged_into_id | uuid | yes | — | FK beneficiaries; retired profiles point to the kept one |
 | [A] | | | | |
 
-Constraints: CHECK nid IS NOT NULL OR birth_reg IS NOT NULL (BR-001); UNIQUE (nid) WHERE nid IS NOT NULL; UNIQUE (birth_reg) WHERE birth_reg IS NOT NULL (BR-003); CHECK merged_into_id <> id. Indexes: (mobile); GIN trigram on name and father_or_husband_name (pg_trgm, PROPOSAL); (union_id, village); (district_id); (status) WHERE merged_into_id IS NULL; (id) WHERE merged_into_id IS NULL and (id) WHERE is_blocked AND merged_into_id IS NULL (the counts and the blocklist filter of the beneficiary tab, T1.10; docs/testing/PERFORMANCE.md).
+Constraints: CHECK nid IS NOT NULL OR birth_reg IS NOT NULL (BR-001); UNIQUE (nid) WHERE nid IS NOT NULL; UNIQUE (birth_reg) WHERE birth_reg IS NOT NULL (BR-003); CHECK merged_into_id <> id. Indexes: (mobile); GIN trigram on name and father_or_husband_name (pg_trgm, PROPOSAL); (union_id, village); (district_id); (status) WHERE merged_into_id IS NULL; (id) WHERE merged_into_id IS NULL and (id) WHERE is_blocked AND merged_into_id IS NULL (the counts and the blocklist filter of the beneficiary tab, T1.10; docs/testing/PERFORMANCE.md). The duplicate suggestions (T2.2, D-113) read `beneficiaries_dup_name_father_mobile_idx` on (person_name_key(name), person_name_key(father_or_husband_name), mobile) and `beneficiaries_dup_name_dob_union_idx` on (person_name_key(name), dob, union_id), both WHERE merged_into_id IS NULL (the second also needs a dob); `person_name_key(text)` is an immutable SQL function (trimmed, inner spaces collapsed, lower case) that the queries use too, so a query and its index agree.
 
 ### beneficiary_family_members
 | Column | Type | Null | Default | Comment |
@@ -707,14 +708,14 @@ Index: (beneficiary_id) WHERE active.
 | reason | text | no | — | — |
 | proposed_by | uuid | no | — | FK users |
 | proposed_at | timestamptz | no | now() | — |
-| snapshot | jsonb | yes | — | both profiles before merge (for revert); set when merged |
+| snapshot | jsonb | yes | — | set when merged: the ids of every row moved to the kept profile, per table, the applications left on the retired profile, and the blocklist rows moved or released (ids only, never a reason); the revert moves exactly these back (D-113) |
 | merged_by | uuid | yes | — | FK users |
 | merged_at | timestamptz | yes | — | — |
 | reverted_by | uuid | yes | — | FK users |
 | reverted_at | timestamptz | yes | — | — |
 | [A] | | | | |
 
-Constraints: CHECK kept_id <> merged_id; CHECK (status NOT IN ('merged', 'reverted') OR merged_at IS NOT NULL); CHECK (status <> 'reverted' OR reverted_at IS NOT NULL); partial UNIQUE (merged_id) WHERE status = 'merged'. A proposal (status proposed) is created by an RPM with `beneficiary.merge.propose`; PM, Monitoring Team or Department Head merge it with `beneficiary.merge` (BD-05); the Monitoring Team reverts (T0.22 gate correction, matches openapi.yaml).
+Constraints: CHECK kept_id <> merged_id; CHECK (status NOT IN ('merged', 'reverted') OR merged_at IS NOT NULL); CHECK (status <> 'reverted' OR reverted_at IS NOT NULL); partial UNIQUE (merged_id) WHERE status = 'merged'. A proposal (status proposed) is created by an RPM with `beneficiary.merge.propose`; PM, Monitoring Team or Department Head merge it with `beneficiary.merge` (BD-05), or merge without a proposal (proposed_by = merged_by); the Monitoring Team or the Department Head reverts (`beneficiary.merge.revert`, D-113), and only while the kept profile is live.
 
 ### profile_correction_requests
 | Column | Type | Null | Default | Comment |
@@ -725,12 +726,34 @@ Constraints: CHECK kept_id <> merged_id; CHECK (status NOT IN ('merged', 'revert
 | old_value, new_value | text | no | — | — |
 | reason | text | no | — | — |
 | requested_by | uuid | no | — | FK users |
-| status | text | no | 'submitted' | L-request-status |
-| decided_by | uuid | yes | — | FK users |
+| status | text | no | 'submitted' | L-request-status; the correction flow writes `submitted`, `approved` and `rejected` only (`open` and `closed` are allowed by the CHECK and unused); a merge rejects the submitted requests of the retired profile with a merge reason |
+| decided_by | uuid | yes | — | FK users; never the requester (D-115) |
 | decided_at | timestamptz | yes | — | — |
 | [A] | | | | |
 
 Indexes: (beneficiary_id); (status).
+
+### beneficiary_merge_dismissals
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK |
+| low_id, high_id | uuid | no | — | FK beneficiaries; the pair in one order, CHECK low_id < high_id |
+| reason | text | no | — | why the two are different people; CHECK 3 to 1,000 characters |
+| dismissed_by | uuid | no | — | FK users |
+| dismissed_at | timestamptz | no | now() | — |
+| lifted_by, lifted_at, lift_reason | uuid, timestamptz, text | yes | — | set together when the mark is lifted (CHECK); the row stays |
+
+A suggested duplicate pair an official marked as not the same person (T2.2, D-113, `beneficiary.merge.dismiss`); the pair leaves the suggestions while the mark is active. Partial UNIQUE (low_id, high_id) WHERE lifted_at IS NULL; indexes (high_id), (dismissed_by), (lifted_by); no DELETE or TRUNCATE (D-060).
+
+### beneficiary_merge_candidates
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| low_id, high_id | uuid | no | — | PK (low_id, high_id); FK beneficiaries; CHECK low_id < high_id |
+| rules | text[] | no | — | at least one of name_dob_union, name_father_mobile, same_mobile |
+| active | boolean | no | true | false once the pair no longer holds |
+| computed_at | timestamptz | no | now() | — |
+
+The suggested duplicate pairs, kept instead of computed per request (T2.2, D-117): the write that changes a profile recomputes its own pairs, and the nightly job on the `duplicates` queue recomputes all of them and marks the pairs it did not find again as inactive. Derived data: rows are updated, never deleted, and the down migration drops the table (the job rebuilds it). Indexes (high_id) and (low_id, high_id) WHERE active.
 
 ### media_consents
 | Column | Type | Null | Default | Comment |
@@ -1518,12 +1541,16 @@ Constraints: UNIQUE (file_id, entity_type, entity_id, slot); partial UNIQUE (cli
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
 | user_id | uuid | no | — | FK users |
-| declared | jsonb | no | — | kind, entity, slot, mime, size, sha256, capture metadata |
-| multipart_upload_id | text | no | — | MinIO id |
-| parts_acknowledged | integer | no | 0 | — |
-| expires_at | timestamptz | no | — | +1 hour |
+| declared | jsonb | no | — | kind, record, slot, mime, size, sha256, capture metadata, source |
+| client_uuid | uuid | no | — | unique with user_id: a resent create answers the same session (D-108) |
+| bucket | text | no | — | the target bucket; CHECK documents, photos, vouchers, profiles, media |
+| object_key | text | no | — | the target key (FILES_AND_DOCUMENTS 8) |
+| part_count | integer | no | — | the 256 KB parts the declared size needs; CHECK 1–80 |
+| parts_received | integer[] | no | '{}' | the parts stored in the bucket `uploads` |
+| bytes_received | bigint | no | 0 | never more than the declared size |
+| expires_at | timestamptz | no | — | one hour after the last part |
 | finalized_file_id | uuid | yes | — | FK files |
-| [L] | | | | expired unfinalized rows deleted by a job |
+| [L] | | | | status log: an update may change parts_received, bytes_received, expires_at, finalized_file_id; expired unfinalized rows deleted by the nightly sweep (index on expires_at of the open ones) |
 
 ### notifications
 | Column | Type | Null | Default | Comment |
@@ -1741,7 +1768,7 @@ Machine-readable schemas live in `docs/database/json-schemas/` (JSON Schema 2020
 - Nothing of business value is hard-deleted (constitution §2, BR-207). The application database role has **no DELETE privilege** on business tables, with one exception: three kinds of project setup rows, `fund_sources`, `project_areas` and `dawah_syllabus_topics`, which the project setup removes only while nothing refers to them (the foreign keys refuse a used row) and audits with their before state (DECISION_LOG D-106).
 - Allowed "deleted" states: `applications.status = 'deleted'` with `deleted_at` (only drafts and pending applications, by the owner or an official with the permission; BR-091); `files.deleted_at` only for `kind = 'export'` (regenerable).
 - Ending instead of deleting: `revoked_at` (roles, permissions, sessions, push subscriptions), `ended_at` (project staff and volunteer assignments), `removed_at` (team members), `released_at` (blocklist), `active = false` (locations, reference lists, templates, programs), `deactivated_at` (users), `reverted_at` (merges).
-- Technical rows the system may delete: expired `otp_codes`, expired unfinalized `upload_sessions`, export files after 30 days (O-30), expired unsubmitted `registration_drafts` with their photo `files` rows (D-082). These deletions are performed by jobs running under a dedicated role with DELETE only on those tables; the drafts and their photos only through the `SECURITY DEFINER` function `purge_expired_registration_drafts`, so the role has no DELETE on `files`.
+- Technical rows the system may delete: expired `otp_codes`, expired unfinalized `upload_sessions`, export files after 30 days (O-30), expired unsubmitted `registration_drafts` with their photo `files` rows (D-082). These deletions are performed by jobs running under a dedicated role with DELETE only on those tables; the drafts and their photos only through the `SECURITY DEFINER` function `purge_expired_registration_drafts`, so the role has no DELETE on `files`; the expired unfinalized upload sessions through `purge_expired_upload_sessions(limit)`, which returns their ids so the nightly sweep removes the stored parts.
 
 ## 22. Retention, partitioning and archiving
 
@@ -1758,7 +1785,7 @@ Machine-readable schemas live in `docs/database/json-schemas/` (JSON Schema 2020
 |---|---|---|
 | css_migrate | owner of the schema; DDL | one-shot migration container (ADR-003) |
 | css_app | SELECT, INSERT, UPDATE on business tables; EXECUTE on discard_registration_photo (a replaced draft or change-request photo, D-082, D-087); INSERT only on append-only logs (audit_log, field_changes, budget_ledger, document_events, application_transfers, stock_movements); DELETE only on `fund_sources`, `project_areas` and `dawah_syllabus_topics` (D-106); no DDL | api and worker |
-| css_jobs_cleanup | DELETE on otp_codes, upload_sessions; UPDATE on files (exports); EXECUTE on purge_expired_registration_drafts | worker cleanup jobs only |
+| css_jobs_cleanup | DELETE on otp_codes, upload_sessions; UPDATE on files (exports); EXECUTE on purge_expired_registration_drafts, purge_expired_upload_sessions | worker cleanup jobs only |
 | css_readonly | SELECT on reporting views without sensitive columns | optional reporting, IT diagnostics |
 | css_backup | replication / pg_dump | backup tooling (O-06) |
 

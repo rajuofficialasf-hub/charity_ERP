@@ -1,6 +1,6 @@
 import { formatDate } from '@css/shared/format';
 import { Alert, Button, DateField, Modal, TextArea } from '@css/ui';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../lib/api';
 
@@ -15,6 +15,7 @@ export function ReasonDialog({
   date,
   pending,
   error,
+  errorDetails,
   onConfirm,
   onClose,
 }: {
@@ -25,6 +26,8 @@ export function ReasonDialog({
   date?: { current: string | null };
   pending: boolean;
   error: unknown;
+  /** What the error names beyond its message (the projects of a merge conflict). */
+  errorDetails?: ReactNode;
   onConfirm: (input: { reason: string; newApplyTo?: string }) => void;
   onClose: () => void;
 }) {
@@ -62,6 +65,7 @@ export function ReasonDialog({
       {error instanceof ApiFailure && (
         <Alert tone="danger" live="alert">
           {error.message}
+          {errorDetails}
         </Alert>
       )}
       {date && (

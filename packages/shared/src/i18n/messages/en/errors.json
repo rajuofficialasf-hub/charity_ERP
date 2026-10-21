@@ -58,7 +58,18 @@
     "mobile_is_volunteer_mobile": "The volunteer's own mobile number cannot be used as the beneficiary's number.",
     "blocked": "This beneficiary cannot make a new application.",
     "already_applied": "This beneficiary already has an application in this project.",
-    "locked_field": "This information can be changed only through a correction request."
+    "locked_field": "This information can be changed only through a correction request.",
+    "identity_taken": "Another profile already has this number. If it is the same person, propose a merge.",
+    "correction_own": "Another official must decide on your own correction request.",
+    "correction_pending": "A correction request for this field is already waiting for a decision.",
+    "correction_stale": "The value changed after the request was made. Make a new request.",
+    "merge_conflict": "These profiles cannot be merged yet. First resolve the items listed.",
+    "merge_revert_order": "The kept profile was merged again later. Revert that merge first.",
+    "merge_stale": "One of these profiles has already been merged. This proposal can no longer be carried out.",
+    "mobile_shared": "This mobile number is also on another beneficiary profile.",
+    "dismissed": "This pair is already marked as two different people.",
+    "lookup_outside_limit": "Today's limit for finding profiles of other regions is used up. Try again tomorrow, or ask your RPM.",
+    "merge_needs_global": "Applications of another program are involved, so the Monitoring Team or the Department Head carries out this merge."
   },
   "payment": {
     "transaction_id_exists": "This transaction id has already been used.",
@@ -121,7 +132,13 @@
     "duplicate": "The same file already exists in this project.",
     "quarantined": "The file is being checked; it can be viewed when the check is done.",
     "infected": "The file was blocked by the security check.",
-    "session_expired": "The upload has expired. Upload again."
+    "session_expired": "The upload has expired. Upload again.",
+    "kind_not_allowed": "This kind of file cannot be added to this record.",
+    "part_out_of_range": "This part lies outside the declared file size.",
+    "checksum_mismatch": "The file did not arrive whole or has changed. Upload it again.",
+    "parts_missing": "Not every part of the file has arrived yet.",
+    "sessions_limit": "Too many uploads are open at once. Try again when the earlier ones finish.",
+    "session_mismatch": "This upload was already started for a different file. Start it again."
   },
   "rate_limit": {
     "exceeded": "Too many requests. Try again shortly."
