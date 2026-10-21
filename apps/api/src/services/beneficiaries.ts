@@ -235,6 +235,7 @@ export class BeneficiariesService {
         )
       : null;
     const seesNid = !!nidScope && (await this.access.reaches(nidScope, { beneficiaryId: b.id }));
+    const history = await this.history(viewer, access, b.id, seesNid);
     const years = new Map<number, { year: number; projects: Map<string, ProjectOfYear> }>();
     for (const a of applications) {
       const year = years.get(a.project.year) ?? { year: a.project.year, projects: new Map() };
@@ -252,6 +253,8 @@ export class BeneficiariesService {
       benNo: b.benNo,
       /** The version of the profile for the ETag; not part of the answer's data. */
       updatedAt: b.updatedAt,
+      mergedInto: b.mergedInto,
+      ...history,
       name: b.name,
       fatherOrHusbandName: b.fatherOrHusbandName,
       motherName: b.motherName,
@@ -341,6 +344,129 @@ export class BeneficiariesService {
     };
   }
 
+  /**
+   * The history sections of the 360° profile and what the caller may do: the contact changes, the
+   * correction requests (to those who request or decide them; identity values only inside the NID
+   * scope), the block history (the route masks it to officials), the merges, the files (an NID photo
+   * only inside the NID scope) and the action flags, each true only where the action's own
+   * permission and scope reach the person.
+   */
+  private async history(
+    viewer: BeneficiaryViewer,
+    access: Awaited<ReturnType<AccessService['load']>>,
+    id: string,
+    seesNid: boolean,
+  ) {
+    const sees = (cls: string) => viewer.fieldClasses.has(cls);
+    const entity = 'beneficiary' as const;
+    const actions = await this.access.allowedOn(
+      viewer.principal,
+      access,
+      {
+        block: { permission: 'beneficiary.block', entity },
+        unblock: { permission: 'beneficiary.unblock', entity },
+        editContact: { permission: 'beneficiary.contact.edit', entity },
+        requestCorrection: { permission: 'beneficiary.correction.request', entity },
+        decideCorrection: { permission: 'beneficiary.correction.approve', entity },
+        proposeMerge: { permission: 'beneficiary.merge.propose', entity },
+        merge: { permission: 'beneficiary.merge', entity },
+        revertMerge: { permission: 'beneficiary.merge.revert', entity },
+      },
+      { beneficiaryId: id },
+    );
+    const latest = { take: SECTION_ROWS };
+    const identity = (field: string) => field === 'nid' || field === 'birth_reg';
+    const text = (value: unknown) => (value === null || value === undefined ? null : String(value));
+    const [contactLog, corrections, blocks, merges, files] = await Promise.all([
+      sees(CONTACT)
+        ? this.prisma.fieldChange.findMany({
+            where: { entityType: 'beneficiary', entityId: id, kind: 'contact_update' },
+            orderBy: { createdAt: 'desc' },
+            ...latest,
+          })
+        : [],
+      actions.requestCorrection || actions.decideCorrection
+        ? this.prisma.profileCorrectionRequest.findMany({
+            where: { beneficiaryId: id },
+            orderBy: { createdAt: 'desc' },
+            ...latest,
+          })
+        : [],
+      sees('blocklist.reason')
+        ? this.prisma.blocklist.findMany({
+            where: { subjectType: 'beneficiary', subjectId: id },
+            orderBy: { blockedAt: 'desc' },
+            ...latest,
+          })
+        : [],
+      this.prisma.profileMerge.findMany({
+        where: { OR: [{ keptId: id }, { mergedId: id }], status: { not: 'proposed' } },
+        orderBy: { proposedAt: 'desc' },
+        ...latest,
+        include: {
+          kept: { select: { benNo: true } },
+          merged: { select: { benNo: true } },
+        },
+      }),
+      sees(DETAIL)
+        ? this.prisma.fileLink.findMany({
+            where: { entityType: 'beneficiary', entityId: id },
+            orderBy: { createdAt: 'desc' },
+            ...latest,
+            select: { fileId: true, slot: true, file: { select: { kind: true } } },
+          })
+        : [],
+    ]);
+    return {
+      actions,
+      contactLog: contactLog.map((c) => ({
+        field: c.field,
+        oldValue: text(c.oldValue),
+        newValue: text(c.newValue),
+        by: c.createdBy,
+        at: c.createdAt.toISOString(),
+      })),
+      corrections: corrections.map((c) => ({
+        id: c.id,
+        beneficiaryId: c.beneficiaryId,
+        field: c.field,
+        oldValue: identity(c.field) && !seesNid ? null : c.oldValue,
+        newValue: identity(c.field) && !seesNid ? null : c.newValue,
+        reason: c.reason,
+        status: c.status,
+        requestedBy: c.requestedBy,
+        requestedAt: c.createdAt.toISOString(),
+        decidedBy: c.decidedBy,
+        decidedAt: c.decidedAt ? c.decidedAt.toISOString() : null,
+      })),
+      blocks: blocks.map((b) => ({
+        id: b.id,
+        reason: b.reason,
+        active: b.active,
+        blockedAt: b.blockedAt.toISOString(),
+        releasedAt: b.releasedAt ? b.releasedAt.toISOString() : null,
+        releaseReason: b.releaseReason,
+      })),
+      merges: merges.map((m) => {
+        const kept = m.keptId === id;
+        const snapshot = m.snapshot as { leftBehind?: unknown[] } | null;
+        return {
+          id: m.id,
+          role: kept ? ('kept' as const) : ('merged' as const),
+          otherId: kept ? m.mergedId : m.keptId,
+          otherBenNo: kept ? m.merged.benNo : m.kept.benNo,
+          status: m.status,
+          mergedAt: m.mergedAt ? m.mergedAt.toISOString() : null,
+          revertedAt: m.revertedAt ? m.revertedAt.toISOString() : null,
+          leftBehind: Array.isArray(snapshot?.leftBehind) ? snapshot.leftBehind.length : 0,
+        };
+      }),
+      files: files
+        .filter((f) => seesNid || f.file.kind !== 'nid_photo')
+        .map((f) => ({ fileId: f.fileId, slot: f.slot, kind: f.file.kind })),
+    };
+  }
+
   /** The profile's reads, inside one time-limited transaction. */
   private async read(
     tx: Tx,
@@ -355,12 +481,13 @@ export class BeneficiariesService {
     const latest = { orderBy: { createdAt: 'desc' as const }, take: SECTION_ROWS };
     const projectRows = inProjects.project ? { OR: [{ projectId: null }, inProjects] } : {};
     const b = await tx.beneficiary.findFirst({
-      // a profile merged into another one is read through the kept profile
-      where: { AND: [{ id: beneficiaryId, mergedIntoId: null }, beneficiaryWhere(viewer.scope)] },
+      // a retired profile answers too, with the kept profile it leads to
+      where: { AND: [{ id: beneficiaryId }, beneficiaryWhere(viewer.scope)] },
       select: {
         id: true,
         benNo: true,
         updatedAt: true,
+        mergedInto: { select: { id: true, benNo: true } },
         nid: sees('beneficiary.nid'),
         birthReg: sees('beneficiary.nid'),
         name: true,

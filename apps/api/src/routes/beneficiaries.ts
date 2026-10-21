@@ -62,9 +62,73 @@ const beneficiaryStatistics = z.object({
   blocked: care(count()),
 });
 
+const at = () => z.iso.datetime({ offset: true });
 const beneficiaryProfile = z.object({
   id: z.uuid(),
   benNo: benNo(),
+  mergedInto: z.object({ id: z.uuid(), benNo: benNo() }).nullable(),
+  actions: z.object({
+    block: z.boolean(),
+    unblock: z.boolean(),
+    editContact: z.boolean(),
+    requestCorrection: z.boolean(),
+    decideCorrection: z.boolean(),
+    proposeMerge: z.boolean(),
+    merge: z.boolean(),
+    revertMerge: z.boolean(),
+  }),
+  contactLog: contact(
+    z.array(
+      z.object({
+        field: z.string(),
+        oldValue: z.string().nullable(),
+        newValue: z.string().nullable(),
+        by: z.uuid().nullable(),
+        at: at(),
+      }),
+    ),
+  ),
+  corrections: z.array(
+    z.object({
+      id: z.uuid(),
+      beneficiaryId: z.uuid(),
+      field: z.enum(LOCKED_FIELDS),
+      oldValue: z.string().nullable(),
+      newValue: z.string().nullable(),
+      reason: z.string(),
+      status: z.enum(['submitted', 'approved', 'rejected']),
+      requestedBy: z.uuid(),
+      requestedAt: at(),
+      decidedBy: z.uuid().nullable(),
+      decidedAt: at().nullable(),
+    }),
+  ),
+  blocks: sensitive(
+    z.array(
+      z.object({
+        id: z.uuid(),
+        reason: z.string(),
+        active: z.boolean(),
+        blockedAt: at(),
+        releasedAt: at().nullable(),
+        releaseReason: z.string().nullable(),
+      }),
+    ),
+    'blocklist.reason',
+  ),
+  merges: z.array(
+    z.object({
+      id: z.uuid(),
+      role: z.enum(['kept', 'merged']),
+      otherId: z.uuid(),
+      otherBenNo: benNo(),
+      status: z.enum(['merged', 'reverted']),
+      mergedAt: at().nullable(),
+      revertedAt: at().nullable(),
+      leftBehind: z.number().int().min(0),
+    }),
+  ),
+  files: detail(z.array(z.object({ fileId: z.uuid(), slot: z.string(), kind: z.string() }))),
   name: z.string(),
   fatherOrHusbandName: detail(z.string()),
   motherName: detail(z.string().nullable()),
@@ -495,6 +559,7 @@ export function beneficiariesRouter(
       ...tabOp.sensitiveFields,
       'beneficiary.application_history',
       'beneficiary.nid',
+      'blocklist.reason',
     ],
     params: { beneficiaryId: z.uuid() },
     responses: {

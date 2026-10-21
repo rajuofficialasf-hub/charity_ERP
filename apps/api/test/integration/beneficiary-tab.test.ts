@@ -247,7 +247,14 @@ describe('the 360° profile', () => {
       followUps: { calls: [], evaluations: [] },
       activities: [],
       familyMembers: [],
+      mergedInto: null,
+      contactLog: [],
+      corrections: [],
+      blocks: [],
+      merges: [],
+      files: [],
     });
+    expect(res.body.data.benNo).toEqual(expect.any(Number));
   });
 
   it('lists the projects by year and the application history', async () => {
@@ -340,12 +347,94 @@ describe('the 360° profile', () => {
     expect(data.activities).toHaveLength(20);
   });
 
-  it('answers 404 for a profile merged into another one', async () => {
+  it('answers a profile merged into another one with the kept profile it leads to', async () => {
     const kept = await person(world.dhaka);
     const merged = await person(world.dhaka, { merged_into_id: kept });
     const head = await as(world.users.head);
-    expect((await profile(head, merged)).status).toBe(404);
-    expect((await profile(head, kept)).status).toBe(200);
+    const res = await profile(head, merged);
+    expect(res.status).toBe(200);
+    const keptBen = (await h.db.query('SELECT ben_no FROM beneficiaries WHERE id = $1', [kept]))
+      .rows[0].ben_no as number;
+    expect(res.body.data.mergedInto).toEqual({ id: kept, benNo: keptBen });
+  });
+
+  it('shows the contact changes, the corrections and the merges of the person', async () => {
+    const someone = await person(world.dhaka, { mobile: '01822000001' });
+    const twin = await person(world.dhaka);
+    const head = await as(world.users.head);
+    const tag = (await profile(head, someone)).headers.etag as string;
+    await api()
+      .patch(`/api/v1/beneficiaries/${someone}/contact`)
+      .set(bearer(head))
+      .set('If-Match', tag)
+      .send({ mobile: '01822000002' })
+      .expect(200);
+    await api()
+      .post(`/api/v1/beneficiaries/${someone}/correction-requests`)
+      .set(bearer(await as(world.users.rpmDhaka)))
+      .send({ field: 'name', newValue: 'সংশোধিত নাম', reason: 'বানানের ভুল' })
+      .expect(201);
+    await api()
+      .post('/api/v1/beneficiary-merges/direct')
+      .set(bearer(head))
+      .send({ keptId: someone, mergedId: twin, reason: 'একই মানুষ' })
+      .expect(201);
+    const data = (await profile(head, someone)).body.data;
+    expect(data.contactLog).toEqual([
+      expect.objectContaining({
+        field: 'mobile',
+        oldValue: '01822000001',
+        newValue: '01822000002',
+      }),
+    ]);
+    expect(data.corrections).toEqual([
+      expect.objectContaining({ field: 'name', newValue: 'সংশোধিত নাম', status: 'submitted' }),
+    ]);
+    expect(data.merges).toEqual([
+      expect.objectContaining({ role: 'kept', otherId: twin, status: 'merged' }),
+    ]);
+  });
+
+  it('shows the block history to a PM, never to the Media Team or the Procurement Team', async () => {
+    const someone = await person(world.dhaka);
+    await applyTo(house, world.dhaka, someone);
+    await applyTo(world.a1, world.dhaka, someone);
+    await api()
+      .post(`/api/v1/beneficiaries/${someone}/block`)
+      .set(bearer(await as(world.users.rpmDhaka)))
+      .send({ reason: 'গোপন ব্লকের কারণ' })
+      .expect(201);
+    const pm = (await profile(await as(world.users.pm), someone)).body.data;
+    expect(pm.blocks).toEqual([
+      expect.objectContaining({ reason: 'গোপন ব্লকের কারণ', active: true }),
+    ]);
+    for (const s of [await staff('media_team'), procurement]) {
+      const res = await profile(s, someone);
+      expect(res.body.data).not.toHaveProperty('blocks');
+      expect(JSON.stringify(res.body)).not.toContain('গোপন ব্লকের কারণ');
+    }
+  });
+
+  it('says which actions the caller may take on the person', async () => {
+    const someone = await person(world.dhaka);
+    await applyTo(world.a1, world.dhaka, someone);
+    const actions = async (s: Session) => (await profile(s, someone)).body.data.actions;
+    expect(await actions(await as(world.users.rpmDhaka))).toMatchObject({
+      block: true,
+      editContact: true,
+      requestCorrection: true,
+      proposeMerge: true,
+      merge: false,
+      revertMerge: false,
+    });
+    expect(await actions(await as(world.users.pm))).toMatchObject({
+      merge: true,
+      decideCorrection: true,
+      revertMerge: false,
+    });
+    expect(await actions(await as(world.users.monitoring))).toMatchObject({ revertMerge: true });
+    const media = await actions(await staff('media_team'));
+    expect(Object.values(media).every((v) => v === false)).toBe(true);
   });
 
   it('answers 404 for an unknown id and 422 for a bad one', async () => {

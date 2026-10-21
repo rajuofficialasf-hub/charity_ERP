@@ -1824,10 +1824,81 @@ components:
     Beneficiary:
       type: object
       description: The 360° profile shell (SCR-045, O-67, D-094); each section an empty array when nothing exists
-      required: [id, benNo, name, status, divisionId, districtId, upazilaId, projectsByYear, distributions]
+      required: [id, benNo, name, status, divisionId, districtId, upazilaId, projectsByYear, distributions, mergedInto, actions, corrections, merges]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         benNo: { $ref: '#/components/schemas/BenNo' }
+        mergedInto:
+          description: The kept profile a retired one leads to (D-113); null for a live profile
+          type: [object, 'null']
+          properties:
+            id: { $ref: '#/components/schemas/Uuid' }
+            benNo: { $ref: '#/components/schemas/BenNo' }
+        actions:
+          type: object
+          description: What the caller may do to this person; each true only where the action's own permission and scope reach the person (the routes check again)
+          properties:
+            block: { type: boolean }
+            unblock: { type: boolean }
+            editContact: { type: boolean }
+            requestCorrection: { type: boolean }
+            decideCorrection: { type: boolean }
+            proposeMerge: { type: boolean }
+            merge: { type: boolean }
+            revertMerge: { type: boolean }
+        contactLog:
+          type: array
+          x-sensitive-class: beneficiary.contact
+          description: The latest mobile and address changes (old and new value, who, when)
+          items:
+            type: object
+            properties:
+              field: { type: string }
+              oldValue: { type: [string, 'null'] }
+              newValue: { type: [string, 'null'] }
+              by: { type: [string, 'null'], format: uuid }
+              at: { type: string, format: date-time }
+        corrections:
+          type: array
+          description: Correction requests, to callers who request or decide them; identity values null outside the NID scope
+          items: { $ref: '#/components/schemas/CorrectionRequest' }
+        blocks:
+          type: array
+          x-sensitive-class: blocklist.reason
+          description: The block history with reasons, for officials only (BR-015)
+          items:
+            type: object
+            properties:
+              id: { $ref: '#/components/schemas/Uuid' }
+              reason: { type: string }
+              active: { type: boolean }
+              blockedAt: { type: string, format: date-time }
+              releasedAt: { type: [string, 'null'], format: date-time }
+              releaseReason: { type: [string, 'null'] }
+        merges:
+          type: array
+          description: The merges this profile took part in, as the kept or the retired one
+          items:
+            type: object
+            properties:
+              id: { $ref: '#/components/schemas/Uuid' }
+              role: { type: string, enum: [kept, merged] }
+              otherId: { $ref: '#/components/schemas/Uuid' }
+              otherBenNo: { $ref: '#/components/schemas/BenNo' }
+              status: { type: string, enum: [merged, reverted] }
+              mergedAt: { type: [string, 'null'], format: date-time }
+              revertedAt: { type: [string, 'null'], format: date-time }
+              leftBehind: { type: integer, minimum: 0 }
+        files:
+          type: array
+          x-sensitive-class: beneficiary.profile_detail
+          description: The files linked to the person (an NID photo only inside the NID scope)
+          items:
+            type: object
+            properties:
+              fileId: { $ref: '#/components/schemas/Uuid' }
+              slot: { type: string }
+              kind: { type: string }
         name: { type: string }
         fatherOrHusbandName: { type: string, x-sensitive-class: beneficiary.profile_detail }
         motherName: { type: [string, 'null'], x-sensitive-class: beneficiary.profile_detail }
@@ -5518,7 +5589,7 @@ paths:
       x-audit: none
       x-idempotency: none
       x-rate-limit: list
-      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care, beneficiary.profile_detail, beneficiary.application_history, beneficiary.nid]
+      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care, beneficiary.profile_detail, beneficiary.application_history, beneficiary.nid, blocklist.reason]
       responses:
         '200':
           description: Profile
