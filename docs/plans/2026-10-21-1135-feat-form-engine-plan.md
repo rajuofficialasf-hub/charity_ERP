@@ -102,7 +102,7 @@ Plan IDs (R, U, BD, BR, O, D, M and the standards rule IDs) stay in this plan. C
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** migration
-- **Status:** todo
+- **Status:** done
 
 ### U2. The shared engine: definition, evaluator, validator, split
 - **Goal:** one pure module answers what shows, what is required, what the calculated fields hold, whether answers are valid, and which answers belong to the profile.
@@ -233,8 +233,8 @@ Plan IDs (R, U, BD, BR, O, D, M and the standards rule IDs) stay in this plan. C
 
 ## Progress
 - **Branch:** `feat/form-engine`
-- **Updated:** 2026-10-21 13:45
-- **Next:** U1: the migration `form_version_rules` (one draft per form, the status trigger) and U2: the shared engine, built in parallel
+- **Updated:** 2026-10-21 14:10
+- **Next:** U2: the shared engine (a subagent builds it; verify and commit), then C1; U3 contract and permission groundwork meanwhile
 - **Uncommitted:** none
 - **Reviewed through:** none
-- **Notes:** the owner chose on 2026-10-21 that this work starts right after T2.2 merged, with no further questions; the T2.4 brainstorm (builder and renderer) was started and stopped by the owner and comes after this task.
+- **Notes:** U1: the version guard needs `published_by` with `published_at` on a publish, so every test that publishes by SQL sets both; `pnpm db:migrate` applies the migration and then stops at `jobs:install` (DATABASE_URL not read from `.env` by that script; known since T2.1). The owner chose on 2026-10-21 that this work starts right after T2.2 merged, with no further questions; the T2.4 brainstorm (builder and renderer) was started and stopped by the owner and comes after this task.

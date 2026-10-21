@@ -567,7 +567,7 @@ Constraints: UNIQUE (project_id, key).
 | published_by | uuid | yes | — | FK users |
 | [A] | | | | |
 
-Constraints: UNIQUE (form_id, version_no); partial UNIQUE (form_id) WHERE status = 'published' (one current version). A trigger refuses changes to sections, fields and options of a non-draft version.
+Constraints: UNIQUE (form_id, version_no); partial UNIQUE (form_id) WHERE status = 'published' (one current version); partial UNIQUE (form_id) WHERE status = 'draft' (one open draft, T2.3). A trigger refuses changes to sections, fields and options of a non-draft version, and the trigger `guard_form_version_status` lets a version row move only draft → published (with `published_at` and `published_by`) → retired, nothing else changing on a non-draft row (T2.3, `20261021140000_form_version_rules`).
 
 ### form_sections
 | Column | Type | Null | Default | Comment |

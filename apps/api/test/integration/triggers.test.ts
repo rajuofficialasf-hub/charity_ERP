@@ -186,9 +186,10 @@ describe('other triggers', () => {
       title_en: 'Basic',
       sort_order: 1,
     });
+    // the version guard lets a draft publish only with its stamp
     await db.query(
-      `UPDATE form_versions SET status = 'published', published_at = now() WHERE id = $1`,
-      [p.formVersion],
+      `UPDATE form_versions SET status = 'published', published_at = now(), published_by = $2 WHERE id = $1`,
+      [p.formVersion, await f.user(db)],
     );
     await expectSqlError(
       db.query(`UPDATE form_sections SET title_en = 'Changed' WHERE id = $1`, [section]),
@@ -206,6 +207,59 @@ describe('other triggers', () => {
       }),
       SQLSTATE.checkViolation,
     );
+  });
+
+  it('keeps one open draft per form and lets a version only go draft → published → retired', async () => {
+    const p = await f.project(db);
+    const user = await f.user(db);
+    // a second draft of the same form is refused
+    await expectSqlError(
+      f.insert(db, 'form_versions', { id: randomUUID(), form_id: p.form, version_no: 2 }),
+      SQLSTATE.uniqueViolation,
+      /form_versions_one_draft_key/,
+    );
+    // a publish without its stamp, and a title change on a published row, are refused
+    await expectSqlError(
+      db.query(`UPDATE form_versions SET status = 'published' WHERE id = $1`, [p.formVersion]),
+      SQLSTATE.checkViolation,
+      /form_version_transition/,
+    );
+    await db.query(
+      `UPDATE form_versions SET status = 'published', published_at = now(), published_by = $2 WHERE id = $1`,
+      [p.formVersion, user],
+    );
+    await expectSqlError(
+      db.query(`UPDATE form_versions SET version_no = 7 WHERE id = $1`, [p.formVersion]),
+      SQLSTATE.checkViolation,
+      /form_version_transition/,
+    );
+    await expectSqlError(
+      db.query(`UPDATE form_versions SET status = 'draft' WHERE id = $1`, [p.formVersion]),
+      SQLSTATE.checkViolation,
+      /form_version_transition/,
+    );
+    // once published, a new draft may open; retiring passes and is final
+    const next = await f.insert(db, 'form_versions', {
+      id: randomUUID(),
+      form_id: p.form,
+      version_no: 2,
+    });
+    await db.query(`UPDATE form_versions SET status = 'retired' WHERE id = $1`, [p.formVersion]);
+    await expectSqlError(
+      db.query(`UPDATE form_versions SET status = 'published' WHERE id = $1`, [p.formVersion]),
+      SQLSTATE.checkViolation,
+      /form_version_transition/,
+    );
+    await expectSqlError(
+      db.query(`UPDATE form_versions SET status = 'retired' WHERE id = $1`, [next]),
+      SQLSTATE.checkViolation,
+      /form_version_transition/,
+    );
+    const rows = await db.query(
+      `SELECT status FROM form_versions WHERE form_id = $1 ORDER BY version_no`,
+      [p.form],
+    );
+    expect(rows.rows.map((r) => r.status)).toEqual(['retired', 'draft']);
   });
 
   it('BR-122 a verified voucher is locked', async () => {
