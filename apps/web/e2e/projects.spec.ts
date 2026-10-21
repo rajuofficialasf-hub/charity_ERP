@@ -1,5 +1,5 @@
 import { expect, type Page, test, type TestInfo } from '@playwright/test';
-import { mainMenu, openTab, rows as listRows, scan, signIn } from './support/admin';
+import { mainMenu, openTab, rows as listRows, scan, signIn, apiAs } from './support/admin';
 import {
   chooseIn,
   code,
@@ -36,6 +36,7 @@ async function move(page: Page, button: string, badge: string) {
 test.describe('programs and project setup', () => {
   test('a PM walks the setup wizard, activates, closes and reopens a project', async ({
     page,
+    request,
   }, info) => {
     test.skip(info.project.name !== 'desktop', 'one PM, one project');
     test.setTimeout(180_000);
@@ -43,6 +44,24 @@ test.describe('programs and project setup', () => {
     await signIn(page, PM);
     await openTab(page, TAB);
     await newDraft(page, code(), name);
+
+    // the application form comes from the library through the API until the builder screen exists
+    const projectId = /projects\/([0-9a-f-]{36})/.exec(page.url())?.[1];
+    expect(projectId).toBeTruthy();
+    const api = await apiAs(request, PM);
+    const made = await api.post(`/projects/${projectId}/forms`, {
+      key: 'default',
+      title: { bn: 'আবেদন', en: 'Application' },
+      source: { kind: 'template', templateKey: 'form_distribution' },
+    });
+    expect(made.ok(), await made.text()).toBe(true);
+    const versionId = ((await made.json()) as { data: { draftVersionId: string } }).data
+      .draftVersionId;
+    const version = await api.get(`/form-versions/${versionId}`);
+    const published = await api.post(`/form-versions/${versionId}/publish`, undefined, {
+      'If-Match': version.headers()['etag'] ?? '',
+    });
+    expect(published.ok(), await published.text()).toBe(true);
 
     // the photo rule in the distribution component's settings
     await page.getByRole('button', { name: 'বিতরণ ও ছবি-এর সেটিংস' }).click();

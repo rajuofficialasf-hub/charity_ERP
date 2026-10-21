@@ -7,12 +7,13 @@ import {
 } from '@css/shared/projects';
 import type { Tx } from '../core/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
+import { createFormFromDefinition, readDefinition } from './forms';
 import { storedRules, writeRulesVersion } from './project-rules';
 
 /**
  * The copied parts of a project (BD-10, BR-065; DECISION_LOG D-096): its workflow, components with
- * their settings, syllabus and rules texts, read for a template or a copy inside the caller's
- * transaction. Nothing else is read, so nothing else can travel.
+ * their settings, syllabus, rules texts and its published form, read for a template or a copy
+ * inside the caller's transaction. Nothing else is read, so nothing else can travel.
  */
 export async function projectDefinition(db: Tx, projectId: string): Promise<TemplateDefinition> {
   // a setup change of the source waits until its parts are read, so they belong together
@@ -30,8 +31,26 @@ export async function projectDefinition(db: Tx, projectId: string): Promise<Temp
         orderBy: { sortOrder: 'asc' },
         select: { titleBn: true, titleEn: true },
       },
+      formsProject: {
+        orderBy: { createdAt: 'asc' },
+        select: {
+          key: true,
+          titleBn: true,
+          titleEn: true,
+          formVersionsForm: { where: { status: 'published' }, select: { id: true } },
+        },
+      },
     },
   });
+  // the first form with a published version travels as version 1 of the copy
+  const published = project.formsProject.find((f) => f.formVersionsForm.length > 0);
+  const form = published
+    ? {
+        key: published.key,
+        title: { bn: published.titleBn, en: published.titleEn },
+        definition: await readDefinition(db, published.formVersionsForm[0]!.id, 'official'),
+      }
+    : null;
   const workflowKey = WORKFLOW_KEYS.find((k) => k === project.workflowDefinition.key);
   if (!workflowKey) throw new Error(`unknown workflow ${project.workflowDefinition.key}`);
   return definitionOf({
@@ -41,13 +60,15 @@ export async function projectDefinition(db: Tx, projectId: string): Promise<Temp
       title: { bn: t.titleBn, en: t.titleEn },
     })),
     rules: storedRules(project.rules),
+    form,
   });
 }
 
 /**
  * Applies a definition to a new draft: the components it names replace the starting ones (with
- * their settings), the syllabus is written in its order, and rules texts become version 1. The
- * draft is the caller's own new row; its activation checks everything else.
+ * their settings), the syllabus is written in its order, rules texts become version 1, and the
+ * form it carries becomes draft 1. The draft is the caller's own new row; its activation checks
+ * everything else.
  */
 export async function applyDefinition(
   tx: Tx,
@@ -79,4 +100,5 @@ export async function applyDefinition(
     return Boolean(text && (text.bn.trim() || text.en.trim()));
   });
   if (written) await writeRulesVersion(tx, projectId, definition.rules, 0, actor);
+  if (definition.form) await createFormFromDefinition(tx, projectId, definition.form, actor);
 }

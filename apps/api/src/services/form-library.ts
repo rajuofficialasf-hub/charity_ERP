@@ -150,17 +150,6 @@ export class FormLibraryService {
     return (await this.templates(db)).find((t) => t.key === key) ?? null;
   }
 
-  /** The library's field rows by key, for the library links of a new form. */
-  async fieldIds(db: Tx): Promise<Map<string, string>> {
-    const rows = await db.formLibraryField.findMany({ select: { id: true, key: true } });
-    return new Map(rows.map((r) => [r.key, r.id]));
-  }
-
-  async sectionIds(db: Tx): Promise<Map<string, string>> {
-    const rows = await db.formLibrarySection.findMany({ select: { id: true, key: true } });
-    return new Map(rows.map((r) => [r.key, r.id]));
-  }
-
   private sectionRows(db: Tx) {
     return db.formLibrarySection.findMany({
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],

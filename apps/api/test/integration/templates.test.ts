@@ -1,9 +1,11 @@
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SeedContext } from '../../seed/context';
+import { seedFormTemplates } from '../../seed/sets/base/forms';
 import { seedReferenceLists } from '../../seed/sets/base/reference-lists';
 import { seedWorkflows } from '../../seed/sets/base/workflows';
 import { accessWorld } from './support/access-fixtures';
+import { publishedForm } from './support/forms';
 import {
   type Account,
   account,
@@ -43,6 +45,7 @@ beforeAll(async () => {
   const ctx = new SeedContext(h.db);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
+  await seedFormTemplates(ctx);
 });
 afterAll(async () => h.close());
 
@@ -138,17 +141,39 @@ async function fullSource() {
     ).status,
   ).toBe(200);
   expect((await at(pm, 'put', `/projects/${id}/rules`).send(RULES)).status).toBe(200);
+  await publishedForm(h, pm, id);
   return id;
 }
+/** The field keys of a project's first form, in its first version. */
+async function formFieldKeys(s: Session, projectId: string) {
+  const forms = await at(s, 'get', `/projects/${projectId}/forms`);
+  expect(forms.status).toBe(200);
+  const form = forms.body.data[0] as
+    | { id: string; key: string; draftVersionId: string | null; publishedVersionId: string | null }
+    | undefined;
+  if (!form) return null;
+  const versionId = form.draftVersionId ?? form.publishedVersionId;
+  const version = await at(s, 'get', `/form-versions/${versionId}`);
+  expect(version.status).toBe(200);
+  return {
+    form,
+    versionNo: version.body.data.versionNo as number,
+    status: version.body.data.status as string,
+    keys: (version.body.data.sections as { fields: { fieldKey: string }[] }[]).flatMap((x) =>
+      x.fields.map((f) => f.fieldKey),
+    ),
+  };
+}
+/** A component as a copy takes it: the form ids are the project's own, so they are left out. */
 const COPIED_COMPONENT_VIEW = (c: {
   componentKey: string;
   enabled: boolean;
   settings: unknown;
-}) => ({
-  componentKey: c.componentKey,
-  enabled: c.enabled,
-  settings: c.settings,
-});
+}) => {
+  const { form_ids: _formIds, ...settings } =
+    c.settings && typeof c.settings === 'object' ? (c.settings as Record<string, unknown>) : {};
+  return { componentKey: c.componentKey, enabled: c.enabled, settings };
+};
 
 describe('a copy of a previous project', () => {
   it('takes the components, settings, syllabus and rules, and none of the rest', async () => {
@@ -180,6 +205,19 @@ describe('a copy of a previous project', () => {
       version: 1,
       rules: RULES,
     });
+    // copied: the published form, as draft 1 of the copy's own form, named on its component
+    const copied = await formFieldKeys(pm, copy.id);
+    const original = await formFieldKeys(pm, source);
+    expect(copied).toMatchObject({ versionNo: 1, status: 'draft', keys: original!.keys });
+    expect(copied!.form.id).not.toBe(original!.form.id);
+    const components = await componentsOf(pm, copy.id);
+    const named = components.find((c) => c.componentKey === 'application_form')!.settings as {
+      form_ids: string[];
+    };
+    expect(named.form_ids).toEqual([copied!.form.id]);
+    expect(
+      await count('SELECT count(*)::int AS n FROM applications WHERE project_id = $1', copy.id),
+    ).toBe(0);
     // never copied: fund sources, areas, staff access, assignments, logs
     for (const table of ['fund_sources', 'project_areas', 'project_staff', 'project_volunteers'])
       expect(
@@ -251,6 +289,12 @@ describe('master templates', () => {
     const fromTemplate = await create(pm, { kind: 'template', templateId: template.id });
     expect(fromTemplate.status).toBe(201);
     const made = fromTemplate.body.data.id as string;
+    // the template carries the source's published form; the new project gets it as draft 1
+    expect(await formFieldKeys(pm, made)).toMatchObject({
+      versionNo: 1,
+      status: 'draft',
+      keys: (await formFieldKeys(pm, source))!.keys,
+    });
     expect((await componentsOf(pm, made)).map(COPIED_COMPONENT_VIEW)).toEqual(
       (await componentsOf(pm, source)).map(COPIED_COMPONENT_VIEW),
     );

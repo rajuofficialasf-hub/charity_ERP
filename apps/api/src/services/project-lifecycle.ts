@@ -80,7 +80,7 @@ export class ProjectLifecycleService {
     const actor = viewer.principal.userId;
     return this.prisma.$transaction(async (tx) => {
       const { project, from, to } = await this.moving(tx, viewer, projectId, 'activate', ifMatch);
-      const [workflow, fundSources, areaCount, components] = await Promise.all([
+      const [workflow, fundSources, areaCount, components, publishedForms] = await Promise.all([
         tx.project.findUniqueOrThrow({
           where: { id: projectId },
           select: {
@@ -95,6 +95,7 @@ export class ProjectLifecycleService {
           where: { projectId },
           select: { componentKey: true, enabled: true, settings: true },
         }),
+        tx.formVersion.count({ where: { status: 'published', form: { projectId } } }),
       ]);
       const definition = workflowDefinitionSchema.parse(workflow.workflowDefinition.definition);
       const missing = setupCheck({
@@ -112,6 +113,7 @@ export class ProjectLifecycleService {
         components,
         rules: workflow.rules,
         dawahEnabled: workflow.dawahEnabled,
+        publishedForm: publishedForms > 0,
       });
       if (missing.length)
         throw new ApiError(

@@ -156,7 +156,7 @@ export class FormsService {
       select: VERSION_SELECT,
     });
     return Promise.all(
-      rows.map(async (r) => versionView(r, await this.definitionOf(this.prisma, r.id, audience))),
+      rows.map(async (r) => versionView(r, await readDefinition(this.prisma, r.id, audience))),
     );
   }
 
@@ -172,7 +172,7 @@ export class FormsService {
     await this.projects.get(viewer, row.form.projectId);
     const audience = await this.audienceOf(viewer, row.form.projectId);
     return {
-      version: versionView(row, await this.definitionOf(this.prisma, row.id, audience)),
+      version: versionView(row, await readDefinition(this.prisma, row.id, audience)),
       updatedAt: row.updatedAt,
     };
   }
@@ -193,24 +193,12 @@ export class FormsService {
       });
       if (taken) throw new ApiError('form.key_taken', 409);
       const definition = await this.sourceDefinition(tx, viewer, body);
-      const formId = uuidv7();
-      const versionId = uuidv7();
-      await tx.form.create({
-        data: {
-          id: formId,
-          projectId,
-          key: body.key,
-          titleBn: body.title.bn,
-          titleEn: body.title.en,
-          createdBy: actor,
-          updatedBy: actor,
-        },
-      });
-      await tx.formVersion.create({
-        data: { id: versionId, formId, versionNo: 1, createdBy: actor, updatedBy: actor },
-      });
-      await this.writeDefinition(tx, versionId, definition, actor);
-      await this.nameFormOnComponent(tx, projectId, formId, actor);
+      const { formId, versionId } = await createFormFromDefinition(
+        tx,
+        projectId,
+        { key: body.key, title: body.title, definition },
+        actor,
+      );
       await this.audit.record(tx, {
         action: 'form.created',
         entityType: 'form',
@@ -220,181 +208,6 @@ export class FormsService {
       const row = await tx.form.findUniqueOrThrow({ where: { id: formId }, select: FORM_SELECT });
       return formView(row);
     });
-  }
-
-  /**
-   * The definition of a version in the shared shape: every section for an official, the
-   * volunteer-visible ones for everyone else.
-   */
-  async definitionOf(
-    db: Tx,
-    versionId: string,
-    audience: FormAudience = 'official',
-  ): Promise<FormDefinition> {
-    const sections = await db.formSection.findMany({
-      where: {
-        formVersionId: versionId,
-        ...(audience === 'official' ? {} : { visibility: 'volunteer' }),
-      },
-      orderBy: { sortOrder: 'asc' },
-      select: {
-        key: true,
-        titleBn: true,
-        titleEn: true,
-        visibility: true,
-        condition: true,
-        librarySection: { select: { key: true } },
-        formFieldsFormSection: {
-          orderBy: { sortOrder: 'asc' },
-          select: {
-            fieldKey: true,
-            type: true,
-            labelBn: true,
-            labelEn: true,
-            required: true,
-            standardColumn: true,
-            settings: true,
-            logic: true,
-            calculation: true,
-            libraryField: { select: { key: true } },
-            fieldOptionsFormField: {
-              orderBy: { sortOrder: 'asc' },
-              select: {
-                code: true,
-                labelBn: true,
-                labelEn: true,
-                allowsOtherText: true,
-                dependsOnOption: { select: { code: true } },
-              },
-            },
-          },
-        },
-      },
-    });
-    return {
-      sections: sections.map((s): FormSectionDefinition => ({
-        key: s.key,
-        librarySectionKey: s.librarySection?.key ?? null,
-        title: { bn: s.titleBn, en: s.titleEn },
-        visibility: visibilityOf(s.visibility),
-        condition: s.condition === null ? null : conditionSchema.parse(s.condition),
-        fields: s.formFieldsFormSection.map((x): FormFieldDefinition => ({
-          fieldKey: x.fieldKey,
-          libraryFieldKey: x.libraryField?.key ?? null,
-          type: fieldTypeOf(x.type),
-          label: { bn: x.labelBn, en: x.labelEn },
-          required: x.required,
-          standardColumn: x.standardColumn,
-          settings: fieldSettingsSchema.parse(x.settings ?? {}),
-          ...(x.logic === null ? {} : { logic: fieldLogicSchema.parse(x.logic) }),
-          ...(x.calculation === null
-            ? {}
-            : { calculation: calculationSchema.parse(x.calculation) }),
-          options: x.fieldOptionsFormField.map((o): FieldOption => ({
-            code: o.code,
-            label: { bn: o.labelBn, en: o.labelEn },
-            dependsOnOptionCode: o.dependsOnOption?.code ?? null,
-            allowsOtherText: o.allowsOtherText,
-          })),
-        })),
-      })),
-    };
-  }
-
-  /** Writes a definition's sections, fields and options as the rows of a draft version. */
-  async writeDefinition(
-    tx: Tx,
-    versionId: string,
-    definition: FormDefinition,
-    actor: string,
-    keptFieldIds: Map<string, string> = new Map(),
-  ): Promise<void> {
-    const [sectionIds, fieldIds] = await Promise.all([
-      this.library.sectionIds(tx),
-      this.library.fieldIds(tx),
-    ]);
-    let sectionOrder = 0;
-    for (const section of definition.sections) {
-      sectionOrder += 1;
-      const sectionId = uuidv7();
-      await tx.formSection.create({
-        data: {
-          id: sectionId,
-          formVersionId: versionId,
-          librarySectionId: section.librarySectionKey
-            ? (sectionIds.get(section.librarySectionKey) ?? null)
-            : null,
-          key: section.key,
-          titleBn: section.title.bn,
-          titleEn: section.title.en,
-          sortOrder: sectionOrder,
-          visibility: section.visibility,
-          condition:
-            section.condition === null || section.condition === undefined
-              ? undefined
-              : json(section.condition),
-          createdBy: actor,
-          updatedBy: actor,
-        },
-      });
-      let fieldOrder = 0;
-      for (const field of section.fields) {
-        fieldOrder += 1;
-        const fieldId = keptFieldIds.get(field.fieldKey) ?? uuidv7();
-        await tx.formField.create({
-          data: {
-            id: fieldId,
-            formSectionId: sectionId,
-            formVersionId: versionId,
-            libraryFieldId: field.libraryFieldKey
-              ? (fieldIds.get(field.libraryFieldKey) ?? null)
-              : null,
-            fieldKey: field.fieldKey,
-            type: field.type,
-            labelBn: field.label.bn,
-            labelEn: field.label.en,
-            required: field.required,
-            standardColumn: field.standardColumn,
-            settings: json(field.settings ?? {}),
-            logic: field.logic === undefined ? undefined : json(field.logic),
-            calculation: field.calculation === undefined ? undefined : json(field.calculation),
-            sortOrder: fieldOrder,
-            createdBy: actor,
-            updatedBy: actor,
-          },
-        });
-        // options first, then the branching links by code, so a link never points at a later row
-        const optionIds = new Map<string, string>();
-        let optionOrder = 0;
-        for (const option of field.options ?? []) {
-          optionOrder += 1;
-          const optionId = uuidv7();
-          optionIds.set(option.code, optionId);
-          await tx.fieldOption.create({
-            data: {
-              id: optionId,
-              formFieldId: fieldId,
-              code: option.code,
-              labelBn: option.label.bn,
-              labelEn: option.label.en,
-              allowsOtherText: option.allowsOtherText ?? false,
-              sortOrder: optionOrder,
-              createdBy: actor,
-              updatedBy: actor,
-            },
-          });
-        }
-        for (const option of field.options ?? []) {
-          if (!option.dependsOnOptionCode) continue;
-          const dependsOnOptionId = optionIds.get(option.dependsOnOptionCode);
-          if (!dependsOnOptionId) continue;
-          await tx.fieldOption.update({
-            where: { id: optionIds.get(option.code)! },
-            data: { dependsOnOptionId },
-          });
-        }
-      }
-    }
   }
 
   /**
@@ -428,7 +241,7 @@ export class FormsService {
       await tx.fieldOption.deleteMany({ where: { formField: { formVersionId: versionId } } });
       await tx.formField.deleteMany({ where: { formVersionId: versionId } });
       await tx.formSection.deleteMany({ where: { formVersionId: versionId } });
-      await this.writeDefinition(tx, versionId, definition, actor, kept);
+      await writeDefinitionRows(tx, versionId, definition, actor, kept);
       const updated = await tx.formVersion.update({
         where: { id: versionId },
         data: { updatedBy: actor, updatedAt: new Date() },
@@ -448,7 +261,7 @@ export class FormsService {
         },
       });
       return {
-        version: versionView(updated, await this.definitionOf(tx, versionId, 'official')),
+        version: versionView(updated, await readDefinition(tx, versionId, 'official')),
         updatedAt: updated.updatedAt,
       };
     });
@@ -467,7 +280,7 @@ export class FormsService {
     return this.prisma.$transaction(async (tx) => {
       const row = await this.lockedDraft(tx, viewer, versionId);
       assertIfMatch(ifMatch, row.updatedAt);
-      const definition = await this.definitionOf(tx, versionId, 'official');
+      const definition = await readDefinition(tx, versionId, 'official');
       parseDefinition(definition);
       const audience = await this.audienceOf(viewer, row.form.projectId);
       await tx.formVersion.updateMany({
@@ -489,7 +302,7 @@ export class FormsService {
       return {
         version: versionView(
           published,
-          audience === 'official' ? definition : await this.definitionOf(tx, versionId, audience),
+          audience === 'official' ? definition : await readDefinition(tx, versionId, audience),
         ),
         updatedAt: published.updatedAt,
       };
@@ -529,8 +342,8 @@ export class FormsService {
         if (isUniqueViolation(error)) throw new ApiError('form.draft_exists', 409);
         throw error;
       }
-      const definition = await this.definitionOf(tx, published.id, 'official');
-      await this.writeDefinition(tx, versionId, definition, actor);
+      const definition = await readDefinition(tx, published.id, 'official');
+      await writeDefinitionRows(tx, versionId, definition, actor);
       const audience = await this.audienceOf(viewer, form.projectId);
       await this.audit.record(tx, {
         action: 'form.version_created',
@@ -545,7 +358,7 @@ export class FormsService {
       return {
         version: versionView(
           row,
-          audience === 'official' ? definition : await this.definitionOf(tx, versionId, audience),
+          audience === 'official' ? definition : await readDefinition(tx, versionId, audience),
         ),
         updatedAt: row.updatedAt,
       };
@@ -662,44 +475,266 @@ export class FormsService {
     await this.access.findProject(viewer.scope, form.projectId, { id: true }, tx);
     const published = form.formVersionsForm[0];
     if (!published) throw new ApiError('form.nothing_published', 409);
-    return this.definitionOf(tx, published.id, 'official');
+    return readDefinition(tx, published.id, 'official');
   }
+}
 
-  /** The application-form component of the project names its forms. */
-  private async nameFormOnComponent(tx: Tx, projectId: string, formId: string, actor: string) {
-    const row = await tx.projectComponent.findUnique({
-      where: { projectId_componentKey: { projectId, componentKey: 'application_form' } },
-      select: { settings: true },
+/**
+ * The definition of a version in the shared shape: every section for an official, the
+ * volunteer-visible ones for everyone else.
+ */
+export async function readDefinition(
+  db: Tx,
+  versionId: string,
+  audience: FormAudience = 'official',
+): Promise<FormDefinition> {
+  const sections = await db.formSection.findMany({
+    where: {
+      formVersionId: versionId,
+      ...(audience === 'official' ? {} : { visibility: 'volunteer' }),
+    },
+    orderBy: { sortOrder: 'asc' },
+    select: {
+      key: true,
+      titleBn: true,
+      titleEn: true,
+      visibility: true,
+      condition: true,
+      librarySection: { select: { key: true } },
+      formFieldsFormSection: {
+        orderBy: { sortOrder: 'asc' },
+        select: {
+          fieldKey: true,
+          type: true,
+          labelBn: true,
+          labelEn: true,
+          required: true,
+          standardColumn: true,
+          settings: true,
+          logic: true,
+          calculation: true,
+          libraryField: { select: { key: true } },
+          fieldOptionsFormField: {
+            orderBy: { sortOrder: 'asc' },
+            select: {
+              code: true,
+              labelBn: true,
+              labelEn: true,
+              allowsOtherText: true,
+              dependsOnOption: { select: { code: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+  return {
+    sections: sections.map((s): FormSectionDefinition => ({
+      key: s.key,
+      librarySectionKey: s.librarySection?.key ?? null,
+      title: { bn: s.titleBn, en: s.titleEn },
+      visibility: visibilityOf(s.visibility),
+      condition: s.condition === null ? null : conditionSchema.parse(s.condition),
+      fields: s.formFieldsFormSection.map((x): FormFieldDefinition => ({
+        fieldKey: x.fieldKey,
+        libraryFieldKey: x.libraryField?.key ?? null,
+        type: fieldTypeOf(x.type),
+        label: { bn: x.labelBn, en: x.labelEn },
+        required: x.required,
+        standardColumn: x.standardColumn,
+        settings: fieldSettingsSchema.parse(x.settings ?? {}),
+        ...(x.logic === null ? {} : { logic: fieldLogicSchema.parse(x.logic) }),
+        ...(x.calculation === null ? {} : { calculation: calculationSchema.parse(x.calculation) }),
+        options: x.fieldOptionsFormField.map((o): FieldOption => ({
+          code: o.code,
+          label: { bn: o.labelBn, en: o.labelEn },
+          dependsOnOptionCode: o.dependsOnOption?.code ?? null,
+          allowsOtherText: o.allowsOtherText,
+        })),
+      })),
+    })),
+  };
+}
+
+/** Writes a definition's sections, fields and options as the rows of a draft version. */
+export async function writeDefinitionRows(
+  tx: Tx,
+  versionId: string,
+  definition: FormDefinition,
+  actor: string,
+  keptFieldIds: Map<string, string> = new Map(),
+): Promise<void> {
+  const [sectionIds, fieldIds] = await Promise.all([
+    libraryIds(tx, 'section'),
+    libraryIds(tx, 'field'),
+  ]);
+  let sectionOrder = 0;
+  for (const section of definition.sections) {
+    sectionOrder += 1;
+    const sectionId = uuidv7();
+    await tx.formSection.create({
+      data: {
+        id: sectionId,
+        formVersionId: versionId,
+        librarySectionId: section.librarySectionKey
+          ? (sectionIds.get(section.librarySectionKey) ?? null)
+          : null,
+        key: section.key,
+        titleBn: section.title.bn,
+        titleEn: section.title.en,
+        sortOrder: sectionOrder,
+        visibility: section.visibility,
+        condition:
+          section.condition === null || section.condition === undefined
+            ? undefined
+            : json(section.condition),
+        createdBy: actor,
+        updatedBy: actor,
+      },
     });
-    const settings =
-      row &&
-      typeof row.settings === 'object' &&
-      row.settings !== null &&
-      !Array.isArray(row.settings)
-        ? (row.settings as Record<string, unknown>)
-        : {};
-    const ids = Array.isArray(settings.form_ids)
-      ? settings.form_ids.filter((x): x is string => typeof x === 'string')
-      : [];
-    const next = { ...settings, form_ids: [...ids, formId] };
-    if (row)
-      await tx.projectComponent.update({
-        where: { projectId_componentKey: { projectId, componentKey: 'application_form' } },
-        data: { settings: next, updatedBy: actor },
-      });
-    else
-      await tx.projectComponent.create({
+    let fieldOrder = 0;
+    for (const field of section.fields) {
+      fieldOrder += 1;
+      const fieldId = keptFieldIds.get(field.fieldKey) ?? uuidv7();
+      await tx.formField.create({
         data: {
-          id: uuidv7(),
-          projectId,
-          componentKey: 'application_form',
-          enabled: true,
-          settings: next,
+          id: fieldId,
+          formSectionId: sectionId,
+          formVersionId: versionId,
+          libraryFieldId: field.libraryFieldKey
+            ? (fieldIds.get(field.libraryFieldKey) ?? null)
+            : null,
+          fieldKey: field.fieldKey,
+          type: field.type,
+          labelBn: field.label.bn,
+          labelEn: field.label.en,
+          required: field.required,
+          standardColumn: field.standardColumn,
+          settings: json(field.settings ?? {}),
+          logic: field.logic === undefined ? undefined : json(field.logic),
+          calculation: field.calculation === undefined ? undefined : json(field.calculation),
+          sortOrder: fieldOrder,
           createdBy: actor,
           updatedBy: actor,
         },
       });
+      // options first, then the branching links by code, so a link never points at a later row
+      const optionIds = new Map<string, string>();
+      let optionOrder = 0;
+      for (const option of field.options ?? []) {
+        optionOrder += 1;
+        const optionId = uuidv7();
+        optionIds.set(option.code, optionId);
+        await tx.fieldOption.create({
+          data: {
+            id: optionId,
+            formFieldId: fieldId,
+            code: option.code,
+            labelBn: option.label.bn,
+            labelEn: option.label.en,
+            allowsOtherText: option.allowsOtherText ?? false,
+            sortOrder: optionOrder,
+            createdBy: actor,
+            updatedBy: actor,
+          },
+        });
+      }
+      for (const option of field.options ?? []) {
+        if (!option.dependsOnOptionCode) continue;
+        const dependsOnOptionId = optionIds.get(option.dependsOnOptionCode);
+        if (!dependsOnOptionId) continue;
+        await tx.fieldOption.update({
+          where: { id: optionIds.get(option.code)! },
+          data: { dependsOnOptionId },
+        });
+      }
+    }
   }
+}
+
+/** The application-form component of the project names its forms. */
+export async function nameFormOnComponent(
+  tx: Tx,
+  projectId: string,
+  formId: string,
+  actor: string,
+): Promise<void> {
+  const row = await tx.projectComponent.findUnique({
+    where: { projectId_componentKey: { projectId, componentKey: 'application_form' } },
+    select: { settings: true },
+  });
+  const settings =
+    row && typeof row.settings === 'object' && row.settings !== null && !Array.isArray(row.settings)
+      ? (row.settings as Record<string, unknown>)
+      : {};
+  const ids = Array.isArray(settings.form_ids)
+    ? settings.form_ids.filter((x): x is string => typeof x === 'string')
+    : [];
+  const next = { ...settings, form_ids: [...ids, formId] };
+  if (row)
+    await tx.projectComponent.update({
+      where: { projectId_componentKey: { projectId, componentKey: 'application_form' } },
+      data: { settings: next, updatedBy: actor },
+    });
+  else
+    await tx.projectComponent.create({
+      data: {
+        id: uuidv7(),
+        projectId,
+        componentKey: 'application_form',
+        enabled: true,
+        settings: next,
+        createdBy: actor,
+        updatedBy: actor,
+      },
+    });
+}
+
+/** The library's section or field rows by key, for the library links of a new form. */
+async function libraryIds(tx: Tx, kind: 'section' | 'field'): Promise<Map<string, string>> {
+  const rows =
+    kind === 'section'
+      ? await tx.formLibrarySection.findMany({ select: { id: true, key: true } })
+      : await tx.formLibraryField.findMany({ select: { id: true, key: true } });
+  return new Map(rows.map((r) => [r.key, r.id]));
+}
+
+/** What a project copy or a template brings as its first form. */
+export interface FormToCreate {
+  key: string;
+  title: { bn: string; en: string };
+  definition: FormDefinition;
+}
+
+/**
+ * A form of a project as draft 1 with this definition, named on the application-form component;
+ * the caller holds the project row and has checked the definition.
+ */
+export async function createFormFromDefinition(
+  tx: Tx,
+  projectId: string,
+  form: FormToCreate,
+  actor: string,
+): Promise<{ formId: string; versionId: string }> {
+  const formId = uuidv7();
+  const versionId = uuidv7();
+  await tx.form.create({
+    data: {
+      id: formId,
+      projectId,
+      key: form.key,
+      titleBn: form.title.bn,
+      titleEn: form.title.en,
+      createdBy: actor,
+      updatedBy: actor,
+    },
+  });
+  await tx.formVersion.create({
+    data: { id: versionId, formId, versionNo: 1, createdBy: actor, updatedBy: actor },
+  });
+  await writeDefinitionRows(tx, versionId, form.definition, actor);
+  await nameFormOnComponent(tx, projectId, formId, actor);
+  return { formId, versionId };
 }
 
 function formView(row: FormRow): FormView {
