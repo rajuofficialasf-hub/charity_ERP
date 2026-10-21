@@ -47,6 +47,7 @@ import { BeneficiaryContactService } from './services/beneficiary-contact';
 import { BeneficiaryCorrectionsService } from './services/beneficiary-corrections';
 import { BeneficiaryFamilyService } from './services/beneficiary-family';
 import { BeneficiaryMergeCandidatesService } from './services/beneficiary-merge-candidates';
+import { BeneficiaryMergesService } from './services/beneficiary-merges';
 import { NotificationDelivery } from './notifications/delivery';
 import { NotificationService } from './notifications/service';
 import { RecipientResolver } from './notifications/recipients';
@@ -130,6 +131,7 @@ export interface Container {
   beneficiaryCorrections: BeneficiaryCorrectionsService;
   beneficiaryFamily: BeneficiaryFamilyService;
   beneficiaryMergeCandidates: BeneficiaryMergeCandidatesService;
+  beneficiaryMerges: BeneficiaryMergesService;
   programs: ProgramsService;
   settings: SettingsService;
   referenceLists: ReferenceListsService;
@@ -330,6 +332,9 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       ),
     beneficiaryFamily: o.beneficiaryFamily ?? new BeneficiaryFamilyService(),
     beneficiaryMergeCandidates,
+    beneficiaryMerges:
+      o.beneficiaryMerges ??
+      new BeneficiaryMergesService(prisma, access, audit, clock, beneficiaryMergeCandidates),
     beneficiaryCorrections:
       o.beneficiaryCorrections ??
       new BeneficiaryCorrectionsService(

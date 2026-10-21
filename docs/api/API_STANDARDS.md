@@ -77,7 +77,7 @@ Error:
 
 Messages come from the Bengali or English catalogue; digits are always 0–9 in both languages (UX-05).
 
-- `params` appears only for the codes whose parameters section 8 documents (today `permission.grant_refused` with `rule`); other codes keep their parameters inside the rendered message.
+- `params` appears only for the codes whose parameters section 8 documents (`permission.grant_refused` with `rule`; in a detail, `beneficiary.identity_taken` with `benNo` when the caller may see the holder, and `beneficiary.merge_conflict` with `projectId` and `applicationId`, or `ref`); other codes keep their parameters inside the rendered message.
 - `requestId` is returned in every response and in the `X-Request-Id` header; it is the correlation key in logs (SYSTEM_ARCHITECTURE §10).
 - Timestamps are ISO 8601 UTC with `Z`; dates are `YYYY-MM-DD`; money is a decimal **string** (`"1000.00"`) in BDT; counts are integers; booleans are booleans; all digits are 0–9 (UX-05).
 - Fields the caller may not see are **absent**, not null (field-level protection by removal, RBAC.md §8).

@@ -10,6 +10,10 @@ import {
   type LookupRequest,
   LOCKED_FIELDS,
   lookupRequestSchema,
+  type MergeExecute,
+  mergeExecuteSchema,
+  type MergeRequest,
+  mergeRequestSchema,
 } from '@css/shared/beneficiaries';
 import { type ReasonRequest, reasonRequestSchema } from '@css/shared/auth';
 import { type DecisionRequest, decisionRequestSchema } from '@css/shared/registration';
@@ -270,6 +274,30 @@ const mergeDismissal = z.object({
   liftedAt: z.iso.datetime({ offset: true }).nullable(),
 });
 
+/** A merge: the pair, who proposed, merged and reverted it, and how many rows moved per kind. */
+const mergeView = z.object({
+  id: z.uuid(),
+  keptId: z.uuid(),
+  mergedId: z.uuid(),
+  keptBenNo: z.string(),
+  mergedBenNo: z.string(),
+  keptName: z.string(),
+  mergedName: z.string(),
+  status: z.enum(['proposed', 'merged', 'reverted']),
+  reason: z.string(),
+  proposedBy: z.uuid(),
+  proposedAt: z.iso.datetime({ offset: true }),
+  mergedBy: z.uuid().nullable(),
+  mergedAt: z.iso.datetime({ offset: true }).nullable(),
+  revertedBy: z.uuid().nullable(),
+  revertedAt: z.iso.datetime({ offset: true }).nullable(),
+  moved: z.record(z.string(), z.number().int().min(0)),
+  leftBehind: z.number().int().min(0),
+});
+const mergeListQuery = z.strictObject({
+  status: z.enum(['proposed', 'merged', 'reverted']).optional(),
+});
+
 const listQuery = pageQuery
   .omit({ sort: true })
   .extend(pageNumberQuery.shape)
@@ -295,6 +323,7 @@ export function beneficiariesRouter(
     | 'beneficiaryContact'
     | 'beneficiaryCorrections'
     | 'beneficiaryMergeCandidates'
+    | 'beneficiaryMerges'
     | 'blocklist'
   >,
 ): Router {
@@ -526,6 +555,81 @@ export function beneficiariesRouter(
       res.setHeader('ETag', etag);
       return ok(contact, { etag });
     },
+  });
+
+  const mergeOp = { ...writeOp, rateLimit: 'default' as const };
+
+  defineRoute<MergeRequest>(router, deps, {
+    ...mergeOp,
+    method: 'post',
+    path: '/beneficiary-merges',
+    operationId: 'beneficiaries.merge.propose',
+    summary: 'Propose a merge of two profiles with a reason',
+    permission: 'beneficiary.merge.propose',
+    audit: 'beneficiary.merge_proposed',
+    status: 201,
+    body: mergeRequestSchema,
+    responses: { 201: mergeView, 401: null, 403: null, 404: null, 409: null, 422: null },
+    handler: ({ body, req }) => c.beneficiaryMerges.propose(principalOf(req), scopeOf(req), body),
+  });
+
+  defineRoute<unknown, { status?: 'proposed' | 'merged' | 'reverted' }>(router, deps, {
+    ...mergeOp,
+    method: 'get',
+    path: '/beneficiary-merges',
+    operationId: 'beneficiaries.merge.list',
+    summary: 'The merge proposals and merges of profiles in the caller scope, newest first',
+    permission: 'beneficiary.merge.dismiss',
+    audit: 'none',
+    rateLimit: 'list',
+    query: mergeListQuery,
+    responses: { 200: z.array(mergeView), 401: null, 403: null, 422: null, 429: null },
+    handler: async ({ query, req }) =>
+      ok(await c.beneficiaryMerges.list(scopeOf(req), query.status, 100)),
+  });
+
+  defineRoute<MergeRequest>(router, deps, {
+    ...mergeOp,
+    method: 'post',
+    path: '/beneficiary-merges/direct',
+    operationId: 'beneficiaries.merge.direct',
+    summary: 'Merge two profiles without a proposal, keeping the one named and a reason',
+    permission: 'beneficiary.merge',
+    audit: 'beneficiary.merge',
+    status: 201,
+    body: mergeRequestSchema,
+    responses: { 201: mergeView, 401: null, 403: null, 404: null, 409: null, 422: null },
+    handler: ({ body, req }) => c.beneficiaryMerges.direct(principalOf(req), scopeOf(req), body),
+  });
+
+  defineRoute<MergeExecute, unknown, { requestId: string }>(router, deps, {
+    ...mergeOp,
+    method: 'post',
+    path: '/beneficiary-merges/:requestId/execute',
+    operationId: 'beneficiaries.merge.execute',
+    summary: 'Merge the two profiles of a proposal; the merging official may keep the other one',
+    permission: 'beneficiary.merge',
+    audit: 'beneficiary.merge',
+    params: { requestId: z.uuid() },
+    body: mergeExecuteSchema,
+    responses: { 200: mergeView, 401: null, 403: null, 404: null, 409: null, 422: null },
+    handler: ({ body, params, req }) =>
+      c.beneficiaryMerges.execute(principalOf(req), scopeOf(req), params.requestId, body.keptId),
+  });
+
+  defineRoute<ReasonRequest, unknown, { requestId: string }>(router, deps, {
+    ...mergeOp,
+    method: 'post',
+    path: '/beneficiary-merges/:requestId/revert',
+    operationId: 'beneficiaries.merge.revert',
+    summary: 'Revert a merge with a reason: exactly what moved goes back',
+    permission: 'beneficiary.merge.revert',
+    audit: 'beneficiary.merge_reverted',
+    params: { requestId: z.uuid() },
+    body: reasonRequestSchema,
+    responses: { 200: mergeView, 401: null, 403: null, 404: null, 409: null, 422: null },
+    handler: ({ body, params, req }) =>
+      c.beneficiaryMerges.revert(principalOf(req), scopeOf(req), params.requestId, body.reason),
   });
 
   defineRoute<ReasonRequest, unknown, { beneficiaryId: string }>(router, deps, {

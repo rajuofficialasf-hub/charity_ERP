@@ -484,6 +484,10 @@ components:
         code: { type: string }
         messageKey: { type: string }
         message: { type: string }
+        params:
+          type: object
+          additionalProperties: { type: string }
+          description: Only for codes that document them in API_STANDARDS section 8 (beneficiary.identity_taken, beneficiary.merge_conflict)
     ErrorResponse:
       type: object
       required: [error]
@@ -2128,21 +2132,42 @@ components:
         meta: { $ref: '#/components/schemas/ListMeta' }
     MergeRequest:
       type: object
+      additionalProperties: false
       required: [keptId, mergedId, reason]
       properties:
         keptId: { $ref: '#/components/schemas/Uuid' }
         mergedId: { $ref: '#/components/schemas/Uuid' }
-        reason: { type: string, minLength: 3 }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
+    MergeExecuteRequest:
+      type: object
+      additionalProperties: false
+      description: keptId, when given, must be one of the pair; the other profile is retired
+      properties:
+        keptId: { $ref: '#/components/schemas/Uuid' }
     Merge:
-      allOf:
-        - $ref: '#/components/schemas/MergeRequest'
-        - type: object
-          required: [id, mergedAt]
-          properties:
-            id: { $ref: '#/components/schemas/Uuid' }
-            status: { type: string, enum: [proposed, merged, reverted] }
-            mergedAt: { type: [string, 'null'], format: date-time }
-            revertedAt: { type: [string, 'null'], format: date-time }
+      type: object
+      required: [id, keptId, mergedId, keptBenNo, mergedBenNo, keptName, mergedName, status, reason, proposedBy, proposedAt, mergedBy, mergedAt, revertedBy, revertedAt, moved, leftBehind]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        keptId: { $ref: '#/components/schemas/Uuid' }
+        mergedId: { $ref: '#/components/schemas/Uuid' }
+        keptBenNo: { type: string }
+        mergedBenNo: { type: string }
+        keptName: { type: string }
+        mergedName: { type: string }
+        status: { type: string, enum: [proposed, merged, reverted] }
+        reason: { type: string }
+        proposedBy: { $ref: '#/components/schemas/Uuid' }
+        proposedAt: { type: string, format: date-time }
+        mergedBy: { type: [string, 'null'], format: uuid }
+        mergedAt: { type: [string, 'null'], format: date-time }
+        revertedBy: { type: [string, 'null'], format: uuid }
+        revertedAt: { type: [string, 'null'], format: date-time }
+        moved:
+          type: object
+          description: How many rows moved per kind (the ids stay in the snapshot, never returned)
+          additionalProperties: { type: integer, minimum: 0 }
+        leftBehind: { type: integer, minimum: 0, description: Applications past pending left on the retired profile }
     MergeResponse:
       type: object
       required: [data, meta]
@@ -5737,7 +5762,8 @@ paths:
     post:
       tags: [beneficiaries]
       operationId: beneficiaries.merge.propose
-      summary: Propose a merge of two profiles
+      summary: Propose a merge of two profiles with a reason
+      description: Both profiles live and in the caller's scope (404 otherwise, without naming either); one open proposal per pair.
       x-permission: beneficiary.merge.propose
       x-scope: beneficiary
       x-audit: beneficiary.merge_proposed
@@ -5754,7 +5780,63 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/MergeResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    get:
+      tags: [beneficiaries]
+      operationId: beneficiaries.merge.list
+      summary: The merge proposals and merges of profiles in the caller scope, newest first
+      x-permission: beneficiary.merge.dismiss
+      x-scope: beneficiary
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: list
+      parameters:
+        - { name: status, in: query, required: false, schema: { type: string, enum: [proposed, merged, reverted] } }
+      responses:
+        '200':
+          description: At most 100 merges
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Merge' } }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /beneficiary-merges/direct:
+    post:
+      tags: [beneficiaries]
+      operationId: beneficiaries.merge.direct
+      summary: Merge two profiles without a proposal, keeping the one named and a reason
+      description: The same merge as an executed proposal (D-113); the caller is proposer and merger.
+      x-permission: beneficiary.merge
+      x-scope: beneficiary
+      x-audit: beneficiary.merge
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MergeRequest' }
+      responses:
+        '201':
+          description: Merged
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MergeResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /beneficiary-merges/{requestId}/execute:
     parameters:
@@ -5763,26 +5845,41 @@ paths:
       tags: [beneficiaries]
       operationId: beneficiaries.merge.execute
       summary: Execute a merge; the retired BEN-ID points to the kept profile (BR-013)
+      description: >-
+        Everything that points to the retired profile moves to the kept one and is listed in the
+        snapshot; a pending application of the retired profile in a project both applied to answers
+        409 `beneficiary.merge_conflict` (details name the project), one past pending stays on the
+        retired profile (`leftBehind`); a block moves to the kept profile; a proposal whose profiles
+        are no longer both live answers 409 `beneficiary.merge_stale` (D-113).
       x-permission: beneficiary.merge
       x-scope: beneficiary
       x-audit: beneficiary.merge
       x-idempotency: none
       x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MergeExecuteRequest' }
       responses:
         '200':
           description: Merged
           content:
             application/json:
               schema: { $ref: '#/components/schemas/MergeResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /beneficiary-merges/{requestId}/revert:
     parameters:
       - $ref: '#/components/parameters/RequestId'
     post:
       tags: [beneficiaries]
       operationId: beneficiaries.merge.revert
-      summary: Revert a merge (Monitoring Team)
+      summary: Revert a merge (Monitoring Team or Department Head)
+      description: Exactly what moved goes back; rows added to the kept profile later stay. Only while the kept profile is live (409 `beneficiary.merge_revert_order`).
       x-permission: beneficiary.merge.revert
       x-scope: beneficiary
       x-audit: beneficiary.merge_reverted
@@ -5799,8 +5896,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/MergeResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /beneficiaries/{beneficiaryId}/block:
     parameters:
       - $ref: '#/components/parameters/BeneficiaryId'
