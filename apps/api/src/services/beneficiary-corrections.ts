@@ -5,10 +5,11 @@ import type { AccessService } from '../access/service';
 import { beneficiaryWhere, type Scope } from '../access/scope';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Principal } from '../auth/principal';
+import { isUniqueViolation } from '../core/db-errors';
 import type { PrismaService, Tx } from '../core/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
-import { type BeneficiaryIdentityService, isUniqueViolation } from './beneficiary-identity';
+import type { BeneficiaryIdentityService } from './beneficiary-identity';
 import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates';
 
 /** The column of each locked field. */

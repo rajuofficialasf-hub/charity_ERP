@@ -5,6 +5,7 @@ import { beneficiaryWhere, type Scope } from '../access/scope';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Principal } from '../auth/principal';
 import { assertIfMatch } from '../core/etag';
+import { isVolunteerMobileRefusal } from '../core/db-errors';
 import type { PrismaService, Tx } from '../core/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
@@ -30,11 +31,6 @@ const SELECT = {
   updatedAt: true,
   ...Object.fromEntries(CONTACT_FIELDS.map((f) => [f, true])),
 } as { id: true; updatedAt: true } & Record<ContactField, true>;
-
-/** The database's own refusal of a volunteer's mobile, raised at commit by a deferred trigger. */
-const isVolunteerMobileRefusal = (error: unknown) =>
-  error instanceof Prisma.PrismaClientKnownRequestError &&
-  JSON.stringify(error.meta ?? {}).includes('beneficiary_mobile_is_volunteer_mobile');
 
 /**
  * The contact data of a beneficiary edited outside an application (the mobile and the address down

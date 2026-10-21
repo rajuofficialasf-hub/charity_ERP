@@ -71,12 +71,8 @@ const direct = (s: Session, body: Record<string, unknown>) =>
 const revert = (s: Session, id: string, reason = 'ভুল করে মার্জ হয়েছিল') =>
   api().post(`/api/v1/beneficiary-merges/${id}/revert`).set(bearer(s)).send({ reason });
 const ownerOf = async (table: string, id: string) =>
-  (
-    await h.db.query(
-      `SELECT beneficiary_id FROM ${table} WHERE id = $1`,
-      [id],
-    )
-  ).rows[0].beneficiary_id as string;
+  (await h.db.query(`SELECT beneficiary_id FROM ${table} WHERE id = $1`, [id])).rows[0]
+    .beneficiary_id as string;
 const pointer = async (id: string) =>
   (await h.db.query('SELECT merged_into_id, is_blocked FROM beneficiaries WHERE id = $1', [id]))
     .rows[0] as { merged_into_id: string | null; is_blocked: boolean };
@@ -303,6 +299,92 @@ describe('what stops a merge', () => {
         })
       ).status,
     ).toBe(403);
+  });
+
+  it('stops at a file linked to both profiles in the same slot', async () => {
+    const { kept, retired } = await duplicate();
+    const things = await belongings(retired);
+    const file = (await h.db.query('SELECT file_id FROM file_links WHERE id = $1', [things.link]))
+      .rows[0].file_id as string;
+    await f.insert(h.db, 'file_links', {
+      id: randomUUID(),
+      file_id: file,
+      entity_type: 'beneficiary',
+      entity_id: kept,
+      slot: 'photo',
+    });
+    const res = await direct(await as(world.users.head), {
+      keptId: kept,
+      mergedId: retired,
+      reason: REASON,
+    });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('beneficiary.merge_conflict');
+    expect(res.body.error.details[0].path).toMatch(/^file_links\./);
+    expect(await linkOwner(things.link)).toBe(retired);
+  });
+
+  it("refuses to bring a volunteer's application onto a profile with that volunteer's mobile", async () => {
+    const own = accounts.get(world.users.general)!.mobile;
+    const kept = await person(world.dhaka, { mobile: own });
+    await applyTo(world.a1, kept);
+    const retired = await person();
+    const volunteer = (
+      await h.db.query('SELECT id FROM volunteers WHERE user_id = $1', [world.users.general])
+    ).rows[0].id as string;
+    await f.application(
+      h.db,
+      { project: world.a2, loc: world.dhaka },
+      { beneficiary_id: retired, owner_volunteer_id: volunteer },
+    );
+    const res = await direct(await as(world.users.head), {
+      keptId: kept,
+      mergedId: retired,
+      reason: REASON,
+    });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('beneficiary.mobile_is_volunteer_mobile');
+    expect((await pointer(retired)).merged_into_id).toBeNull();
+  });
+
+  it('refuses a second open proposal of the same pair, a kept profile outside the pair, and no login', async () => {
+    const { kept, retired } = await duplicate();
+    const rpm = await as(world.users.rpmDhaka);
+    const first = await propose(rpm, { keptId: kept, mergedId: retired, reason: REASON });
+    expect((await propose(rpm, { keptId: retired, mergedId: kept, reason: REASON })).status).toBe(
+      409,
+    );
+    const outsider = await person();
+    const wrong = await execute(await as(world.users.head), first.body.data.id, {
+      keptId: outsider,
+    });
+    expect(wrong.status).toBe(422);
+    expect(
+      (
+        await api()
+          .post('/api/v1/beneficiary-merges')
+          .send({ keptId: kept, mergedId: retired, reason: REASON })
+      ).status,
+    ).toBe(401);
+    const upper = await execute(await as(world.users.head), first.body.data.id, {
+      keptId: retired.toUpperCase(),
+    });
+    expect(upper.status).toBe(200);
+    expect(upper.body.data.keptId).toBe(retired);
+  });
+
+  it('keeps showing the PM a merge after the retired profile left the program', async () => {
+    const { kept, retired } = await duplicate();
+    const done = await direct(await as(world.users.head), {
+      keptId: kept,
+      mergedId: retired,
+      reason: REASON,
+    });
+    const listed = await api()
+      .get('/api/v1/beneficiary-merges')
+      .query({ status: 'merged' })
+      .set(bearer(await as(world.users.pm)));
+    expect((listed.body.data as { id: string }[]).map((m) => m.id)).toContain(done.body.data.id);
   });
 
   it('rejects a waiting correction of the retired profile', async () => {

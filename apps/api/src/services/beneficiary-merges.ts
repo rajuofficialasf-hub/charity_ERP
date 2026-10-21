@@ -1,11 +1,13 @@
 import { uuidv7 } from '@css/shared';
 import { formatBenNo, type MergeRequest } from '@css/shared/beneficiaries';
 import type { AccessService } from '../access/service';
-import { beneficiaryWhere, type Scope } from '../access/scope';
+import { beneficiaryWhere, projectWhere, type Scope } from '../access/scope';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Principal } from '../auth/principal';
 import type { Clock } from '../core/clock';
+import { isUniqueViolation, isVolunteerMobileRefusal } from '../core/db-errors';
 import type { PrismaService, Tx } from '../core/prisma.service';
+import { z } from 'zod';
 import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates';
@@ -42,13 +44,18 @@ type MoveKey = (typeof MOVES)[number]['key'];
  */
 const PENDING_STATES = ['draft', 'submitted', 'needs_verification'];
 
-interface Snapshot {
-  moved: Partial<Record<MoveKey, string[]>>;
-  leftBehind: string[];
-  rejectedCorrections: string[];
+/** What a merge moved, by kind; the revert moves exactly these ids back. */
+const snapshotSchema = z.object({
+  moved: z.partialRecord(
+    z.enum(MOVES.map((m) => m.key) as [MoveKey, ...MoveKey[]]),
+    z.array(z.uuid()),
+  ),
+  leftBehind: z.array(z.uuid()),
+  rejectedCorrections: z.array(z.uuid()),
   /** The block of the retired profile, released by the merge, and the copy it gave the kept one. */
-  block: { released: string | null; created: string | null };
-}
+  block: z.object({ released: z.uuid().nullable(), created: z.uuid().nullable() }),
+});
+type Snapshot = z.infer<typeof snapshotSchema>;
 
 const VIEW = {
   id: true,
@@ -67,15 +74,6 @@ const VIEW = {
   merged: { select: { benNo: true, name: true } },
 } as const;
 type MergeRow = Prisma.ProfileMergeGetPayload<{ select: typeof VIEW }>;
-
-/** The database's own refusal of a volunteer's mobile, raised at commit by a deferred trigger. */
-const isVolunteerMobileRefusal = (error: unknown) =>
-  error instanceof Prisma.PrismaClientKnownRequestError &&
-  JSON.stringify(error.meta ?? {}).includes('beneficiary_mobile_is_volunteer_mobile');
-const isUniqueViolation = (error: unknown) =>
-  error instanceof Prisma.PrismaClientKnownRequestError &&
-  (error.code === 'P2002' ||
-    (error.code === 'P2010' && JSON.stringify(error.meta).includes('23505')));
 
 /**
  * Profile merges (the merge rules in docs/DECISION_LOG.md, the decision on profile merges): an RPM
@@ -154,7 +152,7 @@ export class BeneficiaryMergesService {
   async direct(actor: Principal, scope: Scope, body: MergeRequest) {
     return this.guard(() =>
       this.prisma.$transaction(async (tx) => {
-        await this.lockPair(tx, actor, scope, body.keptId, body.mergedId);
+        const pair = await this.lockPair(tx, actor, scope, body.keptId, body.mergedId);
         const row = await tx.profileMerge.create({
           data: {
             id: uuidv7(),
@@ -167,7 +165,7 @@ export class BeneficiaryMergesService {
           },
           select: { id: true },
         });
-        return this.merge(tx, actor, scope, row.id, body.keptId, body.mergedId);
+        return this.merge(tx, actor, pair, row.id, body.keptId, body.mergedId);
       }),
     );
   }
@@ -182,13 +180,14 @@ export class BeneficiaryMergesService {
         if (found.status !== 'proposed') throw new ApiError('user.transition_not_allowed', 409);
         if ([...pair.values()].some((p) => p.mergedIntoId))
           throw new ApiError('beneficiary.merge_stale', 409);
-        const kept = keptId ?? found.keptId;
+        // the database answers ids in lower case; a caller may send either
+        const kept = keptId?.toLowerCase() ?? found.keptId;
         if (kept !== found.keptId && kept !== found.mergedId)
           throw new ApiError('validation.failed', 422, undefined, [
             { path: 'keptId', code: 'validation.failed' },
           ]);
         const retired = kept === found.keptId ? found.mergedId : found.keptId;
-        return this.merge(tx, actor, scope, mergeId, kept, retired);
+        return this.merge(tx, actor, pair, mergeId, kept, retired);
       }),
     );
   }
@@ -209,20 +208,13 @@ export class BeneficiaryMergesService {
   private async merge(
     tx: Tx,
     actor: Principal,
-    scope: Scope,
+    pair: Awaited<ReturnType<BeneficiaryMergesService['lockPair']>>,
     mergeId: string,
     keptId: string,
     retiredId: string,
   ) {
-    const kept = await tx.beneficiary.findUniqueOrThrow({
-      where: { id: keptId },
-      select: { benNo: true, mergedIntoId: true },
-    });
-    const retired = await tx.beneficiary.findUniqueOrThrow({
-      where: { id: retiredId },
-      select: { mergedIntoId: true },
-    });
-    if (kept.mergedIntoId || retired.mergedIntoId)
+    const kept = pair.get(keptId)!;
+    if (kept.mergedIntoId || pair.get(retiredId)!.mergedIntoId)
       throw new ApiError('beneficiary.merge_stale', 409);
     await this.assertNoClash(tx, keptId, retiredId);
     const shared = await tx.$queryRaw<{ id: string; project_id: string; status: string }[]>`
@@ -231,7 +223,17 @@ export class BeneficiaryMergesService {
         AND EXISTS (SELECT 1 FROM applications k WHERE k.beneficiary_id = ${keptId}::uuid
                     AND k.project_id = r.project_id AND k.status <> 'deleted')`;
     const pending = shared.filter((a) => PENDING_STATES.includes(a.status));
-    if (pending.length)
+    if (pending.length) {
+      // the project and application are named only where the caller reaches the project
+      const scope = await this.access.scopeOfUser(actor.userId, 'project.view', 'project', tx);
+      const visible = new Set(
+        (
+          await tx.project.findMany({
+            where: { AND: [{ id: { in: pending.map((a) => a.project_id) } }, projectWhere(scope)] },
+            select: { id: true },
+          })
+        ).map((p) => p.id),
+      );
       throw new ApiError(
         'beneficiary.merge_conflict',
         409,
@@ -239,9 +241,12 @@ export class BeneficiaryMergesService {
         pending.map((a, i) => ({
           path: `applications.${i}`,
           code: 'beneficiary.merge_conflict',
-          params: { projectId: a.project_id, applicationId: a.id },
+          ...(visible.has(a.project_id)
+            ? { params: { projectId: a.project_id, applicationId: a.id } }
+            : {}),
         })),
       );
+    }
     const leftBehind = shared.map((a) => a.id);
     const snapshot: Snapshot = {
       moved: {},
@@ -252,7 +257,8 @@ export class BeneficiaryMergesService {
     for (const move of MOVES) {
       const extra = 'where' in move ? Prisma.raw(` AND ${move.where}`) : Prisma.empty;
       const skip =
-        move.key === 'applications' && leftBehind.length
+        // an application left on the retired profile keeps every pointer it has
+        move.table === 'applications' && leftBehind.length
           ? Prisma.sql` AND id <> ALL(${leftBehind}::uuid[])`
           : Prisma.empty;
       const rows = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
@@ -322,7 +328,13 @@ export class BeneficiaryMergesService {
       SELECT 'file_links', r.file_id::text FROM file_links r
         JOIN file_links k ON k.entity_type = 'beneficiary' AND k.entity_id = ${keptId}::uuid
          AND k.file_id = r.file_id AND k.slot = r.slot
-        WHERE r.entity_type = 'beneficiary' AND r.entity_id = ${retiredId}::uuid`;
+        WHERE r.entity_type = 'beneficiary' AND r.entity_id = ${retiredId}::uuid
+      UNION ALL
+      SELECT 'alerts', r.kind FROM alerts r
+        JOIN alerts k ON k.subject_type = 'beneficiary' AND k.subject_id = ${keptId}::uuid
+         AND k.kind = r.kind AND k.status <> 'resolved'
+        WHERE r.subject_type = 'beneficiary' AND r.subject_id = ${retiredId}::uuid
+          AND r.status <> 'resolved'`;
     if (clashes.length)
       throw new ApiError(
         'beneficiary.merge_conflict',
@@ -331,7 +343,6 @@ export class BeneficiaryMergesService {
         clashes.map((c, i) => ({
           path: `${c.what}.${i}`,
           code: 'beneficiary.merge_conflict',
-          params: { ref: c.ref },
         })),
       );
   }
@@ -391,13 +402,15 @@ export class BeneficiaryMergesService {
         if (found.status !== 'merged') throw new ApiError('user.transition_not_allowed', 409);
         if (pair.get(found.keptId)?.mergedIntoId)
           throw new ApiError('beneficiary.merge_revert_order', 409);
-        const snapshot = found.snapshot as unknown as Snapshot;
+        const snapshot = snapshotSchema.parse(found.snapshot);
         for (const move of MOVES) {
           const ids = snapshot.moved[move.key];
           if (!ids?.length) continue;
-          await tx.$executeRaw(Prisma.sql`
+          const back = await tx.$executeRaw(Prisma.sql`
             UPDATE ${Prisma.raw(move.table)} SET ${Prisma.raw(move.column)} = ${found.mergedId}::uuid
-            WHERE id = ANY(${ids}::uuid[])`);
+            WHERE id = ANY(${ids}::uuid[]) AND ${Prisma.raw(move.column)} = ${found.keptId}::uuid`);
+          // a moved row now on a third profile would be taken from it: refuse instead
+          if (back !== ids.length) throw new ApiError('beneficiary.merge_revert_order', 409);
         }
         await this.restoreBlock(tx, actor, found.mergedId, snapshot.block);
         await tx.beneficiary.update({
@@ -458,11 +471,27 @@ export class BeneficiaryMergesService {
     });
   }
 
-  /** The merges whose two profiles lie in the caller's scope, newest first. */
+  /**
+   * The merges with a profile in the caller's scope, newest first: one side is enough, because a
+   * merge moves the retired profile's applications and with them a program's reach. An open proposal
+   * whose profiles are no longer both live is left out; carrying it out would be refused.
+   */
   async list(scope: Scope, status: 'proposed' | 'merged' | 'reverted' | undefined, limit: number) {
     const inScope = beneficiaryWhere(scope);
+    const stillOpen: Prisma.ProfileMergeWhereInput = {
+      OR: [
+        { status: { not: 'proposed' } },
+        { kept: { mergedIntoId: null }, merged: { mergedIntoId: null } },
+      ],
+    };
     const rows = await this.prisma.profileMerge.findMany({
-      where: { ...(status ? { status } : {}), kept: inScope, merged: inScope },
+      where: {
+        AND: [
+          status ? { status } : {},
+          { OR: [{ kept: inScope }, { merged: inScope }] },
+          stillOpen,
+        ],
+      },
       orderBy: { proposedAt: 'desc' },
       take: limit,
       select: VIEW,
@@ -475,7 +504,7 @@ const counts = (snapshot: Snapshot) =>
   Object.fromEntries(Object.entries(snapshot.moved).map(([k, ids]) => [k, ids?.length ?? 0]));
 
 function view(row: MergeRow) {
-  const snapshot = row.snapshot as unknown as Snapshot | null;
+  const snapshot = row.snapshot ? snapshotSchema.parse(row.snapshot) : null;
   return {
     id: row.id,
     keptId: row.keptId,

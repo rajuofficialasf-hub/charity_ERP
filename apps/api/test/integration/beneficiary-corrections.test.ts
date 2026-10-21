@@ -159,7 +159,11 @@ describe('the correction of a locked field', () => {
     expect(early.status).toBe(409);
     expect(early.body.error.code).toBe('beneficiary.identity_taken');
     // the holder lies in the requester's region, so its BEN number is named
-    expect(early.body.error.details[0].params.benNo).toMatch(/^BEN-\d{7}$/);
+    const holderBen = (await h.db.query('SELECT ben_no FROM beneficiaries WHERE id = $1', [holder]))
+      .rows[0].ben_no as number;
+    expect(early.body.error.details[0].params.benNo).toBe(
+      `BEN-${String(holderBen).padStart(7, '0')}`,
+    );
     const fresh = f.fakeNid();
     const created = await requestCorrection(rpm, id, { ...NAME, field: 'nid', newValue: fresh });
     expect(created.status).toBe(201);

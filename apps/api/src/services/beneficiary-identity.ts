@@ -13,8 +13,9 @@ import type { AuditWriter } from '../audit/audit-writer';
 import type { Principal } from '../auth/principal';
 import type { Clock } from '../core/clock';
 import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates';
+import { isUniqueViolation } from '../core/db-errors';
 import type { PrismaService, Tx } from '../core/prisma.service';
-import { Prisma } from '../generated/prisma/client';
+import { type Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 
 /** How far a chain of merges is followed (a kept profile can itself be merged later). */
@@ -32,12 +33,6 @@ const dhakaDayStart = (now: Date) => {
   const local = now.getTime() + 6 * HOUR_MS;
   return new Date(local - (local % (24 * HOUR_MS)) - 6 * HOUR_MS);
 };
-
-/** A unique index refused the row, through the client (P2002) or a raw statement (P2010, 23505). */
-export const isUniqueViolation = (error: unknown) =>
-  error instanceof Prisma.PrismaClientKnownRequestError &&
-  (error.code === 'P2002' ||
-    (error.code === 'P2010' && JSON.stringify(error.meta).includes('23505')));
 
 export interface LookupViewer {
   principal: Principal;
