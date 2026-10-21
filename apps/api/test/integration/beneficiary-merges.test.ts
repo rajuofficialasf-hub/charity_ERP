@@ -274,6 +274,17 @@ describe('what stops a merge', () => {
     expect(JSON.stringify(res.body)).not.toContain(rangpur);
   });
 
+  it("leaves a merge that moves another program's application to the global roles", async () => {
+    const { kept, retired } = await duplicate();
+    await applyTo(world.b1, retired);
+    const body = { keptId: kept, mergedId: retired, reason: REASON };
+    const pm = await direct(await as(world.users.pm), body);
+    expect(pm.status).toBe(403);
+    expect(pm.body.error.code).toBe('beneficiary.merge_needs_global');
+    expect((await pointer(retired)).merged_into_id).toBeNull();
+    expect((await direct(await as(world.users.monitoring), body)).status).toBe(201);
+  });
+
   it('refuses the PM of another program, an RPM carrying out, and a PM reverting', async () => {
     const { kept, retired } = await duplicate();
     const proposed = await propose(await as(world.users.rpmDhaka), {

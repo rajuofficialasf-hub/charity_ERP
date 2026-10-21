@@ -5816,7 +5816,10 @@ paths:
       tags: [beneficiaries]
       operationId: beneficiaries.merge.direct
       summary: Merge two profiles without a proposal, keeping the one named and a reason
-      description: The same merge as an executed proposal (D-113); the caller is proposer and merger.
+      description: >-
+        The same merge as an executed proposal (D-113); the caller is proposer and merger. A merge
+        that moves an application outside the caller's merge reach (another program, for a PM)
+        answers 403 `beneficiary.merge_needs_global` (D-118).
       x-permission: beneficiary.merge
       x-scope: beneficiary
       x-audit: beneficiary.merge
@@ -5850,7 +5853,8 @@ paths:
         snapshot; a pending application of the retired profile in a project both applied to answers
         409 `beneficiary.merge_conflict` (details name the project), one past pending stays on the
         retired profile (`leftBehind`); a block moves to the kept profile; a proposal whose profiles
-        are no longer both live answers 409 `beneficiary.merge_stale` (D-113).
+        are no longer both live answers 409 `beneficiary.merge_stale` (D-113); an application of
+        another program than the caller reaches answers 403 `beneficiary.merge_needs_global` (D-118).
       x-permission: beneficiary.merge
       x-scope: beneficiary
       x-audit: beneficiary.merge

@@ -216,6 +216,7 @@ export class BeneficiaryMergesService {
     const kept = pair.get(keptId)!;
     if (kept.mergedIntoId || pair.get(retiredId)!.mergedIntoId)
       throw new ApiError('beneficiary.merge_stale', 409);
+    await this.assertWithinReach(tx, actor, retiredId);
     await this.assertNoClash(tx, keptId, retiredId);
     const shared = await tx.$queryRaw<{ id: string; project_id: string; status: string }[]>`
       SELECT r.id, r.project_id, r.status FROM applications r
@@ -300,6 +301,27 @@ export class BeneficiaryMergesService {
       reason: row.reason,
     });
     return view(row);
+  }
+
+  /**
+   * A merge moves applications only inside the merging official's reach: every application of the
+   * retired profile must belong to a project the caller's merge permission reaches (a PM's program);
+   * otherwise the Monitoring Team or the Department Head carries the merge out.
+   */
+  private async assertWithinReach(tx: Tx, actor: Principal, retiredId: string) {
+    const reach = await this.access.scopeOfUser(actor.userId, 'beneficiary.merge', 'project', tx);
+    if (reach.instances.global) return;
+    const outside = await tx.application.count({
+      where: {
+        beneficiaryId: retiredId,
+        status: { not: 'deleted' },
+        NOT: { project: projectWhere(reach) },
+      },
+    });
+    if (outside) {
+      this.access.denied(actor.userId, 'beneficiary.merge', 'beneficiary');
+      throw new ApiError('beneficiary.merge_needs_global', 403);
+    }
   }
 
   /** Refuses a merge whose moves would clash with a unique of the kept profile. */

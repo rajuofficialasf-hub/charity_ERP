@@ -68,7 +68,8 @@
     "merge_stale": "One of these profiles has already been merged. This proposal can no longer be carried out.",
     "mobile_shared": "This mobile number is also on another beneficiary profile.",
     "dismissed": "This pair is already marked as two different people.",
-    "lookup_outside_limit": "Today's limit for finding profiles of other regions is used up. Try again tomorrow, or ask your RPM."
+    "lookup_outside_limit": "Today's limit for finding profiles of other regions is used up. Try again tomorrow, or ask your RPM.",
+    "merge_needs_global": "Applications of another program are involved, so the Monitoring Team or the Department Head carries out this merge."
   },
   "payment": {
     "transaction_id_exists": "This transaction id has already been used.",
