@@ -12,7 +12,7 @@ import type { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { readPermissionsFile } from '../../seed/sets/base/access';
 import { deriveTransitions, readWorkflowTemplates } from '../../seed/sets/base/workflows';
-import { DEMO_STAFF } from '../../seed/sets/demo';
+import { DEMO_DUPLICATE_PAIRS, DEMO_STAFF } from '../../seed/sets/demo';
 import { runSeed, type SeedReport } from '../../seed/run';
 import { cloneTemplate } from './support/db';
 
@@ -39,10 +39,15 @@ const SEEDED_TABLES = [
   'user_roles',
   'volunteers',
   'beneficiaries',
+  'blocklist',
   'projects',
   'id_sequences',
   'project_areas',
   'project_components',
+  'forms',
+  'form_versions',
+  'applications',
+  'beneficiary_merge_candidates',
 ];
 
 async function contentHash(): Promise<Record<string, string>> {
@@ -125,7 +130,7 @@ describe('base set', () => {
         .sort((a, b) => a.name.localeCompare(b.name)),
     );
     expect(roles).toHaveLength(17);
-    expect(permissions).toHaveLength(150);
+    expect(permissions).toHaveLength(152);
   });
 
   it('stores every workflow template merged and valid, with all its transitions', async () => {
@@ -256,14 +261,15 @@ describe('demo set', () => {
     expect(team[0].reference_nid).toBe(team[0].nid);
   });
 
-  it('has 50 beneficiaries in exactly two divisions and a draft winter project with components', async () => {
+  it('has 54 beneficiaries in exactly two divisions and a draft winter project with components', async () => {
     const divisions = (
       await db.query(
         `SELECT l.name_en, count(*)::int AS n FROM beneficiaries b JOIN locations l ON l.id = b.division_id GROUP BY l.name_en ORDER BY l.name_en`,
       )
     ).rows;
+    // 25 per division, and the four profiles of the duplicate pairs in Dhaka
     expect(divisions).toEqual([
-      { name_en: 'Dhaka', n: 25 },
+      { name_en: 'Dhaka', n: 29 },
       { name_en: 'Rangpur', n: 25 },
     ]);
     const project = (
@@ -286,6 +292,64 @@ describe('demo set', () => {
         ],
       },
     ]);
+  });
+
+  it('keeps two duplicate pairs the duplicate rules find, both people applied in program HUM', async () => {
+    const pairs = (
+      await db.query(
+        `SELECT x.nid AS low_nid, y.nid AS high_nid, c.rules, c.active,
+           person_name_key(x.name) = person_name_key(y.name)
+             AND person_name_key(x.father_or_husband_name) = person_name_key(y.father_or_husband_name)
+             AND x.mobile = y.mobile AS same_person_data
+         FROM beneficiary_merge_candidates c
+         JOIN beneficiaries x ON x.id = c.low_id
+         JOIN beneficiaries y ON y.id = c.high_id
+         ORDER BY least(x.nid, y.nid)`,
+      )
+    ).rows;
+    expect(pairs).toHaveLength(DEMO_DUPLICATE_PAIRS.length);
+    for (const [i, pair] of pairs.entries()) {
+      expect([pair.low_nid, pair.high_nid].sort()).toEqual([...DEMO_DUPLICATE_PAIRS[i]!.nids]);
+      expect(pair).toMatchObject({
+        rules: ['name_father_mobile', 'same_mobile'],
+        active: true,
+        same_person_data: true,
+      });
+    }
+    const applications = (
+      await db.query(
+        `SELECT b.nid, a.status, p.code, g.code AS program
+         FROM applications a
+         JOIN beneficiaries b ON b.id = a.beneficiary_id
+         JOIN projects p ON p.id = a.project_id
+         JOIN programs g ON g.id = p.program_id
+         ORDER BY b.nid`,
+      )
+    ).rows;
+    expect(applications).toEqual(
+      DEMO_DUPLICATE_PAIRS.flatMap((pair) =>
+        pair.nids.map((nid) => ({
+          nid,
+          status: 'under_review',
+          code: 'WNT',
+          program: 'HUM',
+        })),
+      ),
+    );
+  });
+
+  it('blocks exactly one Dhaka beneficiary, identified by NID, through an active blocklist row', async () => {
+    const { rows } = await db.query(
+      `SELECT b.nid, l.name_en AS division, bl.active, bl.reason
+       FROM beneficiaries b
+       JOIN locations l ON l.id = b.division_id
+       LEFT JOIN blocklist bl ON bl.subject_type = 'beneficiary' AND bl.subject_id = b.id
+       WHERE b.is_blocked`,
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ division: 'Dhaka', active: true });
+    expect(isFakeNid(rows[0].nid)).toBe(true);
+    expect(isDemoName(rows[0].reason)).toBe(true);
   });
 
   it('contains no real identities: every NID, birth registration, mobile, email and name is fake', async () => {

@@ -23,6 +23,8 @@ export const QUEUES = {
   photos: { retryLimit: 5, retryDelay: 60, retryBackoff: true, expireInSeconds: 600 },
   /** Nightly storage growth figures (SYSTEM_ARCHITECTURE 11). */
   'storage-stats': { retryLimit: 3, retryDelay: 600, retryBackoff: false, expireInSeconds: 1800 },
+  /** Nightly recomputation of the suggested duplicate beneficiaries. */
+  duplicates: { retryLimit: 3, retryDelay: 600, retryBackoff: false, expireInSeconds: 1800 },
   /** Priority score recomputation. */
   scores: { retryLimit: 3, retryDelay: 60, retryBackoff: true, expireInSeconds: 600 },
   /** Housekeeping, including the sample heartbeat job of T1.6. */

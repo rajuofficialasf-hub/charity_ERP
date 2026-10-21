@@ -8,6 +8,8 @@ Backup verification, queue and sync-failure review, storage growth, certificate 
 ## 2. Restore procedure and drill
 Step-by-step restore of database and object storage; monthly drill log with date, duration and result (NFR-35).
 
+After a restore into a server whose collation or ICU version differs from the source (another operating system, a PostgreSQL upgrade), rebuild the indexes on expressions over text, because their stored order may no longer match: `REINDEX INDEX CONCURRENTLY beneficiaries_dup_name_father_mobile_idx;` and `REINDEX INDEX CONCURRENTLY beneficiaries_dup_name_dob_union_idx;` (the duplicate suggestions, built on `person_name_key`). Then run the nightly duplicate job once by hand (queue `duplicates`) so the pairs table matches the restored data. PostgreSQL warns about a collation version mismatch in the server log; `ALTER DATABASE css_erp REFRESH COLLATION VERSION;` clears the warning only after the rebuild.
+
 ## 3. Incident response
 Severity levels, who to contact, first actions, communication to field users during distribution season.
 

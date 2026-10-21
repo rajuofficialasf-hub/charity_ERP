@@ -77,7 +77,7 @@ Error:
 
 Messages come from the Bengali or English catalogue; digits are always 0–9 in both languages (UX-05).
 
-- `params` appears only for the codes whose parameters section 8 documents (today `permission.grant_refused` with `rule`); other codes keep their parameters inside the rendered message.
+- `params` appears only for the codes whose parameters section 8 documents (`permission.grant_refused` with `rule`; in a detail, `beneficiary.identity_taken` with `benNo` when the caller may see the holder, and `beneficiary.merge_conflict` with `projectId` and `applicationId`, or `ref`); other codes keep their parameters inside the rendered message.
 - `requestId` is returned in every response and in the `X-Request-Id` header; it is the correlation key in logs (SYSTEM_ARCHITECTURE §10).
 - Timestamps are ISO 8601 UTC with `Z`; dates are `YYYY-MM-DD`; money is a decimal **string** (`"1000.00"`) in BDT; counts are integers; booleans are booleans; all digits are 0–9 (UX-05).
 - Fields the caller may not see are **absent**, not null (field-level protection by removal, RBAC.md §8).
@@ -276,6 +276,7 @@ Implementation (T1.6, O-57): `IdempotencyService` in apps/api: `replayByClientUu
 | list | 60 per minute per user and 600 per minute per address; each read stops after 5 seconds with `server.busy` (O-67) | user, IP |
 | sync | 60 batches per minute per device session (PROPOSAL) | device session |
 | upload | 600 parts per hour per user (a photo of 1.6 MB is 7 parts; D-108) | user |
+| lookup | the beneficiary lookup by NID or birth registration: 60 per minute and 600 per day per user, and 120 per minute per address; every lookup is audited without the number (D-114) | user, IP |
 
 Responses include `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`; a 429 carries `Retry-After`, which the PWA honours (O-29). Limits are enforced in the API (not only in Caddy) so they apply per account.
 

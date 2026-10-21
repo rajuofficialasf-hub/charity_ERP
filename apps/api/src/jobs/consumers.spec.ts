@@ -5,6 +5,7 @@ import type { NotificationDelivery } from '../notifications/delivery';
 import type { JobRunner } from './job-runner';
 import type { FileProcessor } from './file-process';
 import { REGISTRATION_CLEANUP_CRON, type RegistrationCleanup } from './registration-cleanup';
+import { DUPLICATES_CRON, DUPLICATES_QUEUE } from './duplicates';
 import { STORAGE_STATS_CRON, STORAGE_STATS_QUEUE, type StorageStats } from './storage-stats';
 import type { UploadSweep } from './upload-sweep';
 
@@ -113,6 +114,23 @@ describe('the processing of uploaded files', () => {
     expect(queuePending).toHaveBeenCalledTimes(1);
     expect(order.at(-1)).toBe('catch-up');
     expect(order.filter((o) => o === 'schedule')).toHaveLength(2);
+  });
+});
+
+describe('the nightly duplicate pairs', () => {
+  it('works and schedules the duplicates queue, and neither without the service', async () => {
+    const { runner, work, schedule } = fakeRunner();
+    const refreshAll = vi.fn(async () => ({ active: 4 }));
+    await new JobConsumers(runner, quiet, { mergeCandidates: { refreshAll } }).register();
+    const call = (work.mock.calls as unknown as [string, () => Promise<unknown>][]).find(
+      (c) => c[0] === DUPLICATES_QUEUE,
+    );
+    expect(call).toBeDefined();
+    expect(await call![1]()).toEqual({ active: 4 });
+    expect(schedule).toHaveBeenCalledWith(DUPLICATES_QUEUE, DUPLICATES_CRON, {}, 'duplicates');
+    const bare = fakeRunner();
+    await new JobConsumers(bare.runner, quiet).register();
+    expect(bare.work.mock.calls.some((c) => (c as unknown[])[0] === DUPLICATES_QUEUE)).toBe(false);
   });
 });
 

@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+export * from './identity.js';
+export * from './requests.js';
+
 /**
  * The nationwide beneficiary tab (DECISION_LOG O-67, D-094): the filters shared by the list and its
  * counts. A filter on something a caller may not see (the union, the blocklist status) is refused
@@ -26,6 +29,8 @@ export type BeneficiaryFilter = z.infer<typeof beneficiaryFilterSchema>;
 /** One row of the beneficiary tab; the protected parts only for callers who see them. */
 export interface BeneficiaryRow {
   id: string;
+  /** The BEN number; shown through `formatBenNo`. */
+  benNo: number;
   name: string;
   /** With the personal-details class only (the Media and Procurement Teams do not get it). */
   fatherOrHusbandName?: string;

@@ -1,15 +1,18 @@
-import type { BeneficiaryRow } from '@css/shared/beneficiaries';
+import { type BeneficiaryRow, formatBenNo } from '@css/shared/beneficiaries';
 import { formatCount } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
 import {
   type ActiveFilter,
   Avatar,
   Badge,
+  Button,
   EmptyState,
   ErrorState,
   FilterGroup,
   MenuButton,
+  Modal,
   Select,
+  Stack,
   StatFilterBar,
   type StatFilterItem,
   Table,
@@ -17,11 +20,13 @@ import {
   TableToolbar,
 } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
-import { Ban, EllipsisVertical, HandHeart, User, Users } from 'lucide-react';
+import { Ban, Copy, EllipsisVertical, HandHeart, Search, User, Users } from 'lucide-react';
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
+import { LookupField } from '../../features/beneficiaries/LookupField';
 import { AddressFields } from '../../features/registration/AddressFields';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -31,7 +36,13 @@ import { useAreaChips } from '../area-chips';
 import { numberedPaging } from '../list-paging';
 import { ProjectPicker } from '../projects/ProjectPicker';
 import { PROJECTS_KEY, pickerProjects } from '../projects/projects-api';
-import { canSeeBeneficiaries, canSeeBeneficiaryAddress, canSeeBeneficiaryDetails } from '../roles';
+import {
+  canLookUpBeneficiaries,
+  canReviewDuplicates,
+  canSeeBeneficiaries,
+  canSeeBeneficiaryAddress,
+  canSeeBeneficiaryDetails,
+} from '../roles';
 import { useTabView } from '../use-tab-view';
 import {
   BENEFICIARIES_KEY,
@@ -40,6 +51,7 @@ import {
   beneficiaryStatistics,
   FILTER_KEYS,
 } from './beneficiaries-api';
+import { DUPLICATES_PATH } from './duplicates/merge-api';
 
 /** The years offered by the year filter: this one and the five before it. */
 const yearsBack = () => {
@@ -56,12 +68,30 @@ const yearsBack = () => {
 export function BeneficiariesPage() {
   const { me } = useAuth();
   const t = useTranslations('admin.beneficiaries');
+  const [lookup, setLookup] = useState(false);
   if (!me) return null;
   if (!canSeeBeneficiaries(me)) return <ForbiddenContent />;
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <h1 className="admin-title">{t('title')}</h1>
+      <div className="admin-title-row">
+        <h1 className="admin-title">{t('title')}</h1>
+        {(canLookUpBeneficiaries(me) || canReviewDuplicates(me)) && (
+          <Stack direction="row" wrap gap={2}>
+            {canReviewDuplicates(me) && (
+              <Button variant="secondary" icon={Copy} href={DUPLICATES_PATH}>
+                {t('duplicates.title')}
+              </Button>
+            )}
+            {canLookUpBeneficiaries(me) && (
+              <Button variant="secondary" icon={Search} onPress={() => setLookup(true)}>
+                {t('lookup.open')}
+              </Button>
+            )}
+          </Stack>
+        )}
+      </div>
+      {lookup && <LookupDialog onClose={() => setLookup(false)} />}
       <BeneficiaryTab details={canSeeBeneficiaryDetails(me)} union={canSeeBeneficiaryAddress(me)} />
     </>
   );
@@ -161,6 +191,7 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
   );
   const columns: TableColumn<BeneficiaryRow>[] = [
     { id: 'name', header: t('column.name'), cell: person, isRowHeader: true },
+    { id: 'ben', header: t('column.ben'), cell: (r) => formatBenNo(r.benNo) },
     ...(rows.some((r) => 'fatherOrHusbandName' in r)
       ? [
           {
@@ -344,12 +375,34 @@ function BeneficiaryTab({ details, union }: { details: boolean; union: boolean }
               {person(r)}
               {actions(r)}
             </div>
+            <span>{formatBenNo(r.benNo)}</span>
             <Area row={r} />
             {status(r)}
           </div>
         )}
       />
     </>
+  );
+}
+
+/**
+ * The lookup by NID or birth registration inside one of the caller's projects, as the application
+ * form does it: an official checks whether a person already has a profile and what it holds.
+ */
+function LookupDialog({ onClose }: { onClose: () => void }) {
+  const t = useTranslations('admin.beneficiaries.lookup');
+  const [projectId, setProjectId] = useState<string | null>(null);
+  return (
+    <Modal title={t('title')} isOpen fullOnPhone onClose={onClose}>
+      <ProjectPicker value={projectId} onChange={setProjectId} />
+      <LookupField
+        key={projectId ?? ''}
+        projectId={projectId}
+        footer={(found) => (
+          <Link to={`/admin/beneficiaries/${found.beneficiaryId}`}>{t('profile')}</Link>
+        )}
+      />
+    </Modal>
   );
 }
 

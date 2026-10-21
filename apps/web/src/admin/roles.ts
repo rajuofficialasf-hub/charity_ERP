@@ -48,6 +48,27 @@ export const BENEFICIARY_ADDRESS_ROLES: readonly string[] = [
   'procurement_team',
 ];
 
+/**
+ * Who gets the lookup by NID or birth registration on the beneficiary tab: the roles that hold
+ * `beneficiary.lookup` and can pick one of their projects there (the PM, the RPM, the Project
+ * Executive and the global roles, the same as `PROJECT_ROLES`). The Implementer holds the
+ * permission too but has no project list on this tab, so it looks up from the application form;
+ * the server checks the project.
+ */
+export const BENEFICIARY_LOOKUP_ROLES: readonly string[] = ADMIN_ROLES;
+
+/**
+ * Who sees the suggested duplicate profiles and the merge proposals and marks a pair as two people
+ * (`beneficiary.merge.dismiss`: the PM in its program, the RPM in its region and the global roles).
+ * Whether a merge or a proposal is offered follows the action flags of the two profiles.
+ */
+export const DUPLICATE_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'program_manager',
+  'regional_program_manager',
+];
+
 /** Who sees volunteer categories and ratings (the class `volunteer.rating`). */
 export const CATEGORY_ROLES: readonly string[] = ADMIN_ROLES;
 
@@ -166,6 +187,9 @@ export const canSeeBeneficiaryDetails = (me: Pick<Me, 'roles'>) =>
   holds(me, BENEFICIARY_DETAIL_ROLES);
 export const canSeeBeneficiaryAddress = (me: Pick<Me, 'roles'>) =>
   holds(me, BENEFICIARY_ADDRESS_ROLES);
+export const canLookUpBeneficiaries = (me: Pick<Me, 'roles'>) =>
+  holds(me, BENEFICIARY_LOOKUP_ROLES);
+export const canReviewDuplicates = (me: Pick<Me, 'roles'>) => holds(me, DUPLICATE_ROLES);
 export const canApproveStaff = (me: Pick<Me, 'roles'>) => holds(me, STAFF_APPROVER_ROLES);
 export const canDecideEdits = (me: Pick<Me, 'roles'>) => holds(me, EDIT_REQUEST_ROLES);
 export const canBlock = (me: Pick<Me, 'roles'>) => holds(me, BLOCKLIST_ROLES);

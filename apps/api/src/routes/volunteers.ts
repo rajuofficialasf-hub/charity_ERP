@@ -189,7 +189,7 @@ const viewerOf = (req: AuthedRequest) => ({
 });
 
 /** A blocklist entry without its reason (the reason is in the audit log, class blocklist.reason). */
-const blocklistEntry = z.object({
+export const blocklistEntry = z.object({
   id: z.uuid(),
   subjectType: z.enum(['volunteer', 'beneficiary']),
   subjectId: z.uuid(),
