@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { bilingual, snakeKey } from '../jsonb/common.js';
 
-/** Where a project's first form draft comes from (BD-10). */
+/** Where a project's first form draft comes from: a library template, nothing, or another project's published form. */
 export const formSourceSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('template'), templateKey: z.string().min(1).max(80) }),
   z.strictObject({ kind: z.literal('blank') }),

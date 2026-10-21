@@ -7,7 +7,12 @@ import {
   type Condition,
   type Expr,
 } from '../jsonb/form-logic.js';
-import { CORE_FIELDS } from './core.js';
+import {
+  CORE_FIELDS,
+  FAMILY_MEMBERS_TABLE,
+  isFamilyMemberColumn,
+  isStandardColumn,
+} from './core.js';
 import {
   FIELD_TYPES,
   isChoiceType,
@@ -23,6 +28,14 @@ import { PATTERN_KEYS, TEXT_MAX_LENGTH } from './patterns.js';
  * shape. Parsing refuses what the schema cannot express; `checkDefinition` refuses what it can
  * (a missing core field, a dangling reference, a cycle), each with a stable code.
  */
+
+/** How large a definition may grow: a builder never needs more, and a request body stays bounded. */
+export const DEFINITION_LIMITS = {
+  sections: 50,
+  fieldsPerSection: 200,
+  optionsPerField: 100,
+  membersPerGroup: 50,
+} as const;
 
 /** A user-facing text of a form: both languages, neither empty. */
 const label = (max: number) =>
@@ -83,7 +96,7 @@ export const formFieldSchema = z.strictObject({
   settings: fieldSettingsSchema.optional(),
   logic: fieldLogicSchema.optional(),
   calculation: calculationSchema.optional(),
-  options: z.array(fieldOptionSchema).optional(),
+  options: z.array(fieldOptionSchema).max(DEFINITION_LIMITS.optionsPerField).optional(),
 });
 export type FormField = z.infer<typeof formFieldSchema>;
 
@@ -93,7 +106,7 @@ export const formSectionSchema = z.strictObject({
   title: label(200),
   visibility: z.enum(SECTION_VISIBILITIES),
   condition: conditionSchema.nullable().optional(),
-  fields: z.array(formFieldSchema),
+  fields: z.array(formFieldSchema).max(DEFINITION_LIMITS.fieldsPerSection),
 });
 export type FormSection = z.infer<typeof formSectionSchema>;
 
@@ -121,6 +134,9 @@ export const DEFINITION_ISSUE_CODES = [
   'form.core_field_optional',
   'form.core_field_hidden',
   'form.core_field_shape',
+  'form.standard_column_unknown',
+  'form.standard_column_duplicate',
+  'form.repeat_group_too_large',
 ] as const;
 export type DefinitionIssueCode = (typeof DEFINITION_ISSUE_CODES)[number];
 
@@ -400,6 +416,51 @@ export function checkDefinition(definition: FormDefinition): DefinitionIssue[] {
   };
   for (const key of fields.keys()) walk(key, []);
 
+  // a field fills a column of the allowlist only, and no column is filled twice: once across the
+  // plain fields of the version, once inside each repeat group (its rows are separate records)
+  const filled = new Map<string, Set<string>>();
+  const memberCounts = new Map<string, number>();
+  for (const located of fields.values()) {
+    const { field } = located;
+    if (located.group !== null)
+      memberCounts.set(located.group, (memberCounts.get(located.group) ?? 0) + 1);
+    const column = field.standardColumn;
+    if (column === null || column === undefined) continue;
+    const allowed =
+      field.type === 'repeat_group'
+        ? column === FAMILY_MEMBERS_TABLE
+        : located.group === null
+          ? isStandardColumn(column)
+          : isFamilyMemberColumn(column);
+    if (!allowed) {
+      issues.push({
+        code: 'form.standard_column_unknown',
+        path: fieldPath(located, 'standardColumn'),
+        params: { fieldKey: field.fieldKey, column },
+      });
+      continue;
+    }
+    const scope = located.group ?? '';
+    let columns = filled.get(scope);
+    if (!columns) filled.set(scope, (columns = new Set()));
+    if (columns.has(column))
+      issues.push({
+        code: 'form.standard_column_duplicate',
+        path: fieldPath(located, 'standardColumn'),
+        params: { fieldKey: field.fieldKey, column },
+      });
+    columns.add(column);
+  }
+  for (const [group, count] of memberCounts) {
+    const located = fields.get(group);
+    if (located && count > DEFINITION_LIMITS.membersPerGroup)
+      issues.push({
+        code: 'form.repeat_group_too_large',
+        path: fieldPath(located),
+        params: { fieldKey: group, max: String(DEFINITION_LIMITS.membersPerGroup) },
+      });
+  }
+
   // the mandatory core: present, required, visible to volunteers, mapped to its column
   for (const core of CORE_FIELDS) {
     const located = fields.get(core.key);
@@ -442,7 +503,9 @@ export function checkDefinition(definition: FormDefinition): DefinitionIssue[] {
 
 /** The full definition schema: the shape, then every check of `checkDefinition`. */
 export const formDefinitionSchema: z.ZodType<FormDefinition> = z
-  .strictObject({ sections: z.array(formSectionSchema).min(1) })
+  .strictObject({
+    sections: z.array(formSectionSchema).min(1).max(DEFINITION_LIMITS.sections),
+  })
   .superRefine((definition, ctx) => {
     for (const issue of checkDefinition(definition))
       ctx.addIssue({

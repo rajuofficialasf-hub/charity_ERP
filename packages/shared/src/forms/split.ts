@@ -1,5 +1,6 @@
 import { isNidNumber } from '../beneficiaries/identity.js';
 import type { AnswerValue } from '../jsonb/answer-value.js';
+import { FAMILY_MEMBERS_TABLE, isFamilyMemberColumn, isStandardColumn } from './core.js';
 import { indexFields, type FormDefinition, type LocatedField } from './definition.js';
 import type { Answer } from './evaluate.js';
 
@@ -10,8 +11,19 @@ import type { Answer } from './evaluate.js';
  * never decides this on its own.
  */
 
-/** The family-member table the earners group fills. */
-export const FAMILY_MEMBERS_TABLE = 'beneficiary_family_members';
+/**
+ * A definition that names a column outside the allowlist reached the split: the check of the
+ * definition was skipped somewhere, and nothing is written for it.
+ */
+export class SplitError extends Error {
+  constructor(
+    readonly fieldKey: string,
+    readonly column: string,
+  ) {
+    super(`form.standard_column_unknown: ${fieldKey} -> ${column}`);
+    this.name = 'SplitError';
+  }
+}
 
 export interface FamilyMemberRow {
   /** The row's index in the repeat group. */
@@ -101,6 +113,7 @@ export function split(definition: FormDefinition, answers: readonly Answer[]): S
       continue;
     }
     if (located.group !== null && isFamilyGroup(fields.get(located.group))) {
+      if (!isFamilyMemberColumn(column)) throw new SplitError(answer.fieldKey, column);
       const row = answer.repeatIndex ?? 0;
       let columns = members.get(row);
       if (!columns) members.set(row, (columns = new Map()));
@@ -111,6 +124,7 @@ export function split(definition: FormDefinition, answers: readonly Answer[]): S
       custom.push(answer);
       continue;
     }
+    if (!isStandardColumn(column)) throw new SplitError(answer.fieldKey, column);
     for (const [name, value] of columnsOf(column, answer.value)) standard.set(name, value);
   }
   const familyMembers = [...members.entries()]

@@ -88,7 +88,7 @@ const formParams = { formId: uuid };
 const ifMatch = [{ name: 'If-Match', required: true }];
 
 /**
- * The forms of a project (openapi tag forms; docs/MASTER_SPEC.md B3, BD-10, BD-12): the library
+ * The forms of a project (openapi tag forms; docs/MASTER_SPEC.md, the dynamic form platform): the library
  * the builder picks from, a project's forms, the first draft from a template, blank or a copy,
  * the versions of a form, one version as the engine, the builder and the phone read it, the
  * draft's update and publish, the next draft, and the fields of a form across its versions.

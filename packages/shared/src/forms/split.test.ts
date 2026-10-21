@@ -11,7 +11,7 @@ import {
   UPAZILA,
   yesNo,
 } from '../../test/forms-fixture.js';
-import { identityColumn, split, type Answer } from './index.js';
+import { identityColumn, split, SplitError, type Answer } from './index.js';
 
 // Which answers go to the beneficiary profile and which stay with the application.
 const answer = (fieldKey: string, value: Answer['value'], repeatIndex?: number): Answer =>
@@ -110,5 +110,24 @@ describe('the split', () => {
     ]);
     expect(result.standard).toEqual({});
     expect(result.custom.map((a) => a.fieldKey)).toEqual(['total_members', 'stray']);
+  });
+});
+
+describe('the second line of defence', () => {
+  it('refuses to split a definition whose field names a column outside the allowlist', () => {
+    const definition = definitionWith([field('x', 'short_text', { standardColumn: 'is_blocked' })]);
+    expect(() => split(definition, [answer('x', { t: 'short_text', v: 'true' })])).toThrow(
+      SplitError,
+    );
+    const members = definitionWith([
+      field('earners', 'repeat_group', { standardColumn: 'beneficiary_family_members' }),
+      field('earner_flag', 'short_text', {
+        standardColumn: 'active',
+        settings: { repeat: { group: 'earners' } },
+      }),
+    ]);
+    expect(() => split(members, [answer('earner_flag', { t: 'short_text', v: 'x' }, 0)])).toThrow(
+      /form.standard_column_unknown/u,
+    );
   });
 });

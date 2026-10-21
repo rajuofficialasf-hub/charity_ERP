@@ -2,9 +2,7 @@ import { calculationSchema, conditionSchema, uuidv7 } from '@css/shared';
 import {
   blankDefinition,
   definitionFromTemplate,
-  FIELD_TYPES,
   type FieldOption,
-  type FieldType,
   fieldLogicSchema,
   fieldSettingsSchema,
   type FormCreate,
@@ -13,8 +11,6 @@ import {
   formDefinitionSchema,
   type FormSectionDefinition,
   formTemplateFormSchema,
-  SECTION_VISIBILITIES,
-  type SectionVisibility,
 } from '@css/shared/forms';
 import type { MessageParams } from '@css/shared/i18n';
 import { editableIn, PROJECT_STATUSES, type ProjectStatus } from '@css/shared/projects';
@@ -24,8 +20,9 @@ import type { AuditWriter } from '../audit/audit-writer';
 import { assertIfMatch } from '../core/etag';
 import type { PrismaService, Tx } from '../core/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
+import { isUniqueViolation } from '../core/db-errors';
 import { ApiError, type ApiErrorDetail } from '../i18n/api-error';
-import type { FormLibraryService } from './form-library';
+import { fieldTypeOf, type FormLibraryService, visibilityOf } from './form-library';
 import type { ProjectViewer, ProjectsService } from './projects';
 
 /** Who reads a version: an official sees every section, the others the volunteer-visible ones. */
@@ -65,21 +62,17 @@ const VERSION_SELECT = {
 function parseDefinition(body: unknown): FormDefinition {
   const parsed = formDefinitionSchema.safeParse(body);
   if (parsed.success) return parsed.data;
-  const sections = (body as { sections?: unknown } | null)?.sections;
+  const outline = bodyOutlineSchema.safeParse(body);
+  const sections = outline.success ? outline.data.sections : [];
   const details: ApiErrorDetail[] = parsed.error.issues.map((issue) => {
-    const params = (issue as { params?: Record<string, unknown> }).params ?? {};
+    const params = issueParamsSchema.parse(issue).params ?? {};
     const [, i, , j] = issue.path;
-    const section = Array.isArray(sections) && typeof i === 'number' ? sections[i] : undefined;
-    const fields = (section as { fields?: unknown } | undefined)?.fields;
-    const field = Array.isArray(fields) && typeof j === 'number' ? fields[j] : undefined;
+    const section = typeof i === 'number' ? sections[i] : undefined;
+    const field = typeof j === 'number' ? section?.fields[j] : undefined;
     const fieldKey =
       typeof params.fieldKey === 'string'
         ? params.fieldKey
-        : typeof (field as { fieldKey?: unknown } | undefined)?.fieldKey === 'string'
-          ? ((field as { fieldKey: string }).fieldKey as string)
-          : typeof (section as { key?: unknown } | undefined)?.key === 'string'
-            ? ((section as { key: string }).key as string)
-            : issue.path.map(String).join('.');
+        : (field?.fieldKey ?? section?.key ?? issue.path.map(String).join('.'));
     const code = issue.message.startsWith('form.') ? issue.message : 'validation.failed';
     const named: MessageParams = {};
     for (const [key, value] of Object.entries(params))
@@ -88,6 +81,18 @@ function parseDefinition(body: unknown): FormDefinition {
   });
   throw new ApiError('validation.failed', 422, undefined, details);
 }
+
+/** The keys of a draft body, read to name the field each refusal is about. */
+const bodyOutlineSchema = z.looseObject({
+  sections: z.array(
+    z.looseObject({
+      key: z.string().optional(),
+      fields: z.array(z.looseObject({ fieldKey: z.string().optional() })).default([]),
+    }),
+  ),
+});
+/** The parameters the engine attaches to an issue (zod keeps them outside its typed shape). */
+const issueParamsSchema = z.looseObject({ params: z.record(z.string(), z.unknown()).optional() });
 
 /** The part of a stored form template the builder reads. */
 const storedTemplateSchema = z.looseObject({ form: formTemplateFormSchema });
@@ -105,16 +110,6 @@ const FORM_SELECT = {
 } satisfies Prisma.FormSelect;
 type FormRow = Prisma.FormGetPayload<{ select: typeof FORM_SELECT }>;
 
-const fieldTypeOf = (value: string): FieldType => {
-  const type = FIELD_TYPES.find((t) => t === value);
-  if (!type) throw new Error(`unknown field type ${value}`);
-  return type;
-};
-const visibilityOf = (value: string): SectionVisibility => {
-  const visibility = SECTION_VISIBILITIES.find((v) => v === value);
-  if (!visibility) throw new Error(`unknown section visibility ${value}`);
-  return visibility;
-};
 /** A typed value for a Prisma Json column (the engine's schemas already shaped it). */
 const json = (value: unknown) => value as Prisma.InputJsonValue;
 
@@ -126,7 +121,8 @@ function statusOf(value: string): ProjectStatus {
 }
 
 /**
- * The forms of a project and their versions (docs/MASTER_SPEC.md B3; BD-10, BD-12): a form starts
+ * The forms of a project and their versions (docs/MASTER_SPEC.md, the dynamic form platform; the
+ * decisions on templates and form versions in docs/DECISION_LOG.md): a form starts
  * as draft 1 from a library template, blank with the mandatory core, or copied from another
  * project's published form; every read maps the stored rows to the one definition shape the
  * engine, the builder and the phone share, and keeps official-only sections from callers who may
@@ -414,6 +410,11 @@ export class FormsService {
     const actor = viewer.principal.userId;
     return this.prisma.$transaction(async (tx) => {
       const row = await this.lockedDraft(tx, viewer, versionId);
+      // a builder who cannot see the official-only sections would drop them with every save
+      if ((await this.audienceOf(viewer, row.form.projectId)) !== 'official') {
+        this.access.denied(viewer.principal.userId, viewer.scope.permission, viewer.scope.entity);
+        throw new ApiError('permission.denied', 403);
+      }
       assertIfMatch(ifMatch, row.updatedAt);
       const definition = parseDefinition(body);
       const kept = new Map(
@@ -468,6 +469,7 @@ export class FormsService {
       assertIfMatch(ifMatch, row.updatedAt);
       const definition = await this.definitionOf(tx, versionId, 'official');
       parseDefinition(definition);
+      const audience = await this.audienceOf(viewer, row.form.projectId);
       await tx.formVersion.updateMany({
         where: { formId: row.formId, status: 'published' },
         data: { status: 'retired', updatedBy: actor },
@@ -484,7 +486,13 @@ export class FormsService {
         entityId: versionId,
         new: { formId: row.formId, versionNo: row.versionNo },
       });
-      return { version: versionView(published, definition), updatedAt: published.updatedAt };
+      return {
+        version: versionView(
+          published,
+          audience === 'official' ? definition : await this.definitionOf(tx, versionId, audience),
+        ),
+        updatedAt: published.updatedAt,
+      };
     });
   }
 
@@ -512,11 +520,18 @@ export class FormsService {
       if (!published) throw new ApiError('form.nothing_published', 409);
       const versionNo = Math.max(...form.formVersionsForm.map((v) => v.versionNo)) + 1;
       const versionId = uuidv7();
-      await tx.formVersion.create({
-        data: { id: versionId, formId, versionNo, createdBy: actor, updatedBy: actor },
-      });
+      try {
+        await tx.formVersion.create({
+          data: { id: versionId, formId, versionNo, createdBy: actor, updatedBy: actor },
+        });
+      } catch (error) {
+        // the one-draft index refuses a draft opened at the same moment by another request
+        if (isUniqueViolation(error)) throw new ApiError('form.draft_exists', 409);
+        throw error;
+      }
       const definition = await this.definitionOf(tx, published.id, 'official');
       await this.writeDefinition(tx, versionId, definition, actor);
+      const audience = await this.audienceOf(viewer, form.projectId);
       await this.audit.record(tx, {
         action: 'form.version_created',
         entityType: 'form',
@@ -527,15 +542,25 @@ export class FormsService {
         where: { id: versionId },
         select: VERSION_SELECT,
       });
-      return { version: versionView(row, definition), updatedAt: row.updatedAt };
+      return {
+        version: versionView(
+          row,
+          audience === 'official' ? definition : await this.definitionOf(tx, versionId, audience),
+        ),
+        updatedAt: row.updatedAt,
+      };
     });
   }
 
   /** Every field of a form by key, with the versions it appears in, for reports across versions. */
   async fieldMap(viewer: ProjectViewer, formId: string) {
-    await this.reachableForm(viewer, formId);
+    const form = await this.reachableForm(viewer, formId);
+    const audience = await this.audienceOf(viewer, form.projectId);
     const rows = await this.prisma.formField.findMany({
-      where: { formVersion: { formId } },
+      where: {
+        formVersion: { formId },
+        ...(audience === 'official' ? {} : { formSection: { visibility: 'volunteer' } }),
+      },
       orderBy: [{ formVersion: { versionNo: 'asc' } }, { sortOrder: 'asc' }],
       select: {
         fieldKey: true,
@@ -640,7 +665,7 @@ export class FormsService {
     return this.definitionOf(tx, published.id, 'official');
   }
 
-  /** The application-form component of the project names its forms (BD-09). */
+  /** The application-form component of the project names its forms. */
   private async nameFormOnComponent(tx: Tx, projectId: string, formId: string, actor: string) {
     const row = await tx.projectComponent.findUnique({
       where: { projectId_componentKey: { projectId, componentKey: 'application_form' } },

@@ -293,3 +293,100 @@ describe('the shape', () => {
     expect(formDefinitionSchema.safeParse(unknownType).success).toBe(false);
   });
 });
+
+describe('the standard columns', () => {
+  it('lets a field fill a column of the allowlist and refuses any other column', () => {
+    expect(
+      checkDefinition(
+        definitionWith([field('mother', 'short_text', { standardColumn: 'mother_name' })]),
+      ),
+    ).toEqual([]);
+    for (const column of [
+      'status',
+      'is_blocked',
+      'created_by',
+      'merged_into_id',
+      'name,mobile',
+      'Name',
+    ])
+      expect(
+        codesOf(definitionWith([field('x', 'short_text', { standardColumn: column })])),
+        column,
+      ).toEqual([['form.standard_column_unknown', 'x']]);
+  });
+
+  it('refuses two fields of one version that fill the same column', () => {
+    const definition = definitionWith([
+      field('name_again', 'short_text', { standardColumn: 'name' }),
+    ]);
+    expect(codesOf(definition)).toEqual([['form.standard_column_duplicate', 'name_again']]);
+  });
+
+  it('lets a repeat group name the family-member table only, and its members the member columns only', () => {
+    const group = (groupColumn: string | null, memberColumn: string | null) => [
+      field('earners', 'repeat_group', { standardColumn: groupColumn }),
+      field('earner_name', 'short_text', {
+        settings: { repeat: { group: 'earners' } },
+        standardColumn: memberColumn,
+      }),
+      field('earner_income', 'money', {
+        settings: { repeat: { group: 'earners' } },
+        standardColumn: 'monthly_income',
+      }),
+    ];
+    expect(checkDefinition(definitionWith(group('beneficiary_family_members', 'name')))).toEqual(
+      [],
+    );
+    expect(codesOf(definitionWith(group('name', 'name')))).toEqual([
+      ['form.standard_column_unknown', 'earners'],
+    ]);
+    expect(codesOf(definitionWith(group(null, 'village')))).toEqual([
+      ['form.standard_column_unknown', 'earner_name'],
+    ]);
+    // the member's income is a column of the row, not of the profile, so the profile may fill it too
+    const both = definitionWith([
+      ...group('beneficiary_family_members', 'name'),
+      field('income', 'money', { standardColumn: 'monthly_income' }),
+    ]);
+    expect(checkDefinition(both)).toEqual([]);
+    const twice = definitionWith([...group('beneficiary_family_members', 'monthly_income')]);
+    expect(codesOf(twice)).toEqual([['form.standard_column_duplicate', 'earner_income']]);
+  });
+});
+
+describe('the size of a definition', () => {
+  it('refuses more than 100 options on a field', () => {
+    const options = Array.from({ length: 101 }, (_, i) => option(`o${i}`));
+    expect(
+      formDefinitionSchema.safeParse(definitionWith([field('k', 'radio', { options })])).success,
+    ).toBe(false);
+    expect(
+      formDefinitionSchema.safeParse(
+        definitionWith([field('k', 'radio', { options: options.slice(0, 100) })]),
+      ).success,
+    ).toBe(true);
+  });
+
+  it('refuses more than 50 sections and more than 200 fields in one section', () => {
+    const sections = Array.from({ length: 49 }, (_, i) => section(`s${i}`, []));
+    expect(formDefinitionSchema.safeParse(definitionWith([], sections)).success).toBe(false);
+    expect(formDefinitionSchema.safeParse(definitionWith([], sections.slice(0, 48))).success).toBe(
+      true,
+    );
+    const fields = Array.from({ length: 201 }, (_, i) => field(`f${i}`, 'short_text'));
+    expect(formDefinitionSchema.safeParse(definitionWith(fields)).success).toBe(false);
+  });
+
+  it('refuses more than 50 fields inside one repeat group', () => {
+    const members = (n: number) =>
+      Array.from({ length: n }, (_, i) =>
+        field(`m${i}`, 'short_text', { settings: { repeat: { group: 'g' } } }),
+      );
+    expect(codesOf(definitionWith([field('g', 'repeat_group'), ...members(51)]))).toEqual([
+      ['form.repeat_group_too_large', 'g'],
+    ]);
+    expect(checkDefinition(definitionWith([field('g', 'repeat_group'), ...members(50)]))).toEqual(
+      [],
+    );
+  });
+});

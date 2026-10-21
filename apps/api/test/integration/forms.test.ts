@@ -552,3 +552,63 @@ describe('drafts, publishing and the field map', () => {
     expect((await current(pm, versionId)).sections).toEqual(sections);
   });
 });
+
+describe('a builder who does not see the official-only sections', () => {
+  const update = (s: Session, versionId: string, etag: string, sections: unknown) =>
+    at(s, 'patch', `/form-versions/${versionId}`).set('If-Match', etag).send({ sections });
+  const keysOf = (sections: { key: string }[]) => sections.map((s) => s.key);
+
+  it('cannot save a draft, and gets the volunteer-visible part back from the publish, the next draft and the field map', async () => {
+    const pm = await as(world.users.pm);
+    const project = await draft();
+    const made = await createForm(project, {
+      kind: 'template',
+      templateKey: 'form_self_reliance_construction',
+    });
+    expect(made.status).toBe(201);
+    const versionId = made.body.data.draftVersionId as string;
+    const formId = made.body.data.id as string;
+    const full = await readVersion(pm, versionId);
+    expect(keysOf(full.body.data.sections)).toContain('official');
+    // the panel takes the official-section class from the PM for a while
+    const { rows } = await h.db.query<{ id: string }>(
+      `INSERT INTO user_permissions (id, user_id, permission_name, effect, scope_type, reason, granted_by)
+       VALUES (gen_random_uuid(), $1, 'application.view_official_section', 'revoke', 'GLOBAL', 'test', $2)
+       RETURNING id`,
+      [world.users.pm, world.users.head],
+    );
+    try {
+      const partial = await readVersion(pm, versionId);
+      expect(partial.status).toBe(200);
+      expect(keysOf(partial.body.data.sections)).not.toContain('official');
+      const refused = await update(
+        pm,
+        versionId,
+        partial.headers.etag as string,
+        partial.body.data.sections,
+      );
+      expect(refused.status).toBe(403);
+      const map = await at(pm, 'get', `/forms/${formId}/fields`);
+      expect(map.status).toBe(200);
+      expect(map.body.data.map((r: { fieldKey: string }) => r.fieldKey)).not.toContain(
+        'official_comment',
+      );
+      const published = await at(pm, 'post', `/form-versions/${versionId}/publish`).set(
+        'If-Match',
+        partial.headers.etag as string,
+      );
+      expect(published.status).toBe(200);
+      expect(keysOf(published.body.data.sections)).not.toContain('official');
+      const next = await at(pm, 'post', `/forms/${formId}/versions`);
+      expect(next.status).toBe(201);
+      expect(keysOf(next.body.data.sections)).not.toContain('official');
+    } finally {
+      await h.db.query('DELETE FROM user_permissions WHERE id = $1', [rows[0]!.id]);
+    }
+    // the official-only section survived the publish and the copy
+    const again = await readVersion(pm, versionId);
+    expect(keysOf(again.body.data.sections)).toContain('official');
+    const versions = await at(pm, 'get', `/forms/${formId}/versions`);
+    expect(keysOf(versions.body.data[1].sections)).toContain('official');
+  });
+});

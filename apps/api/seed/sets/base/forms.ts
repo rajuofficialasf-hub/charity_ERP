@@ -9,11 +9,13 @@ import type {
 import { json, type SeedContext, seedId } from '../../context';
 
 /**
- * The field and section library (BD-12) and the two application forms in use today (blueprint
+ * The field and section library (docs/MASTER_SPEC.md, the form section library) and the two
+ * application forms in use today (blueprint
  * appendix খ.১ and খ.২) as form templates: data only; the shapes come from `@css/shared/forms`,
  * which also builds a project's form from them (T2.3). Standard fields map to beneficiary columns
  * (standard_column); the rest are project answers. Removed by decision: spot code and community
- * number (BD-15). Fields the system fills itself (volunteer name, application number, approval
+ * number (docs/DECISION_LOG.md, the decision that no spot or community code exists). Fields the
+ * system fills itself (volunteer name, application number, approval
  * date, implementing officer) are not form fields. Option lists the blueprint does not spell out
  * are left for each project (options: []).
  *

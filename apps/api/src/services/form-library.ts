@@ -39,19 +39,22 @@ export interface StoredFormTemplate {
   definition: unknown;
 }
 
-const fieldTypeOf = (value: string): FieldType => {
+/** A stored field type, checked against the known ones. */
+export const fieldTypeOf = (value: string): FieldType => {
   const type = FIELD_TYPES.find((t) => t === value);
-  if (!type) throw new Error(`unknown library field type ${value}`);
+  if (!type) throw new Error(`unknown field type ${value}`);
   return type;
 };
-const visibilityOf = (value: string): SectionVisibility => {
+/** A stored section visibility, checked against the known ones. */
+export const visibilityOf = (value: string): SectionVisibility => {
   const visibility = SECTION_VISIBILITIES.find((v) => v === value);
   if (!visibility) throw new Error(`unknown section visibility ${value}`);
   return visibility;
 };
 
 /**
- * The organisation-wide section and field libraries (BD-12) and the form templates of appendix খ:
+ * The organisation-wide section and field libraries (docs/MASTER_SPEC.md, the form section library)
+ * and the form templates of appendix খ:
  * seeded, read by the builder, changed only by the seed in this phase. The templates share the
  * project-templates table under their own definition kind, so the project template service
  * never lists them.
@@ -182,7 +185,8 @@ export class FormLibraryService {
   /**
    * The active items of a reference list as library options; a list the admin has not set up
    * gives no options. The form keeps its own copy from then on, so a later change of the list
-   * never reaches a published version (BD-14).
+   * never reaches a published version (docs/DECISION_LOG.md, the decision on beneficiary type
+   * options).
    */
   private async listOptions(listKey: string): Promise<LibraryOption[]> {
     try {
