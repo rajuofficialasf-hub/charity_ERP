@@ -13,7 +13,7 @@ import {
   formTemplateFormSchema,
 } from '@css/shared/forms';
 import type { MessageParams } from '@css/shared/i18n';
-import { editableIn, PROJECT_STATUSES, type ProjectStatus } from '@css/shared/projects';
+import { editableIn, projectStatusOf } from '@css/shared/projects';
 import { z } from 'zod';
 import type { AccessService } from '../access/service';
 import type { AuditWriter } from '../audit/audit-writer';
@@ -115,12 +115,6 @@ type FormRow = Prisma.FormGetPayload<{ select: typeof FORM_SELECT }>;
 const json = (value: unknown) => value as Prisma.InputJsonValue;
 
 /** A project status read from the database, checked against the known states. */
-function statusOf(value: string): ProjectStatus {
-  const status = PROJECT_STATUSES.find((s) => s === value);
-  if (!status) throw new Error(`unknown project status ${value}`);
-  return status;
-}
-
 /**
  * The forms of a project and their versions (docs/MASTER_SPEC.md, the dynamic form platform; the
  * decisions on templates and form versions in docs/DECISION_LOG.md): a form starts
@@ -186,7 +180,7 @@ export class FormsService {
     const actor = viewer.principal.userId;
     return this.prisma.$transaction(async (tx) => {
       const project = await this.projects.locked(tx, viewer, projectId);
-      if (!editableIn(statusOf(project.status), 'components'))
+      if (!editableIn(projectStatusOf(project.status), 'components'))
         throw new ApiError('project.read_only', 409);
       const taken = await tx.form.findFirst({
         where: { projectId, key: body.key },
@@ -343,7 +337,7 @@ export class FormsService {
       });
       if (!form) throw new ApiError('permission.not_found', 404);
       const project = await this.projects.locked(tx, viewer, form.projectId);
-      if (!editableIn(statusOf(project.status), 'components'))
+      if (!editableIn(projectStatusOf(project.status), 'components'))
         throw new ApiError('project.read_only', 409);
       if (form.formVersionsForm.some((v) => v.status === 'draft'))
         throw new ApiError('form.draft_exists', 409);
@@ -439,7 +433,7 @@ export class FormsService {
     });
     if (!row) throw new ApiError('permission.not_found', 404);
     const project = await this.projects.locked(tx, viewer, row.form.projectId);
-    if (!editableIn(statusOf(project.status), 'components'))
+    if (!editableIn(projectStatusOf(project.status), 'components'))
       throw new ApiError('project.read_only', 409);
     if (row.status !== 'draft') throw new ApiError('form.not_draft', 409);
     return row;

@@ -19,7 +19,7 @@ import { beneficiary, fakeMobile, fakeNid, locationTree } from './support/fixtur
 
 // The public application link: a PM switches it on with one form, anyone with the link reads the
 // form and submits an entry that waits for verification, and nothing about anyone is revealed on
-// the way (blueprint A8.5, DECISION_LOG O-08; plan docs/plans/2026-10-21-1135-feat-form-engine-plan.md U6).
+// the way (docs/plans/2026-10-21-1135-feat-form-engine-plan.md, "The public link").
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 let loc: Awaited<ReturnType<typeof locationTree>>;
@@ -265,6 +265,40 @@ describe('configuring the link', () => {
     expect(linkOf(rpmRead.body)).toEqual({ enabled: true, form_ids: [form.formId] });
   });
 
+  it('is only switched off by the generic component route, which drops the token and audits none', async () => {
+    const p = await project();
+    const { token } = await enabled(p.id, p.formId);
+    // an active project keeps its photo rule, which the generic route checks on every write
+    await h.db.query(
+      `UPDATE project_components SET settings = '{"rule": "group"}' WHERE project_id = $1 AND component_key = 'distribution'`,
+      [p.id],
+    );
+    const pm = await as(world.users.pm);
+    const components = `/projects/${p.id}/components`;
+    const generic = async (body: object) => {
+      const rows = (await at(pm, 'get', components)).body.data as {
+        componentKey: string;
+        etag: string;
+      }[];
+      const etag = rows.find((c) => c.componentKey === 'public_link')!.etag;
+      return at(pm, 'patch', `${components}/public_link`).set('If-Match', etag).send(body);
+    };
+    const repointed = await generic({ settings: { enabled: true, form_ids: [p.formId] } });
+    expect(repointed.status).toBe(422);
+    expect(repointed.body.error.code).toBe('public.configure_through_link');
+    expect((await read(token)).status).toBe(200);
+    const off = await generic({ enabled: false });
+    expect(off.status).toBe(200);
+    expect(off.body.data.settings).toEqual({ enabled: false });
+    expect((await read(token)).status).toBe(404);
+    const rows = await h.db.query(
+      `SELECT old, new FROM audit_log WHERE entity_id = $1 AND action = 'project.component_change'`,
+      [p.id],
+    );
+    expect(rows.rows).toHaveLength(1);
+    expect(JSON.stringify(rows.rows)).not.toContain(token);
+  });
+
   it('refuses to publish a draft with a file field while the form is on the link', async () => {
     const p = await project();
     await enabled(p.id, p.formId);
@@ -297,19 +331,28 @@ describe('reading the form', () => {
     const past = await project();
     const { token: pastToken } = await enabled(past.id, past.formId);
     await setState(past.id, 'active', '2026-01-01');
+    const early = await project();
+    const { token: earlyToken } = await enabled(early.id, early.formId);
+    await h.db.query(`UPDATE projects SET apply_from = '2099-01-01' WHERE id = $1`, [early.id]);
     const retired = await project();
     const { token: retiredToken } = await enabled(retired.id, retired.formId);
     await h.db.query(`UPDATE form_versions SET status = 'retired' WHERE id = $1`, [
       retired.versionId,
     ]);
     const codes = await Promise.all(
-      [offToken, draftToken, closedToken, pastToken, retiredToken, 'no-such-token-at-all'].map(
-        async (token) => {
-          const res = await read(token);
-          expect(res.status, token).toBe(404);
-          return res.body.error.code as string;
-        },
-      ),
+      [
+        offToken,
+        draftToken,
+        closedToken,
+        pastToken,
+        earlyToken,
+        retiredToken,
+        'no-such-token-at-all',
+      ].map(async (token) => {
+        const res = await read(token);
+        expect(res.status, token).toBe(404);
+        return res.body.error.code as string;
+      }),
     );
     expect(new Set(codes)).toEqual(new Set(['public.link_closed']));
   });
@@ -463,6 +506,19 @@ describe('submitting', () => {
     expect(rows.rows).toEqual([]);
   });
 
+  it('refuses a client id already used on another project as a validation error', async () => {
+    const first = await project();
+    const second = await project();
+    const body = submission();
+    expect((await submit((await enabled(first.id, first.formId)).token, body)).status).toBe(201);
+    const clash = await submit((await enabled(second.id, second.formId)).token, {
+      ...body,
+      answers: answers(),
+    });
+    expect(clash.status).toBe(422);
+    expect(clash.body.error.details).toEqual([detail('clientUuid', 'validation.failed')]);
+  });
+
   it('answers the closed-link 404 to a valid submission once the project has closed', async () => {
     const p = await project();
     const { token } = await enabled(p.id, p.formId);
@@ -480,16 +536,29 @@ describe('the public-form rate class', () => {
   });
   afterAll(async () => real.close());
 
-  it('allows 20 reads an hour from one address, then answers 429 with Retry-After', async () => {
-    const statuses: number[] = [];
-    let retryAfter = 0;
-    for (let i = 0; i < 21; i += 1) {
-      const res = await request(real.server()).get(`/api/v1/public/forms/${'x'.repeat(43)}`);
-      statuses.push(res.status);
-      if (res.status === 429) retryAfter = Number(res.headers['retry-after']);
+  it('allows 20 reads and 20 submits an hour from one address, then answers 429 with Retry-After', async () => {
+    const path = `/api/v1/public/forms/${'x'.repeat(43)}`;
+    const calls = {
+      read: () => request(real.server()).get(path),
+      submit: () =>
+        request(real.server())
+          .post(`${path}/applications`)
+          .send({ clientUuid: randomUUID(), answers: [] }),
+    };
+    for (const [name, call] of Object.entries(calls)) {
+      const statuses: number[] = [];
+      let retryAfter = 0;
+      for (let i = 0; i < 21; i += 1) {
+        const res = await call();
+        statuses.push(res.status);
+        if (res.status === 429) retryAfter = Number(res.headers['retry-after']);
+      }
+      expect(
+        statuses.slice(0, 20).every((s) => s === 404),
+        name,
+      ).toBe(true);
+      expect(statuses[20], name).toBe(429);
+      expect(retryAfter, name).toBeGreaterThan(0);
     }
-    expect(statuses.slice(0, 20).every((s) => s === 404)).toBe(true);
-    expect(statuses[20]).toBe(429);
-    expect(retryAfter).toBeGreaterThan(0);
   });
 });

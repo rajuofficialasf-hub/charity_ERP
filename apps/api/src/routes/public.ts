@@ -19,9 +19,9 @@ const actionResult = z.object({
 const tokenParams = { token: z.string().min(16) };
 
 /**
- * The public application link (openapi tag public; blueprint A8.5, DECISION_LOG O-08): no login,
- * the `public-form` rate class per address, nothing about anyone revealed. The token in the path
- * is the whole access; the request log masks it.
+ * The public application link (openapi tag public; docs/plans/2026-10-21-1135-feat-form-engine-plan.md,
+ * "The public link"): no login, the `public-form` rate class per address, nothing about anyone revealed. The
+ * token in the path is the whole access; the request log masks it.
  */
 export function publicRouter(
   deps: RouteDeps,

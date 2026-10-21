@@ -12,6 +12,7 @@ import { type FormVersionView, readDefinition, versionView } from './forms';
 import { isAddressChain } from './locations';
 import type { NisabService } from './nisab';
 import { linkOf } from './public-link-rules';
+import type { Replayable } from './uploads';
 
 /** What the public page shows: the project's name and closing date, and the form. */
 export interface PublicFormView {
@@ -25,12 +26,6 @@ export interface PublicSubmission {
   stage: string | null;
 }
 
-/** A result, and whether it repeats what an earlier request with the same client id made. */
-export interface Replayable<T> {
-  value: T;
-  replay: boolean;
-}
-
 /**
  * The flags a public entry carries for the official who verifies it, from the list the
  * `applications_flags_check` constraint allows (DATABASE_SCHEMA: the needs-verification reasons).
@@ -42,7 +37,7 @@ export const PUBLIC_FLAGS = {
   identityRepeated: 'identity_repeated',
 } as const;
 
-/** The status a public entry waits in until an official verifies it (O-08). */
+/** The status a public entry waits in until an official verifies it. */
 export const NEEDS_VERIFICATION = 'needs_verification';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -64,15 +59,22 @@ interface ResolvedLink {
   projectId: string;
   name: { bn: string; en: string };
   applyTo: string | null;
-  versionId: string;
+  version: {
+    id: string;
+    formId: string;
+    versionNo: number;
+    status: string;
+    publishedAt: Date | null;
+  };
 }
 
 /**
- * The public application form (blueprint A8.5; DECISION_LOG O-08 and the decisions of the form
- * engine plan): anyone with the link reads the published volunteer-visible form of an active
- * project within its closing date and submits an application that waits for verification without
- * a profile. The applicant learns nothing about existing profiles or blocks; the official who
- * verifies sees them as flags on the row. Every closed state of a link answers the same not-found.
+ * The public application form (docs/plans/2026-10-21-1135-feat-form-engine-plan.md, "The public
+ * link"): anyone with the link reads the published volunteer-visible form of an
+ * active project inside its application window and submits an application that waits for
+ * verification without a profile. The applicant learns nothing about existing profiles or blocks;
+ * the official who verifies sees them as flags on the row. Every closed state of a link answers
+ * the same not-found.
  */
 export class PublicFormsService {
   constructor(
@@ -85,13 +87,12 @@ export class PublicFormsService {
 
   async form(token: string): Promise<PublicFormView> {
     const link = await this.resolve(token);
-    const row = await this.prisma.formVersion.findUniqueOrThrow({
-      where: { id: link.versionId },
-      select: { id: true, formId: true, versionNo: true, status: true, publishedAt: true },
-    });
     return {
       project: { name: link.name, applyTo: link.applyTo },
-      form: versionView(row, await readDefinition(this.prisma, link.versionId, 'volunteer')),
+      form: versionView(
+        link.version,
+        await readDefinition(this.prisma, link.version.id, 'volunteer'),
+      ),
     };
   }
 
@@ -103,7 +104,7 @@ export class PublicFormsService {
     const earlier = await this.earlier(link.projectId, body.clientUuid);
     if (earlier) return { replay: true, value: earlier };
     const today = isoDateInDhaka(this.clock.now());
-    const definition = await readDefinition(this.prisma, link.versionId, 'volunteer');
+    const definition = await readDefinition(this.prisma, link.version.id, 'volunteer');
     const checked = validate(definition, body.answers, {
       audience: 'public',
       today,
@@ -125,7 +126,7 @@ export class PublicFormsService {
         const fields = new Map(
           (
             await tx.formField.findMany({
-              where: { formVersionId: link.versionId },
+              where: { formVersionId: link.version.id },
               select: { id: true, fieldKey: true },
             })
           ).map((f) => [f.fieldKey, f.id]),
@@ -135,7 +136,7 @@ export class PublicFormsService {
           data: {
             id: applicationId,
             projectId: link.projectId,
-            formVersionId: link.versionId,
+            formVersionId: link.version.id,
             regionLocationId: divisionId,
             districtId,
             unionId,
@@ -172,12 +173,14 @@ export class PublicFormsService {
       });
       return { replay: false, value: { id, status: NEEDS_VERIFICATION, stage: null } };
     } catch (error) {
-      // the same client id arrived twice at the same moment: the first one is the answer
-      if (isUniqueViolation(error)) {
-        const winner = await this.earlier(link.projectId, body.clientUuid);
-        if (winner) return { replay: true, value: winner };
-      }
-      throw error;
+      if (!isUniqueViolation(error)) throw error;
+      // the same client id arrived twice at the same moment: the first one is the answer; a
+      // client id already used on another project is the client's mistake, not a replay
+      const winner = await this.earlier(link.projectId, body.clientUuid);
+      if (winner) return { replay: true, value: winner };
+      throw new ApiError('validation.failed', 422, undefined, [
+        { path: 'clientUuid', code: 'validation.failed' },
+      ]);
     }
   }
 
@@ -193,26 +196,31 @@ export class PublicFormsService {
       select: {
         projectId: true,
         settings: true,
-        project: { select: { status: true, applyTo: true, nameBn: true, nameEn: true } },
+        project: {
+          select: { status: true, applyFrom: true, applyTo: true, nameBn: true, nameEn: true },
+        },
       },
     });
     if (!component) throw closed();
+    // the row was found by its token; what remains is whether the link is open
     const link = linkOf(component.settings);
-    if (!link.enabled || link.token !== token || !link.formId) throw closed();
+    if (!link.enabled || !link.formId) throw closed();
     const { project } = component;
     if (project.status !== 'active') throw closed();
+    const today = isoDateInDhaka(this.clock.now());
+    const applyFrom = project.applyFrom ? isoDateInDhaka(project.applyFrom) : null;
     const applyTo = project.applyTo ? isoDateInDhaka(project.applyTo) : null;
-    if (applyTo && applyTo < isoDateInDhaka(this.clock.now())) throw closed();
+    if ((applyFrom && today < applyFrom) || (applyTo && applyTo < today)) throw closed();
     const published = await this.prisma.formVersion.findFirst({
       where: { formId: link.formId, status: 'published', form: { projectId: component.projectId } },
-      select: { id: true },
+      select: { id: true, formId: true, versionNo: true, status: true, publishedAt: true },
     });
     if (!published) throw closed();
     return {
       projectId: component.projectId,
       name: { bn: project.nameBn, en: project.nameEn },
       applyTo,
-      versionId: published.id,
+      version: published,
     };
   }
 
@@ -239,7 +247,7 @@ export class PublicFormsService {
   /**
    * What the verifying official will want to know, never told to the applicant: whether a live
    * profile holds the number, whether that profile is blocked, and whether the same number or
-   * mobile came through this link in the last day (O-08).
+   * mobile came through this link in the last day.
    */
   private async identityFlags(
     projectId: string,

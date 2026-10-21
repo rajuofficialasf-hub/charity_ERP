@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { uuidv7 } from '@css/shared';
 import type { PublicLinkConfig } from '@css/shared/forms';
-import { editableIn, PROJECT_STATUSES, type ProjectStatus } from '@css/shared/projects';
+import { editableIn, projectStatusOf } from '@css/shared/projects';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Env } from '../config/env';
 import type { PrismaService, Tx } from '../core/prisma.service';
@@ -17,17 +17,11 @@ export interface PublicLinkView {
   url: string | null;
 }
 
-function statusOf(value: string): ProjectStatus {
-  const status = PROJECT_STATUSES.find((s) => s === value);
-  if (!status) throw new Error(`unknown project status ${value}`);
-  return status;
-}
-
 /**
- * The public application link of a project (blueprint A8.5; DECISION_LOG O-08): a PM switches it
- * on with the one form it opens and gets the URL; every enable issues a fresh token, so a leaked
- * link is retired by a toggle. The token is a capability: it is handed out through the URL and
- * never written into an audit row.
+ * The public application link of a project (docs/plans/2026-10-21-1135-feat-form-engine-plan.md, "The public
+ * link"): a PM switches it on with the one form it opens and gets the URL; every enable issues a fresh token,
+ * so a leaked link is retired by a toggle. The token is a capability: it is handed out through
+ * the URL and never written into an audit row.
  */
 export class PublicLinkService {
   constructor(
@@ -45,7 +39,7 @@ export class PublicLinkService {
     const actor = viewer.principal.userId;
     return this.prisma.$transaction(async (tx) => {
       const project = await this.projects.locked(tx, viewer, projectId);
-      if (!editableIn(statusOf(project.status), 'components'))
+      if (!editableIn(projectStatusOf(project.status), 'components'))
         throw new ApiError('project.read_only', 409);
       let settings: Prisma.InputJsonValue = { enabled: false };
       let token: string | null = null;

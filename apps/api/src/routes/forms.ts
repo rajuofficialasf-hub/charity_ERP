@@ -259,8 +259,7 @@ export function formsRouter(
     method: 'patch',
     path: '/projects/:projectId/public-link',
     operationId: 'forms.publicLink.configure',
-    summary:
-      'Enable or disable the public application link (A8.5); every enable issues a fresh token',
+    summary: 'Enable or disable the public application link; every enable issues a fresh token',
     permission: 'form.public_link.manage',
     scope: 'project',
     audit: 'form.public_link_change',

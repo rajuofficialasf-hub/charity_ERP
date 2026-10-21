@@ -1,7 +1,7 @@
 -- A public entry carries, for the official who verifies it, whether the live profile holding its
 -- number is blocked and whether the same number or mobile came through the link within a day
--- (DECISION_LOG O-08; the form engine plan). The flag list of the needs-verification reasons grows
--- by those two; the existing names stay.
+-- (docs/plans/2026-10-21-1135-feat-form-engine-plan.md, "The public link"). The flag list of the
+-- needs-verification reasons grows by those two; the existing names stay.
 ALTER TABLE "applications" DROP CONSTRAINT "applications_flags_check";
 ALTER TABLE "applications"
   ADD CONSTRAINT "applications_flags_check"

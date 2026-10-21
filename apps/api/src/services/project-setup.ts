@@ -7,8 +7,7 @@ import {
   editableIn,
   FUND_SOURCES,
   type FundSources,
-  PROJECT_STATUSES,
-  type ProjectStatus,
+  projectStatusOf,
   type SetupField,
   STAFF_ACCESS_ROLES,
   type StaffCreate,
@@ -31,19 +30,14 @@ const isForeignKeyViolation = (error: unknown) =>
   error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003';
 
 /** A project status read from the database, checked against the known states. */
-function statusOf(value: string): ProjectStatus {
-  const status = PROJECT_STATUSES.find((s) => s === value);
-  if (!status) throw new Error(`unknown project status ${value}`);
-  return status;
-}
-
 const money = (d: Prisma.Decimal | null) => (d === null ? null : d.toFixed(2));
 
-/** The public link's settings without the token. */
-function withoutToken(settings: unknown): unknown {
-  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return settings;
+/** The public link's settings without the token (any other component's settings as they are). */
+function withoutToken(settings: unknown): Prisma.InputJsonValue {
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings))
+    return settings as Prisma.InputJsonValue;
   const { token: _token, ...rest } = settings as Record<string, unknown>;
-  return rest;
+  return rest as Prisma.InputJsonValue;
 }
 
 /**
@@ -66,7 +60,7 @@ export class ProjectSetupService {
   /** Loads and locks the project and refuses a write its state does not allow. */
   private async writable(tx: Tx, viewer: ProjectViewer, projectId: string, part: SetupField) {
     const project = await this.projects.locked(tx, viewer, projectId);
-    const status = statusOf(project.status);
+    const status = projectStatusOf(project.status);
     if (!editableIn(status, part)) throw new ApiError('project.read_only', 409);
     return { ...project, status };
   }
@@ -160,14 +154,14 @@ export class ProjectSetupService {
               code: 'validation.failed',
             })),
           );
-        // the public link's token is made by the server, never chosen by a caller
-        const token = (parsed.data as { token?: unknown }).token;
-        const kept = (before.settings as { token?: unknown } | null)?.token;
-        if (componentKey === 'public_link' && token !== undefined && token !== kept)
-          throw new ApiError('validation.failed', 422, undefined, [
-            { path: 'settings.token', code: 'validation.failed' },
-          ]);
         settings = parsed.data as Prisma.InputJsonValue;
+      }
+      if (componentKey === 'public_link') {
+        // the link's token and form are set only by its own route, which issues a fresh token on
+        // every enable and checks the form; this route only switches the link off, dropping both
+        if (body.enabled || settings !== undefined)
+          throw new ApiError('public.configure_through_link', 422);
+        settings = { enabled: false };
       }
       if (project.status !== 'draft') {
         // an active project keeps a photo rule and valid settings for what is switched on
@@ -221,11 +215,11 @@ export class ProjectSetupService {
         action: 'project.component_change',
         entityType: 'project',
         entityId: projectId,
-        old: { componentKey, enabled: before.enabled, settings: before.settings },
+        old: { componentKey, enabled: before.enabled, settings: withoutToken(before.settings) },
         new: {
           componentKey,
           enabled: row.enabled,
-          settings: row.settings,
+          settings: withoutToken(row.settings),
           ...(rulesChange && {
             rulesVersion: rulesChange.version,
             consentsReset: rulesChange.consentsReset,

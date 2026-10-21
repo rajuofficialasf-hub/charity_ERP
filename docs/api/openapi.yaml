@@ -7424,7 +7424,7 @@ paths:
     patch:
       tags: [forms]
       operationId: forms.publicLink.configure
-      summary: Enable or disable the public application link (A8.5); every enable issues a fresh token
+      summary: Enable or disable the public application link; every enable issues a fresh token
       x-permission: form.public_link.manage
       x-scope: project
       x-audit: form.public_link_change
