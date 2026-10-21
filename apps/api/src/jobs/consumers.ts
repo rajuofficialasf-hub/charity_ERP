@@ -4,6 +4,8 @@ import type { NotificationDelivery } from '../notifications/delivery';
 import type { DeliveryJob } from '../notifications/service';
 import type { JobRunner } from './job-runner';
 import { REGISTRATION_CLEANUP_CRON, type RegistrationCleanup } from './registration-cleanup';
+import type { BeneficiaryMergeCandidatesService } from '../services/beneficiary-merge-candidates';
+import { DUPLICATES_CRON, DUPLICATES_QUEUE } from './duplicates';
 import { STORAGE_STATS_CRON, STORAGE_STATS_QUEUE, type StorageStats } from './storage-stats';
 import { UPLOAD_SWEEP_CRON, type UploadSweep } from './upload-sweep';
 import { FILE_PROCESS_QUEUE, type FileProcessJob, type FileProcessor } from './file-process';
@@ -34,6 +36,7 @@ export interface ConsumerServices {
   registrationCleanup?: RegistrationCleanup;
   uploadSweep?: UploadSweep;
   storageStats?: StorageStats;
+  mergeCandidates?: Pick<BeneficiaryMergeCandidatesService, 'refreshAll'>;
   fileProcessor?: FileProcessor;
   delivery?: NotificationDelivery;
 }
@@ -89,6 +92,12 @@ export class JobConsumers {
     if (storageStats) {
       await this.jobs.work(STORAGE_STATS_QUEUE, () => storageStats.run());
       await this.jobs.schedule(STORAGE_STATS_QUEUE, STORAGE_STATS_CRON, {}, 'storage-stats');
+    }
+    // the nightly recomputation of the suggested duplicate beneficiaries
+    const { mergeCandidates } = this.services;
+    if (mergeCandidates) {
+      await this.jobs.work(DUPLICATES_QUEUE, () => mergeCandidates.refreshAll());
+      await this.jobs.schedule(DUPLICATES_QUEUE, DUPLICATES_CRON, {}, 'duplicates');
     }
     // the files the scan has not cleared yet; a catch-up that fails is logged and tried at the
     // next start, never in the way of the consumers and schedules above

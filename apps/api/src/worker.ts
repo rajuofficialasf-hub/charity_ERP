@@ -11,6 +11,7 @@ async function main(): Promise<void> {
     registrationCleanup: container.registrationCleanup,
     uploadSweep: container.uploadSweep,
     storageStats: container.storageStats,
+    mergeCandidates: container.beneficiaryMergeCandidates,
     fileProcessor: container.fileProcessor,
     delivery: container.delivery,
   }).register();

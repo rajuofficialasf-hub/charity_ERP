@@ -9,6 +9,7 @@ import type { PrismaService, Tx } from '../core/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import type { BeneficiaryIdentityService } from './beneficiary-identity';
+import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates';
 
 /** The contact columns an official edits outside an application, in the order they are logged. */
 const CONTACT_FIELDS = [
@@ -47,6 +48,7 @@ export class BeneficiaryContactService {
     private readonly access: AccessService,
     private readonly audit: AuditWriter,
     private readonly identity: BeneficiaryIdentityService,
+    private readonly candidates: BeneficiaryMergeCandidatesService,
   ) {}
 
   async update(
@@ -115,6 +117,9 @@ export class BeneficiaryContactService {
             })),
           });
         }
+        // a new mobile or union changes which profiles look like the same person
+        if (changed.includes('mobile') || changed.includes('unionId'))
+          await this.candidates.refreshFor(tx, [beneficiaryId]);
         await this.audit.record(tx, {
           action: 'beneficiary.contact_updated',
           entityType: 'beneficiary',

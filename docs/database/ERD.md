@@ -118,6 +118,7 @@ Cardinality notation below: `1 — n` one to many, `1 — 0..1` optional one, `n
 | beneficiary_family_members | id; beneficiary_id; name; relationship; gender; dob or age; occupation; monthly_income; is_earner; active | beneficiaries 1 — n; 1 — n class_attendance, learning_progress, exam_results (nullable FK) | B3 (multiple earners repeat group); O-11 |
 | profile_merges | id; kept_id; merged_id; status (proposed, merged, reverted); reason; proposed_by, proposed_at; snapshot (JSONB); merged_by, merged_at; reverted_by, reverted_at | beneficiaries 1 — n (kept), beneficiaries 1 — 0..1 (merged) | B2 additions; BD-05; BR-013, BR-014 |
 | beneficiary_merge_dismissals | id; low_id, high_id (the pair, lower id first); reason; dismissed_by/at; lifted_by/at, lift_reason | beneficiaries 1 — n (twice) | D-113; BR-012 |
+| beneficiary_merge_candidates | low_id, high_id (the pair); rules; active; computed_at | beneficiaries 1 — n (twice) | D-117; BR-012 |
 | profile_correction_requests | id; beneficiary_id; field; old_value; new_value; reason; requested_by; status; decided_by, decided_at | beneficiaries 1 — n | BD-02; BR-006 |
 | media_consents | id; beneficiary_id; granted; channels (list of reference codes); recorded_by, recorded_at; evidence_file_id; revoked_at | beneficiaries 1 — n (history; latest active applies) | B2 additions; BD-38; O-17; BR-022 |
 

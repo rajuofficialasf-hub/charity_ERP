@@ -1165,6 +1165,8 @@ model Beneficiary {
   mediaSubjectsBeneficiary             MediaSubject[]             @relation("media_subjects_beneficiary_id")
   mergeDismissalsLow                   MergeDismissal[]           @relation("beneficiary_merge_dismissals_low_id")
   mergeDismissalsHigh                  MergeDismissal[]           @relation("beneficiary_merge_dismissals_high_id")
+  mergeCandidatesLow                   MergeCandidate[]           @relation("beneficiary_merge_candidates_low_id")
+  mergeCandidatesHigh                  MergeCandidate[]           @relation("beneficiary_merge_candidates_high_id")
 
   @@unique([nid], where: raw("nid IS NOT NULL"), map: "beneficiaries_nid_key")
   @@unique([birthReg], where: raw("birth_reg IS NOT NULL"), map: "beneficiaries_birth_reg_key")
@@ -1186,6 +1188,22 @@ model Beneficiary {
   @@index([id], where: raw("merged_into_id IS NULL"), map: "beneficiaries_live_id_idx")
   @@index([id], where: raw("is_blocked AND merged_into_id IS NULL"), map: "beneficiaries_blocked_idx")
   @@map("beneficiaries")
+}
+
+/// A suggested duplicate pair (the lower id first), kept up to date when a profile changes and nightly
+model MergeCandidate {
+  lowId      String      @map("low_id") @db.Uuid
+  highId     String      @map("high_id") @db.Uuid
+  rules      String[]
+  active     Boolean     @default(true)
+  computedAt DateTime    @default(now()) @map("computed_at") @db.Timestamptz(6)
+  low        Beneficiary @relation("beneficiary_merge_candidates_low_id", fields: [lowId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  high       Beneficiary @relation("beneficiary_merge_candidates_high_id", fields: [highId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@id([lowId, highId])
+  @@index([highId], map: "beneficiary_merge_candidates_high_id_idx")
+  @@index([lowId, highId], where: raw("active"), map: "beneficiary_merge_candidates_active_idx")
+  @@map("beneficiary_merge_candidates")
 }
 
 /// A suggested duplicate pair an official marked as two different people (the lower id first)

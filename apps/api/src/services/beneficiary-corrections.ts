@@ -9,6 +9,7 @@ import type { PrismaService, Tx } from '../core/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import { type BeneficiaryIdentityService, isUniqueViolation } from './beneficiary-identity';
+import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates';
 
 /** The column of each locked field. */
 const COLUMN = {
@@ -45,6 +46,7 @@ export class BeneficiaryCorrectionsService {
     private readonly access: AccessService,
     private readonly audit: AuditWriter,
     private readonly identity: BeneficiaryIdentityService,
+    private readonly candidates: BeneficiaryMergeCandidatesService,
   ) {}
 
   private async live(tx: Tx, actor: Principal, scope: Scope, beneficiaryId: string) {
@@ -175,6 +177,9 @@ export class BeneficiaryCorrectionsService {
           if (isUniqueViolation(error)) throw new ApiError('beneficiary.identity_taken', 409);
           throw error;
         }
+        // a corrected name changes which profiles look like the same person
+        if (field === 'name' || field === 'father_or_husband_name')
+          await this.candidates.refreshFor(tx, [found.beneficiaryId]);
         await tx.fieldChange.create({
           data: {
             id: uuidv7(),

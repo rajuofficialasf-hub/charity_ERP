@@ -116,6 +116,26 @@ The first run (same data, before any change) had three cases over 300 ms, in two
 No counter table and no capped count were needed (the plan's fallback, which would have been a new
 decision for the owner).
 
+### The suggested duplicate beneficiaries (T2.2, 2026-10-21)
+
+The suggestions were first computed for each request: pairs by name, father's or husband's name and
+mobile; by name, date of birth and union; and by one mobile. On the 2,000,000 beneficiaries the
+first page took longer than the 5-second limit and answered `server.busy`; a grouped query over the
+duplicate index alone read all 2,000,000 index entries in 24 seconds, and the mobile groups 4.6
+seconds. So the pairs are now kept in `beneficiary_merge_candidates` (DECISION_LOG D-117): the
+write that changes a profile recomputes that profile's pairs by index lookups, and the nightly job
+on the `duplicates` queue recomputes them all.
+
+| Case | Head p95 | RPM p95 |
+|---|---|---|
+| `beneficiaries.mergeCandidates` first page, 50,000 active pairs | 12 ms | 9 ms |
+| the nightly job over all 2,000,000 profiles | 7.4 to 8.0 s | |
+
+The 50,000 pairs were added to the measurement database by hand for this measurement (its data set
+has no duplicates) and marked inactive again by a run of the job:
+`pnpm --filter @css/api perf:lists --only mergeCandidates` measures the list, and the flag
+`--duplicates-job` times one run of the job first.
+
 ## 5. When to measure again
 
 - when a nationwide list gains a filter, a sort or a column read from another table;

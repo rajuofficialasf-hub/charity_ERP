@@ -5,6 +5,8 @@ import {
   contactUpdateSchema,
   type CorrectionRequestCreate,
   correctionRequestSchema,
+  type DismissalRequest,
+  dismissalRequestSchema,
   type LookupRequest,
   LOCKED_FIELDS,
   lookupRequestSchema,
@@ -241,6 +243,32 @@ const correctionView = z.object({
   decidedAt: z.iso.datetime({ offset: true }).nullable(),
 });
 
+/** A suggested duplicate pair: who, by which rules; never an identity number or a mobile. */
+const mergeCandidate = z.object({
+  beneficiaryId: z.uuid(),
+  otherBeneficiaryId: z.uuid(),
+  benNo: z.string(),
+  otherBenNo: z.string(),
+  name: z.string(),
+  otherName: z.string(),
+  matchedOn: z.array(z.enum(['name_dob_union', 'name_father_mobile', 'same_mobile'])),
+});
+
+/** A pair marked as two different people, with who marked it and why. */
+const mergeDismissal = z.object({
+  id: z.uuid(),
+  beneficiaryId: z.uuid(),
+  otherBeneficiaryId: z.uuid(),
+  benNo: z.string(),
+  otherBenNo: z.string(),
+  name: z.string(),
+  otherName: z.string(),
+  reason: z.string(),
+  dismissedBy: z.uuid(),
+  dismissedAt: z.iso.datetime({ offset: true }),
+  liftedAt: z.iso.datetime({ offset: true }).nullable(),
+});
+
 const listQuery = pageQuery
   .omit({ sort: true })
   .extend(pageNumberQuery.shape)
@@ -265,6 +293,7 @@ export function beneficiariesRouter(
     | 'beneficiaryIdentity'
     | 'beneficiaryContact'
     | 'beneficiaryCorrections'
+    | 'beneficiaryMergeCandidates'
     | 'blocklist'
   >,
 ): Router {
@@ -322,6 +351,90 @@ export function beneficiariesRouter(
       const { rows, meta } = await c.beneficiaries.list(query, viewerOf(req));
       return page(rows, meta);
     },
+  });
+
+  const duplicatesOp = {
+    tag: 'beneficiaries',
+    permission: 'beneficiary.merge.dismiss',
+    scope: 'beneficiary',
+    idempotency: 'none' as const,
+  };
+
+  // before /beneficiaries/:beneficiaryId, so the path is never read as an id
+  defineRoute<unknown, Omit<PageQuery, 'sort'>>(router, deps, {
+    ...duplicatesOp,
+    method: 'get',
+    path: '/beneficiaries/merge-candidates',
+    operationId: 'beneficiaries.merge.candidates',
+    summary:
+      'Suggested duplicate profiles in the caller scope (name, father or husband and mobile; name, date of birth and union; one mobile)',
+    audit: 'none',
+    rateLimit: 'list',
+    query: pageQuery.omit({ sort: true, include: true }),
+    responses: {
+      200: z.array(mergeCandidate),
+      401: null,
+      403: null,
+      422: null,
+      429: null,
+      503: null,
+    },
+    handler: async ({ query, req }) => {
+      const { rows, meta } = await c.beneficiaryMergeCandidates.list(
+        principalOf(req),
+        scopeOf(req),
+        query,
+      );
+      return page(rows, meta);
+    },
+  });
+
+  defineRoute<DismissalRequest>(router, deps, {
+    ...duplicatesOp,
+    method: 'post',
+    path: '/beneficiaries/merge-dismissals',
+    operationId: 'beneficiaries.merge.dismiss',
+    summary: 'Mark a suggested pair as two different people, with a reason',
+    audit: 'beneficiary.merge_dismissed',
+    rateLimit: 'default',
+    status: 201,
+    body: dismissalRequestSchema,
+    responses: { 201: mergeDismissal, 401: null, 403: null, 404: null, 409: null, 422: null },
+    handler: ({ body, req }) =>
+      c.beneficiaryMergeCandidates.dismiss(principalOf(req), scopeOf(req), body),
+  });
+
+  defineRoute(router, deps, {
+    ...duplicatesOp,
+    method: 'get',
+    path: '/beneficiary-merge-dismissals',
+    operationId: 'beneficiaries.merge.dismissals',
+    summary: 'The pairs marked as two different people in the caller scope, newest first',
+    audit: 'none',
+    rateLimit: 'list',
+    responses: { 200: z.array(mergeDismissal), 401: null, 403: null, 429: null },
+    handler: async ({ req }) =>
+      ok(await c.beneficiaryMergeCandidates.listDismissals(scopeOf(req), 100)),
+  });
+
+  defineRoute<ReasonRequest, unknown, { dismissalId: string }>(router, deps, {
+    ...duplicatesOp,
+    method: 'post',
+    path: '/beneficiary-merge-dismissals/:dismissalId/lift',
+    operationId: 'beneficiaries.merge.dismissal_lift',
+    summary: 'Lift the mark of a pair with a reason; the pair is suggested again',
+    audit: 'beneficiary.merge_dismissal_lifted',
+    rateLimit: 'default',
+    params: { dismissalId: z.uuid() },
+    body: reasonRequestSchema,
+    responses: { 200: mergeDismissal, 401: null, 403: null, 404: null, 422: null },
+    handler: ({ body, params, req }) =>
+      c.beneficiaryMergeCandidates.lift(
+        principalOf(req),
+        scopeOf(req),
+        params.dismissalId,
+        body.reason,
+      ),
   });
 
   defineRoute<unknown, BeneficiaryFilter>(router, deps, {

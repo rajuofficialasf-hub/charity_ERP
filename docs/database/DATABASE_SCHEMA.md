@@ -745,6 +745,16 @@ Indexes: (beneficiary_id); (status).
 
 A suggested duplicate pair an official marked as not the same person (T2.2, D-113, `beneficiary.merge.dismiss`); the pair leaves the suggestions while the mark is active. Partial UNIQUE (low_id, high_id) WHERE lifted_at IS NULL; indexes (high_id), (dismissed_by), (lifted_by); no DELETE or TRUNCATE (D-060).
 
+### beneficiary_merge_candidates
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| low_id, high_id | uuid | no | — | PK (low_id, high_id); FK beneficiaries; CHECK low_id < high_id |
+| rules | text[] | no | — | at least one of name_dob_union, name_father_mobile, same_mobile |
+| active | boolean | no | true | false once the pair no longer holds |
+| computed_at | timestamptz | no | now() | — |
+
+The suggested duplicate pairs, kept instead of computed per request (T2.2, D-117): the write that changes a profile recomputes its own pairs, and the nightly job on the `duplicates` queue recomputes all of them and marks the pairs it did not find again as inactive. Derived data: rows are updated, never deleted, and the down migration drops the table (the job rebuilds it). Indexes (high_id) and (low_id, high_id) WHERE active.
+
 ### media_consents
 | Column | Type | Null | Default | Comment |
 |---|---|---|---|---|

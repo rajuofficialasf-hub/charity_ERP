@@ -2079,11 +2079,47 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     MergeCandidate:
       type: object
-      required: [beneficiaryId, otherBeneficiaryId, matchedOn]
+      description: The pair with the lower id first; every rule the pair meets
+      required: [beneficiaryId, otherBeneficiaryId, benNo, otherBenNo, name, otherName, matchedOn]
       properties:
         beneficiaryId: { $ref: '#/components/schemas/Uuid' }
         otherBeneficiaryId: { $ref: '#/components/schemas/Uuid' }
-        matchedOn: { type: string, enum: [name_father_mobile, name_dob_union, same_mobile, requested] }
+        benNo: { type: string }
+        otherBenNo: { type: string }
+        name: { type: string }
+        otherName: { type: string }
+        matchedOn:
+          type: array
+          items: { type: string, enum: [name_dob_union, name_father_mobile, same_mobile] }
+    MergeDismissalRequest:
+      type: object
+      additionalProperties: false
+      required: [beneficiaryId, otherBeneficiaryId, reason]
+      properties:
+        beneficiaryId: { $ref: '#/components/schemas/Uuid' }
+        otherBeneficiaryId: { $ref: '#/components/schemas/Uuid' }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
+    MergeDismissal:
+      type: object
+      required: [id, beneficiaryId, otherBeneficiaryId, benNo, otherBenNo, name, otherName, reason, dismissedBy, dismissedAt, liftedAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        beneficiaryId: { $ref: '#/components/schemas/Uuid' }
+        otherBeneficiaryId: { $ref: '#/components/schemas/Uuid' }
+        benNo: { type: string }
+        otherBenNo: { type: string }
+        name: { type: string }
+        otherName: { type: string }
+        reason: { type: string }
+        dismissedBy: { $ref: '#/components/schemas/Uuid' }
+        dismissedAt: { type: string, format: date-time }
+        liftedAt: { type: [string, 'null'], format: date-time }
+    MergeDismissalResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/MergeDismissal' }
+        meta: { $ref: '#/components/schemas/Meta' }
     MergeCandidateList:
       type: object
       required: [data, meta]
@@ -5595,12 +5631,16 @@ paths:
     get:
       tags: [beneficiaries]
       operationId: beneficiaries.merge.candidates
-      summary: Suspected duplicate profiles found by the system (BR-012)
-      x-permission: beneficiary.merge.propose
+      summary: Suggested duplicate profiles in the caller scope (name, father or husband and mobile; name, date of birth and union; one mobile)
+      description: >-
+        Pairs of live profiles both inside the caller's scope (D-113), in id order, paged forward
+        by cursor; a pair marked as two different people is left out until the mark is lifted.
+        Never an identity number or a mobile.
+      x-permission: beneficiary.merge.dismiss
       x-scope: beneficiary
       x-audit: none
       x-idempotency: none
-      x-rate-limit: default
+      x-rate-limit: list
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
@@ -5610,7 +5650,89 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/MergeCandidateList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/ServerError' }
+  /beneficiaries/merge-dismissals:
+    post:
+      tags: [beneficiaries]
+      operationId: beneficiaries.merge.dismiss
+      summary: Mark a suggested pair as two different people, with a reason
+      description: Both profiles live and in the caller's scope; one active mark per pair (409 `beneficiary.dismissed`).
+      x-permission: beneficiary.merge.dismiss
+      x-scope: beneficiary
+      x-audit: beneficiary.merge_dismissed
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MergeDismissalRequest' }
+      responses:
+        '201':
+          description: Marked
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MergeDismissalResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /beneficiary-merge-dismissals:
+    get:
+      tags: [beneficiaries]
+      operationId: beneficiaries.merge.dismissals
+      summary: The pairs marked as two different people in the caller scope, newest first
+      x-permission: beneficiary.merge.dismiss
+      x-scope: beneficiary
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: list
+      responses:
+        '200':
+          description: Active marks (at most 100)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/MergeDismissal' } }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /beneficiary-merge-dismissals/{dismissalId}/lift:
+    parameters:
+      - { name: dismissalId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    post:
+      tags: [beneficiaries]
+      operationId: beneficiaries.merge.dismissal_lift
+      summary: Lift the mark of a pair with a reason; the pair is suggested again
+      x-permission: beneficiary.merge.dismiss
+      x-scope: beneficiary
+      x-audit: beneficiary.merge_dismissal_lifted
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReasonRequest' }
+      responses:
+        '200':
+          description: Lifted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MergeDismissalResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /beneficiary-merges:
     post:
       tags: [beneficiaries]

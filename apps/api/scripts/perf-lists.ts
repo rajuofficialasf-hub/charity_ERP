@@ -152,6 +152,13 @@ async function main(): Promise<void> {
      ORDER BY v.id LIMIT 1 OFFSET 777`,
   )) as { mobile: string; nid: string };
 
+  // the suggested duplicate pairs are kept by a nightly job; its run is timed once here
+  if (process.argv.includes('--duplicates-job')) {
+    const started = performance.now();
+    const { active } = await c.beneficiaryMergeCandidates.refreshAll();
+    out(`duplicates nightly job: ${active} active pairs in ${Math.round(performance.now() - started)} ms
+`);
+  }
   const results: Result[] = [];
   const page = { limit: 25 } as const;
   for (const [who, email] of [
@@ -160,6 +167,7 @@ async function main(): Promise<void> {
   ] as const) {
     const vv = await viewerOf(email, 'volunteer.view_all', 'global');
     const bv: BeneficiaryViewer = await viewerOf(email, 'beneficiary.view_all', 'beneficiary');
+    const mv = await viewerOf(email, 'beneficiary.merge.dismiss', 'beneficiary');
     const v = (name: string, filter: Record<string, string>) =>
       measure(`${who} volunteers.list ${name}`, () =>
         c.volunteerList.list({ ...page, ...filter } as VolunteerQuery, vv),
@@ -208,6 +216,9 @@ async function main(): Promise<void> {
       await b('name search + total', { q: SEARCH_TERMS.beneficiaryPair, include: 'total' }),
       await b('mobile search', { q: ben.mobile }),
       await b('NID search', { q: ben.nid }),
+      await measure(`${who} beneficiaries.mergeCandidates first page`, () =>
+        c.beneficiaryMergeCandidates.list(mv.principal, mv.scope, page),
+      ),
       await measure(`${who} beneficiaries.statistics all`, () =>
         c.beneficiaries.statistics({}, bv),
       ),

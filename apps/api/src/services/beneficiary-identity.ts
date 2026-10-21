@@ -12,6 +12,7 @@ import { beneficiaryWhere, type Scope } from '../access/scope';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Principal } from '../auth/principal';
 import type { Clock } from '../core/clock';
+import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates';
 import type { PrismaService, Tx } from '../core/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
@@ -111,6 +112,7 @@ export class BeneficiaryIdentityService {
     private readonly access: AccessService,
     private readonly audit: AuditWriter,
     private readonly clock: Clock,
+    private readonly candidates: BeneficiaryMergeCandidatesService,
   ) {}
 
   /**
@@ -389,6 +391,8 @@ export class BeneficiaryIdentityService {
           ${input.postCode ?? null}, ${input.landmark ?? null}, ${actor.userId}::uuid,
           ${actor.userId}::uuid)
         RETURNING id, ben_no`;
+      // a new profile can be a duplicate of an older one at once
+      await this.candidates.refreshFor(tx, [created!.id]);
       return { id: created!.id, benNo: created!.ben_no, warnings };
     } catch (error) {
       // a profile with the same number committed in between
