@@ -199,6 +199,13 @@
     "rules_changed": "The project's rules have changed since you opened them. Read them again.",
     "rules_incomplete": "The project's rules are not complete yet. Ask the project's officials."
   },
+  "form": {
+    "key_taken": "The project already has a form with this key.",
+    "template_unknown": "No form template has this key.",
+    "nothing_published": "That form has no published version to copy.",
+    "not_draft": "Only a draft version can change or be published.",
+    "draft_exists": "This form already has an open draft; publish or change that one."
+  },
   "program": {
     "inactive": "This program is inactive; it takes no new projects.",
     "has_open_projects": "A program with a draft, active or closing project cannot be deactivated.",

@@ -2684,12 +2684,87 @@ components:
         key: { type: string }
         title: { $ref: '#/components/schemas/Bilingual' }
         publishedVersionId: { type: [string, 'null'], format: uuid }
+        draftVersionId: { type: [string, 'null'], format: uuid, description: The one open draft (T2.3) }
     FormList:
       type: object
       required: [data, meta]
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/Form' } }
-        meta: { $ref: '#/components/schemas/ListMeta' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    FormResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/Form' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    FormCreate:
+      type: object
+      additionalProperties: false
+      required: [key, title, source]
+      properties:
+        key: { type: string, pattern: '^[a-z][a-z0-9_]*$', maxLength: 40, description: The application type of the form; `default` for the one form of a project }
+        title: { $ref: '#/components/schemas/Bilingual' }
+        source:
+          description: Where the first draft comes from
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [kind, templateKey]
+              properties:
+                kind: { type: string, const: template }
+                templateKey: { type: string, minLength: 1, maxLength: 80, description: A form template of the library (the seeded appendix খ forms) }
+            - type: object
+              additionalProperties: false
+              required: [kind]
+              properties:
+                kind: { type: string, const: blank }
+            - type: object
+              additionalProperties: false
+              required: [kind, formId]
+              properties:
+                kind: { type: string, const: copy }
+                formId: { $ref: '#/components/schemas/Uuid' }
+    FormLibrary:
+      type: object
+      required: [sections, fields]
+      properties:
+        sections:
+          type: array
+          items:
+            type: object
+            required: [key, title, defaultVisibility, fieldKeys]
+            properties:
+              key: { type: string }
+              title: { $ref: '#/components/schemas/Bilingual' }
+              defaultVisibility: { type: string, enum: [volunteer, official_only] }
+              fieldKeys: { type: array, items: { type: string } }
+        fields:
+          type: array
+          items:
+            type: object
+            required: [key, type, label, standardColumn, defaultSettings]
+            properties:
+              key: { type: string }
+              type: { type: string }
+              label: { $ref: '#/components/schemas/Bilingual' }
+              standardColumn: { type: [string, 'null'] }
+              defaultSettings: { type: object }
+        templates:
+          type: array
+          description: The form templates of the library a project's form can start from
+          items:
+            type: object
+            required: [key, name, projectType]
+            properties:
+              key: { type: string }
+              name: { $ref: '#/components/schemas/Bilingual' }
+              projectType: { type: string }
+    FormLibraryResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/FormLibrary' }
+        meta: { $ref: '#/components/schemas/Meta' }
     FieldOption:
       type: object
       required: [code, label]
@@ -2746,12 +2821,32 @@ components:
       required: [data, meta]
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/FormVersion' } }
-        meta: { $ref: '#/components/schemas/ListMeta' }
+        meta: { $ref: '#/components/schemas/Meta' }
     FormDraftUpdate:
       type: object
+      additionalProperties: false
       required: [sections]
       properties:
-        sections: { type: array, items: { $ref: '#/components/schemas/FormSection' } }
+        sections:
+          type: array
+          description: The sections of the draft in the FormSection shape; the engine checks them inside the service and names the field of each problem in the 422 details (the body stays open here so the drift test matches the route)
+          items: {}
+    FormFieldMapResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            required: [fieldKey, type, label, standardColumn, versions]
+            properties:
+              fieldKey: { type: string }
+              type: { type: string }
+              label: { $ref: '#/components/schemas/Bilingual' }
+              standardColumn: { type: [string, 'null'] }
+              versions: { type: array, items: { type: integer }, description: The version numbers the field appears in }
+        meta: { $ref: '#/components/schemas/Meta' }
     PublicLinkConfig:
       type: object
       required: [enabled]
@@ -7098,6 +7193,24 @@ paths:
         '422': { $ref: '#/components/responses/Unprocessable' }
 
   # ======================= forms =======================
+  /form-library:
+    get:
+      tags: [forms]
+      operationId: forms.library.get
+      summary: The section and field libraries the builder picks from (seeded; read-only)
+      x-permission: form.library.view
+      x-scope: global
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: The libraries
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FormLibraryResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /projects/{projectId}/forms:
     parameters:
       - $ref: '#/components/parameters/ProjectId'
@@ -7117,6 +7230,29 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/FormList' }
         '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [forms]
+      operationId: forms.form.create
+      summary: Create a project's form as draft version 1 from a library template, blank (the mandatory core only), or copied from another project's published form (BD-10)
+      x-permission: form.build
+      x-scope: project
+      x-audit: form.created
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FormCreate' }
+      responses:
+        '201':
+          description: The form with its draft
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FormResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /forms/{formId}/versions:
     parameters:
       - $ref: '#/components/parameters/FormId'
@@ -7153,6 +7289,25 @@ paths:
               schema: { $ref: '#/components/schemas/FormVersionResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /forms/{formId}/fields:
+    parameters:
+      - $ref: '#/components/parameters/FormId'
+    get:
+      tags: [forms]
+      operationId: forms.field.map
+      summary: The fields of a form across its versions by key, so reports align answers of different versions (BD-12)
+      x-permission: form.build
+      x-scope: project
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: Fields by key with the versions each appears in
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FormFieldMapResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /form-versions/{versionId}:
     parameters:
       - $ref: '#/components/parameters/VersionId'

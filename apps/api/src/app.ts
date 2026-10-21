@@ -30,6 +30,7 @@ import { projectSetupRouter } from './routes/project-setup';
 import { myProjectsRouter } from './routes/my-projects';
 import { projectVolunteersRouter } from './routes/project-volunteers';
 import { templatesRouter } from './routes/templates';
+import { formsRouter } from './routes/forms';
 import { registrationsRouter } from './routes/registrations';
 
 export const API_PREFIX = 'api/v1';
@@ -102,6 +103,7 @@ export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
   api.use(myProjectsRouter(deps, c));
   api.use(projectVolunteersRouter(deps, c));
   api.use(templatesRouter(deps, c));
+  api.use(formsRouter(deps, c));
   api.use(registrationsRouter(deps, c));
   api.use(settingsRouter(deps, c));
   api.use(auditRouter(deps, c));

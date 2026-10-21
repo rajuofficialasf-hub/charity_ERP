@@ -122,7 +122,7 @@ Plan IDs (R, U, BD, BR, O, D, M and the standards rule IDs) stay in this plan. C
 - **Depends on:** none
 - **Size:** L
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U3. Forms of a project: library read, create, list, read a version
 - **Goal:** a PM reads the library, creates a project's form from a template, blank or a previous project, lists its versions, and anyone with project access reads a version with the sections their role may see.
@@ -135,7 +135,7 @@ Plan IDs (R, U, BD, BR, O, D, M and the standards rule IDs) stay in this plan. C
 - **Depends on:** U2
 - **Size:** L
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U4. Drafts, publishing and the field map
 - **Goal:** a PM edits a draft, publishes it, starts the next draft from the published version, and reads the fields of a form across versions (`form.build`, scope project, officials who build only).
@@ -148,7 +148,7 @@ Plan IDs (R, U, BD, BR, O, D, M and the standards rule IDs) stay in this plan. C
 - **Depends on:** U1, U3
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U5. The form inside project setup, templates and activation
 - **Goal:** a project cannot be activated without a published form, a project template carries its form, and a project copied from another gets the form as draft 1.
@@ -233,8 +233,8 @@ Plan IDs (R, U, BD, BR, O, D, M and the standards rule IDs) stay in this plan. C
 
 ## Progress
 - **Branch:** `feat/form-engine`
-- **Updated:** 2026-10-21 14:10
-- **Next:** U2: the shared engine (a subagent builds it; verify and commit), then C1; U3 contract and permission groundwork meanwhile
+- **Updated:** 2026-10-21 14:40
+- **Next:** the checkpoint review of U1 to U4 (C1 and C2 together, range da430e5..HEAD), then U5
 - **Uncommitted:** none
 - **Reviewed through:** none
-- **Notes:** U1: the version guard needs `published_by` with `published_at` on a publish, so every test that publishes by SQL sets both; `pnpm db:migrate` applies the migration and then stops at `jobs:install` (DATABASE_URL not read from `.env` by that script; known since T2.1). The owner chose on 2026-10-21 that this work starts right after T2.2 merged, with no further questions; the T2.4 brainstorm (builder and renderer) was started and stopped by the owner and comes after this task.
+- **Notes:** U2 to U4 were built side by side (a subagent wrote the engine while the service, routes and tests were written against the contract), so C1 did not run before U3 and U4; C1 and C2 run as one review. Engine facts (U2): a repeat group's members are flat fields of the same section carrying `settings.repeat.group`; the group row holds `min_rows`/`max_rows`; a member's answer path is `key[row]`; a blank or hidden numeric input counts as 0 in a calculation, and a calculation whose inputs are all blank gives no value; definition refusals come back as zod issues whose `message` is the code and `params.code`/`params.fieldKey` name it, and the service turns them into 422 details `{ path: <fieldKey>, code }`; the seed's `nid_or_birth_reg` field uses the `nid` pattern (10, 13 or 17 digits, so a birth registration passes), its `post_code` the `post_code` pattern, the earners' repeat fields name their family-member columns, and the self-reliance template asks the occupation in basic information (its livelihood questions depend on it). Owner question (not blocking): a 17-digit number matches both the NID and the birth-registration format, so the split cannot tell them apart by format alone; today every valid value lands in `nid`; the application form of T2.5 should carry the kind the lookup field already asks, or a rule such as "17 digits = birth registration" is needed. U3/U4: the drift test's fixture moved to `beneficiaries.consent.record` (its old stand-in, the form draft, is built now); `FormList`, `FormVersionList` and the field map answer the plain `Meta` (not paginated); the draft update's body is open in the contract (`items: {}`) because the engine judges the sections and names each field in the details; `form.library.view` (PM at GLOBAL) is the library read's permission; a volunteer on no project gets 403 on a version read, an official of another program 404. U1: the version guard needs `published_by` with `published_at` on a publish, so every test that publishes by SQL sets both; `pnpm db:migrate` applies the migration and then stops at `jobs:install` (DATABASE_URL not read from `.env` by that script; known since T2.1). The owner chose on 2026-10-21 that this work starts right after T2.2 merged, with no further questions; the T2.4 brainstorm (builder and renderer) was started and stopped by the owner and comes after this task.
