@@ -57,7 +57,8 @@ The Playwright projects share one E2E database, so a spec that changes an accoun
 ## Other demo data
 
 - Programs UCD, HUM and ERR (the three SOP programs), each with its PM.
-- 50 beneficiaries, 25 in Dhaka division and 25 in Rangpur, five identified by birth registration only; mobiles 01700001000 to 01700001049.
+- 50 beneficiaries, 25 in Dhaka division and 25 in Rangpur, five identified by birth registration only; mobiles 01700001000 to 01700001049. Beneficiary n has the NID 1000000999 + n (birth registration for every tenth); a fresh seed gives them the BEN numbers BEN-0000001 to BEN-0000050 in that order.
+- Lookup cases for `rpm.dhaka@example.org` in project WNT ("NID / জন্মনিবন্ধন দিয়ে খুঁজুন" on the beneficiary tab): NID 1000001000 (beneficiary 1, Dhaka) is found with its auto-fill; NID 1000001002 (beneficiary 3, Dhaka) is on the blocklist and answers "blocked"; an unused NID such as 1000099999 finds nothing. No demo application exists yet, so no lookup answers "already applied".
 - Draft project WNT "শীতবস্ত্র বিতরণ 2026" / "Winter Clothing 2026" (program HUM, distribution workflow) with areas for both divisions and the components application_form, volunteer_assignment, dispatch_receive, distribution, volunteer_expenses and rating_criteria.
 
 Later tasks extend the demo set as their entities become functional (applications in every state, payments, Qurbani donors).

@@ -12,7 +12,7 @@ import { inTransaction } from '../util';
 
 /**
  * Demo set (T1.3): one account per official role, 20 volunteers, 50 beneficiaries in two
- * divisions and one draft winter project. Every identity is obviously fake (TEST_STRATEGY §4);
+ * divisions (one of them blocked) and one draft winter project. Every identity is obviously fake (TEST_STRATEGY §4);
  * the shared password is listed in docs/testing/DEMO_ACCOUNTS.md (development only).
  * Later tasks extend this set as their entities become functional.
  */
@@ -233,6 +233,9 @@ export const DEMO_VOLUNTEERS: { n: number; type: VolunteerType }[] = Array.from(
   }),
 );
 
+/** The demo beneficiary (number n of `beneficiary:n`, Dhaka division) that stands on the blocklist. */
+export const DEMO_BLOCKED_BENEFICIARY = 3;
+
 const FEMALE = [
   'রহিমা খাতুন',
   'আমেনা বেগম',
@@ -408,6 +411,17 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
         ...ctx.audit(),
       });
     }
+    // one blocked person in the Dhaka division, for the lookup's "blocked" answer
+    await ctx.upsert('blocklist', {
+      id: seedId(`blocklist:beneficiary:${DEMO_BLOCKED_BENEFICIARY}`),
+      subject_type: 'beneficiary',
+      subject_id: seedId(`beneficiary:${DEMO_BLOCKED_BENEFICIARY}`),
+      reason: demoName('একই মানুষ দুটি নম্বরে আবেদন করেছেন'),
+      blocked_by: userId('rpm_dhaka'),
+      blocked_at: SEED_AT,
+      active: true,
+      ...ctx.audit(),
+    });
 
     // one draft winter project (distribution workflow) with its components
     const projectId = seedId('project:WNT:2026');

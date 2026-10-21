@@ -48,6 +48,12 @@ export const BENEFICIARY_ADDRESS_ROLES: readonly string[] = [
   'procurement_team',
 ];
 
+/**
+ * Who looks a beneficiary up by NID or birth registration (`beneficiary.lookup`: the PM, the RPM,
+ * the Project Executive and the Implementer, and the global roles); the server checks the project.
+ */
+export const BENEFICIARY_LOOKUP_ROLES: readonly string[] = [...ADMIN_ROLES, 'implementer'];
+
 /** Who sees volunteer categories and ratings (the class `volunteer.rating`). */
 export const CATEGORY_ROLES: readonly string[] = ADMIN_ROLES;
 
@@ -166,6 +172,8 @@ export const canSeeBeneficiaryDetails = (me: Pick<Me, 'roles'>) =>
   holds(me, BENEFICIARY_DETAIL_ROLES);
 export const canSeeBeneficiaryAddress = (me: Pick<Me, 'roles'>) =>
   holds(me, BENEFICIARY_ADDRESS_ROLES);
+export const canLookUpBeneficiaries = (me: Pick<Me, 'roles'>) =>
+  holds(me, BENEFICIARY_LOOKUP_ROLES);
 export const canApproveStaff = (me: Pick<Me, 'roles'>) => holds(me, STAFF_APPROVER_ROLES);
 export const canDecideEdits = (me: Pick<Me, 'roles'>) => holds(me, EDIT_REQUEST_ROLES);
 export const canBlock = (me: Pick<Me, 'roles'>) => holds(me, BLOCKLIST_ROLES);

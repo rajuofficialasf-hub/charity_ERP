@@ -20,9 +20,29 @@ const DIVISION = '01900000-0000-7000-8000-0000000000d1';
 const DISTRICT = '01900000-0000-7000-8000-0000000000d2';
 const UPAZILA = '01900000-0000-7000-8000-0000000000d3';
 const PROJECT = '01900000-0000-7000-8000-0000000000c1';
+const ETAG = 'W/"1760000000000"';
+const NO_ACTIONS = {
+  block: false,
+  unblock: false,
+  editContact: false,
+  requestCorrection: false,
+  decideCorrection: false,
+  proposeMerge: false,
+  merge: false,
+  revertMerge: false,
+};
+/** What the server adds to every profile, whoever asks. */
+const profileBase = {
+  benNo: 123,
+  mergedInto: null,
+  actions: NO_ACTIONS,
+  corrections: [],
+  merges: [],
+};
 
 const fullRow = {
   id: ID,
+  benNo: 123,
   name: 'নমুনা উপকারভোগী',
   fatherOrHusbandName: 'নমুনা স্বামী',
   classCode: 'widow',
@@ -37,6 +57,7 @@ const fullRow = {
 };
 const mediaRow = {
   id: ID,
+  benNo: 123,
   name: 'নমুনা উপকারভোগী',
   status: 'active',
   divisionId: DIVISION,
@@ -77,7 +98,10 @@ function serve(row: unknown, stats: unknown, profile?: unknown) {
       return HttpResponse.json({ data: stats, meta: { requestId: 'req_test' } });
     }),
     http.get('*/api/v1/beneficiaries/:id', () =>
-      HttpResponse.json({ data: profile, meta: { requestId: 'req_test' } }),
+      HttpResponse.json(
+        { data: profile, meta: { requestId: 'req_test', etag: ETAG } },
+        { headers: { ETag: ETAG } },
+      ),
     ),
     http.get('*/api/v1/locations', () => HttpResponse.json({ data: [] })),
   );
@@ -191,6 +215,7 @@ describe('the beneficiary tab', () => {
 
 const empty360 = {
   ...fullRow,
+  ...profileBase,
   motherName: null,
   genderCode: 'female',
   ageYears: 62,
@@ -284,7 +309,7 @@ describe('the 360° profile', () => {
     server.use(
       http.get('*/api/v1/beneficiaries/:id', () => {
         asked = true;
-        return HttpResponse.json({ data: empty360, meta: { requestId: 'req_test' } });
+        return HttpResponse.json({ data: empty360, meta: { requestId: 'req_test', etag: ETAG } });
       }),
     );
     openProfile();
@@ -343,6 +368,7 @@ describe('the 360° profile', () => {
       {},
       {
         ...mediaRow,
+        ...profileBase,
         projectsByYear: [],
         distributions: [],
       },
@@ -357,5 +383,312 @@ describe('the 360° profile', () => {
       screen.getByRole('heading', { level: 2, name: 'বিতরণ ও বাস্তবায়ন' }),
     ).toBeInTheDocument();
     expect(screen.queryByText('নমুনা স্বামী')).not.toBeInTheDocument();
+  });
+});
+
+const RPM: Me = { ...ME, roles: ['regional_program_manager'] };
+const OTHER_ID = '01900000-0000-7000-8000-0000000000e9';
+const REQUEST_ID = '01900000-0000-7000-8000-0000000000f1';
+const ALL_ACTIONS = { ...NO_ACTIONS, block: true, editContact: true, requestCorrection: true };
+const LOOKUP_BUTTON = 'NID / জন্মনিবন্ধন দিয়ে খুঁজুন';
+
+describe('BEN numbers and the lookup', () => {
+  it('shows the BEN number of each row and offers the lookup to the RPM, not to the Media Team', async () => {
+    refreshAs(RPM);
+    serve(fullRow, { total: 1, assistedThisYear: 0, blocked: 0 });
+    const first = openList();
+    expect((await screen.findAllByText('BEN-0000123')).length).toBeGreaterThan(0);
+    expect(screen.getByRole('columnheader', { name: 'BEN নম্বর' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: LOOKUP_BUTTON })).toBeInTheDocument();
+    first.unmount();
+    resetClientForTests();
+    refreshAs(MEDIA);
+    serve(mediaRow, { total: 1, assistedThisYear: 0 });
+    openList();
+    expect((await screen.findAllByText('BEN-0000123')).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: LOOKUP_BUTTON })).not.toBeInTheDocument();
+  });
+
+  it('looks a number up inside the chosen project and links to the found profile', async () => {
+    refreshAs(RPM);
+    serve(fullRow, { total: 1, assistedThisYear: 0, blocked: 0 });
+    let body: unknown;
+    server.use(
+      http.post('*/api/v1/beneficiaries/lookup', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({
+          data: {
+            found: true,
+            blocked: false,
+            alreadyAppliedInProject: false,
+            mobileIsCallerOwn: false,
+            autofill: {
+              beneficiaryId: ID,
+              benNo: 123,
+              name: 'নমুনা উপকারভোগী',
+              fatherOrHusbandName: 'নমুনা স্বামী',
+              motherName: null,
+              mobile: '01911000001',
+              genderCode: 'female',
+              dob: null,
+              ageYears: 62,
+              divisionId: DIVISION,
+              districtId: DISTRICT,
+              upazilaId: UPAZILA,
+              unionId: DIVISION,
+              village: 'নমুনা গ্রাম',
+              postOffice: null,
+              postCode: null,
+              landmark: null,
+              members14Plus: null,
+              childrenUnder14: null,
+              lockedFields: ['name', 'father_or_husband_name', 'nid', 'birth_reg'],
+            },
+          },
+          meta: { requestId: 'req_test' },
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    openList();
+    await user.click(await screen.findByRole('button', { name: LOOKUP_BUTTON }));
+    const dialog = await screen.findByRole('dialog', { name: 'NID বা জন্মনিবন্ধন দিয়ে খুঁজুন' });
+    const search = within(dialog).getByRole('button', { name: 'খুঁজুন' });
+    // nothing is asked before a project is chosen
+    expect(search).toBeDisabled();
+    await user.click(await within(dialog).findByRole('button', { name: /প্রকল্প/ }));
+    await user.click(await screen.findByRole('option', { name: 'শীতবস্ত্র বিতরণ 2026 (WC)' }));
+    await user.type(within(dialog).getByRole('textbox', { name: /NID নম্বর/ }), '1000001000');
+    await user.click(search);
+    expect(
+      await within(dialog).findByText('প্রোফাইল পাওয়া গেছে: BEN-0000123'),
+    ).toBeInTheDocument();
+    expect(body).toEqual({ nid: '1000001000', projectId: PROJECT_ID });
+    expect(within(dialog).getByRole('link', { name: 'প্রোফাইল দেখুন' })).toHaveAttribute(
+      'href',
+      `/admin/beneficiaries/${ID}`,
+    );
+  });
+});
+
+describe('the profile actions', () => {
+  it('shows the BEN number and no action without its flag', async () => {
+    refreshAs(HEAD);
+    serve(fullRow, {}, empty360);
+    openProfile();
+    await screen.findByRole('heading', { level: 1, name: 'নমুনা উপকারভোগী' });
+    expect(screen.getAllByText(/BEN-0000123/).length).toBeGreaterThan(0);
+    for (const name of [
+      'যোগাযোগের তথ্য বদলান',
+      'সংশোধনের অনুরোধ করুন',
+      'ব্লকলিস্টে দিন',
+      'ব্লক তুলুন',
+    ])
+      expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
+  });
+
+  it('offers each action whose flag is set, and the lift of a block instead of a block', async () => {
+    refreshAs(RPM);
+    serve(fullRow, {}, { ...empty360, actions: ALL_ACTIONS });
+    const first = openProfile();
+    for (const name of ['যোগাযোগের তথ্য বদলান', 'সংশোধনের অনুরোধ করুন', 'ব্লকলিস্টে দিন'])
+      expect(await screen.findByRole('button', { name })).toBeInTheDocument();
+    first.unmount();
+    resetClientForTests();
+    serve(fullRow, {}, { ...empty360, isBlocked: true, actions: { ...NO_ACTIONS, unblock: true } });
+    openProfile();
+    expect(await screen.findByRole('button', { name: 'ব্লক তুলুন' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'ব্লকলিস্টে দিন' })).not.toBeInTheDocument();
+  });
+
+  it('saves a new mobile with the version of the profile and shows the shared-mobile warning', async () => {
+    refreshAs(RPM);
+    serve(fullRow, {}, { ...empty360, actions: ALL_ACTIONS });
+    let sent: { ifMatch: string | null; body: unknown } | undefined;
+    server.use(
+      http.patch('*/api/v1/beneficiaries/:id/contact', async ({ request }) => {
+        sent = { ifMatch: request.headers.get('If-Match'), body: await request.json() };
+        return HttpResponse.json({
+          data: {
+            ...fullRow,
+            mobile: '01911000002',
+            postOffice: null,
+            postCode: null,
+            landmark: null,
+            warnings: [{ code: 'beneficiary.mobile_shared', count: 1, benNos: ['BEN-0000077'] }],
+          },
+          meta: { requestId: 'req_test', etag: ETAG },
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    openProfile();
+    await user.click(await screen.findByRole('button', { name: 'যোগাযোগের তথ্য বদলান' }));
+    const dialog = await screen.findByRole('dialog', { name: 'যোগাযোগের তথ্য বদলান' });
+    const save = within(dialog).getByRole('button', { name: 'সংরক্ষণ করুন' });
+    // nothing changed yet, so there is nothing to save
+    expect(save).toBeDisabled();
+    const mobile = within(dialog).getByRole('textbox', { name: /মোবাইল/ });
+    await user.clear(mobile);
+    await user.type(mobile, '01911000002');
+    await user.click(save);
+    expect(
+      await screen.findByText('এই মোবাইল নম্বর আরও 1টি প্রোফাইলে আছে: BEN-0000077'),
+    ).toBeInTheDocument();
+    expect(sent).toEqual({ ifMatch: ETAG, body: { mobile: '01911000002' } });
+  });
+
+  it("lets a deciding official approve or reject another official's correction request", async () => {
+    refreshAs(ME);
+    const request = {
+      id: REQUEST_ID,
+      beneficiaryId: ID,
+      field: 'name',
+      oldValue: 'নমুনা উপকারভোগী',
+      newValue: 'নমুনা উপকারভোগী বেগম',
+      reason: 'জাতীয় পরিচয়পত্রে এই নাম',
+      status: 'submitted',
+      requestedBy: OTHER_ID,
+      requestedAt: '2026-10-20T04:00:00.000Z',
+      decidedBy: null,
+      decidedAt: null,
+    };
+    serve(
+      fullRow,
+      {},
+      {
+        ...empty360,
+        actions: { ...NO_ACTIONS, decideCorrection: true },
+        corrections: [request, { ...request, id: OTHER_ID, requestedBy: ME.id }],
+      },
+    );
+    const decisions: unknown[] = [];
+    server.use(
+      http.post('*/api/v1/beneficiary-corrections/:requestId/decision', async ({ request: r }) => {
+        decisions.push(await r.json());
+        return HttpResponse.json({
+          data: { ...request, status: 'approved' },
+          meta: { requestId: 'req_test' },
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    const { container } = openProfile();
+    const heading = await screen.findByRole('heading', { level: 2, name: 'সংশোধনের অনুরোধ' });
+    const section = heading.closest('section') ?? document.body;
+    // the caller's own request gets no decision buttons
+    expect(within(section).getAllByRole('button', { name: 'অনুমোদন করুন' })).toHaveLength(1);
+    await expectNoAxeViolations(container);
+
+    await user.click(within(section).getByRole('button', { name: 'নাকচ করুন' }));
+    const reject = await screen.findByRole('dialog', {
+      name: 'নাম-এর সংশোধনের অনুরোধ নাকচ করবেন?',
+    });
+    await user.type(within(reject).getByRole('textbox', { name: /কারণ/ }), 'প্রমাণ মেলেনি');
+    await user.click(within(reject).getByRole('button', { name: 'নাকচ করুন' }));
+    await waitFor(() =>
+      expect(decisions).toEqual([{ decision: 'reject', reason: 'প্রমাণ মেলেনি' }]),
+    );
+
+    await user.click(within(section).getByRole('button', { name: 'অনুমোদন করুন' }));
+    const approve = await screen.findByRole('alertdialog');
+    await user.click(within(approve).getByRole('button', { name: 'অনুমোদন করুন' }));
+    await waitFor(() => expect(decisions).toHaveLength(2));
+    expect(decisions[1]).toEqual({ decision: 'approve' });
+  });
+
+  it('blocks a beneficiary with a reason', async () => {
+    refreshAs(RPM);
+    serve(fullRow, {}, { ...empty360, actions: ALL_ACTIONS });
+    let body: unknown;
+    server.use(
+      http.post('*/api/v1/beneficiaries/:id/block', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ data: {}, meta: { requestId: 'req_test' } }, { status: 201 });
+      }),
+    );
+    const user = userEvent.setup();
+    openProfile();
+    await user.click(await screen.findByRole('button', { name: 'ব্লকলিস্টে দিন' }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(
+      within(dialog).getByText(
+        'ব্লক থাকা অবস্থায় এই ব্যক্তির জন্য কোনো প্রকল্পে নতুন আবেদন করা যাবে না। চলমান আবেদন আগের মতোই চলবে।',
+      ),
+    ).toBeInTheDocument();
+    await user.type(within(dialog).getByRole('textbox', { name: /কারণ/ }), 'ভুয়া তথ্য দিয়েছেন');
+    await user.click(within(dialog).getByRole('button', { name: 'ব্লক করুন' }));
+    expect(await screen.findByText('উপকারভোগীকে ব্লকলিস্টে দেওয়া হয়েছে')).toBeInTheDocument();
+    expect(body).toEqual({ reason: 'ভুয়া তথ্য দিয়েছেন' });
+  });
+
+  it('leads from a merged profile to the kept one and lists the history sections, in English too', async () => {
+    refreshAs(HEAD);
+    serve(
+      fullRow,
+      {},
+      {
+        ...empty360,
+        mergedInto: { id: OTHER_ID, benNo: 77 },
+        contactLog: [
+          {
+            field: 'mobile',
+            oldValue: '01911000000',
+            newValue: '01911000001',
+            by: null,
+            at: '2026-10-19T04:00:00.000Z',
+          },
+        ],
+        blocks: [
+          {
+            id: REQUEST_ID,
+            reason: 'ভুয়া তথ্য',
+            active: false,
+            blockedAt: '2026-10-01T04:00:00.000Z',
+            releasedAt: '2026-10-05T04:00:00.000Z',
+            releaseReason: 'তথ্য ঠিক হয়েছে',
+          },
+        ],
+        merges: [
+          {
+            id: REQUEST_ID,
+            role: 'merged',
+            otherId: OTHER_ID,
+            otherBenNo: 77,
+            status: 'merged',
+            mergedAt: '2026-10-18T04:00:00.000Z',
+            revertedAt: null,
+            leftBehind: 1,
+          },
+        ],
+        files: [{ fileId: REQUEST_ID, slot: 'photo', kind: 'profile_photo' }],
+      },
+    );
+    const first = openProfile();
+    expect(
+      await screen.findByText('এই প্রোফাইল BEN-0000077 প্রোফাইলে মার্জ হয়েছে।'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'রাখা প্রোফাইল দেখুন' })).toHaveAttribute(
+      'href',
+      `/admin/beneficiaries/${OTHER_ID}`,
+    );
+    for (const section of [
+      'যোগাযোগের তথ্যের পরিবর্তন',
+      'ব্লকের ইতিহাস',
+      'মার্জের ইতিহাস',
+      'ছবি ও ফাইল',
+    ])
+      expect(screen.getByRole('heading', { level: 2, name: section })).toBeInTheDocument();
+    expect(screen.getByText('01911000000 থেকে 01911000001')).toBeInTheDocument();
+    expect(screen.getByText('প্রোফাইল ছবি')).toBeInTheDocument();
+    first.unmount();
+    const { container } = renderApp(<BeneficiaryProfilePage />, 'en', {
+      path: '/admin/beneficiaries/:beneficiaryId',
+      initialPath: `/admin/beneficiaries/${ID}`,
+    });
+    expect(
+      await screen.findByText('This profile was merged into BEN-0000077.'),
+    ).toBeInTheDocument();
+    await expectNoAxeViolations(container);
   });
 });

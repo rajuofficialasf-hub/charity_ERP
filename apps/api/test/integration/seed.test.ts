@@ -39,6 +39,7 @@ const SEEDED_TABLES = [
   'user_roles',
   'volunteers',
   'beneficiaries',
+  'blocklist',
   'projects',
   'id_sequences',
   'project_areas',
@@ -286,6 +287,20 @@ describe('demo set', () => {
         ],
       },
     ]);
+  });
+
+  it('blocks exactly one Dhaka beneficiary, identified by NID, through an active blocklist row', async () => {
+    const { rows } = await db.query(
+      `SELECT b.nid, l.name_en AS division, bl.active, bl.reason
+       FROM beneficiaries b
+       JOIN locations l ON l.id = b.division_id
+       LEFT JOIN blocklist bl ON bl.subject_type = 'beneficiary' AND bl.subject_id = b.id
+       WHERE b.is_blocked`,
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ division: 'Dhaka', active: true });
+    expect(isFakeNid(rows[0].nid)).toBe(true);
+    expect(isDemoName(rows[0].reason)).toBe(true);
   });
 
   it('contains no real identities: every NID, birth registration, mobile, email and name is fake', async () => {

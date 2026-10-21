@@ -29,6 +29,8 @@ export type BeneficiaryFilter = z.infer<typeof beneficiaryFilterSchema>;
 /** One row of the beneficiary tab; the protected parts only for callers who see them. */
 export interface BeneficiaryRow {
   id: string;
+  /** The BEN number; shown through `formatBenNo`. */
+  benNo: number;
   name: string;
   /** With the personal-details class only (the Media and Procurement Teams do not get it). */
   fatherOrHusbandName?: string;

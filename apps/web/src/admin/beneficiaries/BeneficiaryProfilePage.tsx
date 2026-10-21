@@ -1,9 +1,12 @@
+import { formatBenNo } from '@css/shared/beneficiaries';
 import { formatDate } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import {
+  Alert,
   Avatar,
   Badge,
   Breadcrumb,
+  Button,
   ContactList,
   DescriptionList,
   EmptyState,
@@ -17,23 +20,28 @@ import {
   Text,
   Timeline,
 } from '@css/ui';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  Ban,
   BookOpen,
   Briefcase,
   CalendarDays,
   ClipboardList,
+  FileText,
+  GitMerge,
   Hash,
   History,
+  IdCard,
   MapPin,
   Package,
+  PencilLine,
   PhoneCall,
   Phone,
   User,
   Users,
   UserX,
 } from 'lucide-react';
-import { type ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { useLocationName } from '../../components/AddressNames';
@@ -43,13 +51,18 @@ import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { ForbiddenContent } from '../AdminLayout';
 import { telLink } from '../contact-links';
+import { BlocklistAction } from '../registrations/Blocklist';
 import { canSeeBeneficiaries } from '../roles';
 import {
   BENEFICIARIES_KEY,
   BENEFICIARY_TYPES,
   type BeneficiaryProfile,
   beneficiaryProfile,
+  type ContactSaved,
 } from './beneficiaries-api';
+import { ContactDialog } from './ContactDialog';
+import { CorrectionDialog } from './CorrectionDialog';
+import { ContactLog, Corrections, useFileKind } from './ProfileHistory';
 
 /**
  * The 360° profile of one beneficiary in the one profile layout: the header card with the key facts,
@@ -97,14 +110,29 @@ export function BeneficiaryProfilePage() {
         />
       </>
     );
-  return <Profile profile={profile.data} />;
+  return <Profile profile={profile.data.data} etag={profile.data.meta.etag} />;
 }
 
-function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
+function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: string }) {
   const t = useTranslations('admin.beneficiaries');
   const tp = useTranslations('admin.beneficiaries.profile');
   const tf = useTranslations('registration');
   const locale = useLocale() as Locale;
+  const queryClient = useQueryClient();
+  const fileKind = useFileKind();
+  const [dialog, setDialog] = useState<'contact' | 'correction' | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [shared, setShared] = useState<ContactSaved['warnings']>([]);
+  const changed = (message: string) => {
+    setDialog(null);
+    setNotice(message);
+    void queryClient.invalidateQueries({ queryKey: BENEFICIARIES_KEY });
+  };
+  const contactSaved = (saved: ContactSaved) => {
+    changed(tp('contact_saved'));
+    setShared(saved.warnings);
+  };
+  const a = p.actions;
   const empty = tf('profile.empty');
   const hidden = tp('hidden');
   const nameOf = (project: { nameBn: string; nameEn: string }) =>
@@ -123,6 +151,14 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
   const identity = 'nid' in p ? (p.nid ?? p.birthReg ?? null) : null;
 
   const facts: ProfileFact[] = [
+    {
+      id: 'ben',
+      label: tp('ben'),
+      value: formatBenNo(p.benNo),
+      icon: IdCard,
+      showLabel: true,
+      copy: true,
+    },
     ...(identity
       ? [{ id: 'id', label: tp('nid'), value: identity, icon: Hash, showLabel: true, copy: true }]
       : []),
@@ -162,6 +198,32 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
       : []),
   ];
 
+  const actions = (
+    <>
+      {a.editContact && (
+        <Button variant="secondary" icon={PencilLine} onPress={() => setDialog('contact')}>
+          {tp('edit_contact')}
+        </Button>
+      )}
+      {a.requestCorrection && (
+        <Button variant="secondary" icon={FileText} onPress={() => setDialog('correction')}>
+          {tp('request_correction')}
+        </Button>
+      )}
+      {(a.block || a.unblock) && (
+        <BlocklistAction
+          danger
+          beneficiaryId={p.id}
+          name={p.name}
+          blocked={a.unblock}
+          onDone={changed}
+        />
+      )}
+    </>
+  );
+  const hasActions = a.editContact || a.requestCorrection || a.block || a.unblock;
+  const showCorrections = p.corrections.length > 0 || a.requestCorrection || a.decideCorrection;
+
   return (
     <Grid gap={4}>
       <DocumentTitle title={p.name} />
@@ -185,7 +247,44 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
           </>
         }
         facts={facts}
+        actions={hasActions ? actions : undefined}
+        actionsLabel={tp('actions_label')}
       />
+      {p.mergedInto && (
+        <Alert
+          tone="info"
+          action={<Link to={`/admin/beneficiaries/${p.mergedInto.id}`}>{tp('merged_open')}</Link>}
+        >
+          {tp('merged_into', { benNo: formatBenNo(p.mergedInto.benNo) })}
+        </Alert>
+      )}
+      {notice && (
+        <Alert tone="success" live="status" onDismiss={() => setNotice(null)}>
+          {notice}
+        </Alert>
+      )}
+      {shared.map((w) => (
+        <Alert key={w.code} tone="warning" live="status" onDismiss={() => setShared([])}>
+          {w.benNos.length
+            ? tp('mobile_shared_list', { count: w.count, benNos: w.benNos.join(', ') })
+            : tp('mobile_shared', { count: w.count })}
+        </Alert>
+      ))}
+      {dialog === 'contact' && (
+        <ContactDialog
+          profile={p}
+          etag={etag}
+          onClose={() => setDialog(null)}
+          onDone={contactSaved}
+        />
+      )}
+      {dialog === 'correction' && (
+        <CorrectionDialog
+          profile={p}
+          onClose={() => setDialog(null)}
+          onDone={() => changed(tp('correction_sent'))}
+        />
+      )}
       <div className="admin-profile-grid">
         <Grid gap={3}>
           <ProfileSection title={tp('sections.basic')} icon={User}>
@@ -240,13 +339,14 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
                 none
               ) : (
                 <Grid gap={2} as="ul" role="list">
-                  {p.applications.map((a) => (
-                    <Stack direction="row" wrap gap={2} as="li" key={a.id}>
-                      <strong>{a.appNo ?? projectName.get(a.projectId) ?? ''}</strong>
-                      <span>{projectName.get(a.projectId)}</span>
+                  {p.applications.map((app) => (
+                    <Stack direction="row" wrap gap={2} as="li" key={app.id}>
+                      <strong>{app.appNo ?? projectName.get(app.projectId) ?? ''}</strong>
+                      <span>{projectName.get(app.projectId)}</span>
                       <span className="admin-muted">
-                        {a.submittedAt ? formatDate(a.submittedAt) : empty}
+                        {app.submittedAt ? formatDate(app.submittedAt) : empty}
                       </span>
+                      {app.throughMerge && <Badge size="sm" label={tp('through_merge')} />}
                     </Stack>
                   ))}
                 </Grid>
@@ -276,7 +376,7 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
                 <Grid gap={1} as="ul" role="list">
                   <li>
                     {tp('attendance', {
-                      present: p.dawah.attendance.filter((a) => a.present).length,
+                      present: p.dawah.attendance.filter((x) => x.present).length,
                       total: p.dawah.attendance.length,
                     })}
                   </li>
@@ -302,6 +402,20 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
                     { label: tp('evaluations'), value: p.followUps.evaluations.length },
                   ]}
                 />
+              )}
+            </ProfileSection>
+          )}
+
+          {p.files && (
+            <ProfileSection title={tp('sections.files')} icon={FileText}>
+              {p.files.length === 0 ? (
+                none
+              ) : (
+                <Grid gap={1} as="ul" role="list">
+                  {p.files.map((f) => (
+                    <li key={f.fileId}>{fileKind(f.kind)}</li>
+                  ))}
+                </Grid>
               )}
             </ProfileSection>
           )}
@@ -340,6 +454,74 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
             )}
           </ProfileSection>
 
+          {showCorrections && (
+            <Corrections requests={p.corrections} canDecide={a.decideCorrection} onDone={changed} />
+          )}
+
+          {p.contactLog && <ContactLog rows={p.contactLog} />}
+
+          {p.blocks && (
+            <ProfileSection title={tp('sections.blocks')} icon={Ban}>
+              {p.blocks.length === 0 ? (
+                none
+              ) : (
+                <Grid gap={2} as="ul" role="list">
+                  {p.blocks.map((b) => (
+                    <Grid gap={1} as="li" key={b.id}>
+                      <Stack direction="row" wrap gap={2}>
+                        <strong>{tp('blocked_on', { date: formatDate(b.blockedAt) })}</strong>
+                        {b.active && <Badge variant="dot" tone="danger" label={t('blocked')} />}
+                      </Stack>
+                      <Text tone="muted">{tp('reason', { reason: b.reason })}</Text>
+                      {b.releasedAt && (
+                        <Text tone="muted">
+                          {tp('released_on', {
+                            date: formatDate(b.releasedAt),
+                            reason: b.releaseReason ?? empty,
+                          })}
+                        </Text>
+                      )}
+                    </Grid>
+                  ))}
+                </Grid>
+              )}
+            </ProfileSection>
+          )}
+
+          {p.merges.length > 0 && (
+            <ProfileSection title={tp('sections.merges')} icon={GitMerge}>
+              <Grid gap={2} as="ul" role="list">
+                {p.merges.map((m) => {
+                  const line = tp(m.role === 'kept' ? 'merge_kept' : 'merge_merged', {
+                    benNo: formatBenNo(m.otherBenNo),
+                  });
+                  return (
+                    <Grid gap={1} as="li" key={m.id}>
+                      <Stack direction="row" wrap gap={2}>
+                        {m.otherId ? (
+                          <Link to={`/admin/beneficiaries/${m.otherId}`}>{line}</Link>
+                        ) : (
+                          <span>{line}</span>
+                        )}
+                        {m.status === 'reverted' && (
+                          <Badge variant="dot" tone="warning" label={tp('merge_reverted')} />
+                        )}
+                      </Stack>
+                      <Text tone="muted">
+                        {[
+                          m.mergedAt && formatDate(m.mergedAt),
+                          m.leftBehind > 0 && tp('left_behind', { count: m.leftBehind }),
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </Text>
+                    </Grid>
+                  );
+                })}
+              </Grid>
+            </ProfileSection>
+          )}
+
           {p.activities && (
             <ProfileSection title={tp('sections.activities')} icon={History}>
               {p.activities.length === 0 ? (
@@ -347,10 +529,10 @@ function Profile({ profile: p }: { profile: BeneficiaryProfile }) {
               ) : (
                 <Timeline
                   label={tp('sections.activities')}
-                  steps={p.activities.map((a) => ({
-                    id: a.id,
-                    title: projectName.get(a.projectId) ?? '',
-                    time: formatDate(a.doneAt),
+                  steps={p.activities.map((act) => ({
+                    id: act.id,
+                    title: projectName.get(act.projectId) ?? '',
+                    time: formatDate(act.doneAt),
                     status: 'done' as const,
                   }))}
                 />
