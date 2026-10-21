@@ -237,7 +237,13 @@
     "official_only_field": "This field is for officials only.",
     "unexpected_answer": "This field takes no answer.",
     "duplicate_answer": "This field was answered twice.",
-    "repeat_group_too_large": "A repeat group has too many fields."
+    "repeat_group_too_large": "A repeat group has too many fields.",
+    "not_of_project": "This form belongs to another project."
+  },
+  "public": {
+    "link_closed": "This link is not open for applications.",
+    "form_unpublished": "The form of the link has no published version yet.",
+    "form_has_files": "A form on the public link cannot ask for files or signatures."
   },
   "program": {
     "inactive": "This program is inactive; it takes no new projects.",

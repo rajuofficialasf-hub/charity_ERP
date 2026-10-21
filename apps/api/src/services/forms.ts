@@ -24,6 +24,7 @@ import { isUniqueViolation } from '../core/db-errors';
 import { ApiError, type ApiErrorDetail } from '../i18n/api-error';
 import { fieldTypeOf, type FormLibraryService, visibilityOf } from './form-library';
 import type { ProjectViewer, ProjectsService } from './projects';
+import { asksForFiles, linkOf } from './public-link-rules';
 
 /** Who reads a version: an official sees every section, the others the volunteer-visible ones. */
 export type FormAudience = 'official' | 'volunteer';
@@ -282,6 +283,7 @@ export class FormsService {
       assertIfMatch(ifMatch, row.updatedAt);
       const definition = await readDefinition(tx, versionId, 'official');
       parseDefinition(definition);
+      await this.assertLinkable(tx, row.form.projectId, row.formId, versionId);
       const audience = await this.audienceOf(viewer, row.form.projectId);
       await tx.formVersion.updateMany({
         where: { formId: row.formId, status: 'published' },
@@ -307,6 +309,22 @@ export class FormsService {
         updatedAt: published.updatedAt,
       };
     });
+  }
+
+  /**
+   * A form the public link opens cannot start asking for files or signatures: the public has no
+   * upload beyond photos. The PM takes the form off the link first.
+   */
+  private async assertLinkable(tx: Tx, projectId: string, formId: string, versionId: string) {
+    const component = await tx.projectComponent.findUnique({
+      where: { projectId_componentKey: { projectId, componentKey: 'public_link' } },
+      select: { enabled: true, settings: true },
+    });
+    if (!component?.enabled) return;
+    const link = linkOf(component.settings);
+    if (!link.enabled || link.formId !== formId) return;
+    if (asksForFiles(await readDefinition(tx, versionId, 'volunteer')))
+      throw new ApiError('public.form_has_files', 422);
   }
 
   /** The next draft of a form, as a copy of its published version; one draft at a time. */
@@ -748,7 +766,7 @@ function formView(row: FormRow): FormView {
   };
 }
 
-function versionView(
+export function versionView(
   row: { id: string; formId: string; versionNo: number; status: string; publishedAt: Date | null },
   definition: FormDefinition,
 ): FormVersionView {

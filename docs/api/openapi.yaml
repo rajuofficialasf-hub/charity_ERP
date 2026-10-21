@@ -2849,11 +2849,49 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     PublicLinkConfig:
       type: object
+      additionalProperties: false
       required: [enabled]
       properties:
         enabled: { type: boolean }
-        formIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
-        url: { type: string, readOnly: true }
+        formId:
+          type: string
+          format: uuid
+          description: 'The one form the link opens: required while enabled; a form of this project with a published version and no file or signature field'
+    PublicLinkView:
+      type: object
+      required: [enabled, formId, url]
+      properties:
+        enabled: { type: boolean }
+        formId: { type: [string, 'null'], format: uuid }
+        url: { type: [string, 'null'], description: The link to hand out while enabled }
+    PublicFormResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [project, form]
+          properties:
+            project:
+              type: object
+              required: [name, applyTo]
+              properties:
+                name: { $ref: '#/components/schemas/Bilingual' }
+                applyTo: { type: [string, 'null'], format: date, description: The last day applications are taken }
+            form: { $ref: '#/components/schemas/FormVersion' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    PublicApplicationCreate:
+      type: object
+      additionalProperties: false
+      required: [clientUuid, answers]
+      properties:
+        clientUuid: { $ref: '#/components/schemas/Uuid' }
+        clientCreatedAt: { type: string, format: date-time }
+        answers:
+          type: array
+          maxItems: 2000
+          description: Answers in the shape of Answer; the engine checks each one and names the field it refuses
+          items: {}
 
     # ---------------- applications ----------------
     ApplicationSummary:
@@ -7386,7 +7424,7 @@ paths:
     patch:
       tags: [forms]
       operationId: forms.publicLink.configure
-      summary: Enable or disable the public application link (A8.5)
+      summary: Enable or disable the public application link (A8.5); every enable issues a fresh token
       x-permission: form.public_link.manage
       x-scope: project
       x-audit: form.public_link_change
@@ -7406,9 +7444,11 @@ paths:
                 type: object
                 required: [data, meta]
                 properties:
-                  data: { $ref: '#/components/schemas/PublicLinkConfig' }
+                  data: { $ref: '#/components/schemas/PublicLinkView' }
                   meta: { $ref: '#/components/schemas/Meta' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
 
   # ======================= public =======================
   /public/forms/{token}:
@@ -7417,21 +7457,19 @@ paths:
     get:
       tags: [public]
       operationId: public.form.get
-      summary: Published volunteer-visible form for the public link
+      summary: The published volunteer-visible form behind a public link, with the project's name and closing date; a disabled link, an unpublished form, an inactive project or a passed closing date answer not found
       security: []
       x-permission: public
-      x-scope: system
+      x-scope: none
       x-audit: none
       x-idempotency: none
       x-rate-limit: public-form
-      parameters:
-        - $ref: '#/components/parameters/AcceptLanguage'
       responses:
         '200':
-          description: Form version
+          description: The form and the project it belongs to
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/FormVersionResponse' }
+              schema: { $ref: '#/components/schemas/PublicFormResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
   /public/forms/{token}/applications:
@@ -7440,10 +7478,10 @@ paths:
     post:
       tags: [public]
       operationId: public.application.submit
-      summary: Submit a public application; it enters needs_verification (O-08)
+      summary: Submit a public application; it waits for verification without a profile, and the applicant learns nothing about existing profiles (O-08)
       security: []
       x-permission: public
-      x-scope: system
+      x-scope: none
       x-audit: application.public_submitted
       x-idempotency: clientUuid
       x-rate-limit: public-form
@@ -7451,7 +7489,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/ApplicationCreate' }
+            schema: { $ref: '#/components/schemas/PublicApplicationCreate' }
       responses:
         '201':
           description: Received; awaiting verification

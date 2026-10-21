@@ -936,7 +936,7 @@ Indexes: (assignee_user_id, project_id) WHERE active_to IS NULL; (target_type, t
 | status | text | no | 'draft' | L-app-status |
 | stage | text | yes | — | template stage key (validated by the engine) |
 | outcome | text | yes | — | template outcome code |
-| flags | text[] | no | '{}' | needs-verification reasons: existing_identity, late_sync, stale_form_version, public_entry |
+| flags | text[] | no | '{}' | needs-verification reasons: existing_identity, late_sync, stale_form_version, public_entry, identity_blocked, identity_repeated (the last two set by the public link, O-08) |
 | region_location_id | uuid | no | — | FK locations (division of the beneficiary address, for scope filters) |
 | district_id | uuid | no | — | FK locations (for district split and quotas) |
 | union_id | uuid | no | — | FK locations (union quotas) |

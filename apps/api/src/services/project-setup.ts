@@ -39,6 +39,13 @@ function statusOf(value: string): ProjectStatus {
 
 const money = (d: Prisma.Decimal | null) => (d === null ? null : d.toFixed(2));
 
+/** The public link's settings without the token. */
+function withoutToken(settings: unknown): unknown {
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return settings;
+  const { token: _token, ...rest } = settings as Record<string, unknown>;
+  return rest;
+}
+
 /**
  * The parts of a project's setup that are saved on their own (docs/MASTER_SPEC.md, A6; DECISION_LOG
  * D-095): components and their settings, the budget with its fund sources, areas with their RPMs,
@@ -108,10 +115,17 @@ export class ProjectSetupService {
             ? [{ componentKey: c.componentKey, enabled: true }]
             : [],
       );
+    // the public link's token is the whole access to the link: only its managers read it back
+    const managesLink = await this.access.holdsOnProject(
+      viewer.principal.userId,
+      'form.public_link.manage',
+      projectId,
+    );
     return rows.map((c) => ({
       componentKey: c.componentKey,
       enabled: c.enabled,
-      settings: c.settings,
+      settings:
+        c.componentKey === 'public_link' && !managesLink ? withoutToken(c.settings) : c.settings,
       etag: etagOf(c.updatedAt),
     }));
   }

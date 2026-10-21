@@ -1,4 +1,9 @@
-import { type FormCreate, formCreateSchema } from '@css/shared/forms';
+import {
+  type FormCreate,
+  formCreateSchema,
+  type PublicLinkConfig,
+  publicLinkConfigSchema,
+} from '@css/shared/forms';
 import { Router } from 'express';
 import { z } from 'zod';
 import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal';
@@ -35,7 +40,7 @@ const sectionView = z.object({
   condition: z.unknown().nullable().optional(),
   fields: z.array(fieldView),
 });
-const versionView = z.object({
+export const versionView = z.object({
   id: uuid,
   formId: uuid,
   versionNo: z.number().int(),
@@ -71,6 +76,11 @@ const libraryView = z.object({
   ),
   templates: z.array(z.object({ key: z.string(), name: bilingual, projectType: z.string() })),
 });
+const publicLinkView = z.object({
+  enabled: z.boolean(),
+  formId: uuid.nullable(),
+  url: z.string().nullable(),
+});
 const fieldMapView = z.object({
   fieldKey: z.string(),
   type: z.string(),
@@ -93,7 +103,10 @@ const ifMatch = [{ name: 'If-Match', required: true }];
  * the versions of a form, one version as the engine, the builder and the phone read it, the
  * draft's update and publish, the next draft, and the fields of a form across its versions.
  */
-export function formsRouter(deps: RouteDeps, c: Pick<Container, 'forms' | 'formLibrary'>): Router {
+export function formsRouter(
+  deps: RouteDeps,
+  c: Pick<Container, 'forms' | 'formLibrary' | 'publicLink'>,
+): Router {
   const router = Router();
   const op = { tag: 'forms', idempotency: 'none' as const, rateLimit: 'default' as const };
   const build = { ...op, permission: 'form.build', scope: 'project' };
@@ -239,6 +252,23 @@ export function formsRouter(deps: RouteDeps, c: Pick<Container, 'forms' | 'formL
     responses: { 200: versionView, 404: null, 409: null, 412: null, 422: null },
     handler: async ({ params, req, res }) =>
       withEtag(await c.forms.publish(viewerOf(req), params.versionId, req.get('if-match')), res),
+  });
+
+  defineRoute<PublicLinkConfig, unknown, { projectId: string }>(router, deps, {
+    ...op,
+    method: 'patch',
+    path: '/projects/:projectId/public-link',
+    operationId: 'forms.publicLink.configure',
+    summary:
+      'Enable or disable the public application link (A8.5); every enable issues a fresh token',
+    permission: 'form.public_link.manage',
+    scope: 'project',
+    audit: 'form.public_link_change',
+    params: { projectId: uuid },
+    body: publicLinkConfigSchema,
+    responses: { 200: publicLinkView, 404: null, 409: null, 422: null },
+    handler: async ({ params, body, req }) =>
+      ok(await c.publicLink.configure(viewerOf(req), params.projectId, body)),
   });
 
   return router;

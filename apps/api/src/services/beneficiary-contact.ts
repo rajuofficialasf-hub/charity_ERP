@@ -11,6 +11,7 @@ import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import type { BeneficiaryIdentityService } from './beneficiary-identity';
 import type { BeneficiaryMergeCandidatesService } from './beneficiary-merge-candidates';
+import { isAddressChain } from './locations';
 
 /** The contact columns an official edits outside an application, in the order they are logged. */
 const CONTACT_FIELDS = [
@@ -137,18 +138,7 @@ export class BeneficiaryContactService {
   /** The four places of an address must be a division, a district in it, and so on down. */
   private async assertChain(tx: Tx, body: ContactUpdate): Promise<void> {
     const ids = [body.divisionId, body.districtId, body.upazilaId, body.unionId] as string[];
-    const rows = await tx.location.findMany({
-      where: { id: { in: ids }, active: true },
-      select: { id: true, parentId: true, level: true },
-    });
-    const byId = new Map(rows.map((r) => [r.id, r]));
-    const levels = ['division', 'district', 'upazila', 'union'];
-    const chain = ids.every((id, i) => {
-      const row = byId.get(id);
-      // eslint-disable-next-line security/detect-object-injection -- index of a fixed list
-      return !!row && row.level === levels[i] && (i === 0 || row.parentId === ids[i - 1]);
-    });
-    if (!chain)
+    if (!(await isAddressChain(tx, ids)))
       throw new ApiError('validation.failed', 422, undefined, [
         { path: 'unionId', code: 'validation.failed' },
       ]);
