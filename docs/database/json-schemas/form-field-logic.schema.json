@@ -61,7 +61,7 @@
       "properties": {
         "min": { "type": "number" }, "max": { "type": "number" },
         "min_length": { "type": "integer", "minimum": 0 }, "max_length": { "type": "integer", "minimum": 1 },
-        "pattern": { "type": "string", "description": "named pattern key (nid, birth_reg, mobile, bangla_text) or a regex" },
+        "pattern": { "type": "string", "enum": ["nid", "birth_reg", "mobile", "bangla_text", "email", "post_code", "digits"], "description": "a named pattern key only; no regex (D-119)" },
         "message_key": { "type": "string", "description": "i18n key" }
       }
     },
