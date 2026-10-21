@@ -234,7 +234,7 @@ export const DEMO_VOLUNTEERS: { n: number; type: VolunteerType }[] = Array.from(
 );
 
 /** The demo beneficiary (number n of `beneficiary:n`, Dhaka division) that stands on the blocklist. */
-export const DEMO_BLOCKED_BENEFICIARY = 3;
+const DEMO_BLOCKED_BENEFICIARY = 3;
 
 const FEMALE = [
   'রহিমা খাতুন',

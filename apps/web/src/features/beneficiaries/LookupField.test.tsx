@@ -96,6 +96,29 @@ describe('the lookup field', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('drops an answer that arrives after the number was changed', async () => {
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    server.use(
+      http.post('*/api/v1/beneficiaries/lookup', async () => {
+        await held;
+        return HttpResponse.json({
+          data: { found: true, blocked: false, alreadyAppliedInProject: false, autofill },
+          meta: { requestId: 'req_test' },
+        });
+      }),
+      http.get('*/api/v1/locations', () => HttpResponse.json({ data: [] })),
+    );
+    open();
+    const user = await search();
+    await user.type(screen.getByRole('textbox', { name: /NID নম্বর/ }), '9');
+    release();
+    // the search button is ready again once the old answer has come and gone
+    await waitFor(() => expect(screen.getByRole('button', { name: 'খুঁজুন' })).toBeEnabled());
+    expect(screen.queryByText('প্রোফাইল পাওয়া গেছে: BEN-0000042')).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: LOCKED_NAME })).not.toBeInTheDocument();
+  });
+
   it('says when no profile has the number', async () => {
     answer({ found: false });
     open();
@@ -104,7 +127,7 @@ describe('the lookup field', () => {
   });
 
   it('says a blocked person is blocked, without the auto-fill', async () => {
-    answer({ found: true, blocked: true, alreadyAppliedInProject: false, autofill });
+    answer({ found: true, blocked: true });
     open();
     await search();
     expect(await screen.findByText('এই ব্যক্তি ব্লক করা আছেন')).toBeInTheDocument();

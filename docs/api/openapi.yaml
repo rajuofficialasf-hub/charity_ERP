@@ -2016,7 +2016,7 @@ components:
           required: [found]
           properties:
             found: { type: boolean }
-            blocked: { type: boolean, description: true means a new application is refused (BR-010) }
+            blocked: { type: boolean, description: true means a new application is refused (BR-010); the answer then carries nothing else }
             alreadyAppliedInProject: { type: boolean }
             mobileIsCallerOwn:
               type: boolean

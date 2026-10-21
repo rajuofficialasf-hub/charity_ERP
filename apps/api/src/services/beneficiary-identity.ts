@@ -212,11 +212,13 @@ export class BeneficiaryIdentityService {
       });
       // the refusal is answered after the commit, so its audit row stays
       if (limited) return null;
+      // a blocked person cannot apply anywhere, so nothing is filled in
+      if (b.isBlocked) return { found: true as const, blocked: true };
       const retired = match && match.id !== b.id;
       const { id, dob, isBlocked: _blocked, ...details } = b;
       return {
         found: true as const,
-        blocked: b.isBlocked,
+        blocked: false,
         alreadyAppliedInProject: applied > 0,
         mobileIsCallerOwn: !!caller?.mobile && caller.mobile === b.mobile,
         ...(retired ? { mergedInto: { benNo: b.benNo } } : {}),

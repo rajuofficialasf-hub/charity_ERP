@@ -101,7 +101,7 @@ describe('the lookup of the application form', () => {
     expect(JSON.stringify(audits)).not.toContain('1999999999');
   });
 
-  it('says a blocked person is blocked, without the reason', async () => {
+  it('says a blocked person is blocked, without the reason or the auto-fill', async () => {
     const id = await person(world.dhaka);
     await h.db.query(
       `INSERT INTO blocklist (id, subject_type, subject_id, reason, blocked_by) VALUES (gen_random_uuid(), 'beneficiary', $1, 'গোপন কারণ লেখা', $2)`,
@@ -109,7 +109,7 @@ describe('the lookup of the application form', () => {
     );
     const volunteer = await as(world.users.general);
     const res = await lookup(volunteer, { nid: (await row(id)).nid, projectId: world.a1.id });
-    expect(res.body.data).toMatchObject({ found: true, blocked: true });
+    expect(res.body.data).toEqual({ found: true, blocked: true });
     expect(JSON.stringify(res.body)).not.toContain('গোপন কারণ');
   });
 

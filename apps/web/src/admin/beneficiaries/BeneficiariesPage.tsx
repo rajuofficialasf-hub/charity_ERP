@@ -384,6 +384,7 @@ function LookupDialog({ onClose }: { onClose: () => void }) {
     <Modal title={t('title')} isOpen fullOnPhone onClose={onClose}>
       <ProjectPicker value={projectId} onChange={setProjectId} />
       <LookupField
+        key={projectId ?? ''}
         projectId={projectId}
         footer={(found) => (
           <Link to={`/admin/beneficiaries/${found.beneficiaryId}`}>{t('profile')}</Link>

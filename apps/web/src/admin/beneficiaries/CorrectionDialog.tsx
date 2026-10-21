@@ -37,16 +37,14 @@ export function CorrectionDialog({
     onSuccess: onDone,
   });
   const failure = send.error instanceof ApiFailure ? send.error : null;
-  const current =
-    field === 'name'
-      ? profile.name
-      : field === 'father_or_husband_name'
-        ? profile.fatherOrHusbandName
-        : field === 'nid'
-          ? profile.nid
-          : field === 'birth_reg'
-            ? profile.birthReg
-            : null;
+  const values: Record<LockedField, string | null | undefined> = {
+    name: profile.name,
+    father_or_husband_name: profile.fatherOrHusbandName,
+    nid: profile.nid,
+    birth_reg: profile.birthReg,
+  };
+  // eslint-disable-next-line security/detect-object-injection -- one of the four locked fields
+  const current = field ? values[field] : null;
   const submit = () => {
     // typed numbers may carry Bengali digits, spaces or hyphens; the server takes plain digits
     const newValue = isNumber(field) ? normalizeIdentityNumber(value) : value.trim();

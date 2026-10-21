@@ -453,13 +453,13 @@ describe('BEN numbers and the lookup', () => {
     openList();
     await user.click(await screen.findByRole('button', { name: LOOKUP_BUTTON }));
     const dialog = await screen.findByRole('dialog', { name: 'NID বা জন্মনিবন্ধন দিয়ে খুঁজুন' });
-    const search = within(dialog).getByRole('button', { name: 'খুঁজুন' });
     // nothing is asked before a project is chosen
-    expect(search).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'খুঁজুন' })).toBeDisabled();
     await user.click(await within(dialog).findByRole('button', { name: /প্রকল্প/ }));
     await user.click(await screen.findByRole('option', { name: 'শীতবস্ত্র বিতরণ 2026 (WC)' }));
+    // a new project starts a new lookup, so the field is drawn afresh
     await user.type(within(dialog).getByRole('textbox', { name: /NID নম্বর/ }), '1000001000');
-    await user.click(search);
+    await user.click(within(dialog).getByRole('button', { name: 'খুঁজুন' }));
     expect(
       await within(dialog).findByText('প্রোফাইল পাওয়া গেছে: BEN-0000123'),
     ).toBeInTheDocument();
@@ -536,6 +536,97 @@ describe('the profile actions', () => {
       await screen.findByText('এই মোবাইল নম্বর আরও 1টি প্রোফাইলে আছে: BEN-0000077'),
     ).toBeInTheDocument();
     expect(sent).toEqual({ ifMatch: ETAG, body: { mobile: '01911000002' } });
+  });
+
+  it('keeps the contact dialog open with the reason when the save is refused', async () => {
+    refreshAs(RPM);
+    serve(fullRow, {}, { ...empty360, actions: ALL_ACTIONS });
+    const answers = [
+      HttpResponse.json(
+        {
+          error: {
+            code: 'request.precondition_failed',
+            message: 'প্রোফাইলটি এর মধ্যে বদলেছে। আবার খুলে চেষ্টা করুন।',
+            requestId: 'r',
+          },
+        },
+        { status: 412 },
+      ),
+      HttpResponse.json(
+        {
+          error: {
+            code: 'validation.failed',
+            message: 'তথ্য ঠিক নেই।',
+            requestId: 'r',
+            details: [
+              { path: 'postCode', code: 'validation.failed', message: '4 অঙ্কের পোস্ট কোড দিন।' },
+            ],
+          },
+        },
+        { status: 422 },
+      ),
+    ];
+    server.use(http.patch('*/api/v1/beneficiaries/:id/contact', () => answers.shift()));
+    const user = userEvent.setup();
+    openProfile();
+    await user.click(await screen.findByRole('button', { name: 'যোগাযোগের তথ্য বদলান' }));
+    const dialog = await screen.findByRole('dialog', { name: 'যোগাযোগের তথ্য বদলান' });
+    const mobile = within(dialog).getByRole('textbox', { name: /মোবাইল/ });
+    await user.clear(mobile);
+    await user.type(mobile, '01911000002');
+    const save = within(dialog).getByRole('button', { name: 'সংরক্ষণ করুন' });
+    await user.click(save);
+    expect(
+      await within(dialog).findByText('প্রোফাইলটি এর মধ্যে বদলেছে। আবার খুলে চেষ্টা করুন।'),
+    ).toBeInTheDocument();
+    await user.click(save);
+    expect(await within(dialog).findByText('4 অঙ্কের পোস্ট কোড দিন।')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'যোগাযোগের তথ্য বদলান' })).toBeInTheDocument();
+  });
+
+  it('shows why an approval of a correction was refused and keeps the dialog open', async () => {
+    refreshAs(ME);
+    const request = {
+      id: REQUEST_ID,
+      beneficiaryId: ID,
+      field: 'name',
+      oldValue: 'নমুনা উপকারভোগী',
+      newValue: 'নমুনা উপকারভোগী বেগম',
+      reason: 'জাতীয় পরিচয়পত্রে এই নাম',
+      status: 'submitted',
+      requestedBy: OTHER_ID,
+      requestedAt: '2026-10-20T04:00:00.000Z',
+      decidedBy: null,
+      decidedAt: null,
+    };
+    serve(
+      fullRow,
+      {},
+      { ...empty360, actions: { ...NO_ACTIONS, decideCorrection: true }, corrections: [request] },
+    );
+    server.use(
+      http.post('*/api/v1/beneficiary-corrections/:requestId/decision', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'beneficiary.correction_stale',
+              message: 'প্রোফাইলের মান এর মধ্যে বদলেছে।',
+              requestId: 'r',
+            },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    openProfile();
+    const heading = await screen.findByRole('heading', { level: 2, name: 'সংশোধনের অনুরোধ' });
+    const section = heading.closest('section') ?? document.body;
+    await user.click(within(section).getByRole('button', { name: 'অনুমোদন করুন' }));
+    const approve = await screen.findByRole('alertdialog');
+    await user.click(within(approve).getByRole('button', { name: 'অনুমোদন করুন' }));
+    expect(await within(approve).findByText('প্রোফাইলের মান এর মধ্যে বদলেছে।')).toBeInTheDocument();
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
   });
 
   it("lets a deciding official approve or reject another official's correction request", async () => {

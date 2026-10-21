@@ -244,7 +244,8 @@ const beneficiaryProfile = z.object({
 
 /**
  * The lookup answer of the application form: the full auto-fill of a found profile wherever it
- * lives, the identity fields marked locked, never the other identity number or a block reason.
+ * lives, the identity fields marked locked, never the other identity number or a block reason;
+ * a blocked person is only named blocked.
  */
 const lookupResult = z.object({
   found: z.boolean(),
