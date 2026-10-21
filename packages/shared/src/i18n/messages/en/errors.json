@@ -244,7 +244,10 @@
     "link_closed": "This link is not open for applications.",
     "form_unpublished": "The form of the link has no published version yet.",
     "form_has_files": "A form on the public link cannot ask for files or signatures.",
-    "configure_through_link": "The public link is switched on, and its form chosen, through its own setting."
+    "configure_through_link": "The public link is switched on, and its form chosen, through its own setting.",
+    "photo_limit": "At most 5 photos can be added to one application.",
+    "link_full": "This link is holding too many photos right now. Try again later.",
+    "photo_unknown": "This photo was not uploaded for this application."
   },
   "program": {
     "inactive": "This program is inactive; it takes no new projects.",

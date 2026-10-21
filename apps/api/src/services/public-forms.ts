@@ -11,7 +11,8 @@ import type { BeneficiaryIdentityService } from './beneficiary-identity';
 import { type FormVersionView, readDefinition, versionView } from './forms';
 import { isAddressChain } from './locations';
 import type { NisabService } from './nisab';
-import { linkOf } from './public-link-rules';
+import { resolveOpenLink } from './public-link-rules';
+import type { PublicPhotosService } from './public-photos';
 import type { Replayable } from './uploads';
 
 /** What the public page shows: the project's name and closing date, and the form. */
@@ -44,6 +45,23 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 type AddressChain = [string, string, string, string];
 
+/** The file ids every photo answer names, by field. */
+function photoAnswers(
+  answers: { fieldKey: string; value: unknown }[],
+): { fieldKey: string; fileIds: string[] }[] {
+  return answers.flatMap((a) => {
+    const value = a.value as { t?: string; v?: unknown };
+    return value.t === 'photo' && Array.isArray(value.v)
+      ? [
+          {
+            fieldKey: a.fieldKey,
+            fileIds: value.v.filter((id): id is string => typeof id === 'string'),
+          },
+        ]
+      : [];
+  });
+}
+
 /** The four address ids the engine split out of the answers, when all four are there. */
 function addressOf(standard: Record<string, unknown>): AddressChain | null {
   const ids = [
@@ -53,19 +71,6 @@ function addressOf(standard: Record<string, unknown>): AddressChain | null {
     standard.union_id,
   ].map((id) => (typeof id === 'string' ? id : null));
   return ids.every((id): id is string => id !== null) ? (ids as AddressChain) : null;
-}
-
-interface ResolvedLink {
-  projectId: string;
-  name: { bn: string; en: string };
-  applyTo: string | null;
-  version: {
-    id: string;
-    formId: string;
-    versionNo: number;
-    status: string;
-    publishedAt: Date | null;
-  };
 }
 
 /**
@@ -83,10 +88,11 @@ export class PublicFormsService {
     private readonly clock: Clock,
     private readonly nisab: NisabService,
     private readonly identity: BeneficiaryIdentityService,
+    private readonly photos: PublicPhotosService,
   ) {}
 
   async form(token: string): Promise<PublicFormView> {
-    const link = await this.resolve(token);
+    const link = await resolveOpenLink(this.prisma, this.clock.now(), token);
     return {
       project: { name: link.name, applyTo: link.applyTo },
       form: versionView(
@@ -100,7 +106,7 @@ export class PublicFormsService {
     token: string,
     body: PublicApplicationCreate,
   ): Promise<Replayable<PublicSubmission>> {
-    const link = await this.resolve(token);
+    const link = await resolveOpenLink(this.prisma, this.clock.now(), token);
     const earlier = await this.earlier(link.projectId, body.clientUuid);
     if (earlier) return { replay: true, value: earlier };
     const today = isoDateInDhaka(this.clock.now());
@@ -163,6 +169,13 @@ export class PublicFormsService {
               : [];
           }),
         });
+        await this.photos.claim(
+          tx,
+          link,
+          body.clientUuid,
+          applicationId,
+          photoAnswers(checked.answers),
+        );
         await this.audit.record(tx, {
           action: 'application.public_submitted',
           entityType: 'application',
@@ -182,46 +195,6 @@ export class PublicFormsService {
         { path: 'clientUuid', code: 'validation.failed' },
       ]);
     }
-  }
-
-  /** A link that takes applications now, or 404 for every closed state alike. */
-  private async resolve(token: string): Promise<ResolvedLink> {
-    const closed = () => new ApiError('public.link_closed', 404);
-    const component = await this.prisma.projectComponent.findFirst({
-      where: {
-        componentKey: 'public_link',
-        enabled: true,
-        settings: { path: ['token'], equals: token },
-      },
-      select: {
-        projectId: true,
-        settings: true,
-        project: {
-          select: { status: true, applyFrom: true, applyTo: true, nameBn: true, nameEn: true },
-        },
-      },
-    });
-    if (!component) throw closed();
-    // the row was found by its token; what remains is whether the link is open
-    const link = linkOf(component.settings);
-    if (!link.enabled || !link.formId) throw closed();
-    const { project } = component;
-    if (project.status !== 'active') throw closed();
-    const today = isoDateInDhaka(this.clock.now());
-    const applyFrom = project.applyFrom ? isoDateInDhaka(project.applyFrom) : null;
-    const applyTo = project.applyTo ? isoDateInDhaka(project.applyTo) : null;
-    if ((applyFrom && today < applyFrom) || (applyTo && applyTo < today)) throw closed();
-    const published = await this.prisma.formVersion.findFirst({
-      where: { formId: link.formId, status: 'published', form: { projectId: component.projectId } },
-      select: { id: true, formId: true, versionNo: true, status: true, publishedAt: true },
-    });
-    if (!published) throw closed();
-    return {
-      projectId: component.projectId,
-      name: { bn: project.nameBn, en: project.nameEn },
-      applyTo,
-      version: published,
-    };
   }
 
   /** The record an earlier submission with this client id made on this project, if any. */

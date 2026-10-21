@@ -3147,7 +3147,7 @@ components:
       required: [clientUuid, kind, entityType, entityId, slot, mime, sizeBytes, sha256, source]
       properties:
         clientUuid: { $ref: '#/components/schemas/Uuid' }
-        kind: { type: string, enum: [distribution_proof, construction_proof, evidence, voucher, payment_copy, document, animal_photo, profile_photo, nid_photo, media_asset, issue_photo] }
+        kind: { type: string, enum: [distribution_proof, construction_proof, evidence, voucher, payment_copy, document, animal_photo, profile_photo, nid_photo, media_asset, issue_photo, form_photo] }
         entityType: { type: string, minLength: 1, maxLength: 40, description: 'The record type the file links to: application, activity, issue, voucher, expense_claim, payment, animal or document; each takes its own kinds (D-108)' }
         entityId: { type: string, format: uuid, description: The record the file links to; its scope is checked at create and at finalize }
         slot: { type: string, pattern: '^[a-z][a-z0-9_]{0,39}$' }
@@ -7508,6 +7508,47 @@ paths:
         '429': { $ref: '#/components/responses/TooManyRequests' }
 
   # ======================= applications =======================
+  /public/forms/{token}/photos:
+    parameters:
+      - $ref: '#/components/parameters/PublicToken'
+    post:
+      tags: [public]
+      operationId: public.photo.upload
+      summary: Upload one photo of a public application before it is submitted (JPEG or PNG, at most 5 MB, metadata stripped; five per submission, a bounded number per link; swept after a day unless a submission claims it)
+      security: []
+      x-permission: public
+      x-scope: none
+      x-audit: file.uploaded
+      x-idempotency: none
+      x-rate-limit: public-form
+      parameters:
+        - name: clientUuid
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: fieldKey
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 60 }
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary }
+          image/png:
+            schema: { type: string, format: binary }
+      responses:
+        '201':
+          description: Stored; the id goes into the photo answer of the submission
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UploadedPhotoResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
   /projects/{projectId}/applications:
     parameters:
       - $ref: '#/components/parameters/ProjectId'

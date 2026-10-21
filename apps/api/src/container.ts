@@ -70,6 +70,7 @@ import { FormLibraryService } from './services/form-library';
 import { FormsService } from './services/forms';
 import { PublicFormsService } from './services/public-forms';
 import { PublicLinkService } from './services/public-link';
+import { PublicPhotosService } from './services/public-photos';
 import { ProjectSetupService } from './services/project-setup';
 import { RegistrationsService } from './services/registrations';
 import { ChangeRequestsService } from './services/change-requests';
@@ -142,6 +143,7 @@ export interface Container {
   formLibrary: FormLibraryService;
   forms: FormsService;
   publicLink: PublicLinkService;
+  publicPhotos: PublicPhotosService;
   publicForms: PublicFormsService;
   nisab: NisabService;
   auditLog: AuditLogService;
@@ -244,6 +246,8 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     o.beneficiaryIdentity ??
     new BeneficiaryIdentityService(prisma, access, audit, clock, beneficiaryMergeCandidates);
   const nisab = o.nisab ?? new NisabService(prisma, audit, clock);
+  const publicPhotos =
+    o.publicPhotos ?? new PublicPhotosService(prisma, storage, audit, jobs, logger, clock);
   const built = {
     env,
     logger,
@@ -361,8 +365,10 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     formLibrary,
     forms: o.forms ?? new FormsService(prisma, audit, access, projects, formLibrary),
     publicLink: o.publicLink ?? new PublicLinkService(env, prisma, audit, projects),
+    publicPhotos,
     publicForms:
-      o.publicForms ?? new PublicFormsService(prisma, audit, clock, nisab, beneficiaryIdentity),
+      o.publicForms ??
+      new PublicFormsService(prisma, audit, clock, nisab, beneficiaryIdentity, publicPhotos),
     nisab,
     auditLog: o.auditLog ?? new AuditLogService(env, prisma, clock),
     inbox: o.inbox ?? new InboxService(env, prisma, clock, logger),

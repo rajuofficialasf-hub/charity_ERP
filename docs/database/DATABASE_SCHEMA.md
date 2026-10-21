@@ -127,7 +127,7 @@ Technical table added in T0.16 for O-03 (ERD.md §20).
 | L-doc-event | created, submitted, verified, approved, archived, deadline_extended, warning_sent, non_compliance, reopened | document_events.event |
 | L-media-status | planned, in_progress, published | media_subjects.media_status |
 | L-story-status | planned, in_progress, done, published | media_stories.status |
-| L-file-kind | distribution_proof, construction_proof, evidence, voucher, payment_copy, document, animal_photo, profile_photo, nid_photo, media_asset, export, issue_photo | files.kind |
+| L-file-kind | distribution_proof, construction_proof, evidence, voucher, payment_copy, document, animal_photo, profile_photo, nid_photo, media_asset, export, issue_photo, form_photo | files.kind |
 | L-file-source | camera, gallery, scan, system | files.source |
 | L-file-flag | no_capture_time, no_gps, gallery_under_camera_only, stale_capture, duplicate_suspect | files.flags (data-quality flags, O-30) |
 | L-scan | pending, clean, infected, failed, skipped | files.virus_scan |
@@ -1527,7 +1527,7 @@ Constraints: UNIQUE (bucket, object_key); partial UNIQUE (project_id, sha256) WH
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
 | file_id | uuid | no | — | FK files |
-| entity_type | text | no | — | application, activity, voucher, expense_claim, payment, document, animal, issue, media_subject, media_story, volunteer, beneficiary, followup_evaluation, user (staff photo, D-082) |
+| entity_type | text | no | — | application, activity, voucher, expense_claim, payment, document, animal, issue, media_subject, media_story, volunteer, beneficiary, followup_evaluation, user (staff photo, D-082), public_submission (a public form photo before its submission claims it, keyed by the applicant's client id; never resolved by the file routes) |
 | entity_id | uuid | no | — | — |
 | slot | text | no | — | e.g. distribution_proof, final_photo |
 | position | smallint | no | 0 | — |

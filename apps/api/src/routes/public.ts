@@ -2,6 +2,7 @@ import { type PublicApplicationCreate, publicApplicationCreateSchema } from '@cs
 import { Router } from 'express';
 import { z } from 'zod';
 import type { Container } from '../container';
+import { formPhotoBody } from '../files/photo-body';
 import { ok } from '../http/send';
 import { defineRoute, type RouteDeps } from '../openapi/define-route';
 import { versionView } from './forms';
@@ -25,7 +26,7 @@ const tokenParams = { token: z.string().min(16) };
  */
 export function publicRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'publicForms' | 'idempotency'>,
+  c: Pick<Container, 'publicForms' | 'publicPhotos' | 'idempotency'>,
 ): Router {
   const router = Router();
   const op = {
@@ -67,6 +68,37 @@ export function publicRouter(
       if (result.replay) c.idempotency.markReplay(res);
       return ok(result.value);
     },
+  });
+
+  defineRoute<unknown, { clientUuid: string; fieldKey: string }, { token: string }>(router, deps, {
+    ...op,
+    method: 'post',
+    path: '/public/forms/:token/photos',
+    status: 201,
+    operationId: 'public.photo.upload',
+    summary:
+      'Upload one photo of a public application before it is submitted (JPEG or PNG, at most 5 MB, metadata stripped; five per submission, a bounded number per link; swept after a day unless a submission claims it)',
+    audit: 'file.uploaded',
+    idempotency: 'none',
+    params: tokenParams,
+    query: z.strictObject({ clientUuid: z.uuid(), fieldKey: z.string().min(1).max(60) }),
+    before: [formPhotoBody],
+    responses: {
+      201: z.object({ fileId: z.uuid() }),
+      404: null,
+      409: null,
+      413: null,
+      415: null,
+      422: null,
+      429: null,
+    },
+    handler: ({ params, query, req }) =>
+      c.publicPhotos.upload({
+        token: params.token,
+        clientUuid: query.clientUuid,
+        fieldKey: query.fieldKey,
+        body: req.body,
+      }),
   });
 
   return router;
