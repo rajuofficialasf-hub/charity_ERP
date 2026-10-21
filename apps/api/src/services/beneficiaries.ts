@@ -217,15 +217,7 @@ export class BeneficiariesService {
   async profile(viewer: BeneficiaryViewer, beneficiaryId: string) {
     const rows = beneficiaryRowsProjectWhere(viewer.scope);
     const inProjects = rows ? { project: rows } : {};
-    const [access, found] = await Promise.all([
-      this.access.load(viewer.principal.userId),
-      boundedRead(this.prisma, (tx) => this.read(tx, viewer, beneficiaryId, inProjects)),
-    ]);
-    if (!found) {
-      this.access.denied(viewer.principal.userId, viewer.scope.permission, 'beneficiary');
-      throw new ApiError('permission.not_found', 404);
-    }
-    const { b, applications, activities, distributions } = found;
+    const access = await this.access.load(viewer.principal.userId);
     const nidScope = viewer.fieldClasses.has('beneficiary.nid')
       ? await this.access.sensitiveScope(
           viewer.principal,
@@ -234,8 +226,23 @@ export class BeneficiariesService {
           'beneficiary',
         )
       : null;
-    const seesNid = !!nidScope && (await this.access.reaches(nidScope, { beneficiaryId: b.id }));
-    const history = await this.history(viewer, access, b.id, seesNid);
+    // the profile and its history share one snapshot and one time limit
+    const found = await boundedRead(this.prisma, async (tx) => {
+      const read = await this.read(tx, viewer, beneficiaryId, inProjects);
+      if (!read) return null;
+      const seesNid =
+        !!nidScope && (await this.access.reaches(nidScope, { beneficiaryId: read.b.id }, tx));
+      return {
+        ...read,
+        seesNid,
+        history: await this.history(tx, viewer, access, read.b.id, seesNid),
+      };
+    });
+    if (!found) {
+      this.access.denied(viewer.principal.userId, viewer.scope.permission, 'beneficiary');
+      throw new ApiError('permission.not_found', 404);
+    }
+    const { b, applications, activities, distributions, seesNid, history } = found;
     const years = new Map<number, { year: number; projects: Map<string, ProjectOfYear> }>();
     for (const a of applications) {
       const year = years.get(a.project.year) ?? { year: a.project.year, projects: new Map() };
@@ -293,6 +300,7 @@ export class BeneficiariesService {
         submittedAt: a.submittedAt?.toISOString() ?? null,
         reviewedAt: a.reviewedAt?.toISOString() ?? null,
         approvedAt: a.approvedAt?.toISOString() ?? null,
+        throughMerge: a.beneficiaryId !== b.id,
       })),
       distributions: distributions.map((a) => ({
         id: a.id,
@@ -345,13 +353,18 @@ export class BeneficiariesService {
   }
 
   /**
-   * The history sections of the 360° profile and what the caller may do: the contact changes, the
-   * correction requests (to those who request or decide them; identity values only inside the NID
-   * scope), the block history (the route masks it to officials), the merges, the files (an NID photo
-   * only inside the NID scope) and the action flags, each true only where the action's own
-   * permission and scope reach the person.
+   * The history sections of the 360° profile and what the caller may do:
+   * - the contact changes: a mobile with the contact class, an address with the address class;
+   * - the correction requests, to every caller who holds either correction permission on the
+   *   person; identity values only inside the NID scope;
+   * - the block history (the route masks it to officials);
+   * - the merges, naming the other profile's id only where the caller's scope reaches it;
+   * - the files, an NID photo only inside the NID scope;
+   * - the actions, each true only where its permission and scope reach the person and the
+   *   person's state allows it (a live profile, blocked or not, a merge to revert).
    */
   private async history(
+    tx: Tx,
     viewer: BeneficiaryViewer,
     access: Awaited<ReturnType<AccessService['load']>>,
     id: string,
@@ -359,7 +372,7 @@ export class BeneficiariesService {
   ) {
     const sees = (cls: string) => viewer.fieldClasses.has(cls);
     const entity = 'beneficiary' as const;
-    const actions = await this.access.allowedOn(
+    const allowed = await this.access.allowedOn(
       viewer.principal,
       access,
       {
@@ -377,48 +390,118 @@ export class BeneficiariesService {
     const latest = { take: SECTION_ROWS };
     const identity = (field: string) => field === 'nid' || field === 'birth_reg';
     const text = (value: unknown) => (value === null || value === undefined ? null : String(value));
-    const [contactLog, corrections, blocks, merges, files] = await Promise.all([
-      sees(CONTACT)
-        ? this.prisma.fieldChange.findMany({
-            where: { entityType: 'beneficiary', entityId: id, kind: 'contact_update' },
+    const state = await tx.beneficiary.findUniqueOrThrow({
+      where: { id },
+      select: { isBlocked: true, mergedIntoId: true },
+    });
+    const contactLog =
+      sees(CONTACT) || sees(ADDRESS)
+        ? await tx.fieldChange.findMany({
+            where: {
+              entityType: 'beneficiary',
+              entityId: id,
+              kind: 'contact_update',
+              // a mobile is contact data, every other change is the address
+              ...(sees(CONTACT) && sees(ADDRESS)
+                ? {}
+                : sees(CONTACT)
+                  ? { field: 'mobile' }
+                  : { field: { not: 'mobile' } }),
+            },
             orderBy: { createdAt: 'desc' },
             ...latest,
+            select: {
+              field: true,
+              oldValue: true,
+              newValue: true,
+              createdBy: true,
+              createdAt: true,
+            },
           })
-        : [],
-      actions.requestCorrection || actions.decideCorrection
-        ? this.prisma.profileCorrectionRequest.findMany({
+        : [];
+    const corrections =
+      allowed.requestCorrection || allowed.decideCorrection
+        ? await tx.profileCorrectionRequest.findMany({
             where: { beneficiaryId: id },
             orderBy: { createdAt: 'desc' },
             ...latest,
+            select: {
+              id: true,
+              beneficiaryId: true,
+              field: true,
+              oldValue: true,
+              newValue: true,
+              reason: true,
+              status: true,
+              requestedBy: true,
+              createdAt: true,
+              decidedBy: true,
+              decidedAt: true,
+            },
           })
-        : [],
-      sees('blocklist.reason')
-        ? this.prisma.blocklist.findMany({
-            where: { subjectType: 'beneficiary', subjectId: id },
-            orderBy: { blockedAt: 'desc' },
-            ...latest,
-          })
-        : [],
-      this.prisma.profileMerge.findMany({
-        where: { OR: [{ keptId: id }, { mergedId: id }], status: { not: 'proposed' } },
-        orderBy: { proposedAt: 'desc' },
-        ...latest,
-        include: {
-          kept: { select: { benNo: true } },
-          merged: { select: { benNo: true } },
-        },
-      }),
-      sees(DETAIL)
-        ? this.prisma.fileLink.findMany({
-            where: { entityType: 'beneficiary', entityId: id },
-            orderBy: { createdAt: 'desc' },
-            ...latest,
-            select: { fileId: true, slot: true, file: { select: { kind: true } } },
-          })
-        : [],
-    ]);
+        : [];
+    const blocks = sees('blocklist.reason')
+      ? await tx.blocklist.findMany({
+          where: { subjectType: 'beneficiary', subjectId: id },
+          orderBy: { blockedAt: 'desc' },
+          ...latest,
+          select: {
+            id: true,
+            reason: true,
+            active: true,
+            blockedAt: true,
+            releasedAt: true,
+            releaseReason: true,
+          },
+        })
+      : [];
+    const merges = await tx.profileMerge.findMany({
+      where: { OR: [{ keptId: id }, { mergedId: id }], status: { not: 'proposed' } },
+      orderBy: { proposedAt: 'desc' },
+      ...latest,
+      select: {
+        id: true,
+        keptId: true,
+        mergedId: true,
+        status: true,
+        mergedAt: true,
+        revertedAt: true,
+        snapshot: true,
+        kept: { select: { benNo: true } },
+        merged: { select: { benNo: true } },
+      },
+    });
+    const others = merges.map((m) => (m.keptId === id ? m.mergedId : m.keptId));
+    const reachable = new Set(
+      (
+        await tx.beneficiary.findMany({
+          where: { AND: [{ id: { in: others } }, beneficiaryWhere(viewer.scope)] },
+          select: { id: true },
+        })
+      ).map((r) => r.id),
+    );
+    const files = sees(DETAIL)
+      ? await tx.fileLink.findMany({
+          where: { entityType: 'beneficiary', entityId: id },
+          orderBy: { createdAt: 'desc' },
+          ...latest,
+          select: { fileId: true, slot: true, file: { select: { kind: true } } },
+        })
+      : [];
+    const live = !state.mergedIntoId;
+    const revertible = merges.some((m) => m.status === 'merged');
     return {
-      actions,
+      actions: {
+        block: allowed.block && live && !state.isBlocked,
+        unblock: allowed.unblock && live && state.isBlocked,
+        editContact: allowed.editContact && live,
+        requestCorrection: allowed.requestCorrection && live,
+        decideCorrection:
+          allowed.decideCorrection && live && corrections.some((c) => c.status === 'submitted'),
+        proposeMerge: allowed.proposeMerge && live,
+        merge: allowed.merge && live,
+        revertMerge: allowed.revertMerge && revertible,
+      },
       contactLog: contactLog.map((c) => ({
         field: c.field,
         oldValue: text(c.oldValue),
@@ -449,11 +532,12 @@ export class BeneficiariesService {
       })),
       merges: merges.map((m) => {
         const kept = m.keptId === id;
+        const otherId = kept ? m.mergedId : m.keptId;
         const snapshot = m.snapshot as { leftBehind?: unknown[] } | null;
         return {
           id: m.id,
           role: kept ? ('kept' as const) : ('merged' as const),
-          otherId: kept ? m.mergedId : m.keptId,
+          otherId: reachable.has(otherId) ? otherId : null,
           otherBenNo: kept ? m.merged.benNo : m.kept.benNo,
           status: m.status,
           mergedAt: m.mergedAt ? m.mergedAt.toISOString() : null,
@@ -546,12 +630,23 @@ export class BeneficiariesService {
       },
     });
     if (!b) return null;
+    const keptMerges = await tx.profileMerge.findMany({
+      where: { keptId: b.id, status: 'merged' },
+      select: { snapshot: true },
+    });
+    const leftBehind = keptMerges.flatMap((m) => {
+      const ids = (m.snapshot as { leftBehind?: unknown } | null)?.leftBehind;
+      return Array.isArray(ids) ? ids.filter((x): x is string => typeof x === 'string') : [];
+    });
     const applications = await tx.application.findMany({
-      where: { beneficiaryId: b.id, ...inProjects },
+      where: {
+        AND: [{ OR: [{ beneficiaryId: b.id }, { id: { in: leftBehind } }] }, inProjects],
+      },
       ...latest,
       select: {
         id: true,
         appNo: true,
+        beneficiaryId: true,
         status: true,
         submittedAt: true,
         reviewedAt: true,

@@ -1829,7 +1829,7 @@ components:
         id: { $ref: '#/components/schemas/Uuid' }
         benNo: { $ref: '#/components/schemas/BenNo' }
         mergedInto:
-          description: The kept profile a retired one leads to (D-113); null for a live profile
+          description: The kept profile a retired one leads to; null for a live profile
           type: [object, 'null']
           properties:
             id: { $ref: '#/components/schemas/Uuid' }
@@ -1860,12 +1860,12 @@ components:
               at: { type: string, format: date-time }
         corrections:
           type: array
-          description: Correction requests, to callers who request or decide them; identity values null outside the NID scope
+          description: Correction requests, to every caller who holds either correction permission on the person; identity values null outside the NID scope
           items: { $ref: '#/components/schemas/CorrectionRequest' }
         blocks:
           type: array
           x-sensitive-class: blocklist.reason
-          description: The block history with reasons, for officials only (BR-015)
+          description: The block history with reasons, for officials only
           items:
             type: object
             properties:
@@ -1883,7 +1883,7 @@ components:
             properties:
               id: { $ref: '#/components/schemas/Uuid' }
               role: { type: string, enum: [kept, merged] }
-              otherId: { $ref: '#/components/schemas/Uuid' }
+              otherId: { type: [string, 'null'], format: uuid, description: null when the other profile lies outside the caller scope }
               otherBenNo: { $ref: '#/components/schemas/BenNo' }
               status: { type: string, enum: [merged, reverted] }
               mergedAt: { type: [string, 'null'], format: date-time }
@@ -1961,6 +1961,7 @@ components:
               submittedAt: { type: [string, 'null'], format: date-time }
               reviewedAt: { type: [string, 'null'], format: date-time }
               approvedAt: { type: [string, 'null'], format: date-time }
+              throughMerge: { type: boolean, description: 'An application left on a retired profile at a merge, shown on the kept one' }
         distributions:
           type: array
           description: Distribution and implementation activities, latest 20

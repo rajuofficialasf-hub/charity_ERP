@@ -120,7 +120,7 @@ const beneficiaryProfile = z.object({
     z.object({
       id: z.uuid(),
       role: z.enum(['kept', 'merged']),
-      otherId: z.uuid(),
+      otherId: z.uuid().nullable(),
       otherBenNo: benNo(),
       status: z.enum(['merged', 'reverted']),
       mergedAt: at().nullable(),
@@ -186,6 +186,8 @@ const beneficiaryProfile = z.object({
         submittedAt: z.string().nullable(),
         reviewedAt: z.string().nullable(),
         approvedAt: z.string().nullable(),
+        /** An application left on a retired profile at a merge, shown on the kept one. */
+        throughMerge: z.boolean(),
       }),
     ),
   ),
