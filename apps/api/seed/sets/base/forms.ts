@@ -1,43 +1,25 @@
 import { conditionSchema, type Condition, exprSchema, type Expr } from '@css/shared';
+import type {
+  FormTemplate,
+  FormTemplateSection,
+  LibraryField,
+  LibraryOption as Option,
+  LibrarySection,
+} from '@css/shared/forms';
 import { json, type SeedContext, seedId } from '../../context';
 
 /**
  * The field and section library (BD-12) and the two application forms in use today (blueprint
- * appendix খ.১ and খ.২) as form templates: data only; the form engine arrives in Phase 2 (T2.3).
- * Standard fields map to beneficiary columns (standard_column); the rest are project answers.
- * Removed by decision: spot code and community number (BD-15). Fields the system fills itself
- * (volunteer name, application number, approval date, implementing officer) are not form fields.
- * Option lists the blueprint does not spell out are left for each project (options: []).
+ * appendix খ.১ and খ.২) as form templates: data only; the shapes come from `@css/shared/forms`,
+ * which also builds a project's form from them (T2.3). Standard fields map to beneficiary columns
+ * (standard_column); the rest are project answers. Removed by decision: spot code and community
+ * number (BD-15). Fields the system fills itself (volunteer name, application number, approval
+ * date, implementing officer) are not form fields. Option lists the blueprint does not spell out
+ * are left for each project (options: []).
  *
  * form_library_fields.default_settings shape (library only): { options?, options_from_reference_list?,
  * allows_other_text?, validation?, calculation?, repeat_fields? }.
  */
-type FieldType =
-  | 'short_text'
-  | 'long_text'
-  | 'number'
-  | 'decimal'
-  | 'money'
-  | 'phone'
-  | 'date'
-  | 'single_select'
-  | 'multi_select'
-  | 'radio'
-  | 'photo'
-  | 'gps'
-  | 'bd_address'
-  | 'repeat_group'
-  | 'calculation';
-type Option = { code: string; label_bn: string; label_en: string; allows_other_text?: boolean };
-interface LibraryField {
-  key: string;
-  type: FieldType;
-  bn: string;
-  en: string;
-  standard?: string;
-  settings?: Record<string, unknown>;
-}
-
 const YES_NO: Option[] = [
   { code: 'yes', label_bn: 'হ্যাঁ', label_en: 'Yes' },
   { code: 'no', label_bn: 'না', label_en: 'No' },
@@ -84,7 +66,7 @@ export const LIBRARY_FIELDS: LibraryField[] = [
     bn: 'জাতীয় পরিচয়পত্র বা জন্ম নিবন্ধন নম্বর',
     en: 'NID or birth registration number',
     standard: 'nid_or_birth_reg',
-    settings: { validation: { pattern: 'nid_or_birth_reg' } },
+    settings: { validation: { pattern: 'nid' } },
   },
   {
     key: 'mobile',
@@ -205,7 +187,7 @@ export const LIBRARY_FIELDS: LibraryField[] = [
     bn: 'পোস্ট কোড',
     en: 'Post code',
     standard: 'post_code',
-    settings: { validation: { pattern: '^[0-9]{4}$' } },
+    settings: { validation: { pattern: 'post_code' } },
   },
   {
     key: 'landmark',
@@ -271,20 +253,30 @@ export const LIBRARY_FIELDS: LibraryField[] = [
           type: 'short_text',
           label_bn: 'আয়কারীর নাম',
           label_en: "Earner's name",
+          standard: 'name',
+          required: true,
         },
         {
           key: 'earner_relationship',
           type: 'single_select',
           label_bn: 'সম্পর্ক',
           label_en: 'Relationship',
+          standard: 'relationship_code',
           options_from_reference_list: 'relationship',
         },
-        { key: 'earner_occupation', type: 'short_text', label_bn: 'পেশা', label_en: 'Occupation' },
+        {
+          key: 'earner_occupation',
+          type: 'short_text',
+          label_bn: 'পেশা',
+          label_en: 'Occupation',
+          standard: 'occupation_code',
+        },
         {
           key: 'earner_monthly_income',
           type: 'money',
           label_bn: 'মাসিক আয়',
           label_en: 'Monthly income',
+          standard: 'monthly_income',
         },
       ],
     },
@@ -567,13 +559,7 @@ export const LIBRARY_FIELDS: LibraryField[] = [
 ];
 
 /** The ten sections of BD-12. */
-const SECTIONS: {
-  key: string;
-  bn: string;
-  en: string;
-  visibility: 'volunteer' | 'official_only';
-  fields: string[];
-}[] = [
+export const SECTIONS: LibrarySection[] = [
   {
     key: 'basic_info',
     bn: 'মৌলিক তথ্য',
@@ -756,7 +742,7 @@ const MANDATORY = new Set([
   'village',
 ]);
 
-function templateSection(key: string, fields: string[]) {
+function templateSection(key: string, fields: string[]): FormTemplateSection {
   const section = SECTIONS.find((s) => s.key === key)!;
   return {
     key,
@@ -769,7 +755,7 @@ function templateSection(key: string, fields: string[]) {
   };
 }
 
-export const FORM_TEMPLATES = [
+export const FORM_TEMPLATES: FormTemplate[] = [
   {
     key: 'form_distribution',
     name_bn: 'বিতরণভিত্তিক আবেদন ফর্ম (কুরবানী, ইফতার, শীতবস্ত্র)',
@@ -833,6 +819,7 @@ export const FORM_TEMPLATES = [
             'marital_status',
             'education',
             'dob',
+            'occupation',
           ]),
           templateSection('address', [
             'address',

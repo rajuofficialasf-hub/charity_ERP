@@ -48,9 +48,11 @@ export const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
 /** The draft token header (D-082): never in a URL or a log. */
 export const REGISTRATION_TOKEN_HEADER = 'X-Registration-Token';
 
+/** A Bangladesh mobile number as stored: 11 digits starting with 01 (the form patterns reuse it). */
+export const MOBILE_PATTERN = /^01[3-9][0-9]{8}$/;
 export const mobileSchema = z
   .string()
-  .regex(/^01[3-9][0-9]{8}$/, { message: 'validation.mobile_format' });
+  .regex(MOBILE_PATTERN, { message: 'validation.mobile_format' });
 export const nidSchema = z
   .string()
   .regex(/^([0-9]{10}|[0-9]{13}|[0-9]{17})$/, { message: 'validation.nid_format' });
