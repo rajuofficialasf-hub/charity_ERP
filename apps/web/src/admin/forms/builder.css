@@ -237,13 +237,11 @@
   background: var(--color-bg-info-soft);
   color: var(--color-status-info);
 }
-.fb-tag-calc {
-  background: var(--color-bg-warning-soft);
-  color: var(--color-brand-accent-ink);
-}
+/* ink on the amber tint: the accent ink falls short of 4.5:1 on it at the caption size */
+.fb-tag-calc,
 .fb-tag-warn {
   background: var(--color-bg-warning-soft);
-  color: var(--color-status-warning);
+  color: var(--color-text-primary);
 }
 /* above the question's overlay button, so the rows' add button takes the press */
 .fb-q-add-row {

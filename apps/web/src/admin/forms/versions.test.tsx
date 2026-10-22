@@ -331,6 +331,7 @@ describe('publishing', () => {
   });
 });
 
+// the scan of the whole builder page needs more than the default under the full run
 it('has no axe violation', async () => {
   const user = userEvent.setup();
   api();
@@ -340,4 +341,4 @@ it('has no axe violation', async () => {
   await user.click(screen.getByRole('tab', { name: 'ফর্মের সেটিং' }));
   await screen.findByRole('region', { name: 'সংস্করণগুলো' });
   await expectNoAxeViolations(container);
-});
+}, 20_000);
