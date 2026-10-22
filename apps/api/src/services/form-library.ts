@@ -176,14 +176,14 @@ export class FormLibraryService {
 
   private sectionRows(db: Tx) {
     return db.formLibrarySection.findMany({
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      orderBy: [{ sortOrder: 'asc' }, { key: 'asc' }],
       select: { key: true, titleBn: true, titleEn: true, defaultVisibility: true, fieldKeys: true },
     });
   }
 
   private fieldRows(db: Tx) {
     return db.formLibraryField.findMany({
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      orderBy: [{ sortOrder: 'asc' }, { key: 'asc' }],
       select: {
         key: true,
         type: true,

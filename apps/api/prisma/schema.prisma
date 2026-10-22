@@ -1056,6 +1056,7 @@ model FormLibrarySection {
   titleEn                    String        @map("title_en")
   defaultVisibility          String        @default("volunteer") @map("default_visibility")
   fieldKeys                  String[]      @default([]) @map("field_keys")
+  sortOrder                  Int           @default(0) @map("sort_order")
   createdAt                  DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy                  String?       @map("created_by") @db.Uuid
   updatedAt                  DateTime      @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -1065,6 +1066,7 @@ model FormLibrarySection {
   formSectionsLibrarySection FormSection[] @relation("form_sections_library_section_id")
 
   @@unique([key], map: "form_library_sections_key_key")
+  @@index([sortOrder], map: "form_library_sections_sort_order_idx")
   @@index([createdBy], map: "form_library_sections_created_by_idx")
   @@index([updatedBy], map: "form_library_sections_updated_by_idx")
   @@map("form_library_sections")
@@ -1078,6 +1080,7 @@ model FormLibraryField {
   labelEn                String      @map("label_en")
   standardColumn         String?     @map("standard_column")
   defaultSettings        Json        @default("{}") @map("default_settings")
+  sortOrder              Int         @default(0) @map("sort_order")
   createdAt              DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy              String?     @map("created_by") @db.Uuid
   updatedAt              DateTime    @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -1087,6 +1090,7 @@ model FormLibraryField {
   formFieldsLibraryField FormField[] @relation("form_fields_library_field_id")
 
   @@unique([key], map: "form_library_fields_key_key")
+  @@index([sortOrder], map: "form_library_fields_sort_order_idx")
   @@index([createdBy], map: "form_library_fields_created_by_idx")
   @@index([updatedBy], map: "form_library_fields_updated_by_idx")
   @@map("form_library_fields")

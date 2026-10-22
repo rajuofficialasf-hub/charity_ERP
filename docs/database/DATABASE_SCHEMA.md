@@ -626,6 +626,7 @@ Constraints: UNIQUE (form_field_id, code).
 | title_bn, title_en | text | no | — | — |
 | default_visibility | text | no | 'volunteer' | L-visibility |
 | field_keys | text[] | no | '{}' | ordered library field keys |
+| sort_order | int | no | 0 | the order the builder lists sections in (the seed's order, D-122) |
 | [A] | | | | |
 
 ### form_library_fields
@@ -637,6 +638,7 @@ Constraints: UNIQUE (form_field_id, code).
 | label_bn, label_en | text | no | — | — |
 | standard_column | text | yes | — | — |
 | default_settings | jsonb | no | '{}' | — |
+| sort_order | int | no | 0 | the order the builder lists fields in (the seed's order, D-122) |
 | [A] | | | | |
 
 ## 10. Beneficiaries

@@ -126,6 +126,14 @@ describe('the form library', () => {
     const keys = fields.map((x: { key: string }) => x.key);
     for (const key of [...CORE, 'dob', 'occupation', 'members_14_plus', 'earners', 'gps'])
       expect(keys).toContain(key);
+    // the fields come in the seed's order, so the builder lists them as the department reads them
+    expect(keys.slice(0, 4)).toEqual([
+      'nid_or_birth_reg',
+      'mobile',
+      'name',
+      'father_or_husband_name',
+    ]);
+    expect(keys.indexOf('occupation')).toBeLessThan(keys.indexOf('zakat_cash'));
     expect(fields.find((x: { key: string }) => x.key === 'name')).toMatchObject({
       type: 'short_text',
       label: { bn: 'উপকারভোগীর নাম', en: "Beneficiary's name" },

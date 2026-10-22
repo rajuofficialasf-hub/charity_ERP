@@ -870,10 +870,12 @@ export const FORM_TEMPLATES: FormTemplate[] = [
 
 export async function seedFormTemplates(ctx: SeedContext): Promise<void> {
   const known = new Set(LIBRARY_FIELDS.map((x) => x.key));
-  for (const field of LIBRARY_FIELDS) {
+  // the builder lists sections and fields in this file's order (D-122)
+  for (const [i, field] of LIBRARY_FIELDS.entries()) {
     await ctx.upsert('form_library_fields', {
       id: seedId(`form-library-field:${field.key}`),
       key: field.key,
+      sort_order: i,
       type: field.type,
       label_bn: field.bn,
       label_en: field.en,
@@ -882,12 +884,13 @@ export async function seedFormTemplates(ctx: SeedContext): Promise<void> {
       ...ctx.audit(),
     });
   }
-  for (const section of SECTIONS) {
+  for (const [i, section] of SECTIONS.entries()) {
     for (const k of section.fields)
       if (!known.has(k)) throw new Error(`section ${section.key} names unknown field ${k}`);
     await ctx.upsert('form_library_sections', {
       id: seedId(`form-library-section:${section.key}`),
       key: section.key,
+      sort_order: i,
       title_bn: section.bn,
       title_en: section.en,
       default_visibility: section.visibility,
