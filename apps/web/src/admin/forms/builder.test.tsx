@@ -295,7 +295,9 @@ describe('the outline and the libraries', () => {
     const user = userEvent.setup();
     const basic = await outlineOf('মৌলিক তথ্য');
     const name = basic.getAllByRole('listitem').find((li) => li.textContent?.includes('name'))!;
-    expect(within(name).getByText('আবশ্যক ঘর; সরানো বা লুকানো যায় না')).toBeInTheDocument();
+    expect(
+      within(name).getByText('সব প্রকল্পে আবশ্যক প্রশ্ন; সরানো বা লুকানো যায় না'),
+    ).toBeInTheDocument();
     // chosen, it offers its moves but neither a copy nor a remove
     await user.click(within(name).getByRole('button', { name: 'name বদলান' }));
     expect(within(name).getByRole('button', { name: 'name নিচে নিন' })).toBeInTheDocument();
@@ -393,7 +395,7 @@ describe('the outline and the libraries', () => {
     await user.click(await screen.findByRole('button', { name: 'সারিতে প্রশ্ন যোগ করুন' }));
     await user.click(screen.getByRole('button', { name: 'সংখ্যা প্রশ্ন যোগ করুন' }));
     const dialog = await screen.findByRole('dialog', { name: 'নতুন প্রশ্ন' });
-    expect(within(dialog).getByRole('button', { name: /কোন দলের সারিতে/ })).toHaveTextContent(
+    expect(within(dialog).getByRole('button', { name: /কোন তালিকার সারিতে/ })).toHaveTextContent(
       'পরিবারের সদস্যরা',
     );
     await user.type(within(dialog).getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), 'বয়স');
@@ -921,7 +923,9 @@ describe('a new form', () => {
       within(dialog).getByRole('textbox', { name: /ফর্মের নাম \(ইংরেজি\)/ }),
       'Application',
     );
-    await user.click(within(dialog).getByRole('radio', { name: 'খালি ফর্ম (শুধু আবশ্যক ঘর)' }));
+    await user.click(
+      within(dialog).getByRole('radio', { name: 'খালি ফর্ম (শুধু সব প্রকল্পে আবশ্যক প্রশ্নগুলো)' }),
+    );
     await user.click(within(dialog).getByRole('button', { name: 'তৈরি করুন' }));
     expect(
       await within(dialog).findByText('এই প্রকল্পে এই নামের ফর্ম আগেই আছে।'),

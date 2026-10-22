@@ -130,7 +130,7 @@ test('a PM builds and publishes a form, an applicant sends it by the link, and v
   await expect(page.getByRole('list', { name: 'আর্থিক অবস্থা', exact: true })).toBeVisible();
   await ownQuestion(page, 'আর্থিক অবস্থা', 'সংখ্যা', ['পুরুষ সদস্য', 'Male members']);
   await ownQuestion(page, 'আর্থিক অবস্থা', 'সংখ্যা', ['নারী সদস্য', 'Female members']);
-  await ownQuestion(page, 'আর্থিক অবস্থা', 'হিসাব', ['মোট সদস্য', 'All members']);
+  await ownQuestion(page, 'আর্থিক অবস্থা', 'নিজে থেকে হিসাব', ['মোট সদস্য', 'All members']);
   await page.getByRole('button', { name: 'হিসাব ঠিক করুন' }).click();
   const calc = page.getByRole('dialog', { name: 'হিসাবের নিয়ম' });
   await calc.getByRole('button', { name: 'পদ যোগ করুন' }).click();

@@ -75,10 +75,10 @@ describe('the field settings', () => {
     });
     // the rules sit in a closed group
     await user.click(await screen.findByRole('button', { name: /^উত্তরের নিয়ম/ }));
-    await user.click(await screen.findByRole('button', { name: /লেখা যাচাইয়ের নিয়ম/ }));
+    await user.click(await screen.findByRole('button', { name: /লেখা কেমন হবে/ }));
     const names = (await screen.findAllByRole('option')).map((o) => o.textContent);
     expect(names).toEqual([
-      'যাচাই নেই',
+      'যেকোনো লেখা',
       'জাতীয় পরিচয়পত্র নম্বর',
       'জন্মনিবন্ধন নম্বর',
       'মোবাইল নম্বর',
