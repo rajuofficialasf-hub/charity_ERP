@@ -46,6 +46,23 @@ export interface FormVersionView extends FormDefinition {
   publishedAt: string | null;
 }
 
+/** An official named on a version: who published it, who changed it last. */
+export interface VersionPerson {
+  id: string;
+  name: string;
+}
+
+/**
+ * A version as the builder's version list shows it: also who published it and who changed it last,
+ * and when. Only this list, which needs `form.build`, names officials; the version read and the
+ * public form read never do.
+ */
+export interface FormVersionListView extends FormVersionView {
+  publishedBy: VersionPerson | null;
+  updatedBy: VersionPerson | null;
+  updatedAt: string;
+}
+
 const VERSION_SELECT = {
   id: true,
   formId: true,
@@ -142,16 +159,24 @@ export class FormsService {
     return rows.map(formView);
   }
 
-  async versions(viewer: ProjectViewer, formId: string): Promise<FormVersionView[]> {
+  async versions(viewer: ProjectViewer, formId: string): Promise<FormVersionListView[]> {
     const form = await this.reachableForm(viewer, formId);
     const audience = await this.audienceOf(viewer, form.projectId);
+    const person = { select: { id: true, displayName: true } } as const;
     const rows = await this.prisma.formVersion.findMany({
       where: { formId },
       orderBy: { versionNo: 'asc' },
-      select: VERSION_SELECT,
+      select: { ...VERSION_SELECT, publishedByRef: person, updatedByRef: person },
     });
+    const named = (p: { id: string; displayName: string } | null) =>
+      p ? { id: p.id, name: p.displayName } : null;
     return Promise.all(
-      rows.map(async (r) => versionView(r, await readDefinition(this.prisma, r.id, audience))),
+      rows.map(async (r) => ({
+        ...versionView(r, await readDefinition(this.prisma, r.id, audience)),
+        publishedBy: named(r.publishedByRef),
+        updatedBy: named(r.updatedByRef),
+        updatedAt: r.updatedAt.toISOString(),
+      })),
     );
   }
 

@@ -244,7 +244,10 @@
       "url": "Application link",
       "renew_note": "Switching the link off and on again makes a new link; the old one stops working.",
       "load_failed": "The state of the link could not be loaded. Try again."
-    }
+    },
+    "published_by": "Published by {name}, {when}",
+    "changed_by": "Last changed by {name}, {when}",
+    "changed_at": "Last changed {when}"
   },
   "types": {
     "short_text": "Short text",

@@ -38,14 +38,21 @@ type Version = {
   versionNo: number;
   status: 'draft' | 'published' | 'retired';
   publishedAt: string | null;
+  publishedBy: { id: string; name: string } | null;
+  updatedBy: { id: string; name: string } | null;
+  updatedAt: string;
   sections: FormDefinition['sections'];
 };
+const PM = { id: '01900000-0000-7000-8000-0000000000f9', name: 'প্রোগ্রাম ম্যানেজার' };
 const v1 = (): Version => ({
   id: V1,
   formId: FORM,
   versionNo: 1,
   status: 'published',
   publishedAt: '2026-10-20T04:00:00.000Z',
+  publishedBy: PM,
+  updatedBy: PM,
+  updatedAt: '2026-10-20T04:00:00.000Z',
   sections: core(),
 });
 const v2 = (): Version => ({
@@ -54,6 +61,9 @@ const v2 = (): Version => ({
   versionNo: 2,
   status: 'draft',
   publishedAt: null,
+  publishedBy: null,
+  updatedBy: PM,
+  updatedAt: '2026-10-21T05:30:00.000Z',
   sections: [...core(), extra, official],
 });
 
@@ -124,7 +134,14 @@ function api(
     http.post(`*/api/v1/forms/${FORM}/versions`, () => {
       posts.push({ path: 'next', ifMatch: null });
       if (options.next) return options.next();
-      const made: Version = { ...v1(), id: V2, versionNo: 2, status: 'draft', publishedAt: null };
+      const made: Version = {
+        ...v1(),
+        id: V2,
+        versionNo: 2,
+        status: 'draft',
+        publishedAt: null,
+        publishedBy: null,
+      };
       versions.push(made);
       return HttpResponse.json({ data: made, meta: { requestId: 'r' } }, { status: 201 });
     }),
@@ -172,6 +189,9 @@ describe('the versions', () => {
     const items = await list.findAllByRole('listitem');
     expect(items[0]).toHaveTextContent('সংস্করণ 2: খসড়া');
     expect(items[0]).toHaveTextContent('অংশ যোগ হয়েছে: অতিরিক্ত');
+    // who changed the draft last and who published the version before it, with when
+    expect(items[0]).toHaveTextContent('শেষ বদল: প্রোগ্রাম ম্যানেজার, 21-10-2026');
+    expect(items.at(-1)).toHaveTextContent('প্রোগ্রাম ম্যানেজার প্রকাশ করেছেন, 20-10-2026');
     expect(items.at(-1)).toHaveTextContent('সংস্করণ 1: প্রকাশিত');
     expect(items.at(-1)).toHaveTextContent('প্রথম সংস্করণ।');
   });

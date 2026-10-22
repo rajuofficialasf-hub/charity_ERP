@@ -58,8 +58,16 @@ export const saveDraft = (versionId: string, etag: string, sections: FormDefinit
 export const createForm = (projectId: string, body: FormCreate) =>
   api<ProjectFormView>(`/projects/${projectId}/forms`, { method: 'POST', body });
 
+/** A version as the version list gives it: also who published it and who changed it last. */
+export interface FormVersionListItem extends FormVersion {
+  publishedBy: { id: string; name: string } | null;
+  updatedBy: { id: string; name: string } | null;
+  updatedAt: string;
+}
+
 /** Every version of a form, each with its definition as the caller may see it. */
-export const formVersions = (formId: string) => api<FormVersion[]>(`/forms/${formId}/versions`);
+export const formVersions = (formId: string) =>
+  api<FormVersionListItem[]>(`/forms/${formId}/versions`);
 
 /** Publishes a draft at the version it was read or saved at; the published one before retires. */
 export const publishVersion = (versionId: string, etag: string) =>

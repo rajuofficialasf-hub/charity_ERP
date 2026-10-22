@@ -570,6 +570,22 @@ describe('drafts, publishing and the field map', () => {
       [1, 'retired'],
       [2, 'published'],
     ]);
+    // the list names who published each version and who changed it last; the read never does
+    const pmName = (
+      await h.db.query<{ display_name: string }>('SELECT display_name FROM users WHERE id = $1', [
+        world.users.pm,
+      ])
+    ).rows[0]!.display_name;
+    const named = { id: world.users.pm, name: pmName };
+    for (const v of versions.body.data)
+      expect(v).toMatchObject({
+        publishedBy: named,
+        updatedBy: named,
+        updatedAt: expect.any(String),
+      });
+    const read = await at(pm, 'get', `/form-versions/${v2}`);
+    expect(read.body.data).not.toHaveProperty('publishedBy');
+    expect(read.body.data).not.toHaveProperty('updatedBy');
     const forms = await at(pm, 'get', `/projects/${project}/forms`);
     expect(forms.body.data[0]).toMatchObject({ publishedVersionId: v2, draftVersionId: null });
     expect((await auditRows(versionId, 'form.publish')).length).toBe(1);

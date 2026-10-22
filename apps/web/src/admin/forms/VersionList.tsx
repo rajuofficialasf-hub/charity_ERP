@@ -4,11 +4,11 @@ import { Badge, Button, ErrorState, Skeleton, Stack, Text } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useLocale, useTranslations } from 'use-intl';
 import { ChangeSummary } from './ChangeSummary';
-import { FORMS_KEY, type FormVersion, formVersions } from './forms-api';
+import { FORMS_KEY, type FormVersionListItem, formVersions } from './forms-api';
 
 /**
- * Every version of the form, newest first: its number and state, when it was published, and the
- * change summary against the version before it. Opening one shows it in the builder; only the
+ * Every version of the form, newest first: its number and state, who published it and when (who
+ * changed the draft last and when), and the change summary against the version before it. Opening one shows it in the builder; only the
  * draft can change.
  */
 export function VersionList({
@@ -35,7 +35,20 @@ export function VersionList({
   if (list.error)
     return <ErrorState title={tc('state.error.text')} onRetry={() => void list.refetch()} />;
   const ordered = [...list.data].sort((a, b) => b.versionNo - a.versionNo);
-  const before = (v: FormVersion) => list.data.find((o) => o.versionNo === v.versionNo - 1) ?? null;
+  // a published or retired version names who published it; the draft who changed it last
+  const byline = (v: FormVersionListItem) =>
+    v.publishedAt
+      ? v.publishedBy
+        ? t('published_by', {
+            when: formatDateTime(v.publishedAt, locale),
+            name: v.publishedBy.name,
+          })
+        : t('published_at', { when: formatDateTime(v.publishedAt, locale) })
+      : v.updatedBy
+        ? t('changed_by', { when: formatDateTime(v.updatedAt, locale), name: v.updatedBy.name })
+        : t('changed_at', { when: formatDateTime(v.updatedAt, locale) });
+  const before = (v: FormVersionListItem) =>
+    list.data.find((o) => o.versionNo === v.versionNo - 1) ?? null;
   return (
     <Stack as="section" gap={3} aria-label={t('versions')}>
       <Text weight="bold">{t('versions')}</Text>
@@ -55,11 +68,7 @@ export function VersionList({
                 <Stack direction="row" gap={2} wrap align="center" justify="between">
                   <Stack direction="row" gap={2} wrap align="center">
                     <Badge label={name} />
-                    {v.publishedAt ? (
-                      <Text tone="muted">
-                        {t('published_at', { when: formatDateTime(v.publishedAt, locale) })}
-                      </Text>
-                    ) : null}
+                    <Text tone="muted">{byline(v)}</Text>
                   </Stack>
                   {v.id === shown ? null : (
                     <Button

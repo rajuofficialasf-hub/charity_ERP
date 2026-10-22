@@ -48,6 +48,13 @@ export const versionView = z.object({
   publishedAt: z.string().nullable(),
   sections: z.array(sectionView),
 });
+const personView = z.object({ id: uuid, name: z.string() });
+/** The version list also names who published and who last changed each version. */
+const versionListView = versionView.extend({
+  publishedBy: personView.nullable(),
+  updatedBy: personView.nullable(),
+  updatedAt: z.string(),
+});
 const formView = z.object({
   id: uuid,
   projectId: uuid,
@@ -172,7 +179,7 @@ export function formsRouter(
     summary: 'Versions of a form; not paginated',
     audit: 'none',
     params: formParams,
-    responses: { 200: z.array(versionView), 404: null },
+    responses: { 200: z.array(versionListView), 404: null },
     handler: async ({ params, req }) => ok(await c.forms.versions(viewerOf(req), params.formId)),
   });
 

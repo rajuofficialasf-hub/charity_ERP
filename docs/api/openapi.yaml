@@ -2820,11 +2820,27 @@ components:
       properties:
         data: { $ref: '#/components/schemas/FormVersion' }
         meta: { $ref: '#/components/schemas/Meta' }
+    FormVersionListItem:
+      description: A version as the builder's version list shows it, with who published it and who changed it last (D-120 item 10); only this list names officials
+      allOf:
+        - { $ref: '#/components/schemas/FormVersion' }
+        - type: object
+          required: [publishedBy, updatedBy, updatedAt]
+          properties:
+            publishedBy:
+              anyOf:
+                - { $ref: '#/components/schemas/PersonRef' }
+                - type: 'null'
+            updatedBy:
+              anyOf:
+                - { $ref: '#/components/schemas/PersonRef' }
+                - type: 'null'
+            updatedAt: { type: string, format: date-time }
     FormVersionList:
       type: object
       required: [data, meta]
       properties:
-        data: { type: array, items: { $ref: '#/components/schemas/FormVersion' } }
+        data: { type: array, items: { $ref: '#/components/schemas/FormVersionListItem' } }
         meta: { $ref: '#/components/schemas/Meta' }
     FormDraftUpdate:
       type: object

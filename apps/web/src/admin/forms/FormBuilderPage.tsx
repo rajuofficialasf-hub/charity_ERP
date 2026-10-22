@@ -34,6 +34,7 @@ import { useChangeSentences } from './ChangeSummary';
 import {
   FORMS_KEY,
   type FormVersion,
+  type FormVersionListItem,
   formVersions,
   library,
   newVersion,
@@ -133,8 +134,17 @@ export function FormBuilderPage() {
       // the cached version is what the builder opens with next time, and the version list
       // compares what was saved
       queries.setQueryData(versionKey, { data: saved, meta: { etag: next } });
-      queries.setQueryData<FormVersion[]>(versionsKey, (list) =>
-        list?.map((v) => (v.id === saved.id ? saved : v)),
+      queries.setQueryData<FormVersionListItem[]>(versionsKey, (list) =>
+        list?.map((v) =>
+          v.id === saved.id
+            ? {
+                ...v,
+                ...saved,
+                updatedAt: new Date().toISOString(),
+                updatedBy: me ? { id: me.id, name: me.displayName } : v.updatedBy,
+              }
+            : v,
+        ),
       );
     },
     onStale: () => void queries.invalidateQueries({ queryKey: versionKey }),

@@ -151,7 +151,17 @@ function api(
       HttpResponse.json({ data: LIBRARY, meta: { requestId: 'r' } }),
     ),
     http.get(`*/api/v1/forms/${FORM}/versions`, () =>
-      HttpResponse.json({ data: [current], meta: { requestId: 'r' } }),
+      HttpResponse.json({
+        data: [
+          {
+            ...current,
+            publishedBy: null,
+            updatedBy: { id: ME.id, name: ME.displayName },
+            updatedAt: '2026-10-21T05:30:00.000Z',
+          },
+        ],
+        meta: { requestId: 'r' },
+      }),
     ),
     http.get(`*/api/v1/projects/${PROJECT}/components`, () =>
       HttpResponse.json({ data: [], meta: { requestId: 'r' } }),

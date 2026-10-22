@@ -76,6 +76,17 @@ async function publish(page: Page, versionNo: number) {
   return confirm;
 }
 
+/**
+ * Waits until the page is still: the pointer away from the language switch and no colour fading,
+ * so axe reads the colours the page settles on, not a frame of a transition.
+ */
+async function settled(page: Page) {
+  await page.mouse.move(0, 0);
+  await page.waitForFunction(() =>
+    document.getAnimations().every((a) => a.playState !== 'running'),
+  );
+}
+
 /** Picks the first choice of a select, or the named one, on the applicant's page. */
 async function pick(page: Page, scope: Locator, label: RegExp, option?: string) {
   await scope.getByRole('button', { name: label }).click();
@@ -175,11 +186,12 @@ test('a PM builds and publishes a form, an applicant sends it by the link, and v
     const applicant = await phone.newPage();
     await applicant.goto(new URL(url).pathname);
     await expect(applicant.getByRole('heading', { level: 1, name })).toBeVisible();
-    // the open form passes axe in both languages on the phone; each scan waits for the page to
-    // show its language, so the switch is not caught between its two colours
+    // the open form passes axe in both languages on the phone
+    await settled(applicant);
     expect((await scan(applicant)).violations, 'the public form (bn)').toEqual([]);
     await switchLanguage(applicant, 'en');
     await expect(applicant.getByRole('heading', { level: 1, name: `${name} EN` })).toBeVisible();
+    await settled(applicant);
     expect((await scan(applicant)).violations, 'the public form (en)').toEqual([]);
     await switchLanguage(applicant, 'bn');
     await expect(applicant.getByRole('heading', { level: 1, name })).toBeVisible();
