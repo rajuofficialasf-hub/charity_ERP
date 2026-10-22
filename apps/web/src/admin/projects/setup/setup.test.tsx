@@ -465,6 +465,27 @@ describe('the setup wizard', () => {
     );
   });
 
+  it('links the application form component to the project form in the builder', async () => {
+    serve();
+    server.use(
+      http.get(`*/api/v1/projects/${ID}/components`, () =>
+        HttpResponse.json({
+          data: [
+            ...COMPONENTS,
+            { componentKey: 'application_form', enabled: true, settings: {}, etag: '"a1"' },
+          ],
+          meta: {},
+        }),
+      ),
+    );
+    open('components');
+    const components = within(await section('উপাদান'));
+    expect(await components.findByRole('link', { name: 'ফর্ম বিল্ডার খুলুন' })).toHaveAttribute(
+      'href',
+      `/admin/projects/${ID}/forms/01900000-0000-7000-8000-0000000000f1`,
+    );
+  });
+
   it('keeps the year read-only while active and every field on a closed project', async () => {
     serve('active');
     const { unmount } = open('basics');

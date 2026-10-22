@@ -47,27 +47,17 @@ export function ReviewStep({
           {open.map((item) => (
             <li key={item}>
               <span>{label(item)}</span>
-              {item === 'form' ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon={ArrowRight}
-                  iconPosition="end"
-                  href={formHref}
-                >
-                  {ts('open_forms')}
-                </Button>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon={ArrowRight}
-                  iconPosition="end"
-                  onPress={() => onOpen(stepOfMissing(item))}
-                >
-                  {t('open_step')}
-                </Button>
-              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={ArrowRight}
+                iconPosition="end"
+                {...(item === 'form'
+                  ? { href: formHref }
+                  : { onPress: () => onOpen(stepOfMissing(item)) })}
+              >
+                {item === 'form' ? ts('open_forms') : t('open_step')}
+              </Button>
             </li>
           ))}
         </ul>

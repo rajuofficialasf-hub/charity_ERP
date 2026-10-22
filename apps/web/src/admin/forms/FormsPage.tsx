@@ -19,8 +19,13 @@ export function FormsPage() {
   const navigate = useNavigate();
   const { me } = useAuth();
   // the setup screen sends a project without a form here with ?new=1 to start one
-  const [search] = useSearchParams();
+  const [search, setSearch] = useSearchParams();
   const [creating, setCreating] = useState(() => search.get('new') === '1');
+  // the request is used once: a reload or a step back never opens the dialog again
+  const close = () => {
+    setCreating(false);
+    if (search.has('new')) setSearch({}, { replace: true });
+  };
   const list = useQuery({
     queryKey: [...FORMS_KEY, projectId],
     queryFn: () => projectForms(projectId),
@@ -53,8 +58,12 @@ export function FormsPage() {
         projectId={projectId}
         firstForm={list.data.length === 0}
         isOpen={creating && builder}
-        onClose={() => setCreating(false)}
-        onCreated={(formId) => void navigate(`/admin/projects/${projectId}/forms/${formId}`)}
+        onClose={close}
+        onCreated={(formId) =>
+          void navigate(`/admin/projects/${projectId}/forms/${formId}`, {
+            replace: search.has('new'),
+          })
+        }
       />
     </>
   );

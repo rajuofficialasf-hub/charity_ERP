@@ -221,9 +221,12 @@ function ProjectWizard({ projectId }: { projectId: string }) {
   // or the forms page with the new-form dialog when the project has none
   const formList = useSetupPart(projectId, 'forms', () => forms(projectId), configure);
   const firstForm = formList.data?.find((f) => f.key === 'default') ?? formList.data?.[0];
+  // the new-form dialog only for a project known to have no form; otherwise its forms page
   const formHref = firstForm
     ? `/admin/projects/${projectId}/forms/${firstForm.id}`
-    : `/admin/projects/${projectId}/forms?new=1`;
+    : formList.data
+      ? `/admin/projects/${projectId}/forms?new=1`
+      : `/admin/projects/${projectId}/forms`;
   const activate = useMutation({
     mutationFn: () => moveProject(projectId, 'activate', one.data!.meta.etag),
     onSuccess: async () => {

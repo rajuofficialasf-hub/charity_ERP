@@ -85,7 +85,13 @@ export function PublicApplyPage() {
 
   // every state of the page has its own level-one heading
   const body = () => {
-    if (view.isPending) return <Skeleton shape="card" />;
+    if (view.isPending)
+      return (
+        <Stack gap={2}>
+          <h1>{t('title')}</h1>
+          <Skeleton shape="card" />
+        </Stack>
+      );
     if (closed || (view.error instanceof ApiFailure && view.error.status === 404))
       return (
         <Stack gap={2}>

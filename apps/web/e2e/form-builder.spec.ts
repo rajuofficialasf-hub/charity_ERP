@@ -1,4 +1,4 @@
-import { expect, type Locator, type Page, test } from '@playwright/test';
+import { devices, expect, type Locator, type Page, test } from '@playwright/test';
 import { scan, signIn, switchLanguage } from './support/admin';
 import {
   chooseIn,
@@ -166,7 +166,11 @@ test('a PM builds and publishes a form, an applicant sends it by the link, and v
   await finishSetup(page, { from: dayFromToday(-1), to: dayFromToday(60) });
 
   // the applicant, signed out, on a phone
-  const phone = await browser.newContext({ viewport: { width: 360, height: 640 } });
+  // a phone of the mobile project (touch, its user agent) at 360 × 640
+  const phone = await browser.newContext({
+    ...devices['Pixel 7'],
+    viewport: { width: 360, height: 640 },
+  });
   try {
     const applicant = await phone.newPage();
     await applicant.goto(new URL(url).pathname);

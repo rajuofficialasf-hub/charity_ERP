@@ -207,12 +207,16 @@ describe('the public application page', () => {
     const user = userEvent.setup();
     wide();
     const sends = page();
-    expect(await screen.findByRole('heading', { name: 'শীতবস্ত্র 2026' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'শীতবস্ত্র 2026' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('আবেদনের শেষ দিন: 30-11-2026')).toBeInTheDocument();
     expect(screen.getByText(/ছবি দিতে পারবেন মোট 5টি/)).toBeInTheDocument();
     await user.type(screen.getByRole('textbox', { name: /প্রয়োজন/ }), 'শীতের কাপড়');
     await user.click(screen.getByRole('button', { name: 'আবেদন জমা দিন' }));
-    expect(await screen.findByRole('heading', { name: 'আবেদন জমা হয়েছে' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'আবেদন জমা হয়েছে' }),
+    ).toBeInTheDocument();
     expect(screen.getByText(/একজন কর্মকর্তা আবেদনটি যাচাই করবেন/)).toBeInTheDocument();
     expect(sends).toHaveLength(1);
     expect(sessionStorage.length).toBe(0);
@@ -241,7 +245,9 @@ describe('the public application page', () => {
     await user.click(screen.getByRole('button', { name: 'আবেদন জমা দিন' }));
     await waitFor(() => expect(sends).toHaveLength(1));
     await user.click(await screen.findByRole('button', { name: 'আবেদন জমা দিন' }));
-    expect(await screen.findByRole('heading', { name: 'আবেদন জমা হয়েছে' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'আবেদন জমা হয়েছে' }),
+    ).toBeInTheDocument();
     expect(sends).toHaveLength(2);
     expect(sends[1]!.clientUuid).toBe(sends[0]!.clientUuid);
   });
@@ -265,7 +271,7 @@ describe('the public application page', () => {
     await waitFor(() => expect(photos).toHaveLength(1));
     expect(photos[0]).toMatchObject({ fieldKey: 'house_photo', type: 'image/jpeg' });
     await user.click(await screen.findByRole('button', { name: 'আবেদন জমা দিন' }));
-    await screen.findByRole('heading', { name: 'আবেদন জমা হয়েছে' });
+    await screen.findByRole('heading', { level: 1, name: 'আবেদন জমা হয়েছে' });
     expect(sends[0]!.clientUuid).toBe(photos[0]!.clientUuid);
     expect(sends[0]!.answers).toContainEqual(expect.objectContaining({ fieldKey: 'house_photo' }));
   });
@@ -292,7 +298,9 @@ describe('the public application page', () => {
     await user.click(screen.getByRole('button', { name: 'আবেদন জমা দিন' }));
     expect(await screen.findByText('আরও লিখুন।')).toBeInTheDocument();
     expect(screen.getByText(/কিছু উত্তর ঠিক করতে হবে/)).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'আবেদন জমা হয়েছে' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { level: 1, name: 'আবেদন জমা হয়েছে' }),
+    ).not.toBeInTheDocument();
   });
 
   it('shows the plain closed page when the link closes while the form is filled', async () => {
@@ -301,7 +309,7 @@ describe('the public application page', () => {
     page({ submit: () => apiError(404, 'permission.not_found', 'পাওয়া যায়নি।') });
     await user.click(await screen.findByRole('button', { name: 'আবেদন জমা দিন' }));
     expect(
-      await screen.findByRole('heading', { name: 'এই লিংকে এখন আবেদন নেওয়া হচ্ছে না' }),
+      await screen.findByRole('heading', { level: 1, name: 'এই লিংকে এখন আবেদন নেওয়া হচ্ছে না' }),
     ).toBeInTheDocument();
   });
 
@@ -321,13 +329,34 @@ describe('the public application page', () => {
       await screen.findByText('অনেকবার চেষ্টা হয়েছে। কিছুক্ষণ পরে আবার চেষ্টা করুন।'),
     ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /আবার চেষ্টা/ }));
-    expect(await screen.findByRole('heading', { name: 'শীতবস্ত্র 2026' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'শীতবস্ত্র 2026' }),
+    ).toBeInTheDocument();
   });
+
+  it('keeps a level-one heading and a retry when the form cannot be loaded', async () => {
+    const user = userEvent.setup();
+    let first = true;
+    page({
+      read: () => {
+        if (first) {
+          first = false;
+          return apiError(500, 'server.internal', 'x');
+        }
+        return HttpResponse.json({ data: form, meta: { requestId: 'r' } });
+      },
+    });
+    expect(await screen.findByRole('heading', { level: 1, name: 'আবেদন' })).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: /আবার চেষ্টা/ }, { timeout: 8000 }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'শীতবস্ত্র 2026' }),
+    ).toBeInTheDocument();
+  }, 15_000);
 
   it('shows one plain page for a link that takes no applications', async () => {
     page({ read: () => apiError(404, 'permission.not_found', 'পাওয়া যায়নি।') });
     expect(
-      await screen.findByRole('heading', { name: 'এই লিংকে এখন আবেদন নেওয়া হচ্ছে না' }),
+      await screen.findByRole('heading', { level: 1, name: 'এই লিংকে এখন আবেদন নেওয়া হচ্ছে না' }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'আবেদন জমা দিন' })).not.toBeInTheDocument();
   });
@@ -351,7 +380,9 @@ describe('the public application page', () => {
     expect(await screen.findByText('প্রয়োজন')).toBeInTheDocument();
     await user.click(screen.getByRole('radio', { name: 'English' }));
     expect(await screen.findByText('Need')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Winter clothing 2026' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Winter clothing 2026' }),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole('radio', { name: 'বাংলা' }));
     expect(await screen.findByText('প্রয়োজন')).toBeInTheDocument();
   });
@@ -359,10 +390,10 @@ describe('the public application page', () => {
   it('has no axe violation in either language', async () => {
     wide();
     page();
-    await screen.findByRole('heading', { name: 'শীতবস্ত্র 2026' });
+    await screen.findByRole('heading', { level: 1, name: 'শীতবস্ত্র 2026' });
     await expectNoAxeViolations(document.body);
     await userEvent.setup().click(screen.getByRole('radio', { name: 'English' }));
-    await screen.findByRole('heading', { name: 'Winter clothing 2026' });
+    await screen.findByRole('heading', { level: 1, name: 'Winter clothing 2026' });
     await expectNoAxeViolations(document.body);
   });
 });
