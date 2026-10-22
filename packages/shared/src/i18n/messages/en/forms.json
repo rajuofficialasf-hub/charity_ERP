@@ -128,7 +128,7 @@
     "rows_order": "The fewest rows cannot be more than the most rows.",
     "members": "Questions of each row",
     "members_none": "This group has no questions yet.",
-    "members_hint": "To add a question to the rows, pick a type on the left, then choose this group under “Which group's rows”.",
+    "members_hint": "To add a question to the rows, press “Add a question to the rows” under the group on the form, then pick a type on the left.",
     "show_if": "Show when",
     "required_if": "Required when",
     "section_condition": "Show the section when",
@@ -354,7 +354,9 @@
       "divided_by": "÷",
       "age": "age from “{q}”",
       "nisab": "“{q}” against the nisab"
-    }
+    },
+    "add_row_question": "Add a question to the rows",
+    "calc_missing": "Set the calculation's rule"
   },
   "types": {
     "short_text": "Short text",

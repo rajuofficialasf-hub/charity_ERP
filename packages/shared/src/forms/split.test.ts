@@ -71,6 +71,43 @@ describe('the split', () => {
     });
   });
 
+  it('marks the rows of a group whose setting says they are not earners, apart from the earners', () => {
+    const definition = definitionWith([
+      field('members', 'repeat_group', {
+        standardColumn: 'beneficiary_family_members',
+        settings: { repeat: { earner: false } },
+      }),
+      field('member_name', 'short_text', {
+        standardColumn: 'name',
+        settings: { repeat: { group: 'members' } },
+      }),
+      field('member_age', 'number', {
+        standardColumn: 'age_years',
+        settings: { repeat: { group: 'members' } },
+      }),
+      field('earners', 'repeat_group', { standardColumn: 'beneficiary_family_members' }),
+      field('earner_name', 'short_text', {
+        standardColumn: 'name',
+        settings: { repeat: { group: 'earners' } },
+      }),
+    ]);
+    const result = split(definition, [
+      ...coreAnswers(),
+      answer('member_name', { t: 'short_text', v: 'Rahim' }, 0),
+      answer('member_age', { t: 'number', v: 12 }, 0),
+      answer('earner_name', { t: 'short_text', v: 'Karim' }, 0),
+    ]);
+    expect(result.familyMembers).toEqual([
+      { group: 'earners', repeatIndex: 0, columns: { name: 'Karim' }, isEarner: true },
+      {
+        group: 'members',
+        repeatIndex: 0,
+        columns: { name: 'Rahim', age_years: 12 },
+        isEarner: false,
+      },
+    ]);
+  });
+
   it('turns the earners group into family-member rows by the members own columns', () => {
     const definition = definitionWith([
       field('earners', 'repeat_group', { standardColumn: 'beneficiary_family_members' }),
@@ -91,8 +128,13 @@ describe('the split', () => {
       answer('earner_note', { t: 'short_text', v: 'part time' }, 1),
     ]);
     expect(result.familyMembers).toEqual([
-      { repeatIndex: 0, columns: { name: 'Karim', monthly_income: '3000.00' }, isEarner: true },
-      { repeatIndex: 1, columns: { name: 'Salma' }, isEarner: true },
+      {
+        group: 'earners',
+        repeatIndex: 0,
+        columns: { name: 'Karim', monthly_income: '3000.00' },
+        isEarner: true,
+      },
+      { group: 'earners', repeatIndex: 1, columns: { name: 'Salma' }, isEarner: true },
     ]);
     expect(result.custom).toEqual([answer('earner_note', { t: 'short_text', v: 'part time' }, 1)]);
   });

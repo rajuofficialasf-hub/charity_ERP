@@ -120,8 +120,18 @@ describe('the seeded forms', () => {
     ]);
     expect(result.computed.household_income_total).toBe('10500.50');
     expect(result.familyMembers).toEqual([
-      { repeatIndex: 0, columns: { name: 'করিম', monthly_income: '3000.00' }, isEarner: true },
-      { repeatIndex: 1, columns: { name: 'সালমা', monthly_income: '2500.50' }, isEarner: true },
+      {
+        group: 'earners',
+        repeatIndex: 0,
+        columns: { name: 'করিম', monthly_income: '3000.00' },
+        isEarner: true,
+      },
+      {
+        group: 'earners',
+        repeatIndex: 1,
+        columns: { name: 'সালমা', monthly_income: '2500.50' },
+        isEarner: true,
+      },
     ]);
   });
 

@@ -97,6 +97,8 @@ export function FormBuilderPage() {
     type: FieldType;
     section: string;
     at?: number;
+    /** The repeat group the question joins, when a group was chosen. */
+    group?: string;
   } | null>(null);
   // the right pane: the chosen question, or the form itself; choosing a question opens the first
   const [pane, setPane] = useState<'question' | 'form'>('question');
@@ -276,6 +278,10 @@ export function FormBuilderPage() {
       onRemoveField={remove}
       onCopyField={copy}
       onAddTo={(sectionKey) => setSelected({ section: sectionKey })}
+      onAddRow={(groupKey) => {
+        const section = sectionOf(groupKey);
+        if (section) setSelected({ section: section.key, field: groupKey });
+      }}
     />
   );
   const settings =
@@ -302,7 +308,12 @@ export function FormBuilderPage() {
               if (target) change(addLibraryField(draft, target, fields.get(key) ?? []));
             }}
             onAddType={(type) => {
-              if (target) setAsking({ key: Date.now(), type, section: target });
+              // a chosen repeat group takes the question into its rows
+              const chosen = selection?.field
+                ? sectionOf(selection.field)?.fields.find((f) => f.fieldKey === selection.field)
+                : undefined;
+              const group = chosen?.type === 'repeat_group' ? chosen.fieldKey : undefined;
+              if (target) setAsking({ key: Date.now(), type, section: target, group });
             }}
           />
         </aside>
@@ -475,6 +486,7 @@ export function FormBuilderPage() {
           type={asking.type}
           sectionKey={asking.section}
           placed={asking.at !== undefined}
+          groupKey={asking.group}
           onClose={() => setAsking(null)}
           onAdd={(question, sectionKey) => {
             const added = addOwnQuestion(draft, sectionKey, question, asking.at);

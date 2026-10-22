@@ -91,7 +91,12 @@ export const libraryFieldSettingsSchema = z.strictObject({
   validation: libraryValidationSchema.optional(),
   calculation: calculationSchema.optional(),
   repeat: z
-    .strictObject({ min_rows: z.int().min(0).optional(), max_rows: z.int().min(1).optional() })
+    .strictObject({
+      min_rows: z.int().min(0).optional(),
+      max_rows: z.int().min(1).optional(),
+      /** On a family-member group: whether its rows are earners (true unless set). */
+      earner: z.boolean().optional(),
+    })
     .optional(),
   repeat_fields: z.array(repeatFieldSchema).optional(),
 });

@@ -241,6 +241,16 @@
   background: var(--color-bg-warning-soft);
   color: var(--color-brand-accent-ink);
 }
+.fb-tag-warn {
+  background: var(--color-bg-warning-soft);
+  color: var(--color-status-warning);
+}
+/* above the question's overlay button, so the rows' add button takes the press */
+.fb-q-add-row {
+  position: relative;
+  z-index: 1;
+  margin-top: var(--space-1);
+}
 .fb-q-bar {
   position: absolute;
   right: var(--space-2);

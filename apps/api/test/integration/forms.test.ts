@@ -127,6 +127,7 @@ describe('the form library', () => {
     for (const key of [...CORE, 'dob', 'occupation', 'members_14_plus', 'earners', 'gps'])
       expect(keys).toContain(key);
     // the fields come in the seed's order, so the builder lists them as the department reads them
+    expect(keys).toContain('family_members');
     expect(keys.slice(0, 4)).toEqual([
       'nid_or_birth_reg',
       'mobile',
@@ -546,6 +547,22 @@ describe('drafts, publishing and the field map', () => {
     expect((await update(pm, versionId, etag, next)).status).toBe(412);
     expect((await update(pm, versionId, '"nope"', next)).status).toBe(412);
     expect((await auditRows(versionId, 'form.draft_changed')).length).toBe(1);
+  });
+
+  it('keeps a calculated question without its rule in a draft, and refuses to publish it naming the question', async () => {
+    const pm = await as(world.users.pm);
+    const { versionId } = await distributionDraft();
+    const { etag, sections } = await current(pm, versionId);
+    const saved = await update(pm, versionId, etag, [
+      ...sections,
+      customSection([textField('total', { type: 'calculation' })]),
+    ]);
+    expect(saved.status).toBe(200);
+    const refused = await publish(pm, versionId, saved.headers.etag as string);
+    expect(refused.status).toBe(422);
+    expect(refused.body.error.details).toEqual([
+      expect.objectContaining({ path: 'total', code: 'form.calculation_missing' }),
+    ]);
   });
 
   it('publishes a draft, retires the previous version, and starts the next draft as a copy', async () => {

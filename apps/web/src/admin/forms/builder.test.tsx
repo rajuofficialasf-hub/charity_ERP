@@ -377,6 +377,37 @@ describe('the outline and the libraries', () => {
     ).toBeInTheDocument();
   });
 
+  it("takes a question into a group's rows from the group's own button", async () => {
+    const user = userEvent.setup();
+    api({
+      sections: [
+        ...titled({ sections: coreSections() }).sections,
+        section(
+          'family',
+          [field('members', 'repeat_group', { label: T('পরিবারের সদস্যরা', 'Family members') })],
+          { title: T('পরিবার', 'Family') },
+        ),
+      ],
+    });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'সারিতে প্রশ্ন যোগ করুন' }));
+    await user.click(screen.getByRole('button', { name: 'সংখ্যা প্রশ্ন যোগ করুন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'নতুন প্রশ্ন' });
+    expect(within(dialog).getByRole('button', { name: /কোন দলের সারিতে/ })).toHaveTextContent(
+      'পরিবারের সদস্যরা',
+    );
+    await user.type(within(dialog).getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), 'বয়স');
+    await user.type(within(dialog).getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }), 'Age');
+    await user.click(within(dialog).getByRole('button', { name: 'প্রশ্ন যোগ করুন' }));
+    expect(
+      within(
+        await screen.findByRole('list', { name: 'পরিবারের সদস্যরা: প্রতিটি সারির প্রশ্ন' }),
+      ).getByRole('button', { name: 'বয়স বদলান' }),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(savedField('q_age')).toBeDefined(), { timeout: 4000 });
+    expect(savedField('q_age')!.settings).toEqual({ repeat: { group: 'members' } });
+  }, 15_000);
+
   it('forgets the removal once another change follows, so an undo never drops that change', async () => {
     const user = userEvent.setup();
     api({

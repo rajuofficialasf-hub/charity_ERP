@@ -223,6 +223,7 @@
     "calculation_cycle": "The calculation depends on itself.",
     "condition_cycle": "The conditions depend on each other in a circle.",
     "calculation_misplaced": "Only a calculation field carries a calculation.",
+    "calculation_missing": "This calculated question has no rule yet.",
     "options_misplaced": "Only a choice field carries options.",
     "option_dependency": "An option depends on an option that does not exist.",
     "core_field_missing": "A mandatory field of every form is missing.",

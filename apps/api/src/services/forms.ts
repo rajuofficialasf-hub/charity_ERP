@@ -11,6 +11,7 @@ import {
   formDefinitionSchema,
   type FormSectionDefinition,
   formTemplateFormSchema,
+  publishDefinitionSchema,
 } from '@css/shared/forms';
 import type { MessageParams } from '@css/shared/i18n';
 import { editableIn, projectStatusOf } from '@css/shared/projects';
@@ -77,8 +78,8 @@ const VERSION_SELECT = {
  * The engine's verdict on a definition as a 422: each problem names the field it is about (the
  * key the body gives at that place, or the one the engine names) and its catalogue code.
  */
-function parseDefinition(body: unknown): FormDefinition {
-  const parsed = formDefinitionSchema.safeParse(body);
+function parseDefinition(body: unknown, schema = formDefinitionSchema): FormDefinition {
+  const parsed = schema.safeParse(body);
   if (parsed.success) return parsed.data;
   const outline = bodyOutlineSchema.safeParse(body);
   const sections = outline.success ? outline.data.sections : [];
@@ -301,7 +302,8 @@ export class FormsService {
       const row = await this.lockedDraft(tx, viewer, versionId);
       assertIfMatch(ifMatch, row.updatedAt);
       const definition = await readDefinition(tx, versionId, 'official');
-      parseDefinition(definition);
+      // a draft may hold a calculated question without its rule; the publish may not
+      parseDefinition(definition, publishDefinitionSchema);
       await this.assertLinkable(tx, row.form.projectId, row.formId, versionId);
       const audience = await this.audienceOf(viewer, row.form.projectId);
       await tx.formVersion.updateMany({

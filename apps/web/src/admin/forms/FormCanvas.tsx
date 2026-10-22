@@ -115,6 +115,7 @@ export function FormCanvas({
   onRemoveField,
   onCopyField,
   onAddTo,
+  onAddRow,
 }: {
   definition: FormDefinition;
   mode: BuilderMode;
@@ -126,6 +127,8 @@ export function FormCanvas({
   onCopyField: (fieldKey: string) => void;
   /** The person wants a question in this section: the left pane takes over. */
   onAddTo: (sectionKey: string) => void;
+  /** The person wants a question in this group's rows: the group is chosen for the left pane. */
+  onAddRow: (groupKey: string) => void;
 }) {
   const t = useTranslations('forms.builder');
   const body = definition.sections.map((s, i) => (
@@ -144,6 +147,7 @@ export function FormCanvas({
       onRemoveField={onRemoveField}
       onCopyField={onCopyField}
       onAddTo={() => onAddTo(s.key)}
+      onAddRow={onAddRow}
     />
   ));
   return (
@@ -167,6 +171,7 @@ function SectionCard({
   onRemoveField,
   onCopyField,
   onAddTo,
+  onAddRow,
 }: {
   section: FormSection;
   index: number;
@@ -181,6 +186,7 @@ function SectionCard({
   onRemoveField: (fieldKey: string) => void;
   onCopyField: (fieldKey: string) => void;
   onAddTo: () => void;
+  onAddRow: (groupKey: string) => void;
 }) {
   const t = useTranslations('forms.builder');
   const locale = useLocale();
@@ -208,6 +214,7 @@ function SectionCard({
       onMove={(dir) => onMoveField(f.fieldKey, dir)}
       onMoveMember={(key, dir) => onMoveField(key, dir)}
       onRemove={() => onRemoveField(f.fieldKey)}
+      onAddRow={() => onAddRow(f.fieldKey)}
       onCopy={() => onCopyField(f.fieldKey)}
     />
   ));
@@ -325,6 +332,7 @@ function QuestionRow({
   onMoveMember,
   onRemove,
   onCopy,
+  onAddRow,
 }: {
   field: FormField;
   members: FormField[];
@@ -339,6 +347,7 @@ function QuestionRow({
   onMoveMember: (fieldKey: string, direction: -1 | 1) => void;
   onRemove: () => void;
   onCopy: () => void;
+  onAddRow: () => void;
 }) {
   const t = useTranslations('forms.builder');
   const tt = useTranslations('forms.types');
@@ -405,6 +414,11 @@ function QuestionRow({
               />
             ))}
           </ul>
+        ) : null}
+        {full && field.type === 'repeat_group' ? (
+          <Button className="fb-q-add-row" size="sm" variant="ghost" icon={Plus} onPress={onAddRow}>
+            {t('add_row_question')}
+          </Button>
         ) : null}
       </div>
       {isSelected && full ? (
@@ -562,7 +576,13 @@ function QuestionTags({ field }: { field: FormField }) {
     field.logic?.show_if || field.logic?.required_if
       ? { icon: GitBranch, text: t('has_condition'), tone: 'logic' }
       : null,
-    field.type === 'calculation' ? { icon: Calculator, text: t('has_calc'), tone: 'calc' } : null,
+    field.type === 'calculation'
+      ? {
+          icon: Calculator,
+          text: t(field.calculation ? 'has_calc' : 'calc_missing'),
+          tone: field.calculation ? 'calc' : 'warn',
+        }
+      : null,
   ].filter((x): x is { icon: typeof Lock; text: string; tone: string } => x !== null);
   if (!tags.length) return null;
   return (

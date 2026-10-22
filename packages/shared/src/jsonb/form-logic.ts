@@ -79,6 +79,10 @@ export const fieldSettingsSchema = z.strictObject({
   default: z.unknown().optional(),
   validation: validationSchema.optional(),
   repeat: z
-    .looseObject({ min_rows: z.int().min(0).optional(), max_rows: z.int().min(1).optional() })
+    .looseObject({
+      min_rows: z.int().min(0).optional(),
+      max_rows: z.int().min(1).optional(),
+      earner: z.boolean().optional(),
+    })
     .optional(),
 });

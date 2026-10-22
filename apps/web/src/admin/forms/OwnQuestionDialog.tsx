@@ -27,6 +27,7 @@ export function OwnQuestionDialog({
   type,
   sectionKey: initialSection,
   placed = false,
+  groupKey,
   onClose,
   onAdd,
 }: {
@@ -36,6 +37,8 @@ export function OwnQuestionDialog({
   sectionKey: string;
   /** The question was dropped at a place, so its section cannot change. */
   placed?: boolean;
+  /** The repeat group chosen on the canvas: the question starts as one of its row questions. */
+  groupKey?: string;
   onClose: () => void;
   onAdd: (question: OwnQuestion, sectionKey: string) => void;
 }) {
@@ -48,7 +51,7 @@ export function OwnQuestionDialog({
   // a choice starts with one empty option to fill in
   const [options, setOptions] = useState<FieldOption[]>(choice ? [emptyOption([])] : []);
   const [dependsOn, setDependsOn] = useState<string | null>(null);
-  const [group, setGroup] = useState<string | null>(null);
+  const [group, setGroup] = useState<string | null>(groupKey ?? null);
   const [tried, setTried] = useState(false);
   const section = definition.sections.find((s) => s.key === sectionKey);
   const groups = (section?.fields ?? []).filter((f) => f.type === 'repeat_group');
