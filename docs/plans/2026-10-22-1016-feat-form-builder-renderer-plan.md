@@ -76,7 +76,8 @@ T2.3 left the forms reachable only through the API: the activation checklist ask
 ## Technical decisions
 - **Stack profile**: the one in `CLAUDE.md` (ST-43), unchanged: React 19 + Vite PWA, TanStack Query, use-intl, the `@css/ui` set on MUI core behind its template boundary; the engine of `@css/shared/forms`. Nothing is added: no drag-and-drop or form library (ST-40); the position comes from the browser's `navigator.geolocation`.
 - **The engine runs unchanged in the browser** (BR-076): the renderer calls `evaluate()` on every change and `validate()` before a step is left and before sending, with the audience of the screen (`public`, `volunteer` or `official`) and `today` from `isoDateInDhaka`. The engine, the renderer and the builder load only in their lazy route chunks; `pnpm --filter @css/web bundle:report` keeps the first route under 250 KB.
-- **Nisab on the public page**: the public form read carries no nisab value (T2.3), and the zakat section of the self-reliance template is volunteer-visible, so on the public page a nisab comparison shows no value and the helper "the office works this out"; the server computes it at submit. Signed-in screens (the builder's preview now, T2.5 later) read `GET /nisab-versions/in-force`. No API change.
+- **Nisab on the public page**: the public form read carries no nisab value (T2.3), and the zakat section of the self-reliance template is volunteer-visible, so on the public page a nisab comparison shows no value and the helper "the office works this out"; the server computes it at submit. Signed-in screens (the builder's preview now, T2.5 later) read `GET /nisab-versions/in-force`. No change for the nisab.
+- **One additive API change: the library read gives each field ready to place** (owner, 2026-10-22, found while building U1): `GET /form-library` also answers, for each library field, `formFields`, the field (and a repeat group's members) in the shape a version read gives it, with its options from the reference list and its calculation, as `fieldFromLibrary` of `@css/shared/forms` builds them on the server; without it the browser cannot place a choice field, whose options come from the reference lists. Nothing else changes in the API, the permissions or the database.
 - **Where the code lives**: the renderer in `apps/web/src/features/forms/` (shared by the preview, the public page and the application screen of T2.5); the builder in `apps/web/src/admin/forms/` under `/admin/projects/:projectId/forms/:formId`; the public page at `/apply/:token`, a lazy route outside the app shell like `/invite`, using `AuthShell` and its language switch.
 - **The builder edits a definition with pure functions** (`apps/web/src/admin/forms/draft.ts`): add a library section or field, add the project's own question, move up and down, remove, set a setting; each refuses what the core rules forbid, so the screen never offers it. Condition rows and calculation terms convert to and from the engine's JSON in `logic-rows.ts` and `calc-terms.ts`; anything they cannot express comes back as "not editable here" (the seed's deeper logic stays read-only). The change summary is `diff.ts`: a pure comparison of two definitions into a list of changes the screen turns into localized sentences. All three are tested as units (TS-01).
 - **Own questions get a stable key**: generated from the English label (`q_<slug>`, de-duplicated in the form), never shown or edited, and kept by the next version so the field map of T2.3 follows the question across versions.
@@ -94,7 +95,7 @@ Plan IDs (R, U, BD, BR, O, D and the standards rule IDs) stay in this plan. Code
 ### U1. The decision record and the builder's pure logic
 - **Goal:** the owner's T2.4 decisions are logged, and the edit operations, the condition rows, the calculation terms and the change summary exist as tested pure functions.
 - **Requirements:** R2, R3, R4, R6, R7, R9
-- **Files:** `docs/DECISION_LOG.md` (D-120: tick and move buttons, the public page in this task, own questions, one level of conditions, calculation terms and ready rules, the tab-only autosave, the system-written summary, the signature as a photo of the signature on paper), `apps/web/src/admin/forms/{draft,logic-rows,calc-terms,diff}.ts` with `*.test.ts` beside them.
+- **Files:** `apps/api/src/services/form-library.ts`, `apps/api/src/routes/forms.ts`, `docs/api/openapi.yaml` (`FormLibrary.fields[].formFields`), `apps/api/test/integration/forms.test.ts`, `apps/web/test/forms.ts` (small definitions for the web tests), `docs/DECISION_LOG.md` (D-120: tick and move buttons, the public page in this task, own questions, one level of conditions, calculation terms and ready rules, the tab-only autosave, the system-written summary, the signature as a photo of the signature on paper), `apps/web/src/admin/forms/{draft,logic-rows,calc-terms,diff}.ts` with `*.test.ts` beside them.
 - **Approach:** pure modules over `FormDefinition` of `@css/shared/forms`, in the style of `packages/shared/src/forms/template.ts` and `apps/web/src/features/registration/form-state.ts`; every result is checked with `formDefinitionSchema` in the tests.
 - **Tests:**
   - unit: adding a library section brings its fields in library order; a core field cannot be removed, made optional, given a condition or moved into an official-only section; move up at the top and move down at the bottom change nothing; an own question gets a unique `q_` key and keeps it across a copy; branching options and "other" round-trip; condition rows and their JSON round-trip for every comparison, with "all" and "any"; a nested condition from the seed comes back as not editable; calculation terms and their JSON round-trip for plus and minus chains, times, divided by, the repeat-group sum, age and the nisab comparison; every calculation of both seeded templates converts; the diff names added, removed, moved and changed sections, questions and options, and changed conditions and calculations, and nothing for two equal definitions.
@@ -102,7 +103,7 @@ Plan IDs (R, U, BD, BR, O, D and the standards rule IDs) stay in this plan. Code
 - **Depends on:** none
 - **Size:** L
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U2. The renderer
 - **Goal:** one component draws any version as a phone-first form with live logic, the address cascade, repeat rows, GPS, upload fields through an adapter and the tab-only answers.
@@ -214,10 +215,10 @@ Plan IDs (R, U, BD, BR, O, D and the standards rule IDs) stay in this plan. Code
 - `pnpm --filter @css/web build` then `pnpm --filter @css/web bundle:report` (first route under 250 KB)
 - `pnpm e2e`, and the new spec alone with `--repeat-each 3 --workers 1`
 - `pnpm docs:check` · `pnpm rules:status --phase 2 --report-only`
-- No API or database change: `pnpm --filter @css/api contract:coverage` and the drift test stay as T2.3 left them.
+- The one API change (the library read's `formFields`): the api-db `forms.test.ts`, the drift test (`test/api/openapi-drift.test.ts`) and `pnpm --filter @css/api contract:coverage`; no database change.
 
 ## Risks and rollback
-- **No migration and no API change**: the work is screens over the T2.3 API, so a rollback is reverting the web commits; the API keeps working for the test helpers.
+- **No migration, one additive API field**: the work is screens over the T2.3 API plus `formFields` on the library read, which no other caller reads; a rollback is reverting the commits.
 - **Personal data in the tab**: answers sit in `sessionStorage` of one tab until sent or the tab closes; the key never holds the token; `lib/wipe.ts` clears it on logout; a test proves the answers are gone after sending.
 - **Public page abuse**: the limits are the server's (T2.3); the page shows them and never retries a refused photo by itself.
 - **The builder can lose an edit**: the autosave queues one save at a time, a stale version reloads with a notice, and leaving with a pending or failed save is held.
@@ -230,8 +231,8 @@ Plan IDs (R, U, BD, BR, O, D and the standards rule IDs) stay in this plan. Code
 
 ## Progress
 - **Branch:** `feat/form-builder` (from `main` at c1f82e6, the T2.3 merge)
-- **Updated:** 2026-10-22 10:40
-- **Next:** U1: D-120 in the decision log, then the tests of `draft.ts`, `logic-rows.ts`, `calc-terms.ts` and `diff.ts`
+- **Updated:** 2026-10-22 12:20
+- **Next:** C1 (review of 518442c..HEAD: U1), then U2 the renderer
 - **Uncommitted:** none
 - **Reviewed through:** none yet
-- **Notes:** the owner started the implementation on 2026-10-22 after T2.3 merged ("শুরু করুন"); the owner asked that no next task (T2.5) starts without a new command.
+- **Notes:** U1: the library read had no options for its fields (they come from the reference lists on the server), so the builder could not place a choice field; the owner approved in chat an additive `formFields` on `GET /form-library` (D-120 item 9), built with `fieldFromLibrary` and filled to the version read's shape (`settings: {}`, options with `dependsOnOptionCode: null` and `allowsOtherText: false`, which the route's field view needs). The pure modules sit in `apps/web/src/admin/forms/`: `draft.ts` (edits; core locks; a repeat group moves with its members, a member only inside its group), `logic-rows.ts`, `calc-terms.ts` (a chain writes its pluses first and subtracts its minuses after them, as `sub` folds left), `diff.ts` (moves by the longest run kept in order, so a swap of two neighbours may name either). The owner started the implementation on 2026-10-22 after T2.3 merged ("শুরু করুন"); the owner asked that no next task (T2.5) starts without a new command.

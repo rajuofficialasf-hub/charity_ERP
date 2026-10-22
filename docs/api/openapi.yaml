@@ -2742,13 +2742,17 @@ components:
           type: array
           items:
             type: object
-            required: [key, type, label, standardColumn, defaultSettings]
+            required: [key, type, label, standardColumn, defaultSettings, formFields]
             properties:
               key: { type: string }
               type: { type: string }
               label: { $ref: '#/components/schemas/Bilingual' }
               standardColumn: { type: [string, 'null'] }
               defaultSettings: { type: object }
+              formFields:
+                type: array
+                description: The field as the builder places it in a form (options from the reference list, the calculation, a repeat group's members after it)
+                items: { $ref: '#/components/schemas/FormField' }
         templates:
           type: array
           description: The form templates of the library a project's form can start from

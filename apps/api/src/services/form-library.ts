@@ -1,6 +1,8 @@
 import {
   FIELD_TYPES,
+  fieldFromLibrary,
   type FieldType,
+  type FormField,
   type LibraryField,
   libraryFieldSettingsSchema,
   type LibraryOption,
@@ -27,6 +29,11 @@ export interface FormLibraryView {
     label: { bn: string; en: string };
     standardColumn: string | null;
     defaultSettings: unknown;
+    /**
+     * The field as the builder places it in a form: its options read from the reference list,
+     * its calculation, and for a repeat group its member fields after it.
+     */
+    formFields: FormField[];
   }[];
   templates: { key: string; name: { bn: string; en: string }; projectType: string }[];
 }
@@ -66,11 +73,27 @@ export class FormLibraryService {
   ) {}
 
   async library(): Promise<FormLibraryView> {
-    const [sections, fields, templates] = await Promise.all([
+    const [sections, fields, templates, sources] = await Promise.all([
       this.sectionRows(this.prisma),
       this.fieldRows(this.prisma),
       this.templates(this.prisma),
+      this.sources(this.prisma),
     ]);
+    const placed = (key: string) => {
+      const library = sources.libraryFields.find((f) => f.key === key);
+      // in the shape a version read gives a field: settings and options always present
+      return library
+        ? fieldFromLibrary(library, { key, required: false }, sources.resolveList).map((f) => ({
+            ...f,
+            settings: f.settings ?? {},
+            options: (f.options ?? []).map((o) => ({
+              ...o,
+              dependsOnOptionCode: o.dependsOnOptionCode ?? null,
+              allowsOtherText: o.allowsOtherText ?? false,
+            })),
+          }))
+        : [];
+    };
     return {
       sections: sections.map((s) => ({
         key: s.key,
@@ -84,6 +107,7 @@ export class FormLibraryService {
         label: { bn: x.labelBn, en: x.labelEn },
         standardColumn: x.standardColumn,
         defaultSettings: x.defaultSettings,
+        formFields: placed(x.key),
       })),
       templates: templates.map(({ definition: _definition, ...t }) => t),
     };

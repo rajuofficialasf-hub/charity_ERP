@@ -72,6 +72,7 @@ const libraryView = z.object({
       label: bilingual,
       standardColumn: z.string().nullable(),
       defaultSettings: z.unknown(),
+      formFields: z.array(fieldView),
     }),
   ),
   templates: z.array(z.object({ key: z.string(), name: bilingual, projectType: z.string() })),

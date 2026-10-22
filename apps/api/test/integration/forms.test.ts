@@ -137,6 +137,38 @@ describe('the form library', () => {
     ]);
   });
 
+  it('gives each field ready to place in a form, with its options from the list and its repeat members', async () => {
+    const res = await at(await as(world.users.pm), 'get', '/form-library');
+    expect(res.status).toBe(200);
+    interface Placed {
+      fieldKey: string;
+      required: boolean;
+      libraryFieldKey: string | null;
+      options?: { code: string }[];
+      settings?: { repeat?: { group?: string } };
+    }
+    const placed = (key: string) =>
+      (res.body.data.fields as { key: string; formFields: Placed[] }[]).find((x) => x.key === key)!
+        .formFields;
+    const [gender] = placed('gender');
+    expect(gender).toMatchObject({
+      fieldKey: 'gender',
+      libraryFieldKey: 'gender',
+      required: false,
+    });
+    expect(gender!.options!.map((o) => o.code)).toEqual(expect.arrayContaining(['male', 'female']));
+    const earners = placed('earners');
+    expect(earners[0]).toMatchObject({ fieldKey: 'earners', libraryFieldKey: 'earners' });
+    const members = earners.slice(1);
+    expect(members.map((m) => m.fieldKey)).toEqual(
+      expect.arrayContaining(['earner_name', 'earner_relationship']),
+    );
+    expect(members.every((m) => m.settings?.repeat?.group === 'earners')).toBe(true);
+    expect(
+      members.find((m) => m.fieldKey === 'earner_relationship')!.options!.length,
+    ).toBeGreaterThan(0);
+  });
+
   it('is refused to an RPM and a volunteer, and without a login', async () => {
     expect((await at(await as(world.users.rpmDhaka), 'get', '/form-library')).status).toBe(403);
     expect((await at(await as(world.users.general), 'get', '/form-library')).status).toBe(403);
