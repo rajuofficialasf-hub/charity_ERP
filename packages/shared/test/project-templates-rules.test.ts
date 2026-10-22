@@ -113,13 +113,13 @@ describe('templates and copies', () => {
         'workflow_stages',
       ].sort(),
     );
-    // the three without storage yet are the form, the document checklist and the scoring criteria
+    // the two without storage yet are the document checklist and the scoring criteria
     expect(
       Object.entries(BD10_COPIED)
         .filter(([, where]) => where === 'later')
         .map(([item]) => item)
         .sort(),
-    ).toEqual(['document_checklist', 'form_as_version_1', 'scoring_criteria']);
+    ).toEqual(['document_checklist', 'scoring_criteria']);
     // BD-10's list, and the setup parts that belong to one project only
     expect([...NOT_COPIED].sort()).toEqual(
       [
@@ -198,10 +198,13 @@ describe('templates and copies', () => {
     const definition = definitionOf(source);
     expect(Object.keys(definition).sort()).toEqual([
       'components',
+      'form',
       'rules',
       'syllabus',
       'workflowKey',
     ]);
+    // a source without a published form gives a copy without one
+    expect(definition.form).toBeNull();
     const settings = (key: string) =>
       definition.components.find((c) => c.componentKey === key)!.settings;
     expect(settings('distribution')).toEqual({ rule: 'group' });

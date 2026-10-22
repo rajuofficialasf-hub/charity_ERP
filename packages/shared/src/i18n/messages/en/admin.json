@@ -816,6 +816,7 @@
         "fund_sources_total": "Fund sources equal to the planned budget",
         "area": "An area with its RPM",
         "photo_rule": "Photo rule",
+        "form": "A published application form",
         "component": "Settings of {name}",
         "rules": "Rules: {part}"
       },

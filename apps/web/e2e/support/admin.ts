@@ -40,7 +40,11 @@ export async function apiAs(
   loginId: string,
 ): Promise<{
   get: (path: string) => Promise<APIResponse>;
-  post: (path: string, data: unknown) => Promise<APIResponse>;
+  post: (
+    path: string,
+    data?: unknown,
+    extraHeaders?: Record<string, string>,
+  ) => Promise<APIResponse>;
 }> {
   const login = await request.post('/api/v1/auth/login', {
     data: {
@@ -54,7 +58,8 @@ export async function apiAs(
   const headers = { Authorization: `Bearer ${token}` };
   return {
     get: (path) => request.get(`/api/v1${path}`, { headers }),
-    post: (path, data) => request.post(`/api/v1${path}`, { headers, data }),
+    post: (path, data, extraHeaders = {}) =>
+      request.post(`/api/v1${path}`, { headers: { ...headers, ...extraHeaders }, data }),
   };
 }
 

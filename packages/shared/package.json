@@ -70,6 +70,11 @@
       "@css/source": "./src/settings/index.ts",
       "types": "./dist/settings/index.d.ts",
       "default": "./dist/settings/index.js"
+    },
+    "./forms": {
+      "@css/source": "./src/forms/index.ts",
+      "types": "./dist/forms/index.d.ts",
+      "default": "./dist/forms/index.js"
     }
   },
   "files": [

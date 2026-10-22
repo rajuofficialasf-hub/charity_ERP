@@ -43,7 +43,6 @@ const LISTS: Partial<Record<ComponentKey, { key: ListKey; max: number; active?: 
 };
 /** On and off settings of each component. */
 const FLAGS: Partial<Record<ComponentKey, FlagKey[]>> = {
-  public_link: ['enabled'],
   volunteer_assignment: ['team_members_allowed'],
   dawah: ['family_attendance', 'gender_split'],
   distribution: ['dedup_identical'],

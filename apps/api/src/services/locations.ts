@@ -1,5 +1,5 @@
 import type { Bilingual } from '@css/shared/i18n';
-import type { PrismaService } from '../core/prisma.service';
+import type { PrismaService, Tx } from '../core/prisma.service';
 
 export interface LocationView {
   id: string;
@@ -38,4 +38,25 @@ export class LocationsService {
       active: r.active,
     }));
   }
+}
+
+/** The four levels of an address, top down. */
+export const ADDRESS_LEVELS = ['division', 'district', 'upazila', 'union'] as const;
+
+/**
+ * Whether four location ids form one chain: a division, a district in it, an upazila in that
+ * district and a union in that upazila, all active.
+ */
+export async function isAddressChain(db: Tx, ids: readonly string[]): Promise<boolean> {
+  if (ids.length !== ADDRESS_LEVELS.length) return false;
+  const rows = await db.location.findMany({
+    where: { id: { in: [...ids] }, active: true },
+    select: { id: true, parentId: true, level: true },
+  });
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return ids.every((id, i) => {
+    const row = byId.get(id);
+    // eslint-disable-next-line security/detect-object-injection -- index of a fixed list
+    return !!row && row.level === ADDRESS_LEVELS[i] && (i === 0 || row.parentId === ids[i - 1]);
+  });
 }

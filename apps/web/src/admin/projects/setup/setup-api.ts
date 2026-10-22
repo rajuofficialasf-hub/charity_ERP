@@ -27,6 +27,16 @@ export interface ProjectComponent {
 }
 export const components = (projectId: string) =>
   api<ProjectComponent[]>(`/projects/${projectId}/components`);
+
+/** A form of the project as the setup needs it: whether a version is published. */
+export interface ProjectForm {
+  id: string;
+  key: string;
+  title: { bn: string; en: string };
+  publishedVersionId: string | null;
+  draftVersionId: string | null;
+}
+export const forms = (projectId: string) => api<ProjectForm[]>(`/projects/${projectId}/forms`);
 export const updateComponent = (
   projectId: string,
   componentKey: string,

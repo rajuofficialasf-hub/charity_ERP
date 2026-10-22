@@ -269,7 +269,7 @@ Implementation (T1.6, O-57): `IdempotencyService` in apps/api: `replayByClientUu
 | otp-verify | 5 attempts per code (O-25); 20 per hour per IP (D-075) | code, IP |
 | password-reset | 5 per hour per login id (normalized spelling); 20 per hour per IP (D-075) | login id, IP |
 | refresh | 60 per hour | device session |
-| public-form | 20 per hour (O-08, NFR-41) | IP |
+| public-form | 20 per hour per route (O-08, NFR-41): the public form read, the public submission and the public photo upload each have their own budget per address | IP |
 | registration | 10 registrations started per IP per day, plus the `otp-request` windows (D-082) | IP, address |
 | reference-read | 300 per hour (public reference data, D-083) | IP |
 | default | 600 per minute per user (PROPOSAL, tuned by the load test T3.4) | user |

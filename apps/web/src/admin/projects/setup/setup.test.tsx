@@ -91,6 +91,20 @@ function serve(status = 'draft') {
         return HttpResponse.json(componentAnswer.body, { status: componentAnswer.status });
       return HttpResponse.json({ data: COMPONENTS[0], meta: {} });
     }),
+    http.get(`*/api/v1/projects/${ID}/forms`, () =>
+      HttpResponse.json({
+        data: [
+          {
+            id: '01900000-0000-7000-8000-0000000000f1',
+            key: 'default',
+            title: { bn: 'আবেদন', en: 'Application' },
+            publishedVersionId: '01900000-0000-7000-8000-0000000000f2',
+            draftVersionId: null,
+          },
+        ],
+        meta: { requestId: 'req_test' },
+      }),
+    ),
     http.get(`*/api/v1/projects/${ID}/fund-sources`, () =>
       HttpResponse.json({ data: [], meta: {} }),
     ),

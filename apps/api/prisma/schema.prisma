@@ -954,6 +954,7 @@ model FormVersion {
 
   @@unique([formId, versionNo], map: "form_versions_form_id_version_no_key")
   @@unique([formId], where: raw("status = 'published'"), map: "form_versions_form_id_key")
+  @@unique([formId], where: raw("status = 'draft'"), map: "form_versions_one_draft_key")
   @@index([publishedBy], map: "form_versions_published_by_idx")
   @@index([createdBy], map: "form_versions_created_by_idx")
   @@index([updatedBy], map: "form_versions_updated_by_idx")
@@ -2820,7 +2821,7 @@ model File {
   registrationDraftsNidPhotoBackFile RegistrationDraft[] @relation("registration_drafts_nid_photo_back_file_id")
 
   @@unique([bucket, objectKey], map: "files_bucket_object_key_key")
-  @@unique([projectId, sha256], where: raw("kind <> 'export'"), map: "files_project_id_sha256_key")
+  @@unique([projectId, sha256], where: raw("kind <> 'export' AND kind <> 'form_photo'"), map: "files_project_id_sha256_key")
   @@index([projectId, phash], map: "files_project_id_phash_idx")
   @@index([virusScan], where: raw("virus_scan = ANY (ARRAY['pending'::text, 'failed'::text])"), map: "files_virus_scan_idx")
   @@index([uploadedBy], map: "files_uploaded_by_idx")

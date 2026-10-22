@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SeedContext } from '../../seed/context';
+import { seedFormTemplates } from '../../seed/sets/base/forms';
 import { seedReferenceLists } from '../../seed/sets/base/reference-lists';
 import { seedWorkflows } from '../../seed/sets/base/workflows';
 import { accessWorld } from './support/access-fixtures';
@@ -13,6 +14,7 @@ import {
   login,
   type Session,
 } from './support/auth-app';
+import { publishedForm } from './support/forms';
 import { notificationsOf } from './support/notifications';
 
 // The life of a project: activation of a complete draft, the deadline extension, the two-step
@@ -34,6 +36,7 @@ beforeAll(async () => {
   const ctx = new SeedContext(h.db);
   await seedWorkflows(ctx);
   await seedReferenceLists(ctx);
+  await seedFormTemplates(ctx);
 });
 afterAll(async () => h.close());
 
@@ -109,6 +112,7 @@ async function draft(complete: boolean, fundTotal = '100000.00') {
       misconduct: text('অনিয়ম'),
     });
   expect(rules.status).toBe(200);
+  await publishedForm(h, pm, id);
   return id;
 }
 async function activated() {
@@ -131,6 +135,74 @@ describe('activation', () => {
       expect.arrayContaining(['window', 'limit', 'cost', 'target', 'fund_sources', 'area']),
     );
     expect(paths).toContain('photo_rule');
+  });
+
+  it('needs a published application form before it activates', async () => {
+    const pm = await as(world.users.pm);
+    // everything but the form
+    const id = await draft(false);
+    const created = await api().get(`/api/v1/projects/${id}`).set(bearer(pm));
+    await api()
+      .patch(`/api/v1/projects/${id}`)
+      .set(bearer(pm))
+      .set('If-Match', String(created.headers.etag))
+      .send({
+        applyFrom: '2026-11-01',
+        applyTo: '2026-12-31',
+        perVolunteerLimit: 50,
+        costPerBeneficiary: '1000.00',
+        targetBeneficiaries: 100,
+      });
+    await api()
+      .patch(`/api/v1/projects/${id}/fund-sources`)
+      .set(bearer(pm))
+      .send({ fundSources: [{ source: 'zakat', amount: '100000.00' }] });
+    await at(pm, `/projects/${id}/areas`).send({
+      locationId: world.dhaka.division,
+      rpmUserId: world.users.rpmDhaka,
+    });
+    const components = await api().get(`/api/v1/projects/${id}/components`).set(bearer(pm));
+    const distribution = components.body.data.find(
+      (c: { componentKey: string }) => c.componentKey === 'distribution',
+    );
+    await api()
+      .patch(`/api/v1/projects/${id}/components/distribution`)
+      .set(bearer(pm))
+      .set('If-Match', distribution.etag)
+      .send({ settings: { ...distribution.settings, rule: 'group' } });
+    const text = (bn: string) => ({ bn, en: `${bn} (en)` });
+    await api()
+      .put(`/api/v1/projects/${id}/rules`)
+      .set(bearer(pm))
+      .send({
+        volunteer_duties: text('দায়িত্ব'),
+        implementation_process: text('প্রক্রিয়া'),
+        misconduct: text('অনিয়ম'),
+      });
+    const refused = await at(pm, `/projects/${id}/activate`).set('If-Match', await etag(pm, id));
+    expect(refused.status).toBe(409);
+    expect(refused.body.error.details).toEqual([
+      expect.objectContaining({ path: 'form', code: 'validation.required' }),
+    ]);
+    // a draft form is not enough; the published one is
+    const made = await at(pm, `/projects/${id}/forms`).send({
+      key: 'default',
+      title: { bn: 'আবেদন', en: 'Application' },
+      source: { kind: 'template', templateKey: 'form_distribution' },
+    });
+    expect(made.status).toBe(201);
+    const still = await at(pm, `/projects/${id}/activate`).set('If-Match', await etag(pm, id));
+    expect(still.status).toBe(409);
+    const read = await api()
+      .get(`/api/v1/form-versions/${made.body.data.draftVersionId}`)
+      .set(bearer(pm));
+    const published = await at(pm, `/form-versions/${made.body.data.draftVersionId}/publish`).set(
+      'If-Match',
+      read.headers.etag as string,
+    );
+    expect(published.status).toBe(200);
+    const res = await at(pm, `/projects/${id}/activate`).set('If-Match', await etag(pm, id));
+    expect(res.status).toBe(200);
   });
 
   it('activates a complete draft and stores the workflow snapshot', async () => {

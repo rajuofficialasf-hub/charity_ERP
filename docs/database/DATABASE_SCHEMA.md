@@ -127,7 +127,7 @@ Technical table added in T0.16 for O-03 (ERD.md §20).
 | L-doc-event | created, submitted, verified, approved, archived, deadline_extended, warning_sent, non_compliance, reopened | document_events.event |
 | L-media-status | planned, in_progress, published | media_subjects.media_status |
 | L-story-status | planned, in_progress, done, published | media_stories.status |
-| L-file-kind | distribution_proof, construction_proof, evidence, voucher, payment_copy, document, animal_photo, profile_photo, nid_photo, media_asset, export, issue_photo | files.kind |
+| L-file-kind | distribution_proof, construction_proof, evidence, voucher, payment_copy, document, animal_photo, profile_photo, nid_photo, media_asset, export, issue_photo, form_photo | files.kind |
 | L-file-source | camera, gallery, scan, system | files.source |
 | L-file-flag | no_capture_time, no_gps, gallery_under_camera_only, stale_capture, duplicate_suspect | files.flags (data-quality flags, O-30) |
 | L-scan | pending, clean, infected, failed, skipped | files.virus_scan |
@@ -567,7 +567,7 @@ Constraints: UNIQUE (project_id, key).
 | published_by | uuid | yes | — | FK users |
 | [A] | | | | |
 
-Constraints: UNIQUE (form_id, version_no); partial UNIQUE (form_id) WHERE status = 'published' (one current version). A trigger refuses changes to sections, fields and options of a non-draft version.
+Constraints: UNIQUE (form_id, version_no); partial UNIQUE (form_id) WHERE status = 'published' (one current version); partial UNIQUE (form_id) WHERE status = 'draft' (one open draft, T2.3). A trigger refuses changes to sections, fields and options of a non-draft version, and the trigger `guard_form_version_status` lets a version row move only draft → published (with `published_at` and `published_by`) → retired, nothing else changing on a non-draft row (T2.3, `20261021140000_form_version_rules`).
 
 ### form_sections
 | Column | Type | Null | Default | Comment |
@@ -936,7 +936,7 @@ Indexes: (assignee_user_id, project_id) WHERE active_to IS NULL; (target_type, t
 | status | text | no | 'draft' | L-app-status |
 | stage | text | yes | — | template stage key (validated by the engine) |
 | outcome | text | yes | — | template outcome code |
-| flags | text[] | no | '{}' | needs-verification reasons: existing_identity, late_sync, stale_form_version, public_entry |
+| flags | text[] | no | '{}' | needs-verification reasons: existing_identity, late_sync, stale_form_version, public_entry, identity_blocked, identity_repeated (the last two set by the public link, O-08) |
 | region_location_id | uuid | no | — | FK locations (division of the beneficiary address, for scope filters) |
 | district_id | uuid | no | — | FK locations (for district split and quotas) |
 | union_id | uuid | no | — | FK locations (union quotas) |
@@ -1527,7 +1527,7 @@ Constraints: UNIQUE (bucket, object_key); partial UNIQUE (project_id, sha256) WH
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
 | file_id | uuid | no | — | FK files |
-| entity_type | text | no | — | application, activity, voucher, expense_claim, payment, document, animal, issue, media_subject, media_story, volunteer, beneficiary, followup_evaluation, user (staff photo, D-082) |
+| entity_type | text | no | — | application, activity, voucher, expense_claim, payment, document, animal, issue, media_subject, media_story, volunteer, beneficiary, followup_evaluation, user (staff photo, D-082), public_submission (a public form photo before its submission claims it, keyed by the applicant's client id; never resolved by the file routes) |
 | entity_id | uuid | no | — | — |
 | slot | text | no | — | e.g. distribution_proof, final_photo |
 | position | smallint | no | 0 | — |

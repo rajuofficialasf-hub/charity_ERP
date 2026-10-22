@@ -1,6 +1,7 @@
 import { z } from 'zod';
+import { formDefinitionSchema } from '../forms/definition.js';
 import { COMPONENT_KEYS } from '../components.js';
-import { boundedLabel } from '../jsonb/common.js';
+import { boundedLabel, snakeKey } from '../jsonb/common.js';
 import { componentSettingsSchema } from '../jsonb/component-settings.js';
 import { projectRulesSchema } from './rules.js';
 import { WORKFLOW_KEYS } from './workflow-defaults.js';
@@ -19,7 +20,7 @@ import { WORKFLOW_KEYS } from './workflow-defaults.js';
  */
 export const BD10_COPIED = {
   components_and_settings: 'components',
-  form_as_version_1: 'later',
+  form_as_version_1: 'form',
   workflow_stages: 'components',
   photo_rule: 'components',
   rating_criteria: 'components',
@@ -71,8 +72,18 @@ export function copiedSettings(
 }
 
 /** `project_templates.definition`: what a template or a copy hands to a new project. */
+/** The published form of the source as a copy takes it: its key, its title and its definition. */
+export const templateFormSchema = z.strictObject({
+  key: snakeKey.max(40),
+  title: boundedLabel,
+  definition: formDefinitionSchema,
+});
+export type TemplateForm = z.infer<typeof templateFormSchema>;
+
 export const templateDefinitionSchema = z.strictObject({
   workflowKey: z.enum(WORKFLOW_KEYS),
+  // the published form becomes version 1 of the copy; a template saved before forms existed has none
+  form: templateFormSchema.nullable().optional(),
   components: z
     .array(
       z
@@ -106,6 +117,7 @@ export interface TemplateSource {
   components: { componentKey: string; enabled: boolean; settings: unknown }[];
   syllabus: { title: { bn: string; en: string } }[];
   rules: unknown;
+  form?: TemplateForm | null;
 }
 
 const settingsObject = z.record(z.string(), z.unknown());
@@ -130,6 +142,7 @@ export function definitionOf(source: TemplateSource): TemplateDefinition {
     })),
     syllabus: source.syllabus.map((t) => ({ bn: t.title.bn, en: t.title.en })),
     rules: projectRulesSchema.safeParse(source.rules).data ?? {},
+    form: source.form ?? null,
   });
 }
 

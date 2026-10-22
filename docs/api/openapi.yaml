@@ -2684,12 +2684,87 @@ components:
         key: { type: string }
         title: { $ref: '#/components/schemas/Bilingual' }
         publishedVersionId: { type: [string, 'null'], format: uuid }
+        draftVersionId: { type: [string, 'null'], format: uuid, description: The one open draft (T2.3) }
     FormList:
       type: object
       required: [data, meta]
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/Form' } }
-        meta: { $ref: '#/components/schemas/ListMeta' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    FormResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/Form' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    FormCreate:
+      type: object
+      additionalProperties: false
+      required: [key, title, source]
+      properties:
+        key: { type: string, pattern: '^[a-z][a-z0-9_]*$', maxLength: 40, description: The application type of the form; `default` for the one form of a project }
+        title: { $ref: '#/components/schemas/Bilingual' }
+        source:
+          description: Where the first draft comes from
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [kind, templateKey]
+              properties:
+                kind: { type: string, const: template }
+                templateKey: { type: string, minLength: 1, maxLength: 80, description: A form template of the library (the seeded appendix খ forms) }
+            - type: object
+              additionalProperties: false
+              required: [kind]
+              properties:
+                kind: { type: string, const: blank }
+            - type: object
+              additionalProperties: false
+              required: [kind, formId]
+              properties:
+                kind: { type: string, const: copy }
+                formId: { $ref: '#/components/schemas/Uuid' }
+    FormLibrary:
+      type: object
+      required: [sections, fields]
+      properties:
+        sections:
+          type: array
+          items:
+            type: object
+            required: [key, title, defaultVisibility, fieldKeys]
+            properties:
+              key: { type: string }
+              title: { $ref: '#/components/schemas/Bilingual' }
+              defaultVisibility: { type: string, enum: [volunteer, official_only] }
+              fieldKeys: { type: array, items: { type: string } }
+        fields:
+          type: array
+          items:
+            type: object
+            required: [key, type, label, standardColumn, defaultSettings]
+            properties:
+              key: { type: string }
+              type: { type: string }
+              label: { $ref: '#/components/schemas/Bilingual' }
+              standardColumn: { type: [string, 'null'] }
+              defaultSettings: { type: object }
+        templates:
+          type: array
+          description: The form templates of the library a project's form can start from
+          items:
+            type: object
+            required: [key, name, projectType]
+            properties:
+              key: { type: string }
+              name: { $ref: '#/components/schemas/Bilingual' }
+              projectType: { type: string }
+    FormLibraryResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/FormLibrary' }
+        meta: { $ref: '#/components/schemas/Meta' }
     FieldOption:
       type: object
       required: [code, label]
@@ -2746,19 +2821,77 @@ components:
       required: [data, meta]
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/FormVersion' } }
-        meta: { $ref: '#/components/schemas/ListMeta' }
+        meta: { $ref: '#/components/schemas/Meta' }
     FormDraftUpdate:
       type: object
+      additionalProperties: false
       required: [sections]
       properties:
-        sections: { type: array, items: { $ref: '#/components/schemas/FormSection' } }
+        sections:
+          type: array
+          description: The sections of the draft in the FormSection shape; the engine checks them inside the service and names the field of each problem in the 422 details (the body stays open here so the drift test matches the route)
+          items: {}
+    FormFieldMapResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            required: [fieldKey, type, label, standardColumn, versions]
+            properties:
+              fieldKey: { type: string }
+              type: { type: string }
+              label: { $ref: '#/components/schemas/Bilingual' }
+              standardColumn: { type: [string, 'null'] }
+              versions: { type: array, items: { type: integer }, description: The version numbers the field appears in }
+        meta: { $ref: '#/components/schemas/Meta' }
     PublicLinkConfig:
       type: object
+      additionalProperties: false
       required: [enabled]
       properties:
         enabled: { type: boolean }
-        formIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
-        url: { type: string, readOnly: true }
+        formId:
+          type: string
+          format: uuid
+          description: 'The one form the link opens: required while enabled; a form of this project with a published version and no file or signature field'
+    PublicLinkView:
+      type: object
+      required: [enabled, formId, url]
+      properties:
+        enabled: { type: boolean }
+        formId: { type: [string, 'null'], format: uuid }
+        url: { type: [string, 'null'], description: The link to hand out while enabled }
+    PublicFormResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [project, form]
+          properties:
+            project:
+              type: object
+              required: [name, applyTo]
+              properties:
+                name: { $ref: '#/components/schemas/Bilingual' }
+                applyTo: { type: [string, 'null'], format: date, description: The last day applications are taken }
+            form: { $ref: '#/components/schemas/FormVersion' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    PublicApplicationCreate:
+      type: object
+      additionalProperties: false
+      required: [clientUuid, answers]
+      properties:
+        clientUuid: { $ref: '#/components/schemas/Uuid' }
+        clientCreatedAt: { type: string, format: date-time }
+        answers:
+          type: array
+          maxItems: 2000
+          description: Answers in the shape of Answer; the engine checks each one and names the field it refuses
+          items: {}
 
     # ---------------- applications ----------------
     ApplicationSummary:
@@ -3014,7 +3147,7 @@ components:
       required: [clientUuid, kind, entityType, entityId, slot, mime, sizeBytes, sha256, source]
       properties:
         clientUuid: { $ref: '#/components/schemas/Uuid' }
-        kind: { type: string, enum: [distribution_proof, construction_proof, evidence, voucher, payment_copy, document, animal_photo, profile_photo, nid_photo, media_asset, issue_photo] }
+        kind: { type: string, enum: [distribution_proof, construction_proof, evidence, voucher, payment_copy, document, animal_photo, profile_photo, nid_photo, media_asset, issue_photo, form_photo] }
         entityType: { type: string, minLength: 1, maxLength: 40, description: 'The record type the file links to: application, activity, issue, voucher, expense_claim, payment, animal or document; each takes its own kinds (D-108)' }
         entityId: { type: string, format: uuid, description: The record the file links to; its scope is checked at create and at finalize }
         slot: { type: string, pattern: '^[a-z][a-z0-9_]{0,39}$' }
@@ -7098,6 +7231,24 @@ paths:
         '422': { $ref: '#/components/responses/Unprocessable' }
 
   # ======================= forms =======================
+  /form-library:
+    get:
+      tags: [forms]
+      operationId: forms.library.get
+      summary: The section and field libraries the builder picks from (seeded; read-only)
+      x-permission: form.library.view
+      x-scope: global
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: The libraries
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FormLibraryResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /projects/{projectId}/forms:
     parameters:
       - $ref: '#/components/parameters/ProjectId'
@@ -7117,6 +7268,29 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/FormList' }
         '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [forms]
+      operationId: forms.form.create
+      summary: Create a project's form as draft version 1 from a library template, blank (the mandatory core only), or copied from another project's published form (BD-10)
+      x-permission: form.build
+      x-scope: project
+      x-audit: form.created
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FormCreate' }
+      responses:
+        '201':
+          description: The form with its draft
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FormResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /forms/{formId}/versions:
     parameters:
       - $ref: '#/components/parameters/FormId'
@@ -7153,6 +7327,25 @@ paths:
               schema: { $ref: '#/components/schemas/FormVersionResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /forms/{formId}/fields:
+    parameters:
+      - $ref: '#/components/parameters/FormId'
+    get:
+      tags: [forms]
+      operationId: forms.field.map
+      summary: The fields of a form across its versions by key, so reports align answers of different versions (BD-12)
+      x-permission: form.build
+      x-scope: project
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: Fields by key with the versions each appears in
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FormFieldMapResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /form-versions/{versionId}:
     parameters:
       - $ref: '#/components/parameters/VersionId'
@@ -7231,7 +7424,7 @@ paths:
     patch:
       tags: [forms]
       operationId: forms.publicLink.configure
-      summary: Enable or disable the public application link (A8.5)
+      summary: Enable or disable the public application link; every enable issues a fresh token
       x-permission: form.public_link.manage
       x-scope: project
       x-audit: form.public_link_change
@@ -7251,9 +7444,11 @@ paths:
                 type: object
                 required: [data, meta]
                 properties:
-                  data: { $ref: '#/components/schemas/PublicLinkConfig' }
+                  data: { $ref: '#/components/schemas/PublicLinkView' }
                   meta: { $ref: '#/components/schemas/Meta' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
 
   # ======================= public =======================
   /public/forms/{token}:
@@ -7262,21 +7457,19 @@ paths:
     get:
       tags: [public]
       operationId: public.form.get
-      summary: Published volunteer-visible form for the public link
+      summary: The published volunteer-visible form behind a public link, with the project's name and closing date; a disabled link, an unpublished form, an inactive project or a passed closing date answer not found
       security: []
       x-permission: public
-      x-scope: system
+      x-scope: none
       x-audit: none
       x-idempotency: none
       x-rate-limit: public-form
-      parameters:
-        - $ref: '#/components/parameters/AcceptLanguage'
       responses:
         '200':
-          description: Form version
+          description: The form and the project it belongs to
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/FormVersionResponse' }
+              schema: { $ref: '#/components/schemas/PublicFormResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
   /public/forms/{token}/applications:
@@ -7285,10 +7478,10 @@ paths:
     post:
       tags: [public]
       operationId: public.application.submit
-      summary: Submit a public application; it enters needs_verification (O-08)
+      summary: Submit a public application; it waits for verification without a profile, and the applicant learns nothing about existing profiles (O-08)
       security: []
       x-permission: public
-      x-scope: system
+      x-scope: none
       x-audit: application.public_submitted
       x-idempotency: clientUuid
       x-rate-limit: public-form
@@ -7296,7 +7489,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/ApplicationCreate' }
+            schema: { $ref: '#/components/schemas/PublicApplicationCreate' }
       responses:
         '201':
           description: Received; awaiting verification
@@ -7315,6 +7508,46 @@ paths:
         '429': { $ref: '#/components/responses/TooManyRequests' }
 
   # ======================= applications =======================
+  /public/forms/{token}/photos:
+    parameters:
+      - $ref: '#/components/parameters/PublicToken'
+    post:
+      tags: [public]
+      operationId: public.photo.upload
+      summary: Upload one photo of a public application before it is submitted (JPEG or PNG, at most 5 MB, metadata stripped; five per submission, a bounded number per link; swept after a day unless a submission claims it)
+      security: []
+      x-permission: public
+      x-scope: none
+      x-audit: file.uploaded
+      x-idempotency: none
+      x-rate-limit: public-form
+      parameters:
+        - name: clientUuid
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: fieldKey
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 60 }
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary }
+          image/png:
+            schema: { type: string, format: binary }
+      responses:
+        '201':
+          description: Stored; the id goes into the photo answer of the submission
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UploadedPhotoResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
   /projects/{projectId}/applications:
     parameters:
       - $ref: '#/components/parameters/ProjectId'

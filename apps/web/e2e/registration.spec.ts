@@ -159,7 +159,7 @@ async function projectOfThisRun(desk: Page, name: string): Promise<string> {
   await desk.context().clearCookies();
   await signIn(desk, PM, DEMO_PASSWORD);
   await openTab(desk, 'প্রকল্প');
-  return activeProject(desk, name, ERR);
+  return activeProject(desk, name, ERR, PM);
 }
 
 /** The Dhaka RPM assigns the volunteer with this mobile number to the project on `desk`. */

@@ -2,9 +2,8 @@ import { workflowDefinitionSchema } from '@css/shared';
 import {
   type ExtendDeadline,
   limitRequired,
-  PROJECT_STATUSES,
   type ProjectAction,
-  type ProjectStatus,
+  projectStatusOf,
   setupCheck,
   transitionFor,
 } from '@css/shared/projects';
@@ -26,12 +25,6 @@ const CLOSE_GUARDS = new Map<string, (tx: Tx, projectId: string) => Promise<bool
 const CLOSE_GUARDS_NOT_BUILT_YET: readonly string[] = ['stock.balanced', 'animal_photos.complete'];
 
 const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
-
-function statusOf(value: string): ProjectStatus {
-  const status = PROJECT_STATUSES.find((s) => s === value);
-  if (!status) throw new Error(`unknown project status ${value}`);
-  return status;
-}
 
 /**
  * The life of a project (docs/MASTER_SPEC.md, A6; DECISION_LOG D-095): a complete draft is
@@ -59,7 +52,7 @@ export class ProjectLifecycleService {
     ifMatch: string | undefined,
   ) {
     const project = await this.projects.locked(tx, viewer, projectId);
-    const from = statusOf(project.status);
+    const from = projectStatusOf(project.status);
     const to = transitionFor(action, from);
     if (!to) throw new ApiError('workflow.transition_not_allowed', 409);
     assertIfMatch(ifMatch, project.updatedAt);
@@ -80,7 +73,7 @@ export class ProjectLifecycleService {
     const actor = viewer.principal.userId;
     return this.prisma.$transaction(async (tx) => {
       const { project, from, to } = await this.moving(tx, viewer, projectId, 'activate', ifMatch);
-      const [workflow, fundSources, areaCount, components] = await Promise.all([
+      const [workflow, fundSources, areaCount, components, publishedForms] = await Promise.all([
         tx.project.findUniqueOrThrow({
           where: { id: projectId },
           select: {
@@ -95,6 +88,7 @@ export class ProjectLifecycleService {
           where: { projectId },
           select: { componentKey: true, enabled: true, settings: true },
         }),
+        tx.formVersion.count({ where: { status: 'published', form: { projectId } } }),
       ]);
       const definition = workflowDefinitionSchema.parse(workflow.workflowDefinition.definition);
       const missing = setupCheck({
@@ -112,6 +106,7 @@ export class ProjectLifecycleService {
         components,
         rules: workflow.rules,
         dawahEnabled: workflow.dawahEnabled,
+        publishedForm: publishedForms > 0,
       });
       if (missing.length)
         throw new ApiError(

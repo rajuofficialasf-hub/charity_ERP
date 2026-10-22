@@ -22,6 +22,7 @@ import { RulesSection } from './RulesSection';
 import {
   areas,
   components,
+  forms,
   fundSources,
   projectWithEtag,
   rules,
@@ -216,6 +217,8 @@ function ProjectWizard({ projectId }: { projectId: string }) {
   const topics = useSetupPart(projectId, 'syllabus', () => syllabus(projectId), dawah);
   // every official of the project reads the rules; the step is read-only without setup rights
   const rulesText = useSetupPart(projectId, 'rules', () => rules(projectId), true);
+  // activation needs a published form; the builder screen arrives with the form platform's UI
+  const formList = useSetupPart(projectId, 'forms', () => forms(projectId), configure);
   const activate = useMutation({
     mutationFn: () => moveProject(projectId, 'activate', one.data!.meta.etag),
     onSuccess: async () => {
@@ -232,15 +235,28 @@ function ProjectWizard({ projectId }: { projectId: string }) {
     parts.isPending ||
     areaList.isPending ||
     rulesText.isPending ||
-    (configure && funds.isPending);
+    (configure && (funds.isPending || formList.isPending));
   // the budget is a step of the PM and the global roles, also while its fund sources fail to load
   const steps: StepId[] = STEP_IDS.filter(
     (s) => (s !== 'budget' || configure) && (s !== 'syllabus' || dawah),
   );
   // the check reads every part: without one of them the marks and the missing list stay off
   const missing =
-    configure && loaded && parts.data && funds.data && areaList.data && rulesText.data
-      ? missingItems(loaded, parts.data, funds.data, areaList.data, rulesText.data.rules)
+    configure &&
+    loaded &&
+    parts.data &&
+    funds.data &&
+    areaList.data &&
+    rulesText.data &&
+    formList.data
+      ? missingItems(
+          loaded,
+          parts.data,
+          funds.data,
+          areaList.data,
+          rulesText.data.rules,
+          formList.data.some((f) => f.publishedVersionId !== null),
+        )
       : null;
   const asked = params.get('step');
   const valid = isStepId(asked) && steps.includes(asked);

@@ -644,6 +644,12 @@ permissions:
     sensitive: false
     default:
       - { role: program_manager, scope: PROGRAM }
+  - name: form.library.view
+    description: Read the section and field libraries the form builder picks from
+    module: M07
+    sensitive: false
+    default:
+      - { role: program_manager, scope: GLOBAL }
   - name: form.library.manage
     description: Edit the section and field libraries
     module: M07

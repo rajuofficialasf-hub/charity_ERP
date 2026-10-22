@@ -134,6 +134,7 @@ Recovery behaviour by event (O-29):
 - A draft created offline **after** the new version was published but on the stale cached form is still accepted under the old version and flagged `needs_verification` with reason `stale_form_version`, so an official can check whether new mandatory questions matter.
 - The client keeps the old version in cache until no draft references it, then removes it; new drafts always use the latest cached version. The snapshot endpoint tells the client about a newer version, and the form screen shows a notice "form updated, syncing will refresh it".
 - Logic and calculations are evaluated with the shared evaluator of `packages/shared` on both sides (BR-076), so a draft valid offline is valid online under the same version.
+- The definition the client caches is exactly what `GET /form-versions/{versionId}` answers (T2.3): the sections, fields, options, logic and calculations in the engine's own shape, already filtered to the volunteer-visible part for a volunteer, so the cached form never holds an official-only section and the evaluator runs on the same object on both sides.
 
 ## 9. Sync status UI and the offline banner
 

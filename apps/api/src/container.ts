@@ -66,6 +66,11 @@ import { MyProjectsService } from './services/my-projects';
 import { ProjectVolunteersService } from './services/project-volunteers';
 import { VolunteerTeamsService } from './services/volunteer-teams';
 import { TemplatesService } from './services/templates';
+import { FormLibraryService } from './services/form-library';
+import { FormsService } from './services/forms';
+import { PublicFormsService } from './services/public-forms';
+import { PublicLinkService } from './services/public-link';
+import { PublicPhotosService } from './services/public-photos';
 import { ProjectSetupService } from './services/project-setup';
 import { RegistrationsService } from './services/registrations';
 import { ChangeRequestsService } from './services/change-requests';
@@ -135,6 +140,11 @@ export interface Container {
   programs: ProgramsService;
   settings: SettingsService;
   referenceLists: ReferenceListsService;
+  formLibrary: FormLibraryService;
+  forms: FormsService;
+  publicLink: PublicLinkService;
+  publicPhotos: PublicPhotosService;
+  publicForms: PublicFormsService;
   nisab: NisabService;
   auditLog: AuditLogService;
   inbox: InboxService;
@@ -223,6 +233,8 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const otpDelivery = o.otpDelivery ?? new OtpDeliveryService(env, sms, email, logger);
   const otp = o.otp ?? new OtpService(env, prisma, clock, otpDelivery);
   const projects = o.projects ?? new ProjectsService(env, prisma, audit, access, clock);
+  const referenceLists = o.referenceLists ?? new ReferenceListsService(prisma, audit);
+  const formLibrary = o.formLibrary ?? new FormLibraryService(prisma, referenceLists);
   const settings = o.settings ?? new SettingsService(prisma, audit);
   const registration =
     o.registration ??
@@ -233,6 +245,9 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const beneficiaryIdentity =
     o.beneficiaryIdentity ??
     new BeneficiaryIdentityService(prisma, access, audit, clock, beneficiaryMergeCandidates);
+  const nisab = o.nisab ?? new NisabService(prisma, audit, clock);
+  const publicPhotos =
+    o.publicPhotos ?? new PublicPhotosService(prisma, storage, audit, jobs, logger, clock);
   const built = {
     env,
     logger,
@@ -346,8 +361,15 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       ),
     programs: o.programs ?? new ProgramsService(prisma, audit),
     settings,
-    referenceLists: o.referenceLists ?? new ReferenceListsService(prisma, audit),
-    nisab: o.nisab ?? new NisabService(prisma, audit, clock),
+    referenceLists,
+    formLibrary,
+    forms: o.forms ?? new FormsService(prisma, audit, access, projects, formLibrary),
+    publicLink: o.publicLink ?? new PublicLinkService(env, prisma, audit, projects),
+    publicPhotos,
+    publicForms:
+      o.publicForms ??
+      new PublicFormsService(prisma, audit, clock, nisab, beneficiaryIdentity, publicPhotos),
+    nisab,
     auditLog: o.auditLog ?? new AuditLogService(env, prisma, clock),
     inbox: o.inbox ?? new InboxService(env, prisma, clock, logger),
     notificationTemplates:
