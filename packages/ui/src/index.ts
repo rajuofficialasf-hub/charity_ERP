@@ -152,6 +152,13 @@ export {
   type SwitchProps,
 } from './components/RowToggle/RowToggle.js';
 export {
+  ChoiceTiles,
+  type ChoiceTile,
+  type ChoiceTileGroup,
+  type ChoiceTilesProps,
+} from './components/ChoiceTiles/ChoiceTiles.js';
+export { Disclosure, type DisclosureProps } from './components/Disclosure/Disclosure.js';
+export {
   BulkList,
   BulkRow,
   type BulkBadge,

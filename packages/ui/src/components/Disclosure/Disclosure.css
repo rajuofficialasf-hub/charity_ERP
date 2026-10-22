@@ -1,0 +1,61 @@
+/* Disclosure: a settings group that opens and closes from its heading. */
+@layer components {
+  .ui-disclosure {
+    border-top: 1px solid var(--color-border-default);
+  }
+  .ui-disclosure:last-child {
+    border-bottom: 1px solid var(--color-border-default);
+  }
+  .ui-disclosure-heading {
+    margin: 0;
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+  }
+  .ui-disclosure-toggle {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    width: 100%;
+    min-height: 44px;
+    padding: var(--space-2) var(--space-1);
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-weight: var(--font-weight-bold);
+    text-align: left;
+    cursor: pointer;
+  }
+  .ui-disclosure-toggle:hover {
+    background: var(--color-bg-muted);
+  }
+  .ui-disclosure-toggle:focus-visible {
+    outline: 2px solid var(--color-brand-primary);
+    outline-offset: 2px;
+  }
+  .ui-disclosure-icon {
+    display: inline-flex;
+    color: var(--color-brand-primary-dark);
+  }
+  .ui-disclosure-title {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .ui-disclosure-hint {
+    font-size: var(--text-caption);
+    font-weight: 400;
+    color: var(--color-text-secondary);
+  }
+  .ui-disclosure-chevron {
+    flex: none;
+    color: var(--color-text-secondary);
+    transition: transform var(--motion-fast) var(--ease-standard);
+  }
+  .ui-disclosure.is-open .ui-disclosure-chevron {
+    transform: rotate(180deg);
+  }
+  .ui-disclosure-body {
+    padding: 0 var(--space-1) var(--space-3);
+  }
+}

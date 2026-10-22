@@ -25,7 +25,8 @@
     "bulk": "Bulk-update row",
     "timeline": "Step and timeline",
     "progress": "Progress bar",
-    "misc": "Avatar, spinner and icon"
+    "misc": "Avatar, spinner and icon",
+    "tiles": "Choice tiles and disclosure groups"
   },
   "type": {
     "display": "Winter Clothing 2026",
@@ -307,5 +308,23 @@
     "profile": "My profile",
     "devices": "My devices",
     "logout": "Log out"
+  },
+  "tiles": {
+    "label": "Question type",
+    "text": "Text",
+    "short": "Short answer",
+    "shortDesc": "such as a name or village",
+    "long": "Long answer",
+    "longDesc": "such as a comment",
+    "number": "Numbers and money",
+    "count": "Number",
+    "countDesc": "such as family members",
+    "money": "Amount of money",
+    "moneyDesc": "such as monthly income",
+    "groupBasics": "Basics",
+    "groupBasicsHint": "question and help",
+    "groupRules": "Answer rules",
+    "groupRulesHint": "optional",
+    "inside": "The settings of this group sit here."
   }
 }

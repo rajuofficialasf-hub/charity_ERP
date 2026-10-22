@@ -35,7 +35,7 @@ The engine (`@css/shared/forms`), the API (one additive order column aside), the
 ## Progress
 - **Branch:** `feat/form-builder-redesign` (from `main` at 163194f, the T2.4 merge)
 - **Updated:** 2026-10-22 23:10
-- **Next:** U2 `ChoiceTiles` and `Disclosure` in `packages/ui`
+- **Next:** C1 (review of 163194f..HEAD: U1 and U2), then U3 the builder page layout
 - **Uncommitted:** none
 - **Reviewed through:** nothing yet
-- **Notes:** U1: `sort_order` on both library tables, filled by the seed in file order and read first by the service (`key` breaks ties); the dev database refreshed with `pnpm db:seed --set base`. The mockup is committed (d858c61); DESIGN_SYSTEM 4.4 and D-122 are written.
+- **Notes:** U2: `ChoiceTiles` (native radios sharing a name under a radiogroup, tiles with icon, title and description, flat or grouped, two columns from 640 px, the only breakpoint the set's media query test allows) and `Disclosure` (a heading button with `aria-expanded`, controlled or not), both in the gallery under "টাইল থেকে বাছাই ও খোলা-বন্ধ গ্রুপ"; a space between a tile's title and description so its name reads as two words. U1: `sort_order` on both library tables, filled by the seed in file order and read first by the service (`key` breaks ties); the dev database refreshed with `pnpm db:seed --set base`. The mockup is committed (d858c61); DESIGN_SYSTEM 4.4 and D-122 are written.
