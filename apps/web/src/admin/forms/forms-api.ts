@@ -1,4 +1,4 @@
-import type { FormCreate, FormDefinition, FormField } from '@css/shared/forms';
+import type { FieldType, FormCreate, FormDefinition, FormField } from '@css/shared/forms';
 import { api } from '../../lib/api';
 import type { LibrarySectionView } from './draft';
 
@@ -16,7 +16,7 @@ export interface FormLibrary {
   sections: LibrarySectionView[];
   fields: {
     key: string;
-    type: string;
+    type: FieldType;
     label: { bn: string; en: string };
     standardColumn: string | null;
     formFields: FormField[];

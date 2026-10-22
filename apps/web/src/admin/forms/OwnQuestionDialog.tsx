@@ -4,12 +4,12 @@ import {
   type FormDefinition,
   isChoiceType,
 } from '@css/shared/forms';
-import { Alert, Button, Modal, Select, Text, TextField } from '@css/ui';
+import { Alert, Button, Modal, Select, TextField } from '@css/ui';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { parentCandidates } from './candidates';
 import type { OwnQuestion } from './draft';
-import { OptionsEditor } from './OptionsEditor';
+import { emptyOption, OptionsEditor } from './OptionsEditor';
 
 const NONE = '-';
 const filled = (text: { bn: string; en: string }) => text.bn.trim() !== '' && text.en.trim() !== '';
@@ -46,18 +46,7 @@ export function OwnQuestionDialog({
   const [sectionKey, setSectionKey] = useState(initialSection);
   const [label, setLabel] = useState({ bn: '', en: '' });
   // a choice starts with one empty option to fill in
-  const [options, setOptions] = useState<FieldOption[]>(
-    choice
-      ? [
-          {
-            code: 'opt_1',
-            label: { bn: '', en: '' },
-            dependsOnOptionCode: null,
-            allowsOtherText: false,
-          },
-        ]
-      : [],
-  );
+  const [options, setOptions] = useState<FieldOption[]>(choice ? [emptyOption([])] : []);
   const [dependsOn, setDependsOn] = useState<string | null>(null);
   const [group, setGroup] = useState<string | null>(null);
   const [tried, setTried] = useState(false);
@@ -110,12 +99,7 @@ export function OwnQuestionDialog({
           {!labelsOk ? t('own_need_labels') : t('own_need_option')}
         </Alert>
       ) : null}
-      <Text>
-        <Text as="span" weight="bold">
-          {t('own_type')}:
-        </Text>{' '}
-        <span>{tt(type)}</span>
-      </Text>
+      <TextField label={t('own_type')} value={tt(type)} readOnly />
       <TextField
         label={t('label_bn')}
         required

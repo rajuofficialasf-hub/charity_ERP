@@ -365,7 +365,37 @@ describe('the outline and the libraries', () => {
     expect(
       screen.queryByRole('button', { name: '১৪ বছরের বেশি সদস্য যোগ করুন' }),
     ).not.toBeInTheDocument();
+    // a section's title finds the whole section
+    const box = screen.getByRole('textbox', { name: 'লাইব্রেরিতে প্রশ্ন খুঁজুন' });
+    await user.clear(box);
+    await user.type(box, 'পরিবার');
+    expect(
+      screen.getByRole('button', { name: '১৪ বছরের বেশি সদস্য যোগ করুন' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'পরিবার ও আয়: পুরো অংশটি যোগ করুন' }),
+    ).toBeInTheDocument();
   });
+
+  it('forgets the removal once another change follows, so an undo never drops that change', async () => {
+    const user = userEvent.setup();
+    api({
+      sections: [
+        ...titled({ sections: coreSections() }).sections,
+        section('extra', [field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') })], {
+          title: T('অতিরিক্ত', 'Extra'),
+        }),
+      ],
+    });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    await user.click(screen.getByRole('button', { name: 'মন্তব্য সরান' }));
+    expect(await screen.findByRole('button', { name: 'ফেরত আনুন' })).toBeInTheDocument();
+    await addSection(user, 'পরিবার ও আয়');
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'ফেরত আনুন' })).not.toBeInTheDocument(),
+    );
+  }, 15_000);
 
   it('adds one library question to the chosen section and marks it as in the form', async () => {
     const user = userEvent.setup();
@@ -394,7 +424,9 @@ describe('the own question', () => {
     await user.click(await screen.findByRole('button', { name: 'প্রকল্পের প্রশ্ন' }));
     await user.click(screen.getByRole('button', { name: 'একটি বেছে নিন প্রশ্ন যোগ করুন' }));
     const dialog = await screen.findByRole('dialog', { name: 'নতুন প্রশ্ন' });
-    expect(within(dialog).getByText('একটি বেছে নিন')).toBeInTheDocument();
+    expect(within(dialog).getByRole('textbox', { name: /^প্রশ্নের ধরন/ })).toHaveValue(
+      'একটি বেছে নিন',
+    );
     await user.click(within(dialog).getByRole('button', { name: 'প্রশ্ন যোগ করুন' }));
     expect(within(dialog).getByRole('alert')).toHaveTextContent('দুই ভাষাতেই লেবেল লিখুন।');
     await user.type(
@@ -420,7 +452,7 @@ describe('the own question', () => {
       type: 'radio',
       label: { bn: 'নিজের ঘর আছে?', en: 'Own house?' },
       libraryFieldKey: null,
-      options: [{ code: 'opt_1', label: { bn: 'হ্যাঁ', en: 'Yes' } }],
+      options: [{ code: expect.stringMatching(/^opt_/), label: { bn: 'হ্যাঁ', en: 'Yes' } }],
     });
   }, 20_000);
 
@@ -463,7 +495,7 @@ describe('the own question', () => {
     await waitFor(() => expect(savedField('q_kind_of_business')).toBeDefined(), { timeout: 4000 });
     expect(savedField('q_kind_of_business')).toMatchObject({
       logic: { options_depend_on: 'occupation' },
-      options: [{ code: 'opt_1', dependsOnOptionCode: 'business' }],
+      options: [{ code: expect.stringMatching(/^opt_/), dependsOnOptionCode: 'business' }],
     });
   }, 20_000);
 });

@@ -18,7 +18,6 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
-  FIELD_TYPES,
   type FieldType,
   type FormDefinition,
   type FormField,
@@ -42,13 +41,11 @@ import { type ReactNode, useId, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { FieldInput } from '../../features/forms/FieldInput';
 import { coreLocks, moveField, moveFieldTo, moveSection, removeSection } from './draft';
+import { dropTarget, SECTION_DROP, typeFromDragId } from './drop-target';
 import type { BuilderMode, Selection } from './selection';
 import { TYPE_META } from './type-meta';
 
 const groupOf = (field: FormField) => field.settings?.repeat?.group;
-const SECTION_DROP = 'section:';
-/** The drag id of a question type from the left pane, followed by the type. */
-export const TYPE_DRAG = 'type:';
 
 /**
  * The drag context around the panes: a question moves by its handle inside or across sections,
@@ -73,33 +70,18 @@ export function CanvasDnd({
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
-  const sectionOf = (fieldKey: string) =>
-    definition.sections.find((s) => s.fields.some((f) => f.fieldKey === fieldKey));
-  const typeOf = (id: string) =>
-    id.startsWith(TYPE_DRAG)
-      ? FIELD_TYPES.find((t) => t === id.slice(TYPE_DRAG.length))
-      : undefined;
-  const started = (event: DragStartEvent) => setActiveType(typeOf(String(event.active.id)) ?? null);
-  /** Where a drop lands: a section and the block index inside it. */
+  const started = (event: DragStartEvent) =>
+    setActiveType(typeFromDragId(String(event.active.id)) ?? null);
   const dropped = (event: DragEndEvent) => {
     setActiveType(null);
     const id = String(event.active.id);
     const over = event.over ? String(event.over.id) : null;
     if (!over || over === id) return;
-    const type = typeOf(id);
-    if (over.startsWith(SECTION_DROP)) {
-      const section = definition.sections.find((s) => s.key === over.slice(SECTION_DROP.length));
-      if (!section) return;
-      if (type) onDropType(type, section.key, section.fields.length);
-      else onChange(moveFieldTo(definition, id, section.key, section.fields.length));
-      return;
-    }
-    const target = sectionOf(over);
+    const target = dropTarget(definition, over);
     if (!target) return;
-    const heads = target.fields.filter((f) => groupOf(f) === undefined).map((f) => f.fieldKey);
-    const index = Math.max(heads.indexOf(over), 0);
-    if (type) onDropType(type, target.key, index);
-    else onChange(moveFieldTo(definition, id, target.key, index));
+    const type = typeFromDragId(id);
+    if (type) onDropType(type, target.sectionKey, target.index);
+    else onChange(moveFieldTo(definition, id, target.sectionKey, target.index));
   };
   return (
     <DndContext
@@ -216,7 +198,6 @@ function SectionCard({
       key={f.fieldKey}
       field={f}
       members={section.fields.filter((m) => groupOf(m) === f.fieldKey)}
-      section={section}
       first={i === 0}
       last={i === heads.length - 1}
       mode={mode}
@@ -333,7 +314,6 @@ function SectionCard({
 function QuestionRow({
   field,
   members,
-  section,
   first,
   last,
   mode,
@@ -348,7 +328,6 @@ function QuestionRow({
 }: {
   field: FormField;
   members: FormField[];
-  section: FormSection;
   first: boolean;
   last: boolean;
   mode: BuilderMode;
@@ -468,8 +447,6 @@ function QuestionRow({
           )}
         </div>
       ) : null}
-      {/* the section the row sits in is known to the drag; nothing else reads it */}
-      <span hidden>{section.key}</span>
     </li>
   );
 }

@@ -1,11 +1,11 @@
 import { useDraggable } from '@dnd-kit/core';
-import { FIELD_TYPES, type FieldType, type FormDefinition } from '@css/shared/forms';
+import type { FieldType, FormDefinition } from '@css/shared/forms';
 import { Button, Disclosure, Icon, Stack, Tabs, Text, TextField, VisuallyHidden } from '@css/ui';
 import { Check, Plus } from 'lucide-react';
 import { type PointerEventHandler, useId, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import type { LibraryFields, LibrarySectionView } from './draft';
-import { TYPE_DRAG } from './FormCanvas';
+import { TYPE_DRAG } from './drop-target';
 import type { FormLibrary } from './forms-api';
 import { TYPE_GROUPS, TYPE_META, typesOfGroup } from './type-meta';
 
@@ -162,13 +162,14 @@ function LibraryList({
   const byKey = new Map(library.fields.map((f) => [f.key, f]));
   const match = (text: { bn: string; en: string }) =>
     !needle || text.bn.includes(needle) || text.en.toLowerCase().includes(needle.toLowerCase());
+  // a search finds a section by its title with all its questions, or the questions by theirs
   const groups = library.sections
     .map((s) => ({
       section: s,
       questions: s.fieldKeys
         .map((key) => byKey.get(key))
         .filter((f): f is NonNullable<typeof f> => f !== undefined)
-        .filter((f) => fields.has(f.key) && match(f.label)),
+        .filter((f) => fields.has(f.key) && (match(s.title) || match(f.label))),
     }))
     .filter((g) => !needle || g.questions.length > 0);
   return (
@@ -199,7 +200,7 @@ function LibraryList({
               <ul className="fb-lib-list" aria-label={t('library_list', { title })}>
                 {questions.map((f) => {
                   const label = f.label[locale];
-                  const meta = TYPE_META[FIELD_TYPES.find((x) => x === f.type) ?? 'short_text'];
+                  const meta = TYPE_META[f.type];
                   return (
                     <li key={f.key} className="fb-lib-q">
                       <Icon icon={meta.icon} size="sm" />

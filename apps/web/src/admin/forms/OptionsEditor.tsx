@@ -20,6 +20,14 @@ function freshCode(options: readonly FieldOption[]): string {
   }
 }
 
+/** A new option to fill in, after the ones a question has. */
+export const emptyOption = (options: readonly FieldOption[]): FieldOption => ({
+  code: freshCode(options),
+  label: { bn: '', en: '' },
+  dependsOnOptionCode: null,
+  allowsOtherText: false,
+});
+
 /**
  * The options of a choice question: the text of each in both languages and, on a computer, the
  * option that opens a text box ("other"), the earlier answer an option follows when the question
@@ -117,17 +125,7 @@ export function OptionsEditor({
           size="sm"
           variant="secondary"
           icon={Plus}
-          onPress={() =>
-            onChange([
-              ...options,
-              {
-                code: freshCode(options),
-                label: { bn: '', en: '' },
-                dependsOnOptionCode: null,
-                allowsOtherText: false,
-              },
-            ])
-          }
+          onPress={() => onChange([...options, emptyOption(options)])}
         >
           {t('option_add')}
         </Button>

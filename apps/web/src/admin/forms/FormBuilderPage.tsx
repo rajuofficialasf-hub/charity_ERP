@@ -202,10 +202,14 @@ export function FormBuilderPage() {
   const isDraft = version.status === 'draft';
   const mode: BuilderMode =
     !builder || !isDraft || save.refused ? 'read' : phone ? 'texts' : 'full';
+  const sectionOf = (fieldKey: string) =>
+    draft.sections.find((s) => s.fields.some((f) => f.fieldKey === fieldKey));
   const change = (next: FormDefinition) => {
     if (next === draft || mode === 'read') return;
     // the messages of a refused publish belong to the draft as it was then
     if (publish.error) publish.reset();
+    // a removal can be undone only until the next change, so the undo never drops later work
+    setUndo(null);
     setDraft(next);
     save.schedule(next.sections);
   };
@@ -213,16 +217,21 @@ export function FormBuilderPage() {
     const field = draft.sections.flatMap((s) => s.fields).find((f) => f.fieldKey === fieldKey);
     const next = removeField(draft, fieldKey);
     if (!field || next === draft) return;
-    setUndo({ definition: draft, label: field.label[locale] });
     setSelected(null);
     change(next);
+    setUndo({ definition: draft, label: field.label[locale] });
   };
   const copy = (fieldKey: string) => {
+    const section = sectionOf(fieldKey);
     const made = duplicateField(draft, fieldKey, { bn: t('copy_mark_bn'), en: t('copy_mark_en') });
-    if (!made.fieldKey) return;
+    if (!section || !made.fieldKey) return;
     change(made.definition);
-    setSelected({ section: selected?.section ?? draft.sections[0]!.key, field: made.fieldKey });
+    setSelected({ section: section.key, field: made.fieldKey });
   };
+  // a dragged question keeps its selection, so its section is read from where it is now
+  const selection: Selection | null = selected?.field
+    ? ((s) => (s ? { section: s.key, field: selected.field } : null))(sectionOf(selected.field))
+    : selected;
   const versionLabel = t(
     isDraft
       ? 'version_draft'
@@ -240,7 +249,7 @@ export function FormBuilderPage() {
   const title = form ? localized(form.title, locale) : t('title');
   // a library question goes to the chosen section, or to the last one when none is chosen
   const target =
-    draft.sections.find((s) => s.key === selected?.section)?.key ?? draft.sections.at(-1)?.key;
+    draft.sections.find((s) => s.key === selection?.section)?.key ?? draft.sections.at(-1)?.key;
   // a refused publish names its questions like a refused save; a newer edit's messages win
   const publishDetails = detailsOf(publish.error);
   const errors = { ...publishDetails, ...save.errors };
@@ -261,12 +270,9 @@ export function FormBuilderPage() {
       definition={draft}
       mode={mode}
       errors={errors}
-      selected={selected}
+      selected={selection}
       onSelect={setSelected}
-      onChange={(next) => {
-        setUndo(null);
-        change(next);
-      }}
+      onChange={change}
       onRemoveField={remove}
       onCopyField={copy}
       onAddTo={(sectionKey) => setSelected({ section: sectionKey })}
@@ -276,7 +282,7 @@ export function FormBuilderPage() {
     mode === 'read' ? null : (
       <SettingsPane
         definition={draft}
-        selected={selected}
+        selected={selection}
         mode={mode === 'full' ? 'full' : 'texts'}
         onChange={change}
       />
@@ -353,10 +359,7 @@ export function FormBuilderPage() {
     mode === 'full' ? (
       <CanvasDnd
         definition={draft}
-        onChange={(next) => {
-          setUndo(null);
-          change(next);
-        }}
+        onChange={change}
         onDropType={(type, section, at) => setAsking({ key: Date.now(), type, section, at })}
       >
         {panes}
@@ -434,7 +437,7 @@ export function FormBuilderPage() {
         </Alert>
       ) : null}
       {phone && isDraft && builder ? <Alert tone="info">{t('phone_note')}</Alert> : null}
-      {undo ? (
+      {undo && mode === 'full' ? (
         <Alert
           tone="info"
           live="status"
