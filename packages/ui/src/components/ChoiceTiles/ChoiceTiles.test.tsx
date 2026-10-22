@@ -46,6 +46,22 @@ describe('ChoiceTiles', () => {
     expect(screen.getByRole('radio', { name: /^সংখ্যা/ })).toBeChecked();
   });
 
+  it('shows its helper and its error, and names them for the group', () => {
+    renderWithUi(
+      <ChoiceTiles
+        label="Type"
+        helper="Pick one"
+        error="Pick a type first"
+        required
+        tiles={[{ id: 'a', title: 'A' }]}
+      />,
+    );
+    const group = screen.getByRole('radiogroup', { name: /^Type/ });
+    expect(group).toHaveAttribute('aria-invalid', 'true');
+    expect(group).toHaveAccessibleDescription('Pick one Pick a type first');
+    expect(screen.getByText('Pick a type first')).toBeVisible();
+  });
+
   it('takes flat tiles and keeps a controlled value', async () => {
     const user = userEvent.setup();
     renderWithUi(

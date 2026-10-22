@@ -3,6 +3,7 @@ import { Icon, type IconComponent } from '../Icon/Icon.js';
 import {
   type FieldBaseProps,
   fieldClass,
+  NativeFieldFooter,
   NativeFieldLabel,
   useFieldIds,
 } from '../Field/FieldParts.js';
@@ -111,13 +112,14 @@ export function ChoiceTiles({
     >
       <NativeFieldLabel {...field} labelId={labelId} />
       {groups.map((g, i) => (
-        <div key={g.title || i} className="ui-tile-group">
+        <div key={`${i}:${g.title}`} className="ui-tile-group">
           {g.title && <div className="ui-tile-group-title">{g.title}</div>}
           <div className="ui-tiles" data-columns={columns}>
             {g.tiles.map(tile)}
           </div>
         </div>
       ))}
+      <NativeFieldFooter {...field} ids={ids} />
     </div>
   );
 }

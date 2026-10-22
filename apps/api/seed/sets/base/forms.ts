@@ -870,7 +870,7 @@ export const FORM_TEMPLATES: FormTemplate[] = [
 
 export async function seedFormTemplates(ctx: SeedContext): Promise<void> {
   const known = new Set(LIBRARY_FIELDS.map((x) => x.key));
-  // the builder lists sections and fields in this file's order (D-122)
+  // the builder lists sections and fields in this file's order
   for (const [i, field] of LIBRARY_FIELDS.entries()) {
     await ctx.upsert('form_library_fields', {
       id: seedId(`form-library-field:${field.key}`),
