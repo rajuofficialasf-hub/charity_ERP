@@ -160,6 +160,8 @@ export async function scopeReachesRecord(
   record: UploadRecord,
 ): Promise<boolean> {
   const i = scope.instances;
+  // a revoked project is out of reach whichever grant would reach it (D-120)
+  if (i.revokedProjectIds.includes(record.projectId)) return false;
   if (
     i.global ||
     i.programIds.includes(record.programId) ||
