@@ -158,6 +158,25 @@ describe('the field settings', () => {
     expect(fieldOf(latest, 'phone_two').settings?.validation).toEqual({ pattern: 'mobile' });
   });
 
+  it('gives a new option a code no removed option had', async () => {
+    const user = userEvent.setup();
+    open(
+      definition(
+        section('extra', [
+          field('kind', 'radio', {
+            label: T('ধরন', 'Kind'),
+            options: [option('opt_1', { label: T('ক', 'A') })],
+          }),
+        ]),
+      ),
+      { section: 'extra', field: 'kind' },
+    );
+    await user.click(await screen.findByRole('button', { name: 'অপশন 1 সরান' }));
+    await user.click(screen.getByRole('button', { name: 'অপশন যোগ করুন' }));
+    const [added] = fieldOf(latest, 'kind').options!;
+    expect(added!.code).toMatch(/^opt_[0-9a-f]{12}$/);
+  });
+
   it('keeps a repeat group from having fewer rows at most than at least', async () => {
     const user = userEvent.setup();
     open(

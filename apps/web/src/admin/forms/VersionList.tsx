@@ -14,11 +14,14 @@ import { FORMS_KEY, type FormVersion, formVersions } from './forms-api';
 export function VersionList({
   formId,
   shown,
+  canOpen,
   onOpen,
 }: {
   formId: string;
   /** The version the builder shows now. */
   shown: string;
+  /** False while a change waits to be saved, so the draft is never shown under another name. */
+  canOpen: boolean;
   onOpen: (versionId: string) => void;
 }) {
   const t = useTranslations('forms.builder');
@@ -59,7 +62,12 @@ export function VersionList({
                     ) : null}
                   </Stack>
                   {v.id === shown ? null : (
-                    <Button size="sm" variant="secondary" onPress={() => onOpen(v.id)}>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={!canOpen}
+                      onPress={() => onOpen(v.id)}
+                    >
                       {t('open_version', { n: String(v.versionNo) })}
                     </Button>
                   )}

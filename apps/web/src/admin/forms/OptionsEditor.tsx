@@ -1,15 +1,23 @@
 import type { FieldOption, FormField } from '@css/shared/forms';
 import { Button, Checkbox, Select, Stack, Text, TextField } from '@css/ui';
-import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
+import { RowButtons } from './RowButtons';
 
 /** The id the "always" choice of a branching option takes in its list. */
 const ALWAYS = '*';
 
-/** A code no option of the list has yet; the code is never shown and never changes. */
+/**
+ * A code for a new option, never shown and never changed. It is random rather than counted, so
+ * an option removed and another added never share a code, and an answer stored under the old one
+ * in an earlier version never reads as the new option.
+ */
 function freshCode(options: readonly FieldOption[]): string {
   const taken = new Set(options.map((o) => o.code));
-  for (let n = options.length + 1; ; n += 1) if (!taken.has(`opt_${n}`)) return `opt_${n}`;
+  for (;;) {
+    const code = `opt_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
+    if (!taken.has(code)) return code;
+  }
 }
 
 /**
@@ -83,37 +91,22 @@ export function OptionsEditor({
                     ]}
                   />
                 ) : null}
-                <Stack direction="row" gap={1}>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    icon={ArrowUp}
-                    iconOnly
-                    disabled={i === 0}
-                    onPress={() => move(i, -1)}
-                  >
-                    {t('option_move_up', { n })}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    icon={ArrowDown}
-                    iconOnly
-                    disabled={i === options.length - 1}
-                    onPress={() => move(i, 1)}
-                  >
-                    {t('option_move_down', { n })}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    icon={Trash2}
-                    iconOnly
-                    onPress={() => onChange(options.filter((_, j) => j !== i))}
-                  >
-                    {t('option_remove', { n })}
-                  </Button>
-                </Stack>
+                <RowButtons
+                  up={{
+                    label: t('option_move_up', { n }),
+                    disabled: i === 0,
+                    onPress: () => move(i, -1),
+                  }}
+                  down={{
+                    label: t('option_move_down', { n }),
+                    disabled: i === options.length - 1,
+                    onPress: () => move(i, 1),
+                  }}
+                  remove={{
+                    label: t('option_remove', { n }),
+                    onPress: () => onChange(options.filter((_, j) => j !== i)),
+                  }}
+                />
               </>
             ) : null}
           </Stack>

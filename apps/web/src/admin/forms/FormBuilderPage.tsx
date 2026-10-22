@@ -45,7 +45,7 @@ import { LibraryPane } from './LibraryPane';
 import { type OutlineMode, OutlinePane, type Selection } from './OutlinePane';
 import { PreviewPane } from './PreviewPane';
 import { SettingsPane } from './SettingsPane';
-import { useDraftSave } from './use-draft-save';
+import { detailsOf, useDraftSave } from './use-draft-save';
 import { VersionList } from './VersionList';
 import './builder.css';
 
@@ -63,12 +63,6 @@ function useMedia(media: string) {
   }, [media]);
   return matches;
 }
-
-/** The messages of a refusal by the question or section they name. */
-const detailsOf = (error: unknown): Record<string, string> =>
-  error instanceof ApiFailure && error.status === 422
-    ? Object.fromEntries(error.details.map((d) => [d.path ?? '', d.message] as const))
-    : {};
 
 /**
  * The form builder of a project's form (docs/ui/SCREENS.md, "Form builder"): the libraries,
@@ -118,7 +112,12 @@ export function FormBuilderPage() {
       queries.setQueryData([...FORMS_KEY, 'version', done.data.id], done);
       await afterChange();
     },
-    onError: () => setPublishing(false),
+    onError: (error) => {
+      setPublishing(false);
+      // a draft changed elsewhere is read again, so the next try carries its new version
+      if (error instanceof ApiFailure && error.status === 412)
+        void queries.invalidateQueries({ queryKey: versionKey });
+    },
   });
   const next = useMutation({ mutationFn: () => newVersion(formId), onSuccess: afterChange });
   const [draft, setDraft] = useState<FormDefinition | null>(null);
@@ -175,6 +174,8 @@ export function FormBuilderPage() {
     !builder || !isDraft || save.refused ? 'read' : phone ? 'texts' : 'full';
   const change = (next: FormDefinition) => {
     if (next === draft || mode === 'read') return;
+    // the messages of a refused publish belong to the draft as it was then
+    if (publish.error) publish.reset();
     setDraft(next);
     save.schedule(next.sections);
   };
@@ -197,15 +198,18 @@ export function FormBuilderPage() {
   const target =
     draft.sections.find((s) => s.key === selected?.section)?.key ?? draft.sections.at(-1)?.key;
   // a refused publish names its questions like a refused save; a newer edit's messages win
-  const errors = { ...detailsOf(publish.error), ...save.errors };
+  const publishDetails = detailsOf(publish.error);
+  const errors = { ...publishDetails, ...save.errors };
   // a refusal about the whole form names no question or section, so it shows above the outline
   const named = new Set(draft.sections.flatMap((s) => [s.key, ...s.fields.map((f) => f.fieldKey)]));
   const unplaced = Object.entries(errors).filter(([key]) => !named.has(key));
   const published = versions.data?.find((v) => v.status === 'published') ?? null;
   const canPublish = builder && isDraft && !viewing && !phone && !save.refused;
   const canStartNext = builder && !phone && version.status === 'published' && !form?.draftVersionId;
-  const failure = [publish.error, next.error].find(
-    (e): e is ApiFailure => e instanceof ApiFailure && e.status !== 422,
+  // a refusal that names no question shows above the panes: any refused new version, and a
+  // refused publish without messages for the outline
+  const failure = [Object.keys(publishDetails).length ? null : publish.error, next.error].find(
+    (e): e is ApiFailure => e instanceof ApiFailure,
   );
 
   const outline = (
@@ -250,7 +254,8 @@ export function FormBuilderPage() {
               publish.reset();
               setPublishing(true);
             }}
-            disabled={save.state !== 'saved' || !etag}
+            // the confirmation lists what changed, so it waits for the versions too
+            disabled={save.state !== 'saved' || !etag || !versions.isSuccess}
           >
             {t('publish')}
           </Button>
@@ -325,7 +330,12 @@ export function FormBuilderPage() {
       )}
       {phone ? <div className="form-builder-pane">{preview}</div> : null}
       <div className="form-builder-pane">
-        <VersionList formId={formId} shown={version.id} onOpen={setViewing} />
+        <VersionList
+          formId={formId}
+          shown={version.id}
+          canOpen={save.state === 'saved'}
+          onOpen={setViewing}
+        />
       </div>
       <ConfirmDialog
         title={t('publish_title', { n: String(version.versionNo) })}

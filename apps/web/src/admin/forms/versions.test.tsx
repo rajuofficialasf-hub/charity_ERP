@@ -59,6 +59,7 @@ const v2 = (): Version => ({
 
 let posts: { path: string; ifMatch: string | null }[];
 let patches: number;
+let reads: number;
 function api(
   options: {
     draft?: boolean;
@@ -68,6 +69,7 @@ function api(
 ) {
   posts = [];
   patches = 0;
+  reads = 0;
   const versions: Version[] = options.draft === false ? [v1()] : [v1(), v2()];
   const row = () => ({
     id: FORM,
@@ -94,6 +96,7 @@ function api(
       HttpResponse.json({ data: { value: '85000.00' }, meta: { requestId: 'r' } }),
     ),
     http.get('*/api/v1/form-versions/:id', ({ params }) => {
+      reads += 1;
       const v = versions.find((x) => x.id === params.id);
       return v
         ? HttpResponse.json({ data: v, meta: { requestId: 'r', etag: `"e${v.versionNo}"` } })
@@ -193,6 +196,19 @@ describe('the versions', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('ফর্মটি পাওয়া যায়নি।');
     expect(screen.getByText('এই সংস্করণ প্রকাশিত; বদলানো যায় না।')).toBeInTheDocument();
   });
+
+  it('shows a new version refused with no question named', async () => {
+    const user = userEvent.setup();
+    api({
+      draft: false,
+      next: () => apiError(422, 'validation.failed', 'ফর্মটিতে নতুন সংস্করণ শুরু করা যায়নি।'),
+    });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'নতুন সংস্করণ তৈরি করুন' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'ফর্মটিতে নতুন সংস্করণ শুরু করা যায়নি।',
+    );
+  });
 });
 
 describe('publishing', () => {
@@ -242,6 +258,25 @@ describe('publishing', () => {
     const row = within(await screen.findByRole('list', { name: 'অতিরিক্ত' }));
     expect(await row.findByText('শর্তে এমন একটি ঘরের নাম আছে যা ফর্মে নেই।')).toBeInTheDocument();
     expect(screen.getAllByText('সংস্করণ 2: খসড়া').length).toBeGreaterThan(0);
+    // the next edit makes the old messages stale, so they go
+    await user.click(screen.getByRole('button', { name: 'অতিরিক্ত উপরে নিন' }));
+    await waitFor(() =>
+      expect(
+        screen.queryByText('শর্তে এমন একটি ঘরের নাম আছে যা ফর্মে নেই।'),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
+  it('reads the draft again when the publish finds it changed elsewhere', async () => {
+    const user = userEvent.setup();
+    api({ publish: () => apiError(412, 'conflict.stale_version', 'অন্য কেউ এটি বদলেছেন।') });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'প্রকাশ করুন' }));
+    const dialog = await screen.findByRole('alertdialog', { name: 'সংস্করণ 2 প্রকাশ করবেন?' });
+    const before = reads;
+    await user.click(within(dialog).getByRole('button', { name: 'সংস্করণ প্রকাশ করুন' }));
+    expect(await screen.findByText('অন্য কেউ এটি বদলেছেন।')).toBeInTheDocument();
+    await waitFor(() => expect(reads).toBeGreaterThan(before));
   });
 
   it('shows a refused publish and keeps the draft as it was', async () => {

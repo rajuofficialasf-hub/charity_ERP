@@ -8,6 +8,7 @@ import {
   coreLocks,
   moveField,
   moveSection,
+  setOptions,
   removeField,
   removeSection,
   setSectionCondition,
@@ -187,6 +188,25 @@ describe('the project own question', () => {
       addOwnQuestion(base, 'family', { type: 'short_text', label: T('x'), group: 'occupation' })
         .fieldKey,
     ).toBeNull();
+  });
+
+  it('frees the options of a later question that followed a removed option', () => {
+    const base = definition(
+      section('work', [
+        field('occupation', 'radio', { options: [option('business'), option('farming')] }),
+        field('business_kind', 'single_select', {
+          logic: { options_depend_on: 'occupation' },
+          options: [
+            option('shop', { dependsOnOptionCode: 'business' }),
+            option('crops', { dependsOnOptionCode: 'farming' }),
+          ],
+        }),
+      ]),
+    );
+    const next = setOptions(base, 'occupation', [option('farming')]);
+    const kinds = next.sections.at(-1)!.fields[1]!.options!;
+    expect(kinds.map((o) => o.dependsOnOptionCode)).toEqual([null, 'farming']);
+    valid(next);
   });
 
   it('adds nothing and names no key for a section the form does not have', () => {

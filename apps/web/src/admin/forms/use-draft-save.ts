@@ -9,6 +9,12 @@ export const SAVE_DELAY_MS = 1500;
 
 export type SaveState = 'saved' | 'pending' | 'saving' | 'failed';
 
+/** The messages of a refused save or publish by the question or section they name. */
+export const detailsOf = (error: unknown): Record<string, string> =>
+  error instanceof ApiFailure && error.status === 422
+    ? Object.fromEntries(error.details.map((d) => [d.path ?? '', d.message] as const))
+    : {};
+
 /**
  * Saves the builder's draft by itself: a while after the last change the whole draft goes to the
  * server with the version it was read at, one save at a time; a change made meanwhile is saved
@@ -70,10 +76,7 @@ export function useDraftSave({
         setRefused(true);
         setState('failed');
       } else {
-        if (error instanceof ApiFailure && error.status === 422)
-          setErrors(
-            Object.fromEntries(error.details.map((d) => [d.path ?? '', d.message] as const)),
-          );
+        if (error instanceof ApiFailure && error.status === 422) setErrors(detailsOf(error));
         // keep the change for the next try, unless a newer one is waiting
         queued.current ??= sections;
         setState('failed');

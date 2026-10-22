@@ -12,14 +12,12 @@ export function NumberText({
   onChange,
   integer = false,
   error,
-  helper,
 }: {
   label: string;
   value: number | undefined;
   onChange: (value: number | undefined) => void;
   integer?: boolean;
   error?: string;
-  helper?: string;
 }) {
   const stored = value === undefined ? '' : String(value);
   const [typed, setTyped] = useState(stored);
@@ -34,7 +32,6 @@ export function NumberText({
       kind={integer ? 'integer' : 'decimal'}
       value={typed}
       error={error}
-      helper={helper}
       onChange={(text) => {
         setTyped(text);
         const clean = text.trim();

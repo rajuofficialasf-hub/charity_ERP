@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import { type Asker, dateCandidates, netCandidates, termCandidates } from './candidates';
 import { type CalcShape, exprFromTerms, type Term, termsFromExpr } from './calc-terms';
 import { NumberText } from './NumberText';
+import { RowButtons } from './RowButtons';
 
 type Kind = 'chain' | 'mul' | 'div' | 'age' | 'nisab';
 
@@ -150,17 +151,13 @@ export function CalculationEditor({
                 {termInput(t('term', { n }), t('term_value', { n }), entry.term, (term) =>
                   set({ ...entry, term }),
                 )}
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  icon={Trash2}
-                  iconOnly
-                  onPress={() =>
-                    write({ kind: 'chain', terms: view.terms.filter((_, j) => j !== i) })
-                  }
-                >
-                  {t('term_remove', { n })}
-                </Button>
+                <RowButtons
+                  remove={{
+                    label: t('term_remove', { n }),
+                    onPress: () =>
+                      write({ kind: 'chain', terms: view.terms.filter((_, j) => j !== i) }),
+                  }}
+                />
               </Stack>
             );
           })}

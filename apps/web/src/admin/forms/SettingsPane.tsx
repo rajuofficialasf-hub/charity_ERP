@@ -19,6 +19,7 @@ import { CalculationEditor } from './CalculationEditor';
 import { ConditionEditor } from './ConditionEditor';
 import {
   addOwnQuestion,
+  setOptions,
   coreLocks,
   setSectionCondition,
   setSectionVisibility,
@@ -201,7 +202,7 @@ function FieldSettingsView({
           <OptionsEditor
             options={field.options ?? []}
             mode="texts"
-            onChange={(options) => patch({ options })}
+            onChange={(options) => onChange(setOptions(definition, field.fieldKey, options))}
           />
         ) : null}
       </Stack>
@@ -291,7 +292,7 @@ function FieldSettingsView({
             options={field.options ?? []}
             mode="full"
             parent={parent}
-            onChange={(options) => patch({ options })}
+            onChange={(options) => onChange(setOptions(definition, field.fieldKey, options))}
           />
         </>
       ) : null}

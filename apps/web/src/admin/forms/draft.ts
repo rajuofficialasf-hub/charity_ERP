@@ -202,6 +202,41 @@ export function updateField(
   }));
 }
 
+/**
+ * Replaces the options of a choice question. An option of a later question that followed a
+ * removed option follows none any more, so the draft never names an option that is gone.
+ */
+export function setOptions(
+  def: FormDefinition,
+  fieldKey: string,
+  options: FieldOption[],
+): FormDefinition {
+  const field = def.sections.flatMap((s) => s.fields).find((f) => f.fieldKey === fieldKey);
+  if (!field) return def;
+  const kept = new Set(options.map((o) => o.code));
+  const gone = new Set((field.options ?? []).map((o) => o.code).filter((c) => !kept.has(c)));
+  const next = updateField(def, fieldKey, { options });
+  if (!gone.size) return next;
+  return {
+    sections: next.sections.map((s) => ({
+      ...s,
+      fields: s.fields.map((f) =>
+        f.logic?.options_depend_on === fieldKey &&
+        (f.options ?? []).some((o) => o.dependsOnOptionCode && gone.has(o.dependsOnOptionCode))
+          ? {
+              ...f,
+              options: (f.options ?? []).map((o) =>
+                o.dependsOnOptionCode && gone.has(o.dependsOnOptionCode)
+                  ? { ...o, dependsOnOptionCode: null }
+                  : o,
+              ),
+            }
+          : f,
+      ),
+    })),
+  };
+}
+
 /** Removes a field, and a repeat group's members with it; a core field stays. */
 export function removeField(def: FormDefinition, fieldKey: string): FormDefinition {
   const section = def.sections.find((s) => s.fields.some((f) => f.fieldKey === fieldKey));

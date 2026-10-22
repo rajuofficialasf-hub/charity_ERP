@@ -16,6 +16,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import { type Asker, conditionCandidates, OPS, opKindOf } from './candidates';
 import { type ConditionRow, conditionFromRows, rowsFromCondition } from './logic-rows';
 import { NumberText } from './NumberText';
+import { RowButtons } from './RowButtons';
 
 /**
  * "Show when" or "required when" as rows (a question, a comparison and a value) joined by "all of
@@ -127,15 +128,12 @@ export function ConditionEditor({
                 }
               />
             ) : null}
-            <Button
-              size="sm"
-              variant="ghost"
-              icon={Trash2}
-              iconOnly
-              onPress={() => write(rows.filter((_, j) => j !== i))}
-            >
-              {t('cond_remove', { n })}
-            </Button>
+            <RowButtons
+              remove={{
+                label: t('cond_remove', { n }),
+                onPress: () => write(rows.filter((_, j) => j !== i)),
+              }}
+            />
           </Stack>
         );
       })}

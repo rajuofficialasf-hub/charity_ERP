@@ -1,8 +1,9 @@
 import { type FormDefinition, type FormField, isCoreFieldKey } from '@css/shared/forms';
-import { Alert, Badge, Button, Stack, Text } from '@css/ui';
-import { ArrowDown, ArrowUp, Lock, Pencil, Trash2 } from 'lucide-react';
+import { Alert, Badge, Stack, Text } from '@css/ui';
+import { Lock } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import { coreLocks } from './draft';
+import { RowButtons } from './RowButtons';
 
 /** What the outline may change: everything on a computer, only texts on a phone, nothing read-only. */
 export type OutlineMode = 'full' | 'texts' | 'read';
@@ -58,54 +59,39 @@ export function OutlinePane({
               <Text weight="bold">{member ? `↳ ${label}` : label}</Text>
               <Text tone="muted">{tt(field.type)}</Text>
             </Stack>
-            <Stack direction="row" gap={1} wrap>
-              {canEdit ? (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  icon={Pencil}
-                  iconOnly
-                  onPress={() => onSelect({ section, field: field.fieldKey })}
-                >
-                  {t('edit', { label })}
-                </Button>
-              ) : null}
-              {full ? (
-                <>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    icon={ArrowUp}
-                    iconOnly
-                    disabled={index === 0}
-                    onPress={() => onMoveField(section, field.fieldKey, -1)}
-                  >
-                    {t('move_up', { label })}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    icon={ArrowDown}
-                    iconOnly
-                    disabled={index === count - 1}
-                    onPress={() => onMoveField(section, field.fieldKey, 1)}
-                  >
-                    {t('move_down', { label })}
-                  </Button>
-                  {!locks.remove ? (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      icon={Trash2}
-                      iconOnly
-                      onPress={() => onRemoveField(field.fieldKey)}
-                    >
-                      {t('remove', { label })}
-                    </Button>
-                  ) : null}
-                </>
-              ) : null}
-            </Stack>
+            <RowButtons
+              edit={
+                canEdit
+                  ? {
+                      label: t('edit', { label }),
+                      onPress: () => onSelect({ section, field: field.fieldKey }),
+                    }
+                  : undefined
+              }
+              up={
+                full
+                  ? {
+                      label: t('move_up', { label }),
+                      disabled: index === 0,
+                      onPress: () => onMoveField(section, field.fieldKey, -1),
+                    }
+                  : undefined
+              }
+              down={
+                full
+                  ? {
+                      label: t('move_down', { label }),
+                      disabled: index === count - 1,
+                      onPress: () => onMoveField(section, field.fieldKey, 1),
+                    }
+                  : undefined
+              }
+              remove={
+                full && !locks.remove
+                  ? { label: t('remove', { label }), onPress: () => onRemoveField(field.fieldKey) }
+                  : undefined
+              }
+            />
           </Stack>
           {isCoreFieldKey(field.fieldKey) ? (
             <Text tone="muted">
@@ -132,54 +118,42 @@ export function OutlinePane({
                   <Badge size="sm" label={t('official_only')} />
                 ) : null}
               </Stack>
-              <Stack direction="row" gap={1} wrap>
-                {canEdit ? (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    icon={Pencil}
-                    iconOnly
-                    onPress={() => onSelect({ section: s.key })}
-                  >
-                    {t('edit', { label: title })}
-                  </Button>
-                ) : null}
-                {full ? (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      icon={ArrowUp}
-                      iconOnly
-                      disabled={i === 0}
-                      onPress={() => onMoveSection(s.key, -1)}
-                    >
-                      {t('move_up', { label: title })}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      icon={ArrowDown}
-                      iconOnly
-                      disabled={i === definition.sections.length - 1}
-                      onPress={() => onMoveSection(s.key, 1)}
-                    >
-                      {t('move_down', { label: title })}
-                    </Button>
-                    {!core ? (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        icon={Trash2}
-                        iconOnly
-                        onPress={() => onRemoveSection(s.key)}
-                      >
-                        {t('remove', { label: title })}
-                      </Button>
-                    ) : null}
-                  </>
-                ) : null}
-              </Stack>
+              <RowButtons
+                edit={
+                  canEdit
+                    ? {
+                        label: t('edit', { label: title }),
+                        onPress: () => onSelect({ section: s.key }),
+                      }
+                    : undefined
+                }
+                up={
+                  full
+                    ? {
+                        label: t('move_up', { label: title }),
+                        disabled: i === 0,
+                        onPress: () => onMoveSection(s.key, -1),
+                      }
+                    : undefined
+                }
+                down={
+                  full
+                    ? {
+                        label: t('move_down', { label: title }),
+                        disabled: i === definition.sections.length - 1,
+                        onPress: () => onMoveSection(s.key, 1),
+                      }
+                    : undefined
+                }
+                remove={
+                  full && !core
+                    ? {
+                        label: t('remove', { label: title }),
+                        onPress: () => onRemoveSection(s.key),
+                      }
+                    : undefined
+                }
+              />
             </Stack>
             {errors[s.key] ? <Alert tone="danger">{errors[s.key]}</Alert> : null}
             <ul aria-label={title} className="form-outline-list">
