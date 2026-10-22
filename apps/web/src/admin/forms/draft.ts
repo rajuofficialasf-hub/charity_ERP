@@ -103,6 +103,10 @@ export interface OwnQuestion {
   type: FieldType;
   label: { bn: string; en: string };
   options?: FieldOption[];
+  /** The earlier single-choice question whose answer decides which options show. */
+  dependsOn?: string;
+  /** The repeat group of the section the question joins, as one of its row's fields. */
+  group?: string;
 }
 
 /**
@@ -132,7 +136,14 @@ export function addOwnQuestion(
   sectionKey: string,
   question: OwnQuestion,
 ): { definition: FormDefinition; fieldKey: string | null } {
-  if (!def.sections.some((s) => s.key === sectionKey)) return { definition: def, fieldKey: null };
+  const section = def.sections.find((s) => s.key === sectionKey);
+  if (!section) return { definition: def, fieldKey: null };
+  const group = question.group
+    ? section.fields.find((f) => f.fieldKey === question.group && f.type === 'repeat_group')
+    : undefined;
+  // a repeat group takes no group of its own, and a group must be one of this section
+  if (question.group && (!group || question.type === 'repeat_group'))
+    return { definition: def, fieldKey: null };
   const fieldKey = ownQuestionKey(def, question.label.en);
   const field: FormField = {
     fieldKey,
@@ -141,18 +152,30 @@ export function addOwnQuestion(
     label: question.label,
     required: false,
     standardColumn: null,
-    settings: {},
+    settings: group ? { repeat: { group: group.fieldKey } } : {},
     options: question.options ?? [],
+    ...(question.dependsOn ? { logic: { options_depend_on: question.dependsOn } } : {}),
   };
+  // a group's fields follow it directly, so a new one goes after the group's last field
+  const after = group
+    ? section.fields.reduce(
+        (last, f, i) => (f.fieldKey === group.fieldKey || groupOf(f) === group.fieldKey ? i : last),
+        -1,
+      )
+    : section.fields.length - 1;
   return {
-    definition: withSection(def, sectionKey, (s) => ({ ...s, fields: [...s.fields, field] })),
+    definition: withSection(def, sectionKey, (s) => ({
+      ...s,
+      fields: [...s.fields.slice(0, after + 1), field, ...s.fields.slice(after + 1)],
+    })),
     fieldKey,
   };
 }
 
 /**
- * Changes the settings of a field. A core field keeps itself required and without a condition
- * whatever the change asks; its labels and help text change freely.
+ * Changes the settings of a field; a key the change sets to `undefined` is removed. A core field
+ * keeps itself required and without a condition whatever the change asks; its labels and help
+ * text change freely.
  */
 export function updateField(
   def: FormDefinition,
@@ -166,6 +189,8 @@ export function updateField(
     fields: s.fields.map((f) => {
       if (f.fieldKey !== fieldKey) return f;
       const next: FormField = { ...f, ...patch };
+      for (const key of Object.keys(patch) as (keyof FormField)[])
+        if (next[key] === undefined) delete next[key];
       if (coreLocks(f).optional) next.required = true;
       if (coreLocks(f).condition) {
         const { show_if: _show, required_if: _required, ...logic } = next.logic ?? {};

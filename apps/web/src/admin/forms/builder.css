@@ -40,3 +40,12 @@
   outline: 2px solid var(--color-brand-primary);
   outline-offset: -2px;
 }
+.form-settings-row {
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+}
+.form-settings-list {
+  margin: 0;
+  padding-left: var(--space-4);
+}

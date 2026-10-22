@@ -419,8 +419,8 @@ describe('who may change what', () => {
     const label = screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ });
     await user.clear(label);
     await user.type(label, 'ধরনটি');
-    await user.clear(screen.getByRole('textbox', { name: 'অপশন 1 (বাংলা)' }));
-    await user.type(screen.getByRole('textbox', { name: 'অপশন 1 (বাংলা)' }), 'খ');
+    await user.clear(screen.getByRole('textbox', { name: /^অপশন 1 \(বাংলা\)/ }));
+    await user.type(screen.getByRole('textbox', { name: /^অপশন 1 \(বাংলা\)/ }), 'খ');
     await waitFor(() => expect(saves.length).toBeGreaterThan(0), { timeout: 4000 });
     const saved = saves.at(-1)!.body.sections.find((s) => s.key === 'extra')!.fields[0]!;
     expect(saved.label.bn).toBe('ধরনটি');

@@ -1,4 +1,4 @@
-import type { FormDefinition, FormField, FormSection } from '@css/shared/forms';
+import type { FormDefinition } from '@css/shared/forms';
 import { localized, type Locale } from '@css/shared/i18n';
 import {
   Alert,
@@ -28,7 +28,6 @@ import {
   moveSection,
   removeField,
   removeSection,
-  updateField,
 } from './draft';
 import { FORMS_KEY, type FormVersion, library, projectForms, versionWithEtag } from './forms-api';
 import { LibraryPane } from './LibraryPane';
@@ -129,10 +128,6 @@ export function FormBuilderPage() {
     setDraft(next);
     save.schedule(next.sections);
   };
-  const onSection = (key: string, patch: Partial<FormSection>) =>
-    change({ sections: draft.sections.map((s) => (s.key === key ? { ...s, ...patch } : s)) });
-  const onField = (key: string, patch: Partial<FormField>) =>
-    change(updateField(draft, key, patch));
   const versionLabel = t(
     isDraft
       ? 'version_draft'
@@ -173,8 +168,9 @@ export function FormBuilderPage() {
       <SettingsPane
         definition={draft}
         selected={selected}
-        onSection={onSection}
-        onField={onField}
+        mode={mode === 'full' ? 'full' : 'texts'}
+        onChange={change}
+        onSelect={setSelected}
       />
     );
 

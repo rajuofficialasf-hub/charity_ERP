@@ -143,6 +143,52 @@ describe('the project own question', () => {
     expect(keysOf(renamed)).toContain('q_work');
   });
 
+  it('places a row question after the last field of its repeat group, and lets options follow an earlier answer', () => {
+    const base = definition(
+      section('family', [
+        field('occupation', 'radio', {
+          options: [option('business'), option('farming')],
+        }),
+        field('earners', 'repeat_group', { settings: { repeat: { min_rows: 0, max_rows: 5 } } }),
+        field('earner_name', 'short_text', { settings: { repeat: { group: 'earners' } } }),
+        field('family_note', 'long_text'),
+      ]),
+    );
+    const inGroup = addOwnQuestion(base, 'family', {
+      type: 'money',
+      label: T('আয়', 'Income'),
+      group: 'earners',
+    });
+    expect(inGroup.definition.sections.at(-1)!.fields.map((f) => f.fieldKey)).toEqual([
+      'occupation',
+      'earners',
+      'earner_name',
+      'q_income',
+      'family_note',
+    ]);
+    expect(inGroup.definition.sections.at(-1)!.fields[3]!.settings).toEqual({
+      repeat: { group: 'earners' },
+    });
+    const branching = addOwnQuestion(inGroup.definition, 'family', {
+      type: 'single_select',
+      label: T('কাজের ধরন', 'Kind of work'),
+      dependsOn: 'occupation',
+      options: [option('shop', { dependsOnOptionCode: 'business' })],
+    });
+    const added = branching.definition.sections.at(-1)!.fields.at(-1)!;
+    expect(added.logic).toEqual({ options_depend_on: 'occupation' });
+    valid(branching.definition);
+    // a group inside a group, or a group the section does not hold, adds nothing
+    expect(
+      addOwnQuestion(base, 'family', { type: 'repeat_group', label: T('দল'), group: 'earners' })
+        .fieldKey,
+    ).toBeNull();
+    expect(
+      addOwnQuestion(base, 'family', { type: 'short_text', label: T('x'), group: 'occupation' })
+        .fieldKey,
+    ).toBeNull();
+  });
+
   it('adds nothing and names no key for a section the form does not have', () => {
     const def = definition();
     const result = addOwnQuestion(def, 'no_such_section', {
