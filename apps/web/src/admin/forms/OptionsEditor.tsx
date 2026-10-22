@@ -34,11 +34,14 @@ export const emptyOption = (options: readonly FieldOption[]): FieldOption => ({
  * branches, the order, and adding or removing options. On a phone only the texts change.
  */
 export function OptionsEditor({
+  heading = true,
   options,
   onChange,
   mode,
   parent,
 }: {
+  /** false inside a group that already shows the title. */
+  heading?: boolean;
   options: readonly FieldOption[];
   onChange: (options: FieldOption[]) => void;
   mode: 'full' | 'texts';
@@ -57,7 +60,7 @@ export function OptionsEditor({
   };
   return (
     <Stack as="section" gap={2} aria-label={t('options')}>
-      <Text weight="bold">{t('options')}</Text>
+      {heading ? <Text weight="bold">{t('options')}</Text> : null}
       {options.map((option, i) => {
         const n = String(i + 1);
         return (

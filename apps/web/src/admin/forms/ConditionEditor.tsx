@@ -25,12 +25,15 @@ import { RowButtons } from './RowButtons';
  */
 export function ConditionEditor({
   title,
+  heading = true,
   definition,
   asker,
   condition,
   onChange,
 }: {
   title: string;
+  /** false inside a dialog that already shows the title. */
+  heading?: boolean;
   definition: FormDefinition;
   asker: Asker;
   condition: Condition | null | undefined;
@@ -45,7 +48,7 @@ export function ConditionEditor({
   if (view.kind === 'complex')
     return (
       <Stack as="section" gap={2} aria-label={title}>
-        <Text weight="bold">{title}</Text>
+        {heading ? <Text weight="bold">{title}</Text> : null}
         <Alert tone="info">{t('cond_complex')}</Alert>
         <Button size="sm" variant="secondary" icon={Trash2} onPress={() => onChange(undefined)}>
           {t('cond_clear')}
@@ -65,7 +68,7 @@ export function ConditionEditor({
 
   return (
     <Stack as="section" gap={2} aria-label={title}>
-      <Text weight="bold">{title}</Text>
+      {heading ? <Text weight="bold">{title}</Text> : null}
       {rows.length === 0 ? <Text tone="muted">{t('cond_hint')}</Text> : null}
       {rows.length > 1 ? (
         <SegmentedControl

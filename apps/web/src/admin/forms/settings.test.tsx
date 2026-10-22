@@ -48,6 +48,16 @@ async function choose(
   await user.click(await screen.findByRole('option', { name: optionName }));
 }
 
+/** Opens a rule's dialog from its group and scopes to the editor inside. */
+const openRules = async (
+  user: ReturnType<typeof userEvent.setup>,
+  button: RegExp,
+  region: string,
+) => {
+  await user.click(await screen.findByRole('button', { name: button }));
+  return within(await screen.findByRole('region', { name: region }));
+};
+
 const fieldOf = (def: FormDefinition, key: string) =>
   def.sections.flatMap((s) => s.fields).find((f) => f.fieldKey === key)!;
 
@@ -63,6 +73,8 @@ describe('the field settings', () => {
       section: 'extra',
       field: 'phone_two',
     });
+    // the rules sit in a closed group
+    await user.click(await screen.findByRole('button', { name: /^উত্তরের নিয়ম/ }));
     await user.click(await screen.findByRole('button', { name: /লেখা যাচাইয়ের নিয়ম/ }));
     const names = (await screen.findAllByRole('option')).map((o) => o.textContent);
     expect(names).toEqual([
@@ -155,7 +167,7 @@ describe('the condition rows', () => {
   it('saves two rows joined by "any" as the engine condition and shows them again', async () => {
     const user = userEvent.setup();
     const view = open(form(), { section: 'money', field: 'loan_note' });
-    const show = within(await screen.findByRole('region', { name: 'কখন দেখাবে' }));
+    const show = await openRules(user, /^শর্ত (ঠিক করুন|বদলান)$/, 'কখন দেখাবে');
     await user.click(show.getByRole('button', { name: 'শর্ত যোগ করুন' }));
     await choose(user, /শর্ত 1: প্রশ্ন/, 'ঋণ আছে?', show);
     await choose(user, /শর্ত 1: মান/, 'হ্যাঁ', show);
@@ -174,7 +186,7 @@ describe('the condition rows', () => {
     // opened again from the saved draft, the rows read the same
     view.unmount();
     open(form({ show_if: condition }), { section: 'money', field: 'loan_note' });
-    const again = within(await screen.findByRole('region', { name: 'কখন দেখাবে' }));
+    const again = await openRules(user, /^শর্ত (ঠিক করুন|বদলান)$/, 'কখন দেখাবে');
     expect(again.getByRole('button', { name: /শর্ত 1: মান/ })).toHaveTextContent('হ্যাঁ');
     expect(again.getByRole('button', { name: /শর্ত 2: তুলনা/ })).toHaveTextContent('বেশি');
     expect(again.getByRole('textbox', { name: 'শর্ত 2: মান' })).toHaveValue('5000');
@@ -194,7 +206,7 @@ describe('the condition rows', () => {
       }),
       { section: 'money', field: 'loan_note' },
     );
-    const show = within(await screen.findByRole('region', { name: 'কখন দেখাবে' }));
+    const show = await openRules(user, /^শর্ত (ঠিক করুন|বদলান)$/, 'কখন দেখাবে');
     expect(show.getByText(/একাধিক স্তর আছে/)).toBeInTheDocument();
     expect(show.queryByRole('button', { name: 'শর্ত যোগ করুন' })).not.toBeInTheDocument();
     await user.click(show.getByRole('button', { name: 'শর্তটি মুছুন' }));
@@ -216,7 +228,7 @@ describe('the calculation terms', () => {
       ),
       { section: 'income', field: 'total' },
     );
-    const calc = within(await screen.findByRole('region', { name: 'হিসাবের নিয়ম' }));
+    const calc = await openRules(user, /^হিসাব (ঠিক করুন|বদলান)$/, 'হিসাবের নিয়ম');
     for (let i = 0; i < 3; i += 1)
       await user.click(calc.getByRole('button', { name: 'পদ যোগ করুন' }));
     await choose(user, /(^|\s)পদ 2$/, 'ব্যবসার আয়', calc);
@@ -241,7 +253,7 @@ describe('the calculation terms', () => {
       ),
       { section: 'family', field: 'family_income' },
     );
-    const calc = within(await screen.findByRole('region', { name: 'হিসাবের নিয়ম' }));
+    const calc = await openRules(user, /^হিসাব (ঠিক করুন|বদলান)$/, 'হিসাবের নিয়ম');
     await user.click(calc.getByRole('button', { name: 'পদ যোগ করুন' }));
     await choose(user, /(^|\s)পদ 1$/, '“উপার্জনকারী”-এর সব সারির “মাসিক আয়”-এর যোগফল', calc);
     expect(fieldOf(latest, 'family_income').calculation).toEqual({
@@ -255,7 +267,7 @@ describe('the calculation terms', () => {
       definition(section('x', [field('n', 'number'), field('calc', 'calculation')])),
       { section: 'x', field: 'calc' },
     );
-    let calc = within(await screen.findByRole('region', { name: 'হিসাবের নিয়ম' }));
+    let calc = await openRules(user, /^হিসাব (ঠিক করুন|বদলান)$/, 'হিসাবের নিয়ম');
     await user.click(calc.getByRole('button', { name: /হিসাবের ধরন/ }));
     expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual([
       'যোগ-বিয়োগ',
@@ -274,7 +286,7 @@ describe('the calculation terms', () => {
       ),
       { section: 'x', field: 'age' },
     );
-    calc = within(await screen.findByRole('region', { name: 'হিসাবের নিয়ম' }));
+    calc = await openRules(user, /^হিসাব (ঠিক করুন|বদলান)$/, 'হিসাবের নিয়ম');
     await choose(user, /হিসাবের ধরন/, 'জন্মতারিখ থেকে বয়স', calc);
     expect(fieldOf(latest, 'age').calculation).toEqual({
       expr: { op: 'age_from_dob', args: [{ field: 'dob' }] },
@@ -298,6 +310,9 @@ it('has no axe violation', async () => {
     ),
     { section: 'extra', field: 'kind' },
   );
-  await screen.findByRole('region', { name: 'কখন দেখাবে' });
+  // the groups with their sentences, and the show-if dialog open over them
+  await screen.findByText('সব সময় দেখাবে।');
   await expectNoAxeViolations(container);
+  await openRules(userEvent.setup(), /^শর্ত ঠিক করুন$/, 'কখন দেখাবে');
+  await expectNoAxeViolations(document.body);
 });

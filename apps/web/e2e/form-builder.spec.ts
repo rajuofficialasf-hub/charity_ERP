@@ -131,11 +131,14 @@ test('a PM builds and publishes a form, an applicant sends it by the link, and v
   await ownQuestion(page, 'আর্থিক অবস্থা', 'সংখ্যা', ['পুরুষ সদস্য', 'Male members']);
   await ownQuestion(page, 'আর্থিক অবস্থা', 'সংখ্যা', ['নারী সদস্য', 'Female members']);
   await ownQuestion(page, 'আর্থিক অবস্থা', 'হিসাব', ['মোট সদস্য', 'All members']);
-  const calc = section(page, 'হিসাবের নিয়ম');
+  await page.getByRole('button', { name: 'হিসাব ঠিক করুন' }).click();
+  const calc = page.getByRole('dialog', { name: 'হিসাবের নিয়ম' });
   await calc.getByRole('button', { name: 'পদ যোগ করুন' }).click();
   await calc.getByRole('button', { name: 'পদ যোগ করুন' }).click();
   await chooseIn(page, calc, 'পদ 1', 'পুরুষ সদস্য');
   await chooseIn(page, calc, 'পদ 2', 'নারী সদস্য');
+  await calc.getByRole('button', { name: 'হয়ে গেছে' }).click();
+  await expect(page.getByText('মোট সদস্য = “পুরুষ সদস্য” + “নারী সদস্য”')).toBeVisible();
   // the keyboard drags too: the second number moves one place up by its handle
   const list = page.getByRole('list', { name: 'আর্থিক অবস্থা', exact: true });
   // dnd-kit measures the rows after the pick-up, so each key waits for its announcement
@@ -160,11 +163,14 @@ test('a PM builds and publishes a form, an applicant sends it by the link, and v
       ['না', 'No'],
     ],
   );
-  const show = section(page, 'কখন দেখাবে');
+  await page.getByRole('button', { name: 'শর্ত ঠিক করুন' }).click();
+  const show = page.getByRole('dialog', { name: 'প্রশ্নটি কখন দেখাবে' });
   await show.getByRole('button', { name: 'শর্ত যোগ করুন' }).click();
   await chooseIn(page, show, 'শর্ত 1: প্রশ্ন', 'পুরুষ সদস্য');
   await chooseIn(page, show, 'শর্ত 1: তুলনা', 'বেশি');
   await show.getByRole('textbox', { name: 'শর্ত 1: মান' }).fill('0');
+  await show.getByRole('button', { name: 'হয়ে গেছে' }).click();
+  await expect(page.getByText('দেখাবে যখন “পুরুষ সদস্য” 0-এর বেশি।')).toBeVisible();
 
   await publish(page, 1);
   // the versions and the link sit in the form-settings tab, the link in a closed group
