@@ -247,7 +247,12 @@
     },
     "published_by": "Published by {name}, {when}",
     "changed_by": "Last changed by {name}, {when}",
-    "changed_at": "Last changed {when}"
+    "changed_at": "Last changed {when}",
+    "count_line": "{sections} sections · {questions} questions",
+    "question_settings": "Question settings",
+    "form_settings": "Form settings",
+    "form_name": "Form name:",
+    "read_only_pane": "This version can only be read; changes go into a new version."
   },
   "types": {
     "short_text": "Short text",

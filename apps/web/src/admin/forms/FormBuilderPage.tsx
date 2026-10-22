@@ -5,6 +5,7 @@ import {
   Badge,
   Button,
   ConfirmDialog,
+  Disclosure,
   EmptyState,
   ErrorState,
   Modal,
@@ -14,6 +15,7 @@ import {
   Text,
 } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Eye, History, Link2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -52,7 +54,6 @@ import { VersionList } from './VersionList';
 import './builder.css';
 
 const PHONE = '(max-width: 767px)';
-const WIDE = '(min-width: 1280px)';
 
 function useMedia(media: string) {
   const [matches, setMatches] = useState(() => window.matchMedia?.(media).matches === true);
@@ -70,8 +71,9 @@ function useMedia(media: string) {
  * The form builder of a project's form (docs/ui/SCREENS.md, "Form builder"): the libraries,
  * the outline and the settings of the chosen part side by side on a computer, the outline alone
  * with text edits on a phone. The draft saves itself; a published version opens read-only. The
- * preview is a tab beside the settings, or a fourth pane from 1280 px; the versions with their
- * change summaries follow the panes, and publishing asks first with the summary.
+ * preview opens from the header in a dialog; the form's name, its versions with their change
+ * summaries and its public link sit in the right pane's second tab; publishing asks first with
+ * the summary.
  */
 export function FormBuilderPage() {
   const { projectId = '', formId = '' } = useParams();
@@ -80,11 +82,13 @@ export function FormBuilderPage() {
   const locale = useLocale() as Locale;
   const { me } = useAuth();
   const phone = useMedia(PHONE);
-  const wide = useMedia(WIDE);
   const queries = useQueryClient();
   // an earlier version opened from the list; otherwise the draft, else the published version
   const [viewing, setViewing] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  // the right pane: the chosen question, or the form itself; choosing a question opens the first
+  const [pane, setPane] = useState<'question' | 'form'>('question');
   const forms = useQuery({
     queryKey: [...FORMS_KEY, projectId],
     queryFn: () => projectForms(projectId),
@@ -124,7 +128,11 @@ export function FormBuilderPage() {
   const next = useMutation({ mutationFn: () => newVersion(formId), onSuccess: afterChange });
   const [draft, setDraft] = useState<FormDefinition | null>(null);
   const [etag, setEtag] = useState<string | undefined>(undefined);
-  const [selected, setSelected] = useState<Selection | null>(null);
+  const [selected, setSelectedOnly] = useState<Selection | null>(null);
+  const setSelected = (next: Selection | null) => {
+    setSelectedOnly(next);
+    if (next) setPane('question');
+  };
   const versionKey = [...FORMS_KEY, 'version', versionId];
   const save = useDraftSave({
     version: read.data?.data,
@@ -236,7 +244,6 @@ export function FormBuilderPage() {
       onRemoveField={(key) => change(removeField(draft, key))}
     />
   );
-  const preview = <PreviewPane definition={draft} />;
   const settings =
     mode === 'read' ? null : (
       <SettingsPane
@@ -251,36 +258,49 @@ export function FormBuilderPage() {
   return (
     <>
       <DocumentTitle title={title} />
-      <div className="admin-title-row">
+      <div className="fb-head">
         <h1 className="admin-title">{title}</h1>
-        <Badge label={versionLabel} />
-        {isDraft && mode !== 'read' ? (
-          <Text tone="muted" aria-live="polite">
-            {saveLabel}
+        <div className="fb-head-meta">
+          <Badge label={versionLabel} />
+          <Text tone="muted">
+            {t('count_line', {
+              sections: String(draft.sections.length),
+              questions: String(draft.sections.reduce((n, s) => n + s.fields.length, 0)),
+            })}
           </Text>
-        ) : null}
-        {canPublish ? (
-          <Button
-            onPress={() => {
-              publish.reset();
-              setPublishing(true);
-            }}
-            // the confirmation lists what changed, so it waits for the versions too
-            disabled={save.state !== 'saved' || !etag || !versions.isSuccess}
-          >
-            {t('publish')}
+          {isDraft && mode !== 'read' ? (
+            <Text tone="muted" aria-live="polite">
+              {saveLabel}
+            </Text>
+          ) : null}
+        </div>
+        <div className="fb-head-actions">
+          {viewing ? (
+            <Button variant="secondary" onPress={() => setViewing(null)}>
+              {t('back_to_current')}
+            </Button>
+          ) : null}
+          <Button variant="secondary" icon={Eye} onPress={() => setPreviewing(true)}>
+            {t('preview')}
           </Button>
-        ) : null}
-        {canStartNext ? (
-          <Button onPress={() => next.mutate()} loading={next.isPending}>
-            {t('new_version')}
-          </Button>
-        ) : null}
-        {viewing ? (
-          <Button variant="secondary" onPress={() => setViewing(null)}>
-            {t('back_to_current')}
-          </Button>
-        ) : null}
+          {canStartNext ? (
+            <Button onPress={() => next.mutate()} loading={next.isPending}>
+              {t('new_version')}
+            </Button>
+          ) : null}
+          {canPublish ? (
+            <Button
+              onPress={() => {
+                publish.reset();
+                setPublishing(true);
+              }}
+              // the confirmation lists what changed, so it waits for the versions too
+              disabled={save.state !== 'saved' || !etag || !versions.isSuccess}
+            >
+              {t('publish')}
+            </Button>
+          ) : null}
+        </div>
       </div>
       {failure ? (
         <Alert tone="danger" live="alert">
@@ -304,58 +324,77 @@ export function FormBuilderPage() {
         </Alert>
       ) : null}
       {phone && isDraft && builder ? <Alert tone="info">{t('phone_note')}</Alert> : null}
-      {phone ? (
-        <Stack gap={3}>
-          {outline}
-          {selected && settings ? <div className="form-builder-pane">{settings}</div> : null}
-        </Stack>
-      ) : (
-        <div className={wide ? 'form-builder-panes has-preview' : 'form-builder-panes'}>
-          {lib.data && builder && isDraft ? (
-            <div className="form-builder-pane">
-              <LibraryPane
-                library={lib.data}
-                fields={fields}
-                definition={draft}
-                editable={mode === 'full'}
-                fieldsEditable={target !== undefined}
-                onAddSection={(s) => change(addLibrarySection(draft, s, fields))}
-                onAddField={(key) => {
-                  if (target) change(addLibraryField(draft, target, fields.get(key) ?? []));
-                }}
-              />
-            </div>
-          ) : null}
-          <div className="form-builder-pane">{outline}</div>
-          <div className="form-builder-pane">
-            <Tabs
-              label={t('settings')}
-              items={[
-                ...(settings ? [{ id: 'settings', label: t('settings'), content: settings }] : []),
-                ...(wide ? [] : [{ id: 'preview', label: t('preview'), content: preview }]),
-              ]}
+      <div className="fb-panes">
+        {!phone && lib.data && builder && isDraft ? (
+          <aside className="fb-side" aria-label={t('library')}>
+            <LibraryPane
+              library={lib.data}
+              fields={fields}
+              definition={draft}
+              editable={mode === 'full'}
+              fieldsEditable={target !== undefined}
+              onAddSection={(s) => change(addLibrarySection(draft, s, fields))}
+              onAddField={(key) => {
+                if (target) change(addLibraryField(draft, target, fields.get(key) ?? []));
+              }}
             />
-          </div>
-          {wide ? <div className="form-builder-pane">{preview}</div> : null}
-        </div>
-      )}
-      {phone ? <div className="form-builder-pane">{preview}</div> : null}
-      <div className="form-builder-pane">
-        <VersionList
-          formId={formId}
-          shown={version.id}
-          canOpen={save.state === 'saved'}
-          onOpen={setViewing}
-        />
+          </aside>
+        ) : null}
+        <div className="fb-canvas">{outline}</div>
+        <aside className="fb-side" aria-label={t('settings')}>
+          <Tabs
+            label={t('settings')}
+            selectedId={pane}
+            onChange={(id) => setPane(id === 'form' ? 'form' : 'question')}
+            items={[
+              {
+                id: 'question',
+                label: t('question_settings'),
+                content: settings ?? <Text tone="muted">{t('read_only_pane')}</Text>,
+              },
+              {
+                id: 'form',
+                label: t('form_settings'),
+                content: (
+                  <Stack gap={3}>
+                    <Text>
+                      <Text as="span" weight="bold">
+                        {t('form_name')}
+                      </Text>{' '}
+                      {title}
+                    </Text>
+                    <Disclosure title={t('versions')} icon={History} headingLevel={2} defaultOpen>
+                      <VersionList
+                        formId={formId}
+                        shown={version.id}
+                        canOpen={save.state === 'saved'}
+                        onOpen={setViewing}
+                      />
+                    </Disclosure>
+                    <Disclosure title={t('link.title')} icon={Link2} headingLevel={2}>
+                      <PublicLinkPanel
+                        projectId={projectId}
+                        formId={formId}
+                        published={Boolean(form?.publishedVersionId)}
+                        canManage={builder}
+                      />
+                    </Disclosure>
+                  </Stack>
+                ),
+              },
+            ]}
+          />
+        </aside>
       </div>
-      <div className="form-builder-pane">
-        <PublicLinkPanel
-          projectId={projectId}
-          formId={formId}
-          published={Boolean(form?.publishedVersionId)}
-          canManage={builder}
-        />
-      </div>
+      <Modal
+        title={t('preview_pane.title')}
+        size="lg"
+        fullOnPhone
+        isOpen={previewing}
+        onClose={() => setPreviewing(false)}
+      >
+        {previewing ? <PreviewPane definition={draft} /> : null}
+      </Modal>
       <ConfirmDialog
         title={t('publish_title', { n: String(version.versionNo) })}
         message={t('publish_message')}

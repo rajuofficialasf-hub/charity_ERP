@@ -247,7 +247,12 @@
     },
     "published_by": "{name} প্রকাশ করেছেন, {when}",
     "changed_by": "শেষ বদল: {name}, {when}",
-    "changed_at": "শেষ বদল: {when}"
+    "changed_at": "শেষ বদল: {when}",
+    "count_line": "{sections}টি অংশ · {questions}টি প্রশ্ন",
+    "question_settings": "প্রশ্নের সেটিং",
+    "form_settings": "ফর্মের সেটিং",
+    "form_name": "ফর্মের নাম:",
+    "read_only_pane": "এই সংস্করণ শুধু দেখা যায়; বদল নতুন সংস্করণে হবে।"
   },
   "types": {
     "short_text": "ছোট লেখা",

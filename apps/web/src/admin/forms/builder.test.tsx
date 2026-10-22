@@ -391,8 +391,7 @@ describe('who may change what', () => {
   it('shows a published version read-only', async () => {
     api({ draft: false });
     open();
-    // the name shows above the panes and in the version list
-    expect(await screen.findAllByText('সংস্করণ 1: প্রকাশিত')).toHaveLength(2);
+    expect(await screen.findByText('সংস্করণ 1: প্রকাশিত')).toBeInTheDocument();
     expect(screen.getByText('এই সংস্করণ প্রকাশিত; বদলানো যায় না।')).toBeInTheDocument();
     expect(screen.queryByRole('checkbox', { name: 'পরিবার ও আয়' })).not.toBeInTheDocument();
   });
