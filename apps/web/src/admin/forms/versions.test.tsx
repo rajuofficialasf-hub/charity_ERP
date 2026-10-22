@@ -289,7 +289,8 @@ describe('publishing', () => {
     expect(await row.findByText('শর্তে এমন একটি ঘরের নাম আছে যা ফর্মে নেই।')).toBeInTheDocument();
     expect(screen.getAllByText('সংস্করণ 2: খসড়া').length).toBeGreaterThan(0);
     // the next edit makes the old messages stale, so they go
-    await user.click(screen.getByRole('button', { name: 'অতিরিক্ত উপরে নিন' }));
+    await user.click(screen.getByRole('button', { name: 'অতিরিক্ত: আরও কাজ' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'অতিরিক্ত উপরে নিন' }));
     await waitFor(() =>
       expect(
         screen.queryByText('শর্তে এমন একটি ঘরের নাম আছে যা ফর্মে নেই।'),

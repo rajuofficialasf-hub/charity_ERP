@@ -205,7 +205,7 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-/** The outline's list of a section's questions. */
+/** The canvas's list of a section's questions. */
 const outlineOf = async (title: string) => within(await screen.findByRole('list', { name: title }));
 
 describe('the outline and the libraries', () => {
@@ -245,6 +245,8 @@ describe('the outline and the libraries', () => {
       ],
     });
     open();
+    // the move buttons belong to the chosen question
+    await user.click(await screen.findByRole('button', { name: 'প্রথম বদলান' }));
     const down = await screen.findByRole('button', { name: 'প্রথম নিচে নিন' });
     down.focus();
     await user.keyboard('{Enter}');
@@ -263,11 +265,65 @@ describe('the outline and the libraries', () => {
   it('marks the core fields locked and offers no remove for them', async () => {
     api();
     open();
+    const user = userEvent.setup();
     const basic = await outlineOf('মৌলিক তথ্য');
     const name = basic.getAllByRole('listitem').find((li) => li.textContent?.includes('name'))!;
     expect(within(name).getByText('আবশ্যক ঘর; সরানো বা লুকানো যায় না')).toBeInTheDocument();
-    expect(within(name).queryByRole('button', { name: /সরান$/ })).not.toBeInTheDocument();
+    // chosen, it offers its moves but neither a copy nor a remove
+    await user.click(within(name).getByRole('button', { name: 'name বদলান' }));
+    expect(within(name).getByRole('button', { name: 'name নিচে নিন' })).toBeInTheDocument();
+    expect(within(name).queryByRole('button', { name: 'name সরান' })).not.toBeInTheDocument();
+    expect(within(name).queryByRole('button', { name: /কপি/ })).not.toBeInTheDocument();
   });
+
+  it('removes a chosen question and brings it back with one press', async () => {
+    const user = userEvent.setup();
+    api({
+      sections: [
+        ...titled({ sections: coreSections() }).sections,
+        section('extra', [field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') })], {
+          title: T('অতিরিক্ত', 'Extra'),
+        }),
+      ],
+    });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    await user.click(screen.getByRole('button', { name: 'মন্তব্য সরান' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'মন্তব্য বদলান' })).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.getByText('এই অংশে এখনো কোনো প্রশ্ন নেই। বাঁ দিক থেকে প্রশ্ন যোগ করুন।'),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'ফেরত আনুন' }));
+    expect(await screen.findByRole('button', { name: 'মন্তব্য বদলান' })).toBeInTheDocument();
+    await waitFor(() => expect(saves.length).toBeGreaterThan(0), { timeout: 4000 });
+    expect(saves.at(-1)!.body.sections.find((s) => s.key === 'extra')!.fields).toHaveLength(1);
+  }, 15_000);
+
+  it("copies a chosen question right after it as one of the project's own", async () => {
+    const user = userEvent.setup();
+    api({
+      sections: [
+        ...titled({ sections: coreSections() }).sections,
+        section('extra', [field('q_note', 'short_text', { label: T('মন্তব্য', 'Note') })], {
+          title: T('অতিরিক্ত', 'Extra'),
+        }),
+      ],
+    });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'মন্তব্য বদলান' }));
+    await user.click(screen.getByRole('button', { name: 'মন্তব্য কপি করুন' }));
+    const list = await outlineOf('অতিরিক্ত');
+    expect(list.getAllByRole('listitem')).toHaveLength(2);
+    expect(list.getByRole('button', { name: 'মন্তব্য (কপি) বদলান' })).toBeInTheDocument();
+    await waitFor(() => expect(saves.length).toBeGreaterThan(0), { timeout: 4000 });
+    const keys = saves
+      .at(-1)!
+      .body.sections.find((s) => s.key === 'extra')!
+      .fields.map((f) => f.fieldKey);
+    expect(keys).toEqual(['q_note', 'q_note_copy']);
+  }, 15_000);
 
   it('finds a library field by its label', async () => {
     const user = userEvent.setup();
@@ -347,6 +403,7 @@ describe('saving', () => {
     expect(await screen.findByRole('list', { name: 'পরিবার ও আয়' })).toBeInTheDocument();
     // the builder opened from what it saved, without asking the server again
     expect(versionReads).toBe(1);
+    await user.click(screen.getByRole('button', { name: '১৪ বছরের বেশি সদস্য বদলান' }));
     await user.click(screen.getByRole('button', { name: '১৪ বছরের বেশি সদস্য নিচে নিন' }));
     await waitFor(() => expect(saves).toHaveLength(2), { timeout: 4000 });
     expect(saves[1]!.ifMatch).toBe('"v2"');

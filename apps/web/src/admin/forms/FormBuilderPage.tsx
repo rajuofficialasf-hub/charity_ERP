@@ -26,11 +26,9 @@ import { canBuildForms } from '../roles';
 import {
   addLibraryField,
   addLibrarySection,
+  duplicateField,
   type LibraryFields,
-  moveField,
-  moveSection,
   removeField,
-  removeSection,
 } from './draft';
 import { useChangeSentences } from './ChangeSummary';
 import {
@@ -44,8 +42,9 @@ import {
   publishVersion,
   versionWithEtag,
 } from './forms-api';
+import { FormCanvas } from './FormCanvas';
 import { LibraryPane } from './LibraryPane';
-import { type OutlineMode, OutlinePane, type Selection } from './OutlinePane';
+import type { BuilderMode, Selection } from './selection';
 import { PreviewPane } from './PreviewPane';
 import { PublicLinkPanel } from './PublicLinkPanel';
 import { SettingsPane } from './SettingsPane';
@@ -87,6 +86,8 @@ export function FormBuilderPage() {
   const [viewing, setViewing] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [previewing, setPreviewing] = useState(false);
+  // the draft before the last removal, so one press brings the question back
+  const [undo, setUndo] = useState<{ definition: FormDefinition; label: string } | null>(null);
   // the right pane: the chosen question, or the form itself; choosing a question opens the first
   const [pane, setPane] = useState<'question' | 'form'>('question');
   const forms = useQuery({
@@ -189,7 +190,7 @@ export function FormBuilderPage() {
   const version = read.data.data;
   const builder = Boolean(me && canBuildForms(me));
   const isDraft = version.status === 'draft';
-  const mode: OutlineMode =
+  const mode: BuilderMode =
     !builder || !isDraft || save.refused ? 'read' : phone ? 'texts' : 'full';
   const change = (next: FormDefinition) => {
     if (next === draft || mode === 'read') return;
@@ -197,6 +198,20 @@ export function FormBuilderPage() {
     if (publish.error) publish.reset();
     setDraft(next);
     save.schedule(next.sections);
+  };
+  const remove = (fieldKey: string) => {
+    const field = draft.sections.flatMap((s) => s.fields).find((f) => f.fieldKey === fieldKey);
+    const next = removeField(draft, fieldKey);
+    if (!field || next === draft) return;
+    setUndo({ definition: draft, label: field.label[locale] });
+    setSelected(null);
+    change(next);
+  };
+  const copy = (fieldKey: string) => {
+    const made = duplicateField(draft, fieldKey, { bn: t('copy_mark_bn'), en: t('copy_mark_en') });
+    if (!made.fieldKey) return;
+    change(made.definition);
+    setSelected({ section: selected?.section ?? draft.sections[0]!.key, field: made.fieldKey });
   };
   const versionLabel = t(
     isDraft
@@ -232,16 +247,19 @@ export function FormBuilderPage() {
   );
 
   const outline = (
-    <OutlinePane
+    <FormCanvas
       definition={draft}
       mode={mode}
       errors={errors}
       selected={selected}
       onSelect={setSelected}
-      onMoveSection={(key, dir) => change(moveSection(draft, key, dir))}
-      onMoveField={(section, field, dir) => change(moveField(draft, section, field, dir))}
-      onRemoveSection={(key) => change(removeSection(draft, key))}
-      onRemoveField={(key) => change(removeField(draft, key))}
+      onChange={(next) => {
+        setUndo(null);
+        change(next);
+      }}
+      onRemoveField={remove}
+      onCopyField={copy}
+      onAddTo={(sectionKey) => setSelected({ section: sectionKey })}
     />
   );
   const settings =
@@ -324,6 +342,26 @@ export function FormBuilderPage() {
         </Alert>
       ) : null}
       {phone && isDraft && builder ? <Alert tone="info">{t('phone_note')}</Alert> : null}
+      {undo ? (
+        <Alert
+          tone="info"
+          live="status"
+          action={
+            <Button
+              size="sm"
+              variant="secondary"
+              onPress={() => {
+                change(undo.definition);
+                setUndo(null);
+              }}
+            >
+              {t('undo')}
+            </Button>
+          }
+        >
+          {t('removed', { label: undo.label })}
+        </Alert>
+      ) : null}
       <div className="fb-panes">
         {!phone && lib.data && builder && isDraft ? (
           <aside className="fb-side" aria-label={t('library')}>

@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { ME, refreshAs, renderApp } from '../../../test/auth';
 import { definition, field, option, section, T } from '../../../test/forms';
 import { resetClientForTests } from '../../lib/api';
-import type { Selection } from './OutlinePane';
+import type { Selection } from './selection';
 import { SettingsPane } from './SettingsPane';
 
 // The settings pane of the form builder: the project's own questions, the options and their

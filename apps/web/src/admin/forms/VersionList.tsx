@@ -52,7 +52,7 @@ export function VersionList({
   return (
     <Stack as="section" gap={3} aria-label={t('versions')}>
       <Text weight="bold">{t('versions')}</Text>
-      <ul className="form-outline-list" aria-label={t('versions')}>
+      <ul className="fb-version-list" aria-label={t('versions')}>
         {ordered.map((v) => {
           const name = t(
             v.status === 'draft'

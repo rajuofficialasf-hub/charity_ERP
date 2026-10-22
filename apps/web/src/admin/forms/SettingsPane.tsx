@@ -25,7 +25,7 @@ import {
   setSectionVisibility,
   updateField,
 } from './draft';
-import type { Selection } from './OutlinePane';
+import type { Selection } from './selection';
 import { OptionsEditor } from './OptionsEditor';
 import { OwnQuestionDialog } from './OwnQuestionDialog';
 import { parentCandidates } from './candidates';

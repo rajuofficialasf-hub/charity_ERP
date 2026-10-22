@@ -6,7 +6,9 @@ import {
   addLibrarySection,
   addOwnQuestion,
   coreLocks,
+  duplicateField,
   moveField,
+  moveFieldTo,
   moveSection,
   setOptions,
   removeField,
@@ -207,6 +209,51 @@ describe('the project own question', () => {
     const kinds = next.sections.at(-1)!.fields[1]!.options!;
     expect(kinds.map((o) => o.dependsOnOptionCode)).toEqual([null, 'farming']);
     valid(next);
+  });
+
+  it('moves a question to a place in another section, a group with its members, a core question not out of its section', () => {
+    const def = definition(
+      section('one', [
+        field('a', 'number'),
+        field('g', 'repeat_group'),
+        field('m', 'short_text', { settings: { repeat: { group: 'g' } } }),
+        field('b', 'number'),
+      ]),
+      section('two', [field('c', 'number')]),
+    );
+    const moved = moveFieldTo(def, 'g', 'two', 0);
+    expect(moved.sections.at(-2)!.fields.map((f) => f.fieldKey)).toEqual(['a', 'b']);
+    expect(moved.sections.at(-1)!.fields.map((f) => f.fieldKey)).toEqual(['g', 'm', 'c']);
+    valid(moved);
+    // inside one section the index counts blocks, so b goes before the group
+    const within = moveFieldTo(def, 'b', 'one', 1);
+    expect(within.sections.at(-2)!.fields.map((f) => f.fieldKey)).toEqual(['a', 'b', 'g', 'm']);
+    // the same place is no change; a member and a core question stay where they are
+    expect(moveFieldTo(def, 'a', 'one', 0)).toBe(def);
+    expect(moveFieldTo(def, 'm', 'two', 0)).toBe(def);
+    expect(moveFieldTo(def, 'name', 'two', 0)).toBe(def);
+  });
+
+  it('copies a question after itself with a marked label and a key of its own', () => {
+    const def = definition(
+      section('one', [
+        field('q_note', 'radio', { label: T('মন্তব্য', 'Note'), options: [option('a')] }),
+        field('g', 'repeat_group'),
+      ]),
+    );
+    const made = duplicateField(def, 'q_note', { bn: '(কপি)', en: '(copy)' });
+    expect(made.fieldKey).toBe('q_note_copy');
+    const [first, second] = made.definition.sections.at(-1)!.fields;
+    expect(second).toMatchObject({
+      fieldKey: 'q_note_copy',
+      libraryFieldKey: null,
+      standardColumn: null,
+      label: { bn: 'মন্তব্য (কপি)', en: 'Note (copy)' },
+      options: first!.options,
+    });
+    valid(made.definition);
+    expect(duplicateField(def, 'g', { bn: '(কপি)', en: '(copy)' }).fieldKey).toBeNull();
+    expect(duplicateField(def, 'name', { bn: '(কপি)', en: '(copy)' }).fieldKey).toBeNull();
   });
 
   it('adds nothing and names no key for a section the form does not have', () => {

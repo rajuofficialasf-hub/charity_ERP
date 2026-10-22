@@ -333,3 +333,77 @@ export function moveField(
     return { ...s, fields: blocks.flat() };
   });
 }
+
+/**
+ * Moves a field to a place in a section: `index` counts the blocks of that section (a repeat
+ * group with its members is one block), and a field dropped on its own place stays. A core field
+ * never leaves its section, and a member of a repeat group moves only inside its group.
+ */
+export function moveFieldTo(
+  def: FormDefinition,
+  fieldKey: string,
+  sectionKey: string,
+  index: number,
+): FormDefinition {
+  const from = def.sections.find((s) => s.fields.some((f) => f.fieldKey === fieldKey));
+  const to = def.sections.find((s) => s.key === sectionKey);
+  const field = from?.fields.find((f) => f.fieldKey === fieldKey);
+  if (!from || !to || !field) return def;
+  if (groupOf(field) !== undefined) return def;
+  if (coreLocks(field).remove && from.key !== to.key) return def;
+  const block = from.fields.filter((f) => f.fieldKey === fieldKey || groupOf(f) === fieldKey);
+  const without = (fields: readonly FormField[]) => fields.filter((f) => !block.includes(f));
+  const place = (fields: readonly FormField[]) => {
+    const blocks = blocksOf(fields);
+    const at = Math.max(0, Math.min(index, blocks.length));
+    return [...blocks.slice(0, at).flat(), ...block, ...blocks.slice(at).flat()];
+  };
+  if (from.key === to.key) {
+    const next = place(without(from.fields));
+    if (next.every((f, i) => f === from.fields[i])) return def;
+    return withSection(def, from.key, (s) => ({ ...s, fields: next }));
+  }
+  return {
+    sections: def.sections.map((s) =>
+      s.key === from.key
+        ? { ...s, fields: without(s.fields) }
+        : s.key === to.key
+          ? { ...s, fields: place(s.fields) }
+          : s,
+    ),
+  };
+}
+
+/**
+ * Copies a question right after itself as one of the project's own, with the label marked as a
+ * copy in both languages and a key of its own; its options, settings, logic and calculation come
+ * along. A core field, a repeat group and a member of one are not copied.
+ */
+export function duplicateField(
+  def: FormDefinition,
+  fieldKey: string,
+  mark: { bn: string; en: string },
+): { definition: FormDefinition; fieldKey: string | null } {
+  const section = def.sections.find((s) => s.fields.some((f) => f.fieldKey === fieldKey));
+  const field = section?.fields.find((f) => f.fieldKey === fieldKey);
+  if (!section || !field || coreLocks(field).remove) return { definition: def, fieldKey: null };
+  if (field.type === 'repeat_group' || groupOf(field) !== undefined)
+    return { definition: def, fieldKey: null };
+  const label = { bn: `${field.label.bn} ${mark.bn}`, en: `${field.label.en} ${mark.en}` };
+  const key = ownQuestionKey(def, label.en);
+  const copy: FormField = {
+    ...structuredClone(field),
+    fieldKey: key,
+    libraryFieldKey: null,
+    standardColumn: null,
+    label,
+  };
+  const index = section.fields.indexOf(field);
+  return {
+    definition: withSection(def, section.key, (s) => ({
+      ...s,
+      fields: [...s.fields.slice(0, index + 1), copy, ...s.fields.slice(index + 1)],
+    })),
+    fieldKey: key,
+  };
+}
