@@ -444,6 +444,128 @@ describe('the position, uploads and notes', () => {
   }, 20_000);
 });
 
+describe('what goes wrong', () => {
+  it('drops the stored copy when the person empties the answers again', async () => {
+    const user = userEvent.setup();
+    open([], { storageKey: 'form-empty' });
+    const name = screen.getByRole('textbox', { name: /^name/ });
+    await user.type(name, 'ক');
+    await waitFor(() => expect(sessionStorage.getItem('form-empty')).not.toBeNull());
+    await user.clear(name);
+    await waitFor(() => expect(sessionStorage.getItem('form-empty')).toBeNull());
+  });
+
+  it('stores an added repeat row although nothing is typed in it yet', async () => {
+    const user = userEvent.setup();
+    open(
+      [
+        section('earners_part', [
+          bilingual('earners', 'আয়কারী', 'Earners', 'repeat_group', {
+            settings: { repeat: { max_rows: 3 } },
+          }),
+          bilingual('earner_name', 'আয়কারীর নাম', "Earner's name", 'short_text', {
+            settings: { repeat: { group: 'earners' } },
+          }),
+        ]),
+      ],
+      { storageKey: 'form-rows' },
+    );
+    await user.click(screen.getByRole('button', { name: 'আরেকটি যোগ করুন' }));
+    await waitFor(() =>
+      expect(JSON.parse(sessionStorage.getItem('form-rows') ?? '{}')).toMatchObject({
+        rows: { earners: 1 },
+      }),
+    );
+  });
+
+  it('keeps the answers and the client id when the send fails, and shows the message', async () => {
+    const user = userEvent.setup();
+    const sent: Submission[] = [];
+    let fail = true;
+    const onSubmit = vi.fn(async (s: Submission) => {
+      sent.push(s);
+      if (fail) throw new Error('এখন পাঠানো যাচ্ছে না।');
+    });
+    open([], { storageKey: 'form-fail', onSubmit });
+    await fillCore(user);
+    await user.click(screen.getByRole('button', { name: 'পাঠান' }));
+    expect(await screen.findByText('এখন পাঠানো যাচ্ছে না।')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /^name/ })).toHaveValue('নমুনা');
+    expect(sessionStorage.getItem('form-fail')).not.toBeNull();
+    fail = false;
+    await user.click(screen.getByRole('button', { name: 'পাঠান' }));
+    await waitFor(() => expect(sent).toHaveLength(2));
+    expect(sent[1]!.clientUuid).toBe(sent[0]!.clientUuid);
+  }, 20_000);
+
+  it('shows the address empty again once the form was sent', async () => {
+    const user = userEvent.setup();
+    open([]);
+    await fillCore(user);
+    await user.click(screen.getByRole('button', { name: 'পাঠান' }));
+    await waitFor(() => expect(screen.getByRole('textbox', { name: /^name/ })).toHaveValue(''));
+    expect(screen.getByRole('button', { name: level('জেলা') })).toBeDisabled();
+  }, 20_000);
+
+  it('waits for a photo still going up before it sends, and names a refused photo', async () => {
+    const user = userEvent.setup();
+    let finish: (v: { fileId: string }) => void = () => undefined;
+    const upload = vi
+      .fn()
+      .mockImplementationOnce(() => new Promise<{ fileId: string }>((ok) => (finish = ok)))
+      .mockImplementationOnce(() => Promise.reject(new Error('refused')));
+    const { onSubmit } = open(
+      [section('files', [bilingual('house_photo', 'ঘরের ছবি', 'House photo', 'photo')])],
+      {
+        upload: {
+          upload,
+          accept: ['image/jpeg'],
+          maxSize: 5 * 1024 * 1024,
+          maxFiles: 5,
+          reasonOf: () => 'ছবিটি নেওয়া হয়নি।',
+        },
+      },
+    );
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+    await user.upload(input, new File(['jpeg'], 'one.jpg', { type: 'image/jpeg' }));
+    await fillCore(user);
+    await user.click(screen.getByRole('button', { name: 'পাঠান' }));
+    expect(await screen.findByText('ছবি ওঠা শেষ হওয়া পর্যন্ত অপেক্ষা করুন।')).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+    finish({ fileId: '01900000-0000-7000-8000-0000000000f2' });
+    await user.upload(input, new File(['jpeg'], 'two.jpg', { type: 'image/jpeg' }));
+    expect(await screen.findByText('ছবিটি নেওয়া হয়নি।')).toBeInTheDocument();
+  }, 20_000);
+
+  it('says the location cannot be found when the device gives none', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      geolocation: {
+        getCurrentPosition: (_ok: PositionCallback, fail: PositionErrorCallback) =>
+          fail({ code: 2, PERMISSION_DENIED: 1 } as GeolocationPositionError),
+      },
+    });
+    open([section('place', [bilingual('home_gps', 'বাড়ির অবস্থান', 'Home location', 'gps')])]);
+    await user.click(screen.getByRole('button', { name: 'আমার অবস্থান নিন' }));
+    expect(await screen.findByText(/এখন অবস্থান পাওয়া যাচ্ছে না/)).toBeInTheDocument();
+  });
+
+  it('shows the server message under its question until the person changes the answer', async () => {
+    const user = userEvent.setup();
+    open([], { serverErrors: { mobile: 'এই নম্বরটি দেওয়া যাবে না।' } });
+    expect(screen.getByText('এই নম্বরটি দেওয়া যাবে না।')).toBeInTheDocument();
+    await user.type(screen.getByRole('textbox', { name: /^mobile/ }), '0');
+    expect(screen.queryByText('এই নম্বরটি দেওয়া যাবে না।')).not.toBeInTheDocument();
+  });
+
+  it('starts afresh from a stored copy that is not a copy of answers', () => {
+    sessionStorage.setItem('form-bad', JSON.stringify({ clientUuid: 'x', answers: 'no' }));
+    open([], { storageKey: 'form-bad' });
+    expect(screen.getByRole('textbox', { name: /^name/ })).toHaveValue('');
+  });
+});
+
 describe('accessibility', () => {
   it('has no axe violation in Bengali and English, on one page and by part', async () => {
     for (const [locale, layout] of [

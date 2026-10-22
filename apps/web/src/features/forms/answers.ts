@@ -1,5 +1,6 @@
 import type { AnswerValue } from '@css/shared';
 import type { Answer } from '@css/shared/forms';
+import { z } from 'zod';
 
 /**
  * The answers of a form being filled, in the engine's own shape (one entry per field and repeat
@@ -12,6 +13,11 @@ export interface FormAnswers {
   /** Repeat group key → rows shown, including rows nobody has typed in yet. */
   rows: Record<string, number>;
   step: number;
+  /**
+   * Grows each time answers are replaced underneath the inputs (a row removed, a form sent), so
+   * the inputs that hold a half-made choice of their own start again from the answers.
+   */
+  generation: number;
 }
 
 const rowOf = (a: Answer) => a.repeatIndex ?? 0;
@@ -52,35 +58,29 @@ export function removeRow(
     ...state,
     answers,
     rows: { ...state.rows, [group]: Math.max(0, (state.rows[group] ?? 0) - 1) },
+    generation: state.generation + 1,
   };
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v);
-const isCount = (v: unknown) => Number.isInteger(v) && (v as number) >= 0;
+const storedSchema = z.object({
+  clientUuid: z.uuid(),
+  answers: z.array(
+    z.object({
+      fieldKey: z.string().min(1),
+      repeatIndex: z.number().int().min(0).optional(),
+      // the value's own rules are the engine's, which checks it before anything is sent
+      value: z.looseObject({ t: z.string() }),
+    }),
+  ),
+  rows: z.record(z.string(), z.number().int().min(0)),
+  step: z.number().int().min(0),
+  generation: z.number().int().min(0).optional(),
+});
 
-/**
- * A stored copy of the answers, or null when it does not look like one; the values themselves are
- * checked by the engine before anything is sent.
- */
+/** A stored copy of the answers, or null when it does not look like one. */
 export function storedAnswersOf(raw: unknown): FormAnswers | null {
-  if (!isRecord(raw) || typeof raw.clientUuid !== 'string' || !UUID.test(raw.clientUuid))
-    return null;
-  if (!Array.isArray(raw.answers) || !isRecord(raw.rows) || !isCount(raw.step)) return null;
-  const answers = raw.answers.filter(
-    (a): a is Answer =>
-      isRecord(a) &&
-      typeof a.fieldKey === 'string' &&
-      (a.repeatIndex === undefined || isCount(a.repeatIndex)) &&
-      isRecord(a.value) &&
-      typeof a.value.t === 'string',
-  );
-  if (answers.length !== raw.answers.length || !Object.values(raw.rows).every(isCount)) return null;
-  return {
-    clientUuid: raw.clientUuid,
-    answers,
-    rows: raw.rows as Record<string, number>,
-    step: raw.step as number,
-  };
+  const parsed = storedSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  const { generation = 0, answers, ...rest } = parsed.data;
+  return { ...rest, generation, answers: answers as Answer[] };
 }

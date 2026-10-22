@@ -30,14 +30,15 @@ export interface FieldInputProps {
   error?: string;
   onChange: (value: AnswerValue | null) => void;
   upload?: UploadAdapter;
+  /** Told while a file of this question is still going up. */
+  onUploading?: (busy: boolean) => void;
   /** Nisab comparisons show no value where the nisab is not known (the public page). */
   nisabKnown: boolean;
 }
 
-const text = (value: AnswerValue | undefined) =>
-  value && 'v' in value && typeof value.v === 'string' ? value.v : '';
 const choice = (value: AnswerValue | undefined) =>
   value && 'v' in value && typeof value.v === 'string' ? value.v : null;
+const text = (value: AnswerValue | undefined) => choice(value) ?? '';
 const choices = (value: AnswerValue | undefined) =>
   value && 'v' in value && Array.isArray(value.v) ? (value.v as string[]) : [];
 const other = (value: AnswerValue | undefined) =>
@@ -53,6 +54,7 @@ export function FieldInput({
   error,
   onChange,
   upload,
+  onUploading,
   nisabKnown,
 }: FieldInputProps) {
   const t = useTranslations('forms.renderer');
@@ -187,8 +189,9 @@ export function FieldInput({
           type={field.type}
           fieldKey={field.fieldKey}
           helper={field.type === 'signature' ? (help ?? t('signature_helper')) : help}
-          fileIds={value && 'v' in value && Array.isArray(value.v) ? (value.v as string[]) : []}
+          fileIds={choices(value)}
           adapter={upload}
+          onUploading={onUploading}
           onChange={(ids) => onChange(ids.length ? { t: field.type as 'photo', v: ids } : null)}
         />
       );

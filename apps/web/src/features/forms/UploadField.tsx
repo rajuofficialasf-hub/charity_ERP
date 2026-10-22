@@ -1,5 +1,5 @@
 import { FileUpload, Stack, Text, type UploadItem } from '@css/ui';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslations } from 'use-intl';
 import type { UploadAdapter } from './upload-adapter';
 
@@ -18,6 +18,7 @@ export function UploadField({
   fileIds,
   adapter,
   onChange,
+  onUploading,
 }: {
   type: 'photo' | 'file' | 'signature';
   fieldKey: string;
@@ -28,11 +29,13 @@ export function UploadField({
   fileIds: string[];
   adapter?: UploadAdapter;
   onChange: (fileIds: string[]) => void;
+  onUploading?: (busy: boolean) => void;
 }) {
   const t = useTranslations('forms.renderer');
   const [items, setItems] = useState<UploadItem[]>(() =>
     fileIds.map((id, i) => ({ id, name: `${label} ${i + 1}`, state: 'ready', removable: true })),
   );
+  const current = useRef(items);
   if (!adapter)
     return (
       <Stack gap={1}>
@@ -41,30 +44,37 @@ export function UploadField({
       </Stack>
     );
   const done = (list: UploadItem[]) => list.filter((i) => i.state === 'ready').map((i) => i.id);
+  // the list changes through this one function, so the answer and the busy flag follow it
+  // without side effects inside a state update
+  const update = (change: (list: UploadItem[]) => UploadItem[]) => {
+    const next = change(current.current);
+    current.current = next;
+    setItems(next);
+    onChange(done(next));
+    onUploading?.(next.some((i) => i.state === 'uploading'));
+  };
   const add = (files: File[]) => {
     for (const file of files) {
       const temp = `local-${crypto.randomUUID()}`;
-      setItems((list) => [
+      update((list) => [
         ...list,
         { id: temp, name: file.name, state: 'uploading', removable: false },
       ]);
       adapter.upload(file, fieldKey).then(
         ({ fileId }) =>
-          setItems((list) => {
-            const next = list.map((i) =>
+          update((list) =>
+            list.map((i) =>
               i.id === temp ? { ...i, id: fileId, state: 'ready' as const, removable: true } : i,
-            );
-            onChange(done(next));
-            return next;
-          }),
+            ),
+          ),
         (reason: unknown) =>
-          setItems((list) =>
+          update((list) =>
             list.map((i) =>
               i.id === temp
                 ? {
                     ...i,
                     state: 'failed' as const,
-                    reason: adapter.reasonOf?.(reason),
+                    reason: adapter.reasonOf?.(reason) ?? t('upload_failed'),
                     removable: true,
                   }
                 : i,
@@ -86,13 +96,7 @@ export function UploadField({
       maxFiles={adapter.maxFiles}
       value={items}
       onAdd={add}
-      onRemove={(id) =>
-        setItems((list) => {
-          const next = list.filter((i) => i.id !== id);
-          onChange(done(next));
-          return next;
-        })
-      }
+      onRemove={(id) => update((list) => list.filter((i) => i.id !== id))}
     />
   );
 }

@@ -11,7 +11,7 @@ import {
 import type { AnswerValue } from '@css/shared';
 import { formatCount } from '@css/shared/format';
 import { Alert, Button, Stack, Stepper, Text } from '@css/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { removeRow, setAnswer, answerOf } from './answers';
 import { FieldInput } from './FieldInput';
@@ -33,19 +33,28 @@ export interface RendererProps {
   /** Today in Dhaka, `yyyy-mm-dd`, for ages. */
   today: string;
   nisabValue?: string;
-  /** Where the answers wait in the tab; without it nothing is stored. */
+  /**
+   * Where the answers wait in the tab; without it nothing is stored. The screen names in it whose
+   * answers they are and the form version they belong to, so another person or a newer version
+   * never finds them.
+   */
   storageKey?: string;
   upload?: UploadAdapter;
   /** One part per screen (a phone), the whole form on one page, or by the width of the screen. */
   layout?: 'steps' | 'page' | 'auto';
   submitLabel?: string;
-  /** Sends the form; an error it throws is shown by the screen, and the answers stay. */
+  /**
+   * Sends the form. When it throws, the answers and the client id stay for the next try and the
+   * error's message is shown above the form (a screen throws an Error with the text to show).
+   */
   onSubmit?: (submission: Submission) => Promise<void>;
   /** Messages the server gave for named questions after a send. */
   serverErrors?: Record<string, string>;
 }
 
 const PHONE = '(max-width: 767px)';
+/** One empty set of server messages, so a screen that passes none keeps the same object. */
+const NO_ERRORS: Record<string, string> = {};
 
 /** The key a path names: `key` or `key[row]`. */
 const keyOf = (path: string) => path.replace(/\[\d+\]$/, '');
@@ -80,7 +89,7 @@ export function FormRenderer({
   layout = 'auto',
   submitLabel,
   onSubmit,
-  serverErrors = {},
+  serverErrors = NO_ERRORS,
 }: RendererProps) {
   const t = useTranslations('forms.renderer');
   const te = useTranslations('errors');
@@ -110,11 +119,22 @@ export function FormRenderer({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [summary, setSummary] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const sendingNow = useRef(false);
+  const [uploading, setUploading] = useState<ReadonlySet<string>>(new Set());
+  // a server message stands until the person changes that answer, or a new send brings new ones
+  const [edited, setEdited] = useState<ReadonlySet<string>>(new Set());
+  const [seenServer, setSeenServer] = useState(serverErrors);
+  if (seenServer !== serverErrors) {
+    setSeenServer(serverErrors);
+    setEdited(new Set());
+  }
 
   const visible = form.sections.filter((s) => evaluation.sections[s.key] !== false);
   const step = Math.min(state.step, Math.max(0, visible.length - 1));
   const shown = phone ? visible.slice(step, step + 1) : visible;
-  const allErrors = { ...errors, ...serverErrors };
+  const allErrors: Record<string, string> = { ...errors };
+  for (const [path, message] of Object.entries(serverErrors))
+    if (!edited.has(path) && !allErrors[path]) allErrors[path] = message;
 
   const messageOf = (code: string, params?: Record<string, unknown>) => {
     const key = code as Parameters<typeof te>[0];
@@ -135,9 +155,11 @@ export function FormRenderer({
     setState((s) => setAnswer(s, field.fieldKey, row, inGroup, value));
     const path = fieldPath(field.fieldKey, row, inGroup);
     if (errors[path]) setErrors(({ [path]: _gone, ...rest }) => rest);
+    if (path in serverErrors) setEdited((set) => new Set(set).add(path));
   };
 
   const next = () => {
+    if (uploading.size) return setSummary(t('upload_wait'));
     const found = problemsIn(shown);
     if (Object.keys(found).length) {
       setErrors(found);
@@ -153,6 +175,8 @@ export function FormRenderer({
     setState((s) => ({ ...s, step: Math.max(0, step - 1) }));
   };
   const send = async () => {
+    if (sendingNow.current) return;
+    if (uploading.size) return setSummary(t('upload_wait'));
     const result = validate(form, state.answers, { audience, ...context });
     if (!result.ok) {
       const found: Record<string, string> = {};
@@ -169,11 +193,15 @@ export function FormRenderer({
     if (!onSubmit) return;
     setErrors({});
     setSummary(null);
+    sendingNow.current = true;
     setSending(true);
     try {
       await onSubmit({ answers: result.answers, clientUuid: state.clientUuid });
       clear();
+    } catch (error) {
+      setSummary(error instanceof Error && error.message ? error.message : t('send_failed'));
     } finally {
+      sendingNow.current = false;
       setSending(false);
     }
   };
@@ -189,7 +217,7 @@ export function FormRenderer({
     if (!fieldState.visible) return null;
     return (
       <FieldInput
-        key={path}
+        key={`${path}:${state.generation}`}
         id={`field-${path}`}
         field={field}
         state={fieldState}
@@ -198,6 +226,14 @@ export function FormRenderer({
         error={allErrors[path]}
         onChange={(value) => change(field, row, inGroup, value)}
         upload={upload}
+        onUploading={(busy) =>
+          setUploading((set) => {
+            const next = new Set(set);
+            if (busy) next.add(path);
+            else next.delete(path);
+            return next;
+          })
+        }
         nisabKnown={nisabValue !== undefined}
       />
     );

@@ -15,14 +15,15 @@ export function useFormAnswers(
   const [state, setState] = useState<FormAnswers>(() => read(storageKey) ?? fresh(initialRows));
 
   useEffect(() => {
-    // an untouched form leaves nothing behind, also right after it was sent
-    if (!storageKey || (state.answers.length === 0 && state.step === 0)) return;
+    if (!storageKey) return;
     try {
-      sessionStorage.setItem(storageKey, JSON.stringify(state));
+      // an untouched form leaves nothing behind: emptied again, or just sent
+      if (untouched(state, initialRows)) sessionStorage.removeItem(storageKey);
+      else sessionStorage.setItem(storageKey, JSON.stringify(state));
     } catch {
       // a full or blocked storage only loses the reload copy; the form keeps working
     }
-  }, [storageKey, state]);
+  }, [storageKey, state, initialRows]);
 
   /** Clears the stored copy and starts again with a new client id. */
   const clear = useCallback(() => {
@@ -32,15 +33,20 @@ export function useFormAnswers(
       } catch {
         // nothing stored, nothing to clear
       }
-    setState(fresh(initialRows));
+    setState((s) => ({ ...fresh(initialRows), generation: s.generation + 1 }));
   }, [storageKey, initialRows]);
 
   return { state, setState, clear };
 }
 
 function fresh(rows: Record<string, number>): FormAnswers {
-  return { clientUuid: uuidv7(), answers: [], rows: { ...rows }, step: 0 };
+  return { clientUuid: uuidv7(), answers: [], rows: { ...rows }, step: 0, generation: 0 };
 }
+
+const untouched = (state: FormAnswers, rows: Record<string, number>) =>
+  state.answers.length === 0 &&
+  state.step === 0 &&
+  Object.entries(state.rows).every(([group, n]) => n === (rows[group] ?? 0));
 
 function read(storageKey: string | undefined): FormAnswers | null {
   if (!storageKey) return null;
