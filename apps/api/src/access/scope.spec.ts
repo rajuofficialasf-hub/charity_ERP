@@ -53,6 +53,8 @@ describe('scope instances', () => {
       { projectId: P2, locationId: DHAKA },
     ],
     volunteerAreas: [{ projectId: P1, locationId: DHAKA }],
+    revokedProjectIds: [],
+    revokedProgramIds: [],
   });
 
   it('subtracts a revoked region, project and program from the resolved instances', () => {
@@ -78,6 +80,112 @@ describe('scope instances', () => {
     expect(program.projectIds).toEqual([P2]);
     expect(program.areas).toEqual([{ projectId: P2, locationId: DHAKA }]);
     expect(program.volunteerAreas).toEqual([]);
+  });
+
+  it('keeps the revoked projects and programs for the filters (D-120)', () => {
+    const revoked = applyInstanceRevokes(
+      instances(),
+      [
+        revoke({ scopeType: 'PROJECT', scopeRef: P2 }),
+        revoke({ scopeType: 'PROGRAM', scopeRef: P2 }),
+        revoke({ scopeType: 'PROJECT', scopeRef: null }),
+      ],
+      [P1],
+    );
+    expect(revoked.revokedProjectIds).toEqual([P2, P1]);
+    expect(revoked.revokedProgramIds).toEqual([P2]);
+    // a PROJECT revoke does not touch the program of the project: the filters leave it out instead
+    const project = applyInstanceRevokes(instances(), [
+      revoke({ scopeType: 'PROJECT', scopeRef: P1 }),
+    ]);
+    expect(project.programIds).toEqual([P1, P2]);
+    expect(project.revokedProjectIds).toEqual([P1]);
+    expect(project.revokedProgramIds).toEqual([]);
+  });
+});
+
+// A project revoke beats every grant source (RBAC.md 7, DECISION_LOG D-120).
+describe('the revoked projects in every filter', () => {
+  const R = '00000000-0000-7000-8000-0000000000c3';
+  const outside = { id: { notIn: [R] } };
+  const scope = (entity: string, i: Partial<ScopeInstances>) =>
+    makeScope('actor', 'application.view_official_section', entity, {
+      ...NO_INSTANCES,
+      revokedProjectIds: [R],
+      ...i,
+    });
+
+  it("leaves the revoked project out of the PM's program, an area and GLOBAL", () => {
+    expect(projectWhere(scope('project', { programIds: [P1] }))).toEqual({
+      AND: [{ OR: [{ programId: { in: [P1] } }] }, outside],
+    });
+    expect(
+      projectWhere(scope('project', { areas: [{ projectId: null, locationId: DHAKA }] })),
+    ).toEqual({
+      AND: [{ OR: [{ projectAreasProject: { some: { locationId: DHAKA } } }] }, outside],
+    });
+    expect(projectWhere(scope('project', { global: true }))).toEqual(outside);
+    // still nothing without an instance
+    expect(projectWhere(scope('project', {}))).toEqual({ id: { in: [] } });
+  });
+
+  it('builds the program filter on the project filter and hides a revoked program at GLOBAL', () => {
+    const w = programWhere(scope('program', { projectIds: [P2] })) as {
+      OR: { projectsProgram: { some: unknown } }[];
+    };
+    expect(w.OR[0]!.projectsProgram.some).toEqual({
+      AND: [{ OR: [{ id: { in: [P2] } }] }, outside],
+    });
+    expect(programWhere(scope('program', { global: true, revokedProgramIds: [P1] }))).toEqual({
+      id: { notIn: [P1] },
+    });
+    expect(programWhere(scope('program', { global: true }))).toEqual({});
+  });
+
+  it('closes only the path through the revoked project for users', () => {
+    const w = userWhere(
+      scope('user', { programIds: [P1], areas: [{ projectId: null, locationId: DHAKA }] }),
+    ) as { OR: unknown[] };
+    // the home program and the home division are not reached through a project
+    expect(w.OR).toContainEqual({ homeProgramId: { in: [P1] } });
+    expect(w.OR).toContainEqual({ homeDivisionId: DHAKA });
+    expect(w.OR).toContainEqual({
+      projectStaffUser: {
+        some: { endedAt: null, project: { programId: { in: [P1] }, ...outside } },
+      },
+    });
+    expect(w.OR).toContainEqual({
+      projectAreasRpmUser: { some: { locationId: DHAKA, projectId: { notIn: [R] } } },
+    });
+    // GLOBAL reaches every person directly, never through a project
+    expect(userWhere(scope('user', { global: true }))).toEqual({});
+  });
+
+  it('leaves the revoked project out of the volunteer and beneficiary filters', () => {
+    const v = volunteerWhere(scope('volunteer', { programIds: [P1] })) as { OR: unknown[] };
+    expect(v.OR).toContainEqual({
+      division: {
+        projectAreasLocation: {
+          some: { project: { programId: { in: [P1] } }, projectId: { notIn: [R] } },
+        },
+      },
+    });
+    expect(beneficiaryWhere(scope('beneficiary', { programIds: [P1] }))).toEqual({
+      OR: [
+        {
+          applicationsBeneficiary: {
+            some: { project: { programId: { in: [P1] } }, projectId: { notIn: [R] } },
+          },
+        },
+      ],
+    });
+    // the rows inside a profile: no limit at GLOBAL or for an area, except the revoked project
+    expect(beneficiaryRowsProjectWhere(scope('beneficiary', { global: true }))).toEqual(outside);
+    expect(
+      beneficiaryRowsProjectWhere(
+        scope('beneficiary', { areas: [{ projectId: null, locationId: RANGPUR }] }),
+      ),
+    ).toEqual(outside);
   });
 });
 
