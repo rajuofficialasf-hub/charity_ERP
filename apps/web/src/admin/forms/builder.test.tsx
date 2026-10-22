@@ -150,6 +150,12 @@ function api(
     http.get('*/api/v1/form-library', () =>
       HttpResponse.json({ data: LIBRARY, meta: { requestId: 'r' } }),
     ),
+    http.get(`*/api/v1/forms/${FORM}/versions`, () =>
+      HttpResponse.json({ data: [current], meta: { requestId: 'r' } }),
+    ),
+    http.get('*/api/v1/nisab-versions/in-force', () =>
+      HttpResponse.json({ data: { value: '85000.00' }, meta: { requestId: 'r' } }),
+    ),
     http.get('*/api/v1/form-versions/:id', () => {
       versionReads += 1;
       if (options.versionStatus === 404)
@@ -372,7 +378,8 @@ describe('who may change what', () => {
   it('shows a published version read-only', async () => {
     api({ draft: false });
     open();
-    expect(await screen.findByText('সংস্করণ 1: প্রকাশিত')).toBeInTheDocument();
+    // the name shows above the panes and in the version list
+    expect(await screen.findAllByText('সংস্করণ 1: প্রকাশিত')).toHaveLength(2);
     expect(screen.getByText('এই সংস্করণ প্রকাশিত; বদলানো যায় না।')).toBeInTheDocument();
     expect(screen.queryByRole('checkbox', { name: 'পরিবার ও আয়' })).not.toBeInTheDocument();
   });

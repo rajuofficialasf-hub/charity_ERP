@@ -57,3 +57,21 @@ export const saveDraft = (versionId: string, etag: string, sections: FormDefinit
 
 export const createForm = (projectId: string, body: FormCreate) =>
   api<ProjectFormView>(`/projects/${projectId}/forms`, { method: 'POST', body });
+
+/** Every version of a form, each with its definition as the caller may see it. */
+export const formVersions = (formId: string) => api<FormVersion[]>(`/forms/${formId}/versions`);
+
+/** Publishes a draft at the version it was read or saved at; the published one before retires. */
+export const publishVersion = (versionId: string, etag: string) =>
+  api<{ data: FormVersion; meta: { etag: string } }>(`/form-versions/${versionId}/publish`, {
+    method: 'POST',
+    headers: { 'If-Match': etag },
+    envelope: true,
+  });
+
+/** Starts the next draft as a copy of the latest version. */
+export const newVersion = (formId: string) =>
+  api<FormVersion>(`/forms/${formId}/versions`, { method: 'POST' });
+
+/** The nisab in force today, for the preview's zakat comparison. */
+export const nisabInForce = () => api<{ value: string }>('/nisab-versions/in-force');
