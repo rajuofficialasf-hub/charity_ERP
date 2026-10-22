@@ -2,7 +2,7 @@ import type { Condition } from '@css/shared';
 import type { Calculation, FormDefinition, FormField } from '@css/shared/forms';
 import { Button, Disclosure, Modal, Stack } from '@css/ui';
 import { Pencil } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { CalculationEditor } from './CalculationEditor';
 import type { Asker } from './candidates';
@@ -31,8 +31,72 @@ function useRuleWords(): RuleWords {
 
 /**
  * A rule shown as one plain sentence with a button that opens its editor in a dialog, so the
- * settings stay short and the rows (a question, a comparison, a value) appear only when wanted.
+ * settings stay short and the rows appear only when wanted. The editor writes to the draft as it
+ * changes; the dialog only shows it.
  */
+function RuleCard({
+  title,
+  dialogTitle,
+  sentence,
+  openLabel,
+  defaultOpen,
+  children,
+}: {
+  title: string;
+  dialogTitle: string;
+  sentence: string;
+  openLabel: string;
+  defaultOpen: boolean;
+  /** The editor, shown inside the dialog. */
+  children: ReactNode;
+}) {
+  const t = useTranslations('forms.builder');
+  const [editing, setEditing] = useState(false);
+  return (
+    <Disclosure title={title} headingLevel={2} defaultOpen={defaultOpen}>
+      <Stack gap={2}>
+        <p className="fb-sentence">{sentence}</p>
+        <Button size="sm" variant="secondary" icon={Pencil} onPress={() => setEditing(true)}>
+          {openLabel}
+        </Button>
+      </Stack>
+      <Modal
+        title={dialogTitle}
+        isOpen={editing}
+        onClose={() => setEditing(false)}
+        size="lg"
+        fullOnPhone
+        primaryAction={<Button onPress={() => setEditing(false)}>{t('done')}</Button>}
+      >
+        {children}
+      </Modal>
+    </Disclosure>
+  );
+}
+
+/** The keys of each kind of condition: its group title, its dialog title, its sentences. */
+const CONDITION_KINDS = {
+  show: {
+    title: 'show_if',
+    dialog: 'cond_title_show',
+    always: 'show_always',
+    when: 'show_when',
+  },
+  required: {
+    title: 'required_if',
+    dialog: 'cond_title_required',
+    always: 'required_always',
+    when: 'required_when',
+  },
+  section: {
+    title: 'section_condition',
+    dialog: 'cond_title_section',
+    always: 'section_always',
+    when: 'section_when',
+  },
+} as const;
+
+/** A question's show-if or required-if, or a section's show-if, as a sentence with its editor. */
 export function ConditionGroup({
   kind,
   definition,
@@ -41,8 +105,7 @@ export function ConditionGroup({
   onChange,
   defaultOpen = false,
 }: {
-  /** The question's show-if, its required-if, or a section's show-if. */
-  kind: 'show' | 'required' | 'section';
+  kind: keyof typeof CONDITION_KINDS;
   definition: FormDefinition;
   asker: Asker;
   condition: Condition | null | undefined;
@@ -52,49 +115,31 @@ export function ConditionGroup({
   const t = useTranslations('forms.builder');
   const locale = useLocale();
   const words = useRuleWords();
-  const [editing, setEditing] = useState(false);
+  const keys = CONDITION_KINDS[kind];
   const rules = conditionRules(definition, condition, locale, words);
-  const title = t(
-    kind === 'show' ? 'show_if' : kind === 'required' ? 'required_if' : 'section_condition',
-  );
   const sentence =
     rules.kind === 'complex'
       ? t('cond_complex')
       : rules.kind === 'none'
-        ? t(`${kind}_always`)
-        : t(`${kind}_when`, { rules: rules.text });
+        ? t(keys.always)
+        : t(keys.when, { rules: rules.text });
   return (
-    <Disclosure title={title} headingLevel={2} defaultOpen={defaultOpen}>
-      <Stack gap={2}>
-        <p className="fb-sentence">{sentence}</p>
-        <Button size="sm" variant="secondary" icon={Pencil} onPress={() => setEditing(true)}>
-          {t(rules.kind === 'none' ? 'cond_open_none' : 'cond_open_some')}
-        </Button>
-      </Stack>
-      <Modal
-        title={t(
-          kind === 'show'
-            ? 'cond_title_show'
-            : kind === 'required'
-              ? 'cond_title_required'
-              : 'cond_title_section',
-        )}
-        isOpen={editing}
-        onClose={() => setEditing(false)}
-        size="lg"
-        fullOnPhone
-        primaryAction={<Button onPress={() => setEditing(false)}>{t('done')}</Button>}
-      >
-        <ConditionEditor
-          title={title}
-          heading={false}
-          definition={definition}
-          asker={asker}
-          condition={condition}
-          onChange={onChange}
-        />
-      </Modal>
-    </Disclosure>
+    <RuleCard
+      title={t(keys.title)}
+      dialogTitle={t(keys.dialog)}
+      sentence={sentence}
+      openLabel={t(rules.kind === 'none' ? 'cond_open_none' : 'cond_open_some')}
+      defaultOpen={defaultOpen}
+    >
+      <ConditionEditor
+        title={t(keys.title)}
+        heading={false}
+        definition={definition}
+        asker={asker}
+        condition={condition}
+        onChange={onChange}
+      />
+    </RuleCard>
   );
 }
 
@@ -113,7 +158,6 @@ export function CalcGroup({
   const t = useTranslations('forms.builder');
   const locale = useLocale();
   const words = useRuleWords();
-  const [editing, setEditing] = useState(false);
   const rules = calculationRules(definition, field, locale, words);
   const sentence =
     rules.kind === 'complex'
@@ -122,29 +166,20 @@ export function CalcGroup({
         ? t('calc_none')
         : t('calc_is', { label: field.label[locale], rules: rules.text });
   return (
-    <Disclosure title={t('calc')} headingLevel={2} defaultOpen>
-      <Stack gap={2}>
-        <p className="fb-sentence">{sentence}</p>
-        <Button size="sm" variant="secondary" icon={Pencil} onPress={() => setEditing(true)}>
-          {t(rules.kind === 'none' ? 'calc_open_none' : 'calc_open_some')}
-        </Button>
-      </Stack>
-      <Modal
-        title={t('calc')}
-        isOpen={editing}
-        onClose={() => setEditing(false)}
-        size="lg"
-        fullOnPhone
-        primaryAction={<Button onPress={() => setEditing(false)}>{t('done')}</Button>}
-      >
-        <CalculationEditor
-          heading={false}
-          definition={definition}
-          field={field}
-          asker={asker}
-          onChange={onChange}
-        />
-      </Modal>
-    </Disclosure>
+    <RuleCard
+      title={t('calc')}
+      dialogTitle={t('calc')}
+      sentence={sentence}
+      openLabel={t(rules.kind === 'none' ? 'calc_open_none' : 'calc_open_some')}
+      defaultOpen
+    >
+      <CalculationEditor
+        heading={false}
+        definition={definition}
+        field={field}
+        asker={asker}
+        onChange={onChange}
+      />
+    </RuleCard>
   );
 }

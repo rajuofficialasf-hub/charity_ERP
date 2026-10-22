@@ -379,6 +379,31 @@ describe('the outline and the libraries', () => {
     ).toBeInTheDocument();
   });
 
+  it('tags a calculated question by whether its rule is set', async () => {
+    api({
+      sections: [
+        ...titled({ sections: coreSections() }).sections,
+        section(
+          'extra',
+          [
+            field('a', 'number', { label: T('ক', 'A') }),
+            field('sum', 'calculation', {
+              label: T('যোগফল', 'Sum'),
+              calculation: { expr: { op: 'add', args: [{ field: 'a' }, 1] } },
+            }),
+            field('later', 'calculation', { label: T('পরে', 'Later') }),
+          ],
+          { title: T('অতিরিক্ত', 'Extra') },
+        ),
+      ],
+    });
+    open();
+    const list = await outlineOf('অতিরিক্ত');
+    const items = list.getAllByRole('listitem');
+    expect(items[1]).toHaveTextContent('নিজে থেকে হিসাব');
+    expect(items[2]).toHaveTextContent('হিসাবের নিয়ম দিন');
+  });
+
   it("takes a question into a group's rows from the group's own button", async () => {
     const user = userEvent.setup();
     api({
