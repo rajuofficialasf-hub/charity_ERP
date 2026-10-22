@@ -37,5 +37,5 @@ The engine (`@css/shared/forms`), the API (one additive order column aside), the
 - **Updated:** 2026-10-22 23:10
 - **Next:** U3 the builder page layout (first step: the header with the count line, preview and publish, and the right pane's two tabs)
 - **Uncommitted:** none
-- **Reviewed through:** C1 (fixes in the next commit)
+- **Reviewed through:** C1 at 2fa049c
 - **Notes:** C1 (T2, two reviewers): the tiles took a helper and an error but never drew them (the shared field footer is rendered now, with a test of the group's description); decision IDs left two code comments; the order appears only after the base seed is re-run, which the migration's comment and STATUS say. U2: `ChoiceTiles` (native radios sharing a name under a radiogroup, tiles with icon, title and description, flat or grouped, two columns from 640 px, the only breakpoint the set's media query test allows) and `Disclosure` (a heading button with `aria-expanded`, controlled or not), both in the gallery under "টাইল থেকে বাছাই ও খোলা-বন্ধ গ্রুপ"; a space between a tile's title and description so its name reads as two words. U1: `sort_order` on both library tables, filled by the seed in file order and read first by the service (`key` breaks ties); the dev database refreshed with `pnpm db:seed --set base`. The mockup is committed (d858c61); DESIGN_SYSTEM 4.4 and D-122 are written.
