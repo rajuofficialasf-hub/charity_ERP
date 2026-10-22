@@ -137,6 +137,38 @@ describe('the form library', () => {
     ]);
   });
 
+  it('gives each field ready to place in a form, with its options from the list and its repeat members', async () => {
+    const res = await at(await as(world.users.pm), 'get', '/form-library');
+    expect(res.status).toBe(200);
+    interface Placed {
+      fieldKey: string;
+      required: boolean;
+      libraryFieldKey: string | null;
+      options?: { code: string }[];
+      settings?: { repeat?: { group?: string } };
+    }
+    const placed = (key: string) =>
+      (res.body.data.fields as { key: string; formFields: Placed[] }[]).find((x) => x.key === key)!
+        .formFields;
+    const [gender] = placed('gender');
+    expect(gender).toMatchObject({
+      fieldKey: 'gender',
+      libraryFieldKey: 'gender',
+      required: false,
+    });
+    expect(gender!.options!.map((o) => o.code)).toEqual(expect.arrayContaining(['male', 'female']));
+    const earners = placed('earners');
+    expect(earners[0]).toMatchObject({ fieldKey: 'earners', libraryFieldKey: 'earners' });
+    const members = earners.slice(1);
+    expect(members.map((m) => m.fieldKey)).toEqual(
+      expect.arrayContaining(['earner_name', 'earner_relationship']),
+    );
+    expect(members.every((m) => m.settings?.repeat?.group === 'earners')).toBe(true);
+    expect(
+      members.find((m) => m.fieldKey === 'earner_relationship')!.options!.length,
+    ).toBeGreaterThan(0);
+  });
+
   it('is refused to an RPM and a volunteer, and without a login', async () => {
     expect((await at(await as(world.users.rpmDhaka), 'get', '/form-library')).status).toBe(403);
     expect((await at(await as(world.users.general), 'get', '/form-library')).status).toBe(403);
@@ -254,6 +286,32 @@ describe('creating a project form', () => {
       formId: draftOnly.body.data.id,
     });
     expect(noPublished.status).toBe(409);
+  });
+
+  it('refuses a copy to a caller who does not see the official-only sections of the source', async () => {
+    const source = await draft();
+    const made = await createForm(source, {
+      kind: 'template',
+      templateKey: 'form_self_reliance_construction',
+    });
+    await publishBySql(made.body.data.draftVersionId);
+    const target = await draft();
+    // the panel takes the official-section class from the PM for a while
+    const { rows } = await h.db.query<{ id: string }>(
+      `INSERT INTO user_permissions (id, user_id, permission_name, effect, scope_type, reason, granted_by)
+       VALUES (gen_random_uuid(), $1, 'application.view_official_section', 'revoke', 'GLOBAL', 'test', $2)
+       RETURNING id`,
+      [world.users.pm, world.users.head],
+    );
+    try {
+      const refused = await createForm(target, { kind: 'copy', formId: made.body.data.id });
+      expect(refused.status).toBe(403);
+      expect(JSON.stringify(refused.body)).not.toContain('official_comment');
+    } finally {
+      await h.db.query('DELETE FROM user_permissions WHERE id = $1', [rows[0]!.id]);
+    }
+    const allowed = await createForm(target, { kind: 'copy', formId: made.body.data.id });
+    expect(allowed.status).toBe(201);
   });
 
   it('refuses a second form with the same key, an unknown template and a bad body', async () => {
@@ -512,6 +570,22 @@ describe('drafts, publishing and the field map', () => {
       [1, 'retired'],
       [2, 'published'],
     ]);
+    // the list names who published each version and who changed it last; the read never does
+    const pmName = (
+      await h.db.query<{ display_name: string }>('SELECT display_name FROM users WHERE id = $1', [
+        world.users.pm,
+      ])
+    ).rows[0]!.display_name;
+    const named = { id: world.users.pm, name: pmName };
+    for (const v of versions.body.data)
+      expect(v).toMatchObject({
+        publishedBy: named,
+        updatedBy: named,
+        updatedAt: expect.any(String),
+      });
+    const read = await at(pm, 'get', `/form-versions/${v2}`);
+    expect(read.body.data).not.toHaveProperty('publishedBy');
+    expect(read.body.data).not.toHaveProperty('updatedBy');
     const forms = await at(pm, 'get', `/projects/${project}/forms`);
     expect(forms.body.data[0]).toMatchObject({ publishedVersionId: v2, draftVersionId: null });
     expect((await auditRows(versionId, 'form.publish')).length).toBe(1);

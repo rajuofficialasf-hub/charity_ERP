@@ -217,8 +217,16 @@ function ProjectWizard({ projectId }: { projectId: string }) {
   const topics = useSetupPart(projectId, 'syllabus', () => syllabus(projectId), dawah);
   // every official of the project reads the rules; the step is read-only without setup rights
   const rulesText = useSetupPart(projectId, 'rules', () => rules(projectId), true);
-  // activation needs a published form; the builder screen arrives with the form platform's UI
+  // activation needs a published form; the missing item opens the project's form in the builder,
+  // or the forms page with the new-form dialog when the project has none
   const formList = useSetupPart(projectId, 'forms', () => forms(projectId), configure);
+  const firstForm = formList.data?.find((f) => f.key === 'default') ?? formList.data?.[0];
+  // the new-form dialog only for a project known to have no form; otherwise its forms page
+  const formHref = firstForm
+    ? `/admin/projects/${projectId}/forms/${firstForm.id}`
+    : formList.data
+      ? `/admin/projects/${projectId}/forms?new=1`
+      : `/admin/projects/${projectId}/forms`;
   const activate = useMutation({
     mutationFn: () => moveProject(projectId, 'activate', one.data!.meta.etag),
     onSuccess: async () => {
@@ -313,7 +321,10 @@ function ProjectWizard({ projectId }: { projectId: string }) {
 
   const body = new Map<StepId, ReactNode>([
     ['basics', <BasicsSection key="basics" />],
-    ['components', failed(parts) ?? <ComponentsSection components={parts.data ?? []} />],
+    [
+      'components',
+      failed(parts) ?? <ComponentsSection components={parts.data ?? []} formHref={formHref} />,
+    ],
     ['budget', failed(funds) ?? (funds.data && <BudgetSection sources={funds.data} />)],
     ['window', <WindowSection key="window" />],
     ['areas', failed(areaList) ?? (areaList.data && <AreasSection areas={areaList.data} />)],
@@ -336,6 +347,7 @@ function ProjectWizard({ projectId }: { projectId: string }) {
         key="review"
         missing={missing}
         activation={activate.error}
+        formHref={formHref}
         onOpen={(target) => void go(target)}
       />,
     ],

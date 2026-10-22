@@ -206,3 +206,15 @@ export const canMarkPaid = (me: Pick<Me, 'roles'>) => holds(me, MARK_PAID_ROLES)
 export const canGrantOnProject = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_GRANT_ROLES);
 export const canSeeStaff = (me: Pick<Me, 'roles'>) => holds(me, STAFF_DIRECTORY_ROLES);
 export const canManageOfficials = (me: Pick<Me, 'roles'>) => holds(me, OFFICIAL_ADMIN_ROLES);
+
+/**
+ * Who builds and publishes a project's application form and manages its public link: the PM of
+ * the program and the two global roles (`form.build`, `form.publish`, `form.public_link.manage`).
+ * The server decides each save by the scope of the grant.
+ */
+export const FORM_BUILDER_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'program_manager',
+];
+export const canBuildForms = (me: Pick<Me, 'roles'>) => holds(me, FORM_BUILDER_ROLES);

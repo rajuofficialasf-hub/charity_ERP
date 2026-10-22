@@ -2742,13 +2742,17 @@ components:
           type: array
           items:
             type: object
-            required: [key, type, label, standardColumn, defaultSettings]
+            required: [key, type, label, standardColumn, defaultSettings, formFields]
             properties:
               key: { type: string }
               type: { type: string }
               label: { $ref: '#/components/schemas/Bilingual' }
               standardColumn: { type: [string, 'null'] }
               defaultSettings: { type: object }
+              formFields:
+                type: array
+                description: The field as the builder places it in a form (options from the reference list, the calculation, a repeat group's members after it)
+                items: { $ref: '#/components/schemas/FormField' }
         templates:
           type: array
           description: The form templates of the library a project's form can start from
@@ -2816,11 +2820,27 @@ components:
       properties:
         data: { $ref: '#/components/schemas/FormVersion' }
         meta: { $ref: '#/components/schemas/Meta' }
+    FormVersionListItem:
+      description: A version as the builder's version list shows it, with who published it and who changed it last (D-121 item 10); only this list names officials
+      allOf:
+        - { $ref: '#/components/schemas/FormVersion' }
+        - type: object
+          required: [publishedBy, updatedBy, updatedAt]
+          properties:
+            publishedBy:
+              anyOf:
+                - { $ref: '#/components/schemas/PersonRef' }
+                - type: 'null'
+            updatedBy:
+              anyOf:
+                - { $ref: '#/components/schemas/PersonRef' }
+                - type: 'null'
+            updatedAt: { type: string, format: date-time }
     FormVersionList:
       type: object
       required: [data, meta]
       properties:
-        data: { type: array, items: { $ref: '#/components/schemas/FormVersion' } }
+        data: { type: array, items: { $ref: '#/components/schemas/FormVersionListItem' } }
         meta: { $ref: '#/components/schemas/Meta' }
     FormDraftUpdate:
       type: object
@@ -7271,7 +7291,7 @@ paths:
     post:
       tags: [forms]
       operationId: forms.form.create
-      summary: Create a project's form as draft version 1 from a library template, blank (the mandatory core only), or copied from another project's published form (BD-10)
+      summary: Create a project's form as draft version 1 from a library template, blank (the mandatory core only), or copied from another project's published form by a caller who sees its official-only sections (BD-10)
       x-permission: form.build
       x-scope: project
       x-audit: form.created

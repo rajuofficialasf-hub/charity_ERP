@@ -11,6 +11,7 @@ export const NAMESPACES = [
   'codes',
   'common',
   'errors',
+  'forms',
   'gallery',
   'home',
   'nav',

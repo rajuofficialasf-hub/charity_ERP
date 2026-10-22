@@ -48,6 +48,13 @@ export const versionView = z.object({
   publishedAt: z.string().nullable(),
   sections: z.array(sectionView),
 });
+const personView = z.object({ id: uuid, name: z.string() });
+/** The version list also names who published and who last changed each version. */
+const versionListView = versionView.extend({
+  publishedBy: personView.nullable(),
+  updatedBy: personView.nullable(),
+  updatedAt: z.string(),
+});
 const formView = z.object({
   id: uuid,
   projectId: uuid,
@@ -72,6 +79,7 @@ const libraryView = z.object({
       label: bilingual,
       standardColumn: z.string().nullable(),
       defaultSettings: z.unknown(),
+      formFields: z.array(fieldView),
     }),
   ),
   templates: z.array(z.object({ key: z.string(), name: bilingual, projectType: z.string() })),
@@ -154,7 +162,7 @@ export function formsRouter(
     status: 201,
     operationId: 'forms.form.create',
     summary:
-      "Create a project's form as draft version 1 from a library template, blank (the mandatory core only), or copied from another project's published form (BD-10)",
+      "Create a project's form as draft version 1 from a library template, blank (the mandatory core only), or copied from another project's published form by a caller who sees its official-only sections (BD-10)",
     audit: 'form.created',
     params: { projectId: uuid },
     body: formCreateSchema,
@@ -171,7 +179,7 @@ export function formsRouter(
     summary: 'Versions of a form; not paginated',
     audit: 'none',
     params: formParams,
-    responses: { 200: z.array(versionView), 404: null },
+    responses: { 200: z.array(versionListView), 404: null },
     handler: async ({ params, req }) => ok(await c.forms.versions(viewerOf(req), params.formId)),
   });
 

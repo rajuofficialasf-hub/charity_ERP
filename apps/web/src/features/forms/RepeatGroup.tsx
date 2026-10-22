@@ -1,0 +1,56 @@
+import { formatCount } from '@css/shared/format';
+import type { FormField } from '@css/shared/forms';
+import { Button, Stack, Text } from '@css/ui';
+import type { ReactNode } from 'react';
+import { useLocale, useTranslations } from 'use-intl';
+
+/**
+ * A repeat group ("+ add another"): its rows, each with the member questions, between the group's
+ * minimum and maximum. The first rows down to the minimum have no remove button.
+ */
+export function RepeatGroup({
+  group,
+  rows,
+  renderRow,
+  onAdd,
+  onRemove,
+}: {
+  group: FormField;
+  rows: number;
+  renderRow: (row: number) => ReactNode;
+  onAdd: () => void;
+  onRemove: (row: number) => void;
+}) {
+  const t = useTranslations('forms.renderer');
+  const locale = useLocale();
+  const label = group.label[locale];
+  const min = group.settings?.repeat?.min_rows ?? 0;
+  const max = group.settings?.repeat?.max_rows;
+  return (
+    <Stack as="section" gap={2} aria-label={label}>
+      <Text weight="bold">{label}</Text>
+      {Array.from({ length: rows }, (_, row) => (
+        // rows are positions: removing one moves the answers after it up, so the position is the key
+        <Stack key={row} gap={2}>
+          <Text weight="bold">{t('row_title', { label, n: formatCount(row + 1, locale) })}</Text>
+          {renderRow(row)}
+          {rows > min ? (
+            <div>
+              <Button variant="ghost" size="sm" onPress={() => onRemove(row)}>
+                {t('remove_row', { label, n: formatCount(row + 1, locale) })}
+              </Button>
+            </div>
+          ) : null}
+        </Stack>
+      ))}
+      <div>
+        <Button variant="secondary" onPress={onAdd} disabled={max !== undefined && rows >= max}>
+          {t('add_row')}
+        </Button>
+      </div>
+      {max !== undefined ? (
+        <Text tone="muted">{t('rows_limit', { max: formatCount(max, locale) })}</Text>
+      ) : null}
+    </Stack>
+  );
+}

@@ -15,11 +15,14 @@ import { type StepId, stepOfMissing } from './wizard-steps';
 export function ReviewStep({
   missing,
   activation,
+  formHref,
   onOpen,
 }: {
   /** The missing items; null when the caller cannot see every part the check reads. */
   missing: string[] | null;
   activation: unknown;
+  /** Where a missing published form is made: the project's form in the builder. */
+  formHref: string;
   onOpen: (step: StepId) => void;
 }) {
   const { project } = useSetup();
@@ -49,9 +52,11 @@ export function ReviewStep({
                 size="sm"
                 icon={ArrowRight}
                 iconPosition="end"
-                onPress={() => onOpen(stepOfMissing(item))}
+                {...(item === 'form'
+                  ? { href: formHref }
+                  : { onPress: () => onOpen(stepOfMissing(item)) })}
               >
-                {t('open_step')}
+                {item === 'form' ? ts('open_forms') : t('open_step')}
               </Button>
             </li>
           ))}

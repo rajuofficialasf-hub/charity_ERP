@@ -32,6 +32,12 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
           }),
         },
         {
+          path: '/apply/:token',
+          lazy: async () => ({
+            Component: (await import('../features/forms/PublicApplyPage')).PublicApplyPage,
+          }),
+        },
+        {
           path: '/register',
           lazy: async () => ({
             Component: (await import('../features/registration/RegisterPage')).RegisterPage,
@@ -137,6 +143,18 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                   lazy: async () => ({
                     Component: (await import('../admin/projects/setup/ProjectSetupPage'))
                       .ProjectSetupPage,
+                  }),
+                },
+                {
+                  path: 'projects/:projectId/forms',
+                  lazy: async () => ({
+                    Component: (await import('../admin/forms/FormsPage')).FormsPage,
+                  }),
+                },
+                {
+                  path: 'projects/:projectId/forms/:formId',
+                  lazy: async () => ({
+                    Component: (await import('../admin/forms/FormBuilderPage')).FormBuilderPage,
                   }),
                 },
                 {
