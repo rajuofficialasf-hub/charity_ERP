@@ -2,7 +2,7 @@ import { localized, type Locale } from '@css/shared/i18n';
 import { Button, EmptyState, ErrorState, Skeleton, Stack } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { useAuth } from '../../lib/auth';
@@ -18,7 +18,9 @@ export function FormsPage() {
   const locale = useLocale() as Locale;
   const navigate = useNavigate();
   const { me } = useAuth();
-  const [creating, setCreating] = useState(false);
+  // the setup screen sends a project without a form here with ?new=1 to start one
+  const [search] = useSearchParams();
+  const [creating, setCreating] = useState(() => search.get('new') === '1');
   const list = useQuery({
     queryKey: [...FORMS_KEY, projectId],
     queryFn: () => projectForms(projectId),
@@ -50,7 +52,7 @@ export function FormsPage() {
       <NewFormDialog
         projectId={projectId}
         firstForm={list.data.length === 0}
-        isOpen={creating}
+        isOpen={creating && builder}
         onClose={() => setCreating(false)}
         onCreated={(formId) => void navigate(`/admin/projects/${projectId}/forms/${formId}`)}
       />

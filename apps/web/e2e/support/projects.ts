@@ -66,7 +66,8 @@ export async function typeDate(page: Page, scope: Locator, label: string, ddmmyy
 
 /**
  * The application form of a project from the library, published through the API as the person
- * signed in on the page (the builder screen comes with its own task); activation needs it.
+ * signed in on the page; activation needs it. Journeys that are not about forms use this; the
+ * form builder's own journey builds and publishes its form on the screen.
  */
 export async function publishLibraryForm(page: Page, loginId: string, projectId: string) {
   const context = await apiRequest.newContext({ baseURL: new URL(page.url()).origin });

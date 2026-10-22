@@ -543,6 +543,20 @@ describe('a new form', () => {
     );
   });
 
+  it('opens the new-form dialog when the setup screen sends a project without a form', async () => {
+    server.use(
+      forms([]),
+      http.get('*/api/v1/form-library', () =>
+        HttpResponse.json({ data: LIBRARY, meta: { requestId: 'r' } }),
+      ),
+    );
+    renderApp(<FormsPage />, 'bn', {
+      path: '/admin/projects/:projectId/forms',
+      initialPath: `/admin/projects/${PROJECT}/forms?new=1`,
+    });
+    expect(await screen.findByRole('dialog', { name: 'নতুন আবেদন ফর্ম' })).toBeInTheDocument();
+  });
+
   it('offers only the published forms of the projects the caller reaches as a copy', async () => {
     const user = userEvent.setup();
     server.use(

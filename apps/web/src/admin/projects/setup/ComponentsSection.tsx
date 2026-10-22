@@ -1,7 +1,7 @@
 import { COMPONENT_SETTINGS_DEFINITION, type ComponentKey, isComponentKey } from '@css/shared';
 import { Alert, Button, RowToggle } from '@css/ui';
 import { useMutation } from '@tanstack/react-query';
-import { Settings2 } from 'lucide-react';
+import { FileText, Settings2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../../lib/api';
@@ -25,7 +25,14 @@ const hasSettings = (key: string) => {
  * only what is switched on comes into the project. The photo rule is a project-wide setting kept
  * with the distribution component, so its settings stay open while that component is off.
  */
-export function ComponentsSection({ components }: { components: ProjectComponent[] }) {
+export function ComponentsSection({
+  components,
+  formHref,
+}: {
+  components: ProjectComponent[];
+  /** The project's form in the builder, which the application form component leads to. */
+  formHref: string;
+}) {
   const { project, editable, phone, refresh } = useSetup();
   const t = useTranslations('admin.projects.setup');
   const tk = useTranslations('admin.projects.component');
@@ -57,6 +64,11 @@ export function ComponentsSection({ components }: { components: ProjectComponent
               disabled={toggle.isPending}
               lockedReason={can ? undefined : t('locked')}
             />
+            {c.componentKey === 'application_form' && (
+              <Button variant="ghost" size="sm" icon={FileText} href={formHref}>
+                {t('open_forms')}
+              </Button>
+            )}
             {hasSettings(c.componentKey) && !phone && (
               <Button
                 variant="ghost"

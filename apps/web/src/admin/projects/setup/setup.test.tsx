@@ -419,6 +419,52 @@ describe('the setup wizard', () => {
     expect(router.state.location.state).toEqual({ notice: 'প্রকল্প সক্রিয় হয়েছে।' });
   });
 
+  it('leads a missing published form to the builder, or to a new form without one', async () => {
+    serve();
+    // the activation asks for a published form only while the application form is on
+    const draftOnly = (rows: unknown[]) =>
+      server.use(
+        http.get(`*/api/v1/projects/${ID}/forms`, () =>
+          HttpResponse.json({ data: rows, meta: { requestId: 'req_test' } }),
+        ),
+        http.get(`*/api/v1/projects/${ID}/components`, () =>
+          HttpResponse.json({
+            data: [
+              ...COMPONENTS,
+              { componentKey: 'application_form', enabled: true, settings: {}, etag: '"a1"' },
+            ],
+            meta: {},
+          }),
+        ),
+      );
+    draftOnly([
+      {
+        id: '01900000-0000-7000-8000-0000000000f1',
+        key: 'default',
+        title: { bn: 'আবেদন', en: 'Application' },
+        publishedVersionId: null,
+        draftVersionId: '01900000-0000-7000-8000-0000000000f3',
+      },
+    ]);
+    const first = open('review');
+    let review = within(await section('পর্যালোচনা'));
+    expect(await review.findByText('প্রকাশিত আবেদন ফর্ম')).toBeInTheDocument();
+    expect(review.getByRole('link', { name: 'ফর্ম বিল্ডার খুলুন' })).toHaveAttribute(
+      'href',
+      `/admin/projects/${ID}/forms/01900000-0000-7000-8000-0000000000f1`,
+    );
+    first.unmount();
+    resetClientForTests();
+    refreshAs({ ...ME, roles: ['program_manager'] });
+    draftOnly([]);
+    open('review');
+    review = within(await section('পর্যালোচনা'));
+    expect(await review.findByRole('link', { name: 'ফর্ম বিল্ডার খুলুন' })).toHaveAttribute(
+      'href',
+      `/admin/projects/${ID}/forms?new=1`,
+    );
+  });
+
   it('keeps the year read-only while active and every field on a closed project', async () => {
     serve('active');
     const { unmount } = open('basics');
