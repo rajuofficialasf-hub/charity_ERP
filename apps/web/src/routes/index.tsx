@@ -140,6 +140,18 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                   }),
                 },
                 {
+                  path: 'projects/:projectId/forms',
+                  lazy: async () => ({
+                    Component: (await import('../admin/forms/FormsPage')).FormsPage,
+                  }),
+                },
+                {
+                  path: 'projects/:projectId/forms/:formId',
+                  lazy: async () => ({
+                    Component: (await import('../admin/forms/FormBuilderPage')).FormBuilderPage,
+                  }),
+                },
+                {
                   path: 'projects/:projectId/volunteers',
                   lazy: async () => ({
                     Component: (await import('../admin/projects/volunteers/ProjectVolunteersPage'))
