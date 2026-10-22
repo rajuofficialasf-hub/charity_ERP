@@ -112,6 +112,19 @@ export async function activeProject(
 ): Promise<string> {
   await newDraft(page, code(), name, program);
   await publishLibraryForm(page, loginId, projectIdOf(page));
+  return finishSetup(page);
+}
+
+/**
+ * The rest of the wizard from its components step, then the activation: a group photo, a budget
+ * of 100 × 1000 from zakat, the window (dd-mm-yyyy; November and December 2026 unless given), a
+ * limit of 50, the Dhaka division with its RPM and the rules. The project needs its published
+ * form already. Returns the project's id.
+ */
+export async function finishSetup(
+  page: Page,
+  window: { from: string; to: string } = { from: '01112026', to: '31122026' },
+): Promise<string> {
   await page.getByRole('button', { name: 'বিতরণ ও ছবি-এর সেটিংস' }).click();
   const drawer = page.getByRole('dialog');
   await drawer.getByText('শুধু দলের ছবি', { exact: true }).click();
@@ -125,10 +138,10 @@ export async function activeProject(
   await chooseIn(page, budget, 'তহবিলের উৎস', 'যাকাত');
   await budget.getByRole('textbox', { name: /পরিমাণ/ }).fill('100000');
   await next(page).click();
-  const window = section(page, 'আবেদনের সময়সীমা ও সীমা');
-  await typeDate(page, window, 'আবেদন শুরু', '01112026');
-  await typeDate(page, window, 'আবেদনের শেষ তারিখ', '31122026');
-  await window.getByRole('textbox', { name: /আবেদন সীমা/ }).fill('50');
+  const dates = section(page, 'আবেদনের সময়সীমা ও সীমা');
+  await typeDate(page, dates, 'আবেদন শুরু', window.from);
+  await typeDate(page, dates, 'আবেদনের শেষ তারিখ', window.to);
+  await dates.getByRole('textbox', { name: /আবেদন সীমা/ }).fill('50');
   await next(page).click();
   const areas = section(page, 'এলাকা ও আরপিএম');
   await chooseIn(page, areas, 'বিভাগ', 'ঢাকা');

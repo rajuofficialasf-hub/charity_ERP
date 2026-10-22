@@ -432,6 +432,39 @@ describe('submitting', () => {
     expect(await auditRows(id, 'application.public_submitted')).toHaveLength(1);
   });
 
+  it('keeps an entry on the version it was sent on once the next version is published', async () => {
+    const p = await project();
+    const { token } = await enabled(p.id, p.formId);
+    const sent = await submit(token, submission());
+    expect(sent.status, JSON.stringify(sent.body)).toBe(201);
+    const id = sent.body.data.id as string;
+    // the PM changes the form: the next draft with a new section title, then published
+    const pm = await as(world.users.pm);
+    const next = await at(pm, 'post', `/forms/${p.formId}/versions`);
+    expect(next.status, JSON.stringify(next.body)).toBe(201);
+    const v2 = next.body.data.id as string;
+    const draft = await at(pm, 'get', `/form-versions/${v2}`);
+    const sections = (draft.body.data.sections as { title: { bn: string; en: string } }[]).map(
+      (s, i) => (i === 0 ? { ...s, title: { bn: 'পরিচয়', en: 'Identity' } } : s),
+    );
+    const saved = await at(pm, 'patch', `/form-versions/${v2}`)
+      .set('If-Match', draft.headers.etag as string)
+      .send({ sections });
+    expect(saved.status, JSON.stringify(saved.body)).toBe(200);
+    const published = await at(pm, 'post', `/form-versions/${v2}/publish`).set(
+      'If-Match',
+      saved.headers.etag as string,
+    );
+    expect(published.status, JSON.stringify(published.body)).toBe(200);
+    const row = await h.db.query('SELECT form_version_id FROM applications WHERE id = $1', [id]);
+    expect(row.rows[0]).toEqual({ form_version_id: p.versionId });
+    // the same link now opens the new version
+    const opened = await read(token);
+    expect(opened.status).toBe(200);
+    expect(opened.body.data.form).toMatchObject({ id: v2, versionNo: 2 });
+    expect(opened.body.data.form.sections[0].title).toEqual({ bn: 'পরিচয়', en: 'Identity' });
+  });
+
   it('answers a known, a blocked and a repeated identity exactly like a fresh one, and flags the row', async () => {
     const p = await project();
     const { token } = await enabled(p.id, p.formId);

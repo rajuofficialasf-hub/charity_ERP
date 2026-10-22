@@ -112,6 +112,8 @@ test.describe('accessibility of the Phase 1 screens', () => {
       for (const path of ['/login', '/login/reset', '/register']) await sweep(page, path, lang);
       // a link nobody issued: the page says to ask for a new one
       await sweep(page, '/invite#not-a-link-of-this-run', lang);
+      // a public application link that takes nothing shows its one plain page
+      await sweep(page, '/apply/not-a-link-of-this-run-0123456789', lang);
     });
 
     test(`a volunteer, in ${lang}`, async ({ browser, page, request }) => {
@@ -170,6 +172,13 @@ test.describe('accessibility of the Phase 1 screens', () => {
         await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
         await sweep(page, await firstRecord(page, list), lang);
       }
+      // the project's forms and the builder of its form (the open public form is checked by the
+      // form builder's journey, whose project takes applications today)
+      const forms = await (await apiAs(request, HEAD)).get(`/projects/${projectId}/forms`);
+      expect(forms.ok()).toBe(true);
+      const [form] = ((await forms.json()) as { data: { id: string }[] }).data;
+      await sweep(page, `/admin/projects/${projectId}/forms`, lang);
+      await sweep(page, `/admin/projects/${projectId}/forms/${form!.id}`, lang);
     });
   }
 });

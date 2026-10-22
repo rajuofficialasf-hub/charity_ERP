@@ -45,6 +45,7 @@ export async function apiAs(
     data?: unknown,
     extraHeaders?: Record<string, string>,
   ) => Promise<APIResponse>;
+  patch: (path: string, data?: unknown) => Promise<APIResponse>;
 }> {
   const login = await request.post('/api/v1/auth/login', {
     data: {
@@ -60,6 +61,7 @@ export async function apiAs(
     get: (path) => request.get(`/api/v1${path}`, { headers }),
     post: (path, data, extraHeaders = {}) =>
       request.post(`/api/v1${path}`, { headers: { ...headers, ...extraHeaders }, data }),
+    patch: (path, data) => request.patch(`/api/v1${path}`, { headers, data }),
   };
 }
 

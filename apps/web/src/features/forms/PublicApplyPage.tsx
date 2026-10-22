@@ -1,7 +1,7 @@
 import { maxSizeOf, PUBLIC_PHOTO_LIMITS } from '@css/shared/files';
 import { formatDate, isoDateInDhaka } from '@css/shared/format';
 import { localized, type Locale } from '@css/shared/i18n';
-import { EmptyState, ErrorState, Skeleton, Stack, Text } from '@css/ui';
+import { ErrorState, Skeleton, Stack, Text } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router';
@@ -83,18 +83,34 @@ export function PublicApplyPage() {
     }
   };
 
+  // every state of the page has its own level-one heading
   const body = () => {
     if (view.isPending) return <Skeleton shape="card" />;
     if (closed || (view.error instanceof ApiFailure && view.error.status === 404))
-      return <EmptyState title={t('closed_title')} message={t('closed')} />;
-    if (view.error instanceof ApiFailure && view.error.status === 429)
-      return <ErrorState title={t('too_many')} onRetry={() => void view.refetch()} />;
+      return (
+        <Stack gap={2}>
+          <h1>{t('closed_title')}</h1>
+          <Text>{t('closed')}</Text>
+        </Stack>
+      );
     if (view.error || !view.data)
-      return <ErrorState title={t('load_failed')} onRetry={() => void view.refetch()} />;
+      return (
+        <Stack gap={2}>
+          <h1>{t('title')}</h1>
+          <ErrorState
+            title={
+              view.error instanceof ApiFailure && view.error.status === 429
+                ? t('too_many')
+                : t('load_failed')
+            }
+            onRetry={() => void view.refetch()}
+          />
+        </Stack>
+      );
     if (sent)
       return (
         <Stack gap={2}>
-          <h2>{t('received_title')}</h2>
+          <h1>{t('received_title')}</h1>
           <Text>{t('received')}</Text>
         </Stack>
       );
