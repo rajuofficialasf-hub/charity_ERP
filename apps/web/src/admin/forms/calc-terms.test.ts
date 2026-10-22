@@ -81,6 +81,17 @@ describe('calculation terms', () => {
     expect(termsFromExpr(SEEDED[7]!)).toEqual({ kind: 'nisab', net: 'zakat_net_assets' });
   });
 
+  it('writes a chain of only minus terms so that it reads back the same', () => {
+    const shape = {
+      kind: 'chain' as const,
+      terms: [
+        { sign: -1 as const, term: { kind: 'field' as const, key: 'a' } },
+        { sign: -1 as const, term: { kind: 'field' as const, key: 'b' } },
+      ],
+    };
+    expect(termsFromExpr(exprFromTerms(shape))).toEqual(shape);
+  });
+
   it('marks what the editor cannot show as not editable here', () => {
     expect(termsFromExpr({ op: 'min', args: [f('a'), f('b')] })).toEqual({ kind: 'complex' });
     expect(termsFromExpr({ op: 'mul', args: [add(f('a'), f('b')), f('c')] })).toEqual({
@@ -90,5 +101,9 @@ describe('calculation terms', () => {
       kind: 'complex',
     });
     expect(termsFromExpr(sub(f('a'), add(f('b'), f('c'))))).toEqual({ kind: 'complex' });
+    // only the nisab is a setting today; anything else stays read-only rather than be rewritten
+    expect(
+      termsFromExpr({ op: 'compare_gte', args: [f('a'), { setting: 'other' } as unknown as Expr] }),
+    ).toEqual({ kind: 'complex' });
   });
 });

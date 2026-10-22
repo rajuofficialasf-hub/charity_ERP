@@ -138,8 +138,18 @@ describe('the project own question', () => {
         label: T('পেশা', 'Work'),
       },
     );
-    const renamed = updateField(def, fieldKey, { label: T('বর্তমান পেশা', 'Current work') });
-    expect(keysOf(renamed)).toContain(fieldKey);
+    expect(fieldKey).toBe('q_work');
+    const renamed = updateField(def, 'q_work', { label: T('বর্তমান পেশা', 'Current work') });
+    expect(keysOf(renamed)).toContain('q_work');
+  });
+
+  it('adds nothing and names no key for a section the form does not have', () => {
+    const def = definition();
+    const result = addOwnQuestion(def, 'no_such_section', {
+      type: 'short_text',
+      label: T('x', 'x'),
+    });
+    expect(result).toEqual({ definition: def, fieldKey: null });
   });
 
   it('gives a label with no Latin letters a numbered key', () => {
@@ -197,6 +207,45 @@ describe('the core fields', () => {
   });
 });
 
+describe('the other sections and fields', () => {
+  const extraSection = () =>
+    section('loans', [field('has_loan', 'radio'), field('loan_total', 'money')]);
+
+  it('make a section official-only, give it a condition, and remove it', () => {
+    const def = definition(extraSection());
+    expect(setSectionVisibility(def, 'loans', 'official_only').sections[2]!.visibility).toBe(
+      'official_only',
+    );
+    expect(setSectionVisibility(def, 'loans', 'volunteer')).toBe(def);
+    const when = { field: 'gender', op: 'eq' as const, value: 'female' };
+    expect(setSectionCondition(def, 'loans', when).sections[2]!.condition).toEqual(when);
+    expect(setSectionCondition(def, 'loans', null).sections[2]!.condition).toBeNull();
+    expect(removeSection(def, 'loans').sections.map((s) => s.key)).toEqual([
+      'basic_info',
+      'address',
+    ]);
+    expect(removeSection(def, 'no_such_section')).toBe(def);
+  });
+
+  it('change a field that is not core: required, a condition, a setting', () => {
+    const when = { field: 'has_loan', op: 'eq' as const, value: 'yes' };
+    const next = updateField(definition(extraSection()), 'loan_total', {
+      required: true,
+      logic: { show_if: when },
+      settings: { validation: { min: 0 } },
+    });
+    expect(next.sections[2]!.fields[1]).toMatchObject({
+      fieldKey: 'loan_total',
+      required: true,
+      logic: { show_if: when },
+      settings: { validation: { min: 0 } },
+    });
+    valid(next);
+    const def = definition();
+    expect(updateField(def, 'no_such_field', { required: true })).toBe(def);
+  });
+});
+
 describe('ordering', () => {
   const extra = () =>
     definition(
@@ -250,9 +299,10 @@ describe('ordering', () => {
   });
 
   it('removes a repeat group with its members', () => {
-    expect(keysOf(removeField(extra(), 'earners'))).not.toEqual(
-      expect.arrayContaining(['earners', 'earner_name']),
-    );
-    expect(keysOf(removeField(extra(), 'earners'))).toContain('daily_income');
+    expect(extra().sections[2]!.fields.length).toBe(5);
+    expect(removeField(extra(), 'earners').sections[2]!.fields.map((f) => f.fieldKey)).toEqual([
+      'members_14_plus',
+      'daily_income',
+    ]);
   });
 });

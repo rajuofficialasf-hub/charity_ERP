@@ -34,7 +34,7 @@ export type Change =
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
-/** The keys in `next` whose order relative to the other common keys changed. */
+/** The keys in `after` whose order relative to the other common keys changed. */
 function moved(before: string[], after: string[]): Set<string> {
   const common = new Set(before.filter((k) => after.includes(k)));
   const a = before.filter((k) => common.has(k));
@@ -79,6 +79,13 @@ function fieldAspects(a: FormField, b: FormField): FieldAspect[] {
   const { show_if: _a1, required_if: _a2, ...restA } = a.logic ?? {};
   const { show_if: _b1, required_if: _b2, ...restB } = b.logic ?? {};
   if (!same(a.settings, b.settings) || !same(restA, restB)) what.push('settings');
+  // the options both versions hold: their texts, flags and order (added and removed ones are
+  // named on their own)
+  const codesA = new Set((a.options ?? []).map((o) => o.code));
+  const codesB = new Set((b.options ?? []).map((o) => o.code));
+  const kept = (options: FormField['options'], other: Set<string>) =>
+    (options ?? []).filter((o) => other.has(o.code));
+  if (!same(kept(a.options, codesB), kept(b.options, codesA))) what.push('options');
   return what;
 }
 
@@ -116,20 +123,29 @@ export function diffDefinitions(before: FormDefinition, after: FormDefinition): 
     if (!afterSections.has(s.key))
       changes.push({ kind: 'section_removed', section: s.key, title: s.title });
 
-  // the questions of the sections both versions hold; those of an added or removed section are in it
-  const beforeFields = fieldsWithSection(before).filter((x) => afterSections.has(x.section));
-  const afterFields = fieldsWithSection(after).filter((x) => beforeSections.has(x.section));
-  const beforeByKey = new Map(beforeFields.map((x) => [x.field.fieldKey, x]));
-  const afterByKey = new Map(afterFields.map((x) => [x.field.fieldKey, x]));
-  const movedFields = moved(
-    beforeFields.map((x) => x.field.fieldKey),
-    afterFields.map((x) => x.field.fieldKey),
-  );
-  for (const { section, field } of afterFields) {
+  // questions are matched by key over the whole form; one that was added or removed with its
+  // whole section is already named by that section
+  const beforeByKey = new Map(fieldsWithSection(before).map((x) => [x.field.fieldKey, x]));
+  const afterByKey = new Map(fieldsWithSection(after).map((x) => [x.field.fieldKey, x]));
+  // a question moved inside its section when its place among the others that stayed there changed
+  const movedFields = new Set<string>();
+  for (const s of after.sections) {
+    const old = beforeSections.get(s.key);
+    if (!old) continue;
+    const stayed = (fields: FormField[]) =>
+      fields
+        .map((f) => f.fieldKey)
+        .filter(
+          (k) => beforeByKey.get(k)?.section === s.key && afterByKey.get(k)?.section === s.key,
+        );
+    for (const k of moved(stayed(old.fields), stayed(s.fields))) movedFields.add(k);
+  }
+  for (const { section, field } of fieldsWithSection(after)) {
     const old = beforeByKey.get(field.fieldKey);
     const label = field.label;
     if (!old) {
-      changes.push({ kind: 'field_added', section, field: field.fieldKey, label });
+      if (beforeSections.has(section))
+        changes.push({ kind: 'field_added', section, field: field.fieldKey, label });
       continue;
     }
     if (old.section !== section || movedFields.has(field.fieldKey))
@@ -160,8 +176,8 @@ export function diffDefinitions(before: FormDefinition, after: FormDefinition): 
           optionLabel: o.label,
         });
   }
-  for (const { section, field } of beforeFields)
-    if (!afterByKey.has(field.fieldKey))
+  for (const { section, field } of fieldsWithSection(before))
+    if (!afterByKey.has(field.fieldKey) && afterSections.has(section))
       changes.push({ kind: 'field_removed', section, field: field.fieldKey, label: field.label });
   return changes;
 }

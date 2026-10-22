@@ -55,7 +55,8 @@ export function termsFromExpr(expr: Expr): CalcView {
   if (op === 'sub') {
     const [first, ...rest] = args;
     if (first === undefined) return { kind: 'complex' };
-    const head = termsFromExpr(first);
+    // a chain of only minus terms is written as zero minus them
+    const head: CalcView = first === 0 ? { kind: 'chain', terms: [] } : termsFromExpr(first);
     const minus = terms(rest);
     if (head.kind !== 'chain' || head.terms.some((t) => t.sign < 0) || !minus)
       return { kind: 'complex' };
@@ -78,7 +79,8 @@ export function termsFromExpr(expr: Expr): CalcView {
       typeof net === 'object' &&
       'field' in net &&
       typeof nisab === 'object' &&
-      'setting' in nisab
+      'setting' in nisab &&
+      nisab.setting === 'nisab_value'
     )
       return { kind: 'nisab', net: net.field };
   }
@@ -97,6 +99,7 @@ export function exprFromTerms(shape: CalcShape): Expr {
     return { op: shape.op, args: [exprOf(shape.left), exprOf(shape.right)] };
   const plus = shape.terms.filter((t) => t.sign > 0).map((t) => exprOf(t.term));
   const minus = shape.terms.filter((t) => t.sign < 0).map((t) => exprOf(t.term));
-  const head: Expr = plus.length === 1 ? plus[0]! : { op: 'add', args: plus.length ? plus : [0] };
+  const head: Expr =
+    plus.length === 0 ? 0 : plus.length === 1 ? plus[0]! : { op: 'add', args: plus };
   return minus.length ? { op: 'sub', args: [head, ...minus] } : head;
 }

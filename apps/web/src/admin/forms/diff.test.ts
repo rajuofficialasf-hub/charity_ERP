@@ -140,6 +140,84 @@ describe('the change summary', () => {
     ]);
   });
 
+  it('names a moved section once, without its questions', () => {
+    const second = section('loans', [field('has_loan', 'radio'), field('loan_total', 'money')]);
+    expect(diffDefinitions(definition(extra(), second), definition(second, extra()))).toEqual([
+      { kind: 'section_moved', section: 'family_income', title: T('family_income') },
+    ]);
+  });
+
+  it('names a question that went into an added section as moved, not removed', () => {
+    const before = definition(extra());
+    const after = definition(
+      section('family_income', [type()]),
+      section('new_part', [field('members_14_plus', 'number')]),
+    );
+    expect(diffDefinitions(before, after)).toEqual([
+      { kind: 'section_added', section: 'new_part', title: T('new_part') },
+      {
+        kind: 'field_moved',
+        section: 'new_part',
+        field: 'members_14_plus',
+        label: T('members_14_plus'),
+      },
+    ]);
+  });
+
+  it('names a changed option text, its other box and the order of the options', () => {
+    const relabelled = {
+      ...type(),
+      options: [option('elderly', { label: T('প্রবীণ', 'Senior') }), option('widow')],
+    };
+    expect(
+      diffDefinitions(
+        definition(extra()),
+        definition(section('family_income', [field('members_14_plus', 'number'), relabelled])),
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        kind: 'field_changed',
+        field: 'beneficiary_class',
+        what: ['options'],
+      }),
+    ]);
+    const reordered = { ...type(), options: [option('widow'), option('elderly')] };
+    expect(
+      diffDefinitions(
+        definition(extra()),
+        definition(section('family_income', [field('members_14_plus', 'number'), reordered])),
+      ),
+    ).toEqual([expect.objectContaining({ kind: 'field_changed', what: ['options'] })]);
+  });
+
+  it('names a question whose type or settings changed', () => {
+    const asMoney = field('members_14_plus', 'money');
+    expect(
+      diffDefinitions(definition(extra()), definition(section('family_income', [asMoney, type()]))),
+    ).toEqual([
+      expect.objectContaining({ kind: 'field_changed', field: 'members_14_plus', what: ['type'] }),
+    ]);
+    const capped = field('members_14_plus', 'number', { settings: { validation: { max: 30 } } });
+    expect(
+      diffDefinitions(definition(extra()), definition(section('family_income', [capped, type()]))),
+    ).toEqual([expect.objectContaining({ kind: 'field_changed', what: ['settings'] })]);
+  });
+
+  it('names a section whose title or condition changed', () => {
+    const renamed = section('family_income', extra().fields, {
+      title: T('পরিবার', 'Family'),
+      condition: { field: 'gender', op: 'eq', value: 'female' },
+    });
+    expect(diffDefinitions(definition(extra()), definition(renamed))).toEqual([
+      {
+        kind: 'section_changed',
+        section: 'family_income',
+        title: T('পরিবার', 'Family'),
+        what: ['title', 'condition'],
+      },
+    ]);
+  });
+
   it('names a section that became official-only or got a condition', () => {
     const official = section('family_income', extra().fields, { visibility: 'official_only' });
     expect(diffDefinitions(definition(extra()), definition(official))).toEqual([

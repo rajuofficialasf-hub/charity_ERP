@@ -111,7 +111,7 @@ export interface OwnQuestion {
  * shown; it stays the same when the label changes and in the next version, so the question keeps
  * its identity across versions.
  */
-export function ownQuestionKey(def: FormDefinition, englishLabel: string): string {
+function ownQuestionKey(def: FormDefinition, englishLabel: string): string {
   const slug = englishLabel
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
@@ -131,7 +131,8 @@ export function addOwnQuestion(
   def: FormDefinition,
   sectionKey: string,
   question: OwnQuestion,
-): { definition: FormDefinition; fieldKey: string } {
+): { definition: FormDefinition; fieldKey: string | null } {
+  if (!def.sections.some((s) => s.key === sectionKey)) return { definition: def, fieldKey: null };
   const fieldKey = ownQuestionKey(def, question.label.en);
   const field: FormField = {
     fieldKey,
