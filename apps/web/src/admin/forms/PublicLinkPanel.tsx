@@ -1,4 +1,4 @@
-import { Alert, CopyButton, Stack, Switch, Text, TextField } from '@css/ui';
+import { Alert, CopyButton, ErrorState, Stack, Switch, Text, TextField } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'use-intl';
 import { ApiFailure } from '../../lib/api';
@@ -43,6 +43,15 @@ export function PublicLinkPanel({
     onSuccess: () => queries.invalidateQueries({ queryKey: key }),
   });
   const url = here && settings.token ? `${window.location.origin}/apply/${settings.token}` : null;
+  // without the link's state the panel says nothing and offers no switch: switching on would
+  // replace a link that may be in use
+  if (list.isError)
+    return (
+      <Stack as="section" gap={2} aria-label={t('title')}>
+        <Text weight="bold">{t('title')}</Text>
+        <ErrorState title={t('load_failed')} onRetry={() => void list.refetch()} />
+      </Stack>
+    );
 
   return (
     <Stack as="section" gap={2} aria-label={t('title')}>
@@ -56,7 +65,7 @@ export function PublicLinkPanel({
       {canManage ? (
         <Switch
           isSelected={here}
-          isDisabled={toggle.isPending || list.isPending || (!here && !published)}
+          isDisabled={toggle.isPending || !list.isSuccess || (!here && !published)}
           onChange={(next) => toggle.mutate(next)}
         >
           {t('switch')}

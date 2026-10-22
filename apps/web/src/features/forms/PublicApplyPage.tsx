@@ -1,7 +1,7 @@
-import { PUBLIC_PHOTO_LIMITS } from '@css/shared/files';
+import { maxSizeOf, PUBLIC_PHOTO_LIMITS } from '@css/shared/files';
 import { formatDate, isoDateInDhaka } from '@css/shared/format';
 import { localized, type Locale } from '@css/shared/i18n';
-import { Alert, EmptyState, ErrorState, Skeleton, Stack, Text } from '@css/ui';
+import { EmptyState, ErrorState, Skeleton, Stack, Text } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router';
@@ -15,8 +15,10 @@ import { publicForm, submitPublic, uploadPublicPhoto } from './public-api';
 import type { UploadAdapter } from './upload-adapter';
 import './public.css';
 
+// the public photo route takes JPEG and PNG (the phone sends JPEG after compressing), at the
+// form photo kind's size
 const PHOTO_TYPES = ['image/jpeg', 'image/png'];
-const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+const PHOTO_MAX_BYTES = maxSizeOf('form_photo', 'image/jpeg') ?? 0;
 
 /** The messages of a refused application by the question they name. */
 const namedOf = (error: ApiFailure): Record<string, string> =>
@@ -86,7 +88,7 @@ export function PublicApplyPage() {
     if (closed || (view.error instanceof ApiFailure && view.error.status === 404))
       return <EmptyState title={t('closed_title')} message={t('closed')} />;
     if (view.error instanceof ApiFailure && view.error.status === 429)
-      return <Alert tone="warning">{t('too_many')}</Alert>;
+      return <ErrorState title={t('too_many')} onRetry={() => void view.refetch()} />;
     if (view.error || !view.data)
       return <ErrorState title={t('load_failed')} onRetry={() => void view.refetch()} />;
     if (sent)

@@ -242,7 +242,8 @@
       "switch": "Public link on for this form",
       "publish_first": "Publish the form before switching the link on.",
       "url": "Application link",
-      "renew_note": "Switching the link off and on again makes a new link; the old one stops working."
+      "renew_note": "Switching the link off and on again makes a new link; the old one stops working.",
+      "load_failed": "The state of the link could not be loaded. Try again."
     }
   },
   "types": {

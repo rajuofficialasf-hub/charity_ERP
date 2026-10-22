@@ -122,6 +122,8 @@ function FilePicker({
         ref={input}
         type="file"
         hidden
+        // named like its button, so a test or an assistive tool can find the picker it opens
+        aria-label={children}
         accept={accept?.join(',')}
         multiple={multiple}
         capture={camera ? 'environment' : undefined}

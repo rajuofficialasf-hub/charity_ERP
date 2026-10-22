@@ -2,7 +2,7 @@ import { expectNoAxeViolations } from '@css/ui/testing';
 import { screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiError, ME, refreshAs, renderApp } from '../../../test/auth';
 import { coreSections, field, section, T } from '../../../test/forms';
 import { server } from '../../../test/msw/server';
@@ -16,6 +16,8 @@ const PROJECT = '01900000-0000-7000-8000-000000000a01';
 const FORM = '01900000-0000-7000-8000-000000000a02';
 const VERSION = '01900000-0000-7000-8000-000000000a03';
 const TOKEN = 'tok_abcdefghijklmnopqrstuvwxyz012345';
+
+afterEach(() => vi.unstubAllGlobals());
 
 beforeEach(() => {
   resetClientForTests();
@@ -88,6 +90,21 @@ describe('the link panel', () => {
     expect(bodies).toEqual([{ enabled: true, formId: FORM }, { enabled: false }]);
   });
 
+  it('offers no switch when the link cannot be read', async () => {
+    refreshAs({ ...ME, roles: ['program_manager'] });
+    server.use(
+      http.get(`*/api/v1/projects/${PROJECT}/components`, () =>
+        apiError(500, 'server.internal', 'x'),
+      ),
+    );
+    panel();
+    expect(
+      await screen.findByText('লিংকের অবস্থা আনা যায়নি। আবার চেষ্টা করুন।', {}, { timeout: 8000 }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+    expect(screen.queryByText('লিংক বন্ধ।')).not.toBeInTheDocument();
+  }, 15_000);
+
   it('shows only the state to someone who does not manage the link', async () => {
     links();
     panel(false);
@@ -137,14 +154,33 @@ describe('the public application page', () => {
       ],
     },
   };
+  let photos: { clientUuid: string | null; fieldKey: string | null; type: string | null }[];
   function page(options: { read?: () => Response; submit?: () => Response } = {}) {
-    const sends: { clientUuid: string }[] = [];
+    const sends: { clientUuid: string; answers: { fieldKey: string; value: unknown }[] }[] = [];
+    photos = [];
     server.use(
+      http.post(`*/api/v1/public/forms/${TOKEN}/photos`, ({ request }) => {
+        const url = new URL(request.url);
+        photos.push({
+          clientUuid: url.searchParams.get('clientUuid'),
+          fieldKey: url.searchParams.get('fieldKey'),
+          type: request.headers.get('content-type'),
+        });
+        return HttpResponse.json(
+          { data: { fileId: '01900000-0000-7000-8000-000000000a09' }, meta: { requestId: 'r' } },
+          { status: 201 },
+        );
+      }),
       http.get(`*/api/v1/public/forms/${TOKEN}`, () =>
         options.read ? options.read() : HttpResponse.json({ data: form, meta: { requestId: 'r' } }),
       ),
       http.post(`*/api/v1/public/forms/${TOKEN}/applications`, async ({ request }) => {
-        sends.push((await request.json()) as { clientUuid: string });
+        sends.push(
+          (await request.json()) as {
+            clientUuid: string;
+            answers: { fieldKey: string; value: unknown }[];
+          },
+        );
         if (options.submit) return options.submit();
         return HttpResponse.json(
           {
@@ -158,15 +194,14 @@ describe('the public application page', () => {
     renderApp(<PublicApplyPage />, 'bn', { path: '/apply/:token', initialPath: `/apply/${TOKEN}` });
     return sends;
   }
-  const wide = () => {
+  const wide = () =>
     // a computer's width draws the whole form on one page
-    window.matchMedia = ((q: string) => ({
+    vi.stubGlobal('matchMedia', (q: string) => ({
       matches: false,
       media: q,
       addEventListener: () => undefined,
       removeEventListener: () => undefined,
-    })) as unknown as typeof window.matchMedia;
-  };
+    }));
 
   it('shows the project, the closing date and the form, and says only that it was received', async () => {
     const user = userEvent.setup();
@@ -221,6 +256,74 @@ describe('the public application page', () => {
     ).toBeInTheDocument();
   });
 
+  it('sends a photo with the application it belongs to', async () => {
+    const user = userEvent.setup();
+    wide();
+    const sends = page();
+    const [input] = await screen.findAllByLabelText('গ্যালারি থেকে নিন');
+    await user.upload(input!, new File(['jpeg'], 'house.jpg', { type: 'image/jpeg' }));
+    await waitFor(() => expect(photos).toHaveLength(1));
+    expect(photos[0]).toMatchObject({ fieldKey: 'house_photo', type: 'image/jpeg' });
+    await user.click(await screen.findByRole('button', { name: 'আবেদন জমা দিন' }));
+    await screen.findByRole('heading', { name: 'আবেদন জমা হয়েছে' });
+    expect(sends[0]!.clientUuid).toBe(photos[0]!.clientUuid);
+    expect(sends[0]!.answers).toContainEqual(expect.objectContaining({ fieldKey: 'house_photo' }));
+  });
+
+  it('puts a refusal on the question it names and keeps the form', async () => {
+    const user = userEvent.setup();
+    wide();
+    page({
+      submit: () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'validation.failed',
+              messageKey: 'errors.validation.failed',
+              message: 'কিছু তথ্য সঠিক নয়।',
+              details: [{ path: 'need', code: 'validation.too_short', message: 'আরও লিখুন।' }],
+              requestId: 'r',
+            },
+          },
+          { status: 422 },
+        ),
+    });
+    await user.type(await screen.findByRole('textbox', { name: /প্রয়োজন/ }), 'ক');
+    await user.click(screen.getByRole('button', { name: 'আবেদন জমা দিন' }));
+    expect(await screen.findByText('আরও লিখুন।')).toBeInTheDocument();
+    expect(screen.getByText(/কিছু উত্তর ঠিক করতে হবে/)).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'আবেদন জমা হয়েছে' })).not.toBeInTheDocument();
+  });
+
+  it('shows the plain closed page when the link closes while the form is filled', async () => {
+    const user = userEvent.setup();
+    wide();
+    page({ submit: () => apiError(404, 'permission.not_found', 'পাওয়া যায়নি।') });
+    await user.click(await screen.findByRole('button', { name: 'আবেদন জমা দিন' }));
+    expect(
+      await screen.findByRole('heading', { name: 'এই লিংকে এখন আবেদন নেওয়া হচ্ছে না' }),
+    ).toBeInTheDocument();
+  });
+
+  it('offers a retry after too many tries on opening the link', async () => {
+    const user = userEvent.setup();
+    let first = true;
+    page({
+      read: () => {
+        if (first) {
+          first = false;
+          return apiError(429, 'rate.limited', 'x');
+        }
+        return HttpResponse.json({ data: form, meta: { requestId: 'r' } });
+      },
+    });
+    expect(
+      await screen.findByText('অনেকবার চেষ্টা হয়েছে। কিছুক্ষণ পরে আবার চেষ্টা করুন।'),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /আবার চেষ্টা/ }));
+    expect(await screen.findByRole('heading', { name: 'শীতবস্ত্র 2026' })).toBeInTheDocument();
+  });
+
   it('shows one plain page for a link that takes no applications', async () => {
     page({ read: () => apiError(404, 'permission.not_found', 'পাওয়া যায়নি।') });
     expect(
@@ -233,13 +336,11 @@ describe('the public application page', () => {
     const user = userEvent.setup({ applyAccept: false });
     wide();
     page();
-    await screen.findByText('ঘরের ছবি');
-    // the picker's input is hidden behind its button and has no name of its own
-    const input = document.querySelector<HTMLInputElement>('input[type="file"]:not([capture])')!;
+    const [input] = await screen.findAllByLabelText('গ্যালারি থেকে নিন');
     const big = new File([new Uint8Array(6 * 1024 * 1024)], 'big.jpg', { type: 'image/jpeg' });
-    await user.upload(input, big);
+    await user.upload(input!, big);
     expect(await screen.findByText('big.jpg ফাইলটি 5 MB-এর চেয়ে বড়')).toBeInTheDocument();
-    await user.upload(input, new File(['x'], 'scan.pdf', { type: 'application/pdf' }));
+    await user.upload(input!, new File(['x'], 'scan.pdf', { type: 'application/pdf' }));
     expect(await screen.findByText('scan.pdf: এই ধরনের ফাইল নেওয়া যায় না')).toBeInTheDocument();
   });
 
