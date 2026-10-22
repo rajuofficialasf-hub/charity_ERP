@@ -68,7 +68,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 | SCR-050 | Project dashboard | parity | PM, RPM, Executive, Head, Monitoring, Finance | 3 · T3.3 |
 | SCR-051 | Admin area shell (`/admin`) with the dashboard placeholder | parity (notice on phones) | Head, Monitoring, PM | 1 · T1.7d (UX-15); pages in T1.13, T3.3, T6.1 |
 | SCR-060 | Project setup with component toggles | desktop-first | PM | 1 · T1.11, T1.12 |
-| SCR-061 | Form builder | desktop-first | PM | 2 · T2.4 |
+| SCR-061 | Form builder | desktop-first | PM | 2 · T2.4, T2.4b |
 | SCR-062 | Permission panel | desktop-first | Head, Monitoring | 1 · T1.8 |
 | SCR-063 | Officials: department staff, other departments, partners; new official, link, profile | parity | Head, Monitoring (writes); PM, RPM (read) | 1 · D-097 |
 | SCR-064 | Organogram | parity | Head, Monitoring, PM, RPM | 1 · D-097 |
@@ -1183,12 +1183,13 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 
 - **Purpose.** The PM builds the project's application form. It is assembled from the section library and the field library, with field settings, visibility, conditions, calculations, a live preview and versions (BD-12 to BD-14, blueprint B3).
 - **Built (T2.4).** `/admin/projects/{id}/forms` lists the project's forms with "নতুন ফর্ম" (a library template, the mandatory core alone, or a copy of another project's published form); `/admin/projects/{id}/forms/{formId}` is the builder (`apps/web/src/admin/forms/`): the libraries with search and a tick, the outline with move-up, move-down, edit and remove (the core marked and locked), and the settings of the chosen part: labels and help in both languages, required, the seven named text checks, length, value and row limits, options with "other" and branching on an earlier answer, the project's own question (also as a row question of a repeat group), "show when" and "required when" as rows joined by all or any (a deeper seeded condition is read-only with a note), and the calculation as terms joined by plus and minus, two terms multiplied or divided, a repeat-group sum, age from a date of birth, or net assets against the nisab. The draft saves itself with its version; a version changed elsewhere reloads with a notice; leaving with an unsaved change asks first. The preview (a tab, or a fourth pane from 1280 px) draws the draft at a phone's or a computer's width, in bn or en, as a volunteer or an official, and keeps no answer. The version list shows each version with its change summary; publishing asks first with the summary and the note that earlier applications keep their version; a published version offers "নতুন সংস্করণ তৈরি করুন". The public link panel switches the link on with the form and gives its URL to copy. The setup review's missing "প্রকাশিত আবেদন ফর্ম" and the application form component open the builder. The version list names who published each version and who last changed the draft, with when (D-121 item 10); no other read names an official.
-- **Roles.** PM. Department Head and Monitoring Team. The library is managed with `form.library.manage`.
+- **Redesigned (T2.4b, D-122).** One clean page for a person with little technical knowledge: the form itself in the middle, drawn section by section as it will be filled (`FormCanvas`: a click chooses a question, the chosen one shows its type with move-up, move-down, copy and remove, a handle drags a question inside or across sections with `@dnd-kit` and the keyboard moves it with the buttons, each section ends with "এই অংশে প্রশ্ন যোগ করুন", a group's card with "সারিতে প্রশ্ন যোগ করুন", a removal offers "ফেরত আনুন" until the next change); on the left the two tabs "প্রশ্ন যোগ" (the 22 types in six groups with an icon, a plain name and an example; a press adds to the chosen section, a drag places the question) and "লাইব্রেরি" (the ready questions by their section, in the seed's order, with a search, one question's "+" or "পুরো অংশটি যোগ করুন", what the form holds marked "ফর্মে আছে"); on the right the tabs "প্রশ্নের সেটিং" (short groups: মূল তথ্য, অপশন, উত্তরের নিয়ম, সারি, হিসাব, কখন দেখাবে, কখন আবশ্যক হবে; a condition and a calculation read as one sentence with a button that opens their editor in a dialog) and "ফর্মের সেটিং" (the name, the versions, the public link); "প্রিভিউ" opens the preview in a dialog and "প্রকাশ করুন" sits in the header; nothing chosen shows the three steps. A new question of the project's own takes its type from the left and asks for its texts and the section (or the group's rows). A calculated question may stay without its rule in a draft, tagged "হিসাবের নিয়ম দিন"; publishing refuses it (D-123). The library holds the group "পরিবারের সদস্যরা" beside "আয়কারী" (D-124). The words say "প্রশ্ন", never "ফিল্ড".
+- **Roles.** PM. Department Head and Monitoring Team. The library is managed with `form.library.manage`. From T2.4c (D-125) the Monitoring Team and the Department Head build the forms and manage the library in the system, and the PM only places a ready form on the project.
 - **Priority.** desktop-first.
 - **Data shown.**
-  - Left: the section library and field library with search, and a tick to add.
-  - Centre: the form outline. Sections are expandable, ordered with move-up and move-down buttons; there is no drag and drop.
-  - Right: field settings:
+  - Left: the question types in six groups, and the library by section with a search (T2.4b).
+  - Centre: the form as it will be filled, section by section; questions move by drag or by the chosen question's buttons (T2.4b; D-122 allows drag here only).
+  - Right: the question's settings in groups, or the form's settings:
     - label in bn and en
     - type
     - required
@@ -1213,12 +1214,12 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
   - Logic errors, such as a circular condition, show inline.
   - Unsaved changes trigger a warning on leave.
   - Phone: the notice; label and option text edits only.
-- **Components.** Table (library list), Tabs, Field, Row / Toggle, Drawer (preview on tablet), Form renderer (preview), Modal (condition editor), Badge (version), Confirm dialog (publish).
+- **Components.** Tabs, Disclosure, Field, Row / Toggle, Menu (section), Form renderer (the canvas sketch and the preview), Modal (preview, condition and calculation editors, the new question), Badge (version), Confirm dialog (publish), Alert (undo).
 - **Layouts.**
-  - Desktop: three panes (library, outline, settings) with the preview as a tab or a fourth pane at 1280 px and wider.
-  - Tablet: the outline with settings in a drawer.
+  - Desktop: three panes (add, canvas, settings) from 1024 px, the side panes in view while the form scrolls; the preview in a dialog.
+  - Tablet: the panes stacked.
   - Phone: read-mostly.
-- **Phase · task.** 2 · T2.4. **API.** tag forms.
+- **Phase · task.** 2 · T2.4, T2.4b. **API.** tag forms.
 
 ### SCR-062 Permission panel
 
