@@ -7,16 +7,15 @@
   gap: var(--space-4);
   align-items: start;
 }
+/* the columns share what the shell leaves beside its sidebar and never push the page sideways */
 @media (min-width: 1024px) {
   .form-builder-panes {
-    grid-template-columns: minmax(220px, 1fr) minmax(320px, 2fr) minmax(280px, 1.5fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1.5fr);
   }
 }
 @media (min-width: 1280px) {
   .form-builder-panes.has-preview {
-    grid-template-columns:
-      minmax(200px, 1fr) minmax(280px, 1.6fr) minmax(260px, 1.4fr)
-      minmax(360px, 1.8fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 1.4fr) minmax(0, 1.8fr);
   }
 }
 .form-preview-frame {
