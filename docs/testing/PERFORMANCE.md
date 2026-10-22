@@ -161,6 +161,7 @@ signed-in person adds when it is not cached yet, without failing on it.
 | 2026-10-19 (D-104): only the device language's catalogue at start, the MUI theme in | 229.7 KB | 18 |
 | 2026-10-20: the component set on MUI core, React Aria removed (D-103) | 211.8 KB | 18 |
 | 2026-10-20: Tailwind removed, the final state of the MUI work | 212.1 KB | 18 |
+| 2026-10-22 (T2.4): after T2.2 to T2.4; the Bengali catalogue at start is 35.8 KB with the form screens' texts | 222.2 KB | 19 |
 
 What a signed-in page adds on top of the first route when it is not yet cached (static import
 closure of its chunks, gzip): the home with the shell 76.0 KB, my projects with the shell 72.1 KB,
@@ -170,7 +171,7 @@ Since D-104 the entry loads only the device language's catalogue (the Bengali on
 gzip, is counted in the first route) and fetches the other when the person switches. With the
 component set on MUI core (D-103) the login's fields are native elements and MUI's theme, button
 and style engine are the only MUI code on the first route; the home of a signed-in person adds
-63.9 KB on top (it was 76.0 KB with React Aria). The next step if the first route grows past the
+63.9 KB on top (it was 76.0 KB with React Aria; 62.6 KB on 2026-10-22). The form builder and the public application page load in their own lazy chunks and add nothing to the first route. The next step if the first route grows past the
 budget is the gallery namespace, which only the gallery build needs.
 
 Lighthouse 12 on the mobile profile against the production build (`vite preview`, simulated slow
