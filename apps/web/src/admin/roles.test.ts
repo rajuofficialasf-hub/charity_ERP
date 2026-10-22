@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   canApproveStaff,
+  canBuildForms,
   canAssignVolunteers,
   canGrantOnProject,
   canMarkPaid,
@@ -108,5 +109,12 @@ describe('admin role lists', () => {
       expect(canMarkPaid(as(role)), role).toBe(false);
       expect(canGrantOnProject(as(role)), role).toBe(false);
     }
+  });
+
+  it('lets the PM and the global roles build forms, and no field role', () => {
+    for (const role of ['program_manager', 'department_head', 'monitoring_team'])
+      expect(canBuildForms(as(role)), role).toBe(true);
+    for (const role of ['regional_program_manager', 'project_executive', 'volunteer_general'])
+      expect(canBuildForms(as(role)), role).toBe(false);
   });
 });

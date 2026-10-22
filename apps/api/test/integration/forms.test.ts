@@ -288,6 +288,32 @@ describe('creating a project form', () => {
     expect(noPublished.status).toBe(409);
   });
 
+  it('refuses a copy to a caller who does not see the official-only sections of the source', async () => {
+    const source = await draft();
+    const made = await createForm(source, {
+      kind: 'template',
+      templateKey: 'form_self_reliance_construction',
+    });
+    await publishBySql(made.body.data.draftVersionId);
+    const target = await draft();
+    // the panel takes the official-section class from the PM for a while
+    const { rows } = await h.db.query<{ id: string }>(
+      `INSERT INTO user_permissions (id, user_id, permission_name, effect, scope_type, reason, granted_by)
+       VALUES (gen_random_uuid(), $1, 'application.view_official_section', 'revoke', 'GLOBAL', 'test', $2)
+       RETURNING id`,
+      [world.users.pm, world.users.head],
+    );
+    try {
+      const refused = await createForm(target, { kind: 'copy', formId: made.body.data.id });
+      expect(refused.status).toBe(403);
+      expect(JSON.stringify(refused.body)).not.toContain('official_comment');
+    } finally {
+      await h.db.query('DELETE FROM user_permissions WHERE id = $1', [rows[0]!.id]);
+    }
+    const allowed = await createForm(target, { kind: 'copy', formId: made.body.data.id });
+    expect(allowed.status).toBe(201);
+  });
+
   it('refuses a second form with the same key, an unknown template and a bad body', async () => {
     const project = await draft();
     expect((await createForm(project, { kind: 'blank' })).status).toBe(201);

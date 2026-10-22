@@ -1,6 +1,6 @@
 /*
- * The form builder (SCR-061): the panes side by side from 1024 px (the preview a fourth pane from
- * 1280 px), the outline's sections as cards and their questions as rows. Tokens only.
+ * The form builder (docs/ui/SCREENS.md, "Form builder"): the panes side by side from 1024 px,
+ * the outline's sections as cards and their questions as rows. Tokens only.
  */
 .form-builder-panes {
   display: grid;
@@ -10,14 +10,6 @@
 @media (min-width: 1024px) {
   .form-builder-panes {
     grid-template-columns: minmax(220px, 1fr) minmax(320px, 2fr) minmax(280px, 1.5fr);
-  }
-}
-@media (min-width: 1280px) {
-  .form-builder-panes.has-preview {
-    grid-template-columns: minmax(220px, 1fr) minmax(320px, 2fr) minmax(280px, 1.5fr) minmax(
-        360px,
-        2fr
-      );
   }
 }
 .form-builder-pane {

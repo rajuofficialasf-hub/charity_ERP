@@ -6,7 +6,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { useAuth } from '../../lib/auth';
-import { FORM_BUILDER_ROLES } from '../roles';
+import { canBuildForms } from '../roles';
 import { FORMS_KEY, projectForms } from './forms-api';
 import { NewFormDialog } from './NewFormDialog';
 
@@ -23,7 +23,7 @@ export function FormsPage() {
     queryKey: [...FORMS_KEY, projectId],
     queryFn: () => projectForms(projectId),
   });
-  const builder = Boolean(me && me.roles.some((r) => FORM_BUILDER_ROLES.includes(r)));
+  const builder = Boolean(me && canBuildForms(me));
   if (list.isPending) return <Skeleton shape="row" count={3} />;
   if (list.error)
     return <ErrorState title={tc('state.error.text')} onRetry={() => void list.refetch()} />;

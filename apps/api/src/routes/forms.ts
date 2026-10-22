@@ -155,7 +155,7 @@ export function formsRouter(
     status: 201,
     operationId: 'forms.form.create',
     summary:
-      "Create a project's form as draft version 1 from a library template, blank (the mandatory core only), or copied from another project's published form (BD-10)",
+      "Create a project's form as draft version 1 from a library template, blank (the mandatory core only), or copied from another project's published form by a caller who sees its official-only sections (BD-10)",
     audit: 'form.created',
     params: { projectId: uuid },
     body: formCreateSchema,

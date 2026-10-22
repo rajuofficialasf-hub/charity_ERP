@@ -15,6 +15,7 @@ export function LibraryPane({
   fields,
   definition,
   editable,
+  fieldsEditable,
   onAddSection,
   onAddField,
 }: {
@@ -22,6 +23,8 @@ export function LibraryPane({
   fields: LibraryFields;
   definition: FormDefinition;
   editable: boolean;
+  /** Whether a field can be placed: the form has a section to place it in. */
+  fieldsEditable: boolean;
   onAddSection: (section: LibrarySectionView) => void;
   onAddField: (key: string) => void;
 }) {
@@ -60,7 +63,7 @@ export function LibraryPane({
           <Checkbox
             key={f.key}
             isSelected={keys.has(f.key)}
-            isDisabled={!editable || keys.has(f.key)}
+            isDisabled={!editable || !fieldsEditable || keys.has(f.key)}
             onChange={(on) => on && onAddField(f.key)}
           >
             {f.label[locale]}

@@ -210,7 +210,7 @@ describe('the outline and the libraries', () => {
     expect(await screen.findByText('সংরক্ষিত')).toBeInTheDocument();
   }, 15_000);
 
-  it('moves a question up and down with the keyboard', async () => {
+  it('moves a question down and back up with the keyboard, and saves the order', async () => {
     const user = userEvent.setup();
     api({
       sections: [
@@ -231,7 +231,15 @@ describe('the outline and the libraries', () => {
     await user.keyboard('{Enter}');
     const list = await outlineOf('পরিবার ও আয়');
     await waitFor(() => expect(list.getAllByRole('listitem')[0]).toHaveTextContent('দ্বিতীয়'));
-  });
+    // the first question is now last, so its down button is off and its up button brings it back
+    expect(screen.getByRole('button', { name: 'প্রথম নিচে নিন' })).toBeDisabled();
+    screen.getByRole('button', { name: 'প্রথম উপরে নিন' }).focus();
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(list.getAllByRole('listitem')[0]).toHaveTextContent('প্রথম'));
+    await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
+    const saved = saves[0]!.body.sections.find((s) => s.key === 'family_income')!;
+    expect(saved.fields.map((f) => f.fieldKey)).toEqual(['a', 'b']);
+  }, 15_000);
 
   it('marks the core fields locked and offers no remove for them', async () => {
     api();
@@ -282,6 +290,47 @@ describe('saving', () => {
       await screen.findByText('শর্তে এমন একটি ঘরের নাম আছে যা ফর্মে নেই।', {}, { timeout: 4000 }),
     ).toBeInTheDocument();
     expect(screen.getByText('সংরক্ষণ হয়নি')).toBeInTheDocument();
+  }, 15_000);
+
+  it('shows a refusal about the whole form above the outline', async () => {
+    const user = userEvent.setup();
+    api({
+      patch: () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'validation.failed',
+              messageKey: 'errors.validation.failed',
+              message: 'কিছু তথ্য সঠিক নয়।',
+              details: [{ path: 'sections', code: 'form.too_many', message: 'ফর্মটি অনেক বড়।' }],
+              requestId: 'r',
+            },
+          },
+          { status: 422 },
+        ),
+    });
+    open();
+    await user.click(await screen.findByRole('checkbox', { name: 'পরিবার ও আয়' }));
+    expect(await screen.findByText('ফর্মটি অনেক বড়।', {}, { timeout: 4000 })).toBeInTheDocument();
+  }, 15_000);
+
+  it('opens the saved draft again after leaving, and saves the next change on its version', async () => {
+    const user = userEvent.setup();
+    api();
+    const { router } = open();
+    await user.click(await screen.findByRole('checkbox', { name: 'পরিবার ও আয়' }));
+    await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
+    await screen.findByText('সংরক্ষিত');
+    await router.navigate('/admin/projects');
+    await screen.findByTestId('location');
+    expect(screen.queryByRole('list', { name: 'পরিবার ও আয়' })).not.toBeInTheDocument();
+    await router.navigate(`/admin/projects/${PROJECT}/forms/${FORM}`);
+    expect(await screen.findByRole('list', { name: 'পরিবার ও আয়' })).toBeInTheDocument();
+    // the builder opened from what it saved, without asking the server again
+    expect(versionReads).toBe(1);
+    await user.click(screen.getByRole('button', { name: '১৪ বছরের বেশি সদস্য নিচে নিন' }));
+    await waitFor(() => expect(saves).toHaveLength(2), { timeout: 4000 });
+    expect(saves[1]!.ifMatch).toBe('"v2"');
   }, 15_000);
 
   it('reloads the draft when someone else changed it', async () => {
@@ -377,6 +426,37 @@ describe('who may change what', () => {
     expect(saved.label.bn).toBe('ধরনটি');
     expect(saved.options![0]!.label.bn).toBe('খ');
   }, 15_000);
+
+  it('offers a retry, not the not-found page, when the forms cannot be read', async () => {
+    const user = userEvent.setup();
+    api();
+    let fail = true;
+    server.use(
+      http.get(`*/api/v1/projects/${PROJECT}/forms`, () =>
+        fail
+          ? apiError(500, 'server.internal', 'কিছু একটা ভুল হয়েছে।')
+          : HttpResponse.json({
+              data: [
+                {
+                  id: FORM,
+                  projectId: PROJECT,
+                  key: 'default',
+                  title: T('উপকারভোগীর আবেদন', 'Beneficiary application'),
+                  publishedVersionId: null,
+                  draftVersionId: DRAFT,
+                },
+              ],
+              meta: { requestId: 'r' },
+            }),
+      ),
+    );
+    open();
+    const retry = await screen.findByRole('button', { name: /আবার চেষ্টা/ }, { timeout: 8000 });
+    expect(screen.queryByText('ফর্মটি পাওয়া যায়নি')).not.toBeInTheDocument();
+    fail = false;
+    await user.click(retry);
+    expect(await outlineOf('মৌলিক তথ্য')).toBeTruthy();
+  }, 20_000);
 
   it('answers a form of another program with the not-found page', async () => {
     api({ versionStatus: 404 });
@@ -508,5 +588,29 @@ describe('a new form', () => {
     await user.click(within(dialog).getByRole('button', { name: /(^|\s)ফর্ম(\(|\s|$)/ }));
     expect(await screen.findByRole('option', { name: 'গত বছরের ফর্ম' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'শুধু খসড়া' })).not.toBeInTheDocument();
+  });
+
+  it('shows the server refusal of a new form and keeps the dialog open', async () => {
+    const user = userEvent.setup();
+    server.use(
+      forms([]),
+      http.post(`*/api/v1/projects/${PROJECT}/forms`, () =>
+        apiError(409, 'form.key_taken', 'এই প্রকল্পে এই নামের ফর্ম আগেই আছে।'),
+      ),
+    );
+    openList();
+    await user.click(await screen.findByRole('button', { name: 'নতুন ফর্ম' }));
+    const dialog = await screen.findByRole('dialog', { name: 'নতুন আবেদন ফর্ম' });
+    await user.type(within(dialog).getByRole('textbox', { name: /ফর্মের নাম \(বাংলা\)/ }), 'আবেদন');
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /ফর্মের নাম \(ইংরেজি\)/ }),
+      'Application',
+    );
+    await user.click(within(dialog).getByRole('radio', { name: 'খালি ফর্ম (শুধু আবশ্যক ঘর)' }));
+    await user.click(within(dialog).getByRole('button', { name: 'তৈরি করুন' }));
+    expect(
+      await within(dialog).findByText('এই প্রকল্পে এই নামের ফর্ম আগেই আছে।'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'নতুন আবেদন ফর্ম' })).toBeInTheDocument();
   });
 });

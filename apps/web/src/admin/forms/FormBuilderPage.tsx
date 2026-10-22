@@ -19,7 +19,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { FORM_BUILDER_ROLES } from '../roles';
+import { canBuildForms } from '../roles';
 import {
   addLibraryField,
   addLibrarySection,
@@ -52,9 +52,9 @@ function usePhone() {
 }
 
 /**
- * The form builder of a project's form (SCR-061): the libraries, the outline and the settings of
- * the chosen part side by side on a computer, the outline alone with text edits on a phone. The
- * draft saves itself; a published version opens read-only.
+ * The form builder of a project's form (docs/ui/SCREENS.md, "Form builder"): the libraries,
+ * the outline and the settings of the chosen part side by side on a computer, the outline alone
+ * with text edits on a phone. The draft saves itself; a published version opens read-only.
  */
 export function FormBuilderPage() {
   const { projectId = '', formId = '' } = useParams();
@@ -79,20 +79,25 @@ export function FormBuilderPage() {
   const [draft, setDraft] = useState<FormDefinition | null>(null);
   const [etag, setEtag] = useState<string | undefined>(undefined);
   const [selected, setSelected] = useState<Selection | null>(null);
-  // the version as read is where editing starts; a reload after a stale save starts again from it
+  const versionKey = [...FORMS_KEY, 'version', versionId];
+  const save = useDraftSave({
+    version: read.data?.data,
+    etag,
+    onSaved: (saved: FormVersion, next: string) => {
+      setEtag(next);
+      // the cached version is what the builder opens with next time
+      queries.setQueryData(versionKey, { data: saved, meta: { etag: next } });
+    },
+    onStale: () => void queries.invalidateQueries({ queryKey: versionKey }),
+  });
+  // the version as read is where editing starts, and a reload after a stale save starts again
+  // from it; while a change waits to be saved, the screen keeps the change
   const [seen, setSeen] = useState<typeof read.data>(undefined);
-  if (read.data && read.data !== seen) {
+  if (read.data && read.data !== seen && save.state === 'saved') {
     setSeen(read.data);
     setDraft({ sections: read.data.data.sections });
     setEtag(read.data.meta.etag);
   }
-  const save = useDraftSave({
-    version: read.data?.data,
-    etag,
-    onSaved: (_saved: FormVersion, next: string) => setEtag(next),
-    onStale: () =>
-      void queries.invalidateQueries({ queryKey: [...FORMS_KEY, 'version', versionId] }),
-  });
   const fields: LibraryFields = useMemo(
     () => new Map((lib.data?.fields ?? []).map((f) => [f.key, f.formFields])),
     [lib.data],
@@ -100,14 +105,22 @@ export function FormBuilderPage() {
 
   if (forms.isPending || (versionId && read.isPending)) return <Skeleton shape="card" />;
   const notFound =
-    (forms.isSuccess && !form) || (read.error instanceof ApiFailure && read.error.status === 404);
-  if (notFound || !versionId)
-    return <EmptyState title={t('not_found')} message={t('not_found_hint')} />;
+    (forms.isSuccess && !versionId) ||
+    (read.error instanceof ApiFailure && read.error.status === 404);
+  if (notFound) return <EmptyState title={t('not_found')} message={t('not_found_hint')} />;
   if (forms.error || read.error || !read.data || !draft)
-    return <ErrorState title={tc('state.error.text')} onRetry={() => void read.refetch()} />;
+    return (
+      <ErrorState
+        title={tc('state.error.text')}
+        onRetry={() => {
+          void forms.refetch();
+          if (versionId) void read.refetch();
+        }}
+      />
+    );
 
   const version = read.data.data;
-  const builder = Boolean(me && me.roles.some((r) => FORM_BUILDER_ROLES.includes(r)));
+  const builder = Boolean(me && canBuildForms(me));
   const isDraft = version.status === 'draft';
   const mode: OutlineMode =
     !builder || !isDraft || save.refused ? 'read' : phone ? 'texts' : 'full';
@@ -135,6 +148,12 @@ export function FormBuilderPage() {
         ? t('save_failed')
         : t('saved');
   const title = form ? localized(form.title, locale) : t('title');
+  // a library question goes to the chosen section, or to the last one when none is chosen
+  const target =
+    draft.sections.find((s) => s.key === selected?.section)?.key ?? draft.sections.at(-1)?.key;
+  // a refusal about the whole form names no question or section, so it shows above the outline
+  const named = new Set(draft.sections.flatMap((s) => [s.key, ...s.fields.map((f) => f.fieldKey)]));
+  const unplaced = Object.entries(save.errors).filter(([key]) => !named.has(key));
 
   const outline = (
     <OutlinePane
@@ -177,6 +196,11 @@ export function FormBuilderPage() {
           {t('no_official')}
         </Alert>
       ) : null}
+      {unplaced.map(([key, message]) => (
+        <Alert key={key} tone="danger">
+          {message}
+        </Alert>
+      ))}
       {save.stale ? (
         <Alert tone="warning" live="alert">
           {t('stale')}
@@ -197,16 +221,11 @@ export function FormBuilderPage() {
                 fields={fields}
                 definition={draft}
                 editable={mode === 'full'}
+                fieldsEditable={target !== undefined}
                 onAddSection={(s) => change(addLibrarySection(draft, s, fields))}
-                onAddField={(key) =>
-                  change(
-                    addLibraryField(
-                      draft,
-                      selected?.section ?? draft.sections.at(-1)!.key,
-                      fields.get(key) ?? [],
-                    ),
-                  )
-                }
+                onAddField={(key) => {
+                  if (target) change(addLibraryField(draft, target, fields.get(key) ?? []));
+                }}
               />
             </div>
           ) : null}

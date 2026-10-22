@@ -217,3 +217,4 @@ export const FORM_BUILDER_ROLES: readonly string[] = [
   'monitoring_team',
   'program_manager',
 ];
+export const canBuildForms = (me: Pick<Me, 'roles'>) => holds(me, FORM_BUILDER_ROLES);

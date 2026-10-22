@@ -485,6 +485,11 @@ export class FormsService {
     });
     if (!form) throw new ApiError('permission.not_found', 404);
     await this.access.findProject(viewer.scope, form.projectId, { id: true }, tx);
+    // the copy carries every section, so it is only for those who see them all on the source
+    if ((await this.audienceOf(viewer, form.projectId)) !== 'official') {
+      this.access.denied(viewer.principal.userId, viewer.scope.permission, viewer.scope.entity);
+      throw new ApiError('permission.denied', 403);
+    }
     const published = form.formVersionsForm[0];
     if (!published) throw new ApiError('form.nothing_published', 409);
     return readDefinition(tx, published.id, 'official');
