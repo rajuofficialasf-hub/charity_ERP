@@ -17,7 +17,7 @@ import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { type Address, AddressFields, EMPTY_ADDRESS } from '../registration/AddressFields';
 import { GpsField } from './GpsField';
-import type { UploadAdapter } from './upload-adapter';
+import type { FieldUpload } from './upload-adapter';
 import { UploadField } from './UploadField';
 
 export interface FieldInputProps {
@@ -29,7 +29,7 @@ export interface FieldInputProps {
   computed: ComputedValue | undefined;
   error?: string;
   onChange: (value: AnswerValue | null) => void;
-  upload?: UploadAdapter;
+  upload?: FieldUpload;
   /** Told while a file of this question is still going up. */
   onUploading?: (busy: boolean) => void;
   /** Nisab comparisons show no value where the nisab is not known (the public page). */

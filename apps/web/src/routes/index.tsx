@@ -32,6 +32,12 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
           }),
         },
         {
+          path: '/apply/:token',
+          lazy: async () => ({
+            Component: (await import('../features/forms/PublicApplyPage')).PublicApplyPage,
+          }),
+        },
+        {
           path: '/register',
           lazy: async () => ({
             Component: (await import('../features/registration/RegisterPage')).RegisterPage,

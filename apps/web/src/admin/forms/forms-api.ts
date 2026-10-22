@@ -75,3 +75,13 @@ export const newVersion = (formId: string) =>
 
 /** The nisab in force today, for the preview's zakat comparison. */
 export const nisabInForce = () => api<{ value: string }>('/nisab-versions/in-force');
+
+/** Switches the project's public link on with one form, or off; each switch-on makes a new URL. */
+export const configurePublicLink = (
+  projectId: string,
+  body: { enabled: boolean; formId?: string },
+) =>
+  api<{ enabled: boolean; formId: string | null; url: string | null }>(
+    `/projects/${projectId}/public-link`,
+    { method: 'PATCH', body },
+  );

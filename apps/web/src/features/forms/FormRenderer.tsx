@@ -111,6 +111,15 @@ export function FormRenderer({
     return rows;
   }, [form]);
   const { state, setState, clear } = useFormAnswers(storageKey, initialRows);
+  // each file goes up as part of this application, named by its client id
+  const fieldUpload = useMemo(
+    () =>
+      upload && {
+        ...upload,
+        upload: (file: File, fieldKey: string) => upload.upload(file, fieldKey, state.clientUuid),
+      },
+    [upload, state.clientUuid],
+  );
   const context = useMemo(
     () => ({ today, ...(nisabValue ? { nisabValue } : {}) }),
     [today, nisabValue],
@@ -225,7 +234,7 @@ export function FormRenderer({
         computed={evaluation.computed[path]}
         error={allErrors[path]}
         onChange={(value) => change(field, row, inGroup, value)}
-        upload={upload}
+        upload={fieldUpload}
         onUploading={(busy) =>
           setUploading((set) => {
             const next = new Set(set);

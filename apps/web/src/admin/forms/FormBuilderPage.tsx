@@ -44,6 +44,7 @@ import {
 import { LibraryPane } from './LibraryPane';
 import { type OutlineMode, OutlinePane, type Selection } from './OutlinePane';
 import { PreviewPane } from './PreviewPane';
+import { PublicLinkPanel } from './PublicLinkPanel';
 import { SettingsPane } from './SettingsPane';
 import { detailsOf, useDraftSave } from './use-draft-save';
 import { VersionList } from './VersionList';
@@ -335,6 +336,14 @@ export function FormBuilderPage() {
           shown={version.id}
           canOpen={save.state === 'saved'}
           onOpen={setViewing}
+        />
+      </div>
+      <div className="form-builder-pane">
+        <PublicLinkPanel
+          projectId={projectId}
+          formId={formId}
+          published={Boolean(form?.publishedVersionId)}
+          canManage={builder}
         />
       </div>
       <ConfirmDialog

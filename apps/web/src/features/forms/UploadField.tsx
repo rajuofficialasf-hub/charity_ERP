@@ -1,7 +1,9 @@
 import { FileUpload, Stack, Text, type UploadItem } from '@css/ui';
 import { useRef, useState } from 'react';
 import { useTranslations } from 'use-intl';
-import type { UploadAdapter } from './upload-adapter';
+import type { FieldUpload } from './upload-adapter';
+
+const MB = 1024 * 1024;
 
 /**
  * A photo, file or signature question: each file goes up through the screen's adapter as it is
@@ -27,7 +29,7 @@ export function UploadField({
   error?: string;
   required: boolean;
   fileIds: string[];
-  adapter?: UploadAdapter;
+  adapter?: FieldUpload;
   onChange: (fileIds: string[]) => void;
   onUploading?: (busy: boolean) => void;
 }) {
@@ -94,8 +96,22 @@ export function UploadField({
       maxSize={adapter.maxSize}
       multiple={(adapter.maxFiles ?? 1) > 1}
       maxFiles={adapter.maxFiles}
+      maxSizeText={`${Math.round(adapter.maxSize / MB)} MB`}
       value={items}
       onAdd={add}
+      // a file refused before it is sent stays in the list with the reason, until removed
+      onReject={(file, reason) =>
+        update((list) => [
+          ...list,
+          {
+            id: `rejected-${crypto.randomUUID()}`,
+            name: file.name,
+            state: 'rejected',
+            reason,
+            removable: true,
+          },
+        ])
+      }
       onRemove={(id) => update((list) => list.filter((i) => i.id !== id))}
     />
   );

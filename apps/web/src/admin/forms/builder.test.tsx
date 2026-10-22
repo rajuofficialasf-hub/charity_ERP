@@ -153,6 +153,9 @@ function api(
     http.get(`*/api/v1/forms/${FORM}/versions`, () =>
       HttpResponse.json({ data: [current], meta: { requestId: 'r' } }),
     ),
+    http.get(`*/api/v1/projects/${PROJECT}/components`, () =>
+      HttpResponse.json({ data: [], meta: { requestId: 'r' } }),
+    ),
     http.get('*/api/v1/nisab-versions/in-force', () =>
       HttpResponse.json({ data: { value: '85000.00' }, meta: { requestId: 'r' } }),
     ),

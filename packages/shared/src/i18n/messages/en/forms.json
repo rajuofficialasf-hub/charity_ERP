@@ -233,6 +233,16 @@
       "volunteer": "Volunteer",
       "official": "Official",
       "note": "Answers typed here are not kept or sent anywhere."
+    },
+    "link": {
+      "title": "Public application link",
+      "on_here": "The link is on and opens this form.",
+      "on_other": "The link is on but opens another form.",
+      "off": "The link is off.",
+      "switch": "Public link on for this form",
+      "publish_first": "Publish the form before switching the link on.",
+      "url": "Application link",
+      "renew_note": "Switching the link off and on again makes a new link; the old one stops working."
     }
   },
   "types": {
@@ -258,5 +268,20 @@
     "repeat_group": "Repeating group",
     "calculation": "Calculation",
     "note": "Information"
+  },
+  "apply": {
+    "title": "Application",
+    "closes": "Last day to apply: {date}",
+    "photo_rule": "You can add {count} photos in all, each up to 5 MB, JPEG or PNG.",
+    "submit": "Send the application",
+    "received_title": "Application received",
+    "received": "Thank you. An official will check the application.",
+    "closed_title": "This link is not taking applications",
+    "closed": "The link is off, or the time to apply has ended.",
+    "load_failed": "The form could not be loaded. Try again.",
+    "too_many": "Too many tries. Try again in a little while.",
+    "fix_named": "Some answers need fixing; the reason is under each question.",
+    "send_failed": "The application could not be sent. Try again.",
+    "upload_failed": "The photo could not be sent. Try again."
   }
 }
