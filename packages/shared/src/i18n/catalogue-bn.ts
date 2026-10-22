@@ -5,6 +5,7 @@ import bn_auth from './messages/bn/auth.json' with { type: 'json' };
 import bn_codes from './messages/bn/codes.json' with { type: 'json' };
 import bn_common from './messages/bn/common.json' with { type: 'json' };
 import bn_errors from './messages/bn/errors.json' with { type: 'json' };
+import bn_forms from './messages/bn/forms.json' with { type: 'json' };
 import bn_gallery from './messages/bn/gallery.json' with { type: 'json' };
 import bn_home from './messages/bn/home.json' with { type: 'json' };
 import bn_nav from './messages/bn/nav.json' with { type: 'json' };
@@ -20,6 +21,7 @@ export const bn = {
   codes: bn_codes,
   common: bn_common,
   errors: bn_errors,
+  forms: bn_forms,
   gallery: bn_gallery,
   home: bn_home,
   nav: bn_nav,

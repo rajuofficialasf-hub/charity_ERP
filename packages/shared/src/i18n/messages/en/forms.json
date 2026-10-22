@@ -1,0 +1,29 @@
+{
+  "renderer": {
+    "steps_label": "Form parts",
+    "step": "Part {current} of {total}",
+    "previous": "Previous part",
+    "next": "Next part",
+    "submit": "Send",
+    "sending": "Sending…",
+    "fix_before": "Fix {count} problems before sending",
+    "fix_step": "Fix {count} problems before the next part",
+    "calculated": "Worked out for you",
+    "office_works_out": "The office works this out",
+    "yes": "Yes",
+    "no": "No",
+    "add_row": "Add another",
+    "remove_row": "Remove {label} {n}",
+    "row_title": "{label} {n}",
+    "rows_limit": "At most {max}",
+    "gps_take": "Use my location",
+    "gps_retake": "Take the location again",
+    "gps_taking": "Taking the location…",
+    "gps_denied": "Location permission was refused. Allow it in the phone's settings and try again.",
+    "gps_unavailable": "The location cannot be found now. Try again in a moment.",
+    "upload_inert": "Files are not taken here.",
+    "signature_helper": "Sign on paper, then take or choose a photo of it.",
+    "time_helper": "Hours:minutes, for example 14:30",
+    "datetime_time": "{label}: time"
+  }
+}
