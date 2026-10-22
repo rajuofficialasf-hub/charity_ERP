@@ -32,7 +32,7 @@ test.describe('assigning volunteers and their consent', () => {
     // a project with rules in the Dhaka division, made active
     await signIn(desk, CREATOR);
     await openTab(desk, 'প্রকল্প');
-    const projectId = await activeProject(desk, name, ERR);
+    const projectId = await activeProject(desk, name, ERR, CREATOR);
 
     // the Dhaka RPM assigns the volunteer found by mobile number
     await desk.context().clearCookies();

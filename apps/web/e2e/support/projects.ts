@@ -1,4 +1,5 @@
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type Locator, type Page, request as apiRequest } from '@playwright/test';
+import { apiAs } from './admin';
 
 // Shared steps of the project specs (projects.spec.ts, assignment.spec.ts) against the demo seed
 // (docs/testing/DEMO_ACCOUNTS.md).
@@ -64,12 +65,52 @@ export async function typeDate(page: Page, scope: Locator, label: string, ddmmyy
 }
 
 /**
+ * The application form of a project from the library, published through the API as the person
+ * signed in on the page (the builder screen comes with its own task); activation needs it.
+ */
+export async function publishLibraryForm(page: Page, loginId: string, projectId: string) {
+  const context = await apiRequest.newContext({ baseURL: new URL(page.url()).origin });
+  try {
+    const api = await apiAs(context, loginId);
+    const made = await api.post(`/projects/${projectId}/forms`, {
+      key: 'default',
+      title: { bn: 'আবেদন', en: 'Application' },
+      source: { kind: 'template', templateKey: 'form_distribution' },
+    });
+    expect(made.ok(), await made.text()).toBe(true);
+    const versionId = ((await made.json()) as { data: { draftVersionId: string } }).data
+      .draftVersionId;
+    const version = await api.get(`/form-versions/${versionId}`);
+    const published = await api.post(`/form-versions/${versionId}/publish`, undefined, {
+      'If-Match': version.headers()['etag'] ?? '',
+    });
+    expect(published.ok(), await published.text()).toBe(true);
+  } finally {
+    await context.dispose();
+  }
+}
+
+/** The project id in the address of a project page. */
+export function projectIdOf(page: Page): string {
+  const id = /projects\/([0-9a-f-]{36})/.exec(page.url())?.[1];
+  expect(id).toBeTruthy();
+  return id!;
+}
+
+/**
  * A project made active through the wizard from the project list: a group photo, a budget of
- * 100 × 1000 from zakat, a window, a limit of 50, the Dhaka division with its RPM and the rules.
+ * 100 × 1000 from zakat, a window, a limit of 50, the Dhaka division with its RPM, the rules and
+ * the application form published through the API by `loginId`, the person signed in.
  * Returns the project's id.
  */
-export async function activeProject(page: Page, name: string, program: string): Promise<string> {
+export async function activeProject(
+  page: Page,
+  name: string,
+  program: string,
+  loginId: string,
+): Promise<string> {
   await newDraft(page, code(), name, program);
+  await publishLibraryForm(page, loginId, projectIdOf(page));
   await page.getByRole('button', { name: 'বিতরণ ও ছবি-এর সেটিংস' }).click();
   const drawer = page.getByRole('dialog');
   await drawer.getByText('শুধু দলের ছবি', { exact: true }).click();

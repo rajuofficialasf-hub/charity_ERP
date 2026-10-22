@@ -76,7 +76,7 @@ async function projectWithVolunteer(browser: Browser, request: APIRequestContext
   const desk = await officials.newPage();
   await signIn(desk, PM);
   await openTab(desk, 'প্রকল্প');
-  const projectId = await activeProject(desk, `অ্যাক্সেসিবিলিটির পরীক্ষা ${code()}`, ERR);
+  const projectId = await activeProject(desk, `অ্যাক্সেসিবিলিটির পরীক্ষা ${code()}`, ERR, PM);
   await officials.close();
   const head = await apiAs(request, HEAD);
   const volunteers = await head.get(`/volunteers?q=${VOLUNTEER}`);
