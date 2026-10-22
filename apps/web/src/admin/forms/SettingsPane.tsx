@@ -11,14 +11,11 @@ import {
   PATTERN_KEYS,
   validationOf,
 } from '@css/shared/forms';
-import { Button, Select, Stack, Switch, Text, TextField } from '@css/ui';
-import { Plus } from 'lucide-react';
-import { useState } from 'react';
+import { Select, Stack, Switch, Text, TextField } from '@css/ui';
 import { useLocale, useTranslations } from 'use-intl';
 import { CalculationEditor } from './CalculationEditor';
 import { ConditionEditor } from './ConditionEditor';
 import {
-  addOwnQuestion,
   setOptions,
   coreLocks,
   setSectionCondition,
@@ -27,7 +24,6 @@ import {
 } from './draft';
 import type { Selection } from './selection';
 import { OptionsEditor } from './OptionsEditor';
-import { OwnQuestionDialog } from './OwnQuestionDialog';
 import { parentCandidates } from './candidates';
 import { LimitPair, RepeatSettings } from './RepeatSettings';
 
@@ -51,13 +47,11 @@ export function SettingsPane({
   selected,
   mode,
   onChange,
-  onSelect,
 }: {
   definition: FormDefinition;
   selected: Selection | null;
   mode: 'full' | 'texts';
   onChange: (definition: FormDefinition) => void;
-  onSelect: (selection: Selection) => void;
 }) {
   const t = useTranslations('forms.builder');
   const section = definition.sections.find((s) => s.key === selected?.section);
@@ -71,7 +65,6 @@ export function SettingsPane({
         section={section}
         mode={mode}
         onChange={onChange}
-        onSelect={onSelect}
       />
     );
   return (
@@ -91,16 +84,13 @@ function SectionSettings({
   section,
   mode,
   onChange,
-  onSelect,
 }: {
   definition: FormDefinition;
   section: FormSection;
   mode: 'full' | 'texts';
   onChange: (definition: FormDefinition) => void;
-  onSelect: (selection: Selection) => void;
 }) {
   const t = useTranslations('forms.builder');
-  const [asking, setAsking] = useState(0);
   const core = section.fields.some((f) => isCoreFieldKey(f.fieldKey));
   const setTitle = (title: FormSection['title']) =>
     onChange({
@@ -137,25 +127,6 @@ function SectionSettings({
               }
             />
           )}
-          <Button variant="secondary" icon={Plus} onPress={() => setAsking((n) => n + 1)}>
-            {t('own_add')}
-          </Button>
-          {asking ? (
-            <OwnQuestionDialog
-              key={asking}
-              isOpen
-              definition={definition}
-              sectionKey={section.key}
-              onClose={() => setAsking(0)}
-              onAdd={(question) => {
-                const added = addOwnQuestion(definition, section.key, question);
-                setAsking(0);
-                if (!added.fieldKey) return;
-                onChange(added.definition);
-                onSelect({ section: section.key, field: added.fieldKey });
-              }}
-            />
-          ) : null}
         </>
       ) : null}
     </Stack>

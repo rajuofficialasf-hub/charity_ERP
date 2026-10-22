@@ -29,7 +29,7 @@ function dayFromToday(days: number): string {
 const digits = (n: number) =>
   Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join('');
 
-/** A question of the project's own, added to a section through its settings. */
+/** A question of the project's own: its section chosen on the canvas, its type on the left. */
 async function ownQuestion(
   page: Page,
   sectionTitle: string,
@@ -37,18 +37,11 @@ async function ownQuestion(
   label: [string, string],
   options: [string, string][] = [],
 ) {
-  await page.getByRole('button', { name: `${sectionTitle} বদলান`, exact: true }).click();
-  await page.getByRole('button', { name: 'নিজের প্রশ্ন যোগ করুন' }).click();
+  await page.getByRole('button', { name: sectionTitle, exact: true }).click();
+  await page.getByRole('tab', { name: 'প্রশ্ন যোগ' }).click();
+  await page.getByRole('button', { name: `${type} প্রশ্ন যোগ করুন`, exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'নতুন প্রশ্ন' });
-  // the type list is long and still settling as it opens, so a pick that lands too early is
-  // made again until the list closes with that type
-  const typeSelect = dialog.getByRole('button', { name: /\sপ্রশ্নের ধরন \(আবশ্যক\)$/ });
-  await expect(async () => {
-    if ((await page.getByRole('listbox').count()) === 0) await typeSelect.click();
-    await page.getByRole('listbox').getByRole('option', { name: type, exact: true }).click();
-    await expect(page.getByRole('listbox')).toHaveCount(0, { timeout: 2_000 });
-  }).toPass({ timeout: 20_000 });
-  await expect(typeSelect).toHaveAccessibleName(new RegExp(`^${type}\\s`));
+  await expect(dialog.getByText(type, { exact: true })).toBeVisible();
   await dialog.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }).fill(label[0]);
   await dialog.getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }).fill(label[1]);
   for (const [i, [bn, en]] of options.entries()) {
@@ -130,8 +123,8 @@ test('a PM builds and publishes a form, an applicant sends it by the link, and v
 
   // a library section, two numbers of the project's own with their total, and a question shown
   // only when the first number is above zero
-  // the set's checkbox input is visually hidden behind its box
-  await page.getByRole('checkbox', { name: 'আর্থিক অবস্থা' }).check({ force: true });
+  await page.getByRole('tab', { name: 'লাইব্রেরি' }).click();
+  await page.getByRole('button', { name: 'আর্থিক অবস্থা: পুরো অংশটি যোগ করুন' }).click();
   await expect(page.getByRole('list', { name: 'আর্থিক অবস্থা' })).toBeVisible();
   await ownQuestion(page, 'আর্থিক অবস্থা', 'সংখ্যা', ['পুরুষ সদস্য', 'Male members']);
   await ownQuestion(page, 'আর্থিক অবস্থা', 'সংখ্যা', ['নারী সদস্য', 'Female members']);

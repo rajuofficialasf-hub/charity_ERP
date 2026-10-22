@@ -207,13 +207,40 @@ afterEach(() => vi.unstubAllGlobals());
 
 /** The canvas's list of a section's questions. */
 const outlineOf = async (title: string) => within(await screen.findByRole('list', { name: title }));
+/** Adds a library section whole from the left pane's library tab. */
+const addSection = async (user: ReturnType<typeof userEvent.setup>, title: string) => {
+  await user.click(await screen.findByRole('tab', { name: 'লাইব্রেরি' }));
+  await openGroup(user, title);
+  await user.click(await screen.findByRole('button', { name: `${title}: পুরো অংশটি যোগ করুন` }));
+};
+/** Opens a library section's group in the left pane when it is closed. */
+const openGroup = async (user: ReturnType<typeof userEvent.setup>, title: string) => {
+  const heading = await screen.findByRole('button', { name: new RegExp(`^${title} `) });
+  if (heading.getAttribute('aria-expanded') === 'false') await user.click(heading);
+};
+/** Picks an option of a select of the set, found by its label. */
+async function choose(
+  user: ReturnType<typeof userEvent.setup>,
+  label: RegExp,
+  optionName: string | RegExp,
+  scope: ReturnType<typeof within> | typeof screen = screen,
+) {
+  await user.click(scope.getByRole('button', { name: label }));
+  await user.click(await screen.findByRole('option', { name: optionName }));
+}
+/** The field of the last saved draft. */
+const savedField = (key: string) =>
+  saves
+    .at(-1)!
+    .body.sections.flatMap((s) => s.fields)
+    .find((f) => f.fieldKey === key);
 
 describe('the outline and the libraries', () => {
   it('adds a library section with its fields by a tick, and saves the draft with its version', async () => {
     const user = userEvent.setup();
     api();
     open();
-    await user.click(await screen.findByRole('checkbox', { name: 'পরিবার ও আয়' }));
+    await addSection(user, 'পরিবার ও আয়');
     const added = await outlineOf('পরিবার ও আয়');
     expect(added.getAllByRole('listitem').map((li) => li.textContent)).toEqual([
       expect.stringContaining('১৪ বছরের বেশি সদস্য'),
@@ -329,10 +356,116 @@ describe('the outline and the libraries', () => {
     const user = userEvent.setup();
     api();
     open();
-    await user.type(await screen.findByRole('textbox', { name: 'লাইব্রেরিতে খুঁজুন' }), 'দৈনিক');
-    expect(screen.getByRole('checkbox', { name: 'দৈনিক আয়' })).toBeInTheDocument();
-    expect(screen.queryByRole('checkbox', { name: '১৪ বছরের বেশি সদস্য' })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('tab', { name: 'লাইব্রেরি' }));
+    await user.type(
+      await screen.findByRole('textbox', { name: 'লাইব্রেরিতে প্রশ্ন খুঁজুন' }),
+      'দৈনিক',
+    );
+    expect(screen.getByRole('button', { name: 'দৈনিক আয় যোগ করুন' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: '১৪ বছরের বেশি সদস্য যোগ করুন' }),
+    ).not.toBeInTheDocument();
   });
+
+  it('adds one library question to the chosen section and marks it as in the form', async () => {
+    const user = userEvent.setup();
+    api();
+    open();
+    await user.click(await screen.findByRole('button', { name: 'মৌলিক তথ্য' }));
+    await user.click(screen.getByRole('tab', { name: 'লাইব্রেরি' }));
+    await openGroup(user, 'পরিবার ও আয়');
+    await user.click(await screen.findByRole('button', { name: 'দৈনিক আয় যোগ করুন' }));
+    expect(screen.queryByRole('button', { name: 'দৈনিক আয় যোগ করুন' })).not.toBeInTheDocument();
+    const basic = await outlineOf('মৌলিক তথ্য');
+    expect(basic.getByRole('button', { name: 'দৈনিক আয় বদলান' })).toBeInTheDocument();
+  });
+});
+
+describe('the own question', () => {
+  it('comes from a type on the left, needs both labels and, for a choice, an option in both languages', async () => {
+    const user = userEvent.setup();
+    api({
+      sections: [
+        ...titled({ sections: coreSections() }).sections,
+        section('project', [], { title: T('প্রকল্পের প্রশ্ন', 'Project') }),
+      ],
+    });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'প্রকল্পের প্রশ্ন' }));
+    await user.click(screen.getByRole('button', { name: 'একটি বেছে নিন প্রশ্ন যোগ করুন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'নতুন প্রশ্ন' });
+    expect(within(dialog).getByText('একটি বেছে নিন')).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'প্রশ্ন যোগ করুন' }));
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('দুই ভাষাতেই লেবেল লিখুন।');
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }),
+      'নিজের ঘর আছে?',
+    );
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }),
+      'Own house?',
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'প্রশ্ন যোগ করুন' }));
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('অন্তত একটি অপশন রাখুন');
+    await user.type(within(dialog).getByRole('textbox', { name: /^অপশন 1 \(বাংলা\)/ }), 'হ্যাঁ');
+    await user.type(within(dialog).getByRole('textbox', { name: /^অপশন 1 \(ইংরেজি\)/ }), 'Yes');
+    await user.click(within(dialog).getByRole('button', { name: 'প্রশ্ন যোগ করুন' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'নতুন প্রশ্ন' })).not.toBeInTheDocument(),
+    );
+    // the new question opens in the settings
+    expect(screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ })).toHaveValue('নিজের ঘর আছে?');
+    await waitFor(() => expect(saves.length).toBeGreaterThan(0), { timeout: 4000 });
+    expect(savedField('q_own_house')).toMatchObject({
+      type: 'radio',
+      label: { bn: 'নিজের ঘর আছে?', en: 'Own house?' },
+      libraryFieldKey: null,
+      options: [{ code: 'opt_1', label: { bn: 'হ্যাঁ', en: 'Yes' } }],
+    });
+  }, 20_000);
+
+  it('goes to the section picked in the dialog and names the earlier answer a branching option follows', async () => {
+    const user = userEvent.setup();
+    api({
+      sections: [
+        ...titled({ sections: coreSections() }).sections,
+        section(
+          'work',
+          [
+            field('occupation', 'radio', {
+              label: T('পেশা', 'Occupation'),
+              options: [
+                option('business', { label: T('ব্যবসা', 'Business') }),
+                option('farming', { label: T('কৃষি', 'Farming') }),
+              ],
+            }),
+          ],
+          { title: T('কাজ', 'Work') },
+        ),
+      ],
+    });
+    open();
+    // the first section is chosen; the dialog moves the question to the work section
+    await user.click(await screen.findByRole('button', { name: 'মৌলিক তথ্য' }));
+    await user.click(screen.getByRole('button', { name: 'তালিকা থেকে একটি প্রশ্ন যোগ করুন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'নতুন প্রশ্ন' });
+    const scope = within(dialog);
+    await user.type(scope.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), 'ব্যবসার ধরন');
+    await user.type(scope.getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }), 'Kind of business');
+    await choose(user, /^মৌলিক তথ্য কোন অংশে/, 'কাজ', scope);
+    await choose(user, /কোন প্রশ্নের উত্তর অনুযায়ী/, 'পেশা', scope);
+    await user.type(scope.getByRole('textbox', { name: /^অপশন 1 \(বাংলা\)/ }), 'দোকান');
+    await user.type(scope.getByRole('textbox', { name: /^অপশন 1 \(ইংরেজি\)/ }), 'Shop');
+    await choose(user, /অপশন 1 দেখাবে যখন “পেশা”-এর উত্তর/, 'ব্যবসা', scope);
+    await user.click(scope.getByRole('button', { name: 'প্রশ্ন যোগ করুন' }));
+    const work = await outlineOf('কাজ');
+    expect(work.getByRole('button', { name: 'ব্যবসার ধরন বদলান' })).toBeInTheDocument();
+    await waitFor(() => expect(savedField('q_kind_of_business')).toBeDefined(), { timeout: 4000 });
+    expect(savedField('q_kind_of_business')).toMatchObject({
+      logic: { options_depend_on: 'occupation' },
+      options: [{ code: 'opt_1', dependsOnOptionCode: 'business' }],
+    });
+  }, 20_000);
 });
 
 describe('saving', () => {
@@ -360,7 +493,7 @@ describe('saving', () => {
         ),
     });
     open();
-    await user.click(await screen.findByRole('checkbox', { name: 'পরিবার ও আয়' }));
+    await addSection(user, 'পরিবার ও আয়');
     expect(
       await screen.findByText('শর্তে এমন একটি ঘরের নাম আছে যা ফর্মে নেই।', {}, { timeout: 4000 }),
     ).toBeInTheDocument();
@@ -385,7 +518,7 @@ describe('saving', () => {
         ),
     });
     open();
-    await user.click(await screen.findByRole('checkbox', { name: 'পরিবার ও আয়' }));
+    await addSection(user, 'পরিবার ও আয়');
     expect(await screen.findByText('ফর্মটি অনেক বড়।', {}, { timeout: 4000 })).toBeInTheDocument();
   }, 15_000);
 
@@ -393,7 +526,7 @@ describe('saving', () => {
     const user = userEvent.setup();
     api();
     const { router } = open();
-    await user.click(await screen.findByRole('checkbox', { name: 'পরিবার ও আয়' }));
+    await addSection(user, 'পরিবার ও আয়');
     await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
     await screen.findByText('সংরক্ষিত');
     await router.navigate('/admin/projects');
@@ -413,7 +546,7 @@ describe('saving', () => {
     const user = userEvent.setup();
     api({ patch: () => apiError(412, 'conflict.stale_version', 'অন্য কেউ বদলেছেন।') });
     open();
-    await user.click(await screen.findByRole('checkbox', { name: 'পরিবার ও আয়' }));
+    await addSection(user, 'পরিবার ও আয়');
     expect(
       await screen.findByText(/অন্য কেউ এই খসড়া বদলেছেন/, {}, { timeout: 4000 }),
     ).toBeInTheDocument();
@@ -424,7 +557,7 @@ describe('saving', () => {
     const user = userEvent.setup();
     api({ patch: () => apiError(500, 'server.internal', 'কিছু একটা ভুল হয়েছে।') });
     const { router } = open();
-    await user.click(await screen.findByRole('checkbox', { name: 'পরিবার ও আয়' }));
+    await addSection(user, 'পরিবার ও আয়');
     await screen.findByText('সংরক্ষণ হয়নি', {}, { timeout: 4000 });
     void router.navigate('/admin/projects');
     const dialog = await screen.findByRole('dialog', { name: 'সংরক্ষণ না করেই চলে যাবেন?' });
@@ -436,11 +569,12 @@ describe('saving', () => {
     const user = userEvent.setup();
     api({ patch: () => apiError(403, 'permission.denied', 'অনুমতি নেই।') });
     open();
-    await user.click(await screen.findByRole('checkbox', { name: 'পরিবার ও আয়' }));
+    await addSection(user, 'পরিবার ও আয়');
     expect(
       await screen.findByText(/অফিসিয়াল অংশ দেখার অনুমতি নেই/, {}, { timeout: 4000 }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('checkbox', { name: 'পরিবার ও আয়' })).toBeDisabled();
+    // read-only now: the left pane is gone
+    expect(screen.queryByRole('tab', { name: 'লাইব্রেরি' })).not.toBeInTheDocument();
   }, 15_000);
 });
 
@@ -450,7 +584,7 @@ describe('who may change what', () => {
     open();
     expect(await screen.findByText('সংস্করণ 1: প্রকাশিত')).toBeInTheDocument();
     expect(screen.getByText('এই সংস্করণ প্রকাশিত; বদলানো যায় না।')).toBeInTheDocument();
-    expect(screen.queryByRole('checkbox', { name: 'পরিবার ও আয়' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'লাইব্রেরি' })).not.toBeInTheDocument();
   });
 
   it('shows the outline read-only to a role that does not build forms', async () => {
@@ -458,7 +592,7 @@ describe('who may change what', () => {
     api();
     open();
     await outlineOf('মৌলিক তথ্য');
-    expect(screen.queryByRole('checkbox', { name: 'পরিবার ও আয়' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'লাইব্রেরি' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /নিচে নিন$/ })).not.toBeInTheDocument();
   });
 
@@ -490,7 +624,7 @@ describe('who may change what', () => {
       await screen.findByText(/ফোনে শুধু লেবেল ও অপশনের লেখা বদলানো যায়/),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /নিচে নিন$/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('checkbox', { name: 'পরিবার ও আয়' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'লাইব্রেরি' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'ধরন বদলান' }));
     const label = screen.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ });
     await user.clear(label);

@@ -135,6 +135,8 @@ export function addOwnQuestion(
   def: FormDefinition,
   sectionKey: string,
   question: OwnQuestion,
+  /** The block index the question takes (a drop at a place); the end of the section otherwise. */
+  at?: number,
 ): { definition: FormDefinition; fieldKey: string | null } {
   const section = def.sections.find((s) => s.key === sectionKey);
   if (!section) return { definition: def, fieldKey: null };
@@ -156,6 +158,17 @@ export function addOwnQuestion(
     options: question.options ?? [],
     ...(question.dependsOn ? { logic: { options_depend_on: question.dependsOn } } : {}),
   };
+  if (at !== undefined && !group) {
+    const blocks = blocksOf(section.fields);
+    const index = Math.max(0, Math.min(at, blocks.length));
+    return {
+      definition: withSection(def, sectionKey, (s) => ({
+        ...s,
+        fields: [...blocks.slice(0, index).flat(), field, ...blocks.slice(index).flat()],
+      })),
+      fieldKey,
+    };
+  }
   // a group's fields follow it directly, so a new one goes after the group's last field
   const after = group
     ? section.fields.reduce(

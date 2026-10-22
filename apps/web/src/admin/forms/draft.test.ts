@@ -234,6 +234,31 @@ describe('the project own question', () => {
     expect(moveFieldTo(def, 'name', 'two', 0)).toBe(def);
   });
 
+  it('puts an own question at a dropped place, counted in blocks', () => {
+    const def = definition(
+      section('one', [
+        field('a', 'number'),
+        field('g', 'repeat_group'),
+        field('m', 'short_text', { settings: { repeat: { group: 'g' } } }),
+        field('b', 'number'),
+      ]),
+    );
+    const own = { type: 'short_text' as const, label: T('নতুন', 'New') };
+    const placed = addOwnQuestion(def, 'one', own, 2);
+    expect(placed.definition.sections.at(-1)!.fields.map((f) => f.fieldKey)).toEqual([
+      'a',
+      'g',
+      'm',
+      'q_new',
+      'b',
+    ]);
+    const first = addOwnQuestion(def, 'one', own, 0);
+    expect(first.definition.sections.at(-1)!.fields[0]!.fieldKey).toBe('q_new');
+    const past = addOwnQuestion(def, 'one', own, 9);
+    expect(past.definition.sections.at(-1)!.fields.at(-1)!.fieldKey).toBe('q_new');
+    valid(placed.definition);
+  });
+
   it('copies a question after itself with a marked label and a key of its own', () => {
     const def = definition(
       section('one', [

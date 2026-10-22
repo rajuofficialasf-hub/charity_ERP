@@ -2,6 +2,8 @@ import {
   closestCenter,
   DndContext,
   type DragEndEvent,
+  DragOverlay,
+  type DragStartEvent,
   KeyboardSensor,
   PointerSensor,
   useDroppable,
@@ -16,6 +18,8 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
+  FIELD_TYPES,
+  type FieldType,
   type FormDefinition,
   type FormField,
   type FormSection,
@@ -34,6 +38,7 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react';
+import { type ReactNode, useId, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { FieldInput } from '../../features/forms/FieldInput';
 import { coreLocks, moveField, moveFieldTo, moveSection, removeSection } from './draft';
@@ -42,6 +47,75 @@ import { TYPE_META } from './type-meta';
 
 const groupOf = (field: FormField) => field.settings?.repeat?.group;
 const SECTION_DROP = 'section:';
+/** The drag id of a question type from the left pane, followed by the type. */
+export const TYPE_DRAG = 'type:';
+
+/**
+ * The drag context around the panes: a question moves by its handle inside or across sections,
+ * and a type from the left pane drops at a place, where the dialog then asks for its texts. The
+ * keyboard moves a question with the buttons of its bar instead.
+ */
+export function CanvasDnd({
+  definition,
+  onChange,
+  onDropType,
+  children,
+}: {
+  definition: FormDefinition;
+  onChange: (definition: FormDefinition) => void;
+  /** A type dropped on a section at a block index. */
+  onDropType: (type: FieldType, sectionKey: string, index: number) => void;
+  children: ReactNode;
+}) {
+  const tt = useTranslations('forms.types');
+  const [activeType, setActiveType] = useState<FieldType | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const sectionOf = (fieldKey: string) =>
+    definition.sections.find((s) => s.fields.some((f) => f.fieldKey === fieldKey));
+  const typeOf = (id: string) =>
+    id.startsWith(TYPE_DRAG)
+      ? FIELD_TYPES.find((t) => t === id.slice(TYPE_DRAG.length))
+      : undefined;
+  const started = (event: DragStartEvent) => setActiveType(typeOf(String(event.active.id)) ?? null);
+  /** Where a drop lands: a section and the block index inside it. */
+  const dropped = (event: DragEndEvent) => {
+    setActiveType(null);
+    const id = String(event.active.id);
+    const over = event.over ? String(event.over.id) : null;
+    if (!over || over === id) return;
+    const type = typeOf(id);
+    if (over.startsWith(SECTION_DROP)) {
+      const section = definition.sections.find((s) => s.key === over.slice(SECTION_DROP.length));
+      if (!section) return;
+      if (type) onDropType(type, section.key, section.fields.length);
+      else onChange(moveFieldTo(definition, id, section.key, section.fields.length));
+      return;
+    }
+    const target = sectionOf(over);
+    if (!target) return;
+    const heads = target.fields.filter((f) => groupOf(f) === undefined).map((f) => f.fieldKey);
+    const index = Math.max(heads.indexOf(over), 0);
+    if (type) onDropType(type, target.key, index);
+    else onChange(moveFieldTo(definition, id, target.key, index));
+  };
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={started}
+      onDragEnd={dropped}
+      onDragCancel={() => setActiveType(null)}
+    >
+      {children}
+      <DragOverlay dropAnimation={null}>
+        {activeType ? <span className="fb-type-chip">{tt(activeType)}</span> : null}
+      </DragOverlay>
+    </DndContext>
+  );
+}
 
 /**
  * The form as it will be filled, drawn section by section: a click on a question chooses it,
@@ -72,34 +146,6 @@ export function FormCanvas({
   onAddTo: (sectionKey: string) => void;
 }) {
   const t = useTranslations('forms.builder');
-  const full = mode === 'full';
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
-  const sectionOf = (fieldKey: string) =>
-    definition.sections.find((s) => s.fields.some((f) => f.fieldKey === fieldKey));
-  /** Where a drop lands: a section and the block index inside it. */
-  const dropped = (event: DragEndEvent) => {
-    const fieldKey = String(event.active.id);
-    const over = event.over ? String(event.over.id) : null;
-    if (!over || over === fieldKey) return;
-    if (over.startsWith(SECTION_DROP)) {
-      const section = definition.sections.find((s) => s.key === over.slice(SECTION_DROP.length));
-      if (section) onChange(moveFieldTo(definition, fieldKey, section.key, section.fields.length));
-      return;
-    }
-    const target = sectionOf(over);
-    if (!target) return;
-    const heads = target.fields.filter((f) => groupOf(f) === undefined).map((f) => f.fieldKey);
-    const from = sectionOf(fieldKey);
-    let index = heads.indexOf(over);
-    // moving down inside one section: the block leaves first, so the place shifts up by one
-    if (from === target && heads.indexOf(fieldKey) < index) index -= 0;
-    if (from !== target) index = Math.max(index, 0);
-    onChange(moveFieldTo(definition, fieldKey, target.key, index));
-  };
-
   const body = definition.sections.map((s, i) => (
     <SectionCard
       key={s.key}
@@ -120,13 +166,7 @@ export function FormCanvas({
   ));
   return (
     <Stack as="section" gap={4} aria-label={t('outline')}>
-      {full ? (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={dropped}>
-          {body}
-        </DndContext>
-      ) : (
-        body
-      )}
+      {body}
     </Stack>
   );
 }
@@ -162,6 +202,7 @@ function SectionCard({
 }) {
   const t = useTranslations('forms.builder');
   const locale = useLocale();
+  const hintId = useId();
   const full = mode === 'full';
   const title = section.title[locale];
   const core = section.fields.some((f) => isCoreFieldKey(f.fieldKey));
@@ -203,6 +244,7 @@ function SectionCard({
             <button
               type="button"
               className="fb-sec-select"
+              aria-describedby={hintId}
               onClick={() => onSelect({ section: section.key })}
             >
               {title}
@@ -216,6 +258,11 @@ function SectionCard({
             <Badge size="sm" label={t('official_only')} />
           ) : null}
         </h2>
+        {mode === 'read' ? null : (
+          <span id={hintId} hidden>
+            {t('section_select_hint')}
+          </span>
+        )}
         {full ? (
           <MenuButton
             label={t('section_menu', { title })}

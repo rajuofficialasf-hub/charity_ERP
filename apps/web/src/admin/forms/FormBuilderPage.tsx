@@ -1,4 +1,4 @@
-import type { FormDefinition } from '@css/shared/forms';
+import type { FieldType, FormDefinition } from '@css/shared/forms';
 import { localized, type Locale } from '@css/shared/i18n';
 import {
   Alert,
@@ -26,6 +26,7 @@ import { canBuildForms } from '../roles';
 import {
   addLibraryField,
   addLibrarySection,
+  addOwnQuestion,
   duplicateField,
   type LibraryFields,
   removeField,
@@ -42,8 +43,9 @@ import {
   publishVersion,
   versionWithEtag,
 } from './forms-api';
-import { FormCanvas } from './FormCanvas';
-import { LibraryPane } from './LibraryPane';
+import { AddPane } from './AddPane';
+import { CanvasDnd, FormCanvas } from './FormCanvas';
+import { OwnQuestionDialog } from './OwnQuestionDialog';
 import type { BuilderMode, Selection } from './selection';
 import { PreviewPane } from './PreviewPane';
 import { PublicLinkPanel } from './PublicLinkPanel';
@@ -88,6 +90,14 @@ export function FormBuilderPage() {
   const [previewing, setPreviewing] = useState(false);
   // the draft before the last removal, so one press brings the question back
   const [undo, setUndo] = useState<{ definition: FormDefinition; label: string } | null>(null);
+  // a question of the project's own being asked for: its type, its section and, after a drop,
+  // its place; the key opens the dialog afresh each time
+  const [asking, setAsking] = useState<{
+    key: number;
+    type: FieldType;
+    section: string;
+    at?: number;
+  } | null>(null);
   // the right pane: the chosen question, or the form itself; choosing a question opens the first
   const [pane, setPane] = useState<'question' | 'form'>('question');
   const forms = useQuery({
@@ -269,8 +279,90 @@ export function FormBuilderPage() {
         selected={selected}
         mode={mode === 'full' ? 'full' : 'texts'}
         onChange={change}
-        onSelect={setSelected}
       />
+    );
+
+  const panes = (
+    <div className="fb-panes">
+      {mode === 'full' && lib.data ? (
+        <aside className="fb-side" aria-label={t('add_pane')}>
+          <AddPane
+            library={lib.data}
+            fields={fields}
+            definition={draft}
+            targetSection={target}
+            onAddSection={(s) => change(addLibrarySection(draft, s, fields))}
+            onAddField={(key) => {
+              if (target) change(addLibraryField(draft, target, fields.get(key) ?? []));
+            }}
+            onAddType={(type) => {
+              if (target) setAsking({ key: Date.now(), type, section: target });
+            }}
+          />
+        </aside>
+      ) : null}
+
+      <div className="fb-canvas">{outline}</div>
+      <aside className="fb-side" aria-label={t('settings')}>
+        <Tabs
+          label={t('settings')}
+          selectedId={pane}
+          onChange={(id) => setPane(id === 'form' ? 'form' : 'question')}
+          items={[
+            {
+              id: 'question',
+              label: t('question_settings'),
+              content: settings ?? <Text tone="muted">{t('read_only_pane')}</Text>,
+            },
+            {
+              id: 'form',
+              label: t('form_settings'),
+              content: (
+                <Stack gap={3}>
+                  <Text>
+                    <Text as="span" weight="bold">
+                      {t('form_name')}
+                    </Text>{' '}
+                    {title}
+                  </Text>
+                  <Disclosure title={t('versions')} icon={History} headingLevel={2} defaultOpen>
+                    <VersionList
+                      formId={formId}
+                      shown={version.id}
+                      canOpen={save.state === 'saved'}
+                      onOpen={setViewing}
+                    />
+                  </Disclosure>
+                  <Disclosure title={t('link.title')} icon={Link2} headingLevel={2}>
+                    <PublicLinkPanel
+                      projectId={projectId}
+                      formId={formId}
+                      published={Boolean(form?.publishedVersionId)}
+                      canManage={builder}
+                    />
+                  </Disclosure>
+                </Stack>
+              ),
+            },
+          ]}
+        />
+      </aside>
+    </div>
+  );
+  const panesWithDrag =
+    mode === 'full' ? (
+      <CanvasDnd
+        definition={draft}
+        onChange={(next) => {
+          setUndo(null);
+          change(next);
+        }}
+        onDropType={(type, section, at) => setAsking({ key: Date.now(), type, section, at })}
+      >
+        {panes}
+      </CanvasDnd>
+    ) : (
+      panes
     );
 
   return (
@@ -362,68 +454,7 @@ export function FormBuilderPage() {
           {t('removed', { label: undo.label })}
         </Alert>
       ) : null}
-      <div className="fb-panes">
-        {!phone && lib.data && builder && isDraft ? (
-          <aside className="fb-side" aria-label={t('library')}>
-            <LibraryPane
-              library={lib.data}
-              fields={fields}
-              definition={draft}
-              editable={mode === 'full'}
-              fieldsEditable={target !== undefined}
-              onAddSection={(s) => change(addLibrarySection(draft, s, fields))}
-              onAddField={(key) => {
-                if (target) change(addLibraryField(draft, target, fields.get(key) ?? []));
-              }}
-            />
-          </aside>
-        ) : null}
-        <div className="fb-canvas">{outline}</div>
-        <aside className="fb-side" aria-label={t('settings')}>
-          <Tabs
-            label={t('settings')}
-            selectedId={pane}
-            onChange={(id) => setPane(id === 'form' ? 'form' : 'question')}
-            items={[
-              {
-                id: 'question',
-                label: t('question_settings'),
-                content: settings ?? <Text tone="muted">{t('read_only_pane')}</Text>,
-              },
-              {
-                id: 'form',
-                label: t('form_settings'),
-                content: (
-                  <Stack gap={3}>
-                    <Text>
-                      <Text as="span" weight="bold">
-                        {t('form_name')}
-                      </Text>{' '}
-                      {title}
-                    </Text>
-                    <Disclosure title={t('versions')} icon={History} headingLevel={2} defaultOpen>
-                      <VersionList
-                        formId={formId}
-                        shown={version.id}
-                        canOpen={save.state === 'saved'}
-                        onOpen={setViewing}
-                      />
-                    </Disclosure>
-                    <Disclosure title={t('link.title')} icon={Link2} headingLevel={2}>
-                      <PublicLinkPanel
-                        projectId={projectId}
-                        formId={formId}
-                        published={Boolean(form?.publishedVersionId)}
-                        canManage={builder}
-                      />
-                    </Disclosure>
-                  </Stack>
-                ),
-              },
-            ]}
-          />
-        </aside>
-      </div>
+      {panesWithDrag}
       <Modal
         title={t('preview_pane.title')}
         size="lg"
@@ -433,6 +464,24 @@ export function FormBuilderPage() {
       >
         {previewing ? <PreviewPane definition={draft} /> : null}
       </Modal>
+      {asking ? (
+        <OwnQuestionDialog
+          key={asking.key}
+          isOpen
+          definition={draft}
+          type={asking.type}
+          sectionKey={asking.section}
+          placed={asking.at !== undefined}
+          onClose={() => setAsking(null)}
+          onAdd={(question, sectionKey) => {
+            const added = addOwnQuestion(draft, sectionKey, question, asking.at);
+            setAsking(null);
+            if (!added.fieldKey) return;
+            change(added.definition);
+            setSelected({ section: sectionKey, field: added.fieldKey });
+          }}
+        />
+      ) : null}
       <ConfirmDialog
         title={t('publish_title', { n: String(version.versionNo) })}
         message={t('publish_message')}
