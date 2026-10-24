@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SeedContext } from '../../seed/context';
@@ -15,6 +17,7 @@ import {
   login,
   type Session,
 } from './support/auth-app';
+import { MIGRATIONS_DIR } from './support/db';
 import { beneficiary, fakeMobile, fakeNid, locationTree } from './support/fixtures';
 
 // The public application link: a PM switches it on with one form, anyone with the link reads the
@@ -387,6 +390,39 @@ describe('reading the form', () => {
     expect(text).not.toContain(p.id);
     expect(text).not.toContain(world.a1.program);
     expect(new Set(text.match(UUID) ?? [])).toEqual(new Set([p.formId, p.versionId]));
+  });
+});
+
+describe('a form built from a retired template', () => {
+  it('still reads, opens on the link and takes an application after the templates retire', async () => {
+    const p = await project();
+    await h.db.query(
+      readFileSync(
+        join(MIGRATIONS_DIR, '20261024110000_retire_seeded_forms', 'migration.sql'),
+        'utf8',
+      ),
+    );
+    try {
+      const retired = await h.db.query(
+        `SELECT count(*)::int AS n FROM project_templates WHERE key = 'form_distribution' AND active`,
+      );
+      expect(retired.rows[0].n).toBe(0);
+      expect(
+        (await at(await as(world.users.pm), 'get', `/form-versions/${p.versionId}`)).status,
+      ).toBe(200);
+      const { token } = await enabled(p.id, p.formId);
+      expect((await read(token)).status).toBe(200);
+      const sent = await submit(token, submission());
+      expect(sent.status, JSON.stringify(sent.body)).toBe(201);
+    } finally {
+      // the other tests of this file build their forms from the template
+      await h.db.query(
+        readFileSync(
+          join(MIGRATIONS_DIR, '20261024110000_retire_seeded_forms', 'down.sql'),
+          'utf8',
+        ),
+      );
+    }
   });
 });
 

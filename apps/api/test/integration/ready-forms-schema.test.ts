@@ -193,18 +193,28 @@ describe('the retirement of the seeded form templates', () => {
       )
     ).rows;
 
-  it('makes the two templates inactive, keeps their rows, and the reverse makes them active again', async () => {
+  it('makes the active templates inactive, and the reverse turns on only those it retired', async () => {
     const clone = await cloneTemplate(inject('templateDb'));
     try {
       await seedFormTemplates(new SeedContext(clone.client));
-      expect((await active(clone.client)).every((t) => t.active)).toBe(true);
+      // one template was switched off before the migration: the reverse must leave it off
+      await clone.client.query(
+        `UPDATE project_templates SET active = false WHERE key = 'form_self_reliance_construction'`,
+      );
       await clone.client.query(sql('migration.sql'));
       expect(await active(clone.client)).toEqual([
         { key: 'form_distribution', active: false },
         { key: 'form_self_reliance_construction', active: false },
       ]);
       await clone.client.query(sql('down.sql'));
-      expect((await active(clone.client)).map((t) => t.active)).toEqual([true, true]);
+      expect(await active(clone.client)).toEqual([
+        { key: 'form_distribution', active: true },
+        { key: 'form_self_reliance_construction', active: false },
+      ]);
+      const marked = await clone.client.query(
+        `SELECT count(*)::int AS n FROM project_templates WHERE definition ? 'retired_by'`,
+      );
+      expect(marked.rows[0].n).toBe(0);
     } finally {
       await clone.drop();
     }
