@@ -291,5 +291,12 @@
     "unsafe_text": "Remove links and the characters < and > from the text.",
     "placeholder_unknown": "This placeholder is not available for this notification.",
     "person_in_app": "An in-app text may not name a person; use it in the email only."
+  },
+  "application": {
+    "form_not_published": "The project's application form is not published.",
+    "team_lead_missing": "You have no lead volunteer on this project.",
+    "number_in_project": "An application with this number already exists in this project.",
+    "upload_not_own": "This file is not your upload.",
+    "not_editable": "The application cannot be edited in its current state."
   }
 }

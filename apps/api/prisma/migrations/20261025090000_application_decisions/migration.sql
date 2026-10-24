@@ -8,3 +8,9 @@ ALTER TABLE "applications" ADD CONSTRAINT "applications_identity_kind_check"
   CHECK ("identity_kind" IS NULL OR "identity_kind" IN ('nid', 'birth_reg'));
 CREATE INDEX "applications_project_id_status_created_at_idx"
   ON "applications"("project_id", "status", "created_at" DESC);
+-- A draft for a person the lookup did not find holds the number in its identity answer until the
+-- submission creates the profile; a public entry has no profile until it is verified, and a
+-- rejected public entry or a deleted draft keeps none. Every other state has its person.
+ALTER TABLE "applications" DROP CONSTRAINT "applications_beneficiary_check";
+ALTER TABLE "applications" ADD CONSTRAINT "applications_beneficiary_check"
+  CHECK ("beneficiary_id" IS NOT NULL OR "status" IN ('draft', 'needs_verification', 'rejected', 'deleted'));

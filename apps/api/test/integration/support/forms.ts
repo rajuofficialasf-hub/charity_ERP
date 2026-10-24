@@ -42,19 +42,24 @@ export const IDENTITY = [
   question('q_village', 'short_text', { required: true, standardColumn: 'village' }),
 ];
 
-/** A section seen by everyone, holding these questions. */
-export const section = (fields: unknown[], key = 'section_1') => ({
+/** A section holding these questions, seen by everyone unless the visibility says otherwise. */
+export const section = (
+  fields: unknown[],
+  key = 'section_1',
+  visibility: 'volunteer' | 'official_only' = 'volunteer',
+) => ({
   key,
   librarySectionKey: null,
   title: { bn: 'অংশ', en: 'Section' },
-  visibility: 'volunteer',
+  visibility,
   condition: null,
   fields,
 });
 
 /**
- * A ready form, published: the identity questions and a note for an application form, the note
- * alone for a form of another kind. Answers the ready form's id.
+ * A ready form, published: the identity questions, a note and an optional photo for an
+ * application form, with an official-only section of one question; the note alone for a form of
+ * another kind. Answers the ready form's id.
  */
 export async function publishedReadyForm(
   h: AuthHarness,
@@ -79,12 +84,19 @@ export async function publishedReadyForm(
   const fields = [
     ...(kind === 'beneficiary_application' ? IDENTITY : []),
     question('q_note', 'long_text'),
+    ...(kind === 'beneficiary_application' ? [question('q_photo', 'photo')] : []),
+  ];
+  const sections = [
+    section(fields),
+    ...(kind === 'beneficiary_application'
+      ? [section([question('q_official', 'short_text')], 'section_2', 'official_only')]
+      : []),
   ];
   const saved = await api()
     .patch(`/api/v1/form-versions/${draftId}`)
     .set(bearer(builder))
     .set('If-Match', await etag())
-    .send({ sections: [section(fields)] });
+    .send({ sections });
   expect(saved.status, JSON.stringify(saved.body)).toBe(200);
   const published = await api()
     .post(`/api/v1/form-versions/${draftId}/publish`)

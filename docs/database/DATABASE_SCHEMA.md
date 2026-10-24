@@ -957,7 +957,7 @@ Indexes: (assignee_user_id, project_id) WHERE active_to IS NULL; (target_type, t
 | deleted_at | timestamptz | yes | — | soft delete of drafts and pending (status deleted) |
 | [A] | | | | |
 
-Constraints: partial UNIQUE (project_id, beneficiary_id) WHERE status <> 'deleted' AND beneficiary_id IS NOT NULL (BR-016); CHECK (status = 'needs_verification') OR beneficiary_id IS NOT NULL; CHECK (status = 'deleted') = (deleted_at IS NOT NULL); CHECK zakat_decision IN ('eligible','not_eligible'). The BD-03 trigger of section 18 fires on insert and on update of beneficiary_id or owner_volunteer_id. Indexes: see section 19 (project/status, project/region/status, owner/status, review queue, district quotas, status/project/beneficiary for the beneficiary tab count).
+Constraints: partial UNIQUE (project_id, beneficiary_id) WHERE status <> 'deleted' AND beneficiary_id IS NOT NULL (BR-016); CHECK beneficiary_id IS NOT NULL OR status IN ('draft', 'needs_verification', 'rejected', 'deleted') (a draft for a new person holds the number in its identity answer until the submission creates the profile; T2.5); CHECK (status = 'deleted') = (deleted_at IS NOT NULL); CHECK zakat_decision IN ('eligible','not_eligible'). The BD-03 trigger of section 18 fires on insert and on update of beneficiary_id or owner_volunteer_id. Indexes: see section 19 (project/status, project/region/status, owner/status, review queue, district quotas, status/project/beneficiary for the beneficiary tab count).
 
 ### application_answers
 | Column | Type | Null | Default | Comment |

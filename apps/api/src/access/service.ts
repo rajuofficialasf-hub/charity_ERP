@@ -9,6 +9,7 @@ import { type EffectiveAccess, effectiveAccess, loadAccessFacts } from './effect
 import { visibleFieldClasses } from './field-mask';
 import type { AccessRegistry } from './registry';
 import {
+  applicationWhere,
   beneficiaryWhere,
   holdsPermission,
   makeScope,
@@ -30,6 +31,7 @@ export interface RecordTarget {
   userId?: string;
   volunteerId?: string;
   beneficiaryId?: string;
+  applicationId?: string;
 }
 
 export interface RequestAccess extends EffectiveAccess {
@@ -122,6 +124,13 @@ export class AccessService {
           !!target.beneficiaryId &&
           (await db.beneficiary.count({
             where: { AND: [{ id: target.beneficiaryId }, beneficiaryWhere(scope)] },
+          })) > 0
+        );
+      case 'application':
+        return (
+          !!target.applicationId &&
+          (await db.application.count({
+            where: { AND: [{ id: target.applicationId }, applicationWhere(scope)] },
           })) > 0
         );
       default:

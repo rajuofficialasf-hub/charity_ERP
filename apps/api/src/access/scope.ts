@@ -199,6 +199,10 @@ export async function resolveInstances(
         if (g.scopeRef) constructionPrograms.push(g.scopeRef);
         else ownConstructionPrograms = true;
       }
+      // a team member reaches the applications they created themselves: the SELF filter of the
+      // applications already stops at the caller's own and the ones they created
+      if (entity === 'application' && g.condition === 'own_created' && g.scopeType === 'SELF')
+        inst.self = true;
       if (entity === 'user' && g.condition === 'own_region' && AREA_SCOPES.includes(g.scopeType)) {
         if (g.scopeRef)
           inst.volunteerAreas.push({ projectId: g.projectId, locationId: g.scopeRef });
