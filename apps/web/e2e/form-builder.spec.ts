@@ -10,16 +10,17 @@ import {
   UCD,
 } from './support/projects';
 
-// The form builder's journey against the demo seed (docs/testing/DEMO_ACCOUNTS.md): a PM builds
-// a project's form from the library with questions of the project's own, a condition and a
-// calculation, publishes it and switches the public link on; an applicant sends it on a phone;
-// the PM publishes version 2, which the same link then opens. That the entry stays on version 1
-// is proven by the API test of the public forms, since no screen reads an entry yet.
+// The form journey against the demo seed (docs/testing/DEMO_ACCOUNTS.md): the Monitoring Team
+// builds a ready form with the seven identity marks, a calculation and a condition, and publishes
+// it; the PM places it on a project and switches the public link on; an applicant sends it on a
+// phone; the Monitoring Team publishes version 2, the PM takes it, and the same link then opens
+// it. That the entry stays on version 1 is proven by the API tests of the ready forms, since no
+// screen reads an entry yet.
+const MONITORING = 'monitoring@example.org';
 const PM = 'pm.ucd@example.org';
 
 // a step that cannot happen fails on its own line instead of at the end of the journey
 test.use({ actionTimeout: 20_000, navigationTimeout: 30_000 });
-const TEMPLATE = 'বিতরণভিত্তিক আবেদন ফর্ম (কুরবানী, ইফতার, শীতবস্ত্র)';
 
 /** A date as the date field takes it (ddmmyyyy), some days from today. */
 function dayFromToday(days: number): string {
@@ -69,6 +70,14 @@ async function publish(page: Page, versionNo: number) {
   return confirm;
 }
 
+/** Asks to publish, confirms, and expects the refusal to keep the draft open. */
+async function publishRefused(page: Page) {
+  await saved(page);
+  await page.getByRole('button', { name: 'প্রকাশ করুন', exact: true }).click();
+  await page.getByRole('button', { name: 'সংস্করণ প্রকাশ করুন' }).click();
+  await expect(page.locator('.fb-head').getByText('সংস্করণ 1: খসড়া')).toBeVisible();
+}
+
 /**
  * Waits until the page is still: the pointer away from the language switch and no colour fading,
  * so axe reads the colours the page settles on, not a frame of a transition.
@@ -92,45 +101,79 @@ async function pick(page: Page, scope: Locator, label: RegExp, option?: string) 
   await expect(page.getByRole('listbox')).toHaveCount(0);
 }
 
-test('a PM builds and publishes a form, an applicant sends it by the link, and version 2 follows', async ({
+/** Marks the chosen question with an identity role in the settings pane. */
+async function mark(page: Page, role: string) {
+  await chooseIn(page, page.locator('main'), 'পরিচয়-চিহ্ন', role);
+  const tag = role.replace(/ \(.*\)$/, '');
+  await expect(page.locator('main').getByText(`পরিচয়: ${tag}`).first()).toBeVisible();
+}
+
+test('the Monitoring Team builds a ready form, the PM places it, an applicant sends it, and version 2 follows', async ({
   page,
   browser,
 }, info) => {
   test.skip(
     info.project.name !== 'desktop',
-    'the PM builds on a computer; the applicant gets a phone page of its own',
+    'the builders work on a computer; the applicant gets a phone page of its own',
   );
-  test.setTimeout(300_000);
-  await signIn(page, PM);
-  await page.goto('/admin/projects');
-  const name = `ফর্ম ${code()}`;
-  await newDraft(page, code(), name, UCD);
-  const projectId = projectIdOf(page);
+  test.setTimeout(420_000);
 
-  // the activation review leads the missing form to a new form of the project
-  await page.goto(`/admin/projects/${projectId}/setup?step=review`);
-  const review = section(page, 'পর্যালোচনা');
-  await expect(review.getByText('প্রকাশিত আবেদন ফর্ম')).toBeVisible();
-  await review.getByRole('link', { name: 'ফর্ম বিল্ডার খুলুন' }).click();
-  const create = page.getByRole('dialog', { name: 'নতুন আবেদন ফর্ম' });
-  await create.getByRole('textbox', { name: /ফর্মের নাম \(বাংলা\)/ }).fill('আবেদন');
-  await create.getByRole('textbox', { name: /ফর্মের নাম \(ইংরেজি\)/ }).fill('Application');
-  await chooseIn(page, create, 'টেমপ্লেট', TEMPLATE);
+  // the Monitoring Team: a new ready form for beneficiary applications, empty
+  await signIn(page, MONITORING);
+  await page.goto('/admin/ready-forms');
+  await page.getByRole('button', { name: 'নতুন তৈরি ফর্ম' }).click();
+  const create = page.getByRole('dialog', { name: 'নতুন তৈরি ফর্ম' });
+  const title = `স্বাবলম্বী আবেদন ${code()}`;
+  await create.getByRole('textbox', { name: /ফর্মের নাম \(বাংলা\)/ }).fill(title);
+  await create
+    .getByRole('textbox', { name: /ফর্মের নাম \(ইংরেজি\)/ })
+    .fill('Self-reliance application');
+  await expect(create.getByRole('radio', { name: 'উপকারভোগীর আবেদন' })).toBeChecked();
   await create.getByRole('button', { name: 'তৈরি করুন' }).click();
-  await expect(page).toHaveURL(/\/forms\/[0-9a-f-]{36}$/);
-  const builderUrl = page.url();
+  await expect(page).toHaveURL(/\/admin\/ready-forms\/[0-9a-f-]{36}$/);
+  const readyUrl = page.url();
   await expect(page.locator('.fb-head').getByText('সংস্করণ 1: খসড়া')).toBeVisible();
+  await expect(page.locator('.fb-head').getByText('1টি অংশ · 0টি প্রশ্ন')).toBeVisible();
 
-  // a library section, two numbers of the project's own with their total, and a question shown
-  // only when the first number is above zero
-  await page.getByRole('tab', { name: 'লাইব্রেরি' }).click();
-  // the library's groups are closed but the first; the heading opens one
-  await page.getByRole('button', { name: /^আর্থিক অবস্থা \d+টি প্রশ্ন$/ }).click();
-  await page.getByRole('button', { name: 'আর্থিক অবস্থা: পুরো অংশটি যোগ করুন' }).click();
-  await expect(page.getByRole('list', { name: 'আর্থিক অবস্থা', exact: true })).toBeVisible();
-  await ownQuestion(page, 'আর্থিক অবস্থা', 'সংখ্যা', ['পুরুষ সদস্য', 'Male members']);
-  await ownQuestion(page, 'আর্থিক অবস্থা', 'সংখ্যা', ['নারী সদস্য', 'Female members']);
-  await ownQuestion(page, 'আর্থিক অবস্থা', 'নিজে থেকে হিসাব', ['মোট সদস্য', 'All members']);
+  // the identity questions, written by the builder and marked one by one
+  const identity: [string, [string, string], string, [string, string][]?][] = [
+    ['ছোট লেখা', ['জাতীয় পরিচয়পত্র নম্বর', 'NID number'], 'এনআইডি বা জন্মনিবন্ধন নম্বর'],
+    ['ছোট লেখা', ['উপকারভোগীর নাম', "Beneficiary's name"], 'নাম'],
+    ['ছোট লেখা', ['পিতা/স্বামীর নাম', "Father's or husband's name"], 'পিতা বা স্বামীর নাম'],
+    ['মোবাইল নম্বর', ['মোবাইল নম্বর', 'Mobile number'], 'মোবাইল নম্বর'],
+    [
+      'তালিকা থেকে একটি',
+      ['লিঙ্গ', 'Gender'],
+      'লিঙ্গ',
+      [
+        ['পুরুষ', 'Male'],
+        ['নারী', 'Female'],
+      ],
+    ],
+    ['ঠিকানা', ['ঠিকানা', 'Address'], 'ঠিকানা (বিভাগ থেকে ইউনিয়ন)'],
+    ['ছোট লেখা', ['গ্রাম', 'Village'], 'গ্রাম'],
+  ];
+  // the first six only: a publish without the village names the missing role
+  for (const [type, label, role, options] of identity.slice(0, 6)) {
+    await ownQuestion(page, 'অংশ 1', type, label, options);
+    await mark(page, role);
+  }
+  await publishRefused(page);
+  await expect(
+    page.getByText('উপকারভোগীর আবেদন-ফর্মে পরিচয়ের সব প্রশ্ন চিহ্নিত করুন। এখনো বাকি: গ্রাম।'),
+  ).toBeVisible();
+  const [vType, vLabel, vRole] = identity[6]!;
+  await ownQuestion(page, 'অংশ 1', vType, vLabel);
+  await mark(page, vRole);
+
+  // a second section: two numbers of the form's own with their total, and a question shown only
+  // when the first number is above zero
+  await page.getByRole('button', { name: 'নতুন অংশ' }).click();
+  // the new section is chosen, its title a button on the canvas; its question list is empty yet
+  await expect(page.getByRole('button', { name: 'অংশ 2', exact: true })).toBeVisible();
+  await ownQuestion(page, 'অংশ 2', 'সংখ্যা', ['পুরুষ সদস্য', 'Male members']);
+  await ownQuestion(page, 'অংশ 2', 'সংখ্যা', ['নারী সদস্য', 'Female members']);
+  await ownQuestion(page, 'অংশ 2', 'নিজে থেকে হিসাব', ['মোট সদস্য', 'All members']);
   await page.getByRole('button', { name: 'হিসাব ঠিক করুন' }).click();
   const calc = page.getByRole('dialog', { name: 'হিসাবের নিয়ম' });
   await calc.getByRole('button', { name: 'পদ যোগ করুন' }).click();
@@ -140,7 +183,7 @@ test('a PM builds and publishes a form, an applicant sends it by the link, and v
   await calc.getByRole('button', { name: 'হয়ে গেছে' }).click();
   await expect(page.getByText('মোট সদস্য = “পুরুষ সদস্য” + “নারী সদস্য”')).toBeVisible();
   // the keyboard drags too: the second number moves one place up by its handle
-  const list = page.getByRole('list', { name: 'আর্থিক অবস্থা', exact: true });
+  const list = page.getByRole('list', { name: 'অংশ 2', exact: true });
   // dnd-kit measures the rows after the pick-up, so each key waits for its announcement
   const announced = page.locator('[id^="DndLiveRegion"]');
   await page.getByRole('button', { name: 'নারী সদস্য টেনে সরান' }).focus();
@@ -155,7 +198,7 @@ test('a PM builds and publishes a form, an applicant sends it by the link, and v
   await saved(page);
   await ownQuestion(
     page,
-    'আর্থিক অবস্থা',
+    'অংশ 2',
     'একটি বেছে নিন',
     ['আপনার কি নিজের ঘর আছে?', 'Do you own a house?'],
     [
@@ -173,34 +216,62 @@ test('a PM builds and publishes a form, an applicant sends it by the link, and v
   await expect(page.getByText('দেখাবে যখন “পুরুষ সদস্য” 0-এর বেশি।')).toBeVisible();
 
   await publish(page, 1);
-  // the versions and the link sit in the form-settings tab, the link in a closed group
-  await page.getByRole('tab', { name: 'ফর্মের সেটিং' }).click();
-  const versions = section(page, 'সংস্করণগুলো');
-  await expect(versions.getByText('সংস্করণ 1: প্রকাশিত')).toBeVisible();
+  await expect(page.locator('.fb-head').getByText('সংস্করণ 1: প্রকাশিত')).toBeVisible();
 
-  // the public link, switched on with this form
-  await page.getByRole('button', { name: 'পাবলিক আবেদনের লিংক', exact: true }).click();
-  const link = section(page, 'পাবলিক আবেদনের লিংক');
-  // the switch's input is visually hidden behind its track, like the checkbox's
-  await link
-    .getByRole('switch', { name: 'এই ফর্মের জন্য পাবলিক লিংক চালু' })
-    .click({ force: true });
-  // it shows as on once the server has issued the link
-  await expect(link.getByText('লিংক চালু; এই ফর্মটি খোলে।')).toBeVisible();
-  const url = await link.getByRole('textbox', { name: 'আবেদনের লিংক' }).inputValue();
-  expect(url).toMatch(/\/apply\/[A-Za-z0-9_-]{20,}$/);
-
-  // the rest of the setup, with a window open from yesterday, then the activation
-  await page.goto(`/admin/projects/${projectId}/setup?step=components`);
-  await finishSetup(page, { from: dayFromToday(-1), to: dayFromToday(60) });
-
-  // the applicant, signed out, on a phone
-  // a phone of the mobile project (touch, its user agent) at 360 × 640
+  // the PM, on a computer of their own: a new project places the ready form
+  const desk = await browser.newContext({
+    ...devices['Desktop Chrome'],
+    viewport: { width: 1440, height: 900 },
+  });
+  // the applicant: a phone of the mobile project (touch, its user agent) at 360 × 640
   const phone = await browser.newContext({
     ...devices['Pixel 7'],
     viewport: { width: 360, height: 640 },
   });
   try {
+    const pm = await desk.newPage();
+    await signIn(pm, PM);
+    await pm.goto('/admin/projects');
+    const name = `ফর্ম ${code()}`;
+    await newDraft(pm, code(), name, UCD);
+    const projectId = projectIdOf(pm);
+    // the activation review leads the missing form to the placement of a ready form
+    await pm.goto(`/admin/projects/${projectId}/setup?step=review`);
+    const review = section(pm, 'পর্যালোচনা');
+    await expect(review.getByText('প্রকাশিত আবেদন ফর্ম')).toBeVisible();
+    await review.getByRole('link', { name: 'ফর্ম বিল্ডার খুলুন' }).click();
+    const place = pm.getByRole('dialog', { name: 'তৈরি ফর্ম বসান' });
+    // the radio's input is visually hidden; its text chooses it
+    const option = `${title} · উপকারভোগীর আবেদন · সংস্করণ 1`;
+    await place.getByText(option, { exact: true }).click();
+    await expect(place.getByRole('radio', { name: option })).toBeChecked();
+    await place.getByRole('button', { name: 'বসান', exact: true }).click();
+    await expect(pm).toHaveURL(/\/forms\/[0-9a-f-]{36}$/);
+    const placedUrl = pm.url();
+    await expect(pm.locator('.fb-head').getByText('সংস্করণ 1: প্রকাশিত')).toBeVisible();
+    await expect(
+      pm.getByText('এই ফর্মটি একটি তৈরি ফর্ম থেকে বসানো, তাই এখানে বদলানো যায় না।'),
+    ).toBeVisible();
+    await expect(pm.getByRole('button', { name: 'প্রকাশ করুন', exact: true })).toHaveCount(0);
+
+    // the public link, switched on with this form, in a closed group of the form-settings tab
+    await pm.getByRole('tab', { name: 'ফর্মের সেটিং' }).click();
+    await pm.getByRole('button', { name: 'পাবলিক আবেদনের লিংক', exact: true }).click();
+    const link = section(pm, 'পাবলিক আবেদনের লিংক');
+    // the switch's input is visually hidden behind its track, like the checkbox's
+    await link
+      .getByRole('switch', { name: 'এই ফর্মের জন্য পাবলিক লিংক চালু' })
+      .click({ force: true });
+    // it shows as on once the server has issued the link
+    await expect(link.getByText('লিংক চালু; এই ফর্মটি খোলে।')).toBeVisible();
+    const url = await link.getByRole('textbox', { name: 'আবেদনের লিংক' }).inputValue();
+    expect(url).toMatch(/\/apply\/[A-Za-z0-9_-]{20,}$/);
+
+    // the rest of the setup, with a window open from yesterday, then the activation
+    await pm.goto(`/admin/projects/${projectId}/setup?step=components`);
+    await finishSetup(pm, { from: dayFromToday(-1), to: dayFromToday(60) });
+
+    // the applicant, signed out, on the phone
     const applicant = await phone.newPage();
     await applicant.goto(new URL(url).pathname);
     await expect(applicant.getByRole('heading', { level: 1, name })).toBeVisible();
@@ -249,17 +320,24 @@ test('a PM builds and publishes a form, an applicant sends it by the link, and v
       await applicant.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(360);
 
-    // version 2: one option changes, the summary names it, and the link opens it
-    await page.goto(builderUrl);
+    // version 2 of the ready form: one option changes
+    await page.goto(readyUrl);
     await page.getByRole('button', { name: 'নতুন সংস্করণ তৈরি করুন' }).click();
     await expect(page.locator('.fb-head').getByText('সংস্করণ 2: খসড়া')).toBeVisible();
     await page.getByRole('button', { name: 'আপনার কি নিজের ঘর আছে? বদলান' }).click();
     await page.getByRole('textbox', { name: /^অপশন 2 \(বাংলা\)/ }).fill('না, ভাড়া থাকি');
     await publish(page, 2);
     await page.getByRole('tab', { name: 'ফর্মের সেটিং' }).click();
+    const versions = section(page, 'সংস্করণগুলো');
     await expect(versions.getByText('সংস্করণ 2: প্রকাশিত')).toBeVisible();
     await expect(versions.getByText(/প্রশ্নে বদল: আপনার কি নিজের ঘর আছে\? \(অপশন\)/)).toBeVisible();
-    await expect(versions.getByText('সংস্করণ 1: পুরোনো')).toBeVisible();
+
+    // the PM sees the newer version and takes it; the same link then opens version 2
+    await pm.goto(placedUrl);
+    await expect(pm.getByText(/এই ফর্মের নতুন সংস্করণ আছে \(সংস্করণ 2\)/)).toBeVisible();
+    await pm.getByRole('button', { name: 'নতুন সংস্করণ নিন' }).click();
+    await expect(pm.locator('.fb-head').getByText('সংস্করণ 2: প্রকাশিত')).toBeVisible();
+    await expect(pm.getByRole('button', { name: 'নতুন সংস্করণ নিন' })).toHaveCount(0);
     const token = new URL(url).pathname.split('/').at(-1)!;
     const opened = await applicant.request.get(`/api/v1/public/forms/${token}`);
     expect(opened.ok()).toBe(true);
@@ -268,5 +346,6 @@ test('a PM builds and publishes a form, an applicant sends it by the link, and v
     ).toBe(2);
   } finally {
     await phone.close();
+    await desk.close();
   }
 });

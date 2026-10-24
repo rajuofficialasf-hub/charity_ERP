@@ -68,7 +68,8 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 | SCR-050 | Project dashboard | parity | PM, RPM, Executive, Head, Monitoring, Finance | 3 · T3.3 |
 | SCR-051 | Admin area shell (`/admin`) with the dashboard placeholder | parity (notice on phones) | Head, Monitoring, PM | 1 · T1.7d (UX-15); pages in T1.13, T3.3, T6.1 |
 | SCR-060 | Project setup with component toggles | desktop-first | PM | 1 · T1.11, T1.12 |
-| SCR-061 | Form builder | desktop-first | PM | 2 · T2.4, T2.4b |
+| SCR-061 | Form builder | desktop-first | Head, Monitoring (build); PM (place, read) | 2 · T2.4, T2.4b, T2.4c |
+| SCR-113 | Ready forms (`/admin/ready-forms`) and the question library (`/admin/question-library`) | desktop-first | Head, Monitoring | 2 · T2.4c |
 | SCR-062 | Permission panel | desktop-first | Head, Monitoring | 1 · T1.8 |
 | SCR-063 | Officials: department staff, other departments, partners; new official, link, profile | parity | Head, Monitoring (writes); PM, RPM (read) | 1 · D-097 |
 | SCR-064 | Organogram | parity | Head, Monitoring, PM, RPM | 1 · D-097 |
@@ -1184,7 +1185,8 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Purpose.** The PM builds the project's application form. It is assembled from the section library and the field library, with field settings, visibility, conditions, calculations, a live preview and versions (BD-12 to BD-14, blueprint B3).
 - **Built (T2.4).** `/admin/projects/{id}/forms` lists the project's forms with "নতুন ফর্ম" (a library template, the mandatory core alone, or a copy of another project's published form); `/admin/projects/{id}/forms/{formId}` is the builder (`apps/web/src/admin/forms/`): the libraries with search and a tick, the outline with move-up, move-down, edit and remove (the core marked and locked), and the settings of the chosen part: labels and help in both languages, required, the seven named text checks, length, value and row limits, options with "other" and branching on an earlier answer, the project's own question (also as a row question of a repeat group), "show when" and "required when" as rows joined by all or any (a deeper seeded condition is read-only with a note), and the calculation as terms joined by plus and minus, two terms multiplied or divided, a repeat-group sum, age from a date of birth, or net assets against the nisab. The draft saves itself with its version; a version changed elsewhere reloads with a notice; leaving with an unsaved change asks first. The preview (a tab, or a fourth pane from 1280 px) draws the draft at a phone's or a computer's width, in bn or en, as a volunteer or an official, and keeps no answer. The version list shows each version with its change summary; publishing asks first with the summary and the note that earlier applications keep their version; a published version offers "নতুন সংস্করণ তৈরি করুন". The public link panel switches the link on with the form and gives its URL to copy. The setup review's missing "প্রকাশিত আবেদন ফর্ম" and the application form component open the builder. The version list names who published each version and who last changed the draft, with when (D-121 item 10); no other read names an official.
 - **Redesigned (T2.4b, D-122).** One clean page for a person with little technical knowledge: the form itself in the middle, drawn section by section as it will be filled (`FormCanvas`: a click chooses a question, the chosen one shows its type with move-up, move-down, copy and remove, a handle drags a question inside or across sections with `@dnd-kit` and the keyboard moves it with the buttons, each section ends with "এই অংশে প্রশ্ন যোগ করুন", a group's card with "সারিতে প্রশ্ন যোগ করুন", a removal offers "ফেরত আনুন" until the next change); on the left the two tabs "প্রশ্ন যোগ" (the 22 types in six groups with an icon, a plain name and an example; a press adds to the chosen section, a drag places the question) and "লাইব্রেরি" (the ready questions by their section, in the seed's order, with a search, one question's "+" or "পুরো অংশটি যোগ করুন", what the form holds marked "ফর্মে আছে"); on the right the tabs "প্রশ্নের সেটিং" (short groups: মূল তথ্য, অপশন, উত্তরের নিয়ম, সারি, হিসাব, কখন দেখাবে, কখন আবশ্যক হবে; a condition and a calculation read as one sentence with a button that opens their editor in a dialog) and "ফর্মের সেটিং" (the name, the versions, the public link); "প্রিভিউ" opens the preview in a dialog and "প্রকাশ করুন" sits in the header; nothing chosen shows the three steps. A new question of the project's own takes its type from the left and asks for its texts and the section (or the group's rows). A calculated question may stay without its rule in a draft, tagged "হিসাবের নিয়ম দিন"; publishing refuses it (D-123). The library holds the group "পরিবারের সদস্যরা" beside "আয়কারী" (D-124). The words say "প্রশ্ন", never "ফিল্ড".
-- **Roles.** PM. Department Head and Monitoring Team. The library is managed with `form.library.manage`. From T2.4c (D-125) the Monitoring Team and the Department Head build the forms and manage the library in the system, and the PM only places a ready form on the project.
+- **Ready forms (T2.4c, D-125 to D-129).** The same builder opens a ready form outside the projects (`/admin/ready-forms/{formId}`) and the question library (`/admin/question-library`). Only the Monitoring Team and the Department Head build; a PM, an RPM or a volunteer sees a form read-only or not at all. Nothing is pre-placed: a new form starts with one empty section, and "নতুন অংশ" adds another. A question takes a "পরিচয়-চিহ্ন" (one of the seven identity roles: NID or birth registration, name, father's or husband's name, mobile, gender, address, village) from the settings; the mark sets the question's type, keeps it required, unconditional and seen by everyone, and is shown on the canvas as "পরিচয়: …". A form of the kind "উপকারভোগীর আবেদন" publishes only with all seven marks, and a refused publish names the missing roles in one alert; a form of the kind "অন্যান্য" takes no marks. The kind shows beside the version in the header. On a project, "তৈরি ফর্ম বসান" places a published ready form as a published copy that names its source and opens read-only with a note; when the ready form has a newer version the builder offers "নতুন সংস্করণ নিন", and earlier applications keep their version. "নতুন ফর্ম" (a form of the project's own) stays for the two global roles. The public link shows only for a project's beneficiary application form.
+- **Roles.** Department Head and Monitoring Team build and publish (`form.build`, `form.publish`) and manage the library (`form.library.manage`); the PM places a ready form and takes its newer versions (`form.place`) and keeps the public link (`form.public_link.manage`) (D-125, D-129).
 - **Priority.** desktop-first.
 - **Data shown.**
   - Left: the question types in six groups, and the library by section with a search (T2.4b).
@@ -1199,15 +1201,16 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
     - calculation
   - A live preview that toggles between phone and desktop, in bn or en.
   - Version list with a change summary.
-  - The mandatory fields (BD-13) are marked and cannot be removed.
+  - The identity questions are marked by their role, not pre-placed (D-126, superseding the pre-placed core of BD-13).
 - **Actions.**
 
 | Action | Permission |
 |---|---|
 | Edit the draft version | `form.build` |
 | Publish (creates an immutable version) | `form.publish` |
-| Configure the public link (tree planting) | `form.public_link.manage` |
-| Manage the section and field library | `form.library.manage` |
+| Place a ready form on a project; take its newer version | `form.place` |
+| Configure the public link (a beneficiary application form only) | `form.public_link.manage` |
+| Edit and publish the question library | `form.library.manage` |
 
 - **States.**
   - Published versions are read-only, with a "create new version" action.
@@ -1219,7 +1222,25 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
   - Desktop: three panes (add, canvas, settings) from 1024 px, the side panes in view while the form scrolls; the preview in a dialog.
   - Tablet: the panes stacked.
   - Phone: read-mostly.
-- **Phase · task.** 2 · T2.4, T2.4b. **API.** tag forms.
+- **Phase · task.** 2 · T2.4, T2.4b, T2.4c. **API.** tag forms.
+
+### SCR-113 Ready forms and the question library
+
+- **Purpose.** The Monitoring Team and the Department Head keep the organisation's forms in one catalogue outside the projects, and the one question library the builder picks from (D-125, D-127, D-129).
+- **Built (T2.4c).** `/admin/ready-forms` (`apps/web/src/admin/forms/ReadyFormsPage.tsx`) lists each ready form with its kind ("উপকারভোগীর আবেদন" or "অন্যান্য") and how far it is published ("সংস্করণ 1 প্রকাশিত", "খসড়া, এখনো প্রকাশিত হয়নি", "নতুন খসড়া খোলা আছে"); "নতুন তৈরি ফর্ম" asks for the name in both languages, the kind and the start (an empty form, or a copy of another published ready form) and opens the builder (SCR-061); "প্রশ্ন-লাইব্রেরি বদলান" opens the library in the same builder, where publishing makes its sections and questions the library every builder sees. The sidebar's "তৈরি ফর্ম" leads here.
+- **Roles.** Department Head, Monitoring Team. A PM reads the published ready forms only in the placement dialog of a project's forms (SCR-061).
+- **Priority.** desktop-first.
+- **Actions.**
+
+| Action | Permission |
+|---|---|
+| Create a ready form | `form.build` |
+| Build and publish a ready form | `form.build`, `form.publish` |
+| Edit and publish the question library | `form.library.manage` |
+
+- **States.** Empty ("এখনো কোনো তৈরি ফর্ম নেই।"); loading; error with retry.
+- **Components.** Button, Badge, Modal, TextField, RadioGroup, Select, EmptyState.
+- **Phase · task.** 2 · T2.4c. **API.** `GET /ready-forms`, `POST /ready-forms`, `GET /ready-forms/{formId}/published`, `POST /projects/{projectId}/forms/place`, `POST /forms/{formId}/take-version`, `GET /form-library`; tag forms.
 
 ### SCR-062 Permission panel
 

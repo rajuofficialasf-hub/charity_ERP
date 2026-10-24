@@ -179,6 +179,20 @@ test.describe('accessibility of the Phase 1 screens', () => {
       const [form] = ((await forms.json()) as { data: { id: string }[] }).data;
       await sweep(page, `/admin/projects/${projectId}/forms`, lang);
       await sweep(page, `/admin/projects/${projectId}/forms/${form!.id}`, lang);
+      // the ready forms, the question library in the same builder, and the placement dialog
+      await sweep(page, '/admin/ready-forms', lang);
+      await sweep(page, '/admin/question-library', lang);
+      await page.goto(`/admin/projects/${projectId}/forms`);
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+      await page
+        .getByRole('button', { name: lang === 'bn' ? 'তৈরি ফর্ম বসান' : 'Place a ready form' })
+        .click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+      // axe reads the colours the dialog settles on, not a frame of its fade-in
+      await page.waitForFunction(() =>
+        document.getAnimations().every((a) => a.playState !== 'running'),
+      );
+      expect((await scan(page)).violations, `the placement dialog (${lang})`).toEqual([]);
     });
   }
 });
