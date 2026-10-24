@@ -2677,14 +2677,70 @@ components:
     # ---------------- forms ----------------
     Form:
       type: object
-      required: [id, projectId, key, title]
+      required: [id, projectId, key, title, kind, sourceFormId, sourceVersionNo, newerVersionNo]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         projectId: { $ref: '#/components/schemas/Uuid' }
         key: { type: string }
         title: { $ref: '#/components/schemas/Bilingual' }
+        kind: { type: string, enum: [beneficiary_application, other], description: "What the form is for; the identity questions and the public link apply to a beneficiary application only (D-126, D-129)" }
         publishedVersionId: { type: [string, 'null'], format: uuid }
         draftVersionId: { type: [string, 'null'], format: uuid, description: The one open draft (T2.3) }
+        sourceFormId: { type: [string, 'null'], format: uuid, description: The ready form this form was placed from (D-129) }
+        sourceVersionNo: { type: [integer, 'null'], description: The ready form's version this form holds now }
+        newerVersionNo: { type: [integer, 'null'], description: "The ready form's published version when it is newer than the one placed; the PM takes it on demand" }
+    ReadyForm:
+      type: object
+      required: [id, key, kind, title, publishedVersionId, publishedVersionNo, draftVersionId]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        key: { type: string }
+        kind: { type: string, enum: [beneficiary_application, other] }
+        title: { $ref: '#/components/schemas/Bilingual' }
+        publishedVersionId: { type: [string, 'null'], format: uuid }
+        publishedVersionNo: { type: [integer, 'null'] }
+        draftVersionId: { type: [string, 'null'], format: uuid, description: The open draft; shown to the builders only }
+    ReadyFormList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/ReadyForm' } }
+        meta: { $ref: '#/components/schemas/Meta' }
+    ReadyFormResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/ReadyForm' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    ReadyFormCreate:
+      type: object
+      additionalProperties: false
+      required: [key, title, kind, source]
+      properties:
+        key: { type: string, pattern: '^[a-z][a-z0-9_]*$', maxLength: 40, description: Unique among the forms outside the projects }
+        title: { $ref: '#/components/schemas/Bilingual' }
+        kind: { type: string, enum: [beneficiary_application, other] }
+        source:
+          description: An empty form (one section), or a copy of another ready form's published version
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [kind]
+              properties:
+                kind: { type: string, const: blank }
+            - type: object
+              additionalProperties: false
+              required: [kind, formId]
+              properties:
+                kind: { type: string, const: copy }
+                formId: { $ref: '#/components/schemas/Uuid' }
+    FormPlace:
+      type: object
+      additionalProperties: false
+      required: [readyFormId]
+      properties:
+        readyFormId: { $ref: '#/components/schemas/Uuid' }
+        key: { type: string, pattern: '^[a-z][a-z0-9_]*$', maxLength: 40, description: The key on the project; the ready form's key when absent }
     FormList:
       type: object
       required: [data, meta]
@@ -2726,8 +2782,9 @@ components:
                 formId: { $ref: '#/components/schemas/Uuid' }
     FormLibrary:
       type: object
-      required: [sections, fields]
+      required: [libraryFormId, sections, fields]
       properties:
+        libraryFormId: { $ref: '#/components/schemas/Uuid', description: The library form the builders edit; its published version is this library (D-129) }
         sections:
           type: array
           items:
@@ -2755,7 +2812,7 @@ components:
                 items: { $ref: '#/components/schemas/FormField' }
         templates:
           type: array
-          description: The form templates of the library a project's form can start from
+          description: Kept for the response's shape; empty since the library is a form (D-127)
           items:
             type: object
             required: [key, name, projectType]
@@ -7255,7 +7312,7 @@ paths:
     get:
       tags: [forms]
       operationId: forms.library.get
-      summary: The section and field libraries the builder picks from (seeded; read-only)
+      summary: "The question library the builder picks from: the library form's published version (empty until its first publish)"
       x-permission: form.library.view
       x-scope: global
       x-audit: none
@@ -7437,6 +7494,116 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /ready-forms:
+    get:
+      tags: [forms]
+      operationId: forms.ready.list
+      summary: "Ready forms outside the projects: every one with its draft for the builders, the published ones for a PM; never the library; not paginated"
+      x-permission: form.place
+      x-scope: project
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: Ready forms
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReadyFormList' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [forms]
+      operationId: forms.ready.create
+      summary: Create a ready form as draft version 1, empty (one section) or copied from another ready form, by the two global roles
+      x-permission: form.build
+      x-scope: global
+      x-audit: form.ready_create
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReadyFormCreate' }
+      responses:
+        '201':
+          description: The ready form with its draft
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReadyFormResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /ready-forms/{formId}/published:
+    parameters:
+      - $ref: '#/components/parameters/FormId'
+    get:
+      tags: [forms]
+      operationId: forms.ready.published
+      summary: "A ready form's published version, read before it is placed"
+      x-permission: form.place
+      x-scope: project
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: The published version
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FormVersionResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /projects/{projectId}/forms/place:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    post:
+      tags: [forms]
+      operationId: forms.ready.place
+      summary: "Place a ready form's published version on a project: a published copy naming its source, which the PM does not change"
+      x-permission: form.place
+      x-scope: project
+      x-audit: form.place
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FormPlace' }
+      responses:
+        '201':
+          description: The placed form, published
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FormResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /forms/{formId}/take-version:
+    parameters:
+      - $ref: '#/components/parameters/FormId'
+    post:
+      tags: [forms]
+      operationId: forms.ready.takeVersion
+      summary: "Take the ready form's newer published version as the placed form's next version; applications keep theirs"
+      x-permission: form.place
+      x-scope: project
+      x-audit: form.take_version
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: The placed form with its new version
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FormResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}/public-link:
     parameters:

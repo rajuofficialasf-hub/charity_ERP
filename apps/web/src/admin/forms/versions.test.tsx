@@ -88,6 +88,10 @@ function api(
     title: T('উপকারভোগীর আবেদন', 'Beneficiary application'),
     publishedVersionId: versions.find((v) => v.status === 'published')?.id ?? null,
     draftVersionId: versions.find((v) => v.status === 'draft')?.id ?? null,
+    kind: 'beneficiary_application',
+    sourceFormId: null,
+    sourceVersionNo: null,
+    newerVersionNo: null,
   });
   server.use(
     http.get(`*/api/v1/projects/${PROJECT}/forms`, () =>
@@ -157,7 +161,7 @@ const open = () =>
 beforeEach(() => {
   resetClientForTests();
   sessionStorage.clear();
-  refreshAs({ ...ME, roles: ['program_manager'] });
+  refreshAs({ ...ME, roles: ['monitoring_team'] });
 });
 
 /** The versions sit in the form-settings tab of the right pane. */
@@ -326,8 +330,31 @@ describe('publishing', () => {
     refreshAs({ ...ME, roles: ['regional_program_manager'] });
     api();
     open();
-    await openVersions(user);
+    await user.click(await screen.findByRole('tab', { name: 'ফর্মের সেটিং' }));
     expect(screen.queryByRole('button', { name: 'প্রকাশ করুন' })).not.toBeInTheDocument();
+  });
+
+  it('gives a PM the public-link switch, and neither the version list nor the library', async () => {
+    const user = userEvent.setup();
+    refreshAs({ ...ME, roles: ['program_manager'] });
+    api();
+    const asked: string[] = [];
+    server.events.on('request:start', ({ request }) => {
+      asked.push(new URL(request.url).pathname);
+    });
+    try {
+      open();
+      await user.click(await screen.findByRole('tab', { name: 'ফর্মের সেটিং' }));
+      await user.click(await screen.findByRole('button', { name: 'পাবলিক আবেদনের লিংক' }));
+      expect(
+        await screen.findByRole('switch', { name: 'এই ফর্মের জন্য পাবলিক লিংক চালু' }),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('region', { name: 'সংস্করণগুলো' })).not.toBeInTheDocument();
+      expect(asked).not.toContain(`/api/v1/forms/${FORM}/versions`);
+      expect(asked).not.toContain('/api/v1/form-library');
+    } finally {
+      server.events.removeAllListeners('request:start');
+    }
   });
 });
 

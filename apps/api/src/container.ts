@@ -67,7 +67,8 @@ import { ProjectVolunteersService } from './services/project-volunteers';
 import { VolunteerTeamsService } from './services/volunteer-teams';
 import { TemplatesService } from './services/templates';
 import { FormLibraryService } from './services/form-library';
-import { FormsService } from './services/forms';
+import { FormsService, readDefinition } from './services/forms';
+import { ReadyFormsService } from './services/ready-forms';
 import { PublicFormsService } from './services/public-forms';
 import { PublicLinkService } from './services/public-link';
 import { PublicPhotosService } from './services/public-photos';
@@ -142,6 +143,7 @@ export interface Container {
   referenceLists: ReferenceListsService;
   formLibrary: FormLibraryService;
   forms: FormsService;
+  readyForms: ReadyFormsService;
   publicLink: PublicLinkService;
   publicPhotos: PublicPhotosService;
   publicForms: PublicFormsService;
@@ -234,7 +236,9 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const otp = o.otp ?? new OtpService(env, prisma, clock, otpDelivery);
   const projects = o.projects ?? new ProjectsService(env, prisma, audit, access, clock);
   const referenceLists = o.referenceLists ?? new ReferenceListsService(prisma, audit);
-  const formLibrary = o.formLibrary ?? new FormLibraryService(prisma, referenceLists);
+  const formLibrary =
+    o.formLibrary ?? new FormLibraryService(prisma, referenceLists, readDefinition);
+  const forms = o.forms ?? new FormsService(prisma, audit, access, projects, formLibrary);
   const settings = o.settings ?? new SettingsService(prisma, audit);
   const registration =
     o.registration ??
@@ -363,7 +367,8 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     settings,
     referenceLists,
     formLibrary,
-    forms: o.forms ?? new FormsService(prisma, audit, access, projects, formLibrary),
+    forms,
+    readyForms: o.readyForms ?? new ReadyFormsService(prisma, audit, projects, forms),
     publicLink: o.publicLink ?? new PublicLinkService(env, prisma, audit, projects),
     publicPhotos,
     publicForms:

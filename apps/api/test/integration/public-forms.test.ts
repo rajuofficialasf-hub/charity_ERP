@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SeedContext } from '../../seed/context';
@@ -15,6 +17,7 @@ import {
   login,
   type Session,
 } from './support/auth-app';
+import { MIGRATIONS_DIR } from './support/db';
 import { beneficiary, fakeMobile, fakeNid, locationTree } from './support/fixtures';
 
 // The public application link: a PM switches it on with one form, anyone with the link reads the
@@ -58,7 +61,7 @@ type DraftChange = (versionId: string) => Promise<void>;
 
 /** A form of the project from the distribution template, changed while a draft, then published. */
 async function publishedForm(projectId: string, key = 'default', change?: DraftChange) {
-  const pm = await as(world.users.pm);
+  const pm = await as(world.users.monitoring);
   const made = await at(pm, 'post', `/projects/${projectId}/forms`).send({
     key,
     title: { bn: 'আবেদন', en: 'Application' },
@@ -155,6 +158,16 @@ function answers(over: { nid?: string; mobile?: string } = {}) {
     answer('village', { t: 'short_text', v: 'নমুনা গ্রাম' }),
   ];
 }
+/** The keys the distribution template gives its identity questions. */
+const IDENTITY_KEYS = [
+  'nid_or_birth_reg',
+  'mobile',
+  'name',
+  'gender',
+  'father_or_husband_name',
+  'address',
+  'village',
+];
 const submission = (over: { nid?: string; mobile?: string } = {}) => ({
   clientUuid: randomUUID(),
   answers: answers(over),
@@ -229,7 +242,11 @@ describe('configuring the link', () => {
     expect(missing.body.error.details).toEqual([detail('formId', 'validation.required')]);
     const two = await configure(p.id, { enabled: true, formId: p.formId, formIds: [p.formId] });
     expect(two.status).toBe(422);
-    const draftOnly = await at(await as(world.users.pm), 'post', `/projects/${p.id}/forms`).send({
+    const draftOnly = await at(
+      await as(world.users.monitoring),
+      'post',
+      `/projects/${p.id}/forms`,
+    ).send({
       key: 'second',
       title: { bn: 'দ্বিতীয়', en: 'Second' },
       source: { kind: 'blank' },
@@ -302,7 +319,7 @@ describe('configuring the link', () => {
   it('refuses to publish a draft with a file field while the form is on the link', async () => {
     const p = await project();
     await enabled(p.id, p.formId);
-    const pm = await as(world.users.pm);
+    const pm = await as(world.users.monitoring);
     const next = await at(pm, 'post', `/forms/${p.formId}/versions`);
     expect(next.status, JSON.stringify(next.body)).toBe(201);
     const draftId = next.body.data.id as string;
@@ -376,6 +393,39 @@ describe('reading the form', () => {
   });
 });
 
+describe('a form built from a retired template', () => {
+  it('still reads, opens on the link and takes an application after the templates retire', async () => {
+    const p = await project();
+    await h.db.query(
+      readFileSync(
+        join(MIGRATIONS_DIR, '20261024110000_retire_seeded_forms', 'migration.sql'),
+        'utf8',
+      ),
+    );
+    try {
+      const retired = await h.db.query(
+        `SELECT count(*)::int AS n FROM project_templates WHERE key = 'form_distribution' AND active`,
+      );
+      expect(retired.rows[0].n).toBe(0);
+      expect(
+        (await at(await as(world.users.pm), 'get', `/form-versions/${p.versionId}`)).status,
+      ).toBe(200);
+      const { token } = await enabled(p.id, p.formId);
+      expect((await read(token)).status).toBe(200);
+      const sent = await submit(token, submission());
+      expect(sent.status, JSON.stringify(sent.body)).toBe(201);
+    } finally {
+      // the other tests of this file build their forms from the template
+      await h.db.query(
+        readFileSync(
+          join(MIGRATIONS_DIR, '20261024110000_retire_seeded_forms', 'down.sql'),
+          'utf8',
+        ),
+      );
+    }
+  });
+});
+
 describe('submitting', () => {
   it('stores a valid entry as needs_verification with the public flag, and replays by client id', async () => {
     const p = await project();
@@ -438,8 +488,8 @@ describe('submitting', () => {
     const sent = await submit(token, submission());
     expect(sent.status, JSON.stringify(sent.body)).toBe(201);
     const id = sent.body.data.id as string;
-    // the PM changes the form: the next draft with a new section title, then published
-    const pm = await as(world.users.pm);
+    // the Monitoring Team changes the form: the next draft with a new section title, then published
+    const pm = await as(world.users.monitoring);
     const next = await at(pm, 'post', `/forms/${p.formId}/versions`);
     expect(next.status, JSON.stringify(next.body)).toBe(201);
     const v2 = next.body.data.id as string;
@@ -502,6 +552,46 @@ describe('submitting', () => {
     expect((await submit(token, submission({ mobile }))).status).toBe(201);
     const again = await submit(token, submission({ mobile }));
     expect(again.status).toBe(201);
+    expect((await flagsOf(again.body.data.id)).flags).toEqual([
+      'public_entry',
+      'identity_repeated',
+    ]);
+  });
+
+  it('reads the identity by the questions marks under other keys: the known flag, the repeat and the address', async () => {
+    // the builder writes the identity questions under keys of its own
+    const renamed: DraftChange = async (versionId) => {
+      await h.db.query(
+        `UPDATE form_fields SET field_key = 'q_' || field_key
+          WHERE form_version_id = $1 AND field_key = ANY($2::text[])`,
+        [versionId, IDENTITY_KEYS],
+      );
+    };
+    const p = await project(renamed);
+    const { token } = await enabled(p.id, p.formId);
+    const rekeyed = (over: { nid?: string; mobile?: string } = {}) => ({
+      clientUuid: randomUUID(),
+      answers: answers(over).map((a) =>
+        IDENTITY_KEYS.includes(a.fieldKey) ? { ...a, fieldKey: `q_${a.fieldKey}` } : a,
+      ),
+    });
+    const known = await beneficiary(h.db, loc);
+    const nid = (await h.db.query('SELECT nid FROM beneficiaries WHERE id = $1', [known])).rows[0]
+      .nid as string;
+    const first = await submit(token, rekeyed({ nid }));
+    expect(first.status, JSON.stringify(first.body)).toBe(201);
+    expect((await flagsOf(first.body.data.id)).flags).toEqual([
+      'public_entry',
+      'existing_identity',
+    ]);
+    const { rows } = await h.db.query(
+      'SELECT district_id, union_id FROM applications WHERE id = $1',
+      [first.body.data.id],
+    );
+    expect(rows[0]).toEqual({ district_id: loc.district, union_id: loc.union });
+    const mobile = fakeMobile();
+    expect((await submit(token, rekeyed({ mobile }))).status).toBe(201);
+    const again = await submit(token, rekeyed({ mobile }));
     expect((await flagsOf(again.body.data.id)).flags).toEqual([
       'public_entry',
       'identity_repeated',

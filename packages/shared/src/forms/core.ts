@@ -1,8 +1,10 @@
 import type { FieldType } from './library.js';
 
 /**
- * The mandatory core of every application form: the fields every project collects, each with its
- * type and the beneficiary column it fills. A definition without one of them, with one that is
+ * The identity roles of a beneficiary application form: the beneficiary columns its
+ * questions must fill before it is published, each with the answer type the column takes. Nothing
+ * places these questions; the builder writes them and marks each by its standard column, under any
+ * key. A published application form without one of them, or with one that is of another type,
  * optional, hidden or inside an official-only section, is refused.
  */
 export const CORE_FIELDS = [
@@ -25,14 +27,21 @@ export const CORE_FIELD_KEYS: readonly CoreFieldKey[] = CORE_FIELDS.map((f) => f
 export const isCoreFieldKey = (key: string): key is CoreFieldKey =>
   (CORE_FIELD_KEYS as readonly string[]).includes(key);
 
-/** The library sections the core fields sit in when a form starts blank. */
-export const CORE_SECTIONS: readonly { key: string; fields: readonly CoreFieldKey[] }[] = [
-  {
-    key: 'basic_info',
-    fields: ['nid_or_birth_reg', 'mobile', 'name', 'father_or_husband_name', 'gender'],
-  },
-  { key: 'address', fields: ['address', 'village'] },
-];
+/**
+ * The identity role a question is marked with: the role whose column it fills, outside a repeat
+ * group (a row's `name` is a family member's, not the applicant's); none for any other question.
+ */
+export function identityRoleOf(field: {
+  standardColumn?: string | null;
+  settings?: { repeat?: { group?: string } } | null;
+}): CoreFieldKey | null {
+  if (field.settings?.repeat?.group) return null;
+  return CORE_FIELDS.find((c) => c.standardColumn === field.standardColumn)?.key ?? null;
+}
+
+/** What a form is for: a beneficiary application (the identity roles apply), another form, the library. */
+export const FORM_KINDS = ['beneficiary_application', 'other', 'library'] as const;
+export type FormKind = (typeof FORM_KINDS)[number];
 
 /**
  * The only beneficiary columns a form may fill, taken from the standard fields of the library:

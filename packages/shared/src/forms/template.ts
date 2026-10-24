@@ -1,4 +1,4 @@
-import { CORE_SECTIONS } from './core.js';
+import { translate } from '../i18n/translate.js';
 import type { FieldOption, FormDefinition, FormField, FormSection } from './definition.js';
 import type {
   FormTemplateField,
@@ -148,15 +148,21 @@ export function definitionFromTemplate(
 }
 
 /** A form with the mandatory core only, in the library's own sections, for a project that starts empty. */
-export function blankDefinition(sources: TemplateSources): FormDefinition {
+export function blankDefinition(): FormDefinition {
   return {
-    sections: CORE_SECTIONS.map((section) =>
-      sectionFrom(
-        sources,
-        section.key,
-        'volunteer',
-        section.fields.map((key) => ({ key, required: true })),
-      ),
-    ),
+    sections: [
+      emptySection('section_1', {
+        bn: translate('bn', 'forms.builder.first_section'),
+        en: translate('en', 'forms.builder.first_section'),
+      }),
+    ],
   };
+}
+
+/** An empty section seen by everyone, with no condition and no question. */
+export function emptySection(
+  key: string,
+  title: { bn: string; en: string },
+): FormDefinition['sections'][number] {
+  return { key, title, visibility: 'volunteer', condition: null, fields: [] };
 }

@@ -9,10 +9,14 @@ import type {
 import { json, type SeedContext, seedId } from '../../context';
 
 /**
+ * Not written by the base seed: the Monitoring Team builds the question library and every form
+ * itself (docs/DECISION_LOG.md, the decision retiring the seeded library and templates). The data
+ * serves the tests that build a project form from a template, as forms built from these templates
+ * exist; `seedFormTemplates` writes it for those tests only.
+ *
  * The field and section library (docs/MASTER_SPEC.md, the form section library) and the two
- * application forms in use today (blueprint
- * appendix খ.১ and খ.২) as form templates: data only; the shapes come from `@css/shared/forms`,
- * which also builds a project's form from them (T2.3). Standard fields map to beneficiary columns
+ * application forms of the blueprint (appendix খ.১ and খ.২) as form templates: data only; the shapes come from `@css/shared/forms`,
+ * which also builds a project's form from them. Standard fields map to beneficiary columns
  * (standard_column); the rest are project answers. Removed by decision: spot code and community
  * number (docs/DECISION_LOG.md, the decision that no spot or community code exists). Fields the
  * system fills itself (volunteer name, application number, approval

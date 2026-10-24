@@ -208,13 +208,30 @@ export const canSeeStaff = (me: Pick<Me, 'roles'>) => holds(me, STAFF_DIRECTORY_
 export const canManageOfficials = (me: Pick<Me, 'roles'>) => holds(me, OFFICIAL_ADMIN_ROLES);
 
 /**
- * Who builds and publishes a project's application form and manages its public link: the PM of
- * the program and the two global roles (`form.build`, `form.publish`, `form.public_link.manage`).
- * The server decides each save by the scope of the grant.
+ * Who builds and publishes forms and the question library: the two global roles (`form.build`,
+ * `form.publish`, `form.library.manage`). A PM places a ready form on a project instead.
  */
-export const FORM_BUILDER_ROLES: readonly string[] = [
+export const FORM_BUILDER_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
+export const canBuildForms = (me: Pick<Me, 'roles'>) => holds(me, FORM_BUILDER_ROLES);
+
+/**
+ * Who switches a project form's public link on and off (`form.public_link.manage`): the PM of the
+ * program and the two global roles. The server decides each change by the scope of the grant.
+ */
+export const PUBLIC_LINK_ROLES: readonly string[] = [
   'department_head',
   'monitoring_team',
   'program_manager',
 ];
-export const canBuildForms = (me: Pick<Me, 'roles'>) => holds(me, FORM_BUILDER_ROLES);
+export const canManagePublicLink = (me: Pick<Me, 'roles'>) => holds(me, PUBLIC_LINK_ROLES);
+
+/**
+ * Who places a published ready form on a project and takes its newer versions (`form.place`): the
+ * PM of the program and the two global roles. The server decides each placement by its scope.
+ */
+export const FORM_PLACE_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'program_manager',
+];
+export const canPlaceForms = (me: Pick<Me, 'roles'>) => holds(me, FORM_PLACE_ROLES);

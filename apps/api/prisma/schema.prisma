@@ -914,22 +914,33 @@ model FundSource {
 
 model Form {
   id               String        @id @db.Uuid
-  projectId        String        @map("project_id") @db.Uuid
+  /// null for a ready form or the question library
+  projectId        String?       @map("project_id") @db.Uuid
   key              String
   titleBn          String        @map("title_bn")
   titleEn          String        @map("title_en")
+  /// beneficiary_application | other | library
+  kind             String        @default("beneficiary_application")
+  /// the ready form a placed project form was copied from, and its version
+  sourceFormId     String?       @map("source_form_id") @db.Uuid
+  sourceVersionNo  Int?          @map("source_version_no")
   createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy        String?       @map("created_by") @db.Uuid
   updatedAt        DateTime      @default(now()) @map("updated_at") @db.Timestamptz(6)
   updatedBy        String?       @map("updated_by") @db.Uuid
-  project          Project       @relation("forms_project_id", fields: [projectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  project          Project?      @relation("forms_project_id", fields: [projectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  sourceForm       Form?         @relation("forms_source_form_id", fields: [sourceFormId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  placedForms      Form[]        @relation("forms_source_form_id")
   createdByRef     User?         @relation("forms_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   updatedByRef     User?         @relation("forms_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
   formVersionsForm FormVersion[] @relation("form_versions_form_id")
 
   @@unique([projectId, key], map: "forms_project_id_key_key")
+  @@unique([key], where: raw("project_id IS NULL"), map: "forms_ready_key_key")
+  @@unique([kind], where: raw("kind = 'library'"), map: "forms_one_library_key")
   @@index([createdBy], map: "forms_created_by_idx")
   @@index([updatedBy], map: "forms_updated_by_idx")
+  @@index([sourceFormId], map: "forms_source_form_id_idx")
   @@map("forms")
 }
 

@@ -263,7 +263,9 @@ function ProjectWizard({ projectId }: { projectId: string }) {
           funds.data,
           areaList.data,
           rulesText.data.rules,
-          formList.data.some((f) => f.publishedVersionId !== null),
+          formList.data.some(
+            (f) => f.publishedVersionId !== null && f.kind === 'beneficiary_application',
+          ),
         )
       : null;
   const asked = params.get('step');

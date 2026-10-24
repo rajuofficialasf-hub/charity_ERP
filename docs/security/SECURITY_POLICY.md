@@ -148,7 +148,7 @@ Every entry stores the actor, the originating user for jobs and sync, the actor'
 | Animal allocation | `animal.allocate`, `animal.deallocate` (Phase 4) |
 | Nisab changes | `nisab.change` |
 | Deletion | `application.delete` and every soft delete |
-| Template changes | `template.create`, `form.publish`, `form.version_created`, project template updates |
+| Template changes | `template.create`, `form.publish`, `form.version_created`, `form.ready_create`, `form.place`, `form.take_version`, project template updates |
 | Document deadline extensions | `document.deadline_extend` (documentation module, O-34) |
 | Deficiency reports | `deficiency.report` (documentation module, O-34) |
 | Media consent | `media_consent` |

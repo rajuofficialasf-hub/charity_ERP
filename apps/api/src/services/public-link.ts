@@ -92,8 +92,9 @@ export class PublicLinkService {
   }
 
   /**
-   * A form the link may open: one of this project, with a published version whose
-   * volunteer-visible part asks for no file or signature. Answers the form's key.
+   * A form the link may open: a beneficiary application form of this project, with a published
+   * version whose volunteer-visible part asks for no file or signature, so every public entry
+   * carries the identity the checks need. Answers the form's key.
    */
   private async linkableForm(tx: Tx, projectId: string, formId: string): Promise<string> {
     const form = await tx.form.findUnique({
@@ -101,10 +102,13 @@ export class PublicLinkService {
       select: {
         projectId: true,
         key: true,
+        kind: true,
         formVersionsForm: { where: { status: 'published' }, select: { id: true } },
       },
     });
     if (!form || form.projectId !== projectId) throw new ApiError('form.not_of_project', 422);
+    if (form.kind !== 'beneficiary_application')
+      throw new ApiError('public.form_not_application', 422);
     const published = form.formVersionsForm[0];
     if (!published) throw new ApiError('public.form_unpublished', 422);
     if (asksForFiles(await readDefinition(tx, published.id, 'volunteer')))

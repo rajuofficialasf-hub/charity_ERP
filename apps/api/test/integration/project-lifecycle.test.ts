@@ -14,7 +14,7 @@ import {
   login,
   type Session,
 } from './support/auth-app';
-import { publishedForm } from './support/forms';
+import { publishedForm, publishedReadyForm } from './support/forms';
 import { notificationsOf } from './support/notifications';
 
 // The life of a project: activation of a complete draft, the deadline extension, the two-step
@@ -112,7 +112,7 @@ async function draft(complete: boolean, fundTotal = '100000.00') {
       misconduct: text('অনিয়ম'),
     });
   expect(rules.status).toBe(200);
-  await publishedForm(h, pm, id);
+  await publishedForm(h, await as(world.users.monitoring), id);
   return id;
 }
 async function activated() {
@@ -184,8 +184,16 @@ describe('activation', () => {
     expect(refused.body.error.details).toEqual([
       expect.objectContaining({ path: 'form', code: 'validation.required' }),
     ]);
-    // a draft form is not enough; the published one is
-    const made = await at(pm, `/projects/${id}/forms`).send({
+    // a published form of the kind other cannot take applications, so it is not enough
+    const builder = await as(world.users.monitoring);
+    await placedOtherForm(builder, id);
+    const other = await at(pm, `/projects/${id}/activate`).set('If-Match', await etag(pm, id));
+    expect(other.status).toBe(409);
+    expect(other.body.error.details).toEqual([
+      expect.objectContaining({ path: 'form', code: 'validation.required' }),
+    ]);
+    // a draft form is not enough; the published one is (the Monitoring Team builds it)
+    const made = await at(builder, `/projects/${id}/forms`).send({
       key: 'default',
       title: { bn: 'আবেদন', en: 'Application' },
       source: { kind: 'template', templateKey: 'form_distribution' },
@@ -195,11 +203,11 @@ describe('activation', () => {
     expect(still.status).toBe(409);
     const read = await api()
       .get(`/api/v1/form-versions/${made.body.data.draftVersionId}`)
-      .set(bearer(pm));
-    const published = await at(pm, `/form-versions/${made.body.data.draftVersionId}/publish`).set(
-      'If-Match',
-      read.headers.etag as string,
-    );
+      .set(bearer(builder));
+    const published = await at(
+      builder,
+      `/form-versions/${made.body.data.draftVersionId}/publish`,
+    ).set('If-Match', read.headers.etag as string);
     expect(published.status).toBe(200);
     const res = await at(pm, `/projects/${id}/activate`).set('If-Match', await etag(pm, id));
     expect(res.status).toBe(200);
@@ -456,3 +464,13 @@ describe('who may move a project', () => {
     expect(byMonitoring.status).toBe(200);
   });
 });
+
+/** A published ready form of the kind other, placed on the project by the builder. */
+async function placedOtherForm(builder: Session, projectId: string) {
+  const ready = await publishedReadyForm(h, builder, 'other');
+  const placed = await at(builder, `/projects/${projectId}/forms/place`).send({
+    readyFormId: ready,
+    key: 'survey',
+  });
+  expect(placed.status, JSON.stringify(placed.body)).toBe(201);
+}

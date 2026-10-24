@@ -100,6 +100,7 @@ function serve(status = 'draft') {
             title: { bn: 'আবেদন', en: 'Application' },
             publishedVersionId: '01900000-0000-7000-8000-0000000000f2',
             draftVersionId: null,
+            kind: 'beneficiary_application',
           },
         ],
         meta: { requestId: 'req_test' },
@@ -444,6 +445,7 @@ describe('the setup wizard', () => {
         title: { bn: 'আবেদন', en: 'Application' },
         publishedVersionId: null,
         draftVersionId: '01900000-0000-7000-8000-0000000000f3',
+        kind: 'beneficiary_application',
       },
     ]);
     const first = open('review');

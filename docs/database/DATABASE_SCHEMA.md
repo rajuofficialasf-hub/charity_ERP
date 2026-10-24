@@ -549,12 +549,15 @@ Constraints: UNIQUE (project_id, location_id).
 | Column | Type | Null | Default | Comment |
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
-| project_id | uuid | no | — | FK projects |
+| project_id | uuid | yes | — | FK projects; null for a ready form or the question library (D-129) |
 | key | text | no | — | application type (e.g. `default`, `institution`) |
 | title_bn, title_en | text | no | — | — |
+| kind | text | no | 'beneficiary_application' | `beneficiary_application`, `other` or `library`; the identity check of D-126 applies to the first |
+| source_form_id | uuid | yes | — | FK forms; the ready form a placed project form was copied from (D-129) |
+| source_version_no | int | yes | — | the ready form's version it copied |
 | [A] | | | | |
 
-Constraints: UNIQUE (project_id, key).
+Constraints: UNIQUE (project_id, key); UNIQUE (key) WHERE project_id IS NULL (`forms_ready_key_key`); one library (`forms_one_library_key`); CHECK kind; CHECK a library has no project; CHECK source and version together, only on a project form. Index on `source_form_id`. The migration `20261024100000_ready_forms` creates the empty question library with its open draft.
 
 ### form_versions
 | Column | Type | Null | Default | Comment |

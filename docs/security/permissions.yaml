@@ -627,13 +627,17 @@ permissions:
 
   # ---- M07 Form Platform ---------------------------------------------------------------------------
   - name: form.build
-    description: Edit a project's form draft (sections, fields, logic)
+    description: Build a form draft (sections, questions, logic) — the ready forms and the question library; held by the two global roles only
     module: M07
     sensitive: false
-    default:
-      - { role: program_manager, scope: PROGRAM }
+    default: []
   - name: form.publish
-    description: Publish a form version
+    description: Publish a form version; held by the two global roles only
+    module: M07
+    sensitive: false
+    default: []
+  - name: form.place
+    description: Place a published ready form on a project and take its newer versions, changing nothing in it
     module: M07
     sensitive: false
     default:
@@ -645,13 +649,12 @@ permissions:
     default:
       - { role: program_manager, scope: PROGRAM }
   - name: form.library.view
-    description: Read the section and field libraries the form builder picks from
+    description: Read the question library the form builder picks from; held by the two global roles only
     module: M07
     sensitive: false
-    default:
-      - { role: program_manager, scope: GLOBAL }
+    default: []
   - name: form.library.manage
-    description: Edit the section and field libraries
+    description: Edit and publish the question library; held by the two global roles only
     module: M07
     sensitive: false
     default: []

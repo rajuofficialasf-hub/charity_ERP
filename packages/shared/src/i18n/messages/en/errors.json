@@ -226,10 +226,10 @@
     "calculation_missing": "This calculated question has no rule yet.",
     "options_misplaced": "Only a choice question carries options.",
     "option_dependency": "An option depends on an option that does not exist.",
-    "core_field_missing": "A question required in every project is missing.",
-    "core_field_optional": "A question required in every project cannot be optional.",
-    "core_field_hidden": "A question required in every project must be visible to volunteers.",
-    "core_field_shape": "A question required in every project keeps its type and its column.",
+    "core_field_missing": "Mark every identity question of a beneficiary application form.",
+    "core_field_optional": "An identity question must stay required.",
+    "core_field_hidden": "An identity question is seen by everyone, with no condition and outside official-only sections.",
+    "core_field_shape": "This identity question's type does not match its mark.",
     "standard_column_unknown": "This question names a column a form may not fill.",
     "standard_column_duplicate": "Two questions of the form fill the same column.",
     "unknown_library_field": "The library has no question with this key.",
@@ -239,7 +239,9 @@
     "unexpected_answer": "This question takes no answer.",
     "duplicate_answer": "This question was answered twice.",
     "repeat_group_too_large": "A list has too many questions.",
-    "not_of_project": "This form belongs to another project."
+    "not_of_project": "This form belongs to another project.",
+    "no_newer_version": "This form has no newer version to take.",
+    "placed_copy": "A form placed from a ready form is not changed here; take the ready form's newer version."
   },
   "public": {
     "link_closed": "This link is not open for applications.",
@@ -248,7 +250,8 @@
     "configure_through_link": "The public link is switched on, and its form chosen, through its own setting.",
     "photo_limit": "At most 5 photos can be added to one application.",
     "link_full": "This link is holding too many photos right now. Try again later.",
-    "photo_unknown": "This photo was not uploaded for this application."
+    "photo_unknown": "This photo was not uploaded for this application.",
+    "form_not_application": "Only a beneficiary application form can open through the public link."
   },
   "program": {
     "inactive": "This program is inactive; it takes no new projects.",

@@ -1,4 +1,11 @@
-import type { FieldType, FormCreate, FormDefinition, FormField } from '@css/shared/forms';
+import type {
+  FieldType,
+  FormCreate,
+  FormDefinition,
+  FormField,
+  FormPlace,
+  ReadyFormCreate,
+} from '@css/shared/forms';
 import { api } from '../../lib/api';
 import type { LibrarySectionView } from './draft';
 
@@ -11,8 +18,10 @@ export interface FormVersion extends FormDefinition {
   publishedAt: string | null;
 }
 
-/** The libraries the builder picks from, each field ready to place in a form. */
+/** The question library the builder picks from, each question ready to place in a form. */
 export interface FormLibrary {
+  /** The library form the Monitoring Team and the Department Head edit in the builder. */
+  libraryFormId: string;
   sections: LibrarySectionView[];
   fields: {
     key: string;
@@ -24,17 +33,57 @@ export interface FormLibrary {
   templates: { key: string; name: { bn: string; en: string }; projectType: string }[];
 }
 
+/** What a form is for: the identity marks and the public link apply to an application form. */
+export type FormKind = 'beneficiary_application' | 'other';
+
 /** A form of a project (GET /projects/{id}/forms). */
 export interface ProjectFormView {
   id: string;
   projectId: string;
   key: string;
   title: { bn: string; en: string };
+  kind: FormKind;
   publishedVersionId: string | null;
+  draftVersionId: string | null;
+  /** The ready form this form was placed from, and the version of it the project holds. */
+  sourceFormId: string | null;
+  sourceVersionNo: number | null;
+  /** The ready form's newer published version, which the PM may take. */
+  newerVersionNo: number | null;
+}
+
+/** A ready form outside the projects (GET /ready-forms). */
+export interface ReadyFormView {
+  id: string;
+  key: string;
+  kind: FormKind;
+  title: { bn: string; en: string };
+  publishedVersionId: string | null;
+  publishedVersionNo: number | null;
   draftVersionId: string | null;
 }
 
 export const FORMS_KEY = ['admin', 'forms'] as const;
+export const READY_KEY = [...FORMS_KEY, 'ready'] as const;
+export const LIBRARY_KEY = [...FORMS_KEY, 'library'] as const;
+
+/** The ready forms: every one for the builders, the published ones for a PM. */
+export const readyForms = () => api<ReadyFormView[]>('/ready-forms');
+
+export const createReadyForm = (body: ReadyFormCreate) =>
+  api<ReadyFormView>('/ready-forms', { method: 'POST', body });
+
+/** A ready form's published version, read before it is placed. */
+export const readyPublished = (formId: string) =>
+  api<FormVersion>(`/ready-forms/${formId}/published`);
+
+/** Places a ready form's published version on a project as a published copy. */
+export const placeForm = (projectId: string, body: FormPlace) =>
+  api<ProjectFormView>(`/projects/${projectId}/forms/place`, { method: 'POST', body });
+
+/** Takes the ready form's newer version as the placed form's next version. */
+export const takeVersion = (formId: string) =>
+  api<ProjectFormView>(`/forms/${formId}/take-version`, { method: 'POST' });
 
 export const library = () => api<FormLibrary>('/form-library');
 

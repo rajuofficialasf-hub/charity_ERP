@@ -264,7 +264,7 @@ export class PublicFormsService {
       WHERE ap.project_id = ${projectId}::uuid
         AND ${PUBLIC_FLAGS.publicEntry} = ANY(ap.flags)
         AND ap.created_at >= ${since}
-        AND f.field_key IN ('nid_or_birth_reg', 'mobile')
+        AND f.standard_column IN ('nid_or_birth_reg', 'mobile')
         AND a.value->>'v' IN (${Prisma.join(terms)})
       LIMIT 1`;
     return rows.length > 0;

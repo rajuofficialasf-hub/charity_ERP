@@ -2,6 +2,7 @@ import { formDefinitionSchema } from '@css/shared/forms';
 import { describe, expect, it } from 'vitest';
 import { definition, field, keysOf, option, section, T } from '../../../test/forms';
 import {
+  addEmptySection,
   addLibraryField,
   addLibrarySection,
   addOwnQuestion,
@@ -14,6 +15,7 @@ import {
   removeField,
   removeSection,
   setSectionCondition,
+  setIdentityRole,
   setSectionVisibility,
   updateField,
 } from './draft';
@@ -211,7 +213,7 @@ describe('the project own question', () => {
     valid(next);
   });
 
-  it('moves a question to a place in another section, a group with its members, a core question not out of its section', () => {
+  it('moves a question to a place in another section, a group with its members, an identity question too', () => {
     const def = definition(
       section('one', [
         field('a', 'number'),
@@ -228,10 +230,11 @@ describe('the project own question', () => {
     // inside one section the index counts blocks, so b goes before the group
     const within = moveFieldTo(def, 'b', 'one', 1);
     expect(within.sections.at(-2)!.fields.map((f) => f.fieldKey)).toEqual(['a', 'b', 'g', 'm']);
-    // the same place is no change; a member and a core question stay where they are
+    // the same place is no change; a member stays in its group; an identity question moves
     expect(moveFieldTo(def, 'a', 'one', 0)).toBe(def);
     expect(moveFieldTo(def, 'm', 'two', 0)).toBe(def);
-    expect(moveFieldTo(def, 'name', 'two', 0)).toBe(def);
+    const marked = moveFieldTo(def, 'name', 'two', 0);
+    expect(marked.sections.at(-1)!.fields.map((f) => f.fieldKey)).toEqual(['name', 'c']);
   });
 
   it('puts an own question at a dropped place, counted in blocks', () => {
@@ -278,7 +281,10 @@ describe('the project own question', () => {
     });
     valid(made.definition);
     expect(duplicateField(def, 'g', { bn: '(কপি)', en: '(copy)' }).fieldKey).toBeNull();
-    expect(duplicateField(def, 'name', { bn: '(কপি)', en: '(copy)' }).fieldKey).toBeNull();
+    // the copy of an identity question carries no mark, so each role stays marked once
+    const copied = duplicateField(definition(), 'name', { bn: '(কপি)', en: '(copy)' });
+    const copy = copied.definition.sections[0]!.fields.find((f) => f.fieldKey === copied.fieldKey);
+    expect(copy).toMatchObject({ standardColumn: null });
   });
 
   it('adds nothing and names no key for a section the form does not have', () => {
@@ -303,15 +309,10 @@ describe('the project own question', () => {
   });
 });
 
-describe('the core fields', () => {
-  it('cannot be removed, made optional, given a condition or moved into an official-only section', () => {
+describe('the identity questions', () => {
+  it('stay required, without a condition and seen by everyone, and are removed like any other', () => {
     const def = definition();
-    expect(coreLocks(def.sections[0]!.fields[0]!)).toEqual({
-      remove: true,
-      optional: true,
-      condition: true,
-    });
-    expect(removeField(def, 'name')).toBe(def);
+    expect(coreLocks(def.sections[0]!.fields[0]!)).toEqual({ optional: true, condition: true });
     expect(
       updateField(def, 'name', { required: false }).sections[0]!.fields.find(
         (f) => f.fieldKey === 'name',
@@ -326,7 +327,20 @@ describe('the core fields', () => {
     expect(setSectionCondition(def, 'address', { field: 'gender', op: 'eq', value: 'male' })).toBe(
       def,
     );
-    expect(removeSection(def, 'address')).toBe(def);
+    expect(keysOf(removeField(def, 'name'))).not.toContain('name');
+    expect(removeSection(def, 'address').sections.map((s) => s.key)).not.toContain('address');
+  });
+
+  it('never go into an official-only section', () => {
+    const def = definition(
+      section('office', [field('remark', 'long_text')], { visibility: 'official_only' }),
+    );
+    expect(moveFieldTo(def, 'name', 'office', 0)).toBe(def);
+  });
+
+  it('are known by their mark, not their key: a question keyed mobile without the mark is free', () => {
+    expect(coreLocks(field('mobile', 'phone'))).toEqual({ optional: false, condition: false });
+    expect(coreLocks(field('remark', 'short_text'))).toEqual({ optional: false, condition: false });
   });
 
   it('can still have their labels and help text changed', () => {
@@ -335,13 +349,52 @@ describe('the core fields', () => {
     });
     expect(next.sections[1]!.fields[1]!.label).toEqual(T('গ্রাম/মহল্লা', 'Village or area'));
   });
+});
 
-  it('leave other fields free', () => {
-    expect(coreLocks(field('remark', 'short_text'))).toEqual({
-      remove: false,
-      optional: false,
-      condition: false,
+describe('the identity mark', () => {
+  const own = () =>
+    definition(
+      section('mine', [
+        field('q_phone', 'short_text', { settings: { validation: { max_length: 20 } } }),
+        field('q_age', 'number', {
+          logic: { show_if: { field: 'q_phone', op: 'eq', value: 'x' } },
+        }),
+        field('g', 'repeat_group'),
+        field('member', 'short_text', { settings: { repeat: { group: 'g' } } }),
+      ]),
+      section('office', [field('remark', 'short_text')], { visibility: 'official_only' }),
+    );
+  const find = (def: ReturnType<typeof own>, key: string) =>
+    def.sections.flatMap((s) => s.fields).find((f) => f.fieldKey === key)!;
+
+  it("sets the role's column and type, keeps it required, and takes the role from its earlier holder", () => {
+    const def = own();
+    const next = setIdentityRole(def, 'q_phone', 'mobile');
+    expect(find(next, 'q_phone')).toMatchObject({
+      type: 'phone',
+      standardColumn: 'mobile',
+      required: true,
+      settings: {},
     });
+    // the core section's mobile question held the role before; it loses the mark
+    expect(find(next, 'mobile').standardColumn).toBeNull();
+    valid(next);
+  });
+
+  it('drops the show condition of the marked question, and clears the mark on request', () => {
+    const marked = setIdentityRole(own(), 'q_age', 'village');
+    expect(find(marked, 'q_age')).toMatchObject({ type: 'short_text', standardColumn: 'village' });
+    expect(find(marked, 'q_age').logic).toBeUndefined();
+    const cleared = setIdentityRole(marked, 'q_age', null);
+    expect(find(cleared, 'q_age').standardColumn).toBeNull();
+    // a question with no mark has nothing to clear
+    expect(setIdentityRole(cleared, 'q_age', null)).toBe(cleared);
+  });
+
+  it('is refused to a repeat group, its members and an official-only question', () => {
+    const def = own();
+    for (const key of ['g', 'member', 'remark'])
+      expect(setIdentityRole(def, key, 'name'), key).toBe(def);
   });
 });
 
@@ -442,5 +495,25 @@ describe('ordering', () => {
       'members_14_plus',
       'daily_income',
     ]);
+  });
+});
+
+describe('a new empty section', () => {
+  it('goes at the end, seen by everyone, under the first free number', () => {
+    const title = (n: number) => T(`অংশ ${n}`, `Section ${n}`);
+    const made = addEmptySection(definition(), title);
+    expect(made.key).toBe('section_3');
+    expect(made.definition.sections.at(-1)).toEqual({
+      key: 'section_3',
+      librarySectionKey: null,
+      title: T('অংশ 3', 'Section 3'),
+      visibility: 'volunteer',
+      condition: null,
+      fields: [],
+    });
+    valid(made.definition);
+    // a number already taken is skipped
+    expect(addEmptySection(made.definition, title).key).toBe('section_4');
+    expect(addEmptySection({ sections: [] }, title).key).toBe('section_1');
   });
 });

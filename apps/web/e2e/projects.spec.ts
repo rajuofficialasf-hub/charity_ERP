@@ -7,7 +7,7 @@ import {
   newDraft,
   next,
   projectIdOf,
-  publishLibraryForm,
+  placeReadyForm,
   section,
   state,
   typeDate,
@@ -46,9 +46,10 @@ test.describe('programs and project setup', () => {
     await openTab(page, TAB);
     await newDraft(page, code(), name);
 
-    // the application form comes from the library through the API until the builder screen exists
+    // the application form: a ready form the Monitoring Team builds and publishes through the API,
+    // placed on the project by the PM
     const projectId = projectIdOf(page);
-    await publishLibraryForm(page, PM, projectId);
+    await placeReadyForm(page, PM, projectId);
 
     // the photo rule in the distribution component's settings
     await page.getByRole('button', { name: 'বিতরণ ও ছবি-এর সেটিংস' }).click();

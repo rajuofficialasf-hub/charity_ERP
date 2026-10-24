@@ -17,6 +17,28 @@ export const formCreateSchema = z.strictObject({
 });
 export type FormCreate = z.infer<typeof formCreateSchema>;
 
+/**
+ * A new ready form outside the projects: its key, title, what it is for, and whether it starts
+ * empty or as a copy of another ready form's published version.
+ */
+export const readyFormCreateSchema = z.strictObject({
+  key: snakeKey.max(40),
+  title: bilingual,
+  kind: z.enum(['beneficiary_application', 'other']),
+  source: z.discriminatedUnion('kind', [
+    z.strictObject({ kind: z.literal('blank') }),
+    z.strictObject({ kind: z.literal('copy'), formId: z.uuid() }),
+  ]),
+});
+export type ReadyFormCreate = z.infer<typeof readyFormCreateSchema>;
+
+/** A ready form placed on a project, under its own key or another the PM gives. */
+export const formPlaceSchema = z.strictObject({
+  readyFormId: z.uuid(),
+  key: snakeKey.max(40).optional(),
+});
+export type FormPlace = z.infer<typeof formPlaceSchema>;
+
 /** Switching a project's public link on with the one form it opens, or off. */
 export const publicLinkConfigSchema = z.strictObject({
   enabled: z.boolean(),

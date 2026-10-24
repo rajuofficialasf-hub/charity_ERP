@@ -1,7 +1,7 @@
 import {
   FIELD_TYPES,
-  fieldFromLibrary,
   type FieldType,
+  type FormDefinition,
   type FormField,
   type LibraryField,
   libraryFieldSettingsSchema,
@@ -15,8 +15,14 @@ import type { PrismaService, Tx } from '../core/prisma.service';
 import { ApiError } from '../i18n/api-error';
 import type { ReferenceListsService } from './reference-lists';
 
-/** The section and field libraries as the builder reads them, with the form templates. */
+/**
+ * The question library as the builder reads it: the sections of the library form's published
+ * version, and their questions ready to place. The templates list stays for the response's shape
+ * and is empty.
+ */
 export interface FormLibraryView {
+  /** The library form the builders edit; its published version is this library. */
+  libraryFormId: string;
   sections: {
     key: string;
     title: { bn: string; en: string };
@@ -52,6 +58,9 @@ export const fieldTypeOf = (value: string): FieldType => {
   if (!type) throw new Error(`unknown field type ${value}`);
   return type;
 };
+/** Reads one version's definition with every section (the forms service's reader). */
+export type VersionReader = (db: Tx, versionId: string) => Promise<FormDefinition>;
+
 /** A stored section visibility, checked against the known ones. */
 export const visibilityOf = (value: string): SectionVisibility => {
   const visibility = SECTION_VISIBILITIES.find((v) => v === value);
@@ -60,56 +69,33 @@ export const visibilityOf = (value: string): SectionVisibility => {
 };
 
 /**
- * The organisation-wide section and field libraries (docs/MASTER_SPEC.md, the form section library)
- * and the form templates of appendix খ:
- * seeded, read by the builder, changed only by the seed in this phase. The templates share the
- * project-templates table under their own definition kind, so the project template service
- * never lists them.
+ * The organisation-wide question library and the retired form templates of appendix খ. The library
+ * is one form outside the projects that the Monitoring Team and the Department Head build and
+ * publish like any form (docs/DECISION_LOG.md, the decisions on who builds forms and on the
+ * library); its published version is what every builder picks from. The seeded library tables and
+ * templates are still read to start a form from a template.
  */
 export class FormLibraryService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly referenceLists: ReferenceListsService,
+    private readonly readVersion: VersionReader,
   ) {}
 
   async library(): Promise<FormLibraryView> {
-    const [sections, fields, templates, sources] = await Promise.all([
-      this.sectionRows(this.prisma),
-      this.fieldRows(this.prisma),
-      this.templates(this.prisma),
-      this.sources(this.prisma),
-    ]);
-    const placed = (key: string) => {
-      const library = sources.libraryFields.find((f) => f.key === key);
-      // in the shape a version read gives a field: settings and options always present
-      return library
-        ? fieldFromLibrary(library, { key, required: false }, sources.resolveList).map((f) => ({
-            ...f,
-            settings: f.settings ?? {},
-            options: (f.options ?? []).map((o) => ({
-              ...o,
-              dependsOnOptionCode: o.dependsOnOptionCode ?? null,
-              allowsOtherText: o.allowsOtherText ?? false,
-            })),
-          }))
-        : [];
-    };
+    const form = await this.prisma.form.findFirstOrThrow({
+      where: { kind: 'library' },
+      select: {
+        id: true,
+        formVersionsForm: { where: { status: 'published' }, select: { id: true } },
+      },
+    });
+    const published = form.formVersionsForm[0];
+    if (!published) return { libraryFormId: form.id, sections: [], fields: [], templates: [] };
     return {
-      sections: sections.map((s) => ({
-        key: s.key,
-        title: { bn: s.titleBn, en: s.titleEn },
-        defaultVisibility: s.defaultVisibility,
-        fieldKeys: s.fieldKeys,
-      })),
-      fields: fields.map((x) => ({
-        key: x.key,
-        type: x.type,
-        label: { bn: x.labelBn, en: x.labelEn },
-        standardColumn: x.standardColumn,
-        defaultSettings: x.defaultSettings,
-        formFields: placed(x.key),
-      })),
-      templates: templates.map(({ definition: _definition, ...t }) => t),
+      libraryFormId: form.id,
+      ...libraryOf(await this.readVersion(this.prisma, published.id)),
+      templates: [],
     };
   }
 
@@ -217,4 +203,37 @@ export class FormLibraryService {
       throw error;
     }
   }
+}
+
+/**
+ * The library's sections and questions from the library form's definition: a question inside a
+ * repeat group travels with its group, so the group's entry carries its members after it.
+ */
+export function libraryOf(
+  definition: FormDefinition,
+): Pick<FormLibraryView, 'sections' | 'fields'> {
+  const sections: FormLibraryView['sections'] = [];
+  const fields: FormLibraryView['fields'] = [];
+  for (const section of definition.sections) {
+    const top = section.fields.filter((f) => !f.settings?.repeat?.group);
+    sections.push({
+      key: section.key,
+      title: section.title,
+      defaultVisibility: section.visibility,
+      fieldKeys: top.map((f) => f.fieldKey),
+    });
+    for (const field of top)
+      fields.push({
+        key: field.fieldKey,
+        type: field.type,
+        label: field.label,
+        standardColumn: field.standardColumn ?? null,
+        defaultSettings: field.settings ?? {},
+        formFields: [
+          field,
+          ...section.fields.filter((m) => m.settings?.repeat?.group === field.fieldKey),
+        ],
+      });
+  }
+  return { sections, fields };
 }

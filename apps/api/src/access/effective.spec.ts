@@ -33,12 +33,12 @@ describe('effective permissions', () => {
   it('gives GLOBAL roles every permission at GLOBAL, except system.owner.transfer for the Monitoring Team', () => {
     const head = effectivePermissions(registry, facts({ roles: ['department_head'] }), NOW);
     const monitoring = effectivePermissions(registry, facts({ roles: ['monitoring_team'] }), NOW);
-    expect(names(head).size).toBe(153);
+    expect(names(head).size).toBe(154);
     const globalOnes = head.filter((g) => g.scopeType === 'GLOBAL' && g.source === 'global_role');
-    expect(new Set(globalOnes.map((g) => g.permission)).size).toBe(153);
+    expect(new Set(globalOnes.map((g) => g.permission)).size).toBe(154);
     expect(names(head)).toContain('system.owner.transfer');
     expect(names(monitoring)).not.toContain('system.owner.transfer');
-    expect(names(monitoring).size).toBe(152);
+    expect(names(monitoring).size).toBe(153);
   });
 
   it('keeps role defaults with their scope and condition, and leaves out if_rpm_grants defaults', () => {

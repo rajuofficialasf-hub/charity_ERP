@@ -5,8 +5,10 @@ import {
   type FieldOption,
   fieldLogicSchema,
   fieldSettingsSchema,
+  FORM_KINDS,
   type FormCreate,
   type FormDefinition,
+  type FormKind,
   type FormFieldDefinition,
   formDefinitionSchema,
   type FormSectionDefinition,
@@ -35,8 +37,14 @@ export interface FormView {
   projectId: string;
   key: string;
   title: { bn: string; en: string };
+  kind: FormKind;
   publishedVersionId: string | null;
   draftVersionId: string | null;
+  /** A form placed from a ready form: the ready form and the version it holds now. */
+  sourceFormId: string | null;
+  sourceVersionNo: number | null;
+  /** The ready form's published version when it is newer than the one placed, else null. */
+  newerVersionNo: number | null;
 }
 
 export interface FormVersionView extends FormDefinition {
@@ -71,8 +79,24 @@ const VERSION_SELECT = {
   status: true,
   publishedAt: true,
   updatedAt: true,
-  form: { select: { projectId: true } },
+  form: { select: { projectId: true, kind: true } },
 } as const;
+
+/**
+ * A form's kind as the engine reads it. The database's CHECK keeps the column to these three, so
+ * the throw is only a backstop against a database that lost the check; it is never a default.
+ */
+export function formKindOf(kind: string): FormKind {
+  const known = FORM_KINDS.find((k) => k === kind);
+  if (!known) throw new Error(`forms.kind holds an unknown value: ${kind}`);
+  return known;
+}
+
+/** The project of a project's form; a ready form or the library is not reached through a project. */
+function projectOf(form: { projectId: string | null }): string {
+  if (form.projectId === null) throw new ApiError('permission.not_found', 404);
+  return form.projectId;
+}
 
 /**
  * The engine's verdict on a definition as a 422: each problem names the field it is about (the
@@ -116,15 +140,21 @@ const issueParamsSchema = z.looseObject({ params: z.record(z.string(), z.unknown
 /** The part of a stored form template the builder reads. */
 const storedTemplateSchema = z.looseObject({ form: formTemplateFormSchema });
 
-const FORM_SELECT = {
+export const FORM_SELECT = {
   id: true,
   projectId: true,
   key: true,
   titleBn: true,
   titleEn: true,
+  kind: true,
+  sourceFormId: true,
+  sourceVersionNo: true,
   formVersionsForm: {
     where: { status: { in: ['published', 'draft'] } },
     select: { id: true, status: true },
+  },
+  sourceForm: {
+    select: { formVersionsForm: { where: { status: 'published' }, select: { versionNo: true } } },
   },
 } satisfies Prisma.FormSelect;
 type FormRow = Prisma.FormGetPayload<{ select: typeof FORM_SELECT }>;
@@ -132,7 +162,6 @@ type FormRow = Prisma.FormGetPayload<{ select: typeof FORM_SELECT }>;
 /** A typed value for a Prisma Json column (the engine's schemas already shaped it). */
 const json = (value: unknown) => value as Prisma.InputJsonValue;
 
-/** A project status read from the database, checked against the known states. */
 /**
  * The forms of a project and their versions (docs/MASTER_SPEC.md, the dynamic form platform; the
  * decisions on templates and form versions in docs/DECISION_LOG.md): a form starts
@@ -162,7 +191,7 @@ export class FormsService {
 
   async versions(viewer: ProjectViewer, formId: string): Promise<FormVersionListView[]> {
     const form = await this.reachableForm(viewer, formId);
-    const audience = await this.audienceOf(viewer, form.projectId);
+    const audience = await this.formAudience(viewer, form);
     const person = { select: { id: true, displayName: true } } as const;
     const rows = await this.prisma.formVersion.findMany({
       where: { formId },
@@ -190,8 +219,8 @@ export class FormsService {
       select: VERSION_SELECT,
     });
     if (!row) throw new ApiError('permission.not_found', 404);
-    await this.projects.get(viewer, row.form.projectId);
-    const audience = await this.audienceOf(viewer, row.form.projectId);
+    await this.reach(viewer, row.form);
+    const audience = await this.formAudience(viewer, row.form);
     return {
       version: versionView(row, await readDefinition(this.prisma, row.id, audience)),
       updatedAt: row.updatedAt,
@@ -213,11 +242,11 @@ export class FormsService {
         select: { id: true },
       });
       if (taken) throw new ApiError('form.key_taken', 409);
-      const definition = await this.sourceDefinition(tx, viewer, body);
+      const { definition, kind } = await this.sourceDefinition(tx, viewer, body);
       const { formId, versionId } = await createFormFromDefinition(
         tx,
         projectId,
-        { key: body.key, title: body.title, definition },
+        { key: body.key, title: body.title, definition, kind },
         actor,
       );
       await this.audit.record(tx, {
@@ -245,7 +274,7 @@ export class FormsService {
     return this.prisma.$transaction(async (tx) => {
       const row = await this.lockedDraft(tx, viewer, versionId);
       // a builder who cannot see the official-only sections would drop them with every save
-      if ((await this.audienceOf(viewer, row.form.projectId)) !== 'official') {
+      if ((await this.formAudience(viewer, row.form)) !== 'official') {
         this.access.denied(viewer.principal.userId, viewer.scope.permission, viewer.scope.entity);
         throw new ApiError('permission.denied', 403);
       }
@@ -302,10 +331,12 @@ export class FormsService {
       const row = await this.lockedDraft(tx, viewer, versionId);
       assertIfMatch(ifMatch, row.updatedAt);
       const definition = await readDefinition(tx, versionId, 'official');
-      // a draft may hold a calculated question without its rule; the publish may not
-      parseDefinition(definition, publishDefinitionSchema);
-      await this.assertLinkable(tx, row.form.projectId, row.formId, versionId);
-      const audience = await this.audienceOf(viewer, row.form.projectId);
+      // a draft may hold a calculated question without its rule, and an application form its
+      // identity questions unmarked; the publish may not
+      parseDefinition(definition, publishDefinitionSchema(formKindOf(row.form.kind)));
+      if (row.form.projectId !== null)
+        await this.assertLinkable(tx, row.form.projectId, row.formId, versionId);
+      const audience = await this.formAudience(viewer, row.form);
       await tx.formVersion.updateMany({
         where: { formId: row.formId, status: 'published' },
         data: { status: 'retired', updatedBy: actor },
@@ -336,7 +367,7 @@ export class FormsService {
    * A form the public link opens cannot start asking for files or signatures: the public has no
    * upload beyond photos. The PM takes the form off the link first.
    */
-  private async assertLinkable(tx: Tx, projectId: string, formId: string, versionId: string) {
+  async assertLinkable(tx: Tx, projectId: string, formId: string, versionId: string) {
     const component = await tx.projectComponent.findUnique({
       where: { projectId_componentKey: { projectId, componentKey: 'public_link' } },
       select: { enabled: true, settings: true },
@@ -359,13 +390,15 @@ export class FormsService {
         where: { id: formId },
         select: {
           projectId: true,
+          kind: true,
+          sourceFormId: true,
           formVersionsForm: { select: { id: true, status: true, versionNo: true } },
         },
       });
       if (!form) throw new ApiError('permission.not_found', 404);
-      const project = await this.projects.locked(tx, viewer, form.projectId);
-      if (!editableIn(projectStatusOf(project.status), 'components'))
-        throw new ApiError('project.read_only', 409);
+      await this.lockedReach(tx, viewer, form);
+      // a placed copy changes only by taking its ready form's newer version
+      if (form.sourceFormId !== null) throw new ApiError('form.placed_copy', 409);
       if (form.formVersionsForm.some((v) => v.status === 'draft'))
         throw new ApiError('form.draft_exists', 409);
       const published = form.formVersionsForm.find((v) => v.status === 'published');
@@ -383,7 +416,7 @@ export class FormsService {
       }
       const definition = await readDefinition(tx, published.id, 'official');
       await writeDefinitionRows(tx, versionId, definition, actor);
-      const audience = await this.audienceOf(viewer, form.projectId);
+      const audience = await this.formAudience(viewer, form);
       await this.audit.record(tx, {
         action: 'form.version_created',
         entityType: 'form',
@@ -407,7 +440,7 @@ export class FormsService {
   /** Every field of a form by key, with the versions it appears in, for reports across versions. */
   async fieldMap(viewer: ProjectViewer, formId: string) {
     const form = await this.reachableForm(viewer, formId);
-    const audience = await this.audienceOf(viewer, form.projectId);
+    const audience = await this.formAudience(viewer, form);
     const rows = await this.prisma.formField.findMany({
       where: {
         formVersion: { formId },
@@ -459,11 +492,65 @@ export class FormsService {
       select: VERSION_SELECT,
     });
     if (!row) throw new ApiError('permission.not_found', 404);
-    const project = await this.projects.locked(tx, viewer, row.form.projectId);
-    if (!editableIn(projectStatusOf(project.status), 'components'))
-      throw new ApiError('project.read_only', 409);
+    await this.lockedReach(tx, viewer, row.form);
     if (row.status !== 'draft') throw new ApiError('form.not_draft', 409);
     return row;
+  }
+
+  /**
+   * Whether the caller builds the forms outside the projects: the ready forms through `form.build`,
+   * the library through `form.library.manage`, each held at GLOBAL scope. A grant on a project or a
+   * program reaches no form outside the projects.
+   */
+  async buildsOutside(viewer: ProjectViewer, kind: FormKind): Promise<boolean> {
+    if (viewer.principal.kind === 'volunteer') return false;
+    const permission = kind === 'library' ? 'form.library.manage' : 'form.build';
+    const scope = await this.access.scopeOfUser(viewer.principal.userId, permission, 'project');
+    return scope.instances.global;
+  }
+
+  /** A form outside the projects is the builders' only; anyone else gets 404, nothing named. */
+  private async reachOutside(viewer: ProjectViewer, kind: string) {
+    if (!(await this.buildsOutside(viewer, formKindOf(kind))))
+      throw new ApiError('permission.not_found', 404);
+  }
+
+  /** Read access: a project form through its project, a form outside the projects by its builders. */
+  private async reach(viewer: ProjectViewer, form: { projectId: string | null; kind: string }) {
+    if (form.projectId === null) return this.reachOutside(viewer, form.kind);
+    await this.projects.get(viewer, form.projectId);
+  }
+
+  /** Write access: as the read, with a project form's project locked and still taking changes. */
+  private async lockedReach(
+    tx: Tx,
+    viewer: ProjectViewer,
+    form: { projectId: string | null; kind: string },
+  ) {
+    if (form.projectId === null) return this.reachOutside(viewer, form.kind);
+    const project = await this.projects.locked(tx, viewer, form.projectId);
+    if (!editableIn(projectStatusOf(project.status), 'components'))
+      throw new ApiError('project.read_only', 409);
+  }
+
+  /** The audience of a form: a builder of a form outside the projects sees all of it. */
+  private async formAudience(
+    viewer: ProjectViewer,
+    form: { projectId: string | null },
+  ): Promise<FormAudience> {
+    return form.projectId === null ? 'official' : this.audienceOf(viewer, form.projectId);
+  }
+
+  /**
+   * The audience of a form outside the projects for a caller who is not its builder: official
+   * only when the caller holds `application.view_official_section` at some scope.
+   */
+  async audienceAnywhere(viewer: ProjectViewer): Promise<FormAudience> {
+    if (viewer.principal.kind === 'volunteer') return 'volunteer';
+    const access = await this.access.load(viewer.principal.userId);
+    return access.grants.some((g) => g.permission === 'application.view_official_section')
+      ? 'official'
+      : 'volunteer';
   }
 
   /** Whether the caller sees official-only sections of this project's forms. */
@@ -477,49 +564,60 @@ export class FormsService {
     return official ? 'official' : 'volunteer';
   }
 
-  /** A form whose project the caller reaches (404 otherwise, nothing named). */
+  /** A form the caller reaches (404 otherwise, nothing named). */
   private async reachableForm(viewer: ProjectViewer, formId: string) {
     const form = await this.prisma.form.findUnique({
       where: { id: formId },
-      select: { id: true, projectId: true },
+      select: { id: true, projectId: true, kind: true },
     });
     if (!form) throw new ApiError('permission.not_found', 404);
-    await this.projects.get(viewer, form.projectId);
+    await this.reach(viewer, form);
     return form;
   }
 
-  /** The first draft's definition, from the chosen source; refused when the source has none. */
+  /**
+   * The first draft's definition and the form's kind, from the chosen source; refused when the
+   * source has none. A copy keeps the kind of the form it copies.
+   */
   private async sourceDefinition(
     tx: Tx,
     viewer: ProjectViewer,
     body: FormCreate,
-  ): Promise<FormDefinition> {
+  ): Promise<{ definition: FormDefinition; kind: ProjectFormKind }> {
     const source = body.source;
+    const application = 'beneficiary_application' as const;
     if (source.kind === 'blank')
-      return parseDefinition(blankDefinition(await this.library.sources(tx)));
+      return { definition: parseDefinition(blankDefinition()), kind: application };
     if (source.kind === 'template') {
       const template = await this.library.template(tx, source.templateKey);
       if (!template) throw new ApiError('form.template_unknown', 404);
       const { form } = storedTemplateSchema.parse(template.definition);
-      return parseDefinition(definitionFromTemplate(form, await this.library.sources(tx)));
+      return {
+        definition: parseDefinition(definitionFromTemplate(form, await this.library.sources(tx))),
+        kind: application,
+      };
     }
     const form = await tx.form.findUnique({
       where: { id: source.formId },
       select: {
         projectId: true,
+        kind: true,
         formVersionsForm: { where: { status: 'published' }, select: { id: true } },
       },
     });
     if (!form) throw new ApiError('permission.not_found', 404);
-    await this.access.findProject(viewer.scope, form.projectId, { id: true }, tx);
+    await this.access.findProject(viewer.scope, projectOf(form), { id: true }, tx);
     // the copy carries every section, so it is only for those who see them all on the source
-    if ((await this.audienceOf(viewer, form.projectId)) !== 'official') {
+    if ((await this.audienceOf(viewer, projectOf(form))) !== 'official') {
       this.access.denied(viewer.principal.userId, viewer.scope.permission, viewer.scope.entity);
       throw new ApiError('permission.denied', 403);
     }
     const published = form.formVersionsForm[0];
     if (!published) throw new ApiError('form.nothing_published', 409);
-    return readDefinition(tx, published.id, 'official');
+    return {
+      definition: await readDefinition(tx, published.id, 'official'),
+      kind: projectFormKindOf(form.kind),
+    };
   }
 }
 
@@ -748,6 +846,28 @@ export interface FormToCreate {
   key: string;
   title: { bn: string; en: string };
   definition: FormDefinition;
+  /** What the form is for; a beneficiary application when the source names none. */
+  kind?: ProjectFormKind;
+}
+
+/** The kinds a project's form may have (the library is never a project's form). */
+export type ProjectFormKind = Exclude<FormKind, 'library'>;
+
+/** A project form's kind as stored; the library kind never belongs to a project. */
+export function projectFormKindOf(kind: string): ProjectFormKind {
+  const known = formKindOf(kind);
+  if (known === 'library') throw new Error('a project form holds the library kind');
+  return known;
+}
+
+/** A form create that loses a key race to another request answers 409, like the read before it. */
+export async function createUnlessKeyTaken<T>(create: () => Promise<T>): Promise<T> {
+  try {
+    return await create();
+  } catch (error) {
+    if (isUniqueViolation(error)) throw new ApiError('form.key_taken', 409);
+    throw error;
+  }
 }
 
 /**
@@ -762,17 +882,20 @@ export async function createFormFromDefinition(
 ): Promise<{ formId: string; versionId: string }> {
   const formId = uuidv7();
   const versionId = uuidv7();
-  await tx.form.create({
-    data: {
-      id: formId,
-      projectId,
-      key: form.key,
-      titleBn: form.title.bn,
-      titleEn: form.title.en,
-      createdBy: actor,
-      updatedBy: actor,
-    },
-  });
+  await createUnlessKeyTaken(() =>
+    tx.form.create({
+      data: {
+        id: formId,
+        projectId,
+        key: form.key,
+        titleBn: form.title.bn,
+        titleEn: form.title.en,
+        kind: form.kind ?? 'beneficiary_application',
+        createdBy: actor,
+        updatedBy: actor,
+      },
+    }),
+  );
   await tx.formVersion.create({
     data: { id: versionId, formId, versionNo: 1, createdBy: actor, updatedBy: actor },
   });
@@ -781,14 +904,22 @@ export async function createFormFromDefinition(
   return { formId, versionId };
 }
 
-function formView(row: FormRow): FormView {
+export function formView(row: FormRow): FormView {
+  const sourceNo = row.sourceForm?.formVersionsForm[0]?.versionNo ?? null;
   return {
     id: row.id,
-    projectId: row.projectId,
+    projectId: projectOf(row),
     key: row.key,
     title: { bn: row.titleBn, en: row.titleEn },
+    kind: formKindOf(row.kind),
     publishedVersionId: row.formVersionsForm.find((v) => v.status === 'published')?.id ?? null,
     draftVersionId: row.formVersionsForm.find((v) => v.status === 'draft')?.id ?? null,
+    sourceFormId: row.sourceFormId,
+    sourceVersionNo: row.sourceVersionNo,
+    newerVersionNo:
+      sourceNo !== null && row.sourceVersionNo !== null && sourceNo > row.sourceVersionNo
+        ? sourceNo
+        : null,
   };
 }
 

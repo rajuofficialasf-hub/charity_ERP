@@ -7,7 +7,7 @@ import {
 } from '@css/shared/projects';
 import type { Tx } from '../core/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
-import { createFormFromDefinition, readDefinition } from './forms';
+import { createFormFromDefinition, projectFormKindOf, readDefinition } from './forms';
 import { storedRules, writeRulesVersion } from './project-rules';
 
 /**
@@ -37,6 +37,7 @@ export async function projectDefinition(db: Tx, projectId: string): Promise<Temp
           key: true,
           titleBn: true,
           titleEn: true,
+          kind: true,
           formVersionsForm: { where: { status: 'published' }, select: { id: true } },
         },
       },
@@ -48,6 +49,7 @@ export async function projectDefinition(db: Tx, projectId: string): Promise<Temp
     ? {
         key: published.key,
         title: { bn: published.titleBn, en: published.titleEn },
+        kind: projectFormKindOf(published.kind),
         definition: await readDefinition(db, published.formVersionsForm[0]!.id, 'official'),
       }
     : null;

@@ -88,7 +88,10 @@ export class ProjectLifecycleService {
           where: { projectId },
           select: { componentKey: true, enabled: true, settings: true },
         }),
-        tx.formVersion.count({ where: { status: 'published', form: { projectId } } }),
+        // a form of the kind other cannot take beneficiary applications, so it does not count
+        tx.formVersion.count({
+          where: { status: 'published', form: { projectId, kind: 'beneficiary_application' } },
+        }),
       ]);
       const definition = workflowDefinitionSchema.parse(workflow.workflowDefinition.definition);
       const missing = setupCheck({

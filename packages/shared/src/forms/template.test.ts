@@ -147,14 +147,10 @@ const sources: TemplateSources = {
 };
 
 describe('a blank form', () => {
-  it('holds the mandatory core only, required, in the library sections, and is valid', () => {
-    const definition = blankDefinition(sources);
-    expect(definition.sections.map((s) => [s.key, s.fields.map((f) => f.fieldKey)])).toEqual([
-      ['basic_info', ['nid_or_birth_reg', 'mobile', 'name', 'father_or_husband_name', 'gender']],
-      ['address', ['address', 'village']],
-    ]);
-    expect(definition.sections.flatMap((s) => s.fields).every((f) => f.required)).toBe(true);
-    expect(definition.sections[0]!.title).toEqual({ bn: 'Basic', en: 'Basic' });
+  it('holds one empty section and no question, and is a valid draft', () => {
+    const definition = blankDefinition();
+    expect(definition.sections.map((s) => [s.key, s.fields.length])).toEqual([['section_1', 0]]);
+    expect(definition.sections[0]!.title).toEqual({ bn: 'অংশ 1', en: 'Section 1' });
     expect(checkDefinition(definition)).toEqual([]);
     expect(formDefinitionSchema.safeParse(definition).success).toBe(true);
   });

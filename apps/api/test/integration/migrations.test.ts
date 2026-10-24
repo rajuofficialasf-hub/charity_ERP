@@ -115,7 +115,13 @@ describe('migrations', () => {
       for (const dir of dirs.slice(1)) {
         const before = await snapshot(db);
         await apply(dir, 'migration.sql');
-        expect(await snapshot(db), `${dir} changes the schema`).not.toEqual(before);
+        // a migration marked as data only must leave the schema exactly as it was
+        const dataOnly = readFileSync(
+          join(MIGRATIONS_DIR, dir, 'migration.sql'),
+          'utf8',
+        ).startsWith('-- Data only:');
+        if (dataOnly) expect(await snapshot(db), `${dir} is data only`).toEqual(before);
+        else expect(await snapshot(db), `${dir} changes the schema`).not.toEqual(before);
         await apply(dir, 'down.sql');
         expect(await snapshot(db), `${dir}/down.sql`).toEqual(before);
         await apply(dir, 'migration.sql');
