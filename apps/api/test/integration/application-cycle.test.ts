@@ -173,6 +173,33 @@ describe('the submission', () => {
       [known],
     );
     expect(log.rows).toEqual([{ field: 'mobile', kind: 'contact_update' }]);
+    // a volunteer's answers never rewrite a known person's profile: the application keeps the
+    // new mobile for the office, the profile keeps its own
+    const kept = await beneficiary(h.db, world.dhaka, { nid: fakeNid() });
+    const keptNid = (
+      await h.db.query<{ nid: string }>('SELECT nid FROM beneficiaries WHERE id = $1', [kept])
+    ).rows[0]!.nid;
+    const keptMobile = (
+      await h.db.query<{ mobile: string }>('SELECT mobile FROM beneficiaries WHERE id = $1', [kept])
+    ).rows[0]!.mobile;
+    const third = await create(s, identity(keptNid, fakeMobile()));
+    const bound = await moved(s, third, 'submit');
+    expect(bound.body.data).toMatchObject({ appNo: 'CYC-2026-00003', beneficiaryId: kept });
+    const untouched = await h.db.query<{ mobile: string }>(
+      'SELECT mobile FROM beneficiaries WHERE id = $1',
+      [kept],
+    );
+    expect(untouched.rows[0]!.mobile).toBe(keptMobile);
+  });
+
+  it('binds a profile that appeared after the draft', async () => {
+    const s = await as(world.users.general);
+    const nid = fakeNid();
+    const id = await create(s, identity(nid));
+    // the person got a profile meanwhile (another project, a public entry): the draft binds it
+    const later = await beneficiary(h.db, world.dhaka, { nid });
+    const submitted = await moved(s, id, 'submit');
+    expect(submitted.body.data.beneficiaryId).toBe(later);
   });
 
   it('refuses a submission without the identity number, with a stale version, and twice', async () => {

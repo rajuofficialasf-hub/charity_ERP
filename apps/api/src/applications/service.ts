@@ -17,7 +17,11 @@ import type { Principal } from '../auth/principal';
 import type { Env } from '../config/env';
 import { boundedRead } from '../core/bounded-read';
 import type { Clock } from '../core/clock';
-import { isUniqueViolation, isVolunteerMobileRefusal } from '../core/db-errors';
+import {
+  isUniqueViolation,
+  isUniqueViolationOf,
+  isVolunteerMobileRefusal,
+} from '../core/db-errors';
 import { assertIfMatch } from '../core/etag';
 import {
   buildPage,
@@ -448,8 +452,12 @@ export class ApplicationsService {
         if (submit) await this.submission.number(tx, viewer.principal, applicationId);
       });
     } catch (error) {
-      // the person got another live application in the project meanwhile
-      if (isUniqueViolation(error)) throw new ApiError('beneficiary.already_applied', 409);
+      // the database's own refusals at commit: the volunteer's own mobile as the person's, and
+      // another live application of the person in the project meanwhile
+      if (isVolunteerMobileRefusal(error))
+        throw new ApiError('beneficiary.mobile_is_volunteer_mobile', 409);
+      if (isUniqueViolationOf(error, 'applications_project_id_beneficiary_id_key'))
+        throw new ApiError('beneficiary.already_applied', 409);
       throw error;
     }
     const access = await this.access.load(viewer.principal.userId);

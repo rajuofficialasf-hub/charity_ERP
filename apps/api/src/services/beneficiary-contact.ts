@@ -142,14 +142,15 @@ export class BeneficiaryContactService {
       // a new mobile or union changes which profiles look like the same person
       if (changed.includes('mobile') || changed.includes('unionId'))
         await this.candidates.refreshFor(tx, [before.id]);
-      await this.audit.record(tx, {
-        action: 'beneficiary.contact_updated',
-        entityType: 'beneficiary',
-        entityId: before.id,
-        old: pick(before) as Prisma.InputJsonValue,
-        new: pick(after) as Prisma.InputJsonValue,
-      });
     }
+    // the entry is written for a save that changed nothing too, as the contact route always did
+    await this.audit.record(tx, {
+      action: 'beneficiary.contact_updated',
+      entityType: 'beneficiary',
+      entityId: before.id,
+      old: pick(before) as Prisma.InputJsonValue,
+      new: pick(after) as Prisma.InputJsonValue,
+    });
     return { after, warnings, changed };
   }
 

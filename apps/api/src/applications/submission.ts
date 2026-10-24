@@ -1,5 +1,6 @@
 import type { ContactUpdate } from '@css/shared/beneficiaries';
-import { split } from '@css/shared/forms';
+import { identityColumn, split } from '@css/shared/forms';
+import type { AccessService } from '../access/service';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Principal } from '../auth/principal';
 import { isForeignKeyViolation } from '../core/db-errors';
@@ -32,15 +33,18 @@ const text = (standard: Record<string, unknown>, column: string): string | undef
 };
 
 /**
- * What a submission adds to an application around the engine's move: before it, the person (a
- * profile created from the answers when the lookup found none, or the known person's new mobile
- * or address written to the profile with its change log), since a submitted application always
- * has its person; after it, the number of the project in the order the office receives the
- * applications (`<code>-<year>-<5 digits>`). Both run in the move's transaction, so a refused
- * move leaves neither behind.
+ * What a submission adds to an application around the engine's move: with it, the person (the
+ * live profile behind the number when one exists by now, else a profile created from the answers),
+ * since a submitted application always has its person, and a known person's new mobile or
+ * address written to the profile with its change log when the submitter may edit that profile's
+ * contact data (otherwise the application keeps the new values for the office to see); after it,
+ * the number of the project in the order the office receives the applications
+ * (`<code>-<year>-<5 digits>`). Both run in the move's transaction, so a refused move leaves
+ * neither behind.
  */
 export class SubmissionWriter {
   constructor(
+    private readonly access: AccessService,
     private readonly identity: BeneficiaryIdentityService,
     private readonly contact: BeneficiaryContactService,
     private readonly audit: AuditWriter,
@@ -58,6 +62,7 @@ export class SubmissionWriter {
         formVersionId: true,
         beneficiaryId: true,
         identityKind: true,
+        createdByUserId: true,
         ownerVolunteer: { select: { userId: true } },
       },
     });
@@ -70,17 +75,34 @@ export class SubmissionWriter {
       const birthReg = text(standard, 'birth_reg');
       // without a number there is no profile to make; the engine's identity guard refuses the move
       if (!nid && !birthReg) return {};
+      // a profile for the number may exist by now (another application, a public entry): it is
+      // bound like a lookup would, never refused as a duplicate of itself
+      const number = nid ?? birthReg!;
+      const live = await this.liveProfile(tx, number);
+      if (live) {
+        await this.identity.assertMayApply(tx, live);
+        beneficiaryId = live;
+        identityKind = identityColumn(number);
+      }
+    }
+    if (!beneficiaryId) {
+      const nid = text(standard, 'nid');
+      const birthReg = text(standard, 'birth_reg');
+      const mobile = text(standard, 'mobile') ?? '';
+      // the creating team member's own mobile is refused as the person's, like the owner's
+      if (row.createdByUserId && mobile)
+        await this.identity.assertNotVolunteerMobile(tx, mobile, [row.createdByUserId]);
+      const dob = text(standard, 'dob');
       const profile = await this.createProfile(tx, actor, {
         ...(nid ? { nid } : {}),
         ...(birthReg ? { birthReg } : {}),
         name: text(standard, 'name') ?? '',
         fatherOrHusbandName: text(standard, 'father_or_husband_name') ?? '',
         motherName: text(standard, 'mother_name'),
-        mobile: text(standard, 'mobile') ?? '',
+        mobile,
         genderCode: text(standard, 'gender_code') ?? '',
-        dob: text(standard, 'dob') ? new Date(text(standard, 'dob')!) : undefined,
-        ageYears:
-          typeof standard.age_years === 'number' ? (standard.age_years as number) : undefined,
+        dob: dob ? new Date(dob) : undefined,
+        ageYears: typeof standard.age_years === 'number' ? standard.age_years : undefined,
         divisionId: text(standard, 'division_id') ?? '',
         districtId: text(standard, 'district_id') ?? '',
         upazilaId: text(standard, 'upazila_id') ?? '',
@@ -100,7 +122,7 @@ export class SubmissionWriter {
         entityId: profile.id,
         new: { benNo: profile.benNo, applicationId },
       });
-    } else {
+    } else if (await this.mayEditContact(tx, actor, beneficiaryId)) {
       const before = await this.contact.locked(tx, beneficiaryId);
       const body: Record<string, unknown> = {};
       for (const [column, field] of Object.entries(CONTACT_COLUMNS)) {
@@ -118,6 +140,32 @@ export class SubmissionWriter {
     });
     // written with the new state by the engine, in one statement
     return { beneficiaryId, identityKind };
+  }
+
+  /** The live profile holding the number, through a retired profile's chain, or null. */
+  private async liveProfile(tx: Tx, number: string): Promise<string | null> {
+    const holder = await tx.beneficiary.findFirst({
+      where: identityColumn(number) === 'nid' ? { nid: number } : { birthReg: number },
+      select: { id: true, mergedIntoId: true },
+    });
+    if (!holder) return null;
+    return holder.mergedIntoId ? this.identity.liveOf(tx, holder.id) : holder.id;
+  }
+
+  /**
+   * Whether the submitter may write the profile's contact data: the contact-edit permission with
+   * a scope that reaches the profile, as the contact route requires. A volunteer's answers never
+   * rewrite a profile other projects rely on.
+   */
+  private async mayEditContact(tx: Tx, actor: Principal, beneficiaryId: string): Promise<boolean> {
+    const access = await this.access.load(actor.userId, tx);
+    const scope = await this.access.sensitiveScope(
+      actor,
+      access,
+      'beneficiary.contact.edit',
+      'beneficiary',
+    );
+    return !!scope && (await this.access.reaches(scope, { beneficiaryId }, tx));
   }
 
   /** The profile from the answers; a code outside its reference list is the form's mistake, not the server's. */
@@ -153,13 +201,13 @@ export class SubmissionWriter {
     });
   }
 
-  /** The next number of the project; the project row is locked so two submissions cannot share one. */
+  /** The next number of the project; the project's numbering is locked for the transaction so two submissions cannot share one. */
   private async nextNumber(
     tx: Tx,
     projectId: string,
     project: { code: string; year: number },
   ): Promise<string> {
-    await tx.$queryRaw`SELECT id FROM projects WHERE id = ${projectId}::uuid FOR UPDATE`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`application-number-of:${projectId}`}))`;
     const [row] = await tx.$queryRaw<{ n: number }[]>`
       SELECT coalesce(max(substring(app_no from '[0-9]+$')::int), 0) AS n
         FROM applications WHERE project_id = ${projectId}::uuid AND app_no IS NOT NULL`;

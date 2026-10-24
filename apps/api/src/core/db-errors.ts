@@ -31,6 +31,11 @@ export const isUniqueViolation = (error: unknown) =>
       /\b23505\b/.test(JSON.stringify(r.meta ?? '')),
   );
 
+/** A unique violation of one named index or constraint, as the message or the client's meta names it. */
+export const isUniqueViolationOf = (error: unknown, constraint: string) =>
+  isUniqueViolation(error) &&
+  mentions(error, (r) => (text(r) + JSON.stringify(r.meta ?? '')).includes(constraint));
+
 /** A foreign key refused a row (P2003 through the client, 23503 through a raw statement). */
 export const isForeignKeyViolation = (error: unknown) =>
   mentions(

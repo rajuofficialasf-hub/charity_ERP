@@ -397,7 +397,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         beneficiaryFamily,
         nisab,
         workflow,
-        new SubmissionWriter(beneficiaryIdentity, beneficiaryContact, audit),
+        new SubmissionWriter(access, beneficiaryIdentity, beneficiaryContact, audit),
       ),
     readyForms: o.readyForms ?? new ReadyFormsService(prisma, audit, projects, forms),
     publicLink: o.publicLink ?? new PublicLinkService(env, prisma, audit, projects),
