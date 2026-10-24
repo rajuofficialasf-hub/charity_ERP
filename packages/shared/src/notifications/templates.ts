@@ -536,6 +536,77 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
       },
     ),
   },
+  // ---- 4.3 Applications ----
+  {
+    key: 'application_submitted',
+    variables: ['project_name'],
+    channels: inApp(
+      {
+        title: 'নতুন আবেদন এসেছে',
+        body: '"{{project_name}}" প্রকল্পে নতুন আবেদন এসেছে। রিভিউ করুন।',
+      },
+      {
+        title: 'New application',
+        body: 'A new application has arrived in the project "{{project_name}}". Please review it.',
+      },
+    ),
+  },
+  {
+    key: 'application_reviewed',
+    variables: ['project_name'],
+    channels: inApp(
+      {
+        title: 'অনুমোদনের অপেক্ষায় আবেদন',
+        body: '"{{project_name}}" প্রকল্পে একটি আবেদন রিভিউ শেষে অনুমোদনের অপেক্ষায় আছে।',
+      },
+      {
+        title: 'Application awaiting approval',
+        body: 'An application in the project "{{project_name}}" has been reviewed and awaits approval.',
+      },
+    ),
+  },
+  {
+    key: 'application_approved',
+    variables: ['project_name'],
+    channels: inApp(
+      {
+        title: 'আবেদন অনুমোদিত',
+        body: '"{{project_name}}" প্রকল্পে আপনার আবেদনটি অনুমোদিত হয়েছে।',
+      },
+      {
+        title: 'Application approved',
+        body: 'Your application in the project "{{project_name}}" has been approved.',
+      },
+    ),
+  },
+  {
+    key: 'application_rejected',
+    variables: ['project_name', 'message'],
+    channels: inApp(
+      {
+        title: 'আবেদন গৃহীত হয়নি',
+        body: '"{{project_name}}" প্রকল্পে আপনার আবেদনটি এবার গৃহীত হয়নি। {{message}}',
+      },
+      {
+        title: 'Application not accepted',
+        body: 'Your application in the project "{{project_name}}" was not accepted this time. {{message}}',
+      },
+    ),
+  },
+  {
+    key: 'application_reopened',
+    variables: ['project_name'],
+    channels: inApp(
+      {
+        title: 'আবেদন আবার বিবেচনায়',
+        body: '"{{project_name}}" প্রকল্পে আপনার আবেদনটি আবার বিবেচনা করা হচ্ছে।',
+      },
+      {
+        title: 'Application reconsidered',
+        body: 'Your application in the project "{{project_name}}" is being considered again.',
+      },
+    ),
+  },
 ];
 
 /** Variables that name a person; an in-app text never uses them (only emails to officials may). */
@@ -575,6 +646,7 @@ export const TEMPLATE_SAMPLES: Record<string, string | number | { bn: string; en
   previous_name: 'নমুনা আগের জন',
   new_name: 'নমুনা নতুন জন',
   project_name: { bn: 'শীতবস্ত্র 2026', en: 'Winter Clothing 2026' },
+  message: 'এবার সম্ভব হলো না',
   result: { bn: 'সম্মতি দিয়েছেন', en: 'accepted' },
   new_date: '31-12-2026',
 };
@@ -604,8 +676,10 @@ export const IN_APP_PARAMS: readonly string[] = [
   'note',
   'summary',
   'device_name',
+  'message',
   'userId',
   'projectId',
+  'applicationId',
 ];
 
 export function inAppParams<T>(params: Record<string, T>): Record<string, T> {

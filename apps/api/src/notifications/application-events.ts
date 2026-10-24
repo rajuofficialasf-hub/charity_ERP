@@ -25,9 +25,9 @@ const OWNER_KEYS = ['application_approved', 'application_rejected', 'application
  * area); the owner volunteer and the team member who created the application hear of a decision,
  * with the message written for them and never the office's reason. A key the catalogue does not
  * hold yet is not published; the engine records it as pending in the audit entry, so a template
- * never names a message that silently goes nowhere. An office message about an application with
- * no owner volunteer (one an official brought) reaches the holders whose scope reaches that
- * official; with neither, nobody is told rather than everybody.
+ * never names a message that silently goes nowhere. An office message reaches the holders of the
+ * permission that acts next whose scope reaches the application itself (its region), whoever
+ * brought it.
  */
 export class ApplicationEvents {
   constructor(
@@ -67,7 +67,17 @@ export class ApplicationEvents {
             ? [{ user: target.createdByUserId }]
             : []),
         ]
-      : officeRecipients(key, owner ? target.ownerVolunteerId : null, target.createdByUserId);
+      : [
+          {
+            holders: {
+              permission:
+                key === 'application_reviewed' ? 'application.approve' : 'application.review',
+              entity: 'application',
+              target: { applicationId: target.id },
+              withoutGlobalRoles: true,
+            },
+          },
+        ];
     if (!recipients.length) return;
     await this.notifications.publish(tx, {
       key,
@@ -75,6 +85,7 @@ export class ApplicationEvents {
       params: {
         project_name: { bn: project.nameBn, en: project.nameEn },
         projectId: target.projectId,
+        applicationId: target.id,
         ...(target.message ? { message: target.message } : {}),
       },
       // one entry per volunteer per hour for the office keys; one per application for the rest
@@ -84,20 +95,4 @@ export class ApplicationEvents {
       actorId,
     });
   }
-}
-
-/** The office readers of a key: the holders of the permission that acts next, reaching the record. */
-function officeRecipients(
-  key: string,
-  ownerVolunteerId: string | null,
-  createdByUserId: string | null,
-): RecipientRule[] {
-  const permission = key === 'application_reviewed' ? 'application.approve' : 'application.review';
-  if (ownerVolunteerId)
-    return [
-      { holders: { permission, entity: 'volunteer', target: { volunteerId: ownerVolunteerId } } },
-    ];
-  if (createdByUserId)
-    return [{ holders: { permission, entity: 'user', target: { userId: createdByUserId } } }];
-  return [];
 }

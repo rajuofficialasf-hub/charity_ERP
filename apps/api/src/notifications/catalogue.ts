@@ -47,6 +47,11 @@ export const NOTIFICATION_CATALOGUE: Readonly<Record<string, CatalogueEntry>> = 
   project_closed: entry('info'),
   project_reopened: entry('info'),
   project_grant_changed: entry('security'),
+  application_submitted: entry('work'),
+  application_reviewed: entry('work', { email: true }),
+  application_approved: entry('info'),
+  application_rejected: entry('info'),
+  application_reopened: entry('info'),
   ops_alert: { ...entry('alert'), countsEvents: true },
 };
 
