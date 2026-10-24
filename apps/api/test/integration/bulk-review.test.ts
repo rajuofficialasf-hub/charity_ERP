@@ -15,7 +15,8 @@ import {
   login,
   type Session,
 } from './support/auth-app';
-import { beneficiary, fakeMobile, fakeNid } from './support/fixtures';
+import { beneficiary, fakeMobile, fakeNid, insert } from './support/fixtures';
+import { uuidv7 } from '@css/shared';
 
 // The review screen in bulk: several applications start their review or take their approval in
 // one request, each row on its own, the whole request once per Idempotency-Key.
@@ -165,15 +166,38 @@ describe('the review screen in bulk', () => {
       rows: [{ clientUuid: randomUUID(), applicationId: ids[0], ifMatch: '"x"' }],
     });
     expect(other.status).toBe(422);
+    // the same rows under another action, or one row pointing at another application, are not
+    // the request the key stands for either
+    expect((await bulk(executive, key, { ...body, action: 'approve' })).status).toBe(422);
+    const swapped = {
+      ...body,
+      rows: body.rows.map((r, i) => (i === 0 ? { ...r, applicationId: ids[1] } : r)),
+    };
+    expect((await bulk(executive, key, swapped)).status).toBe(422);
+    expect(
+      (await bulk(executive, randomUUID(), { ...body, rows: [body.rows[0], body.rows[0]] })).status,
+    ).toBe(422);
+    expect(
+      (
+        await at(executive, 'post', `/projects/${randomUUID()}/bulk/review`)
+          .set('Idempotency-Key', randomUUID())
+          .send(body)
+      ).status,
+    ).toBe(404);
     // another official's request under that key is refused too
     const rpm = await as(world.users.rpmDhaka);
     expect((await bulk(rpm, key, body)).status).toBe(422);
-    // an audit entry for the batch, and one per moved row
+    // an audit entry for the batch, and the engine's entry per moved row
     const audit = await h.db.query<{ action: string }>(
       `SELECT action FROM audit_log WHERE action = 'application.bulk_review' AND entity_id = $1`,
       [project],
     );
     expect(audit.rows).toHaveLength(1);
+    const moved = await h.db.query<{ n: string }>(
+      `SELECT count(*) AS n FROM audit_log WHERE action = 'application.review_started' AND entity_id = ANY($1::uuid[])`,
+      [ids],
+    );
+    expect(Number(moved.rows[0]!.n)).toBe(5);
   });
 
   it('approves the reviewed ones, failing a blocked person and a stale row on their own', async () => {
@@ -241,12 +265,60 @@ describe('the review screen in bulk', () => {
     ).toBe(422);
   });
 
-  it('lists the activities of an application within scope', async () => {
+  it('takes a full page of fifty rows in one request', async () => {
+    const executive = await as(world.users.executive);
+    const ids = [];
+    for (let i = 0; i < 50; i += 1) ids.push(await submitted());
+    const body = { action: 'review', rows: await rows(executive, ids) };
+    const res = await bulk(executive, randomUUID(), body);
+    expect(res.status, JSON.stringify(res.body).slice(0, 300)).toBe(200);
+    expect(
+      (res.body.data.results as { result: string }[]).filter((r) => r.result === 'done'),
+    ).toHaveLength(50);
+  });
+
+  it('lists the activities of an application newest first, by type and by page, within scope', async () => {
     const rpm = await as(world.users.rpmDhaka);
     const id = await submitted();
     const list = await at(rpm, 'get', `/applications/${id}/activities`);
     expect(list.status, JSON.stringify(list.body)).toBe(200);
     expect(list.body.data).toEqual([]);
+    const kinds = ['visit', 'distribution', 'visit'] as const;
+    const made: string[] = [];
+    for (const type of kinds)
+      made.push(
+        await insert(h.db, 'activities', {
+          id: uuidv7(),
+          project_id: project,
+          application_id: id,
+          type,
+          status: 'done',
+          done_by: world.users.rpmDhaka,
+          done_at: new Date(),
+          comment: `${type} নোট`,
+        }),
+      );
+    const all = await at(rpm, 'get', `/applications/${id}/activities?limit=2`);
+    expect(all.body.data.map((a: { id: string }) => a.id)).toEqual([made[2], made[1]]);
+    expect(all.body.data[0]).toMatchObject({
+      type: 'visit',
+      status: 'done',
+      doneBy: world.users.rpmDhaka,
+      comment: 'visit নোট',
+      photoFileIds: [],
+    });
+    const next = await at(
+      rpm,
+      'get',
+      `/applications/${id}/activities?limit=2&cursor=${encodeURIComponent(all.body.meta.nextCursor)}`,
+    );
+    expect(next.status, JSON.stringify(next.body)).toBe(200);
+    expect(next.body.data.map((a: { id: string }) => a.id)).toEqual([made[0]]);
+    const visits = await at(rpm, 'get', `/applications/${id}/activities?type=visit`);
+    expect(visits.body.data).toHaveLength(2);
+    expect((await at(rpm, 'get', `/applications/${id}/activities?cursor=nonsense`)).status).toBe(
+      422,
+    );
     const away = await as(world.users.rpmRangpur);
     expect((await at(away, 'get', `/applications/${id}/activities`)).status).toBe(404);
   });

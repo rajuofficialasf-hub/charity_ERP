@@ -1652,6 +1652,7 @@ Partitioned by RANGE (created_at), one partition per month (section 22). PK (id,
 | received_at | timestamptz | no | now() | — |
 | record_count | smallint | no | — | CHECK 1–50 (O-29) |
 | results | jsonb | no | — | per-record results (`SyncResult[]`) |
+| request_hash | text | yes | — | a hash of the request under the key; a repeat with another request is refused, not replayed (T2.5) |
 
 Index: (device_session_id, received_at desc).
 

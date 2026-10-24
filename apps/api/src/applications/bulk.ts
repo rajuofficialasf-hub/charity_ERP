@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { holdsPermission } from '../access/scope';
 import type { AccessService } from '../access/service';
@@ -24,9 +25,16 @@ export const bulkReviewSchema = z.strictObject({
       }),
     )
     .min(1)
-    .max(50),
+    .max(50)
+    .refine(
+      (rows) => new Set(rows.map((r) => r.clientUuid)).size === rows.length,
+      'each row needs its own clientUuid',
+    ),
 });
 export type BulkReview = z.infer<typeof bulkReviewSchema>;
+
+/** A batch of fifty rows makes dozens of round trips per row; the transaction may take its time. */
+const BULK_TRANSACTION = { maxWait: 5_000, timeout: 120_000 };
 
 /** One row's outcome (contract `RowResult`). */
 export const rowResult = z.object({
@@ -79,7 +87,6 @@ export class BulkReviewService {
       select: { id: true },
     });
     if (!project) throw new ApiError('permission.not_found', 404);
-    await this.assertKeyIsOwn(key, principal, body);
     const outcome = await this.idempotency.runWithKey<RowResult>(
       key,
       { userId: principal.userId, deviceSessionId: principal.sessionId },
@@ -100,6 +107,7 @@ export class BulkReviewService {
         });
         return results;
       },
+      { requestHash: requestHashOf(projectId, body), ...BULK_TRANSACTION },
     );
     return outcome;
   }
@@ -136,41 +144,29 @@ export class BulkReviewService {
       };
     } catch (error) {
       await tx.$executeRawUnsafe(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+      // a refusal is the row's result; anything else (a lock, a lost connection) fails the whole
+      // request, so nothing is stored under the key and the same key can try again
       if (!(error instanceof ApiError)) {
         this.logger.error({ err: error, applicationId: row.applicationId }, 'bulk row failed');
+        throw error;
       }
       return {
         clientUuid: row.clientUuid,
         result: 'failed',
-        code: error instanceof ApiError ? error.code : 'server.internal',
+        code: error.code,
         serverId: row.applicationId,
         status: null,
         stage: null,
       };
     }
   }
+}
 
-  /** A key belongs to the caller and to one set of rows; a repeat with other rows is a mistake, not a replay. */
-  private async assertKeyIsOwn(
-    key: string | undefined,
-    principal: Principal,
-    body: BulkReview,
-  ): Promise<void> {
-    if (!key) return;
-    const stored = await this.prisma.syncBatche.findUnique({
-      where: { idempotencyKey: key },
-      select: { userId: true, results: true },
-    });
-    if (!stored) return;
-    const sent = body.rows.map((r) => r.clientUuid).sort();
-    const kept = z
-      .array(z.object({ clientUuid: z.string() }).loose())
-      .safeParse(stored.results)
-      .data?.map((r) => r.clientUuid)
-      .sort();
-    if (stored.userId !== principal.userId || JSON.stringify(sent) !== JSON.stringify(kept))
-      throw new ApiError('validation.failed', 422, undefined, [
-        { path: 'Idempotency-Key', code: 'validation.failed' },
-      ]);
-  }
+/** What a key stands for: the project, the action and the rows as sent, so a repeat must match exactly. */
+function requestHashOf(projectId: string, body: BulkReview): string {
+  const rows = [...body.rows]
+    .map((r) => `${r.clientUuid}|${r.applicationId}|${r.ifMatch}`)
+    .sort()
+    .join('\n');
+  return createHash('sha256').update(`${projectId}\n${body.action}\n${rows}`).digest('hex');
 }

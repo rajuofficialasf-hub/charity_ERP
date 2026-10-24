@@ -19,3 +19,6 @@ ALTER TABLE "applications" ADD CONSTRAINT "applications_beneficiary_check"
 ALTER TABLE "field_changes" DROP CONSTRAINT "field_changes_kind_check";
 ALTER TABLE "field_changes" ADD CONSTRAINT "field_changes_kind_check"
   CHECK ("kind" IN ('unlock', 'contact_update', 'correction', 'sync_conflict', 'review_edit'));
+-- A batch under an Idempotency-Key remembers what was asked: a repeat of the key with another
+-- request is a mistake to refuse, not a replay to answer.
+ALTER TABLE "sync_batches" ADD COLUMN "request_hash" TEXT;

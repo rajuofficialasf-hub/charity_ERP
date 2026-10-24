@@ -3031,6 +3031,8 @@ model SyncBatche {
   receivedAt      DateTime      @default(now()) @map("received_at") @db.Timestamptz(6)
   recordCount     Int           @map("record_count") @db.SmallInt
   results         Json
+  /// a hash of the request under the key; a repeat with another request is refused, not replayed
+  requestHash     String?       @map("request_hash")
   user            User          @relation("sync_batches_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   deviceSession   DeviceSession @relation("sync_batches_device_session_id", fields: [deviceSessionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
