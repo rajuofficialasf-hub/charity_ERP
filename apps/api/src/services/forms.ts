@@ -74,6 +74,12 @@ const VERSION_SELECT = {
   form: { select: { projectId: true } },
 } as const;
 
+/** The project of a project's form; a ready form or the library is not reached through a project. */
+function projectOf(form: { projectId: string | null }): string {
+  if (form.projectId === null) throw new ApiError('permission.not_found', 404);
+  return form.projectId;
+}
+
 /**
  * The engine's verdict on a definition as a 422: each problem names the field it is about (the
  * key the body gives at that place, or the one the engine names) and its catalogue code.
@@ -162,7 +168,7 @@ export class FormsService {
 
   async versions(viewer: ProjectViewer, formId: string): Promise<FormVersionListView[]> {
     const form = await this.reachableForm(viewer, formId);
-    const audience = await this.audienceOf(viewer, form.projectId);
+    const audience = await this.audienceOf(viewer, projectOf(form));
     const person = { select: { id: true, displayName: true } } as const;
     const rows = await this.prisma.formVersion.findMany({
       where: { formId },
@@ -190,8 +196,8 @@ export class FormsService {
       select: VERSION_SELECT,
     });
     if (!row) throw new ApiError('permission.not_found', 404);
-    await this.projects.get(viewer, row.form.projectId);
-    const audience = await this.audienceOf(viewer, row.form.projectId);
+    await this.projects.get(viewer, projectOf(row.form));
+    const audience = await this.audienceOf(viewer, projectOf(row.form));
     return {
       version: versionView(row, await readDefinition(this.prisma, row.id, audience)),
       updatedAt: row.updatedAt,
@@ -245,7 +251,7 @@ export class FormsService {
     return this.prisma.$transaction(async (tx) => {
       const row = await this.lockedDraft(tx, viewer, versionId);
       // a builder who cannot see the official-only sections would drop them with every save
-      if ((await this.audienceOf(viewer, row.form.projectId)) !== 'official') {
+      if ((await this.audienceOf(viewer, projectOf(row.form))) !== 'official') {
         this.access.denied(viewer.principal.userId, viewer.scope.permission, viewer.scope.entity);
         throw new ApiError('permission.denied', 403);
       }
@@ -304,8 +310,8 @@ export class FormsService {
       const definition = await readDefinition(tx, versionId, 'official');
       // a draft may hold a calculated question without its rule; the publish may not
       parseDefinition(definition, publishDefinitionSchema);
-      await this.assertLinkable(tx, row.form.projectId, row.formId, versionId);
-      const audience = await this.audienceOf(viewer, row.form.projectId);
+      await this.assertLinkable(tx, projectOf(row.form), row.formId, versionId);
+      const audience = await this.audienceOf(viewer, projectOf(row.form));
       await tx.formVersion.updateMany({
         where: { formId: row.formId, status: 'published' },
         data: { status: 'retired', updatedBy: actor },
@@ -363,7 +369,7 @@ export class FormsService {
         },
       });
       if (!form) throw new ApiError('permission.not_found', 404);
-      const project = await this.projects.locked(tx, viewer, form.projectId);
+      const project = await this.projects.locked(tx, viewer, projectOf(form));
       if (!editableIn(projectStatusOf(project.status), 'components'))
         throw new ApiError('project.read_only', 409);
       if (form.formVersionsForm.some((v) => v.status === 'draft'))
@@ -383,7 +389,7 @@ export class FormsService {
       }
       const definition = await readDefinition(tx, published.id, 'official');
       await writeDefinitionRows(tx, versionId, definition, actor);
-      const audience = await this.audienceOf(viewer, form.projectId);
+      const audience = await this.audienceOf(viewer, projectOf(form));
       await this.audit.record(tx, {
         action: 'form.version_created',
         entityType: 'form',
@@ -407,7 +413,7 @@ export class FormsService {
   /** Every field of a form by key, with the versions it appears in, for reports across versions. */
   async fieldMap(viewer: ProjectViewer, formId: string) {
     const form = await this.reachableForm(viewer, formId);
-    const audience = await this.audienceOf(viewer, form.projectId);
+    const audience = await this.audienceOf(viewer, projectOf(form));
     const rows = await this.prisma.formField.findMany({
       where: {
         formVersion: { formId },
@@ -459,7 +465,7 @@ export class FormsService {
       select: VERSION_SELECT,
     });
     if (!row) throw new ApiError('permission.not_found', 404);
-    const project = await this.projects.locked(tx, viewer, row.form.projectId);
+    const project = await this.projects.locked(tx, viewer, projectOf(row.form));
     if (!editableIn(projectStatusOf(project.status), 'components'))
       throw new ApiError('project.read_only', 409);
     if (row.status !== 'draft') throw new ApiError('form.not_draft', 409);
@@ -484,7 +490,7 @@ export class FormsService {
       select: { id: true, projectId: true },
     });
     if (!form) throw new ApiError('permission.not_found', 404);
-    await this.projects.get(viewer, form.projectId);
+    await this.projects.get(viewer, projectOf(form));
     return form;
   }
 
@@ -511,9 +517,9 @@ export class FormsService {
       },
     });
     if (!form) throw new ApiError('permission.not_found', 404);
-    await this.access.findProject(viewer.scope, form.projectId, { id: true }, tx);
+    await this.access.findProject(viewer.scope, projectOf(form), { id: true }, tx);
     // the copy carries every section, so it is only for those who see them all on the source
-    if ((await this.audienceOf(viewer, form.projectId)) !== 'official') {
+    if ((await this.audienceOf(viewer, projectOf(form))) !== 'official') {
       this.access.denied(viewer.principal.userId, viewer.scope.permission, viewer.scope.entity);
       throw new ApiError('permission.denied', 403);
     }
@@ -784,7 +790,7 @@ export async function createFormFromDefinition(
 function formView(row: FormRow): FormView {
   return {
     id: row.id,
-    projectId: row.projectId,
+    projectId: projectOf(row),
     key: row.key,
     title: { bn: row.titleBn, en: row.titleEn },
     publishedVersionId: row.formVersionsForm.find((v) => v.status === 'published')?.id ?? null,

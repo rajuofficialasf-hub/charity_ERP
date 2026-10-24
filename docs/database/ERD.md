@@ -102,7 +102,7 @@ Cardinality notation below: `1 — n` one to many, `1 — 0..1` optional one, `n
 
 | Entity | Key columns | Relationships | Requirement |
 |---|---|---|---|
-| forms | id; project_id; key (application type, e.g. institution, personal_garden); title_bn/en | projects 1 — n | B2; B3; A8.5 two application types |
+| forms | id; project_id (null for a ready form or the question library); key (application type, e.g. institution, personal_garden); title_bn/en; kind; source_form_id, source_version_no (a placed copy) | projects 0..1 — n; forms (ready) 1 — n placed copies | B2; B3; A8.5 two application types; D-129 |
 | form_versions | id; form_id; version_no; status draft/published/retired; published_at, published_by | forms 1 — n; unique (form, version_no); 1 — n applications | B3; BD-12; BR-077 |
 | form_sections | id; form_version_id; library_section_id (nullable); key; title_bn/en; order; visibility volunteer/official_only; condition (JSONB) | form_versions 1 — n | B2 additions; BD-12; BR-073 |
 | form_fields | id; form_section_id; library_field_id (nullable); field_key; type; label_bn/en; required; standard_column (target beneficiary column, nullable); settings (JSONB); logic (JSONB); calculation (JSONB); order | form_sections 1 — n; unique (form_version, field_key) | B2; B3; BR-074…085 |

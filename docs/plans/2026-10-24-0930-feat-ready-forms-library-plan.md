@@ -63,7 +63,7 @@ Today a PM builds each project's form from a seeded library (10 sections, 85 que
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** migration
-- **Status:** todo
+- **Status:** done
 
 ### U2. Identity roles instead of a pre-placed core
 - **Goal:** the engine checks the identity by the questions' marks at publish of an application form, and starts a form empty.
@@ -194,8 +194,8 @@ Today a PM builds each project's form from a seeded library (10 sections, 85 que
 
 ## Progress
 - **Branch:** `feat/ready-forms` (from `docs/form-decisions-d126` at 7e0eb17, with `fix/deps-audit-2026-10-24` merged in; both PRs (#24, #25) wait for CI and merge into `main` before this branch's PR)
-- **Updated:** 2026-10-24 11:00
-- **Next:** U1 the migration (first step: read `20261021140000_form_version_rules` and the `Form` model, then write `20261024100000_ready_forms` with its `down.sql` and the schema test)
+- **Updated:** 2026-10-24 11:40
+- **Next:** checkpoint C1 (U1, a migration), then U2 the identity roles (first step: `CORE_FIELDS` keyed by role in `packages/shared/src/forms/core.ts`, then the publish check by kind in `definition.ts`)
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** the owner allowed the start on 2026-10-24 ("তোমাকে অনুমতি দিলাম। শেষ হলে t2.4c শুরু করে দিবা"); D-129 (ready forms catalogue, take on demand, the library in the builder, the public link only on an application form) is written with U1.
+- **Notes:** U1: `forms.project_id` nullable with `kind`, `source_form_id`, `source_version_no`, the CHECKs and partial uniques, the empty library form `01a16a00-0000-7000-8000-00000000f001` with its draft inserted by the migration; `down.sql` refuses while ready forms, copies or library content exist; `FormsService` reaches a form through its project with `projectOf`, a form without a project answering 404 until U4 adds the ready branch. The owner allowed the start on 2026-10-24 ("তোমাকে অনুমতি দিলাম। শেষ হলে t2.4c শুরু করে দিবা"); D-129 (ready forms catalogue, take on demand, the library in the builder, the public link only on an application form) is written with U1.
