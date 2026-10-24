@@ -108,7 +108,7 @@ async function publishBySql(versionId: string) {
 }
 
 describe('the form library', () => {
-  it('gives the PM the ten sections, the standard fields and the two templates', async () => {
+  it('gives the Monitoring Team the ten sections, the standard fields and the two templates', async () => {
     const res = await at(await as(world.users.monitoring), 'get', '/form-library');
     expect(res.status).toBe(200);
     const { sections, fields, templates } = res.body.data;
@@ -179,7 +179,7 @@ describe('the form library', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('is refused to an RPM and a volunteer, and without a login', async () => {
+  it('is refused to a PM, an RPM and a volunteer, and without a login', async () => {
     expect((await at(await as(world.users.pm), 'get', '/form-library')).status).toBe(403);
     expect((await at(await as(world.users.rpmDhaka), 'get', '/form-library')).status).toBe(403);
     expect((await at(await as(world.users.general), 'get', '/form-library')).status).toBe(403);

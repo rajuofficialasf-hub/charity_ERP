@@ -326,8 +326,31 @@ describe('publishing', () => {
     refreshAs({ ...ME, roles: ['regional_program_manager'] });
     api();
     open();
-    await openVersions(user);
+    await user.click(await screen.findByRole('tab', { name: 'ফর্মের সেটিং' }));
     expect(screen.queryByRole('button', { name: 'প্রকাশ করুন' })).not.toBeInTheDocument();
+  });
+
+  it('gives a PM the public-link switch, and neither the version list nor the library', async () => {
+    const user = userEvent.setup();
+    refreshAs({ ...ME, roles: ['program_manager'] });
+    api();
+    const asked: string[] = [];
+    server.events.on('request:start', ({ request }) => {
+      asked.push(new URL(request.url).pathname);
+    });
+    try {
+      open();
+      await user.click(await screen.findByRole('tab', { name: 'ফর্মের সেটিং' }));
+      await user.click(await screen.findByRole('button', { name: 'পাবলিক আবেদনের লিংক' }));
+      expect(
+        await screen.findByRole('switch', { name: 'এই ফর্মের জন্য পাবলিক লিংক চালু' }),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('region', { name: 'সংস্করণগুলো' })).not.toBeInTheDocument();
+      expect(asked).not.toContain(`/api/v1/forms/${FORM}/versions`);
+      expect(asked).not.toContain('/api/v1/form-library');
+    } finally {
+      server.events.removeAllListeners('request:start');
+    }
   });
 });
 

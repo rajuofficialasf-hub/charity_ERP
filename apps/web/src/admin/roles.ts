@@ -209,7 +209,18 @@ export const canManageOfficials = (me: Pick<Me, 'roles'>) => holds(me, OFFICIAL_
 
 /**
  * Who builds and publishes forms and the question library: the two global roles (`form.build`,
- * `form.publish`, `form.library.manage`). A PM places a ready form on his project instead.
+ * `form.publish`, `form.library.manage`). A PM places a ready form on a project instead.
  */
 export const FORM_BUILDER_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
 export const canBuildForms = (me: Pick<Me, 'roles'>) => holds(me, FORM_BUILDER_ROLES);
+
+/**
+ * Who switches a project form's public link on and off (`form.public_link.manage`): the PM of the
+ * program and the two global roles. The server decides each change by the scope of the grant.
+ */
+export const PUBLIC_LINK_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'program_manager',
+];
+export const canManagePublicLink = (me: Pick<Me, 'roles'>) => holds(me, PUBLIC_LINK_ROLES);

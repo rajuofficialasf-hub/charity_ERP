@@ -22,7 +22,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { canBuildForms } from '../roles';
+import { canBuildForms, canManagePublicLink } from '../roles';
 import {
   addLibraryField,
   addLibrarySection,
@@ -113,9 +113,19 @@ export function FormBuilderPage() {
     queryFn: () => versionWithEtag(versionId!),
     enabled: versionId !== null,
   });
-  const lib = useQuery({ queryKey: [...FORMS_KEY, 'library'], queryFn: library });
+  // the library is the builders' read too
+  const lib = useQuery({
+    queryKey: [...FORMS_KEY, 'library'],
+    queryFn: library,
+    enabled: Boolean(me && canBuildForms(me)),
+  });
   const versionsKey = [...FORMS_KEY, 'versions', formId];
-  const versions = useQuery({ queryKey: versionsKey, queryFn: () => formVersions(formId) });
+  // the versions feed the publish confirmation and the version list, both the builders' only
+  const versions = useQuery({
+    queryKey: versionsKey,
+    queryFn: () => formVersions(formId),
+    enabled: Boolean(me && canBuildForms(me)),
+  });
   const sentences = useChangeSentences();
   const afterChange = async () => {
     setViewing(null);
@@ -201,6 +211,7 @@ export function FormBuilderPage() {
 
   const version = read.data.data;
   const builder = Boolean(me && canBuildForms(me));
+  const linkManager = Boolean(me && canManagePublicLink(me));
   const isDraft = version.status === 'draft';
   const mode: BuilderMode =
     !builder || !isDraft || save.refused ? 'read' : phone ? 'texts' : 'full';
@@ -342,20 +353,23 @@ export function FormBuilderPage() {
                     </Text>{' '}
                     {title}
                   </Text>
-                  <Disclosure title={t('versions')} icon={History} headingLevel={2} defaultOpen>
-                    <VersionList
-                      formId={formId}
-                      shown={version.id}
-                      canOpen={save.state === 'saved'}
-                      onOpen={setViewing}
-                    />
-                  </Disclosure>
+                  {/* the version list is the builders' read; a PM sees the placed version only */}
+                  {builder ? (
+                    <Disclosure title={t('versions')} icon={History} headingLevel={2} defaultOpen>
+                      <VersionList
+                        formId={formId}
+                        shown={version.id}
+                        canOpen={save.state === 'saved'}
+                        onOpen={setViewing}
+                      />
+                    </Disclosure>
+                  ) : null}
                   <Disclosure title={t('link.title')} icon={Link2} headingLevel={2}>
                     <PublicLinkPanel
                       projectId={projectId}
                       formId={formId}
                       published={Boolean(form?.publishedVersionId)}
-                      canManage={builder}
+                      canManage={linkManager}
                     />
                   </Disclosure>
                 </Stack>

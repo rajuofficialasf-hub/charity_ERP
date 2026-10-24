@@ -76,7 +76,10 @@ const VERSION_SELECT = {
   form: { select: { projectId: true, kind: true } },
 } as const;
 
-/** A form's kind as the engine reads it; the database's CHECK keeps the column to these three. */
+/**
+ * A form's kind as the engine reads it. The database's CHECK keeps the column to these three, so
+ * the throw is only a backstop against a database that lost the check; it is never a default.
+ */
 function formKindOf(kind: string): FormKind {
   const known = FORM_KINDS.find((k) => k === kind);
   if (!known) throw new Error(`forms.kind holds an unknown value: ${kind}`);
