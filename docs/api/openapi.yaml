@@ -313,7 +313,19 @@ components:
         reject_unverified. The permission is the transition's permission in the project's snapshot.
       schema:
         type: string
-        enum: [submit, review, send_for_approval, approve, reject, waitlist, pull_from_waitlist, delete, verify_link, reject_unverified]
+        enum:
+          [
+            submit,
+            review,
+            send_for_approval,
+            approve,
+            reject,
+            waitlist,
+            pull_from_waitlist,
+            delete,
+            verify_link,
+            reject_unverified,
+          ]
     AppNo:
       name: appNo
       in: path
@@ -581,7 +593,8 @@ components:
       description: The channels verified so far; the token, its expiry and the kind come once both are verified (D-090)
       properties:
         verified: { type: array, items: { type: string, enum: [sms, email] } }
-        registrationToken: { type: string, description: Shown once; sent back in X-Registration-Token (D-082) }
+        registrationToken:
+          { type: string, description: Shown once; sent back in X-Registration-Token (D-082) }
         expiresAt: { type: string, format: date-time }
         kind: { type: string, enum: [volunteer, staff] }
     RegistrationVerifiedResponse:
@@ -612,11 +625,31 @@ components:
     VolunteerRegistrationSubmit:
       type: object
       additionalProperties: false
-      required: [kind, registrationId, password, name, fatherName, motherName, nid, divisionId, districtId, upazilaId, unionId, profession]
+      required:
+        [
+          kind,
+          registrationId,
+          password,
+          name,
+          fatherName,
+          motherName,
+          nid,
+          divisionId,
+          districtId,
+          upazilaId,
+          unionId,
+          profession,
+        ]
       properties:
         kind: { type: string, const: volunteer }
         registrationId: { $ref: '#/components/schemas/Uuid' }
-        password: { type: string, minLength: 8, maxLength: 128, description: 'At least one upper-case letter and one digit (O-64)' }
+        password:
+          {
+            type: string,
+            minLength: 8,
+            maxLength: 128,
+            description: 'At least one upper-case letter and one digit (O-64)',
+          }
         name: { type: string, minLength: 1, maxLength: 200 }
         fatherName: { type: string, minLength: 1, maxLength: 200 }
         motherName: { type: string, minLength: 1, maxLength: 200 }
@@ -629,14 +662,35 @@ components:
         addressLine: { type: string, maxLength: 500 }
         permanentAddress: { $ref: '#/components/schemas/PermanentAddress' }
         educationDetails: { $ref: '#/components/schemas/EducationDetails' }
-        facebookId: { type: string, maxLength: 300, description: 'An https link to the Facebook account: parsed as a URL, a Facebook host, no credentials or port (O-66); the server never fetches it' }
-        dateOfBirth: { type: string, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$', description: 'A real date in the past, not before 1900 (O-65)' }
+        facebookId:
+          {
+            type: string,
+            maxLength: 300,
+            description: 'An https link to the Facebook account: parsed as a URL, a Facebook host, no credentials or port (O-66); the server never fetches it',
+          }
+        dateOfBirth:
+          {
+            type: string,
+            pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$',
+            description: 'A real date in the past, not before 1900 (O-65)',
+          }
         bloodGroup: { type: string, enum: [A+, A-, B+, B-, O+, O-, AB+, AB-] }
         tshirtSize: { type: string, enum: [S, M, L, XL, XXL] }
         volunteeringArea: { type: string, enum: [own_union, own_upazila, own_district, anywhere] }
-        profession: { type: string, enum: [student, teacher, imam, businessman, job_seeker, service_holder], description: The one mandatory new field (O-65) }
+        profession:
+          {
+            type: string,
+            enum: [student, teacher, imam, businessman, job_seeker, service_holder],
+            description: The one mandatory new field (O-65),
+          }
         professionDetails: { $ref: '#/components/schemas/ProfessionDetails' }
-        interestAreas: { type: array, maxItems: 5, description: Each area at most once, items: { type: string, enum: [field_relief, survey, data_entry, media, first_aid] } }
+        interestAreas:
+          {
+            type: array,
+            maxItems: 5,
+            description: Each area at most once,
+            items: { type: string, enum: [field_relief, survey, data_entry, media, first_aid] },
+          }
         vehicle: { type: string, enum: [bicycle, motorcycle, none] }
         canSwim: { type: boolean }
         availability: { type: string, enum: [holidays, anytime, on_call] }
@@ -662,10 +716,35 @@ components:
       additionalProperties: false
       description: Education as one value (O-66, BR-248), all parts optional
       properties:
-        highestQualification: { type: string, enum: [psc, jsc, ssc, dakhil, hsc, alim, diploma, bachelor, fazil, masters, kamil, hafez, other] }
+        highestQualification:
+          {
+            type: string,
+            enum:
+              [
+                psc,
+                jsc,
+                ssc,
+                dakhil,
+                hsc,
+                alim,
+                diploma,
+                bachelor,
+                fazil,
+                masters,
+                kamil,
+                hafez,
+                other,
+              ],
+          }
         institutionName: { type: string, maxLength: 200 }
         subject: { type: string, maxLength: 200 }
-        passingYear: { type: integer, minimum: 1950, maximum: 9007199254740991, description: The server accepts up to the current year plus 8 }
+        passingYear:
+          {
+            type: integer,
+            minimum: 1950,
+            maximum: 9007199254740991,
+            description: The server accepts up to the current year plus 8,
+          }
         result: { type: string, maxLength: 60 }
         status: { type: string, enum: [studying, completed] }
     VolunteerProfileDetails:
@@ -676,10 +755,19 @@ components:
         bloodGroup: { type: [string, 'null'], enum: [A+, A-, B+, B-, O+, O-, AB+, AB-, null] }
         dateOfBirth: { type: [string, 'null'], format: date }
         tshirtSize: { type: [string, 'null'], enum: [S, M, L, XL, XXL, null] }
-        volunteeringArea: { type: [string, 'null'], enum: [own_union, own_upazila, own_district, anywhere, null] }
-        profession: { type: [string, 'null'], enum: [student, teacher, imam, businessman, job_seeker, service_holder, null] }
+        volunteeringArea:
+          { type: [string, 'null'], enum: [own_union, own_upazila, own_district, anywhere, null] }
+        profession:
+          {
+            type: [string, 'null'],
+            enum: [student, teacher, imam, businessman, job_seeker, service_holder, null],
+          }
         professionDetails: { $ref: '#/components/schemas/ProfessionDetails' }
-        interestAreas: { type: array, items: { type: string, enum: [field_relief, survey, data_entry, media, first_aid] } }
+        interestAreas:
+          {
+            type: array,
+            items: { type: string, enum: [field_relief, survey, data_entry, media, first_aid] },
+          }
         vehicle: { type: [string, 'null'], enum: [bicycle, motorcycle, none, null] }
         canSwim: { type: [boolean, 'null'] }
         availability: { type: [string, 'null'], enum: [holidays, anytime, on_call, null] }
@@ -709,7 +797,13 @@ components:
       additionalProperties: false
       required: [loginId, password]
       properties:
-        loginId: { type: string, minLength: 1, maxLength: 254, description: Mobile number or email (email for staff only) }
+        loginId:
+          {
+            type: string,
+            minLength: 1,
+            maxLength: 254,
+            description: Mobile number or email (email for staff only),
+          }
         password: { type: string, minLength: 1, maxLength: 128 }
         device:
           type: object
@@ -843,7 +937,20 @@ components:
         department_head.
       type: object
       additionalProperties: false
-      required: [jobId, displayName, designation, affiliation, affiliationUnit, homeProgramId, homeDivisionId, supervisorUserId, email, mobile, roleKey]
+      required:
+        [
+          jobId,
+          displayName,
+          designation,
+          affiliation,
+          affiliationUnit,
+          homeProgramId,
+          homeDivisionId,
+          supervisorUserId,
+          email,
+          mobile,
+          roleKey,
+        ]
       properties:
         jobId: { type: string, maxLength: 64 }
         displayName: { type: string, minLength: 1, maxLength: 200 }
@@ -882,7 +989,17 @@ components:
         the line above never comes back to this official (422 user.supervisor_invalid).
       type: object
       additionalProperties: false
-      required: [jobId, displayName, designation, affiliation, affiliationUnit, homeProgramId, homeDivisionId, supervisorUserId]
+      required:
+        [
+          jobId,
+          displayName,
+          designation,
+          affiliation,
+          affiliationUnit,
+          homeProgramId,
+          homeDivisionId,
+          supervisorUserId,
+        ]
       properties:
         jobId: { type: string, maxLength: 64 }
         displayName: { type: string, minLength: 1, maxLength: 200 }
@@ -1009,13 +1126,27 @@ components:
             additionalProperties: false
             required: [itemType, itemId]
             properties:
-              itemType: { type: string, enum: [program, project_area, project_staff, pending_review, document, issue, followup] }
+              itemType:
+                {
+                  type: string,
+                  enum:
+                    [
+                      program,
+                      project_area,
+                      project_staff,
+                      pending_review,
+                      document,
+                      issue,
+                      followup,
+                    ],
+                }
               itemId: { $ref: '#/components/schemas/Uuid' }
     HandoverItem:
       type: object
       required: [category, itemType, itemId, label]
       properties:
-        category: { type: string, enum: [reviews_approvals, projects, documents, issues, followups] }
+        category:
+          { type: string, enum: [reviews_approvals, projects, documents, issues, followups] }
         itemType: { type: string }
         itemId: { $ref: '#/components/schemas/Uuid' }
         projectId: { type: [string, 'null'], format: uuid }
@@ -1024,7 +1155,12 @@ components:
       type: object
       required: [fromUserId, pending, outstandingCount]
       properties:
-        id: { type: [string, 'null'], format: uuid, description: Null until the first reassignment starts the handover }
+        id:
+          {
+            type: [string, 'null'],
+            format: uuid,
+            description: Null until the first reassignment starts the handover,
+          }
         fromUserId: { $ref: '#/components/schemas/Uuid' }
         pending: { type: array, items: { $ref: '#/components/schemas/HandoverItem' } }
         scope: { $ref: '../database/json-schemas/handover-scope.schema.json' }
@@ -1077,11 +1213,23 @@ components:
       required: [permission, scopeType, source]
       properties:
         permission: { type: string }
-        scopeType: { type: string, enum: [GLOBAL, PROGRAM, PROJECT, REGION, DISTRICT, UPAZILA, UNION, ASSIGNED, SELF] }
+        scopeType:
+          {
+            type: string,
+            enum: [GLOBAL, PROGRAM, PROJECT, REGION, DISTRICT, UPAZILA, UNION, ASSIGNED, SELF],
+          }
         scopeRef: { type: [string, 'null'], format: uuid }
         condition: { type: [string, 'null'] }
-        source: { type: string, enum: [global_role, role_default, permission_set, project_grant, panel_grant] }
-        grantId: { $ref: '#/components/schemas/Uuid', description: 'The panel override behind a panel_grant row (D-079)' }
+        source:
+          {
+            type: string,
+            enum: [global_role, role_default, permission_set, project_grant, panel_grant],
+          }
+        grantId:
+          {
+            $ref: '#/components/schemas/Uuid',
+            description: 'The panel override behind a panel_grant row (D-079)',
+          }
     EffectivePermissionList:
       type: object
       required: [data, meta]
@@ -1095,7 +1243,11 @@ components:
         userId: { $ref: '#/components/schemas/Uuid' }
         permission: { type: string }
         effect: { type: string, enum: [grant, revoke] }
-        scopeType: { type: string, enum: [GLOBAL, PROGRAM, PROJECT, REGION, DISTRICT, UPAZILA, UNION, ASSIGNED, SELF] }
+        scopeType:
+          {
+            type: string,
+            enum: [GLOBAL, PROGRAM, PROJECT, REGION, DISTRICT, UPAZILA, UNION, ASSIGNED, SELF],
+          }
         scopeRef: { $ref: '#/components/schemas/Uuid' }
         condition: { type: string }
         reason: { type: string, minLength: 3, maxLength: 1000 }
@@ -1109,7 +1261,11 @@ components:
         userId: { $ref: '#/components/schemas/Uuid' }
         permission: { type: string }
         effect: { type: string, enum: [grant, revoke] }
-        scopeType: { type: string, enum: [GLOBAL, PROGRAM, PROJECT, REGION, DISTRICT, UPAZILA, UNION, ASSIGNED, SELF] }
+        scopeType:
+          {
+            type: string,
+            enum: [GLOBAL, PROGRAM, PROJECT, REGION, DISTRICT, UPAZILA, UNION, ASSIGNED, SELF],
+          }
         scopeRef: { type: [string, 'null'], format: uuid }
         condition: { type: [string, 'null'] }
         reason: { type: string }
@@ -1139,7 +1295,20 @@ components:
     VolunteerSummary:
       type: object
       description: One row of the volunteer tab (O-67)
-      required: [id, userId, displayName, type, state, divisionId, districtId, upazilaId, photoFileId, blocked, projects]
+      required:
+        [
+          id,
+          userId,
+          displayName,
+          type,
+          state,
+          divisionId,
+          districtId,
+          upazilaId,
+          photoFileId,
+          blocked,
+          projects,
+        ]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         userId: { $ref: '#/components/schemas/Uuid' }
@@ -1162,7 +1331,8 @@ components:
               code: { type: string }
               nameBn: { type: string }
               nameEn: { type: string }
-        category: { type: [string, 'null'], enum: [A, B, C, D, null], x-sensitive-class: volunteer.rating }
+        category:
+          { type: [string, 'null'], enum: [A, B, C, D, null], x-sensitive-class: volunteer.rating }
         inactiveFlag: { type: boolean, x-sensitive-class: volunteer.rating }
     VolunteerStatistics:
       type: object
@@ -1177,7 +1347,13 @@ components:
             pending: { type: integer, minimum: 0 }
             blocked: { type: integer, minimum: 0 }
             deactivated: { type: integer, minimum: 0 }
-            inactive: { type: integer, minimum: 0, x-sensitive-class: volunteer.rating, description: The BD-40 inactive flag }
+            inactive:
+              {
+                type: integer,
+                minimum: 0,
+                x-sensitive-class: volunteer.rating,
+                description: The BD-40 inactive flag,
+              }
         applications:
           type: object
           required: [total, approved, underReview]
@@ -1194,7 +1370,27 @@ components:
     Volunteer:
       type: object
       description: The official view of one volunteer (SCR-043, O-67, D-094)
-      required: [id, userId, displayName, type, state, fatherName, motherName, divisionId, districtId, upazilaId, unionId, photoFileId, registeredAt, approvedAt, projects, team, blocklist, actions]
+      required:
+        [
+          id,
+          userId,
+          displayName,
+          type,
+          state,
+          fatherName,
+          motherName,
+          divisionId,
+          districtId,
+          upazilaId,
+          unionId,
+          photoFileId,
+          registeredAt,
+          approvedAt,
+          projects,
+          team,
+          blocklist,
+          actions,
+        ]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         userId: { $ref: '#/components/schemas/Uuid' }
@@ -1226,12 +1422,31 @@ components:
         availability: { type: [string, 'null'] }
         emergencyFullTime: { type: [boolean, 'null'] }
         educationDetails: { $ref: '#/components/schemas/EducationDetails' }
-        permanentAddress: { oneOf: [{ $ref: '#/components/schemas/PermanentAddress' }, { type: 'null' }] }
-        bloodGroup: { type: [string, 'null'], x-sensitive-class: volunteer.identity, description: Only inside the volunteer.view_sensitive scope }
-        dateOfBirth: { type: [string, 'null'], format: date, x-sensitive-class: volunteer.identity, description: Only inside the volunteer.view_sensitive scope }
-        nid: { type: string, x-sensitive-class: volunteer.identity, description: Only inside the volunteer.view_sensitive scope }
-        nidPhotoFileId: { type: [string, 'null'], format: uuid, x-sensitive-class: volunteer.identity }
-        nidPhotoBackFileId: { type: [string, 'null'], format: uuid, x-sensitive-class: volunteer.identity }
+        permanentAddress:
+          { oneOf: [{ $ref: '#/components/schemas/PermanentAddress' }, { type: 'null' }] }
+        bloodGroup:
+          {
+            type: [string, 'null'],
+            x-sensitive-class: volunteer.identity,
+            description: Only inside the volunteer.view_sensitive scope,
+          }
+        dateOfBirth:
+          {
+            type: [string, 'null'],
+            format: date,
+            x-sensitive-class: volunteer.identity,
+            description: Only inside the volunteer.view_sensitive scope,
+          }
+        nid:
+          {
+            type: string,
+            x-sensitive-class: volunteer.identity,
+            description: Only inside the volunteer.view_sensitive scope,
+          }
+        nidPhotoFileId:
+          { type: [string, 'null'], format: uuid, x-sensitive-class: volunteer.identity }
+        nidPhotoBackFileId:
+          { type: [string, 'null'], format: uuid, x-sensitive-class: volunteer.identity }
         bank:
           type: object
           x-sensitive-class: volunteer.bank
@@ -1250,7 +1465,8 @@ components:
           description: Active project assignments (read only here; assignment in T1.12)
           items:
             type: object
-            required: [id, code, nameBn, nameEn, year, permissionSet, isPaid, regionLocationId, assignedAt]
+            required:
+              [id, code, nameBn, nameEn, year, permissionSet, isPaid, regionLocationId, assignedAt]
             properties:
               id: { $ref: '#/components/schemas/Uuid' }
               code: { type: string }
@@ -1272,7 +1488,8 @@ components:
               displayName: { type: string }
               type: { type: string, enum: [general, local_daee, both, team_member, paid] }
               state: { type: string, enum: [pending, active, blocked, deactivated] }
-        category: { type: [string, 'null'], enum: [A, B, C, D, null], x-sensitive-class: volunteer.rating }
+        category:
+          { type: [string, 'null'], enum: [A, B, C, D, null], x-sensitive-class: volunteer.rating }
         inactiveFlag: { type: boolean, x-sensitive-class: volunteer.rating }
         ratings:
           type: array
@@ -1296,7 +1513,8 @@ components:
         actions:
           type: object
           description: What the caller may do to this volunteer, decided like the action routes
-          required: [review, approve, requestCorrection, block, unblock, viewSessions, revokeSessions]
+          required:
+            [review, approve, requestCorrection, block, unblock, viewSessions, revokeSessions]
           properties:
             review:
               type: boolean
@@ -1336,7 +1554,37 @@ components:
           type: array
           minItems: 1
           maxItems: 40
-          items: { type: string, enum: [name, fatherName, motherName, nid, whatsapp, address, addressLine, education, experience, workDescription, previousProjects, facebookId, bloodGroup, dateOfBirth, tshirtSize, volunteeringArea, profession, skills, educationDetails, permanentAddress, bank, photo, nid_photo, nid_photo_back] }
+          items:
+            {
+              type: string,
+              enum:
+                [
+                  name,
+                  fatherName,
+                  motherName,
+                  nid,
+                  whatsapp,
+                  address,
+                  addressLine,
+                  education,
+                  experience,
+                  workDescription,
+                  previousProjects,
+                  facebookId,
+                  bloodGroup,
+                  dateOfBirth,
+                  tshirtSize,
+                  volunteeringArea,
+                  profession,
+                  skills,
+                  educationDetails,
+                  permanentAddress,
+                  bank,
+                  photo,
+                  nid_photo,
+                  nid_photo_back,
+                ],
+            }
         note: { type: string, minLength: 3, maxLength: 1000 }
     EditRequestCreate:
       type: object
@@ -1344,7 +1592,39 @@ components:
       required: [field]
       description: The new value is required except for a photo, which the own photo upload fills (D-085)
       properties:
-        field: { type: string, enum: [name, fatherName, motherName, nid, whatsapp, address, addressLine, education, experience, workDescription, previousProjects, facebookId, bloodGroup, dateOfBirth, tshirtSize, volunteeringArea, profession, skills, educationDetails, permanentAddress, bank, photo, nid_photo, nid_photo_back, mobile, email] }
+        field:
+          {
+            type: string,
+            enum:
+              [
+                name,
+                fatherName,
+                motherName,
+                nid,
+                whatsapp,
+                address,
+                addressLine,
+                education,
+                experience,
+                workDescription,
+                previousProjects,
+                facebookId,
+                bloodGroup,
+                dateOfBirth,
+                tshirtSize,
+                volunteeringArea,
+                profession,
+                skills,
+                educationDetails,
+                permanentAddress,
+                bank,
+                photo,
+                nid_photo,
+                nid_photo_back,
+                mobile,
+                email,
+              ],
+          }
         newValue: { $ref: '#/components/schemas/ChangeValue' }
         note: { type: string, maxLength: 1000 }
     ChangeRequestAnswer:
@@ -1367,12 +1647,23 @@ components:
         volunteerId: { $ref: '#/components/schemas/Uuid' }
         kind: { type: string, enum: [registration_correction, profile_edit] }
         field: { type: string }
-        newValue: { description: 'Absent for NID, bank, mobile and email values towards anyone but the owner and allowed officials' }
+        newValue:
+          {
+            description: 'Absent for NID, bank, mobile and email values towards anyone but the owner and allowed officials',
+          }
         note: { type: [string, 'null'] }
         status: { type: string, enum: [open, submitted, approved, rejected, closed] }
-        contactVerified: { type: boolean, description: 'For a mobile or email change: the code to the new value was verified' }
+        contactVerified:
+          {
+            type: boolean,
+            description: 'For a mobile or email change: the code to the new value was verified',
+          }
         decidedAt: { type: [string, 'null'], format: date-time }
-        volunteerName: { type: string, description: 'Display name of the volunteer; only in the approvers'' list (GET /edit-requests)' }
+        volunteerName:
+          {
+            type: string,
+            description: "Display name of the volunteer; only in the approvers' list (GET /edit-requests)",
+          }
     ChangeRequestResponse:
       type: object
       required: [data, meta]
@@ -1394,7 +1685,8 @@ components:
         displayName: { type: string }
         status: { type: string, enum: [awaiting_review, in_correction] }
         submittedAt: { type: string, format: date-time }
-        volunteerType: { type: [string, 'null'], enum: [general, local_daee, both, team_member, paid, null] }
+        volunteerType:
+          { type: [string, 'null'], enum: [general, local_daee, both, team_member, paid, null] }
         divisionId: { type: [string, 'null'], format: uuid }
         districtId: { type: [string, 'null'], format: uuid }
         designation: { type: [string, 'null'] }
@@ -1414,7 +1706,8 @@ components:
             photoFileId: { type: [string, 'null'], format: uuid }
             homeProgramId: { type: [string, 'null'], format: uuid }
             homeDivisionId: { type: [string, 'null'], format: uuid }
-            volunteer: { oneOf: [{ $ref: '#/components/schemas/PendingVolunteerDetail' }, { type: 'null' }] }
+            volunteer:
+              { oneOf: [{ $ref: '#/components/schemas/PendingVolunteerDetail' }, { type: 'null' }] }
             blocklisted: { type: boolean }
             corrections: { type: array, items: { $ref: '#/components/schemas/ChangeRequest' } }
     RegistrationVolunteer:
@@ -1457,8 +1750,10 @@ components:
             previousProjects: { type: [string, 'null'] }
             facebookId: { type: [string, 'null'] }
             nid: { type: string, x-sensitive-class: volunteer.identity }
-            nidPhotoFileId: { type: [string, 'null'], format: uuid, x-sensitive-class: volunteer.identity }
-            nidPhotoBackFileId: { type: [string, 'null'], format: uuid, x-sensitive-class: volunteer.identity }
+            nidPhotoFileId:
+              { type: [string, 'null'], format: uuid, x-sensitive-class: volunteer.identity }
+            nidPhotoBackFileId:
+              { type: [string, 'null'], format: uuid, x-sensitive-class: volunteer.identity }
             bank:
               type: object
               x-sensitive-class: volunteer.bank
@@ -1489,7 +1784,8 @@ components:
         displayName: { type: string }
         mobile: { type: [string, 'null'] }
         email: { type: [string, 'null'] }
-        inAnyProject: { type: boolean, description: False shows the "not yet in any project" message (BR-031) }
+        inAnyProject:
+          { type: boolean, description: False shows the "not yet in any project" message (BR-031) }
         fatherName: { type: string }
         motherName: { type: string }
         nid: { type: string }
@@ -1540,25 +1836,50 @@ components:
             required: [volunteerId]
             properties:
               volunteerId: { type: string, format: uuid }
-              permissionSet: { type: string, enum: [application_distribution, application_distribution_dawah, work_progress] }
+              permissionSet:
+                {
+                  type: string,
+                  enum: [application_distribution, application_distribution_dawah, work_progress],
+                }
               isPaid: { type: boolean, default: false }
     ProjectVolunteerUpdate:
       type: object
       additionalProperties: false
       description: At least one of the two.
       properties:
-        permissionSet: { type: string, enum: [application_distribution, application_distribution_dawah, work_progress] }
+        permissionSet:
+          {
+            type: string,
+            enum: [application_distribution, application_distribution_dawah, work_progress],
+          }
         isPaid: { type: boolean }
     ProjectVolunteer:
       type: object
-      required: [id, volunteerId, displayName, type, regionLocationId, permissionSet, isPaid, consentStatus, consentAt, applicationsCounted, assignedAt]
+      required:
+        [
+          id,
+          volunteerId,
+          displayName,
+          type,
+          regionLocationId,
+          permissionSet,
+          isPaid,
+          consentStatus,
+          consentAt,
+          applicationsCounted,
+          assignedAt,
+        ]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         volunteerId: { $ref: '#/components/schemas/Uuid' }
         displayName: { type: string }
         type: { type: string }
         regionLocationId: { $ref: '#/components/schemas/Uuid' }
-        permissionSet: { type: string, enum: [application_distribution, application_distribution_dawah, work_progress] }
+        permissionSet:
+          {
+            type: string,
+            enum: [application_distribution, application_distribution_dawah, work_progress],
+          }
         isPaid: { type: boolean }
         consentStatus: { type: string, enum: [pending, accepted] }
         consentAt: { type: [string, 'null'], format: date-time }
@@ -1582,7 +1903,17 @@ components:
         data: { $ref: '#/components/schemas/ProjectVolunteer' }
     VolunteerCandidate:
       type: object
-      required: [volunteerId, displayName, type, divisionId, districtId, upazilaId, unionId, defaultPermissionSet]
+      required:
+        [
+          volunteerId,
+          displayName,
+          type,
+          divisionId,
+          districtId,
+          upazilaId,
+          unionId,
+          defaultPermissionSet,
+        ]
       properties:
         volunteerId: { $ref: '#/components/schemas/Uuid' }
         displayName: { type: string }
@@ -1639,10 +1970,33 @@ components:
           maxItems: 4
           default: []
           description: The parts accepted, each once; an acceptance names every required part.
-          items: { type: string, enum: [volunteer_duties, implementation_process, daee_duties, misconduct] }
+          items:
+            {
+              type: string,
+              enum: [volunteer_duties, implementation_process, daee_duties, misconduct],
+            }
     MyProject:
       type: object
-      required: [projectId, code, year, name, status, applyFrom, applyTo, perVolunteerLimit, dawahEnabled, via, permissionSet, isPaid, consentStatus, rulesVersion, applicationsCounted, applicationsLeft, leadsTeam]
+      required:
+        [
+          projectId,
+          code,
+          year,
+          name,
+          status,
+          applyFrom,
+          applyTo,
+          perVolunteerLimit,
+          dawahEnabled,
+          via,
+          permissionSet,
+          isPaid,
+          consentStatus,
+          rulesVersion,
+          applicationsCounted,
+          applicationsLeft,
+          leadsTeam,
+        ]
       properties:
         projectId: { $ref: '#/components/schemas/Uuid' }
         code: { type: string }
@@ -1653,14 +2007,33 @@ components:
         applyTo: { type: [string, 'null'], format: date }
         perVolunteerLimit: { type: [integer, 'null'] }
         dawahEnabled: { type: boolean }
-        via: { type: string, enum: [assignment, team], description: "Own assignment, or a membership of a main volunteer's team" }
+        via:
+          {
+            type: string,
+            enum: [assignment, team],
+            description: "Own assignment, or a membership of a main volunteer's team",
+          }
         permissionSet: { type: [string, 'null'], description: Null for a team member }
         isPaid: { type: boolean }
-        consentStatus: { type: string, enum: [pending, accepted], description: The project opens for work only when accepted }
+        consentStatus:
+          {
+            type: string,
+            enum: [pending, accepted],
+            description: The project opens for work only when accepted,
+          }
         rulesVersion: { type: integer, minimum: 0 }
-        applicationsCounted: { type: integer, minimum: 0, description: The main volunteer's count for a team member (BR-059) }
+        applicationsCounted:
+          {
+            type: integer,
+            minimum: 0,
+            description: The main volunteer's count for a team member (BR-059),
+          }
         applicationsLeft: { type: [integer, 'null'], minimum: 0 }
-        leadsTeam: { type: boolean, description: An assigned General or দাঈ-স্বেচ্ছাসেবক volunteer may build a team }
+        leadsTeam:
+          {
+            type: boolean,
+            description: An assigned General or দাঈ-স্বেচ্ছাসেবক volunteer may build a team,
+          }
     MyProjectList:
       type: object
       required: [data]
@@ -1719,7 +2092,8 @@ components:
           required: [members, candidates]
           properties:
             members: { type: array, items: { $ref: '#/components/schemas/TeamMember' } }
-            candidates: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/TeamCandidate' } }
+            candidates:
+              { type: array, maxItems: 200, items: { $ref: '#/components/schemas/TeamCandidate' } }
     TeamAddRequest:
       type: object
       additionalProperties: false
@@ -1771,7 +2145,12 @@ components:
           type: array
           items: { $ref: '#/components/schemas/Uuid' }
           description: Omit to transfer all of the volunteer's applications in the project
-        moveTeam: { type: boolean, default: false, description: RPM decides whether the team moves (BR-050) }
+        moveTeam:
+          {
+            type: boolean,
+            default: false,
+            description: RPM decides whether the team moves (BR-050),
+          }
         reason: { type: string, minLength: 3 }
     TransferResult:
       type: object
@@ -1824,7 +2203,22 @@ components:
     Beneficiary:
       type: object
       description: The 360° profile shell (SCR-045, O-67, D-094); each section an empty array when nothing exists
-      required: [id, benNo, name, status, divisionId, districtId, upazilaId, projectsByYear, distributions, mergedInto, actions, corrections, merges]
+      required:
+        [
+          id,
+          benNo,
+          name,
+          status,
+          divisionId,
+          districtId,
+          upazilaId,
+          projectsByYear,
+          distributions,
+          mergedInto,
+          actions,
+          corrections,
+          merges,
+        ]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         benNo: { $ref: '#/components/schemas/BenNo' }
@@ -1883,7 +2277,12 @@ components:
             properties:
               id: { $ref: '#/components/schemas/Uuid' }
               role: { type: string, enum: [kept, merged] }
-              otherId: { type: [string, 'null'], format: uuid, description: null when the other profile lies outside the caller scope }
+              otherId:
+                {
+                  type: [string, 'null'],
+                  format: uuid,
+                  description: null when the other profile lies outside the caller scope,
+                }
               otherBenNo: { $ref: '#/components/schemas/BenNo' }
               status: { type: string, enum: [merged, reverted] }
               mergedAt: { type: [string, 'null'], format: date-time }
@@ -1908,7 +2307,8 @@ components:
         classOtherText: { type: [string, 'null'], x-sensitive-class: beneficiary.profile_detail }
         occupationCode: { type: [string, 'null'], x-sensitive-class: beneficiary.profile_detail }
         status: { type: string }
-        photoFileId: { type: [string, 'null'], format: uuid, x-sensitive-class: beneficiary.profile_detail }
+        photoFileId:
+          { type: [string, 'null'], format: uuid, x-sensitive-class: beneficiary.profile_detail }
         divisionId: { $ref: '#/components/schemas/Uuid' }
         districtId: { $ref: '#/components/schemas/Uuid' }
         upazilaId: { $ref: '#/components/schemas/Uuid' }
@@ -1928,8 +2328,18 @@ components:
               name: { type: string }
               relationshipCode: { type: [string, 'null'] }
               ageYears: { type: [integer, 'null'], x-sensitive-class: beneficiary.profile_detail }
-        nid: { type: [string, 'null'], x-sensitive-class: beneficiary.nid, description: Only inside the beneficiary.view_nid scope }
-        birthReg: { type: [string, 'null'], x-sensitive-class: beneficiary.nid, description: Only inside the beneficiary.view_nid scope }
+        nid:
+          {
+            type: [string, 'null'],
+            x-sensitive-class: beneficiary.nid,
+            description: Only inside the beneficiary.view_nid scope,
+          }
+        birthReg:
+          {
+            type: [string, 'null'],
+            x-sensitive-class: beneficiary.nid,
+            description: Only inside the beneficiary.view_nid scope,
+          }
         isBlocked: { type: boolean, x-sensitive-class: beneficiary.care }
         projectsByYear:
           type: array
@@ -1946,7 +2356,8 @@ components:
                     code: { type: string }
                     nameBn: { type: string }
                     nameEn: { type: string }
-                    status: { type: string, description: The status of the beneficiary's application }
+                    status:
+                      { type: string, description: The status of the beneficiary's application }
         applications:
           type: array
           x-sensitive-class: beneficiary.application_history
@@ -1961,7 +2372,11 @@ components:
               submittedAt: { type: [string, 'null'], format: date-time }
               reviewedAt: { type: [string, 'null'], format: date-time }
               approvedAt: { type: [string, 'null'], format: date-time }
-              throughMerge: { type: boolean, description: 'An application left on a retired profile at a merge, shown on the kept one' }
+              throughMerge:
+                {
+                  type: boolean,
+                  description: 'An application left on a retired profile at a merge, shown on the kept one',
+                }
         distributions:
           type: array
           description: Distribution and implementation activities, latest 20
@@ -2016,7 +2431,11 @@ components:
           required: [found]
           properties:
             found: { type: boolean }
-            blocked: { type: boolean, description: true means a new application is refused (BR-010); the answer then carries nothing else }
+            blocked:
+              {
+                type: boolean,
+                description: true means a new application is refused (BR-010); the answer then carries nothing else,
+              }
             alreadyAppliedInProject: { type: boolean }
             mobileIsCallerOwn:
               type: boolean
@@ -2031,7 +2450,20 @@ components:
               description: The auto-fill fields (BR-005); locked fields are marked
               type: object
               required:
-                [beneficiaryId, benNo, name, fatherOrHusbandName, mobile, genderCode, divisionId, districtId, upazilaId, unionId, village, lockedFields]
+                [
+                  beneficiaryId,
+                  benNo,
+                  name,
+                  fatherOrHusbandName,
+                  mobile,
+                  genderCode,
+                  divisionId,
+                  districtId,
+                  upazilaId,
+                  unionId,
+                  village,
+                  lockedFields,
+                ]
               properties:
                 beneficiaryId: { $ref: '#/components/schemas/Uuid' }
                 benNo: { $ref: '#/components/schemas/BenNo' }
@@ -2088,7 +2520,20 @@ components:
     CorrectionRequest:
       type: object
       description: The values of an identity number are null outside the caller's beneficiary.view_nid scope
-      required: [id, beneficiaryId, field, oldValue, newValue, reason, status, requestedBy, requestedAt, decidedBy, decidedAt]
+      required:
+        [
+          id,
+          beneficiaryId,
+          field,
+          oldValue,
+          newValue,
+          reason,
+          status,
+          requestedBy,
+          requestedAt,
+          decidedBy,
+          decidedAt,
+        ]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         beneficiaryId: { $ref: '#/components/schemas/Uuid' }
@@ -2125,7 +2570,20 @@ components:
       properties:
         data:
           type: object
-          required: [id, mobile, divisionId, districtId, upazilaId, unionId, village, postOffice, postCode, landmark, warnings]
+          required:
+            [
+              id,
+              mobile,
+              divisionId,
+              districtId,
+              upazilaId,
+              unionId,
+              village,
+              postOffice,
+              postCode,
+              landmark,
+              warnings,
+            ]
           properties:
             id: { $ref: '#/components/schemas/Uuid' }
             mobile: { type: string }
@@ -2177,7 +2635,20 @@ components:
         reason: { type: string, minLength: 3, maxLength: 1000 }
     MergeDismissal:
       type: object
-      required: [id, beneficiaryId, otherBeneficiaryId, benNo, otherBenNo, name, otherName, reason, dismissedBy, dismissedAt, liftedAt]
+      required:
+        [
+          id,
+          beneficiaryId,
+          otherBeneficiaryId,
+          benNo,
+          otherBenNo,
+          name,
+          otherName,
+          reason,
+          dismissedBy,
+          dismissedAt,
+          liftedAt,
+        ]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         beneficiaryId: { $ref: '#/components/schemas/Uuid' }
@@ -2218,7 +2689,26 @@ components:
         keptId: { $ref: '#/components/schemas/Uuid' }
     Merge:
       type: object
-      required: [id, keptId, mergedId, keptBenNo, mergedBenNo, keptName, mergedName, status, reason, proposedBy, proposedAt, mergedBy, mergedAt, revertedBy, revertedAt, moved, leftBehind]
+      required:
+        [
+          id,
+          keptId,
+          mergedId,
+          keptBenNo,
+          mergedBenNo,
+          keptName,
+          mergedName,
+          status,
+          reason,
+          proposedBy,
+          proposedAt,
+          mergedBy,
+          mergedAt,
+          revertedBy,
+          revertedAt,
+          moved,
+          leftBehind,
+        ]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         keptId: { $ref: '#/components/schemas/Uuid' }
@@ -2239,7 +2729,12 @@ components:
           type: object
           description: How many rows moved per kind (the ids stay in the snapshot, never returned)
           additionalProperties: { type: integer, minimum: 0 }
-        leftBehind: { type: integer, minimum: 0, description: Applications past pending left on the retired profile }
+        leftBehind:
+          {
+            type: integer,
+            minimum: 0,
+            description: Applications past pending left on the retired profile,
+          }
     MergeResponse:
       type: object
       required: [data, meta]
@@ -2257,7 +2752,12 @@ components:
       required: [granted, channels]
       properties:
         granted: { type: boolean }
-        channels: { type: array, items: { type: string }, description: reference list consent_channel (O-17) }
+        channels:
+          {
+            type: array,
+            items: { type: string },
+            description: reference list consent_channel (O-17),
+          }
         evidenceFileId: { $ref: '#/components/schemas/Uuid' }
     MediaConsent:
       type: [object, 'null']
@@ -2340,7 +2840,19 @@ components:
               required: [kind, workflowKey]
               properties:
                 kind: { type: string, const: workflow }
-                workflowKey: { type: string, enum: [distribution, construction, advance_voucher, implementation_evidence, open_application_visit, qurbani] }
+                workflowKey:
+                  {
+                    type: string,
+                    enum:
+                      [
+                        distribution,
+                        construction,
+                        advance_voucher,
+                        implementation_evidence,
+                        open_application_visit,
+                        qurbani,
+                      ],
+                  }
             - type: object
               additionalProperties: false
               required: [kind, templateId]
@@ -2399,7 +2911,19 @@ components:
     Project:
       type: object
       description: The official view; a volunteer receives only id, code, year, name, status, workflowKey, the window, the limit and dawahEnabled
-      required: [id, code, year, name, status, workflowKey, applyFrom, applyTo, perVolunteerLimit, dawahEnabled]
+      required:
+        [
+          id,
+          code,
+          year,
+          name,
+          status,
+          workflowKey,
+          applyFrom,
+          applyTo,
+          perVolunteerLimit,
+          dawahEnabled,
+        ]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         code: { type: string }
@@ -2503,7 +3027,19 @@ components:
         canDelete: { type: boolean, default: false }
     StaffAssignment:
       type: object
-      required: [id, userId, displayName, roleKey, areaLocationId, canView, canEdit, canDelete, extraPermissions, endedAt]
+      required:
+        [
+          id,
+          userId,
+          displayName,
+          roleKey,
+          areaLocationId,
+          canView,
+          canEdit,
+          canDelete,
+          extraPermissions,
+          endedAt,
+        ]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         userId: { $ref: '#/components/schemas/Uuid' }
@@ -2569,7 +3105,8 @@ components:
         locationId: { $ref: '#/components/schemas/Uuid' }
         target: { type: integer, minimum: 0 }
         approvedCount: { type: integer, readOnly: true }
-        receivedCount: { type: integer, readOnly: true, description: Applications received in the area }
+        receivedCount:
+          { type: integer, readOnly: true, description: Applications received in the area }
     QuotaList:
       type: object
       required: [data, meta]
@@ -2615,14 +3152,30 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     Template:
       type: object
-      required: [id, name, description, workflowKey, active, version, sourceProjectId, updatedAt, updatedByName]
+      required:
+        [
+          id,
+          name,
+          description,
+          workflowKey,
+          active,
+          version,
+          sourceProjectId,
+          updatedAt,
+          updatedByName,
+        ]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         name: { $ref: '#/components/schemas/Bilingual' }
         description: { type: [string, 'null'] }
         workflowKey: { type: string }
         active: { type: boolean }
-        version: { type: integer, minimum: 1, description: Raised each time a project's setup replaces the contents }
+        version:
+          {
+            type: integer,
+            minimum: 1,
+            description: Raised each time a project's setup replaces the contents,
+          }
         sourceProjectId: { type: [string, 'null'], format: uuid }
         updatedAt: { type: string, format: date-time }
         updatedByName: { type: [string, 'null'] }
@@ -2632,7 +3185,11 @@ components:
         - type: object
           required: [definition]
           properties:
-            definition: { type: object, description: 'The copied parts: workflowKey, components with settings, syllabus, rules' }
+            definition:
+              {
+                type: object,
+                description: 'The copied parts: workflowKey, components with settings, syllabus, rules',
+              }
     TemplateResponse:
       type: object
       required: [data]
@@ -2683,12 +3240,28 @@ components:
         projectId: { $ref: '#/components/schemas/Uuid' }
         key: { type: string }
         title: { $ref: '#/components/schemas/Bilingual' }
-        kind: { type: string, enum: [beneficiary_application, other], description: "What the form is for; the identity questions and the public link apply to a beneficiary application only (D-126, D-129)" }
+        kind:
+          {
+            type: string,
+            enum: [beneficiary_application, other],
+            description: 'What the form is for; the identity questions and the public link apply to a beneficiary application only (D-126, D-129)',
+          }
         publishedVersionId: { type: [string, 'null'], format: uuid }
-        draftVersionId: { type: [string, 'null'], format: uuid, description: The one open draft (T2.3) }
-        sourceFormId: { type: [string, 'null'], format: uuid, description: The ready form this form was placed from (D-129) }
-        sourceVersionNo: { type: [integer, 'null'], description: The ready form's version this form holds now }
-        newerVersionNo: { type: [integer, 'null'], description: "The ready form's published version when it is newer than the one placed; the PM takes it on demand" }
+        draftVersionId:
+          { type: [string, 'null'], format: uuid, description: The one open draft (T2.3) }
+        sourceFormId:
+          {
+            type: [string, 'null'],
+            format: uuid,
+            description: The ready form this form was placed from (D-129),
+          }
+        sourceVersionNo:
+          { type: [integer, 'null'], description: The ready form's version this form holds now }
+        newerVersionNo:
+          {
+            type: [integer, 'null'],
+            description: "The ready form's published version when it is newer than the one placed; the PM takes it on demand",
+          }
     ReadyForm:
       type: object
       required: [id, key, kind, title, publishedVersionId, publishedVersionNo, draftVersionId]
@@ -2699,7 +3272,12 @@ components:
         title: { $ref: '#/components/schemas/Bilingual' }
         publishedVersionId: { type: [string, 'null'], format: uuid }
         publishedVersionNo: { type: [integer, 'null'] }
-        draftVersionId: { type: [string, 'null'], format: uuid, description: The open draft; shown to the builders only }
+        draftVersionId:
+          {
+            type: [string, 'null'],
+            format: uuid,
+            description: The open draft; shown to the builders only,
+          }
     ReadyFormList:
       type: object
       required: [data, meta]
@@ -2717,7 +3295,13 @@ components:
       additionalProperties: false
       required: [key, title, kind, source]
       properties:
-        key: { type: string, pattern: '^[a-z][a-z0-9_]*$', maxLength: 40, description: Unique among the forms outside the projects }
+        key:
+          {
+            type: string,
+            pattern: '^[a-z][a-z0-9_]*$',
+            maxLength: 40,
+            description: Unique among the forms outside the projects,
+          }
         title: { $ref: '#/components/schemas/Bilingual' }
         kind: { type: string, enum: [beneficiary_application, other] }
         source:
@@ -2740,7 +3324,13 @@ components:
       required: [readyFormId]
       properties:
         readyFormId: { $ref: '#/components/schemas/Uuid' }
-        key: { type: string, pattern: '^[a-z][a-z0-9_]*$', maxLength: 40, description: The key on the project; the ready form's key when absent }
+        key:
+          {
+            type: string,
+            pattern: '^[a-z][a-z0-9_]*$',
+            maxLength: 40,
+            description: The key on the project; the ready form's key when absent,
+          }
     FormList:
       type: object
       required: [data, meta]
@@ -2758,7 +3348,13 @@ components:
       additionalProperties: false
       required: [key, title, source]
       properties:
-        key: { type: string, pattern: '^[a-z][a-z0-9_]*$', maxLength: 40, description: The application type of the form; `default` for the one form of a project }
+        key:
+          {
+            type: string,
+            pattern: '^[a-z][a-z0-9_]*$',
+            maxLength: 40,
+            description: The application type of the form; `default` for the one form of a project,
+          }
         title: { $ref: '#/components/schemas/Bilingual' }
         source:
           description: Where the first draft comes from
@@ -2768,7 +3364,13 @@ components:
               required: [kind, templateKey]
               properties:
                 kind: { type: string, const: template }
-                templateKey: { type: string, minLength: 1, maxLength: 80, description: A form template of the library (the seeded appendix খ forms) }
+                templateKey:
+                  {
+                    type: string,
+                    minLength: 1,
+                    maxLength: 80,
+                    description: A form template of the library (the seeded appendix খ forms),
+                  }
             - type: object
               additionalProperties: false
               required: [kind]
@@ -2784,7 +3386,11 @@ components:
       type: object
       required: [libraryFormId, sections, fields]
       properties:
-        libraryFormId: { $ref: '#/components/schemas/Uuid', description: The library form the builders edit; its published version is this library (D-129) }
+        libraryFormId:
+          {
+            $ref: '#/components/schemas/Uuid',
+            description: The library form the builders edit; its published version is this library (D-129),
+          }
         sections:
           type: array
           items:
@@ -2840,13 +3446,42 @@ components:
       properties:
         fieldKey: { type: string, pattern: '^[a-z][a-z0-9_]*$' }
         libraryFieldKey: { type: [string, 'null'] }
-        type: { type: string, enum: [short_text, long_text, number, decimal, money, phone, email, date, time, datetime, single_select, multi_select, radio, checkbox, photo, file, signature, gps, bd_address, repeat_group, calculation, note] }
+        type:
+          {
+            type: string,
+            enum:
+              [
+                short_text,
+                long_text,
+                number,
+                decimal,
+                money,
+                phone,
+                email,
+                date,
+                time,
+                datetime,
+                single_select,
+                multi_select,
+                radio,
+                checkbox,
+                photo,
+                file,
+                signature,
+                gps,
+                bd_address,
+                repeat_group,
+                calculation,
+                note,
+              ],
+          }
         label: { $ref: '#/components/schemas/Bilingual' }
         required: { type: boolean }
         standardColumn: { type: [string, 'null'] }
         settings: { $ref: '../database/json-schemas/form-field-logic.schema.json#/$defs/settings' }
         logic: { $ref: '../database/json-schemas/form-field-logic.schema.json' }
-        calculation: { $ref: '../database/json-schemas/form-field-logic.schema.json#/$defs/calculation' }
+        calculation:
+          { $ref: '../database/json-schemas/form-field-logic.schema.json#/$defs/calculation' }
         options: { type: array, items: { $ref: '#/components/schemas/FieldOption' } }
     FormSection:
       type: object
@@ -2922,7 +3557,12 @@ components:
               type: { type: string }
               label: { $ref: '#/components/schemas/Bilingual' }
               standardColumn: { type: [string, 'null'] }
-              versions: { type: array, items: { type: integer }, description: The version numbers the field appears in }
+              versions:
+                {
+                  type: array,
+                  items: { type: integer },
+                  description: The version numbers the field appears in,
+                }
         meta: { $ref: '#/components/schemas/Meta' }
     PublicLinkConfig:
       type: object
@@ -2954,7 +3594,12 @@ components:
               required: [name, applyTo]
               properties:
                 name: { $ref: '#/components/schemas/Bilingual' }
-                applyTo: { type: [string, 'null'], format: date, description: The last day applications are taken }
+                applyTo:
+                  {
+                    type: [string, 'null'],
+                    format: date,
+                    description: The last day applications are taken,
+                  }
             form: { $ref: '#/components/schemas/FormVersion' }
         meta: { $ref: '#/components/schemas/Meta' }
     PublicApplicationCreate:
@@ -2981,7 +3626,25 @@ components:
         beneficiaryId: { type: [string, 'null'], format: uuid }
         beneficiaryName: { type: [string, 'null'] }
         ownerVolunteerId: { type: [string, 'null'], format: uuid }
-        status: { type: string, enum: [draft, needs_verification, submitted, under_review, reviewed, waitlisted, approved, rejected, implementation, completed, closed, deleted] }
+        status:
+          {
+            type: string,
+            enum:
+              [
+                draft,
+                needs_verification,
+                submitted,
+                under_review,
+                reviewed,
+                waitlisted,
+                approved,
+                rejected,
+                implementation,
+                completed,
+                closed,
+                deleted,
+              ],
+          }
         stage: { type: [string, 'null'] }
         outcome: { type: [string, 'null'] }
         flags: { type: array, items: { type: string } }
@@ -2989,7 +3652,11 @@ components:
         districtId: { $ref: '#/components/schemas/Uuid' }
         unionId: { $ref: '#/components/schemas/Uuid' }
         submittedAt: { type: [string, 'null'], format: date-time }
-        waitingDays: { type: [integer, 'null'], description: Days in the current state (UX-07 stuck approvals) }
+        waitingDays:
+          {
+            type: [integer, 'null'],
+            description: Days in the current state (UX-07 stuck approvals),
+          }
     Answer:
       type: object
       required: [fieldKey, value]
@@ -3034,9 +3701,23 @@ components:
           properties:
             formVersionId: { $ref: '#/components/schemas/Uuid' }
             candidateBeneficiaryId: { type: [string, 'null'], format: uuid }
-            createdByUserId: { type: [string, 'null'], format: uuid, description: The account that created it (a team member's own records) }
-            identityKind: { type: [string, 'null'], enum: [nid, birth_reg, null], description: Which number identifies the person }
-            rejectionMessage: { type: [string, 'null'], description: The words written for the volunteer at a rejection; the office's reason stays in decisionComment }
+            createdByUserId:
+              {
+                type: [string, 'null'],
+                format: uuid,
+                description: The account that created it (a team member's own records),
+              }
+            identityKind:
+              {
+                type: [string, 'null'],
+                enum: [nid, birth_reg, null],
+                description: Which number identifies the person,
+              }
+            rejectionMessage:
+              {
+                type: [string, 'null'],
+                description: The words written for the volunteer at a rejection; the office's reason stays in decisionComment,
+              }
             answers:
               type: array
               description: Official-section answers are absent for callers without application.view_official_section
@@ -3066,7 +3747,12 @@ components:
                   matchedOn:
                     type: array
                     items: { type: string, enum: [mobile, union_village_father] }
-            availableActions: { type: array, items: { type: string }, description: Actions the caller may perform now }
+            availableActions:
+              {
+                type: array,
+                items: { type: string },
+                description: Actions the caller may perform now,
+              }
     ApplicationResponse:
       type: object
       required: [data, meta]
@@ -3082,10 +3768,31 @@ components:
     ApplicationActionRequest:
       type: object
       properties:
-        reason: { type: string, maxLength: 2000, description: 'Required for reject, waitlist and reject_unverified' }
-        comment: { type: string, maxLength: 2000, description: Required when deciding against the score order (BR-099) }
+        reason:
+          {
+            type: string,
+            maxLength: 2000,
+            description: 'Required for reject, waitlist and reject_unverified; the office reason, never shown to a volunteer',
+          }
+        message:
+          {
+            type: string,
+            maxLength: 2000,
+            description: 'Required for reject: the words written for the volunteer',
+          }
+        comment:
+          {
+            type: string,
+            maxLength: 2000,
+            description: Required when deciding against the score order (BR-099),
+          }
         linkBeneficiaryId: { type: string, format: uuid, description: verify_link only }
-        zakatDecision: { type: string, enum: [eligible, not_eligible], description: Official দায়ী when the project uses zakat }
+        zakatDecision:
+          {
+            type: string,
+            enum: [eligible, not_eligible],
+            description: Official দায়ী when the project uses zakat,
+          }
     Score:
       type: object
       required: [applicationId, totalScore, criteria]
@@ -3119,7 +3826,8 @@ components:
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         field: { type: string }
-        kind: { type: string, enum: [unlock, contact_update, correction, sync_conflict] }
+        kind:
+          { type: string, enum: [unlock, contact_update, correction, sync_conflict, review_edit] }
         unlockState: { type: [string, 'null'], enum: [open, updated, relocked, null] }
         oldValue: {}
         newValue: {}
@@ -3158,7 +3866,24 @@ components:
         clientUuid: { $ref: '#/components/schemas/Uuid' }
         clientCreatedAt: { type: string, format: date-time }
         applicationId: { $ref: '#/components/schemas/Uuid' }
-        type: { type: string, enum: [distribution, construction, purchase, training, visit, payment, voucher, expense, issue, inspection, follow_up] }
+        type:
+          {
+            type: string,
+            enum:
+              [
+                distribution,
+                construction,
+                purchase,
+                training,
+                visit,
+                payment,
+                voucher,
+                expense,
+                issue,
+                inspection,
+                follow_up,
+              ],
+          }
         stage: { type: string }
         outcome: { type: string }
         comment: { type: string }
@@ -3195,7 +3920,8 @@ components:
         outcome: { type: string }
         stage: { type: string }
         present: { type: boolean, description: class screen }
-        familyMemberId: { type: string, format: uuid, description: 'class screen - family attendance (O-11)' }
+        familyMemberId:
+          { type: string, format: uuid, description: 'class screen - family attendance (O-11)' }
         absenceReason: { type: string }
         topicUpdates:
           type: array
@@ -3213,7 +3939,13 @@ components:
       type: object
       required: [rows]
       properties:
-        rows: { type: array, minItems: 1, maxItems: 50, items: { $ref: '#/components/schemas/BulkRow' } }
+        rows:
+          {
+            type: array,
+            minItems: 1,
+            maxItems: 50,
+            items: { $ref: '#/components/schemas/BulkRow' },
+          }
     RowResult:
       type: object
       required: [clientUuid, result]
@@ -3242,9 +3974,38 @@ components:
       required: [clientUuid, kind, entityType, entityId, slot, mime, sizeBytes, sha256, source]
       properties:
         clientUuid: { $ref: '#/components/schemas/Uuid' }
-        kind: { type: string, enum: [distribution_proof, construction_proof, evidence, voucher, payment_copy, document, animal_photo, profile_photo, nid_photo, media_asset, issue_photo, form_photo] }
-        entityType: { type: string, minLength: 1, maxLength: 40, description: 'The record type the file links to: application, activity, issue, voucher, expense_claim, payment, animal or document; each takes its own kinds (D-108)' }
-        entityId: { type: string, format: uuid, description: The record the file links to; its scope is checked at create and at finalize }
+        kind:
+          {
+            type: string,
+            enum:
+              [
+                distribution_proof,
+                construction_proof,
+                evidence,
+                voucher,
+                payment_copy,
+                document,
+                animal_photo,
+                profile_photo,
+                nid_photo,
+                media_asset,
+                issue_photo,
+                form_photo,
+              ],
+          }
+        entityType:
+          {
+            type: string,
+            minLength: 1,
+            maxLength: 40,
+            description: 'The record type the file links to: application, activity, issue, voucher, expense_claim, payment, animal or document; each takes its own kinds (D-108)',
+          }
+        entityId:
+          {
+            type: string,
+            format: uuid,
+            description: The record the file links to; its scope is checked at create and at finalize,
+          }
         slot: { type: string, pattern: '^[a-z][a-z0-9_]{0,39}$' }
         mime: { type: string, minLength: 1, maxLength: 100 }
         sizeBytes: { type: integer, minimum: 1, maximum: 20971520 }
@@ -3260,10 +4021,16 @@ components:
         id: { $ref: '#/components/schemas/Uuid' }
         chunkSize: { type: integer, const: 262144 }
         partCount: { type: integer, minimum: 1, description: The parts the declared size needs }
-        partsReceived: { type: array, items: { type: integer, minimum: 1 }, description: 'The parts the server holds, for a resume after a dropped connection' }
+        partsReceived:
+          {
+            type: array,
+            items: { type: integer, minimum: 1 },
+            description: 'The parts the server holds, for a resume after a dropped connection',
+          }
         bytesReceived: { type: integer, minimum: 0 }
         expiresAt: { type: string, format: date-time }
-        fileId: { type: [string, 'null'], format: uuid, description: Set once the session is finalized }
+        fileId:
+          { type: [string, 'null'], format: uuid, description: Set once the session is finalized }
     UploadSessionResponse:
       type: object
       required: [data, meta]
@@ -3289,8 +4056,28 @@ components:
             lng: { type: number }
             accuracyM: { type: [number, 'null'] }
         virusScan: { type: string, enum: [pending, clean, infected, failed, skipped] }
-        flags: { type: array, items: { type: string, enum: [no_capture_time, no_gps, gallery_under_camera_only, stale_capture, duplicate_suspect] } }
-        duplicateOf: { type: [string, 'null'], format: uuid, description: 'The near or exact duplicate, named only to a caller whose scope reaches it' }
+        flags:
+          {
+            type: array,
+            items:
+              {
+                type: string,
+                enum:
+                  [
+                    no_capture_time,
+                    no_gps,
+                    gallery_under_camera_only,
+                    stale_capture,
+                    duplicate_suspect,
+                  ],
+              },
+          }
+        duplicateOf:
+          {
+            type: [string, 'null'],
+            format: uuid,
+            description: 'The near or exact duplicate, named only to a caller whose scope reaches it',
+          }
     FileListRow:
       type: object
       required: [id, kind, slot, mime, sizeBytes, capturedAt, uploadedAt, gps, virusScan, flags]
@@ -3305,7 +4092,7 @@ components:
         gps:
           type: [object, 'null']
           x-sensitive-class: file.location
-          description: 'Null for a caller without file.location, except on the caller''s own uploads'
+          description: "Null for a caller without file.location, except on the caller's own uploads"
           required: [lat, lng]
           properties:
             lat: { type: number }
@@ -3355,7 +4142,8 @@ components:
       additionalProperties: false
       description: Exactly one of ids and all.
       properties:
-        ids: { type: array, minItems: 1, maxItems: 100, items: { $ref: '#/components/schemas/Uuid' } }
+        ids:
+          { type: array, minItems: 1, maxItems: 100, items: { $ref: '#/components/schemas/Uuid' } }
         all: { type: boolean, const: true }
     PreferencesUpdate:
       type: object
@@ -3434,7 +4222,11 @@ components:
               properties:
                 id: { $ref: '#/components/schemas/Uuid' }
                 name: { type: string }
-        address: { type: string, description: 'Partly hidden: the first letter and the domain, or 3 and 2 digits' }
+        address:
+          {
+            type: string,
+            description: 'Partly hidden: the first letter and the domain, or 3 and 2 digits',
+          }
         attempts: { type: integer, minimum: 0 }
         lastError: { type: [string, 'null'], description: 'Cleaned: no address or number' }
         nextAttemptAt: { type: [string, 'null'], format: date-time }
@@ -3449,7 +4241,11 @@ components:
       type: object
       required: [kind, format]
       properties:
-        kind: { type: string, enum: [applications, beneficiaries, volunteers, form_data, work_summary, audit] }
+        kind:
+          {
+            type: string,
+            enum: [applications, beneficiaries, volunteers, form_data, work_summary, audit],
+          }
         format: { type: string, enum: [csv, xlsx, pdf] }
         filters: { type: object }
     ExportJob:
@@ -3756,7 +4552,21 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     AuditEntry:
       type: object
-      required: [id, createdAt, action, entityType, entityId, actor, actorRole, reason, ip, deviceSessionId, old, new]
+      required:
+        [
+          id,
+          createdAt,
+          action,
+          entityType,
+          entityId,
+          actor,
+          actorRole,
+          reason,
+          ip,
+          deviceSessionId,
+          old,
+          new,
+        ]
       properties:
         id: { type: string, format: uuid }
         createdAt: { type: string, format: date-time }
@@ -3817,7 +4627,25 @@ components:
       required: [clientUuid, kind, payload, clientCreatedAt]
       properties:
         clientUuid: { $ref: '#/components/schemas/Uuid' }
-        kind: { type: string, enum: [application_draft, application_submit, application_update, field_update, activity, stock_receive, stock_reconcile, expense_claim, voucher_submit, consent_accept, edit_request, profile_contact_update] }
+        kind:
+          {
+            type: string,
+            enum:
+              [
+                application_draft,
+                application_submit,
+                application_update,
+                field_update,
+                activity,
+                stock_receive,
+                stock_reconcile,
+                expense_claim,
+                voucher_submit,
+                consent_accept,
+                edit_request,
+                profile_contact_update,
+              ],
+          }
         target: { type: [string, 'null'], format: uuid }
         projectId: { $ref: '#/components/schemas/Uuid' }
         formVersionId: { $ref: '#/components/schemas/Uuid' }
@@ -3831,7 +4659,13 @@ components:
       required: [deviceTime, records]
       properties:
         deviceTime: { type: string, format: date-time }
-        records: { type: array, minItems: 1, maxItems: 50, items: { $ref: '#/components/schemas/SyncRecord' } }
+        records:
+          {
+            type: array,
+            minItems: 1,
+            maxItems: 50,
+            items: { $ref: '#/components/schemas/SyncRecord' },
+          }
     SyncBatchResponse:
       type: object
       required: [data, meta]
@@ -3854,10 +4688,17 @@ components:
             serverTime: { type: string, format: date-time }
             projects: { type: array, items: { $ref: '#/components/schemas/Project' } }
             formVersions: { type: array, items: { $ref: '#/components/schemas/FormVersion' } }
-            applications: { type: array, items: { $ref: '#/components/schemas/ApplicationSummary' } }
-            beneficiaries: { type: array, items: { $ref: '#/components/schemas/BeneficiarySummary' } }
+            applications:
+              { type: array, items: { $ref: '#/components/schemas/ApplicationSummary' } }
+            beneficiaries:
+              { type: array, items: { $ref: '#/components/schemas/BeneficiarySummary' } }
             locationsVersion: { type: integer }
-            removedIds: { type: array, items: { $ref: '#/components/schemas/Uuid' }, description: Records no longer in the caller's scope }
+            removedIds:
+              {
+                type: array,
+                items: { $ref: '#/components/schemas/Uuid' },
+                description: Records no longer in the caller's scope,
+              }
         meta: { $ref: '#/components/schemas/Meta' }
 
 paths:
@@ -5139,7 +5980,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
-  # ======================= volunteers =======================
+        # ======================= volunteers =======================
         '422': { $ref: '#/components/responses/Unprocessable' }
   /volunteers:
     get:
@@ -5516,7 +6357,13 @@ paths:
         - { name: districtId, in: query, required: false, schema: { type: string, format: uuid } }
         - { name: upazilaId, in: query, required: false, schema: { type: string, format: uuid } }
         - { name: unionId, in: query, required: false, schema: { type: string, format: uuid } }
-        - { name: q, in: query, required: false, description: "A name, or an exact mobile number", schema: { type: string, minLength: 2, maxLength: 100 } }
+        - {
+            name: q,
+            in: query,
+            required: false,
+            description: 'A name, or an exact mobile number',
+            schema: { type: string, minLength: 2, maxLength: 100 },
+          }
       responses:
         '200':
           description: Candidates
@@ -5677,7 +6524,13 @@ paths:
       x-audit: none
       x-idempotency: none
       x-rate-limit: list
-      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care, beneficiary.profile_detail]
+      x-sensitive-fields:
+        [
+          beneficiary.contact,
+          beneficiary.address_detail,
+          beneficiary.care,
+          beneficiary.profile_detail,
+        ]
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/PageNumber'
@@ -5731,7 +6584,13 @@ paths:
       x-audit: none
       x-idempotency: none
       x-rate-limit: list
-      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care, beneficiary.profile_detail]
+      x-sensitive-fields:
+        [
+          beneficiary.contact,
+          beneficiary.address_detail,
+          beneficiary.care,
+          beneficiary.profile_detail,
+        ]
       parameters:
         - $ref: '#/components/parameters/Search'
         - $ref: '#/components/parameters/VolunteerDivisionId'
@@ -5818,7 +6677,16 @@ paths:
       x-audit: none
       x-idempotency: none
       x-rate-limit: list
-      x-sensitive-fields: [beneficiary.contact, beneficiary.address_detail, beneficiary.care, beneficiary.profile_detail, beneficiary.application_history, beneficiary.nid, blocklist.reason]
+      x-sensitive-fields:
+        [
+          beneficiary.contact,
+          beneficiary.address_detail,
+          beneficiary.care,
+          beneficiary.profile_detail,
+          beneficiary.application_history,
+          beneficiary.nid,
+          blocklist.reason,
+        ]
       responses:
         '200':
           description: Profile
@@ -6033,7 +6901,12 @@ paths:
         '429': { $ref: '#/components/responses/TooManyRequests' }
   /beneficiary-merge-dismissals/{dismissalId}/lift:
     parameters:
-      - { name: dismissalId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+      - {
+          name: dismissalId,
+          in: path,
+          required: true,
+          schema: { $ref: '#/components/schemas/Uuid' },
+        }
     post:
       tags: [beneficiaries]
       operationId: beneficiaries.merge.dismissal_lift
@@ -6095,7 +6968,12 @@ paths:
       x-idempotency: none
       x-rate-limit: list
       parameters:
-        - { name: status, in: query, required: false, schema: { type: string, enum: [proposed, merged, reverted] } }
+        - {
+            name: status,
+            in: query,
+            required: false,
+            schema: { type: string, enum: [proposed, merged, reverted] },
+          }
       responses:
         '200':
           description: At most 100 merges
@@ -7517,7 +8395,7 @@ paths:
     get:
       tags: [forms]
       operationId: forms.ready.list
-      summary: "Ready forms outside the projects: every one with its draft for the builders, the published ones for a PM; never the library; not paginated"
+      summary: 'Ready forms outside the projects: every one with its draft for the builders, the published ones for a PM; never the library; not paginated'
       x-permission: form.place
       x-scope: project
       x-audit: none
@@ -8500,9 +9378,19 @@ paths:
       x-idempotency: none
       x-rate-limit: list
       parameters:
-        - { name: entityType, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 40 } }
+        - {
+            name: entityType,
+            in: query,
+            required: true,
+            schema: { type: string, minLength: 1, maxLength: 40 },
+          }
         - { name: entityId, in: query, required: true, schema: { type: string, format: uuid } }
-        - { name: format, in: query, required: false, schema: { type: string, enum: [json, csv], default: json } }
+        - {
+            name: format,
+            in: query,
+            required: false,
+            schema: { type: string, enum: [json, csv], default: json },
+          }
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:
@@ -8657,7 +9545,19 @@ paths:
                       properties:
                         kind:
                           type: string
-                          enum: [unread_notifications, consent_pending, corrections, edit_answered, registrations_pending, staff_registrations_pending, edit_requests_pending, projects_draft, deadlines_soon, handovers_open]
+                          enum:
+                            [
+                              unread_notifications,
+                              consent_pending,
+                              corrections,
+                              edit_answered,
+                              registrations_pending,
+                              staff_registrations_pending,
+                              edit_requests_pending,
+                              projects_draft,
+                              deadlines_soon,
+                              handovers_open,
+                            ]
                         count: { type: integer, minimum: 1 }
                         href: { type: string, description: A fixed route of the PWA }
                   meta: { $ref: '#/components/schemas/Meta' }
@@ -8728,7 +9628,8 @@ paths:
                 type: object
                 required: [data, meta]
                 properties:
-                  data: { type: array, items: { $ref: '#/components/schemas/NotificationTemplate' } }
+                  data:
+                    { type: array, items: { $ref: '#/components/schemas/NotificationTemplate' } }
                   meta: { $ref: '#/components/schemas/Meta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }

@@ -1,5 +1,6 @@
 import {
   APPLICATION_ACTIONS,
+  APPLICATION_STATES,
   type ApplicationAction,
   uuidv7,
   type WorkflowDefinition,
@@ -7,6 +8,7 @@ import {
 } from '@css/shared';
 import { type Answer, type Audience, type FormDefinition, identityColumn } from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
+import { z } from 'zod';
 import { type EffectiveAccess, WORKING_ASSIGNMENT, workingTeamProjects } from '../access/effective';
 import { applicationWhere, holdsPermission, projectWhere, type Scope } from '../access/scope';
 import type { AccessService } from '../access/service';
@@ -28,7 +30,7 @@ import {
 } from '../core/pagination';
 import type { PrismaService, Tx } from '../core/prisma.service';
 import { literalContains } from '../core/search';
-import type { Prisma } from '../generated/prisma/client';
+import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import type { BeneficiaryFamilyService } from '../services/beneficiary-family';
 import type { BeneficiaryIdentityService } from '../services/beneficiary-identity';
@@ -81,7 +83,7 @@ const EDIT_PERMISSION: Record<string, string> = {
   under_review: 'application.review',
 };
 
-/** The identity answers a known person's profile locks (BD-02): the number, the name, the father or husband. */
+/** The identity answers a known person's profile locks: the number, the name, the father or husband. */
 const LOCKED_COLUMNS = [IDENTITY_COLUMN, 'name', 'father_or_husband_name'] as const;
 
 /** The guards a draft passes before it is made, so a refusal comes before any writing. */
@@ -96,8 +98,8 @@ const CREATE_GUARDS: BuiltGuard[] = [
 const IDENTITY_NUMBER = /^(\d{10}|\d{13}|\d{17})$/;
 const TEAM_MEMBER_ROLE = 'volunteer_team_member';
 const DAY_MS = 24 * 60 * 60 * 1000;
-/** Newest first by id (UUID v7 follows the time of creation and pages without gaps). */
-const LIST_SORT_FIELDS = ['id', 'submittedAt'];
+/** Newest first by id (UUID v7 follows the time of creation and pages without gaps; a submission time can be null). */
+const LIST_SORT_FIELDS = ['id'];
 const DEFAULT_SORT = [{ field: 'id', direction: 'desc' as const }];
 /** The states a list leaves out unless asked for by name. */
 const HIDDEN_STATES = ['deleted'];
@@ -152,14 +154,18 @@ type Person = {
 };
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
+const definitionKeys = (definition: FormDefinition) =>
+  definition.sections.flatMap((s) => s.fields.map((f) => f.fieldKey));
+const statusSchema = z.enum(APPLICATION_STATES);
+const identityKindSchema = z.enum(['nid', 'birth_reg']).nullable();
 
 /**
- * The applications of the core cycle (docs/plans/2026-10-24-1530-feat-applications-workflow-plan.md,
- * U2): a draft is made on the project's published application form by a volunteer, a team member
- * (under their lead) or an official; the person comes from the number in the identity answer and
- * never from an id the client sends; a known person's identity answers are locked to the profile;
- * the edits and the deletion follow the state; every state change goes through the engine. A
- * volunteer on the blocklist reaches nothing (BD-06).
+ * The applications of the core cycle (docs/architecture/WORKFLOW_ENGINE.md, section 3): a draft
+ * is made on the project's published application form by a volunteer, a team member (under their
+ * lead) or an official; the person comes from the number in the identity answer and never from an
+ * id the client sends; a known person's identity answers are locked to the profile; the edits and
+ * the deletion follow the state; every state change goes through the engine. A volunteer on the
+ * blocklist reaches nothing.
  */
 export class ApplicationsService {
   constructor(
@@ -184,9 +190,11 @@ export class ApplicationsService {
         { path: 'projectId', code: 'validation.failed' },
       ]);
     const actor = viewer.principal.userId;
+    if (await this.blockedCaller(this.prisma, viewer.principal))
+      throw new ApiError('permission.not_found', 404);
+    const project = await this.reachedProject(viewer.principal, viewer.scope, projectId);
     const earlier = await this.earlier(viewer, projectId, body.clientUuid);
     if (earlier) return { replay: true, value: earlier };
-    const project = await this.reachedProject(viewer.principal, viewer.scope, projectId);
     const version = await this.prisma.formVersion.findFirst({
       where: {
         id: body.formVersionId,
@@ -200,9 +208,13 @@ export class ApplicationsService {
     const definition = await readDefinition(this.prisma, version.id, audience);
     const { checked, chain } = await this.checked(definition, body.answers, audience, true);
     const access = await this.access.load(actor);
+    await this.gateLookup(viewer.principal, access, projectId, definition, checked.answers);
     try {
       const id = await this.prisma.$transaction(async (tx) => {
         const owner = await this.ownerFor(tx, viewer.principal, projectId);
+        // one draft of an owner at a time, so parallel creates cannot pass the limit together
+        if (owner.ownerVolunteerId)
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`application-owner:${projectId}:${owner.ownerVolunteerId}`}))`;
         const person = await this.resolvePerson(tx, definition, checked.answers);
         await this.assertOnePerProject(tx, projectId, person, null);
         await this.assertMobile(tx, actor, checked.standard, owner.ownerUserId);
@@ -298,6 +310,9 @@ export class ApplicationsService {
     await this.assertMay(viewer.principal, access, permission, applicationId);
     assertIfMatch(ifMatch, row.updatedAt);
     const audience = this.audienceOf(viewer);
+    const keys = new Set(
+      definitionKeys(await readDefinition(this.prisma, row.formVersionId, audience)),
+    );
     const definition = await readDefinition(this.prisma, row.formVersionId, audience);
     const { checked, chain } = await this.checked(
       definition,
@@ -305,10 +320,26 @@ export class ApplicationsService {
       audience,
       row.status === 'draft',
     );
+    if (!row.beneficiaryId)
+      await this.gateLookup(viewer.principal, access, row.projectId, definition, checked.answers);
     try {
       await this.prisma.$transaction(async (tx) => {
-        await tx.$queryRaw`SELECT id FROM applications WHERE id = ${applicationId}::uuid FOR UPDATE`;
-        const before = await readAnswers(tx, applicationId, definition);
+        // the version and the state are read again under the lock: two edits with the same
+        // version, or an edit racing a submission, must not both land
+        const [locked] = await tx.$queryRaw<{ status: string; updated_at: Date }[]>`
+          SELECT status, updated_at FROM applications WHERE id = ${applicationId}::uuid FOR UPDATE`;
+        if (!locked || locked.status !== row.status)
+          throw new ApiError('application.not_editable', 409);
+        assertIfMatch(ifMatch, locked.updated_at);
+        // one read of every stored answer: the caller's audience is compared and rewritten, the
+        // other audience's answers stay as they are
+        const stored = await readAnswers(
+          tx,
+          applicationId,
+          await readDefinition(tx, row.formVersionId, 'official'),
+        );
+        const before = stored.filter((a) => keys.has(a.fieldKey));
+        const kept = stored.filter((a) => !keys.has(a.fieldKey));
         const person = await this.resolvePerson(tx, definition, checked.answers, row.beneficiaryId);
         await this.assertOnePerProject(tx, row.projectId, person, applicationId);
         const ownerUser = row.ownerVolunteerId
@@ -321,17 +352,6 @@ export class ApplicationsService {
           : undefined;
         await this.assertMobile(tx, actor, checked.standard, ownerUser);
         await assertUploadsOwn(tx, actor, applicationId, person.answers);
-        // the official's edit of the official section and the volunteer's answers alike: the
-        // stored answers of the other audience stay as they are
-        const kept = (
-          await readAnswers(
-            tx,
-            applicationId,
-            await readDefinition(tx, row.formVersionId, 'official'),
-          )
-        ).filter(
-          (a) => !definition.sections.some((s) => s.fields.some((f) => f.fieldKey === a.fieldKey)),
-        );
         await writeAnswers(
           tx,
           applicationId,
@@ -361,8 +381,8 @@ export class ApplicationsService {
               entityType: 'application',
               entityId: applicationId,
               field: c.repeatIndex ? `${c.fieldKey}[${c.repeatIndex}]` : c.fieldKey,
-              oldValue: c.old as Prisma.InputJsonValue,
-              newValue: c.new as Prisma.InputJsonValue,
+              oldValue: (c.old ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+              newValue: (c.new ?? Prisma.JsonNull) as Prisma.InputJsonValue,
               kind: 'review_edit',
               createdBy: actor,
             })),
@@ -400,14 +420,20 @@ export class ApplicationsService {
   ): Promise<ApplicationRead> {
     if (await this.blockedCaller(this.prisma, viewer.principal))
       throw new ApiError('permission.not_found', 404);
+    // the zakat decision and the link of a public entry come with their own steps; a value nothing
+    // records is refused rather than dropped
+    if (body.zakatDecision !== undefined || body.linkBeneficiaryId !== undefined)
+      throw new ApiError('workflow.action_not_built', 409);
     await this.prisma.$transaction((tx) =>
       this.workflow.transition(
         tx,
         viewer.principal,
         applicationId,
         action,
-        { reason: body.reason, comment: body.comment },
-        ifMatch,
+        { reason: body.reason, comment: body.comment, message: body.message },
+        // the version the caller saw is required: the engine checks it once the permission and
+        // the scope have passed, so a hidden application still answers not-found
+        ifMatch ?? '',
       ),
     );
     const access = await this.access.load(viewer.principal.userId);
@@ -431,7 +457,7 @@ export class ApplicationsService {
       : undefined;
     const direction = cursor?.d ?? 'next';
     const offset = pageOffset(query);
-    // the review queue by score comes with the scoring of T2.6; until then the order of arrival
+    // the queue is in the order of arrival; a sort by score reads the same while no score exists
     const sort = parseSort(
       query.sort === '-score' ? undefined : query.sort,
       LIST_SORT_FIELDS,
@@ -503,7 +529,7 @@ export class ApplicationsService {
       beneficiaryId: r.beneficiaryId,
       beneficiaryName: r.beneficiary?.name ?? null,
       ownerVolunteerId: r.ownerVolunteerId,
-      status: r.status as ApplicationSummary['status'],
+      status: statusSchema.parse(r.status),
       stage: r.stage,
       outcome: r.outcome,
       flags: r.flags,
@@ -559,6 +585,35 @@ export class ApplicationsService {
     return this.read(viewer, access, row.id);
   }
 
+  /**
+   * A number that names a known person goes through the lookup of the beneficiary service, so an
+   * application draft reveals no more than the lookup does: the same scope, the same daily limit
+   * outside the caller's area, the same audit entry, and nothing for a blocked person.
+   */
+  private async gateLookup(
+    principal: Principal,
+    access: EffectiveAccess,
+    projectId: string,
+    definition: FormDefinition,
+    answers: Answer[],
+  ): Promise<void> {
+    const field = fieldByColumn(definition, IDENTITY_COLUMN);
+    const number = field ? textOf(answers, field.fieldKey) : null;
+    if (!number || !IDENTITY_NUMBER.test(number)) return;
+    const permission = 'beneficiary.lookup';
+    if (!holdsPermission(permission, access.grants)) {
+      this.access.denied(principal.userId, permission, 'project');
+      throw new ApiError('permission.denied', 403);
+    }
+    const scope = await this.access.scopeFor(principal, access, permission, 'project');
+    const kind = identityColumn(number);
+    const found = await this.identity.lookup(
+      { principal, scope },
+      { projectId, ...(kind === 'nid' ? { nid: number } : { birthReg: number }) },
+    );
+    if (found.found && found.blocked) throw new ApiError('beneficiary.blocked', 409);
+  }
+
   /** Whose application a draft is: the volunteer's own, a team member's lead's, nobody's for an official. */
   private async ownerFor(
     tx: Tx,
@@ -594,9 +649,9 @@ export class ApplicationsService {
 
   /**
    * The person behind the number in the identity answer: a live profile binds the application and
-   * locks the identity answers to its values (BD-02); a blocked person is refused (BD-06); no
-   * profile leaves the number in the answer for the submission to create one. An application
-   * already bound keeps its person: the number of its answer cannot name another.
+   * locks the identity answers to its values; a blocked person is refused; no profile leaves the
+   * number in the answer for the submission to create one. An application already bound keeps its
+   * person: the number of its answer cannot name another.
    */
   private async resolvePerson(
     tx: Tx,
@@ -661,8 +716,9 @@ export class ApplicationsService {
   }
 
   /**
-   * One application per person per project (BR-016): a known person may not have another live one,
-   * and before the profile exists the same number may not be drafted twice.
+   * One application per person per project: a known person may not have another live one (the
+   * unique index holds it), and before the profile exists the same number may not be drafted
+   * twice; the number is locked for the transaction, so two drafts at once cannot both pass.
    */
   private async assertOnePerProject(
     tx: Tx,
@@ -684,6 +740,7 @@ export class ApplicationsService {
     }
     const number = person.number;
     if (!number) return;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`application-number:${projectId}:${number}`}))`;
     const [row] = await tx.$queryRaw<{ n: bigint }[]>`
       SELECT count(*) AS n
         FROM application_answers aa
@@ -762,7 +819,7 @@ export class ApplicationsService {
     return member ? (await workingTeamProjects(this.prisma, member.id)).includes(projectId) : false;
   }
 
-  /** A volunteer on the blocklist reaches no application (BD-06). */
+  /** A volunteer on the blocklist reaches no application. */
   private async blockedCaller(db: Tx | PrismaService, principal: Principal): Promise<boolean> {
     if (principal.kind !== 'volunteer') return false;
     const own = await db.volunteer.findUnique({
@@ -849,7 +906,7 @@ export class ApplicationsService {
         formVersionId: row.formVersionId,
         candidateBeneficiaryId: row.candidateBeneficiaryId,
         createdByUserId: row.createdByUserId,
-        identityKind: row.identityKind as ApplicationView['identityKind'],
+        identityKind: identityKindSchema.parse(row.identityKind),
         rejectionMessage: row.rejectionMessage,
         answers: answers.map((a) => ({ ...a, repeatIndex: a.repeatIndex ?? 0 })),
         reviewedAt: iso(row.reviewedAt),

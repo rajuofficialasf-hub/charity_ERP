@@ -1,5 +1,5 @@
 import { answerValueSchema, uuidv7 } from '@css/shared';
-import { type FileKind, kindAllowedOn } from '@css/shared/files';
+import { FILE_KINDS, kindAllowedOn } from '@css/shared/files';
 import {
   type Answer,
   type FormDefinition,
@@ -25,6 +25,7 @@ const fileAnswerSchema = z.object({
   t: z.enum(['photo', 'file', 'signature']),
   v: z.array(z.string()),
 });
+const fileKindSchema = z.enum(FILE_KINDS);
 
 /** The file ids every photo answer names, by field. */
 export function photoAnswers(
@@ -123,8 +124,11 @@ export async function assertUploadsOwn(
     const file = byId.get(id);
     if (!file || (file.uploadedBy !== actorId && !linked.has(id)))
       errors.push({ path: fieldKey, code: 'application.upload_not_own' });
-    else if (!kindAllowedOn('application', file.kind as FileKind))
-      errors.push({ path: fieldKey, code: 'file.kind_not_allowed' });
+    else {
+      const kind = fileKindSchema.safeParse(file.kind);
+      if (!kind.success || !kindAllowedOn('application', kind.data))
+        errors.push({ path: fieldKey, code: 'file.kind_not_allowed' });
+    }
   }
   if (errors.length) throw new ApiError('validation.failed', 422, undefined, errors);
 }

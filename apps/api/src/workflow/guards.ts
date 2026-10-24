@@ -74,10 +74,20 @@ export class GuardContext {
     return this.answersCache;
   }
 
-  /** The answers checked as the actor's audience sees the form (a volunteer never fails on an official section). */
+  /**
+   * The answers checked as the actor's audience sees the form: a volunteer's check reads the
+   * volunteer-visible questions and their answers only, so an official's answers in the official
+   * section neither fail nor count for them.
+   */
   async validation() {
     const audience = this.actor.kind === 'volunteer' ? 'volunteer' : 'official';
-    return validate(await this.definition(), await this.answers(), {
+    const definition =
+      audience === 'official'
+        ? await this.definition()
+        : await readDefinition(this.tx, this.application.formVersionId, audience);
+    const keys = new Set(definition.sections.flatMap((s) => s.fields.map((f) => f.fieldKey)));
+    const answers = (await this.answers()).filter((a) => keys.has(a.fieldKey));
+    return validate(definition, answers, {
       audience,
       today: isoDateInDhaka(this.clock.now()),
     });

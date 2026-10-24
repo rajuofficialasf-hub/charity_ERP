@@ -91,6 +91,7 @@ export type ApplicationUpdate = z.infer<typeof applicationUpdateSchema>;
 /** The request of a workflow action (contract `ApplicationActionRequest`). */
 export const applicationActionSchema = z.object({
   reason: z.string().max(2000).optional(),
+  message: z.string().max(2000).optional(),
   comment: z.string().max(2000).optional(),
   linkBeneficiaryId: uuid.optional(),
   zakatDecision: z.enum(['eligible', 'not_eligible']).optional(),

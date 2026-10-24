@@ -16,10 +16,10 @@ import {
 } from './support/auth-app';
 import { beneficiary, fakeMobile, fakeNid, insert, volunteer } from './support/fixtures';
 
-// The application service (docs/plans/2026-10-24-1530-feat-applications-workflow-plan.md, U2): a
-// volunteer, a team member or an official creates a draft on the project's form with the person
-// resolved from the identity number, edits it with If-Match, deletes it and lists what the scope
-// reaches; the office sees the public entries with their flags.
+// The application service: a volunteer, a team member or an official creates a draft on the
+// project's form with the person resolved from the identity number, edits it with If-Match,
+// deletes it and lists what the scope reaches; the office sees the public entries with their
+// flags, and a decision's office reason never reaches the volunteer.
 let h: AuthHarness;
 let world: Awaited<ReturnType<typeof accessWorld>>;
 const accounts = new Map<string, Account>();
@@ -52,6 +52,13 @@ const answerOf = (
   body: { data: { answers: { fieldKey: string; value: unknown }[] } },
   key: string,
 ) => body.data.answers.find((a) => a.fieldKey === key)?.value;
+/** A workflow action with the version the caller last read, as the screen sends it. */
+const act = async (s: Session, id: string, action: string, body: Record<string, unknown> = {}) => {
+  const read = await at(s, 'get', `/applications/${id}`);
+  return at(s, 'post', `/applications/${id}/actions/${action}`)
+    .set('If-Match', (read.headers.etag as string | undefined) ?? '"none"')
+    .send(body);
+};
 
 beforeAll(async () => {
   h = await authHarness();
@@ -281,18 +288,20 @@ describe('reading, editing and deleting', () => {
     expect(made.body.data.availableActions).toEqual([]);
     const id = made.body.data.id as string;
     expect((await at(member, 'get', `/applications/${id}`)).status).toBe(200);
-    const submit = await at(member, 'post', `/applications/${id}/actions/submit`).send({});
+    const submit = await act(member, id, 'submit');
     expect(submit.status).toBe(403);
     expect(submit.body.error.code).toBe('permission.denied');
-    expect((await at(member, 'post', `/applications/${id}/actions/delete`).send({})).status).toBe(
-      403,
-    );
+    expect((await act(member, id, 'delete')).status).toBe(403);
     // the lead reads and deletes it
     const lead = await as(world.users.general);
     const read = await at(lead, 'get', `/applications/${id}`);
     expect(read.status).toBe(200);
     expect(read.body.data.availableActions).toEqual(expect.arrayContaining(['submit', 'delete']));
-    const deleted = await at(lead, 'post', `/applications/${id}/actions/delete`).send({});
+    // without the version the caller saw, nothing moves
+    expect((await at(lead, 'post', `/applications/${id}/actions/delete`).send({})).status).toBe(
+      412,
+    );
+    const deleted = await act(lead, id, 'delete');
     expect(deleted.status, JSON.stringify(deleted.body)).toBe(200);
     expect(deleted.body.data.status).toBe('deleted');
     expect((await at(lead, 'get', `/applications/${id}`)).body.data.status).toBe('deleted');
@@ -347,6 +356,69 @@ describe('reading, editing and deleting', () => {
     expect(after.body.data.answers.map((a: { fieldKey: string }) => a.fieldKey)).not.toContain(
       'q_official',
     );
+    // under review, the official's edit is logged question by question: one answer added, one removed
+    {
+      const submitted = await act(s, id, 'submit');
+      expect(submitted.status, JSON.stringify(submitted.body)).toBe(200);
+    }
+    const reviewing = await act(rpm, id, 'review');
+    expect(reviewing.status, JSON.stringify(reviewing.body)).toBe(200);
+    const reviewed = await at(rpm, 'patch', `/applications/${id}`)
+      .set('If-Match', reviewing.headers.etag as string)
+      .send({
+        answers: [
+          ...identity(nid, mobile),
+          { fieldKey: 'q_note', value: { t: 'long_text', v: 'পর্যালোচনার নোট' } },
+        ],
+      });
+    expect(reviewed.status, JSON.stringify(reviewed.body)).toBe(200);
+    const changes = await h.db.query<{ field: string; old_value: unknown; new_value: unknown }>(
+      `SELECT field, old_value, new_value FROM field_changes WHERE entity_type = 'application' AND entity_id = $1 AND kind = 'review_edit' ORDER BY field`,
+      [id],
+    );
+    expect(changes.rows).toEqual([
+      { field: 'q_note', old_value: null, new_value: { t: 'long_text', v: 'পর্যালোচনার নোট' } },
+      { field: 'q_official', old_value: { t: 'short_text', v: 'অফিসের নোট' }, new_value: null },
+    ]);
+    // the volunteer's edit is refused under review
+    const volunteerEdit = await at(s, 'patch', `/applications/${id}`)
+      .set('If-Match', reviewed.headers.etag as string)
+      .send({ answers: identity(nid, mobile) });
+    expect(volunteerEdit.status).toBe(403);
+  });
+
+  it('keeps the office reason of a rejection from the volunteer, who reads the message only', async () => {
+    const s = await as(world.users.general);
+    // a known person: a new one gets their profile at submission, which the cycle unit builds
+    const nid = fakeNid();
+    await beneficiary(h.db, world.dhaka, { nid });
+    const made = await create(s, createBody(identity(nid)));
+    const id = made.body.data.id as string;
+    {
+      const submitted = await act(s, id, 'submit');
+      expect(submitted.status, JSON.stringify(submitted.body)).toBe(200);
+    }
+    const executive = await as(world.users.executive);
+    expect((await act(executive, id, 'review')).status).toBe(200);
+    expect((await act(executive, id, 'send_for_approval')).status).toBe(200);
+    // a volunteer holds no approval
+    const approve = await act(s, id, 'approve');
+    expect(approve.status).toBe(403);
+    const rpm = await as(world.users.rpmDhaka);
+    const rejected = await act(rpm, id, 'reject', {
+      reason: 'আয় সীমার উপরে',
+      message: 'এবার সম্ভব হলো না',
+    });
+    expect(rejected.status, JSON.stringify(rejected.body)).toBe(200);
+    expect(rejected.body.data).toMatchObject({
+      status: 'rejected',
+      decisionComment: 'আয় সীমার উপরে',
+      rejectionMessage: 'এবার সম্ভব হলো না',
+    });
+    const mine = await at(s, 'get', `/applications/${id}`);
+    expect(mine.body.data.rejectionMessage).toBe('এবার সম্ভব হলো না');
+    expect(mine.body.data).not.toHaveProperty('decisionComment');
+    expect(JSON.stringify(mine.body)).not.toContain('আয় সীমার উপরে');
   });
 
   it('answers 404 by number for a draft, and for the record and the list to another region’s RPM', async () => {

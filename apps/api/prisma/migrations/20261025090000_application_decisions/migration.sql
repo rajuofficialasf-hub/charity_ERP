@@ -14,3 +14,8 @@ CREATE INDEX "applications_project_id_status_created_at_idx"
 ALTER TABLE "applications" DROP CONSTRAINT "applications_beneficiary_check";
 ALTER TABLE "applications" ADD CONSTRAINT "applications_beneficiary_check"
   CHECK ("beneficiary_id" IS NOT NULL OR "status" IN ('draft', 'needs_verification', 'rejected', 'deleted'));
+-- The official's edit of an application under review is logged question by question as its own
+-- kind of field change.
+ALTER TABLE "field_changes" DROP CONSTRAINT "field_changes_kind_check";
+ALTER TABLE "field_changes" ADD CONSTRAINT "field_changes_kind_check"
+  CHECK ("kind" IN ('unlock', 'contact_update', 'correction', 'sync_conflict', 'review_edit'));

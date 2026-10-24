@@ -99,7 +99,7 @@ Technical table added in T0.16 for O-03 (ERD.md §20).
 | L-assignment-target | application, beneficiary, location | work_assignments.target_type |
 | L-app-status | draft, needs_verification, submitted, under_review, reviewed, waitlisted, approved, rejected, implementation, completed, closed, deleted | applications.status (common states, BD-11) |
 | L-change-entity | application, beneficiary, volunteer | field_changes.entity_type |
-| L-change-kind | unlock, contact_update, correction, sync_conflict | field_changes.kind |
+| L-change-kind | unlock, contact_update, correction, sync_conflict, review_edit | field_changes.kind |
 | L-transition-scope | application, stage, project, donor_flow, field_unlock | workflow_transitions.scope |
 | L-activity-type | distribution, construction, purchase, training, visit, payment, voucher, expense, issue, inspection, follow_up | activities.type |
 | L-activity-status | planned, done, failed | activities.status |
