@@ -88,6 +88,10 @@ function api(
     title: T('উপকারভোগীর আবেদন', 'Beneficiary application'),
     publishedVersionId: versions.find((v) => v.status === 'published')?.id ?? null,
     draftVersionId: versions.find((v) => v.status === 'draft')?.id ?? null,
+    kind: 'beneficiary_application',
+    sourceFormId: null,
+    sourceVersionNo: null,
+    newerVersionNo: null,
   });
   server.use(
     http.get(`*/api/v1/projects/${PROJECT}/forms`, () =>

@@ -269,7 +269,7 @@
     "add_tab": "Add a question",
     "library_tab": "Library",
     "types_hint": "Pick the kind of answer you want. A press adds it at the end of the chosen section; a drag places it where you want on the form.",
-    "types_need_section": "Add a section from the library first, then the questions.",
+    "types_need_section": "Add a section first: press “New section” in the middle, or take one from the library. Then add questions.",
     "add_type_suffix": "question: add",
     "type_groups": {
       "text": "Text",
@@ -357,7 +357,35 @@
     },
     "add_row_question": "Add a question to the rows",
     "calc_missing": "Set the calculation's rule",
-    "first_section": "Section 1"
+    "first_section": "Section 1",
+    "identity": {
+      "label": "Identity mark",
+      "none": "No mark",
+      "hint": "A beneficiary application form needs all seven identity marks, each on one question. A mark sets the question's type and keeps it required.",
+      "blocked": "A question in an official-only or conditional section takes no identity mark.",
+      "locked": "An identity question is seen by everyone, so it takes no condition.",
+      "section": "This section holds identity questions, so everyone sees it.",
+      "tag": "Identity: {role}",
+      "roles": {
+        "nid_or_birth_reg": "NID or birth registration number",
+        "name": "Name",
+        "father_or_husband_name": "Father's or husband's name",
+        "mobile": "Mobile number",
+        "gender": "Gender",
+        "address": "Address (division to union)",
+        "village": "Village"
+      },
+      "missing": "Mark every identity question of a beneficiary application form. Still missing: {roles}."
+    },
+    "library_title": "Question library",
+    "kind": {
+      "beneficiary_application": "Beneficiary application",
+      "other": "Other",
+      "library": "Question library"
+    },
+    "new_section": "New section",
+    "section_n_bn": "অংশ {n}",
+    "section_n_en": "Section {n}"
   },
   "types": {
     "short_text": "Short text",
@@ -397,5 +425,24 @@
     "fix_named": "Some answers need fixing; the reason is under each question.",
     "send_failed": "The application could not be sent. Try again.",
     "upload_failed": "The photo could not be sent. Try again."
+  },
+  "ready": {
+    "title": "Ready forms",
+    "intro": "The Monitoring Team builds and publishes forms here. A PM places a published form on a project.",
+    "new": "New ready form",
+    "edit_library": "Edit the question library",
+    "none": "No ready form yet.",
+    "none_hint": "Start with ‘New ready form’.",
+    "state_published": "Version {n} published",
+    "state_draft": "Draft, not published yet",
+    "has_draft": "A new draft is open",
+    "open": "Open {title}",
+    "kind": "Form type",
+    "kind_hint": "A beneficiary application form publishes only once its seven identity questions are marked.",
+    "start": "Start",
+    "start_blank": "Empty form",
+    "start_copy": "Copy of another ready form",
+    "copy_from": "Form to copy",
+    "copy_none": "No published ready form to copy."
   }
 }

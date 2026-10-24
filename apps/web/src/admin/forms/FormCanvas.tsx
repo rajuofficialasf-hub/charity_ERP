@@ -22,7 +22,7 @@ import {
   type FormDefinition,
   type FormField,
   type FormSection,
-  isCoreFieldKey,
+  identityRoleOf,
 } from '@css/shared/forms';
 import { Alert, Badge, Button, Icon, MenuButton, Select, Stack, Text } from '@css/ui';
 import {
@@ -40,7 +40,7 @@ import {
 import { type ReactNode, useId, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { FieldInput } from '../../features/forms/FieldInput';
-import { coreLocks, moveField, moveFieldTo, moveSection, removeSection } from './draft';
+import { moveField, moveFieldTo, moveSection, removeSection } from './draft';
 import { dropTarget, SECTION_DROP, typeFromDragId } from './drop-target';
 import type { BuilderMode, Selection } from './selection';
 import { TYPE_META } from './type-meta';
@@ -116,6 +116,7 @@ export function FormCanvas({
   onCopyField,
   onAddTo,
   onAddRow,
+  onAddSection,
 }: {
   definition: FormDefinition;
   mode: BuilderMode;
@@ -129,6 +130,8 @@ export function FormCanvas({
   onAddTo: (sectionKey: string) => void;
   /** The person wants a question in this group's rows: the group is chosen for the left pane. */
   onAddRow: (groupKey: string) => void;
+  /** The person wants a new empty section at the end of the form. */
+  onAddSection: () => void;
 }) {
   const t = useTranslations('forms.builder');
   const body = definition.sections.map((s, i) => (
@@ -153,6 +156,13 @@ export function FormCanvas({
   return (
     <Stack as="section" gap={4} aria-label={t('outline')}>
       {body}
+      {mode === 'full' ? (
+        <div>
+          <Button variant="secondary" icon={Plus} onPress={onAddSection}>
+            {t('new_section')}
+          </Button>
+        </div>
+      ) : null}
     </Stack>
   );
 }
@@ -193,7 +203,6 @@ function SectionCard({
   const hintId = useId();
   const full = mode === 'full';
   const title = section.title[locale];
-  const core = section.fields.some((f) => isCoreFieldKey(f.fieldKey));
   const heads = section.fields.filter((f) => groupOf(f) === undefined);
   const { setNodeRef, isOver } = useDroppable({
     id: `${SECTION_DROP}${section.key}`,
@@ -275,16 +284,12 @@ function SectionCard({
                     },
                   ]
                 : []),
-              ...(core
-                ? []
-                : [
-                    {
-                      id: 'remove',
-                      label: t('remove', { label: title }),
-                      icon: Trash2,
-                      onAction: onRemoveSection,
-                    },
-                  ]),
+              {
+                id: 'remove',
+                label: t('remove', { label: title }),
+                icon: Trash2,
+                onAction: onRemoveSection,
+              },
             ]}
           />
         ) : null}
@@ -354,7 +359,6 @@ function QuestionRow({
   const locale = useLocale();
   const full = mode === 'full';
   const label = field.label[locale];
-  const locks = coreLocks(field);
   const isSelected = selected === field.fieldKey;
   const {
     attributes,
@@ -445,20 +449,14 @@ function QuestionRow({
           >
             {t('move_down', { label })}
           </Button>
-          {locks.remove ? (
-            <Icon icon={Lock} size="sm" label={t('core')} />
-          ) : (
-            <>
-              {field.type === 'repeat_group' ? null : (
-                <Button size="sm" variant="ghost" icon={Copy} iconOnly onPress={onCopy}>
-                  {t('copy', { label })}
-                </Button>
-              )}
-              <Button size="sm" variant="ghost" icon={Trash2} iconOnly onPress={onRemove}>
-                {t('remove', { label })}
-              </Button>
-            </>
+          {field.type === 'repeat_group' ? null : (
+            <Button size="sm" variant="ghost" icon={Copy} iconOnly onPress={onCopy}>
+              {t('copy', { label })}
+            </Button>
           )}
+          <Button size="sm" variant="ghost" icon={Trash2} iconOnly onPress={onRemove}>
+            {t('remove', { label })}
+          </Button>
         </div>
       ) : null}
     </li>
@@ -571,8 +569,11 @@ function QuestionPreview({ field }: { field: FormField }) {
 
 function QuestionTags({ field }: { field: FormField }) {
   const t = useTranslations('forms.builder');
+  const role = identityRoleOf(field);
   const tags = [
-    isCoreFieldKey(field.fieldKey) ? { icon: Lock, text: t('core'), tone: 'lock' } : null,
+    role
+      ? { icon: Lock, text: t('identity.tag', { role: t(`identity.roles.${role}`) }), tone: 'lock' }
+      : null,
     field.logic?.show_if || field.logic?.required_if
       ? { icon: GitBranch, text: t('has_condition'), tone: 'logic' }
       : null,

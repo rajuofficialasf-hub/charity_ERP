@@ -1,4 +1,4 @@
-import type { FieldType, FormDefinition } from '@css/shared/forms';
+import { CORE_FIELD_KEYS, type FieldType, type FormDefinition } from '@css/shared/forms';
 import { localized, type Locale } from '@css/shared/i18n';
 import {
   Alert,
@@ -24,6 +24,7 @@ import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { canBuildForms, canManagePublicLink } from '../roles';
 import {
+  addEmptySection,
   addLibraryField,
   addLibrarySection,
   addOwnQuestion,
@@ -37,13 +38,14 @@ import {
   type FormVersion,
   type FormVersionListItem,
   formVersions,
+  LIBRARY_KEY,
   library,
   newVersion,
-  projectForms,
   publishVersion,
   versionWithEtag,
 } from './forms-api';
 import { AddPane } from './AddPane';
+import { type BuilderScope, useFormSummary } from './form-summary';
 import { CanvasDnd, FormCanvas } from './FormCanvas';
 import { OwnQuestionDialog } from './OwnQuestionDialog';
 import type { BuilderMode, Selection } from './selection';
@@ -69,15 +71,21 @@ function useMedia(media: string) {
 }
 
 /**
- * The form builder of a project's form (docs/ui/SCREENS.md, "Form builder"): the libraries,
+ * The form builder of a project's form, a ready form or the question library (docs/ui/SCREENS.md,
+ * "Form builder"): the library,
  * the outline and the settings of the chosen part side by side on a computer, the outline alone
  * with text edits on a phone. The draft saves itself; a published version opens read-only. The
  * preview opens from the header in a dialog; the form's name, its versions with their change
  * summaries and its public link sit in the right pane's second tab; publishing asks first with
  * the summary.
  */
-export function FormBuilderPage() {
-  const { projectId = '', formId = '' } = useParams();
+/** The builder of a ready form outside the projects (`/admin/ready-forms/:formId`). */
+export const ReadyFormBuilderPage = () => <FormBuilderPage scope="ready" />;
+/** The builder of the question library (`/admin/question-library`). */
+export const LibraryBuilderPage = () => <FormBuilderPage scope="library" />;
+
+export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope }) {
+  const { projectId = '', formId: routeFormId = '' } = useParams();
   const t = useTranslations('forms.builder');
   const tc = useTranslations('common');
   const locale = useLocale() as Locale;
@@ -102,11 +110,9 @@ export function FormBuilderPage() {
   } | null>(null);
   // the right pane: the chosen question, or the form itself; choosing a question opens the first
   const [pane, setPane] = useState<'question' | 'form'>('question');
-  const forms = useQuery({
-    queryKey: [...FORMS_KEY, projectId],
-    queryFn: () => projectForms(projectId),
-  });
-  const form = forms.data?.find((f) => f.id === formId);
+  const sum = useFormSummary(scope, projectId, routeFormId);
+  const form = sum.summary;
+  const formId = form?.id ?? routeFormId;
   const versionId = viewing ?? form?.draftVersionId ?? form?.publishedVersionId ?? null;
   const read = useQuery({
     queryKey: [...FORMS_KEY, 'version', versionId],
@@ -115,7 +121,7 @@ export function FormBuilderPage() {
   });
   // the library is the builders' read too
   const lib = useQuery({
-    queryKey: [...FORMS_KEY, 'library'],
+    queryKey: LIBRARY_KEY,
     queryFn: library,
     enabled: Boolean(me && canBuildForms(me)),
   });
@@ -124,15 +130,13 @@ export function FormBuilderPage() {
   const versions = useQuery({
     queryKey: versionsKey,
     queryFn: () => formVersions(formId),
-    enabled: Boolean(me && canBuildForms(me)),
+    enabled: Boolean(me && canBuildForms(me)) && formId !== '',
   });
   const sentences = useChangeSentences();
   const afterChange = async () => {
     setViewing(null);
-    await Promise.all([
-      queries.invalidateQueries({ queryKey: [...FORMS_KEY, projectId] }),
-      queries.invalidateQueries({ queryKey: versionsKey }),
-    ]);
+    // the form's lists, its versions and, for the library form, the library everyone picks from
+    await queries.invalidateQueries({ queryKey: FORMS_KEY });
   };
   const publish = useMutation({
     mutationFn: () => publishVersion(versionId!, etag!),
@@ -193,17 +197,17 @@ export function FormBuilderPage() {
     [lib.data],
   );
 
-  if (forms.isPending || (versionId && read.isPending)) return <Skeleton shape="card" />;
+  if (sum.isPending || (versionId && read.isPending)) return <Skeleton shape="card" />;
   const notFound =
-    (forms.isSuccess && !versionId) ||
+    (!sum.error && (!sum.found || !versionId)) ||
     (read.error instanceof ApiFailure && read.error.status === 404);
   if (notFound) return <EmptyState title={t('not_found')} message={t('not_found_hint')} />;
-  if (forms.error || read.error || !read.data || !draft)
+  if (sum.error || read.error || !read.data || !draft)
     return (
       <ErrorState
         title={tc('state.error.text')}
         onRetry={() => {
-          void forms.refetch();
+          sum.refetch();
           if (versionId) void read.refetch();
         }}
       />
@@ -259,7 +263,13 @@ export function FormBuilderPage() {
       : save.state === 'failed'
         ? t('save_failed')
         : t('saved');
-  const title = form ? localized(form.title, locale) : t('title');
+  const title = form?.title
+    ? localized(form.title, locale)
+    : scope === 'library'
+      ? t('library_title')
+      : t('title');
+  // a placed form changes only by taking its ready form's newer version
+  const placed = Boolean(form?.sourceFormId);
   // a library question goes to the chosen section, or to the last one when none is chosen
   const target =
     draft.sections.find((s) => s.key === selection?.section)?.key ?? draft.sections.at(-1)?.key;
@@ -268,10 +278,15 @@ export function FormBuilderPage() {
   const errors = { ...publishDetails, ...save.errors };
   // a refusal about the whole form names no question or section, so it shows above the outline
   const named = new Set(draft.sections.flatMap((s) => [s.key, ...s.fields.map((f) => f.fieldKey)]));
-  const unplaced = Object.entries(errors).filter(([key]) => !named.has(key));
+  // the identity roles no question is marked with yet: one alert naming them all
+  const missingRoles = CORE_FIELD_KEYS.filter((k) => !named.has(k) && k in errors);
+  const unplaced = Object.entries(errors).filter(
+    ([key]) => !named.has(key) && !missingRoles.some((k) => k === key),
+  );
   const published = versions.data?.find((v) => v.status === 'published') ?? null;
   const canPublish = builder && isDraft && !viewing && !phone && !save.refused;
-  const canStartNext = builder && !phone && version.status === 'published' && !form?.draftVersionId;
+  const canStartNext =
+    builder && !phone && !placed && version.status === 'published' && !form?.draftVersionId;
   // a refusal that names no question shows above the panes: any refused new version, and a
   // refused publish without messages for the outline
   const failure = [Object.keys(publishDetails).length ? null : publish.error, next.error].find(
@@ -289,6 +304,14 @@ export function FormBuilderPage() {
       onRemoveField={remove}
       onCopyField={copy}
       onAddTo={(sectionKey) => setSelected({ section: sectionKey })}
+      onAddSection={() => {
+        const made = addEmptySection(draft, (n) => ({
+          bn: t('section_n_bn', { n: String(n) }),
+          en: t('section_n_en', { n: String(n) }),
+        }));
+        change(made.definition);
+        setSelected({ section: made.key });
+      }}
       onAddRow={(groupKey) => {
         const section = sectionOf(groupKey);
         if (section) setSelected({ section: section.key, field: groupKey });
@@ -301,6 +324,7 @@ export function FormBuilderPage() {
         definition={draft}
         selected={selection}
         mode={mode === 'full' ? 'full' : 'texts'}
+        identityMarks={form?.kind !== 'other'}
         onChange={change}
       />
     );
@@ -364,14 +388,17 @@ export function FormBuilderPage() {
                       />
                     </Disclosure>
                   ) : null}
-                  <Disclosure title={t('link.title')} icon={Link2} headingLevel={2}>
-                    <PublicLinkPanel
-                      projectId={projectId}
-                      formId={formId}
-                      published={Boolean(form?.publishedVersionId)}
-                      canManage={linkManager}
-                    />
-                  </Disclosure>
+                  {/* the public link belongs to a project, and opens an application form only */}
+                  {scope === 'project' && form?.kind === 'beneficiary_application' ? (
+                    <Disclosure title={t('link.title')} icon={Link2} headingLevel={2}>
+                      <PublicLinkPanel
+                        projectId={projectId}
+                        formId={formId}
+                        published={Boolean(form.publishedVersionId)}
+                        canManage={linkManager}
+                      />
+                    </Disclosure>
+                  ) : null}
                 </Stack>
               ),
             },
@@ -399,6 +426,7 @@ export function FormBuilderPage() {
       <div className="fb-head">
         <h1 className="admin-title">{title}</h1>
         <div className="fb-head-meta">
+          {form ? <Badge label={t(`kind.${form.kind}`)} /> : null}
           <Badge label={versionLabel} />
           <Text tone="muted">
             {t('count_line', {
@@ -449,6 +477,13 @@ export function FormBuilderPage() {
       {save.refused ? (
         <Alert tone="warning" live="alert">
           {t('no_official')}
+        </Alert>
+      ) : null}
+      {missingRoles.length ? (
+        <Alert tone="danger">
+          {t('identity.missing', {
+            roles: missingRoles.map((k) => t(`identity.roles.${k}`)).join(', '),
+          })}
         </Alert>
       ) : null}
       {unplaced.map(([key, message]) => (

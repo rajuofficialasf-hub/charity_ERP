@@ -4,6 +4,7 @@ import {
   ArrowRightLeft,
   Activity,
   Bell,
+  ClipboardList,
   FolderKanban,
   HandHeart,
   House,
@@ -29,6 +30,7 @@ import {
   PROJECT_CREATE_ROLES,
   PROJECT_ROLES,
   EDIT_REQUEST_ROLES,
+  FORM_BUILDER_ROLES,
   STAFF_DIRECTORY_ROLES,
   NISAB_ROLES,
   STAFF_APPROVER_ROLES,
@@ -47,6 +49,7 @@ export interface NavDestination {
     | 'projects'
     | 'programs'
     | 'templates'
+    | 'ready_forms'
     | 'volunteers'
     | 'beneficiaries'
     | 'registrations'
@@ -88,6 +91,13 @@ export const SIDEBAR: readonly { group: NavGroup; items: readonly NavDestination
         href: '/admin/templates',
         icon: LayoutTemplate,
         roles: PROJECT_CREATE_ROLES,
+      },
+      {
+        key: 'ready_forms',
+        href: '/admin/ready-forms',
+        icon: ClipboardList,
+        roles: FORM_BUILDER_ROLES,
+        also: ['/admin/question-library'],
       },
     ],
   },

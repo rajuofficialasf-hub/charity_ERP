@@ -142,6 +142,10 @@ function api(
             title: T('উপকারভোগীর আবেদন', 'Beneficiary application'),
             publishedVersionId: options.draft === false ? PUBLISHED : null,
             draftVersionId: options.draft === false ? null : DRAFT,
+            kind: 'beneficiary_application',
+            sourceFormId: null,
+            sourceVersionNo: null,
+            newerVersionNo: null,
           },
         ],
         meta: { requestId: 'r' },
@@ -289,20 +293,17 @@ describe('the outline and the libraries', () => {
     expect(saved.fields.map((f) => f.fieldKey)).toEqual(['a', 'b']);
   }, 15_000);
 
-  it('marks the core fields locked and offers no remove for them', async () => {
+  it('tags an identity question with its role, and lets it be moved, copied and removed', async () => {
     api();
     open();
     const user = userEvent.setup();
     const basic = await outlineOf('মৌলিক তথ্য');
     const name = basic.getAllByRole('listitem').find((li) => li.textContent?.includes('name'))!;
-    expect(
-      within(name).getByText('সব প্রকল্পে আবশ্যক প্রশ্ন; সরানো বা লুকানো যায় না'),
-    ).toBeInTheDocument();
-    // chosen, it offers its moves but neither a copy nor a remove
+    expect(within(name).getByText('পরিচয়: নাম')).toBeInTheDocument();
+    // chosen, it moves, copies and goes like any other question
     await user.click(within(name).getByRole('button', { name: 'name বদলান' }));
     expect(within(name).getByRole('button', { name: 'name নিচে নিন' })).toBeInTheDocument();
-    expect(within(name).queryByRole('button', { name: 'name সরান' })).not.toBeInTheDocument();
-    expect(within(name).queryByRole('button', { name: /কপি/ })).not.toBeInTheDocument();
+    expect(within(name).getByRole('button', { name: 'name সরান' })).toBeInTheDocument();
   });
 
   it('removes a chosen question and brings it back with one press', async () => {
@@ -744,6 +745,10 @@ describe('who may change what', () => {
                   title: T('উপকারভোগীর আবেদন', 'Beneficiary application'),
                   publishedVersionId: null,
                   draftVersionId: DRAFT,
+                  kind: 'beneficiary_application',
+                  sourceFormId: null,
+                  sourceVersionNo: null,
+                  newerVersionNo: null,
                 },
               ],
               meta: { requestId: 'r' },
@@ -802,6 +807,10 @@ describe('a new form', () => {
               title: T('আবেদন', 'Application'),
               publishedVersionId: null,
               draftVersionId: DRAFT,
+              kind: 'beneficiary_application',
+              sourceFormId: null,
+              sourceVersionNo: null,
+              newerVersionNo: null,
             },
             meta: { requestId: 'r' },
           },
@@ -907,6 +916,10 @@ describe('a new form', () => {
               title: T('গত বছরের ফর্ম', 'Last year'),
               publishedVersionId: PUBLISHED,
               draftVersionId: null,
+              kind: 'beneficiary_application',
+              sourceFormId: null,
+              sourceVersionNo: null,
+              newerVersionNo: null,
             },
             {
               id: '01900000-0000-7000-8000-0000000000e7',
@@ -915,6 +928,10 @@ describe('a new form', () => {
               title: T('শুধু খসড়া', 'Draft only'),
               publishedVersionId: null,
               draftVersionId: DRAFT,
+              kind: 'beneficiary_application',
+              sourceFormId: null,
+              sourceVersionNo: null,
+              newerVersionNo: null,
             },
           ],
           meta: { requestId: 'r' },

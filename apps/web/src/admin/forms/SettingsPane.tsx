@@ -5,7 +5,8 @@ import {
   type FormField,
   type FormSection,
   isChoiceType,
-  isCoreFieldKey,
+  CORE_FIELD_KEYS,
+  identityRoleOf,
   isTextType,
   PATTERN_KEYS,
   validationOf,
@@ -15,7 +16,10 @@ import { Sparkles } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import {
   setOptions,
+  canMarkIdentity,
   coreLocks,
+  hasIdentity,
+  setIdentityRole,
   setSectionCondition,
   setSectionVisibility,
   updateField,
@@ -45,11 +49,14 @@ export function SettingsPane({
   definition,
   selected,
   mode,
+  identityMarks = false,
   onChange,
 }: {
   definition: FormDefinition;
   selected: Selection | null;
   mode: 'full' | 'texts';
+  /** Whether questions take identity marks: a beneficiary application form and the library. */
+  identityMarks?: boolean;
   onChange: (definition: FormDefinition) => void;
 }) {
   const section = definition.sections.find((s) => s.key === selected?.section);
@@ -72,6 +79,7 @@ export function SettingsPane({
       section={section}
       field={field}
       mode={mode}
+      identityMarks={identityMarks}
       onChange={onChange}
     />
   );
@@ -89,7 +97,7 @@ function SectionSettings({
   onChange: (definition: FormDefinition) => void;
 }) {
   const t = useTranslations('forms.builder');
-  const core = section.fields.some((f) => isCoreFieldKey(f.fieldKey));
+  const core = hasIdentity(section);
   const setTitle = (title: FormSection['title']) =>
     onChange({
       sections: definition.sections.map((s) => (s.key === section.key ? { ...s, title } : s)),
@@ -104,7 +112,7 @@ function SectionSettings({
               label={t('visibility')}
               value={section.visibility}
               disabled={core}
-              helper={core ? t('core_section') : undefined}
+              helper={core ? t('identity.section') : undefined}
               onChange={(id) =>
                 id === 'volunteer' || id === 'official_only'
                   ? onChange(setSectionVisibility(definition, section.key, id))
@@ -139,17 +147,21 @@ function FieldSettingsView({
   section,
   field,
   mode,
+  identityMarks,
   onChange,
 }: {
   definition: FormDefinition;
   section: FormSection;
   field: FormField;
   mode: 'full' | 'texts';
+  identityMarks: boolean;
   onChange: (definition: FormDefinition) => void;
 }) {
   const t = useTranslations('forms.builder');
   const locale = useLocale();
   const locks = coreLocks(field);
+  const role = identityRoleOf(field);
+  const markable = canMarkIdentity(section, field);
   const group = field.settings?.repeat?.group ?? null;
   const asker = { fieldKey: field.fieldKey, group };
   const patch = (next: Partial<FormField>) =>
@@ -205,6 +217,27 @@ function FieldSettingsView({
             >
               {t('required')}
             </Switch>
+          ) : null}
+          {identityMarks && (markable || role) ? (
+            <Select
+              label={t('identity.label')}
+              helper={markable ? t('identity.hint') : t('identity.blocked')}
+              value={role ?? NONE}
+              disabled={!markable}
+              onChange={(id) =>
+                onChange(
+                  setIdentityRole(
+                    definition,
+                    field.fieldKey,
+                    CORE_FIELD_KEYS.find((k) => k === id) ?? null,
+                  ),
+                )
+              }
+              options={[
+                { id: NONE, label: t('identity.none') },
+                ...CORE_FIELD_KEYS.map((k) => ({ id: k, label: t(`identity.roles.${k}`) })),
+              ]}
+            />
           ) : null}
         </Stack>
       </Disclosure>
@@ -303,7 +336,7 @@ function FieldSettingsView({
         />
       ) : null}
       {locks.condition ? (
-        <Text tone="muted">{t('core')}</Text>
+        <Text tone="muted">{t('identity.locked')}</Text>
       ) : (
         <>
           <ConditionGroup

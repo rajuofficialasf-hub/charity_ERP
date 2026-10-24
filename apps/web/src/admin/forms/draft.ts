@@ -1,20 +1,24 @@
 import type { Condition } from '@css/shared';
 import {
+  CORE_FIELDS,
+  type CoreFieldKey,
   type FieldOption,
   type FieldType,
   type FormDefinition,
   type FormField,
   type FormSection,
-  isCoreFieldKey,
+  identityRoleOf,
+  isChoiceType,
 } from '@css/shared/forms';
 
 /**
  * The edits the form builder makes to a draft definition, as pure functions: each returns a new
- * definition, or the same one when the edit is not allowed. The mandatory core fields (the
- * identity number, names, mobile, gender, address and village) can never be removed, made
- * optional, given a condition or moved into an official-only section, so the builder never offers
- * those actions and an edit that tries them changes nothing. The server checks the same rules again
- * when the draft is saved.
+ * definition, or the same one when the edit is not allowed. A question marked with an identity
+ * role (the identity number, names, mobile, gender, address and village of a beneficiary
+ * application) stays required, without a condition and seen by everyone, so its section can be
+ * neither official-only nor conditional; it is moved, renamed or removed like any other question.
+ * The builder never offers the refused actions, and an edit that tries them changes nothing. The
+ * server checks the identity marks again when the form is published.
  */
 
 /** A library section as the library read gives it. */
@@ -30,17 +34,19 @@ export type LibraryFields = ReadonlyMap<string, readonly FormField[]>;
 
 /** What may not be done to a field. */
 export interface FieldLocks {
-  remove: boolean;
   optional: boolean;
   condition: boolean;
 }
 
+/** A question marked with an identity role stays required and without a condition. */
 export function coreLocks(field: FormField): FieldLocks {
-  const core = isCoreFieldKey(field.fieldKey);
-  return { remove: core, optional: core, condition: core };
+  const marked = identityRoleOf(field) !== null;
+  return { optional: marked, condition: marked };
 }
 
-const hasCore = (section: FormSection) => section.fields.some((f) => isCoreFieldKey(f.fieldKey));
+/** Whether a section holds a question marked with an identity role. */
+export const hasIdentity = (section: FormSection) =>
+  section.fields.some((f) => identityRoleOf(f) !== null);
 const allKeys = (def: FormDefinition) =>
   new Set(def.sections.flatMap((s) => s.fields.map((f) => f.fieldKey)));
 const groupOf = (field: FormField) => field.settings?.repeat?.group;
@@ -250,44 +256,43 @@ export function setOptions(
   };
 }
 
-/** Removes a field, and a repeat group's members with it; a core field stays. */
+/** Removes a field, and a repeat group's members with it. */
 export function removeField(def: FormDefinition, fieldKey: string): FormDefinition {
   const section = def.sections.find((s) => s.fields.some((f) => f.fieldKey === fieldKey));
   const field = section?.fields.find((f) => f.fieldKey === fieldKey);
-  if (!section || !field || coreLocks(field).remove) return def;
+  if (!section || !field) return def;
   return withSection(def, section.key, (s) => ({
     ...s,
     fields: s.fields.filter((f) => f.fieldKey !== fieldKey && groupOf(f) !== fieldKey),
   }));
 }
 
-/** Removes a section that holds no core field. */
+/** Removes a section with its questions. */
 export function removeSection(def: FormDefinition, key: string): FormDefinition {
-  const section = def.sections.find((s) => s.key === key);
-  if (!section || hasCore(section)) return def;
+  if (!def.sections.some((s) => s.key === key)) return def;
   return { sections: def.sections.filter((s) => s.key !== key) };
 }
 
-/** A section that holds a core field stays visible to everyone. */
+/** A section that holds an identity question stays visible to everyone. */
 export function setSectionVisibility(
   def: FormDefinition,
   key: string,
   visibility: FormSection['visibility'],
 ): FormDefinition {
   return withSection(def, key, (s) =>
-    (visibility === 'official_only' && hasCore(s)) || s.visibility === visibility
+    (visibility === 'official_only' && hasIdentity(s)) || s.visibility === visibility
       ? s
       : { ...s, visibility },
   );
 }
 
-/** A section that holds a core field is always shown. */
+/** A section that holds an identity question is always shown. */
 export function setSectionCondition(
   def: FormDefinition,
   key: string,
   condition: Condition | null,
 ): FormDefinition {
-  return withSection(def, key, (s) => (hasCore(s) ? s : { ...s, condition }));
+  return withSection(def, key, (s) => (hasIdentity(s) && condition ? s : { ...s, condition }));
 }
 
 export function moveSection(def: FormDefinition, key: string, direction: -1 | 1): FormDefinition {
@@ -349,8 +354,9 @@ export function moveField(
 
 /**
  * Moves a field to a place in a section: `index` counts the blocks of that section (a repeat
- * group with its members is one block), and a field dropped on its own place stays. A core field
- * never leaves its section, and a member of a repeat group moves only inside its group.
+ * group with its members is one block), and a field dropped on its own place stays. An identity
+ * question never goes into an official-only or conditional section, and a member of a repeat group
+ * moves only inside its group.
  */
 export function moveFieldTo(
   def: FormDefinition,
@@ -363,7 +369,7 @@ export function moveFieldTo(
   const field = from?.fields.find((f) => f.fieldKey === fieldKey);
   if (!from || !to || !field) return def;
   if (groupOf(field) !== undefined) return def;
-  if (coreLocks(field).remove && from.key !== to.key) return def;
+  if (identityRoleOf(field) && (to.visibility === 'official_only' || to.condition)) return def;
   const block = from.fields.filter((f) => f.fieldKey === fieldKey || groupOf(f) === fieldKey);
   const without = (fields: readonly FormField[]) => fields.filter((f) => !block.includes(f));
   const place = (fields: readonly FormField[]) => {
@@ -390,7 +396,7 @@ export function moveFieldTo(
 /**
  * Copies a question right after itself as one of the project's own, with the label marked as a
  * copy in both languages and a key of its own; its options, settings, logic and calculation come
- * along. A core field, a repeat group and a member of one are not copied.
+ * along; the copy carries no identity mark. A repeat group and a member of one are not copied.
  */
 export function duplicateField(
   def: FormDefinition,
@@ -399,7 +405,7 @@ export function duplicateField(
 ): { definition: FormDefinition; fieldKey: string | null } {
   const section = def.sections.find((s) => s.fields.some((f) => f.fieldKey === fieldKey));
   const field = section?.fields.find((f) => f.fieldKey === fieldKey);
-  if (!section || !field || coreLocks(field).remove) return { definition: def, fieldKey: null };
+  if (!section || !field) return { definition: def, fieldKey: null };
   if (field.type === 'repeat_group' || groupOf(field) !== undefined)
     return { definition: def, fieldKey: null };
   const label = { bn: `${field.label.bn} ${mark.bn}`, en: `${field.label.en} ${mark.en}` };
@@ -418,5 +424,97 @@ export function duplicateField(
       fields: [...s.fields.slice(0, index + 1), copy, ...s.fields.slice(index + 1)],
     })),
     fieldKey: key,
+  };
+}
+
+/**
+ * Marks a question with an identity role, or clears its mark (`role` null). The marked question
+ * takes the role's column and answer type (its settings start afresh when the type changes, and
+ * a type without options drops them), stays required and loses its show and required conditions;
+ * a question that held the role before loses it, so each role is marked once. A repeat group, a
+ * member of one, and a question in an official-only or conditional section take no mark.
+ */
+export function setIdentityRole(
+  def: FormDefinition,
+  fieldKey: string,
+  role: CoreFieldKey | null,
+): FormDefinition {
+  const section = def.sections.find((s) => s.fields.some((f) => f.fieldKey === fieldKey));
+  const field = section?.fields.find((f) => f.fieldKey === fieldKey);
+  if (!section || !field) return def;
+  if (role === null) {
+    if (identityRoleOf(field) === null) return def;
+    return updateField(def, fieldKey, { standardColumn: null });
+  }
+  if (!canMarkIdentity(section, field) || identityRoleOf(field) === role) return def;
+  const core = CORE_FIELDS.find((c) => c.key === role);
+  if (!core) return def;
+  const cleared: FormDefinition = {
+    sections: def.sections.map((s) => ({
+      ...s,
+      fields: s.fields.map((f) =>
+        f.fieldKey !== fieldKey && identityRoleOf(f) === role ? { ...f, standardColumn: null } : f,
+      ),
+    })),
+  };
+  const retyped = field.type !== core.type;
+  const { show_if: _show, required_if: _required, ...logic } = field.logic ?? {};
+  return withSection(cleared, section.key, (s) => ({
+    ...s,
+    fields: s.fields.map((f) => {
+      if (f.fieldKey !== fieldKey) return f;
+      const next: FormField = {
+        ...f,
+        type: core.type,
+        standardColumn: core.standardColumn,
+        required: true,
+        ...(retyped ? { settings: {} } : {}),
+        ...(isChoiceType(core.type) ? {} : { options: [] }),
+      };
+      if (Object.keys(logic).length) next.logic = logic;
+      else delete next.logic;
+      delete next.calculation;
+      return next;
+    }),
+  }));
+}
+
+/** Whether a question can take an identity mark where it stands. */
+export function canMarkIdentity(section: FormSection, field: FormField): boolean {
+  return (
+    section.visibility === 'volunteer' &&
+    !section.condition &&
+    field.type !== 'repeat_group' &&
+    field.settings?.repeat?.group === undefined
+  );
+}
+
+/**
+ * Adds an empty section seen by everyone at the end of the form, keyed `section_<n>` with the
+ * first free number and titled from `title`, which names the number; the new key is returned.
+ */
+export function addEmptySection(
+  def: FormDefinition,
+  title: (n: number) => { bn: string; en: string },
+): { definition: FormDefinition; key: string } {
+  const taken = new Set(def.sections.map((s) => s.key));
+  let n = def.sections.length + 1;
+  while (taken.has(`section_${n}`)) n += 1;
+  const key = `section_${n}`;
+  return {
+    definition: {
+      sections: [
+        ...def.sections,
+        {
+          key,
+          librarySectionKey: null,
+          title: title(n),
+          visibility: 'volunteer',
+          condition: null,
+          fields: [],
+        },
+      ],
+    },
+    key,
   };
 }

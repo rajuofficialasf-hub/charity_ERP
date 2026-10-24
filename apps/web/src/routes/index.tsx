@@ -119,6 +119,25 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                   }),
                 },
                 {
+                  path: 'ready-forms',
+                  lazy: async () => ({
+                    Component: (await import('../admin/forms/ReadyFormsPage')).ReadyFormsPage,
+                  }),
+                },
+                {
+                  path: 'ready-forms/:formId',
+                  lazy: async () => ({
+                    Component: (await import('../admin/forms/FormBuilderPage'))
+                      .ReadyFormBuilderPage,
+                  }),
+                },
+                {
+                  path: 'question-library',
+                  lazy: async () => ({
+                    Component: (await import('../admin/forms/FormBuilderPage')).LibraryBuilderPage,
+                  }),
+                },
+                {
                   path: 'projects',
                   lazy: async () => ({
                     Component: (await import('../admin/projects/ProjectsPage')).ProjectsPage,

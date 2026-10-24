@@ -17,13 +17,22 @@ import { SettingsPane } from './SettingsPane';
 
 let latest: FormDefinition;
 
-function Harness({ initial, select }: { initial: FormDefinition; select: Selection }) {
+function Harness({
+  initial,
+  select,
+  identityMarks = false,
+}: {
+  initial: FormDefinition;
+  select: Selection;
+  identityMarks?: boolean;
+}) {
   const [def, setDef] = useState(initial);
   return (
     <SettingsPane
       definition={def}
       selected={select}
       mode="full"
+      identityMarks={identityMarks}
       onChange={(next) => {
         latest = next;
         setDef(next);
@@ -32,9 +41,9 @@ function Harness({ initial, select }: { initial: FormDefinition; select: Selecti
   );
 }
 
-const open = (initial: FormDefinition, select: Selection) => {
+const open = (initial: FormDefinition, select: Selection, identityMarks = false) => {
   latest = initial;
-  return renderApp(<Harness initial={initial} select={select} />);
+  return renderApp(<Harness initial={initial} select={select} identityMarks={identityMarks} />);
 };
 
 /** Picks an option of a select of the set, found by its label. */
@@ -315,4 +324,53 @@ it('has no axe violation', async () => {
   await expectNoAxeViolations(container);
   await openRules(userEvent.setup(), /^শর্ত ঠিক করুন$/, 'কখন দেখাবে');
   await expectNoAxeViolations(document.body);
+});
+
+describe('the identity mark', () => {
+  const own = () =>
+    definition(
+      section('mine', [field('q_who', 'long_text', { label: T('কে', 'Who') })]),
+      section('office', [field('remark', 'short_text')], { visibility: 'official_only' }),
+    );
+
+  it('offers the seven roles and sets the role, its column and its type', async () => {
+    const user = userEvent.setup();
+    open(own(), { section: 'mine', field: 'q_who' }, true);
+    await user.click(await screen.findByRole('button', { name: /পরিচয়-চিহ্ন/ }));
+    const names = (await screen.findAllByRole('option')).map((o) => o.textContent);
+    expect(names).toEqual([
+      'চিহ্ন নেই',
+      'এনআইডি বা জন্মনিবন্ধন নম্বর',
+      'নাম',
+      'পিতা বা স্বামীর নাম',
+      'মোবাইল নম্বর',
+      'লিঙ্গ',
+      'ঠিকানা (বিভাগ থেকে ইউনিয়ন)',
+      'গ্রাম',
+    ]);
+    await user.click(screen.getByRole('option', { name: 'নাম' }));
+    expect(fieldOf(latest, 'q_who')).toMatchObject({
+      type: 'short_text',
+      standardColumn: 'name',
+      required: true,
+    });
+    // the core section's name question held the role before and lost it
+    expect(fieldOf(latest, 'name').standardColumn).toBeNull();
+  });
+
+  it('keeps a marked question required', async () => {
+    open(definition(), { section: 'basic_info', field: 'name' }, true);
+    expect(await screen.findByRole('switch', { name: 'উত্তর দেওয়া আবশ্যক' })).toBeDisabled();
+  });
+
+  it('is not offered in an official-only section, nor on a form of another kind', async () => {
+    const office = open(own(), { section: 'office', field: 'remark' }, true);
+    await screen.findByRole('button', { name: 'মূল তথ্য' });
+    expect(screen.queryByRole('button', { name: /পরিচয়-চিহ্ন/ })).not.toBeInTheDocument();
+    office.unmount();
+    // a form of the kind other takes no identity marks at all
+    open(own(), { section: 'mine', field: 'q_who' }, false);
+    await screen.findByRole('button', { name: 'মূল তথ্য' });
+    expect(screen.queryByRole('button', { name: /পরিচয়-চিহ্ন/ })).not.toBeInTheDocument();
+  });
 });
