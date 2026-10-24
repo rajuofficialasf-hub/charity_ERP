@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
+import { SeedContext } from '../../seed/context';
+import { seedFormTemplates } from '../../seed/sets/base/forms';
 import { cloneTemplate, MIGRATIONS_DIR } from './support/db';
 import { expectSqlError, SQLSTATE } from './support/expect-sql';
 import * as f from './support/fixtures';
@@ -178,5 +180,33 @@ describe('the reverse of the migration', () => {
         });
       }),
     ).rejects.toThrow(refused);
+  });
+});
+
+describe('the retirement of the seeded form templates', () => {
+  const sql = (file: string) =>
+    readFileSync(join(MIGRATIONS_DIR, '20261024110000_retire_seeded_forms', file), 'utf8');
+  const active = async (c: Client) =>
+    (
+      await c.query<{ key: string; active: boolean }>(
+        `SELECT key, active FROM project_templates WHERE definition->>'kind' = 'form_template' ORDER BY key`,
+      )
+    ).rows;
+
+  it('makes the two templates inactive, keeps their rows, and the reverse makes them active again', async () => {
+    const clone = await cloneTemplate(inject('templateDb'));
+    try {
+      await seedFormTemplates(new SeedContext(clone.client));
+      expect((await active(clone.client)).every((t) => t.active)).toBe(true);
+      await clone.client.query(sql('migration.sql'));
+      expect(await active(clone.client)).toEqual([
+        { key: 'form_distribution', active: false },
+        { key: 'form_self_reliance_construction', active: false },
+      ]);
+      await clone.client.query(sql('down.sql'));
+      expect((await active(clone.client)).map((t) => t.active)).toEqual([true, true]);
+    } finally {
+      await clone.drop();
+    }
   });
 });

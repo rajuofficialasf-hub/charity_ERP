@@ -14,6 +14,7 @@ import {
   type Session,
 } from './support/auth-app';
 import { insert } from './support/fixtures';
+import { IDENTITY, question, section } from './support/forms';
 
 // The ready forms the Monitoring Team builds outside the projects, the one question library, the
 // placement of a ready form on a project by its PM, and the take of a newer version.
@@ -64,49 +65,6 @@ async function draftProject() {
   expect(res.status, JSON.stringify(res.body)).toBe(201);
   return res.body.data.id as string;
 }
-
-const option = (code: string) => ({
-  code,
-  label: { bn: code, en: code },
-  dependsOnOptionCode: null,
-  allowsOtherText: false,
-});
-const question = (fieldKey: string, type: string, extra: Record<string, unknown> = {}) => ({
-  fieldKey,
-  libraryFieldKey: null,
-  type,
-  label: { bn: 'প্রশ্ন', en: 'Question' },
-  required: false,
-  standardColumn: null,
-  settings: {},
-  options: [],
-  ...extra,
-});
-/** The seven identity questions, each marked by its column under a key of the builder's own. */
-const IDENTITY = [
-  question('q_id', 'short_text', { required: true, standardColumn: 'nid_or_birth_reg' }),
-  question('q_name', 'short_text', { required: true, standardColumn: 'name' }),
-  question('q_father', 'short_text', { required: true, standardColumn: 'father_or_husband_name' }),
-  question('q_mobile', 'phone', { required: true, standardColumn: 'mobile' }),
-  question('q_gender', 'single_select', {
-    required: true,
-    standardColumn: 'gender_code',
-    options: [option('male'), option('female')],
-  }),
-  question('q_address', 'bd_address', {
-    required: true,
-    standardColumn: 'division_id,district_id,upazila_id,union_id',
-  }),
-  question('q_village', 'short_text', { required: true, standardColumn: 'village' }),
-];
-const section = (fields: unknown[], key = 'section_1') => ({
-  key,
-  librarySectionKey: null,
-  title: { bn: 'অংশ', en: 'Section' },
-  visibility: 'volunteer',
-  condition: null,
-  fields,
-});
 
 async function etagOf(s: Session, versionId: string) {
   const res = await at(s, 'get', `/form-versions/${versionId}`);

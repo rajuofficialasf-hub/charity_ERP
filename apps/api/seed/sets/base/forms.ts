@@ -9,8 +9,13 @@ import type {
 import { json, type SeedContext, seedId } from '../../context';
 
 /**
+ * Retired: the base seed no longer writes these (docs/DECISION_LOG.md, the decision retiring the
+ * seeded library and templates); the Monitoring Team builds the question library and every form
+ * itself. The data stays so the tests can build a project form the way the forms made before were
+ * built, and `seedFormTemplates` writes it for those tests only.
+ *
  * The field and section library (docs/MASTER_SPEC.md, the form section library) and the two
- * application forms in use today (blueprint
+ * application forms in use until then (blueprint
  * appendix খ.১ and খ.২) as form templates: data only; the shapes come from `@css/shared/forms`,
  * which also builds a project's form from them (T2.3). Standard fields map to beneficiary columns
  * (standard_column); the rest are project answers. Removed by decision: spot code and community

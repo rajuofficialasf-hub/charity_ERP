@@ -130,7 +130,7 @@ describe('base set', () => {
         .sort((a, b) => a.name.localeCompare(b.name)),
     );
     expect(roles).toHaveLength(17);
-    expect(permissions).toHaveLength(153);
+    expect(permissions).toHaveLength(154);
   });
 
   it('stores every workflow template merged and valid, with all its transitions', async () => {
@@ -148,7 +148,7 @@ describe('base set', () => {
     }
   });
 
-  it('seeds the reference lists, notification templates and the two current forms', async () => {
+  it('seeds the reference lists and notification templates, and no form library or form template', async () => {
     const lists = (
       await db.query(
         'SELECT list_key, count(*)::int AS n FROM reference_lists GROUP BY list_key ORDER BY list_key',
@@ -173,15 +173,19 @@ describe('base set', () => {
     ).rows[0];
     expect(notif.bn).toBe(notif.en);
     expect(notif.keys).toBe(33);
-    const forms = (await db.query('SELECT key, project_type FROM project_templates ORDER BY key'))
-      .rows;
-    expect(forms).toEqual([
-      { key: 'form_distribution', project_type: 'distribution' },
-      { key: 'form_self_reliance_construction', project_type: 'implementation_evidence' },
-    ]);
-    expect((await db.query('SELECT count(*)::int AS n FROM form_library_sections')).rows[0].n).toBe(
-      10,
+    // the Monitoring Team builds the library and every form: the seed writes neither
+    const templates = await db.query(
+      `SELECT key FROM project_templates WHERE definition->>'kind' = 'form_template'`,
     );
+    expect(templates.rows).toEqual([]);
+    for (const table of ['form_library_sections', 'form_library_fields'])
+      expect((await db.query(`SELECT count(*)::int AS n FROM ${table}`)).rows[0].n, table).toBe(0);
+    // the library form the migration made stays empty, with its one draft
+    const library = await db.query(
+      `SELECT v.status, (SELECT count(*)::int FROM form_sections s WHERE s.form_version_id = v.id) AS sections
+         FROM forms f JOIN form_versions v ON v.form_id = f.id WHERE f.kind = 'library'`,
+    );
+    expect(library.rows).toEqual([{ status: 'draft', sections: 0 }]);
   });
 
   it('seeds every setting with its decided default, once', async () => {

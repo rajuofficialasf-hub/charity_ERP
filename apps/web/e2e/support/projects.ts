@@ -64,28 +64,89 @@ export async function typeDate(page: Page, scope: Locator, label: string, ddmmyy
   await page.keyboard.type(ddmmyyyy);
 }
 
+/** The Monitoring Team's demo account, who builds the ready forms. */
+const MONITORING = 'monitoring@example.org';
+
+const question = (fieldKey: string, type: string, extra: Record<string, unknown> = {}) => ({
+  fieldKey,
+  libraryFieldKey: null,
+  type,
+  label: { bn: 'প্রশ্ন', en: 'Question' },
+  required: true,
+  standardColumn: null,
+  settings: {},
+  options: [],
+  ...extra,
+});
+const choice = (code: string) => ({
+  code,
+  label: { bn: code, en: code },
+  dependsOnOptionCode: null,
+  allowsOtherText: false,
+});
+/** One section with the seven identity questions, each marked by its column. */
+const IDENTITY_SECTION = {
+  key: 'section_1',
+  librarySectionKey: null,
+  title: { bn: 'পরিচয়', en: 'Identity' },
+  visibility: 'volunteer',
+  condition: null,
+  fields: [
+    question('q_id', 'short_text', { standardColumn: 'nid_or_birth_reg' }),
+    question('q_name', 'short_text', { standardColumn: 'name' }),
+    question('q_father', 'short_text', { standardColumn: 'father_or_husband_name' }),
+    question('q_mobile', 'phone', { standardColumn: 'mobile' }),
+    question('q_gender', 'single_select', {
+      standardColumn: 'gender_code',
+      options: [choice('male'), choice('female')],
+    }),
+    question('q_address', 'bd_address', {
+      standardColumn: 'division_id,district_id,upazila_id,union_id',
+    }),
+    question('q_village', 'short_text', { standardColumn: 'village' }),
+  ],
+};
+
 /**
- * The application form of a project from the library, published through the API as the person
- * signed in on the page; activation needs it. Journeys that are not about forms use this; the
- * form builder's own journey builds and publishes its form on the screen.
+ * The application form of a project, published: a ready form built and published by the
+ * Monitoring Team through the API, then placed on the project by `loginId`, the person signed in
+ * on the page; activation needs it. Journeys that are not about forms use this; the form
+ * builder's own journey builds and publishes its form on the screen.
  */
-export async function publishLibraryForm(page: Page, loginId: string, projectId: string) {
+export async function placeReadyForm(page: Page, loginId: string, projectId: string) {
   const context = await apiRequest.newContext({ baseURL: new URL(page.url()).origin });
   try {
-    const api = await apiAs(context, loginId);
-    const made = await api.post(`/projects/${projectId}/forms`, {
-      key: 'default',
+    const builder = await apiAs(context, MONITORING);
+    const made = await builder.post('/ready-forms', {
+      key: `e2e_${code().toLowerCase()}`,
       title: { bn: 'আবেদন', en: 'Application' },
-      source: { kind: 'template', templateKey: 'form_distribution' },
+      kind: 'beneficiary_application',
+      source: { kind: 'blank' },
     });
     expect(made.ok(), await made.text()).toBe(true);
-    const versionId = ((await made.json()) as { data: { draftVersionId: string } }).data
-      .draftVersionId;
-    const version = await api.get(`/form-versions/${versionId}`);
-    const published = await api.post(`/form-versions/${versionId}/publish`, undefined, {
-      'If-Match': version.headers()['etag'] ?? '',
-    });
+    const ready = ((await made.json()) as { data: { id: string; draftVersionId: string } }).data;
+    const etag = async () =>
+      (await builder.get(`/form-versions/${ready.draftVersionId}`)).headers()['etag'] ?? '';
+    const saved = await builder.patch(
+      `/form-versions/${ready.draftVersionId}`,
+      { sections: [IDENTITY_SECTION] },
+      { 'If-Match': await etag() },
+    );
+    expect(saved.ok(), await saved.text()).toBe(true);
+    const published = await builder.post(
+      `/form-versions/${ready.draftVersionId}/publish`,
+      undefined,
+      {
+        'If-Match': await etag(),
+      },
+    );
     expect(published.ok(), await published.text()).toBe(true);
+    const placer = await apiAs(context, loginId);
+    const placed = await placer.post(`/projects/${projectId}/forms/place`, {
+      readyFormId: ready.id,
+      key: 'default',
+    });
+    expect(placed.ok(), await placed.text()).toBe(true);
   } finally {
     await context.dispose();
   }
@@ -111,7 +172,7 @@ export async function activeProject(
   loginId: string,
 ): Promise<string> {
   await newDraft(page, code(), name, program);
-  await publishLibraryForm(page, loginId, projectIdOf(page));
+  await placeReadyForm(page, loginId, projectIdOf(page));
   return finishSetup(page);
 }
 
