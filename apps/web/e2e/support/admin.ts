@@ -16,8 +16,16 @@ export const PASSWORD = 'CssDemo2026';
 const PHONE_PROJECTS = new Set(['mobile', 'iphone']);
 export const isPhone = (info: TestInfo) => PHONE_PROJECTS.has(info.project.name);
 
-/** axe on the whole page. */
-export const scan = (page: Page) => new AxeBuilder({ page }).analyze();
+/**
+ * axe on the whole page, once nothing is still fading: a menu or dialog that is closing shows
+ * mid-transition colours, which axe would read as a contrast failure.
+ */
+export async function scan(page: Page) {
+  await page.waitForFunction(() =>
+    document.getAnimations().every((a) => a.playState !== 'running'),
+  );
+  return new AxeBuilder({ page }).analyze();
+}
 
 export async function signIn(page: Page, loginId: string): Promise<void> {
   await page.goto('/login');
