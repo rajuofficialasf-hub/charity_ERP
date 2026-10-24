@@ -1734,6 +1734,7 @@ model Application {
   zakatDecision                   String?               @map("zakat_decision")
   zakatDecidedBy                  String?               @map("zakat_decided_by") @db.Uuid
   rejectionMessage                String?               @map("rejection_message")
+  /// which number identifies the person, written by the application service when it resolves the profile at submission
   identityKind                    String?               @map("identity_kind")
   deletedAt                       DateTime?             @map("deleted_at") @db.Timestamptz(6)
   createdAt                       DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)

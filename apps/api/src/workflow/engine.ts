@@ -13,6 +13,7 @@ import { assertIfMatch } from '../core/etag';
 import type { Tx } from '../core/prisma.service';
 import { ApiError } from '../i18n/api-error';
 import type { ApplicationEvents } from '../notifications/application-events';
+import { z } from 'zod';
 import { readEffects } from './effects';
 import { type EngineApplication, GuardContext, type GuardInput, GUARDS } from './guards';
 import { isBuiltEffect, isBuiltGuard } from './registry';
@@ -53,6 +54,18 @@ export interface TransitionResult {
 
 const froms = (t: Transition) => (Array.isArray(t.from) ? t.from : [t.from]);
 
+/** A template's approval override: the moves of this permission need a grant with the condition. */
+const approvalOverride = z.object({ permission: z.string(), require_condition: z.string() });
+
+/** The internal guard every template with an approval override gets on that permission's moves. */
+const APPROVER_GUARD = 'approver.has_permission';
+
+function approvalOf(definition: WorkflowDefinition, permission: string) {
+  const parsed = approvalOverride.safeParse(definition.overrides?.approval);
+  if (!parsed.success || parsed.data.permission !== permission) return null;
+  return { permission, condition: parsed.data.require_condition };
+}
+
 /**
  * The workflow engine (docs/architecture/WORKFLOW_ENGINE.md): moves an application through a
  * transition of its project's snapshot and nothing else. The caller must hold the transition's
@@ -84,6 +97,34 @@ export class WorkflowEngine {
       select: APPLICATION_SELECT,
     });
     if (!row) throw new ApiError('permission.not_found', 404);
+    // a draft project has no snapshot yet; its template still says what the move would be, and
+    // the project.active guard refuses the move
+    const definition = workflowDefinitionSchema.parse(
+      row.project.workflowSnapshot ?? row.project.workflowDefinition.definition,
+    );
+    // the permission and the scope come first, so a caller the application is hidden from learns
+    // neither that it exists nor its state: the action's target state names the permission, the
+    // exact transition is matched to the state only after the scope check
+    const candidates = (definition.transitions ?? []).filter(
+      (t) => t.to === spec.to && t.permission,
+    );
+    const transition = candidates.find(
+      (t) => froms(t).includes(row.status) && (spec.from as readonly string[]).includes(row.status),
+    );
+    const permission = (transition ?? candidates[0])?.permission;
+    if (!permission) throw new ApiError('workflow.transition_not_allowed', 409);
+
+    const access = await this.access.load(principal.userId, tx);
+    if (!holdsPermission(permission, access.grants)) {
+      this.access.denied(principal.userId, permission, 'application');
+      throw new ApiError('permission.denied', 403);
+    }
+    const scope = await this.access.scopeFor(principal, access, permission, 'application', tx);
+    const reached = await tx.application.count({
+      where: { AND: [{ id: applicationId }, applicationWhere(scope)] },
+    });
+    if (reached === 0) throw new ApiError('permission.not_found', 404);
+    if (!transition) throw new ApiError('workflow.transition_not_allowed', 409);
     const application: EngineApplication = {
       ...row,
       project: {
@@ -91,39 +132,9 @@ export class WorkflowEngine {
         applyFrom: row.project.applyFrom,
         applyTo: row.project.applyTo,
         perVolunteerLimit: row.project.perVolunteerLimit,
-        workflowKey: row.project.workflowDefinition.key,
+        approval: approvalOf(definition, permission),
       },
     };
-    // a draft project has no snapshot yet; its template still says what the move would be, and
-    // the project.active guard refuses the move
-    const definition = workflowDefinitionSchema.parse(
-      row.project.workflowSnapshot ?? row.project.workflowDefinition.definition,
-    );
-    const transition = (definition.transitions ?? []).find(
-      (t) =>
-        t.to === spec.to &&
-        froms(t).includes(application.status) &&
-        (spec.from as readonly string[]).includes(application.status),
-    );
-    if (!transition || !transition.permission)
-      throw new ApiError('workflow.transition_not_allowed', 409);
-
-    const access = await this.access.load(principal.userId, tx);
-    if (!holdsPermission(transition.permission, access.grants)) {
-      this.access.denied(principal.userId, transition.permission, 'application');
-      throw new ApiError('permission.denied', 403);
-    }
-    const scope = await this.access.scopeFor(
-      principal,
-      access,
-      transition.permission,
-      'application',
-      tx,
-    );
-    const reached = await tx.application.count({
-      where: { AND: [{ id: applicationId }, applicationWhere(scope)] },
-    });
-    if (reached === 0) throw new ApiError('permission.not_found', 404);
 
     if (ifMatch !== undefined) assertIfMatch(ifMatch, row.updatedAt);
     if (transition.requires_reason && !input.reason?.trim())
@@ -140,12 +151,15 @@ export class WorkflowEngine {
     );
     await this.runGuards(transition, ctx);
     const auditId = await this.apply(tx, principal, application, transition, action, input);
-    await this.followAutomatic(tx, principal, applicationId, definition);
+    await this.followAutomatic(tx, principal, application, transition.to, definition);
     return { id: applicationId, from: application.status, to: transition.to, auditId };
   }
 
   private async runGuards(transition: Transition, ctx: GuardContext): Promise<void> {
-    for (const name of transition.guards ?? []) {
+    const guards = [...(transition.guards ?? [])];
+    if (ctx.application.project.approval && !guards.includes(APPROVER_GUARD))
+      guards.push(APPROVER_GUARD);
+    for (const name of guards) {
       if (!isBuiltGuard(name)) throw new ApiError('workflow.guard_not_built', 409);
       if (!(await GUARDS[name](ctx)))
         throw new ApiError(`workflow.guard.${name.replace(/\./g, '_')}`, 409);
@@ -213,27 +227,24 @@ export class WorkflowEngine {
       actorUserId: actor,
     });
     for (const key of outcome.notify)
-      await this.events.publish(tx, key, { ...application, action, reason, message }, actor);
+      await this.events.publish(tx, key, { ...application, action, reason, message }, actor, now);
     return auditId;
   }
 
-  /** The automatic moves the new state triggers (`on_enter_<state>`), each audited on its own. */
+  /**
+   * The automatic moves the new state triggers (`on_enter_<state>`), each audited on its own and
+   * with its messages sent; `status` is the state the application has just entered.
+   */
   private async followAutomatic(
     tx: Tx,
     principal: Principal,
-    applicationId: string,
+    application: EngineApplication,
+    status: string,
     definition: WorkflowDefinition,
   ): Promise<void> {
     for (let hops = 0; hops < 5; hops += 1) {
-      const current = await tx.application.findUniqueOrThrow({
-        where: { id: applicationId },
-        select: APPLICATION_SELECT,
-      });
       const auto = (definition.transitions ?? []).find(
-        (t) =>
-          t.auto === true &&
-          t.trigger === `on_enter_${current.status}` &&
-          froms(t).includes(current.status),
+        (t) => t.auto === true && t.trigger === `on_enter_${status}` && froms(t).includes(status),
       );
       if (!auto) return;
       for (const name of auto.effects ?? [])
@@ -241,22 +252,32 @@ export class WorkflowEngine {
       const outcome = readEffects(auto.effects ?? [], this.events);
       const now = this.clock.now();
       await tx.application.update({
-        where: { id: applicationId },
+        where: { id: application.id },
         data: { status: auto.to, updatedBy: principal.userId, updatedAt: now },
       });
       await this.audit.record(tx, {
         action: outcome.auditAction ?? `application.${auto.to}`,
         entityType: 'application',
-        entityId: applicationId,
-        old: { status: current.status },
+        entityId: application.id,
+        old: { status },
         new: {
           status: auto.to,
           automatic: true,
+          ...(outcome.locked ? { locked: true } : {}),
           ...(outcome.pending.length ? { effectsPending: outcome.pending } : {}),
         },
         actorUserId: principal.userId,
       });
+      for (const key of outcome.notify)
+        await this.events.publish(
+          tx,
+          key,
+          { ...application, action: auto.to, reason: null, message: null },
+          principal.userId,
+          now,
+        );
+      status = auto.to;
     }
-    throw new Error(`the automatic moves of application ${applicationId} do not end`);
+    throw new Error(`the automatic moves of application ${application.id} do not end`);
   }
 }

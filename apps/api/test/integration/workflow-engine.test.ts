@@ -68,13 +68,47 @@ beforeAll(async () => {
   );
   generalVolunteer = volunteers.rows.find((v) => v.user_id === world.users.general)!.id;
   rangpurVolunteer = volunteers.rows.find((v) => v.user_id === world.users.rangpurVolunteer)!.id;
-  // the general volunteer works on this project too, consent given
+  await joinProject(project);
+});
+
+/** The Dhaka RPM and executive on the project's Dhaka area, and the general volunteer with consent. */
+async function joinProject(projectId: string) {
+  await h.db.query(
+    `INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)`,
+    [randomUUID(), projectId, world.dhaka.division, world.users.rpmDhaka],
+  );
+  await h.db.query(
+    `INSERT INTO project_staff (id, project_id, user_id, role_key, area_location_id, extra_permissions, granted_by)
+     VALUES ($1, $2, $3, 'project_executive', $4, '{}', $5)`,
+    [randomUUID(), projectId, world.users.executive, world.dhaka.division, world.users.rpmDhaka],
+  );
   await h.db.query(
     `INSERT INTO project_volunteers (id, project_id, volunteer_id, region_location_id, permission_set, extra_permissions, assigned_by, consent_status)
      VALUES ($1, $2, $3, $4, 'application_distribution', '{}', $5, 'accepted')`,
-    [randomUUID(), project, generalVolunteer, world.dhaka.division, world.users.rpmDhaka],
+    [randomUUID(), projectId, generalVolunteer, world.dhaka.division, world.users.rpmDhaka],
   );
-});
+}
+
+/** A project of the PM's program on the given workflow, with the form placed and the people on it. */
+async function projectOn(workflowKey: string, code: string) {
+  const made = await api()
+    .post('/api/v1/projects')
+    .set(bearer(await as(world.users.pm)))
+    .send({
+      programId: world.a1.program,
+      code,
+      year: 2026,
+      name: { bn: 'ইঞ্জিন', en: 'Engine' },
+      source: { kind: 'workflow', workflowKey },
+    });
+  expect(made.status, JSON.stringify(made.body)).toBe(201);
+  const id = made.body.data.id as string;
+  const form = await applicationProject(h, await as(world.users.monitoring), id, {
+    workflow: workflowKey,
+  });
+  await joinProject(id);
+  return { id, versionId: form.versionId };
+}
 afterAll(async () => h.close());
 
 const engine = () => h.container.workflow;
@@ -264,6 +298,23 @@ describe('who may move', () => {
       code: 'permission.not_found',
       status: 404,
     });
+    // the Dhaka RPM holds Dhaka on this project and on a1, not on b1: an application of b1 placed
+    // in Dhaka stays hidden, whatever its state, and so does a move that state allows
+    const elsewhere = await applicationRow(h.db, {
+      projectId: world.b1.id,
+      versionId,
+      loc: world.dhaka,
+      status: 'submitted',
+      ownerVolunteerId: rangpurVolunteer,
+    });
+    expect(await refused(run(world.users.rpmDhaka, elsewhere, 'review'))).toEqual({
+      code: 'permission.not_found',
+      status: 404,
+    });
+    expect(await refused(run(world.users.rpmDhaka, elsewhere, 'approve'))).toEqual({
+      code: 'permission.not_found',
+      status: 404,
+    });
     // another volunteer may submit, but not this one's draft
     const other = await draft(
       {},
@@ -296,6 +347,40 @@ describe('who may move', () => {
     // the Department Head who submits one cannot approve it either; another approver can
     await run(world.users.monitoring, id, 'approve');
     expect(await statusOf(h.db, id)).toBe('implementation');
+  });
+
+  it('gives the final approval of house construction to the PM, and to no RPM', async () => {
+    const construction = await projectOn('construction', 'WFC');
+    const id = await applicationRow(h.db, {
+      projectId: construction.id,
+      versionId: construction.versionId,
+      loc: world.dhaka,
+      ownerVolunteerId: generalVolunteer,
+      createdByUserId: world.users.general,
+      answers: IDENTITY_ANSWERS(fakeNid(), fakeMobile(), world.dhaka),
+    });
+    await run(world.users.general, id, 'submit');
+    await run(world.users.rpmDhaka, id, 'review');
+    await run(world.users.rpmDhaka, id, 'send_for_approval');
+    expect(await refused(run(world.users.rpmDhaka, id, 'approve'))).toEqual({
+      code: 'workflow.guard.approver_has_permission',
+      status: 409,
+    });
+    await run(world.users.pm, id, 'approve');
+    expect(await statusOf(h.db, id)).toBe('implementation');
+    // the PM's approval reaches construction projects only: a distribution application is hidden
+    const distribution = await draft();
+    await run(world.users.general, distribution, 'submit');
+    await run(world.users.executive, distribution, 'review');
+    await run(world.users.executive, distribution, 'send_for_approval');
+    expect(await refused(run(world.users.pm, distribution, 'approve'))).toEqual({
+      code: 'permission.not_found',
+      status: 404,
+    });
+    await h.db.query(
+      `UPDATE applications SET status = 'deleted', deleted_at = now() WHERE id = $1`,
+      [distribution],
+    );
   });
 });
 

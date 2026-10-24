@@ -185,8 +185,20 @@ export async function resolveInstances(
   const volunteerRegionProjects = new Set<string | null>();
   const houseProjects: string[] = [];
   let ownHouseProjects = false;
+  const constructionPrograms: string[] = [];
+  let ownConstructionPrograms = false;
   for (const g of grants) {
     if (g.condition !== null) {
+      // the Program Manager decides on house construction only: the grant reaches the
+      // construction projects of the program, checked below
+      if (
+        entity === 'application' &&
+        g.condition === 'house_construction_only' &&
+        g.scopeType === 'PROGRAM'
+      ) {
+        if (g.scopeRef) constructionPrograms.push(g.scopeRef);
+        else ownConstructionPrograms = true;
+      }
       if (entity === 'user' && g.condition === 'own_region' && AREA_SCOPES.includes(g.scopeType)) {
         if (g.scopeRef)
           inst.volunteerAreas.push({ projectId: g.projectId, locationId: g.scopeRef });
@@ -272,6 +284,21 @@ export async function resolveInstances(
       select: { projectId: true },
     });
     inst.projectIds.push(...attached.map((s) => s.projectId));
+  }
+  if (constructionPrograms.length || ownConstructionPrograms) {
+    const projects = await db.project.findMany({
+      where: {
+        workflowDefinition: { key: HOUSE_CONSTRUCTION_WORKFLOW },
+        program: {
+          OR: [
+            ...(ownConstructionPrograms ? [{ pmUserId: actorId }] : []),
+            ...(constructionPrograms.length ? [{ id: { in: constructionPrograms } }] : []),
+          ],
+        },
+      },
+      select: { id: true },
+    });
+    inst.projectIds.push(...projects.map((p) => p.id));
   }
   if (regionProjects.size) inst.areas.push(...(await ownAreas(db, actorId, regionProjects)));
   if (volunteerRegionProjects.size)
@@ -496,11 +523,22 @@ export function programWhere(scope: Scope): Prisma.ProgramWhereInput {
   return or.length ? { OR: or } : { id: { in: [] } };
 }
 
+/** The applications placed in a location at any of its levels (region, district, upazila, union). */
+const applicationsIn = (locationId: string): Prisma.ApplicationWhereInput => ({
+  OR: [
+    { regionLocationId: locationId },
+    { districtId: locationId },
+    { unionId: locationId },
+    { union: { parentId: locationId } },
+  ],
+});
+
 /**
- * The applications a scope reaches (entity `application`): everything at GLOBAL but the revoked
- * projects (D-120); for SELF the applications the caller's volunteer owns and the ones the
+ * The applications a scope reaches (entity `application`): everything at GLOBAL but the projects
+ * revoked for the caller; for SELF the applications the caller's volunteer owns and the ones the
  * caller created (a team member's own records); for an area, the applications placed in that
- * location at any of its levels; the applications of the caller's programs and projects. No
+ * location at any of its levels, inside the area's project when the area names one (an RPM holds
+ * a region project by project); the applications of the caller's programs and projects. No
  * instance means no application.
  */
 export function applicationWhere(scope: Scope): Prisma.ApplicationWhereInput {
@@ -512,13 +550,11 @@ export function applicationWhere(scope: Scope): Prisma.ApplicationWhereInput {
   const or: Prisma.ApplicationWhereInput[] = [];
   if (i.self)
     or.push({ ownerVolunteer: { userId: scope.actorId } }, { createdByUserId: scope.actorId });
-  const locations = [...new Set(i.areas.map((a) => a.locationId))];
-  if (locations.length)
+  for (const a of i.areas)
     or.push(
-      { regionLocationId: { in: locations } },
-      { districtId: { in: locations } },
-      { unionId: { in: locations } },
-      { union: { parentId: { in: locations } } },
+      a.projectId
+        ? { AND: [{ projectId: a.projectId }, applicationsIn(a.locationId)] }
+        : applicationsIn(a.locationId),
     );
   if (i.programIds.length) or.push({ project: { programId: { in: i.programIds } } });
   if (i.projectIds.length) or.push({ projectId: { in: i.projectIds } });

@@ -1,3 +1,4 @@
+import { answerValueSchema } from '@css/shared';
 import { type Answer, type FormDefinition, validate } from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
 import type { EffectiveAccess } from '../access/effective';
@@ -24,7 +25,11 @@ export interface EngineApplication {
     applyFrom: Date | null;
     applyTo: Date | null;
     perVolunteerLimit: number | null;
-    workflowKey: string;
+    /**
+     * The template's approval override, when this transition's permission is the one it names:
+     * only a grant carrying the condition, or one the panel or a project gave, may make the move.
+     */
+    approval: { permission: string; condition: string } | null;
   };
 }
 
@@ -59,10 +64,11 @@ export class GuardContext {
         select: { repeatIndex: true, value: true, field: { select: { fieldKey: true } } },
       })
       .then((rows) =>
+        // the stored value is parsed, not trusted: a row another writer shaped wrongly fails here
         rows.map((r) => ({
           fieldKey: r.field.fieldKey,
           repeatIndex: r.repeatIndex,
-          value: r.value as Answer['value'],
+          value: answerValueSchema.parse(r.value),
         })),
       );
     return this.answersCache;
@@ -108,11 +114,12 @@ export const GUARDS: Record<BuiltGuard, Guard> = {
   'project.active': async (ctx) => ctx.application.project.status === 'active',
   'project.not_closed': async (ctx) =>
     !['closed', 'cancelled'].includes(ctx.application.project.status),
+  // an unset date leaves that side open, as the public link reads the window
   'deadline.open': async (ctx) => {
     const today = isoDateInDhaka(ctx.clock.now());
     const from = day(ctx.application.project.applyFrom);
     const to = day(ctx.application.project.applyTo);
-    return from !== null && to !== null && from <= today && today <= to;
+    return (from === null || from <= today) && (to === null || today <= to);
   },
   'limit.not_exceeded': async (ctx) => {
     const { ownerVolunteerId, projectId, id } = ctx.application;
@@ -166,15 +173,16 @@ export const GUARDS: Record<BuiltGuard, Guard> = {
     const me = ctx.actor.userId;
     return createdByUserId !== me && createdBy !== me && submittedBy !== me;
   },
-  // house construction: the PM gives the final approval; an RPM's own grant does not reach it,
-  // a grant through the panel or a project does (docs/architecture/WORKFLOW_ENGINE.md,
-  // "Exceptions and overrides")
+  // the template's approval override (house construction: the PM gives the final approval); a
+  // role's own grant without the condition does not reach it, a grant through the panel or a
+  // project does (docs/architecture/WORKFLOW_ENGINE.md, "Exceptions and overrides")
   'approver.has_permission': async (ctx) => {
-    if (ctx.application.project.workflowKey !== 'construction') return true;
+    const approval = ctx.application.project.approval;
+    if (!approval) return true;
     return ctx.actor.access.grants.some(
       (g) =>
-        g.permission === 'application.approve' &&
-        (g.condition === 'house_construction_only' ||
+        g.permission === approval.permission &&
+        (g.condition === approval.condition ||
           g.source === 'global_role' ||
           g.source === 'panel_grant' ||
           g.source === 'project_grant'),

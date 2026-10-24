@@ -72,7 +72,13 @@ export class AccessService {
     entity: string,
     db: Tx = this.prisma,
   ): Promise<Scope> {
-    if (entity === 'self' || permission === 'authenticated' || permission === 'entity')
+    // the markers carry no grants: the file service and the workflow engine decide per record
+    if (
+      entity === 'self' ||
+      permission === 'authenticated' ||
+      permission === 'entity' ||
+      permission === 'workflow'
+    )
       return makeScope(principal.userId, permission, entity, { ...NO_INSTANCES, self: true });
     const grants = access.grants.filter((g) => g.permission === permission);
     const revokes = access.instanceRevokes.filter((r) => r.permission === permission);
