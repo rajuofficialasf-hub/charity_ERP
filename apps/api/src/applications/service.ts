@@ -41,6 +41,8 @@ import type { Replayable } from '../services/uploads';
 import type { WorkflowEngine } from '../workflow/engine';
 import { type EngineApplication, GuardContext, GUARDS } from '../workflow/guards';
 import type { BuiltGuard } from '../workflow/registry';
+import { readChanges, readTimeline } from './history';
+import type { SubmissionWriter } from './submission';
 import {
   addressOf,
   assertUploadsOwn,
@@ -178,6 +180,7 @@ export class ApplicationsService {
     private readonly family: BeneficiaryFamilyService,
     private readonly nisab: NisabService,
     private readonly workflow: WorkflowEngine,
+    private readonly submission: SubmissionWriter,
   ) {}
 
   async create(
@@ -424,20 +427,71 @@ export class ApplicationsService {
     // records is refused rather than dropped
     if (body.zakatDecision !== undefined || body.linkBeneficiaryId !== undefined)
       throw new ApiError('workflow.action_not_built', 409);
-    await this.prisma.$transaction((tx) =>
-      this.workflow.transition(
-        tx,
-        viewer.principal,
-        applicationId,
-        action,
-        { reason: body.reason, comment: body.comment, message: body.message },
-        // the version the caller saw is required: the engine checks it once the permission and
-        // the scope have passed, so a hidden application still answers not-found
-        ifMatch ?? '',
-      ),
-    );
+    // a submission binds the person with the move (a submitted application always has one) and
+    // takes its number after it
+    const submit = action === 'submit';
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await this.workflow.transition(
+          tx,
+          viewer.principal,
+          applicationId,
+          action,
+          { reason: body.reason, comment: body.comment, message: body.message },
+          // the version the caller saw is required: the engine checks it once the permission and
+          // the scope have passed, so a hidden application still answers not-found
+          ifMatch ?? '',
+          submit
+            ? { beforeApply: (t, app) => this.submission.bindPerson(t, viewer.principal, app.id) }
+            : {},
+        );
+        if (submit) await this.submission.number(tx, viewer.principal, applicationId);
+      });
+    } catch (error) {
+      // the person got another live application in the project meanwhile
+      if (isUniqueViolation(error)) throw new ApiError('beneficiary.already_applied', 409);
+      throw error;
+    }
     const access = await this.access.load(viewer.principal.userId);
     return this.read(viewer, access, applicationId);
+  }
+
+  /** The steps of the application as the caller's audience may read them. */
+  async timeline(viewer: ApplicationViewer, applicationId: string) {
+    await this.readReached(viewer, { id: applicationId });
+    return readTimeline(this.prisma, applicationId, this.audienceOf(viewer));
+  }
+
+  /** The change log of the answers, for the office (the route's permission says who). */
+  async changes(
+    viewer: ApplicationViewer,
+    applicationId: string,
+    query: { limit: number; cursor?: string },
+  ) {
+    if (await this.blockedCaller(this.prisma, viewer.principal))
+      throw new ApiError('permission.not_found', 404);
+    const row = await this.prisma.application.findFirst({
+      where: { AND: [{ id: applicationId }, applicationWhere(viewer.scope)] },
+      select: { id: true },
+    });
+    if (!row) throw new ApiError('permission.not_found', 404);
+    const binding = `applications.changes|${viewer.principal.userId}|${applicationId}`;
+    const cursor = query.cursor
+      ? decodeCursor(this.env.CURSOR_SECRET, binding, query.cursor)
+      : undefined;
+    const sort = [{ field: 'id', direction: 'desc' as const }];
+    const fetched = await readChanges(this.prisma, applicationId, {
+      limit: query.limit + 1,
+      beforeId: cursor ? String(cursor.v[0]) : undefined,
+    });
+    return buildPage(fetched, {
+      limit: query.limit,
+      sort,
+      direction: 'next',
+      hadCursor: Boolean(cursor),
+      secret: this.env.CURSOR_SECRET,
+      binding,
+    });
   }
 
   /** The applications of a project the caller's scope reaches, newest first. */

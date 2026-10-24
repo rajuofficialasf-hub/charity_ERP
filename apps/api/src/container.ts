@@ -70,6 +70,7 @@ import { FormLibraryService } from './services/form-library';
 import { FormsService, readDefinition } from './services/forms';
 import { ApplicationEvents } from './notifications/application-events';
 import { ApplicationsService } from './applications/service';
+import { SubmissionWriter } from './applications/submission';
 import { WorkflowEngine } from './workflow/engine';
 import { assertWorkflowNamesKnown } from './workflow/registry';
 import { mergedWorkflowDefinitions } from './workflow/templates';
@@ -262,6 +263,15 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const beneficiaryIdentity =
     o.beneficiaryIdentity ??
     new BeneficiaryIdentityService(prisma, access, audit, clock, beneficiaryMergeCandidates);
+  const beneficiaryContact =
+    o.beneficiaryContact ??
+    new BeneficiaryContactService(
+      prisma,
+      access,
+      audit,
+      beneficiaryIdentity,
+      beneficiaryMergeCandidates,
+    );
   const nisab = o.nisab ?? new NisabService(prisma, audit, clock);
   const publicPhotos =
     o.publicPhotos ?? new PublicPhotosService(prisma, storage, audit, jobs, logger, clock);
@@ -353,15 +363,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     beneficiaries:
       o.beneficiaries ?? new BeneficiariesService(env, prisma, clock, access, beneficiaryIdentity),
     beneficiaryIdentity,
-    beneficiaryContact:
-      o.beneficiaryContact ??
-      new BeneficiaryContactService(
-        prisma,
-        access,
-        audit,
-        beneficiaryIdentity,
-        beneficiaryMergeCandidates,
-      ),
+    beneficiaryContact,
     beneficiaryFamily,
     beneficiaryMergeCandidates,
     beneficiaryMerges:
@@ -395,6 +397,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         beneficiaryFamily,
         nisab,
         workflow,
+        new SubmissionWriter(beneficiaryIdentity, beneficiaryContact, audit),
       ),
     readyForms: o.readyForms ?? new ReadyFormsService(prisma, audit, projects, forms),
     publicLink: o.publicLink ?? new PublicLinkService(env, prisma, audit, projects),

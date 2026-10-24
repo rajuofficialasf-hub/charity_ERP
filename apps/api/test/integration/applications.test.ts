@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SeedContext } from '../../seed/context';
+import { seedReferenceLists } from '../../seed/sets/base/reference-lists';
 import { seedWorkflows } from '../../seed/sets/base/workflows';
 import { accessWorld } from './support/access-fixtures';
 import { applicationProject, applicationRow, IDENTITY_ANSWERS } from './support/applications';
@@ -68,7 +69,9 @@ beforeAll(async () => {
     return a.id;
   };
   world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
-  await seedWorkflows(new SeedContext(h.db));
+  const ctx = new SeedContext(h.db);
+  await seedWorkflows(ctx);
+  await seedReferenceLists(ctx);
   await volunteer(h.db, world.dhaka, world.users.team, { type: 'team_member' });
   const made = await at(await as(world.users.pm), 'post', '/projects').send({
     programId: world.a1.program,
@@ -426,7 +429,7 @@ describe('reading, editing and deleting', () => {
     const made = await create(s, createBody(identity()));
     const id = made.body.data.id as string;
     const rpm = await as(world.users.rpmDhaka);
-    expect((await at(rpm, 'get', '/application-numbers/APP-2026-00001')).status).toBe(404);
+    expect((await at(rpm, 'get', '/application-numbers/APP-2026-99999')).status).toBe(404);
     const away = await as(world.users.rpmRangpur);
     expect((await at(away, 'get', `/applications/${id}`)).status).toBe(404);
     expect((await at(away, 'get', `/projects/${project}/applications`)).status).toBe(404);

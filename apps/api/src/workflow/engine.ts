@@ -11,6 +11,7 @@ import type { Principal } from '../auth/principal';
 import type { Clock } from '../core/clock';
 import { assertIfMatch } from '../core/etag';
 import type { Tx } from '../core/prisma.service';
+import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import type { ApplicationEvents } from '../notifications/application-events';
 import { z } from 'zod';
@@ -43,6 +44,19 @@ const APPLICATION_SELECT = {
     },
   },
 } as const;
+
+/**
+ * What a caller adds to a move once every check has passed: `beforeApply` runs after the
+ * permission, the scope, the version and the guards, and its columns are written with the new
+ * state in the same statement (the submission binds the person this way, since a submitted
+ * application always has one).
+ */
+export interface TransitionHooks {
+  beforeApply?: (
+    tx: Tx,
+    application: EngineApplication,
+  ) => Promise<Prisma.ApplicationUncheckedUpdateInput>;
+}
 
 export interface TransitionResult {
   id: string;
@@ -88,6 +102,7 @@ export class WorkflowEngine {
     action: ApplicationAction,
     input: GuardInput = {},
     ifMatch?: string,
+    hooks: TransitionHooks = {},
   ): Promise<TransitionResult> {
     const spec = APPLICATION_ACTIONS[action];
     if ('later' in spec && spec.later) throw new ApiError('workflow.action_not_built', 409);
@@ -150,7 +165,7 @@ export class WorkflowEngine {
       this.clock,
     );
     await this.runGuards(transition, ctx);
-    const auditId = await this.apply(tx, principal, application, transition, action, input);
+    const auditId = await this.apply(tx, principal, application, transition, action, input, hooks);
     await this.followAutomatic(tx, principal, application, transition.to, definition);
     return { id: applicationId, from: application.status, to: transition.to, auditId };
   }
@@ -174,6 +189,7 @@ export class WorkflowEngine {
     transition: Transition,
     action: ApplicationAction,
     input: GuardInput,
+    hooks: TransitionHooks,
   ): Promise<string> {
     for (const name of transition.effects ?? [])
       if (!isBuiltEffect(name)) throw new ApiError('workflow.effect_not_built', 409);
@@ -208,7 +224,13 @@ export class WorkflowEngine {
     if (transition.to === 'deleted') Object.assign(stamps, { deletedAt: now });
     await tx.application.update({
       where: { id: application.id },
-      data: { status: transition.to, updatedBy: actor, updatedAt: now, ...stamps },
+      data: {
+        ...(hooks.beforeApply ? await hooks.beforeApply(tx, application) : {}),
+        status: transition.to,
+        updatedBy: actor,
+        updatedAt: now,
+        ...stamps,
+      },
     });
     const auditId = await this.audit.record(tx, {
       action: outcome.auditAction ?? `application.${action}`,

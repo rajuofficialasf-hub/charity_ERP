@@ -31,6 +31,17 @@ export const isUniqueViolation = (error: unknown) =>
       /\b23505\b/.test(JSON.stringify(r.meta ?? '')),
   );
 
+/** A foreign key refused a row (P2003 through the client, 23503 through a raw statement). */
+export const isForeignKeyViolation = (error: unknown) =>
+  mentions(
+    error,
+    (r) =>
+      r.code === 'P2003' ||
+      r.code === '23503' ||
+      r.originalCode === '23503' ||
+      /\b23503\b/.test(JSON.stringify(r.meta ?? '')),
+  );
+
 /**
  * The database refused a volunteer's own mobile as a beneficiary's mobile on one of the volunteer's
  * applications; the deferred trigger raises it when the transaction commits.

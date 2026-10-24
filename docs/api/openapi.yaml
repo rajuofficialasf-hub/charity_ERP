@@ -325,6 +325,7 @@ components:
             delete,
             verify_link,
             reject_unverified,
+            return_to_review,
           ]
     AppNo:
       name: appNo
@@ -3724,7 +3725,12 @@ components:
               items: { $ref: '#/components/schemas/Answer' }
             reviewedAt: { type: [string, 'null'], format: date-time }
             approvedAt: { type: [string, 'null'], format: date-time }
-            decisionComment: { type: [string, 'null'] }
+            decisionComment:
+              {
+                type: [string, 'null'],
+                x-sensitive-class: application.official_section,
+                description: The office's reason of a decision,
+              }
             zakat:
               type: [object, 'null']
               x-sensitive-class: application.official_section
@@ -3841,6 +3847,40 @@ components:
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/FieldChange' } }
         meta: { $ref: '#/components/schemas/ListMeta' }
+    TimelineEntry:
+      type: object
+      description: >-
+        One step of the application, read from its audit entry; the office reads the actor, its
+        reason and the comment, a volunteer the state, the time and the message written for them
+      required: [id, at, action, from, to, automatic, message]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        at: { type: string, format: date-time }
+        action: { type: string, description: 'The audit action of the step, such as application.submit' }
+        from: { type: [string, 'null'] }
+        to: { type: string }
+        automatic:
+          { type: boolean, description: A move the engine made on its own after the step before }
+        actor:
+          type: [object, 'null']
+          x-sensitive-class: application.official_section
+          required: [id, name]
+          properties:
+            id: { $ref: '#/components/schemas/Uuid' }
+            name: { type: string }
+        reason: { type: [string, 'null'], x-sensitive-class: application.official_section }
+        comment: { type: [string, 'null'], x-sensitive-class: application.official_section }
+        message:
+          {
+            type: [string, 'null'],
+            description: The words written for the volunteer at a rejection,
+          }
+    TimelineList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/TimelineEntry' } }
+        meta: { $ref: '#/components/schemas/Meta' }
     Transfer:
       type: object
       required: [id, applicationId, fromVolunteerId, toVolunteerId, createdAt]
@@ -8926,6 +8966,26 @@ paths:
               schema: { $ref: '#/components/schemas/FieldChangeList' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /applications/{applicationId}/timeline:
+    parameters:
+      - $ref: '#/components/parameters/ApplicationId'
+    get:
+      tags: [applications]
+      operationId: applications.timeline.list
+      summary: The steps of the application in order (the audit entries of its state changes), projected per audience
+      x-permission: application.view
+      x-scope: application
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      x-sensitive-fields: [application.official_section]
+      responses:
+        '200':
+          description: Steps
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TimelineList' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /applications/{applicationId}/changes:
     parameters:
       - $ref: '#/components/parameters/ApplicationId'

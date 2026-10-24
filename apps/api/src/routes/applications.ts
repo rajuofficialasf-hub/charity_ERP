@@ -13,6 +13,7 @@ import {
   applicationUpdateSchema,
   applicationView,
 } from '../applications/view';
+import { fieldChangeView, timelineEntry } from '../applications/history';
 import type { ApplicationRead } from '../applications/service';
 import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal';
 import type { Container } from '../container';
@@ -184,6 +185,49 @@ export function applicationsRouter(
           ),
           res,
         ),
+    },
+  );
+
+  defineRoute<unknown, unknown, { applicationId: string }>(router, deps, {
+    ...op,
+    method: 'get',
+    path: '/applications/:applicationId/timeline',
+    operationId: 'applications.timeline.list',
+    summary:
+      'The steps of the application in order (the audit entries of its state changes), projected per audience',
+    permission: 'application.view',
+    scope: 'application',
+    audit: 'none',
+    sensitiveFields: ['application.official_section'],
+    params: { applicationId: uuid },
+    responses: { 200: z.array(timelineEntry), 404: null },
+    handler: async ({ params, req }) =>
+      ok(await c.applications.timeline(viewerOf(req), params.applicationId)),
+  });
+
+  defineRoute<unknown, { limit: number; cursor?: string }, { applicationId: string }>(
+    router,
+    deps,
+    {
+      ...op,
+      method: 'get',
+      path: '/applications/:applicationId/changes',
+      operationId: 'applications.change.list',
+      summary: 'Change log of the application (old and new values, who, why)',
+      permission: 'application.view_official_section',
+      scope: 'application',
+      audit: 'none',
+      params: { applicationId: uuid },
+      query: pageQuery.pick({ cursor: true, limit: true }),
+      responses: { 200: z.array(fieldChangeView), 404: null },
+      handler: async ({ params, query, req }) => {
+        const { rows, meta } = await c.applications.changes(
+          viewerOf(req),
+          params.applicationId,
+          query,
+        );
+        return page(rows, meta);
+      },
     },
   );
 
