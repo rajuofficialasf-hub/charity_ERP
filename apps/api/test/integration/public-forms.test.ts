@@ -155,6 +155,16 @@ function answers(over: { nid?: string; mobile?: string } = {}) {
     answer('village', { t: 'short_text', v: 'নমুনা গ্রাম' }),
   ];
 }
+/** The keys the distribution template gives its identity questions. */
+const IDENTITY_KEYS = [
+  'nid_or_birth_reg',
+  'mobile',
+  'name',
+  'gender',
+  'father_or_husband_name',
+  'address',
+  'village',
+];
 const submission = (over: { nid?: string; mobile?: string } = {}) => ({
   clientUuid: randomUUID(),
   answers: answers(over),
@@ -502,6 +512,46 @@ describe('submitting', () => {
     expect((await submit(token, submission({ mobile }))).status).toBe(201);
     const again = await submit(token, submission({ mobile }));
     expect(again.status).toBe(201);
+    expect((await flagsOf(again.body.data.id)).flags).toEqual([
+      'public_entry',
+      'identity_repeated',
+    ]);
+  });
+
+  it('reads the identity by the questions marks under other keys: the known flag, the repeat and the address', async () => {
+    // the builder writes the identity questions under keys of its own
+    const renamed: DraftChange = async (versionId) => {
+      await h.db.query(
+        `UPDATE form_fields SET field_key = 'q_' || field_key
+          WHERE form_version_id = $1 AND field_key = ANY($2::text[])`,
+        [versionId, IDENTITY_KEYS],
+      );
+    };
+    const p = await project(renamed);
+    const { token } = await enabled(p.id, p.formId);
+    const rekeyed = (over: { nid?: string; mobile?: string } = {}) => ({
+      clientUuid: randomUUID(),
+      answers: answers(over).map((a) =>
+        IDENTITY_KEYS.includes(a.fieldKey) ? { ...a, fieldKey: `q_${a.fieldKey}` } : a,
+      ),
+    });
+    const known = await beneficiary(h.db, loc);
+    const nid = (await h.db.query('SELECT nid FROM beneficiaries WHERE id = $1', [known])).rows[0]
+      .nid as string;
+    const first = await submit(token, rekeyed({ nid }));
+    expect(first.status, JSON.stringify(first.body)).toBe(201);
+    expect((await flagsOf(first.body.data.id)).flags).toEqual([
+      'public_entry',
+      'existing_identity',
+    ]);
+    const { rows } = await h.db.query(
+      'SELECT district_id, union_id FROM applications WHERE id = $1',
+      [first.body.data.id],
+    );
+    expect(rows[0]).toEqual({ district_id: loc.district, union_id: loc.union });
+    const mobile = fakeMobile();
+    expect((await submit(token, rekeyed({ mobile }))).status).toBe(201);
+    const again = await submit(token, rekeyed({ mobile }));
     expect((await flagsOf(again.body.data.id)).flags).toEqual([
       'public_entry',
       'identity_repeated',

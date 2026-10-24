@@ -356,7 +356,8 @@
       "nisab": "“{q}” বনাম নিসাব"
     },
     "add_row_question": "সারিতে প্রশ্ন যোগ করুন",
-    "calc_missing": "হিসাবের নিয়ম দিন"
+    "calc_missing": "হিসাবের নিয়ম দিন",
+    "first_section": "অংশ 1"
   },
   "types": {
     "short_text": "ছোট লেখা",

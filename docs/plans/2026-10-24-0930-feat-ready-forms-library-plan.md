@@ -78,7 +78,7 @@ Today a PM builds each project's form from a seeded library (10 sections, 85 que
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** personal data
-- **Status:** todo
+- **Status:** done
 
 ### U3. Who builds and who places
 - **Goal:** the build, publish and library permissions belong to the two global roles, and the PM gets "place".
@@ -194,8 +194,8 @@ Today a PM builds each project's form from a seeded library (10 sections, 85 que
 
 ## Progress
 - **Branch:** `feat/ready-forms` (from `docs/form-decisions-d126` at 7e0eb17, with `fix/deps-audit-2026-10-24` merged in; both PRs (#24, #25) wait for CI and merge into `main` before this branch's PR)
-- **Updated:** 2026-10-24 11:40
-- **Next:** U2 the identity roles (first step: `CORE_FIELDS` keyed by role in `packages/shared/src/forms/core.ts`, then the publish check by kind in `definition.ts`)
+- **Updated:** 2026-10-24 13:10
+- **Next:** checkpoint C2 (U2, the identity rules), then U3 the permissions (first step: `form.place` in `docs/security/permissions.yaml`, the default grants of `form.build`, `form.publish`, `form.library.*` emptied)
 - **Reviewed through:** C1 at the commit after 8d6d2de (the C1 fixes)
 - **Uncommitted:** none
-- **Notes:** C1 (T2, two reviewers): decision numbers left code comments; the reverse's refusal and the 404 of a form outside projects got tests; the kinds are read back; U4 owns the check that a placed copy's source is a ready form (a CHECK cannot read another row). U1: `forms.project_id` nullable with `kind`, `source_form_id`, `source_version_no`, the CHECKs and partial uniques, the empty library form `01a16a00-0000-7000-8000-00000000f001` with its draft inserted by the migration; `down.sql` refuses while ready forms, copies or library content exist; `FormsService` reaches a form through its project with `projectOf`, a form without a project answering 404 until U4 adds the ready branch. The owner allowed the start on 2026-10-24 ("তোমাকে অনুমতি দিলাম। শেষ হলে t2.4c শুরু করে দিবা"); D-129 (ready forms catalogue, take on demand, the library in the builder, the public link only on an application form) is written with U1.
+- **Notes:** U2: `identityRoleOf` reads a question's role from its standard column outside repeat groups; `checkDefinition(def, { publishing, kind })` checks the seven roles only at the publish of a beneficiary application, and `publishDefinitionSchema(kind)` is a function the publish calls with the form's kind; `blankDefinition()` gives one empty section titled from the catalogue (`forms.builder.first_section`); the public repeat check reads `standard_column`; `isCoreFieldKey` stays for the builder until U6 switches it to the marks; the refusal texts say identity questions; BR-078 rewritten. C1 (T2, two reviewers): decision numbers left code comments; the reverse's refusal and the 404 of a form outside projects got tests; the kinds are read back; U4 owns the check that a placed copy's source is a ready form (a CHECK cannot read another row). U1: `forms.project_id` nullable with `kind`, `source_form_id`, `source_version_no`, the CHECKs and partial uniques, the empty library form `01a16a00-0000-7000-8000-00000000f001` with its draft inserted by the migration; `down.sql` refuses while ready forms, copies or library content exist; `FormsService` reaches a form through its project with `projectOf`, a form without a project answering 404 until U4 adds the ready branch. The owner allowed the start on 2026-10-24 ("তোমাকে অনুমতি দিলাম। শেষ হলে t2.4c শুরু করে দিবা"); D-129 (ready forms catalogue, take on demand, the library in the builder, the public link only on an application form) is written with U1.

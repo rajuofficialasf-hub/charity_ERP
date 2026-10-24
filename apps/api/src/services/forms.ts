@@ -5,8 +5,10 @@ import {
   type FieldOption,
   fieldLogicSchema,
   fieldSettingsSchema,
+  FORM_KINDS,
   type FormCreate,
   type FormDefinition,
+  type FormKind,
   type FormFieldDefinition,
   formDefinitionSchema,
   type FormSectionDefinition,
@@ -71,8 +73,13 @@ const VERSION_SELECT = {
   status: true,
   publishedAt: true,
   updatedAt: true,
-  form: { select: { projectId: true } },
+  form: { select: { projectId: true, kind: true } },
 } as const;
+
+/** A form's kind as the engine reads it; the database's CHECK keeps the column to these three. */
+function formKindOf(kind: string): FormKind {
+  return FORM_KINDS.find((k) => k === kind) ?? 'beneficiary_application';
+}
 
 /** The project of a project's form; a ready form or the library is not reached through a project. */
 function projectOf(form: { projectId: string | null }): string {
@@ -308,8 +315,9 @@ export class FormsService {
       const row = await this.lockedDraft(tx, viewer, versionId);
       assertIfMatch(ifMatch, row.updatedAt);
       const definition = await readDefinition(tx, versionId, 'official');
-      // a draft may hold a calculated question without its rule; the publish may not
-      parseDefinition(definition, publishDefinitionSchema);
+      // a draft may hold a calculated question without its rule, and an application form its
+      // identity questions unmarked; the publish may not
+      parseDefinition(definition, publishDefinitionSchema(formKindOf(row.form.kind)));
       await this.assertLinkable(tx, projectOf(row.form), row.formId, versionId);
       const audience = await this.audienceOf(viewer, projectOf(row.form));
       await tx.formVersion.updateMany({
@@ -501,8 +509,7 @@ export class FormsService {
     body: FormCreate,
   ): Promise<FormDefinition> {
     const source = body.source;
-    if (source.kind === 'blank')
-      return parseDefinition(blankDefinition(await this.library.sources(tx)));
+    if (source.kind === 'blank') return parseDefinition(blankDefinition());
     if (source.kind === 'template') {
       const template = await this.library.template(tx, source.templateKey);
       if (!template) throw new ApiError('form.template_unknown', 404);

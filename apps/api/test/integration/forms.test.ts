@@ -254,14 +254,13 @@ describe('creating a project form', () => {
     expect(earners).toBeDefined();
   });
 
-  it('starts blank with the mandatory core only', async () => {
+  it('starts blank with one empty section and no question', async () => {
     const project = await draft();
     const res = await createForm(project, { kind: 'blank' });
     expect(res.status).toBe(201);
     const version = await readVersion(await as(world.users.pm), res.body.data.draftVersionId);
-    const fields = fieldsOf(version.body.data.sections);
-    expect(fields.map((x) => x.fieldKey).sort()).toEqual([...CORE].sort());
-    expect(fields.every((x) => x.required)).toBe(true);
+    expect(version.body.data.sections).toHaveLength(1);
+    expect(fieldsOf(version.body.data.sections)).toEqual([]);
   });
 
   it('copies the published form of another project the caller reaches, and nothing of one it does not', async () => {
@@ -480,12 +479,12 @@ describe('drafts, publishing and the field map', () => {
     return rows;
   }
 
-  it('refuses a draft that drops or loosens a core field, or whose logic is broken, naming the field', async () => {
+  it('keeps a draft without its identity questions, refuses the publish naming the role, and refuses broken logic in a draft', async () => {
     const pm = await as(world.users.pm);
     const { versionId } = await distributionDraft();
     const { etag, sections } = await current(pm, versionId);
     const refused = async (body: unknown, code: string, path: string) => {
-      const res = await update(pm, versionId, etag, body);
+      const res = await update(pm, versionId, etagNow, body);
       expect(res.status).toBe(422);
       const details = res.body.error.details as { path: string; code: string }[];
       expect(
@@ -493,18 +492,29 @@ describe('drafts, publishing and the field map', () => {
         JSON.stringify(details),
       ).toBe(true);
     };
-    await refused(
-      withField(sections, 'basic_info', (fields) => fields.filter((x) => x.fieldKey !== 'name')),
-      'form.core_field_missing',
-      'name',
+    // a draft may lose an identity question; the publish names the missing role
+    const loose = withField(sections, 'basic_info', (fields) =>
+      fields
+        .filter((x) => x.fieldKey !== 'name')
+        .map((x) => (x.fieldKey === 'mobile' ? { ...x, required: false } : x)),
     );
-    await refused(
-      withField(sections, 'basic_info', (fields) =>
-        fields.map((x) => (x.fieldKey === 'mobile' ? { ...x, required: false } : x)),
-      ),
-      'form.core_field_optional',
-      'mobile',
+    const saved = await update(pm, versionId, etag, loose);
+    expect(saved.status, JSON.stringify(saved.body)).toBe(200);
+    const publishRefused = await at(pm, 'post', `/form-versions/${versionId}/publish`).set(
+      'If-Match',
+      saved.headers.etag as string,
     );
+    expect(publishRefused.status).toBe(422);
+    expect(publishRefused.body.error.details).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: 'name', code: 'form.core_field_missing' }),
+        expect.objectContaining({ path: 'mobile', code: 'form.core_field_optional' }),
+      ]),
+    );
+    // the draft goes back to its first shape for the logic cases
+    const restored = await update(pm, versionId, saved.headers.etag as string, sections);
+    expect(restored.status).toBe(200);
+    const etagNow = restored.headers.etag as string;
     await refused(
       [
         ...sections,

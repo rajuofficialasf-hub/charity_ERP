@@ -356,7 +356,8 @@
       "nisab": "“{q}” against the nisab"
     },
     "add_row_question": "Add a question to the rows",
-    "calc_missing": "Set the calculation's rule"
+    "calc_missing": "Set the calculation's rule",
+    "first_section": "Section 1"
   },
   "types": {
     "short_text": "Short text",

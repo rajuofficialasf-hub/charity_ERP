@@ -9,6 +9,8 @@ import {
 } from '../jsonb/form-logic.js';
 import {
   CORE_FIELDS,
+  type FormKind,
+  identityRoleOf,
   FAMILY_MEMBERS_TABLE,
   isFamilyMemberColumn,
   isStandardColumn,
@@ -219,8 +221,13 @@ const fieldPath = (f: LocatedField, ...rest: (string | number)[]) => [
 export function checkDefinition(
   definition: FormDefinition,
   options: {
-    /** At publish: a calculated question must have its rule by then (a draft may wait). */
+    /**
+     * At publish: a calculated question must have its rule by then, and an application form its
+     * identity questions (a draft may wait for both).
+     */
     publishing?: boolean;
+    /** What the form is for; the identity roles apply to a beneficiary application only. */
+    kind?: FormKind;
   } = {},
 ): DefinitionIssue[] {
   const issues: DefinitionIssue[] = [];
@@ -478,29 +485,36 @@ export function checkDefinition(
       });
   }
 
-  // the mandatory core: present, required, visible to volunteers, mapped to its column
+  // the identity of an application form at publish: each role marked once, by the question's
+  // column under any key, of the role's type, required and seen by everyone
+  if (!options.publishing || options.kind !== 'beneficiary_application') return issues;
+  const marked = new Map<string, LocatedField>();
+  for (const located of fields.values()) {
+    const role = identityRoleOf(located.field);
+    if (role && !marked.has(role)) marked.set(role, located);
+  }
   for (const core of CORE_FIELDS) {
-    const located = fields.get(core.key);
+    const located = marked.get(core.key);
     if (!located) {
       issues.push({
         code: 'form.core_field_missing',
         path: ['sections'],
-        params: { fieldKey: core.key },
+        params: { fieldKey: core.key, role: core.key },
       });
       continue;
     }
     const { field, section } = located;
-    if (field.type !== core.type || field.standardColumn !== core.standardColumn)
+    if (field.type !== core.type)
       issues.push({
         code: 'form.core_field_shape',
         path: fieldPath(located, 'type'),
-        params: { fieldKey: core.key },
+        params: { fieldKey: field.fieldKey, role: core.key },
       });
     if (!field.required)
       issues.push({
         code: 'form.core_field_optional',
         path: fieldPath(located, 'required'),
-        params: { fieldKey: core.key },
+        params: { fieldKey: field.fieldKey, role: core.key },
       });
     const hidden =
       section.visibility === 'official_only' ||
@@ -511,20 +525,20 @@ export function checkDefinition(
       issues.push({
         code: 'form.core_field_hidden',
         path: fieldPath(located),
-        params: { fieldKey: core.key },
+        params: { fieldKey: field.fieldKey, role: core.key },
       });
   }
 
   return issues;
 }
 
-const definitionSchema = (publishing: boolean): z.ZodType<FormDefinition> =>
+const definitionSchema = (publishing: boolean, kind?: FormKind): z.ZodType<FormDefinition> =>
   z
     .strictObject({
       sections: z.array(formSectionSchema).min(1).max(DEFINITION_LIMITS.sections),
     })
     .superRefine((definition, ctx) => {
-      for (const issue of checkDefinition(definition, { publishing }))
+      for (const issue of checkDefinition(definition, { publishing, ...(kind ? { kind } : {}) }))
         ctx.addIssue({
           code: 'custom',
           message: issue.code,
@@ -535,7 +549,11 @@ const definitionSchema = (publishing: boolean): z.ZodType<FormDefinition> =>
 
 /** The full definition schema of a draft: the shape, then every check of `checkDefinition`. */
 export const formDefinitionSchema: z.ZodType<FormDefinition> = definitionSchema(false);
-/** The same at publish, where a calculated question must have its rule. */
-export const publishDefinitionSchema: z.ZodType<FormDefinition> = definitionSchema(true);
+/**
+ * The same at publish, where a calculated question must have its rule and an application form its
+ * identity questions.
+ */
+export const publishDefinitionSchema = (kind: FormKind): z.ZodType<FormDefinition> =>
+  definitionSchema(true, kind);
 
 export type { Condition, Expr, FieldType, SectionVisibility };

@@ -23,14 +23,31 @@ const schemaCodes = (input: unknown) => {
 
 // A definition is refused for what the shape cannot say: a lost core field, a dangling reference,
 // a reach into a repeat group, a cycle, a duplicate key, a free regex, a one-language label.
-describe('the mandatory core', () => {
-  it('accepts a form with the core and extra fields', () => {
+describe('the identity of an application form', () => {
+  // the check runs when an application form is published; a draft and another kind need none
+  const atPublish = (
+    definition: FormDefinition,
+    kind: 'beneficiary_application' | 'other' = 'beneficiary_application',
+  ) =>
+    checkDefinition(definition, { publishing: true, kind }).map((issue) => [
+      issue.code,
+      issue.params?.role,
+    ]);
+  const withoutCore: FormDefinition = { sections: [section('more', [yesNo('has_loan')])] };
+
+  it('accepts a form with the marked identity questions and extra fields', () => {
     const definition = definitionWith([yesNo('has_loan')]);
-    expect(checkDefinition(definition)).toEqual([]);
+    expect(atPublish(definition)).toEqual([]);
     expect(formDefinitionSchema.safeParse(definition).success).toBe(true);
   });
 
-  it('refuses a form without a core field, naming it', () => {
+  it('lets a draft and a form of another kind go without identity questions', () => {
+    expect(checkDefinition(withoutCore)).toEqual([]);
+    expect(atPublish(withoutCore, 'other')).toEqual([]);
+    expect(schemaCodes(withoutCore)).toEqual([]);
+  });
+
+  it('refuses to publish an application form without a role, naming it', () => {
     const definition: FormDefinition = {
       sections: [
         section(
@@ -40,44 +57,53 @@ describe('the mandatory core', () => {
         section('address', addressFields()),
       ],
     };
-    expect(codesOf(definition)).toEqual([['form.core_field_missing', 'gender']]);
-    expect(schemaCodes(definition)).toEqual(['form.core_field_missing']);
+    expect(atPublish(definition)).toEqual([['form.core_field_missing', 'gender']]);
+    expect(atPublish(withoutCore)).toHaveLength(7);
   });
 
-  it('refuses a core field made optional', () => {
+  it('finds the identity by the mark under any key, never by the key alone', () => {
+    const renamed = definitionWith();
+    for (const f of renamed.sections.flatMap((s) => s.fields)) f.fieldKey = `q_${f.fieldKey}`;
+    expect(atPublish(renamed)).toEqual([]);
+    // a question keyed mobile without the mark is a plain question
+    const unmarked = definitionWith();
+    unmarked.sections[0]!.fields.find((f) => f.fieldKey === 'mobile')!.standardColumn = null;
+    expect(atPublish(unmarked)).toEqual([['form.core_field_missing', 'mobile']]);
+  });
+
+  it('refuses a marked question made optional', () => {
     const definition = definitionWith();
     definition.sections[0]!.fields.find((f) => f.fieldKey === 'name')!.required = false;
-    expect(codesOf(definition)).toEqual([['form.core_field_optional', 'name']]);
+    expect(atPublish(definition)).toEqual([['form.core_field_optional', 'name']]);
   });
 
-  it('refuses a core field in an official-only section', () => {
+  it('refuses a marked question in an official-only section', () => {
     const definition = definitionWith();
     definition.sections[1]!.visibility = 'official_only';
-    expect(codesOf(definition)).toEqual([
+    expect(atPublish(definition)).toEqual([
       ['form.core_field_hidden', 'address'],
       ['form.core_field_hidden', 'village'],
     ]);
   });
 
-  it('refuses a core field behind a condition or inside a conditional section', () => {
+  it('refuses a marked question behind a condition or inside a conditional section', () => {
     const withShowIf = definitionWith([yesNo('x')]);
     withShowIf.sections[0]!.fields.find((f) => f.fieldKey === 'mobile')!.logic = {
       show_if: { field: 'x', op: 'eq', value: 'yes' },
     };
-    expect(codesOf(withShowIf)).toEqual([['form.core_field_hidden', 'mobile']]);
+    expect(atPublish(withShowIf)).toEqual([['form.core_field_hidden', 'mobile']]);
     const withCondition = definitionWith([yesNo('x')]);
     withCondition.sections[1]!.condition = { field: 'x', op: 'eq', value: 'yes' };
-    expect(codesOf(withCondition)).toEqual([
+    expect(atPublish(withCondition)).toEqual([
       ['form.core_field_hidden', 'address'],
       ['form.core_field_hidden', 'village'],
     ]);
   });
 
-  it('refuses a core field of another type or column', () => {
+  it('refuses a marked question of another type', () => {
     const definition = definitionWith();
-    definition.sections[1]!.fields.find((f) => f.fieldKey === 'village')!.standardColumn =
-      'landmark';
-    expect(codesOf(definition)).toEqual([['form.core_field_shape', 'village']]);
+    definition.sections[0]!.fields.find((f) => f.fieldKey === 'mobile')!.type = 'short_text';
+    expect(atPublish(definition)).toEqual([['form.core_field_shape', 'mobile']]);
   });
 });
 
