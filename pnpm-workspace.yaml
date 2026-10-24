@@ -19,3 +19,7 @@ overrides:
   # remove when Prisma ships the patched versions.
   mysql2: 3.24.5
   deepmerge-ts: 8.0.2
+  # The service-worker packages pin zod 4.6.5 (GHSA-mrhx-c7xc-m3w5, pnpm audit 2026-10-24); the
+  # patch release of the same line; remove when @serwist moves past it.
+  '@serwist/build>zod': 4.6.7
+  '@serwist/vite>zod': 4.6.7
