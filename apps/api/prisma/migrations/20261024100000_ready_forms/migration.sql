@@ -1,7 +1,7 @@
--- Ready forms (D-125, D-129): a form may stand outside every project — a ready form the Monitoring
+-- Ready forms: a form may stand outside every project — a ready form the Monitoring
 -- Team builds for PMs to place, or the one question library — and a project form placed from a
 -- ready form names the ready form and the version it copied. The kind says what a form is for: the
--- identity check of D-126 applies to beneficiary applications only. Every existing form is a
+-- identity check applies to beneficiary applications only. Every existing form is a
 -- project's beneficiary application form, so it keeps working unchanged.
 ALTER TABLE "forms" ALTER COLUMN "project_id" DROP NOT NULL;
 ALTER TABLE "forms" ADD COLUMN "kind" TEXT NOT NULL DEFAULT 'beneficiary_application';

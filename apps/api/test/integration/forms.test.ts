@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SeedContext } from '../../seed/context';
@@ -709,5 +710,27 @@ describe('a builder who does not see the official-only sections', () => {
     expect(keysOf(again.body.data.sections)).toContain('official');
     const versions = await at(pm, 'get', `/forms/${formId}/versions`);
     expect(keysOf(versions.body.data[1].sections)).toContain('official');
+  });
+});
+
+describe('a form outside every project', () => {
+  it('is not reached through the project routes, which answer 404', async () => {
+    const pm = await as(world.users.pm);
+    const formId = randomUUID();
+    const versionId = randomUUID();
+    await h.db.query(
+      `INSERT INTO forms (id, project_id, key, title_bn, title_en) VALUES ($1, NULL, $2, 'তৈরি', 'Ready')`,
+      [formId, `outside_${formId.slice(0, 8)}`],
+    );
+    await h.db.query(`INSERT INTO form_versions (id, form_id, version_no) VALUES ($1, $2, 1)`, [
+      versionId,
+      formId,
+    ]);
+    for (const path of [
+      `/forms/${formId}/versions`,
+      `/forms/${formId}/fields`,
+      `/form-versions/${versionId}`,
+    ])
+      expect((await at(pm, 'get', path)).status, path).toBe(404);
   });
 });

@@ -1,12 +1,14 @@
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { cloneTemplate } from './support/db';
+import { cloneTemplate, MIGRATIONS_DIR } from './support/db';
 import { expectSqlError, SQLSTATE } from './support/expect-sql';
 import * as f from './support/fixtures';
 
 // Forms outside projects: the ready forms PMs place, the one question library, and the source a
-// placed copy names (D-125, D-129).
+// placed copy names.
 let db: Client;
 let drop: () => Promise<void>;
 
@@ -35,8 +37,16 @@ describe('forms outside projects', () => {
   });
 
   it('stores a ready form of either kind with a unique key, and refuses a second with that key', async () => {
-    await readyForm('srp_application');
-    await readyForm('srp_survey', { kind: 'other' });
+    const application = await readyForm('srp_application');
+    const survey = await readyForm('srp_survey', { kind: 'other' });
+    const { rows } = await db.query(
+      `SELECT id, kind, project_id FROM forms WHERE id = ANY($1::uuid[]) ORDER BY key`,
+      [[application, survey]],
+    );
+    expect(rows).toEqual([
+      { id: application, kind: 'beneficiary_application', project_id: null },
+      { id: survey, kind: 'other', project_id: null },
+    ]);
     await expectSqlError(
       readyForm('srp_application'),
       SQLSTATE.uniqueViolation,
@@ -112,5 +122,61 @@ describe('forms outside projects', () => {
       p.form,
     ]);
     expect(rows[0]).toEqual({ kind: 'beneficiary_application', source_form_id: null });
+  });
+});
+
+describe('the reverse of the migration', () => {
+  const down = readFileSync(join(MIGRATIONS_DIR, '20261024100000_ready_forms', 'down.sql'), 'utf8');
+  /** A fresh clone of the template, the setup on it, then the reverse; the clone is dropped after. */
+  async function reverseAfter(setup: (c: Client) => Promise<unknown>): Promise<Client> {
+    const clone = await cloneTemplate(inject('templateDb'));
+    try {
+      await setup(clone.client);
+      await clone.client.query(down);
+      const { rows } = await clone.client.query(
+        `SELECT is_nullable FROM information_schema.columns WHERE table_name = 'forms' AND column_name = 'project_id'`,
+      );
+      expect(rows[0].is_nullable).toBe('NO');
+      return clone.client;
+    } finally {
+      await clone.drop();
+    }
+  }
+  const refused = /ready_forms_down/;
+
+  it('removes the empty library when nothing else needs the new columns', async () => {
+    await reverseAfter(async () => undefined);
+  });
+
+  it('refuses while a ready form exists', async () => {
+    await expect(
+      reverseAfter((c) =>
+        f.insert(c, 'forms', {
+          id: randomUUID(),
+          project_id: null,
+          key: 'down_ready',
+          title_bn: 'তৈরি',
+          title_en: 'Ready',
+        }),
+      ),
+    ).rejects.toThrow(refused);
+  });
+
+  it('refuses while the library holds a section', async () => {
+    await expect(
+      reverseAfter(async (c) => {
+        const { rows } = await c.query(
+          `SELECT v.id FROM form_versions v JOIN forms f ON f.id = v.form_id WHERE f.kind = 'library'`,
+        );
+        await f.insert(c, 'form_sections', {
+          id: randomUUID(),
+          form_version_id: rows[0].id,
+          key: 'library_part',
+          title_bn: 'অংশ',
+          title_en: 'Part',
+          sort_order: 1,
+        });
+      }),
+    ).rejects.toThrow(refused);
   });
 });
