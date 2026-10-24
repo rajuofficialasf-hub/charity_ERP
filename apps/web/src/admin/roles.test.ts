@@ -3,6 +3,7 @@ import {
   canApproveStaff,
   canBuildForms,
   canManagePublicLink,
+  canPlaceForms,
   canAssignVolunteers,
   canGrantOnProject,
   canMarkPaid,
@@ -122,6 +123,13 @@ describe('admin role lists', () => {
       'volunteer_general',
     ])
       expect(canBuildForms(as(role)), role).toBe(false);
+  });
+
+  it('lets the PM and the two global roles place ready forms, and no RPM or field role', () => {
+    for (const role of ['program_manager', 'department_head', 'monitoring_team'])
+      expect(canPlaceForms(as(role)), role).toBe(true);
+    for (const role of ['regional_program_manager', 'project_executive', 'volunteer_general'])
+      expect(canPlaceForms(as(role)), role).toBe(false);
   });
 
   it('lets the PM and the two global roles manage the public link, and no RPM or field role', () => {

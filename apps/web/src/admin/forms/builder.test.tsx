@@ -842,18 +842,18 @@ describe('a new form', () => {
     );
   });
 
-  it('opens the new-form dialog when the setup screen sends a project without a form', async () => {
+  it('opens the placement of a ready form when the setup screen sends a project without a form', async () => {
     server.use(
       forms([]),
-      http.get('*/api/v1/form-library', () =>
-        HttpResponse.json({ data: LIBRARY, meta: { requestId: 'r' } }),
+      http.get('*/api/v1/ready-forms', () =>
+        HttpResponse.json({ data: [], meta: { requestId: 'r' } }),
       ),
     );
     renderApp(<FormsPage />, 'bn', {
       path: '/admin/projects/:projectId/forms',
       initialPath: `/admin/projects/${PROJECT}/forms?new=1`,
     });
-    expect(await screen.findByRole('dialog', { name: 'নতুন আবেদন ফর্ম' })).toBeInTheDocument();
+    expect(await screen.findByRole('dialog', { name: 'তৈরি ফর্ম বসান' })).toBeInTheDocument();
   });
 
   it('opens no dialog from ?new=1 for a role that does not build forms', async () => {
@@ -865,21 +865,22 @@ describe('a new form', () => {
     });
     expect(await screen.findByText('এই প্রকল্পে এখনো কোনো ফর্ম নেই।')).toBeInTheDocument();
     expect(screen.queryByRole('dialog', { name: 'নতুন আবেদন ফর্ম' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'তৈরি ফর্ম বসান' })).not.toBeInTheDocument();
   });
 
   it('takes ?new=1 off the address when the dialog closes, so it does not open again', async () => {
     const user = userEvent.setup();
     server.use(
       forms([]),
-      http.get('*/api/v1/form-library', () =>
-        HttpResponse.json({ data: LIBRARY, meta: { requestId: 'r' } }),
+      http.get('*/api/v1/ready-forms', () =>
+        HttpResponse.json({ data: [], meta: { requestId: 'r' } }),
       ),
     );
     const { router } = renderApp(<FormsPage />, 'bn', {
       path: '/admin/projects/:projectId/forms',
       initialPath: `/admin/projects/${PROJECT}/forms?new=1`,
     });
-    const dialog = await screen.findByRole('dialog', { name: 'নতুন আবেদন ফর্ম' });
+    const dialog = await screen.findByRole('dialog', { name: 'তৈরি ফর্ম বসান' });
     await user.click(within(dialog).getByRole('button', { name: 'বাতিল' }));
     await waitFor(() => expect(router.state.location.search).toBe(''));
   });

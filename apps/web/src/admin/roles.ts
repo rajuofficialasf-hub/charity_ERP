@@ -224,3 +224,14 @@ export const PUBLIC_LINK_ROLES: readonly string[] = [
   'program_manager',
 ];
 export const canManagePublicLink = (me: Pick<Me, 'roles'>) => holds(me, PUBLIC_LINK_ROLES);
+
+/**
+ * Who places a published ready form on a project and takes its newer versions (`form.place`): the
+ * PM of the program and the two global roles. The server decides each placement by its scope.
+ */
+export const FORM_PLACE_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'program_manager',
+];
+export const canPlaceForms = (me: Pick<Me, 'roles'>) => holds(me, FORM_PLACE_ROLES);

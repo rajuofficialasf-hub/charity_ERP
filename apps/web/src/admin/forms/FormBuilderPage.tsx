@@ -22,7 +22,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { canBuildForms, canManagePublicLink } from '../roles';
+import { canBuildForms, canManagePublicLink, canPlaceForms } from '../roles';
 import {
   addEmptySection,
   addLibraryField,
@@ -42,6 +42,7 @@ import {
   library,
   newVersion,
   publishVersion,
+  takeVersion,
   versionWithEtag,
 } from './forms-api';
 import { AddPane } from './AddPane';
@@ -88,6 +89,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   const { projectId = '', formId: routeFormId = '' } = useParams();
   const t = useTranslations('forms.builder');
   const tc = useTranslations('common');
+  const tp = useTranslations('forms.place');
   const locale = useLocale() as Locale;
   const { me } = useAuth();
   const phone = useMedia(PHONE);
@@ -153,6 +155,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     },
   });
   const next = useMutation({ mutationFn: () => newVersion(formId), onSuccess: afterChange });
+  const take = useMutation({ mutationFn: () => takeVersion(formId), onSuccess: afterChange });
   const [draft, setDraft] = useState<FormDefinition | null>(null);
   const [etag, setEtag] = useState<string | undefined>(undefined);
   const [selected, setSelectedOnly] = useState<Selection | null>(null);
@@ -289,9 +292,11 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     builder && !phone && !placed && version.status === 'published' && !form?.draftVersionId;
   // a refusal that names no question shows above the panes: any refused new version, and a
   // refused publish without messages for the outline
-  const failure = [Object.keys(publishDetails).length ? null : publish.error, next.error].find(
-    (e): e is ApiFailure => e instanceof ApiFailure,
-  );
+  const failure = [
+    Object.keys(publishDetails).length ? null : publish.error,
+    next.error,
+    take.error,
+  ].find((e): e is ApiFailure => e instanceof ApiFailure);
 
   const outline = (
     <FormCanvas
@@ -473,7 +478,21 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
           {failure.message}
         </Alert>
       ) : null}
-      {!isDraft ? <Alert tone="info">{t('read_only')}</Alert> : null}
+      {placed ? <Alert tone="info">{tp('placed_note')}</Alert> : null}
+      {placed && form?.newerVersionNo && me && canPlaceForms(me) && !viewing ? (
+        <Alert
+          tone="info"
+          live="status"
+          action={
+            <Button size="sm" onPress={() => take.mutate()} loading={take.isPending}>
+              {tp('take')}
+            </Button>
+          }
+        >
+          {tp('newer', { n: String(form.newerVersionNo) })}
+        </Alert>
+      ) : null}
+      {!isDraft && !placed ? <Alert tone="info">{t('read_only')}</Alert> : null}
       {save.refused ? (
         <Alert tone="warning" live="alert">
           {t('no_official')}

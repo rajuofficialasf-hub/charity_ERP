@@ -444,5 +444,17 @@
     "start_copy": "Copy of another ready form",
     "copy_from": "Form to copy",
     "copy_none": "No published ready form to copy."
+  },
+  "place": {
+    "button": "Place a ready form",
+    "title": "Place a ready form",
+    "note": "A placed form arrives published on the project. It is not changed here; when the ready form has a newer version, you can take it.",
+    "choose": "Form to place",
+    "option": "{title} · {kind} · version {n}",
+    "none": "No published ready form to place yet. Ask the Monitoring Team.",
+    "place": "Place",
+    "placed_note": "This form was placed from a ready form, so it is not changed here.",
+    "newer": "This form has a newer version (version {n}). Taking it starts the new version on the project; earlier applications keep theirs.",
+    "take": "Take the new version"
   }
 }
