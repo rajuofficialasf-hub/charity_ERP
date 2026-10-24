@@ -239,7 +239,9 @@
     "unexpected_answer": "This question takes no answer.",
     "duplicate_answer": "This question was answered twice.",
     "repeat_group_too_large": "A list has too many questions.",
-    "not_of_project": "This form belongs to another project."
+    "not_of_project": "This form belongs to another project.",
+    "no_newer_version": "This form has no newer version to take.",
+    "placed_copy": "A form placed from a ready form is not changed here; take the ready form's newer version."
   },
   "public": {
     "link_closed": "This link is not open for applications.",
@@ -248,7 +250,8 @@
     "configure_through_link": "The public link is switched on, and its form chosen, through its own setting.",
     "photo_limit": "At most 5 photos can be added to one application.",
     "link_full": "This link is holding too many photos right now. Try again later.",
-    "photo_unknown": "This photo was not uploaded for this application."
+    "photo_unknown": "This photo was not uploaded for this application.",
+    "form_not_application": "Only a beneficiary application form can open through the public link."
   },
   "program": {
     "inactive": "This program is inactive; it takes no new projects.",

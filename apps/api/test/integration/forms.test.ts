@@ -108,77 +108,7 @@ async function publishBySql(versionId: string) {
 }
 
 describe('the form library', () => {
-  it('gives the Monitoring Team the ten sections, the standard fields and the two templates', async () => {
-    const res = await at(await as(world.users.monitoring), 'get', '/form-library');
-    expect(res.status).toBe(200);
-    const { sections, fields, templates } = res.body.data;
-    expect(sections.map((s: { key: string }) => s.key)).toEqual([
-      'basic_info',
-      'address',
-      'family_income',
-      'livelihood',
-      'project_questions',
-      'financial_status',
-      'loans',
-      'zakat_assessment',
-      'official',
-      'attachments',
-    ]);
-    const keys = fields.map((x: { key: string }) => x.key);
-    for (const key of [...CORE, 'dob', 'occupation', 'members_14_plus', 'earners', 'gps'])
-      expect(keys).toContain(key);
-    // the fields come in the seed's order, so the builder lists them as the department reads them
-    expect(keys).toContain('family_members');
-    expect(keys.slice(0, 4)).toEqual([
-      'nid_or_birth_reg',
-      'mobile',
-      'name',
-      'father_or_husband_name',
-    ]);
-    expect(keys.indexOf('occupation')).toBeLessThan(keys.indexOf('zakat_cash'));
-    expect(fields.find((x: { key: string }) => x.key === 'name')).toMatchObject({
-      type: 'short_text',
-      label: { bn: 'উপকারভোগীর নাম', en: "Beneficiary's name" },
-      standardColumn: 'name',
-    });
-    expect(templates.map((t: { key: string }) => t.key).sort()).toEqual([
-      'form_distribution',
-      'form_self_reliance_construction',
-    ]);
-  });
-
-  it('gives each field ready to place in a form, with its options from the list and its repeat members', async () => {
-    const res = await at(await as(world.users.monitoring), 'get', '/form-library');
-    expect(res.status).toBe(200);
-    interface Placed {
-      fieldKey: string;
-      required: boolean;
-      libraryFieldKey: string | null;
-      options?: { code: string }[];
-      settings?: { repeat?: { group?: string } };
-    }
-    const placed = (key: string) =>
-      (res.body.data.fields as { key: string; formFields: Placed[] }[]).find((x) => x.key === key)!
-        .formFields;
-    const [gender] = placed('gender');
-    expect(gender).toMatchObject({
-      fieldKey: 'gender',
-      libraryFieldKey: 'gender',
-      required: false,
-    });
-    expect(gender!.options!.map((o) => o.code)).toEqual(expect.arrayContaining(['male', 'female']));
-    const earners = placed('earners');
-    expect(earners[0]).toMatchObject({ fieldKey: 'earners', libraryFieldKey: 'earners' });
-    const members = earners.slice(1);
-    expect(members.map((m) => m.fieldKey)).toEqual(
-      expect.arrayContaining(['earner_name', 'earner_relationship']),
-    );
-    expect(members.every((m) => m.settings?.repeat?.group === 'earners')).toBe(true);
-    expect(
-      members.find((m) => m.fieldKey === 'earner_relationship')!.options!.length,
-    ).toBeGreaterThan(0);
-  });
-
+  // its content, built and published as the library form, is read in the ready-forms tests
   it('is refused to a PM, an RPM and a volunteer, and without a login', async () => {
     expect((await at(await as(world.users.pm), 'get', '/form-library')).status).toBe(403);
     expect((await at(await as(world.users.rpmDhaka), 'get', '/form-library')).status).toBe(403);
@@ -728,8 +658,9 @@ describe('a builder who does not see the official-only sections', () => {
 });
 
 describe('a form outside every project', () => {
-  it('is not reached through the project routes, which answer 404', async () => {
-    const pm = await as(world.users.monitoring);
+  it('is read by its builders, and is not reached by a PM through the project routes', async () => {
+    const builder = await as(world.users.monitoring);
+    const pm = await as(world.users.pm);
     const formId = randomUUID();
     const versionId = randomUUID();
     await h.db.query(
@@ -745,6 +676,7 @@ describe('a form outside every project', () => {
       `/forms/${formId}/fields`,
       `/form-versions/${versionId}`,
     ])
-      expect((await at(pm, 'get', path)).status, path).toBe(404);
+      expect((await at(builder, 'get', path)).status, path).toBe(200);
+    expect((await at(pm, 'get', `/form-versions/${versionId}`)).status).toBe(404);
   });
 });

@@ -1,8 +1,12 @@
 import {
   type FormCreate,
   formCreateSchema,
+  type FormPlace,
+  formPlaceSchema,
   type PublicLinkConfig,
   publicLinkConfigSchema,
+  type ReadyFormCreate,
+  readyFormCreateSchema,
 } from '@css/shared/forms';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -55,15 +59,30 @@ const versionListView = versionView.extend({
   updatedBy: personView.nullable(),
   updatedAt: z.string(),
 });
+const formKind = z.enum(['beneficiary_application', 'other']);
 const formView = z.object({
   id: uuid,
   projectId: uuid,
   key: z.string(),
   title: bilingual,
+  kind: formKind,
   publishedVersionId: uuid.nullable(),
+  draftVersionId: uuid.nullable(),
+  sourceFormId: uuid.nullable(),
+  sourceVersionNo: z.number().int().nullable(),
+  newerVersionNo: z.number().int().nullable(),
+});
+const readyFormView = z.object({
+  id: uuid,
+  key: z.string(),
+  kind: formKind,
+  title: bilingual,
+  publishedVersionId: uuid.nullable(),
+  publishedVersionNo: z.number().int().nullable(),
   draftVersionId: uuid.nullable(),
 });
 const libraryView = z.object({
+  libraryFormId: uuid,
   sections: z.array(
     z.object({
       key: z.string(),
@@ -113,7 +132,7 @@ const ifMatch = [{ name: 'If-Match', required: true }];
  */
 export function formsRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'forms' | 'formLibrary' | 'publicLink'>,
+  c: Pick<Container, 'forms' | 'formLibrary' | 'publicLink' | 'readyForms'>,
 ): Router {
   const router = Router();
   const op = { tag: 'forms', idempotency: 'none' as const, rateLimit: 'default' as const };
@@ -133,7 +152,8 @@ export function formsRouter(
     method: 'get',
     path: '/form-library',
     operationId: 'forms.library.get',
-    summary: 'The section and field libraries the builder picks from (seeded; read-only)',
+    summary:
+      "The question library the builder picks from: the library form's published version (empty until its first publish)",
     permission: 'form.library.view',
     scope: 'global',
     audit: 'none',
@@ -260,6 +280,84 @@ export function formsRouter(
     responses: { 200: versionView, 404: null, 409: null, 412: null, 422: null },
     handler: async ({ params, req, res }) =>
       withEtag(await c.forms.publish(viewerOf(req), params.versionId, req.get('if-match')), res),
+  });
+
+  defineRoute(router, deps, {
+    ...op,
+    method: 'get',
+    path: '/ready-forms',
+    operationId: 'forms.ready.list',
+    summary:
+      'Ready forms outside the projects: every one with its draft for the builders, the published ones for a PM; never the library; not paginated',
+    permission: 'form.place',
+    scope: 'project',
+    audit: 'none',
+    responses: { 200: z.array(readyFormView), 403: null },
+    handler: async ({ req }) => ok(await c.readyForms.list(viewerOf(req))),
+  });
+
+  defineRoute<ReadyFormCreate>(router, deps, {
+    ...op,
+    method: 'post',
+    path: '/ready-forms',
+    status: 201,
+    operationId: 'forms.ready.create',
+    summary:
+      'Create a ready form as draft version 1, empty (one section) or copied from another ready form, by the two global roles',
+    permission: 'form.build',
+    scope: 'global',
+    audit: 'form.ready_create',
+    body: readyFormCreateSchema,
+    responses: { 201: readyFormView, 403: null, 404: null, 409: null, 422: null },
+    handler: async ({ body, req }) => ok(await c.readyForms.create(viewerOf(req), body)),
+  });
+
+  defineRoute<unknown, unknown, { formId: string }>(router, deps, {
+    ...op,
+    method: 'get',
+    path: '/ready-forms/:formId/published',
+    operationId: 'forms.ready.published',
+    summary: "A ready form's published version, read before it is placed",
+    permission: 'form.place',
+    scope: 'project',
+    audit: 'none',
+    params: formParams,
+    responses: { 200: versionView, 403: null, 404: null },
+    handler: async ({ params, req }) =>
+      ok(await c.readyForms.published(viewerOf(req), params.formId)),
+  });
+
+  defineRoute<FormPlace, unknown, { projectId: string }>(router, deps, {
+    ...op,
+    method: 'post',
+    path: '/projects/:projectId/forms/place',
+    status: 201,
+    operationId: 'forms.ready.place',
+    summary:
+      "Place a ready form's published version on a project: a published copy naming its source, which the PM does not change",
+    permission: 'form.place',
+    scope: 'project',
+    audit: 'form.place',
+    params: { projectId: uuid },
+    body: formPlaceSchema,
+    responses: { 201: formView, 403: null, 404: null, 409: null, 422: null },
+    handler: async ({ params, body, req }) =>
+      ok(await c.readyForms.place(viewerOf(req), params.projectId, body)),
+  });
+
+  defineRoute<unknown, unknown, { formId: string }>(router, deps, {
+    ...op,
+    method: 'post',
+    path: '/forms/:formId/take-version',
+    operationId: 'forms.ready.takeVersion',
+    summary:
+      "Take the ready form's newer published version as the placed form's next version; applications keep theirs",
+    permission: 'form.place',
+    scope: 'project',
+    audit: 'form.take_version',
+    params: formParams,
+    responses: { 200: formView, 403: null, 404: null, 409: null, 422: null },
+    handler: async ({ params, req }) => ok(await c.readyForms.take(viewerOf(req), params.formId)),
   });
 
   defineRoute<PublicLinkConfig, unknown, { projectId: string }>(router, deps, {
