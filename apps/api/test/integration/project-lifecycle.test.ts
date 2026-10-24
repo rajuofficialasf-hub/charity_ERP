@@ -112,7 +112,7 @@ async function draft(complete: boolean, fundTotal = '100000.00') {
       misconduct: text('অনিয়ম'),
     });
   expect(rules.status).toBe(200);
-  await publishedForm(h, pm, id);
+  await publishedForm(h, await as(world.users.monitoring), id);
   return id;
 }
 async function activated() {
@@ -184,8 +184,9 @@ describe('activation', () => {
     expect(refused.body.error.details).toEqual([
       expect.objectContaining({ path: 'form', code: 'validation.required' }),
     ]);
-    // a draft form is not enough; the published one is
-    const made = await at(pm, `/projects/${id}/forms`).send({
+    // a draft form is not enough; the published one is (the Monitoring Team builds it)
+    const builder = await as(world.users.monitoring);
+    const made = await at(builder, `/projects/${id}/forms`).send({
       key: 'default',
       title: { bn: 'আবেদন', en: 'Application' },
       source: { kind: 'template', templateKey: 'form_distribution' },
@@ -195,11 +196,11 @@ describe('activation', () => {
     expect(still.status).toBe(409);
     const read = await api()
       .get(`/api/v1/form-versions/${made.body.data.draftVersionId}`)
-      .set(bearer(pm));
-    const published = await at(pm, `/form-versions/${made.body.data.draftVersionId}/publish`).set(
-      'If-Match',
-      read.headers.etag as string,
-    );
+      .set(bearer(builder));
+    const published = await at(
+      builder,
+      `/form-versions/${made.body.data.draftVersionId}/publish`,
+    ).set('If-Match', read.headers.etag as string);
     expect(published.status).toBe(200);
     const res = await at(pm, `/projects/${id}/activate`).set('If-Match', await etag(pm, id));
     expect(res.status).toBe(200);

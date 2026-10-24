@@ -75,7 +75,8 @@ Legend: ✓ default · G = if RPM grants · H = house construction only · W = s
 | project.create, project.configure, project.activate, project.quota.manage, project.template.manage, fund_source.manage | ✓ | — | — | — | — | — | — |
 | project.deadline.extend / close / reopen / cancel | ✓ | — | — | — | — | — | — |
 | project.area.assign | ✓ | — | — | — | — | — | — |
-| form.build / publish / public_link.manage / library.view | ✓ | — | — | — | — | — | — |
+| form.place / public_link.manage | ✓ | — | — | — | — | — | — |
+| form.build / publish / library.view / library.manage (the two global roles only, D-125) | — | — | — | — | — | — | — |
 | project.staff_access.manage | ✓ | ✓ | — | — | — | — | — |
 | project.volunteer_grant.manage | — | ✓ | — | — | — | — | — |
 | registration.approve / request_correction | ✓ | ✓ | ✓ | — | — | — | — |
@@ -323,11 +324,12 @@ Generated on 2026-10-18 from `permissions.yaml` (last regenerated for D-101); re
 | `project.template.manage` | M06 | no | Create and edit master project templates (organisation-wide, D-096); save a project the holder may view as template | program_manager@GLOBAL |
 | `project.quota.manage` | M06 | no | Set district and union quotas and scoring criteria | program_manager@PROGRAM |
 | `project.view` | M06 | no | View project configuration and status | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; official_daee@REGION; implementer@REGION; procurement_team@PROJECT (house_construction_project); finance_team@GLOBAL; media_team@GLOBAL; media_director@GLOBAL; media_assistant_director@GLOBAL; volunteer_general@PROJECT; volunteer_local_daee@PROJECT; volunteer_both@PROJECT; volunteer_team_member@PROJECT; volunteer_paid@PROJECT |
-| `form.build` | M07 | no | Edit a project's form draft (sections, fields, logic) | program_manager@PROGRAM |
-| `form.publish` | M07 | no | Publish a form version | program_manager@PROGRAM |
+| `form.build` | M07 | no | Build a form draft (sections, questions, logic) — the ready forms and the question library; the two global roles only (D-125) | — |
+| `form.publish` | M07 | no | Publish a form version; the two global roles only | — |
+| `form.place` | M07 | no | Place a published ready form on a project and take its newer versions, changing nothing in it (D-129) | program_manager@PROGRAM |
 | `form.public_link.manage` | M07 | no | Enable, disable and configure the public application link: the only route that switches the link on and chooses its form, issuing a fresh token each time; everyone else reads the link's settings without the token (T2.3) | program_manager@PROGRAM |
-| `form.library.view` | M07 | no | Read the section and field libraries the form builder picks from (the libraries are organisation-wide, so the PM holds it at GLOBAL) | program_manager@GLOBAL |
-| `form.library.manage` | M07 | no | Edit the section and field libraries | — |
+| `form.library.view` | M07 | no | Read the question library the form builder picks from; the two global roles only | — |
+| `form.library.manage` | M07 | no | Edit and publish the question library; the two global roles only | — |
 | `application.create` | M08 | no | Create an application (draft) | regional_program_manager@REGION; project_executive@REGION; implementer@REGION (safe_water_only); volunteer_general@SELF; volunteer_both@SELF; volunteer_team_member@SELF |
 | `application.submit` | M08 | no | Submit a draft to the office | regional_program_manager@REGION; project_executive@REGION; implementer@REGION (safe_water_only); volunteer_general@SELF; volunteer_both@SELF |
 | `application.edit_draft` | M08 | no | Edit a draft before submission | regional_program_manager@REGION; project_executive@REGION; volunteer_general@SELF; volunteer_both@SELF; volunteer_team_member@SELF (own_created) |

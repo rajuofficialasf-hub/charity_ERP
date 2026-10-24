@@ -201,7 +201,7 @@ const open = (locale: 'bn' | 'en' = 'bn') =>
 beforeEach(() => {
   // each test signs in afresh, so a role set by one never carries into the next
   resetClientForTests();
-  refreshAs({ ...ME, roles: ['program_manager'] });
+  refreshAs({ ...ME, roles: ['monitoring_team'] });
 });
 afterEach(() => vi.unstubAllGlobals());
 

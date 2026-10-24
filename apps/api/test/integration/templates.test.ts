@@ -141,7 +141,7 @@ async function fullSource() {
     ).status,
   ).toBe(200);
   expect((await at(pm, 'put', `/projects/${id}/rules`).send(RULES)).status).toBe(200);
-  await publishedForm(h, pm, id);
+  await publishedForm(h, await as(world.users.monitoring), id);
   return id;
 }
 /** The field keys of a project's first form, in its first version. */

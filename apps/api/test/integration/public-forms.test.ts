@@ -58,7 +58,7 @@ type DraftChange = (versionId: string) => Promise<void>;
 
 /** A form of the project from the distribution template, changed while a draft, then published. */
 async function publishedForm(projectId: string, key = 'default', change?: DraftChange) {
-  const pm = await as(world.users.pm);
+  const pm = await as(world.users.monitoring);
   const made = await at(pm, 'post', `/projects/${projectId}/forms`).send({
     key,
     title: { bn: 'আবেদন', en: 'Application' },
@@ -239,7 +239,11 @@ describe('configuring the link', () => {
     expect(missing.body.error.details).toEqual([detail('formId', 'validation.required')]);
     const two = await configure(p.id, { enabled: true, formId: p.formId, formIds: [p.formId] });
     expect(two.status).toBe(422);
-    const draftOnly = await at(await as(world.users.pm), 'post', `/projects/${p.id}/forms`).send({
+    const draftOnly = await at(
+      await as(world.users.monitoring),
+      'post',
+      `/projects/${p.id}/forms`,
+    ).send({
       key: 'second',
       title: { bn: 'দ্বিতীয়', en: 'Second' },
       source: { kind: 'blank' },
@@ -312,7 +316,7 @@ describe('configuring the link', () => {
   it('refuses to publish a draft with a file field while the form is on the link', async () => {
     const p = await project();
     await enabled(p.id, p.formId);
-    const pm = await as(world.users.pm);
+    const pm = await as(world.users.monitoring);
     const next = await at(pm, 'post', `/forms/${p.formId}/versions`);
     expect(next.status, JSON.stringify(next.body)).toBe(201);
     const draftId = next.body.data.id as string;
@@ -448,8 +452,8 @@ describe('submitting', () => {
     const sent = await submit(token, submission());
     expect(sent.status, JSON.stringify(sent.body)).toBe(201);
     const id = sent.body.data.id as string;
-    // the PM changes the form: the next draft with a new section title, then published
-    const pm = await as(world.users.pm);
+    // the Monitoring Team changes the form: the next draft with a new section title, then published
+    const pm = await as(world.users.monitoring);
     const next = await at(pm, 'post', `/forms/${p.formId}/versions`);
     expect(next.status, JSON.stringify(next.body)).toBe(201);
     const v2 = next.body.data.id as string;

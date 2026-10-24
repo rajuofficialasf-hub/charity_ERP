@@ -66,7 +66,8 @@ async function linkedProject() {
   });
   expect(created.status, JSON.stringify(created.body)).toBe(201);
   const projectId = created.body.data.id as string;
-  const made = await at(pm, 'post', `/projects/${projectId}/forms`).send({
+  const builder = await as(world.users.monitoring);
+  const made = await at(builder, 'post', `/projects/${projectId}/forms`).send({
     key: 'default',
     title: { bn: 'আবেদন', en: 'Application' },
     source: { kind: 'template', templateKey: 'form_distribution' },
@@ -79,8 +80,8 @@ async function linkedProject() {
      FROM form_sections s WHERE s.form_version_id = $1 AND s.key = 'address'`,
     [versionId],
   );
-  const current = await at(pm, 'get', `/form-versions/${versionId}`);
-  const published = await at(pm, 'post', `/form-versions/${versionId}/publish`).set(
+  const current = await at(builder, 'get', `/form-versions/${versionId}`);
+  const published = await at(builder, 'post', `/form-versions/${versionId}/publish`).set(
     'If-Match',
     current.headers.etag as string,
   );

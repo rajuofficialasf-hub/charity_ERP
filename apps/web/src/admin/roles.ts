@@ -208,13 +208,8 @@ export const canSeeStaff = (me: Pick<Me, 'roles'>) => holds(me, STAFF_DIRECTORY_
 export const canManageOfficials = (me: Pick<Me, 'roles'>) => holds(me, OFFICIAL_ADMIN_ROLES);
 
 /**
- * Who builds and publishes a project's application form and manages its public link: the PM of
- * the program and the two global roles (`form.build`, `form.publish`, `form.public_link.manage`).
- * The server decides each save by the scope of the grant.
+ * Who builds and publishes forms and the question library: the two global roles (`form.build`,
+ * `form.publish`, `form.library.manage`). A PM places a ready form on his project instead.
  */
-export const FORM_BUILDER_ROLES: readonly string[] = [
-  'department_head',
-  'monitoring_team',
-  'program_manager',
-];
+export const FORM_BUILDER_ROLES: readonly string[] = ['department_head', 'monitoring_team'];
 export const canBuildForms = (me: Pick<Me, 'roles'>) => holds(me, FORM_BUILDER_ROLES);

@@ -63,7 +63,7 @@ const fieldOf = (def: FormDefinition, key: string) =>
 
 beforeEach(() => {
   resetClientForTests();
-  refreshAs({ ...ME, roles: ['program_manager'] });
+  refreshAs({ ...ME, roles: ['monitoring_team'] });
 });
 
 describe('the field settings', () => {

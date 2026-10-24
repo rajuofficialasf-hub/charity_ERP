@@ -90,7 +90,7 @@ async function draft() {
   return res.body.data.id as string;
 }
 async function createForm(projectId: string, source: unknown, key = 'default') {
-  return at(await as(world.users.pm), 'post', `/projects/${projectId}/forms`).send({
+  return at(await as(world.users.monitoring), 'post', `/projects/${projectId}/forms`).send({
     key,
     title: { bn: 'আবেদন', en: 'Application' },
     source,
@@ -109,7 +109,7 @@ async function publishBySql(versionId: string) {
 
 describe('the form library', () => {
   it('gives the PM the ten sections, the standard fields and the two templates', async () => {
-    const res = await at(await as(world.users.pm), 'get', '/form-library');
+    const res = await at(await as(world.users.monitoring), 'get', '/form-library');
     expect(res.status).toBe(200);
     const { sections, fields, templates } = res.body.data;
     expect(sections.map((s: { key: string }) => s.key)).toEqual([
@@ -148,7 +148,7 @@ describe('the form library', () => {
   });
 
   it('gives each field ready to place in a form, with its options from the list and its repeat members', async () => {
-    const res = await at(await as(world.users.pm), 'get', '/form-library');
+    const res = await at(await as(world.users.monitoring), 'get', '/form-library');
     expect(res.status).toBe(200);
     interface Placed {
       fieldKey: string;
@@ -180,6 +180,7 @@ describe('the form library', () => {
   });
 
   it('is refused to an RPM and a volunteer, and without a login', async () => {
+    expect((await at(await as(world.users.pm), 'get', '/form-library')).status).toBe(403);
     expect((await at(await as(world.users.rpmDhaka), 'get', '/form-library')).status).toBe(403);
     expect((await at(await as(world.users.general), 'get', '/form-library')).status).toBe(403);
     expect((await api().get('/api/v1/form-library')).status).toBe(401);
@@ -278,10 +279,6 @@ describe('creating a project form', () => {
           .sections,
       ).map((x) => x.fieldKey),
     );
-    // the other program's project is out of the PM's reach: not found, and not named
-    const outOfReach = await createForm(await draft(), { kind: 'copy', formId: world.b1.form });
-    expect(outOfReach.status).toBe(404);
-    expect(JSON.stringify(outOfReach.body)).not.toContain(world.b1.form);
     // a draft-only source has nothing published to copy
     const unpublished = await createForm(await draft(), {
       kind: 'copy',
@@ -310,7 +307,7 @@ describe('creating a project form', () => {
       `INSERT INTO user_permissions (id, user_id, permission_name, effect, scope_type, reason, granted_by)
        VALUES (gen_random_uuid(), $1, 'application.view_official_section', 'revoke', 'GLOBAL', 'test', $2)
        RETURNING id`,
-      [world.users.pm, world.users.head],
+      [world.users.monitoring, world.users.head],
     );
     try {
       const refused = await createForm(target, { kind: 'copy', formId: made.body.data.id });
@@ -335,15 +332,21 @@ describe('creating a project form', () => {
     expect((await createForm(project, { kind: 'blank' }, 'Bad Key')).status).toBe(422);
   });
 
-  it('is refused to the PM of another program, an RPM and a volunteer, like the versions list', async () => {
+  it("is refused to the PM, another program's PM, an RPM and a volunteer, like the versions list", async () => {
     const project = await draft();
     const made = await createForm(project, { kind: 'blank' });
     const formId = made.body.data.id as string;
     const otherPm = await staff('program_manager');
     const body = { key: 'x', title: { bn: 'ক', en: 'X' }, source: { kind: 'blank' } };
     expect(
+      (await at(await as(world.users.pm), 'post', `/projects/${project}/forms`).send(body)).status,
+    ).toBe(403);
+    expect((await at(await as(world.users.pm), 'get', `/forms/${formId}/versions`)).status).toBe(
+      403,
+    );
+    expect(
       (await at(otherPm.session, 'post', `/projects/${project}/forms`).send(body)).status,
-    ).toBe(404);
+    ).toBe(403);
     expect(
       (await at(await as(world.users.rpmDhaka), 'post', `/projects/${project}/forms`).send(body))
         .status,
@@ -352,14 +355,14 @@ describe('creating a project form', () => {
       (await at(await as(world.users.general), 'post', `/projects/${project}/forms`).send(body))
         .status,
     ).toBe(403);
-    expect((await at(otherPm.session, 'get', `/forms/${formId}/versions`)).status).toBe(404);
+    expect((await at(otherPm.session, 'get', `/forms/${formId}/versions`)).status).toBe(403);
     expect(
       (await at(await as(world.users.rpmDhaka), 'get', `/forms/${formId}/versions`)).status,
     ).toBe(403);
     expect(
       (await at(await as(world.users.general), 'get', `/forms/${formId}/versions`)).status,
     ).toBe(403);
-    const versions = await at(await as(world.users.pm), 'get', `/forms/${formId}/versions`);
+    const versions = await at(await as(world.users.monitoring), 'get', `/forms/${formId}/versions`);
     expect(versions.status).toBe(200);
     expect(versions.body.data).toEqual([
       expect.objectContaining({ versionNo: 1, status: 'draft', publishedAt: null }),
@@ -414,7 +417,7 @@ describe('reading a version', () => {
   });
 
   it('answers 404 for an unknown version and 422 for a bad id', async () => {
-    const pm = await as(world.users.pm);
+    const pm = await as(world.users.monitoring);
     expect((await readVersion(pm, '01900000-0000-7000-8000-00000000dead')).status).toBe(404);
     expect((await readVersion(pm, 'not-a-uuid')).status).toBe(422);
     expect((await at(pm, 'get', '/forms/not-a-uuid/versions')).status).toBe(422);
@@ -480,7 +483,7 @@ describe('drafts, publishing and the field map', () => {
   }
 
   it('keeps a draft without its identity questions, refuses the publish naming the role, and refuses broken logic in a draft', async () => {
-    const pm = await as(world.users.pm);
+    const pm = await as(world.users.monitoring);
     const { versionId } = await distributionDraft();
     const { etag, sections } = await current(pm, versionId);
     const refused = async (body: unknown, code: string, path: string) => {
@@ -545,7 +548,7 @@ describe('drafts, publishing and the field map', () => {
   });
 
   it('saves a valid draft, reads it back unchanged, and refuses a stale version', async () => {
-    const pm = await as(world.users.pm);
+    const pm = await as(world.users.monitoring);
     const { versionId } = await distributionDraft();
     const { etag, sections } = await current(pm, versionId);
     const next = [...sections, customSection([textField('house_type')])];
@@ -561,7 +564,7 @@ describe('drafts, publishing and the field map', () => {
   });
 
   it('keeps a calculated question without its rule in a draft, and refuses to publish it naming the question', async () => {
-    const pm = await as(world.users.pm);
+    const pm = await as(world.users.monitoring);
     const { versionId } = await distributionDraft();
     const { etag, sections } = await current(pm, versionId);
     const saved = await update(pm, versionId, etag, [
@@ -577,7 +580,7 @@ describe('drafts, publishing and the field map', () => {
   });
 
   it('publishes a draft, retires the previous version, and starts the next draft as a copy', async () => {
-    const pm = await as(world.users.pm);
+    const pm = await as(world.users.monitoring);
     const { project, formId, versionId } = await distributionDraft();
     const first = await publish(pm, versionId, (await current(pm, versionId)).etag);
     expect(first.status).toBe(200);
@@ -609,10 +612,10 @@ describe('drafts, publishing and the field map', () => {
     // the list names who published each version and who changed it last; the read never does
     const pmName = (
       await h.db.query<{ display_name: string }>('SELECT display_name FROM users WHERE id = $1', [
-        world.users.pm,
+        world.users.monitoring,
       ])
     ).rows[0]!.display_name;
-    const named = { id: world.users.pm, name: pmName };
+    const named = { id: world.users.monitoring, name: pmName };
     for (const v of versions.body.data)
       expect(v).toMatchObject({
         publishedBy: named,
@@ -644,12 +647,13 @@ describe('drafts, publishing and the field map', () => {
     });
   });
 
-  it('refuses the update, the publish, the next draft and the field map to the PM of another program, an RPM and a volunteer', async () => {
-    const pm = await as(world.users.pm);
+  it("refuses the update, the publish, the next draft and the field map to the PM, another program's PM, an RPM and a volunteer", async () => {
+    const pm = await as(world.users.monitoring);
     const { formId, versionId } = await distributionDraft();
     const { etag, sections } = await current(pm, versionId);
     const others: [Session, number][] = [
-      [(await staff('program_manager')).session, 404],
+      [await as(world.users.pm), 403],
+      [(await staff('program_manager')).session, 403],
       [await as(world.users.rpmDhaka), 403],
       [await as(world.users.general), 403],
     ];
@@ -669,7 +673,7 @@ describe('a builder who does not see the official-only sections', () => {
   const keysOf = (sections: { key: string }[]) => sections.map((s) => s.key);
 
   it('cannot save a draft, and gets the volunteer-visible part back from the publish, the next draft and the field map', async () => {
-    const pm = await as(world.users.pm);
+    const pm = await as(world.users.monitoring);
     const project = await draft();
     const made = await createForm(project, {
       kind: 'template',
@@ -685,7 +689,7 @@ describe('a builder who does not see the official-only sections', () => {
       `INSERT INTO user_permissions (id, user_id, permission_name, effect, scope_type, reason, granted_by)
        VALUES (gen_random_uuid(), $1, 'application.view_official_section', 'revoke', 'GLOBAL', 'test', $2)
        RETURNING id`,
-      [world.users.pm, world.users.head],
+      [world.users.monitoring, world.users.head],
     );
     try {
       const partial = await readVersion(pm, versionId);
@@ -725,7 +729,7 @@ describe('a builder who does not see the official-only sections', () => {
 
 describe('a form outside every project', () => {
   it('is not reached through the project routes, which answer 404', async () => {
-    const pm = await as(world.users.pm);
+    const pm = await as(world.users.monitoring);
     const formId = randomUUID();
     const versionId = randomUUID();
     await h.db.query(

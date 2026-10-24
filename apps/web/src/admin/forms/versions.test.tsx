@@ -157,7 +157,7 @@ const open = () =>
 beforeEach(() => {
   resetClientForTests();
   sessionStorage.clear();
-  refreshAs({ ...ME, roles: ['program_manager'] });
+  refreshAs({ ...ME, roles: ['monitoring_team'] });
 });
 
 /** The versions sit in the form-settings tab of the right pane. */

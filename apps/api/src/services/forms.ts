@@ -78,7 +78,9 @@ const VERSION_SELECT = {
 
 /** A form's kind as the engine reads it; the database's CHECK keeps the column to these three. */
 function formKindOf(kind: string): FormKind {
-  return FORM_KINDS.find((k) => k === kind) ?? 'beneficiary_application';
+  const known = FORM_KINDS.find((k) => k === kind);
+  if (!known) throw new Error(`forms.kind holds an unknown value: ${kind}`);
+  return known;
 }
 
 /** The project of a project's form; a ready form or the library is not reached through a project. */
