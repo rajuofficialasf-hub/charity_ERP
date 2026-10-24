@@ -242,11 +242,11 @@ export class FormsService {
         select: { id: true },
       });
       if (taken) throw new ApiError('form.key_taken', 409);
-      const definition = await this.sourceDefinition(tx, viewer, body);
+      const { definition, kind } = await this.sourceDefinition(tx, viewer, body);
       const { formId, versionId } = await createFormFromDefinition(
         tx,
         projectId,
-        { key: body.key, title: body.title, definition },
+        { key: body.key, title: body.title, definition, kind },
         actor,
       );
       await this.audit.record(tx, {
@@ -541,6 +541,18 @@ export class FormsService {
     return form.projectId === null ? 'official' : this.audienceOf(viewer, form.projectId);
   }
 
+  /**
+   * The audience of a form outside the projects for a caller who is not its builder: official
+   * only when the caller holds `application.view_official_section` at some scope.
+   */
+  async audienceAnywhere(viewer: ProjectViewer): Promise<FormAudience> {
+    if (viewer.principal.kind === 'volunteer') return 'volunteer';
+    const access = await this.access.load(viewer.principal.userId);
+    return access.grants.some((g) => g.permission === 'application.view_official_section')
+      ? 'official'
+      : 'volunteer';
+  }
+
   /** Whether the caller sees official-only sections of this project's forms. */
   async audienceOf(viewer: ProjectViewer, projectId: string): Promise<FormAudience> {
     if (viewer.principal.kind === 'volunteer') return 'volunteer';
@@ -563,24 +575,33 @@ export class FormsService {
     return form;
   }
 
-  /** The first draft's definition, from the chosen source; refused when the source has none. */
+  /**
+   * The first draft's definition and the form's kind, from the chosen source; refused when the
+   * source has none. A copy keeps the kind of the form it copies.
+   */
   private async sourceDefinition(
     tx: Tx,
     viewer: ProjectViewer,
     body: FormCreate,
-  ): Promise<FormDefinition> {
+  ): Promise<{ definition: FormDefinition; kind: ProjectFormKind }> {
     const source = body.source;
-    if (source.kind === 'blank') return parseDefinition(blankDefinition());
+    const application = 'beneficiary_application' as const;
+    if (source.kind === 'blank')
+      return { definition: parseDefinition(blankDefinition()), kind: application };
     if (source.kind === 'template') {
       const template = await this.library.template(tx, source.templateKey);
       if (!template) throw new ApiError('form.template_unknown', 404);
       const { form } = storedTemplateSchema.parse(template.definition);
-      return parseDefinition(definitionFromTemplate(form, await this.library.sources(tx)));
+      return {
+        definition: parseDefinition(definitionFromTemplate(form, await this.library.sources(tx))),
+        kind: application,
+      };
     }
     const form = await tx.form.findUnique({
       where: { id: source.formId },
       select: {
         projectId: true,
+        kind: true,
         formVersionsForm: { where: { status: 'published' }, select: { id: true } },
       },
     });
@@ -593,7 +614,10 @@ export class FormsService {
     }
     const published = form.formVersionsForm[0];
     if (!published) throw new ApiError('form.nothing_published', 409);
-    return readDefinition(tx, published.id, 'official');
+    return {
+      definition: await readDefinition(tx, published.id, 'official'),
+      kind: projectFormKindOf(form.kind),
+    };
   }
 }
 
@@ -822,6 +846,28 @@ export interface FormToCreate {
   key: string;
   title: { bn: string; en: string };
   definition: FormDefinition;
+  /** What the form is for; a beneficiary application when the source names none. */
+  kind?: ProjectFormKind;
+}
+
+/** The kinds a project's form may have (the library is never a project's form). */
+export type ProjectFormKind = Exclude<FormKind, 'library'>;
+
+/** A project form's kind as stored; the library kind never belongs to a project. */
+export function projectFormKindOf(kind: string): ProjectFormKind {
+  const known = formKindOf(kind);
+  if (known === 'library') throw new Error('a project form holds the library kind');
+  return known;
+}
+
+/** A form create that loses a key race to another request answers 409, like the read before it. */
+export async function createUnlessKeyTaken<T>(create: () => Promise<T>): Promise<T> {
+  try {
+    return await create();
+  } catch (error) {
+    if (isUniqueViolation(error)) throw new ApiError('form.key_taken', 409);
+    throw error;
+  }
 }
 
 /**
@@ -836,17 +882,20 @@ export async function createFormFromDefinition(
 ): Promise<{ formId: string; versionId: string }> {
   const formId = uuidv7();
   const versionId = uuidv7();
-  await tx.form.create({
-    data: {
-      id: formId,
-      projectId,
-      key: form.key,
-      titleBn: form.title.bn,
-      titleEn: form.title.en,
-      createdBy: actor,
-      updatedBy: actor,
-    },
-  });
+  await createUnlessKeyTaken(() =>
+    tx.form.create({
+      data: {
+        id: formId,
+        projectId,
+        key: form.key,
+        titleBn: form.title.bn,
+        titleEn: form.title.en,
+        kind: form.kind ?? 'beneficiary_application',
+        createdBy: actor,
+        updatedBy: actor,
+      },
+    }),
+  );
   await tx.formVersion.create({
     data: { id: versionId, formId, versionNo: 1, createdBy: actor, updatedBy: actor },
   });

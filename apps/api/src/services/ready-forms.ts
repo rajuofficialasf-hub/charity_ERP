@@ -11,6 +11,7 @@ import type { AuditWriter } from '../audit/audit-writer';
 import type { PrismaService, Tx } from '../core/prisma.service';
 import { ApiError } from '../i18n/api-error';
 import {
+  createUnlessKeyTaken,
   FORM_SELECT,
   formKindOf,
   type FormsService,
@@ -109,18 +110,20 @@ export class ReadyFormsService {
             );
       const formId = uuidv7();
       const versionId = uuidv7();
-      await tx.form.create({
-        data: {
-          id: formId,
-          projectId: null,
-          key: body.key,
-          titleBn: body.title.bn,
-          titleEn: body.title.en,
-          kind: body.kind,
-          createdBy: actor,
-          updatedBy: actor,
-        },
-      });
+      await createUnlessKeyTaken(() =>
+        tx.form.create({
+          data: {
+            id: formId,
+            projectId: null,
+            key: body.key,
+            titleBn: body.title.bn,
+            titleEn: body.title.en,
+            kind: body.kind,
+            createdBy: actor,
+            updatedBy: actor,
+          },
+        }),
+      );
       await tx.formVersion.create({
         data: { id: versionId, formId, versionNo: 1, createdBy: actor, updatedBy: actor },
       });
@@ -143,14 +146,17 @@ export class ReadyFormsService {
     });
   }
 
-  /** The published version of a ready form, as a PM reads it before placing it. */
-  async published(_viewer: ProjectViewer, formId: string): Promise<FormVersionView> {
+  /**
+   * The published version of a ready form, as a PM reads it before placing it; the official-only
+   * sections only for a caller who sees them somewhere.
+   */
+  async published(viewer: ProjectViewer, formId: string): Promise<FormVersionView> {
     const version = await this.publishedOf(this.prisma, formId, 'permission.not_found', 404);
-    const row = await this.prisma.formVersion.findUniqueOrThrow({
-      where: { id: version.id },
-      select: { id: true, formId: true, versionNo: true, status: true, publishedAt: true },
-    });
-    return versionView(row, await readDefinition(this.prisma, version.id, 'official'));
+    const audience = await this.forms.audienceAnywhere(viewer);
+    return versionView(
+      { ...version, formId, status: 'published' },
+      await readDefinition(this.prisma, version.id, audience),
+    );
   }
 
   /**
@@ -173,20 +179,22 @@ export class ReadyFormsService {
       const taken = await tx.form.findFirst({ where: { projectId, key }, select: { id: true } });
       if (taken) throw new ApiError('form.key_taken', 409);
       const formId = uuidv7();
-      await tx.form.create({
-        data: {
-          id: formId,
-          projectId,
-          key,
-          titleBn: source.titleBn,
-          titleEn: source.titleEn,
-          kind: source.kind,
-          sourceFormId: body.readyFormId,
-          sourceVersionNo: published.versionNo,
-          createdBy: actor,
-          updatedBy: actor,
-        },
-      });
+      await createUnlessKeyTaken(() =>
+        tx.form.create({
+          data: {
+            id: formId,
+            projectId,
+            key,
+            titleBn: source.titleBn,
+            titleEn: source.titleEn,
+            kind: source.kind,
+            sourceFormId: body.readyFormId,
+            sourceVersionNo: published.versionNo,
+            createdBy: actor,
+            updatedBy: actor,
+          },
+        }),
+      );
       const versionId = await this.copyPublished(tx, formId, 1, published.id, actor);
       await nameFormOnComponent(tx, projectId, formId, actor);
       await this.audit.record(tx, {
@@ -266,13 +274,13 @@ export class ReadyFormsService {
     formId: string,
     missing: 'form.nothing_published' | 'permission.not_found',
     status: number,
-  ): Promise<{ id: string; versionNo: number }> {
+  ): Promise<{ id: string; versionNo: number; publishedAt: Date | null }> {
     const form = await db.form.findFirst({
       where: { id: formId, ...READY },
       select: {
         formVersionsForm: {
           where: { status: 'published' },
-          select: { id: true, versionNo: true },
+          select: { id: true, versionNo: true, publishedAt: true },
         },
       },
     });

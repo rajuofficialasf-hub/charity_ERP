@@ -524,3 +524,73 @@ describe('the question library', () => {
     expect((listed.body.data as { id: string }[]).map((f) => f.id)).not.toContain(LIBRARY_FORM);
   });
 });
+
+describe('a project that takes no more changes', () => {
+  it('refuses the placement and the take, and writes nothing', async () => {
+    const pm = await as(world.users.pm);
+    const ready = await publishedReady('other');
+    const project = await draftProject();
+    const placed = (await place(pm, project, ready.id)).body.data.id as string;
+    await h.db.query(`UPDATE projects SET status = 'closing' WHERE id = $1`, [project]);
+    const second = await publishedReady('other');
+    const refusedPlace = await place(pm, project, second.id);
+    expect(refusedPlace.status).toBe(409);
+    expect(refusedPlace.body.error.code).toBe('project.read_only');
+    const forms = await h.db.query('SELECT id FROM forms WHERE project_id = $1', [project]);
+    expect(forms.rows.map((r: { id: string }) => r.id)).toEqual([placed]);
+
+    const mt = await as(world.users.monitoring);
+    const next = await at(mt, 'post', `/forms/${ready.id}/versions`);
+    expect(
+      (await save(mt, next.body.data.id, [section([question('q_more', 'long_text')])])).status,
+    ).toBe(200);
+    expect((await publish(mt, next.body.data.id)).status).toBe(200);
+    const refusedTake = await at(pm, 'post', `/forms/${placed}/take-version`);
+    expect(refusedTake.status).toBe(409);
+    expect(refusedTake.body.error.code).toBe('project.read_only');
+    expect(await auditRows(placed, 'form.take_version')).toHaveLength(0);
+  });
+});
+
+describe('the kind of a copied form', () => {
+  it('stays with a copy of a placed form of another kind', async () => {
+    const pm = await as(world.users.pm);
+    const project = await draftProject();
+    const placed = (await place(pm, project, (await publishedReady('other')).id)).body.data
+      .id as string;
+    const copy = await at(
+      await as(world.users.monitoring),
+      'post',
+      `/projects/${project}/forms`,
+    ).send({
+      key: 'copied_other',
+      title: { bn: 'কপি', en: 'Copy' },
+      source: { kind: 'copy', formId: placed },
+    });
+    expect(copy.status, JSON.stringify(copy.body)).toBe(201);
+    expect(copy.body.data).toMatchObject({ kind: 'other', sourceFormId: null });
+  });
+});
+
+describe('the published read of a ready form', () => {
+  it('gives a PM, who sees official sections on the projects, the official-only part too', async () => {
+    const mt = await as(world.users.monitoring);
+    const made = await createReady('other');
+    const official = {
+      ...section([question('q_office', 'long_text')], 'office'),
+      visibility: 'official_only',
+    };
+    expect(
+      (await save(mt, made.draftVersionId, [section([question('q_open', 'long_text')]), official]))
+        .status,
+    ).toBe(200);
+    expect((await publish(mt, made.draftVersionId)).status).toBe(200);
+    const read = await at(await as(world.users.pm), 'get', `/ready-forms/${made.id}/published`);
+    expect(read.status).toBe(200);
+    expect(read.body.data.sections.map((s: { key: string }) => s.key)).toEqual([
+      'section_1',
+      'office',
+    ]);
+    expect(read.body.data).toMatchObject({ formId: made.id, versionNo: 1, status: 'published' });
+  });
+});

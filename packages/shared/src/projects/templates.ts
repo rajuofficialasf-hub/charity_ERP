@@ -76,6 +76,8 @@ export function copiedSettings(
 export const templateFormSchema = z.strictObject({
   key: snakeKey.max(40),
   title: boundedLabel,
+  /** What the form is for; a template saved before forms had kinds holds an application form. */
+  kind: z.enum(['beneficiary_application', 'other']).optional(),
   definition: formDefinitionSchema,
 });
 export type TemplateForm = z.infer<typeof templateFormSchema>;
