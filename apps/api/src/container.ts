@@ -69,6 +69,7 @@ import { TemplatesService } from './services/templates';
 import { FormLibraryService } from './services/form-library';
 import { FormsService, readDefinition } from './services/forms';
 import { ApplicationEvents } from './notifications/application-events';
+import { BulkReviewService } from './applications/bulk';
 import { ApplicationsService } from './applications/service';
 import { SubmissionWriter } from './applications/submission';
 import { WorkflowEngine } from './workflow/engine';
@@ -151,6 +152,7 @@ export interface Container {
   forms: FormsService;
   workflow: WorkflowEngine;
   applications: ApplicationsService;
+  bulkReview: BulkReviewService;
   applicationEvents: ApplicationEvents;
   readyForms: ReadyFormsService;
   publicLink: PublicLinkService;
@@ -200,6 +202,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const logger = o.logger ?? createLogger(env, options.logStream);
   const clock = o.clock ?? systemClock;
   const prisma = o.prisma ?? new PrismaService(env);
+  const idempotency = o.idempotency ?? new IdempotencyService(prisma);
   const storage = o.storage ?? createStorage(env);
   const jobs = o.jobs ?? new JobRunner(env, logger);
   const health =
@@ -281,7 +284,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     clock,
     prisma,
     audit,
-    idempotency: o.idempotency ?? new IdempotencyService(prisma),
+    idempotency,
     storage,
     email,
     sms,
@@ -399,6 +402,8 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         workflow,
         new SubmissionWriter(access, beneficiaryIdentity, beneficiaryContact, audit),
       ),
+    bulkReview:
+      o.bulkReview ?? new BulkReviewService(prisma, access, audit, idempotency, workflow, logger),
     readyForms: o.readyForms ?? new ReadyFormsService(prisma, audit, projects, forms),
     publicLink: o.publicLink ?? new PublicLinkService(env, prisma, audit, projects),
     publicPhotos,

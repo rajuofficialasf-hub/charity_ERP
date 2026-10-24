@@ -22,7 +22,7 @@ import {
   isUniqueViolationOf,
   isVolunteerMobileRefusal,
 } from '../core/db-errors';
-import { assertIfMatch } from '../core/etag';
+import { assertIfMatch, etagOf } from '../core/etag';
 import {
   buildPage,
   decodeCursor,
@@ -45,6 +45,7 @@ import type { Replayable } from '../services/uploads';
 import type { WorkflowEngine } from '../workflow/engine';
 import { type EngineApplication, GuardContext, GUARDS } from '../workflow/guards';
 import type { BuiltGuard } from '../workflow/registry';
+import { readActivities } from './activities';
 import { readChanges, readTimeline } from './history';
 import type { SubmissionWriter } from './submission';
 import {
@@ -470,6 +471,32 @@ export class ApplicationsService {
     return readTimeline(this.prisma, applicationId, this.audienceOf(viewer));
   }
 
+  /** The activities of the application, newest first, within the caller's scope. */
+  async activities(
+    viewer: ApplicationViewer,
+    applicationId: string,
+    query: { limit: number; cursor?: string; type?: string },
+  ) {
+    await this.readReached(viewer, { id: applicationId });
+    const binding = `applications.activities|${viewer.principal.userId}|${applicationId}`;
+    const cursor = query.cursor
+      ? decodeCursor(this.env.CURSOR_SECRET, binding, query.cursor)
+      : undefined;
+    const fetched = await readActivities(this.prisma, applicationId, {
+      limit: query.limit + 1,
+      beforeId: cursor ? String(cursor.v[0]) : undefined,
+      type: query.type,
+    });
+    return buildPage(fetched, {
+      limit: query.limit,
+      sort: [{ field: 'id', direction: 'desc' as const }],
+      direction: 'next',
+      hadCursor: Boolean(cursor),
+      secret: this.env.CURSOR_SECRET,
+      binding,
+    });
+  }
+
   /** The change log of the answers, for the office (the route's permission says who). */
   async changes(
     viewer: ApplicationViewer,
@@ -600,6 +627,7 @@ export class ApplicationsService {
       unionId: r.unionId,
       submittedAt: iso(r.submittedAt),
       waitingDays: Math.max(0, Math.floor((now.getTime() - r.updatedAt.getTime()) / DAY_MS)),
+      etag: etagOf(r.updatedAt),
     };
   }
 

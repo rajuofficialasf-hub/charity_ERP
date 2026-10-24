@@ -13,6 +13,8 @@ import {
   applicationUpdateSchema,
   applicationView,
 } from '../applications/view';
+import { activityView } from '../applications/activities';
+import { type BulkReview, bulkResponse, bulkReviewSchema } from '../applications/bulk';
 import { fieldChangeView, timelineEntry } from '../applications/history';
 import type { ApplicationRead } from '../applications/service';
 import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal';
@@ -41,7 +43,7 @@ const viewerOf = (req: AuthedRequest) => ({
  */
 export function applicationsRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'applications' | 'idempotency'>,
+  c: Pick<Container, 'applications' | 'bulkReview' | 'idempotency'>,
 ): Router {
   const router = Router();
   const op = { tag: 'applications', idempotency: 'none' as const, rateLimit: 'default' as const };
@@ -230,6 +232,65 @@ export function applicationsRouter(
       },
     },
   );
+
+  defineRoute<BulkReview, unknown, { projectId: string }>(router, deps, {
+    ...op,
+    method: 'post',
+    path: '/projects/:projectId/bulk/review',
+    operationId: 'applications.bulk.review',
+    summary:
+      'The review screen in bulk: up to 50 applications start their review or take their approval, each row on its own (API_STANDARDS section 13)',
+    permission: 'workflow',
+    scope: 'application',
+    audit: 'application.bulk_review',
+    idempotency: 'header',
+    rateLimit: 'sync',
+    workflow: { scope: 'application', action: 'body' },
+    headers: [{ name: 'Idempotency-Key', required: true }],
+    params: { projectId: uuid },
+    body: bulkReviewSchema,
+    responses: { 200: bulkResponse, 403: null, 404: null, 422: null },
+    handler: async ({ params, body, req, res }) => {
+      const outcome = await c.bulkReview.run(
+        principalOf(req),
+        params.projectId,
+        req.get('idempotency-key'),
+        body,
+      );
+      if (outcome.replay) c.idempotency.markReplay(res);
+      return ok({ results: outcome.results });
+    },
+  });
+
+  defineRoute<
+    unknown,
+    { limit: number; cursor?: string; type?: string },
+    { applicationId: string }
+  >(router, deps, {
+    tag: 'activities',
+    idempotency: 'none',
+    rateLimit: 'default',
+    method: 'get',
+    path: '/applications/:applicationId/activities',
+    operationId: 'activities.activity.listForApplication',
+    summary: 'Activities of an application (timeline)',
+    permission: 'application.view',
+    scope: 'application',
+    audit: 'none',
+    params: { applicationId: uuid },
+    query: pageQuery
+      .pick({ cursor: true, limit: true })
+      .extend({ type: z.string().max(40).optional() }),
+    responses: { 200: z.array(activityView), 404: null },
+    handler: async ({ params, query, req }) => {
+      const { rows, meta } = await c.applications.activities(
+        viewerOf(req),
+        params.applicationId,
+        query,
+      );
+      return page(rows, meta);
+    },
+  });
 
   return router;
 }

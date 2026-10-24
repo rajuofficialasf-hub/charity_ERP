@@ -33,6 +33,8 @@ export const applicationSummary = z.object({
   unionId: uuid,
   submittedAt: z.string().nullable(),
   waitingDays: z.int().nullable(),
+  /** The version of the row, carried back by a bulk action's row as its If-Match. */
+  etag: z.string(),
 });
 export type ApplicationSummary = z.infer<typeof applicationSummary>;
 
