@@ -1,0 +1,191 @@
+import { type Answer, type FormDefinition, validate } from '@css/shared/forms';
+import { isoDateInDhaka } from '@css/shared/format';
+import type { EffectiveAccess } from '../access/effective';
+import type { Clock } from '../core/clock';
+import type { Tx } from '../core/prisma.service';
+import { readDefinition } from '../services/forms';
+import type { BuiltGuard } from './registry';
+
+/** The application a transition is about, with what the guards read of its project. */
+export interface EngineApplication {
+  id: string;
+  projectId: string;
+  formVersionId: string;
+  beneficiaryId: string | null;
+  ownerVolunteerId: string | null;
+  createdByUserId: string | null;
+  createdBy: string | null;
+  submittedBy: string | null;
+  status: string;
+  zakatDecision: string | null;
+  updatedAt: Date;
+  project: {
+    status: string;
+    applyFrom: Date | null;
+    applyTo: Date | null;
+    perVolunteerLimit: number | null;
+    workflowKey: string;
+  };
+}
+
+export interface GuardInput {
+  reason?: string;
+  comment?: string;
+  message?: string;
+}
+
+/** What a guard may read; the answers and the definition load once, on first use. */
+export class GuardContext {
+  private definitionCache?: Promise<FormDefinition>;
+  private answersCache?: Promise<Answer[]>;
+
+  constructor(
+    readonly tx: Tx,
+    readonly application: EngineApplication,
+    readonly actor: { userId: string; kind: string; access: EffectiveAccess },
+    readonly input: GuardInput,
+    readonly clock: Clock,
+  ) {}
+
+  definition(): Promise<FormDefinition> {
+    this.definitionCache ??= readDefinition(this.tx, this.application.formVersionId, 'official');
+    return this.definitionCache;
+  }
+
+  answers(): Promise<Answer[]> {
+    this.answersCache ??= this.tx.applicationAnswer
+      .findMany({
+        where: { applicationId: this.application.id },
+        select: { repeatIndex: true, value: true, field: { select: { fieldKey: true } } },
+      })
+      .then((rows) =>
+        rows.map((r) => ({
+          fieldKey: r.field.fieldKey,
+          repeatIndex: r.repeatIndex,
+          value: r.value as Answer['value'],
+        })),
+      );
+    return this.answersCache;
+  }
+
+  /** The answers checked as the actor's audience sees the form (a volunteer never fails on an official section). */
+  async validation() {
+    const audience = this.actor.kind === 'volunteer' ? 'volunteer' : 'official';
+    return validate(await this.definition(), await this.answers(), {
+      audience,
+      today: isoDateInDhaka(this.clock.now()),
+    });
+  }
+}
+
+export type Guard = (ctx: GuardContext) => Promise<boolean>;
+
+const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
+const IDENTITY_NUMBER = /^(\d{10}|\d{13}|\d{17})$/;
+const IDENTITY_COLUMN = 'nid_or_birth_reg';
+const COUNTED_STATES = ['rejected', 'deleted'];
+
+/**
+ * The number the identity question holds, read from its answer directly so a missing answer
+ * elsewhere does not hide the identity's own refusal.
+ */
+async function identityNumber(ctx: GuardContext): Promise<string | null> {
+  const definition = await ctx.definition();
+  const field = definition.sections
+    .flatMap((s) => s.fields)
+    .find((f) => f.standardColumn === IDENTITY_COLUMN);
+  if (!field) return null;
+  const answer = (await ctx.answers()).find((a) => a.fieldKey === field.fieldKey);
+  const value = (answer?.value as { v?: unknown } | undefined)?.v;
+  return typeof value === 'string' ? value.trim() : null;
+}
+
+/**
+ * One function per built guard of the catalogue (docs/architecture/WORKFLOW_ENGINE.md, "Guard
+ * catalogue"); each answers whether the move may happen and never changes anything.
+ */
+export const GUARDS: Record<BuiltGuard, Guard> = {
+  'project.active': async (ctx) => ctx.application.project.status === 'active',
+  'project.not_closed': async (ctx) =>
+    !['closed', 'cancelled'].includes(ctx.application.project.status),
+  'deadline.open': async (ctx) => {
+    const today = isoDateInDhaka(ctx.clock.now());
+    const from = day(ctx.application.project.applyFrom);
+    const to = day(ctx.application.project.applyTo);
+    return from !== null && to !== null && from <= today && today <= to;
+  },
+  'limit.not_exceeded': async (ctx) => {
+    const { ownerVolunteerId, projectId, id } = ctx.application;
+    const limit = ctx.application.project.perVolunteerLimit;
+    if (!ownerVolunteerId || limit === null) return true;
+    // every live application of the owner but this one, drafts included
+    const others = await ctx.tx.application.count({
+      where: { projectId, ownerVolunteerId, id: { not: id }, status: { notIn: COUNTED_STATES } },
+    });
+    return others < limit;
+  },
+  'identity.present': async (ctx) => {
+    const number = await identityNumber(ctx);
+    return number !== null && IDENTITY_NUMBER.test(number);
+  },
+  'mandatory_fields.present': async (ctx) => (await ctx.validation()).ok,
+  'beneficiary.not_blocked': async (ctx) => {
+    if (!ctx.application.beneficiaryId) return true;
+    const person = await ctx.tx.beneficiary.findUnique({
+      where: { id: ctx.application.beneficiaryId },
+      select: { isBlocked: true },
+    });
+    return person !== null && !person.isBlocked;
+  },
+  'volunteer.not_blocked': async (ctx) => {
+    if (!ctx.application.ownerVolunteerId) return true;
+    const blocked = await ctx.tx.blocklist.count({
+      where: {
+        subjectType: 'volunteer',
+        subjectId: ctx.application.ownerVolunteerId,
+        active: true,
+      },
+    });
+    return blocked === 0;
+  },
+  'consent.accepted': async (ctx) => {
+    if (!ctx.application.ownerVolunteerId) return true;
+    const assignment = await ctx.tx.projectVolunteer.findFirst({
+      where: {
+        projectId: ctx.application.projectId,
+        volunteerId: ctx.application.ownerVolunteerId,
+        endedAt: null,
+      },
+      select: { consentStatus: true },
+    });
+    return assignment?.consentStatus === 'accepted';
+  },
+  // nobody decides on an application they brought (docs/DECISION_LOG.md, the application cycle)
+  'actor.not_creator': async (ctx) => {
+    const { createdByUserId, createdBy, submittedBy } = ctx.application;
+    const me = ctx.actor.userId;
+    return createdByUserId !== me && createdBy !== me && submittedBy !== me;
+  },
+  // house construction: the PM gives the final approval; an RPM's own grant does not reach it,
+  // a grant through the panel or a project does (docs/architecture/WORKFLOW_ENGINE.md,
+  // "Exceptions and overrides")
+  'approver.has_permission': async (ctx) => {
+    if (ctx.application.project.workflowKey !== 'construction') return true;
+    return ctx.actor.access.grants.some(
+      (g) =>
+        g.permission === 'application.approve' &&
+        (g.condition === 'house_construction_only' ||
+          g.source === 'global_role' ||
+          g.source === 'panel_grant' ||
+          g.source === 'project_grant'),
+    );
+  },
+  // the score order exists once a project has scoring criteria; until then no order is skipped
+  'score.comment_if_against_order': async () => true,
+  'zakat.eligible_if_zakat_fund': async (ctx) => {
+    const zakat = await ctx.tx.fundSource.count({
+      where: { projectId: ctx.application.projectId, source: 'zakat' },
+    });
+    return zakat === 0 || ctx.application.zakatDecision === 'eligible';
+  },
+};

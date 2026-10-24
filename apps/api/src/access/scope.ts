@@ -73,8 +73,10 @@ export function makeScope(
 /** True when the caller may call the operation at all; the scope then narrows the data. */
 export function holdsPermission(permission: string, grants: EffectiveGrant[]): boolean {
   // `entity`: any active user passes here; the file service decides from the linked record.
-  if (permission === 'authenticated' || permission === 'entity') return true;
-  if (PERMISSION_MARKERS.includes(permission)) return false; // public is decided before; workflow later
+  // `workflow`: the engine decides per action from the project's snapshot (docs/architecture/WORKFLOW_ENGINE.md)
+  if (permission === 'authenticated' || permission === 'entity' || permission === 'workflow')
+    return true;
+  if (PERMISSION_MARKERS.includes(permission)) return false; // public is decided before
   return grants.some((g) => g.permission === permission);
 }
 
@@ -492,4 +494,34 @@ export function programWhere(scope: Scope): Prisma.ProgramWhereInput {
   if (i.projectIds.length || i.areas.length)
     or.push({ projectsProgram: { some: projectWhere(scope) } });
   return or.length ? { OR: or } : { id: { in: [] } };
+}
+
+/**
+ * The applications a scope reaches (entity `application`): everything at GLOBAL but the revoked
+ * projects (D-120); for SELF the applications the caller's volunteer owns and the ones the
+ * caller created (a team member's own records); for an area, the applications placed in that
+ * location at any of its levels; the applications of the caller's programs and projects. No
+ * instance means no application.
+ */
+export function applicationWhere(scope: Scope): Prisma.ApplicationWhereInput {
+  const i = scope.instances;
+  const notRevoked: Prisma.ApplicationWhereInput = i.revokedProjectIds.length
+    ? { projectId: { notIn: i.revokedProjectIds } }
+    : {};
+  if (i.global) return notRevoked;
+  const or: Prisma.ApplicationWhereInput[] = [];
+  if (i.self)
+    or.push({ ownerVolunteer: { userId: scope.actorId } }, { createdByUserId: scope.actorId });
+  const locations = [...new Set(i.areas.map((a) => a.locationId))];
+  if (locations.length)
+    or.push(
+      { regionLocationId: { in: locations } },
+      { districtId: { in: locations } },
+      { unionId: { in: locations } },
+      { union: { parentId: { in: locations } } },
+    );
+  if (i.programIds.length) or.push({ project: { programId: { in: i.programIds } } });
+  if (i.projectIds.length) or.push({ projectId: { in: i.projectIds } });
+  if (!or.length) return { id: { in: [] } };
+  return { AND: [{ OR: or }, notRevoked] };
 }

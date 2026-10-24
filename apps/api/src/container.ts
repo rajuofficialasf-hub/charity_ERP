@@ -68,6 +68,10 @@ import { VolunteerTeamsService } from './services/volunteer-teams';
 import { TemplatesService } from './services/templates';
 import { FormLibraryService } from './services/form-library';
 import { FormsService, readDefinition } from './services/forms';
+import { ApplicationEvents } from './notifications/application-events';
+import { WorkflowEngine } from './workflow/engine';
+import { assertWorkflowNamesKnown } from './workflow/registry';
+import { mergedWorkflowDefinitions } from './workflow/templates';
 import { ReadyFormsService } from './services/ready-forms';
 import { PublicFormsService } from './services/public-forms';
 import { PublicLinkService } from './services/public-link';
@@ -143,6 +147,8 @@ export interface Container {
   referenceLists: ReferenceListsService;
   formLibrary: FormLibraryService;
   forms: FormsService;
+  workflow: WorkflowEngine;
+  applicationEvents: ApplicationEvents;
   readyForms: ReadyFormsService;
   publicLink: PublicLinkService;
   publicPhotos: PublicPhotosService;
@@ -221,12 +227,15 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   // permissions.yaml must name only conditions the access module can check (RBAC.md 2).
   const accessRegistry = o.accessRegistry ?? loadAccessRegistry(env.PERMISSIONS_FILE);
   assertConditionsCovered(accessRegistry);
+  // the workflow templates may name only guards, effects and permissions that exist
+  assertWorkflowNamesKnown(mergedWorkflowDefinitions(), accessRegistry.isKnownPermission);
   const access = o.access ?? new AccessService(accessRegistry, prisma, clock, logger);
   const notifications =
     o.notifications ??
     new NotificationService(new RecipientResolver(access, accessRegistry, clock), jobs, clock);
   const accountEvents = o.accountEvents ?? new AccountEvents(notifications, logger);
   const projectEvents = o.projectEvents ?? new ProjectEvents(notifications);
+  const applicationEvents = o.applicationEvents ?? new ApplicationEvents(notifications);
   // the E2E run signs in with the same few demo accounts in parallel
   const deviceLimit = SESSION_RULES.deviceLimit * (env.SESSION_DEVICE_LIMIT_RELAXED ? 100 : 1);
   const sessions =
@@ -239,6 +248,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const formLibrary =
     o.formLibrary ?? new FormLibraryService(prisma, referenceLists, readDefinition);
   const forms = o.forms ?? new FormsService(prisma, audit, access, projects, formLibrary);
+  const workflow = o.workflow ?? new WorkflowEngine(access, audit, clock, applicationEvents);
   const settings = o.settings ?? new SettingsService(prisma, audit);
   const registration =
     o.registration ??
@@ -368,6 +378,8 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     referenceLists,
     formLibrary,
     forms,
+    workflow,
+    applicationEvents,
     readyForms: o.readyForms ?? new ReadyFormsService(prisma, audit, projects, forms),
     publicLink: o.publicLink ?? new PublicLinkService(env, prisma, audit, projects),
     publicPhotos,

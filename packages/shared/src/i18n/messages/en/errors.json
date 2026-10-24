@@ -119,8 +119,14 @@
       "workers_assigned": "No Local Daee or paid volunteer is assigned to the area.",
       "animals_allocated": "Not all animals are allocated or their shares are incomplete.",
       "donor_notified": "Not all donors have been notified.",
-      "animal_photos_complete": "The three animal photos are not complete."
-    }
+      "animal_photos_complete": "The three animal photos are not complete.",
+      "actor_not_creator": "The person who brought the application cannot decide on it.",
+      "approver_has_permission": "In a house-construction project the PM gives the final approval."
+    },
+    "action_not_built": "This action is not available yet.",
+    "effect_not_built": "A result of this step is not built yet, so the step cannot run now.",
+    "guard_not_built": "A condition of this step is not built yet, so the step cannot run now.",
+    "message_required": "Write the message for the volunteer."
   },
   "conflict": {
     "stale_version": "Someone else changed this record. Reload to see the latest version.",
