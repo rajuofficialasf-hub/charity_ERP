@@ -164,3 +164,49 @@ describe('a placed form', () => {
     expect(screen.queryByRole('button', { name: 'নতুন সংস্করণ নিন' })).not.toBeInTheDocument();
   });
 });
+
+describe('a refusal', () => {
+  const refusal = (code: string, message: string, status: number) =>
+    HttpResponse.json(
+      { error: { code, messageKey: `errors.${code}`, message, details: [], requestId: 'r' } },
+      { status },
+    );
+
+  it('of the placement shows its message and keeps the dialog open', async () => {
+    const user = userEvent.setup();
+    api([]);
+    server.use(
+      http.post(`*/api/v1/projects/${PROJECT}/forms/place`, () =>
+        refusal('form.nothing_published', 'ওই ফর্মের কোনো প্রকাশিত সংস্করণ নেই।', 422),
+      ),
+    );
+    renderApp(<FormsPage />, 'bn', {
+      path: '/admin/projects/:projectId/forms',
+      initialPath: `/admin/projects/${PROJECT}/forms`,
+    });
+    await user.click(await screen.findByRole('button', { name: 'তৈরি ফর্ম বসান' }));
+    const dialog = within(await screen.findByRole('dialog', { name: 'তৈরি ফর্ম বসান' }));
+    await user.click(
+      await dialog.findByRole('radio', { name: 'স্বাবলম্বী আবেদন · উপকারভোগীর আবেদন · সংস্করণ 1' }),
+    );
+    await user.click(dialog.getByRole('button', { name: 'বসান' }));
+    expect(await dialog.findByText('ওই ফর্মের কোনো প্রকাশিত সংস্করণ নেই।')).toBeInTheDocument();
+  });
+
+  it('of the take shows its message and keeps the version', async () => {
+    const user = userEvent.setup();
+    api([placedRow({ newerVersionNo: 2 })]);
+    server.use(
+      http.post(`*/api/v1/forms/${PLACED}/take-version`, () =>
+        refusal('project.read_only', 'এই প্রকল্পে এখন আর বদল করা যায় না।', 409),
+      ),
+    );
+    renderApp(<FormBuilderPage />, 'bn', {
+      path: '/admin/projects/:projectId/forms/:formId',
+      initialPath: `/admin/projects/${PROJECT}/forms/${PLACED}`,
+    });
+    await user.click(await screen.findByRole('button', { name: 'নতুন সংস্করণ নিন' }));
+    expect(await screen.findByText('এই প্রকল্পে এখন আর বদল করা যায় না।')).toBeInTheDocument();
+    expect(screen.getByText('সংস্করণ 1: প্রকাশিত')).toBeInTheDocument();
+  });
+});

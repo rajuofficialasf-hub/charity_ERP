@@ -2,6 +2,7 @@ import { uuidv7 } from '@css/shared';
 import {
   blankDefinition,
   type FormDefinition,
+  identityRoleOf,
   type FormKind,
   type FormPlace,
   type ReadyFormCreate,
@@ -100,7 +101,7 @@ export class ReadyFormsService {
         select: { id: true },
       });
       if (taken) throw new ApiError('form.key_taken', 409);
-      const definition =
+      const copied =
         body.source.kind === 'blank'
           ? blankDefinition()
           : await readDefinition(
@@ -108,6 +109,8 @@ export class ReadyFormsService {
               (await this.publishedOf(tx, body.source.formId, 'form.nothing_published', 409)).id,
               'official',
             );
+      // a form of the kind other takes no identity marks, so a copy into it drops them
+      const definition = body.kind === 'other' ? withoutIdentityMarks(copied) : copied;
       const formId = uuidv7();
       const versionId = uuidv7();
       await createUnlessKeyTaken(() =>
@@ -175,7 +178,7 @@ export class ReadyFormsService {
       });
       if (!source) throw new ApiError('permission.not_found', 404);
       const published = await this.publishedOf(tx, body.readyFormId, 'form.nothing_published', 422);
-      const key = body.key ?? source.key;
+      const key = body.key ?? (await freeKey(tx, projectId, source.key));
       const taken = await tx.form.findFirst({ where: { projectId, key }, select: { id: true } });
       if (taken) throw new ApiError('form.key_taken', 409);
       const formId = uuidv7();
@@ -317,4 +320,34 @@ export class ReadyFormsService {
     });
     return versionId;
   }
+}
+
+/**
+ * The key a placement takes when the PM gives none: the ready form's key, or the first of
+ * `<key>_2`, `<key>_3` … the project does not use yet, so one ready form can be placed twice.
+ */
+async function freeKey(tx: Tx, projectId: string, key: string): Promise<string> {
+  const used = new Set(
+    (
+      await tx.form.findMany({
+        where: { projectId, key: { startsWith: key } },
+        select: { key: true },
+      })
+    ).map((f) => f.key),
+  );
+  if (!used.has(key)) return key;
+  for (let n = 2; ; n += 1) {
+    const next = `${key.slice(0, 40 - String(n).length - 1)}_${n}`;
+    if (!used.has(next)) return next;
+  }
+}
+
+/** The definition with every identity mark dropped (the questions stay, unmarked). */
+function withoutIdentityMarks(definition: FormDefinition): FormDefinition {
+  return {
+    sections: definition.sections.map((s) => ({
+      ...s,
+      fields: s.fields.map((f) => (identityRoleOf(f) ? { ...f, standardColumn: null } : f)),
+    })),
+  };
 }

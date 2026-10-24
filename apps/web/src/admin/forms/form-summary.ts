@@ -46,8 +46,9 @@ export function useFormSummary(scope: BuilderScope, projectId: string, routeForm
     enabled: scope === 'library' && libraryId !== '',
   });
   const reads = scope === 'project' ? [project] : scope === 'ready' ? [ready] : [lib, libVersions];
-  const isPending = reads.some((r) => r.isPending);
   const error = reads.find((r) => r.error)?.error ?? null;
+  // a query that waits on a failed one stays pending, so a failure ends the wait
+  const isPending = !error && reads.some((r) => r.isPending);
   const refetch = () => reads.forEach((r) => void r.refetch());
 
   let summary: FormSummary | undefined;

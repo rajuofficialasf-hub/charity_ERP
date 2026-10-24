@@ -56,7 +56,7 @@ async function ownQuestion(
 
 /** Waits until the builder has saved the draft. */
 const saved = (page: Page) =>
-  expect(page.locator('.fb-head').getByText('সংরক্ষিত', { exact: true })).toBeVisible({
+  expect(page.getByTestId('form-head').getByText('সংরক্ষিত', { exact: true })).toBeVisible({
     timeout: 15_000,
   });
 
@@ -75,7 +75,7 @@ async function publishRefused(page: Page) {
   await saved(page);
   await page.getByRole('button', { name: 'প্রকাশ করুন', exact: true }).click();
   await page.getByRole('button', { name: 'সংস্করণ প্রকাশ করুন' }).click();
-  await expect(page.locator('.fb-head').getByText('সংস্করণ 1: খসড়া')).toBeVisible();
+  await expect(page.getByTestId('form-head').getByText('সংস্করণ 1: খসড়া')).toBeVisible();
 }
 
 /**
@@ -132,8 +132,8 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
   await create.getByRole('button', { name: 'তৈরি করুন' }).click();
   await expect(page).toHaveURL(/\/admin\/ready-forms\/[0-9a-f-]{36}$/);
   const readyUrl = page.url();
-  await expect(page.locator('.fb-head').getByText('সংস্করণ 1: খসড়া')).toBeVisible();
-  await expect(page.locator('.fb-head').getByText('1টি অংশ · 0টি প্রশ্ন')).toBeVisible();
+  await expect(page.getByTestId('form-head').getByText('সংস্করণ 1: খসড়া')).toBeVisible();
+  await expect(page.getByTestId('form-head').getByText('1টি অংশ · 0টি প্রশ্ন')).toBeVisible();
 
   // the identity questions, written by the builder and marked one by one
   const identity: [string, [string, string], string, [string, string][]?][] = [
@@ -216,7 +216,7 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
   await expect(page.getByText('দেখাবে যখন “পুরুষ সদস্য” 0-এর বেশি।')).toBeVisible();
 
   await publish(page, 1);
-  await expect(page.locator('.fb-head').getByText('সংস্করণ 1: প্রকাশিত')).toBeVisible();
+  await expect(page.getByTestId('form-head').getByText('সংস্করণ 1: প্রকাশিত')).toBeVisible();
 
   // the PM, on a computer of their own: a new project places the ready form
   const desk = await browser.newContext({
@@ -248,7 +248,7 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
     await place.getByRole('button', { name: 'বসান', exact: true }).click();
     await expect(pm).toHaveURL(/\/forms\/[0-9a-f-]{36}$/);
     const placedUrl = pm.url();
-    await expect(pm.locator('.fb-head').getByText('সংস্করণ 1: প্রকাশিত')).toBeVisible();
+    await expect(pm.getByTestId('form-head').getByText('সংস্করণ 1: প্রকাশিত')).toBeVisible();
     await expect(
       pm.getByText('এই ফর্মটি একটি তৈরি ফর্ম থেকে বসানো, তাই এখানে বদলানো যায় না।'),
     ).toBeVisible();
@@ -323,7 +323,7 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
     // version 2 of the ready form: one option changes
     await page.goto(readyUrl);
     await page.getByRole('button', { name: 'নতুন সংস্করণ তৈরি করুন' }).click();
-    await expect(page.locator('.fb-head').getByText('সংস্করণ 2: খসড়া')).toBeVisible();
+    await expect(page.getByTestId('form-head').getByText('সংস্করণ 2: খসড়া')).toBeVisible();
     await page.getByRole('button', { name: 'আপনার কি নিজের ঘর আছে? বদলান' }).click();
     await page.getByRole('textbox', { name: /^অপশন 2 \(বাংলা\)/ }).fill('না, ভাড়া থাকি');
     await publish(page, 2);
@@ -336,7 +336,7 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
     await pm.goto(placedUrl);
     await expect(pm.getByText(/এই ফর্মের নতুন সংস্করণ আছে \(সংস্করণ 2\)/)).toBeVisible();
     await pm.getByRole('button', { name: 'নতুন সংস্করণ নিন' }).click();
-    await expect(pm.locator('.fb-head').getByText('সংস্করণ 2: প্রকাশিত')).toBeVisible();
+    await expect(pm.getByTestId('form-head').getByText('সংস্করণ 2: প্রকাশিত')).toBeVisible();
     await expect(pm.getByRole('button', { name: 'নতুন সংস্করণ নিন' })).toHaveCount(0);
     const token = new URL(url).pathname.split('/').at(-1)!;
     const opened = await applicant.request.get(`/api/v1/public/forms/${token}`);

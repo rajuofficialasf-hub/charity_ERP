@@ -35,6 +35,8 @@ export interface ProjectForm {
   title: { bn: string; en: string };
   publishedVersionId: string | null;
   draftVersionId: string | null;
+  /** What the form is for; activation needs a published beneficiary application form. */
+  kind: 'beneficiary_application' | 'other';
 }
 export const forms = (projectId: string) => api<ProjectForm[]>(`/projects/${projectId}/forms`);
 export const updateComponent = (

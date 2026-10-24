@@ -7,6 +7,7 @@ import {
   type FormDefinition,
   type FormField,
   type FormSection,
+  emptySection,
   identityRoleOf,
   isChoiceType,
 } from '@css/shared/forms';
@@ -211,11 +212,7 @@ export function updateField(
       for (const key of Object.keys(patch) as (keyof FormField)[])
         if (next[key] === undefined) delete next[key];
       if (coreLocks(f).optional) next.required = true;
-      if (coreLocks(f).condition) {
-        const { show_if: _show, required_if: _required, ...logic } = next.logic ?? {};
-        if (Object.keys(logic).length) next.logic = logic;
-        else delete next.logic;
-      }
+      if (coreLocks(f).condition) dropConditions(next);
       return next;
     }),
   }));
@@ -458,7 +455,6 @@ export function setIdentityRole(
     })),
   };
   const retyped = field.type !== core.type;
-  const { show_if: _show, required_if: _required, ...logic } = field.logic ?? {};
   return withSection(cleared, section.key, (s) => ({
     ...s,
     fields: s.fields.map((f) => {
@@ -471,8 +467,7 @@ export function setIdentityRole(
         ...(retyped ? { settings: {} } : {}),
         ...(isChoiceType(core.type) ? {} : { options: [] }),
       };
-      if (Object.keys(logic).length) next.logic = logic;
-      else delete next.logic;
+      dropConditions(next);
       delete next.calculation;
       return next;
     }),
@@ -503,18 +498,15 @@ export function addEmptySection(
   const key = `section_${n}`;
   return {
     definition: {
-      sections: [
-        ...def.sections,
-        {
-          key,
-          librarySectionKey: null,
-          title: title(n),
-          visibility: 'volunteer',
-          condition: null,
-          fields: [],
-        },
-      ],
+      sections: [...def.sections, { ...emptySection(key, title(n)), librarySectionKey: null }],
     },
     key,
   };
+}
+
+/** Drops a field's show and required conditions in place, keeping the rest of its logic. */
+function dropConditions(field: FormField): void {
+  const { show_if: _show, required_if: _required, ...logic } = field.logic ?? {};
+  if (Object.keys(logic).length) field.logic = logic;
+  else delete field.logic;
 }

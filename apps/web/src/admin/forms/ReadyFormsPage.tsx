@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
+import { BuildersOnly } from './BuildersOnly';
 import { READY_KEY, readyForms } from './forms-api';
 import { NewReadyFormDialog } from './NewReadyFormDialog';
 
@@ -14,6 +15,14 @@ import { NewReadyFormDialog } from './NewReadyFormDialog';
  * and the way to the question library, which is edited in the same builder.
  */
 export function ReadyFormsPage() {
+  return (
+    <BuildersOnly>
+      <ReadyFormsList />
+    </BuildersOnly>
+  );
+}
+
+function ReadyFormsList() {
   const t = useTranslations('forms.builder');
   const tr = useTranslations('forms.ready');
   const tc = useTranslations('common');

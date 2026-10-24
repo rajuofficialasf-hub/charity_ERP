@@ -151,16 +151,18 @@ export function definitionFromTemplate(
 export function blankDefinition(): FormDefinition {
   return {
     sections: [
-      {
-        key: 'section_1',
-        title: {
-          bn: translate('bn', 'forms.builder.first_section'),
-          en: translate('en', 'forms.builder.first_section'),
-        },
-        visibility: 'volunteer',
-        condition: null,
-        fields: [],
-      },
+      emptySection('section_1', {
+        bn: translate('bn', 'forms.builder.first_section'),
+        en: translate('en', 'forms.builder.first_section'),
+      }),
     ],
   };
+}
+
+/** An empty section seen by everyone, with no condition and no question. */
+export function emptySection(
+  key: string,
+  title: { bn: string; en: string },
+): FormDefinition['sections'][number] {
+  return { key, title, visibility: 'volunteer', condition: null, fields: [] };
 }

@@ -260,3 +260,66 @@ describe('the builder of a ready form', () => {
     expect(await screen.findByRole('button', { name: 'অংশ 2' })).toBeInTheDocument();
   });
 });
+
+describe('who opens the ready forms', () => {
+  it('tells a PM the ready forms page and the library are not theirs', async () => {
+    refreshAs({ ...ME, roles: ['program_manager'] });
+    api();
+    const page = renderApp(<ReadyFormsPage />, 'bn', { path: '/admin/ready-forms' });
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'প্রবেশাধিকার নেই' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'নতুন তৈরি ফর্ম' })).not.toBeInTheDocument();
+    page.unmount();
+    renderApp(<LibraryBuilderPage />, 'bn', { path: '/admin/question-library' });
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'প্রবেশাধিকার নেই' }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('a failure', () => {
+  it('of the library read shows the error with a retry, not a lasting load', async () => {
+    api();
+    server.use(
+      http.get('*/api/v1/form-library', () =>
+        HttpResponse.json(
+          // a client error, which the query client does not retry
+          { error: { code: 'permission.denied', message: 'x', requestId: 'r' } },
+          { status: 403 },
+        ),
+      ),
+    );
+    renderApp(<LibraryBuilderPage />, 'bn', { path: '/admin/question-library' });
+    expect(await screen.findByRole('button', { name: /আবার চেষ্টা/ })).toBeInTheDocument();
+  });
+
+  it('of a new ready form shows the refusal and keeps the dialog open', async () => {
+    const user = userEvent.setup();
+    api();
+    server.use(
+      http.post('*/api/v1/ready-forms', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'form.key_taken',
+              messageKey: 'errors.form.key_taken',
+              message: 'এই নামের ফর্ম আগে থেকেই আছে।',
+              details: [],
+              requestId: 'r',
+            },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    renderApp(<ReadyFormsPage />, 'bn', { path: '/admin/ready-forms' });
+    await user.click(await screen.findByRole('button', { name: 'নতুন তৈরি ফর্ম' }));
+    const dialog = within(await screen.findByRole('dialog', { name: 'নতুন তৈরি ফর্ম' }));
+    await user.type(dialog.getByRole('textbox', { name: /ফর্মের নাম \(বাংলা\)/ }), 'জরিপ');
+    await user.type(dialog.getByRole('textbox', { name: /ফর্মের নাম \(ইংরেজি\)/ }), 'Survey');
+    await user.click(dialog.getByRole('button', { name: 'তৈরি করুন' }));
+    expect(await dialog.findByText('এই নামের ফর্ম আগে থেকেই আছে।')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'নতুন তৈরি ফর্ম' })).toBeInTheDocument();
+  });
+});

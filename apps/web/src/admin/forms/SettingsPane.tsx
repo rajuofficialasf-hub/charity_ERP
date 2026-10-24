@@ -218,7 +218,8 @@ function FieldSettingsView({
               {t('required')}
             </Switch>
           ) : null}
-          {identityMarks && (markable || role) ? (
+          {/* a mark a form of another kind still holds (a copy) shows, so it can be cleared */}
+          {(identityMarks && markable) || role ? (
             <Select
               label={t('identity.label')}
               helper={markable ? t('identity.hint') : t('identity.blocked')}

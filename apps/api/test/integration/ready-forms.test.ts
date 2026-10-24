@@ -302,8 +302,13 @@ describe('placing a ready form on a project', () => {
     );
     expect(builderDraft.status).toBe(409);
     expect(builderDraft.body.error.code).toBe('form.placed_copy');
-    // the same ready form placed again needs another key
-    expect((await place(pm, project, ready.id)).status).toBe(409);
+    // a key the PM gives that the project already uses is refused
+    const again = await at(pm, 'post', `/projects/${project}/forms/place`).send({
+      readyFormId: ready.id,
+      key: ready.key,
+    });
+    expect(again.status).toBe(409);
+    expect(again.body.error.code).toBe('form.key_taken');
   });
 
   it('refuses a ready form with nothing published, the library and another project form', async () => {
@@ -550,5 +555,35 @@ describe('the published read of a ready form', () => {
       'office',
     ]);
     expect(read.body.data).toMatchObject({ formId: made.id, versionNo: 1, status: 'published' });
+  });
+});
+
+describe('placing a ready form twice and copying into another kind', () => {
+  it('gives the second placement on one project a free key of its own', async () => {
+    const pm = await as(world.users.pm);
+    const ready = await publishedReady('other');
+    const project = await draftProject();
+    const first = await place(pm, project, ready.id);
+    const second = await place(pm, project, ready.id);
+    expect(first.status).toBe(201);
+    expect(second.status, JSON.stringify(second.body)).toBe(201);
+    expect(second.body.data.key).toBe(`${ready.key}_2`);
+  });
+
+  it('drops the identity marks when an application form is copied as a form of the kind other', async () => {
+    const source = await publishedReady('beneficiary_application');
+    const copy = await createReady('other', { kind: 'copy', formId: source.id });
+    const read = await at(
+      await as(world.users.monitoring),
+      'get',
+      `/form-versions/${copy.draftVersionId}`,
+    );
+    const fields = read.body.data.sections.flatMap(
+      (s: { fields: { fieldKey: string; standardColumn: string | null }[] }) => s.fields,
+    );
+    expect(fields.map((f: { fieldKey: string }) => f.fieldKey)).toContain('q_mobile');
+    expect(fields.every((f: { standardColumn: string | null }) => f.standardColumn === null)).toBe(
+      true,
+    );
   });
 });

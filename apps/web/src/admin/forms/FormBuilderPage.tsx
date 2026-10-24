@@ -46,6 +46,7 @@ import {
   versionWithEtag,
 } from './forms-api';
 import { AddPane } from './AddPane';
+import { BuildersOnly } from './BuildersOnly';
 import { type BuilderScope, useFormSummary } from './form-summary';
 import { CanvasDnd, FormCanvas } from './FormCanvas';
 import { OwnQuestionDialog } from './OwnQuestionDialog';
@@ -81,9 +82,17 @@ function useMedia(media: string) {
  * the summary.
  */
 /** The builder of a ready form outside the projects (`/admin/ready-forms/:formId`). */
-export const ReadyFormBuilderPage = () => <FormBuilderPage scope="ready" />;
+export const ReadyFormBuilderPage = () => (
+  <BuildersOnly>
+    <FormBuilderPage scope="ready" />
+  </BuildersOnly>
+);
 /** The builder of the question library (`/admin/question-library`). */
-export const LibraryBuilderPage = () => <FormBuilderPage scope="library" />;
+export const LibraryBuilderPage = () => (
+  <BuildersOnly>
+    <FormBuilderPage scope="library" />
+  </BuildersOnly>
+);
 
 export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope }) {
   const { projectId = '', formId: routeFormId = '' } = useParams();
@@ -428,7 +437,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   return (
     <>
       <DocumentTitle title={title} />
-      <div className="fb-head">
+      <div className="fb-head" data-testid="form-head">
         <h1 className="admin-title">{title}</h1>
         <div className="fb-head-meta">
           {form ? <Badge label={t(`kind.${form.kind}`)} /> : null}

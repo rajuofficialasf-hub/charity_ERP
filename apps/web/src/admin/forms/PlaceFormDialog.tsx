@@ -31,10 +31,16 @@ export function PlaceFormDialog({
   const [chosen, setChosen] = useState<string | null>(null);
   const list = useQuery({ queryKey: READY_KEY, queryFn: readyForms, enabled: isOpen });
   const published = (list.data ?? []).filter((f) => f.publishedVersionNo !== null);
+  // a choice that left the list (unpublished, or another list read) counts as none
+  const choice = published.some((f) => f.id === chosen) ? chosen : null;
+  const close = () => {
+    setChosen(null);
+    onClose();
+  };
   const place = useMutation({
     mutationFn: () =>
       placeForm(projectId, {
-        readyFormId: chosen!,
+        readyFormId: choice!,
         ...(firstForm ? { key: 'default' } : {}),
       }),
     onSuccess: async (made) => {
@@ -46,15 +52,15 @@ export function PlaceFormDialog({
     <Modal
       title={tp('title')}
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={close}
       dismissible={!place.isPending}
       secondaryAction={
-        <Button variant="secondary" onPress={onClose} disabled={place.isPending}>
+        <Button variant="secondary" onPress={close} disabled={place.isPending}>
           {t('cancel')}
         </Button>
       }
       primaryAction={
-        <Button onPress={() => place.mutate()} disabled={!chosen} loading={place.isPending}>
+        <Button onPress={() => place.mutate()} disabled={!choice} loading={place.isPending}>
           {tp('place')}
         </Button>
       }
@@ -70,7 +76,7 @@ export function PlaceFormDialog({
       ) : (
         <RadioGroup
           label={tp('choose')}
-          value={chosen ?? ''}
+          value={choice ?? ''}
           onChange={setChosen}
           options={published.map((f) => ({
             id: f.id,

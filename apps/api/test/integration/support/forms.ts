@@ -53,6 +53,48 @@ export const section = (fields: unknown[], key = 'section_1') => ({
 });
 
 /**
+ * A ready form, published: the identity questions and a note for an application form, the note
+ * alone for a form of another kind. Answers the ready form's id.
+ */
+export async function publishedReadyForm(
+  h: AuthHarness,
+  builder: Session,
+  kind: 'beneficiary_application' | 'other' = 'beneficiary_application',
+): Promise<string> {
+  const api = () => request(h.server());
+  const made = await api()
+    .post('/api/v1/ready-forms')
+    .set(bearer(builder))
+    .send({
+      key: `ready_${randomUUID().slice(0, 8)}`,
+      title: { bn: 'আবেদন', en: 'Application' },
+      kind,
+      source: { kind: 'blank' },
+    });
+  expect(made.status, JSON.stringify(made.body)).toBe(201);
+  const draftId = made.body.data.draftVersionId as string;
+  const etag = async () =>
+    (await api().get(`/api/v1/form-versions/${draftId}`).set(bearer(builder))).headers
+      .etag as string;
+  const fields = [
+    ...(kind === 'beneficiary_application' ? IDENTITY : []),
+    question('q_note', 'long_text'),
+  ];
+  const saved = await api()
+    .patch(`/api/v1/form-versions/${draftId}`)
+    .set(bearer(builder))
+    .set('If-Match', await etag())
+    .send({ sections: [section(fields)] });
+  expect(saved.status, JSON.stringify(saved.body)).toBe(200);
+  const published = await api()
+    .post(`/api/v1/form-versions/${draftId}/publish`)
+    .set(bearer(builder))
+    .set('If-Match', await etag());
+  expect(published.status, JSON.stringify(published.body)).toBe(200);
+  return made.body.data.id as string;
+}
+
+/**
  * A project's application form, published: a ready form with the identity questions built and
  * published by `builder` (the Monitoring Team or the Department Head), then placed on the project
  * by the same session. What a project needs before it can be activated, and what a template or a
@@ -64,35 +106,11 @@ export async function publishedForm(
   projectId: string,
 ): Promise<{ formId: string; versionId: string }> {
   const api = () => request(h.server());
-  const made = await api()
-    .post('/api/v1/ready-forms')
-    .set(bearer(builder))
-    .send({
-      key: `application_${randomUUID().slice(0, 8)}`,
-      title: { bn: 'আবেদন', en: 'Application' },
-      kind: 'beneficiary_application',
-      source: { kind: 'blank' },
-    });
-  expect(made.status, JSON.stringify(made.body)).toBe(201);
-  const draftId = made.body.data.draftVersionId as string;
-  const etag = async () =>
-    (await api().get(`/api/v1/form-versions/${draftId}`).set(bearer(builder))).headers
-      .etag as string;
-  const saved = await api()
-    .patch(`/api/v1/form-versions/${draftId}`)
-    .set(bearer(builder))
-    .set('If-Match', await etag())
-    .send({ sections: [section([...IDENTITY, question('q_note', 'long_text')])] });
-  expect(saved.status, JSON.stringify(saved.body)).toBe(200);
-  const published = await api()
-    .post(`/api/v1/form-versions/${draftId}/publish`)
-    .set(bearer(builder))
-    .set('If-Match', await etag());
-  expect(published.status, JSON.stringify(published.body)).toBe(200);
+  const readyFormId = await publishedReadyForm(h, builder);
   const placed = await api()
     .post(`/api/v1/projects/${projectId}/forms/place`)
     .set(bearer(builder))
-    .send({ readyFormId: made.body.data.id, key: 'default' });
+    .send({ readyFormId, key: 'default' });
   expect(placed.status, JSON.stringify(placed.body)).toBe(201);
   return {
     formId: placed.body.data.id as string,

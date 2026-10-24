@@ -374,3 +374,13 @@ describe('the identity mark', () => {
     expect(screen.queryByRole('button', { name: /পরিচয়-চিহ্ন/ })).not.toBeInTheDocument();
   });
 });
+
+describe('a stale identity mark', () => {
+  it('on a form of another kind still shows, so it can be cleared', async () => {
+    const user = userEvent.setup();
+    open(definition(), { section: 'basic_info', field: 'name' }, false);
+    await user.click(await screen.findByRole('button', { name: /পরিচয়-চিহ্ন/ }));
+    await user.click(await screen.findByRole('option', { name: 'চিহ্ন নেই' }));
+    expect(fieldOf(latest, 'name').standardColumn).toBeNull();
+  });
+});
