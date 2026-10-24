@@ -626,6 +626,7 @@ Constraints: UNIQUE (form_field_id, code).
 | title_bn, title_en | text | no | — | — |
 | default_visibility | text | no | 'volunteer' | L-visibility |
 | field_keys | text[] | no | '{}' | ordered library field keys |
+| sort_order | int | no | 0 | the order the builder lists sections in (the seed's order, D-122) |
 | [A] | | | | |
 
 ### form_library_fields
@@ -636,7 +637,8 @@ Constraints: UNIQUE (form_field_id, code).
 | type | text | no | — | L-field-type |
 | label_bn, label_en | text | no | — | — |
 | standard_column | text | yes | — | — |
-| default_settings | jsonb | no | '{}' | — |
+| default_settings | jsonb | no | '{}' | a repeat group's `repeat.earner` says whether its rows are earners (D-124) |
+| sort_order | int | no | 0 | the order the builder lists fields in (the seed's order, D-122) |
 | [A] | | | | |
 
 ## 10. Beneficiaries
@@ -692,7 +694,7 @@ Constraints: CHECK nid IS NOT NULL OR birth_reg IS NOT NULL (BR-001); UNIQUE (ni
 | age_years | smallint | yes | — | — |
 | occupation_code | text | yes | — | — |
 | monthly_income | numeric(14,2) | yes | — | — |
-| is_earner | boolean | no | false | B3 earners repeat group |
+| is_earner | boolean | no | false | B3 earners repeat group; from the group's `repeat.earner` setting, true unless set (D-124) |
 | active | boolean | no | true | left the household: false |
 | [A] | | | | |
 

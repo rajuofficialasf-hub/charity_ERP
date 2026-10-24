@@ -25,11 +25,14 @@ const termId = (term: Term) =>
  * version) is shown with a note and can only be removed and written again.
  */
 export function CalculationEditor({
+  heading = true,
   definition,
   field,
   asker,
   onChange,
 }: {
+  /** false inside a dialog that already shows the title. */
+  heading?: boolean;
   definition: FormDefinition;
   field: FormField;
   asker: Asker;
@@ -49,7 +52,7 @@ export function CalculationEditor({
   if (view.kind === 'complex')
     return (
       <Stack as="section" gap={2} aria-label={t('calc')}>
-        <Text weight="bold">{t('calc')}</Text>
+        {heading ? <Text weight="bold">{t('calc')}</Text> : null}
         <Alert tone="info">{t('calc_complex')}</Alert>
         <Button
           size="sm"
@@ -117,7 +120,7 @@ export function CalculationEditor({
 
   return (
     <Stack as="section" gap={2} aria-label={t('calc')}>
-      <Text weight="bold">{t('calc')}</Text>
+      {heading ? <Text weight="bold">{t('calc')}</Text> : null}
       <Select
         label={t('calc_kind')}
         value={kind}

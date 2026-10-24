@@ -387,7 +387,7 @@ Form builder, project setup, permission panel, template and checklist editors, a
 
 - Desktop: multi-column editors with a live preview.
 - Tablet: single column, preview in a drawer.
-- Phone: readable, small edits only (rename, toggle, change a date); a persistent Alert (info) reads "best on a larger screen". Structural edits (adding sections, reordering, bulk permission changes) are hidden on phones. No drag and drop anywhere; ordering uses move-up and move-down buttons.
+- Phone: readable, small edits only (rename, toggle, change a date); a persistent Alert (info) reads "best on a larger screen". Structural edits (adding sections, reordering, bulk permission changes) are hidden on phones. No drag and drop anywhere except the form builder's outline (D-122), which also keeps move-up and move-down in each row's menu for the keyboard and for phones; everywhere else ordering uses move-up and move-down buttons.
 
 ### 4.5 Admin area layout (UX-15)
 

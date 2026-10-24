@@ -283,6 +283,56 @@ export const LIBRARY_FIELDS: LibraryField[] = [
       ],
     },
   },
+  {
+    key: 'family_members',
+    type: 'repeat_group',
+    bn: 'পরিবারের সদস্যরা',
+    en: 'Family members',
+    standard: 'beneficiary_family_members',
+    settings: {
+      // the members are the household, not its earners; the earners group above marks those
+      repeat: { earner: false },
+      repeat_fields: [
+        {
+          key: 'member_name',
+          type: 'short_text',
+          label_bn: 'নাম',
+          label_en: 'Name',
+          standard: 'name',
+          required: true,
+        },
+        {
+          key: 'member_age',
+          type: 'number',
+          label_bn: 'বয়স',
+          label_en: 'Age',
+          standard: 'age_years',
+        },
+        {
+          key: 'member_relationship',
+          type: 'single_select',
+          label_bn: 'সম্পর্ক',
+          label_en: 'Relationship',
+          standard: 'relationship_code',
+          options_from_reference_list: 'relationship',
+        },
+        {
+          key: 'member_occupation',
+          type: 'short_text',
+          label_bn: 'পেশা',
+          label_en: 'Occupation',
+          standard: 'occupation_code',
+        },
+        {
+          key: 'member_monthly_income',
+          type: 'money',
+          label_bn: 'মাসিক আয়',
+          label_en: 'Monthly income',
+          standard: 'monthly_income',
+        },
+      ],
+    },
+  },
   calc(
     'household_income_total',
     'পরিবারের মোট আয়',
@@ -598,6 +648,7 @@ export const SECTIONS: LibrarySection[] = [
       'members_14_plus',
       'children_under_14',
       'total_members',
+      'family_members',
       'daily_income',
       'monthly_income',
       'monthly_expense',
@@ -870,10 +921,12 @@ export const FORM_TEMPLATES: FormTemplate[] = [
 
 export async function seedFormTemplates(ctx: SeedContext): Promise<void> {
   const known = new Set(LIBRARY_FIELDS.map((x) => x.key));
-  for (const field of LIBRARY_FIELDS) {
+  // the builder lists sections and fields in this file's order
+  for (const [i, field] of LIBRARY_FIELDS.entries()) {
     await ctx.upsert('form_library_fields', {
       id: seedId(`form-library-field:${field.key}`),
       key: field.key,
+      sort_order: i,
       type: field.type,
       label_bn: field.bn,
       label_en: field.en,
@@ -882,12 +935,13 @@ export async function seedFormTemplates(ctx: SeedContext): Promise<void> {
       ...ctx.audit(),
     });
   }
-  for (const section of SECTIONS) {
+  for (const [i, section] of SECTIONS.entries()) {
     for (const k of section.fields)
       if (!known.has(k)) throw new Error(`section ${section.key} names unknown field ${k}`);
     await ctx.upsert('form_library_sections', {
       id: seedId(`form-library-section:${section.key}`),
       key: section.key,
+      sort_order: i,
       title_bn: section.bn,
       title_en: section.en,
       default_visibility: section.visibility,

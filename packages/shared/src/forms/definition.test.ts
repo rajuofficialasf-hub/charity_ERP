@@ -227,17 +227,20 @@ describe('keys, options and placement', () => {
     ).toEqual([['form.option_dependency', 'sub']]);
   });
 
-  it('refuses a calculation on a text field and a calculation field without one', () => {
+  it('refuses a calculation on a text field; a calculation field without one only at publish', () => {
+    const def = definitionWith([
+      field('t', 'short_text', { calculation: { expr: 1 } }),
+      field('c', 'calculation'),
+    ]);
+    expect(codesOf(def)).toEqual([['form.calculation_misplaced', 't']]);
     expect(
-      codesOf(
-        definitionWith([
-          field('t', 'short_text', { calculation: { expr: 1 } }),
-          field('c', 'calculation'),
-        ]),
-      ),
+      checkDefinition(def, { publishing: true }).map((issue) => [
+        issue.code,
+        issue.params?.fieldKey,
+      ]),
     ).toEqual([
       ['form.calculation_misplaced', 't'],
-      ['form.calculation_misplaced', 'c'],
+      ['form.calculation_missing', 'c'],
     ]);
   });
 
@@ -349,6 +352,16 @@ describe('the standard columns', () => {
       field('income', 'money', { standardColumn: 'monthly_income' }),
     ]);
     expect(checkDefinition(both)).toEqual([]);
+    // two groups may fill the family-member table, their rows apart, with the same member columns
+    const members = definitionWith([
+      ...group('beneficiary_family_members', 'name'),
+      field('members', 'repeat_group', { standardColumn: 'beneficiary_family_members' }),
+      field('member_name', 'short_text', {
+        settings: { repeat: { group: 'members' } },
+        standardColumn: 'name',
+      }),
+    ]);
+    expect(checkDefinition(members)).toEqual([]);
     const twice = definitionWith([...group('beneficiary_family_members', 'monthly_income')]);
     expect(codesOf(twice)).toEqual([['form.standard_column_duplicate', 'earner_income']]);
   });

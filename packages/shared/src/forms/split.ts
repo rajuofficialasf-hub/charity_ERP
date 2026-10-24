@@ -26,11 +26,14 @@ export class SplitError extends Error {
 }
 
 export interface FamilyMemberRow {
-  /** The row's index in the repeat group. */
+  /** The repeat group the row came from (a form may hold the members and the earners). */
+  group: string;
+  /** The row's index in that group. */
   repeatIndex: number;
   /** Column (snake_case) → value, from the member fields' own standard columns. */
   columns: Record<string, unknown>;
-  isEarner: true;
+  /** From the group's setting; its rows are earners unless it says otherwise. */
+  isEarner: boolean;
 }
 
 export interface SplitAnswers {
@@ -102,7 +105,10 @@ const isFamilyGroup = (located: LocatedField | undefined) =>
 export function split(definition: FormDefinition, answers: readonly Answer[]): SplitAnswers {
   const fields = indexFields(definition);
   const standard = new Map<string, unknown>();
-  const members = new Map<number, Map<string, unknown>>();
+  const members = new Map<
+    string,
+    { group: string; repeatIndex: number; earner: boolean; columns: Map<string, unknown> }
+  >();
   const custom: Answer[] = [];
   for (const answer of answers) {
     const located = fields.get(answer.fieldKey);
@@ -112,12 +118,23 @@ export function split(definition: FormDefinition, answers: readonly Answer[]): S
       custom.push(answer);
       continue;
     }
-    if (located.group !== null && isFamilyGroup(fields.get(located.group))) {
+    const group = located.group !== null ? fields.get(located.group) : undefined;
+    if (located.group !== null && isFamilyGroup(group)) {
       if (!isFamilyMemberColumn(column)) throw new SplitError(answer.fieldKey, column);
-      const row = answer.repeatIndex ?? 0;
-      let columns = members.get(row);
-      if (!columns) members.set(row, (columns = new Map()));
-      for (const [name, value] of columnsOf(column, answer.value)) columns.set(name, value);
+      const repeatIndex = answer.repeatIndex ?? 0;
+      const key = `${located.group}:${repeatIndex}`;
+      let row = members.get(key);
+      if (!row)
+        members.set(
+          key,
+          (row = {
+            group: located.group,
+            repeatIndex,
+            earner: group?.field.settings?.repeat?.earner ?? true,
+            columns: new Map(),
+          }),
+        );
+      for (const [name, value] of columnsOf(column, answer.value)) row.columns.set(name, value);
       continue;
     }
     if (located.group !== null) {
@@ -127,12 +144,13 @@ export function split(definition: FormDefinition, answers: readonly Answer[]): S
     if (!isStandardColumn(column)) throw new SplitError(answer.fieldKey, column);
     for (const [name, value] of columnsOf(column, answer.value)) standard.set(name, value);
   }
-  const familyMembers = [...members.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([repeatIndex, columns]) => ({
-      repeatIndex,
-      columns: Object.fromEntries(columns),
-      isEarner: true as const,
+  const familyMembers = [...members.values()]
+    .sort((a, b) => a.group.localeCompare(b.group) || a.repeatIndex - b.repeatIndex)
+    .map((row) => ({
+      group: row.group,
+      repeatIndex: row.repeatIndex,
+      columns: Object.fromEntries(row.columns),
+      isEarner: row.earner,
     }));
   return { standard: Object.fromEntries(standard), familyMembers, custom };
 }

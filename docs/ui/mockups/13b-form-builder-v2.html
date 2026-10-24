@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ফর্ম বিল্ডার (নতুন নকশা) · মকআপ</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<style>
+  /* the page: three panes, the side panes stay in view while the form scrolls */
+  .fb { display: grid; gap: var(--space-4); grid-template-columns: minmax(0, 1fr); align-items: start; }
+  @media (min-width: 1024px) {
+    .fb { grid-template-columns: 236px minmax(0, 1fr) 296px; }
+    .fb > .side { position: sticky; top: calc(var(--app-bar-height) + 16px); max-height: calc(100dvh - var(--app-bar-height) - 32px); overflow-y: auto; }
+  }
+  @media (min-width: 1440px) { .fb { grid-template-columns: 256px minmax(0, 1fr) 336px; } }
+  .side { background: var(--color-bg-surface); border: 1px solid var(--color-border-default); border-radius: var(--radius-lg); box-shadow: var(--elevation-1); }
+  .side .tabs { padding: var(--space-2) var(--space-3) 0; }
+  .side-body { padding: var(--space-3) var(--space-4) var(--space-4); }
+  .head-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+  .saved { display: inline-flex; align-items: center; gap: 4px; color: var(--color-text-secondary); font-size: var(--text-label); }
+
+  /* left: question types and the library */
+  .search { position: relative; margin-bottom: var(--space-3); }
+  .search .icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--color-text-secondary); }
+  .search input { padding-left: 38px; }
+  .group-title { font-size: var(--text-label); font-weight: var(--font-weight-bold); color: var(--color-text-secondary); margin: var(--space-3) 0 var(--space-1); }
+  .type-item { display: flex; align-items: center; gap: var(--space-3); width: 100%; padding: 8px var(--space-2); border: 1px solid transparent; border-radius: var(--radius-md); background: none; text-align: left; cursor: grab; color: inherit; }
+  .type-item:hover, .type-item:focus-visible { background: var(--color-bg-muted); border-color: var(--color-border-default); }
+  .type-item .type-ic { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--radius-sm); background: var(--color-bg-brand-soft); color: var(--color-brand-primary-dark); }
+  .type-item .type-text { flex: 1; min-width: 0; }
+  .type-item .type-name { display: block; font-weight: var(--font-weight-bold); font-size: 14px; }
+  .type-item .type-ex { display: block; font-size: var(--text-label); color: var(--color-text-secondary); }
+  .type-item .plus { color: var(--color-brand-primary-dark); }
+  .lib-sec { border: 1px solid var(--color-border-default); border-radius: var(--radius-md); margin-bottom: var(--space-2); }
+  .lib-sec > summary { display: flex; align-items: center; gap: var(--space-2); padding: 10px var(--space-3); cursor: pointer; list-style: none; font-weight: var(--font-weight-bold); font-size: 14px; }
+  .lib-sec > summary::-webkit-details-marker { display: none; }
+  .lib-sec > summary .count { margin-left: auto; font-weight: 400; color: var(--color-text-secondary); font-size: var(--text-label); }
+  .lib-sec[open] > summary { border-bottom: 1px solid var(--color-border-default); }
+  .lib-sec ul { list-style: none; margin: 0; padding: var(--space-1) var(--space-2) var(--space-2); }
+  .lib-q { display: flex; align-items: center; gap: var(--space-2); padding: 6px var(--space-1); font-size: 14px; }
+  .lib-q .icon { color: var(--color-text-secondary); }
+  .lib-q span { flex: 1; }
+  .lib-q.is-in { color: var(--color-text-secondary); }
+
+  /* middle: the form as it will be filled */
+  .canvas { background: var(--color-bg-surface); border: 1px solid var(--color-border-default); border-radius: var(--radius-lg); box-shadow: var(--elevation-1); padding: var(--space-4) var(--space-4) var(--space-5); }
+  .q-body .input, .q-body .select, .q-body .textarea, .q-body .input-prefix { width: 100%; max-width: none; }
+  .lock-mark { display: inline-flex; color: var(--color-brand-primary-dark); }
+  .canvas-title { font-size: var(--text-display); font-weight: var(--font-weight-bold); margin: 0; }
+  .canvas-sub { color: var(--color-text-secondary); margin: 4px 0 var(--space-4); }
+  .c-sec { margin-top: var(--space-5); }
+  .c-sec-head { display: flex; align-items: center; gap: var(--space-2); padding-bottom: var(--space-2); border-bottom: 2px solid var(--color-bg-brand-soft); margin-bottom: var(--space-3); }
+  .c-sec-head h2 { font-size: var(--text-title); flex: 1; display: flex; align-items: center; gap: var(--space-2); }
+  .c-sec-head .count { font-size: var(--text-label); color: var(--color-text-secondary); font-weight: 400; }
+  .c-sec.drop-on { outline: 2px dashed var(--color-brand-primary); outline-offset: 6px; border-radius: var(--radius-md); }
+  .q { position: relative; display: flex; gap: var(--space-2); padding: var(--space-3) var(--space-3) var(--space-3) var(--space-1); border: 1px solid transparent; border-radius: var(--radius-md); cursor: pointer; transition: background var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard); }
+  .q:hover { background: var(--color-bg-muted); }
+  .q.is-selected { border-color: var(--color-brand-primary); background: var(--color-bg-surface); box-shadow: 0 0 0 3px var(--color-bg-brand-soft); }
+  .q.is-dragging { opacity: 0.4; }
+  .q.drop-before::before { content: ""; position: absolute; left: 0; right: 0; top: -3px; height: 3px; border-radius: 2px; background: var(--color-brand-primary); }
+  .grip { flex: none; display: grid; place-items: center; width: 24px; color: var(--color-text-secondary); cursor: grab; border: 0; background: none; padding: 0; opacity: 0.55; }
+  .q:hover .grip, .q.is-selected .grip, .grip:focus-visible { opacity: 1; }
+  .q-body { flex: 1; min-width: 0; pointer-events: none; }
+  .q-body .field { margin: 0; }
+  .q-body .field-label { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .q-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--radius-full); background: var(--color-bg-muted); color: var(--color-text-secondary); font-size: 12px; }
+  .tag.t-logic { background: var(--color-bg-info-soft); color: var(--color-status-info); }
+  .tag.t-calc { background: var(--color-bg-warning-soft); color: var(--color-brand-accent-ink); }
+  .tag.t-lock { background: var(--color-bg-brand-soft); color: var(--color-brand-primary-dark); }
+  .q-bar { display: none; position: absolute; right: 8px; top: -14px; gap: 2px; align-items: center; padding: 2px 4px 2px 10px; border-radius: var(--radius-full); background: var(--color-brand-ink); color: #fff; font-size: 12px; box-shadow: var(--elevation-2); }
+  .q.is-selected .q-bar { display: inline-flex; }
+  .q-bar .icon-btn { color: #fff; min-width: 28px; min-height: 28px; width: 28px; height: 28px; }
+  .q-bar .icon-btn:hover { background: rgba(255, 255, 255, 0.16); }
+  .add-here { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: var(--space-2); padding: 10px; border: 1px dashed var(--color-border-strong); border-radius: var(--radius-md); background: none; color: var(--color-brand-primary-dark); font: inherit; font-weight: var(--font-weight-bold); cursor: pointer; }
+  .add-here:hover { background: var(--color-bg-brand-soft); border-style: solid; }
+  .sec-empty { text-align: center; padding: var(--space-4); color: var(--color-text-secondary); border: 1px dashed var(--color-border-default); border-radius: var(--radius-md); }
+  .menu-pop { position: absolute; right: 0; top: 100%; z-index: 5; min-width: 180px; padding: 4px; background: var(--color-bg-surface); border: 1px solid var(--color-border-default); border-radius: var(--radius-md); box-shadow: var(--elevation-3); }
+  .menu-pop button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border: 0; background: none; border-radius: var(--radius-sm); font: inherit; font-size: 14px; text-align: left; cursor: pointer; color: inherit; }
+  .menu-pop button:hover { background: var(--color-bg-muted); }
+  .menu-pop button.danger { color: var(--color-status-danger); }
+  .rel { position: relative; }
+
+  /* right: settings in short groups */
+  .set-head { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); }
+  .set-head .type-ic { display: grid; place-items: center; width: 36px; height: 36px; border-radius: var(--radius-sm); background: var(--color-bg-brand-soft); color: var(--color-brand-primary-dark); }
+  .set-head .strong { flex: 1; }
+  .grp { border-top: 1px solid var(--color-border-default); }
+  .grp > summary { display: flex; align-items: center; gap: var(--space-2); padding: 12px 0; cursor: pointer; list-style: none; font-weight: var(--font-weight-bold); }
+  .grp > summary::-webkit-details-marker { display: none; }
+  .grp > summary .chev { margin-left: auto; transition: transform var(--motion-fast) var(--ease-standard); color: var(--color-text-secondary); }
+  .grp[open] > summary .chev { transform: rotate(180deg); }
+  .grp > summary .hint { font-weight: 400; color: var(--color-text-secondary); font-size: var(--text-label); }
+  .grp-body { padding-bottom: var(--space-3); }
+  .sentence { padding: 10px 12px; border-radius: var(--radius-md); background: var(--color-bg-muted); font-size: 14px; margin-bottom: var(--space-2); }
+  .sentence b { color: var(--color-brand-primary-dark); }
+  .opt-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .opt-row .input { flex: 1; }
+  .start-card { text-align: center; padding: var(--space-4) var(--space-2); }
+  .start-card ol { text-align: left; margin: var(--space-3) 0 0; padding-left: 20px; line-height: 1.9; }
+  .lang-pair { display: grid; gap: var(--space-2); grid-template-columns: 1fr; }
+  .version { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) 0; border-bottom: 1px solid var(--color-border-default); }
+  .version:last-child { border-bottom: 0; }
+  .link-box { display: flex; gap: 6px; }
+  .link-box .input { flex: 1; font-size: 13px; }
+
+  /* dialogs */
+  .cond-row { display: grid; gap: 6px; grid-template-columns: 1fr; padding: var(--space-3); border: 1px solid var(--color-border-default); border-radius: var(--radius-md); margin-bottom: var(--space-2); }
+  @media (min-width: 640px) { .cond-row { grid-template-columns: 1.4fr 1fr 1fr auto; align-items: end; } }
+  .calc-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-bg-muted); }
+  .calc-line .select { width: auto; min-width: 150px; }
+  .preview-frame { margin: 0 auto; width: 100%; max-width: 380px; border: 10px solid var(--color-brand-ink); border-radius: 28px; padding: var(--space-3); background: var(--color-bg-canvas); max-height: 62vh; overflow-y: auto; }
+  .preview-frame.wide { max-width: none; border-width: 1px; border-color: var(--color-border-default); border-radius: var(--radius-md); }
+  .preview-frame h3 { font-size: var(--text-title); margin: var(--space-3) 0 var(--space-2); }
+  .undo-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: var(--space-3); padding: 10px 12px 10px 16px; border-radius: var(--radius-md); background: var(--color-brand-ink); color: #fff; box-shadow: var(--elevation-3); }
+  .undo-toast button { color: #CEF5E3; background: none; border: 0; font: inherit; font-weight: var(--font-weight-bold); cursor: pointer; padding: 6px 8px; }
+  @media (max-width: 1023px) { .canvas { padding: var(--space-4); } }
+</style>
+</head>
+<body data-shell="official" data-active="projects" data-user-name="নাজমুল হক (নমুনা)" data-user-initials="না" data-user-role="PM · মানবিক সহায়তা প্রোগ্রাম">
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><!-- question type icons: lucide-react 1.55.0 (ISC licence, see icons-LICENSE.txt), only for this page --><symbol id="i-type" viewBox="0 0 24 24"><path d="M12 4v16" /><path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2" /><path d="M9 20h6" /></symbol><symbol id="i-text-cursor-input" viewBox="0 0 24 24"><path d="M12 20h-1a2 2 0 0 1-2-2 2 2 0 0 1-2 2H6" /><path d="M13 8h7a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-7" /><path d="M5 16H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h1" /><path d="M6 4h1a2 2 0 0 1 2 2 2 2 0 0 1 2-2h1" /><path d="M9 6v12" /></symbol><symbol id="i-align-left" viewBox="0 0 24 24"><path d="M21 5H3" /><path d="M15 12H3" /><path d="M17 19H3" /></symbol><symbol id="i-hash" viewBox="0 0 24 24"><line x1="4" x2="20" y1="9" y2="9" /><line x1="4" x2="20" y1="15" y2="15" /><line x1="10" x2="8" y1="3" y2="21" /><line x1="16" x2="14" y1="3" y2="21" /></symbol><symbol id="i-banknote" viewBox="0 0 24 24"><rect width="20" height="12" x="2" y="6" rx="2" /><circle cx="12" cy="12" r="2" /><path d="M6 12h.01M18 12h.01" /></symbol><symbol id="i-phone" viewBox="0 0 24 24"><path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384" /></symbol><symbol id="i-mail" viewBox="0 0 24 24"><path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7" /><rect x="2" y="4" width="20" height="16" rx="2" /></symbol><symbol id="i-calendar-days" viewBox="0 0 24 24"><path d="M8 2v3" /><path d="M16 2v3" /><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M8 13h.01" /><path d="M12 13h.01" /><path d="M16 13h.01" /><path d="M8 17h.01" /><path d="M12 17h.01" /><path d="M16 17h.01" /></symbol><symbol id="i-clock-3" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 6v6h4" /></symbol><symbol id="i-list" viewBox="0 0 24 24"><path d="M3 5h.01" /><path d="M3 12h.01" /><path d="M3 19h.01" /><path d="M8 5h13" /><path d="M8 12h13" /><path d="M8 19h13" /></symbol><symbol id="i-circle-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="12" r="10" /></symbol><symbol id="i-square-check" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" /><path d="m16 9-5.5 5.5L8 12" /></symbol><symbol id="i-image-plus" viewBox="0 0 24 24"><path d="M16 5h6" /><path d="M19 2v6" /><path d="M21 11.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7.5" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" /><circle cx="9" cy="9" r="2" /></symbol><symbol id="i-paperclip" viewBox="0 0 24 24"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551" /></symbol><symbol id="i-signature" viewBox="0 0 24 24"><path d="m21 17-2.156-1.868A.5.5 0 0 0 18 15.5v.5a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1c0-2.545-3.991-3.97-8.5-4a1 1 0 0 0 0 5c4.153 0 4.745-11.295 5.708-13.5a2.5 2.5 0 1 1 3.31 3.284" /><path d="M3 21h18" /></symbol><symbol id="i-map-pinned" viewBox="0 0 24 24"><path d="M18 8c0 3.613-3.869 7.429-5.393 8.795a1 1 0 01-1.214 0C9.87 15.429 6 11.613 6 8a6 6 0 0112 0" /><path d="M4.474 15h-.197a1 1 0 00-.969.753l-1.097 4.35a1.5 1.5 0 001.444 1.898L20.344 22a1.5 1.5 0 001.446-1.897l-1.098-4.35a1 1 0 00-.969-.753h-.197" /><circle cx="12" cy="8" r="2" /></symbol><symbol id="i-list-plus" viewBox="0 0 24 24"><path d="M16 5H3" /><path d="M11 12H3" /><path d="M16 19H3" /><path d="M18 9v6" /><path d="M21 12h-6" /></symbol><symbol id="i-calculator" viewBox="0 0 24 24"><rect width="16" height="20" x="4" y="2" rx="2" /><line x1="8" x2="16" y1="6" y2="6" /><line x1="16" x2="16" y1="14" y2="18" /><path d="M16 10h.01" /><path d="M12 10h.01" /><path d="M8 10h.01" /><path d="M12 14h.01" /><path d="M8 14h.01" /><path d="M12 18h.01" /><path d="M8 18h.01" /></symbol><symbol id="i-text" viewBox="0 0 24 24"><path d="M21 5H3" /><path d="M15 12H3" /><path d="M17 19H3" /></symbol><symbol id="i-grip-vertical" viewBox="0 0 24 24"><circle cx="9" cy="12" r="1" /><circle cx="9" cy="5" r="1" /><circle cx="9" cy="19" r="1" /><circle cx="15" cy="12" r="1" /><circle cx="15" cy="5" r="1" /><circle cx="15" cy="19" r="1" /></symbol><symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /><circle cx="12" cy="12" r="3" /></symbol><symbol id="i-users-round" viewBox="0 0 24 24"><path d="M18 21a8 8 0 0 0-16 0" /><circle cx="10" cy="8" r="5" /><path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3" /></symbol><symbol id="i-layers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" /><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" /><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" /></symbol><symbol id="i-book-open" viewBox="0 0 24 24"><path d="M12 5v16" /><path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z" /></symbol><symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z" /><path d="M20 2v4" /><path d="M22 4h-4" /><circle cx="4" cy="20" r="2" /></symbol><symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /><path d="m15 5 4 4" /></symbol><symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path d="M2 12h20" /></symbol><symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></symbol><symbol id="i-chevrons-up-down" viewBox="0 0 24 24"><path d="m7 15 5 5 5-5" /><path d="m7 9 5-5 5 5" /></symbol><symbol id="i-file-up" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /><path d="M14 2v5a1 1 0 0 0 1 1h5" /><path d="M12 12v6" /><path d="m15 15-3-3-3 3" /></symbol><symbol id="i-heading" viewBox="0 0 24 24"><path d="M6 12h12" /><path d="M6 20V4" /><path d="M18 20V4" /></symbol></svg>
+<main id="main">
+  <nav class="breadcrumb" aria-label="অবস্থান"><ol><li><a href="12-project-setup.html">শীতবস্ত্র বিতরণ 2026</a></li><li aria-current="page">আবেদন ফর্ম</li></ol></nav>
+  <div class="alert desktop-notice"><i data-icon="monitor"></i><div><div class="alert-title">বড় পর্দায় ভালো চলে</div><p>ফোনে শুধু প্রশ্ন আর অপশনের লেখা বদলানো যায়। প্রশ্ন যোগ, সাজানো ও প্রকাশ কম্পিউটারে করুন।</p></div></div>
+  <div class="page-head">
+    <div class="page-title">
+      <h1>আবেদন ফর্ম</h1>
+      <p class="page-sub head-meta"><span class="badge"><i data-icon="circle-dashed"></i>সংস্করণ 2: খসড়া</span><span class="caption muted" id="count-line"></span><span class="saved" id="saved"><i data-icon="check"></i>সংরক্ষিত</span></p>
+    </div>
+    <div class="cluster desktop-only-edit">
+      <button class="btn btn-secondary" type="button" id="open-preview"><i data-icon="eye"></i>প্রিভিউ</button>
+      <button class="btn btn-primary" type="button" data-open="publish"><i data-icon="send"></i>প্রকাশ করুন</button>
+    </div>
+  </div>
+
+  <div class="fb">
+    <!-- left -->
+    <aside class="side desktop-only-edit" aria-label="প্রশ্ন যোগ করার জায়গা">
+      <div class="tabs" role="tablist" aria-label="প্রশ্ন যোগ">
+        <button class="tab" role="tab" id="lt-types" aria-controls="lp-types" aria-selected="true">প্রশ্ন যোগ</button>
+        <button class="tab" role="tab" id="lt-lib" aria-controls="lp-lib">লাইব্রেরি</button>
+      </div>
+      <div class="side-body">
+        <div id="lp-types" role="tabpanel" aria-labelledby="lt-types">
+          <p class="caption muted" style="margin:0 0 8px">কোন ধরনের উত্তর চান, বেছে নিন। "+" চাপলে বাছাই করা অংশের শেষে যোগ হবে, অথবা টেনে ফর্মের যেখানে চান সেখানে রাখুন।</p>
+          <div id="types"></div>
+        </div>
+        <div id="lp-lib" role="tabpanel" aria-labelledby="lt-lib" hidden>
+          <div class="search"><i data-icon="search"></i><input class="input" type="search" id="lib-search" placeholder="প্রশ্ন খুঁজুন" aria-label="লাইব্রেরিতে প্রশ্ন খুঁজুন"></div>
+          <p class="caption muted" style="margin:0 0 8px">আগে থেকে তৈরি প্রশ্ন, অংশ ধরে সাজানো। পুরো অংশ বা একটি প্রশ্ন যোগ করুন।</p>
+          <div id="library"></div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- middle -->
+    <section class="canvas" aria-labelledby="form-title">
+      <h2 class="canvas-title" id="form-title">উপকারভোগীর আবেদন</h2>
+      <p class="canvas-sub">শীতবস্ত্র বিতরণ 2026 · স্বেচ্ছাসেবক ও পাবলিক লিংক থেকে পূরণ হবে</p>
+      <div id="canvas"></div>
+      <button class="btn btn-ghost desktop-only-edit" type="button" id="add-section" style="margin-top:16px"><i data-icon="plus"></i>নতুন অংশ যোগ করুন</button>
+    </section>
+
+    <!-- right -->
+    <aside class="side" aria-label="সেটিং">
+      <div class="tabs" role="tablist" aria-label="সেটিং">
+        <button class="tab" role="tab" id="rt-q" aria-controls="rp-q" aria-selected="true">প্রশ্নের সেটিং</button>
+        <button class="tab" role="tab" id="rt-form" aria-controls="rp-form">ফর্মের সেটিং</button>
+      </div>
+      <div class="side-body">
+        <div id="rp-q" role="tabpanel" aria-labelledby="rt-q"></div>
+        <div id="rp-form" role="tabpanel" aria-labelledby="rt-form" hidden>
+          <div class="field"><label class="field-label" for="f-name">ফর্মের নাম (বাংলা)</label><input class="input" id="f-name" value="উপকারভোগীর আবেদন"></div>
+          <div class="field"><label class="field-label" for="f-name-en">ফর্মের নাম (English)</label><input class="input" id="f-name-en" lang="en" value="Beneficiary application"></div>
+          <details class="grp" open><summary><i data-icon="history"></i>সংস্করণ<i data-icon="chevron-down" class="chev"></i></summary>
+            <div class="grp-body">
+              <div class="version"><span class="badge"><i data-icon="circle-dashed"></i>খসড়া</span><div class="grow"><div class="strong">সংস্করণ 2</div><div class="caption muted tnum">শেষ বদল: নাজমুল হক (নমুনা), 22-10-2026 সকাল 10:42</div><div class="caption muted">প্রশ্ন যোগ হয়েছে: আপনার কি নিজের ঘর আছে?</div></div></div>
+              <div class="version"><span class="badge t-success"><i data-icon="circle-check"></i>প্রকাশিত</span><div class="grow"><div class="strong">সংস্করণ 1</div><div class="caption muted tnum">নাজমুল হক (নমুনা) প্রকাশ করেছেন, 20-10-2026 বিকাল 4:10</div></div><button class="btn btn-ghost btn-sm" type="button" data-toast="সংস্করণ 1 দেখার জন্য খোলা হচ্ছে (শুধু পড়া যাবে)">দেখুন</button></div>
+            </div>
+          </details>
+          <details class="grp"><summary><i data-icon="link"></i>পাবলিক আবেদনের লিংক<i data-icon="chevron-down" class="chev"></i></summary>
+            <div class="grp-body">
+              <div class="row-item"><div class="row-text"><label for="link-on">এই ফর্মের জন্য পাবলিক লিংক চালু</label><div class="row-desc">লিংক পেলে যে কেউ লগইন ছাড়াই আবেদন করতে পারবেন</div></div><span class="switch-hit"><input class="switch" type="checkbox" id="link-on" checked></span></div>
+              <div class="field" id="link-field" style="margin-top:8px"><label class="field-label" for="link-url">আবেদনের লিংক</label><div class="link-box"><input class="input" id="link-url" lang="en" readonly value="https://css.example.org/apply/3ZhR…KKY9U"><button class="btn btn-secondary btn-sm" type="button" data-toast="লিংক কপি হয়েছে"><i data-icon="copy"></i>কপি</button></div><span class="helper">বন্ধ করে আবার চালু করলে নতুন লিংক তৈরি হয়; আগেরটি আর কাজ করে না।</span></div>
+            </div>
+          </details>
+        </div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<!-- preview -->
+<dialog class="modal modal-lg" id="preview" aria-labelledby="pv-title">
+  <div class="sheet-handle"></div>
+  <div class="modal-head"><h2 id="pv-title">প্রিভিউ: যেমন পূরণ করা হবে</h2><button class="icon-btn" type="button" data-close><i data-icon="x"></i><span class="sr-only">বন্ধ করুন</span></button></div>
+  <div class="modal-body">
+    <div class="spread" style="margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div class="segmented" role="group" aria-label="পর্দার মাপ" id="pv-size"><button type="button" aria-pressed="true" data-value="phone">ফোন</button><button type="button" aria-pressed="false" data-value="wide">কম্পিউটার</button></div>
+      <div class="segmented" role="group" aria-label="কে দেখছেন" id="pv-who"><button type="button" aria-pressed="true" data-value="volunteer">স্বেচ্ছাসেবক</button><button type="button" aria-pressed="false" data-value="official">অফিসিয়াল</button></div>
+    </div>
+    <p class="caption muted" style="margin:0 0 12px">এখানে লেখা উত্তর কোথাও রাখা বা পাঠানো হয় না।</p>
+    <div class="preview-frame" id="pv-frame"></div>
+  </div>
+</dialog>
+
+<!-- publish -->
+<dialog class="modal modal-sm" id="publish" aria-labelledby="pb-title">
+  <div class="sheet-handle"></div>
+  <div class="modal-head"><h2 id="pb-title">সংস্করণ 2 প্রকাশ করবেন?</h2><button class="icon-btn" type="button" data-close><i data-icon="x"></i><span class="sr-only">বন্ধ করুন</span></button></div>
+  <div class="modal-body">
+    <p>প্রকাশের পর এই সংস্করণ আর বদলানো যাবে না; পরের বদল নতুন সংস্করণে হবে।</p>
+    <div class="alert"><i data-icon="info"></i><div><div class="alert-title">আগের সংস্করণ থেকে যা বদলেছে</div><ul style="margin:4px 0 0;padding-left:18px"><li>প্রশ্ন যোগ হয়েছে: আপনার কি নিজের ঘর আছে?</li><li>প্রশ্নে বদল: মোট সদস্য (হিসাব)</li></ul></div></div>
+    <p class="caption muted" style="margin-top:12px">আগে জমা পড়া আবেদনগুলো তাদের নিজের সংস্করণেই থাকবে।</p>
+  </div>
+  <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>বাতিল</button><button class="btn btn-primary" type="button" data-close data-toast="সংস্করণ 2 প্রকাশিত হয়েছে">সংস্করণ প্রকাশ করুন</button></div>
+</dialog>
+
+<!-- condition -->
+<dialog class="modal modal-lg" id="cond" aria-labelledby="cd-title">
+  <div class="sheet-handle"></div>
+  <div class="modal-head"><h2 id="cd-title">প্রশ্নটি কখন দেখাবে</h2><button class="icon-btn" type="button" data-close><i data-icon="x"></i><span class="sr-only">বন্ধ করুন</span></button></div>
+  <div class="modal-body">
+    <p style="margin-top:0">কোনো শর্ত না দিলে প্রশ্নটি সব সময় দেখাবে। শর্ত দিলে আগের উত্তর মিললে তবেই দেখাবে।</p>
+    <div class="segmented" role="group" aria-label="শর্ত মেলানোর নিয়ম" id="cd-join" style="margin-bottom:12px"><button type="button" aria-pressed="true" data-value="all">সবগুলো মিললে</button><button type="button" aria-pressed="false" data-value="any">যেকোনো একটি মিললে</button></div>
+    <div id="cd-rows"></div>
+    <button class="btn btn-secondary btn-sm" type="button" id="cd-add"><i data-icon="plus"></i>আরেকটি শর্ত</button>
+    <div class="sentence" style="margin-top:12px" id="cd-sentence"></div>
+  </div>
+  <div class="modal-foot"><button class="btn btn-ghost" type="button" id="cd-clear">শর্ত মুছুন</button><button class="btn btn-primary" type="button" id="cd-save">ঠিক আছে</button></div>
+</dialog>
+
+<!-- calculation -->
+<dialog class="modal modal-lg" id="calc" aria-labelledby="cl-title">
+  <div class="sheet-handle"></div>
+  <div class="modal-head"><h2 id="cl-title">হিসাব কীভাবে হবে</h2><button class="icon-btn" type="button" data-close><i data-icon="x"></i><span class="sr-only">বন্ধ করুন</span></button></div>
+  <div class="modal-body">
+    <div class="segmented" role="group" aria-label="হিসাবের ধরন" id="cl-kind" style="margin-bottom:12px;flex-wrap:wrap"><button type="button" aria-pressed="true" data-value="sum">যোগ-বিয়োগ</button><button type="button" aria-pressed="false" data-value="age">জন্মতারিখ থেকে বয়স</button><button type="button" aria-pressed="false" data-value="nisab">নিসাবের সঙ্গে তুলনা</button></div>
+    <div class="calc-line" id="cl-line"></div>
+    <button class="btn btn-secondary btn-sm" type="button" id="cl-add" style="margin-top:8px"><i data-icon="plus"></i>আরেকটি পদ</button>
+    <div class="sentence" style="margin-top:12px" id="cl-sentence"></div>
+    <p class="caption muted">উদাহরণ: পুরুষ সদস্য 2 আর নারী সদস্য 3 হলে মোট সদস্য নিজে থেকে 5 দেখাবে।</p>
+  </div>
+  <div class="modal-foot"><button class="btn btn-primary" type="button" id="cl-save">ঠিক আছে</button></div>
+</dialog>
+
+<script src="icons.js"></script>
+<script src="mockup.js"></script>
+<script>
+document.addEventListener('mock:ready', function () {
+  var I = window.mockIcon;
+  // the question types in plain words, in six groups
+  var TYPES = {
+    short_text: { name: 'ছোট উত্তর', ex: 'যেমন নাম, গ্রাম', ic: 'text-cursor-input', group: 'লেখা' },
+    long_text: { name: 'বড় উত্তর', ex: 'যেমন মন্তব্য, বিবরণ', ic: 'align-left', group: 'লেখা' },
+    number: { name: 'সংখ্যা', ex: 'যেমন পরিবারের সদস্য', ic: 'hash', group: 'সংখ্যা ও টাকা' },
+    money: { name: 'টাকার অঙ্ক', ex: 'যেমন মাসিক আয়', ic: 'banknote', group: 'সংখ্যা ও টাকা' },
+    phone: { name: 'মোবাইল নম্বর', ex: '01XXXXXXXXX', ic: 'phone', group: 'সংখ্যা ও টাকা' },
+    single: { name: 'একটি বেছে নেওয়া', ex: 'যেমন হ্যাঁ / না', ic: 'circle-dot', group: 'বেছে নেওয়া' },
+    multi: { name: 'কয়েকটি বেছে নেওয়া', ex: 'যেমন কোন কোন সাহায্য দরকার', ic: 'square-check', group: 'বেছে নেওয়া' },
+    date: { name: 'তারিখ', ex: 'যেমন জন্মতারিখ', ic: 'calendar-days', group: 'তারিখ ও সময়' },
+    time: { name: 'সময়', ex: 'যেমন 14:30', ic: 'clock-3', group: 'তারিখ ও সময়' },
+    photo: { name: 'ছবি', ex: 'যেমন ঘরের ছবি', ic: 'image-plus', group: 'ছবি ও ফাইল' },
+    file: { name: 'ফাইল', ex: 'যেমন কাগজের স্ক্যান', ic: 'paperclip', group: 'ছবি ও ফাইল' },
+    signature: { name: 'স্বাক্ষরের ছবি', ex: 'কাগজে সই করে ছবি', ic: 'signature', group: 'ছবি ও ফাইল' },
+    address: { name: 'ঠিকানা', ex: 'বিভাগ থেকে ইউনিয়ন', ic: 'map-pinned', group: 'বিশেষ' },
+    gps: { name: 'অবস্থান (GPS)', ex: 'ফোন থেকে নিজে নেবে', ic: 'map-pin', group: 'বিশেষ' },
+    rows: { name: 'কয়েকজনের তালিকা', ex: 'যেমন পরিবারের সদস্যরা', ic: 'list-plus', group: 'বিশেষ' },
+    calc: { name: 'নিজে থেকে হিসাব', ex: 'যেমন মোট সদস্য', ic: 'calculator', group: 'বিশেষ' },
+    note: { name: 'শুধু লেখা দেখানো', ex: 'উত্তর নেই, নির্দেশনা', ic: 'text', group: 'বিশেষ' }
+  };
+  var GROUPS = ['লেখা', 'সংখ্যা ও টাকা', 'বেছে নেওয়া', 'তারিখ ও সময়', 'ছবি ও ফাইল', 'বিশেষ'];
+  var LIBRARY = [
+    { title: 'মৌলিক তথ্য', qs: [['বৈবাহিক অবস্থা', 'single'], ['শিক্ষার স্তর', 'single'], ['জন্ম তারিখ', 'date'], ['মাতার নাম', 'short_text']] },
+    { title: 'পরিবার ও আয়', qs: [['পরিবারের মোট দৈনিক আয়', 'money'], ['পরিবারে একাধিক আয়কারী আছেন?', 'single'], ['14 বছরের কম বয়সী শিশু', 'number']] },
+    { title: 'জীবিকা ও আয়ের স্থিতিশীলতা', qs: [['পেশা', 'single'], ['আপনি কিসের ব্যবসা করেন?', 'short_text'], ['গবাদি পশু আছে?', 'single']] },
+    { title: 'আর্থিক অবস্থা', qs: [['বসতবাড়ির মালিকানার ধরন', 'single'], ['মোট কৃষি জমি (শতাংশ)', 'number'], ['পরিবারের মাসিক ব্যয়', 'money']] },
+    { title: 'ঋণ সম্পর্কিত তথ্য', qs: [['ঋণ আছে?', 'single'], ['মোট ঋণের পরিমাণ', 'money']] },
+    { title: 'সংযুক্তি', qs: [['উপকারভোগীর ছবি', 'photo'], ['ঘরের সামনে উপকারভোগীর ছবি', 'photo']] }
+  ];
+  var n = 0; var id = function () { n += 1; return 'q' + n; };
+  var sections = [
+    { id: 's1', title: 'মৌলিক তথ্য', qs: [
+      { id: id(), label: 'জাতীয় পরিচয়পত্র বা জন্ম নিবন্ধন নম্বর', type: 'short_text', req: true, core: true },
+      { id: id(), label: 'উপকারভোগীর নাম', type: 'short_text', req: true, core: true },
+      { id: id(), label: 'পিতা/স্বামীর নাম', type: 'short_text', req: true, core: true },
+      { id: id(), label: 'মোবাইল নম্বর', type: 'phone', req: true, core: true },
+      { id: id(), label: 'লিঙ্গ', type: 'single', req: true, core: true, options: ['নারী', 'পুরুষ'] }
+    ] },
+    { id: 's2', title: 'ঠিকানা', qs: [
+      { id: id(), label: 'বিভাগ, জেলা, উপজেলা, ইউনিয়ন', type: 'address', req: true, core: true },
+      { id: id(), label: 'গ্রাম', type: 'short_text', req: true, core: true }
+    ] },
+    { id: 's3', title: 'পরিবার ও আয়', qs: [
+      { id: 'male', label: 'পুরুষ সদস্য', type: 'number', req: false },
+      { id: 'female', label: 'নারী সদস্য', type: 'number', req: false },
+      { id: 'total', label: 'মোট সদস্য', type: 'calc', req: false, calc: ['male', 'female'] },
+      { id: 'income', label: 'মাসিক আয়', type: 'money', req: false, help: 'পরিবারের সবার আয় মিলিয়ে' },
+      { id: 'house', label: 'আপনার কি নিজের ঘর আছে?', type: 'single', req: true, options: ['হ্যাঁ', 'না'], cond: [{ q: 'male', op: 'বেশি', v: '0' }] }
+    ] },
+    { id: 's4', title: 'অফিসিয়াল অংশ', official: true, qs: [
+      { id: id(), label: 'যাচাইকারীর মন্তব্য', type: 'long_text', req: false }
+    ] }
+  ];
+  var selected = 'house', openMenu = null, lastRemoved = null, preview = { size: 'phone', who: 'volunteer' };
+
+  var all = function () { return sections.reduce(function (a, s) { return a.concat(s.qs); }, []); };
+  var find = function (qid) { return all().filter(function (q) { return q.id === qid; })[0]; };
+  var sectionOf = function (qid) { return sections.filter(function (s) { return s.qs.some(function (q) { return q.id === qid; }); })[0]; };
+  var esc = function (t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var labelOf = function (qid) { var q = find(qid); return q ? q.label : '?'; };
+
+  function condSentence(q) {
+    if (!q.cond || !q.cond.length) return 'সব সময় দেখাবে।';
+    return 'দেখাবে যখন ' + q.cond.map(function (c) { return '‘<b>' + esc(labelOf(c.q)) + '</b>’ ' + (c.op === 'সমান' ? '= ' + esc(c.v) : esc(c.v) + '-এর ' + c.op); }).join(q.join === 'any' ? ' অথবা ' : ' এবং ') + '।';
+  }
+  function calcSentence(q) {
+    if (!q.calc || !q.calc.length) return 'এখনো হিসাব ঠিক করা হয়নি।';
+    return '<b>' + esc(q.label) + '</b> = ' + q.calc.map(function (t) { return esc(labelOf(t)); }).join(' + ');
+  }
+
+  /* ---------- left ---------- */
+  function renderTypes() {
+    document.getElementById('types').innerHTML = GROUPS.map(function (g) {
+      return '<div class="group-title">' + g + '</div>' + Object.keys(TYPES).filter(function (k) { return TYPES[k].group === g; }).map(function (k) {
+        var t = TYPES[k];
+        return '<button class="type-item" type="button" draggable="true" data-type="' + k + '" aria-label="' + t.name + ' প্রশ্ন যোগ করুন"><span class="type-ic">' + I(t.ic) + '</span><span class="type-text"><span class="type-name">' + t.name + '</span><span class="type-ex">' + t.ex + '</span></span><span class="plus">' + I('plus') + '</span></button>';
+      }).join('');
+    }).join('');
+  }
+  function renderLibrary() {
+    var term = (document.getElementById('lib-search').value || '').trim();
+    var labels = all().map(function (q) { return q.label; });
+    document.getElementById('library').innerHTML = LIBRARY.map(function (s, si) {
+      var qs = s.qs.filter(function (q) { return !term || q[0].indexOf(term) >= 0; });
+      if (term && !qs.length) return '';
+      return '<details class="lib-sec"' + (term || si === 0 ? ' open' : '') + '><summary>' + I('layers') + esc(s.title) + '<span class="count">' + s.qs.length + 'টি প্রশ্ন</span></summary><ul>' +
+        qs.map(function (q) {
+          var inForm = labels.indexOf(q[0]) >= 0;
+          return '<li class="lib-q' + (inForm ? ' is-in' : '') + '">' + I(TYPES[q[1]].ic) + '<span>' + esc(q[0]) + '</span>' + (inForm ? '<span class="caption">' + I('check') + ' ফর্মে আছে</span>' : '<button class="icon-btn" type="button" data-lib="' + si + ':' + esc(q[0]) + '" title="যোগ করুন">' + I('plus') + '<span class="sr-only">' + esc(q[0]) + ' যোগ করুন</span></button>') + '</li>';
+        }).join('') +
+        '</ul><div style="padding:0 12px 12px"><button class="btn btn-secondary btn-sm btn-block" type="button" data-libsec="' + si + '">' + I('plus') + 'পুরো অংশটি যোগ করুন</button></div></details>';
+    }).join('');
+  }
+
+  /* ---------- middle: the form as it will be filled ---------- */
+  function fieldView(q) {
+    var req = q.req ? ' <span class="req">(আবশ্যক)</span>' : '';
+    var lock = q.core ? ' <span class="lock-mark" title="সব প্রকল্পে আবশ্যক">' + I('lock', 'icon-sm') + '<span class="sr-only">সব প্রকল্পে আবশ্যক</span></span>' : '';
+    var label = '<span class="field-label">' + esc(q.label) + req + lock + '</span>';
+    var help = q.help ? '<span class="helper">' + esc(q.help) + '</span>' : '';
+    var input;
+    if (q.type === 'single') input = q.options.length <= 3 ? '<div class="cluster">' + q.options.map(function (o) { return '<label class="choice"><input type="radio" tabindex="-1"> ' + esc(o) + '</label>'; }).join('') + '</div>' : '<select class="select" tabindex="-1"><option>বেছে নিন</option></select>';
+    else if (q.type === 'multi') input = '<div class="cluster">' + (q.options || ['অপশন 1']).map(function (o) { return '<label class="choice"><input type="checkbox" tabindex="-1"> ' + esc(o) + '</label>'; }).join('') + '</div>';
+    else if (q.type === 'long_text') input = '<textarea class="textarea" tabindex="-1" placeholder="এখানে লিখুন"></textarea>';
+    else if (q.type === 'money') input = '<div class="input-prefix"><span>৳</span><input class="input" tabindex="-1"></div>';
+    else if (q.type === 'address') input = '<div class="cluster" style="flex-wrap:nowrap"><select class="select" tabindex="-1"><option>বিভাগ</option></select><select class="select" tabindex="-1" disabled><option>জেলা</option></select></div>';
+    else if (q.type === 'calc') input = '<input class="input" tabindex="-1" readonly value="নিজে থেকে হিসাব হবে" style="color:var(--color-text-secondary)">';
+    else if (q.type === 'photo' || q.type === 'file' || q.type === 'signature') input = '<div class="sec-empty" style="padding:12px">' + I('cloud-upload') + ' ছবি তুলুন বা বেছে নিন</div>';
+    else if (q.type === 'date') input = '<input class="input" tabindex="-1" placeholder="dd-mm-yyyy">';
+    else if (q.type === 'note') input = '<p class="caption muted" style="margin:0">' + esc(q.help || 'নির্দেশনার লেখা') + '</p>';
+    else input = '<input class="input" tabindex="-1">';
+    var tags = '';
+    if (q.cond && q.cond.length) tags += '<span class="tag t-logic">' + I('git-branch') + 'শর্তে দেখাবে</span>';
+    if (q.type === 'calc') tags += '<span class="tag t-calc">' + I('calculator') + calcSentence(q).replace(/<[^>]+>/g, '') + '</span>';
+    return '<div class="field">' + label + input + help + (tags ? '<div class="q-tags">' + tags + '</div>' : '') + '</div>';
+  }
+  function renderCanvas() {
+    var count = all().length;
+    document.getElementById('count-line').textContent = sections.length + 'টি অংশ · ' + count + 'টি প্রশ্ন';
+    document.getElementById('canvas').innerHTML = sections.map(function (s, si) {
+      var hasCore = s.qs.some(function (q) { return q.core; });
+      var menu = openMenu === s.id ? '<div class="menu-pop" role="menu"><button role="menuitem" type="button" data-secact="rename:' + s.id + '">' + I('pencil') + 'নাম বদলান</button>' + (si > 0 ? '<button role="menuitem" type="button" data-secact="up:' + s.id + '">' + I('arrow-up') + 'উপরে নিন</button>' : '') + (si < sections.length - 1 ? '<button role="menuitem" type="button" data-secact="down:' + s.id + '">' + I('arrow-down') + 'নিচে নিন</button>' : '') + (hasCore ? '' : '<button role="menuitem" class="danger" type="button" data-secact="remove:' + s.id + '">' + I('trash-2') + 'অংশ সরান</button>') + '</div>' : '';
+      return '<section class="c-sec" data-sec="' + s.id + '" aria-label="' + esc(s.title) + '"><div class="c-sec-head"><h2>' + (s.official ? I('shield') : '') + esc(s.title) + ' <span class="count">' + s.qs.length + 'টি প্রশ্ন</span>' + (s.official ? '<span class="badge">শুধু অফিসিয়াল</span>' : '') + '</h2><span class="rel desktop-only-edit"><button class="icon-btn" type="button" data-secmenu="' + s.id + '" aria-haspopup="menu" aria-expanded="' + (openMenu === s.id) + '">' + I('ellipsis-vertical') + '<span class="sr-only">' + esc(s.title) + ': আরও কাজ</span></button>' + menu + '</span></div>' +
+        (s.qs.length ? s.qs.map(function (q) {
+          var t = TYPES[q.type];
+          var qi = s.qs.indexOf(q);
+          return '<div class="q' + (q.id === selected ? ' is-selected' : '') + '" data-q="' + q.id + '" draggable="true" role="button" tabindex="0" aria-label="' + esc(q.label) + ': ' + t.name + ', বাছাই করতে Enter চাপুন"><button class="grip desktop-only-edit" type="button" tabindex="-1" aria-hidden="true">' + I('grip-vertical') + '</button><div class="q-body">' + fieldView(q) + '</div>' +
+            '<div class="q-bar desktop-only-edit">' + I(t.ic) + '<span style="margin:0 6px 0 4px">' + t.name + '</span>' +
+            (qi > 0 ? '<button class="icon-btn" type="button" data-qact="up:' + q.id + '" title="উপরে নিন">' + I('arrow-up') + '<span class="sr-only">উপরে নিন</span></button>' : '') +
+            (qi < s.qs.length - 1 ? '<button class="icon-btn" type="button" data-qact="down:' + q.id + '" title="নিচে নিন">' + I('arrow-down') + '<span class="sr-only">নিচে নিন</span></button>' : '') +
+            (q.core ? '<span class="icon-btn" title="সব প্রকল্পে আবশ্যক; সরানো যায় না">' + I('lock') + '</span>' : '<button class="icon-btn" type="button" data-qact="copy:' + q.id + '" title="কপি করুন">' + I('copy') + '<span class="sr-only">কপি করুন</span></button><button class="icon-btn" type="button" data-qact="remove:' + q.id + '" title="সরান">' + I('trash-2') + '<span class="sr-only">সরান</span></button>') +
+            '</div></div>';
+        }).join('') : '<div class="sec-empty">' + I('inbox') + '<div>এই অংশে এখনো প্রশ্ন নেই। বাঁ দিক থেকে টেনে আনুন বা নিচের বোতাম চাপুন।</div></div>') +
+        '<button class="add-here desktop-only-edit" type="button" data-addto="' + s.id + '">' + I('plus') + 'এই অংশে প্রশ্ন যোগ করুন</button></section>';
+    }).join('');
+  }
+
+  /* ---------- right: settings of the chosen question ---------- */
+  function renderSettings() {
+    var q = find(selected);
+    var el = document.getElementById('rp-q');
+    if (!q) {
+      el.innerHTML = '<div class="start-card"><span class="type-ic" style="display:inline-grid;place-items:center;width:48px;height:48px;border-radius:50%;background:var(--gradient-soft, var(--color-bg-brand-soft))">' + I('sparkles') + '</span><h3 style="margin:12px 0 0;font-size:var(--text-title)">তিন ধাপে ফর্ম</h3><ol><li>বাঁ দিক থেকে প্রশ্ন বা অংশ যোগ করুন</li><li>মাঝের ফর্মে প্রশ্নে ক্লিক করে বদলান, টেনে সাজান</li><li>"প্রিভিউ" দেখে "প্রকাশ করুন"</li></ol></div>';
+      return;
+    }
+    var t = TYPES[q.type];
+    var opts = q.options ? '<details class="grp" open><summary>' + I('list') + 'অপশন <span class="hint">' + q.options.length + 'টি</span>' + I('chevron-down', 'chev') + '</summary><div class="grp-body">' + q.options.map(function (o, i) { return '<div class="opt-row"><input class="input" data-opt="' + i + '" value="' + esc(o) + '" aria-label="অপশন ' + (i + 1) + '"' + (q.core ? ' readonly' : '') + '>' + (q.core ? '' : '<button class="icon-btn" type="button" data-delopt="' + i + '" title="অপশন সরান">' + I('trash-2') + '<span class="sr-only">অপশন ' + (i + 1) + ' সরান</span></button>') + '</div>'; }).join('') + (q.core ? '' : '<button class="btn btn-ghost btn-sm" type="button" id="add-opt">' + I('plus') + 'অপশন যোগ করুন</button><label class="choice" style="margin-top:8px"><input type="checkbox"> "অন্যান্য" রাখুন (বেছে নিলে লেখার ঘর খুলবে)</label>') + '</div></details>' : '';
+    var rules = (q.type === 'short_text' || q.type === 'long_text') && !q.core ? '<details class="grp"><summary>' + I('shield-check') + 'উত্তরের নিয়ম <span class="hint">ঐচ্ছিক</span>' + I('chevron-down', 'chev') + '</summary><div class="grp-body"><div class="field"><label class="field-label" for="s-check">লেখা কেমন হবে</label><select class="select" id="s-check"><option>যেকোনো লেখা</option><option>শুধু বাংলা লেখা</option><option>শুধু অঙ্ক</option><option>মোবাইল নম্বর</option><option>ইমেইল</option><option>জাতীয় পরিচয়পত্র নম্বর</option></select></div><div class="cluster" style="flex-wrap:nowrap"><div class="field grow"><label class="field-label" for="s-min">সবচেয়ে কম অক্ষর</label><input class="input" id="s-min" inputmode="numeric"></div><div class="field grow"><label class="field-label" for="s-max">সবচেয়ে বেশি অক্ষর</label><input class="input" id="s-max" inputmode="numeric"></div></div></div></details>'
+      : (q.type === 'number' || q.type === 'money') ? '<details class="grp"><summary>' + I('shield-check') + 'উত্তরের নিয়ম <span class="hint">ঐচ্ছিক</span>' + I('chevron-down', 'chev') + '</summary><div class="grp-body"><div class="cluster" style="flex-wrap:nowrap"><div class="field grow"><label class="field-label" for="s-lo">সবচেয়ে ছোট</label><input class="input" id="s-lo" inputmode="numeric" value="0"></div><div class="field grow"><label class="field-label" for="s-hi">সবচেয়ে বড়</label><input class="input" id="s-hi" inputmode="numeric"></div></div></div></details>' : '';
+    var calc = q.type === 'calc' ? '<details class="grp" open><summary>' + I('calculator') + 'হিসাব' + I('chevron-down', 'chev') + '</summary><div class="grp-body"><div class="sentence">' + calcSentence(q) + '</div><button class="btn btn-secondary btn-sm" type="button" data-open-calc>' + I('pencil') + 'হিসাব বদলান</button></div></details>' : '';
+    var cond = q.core ? '<p class="caption muted" style="margin-top:12px">' + I('lock') + ' এটি সব প্রকল্পে আবশ্যক প্রশ্ন: সব সময় দেখাবে, সরানো যায় না।</p>' : '<details class="grp" open><summary>' + I('git-branch') + 'কখন দেখাবে' + I('chevron-down', 'chev') + '</summary><div class="grp-body"><div class="sentence">' + condSentence(q) + '</div><button class="btn btn-secondary btn-sm" type="button" data-open-cond>' + I('pencil') + (q.cond && q.cond.length ? 'শর্ত বদলান' : 'শর্ত যোগ করুন') + '</button></div></details>';
+    el.innerHTML = '<div class="set-head"><span class="type-ic">' + I(t.ic) + '</span><div class="strong">' + t.name + '<div class="caption muted" style="font-weight:400">' + esc(sectionOf(q.id).title) + ' অংশে</div></div>' + (q.core ? '' : '<button class="icon-btn" type="button" data-qact="remove:' + q.id + '" title="প্রশ্ন সরান">' + I('trash-2') + '<span class="sr-only">প্রশ্ন সরান</span></button>') + '</div>' +
+      '<details class="grp" open><summary>' + I('pencil') + 'মূল তথ্য' + I('chevron-down', 'chev') + '</summary><div class="grp-body">' +
+      '<div class="field"><label class="field-label" for="s-label">প্রশ্ন (বাংলা)</label><input class="input" id="s-label" value="' + esc(q.label) + '"></div>' +
+      '<div class="field"><label class="field-label" for="s-label-en">প্রশ্ন (English)</label><input class="input" id="s-label-en" lang="en" placeholder="The question in English"></div>' +
+      '<div class="field"><label class="field-label" for="s-help">সাহায্যের লেখা <span class="caption muted">(ঐচ্ছিক)</span></label><input class="input" id="s-help" value="' + esc(q.help || '') + '" placeholder="যেমন: পরিবারের সবার আয় মিলিয়ে"><span class="helper">প্রশ্নের নিচে ছোট করে দেখাবে।</span></div>' +
+      (q.type === 'calc' || q.type === 'note' ? '' : '<div class="row-item"><div class="row-text"><label for="s-req">উত্তর দেওয়া আবশ্যক</label>' + (q.core ? '<div class="row-desc">সব প্রকল্পে আবশ্যক</div>' : '<div class="row-desc">চালু থাকলে উত্তর না দিয়ে জমা দেওয়া যাবে না</div>') + '</div><span class="switch-hit"><input class="switch" type="checkbox" id="s-req"' + (q.req ? ' checked' : '') + (q.core ? ' disabled' : '') + '></span></div>') +
+      '</div></details>' + opts + rules + calc + cond;
+  }
+
+  /* ---------- preview ---------- */
+  function renderPreview() {
+    var frame = document.getElementById('pv-frame');
+    frame.classList.toggle('wide', preview.size === 'wide');
+    frame.innerHTML = sections.filter(function (s) { return preview.who === 'official' || !s.official; }).map(function (s) {
+      return '<h3>' + esc(s.title) + '</h3>' + s.qs.filter(function (q) { return q.id !== 'house' || true; }).map(fieldView).join('').replace(/<div class="q-tags">[\s\S]*?<\/div><\/div>/g, '</div>');
+    }).join('');
+  }
+
+  function renderAll() { renderCanvas(); renderSettings(); renderLibrary(); }
+  function saved() { var s = document.getElementById('saved'); s.innerHTML = I('refresh-cw') + 'সংরক্ষণ হচ্ছে…'; setTimeout(function () { s.innerHTML = I('check') + 'সংরক্ষিত'; }, 900); }
+  function select(qid) { selected = qid; openMenu = null; renderCanvas(); renderSettings(); window.mockSelectTab('rt-q'); }
+  function targetSection() { var s = selected && sectionOf(selected); return s || sections[sections.length - 2] || sections[0]; }
+  function addQuestion(type, sec, label) {
+    var q = { id: id(), label: label || 'নতুন প্রশ্ন: ' + TYPES[type].name, type: type, req: false };
+    if (type === 'single' || type === 'multi') q.options = ['অপশন 1', 'অপশন 2'];
+    if (type === 'calc') q.calc = [];
+    sec.qs.push(q); select(q.id); renderLibrary(); saved();
+    var lab = document.getElementById('s-label'); if (lab && !label) { lab.focus(); lab.select(); }
+    mockToast('প্রশ্ন যোগ হয়েছে: ' + q.label);
+  }
+  function undoToast(text) {
+    var old = document.querySelector('.undo-toast'); if (old) old.remove();
+    var t = document.createElement('div'); t.className = 'undo-toast'; t.setAttribute('role', 'status');
+    t.innerHTML = '<span>' + esc(text) + '</span><button type="button">ফেরত আনুন</button>';
+    document.body.appendChild(t);
+    t.querySelector('button').addEventListener('click', function () { if (lastRemoved) { lastRemoved.sec.qs.splice(lastRemoved.index, 0, lastRemoved.q); select(lastRemoved.q.id); renderLibrary(); lastRemoved = null; } t.remove(); });
+    setTimeout(function () { t.remove(); }, 6000);
+  }
+
+  /* ---------- events ---------- */
+  document.getElementById('types').addEventListener('click', function (e) { var b = e.target.closest('[data-type]'); if (b) addQuestion(b.getAttribute('data-type'), targetSection()); });
+  document.getElementById('library').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-lib]'); if (b) { var p = b.getAttribute('data-lib').split(':'); var lq = LIBRARY[Number(p[0])].qs.filter(function (x) { return x[0] === p.slice(1).join(':'); })[0]; addQuestion(lq[1], targetSection(), lq[0]); return; }
+    var s = e.target.closest('[data-libsec]'); if (s) { var L = LIBRARY[Number(s.getAttribute('data-libsec'))]; var sec = { id: 'L' + id(), title: L.title, qs: L.qs.map(function (x) { var q = { id: id(), label: x[0], type: x[1], req: false }; if (x[1] === 'single') q.options = ['হ্যাঁ', 'না']; return q; }) }; sections.splice(sections.length - 1, 0, sec); select(sec.qs[0].id); renderLibrary(); saved(); mockToast('অংশ যোগ হয়েছে: ' + L.title); }
+  });
+  document.getElementById('lib-search').addEventListener('input', renderLibrary);
+  document.getElementById('canvas').addEventListener('click', function (e) {
+    var m = e.target.closest('[data-secmenu]'); if (m) { var sid = m.getAttribute('data-secmenu'); openMenu = openMenu === sid ? null : sid; renderCanvas(); return; }
+    var sa = e.target.closest('[data-secact]'); if (sa) {
+      var p = sa.getAttribute('data-secact').split(':'), i = sections.map(function (s) { return s.id; }).indexOf(p[1]);
+      if (p[0] === 'up' || p[0] === 'down') { var j = i + (p[0] === 'up' ? -1 : 1); var tmp = sections[i]; sections[i] = sections[j]; sections[j] = tmp; mockToast('অংশের ক্রম বদলানো হয়েছে'); }
+      if (p[0] === 'remove') { var gone = sections.splice(i, 1)[0]; mockToast('অংশ সরানো হয়েছে: ' + gone.title); }
+      if (p[0] === 'rename') { mockToast('অংশের নাম ডান দিকে বদলান'); }
+      openMenu = null; renderAll(); saved(); return;
+    }
+    var a = e.target.closest('[data-qact]'); if (a) {
+      var pa = a.getAttribute('data-qact').split(':'), sec = sectionOf(pa[1]), qi = sec.qs.map(function (q) { return q.id; }).indexOf(pa[1]);
+      if (pa[0] === 'up' || pa[0] === 'down') { var k = qi + (pa[0] === 'up' ? -1 : 1); var t2 = sec.qs[qi]; sec.qs[qi] = sec.qs[k]; sec.qs[k] = t2; renderCanvas(); saved(); return; }
+      if (pa[0] === 'copy') { var c = JSON.parse(JSON.stringify(sec.qs[qi])); c.id = id(); c.label += ' (কপি)'; sec.qs.splice(qi + 1, 0, c); select(c.id); saved(); return; }
+      if (pa[0] === 'remove') { lastRemoved = { sec: sec, index: qi, q: sec.qs[qi] }; sec.qs.splice(qi, 1); selected = null; renderAll(); saved(); undoToast('প্রশ্নটি সরানো হয়েছে'); return; }
+    }
+    var add = e.target.closest('[data-addto]'); if (add) { window.mockSelectTab('lt-types'); var sx = sections.filter(function (s) { return s.id === add.getAttribute('data-addto'); })[0]; selected = sx.qs.length ? sx.qs[sx.qs.length - 1].id : selected; mockToast('বাঁ দিক থেকে প্রশ্নের ধরন বেছে নিন; এটি "' + sx.title + '" অংশে যোগ হবে'); return; }
+    var q = e.target.closest('[data-q]'); if (q) select(q.getAttribute('data-q'));
+  });
+  document.getElementById('canvas').addEventListener('keydown', function (e) { var q = e.target.closest('[data-q]'); if (q && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); select(q.getAttribute('data-q')); } });
+
+  // drag and drop: questions inside and between sections, and new types from the left
+  var dragQ = null, dragType = null;
+  document.addEventListener('dragstart', function (e) {
+    var q = e.target.closest && e.target.closest('[data-q]'); var t = e.target.closest && e.target.closest('[data-type]');
+    if (q) { dragQ = q.getAttribute('data-q'); q.classList.add('is-dragging'); }
+    else if (t) dragType = t.getAttribute('data-type');
+    else return;
+    e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', dragQ || dragType);
+  });
+  document.addEventListener('dragend', function () { dragQ = null; dragType = null; document.querySelectorAll('.is-dragging,.drop-before,.drop-on').forEach(function (x) { x.classList.remove('is-dragging', 'drop-before', 'drop-on'); }); });
+  document.getElementById('canvas').addEventListener('dragover', function (e) {
+    if (!dragQ && !dragType) return; e.preventDefault();
+    document.querySelectorAll('.drop-before,.drop-on').forEach(function (x) { x.classList.remove('drop-before', 'drop-on'); });
+    var q = e.target.closest('[data-q]'); var s = e.target.closest('[data-sec]');
+    if (q && q.getAttribute('data-q') !== dragQ) q.classList.add('drop-before'); else if (s) s.classList.add('drop-on');
+  });
+  document.getElementById('canvas').addEventListener('drop', function (e) {
+    e.preventDefault();
+    var q = e.target.closest('[data-q]'); var s = e.target.closest('[data-sec]'); if (!s) return;
+    var sec = sections.filter(function (x) { return x.id === s.getAttribute('data-sec'); })[0];
+    if (dragType) { addQuestion(dragType, sec); return; }
+    if (!dragQ) return;
+    var from = sectionOf(dragQ), moving = find(dragQ);
+    if (moving.core && from !== sec) { mockToast('আবশ্যক প্রশ্ন নিজের অংশের বাইরে নেওয়া যায় না'); return; }
+    from.qs.splice(from.qs.indexOf(moving), 1);
+    var at = q ? sec.qs.map(function (x) { return x.id; }).indexOf(q.getAttribute('data-q')) : sec.qs.length;
+    sec.qs.splice(at < 0 ? sec.qs.length : at, 0, moving);
+    select(moving.id); saved(); mockToast('প্রশ্ন সরানো হয়েছে: ' + moving.label);
+  });
+
+  document.getElementById('rp-q').addEventListener('input', function (e) {
+    var q = find(selected); if (!q) return;
+    if (e.target.id === 's-label') { q.label = e.target.value; renderCanvas(); saved(); }
+    if (e.target.id === 's-help') { q.help = e.target.value; renderCanvas(); saved(); }
+    var oi = e.target.getAttribute('data-opt'); if (oi !== null) { q.options[oi] = e.target.value; renderCanvas(); saved(); }
+  });
+  document.getElementById('rp-q').addEventListener('change', function (e) { var q = find(selected); if (q && e.target.id === 's-req') { q.req = e.target.checked; renderCanvas(); saved(); } });
+  document.getElementById('rp-q').addEventListener('click', function (e) {
+    var q = find(selected); if (!q) return;
+    var d = e.target.closest('[data-delopt]'); if (d) { q.options.splice(Number(d.getAttribute('data-delopt')), 1); renderSettings(); renderCanvas(); saved(); return; }
+    if (e.target.closest('#add-opt')) { q.options.push('অপশন ' + (q.options.length + 1)); renderSettings(); renderCanvas(); saved(); return; }
+    if (e.target.closest('[data-open-cond]')) { openCond(q); return; }
+    if (e.target.closest('[data-open-calc]')) { openCalc(q); return; }
+    var a = e.target.closest('[data-qact]'); if (a) document.querySelector('#canvas [data-qact="' + a.getAttribute('data-qact') + '"]') ? document.querySelector('#canvas [data-qact="' + a.getAttribute('data-qact') + '"]').click() : null;
+  });
+
+  /* ---------- condition dialog: rows read as a sentence ---------- */
+  var draftCond = [];
+  function condOptions(sel) { return all().filter(function (x) { return x.id !== selected && x.type !== 'note'; }).map(function (x) { return '<option value="' + x.id + '"' + (x.id === sel ? ' selected' : '') + '>' + esc(x.label) + '</option>'; }).join(''); }
+  function renderCondRows() {
+    document.getElementById('cd-rows').innerHTML = draftCond.map(function (c, i) {
+      return '<div class="cond-row"><div class="field" style="margin:0"><label class="field-label" for="cq' + i + '">যদি এই প্রশ্নের উত্তর</label><select class="select" id="cq' + i + '" data-c="q:' + i + '">' + condOptions(c.q) + '</select></div>' +
+        '<div class="field" style="margin:0"><label class="field-label" for="co' + i + '">হয়</label><select class="select" id="co' + i + '" data-c="op:' + i + '">' + ['সমান', 'বেশি', 'কম', 'ফাঁকা নয়'].map(function (o) { return '<option' + (o === c.op ? ' selected' : '') + '>' + o + '</option>'; }).join('') + '</select></div>' +
+        '<div class="field" style="margin:0"><label class="field-label" for="cv' + i + '">মান</label><input class="input" id="cv' + i + '" data-c="v:' + i + '" value="' + esc(c.v) + '"></div>' +
+        '<button class="icon-btn" type="button" data-cdel="' + i + '" title="শর্ত সরান">' + I('trash-2') + '<span class="sr-only">শর্ত ' + (i + 1) + ' সরান</span></button></div>';
+    }).join('') || '<p class="caption muted">এখনো কোনো শর্ত নেই।</p>';
+    document.getElementById('cd-sentence').innerHTML = condSentence({ cond: draftCond, join: draftJoin });
+  }
+  var draftJoin = 'all';
+  function openCond(q) { draftCond = JSON.parse(JSON.stringify(q.cond || [])); draftJoin = q.join || 'all'; if (!draftCond.length) draftCond.push({ q: 'male', op: 'বেশি', v: '0' }); renderCondRows(); mockOpen('cond'); }
+  document.getElementById('cd-rows').addEventListener('input', function (e) { var a = e.target.getAttribute('data-c'); if (!a) return; var p = a.split(':'); draftCond[Number(p[1])][p[0]] = e.target.value; document.getElementById('cd-sentence').innerHTML = condSentence({ cond: draftCond, join: draftJoin }); });
+  document.getElementById('cd-rows').addEventListener('change', function (e) { var a = e.target.getAttribute('data-c'); if (!a) return; var p = a.split(':'); draftCond[Number(p[1])][p[0]] = e.target.value; document.getElementById('cd-sentence').innerHTML = condSentence({ cond: draftCond, join: draftJoin }); });
+  document.getElementById('cd-rows').addEventListener('click', function (e) { var d = e.target.closest('[data-cdel]'); if (d) { draftCond.splice(Number(d.getAttribute('data-cdel')), 1); renderCondRows(); } });
+  document.getElementById('cd-add').addEventListener('click', function () { draftCond.push({ q: 'female', op: 'বেশি', v: '0' }); renderCondRows(); });
+  document.getElementById('cd-join').addEventListener('mock:segment', function (e) { draftJoin = e.detail; document.getElementById('cd-sentence').innerHTML = condSentence({ cond: draftCond, join: draftJoin }); });
+  document.getElementById('cd-save').addEventListener('click', function () { var q = find(selected); q.cond = draftCond; q.join = draftJoin; document.getElementById('cond').close(); renderCanvas(); renderSettings(); saved(); });
+  document.getElementById('cd-clear').addEventListener('click', function () { var q = find(selected); q.cond = []; document.getElementById('cond').close(); renderCanvas(); renderSettings(); saved(); });
+
+  /* ---------- calculation dialog ---------- */
+  var draftCalc = [];
+  function numericOptions(sel) { return all().filter(function (x) { return (x.type === 'number' || x.type === 'money' || x.type === 'calc') && x.id !== selected; }).map(function (x) { return '<option value="' + x.id + '"' + (x.id === sel ? ' selected' : '') + '>' + esc(x.label) + '</option>'; }).join(''); }
+  function renderCalc() {
+    var q = find(selected);
+    document.getElementById('cl-line').innerHTML = '<strong>' + esc(q.label) + ' =</strong>' + draftCalc.map(function (t, i) { return (i ? '<span class="strong" aria-hidden="true">+</span>' : '') + '<select class="select" data-term="' + i + '" aria-label="পদ ' + (i + 1) + '">' + numericOptions(t) + '</select>'; }).join('');
+    document.getElementById('cl-sentence').innerHTML = calcSentence({ label: q.label, calc: draftCalc });
+  }
+  function openCalc(q) { draftCalc = (q.calc || []).slice(); if (!draftCalc.length) draftCalc = ['male', 'female']; renderCalc(); mockOpen('calc'); }
+  document.getElementById('cl-line').addEventListener('change', function (e) { var i = e.target.getAttribute('data-term'); if (i !== null) { draftCalc[Number(i)] = e.target.value; renderCalc(); } });
+  document.getElementById('cl-add').addEventListener('click', function () { draftCalc.push('income'); renderCalc(); });
+  document.getElementById('cl-save').addEventListener('click', function () { var q = find(selected); q.calc = draftCalc; document.getElementById('calc').close(); renderCanvas(); renderSettings(); saved(); });
+
+  /* ---------- header and preview ---------- */
+  document.getElementById('open-preview').addEventListener('click', function () { renderPreview(); mockOpen('preview'); });
+  document.getElementById('pv-size').addEventListener('mock:segment', function (e) { preview.size = e.detail; renderPreview(); });
+  document.getElementById('pv-who').addEventListener('mock:segment', function (e) { preview.who = e.detail; renderPreview(); });
+  document.getElementById('add-section').addEventListener('click', function () { var s = { id: 'N' + id(), title: 'নতুন অংশ', qs: [] }; sections.splice(sections.length - 1, 0, s); selected = null; renderAll(); saved(); mockToast('নতুন অংশ যোগ হয়েছে; নাম বদলাতে ⋮ চাপুন'); });
+  document.getElementById('link-on').addEventListener('change', function (e) { document.getElementById('link-field').hidden = !e.target.checked; mockToast(e.target.checked ? 'নতুন লিংক তৈরি হয়েছে' : 'লিংক বন্ধ হয়েছে'); });
+  document.addEventListener('click', function (e) { if (openMenu && !e.target.closest('.rel')) { openMenu = null; renderCanvas(); } });
+
+  renderTypes(); renderAll();
+});
+</script>
+</body>
+</html>

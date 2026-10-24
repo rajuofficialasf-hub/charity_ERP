@@ -1,10 +1,11 @@
-import type { FormDefinition } from '@css/shared/forms';
+import type { FieldType, FormDefinition } from '@css/shared/forms';
 import { localized, type Locale } from '@css/shared/i18n';
 import {
   Alert,
   Badge,
   Button,
   ConfirmDialog,
+  Disclosure,
   EmptyState,
   ErrorState,
   Modal,
@@ -14,6 +15,7 @@ import {
   Text,
 } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Eye, History, Link2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -24,11 +26,10 @@ import { canBuildForms } from '../roles';
 import {
   addLibraryField,
   addLibrarySection,
+  addOwnQuestion,
+  duplicateField,
   type LibraryFields,
-  moveField,
-  moveSection,
   removeField,
-  removeSection,
 } from './draft';
 import { useChangeSentences } from './ChangeSummary';
 import {
@@ -42,8 +43,10 @@ import {
   publishVersion,
   versionWithEtag,
 } from './forms-api';
-import { LibraryPane } from './LibraryPane';
-import { type OutlineMode, OutlinePane, type Selection } from './OutlinePane';
+import { AddPane } from './AddPane';
+import { CanvasDnd, FormCanvas } from './FormCanvas';
+import { OwnQuestionDialog } from './OwnQuestionDialog';
+import type { BuilderMode, Selection } from './selection';
 import { PreviewPane } from './PreviewPane';
 import { PublicLinkPanel } from './PublicLinkPanel';
 import { SettingsPane } from './SettingsPane';
@@ -52,7 +55,6 @@ import { VersionList } from './VersionList';
 import './builder.css';
 
 const PHONE = '(max-width: 767px)';
-const WIDE = '(min-width: 1280px)';
 
 function useMedia(media: string) {
   const [matches, setMatches] = useState(() => window.matchMedia?.(media).matches === true);
@@ -70,8 +72,9 @@ function useMedia(media: string) {
  * The form builder of a project's form (docs/ui/SCREENS.md, "Form builder"): the libraries,
  * the outline and the settings of the chosen part side by side on a computer, the outline alone
  * with text edits on a phone. The draft saves itself; a published version opens read-only. The
- * preview is a tab beside the settings, or a fourth pane from 1280 px; the versions with their
- * change summaries follow the panes, and publishing asks first with the summary.
+ * preview opens from the header in a dialog; the form's name, its versions with their change
+ * summaries and its public link sit in the right pane's second tab; publishing asks first with
+ * the summary.
  */
 export function FormBuilderPage() {
   const { projectId = '', formId = '' } = useParams();
@@ -80,11 +83,25 @@ export function FormBuilderPage() {
   const locale = useLocale() as Locale;
   const { me } = useAuth();
   const phone = useMedia(PHONE);
-  const wide = useMedia(WIDE);
   const queries = useQueryClient();
   // an earlier version opened from the list; otherwise the draft, else the published version
   const [viewing, setViewing] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  // the draft before the last removal, so one press brings the question back
+  const [undo, setUndo] = useState<{ definition: FormDefinition; label: string } | null>(null);
+  // a question of the project's own being asked for: its type, its section and, after a drop,
+  // its place; the key opens the dialog afresh each time
+  const [asking, setAsking] = useState<{
+    key: number;
+    type: FieldType;
+    section: string;
+    at?: number;
+    /** The repeat group the question joins, when a group was chosen. */
+    group?: string;
+  } | null>(null);
+  // the right pane: the chosen question, or the form itself; choosing a question opens the first
+  const [pane, setPane] = useState<'question' | 'form'>('question');
   const forms = useQuery({
     queryKey: [...FORMS_KEY, projectId],
     queryFn: () => projectForms(projectId),
@@ -124,7 +141,11 @@ export function FormBuilderPage() {
   const next = useMutation({ mutationFn: () => newVersion(formId), onSuccess: afterChange });
   const [draft, setDraft] = useState<FormDefinition | null>(null);
   const [etag, setEtag] = useState<string | undefined>(undefined);
-  const [selected, setSelected] = useState<Selection | null>(null);
+  const [selected, setSelectedOnly] = useState<Selection | null>(null);
+  const setSelected = (next: Selection | null) => {
+    setSelectedOnly(next);
+    if (next) setPane('question');
+  };
   const versionKey = [...FORMS_KEY, 'version', versionId];
   const save = useDraftSave({
     version: read.data?.data,
@@ -181,15 +202,38 @@ export function FormBuilderPage() {
   const version = read.data.data;
   const builder = Boolean(me && canBuildForms(me));
   const isDraft = version.status === 'draft';
-  const mode: OutlineMode =
+  const mode: BuilderMode =
     !builder || !isDraft || save.refused ? 'read' : phone ? 'texts' : 'full';
+  const sectionOf = (fieldKey: string) =>
+    draft.sections.find((s) => s.fields.some((f) => f.fieldKey === fieldKey));
   const change = (next: FormDefinition) => {
     if (next === draft || mode === 'read') return;
     // the messages of a refused publish belong to the draft as it was then
     if (publish.error) publish.reset();
+    // a removal can be undone only until the next change, so the undo never drops later work
+    setUndo(null);
     setDraft(next);
     save.schedule(next.sections);
   };
+  const remove = (fieldKey: string) => {
+    const field = draft.sections.flatMap((s) => s.fields).find((f) => f.fieldKey === fieldKey);
+    const next = removeField(draft, fieldKey);
+    if (!field || next === draft) return;
+    setSelected(null);
+    change(next);
+    setUndo({ definition: draft, label: field.label[locale] });
+  };
+  const copy = (fieldKey: string) => {
+    const section = sectionOf(fieldKey);
+    const made = duplicateField(draft, fieldKey, { bn: t('copy_mark_bn'), en: t('copy_mark_en') });
+    if (!section || !made.fieldKey) return;
+    change(made.definition);
+    setSelected({ section: section.key, field: made.fieldKey });
+  };
+  // a dragged question keeps its selection, so its section is read from where it is now
+  const selection: Selection | null = selected?.field
+    ? ((s) => (s ? { section: s.key, field: selected.field } : null))(sectionOf(selected.field))
+    : selected;
   const versionLabel = t(
     isDraft
       ? 'version_draft'
@@ -207,7 +251,7 @@ export function FormBuilderPage() {
   const title = form ? localized(form.title, locale) : t('title');
   // a library question goes to the chosen section, or to the last one when none is chosen
   const target =
-    draft.sections.find((s) => s.key === selected?.section)?.key ?? draft.sections.at(-1)?.key;
+    draft.sections.find((s) => s.key === selection?.section)?.key ?? draft.sections.at(-1)?.key;
   // a refused publish names its questions like a refused save; a newer edit's messages win
   const publishDetails = detailsOf(publish.error);
   const errors = { ...publishDetails, ...save.errors };
@@ -224,63 +268,163 @@ export function FormBuilderPage() {
   );
 
   const outline = (
-    <OutlinePane
+    <FormCanvas
       definition={draft}
       mode={mode}
       errors={errors}
-      selected={selected}
+      selected={selection}
       onSelect={setSelected}
-      onMoveSection={(key, dir) => change(moveSection(draft, key, dir))}
-      onMoveField={(section, field, dir) => change(moveField(draft, section, field, dir))}
-      onRemoveSection={(key) => change(removeSection(draft, key))}
-      onRemoveField={(key) => change(removeField(draft, key))}
+      onChange={change}
+      onRemoveField={remove}
+      onCopyField={copy}
+      onAddTo={(sectionKey) => setSelected({ section: sectionKey })}
+      onAddRow={(groupKey) => {
+        const section = sectionOf(groupKey);
+        if (section) setSelected({ section: section.key, field: groupKey });
+      }}
     />
   );
-  const preview = <PreviewPane definition={draft} />;
   const settings =
     mode === 'read' ? null : (
       <SettingsPane
         definition={draft}
-        selected={selected}
+        selected={selection}
         mode={mode === 'full' ? 'full' : 'texts'}
         onChange={change}
-        onSelect={setSelected}
       />
+    );
+
+  const panes = (
+    <div className="fb-panes">
+      {mode === 'full' && lib.data ? (
+        <aside className="fb-side" aria-label={t('add_pane')}>
+          <AddPane
+            library={lib.data}
+            fields={fields}
+            definition={draft}
+            targetSection={target}
+            onAddSection={(s) => change(addLibrarySection(draft, s, fields))}
+            onAddField={(key) => {
+              if (target) change(addLibraryField(draft, target, fields.get(key) ?? []));
+            }}
+            onAddType={(type) => {
+              // a chosen repeat group takes the question into its rows
+              const chosen = selection?.field
+                ? sectionOf(selection.field)?.fields.find((f) => f.fieldKey === selection.field)
+                : undefined;
+              const group = chosen?.type === 'repeat_group' ? chosen.fieldKey : undefined;
+              if (target) setAsking({ key: Date.now(), type, section: target, group });
+            }}
+          />
+        </aside>
+      ) : null}
+
+      <div className="fb-canvas">{outline}</div>
+      <aside className="fb-side" aria-label={t('settings')}>
+        <Tabs
+          label={t('settings')}
+          selectedId={pane}
+          onChange={(id) => setPane(id === 'form' ? 'form' : 'question')}
+          items={[
+            {
+              id: 'question',
+              label: t('question_settings'),
+              content: settings ?? <Text tone="muted">{t('read_only_pane')}</Text>,
+            },
+            {
+              id: 'form',
+              label: t('form_settings'),
+              content: (
+                <Stack gap={3}>
+                  <Text>
+                    <Text as="span" weight="bold">
+                      {t('form_name')}
+                    </Text>{' '}
+                    {title}
+                  </Text>
+                  <Disclosure title={t('versions')} icon={History} headingLevel={2} defaultOpen>
+                    <VersionList
+                      formId={formId}
+                      shown={version.id}
+                      canOpen={save.state === 'saved'}
+                      onOpen={setViewing}
+                    />
+                  </Disclosure>
+                  <Disclosure title={t('link.title')} icon={Link2} headingLevel={2}>
+                    <PublicLinkPanel
+                      projectId={projectId}
+                      formId={formId}
+                      published={Boolean(form?.publishedVersionId)}
+                      canManage={builder}
+                    />
+                  </Disclosure>
+                </Stack>
+              ),
+            },
+          ]}
+        />
+      </aside>
+    </div>
+  );
+  const panesWithDrag =
+    mode === 'full' ? (
+      <CanvasDnd
+        definition={draft}
+        onChange={change}
+        onDropType={(type, section, at) => setAsking({ key: Date.now(), type, section, at })}
+      >
+        {panes}
+      </CanvasDnd>
+    ) : (
+      panes
     );
 
   return (
     <>
       <DocumentTitle title={title} />
-      <div className="admin-title-row">
+      <div className="fb-head">
         <h1 className="admin-title">{title}</h1>
-        <Badge label={versionLabel} />
-        {isDraft && mode !== 'read' ? (
-          <Text tone="muted" aria-live="polite">
-            {saveLabel}
+        <div className="fb-head-meta">
+          <Badge label={versionLabel} />
+          <Text tone="muted">
+            {t('count_line', {
+              sections: String(draft.sections.length),
+              questions: String(draft.sections.reduce((n, s) => n + s.fields.length, 0)),
+            })}
           </Text>
-        ) : null}
-        {canPublish ? (
-          <Button
-            onPress={() => {
-              publish.reset();
-              setPublishing(true);
-            }}
-            // the confirmation lists what changed, so it waits for the versions too
-            disabled={save.state !== 'saved' || !etag || !versions.isSuccess}
-          >
-            {t('publish')}
+          {isDraft && mode !== 'read' ? (
+            <Text tone="muted" aria-live="polite">
+              {saveLabel}
+            </Text>
+          ) : null}
+        </div>
+        <div className="fb-head-actions">
+          {viewing ? (
+            <Button variant="secondary" onPress={() => setViewing(null)}>
+              {t('back_to_current')}
+            </Button>
+          ) : null}
+          <Button variant="secondary" icon={Eye} onPress={() => setPreviewing(true)}>
+            {t('preview')}
           </Button>
-        ) : null}
-        {canStartNext ? (
-          <Button onPress={() => next.mutate()} loading={next.isPending}>
-            {t('new_version')}
-          </Button>
-        ) : null}
-        {viewing ? (
-          <Button variant="secondary" onPress={() => setViewing(null)}>
-            {t('back_to_current')}
-          </Button>
-        ) : null}
+          {canStartNext ? (
+            <Button onPress={() => next.mutate()} loading={next.isPending}>
+              {t('new_version')}
+            </Button>
+          ) : null}
+          {canPublish ? (
+            <Button
+              onPress={() => {
+                publish.reset();
+                setPublishing(true);
+              }}
+              // the confirmation lists what changed, so it waits for the versions too
+              disabled={save.state !== 'saved' || !etag || !versions.isSuccess}
+            >
+              {t('publish')}
+            </Button>
+          ) : null}
+        </div>
       </div>
       {failure ? (
         <Alert tone="danger" live="alert">
@@ -304,58 +448,55 @@ export function FormBuilderPage() {
         </Alert>
       ) : null}
       {phone && isDraft && builder ? <Alert tone="info">{t('phone_note')}</Alert> : null}
-      {phone ? (
-        <Stack gap={3}>
-          {outline}
-          {selected && settings ? <div className="form-builder-pane">{settings}</div> : null}
-        </Stack>
-      ) : (
-        <div className={wide ? 'form-builder-panes has-preview' : 'form-builder-panes'}>
-          {lib.data && builder && isDraft ? (
-            <div className="form-builder-pane">
-              <LibraryPane
-                library={lib.data}
-                fields={fields}
-                definition={draft}
-                editable={mode === 'full'}
-                fieldsEditable={target !== undefined}
-                onAddSection={(s) => change(addLibrarySection(draft, s, fields))}
-                onAddField={(key) => {
-                  if (target) change(addLibraryField(draft, target, fields.get(key) ?? []));
-                }}
-              />
-            </div>
-          ) : null}
-          <div className="form-builder-pane">{outline}</div>
-          <div className="form-builder-pane">
-            <Tabs
-              label={t('settings')}
-              items={[
-                ...(settings ? [{ id: 'settings', label: t('settings'), content: settings }] : []),
-                ...(wide ? [] : [{ id: 'preview', label: t('preview'), content: preview }]),
-              ]}
-            />
-          </div>
-          {wide ? <div className="form-builder-pane">{preview}</div> : null}
-        </div>
-      )}
-      {phone ? <div className="form-builder-pane">{preview}</div> : null}
-      <div className="form-builder-pane">
-        <VersionList
-          formId={formId}
-          shown={version.id}
-          canOpen={save.state === 'saved'}
-          onOpen={setViewing}
+      {undo && mode === 'full' ? (
+        <Alert
+          tone="info"
+          live="status"
+          action={
+            <Button
+              size="sm"
+              variant="secondary"
+              onPress={() => {
+                change(undo.definition);
+                setUndo(null);
+              }}
+            >
+              {t('undo')}
+            </Button>
+          }
+        >
+          {t('removed', { label: undo.label })}
+        </Alert>
+      ) : null}
+      {panesWithDrag}
+      <Modal
+        title={t('preview_pane.title')}
+        size="lg"
+        fullOnPhone
+        isOpen={previewing}
+        onClose={() => setPreviewing(false)}
+      >
+        {previewing ? <PreviewPane definition={draft} /> : null}
+      </Modal>
+      {asking ? (
+        <OwnQuestionDialog
+          key={asking.key}
+          isOpen
+          definition={draft}
+          type={asking.type}
+          sectionKey={asking.section}
+          placed={asking.at !== undefined}
+          groupKey={asking.group}
+          onClose={() => setAsking(null)}
+          onAdd={(question, sectionKey) => {
+            const added = addOwnQuestion(draft, sectionKey, question, asking.at);
+            setAsking(null);
+            if (!added.fieldKey) return;
+            change(added.definition);
+            setSelected({ section: sectionKey, field: added.fieldKey });
+          }}
         />
-      </div>
-      <div className="form-builder-pane">
-        <PublicLinkPanel
-          projectId={projectId}
-          formId={formId}
-          published={Boolean(form?.publishedVersionId)}
-          canManage={builder}
-        />
-      </div>
+      ) : null}
       <ConfirmDialog
         title={t('publish_title', { n: String(version.versionNo) })}
         message={t('publish_message')}

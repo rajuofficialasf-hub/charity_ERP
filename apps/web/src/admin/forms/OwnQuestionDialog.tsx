@@ -1,5 +1,4 @@
 import {
-  FIELD_TYPES,
   type FieldOption,
   type FieldType,
   type FormDefinition,
@@ -10,40 +9,50 @@ import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { parentCandidates } from './candidates';
 import type { OwnQuestion } from './draft';
-import { OptionsEditor } from './OptionsEditor';
+import { emptyOption, OptionsEditor } from './OptionsEditor';
 
 const NONE = '-';
 const filled = (text: { bn: string; en: string }) => text.bn.trim() !== '' && text.en.trim() !== '';
 
 /**
- * A question of this project's own, added to a section: its type, its label in both languages,
- * and for a choice its options, the option that opens a text box, and the earlier answer the
- * options may follow. Inside a section with a repeat group it may join the group as a row
- * question. The parent opens it afresh each time (a new key), so it always starts empty.
+ * A question of this project's own, of the type chosen in the left pane: its label in both
+ * languages, the section it goes to (fixed when it was dropped at a place), and for a choice its
+ * options, the option that opens a text box, and the earlier answer the options may follow.
+ * Inside a section with a repeat group it may join the group as a row question. The parent opens
+ * it afresh each time (a new key), so it always starts empty.
  */
 export function OwnQuestionDialog({
   isOpen,
   definition,
-  sectionKey,
+  type,
+  sectionKey: initialSection,
+  placed = false,
+  groupKey,
   onClose,
   onAdd,
 }: {
   isOpen: boolean;
   definition: FormDefinition;
+  type: FieldType;
   sectionKey: string;
+  /** The question was dropped at a place, so its section cannot change. */
+  placed?: boolean;
+  /** The repeat group chosen on the canvas: the question starts as one of its row questions. */
+  groupKey?: string;
   onClose: () => void;
-  onAdd: (question: OwnQuestion) => void;
+  onAdd: (question: OwnQuestion, sectionKey: string) => void;
 }) {
   const t = useTranslations('forms.builder');
   const tt = useTranslations('forms.types');
   const locale = useLocale();
-  const [type, setType] = useState<FieldType>('short_text');
-  const [label, setLabel] = useState({ bn: '', en: '' });
-  const [options, setOptions] = useState<FieldOption[]>([]);
-  const [dependsOn, setDependsOn] = useState<string | null>(null);
-  const [group, setGroup] = useState<string | null>(null);
-  const [tried, setTried] = useState(false);
   const choice = isChoiceType(type);
+  const [sectionKey, setSectionKey] = useState(initialSection);
+  const [label, setLabel] = useState({ bn: '', en: '' });
+  // a choice starts with one empty option to fill in
+  const [options, setOptions] = useState<FieldOption[]>(choice ? [emptyOption([])] : []);
+  const [dependsOn, setDependsOn] = useState<string | null>(null);
+  const [group, setGroup] = useState<string | null>(groupKey ?? null);
+  const [tried, setTried] = useState(false);
   const section = definition.sections.find((s) => s.key === sectionKey);
   const groups = (section?.fields ?? []).filter((f) => f.type === 'repeat_group');
   const parents = parentCandidates(definition, sectionKey);
@@ -54,21 +63,24 @@ export function OwnQuestionDialog({
   const add = () => {
     setTried(true);
     if (!labelsOk || !optionsOk) return;
-    onAdd({
-      type,
-      label: { bn: label.bn.trim(), en: label.en.trim() },
-      ...(choice
-        ? {
-            options: options.map((o) => ({
-              ...o,
-              label: { bn: o.label.bn.trim(), en: o.label.en.trim() },
-              dependsOnOptionCode: parent ? (o.dependsOnOptionCode ?? null) : null,
-            })),
-          }
-        : {}),
-      ...(parent ? { dependsOn: parent.fieldKey } : {}),
-      ...(group && type !== 'repeat_group' ? { group } : {}),
-    });
+    onAdd(
+      {
+        type,
+        label: { bn: label.bn.trim(), en: label.en.trim() },
+        ...(choice
+          ? {
+              options: options.map((o) => ({
+                ...o,
+                label: { bn: o.label.bn.trim(), en: o.label.en.trim() },
+                dependsOnOptionCode: parent ? (o.dependsOnOptionCode ?? null) : null,
+              })),
+            }
+          : {}),
+        ...(parent ? { dependsOn: parent.fieldKey } : {}),
+        ...(group && type !== 'repeat_group' ? { group } : {}),
+      },
+      sectionKey,
+    );
   };
 
   return (
@@ -90,27 +102,7 @@ export function OwnQuestionDialog({
           {!labelsOk ? t('own_need_labels') : t('own_need_option')}
         </Alert>
       ) : null}
-      <Select
-        label={t('own_type')}
-        required
-        value={type}
-        onChange={(id) => {
-          const next = FIELD_TYPES.find((f) => f === id);
-          if (!next) return;
-          setType(next);
-          // a choice starts with one empty option to fill in
-          if (isChoiceType(next) && options.length === 0)
-            setOptions([
-              {
-                code: 'opt_1',
-                label: { bn: '', en: '' },
-                dependsOnOptionCode: null,
-                allowsOtherText: false,
-              },
-            ]);
-        }}
-        options={FIELD_TYPES.map((f) => ({ id: f, label: tt(f) }))}
-      />
+      <TextField label={t('own_type')} value={tt(type)} readOnly />
       <TextField
         label={t('label_bn')}
         required
@@ -128,6 +120,21 @@ export function OwnQuestionDialog({
         error={tried && label.en.trim() === '' ? t('own_need_labels') : undefined}
         onChange={(en) => setLabel({ ...label, en })}
       />
+      {placed ? null : (
+        <Select
+          label={t('own_section')}
+          required
+          value={sectionKey}
+          onChange={(id) => {
+            if (!id || !definition.sections.some((s) => s.key === id)) return;
+            setSectionKey(id);
+            // the group and the earlier answer belong to the section
+            setGroup(null);
+            setDependsOn(null);
+          }}
+          options={definition.sections.map((s) => ({ id: s.key, label: s.title[locale] }))}
+        />
+      )}
       {groups.length > 0 && type !== 'repeat_group' ? (
         <Select
           label={t('own_group')}

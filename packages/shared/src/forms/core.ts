@@ -79,6 +79,7 @@ export const FAMILY_MEMBERS_TABLE = 'beneficiary_family_members';
 export const FAMILY_MEMBER_COLUMNS = [
   'name',
   'relationship_code',
+  'age_years',
   'occupation_code',
   'monthly_income',
 ] as const;

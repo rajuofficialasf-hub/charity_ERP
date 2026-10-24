@@ -160,13 +160,19 @@ beforeEach(() => {
   refreshAs({ ...ME, roles: ['program_manager'] });
 });
 
+/** The versions sit in the form-settings tab of the right pane. */
+const openVersions = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(await screen.findByRole('tab', { name: 'ফর্মের সেটিং' }));
+  return within(await screen.findByRole('region', { name: 'সংস্করণগুলো' }));
+};
+
 describe('the preview', () => {
   it('shows the volunteer view without the official part, switches to English, and keeps no answer', async () => {
     const user = userEvent.setup();
     api();
     open();
-    await user.click(await screen.findByRole('tab', { name: 'প্রিভিউ' }));
-    const preview = within(await screen.findByRole('region', { name: 'প্রিভিউ' }));
+    await user.click(await screen.findByRole('button', { name: 'প্রিভিউ' }));
+    const preview = within(await screen.findByRole('dialog', { name: 'প্রিভিউ' }));
     await user.click(preview.getByRole('radio', { name: 'কম্পিউটার' }));
     expect(await preview.findByText('অতিরিক্ত প্রশ্ন')).toBeInTheDocument();
     expect(preview.queryByText('অফিসের মন্তব্য')).not.toBeInTheDocument();
@@ -183,9 +189,10 @@ describe('the preview', () => {
 
 describe('the versions', () => {
   it('lists the draft with its change summary and the published version before it', async () => {
+    const user = userEvent.setup();
     api();
     open();
-    const list = within(await screen.findByRole('region', { name: 'সংস্করণগুলো' }));
+    const list = await openVersions(user);
     const items = await list.findAllByRole('listitem');
     expect(items[0]).toHaveTextContent('সংস্করণ 2: খসড়া');
     expect(items[0]).toHaveTextContent('অংশ যোগ হয়েছে: অতিরিক্ত');
@@ -282,7 +289,8 @@ describe('publishing', () => {
     expect(await row.findByText('শর্তে এমন একটি ঘরের নাম আছে যা ফর্মে নেই।')).toBeInTheDocument();
     expect(screen.getAllByText('সংস্করণ 2: খসড়া').length).toBeGreaterThan(0);
     // the next edit makes the old messages stale, so they go
-    await user.click(screen.getByRole('button', { name: 'অতিরিক্ত উপরে নিন' }));
+    await user.click(screen.getByRole('button', { name: 'অতিরিক্ত: আরও কাজ' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'অতিরিক্ত উপরে নিন' }));
     await waitFor(() =>
       expect(
         screen.queryByText('শর্তে এমন একটি ঘরের নাম আছে যা ফর্মে নেই।'),
@@ -314,17 +322,23 @@ describe('publishing', () => {
   });
 
   it('offers no publish to a role that does not publish forms', async () => {
+    const user = userEvent.setup();
     refreshAs({ ...ME, roles: ['regional_program_manager'] });
     api();
     open();
-    await screen.findByRole('region', { name: 'সংস্করণগুলো' });
+    await openVersions(user);
     expect(screen.queryByRole('button', { name: 'প্রকাশ করুন' })).not.toBeInTheDocument();
   });
 });
 
+// the scan of the whole builder page needs more than the default under the full run
 it('has no axe violation', async () => {
+  const user = userEvent.setup();
   api();
   const { container } = open();
+  await screen.findByRole('tab', { name: 'ফর্মের সেটিং' });
+  await expectNoAxeViolations(container);
+  await user.click(screen.getByRole('tab', { name: 'ফর্মের সেটিং' }));
   await screen.findByRole('region', { name: 'সংস্করণগুলো' });
   await expectNoAxeViolations(container);
-});
+}, 20_000);

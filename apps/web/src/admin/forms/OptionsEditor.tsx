@@ -20,17 +20,28 @@ function freshCode(options: readonly FieldOption[]): string {
   }
 }
 
+/** A new option to fill in, after the ones a question has. */
+export const emptyOption = (options: readonly FieldOption[]): FieldOption => ({
+  code: freshCode(options),
+  label: { bn: '', en: '' },
+  dependsOnOptionCode: null,
+  allowsOtherText: false,
+});
+
 /**
  * The options of a choice question: the text of each in both languages and, on a computer, the
  * option that opens a text box ("other"), the earlier answer an option follows when the question
  * branches, the order, and adding or removing options. On a phone only the texts change.
  */
 export function OptionsEditor({
+  heading = true,
   options,
   onChange,
   mode,
   parent,
 }: {
+  /** false inside a group that already shows the title. */
+  heading?: boolean;
   options: readonly FieldOption[];
   onChange: (options: FieldOption[]) => void;
   mode: 'full' | 'texts';
@@ -49,7 +60,7 @@ export function OptionsEditor({
   };
   return (
     <Stack as="section" gap={2} aria-label={t('options')}>
-      <Text weight="bold">{t('options')}</Text>
+      {heading ? <Text weight="bold">{t('options')}</Text> : null}
       {options.map((option, i) => {
         const n = String(i + 1);
         return (
@@ -117,17 +128,7 @@ export function OptionsEditor({
           size="sm"
           variant="secondary"
           icon={Plus}
-          onPress={() =>
-            onChange([
-              ...options,
-              {
-                code: freshCode(options),
-                label: { bn: '', en: '' },
-                dependsOnOptionCode: null,
-                allowsOtherText: false,
-              },
-            ])
-          }
+          onPress={() => onChange([...options, emptyOption(options)])}
         >
           {t('option_add')}
         </Button>

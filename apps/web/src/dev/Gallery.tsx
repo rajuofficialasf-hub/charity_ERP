@@ -42,6 +42,8 @@ import {
   ProgressBar,
   RadioGroup,
   RowToggle,
+  ChoiceTiles,
+  Disclosure,
   Select,
   Skeleton,
   Spinner,
@@ -61,9 +63,15 @@ import {
   type UploadItem,
 } from '@css/ui';
 import {
+  AlignLeft,
+  Banknote,
   Camera,
   ClipboardList,
   Clock,
+  Hash,
+  Pencil,
+  ShieldCheck,
+  Type,
   FolderKanban,
   Home,
   Menu,
@@ -582,6 +590,66 @@ function GalleryBody() {
               />
               <NavItem icon={Menu} label={t('nav.more')} href="#nav" variant="tab-bar" />
             </nav>
+          </div>
+        </Section>
+
+        <Section id="tiles" title={t('sections.tiles')}>
+          <div className="gallery-panel">
+            <ChoiceTiles
+              label={t('tiles.label')}
+              defaultValue="short"
+              tiles={[
+                {
+                  title: t('tiles.text'),
+                  tiles: [
+                    {
+                      id: 'short',
+                      title: t('tiles.short'),
+                      description: t('tiles.shortDesc'),
+                      icon: Type,
+                    },
+                    {
+                      id: 'long',
+                      title: t('tiles.long'),
+                      description: t('tiles.longDesc'),
+                      icon: AlignLeft,
+                    },
+                  ],
+                },
+                {
+                  title: t('tiles.number'),
+                  tiles: [
+                    {
+                      id: 'count',
+                      title: t('tiles.count'),
+                      description: t('tiles.countDesc'),
+                      icon: Hash,
+                    },
+                    {
+                      id: 'money',
+                      title: t('tiles.money'),
+                      description: t('tiles.moneyDesc'),
+                      icon: Banknote,
+                    },
+                  ],
+                },
+              ]}
+            />
+            <Disclosure
+              title={t('tiles.groupBasics')}
+              hint={t('tiles.groupBasicsHint')}
+              icon={Pencil}
+              defaultOpen
+            >
+              <Text>{t('tiles.inside')}</Text>
+            </Disclosure>
+            <Disclosure
+              title={t('tiles.groupRules')}
+              hint={t('tiles.groupRulesHint')}
+              icon={ShieldCheck}
+            >
+              <Text>{t('tiles.inside')}</Text>
+            </Disclosure>
           </div>
         </Section>
 

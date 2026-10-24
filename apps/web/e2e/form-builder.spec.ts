@@ -29,7 +29,7 @@ function dayFromToday(days: number): string {
 const digits = (n: number) =>
   Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join('');
 
-/** A question of the project's own, added to a section through its settings. */
+/** A question of the project's own: its section chosen on the canvas, its type on the left. */
 async function ownQuestion(
   page: Page,
   sectionTitle: string,
@@ -37,18 +37,11 @@ async function ownQuestion(
   label: [string, string],
   options: [string, string][] = [],
 ) {
-  await page.getByRole('button', { name: `${sectionTitle} বদলান`, exact: true }).click();
-  await page.getByRole('button', { name: 'নিজের প্রশ্ন যোগ করুন' }).click();
+  await page.getByRole('button', { name: sectionTitle, exact: true }).click();
+  await page.getByRole('tab', { name: 'প্রশ্ন যোগ' }).click();
+  await page.getByRole('button', { name: `${type} প্রশ্ন যোগ করুন`, exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'নতুন প্রশ্ন' });
-  // the type list is long and still settling as it opens, so a pick that lands too early is
-  // made again until the list closes with that type
-  const typeSelect = dialog.getByRole('button', { name: /\sপ্রশ্নের ধরন \(আবশ্যক\)$/ });
-  await expect(async () => {
-    if ((await page.getByRole('listbox').count()) === 0) await typeSelect.click();
-    await page.getByRole('listbox').getByRole('option', { name: type, exact: true }).click();
-    await expect(page.getByRole('listbox')).toHaveCount(0, { timeout: 2_000 });
-  }).toPass({ timeout: 20_000 });
-  await expect(typeSelect).toHaveAccessibleName(new RegExp(`^${type}\\s`));
+  await expect(dialog.getByRole('textbox', { name: /^প্রশ্নের ধরন/ })).toHaveValue(type);
   await dialog.getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }).fill(label[0]);
   await dialog.getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }).fill(label[1]);
   for (const [i, [bn, en]] of options.entries()) {
@@ -62,7 +55,7 @@ async function ownQuestion(
 
 /** Waits until the builder has saved the draft. */
 const saved = (page: Page) =>
-  expect(page.locator('.admin-title-row').getByText('সংরক্ষিত', { exact: true })).toBeVisible({
+  expect(page.locator('.fb-head').getByText('সংরক্ষিত', { exact: true })).toBeVisible({
     timeout: 15_000,
   });
 
@@ -126,21 +119,40 @@ test('a PM builds and publishes a form, an applicant sends it by the link, and v
   await create.getByRole('button', { name: 'তৈরি করুন' }).click();
   await expect(page).toHaveURL(/\/forms\/[0-9a-f-]{36}$/);
   const builderUrl = page.url();
-  await expect(page.locator('.admin-title-row').getByText('সংস্করণ 1: খসড়া')).toBeVisible();
+  await expect(page.locator('.fb-head').getByText('সংস্করণ 1: খসড়া')).toBeVisible();
 
   // a library section, two numbers of the project's own with their total, and a question shown
   // only when the first number is above zero
-  // the set's checkbox input is visually hidden behind its box
-  await page.getByRole('checkbox', { name: 'আর্থিক অবস্থা' }).check({ force: true });
-  await expect(page.getByRole('list', { name: 'আর্থিক অবস্থা' })).toBeVisible();
+  await page.getByRole('tab', { name: 'লাইব্রেরি' }).click();
+  // the library's groups are closed but the first; the heading opens one
+  await page.getByRole('button', { name: /^আর্থিক অবস্থা \d+টি প্রশ্ন$/ }).click();
+  await page.getByRole('button', { name: 'আর্থিক অবস্থা: পুরো অংশটি যোগ করুন' }).click();
+  await expect(page.getByRole('list', { name: 'আর্থিক অবস্থা', exact: true })).toBeVisible();
   await ownQuestion(page, 'আর্থিক অবস্থা', 'সংখ্যা', ['পুরুষ সদস্য', 'Male members']);
   await ownQuestion(page, 'আর্থিক অবস্থা', 'সংখ্যা', ['নারী সদস্য', 'Female members']);
-  await ownQuestion(page, 'আর্থিক অবস্থা', 'হিসাব', ['মোট সদস্য', 'All members']);
-  const calc = section(page, 'হিসাবের নিয়ম');
+  await ownQuestion(page, 'আর্থিক অবস্থা', 'নিজে থেকে হিসাব', ['মোট সদস্য', 'All members']);
+  await page.getByRole('button', { name: 'হিসাব ঠিক করুন' }).click();
+  const calc = page.getByRole('dialog', { name: 'হিসাবের নিয়ম' });
   await calc.getByRole('button', { name: 'পদ যোগ করুন' }).click();
   await calc.getByRole('button', { name: 'পদ যোগ করুন' }).click();
   await chooseIn(page, calc, 'পদ 1', 'পুরুষ সদস্য');
   await chooseIn(page, calc, 'পদ 2', 'নারী সদস্য');
+  await calc.getByRole('button', { name: 'হয়ে গেছে' }).click();
+  await expect(page.getByText('মোট সদস্য = “পুরুষ সদস্য” + “নারী সদস্য”')).toBeVisible();
+  // the keyboard drags too: the second number moves one place up by its handle
+  const list = page.getByRole('list', { name: 'আর্থিক অবস্থা', exact: true });
+  // dnd-kit measures the rows after the pick-up, so each key waits for its announcement
+  const announced = page.locator('[id^="DndLiveRegion"]');
+  await page.getByRole('button', { name: 'নারী সদস্য টেনে সরান' }).focus();
+  await page.keyboard.press('Space');
+  await expect(announced).toContainText(/q_female_members/);
+  await page.keyboard.press('ArrowUp');
+  await expect(announced).toContainText(/moved over droppable area q_male_members/);
+  await page.keyboard.press('Space');
+  await expect
+    .poll(async () => (await list.getByRole('listitem').allInnerTexts()).slice(-3).join('|'))
+    .toMatch(/নারী সদস্য.*\|.*পুরুষ সদস্য.*\|.*মোট সদস্য/);
+  await saved(page);
   await ownQuestion(
     page,
     'আর্থিক অবস্থা',
@@ -151,17 +163,23 @@ test('a PM builds and publishes a form, an applicant sends it by the link, and v
       ['না', 'No'],
     ],
   );
-  const show = section(page, 'কখন দেখাবে');
+  await page.getByRole('button', { name: 'শর্ত ঠিক করুন' }).click();
+  const show = page.getByRole('dialog', { name: 'প্রশ্নটি কখন দেখাবে' });
   await show.getByRole('button', { name: 'শর্ত যোগ করুন' }).click();
   await chooseIn(page, show, 'শর্ত 1: প্রশ্ন', 'পুরুষ সদস্য');
   await chooseIn(page, show, 'শর্ত 1: তুলনা', 'বেশি');
   await show.getByRole('textbox', { name: 'শর্ত 1: মান' }).fill('0');
+  await show.getByRole('button', { name: 'হয়ে গেছে' }).click();
+  await expect(page.getByText('দেখাবে যখন “পুরুষ সদস্য” 0-এর বেশি।')).toBeVisible();
 
   await publish(page, 1);
+  // the versions and the link sit in the form-settings tab, the link in a closed group
+  await page.getByRole('tab', { name: 'ফর্মের সেটিং' }).click();
   const versions = section(page, 'সংস্করণগুলো');
   await expect(versions.getByText('সংস্করণ 1: প্রকাশিত')).toBeVisible();
 
   // the public link, switched on with this form
+  await page.getByRole('button', { name: 'পাবলিক আবেদনের লিংক', exact: true }).click();
   const link = section(page, 'পাবলিক আবেদনের লিংক');
   // the switch's input is visually hidden behind its track, like the checkbox's
   await link
@@ -234,10 +252,11 @@ test('a PM builds and publishes a form, an applicant sends it by the link, and v
     // version 2: one option changes, the summary names it, and the link opens it
     await page.goto(builderUrl);
     await page.getByRole('button', { name: 'নতুন সংস্করণ তৈরি করুন' }).click();
-    await expect(page.locator('.admin-title-row').getByText('সংস্করণ 2: খসড়া')).toBeVisible();
+    await expect(page.locator('.fb-head').getByText('সংস্করণ 2: খসড়া')).toBeVisible();
     await page.getByRole('button', { name: 'আপনার কি নিজের ঘর আছে? বদলান' }).click();
     await page.getByRole('textbox', { name: /^অপশন 2 \(বাংলা\)/ }).fill('না, ভাড়া থাকি');
     await publish(page, 2);
+    await page.getByRole('tab', { name: 'ফর্মের সেটিং' }).click();
     await expect(versions.getByText('সংস্করণ 2: প্রকাশিত')).toBeVisible();
     await expect(versions.getByText(/প্রশ্নে বদল: আপনার কি নিজের ঘর আছে\? \(অপশন\)/)).toBeVisible();
     await expect(versions.getByText('সংস্করণ 1: পুরোনো')).toBeVisible();

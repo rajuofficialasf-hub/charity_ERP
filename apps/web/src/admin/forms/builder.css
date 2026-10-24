@@ -1,23 +1,71 @@
 /*
- * The form builder (docs/ui/SCREENS.md, "Form builder"): the panes side by side from 1024 px,
- * the outline's sections as cards and their questions as rows. Tokens only.
+ * The form builder (docs/ui/SCREENS.md, "Form builder"): the form drawn in the middle, the
+ * questions to add on the left and the chosen question's settings on the right, side by side
+ * from 1024 px with the side panes in view while the form scrolls. Tokens only.
  */
-.form-builder-panes {
+.fb-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.fb-head h1 {
+  margin: 0;
+}
+.fb-head-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1 1 auto;
+}
+.fb-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.fb-panes {
   display: grid;
   gap: var(--space-4);
   align-items: start;
 }
-/* the columns share what the shell leaves beside its sidebar and never push the page sideways */
 @media (min-width: 1024px) {
-  .form-builder-panes {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1.5fr);
+  .fb-panes {
+    grid-template-columns: 236px minmax(0, 1fr) 300px;
+  }
+  .fb-side {
+    position: sticky;
+    top: var(--space-4);
+    max-height: calc(100dvh - var(--space-6));
+    overflow-y: auto;
   }
 }
-@media (min-width: 1280px) {
-  .form-builder-panes.has-preview {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 1.4fr) minmax(0, 1.8fr);
+@media (min-width: 1440px) {
+  .fb-panes {
+    grid-template-columns: 260px minmax(0, 1fr) 340px;
   }
 }
+.fb-side,
+.fb-canvas {
+  min-width: 0;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-surface);
+  box-shadow: var(--elevation-1);
+}
+.fb-side {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+.fb-canvas {
+  padding: var(--space-4) var(--space-4) var(--space-5);
+}
+.fb-form-sub {
+  margin: var(--space-1) 0 var(--space-4);
+  color: var(--color-text-secondary);
+}
+
+/* the preview, in its dialog */
 .form-preview-frame {
   width: 100%;
   margin-inline: auto;
@@ -32,31 +80,348 @@
 .form-preview-frame.is-desktop {
   max-width: none;
 }
-.form-builder-pane {
+
+/* the canvas: a card per section, the questions as they will be filled */
+.fb-sec {
+  padding: var(--space-2) 0 var(--space-3);
+}
+.fb-sec + .fb-sec {
+  margin-top: var(--space-3);
+}
+.fb-sec.is-over {
+  outline: 2px dashed var(--color-brand-primary);
+  outline-offset: 6px;
+  border-radius: var(--radius-md);
+}
+.fb-sec-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-2);
+  border-bottom: 2px solid var(--color-bg-brand-soft);
+}
+.fb-sec-title {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
   min-width: 0;
-  padding: var(--space-4);
-  border: 1px solid var(--color-border-default);
+  font-size: var(--text-title);
+}
+.fb-sec-select {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+}
+.fb-sec-select:hover {
+  background: var(--color-bg-muted);
+}
+.fb-sec.is-selected .fb-sec-select {
+  box-shadow: 0 0 0 3px var(--color-bg-brand-soft);
+}
+.fb-sec-empty {
+  display: block;
+  padding: var(--space-3);
+  border: 1px dashed var(--color-border-default);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+.fb-q-list,
+.fb-q-members {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fb-q-members {
+  margin-top: var(--space-2);
+  padding-left: var(--space-3);
+  border-left: 3px solid var(--color-bg-brand-soft);
+}
+.fb-q {
+  position: relative;
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3) var(--space-2) 0;
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: var(--color-bg-surface);
 }
-.form-outline-section {
-  padding: var(--space-3);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-sm);
+.fb-q:hover {
+  background: var(--color-bg-muted);
 }
-.form-outline-list {
+.fb-q.is-selected {
+  border-color: var(--color-brand-primary);
+  background: var(--color-bg-surface);
+  box-shadow: 0 0 0 3px var(--color-bg-brand-soft);
+}
+.fb-q.is-dragging {
+  opacity: 0.4;
+}
+.fb-q-grip {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: grab;
+  touch-action: none;
+}
+.fb-q-grip:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+}
+.fb-q-main {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.fb-q-member .fb-q-main {
+  padding-left: var(--space-2);
+}
+/* the whole question is one button: it sits over the sketch, which takes nothing itself */
+.fb-q-select {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  cursor: pointer;
+}
+.fb-q-select:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 2px;
+}
+.fb-q-preview {
+  pointer-events: none;
+}
+.fb-q-preview .ui-field {
+  margin-bottom: 0;
+}
+.fb-q-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+.fb-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-muted);
+  color: var(--color-text-secondary);
+  font-size: var(--text-caption);
+}
+.fb-tag-lock {
+  background: var(--color-bg-brand-soft);
+  color: var(--color-brand-primary-dark);
+}
+.fb-tag-logic {
+  background: var(--color-bg-info-soft);
+  color: var(--color-status-info);
+}
+/* ink on the amber tint: the accent ink falls short of 4.5:1 on it at the caption size */
+.fb-tag-calc,
+.fb-tag-warn {
+  background: var(--color-bg-warning-soft);
+  color: var(--color-text-primary);
+}
+/* above the question's overlay button, so the rows' add button takes the press */
+.fb-q-add-row {
+  position: relative;
+  z-index: 1;
+  margin-top: var(--space-1);
+}
+.fb-q-bar {
+  position: absolute;
+  right: var(--space-2);
+  top: -16px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px var(--space-1) 2px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-brand-ink);
+  color: var(--color-text-on-brand);
+  font-size: var(--text-caption);
+  box-shadow: var(--elevation-2);
+}
+.fb-q-bar-type {
+  margin-right: var(--space-1);
+}
+/* the left pane: the types in groups, the library by section */
+.fb-type-group {
+  display: grid;
+  gap: 2px;
+}
+.fb-group-title {
+  display: block;
+  margin: var(--space-2) 0 var(--space-1);
+  color: var(--color-text-secondary);
+  font-size: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.fb-type {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: grab;
+  touch-action: none;
+}
+.fb-type:hover:not(:disabled) {
+  border-color: var(--color-border-default);
+  background: var(--color-bg-muted);
+}
+.fb-type:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 2px;
+}
+.fb-type:disabled {
+  color: var(--color-text-secondary);
+  cursor: not-allowed;
+}
+.fb-type.is-dragging {
+  opacity: 0.5;
+}
+.fb-type-ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-brand-soft);
+  color: var(--color-brand-primary-dark);
+}
+.fb-type-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+}
+.fb-type-name {
+  font-weight: var(--font-weight-bold);
+}
+.fb-type-ex {
+  color: var(--color-text-secondary);
+  font-size: var(--text-caption);
+}
+.fb-type-plus {
+  flex: none;
+  color: var(--color-text-secondary);
+}
+.fb-type:hover:not(:disabled) .fb-type-plus {
+  color: var(--color-brand-primary-dark);
+}
+/* the type while it is dragged over the canvas */
+.fb-type-chip {
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-brand-ink);
+  color: var(--color-text-on-brand);
+  font-weight: var(--font-weight-bold);
+  box-shadow: var(--elevation-2);
+}
+.fb-lib-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fb-lib-q {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+  padding-left: var(--space-1);
+  color: var(--color-text-secondary);
+}
+.fb-lib-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--color-text-primary);
+}
+.fb-lib-in {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-brand-primary-dark);
+  font-size: var(--text-caption);
+}
+
+/* a rule read as a sentence, and the first steps while nothing is chosen */
+.fb-sentence {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+}
+.fb-start {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px dashed var(--color-border-default);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+.fb-start-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-inline: auto;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-brand-soft);
+  color: var(--color-brand-primary-dark);
+}
+.fb-start-steps {
+  margin: 0;
+  padding-left: var(--space-5);
+  text-align: start;
+}
+
+/* the versions, in the form-settings tab */
+.fb-version-list {
   display: grid;
   gap: var(--space-2);
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.form-outline-list > li {
+.fb-version-list > li {
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
   background: var(--color-bg-muted);
 }
-.form-outline-list > li.is-selected {
+.fb-version-list > li.is-selected {
   outline: 2px solid var(--color-brand-primary);
   outline-offset: -2px;
 }

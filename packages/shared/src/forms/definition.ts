@@ -63,6 +63,8 @@ export type FieldValidation = z.infer<typeof fieldValidationSchema>;
 export const repeatSettingsSchema = z.strictObject({
   min_rows: z.int().min(0).optional(),
   max_rows: z.int().min(1).optional(),
+  /** On a family-member group: whether its rows are earners (true unless set). */
+  earner: z.boolean().optional(),
   /** Set on a field inside a repeat group: the key of its group, in the same section. */
   group: snakeKey.optional(),
 });
@@ -128,6 +130,7 @@ export const DEFINITION_ISSUE_CODES = [
   'form.calculation_cycle',
   'form.condition_cycle',
   'form.calculation_misplaced',
+  'form.calculation_missing',
   'form.options_misplaced',
   'form.option_dependency',
   'form.core_field_missing',
@@ -213,7 +216,13 @@ const fieldPath = (f: LocatedField, ...rest: (string | number)[]) => [
  * The checks the schema cannot express. Each issue carries a stable code; the API turns them into
  * validation details and the builder shows them beside the field.
  */
-export function checkDefinition(definition: FormDefinition): DefinitionIssue[] {
+export function checkDefinition(
+  definition: FormDefinition,
+  options: {
+    /** At publish: a calculated question must have its rule by then (a draft may wait). */
+    publishing?: boolean;
+  } = {},
+): DefinitionIssue[] {
   const issues: DefinitionIssue[] = [];
   const fields = indexFields(definition);
 
@@ -303,9 +312,15 @@ export function checkDefinition(definition: FormDefinition): DefinitionIssue[] {
           params: { fieldKey: field.fieldKey },
         });
     }
-    if ((field.type === 'calculation') !== (field.calculation !== undefined))
+    if (field.type !== 'calculation' && field.calculation !== undefined)
       issues.push({
         code: 'form.calculation_misplaced',
+        path: fieldPath(located, 'calculation'),
+        params: { fieldKey: field.fieldKey },
+      });
+    if (field.type === 'calculation' && field.calculation === undefined && options.publishing)
+      issues.push({
+        code: 'form.calculation_missing',
         path: fieldPath(located, 'calculation'),
         params: { fieldKey: field.fieldKey },
       });
@@ -440,6 +455,8 @@ export function checkDefinition(definition: FormDefinition): DefinitionIssue[] {
       });
       continue;
     }
+    // several groups may fill the family-member table, each with rows of its own
+    if (field.type === 'repeat_group') continue;
     const scope = located.group ?? '';
     let columns = filled.get(scope);
     if (!columns) filled.set(scope, (columns = new Set()));
@@ -501,19 +518,24 @@ export function checkDefinition(definition: FormDefinition): DefinitionIssue[] {
   return issues;
 }
 
-/** The full definition schema: the shape, then every check of `checkDefinition`. */
-export const formDefinitionSchema: z.ZodType<FormDefinition> = z
-  .strictObject({
-    sections: z.array(formSectionSchema).min(1).max(DEFINITION_LIMITS.sections),
-  })
-  .superRefine((definition, ctx) => {
-    for (const issue of checkDefinition(definition))
-      ctx.addIssue({
-        code: 'custom',
-        message: issue.code,
-        path: issue.path,
-        params: { code: issue.code, ...issue.params },
-      });
-  });
+const definitionSchema = (publishing: boolean): z.ZodType<FormDefinition> =>
+  z
+    .strictObject({
+      sections: z.array(formSectionSchema).min(1).max(DEFINITION_LIMITS.sections),
+    })
+    .superRefine((definition, ctx) => {
+      for (const issue of checkDefinition(definition, { publishing }))
+        ctx.addIssue({
+          code: 'custom',
+          message: issue.code,
+          path: issue.path,
+          params: { code: issue.code, ...issue.params },
+        });
+    });
+
+/** The full definition schema of a draft: the shape, then every check of `checkDefinition`. */
+export const formDefinitionSchema: z.ZodType<FormDefinition> = definitionSchema(false);
+/** The same at publish, where a calculated question must have its rule. */
+export const publishDefinitionSchema: z.ZodType<FormDefinition> = definitionSchema(true);
 
 export type { Condition, Expr, FieldType, SectionVisibility };
