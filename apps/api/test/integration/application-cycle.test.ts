@@ -152,6 +152,10 @@ describe('the submission', () => {
       'application.submit',
       'application.numbered',
     ]);
+    // the number finds the application for the volunteer who owns it
+    const byNumber = await at(s, 'get', '/application-numbers/CYC-2026-00001');
+    expect(byNumber.status, JSON.stringify(byNumber.body)).toBe(200);
+    expect(byNumber.body.data).toMatchObject({ id, appNo: 'CYC-2026-00001' });
     // the next one of the project, brought by the RPM for a known person, takes the next number
     const rpm = await as(world.users.rpmDhaka);
     const known = await beneficiary(h.db, world.dhaka, { nid: fakeNid() });
