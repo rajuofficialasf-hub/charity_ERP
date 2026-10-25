@@ -29,12 +29,12 @@ States are the same in every template (BD-11) with two additions decided in the 
 |---|---|---|---|
 | draft | Created, not sent; may live offline | main volunteer / RPM / Executive (`application.edit_draft`, `application.submit`, `application.delete_pending`); team member `application.edit_draft` on own records | edit, delete, submit |
 | needs_verification | Entered from the public form or from an offline record whose identity number already exists (BD-48, O-13). A public entry (T2.3) has no beneficiary, owner volunteer or creating user; its region, district and union come from its address answer, and its `flags` tell the verifying official what the applicant was never told: `public_entry`, `existing_identity` (a live profile holds the number), `identity_blocked` (that profile is blocked), `identity_repeated` (the same NID or mobile came through the link within a day, O-08) | RPM / Executive (`application.verify_needs_verification`) | link to the existing profile and move to `submitted`, or reject with reason |
-| submitted | Sent to the office, review not started | main volunteer (`application.edit_pending`, `application.delete_pending`); official (`application.review`) | volunteer edits or deletes; official takes it under review |
+| submitted | Sent to the office, review not started; the application number is given at this move (D-131) | main volunteer (`application.edit_pending`, `application.delete_pending`); official (`application.review`) | volunteer edits or deletes; official takes it under review |
 | under_review | An official is verifying | official (`application.review`) | edit the whole form, request a site verification, send to approval |
 | reviewed | Review done, awaiting the approver | approver (`application.approve`, `application.reject`, `application.waitlist`) | approve, reject (reason), waitlist (comment) |
 | waitlisted | Not approved for lack of quota or goods; kept in score order | approver (`application.waitlist` to pull, `application.reject`) | pull in one click to approved, or reject |
 | approved | Final; data locked | officials (`application.unlock_field`); volunteer (`application.update_unlocked_field`) | field unlock loop only; enters `implementation` automatically |
-| rejected | Not accepted, with reason | — | view only |
+| rejected | Not accepted; the office's reason stays with the officials and a message goes to the volunteer and the team member who created it (D-131) | approver (`application.approve`), never the person who created or submitted it | return to `reviewed` with a reason (D-131); view |
 | implementation | The template's stages run (sub-state `stage`) | per stage (section 9) | activities, stage moves, field unlock |
 | completed | Support delivered, photos and vouchers verified | officials / Official দায়ী (`followup.record`) | view; follow-up evaluations |
 | closed | The project closed; everything read-only | `followup.record` only | view; follow-up evaluations |
@@ -110,7 +110,7 @@ Transition fields: `from`, `to`, `permission` or `auto` + `trigger`, `guards[]`,
 
 ## 6. Guard catalogue (code)
 
-Each guard is one function in `apps/api/src/modules/applications/workflow/guards/` with the signature `(ctx) → { ok: boolean, reason?: i18nKey }`. Templates reference guards by name only.
+Each guard is one function in `apps/api/src/workflow/guards.ts` (`GUARDS`, by name; the engine in `engine.ts`, the registry of the loaded definitions in `registry.ts`, the effects in `effects.ts`). Templates reference guards by name only; the seed refuses a template naming a guard nobody built. A transition's `requires` (reason, message) is checked by the engine itself and refused with `workflow.reason_required` or `workflow.message_required`; a template's `overrides.approval` becomes the internal guard `approver.has_permission` on the moves of that permission. Built in T2.5: `project.active`, `project.not_closed`, `deadline.open`, `limit.not_exceeded`, `identity.present`, `mandatory_fields.present`, `beneficiary.not_blocked`, `volunteer.not_blocked`, `consent.accepted`, `actor.not_creator`, `approver.has_permission`; `score.comment_if_against_order` passes until T2.6 writes the score; `zakat.eligible_if_zakat_fund` refuses an approval on a zakat-funded project until the zakat decision exists (T4). The others wait for their modules, and the seed refuses a transition that reaches one.
 
 | Guard | Holds when | Reads | Rules |
 |---|---|---|---|
@@ -124,6 +124,7 @@ Each guard is one function in `apps/api/src/modules/applications/workflow/guards
 | mandatory_fields.present | the BD-13 mandatory fields and the form version's required fields are filled | form_version, answers | BR-078 |
 | beneficiary.not_blocked | the beneficiary is not on the blocklist | blocklist | BR-010, BR-015 |
 | volunteer.not_blocked | the acting volunteer is not blocked | blocklist | BR-047 |
+| actor.not_creator | the acting user neither created nor submitted the application (on approve, reject and the return from rejection; D-131, BR-269) | applications, audit_log | BR-269 |
 | consent.accepted | the volunteer accepted the project rules | project_volunteers.consent_at | BR-039 |
 | score.comment_if_against_order | a comment exists when the decision skips a higher-scored pending application in the same quota area | application_scores, project_quotas | BR-099 |
 | zakat.eligible_if_zakat_fund | if the project's fund source includes zakat, the Official দায়ী's zakat decision is "eligible" | fund_sources, answers | BR-133, BR-212 |
@@ -246,4 +247,4 @@ No code changed. If the flood kit needed a condition that does not exist (for ex
 
 ## 16. Open items
 
-None blocking. Implementation notes for T2.5: (1) the `approver.has_permission` guard for the construction PM rule is an internal guard not exposed in templates; (2) waitlist ordering ties are broken by submission time; (3) the exact i18n reason keys for every guard are defined in T0.20/T2.5.
+None blocking. T2.5 built the engine (`apps/api/src/workflow/`), the common cycle at version 2 of every template (the return from rejection and the `actor.not_creator` guard, D-131), the application service on it (`apps/api/src/applications/`: create with the person resolved on the server, edit by state, the actions with If-Match, the submission that numbers the application and binds or creates the profile, the per-audience timeline, the change log, the activities read and the bulk review of the office's list), and the screens of SCREENS SCR-031, SCR-032 and SCR-041. Notes: (1) `approver.has_permission` is applied by the engine from `overrides.approval`, not named in templates; (2) waitlist ordering ties are broken by submission time (T2.6); (3) a guard's refusal is the error code `workflow.<guard>` rendered by `src/http/errors.ts`; the waitlist, the score and the field unlock come with T2.6, the public entry's link with T4, offline with T2.7.

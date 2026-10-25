@@ -581,6 +581,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
   - Phone: the identity step, then one section per screen with next and back, and a sticky "save" and "send" bar.
   - Tablet: the same in a 720 px column.
   - Desktop: all sections on one page with a section index on the left. Officials entering from the office use this layout.
+- **Built in T2.5** at `/my-projects/:projectId/apply` (`features/applications/ApplicationFormPage`): the lookup with the auto-fill and the locked identity of a known person, the form of the project's published version for the volunteer audience, the draft saved when the first part is done (photos join after that), the send with the number, the limit and the closing date, the team member's draft without a send. Offline comes with T2.7.
 - **Phase · task.** 2 · T2.2 (lookup), T2.4 (renderer), T2.5 (create, submit), T2.7 (offline). **API.** tags beneficiaries, applications, files, sync.
 
 ### SCR-032 My applications and application detail
@@ -621,7 +622,8 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Layouts.**
   - Phone: a list, then a full-screen detail.
   - Tablet: a list with a drawer.
-  - Desktop: a split view.
+  - Desktop: the list and the record as two pages (built in T2.5; a split view may follow).
+- **Built in T2.5** at `/my-applications` and `/my-applications/:applicationId` (`features/applications/{MyApplicationsPage,ApplicationDetailPage}`): the tabs by state with counts, the record with the answers without the official sections, the steps without the officials' names, the office's message of a rejection, the send and the edit of a draft. The sync badge comes with T2.7, the correction requests with T2.6.
 - **Phase · task.** 2 · T2.5. **API.** tag applications.
 
 ### SCR-033 Today's distribution (bulk)
@@ -800,7 +802,8 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **Layouts.**
   - Phone: cards with status, waiting time and score; filters in a bottom sheet; full-screen detail with a sticky approve, waitlist and reject bar.
   - Tablet: a compact table with the detail in a drawer.
-  - Desktop: a split view with the list on the left and the detail on the right; keyboard selection.
+  - Desktop: a split view with the list on the left and the detail on the right; keyboard selection (T2.5 built the list and the record as two pages).
+- **Built in T2.5** at `/admin/projects/:projectId/applications` and `/admin/applications/:applicationId` (`admin/applications/{ApplicationsPage,ApplicationReviewPage}`): the list with the search, the status, area and flag filters in the address, the page numbers, the waiting time, and the bulk review start and approval of the ticked rows (one request, a result per row); the record with the signals (public entry, existing or repeated identity, the family duplicates), the answers including the official sections, the full-form edit under review, the steps with their actors and texts, the change log, and the moves of `availableActions`: review, send for approval, approve, reject (the office's reason and the volunteer's message), return from rejection, refuse a public entry, delete. The score, the quota bars, the waitlist, the field unlock, the transfer and the export come with T2.6.
 - **Phase · task.** 2 · T2.5 (workflow), T2.6 (score, quota, waitlist, unlock). **API.** tags applications, activities.
 
 ### SCR-042 Volunteer tab
