@@ -114,6 +114,29 @@ const commentAsked = (reason: 'against_score' | 'quota_full') =>
     { status: 422 },
   );
 
+const unlockOf = (over: Record<string, unknown> = {}) => ({
+  id: '01900000-0000-7000-8000-0000000000f1',
+  applicationId: A1,
+  fieldKey: 'village',
+  repeatIndex: 0,
+  state: 'updated',
+  oldValue: { t: 'short_text', v: 'নমুনা গ্রাম' },
+  newValue: { t: 'short_text', v: 'নতুন গ্রাম' },
+  reason: 'গ্রামের নাম ভুল',
+  openedBy: 'u-rpm',
+  openedAt: '2026-11-04T10:00:00Z',
+  enteredBy: 'u-volunteer',
+  enteredAt: '2026-11-05T10:00:00Z',
+  decidedBy: null,
+  decidedAt: null,
+  decision: null,
+  decisionReason: null,
+  mayFill: false,
+  mayDecide: true,
+  mayCancel: true,
+  ...over,
+});
+
 let listCalls: string[];
 let bulkBodies: unknown[];
 let acted: { action: string; body: unknown }[];
@@ -631,6 +654,100 @@ describe('the review page', () => {
       action: 'pull_from_waitlist',
       body: { comment: 'তিনি আগে এসেছেন' },
     });
+  });
+
+  it('opens an answer of an approved record with a reason, never the identity', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    let opened: unknown = null;
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(record({ status: 'implementation', availableActions: [], mayUnlock: true })),
+      ),
+      http.post(`*/api/v1/applications/${A1}/unlocks`, async ({ request }) => {
+        opened = await request.json();
+        return envelope(unlockOf({ state: 'open', newValue: null, enteredBy: null }));
+      }),
+    );
+    const view = openReview();
+    const button = await screen.findByRole('button', { name: 'সংশোধনের জন্য খুলুন: village' });
+    expect(screen.queryByRole('button', { name: 'সংশোধনের জন্য খুলুন: name' })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'সংশোধনের জন্য খুলুন: nid_or_birth_reg' }),
+    ).toBeNull();
+    await expectNoAxeViolations(view.container);
+    await user.click(button);
+    const dialog = await screen.findByRole('dialog', { name: '“village” সংশোধনের জন্য খুলুন' });
+    const confirm = within(dialog).getByRole('button', { name: 'খুলুন' });
+    expect(confirm).toBeDisabled();
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /অফিসের কারণ/ }),
+      'গ্রামের নাম ভুল',
+    );
+    await user.click(confirm);
+    expect(await screen.findByText('উত্তরটি সংশোধনের জন্য খোলা হয়েছে।')).toBeInTheDocument();
+    expect(opened).toEqual({ fieldKey: 'village', reason: 'গ্রামের নাম ভুল' });
+  });
+
+  it('accepts or sends back a new answer, and shows no decision to the one who entered it', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    const decided: unknown[] = [];
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            status: 'implementation',
+            availableActions: [],
+            mayUnlock: true,
+            unlocks: [
+              unlockOf(),
+              unlockOf({
+                id: '01900000-0000-7000-8000-0000000000f2',
+                fieldKey: 'office_note',
+                oldValue: null,
+                newValue: { t: 'short_text', v: 'অফিসের নোট' },
+                reason: 'অফিসের যাচাই বাকি',
+                enteredBy: ME.id,
+                mayDecide: false,
+              }),
+            ],
+          }),
+        ),
+      ),
+      http.post('*/api/v1/application-unlocks/:id/decision', async ({ request, params }) => {
+        decided.push({ id: params.id, body: await request.json() });
+        return envelope(unlockOf({ state: 'relocked', decision: 'accepted' }));
+      }),
+    );
+    const view = openReview();
+    const card = (
+      await screen.findByRole('heading', { level: 2, name: 'সংশোধনের জন্য খোলা উত্তর' })
+    ).closest('section')!;
+    expect(within(card).getByText('গ্রামের নাম ভুল')).toBeInTheDocument();
+    expect(within(card).getByText('নতুন গ্রাম')).toBeInTheDocument();
+    // one accept for the answer the reader may decide; the other one entered it themselves
+    expect(within(card).getAllByRole('button', { name: 'গ্রহণ করুন' })).toHaveLength(1);
+    expect(
+      within(card).getByText('নতুন উত্তরটি আপনি দিয়েছেন, তাই অন্য একজন কর্মকর্তা যাচাই করবেন।'),
+    ).toBeInTheDocument();
+    await expectNoAxeViolations(view.container);
+    // sending back asks why
+    await user.click(within(card).getByRole('button', { name: 'ফেরত দিন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'নতুন উত্তর ফেরত দিন' });
+    await user.type(within(dialog).getByRole('textbox', { name: /অফিসের কারণ/ }), 'নাম মেলেনি');
+    await user.click(within(dialog).getByRole('button', { name: 'ফেরত দিন' }));
+    await waitFor(() => expect(decided).toHaveLength(1));
+    expect(decided[0]).toEqual({
+      id: '01900000-0000-7000-8000-0000000000f1',
+      body: { decision: 'refuse', reason: 'নাম মেলেনি' },
+    });
+    await user.click(within(card).getByRole('button', { name: 'গ্রহণ করুন' }));
+    await waitFor(() => expect(decided).toHaveLength(2));
+    expect(decided[1]).toMatchObject({ body: { decision: 'accept' } });
+    expect(await screen.findByText('নতুন উত্তর গ্রহণ করা হয়েছে।')).toBeInTheDocument();
   });
 
   it('reads in English too', async () => {

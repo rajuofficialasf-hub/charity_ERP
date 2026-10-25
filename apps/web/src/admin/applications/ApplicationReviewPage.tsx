@@ -12,10 +12,13 @@ import {
   Stack,
   Timeline,
   type TimelineStep,
+  VisuallyHidden,
 } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
+import { unlockRefusal, type FormField } from '@css/shared/forms';
+import { LockOpen } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { AnswerList } from '../../features/applications/AnswerList';
@@ -35,10 +38,12 @@ import {
   officeAct,
   officeApplication,
   officeTimeline,
+  openUnlock,
   saveAnswers,
 } from './applications-api';
 import { ChangeLog } from './ChangeLog';
 import { DecisionDialog, type DecisionTexts } from './DecisionDialog';
+import { UnlockReview } from './UnlockReview';
 import { ScoreBreakdown } from './ScoreBreakdown';
 import { Signals } from './Signals';
 import './applications.css';
@@ -79,7 +84,10 @@ export function ApplicationReviewPage() {
 
 function Review() {
   const { applicationId = '' } = useParams();
+  const { me } = useAuth();
   const t = useTranslations('applications.office');
+  const tu = useTranslations('applications.unlock');
+  const [opening, setOpening] = useState<FormField | null>(null);
   const ts = useTranslations('applications.status');
   const tc = useTranslations('common');
   const locale = useLocale() as Locale;
@@ -137,6 +145,15 @@ function Review() {
       setNotice({ tone: 'danger', text: failureText(error) });
     },
   });
+  const open = useMutation({
+    mutationFn: ({ field, reason }: { field: FormField; reason: string }) =>
+      openUnlock(applicationId, field.fieldKey, reason),
+    onSuccess: async () => {
+      setOpening(null);
+      setNotice({ tone: 'success', text: tu('opened') });
+      await refresh();
+    },
+  });
   const failureText = (error: unknown) =>
     error instanceof ApiFailure && error.status === 412
       ? t('stale')
@@ -179,6 +196,17 @@ function Review() {
     comment: [e.reason, e.comment, e.message].filter(Boolean).join(' · ') || undefined,
     status: e.to === 'rejected' ? 'rejected' : i === all.length - 1 ? 'current' : 'done',
   }));
+  // an answer that can open, and has no unlock waiting, offers it on an approved record
+  const waiting = new Set((a.unlocks ?? []).map((u) => u.fieldKey));
+  const unlockAction = a.mayUnlock
+    ? (field: FormField) =>
+        unlockRefusal(field) === null && !waiting.has(field.fieldKey) ? (
+          <Button variant="ghost" size="sm" icon={LockOpen} onPress={() => setOpening(field)}>
+            {tu('open')}
+            <VisuallyHidden>: {field.label[locale]}</VisuallyHidden>
+          </Button>
+        ) : null
+    : undefined;
   const save = async ({ answers }: Submission) => {
     try {
       await saveAnswers(applicationId, etag, answers);
@@ -249,6 +277,17 @@ function Review() {
         />
       </Card>
       <Signals application={a} />
+      {a.unlocks?.length ? (
+        <UnlockReview
+          form={a.form}
+          unlocks={a.unlocks}
+          meId={me?.id ?? ''}
+          onChanged={async (text) => {
+            setNotice({ tone: 'success', text });
+            await refresh();
+          }}
+        />
+      ) : null}
       {typeof a.totalScore === 'number' && a.scoreItems ? (
         <ScoreBreakdown total={a.totalScore} items={a.scoreItems} />
       ) : null}
@@ -264,7 +303,7 @@ function Review() {
             onSubmit={save}
           />
         ) : (
-          <AnswerList form={a.form} answers={a.answers} />
+          <AnswerList form={a.form} answers={a.answers} action={unlockAction} />
         )}
       </Card>
       <Card title={t('timeline')} headingLevel={2}>
@@ -299,6 +338,19 @@ function Review() {
           onClose={() => {
             act.reset();
             setAsking(null);
+          }}
+        />
+      ) : null}
+      {opening ? (
+        <DecisionDialog
+          title={tu('open_title', { name: opening.label[locale] })}
+          confirm={tu('open_confirm')}
+          pending={open.isPending}
+          error={open.error ? failureText(open.error) : null}
+          onConfirm={({ reason }) => open.mutate({ field: opening, reason: reason ?? '' })}
+          onClose={() => {
+            open.reset();
+            setOpening(null);
           }}
         />
       ) : null}

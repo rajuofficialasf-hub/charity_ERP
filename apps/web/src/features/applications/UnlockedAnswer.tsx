@@ -1,0 +1,106 @@
+import { type AnswerValue, answerValueSchema } from '@css/shared';
+import type { Locale } from '@css/shared/i18n';
+import type { FormField } from '@css/shared/forms';
+import { Alert, Button, Stack, Text } from '@css/ui';
+import { useMutation } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useLocale, useTranslations } from 'use-intl';
+import { ApiFailure } from '../../lib/api';
+import { FieldInput } from '../forms/FieldInput';
+import { answerText } from './AnswerList';
+import { fillUnlock, type Unlock } from './applications-api';
+
+/** A stored value read as an answer value, or nothing when it is empty or not one. */
+export function valueOf(value: unknown): AnswerValue | undefined {
+  const parsed = answerValueSchema.safeParse(value);
+  return parsed.success ? parsed.data : undefined;
+}
+
+/** An answer value as text in the reader's language, or the empty mark. */
+export function AnswerValueText({ field, value }: { field: FormField; value: unknown }) {
+  const t = useTranslations('applications.unlock');
+  const tr = useTranslations('forms.renderer');
+  const locale = useLocale() as Locale;
+  const parsed = valueOf(value);
+  const text = parsed ? answerText(field, parsed, locale, tr('yes'), tr('no')) : null;
+  return <>{text ?? t('empty')}</>;
+}
+
+/**
+ * One answer opened for correction, as the person who gives the new value sees it: the previous
+ * answer, the question drawn as in the form with that answer to start from, and "পাঠান"; once
+ * sent, the new answer waiting for the office's verification.
+ */
+export function UnlockedAnswer({
+  unlock,
+  field,
+  onSent,
+}: {
+  unlock: Unlock;
+  field: FormField;
+  onSent: () => Promise<unknown> | void;
+}) {
+  const t = useTranslations('applications.unlock');
+  const tc = useTranslations('common');
+  const locale = useLocale() as Locale;
+  const old = valueOf(unlock.oldValue);
+  const [value, setValue] = useState<AnswerValue | null>(old ?? null);
+  const send = useMutation({
+    mutationFn: () => fillUnlock(unlock.id, value),
+    onSuccess: async () => {
+      await onSent();
+    },
+  });
+  const failure =
+    send.error instanceof ApiFailure
+      ? (send.error.details[0]?.message ?? send.error.message)
+      : send.error
+        ? tc('state.error.text')
+        : undefined;
+  const unchanged = JSON.stringify(value) === JSON.stringify(old ?? null);
+  return (
+    <Stack gap={2} as="section" aria-labelledby={`unlock-${unlock.id}`}>
+      <Text as="strong" id={`unlock-${unlock.id}`} weight="bold">
+        {field.label[locale]}
+      </Text>
+      <Text tone="muted">
+        {t('old')}: <AnswerValueText field={field} value={unlock.oldValue} />
+      </Text>
+      {unlock.state === 'updated' ? (
+        <>
+          <Text>
+            {t('new')}: <AnswerValueText field={field} value={unlock.newValue} />
+          </Text>
+          <Alert tone="info">{t('waiting')}</Alert>
+        </>
+      ) : unlock.mayFill ? (
+        <>
+          <Text weight="bold">{t('give_new')}</Text>
+          <FieldInput
+            field={field}
+            id={`unlock-value-${unlock.id}`}
+            state={{ visible: true, required: field.required, options: field.options ?? [] }}
+            value={value ?? undefined}
+            computed={undefined}
+            error={failure}
+            onChange={setValue}
+            nisabKnown
+          />
+          <div>
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={value === null || unchanged}
+              loading={send.isPending}
+              onPress={() => send.mutate()}
+            >
+              {t('send')}
+            </Button>
+          </div>
+        </>
+      ) : (
+        <Text tone="muted">{t('waiting_answer')}</Text>
+      )}
+    </Stack>
+  );
+}

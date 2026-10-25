@@ -54,3 +54,9 @@
   background: var(--color-bg-muted);
   border-radius: var(--radius-md);
 }
+
+/* One answer open for correction on the office's record. */
+.admin-unlock {
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border-default);
+}

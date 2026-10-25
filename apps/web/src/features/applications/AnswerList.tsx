@@ -8,8 +8,14 @@ import { useLocale, useTranslations } from 'use-intl';
 import { AddressNames } from '../../components/AddressNames';
 import { FileImage } from '../../components/FileImage';
 
-/** The answer of a question as text, in the reader's language. */
-function shown(field: FormField, value: AnswerValue, locale: Locale, yes: string, no: string) {
+/** The answer of a question as text, in the reader's language; null for photos and files. */
+export function answerText(
+  field: FormField,
+  value: AnswerValue,
+  locale: Locale,
+  yes: string,
+  no: string,
+): ReactNode {
   switch (value.t) {
     case 'single_select':
     case 'radio': {
@@ -53,15 +59,24 @@ function shown(field: FormField, value: AnswerValue, locale: Locale, yes: string
 
 /**
  * The answers of an application as a reader sees them: every question of the form (the caller's
- * audience) that has an answer, by section, with photos drawn from the file service.
+ * audience) that has an answer, by section, with photos drawn from the file service; `action`
+ * draws a control beside an answer (the office's "সংশোধনের জন্য খুলুন").
  */
-export function AnswerList({ form, answers }: { form: FormDefinition; answers: Answer[] }) {
+export function AnswerList({
+  form,
+  answers,
+  action,
+}: {
+  form: FormDefinition;
+  answers: Answer[];
+  action?: (field: FormField) => ReactNode;
+}) {
   const t = useTranslations('applications.detail');
   const tr = useTranslations('forms.renderer');
   const locale = useLocale() as Locale;
   const byKey = new Map(answers.map((a) => [`${a.fieldKey}#${a.repeatIndex ?? 0}`, a.value]));
   type Item =
-    | { kind: 'text'; label: string; text: ReactNode }
+    | { kind: 'text'; label: string; text: ReactNode; field: FormField }
     | { kind: 'photos'; key: string; label: string; ids: string[] };
   const sections = form.sections
     .map((section) => ({
@@ -76,8 +91,8 @@ export function AnswerList({ form, answers }: { form: FormDefinition; answers: A
           (value.t === 'photo' || value.t === 'file' || value.t === 'signature')
         )
           return [{ kind: 'photos', key: field.fieldKey, label, ids: value.v }];
-        const text = shown(field, value, locale, tr('yes'), tr('no'));
-        return text === null ? [] : [{ kind: 'text', label, text }];
+        const text = answerText(field, value, locale, tr('yes'), tr('no'));
+        return text === null ? [] : [{ kind: 'text', label, text, field }];
       }),
     }))
     .filter((s) => s.items.length);
@@ -91,9 +106,23 @@ export function AnswerList({ form, answers }: { form: FormDefinition; answers: A
           </Text>
           <DescriptionList
             labelWidth="md"
-            items={items.flatMap((i) =>
-              i.kind === 'text' ? [{ label: i.label, value: i.text }] : [],
-            )}
+            items={items.flatMap((i) => {
+              if (i.kind !== 'text') return [];
+              const extra = action?.(i.field);
+              return [
+                {
+                  label: i.label,
+                  value: extra ? (
+                    <span className="answer-with-action">
+                      <span>{i.text}</span>
+                      {extra}
+                    </span>
+                  ) : (
+                    i.text
+                  ),
+                },
+              ];
+            })}
           />
           {items
             .flatMap((i) => (i.kind === 'photos' ? [i] : []))

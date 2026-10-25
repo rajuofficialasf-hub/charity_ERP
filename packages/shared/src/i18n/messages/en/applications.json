@@ -212,5 +212,34 @@
       "help": "The highest score on the waitlist is approved; on a tie, the one who has waited longest.",
       "done": "{appNo} is approved from the waitlist."
     }
+  },
+  "unlock": {
+    "open": "Open for correction",
+    "open_title": "Open “{name}” for correction",
+    "open_confirm": "Open",
+    "opened": "The answer is open for correction.",
+    "office_title": "Answers open for correction",
+    "volunteer_title": "Answers open for correction",
+    "volunteer_help": "The office opened these answers for correction. Give the correct answer and send it; the office will verify it.",
+    "old": "Previous answer",
+    "new": "New answer",
+    "give_new": "Give the new answer",
+    "send": "Send",
+    "sent": "The new answer is sent and waits for verification.",
+    "waiting": "Waiting for verification",
+    "waiting_answer": "Waiting for the new answer",
+    "reason": "Why it was opened",
+    "accept": "Accept",
+    "refuse": "Send back",
+    "refuse_title": "Send the new answer back",
+    "cancel": "Cancel the unlock",
+    "cancel_title": "Cancel the unlock",
+    "accepted": "The new answer is accepted.",
+    "refused": "The new answer is sent back; the previous answer stays.",
+    "cancelled": "The unlock is cancelled; the previous answer stays.",
+    "own_entry": "You entered the new answer, so another official verifies it.",
+    "office_fills": "The office gives this answer.",
+    "volunteer_fills": "The volunteer gives the new answer.",
+    "empty": "No answer"
   }
 }

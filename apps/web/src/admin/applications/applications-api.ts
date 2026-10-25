@@ -5,6 +5,7 @@ import { PAGE_SIZE, pageParams } from '../list-paging';
 import type {
   Application as VolunteerView,
   ApplicationSummary,
+  Unlock,
 } from '../../features/applications/applications-api';
 
 export type { ApplicationSummary };
@@ -161,6 +162,24 @@ export const askedComments = (error: unknown): CommentReason[] | null =>
         .map((d) => d.path)
         .filter((p): p is CommentReason => p === 'against_score' || p === 'quota_full')
     : null;
+
+/** Opens one answer of an approved application for correction, saying why. */
+export const openUnlock = (applicationId: string, fieldKey: string, reason: string) =>
+  api<Unlock>(`/applications/${applicationId}/unlocks`, {
+    method: 'POST',
+    body: { fieldKey, reason },
+  });
+
+/** Accepts the entered value, or sends it back with a reason. */
+export const decideUnlock = (unlockId: string, decision: 'accept' | 'refuse', reason?: string) =>
+  api<Unlock>(`/application-unlocks/${unlockId}/decision`, {
+    method: 'POST',
+    body: { decision, ...(reason ? { reason } : {}) },
+  });
+
+/** Ends a waiting unlock with a reason; the old value stays. */
+export const cancelUnlock = (unlockId: string, reason: string) =>
+  api<Unlock>(`/application-unlocks/${unlockId}/cancel`, { method: 'POST', body: { reason } });
 
 export const saveAnswers = (id: string, etag: string, answers: Answer[]) =>
   api<Enveloped<OfficeApplication>>(`/applications/${id}`, {

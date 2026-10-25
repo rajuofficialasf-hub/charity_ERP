@@ -42,8 +42,43 @@ export interface Application extends ApplicationSummary {
   approvedAt: string | null;
   familyDuplicateWarnings: unknown[];
   availableActions: string[];
+  /** The unlocks of the application waiting for a step, as the reader may see them. */
+  unlocks?: Unlock[];
+  /** Whether the reader may open an answer for correction now (the office only). */
+  mayUnlock?: boolean;
   form: ApplicationForm;
 }
+
+/**
+ * One answer of an approved application opened for correction: opened by an official, filled by
+ * the volunteer (or the office), decided by an official who did not fill it.
+ */
+export interface Unlock {
+  id: string;
+  applicationId: string;
+  fieldKey: string;
+  repeatIndex: number;
+  state: 'open' | 'updated' | 'relocked';
+  oldValue: unknown;
+  newValue: unknown;
+  /** The office's reason; null for a volunteer. */
+  reason: string | null;
+  openedBy: string | null;
+  openedAt: string;
+  enteredBy: string | null;
+  enteredAt: string | null;
+  decidedBy: string | null;
+  decidedAt: string | null;
+  decision: 'accepted' | 'refused' | 'cancelled' | null;
+  decisionReason: string | null;
+  mayFill: boolean;
+  mayDecide: boolean;
+  mayCancel: boolean;
+}
+
+/** The new value of an open answer; the server checks it like any answer of its question. */
+export const fillUnlock = (unlockId: string, value: unknown) =>
+  api<Unlock>(`/application-unlocks/${unlockId}/value`, { method: 'PUT', body: { value } });
 
 export interface TimelineEntry {
   id: string;
