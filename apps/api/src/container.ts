@@ -56,6 +56,8 @@ import { ChannelsService } from './services/channels';
 import { NisabService } from './services/nisab';
 import { ProjectQuotasService } from './services/project-quotas';
 import { ScoringService } from './applications/scoring';
+import { WorkflowSideEffects } from './applications/side-effects';
+import { WaitlistService } from './applications/waitlist';
 import { ProgramsService } from './services/programs';
 import { ReferenceListsService } from './services/reference-lists';
 import { SessionMonitorService } from './services/session-monitor';
@@ -156,6 +158,7 @@ export interface Container {
   scoring: ScoringService;
   applications: ApplicationsService;
   bulkReview: BulkReviewService;
+  waitlist: WaitlistService;
   applicationEvents: ApplicationEvents;
   readyForms: ReadyFormsService;
   publicLink: PublicLinkService;
@@ -261,7 +264,14 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const nisab = o.nisab ?? new NisabService(prisma, audit, clock);
   const scoring = o.scoring ?? new ScoringService(clock, nisab);
   const workflow =
-    o.workflow ?? new WorkflowEngine(access, audit, clock, applicationEvents, scoring);
+    o.workflow ??
+    new WorkflowEngine(
+      access,
+      audit,
+      clock,
+      applicationEvents,
+      new WorkflowSideEffects(scoring, clock),
+    );
   const settings = o.settings ?? new SettingsService(prisma, audit);
   const registration =
     o.registration ??
@@ -412,6 +422,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       ),
     bulkReview:
       o.bulkReview ?? new BulkReviewService(prisma, access, audit, idempotency, workflow, logger),
+    waitlist: o.waitlist ?? new WaitlistService(prisma, access, idempotency, workflow),
     readyForms: o.readyForms ?? new ReadyFormsService(prisma, audit, projects, forms),
     publicLink: o.publicLink ?? new PublicLinkService(env, prisma, audit, projects),
     publicPhotos,

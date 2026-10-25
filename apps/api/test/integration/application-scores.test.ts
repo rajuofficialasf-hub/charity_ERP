@@ -364,7 +364,12 @@ describe('the score of an application', () => {
     const rpm = await as(world.users.rpmDhaka);
     await act(rpm, id, 'review');
     await act(rpm, id, 'send_for_approval');
-    await act(rpm, id, 'reject', { reason: 'যাচাই বাকি', message: 'পরে দেখা হবে' });
+    await act(rpm, id, 'reject', {
+      reason: 'যাচাই বাকি',
+      message: 'পরে দেখা হবে',
+      // lower-scored applications of the project are already approved, so this goes against the order
+      comment: 'যাচাই শেষ হয়নি',
+    });
     expect((await scoreRow(id)).total_score).toBe('60.00');
     // meanwhile the person is approved in an earlier project of the program
     const person = (

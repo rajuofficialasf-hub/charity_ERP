@@ -51,6 +51,7 @@ export const NOTIFICATION_CATALOGUE: Readonly<Record<string, CatalogueEntry>> = 
   application_reviewed: entry('work', { email: true }),
   application_approved: entry('info'),
   application_rejected: entry('info'),
+  application_waitlisted: entry('info'),
   application_reopened: entry('info'),
   ops_alert: { ...entry('alert'), countsEvents: true },
 };

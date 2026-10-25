@@ -1,7 +1,7 @@
 # construction.yaml - semi-pucca and tin house construction (blueprint A8.2, B5; BD-24, BD-25).
 # Status: written in task T0.11 (2026-10-10). Validated by schema.json.
 template: construction
-version: 2
+version: 3
 title_en: Construction
 title_bn: নির্মাণ
 extends: _common

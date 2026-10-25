@@ -16,7 +16,12 @@ export interface ApplicationEventTarget {
 }
 
 /** The keys whose readers are the people who brought the application, not the office. */
-const OWNER_KEYS = ['application_approved', 'application_rejected', 'application_reopened'];
+const OWNER_KEYS = [
+  'application_approved',
+  'application_rejected',
+  'application_reopened',
+  'application_waitlisted',
+];
 
 /**
  * The application events of the notification matrix (docs/architecture/NOTIFICATIONS.md,

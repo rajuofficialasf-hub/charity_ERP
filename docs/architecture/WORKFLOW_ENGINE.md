@@ -110,7 +110,7 @@ Transition fields: `from`, `to`, `permission` or `auto` + `trigger`, `guards[]`,
 
 ## 6. Guard catalogue (code)
 
-Each guard is one function in `apps/api/src/workflow/guards.ts` (`GUARDS`, by name; the engine in `engine.ts`, the registry of the loaded definitions in `registry.ts`, the effects in `effects.ts`). Templates reference guards by name only; the seed refuses a template naming a guard nobody built. A transition's `requires` (reason, message) is checked by the engine itself and refused with `workflow.reason_required` or `workflow.message_required`; a template's `overrides.approval` becomes the internal guard `approver.has_permission` on the moves of that permission. Built in T2.5: `project.active`, `project.not_closed`, `deadline.open`, `limit.not_exceeded`, `identity.present`, `mandatory_fields.present`, `beneficiary.not_blocked`, `volunteer.not_blocked`, `consent.accepted`, `actor.not_creator`, `approver.has_permission`; `score.comment_if_against_order` passes until T2.6 writes the score; `zakat.eligible_if_zakat_fund` refuses an approval on a zakat-funded project until the zakat decision exists (T4). The others wait for their modules, and the seed refuses a transition that reaches one.
+Each guard is one function in `apps/api/src/workflow/guards.ts` (`GUARDS`, by name; the engine in `engine.ts`, the registry of the loaded definitions in `registry.ts`, the effects in `effects.ts`). Templates reference guards by name only; the seed refuses a template naming a guard nobody built. A guard answers yes, no, or "only with a comment": the two comment guards never refuse a decision, they ask for one. The engine collects every comment the guards ask for and, when the move carries no `comment`, refuses it with 422 `workflow.comment_required` whose details name each reason (`against_score`, `quota_full`); the comment is stored as the decision comment and in the audit entry. A transition's `requires` (reason, message) is checked by the engine itself and refused with `workflow.reason_required` or `workflow.message_required`; a template's `overrides.approval` becomes the internal guard `approver.has_permission` on the moves of that permission. Built in T2.5: `project.active`, `project.not_closed`, `deadline.open`, `limit.not_exceeded`, `identity.present`, `mandatory_fields.present`, `beneficiary.not_blocked`, `volunteer.not_blocked`, `consent.accepted`, `actor.not_creator`, `approver.has_permission`; built in T2.6: `score.comment_if_against_order` and `quota.comment_if_full`; `zakat.eligible_if_zakat_fund` refuses an approval on a zakat-funded project until the zakat decision exists (T4). The others wait for their modules, and the seed refuses a transition that reaches one.
 
 | Guard | Holds when | Reads | Rules |
 |---|---|---|---|
@@ -126,7 +126,8 @@ Each guard is one function in `apps/api/src/workflow/guards.ts` (`GUARDS`, by na
 | volunteer.not_blocked | the acting volunteer is not blocked | blocklist | BR-047 |
 | actor.not_creator | the acting user neither created nor submitted the application (on approve, reject and the return from rejection; D-131, BR-269) | applications, audit_log | BR-269 |
 | consent.accepted | the volunteer accepted the project rules | project_volunteers.consent_at | BR-039 |
-| score.comment_if_against_order | a comment exists when the decision skips a higher-scored pending application in the same quota area | application_scores, project_quotas | BR-099 |
+| score.comment_if_against_order | asks for a comment when the decision goes against the score order inside the quota area (the union with union quotas, else the district with district quotas, else the project): approving while a higher-scored application waits in reviewed or waitlisted; pulling from the waitlist any but the next (highest score, then earliest waitlisted, a row another pull holds skipped); waitlisting or rejecting while a lower-scored one is approved. An application without a score goes against nothing but the waitlist's own order | applications.total_score, waitlisted_at, project_quotas | BR-099, BR-270 |
+| quota.comment_if_full | asks for a comment when an approval lands in a district or union quota whose approvals have reached the target; never refuses | project_quotas, applications.approved_at | BR-098 |
 | zakat.eligible_if_zakat_fund | if the project's fund source includes zakat, the Official দায়ী's zakat decision is "eligible" | fund_sources, answers | BR-133, BR-212 |
 | receipt.confirmed | the volunteer confirmed receipt for this application's goods | stock_movements | BR-107, BR-127 |
 | photos.required_per_rule | the photos the project's photo rule demands (one per beneficiary, or a group photo) are attached | project_components.settings, files | BR-066, BR-108 |
@@ -151,10 +152,10 @@ Transactional effects run inside the transition's database transaction; deferred
 | Effect | Kind | What it does | Rules |
 |---|---|---|---|
 | audit:`action` | transactional | Writes the audit entry with old/new state, actor, reason | BR-179 |
-| score.compute | transactional | Computes/recomputes the priority score | BR-097, O-21 |
-| score.snapshot | transactional | Freezes score and criteria at the decision | O-21 |
-| quota.increment / quota.decrement | transactional | Updates approved_count of the matching quota row | BR-098 |
-| waitlist.enqueue / waitlist.dequeue | transactional | Adds to or removes from the ordered waitlist | BR-100 |
+| score.compute | transactional | Computes/recomputes the priority score from the points of the form version (built T2.6); a decided application keeps its frozen score | BR-097, O-21 |
+| score.snapshot | transactional | Recomputes, then freezes the score and its items at the decision (built T2.6) | O-21 |
+| quota.increment / quota.decrement | transactional | Records nothing: a quota's received and approved counts are read live from the applications (T2.6), so the effect stays a pending note in the audit entry | BR-098 |
+| waitlist.enqueue / waitlist.dequeue | transactional | Stamps or clears `applications.waitlisted_at`; the waitlist order is the highest score, then the earliest stamp (built T2.6) | BR-100 |
 | ledger.post:`bucket` | transactional | Posts the ledger row for the bucket (approved, spent, beneficiary_support, advance, actual_expense, voucher_submitted, voucher_verified, returned, expense_claimed, expense_paid) | BR-128…132 |
 | lock:`fields` / lock:`vouchers` / lock:`photos` | transactional | Makes the named set read-only | BR-095, BR-122 |
 | unlock:field | transactional | Opens one field with a field_changes row | BR-095 |

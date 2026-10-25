@@ -606,6 +606,20 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
     ),
   },
   {
+    key: 'application_waitlisted',
+    variables: ['project_name'],
+    channels: inApp(
+      {
+        title: 'আবেদন অপেক্ষমাণ তালিকায়',
+        body: '"{{project_name}}" প্রকল্পে আপনার আবেদনটি এখন অপেক্ষমাণ তালিকায় আছে। সুযোগ এলে অফিস অনুমোদন দেবে, তখন জানানো হবে।',
+      },
+      {
+        title: 'Application on the waitlist',
+        body: 'Your application in the project "{{project_name}}" is now on the waitlist. When a place opens, the office will approve it and you will be told.',
+      },
+    ),
+  },
+  {
     key: 'application_reopened',
     variables: ['project_name'],
     channels: inApp(

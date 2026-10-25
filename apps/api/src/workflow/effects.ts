@@ -17,7 +17,8 @@ export interface EffectOutcome {
 }
 
 /** The effects that write rows of their own when they run. */
-export type SideEffect = 'score.compute' | 'score.snapshot';
+export type SideEffect =
+  'score.compute' | 'score.snapshot' | 'waitlist.enqueue' | 'waitlist.dequeue';
 
 /** The writers of the side effects, given to the engine by the container. */
 export interface SideEffectRunner {
@@ -55,7 +56,12 @@ export function readEffects(effects: readonly string[], events: ApplicationEvent
         break;
       case 'score.compute':
       case 'score.snapshot':
+      case 'waitlist.enqueue':
+      case 'waitlist.dequeue':
         out.run.push(key);
+        break;
+      case 'needs_verification.link':
+        // the person is bound or created by the application service's hook on the same move
         break;
       case 'quota.increment':
       case 'ledger.post:approved':

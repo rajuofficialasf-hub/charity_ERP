@@ -85,6 +85,8 @@ export const applicationView = applicationSummary.extend({
   ),
   familyDuplicateWarnings: z.array(familyWarning),
   availableActions: z.array(z.string()),
+  /** The comments the office's decisions would ask for now, by action; empty for a volunteer. */
+  decisionHints: z.record(z.string(), z.array(z.enum(['against_score', 'quota_full']))),
   /** The form version the answers belong to, as the caller's audience sees it. */
   form: versionView,
 });

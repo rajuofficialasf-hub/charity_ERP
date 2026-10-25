@@ -164,6 +164,7 @@ export class WorkflowEngine {
       { userId: principal.userId, kind: principal.kind, access },
       input,
       this.clock,
+      transition.to,
     );
     await this.runGuards(transition, ctx);
     const auditId = await this.apply(tx, principal, application, transition, action, input, hooks);
@@ -185,11 +186,21 @@ export class WorkflowEngine {
     const guards = [...(transition.guards ?? [])];
     if (ctx.application.project.approval && !guards.includes(APPROVER_GUARD))
       guards.push(APPROVER_GUARD);
+    const asked: string[] = [];
     for (const name of guards) {
       if (!isBuiltGuard(name)) throw new ApiError('workflow.guard_not_built', 409);
-      if (!(await GUARDS[name](ctx)))
-        throw new ApiError(`workflow.guard.${name.replace(/\./g, '_')}`, 409);
+      const result = await GUARDS[name](ctx);
+      if (result === false) throw new ApiError(`workflow.guard.${name.replace(/\./g, '_')}`, 409);
+      if (result !== true) asked.push(result.comment);
     }
+    // a decision that asks for a comment goes on with one, and names why it asks without
+    if (asked.length && !ctx.input.comment?.trim())
+      throw new ApiError(
+        'workflow.comment_required',
+        422,
+        undefined,
+        asked.map((reason) => ({ path: reason, code: 'workflow.comment_required' })),
+      );
   }
 
   /** Writes the new state with its stamps and texts, then the audit entry, then the messages. */

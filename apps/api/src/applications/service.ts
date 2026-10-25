@@ -45,6 +45,7 @@ import { type FormAudience, readDefinition, versionView } from '../services/form
 import { isAddressChain } from '../services/locations';
 import type { NisabService } from '../services/nisab';
 import type { ScoringService } from './scoring';
+import { type CommentReason, commentReasons } from './decision-rules';
 import type { Replayable } from '../services/uploads';
 import type { WorkflowEngine } from '../workflow/engine';
 import { type EngineApplication, GuardContext, GUARDS } from '../workflow/guards';
@@ -117,6 +118,8 @@ const SCORE_SORT = [
   { field: 'totalScore', direction: 'desc' as const },
   { field: 'id', direction: 'desc' as const },
 ];
+/** The decisions whose comment the review screen asks for before it sends. */
+const DECISIONS = ['approve', 'waitlist', 'reject', 'pull_from_waitlist'] as const;
 /** The states whose answers can still change the score; a decision freezes it. */
 const SCORED_WHILE = ['submitted', 'under_review'];
 /** The states a list leaves out unless asked for by name. */
@@ -989,9 +992,10 @@ export class ApplicationsService {
       { userId: principal.userId, kind: principal.kind, access },
       {},
       this.clock,
+      'draft',
     );
     for (const name of CREATE_GUARDS)
-      if (!(await GUARDS[name](ctx)))
+      if ((await GUARDS[name](ctx)) !== true)
         throw new ApiError(`workflow.guard.${name.replace(/\./g, '_')}`, 409);
   }
 
@@ -1136,10 +1140,33 @@ export class ApplicationsService {
           : null,
         familyDuplicateWarnings: warnings,
         availableActions,
+        decisionHints:
+          audience === 'official' ? await this.decisionHints(applicationId, availableActions) : {},
         form: versionView(version, definition),
       },
       updatedAt: row.updatedAt,
     };
+  }
+
+  /**
+   * The comments each decision the caller may take now would ask for (a decision against the
+   * score order, an approval in a full quota area), so the review screen asks before it sends.
+   */
+  private async decisionHints(
+    applicationId: string,
+    actions: readonly string[],
+  ): Promise<Record<string, CommentReason[]>> {
+    const hints: Record<string, CommentReason[]> = {};
+    for (const action of DECISIONS)
+      if (actions.includes(action)) {
+        const reasons = await commentReasons(
+          this.prisma,
+          applicationId,
+          APPLICATION_ACTIONS[action].to,
+        );
+        if (reasons.length) hints[action] = reasons;
+      }
+    return hints;
   }
 
   /**

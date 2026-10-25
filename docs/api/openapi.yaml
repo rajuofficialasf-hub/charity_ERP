@@ -3102,6 +3102,12 @@ components:
                     type: array
                     items: { type: string, enum: [mobile, union_village_father] }
             availableActions: { type: array, items: { type: string }, description: Actions the caller may perform now }
+            decisionHints:
+              type: object
+              description: 'For the office, the comments each decision would ask for now, by action (D-132): against_score when it goes against the score order of the quota area, quota_full when the area''s quota is full; empty for a volunteer and when nothing would be asked'
+              additionalProperties:
+                type: array
+                items: { type: string, enum: [against_score, quota_full] }
             form: { $ref: '#/components/schemas/FormVersion', description: The form version the answers belong to, as the caller's audience sees it }
     ApplicationResponse:
       type: object
@@ -8244,6 +8250,56 @@ paths:
               schema: { $ref: '#/components/schemas/BulkResponse' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /projects/{projectId}/waitlist/pull-next:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    post:
+      tags: [applications]
+      operationId: applications.waitlist.pullNext
+      summary: 'Pull the next waitlisted application of a quota area into approved: the highest score, then the earliest waitlisted'
+      description: >-
+        "পরেরজনকে আনুন" (BD-17, D-132). The area is a union or a district as the project's quotas
+        define its areas, and none for a project without quotas (422 otherwise). A row another pull
+        holds is skipped, so two pulls at once take two different people. The move goes through the
+        engine: an approval into a full quota area asks for a comment (422 workflow.comment_required).
+        Nobody waiting answers 409 workflow.waitlist_empty; a project out of reach 404.
+      x-permission: application.waitlist
+      x-scope: application
+      x-audit: application.pull_from_waitlist
+      x-idempotency: header
+      x-rate-limit: sync
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                areaId: { $ref: '#/components/schemas/Uuid' }
+                comment: { type: string, maxLength: 2000 }
+      responses:
+        '200':
+          description: The application pulled
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: object
+                    required: [id, appNo]
+                    properties:
+                      id: { $ref: '#/components/schemas/Uuid' }
+                      appNo: { type: [string, 'null'] }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /applications/{applicationId}/timeline:
     parameters:

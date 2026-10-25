@@ -24,21 +24,32 @@ describe('the action table', () => {
     }
   });
 
-  it('holds the return of a rejected application and marks the later actions', () => {
+  it('holds the return of a rejected application, the waitlist, the pull and both verifications', () => {
     expect(APPLICATION_ACTIONS.return_to_review).toMatchObject({
       from: ['rejected'],
       to: 'reviewed',
     });
-    expect(APPLICATION_ACTIONS.waitlist.later).toBe(true);
-    expect(APPLICATION_ACTIONS.pull_from_waitlist.later).toBe(true);
-    expect(APPLICATION_ACTIONS.verify_link.later).toBe(true);
+    expect(APPLICATION_ACTIONS.waitlist).toEqual({
+      from: ['reviewed'],
+      to: 'waitlisted',
+      texts: 'reason',
+    });
+    expect(APPLICATION_ACTIONS.pull_from_waitlist).toEqual({
+      from: ['waitlisted'],
+      to: 'approved',
+      texts: 'none',
+    });
+    // both verifications make the same move; the service tells a link from a new profile
+    expect(APPLICATION_ACTIONS.verify_link.to).toBe('submitted');
+    expect(APPLICATION_ACTIONS.verify_create.to).toBe('submitted');
+    expect(Object.values(APPLICATION_ACTIONS).some((a) => 'later' in a)).toBe(false);
     expect(APPLICATION_ACTIONS.reject.texts).toBe('reason_and_message');
   });
 });
 
-describe('the templates at version 2', () => {
-  it('are all at version 2 and name only built or declared guards, effects and permissions', () => {
-    for (const d of definitions) expect(d.version, d.template).toBe(2);
+describe('the templates at version 3', () => {
+  it('are all at version 3 and name only built or declared guards, effects and permissions', () => {
+    for (const d of definitions) expect(d.version, d.template).toBe(3);
     const permissions = loadAccessRegistry();
     expect(() =>
       assertWorkflowNamesKnown(definitions, permissions.isKnownPermission),
@@ -60,8 +71,16 @@ describe('the templates at version 2', () => {
     }
   });
 
-  it('name no transition of this task that reaches a declared guard', () => {
-    const inScope = ['submitted', 'under_review', 'reviewed', 'approved', 'rejected', 'deleted'];
+  it('name no transition of the review cycle that reaches a declared guard', () => {
+    const inScope = [
+      'submitted',
+      'under_review',
+      'reviewed',
+      'waitlisted',
+      'approved',
+      'rejected',
+      'deleted',
+    ];
     for (const t of common.transitions ?? []) {
       if (!inScope.includes(t.to) || t.auto) continue;
       for (const g of t.guards ?? []) expect(isBuiltGuard(g), `${t.to}: ${g}`).toBe(true);

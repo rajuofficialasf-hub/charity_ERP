@@ -90,7 +90,7 @@
   "workflow": {
     "transition_not_allowed": "This action is not possible in the current state.",
     "reason_required": "Write a reason.",
-    "comment_required": "Write a comment for a decision against the score order.",
+    "comment_required": "Write a comment for this decision: it goes against the score order, or the area's quota is full.",
     "guard": {
       "project_active": "The project is not active.",
       "project_not_closed": "The project is closed.",
@@ -126,7 +126,8 @@
     "action_not_built": "This action is not available yet.",
     "effect_not_built": "A result of this step is not built yet, so the step cannot run now.",
     "guard_not_built": "A condition of this step is not built yet, so the step cannot run now.",
-    "message_required": "Write the message for the volunteer."
+    "message_required": "Write the message for the volunteer.",
+    "waitlist_empty": "Nobody is on this area's waitlist now."
   },
   "conflict": {
     "stale_version": "Someone else changed this record. Reload to see the latest version.",

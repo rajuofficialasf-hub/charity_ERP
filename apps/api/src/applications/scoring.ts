@@ -2,7 +2,7 @@ import { scoreCriteriaSchema, uuidv7 } from '@css/shared';
 import { scoreOf } from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
 import type { Clock } from '../core/clock';
-import type { SideEffect, SideEffectRunner } from '../workflow/effects';
+import type { SideEffect } from '../workflow/effects';
 import type { Tx } from '../core/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
 import type { NisabService } from '../services/nisab';
@@ -18,7 +18,7 @@ import { nisabOption, readAnswers } from './answers';
 /** The states of a standing decision, in which a frozen score stays as it was. */
 const DECIDED = ['approved', 'implementation', 'completed', 'closed', 'rejected', 'waitlisted'];
 
-export class ScoringService implements SideEffectRunner {
+export class ScoringService {
   constructor(
     private readonly clock: Clock,
     private readonly nisab: NisabService,
@@ -96,7 +96,12 @@ export class ScoringService implements SideEffectRunner {
   }
 
   /** The engine's score effects: computed when the application reaches the office, frozen at a decision. */
-  async run(tx: Tx, effect: SideEffect, applicationId: string, actor: string): Promise<void> {
+  async run(
+    tx: Tx,
+    effect: Extract<SideEffect, 'score.compute' | 'score.snapshot'>,
+    applicationId: string,
+    actor: string,
+  ): Promise<void> {
     if (effect === 'score.compute') await this.compute(tx, applicationId, actor);
     else await this.snapshot(tx, applicationId, actor);
   }

@@ -30,6 +30,7 @@ import { ok, page } from '../http/send';
 import { defineRoute, type RouteDeps } from '../openapi/define-route';
 import type { Replayable } from '../services/uploads';
 import { versionView } from './forms';
+import { type PullNext, pullNextSchema } from '../applications/waitlist';
 
 const uuid = z.uuid();
 const ifMatch = [{ name: 'If-Match', required: true }];
@@ -49,7 +50,7 @@ const viewerOf = (req: AuthedRequest) => ({
  */
 export function applicationsRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'applications' | 'bulkReview' | 'idempotency'>,
+  c: Pick<Container, 'applications' | 'bulkReview' | 'idempotency' | 'waitlist'>,
 ): Router {
   const router = Router();
   const op = { tag: 'applications', idempotency: 'none' as const, rateLimit: 'default' as const };
@@ -304,6 +305,40 @@ export function applicationsRouter(
       );
       if (outcome.replay) c.idempotency.markReplay(res);
       return ok({ results: outcome.results });
+    },
+  });
+
+  defineRoute<PullNext, unknown, { projectId: string }>(router, deps, {
+    ...op,
+    method: 'post',
+    path: '/projects/:projectId/waitlist/pull-next',
+    operationId: 'applications.waitlist.pullNext',
+    summary:
+      'Pull the next waitlisted application of a quota area into approved: the highest score, then the earliest waitlisted',
+    permission: 'application.waitlist',
+    scope: 'application',
+    audit: 'application.pull_from_waitlist',
+    idempotency: 'header',
+    rateLimit: 'sync',
+    headers: [{ name: 'Idempotency-Key', required: true }],
+    params: { projectId: uuid },
+    body: pullNextSchema,
+    responses: {
+      200: z.object({ id: uuid, appNo: z.string().nullable() }),
+      403: null,
+      404: null,
+      409: null,
+      422: null,
+    },
+    handler: async ({ params, body, req, res }) => {
+      const outcome = await c.waitlist.pullNext(
+        principalOf(req),
+        params.projectId,
+        req.get('idempotency-key'),
+        body,
+      );
+      if (outcome.replay) c.idempotency.markReplay(res);
+      return ok(outcome.pulled);
     },
   });
 

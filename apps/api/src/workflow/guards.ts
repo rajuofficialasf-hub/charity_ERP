@@ -7,6 +7,7 @@ import type { Tx } from '../core/prisma.service';
 import { readDefinition } from '../services/forms';
 import type { BuiltGuard } from './registry';
 import { NOT_COUNTED_STATES } from '../applications/limit';
+import { againstScore, type CommentReason, quotaFull } from '../applications/decision-rules';
 
 /** The application a transition is about, with what the guards read of its project. */
 export interface EngineApplication {
@@ -51,6 +52,8 @@ export class GuardContext {
     readonly actor: { userId: string; kind: string; access: EffectiveAccess },
     readonly input: GuardInput,
     readonly clock: Clock,
+    /** The state the move reaches. */
+    readonly to: string,
   ) {}
 
   definition(): Promise<FormDefinition> {
@@ -95,7 +98,12 @@ export class GuardContext {
   }
 }
 
-export type Guard = (ctx: GuardContext) => Promise<boolean>;
+/**
+ * What a guard answers: the move may go on (`true`), is refused (`false`), or may go on only with
+ * a comment that says why (a decision against the score order, an approval in a full quota).
+ */
+export type GuardResult = boolean | { comment: CommentReason };
+export type Guard = (ctx: GuardContext) => Promise<GuardResult>;
 
 const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 const IDENTITY_NUMBER = /^(\d{10}|\d{13}|\d{17})$/;
@@ -203,8 +211,14 @@ export const GUARDS: Record<BuiltGuard, Guard> = {
           g.source === 'project_grant'),
     );
   },
-  // the score order exists once a project has scoring criteria; until then no order is skipped
-  'score.comment_if_against_order': async () => true,
+  // a decision against the score order inside the quota area asks for a comment; it is never refused
+  'score.comment_if_against_order': async (ctx) =>
+    (await againstScore(ctx.tx, ctx.application.id, ctx.to)) ? { comment: 'against_score' } : true,
+  // an approval in a full quota area asks for a comment; a quota never refuses a decision
+  'quota.comment_if_full': async (ctx) =>
+    ctx.to === 'approved' && (await quotaFull(ctx.tx, ctx.application.id))
+      ? { comment: 'quota_full' }
+      : true,
   'zakat.eligible_if_zakat_fund': async (ctx) => {
     const zakat = await ctx.tx.fundSource.count({
       where: { projectId: ctx.application.projectId, source: 'zakat' },
