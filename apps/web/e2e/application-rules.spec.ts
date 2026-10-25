@@ -272,7 +272,7 @@ test.describe('the application rules', () => {
       const rows = desk.getByRole('grid').getByRole('row');
       // the first row after the header holds the higher score
       await expect(rows.nth(1)).toContainText(higher);
-      await expect(rows.nth(1)).toContainText('20');
+      await expect(rows.nth(1).getByText('20', { exact: true })).toBeVisible();
       await noViolations(desk, 'the list by score');
 
       // approving the lower score first asks why

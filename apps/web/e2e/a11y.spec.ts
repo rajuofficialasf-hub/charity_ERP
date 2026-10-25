@@ -144,7 +144,9 @@ test.describe('accessibility of the Phase 1 screens', () => {
       test.setTimeout(300_000);
       const projectId = await projectWithVolunteer(browser, request);
       const found = await (await apiAs(request, HEAD)).get(`/volunteers?q=${VOLUNTEER}`);
+      expect(found.ok(), await found.text()).toBe(true);
       const [volunteer] = ((await found.json()) as { data: { id: string }[] }).data;
+      expect(volunteer, 'the demo volunteer').toBeDefined();
       await signInAs(page, HEAD, lang);
       for (const path of [
         '/',
