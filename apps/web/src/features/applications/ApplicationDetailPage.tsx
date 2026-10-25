@@ -31,7 +31,7 @@ import { toneOf } from './status';
 import './applications.css';
 
 /**
- * One of the volunteer's applications (docs/ui/SCREENS.md, SCR-032): the number and the state,
+ * One of the volunteer's applications (docs/ui/SCREENS.md, "My applications and application detail"): the number and the state,
  * the answers without the office's section, the photos, the steps without the office's names,
  * the message the office wrote at a rejection, and what the person may do now: edit or send a
  * draft, delete one not yet reviewed.

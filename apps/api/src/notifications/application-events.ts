@@ -85,7 +85,9 @@ export class ApplicationEvents {
       params: {
         project_name: { bn: project.nameBn, en: project.nameEn },
         projectId: target.projectId,
-        applicationId: target.id,
+        // the office's entry collapses several submissions, so it links to the project's list;
+        // the owner's entry is about one application
+        ...(OWNER_KEYS.includes(key) ? { applicationId: target.id } : {}),
         ...(target.message ? { message: target.message } : {}),
       },
       // one entry per volunteer per hour for the office keys; one per application for the rest

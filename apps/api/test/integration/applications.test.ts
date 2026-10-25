@@ -469,6 +469,13 @@ describe('the form and the own list', () => {
       ),
     ).toBe(true);
     expect(mine.body.data[0]).toHaveProperty('etag');
+    // an official's "own" list holds what they created, not the region's applications
+    const rpm = await as(world.users.rpmDhaka);
+    const theirs = await at(rpm, 'get', '/me/applications');
+    expect(theirs.status).toBe(200);
+    expect(
+      (theirs.body.data as { createdByUserId?: string; id: string }[]).map((r) => r.id),
+    ).not.toContain(made.body.data.id);
   });
 });
 

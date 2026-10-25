@@ -4,10 +4,19 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// the chunked upload is its own module with its own tests; here it answers a stored file
+vi.mock('../../lib/uploads', () => ({
+  uploadFile: vi.fn(async () => ({
+    id: '01900000-0000-7000-8000-0000000000f1',
+    kind: 'form_photo',
+  })),
+}));
 import { apiError, ME, refreshAs, renderApp } from '../../../test/auth';
 import { definition, field, section } from '../../../test/forms';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
+import { uploadFile } from '../../lib/uploads';
 import { ApplicationDetailPage } from './ApplicationDetailPage';
 import { ApplicationFormPage } from './ApplicationFormPage';
 import { MyApplicationsPage } from './MyApplicationsPage';
@@ -83,7 +92,10 @@ const form = {
   status: 'published',
   publishedAt: '2026-10-01T00:00:00Z',
   ...definition(
-    section('note', [field('note', 'long_text', { label: { bn: 'মন্তব্য', en: 'Note' } })]),
+    section('note', [
+      field('note', 'long_text', { label: { bn: 'মন্তব্য', en: 'Note' } }),
+      field('house_photo', 'photo', { label: { bn: 'ঘরের ছবি', en: 'House photo' } }),
+    ]),
   ),
 };
 const envelope = (data: unknown, etag = '"v1"') =>
@@ -218,6 +230,20 @@ describe('the new application', () => {
     await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
     await waitFor(() => expect(patched).toHaveLength(1));
     await user.type(await screen.findByRole('textbox', { name: /মন্তব্য/ }), 'শীতের কাপড় দরকার');
+    // a photo goes up as part of the saved draft, under an id of its own that a retry reuses
+    const [input] = await screen.findAllByLabelText('গ্যালারি থেকে নিন');
+    await user.upload(input!, new File(['jpeg'], 'house.jpg', { type: 'image/jpeg' }));
+    await waitFor(() => expect(vi.mocked(uploadFile)).toHaveBeenCalledTimes(1));
+    const [, target, options] = vi.mocked(uploadFile).mock.calls[0]!;
+    expect(target).toMatchObject({
+      kind: 'form_photo',
+      entityType: 'application',
+      entityId: APP,
+      slot: 'house_photo',
+    });
+    expect(options.clientUuid).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
     await user.click(screen.getByRole('button', { name: 'অফিসে পাঠান' }));
     expect(await screen.findByText('আবেদন পাঠানো হয়েছে')).toBeInTheDocument();
     expect(

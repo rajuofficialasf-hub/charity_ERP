@@ -1,6 +1,6 @@
 import type { BadgeTone } from '@css/ui';
 
-/** The tabs of "আমার আবেদন" and the states each one holds (docs/ui/SCREENS.md, SCR-032). */
+/** The tabs of "আমার আবেদন" and the states each one holds (docs/ui/SCREENS.md, "My applications and application detail"). */
 export const TABS = {
   draft: ['draft'],
   pending: ['submitted', 'under_review', 'reviewed', 'waitlisted', 'needs_verification'],

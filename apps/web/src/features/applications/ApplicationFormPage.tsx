@@ -6,6 +6,7 @@ import { type Locale, localized } from '@css/shared/i18n';
 import { Alert, Button, Card, ErrorState, Skeleton, Stack, Text } from '@css/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useRef, useState } from 'react';
+import { uuidv7 } from '@css/shared';
 import { Link, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import type { LookupResult } from '../../admin/beneficiaries/beneficiaries-api';
@@ -44,7 +45,7 @@ type Person =
   { kind: 'known'; number: string; result: LookupResult } | { kind: 'new'; number: string };
 
 /**
- * A new application on a phone (docs/ui/SCREENS.md, SCR-031): the person first, by NID or birth
+ * A new application on a phone (docs/ui/SCREENS.md, "New application with NID lookup"): the person first, by NID or birth
  * registration; a known person's identity fills in and locks; then the project's form part by
  * part, the draft saved as each part is done (so photos can join it), and "অফিসে পাঠান" at the
  * end, which answers with the number. A team member keeps the draft for the main volunteer.
@@ -228,6 +229,8 @@ function ApplicationForm({
   const [saved, setSaved] = useState(false);
   // the draft on the server, once the first part is done; the version for the next write
   const draft = useRef<{ id: string; etag: string } | null>(existing ?? null);
+  // one upload id per question's file, kept across a retry so the same session resumes
+  const uploadIds = useRef(new Map<string, string>());
   const teamMember = me.roles.includes(TEAM_MEMBER);
 
   /** Creates the draft the first time, patches it after; answers the record and its version. */
@@ -239,6 +242,7 @@ function ApplicationForm({
       draft.current = { id: result.data.id, etag: result.meta.etag ?? '' };
       setServerErrors({});
       setSaved(true);
+      await queryClient.invalidateQueries({ queryKey: MY_APPLICATIONS_KEY });
       return result.data;
     } catch (error) {
       if (error instanceof ApiFailure && error.status === 422 && error.details.length) {
@@ -279,8 +283,11 @@ function ApplicationForm({
     () => ({
       accept: PHOTO_TYPES,
       maxSize: PHOTO_MAX_BYTES,
-      upload: async (file, fieldKey, clientUuid) => {
+      upload: async (file, fieldKey) => {
         if (!draft.current) throw new Error(t('save_first'));
+        const key = `${fieldKey}:${file.name}:${file.size}:${file.lastModified}`;
+        const clientUuid = uploadIds.current.get(key) ?? uuidv7();
+        uploadIds.current.set(key, clientUuid);
         const stored = await uploadFile(
           await compressImage(file),
           {
@@ -290,7 +297,7 @@ function ApplicationForm({
             slot: fieldKey,
             source: 'gallery',
           },
-          { clientUuid: `${clientUuid.slice(0, 24)}${fieldKey.slice(0, 12)}`.padEnd(36, '0') },
+          { clientUuid },
         );
         return { fileId: stored.id };
       },

@@ -566,9 +566,18 @@ export class ApplicationsService {
     return this.page(viewer, `applications.list|${actor}|${projectId}`, { projectId }, query);
   }
 
-  /** The caller's own applications across their projects (a volunteer's "my applications"). */
+  /**
+   * The caller's own applications across their projects (a volunteer's "my applications"): the
+   * ones their volunteer owns and the ones they created, whatever else their scope reaches.
+   */
   async listMine(viewer: ApplicationViewer, query: ApplicationFilter & PageQuery) {
-    return this.page(viewer, `applications.mine|${viewer.principal.userId}`, {}, query);
+    const userId = viewer.principal.userId;
+    return this.page(
+      viewer,
+      `applications.mine|${userId}`,
+      { OR: [{ ownerVolunteer: { userId } }, { createdByUserId: userId }] },
+      query,
+    );
   }
 
   private async page(

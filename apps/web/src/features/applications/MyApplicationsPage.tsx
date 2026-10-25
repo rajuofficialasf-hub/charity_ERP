@@ -16,7 +16,7 @@ import './applications.css';
 const TAB_IDS = Object.keys(TABS) as Tab[];
 
 /**
- * The volunteer's own applications by state (docs/ui/SCREENS.md, SCR-032): drafts, the ones
+ * The volunteer's own applications by state (docs/ui/SCREENS.md, "My applications and application detail"): drafts, the ones
  * waiting at the office, the approved and the refused; each card opens the record.
  */
 export function MyApplicationsPage() {

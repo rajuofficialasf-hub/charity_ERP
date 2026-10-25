@@ -3,6 +3,7 @@ import { formatDate } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import type { Answer, FormDefinition, FormField } from '@css/shared/forms';
 import { DescriptionList, Stack, Text } from '@css/ui';
+import type { ReactNode } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { AddressNames } from '../../components/AddressNames';
 import { FileImage } from '../../components/FileImage';
@@ -59,15 +60,24 @@ export function AnswerList({ form, answers }: { form: FormDefinition; answers: A
   const tr = useTranslations('forms.renderer');
   const locale = useLocale() as Locale;
   const byKey = new Map(answers.map((a) => [`${a.fieldKey}#${a.repeatIndex ?? 0}`, a.value]));
+  type Item =
+    | { kind: 'text'; label: string; text: ReactNode }
+    | { kind: 'photos'; key: string; label: string; ids: string[] };
   const sections = form.sections
     .map((section) => ({
       section,
-      items: section.fields.flatMap((field) => {
+      items: section.fields.flatMap((field): Item[] => {
         const value = byKey.get(`${field.fieldKey}#0`);
         if (!value || field.type === 'note' || field.type === 'repeat_group') return [];
+        const label = field.label[locale];
+        if (
+          'v' in value &&
+          Array.isArray(value.v) &&
+          (value.t === 'photo' || value.t === 'file' || value.t === 'signature')
+        )
+          return [{ kind: 'photos', key: field.fieldKey, label, ids: value.v }];
         const text = shown(field, value, locale, tr('yes'), tr('no'));
-        if (text === null && !('v' in value && Array.isArray(value.v))) return [];
-        return [{ field, value, text }];
+        return text === null ? [] : [{ kind: 'text', label, text }];
       }),
     }))
     .filter((s) => s.items.length);
@@ -81,17 +91,17 @@ export function AnswerList({ form, answers }: { form: FormDefinition; answers: A
           </Text>
           <DescriptionList
             labelWidth="md"
-            items={items
-              .filter((i) => i.text !== null)
-              .map((i) => ({ label: i.field.label[locale], value: i.text }))}
+            items={items.flatMap((i) =>
+              i.kind === 'text' ? [{ label: i.label, value: i.text }] : [],
+            )}
           />
           {items
-            .filter((i) => i.text === null && 'v' in i.value && Array.isArray(i.value.v))
+            .flatMap((i) => (i.kind === 'photos' ? [i] : []))
             .map((i) => (
-              <Stack key={i.field.fieldKey} gap={1}>
-                <Text weight="bold">{i.field.label[locale]}</Text>
+              <Stack key={i.key} gap={1}>
+                <Text weight="bold">{i.label}</Text>
                 <div className="my-application-photos">
-                  {(i.value as { v: string[] }).v.map((fileId) => (
+                  {i.ids.map((fileId) => (
                     <FileImage key={fileId} fileId={fileId} alt={t('photo_alt')} />
                   ))}
                 </div>
