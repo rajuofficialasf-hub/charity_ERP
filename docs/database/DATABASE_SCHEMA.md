@@ -568,6 +568,7 @@ Constraints: UNIQUE (project_id, key); UNIQUE (key) WHERE project_id IS NULL (`f
 | status | text | no | 'draft' | L-form-version-status |
 | published_at | timestamptz | yes | — | immutable after publish (BR-077) |
 | published_by | uuid | yes | — | FK users |
+| scoring | jsonb | yes | — | the form-level points of the priority score (`{ "not_previously_assisted": 0–100 }`, D-132), written with the definition's rows and copied with them; the points of each question sit in `form_fields.settings.score` (`docs/database/json-schemas/form-field-logic.schema.json`) |
 | [A] | | | | |
 
 Constraints: UNIQUE (form_id, version_no); partial UNIQUE (form_id) WHERE status = 'published' (one current version); partial UNIQUE (form_id) WHERE status = 'draft' (one open draft, T2.3). A trigger refuses changes to sections, fields and options of a non-draft version, and the trigger `guard_form_version_status` lets a version row move only draft → published (with `published_at` and `published_by`) → retired, nothing else changing on a non-draft row (T2.3, `20261021140000_form_version_rules`).
@@ -942,6 +943,8 @@ Indexes: (assignee_user_id, project_id) WHERE active_to IS NULL; (target_type, t
 | stage | text | yes | — | template stage key (validated by the engine) |
 | outcome | text | yes | — | template outcome code |
 | flags | text[] | no | '{}' | needs-verification reasons: existing_identity, late_sync, stale_form_version, public_entry, identity_blocked, identity_repeated (the last two set by the public link, O-08) |
+| total_score | numeric(5,2) | yes | — | CHECK 0–100; the priority score beside its breakdown in application_scores, so the office's list pages by score (index `(project_id, total_score DESC, id DESC)`); null for a form without points or before the application reaches the office (D-132) |
+| waitlisted_at | timestamptz | yes | — | when the application entered the waitlist; the pull takes the highest score, then the earliest (partial index on waitlisted rows) |
 | region_location_id | uuid | no | — | FK locations (division of the beneficiary address, for scope filters) |
 | district_id | uuid | no | — | FK locations (for district split and quotas) |
 | union_id | uuid | no | — | FK locations (union quotas) |

@@ -10,6 +10,8 @@ import {
   type FormCreate,
   type FormDefinition,
   type FormKind,
+  type FormScoring,
+  formScoringSchema,
   type FormFieldDefinition,
   formDefinitionSchema,
   type FormSectionDefinition,
@@ -23,7 +25,7 @@ import type { AccessService } from '../access/service';
 import type { AuditWriter } from '../audit/audit-writer';
 import { assertIfMatch } from '../core/etag';
 import type { PrismaService, Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
+import { Prisma } from '../generated/prisma/client';
 import { isUniqueViolation } from '../core/db-errors';
 import { ApiError, type ApiErrorDetail } from '../i18n/api-error';
 import { fieldTypeOf, type FormLibraryService, visibilityOf } from './form-library';
@@ -706,7 +708,18 @@ export async function readDefinition(
         })),
       })),
     })),
+    ...(audience === 'official' ? await scoringOf(db, versionId) : {}),
   };
+}
+
+/** The form-level points of a version, when it has any. */
+async function scoringOf(db: Tx, versionId: string): Promise<{ scoring?: FormScoring }> {
+  const row = await db.formVersion.findUnique({
+    where: { id: versionId },
+    select: { scoring: true },
+  });
+  if (row?.scoring === null || row?.scoring === undefined) return {};
+  return { scoring: formScoringSchema.parse(row.scoring) };
 }
 
 /** Writes a definition's sections, fields and options as the rows of a draft version. */
@@ -721,6 +734,11 @@ export async function writeDefinitionRows(
     libraryIds(tx, 'section'),
     libraryIds(tx, 'field'),
   ]);
+  // the form-level points travel with the questions, through every copy of a definition
+  await tx.formVersion.update({
+    where: { id: versionId },
+    data: { scoring: definition.scoring ? json(definition.scoring) : Prisma.DbNull },
+  });
   let sectionOrder = 0;
   for (const section of definition.sections) {
     sectionOrder += 1;

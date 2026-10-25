@@ -54,6 +54,7 @@ import { RecipientResolver } from './notifications/recipients';
 import { AuditLogService } from './services/audit-log';
 import { ChannelsService } from './services/channels';
 import { NisabService } from './services/nisab';
+import { ScoringService } from './applications/scoring';
 import { ProgramsService } from './services/programs';
 import { ReferenceListsService } from './services/reference-lists';
 import { SessionMonitorService } from './services/session-monitor';
@@ -151,6 +152,7 @@ export interface Container {
   formLibrary: FormLibraryService;
   forms: FormsService;
   workflow: WorkflowEngine;
+  scoring: ScoringService;
   applications: ApplicationsService;
   bulkReview: BulkReviewService;
   applicationEvents: ApplicationEvents;
@@ -254,7 +256,10 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const formLibrary =
     o.formLibrary ?? new FormLibraryService(prisma, referenceLists, readDefinition);
   const forms = o.forms ?? new FormsService(prisma, audit, access, projects, formLibrary);
-  const workflow = o.workflow ?? new WorkflowEngine(access, audit, clock, applicationEvents);
+  const nisab = o.nisab ?? new NisabService(prisma, audit, clock);
+  const scoring = o.scoring ?? new ScoringService(clock, nisab);
+  const workflow =
+    o.workflow ?? new WorkflowEngine(access, audit, clock, applicationEvents, scoring);
   const settings = o.settings ?? new SettingsService(prisma, audit);
   const registration =
     o.registration ??
@@ -275,7 +280,6 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       beneficiaryIdentity,
       beneficiaryMergeCandidates,
     );
-  const nisab = o.nisab ?? new NisabService(prisma, audit, clock);
   const publicPhotos =
     o.publicPhotos ?? new PublicPhotosService(prisma, storage, audit, jobs, logger, clock);
   const built = {
@@ -387,6 +391,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     formLibrary,
     forms,
     workflow,
+    scoring,
     applicationEvents,
     applications:
       o.applications ??
@@ -401,6 +406,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         nisab,
         workflow,
         new SubmissionWriter(access, beneficiaryIdentity, beneficiaryContact, audit),
+        scoring,
       ),
     bulkReview:
       o.bulkReview ?? new BulkReviewService(prisma, access, audit, idempotency, workflow, logger),

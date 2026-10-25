@@ -62,6 +62,21 @@ export const applicationView = applicationSummary.extend({
   reviewedAt: z.string().nullable(),
   approvedAt: z.string().nullable(),
   decisionComment: sensitive(z.string().nullable(), OFFICIAL_SECTION),
+  /** The priority score's breakdown, frozen with the score at the decision. */
+  scoreItems: sensitive(
+    z
+      .array(
+        z.object({
+          key: z.string(),
+          label: z.object({ bn: z.string(), en: z.string() }).optional(),
+          input: z.unknown(),
+          max_points: z.number(),
+          points: z.number(),
+        }),
+      )
+      .nullable(),
+    OFFICIAL_SECTION,
+  ),
   zakat: sensitive(
     z
       .object({ nisabValue: z.string(), decision: z.enum(['eligible', 'not_eligible']).nullable() })

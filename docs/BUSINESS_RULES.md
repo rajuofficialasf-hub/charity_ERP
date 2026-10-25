@@ -598,6 +598,10 @@ Every rule above starts with test status "not yet". When a test exists, record i
 - BR-270: deferred to T2.6 (the quotas and their comment rule are built in this task's later units; the test lands with them)
 - BR-272: deferred to T2.6 (the transfer is built in this task's later units; the test lands with it)
 - BR-097: packages/shared/src/forms/score.test.ts::gives a choice its option points, a multiple choice the sum of the chosen; gives a number the points of the first range it falls in, open ends included; adds "not previously assisted" only when the person was not assisted before; never goes above 100, and gives no score to a form without points; refuses points on a text question, an unknown option and a total above 100 — passing (2026-10-25; the computation on the application follows in this task)
+- BR-097 (on the application, T2.6): apps/api/test/integration/application-scores.test.ts::is computed at submission, follows an edit under review and freezes at the approval; keeps the form-level points with the placed version — passing (2026-10-25)
+- BR-100 (not previously assisted, T2.6): apps/api/test/integration/application-scores.test.ts::drops "not previously assisted" after an approval in the same program, and keeps it after one in another — passing (2026-10-25; the pull follows in this task)
+- BR-271: apps/api/test/integration/application-scores.test.ts::is never shown to a volunteer, who cannot sort by it either; apps/api/test/integration/form-definition-read.test.ts::are read by the office and kept from the volunteer, the rest of the settings shown to both — passing (2026-10-25)
+- BR-098 (the order, T2.6): apps/api/test/integration/application-scores.test.ts::sorts the office list highest first and pages by cursor, unscored last — passing (2026-10-25; the quotas follow in this task)
 
 Database-level parts only where noted; each rule stays open for its service, API and E2E tests in the task that builds the module (T1.2, 2026-10-11).
 

@@ -951,6 +951,7 @@ model FormVersion {
   status                  String        @default("draft")
   publishedAt             DateTime?     @map("published_at") @db.Timestamptz(6)
   publishedBy             String?       @map("published_by") @db.Uuid
+  scoring                 Json?
   createdAt               DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy               String?       @map("created_by") @db.Uuid
   updatedAt               DateTime      @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -1715,6 +1716,8 @@ model Application {
   stage                           String?
   outcome                         String?
   flags                           String[]              @default([])
+  totalScore                      Decimal?              @map("total_score") @db.Decimal(5, 2)
+  waitlistedAt                    DateTime?             @map("waitlisted_at") @db.Timestamptz(6)
   regionLocationId                String                @map("region_location_id") @db.Uuid
   districtId                      String                @map("district_id") @db.Uuid
   unionId                         String                @map("union_id") @db.Uuid
@@ -1794,6 +1797,8 @@ model Application {
   @@index([zakatDecidedBy], map: "applications_zakat_decided_by_idx")
   @@index([createdBy], map: "applications_created_by_idx")
   @@index([updatedBy], map: "applications_updated_by_idx")
+  @@index([projectId, totalScore(sort: Desc), id(sort: Desc)], map: "applications_project_id_total_score_id_idx")
+  @@index([projectId, waitlistedAt], map: "applications_project_id_waitlisted_at_idx", where: raw("status = 'waitlisted'"))
   @@map("applications")
 }
 

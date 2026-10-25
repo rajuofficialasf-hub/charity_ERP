@@ -2871,6 +2871,11 @@ components:
           type: array
           description: Official-only sections are absent for callers without application.view_official_section
           items: { $ref: '#/components/schemas/FormSection' }
+        scoring:
+          type: object
+          description: The form-level points of the priority score (D-132); present for the office only, like the points of each question
+          properties:
+            not_previously_assisted: { type: integer, minimum: 0, maximum: 100 }
     FormVersionResponse:
       type: object
       required: [data, meta]
@@ -2908,6 +2913,8 @@ components:
           type: array
           description: The sections of the draft in the FormSection shape; the engine checks them inside the service and names the field of each problem in the 422 details (the body stays open here so the drift test matches the route)
           items: {}
+        scoring:
+          description: The form-level points of the priority score (D-132), checked inside the service like the sections
     FormFieldMapResponse:
       type: object
       required: [data, meta]
@@ -3045,6 +3052,19 @@ components:
             reviewedAt: { type: [string, 'null'], format: date-time }
             approvedAt: { type: [string, 'null'], format: date-time }
             decisionComment: { type: [string, 'null'], x-sensitive-class: application.official_section, description: The office's reason of a decision }
+            scoreItems:
+              type: [array, 'null']
+              x-sensitive-class: application.official_section
+              description: The priority score's breakdown (D-132), one item per scored question and one for "not previously assisted"; null for a form without points; frozen with the score at the decision
+              items:
+                type: object
+                required: [key, input, max_points, points]
+                properties:
+                  key: { type: string }
+                  label: { $ref: '#/components/schemas/Bilingual' }
+                  input: { description: The answer read, or whether the person was not assisted before }
+                  max_points: { type: number }
+                  points: { type: number }
             zakat:
               type: [object, 'null']
               x-sensitive-class: application.official_section

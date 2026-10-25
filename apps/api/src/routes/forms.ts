@@ -51,6 +51,8 @@ export const versionView = z.object({
   status: z.enum(['draft', 'published', 'retired']),
   publishedAt: z.string().nullable(),
   sections: z.array(sectionView),
+  /** The form-level points of the priority score, for the office only. */
+  scoring: z.object({ not_previously_assisted: z.number().int().optional() }).optional(),
 });
 const personView = z.object({ id: uuid, name: z.string() });
 /** The version list also names who published and who last changed each version. */
@@ -116,7 +118,10 @@ const fieldMapView = z.object({
   versions: z.array(z.number().int()),
 });
 // the engine judges the sections inside the service, naming each field it refuses
-const draftUpdateSchema = z.strictObject({ sections: z.array(z.unknown()) });
+const draftUpdateSchema = z.strictObject({
+  sections: z.array(z.unknown()),
+  scoring: z.unknown().optional(),
+});
 type DraftUpdate = z.infer<typeof draftUpdateSchema>;
 
 const viewerOf = (req: AuthedRequest) => ({ principal: principalOf(req), scope: scopeOf(req) });

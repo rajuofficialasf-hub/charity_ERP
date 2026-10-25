@@ -15,7 +15,7 @@ import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import type { ApplicationEvents } from '../notifications/application-events';
 import { z } from 'zod';
-import { readEffects } from './effects';
+import { readEffects, type SideEffect, type SideEffectRunner } from './effects';
 import { type EngineApplication, GuardContext, type GuardInput, GUARDS } from './guards';
 import { isBuiltEffect, isBuiltGuard } from './registry';
 
@@ -93,6 +93,7 @@ export class WorkflowEngine {
     private readonly audit: AuditWriter,
     private readonly clock: Clock,
     private readonly events: ApplicationEvents,
+    private readonly sideEffects?: SideEffectRunner,
   ) {}
 
   async transition(
@@ -170,6 +171,16 @@ export class WorkflowEngine {
     return { id: applicationId, from: application.status, to: transition.to, auditId };
   }
 
+  /** The effects that write their own rows, inside the move's transaction. */
+  private async runSideEffects(
+    tx: Tx,
+    effects: readonly SideEffect[],
+    applicationId: string,
+    actor: string,
+  ): Promise<void> {
+    for (const effect of effects) await this.sideEffects?.run(tx, effect, applicationId, actor);
+  }
+
   private async runGuards(transition: Transition, ctx: GuardContext): Promise<void> {
     const guards = [...(transition.guards ?? [])];
     if (ctx.application.project.approval && !guards.includes(APPROVER_GUARD))
@@ -232,6 +243,7 @@ export class WorkflowEngine {
         ...stamps,
       },
     });
+    await this.runSideEffects(tx, outcome.run, application.id, actor);
     const auditId = await this.audit.record(tx, {
       action: outcome.auditAction ?? `application.${action}`,
       entityType: 'application',
@@ -277,6 +289,7 @@ export class WorkflowEngine {
         where: { id: application.id },
         data: { status: auto.to, updatedBy: principal.userId, updatedAt: now },
       });
+      await this.runSideEffects(tx, outcome.run, application.id, principal.userId);
       await this.audit.record(tx, {
         action: outcome.auditAction ?? `application.${auto.to}`,
         entityType: 'application',

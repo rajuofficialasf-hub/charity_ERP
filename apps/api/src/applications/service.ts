@@ -2,6 +2,7 @@ import {
   APPLICATION_ACTIONS,
   APPLICATION_STATES,
   type ApplicationAction,
+  scoreCriteriaSchema,
   uuidv7,
   type WorkflowDefinition,
   workflowDefinitionSchema,
@@ -25,6 +26,7 @@ import {
 import { assertIfMatch, etagOf } from '../core/etag';
 import {
   buildPage,
+  type CursorBody,
   decodeCursor,
   keysetWhere,
   orderBy,
@@ -42,6 +44,7 @@ import type { BeneficiaryIdentityService } from '../services/beneficiary-identit
 import { type FormAudience, readDefinition, versionView } from '../services/forms';
 import { isAddressChain } from '../services/locations';
 import type { NisabService } from '../services/nisab';
+import type { ScoringService } from './scoring';
 import type { Replayable } from '../services/uploads';
 import type { WorkflowEngine } from '../workflow/engine';
 import { type EngineApplication, GuardContext, GUARDS } from '../workflow/guards';
@@ -109,8 +112,54 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** Newest first by id (UUID v7 follows the time of creation and pages without gaps; a submission time can be null). */
 const LIST_SORT_FIELDS = ['id'];
 const DEFAULT_SORT = [{ field: 'id', direction: 'desc' as const }];
+/** The office's review queue: the highest score first, unscored last, then the newest. */
+const SCORE_SORT = [
+  { field: 'totalScore', direction: 'desc' as const },
+  { field: 'id', direction: 'desc' as const },
+];
+/** The states whose answers can still change the score; a decision freezes it. */
+const SCORED_WHILE = ['submitted', 'under_review'];
 /** The states a list leaves out unless asked for by name. */
 const HIDDEN_STATES = ['deleted'];
+
+/**
+ * The order of the review queue as Prisma reads it: the score high to low with the unscored last,
+ * then the newest; reversed for a backward page.
+ */
+function scoreOrder(direction: 'next' | 'prev'): Prisma.ApplicationOrderByWithRelationInput[] {
+  return direction === 'next'
+    ? [{ totalScore: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }]
+    : [{ totalScore: { sort: 'asc', nulls: 'first' } }, { id: 'asc' }];
+}
+
+/** The rows after a cursor in the score order, where an unscored row comes after every score. */
+function scoreKeyset(cursor: CursorBody): Prisma.ApplicationWhereInput {
+  const [score, id] = cursor.v as [number | null, string];
+  if (cursor.d === 'next')
+    return score === null
+      ? { totalScore: null, id: { lt: id } }
+      : {
+          OR: [
+            { totalScore: { lt: score } },
+            { totalScore: score, id: { lt: id } },
+            { totalScore: null },
+          ],
+        };
+  return score === null
+    ? { OR: [{ totalScore: null, id: { gt: id } }, { totalScore: { not: null } }] }
+    : { OR: [{ totalScore: { gt: score } }, { totalScore: score, id: { gt: id } }] };
+}
+
+/** The stored breakdown of a score, as the record shows it to the office. */
+function scoreItemsOf(criteria: unknown) {
+  return scoreCriteriaSchema.parse(criteria).items.map((item) => ({
+    key: item.key,
+    ...(item.label?.bn && item.label.en ? { label: { bn: item.label.bn, en: item.label.en } } : {}),
+    input: item.input ?? null,
+    max_points: item.max_points,
+    points: item.points,
+  }));
+}
 
 const VERSION_SELECT = {
   id: true,
@@ -156,6 +205,8 @@ const ROW_SELECT = {
   identityKind: true,
   nisabValue: true,
   zakatDecision: true,
+  totalScore: true,
+  applicationScoresApplication: { select: { criteria: true } },
   updatedAt: true,
   project: { select: PROJECT_SELECT },
 } satisfies Prisma.ApplicationSelect;
@@ -195,6 +246,7 @@ export class ApplicationsService {
     private readonly nisab: NisabService,
     private readonly workflow: WorkflowEngine,
     private readonly submission: SubmissionWriter,
+    private readonly scoring: ScoringService,
   ) {}
 
   async create(
@@ -405,6 +457,7 @@ export class ApplicationsService {
             updatedBy: actor,
           },
         });
+        if (SCORED_WHILE.includes(row.status)) await this.scoring.compute(tx, applicationId, actor);
         const changes = changedAnswers(before, person.answers);
         if (row.status === 'under_review' && changes.length)
           await tx.fieldChange.createMany({
@@ -599,12 +652,13 @@ export class ApplicationsService {
       : undefined;
     const direction = cursor?.d ?? 'next';
     const offset = pageOffset(query);
-    // the queue is in the order of arrival; a sort by score reads the same while no score exists
-    const sort = parseSort(
-      query.sort === '-score' ? undefined : query.sort,
-      LIST_SORT_FIELDS,
-      DEFAULT_SORT,
-    );
+    // the score is the office's: a volunteer can neither read it nor learn its order
+    const byScore = query.sort === '-score';
+    if (byScore && this.audienceOf(viewer) !== 'official')
+      throw new ApiError('validation.failed', 422, undefined, [
+        { path: 'sort', code: 'validation.option_unknown' },
+      ]);
+    const sort = byScore ? SCORE_SORT : parseSort(query.sort, LIST_SORT_FIELDS, DEFAULT_SORT);
     const blocked = await this.blockedCaller(this.prisma, viewer.principal);
     const filter: Prisma.ApplicationWhereInput = blocked
       ? { id: { in: [] } }
@@ -612,8 +666,10 @@ export class ApplicationsService {
     const now = this.clock.now();
     const { fetched, total } = await boundedRead(this.prisma, async (tx) => ({
       fetched: await tx.application.findMany({
-        where: cursor ? { AND: [filter, keysetWhere(sort, cursor)] } : filter,
-        orderBy: orderBy(sort, direction),
+        where: cursor
+          ? { AND: [filter, byScore ? scoreKeyset(cursor) : keysetWhere(sort, cursor)] }
+          : filter,
+        orderBy: byScore ? scoreOrder(direction) : orderBy(sort, direction),
         skip: offset,
         take: query.limit + 1,
         select: ROW_SELECT,
@@ -675,7 +731,7 @@ export class ApplicationsService {
       stage: r.stage,
       outcome: r.outcome,
       flags: r.flags,
-      totalScore: null,
+      totalScore: r.totalScore === null ? null : Number(r.totalScore),
       districtId: r.districtId,
       unionId: r.unionId,
       submittedAt: iso(r.submittedAt),
@@ -1059,6 +1115,9 @@ export class ApplicationsService {
         reviewedAt: iso(row.reviewedAt),
         approvedAt: iso(row.approvedAt),
         decisionComment: row.decisionComment,
+        scoreItems: row.applicationScoresApplication
+          ? scoreItemsOf(row.applicationScoresApplication.criteria)
+          : null,
         zakat: row.nisabValue
           ? {
               nisabValue: row.nisabValue.toFixed(2),

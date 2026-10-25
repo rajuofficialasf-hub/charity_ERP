@@ -212,11 +212,13 @@ describe('a move through the cycle', () => {
       'application.implementation_started',
     ]);
     const approval = (await auditOf(id))[3]!.new as { locked?: boolean; effectsPending?: string[] };
-    // the approved answers are locked; the score, quota and ledger modules are not built yet
+    // the approved answers are locked; the score freezes with the move, the quota and ledger
+    // modules are not built yet
     expect(approval.locked).toBe(true);
     expect(approval.effectsPending).toEqual(
-      expect.arrayContaining(['score.snapshot', 'quota.increment', 'ledger.post:approved']),
+      expect.arrayContaining(['quota.increment', 'ledger.post:approved']),
     );
+    expect(approval.effectsPending).not.toContain('score.snapshot');
   });
 
   it('rejects with the office reason and the volunteer message, and returns the rejection with a reason', async () => {
