@@ -13,7 +13,12 @@ test.describe('app shell', () => {
     test.skip(!isPhone(info), 'the bottom tabs are for phones');
     await signIn(page, VOLUNTEER);
     const tabs = mainMenu(page);
-    await expect(tabs.getByRole('link')).toHaveText(['হোম', 'আমার প্রকল্প', 'নোটিফিকেশন']);
+    await expect(tabs.getByRole('link')).toHaveText([
+      'হোম',
+      'আমার প্রকল্প',
+      'আমার আবেদন',
+      'নোটিফিকেশন',
+    ]);
     await expect(tabs.getByRole('button', { name: 'আরও' })).toBeVisible();
     await tabs.getByRole('link', { name: 'আমার প্রকল্প' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'আমার প্রকল্প' })).toBeVisible();
