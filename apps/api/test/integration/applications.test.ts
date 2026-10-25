@@ -13,6 +13,7 @@ import {
   authHarness,
   bearer,
   login,
+  PASSWORD,
   type Session,
 } from './support/auth-app';
 import { beneficiary, fakeMobile, fakeNid, insert, volunteer } from './support/fixtures';
@@ -214,6 +215,56 @@ describe('creating a draft', () => {
       expect(late.body.error.code).toBe('workflow.guard.deadline_open');
     } finally {
       await h.db.query(`UPDATE projects SET apply_to = '2099-12-31' WHERE id = $1`, [project]);
+    }
+  });
+
+  it('takes applications again once the PM extends a closed window with a reason', async () => {
+    const s = await as(world.users.general);
+    const pm = await as(world.users.pm);
+    await h.db.query(`UPDATE projects SET apply_to = '2026-01-02' WHERE id = $1`, [project]);
+    try {
+      const late = await create(s, createBody(identity()));
+      expect(late.status).toBe(409);
+      expect(late.body.error.code).toBe('workflow.guard.deadline_open');
+      const read = await at(pm, 'get', `/projects/${project}`);
+      const extended = await at(pm, 'post', `/projects/${project}/extend-deadline`)
+        .set('If-Match', read.headers.etag as string)
+        .send({ newApplyTo: '2099-12-31', reason: 'শীত বেশি, আরও আবেদন আসছে' });
+      expect(extended.status, JSON.stringify(extended.body)).toBe(200);
+      const again = await create(s, createBody(identity()));
+      expect(again.status, JSON.stringify(again.body)).toBe(201);
+      await at(s, 'post', `/applications/${again.body.data.id}/actions/delete`)
+        .set('If-Match', again.headers.etag as string)
+        .send({});
+    } finally {
+      await h.db.query(`UPDATE projects SET apply_to = '2099-12-31' WHERE id = $1`, [project]);
+    }
+  });
+
+  it('refuses a new draft from a blocked volunteer, whose session ends with the block', async () => {
+    const s = await as(world.users.general);
+    const block = randomUUID();
+    await h.db.query(
+      `INSERT INTO blocklist (id, subject_type, subject_id, reason, blocked_by) VALUES ($1, 'volunteer', $2, 'test', $3)`,
+      [block, generalVolunteer, world.users.rpmDhaka],
+    );
+    try {
+      const blocked = await create(s, createBody(identity()));
+      expect(blocked.status, JSON.stringify(blocked.body)).toBe(401);
+      expect(blocked.body.error.code).toBe('auth.token_stale');
+      const fresh = await api()
+        .post('/api/v1/auth/login')
+        .send({
+          loginId: accounts.get(world.users.general)!.loginId,
+          password: PASSWORD,
+          device: { name: 'Test device', platform: 'android', appVersion: '1.0.0' },
+        });
+      expect(fresh.status, JSON.stringify(fresh.body)).not.toBe(200);
+    } finally {
+      await h.db.query(
+        `UPDATE blocklist SET active = false, released_by = $2, released_at = now(), release_reason = 'test' WHERE id = $1`,
+        [block, world.users.rpmDhaka],
+      );
     }
   });
 

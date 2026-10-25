@@ -6,6 +6,7 @@ import type { Clock } from '../core/clock';
 import type { Tx } from '../core/prisma.service';
 import { readDefinition } from '../services/forms';
 import type { BuiltGuard } from './registry';
+import { NOT_COUNTED_STATES } from '../applications/limit';
 
 /** The application a transition is about, with what the guards read of its project. */
 export interface EngineApplication {
@@ -99,7 +100,6 @@ export type Guard = (ctx: GuardContext) => Promise<boolean>;
 const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 const IDENTITY_NUMBER = /^(\d{10}|\d{13}|\d{17})$/;
 const IDENTITY_COLUMN = 'nid_or_birth_reg';
-const COUNTED_STATES = ['rejected', 'deleted'];
 
 /**
  * The number the identity question holds, read from its answer directly so a missing answer
@@ -137,7 +137,12 @@ export const GUARDS: Record<BuiltGuard, Guard> = {
     if (!ownerVolunteerId || limit === null) return true;
     // every live application of the owner but this one, drafts included
     const others = await ctx.tx.application.count({
-      where: { projectId, ownerVolunteerId, id: { not: id }, status: { notIn: COUNTED_STATES } },
+      where: {
+        projectId,
+        ownerVolunteerId,
+        id: { not: id },
+        status: { notIn: NOT_COUNTED_STATES },
+      },
     });
     return others < limit;
   },

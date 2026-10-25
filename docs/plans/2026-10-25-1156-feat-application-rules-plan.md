@@ -131,7 +131,7 @@ None blocking. Assumptions the plan works from (the owner may correct them at pl
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U2. Points in the form definition and the score calculation
 - **Goal:** a form definition can carry points, the publish check keeps them valid, and one shared function computes the score.
@@ -342,7 +342,7 @@ None blocking. Assumptions the plan works from (the owner may correct them at pl
 ## Progress
 - **Branch:** `feat/application-rules` (from `main` at 3aaac17, after PR #27)
 - **Updated:** 2026-10-25 12:40
-- **Next:** U1 the entry rules proven and the live limit: characterize the counter of `my-projects.ts` first
+- **Next:** U2 points in the form definition: the scoring decision into DECISION_LOG first, then `score.ts` with its tests
 - **Reviewed through:** none yet
 - **Uncommitted:** none
-- **Notes:** the owner chose at the brainstorm and the doc review every Key decision above; the scoring decision goes into DECISION_LOG with U2 before any scoring code.
+- **Notes:** the owner chose at the brainstorm and the doc review every Key decision above; the scoring decision goes into DECISION_LOG with U2 before any scoring code. U1 found the extension, the duplicate and both blocks already enforced (their new tests passed first time); a blocked volunteer is stopped at the session (401 `auth.token_stale`, then no login), before any guard. `project_volunteers.applications_counted` was never written, so the volunteer's "applications left" and the office's volunteer list showed 0: both now read the live count of `apps/api/src/applications/limit.ts`, the same rule the limit guard uses.

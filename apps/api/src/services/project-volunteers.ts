@@ -9,6 +9,7 @@ import {
 } from '@css/shared/projects';
 import { VOLUNTEER_TYPES, type VolunteerType } from '@css/shared/registration';
 import type { AccessService } from '../access/service';
+import { liveApplicationCounts } from '../applications/limit';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Env } from '../config/env';
 import type { Clock } from '../core/clock';
@@ -41,7 +42,6 @@ const ASSIGNMENT = {
   isPaid: true,
   consentStatus: true,
   consentAt: true,
-  applicationsCounted: true,
   createdAt: true,
   volunteer: { select: { type: true, user: { select: { displayName: true } } } },
 } satisfies Prisma.ProjectVolunteerSelect;
@@ -53,7 +53,8 @@ const typeOf = (value: string): VolunteerType => {
   return type;
 };
 
-function view(a: AssignmentRow) {
+/** One assignment as the office reads it, with the live count of the volunteer's applications. */
+function view(a: AssignmentRow, applicationsCounted: number) {
   return {
     id: a.id,
     volunteerId: a.volunteerId,
@@ -64,7 +65,7 @@ function view(a: AssignmentRow) {
     isPaid: a.isPaid,
     consentStatus: a.consentStatus === 'accepted' ? 'accepted' : 'pending',
     consentAt: a.consentAt?.toISOString() ?? null,
-    applicationsCounted: a.applicationsCounted,
+    applicationsCounted,
     assignedAt: a.createdAt.toISOString(),
   };
 }
@@ -258,7 +259,11 @@ export class ProjectVolunteersService {
       secret: this.env.CURSOR_SECRET,
       binding,
     });
-    return { rows: rows.map(view), meta };
+    const counted = await liveApplicationCounts(
+      this.prisma,
+      rows.map((r) => ({ projectId, ownerVolunteerId: r.volunteerId })),
+    );
+    return { rows: rows.map((r) => view(r, counted(projectId, r.volunteerId))), meta };
   }
 
   // ---- assign
@@ -412,7 +417,10 @@ export class ProjectVolunteersService {
         old: { assignmentId, permissionSet: row.permissionSet, isPaid: row.isPaid },
         new: { assignmentId, permissionSet: after.permissionSet, isPaid: after.isPaid },
       });
-      return view(after);
+      const counted = await liveApplicationCounts(tx, [
+        { projectId: project.id, ownerVolunteerId: after.volunteerId },
+      ]);
+      return view(after, counted(project.id, after.volunteerId));
     });
   }
 

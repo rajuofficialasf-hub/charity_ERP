@@ -843,7 +843,7 @@ Constraints: partial UNIQUE (project_id, member_volunteer_id) WHERE removed_at I
 | consent_at | timestamptz | yes | — | — |
 | assigned_by | uuid | no | — | FK users |
 | ended_at | timestamptz | yes | — | assignment ended (transfer, block) |
-| applications_counted | integer | no | 0 | CHECK >= 0; applications counted against the limit, the team's included (BR-059, D-096; raised by Phase 2) |
+| applications_counted | integer | no | 0 | CHECK >= 0; not written: the limit and every screen count the owner's live applications instead (`apps/api/src/applications/limit.ts`; BR-059, D-096), so a transfer or a deletion can never leave it out of step |
 | [A] | | | | |
 
 Constraints: partial UNIQUE (project_id, volunteer_id) WHERE ended_at IS NULL. Indexes: (volunteer_id) WHERE ended_at IS NULL; (project_id, region_location_id).
