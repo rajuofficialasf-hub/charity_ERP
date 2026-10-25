@@ -3068,6 +3068,7 @@ components:
                     type: array
                     items: { type: string, enum: [mobile, union_village_father] }
             availableActions: { type: array, items: { type: string }, description: Actions the caller may perform now }
+            form: { $ref: '#/components/schemas/FormVersion', description: The form version the answers belong to, as the caller's audience sees it }
     ApplicationResponse:
       type: object
       required: [data, meta]
@@ -7911,6 +7912,75 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ApplicationResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /projects/{projectId}/application-form:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [applications]
+      operationId: applications.applicationForm.get
+      summary: "The project's published application form as the caller's audience sees it, for the new application screen"
+      x-permission: application.create
+      x-scope: project
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      x-sensitive-fields: [application.official_section]
+      responses:
+        '200':
+          description: The published form version
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FormVersionResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /me/applications:
+    get:
+      tags: [applications]
+      operationId: applications.mine.list
+      summary: "The caller's own applications across their projects, newest first"
+      x-permission: application.view
+      x-scope: application
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      x-sensitive-fields: [application.official_section]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/IncludeTotal'
+        - $ref: '#/components/parameters/Sort'
+        - $ref: '#/components/parameters/Search'
+        - name: status
+          in: query
+          schema: { type: string, description: Comma-separated common states }
+        - name: stage
+          in: query
+          schema: { type: string }
+        - name: districtId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: unionId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: ownerVolunteerId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: flag
+          in: query
+          schema: { type: string }
+        - name: submittedFrom
+          in: query
+          schema: { type: string, format: date }
+        - name: submittedTo
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Applications
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApplicationList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
   /applications/{applicationId}:
     parameters:
       - $ref: '#/components/parameters/ApplicationId'

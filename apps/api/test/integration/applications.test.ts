@@ -439,6 +439,39 @@ describe('reading, editing and deleting', () => {
   });
 });
 
+describe('the form and the own list', () => {
+  it('gives a volunteer the project form without its official section, and nothing off their projects', async () => {
+    const s = await as(world.users.general);
+    const form = await at(s, 'get', `/projects/${project}/application-form`);
+    expect(form.status, JSON.stringify(form.body)).toBe(200);
+    expect(form.body.data).toMatchObject({ id: versionId, status: 'published' });
+    const keys = form.body.data.sections.flatMap((x: { fields: { fieldKey: string }[] }) =>
+      x.fields.map((f) => f.fieldKey),
+    );
+    expect(keys).toContain('q_id');
+    expect(keys).not.toContain('q_official');
+    const rpm = await as(world.users.rpmDhaka);
+    const office = await at(rpm, 'get', `/projects/${project}/application-form`);
+    expect(office.body.data.sections).toHaveLength(2);
+    const elsewhere = await as(world.users.daee);
+    expect((await at(elsewhere, 'get', `/projects/${project}/application-form`)).status).toBe(404);
+  });
+
+  it('lists a volunteer’s own applications across their projects', async () => {
+    const s = await as(world.users.general);
+    const made = await create(s, createBody(identity()));
+    const mine = await at(s, 'get', '/me/applications?status=draft');
+    expect(mine.status, JSON.stringify(mine.body)).toBe(200);
+    expect(mine.body.data.map((r: { id: string }) => r.id)).toContain(made.body.data.id);
+    expect(
+      mine.body.data.every(
+        (r: { ownerVolunteerId: string }) => r.ownerVolunteerId === generalVolunteer,
+      ),
+    ).toBe(true);
+    expect(mine.body.data[0]).toHaveProperty('etag');
+  });
+});
+
 describe('the list', () => {
   it('shows a volunteer their own, the office the public entries with their flags, and nothing to a blocked volunteer', async () => {
     const s = await as(world.users.general);

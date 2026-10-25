@@ -44,6 +44,7 @@ export interface NavDestination {
     | 'my_work'
     | 'home'
     | 'my_projects'
+    | 'my_applications'
     | 'notifications'
     | 'people'
     | 'projects'
@@ -176,7 +177,12 @@ export function sidebarFor(me: Pick<Me, 'roles'>) {
  */
 export function tabsFor(me: Pick<Me, 'kind' | 'roles'>): NavDestination[] {
   if (me.kind === 'volunteer')
-    return [HOME, { key: 'my_projects', href: '/my-projects', icon: FolderKanban }, NOTIFICATIONS];
+    return [
+      HOME,
+      { key: 'my_projects', href: '/my-projects', icon: FolderKanban },
+      { key: 'my_applications', href: '/my-applications', icon: ClipboardList },
+      NOTIFICATIONS,
+    ];
   const holds = (roles: readonly string[]) => roles.some((r) => me.roles.includes(r));
   const people = holds(VOLUNTEER_TAB_ROLES)
     ? '/admin/volunteers'

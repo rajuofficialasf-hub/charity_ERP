@@ -1,0 +1,48 @@
+/* The volunteer's applications (docs/ui/SCREENS.md, SCR-031 and SCR-032). */
+.my-application-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.my-application-photos img {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+
+.my-applications-list {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.my-applications-list li {
+  margin: 0;
+}
+
+.my-application-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.my-application-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}
+
+.my-application-facts dt {
+  color: var(--color-text-secondary);
+}
+
+.my-application-facts dd {
+  margin: 0;
+}

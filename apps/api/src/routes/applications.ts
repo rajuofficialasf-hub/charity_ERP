@@ -24,6 +24,7 @@ import { type PageQuery, pageQuery } from '../core/pagination';
 import { ok, page } from '../http/send';
 import { defineRoute, type RouteDeps } from '../openapi/define-route';
 import type { Replayable } from '../services/uploads';
+import { versionView } from './forms';
 
 const uuid = z.uuid();
 const ifMatch = [{ name: 'If-Match', required: true }];
@@ -75,6 +76,41 @@ export function applicationsRouter(
     responses: { 200: z.array(applicationSummary), 400: null, 404: null },
     handler: async ({ params, query, req }) => {
       const { rows, meta } = await c.applications.list(viewerOf(req), params.projectId, query);
+      return page(rows, meta);
+    },
+  });
+
+  defineRoute<unknown, unknown, { projectId: string }>(router, deps, {
+    ...op,
+    method: 'get',
+    path: '/projects/:projectId/application-form',
+    operationId: 'applications.applicationForm.get',
+    summary:
+      "The project's published application form as the caller's audience sees it, for the new application screen",
+    permission: 'application.create',
+    scope: 'project',
+    audit: 'none',
+    sensitiveFields: ['application.official_section'],
+    params: { projectId: uuid },
+    responses: { 200: versionView, 404: null, 422: null },
+    handler: async ({ params, req }) =>
+      ok(await c.applications.applicationForm(viewerOf(req), params.projectId)),
+  });
+
+  defineRoute<unknown, ApplicationFilter & PageQuery>(router, deps, {
+    ...op,
+    method: 'get',
+    path: '/me/applications',
+    operationId: 'applications.mine.list',
+    summary: "The caller's own applications across their projects, newest first",
+    permission: 'application.view',
+    scope: 'application',
+    audit: 'none',
+    sensitiveFields: ['application.official_section'],
+    query: listQuery,
+    responses: { 200: z.array(applicationSummary), 400: null },
+    handler: async ({ query, req }) => {
+      const { rows, meta } = await c.applications.listMine(viewerOf(req), query);
       return page(rows, meta);
     },
   });

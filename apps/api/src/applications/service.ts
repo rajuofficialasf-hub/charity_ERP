@@ -38,7 +38,7 @@ import { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import type { BeneficiaryFamilyService } from '../services/beneficiary-family';
 import type { BeneficiaryIdentityService } from '../services/beneficiary-identity';
-import { type FormAudience, readDefinition } from '../services/forms';
+import { type FormAudience, readDefinition, versionView } from '../services/forms';
 import { isAddressChain } from '../services/locations';
 import type { NisabService } from '../services/nisab';
 import type { Replayable } from '../services/uploads';
@@ -110,6 +110,14 @@ const LIST_SORT_FIELDS = ['id'];
 const DEFAULT_SORT = [{ field: 'id', direction: 'desc' as const }];
 /** The states a list leaves out unless asked for by name. */
 const HIDDEN_STATES = ['deleted'];
+
+const VERSION_SELECT = {
+  id: true,
+  formId: true,
+  versionNo: true,
+  status: true,
+  publishedAt: true,
+} satisfies Prisma.FormVersionSelect;
 
 const PROJECT_SELECT = {
   id: true,
@@ -288,6 +296,21 @@ export class ApplicationsService {
       if (winner) return { replay: true, value: winner };
       throw new ApiError('beneficiary.already_applied', 409);
     }
+  }
+
+  /**
+   * The project's published application form as the caller's audience sees it: what the new
+   * application screen draws. The caller must reach the project with the create permission.
+   */
+  async applicationForm(viewer: ApplicationViewer, projectId: string) {
+    await this.reachedProject(viewer.principal, viewer.scope, projectId);
+    const version = await this.prisma.formVersion.findFirst({
+      where: { status: 'published', form: { projectId, kind: 'beneficiary_application' } },
+      select: VERSION_SELECT,
+    });
+    if (!version) throw new ApiError('application.form_not_published', 422);
+    const definition = await readDefinition(this.prisma, version.id, this.audienceOf(viewer));
+    return versionView(version, definition);
   }
 
   async get(viewer: ApplicationViewer, applicationId: string): Promise<ApplicationRead> {
@@ -540,7 +563,20 @@ export class ApplicationsService {
       'project',
     );
     await this.reachedProject(viewer.principal, projectScope, projectId);
-    const binding = `applications.list|${actor}|${projectId}`;
+    return this.page(viewer, `applications.list|${actor}|${projectId}`, { projectId }, query);
+  }
+
+  /** The caller's own applications across their projects (a volunteer's "my applications"). */
+  async listMine(viewer: ApplicationViewer, query: ApplicationFilter & PageQuery) {
+    return this.page(viewer, `applications.mine|${viewer.principal.userId}`, {}, query);
+  }
+
+  private async page(
+    viewer: ApplicationViewer,
+    binding: string,
+    base: Prisma.ApplicationWhereInput,
+    query: ApplicationFilter & PageQuery,
+  ) {
     const cursor = query.cursor
       ? decodeCursor(this.env.CURSOR_SECRET, binding, query.cursor)
       : undefined;
@@ -555,7 +591,7 @@ export class ApplicationsService {
     const blocked = await this.blockedCaller(this.prisma, viewer.principal);
     const filter: Prisma.ApplicationWhereInput = blocked
       ? { id: { in: [] } }
-      : { AND: [{ projectId }, applicationWhere(viewer.scope), this.filterOf(query)] };
+      : { AND: [base, applicationWhere(viewer.scope), this.filterOf(query)] };
     const now = this.clock.now();
     const { fetched, total } = await boundedRead(this.prisma, async (tx) => ({
       fetched: await tx.application.findMany({
@@ -983,12 +1019,16 @@ export class ApplicationsService {
     });
     const audience = this.audienceOf(viewer);
     const definition = await readDefinition(this.prisma, row.formVersionId, audience);
-    const [answers, warnings, availableActions] = await Promise.all([
+    const [answers, warnings, availableActions, version] = await Promise.all([
       readAnswers(this.prisma, applicationId, definition),
       audience === 'official' && row.beneficiaryId
         ? this.family.matches(this.prisma, row.projectId, row.beneficiaryId)
         : [],
       this.availableActions(viewer.principal, access, row),
+      this.prisma.formVersion.findUniqueOrThrow({
+        where: { id: row.formVersionId },
+        select: VERSION_SELECT,
+      }),
     ]);
     return {
       application: {
@@ -1010,6 +1050,7 @@ export class ApplicationsService {
           : null,
         familyDuplicateWarnings: warnings,
         availableActions,
+        form: versionView(version, definition),
       },
       updatedAt: row.updatedAt,
     };

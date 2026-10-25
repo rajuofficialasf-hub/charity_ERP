@@ -1,4 +1,5 @@
 import { uuidv7 } from '@css/shared';
+import type { Answer } from '@css/shared/forms';
 import { useCallback, useEffect, useState } from 'react';
 import { type FormAnswers, storedAnswersOf } from './answers';
 
@@ -11,8 +12,11 @@ import { type FormAnswers, storedAnswersOf } from './answers';
 export function useFormAnswers(
   storageKey: string | undefined,
   initialRows: Record<string, number>,
+  initialAnswers: Answer[] = [],
 ) {
-  const [state, setState] = useState<FormAnswers>(() => read(storageKey) ?? fresh(initialRows));
+  const [state, setState] = useState<FormAnswers>(
+    () => read(storageKey) ?? fresh(initialRows, initialAnswers),
+  );
 
   useEffect(() => {
     if (!storageKey) return;
@@ -39,8 +43,9 @@ export function useFormAnswers(
   return { state, setState, clear };
 }
 
-function fresh(rows: Record<string, number>): FormAnswers {
-  return { clientUuid: uuidv7(), answers: [], rows: { ...rows }, step: 0, generation: 0 };
+/** A new set of answers; a screen may start it with answers it already knows (a found person, a draft). */
+function fresh(rows: Record<string, number>, answers: Answer[] = []): FormAnswers {
+  return { clientUuid: uuidv7(), answers: [...answers], rows: { ...rows }, step: 0, generation: 0 };
 }
 
 const untouched = (state: FormAnswers, rows: Record<string, number>) =>

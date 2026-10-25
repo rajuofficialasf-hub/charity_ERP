@@ -2,6 +2,8 @@ import { answerValueSchema } from '@css/shared';
 import { APPLICATION_STATES } from '@css/shared';
 import { z } from 'zod';
 import { sensitive } from '../access/field-mask';
+import { versionView } from '../routes/forms';
+import type { FormVersionView } from '../services/forms';
 
 /** The class of the official section and of the office's own texts (permissions.yaml). */
 export const OFFICIAL_SECTION = 'application.official_section';
@@ -68,8 +70,13 @@ export const applicationView = applicationSummary.extend({
   ),
   familyDuplicateWarnings: z.array(familyWarning),
   availableActions: z.array(z.string()),
+  /** The form version the answers belong to, as the caller's audience sees it. */
+  form: versionView,
 });
-export type ApplicationView = z.infer<typeof applicationView>;
+/** The record as the service builds it; the form keeps the service's own version view. */
+export type ApplicationView = Omit<z.infer<typeof applicationView>, 'form'> & {
+  form: FormVersionView;
+};
 
 const dateTime = z.iso.datetime({ offset: true });
 
