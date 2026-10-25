@@ -12,6 +12,7 @@ import {
   FileText,
   FolderPen,
   ListChecks,
+  LockOpen,
   UserCheck,
   UserRoundCheck,
 } from 'lucide-react';
@@ -30,6 +31,8 @@ const LOOK: Record<AttentionKind, { icon: IconComponent; tone: 'info' | 'warning
   projects_draft: { icon: FolderPen, tone: 'info' },
   deadlines_soon: { icon: CalendarClock, tone: 'warning' },
   handovers_open: { icon: ArrowRightLeft, tone: 'warning' },
+  unlocks_to_fill: { icon: LockOpen, tone: 'warning' },
+  unlocks_to_verify: { icon: LockOpen, tone: 'info' },
 };
 
 /**

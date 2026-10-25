@@ -3108,6 +3108,11 @@ components:
               additionalProperties:
                 type: array
                 items: { type: string, enum: [against_score, quota_full] }
+            unlocks:
+              type: array
+              description: The unlocks of the application waiting for a step, as the caller may see them (a volunteer never sees the office's reasons nor an answer of the official section)
+              items: { $ref: '#/components/schemas/ApplicationUnlock' }
+            mayUnlock: { type: boolean, description: Whether the caller may open an answer of this application for correction now }
             form: { $ref: '#/components/schemas/FormVersion', description: The form version the answers belong to, as the caller's audience sees it }
     ApplicationResponse:
       type: object
@@ -3143,19 +3148,36 @@ components:
       properties:
         data: { $ref: '#/components/schemas/Score' }
         meta: { $ref: '#/components/schemas/Meta' }
-    FieldUnlockRequest:
+    ApplicationUnlock:
       type: object
-      required: [fieldKey, reason]
+      description: 'One field unlock (BD-18): opened by an official with a reason, filled by the owner volunteer (or an official when the application has no volunteer or the answer is the official section''s), decided by an official who did not fill it'
+      required: [id, applicationId, fieldKey, repeatIndex, state, oldValue, newValue, reason, openedBy, openedAt, enteredBy, enteredAt, decidedBy, decidedAt, decision, decisionReason, mayFill, mayDecide, mayCancel]
       properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        applicationId: { $ref: '#/components/schemas/Uuid' }
         fieldKey: { type: string }
-        reason: { type: string, minLength: 3 }
-    FieldUnlockUpdate:
+        repeatIndex: { type: integer }
+        state: { type: string, enum: [open, updated, relocked] }
+        oldValue: {}
+        newValue: {}
+        reason: { type: [string, 'null'], description: The office's reason for opening; null for a volunteer }
+        openedBy: { type: [string, 'null'], format: uuid }
+        openedAt: { type: string, format: date-time }
+        enteredBy: { type: [string, 'null'], format: uuid }
+        enteredAt: { type: [string, 'null'], format: date-time }
+        decidedBy: { type: [string, 'null'], format: uuid }
+        decidedAt: { type: [string, 'null'], format: date-time }
+        decision: { type: [string, 'null'], enum: [accepted, refused, cancelled, null] }
+        decisionReason: { type: [string, 'null'], description: Why it was refused or cancelled; null for a volunteer }
+        mayFill: { type: boolean }
+        mayDecide: { type: boolean }
+        mayCancel: { type: boolean }
+    ApplicationUnlockResponse:
       type: object
-      required: [fieldKey, value]
+      required: [data, meta]
       properties:
-        fieldKey: { type: string }
-        repeatIndex: { type: integer, minimum: 0, default: 0 }
-        value: { $ref: '../database/json-schemas/application-answer-value.schema.json' }
+        data: { $ref: '#/components/schemas/ApplicationUnlock' }
+        meta: { $ref: '#/components/schemas/Meta' }
     FieldChange:
       type: object
       required: [id, field, kind, createdAt]
@@ -3170,6 +3192,12 @@ components:
         requestedBy: { type: [string, 'null'], format: uuid }
         approvedBy: { type: [string, 'null'], format: uuid }
         createdAt: { type: string, format: date-time }
+        enteredBy: { type: [string, 'null'], format: uuid, description: Who entered the new value of an unlock }
+        enteredAt: { type: [string, 'null'], format: date-time }
+        decidedBy: { type: [string, 'null'], format: uuid, description: 'Who accepted, refused or cancelled an unlock' }
+        decidedAt: { type: [string, 'null'], format: date-time }
+        decision: { type: [string, 'null'], enum: [accepted, refused, cancelled, null] }
+        decisionReason: { type: [string, 'null'] }
     FieldChangeList:
       type: object
       required: [data, meta]
@@ -8142,86 +8170,171 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ScoreResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
-  /applications/{applicationId}/field-unlocks:
+  /applications/{applicationId}/unlocks:
     parameters:
       - $ref: '#/components/parameters/ApplicationId'
     post:
       tags: [applications]
-      operationId: applications.fieldUnlock.open
-      summary: Unlock one field of an approved application for the volunteer, with a reason (BD-18)
+      operationId: applications.unlock.open
+      summary: Open one answer of an approved application for correction, with a reason; the identity, photos, files and calculated answers never open, and one unlock per answer waits at a time
+      description: >-
+        BD-18, R17, R20, R21, R33. Only text, number, choice, date and address answers open; the
+        identity number, the name and the father's or husband's name change only through a profile
+        correction request (422 with application.unlock_identity), photos, files and calculations
+        never (422 with application.unlock_type). The application must be approved or later and its
+        project not closed (409). A second unlock of an answer while one waits is refused (409
+        application.unlock_open). The owner volunteer is told which question opened, never why.
       x-permission: application.unlock_field
       x-scope: application
-      x-audit: field.unlock
+      x-audit: application.unlock_opened
       x-idempotency: none
       x-rate-limit: default
-      x-workflow: { scope: field_unlock, action: open }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/FieldUnlockRequest' }
-      responses:
-        '201':
-          description: Unlocked
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/FieldChangeList' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-    patch:
-      tags: [applications]
-      operationId: applications.fieldUnlock.update
-      summary: Update the unlocked field (volunteer)
-      x-permission: application.update_unlocked_field
-      x-scope: application
-      x-audit: field.updated
-      x-idempotency: none
-      x-rate-limit: default
-      x-workflow: { scope: field_unlock, action: update }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/FieldUnlockUpdate' }
-      responses:
-        '200':
-          description: Updated; awaiting verification
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/FieldChangeList' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-        '422': { $ref: '#/components/responses/Unprocessable' }
-  /applications/{applicationId}/field-unlocks/relock:
-    parameters:
-      - $ref: '#/components/parameters/ApplicationId'
-    post:
-      tags: [applications]
-      operationId: applications.fieldUnlock.relock
-      summary: Verify the update and lock the field again
-      x-permission: application.unlock_field
-      x-scope: application
-      x-audit: field.relocked
-      x-idempotency: none
-      x-rate-limit: default
-      x-workflow: { scope: field_unlock, action: relock }
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [fieldKey]
+              additionalProperties: false
+              required: [fieldKey, reason]
               properties:
-                fieldKey: { type: string }
+                fieldKey: { type: string, minLength: 1, maxLength: 100 }
+                repeatIndex: { type: integer, minimum: 0, maximum: 199, default: 0 }
+                reason: { type: string, minLength: 3, maxLength: 1000 }
       responses:
-        '200':
-          description: Locked
+        '201':
+          description: Opened
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/FieldChangeList' }
+              schema: { $ref: '#/components/schemas/ApplicationUnlockResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /application-unlocks/{unlockId}/value:
+    parameters:
+      - name: unlockId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    put:
+      tags: [applications]
+      operationId: applications.unlock.fill
+      summary: Enter the new value of an open answer, by the owner volunteer or, when the application has no volunteer or the answer is the official section's, by an official
+      description: >-
+        R17, R33. The owner volunteer holds application.update_unlocked_field; an official fills with
+        application.unlock_field only when the application has no volunteer or the answer belongs to
+        the official section (403 otherwise). Anyone else, a blocked volunteer included, gets 404.
+        The value is checked like any answer of its question (422), must differ from the old one,
+        and waits for an official's decision; the official who opened it is told.
+      x-permission: workflow
+      x-scope: application
+      x-audit: application.unlock_entered
+      x-idempotency: none
+      x-rate-limit: default
+      x-workflow: { scope: field_unlock, action: fill }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [value]
+              properties:
+                value:
+                  type: object
+                  propertyNames: { type: string }
+                  additionalProperties: {}
+                  description: The new answer value in the shape of the application-answer-value schema ({ t, v }); the engine checks it like any answer of its question and names what it refuses
+      responses:
+        '200':
+          description: Entered; waiting for the decision
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApplicationUnlockResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /application-unlocks/{unlockId}/decision:
+    parameters:
+      - name: unlockId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    post:
+      tags: [applications]
+      operationId: applications.unlock.decide
+      summary: Accept the entered value (the answer changes and locks again) or refuse it with a reason (the old value stays); never by the person who entered it
+      description: >-
+        R18, R19, R20. The person who entered the value gets 403 application.unlock_own_entry. An
+        accepted value replaces the answer if it is still the one the unlock opened (409
+        application.unlock_stale otherwise); a mobile or an address reaches the person's profile
+        through the contact service with its own change log, and the application's district and
+        union follow an address. Every step stays on the change log and in the audit log.
+      x-permission: application.unlock_field
+      x-scope: application
+      x-audit: application.unlock_decided
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [accept, refuse] }
+                reason: { type: string, minLength: 3, maxLength: 1000, description: Required for a refusal }
+      responses:
+        '200':
+          description: Decided; the answer is locked again
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApplicationUnlockResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /application-unlocks/{unlockId}/cancel:
+    parameters:
+      - name: unlockId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    post:
+      tags: [applications]
+      operationId: applications.unlock.cancel
+      summary: Cancel an unlock that waits for a step, with a reason; the old value stays
+      description: R33. An open unlock never expires; the office cancels it instead. A closed project refuses it like every other step (409).
+      x-permission: application.unlock_field
+      x-scope: application
+      x-audit: application.unlock_cancelled
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 3, maxLength: 1000 }
+      responses:
+        '200':
+          description: Cancelled; the answer is locked again
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApplicationUnlockResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}/bulk/review:
     parameters:
       - $ref: '#/components/parameters/ProjectId'
@@ -8260,9 +8373,11 @@ paths:
       summary: 'Pull the next waitlisted application of a quota area into approved: the highest score, then the earliest waitlisted'
       description: >-
         "পরেরজনকে আনুন" (BD-17, D-132). The area is a union or a district as the project's quotas
-        define its areas, and none for a project without quotas (422 otherwise). A row another pull
-        holds is skipped, so two pulls at once take two different people. The move goes through the
-        engine: an approval into a full quota area asks for a comment (422 workflow.comment_required).
+        weigh by (any union or district of that level, with or without its own target), and none for a
+        project without quotas (422 otherwise). Pulls of one project run one after another, so two
+        pulls at once take two different people. The pull is an approval: it also needs
+        application.approve and every approval guard. An approval into a full quota area asks for a
+        comment (422 workflow.comment_required).
         Nobody waiting answers 409 workflow.waitlist_empty; a project out of reach 404.
       x-permission: application.waitlist
       x-scope: application
@@ -8930,7 +9045,7 @@ paths:
                       properties:
                         kind:
                           type: string
-                          enum: [unread_notifications, consent_pending, corrections, edit_answered, registrations_pending, staff_registrations_pending, edit_requests_pending, projects_draft, deadlines_soon, handovers_open]
+                          enum: [unread_notifications, consent_pending, corrections, edit_answered, registrations_pending, staff_registrations_pending, edit_requests_pending, projects_draft, deadlines_soon, handovers_open, unlocks_to_fill, unlocks_to_verify]
                         count: { type: integer, minimum: 1 }
                         href: { type: string, description: A fixed route of the PWA }
                   meta: { $ref: '#/components/schemas/Meta' }

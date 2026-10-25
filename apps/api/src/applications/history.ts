@@ -33,6 +33,13 @@ export const fieldChangeView = z.object({
   requestedBy: uuid.nullable(),
   approvedBy: uuid.nullable(),
   createdAt: z.string(),
+  /** The steps of an unlock: who entered the new value, who decided, how and why. */
+  enteredBy: uuid.nullable(),
+  enteredAt: z.string().nullable(),
+  decidedBy: uuid.nullable(),
+  decidedAt: z.string().nullable(),
+  decision: z.enum(['accepted', 'refused', 'cancelled']).nullable(),
+  decisionReason: z.string().nullable(),
 });
 export type FieldChangeView = z.infer<typeof fieldChangeView>;
 
@@ -123,5 +130,11 @@ export async function readChanges(
     requestedBy: r.requestedBy,
     approvedBy: r.approvedBy,
     createdAt: r.createdAt.toISOString(),
+    enteredBy: r.enteredBy,
+    enteredAt: r.enteredAt ? r.enteredAt.toISOString() : null,
+    decidedBy: r.decidedBy,
+    decidedAt: r.decidedAt ? r.decidedAt.toISOString() : null,
+    decision: fieldChangeView.shape.decision.parse(r.decision),
+    decisionReason: r.decisionReason,
   }));
 }

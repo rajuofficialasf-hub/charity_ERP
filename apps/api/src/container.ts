@@ -57,6 +57,7 @@ import { NisabService } from './services/nisab';
 import { ProjectQuotasService } from './services/project-quotas';
 import { ScoringService } from './applications/scoring';
 import { WorkflowSideEffects } from './applications/side-effects';
+import { UnlocksService } from './applications/unlocks';
 import { WaitlistService } from './applications/waitlist';
 import { ProgramsService } from './services/programs';
 import { ReferenceListsService } from './services/reference-lists';
@@ -159,6 +160,7 @@ export interface Container {
   applications: ApplicationsService;
   bulkReview: BulkReviewService;
   waitlist: WaitlistService;
+  unlocks: UnlocksService;
   applicationEvents: ApplicationEvents;
   readyForms: ReadyFormsService;
   publicLink: PublicLinkService;
@@ -292,6 +294,10 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       beneficiaryIdentity,
       beneficiaryMergeCandidates,
     );
+  // the field unlock of approved applications; the record lists its waiting steps
+  const unlocks =
+    o.unlocks ??
+    new UnlocksService(prisma, access, audit, clock, nisab, beneficiaryContact, applicationEvents);
   const publicPhotos =
     o.publicPhotos ?? new PublicPhotosService(prisma, storage, audit, jobs, logger, clock);
   const built = {
@@ -419,10 +425,12 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         workflow,
         new SubmissionWriter(access, beneficiaryIdentity, beneficiaryContact, audit),
         scoring,
+        unlocks,
       ),
     bulkReview:
       o.bulkReview ?? new BulkReviewService(prisma, access, audit, idempotency, workflow, logger),
     waitlist: o.waitlist ?? new WaitlistService(prisma, access, idempotency, workflow),
+    unlocks,
     readyForms: o.readyForms ?? new ReadyFormsService(prisma, audit, projects, forms),
     publicLink: o.publicLink ?? new PublicLinkService(env, prisma, audit, projects),
     publicPhotos,
@@ -518,6 +526,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         built.registrations,
         built.changeRequests,
         built.projects,
+        built.unlocks,
       ),
   };
 }

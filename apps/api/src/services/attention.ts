@@ -8,6 +8,7 @@ import type { ProjectFilter } from '@css/shared/projects';
 import { holdsPermission, projectWhere } from '../access/scope';
 import type { AccessService } from '../access/service';
 import type { Principal } from '../auth/principal';
+import type { UnlocksService } from '../applications/unlocks';
 import type { Clock } from '../core/clock';
 import type { PrismaService } from '../core/prisma.service';
 import type { ChangeRequestsService } from './change-requests';
@@ -36,6 +37,7 @@ export class AttentionService {
     private readonly registrations: RegistrationsService,
     private readonly changeRequests: ChangeRequestsService,
     private readonly projects: ProjectsService,
+    private readonly unlocks: UnlocksService,
   ) {}
 
   async items(principal: Principal): Promise<AttentionItem[]> {
@@ -59,6 +61,9 @@ export class AttentionService {
       });
     };
     const now = this.clock.now();
+    // the entered values to verify: the item opens the application that has waited longest
+    const toDecide = this.unlocks.waitingToDecide(principal);
+    const hrefs: Partial<Record<AttentionKind, string>> = {};
     const counts: [AttentionKind, Promise<number>][] = [
       // the inbox opens once the registration is approved
       [
@@ -116,13 +121,21 @@ export class AttentionService {
             : 0,
         ),
       ],
+      ['unlocks_to_fill', this.unlocks.waitingToFill(principal)],
+      [
+        'unlocks_to_verify',
+        toDecide.then(({ count, first }) => {
+          if (first) hrefs.unlocks_to_verify = `/admin/applications/${first}`;
+          return count;
+        }),
+      ],
     ];
     const settled = await Promise.all(counts.map(async ([kind, n]) => [kind, await n] as const));
     return (
       settled
         .filter(([, count]) => count > 0)
         // eslint-disable-next-line security/detect-object-injection -- a typed kind
-        .map(([kind, count]) => ({ kind, count, href: ATTENTION_ROUTES[kind] }))
+        .map(([kind, count]) => ({ kind, count, href: hrefs[kind] ?? ATTENTION_ROUTES[kind] }))
     );
   }
 

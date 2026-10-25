@@ -998,9 +998,15 @@ Constraints: UNIQUE (application_id, field_id, repeat_index). Index: GIN (value 
 | requested_by | uuid | yes | — | FK users |
 | approved_by | uuid | yes | — | FK users |
 | reason | text | yes | — | required for unlock and correction |
+| entered_by | uuid | yes | — | FK users; who entered the new value of an unlock (T2.6) |
+| entered_at | timestamptz | yes | — | when the new value was entered (T2.6) |
+| decided_by | uuid | yes | — | FK users; who accepted, refused or cancelled an unlock (T2.6) |
+| decided_at | timestamptz | yes | — | when; null while the unlock waits (T2.6) |
+| decision | text | yes | — | CHECK accepted, refused, cancelled (T2.6) |
+| decision_reason | text | yes | — | why it was refused or cancelled (T2.6) |
 | [L] | | | | append-only |
 
-Index: (entity_type, entity_id, created_at desc); (kind, unlock_state) WHERE unlock_state = 'open'.
+Index: (entity_type, entity_id, created_at desc); (kind, unlock_state) WHERE unlock_state = 'open'; (entered_by); (decided_by); UNIQUE (entity_id, field) WHERE kind = 'unlock' AND decided_at IS NULL, so one unlock per answer waits at a time (migration `20261025160000_field_unlock`). The status-log trigger lets an unlock row change only `unlock_state`, `new_value`, `approved_by`, `entered_by`, `entered_at`, `decided_by`, `decided_at`, `decision` and `decision_reason`. An unlock row of an application names the answer as `field_key` or `field_key[row]` for a row of a repeat group; it moves open → updated → relocked (`apps/api/src/applications/unlocks.ts`), and `approved_by` is set when the value is accepted.
 
 ### application_transfers
 | Column | Type | Null | Default | Comment |

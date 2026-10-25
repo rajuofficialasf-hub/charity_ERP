@@ -94,8 +94,8 @@ Channels: **A** in-app · **E** email · **S** SMS · **P** optional Web Push (i
 | Application rejected (the message written for the volunteer; the office reason stays in the record) | owner, team (own records) | A | `application_rejected` | 2 |
 | Application returned from rejection to review | owner, team (own records) | A | `application_reopened` | 2 |
 | Application waitlisted / pulled from waitlist | owner | A | `application_waitlisted` | 2 |
-| Field unlocked for the volunteer | owner | A | `field_unlocked` | 2 |
-| Unlocked field updated (needs verification) | the official who unlocked | A | `field_updated` | 2 |
+| Field unlocked for the volunteer (the question named, never the office's reason; not for an answer of the official section; built T2.6) | owner | A | `field_unlocked` | 2 |
+| Unlocked field updated (needs verification; built T2.6) | the official who unlocked | A | `field_updated` | 2 |
 | Applications transferred | new volunteer; old volunteer (count only, no details); rpm(region) | A | `application_transferred` | 2 |
 | Application completed | owner | A | `application_completed` | 2 |
 | Sync result: records failed or need verification | the volunteer (in-app inbox and sync centre) | A | `sync_attention` | 2 |

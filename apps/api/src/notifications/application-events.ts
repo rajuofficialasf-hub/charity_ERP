@@ -45,6 +45,39 @@ export class ApplicationEvents {
     return Object.hasOwn(NOTIFICATION_CATALOGUE, key);
   }
 
+  /**
+   * A step of a field unlock, to one person: the owner volunteer hears that a question opened for
+   * a new answer (never the office's reason), and the official who opened it hears that the new
+   * value came. The entry names the question and leads to the application.
+   */
+  async publishUnlock(
+    tx: Tx,
+    key: 'field_unlocked' | 'field_updated',
+    input: {
+      application: { id: string; projectId: string };
+      question: { bn: string; en?: string };
+      to: string;
+      actorId: string;
+    },
+  ): Promise<void> {
+    const project = await tx.project.findUniqueOrThrow({
+      where: { id: input.application.projectId },
+      select: { nameBn: true, nameEn: true },
+    });
+    await this.notifications.publish(tx, {
+      key,
+      recipients: [{ user: input.to }],
+      params: {
+        project_name: { bn: project.nameBn, en: project.nameEn },
+        field_name: { bn: input.question.bn, en: input.question.en ?? input.question.bn },
+        projectId: input.application.projectId,
+        applicationId: input.application.id,
+      },
+      about: input.application.id,
+      actorId: input.actorId,
+    });
+  }
+
   async publish(
     tx: Tx,
     key: string,

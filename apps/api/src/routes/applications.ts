@@ -31,6 +31,17 @@ import { defineRoute, type RouteDeps } from '../openapi/define-route';
 import type { Replayable } from '../services/uploads';
 import { versionView } from './forms';
 import { type PullNext, pullNextSchema } from '../applications/waitlist';
+import { unlockView } from '../applications/unlocks';
+import {
+  type UnlockCancel,
+  unlockCancelSchema,
+  type UnlockDecisionRequest,
+  unlockDecisionSchema,
+  type UnlockOpen,
+  unlockOpenSchema,
+  type UnlockValue,
+  unlockValueSchema,
+} from '@css/shared/forms';
 
 const uuid = z.uuid();
 const ifMatch = [{ name: 'If-Match', required: true }];
@@ -50,7 +61,7 @@ const viewerOf = (req: AuthedRequest) => ({
  */
 export function applicationsRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'applications' | 'bulkReview' | 'idempotency' | 'waitlist'>,
+  c: Pick<Container, 'applications' | 'bulkReview' | 'idempotency' | 'unlocks' | 'waitlist'>,
 ): Router {
   const router = Router();
   const op = { tag: 'applications', idempotency: 'none' as const, rateLimit: 'default' as const };
@@ -278,6 +289,75 @@ export function applicationsRouter(
       },
     },
   );
+
+  defineRoute<UnlockOpen, unknown, { applicationId: string }>(router, deps, {
+    ...op,
+    method: 'post',
+    path: '/applications/:applicationId/unlocks',
+    status: 201,
+    operationId: 'applications.unlock.open',
+    summary:
+      'Open one answer of an approved application for correction, with a reason; the identity, photos, files and calculated answers never open, and one unlock per answer waits at a time',
+    permission: 'application.unlock_field',
+    scope: 'application',
+    audit: 'application.unlock_opened',
+    params: { applicationId: uuid },
+    body: unlockOpenSchema,
+    responses: { 201: unlockView, 403: null, 404: null, 409: null, 422: null },
+    handler: async ({ params, body, req }) =>
+      ok(await c.unlocks.open(principalOf(req), params.applicationId, body)),
+  });
+
+  defineRoute<UnlockValue, unknown, { unlockId: string }>(router, deps, {
+    ...op,
+    method: 'put',
+    path: '/application-unlocks/:unlockId/value',
+    operationId: 'applications.unlock.fill',
+    summary:
+      "Enter the new value of an open answer: the owner volunteer (application.update_unlocked_field), or an official of the unlock scope (application.unlock_field) when the application has no volunteer or the answer is the official section's",
+    permission: 'workflow',
+    scope: 'application',
+    audit: 'application.unlock_entered',
+    workflow: { scope: 'field_unlock', action: 'fill' },
+    params: { unlockId: uuid },
+    body: unlockValueSchema,
+    responses: { 200: unlockView, 403: null, 404: null, 409: null, 422: null },
+    handler: async ({ params, body, req }) =>
+      ok(await c.unlocks.fill(principalOf(req), params.unlockId, body)),
+  });
+
+  defineRoute<UnlockDecisionRequest, unknown, { unlockId: string }>(router, deps, {
+    ...op,
+    method: 'post',
+    path: '/application-unlocks/:unlockId/decision',
+    operationId: 'applications.unlock.decide',
+    summary:
+      'Accept the entered value (the answer changes and locks again) or refuse it with a reason (the old value stays); never by the person who entered it',
+    permission: 'application.unlock_field',
+    scope: 'application',
+    audit: 'application.unlock_decided',
+    params: { unlockId: uuid },
+    body: unlockDecisionSchema,
+    responses: { 200: unlockView, 403: null, 404: null, 409: null, 422: null },
+    handler: async ({ params, body, req }) =>
+      ok(await c.unlocks.decide(principalOf(req), params.unlockId, body)),
+  });
+
+  defineRoute<UnlockCancel, unknown, { unlockId: string }>(router, deps, {
+    ...op,
+    method: 'post',
+    path: '/application-unlocks/:unlockId/cancel',
+    operationId: 'applications.unlock.cancel',
+    summary: 'Cancel an unlock that waits for a step, with a reason; the old value stays',
+    permission: 'application.unlock_field',
+    scope: 'application',
+    audit: 'application.unlock_cancelled',
+    params: { unlockId: uuid },
+    body: unlockCancelSchema,
+    responses: { 200: unlockView, 403: null, 404: null, 409: null, 422: null },
+    handler: async ({ params, body, req }) =>
+      ok(await c.unlocks.cancel(principalOf(req), params.unlockId, body)),
+  });
 
   defineRoute<BulkReview, unknown, { projectId: string }>(router, deps, {
     ...op,

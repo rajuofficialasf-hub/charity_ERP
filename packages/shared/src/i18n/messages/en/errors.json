@@ -303,6 +303,14 @@
     "team_lead_missing": "You have no lead volunteer on this project.",
     "number_in_project": "An application with this number already exists in this project.",
     "upload_not_own": "This file is not your upload.",
-    "not_editable": "The application cannot be edited in its current state."
+    "not_editable": "The application cannot be edited in its current state.",
+    "not_unlockable": "Only an answer of an approved application can be opened for correction.",
+    "unlock_identity": "The NID or birth registration, the name and the father's or husband's name cannot be opened this way. Send a profile correction request.",
+    "unlock_type": "A photo, file or calculated answer cannot be opened for correction.",
+    "unlock_open": "This answer is already open for correction.",
+    "unlock_not_open": "This unlock is no longer open for this step.",
+    "unlock_own_entry": "The person who entered the new answer cannot verify it.",
+    "unlock_stale": "The answer changed after the unlock was opened. Cancel the unlock and open it again.",
+    "unlock_unchanged": "The new answer is the same as the old one."
   }
 }

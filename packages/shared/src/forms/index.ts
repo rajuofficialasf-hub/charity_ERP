@@ -10,4 +10,5 @@ export * from './requests.js';
 export * from './score.js';
 export * from './split.js';
 export * from './template.js';
+export * from './unlock.js';
 export * from './validate.js';

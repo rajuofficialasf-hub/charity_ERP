@@ -44,6 +44,7 @@ import type { BeneficiaryIdentityService } from '../services/beneficiary-identit
 import { type FormAudience, readDefinition, versionView } from '../services/forms';
 import { isAddressChain } from '../services/locations';
 import type { NisabService } from '../services/nisab';
+import type { UnlocksService } from './unlocks';
 import type { ScoringService } from './scoring';
 import { type CommentReason, commentReasons } from './decision-rules';
 import type { Replayable } from '../services/uploads';
@@ -258,6 +259,7 @@ export class ApplicationsService {
     private readonly workflow: WorkflowEngine,
     private readonly submission: SubmissionWriter,
     private readonly scoring: ScoringService,
+    private readonly unlocks: UnlocksService,
   ) {}
 
   async create(
@@ -1142,6 +1144,12 @@ export class ApplicationsService {
         availableActions,
         decisionHints:
           audience === 'official' ? await this.decisionHints(applicationId, availableActions) : {},
+        ...(await this.unlocks.forRecord(
+          viewer.principal,
+          access,
+          applicationId,
+          audience === 'official',
+        )),
         form: versionView(version, definition),
       },
       updatedAt: row.updatedAt,

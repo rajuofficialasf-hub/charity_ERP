@@ -620,6 +620,34 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
     ),
   },
   {
+    key: 'field_unlocked',
+    variables: ['project_name', 'field_name'],
+    channels: inApp(
+      {
+        title: 'উত্তর সংশোধনের জন্য খোলা হয়েছে',
+        body: '"{{project_name}}" প্রকল্পে আপনার একটি আবেদনের "{{field_name}}" উত্তরটি সংশোধনের জন্য খোলা হয়েছে। আবেদনটি খুলে নতুন উত্তর দিন।',
+      },
+      {
+        title: 'An answer is open for correction',
+        body: 'The answer "{{field_name}}" of one of your applications in the project "{{project_name}}" is open for correction. Open the application and give the new answer.',
+      },
+    ),
+  },
+  {
+    key: 'field_updated',
+    variables: ['project_name', 'field_name'],
+    channels: inApp(
+      {
+        title: 'নতুন উত্তর যাচাইয়ের অপেক্ষায়',
+        body: '"{{project_name}}" প্রকল্পে আপনার খোলা "{{field_name}}" উত্তরের নতুন মান এসেছে। যাচাই করে গ্রহণ করুন বা ফেরত দিন।',
+      },
+      {
+        title: 'A new answer awaits verification',
+        body: 'A new value came for the answer "{{field_name}}" you opened in the project "{{project_name}}". Verify it and accept it or send it back.',
+      },
+    ),
+  },
+  {
     key: 'application_reopened',
     variables: ['project_name'],
     channels: inApp(

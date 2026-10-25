@@ -17,6 +17,10 @@ export const ATTENTION_ROUTES = {
   projects_draft: '/admin/projects?status=draft',
   deadlines_soon: '/admin/projects?status=active&endingSoon=true',
   handovers_open: '/admin/handover',
+  // the volunteer's open answers are on their applications
+  unlocks_to_fill: '/my-applications',
+  // the item opens the oldest waiting application; this is the place when none is named
+  unlocks_to_verify: '/admin/projects',
 } as const;
 
 export type AttentionKind = keyof typeof ATTENTION_ROUTES;
