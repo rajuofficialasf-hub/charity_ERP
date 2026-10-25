@@ -80,5 +80,96 @@
     "stale": "The application has changed meanwhile. Reload it.",
     "yes": "Yes",
     "no": "No"
+  },
+  "office": {
+    "title": "Applications",
+    "back": "Back to the project",
+    "back_list": "Back to the applications",
+    "table": "Applications",
+    "search": "Search by name or application number",
+    "empty": "No applications in this project yet.",
+    "unnamed": "No name given",
+    "no_number": "No number yet",
+    "none": "Not given",
+    "number": "Application number",
+    "waiting": "{days} days",
+    "summary": "Showing {from}–{to} · {total} applications in all",
+    "column": {
+      "person": "Beneficiary",
+      "area": "Area",
+      "status": "Status",
+      "submitted": "Sent on",
+      "waiting": "Waiting"
+    },
+    "filter": {
+      "status": "Status",
+      "flag": "Flag",
+      "group_area": "Area",
+      "group_other": "Other"
+    },
+    "action": {
+      "review": "Start review",
+      "send_for_approval": "Send for approval",
+      "approve": "Approve",
+      "reject": "Reject",
+      "return_to_review": "Return from rejection",
+      "reject_unverified": "Refuse the entry",
+      "delete": "Delete"
+    },
+    "dialog": {
+      "reject": "Reject the application",
+      "return_to_review": "Return the rejection to await approval",
+      "reject_unverified": "Refuse the public entry",
+      "delete": "Delete this application?"
+    },
+    "done": {
+      "review": "The review has started.",
+      "send_for_approval": "Sent for approval.",
+      "approve": "The application is approved.",
+      "reject": "The application is rejected.",
+      "return_to_review": "The application awaits approval again.",
+      "reject_unverified": "The entry is refused.",
+      "delete": "The application is deleted.",
+      "saved": "The answers are saved."
+    },
+    "stale": "The application changed meanwhile. Reload it to see the latest.",
+    "edit_answers": "Edit the answers",
+    "answers": "Answers",
+    "timeline": "Steps of the application",
+    "decision": {
+      "reason": "The office's reason",
+      "reason_help": "Read by the officials only.",
+      "message": "Message for the volunteer",
+      "message_help": "This is what the volunteer and the team member read.",
+      "who_reads": "The office's reason never reaches the volunteer.",
+      "failed": "That could not be done. Try again."
+    },
+    "signals": {
+      "flag": {
+        "public_entry": "An entry from the public link; verify it and link it to a profile, or refuse it.",
+        "public_entry_short": "Public entry",
+        "existing_identity": "A profile with this number already exists.",
+        "identity_blocked": "The profile with this number is blocklisted.",
+        "identity_repeated": "The same number or mobile came through this link again within a day."
+      },
+      "family": "Possibly the same family in this project: {name} ({benNo}) — {rule}",
+      "rule": {
+        "mobile": "same mobile",
+        "union_village_father": "same union, village and father's or husband's name"
+      }
+    },
+    "changes": {
+      "title": "Change log",
+      "empty": "No changes yet.",
+      "field": "Question",
+      "old": "Before",
+      "new": "After",
+      "when": "When",
+      "none": "empty"
+    },
+    "bulk": {
+      "selected": "{count} selected",
+      "outcome": "{done} done, {failed} not done"
+    }
   }
 }

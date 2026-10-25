@@ -7822,6 +7822,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/PageNumber'
         - $ref: '#/components/parameters/IncludeTotal'
         - $ref: '#/components/parameters/Sort'
         - $ref: '#/components/parameters/Search'
@@ -7947,6 +7948,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/PageNumber'
         - $ref: '#/components/parameters/IncludeTotal'
         - $ref: '#/components/parameters/Sort'
         - $ref: '#/components/parameters/Search'

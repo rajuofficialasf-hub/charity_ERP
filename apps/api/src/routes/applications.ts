@@ -20,7 +20,12 @@ import type { ApplicationRead } from '../applications/service';
 import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal';
 import type { Container } from '../container';
 import { etagOf } from '../core/etag';
-import { type PageQuery, pageQuery } from '../core/pagination';
+import {
+  type PageNumberQuery,
+  type PageQuery,
+  pageNumberQuery,
+  pageQuery,
+} from '../core/pagination';
 import { ok, page } from '../http/send';
 import { defineRoute, type RouteDeps } from '../openapi/define-route';
 import type { Replayable } from '../services/uploads';
@@ -28,7 +33,7 @@ import { versionView } from './forms';
 
 const uuid = z.uuid();
 const ifMatch = [{ name: 'If-Match', required: true }];
-const listQuery = pageQuery.extend(applicationFilterSchema.shape);
+const listQuery = pageQuery.extend(pageNumberQuery.shape).extend(applicationFilterSchema.shape);
 const ACTIONS = Object.keys(APPLICATION_ACTIONS) as [ApplicationAction, ...ApplicationAction[]];
 
 const viewerOf = (req: AuthedRequest) => ({
@@ -60,25 +65,29 @@ export function applicationsRouter(
     return result.value;
   };
 
-  defineRoute<unknown, ApplicationFilter & PageQuery, { projectId: string }>(router, deps, {
-    ...op,
-    method: 'get',
-    path: '/projects/:projectId/applications',
-    operationId: 'applications.application.list',
-    summary:
-      'Applications of a project within scope; review queue sorted by score when sort=-score',
-    permission: 'application.view',
-    scope: 'application',
-    audit: 'none',
-    sensitiveFields: ['application.official_section'],
-    params: { projectId: uuid },
-    query: listQuery,
-    responses: { 200: z.array(applicationSummary), 400: null, 404: null },
-    handler: async ({ params, query, req }) => {
-      const { rows, meta } = await c.applications.list(viewerOf(req), params.projectId, query);
-      return page(rows, meta);
+  defineRoute<unknown, ApplicationFilter & PageQuery & PageNumberQuery, { projectId: string }>(
+    router,
+    deps,
+    {
+      ...op,
+      method: 'get',
+      path: '/projects/:projectId/applications',
+      operationId: 'applications.application.list',
+      summary:
+        'Applications of a project within scope; review queue sorted by score when sort=-score',
+      permission: 'application.view',
+      scope: 'application',
+      audit: 'none',
+      sensitiveFields: ['application.official_section'],
+      params: { projectId: uuid },
+      query: listQuery,
+      responses: { 200: z.array(applicationSummary), 400: null, 404: null },
+      handler: async ({ params, query, req }) => {
+        const { rows, meta } = await c.applications.list(viewerOf(req), params.projectId, query);
+        return page(rows, meta);
+      },
     },
-  });
+  );
 
   defineRoute<unknown, unknown, { projectId: string }>(router, deps, {
     ...op,
@@ -97,7 +106,7 @@ export function applicationsRouter(
       ok(await c.applications.applicationForm(viewerOf(req), params.projectId)),
   });
 
-  defineRoute<unknown, ApplicationFilter & PageQuery>(router, deps, {
+  defineRoute<unknown, ApplicationFilter & PageQuery & PageNumberQuery>(router, deps, {
     ...op,
     method: 'get',
     path: '/me/applications',

@@ -235,3 +235,7 @@ export const FORM_PLACE_ROLES: readonly string[] = [
   'program_manager',
 ];
 export const canPlaceForms = (me: Pick<Me, 'roles'>) => holds(me, FORM_PLACE_ROLES);
+
+/** Who opens a project's applications: every official holding `application.view` (the server scopes the rows). */
+export const APPLICATION_ROLES: readonly string[] = ADMIN_ROLES;
+export const canSeeApplications = (me: Pick<Me, 'roles'>) => holds(me, APPLICATION_ROLES);

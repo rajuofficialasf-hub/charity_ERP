@@ -100,6 +100,9 @@ export function ProjectOverviewPage() {
             <Button variant="secondary" size="sm" href={`/admin/projects/${p.id}/volunteers`}>
               {t('volunteers.open')}
             </Button>
+            <Button variant="secondary" size="sm" href={`/admin/projects/${p.id}/applications`}>
+              {t('detail.applications')}
+            </Button>
             {/* the template managers are the project creators (organisation-wide templates) */}
             {canCreateProjects(me) && (
               <Button variant="ghost" size="sm" onPress={() => setSaving(true)}>

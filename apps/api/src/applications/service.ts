@@ -28,6 +28,7 @@ import {
   decodeCursor,
   keysetWhere,
   orderBy,
+  type PageNumberQuery,
   type PageQuery,
   pageOffset,
   parseSort,
@@ -553,7 +554,11 @@ export class ApplicationsService {
   }
 
   /** The applications of a project the caller's scope reaches, newest first. */
-  async list(viewer: ApplicationViewer, projectId: string, query: ApplicationFilter & PageQuery) {
+  async list(
+    viewer: ApplicationViewer,
+    projectId: string,
+    query: ApplicationFilter & PageQuery & PageNumberQuery,
+  ) {
     const actor = viewer.principal.userId;
     const access = await this.access.load(actor);
     const projectScope = await this.access.scopeFor(
@@ -570,7 +575,10 @@ export class ApplicationsService {
    * The caller's own applications across their projects (a volunteer's "my applications"): the
    * ones their volunteer owns and the ones they created, whatever else their scope reaches.
    */
-  async listMine(viewer: ApplicationViewer, query: ApplicationFilter & PageQuery) {
+  async listMine(
+    viewer: ApplicationViewer,
+    query: ApplicationFilter & PageQuery & PageNumberQuery,
+  ) {
     const userId = viewer.principal.userId;
     return this.page(
       viewer,
@@ -584,7 +592,7 @@ export class ApplicationsService {
     viewer: ApplicationViewer,
     binding: string,
     base: Prisma.ApplicationWhereInput,
-    query: ApplicationFilter & PageQuery,
+    query: ApplicationFilter & PageQuery & PageNumberQuery,
   ) {
     const cursor = query.cursor
       ? decodeCursor(this.env.CURSOR_SECRET, binding, query.cursor)

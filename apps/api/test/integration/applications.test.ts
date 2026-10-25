@@ -529,4 +529,34 @@ describe('the list', () => {
       await h.db.query(`DELETE FROM blocklist WHERE subject_id = $1`, [generalVolunteer]);
     }
   });
+
+  it('jumps to a page number inside the counted range and refuses one with a cursor', async () => {
+    for (let i = 0; i < 3; i += 1)
+      await applicationRow(h.db, {
+        projectId: project,
+        versionId,
+        loc: world.dhaka,
+        status: 'submitted',
+        over: { submitted_at: new Date(Date.now() - i * 60_000) },
+      });
+    const rpm = await as(world.users.rpmDhaka);
+    const all = await at(rpm, 'get', `/projects/${project}/applications?status=submitted&limit=5`);
+    expect(all.status, JSON.stringify(all.body)).toBe(200);
+    const ids = all.body.data.map((r: { id: string }) => r.id);
+    expect(ids.length).toBeGreaterThanOrEqual(3);
+    const second = await at(
+      rpm,
+      'get',
+      `/projects/${project}/applications?status=submitted&limit=2&page=2`,
+    );
+    expect(second.status, JSON.stringify(second.body)).toBe(200);
+    expect(second.body.data.map((r: { id: string }) => r.id)).toEqual(ids.slice(2, 4));
+    expect(second.body.meta.prevCursor).not.toBeNull();
+    const mixed = await at(
+      rpm,
+      'get',
+      `/projects/${project}/applications?page=2&cursor=${second.body.meta.prevCursor}`,
+    );
+    expect(mixed.status).toBe(422);
+  });
 });

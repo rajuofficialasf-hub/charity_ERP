@@ -193,6 +193,20 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                   }),
                 },
                 {
+                  path: 'projects/:projectId/applications',
+                  lazy: async () => ({
+                    Component: (await import('../admin/applications/ApplicationsPage'))
+                      .ApplicationsPage,
+                  }),
+                },
+                {
+                  path: 'applications/:applicationId',
+                  lazy: async () => ({
+                    Component: (await import('../admin/applications/ApplicationReviewPage'))
+                      .ApplicationReviewPage,
+                  }),
+                },
+                {
                   path: 'projects/:projectId/forms',
                   lazy: async () => ({
                     Component: (await import('../admin/forms/FormsPage')).FormsPage,
