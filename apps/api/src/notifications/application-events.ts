@@ -142,15 +142,15 @@ export class ApplicationEvents {
     const creatorOnTeam =
       target.createdByUserId &&
       target.createdByUserId !== owner?.userId &&
-      target.ownerVolunteerId &&
-      (await tx.volunteerTeam.count({
-        where: {
-          projectId: target.projectId,
-          leadVolunteerId: target.ownerVolunteerId,
-          removedAt: null,
-          memberVolunteer: { userId: target.createdByUserId },
-        },
-      })) > 0;
+      (!target.ownerVolunteerId ||
+        (await tx.volunteerTeam.count({
+          where: {
+            projectId: target.projectId,
+            leadVolunteerId: target.ownerVolunteerId,
+            removedAt: null,
+            memberVolunteer: { userId: target.createdByUserId },
+          },
+        })) > 0);
     const recipients: RecipientRule[] = OWNER_KEYS.includes(key)
       ? [
           ...(owner ? [{ user: owner.userId }] : []),

@@ -316,6 +316,8 @@
     "transfer_same": "Applications cannot be handed to the same volunteer.",
     "transfer_target_unfit": "The new volunteer is not active or is blocklisted.",
     "transfer_target_not_assigned": "The new volunteer is not on this project. Assign them first, or with the transfer.",
-    "transfer_not_owned": "The chosen applications are not this volunteer's, or there is nothing to hand over."
+    "transfer_not_owned": "The chosen applications are not this volunteer's, or there is nothing to hand over.",
+    "transfer_too_many": "More than 500 applications cannot move at once. Choose the applications and hand them over in steps.",
+    "transfer_team_partial": "The team moves only when every application of this volunteer is handed over."
   }
 }

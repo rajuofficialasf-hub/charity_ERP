@@ -1,6 +1,6 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { SeedContext } from '../../seed/context';
 import { seedReferenceLists } from '../../seed/sets/base/reference-lists';
 import { seedWorkflows } from '../../seed/sets/base/workflows';
@@ -116,13 +116,25 @@ beforeAll(async () => {
   );
   await assign(volunteerA);
   await assign(volunteerB);
+  teamVolunteer = await volunteerOf(world.users.team);
+});
+afterAll(async () => h.close());
+let teamVolunteer: string;
+beforeEach(async () => {
+  await h.db.query(
+    `UPDATE applications SET status = 'deleted', deleted_at = now() WHERE project_id = $1 AND status <> 'deleted'`,
+    [project],
+  );
+  await h.db.query(
+    `UPDATE volunteer_teams SET removed_at = now() WHERE project_id = $1 AND removed_at IS NULL`,
+    [project],
+  );
   await h.db.query(
     `INSERT INTO volunteer_teams (id, project_id, lead_volunteer_id, member_volunteer_id, consent_status, consent_at, created_by)
      VALUES ($1, $2, $3, $4, 'accepted', now(), $5)`,
-    [randomUUID(), project, volunteerA, await volunteerOf(world.users.team), world.users.general],
+    [randomUUID(), project, volunteerA, teamVolunteer, world.users.general],
   );
 });
-afterAll(async () => h.close());
 
 describe('a transfer', () => {
   it('hands two of three applications to another volunteer, who works on them while the old one reaches none', async () => {
@@ -188,7 +200,11 @@ describe('a transfer', () => {
   it('moves the team when asked, counts toward the new limit with a warning, and answers a repeat the same', async () => {
     const a = await as(world.users.general);
     const member = await as(world.users.team);
+    await draft(a);
+    await draft(a);
     const left = await draft(member);
+    // the new volunteer already holds one, so three more take them over the limit of three
+    await draft(await as(userB));
     const rpm = await as(world.users.rpmDhaka);
     const key = randomUUID();
     // every remaining application of the old volunteer moves, the team with them
@@ -213,11 +229,53 @@ describe('a transfer', () => {
     });
     expect(refused.status).toBe(409);
     expect(refused.body.error.code).toBe('workflow.guard.limit_not_exceeded');
-    // the team moved back for the other tests
+  });
+
+  it('refuses to move the team while applications stay with the old volunteer', async () => {
+    const a = await as(world.users.general);
+    const moved = await draft(a);
+    await draft(a);
+    const res = await transfer(await as(world.users.rpmDhaka), {
+      applicationIds: [moved],
+      moveTeam: true,
+    });
+    expect(res.status).toBe(422);
+    expect(res.body.error.details).toEqual([
+      expect.objectContaining({ code: 'application.transfer_team_partial' }),
+    ]);
+    expect((await read(a, moved)).status).toBe(200);
+  });
+
+  it('takes the files of a moved application from the old volunteer', async () => {
+    const a = await as(world.users.general);
+    const id = await draft(a);
+    const fileId = randomUUID();
     await h.db.query(
-      `UPDATE volunteer_teams SET lead_volunteer_id = $1 WHERE project_id = $2 AND removed_at IS NULL`,
-      [volunteerA, project],
+      `INSERT INTO files (id, bucket, object_key, kind, mime, size_bytes, sha256, project_id, uploaded_by, source, virus_scan)
+       VALUES ($1, 'photos', $2, 'form_photo', 'image/jpeg', 10, $3, $4, $5, 'camera', 'skipped')`,
+      [
+        fileId,
+        `applications/${fileId}.jpg`,
+        createHash('sha256').update(fileId).digest('hex'),
+        project,
+        world.users.general,
+      ],
     );
+    await h.db.query(
+      `INSERT INTO file_links (id, file_id, entity_type, entity_id, slot) VALUES ($1, $2, 'application', $3, 'house_photo')`,
+      [randomUUID(), fileId, id],
+    );
+    const files = (s: Session) => at(s, 'get', `/files?entityType=application&entityId=${id}`);
+    expect((await files(a)).status).toBe(200);
+    expect((await transfer(await as(world.users.rpmDhaka), { applicationIds: [id] })).status).toBe(
+      200,
+    );
+    const after = await files(a);
+    expect(after.status, JSON.stringify(after.body)).toBe(404);
+    expect((await at(a, 'get', `/files/${fileId}`)).status).toBe(404);
+    const theirs = await files(await as(userB));
+    expect(theirs.status, JSON.stringify(theirs.body)).toBe(200);
+    expect((theirs.body.data as { id: string }[]).map((f) => f.id)).toContain(fileId);
   });
 
   it('hands an open unlock of a moved application to the new volunteer', async () => {
@@ -239,11 +297,6 @@ describe('a transfer', () => {
     });
     expect(opened.status, JSON.stringify(opened.body)).toBe(201);
     const unlockId = opened.body.data.id as string;
-    // the new volunteer is back under the limit once the earlier moves are rejected
-    await h.db.query(
-      `UPDATE applications SET status = 'deleted', deleted_at = now() WHERE owner_volunteer_id = $1 AND project_id = $2`,
-      [volunteerB, project],
-    );
     expect((await transfer(rpm, { applicationIds: [id] })).status).toBe(200);
     const value = { value: { t: 'short_text', v: 'নতুন গ্রাম' } };
     expect((await at(a, 'put', `/application-unlocks/${unlockId}/value`).send(value)).status).toBe(
@@ -266,6 +319,18 @@ describe('a transfer', () => {
     expect(unassigned.body.error.details).toEqual([
       expect.objectContaining({ code: 'application.transfer_target_not_assigned' }),
     ]);
+    // a refused transfer assigns nobody
+    const refused = await transfer(rpm, {
+      applicationIds: [randomUUID()],
+      toVolunteerId: newcomer,
+      assign: true,
+    });
+    expect(refused.status).toBe(404);
+    const none = await h.db.query(
+      'SELECT 1 FROM project_volunteers WHERE project_id = $1 AND volunteer_id = $2',
+      [project, newcomer],
+    );
+    expect(none.rowCount).toBe(0);
     const res = await transfer(rpm, {
       applicationIds: [id],
       toVolunteerId: newcomer,
@@ -324,7 +389,8 @@ describe('what a transfer refuses', () => {
       fromVolunteerId: volunteerB,
       toVolunteerId: volunteerA,
     });
-    expect(foreign.status).toBe(422);
+    // the chosen application is not the named volunteer's: not found, as outside the scope
+    expect(foreign.status).toBe(404);
     expect((await transfer(rpm, { applicationIds: [id], toVolunteerId: volunteerA })).status).toBe(
       422,
     );

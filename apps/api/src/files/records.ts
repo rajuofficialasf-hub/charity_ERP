@@ -45,7 +45,16 @@ function recordQuery(type: UploadRecordType, id: string): Prisma.Sql {
     case 'application':
       return Prisma.sql`
         SELECT a.project_id, a.id AS application_id,
-               array_remove(ARRAY[v.user_id, a.created_by_user_id], NULL) AS owners,
+               -- the creator is an owner only while the owner is their team lead there (or
+               -- nobody owns it), as the application scope's creator rule says
+               array_remove(ARRAY[v.user_id,
+                 CASE WHEN a.owner_volunteer_id IS NULL OR EXISTS (
+                   SELECT 1 FROM volunteer_teams vt
+                     JOIN volunteers m ON m.id = vt.member_volunteer_id
+                    WHERE vt.project_id = a.project_id
+                      AND vt.lead_volunteer_id = a.owner_volunteer_id
+                      AND vt.removed_at IS NULL AND m.user_id = a.created_by_user_id)
+                 THEN a.created_by_user_id END], NULL) AS owners,
                ${APPLICATION_PLACES} AS locations, NULL::text AS district_code,
                a.client_created_at
           FROM applications a

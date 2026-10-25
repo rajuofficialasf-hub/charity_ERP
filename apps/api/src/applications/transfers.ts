@@ -2,7 +2,7 @@ import { uuidv7 } from '@css/shared';
 import { reasonRequestSchema } from '@css/shared/auth';
 import { z } from 'zod';
 import type { EffectiveAccess } from '../access/effective';
-import { applicationWhere, holdsPermission } from '../access/scope';
+import { applicationWhere, holdsPermission, projectWhere } from '../access/scope';
 import type { AccessService } from '../access/service';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Principal } from '../auth/principal';
@@ -70,7 +70,7 @@ export const transferCandidate = z.object({
 export type TransferCandidate = z.infer<typeof transferCandidate>;
 
 /**
- * The application transfer (BD-07): an RPM, or an Executive the RPM granted it, moves all or some
+ * The application transfer: an RPM, or an Executive the RPM granted it, moves all or some
  * applications of one volunteer on an active project to another volunteer assigned there, with a
  * reason. The new volunteer takes the owner's place, so they read, edit and send the applications
  * by state from then on, and an open unlock waits for them; the old volunteer, and their team
@@ -127,15 +127,21 @@ export class TransfersService {
     if (body.moveTeam) this.assertHolds(principal, access, TEAM_TRANSFER);
     if (body.assign) this.assertHolds(principal, access, ASSIGN);
     const scope = await this.access.scopeFor(principal, access, TRANSFER, 'application');
-    const project = await this.prisma.project.findUnique({
-      where: { id: projectId },
-      select: { status: true, perVolunteerLimit: true },
-    });
-    if (!project) throw new ApiError('permission.not_found', 404);
-    // a project that does not run takes no transfer, as it takes no unlock
-    if (project.status !== 'active') throw new ApiError('workflow.guard.project_active', 409);
-    // a volunteer not yet on the project is assigned first, through the assignment's own checks
-    if (body.assign && !(await this.assigned(this.prisma, projectId, body.toVolunteerId)))
+    if (body.moveTeam) {
+      // the team moves only on a project the caller's team scope reaches
+      const teamScope = await this.access.scopeFor(principal, access, TEAM_TRANSFER, 'project');
+      const reached = await this.prisma.project.count({
+        where: { AND: [{ id: projectId }, projectWhere(teamScope)] },
+      });
+      if (!reached) {
+        this.access.denied(principal.userId, TEAM_TRANSFER, 'project');
+        throw new ApiError('permission.not_found', 404);
+      }
+    }
+    // a volunteer not yet on the project is assigned first, through the assignment's own checks,
+    // once everything the move checks has passed, so a refused transfer assigns nobody
+    if (body.assign && !(await this.assigned(this.prisma, projectId, body.toVolunteerId))) {
+      await this.plan(this.prisma, principal, scope, projectId, body, true);
       await this.assignments.assign(
         {
           principal,
@@ -144,14 +150,87 @@ export class TransfersService {
         projectId,
         { volunteers: [{ volunteerId: body.toVolunteerId, isPaid: false }] },
       );
+    }
     const outcome = await this.idempotency.runWithKey<TransferResult>(
       key,
       { userId: principal.userId, deviceSessionId: principal.sessionId },
       1,
-      async (tx) => [await this.move(tx, principal, scope, projectId, body, project)],
+      async (tx) => [await this.move(tx, principal, scope, projectId, body)],
       { requestHash: JSON.stringify([projectId, body]) },
     );
     return { replay: outcome.replay, result: outcome.results[0]! };
+  }
+
+  /**
+   * What a transfer moves, after every check it makes: a running project; a new volunteer who is
+   * active, not blocklisted and on the project (unless being assigned); the chosen applications
+   * the old volunteer's on the project and inside the caller's scope (not found otherwise, so a
+   * refusal never tells what lies outside it), or every such application at once, at most 500;
+   * and, when the team moves, nothing of the old volunteer left behind on the project.
+   */
+  private async plan(
+    db: Tx | PrismaService,
+    principal: Principal,
+    scope: Awaited<ReturnType<AccessService['scopeFor']>>,
+    projectId: string,
+    body: TransferRequest,
+    assigning = false,
+  ) {
+    const project = await db.project.findUnique({
+      where: { id: projectId },
+      select: { status: true, perVolunteerLimit: true },
+    });
+    if (!project) throw new ApiError('permission.not_found', 404);
+    // a project that does not run takes no transfer, as it takes no unlock
+    if (project.status !== 'active') throw new ApiError('workflow.guard.project_active', 409);
+    const [from, to] = await Promise.all([
+      this.volunteer(db, body.fromVolunteerId),
+      this.volunteer(db, body.toVolunteerId),
+    ]);
+    if (!from) throw refuse('fromVolunteerId', 'validation.option_unknown');
+    if (!to) throw refuse('toVolunteerId', 'validation.option_unknown');
+    if (to.state !== 'active' || to.blocked)
+      throw refuse('toVolunteerId', 'application.transfer_target_unfit');
+    if (!assigning && !(await this.assigned(db, projectId, to.id)))
+      throw refuse('toVolunteerId', 'application.transfer_target_not_assigned');
+    const owned = await db.application.findMany({
+      where: {
+        AND: [
+          {
+            projectId,
+            ownerVolunteerId: from.id,
+            status: { not: 'deleted' },
+            ...(body.applicationIds ? { id: { in: body.applicationIds } } : {}),
+          },
+          applicationWhere(scope),
+        ],
+      },
+      select: { id: true, status: true },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: MAX_MOVED + 1,
+    });
+    if (body.applicationIds) {
+      if (owned.length !== new Set(body.applicationIds).size) {
+        this.access.denied(principal.userId, TRANSFER, 'application');
+        throw new ApiError('permission.not_found', 404);
+      }
+    } else {
+      if (!owned.length) throw refuse('applicationIds', 'application.transfer_not_owned');
+      if (owned.length > MAX_MOVED) throw refuse('applicationIds', 'application.transfer_too_many');
+    }
+    if (body.moveTeam) {
+      // a team moved away from applications that stay would lose the ones its members created
+      const left = await db.application.count({
+        where: {
+          projectId,
+          ownerVolunteerId: from.id,
+          status: { not: 'deleted' },
+          id: { notIn: owned.map((a) => a.id) },
+        },
+      });
+      if (left) throw refuse('moveTeam', 'application.transfer_team_partial');
+    }
+    return { project, from, to, owned };
   }
 
   private async move(
@@ -160,40 +239,9 @@ export class TransfersService {
     scope: Awaited<ReturnType<AccessService['scopeFor']>>,
     projectId: string,
     body: TransferRequest,
-    project: { perVolunteerLimit: number | null },
   ): Promise<TransferResult> {
-    const [from, to] = await Promise.all([
-      this.volunteer(tx, body.fromVolunteerId),
-      this.volunteer(tx, body.toVolunteerId),
-    ]);
-    if (!from) throw refuse('fromVolunteerId', 'validation.option_unknown');
-    if (!to) throw refuse('toVolunteerId', 'validation.option_unknown');
-    // the new volunteer must be fit for the work: active, not blocklisted, on the project
-    if (to.state !== 'active' || to.blocked)
-      throw refuse('toVolunteerId', 'application.transfer_target_unfit');
-    if (!(await this.assigned(tx, projectId, to.id)))
-      throw refuse('toVolunteerId', 'application.transfer_target_not_assigned');
-    const owned = await tx.application.findMany({
-      where: {
-        projectId,
-        ownerVolunteerId: from.id,
-        status: { not: 'deleted' },
-        ...(body.applicationIds ? { id: { in: body.applicationIds } } : {}),
-      },
-      select: { id: true, status: true },
-      take: MAX_MOVED,
-    });
-    if (!owned.length || (body.applicationIds && owned.length !== body.applicationIds.length))
-      throw refuse('applicationIds', 'application.transfer_not_owned');
+    const { project, from, to, owned } = await this.plan(tx, principal, scope, projectId, body);
     const ids = owned.map((a) => a.id);
-    // each application must lie inside the caller's transfer scope
-    const reached = await tx.application.count({
-      where: { AND: [{ id: { in: ids } }, applicationWhere(scope)] },
-    });
-    if (reached !== ids.length) {
-      this.access.denied(principal.userId, TRANSFER, 'application');
-      throw new ApiError('permission.not_found', 404);
-    }
     const now = this.clock.now();
     const actor = principal.userId;
     // the owner changes only where it is still the old volunteer, so two transfers never both move one
@@ -297,8 +345,8 @@ export class TransfersService {
     return members.filter((m) => m.memberVolunteerId !== toId).length;
   }
 
-  private async volunteer(tx: Tx, id: string) {
-    const row = await tx.volunteer.findUnique({
+  private async volunteer(db: Tx | PrismaService, id: string) {
+    const row = await db.volunteer.findUnique({
       where: { id },
       select: {
         id: true,
@@ -307,7 +355,7 @@ export class TransfersService {
       },
     });
     if (!row) return null;
-    const blocked = await tx.blocklist.count({
+    const blocked = await db.blocklist.count({
       where: { subjectType: 'volunteer', subjectId: id, active: true },
     });
     return {

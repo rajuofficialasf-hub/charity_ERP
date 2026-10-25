@@ -360,9 +360,16 @@ export class FilesService {
         }
       }
     const linked = { deletedAt: null, fileLinksFile: { some: { entityType, entityId } } };
+    // the uploader lists their own files of a record; an application's only while they still own
+    // the application, so a transfer takes them from the old volunteer with the rest of the record
     const where = {
       ...linked,
-      OR: [{ kind: { in: kinds } }, { uploadedBy: principal.userId }],
+      OR: [
+        { kind: { in: kinds } },
+        ...(type !== 'application' || record.owners.includes(principal.userId)
+          ? [{ uploadedBy: principal.userId }]
+          : []),
+      ],
     };
     if (!kinds.length && !(await this.prisma.file.count({ where }))) throw refuse();
     return { where, access };
@@ -411,8 +418,15 @@ export class FilesService {
    * registration photo, which the NID audit names.
    */
   private async viewer(principal: Principal, file: StoredFile): Promise<string | null> {
-    const owner = PHOTO_KINDS.includes(file.kind) ? await this.ownerOf(file) : null;
-    const allowed = PHOTO_KINDS.includes(file.kind)
+    // a photo on an application (a beneficiary's NID photo, say) follows the application, never
+    // the registration rule of a volunteer's own photos
+    const onApplication =
+      (await this.prisma.fileLink.count({
+        where: { fileId: file.id, entityType: 'application' },
+      })) > 0;
+    const registration = PHOTO_KINDS.includes(file.kind) && !onApplication;
+    const owner = registration ? await this.ownerOf(file) : null;
+    const allowed = registration
       ? !!owner && (await this.mayViewPhoto(principal, owner, file.kind))
       : await this.mayViewLinked(principal, file);
     if (!allowed) {
@@ -435,7 +449,6 @@ export class FilesService {
     file: StoredFile,
     loaded?: RequestAccess,
   ): Promise<boolean> {
-    if (file.uploadedBy === principal.userId) return true;
     const links = await this.prisma.fileLink.findMany({
       where: { fileId: file.id },
       select: { entityType: true, entityId: true },
@@ -450,6 +463,14 @@ export class FilesService {
       );
       if (record) records.push(record);
     }
+    // the uploader reads their own file; one of an application only while they still own the
+    // application, so a transfer takes it from the old volunteer with the rest of the record
+    if (
+      file.uploadedBy === principal.userId &&
+      (!links.some((l) => l.entityType === 'application') ||
+        records.some((r) => r.applicationId && r.owners.includes(principal.userId)))
+    )
+      return true;
     if (!records.length) return false;
     const access = loaded ?? (await this.access.load(principal.userId));
     for (const permission of viewPermissions(file.kind)) {
