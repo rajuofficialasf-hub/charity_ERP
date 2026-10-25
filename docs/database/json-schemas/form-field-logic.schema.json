@@ -72,7 +72,21 @@
         "help": { "type": "object", "properties": { "bn": { "type": "string" }, "en": { "type": "string" } } },
         "default": {},
         "validation": { "$ref": "#/$defs/validation" },
-        "repeat": { "type": "object", "properties": { "min_rows": { "type": "integer", "minimum": 0 }, "max_rows": { "type": "integer", "minimum": 1 } } }
+        "repeat": { "type": "object", "properties": { "min_rows": { "type": "integer", "minimum": 0 }, "max_rows": { "type": "integer", "minimum": 1 } } },
+        "score": {
+          "type": "object", "additionalProperties": false,
+          "description": "the points of the priority score, set by the Monitoring Team (D-132): per option code of a choice question, or per range of a number (the first matching range counts)",
+          "properties": {
+            "options": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0, "maximum": 100 } },
+            "ranges": {
+              "type": "array", "maxItems": 20,
+              "items": {
+                "type": "object", "additionalProperties": false, "required": ["points"],
+                "properties": { "min": { "type": "number" }, "max": { "type": "number" }, "points": { "type": "integer", "minimum": 0, "maximum": 100 } }
+              }
+            }
+          }
+        }
       }
     }
   }

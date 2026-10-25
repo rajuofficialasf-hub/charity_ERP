@@ -145,12 +145,12 @@ None blocking. Assumptions the plan works from (the owner may correct them at pl
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U3. The score on the application
 - **Goal:** the API computes the score at submission, on every answer change until the decision and at verification, freezes it at the decision, sorts the office's list by it and never shows it to a volunteer.
 - **Requirements:** R6, R7, R8, R9
-- **Files:** `apps/api/prisma/schema.prisma`, `apps/api/prisma/migrations/<timestamp>_application_scores/{migration,down}.sql` (`total_score` with its index and `waitlisted_at`), `apps/api/src/applications/scoring.ts`, `apps/api/src/applications/service.ts`, `apps/api/src/applications/view.ts`, `apps/api/src/workflow/engine.ts`, `apps/api/src/workflow/effects.ts`, `apps/api/src/workflow/registry.ts`, `apps/api/src/routes/applications.ts`, `apps/api/test/integration/application-scores.test.ts`, `docs/api/openapi.yaml`, `docs/database/DATABASE_SCHEMA.md`
+- **Files:** `apps/api/prisma/schema.prisma`, `apps/api/prisma/migrations/<timestamp>_application_scores/{migration,down}.sql` (`total_score` with its index, `waitlisted_at`, and `form_versions.scoring` for the form-level criterion), `apps/api/src/services/forms.ts` (the form-level scoring read, written and copied with the definition: draft save, publish, place, take, copy), `docs/database/json-schemas/` (the form version's scoring), `apps/api/src/applications/scoring.ts`, `apps/api/src/applications/service.ts`, `apps/api/src/applications/view.ts`, `apps/api/src/workflow/engine.ts`, `apps/api/src/workflow/effects.ts`, `apps/api/src/workflow/registry.ts`, `apps/api/src/routes/applications.ts`, `apps/api/test/integration/application-scores.test.ts`, `docs/api/openapi.yaml`, `docs/database/DATABASE_SCHEMA.md`
 - **Approach:** an effect runner in `engine.ts` that takes the move's transaction runs the built effects with side effects (`score.compute`, `score.snapshot`, and the waitlist stamps for U6), calling `scoring.ts`, which reads the definition of the application's version, the answers and the person's history; `update()` in `service.ts` recomputes after `writeAnswers` while the state is submitted or under review; the list's `LIST_SORT_FIELDS` gains `score` with the keyset cursor of `core/pagination.ts`.
 - **Tests:**
   - integration: a submission of a form with points stores the total and the breakdown; an edit under review changes it; the approval freezes it (a later unlock does not change it); a person approved in another project of the same program loses "not previously assisted", one approved in another program keeps it; the office's list sorts by score, highest first, and pages by cursor; the volunteer's record, own list and the project list never carry `totalScore`; a volunteer's `sort=score` is refused (422) and no volunteer cursor decodes to a score; a form without points leaves the score null and the list in arrival order.
@@ -170,7 +170,7 @@ None blocking. Assumptions the plan works from (the owner may correct them at pl
   - integration (`apps/api/test/integration/ready-forms.test.ts`): a PM cannot save points into a ready form's draft (403), the Monitoring Team can.
   - component: a choice question's options take points and save into the draft; a number question takes ranges; a text question offers no "নম্বর" group; the dialog shows "সর্বোচ্চ মোট: 100" and the publish is refused above 100 with the publish check's message; a published version is read-only; axe in bn and en.
 - **Done when:** the builder tests pass and a ready form with points publishes.
-- **Depends on:** U2
+- **Depends on:** U2, U3 (the form-level points are stored by U3)
 - **Size:** M
 - **Risk area:** none
 - **Status:** todo
@@ -342,7 +342,7 @@ None blocking. Assumptions the plan works from (the owner may correct them at pl
 ## Progress
 - **Branch:** `feat/application-rules` (from `main` at 3aaac17, after PR #27)
 - **Updated:** 2026-10-25 12:40
-- **Next:** U2 points in the form definition: the scoring decision into DECISION_LOG first, then `score.ts` with its tests
+- **Next:** checkpoint C1 on `b9c2263..HEAD` (U1, U2), then U3 the score on the application
 - **Reviewed through:** none yet
 - **Uncommitted:** none
-- **Notes:** the owner chose at the brainstorm and the doc review every Key decision above; the scoring decision goes into DECISION_LOG with U2 before any scoring code. U1 found the extension, the duplicate and both blocks already enforced (their new tests passed first time); a blocked volunteer is stopped at the session (401 `auth.token_stale`, then no login), before any guard. `project_volunteers.applications_counted` was never written, so the volunteer's "applications left" and the office's volunteer list showed 0: both now read the live count of `apps/api/src/applications/limit.ts`, the same rule the limit guard uses.
+- **Notes:** the owner chose at the brainstorm and the doc review every Key decision above; the scoring decision goes into DECISION_LOG with U2 before any scoring code. U1 found the extension, the duplicate and both blocks already enforced (their new tests passed first time); a blocked volunteer is stopped at the session (401 `auth.token_stale`, then no login), before any guard. `project_volunteers.applications_counted` was never written, so the volunteer's "applications left" and the office's volunteer list showed 0: both now read the live count of `apps/api/src/applications/limit.ts`, the same rule the limit guard uses. U2: D-132 holds the owner's decisions; the points are whole numbers 0 to 100 in `settings.score` and the form-level `scoring`; the score module reads visibility and calculated values through `evaluate`, so `definition.ts` and `score.ts` import each other (the checks call the score helpers only at run time); the form definition is stored as rows with no place for a form-level setting, so U3 adds `form_versions.scoring` and carries it through every copy of a definition, and U4 now waits for U3. BR-270 and BR-272 are marked deferred in the register until their units, so the Phase 1 documents check stays green.

@@ -7,6 +7,7 @@ export * from './evaluate.js';
 export * from './library.js';
 export * from './patterns.js';
 export * from './requests.js';
+export * from './score.js';
 export * from './split.js';
 export * from './template.js';
 export * from './validate.js';
