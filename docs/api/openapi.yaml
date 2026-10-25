@@ -3062,7 +3062,7 @@ components:
                 properties:
                   key: { type: string }
                   label: { $ref: '#/components/schemas/Bilingual' }
-                  input: { description: The answer read, or whether the person was not assisted before }
+                  input: { description: 'The answer read, or whether the person was not assisted before' }
                   max_points: { type: number }
                   points: { type: number }
             zakat:
