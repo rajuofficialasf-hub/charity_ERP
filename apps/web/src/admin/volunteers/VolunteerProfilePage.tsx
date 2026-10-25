@@ -65,7 +65,7 @@ import {
 } from '../registrations/registrations-api';
 import { VolunteerDecisions } from '../registrations/VolunteerDecisions';
 import { mailLink, telLink } from '../contact-links';
-import { canSeeVolunteers } from '../roles';
+import { canSeeVolunteers, canTransferApplications } from '../roles';
 import {
   profileKey,
   type VolunteerProfile,
@@ -725,6 +725,8 @@ function DocumentsTab({ view }: { view: View }) {
 }
 
 function WorkTab({ view: p }: { view: View }) {
+  const { me } = useAuth();
+  const transfers = Boolean(me && canTransferApplications(me));
   const t = useTranslations('admin.volunteers.profile');
   const tf = useTranslations('registration');
   const locale = useLocale() as Locale;
@@ -744,6 +746,11 @@ function WorkTab({ view: p }: { view: View }) {
                   {t('permission_set')}: {project.permissionSet}
                 </span>
                 {project.isPaid && <Badge tone="info" label={t('paid')} />}
+                {transfers ? (
+                  <Link to={`/admin/projects/${project.id}/transfer?from=${p.id}`}>
+                    {t('transfer')}
+                  </Link>
+                ) : null}
               </Stack>
             ))}
           </Grid>

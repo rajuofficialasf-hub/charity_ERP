@@ -202,6 +202,25 @@ export const canManagePrograms = (me: Pick<Me, 'roles'>) => holds(me, PROGRAM_AD
 export const canSeeProjects = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_ROLES);
 export const canCreateProjects = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_CREATE_ROLES);
 export const canAssignVolunteers = (me: Pick<Me, 'roles'>) => holds(me, ASSIGN_ROLES);
+
+/**
+ * Who hands a volunteer's applications to another (`application.transfer`): the two global roles,
+ * the RPM and the Executive the RPM grants it; who moves the old volunteer's team with them
+ * (`volunteer.team.transfer`): the RPM and the global roles. The server decides each by area.
+ */
+export const TRANSFER_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'regional_program_manager',
+  'project_executive',
+];
+export const TEAM_TRANSFER_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'regional_program_manager',
+];
+export const canTransferApplications = (me: Pick<Me, 'roles'>) => holds(me, TRANSFER_ROLES);
+export const canMoveTeams = (me: Pick<Me, 'roles'>) => holds(me, TEAM_TRANSFER_ROLES);
 export const canMarkPaid = (me: Pick<Me, 'roles'>) => holds(me, MARK_PAID_ROLES);
 export const canGrantOnProject = (me: Pick<Me, 'roles'>) => holds(me, PROJECT_GRANT_ROLES);
 export const canSeeStaff = (me: Pick<Me, 'roles'>) => holds(me, STAFF_DIRECTORY_ROLES);
