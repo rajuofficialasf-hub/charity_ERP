@@ -554,16 +554,28 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
   {
     key: 'application_reviewed',
     variables: ['project_name'],
-    channels: inApp(
-      {
-        title: 'অনুমোদনের অপেক্ষায় আবেদন',
-        body: '"{{project_name}}" প্রকল্পে একটি আবেদন রিভিউ শেষে অনুমোদনের অপেক্ষায় আছে।',
+    channels: {
+      ...inApp(
+        {
+          title: 'অনুমোদনের অপেক্ষায় আবেদন',
+          body: '"{{project_name}}" প্রকল্পে একটি আবেদন রিভিউ শেষে অনুমোদনের অপেক্ষায় আছে।',
+        },
+        {
+          title: 'Application awaiting approval',
+          body: 'An application in the project "{{project_name}}" has been reviewed and awaits approval.',
+        },
+      ),
+      email: {
+        bn: {
+          subject: 'অনুমোদনের অপেক্ষায় আবেদন: {{project_name}}',
+          body: '"{{project_name}}" প্রকল্পে একটি আবেদন রিভিউ শেষে অনুমোদনের অপেক্ষায় আছে। সিস্টেমে ঢুকে সিদ্ধান্ত দিন।',
+        },
+        en: {
+          subject: 'Application awaiting approval: {{project_name}}',
+          body: 'An application in the project "{{project_name}}" has been reviewed and awaits approval. Sign in to decide.',
+        },
       },
-      {
-        title: 'Application awaiting approval',
-        body: 'An application in the project "{{project_name}}" has been reviewed and awaits approval.',
-      },
-    ),
+    },
   },
   {
     key: 'application_approved',
