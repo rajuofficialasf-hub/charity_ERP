@@ -31,6 +31,12 @@ import { defineRoute, type RouteDeps } from '../openapi/define-route';
 import type { Replayable } from '../services/uploads';
 import { versionView } from './forms';
 import { type PullNext, pullNextSchema } from '../applications/waitlist';
+import {
+  type TransferRequest,
+  transferCandidate,
+  transferResult,
+  transferSchema,
+} from '../applications/transfers';
 import { unlockView } from '../applications/unlocks';
 import {
   type UnlockCancel,
@@ -61,7 +67,10 @@ const viewerOf = (req: AuthedRequest) => ({
  */
 export function applicationsRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'applications' | 'bulkReview' | 'idempotency' | 'unlocks' | 'waitlist'>,
+  c: Pick<
+    Container,
+    'applications' | 'bulkReview' | 'idempotency' | 'transfers' | 'unlocks' | 'waitlist'
+  >,
 ): Router {
   const router = Router();
   const op = { tag: 'applications', idempotency: 'none' as const, rateLimit: 'default' as const };
@@ -357,6 +366,50 @@ export function applicationsRouter(
     responses: { 200: unlockView, 403: null, 404: null, 409: null, 422: null },
     handler: async ({ params, body, req }) =>
       ok(await c.unlocks.cancel(principalOf(req), params.unlockId, body)),
+  });
+
+  defineRoute<unknown, unknown, { projectId: string; volunteerId: string }>(router, deps, {
+    ...op,
+    method: 'get',
+    path: '/projects/:projectId/volunteers/:volunteerId/applications',
+    operationId: 'applications.transfer.candidates',
+    summary:
+      "A volunteer's applications on the project that the caller may hand to another volunteer (the transfer's picker)",
+    permission: 'application.transfer',
+    scope: 'application',
+    audit: 'none',
+    params: { projectId: uuid, volunteerId: uuid },
+    responses: { 200: z.array(transferCandidate), 403: null },
+    handler: async ({ params, req }) =>
+      ok(await c.transfers.candidates(principalOf(req), params.projectId, params.volunteerId)),
+  });
+
+  defineRoute<TransferRequest, unknown, { projectId: string }>(router, deps, {
+    ...op,
+    method: 'post',
+    path: '/projects/:projectId/transfers',
+    operationId: 'applications.transfer.create',
+    summary:
+      "Hand all or chosen applications of one volunteer to another on an active project, with a reason; optionally move the old volunteer's team and assign the new volunteer in the same request",
+    permission: 'application.transfer',
+    scope: 'application',
+    audit: 'application.transfer',
+    idempotency: 'header',
+    rateLimit: 'sync',
+    headers: [{ name: 'Idempotency-Key', required: true }],
+    params: { projectId: uuid },
+    body: transferSchema,
+    responses: { 200: transferResult, 403: null, 404: null, 409: null, 422: null },
+    handler: async ({ params, body, req, res }) => {
+      const outcome = await c.transfers.transfer(
+        principalOf(req),
+        params.projectId,
+        req.get('idempotency-key'),
+        body,
+      );
+      if (outcome.replay) c.idempotency.markReplay(res);
+      return ok(outcome.result);
+    },
   });
 
   defineRoute<BulkReview, unknown, { projectId: string }>(router, deps, {

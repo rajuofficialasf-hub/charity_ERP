@@ -243,10 +243,25 @@ describe('the application filter', () => {
     };
     expect(w.AND[0].OR).toEqual([
       { ownerVolunteer: { userId: 'actor' } },
-      { createdByUserId: 'actor' },
+      { createdByUserId: 'actor', ownerVolunteerId: null },
       { project: { programId: { in: [P1] } } },
       { projectId: { in: [P2] } },
     ]);
+  });
+
+  it('keeps a creator on an application only while its owner is their team lead on that project', () => {
+    const w = where({
+      self: true,
+      teamLeads: [{ projectId: P1, leadVolunteerId: 'lead-a' }],
+    }) as { AND: [{ OR: unknown[] }, unknown] };
+    expect(w.AND[0].OR).toEqual([
+      { ownerVolunteer: { userId: 'actor' } },
+      { createdByUserId: 'actor', ownerVolunteerId: null },
+      { createdByUserId: 'actor', projectId: P1, ownerVolunteerId: 'lead-a' },
+    ]);
+    // with no team place left, only what the caller's own volunteer owns stays
+    const alone = where({ self: true }) as { AND: [{ OR: unknown[] }, unknown] };
+    expect(alone.AND[0].OR).not.toContainEqual({ createdByUserId: 'actor' });
   });
 });
 

@@ -99,6 +99,8 @@ allowed endpoint is decided by the data scope and is tested separately (scope an
 | PUT /application-unlocks/:unlockId/value | workflow | application | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | POST /application-unlocks/:unlockId/decision | application.unlock_field | application | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | POST /application-unlocks/:unlockId/cancel | application.unlock_field | application | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| GET /projects/:projectId/volunteers/:volunteerId/applications | application.transfer | application | ✗ | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| POST /projects/:projectId/transfers | application.transfer | application | ✗ | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | POST /projects/:projectId/bulk/review | workflow | application | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | POST /projects/:projectId/waitlist/pull-next | application.waitlist | application | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /applications/:applicationId/activities | application.view | application | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ |
@@ -205,7 +207,7 @@ allowed endpoint is decided by the data scope and is tested separately (scope an
 | PUT /admin/notification-templates/:key/:channel | notification.template.manage | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /admin/deliveries | notification.delivery.view | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 
-## Permissions no endpoint uses yet (86, D-077)
+## Permissions no endpoint uses yet (85, D-077)
 
 They belong to features of later tasks; the matrix covers them when their endpoints exist.
 
@@ -220,7 +222,6 @@ They belong to features of later tasks; the matrix covers them when their endpoi
 - `application.reject`
 - `application.review`
 - `application.submit`
-- `application.transfer`
 - `application.update_unlocked_field`
 - `application.verify_needs_verification`
 - `audit.export`

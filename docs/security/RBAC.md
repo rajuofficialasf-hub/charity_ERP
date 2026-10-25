@@ -52,7 +52,7 @@ permission: { name, description, module, sensitive, default: [ { role, scope, co
 | REGION | Own region (division) inside assigned projects | `project_areas` rows where the user is RPM; staff under an RPM inherit the RPM's region through `project_staff`; Official দায়ী and Implementer through their project assignment |
 | DISTRICT / UPAZILA / UNION | When the PM split districts among RPMs, or by assignment | `project_areas.location_id` (district rows when the PM split districts) for the RPM; Local দায়ী and Paid Volunteer assignments carry location ids |
 | ASSIGNED | Only own assigned beneficiaries or applications | `work_assignments` (Local দায়ী), paid-volunteer assignments, site-verification assignments, Official দায়ী's area |
-| SELF | Own created applications, own profile, own sessions | `applications.owner_volunteer_id`, `applications.created_by_user_id` (team members, `own_created`), `users.id` |
+| SELF | Own created applications, own profile, own sessions | `applications.owner_volunteer_id`, `applications.created_by_user_id` (team members, `own_created`), `users.id`. Creator rule (T2.6): a creator reaches an application only while its owner is their own volunteer, or their active team lead on that project, or nobody owns it; an application transfer moves the owner, so the old volunteer and their team (unless it moves too) lose it without the creator being rewritten (`ownApplicationsWhere` in `apps/api/src/access/scope.ts`, used by the scope filter, the own list, the replay of a create and the owner notifications) |
 
 Resolution rules:
 

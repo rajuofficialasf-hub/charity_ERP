@@ -57,6 +57,7 @@ import { NisabService } from './services/nisab';
 import { ProjectQuotasService } from './services/project-quotas';
 import { ScoringService } from './applications/scoring';
 import { WorkflowSideEffects } from './applications/side-effects';
+import { TransfersService } from './applications/transfers';
 import { UnlocksService } from './applications/unlocks';
 import { WaitlistService } from './applications/waitlist';
 import { ProgramsService } from './services/programs';
@@ -161,6 +162,7 @@ export interface Container {
   bulkReview: BulkReviewService;
   waitlist: WaitlistService;
   unlocks: UnlocksService;
+  transfers: TransfersService;
   applicationEvents: ApplicationEvents;
   readyForms: ReadyFormsService;
   publicLink: PublicLinkService;
@@ -514,6 +516,18 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   };
   return {
     ...built,
+    // the transfer assigns the new volunteer through the assignments above
+    transfers:
+      o.transfers ??
+      new TransfersService(
+        prisma,
+        access,
+        audit,
+        clock,
+        idempotency,
+        applicationEvents,
+        built.projectVolunteers,
+      ),
     // the My Work home's attention list reads the services above
     attention:
       o.attention ??

@@ -45,6 +45,8 @@ const ROUTES: Record<string, (p: Record<string, unknown>) => string | null> = {
   ops_alert: () => '/admin/deliveries',
   field_unlocked: (p) => withId(p, 'applicationId', '/my-applications'),
   field_updated: (p) => withId(p, 'applicationId', '/admin/applications'),
+  application_transferred: () => '/my-applications',
+  application_transferred_away: () => null,
 };
 
 /** Project events lead officials to the project page and volunteers to their own project page. */

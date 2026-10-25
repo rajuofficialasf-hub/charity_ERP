@@ -1763,26 +1763,47 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     TransferRequest:
       type: object
+      additionalProperties: false
       required: [fromVolunteerId, toVolunteerId, reason]
       properties:
         fromVolunteerId: { $ref: '#/components/schemas/Uuid' }
         toVolunteerId: { $ref: '#/components/schemas/Uuid' }
         applicationIds:
           type: array
+          minItems: 1
+          maxItems: 500
           items: { $ref: '#/components/schemas/Uuid' }
-          description: Omit to transfer all of the volunteer's applications in the project
-        moveTeam: { type: boolean, default: false, description: RPM decides whether the team moves (BR-050) }
-        reason: { type: string, minLength: 3 }
+          description: Omit to transfer every application of the volunteer on the project
+        reason: { type: string, minLength: 3, maxLength: 1000 }
+        moveTeam: { type: boolean, default: false, description: "The old volunteer's team members on the project move under the new volunteer (volunteer.team.transfer, BR-050)" }
+        assign: { type: boolean, default: false, description: The new volunteer is assigned to the project in the same request (volunteer.assign_project and the assignment's own checks) }
     TransferResult:
       type: object
       required: [data, meta]
       properties:
         data:
           type: object
-          required: [transferBatch, transferredCount]
+          required: [batchId, moved, teamMoved, overLimit]
           properties:
-            transferBatch: { $ref: '#/components/schemas/Uuid' }
-            transferredCount: { type: integer }
+            batchId: { $ref: '#/components/schemas/Uuid' }
+            moved: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
+            teamMoved: { type: integer }
+            overLimit: { type: boolean, description: "The new volunteer now holds more applications than the project's limit; a warning, never a refusal (D-132)" }
+        meta: { $ref: '#/components/schemas/Meta' }
+    TransferCandidateList:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            required: [id, appNo, beneficiaryName, status]
+            properties:
+              id: { $ref: '#/components/schemas/Uuid' }
+              appNo: { type: [string, 'null'] }
+              beneficiaryName: { type: [string, 'null'] }
+              status: { type: string }
         meta: { $ref: '#/components/schemas/Meta' }
 
     # ---------------- beneficiaries ----------------
@@ -5759,27 +5780,63 @@ paths:
     parameters:
       - $ref: '#/components/parameters/ProjectId'
     post:
-      tags: [volunteers]
-      operationId: volunteers.transfer.create
-      summary: Transfer all or selected applications to another volunteer (BD-07)
+      tags: [applications]
+      operationId: applications.transfer.create
+      summary: Hand all or chosen applications of one volunteer to another on an active project, with a reason; optionally move the old volunteer's team and assign the new volunteer in the same request
+      description: >-
+        BD-07, R22 to R26. The RPM, or an Executive the RPM granted application.transfer; moving the
+        team needs volunteer.team.transfer, assigning needs volunteer.assign_project. The new volunteer
+        must be active, not blocklisted and on the project (422); every application must be the old
+        volunteer's on this project (422) and inside the caller's scope (404); a project that is not
+        active refuses (409). The owner changes, an open unlock waits for the new owner, the old
+        volunteer and their unmoved team no longer reach the applications; each application gets a
+        transfer row and a timeline step, one audit entry names the batch, and the two volunteers are
+        told how many moved. Going over the new volunteer's limit is allowed and reported.
       x-permission: application.transfer
-      x-scope: project
+      x-scope: application
       x-audit: application.transfer
-      x-idempotency: none
-      x-rate-limit: default
+      x-idempotency: header
+      x-rate-limit: sync
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
             schema: { $ref: '#/components/schemas/TransferRequest' }
       responses:
-        '201':
+        '200':
           description: Transferred
           content:
             application/json:
               schema: { $ref: '#/components/schemas/TransferResult' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+  /projects/{projectId}/volunteers/{volunteerId}/applications:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - name: volunteerId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    get:
+      tags: [applications]
+      operationId: applications.transfer.candidates
+      summary: "A volunteer's applications on the project that the caller may hand to another volunteer (the transfer's picker)"
+      x-permission: application.transfer
+      x-scope: application
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: The applications, oldest first, at most 500
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferCandidateList' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   # ======================= beneficiaries =======================
   /beneficiaries:

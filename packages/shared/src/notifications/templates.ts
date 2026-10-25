@@ -620,6 +620,34 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
     ),
   },
   {
+    key: 'application_transferred',
+    variables: ['project_name', 'count'],
+    channels: inApp(
+      {
+        title: 'আবেদন আপনার দায়িত্বে এসেছে',
+        body: '"{{project_name}}" প্রকল্পের {{count}}টি আবেদন এখন আপনার দায়িত্বে। "আমার আবেদন"-এ দেখুন।',
+      },
+      {
+        title: 'Applications handed to you',
+        body: '{{count}} applications of the project "{{project_name}}" are now yours. See them in "My applications".',
+      },
+    ),
+  },
+  {
+    key: 'application_transferred_away',
+    variables: ['project_name', 'count'],
+    channels: inApp(
+      {
+        title: 'আবেদন অন্য স্বেচ্ছাসেবকের দায়িত্বে',
+        body: '"{{project_name}}" প্রকল্পে আপনার {{count}}টি আবেদন অফিস অন্য একজন স্বেচ্ছাসেবকের দায়িত্বে দিয়েছে।',
+      },
+      {
+        title: 'Applications handed to another volunteer',
+        body: 'The office handed {{count}} of your applications in the project "{{project_name}}" to another volunteer.',
+      },
+    ),
+  },
+  {
     key: 'field_unlocked',
     variables: ['project_name', 'field_name'],
     channels: inApp(

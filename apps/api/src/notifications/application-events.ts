@@ -78,6 +78,46 @@ export class ApplicationEvents {
     });
   }
 
+  /**
+   * A transfer, to its two volunteers: the new one hears how many applications came to them, the
+   * old one only how many went (never which).
+   */
+  async publishTransfer(
+    tx: Tx,
+    input: {
+      projectId: string;
+      count: number;
+      toUserId: string;
+      fromUserId: string;
+      batchId: string;
+      actorId: string;
+    },
+  ): Promise<void> {
+    const project = await tx.project.findUniqueOrThrow({
+      where: { id: input.projectId },
+      select: { nameBn: true, nameEn: true },
+    });
+    const params = {
+      project_name: { bn: project.nameBn, en: project.nameEn },
+      count: input.count,
+      projectId: input.projectId,
+    };
+    await this.notifications.publish(tx, {
+      key: 'application_transferred',
+      recipients: [{ user: input.toUserId }],
+      params,
+      about: input.batchId,
+      actorId: input.actorId,
+    });
+    await this.notifications.publish(tx, {
+      key: 'application_transferred_away',
+      recipients: [{ user: input.fromUserId }],
+      params,
+      about: input.batchId,
+      actorId: input.actorId,
+    });
+  }
+
   async publish(
     tx: Tx,
     key: string,
@@ -98,12 +138,23 @@ export class ApplicationEvents {
           })
         : null,
     ]);
+    // the team member who created it hears too, while the owner is still their lead there
+    const creatorOnTeam =
+      target.createdByUserId &&
+      target.createdByUserId !== owner?.userId &&
+      target.ownerVolunteerId &&
+      (await tx.volunteerTeam.count({
+        where: {
+          projectId: target.projectId,
+          leadVolunteerId: target.ownerVolunteerId,
+          removedAt: null,
+          memberVolunteer: { userId: target.createdByUserId },
+        },
+      })) > 0;
     const recipients: RecipientRule[] = OWNER_KEYS.includes(key)
       ? [
           ...(owner ? [{ user: owner.userId }] : []),
-          ...(target.createdByUserId && target.createdByUserId !== owner?.userId
-            ? [{ user: target.createdByUserId }]
-            : []),
+          ...(creatorOnTeam && target.createdByUserId ? [{ user: target.createdByUserId }] : []),
         ]
       : [
           {

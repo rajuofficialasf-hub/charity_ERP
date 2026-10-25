@@ -85,8 +85,13 @@ export async function readTimeline(
     const details = stepDetails.safeParse(r.new);
     if (!details.success) return [];
     const from = stateChange.safeParse(r.old);
-    // an entry that keeps the state (an edit) is not a step
-    if (from.success && from.data.status === details.data.status) return [];
+    // an entry that keeps the state (an edit) is not a step; a transfer is one
+    if (
+      from.success &&
+      from.data.status === details.data.status &&
+      r.action !== 'application.transferred'
+    )
+      return [];
     return [
       {
         id: r.id,

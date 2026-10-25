@@ -312,6 +312,10 @@
     "unlock_own_entry": "The person who entered the new answer cannot verify it.",
     "unlock_stale": "The answer changed after the unlock was opened. Cancel the unlock and open it again.",
     "unlock_unchanged": "The new answer is the same as the old one.",
-    "unlock_cleared": "This answer is also on the beneficiary's profile, so it cannot be left empty. Give the correct answer."
+    "unlock_cleared": "This answer is also on the beneficiary's profile, so it cannot be left empty. Give the correct answer.",
+    "transfer_same": "Applications cannot be handed to the same volunteer.",
+    "transfer_target_unfit": "The new volunteer is not active or is blocklisted.",
+    "transfer_target_not_assigned": "The new volunteer is not on this project. Assign them first, or with the transfer.",
+    "transfer_not_owned": "The chosen applications are not this volunteer's, or there is nothing to hand over."
   }
 }

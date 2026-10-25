@@ -11,7 +11,14 @@ import { type Answer, type Audience, type FormDefinition, identityColumn } from 
 import { isoDateInDhaka } from '@css/shared/format';
 import { z } from 'zod';
 import { type EffectiveAccess, WORKING_ASSIGNMENT, workingTeamProjects } from '../access/effective';
-import { applicationWhere, holdsPermission, projectWhere, type Scope } from '../access/scope';
+import {
+  applicationWhere,
+  holdsPermission,
+  ownApplicationsWhere,
+  projectWhere,
+  type Scope,
+  teamLeadsOf,
+} from '../access/scope';
 import type { AccessService } from '../access/service';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Principal } from '../auth/principal';
@@ -640,7 +647,8 @@ export class ApplicationsService {
 
   /**
    * The caller's own applications across their projects (a volunteer's "my applications"): the
-   * ones their volunteer owns and the ones they created, whatever else their scope reaches.
+   * ones their volunteer owns and the ones they created while the owner is still their team lead
+   * there, whatever else their scope reaches.
    */
   async listMine(
     viewer: ApplicationViewer,
@@ -650,7 +658,7 @@ export class ApplicationsService {
     return this.page(
       viewer,
       `applications.mine|${userId}`,
-      { OR: [{ ownerVolunteer: { userId } }, { createdByUserId: userId }] },
+      { OR: ownApplicationsWhere(userId, await teamLeadsOf(this.prisma, userId)) },
       query,
     );
   }
@@ -796,7 +804,18 @@ export class ApplicationsService {
       throw new ApiError('validation.failed', 422, undefined, [
         { path: 'clientUuid', code: 'validation.failed' },
       ]);
-    const access = await this.access.load(viewer.principal.userId);
+    // a create replayed after the application moved to another volunteer reads nothing
+    const userId = viewer.principal.userId;
+    const own = await this.prisma.application.count({
+      where: {
+        AND: [
+          { id: row.id },
+          { OR: ownApplicationsWhere(userId, await teamLeadsOf(this.prisma, userId)) },
+        ],
+      },
+    });
+    if (!own) throw new ApiError('permission.not_found', 404);
+    const access = await this.access.load(userId);
     return this.read(viewer, access, row.id);
   }
 

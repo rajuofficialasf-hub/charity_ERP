@@ -33,6 +33,46 @@ export interface ScopeInstances {
   revokedProjectIds: string[];
   /** Programs a panel revoke took out; only GLOBAL needs them, the other instances drop them. */
   revokedProgramIds: string[];
+  /**
+   * With SELF on applications: the caller's active team places (project and lead), so the
+   * applications they created stay theirs only while the owner is still their lead there.
+   */
+  teamLeads?: TeamLead[];
+}
+
+/** A team member's place: the project and the lead volunteer they work under. */
+export interface TeamLead {
+  projectId: string;
+  leadVolunteerId: string;
+}
+
+/** The caller's active team places, for the creator rule of the applications. */
+export async function teamLeadsOf(db: Tx, userId: string): Promise<TeamLead[]> {
+  return db.volunteerTeam.findMany({
+    where: { removedAt: null, memberVolunteer: { userId } },
+    select: { projectId: true, leadVolunteerId: true },
+  });
+}
+
+/**
+ * The applications a person reaches as their own: the ones their volunteer owns, and the ones
+ * they created while the owner is still their team lead on that project (or nobody owns it). A
+ * transfer moves the owner, so the old volunteer and their team, unless it moved too, lose the
+ * application without its creator being rewritten.
+ */
+export function ownApplicationsWhere(
+  actorId: string,
+  teamLeads: readonly TeamLead[],
+): Prisma.ApplicationWhereInput[] {
+  return [
+    { ownerVolunteer: { userId: actorId } },
+    { createdByUserId: actorId, ownerVolunteerId: null },
+    ...teamLeads.map((t) => ({
+      createdByUserId: actorId,
+      projectId: t.projectId,
+      ownerVolunteerId: t.leadVolunteerId,
+    })),
+  ];
 }
 
 export const NO_INSTANCES: ScopeInstances = {
@@ -304,6 +344,7 @@ export async function resolveInstances(
     });
     inst.projectIds.push(...projects.map((p) => p.id));
   }
+  if (entity === 'application' && inst.self) inst.teamLeads = await teamLeadsOf(db, actorId);
   if (regionProjects.size) inst.areas.push(...(await ownAreas(db, actorId, regionProjects)));
   if (volunteerRegionProjects.size)
     inst.volunteerAreas.push(...(await ownAreas(db, actorId, volunteerRegionProjects)));
@@ -552,8 +593,7 @@ export function applicationWhere(scope: Scope): Prisma.ApplicationWhereInput {
     : {};
   if (i.global) return notRevoked;
   const or: Prisma.ApplicationWhereInput[] = [];
-  if (i.self)
-    or.push({ ownerVolunteer: { userId: scope.actorId } }, { createdByUserId: scope.actorId });
+  if (i.self) or.push(...ownApplicationsWhere(scope.actorId, i.teamLeads ?? []));
   for (const a of i.areas)
     or.push(
       a.projectId

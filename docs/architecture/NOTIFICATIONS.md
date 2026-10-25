@@ -96,7 +96,8 @@ Channels: **A** in-app · **E** email · **S** SMS · **P** optional Web Push (i
 | Application waitlisted / pulled from waitlist | owner | A | `application_waitlisted` | 2 |
 | Field unlocked for the volunteer (the question named, never the office's reason; not for an answer of the official section; built T2.6) | owner | A | `field_unlocked` | 2 |
 | Unlocked field updated (needs verification; built T2.6) | the official who unlocked | A | `field_updated` | 2 |
-| Applications transferred | new volunteer; old volunteer (count only, no details); rpm(region) | A | `application_transferred` | 2 |
+| Applications transferred (built T2.6: the count and the project; the official who moved them is not told) | new volunteer | A | `application_transferred` | 2 |
+| Applications transferred away (the count only, never which; built T2.6) | old volunteer | A | `application_transferred_away` | 2 |
 | Application completed | owner | A | `application_completed` | 2 |
 | Sync result: records failed or need verification | the volunteer (in-app inbox and sync centre) | A | `sync_attention` | 2 |
 | Pending-sync reminder (24 h, then daily; O-29) | the volunteer | A (local notice on the device) | `sync_reminder` | 2 |
