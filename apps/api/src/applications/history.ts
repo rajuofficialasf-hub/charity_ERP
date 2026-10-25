@@ -1,3 +1,4 @@
+import { UNLOCK_DECISIONS, UNLOCK_STATES } from '@css/shared/forms';
 import { z } from 'zod';
 import { sensitive } from '../access/field-mask';
 import type { Tx } from '../core/prisma.service';
@@ -26,7 +27,7 @@ export const fieldChangeView = z.object({
   id: uuid,
   field: z.string(),
   kind: z.enum(['unlock', 'contact_update', 'correction', 'sync_conflict', 'review_edit']),
-  unlockState: z.enum(['open', 'updated', 'relocked']).nullable(),
+  unlockState: z.enum(UNLOCK_STATES).nullable(),
   oldValue: z.unknown(),
   newValue: z.unknown(),
   reason: z.string().nullable(),
@@ -38,7 +39,7 @@ export const fieldChangeView = z.object({
   enteredAt: z.string().nullable(),
   decidedBy: uuid.nullable(),
   decidedAt: z.string().nullable(),
-  decision: z.enum(['accepted', 'refused', 'cancelled']).nullable(),
+  decision: z.enum(UNLOCK_DECISIONS).nullable(),
   decisionReason: z.string().nullable(),
 });
 export type FieldChangeView = z.infer<typeof fieldChangeView>;

@@ -1,7 +1,7 @@
 import { uuidv7 } from '@css/shared';
 import { formatCount } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import { Alert, Badge, Button, Card, ProgressBar, Stack, Text } from '@css/ui';
+import { Alert, Badge, Button, Card, ErrorState, ProgressBar, Stack, Text } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -63,7 +63,15 @@ export function QuotaBars({ projectId, area }: { projectId: string; area: AreaFi
       setNotice({ tone: 'danger', text: failure(error) });
     },
   });
-  if (list.isPending || list.error) return null;
+  if (list.isPending) return null;
+  if (list.error)
+    return (
+      <ErrorState
+        title={tc('state.error.text')}
+        requestId={list.error instanceof ApiFailure ? list.error.requestId : undefined}
+        onRetry={() => void list.refetch()}
+      />
+    );
   const rows = list.data;
   const level = rows.some((q) => q.level === 'union')
     ? 'union'

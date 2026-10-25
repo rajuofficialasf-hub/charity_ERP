@@ -311,6 +311,7 @@
     "unlock_not_open": "This unlock is no longer open for this step.",
     "unlock_own_entry": "The person who entered the new answer cannot verify it.",
     "unlock_stale": "The answer changed after the unlock was opened. Cancel the unlock and open it again.",
-    "unlock_unchanged": "The new answer is the same as the old one."
+    "unlock_unchanged": "The new answer is the same as the old one.",
+    "unlock_cleared": "This answer is also on the beneficiary's profile, so it cannot be left empty. Give the correct answer."
   }
 }

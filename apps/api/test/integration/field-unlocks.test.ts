@@ -40,6 +40,7 @@ const EXTRA = {
   fields: [
     question('q_kind', 'radio', { options: [option('widow'), option('elderly')] }),
     question('q_count', 'number', { settings: { validation: { min: 0, max: 20 } } }),
+    question('q_landmark', 'short_text', { standardColumn: 'landmark' }),
   ],
 };
 
@@ -69,6 +70,7 @@ async function approved(mobile = fakeMobile()): Promise<string> {
       ...IDENTITY_ANSWERS(fakeNid(), mobile, world.dhaka),
       q_kind: { t: 'radio', v: 'widow' },
       q_count: { t: 'number', v: 3 },
+      q_landmark: { t: 'short_text', v: 'বাজারের পাশে' },
     }),
   });
   expect(made.status, JSON.stringify(made.body)).toBe(201);
@@ -309,6 +311,32 @@ describe('what an unlock refuses', () => {
     expect(early.body.error.code).toBe('application.not_unlockable');
   });
 
+  it('refuses to accept a value when the answer changed after the unlock opened', async () => {
+    const id = await approved();
+    const rpm = await as(world.users.rpmDhaka);
+    const unlockId = await opened(rpm, id, 'q_village');
+    await fill(await as(world.users.general), unlockId, { t: 'short_text', v: 'নতুন গ্রাম' });
+    // the answer changes under the unlock, as another step might change it
+    await h.db.query(
+      `UPDATE application_answers SET value = $2 WHERE application_id = $1
+          AND field_id = (SELECT id FROM form_fields WHERE form_version_id = $3 AND field_key = 'q_village')`,
+      [id, JSON.stringify({ t: 'short_text', v: 'মাঝখানে বদলেছে' }), versionId],
+    );
+    const stale = await decide(await as(world.users.executive), unlockId, { decision: 'accept' });
+    expect(stale.status).toBe(409);
+    expect(stale.body.error.code).toBe('application.unlock_stale');
+    expect(await answerOf(rpm, id, 'q_village')).toEqual({ t: 'short_text', v: 'মাঝখানে বদলেছে' });
+  });
+
+  it('refuses to clear an answer the profile keeps too', async () => {
+    const id = await approved();
+    const rpm = await as(world.users.rpmDhaka);
+    const unlockId = await opened(rpm, id, 'q_landmark');
+    const cleared = await fill(await as(world.users.general), unlockId, { t: 'short_text', v: '' });
+    expect(cleared.status, JSON.stringify(cleared.body)).toBe(422);
+    expect(await answerOf(rpm, id, 'q_landmark')).toEqual({ t: 'short_text', v: 'বাজারের পাশে' });
+  });
+
   it('checks the new value like any answer of its question', async () => {
     const id = await approved();
     const rpm = await as(world.users.rpmDhaka);
@@ -448,6 +476,13 @@ describe('the end of an unlock', () => {
         (await fill(await as(world.users.general), waiting, { t: 'long_text', v: 'বন্ধ' })).status,
       ).toBe(409);
       expect((await cancel(rpm, waiting)).status).toBe(409);
+      // nobody is asked to take a step that a closed project refuses
+      const home = await at(await as(world.users.general), 'get', '/me/attention');
+      expect(home.body.data.map((i: { kind: string }) => i.kind)).not.toContain('unlocks_to_fill');
+      const office = await at(await as(world.users.executive), 'get', '/me/attention');
+      expect(office.body.data.map((i: { kind: string }) => i.kind)).not.toContain(
+        'unlocks_to_verify',
+      );
     } finally {
       await h.db.query(`UPDATE projects SET status = 'active' WHERE id = $1`, [project]);
     }

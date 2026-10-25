@@ -1,5 +1,5 @@
 import { uuidv7 } from '@css/shared';
-import type { ContactUpdate } from '@css/shared/beneficiaries';
+import { type ContactUpdate, contactUpdateSchema } from '@css/shared/beneficiaries';
 import { isoDateInDhaka } from '@css/shared/format';
 import {
   type Answer,
@@ -8,7 +8,10 @@ import {
   type UnlockDecisionRequest,
   type UnlockOpen,
   type UnlockValue,
+  UNLOCK_DECISIONS,
+  UNLOCK_STATES,
   unlockRefusal,
+  validate,
 } from '@css/shared/forms';
 import { z } from 'zod';
 import { applicationWhere, holdsPermission } from '../access/scope';
@@ -26,14 +29,8 @@ import type { BeneficiaryContactService } from '../services/beneficiary-contact'
 import { readDefinition } from '../services/forms';
 import { isAddressChain } from '../services/locations';
 import type { NisabService } from '../services/nisab';
-import {
-  addressOf,
-  checkAnswers,
-  fieldsOf,
-  nisabOption,
-  readAnswers,
-  writeAnswers,
-} from './answers';
+import { addressOf, fieldsOf, nisabOption, readAnswers, writeAnswers } from './answers';
+import { assertReachesApplication, isBlockedVolunteer, reachesApplication } from './callers';
 
 /** Opens, decides and cancels an unlock; held by the region's RPM and Project Executive. */
 export const UNLOCK_PERMISSION = 'application.unlock_field';
@@ -85,7 +82,7 @@ export const unlockView = z.object({
   applicationId: uuid,
   fieldKey: z.string(),
   repeatIndex: z.number().int(),
-  state: z.enum(['open', 'updated', 'relocked']),
+  state: z.enum(UNLOCK_STATES),
   oldValue: z.unknown(),
   newValue: z.unknown(),
   reason: z.string().nullable(),
@@ -95,7 +92,7 @@ export const unlockView = z.object({
   enteredAt: z.string().nullable(),
   decidedBy: uuid.nullable(),
   decidedAt: z.string().nullable(),
-  decision: z.enum(['accepted', 'refused', 'cancelled']).nullable(),
+  decision: z.enum(UNLOCK_DECISIONS).nullable(),
   decisionReason: z.string().nullable(),
   /** What the caller may do with it now. */
   mayFill: z.boolean(),
@@ -125,6 +122,17 @@ function questionOf(
   return null;
 }
 
+/** How many waiting unlocks the attention counts read at most. */
+const ATTENTION_LIMIT = 500;
+
+/** The profile's contact columns a question writes, when it writes any. */
+const contactColumns = (field: { standardColumn?: string | null }) =>
+  (field.standardColumn ?? '').split(',').filter((c) => Object.hasOwn(CONTACT_COLUMNS, c));
+/** A cleared answer: none, or an empty text. */
+const isBlank = (value: unknown) =>
+  value === null ||
+  (typeof (value as { v?: unknown }).v === 'string' && !(value as { v: string }).v.trim());
+
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 const json = (value: unknown) => (value ?? Prisma.JsonNull) as Prisma.InputJsonValue;
 
@@ -141,7 +149,7 @@ interface Target {
 }
 
 /**
- * The field unlock of an approved application (blueprint A7; docs/architecture/WORKFLOW_ENGINE.md,
+ * The field unlock of an approved application (docs/architecture/WORKFLOW_ENGINE.md,
  * field unlock): one answer is opened by an official with a reason; the volunteer who owns the
  * application enters the new value, or an official when it has no volunteer or the answer belongs
  * to the official section; an official other than the one who entered decides. An accepted value
@@ -242,6 +250,10 @@ export class UnlocksService {
         repeatIndex,
         value: body.value,
       });
+      if (isBlank(value) && contactColumns(question.field).length)
+        throw new ApiError('validation.failed', 422, undefined, [
+          { path: 'value', code: 'application.unlock_cleared' },
+        ]);
       if (same(value, unlock.oldValue))
         throw new ApiError('validation.failed', 422, undefined, [
           { path: 'value', code: 'application.unlock_unchanged' },
@@ -282,6 +294,8 @@ export class UnlocksService {
     await this.assertMay(principal, access, UNLOCK_PERMISSION, await this.applicationOf(unlockId));
     await this.write(async (tx) => {
       const unlock = await this.lockedUnlock(tx, unlockId);
+      // two acceptances on one application rewrite its answers one after another
+      await tx.$queryRaw`SELECT id FROM applications WHERE id = ${unlock.entityId}::uuid FOR UPDATE`;
       if (unlock.unlockState !== 'updated') throw new ApiError('application.unlock_not_open', 409);
       // two people for every corrected answer
       if (unlock.enteredBy === principal.userId) {
@@ -389,63 +403,66 @@ export class UnlocksService {
     return { unlocks, mayUnlock };
   }
 
-  /** The unlocks of the caller's own applications waiting for their new value. */
+  /**
+   * The unlocks of the caller's own applications waiting for their new value, on projects that are
+   * not closed (a closed project takes no step, so its unlocks wait for nobody).
+   */
   async waitingToFill(principal: Principal): Promise<number> {
     if (principal.kind !== 'volunteer') return 0;
     const own = await this.prisma.volunteer.findUnique({
       where: { userId: principal.userId },
       select: { id: true },
     });
-    if (!own) return 0;
-    const blocked = await this.prisma.blocklist.count({
-      where: { subjectType: 'volunteer', subjectId: own.id, active: true },
-    });
-    if (blocked) return 0;
-    const open = await this.prisma.fieldChange.findMany({
-      where: { entityType: 'application', kind: 'unlock', unlockState: 'open' },
-      select: { entityId: true, field: true },
-    });
-    if (!open.length) return 0;
-    const mine = await this.prisma.application.findMany({
-      where: { id: { in: [...new Set(open.map((u) => u.entityId))] }, ownerVolunteerId: own.id },
-      select: { id: true, formVersionId: true },
-    });
+    if (!own || (await isBlockedVolunteer(this.prisma, principal.userId))) return 0;
+    const rows = await this.prisma.$queryRaw<{ field: string; form_version_id: string }[]>`
+      SELECT fc.field, a.form_version_id
+        FROM field_changes fc
+        JOIN applications a ON a.id = fc.entity_id
+        JOIN projects p ON p.id = a.project_id
+       WHERE fc.entity_type = 'application' AND fc.kind = 'unlock' AND fc.unlock_state = 'open'
+         AND a.owner_volunteer_id = ${own.id}::uuid
+         AND a.status = ANY(${UNLOCKABLE_STATES}::text[]) AND p.status <> 'closed'
+       LIMIT ${ATTENTION_LIMIT}`;
+    const definitions = new Map<string, FormDefinition>();
     let count = 0;
-    for (const app of mine) {
+    for (const row of rows) {
+      if (!definitions.has(row.form_version_id))
+        definitions.set(
+          row.form_version_id,
+          await readDefinition(this.prisma, row.form_version_id, 'volunteer'),
+        );
       // the answers of the official section are the office's to fill
-      const definition = await readDefinition(this.prisma, app.formVersionId, 'volunteer');
-      count += open.filter(
-        (u) => u.entityId === app.id && questionOf(definition, answerOf(u.field).fieldKey),
-      ).length;
+      if (questionOf(definitions.get(row.form_version_id)!, answerOf(row.field).fieldKey)) count++;
     }
     return count;
   }
 
   /**
-   * The entered values the caller may decide (inside their unlock scope, entered by someone else),
-   * and the oldest one's application, which the attention item opens.
+   * The entered values the caller may decide (inside their unlock scope, entered by someone else,
+   * on projects that are not closed), and the oldest one's application, which the attention item
+   * opens.
    */
   async waitingToDecide(principal: Principal): Promise<{ count: number; first: string | null }> {
     const access = await this.access.load(principal.userId);
     if (!holdsPermission(UNLOCK_PERMISSION, access.grants)) return { count: 0, first: null };
     const scope = await this.access.scopeFor(principal, access, UNLOCK_PERMISSION, 'application');
-    const waiting = await this.prisma.fieldChange.findMany({
-      where: {
-        entityType: 'application',
-        kind: 'unlock',
-        unlockState: 'updated',
-        OR: [{ enteredBy: null }, { enteredBy: { not: principal.userId } }],
-      },
-      select: { entityId: true },
-      orderBy: { enteredAt: 'asc' },
-    });
+    const waiting = await this.prisma.$queryRaw<{ entity_id: string }[]>`
+      SELECT fc.entity_id
+        FROM field_changes fc
+        JOIN applications a ON a.id = fc.entity_id
+        JOIN projects p ON p.id = a.project_id
+       WHERE fc.entity_type = 'application' AND fc.kind = 'unlock' AND fc.unlock_state = 'updated'
+         AND fc.entered_by IS DISTINCT FROM ${principal.userId}::uuid
+         AND a.status = ANY(${UNLOCKABLE_STATES}::text[]) AND p.status <> 'closed'
+       ORDER BY fc.entered_at ASC
+       LIMIT ${ATTENTION_LIMIT}`;
     if (!waiting.length) return { count: 0, first: null };
     const reached = new Set(
       (
         await this.prisma.application.findMany({
           where: {
             AND: [
-              { id: { in: [...new Set(waiting.map((w) => w.entityId))] } },
+              { id: { in: [...new Set(waiting.map((w) => w.entity_id))] } },
               applicationWhere(scope),
             ],
           },
@@ -453,8 +470,8 @@ export class UnlocksService {
         })
       ).map((a) => a.id),
     );
-    const mine = waiting.filter((w) => reached.has(w.entityId));
-    return { count: mine.length, first: mine[0]?.entityId ?? null };
+    const mine = waiting.filter((w) => reached.has(w.entity_id));
+    return { count: mine.length, first: mine[0]?.entity_id ?? null };
   }
 
   /** The accepted value replaces the answer; a mobile or an address reaches the profile too. */
@@ -503,48 +520,63 @@ export class UnlocksService {
     }
     if (target.beneficiaryId && Object.keys(contact).length) {
       const before = await this.contact.locked(tx, target.beneficiaryId);
-      await this.contact.apply(tx, principal, before, contact as ContactUpdate);
+      await this.contact.apply(tx, principal, before, contactUpdateSchema.parse(contact));
     }
   }
 
   /**
-   * The answers with this one in place, checked as the engine checks a whole application: the
-   * standard columns, every answer as the engine read it, and this one's value.
+   * The answers with this one in place (or without it, when the new value clears it), checked as
+   * the engine checks a whole application: the standard columns, every answer as the engine read
+   * it, and this one's value. Only the errors of this answer refuse it: another answer the office
+   * left empty is not this correction's concern, so the rest is read as a draft would be.
    */
   private async checked(
     tx: Tx,
     target: Target,
     definition: FormDefinition,
     answer: { fieldKey: string; repeatIndex: number; value: unknown },
-  ): Promise<{ standard: Record<string, unknown>; answers: Answer[]; value: Answer['value'] }> {
+  ): Promise<{
+    standard: Record<string, unknown>;
+    answers: Answer[];
+    value: Answer['value'] | null;
+  }> {
+    if (!fieldsOf(definition).some((f) => f.fieldKey === answer.fieldKey))
+      throw new ApiError('application.unlock_not_open', 409);
     const stored = await readAnswers(tx, target.id, definition);
     const answers = [
       ...stored.filter(
         (a) => !(a.fieldKey === answer.fieldKey && (a.repeatIndex ?? 0) === answer.repeatIndex),
       ),
-      answer,
+      ...(answer.value === null ? [] : [answer]),
     ];
     const today = isoDateInDhaka(this.clock.now());
-    const checked = checkAnswers(definition, answers, {
-      audience: 'official',
+    const options = {
+      audience: 'official' as const,
       today,
-      draft: false,
       ...(await nisabOption(this.nisab, today)),
-    });
-    // an answer the form no longer shows (a condition hides it) cannot take a value
-    const kept = checked.answers.find(
-      (a) => a.fieldKey === answer.fieldKey && (a.repeatIndex ?? 0) === answer.repeatIndex,
-    );
-    if (!kept || !fieldsOf(definition).some((f) => f.fieldKey === answer.fieldKey))
-      throw new ApiError('validation.failed', 422, undefined, [
-        { path: 'value', code: 'validation.failed' },
-      ]);
-    const chain = addressOf(checked.standard);
+    };
+    let result = validate(definition, answers, { ...options, draft: false });
+    if (!result.ok) {
+      const own = result.errors.filter(
+        (e) =>
+          e.path === answer.fieldKey ||
+          e.path.startsWith(`${answer.fieldKey}[`) ||
+          e.path.startsWith(`${answer.fieldKey}.`),
+      );
+      if (own.length) throw new ApiError('validation.failed', 422, undefined, own);
+      result = validate(definition, answers, { ...options, draft: true });
+      if (!result.ok) throw new ApiError('validation.failed', 422, undefined, result.errors);
+    }
+    const chain = addressOf(result.standard);
     if (!chain || !(await isAddressChain(tx, chain)))
       throw new ApiError('validation.failed', 422, undefined, [
         { path: 'value', code: 'validation.address_incomplete' },
       ]);
-    return { standard: checked.standard, answers: checked.answers, value: kept.value };
+    // an answer the form does not keep (empty, or hidden by a condition) is cleared
+    const kept = result.answers.find(
+      (a) => a.fieldKey === answer.fieldKey && (a.repeatIndex ?? 0) === answer.repeatIndex,
+    );
+    return { standard: result.standard, answers: result.answers, value: kept?.value ?? null };
   }
 
   /** An unlock waits only on an approved application of a project that is not closed. */
@@ -568,7 +600,8 @@ export class UnlocksService {
     if (principal.kind === 'volunteer') {
       if (officialOnly || target.ownerUserId !== principal.userId)
         throw new ApiError('permission.not_found', 404);
-      if (await this.blocked(principal.userId)) throw new ApiError('permission.not_found', 404);
+      if (await isBlockedVolunteer(this.prisma, principal.userId))
+        throw new ApiError('permission.not_found', 404);
       await this.assertMay(principal, access, FILL_PERMISSION, target.id);
       return;
     }
@@ -579,40 +612,22 @@ export class UnlocksService {
     }
   }
 
-  private async blocked(userId: string): Promise<boolean> {
-    const own = await this.prisma.volunteer.findUnique({ where: { userId }, select: { id: true } });
-    if (!own) return false;
-    return (
-      (await this.prisma.blocklist.count({
-        where: { subjectType: 'volunteer', subjectId: own.id, active: true },
-      })) > 0
-    );
-  }
-
-  /** 403 without the permission, 404 when its scope misses the application. */
-  private async assertMay(
+  private assertMay(
     principal: Principal,
     access: EffectiveAccess,
     permission: string,
     applicationId: string | null,
   ): Promise<void> {
-    if (!holdsPermission(permission, access.grants)) {
-      this.access.denied(principal.userId, permission, 'application');
-      throw new ApiError('permission.denied', 403);
-    }
-    if (!applicationId || !(await this.reaches(principal, access, permission, applicationId)))
-      throw new ApiError('permission.not_found', 404);
+    return assertReachesApplication(this.access, principal, access, permission, applicationId);
   }
 
-  private async reaches(
+  private reaches(
     principal: Principal,
     access: EffectiveAccess,
     permission: string,
     applicationId: string,
   ): Promise<boolean> {
-    if (!holdsPermission(permission, access.grants)) return false;
-    const scope = await this.access.scopeFor(principal, access, permission, 'application');
-    return this.access.reaches(scope, { applicationId });
+    return reachesApplication(this.access, principal, access, permission, applicationId);
   }
 
   /** The application an unlock belongs to, or null for an id that names no unlock. */
@@ -726,7 +741,7 @@ export class UnlocksService {
       applicationId: row.entityId,
       fieldKey,
       repeatIndex,
-      state: z.enum(['open', 'updated', 'relocked']).parse(row.unlockState),
+      state: z.enum(UNLOCK_STATES).parse(row.unlockState),
       oldValue: row.oldValue,
       newValue: row.newValue,
       reason: who.official ? row.reason : null,
@@ -736,9 +751,7 @@ export class UnlocksService {
       enteredAt: iso(row.enteredAt),
       decidedBy: row.decidedBy,
       decidedAt: iso(row.decidedAt),
-      decision: row.decision
-        ? z.enum(['accepted', 'refused', 'cancelled']).parse(row.decision)
-        : null,
+      decision: row.decision ? z.enum(UNLOCK_DECISIONS).parse(row.decision) : null,
       decisionReason: who.official ? row.decisionReason : null,
       mayFill,
       mayDecide:

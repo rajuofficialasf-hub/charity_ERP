@@ -42,10 +42,9 @@ export function unlockRefusal(field: {
   type: FieldType;
   standardColumn?: string | null;
 }): 'identity' | 'type' | null {
-  if (
-    field.standardColumn &&
-    (UNLOCK_LOCKED_COLUMNS as readonly string[]).includes(field.standardColumn)
-  )
+  // a question may write several columns; any identity column among them locks it
+  const columns = (field.standardColumn ?? '').split(',').map((c) => c.trim());
+  if (columns.some((c) => (UNLOCK_LOCKED_COLUMNS as readonly string[]).includes(c)))
     return 'identity';
   return (UNLOCKABLE_FIELD_TYPES as readonly string[]).includes(field.type) ? null : 'type';
 }

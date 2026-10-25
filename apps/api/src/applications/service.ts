@@ -44,6 +44,7 @@ import type { BeneficiaryIdentityService } from '../services/beneficiary-identit
 import { type FormAudience, readDefinition, versionView } from '../services/forms';
 import { isAddressChain } from '../services/locations';
 import type { NisabService } from '../services/nisab';
+import { assertReachesApplication, isBlockedVolunteer } from './callers';
 import type { UnlocksService } from './unlocks';
 import type { ScoringService } from './scoring';
 import { type CommentReason, commentReasons } from './decision-rules';
@@ -1036,16 +1037,7 @@ export class ApplicationsService {
 
   /** A volunteer on the blocklist reaches no application. */
   private async blockedCaller(db: Tx | PrismaService, principal: Principal): Promise<boolean> {
-    if (principal.kind !== 'volunteer') return false;
-    const own = await db.volunteer.findUnique({
-      where: { userId: principal.userId },
-      select: { id: true },
-    });
-    if (!own) return false;
-    const blocked = await db.blocklist.count({
-      where: { subjectType: 'volunteer', subjectId: own.id, active: true },
-    });
-    return blocked > 0;
+    return principal.kind === 'volunteer' && isBlockedVolunteer(db, principal.userId);
   }
 
   /** The row the caller's scope reaches by id or number, or not-found. */
@@ -1087,13 +1079,7 @@ export class ApplicationsService {
     permission: string,
     applicationId: string,
   ): Promise<void> {
-    if (!holdsPermission(permission, access.grants)) {
-      this.access.denied(principal.userId, permission, 'application');
-      throw new ApiError('permission.denied', 403);
-    }
-    const scope = await this.access.scopeFor(principal, access, permission, 'application');
-    if (!(await this.access.reaches(scope, { applicationId })))
-      throw new ApiError('permission.not_found', 404);
+    await assertReachesApplication(this.access, principal, access, permission, applicationId);
   }
 
   /** The record as the caller sees it. */

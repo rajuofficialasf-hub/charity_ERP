@@ -14,6 +14,7 @@ describe('the field unlock rules', () => {
       expect(unlockRefusal({ type }), type).toBeNull();
     for (const column of ['nid_or_birth_reg', 'name', 'father_or_husband_name'])
       expect(unlockRefusal({ type: 'short_text', standardColumn: column })).toBe('identity');
+    expect(unlockRefusal({ type: 'short_text', standardColumn: 'village,name' })).toBe('identity');
     expect(unlockRefusal({ type: 'phone', standardColumn: 'mobile' })).toBeNull();
     for (const type of [
       'photo',
