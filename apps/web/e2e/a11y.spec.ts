@@ -143,6 +143,8 @@ test.describe('accessibility of the Phase 1 screens', () => {
     test(`the Department Head, in ${lang}`, async ({ browser, page, request }) => {
       test.setTimeout(300_000);
       const projectId = await projectWithVolunteer(browser, request);
+      const found = await (await apiAs(request, HEAD)).get(`/volunteers?q=${VOLUNTEER}`);
+      const [volunteer] = ((await found.json()) as { data: { id: string }[] }).data;
       await signInAs(page, HEAD, lang);
       for (const path of [
         '/',
@@ -160,6 +162,10 @@ test.describe('accessibility of the Phase 1 screens', () => {
         `/admin/projects/${projectId}/setup`,
         `/admin/projects/${projectId}/volunteers`,
         `/admin/projects/${projectId}/applications`,
+        // the quota section of the areas step, the verification queue and the transfer
+        `/admin/projects/${projectId}/setup?step=areas`,
+        `/admin/projects/${projectId}/applications?status=needs_verification`,
+        `/admin/projects/${projectId}/transfer?from=${volunteer!.id}`,
         '/admin/settings',
         '/admin/nisab',
         '/admin/audit',

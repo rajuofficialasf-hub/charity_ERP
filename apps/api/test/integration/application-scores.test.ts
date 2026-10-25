@@ -187,6 +187,8 @@ describe('the score of an application', () => {
     const rpm = await as(world.users.rpmDhaka);
     const first = await at(rpm, 'get', `/applications/${id}`);
     expect(first.body.data.totalScore).toBe(60);
+    // the score decides nothing: the application waits for an official as it came
+    expect(first.body.data.status).toBe('submitted');
     expect(first.body.data.scoreItems).toEqual([
       expect.objectContaining({ key: 'q_kind', input: 'widow', max_points: 20, points: 20 }),
       expect.objectContaining({ key: 'q_members', input: 7, max_points: 20, points: 20 }),
