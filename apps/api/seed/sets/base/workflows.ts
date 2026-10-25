@@ -1,9 +1,10 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { mergeWorkflowTemplates, type WorkflowDefinition } from '@css/shared';
-import yaml from 'js-yaml';
+import { loadAccessRegistry } from '../../../src/access/registry';
+import { assertWorkflowNamesKnown } from '../../../src/workflow/registry';
+import { readWorkflowTemplates } from '../../../src/workflow/templates';
 import { json, type SeedContext, seedId } from '../../context';
-import { REPO_ROOT } from '../util';
+
+export { readWorkflowTemplates };
 
 /**
  * Workflow definitions from docs/architecture/workflow-templates/ (WORKFLOW_ENGINE §12): each
@@ -11,21 +12,6 @@ import { REPO_ROOT } from '../util';
  * transitions derived into workflow_transitions for querying. A template change needs a new
  * version: workflow_transitions is append-only (D-060), so a changed row of the same version fails.
  */
-export function readWorkflowTemplates(): { template: string; version: number; extends?: string }[] {
-  const dir = join(REPO_ROOT, 'docs/architecture/workflow-templates');
-  return readdirSync(dir)
-    .filter((f) => f.endsWith('.yaml'))
-    .sort()
-    .map(
-      (f) =>
-        yaml.load(readFileSync(join(dir, f), 'utf8')) as {
-          template: string;
-          version: number;
-          extends?: string;
-        },
-    );
-}
-
 interface TransitionRow {
   scope: 'application' | 'stage' | 'project' | 'donor_flow' | 'field_unlock';
   from: string | null;
@@ -69,8 +55,10 @@ export function deriveTransitions(def: WorkflowDefinition): TransitionRow[] {
 
 export async function seedWorkflows(ctx: SeedContext): Promise<void> {
   const templates = readWorkflowTemplates();
-  for (const t of templates) {
-    const def = mergeWorkflowTemplates(t.template, templates);
+  const definitions = templates.map((t) => mergeWorkflowTemplates(t.template, templates));
+  // a template may name only guards, effects and permissions that exist
+  assertWorkflowNamesKnown(definitions, loadAccessRegistry().isKnownPermission);
+  for (const def of definitions) {
     const definitionId = seedId(`workflow:${def.template}:${def.version}`);
     await ctx.upsert('workflow_definitions', {
       id: definitionId,

@@ -18,7 +18,9 @@
     "applications_counted": "{counted} টি দেওয়া হয়েছে",
     "set": "আপনার কাজ",
     "team": "আমার টিম",
-    "none": "দেওয়া নেই"
+    "none": "দেওয়া নেই",
+    "new_application": "নতুন আবেদন",
+    "my_applications": "আমার আবেদন"
   },
   "consent": {
     "title": "নিয়মাবলি: {name}",

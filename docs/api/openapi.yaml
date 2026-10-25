@@ -313,7 +313,7 @@ components:
         reject_unverified. The permission is the transition's permission in the project's snapshot.
       schema:
         type: string
-        enum: [submit, review, send_for_approval, approve, reject, waitlist, pull_from_waitlist, delete, verify_link, reject_unverified]
+        enum: [submit, review, send_for_approval, approve, reject, waitlist, pull_from_waitlist, delete, verify_link, reject_unverified, return_to_review]
     AppNo:
       name: appNo
       in: path
@@ -2990,6 +2990,7 @@ components:
         unionId: { $ref: '#/components/schemas/Uuid' }
         submittedAt: { type: [string, 'null'], format: date-time }
         waitingDays: { type: [integer, 'null'], description: Days in the current state (UX-07 stuck approvals) }
+        etag: { type: string, description: "The version of the row, carried back by a bulk action's row as its If-Match" }
     Answer:
       type: object
       required: [fieldKey, value]
@@ -2999,19 +3000,34 @@ components:
         value: { $ref: '../database/json-schemas/application-answer-value.schema.json' }
     ApplicationCreate:
       type: object
+      additionalProperties: false
       required: [clientUuid, projectId, formVersionId, answers]
       properties:
         clientUuid: { $ref: '#/components/schemas/Uuid' }
         clientCreatedAt: { type: string, format: date-time }
         projectId: { $ref: '#/components/schemas/Uuid' }
         formVersionId: { $ref: '#/components/schemas/Uuid' }
-        beneficiaryId: { type: string, format: uuid, description: From lookup; omit for a new beneficiary }
-        answers: { type: array, items: { $ref: '#/components/schemas/Answer' } }
+        beneficiaryId:
+          type: string
+          format: uuid
+          description: >-
+            From the lookup, for the client's own use; the server binds the person from the number
+            in the identity answer and never from this id
+        answers:
+          type: array
+          maxItems: 2000
+          description: Answers in the shape of Answer; the engine checks each one and names the field it refuses
+          items: {}
     ApplicationUpdate:
       type: object
+      additionalProperties: false
       required: [answers]
       properties:
-        answers: { type: array, items: { $ref: '#/components/schemas/Answer' } }
+        answers:
+          type: array
+          maxItems: 2000
+          description: Answers in the shape of Answer; the engine checks each one and names the field it refuses
+          items: {}
     Application:
       allOf:
         - $ref: '#/components/schemas/ApplicationSummary'
@@ -3019,13 +3035,16 @@ components:
           properties:
             formVersionId: { $ref: '#/components/schemas/Uuid' }
             candidateBeneficiaryId: { type: [string, 'null'], format: uuid }
+            createdByUserId: { type: [string, 'null'], format: uuid, description: The account that created it (a team member's own records) }
+            identityKind: { type: [string, 'null'], enum: [nid, birth_reg, null], description: Which number identifies the person }
+            rejectionMessage: { type: [string, 'null'], description: The words written for the volunteer at a rejection; the office's reason stays in decisionComment }
             answers:
               type: array
               description: Official-section answers are absent for callers without application.view_official_section
               items: { $ref: '#/components/schemas/Answer' }
             reviewedAt: { type: [string, 'null'], format: date-time }
             approvedAt: { type: [string, 'null'], format: date-time }
-            decisionComment: { type: [string, 'null'] }
+            decisionComment: { type: [string, 'null'], x-sensitive-class: application.official_section, description: The office's reason of a decision }
             zakat:
               type: [object, 'null']
               x-sensitive-class: application.official_section
@@ -3049,6 +3068,7 @@ components:
                     type: array
                     items: { type: string, enum: [mobile, union_village_father] }
             availableActions: { type: array, items: { type: string }, description: Actions the caller may perform now }
+            form: { $ref: '#/components/schemas/FormVersion', description: The form version the answers belong to, as the caller's audience sees it }
     ApplicationResponse:
       type: object
       required: [data, meta]
@@ -3064,8 +3084,9 @@ components:
     ApplicationActionRequest:
       type: object
       properties:
-        reason: { type: string, description: 'Required for reject, waitlist and reject_unverified' }
-        comment: { type: string, description: Required when deciding against the score order (BR-099) }
+        reason: { type: string, maxLength: 2000, description: 'Required for reject, waitlist and reject_unverified; the office reason, never shown to a volunteer' }
+        message: { type: string, maxLength: 2000, description: 'Required for reject: the words written for the volunteer' }
+        comment: { type: string, maxLength: 2000, description: Required when deciding against the score order (BR-099) }
         linkBeneficiaryId: { type: string, format: uuid, description: verify_link only }
         zakatDecision: { type: string, enum: [eligible, not_eligible], description: Official দায়ী when the project uses zakat }
     Score:
@@ -3101,7 +3122,7 @@ components:
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         field: { type: string }
-        kind: { type: string, enum: [unlock, contact_update, correction, sync_conflict] }
+        kind: { type: string, enum: [unlock, contact_update, correction, sync_conflict, review_edit] }
         unlockState: { type: [string, 'null'], enum: [open, updated, relocked, null] }
         oldValue: {}
         newValue: {}
@@ -3115,6 +3136,35 @@ components:
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/FieldChange' } }
         meta: { $ref: '#/components/schemas/ListMeta' }
+    TimelineEntry:
+      type: object
+      description: >-
+        One step of the application, read from its audit entry; the office reads the actor, its
+        reason and the comment, a volunteer the state, the time and the message written for them
+      required: [id, at, action, from, to, automatic, message]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        at: { type: string, format: date-time }
+        action: { type: string, description: 'The audit action of the step, such as application.submit' }
+        from: { type: [string, 'null'] }
+        to: { type: string }
+        automatic: { type: boolean, description: A move the engine made on its own after the step before }
+        actor:
+          type: [object, 'null']
+          x-sensitive-class: application.official_section
+          required: [id, name]
+          properties:
+            id: { $ref: '#/components/schemas/Uuid' }
+            name: { type: string }
+        reason: { type: [string, 'null'], x-sensitive-class: application.official_section }
+        comment: { type: [string, 'null'], x-sensitive-class: application.official_section }
+        message: { type: [string, 'null'], description: The words written for the volunteer at a rejection }
+    TimelineList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/TimelineEntry' } }
+        meta: { $ref: '#/components/schemas/Meta' }
     Transfer:
       type: object
       required: [id, applicationId, fromVolunteerId, toVolunteerId, createdAt]
@@ -3191,6 +3241,27 @@ components:
         answers: { type: object, description: followup screen answers (followup-answers schema) }
         photoFileIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
         comment: { type: string }
+    BulkReviewRequest:
+      type: object
+      additionalProperties: false
+      required: [action, rows]
+      description: >-
+        The review screen's bulk action: one action for every row, each row with the version the
+        list showed, so a row that changed since fails on its own
+      properties:
+        action: { type: string, enum: [review, approve] }
+        rows:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: object
+            additionalProperties: false
+            required: [clientUuid, applicationId, ifMatch]
+            properties:
+              clientUuid: { $ref: '#/components/schemas/Uuid' }
+              applicationId: { $ref: '#/components/schemas/Uuid' }
+              ifMatch: { type: string, maxLength: 64 }
     BulkRequest:
       type: object
       required: [rows]
@@ -7751,6 +7822,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/PageNumber'
         - $ref: '#/components/parameters/IncludeTotal'
         - $ref: '#/components/parameters/Sort'
         - $ref: '#/components/parameters/Search'
@@ -7795,7 +7867,7 @@ paths:
       x-audit: application.create
       x-idempotency: clientUuid
       x-rate-limit: default
-      x-sensitive-fields: [beneficiary.nid]
+      x-sensitive-fields: [application.official_section, beneficiary.nid]
       requestBody:
         required: true
         content:
@@ -7841,6 +7913,76 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ApplicationResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /projects/{projectId}/application-form:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      tags: [applications]
+      operationId: applications.applicationForm.get
+      summary: "The project's published application form as the caller's audience sees it, for the new application screen"
+      x-permission: application.create
+      x-scope: project
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      x-sensitive-fields: [application.official_section]
+      responses:
+        '200':
+          description: The published form version
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FormVersionResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /me/applications:
+    get:
+      tags: [applications]
+      operationId: applications.mine.list
+      summary: "The caller's own applications across their projects, newest first"
+      x-permission: application.view
+      x-scope: application
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      x-sensitive-fields: [application.official_section]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/PageNumber'
+        - $ref: '#/components/parameters/IncludeTotal'
+        - $ref: '#/components/parameters/Sort'
+        - $ref: '#/components/parameters/Search'
+        - name: status
+          in: query
+          schema: { type: string, description: Comma-separated common states }
+        - name: stage
+          in: query
+          schema: { type: string }
+        - name: districtId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: unionId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: ownerVolunteerId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: flag
+          in: query
+          schema: { type: string }
+        - name: submittedFrom
+          in: query
+          schema: { type: string, format: date }
+        - name: submittedTo
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Applications
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApplicationList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
   /applications/{applicationId}:
     parameters:
       - $ref: '#/components/parameters/ApplicationId'
@@ -7874,6 +8016,7 @@ paths:
       x-audit: application.update
       x-idempotency: none
       x-rate-limit: default
+      x-sensitive-fields: [application.official_section, beneficiary.nid]
       x-workflow: { scope: application, action: edit }
       parameters:
         - $ref: '#/components/parameters/IfMatch'
@@ -7909,6 +8052,7 @@ paths:
       x-audit: application.<action>
       x-idempotency: none
       x-rate-limit: default
+      x-sensitive-fields: [application.official_section, beneficiary.nid]
       x-workflow: { scope: application, action: path }
       parameters:
         - $ref: '#/components/parameters/IfMatch'
@@ -8028,6 +8172,55 @@ paths:
               schema: { $ref: '#/components/schemas/FieldChangeList' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /projects/{projectId}/bulk/review:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    post:
+      tags: [applications]
+      operationId: applications.bulk.review
+      summary: 'The review screen in bulk: up to 50 applications start their review or take their approval, each row on its own (API_STANDARDS section 13)'
+      x-permission: workflow
+      x-scope: application
+      x-audit: application.bulk_review
+      x-idempotency: header
+      x-rate-limit: sync
+      x-workflow: { scope: application, action: body }
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BulkReviewRequest' }
+      responses:
+        '200':
+          description: Per-row results
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BulkResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /applications/{applicationId}/timeline:
+    parameters:
+      - $ref: '#/components/parameters/ApplicationId'
+    get:
+      tags: [applications]
+      operationId: applications.timeline.list
+      summary: The steps of the application in order (the audit entries of its state changes), projected per audience
+      x-permission: application.view
+      x-scope: application
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      x-sensitive-fields: [application.official_section]
+      responses:
+        '200':
+          description: Steps
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TimelineList' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /applications/{applicationId}/changes:
     parameters:
       - $ref: '#/components/parameters/ApplicationId'

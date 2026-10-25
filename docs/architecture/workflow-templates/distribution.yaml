@@ -1,7 +1,7 @@
 # distribution.yaml - winter clothing, iftar, meat distribution (blueprint A8.1, B5; BD-21, BD-22, BD-23).
 # Status: written in task T0.11 (2026-10-10). Validated by schema.json.
 template: distribution
-version: 1
+version: 2
 title_en: Distribution
 title_bn: বিতরণ
 extends: _common

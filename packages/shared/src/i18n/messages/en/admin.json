@@ -693,7 +693,8 @@
       "budget": "Planned budget",
       "activated": "Activated",
       "closed": "Closed",
-      "none": "Not set"
+      "none": "Not set",
+      "applications": "Applications"
     },
     "picker": "Project",
     "picker_option": "{name} {year} ({code})",

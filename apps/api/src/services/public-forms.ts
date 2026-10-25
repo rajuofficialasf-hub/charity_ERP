@@ -1,7 +1,7 @@
 import { uuidv7 } from '@css/shared';
 import { type PublicApplicationCreate, validate } from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
-import { z } from 'zod';
+import { addressOf, nisabOption, photoAnswers } from '../applications/answers';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Clock } from '../core/clock';
 import { isUniqueViolation } from '../core/db-errors';
@@ -44,31 +44,6 @@ export const NEEDS_VERIFICATION = 'needs_verification';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-type AddressChain = [string, string, string, string];
-
-const photoAnswerSchema = z.object({ t: z.literal('photo'), v: z.array(z.string()) });
-
-/** The file ids every photo answer names, by field. */
-function photoAnswers(
-  answers: { fieldKey: string; value: unknown }[],
-): { fieldKey: string; fileIds: string[] }[] {
-  return answers.flatMap((a) => {
-    const photo = photoAnswerSchema.safeParse(a.value);
-    return photo.success ? [{ fieldKey: a.fieldKey, fileIds: photo.data.v }] : [];
-  });
-}
-
-/** The four address ids the engine split out of the answers, when all four are there. */
-function addressOf(standard: Record<string, unknown>): AddressChain | null {
-  const ids = [
-    standard.division_id,
-    standard.district_id,
-    standard.upazila_id,
-    standard.union_id,
-  ].map((id) => (typeof id === 'string' ? id : null));
-  return ids.every((id): id is string => id !== null) ? (ids as AddressChain) : null;
-}
-
 /**
  * The public application form (docs/plans/2026-10-21-1135-feat-form-engine-plan.md, "The public
  * link"): anyone with the link reads the published volunteer-visible form of an
@@ -110,7 +85,7 @@ export class PublicFormsService {
     const checked = validate(definition, body.answers, {
       audience: 'public',
       today,
-      ...(await this.nisabValue(today)),
+      ...(await nisabOption(this.nisab, today)),
     });
     if (!checked.ok) throw new ApiError('validation.failed', 422, undefined, checked.errors);
     const chain = addressOf(checked.standard);
@@ -202,15 +177,6 @@ export class PublicFormsService {
     return row && row.projectId === projectId
       ? { id: row.id, status: row.status, stage: row.stage }
       : null;
-  }
-
-  private async nisabValue(today: string): Promise<{ nisabValue?: string }> {
-    try {
-      return { nisabValue: (await this.nisab.inForceOn(today)).value };
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 404) return {};
-      throw error;
-    }
   }
 
   /**

@@ -67,7 +67,8 @@ export async function typeDate(page: Page, scope: Locator, label: string, ddmmyy
 /** The Monitoring Team's demo account, who builds the ready forms. */
 const MONITORING = 'monitoring@example.org';
 
-const question = (fieldKey: string, type: string, extra: Record<string, unknown> = {}) => ({
+/** A question of a form built through the API; `extra` overrides the label, the options or the column. */
+export const question = (fieldKey: string, type: string, extra: Record<string, unknown> = {}) => ({
   fieldKey,
   libraryFieldKey: null,
   type,
@@ -78,14 +79,18 @@ const question = (fieldKey: string, type: string, extra: Record<string, unknown>
   options: [],
   ...extra,
 });
-const choice = (code: string) => ({
+/** An option of a choice question, labelled by its code unless given. */
+export const choice = (
+  code: string,
+  label: { bn: string; en: string } = { bn: code, en: code },
+) => ({
   code,
-  label: { bn: code, en: code },
+  label,
   dependsOnOptionCode: null,
   allowsOtherText: false,
 });
 /** One section with the seven identity questions, each marked by its column. */
-const IDENTITY_SECTION = {
+export const IDENTITY_SECTION = {
   key: 'section_1',
   librarySectionKey: null,
   title: { bn: 'পরিচয়', en: 'Identity' },
@@ -113,7 +118,12 @@ const IDENTITY_SECTION = {
  * on the page; activation needs it. Journeys that are not about forms use this; the form
  * builder's own journey builds and publishes its form on the screen.
  */
-export async function placeReadyForm(page: Page, loginId: string, projectId: string) {
+export async function placeReadyForm(
+  page: Page,
+  loginId: string,
+  projectId: string,
+  sections: unknown[] = [IDENTITY_SECTION],
+) {
   const context = await apiRequest.newContext({ baseURL: new URL(page.url()).origin });
   try {
     const builder = await apiAs(context, MONITORING);
@@ -129,7 +139,7 @@ export async function placeReadyForm(page: Page, loginId: string, projectId: str
       (await builder.get(`/form-versions/${ready.draftVersionId}`)).headers()['etag'] ?? '';
     const saved = await builder.patch(
       `/form-versions/${ready.draftVersionId}`,
-      { sections: [IDENTITY_SECTION] },
+      { sections },
       { 'If-Match': await etag() },
     );
     expect(saved.ok(), await saved.text()).toBe(true);
@@ -170,22 +180,29 @@ export async function activeProject(
   name: string,
   program: string,
   loginId: string,
+  sections?: unknown[],
+  setup?: SetupOptions,
 ): Promise<string> {
   await newDraft(page, code(), name, program);
-  await placeReadyForm(page, loginId, projectIdOf(page));
-  return finishSetup(page);
+  await placeReadyForm(page, loginId, projectIdOf(page), sections);
+  return finishSetup(page, setup);
+}
+
+/** What the rest of the wizard may vary: the application window (ddmmyyyy) and the fund source. */
+export interface SetupOptions {
+  /** November and December 2026 unless given. */
+  window?: { from: string; to: string };
+  /** Zakat unless given; a zakat project needs the zakat decision, which no screen writes yet, before an approval. */
+  fundSource?: string;
 }
 
 /**
  * The rest of the wizard from its components step, then the activation: a group photo, a budget
- * of 100 × 1000 from zakat, the window (dd-mm-yyyy; November and December 2026 unless given), a
- * limit of 50, the Dhaka division with its RPM and the rules. The project needs its published
- * form already. Returns the project's id.
+ * of 100 × 1000 from one fund source, the window, a limit of 50, the Dhaka division with its RPM
+ * and the rules. The project needs its published form already. Returns the project's id.
  */
-export async function finishSetup(
-  page: Page,
-  window: { from: string; to: string } = { from: '01112026', to: '31122026' },
-): Promise<string> {
+export async function finishSetup(page: Page, setup: SetupOptions = {}): Promise<string> {
+  const window = setup.window ?? { from: '01112026', to: '31122026' };
   await page.getByRole('button', { name: 'বিতরণ ও ছবি-এর সেটিংস' }).click();
   const drawer = page.getByRole('dialog');
   await drawer.getByText('শুধু দলের ছবি', { exact: true }).click();
@@ -196,7 +213,7 @@ export async function finishSetup(
   await budget.getByRole('textbox', { name: /প্রতিজনের খরচ/ }).fill('1000');
   await budget.getByRole('textbox', { name: /লক্ষ্য/ }).fill('100');
   await budget.getByRole('button', { name: 'তহবিলের উৎস যোগ করুন' }).click();
-  await chooseIn(page, budget, 'তহবিলের উৎস', 'যাকাত');
+  await chooseIn(page, budget, 'তহবিলের উৎস', setup.fundSource ?? 'যাকাত');
   await budget.getByRole('textbox', { name: /পরিমাণ/ }).fill('100000');
   await next(page).click();
   const dates = section(page, 'আবেদনের সময়সীমা ও সীমা');

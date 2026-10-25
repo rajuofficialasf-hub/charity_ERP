@@ -34,6 +34,8 @@ export interface FieldInputProps {
   onUploading?: (busy: boolean) => void;
   /** Nisab comparisons show no value where the nisab is not known (the public page). */
   nisabKnown: boolean;
+  /** The person reads the answer but cannot change it (a known person's identity). */
+  locked?: boolean;
 }
 
 const choice = (value: AnswerValue | undefined) =>
@@ -56,12 +58,13 @@ export function FieldInput({
   upload,
   onUploading,
   nisabKnown,
+  locked = false,
 }: FieldInputProps) {
   const t = useTranslations('forms.renderer');
   const locale = useLocale();
   const label = field.label[locale];
   const help = field.settings?.help?.[locale];
-  const common = { label, name: id, required: state.required, error, helper: help };
+  const common = { label, name: id, required: state.required, error, helper: help, locked };
   const options = state.options.map((o) => ({ id: o.code, label: o.label[locale] }));
   const otherId = state.options.find((o) => o.allowsOtherText)?.code;
   const otherProps = otherId

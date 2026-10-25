@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { fakeMobile as sharedFakeMobile, fakeNid as sharedFakeNid } from '@css/shared';
 import type { Client } from 'pg';
+import { mergedWorkflowDefinitions } from '../../../src/workflow/templates';
 
 /**
  * Minimal row builders for database tests. Identities are obviously fake (TEST_STRATEGY section 4):
@@ -95,7 +96,10 @@ export async function project(db: Client, over: Record<string, unknown> = {}) {
     version: 1,
     title_bn: 'ধাপ',
     title_en: 'Flow',
-    definition: '{}',
+    // a real definition (the distribution template), so the engine can read any fixture project
+    definition: JSON.stringify(
+      mergedWorkflowDefinitions().find((d) => d.template === 'distribution'),
+    ),
   });
   const code =
     'T' +

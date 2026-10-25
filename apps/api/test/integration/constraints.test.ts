@@ -260,15 +260,17 @@ describe('applications', () => {
     );
   });
 
-  it('only needs_verification may lack a beneficiary (BR-104)', async () => {
+  it('a submitted application has its person; a draft, a public entry, a rejected one and a deleted one may lack it', async () => {
     const p = await f.project(db);
     await expectSqlError(
       f.application(db, { project: p, loc }),
       SQLSTATE.checkViolation,
       /applications_beneficiary_check/,
     );
+    for (const status of ['draft', 'needs_verification', 'rejected'])
+      await expect(f.application(db, { project: p, loc }, { status })).resolves.toBeTruthy();
     await expect(
-      f.application(db, { project: p, loc }, { status: 'needs_verification' }),
+      f.application(db, { project: p, loc }, { status: 'deleted', deleted_at: new Date() }),
     ).resolves.toBeTruthy();
   });
 

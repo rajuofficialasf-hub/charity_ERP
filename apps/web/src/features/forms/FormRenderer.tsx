@@ -50,6 +50,15 @@ export interface RendererProps {
   onSubmit?: (submission: Submission) => Promise<void>;
   /** Messages the server gave for named questions after a send. */
   serverErrors?: Record<string, string>;
+  /** Answers the screen already knows (a found person's identity, a draft), used once at the start. */
+  initialAnswers?: Answer[];
+  /** Questions the person may read but not change (a known person's identity). */
+  lockedKeys?: ReadonlySet<string>;
+  /**
+   * Runs when a part of the form is complete, before the next one shows (a screen saves the
+   * draft here); when it throws, the person stays on the part and the error's message is shown.
+   */
+  onPartDone?: (submission: Submission) => Promise<void>;
 }
 
 const PHONE = '(max-width: 767px)';
@@ -90,6 +99,9 @@ export function FormRenderer({
   submitLabel,
   onSubmit,
   serverErrors = NO_ERRORS,
+  initialAnswers,
+  lockedKeys,
+  onPartDone,
 }: RendererProps) {
   const t = useTranslations('forms.renderer');
   const te = useTranslations('errors');
@@ -110,7 +122,7 @@ export function FormRenderer({
       if (f.type === 'repeat_group') rows[f.fieldKey] = f.settings?.repeat?.min_rows ?? 0;
     return rows;
   }, [form]);
-  const { state, setState, clear } = useFormAnswers(storageKey, initialRows);
+  const { state, setState, clear } = useFormAnswers(storageKey, initialRows, initialAnswers);
   // each file goes up as part of this application, named by its client id
   const fieldUpload = useMemo(
     () =>
@@ -167,7 +179,7 @@ export function FormRenderer({
     if (path in serverErrors) setEdited((set) => new Set(set).add(path));
   };
 
-  const next = () => {
+  const next = async () => {
     if (uploading.size) return setSummary(t('upload_wait'));
     const found = problemsIn(shown);
     if (Object.keys(found).length) {
@@ -177,6 +189,14 @@ export function FormRenderer({
     }
     setErrors({});
     setSummary(null);
+    if (onPartDone) {
+      try {
+        await onPartDone({ answers: state.answers, clientUuid: state.clientUuid });
+      } catch (error) {
+        setSummary(error instanceof Error && error.message ? error.message : t('send_failed'));
+        return;
+      }
+    }
     setState((s) => ({ ...s, step: Math.min(step + 1, visible.length - 1) }));
   };
   const previous = () => {
@@ -233,6 +253,7 @@ export function FormRenderer({
         value={answerOf(state, field.fieldKey, row)}
         computed={evaluation.computed[path]}
         error={allErrors[path]}
+        locked={lockedKeys?.has(field.fieldKey) === true}
         onChange={(value) => change(field, row, inGroup, value)}
         upload={fieldUpload}
         onUploading={(busy) =>
@@ -335,7 +356,7 @@ export function FormRenderer({
             {sending ? t('sending') : (submitLabel ?? t('submit'))}
           </Button>
         ) : (
-          <Button variant="primary" onPress={next}>
+          <Button variant="primary" onPress={() => void next()}>
             {t('next')}
           </Button>
         )}

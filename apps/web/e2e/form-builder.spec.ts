@@ -269,7 +269,7 @@ test('the Monitoring Team builds a ready form, the PM places it, an applicant se
 
     // the rest of the setup, with a window open from yesterday, then the activation
     await pm.goto(`/admin/projects/${projectId}/setup?step=components`);
-    await finishSetup(pm, { from: dayFromToday(-1), to: dayFromToday(60) });
+    await finishSetup(pm, { window: { from: dayFromToday(-1), to: dayFromToday(60) } });
 
     // the applicant, signed out, on the phone
     const applicant = await phone.newPage();

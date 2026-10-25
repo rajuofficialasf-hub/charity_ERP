@@ -7,6 +7,7 @@ export { en } from './catalogue-en.js';
 
 export const NAMESPACES = [
   'admin',
+  'applications',
   'auth',
   'codes',
   'common',

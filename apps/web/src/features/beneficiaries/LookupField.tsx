@@ -47,8 +47,8 @@ export function LookupField({
 }: {
   /** The project the application belongs to; the search waits until one is chosen. */
   projectId: string | null;
-  /** Each answer, and null when the number changes; the mobile as the person edits it. */
-  onResult?: (result: LookupResult | null, mobile: string | null) => void;
+  /** Each answer, and null when the number changes; the mobile as the person edits it; the number asked. */
+  onResult?: (result: LookupResult | null, mobile: string | null, number: string | null) => void;
   /** Extra content under a found profile (a link to the profile on an official's screen). */
   footer?: (autofill: LookupAutofill) => ReactNode;
 }) {
@@ -72,7 +72,7 @@ export function LookupField({
       if (current.current !== q) return;
       const next = result.autofill?.mobile ?? '';
       setMobile(next);
-      onResult?.(result, next || null);
+      onResult?.(result, next || null, q.number);
     },
   });
 
@@ -82,7 +82,7 @@ export function LookupField({
     current.current = null;
     setAsked(null);
     search.reset();
-    onResult?.(null, null);
+    onResult?.(null, null, null);
   };
   const submit = () => {
     const number = normalizeIdentityNumber(typed);
@@ -153,7 +153,7 @@ export function LookupField({
           mobile={mobile}
           onMobile={(value) => {
             setMobile(value);
-            onResult?.(result, value || null);
+            onResult?.(result, value || null, asked?.number ?? null);
           }}
           footer={footer}
         />

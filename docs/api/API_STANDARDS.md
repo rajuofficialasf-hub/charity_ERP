@@ -307,7 +307,8 @@ Idempotency-Key: <uuid>
 200 { "data": { "results": [ { "clientUuid": "…", "result": "done" | "failed" | "pending_photos", "code": "workflow.guard.photos_required_per_rule", "status": "implementation", "stage": "distributed" } ] } }
 ```
 
-- Each row is processed independently through the same application service, guards, effects and audit as a single action; one failed row never rolls back the others.
+- Each row is processed independently through the same application service, guards, effects and audit as a single action; one failed row never rolls back the others (one savepoint per row inside the batch's transaction).
+- The review screen uses the same pattern for the common cycle: `POST /api/v1/projects/{projectId}/bulk/review` with `{ "action": "review" | "approve", "rows": [ { "clientUuid", "applicationId", "ifMatch" } ] }`; `ifMatch` is the row's `etag` from the list, so a row that changed since the list was read fails with `conflict.stale_version` while the others pass. The request is refused as a whole (403) when the caller holds no permission for the action at all, and (422) when the Idempotency-Key was used by someone else or with another request.
 - Permission is checked per row against the row's record and scope; `x-permission` on the endpoint names the screen's permission (e.g. `distribution.update`, `class.record`, `progress.update`, `site_verification.record`, `followup.record`).
 - The same payload shape is accepted inside `/sync/batch` for offline saves.
 

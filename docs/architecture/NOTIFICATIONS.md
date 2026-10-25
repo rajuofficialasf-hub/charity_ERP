@@ -91,7 +91,8 @@ Channels: **A** in-app · **E** email · **S** SMS · **P** optional Web Push (i
 | Application entered needs verification (public link, offline collision, stale form) | reviewers(region) | A | `application_needs_verification` | 2 |
 | Application reviewed (awaiting approval) | approvers(region) | A, E (digest-eligible) | `application_reviewed` | 2 |
 | Application approved | owner, team (own records) | A | `application_approved` | 2 |
-| Application rejected (reason) | owner, team (own records) | A | `application_rejected` | 2 |
+| Application rejected (the message written for the volunteer; the office reason stays in the record) | owner, team (own records) | A | `application_rejected` | 2 |
+| Application returned from rejection to review | owner, team (own records) | A | `application_reopened` | 2 |
 | Application waitlisted / pulled from waitlist | owner | A | `application_waitlisted` | 2 |
 | Field unlocked for the volunteer | owner | A | `field_unlocked` | 2 |
 | Unlocked field updated (needs verification) | the official who unlocked | A | `field_updated` | 2 |

@@ -1733,6 +1733,9 @@ model Application {
   nisabValue                      Decimal?              @map("nisab_value") @db.Decimal(14, 2)
   zakatDecision                   String?               @map("zakat_decision")
   zakatDecidedBy                  String?               @map("zakat_decided_by") @db.Uuid
+  rejectionMessage                String?               @map("rejection_message")
+  /// which number identifies the person, written by the application service when it resolves the profile at submission
+  identityKind                    String?               @map("identity_kind")
   deletedAt                       DateTime?             @map("deleted_at") @db.Timestamptz(6)
   createdAt                       DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy                       String?               @map("created_by") @db.Uuid
@@ -1770,6 +1773,7 @@ model Application {
   @@unique([clientUuid], map: "applications_client_uuid_key")
   @@unique([projectId, beneficiaryId], where: raw("status <> 'deleted' AND beneficiary_id IS NOT NULL"), map: "applications_project_id_beneficiary_id_key")
   @@index([projectId, status, submittedAt(sort: Desc)], map: "applications_project_id_status_submitted_at_idx")
+  @@index([projectId, status, createdAt(sort: Desc)], map: "applications_project_id_status_created_at_idx")
   @@index([projectId, regionLocationId, status], map: "applications_project_id_region_location_id_status_idx")
   @@index([projectId, districtId, status], map: "applications_project_id_district_id_status_idx")
   @@index([ownerVolunteerId, status], map: "applications_owner_volunteer_id_status_idx")
@@ -3027,6 +3031,8 @@ model SyncBatche {
   receivedAt      DateTime      @default(now()) @map("received_at") @db.Timestamptz(6)
   recordCount     Int           @map("record_count") @db.SmallInt
   results         Json
+  /// a hash of the request under the key; a repeat with another request is refused, not replayed
+  requestHash     String?       @map("request_hash")
   user            User          @relation("sync_batches_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   deviceSession   DeviceSession @relation("sync_batches_device_session_id", fields: [deviceSessionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
 

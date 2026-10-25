@@ -1,6 +1,6 @@
 import { formatCount, formatDate } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import { Alert, Button, Card, Checkbox, ErrorState, Skeleton, Stepper } from '@css/ui';
+import { Alert, Button, Card, Checkbox, ErrorState, Skeleton, Stack, Stepper } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
@@ -85,11 +85,21 @@ function ProjectFacts({ project: p }: { project: MyProjectDetail }) {
       title={`${localized(p.name, locale)} (${p.code})`}
       headingLevel={2}
       actions={
-        leads ? (
-          <Button variant="secondary" size="sm" href={`/my-projects/${p.projectId}/team`}>
-            {t('team')}
+        <Stack direction="row" gap={2} wrap>
+          {p.status === 'active' ? (
+            <Button variant="primary" size="sm" href={`/my-projects/${p.projectId}/apply`}>
+              {t('new_application')}
+            </Button>
+          ) : null}
+          <Button variant="secondary" size="sm" href="/my-applications?tab=pending">
+            {t('my_applications')}
           </Button>
-        ) : undefined
+          {leads ? (
+            <Button variant="secondary" size="sm" href={`/my-projects/${p.projectId}/team`}>
+              {t('team')}
+            </Button>
+          ) : null}
+        </Stack>
       }
     >
       <p>{tm('accepted')}</p>

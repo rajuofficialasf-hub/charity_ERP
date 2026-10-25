@@ -73,8 +73,10 @@ export function makeScope(
 /** True when the caller may call the operation at all; the scope then narrows the data. */
 export function holdsPermission(permission: string, grants: EffectiveGrant[]): boolean {
   // `entity`: any active user passes here; the file service decides from the linked record.
-  if (permission === 'authenticated' || permission === 'entity') return true;
-  if (PERMISSION_MARKERS.includes(permission)) return false; // public is decided before; workflow later
+  // `workflow`: the engine decides per action from the project's snapshot (docs/architecture/WORKFLOW_ENGINE.md)
+  if (permission === 'authenticated' || permission === 'entity' || permission === 'workflow')
+    return true;
+  if (PERMISSION_MARKERS.includes(permission)) return false; // public is decided before
   return grants.some((g) => g.permission === permission);
 }
 
@@ -183,8 +185,24 @@ export async function resolveInstances(
   const volunteerRegionProjects = new Set<string | null>();
   const houseProjects: string[] = [];
   let ownHouseProjects = false;
+  const constructionPrograms: string[] = [];
+  let ownConstructionPrograms = false;
   for (const g of grants) {
     if (g.condition !== null) {
+      // the Program Manager decides on house construction only: the grant reaches the
+      // construction projects of the program, checked below
+      if (
+        entity === 'application' &&
+        g.condition === 'house_construction_only' &&
+        g.scopeType === 'PROGRAM'
+      ) {
+        if (g.scopeRef) constructionPrograms.push(g.scopeRef);
+        else ownConstructionPrograms = true;
+      }
+      // a team member reaches the applications they created themselves: the SELF filter of the
+      // applications already stops at the caller's own and the ones they created
+      if (entity === 'application' && g.condition === 'own_created' && g.scopeType === 'SELF')
+        inst.self = true;
       if (entity === 'user' && g.condition === 'own_region' && AREA_SCOPES.includes(g.scopeType)) {
         if (g.scopeRef)
           inst.volunteerAreas.push({ projectId: g.projectId, locationId: g.scopeRef });
@@ -270,6 +288,21 @@ export async function resolveInstances(
       select: { projectId: true },
     });
     inst.projectIds.push(...attached.map((s) => s.projectId));
+  }
+  if (constructionPrograms.length || ownConstructionPrograms) {
+    const projects = await db.project.findMany({
+      where: {
+        workflowDefinition: { key: HOUSE_CONSTRUCTION_WORKFLOW },
+        program: {
+          OR: [
+            ...(ownConstructionPrograms ? [{ pmUserId: actorId }] : []),
+            ...(constructionPrograms.length ? [{ id: { in: constructionPrograms } }] : []),
+          ],
+        },
+      },
+      select: { id: true },
+    });
+    inst.projectIds.push(...projects.map((p) => p.id));
   }
   if (regionProjects.size) inst.areas.push(...(await ownAreas(db, actorId, regionProjects)));
   if (volunteerRegionProjects.size)
@@ -492,4 +525,43 @@ export function programWhere(scope: Scope): Prisma.ProgramWhereInput {
   if (i.projectIds.length || i.areas.length)
     or.push({ projectsProgram: { some: projectWhere(scope) } });
   return or.length ? { OR: or } : { id: { in: [] } };
+}
+
+/** The applications placed in a location at any of its levels (region, district, upazila, union). */
+const applicationsIn = (locationId: string): Prisma.ApplicationWhereInput => ({
+  OR: [
+    { regionLocationId: locationId },
+    { districtId: locationId },
+    { unionId: locationId },
+    { union: { parentId: locationId } },
+  ],
+});
+
+/**
+ * The applications a scope reaches (entity `application`): everything at GLOBAL but the projects
+ * revoked for the caller; for SELF the applications the caller's volunteer owns and the ones the
+ * caller created (a team member's own records); for an area, the applications placed in that
+ * location at any of its levels, inside the area's project when the area names one (an RPM holds
+ * a region project by project); the applications of the caller's programs and projects. No
+ * instance means no application.
+ */
+export function applicationWhere(scope: Scope): Prisma.ApplicationWhereInput {
+  const i = scope.instances;
+  const notRevoked: Prisma.ApplicationWhereInput = i.revokedProjectIds.length
+    ? { projectId: { notIn: i.revokedProjectIds } }
+    : {};
+  if (i.global) return notRevoked;
+  const or: Prisma.ApplicationWhereInput[] = [];
+  if (i.self)
+    or.push({ ownerVolunteer: { userId: scope.actorId } }, { createdByUserId: scope.actorId });
+  for (const a of i.areas)
+    or.push(
+      a.projectId
+        ? { AND: [{ projectId: a.projectId }, applicationsIn(a.locationId)] }
+        : applicationsIn(a.locationId),
+    );
+  if (i.programIds.length) or.push({ project: { programId: { in: i.programIds } } });
+  if (i.projectIds.length) or.push({ projectId: { in: i.projectIds } });
+  if (!or.length) return { id: { in: [] } };
+  return { AND: [{ OR: or }, notRevoked] };
 }

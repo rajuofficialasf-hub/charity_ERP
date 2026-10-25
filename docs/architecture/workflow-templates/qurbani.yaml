@@ -3,7 +3,7 @@
 # The beneficiary side reuses the distribution template unchanged (same form, approval, meat distribution and photos).
 # The donor/animal side is a second flow on the animal entity, independent of the application cycle.
 template: qurbani
-version: 1
+version: 2
 title_en: Beneficiary + donor + animal
 title_bn: উপকারভোগী + ডোনার + পশু
 extends: distribution

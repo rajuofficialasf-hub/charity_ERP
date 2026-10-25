@@ -18,7 +18,9 @@
     "applications_counted": "{counted} made",
     "set": "Your work",
     "team": "My team",
-    "none": "Not set"
+    "none": "Not set",
+    "new_application": "New application",
+    "my_applications": "My applications"
   },
   "consent": {
     "title": "Rules: {name}",

@@ -33,6 +33,8 @@ export type Audience = 'official' | 'volunteer' | 'public';
 
 export interface ValidateOptions extends EvaluationContext {
   audience: Audience;
+  /** A draft may leave required questions unanswered; every answer given is still checked. */
+  draft?: boolean;
 }
 
 export interface ValidationError {
@@ -243,8 +245,9 @@ class Validator {
       this.options.audience === 'public'
         ? Math.min(definedMax ?? PUBLIC_MAX_ROWS, PUBLIC_MAX_ROWS)
         : definedMax;
-    if (count === 0 && state.required) this.fail(field.fieldKey, 'validation.required');
-    else if (count < min) this.fail(field.fieldKey, 'validation.rows_too_few', { min });
+    if (count === 0 && state.required) {
+      if (!this.options.draft) this.fail(field.fieldKey, 'validation.required');
+    } else if (count < min) this.fail(field.fieldKey, 'validation.rows_too_few', { min });
     if (max !== undefined && count > max)
       this.fail(field.fieldKey, 'validation.rows_too_many', { max });
   }
@@ -256,7 +259,7 @@ class Validator {
     if (this.refused.has(`${field.fieldKey}#${row}`)) return;
     const answer = this.kept.get(`${field.fieldKey}#${row}`);
     if (!answer) {
-      if (state.required) this.fail(path, 'validation.required');
+      if (state.required && !this.options.draft) this.fail(path, 'validation.required');
       return;
     }
     const { value } = answer;

@@ -693,7 +693,8 @@
       "budget": "পরিকল্পিত বাজেট",
       "activated": "সক্রিয় হয়েছে",
       "closed": "বন্ধ হয়েছে",
-      "none": "দেওয়া হয়নি"
+      "none": "দেওয়া হয়নি",
+      "applications": "আবেদন"
     },
     "picker": "প্রকল্প",
     "picker_option": "{name} {year} ({code})",

@@ -108,12 +108,12 @@ describe('app shell', () => {
     expect(within(nav).getByRole('link', { name: 'আমার কাজ' })).not.toHaveAttribute('aria-current');
   });
 
-  it('gives a volunteer no sidebar: the rail holds home, my projects, notifications and more', async () => {
+  it('gives a volunteer no sidebar: the rail holds home, my projects, my applications, notifications and more', async () => {
     atWidth(1280);
     refreshAs(VOLUNTEER);
     renderShell();
     const nav = await mainMenu();
-    expect(linkNames(nav)).toEqual(['হোম', 'আমার প্রকল্প', 'নোটিফিকেশন']);
+    expect(linkNames(nav)).toEqual(['হোম', 'আমার প্রকল্প', 'আমার আবেদন', 'নোটিফিকেশন']);
     expect(within(nav).getByRole('button', { name: 'আরও' })).toBeInTheDocument();
     expect(within(nav).queryByRole('group')).toBeNull();
   });
@@ -124,7 +124,7 @@ describe('app shell', () => {
     const user = userEvent.setup();
     const { container } = renderShell();
     const nav = await mainMenu();
-    expect(linkNames(nav)).toEqual(['হোম', 'আমার প্রকল্প', 'নোটিফিকেশন']);
+    expect(linkNames(nav)).toEqual(['হোম', 'আমার প্রকল্প', 'আমার আবেদন', 'নোটিফিকেশন']);
     expect(within(nav).getByRole('button', { name: 'আরও' })).toBeInTheDocument();
     const bar = screen.getByRole('banner');
     expect(within(bar).queryByRole('radiogroup')).toBeNull();

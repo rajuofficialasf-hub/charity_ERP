@@ -1,6 +1,7 @@
 /* The English catalogue, one import per namespace (I18N.md 3.1, D-067). */
 import type { Messages } from './catalogue-bn.js';
 import en_admin from './messages/en/admin.json' with { type: 'json' };
+import en_applications from './messages/en/applications.json' with { type: 'json' };
 import en_auth from './messages/en/auth.json' with { type: 'json' };
 import en_codes from './messages/en/codes.json' with { type: 'json' };
 import en_common from './messages/en/common.json' with { type: 'json' };
@@ -17,6 +18,7 @@ import en_ui from './messages/en/ui.json' with { type: 'json' };
 /** English must have exactly the keys of bn: a missing key fails the typecheck here. */
 export const en: Messages = {
   admin: en_admin,
+  applications: en_applications,
   auth: en_auth,
   codes: en_codes,
   common: en_common,

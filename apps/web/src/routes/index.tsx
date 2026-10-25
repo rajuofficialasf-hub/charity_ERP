@@ -100,6 +100,34 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
               }),
             },
             {
+              path: '/my-projects/:projectId/apply',
+              lazy: async () => ({
+                Component: (await import('../features/applications/ApplicationFormPage'))
+                  .ApplicationFormPage,
+              }),
+            },
+            {
+              path: '/my-applications',
+              lazy: async () => ({
+                Component: (await import('../features/applications/MyApplicationsPage'))
+                  .MyApplicationsPage,
+              }),
+            },
+            {
+              path: '/my-applications/:applicationId',
+              lazy: async () => ({
+                Component: (await import('../features/applications/ApplicationDetailPage'))
+                  .ApplicationDetailPage,
+              }),
+            },
+            {
+              path: '/my-applications/:applicationId/edit',
+              lazy: async () => ({
+                Component: (await import('../features/applications/ApplicationFormPage'))
+                  .ApplicationFormPage,
+              }),
+            },
+            {
               // The admin area is its own chunk: the other screens never load it.
               path: '/admin',
               lazy: async () => ({ Component: (await import('../admin/AdminLayout')).AdminLayout }),
@@ -162,6 +190,20 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                   lazy: async () => ({
                     Component: (await import('../admin/projects/setup/ProjectSetupPage'))
                       .ProjectSetupPage,
+                  }),
+                },
+                {
+                  path: 'projects/:projectId/applications',
+                  lazy: async () => ({
+                    Component: (await import('../admin/applications/ApplicationsPage'))
+                      .ApplicationsPage,
+                  }),
+                },
+                {
+                  path: 'applications/:applicationId',
+                  lazy: async () => ({
+                    Component: (await import('../admin/applications/ApplicationReviewPage'))
+                      .ApplicationReviewPage,
                   }),
                 },
                 {

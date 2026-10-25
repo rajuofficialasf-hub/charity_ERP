@@ -99,7 +99,7 @@ Technical table added in T0.16 for O-03 (ERD.md §20).
 | L-assignment-target | application, beneficiary, location | work_assignments.target_type |
 | L-app-status | draft, needs_verification, submitted, under_review, reviewed, waitlisted, approved, rejected, implementation, completed, closed, deleted | applications.status (common states, BD-11) |
 | L-change-entity | application, beneficiary, volunteer | field_changes.entity_type |
-| L-change-kind | unlock, contact_update, correction, sync_conflict | field_changes.kind |
+| L-change-kind | unlock, contact_update, correction, sync_conflict, review_edit | field_changes.kind |
 | L-transition-scope | application, stage, project, donor_flow, field_unlock | workflow_transitions.scope |
 | L-activity-type | distribution, construction, purchase, training, visit, payment, voucher, expense, issue, inspection, follow_up | activities.type |
 | L-activity-status | planned, done, failed | activities.status |
@@ -957,7 +957,7 @@ Indexes: (assignee_user_id, project_id) WHERE active_to IS NULL; (target_type, t
 | deleted_at | timestamptz | yes | — | soft delete of drafts and pending (status deleted) |
 | [A] | | | | |
 
-Constraints: partial UNIQUE (project_id, beneficiary_id) WHERE status <> 'deleted' AND beneficiary_id IS NOT NULL (BR-016); CHECK (status = 'needs_verification') OR beneficiary_id IS NOT NULL; CHECK (status = 'deleted') = (deleted_at IS NOT NULL); CHECK zakat_decision IN ('eligible','not_eligible'). The BD-03 trigger of section 18 fires on insert and on update of beneficiary_id or owner_volunteer_id. Indexes: see section 19 (project/status, project/region/status, owner/status, review queue, district quotas, status/project/beneficiary for the beneficiary tab count).
+Constraints: partial UNIQUE (project_id, beneficiary_id) WHERE status <> 'deleted' AND beneficiary_id IS NOT NULL (BR-016); CHECK beneficiary_id IS NOT NULL OR status IN ('draft', 'needs_verification', 'rejected', 'deleted') (a draft for a new person holds the number in its identity answer until the submission creates the profile; T2.5); CHECK (status = 'deleted') = (deleted_at IS NOT NULL); CHECK zakat_decision IN ('eligible','not_eligible'). The BD-03 trigger of section 18 fires on insert and on update of beneficiary_id or owner_volunteer_id. Indexes: see section 19 (project/status, project/region/status, owner/status, review queue, district quotas, status/project/beneficiary for the beneficiary tab count).
 
 ### application_answers
 | Column | Type | Null | Default | Comment |
@@ -1652,6 +1652,7 @@ Partitioned by RANGE (created_at), one partition per month (section 22). PK (id,
 | received_at | timestamptz | no | now() | — |
 | record_count | smallint | no | — | CHECK 1–50 (O-29) |
 | results | jsonb | no | — | per-record results (`SyncResult[]`) |
+| request_hash | text | yes | — | a hash of the request under the key; a repeat with another request is refused, not replayed (T2.5) |
 
 Index: (device_session_id, received_at desc).
 

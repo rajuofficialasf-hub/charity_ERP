@@ -34,39 +34,55 @@ export class IdempotencyService {
   /**
    * Runs a sync or bulk batch once per Idempotency-Key (header mode). The batch's writes and the
    * stored results commit together; a repeated key returns the stored results and `replay: true`.
+   * A key belongs to the caller who used it first and to the request it carried (its hash): a
+   * repeat by someone else or with another request is refused, never answered from the store.
+   * A batch that runs long may take its own transaction limits.
    */
   async runWithKey<T extends Prisma.InputJsonValue>(
     key: string | undefined,
     owner: { userId: string; deviceSessionId: string },
     recordCount: number,
     run: (tx: Tx) => Promise<T[]>,
+    options: { requestHash?: string; maxWait?: number; timeout?: number } = {},
   ): Promise<{ replay: boolean; results: T[] }> {
     if (!key || !KEY.test(key))
       throw new ApiError('validation.failed', 422, undefined, [
         { path: 'Idempotency-Key', code: 'validation.required' },
       ]);
+    const replayOf = (stored: { userId: string; requestHash: string | null; results: unknown }) => {
+      const sameRequest = (stored.requestHash ?? null) === (options.requestHash ?? null);
+      if (stored.userId !== owner.userId || !sameRequest)
+        throw new ApiError('validation.failed', 422, undefined, [
+          { path: 'Idempotency-Key', code: 'validation.failed' },
+        ]);
+      return { replay: true, results: stored.results as T[] };
+    };
     const stored = await this.prisma.syncBatche.findUnique({ where: { idempotencyKey: key } });
-    if (stored) return { replay: true, results: stored.results as T[] };
+    if (stored) return replayOf(stored);
     try {
-      const results = await this.prisma.$transaction(async (tx) => {
-        const out = await run(tx);
-        await tx.syncBatche.create({
-          data: {
-            id: uuidv7(),
-            idempotencyKey: key,
-            userId: owner.userId,
-            deviceSessionId: owner.deviceSessionId,
-            recordCount,
-            results: out as Prisma.InputJsonValue,
-          },
-        });
-        return out;
-      });
+      const results = await this.prisma.$transaction(
+        async (tx) => {
+          const out = await run(tx);
+          await tx.syncBatche.create({
+            data: {
+              id: uuidv7(),
+              idempotencyKey: key,
+              userId: owner.userId,
+              deviceSessionId: owner.deviceSessionId,
+              recordCount,
+              results: out as Prisma.InputJsonValue,
+              requestHash: options.requestHash ?? null,
+            },
+          });
+          return out;
+        },
+        { maxWait: options.maxWait, timeout: options.timeout },
+      );
       return { replay: false, results };
     } catch (error) {
       // A concurrent request with the same key committed first: return its results instead.
       const winner = await this.prisma.syncBatche.findUnique({ where: { idempotencyKey: key } });
-      if (winner) return { replay: true, results: winner.results as T[] };
+      if (winner) return replayOf(winner);
       throw error;
     }
   }

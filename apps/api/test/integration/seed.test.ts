@@ -5,6 +5,7 @@ import {
   isFakeMobile,
   isFakeNid,
   mergeWorkflowTemplates,
+  NOTIFICATION_TEMPLATES,
   workflowDefinitionSchema,
 } from '@css/shared';
 import { SETTING_DEFAULTS } from '@css/shared/settings';
@@ -172,7 +173,7 @@ describe('base set', () => {
       )
     ).rows[0];
     expect(notif.bn).toBe(notif.en);
-    expect(notif.keys).toBe(33);
+    expect(notif.keys).toBe(NOTIFICATION_TEMPLATES.length);
     // the Monitoring Team builds the library and every form: the seed writes neither
     const templates = await db.query(
       `SELECT key FROM project_templates WHERE definition->>'kind' = 'form_template'`,

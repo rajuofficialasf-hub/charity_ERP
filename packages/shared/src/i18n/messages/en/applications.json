@@ -1,0 +1,174 @@
+{
+  "title": "My applications",
+  "new": {
+    "title": "New application",
+    "open": "New application",
+    "identity_title": "The beneficiary's identity",
+    "identity_help": "First look the person up by NID or birth registration number. A known person's name and identity fill in by themselves.",
+    "start_known": "Fill in the form for this person",
+    "start_new": "Fill in the form for a new person",
+    "blocked": "This person is blocklisted, so no new application can be made.",
+    "already_applied": "This person already has an application in this project.",
+    "own_mobile": "Your own mobile number cannot be the beneficiary's.",
+    "form_title": "Application form",
+    "limit": "Application limit: {counted} / {limit}",
+    "closes": "Last day for applications: {date}",
+    "save_first": "Finish the first part of the form before adding photos; the draft is saved then.",
+    "saved": "Draft saved",
+    "submit": "Send to the office",
+    "sent_title": "Application sent",
+    "sent": "Application number: {appNo}. The office will check it and let you know.",
+    "sent_no_number": "The application has reached the office, which will check it and let you know.",
+    "see_mine": "See my applications",
+    "another": "Another application",
+    "load_failed": "The form could not be loaded. Try again.",
+    "no_form": "The application form of this project is not published yet.",
+    "save_failed": "The draft could not be saved. Try again.",
+    "send_failed": "The application could not be sent. Try again.",
+    "fix_named": "Some answers need fixing; the reason is under each question.",
+    "upload_failed": "The photo could not be sent. Try again.",
+    "team_note": "As a team member you can keep a draft; the main volunteer sends it to the office.",
+    "edit_title": "Edit the draft"
+  },
+  "list": {
+    "title": "My applications",
+    "tabs": "Application status",
+    "draft": "Drafts",
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "empty": "No applications in this list yet.",
+    "no_number": "No number yet",
+    "unnamed": "No name given",
+    "load_failed": "The applications could not be loaded. Try again.",
+    "open": "Open the application"
+  },
+  "status": {
+    "draft": "Draft",
+    "needs_verification": "Awaiting verification",
+    "submitted": "Sent to the office",
+    "under_review": "Under review",
+    "reviewed": "Awaiting approval",
+    "waitlisted": "Waitlisted",
+    "approved": "Approved",
+    "rejected": "Not accepted",
+    "implementation": "In implementation",
+    "completed": "Completed",
+    "closed": "Closed",
+    "deleted": "Deleted"
+  },
+  "detail": {
+    "title": "Application",
+    "back": "Back to my applications",
+    "number": "Application number",
+    "status": "Status",
+    "submitted_at": "Sent at",
+    "answers": "Answers",
+    "no_answers": "No answers given yet.",
+    "photos": "Photos",
+    "photo_alt": "Application photo",
+    "timeline": "Steps of the application",
+    "message": "Message from the office",
+    "edit": "Edit the draft",
+    "submit": "Send to the office",
+    "delete": "Delete",
+    "delete_confirm": "Delete this application?",
+    "deleted": "The application has been deleted.",
+    "sent": "The application has been sent to the office.",
+    "load_failed": "The application could not be loaded. Try again.",
+    "action_failed": "That could not be done. Try again.",
+    "stale": "The application has changed meanwhile. Reload it.",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "office": {
+    "title": "Applications",
+    "back": "Back to the project",
+    "back_list": "Back to the applications",
+    "table": "Applications",
+    "search": "Search by name or application number",
+    "empty": "No applications in this project yet.",
+    "unnamed": "No name given",
+    "no_number": "No number yet",
+    "none": "Not given",
+    "number": "Application number",
+    "waiting": "{days} days",
+    "summary": "Showing {from}–{to} · {total} applications in all",
+    "column": {
+      "person": "Beneficiary",
+      "area": "Area",
+      "status": "Status",
+      "submitted": "Sent on",
+      "waiting": "Waiting"
+    },
+    "filter": {
+      "status": "Status",
+      "flag": "Flag",
+      "group_area": "Area",
+      "group_other": "Other"
+    },
+    "action": {
+      "review": "Start review",
+      "send_for_approval": "Send for approval",
+      "approve": "Approve",
+      "reject": "Reject",
+      "return_to_review": "Return from rejection",
+      "reject_unverified": "Refuse the entry",
+      "delete": "Delete"
+    },
+    "dialog": {
+      "reject": "Reject the application",
+      "return_to_review": "Return the rejection to await approval",
+      "reject_unverified": "Refuse the public entry",
+      "delete": "Delete this application?"
+    },
+    "done": {
+      "review": "The review has started.",
+      "send_for_approval": "Sent for approval.",
+      "approve": "The application is approved.",
+      "reject": "The application is rejected.",
+      "return_to_review": "The application awaits approval again.",
+      "reject_unverified": "The entry is refused.",
+      "delete": "The application is deleted.",
+      "saved": "The answers are saved."
+    },
+    "stale": "The application changed meanwhile. Reload it to see the latest.",
+    "edit_answers": "Edit the answers",
+    "answers": "Answers",
+    "timeline": "Steps of the application",
+    "decision": {
+      "reason": "The office's reason",
+      "reason_help": "Read by the officials only.",
+      "message": "Message for the volunteer",
+      "message_help": "This is what the volunteer and the team member read.",
+      "who_reads": "The office's reason never reaches the volunteer."
+    },
+    "signals": {
+      "flag": {
+        "public_entry": "An entry from the public link; verify it and link it to a profile, or refuse it.",
+        "public_entry_short": "Public entry",
+        "existing_identity": "A profile with this number already exists.",
+        "identity_blocked": "The profile with this number is blocklisted.",
+        "identity_repeated": "The same number or mobile came through this link again within a day."
+      },
+      "family": "Possibly the same family in this project: {name} ({benNo}) — {rule}",
+      "rule": {
+        "mobile": "same mobile",
+        "union_village_father": "same union, village and father's or husband's name"
+      }
+    },
+    "changes": {
+      "title": "Change log",
+      "empty": "No changes yet.",
+      "field": "Question",
+      "old": "Before",
+      "new": "After",
+      "when": "When",
+      "none": "empty"
+    },
+    "bulk": {
+      "selected": "{count} selected",
+      "outcome": "{done} done, {failed} not done"
+    }
+  }
+}
