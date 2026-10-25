@@ -125,6 +125,8 @@ export const applicationActionSchema = z.object({
   message: z.string().max(2000).optional(),
   comment: z.string().max(2000).optional(),
   linkBeneficiaryId: uuid.optional(),
+  /** At a verification: the project's volunteer who owns the application from then on. */
+  ownerVolunteerId: uuid.optional(),
   zakatDecision: z.enum(['eligible', 'not_eligible']).optional(),
 });
 export type ApplicationActionBody = z.infer<typeof applicationActionSchema>;

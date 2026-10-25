@@ -9,6 +9,7 @@ import {
   EmptyState,
   ErrorState,
   FilterGroup,
+  SegmentedControl,
   Select,
   Skeleton,
   Stack,
@@ -268,6 +269,17 @@ function ApplicationTab({ projectId }: { projectId: string }) {
           </Button>
         </Stack>
       ) : null}
+      <SegmentedControl
+        label={t('queue.label')}
+        value={filters.status === 'needs_verification' ? 'verification' : 'all'}
+        options={[
+          { id: 'all', label: t('queue.all') },
+          { id: 'verification', label: t('queue.verification') },
+        ]}
+        onChange={(id) =>
+          change({ status: id === 'verification' ? 'needs_verification' : undefined })
+        }
+      />
       <QuotaBars
         projectId={projectId}
         area={{ unionId: filters.unionId, districtId: filters.districtId }}

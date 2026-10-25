@@ -318,6 +318,10 @@
     "transfer_target_not_assigned": "The new volunteer is not on this project. Assign them first, or with the transfer.",
     "transfer_not_owned": "The chosen applications are not this volunteer's, or there is nothing to hand over.",
     "transfer_too_many": "More than 500 applications cannot move at once. Choose the applications and hand them over in steps.",
-    "transfer_team_partial": "The team moves only when every application of this volunteer is handed over."
+    "transfer_team_partial": "The team moves only when every application of this volunteer is handed over.",
+    "verify_no_profile": "No profile holds this number. Create a new profile.",
+    "verify_other_person": "This entry's number belongs to another profile. Link it to the profile of its own number.",
+    "verify_identity_exists": "A profile with this number already exists. Link to it instead of creating a new one.",
+    "verify_owner_unfit": "The chosen volunteer is not active on this project or is blocklisted."
   }
 }

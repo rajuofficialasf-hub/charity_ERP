@@ -526,12 +526,21 @@ export class ApplicationsService {
   ): Promise<ApplicationRead> {
     if (await this.blockedCaller(this.prisma, viewer.principal))
       throw new ApiError('permission.not_found', 404);
-    // the zakat decision and the link of a public entry come with their own steps; a value nothing
-    // records is refused rather than dropped
-    if (body.zakatDecision !== undefined || body.linkBeneficiaryId !== undefined)
-      throw new ApiError('workflow.action_not_built', 409);
+    // the zakat decision comes with its own step; a value nothing records is refused, not dropped
+    if (body.zakatDecision !== undefined) throw new ApiError('workflow.action_not_built', 409);
+    const verifying = action === 'verify_link' || action === 'verify_create';
+    const misplaced = (path: string) =>
+      new ApiError('validation.failed', 422, undefined, [{ path, code: 'validation.failed' }]);
+    if (body.linkBeneficiaryId !== undefined && action !== 'verify_link')
+      throw misplaced('linkBeneficiaryId');
+    if (body.ownerVolunteerId !== undefined && !verifying) throw misplaced('ownerVolunteerId');
+    if (action === 'verify_link' && !body.linkBeneficiaryId)
+      throw new ApiError('validation.failed', 422, undefined, [
+        { path: 'linkBeneficiaryId', code: 'validation.required' },
+      ]);
     // a submission binds the person with the move (a submitted application always has one) and
-    // takes its number after it
+    // takes its number after it; a verification does the same once its own checks pass, and a
+    // public entry never rewrites a known person's contact data
     const submit = action === 'submit';
     try {
       await this.prisma.$transaction(async (tx) => {
@@ -546,9 +555,18 @@ export class ApplicationsService {
           ifMatch ?? '',
           submit
             ? { beforeApply: (t, app) => this.submission.bindPerson(t, viewer.principal, app.id) }
-            : {},
+            : verifying
+              ? {
+                  beforeApply: async (t, app) => ({
+                    ...(await this.verified(t, viewer.principal, app.id, action, body)),
+                    ...(await this.submission.bindPerson(t, viewer.principal, app.id, {
+                      writeContact: false,
+                    })),
+                  }),
+                }
+              : {},
         );
-        if (submit) await this.submission.number(tx, viewer.principal, applicationId);
+        if (submit || verifying) await this.submission.number(tx, viewer.principal, applicationId);
       });
     } catch (error) {
       // the database's own refusals at commit: the volunteer's own mobile as the person's, and
@@ -1099,6 +1117,57 @@ export class ApplicationsService {
     applicationId: string,
   ): Promise<void> {
     await assertReachesApplication(this.access, principal, access, permission, applicationId);
+  }
+
+  /**
+   * The checks of a verification, run once the engine has checked the caller: a link names the
+   * live profile behind the entry's identity number, one the caller's identity scope reaches; a
+   * new profile is made only when no profile holds the number; a chosen owner is an active,
+   * unblocked volunteer on the project, else the application stays the office's.
+   */
+  private async verified(
+    tx: Tx,
+    principal: Principal,
+    applicationId: string,
+    action: 'verify_link' | 'verify_create',
+    body: ApplicationActionBody,
+  ): Promise<Prisma.ApplicationUncheckedUpdateInput> {
+    const holder = await this.submission.identityHolder(tx, applicationId);
+    if (action === 'verify_link') {
+      if (!holder)
+        throw new ApiError('validation.failed', 422, undefined, [
+          { path: 'linkBeneficiaryId', code: 'application.verify_no_profile' },
+        ]);
+      if (!(await this.identity.seesHolder(tx, principal, holder)))
+        throw new ApiError('permission.not_found', 404);
+      if ((await this.identity.liveOf(tx, body.linkBeneficiaryId!)) !== holder)
+        throw new ApiError('validation.failed', 422, undefined, [
+          { path: 'linkBeneficiaryId', code: 'application.verify_other_person' },
+        ]);
+    } else if (holder) throw new ApiError('application.verify_identity_exists', 409);
+    if (!body.ownerVolunteerId) return {};
+    const { projectId } = await tx.application.findUniqueOrThrow({
+      where: { id: applicationId },
+      select: { projectId: true },
+    });
+    const [onProject, blocked] = await Promise.all([
+      tx.projectVolunteer.count({
+        where: {
+          projectId,
+          volunteerId: body.ownerVolunteerId,
+          endedAt: null,
+          volunteer: { user: { state: 'active' } },
+        },
+      }),
+      tx.blocklist.count({
+        where: { subjectType: 'volunteer', subjectId: body.ownerVolunteerId, active: true },
+      }),
+    ]);
+    if (!onProject || blocked)
+      throw new ApiError('validation.failed', 422, undefined, [
+        { path: 'ownerVolunteerId', code: 'application.verify_owner_unfit' },
+      ]);
+    return { ownerVolunteerId: body.ownerVolunteerId };
   }
 
   /** The record as the caller sees it. */

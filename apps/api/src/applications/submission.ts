@@ -54,6 +54,7 @@ export class SubmissionWriter {
     tx: Tx,
     actor: Principal,
     applicationId: string,
+    options: { writeContact?: boolean } = {},
   ): Promise<Prisma.ApplicationUncheckedUpdateInput> {
     const row = await tx.application.findUniqueOrThrow({
       where: { id: applicationId },
@@ -122,7 +123,10 @@ export class SubmissionWriter {
         entityId: profile.id,
         new: { benNo: profile.benNo, applicationId },
       });
-    } else if (await this.mayEditContact(tx, actor, beneficiaryId)) {
+    } else if (
+      options.writeContact !== false &&
+      (await this.mayEditContact(tx, actor, beneficiaryId))
+    ) {
       const before = await this.contact.locked(tx, beneficiaryId);
       const body: Record<string, unknown> = {};
       for (const [column, field] of Object.entries(CONTACT_COLUMNS)) {
@@ -140,6 +144,18 @@ export class SubmissionWriter {
     });
     // written with the new state by the engine, in one statement
     return { beneficiaryId, identityKind };
+  }
+
+  /** The live profile behind the identity number of the application's answers, or null. */
+  async identityHolder(tx: Tx, applicationId: string): Promise<string | null> {
+    const row = await tx.application.findUniqueOrThrow({
+      where: { id: applicationId },
+      select: { formVersionId: true },
+    });
+    const definition = await readDefinition(tx, row.formVersionId, 'official');
+    const { standard } = split(definition, await readAnswers(tx, applicationId, definition));
+    const number = text(standard, 'nid') ?? text(standard, 'birth_reg');
+    return number ? this.liveProfile(tx, number) : null;
   }
 
   /** The live profile holding the number, through a retired profile's chain, or null. */

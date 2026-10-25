@@ -33,6 +33,7 @@ const LOOK: Record<AttentionKind, { icon: IconComponent; tone: 'info' | 'warning
   handovers_open: { icon: ArrowRightLeft, tone: 'warning' },
   unlocks_to_fill: { icon: LockOpen, tone: 'warning' },
   unlocks_to_verify: { icon: LockOpen, tone: 'info' },
+  verifications_pending: { icon: UserCheck, tone: 'info' },
 };
 
 /**

@@ -21,6 +21,8 @@ export const ATTENTION_ROUTES = {
   unlocks_to_fill: '/my-applications',
   // the item opens the oldest waiting application; this is the place when none is named
   unlocks_to_verify: '/admin/projects',
+  // the item opens the entry that has waited longest; this is the place when none is named
+  verifications_pending: '/admin/projects',
 } as const;
 
 export type AttentionKind = keyof typeof ATTENTION_ROUTES;

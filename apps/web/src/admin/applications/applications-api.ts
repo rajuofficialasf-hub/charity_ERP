@@ -125,6 +125,8 @@ export type OfficeAction =
   | 'pull_from_waitlist'
   | 'reject'
   | 'return_to_review'
+  | 'verify_link'
+  | 'verify_create'
   | 'reject_unverified'
   | 'delete';
 
@@ -132,7 +134,13 @@ export const officeAct = (
   id: string,
   etag: string,
   action: OfficeAction,
-  body: { reason?: string; message?: string; comment?: string } = {},
+  body: {
+    reason?: string;
+    message?: string;
+    comment?: string;
+    linkBeneficiaryId?: string;
+    ownerVolunteerId?: string;
+  } = {},
 ) =>
   api<Enveloped<OfficeApplication>>(`/applications/${id}/actions/${action}`, {
     method: 'POST',

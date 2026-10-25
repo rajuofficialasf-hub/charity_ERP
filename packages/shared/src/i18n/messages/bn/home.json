@@ -14,7 +14,8 @@
       "deadlines_soon": "{n, plural, other {{count}টি প্রকল্পে 7 দিনের মধ্যে আবেদনের সময় শেষ}}",
       "handovers_open": "{n, plural, other {{count}টি হ্যান্ডওভার শেষ হয়নি}}",
       "unlocks_to_fill": "{n, plural, other {আপনার আবেদনে {count}টি উত্তর সংশোধনের জন্য খোলা}}",
-      "unlocks_to_verify": "{n, plural, other {{count}টি সংশোধিত উত্তর যাচাইয়ের অপেক্ষায়}}"
+      "unlocks_to_verify": "{n, plural, other {{count}টি সংশোধিত উত্তর যাচাইয়ের অপেক্ষায়}}",
+      "verifications_pending": "{n, plural, other {{count}টি এন্ট্রি যাচাইয়ের অপেক্ষায়}}"
     }
   },
   "widget": {

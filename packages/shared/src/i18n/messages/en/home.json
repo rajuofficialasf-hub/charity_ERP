@@ -14,7 +14,8 @@
       "deadlines_soon": "{n, plural, one {{count} application window ends within 7 days} other {{count} application windows end within 7 days}}",
       "handovers_open": "{n, plural, one {{count} handover not completed} other {{count} handovers not completed}}",
       "unlocks_to_fill": "{n, plural, one {{count} answer of your applications is open for correction} other {{count} answers of your applications are open for correction}}",
-      "unlocks_to_verify": "{n, plural, one {{count} corrected answer awaits verification} other {{count} corrected answers await verification}}"
+      "unlocks_to_verify": "{n, plural, one {{count} corrected answer awaits verification} other {{count} corrected answers await verification}}",
+      "verifications_pending": "{n, plural, one {{count} entry awaits verification} other {{count} entries await verification}}"
     }
   },
   "widget": {

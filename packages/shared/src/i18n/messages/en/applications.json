@@ -117,7 +117,9 @@
       "reject_unverified": "Refuse the entry",
       "delete": "Delete",
       "waitlist": "Put on the waitlist",
-      "pull_from_waitlist": "Approve from the waitlist"
+      "pull_from_waitlist": "Approve from the waitlist",
+      "verify_link": "Link to the profile",
+      "verify_create": "Create a new profile"
     },
     "dialog": {
       "reject": "Reject the application",
@@ -138,7 +140,9 @@
       "delete": "The application is deleted.",
       "saved": "The answers are saved.",
       "waitlist": "The application is on the waitlist.",
-      "pull_from_waitlist": "The application is approved from the waitlist."
+      "pull_from_waitlist": "The application is approved from the waitlist.",
+      "verify_link": "The entry is linked to the profile; the application is now submitted.",
+      "verify_create": "A new profile is created; the application is now submitted."
     },
     "stale": "The application changed meanwhile. Reload it to see the latest.",
     "edit_answers": "Edit the answers",
@@ -211,6 +215,26 @@
       "area": "Bring in the next ({name})",
       "help": "The highest score on the waitlist is approved; on a tie, the one who has waited longest.",
       "done": "{appNo} is approved from the waitlist."
+    },
+    "verify": {
+      "link_title": "Link to the profile",
+      "create_title": "Create a new profile",
+      "profile": "The profile it will be linked to",
+      "ben_no": "BEN number",
+      "name": "Name",
+      "father": "Father's or husband's name",
+      "blocked": "This person is blocklisted. The entry can only be refused.",
+      "not_found": "No profile holds this number now. Create a new profile.",
+      "create_help": "A new profile is made from the entry's answers.",
+      "owner": "Volunteer in charge (optional)",
+      "owner_help": "Without one the application stays the office's; a transfer can give it a volunteer later.",
+      "confirm_link": "Link",
+      "confirm_create": "Create"
+    },
+    "queue": {
+      "label": "Which applications to show",
+      "all": "All applications",
+      "verification": "Waiting for verification"
     }
   },
   "unlock": {

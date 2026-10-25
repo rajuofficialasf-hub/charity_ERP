@@ -411,6 +411,16 @@ describe('the list', () => {
     expect(pulls[1]?.key).not.toBe(pulls[0]?.key);
   });
 
+  it('switches to the entries waiting for verification', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    openList();
+    await screen.findByRole('grid');
+    await user.click(screen.getByRole('radio', { name: 'যাচাইয়ের অপেক্ষায়' }));
+    await waitFor(() => expect(listCalls.at(-1)).toContain('status=needs_verification'));
+  });
+
   it('refuses a volunteer the office screens', async () => {
     refreshAs(VOLUNTEER);
     serve();
@@ -748,6 +758,146 @@ describe('the review page', () => {
     await waitFor(() => expect(decided).toHaveLength(2));
     expect(decided[1]).toMatchObject({ body: { decision: 'accept' } });
     expect(await screen.findByText('নতুন উত্তর গ্রহণ করা হয়েছে।')).toBeInTheDocument();
+  });
+
+  it('links a public entry to the profile its number has, with a volunteer in charge', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    const PERSON = '01900000-0000-7000-8000-0000000000b7';
+    const VOLUNTEER_ID = '01900000-0000-7000-8000-0000000000d9';
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            status: 'needs_verification',
+            flags: ['public_entry', 'existing_identity'],
+            availableActions: ['verify_link', 'verify_create', 'reject_unverified'],
+          }),
+        ),
+      ),
+      http.post('*/api/v1/beneficiaries/lookup', () =>
+        HttpResponse.json({
+          data: {
+            found: true,
+            autofill: {
+              beneficiaryId: PERSON,
+              benNo: 7,
+              name: 'পুরনো উপকারভোগী',
+              fatherOrHusbandName: 'পুরনো পিতা',
+              motherName: null,
+              mobile: '01711111111',
+              genderCode: 'female',
+              dob: null,
+              ageYears: null,
+              divisionId: DISTRICT,
+              districtId: DISTRICT,
+              upazilaId: UNION,
+              unionId: UNION,
+              village: 'নমুনা গ্রাম',
+              postOffice: null,
+              postCode: null,
+              landmark: null,
+              members14Plus: null,
+              childrenUnder14: null,
+              lockedFields: [],
+            },
+          },
+          meta: { requestId: 'r' },
+        }),
+      ),
+      http.get(`*/api/v1/projects/${PROJECT}/volunteers`, () =>
+        HttpResponse.json({
+          data: [
+            {
+              id: '01900000-0000-7000-8000-0000000000d8',
+              volunteerId: VOLUNTEER_ID,
+              displayName: 'করিম উদ্দিন',
+              type: 'general',
+              regionLocationId: DISTRICT,
+              permissionSet: 'application_distribution',
+              isPaid: false,
+              consentStatus: 'accepted',
+              consentAt: null,
+              applicationsCounted: 0,
+              assignedAt: '2026-10-17T05:00:00Z',
+            },
+          ],
+          meta: { requestId: 'r', nextCursor: null, prevCursor: null },
+        }),
+      ),
+      http.post(`*/api/v1/applications/${A1}/actions/:action`, async ({ params, request }) => {
+        acted.push({ action: String(params.action), body: await request.json() });
+        return envelope(record({ status: 'submitted', availableActions: [] }), '"v2"');
+      }),
+    );
+    const view = openReview();
+    // a known number links; a new profile is not offered
+    await user.click(await screen.findByRole('button', { name: 'প্রোফাইলের সঙ্গে যুক্ত করুন' }));
+    expect(screen.queryByRole('button', { name: 'নতুন প্রোফাইল তৈরি করুন' })).toBeNull();
+    const dialog = await screen.findByRole('dialog', { name: 'প্রোফাইলের সঙ্গে যুক্ত করুন' });
+    expect(await within(dialog).findByText('BEN-0000007')).toBeInTheDocument();
+    expect(within(dialog).getByText('পুরনো উপকারভোগী')).toBeInTheDocument();
+    await expectNoAxeViolations(view.container);
+    await user.click(within(dialog).getByRole('button', { name: /দায়িত্বপ্রাপ্ত স্বেচ্ছাসেবক/ }));
+    await user.click(await screen.findByRole('option', { name: 'করিম উদ্দিন' }));
+    await user.click(within(dialog).getByRole('button', { name: 'যুক্ত করুন' }));
+    await waitFor(() => expect(acted).toHaveLength(1));
+    expect(acted[0]).toEqual({
+      action: 'verify_link',
+      body: { linkBeneficiaryId: PERSON, ownerVolunteerId: VOLUNTEER_ID },
+    });
+    expect(
+      await screen.findByText('এন্ট্রিটি প্রোফাইলের সঙ্গে যুক্ত হয়েছে, আবেদনটি এখন পেন্ডিং।'),
+    ).toBeInTheDocument();
+  });
+
+  it('creates a profile for a new number, and shows a blocked person only for refusing', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    let flags = ['public_entry'];
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            status: 'needs_verification',
+            flags,
+            availableActions: ['verify_link', 'verify_create', 'reject_unverified'],
+          }),
+        ),
+      ),
+      http.post('*/api/v1/beneficiaries/lookup', () =>
+        HttpResponse.json({ data: { found: true, blocked: true }, meta: { requestId: 'r' } }),
+      ),
+      http.get(`*/api/v1/projects/${PROJECT}/volunteers`, () =>
+        HttpResponse.json({
+          data: [],
+          meta: { requestId: 'r', nextCursor: null, prevCursor: null },
+        }),
+      ),
+      http.post(`*/api/v1/applications/${A1}/actions/:action`, async ({ params, request }) => {
+        acted.push({ action: String(params.action), body: await request.json() });
+        return envelope(record({ status: 'submitted', availableActions: [] }), '"v2"');
+      }),
+    );
+    const view = openReview();
+    await user.click(await screen.findByRole('button', { name: 'নতুন প্রোফাইল তৈরি করুন' }));
+    expect(screen.queryByRole('button', { name: 'প্রোফাইলের সঙ্গে যুক্ত করুন' })).toBeNull();
+    const dialog = await screen.findByRole('dialog', { name: 'নতুন প্রোফাইল তৈরি করুন' });
+    await user.click(within(dialog).getByRole('button', { name: 'তৈরি করুন' }));
+    await waitFor(() => expect(acted).toHaveLength(1));
+    expect(acted[0]).toEqual({ action: 'verify_create', body: {} });
+    view.unmount();
+    // an entry of a blocked person: the link names the block and takes no step
+    flags = ['public_entry', 'existing_identity'];
+    openReview();
+    await user.click(await screen.findByRole('button', { name: 'প্রোফাইলের সঙ্গে যুক্ত করুন' }));
+    const blocked = await screen.findByRole('dialog', { name: 'প্রোফাইলের সঙ্গে যুক্ত করুন' });
+    expect(
+      await within(blocked).findByText('এই ব্যক্তি ব্লক করা আছেন। এন্ট্রিটি শুধু বাতিল করা যায়।'),
+    ).toBeInTheDocument();
+    expect(within(blocked).getByRole('button', { name: 'যুক্ত করুন' })).toBeDisabled();
   });
 
   it('reads in English too', async () => {
