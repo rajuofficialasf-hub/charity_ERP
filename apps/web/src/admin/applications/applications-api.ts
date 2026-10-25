@@ -56,7 +56,15 @@ interface Enveloped<T> {
   meta: { etag?: string };
 }
 
-export const FILTER_KEYS = ['status', 'districtId', 'unionId', 'flag'] as const;
+/** The filters kept in the address; the division and the upazila only lead to the district and the union. */
+export const FILTER_KEYS = [
+  'status',
+  'divisionId',
+  'districtId',
+  'upazilaId',
+  'unionId',
+  'flag',
+] as const;
 export type FilterKey = (typeof FILTER_KEYS)[number];
 export type FilterValues = Partial<Record<FilterKey, string>>;
 
@@ -70,9 +78,10 @@ export function applicationPage(
   page: number,
   cursor: string | null,
 ) {
+  const { divisionId: _division, upazilaId: _upazila, ...sent } = filters;
   return api<{ data: ApplicationSummary[]; meta: PageMeta }>(
     `/projects/${projectId}/applications${listQuery({
-      ...filters,
+      ...sent,
       q: q || undefined,
       ...pageParams(page, cursor),
       limit: String(PAGE_SIZE),

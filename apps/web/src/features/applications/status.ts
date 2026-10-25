@@ -1,4 +1,11 @@
 import type { BadgeTone } from '@css/ui';
+import type { useTranslations } from 'use-intl';
+
+type StatusTranslator = ReturnType<typeof useTranslations<'applications.status'>>;
+
+/** The state's name in the reader's language; a state the catalogue lacks shows its code. */
+export const stateLabel = (ts: StatusTranslator, status: string) =>
+  ts.has(status as never) ? ts(status as never) : status;
 
 /** The tabs of "আমার আবেদন" and the states each one holds (docs/ui/SCREENS.md, "My applications and application detail"). */
 export const TABS = {

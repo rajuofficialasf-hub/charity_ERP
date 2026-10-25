@@ -1,7 +1,6 @@
 import { Alert, Button, Modal, Text, TextArea } from '@css/ui';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { ApiFailure } from '../../lib/api';
 
 /**
  * Asks for a decision's texts before it is sent: the office's reason, kept in the record for the
@@ -23,7 +22,8 @@ export function DecisionDialog({
   withMessage?: boolean;
   danger?: boolean;
   pending: boolean;
-  error: unknown;
+  /** Why the last try failed, in the reader's words. */
+  error: string | null;
   onConfirm: (input: { reason: string; message?: string }) => void;
   onClose: () => void;
 }) {
@@ -81,9 +81,7 @@ export function DecisionDialog({
           <Text tone="muted">{t('who_reads')}</Text>
         </>
       ) : null}
-      {error ? (
-        <Alert tone="danger">{error instanceof ApiFailure ? error.message : t('failed')}</Alert>
-      ) : null}
+      {error ? <Alert tone="danger">{error}</Alert> : null}
     </Modal>
   );
 }

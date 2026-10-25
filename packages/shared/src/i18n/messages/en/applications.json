@@ -141,8 +141,7 @@
       "reason_help": "Read by the officials only.",
       "message": "Message for the volunteer",
       "message_help": "This is what the volunteer and the team member read.",
-      "who_reads": "The office's reason never reaches the volunteer.",
-      "failed": "That could not be done. Try again."
+      "who_reads": "The office's reason never reaches the volunteer."
     },
     "signals": {
       "flag": {

@@ -558,5 +558,13 @@ describe('the list', () => {
       `/projects/${project}/applications?page=2&cursor=${second.body.meta.prevCursor}`,
     );
     expect(mixed.status).toBe(422);
+    // a page that is no number, the first page's predecessor, and one past the counted range
+    for (const page of ['0', 'x'])
+      expect((await at(rpm, 'get', `/projects/${project}/applications?page=${page}`)).status).toBe(
+        422,
+      );
+    expect(
+      (await at(rpm, 'get', `/projects/${project}/applications?limit=100&page=101`)).status,
+    ).toBe(422);
   });
 });

@@ -24,7 +24,7 @@ import { Link, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { useLocationName } from '../../components/AddressNames';
 import { DocumentTitle } from '../../components/DocumentTitle';
-import { toneOf } from '../../features/applications/status';
+import { stateLabel as labelOf, toneOf } from '../../features/applications/status';
 import { AddressFields } from '../../features/registration/AddressFields';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -104,6 +104,13 @@ function ApplicationTab({ projectId }: { projectId: string }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [outcome, setOutcome] = useState<{ action: string; results: BulkRowResult[] } | null>(null);
   const rows = list.data?.data ?? [];
+  // a tick belongs to the rows it was made on: another page, filter or search starts with none
+  const view = JSON.stringify([filters, q, page, cursor]);
+  const [tickedView, setTickedView] = useState(view);
+  if (tickedView !== view) {
+    setTickedView(view);
+    setSelected(new Set());
+  }
   const bulk = useMutation({
     mutationFn: (action: 'review' | 'approve') => {
       const chosen = rows.filter((r) => selected.has(r.id));
@@ -118,7 +125,7 @@ function ApplicationTab({ projectId }: { projectId: string }) {
       await queryClient.invalidateQueries({ queryKey: APPLICATIONS_KEY });
     },
   });
-  const stateLabel = (status: string) => (ts.has(status as never) ? ts(status as never) : status);
+  const stateLabel = (status: string) => labelOf(ts, status);
   const person = (r: ApplicationSummary) => (
     <span className="admin-person-text">
       <Link to={`/admin/applications/${r.id}`} className="admin-person-name">
@@ -172,12 +179,18 @@ function ApplicationTab({ projectId }: { projectId: string }) {
           },
         ]
       : []),
-    ...(filters.districtId
+    ...(filters.divisionId
       ? [
           {
             id: 'area',
             label: t('filter.group_area'),
-            onRemove: () => change({ districtId: undefined, unionId: undefined }),
+            onRemove: () =>
+              change({
+                divisionId: undefined,
+                districtId: undefined,
+                upazilaId: undefined,
+                unionId: undefined,
+              }),
           },
         ]
       : []),
@@ -250,7 +263,7 @@ function ApplicationTab({ projectId }: { projectId: string }) {
             onSearch={onSearch}
             searchPlaceholder={t('search')}
             filterMode="panel"
-            activeFilterCount={activeCount()}
+            activeFilterCount={activeCount(['districtId', 'upazilaId', 'unionId'])}
             activeFilters={activeFilters}
             onClearFilters={() => setFilters({})}
             filters={
@@ -260,14 +273,16 @@ function ApplicationTab({ projectId }: { projectId: string }) {
                     optional
                     levels={4}
                     value={{
-                      divisionId: null,
+                      divisionId: filters.divisionId ?? null,
                       districtId: filters.districtId ?? null,
-                      upazilaId: null,
+                      upazilaId: filters.upazilaId ?? null,
                       unionId: filters.unionId ?? null,
                     }}
                     onChange={(a) =>
                       change({
+                        divisionId: a.divisionId ?? undefined,
                         districtId: a.districtId ?? undefined,
+                        upazilaId: a.upazilaId ?? undefined,
                         unionId: a.unionId ?? undefined,
                       })
                     }

@@ -15,11 +15,11 @@ import {
 } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { AnswerList } from '../../features/applications/AnswerList';
-import { toneOf } from '../../features/applications/status';
+import { stateLabel as labelOf, toneOf } from '../../features/applications/status';
 import { FormRenderer, type Submission } from '../../features/forms/FormRenderer';
 import { ApiFailure } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
@@ -30,7 +30,6 @@ import {
   APPLICATIONS_KEY,
   changeLog,
   type OfficeAction,
-  type OfficeApplication,
   officeAct,
   officeApplication,
   officeTimeline,
@@ -73,6 +72,7 @@ function Review() {
   const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [asking, setAsking] = useState<OfficeAction | null>(null);
   const [editing, setEditing] = useState(false);
   const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
@@ -88,36 +88,40 @@ function Review() {
     queryKey: [...applicationKey(applicationId), 'changes'],
     queryFn: () => changeLog(applicationId),
   });
-  const refresh = () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: applicationKey(applicationId) }),
-      queryClient.invalidateQueries({ queryKey: APPLICATIONS_KEY }),
-    ]);
+  // the record's key starts with the list's, so one invalidation reads both again
+  const refresh = () => queryClient.invalidateQueries({ queryKey: APPLICATIONS_KEY });
   const act = useMutation({
     mutationFn: (input: { action: OfficeAction; reason?: string; message?: string }) =>
       officeAct(applicationId, one.data?.meta.etag ?? '', input.action, {
         reason: input.reason,
         message: input.message,
       }),
-    onSuccess: async (_, input) => {
+    onSuccess: async (result, input) => {
       setAsking(null);
-      setNotice({ tone: 'success', text: t(`done.${input.action}`) });
+      setEditing(false);
       await refresh();
+      // a deleted application has no page any more; the list is where the official continues
+      if (input.action === 'delete') {
+        void navigate(`/admin/projects/${result.data.projectId}/applications`);
+        return;
+      }
+      setNotice({ tone: 'success', text: t(`done.${input.action}`) });
     },
     onError: async (error) => {
-      if (asking) return;
-      setNotice({
-        tone: 'danger',
-        text:
-          error instanceof ApiFailure && error.status === 412
-            ? t('stale')
-            : error instanceof ApiFailure
-              ? error.message
-              : tc('state.error.text'),
-      });
+      // a changed version is read again, so the next try carries the version the record has now
       if (error instanceof ApiFailure && error.status === 412) await one.refetch();
+      // the decision dialog shows its own failure and keeps the texts typed
+      if (asking && asking !== 'delete') return;
+      setAsking(null);
+      setNotice({ tone: 'danger', text: failureText(error) });
     },
   });
+  const failureText = (error: unknown) =>
+    error instanceof ApiFailure && error.status === 412
+      ? t('stale')
+      : error instanceof ApiFailure
+        ? error.message
+        : tc('state.error.text');
   const back = (
     <Link
       to={one.data ? `/admin/projects/${one.data.data.projectId}/applications` : '/admin/projects'}
@@ -140,7 +144,7 @@ function Review() {
   const a = one.data.data;
   const etag = one.data.meta.etag ?? '';
   const may = (action: OfficeAction) => a.availableActions.includes(action);
-  const stateLabel = (status: string) => (ts.has(status as never) ? ts(status as never) : status);
+  const stateLabel = (status: string) => labelOf(ts, status);
   const timeline: TimelineStep[] = (steps.data ?? []).map((e, i, all) => ({
     id: e.id,
     title: stateLabel(e.to),
@@ -156,14 +160,7 @@ function Review() {
       setNotice({ tone: 'success', text: t('done.saved') });
       await refresh();
     } catch (error) {
-      throw new Error(
-        error instanceof ApiFailure && error.status === 412
-          ? t('stale')
-          : error instanceof ApiFailure
-            ? error.message
-            : tc('state.error.text'),
-        { cause: error },
-      );
+      throw new Error(failureText(error), { cause: error });
     }
   };
   return (
@@ -231,7 +228,7 @@ function Review() {
       </Card>
       <Signals application={a} />
       <Card title={t('answers')} headingLevel={2}>
-        {editing ? (
+        {editing && a.status === 'under_review' ? (
           <FormRenderer
             definition={a.form}
             audience="official"
@@ -270,7 +267,7 @@ function Review() {
           withMessage={asking === 'reject'}
           danger={asking !== 'return_to_review'}
           pending={act.isPending}
-          error={act.error}
+          error={act.error ? failureText(act.error) : null}
           onConfirm={(input) => act.mutate({ action: asking, ...input })}
           onClose={() => {
             act.reset();
@@ -283,12 +280,10 @@ function Review() {
         tone="danger"
         title={t('dialog.delete')}
         confirmLabel={t('action.delete')}
+        pending={act.isPending}
         onConfirm={() => act.mutate({ action: 'delete' })}
         onCancel={() => setAsking(null)}
       />
     </Stack>
   );
 }
-
-/** Kept for the office's reading of one application. */
-export type { OfficeApplication };
