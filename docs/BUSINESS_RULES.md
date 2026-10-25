@@ -602,6 +602,8 @@ Every rule above starts with test status "not yet". When a test exists, record i
 - BR-100 (not previously assisted, T2.6): apps/api/test/integration/application-scores.test.ts::drops "not previously assisted" after an approval in the same program, and keeps it after one in another — passing (2026-10-25; the pull follows in this task)
 - BR-271: apps/api/test/integration/application-scores.test.ts::is never shown to a volunteer, who cannot sort by it either; apps/api/test/integration/form-definition-read.test.ts::are read by the office and kept from the volunteer, the rest of the settings shown to both — passing (2026-10-25)
 - BR-098 (the order, T2.6): apps/api/test/integration/application-scores.test.ts::sorts the office list highest first and pages by cursor, unscored last — passing (2026-10-25; the quotas follow in this task)
+- BR-100 (earlier projects only, T2.6): apps/api/test/integration/application-scores.test.ts::keeps "not previously assisted" when the approval is in a later project of the program — passing (2026-10-25)
+- BR-097 (the decision freezes the current score, T2.6): apps/api/test/integration/application-scores.test.ts::scores again after a rejection is taken back, and freezes the score of the new decision; gives no score, keeps no breakdown, and leaves the list in arrival order — passing (2026-10-25)
 
 Database-level parts only where noted; each rule stays open for its service, API and E2E tests in the task that builds the module (T1.2, 2026-10-11).
 

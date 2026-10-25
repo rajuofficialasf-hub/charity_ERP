@@ -122,6 +122,9 @@ const SCORED_WHILE = ['submitted', 'under_review'];
 /** The states a list leaves out unless asked for by name. */
 const HIDDEN_STATES = ['deleted'];
 
+/** The values a cursor of the score order carries: the score (or none) and the id. */
+const SCORE_CURSOR = z.tuple([z.number().nullable(), z.uuid()]);
+
 /**
  * The order of the review queue as Prisma reads it: the score high to low with the unscored last,
  * then the newest; reversed for a backward page.
@@ -134,7 +137,12 @@ function scoreOrder(direction: 'next' | 'prev'): Prisma.ApplicationOrderByWithRe
 
 /** The rows after a cursor in the score order, where an unscored row comes after every score. */
 function scoreKeyset(cursor: CursorBody): Prisma.ApplicationWhereInput {
-  const [score, id] = cursor.v as [number | null, string];
+  const parsed = SCORE_CURSOR.safeParse(cursor.v);
+  if (!parsed.success)
+    throw new ApiError('validation.failed', 422, undefined, [
+      { path: 'cursor', code: 'validation.failed' },
+    ]);
+  const [score, id] = parsed.data;
   if (cursor.d === 'next')
     return score === null
       ? { totalScore: null, id: { lt: id } }
@@ -647,13 +655,15 @@ export class ApplicationsService {
     base: Prisma.ApplicationWhereInput,
     query: ApplicationFilter & PageQuery & PageNumberQuery,
   ) {
+    // the score is the office's: a volunteer can neither read it nor learn its order
+    const byScore = query.sort === '-score';
+    // a cursor belongs to the order it was made in, so one order never reads another's cursor
+    const sortBinding = `${binding}|${byScore ? 'score' : (query.sort ?? 'id')}`;
     const cursor = query.cursor
-      ? decodeCursor(this.env.CURSOR_SECRET, binding, query.cursor)
+      ? decodeCursor(this.env.CURSOR_SECRET, sortBinding, query.cursor)
       : undefined;
     const direction = cursor?.d ?? 'next';
     const offset = pageOffset(query);
-    // the score is the office's: a volunteer can neither read it nor learn its order
-    const byScore = query.sort === '-score';
     if (byScore && this.audienceOf(viewer) !== 'official')
       throw new ApiError('validation.failed', 422, undefined, [
         { path: 'sort', code: 'validation.option_unknown' },
@@ -684,7 +694,7 @@ export class ApplicationsService {
         direction,
         hadCursor: Boolean(cursor) || Boolean(offset),
         secret: this.env.CURSOR_SECRET,
-        binding,
+        binding: sortBinding,
         total,
       },
     );

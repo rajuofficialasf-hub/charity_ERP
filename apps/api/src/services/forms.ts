@@ -270,7 +270,7 @@ export class FormsService {
   async updateDraft(
     viewer: ProjectViewer,
     versionId: string,
-    body: { sections: unknown },
+    body: { sections: unknown; scoring?: unknown },
     ifMatch: string | undefined,
   ): Promise<{ version: FormVersionView; updatedAt: Date }> {
     const actor = viewer.principal.userId;
@@ -282,7 +282,14 @@ export class FormsService {
         throw new ApiError('permission.denied', 403);
       }
       assertIfMatch(ifMatch, row.updatedAt);
-      const definition = parseDefinition(body);
+      // a save that leaves the form-level points out keeps them; an explicit null clears them
+      const stored = 'scoring' in body ? {} : await scoringOf(tx, versionId);
+      const definition = parseDefinition({
+        sections: body.sections,
+        ...(body.scoring === null || body.scoring === undefined
+          ? stored
+          : { scoring: body.scoring }),
+      });
       const kept = new Map(
         (
           await tx.formField.findMany({
@@ -311,6 +318,17 @@ export class FormsService {
             key: s.key,
             fields: s.fields.map((x) => x.fieldKey),
           })),
+          // the points decide the order of the review queue, so every change of them is traced
+          points: {
+            scoring: definition.scoring ?? null,
+            questions: Object.fromEntries(
+              definition.sections.flatMap((s) =>
+                s.fields
+                  .filter((x) => x.settings?.score)
+                  .map((x) => [x.fieldKey, x.settings!.score]),
+              ),
+            ),
+          },
         },
       });
       return {

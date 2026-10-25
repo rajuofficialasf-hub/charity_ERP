@@ -15,6 +15,9 @@ import { nisabOption, readAnswers } from './answers';
  * application reaches the office and after every answer change until the decision, then frozen
  * (`snapshot_at`); the score only sorts and recommends, it never decides.
  */
+/** The states of a standing decision, in which a frozen score stays as it was. */
+const DECIDED = ['approved', 'implementation', 'completed', 'closed', 'rejected', 'waitlisted'];
+
 export class ScoringService implements SideEffectRunner {
   constructor(
     private readonly clock: Clock,
@@ -25,7 +28,12 @@ export class ScoringService implements SideEffectRunner {
    * Computes and stores the score of an application, unless its score was frozen at a decision;
    * a form without points leaves it without a score. Answers the total, or null.
    */
-  async compute(tx: Tx, applicationId: string, actor: string | null): Promise<number | null> {
+  async compute(
+    tx: Tx,
+    applicationId: string,
+    actor: string | null,
+    options: { evenIfFrozen?: boolean } = {},
+  ): Promise<number | null> {
     const row = await tx.application.findUnique({
       where: { id: applicationId },
       select: {
@@ -33,13 +41,16 @@ export class ScoringService implements SideEffectRunner {
         formVersionId: true,
         projectId: true,
         beneficiaryId: true,
+        status: true,
         totalScore: true,
-        project: { select: { programId: true } },
+        project: { select: { programId: true, createdAt: true } },
         applicationScoresApplication: { select: { snapshotAt: true } },
       },
     });
     if (!row) return null;
-    if (row.applicationScoresApplication?.snapshotAt)
+    // a score stays frozen while its decision stands; a rejection taken back scores again
+    const frozen = row.applicationScoresApplication?.snapshotAt && DECIDED.includes(row.status);
+    if (frozen && !options.evenIfFrozen)
       return row.totalScore === null ? null : Number(row.totalScore);
     const definition = await readDefinition(tx, row.formVersionId, 'official');
     const answers = await readAnswers(tx, row.id, definition);
@@ -75,6 +86,7 @@ export class ScoringService implements SideEffectRunner {
         criteria,
         totalScore: score.total,
         computedAt: now,
+        snapshotAt: null,
         updatedBy: actor,
         updatedAt: now,
       },
@@ -86,28 +98,37 @@ export class ScoringService implements SideEffectRunner {
   /** The engine's score effects: computed when the application reaches the office, frozen at a decision. */
   async run(tx: Tx, effect: SideEffect, applicationId: string, actor: string): Promise<void> {
     if (effect === 'score.compute') await this.compute(tx, applicationId, actor);
-    else await this.snapshot(tx, applicationId);
+    else await this.snapshot(tx, applicationId, actor);
   }
 
-  /** Freezes the score at a decision, so later changes to the answers or the history leave it. */
-  async snapshot(tx: Tx, applicationId: string): Promise<void> {
+  /**
+   * Freezes the score at a decision as it stands now, so later changes to the answers or the
+   * history leave it; the score is computed once more first, so a decision taken after a
+   * rejection was reversed freezes the current score, not the earlier one.
+   */
+  async snapshot(tx: Tx, applicationId: string, actor: string | null = null): Promise<void> {
+    await this.compute(tx, applicationId, actor, { evenIfFrozen: true });
     await tx.applicationScore.updateMany({
       where: { applicationId, snapshotAt: null },
       data: { snapshotAt: this.clock.now() },
     });
   }
 
-  /** The person has no application approved in another project of the same program. */
+  /** The person has no application approved in an earlier project of the same program. */
   private async notPreviouslyAssisted(
     tx: Tx,
-    row: { projectId: string; beneficiaryId: string | null; project: { programId: string } },
+    row: {
+      projectId: string;
+      beneficiaryId: string | null;
+      project: { programId: string; createdAt: Date };
+    },
   ): Promise<boolean> {
     if (!row.beneficiaryId) return true;
     const earlier = await tx.application.count({
       where: {
         beneficiaryId: row.beneficiaryId,
         projectId: { not: row.projectId },
-        project: { programId: row.project.programId },
+        project: { programId: row.project.programId, createdAt: { lt: row.project.createdAt } },
         approvedAt: { not: null },
         status: { not: 'deleted' },
       },

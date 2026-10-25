@@ -93,7 +93,7 @@ export class WorkflowEngine {
     private readonly audit: AuditWriter,
     private readonly clock: Clock,
     private readonly events: ApplicationEvents,
-    private readonly sideEffects?: SideEffectRunner,
+    private readonly sideEffects: SideEffectRunner,
   ) {}
 
   async transition(
@@ -178,7 +178,7 @@ export class WorkflowEngine {
     applicationId: string,
     actor: string,
   ): Promise<void> {
-    for (const effect of effects) await this.sideEffects?.run(tx, effect, applicationId, actor);
+    for (const effect of effects) await this.sideEffects.run(tx, effect, applicationId, actor);
   }
 
   private async runGuards(transition: Transition, ctx: GuardContext): Promise<void> {

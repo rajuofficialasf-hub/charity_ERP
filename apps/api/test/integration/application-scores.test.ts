@@ -133,6 +133,49 @@ beforeAll(async () => {
 afterAll(async () => h.close());
 
 describe('the score of an application', () => {
+  it('keeps the form-level points through a save that leaves them out, clears them on null, and audits them', async () => {
+    const builder = await as(world.users.monitoring);
+    const made = await at(builder, 'post', '/ready-forms').send({
+      key: `pts_${randomUUID().slice(0, 8)}`,
+      title: { bn: 'নম্বর', en: 'Points' },
+      kind: 'other',
+      source: { kind: 'blank' },
+    });
+    expect(made.status, JSON.stringify(made.body)).toBe(201);
+    const draft = made.body.data.draftVersionId as string;
+    const save = async (body: Record<string, unknown>) => {
+      const read = await at(builder, 'get', `/form-versions/${draft}`);
+      const res = await at(builder, 'patch', `/form-versions/${draft}`)
+        .set('If-Match', read.headers.etag as string)
+        .send(body);
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      return res.body.data;
+    };
+    const sections = [
+      {
+        key: 'section_1',
+        librarySectionKey: null,
+        title: { bn: 'অংশ', en: 'Section' },
+        visibility: 'volunteer',
+        condition: null,
+        fields: [SCORED.fields[0]],
+      },
+    ];
+    expect((await save({ sections, scoring: { not_previously_assisted: 10 } })).scoring).toEqual({
+      not_previously_assisted: 10,
+    });
+    expect((await save({ sections })).scoring).toEqual({ not_previously_assisted: 10 });
+    expect(await save({ sections, scoring: null })).not.toHaveProperty('scoring');
+    const audit = await h.db.query<{ new: { points?: unknown } }>(
+      `SELECT new FROM audit_log WHERE entity_id = $1 AND action = 'form.draft_changed' ORDER BY created_at, id`,
+      [draft],
+    );
+    expect(audit.rows[0]!.new.points).toEqual({
+      scoring: { not_previously_assisted: 10 },
+      questions: { q_kind: { options: { widow: 20, elderly: 15 } } },
+    });
+  });
+
   it('keeps the form-level points with the placed version', async () => {
     const read = await at(await as(world.users.rpmDhaka), 'get', `/form-versions/${versionId}`);
     expect(read.status, JSON.stringify(read.body)).toBe(200);
@@ -180,6 +223,7 @@ describe('the score of an application', () => {
       year: 2025,
       name_bn: 'আগের',
       name_en: 'Earlier',
+      created_at: new Date('2025-01-01'),
       workflow_definition_id: (
         await h.db.query<{ workflow_definition_id: string }>(
           'SELECT workflow_definition_id FROM projects WHERE id = $1',
@@ -254,6 +298,151 @@ describe('the score of an application', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
+  it('puts an unscored draft last going forward and first going back, with nothing lost', async () => {
+    const s = await as(world.users.general);
+    const draft = await at(s, 'post', `/projects/${project}/applications`).send({
+      clientUuid: randomUUID(),
+      projectId: project,
+      formVersionId: versionId,
+      answers: answers('widow', 7),
+    });
+    expect(draft.status).toBe(201);
+    const scored = await sent('elderly', 5);
+    const rpm = await as(world.users.rpmDhaka);
+    const forward: string[] = [];
+    let page = await at(rpm, 'get', `/projects/${project}/applications?sort=-score&limit=1`);
+    const firstPage = page;
+    for (;;) {
+      expect(page.status, JSON.stringify(page.body)).toBe(200);
+      forward.push(...page.body.data.map((r: { id: string }) => r.id));
+      if (!page.body.meta.nextCursor) break;
+      page = await at(
+        rpm,
+        'get',
+        `/projects/${project}/applications?sort=-score&limit=1&cursor=${page.body.meta.nextCursor}`,
+      );
+    }
+    expect(forward.at(-1)).toBe(draft.body.data.id);
+    expect(forward).toContain(scored);
+    expect(new Set(forward).size).toBe(forward.length);
+    // back from the last page to the first, the same rows in the reverse order
+    const backward: string[] = [...page.body.data.map((r: { id: string }) => r.id)];
+    while (page.body.meta.prevCursor) {
+      page = await at(
+        rpm,
+        'get',
+        `/projects/${project}/applications?sort=-score&limit=1&cursor=${page.body.meta.prevCursor}`,
+      );
+      backward.unshift(...page.body.data.map((r: { id: string }) => r.id));
+    }
+    expect(backward).toEqual(forward);
+    // a cursor of the arrival order is refused by the score order, and the other way round
+    const plain = await at(rpm, 'get', `/projects/${project}/applications?limit=1`);
+    expect(
+      (
+        await at(
+          rpm,
+          'get',
+          `/projects/${project}/applications?sort=-score&cursor=${plain.body.meta.nextCursor}`,
+        )
+      ).status,
+    ).toBe(422);
+    expect(
+      (
+        await at(
+          rpm,
+          'get',
+          `/projects/${project}/applications?cursor=${firstPage.body.meta.nextCursor}`,
+        )
+      ).status,
+    ).toBe(422);
+  });
+
+  it('scores again after a rejection is taken back, and freezes the score of the new decision', async () => {
+    const nid = fakeNid();
+    const id = await sent('widow', 7, nid);
+    const rpm = await as(world.users.rpmDhaka);
+    await act(rpm, id, 'review');
+    await act(rpm, id, 'send_for_approval');
+    await act(rpm, id, 'reject', { reason: 'যাচাই বাকি', message: 'পরে দেখা হবে' });
+    expect((await scoreRow(id)).total_score).toBe('60.00');
+    // meanwhile the person is approved in an earlier project of the program
+    const person = (
+      await h.db.query<{ beneficiary_id: string }>(
+        'SELECT beneficiary_id FROM applications WHERE id = $1',
+        [id],
+      )
+    ).rows[0]!.beneficiary_id;
+    const earlier = await insert(h.db, 'projects', {
+      id: randomUUID(),
+      program_id: world.a1.program,
+      code: 'SCQ',
+      year: 2024,
+      name_bn: 'আরও আগের',
+      name_en: 'Earlier still',
+      workflow_definition_id: (
+        await h.db.query<{ workflow_definition_id: string }>(
+          'SELECT workflow_definition_id FROM projects WHERE id = $1',
+          [project],
+        )
+      ).rows[0]!.workflow_definition_id,
+      workflow_version: 1,
+      created_at: new Date('2024-01-01'),
+    });
+    await insert(h.db, 'applications', {
+      id: randomUUID(),
+      project_id: earlier,
+      form_version_id: versionId,
+      beneficiary_id: person,
+      status: 'completed',
+      approved_at: new Date('2024-12-01'),
+      region_location_id: world.dhaka.division,
+      district_id: world.dhaka.district,
+      union_id: world.dhaka.union,
+    });
+    await act(rpm, id, 'return_to_review', { reason: 'নতুন তথ্য এসেছে' });
+    await act(rpm, id, 'approve');
+    const frozen = await scoreRow(id);
+    expect(frozen.total_score).toBe('40.00');
+    expect(frozen.snapshot_at).not.toBeNull();
+  });
+
+  it('keeps "not previously assisted" when the approval is in a later project of the program', async () => {
+    const nid = fakeNid();
+    const later = await beneficiary(h.db, world.dhaka, { nid });
+    const next = await insert(h.db, 'projects', {
+      id: randomUUID(),
+      program_id: world.a1.program,
+      code: 'SCL',
+      year: 2027,
+      name_bn: 'পরের',
+      name_en: 'Later',
+      workflow_definition_id: (
+        await h.db.query<{ workflow_definition_id: string }>(
+          'SELECT workflow_definition_id FROM projects WHERE id = $1',
+          [project],
+        )
+      ).rows[0]!.workflow_definition_id,
+      workflow_version: 1,
+      created_at: new Date('2099-01-01'),
+    });
+    await insert(h.db, 'applications', {
+      id: randomUUID(),
+      project_id: next,
+      form_version_id: versionId,
+      beneficiary_id: later,
+      status: 'completed',
+      approved_at: new Date('2027-12-01'),
+      region_location_id: world.dhaka.division,
+      district_id: world.dhaka.district,
+      union_id: world.dhaka.union,
+    });
+    const id = await sent('widow', 7, nid);
+    expect(
+      (await at(await as(world.users.rpmDhaka), 'get', `/applications/${id}`)).body.data.totalScore,
+    ).toBe(60);
+  });
+
   it('is never shown to a volunteer, who cannot sort by it either', async () => {
     const id = await sent('widow', 7);
     const s = await as(world.users.general);
@@ -271,5 +460,49 @@ describe('the score of an application', () => {
     expect(listed.body.data.every((r: object) => !('totalScore' in r))).toBe(true);
     const sorted = await at(s, 'get', `/projects/${project}/applications?sort=-score`);
     expect(sorted.status).toBe(422);
+  });
+});
+
+describe('a form without points', () => {
+  it('gives no score, keeps no breakdown, and leaves the list in arrival order', async () => {
+    const made = await at(await as(world.users.pm), 'post', '/projects').send({
+      programId: world.a1.program,
+      code: 'SCN',
+      year: 2026,
+      name: { bn: 'স্কোর নেই', en: 'No scores' },
+      source: { kind: 'workflow', workflowKey: 'distribution' },
+    });
+    expect(made.status, JSON.stringify(made.body)).toBe(201);
+    const plain = made.body.data.id as string;
+    const { versionId: plainVersion } = await applicationProject(
+      h,
+      await as(world.users.monitoring),
+      plain,
+    );
+    await h.db.query(
+      `INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)`,
+      [randomUUID(), plain, world.dhaka.division, world.users.rpmDhaka],
+    );
+    await h.db.query(
+      `INSERT INTO project_volunteers (id, project_id, volunteer_id, region_location_id, permission_set, extra_permissions, assigned_by, consent_status)
+       VALUES ($1, $2, $3, $4, 'application_distribution', '{}', $5, 'accepted')`,
+      [randomUUID(), plain, generalVolunteer, world.dhaka.division, world.users.rpmDhaka],
+    );
+    const s = await as(world.users.general);
+    const created = await at(s, 'post', `/projects/${plain}/applications`).send({
+      clientUuid: randomUUID(),
+      projectId: plain,
+      formVersionId: plainVersion,
+      answers: toAnswers(IDENTITY_ANSWERS(fakeNid(), fakeMobile(), world.dhaka)),
+    });
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    const id = created.body.data.id as string;
+    await act(s, id, 'submit');
+    const row = await scoreRow(id);
+    expect(row.total_score).toBeNull();
+    expect(row.criteria).toBeNull();
+    const read = await at(await as(world.users.rpmDhaka), 'get', `/applications/${id}`);
+    expect(read.body.data.totalScore).toBeNull();
+    expect(read.body.data.scoreItems).toBeNull();
   });
 });

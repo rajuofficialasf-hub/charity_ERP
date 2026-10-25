@@ -120,6 +120,7 @@ const fieldMapView = z.object({
 // the engine judges the sections inside the service, naming each field it refuses
 const draftUpdateSchema = z.strictObject({
   sections: z.array(z.unknown()),
+  // absent: the stored form-level points stay; null: they are cleared
   scoring: z.unknown().optional(),
 });
 type DraftUpdate = z.infer<typeof draftUpdateSchema>;
