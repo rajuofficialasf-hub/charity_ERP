@@ -10,6 +10,20 @@ const definitions = mergedWorkflowDefinitions();
 const common = definitions.find((d) => d.template === '_common')!;
 const froms = (from: string | string[]) => (Array.isArray(from) ? from : [from]);
 
+describe('the pull from the waitlist', () => {
+  it('is held to the permission and every guard of an approval, in each template', () => {
+    for (const d of definitions) {
+      const into = (from: string) =>
+        (d.transitions ?? []).find((t) => t.to === 'approved' && froms(t.from).includes(from));
+      const approve = into('reviewed');
+      const pull = into('waitlisted');
+      if (!approve || !pull) continue;
+      expect(pull.permission, d.template).toBe(approve.permission);
+      expect(pull.guards ?? [], d.template).toEqual(expect.arrayContaining(approve.guards ?? []));
+    }
+  });
+});
+
 describe('the action table', () => {
   it('maps every action to exactly one transition of the common cycle, per state it leaves', () => {
     for (const action of APPLICATION_ACTION_NAMES) {

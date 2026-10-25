@@ -82,12 +82,12 @@ transitions:
     effects: [score.snapshot, waitlist.enqueue, audit:application.waitlisted, notify:application_waitlisted]
   - from: waitlisted
     to: approved
-    permission: application.waitlist
-    guards: [project.active, beneficiary.not_blocked, score.comment_if_against_order, quota.comment_if_full, actor.not_creator]
+    permission: application.approve
+    guards: [project.active, beneficiary.not_blocked, score.comment_if_against_order, quota.comment_if_full, zakat.eligible_if_zakat_fund, actor.not_creator]
     requires_comment_if: against_score_order
     effects: [waitlist.dequeue, score.snapshot, quota.increment, ledger.post:approved, lock:fields, audit:application.pull_from_waitlist, notify:application_approved]
     actor_recorded_as: approved_by
-    note: "One-click pull from the waitlist (BD-17): the highest score of the quota area, then the earliest waitlisted; pulling another one, or into a full quota area, asks for a comment (D-132)"
+    note: "One-click pull from the waitlist (BD-17): the highest score of the quota area, then the earliest waitlisted; pulling another one, or into a full quota area, asks for a comment (D-132). The pull is an approval: it needs application.approve (so a template's approval override, such as the PM's final approval of house construction, applies) and the zakat guard, besides application.waitlist on the pull route"
   - from: waitlisted
     to: rejected
     permission: application.reject

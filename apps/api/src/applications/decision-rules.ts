@@ -22,7 +22,7 @@ interface Decided {
  * else its district when it has district quotas, else the whole project. A project without
  * quotas still has a score order, over the whole project.
  */
-export async function quotaAreaWhere(
+async function quotaAreaWhere(
   tx: Tx,
   application: Pick<Decided, 'projectId' | 'districtId' | 'unionId'>,
 ): Promise<{ unionId?: string; districtId?: string }> {
@@ -49,8 +49,8 @@ export const WAITLIST_ORDER: Prisma.ApplicationOrderByWithRelationInput[] = [
 
 /**
  * The next waitlisted application of the area, as the pull takes it: the highest score, then the
- * earliest waitlisted. A row another pull holds right now is skipped, so two pulls at once each
- * see their own next; the caller's own locked row is never skipped.
+ * earliest waitlisted. It is read without a lock: pulls of a project run one after another, and
+ * a row some other write holds still counts as the next one.
  */
 async function nextWaitlisted(
   tx: Tx,
@@ -63,8 +63,7 @@ async function nextWaitlisted(
        AND (${area.unionId ?? null}::uuid IS NULL OR union_id = ${area.unionId ?? null}::uuid)
        AND (${area.districtId ?? null}::uuid IS NULL OR district_id = ${area.districtId ?? null}::uuid)
      ORDER BY total_score DESC NULLS LAST, waitlisted_at ASC, id ASC
-     LIMIT 1
-     FOR UPDATE SKIP LOCKED`;
+     LIMIT 1`;
   return rows[0]?.id ?? null;
 }
 

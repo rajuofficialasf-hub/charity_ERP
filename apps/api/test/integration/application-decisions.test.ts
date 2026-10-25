@@ -191,6 +191,17 @@ describe('a decision against the score', () => {
     expect((await act(rpm, high, 'waitlist', { reason: 'মালামাল কম' })).status).toBe(422);
     expect((await act(rpm, high, 'waitlist')).body.error.code).toBe('workflow.reason_required');
     await moved(rpm, high, 'waitlist', { reason: 'মালামাল কম', comment: 'পরের চালানে' });
+    // the waitlist reason stays on the record; the comment is kept in the audit entry
+    const kept = await h.db.query<{ decision_comment: string }>(
+      'SELECT decision_comment FROM applications WHERE id = $1',
+      [high],
+    );
+    expect(kept.rows[0]!.decision_comment).toBe('মালামাল কম');
+    const entry = await h.db.query<{ new: { comment?: string } }>(
+      `SELECT "new" FROM audit_log WHERE entity_id = $1 AND action = 'application.waitlisted'`,
+      [high],
+    );
+    expect(entry.rows[0]!.new.comment).toBe('পরের চালানে');
     expect(
       (
         await act(rpm, second, 'reject', {
@@ -281,10 +292,53 @@ describe('the waitlist', () => {
       areaId: world.dhaka.union,
     });
     expect(rangpur.status).toBe(404);
+    // the project weighs by union, so a district is not an area of it
     const outside = await pullNext(await as(world.users.rpmDhaka), {
-      areaId: world.rangpur.union,
+      areaId: world.dhaka.district,
     });
     expect(outside.status).toBe(422);
+  });
+
+  it('pulls from a union that has no target of its own when the project weighs by union', async () => {
+    await clearQueue();
+    await setQuotas([{ level: 'union', locationId: world.dhaka.union, target: 50 }]);
+    const rpm = await as(world.users.rpmDhaka);
+    const waiting = await reviewed('widow', otherUnion);
+    await moved(rpm, waiting, 'waitlist', { reason: 'মালামাল কম' });
+    const pulled = await pullNext(rpm, { areaId: otherUnion });
+    expect(pulled.status, JSON.stringify(pulled.body)).toBe(200);
+    expect(pulled.body.data.id).toBe(waiting);
+  });
+
+  it('is an approval: an official who may waitlist but not approve cannot pull', async () => {
+    await clearQueue();
+    await setQuotas([]);
+    const rpm = await as(world.users.rpmDhaka);
+    const waiting = await reviewed('widow');
+    await moved(rpm, waiting, 'waitlist', { reason: 'মালামাল কম' });
+    await h.db.query(
+      `INSERT INTO project_staff (id, project_id, user_id, role_key, area_location_id, extra_permissions, granted_by)
+       VALUES ($1, $2, $3, 'project_executive', $4, '{application.waitlist}', $5)`,
+      [randomUUID(), project, world.users.executive, world.dhaka.division, world.users.rpmDhaka],
+    );
+    // without the approval on this project the application is out of the approver's reach,
+    // so the pull approves nobody and the person keeps waiting
+    const refused = await pullNext(await as(world.users.executive), {});
+    expect(refused.status, JSON.stringify(refused.body)).toBe(404);
+    const row = await h.db.query<{ status: string }>(
+      'SELECT status FROM applications WHERE id = $1',
+      [waiting],
+    );
+    expect(row.rows[0]!.status).toBe('waitlisted');
+    // granted the approval here as well, the same official pulls
+    await h.db.query(
+      `UPDATE project_staff SET extra_permissions = '{application.waitlist,application.approve}'
+        WHERE project_id = $1 AND user_id = $2`,
+      [project, world.users.executive],
+    );
+    const pulled = await pullNext(await as(world.users.executive), {});
+    expect(pulled.status, JSON.stringify(pulled.body)).toBe(200);
+    expect(pulled.body.data.id).toBe(waiting);
   });
 });
 

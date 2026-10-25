@@ -242,7 +242,9 @@ export class WorkflowEngine {
       Object.assign(stamps, { decisionComment: reason, rejectionMessage: message });
     else if (application.status === 'rejected')
       Object.assign(stamps, { decisionComment: reason, rejectionMessage: null });
-    else if (reason || comment) Object.assign(stamps, { decisionComment: comment ?? reason });
+    // the decision's own reason stays on the row; a comment asked by a guard goes beside it into
+    // the audit entry, and becomes the row's note only when the decision has no reason
+    else if (reason || comment) Object.assign(stamps, { decisionComment: reason ?? comment });
     if (transition.to === 'deleted') Object.assign(stamps, { deletedAt: now });
     await tx.application.update({
       where: { id: application.id },

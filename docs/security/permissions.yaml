@@ -765,7 +765,7 @@ permissions:
       - { role: project_executive, scope: REGION, condition: if_rpm_grants }
       - { role: official_daee, scope: REGION, condition: if_rpm_grants }   # O-27
   - name: application.waitlist
-    description: Put a reviewed application on the waitlist or pull it from the waitlist
+    description: Put a reviewed application on the waitlist or pull it from the waitlist (the pull is an approval and also needs application.approve)
     module: M08
     sensitive: false
     default:

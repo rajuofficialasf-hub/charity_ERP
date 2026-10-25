@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { applicationWhere, holdsPermission, projectWhere } from '../access/scope';
 import type { AccessService } from '../access/service';
 import type { Principal } from '../auth/principal';
-import type { PrismaService } from '../core/prisma.service';
+import type { PrismaService, Tx } from '../core/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import type { IdempotencyService } from '../idempotency/idempotency.service';
@@ -24,12 +24,14 @@ interface Pulled extends Prisma.JsonObject {
 }
 
 const PERMISSION = 'application.waitlist';
+/** How many waitlisted applications the pull reads at a time while it looks for a free one. */
+const PAGE = 50;
 
 /**
  * "পরেরজনকে আনুন": the next waitlisted application of a quota area moves into approved in one
- * click (the highest score, then the earliest waitlisted). The rows of the area are locked and a
- * row another pull holds is skipped, so two officials pulling at once get two different people;
- * the move goes through the engine with its guards, so a full quota still asks for a comment.
+ * click (the highest score, then the earliest waitlisted). Pulls of one project run one after
+ * another, so two officials pulling at once get two different people; the move goes through the
+ * engine as an approval with its guards, so a full quota still asks for a comment.
  */
 export class WaitlistService {
   constructor(
@@ -63,25 +65,12 @@ export class WaitlistService {
       { userId: principal.userId, deviceSessionId: principal.sessionId },
       1,
       async (tx) => {
-        const candidates = await tx.application.findMany({
-          where: { AND: [{ projectId, status: 'waitlisted', ...area }, applicationWhere(scope)] },
-          orderBy: WAITLIST_ORDER,
-          select: { id: true },
-          take: 50,
+        // one pull of a project at a time: the next pull waits and then sees this one's outcome,
+        // so two officials pulling at once get two different people
+        await tx.$queryRaw`SELECT 1 AS held FROM pg_advisory_xact_lock(hashtextextended(${`waitlist:${projectId}`}, 0))`;
+        const next = await this.firstFree(tx, {
+          AND: [{ projectId, status: 'waitlisted', ...area }, applicationWhere(scope)],
         });
-        if (!candidates.length) throw new ApiError('workflow.waitlist_empty', 409);
-        // the first in order that no other pull holds, locked alone; a held row is skipped, not
-        // waited for, and the rows after it stay free for the other pulls
-        let next: string | undefined;
-        for (const { id } of candidates) {
-          const held = await tx.$queryRaw<{ id: string }[]>`
-            SELECT id FROM applications WHERE id = ${id}::uuid AND status = 'waitlisted'
-               FOR UPDATE SKIP LOCKED`;
-          if (held.length) {
-            next = id;
-            break;
-          }
-        }
         if (!next) throw new ApiError('workflow.waitlist_empty', 409);
         await this.workflow.transition(tx, principal, next, 'pull_from_waitlist', {
           ...(body.comment ? { comment: body.comment } : {}),
@@ -98,9 +87,36 @@ export class WaitlistService {
   }
 
   /**
-   * The applications of the asked area: an area must be a place the project's quotas define its
-   * areas by (a union with union quotas, a district with district quotas), and none is asked when
-   * the project weighs its applications as a whole.
+   * The first application in pull order that is still waitlisted, locked: a row another write
+   * holds is waited for, never skipped, so the pull takes the true next one and a row that left
+   * the waitlist meanwhile is passed over. The candidates are read a page at a time.
+   */
+  private async firstFree(
+    tx: Tx,
+    where: Prisma.ApplicationWhereInput,
+  ): Promise<string | undefined> {
+    for (let skip = 0; ; skip += PAGE) {
+      const page = await tx.application.findMany({
+        where,
+        orderBy: WAITLIST_ORDER,
+        select: { id: true },
+        skip,
+        take: PAGE,
+      });
+      for (const { id } of page) {
+        const held = await tx.$queryRaw<{ id: string }[]>`
+          SELECT id FROM applications WHERE id = ${id}::uuid AND status = 'waitlisted'
+             FOR UPDATE`;
+        if (held.length) return id;
+      }
+      if (page.length < PAGE) return undefined;
+    }
+  }
+
+  /**
+   * The applications of the asked area: an area is a place of the level the project's quotas
+   * weigh by (any union when it has union quotas, any district when it has district quotas, with
+   * or without a target of its own), and none is asked when the project weighs them as a whole.
    */
   private async areaOf(
     projectId: string,
@@ -123,8 +139,12 @@ export class WaitlistService {
       if (areaId) throw refuse();
       return {};
     }
-    if (!areaId || !quotas.some((q) => q.level === level && q.locationId === areaId))
-      throw refuse();
+    if (!areaId) throw refuse();
+    const place = await this.prisma.location.findUnique({
+      where: { id: areaId },
+      select: { level: true },
+    });
+    if (place?.level !== level) throw refuse();
     return level === 'union' ? { unionId: areaId } : { districtId: areaId };
   }
 }
