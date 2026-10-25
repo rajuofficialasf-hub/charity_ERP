@@ -104,6 +104,7 @@
       "volunteer_not_blocked": "The volunteer is blocklisted.",
       "consent_accepted": "The project rules have not been accepted.",
       "score_comment_if_against_order": "A decision against the score order needs a comment.",
+      "quota_comment_if_full": "An approval in an area whose quota is full needs a comment.",
       "zakat_eligible_if_zakat_fund": "Zakat eligibility is not confirmed for the zakat fund.",
       "receipt_confirmed": "The volunteer has not confirmed receipt of the goods.",
       "photos_required_per_rule": "The photos required by the project rule are missing.",

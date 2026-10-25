@@ -17,6 +17,8 @@ export interface ApplicationSummary {
   unionId: string;
   submittedAt: string | null;
   waitingDays: number | null;
+  /** The priority score, for the office only; none when the form gives no points. */
+  totalScore?: number | null;
   etag: string;
 }
 

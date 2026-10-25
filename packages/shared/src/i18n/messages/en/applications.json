@@ -99,7 +99,8 @@
       "area": "Area",
       "status": "Status",
       "submitted": "Sent on",
-      "waiting": "Waiting"
+      "waiting": "Waiting",
+      "score": "Score"
     },
     "filter": {
       "status": "Status",
@@ -114,13 +115,18 @@
       "reject": "Reject",
       "return_to_review": "Return from rejection",
       "reject_unverified": "Refuse the entry",
-      "delete": "Delete"
+      "delete": "Delete",
+      "waitlist": "Put on the waitlist",
+      "pull_from_waitlist": "Approve from the waitlist"
     },
     "dialog": {
       "reject": "Reject the application",
       "return_to_review": "Return the rejection to await approval",
       "reject_unverified": "Refuse the public entry",
-      "delete": "Delete this application?"
+      "delete": "Delete this application?",
+      "approve": "Approve the application",
+      "waitlist": "Put on the waitlist",
+      "pull_from_waitlist": "Approve from the waitlist"
     },
     "done": {
       "review": "The review has started.",
@@ -130,7 +136,9 @@
       "return_to_review": "The application awaits approval again.",
       "reject_unverified": "The entry is refused.",
       "delete": "The application is deleted.",
-      "saved": "The answers are saved."
+      "saved": "The answers are saved.",
+      "waitlist": "The application is on the waitlist.",
+      "pull_from_waitlist": "The application is approved from the waitlist."
     },
     "stale": "The application changed meanwhile. Reload it to see the latest.",
     "edit_answers": "Edit the answers",
@@ -141,7 +149,13 @@
       "reason_help": "Read by the officials only.",
       "message": "Message for the volunteer",
       "message_help": "This is what the volunteer and the team member read.",
-      "who_reads": "The office's reason never reaches the volunteer."
+      "who_reads": "The office's reason never reaches the volunteer.",
+      "comment": "Comment",
+      "comment_help": "The comment stays in the audit log, read by the officials only.",
+      "why": {
+        "against_score": "Why does this decision go against the score order?",
+        "quota_full": "The quota of this area is full. Why approve anyway?"
+      }
     },
     "signals": {
       "flag": {
@@ -169,6 +183,34 @@
     "bulk": {
       "selected": "{count} selected",
       "outcome": "{done} done, {failed} not done"
+    },
+    "sort": {
+      "label": "Order",
+      "arrival": "Earliest first",
+      "score": "Highest score first"
+    },
+    "score": {
+      "title": "Score",
+      "total": "Total {score} / {max}",
+      "points": "{points} / {max}",
+      "not_previously_assisted": "Not assisted before",
+      "help": "The score only helps the decision; it never approves or rejects anyone by itself."
+    },
+    "quotas": {
+      "title": "Area quotas",
+      "progress": "Target {target} · received {received} · approved {approved}",
+      "bar": "{name}: approvals",
+      "full": "Quota full",
+      "level": {
+        "union": "Union",
+        "district": "District"
+      }
+    },
+    "pull": {
+      "title": "Bring in the next",
+      "area": "Bring in the next ({name})",
+      "help": "The highest score on the waitlist is approved; on a tie, the one who has waited longest.",
+      "done": "{appNo} is approved from the waitlist."
     }
   }
 }

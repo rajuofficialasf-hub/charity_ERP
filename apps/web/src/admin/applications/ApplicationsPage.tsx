@@ -1,5 +1,5 @@
 import { uuidv7 } from '@css/shared';
-import { formatCount, formatDate } from '@css/shared/format';
+import { formatCount, formatDate, formatDecimal } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
 import {
   type ActiveFilter,
@@ -42,6 +42,7 @@ import {
   bulkReview,
   FILTER_KEYS,
 } from './applications-api';
+import { QuotaBars } from './QuotaBars';
 import './applications.css';
 
 /** The states the status filter offers, in the order of the cycle. */
@@ -57,6 +58,8 @@ const STATES = [
   'rejected',
 ] as const;
 const FLAGS = ['public_entry', 'existing_identity', 'identity_repeated'] as const;
+/** The orders the list offers: as the applications came (the server's default), or the score. */
+const BY_SCORE = '-score';
 
 /**
  * The applications of a project for the office (docs/ui/SCREENS.md, "Application review list
@@ -148,8 +151,27 @@ function ApplicationTab({ projectId }: { projectId: string }) {
     ) : (
       t('waiting', { days: formatCount(r.waitingDays, locale) })
     );
+  // a form without points gives no score: the column and the order appear once a score exists
+  const scored = filters.sort === BY_SCORE || rows.some((r) => typeof r.totalScore === 'number');
+  const score = (r: ApplicationSummary) =>
+    typeof r.totalScore !== 'number' ? (
+      <EmptyValue label={t('none')} />
+    ) : (
+      formatDecimal(r.totalScore, 2, locale)
+    );
   const columns: TableColumn<ApplicationSummary>[] = [
     { id: 'person', header: t('column.person'), cell: person, isRowHeader: true },
+    ...(scored
+      ? [
+          {
+            id: 'score',
+            header: t('column.score'),
+            cell: score,
+            numeric: true,
+            priority: 2 as const,
+          },
+        ]
+      : []),
     { id: 'area', header: t('column.area'), cell: (r) => <Area row={r} />, priority: 2 },
     { id: 'status', header: t('column.status'), cell: status },
     {
@@ -161,6 +183,15 @@ function ApplicationTab({ projectId }: { projectId: string }) {
     { id: 'waiting', header: t('column.waiting'), cell: waiting, priority: 3, numeric: true },
   ];
   const activeFilters: ActiveFilter[] = [
+    ...(filters.sort === BY_SCORE
+      ? [
+          {
+            id: 'sort',
+            label: `${t('sort.label')}: ${t('sort.score')}`,
+            onRemove: () => change({ sort: undefined }),
+          },
+        ]
+      : []),
     ...(filters.status
       ? [
           {
@@ -237,6 +268,10 @@ function ApplicationTab({ projectId }: { projectId: string }) {
           </Button>
         </Stack>
       ) : null}
+      <QuotaBars
+        projectId={projectId}
+        area={{ unionId: filters.unionId, districtId: filters.districtId }}
+      />
       <Table
         layout="panel"
         label={t('table')}
@@ -289,6 +324,17 @@ function ApplicationTab({ projectId }: { projectId: string }) {
                   />
                 </FilterGroup>
                 <FilterGroup title={t('filter.group_other')}>
+                  {scored ? (
+                    <Select
+                      label={t('sort.label')}
+                      value={filters.sort === BY_SCORE ? BY_SCORE : 'arrival'}
+                      options={[
+                        { id: 'arrival', label: t('sort.arrival') },
+                        { id: BY_SCORE, label: t('sort.score') },
+                      ]}
+                      onChange={(id) => change({ sort: id === BY_SCORE ? BY_SCORE : undefined })}
+                    />
+                  ) : null}
                   <Select
                     label={t('filter.status')}
                     value={filters.status ?? null}
@@ -323,6 +369,11 @@ function ApplicationTab({ projectId }: { projectId: string }) {
             <div className="admin-person-card-head">{person(r)}</div>
             <Area row={r} />
             {status(r)}
+            {scored && typeof r.totalScore === 'number' ? (
+              <span>
+                {t('column.score')}: {score(r)}
+              </span>
+            ) : null}
             <span>{waiting(r)}</span>
           </div>
         )}

@@ -93,22 +93,49 @@ const record = (over: Record<string, unknown> = {}) => ({
   approvedAt: null,
   familyDuplicateWarnings: [],
   availableActions: ['review', 'delete'],
+  decisionHints: {},
+  totalScore: null,
+  scoreItems: null,
   form,
   ...over,
 });
+/** The comment the server asks for, naming why. */
+const commentAsked = (reason: 'against_score' | 'quota_full') =>
+  HttpResponse.json(
+    {
+      error: {
+        code: 'workflow.comment_required',
+        messageKey: 'errors.workflow.comment_required',
+        message: 'এই সিদ্ধান্তে মন্তব্য লিখুন।',
+        requestId: 'req_test',
+        details: [{ path: reason, code: 'workflow.comment_required', message: 'মন্তব্য লিখুন' }],
+      },
+    },
+    { status: 422 },
+  );
 
 let listCalls: string[];
 let bulkBodies: unknown[];
 let acted: { action: string; body: unknown }[];
 let patched: { ifMatch: string | null; body: unknown }[];
+let pulls: { key: string | null; body: unknown }[];
 function serve(
   rows: unknown[] = [row(A1), row(A2, { appNo: 'WC-2026-00013', beneficiaryName: 'দ্বিতীয় জন' })],
+  quotas: unknown[] = [],
 ) {
   listCalls = [];
   bulkBodies = [];
   acted = [];
   patched = [];
+  pulls = [];
   server.use(
+    http.get(`*/api/v1/projects/${PROJECT}/quotas`, () =>
+      HttpResponse.json({ data: quotas, meta: { requestId: 'r' } }),
+    ),
+    http.post(`*/api/v1/projects/${PROJECT}/waitlist/pull-next`, async ({ request }) => {
+      pulls.push({ key: request.headers.get('Idempotency-Key'), body: await request.json() });
+      return envelope({ id: A2, appNo: 'WC-2026-00013' });
+    }),
     http.get('*/api/v1/locations', () => HttpResponse.json({ data: [], meta: { requestId: 'r' } })),
     http.get(`*/api/v1/projects/${PROJECT}`, () =>
       envelope({
@@ -269,6 +296,98 @@ describe('the list', () => {
     expect(bulkBodies[0]).toMatchObject({ action: 'approve' });
   });
 
+  it('orders by score on request, shows the score and the quotas, and pulls the next of an area in one request', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve(
+      [
+        row(A1, { totalScore: 60, status: 'reviewed' }),
+        row(A2, { appNo: 'WC-2026-00013', beneficiaryName: 'দ্বিতীয় জন', totalScore: 35 }),
+      ],
+      [
+        {
+          level: 'union',
+          locationId: UNION,
+          locationName: { bn: 'নমুনা ইউনিয়ন', en: 'Sample union' },
+          target: 50,
+          received: 72,
+          approved: 40,
+          full: false,
+        },
+        {
+          level: 'union',
+          locationId: '01900000-0000-7000-8000-0000000000a9',
+          locationName: { bn: 'পূর্ণ ইউনিয়ন', en: 'Full union' },
+          target: 10,
+          received: 14,
+          approved: 10,
+          full: true,
+        },
+      ],
+    );
+    const view = openList(`/admin/projects/${PROJECT}/applications?sort=-score`);
+    await waitFor(() => expect(listCalls[0]).toContain('sort=-score'));
+    const grid = await screen.findByRole('grid');
+    expect(within(grid).getByRole('columnheader', { name: 'স্কোর' })).toBeInTheDocument();
+    expect(within(grid).getByText('60')).toBeInTheDocument();
+    const quotas = (await screen.findByRole('heading', { level: 2, name: 'এলাকার কোটা' })).closest(
+      'section',
+    )!;
+    expect(within(quotas).getByText('লক্ষ্য 50 · এসেছে 72 · অনুমোদিত 40')).toBeInTheDocument();
+    expect(within(quotas).getByText('কোটা পূর্ণ')).toBeInTheDocument();
+    await user.click(within(quotas).getByRole('button', { name: 'পরেরজনকে আনুন (নমুনা ইউনিয়ন)' }));
+    expect(
+      await screen.findByText('WC-2026-00013 অপেক্ষমাণ তালিকা থেকে অনুমোদিত হয়েছে।'),
+    ).toBeInTheDocument();
+    expect(pulls).toHaveLength(1);
+    expect(pulls[0]?.body).toEqual({ areaId: UNION });
+    expect(pulls[0]?.key).toBeTruthy();
+    await expectNoAxeViolations(view.container);
+  });
+
+  it('shows no score for a form without points, and pulls for the whole project without quotas', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve([row(A1, { totalScore: null, status: 'waitlisted' })]);
+    openList();
+    const grid = await screen.findByRole('grid');
+    expect(within(grid).queryByRole('columnheader', { name: 'স্কোর' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'সাজানো' })).toBeNull();
+    await user.click(await screen.findByRole('button', { name: 'পরেরজনকে আনুন' }));
+    await waitFor(() => expect(pulls).toHaveLength(1));
+    expect(pulls[0]?.body).toEqual({});
+  });
+
+  it('asks a comment when the pull meets a full quota, and sends it with a fresh key', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve([row(A1, { status: 'waitlisted' })]);
+    server.use(
+      http.post(`*/api/v1/projects/${PROJECT}/waitlist/pull-next`, async ({ request }) => {
+        pulls.push({ key: request.headers.get('Idempotency-Key'), body: await request.json() });
+        return pulls.length === 1
+          ? commentAsked('quota_full')
+          : envelope({ id: A1, appNo: 'WC-2026-00012' });
+      }),
+    );
+    openList();
+    await user.click(await screen.findByRole('button', { name: 'পরেরজনকে আনুন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'পরেরজনকে আনুন' });
+    expect(
+      within(dialog).getByText('এই এলাকার কোটা পূর্ণ। তবু কেন অনুমোদন দিচ্ছেন?'),
+    ).toBeInTheDocument();
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /মন্তব্য/ }),
+      'বাড়তি মালামাল এসেছে',
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'পরেরজনকে আনুন' }));
+    expect(
+      await screen.findByText('WC-2026-00012 অপেক্ষমাণ তালিকা থেকে অনুমোদিত হয়েছে।'),
+    ).toBeInTheDocument();
+    expect(pulls[1]?.body).toEqual({ comment: 'বাড়তি মালামাল এসেছে' });
+    expect(pulls[1]?.key).not.toBe(pulls[0]?.key);
+  });
+
   it('refuses a volunteer the office screens', async () => {
     refreshAs(VOLUNTEER);
     serve();
@@ -417,6 +536,101 @@ describe('the review page', () => {
     await user.click(within(confirm).getByRole('button', { name: 'মুছে ফেলুন' }));
     await waitFor(() => expect(acted).toHaveLength(2));
     expect(acted[1]).toMatchObject({ action: 'delete' });
+  });
+
+  it('shows the score breakdown, asks a reason to waitlist and a comment to approve against the order', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            status: 'reviewed',
+            totalScore: 60,
+            scoreItems: [
+              {
+                key: 'beneficiary_type',
+                label: { bn: 'উপকারভোগীর ধরন', en: 'Beneficiary type' },
+                input: 'widow',
+                max_points: 40,
+                points: 40,
+              },
+              { key: 'not_previously_assisted', input: true, max_points: 20, points: 20 },
+            ],
+            availableActions: ['approve', 'reject', 'waitlist'],
+            decisionHints: { approve: ['against_score'], waitlist: [], reject: [] },
+          }),
+        ),
+      ),
+      http.post(`*/api/v1/applications/${A1}/actions/:action`, async ({ params, request }) => {
+        acted.push({ action: String(params.action), body: await request.json() });
+        return envelope(record({ status: String(params.action) }), '"v2"');
+      }),
+    );
+    const view = openReview();
+    const score = (await screen.findByRole('heading', { level: 2, name: 'স্কোর' })).closest(
+      'section',
+    )!;
+    expect(within(score).getByText('মোট 60 / 60')).toBeInTheDocument();
+    expect(within(score).getByText('উপকারভোগীর ধরন')).toBeInTheDocument();
+    expect(within(score).getByText('আগে সহায়তা পাননি')).toBeInTheDocument();
+    expect(within(score).getAllByText('40 / 40')).toHaveLength(1);
+    await expectNoAxeViolations(view.container);
+    // the waitlist asks the office's reason
+    await user.click(screen.getByRole('button', { name: 'অপেক্ষমাণ তালিকায় রাখুন' }));
+    const waitlist = await screen.findByRole('dialog', { name: 'অপেক্ষমাণ তালিকায় রাখুন' });
+    await user.type(within(waitlist).getByRole('textbox', { name: /অফিসের কারণ/ }), 'মালামাল কম');
+    await user.click(within(waitlist).getByRole('button', { name: 'অপেক্ষমাণ তালিকায় রাখুন' }));
+    await waitFor(() => expect(acted).toHaveLength(1));
+    expect(acted[0]).toEqual({ action: 'waitlist', body: { reason: 'মালামাল কম' } });
+    // an approval against the order asks why before it is sent
+    await user.click(await screen.findByRole('button', { name: 'অনুমোদন করুন' }));
+    const approve = await screen.findByRole('dialog', { name: 'আবেদন অনুমোদন করুন' });
+    expect(
+      within(approve).getByText('কেন স্কোরের ক্রম ভেঙে সিদ্ধান্ত নিচ্ছেন?'),
+    ).toBeInTheDocument();
+    expect(within(approve).queryByRole('textbox', { name: /অফিসের কারণ/ })).toBeNull();
+    const confirm = within(approve).getByRole('button', { name: 'অনুমোদন করুন' });
+    expect(confirm).toBeDisabled();
+    await user.type(within(approve).getByRole('textbox', { name: /মন্তব্য/ }), 'জরুরি প্রয়োজন');
+    await user.click(confirm);
+    await waitFor(() => expect(acted).toHaveLength(2));
+    expect(acted[1]).toEqual({ action: 'approve', body: { comment: 'জরুরি প্রয়োজন' } });
+  });
+
+  it('opens the comment box when the server asks one the screen did not expect', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(record({ status: 'waitlisted', availableActions: ['pull_from_waitlist'] })),
+      ),
+      http.post(`*/api/v1/applications/${A1}/actions/:action`, async ({ params, request }) => {
+        acted.push({ action: String(params.action), body: await request.json().catch(() => ({})) });
+        return acted.length === 1
+          ? commentAsked('against_score')
+          : envelope(record({ status: 'approved', availableActions: [] }), '"v2"');
+      }),
+    );
+    openReview();
+    await user.click(await screen.findByRole('button', { name: 'অপেক্ষমাণ তালিকা থেকে অনুমোদন' }));
+    const dialog = await screen.findByRole('dialog', {
+      name: 'অপেক্ষমাণ তালিকা থেকে অনুমোদন করুন',
+    });
+    expect(
+      within(dialog).getByText('কেন স্কোরের ক্রম ভেঙে সিদ্ধান্ত নিচ্ছেন?'),
+    ).toBeInTheDocument();
+    await user.type(within(dialog).getByRole('textbox', { name: /মন্তব্য/ }), 'তিনি আগে এসেছেন');
+    await user.click(within(dialog).getByRole('button', { name: 'অপেক্ষমাণ তালিকা থেকে অনুমোদন' }));
+    expect(
+      await screen.findByText('আবেদনটি অপেক্ষমাণ তালিকা থেকে অনুমোদিত হয়েছে।'),
+    ).toBeInTheDocument();
+    expect(acted[1]).toEqual({
+      action: 'pull_from_waitlist',
+      body: { comment: 'তিনি আগে এসেছেন' },
+    });
   });
 
   it('reads in English too', async () => {

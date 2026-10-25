@@ -239,3 +239,18 @@ export const canPlaceForms = (me: Pick<Me, 'roles'>) => holds(me, FORM_PLACE_ROL
 /** Who opens a project's applications: every official holding `application.view` (the server scopes the rows). */
 export const APPLICATION_ROLES: readonly string[] = ADMIN_ROLES;
 export const canSeeApplications = (me: Pick<Me, 'roles'>) => holds(me, APPLICATION_ROLES);
+
+/**
+ * Who may decide on applications (`application.approve`, `application.waitlist`): the two global
+ * roles, the PM, the RPM, and the Executive or Official দায়ী the RPM grants it to. The server
+ * decides each project by its scope and grants.
+ */
+export const DECISION_ROLES: readonly string[] = [
+  'department_head',
+  'monitoring_team',
+  'program_manager',
+  'regional_program_manager',
+  'project_executive',
+  'official_daee',
+];
+export const canDecideApplications = (me: Pick<Me, 'roles'>) => holds(me, DECISION_ROLES);
