@@ -34,15 +34,22 @@ let versionId: string;
 let generalVolunteer: string;
 
 /** A public entry with this identity number, waiting for verification; answers its id. */
-const entry = (nid: string, flags: string[] = ['public_entry']) =>
+const entry = (nid: string, flags: string[] = ['public_entry'], mobile = fakeMobile()) =>
   applicationRow(h.db, {
     projectId: project,
     versionId,
     loc: world.dhaka,
     status: 'needs_verification',
-    answers: IDENTITY_ANSWERS(nid, fakeMobile(), world.dhaka),
+    answers: IDENTITY_ANSWERS(nid, mobile, world.dhaka),
     over: { flags },
   });
+const contactOf = async (beneficiaryId: string) =>
+  (
+    await h.db.query<{ mobile: string; village: string }>(
+      'SELECT mobile, village FROM beneficiaries WHERE id = $1',
+      [beneficiaryId],
+    )
+  ).rows[0];
 const read = (s: Session, id: string) => at(s, 'get', `/applications/${id}`);
 const verify = async (s: Session, id: string, action: string, body: Record<string, unknown>) => {
   const before = await read(s, id);
@@ -89,10 +96,111 @@ beforeAll(async () => {
 });
 afterAll(async () => h.close());
 
+describe('the checks of a verification', () => {
+  it('refuses a link with no profile behind the number, and a profile outside the caller’s identity scope', async () => {
+    const rpm = await as(world.users.rpmDhaka);
+    const fresh = await entry(fakeNid());
+    const none = await verify(rpm, fresh, 'verify_link', { linkBeneficiaryId: randomUUID() });
+    expect(none.status).toBe(422);
+    expect(none.body.error.details).toEqual([
+      expect.objectContaining({ code: 'application.verify_no_profile' }),
+    ]);
+    // the profile lives in Rangpur, outside the Dhaka RPM's identity scope
+    const nid = fakeNid();
+    const far = await beneficiary(h.db, world.rangpur, { nid });
+    const id = await entry(nid, ['public_entry', 'existing_identity']);
+    expect((await verify(rpm, id, 'verify_link', { linkBeneficiaryId: far })).status).toBe(404);
+  });
+
+  it('refuses a blocked owner, an owner at the limit, and an owner whose own mobile the entry gives', async () => {
+    const rpm = await as(world.users.rpmDhaka);
+    const block = randomUUID();
+    await h.db.query(
+      `INSERT INTO blocklist (id, subject_type, subject_id, reason, blocked_by) VALUES ($1, 'volunteer', $2, 'test', $3)`,
+      [block, generalVolunteer, world.users.rpmDhaka],
+    );
+    try {
+      const blocked = await verify(rpm, await entry(fakeNid()), 'verify_create', {
+        ownerVolunteerId: generalVolunteer,
+      });
+      expect(blocked.status).toBe(422);
+      expect(blocked.body.error.details).toEqual([
+        expect.objectContaining({ code: 'application.verify_owner_unfit' }),
+      ]);
+    } finally {
+      await h.db.query(
+        `UPDATE blocklist SET active = false, released_by = $2, released_at = now(), release_reason = 'test' WHERE id = $1`,
+        [block, world.users.rpmDhaka],
+      );
+    }
+    // an owner whose applications already fill the project's limit
+    await applicationRow(h.db, {
+      projectId: project,
+      versionId,
+      loc: world.dhaka,
+      status: 'submitted',
+      ownerVolunteerId: generalVolunteer,
+      answers: IDENTITY_ANSWERS(fakeNid(), fakeMobile(), world.dhaka),
+    });
+    const owned = await h.db.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM applications WHERE project_id = $1 AND owner_volunteer_id = $2 AND status NOT IN ('rejected', 'deleted')`,
+      [project, generalVolunteer],
+    );
+    await h.db.query('UPDATE projects SET per_volunteer_limit = $2 WHERE id = $1', [
+      project,
+      owned.rows[0]!.n,
+    ]);
+    try {
+      const full = await verify(rpm, await entry(fakeNid()), 'verify_create', {
+        ownerVolunteerId: generalVolunteer,
+      });
+      expect(full.status).toBe(422);
+      expect(full.body.error.details).toEqual([
+        expect.objectContaining({ code: 'application.verify_owner_full' }),
+      ]);
+    } finally {
+      await h.db.query('UPDATE projects SET per_volunteer_limit = 50 WHERE id = $1', [project]);
+    }
+    // the new profile is made with the chosen owner, so the owner's own mobile is refused
+    const own = await h.db.query<{ mobile: string }>('SELECT mobile FROM users WHERE id = $1', [
+      world.users.general,
+    ]);
+    const mine = await verify(
+      rpm,
+      await entry(fakeNid(), ['public_entry'], own.rows[0]!.mobile),
+      'verify_create',
+      {
+        ownerVolunteerId: generalVolunteer,
+      },
+    );
+    expect(mine.status).toBe(409);
+    expect(mine.body.error.code).toBe('beneficiary.mobile_is_volunteer_mobile');
+  });
+
+  it('refuses a profile or an owner named on any other action', async () => {
+    const rpm = await as(world.users.rpmDhaka);
+    const id = await entry(fakeNid());
+    const link = await verify(rpm, id, 'reject_unverified', {
+      reason: 'ভুল এন্ট্রি',
+      linkBeneficiaryId: randomUUID(),
+    });
+    expect(link.status).toBe(422);
+    expect(link.body.error.details[0].path).toBe('linkBeneficiaryId');
+    const owner = await verify(rpm, id, 'reject_unverified', {
+      reason: 'ভুল এন্ট্রি',
+      ownerVolunteerId: generalVolunteer,
+    });
+    expect(owner.status).toBe(422);
+    expect(owner.body.error.details[0].path).toBe('ownerVolunteerId');
+  });
+});
+
 describe('the verification of a public entry', () => {
   it('links an entry to the profile its number has, with a number and a volunteer', async () => {
     const nid = fakeNid();
     const person = await beneficiary(h.db, world.dhaka, { nid });
+    const before = await contactOf(person);
+    // the entry gives another mobile than the profile has
     const id = await entry(nid, ['public_entry', 'existing_identity']);
     const rpm = await as(world.users.rpmDhaka);
     const res = await verify(rpm, id, 'verify_link', {
@@ -108,6 +216,8 @@ describe('the verification of a public entry', () => {
     expect(res.body.data.appNo).toMatch(/^VER-2026-\d{5}$/);
     // the new owner reaches it now
     expect((await read(await as(world.users.general), id)).status).toBe(200);
+    // a public entry never rewrites the known person's contact data
+    expect(await contactOf(person)).toEqual(before);
   });
 
   it('creates the profile for a new number and leaves the application the office’s without a volunteer', async () => {
@@ -159,7 +269,9 @@ describe('the verification of a public entry', () => {
     const linked = await verify(rpm, id, 'verify_link', { linkBeneficiaryId: person });
     expect(linked.status).toBe(409);
     expect(linked.body.error.code).toBe('beneficiary.blocked');
-    expect((await verify(rpm, id, 'verify_create', {})).status).toBe(409);
+    const created = await verify(rpm, id, 'verify_create', {});
+    expect(created.status).toBe(409);
+    expect(created.body.error.code).toBe('application.verify_identity_exists');
     const refused = await verify(rpm, id, 'reject_unverified', { reason: 'ব্লক করা ব্যক্তি' });
     expect(refused.status, JSON.stringify(refused.body)).toBe(200);
     expect(refused.body.data.status).toBe('rejected');
@@ -173,7 +285,8 @@ describe('the verification of a public entry', () => {
       'get',
       `/projects/${project}/applications?status=needs_verification`,
     );
-    expect((queue.body.data ?? []) as unknown[]).toEqual([]);
+    // the project lies outside the Rangpur RPM's reach altogether
+    expect(queue.status).toBe(404);
     expect((await verify(rangpur, id, 'verify_create', {})).status).toBe(404);
     const rpm = await as(world.users.rpmDhaka);
     const mine = await at(
@@ -186,8 +299,15 @@ describe('the verification of a public entry', () => {
     );
     // the waiting entries are on the office's home
     const home = await at(rpm, 'get', '/me/attention');
-    expect(home.body.data).toContainEqual(
-      expect.objectContaining({ kind: 'verifications_pending' }),
+    const waiting = await h.db.query<{ id: string }>(
+      `SELECT id FROM applications WHERE project_id = $1 AND status = 'needs_verification'
+        ORDER BY created_at, id`,
+      [project],
     );
+    expect(home.body.data).toContainEqual({
+      kind: 'verifications_pending',
+      count: waiting.rowCount,
+      href: `/admin/applications/${waiting.rows[0]!.id}`,
+    });
   });
 });

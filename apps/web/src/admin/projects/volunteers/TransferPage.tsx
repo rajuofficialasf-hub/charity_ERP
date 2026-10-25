@@ -35,8 +35,25 @@ import {
   transferCandidatesKey,
 } from './transfer-api';
 
-/** The prefix of a choice that adds a volunteer to the project with the handover. */
-const NEW = 'new:';
+/** A choice of the new volunteer: someone on the project, or someone added with the handover. */
+interface Target {
+  volunteerId: string;
+  add: boolean;
+}
+
+/** Every page of a cursor list, read one after another. */
+async function allPages<T>(
+  page: (cursor: string | null) => Promise<{ data: T[]; meta: { nextCursor: string | null } }>,
+): Promise<T[]> {
+  const rows: T[] = [];
+  let cursor: string | null = null;
+  do {
+    const next = await page(cursor);
+    rows.push(...next.data);
+    cursor = next.meta.nextCursor;
+  } while (cursor);
+  return rows;
+}
 
 /**
  * The application transfer (docs/ui/SCREENS.md, "Application review list and detail"): the
@@ -61,7 +78,10 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
   const queryClient = useQueryClient();
   const from = params.get('from');
   const [ticked, setTicked] = useState<Set<string>>(new Set());
-  const [to, setTo] = useState<string | null>(null);
+  const [to, setTo] = useState<Target | null>(null);
+  // one key per attempt: a repeat after a lost answer is answered with the same move
+  const [key, setKey] = useState(() => uuidv7());
+  const fresh = () => setKey(uuidv7());
   const [moveTeam, setMoveTeam] = useState(false);
   const [reason, setReason] = useState('');
   const [result, setResult] = useState<TransferResult | null>(null);
@@ -71,11 +91,11 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
   });
   const people = useQuery({
     queryKey: [...volunteersKey(projectId), 'all'],
-    queryFn: async () => (await assignments(projectId, null)).data,
+    queryFn: () => allPages((cursor) => assignments(projectId, cursor)),
   });
   const newcomers = useQuery({
     queryKey: [...volunteersKey(projectId), 'candidates'],
-    queryFn: async () => (await candidates(projectId, {}, null)).data,
+    queryFn: () => allPages((cursor) => candidates(projectId, {}, cursor)),
     enabled: assigns,
   });
   const apps = useQuery({
@@ -85,19 +105,21 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
   });
   const send = useMutation({
     mutationFn: () =>
-      transferApplications(projectId, uuidv7(), {
+      transferApplications(projectId, key, {
         fromVolunteerId: from ?? '',
-        toVolunteerId: (to ?? '').replace(NEW, ''),
+        toVolunteerId: to?.volunteerId ?? '',
         applicationIds: [...ticked],
         reason: reason.trim(),
         moveTeam,
-        assign: Boolean(to?.startsWith(NEW)),
+        assign: Boolean(to?.add),
       }),
     onSuccess: async (out) => {
       setResult(out);
       setTicked(new Set());
       setReason('');
       setMoveTeam(false);
+      setTo(null);
+      fresh();
       await queryClient.invalidateQueries({ queryKey: PROJECTS_KEY });
     },
   });
@@ -115,7 +137,7 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
   const name = localized(project.data.name, locale);
   const list = apps.data ?? [];
   const everyone = people.data;
-  const target = everyone.find((p) => p.volunteerId === to);
+  const target = everyone.find((p) => p.volunteerId === to?.volunteerId);
   const limit = project.data.perVolunteerLimit;
   const after = (target?.applicationsCounted ?? 0) + ticked.size;
   const overLimit = limit !== null && ticked.size > 0 && Boolean(to) && after > limit;
@@ -127,9 +149,14 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
       .map((p) => ({ id: p.volunteerId, label: p.displayName })),
     ...(newcomers.data ?? [])
       .filter((c) => !everyone.some((p) => p.volunteerId === c.volunteerId))
-      .map((c) => ({ id: `${NEW}${c.volunteerId}`, label: `${c.displayName} · ${t('to_new')}` })),
+      .map((c) => ({ id: c.volunteerId, label: `${c.displayName} · ${t('to_new')}` })),
   ];
+  const chooseTarget = (id: string | null) => {
+    fresh();
+    setTo(id ? { volunteerId: id, add: !everyone.some((p) => p.volunteerId === id) } : null);
+  };
   const toggle = (id: string, on: boolean) => {
+    fresh();
     const next = new Set(ticked);
     if (on) next.add(id);
     else next.delete(id);
@@ -178,7 +205,10 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
             <Checkbox
               isSelected={allTicked}
               isIndeterminate={ticked.size > 0 && !allTicked}
-              onChange={(on) => setTicked(on ? new Set(list.map((a) => a.id)) : new Set())}
+              onChange={(on) => {
+                fresh();
+                setTicked(on ? new Set(list.map((a) => a.id)) : new Set());
+              }}
             >
               {t('select_all')}
             </Checkbox>
@@ -199,9 +229,9 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
         <Stack gap={2}>
           <Select
             label={t('to')}
-            value={to}
+            value={to?.volunteerId ?? null}
             options={toOptions}
-            onChange={setTo}
+            onChange={chooseTarget}
             helper={assigns ? t('to_new_help') : undefined}
           />
           {movesTeams ? (

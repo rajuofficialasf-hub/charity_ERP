@@ -173,6 +173,55 @@ describe('the transfer', () => {
     });
   });
 
+  it('shows a refused transfer and a failed list of applications', async () => {
+    const user = userEvent.setup();
+    open(RPM);
+    server.use(
+      http.post(`*/api/v1/projects/${ID}/transfers`, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'validation.failed',
+              messageKey: 'errors.validation.failed',
+              message: 'নতুন স্বেচ্ছাসেবক সক্রিয় নন বা ব্লক করা আছেন।',
+              requestId: 'req_test',
+            },
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+    await user.click(await screen.findByRole('checkbox', { name: /প্রথম জন/ }));
+    await user.click(screen.getByRole('button', { name: /নতুন স্বেচ্ছাসেবক$/ }));
+    await user.click(await screen.findByRole('option', { name: 'রহিম মিয়া' }));
+    await user.type(screen.getByRole('textbox', { name: /হস্তান্তরের কারণ/ }), 'এলাকা বদল');
+    await user.click(screen.getByRole('button', { name: 'হস্তান্তর করুন' }));
+    expect(
+      await screen.findByText('নতুন স্বেচ্ছাসেবক সক্রিয় নন বা ব্লক করা আছেন।'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/আবেদন হস্তান্তর হয়েছে/)).toBeNull();
+  });
+
+  it('offers a retry when the applications of the volunteer cannot be read', async () => {
+    open(RPM);
+    server.use(
+      http.get(`*/api/v1/projects/${ID}/volunteers/${OLD.volunteerId}/applications`, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'permission.denied',
+              messageKey: 'errors.permission.denied',
+              message: 'অনুমতি নেই',
+              requestId: 'req_test',
+            },
+          },
+          { status: 403 },
+        ),
+      ),
+    );
+    expect(await screen.findByRole('button', { name: 'আবার চেষ্টা করুন' })).toBeInTheDocument();
+  });
+
   it('reads in English too', async () => {
     const view = open(RPM, `?from=${OLD.volunteerId}`, 'en');
     expect(await screen.findByRole('checkbox', { name: 'Select all' })).toBeInTheDocument();

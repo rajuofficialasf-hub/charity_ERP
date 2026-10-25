@@ -52,6 +52,7 @@ import { type FormAudience, readDefinition, versionView } from '../services/form
 import { isAddressChain } from '../services/locations';
 import type { NisabService } from '../services/nisab';
 import { assertReachesApplication, isBlockedVolunteer } from './callers';
+import { liveApplicationCounts } from './limit';
 import type { UnlocksService } from './unlocks';
 import type { ScoringService } from './scoring';
 import { type CommentReason, commentReasons } from './decision-rules';
@@ -557,12 +558,16 @@ export class ApplicationsService {
             ? { beforeApply: (t, app) => this.submission.bindPerson(t, viewer.principal, app.id) }
             : verifying
               ? {
-                  beforeApply: async (t, app) => ({
-                    ...(await this.verified(t, viewer.principal, app.id, action, body)),
-                    ...(await this.submission.bindPerson(t, viewer.principal, app.id, {
-                      writeContact: false,
-                    })),
-                  }),
+                  beforeApply: async (t, app) => {
+                    const owner = await this.verified(t, viewer.principal, app.id, action, body);
+                    return {
+                      ...(owner ? { ownerVolunteerId: owner.volunteerId } : {}),
+                      ...(await this.submission.bindPerson(t, viewer.principal, app.id, {
+                        writeContact: false,
+                        ownerUserId: owner?.userId,
+                      })),
+                    };
+                  },
                 }
               : {},
         );
@@ -575,6 +580,9 @@ export class ApplicationsService {
         throw new ApiError('beneficiary.mobile_is_volunteer_mobile', 409);
       if (isUniqueViolationOf(error, 'applications_project_id_beneficiary_id_key'))
         throw new ApiError('beneficiary.already_applied', 409);
+      // two verifications made a profile for one new number at once: the later one links instead
+      if (verifying && isUniqueViolation(error))
+        throw new ApiError('application.verify_identity_exists', 409);
       throw error;
     }
     const access = await this.access.load(viewer.principal.userId);
@@ -1123,7 +1131,8 @@ export class ApplicationsService {
    * The checks of a verification, run once the engine has checked the caller: a link names the
    * live profile behind the entry's identity number, one the caller's identity scope reaches; a
    * new profile is made only when no profile holds the number; a chosen owner is an active,
-   * unblocked volunteer on the project, else the application stays the office's.
+   * unblocked volunteer of the project who accepted its rules and is under its limit (the limit
+   * guard of the move ran before the owner was known), else the application stays the office's.
    */
   private async verified(
     tx: Tx,
@@ -1131,7 +1140,7 @@ export class ApplicationsService {
     applicationId: string,
     action: 'verify_link' | 'verify_create',
     body: ApplicationActionBody,
-  ): Promise<Prisma.ApplicationUncheckedUpdateInput> {
+  ): Promise<{ volunteerId: string; userId: string } | null> {
     const holder = await this.submission.identityHolder(tx, applicationId);
     if (action === 'verify_link') {
       if (!holder)
@@ -1145,29 +1154,36 @@ export class ApplicationsService {
           { path: 'linkBeneficiaryId', code: 'application.verify_other_person' },
         ]);
     } else if (holder) throw new ApiError('application.verify_identity_exists', 409);
-    if (!body.ownerVolunteerId) return {};
-    const { projectId } = await tx.application.findUniqueOrThrow({
+    if (!body.ownerVolunteerId) return null;
+    const { projectId, project } = await tx.application.findUniqueOrThrow({
       where: { id: applicationId },
-      select: { projectId: true },
+      select: { projectId: true, project: { select: { perVolunteerLimit: true } } },
     });
-    const [onProject, blocked] = await Promise.all([
-      tx.projectVolunteer.count({
+    const [assignment, blocked] = await Promise.all([
+      tx.projectVolunteer.findFirst({
         where: {
+          ...WORKING_ASSIGNMENT,
           projectId,
           volunteerId: body.ownerVolunteerId,
-          endedAt: null,
           volunteer: { user: { state: 'active' } },
         },
+        select: { volunteer: { select: { userId: true } } },
       }),
       tx.blocklist.count({
         where: { subjectType: 'volunteer', subjectId: body.ownerVolunteerId, active: true },
       }),
     ]);
-    if (!onProject || blocked)
-      throw new ApiError('validation.failed', 422, undefined, [
-        { path: 'ownerVolunteerId', code: 'application.verify_owner_unfit' },
+    const unfit = (code: string) =>
+      new ApiError('validation.failed', 422, undefined, [{ path: 'ownerVolunteerId', code }]);
+    if (!assignment || blocked) throw unfit('application.verify_owner_unfit');
+    if (project.perVolunteerLimit !== null) {
+      const counts = await liveApplicationCounts(tx, [
+        { projectId, ownerVolunteerId: body.ownerVolunteerId },
       ]);
-    return { ownerVolunteerId: body.ownerVolunteerId };
+      if (counts(projectId, body.ownerVolunteerId) >= project.perVolunteerLimit)
+        throw unfit('application.verify_owner_full');
+    }
+    return { volunteerId: body.ownerVolunteerId, userId: assignment.volunteer.userId };
   }
 
   /** The record as the caller sees it. */

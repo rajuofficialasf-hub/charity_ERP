@@ -58,12 +58,10 @@ const ACTIONS: OfficeAction[] = [
   'waitlist',
   'reject',
   'return_to_review',
-  'verify_link',
-  'verify_create',
   'reject_unverified',
   'delete',
 ];
-/** The verifications, which open their own dialog. */
+/** The verifications: one button, whose dialog chooses the link or the new profile by a lookup. */
 const VERIFY: OfficeAction[] = ['verify_link', 'verify_create'];
 /** The actions that ask for the office's reason, and the one that asks for the volunteer's message too. */
 const WITH_REASON: OfficeAction[] = ['reject', 'return_to_review', 'reject_unverified', 'waitlist'];
@@ -93,7 +91,7 @@ function Review() {
   const t = useTranslations('applications.office');
   const tu = useTranslations('applications.unlock');
   const [opening, setOpening] = useState<FormField | null>(null);
-  const [verifying, setVerifying] = useState<'verify_link' | 'verify_create' | null>(null);
+  const [verifying, setVerifying] = useState(false);
   const ts = useTranslations('applications.status');
   const tc = useTranslations('common');
   const locale = useLocale() as Locale;
@@ -187,19 +185,14 @@ function Review() {
     );
   const a = one.data.data;
   const etag = one.data.meta.etag ?? '';
-  // a public entry whose number a profile holds is linked to it; any other is made a profile
-  const known = a.flags.includes('existing_identity');
-  const may = (action: OfficeAction) =>
-    a.availableActions.includes(action) &&
-    (action !== 'verify_link' || known) &&
-    (action !== 'verify_create' || !known);
+  const may = (action: OfficeAction) => a.availableActions.includes(action);
+  // the entry is checked against the profiles now, so a profile made after the entry still links
+  const verifiable = VERIFY.some(may);
   const hinted = (action: OfficeAction) => a.decisionHints[action] ?? [];
   const start = (action: OfficeAction) =>
-    VERIFY.includes(action)
-      ? setVerifying(action as 'verify_link' | 'verify_create')
-      : WITH_REASON.includes(action) || action === 'delete' || hinted(action).length
-        ? setAsking({ action, reasons: hinted(action) })
-        : act.mutate({ action });
+    WITH_REASON.includes(action) || action === 'delete' || hinted(action).length
+      ? setAsking({ action, reasons: hinted(action) })
+      : act.mutate({ action });
   const stateLabel = (status: string) => labelOf(ts, status);
   const timeline: TimelineStep[] = (steps.data ?? []).map((e, i, all) => ({
     id: e.id,
@@ -245,11 +238,16 @@ function Review() {
         headingLevel={2}
         actions={
           <Stack direction="row" gap={2} wrap>
+            {verifiable ? (
+              <Button variant="primary" size="sm" onPress={() => setVerifying(true)}>
+                {t('action.verify')}
+              </Button>
+            ) : null}
             {ACTIONS.filter(may).map((action) => (
               <Button
                 key={action}
                 variant={
-                  action === 'approve' || action === 'pull_from_waitlist' || VERIFY.includes(action)
+                  action === 'approve' || action === 'pull_from_waitlist'
                     ? 'primary'
                     : DANGER.includes(action)
                       ? 'danger'
@@ -358,11 +356,10 @@ function Review() {
         <VerifyDialog
           application={a}
           etag={etag}
-          action={verifying}
-          onClose={() => setVerifying(null)}
-          onDone={async () => {
-            setNotice({ tone: 'success', text: t(`done.${verifying}`) });
-            setVerifying(null);
+          onClose={() => setVerifying(false)}
+          onDone={async (done) => {
+            setNotice({ tone: 'success', text: t(`done.${done}`) });
+            setVerifying(false);
             await refresh();
           }}
         />

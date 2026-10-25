@@ -760,7 +760,7 @@ describe('the review page', () => {
     expect(await screen.findByText('নতুন উত্তর গ্রহণ করা হয়েছে।')).toBeInTheDocument();
   });
 
-  it('links a public entry to the profile its number has, with a volunteer in charge', async () => {
+  it('links an entry to the profile its number has now, with a volunteer in charge', async () => {
     const user = userEvent.setup();
     refreshAs(EXECUTIVE);
     serve();
@@ -771,7 +771,8 @@ describe('the review page', () => {
         envelope(
           record({
             status: 'needs_verification',
-            flags: ['public_entry', 'existing_identity'],
+            // the profile was made after the entry came: the flag does not say so
+            flags: ['public_entry'],
             availableActions: ['verify_link', 'verify_create', 'reject_unverified'],
           }),
         ),
@@ -833,9 +834,8 @@ describe('the review page', () => {
     );
     const view = openReview();
     // a known number links; a new profile is not offered
-    await user.click(await screen.findByRole('button', { name: 'প্রোফাইলের সঙ্গে যুক্ত করুন' }));
-    expect(screen.queryByRole('button', { name: 'নতুন প্রোফাইল তৈরি করুন' })).toBeNull();
-    const dialog = await screen.findByRole('dialog', { name: 'প্রোফাইলের সঙ্গে যুক্ত করুন' });
+    await user.click(await screen.findByRole('button', { name: 'যাচাই করুন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'এন্ট্রি যাচাই করুন' });
     expect(await within(dialog).findByText('BEN-0000007')).toBeInTheDocument();
     expect(within(dialog).getByText('পুরনো উপকারভোগী')).toBeInTheDocument();
     await expectNoAxeViolations(view.container);
@@ -852,23 +852,28 @@ describe('the review page', () => {
     ).toBeInTheDocument();
   });
 
-  it('creates a profile for a new number, and shows a blocked person only for refusing', async () => {
+  it('creates a profile for a new number, names a blocked person, and tells of a failed lookup', async () => {
     const user = userEvent.setup();
     refreshAs(EXECUTIVE);
     serve();
-    let flags = ['public_entry'];
+    let answer: 'none' | 'blocked' | 'fail' = 'none';
     server.use(
       http.get(`*/api/v1/applications/${A1}`, () =>
         envelope(
           record({
             status: 'needs_verification',
-            flags,
+            flags: ['public_entry'],
             availableActions: ['verify_link', 'verify_create', 'reject_unverified'],
           }),
         ),
       ),
       http.post('*/api/v1/beneficiaries/lookup', () =>
-        HttpResponse.json({ data: { found: true, blocked: true }, meta: { requestId: 'r' } }),
+        answer === 'fail'
+          ? apiError(403, 'permission.denied', 'অনুমতি নেই')
+          : HttpResponse.json({
+              data: answer === 'blocked' ? { found: true, blocked: true } : { found: false },
+              meta: { requestId: 'r' },
+            }),
       ),
       http.get(`*/api/v1/projects/${PROJECT}/volunteers`, () =>
         HttpResponse.json({
@@ -882,22 +887,32 @@ describe('the review page', () => {
       }),
     );
     const view = openReview();
-    await user.click(await screen.findByRole('button', { name: 'নতুন প্রোফাইল তৈরি করুন' }));
-    expect(screen.queryByRole('button', { name: 'প্রোফাইলের সঙ্গে যুক্ত করুন' })).toBeNull();
-    const dialog = await screen.findByRole('dialog', { name: 'নতুন প্রোফাইল তৈরি করুন' });
-    await user.click(within(dialog).getByRole('button', { name: 'তৈরি করুন' }));
+    await user.click(await screen.findByRole('button', { name: 'যাচাই করুন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'এন্ট্রি যাচাই করুন' });
+    await user.click(await within(dialog).findByRole('button', { name: 'তৈরি করুন' }));
     await waitFor(() => expect(acted).toHaveLength(1));
     expect(acted[0]).toEqual({ action: 'verify_create', body: {} });
     view.unmount();
-    // an entry of a blocked person: the link names the block and takes no step
-    flags = ['public_entry', 'existing_identity'];
-    openReview();
-    await user.click(await screen.findByRole('button', { name: 'প্রোফাইলের সঙ্গে যুক্ত করুন' }));
-    const blocked = await screen.findByRole('dialog', { name: 'প্রোফাইলের সঙ্গে যুক্ত করুন' });
+    // an entry of a blocked person: the dialog names the block and takes no step
+    answer = 'blocked';
+    const again = openReview();
+    await user.click(await screen.findByRole('button', { name: 'যাচাই করুন' }));
+    const blocked = await screen.findByRole('dialog', { name: 'এন্ট্রি যাচাই করুন' });
     expect(
       await within(blocked).findByText('এই ব্যক্তি ব্লক করা আছেন। এন্ট্রিটি শুধু বাতিল করা যায়।'),
     ).toBeInTheDocument();
     expect(within(blocked).getByRole('button', { name: 'যুক্ত করুন' })).toBeDisabled();
+    again.unmount();
+    // a lookup that failed is an error to retry, never "no profile"
+    answer = 'fail';
+    resetClientForTests();
+    openReview();
+    await user.click(await screen.findByRole('button', { name: 'যাচাই করুন' }));
+    const failed = await screen.findByRole('dialog', { name: 'এন্ট্রি যাচাই করুন' });
+    expect(
+      await within(failed).findByRole('button', { name: 'আবার চেষ্টা করুন' }),
+    ).toBeInTheDocument();
+    expect(within(failed).getByRole('button', { name: 'যুক্ত করুন' })).toBeDisabled();
   });
 
   it('reads in English too', async () => {

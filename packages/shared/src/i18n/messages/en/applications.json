@@ -119,7 +119,8 @@
       "waitlist": "Put on the waitlist",
       "pull_from_waitlist": "Approve from the waitlist",
       "verify_link": "Link to the profile",
-      "verify_create": "Create a new profile"
+      "verify_create": "Create a new profile",
+      "verify": "Verify"
     },
     "dialog": {
       "reject": "Reject the application",
@@ -217,19 +218,17 @@
       "done": "{appNo} is approved from the waitlist."
     },
     "verify": {
-      "link_title": "Link to the profile",
-      "create_title": "Create a new profile",
       "profile": "The profile it will be linked to",
       "ben_no": "BEN number",
       "name": "Name",
       "father": "Father's or husband's name",
       "blocked": "This person is blocklisted. The entry can only be refused.",
-      "not_found": "No profile holds this number now. Create a new profile.",
       "create_help": "A new profile is made from the entry's answers.",
       "owner": "Volunteer in charge (optional)",
       "owner_help": "Without one the application stays the office's; a transfer can give it a volunteer later.",
       "confirm_link": "Link",
-      "confirm_create": "Create"
+      "confirm_create": "Create",
+      "title": "Verify the entry"
     },
     "queue": {
       "label": "Which applications to show",

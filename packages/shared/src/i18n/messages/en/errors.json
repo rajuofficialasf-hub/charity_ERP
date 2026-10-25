@@ -322,6 +322,7 @@
     "verify_no_profile": "No profile holds this number. Create a new profile.",
     "verify_other_person": "This entry's number belongs to another profile. Link it to the profile of its own number.",
     "verify_identity_exists": "A profile with this number already exists. Link to it instead of creating a new one.",
-    "verify_owner_unfit": "The chosen volunteer is not active on this project or is blocklisted."
+    "verify_owner_unfit": "The chosen volunteer is not active on this project or is blocklisted.",
+    "verify_owner_full": "The chosen volunteer has reached the application limit. Choose someone else or keep the application with the office."
   }
 }

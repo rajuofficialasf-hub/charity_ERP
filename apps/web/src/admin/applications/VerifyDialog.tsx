@@ -1,6 +1,17 @@
+import { answerValueSchema } from '@css/shared';
 import { formatBenNo } from '@css/shared/beneficiaries';
 import { identityColumn } from '@css/shared/forms';
-import { Alert, Button, DescriptionList, Modal, Select, Skeleton, Stack, Text } from '@css/ui';
+import {
+  Alert,
+  Button,
+  DescriptionList,
+  ErrorState,
+  Modal,
+  Select,
+  Skeleton,
+  Stack,
+  Text,
+} from '@css/ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslations } from 'use-intl';
@@ -9,34 +20,46 @@ import { lookupBeneficiary } from '../beneficiaries/beneficiaries-api';
 import { assignments, volunteersKey } from '../projects/volunteers/project-volunteers-api';
 import { type OfficeApplication, officeAct } from './applications-api';
 
-/** The identity number the entry gave, as its answer holds it. */
+/** The identity number the entry gave, read from its answer. */
 function numberOf(a: OfficeApplication): string | null {
   const field = a.form.sections
     .flatMap((s) => s.fields)
     .find((f) => f.standardColumn === 'nid_or_birth_reg');
   const answer = field ? a.answers.find((x) => x.fieldKey === field.fieldKey) : undefined;
-  const value = answer ? (answer.value as { v?: unknown }).v : undefined;
+  const parsed = answer ? answerValueSchema.safeParse(answer.value) : undefined;
+  const value = parsed?.success && 'v' in parsed.data ? parsed.data.v : undefined;
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
+/** Every volunteer of the project, page by page. */
+async function allVolunteers(projectId: string) {
+  const rows = [];
+  let cursor: string | null = null;
+  do {
+    const page = await assignments(projectId, cursor);
+    rows.push(...page.data);
+    cursor = page.meta.nextCursor;
+  } while (cursor);
+  return rows;
+}
+
 /**
- * The verification of a public or offline entry: a link to the profile the entry's number already
- * has, shown with the lookup's own fields (never the whole profile), or a new profile made from
- * the entry; either one may take a volunteer of the project as its owner, or stay the office's.
- * A blocked person's entry can only be refused, which the record's own button does.
+ * The verification of a public or offline entry: the entry's number is looked up now, through the
+ * audited lookup. A profile that holds it is shown with the lookup's own fields (never the whole
+ * profile) and the entry is linked to it; without one a new profile is made from the entry; a
+ * blocked person's entry can only be refused, which the record's own button does. Either way the
+ * application may take a volunteer of the project as its owner, or stay the office's.
  */
 export function VerifyDialog({
   application: a,
   etag,
-  action,
   onClose,
   onDone,
 }: {
   application: OfficeApplication;
   etag: string;
-  action: 'verify_link' | 'verify_create';
   onClose: () => void;
-  onDone: () => Promise<unknown> | void;
+  onDone: (action: 'verify_link' | 'verify_create') => Promise<unknown> | void;
 }) {
   const t = useTranslations('applications.office.verify');
   const tc = useTranslations('common');
@@ -50,22 +73,32 @@ export function VerifyDialog({
           ? { nid: number ?? '', projectId: a.projectId }
           : { birthReg: number ?? '', projectId: a.projectId },
       ),
-    enabled: action === 'verify_link' && Boolean(number),
+    enabled: Boolean(number),
   });
   const people = useQuery({
     queryKey: [...volunteersKey(a.projectId), 'verify'],
-    queryFn: async () => (await assignments(a.projectId, null)).data,
+    queryFn: () => allVolunteers(a.projectId),
   });
-  const found = lookup.data?.found && !lookup.data.blocked ? lookup.data.autofill : undefined;
+  const blocked = Boolean(lookup.data?.blocked);
+  const found = lookup.data?.found && !blocked ? lookup.data.autofill : undefined;
+  // the lookup decides: a known number links, an unknown one makes the profile
+  const action: 'verify_link' | 'verify_create' | null = !number
+    ? 'verify_create'
+    : lookup.data
+      ? blocked
+        ? null
+        : found
+          ? 'verify_link'
+          : 'verify_create'
+      : null;
   const send = useMutation({
-    mutationFn: () =>
-      officeAct(a.id, etag, action, {
-        ...(action === 'verify_link' && found ? { linkBeneficiaryId: found.beneficiaryId } : {}),
+    mutationFn: (chosen: 'verify_link' | 'verify_create') =>
+      officeAct(a.id, etag, chosen, {
+        ...(chosen === 'verify_link' && found ? { linkBeneficiaryId: found.beneficiaryId } : {}),
         ...(owner ? { ownerVolunteerId: owner } : {}),
       }),
-    onSuccess: () => onDone(),
+    onSuccess: (_, chosen) => onDone(chosen),
   });
-  const ready = action === 'verify_create' || Boolean(found);
   const failure =
     send.error instanceof ApiFailure
       ? (send.error.details[0]?.message ?? send.error.message)
@@ -74,7 +107,7 @@ export function VerifyDialog({
         : null;
   return (
     <Modal
-      title={t(action === 'verify_link' ? 'link_title' : 'create_title')}
+      title={t('title')}
       size="sm"
       isOpen
       onClose={onClose}
@@ -87,45 +120,51 @@ export function VerifyDialog({
       primaryAction={
         <Button
           variant="primary"
-          onPress={() => send.mutate()}
-          disabled={!ready}
+          onPress={() => action && send.mutate(action)}
+          disabled={!action || people.isError}
           loading={send.isPending}
         >
-          {t(action === 'verify_link' ? 'confirm_link' : 'confirm_create')}
+          {t(action === 'verify_create' ? 'confirm_create' : 'confirm_link')}
         </Button>
       }
     >
       <Stack gap={3}>
-        {action === 'verify_link' ? (
-          lookup.isPending ? (
-            <Skeleton shape="text" />
-          ) : lookup.data?.blocked ? (
-            <Alert tone="danger">{t('blocked')}</Alert>
-          ) : found ? (
-            <>
-              <Text weight="bold">{t('profile')}</Text>
-              <DescriptionList
-                labelWidth="md"
-                items={[
-                  { label: t('ben_no'), value: formatBenNo(found.benNo) },
-                  { label: t('name'), value: found.name },
-                  { label: t('father'), value: found.fatherOrHusbandName },
-                ]}
-              />
-            </>
-          ) : (
-            <Alert tone="warning">{t('not_found')}</Alert>
-          )
+        {number && lookup.isPending ? (
+          <Skeleton shape="text" />
+        ) : lookup.isError ? (
+          <ErrorState
+            title={tc('state.error.text')}
+            requestId={lookup.error instanceof ApiFailure ? lookup.error.requestId : undefined}
+            onRetry={() => void lookup.refetch()}
+          />
+        ) : blocked ? (
+          <Alert tone="danger">{t('blocked')}</Alert>
+        ) : found ? (
+          <>
+            <Text weight="bold">{t('profile')}</Text>
+            <DescriptionList
+              labelWidth="md"
+              items={[
+                { label: t('ben_no'), value: formatBenNo(found.benNo) },
+                { label: t('name'), value: found.name },
+                { label: t('father'), value: found.fatherOrHusbandName },
+              ]}
+            />
+          </>
         ) : (
           <Text tone="muted">{t('create_help')}</Text>
         )}
-        <Select
-          label={t('owner')}
-          helper={t('owner_help')}
-          value={owner}
-          options={(people.data ?? []).map((p) => ({ id: p.volunteerId, label: p.displayName }))}
-          onChange={setOwner}
-        />
+        {people.isError ? (
+          <ErrorState title={tc('state.error.text')} onRetry={() => void people.refetch()} />
+        ) : (
+          <Select
+            label={t('owner')}
+            helper={t('owner_help')}
+            value={owner}
+            options={(people.data ?? []).map((p) => ({ id: p.volunteerId, label: p.displayName }))}
+            onChange={setOwner}
+          />
+        )}
         {failure ? <Alert tone="danger">{failure}</Alert> : null}
       </Stack>
     </Modal>
