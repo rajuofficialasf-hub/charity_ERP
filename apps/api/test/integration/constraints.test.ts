@@ -260,7 +260,7 @@ describe('applications', () => {
     );
   });
 
-  it('a submitted application has its person; a draft, a public entry, a rejected one and a deleted one may lack it (BR-104)', async () => {
+  it('a submitted application has its person; a draft, a public entry, a rejected one and a deleted one may lack it', async () => {
     const p = await f.project(db);
     await expectSqlError(
       f.application(db, { project: p, loc }),

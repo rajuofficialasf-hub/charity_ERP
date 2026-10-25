@@ -192,7 +192,7 @@ export async function activeProject(
 export interface SetupOptions {
   /** November and December 2026 unless given. */
   window?: { from: string; to: string };
-  /** Zakat unless given; a zakat project needs the zakat decision of T2.6 before an approval. */
+  /** Zakat unless given; a zakat project needs the zakat decision, which no screen writes yet, before an approval. */
   fundSource?: string;
 }
 

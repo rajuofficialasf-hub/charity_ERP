@@ -104,6 +104,16 @@ const openOwn = (page: Page, appNo: string) =>
     .getByRole('link', { name: 'আবেদন দেখুন' })
     .click();
 
+/** A desktop page of its own for an official, closed whatever happens on it. */
+async function onDesk<T>(browser: Browser, work: (desk: Page) => Promise<T>): Promise<T> {
+  const context = await browser.newContext({ ...devices['Desktop Chrome'] });
+  try {
+    return await work(await context.newPage());
+  } finally {
+    await context.close();
+  }
+}
+
 const noViolations = async (page: Page, where: string) =>
   expect((await scan(page)).violations, where).toEqual([]);
 
@@ -112,15 +122,14 @@ const noViolations = async (page: Page, where: string) =>
  * assigned and consenting, and the Project Executive given the Dhaka area on the project.
  */
 async function projectOfTheJourney(browser: Browser, request: APIRequestContext) {
-  const officials = await browser.newContext({ ...devices['Desktop Chrome'] });
-  const desk = await officials.newPage();
-  await signIn(desk, PM);
-  await openTab(desk, 'প্রকল্প');
-  const projectId = await activeProject(desk, `আবেদনের যাত্রা ${code()}`, ERR, PM, FORM, {
-    window: windowAroundToday(),
-    fundSource: 'সাধারণ দান',
+  const projectId = await onDesk(browser, async (desk) => {
+    await signIn(desk, PM);
+    await openTab(desk, 'প্রকল্প');
+    return activeProject(desk, `আবেদনের যাত্রা ${code()}`, ERR, PM, FORM, {
+      window: windowAroundToday(),
+      fundSource: 'সাধারণ দান',
+    });
   });
-  await officials.close();
   const head = await apiAs(request, HEAD);
   const volunteers = await head.get(`/volunteers?q=${VOLUNTEER}`);
   expect(volunteers.ok()).toBe(true);
@@ -218,50 +227,50 @@ test.describe('the application cycle', () => {
     await noViolations(page, 'the own record');
 
     // the Project Executive: the list, the record, the review and the send for approval
-    const office = await browser.newContext({ ...devices['Desktop Chrome'] });
-    const desk = await office.newPage();
-    await signIn(desk, EXECUTIVE);
-    await desk.goto(`/admin/projects/${projectId}/applications`);
-    await expect(desk.getByRole('heading', { level: 1, name: /^আবেদন: / })).toBeVisible();
-    await expect(desk.getByText(appNo!).first()).toBeVisible();
-    await noViolations(desk, 'the office list');
-    await desk.getByRole('link', { name }).first().click();
-    await expect(desk.getByRole('heading', { level: 1, name })).toBeVisible();
-    await desk.getByRole('button', { name: 'রিভিউ শুরু' }).click();
-    await expect(desk.getByText('রিভিউ শুরু হয়েছে।')).toBeVisible();
-    const steps = desk.getByRole('list', { name: 'আবেদনের ধাপ' });
-    await expect(steps).toContainText('পর্যালোচনা চলছে');
-    await expect(steps).toContainText('প্রজেক্ট এক্সিকিউটিভ');
-    await noViolations(desk, 'the review page');
-    await desk.getByRole('button', { name: 'অনুমোদনের জন্য পাঠান' }).click();
-    await expect(desk.getByText('অনুমোদনের জন্য পাঠানো হয়েছে।')).toBeVisible();
-    const recordUrl = desk.url();
-    await office.close();
+    const recordUrl = await onDesk(browser, async (desk) => {
+      await signIn(desk, EXECUTIVE);
+      await desk.goto(`/admin/projects/${projectId}/applications`);
+      await expect(desk.getByRole('heading', { level: 1, name: /^আবেদন: / })).toBeVisible();
+      await expect(desk.getByText(appNo!).first()).toBeVisible();
+      await noViolations(desk, 'the office list');
+      await desk.getByRole('link', { name }).first().click();
+      await expect(desk.getByRole('heading', { level: 1, name })).toBeVisible();
+      await desk.getByRole('button', { name: 'রিভিউ শুরু' }).click();
+      await expect(desk.getByText('রিভিউ শুরু হয়েছে।')).toBeVisible();
+      const steps = desk.getByRole('list', { name: 'আবেদনের ধাপ' });
+      await expect(steps).toContainText('পর্যালোচনা চলছে');
+      await expect(steps).toContainText('প্রজেক্ট এক্সিকিউটিভ');
+      await noViolations(desk, 'the review page');
+      await desk.getByRole('button', { name: 'অনুমোদনের জন্য পাঠান' }).click();
+      await expect(desk.getByText('অনুমোদনের জন্য পাঠানো হয়েছে।')).toBeVisible();
+      return desk.url();
+    });
 
     // the Dhaka RPM: the approval moves on into implementation by itself; the badge and the six
     // steps (the draft, the send, the review, the wait, the approval, the implementation) with
     // their names
-    const region = await browser.newContext({ ...devices['Desktop Chrome'] });
-    const rpm = await region.newPage();
-    await signIn(rpm, RPM);
-    await rpm.goto(recordUrl);
-    await expect(rpm.getByRole('heading', { level: 1, name })).toBeVisible();
-    await rpm.getByRole('button', { name: 'অনুমোদন করুন' }).click();
-    await expect(rpm.getByText('আবেদন অনুমোদিত হয়েছে।')).toBeVisible();
-    await expect(rpm.getByRole('definition').filter({ hasText: 'বাস্তবায়ন চলছে' })).toBeVisible();
-    const trail = rpm.getByRole('list', { name: 'আবেদনের ধাপ' });
-    await expect(trail.getByRole('listitem')).toHaveCount(6);
-    await expect(trail.getByRole('listitem')).toContainText([
-      'খসড়া',
-      'অফিসে পাঠানো হয়েছে',
-      'পর্যালোচনা চলছে',
-      'অনুমোদনের অপেক্ষায়',
-      'অনুমোদিত',
-      'বাস্তবায়ন চলছে',
-    ]);
-    await expect(trail).toContainText('প্রজেক্ট এক্সিকিউটিভ');
-    await expect(trail).toContainText('আরপিএম ঢাকা');
-    await region.close();
+    await onDesk(browser, async (rpm) => {
+      await signIn(rpm, RPM);
+      await rpm.goto(recordUrl);
+      await expect(rpm.getByRole('heading', { level: 1, name })).toBeVisible();
+      await rpm.getByRole('button', { name: 'অনুমোদন করুন' }).click();
+      await expect(rpm.getByText('আবেদন অনুমোদিত হয়েছে।')).toBeVisible();
+      await expect(
+        rpm.getByRole('definition').filter({ hasText: 'বাস্তবায়ন চলছে' }),
+      ).toBeVisible();
+      const trail = rpm.getByRole('list', { name: 'আবেদনের ধাপ' });
+      await expect(trail.getByRole('listitem')).toHaveCount(6);
+      await expect(trail.getByRole('listitem')).toContainText([
+        'খসড়া',
+        'অফিসে পাঠানো হয়েছে',
+        'পর্যালোচনা চলছে',
+        'অনুমোদনের অপেক্ষায়',
+        'অনুমোদিত',
+        'বাস্তবায়ন চলছে',
+      ]);
+      await expect(trail).toContainText('প্রজেক্ট এক্সিকিউটিভ');
+      await expect(trail).toContainText('আরপিএম ঢাকা');
+    });
 
     // the volunteer reads the outcome without the office's names
     await page.goto('/my-applications?tab=approved');
