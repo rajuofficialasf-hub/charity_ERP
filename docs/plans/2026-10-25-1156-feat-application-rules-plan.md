@@ -337,4 +337,5 @@ None blocking. Assumptions the plan works from (the owner may correct them at pl
 - DECISION_LOG holds the scoring decision before U2's code, BUSINESS_RULES the rules and their test status
 - Code from abandoned attempts is removed
 
-<!-- ae-work adds this while status is in-progress, and removes it at done -->
+## Lessons
+Reviewed at C1 43f11b2, C2 4664680, C3 d2ccbf8, C4 ae958a5, C5 3acfcc5, C6 30c977c, C7 480c76e (logic, security and standards reviewers) and C8 9488ee6 (code reviewer on the journeys and documents, scripted checks on the whole branch). What the checkpoints taught: a value set in the engine's `beforeApply` is not on the row when the guards or the person binding read it; every reader of an application's creator (the file layer included) must follow a change of who reaches it; `SKIP LOCKED` skips rows any write holds, so the pull takes a per-project advisory lock; a flag stored at arrival is a snapshot, so the screen decides from a live lookup; an idempotency key belongs to the attempt; a failed query shows its error, never an empty result; the set's checkbox input is visually hidden (Playwright ticks it with `force`), and Chrome names a button with hidden text with a space before it.
