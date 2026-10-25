@@ -54,6 +54,7 @@ import { RecipientResolver } from './notifications/recipients';
 import { AuditLogService } from './services/audit-log';
 import { ChannelsService } from './services/channels';
 import { NisabService } from './services/nisab';
+import { ProjectQuotasService } from './services/project-quotas';
 import { ScoringService } from './applications/scoring';
 import { ProgramsService } from './services/programs';
 import { ReferenceListsService } from './services/reference-lists';
@@ -173,6 +174,7 @@ export interface Container {
   systemHealth: SystemHealthService;
   projects: ProjectsService;
   projectSetup: ProjectSetupService;
+  projectQuotas: ProjectQuotasService;
   projectLifecycle: ProjectLifecycleService;
   projectRules: ProjectRulesService;
   myProjects: MyProjectsService;
@@ -442,6 +444,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     projectSetup:
       o.projectSetup ??
       new ProjectSetupService(prisma, audit, access, projects, permissionVersions),
+    projectQuotas: o.projectQuotas ?? new ProjectQuotasService(prisma, audit, access, projects),
     projectLifecycle:
       o.projectLifecycle ??
       new ProjectLifecycleService(prisma, audit, projects, clock, projectEvents),

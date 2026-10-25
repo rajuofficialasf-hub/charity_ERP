@@ -731,7 +731,8 @@
         "staff": "Staff access",
         "syllabus": "Dawah syllabus",
         "review": "Review",
-        "rules": "Rules"
+        "rules": "Rules",
+        "quotas": "Quotas"
       },
       "saved": "Saved.",
       "stale": "Someone changed this part meanwhile. The latest version is shown now; save again.",
@@ -766,7 +767,8 @@
       "no_areas": "No area yet.",
       "level": {
         "division": "Division",
-        "district": "District"
+        "district": "District",
+        "union": "Union"
       },
       "remove_area": "Remove the area {name}",
       "add_area": "Add an area",
@@ -868,7 +870,16 @@
           "dedup_identical": "Warn on identical photos"
         }
       },
-      "open_forms": "Open the form builder"
+      "open_forms": "Open the form builder",
+      "quotas_hint": "How many people to help in each district or union. The review screen shows each area's target, what came and what was approved. A full quota never stops an approval, but asks for a comment.",
+      "no_quotas": "No quotas yet.",
+      "add_quota": "Add a quota",
+      "quota_target": "Target",
+      "quota_target_of": "{name}: target",
+      "remove_quota": "Remove the quota of {name}",
+      "save_quotas": "Save the quotas",
+      "quota_incomplete": "Give every quota its target.",
+      "quota_progress": "Target {target} · came {received} · approved {approved}"
     },
     "picker_failed": "The projects could not be loaded.",
     "picker_chosen": "The chosen project",

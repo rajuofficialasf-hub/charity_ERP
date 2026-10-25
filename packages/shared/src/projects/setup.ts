@@ -82,3 +82,23 @@ export const syllabusSchema = z.strictObject({
     }, 'a topic id appears twice'),
 });
 export type Syllabus = z.infer<typeof syllabusSchema>;
+
+/**
+ * The quota targets of a project, replacing the stored list (DECISION_LOG D-132): a district or a
+ * union each, at most once; an empty list takes every quota away.
+ */
+export const quotaTargetsSchema = z.strictObject({
+  quotas: z
+    .array(
+      z.strictObject({
+        level: z.enum(['district', 'union']),
+        locationId: z.uuid(),
+        target: z.number().int().min(0).max(1_000_000),
+      }),
+    )
+    .max(500)
+    .refine((list) => new Set(list.map((q) => q.locationId)).size === list.length, {
+      message: 'validation.duplicate',
+    }),
+});
+export type QuotaTargets = z.infer<typeof quotaTargetsSchema>;

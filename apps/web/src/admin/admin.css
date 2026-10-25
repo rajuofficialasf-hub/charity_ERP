@@ -267,6 +267,14 @@
   flex: 1 1 auto;
   min-width: 0;
 }
+/* a quota's target beside its remove button; the row wraps under the place on a phone */
+.admin-setup-quota-edit {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+  max-width: 12rem;
+}
 .admin-setup-checks {
   display: flex;
   flex-wrap: wrap;

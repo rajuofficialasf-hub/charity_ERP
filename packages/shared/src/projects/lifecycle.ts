@@ -52,7 +52,8 @@ export type SetupField =
   | 'areas'
   | 'staff'
   | 'syllabus'
-  | 'rules';
+  | 'rules'
+  | 'quotas';
 
 /** The end date moves only through the reasoned deadline extension once a project is active. */
 const FIXED_WHEN_ACTIVE: readonly SetupField[] = [...IDENTITY_FIELDS, 'applyTo'];

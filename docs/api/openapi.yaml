@@ -2561,26 +2561,6 @@ components:
             properties:
               id: { type: string, format: uuid }
               title: { $ref: '#/components/schemas/BoundedLabel' }
-    Quota:
-      type: object
-      required: [level, locationId, target]
-      properties:
-        level: { type: string, enum: [district, union] }
-        locationId: { $ref: '#/components/schemas/Uuid' }
-        target: { type: integer, minimum: 0 }
-        approvedCount: { type: integer, readOnly: true }
-        receivedCount: { type: integer, readOnly: true, description: Applications received in the area }
-    QuotaList:
-      type: object
-      required: [data, meta]
-      properties:
-        data: { type: array, items: { $ref: '#/components/schemas/Quota' } }
-        meta: { $ref: '#/components/schemas/ListMeta' }
-    QuotaReplace:
-      type: object
-      required: [quotas]
-      properties:
-        quotas: { type: array, items: { $ref: '#/components/schemas/Quota' } }
     FundSource:
       type: object
       required: [source, label, amount]
@@ -2607,6 +2587,40 @@ components:
               source: { type: string, enum: [zakat, sadaqah, general, donor] }
               label: { type: string, minLength: 1, maxLength: 200 }
               amount: { type: string, pattern: '^\d{1,12}(\.\d{1,2})?$' }
+    QuotaProgress:
+      type: object
+      required: [level, locationId, locationName, target, received, approved, full]
+      properties:
+        level: { type: string, enum: [district, union] }
+        locationId: { $ref: '#/components/schemas/Uuid' }
+        locationName: { $ref: '#/components/schemas/Bilingual' }
+        target: { type: integer, minimum: 0 }
+        received: { type: integer, minimum: 0, description: 'Applications of the area that reached the office (not draft, deleted or waiting for verification)' }
+        approved: { type: integer, minimum: 0, description: Applications of the area with an approval }
+        full: { type: boolean, description: 'The approvals reached the target; an approval there asks for a comment, it is never refused (D-132)' }
+    QuotaList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/QuotaProgress' } }
+        meta: { $ref: '#/components/schemas/Meta' }
+    QuotaReplace:
+      type: object
+      additionalProperties: false
+      required: [quotas]
+      properties:
+        quotas:
+          type: array
+          maxItems: 500
+          description: The targets replacing the stored list, each place at most once; an empty list takes every quota away
+          items:
+            type: object
+            additionalProperties: false
+            required: [level, locationId, target]
+            properties:
+              level: { type: string, enum: [district, union] }
+              locationId: { $ref: '#/components/schemas/Uuid' }
+              target: { type: integer, minimum: 0, maximum: 1000000 }
     FundSourceList:
       type: object
       required: [data, meta]
@@ -7116,7 +7130,7 @@ paths:
     get:
       tags: [projects]
       operationId: projects.quota.list
-      summary: District and union quotas with received and approved counts (BR-098); not paginated
+      summary: District and union quotas with the applications received and approved in each (BR-098; officials only); not paginated
       x-permission: project.view
       x-scope: project
       x-audit: none
@@ -7124,15 +7138,22 @@ paths:
       x-rate-limit: default
       responses:
         '200':
-          description: Quotas
+          description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/QuotaList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       tags: [projects]
       operationId: projects.quota.replace
-      summary: Replace the quota targets
+      summary: Replace the district and union quota targets of a project
+      description: >-
+        The PM of the project's program sets the targets in the setup, also while the project runs
+        (D-132); each place must be a district or a union inside one of the project's areas and of
+        the level named (422 otherwise); a closed project refuses the change (409 project.read_only).
+        A full quota never refuses an approval: the approval asks for a comment.
       x-permission: project.quota.manage
       x-scope: project
       x-audit: project.quota_change
@@ -7145,11 +7166,14 @@ paths:
             schema: { $ref: '#/components/schemas/QuotaReplace' }
       responses:
         '200':
-          description: Quotas
+          description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/QuotaList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /projects/{projectId}/fund-sources:
     parameters:
