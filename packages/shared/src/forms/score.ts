@@ -1,5 +1,6 @@
 import type { FieldType } from './library.js';
-import type { FormDefinition, FormField } from './definition.js';
+import type { AnswerValue } from '../jsonb/answer-value.js';
+import type { FieldOption, FormDefinition, FormField } from './definition.js';
 import { evaluate, plainOf, type Answer, type EvaluationContext } from './evaluate.js';
 
 /** The highest priority score; points beyond it are not counted. */
@@ -44,7 +45,10 @@ function maxOf(field: FormField): number {
 /** The questions that carry points, in the order of the form. */
 function scoredFields(definition: FormDefinition): FormField[] {
   return definition.sections.flatMap((s) =>
-    s.fields.filter((f) => f.settings?.score && scoreKindOf(f.type) !== null),
+    s.fields.filter(
+      (f) =>
+        maxOf(f) > 0 && scoreKindOf(f.type) !== null && f.settings?.repeat?.group === undefined,
+    ),
   );
 }
 
@@ -108,38 +112,21 @@ export function scoreOf(
   const byKey = new Map(
     answers.filter((a) => (a.repeatIndex ?? 0) === 0).map((a) => [a.fieldKey, a.value]),
   );
-  const items: ScoreItem[] = scoredFields(definition)
-    .filter((field) => !field.settings?.repeat?.group)
-    .map((field) => {
-      const score = field.settings!.score!;
-      const max = maxOf(field);
-      const visible = evaluation.fields[field.fieldKey]?.visible ?? false;
-      const stored = byKey.get(field.fieldKey);
-      let input: unknown = null;
-      let earned = 0;
-      if (visible && scoreKindOf(field.type) === 'options' && stored) {
-        const chosen = plainOf(stored);
-        const codes = Array.isArray(chosen) ? chosen : chosen === null ? [] : [String(chosen)];
-        input = Array.isArray(chosen) ? codes : (codes[0] ?? null);
-        earned = codes.reduce((sum, code) => sum + (score.options?.[code] ?? 0), 0);
-      } else if (visible && scoreKindOf(field.type) === 'ranges') {
-        const value = numberOf(
-          field.type === 'calculation'
-            ? evaluation.computed[field.fieldKey]
-            : stored
-              ? plainOf(stored)
-              : null,
-        );
-        input = value;
-        if (value !== null)
-          earned =
-            score.ranges?.find(
-              (r) =>
-                (r.min === undefined || value >= r.min) && (r.max === undefined || value <= r.max),
-            )?.points ?? 0;
-      }
-      return { key: field.fieldKey, label: field.label, input, max_points: max, points: earned };
-    });
+  const items: ScoreItem[] = scoredFields(definition).map((field) => {
+    const state = evaluation.fields[field.fieldKey];
+    const stored = byKey.get(field.fieldKey);
+    const read = !state?.visible
+      ? { input: null, points: 0 }
+      : scoreKindOf(field.type) === 'options'
+        ? optionPoints(field, stored, state.options)
+        : rangePoints(
+            field,
+            field.type === 'calculation'
+              ? evaluation.computed[field.fieldKey]
+              : stored && plainOf(stored),
+          );
+    return { key: field.fieldKey, label: field.label, max_points: maxOf(field), ...read };
+  });
   const criterion = definition.scoring?.not_previously_assisted ?? 0;
   if (criterion > 0)
     items.push({
@@ -150,4 +137,30 @@ export function scoreOf(
     });
   const sum = items.reduce((total, item) => total + item.points, 0);
   return { items, total: Math.min(MAX_SCORE, sum) };
+}
+
+/** The points of the chosen options the question offers now; a multiple choice adds them. */
+function optionPoints(
+  field: FormField,
+  stored: AnswerValue | undefined,
+  offered: readonly FieldOption[],
+): { input: unknown; points: number } {
+  const chosen = stored ? plainOf(stored) : null;
+  const multiple = Array.isArray(chosen);
+  const codes = multiple ? chosen : chosen === null ? [] : [String(chosen)];
+  const available = new Set(offered.map((o) => o.code));
+  const points = codes
+    .filter((code) => available.has(code))
+    .reduce((sum, code) => sum + (field.settings?.score?.options?.[code] ?? 0), 0);
+  return { input: multiple ? codes : (codes[0] ?? null), points };
+}
+
+/** The points of the first range a number falls in, or none for an empty answer. */
+function rangePoints(field: FormField, raw: unknown): { input: unknown; points: number } {
+  const value = numberOf(raw);
+  if (value === null) return { input: null, points: 0 };
+  const range = field.settings?.score?.ranges?.find(
+    (r) => (r.min === undefined || value >= r.min) && (r.max === undefined || value <= r.max),
+  );
+  return { input: value, points: range?.points ?? 0 };
 }

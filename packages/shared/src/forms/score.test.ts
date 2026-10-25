@@ -144,6 +144,28 @@ describe('the score of an application', () => {
     expect(score(definitionWith([field('note', 'short_text')]), [], true)).toBeNull();
   });
 
+  it('gives no score to a form whose only points setting is empty', () => {
+    const empty = field('empty', 'radio', { options: [option('a')], settings: { score: {} } });
+    expect(score(scored([empty]), [answer('empty', { t: 'radio', v: 'a' })])).toBeNull();
+  });
+
+  it('gives no points to an option the branching no longer offers', () => {
+    const area = field('area', 'radio', { options: [option('city'), option('village')] });
+    const house = field('house', 'radio', {
+      logic: { options_depend_on: 'area' },
+      options: [
+        option('flat', { dependsOnOptionCode: 'city' }),
+        option('hut', { dependsOnOptionCode: 'village' }),
+      ],
+      settings: { score: { options: { hut: 10, flat: 2 } } },
+    });
+    const result = score(scored([area, house]), [
+      answer('area', { t: 'radio', v: 'city' }),
+      answer('house', { t: 'radio', v: 'hut' }),
+    ]);
+    expect(result?.total).toBe(0);
+  });
+
   it('reads the maximum a form can give', () => {
     expect(maxScoreOf(scored([kind, needs, income, members], 20))).toBe(110);
     expect(maxScoreOf(definitionWith([]))).toBe(0);
@@ -186,6 +208,13 @@ describe('the points at publish', () => {
       settings: { repeat: { group: 'family' }, score: { ranges: [{ min: 60, points: 10 }] } },
     });
     expect(atPublish(scored([group, inside]))).toEqual([['form.score_misplaced', 'age']]);
+  });
+
+  it('refuses a range that starts above where it ends', () => {
+    const turned = field('turned', 'number', {
+      settings: { score: { ranges: [{ min: 10, max: 5, points: 5 }] } },
+    });
+    expect(atPublish(scored([turned]))).toEqual([['form.score_range_invalid', 'turned']]);
   });
 
   it('lets a draft keep points the publish would refuse', () => {

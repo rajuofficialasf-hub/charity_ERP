@@ -244,6 +244,7 @@
     "official_only_field": "This question is for officials only.",
     "unexpected_answer": "This question takes no answer.",
     "duplicate_answer": "This question was answered twice.",
+    "score_range_invalid": "A points range starts above where it ends. Correct the range.",
     "score_misplaced": "This question cannot carry points. Give points only to a choice or a number question, outside a list.",
     "score_option_unknown": "Points are set for an option this question does not have.",
     "score_over_max": "The form's points cannot add up to more than 100. Lower some of them.",

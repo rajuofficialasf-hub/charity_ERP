@@ -177,6 +177,7 @@ export const DEFINITION_ISSUE_CODES = [
   'form.score_misplaced',
   'form.score_option_unknown',
   'form.score_over_max',
+  'form.score_range_invalid',
 ] as const;
 export type DefinitionIssueCode = (typeof DEFINITION_ISSUE_CODES)[number];
 
@@ -541,6 +542,16 @@ export function checkDefinition(
         });
         continue;
       }
+      if (
+        (score.ranges ?? []).some(
+          (r) => r.min !== undefined && r.max !== undefined && r.min > r.max,
+        )
+      )
+        issues.push({
+          code: 'form.score_range_invalid',
+          path: fieldPath(located, 'settings', 'score', 'ranges'),
+          params: { fieldKey: field.fieldKey },
+        });
       const known = new Set((field.options ?? []).map((o) => o.code));
       if (Object.keys(score.options ?? {}).some((code) => !known.has(code)))
         issues.push({

@@ -4,6 +4,7 @@ import {
   definitionFromTemplate,
   type FieldOption,
   fieldLogicSchema,
+  type FieldSettings,
   fieldSettingsSchema,
   FORM_KINDS,
   type FormCreate,
@@ -622,8 +623,18 @@ export class FormsService {
 }
 
 /**
+ * A question's settings for an audience: the points of the priority score are the office's, so a
+ * volunteer or a public-link visitor never learns which answer raises the score.
+ */
+function settingsFor(settings: FieldSettings, audience: FormAudience): FieldSettings {
+  if (audience === 'official' || settings.score === undefined) return settings;
+  const { score: _score, ...rest } = settings;
+  return rest;
+}
+
+/**
  * The definition of a version in the shared shape: every section for an official, the
- * volunteer-visible ones for everyone else.
+ * volunteer-visible ones for everyone else, without the points of the score.
  */
 export async function readDefinition(
   db: Tx,
@@ -684,7 +695,7 @@ export async function readDefinition(
         label: { bn: x.labelBn, en: x.labelEn },
         required: x.required,
         standardColumn: x.standardColumn,
-        settings: fieldSettingsSchema.parse(x.settings ?? {}),
+        settings: settingsFor(fieldSettingsSchema.parse(x.settings ?? {}), audience),
         ...(x.logic === null ? {} : { logic: fieldLogicSchema.parse(x.logic) }),
         ...(x.calculation === null ? {} : { calculation: calculationSchema.parse(x.calculation) }),
         options: x.fieldOptionsFormField.map((o): FieldOption => ({

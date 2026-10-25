@@ -259,7 +259,8 @@ describe('creating a draft', () => {
           password: PASSWORD,
           device: { name: 'Test device', platform: 'android', appVersion: '1.0.0' },
         });
-      expect(fresh.status, JSON.stringify(fresh.body)).not.toBe(200);
+      expect(fresh.status, JSON.stringify(fresh.body)).toBe(403);
+      expect(fresh.body.error.code).toBe('auth.account_blocked');
     } finally {
       await h.db.query(
         `UPDATE blocklist SET active = false, released_by = $2, released_at = now(), release_reason = 'test' WHERE id = $1`,
