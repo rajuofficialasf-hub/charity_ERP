@@ -115,6 +115,7 @@ describe('the quotas of a project', () => {
     const elsewhere = await f.locationTree(h.db);
     for (const quotas of [
       [{ level: 'union', locationId: world.dhaka.union, target: -1 }],
+      [{ level: 'union', locationId: world.dhaka.union, target: 0 }],
       [{ level: 'district', locationId: elsewhere.district, target: 5 }],
       [{ level: 'union', locationId: world.dhaka.district, target: 5 }],
       [{ level: 'upazila', locationId: world.dhaka.upazila, target: 5 }],
@@ -137,7 +138,10 @@ describe('the quotas of a project', () => {
       otherPm.id,
       world.b1.program,
     ]);
-    expect([403, 404]).toContain((await put(await as(otherPm.id), world.a1.id, quotas)).status);
+    // the project is outside the other PM's reach, so it is not found for them
+    const foreign = await put(await as(otherPm.id), world.a1.id, quotas);
+    expect(foreign.status).toBe(404);
+    expect(foreign.body.error.code).toBe('permission.not_found');
     const volunteer = await as(world.users.general);
     expect((await at(volunteer, 'get', `/projects/${world.a1.id}/quotas`)).status).toBe(403);
     const closed = await f.project(h.db, { program_id: world.a1.program, status: 'closed' });
@@ -146,5 +150,16 @@ describe('the quotas of a project', () => {
       [randomUUID(), closed.id, world.dhaka.division, world.users.rpmDhaka],
     );
     expect((await put(await as(world.users.pm), closed.id, quotas)).status).toBe(409);
+  });
+
+  it('asks for a session, and does not know a project that does not exist', async () => {
+    for (const method of ['get', 'patch'] as const)
+      expect((await api()[method](`/api/v1/projects/${world.a1.id}/quotas`).send({})).status).toBe(
+        401,
+      );
+    const pm = await as(world.users.pm);
+    const missing = randomUUID();
+    expect((await at(pm, 'get', `/projects/${missing}/quotas`)).status).toBe(404);
+    expect((await put(pm, missing, [])).status).toBe(404);
   });
 });

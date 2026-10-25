@@ -84,7 +84,7 @@ export const syllabusSchema = z.strictObject({
 export type Syllabus = z.infer<typeof syllabusSchema>;
 
 /**
- * The quota targets of a project, replacing the stored list (DECISION_LOG D-132): a district or a
+ * The quota targets of a project, replacing the stored list: a district or a
  * union each, at most once; an empty list takes every quota away.
  */
 export const quotaTargetsSchema = z.strictObject({
@@ -93,7 +93,8 @@ export const quotaTargetsSchema = z.strictObject({
       z.strictObject({
         level: z.enum(['district', 'union']),
         locationId: z.uuid(),
-        target: z.number().int().min(0).max(1_000_000),
+        // a target of none means no quota, so a quota always has a target of one or more
+        target: z.number().int().min(1).max(1_000_000),
       }),
     )
     .max(500)

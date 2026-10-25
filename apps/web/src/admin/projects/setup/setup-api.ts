@@ -73,7 +73,7 @@ export interface Area {
 export const areas = (projectId: string) => api<Area[]>(`/projects/${projectId}/areas`);
 export const addArea = (projectId: string, body: AreaCreate) =>
   api<Area[]>(`/projects/${projectId}/areas`, { method: 'POST', body });
-/** A quota with what came and what was approved in its place (DECISION_LOG D-132). */
+/** A quota with what came and what was approved in its place. */
 export interface Quota {
   level: 'district' | 'union';
   locationId: string;

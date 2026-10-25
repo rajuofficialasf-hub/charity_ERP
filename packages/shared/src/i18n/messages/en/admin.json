@@ -878,7 +878,7 @@
       "quota_target_of": "{name}: target",
       "remove_quota": "Remove the quota of {name}",
       "save_quotas": "Save the quotas",
-      "quota_incomplete": "Give every quota its target.",
+      "quota_incomplete": "Give every quota a target of at least 1.",
       "quota_progress": "Target {target} · came {received} · approved {approved}"
     },
     "picker_failed": "The projects could not be loaded.",

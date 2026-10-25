@@ -28,7 +28,7 @@ const sameList = (a: readonly Draft[], b: readonly Quota[]) =>
   a.every((q, i) => q.locationId === b[i]?.locationId && q.target === b[i]?.target);
 
 /**
- * The district and union quotas of the project (DECISION_LOG D-132), set by the PM of the
+ * The district and union quotas of the project, set by the PM of the
  * program: each place with its target and, once applications arrive, what came and what was
  * approved. A full quota only warns at the review; the list is saved as a whole.
  */
@@ -37,9 +37,12 @@ export function QuotasSection({ quotas, manage }: { quotas: Quota[]; manage: boo
   const t = useTranslations('admin.projects.setup');
   const can = manage && editable('quotas');
   const [list, setList] = useState<Draft[]>(() => quotas.map(draftOf));
-  const [seen, setSeen] = useState(quotas);
-  if (quotas !== seen) {
-    setSeen(quotas);
+  // a read that only brings new counts keeps the targets being typed; new targets replace them
+  const targetsOf = (list: readonly Quota[]) =>
+    JSON.stringify(list.map((q) => [q.locationId, q.target]));
+  const [seen, setSeen] = useState(() => targetsOf(quotas));
+  if (targetsOf(quotas) !== seen) {
+    setSeen(targetsOf(quotas));
     setList(quotas.map(draftOf));
   }
   const [place, setPlace] = useState<Address>(EMPTY_ADDRESS);
@@ -47,16 +50,16 @@ export function QuotasSection({ quotas, manage }: { quotas: Quota[]; manage: boo
   const save = useMutation({
     mutationFn: () =>
       saveQuotas(project.id, {
-        quotas: list.map((q) => ({
-          level: q.level,
-          locationId: q.locationId,
-          target: q.target ?? 0,
-        })),
+        quotas: list.flatMap((q) =>
+          q.target === undefined
+            ? []
+            : [{ level: q.level, locationId: q.locationId, target: q.target }],
+        ),
       }),
     onSuccess: refresh,
   });
   const changed = can && !sameList(list, quotas);
-  const incomplete = list.some((q) => q.target === undefined);
+  const incomplete = list.some((q) => q.target === undefined || q.target < 1);
   const problem = useStepSave({
     changed,
     invalid: incomplete ? t('quota_incomplete') : undefined,
@@ -64,7 +67,8 @@ export function QuotasSection({ quotas, manage }: { quotas: Quota[]; manage: boo
   });
   const chosen = place.unionId ?? place.districtId;
   const add = () => {
-    if (!chosen || target === undefined || list.some((q) => q.locationId === chosen)) return;
+    if (!chosen || target === undefined || target < 1 || list.some((q) => q.locationId === chosen))
+      return;
     const union = Boolean(place.unionId);
     setList([
       ...list,
@@ -115,7 +119,7 @@ export function QuotasSection({ quotas, manage }: { quotas: Quota[]; manage: boo
               variant="secondary"
               size="sm"
               icon={Plus}
-              disabled={!place.districtId || target === undefined}
+              disabled={!place.districtId || target === undefined || target < 1}
               onPress={add}
             >
               {t('add_quota')}

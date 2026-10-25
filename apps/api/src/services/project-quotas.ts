@@ -22,7 +22,7 @@ export interface QuotaProgress {
 }
 
 /**
- * The district and union quotas of a project (DECISION_LOG D-132): the PM of its program sets
+ * The district and union quotas of a project: the PM of its program sets
  * them in the setup, also while the project runs, every change audited; the office reads each
  * area's target, the applications received and the ones approved, counted when asked so they
  * never drift from the applications themselves. A quota informs the decision and never refuses it.

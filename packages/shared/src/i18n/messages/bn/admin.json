@@ -878,7 +878,7 @@
       "quota_target_of": "{name}: লক্ষ্য",
       "remove_quota": "{name}-এর কোটা সরান",
       "save_quotas": "কোটা সংরক্ষণ করুন",
-      "quota_incomplete": "প্রতিটি কোটার লক্ষ্য দিন।",
+      "quota_incomplete": "প্রতিটি কোটার লক্ষ্য দিন, কমপক্ষে 1।",
       "quota_progress": "লক্ষ্য {target} · এসেছে {received} · অনুমোদিত {approved}"
     },
     "picker_failed": "প্রকল্পগুলো লোড করা যায়নি।",
