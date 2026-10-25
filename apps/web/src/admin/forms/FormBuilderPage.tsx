@@ -15,7 +15,7 @@ import {
   Text,
 } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, History, Link2 } from 'lucide-react';
+import { Calculator, Eye, History, Link2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -55,6 +55,7 @@ import { PreviewPane } from './PreviewPane';
 import { PublicLinkPanel } from './PublicLinkPanel';
 import { SettingsPane } from './SettingsPane';
 import { detailsOf, useDraftSave } from './use-draft-save';
+import { ScoringDialog } from './ScoringDialog';
 import { VersionList } from './VersionList';
 import './builder.css';
 
@@ -107,6 +108,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   const [viewing, setViewing] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [previewing, setPreviewing] = useState(false);
+  const [scoring, setScoring] = useState(false);
   // the draft before the last removal, so one press brings the question back
   const [undo, setUndo] = useState<{ definition: FormDefinition; label: string } | null>(null);
   // a question of the project's own being asked for: its type, its section and, after a drop,
@@ -201,7 +203,10 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   const [seen, setSeen] = useState<typeof read.data>(undefined);
   if (read.data && read.data !== seen && save.state === 'saved') {
     setSeen(read.data);
-    setDraft({ sections: read.data.data.sections });
+    setDraft({
+      sections: read.data.data.sections,
+      ...(read.data.data.scoring ? { scoring: read.data.data.scoring } : {}),
+    });
     setEtag(read.data.meta.etag);
   }
   const fields: LibraryFields = useMemo(
@@ -240,7 +245,7 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
     // a removal can be undone only until the next change, so the undo never drops later work
     setUndo(null);
     setDraft(next);
-    save.schedule(next.sections);
+    save.schedule(next);
   };
   const remove = (fieldKey: string) => {
     const field = draft.sections.flatMap((s) => s.fields).find((f) => f.fieldKey === fieldKey);
@@ -463,6 +468,9 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
           <Button variant="secondary" icon={Eye} onPress={() => setPreviewing(true)}>
             {t('preview')}
           </Button>
+          <Button variant="secondary" icon={Calculator} onPress={() => setScoring(true)}>
+            {t('scoring_button')}
+          </Button>
           {canStartNext ? (
             <Button onPress={() => next.mutate()} loading={next.isPending}>
               {t('new_version')}
@@ -546,6 +554,14 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
         </Alert>
       ) : null}
       {panesWithDrag}
+      {scoring ? (
+        <ScoringDialog
+          definition={draft}
+          readOnly={mode !== 'full'}
+          onChange={change}
+          onClose={() => setScoring(false)}
+        />
+      ) : null}
       <Modal
         title={t('preview_pane.title')}
         size="lg"

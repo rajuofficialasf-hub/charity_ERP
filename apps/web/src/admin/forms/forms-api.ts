@@ -96,10 +96,11 @@ export const versionWithEtag = (versionId: string) =>
     envelope: true,
   });
 
-export const saveDraft = (versionId: string, etag: string, sections: FormDefinition['sections']) =>
+/** Saves the whole draft; `scoring: null` clears the form-level points the draft no longer holds. */
+export const saveDraft = (versionId: string, etag: string, definition: FormDefinition) =>
   api<{ data: FormVersion; meta: { etag: string } }>(`/form-versions/${versionId}`, {
     method: 'PATCH',
-    body: { sections },
+    body: { sections: definition.sections, scoring: definition.scoring ?? null },
     headers: { 'If-Match': etag },
     envelope: true,
   });

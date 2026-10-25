@@ -97,7 +97,10 @@ const version = (
   sections,
 });
 
-let saves: { body: { sections: FormDefinition['sections'] }; ifMatch: string | null }[];
+let saves: {
+  body: { sections: FormDefinition['sections']; scoring?: FormDefinition['scoring'] | null };
+  ifMatch: string | null;
+}[];
 let etagNo: number;
 let versionReads: number;
 function api(
@@ -111,7 +114,7 @@ function api(
   saves = [];
   etagNo = 1;
   versionReads = 0;
-  const current = {
+  const current: ReturnType<typeof version> & { scoring?: FormDefinition['scoring'] } = {
     ...version(
       options.draft === false ? PUBLISHED : DRAFT,
       options.draft === false ? 'published' : 'draft',
@@ -183,10 +186,15 @@ function api(
       );
     }),
     http.patch('*/api/v1/form-versions/:id', async ({ request }) => {
-      const body = (await request.json()) as { sections: FormDefinition['sections'] };
+      const body = (await request.json()) as {
+        sections: FormDefinition['sections'];
+        scoring?: FormDefinition['scoring'] | null;
+      };
       saves.push({ body, ifMatch: request.headers.get('if-match') });
       if (options.patch) return options.patch();
       current.sections = body.sections;
+      if (body.scoring) current.scoring = body.scoring;
+      else delete current.scoring;
       etagNo += 1;
       return HttpResponse.json(
         { data: current, meta: { requestId: 'r', etag: `"v${etagNo}"` } },
@@ -468,6 +476,23 @@ describe('the outline and the libraries', () => {
     const basic = await outlineOf('মৌলিক তথ্য');
     expect(basic.getByRole('button', { name: 'দৈনিক আয় বদলান' })).toBeInTheDocument();
   });
+});
+
+describe('the points of the score', () => {
+  it('sets the points of "not previously assisted" in the score dialog, shows the maximum, and saves them', async () => {
+    const user = userEvent.setup();
+    api();
+    const view = open();
+    await user.click(await screen.findByRole('button', { name: 'স্কোর' }));
+    const dialog = await screen.findByRole('dialog', { name: 'অগ্রাধিকার স্কোর' });
+    expect(within(dialog).getByText('সর্বোচ্চ মোট: 0 / 100')).toBeInTheDocument();
+    await user.type(within(dialog).getByRole('textbox', { name: /আগে সহায়তা পাননি/ }), '20');
+    expect(within(dialog).getByText('সর্বোচ্চ মোট: 20 / 100')).toBeInTheDocument();
+    await expectNoAxeViolations(view.container);
+    await user.click(within(dialog).getByRole('button', { name: 'ঠিক আছে' }));
+    await waitFor(() => expect(saves).toHaveLength(1), { timeout: 4000 });
+    expect(saves[0]!.body.scoring).toEqual({ not_previously_assisted: 20 });
+  }, 15_000);
 });
 
 describe('the own question', () => {

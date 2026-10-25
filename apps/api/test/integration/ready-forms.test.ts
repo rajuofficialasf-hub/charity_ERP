@@ -220,7 +220,21 @@ describe('building a ready form', () => {
         ).status,
         user,
       ).toBe(403);
+      // nor can they set the points of the score, which belong to the form's builders
+      expect(
+        (
+          await at(s, 'patch', `/form-versions/${made.draftVersionId}`)
+            .set('If-Match', '"x"')
+            .send({ sections: [], scoring: { not_previously_assisted: 20 } })
+        ).status,
+        user,
+      ).toBe(403);
     }
+    const stored = await h.db.query<{ scoring: unknown }>(
+      'SELECT scoring FROM form_versions WHERE id = $1',
+      [made.draftVersionId],
+    );
+    expect(stored.rows[0]!.scoring).toBeNull();
   });
 });
 

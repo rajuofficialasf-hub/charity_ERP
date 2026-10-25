@@ -26,6 +26,7 @@ import {
 } from './draft';
 import type { Selection } from './selection';
 import { OptionsEditor } from './OptionsEditor';
+import { ScoreSettings } from './ScoreSettings';
 import { parentCandidates } from './candidates';
 import { LimitPair, RepeatSettings } from './RepeatSettings';
 import { CalcGroup, ConditionGroup } from './RuleGroups';
@@ -327,6 +328,10 @@ function FieldSettingsView({
             }
           />
         </Disclosure>
+      ) : null}
+      {/* points inside a group's rows are refused at publish, so a group's question offers none */}
+      {group === null ? (
+        <ScoreSettings field={field} onChange={(score) => setSettings({ score })} />
       ) : null}
       {field.type === 'calculation' ? (
         <CalcGroup
