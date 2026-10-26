@@ -36,9 +36,9 @@ permission: { name, description, module, sensitive, default: [ { role, scope, co
 | implementer | official | no | SOP role for safe water: Project Executive-level rights limited by `safe_water_only`, plus document ownership (interpretation, section 11) |
 | official_daee | official | no | REGION scope: exams, zakat decision, call log, tracking, follow-up; reads the volunteer and beneficiary tabs (A5) |
 | procurement_team | official | no | House-construction projects only: view applications, raise issues, resolve own or paid-volunteer issues (Q-46) |
-| media_director | official | no | Head of the Media Team at the PM's level (D-101): decides on referrals, runs the works, final review before publication; GLOBAL read of applications and beneficiaries |
-| media_assistant_director | official | no | Decides on referrals and runs the works with the director (D-101); GLOBAL read of applications and beneficiaries |
-| media_team | official | no | Member of the Media Team: works assigned to them, scripts and publications (D-101); GLOBAL read of applications and beneficiaries |
+| media_director | official | no | Head of the Media Team at the PM's level (D-101): decides on referrals, runs the works, final review before publication; reads applications only through the works of their referrals (D-136) and the beneficiary tab within BR-253 |
+| media_assistant_director | official | no | Decides on referrals and runs the works with the director (D-101); reads applications only through the works of their referrals (D-136) and the beneficiary tab within BR-253 |
+| media_team | official | no | Member of the Media Team: sees and works on only the works assigned to them, scripts and publications (D-101, D-136); the beneficiary tab within BR-253 |
 | finance_team | official | no | GLOBAL viewer of budgets, ledger, dashboards; exports; no entry (BD-31, O-24) |
 | volunteer_general, volunteer_local_daee, volunteer_both, volunteer_team_member, volunteer_paid | volunteer | no | Permissions through project permission sets (section 6); SELF or ASSIGNED scope |
 
@@ -151,8 +151,9 @@ Rows of the blueprint's first table and the permissions that implement them: row
 
 | Permission | Media Team (director, assistant director, members) | Finance Team | Procurement Team |
 |---|---|---|---|
-| application.view, beneficiary.view_all | ✓ [GLOBAL] | — | ✓ [PROJECT, house construction] |
-| application.view_official_section | ✓ [GLOBAL] | — | ✓ [PROJECT, house construction] |
+| application.view | — (a referred application only through its work, D-136) | — | ✓ [PROJECT, house construction] |
+| beneficiary.view_all | ✓ [GLOBAL, BR-253 limits] | — | ✓ [PROJECT, house construction] |
+| application.view_official_section | — (the official comment of a referred application only, through its work, D-136) | — | ✓ [PROJECT, house construction] |
 | application.create, application.edit_draft, application.edit_pending, application.delete_pending, any beneficiary or project write | — | — | — |
 | media.referral.decide, media.publication.review (the director; the assistant director decides too), media.work.view, media.work.manage, story.manage, story.view (D-101; members at ASSIGNED on their works) | ✓ | — | — |
 | media.referral.create (a PM in own program, an RPM in own region refer an approved application; D-101) | — (referrers only) | — | — |

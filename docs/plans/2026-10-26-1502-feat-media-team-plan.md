@@ -246,7 +246,7 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** none
-- **Status:** in progress (built, waiting for the owner's approval)
+- **Status:** done
 
 ### U2. Decisions, rules and the media field class
 - **Goal:** the documents record what this task decides before code depends on it.
@@ -267,7 +267,7 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** auth
-- **Status:** todo
+- **Status:** done
 
 ### U3. Migration: media tables, reference-list columns, the three lists
 - **Goal:** the data model of D-101 exists and the old media tables are gone, reversibly.
@@ -614,12 +614,12 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
   - `docs/security/AUTHORIZATION_MATRIX.md` (regenerated)
   - `docs/ui/SCREENS.md` (SCR-019, SCR-108), `docs/BUSINESS_RULES.md` (register), `docs/testing/{TEST_STRATEGY,DEMO_ACCOUNTS}.md`, `docs/STATUS.md`, `docs/PLAN.md`, the `CLAUDE.md` map
 - **Approach:** like `apps/web/e2e/application-rules.spec.ts` (the setup through the API, the journey on the screen) and `form-logic.spec.ts` (an official on desktop, with a phone context where the flow is phone-first).
-  - The exact labels come from the approved mockup of U1.
-  - The working names below are placeholders until U1 fixes them:
-    - "মিডিয়া টিমে পাঠান", "অগ্রাধিকার", "নোট", "গল্প", "পাঠান";
+  - The labels are those of the approved mockups (`docs/ui/mockups/15-media-home.html`, `16-media-work.html`):
+    - "মিডিয়া টিমে পাঠান", "অগ্রাধিকার", "নোট", "গল্প (ঐচ্ছিক)", "পাঠান";
     - "গ্রহণ করুন", "সংশোধনের জন্য ফেরত দিন", "বাতিল করুন";
-    - "ধাপ", "সদস্য যোগ করুন", "প্রকাশ যোগ করুন", "চূড়ান্ত পর্যালোচনা";
-    - "মিডিয়া সম্মতি".
+    - "ধাপ বদলান", "সদস্য যোগ করুন", "প্রকাশ যোগ করুন", "চূড়ান্ত পর্যালোচনা অনুমোদন", "সংশোধনে ফেরত দিন";
+    - "মিডিয়া সম্মতি", "সম্মতি আছে", "কোথায় প্রকাশ করা যাবে";
+    - the home's "আপনার মনোযোগ দরকার", "মিডিয়ার কাজ", "আমার পোর্টফোলিও".
 - **Tests:**
   - e2e (the desktop project, with the director in a phone context at 360 px):
     1. As the Department Head through the API: an active project, an approved application, the RPM's area.
@@ -628,7 +628,7 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
     4. `media.director@example.org`, on the phone, opens the home, sees the referral under attention, opens it and presses "গ্রহণ করুন".
     5. The director adds `media@example.org` as Cinematographer and Video Editor.
     6. The member moves the stage to "শুটিং সম্পন্ন", "সম্পাদনা" and then "প্রকাশের জন্য প্রস্তুত".
-    7. The director approves the "চূড়ান্ত পর্যালোচনা" and adds a YouTube publication with a link, marked published.
+    7. The director presses "চূড়ান্ত পর্যালোচনা অনুমোদন" and adds a YouTube publication with a link, marked published.
     8. The work shows "প্রকাশিত" by itself, appears on the beneficiary's profile under "মিডিয়া" and on the member's portfolio; the member's home lists only that work.
     9. axe passes in bn and en on the home and the work page.
     10. A volunteer (01700000115) and `finance@example.org` opening `/media` and the work page see the forbidden page.
@@ -679,7 +679,7 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
 ## Progress
 - **Branch:** `feat/media-team`
 - **Updated:** 2026-10-26 15:40
-- **Next:** the owner reviews `docs/ui/mockups/15-media-home.html` and `16-media-work.html` (preview `mockups` in `.claude/launch.json`); on approval mark U1 done, take any changed labels into U15's e2e line, then U2
+- **Next:** checkpoint C2 (U2: the permission narrowing), then U3 the migration
 - **Uncommitted:** none
 - **Reviewed through:** none
-- **Notes:** the owner answered in chat on 2026-10-26: mockups first; consent withdrawal blocks new publications and warns on published ones; YouTube thumbnails with an icon card otherwise; five notices; the story written at referral; the media roles lose application access outside referrals; members see only their own works; stages move forward and back with the R10 rules.
+- **Notes:** the owner answered in chat on 2026-10-26: mockups first; consent withdrawal blocks new publications and warns on published ones; YouTube thumbnails with an icon card otherwise; five notices; the story written at referral; the media roles lose application access outside referrals; members see only their own works; stages move forward and back with the R10 rules. The owner approved the mockups on 2026-10-26 (C1). U2 also changed `apps/api/test/integration/files.test.ts`: without `application.view` the Media Team gets 404 on an application's files and their metadata, as D-136 (6) intends; the authorization matrix was regenerated. `pnpm docs:check` reads a rule's module list for its phase: a media rule names only M18, or it is counted as Phase 1.
