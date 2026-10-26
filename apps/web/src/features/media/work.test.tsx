@@ -154,6 +154,7 @@ function serve(initial: MediaReferral) {
       return HttpResponse.json({ data: current, meta: {} });
     }),
     http.put(`*/api/v1/media-works/${WORK}/members`, async ({ request }) => {
+      expect(request.headers.get('If-Match')).toBe('"v1"');
       teams.push(await request.json());
       return HttpResponse.json({ data: current, meta: {} });
     }),

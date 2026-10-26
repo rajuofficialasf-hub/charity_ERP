@@ -214,8 +214,17 @@ export const updateWork = (
     headers: { 'If-Match': version },
   });
 
-export const setMembers = (workId: string, members: { userId: string; roles: string[] }[]) =>
-  api<MediaReferral>(`/media-works/${workId}/members`, { method: 'PUT', body: { members } });
+/** The whole team, with the version the caller last read. */
+export const setMembers = (
+  workId: string,
+  version: string,
+  members: { userId: string; roles: string[] }[],
+) =>
+  api<MediaReferral>(`/media-works/${workId}/members`, {
+    method: 'PUT',
+    body: { members },
+    headers: { 'If-Match': version },
+  });
 
 export const addPublication = (
   workId: string,
@@ -230,7 +239,12 @@ export const addPublication = (
 
 export const updatePublication = (
   publicationId: string,
-  body: { state?: PublicationState; publishedOn?: string; link?: string; note?: string },
+  body: {
+    state?: PublicationState;
+    publishedOn?: string;
+    link?: string | null;
+    note?: string | null;
+  },
 ) => api<MediaReferral>(`/media-publications/${publicationId}`, { method: 'PATCH', body });
 
 export const reviewWork = (

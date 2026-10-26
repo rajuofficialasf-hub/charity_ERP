@@ -22,8 +22,17 @@ const patch = async (s: Session, referralId: string, workId: string, body: objec
     .at(s, 'patch', `/media-works/${workId}`)
     .set('If-Match', await versionOf(referralId))
     .send(body);
-const setMembers = (s: Session, workId: string, members: object[]) =>
-  m.at(s, 'put', `/media-works/${workId}/members`).send({ members });
+/** The whole team, with the version of the work as it stands. */
+const setMembers = async (s: Session, workId: string, members: object[], version?: string) => {
+  const { rows } = await m.h.db.query<{ referral_id: string }>(
+    'SELECT referral_id FROM media_works WHERE id = $1',
+    [workId],
+  );
+  return m
+    .at(s, 'put', `/media-works/${workId}/members`)
+    .set('If-Match', version ?? (await versionOf(rows[0]!.referral_id)))
+    .send({ members });
+};
 const addPublication = (s: Session, workId: string, body: object) =>
   m.at(s, 'post', `/media-works/${workId}/publications`).send(body);
 /** The final review, with the version of the work as it stands. */
@@ -208,6 +217,25 @@ describe('the members of a work', () => {
     ).toBe(404);
   });
 
+  it('are saved against the version read, so a team changed meanwhile is not overwritten', async () => {
+    const { referralId, workId } = await staffed();
+    const director = await as(m.media.director);
+    const read = await versionOf(referralId);
+    const first = await setMembers(director, workId, [
+      { userId: m.media.member, roles: ['cinematographer'] },
+      { userId: otherMember, roles: ['video_editor'] },
+    ]);
+    expect(first.status, JSON.stringify(first.body)).toBe(200);
+    expect(first.body.data.work.version).not.toBe(read);
+    const late = await setMembers(
+      await as(m.media.assistant),
+      workId,
+      [{ userId: m.media.member, roles: ['director'] }],
+      read,
+    );
+    expect(late.status).toBe(412);
+  });
+
   it('are refused to a member (403), a person outside the Media Team and an unknown role (422)', async () => {
     const { workId } = await staffed();
     const director = await as(m.media.director);
@@ -372,8 +400,14 @@ describe('the final review and the publication', () => {
     expect(bare.status).toBe(422);
     const noted = await m
       .at(director, 'patch', `/media-publications/${publicationId}`)
-      .send({ note: 'শুক্রবার সন্ধ্যায়' });
+      .send({ note: 'শুক্রবার সন্ধ্যায়', link: 'https://www.facebook.com/AsSunnahFoundation' });
     expect(noted.status, JSON.stringify(noted.body)).toBe(200);
+    // an emptied link and note of a waiting post are cleared
+    const cleared = await m
+      .at(director, 'patch', `/media-publications/${publicationId}`)
+      .send({ note: null, link: null });
+    expect(cleared.status, JSON.stringify(cleared.body)).toBe(200);
+    expect(cleared.body.data.work.publications[0]).toMatchObject({ note: null, link: null });
     expect(
       (
         await m

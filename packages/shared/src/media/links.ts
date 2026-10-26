@@ -41,6 +41,8 @@ function parse(link: string): { host: string; path: string; query: string } | nu
   const host = match[1]!.toLowerCase();
   // eslint-disable-next-line security/detect-unsafe-regex -- each repetition starts with a dot: linear
   if (!/^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/.test(host)) return null;
+  // an IP address names no platform
+  if (/^[0-9.]+$/.test(host)) return null;
   return { host, path: match[2] ?? '', query: (match[3] ?? '').slice(1) };
 }
 

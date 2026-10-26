@@ -78,7 +78,15 @@ export function StagePanel({
         headingLevel={2}
         actions={
           work.mayDirect ? (
-            <Button variant="ghost" size="sm" onPress={() => setRenaming(true)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onPress={() => {
+                change.reset();
+                setTitle(work.title);
+                setRenaming(true);
+              }}
+            >
               {t('work.rename')}
             </Button>
           ) : null
@@ -118,7 +126,7 @@ export function StagePanel({
               options={CONTENT_TYPES.map((c) => ({ id: c, label: t(`content.${c}`) }))}
               onChange={(id) =>
                 id && id !== work.contentType
-                  ? change.mutate({ contentType: id as ContentType })
+                  ? (review.reset(), change.mutate({ contentType: id as ContentType }))
                   : undefined
               }
             />
@@ -132,7 +140,11 @@ export function StagePanel({
                 onChange={setStage}
               />
               <Button
-                onPress={() => stage && change.mutate({ stageCode: stage })}
+                onPress={() => {
+                  if (!stage) return;
+                  review.reset();
+                  change.mutate({ stageCode: stage });
+                }}
                 disabled={!stage}
                 loading={change.isPending && !renaming}
               >
@@ -167,10 +179,23 @@ export function StagePanel({
           </Text>
           {work.mayReview && !work.reviewApprovedBy ? (
             <Stack direction="row" gap={2} wrap>
-              <Button onPress={() => review.mutate('approve')} loading={review.isPending}>
+              <Button
+                onPress={() => {
+                  change.reset();
+                  review.mutate('approve');
+                }}
+                loading={review.isPending}
+              >
                 {t('work.review_approve')}
               </Button>
-              <Button variant="secondary" onPress={() => setSendingBack(true)}>
+              <Button
+                variant="secondary"
+                onPress={() => {
+                  review.reset();
+                  setComment('');
+                  setSendingBack(true);
+                }}
+              >
                 {t('work.review_send_back')}
               </Button>
             </Stack>

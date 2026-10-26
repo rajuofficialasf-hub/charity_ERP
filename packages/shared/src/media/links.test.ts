@@ -28,6 +28,7 @@ describe('a publication link', () => {
   it('takes any https host for a platform of another kind', () => {
     expect(linkProblem('https://assunnahfoundation.org/stories/1', 'other')).toBeNull();
     expect(linkProblem('http://assunnahfoundation.org/stories/1', 'other')).toBe('link_invalid');
+    expect(linkProblem('https://203.0.113.5/x', 'other')).toBe('link_invalid');
   });
 });
 

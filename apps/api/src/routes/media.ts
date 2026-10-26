@@ -151,10 +151,11 @@ export function mediaRouter(
     scope: 'application',
     audit: 'media.members_changed',
     params: work,
+    headers: [{ name: 'If-Match', required: true }],
     body: membersSchema,
-    responses: answers,
+    responses: { ...answers, 412: null },
     handler: async ({ params, body, req }) =>
-      ok(await c.mediaWorks.setMembers(principalOf(req), params.workId, body)),
+      ok(await c.mediaWorks.setMembers(principalOf(req), params.workId, body, req.get('if-match'))),
   });
 
   defineRoute<PublicationCreate, unknown, { workId: string }>(router, deps, {

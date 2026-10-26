@@ -1,10 +1,4 @@
-import {
-  type APIRequestContext,
-  type Browser,
-  expect,
-  type Page,
-  test,
-} from '@playwright/test';
+import { type APIRequestContext, type Browser, expect, type Page, test } from '@playwright/test';
 import { apiAs, scan, signIn } from './support/admin';
 import { act, consent, onDesk, savar, volunteerId } from './support/applications';
 import { activeProject, choice, code, ERR, question } from './support/projects';

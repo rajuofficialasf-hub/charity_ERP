@@ -214,8 +214,6 @@ test.describe('the Media Team', () => {
       await director.getByRole('button', { name: 'সদস্য যোগ করুন' }).click();
       const team = director.getByRole('dialog', { name: 'দল' });
       await choose(director, 'মিডিয়া টিমের সদস্য খুঁজুন', MEMBER_NAME);
-      // the list's popover closes before the roles take a click
-      await expect(director.locator('.MuiPopover-root')).toHaveCount(0);
       await team.getByText('ক্যামেরা', { exact: true }).click();
       await team.getByText('ভিডিও সম্পাদনা', { exact: true }).click();
       await expect(team.getByRole('checkbox', { name: 'ভিডিও সম্পাদনা' })).toBeChecked();

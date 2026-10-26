@@ -8,6 +8,7 @@ import {
   type MediaWorld,
   mediaWorld,
   publishedWork,
+  workVersion,
 } from './support/media';
 
 // The reads of the Media Team's screens: the home's counts by program, the works list with its
@@ -44,6 +45,7 @@ beforeAll(async () => {
   const director = await as(m.media.director);
   const staffed = await m
     .at(director, 'put', `/media-works/${memberWork.workId}/members`)
+    .set('If-Match', await workVersion(m, memberWork.referralId))
     .send({ members: [{ userId: m.media.member, roles: ['director'] }] });
   expect(staffed.status).toBe(200);
   pendingReferral = await mediaReferral(m, await mediaApplication(m));

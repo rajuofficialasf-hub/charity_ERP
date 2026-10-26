@@ -88,12 +88,13 @@ export const publicationCreateSchema = z
   .refine(publishedHasLink, { path: ['link'], message: 'required' });
 export type PublicationCreate = z.infer<typeof publicationCreateSchema>;
 
+/** A change to a publication; a link or a note given as null is cleared. */
 export const publicationUpdateSchema = z
   .strictObject({
     state: publicationFields.state.optional(),
     publishedOn: publicationFields.publishedOn,
-    link: publicationFields.link,
-    note: publicationFields.note,
+    link: publicationFields.link.nullable(),
+    note: publicationFields.note.nullable(),
   })
   .refine((p) => Object.keys(p).length > 0, { message: 'empty' });
 export type PublicationUpdate = z.infer<typeof publicationUpdateSchema>;

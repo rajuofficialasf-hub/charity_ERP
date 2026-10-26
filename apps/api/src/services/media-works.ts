@@ -177,11 +177,14 @@ export class MediaWorksService {
     principal: Principal,
     workId: string,
     body: MembersBody,
+    ifMatch: string | undefined,
   ): Promise<MediaReferralView> {
     const { access, referralId, rights } = await this.reach(principal, workId, MANAGE_PERMISSION);
     if (!rights.direct) this.deny(principal, MANAGE_PERMISSION);
     await this.prisma.$transaction(async (tx) => {
       const work = await this.locked(tx, workId);
+      // the whole team is replaced: a team another director saved meanwhile is not overwritten
+      assertIfMatch(ifMatch, work.updated_at);
       this.assertOpen(work);
       const ids = body.members.map((m) => m.userId);
       const fit = await tx.user.findMany({
@@ -229,6 +232,8 @@ export class MediaWorksService {
           },
           update: { roles: m.roles, updatedBy: principal.userId },
         });
+      // the work's version moves with its team
+      await tx.mediaWork.update({ where: { id: workId }, data: { updatedBy: principal.userId } });
       await this.event(tx, principal, work, { kind: 'members_changed' });
       await this.audit.record(tx, {
         action: 'media.members_changed',
@@ -324,6 +329,7 @@ export class MediaWorksService {
           state: merged.state,
           link: merged.link,
           publishedOn: merged.publishedOn ? new Date(`${merged.publishedOn}T00:00:00Z`) : null,
+          // an emptied note is cleared (null)
           ...(body.note !== undefined ? { note: body.note } : {}),
           updatedBy: principal.userId,
         },

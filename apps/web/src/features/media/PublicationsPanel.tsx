@@ -137,15 +137,20 @@ function PublicationDialog({
   const [note, setNote] = useState(publication?.note ?? '');
   const save = useMutation({
     mutationFn: () => {
-      const body = {
+      const given = {
         state,
         ...(date && (state !== 'waiting' || link.trim()) ? { publishedOn: date } : {}),
         ...(link.trim() ? { link: link.trim() } : {}),
         ...(note.trim() ? { note: note.trim() } : {}),
       };
+      // an emptied link or note of a stored publication is cleared, not kept
       return publication
-        ? updatePublication(publication.id, body)
-        : addPublication(work.id, { platformCode: platform ?? '', ...body });
+        ? updatePublication(publication.id, {
+            ...given,
+            ...(!link.trim() && publication.link ? { link: null } : {}),
+            ...(!note.trim() && publication.note ? { note: null } : {}),
+          })
+        : addPublication(work.id, { platformCode: platform ?? '', ...given });
     },
     onSuccess: onSaved,
   });

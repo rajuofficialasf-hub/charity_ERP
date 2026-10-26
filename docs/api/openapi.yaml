@@ -3369,8 +3369,16 @@ components:
       properties:
         state: { type: string, enum: [waiting, published, taken_down] }
         publishedOn: { type: string, format: date }
-        link: { type: string, minLength: 1, maxLength: 500 }
-        note: { type: string, minLength: 1, maxLength: 2000 }
+        link:
+          description: Null clears the link of a post that is not published
+          anyOf:
+            - { type: string, minLength: 1, maxLength: 500 }
+            - { type: 'null' }
+        note:
+          description: Null clears the note
+          anyOf:
+            - { type: string, minLength: 1, maxLength: 2000 }
+            - { type: 'null' }
     MediaReviewRequest:
       type: object
       additionalProperties: false
@@ -9268,12 +9276,16 @@ paths:
         D-101 (2, 5), BR-286. Only a holder of media.work.manage at GLOBAL (the Media Director and the
         Assistant Director) sets the team; a member gets 403. Every member holds a media role and is
         active (422 media.member_not_media), every role is an active production role (422
-        media.role_unknown). Each member added hears it in the app.
+        media.role_unknown). Each member added hears it in the app. The whole team is saved against the
+        work's version in If-Match (412 when the work changed since it was read), and a team change
+        moves that version.
       x-permission: media.work.manage
       x-scope: application
       x-audit: media.members_changed
       x-idempotency: none
       x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
       requestBody:
         required: true
         content:
@@ -9289,6 +9301,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
   /media-works/{workId}/publications:
     parameters:
       - name: workId

@@ -198,7 +198,10 @@ export async function publishedWork(m: MediaWorld, members: { userId: string; ro
   const ok = (res: { status: number; body: unknown }, what: string) =>
     expect(res.status, `${what}: ${JSON.stringify(res.body)}`).toBeLessThan(300);
   ok(
-    await m.at(director, 'put', `/media-works/${ids.workId}/members`).send({ members }),
+    await m
+      .at(director, 'put', `/media-works/${ids.workId}/members`)
+      .set('If-Match', await workVersion(m, ids.referralId))
+      .send({ members }),
     'members',
   );
   for (const stageCode of ['editing', 'ready_to_publish'])

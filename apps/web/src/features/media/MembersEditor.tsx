@@ -1,5 +1,16 @@
 import { type Locale, localized } from '@css/shared/i18n';
-import { Alert, Button, Card, CheckboxGroup, Grid, Modal, Select, Stack, Text } from '@css/ui';
+import {
+  Alert,
+  Button,
+  Card,
+  CheckboxGroup,
+  ErrorState,
+  Grid,
+  Modal,
+  Select,
+  Stack,
+  Text,
+} from '@css/ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { useState } from 'react';
@@ -18,9 +29,11 @@ type Member = { userId: string; name: string; roles: string[] };
 export function MembersEditor({
   work,
   onSaved,
+  onStale,
 }: {
   work: MediaWork;
   onSaved: (next: MediaReferral, text: string) => void;
+  onStale: () => void;
 }) {
   const t = useTranslations('media.work');
   const labels = useMediaLabels();
@@ -56,6 +69,10 @@ export function MembersEditor({
         <TeamDialog
           work={work}
           onClose={() => setEditing(false)}
+          onStale={() => {
+            setEditing(false);
+            onStale();
+          }}
           onSaved={(next) => {
             setEditing(false);
             onSaved(next, t('team_saved'));
@@ -69,10 +86,12 @@ export function MembersEditor({
 function TeamDialog({
   work,
   onClose,
+  onStale,
   onSaved,
 }: {
   work: MediaWork;
   onClose: () => void;
+  onStale: () => void;
   onSaved: (next: MediaReferral) => void;
 }) {
   const t = useTranslations('media.work');
@@ -86,9 +105,14 @@ function TeamDialog({
     mutationFn: () =>
       setMembers(
         work.id,
+        work.version,
         members.map((m) => ({ userId: m.userId, roles: m.roles })),
       ),
     onSuccess: onSaved,
+    // a team another director saved meanwhile: the page reads it again
+    onError: (error) => {
+      if (failureOf(error, { stale: '', fallback: '' }).stale) onStale();
+    },
   });
   const roleOptions = labels.roles
     .filter((r) => r.active)
@@ -123,12 +147,17 @@ function TeamDialog({
           {failureOf(save.error, { stale: t('stale'), fallback: tc('state.error.text') }).text}
         </Alert>
       ) : null}
-      <Select
-        label={t('member_search')}
-        value={adding}
-        options={candidates.map((p) => ({ id: p.id, label: p.name }))}
-        onChange={add}
-      />
+      {people.error ? (
+        <ErrorState title={tc('state.error.text')} onRetry={() => void people.refetch()} />
+      ) : (
+        <Select
+          label={t('member_search')}
+          value={adding}
+          disabled={people.isPending}
+          options={candidates.map((p) => ({ id: p.id, label: p.name }))}
+          onChange={add}
+        />
+      )}
       {members.length === 0 ? <Text tone="muted">{t('no_members')}</Text> : null}
       {members.map((m) => (
         <Stack key={m.userId} gap={1}>

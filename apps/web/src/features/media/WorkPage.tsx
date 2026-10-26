@@ -95,13 +95,8 @@ export function WorkPage() {
       {work ? (
         <>
           <StagePanel key={work.version} work={work} onSaved={saved} onStale={stale} />
-          <MembersEditor work={work} onSaved={saved} />
-          <ScriptEditor
-            key={`script-${work.version}`}
-            work={work}
-            onSaved={saved}
-            onStale={stale}
-          />
+          <MembersEditor work={work} onSaved={saved} onStale={stale} />
+          <ScriptEditor work={work} onSaved={saved} onStale={stale} />
           <PublicationsPanel work={work} onSaved={saved} />
           <WorkComments work={work} onSaved={saved} />
         </>
