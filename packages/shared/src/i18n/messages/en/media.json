@@ -213,5 +213,12 @@
       "media_director": "Media Director",
       "media_assistant_director": "Media Assistant Director"
     }
+  },
+  "script_part": {
+    "summary": "Summary",
+    "questions": "Interview questions",
+    "scenes": "Scenes",
+    "voice_over": "Voice-over",
+    "notes": "Notes"
   }
 }

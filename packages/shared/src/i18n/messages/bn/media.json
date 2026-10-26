@@ -213,5 +213,12 @@
       "media_director": "মিডিয়া ডিরেক্টর",
       "media_assistant_director": "মিডিয়া সহকারী ডিরেক্টর"
     }
+  },
+  "script_part": {
+    "summary": "সারসংক্ষেপ",
+    "questions": "সাক্ষাৎকারের প্রশ্ন",
+    "scenes": "দৃশ্য",
+    "voice_over": "ভয়েস-ওভার",
+    "notes": "নোট"
   }
 }

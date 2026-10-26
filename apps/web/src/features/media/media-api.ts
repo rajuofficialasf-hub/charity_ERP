@@ -246,3 +246,12 @@ export const reviewWork = (
 
 export const commentOnWork = (workId: string, body: string) =>
   api<MediaReferral>(`/media-works/${workId}/comments`, { method: 'POST', body: { body } });
+
+/** A member of the Media Team, for the team editor. */
+export interface MediaTeamMember {
+  id: string;
+  name: string;
+  designation: string | null;
+  roles: string[];
+}
+export const mediaTeam = () => api<MediaTeamMember[]>('/media/members');

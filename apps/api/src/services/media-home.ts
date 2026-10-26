@@ -104,6 +104,14 @@ export const publishedWorkView = z.object({
 });
 export type PublishedWork = z.infer<typeof publishedWorkView>;
 
+/** A member of the Media Team as the team editor lists them. */
+export const mediaMemberRow = z.object({
+  id: uuid,
+  name: z.string(),
+  designation: z.string().nullable(),
+  roles: z.array(z.string()),
+});
+
 export const mediaMemberView = z.object({
   id: uuid,
   name: z.string(),
@@ -355,6 +363,34 @@ export class MediaHomeService {
       })),
       meta,
     };
+  }
+
+  /** The active members of the Media Team, by name: whom a director may put on a work. */
+  async members(): Promise<z.infer<typeof mediaMemberRow>[]> {
+    const users = await this.prisma.user.findMany({
+      where: {
+        kind: 'staff',
+        state: 'active',
+        userRolesUser: { some: { roleKey: { in: MEDIA_ROLES }, revokedAt: null } },
+      },
+      orderBy: [{ displayName: 'asc' }, { id: 'asc' }],
+      take: 500,
+      select: {
+        id: true,
+        displayName: true,
+        designation: true,
+        userRolesUser: {
+          where: { roleKey: { in: MEDIA_ROLES }, revokedAt: null },
+          select: { roleKey: true },
+        },
+      },
+    });
+    return users.map((u) => ({
+      id: u.id,
+      name: u.displayName,
+      designation: u.designation,
+      roles: u.userRolesUser.map((r) => r.roleKey),
+    }));
   }
 
   /**

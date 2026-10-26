@@ -174,6 +174,15 @@ describe('a member’s profile', () => {
     ]);
   });
 
+  it('lists the Media Team for the directors who choose a work’s team', async () => {
+    const res = await get(m.media.director, '/media/members');
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    const ids = (res.body.data as { id: string }[]).map((u) => u.id);
+    expect(ids).toEqual(expect.arrayContaining([m.media.member, second, m.media.director]));
+    expect(ids).not.toContain(m.world.users.rpmDhaka);
+    expect((await get(m.world.users.pm, '/media/members')).status).toBe(403);
+  });
+
   it('is 404 for anyone outside the Media Team', async () => {
     for (const id of [m.world.users.rpmDhaka, randomUUID()])
       expect((await get(m.media.director, `/media/members/${id}`)).status).toBe(404);

@@ -9124,6 +9124,40 @@ paths:
                   meta: { $ref: '#/components/schemas/ListMeta' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+  /media/members:
+    get:
+      tags: [media]
+      operationId: media.member.list
+      summary: The active members of the Media Team, by name, for the team of a work
+      description: >-
+        D-101 (2). For the holders of media.work.manage; the directors choose a work's team from it.
+        At most 500 people.
+      x-permission: media.work.manage
+      x-scope: application
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: Members
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, designation, roles]
+                      properties:
+                        id: { $ref: '#/components/schemas/Uuid' }
+                        name: { type: string }
+                        designation: { type: [string, 'null'] }
+                        roles: { type: array, items: { type: string } }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /media/members/{userId}:
     parameters:
       - name: userId

@@ -23,6 +23,7 @@ import { type PageQuery, pageQuery } from '../core/pagination';
 import { ok, page } from '../http/send';
 import { defineRoute, type RouteDeps } from '../openapi/define-route';
 import {
+  mediaMemberRow,
   mediaMemberView,
   mediaSummaryView,
   type MediaWorkQuery,
@@ -255,6 +256,19 @@ export function mediaRouter(
       const { rows, meta } = await c.mediaHome.list(principalOf(req), scopeOf(req), query);
       return page(rows, meta);
     },
+  });
+
+  defineRoute(router, deps, {
+    ...op,
+    method: 'get',
+    path: '/media/members',
+    operationId: 'media.member.list',
+    summary: 'The active members of the Media Team, by name, for the team of a work',
+    permission: 'media.work.manage',
+    scope: 'application',
+    audit: 'none',
+    responses: { 200: z.array(mediaMemberRow), 403: null },
+    handler: async () => ok(await c.mediaHome.members()),
   });
 
   defineRoute<unknown, unknown, { userId: string }>(router, deps, {
