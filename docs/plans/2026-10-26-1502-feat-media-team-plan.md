@@ -246,7 +246,7 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** in progress (built, waiting for the owner's approval)
 
 ### U2. Decisions, rules and the media field class
 - **Goal:** the documents record what this task decides before code depends on it.
@@ -283,7 +283,7 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
 - **Approach:** follow `20261026120000_number_table` (T2.4d) for the hand-written CHECK lists and a down.sql that refuses while data exists.
   - **New tables:**
     - `media_referrals`: application, beneficiary, project, referrer, priority, note, story, state, decided by and at, decision comment; unique application.
-    - `media_works`: unique referral, stage code, content type, script jsonb, script state, final review by and at.
+    - `media_works`: unique referral, title (from the referral, editable by the directors), stage code, content type, script jsonb, script state, final review by and at.
     - `media_work_members`.
     - `media_publications`: platform code, state, date, link, note, `consent_withdrawn_at`.
     - `media_comments`.
@@ -679,7 +679,7 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
 ## Progress
 - **Branch:** `feat/media-team`
 - **Updated:** 2026-10-26 15:40
-- **Next:** U1, the two clickable mockups (`docs/ui/mockups/15-media-home.html`, `16-media-work.html`); stop for the owner's approval
+- **Next:** the owner reviews `docs/ui/mockups/15-media-home.html` and `16-media-work.html` (preview `mockups` in `.claude/launch.json`); on approval mark U1 done, take any changed labels into U15's e2e line, then U2
 - **Uncommitted:** none
 - **Reviewed through:** none
 - **Notes:** the owner answered in chat on 2026-10-26: mockups first; consent withdrawal blocks new publications and warns on published ones; YouTube thumbnails with an icon card otherwise; five notices; the story written at referral; the media roles lose application access outside referrals; members see only their own works; stages move forward and back with the R10 rules.
