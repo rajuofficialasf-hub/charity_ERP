@@ -66,4 +66,70 @@ export class MediaEvents {
       actorId,
     });
   }
+
+  /** The title, the project and the referral of a work, for its entries. */
+  private async workParams(tx: Tx, workId: string) {
+    const work = await tx.mediaWork.findUniqueOrThrow({
+      where: { id: workId },
+      select: {
+        title: true,
+        referral: {
+          select: {
+            id: true,
+            referredBy: true,
+            project: { select: { nameBn: true, nameEn: true } },
+          },
+        },
+      },
+    });
+    return {
+      referredBy: work.referral.referredBy,
+      params: {
+        work_title: work.title,
+        project_name: { bn: work.referral.project.nameBn, en: work.referral.project.nameEn },
+        referralId: work.referral.id,
+      },
+    };
+  }
+
+  /** Members added to a work hear it, each one. */
+  async membersAdded(
+    tx: Tx,
+    workId: string,
+    userIds: readonly string[],
+    actorId: string,
+  ): Promise<void> {
+    const { params } = await this.workParams(tx, workId);
+    await this.notifications.publish(tx, {
+      key: 'media_member_added',
+      recipients: userIds.map((user) => ({ user })),
+      params,
+      about: workId,
+      actorId,
+    });
+  }
+
+  /** A work ready to publish waits for the Media Director's final review. */
+  async reviewWaiting(tx: Tx, workId: string, actorId: string): Promise<void> {
+    const { params } = await this.workParams(tx, workId);
+    await this.notifications.publish(tx, {
+      key: 'media_review_waiting',
+      recipients: [{ roles: ['media_director'] }],
+      params,
+      about: workId,
+      actorId,
+    });
+  }
+
+  /** The referrer hears that the work of their referral is published. */
+  async published(tx: Tx, workId: string, actorId: string): Promise<void> {
+    const { params, referredBy } = await this.workParams(tx, workId);
+    await this.notifications.publish(tx, {
+      key: 'media_published',
+      recipients: [{ user: referredBy }],
+      params,
+      about: workId,
+      actorId,
+    });
+  }
 }

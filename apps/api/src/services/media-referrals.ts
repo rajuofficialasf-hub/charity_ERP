@@ -13,7 +13,7 @@ import {
 } from '@css/shared/media';
 import { z } from 'zod';
 import type { EffectiveAccess } from '../access/effective';
-import { holdsPermission, mediaReferralWhere, type Scope } from '../access/scope';
+import { mediaReferralWhere, type Scope } from '../access/scope';
 import type { AccessService } from '../access/service';
 import { assertReachesApplication, reachesApplication } from '../applications/callers';
 import { readAnswers } from '../applications/answers';
@@ -36,13 +36,19 @@ import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import type { MediaEvents } from '../notifications/media-events';
 import { readDefinition } from './forms';
+import {
+  mediaWorkView,
+  reachesReferral,
+  readWork,
+  VIEW_PERMISSION,
+  workRights,
+} from './media-work-view';
 
 /** Refers an application of the caller's program or region (a PM, an RPM). */
 const REFER_PERMISSION = 'media.referral.create';
 /** Decides on a referral (the Media Director and the Assistant Director). */
 const DECIDE_PERMISSION = 'media.referral.decide';
 /** Reads a referral and its work: the directors, the members of its work and the referrers. */
-const VIEW_PERMISSION = 'media.work.view';
 
 /** The library question whose answer is the official's comment on the application. */
 const OFFICIAL_COMMENT = 'official_comment';
@@ -113,7 +119,7 @@ export const mediaReferralView = mediaReferralSummary.extend({
   beneficiary: mediaBeneficiaryView,
   /** The official's comment on the application; the scores of the official section never. */
   officialComment: z.string().nullable(),
-  work: z.object({ id: uuid, title: z.string(), stageCode: z.string() }).nullable(),
+  work: mediaWorkView.nullable(),
   history: z.array(mediaEventView),
   /** What the caller may do with it now. */
   mayDecide: z.boolean(),
@@ -151,7 +157,7 @@ const SUMMARY_SELECT = {
     where: { kind: { in: ['referred', 'resent'] } },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     take: 1,
-    select: { createdAt: true },
+    select: { kind: true, createdAt: true },
   },
   beneficiary: { select: { name: true } },
   project: {
@@ -173,7 +179,7 @@ const READ_SELECT = {
   story: true,
   decisionComment: true,
   decidedByRef: { select: { id: true, displayName: true } },
-  work: { select: { id: true, title: true, stageCode: true } },
+  work: { select: { id: true } },
   application: { select: { appNo: true, formVersionId: true } },
   beneficiary: {
     select: {
@@ -484,18 +490,19 @@ export class MediaReferralsService {
     };
   }
 
-  private async readAs(
+  /** The referral and its work as the caller sees them; 404 when nothing of theirs reaches it. */
+  async readAs(
     principal: Principal,
     access: EffectiveAccess,
     referralId: string,
   ): Promise<MediaReferralView> {
-    const [viewer, referrer, decider] = await Promise.all([
-      this.reachedBy(principal, access, VIEW_PERMISSION, referralId),
+    const [rights, referrer, decider] = await Promise.all([
+      workRights(this.prisma, this.access, principal, access, referralId),
       this.reachedBy(principal, access, REFER_PERMISSION, referralId),
       this.reachedBy(principal, access, DECIDE_PERMISSION, referralId),
     ]);
     // the referrer and the decider read what they just wrote, whatever the panel left of the view
-    if (!viewer && !referrer && !decider) throw new ApiError('permission.not_found', 404);
+    if (!rights.view && !referrer && !decider) throw new ApiError('permission.not_found', 404);
     const row = await this.prisma.mediaReferral.findUniqueOrThrow({
       where: { id: referralId },
       select: READ_SELECT,
@@ -528,7 +535,7 @@ export class MediaReferralsService {
         monthlyIncome,
       },
       officialComment,
-      work: row.work,
+      work: row.work ? await readWork(this.prisma, row.work.id, rights) : null,
       history: row.events.map((e) => ({
         id: e.id,
         kind: e.kind,
@@ -550,13 +557,9 @@ export class MediaReferralsService {
     permission: string,
     referralId: string,
   ): Promise<boolean> {
-    if (!holdsPermission(permission, access.grants)) return false;
-    const scope = await this.access.scopeFor(principal, access, permission, 'application');
     return (
-      (await this.prisma.mediaReferral.count({
-        where: { AND: [{ id: referralId }, mediaReferralWhere(scope)] },
-      })) > 0
-    );
+      await reachesReferral(this.prisma, this.access, principal, access, permission, referralId)
+    ).reached;
   }
 
   private async applicationOf(referralId: string): Promise<string | null> {
@@ -627,7 +630,10 @@ export class MediaReferralsService {
       program: { id: r.project.program.id, name: name(r.project.program) },
       project: { id: r.project.id, name: name(r.project), year: r.project.year },
       referredBy: { id: r.referredByRef.id, name: r.referredByRef.displayName },
-      referredAt: (r.events[0]?.createdAt ?? r.updatedAt).toISOString(),
+      referredAt: (
+        r.events.filter((e) => e.kind === 'referred' || e.kind === 'resent').at(-1)?.createdAt ??
+        r.updatedAt
+      ).toISOString(),
       decidedAt: iso(r.decidedAt),
     };
   }

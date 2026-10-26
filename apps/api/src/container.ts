@@ -60,6 +60,7 @@ import { WorkflowSideEffects } from './applications/side-effects';
 import { TransfersService } from './applications/transfers';
 import { UnlocksService } from './applications/unlocks';
 import { MediaReferralsService } from './services/media-referrals';
+import { MediaWorksService } from './services/media-works';
 import { WaitlistService } from './applications/waitlist';
 import { ProgramsService } from './services/programs';
 import { ReferenceListsService } from './services/reference-lists';
@@ -165,6 +166,7 @@ export interface Container {
   waitlist: WaitlistService;
   unlocks: UnlocksService;
   mediaReferrals: MediaReferralsService;
+  mediaWorks: MediaWorksService;
   mediaEvents: MediaEvents;
   transfers: TransfersService;
   applicationEvents: ApplicationEvents;
@@ -308,6 +310,9 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const mediaEvents = o.mediaEvents ?? new MediaEvents(notifications);
   const mediaReferrals =
     o.mediaReferrals ?? new MediaReferralsService(env, prisma, access, audit, clock, mediaEvents);
+  const mediaWorks =
+    o.mediaWorks ??
+    new MediaWorksService(prisma, access, audit, clock, mediaEvents, mediaReferrals);
   const publicPhotos =
     o.publicPhotos ?? new PublicPhotosService(prisma, storage, audit, jobs, logger, clock);
   const built = {
@@ -444,6 +449,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     unlocks,
     mediaEvents,
     mediaReferrals,
+    mediaWorks,
     readyForms: o.readyForms ?? new ReadyFormsService(prisma, audit, projects, forms),
     publicLink: o.publicLink ?? new PublicLinkService(env, prisma, audit, projects),
     publicPhotos,

@@ -340,6 +340,16 @@
   "media": {
     "referral_not_referable": "Only an approved application, or one past approval, can be sent to the Media Team.",
     "referral_open": "This application is already with the Media Team. Wait for its decision.",
-    "referral_not_pending": "This referral has already been decided."
+    "referral_not_pending": "This referral has already been decided.",
+    "stage_not_allowed": "This work cannot move to that stage now.",
+    "work_closed": "This work is done or cancelled, so only comments can be added.",
+    "member_not_media": "Only an active member of the Media Team can be added to a work.",
+    "role_unknown": "Choose production roles from the list.",
+    "platform_unknown": "Choose a platform from the list.",
+    "link_invalid": "Give a full https link, without a user name or port.",
+    "link_host": "This link is not on the chosen platform. Give the platform's own link.",
+    "publish_before_review": "A work can be marked published only after the final review.",
+    "review_not_ready": "The final review is given only when the work is ready to publish.",
+    "unchanged": "Nothing was changed."
   }
 }

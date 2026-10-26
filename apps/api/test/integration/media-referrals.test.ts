@@ -1,22 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { SeedContext } from '../../seed/context';
-import { seedReferenceLists } from '../../seed/sets/base/reference-lists';
-import { seedWorkflows } from '../../seed/sets/base/workflows';
-import { accessWorld } from './support/access-fixtures';
-import { applicationProject, IDENTITY_ANSWERS } from './support/applications';
+import { account, type AuthHarness, type Session } from './support/auth-app';
 import {
-  type Account,
-  account,
-  type AuthHarness,
-  authHarness,
-  bearer,
-  login,
-  type Session,
-} from './support/auth-app';
-import { question } from './support/forms';
-import { fakeMobile, fakeNid } from './support/fixtures';
+  mediaApplication,
+  mediaReferral,
+  type MediaWorld,
+  mediaWorld,
+  REFERRAL,
+} from './support/media';
 import { notificationsOf } from './support/notifications';
 
 // The referral of an approved application to the Media Team: a PM of the program or an RPM of the
@@ -24,62 +15,23 @@ import { notificationsOf } from './support/notifications';
 // Assistant Director accepts it (its work starts), sends it back with a comment or rejects it with
 // a reason; a returned referral is corrected and sent again. The application's own workflow never
 // moves, and the Media Team never opens the application itself.
+let m: MediaWorld;
 let h: AuthHarness;
-let world: Awaited<ReturnType<typeof accessWorld>>;
-const accounts = new Map<string, Account>();
-const api = () => request(h.server());
-const as = (userId: string) => login(h, accounts.get(userId)!);
-const at = (s: Session, method: 'get' | 'post', path: string) =>
-  api()[method](`/api/v1${path}`).set(bearer(s));
+let world: MediaWorld['world'];
+const as = (userId: string) => m.as(userId);
+const at = (s: Session, method: 'get' | 'post', path: string) => m.at(s, method, path);
 
 let project: string;
-let versionId: string;
 const media = { director: '', assistant: '', member: '', finance: '', otherPm: '' };
 
-const toAnswers = (record: Record<string, unknown>) =>
-  Object.entries(record).map(([fieldKey, value]) => ({ fieldKey, value }));
 const read = (s: Session, id: string) => at(s, 'get', `/applications/${id}`);
-const act = async (s: Session, id: string, action: string, body: Record<string, unknown> = {}) => {
-  const before = await read(s, id);
-  const res = await at(s, 'post', `/applications/${id}/actions/${action}`)
-    .set('If-Match', before.headers.etag as string)
-    .send(body);
-  expect(res.status, `${action}: ${JSON.stringify(res.body)}`).toBe(200);
-};
+const application = (until: 'submitted' | 'approved' = 'approved') => mediaApplication(m, until);
 
-/** A volunteer's application of the Dhaka region, moved as far as `until`; answers its id. */
-async function application(until: 'submitted' | 'approved' = 'approved'): Promise<string> {
-  const s = await as(world.users.general);
-  const made = await at(s, 'post', `/projects/${project}/applications`).send({
-    clientUuid: randomUUID(),
-    projectId: project,
-    formVersionId: versionId,
-    answers: toAnswers({
-      ...IDENTITY_ANSWERS(fakeNid(), fakeMobile(), world.dhaka),
-      q_occupation: { t: 'single_select', v: 'day_labourer' },
-    }),
-  });
-  expect(made.status, JSON.stringify(made.body)).toBe(201);
-  const id = made.body.data.id as string;
-  await act(s, id, 'submit');
-  if (until === 'submitted') return id;
-  const rpm = await as(world.users.rpmDhaka);
-  await act(rpm, id, 'review');
-  await act(rpm, id, 'send_for_approval');
-  await act(rpm, id, 'approve');
-  return id;
-}
-
-const REFERRAL = { priority: 'high', note: 'ভালো গল্প হতে পারে', story: 'তিনি একাই সংসার চালান' };
 const refer = (s: Session, id: string, body: Record<string, unknown> = REFERRAL) =>
   at(s, 'post', `/applications/${id}/media-referral`).send(body);
 const decide = (s: Session, referralId: string, body: Record<string, unknown>) =>
   at(s, 'post', `/media-referrals/${referralId}/decision`).send(body);
-const referred = async (id: string, by = world.users.rpmDhaka) => {
-  const res = await refer(await as(by), id);
-  expect(res.status, JSON.stringify(res.body)).toBe(201);
-  return res.body.data.id as string;
-};
+const referred = (id: string, by = world.users.rpmDhaka) => mediaReferral(m, id, by);
 const workflowOf = async (id: string) => {
   const app = await h.db.query<{ status: string }>(
     'SELECT status FROM applications WHERE id = $1',
@@ -100,73 +52,9 @@ const auditActions = async (referralId: string) =>
   ).rows.map((r) => r.action);
 
 beforeAll(async () => {
-  h = await authHarness();
-  const make = (kind: 'staff' | 'volunteer') => async (role: string) => {
-    const a = await account(h.db, { kind, role });
-    accounts.set(a.id, a);
-    return a.id;
-  };
-  world = await accessWorld(h.db, { staff: make('staff'), volunteerUser: make('volunteer') });
-  const ctx = new SeedContext(h.db);
-  await seedWorkflows(ctx);
-  await seedReferenceLists(ctx);
-  media.director = await make('staff')('media_director');
-  media.assistant = await make('staff')('media_assistant_director');
-  media.member = await make('staff')('media_team');
-  media.finance = await make('staff')('finance_team');
-  media.otherPm = await make('staff')('program_manager');
-  await h.db.query('UPDATE programs SET pm_user_id = $1 WHERE id = $2', [
-    media.otherPm,
-    world.b1.program,
-  ]);
-  const made = await at(await as(world.users.pm), 'post', '/projects').send({
-    programId: world.a1.program,
-    code: 'MED',
-    year: 2026,
-    name: { bn: 'মিডিয়া', en: 'Media' },
-    source: { kind: 'workflow', workflowKey: 'distribution' },
-  });
-  expect(made.status, JSON.stringify(made.body)).toBe(201);
-  project = made.body.data.id as string;
-  ({ versionId } = await applicationProject(h, await as(world.users.monitoring), project, {
-    form: {
-      fields: [
-        question('q_occupation', 'single_select', {
-          standardColumn: 'occupation_code',
-          options: [
-            {
-              code: 'day_labourer',
-              label: { bn: 'দিনমজুর', en: 'Day labourer' },
-              dependsOnOptionCode: null,
-              allowsOtherText: false,
-            },
-          ],
-        }),
-        question('official_comment', 'long_text'),
-      ],
-    },
-  }));
-  for (const [rpm, division] of [
-    [world.users.rpmDhaka, world.dhaka.division],
-    [world.users.rpmRangpur, world.rangpur.division],
-  ] as const)
-    await h.db.query(
-      `INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)`,
-      [randomUUID(), project, division, rpm],
-    );
-  const general = await h.db.query<{ id: string }>('SELECT id FROM volunteers WHERE user_id = $1', [
-    world.users.general,
-  ]);
-  await h.db.query(
-    `INSERT INTO project_volunteers (id, project_id, volunteer_id, region_location_id, permission_set, extra_permissions, assigned_by, consent_status)
-     VALUES ($1, $2, $3, $4, 'application_distribution', '{}', $5, 'accepted')`,
-    [randomUUID(), project, general.rows[0]!.id, world.dhaka.division, world.users.rpmDhaka],
-  );
-  await h.db.query(
-    `INSERT INTO project_staff (id, project_id, user_id, role_key, area_location_id, extra_permissions, granted_by)
-     VALUES ($1, $2, $3, 'project_executive', $4, '{}', $5)`,
-    [randomUUID(), project, world.users.executive, world.dhaka.division, world.users.rpmDhaka],
-  );
+  m = await mediaWorld();
+  ({ h, world, project } = m);
+  Object.assign(media, m.media);
 });
 afterAll(async () => h.close());
 
@@ -449,7 +337,7 @@ describe('reading a referral', () => {
     const accepted = await decide(await as(media.director), referralId, { decision: 'accept' });
     const workId = accepted.body.data.work.id as string;
     const other = await account(h.db, { role: 'media_team' });
-    accounts.set(other.id, other);
+    m.accounts.set(other.id, other);
     await h.db.query(
       `INSERT INTO media_work_members (id, work_id, user_id, roles, created_by) VALUES ($1, $2, $3, $4, $5)`,
       [randomUUID(), workId, media.member, ['cinematographer'], media.director],
