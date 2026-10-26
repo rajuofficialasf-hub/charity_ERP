@@ -92,7 +92,7 @@ Today the engine has conditions against a fixed value, sums and simple arithmeti
 - **Depends on:** none
 - **Size:** S
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U2. The engine: conditional results, comparisons, row counts and cells
 - **Goal:** the shared engine evaluates if/then/else with number and text results, compares two answers and counts rows by a condition, with the same results on both sides.
@@ -332,8 +332,8 @@ Today the engine has conditions against a fixed value, sums and simple arithmeti
 
 ## Progress
 - **Branch:** `feat/form-logic` (from `docs/plan-form-tasks` at 3a64c1c, PR #29, which merges into `main` first)
-- **Updated:** 2026-10-26 09:45
-- **Next:** U1 D-133 in DECISION_LOG, D-124 (3) approved, the new rules in BUSINESS_RULES
+- **Updated:** 2026-10-26 10:00
+- **Next:** U2 the engine: tests first in `evaluate.test.ts`, `definition.test.ts` and the SRP-26 fixture
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** the owner chose at the brainstorm and the doc review: D-128 item 3 withdrawn; the demo's extras (rows from a count, row counts by condition, comparing two answers, piping, the number table) joined; click-and-type editor; no mockup; prices stay in the formula; all four security points of the plan security review; a draft may hold rows that do not match the count, the submission refuses the mismatch.
+- **Notes:** the owner chose at the brainstorm and the doc review: D-128 item 3 withdrawn; the demo's extras (rows from a count, row counts by condition, comparing two answers, piping, the number table) joined; click-and-type editor; no mockup; prices stay in the formula; all four security points of the plan security review; a draft may hold rows that do not match the count, the submission refuses the mismatch. U1: D-133 also notes on BR-082 that the officials are read from the steps and the audit; the new rules are BR-273 to BR-280 (module M07 only, so the Phase 1 documents check stays green).
