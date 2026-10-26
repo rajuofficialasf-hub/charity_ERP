@@ -60,7 +60,8 @@
     "other_text_not_allowed": "This field takes no extra text with its choice.",
     "rows_too_few": "Too few rows were given.",
     "rows_too_many": "Too many rows were given.",
-    "address_incomplete": "Choose the division, district, upazila and union."
+    "address_incomplete": "Choose the division, district, upazila and union.",
+    "repeat_rows_mismatch": "The number of rows does not match the number given ({expected})."
   },
   "beneficiary": {
     "identity_missing": "Enter the NID or the birth registration number.",
@@ -258,7 +259,11 @@
     "result_misplaced": "Only a calculated question can have text results.",
     "comparison_type": "This rule compares a number with a text. Compare answers of the same kind.",
     "reference_hidden": "This is shown to volunteers or the public but reads an answer of the official part. Use an answer they can see.",
-    "expression_too_large": "This rule is too long. Keep it within 20 levels and 500 parts."
+    "expression_too_large": "This rule is too long. Keep it within 20 levels and 500 parts.",
+    "read_only_invalid": "A read-only question needs a calculation or a default to take its value from.",
+    "default_misplaced": "This default does not fit the question: today's date goes on a date, a text on a text question, a number on a number or an amount.",
+    "repeat_count_invalid": "The number of rows can follow only an earlier whole-number question with a highest value of 50 or less.",
+    "pipe_order": "The text repeats the answer of a question that comes later. Use an earlier question."
   },
   "public": {
     "link_closed": "This link is not open for applications.",

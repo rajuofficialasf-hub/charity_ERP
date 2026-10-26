@@ -3,6 +3,7 @@ import { isFieldRef, withinLimits } from '../jsonb/form-logic.js';
 import { fromPaisa, isAmount, toPaisa } from '../projects/budget.js';
 import {
   indexFields,
+  resultLabelOf,
   type Condition,
   type Expr,
   type FieldOption,
@@ -593,5 +594,67 @@ export function evaluate(
     fields: Object.fromEntries(fields),
     computed: Object.fromEntries(computed),
     rows: Object.fromEntries(rows),
+  };
+}
+
+/**
+ * The text of each answer as a piped text reads it, in the reader's language: a choice by its
+ * label, a text result by its label, a number or an amount as written; null while it is empty or
+ * hidden, and for answers with no text (a place, a photo).
+ */
+export function answerTexts(
+  definition: FormDefinition,
+  answers: readonly Answer[],
+  evaluation: Evaluation,
+  locale: 'bn' | 'en',
+  row = 0,
+): (key: string) => string | null {
+  const fields = indexFields(definition);
+  const states = new Map(Object.entries(evaluation.fields));
+  const computed = new Map(Object.entries(evaluation.computed));
+  const inLocale = (text: { bn: string; en: string }) => (locale === 'bn' ? text.bn : text.en);
+  return (key) => {
+    const located = fields.get(key);
+    if (!located) return null;
+    const at = located.group === null ? 0 : row;
+    const path = fieldPath(key, at, located.group !== null);
+    if (states.get(path)?.visible === false) return null;
+    const { field } = located;
+    if (field.type === 'calculation') {
+      const value = computed.get(path);
+      if (value === undefined || value === null) return null;
+      if (typeof value !== 'string') return String(value);
+      const result = resultLabelOf(field, value);
+      return result ? inLocale(result) : value;
+    }
+    const answer = answers.find((a) => a.fieldKey === key && (a.repeatIndex ?? 0) === at);
+    if (!answer) return null;
+    const label = (code: string) => {
+      const option = field.options?.find((o) => o.code === code);
+      return option ? inLocale(option.label) : code;
+    };
+    const value = answer.value;
+    switch (value.t) {
+      case 'single_select':
+      case 'radio':
+        return value.v === '' ? null : label(value.v);
+      case 'multi_select':
+      case 'checkbox':
+        return value.v.length ? value.v.map(label).join(', ') : null;
+      case 'number':
+      case 'decimal':
+        return String(value.v);
+      case 'short_text':
+      case 'long_text':
+      case 'phone':
+      case 'email':
+      case 'money':
+      case 'date':
+      case 'time':
+      case 'datetime':
+        return value.v.trim() === '' ? null : value.v;
+      default:
+        return null;
+    }
   };
 }

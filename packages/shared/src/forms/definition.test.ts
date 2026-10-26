@@ -593,3 +593,69 @@ describe('conditional values, comparisons and row counts', () => {
     ]);
   });
 });
+
+describe('defaults, read-only questions, rows from a count and piping', () => {
+  it('refuses a read-only question with neither a calculation nor a default, and a default of the wrong kind', () => {
+    const definition = definitionWith([
+      field('free', 'short_text', { settings: { read_only: true } }),
+      field('when', 'date', { settings: { default: { text: 'today' } } }),
+      field('prefix', 'short_text', { settings: { default: { text: 'ASF-' }, read_only: true } }),
+      field('day', 'date', { settings: { default: { today: true } } }),
+    ]);
+    expect(codesOf(definition)).toEqual([
+      ['form.read_only_invalid', 'free'],
+      ['form.default_misplaced', 'when'],
+    ]);
+  });
+
+  it('takes a row count only from an earlier whole-number question with a cap within the rows', () => {
+    const group = (countFrom: string) =>
+      field('members', 'repeat_group', { settings: { repeat: { count_from: countFrom } } });
+    const capped = field('family_count', 'number', { settings: { validation: { max: 20 } } });
+    expect(codesOf(definitionWith([capped, group('family_count')]))).toEqual([]);
+    expect(
+      codesOf(definitionWith([field('label_text', 'short_text'), group('label_text')])),
+    ).toEqual([['form.repeat_count_invalid', 'members']]);
+    expect(codesOf(definitionWith([group('family_count'), capped]))).toEqual([
+      ['form.repeat_count_invalid', 'members'],
+    ]);
+    // no cap, or one above the 50 rows a group may hold
+    expect(
+      codesOf(definitionWith([field('family_count', 'number'), group('family_count')])),
+    ).toEqual([['form.repeat_count_invalid', 'members']]);
+    expect(
+      codesOf(
+        definitionWith([
+          field('family_count', 'number', { settings: { validation: { max: 60 } } }),
+          group('family_count'),
+        ]),
+      ),
+    ).toEqual([['form.repeat_count_invalid', 'members']]);
+  });
+
+  it('pipes only an earlier answer that exists, and at publish only one its readers see', () => {
+    const definition = definitionWith(
+      [
+        field('q_farm', 'single_select', { options: [option('cow')] }),
+        field('q_count', 'number', {
+          label: { bn: 'কতটি {{q_farm}}?', en: 'How many {{q_farm}}?' },
+        }),
+        field('q_early', 'number', { label: { bn: '{{q_late}}', en: '{{q_late}}' } }),
+        field('q_late', 'short_text'),
+        field('q_gone', 'number', { settings: { help: { bn: '{{nope}}', en: 'x' } } }),
+        field('q_secret', 'short_text', { label: { bn: '{{assessed}}', en: '{{assessed}}' } }),
+      ],
+      [section('office', [field('assessed', 'money')], { visibility: 'official_only' })],
+    );
+    expect(codesOf(definition)).toEqual([
+      ['form.pipe_order', 'q_early'],
+      ['form.unknown_reference', 'nope'],
+      ['form.pipe_order', 'q_secret'],
+    ]);
+    expect(
+      checkDefinition(definition, { publishing: true })
+        .filter((i) => i.code === 'form.reference_hidden')
+        .map((i) => i.params?.fieldKey),
+    ).toEqual(['q_secret']);
+  });
+});

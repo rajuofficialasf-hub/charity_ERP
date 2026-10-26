@@ -26,6 +26,7 @@ import {
   type SectionVisibility,
 } from './library.js';
 import { PATTERN_KEYS, TEXT_MAX_LENGTH } from './patterns.js';
+import { pipeKeys } from './pipe.js';
 import { MAX_SCORE, maxScoreOf, scoreKindOf } from './score.js';
 
 /**
@@ -73,7 +74,20 @@ export const repeatSettingsSchema = z.strictObject({
   earner: z.boolean().optional(),
   /** Set on a field inside a repeat group: the key of its group, in the same section. */
   group: snakeKey.optional(),
+  /** On a repeat group: the earlier whole-number question whose answer gives its number of rows. */
+  count_from: snakeKey.optional(),
 });
+
+/** The most rows a group's count may ask for, as the public intake caps the rows. */
+export const COUNTED_ROWS_MAX = 50;
+
+/** The value a question starts with: today's date, a fixed text or a number. */
+export const fieldDefaultSchema = z.union([
+  z.strictObject({ today: z.literal(true) }),
+  z.strictObject({ text: z.string().max(500) }),
+  z.strictObject({ number: z.number() }),
+]);
+export type FieldDefault = z.infer<typeof fieldDefaultSchema>;
 
 /** Points from 0 to 100 in whole numbers, as the priority score counts them. */
 const points = z.int().min(0).max(100);
@@ -110,7 +124,9 @@ export type CalculationResult = z.infer<typeof calculationResultSchema>;
 export const fieldSettingsSchema = z.strictObject({
   placeholder: label(200).optional(),
   help: label(500).optional(),
-  default: z.unknown().optional(),
+  default: fieldDefaultSchema.optional(),
+  /** The answer comes only from the calculation or the default; nobody types it. */
+  read_only: z.boolean().optional(),
   results: z.array(calculationResultSchema).max(50).optional(),
   validation: fieldValidationSchema.optional(),
   repeat: repeatSettingsSchema.optional(),
@@ -191,6 +207,10 @@ export const DEFINITION_ISSUE_CODES = [
   'form.comparison_type',
   'form.reference_hidden',
   'form.expression_too_large',
+  'form.read_only_invalid',
+  'form.default_misplaced',
+  'form.repeat_count_invalid',
+  'form.pipe_order',
 ] as const;
 export type DefinitionIssueCode = (typeof DEFINITION_ISSUE_CODES)[number];
 
@@ -305,6 +325,11 @@ export function indexFields(definition: FormDefinition): Map<string, LocatedFiel
 export function validationOf(field: FormField): FieldValidation {
   return { ...field.logic?.validation, ...field.settings?.validation };
 }
+
+/** Whether one field comes before another in the form's order. */
+const before = (a: LocatedField, b: LocatedField) =>
+  a.sectionIndex < b.sectionIndex ||
+  (a.sectionIndex === b.sectionIndex && a.fieldIndex < b.fieldIndex);
 
 const fieldPath = (f: LocatedField, ...rest: (string | number)[]) => [
   'sections',
@@ -496,6 +521,79 @@ export function checkDefinition(
         resultCodes.add(result.code);
       });
     }
+
+    // a default of the question's kind; a read-only question takes its value from somewhere
+    const start = field.settings?.default;
+    if (start !== undefined) {
+      const fits =
+        'today' in start
+          ? field.type === 'date'
+          : 'text' in start
+            ? isTextType(field.type)
+            : field.type === 'number' || field.type === 'decimal' || field.type === 'money';
+      if (!fits)
+        issues.push({
+          code: 'form.default_misplaced',
+          path: fieldPath(located, 'settings', 'default'),
+          params: { fieldKey: field.fieldKey },
+        });
+    }
+    if (
+      field.settings?.read_only === true &&
+      field.type !== 'calculation' &&
+      (start === undefined || located.group !== null)
+    )
+      issues.push({
+        code: 'form.read_only_invalid',
+        path: fieldPath(located, 'settings', 'read_only'),
+        params: { fieldKey: field.fieldKey },
+      });
+
+    // a group's rows may follow an earlier whole-number question, capped within the rows
+    const countFrom = field.settings?.repeat?.count_from;
+    if (countFrom !== undefined && field.type === 'repeat_group') {
+      const path = fieldPath(located, 'settings', 'repeat', 'count_from');
+      const source = checkReference(located, countFrom, path);
+      if (source) {
+        const cap = validationOf(source.field).max;
+        const rowsMax = Math.min(
+          field.settings?.repeat?.max_rows ?? COUNTED_ROWS_MAX,
+          COUNTED_ROWS_MAX,
+        );
+        const valid =
+          source.field.type === 'number' &&
+          source.group === null &&
+          before(source, located) &&
+          cap !== undefined &&
+          cap <= rowsMax;
+        if (!valid)
+          issues.push({
+            code: 'form.repeat_count_invalid',
+            path,
+            params: { fieldKey: field.fieldKey },
+          });
+      }
+    }
+
+    // a piped text names an earlier answer
+    const texts = [
+      field.label.bn,
+      field.label.en,
+      field.settings?.help?.bn ?? '',
+      field.settings?.help?.en ?? '',
+    ];
+    const piped = [...new Set(texts.flatMap(pipeKeys))];
+    let outOfOrder = false;
+    for (const key of piped) {
+      const source = checkReference(located, key, fieldPath(located, 'label'));
+      if (source && !before(source, located)) outOfOrder = true;
+    }
+    if (outOfOrder)
+      issues.push({
+        code: 'form.pipe_order',
+        path: fieldPath(located, 'label'),
+        params: { fieldKey: field.fieldKey },
+      });
 
     const logicConditions = [
       ['show_if', field.logic?.show_if],

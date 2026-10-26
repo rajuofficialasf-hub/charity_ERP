@@ -25,6 +25,8 @@ describe('the field unlock rules', () => {
       'repeat_group',
     ] as const)
       expect(unlockRefusal({ type }), type).toBe('type');
+    // a read-only answer takes its value only from its default or calculation
+    expect(unlockRefusal({ type: 'short_text', settings: { read_only: true } })).toBe('type');
   });
 
   it('asks a reason to open and to send a value back, none to accept it', () => {

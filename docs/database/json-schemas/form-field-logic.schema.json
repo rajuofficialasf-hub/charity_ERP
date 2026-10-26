@@ -88,14 +88,15 @@
       "properties": {
         "placeholder": { "type": "object", "properties": { "bn": { "type": "string" }, "en": { "type": "string" } } },
         "help": { "type": "object", "properties": { "bn": { "type": "string" }, "en": { "type": "string" } } },
-        "default": {},
+        "default": { "description": "{ today: true }, { text } or { number } (D-133)" },
+        "read_only": { "type": "boolean", "description": "the answer comes only from the calculation or the default (D-133)" },
         "results": {
           "type": "array", "maxItems": 50,
           "description": "the text results a calculation may give (D-133)",
           "items": { "type": "object", "required": ["code", "label"], "properties": { "code": { "type": "string", "pattern": "^[a-z0-9_]{1,64}$" }, "label": { "type": "object", "properties": { "bn": { "type": "string" }, "en": { "type": "string" } } } } }
         },
         "validation": { "$ref": "#/$defs/validation" },
-        "repeat": { "type": "object", "properties": { "min_rows": { "type": "integer", "minimum": 0 }, "max_rows": { "type": "integer", "minimum": 1 } } },
+        "repeat": { "type": "object", "properties": { "min_rows": { "type": "integer", "minimum": 0 }, "max_rows": { "type": "integer", "minimum": 1 }, "count_from": { "$ref": "#/$defs/fieldKey", "description": "the earlier whole-number question whose answer gives the number of rows (D-133)" } } },
         "score": {
           "type": "object", "additionalProperties": false,
           "description": "the points of the priority score, set by the Monitoring Team (D-132): per option code of a choice question, or per range of a number (the first matching range counts)",

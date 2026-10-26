@@ -152,6 +152,7 @@ export const fieldSettingsSchema = z.strictObject({
   placeholder: looseLabel.optional(),
   help: looseLabel.optional(),
   default: z.unknown().optional(),
+  read_only: z.boolean().optional(),
   /** The text results a calculation may give, each a code with its label in both languages. */
   results: z
     .array(z.looseObject({ code: code64, label: looseLabel }))

@@ -5,11 +5,13 @@ import { isAmount, toPaisa } from '../projects/budget.js';
 import {
   indexFields,
   validationOf,
+  type FieldDefault,
   type FormDefinition,
   type FormField,
   type LocatedField,
 } from './definition.js';
 import {
+  amountOf,
   evaluate,
   fieldPath,
   plainOf,
@@ -56,6 +58,18 @@ export type ValidationResult =
       custom: Answer[];
     }
   | { ok: false; errors: ValidationError[] };
+
+/** The answer a default gives a question of its type, or null for a default that does not fit. */
+function defaultValue(field: FormField, start: FieldDefault, today: string): AnswerValue | null {
+  if ('today' in start) return field.type === 'date' ? { t: 'date', v: today } : null;
+  if ('text' in start)
+    return isTextType(field.type) ? ({ t: field.type, v: start.text } as AnswerValue) : null;
+  if (field.type === 'money')
+    return { t: 'money', v: amountOf(BigInt(Math.round(start.number * 100))) };
+  if (field.type === 'number' || field.type === 'decimal')
+    return { t: field.type, v: start.number };
+  return null;
+}
 
 /** The public never sends more rows than this, whatever the definition allows. */
 export const PUBLIC_MAX_ROWS = 50;
@@ -132,8 +146,9 @@ class Validator {
         this.fail(path, 'form.unexpected_answer');
         continue;
       }
-      // a calculated value is never trusted: the engine recomputes it below
-      if (type === 'calculation') continue;
+      // a calculated or read-only value is never trusted: the engine recomputes it, or the default
+      // is written below
+      if (type === 'calculation' || located.field.settings?.read_only === true) continue;
       const slot = `${fieldKey}#${row}`;
       if (this.kept.has(slot)) {
         this.fail(path, 'form.duplicate_answer');
@@ -203,10 +218,24 @@ class Validator {
     }
   }
 
+  /** Writes the default of every read-only question outside a group, whatever the client sent. */
+  applyReadOnlyDefaults() {
+    for (const located of this.fields.values()) {
+      const { field } = located;
+      const start = field.settings?.default;
+      if (field.settings?.read_only !== true || start === undefined || located.group !== null)
+        continue;
+      const value = defaultValue(field, start, this.options.today);
+      if (value)
+        this.kept.set(`${field.fieldKey}#0`, { fieldKey: field.fieldKey, repeatIndex: 0, value });
+    }
+  }
+
   /** The rules of every visible field, per row inside a group. */
   check() {
     const evaluation = evaluate(this.definition, [...this.kept.values()], this.options);
     const states = new Map(Object.entries(evaluation.fields));
+    this.states = states;
     const rows = new Map(Object.entries(evaluation.rows));
     for (const located of this.fields.values()) {
       const { field } = located;
@@ -235,10 +264,24 @@ class Validator {
     return evaluation;
   }
 
+  private states = new Map<string, FieldState>();
+
   private checkRows(located: LocatedField, state: FieldState, count: number) {
     if (!state.visible) return;
     const { field } = located;
     const repeat = field.settings?.repeat ?? {};
+    // rows that follow a count: a draft may hold any number, the submission exactly the count
+    if (repeat.count_from !== undefined) {
+      if (this.options.draft) return;
+      const source = this.kept.get(`${repeat.count_from}#0`);
+      const expected =
+        this.states.get(repeat.count_from)?.visible && source?.value.t === 'number'
+          ? source.value.v
+          : 0;
+      if (count !== expected)
+        this.fail(field.fieldKey, 'validation.repeat_rows_mismatch', { expected });
+      return;
+    }
     const min = repeat.min_rows ?? (state.required ? 1 : 0);
     const definedMax = repeat.max_rows;
     const max =
@@ -357,6 +400,7 @@ export function validate(
 ): ValidationResult {
   const validator = new Validator(definition, options);
   validator.intake(answers);
+  validator.applyReadOnlyDefaults();
   const evaluation = validator.check();
   if (validator.errors.length) return { ok: false, errors: validator.errors };
   const kept = [...validator.kept.values()];

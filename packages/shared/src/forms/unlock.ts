@@ -41,11 +41,14 @@ export const UNLOCK_LOCKED_COLUMNS = [
 export function unlockRefusal(field: {
   type: FieldType;
   standardColumn?: string | null;
+  settings?: { read_only?: boolean } | null;
 }): 'identity' | 'type' | null {
   // a question may write several columns; any identity column among them locks it
   const columns = (field.standardColumn ?? '').split(',').map((c) => c.trim());
   if (columns.some((c) => (UNLOCK_LOCKED_COLUMNS as readonly string[]).includes(c)))
     return 'identity';
+  // a read-only answer takes its value only from its default or calculation
+  if (field.settings?.read_only === true) return 'type';
   return (UNLOCKABLE_FIELD_TYPES as readonly string[]).includes(field.type) ? null : 'type';
 }
 
