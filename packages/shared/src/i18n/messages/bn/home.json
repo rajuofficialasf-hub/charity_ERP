@@ -40,7 +40,10 @@
     "permission_panel": "পারমিশন প্যানেল",
     "notifications": "সাম্প্রতিক নোটিফিকেশন",
     "notifications_empty": "কোনো নোটিফিকেশন নেই",
-    "all_notifications": "সব নোটিফিকেশন"
+    "all_notifications": "সব নোটিফিকেশন",
+    "media_work": "মিডিয়ার কাজ",
+    "open_media": "মিডিয়ার কাজ দেখুন",
+    "media_counts": "{new} নতুন · {progress} চলমান · {published} প্রকাশিত"
   },
   "later": {
     "badge": "শিগগিরই আসছে",
@@ -87,10 +90,6 @@
     "safe_water": {
       "title": "নিরাপদ পানির প্রকল্প",
       "text": "প্রতিটি সাইটের অগ্রগতি এখানে দেখা যাবে।"
-    },
-    "media_work": {
-      "title": "মিডিয়ার কাজের তালিকা",
-      "text": "বাছাই করা উপকারভোগী আর তাঁদের গল্প এখানে দেখা যাবে।"
     },
     "finance_overview": {
       "title": "বাজেট ও পেমেন্ট",

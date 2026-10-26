@@ -273,3 +273,22 @@ export const DECISION_ROLES: readonly string[] = [
   'official_daee',
 ];
 export const canDecideApplications = (me: Pick<Me, 'roles'>) => holds(me, DECISION_ROLES);
+
+/** The Media Team's own roles: the members and the two directors. */
+export const MEDIA_ROLES: readonly string[] = [
+  'media_team',
+  'media_director',
+  'media_assistant_director',
+];
+
+/**
+ * Who opens the Media Team's screens (`media.work.view`): the Media Team, the referrers (PM, RPM)
+ * and the two global roles; a member sees only their own works (the server limits it).
+ */
+export const MEDIA_WORK_ROLES: readonly string[] = [
+  ...MEDIA_ROLES,
+  'program_manager',
+  'regional_program_manager',
+  'department_head',
+  'monitoring_team',
+];

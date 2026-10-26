@@ -21,6 +21,7 @@ import {
   SYSTEM_ADMIN_ROLES,
 } from '../../admin/roles';
 import { TEMPLATES_KEY, templates } from '../../admin/templates/templates-api';
+import { MEDIA_KEY, mediaSummary } from '../media/media-api';
 import { MY_PROJECTS_KEY, myProjects } from '../projects/my-projects-api';
 import {
   HOME_PROJECT_STATES,
@@ -272,6 +273,39 @@ export function ComingLater({ widget }: { widget: LaterWidget }) {
   );
 }
 
+/** The Media Team's counts and the way into their home. */
+function MediaWork() {
+  const t = useTranslations('home.widget');
+  const locale = useLocale() as Locale;
+  const summary = useQuery({ queryKey: [...MEDIA_KEY, 'summary'], queryFn: mediaSummary });
+  return (
+    <Card
+      title={t('media_work')}
+      headingLevel={2}
+      actions={
+        <Button variant="ghost" size="sm" href="/media">
+          {t('open_media')}
+        </Button>
+      }
+    >
+      <Loaded query={summary} empty="" isEmpty={() => false}>
+        {({ overall }) => (
+          <Text>
+            {t('media_counts', {
+              new: formatCount(overall.new, locale),
+              progress: formatCount(
+                overall.inProgress + overall.waitingForShooting + overall.inEditing,
+                locale,
+              ),
+              published: formatCount(overall.published + overall.done, locale),
+            })}
+          </Text>
+        )}
+      </Loaded>
+    </Card>
+  );
+}
+
 /** One widget of the home that exists by now. */
 export function LiveWidgetCard({ widget, me }: { widget: LiveWidget; me: Me }) {
   switch (widget) {
@@ -287,6 +321,8 @@ export function LiveWidgetCard({ widget, me }: { widget: LiveWidget; me: Me }) {
       return <Templates />;
     case 'shortcuts':
       return <Shortcuts me={me} />;
+    case 'media_work':
+      return <MediaWork />;
     case 'notifications':
       return <LatestNotifications />;
   }

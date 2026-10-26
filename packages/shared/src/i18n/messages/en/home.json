@@ -40,7 +40,10 @@
     "permission_panel": "Permission panel",
     "notifications": "Latest notifications",
     "notifications_empty": "No notifications",
-    "all_notifications": "All notifications"
+    "all_notifications": "All notifications",
+    "media_work": "Media work",
+    "open_media": "Open media work",
+    "media_counts": "{new} new · {progress} in progress · {published} published"
   },
   "later": {
     "badge": "Coming later",
@@ -87,10 +90,6 @@
     "safe_water": {
       "title": "Safe-water projects",
       "text": "The progress of each site will show here."
-    },
-    "media_work": {
-      "title": "Media work list",
-      "text": "Selected beneficiaries and their stories will show here."
     },
     "finance_overview": {
       "title": "Budget and payments",

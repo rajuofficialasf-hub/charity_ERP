@@ -44,11 +44,14 @@ const LOOK: Record<AttentionKind, { icon: IconComponent; tone: 'info' | 'warning
 
 /**
  * "Needs your attention", the first widget of every home: what waits for the person now, each
- * item linking to the list that holds it; a calm empty state when nothing waits.
+ * item linking to the list that holds it; a calm empty state when nothing waits. A module's own
+ * home passes its `kinds`.
  */
-export function AttentionList() {
+export function AttentionList({ kinds }: { kinds?: readonly AttentionKind[] } = {}) {
   const t = useTranslations('home.attention');
   const locale = useLocale() as Locale;
+  // a page of one module shows only its own items
+  const shown = (item: { kind: AttentionKind }) => !kinds || kinds.includes(item.kind);
   // asked again each time the home opens: the person may just have acted on an item
   const items = useQuery({
     queryKey: ATTENTION_KEY,
@@ -65,11 +68,11 @@ export function AttentionList() {
         query={items}
         empty={t('empty')}
         emptyIcon={CircleCheck}
-        isEmpty={(data) => data.length === 0}
+        isEmpty={(data) => data.filter(shown).length === 0}
       >
         {(data) => (
           <ul className="my-work-list">
-            {data.map((item) => (
+            {data.filter(shown).map((item) => (
               <li key={item.kind}>
                 <AttentionCard
                   {...LOOK[item.kind]}
