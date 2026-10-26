@@ -13,7 +13,6 @@ const CLASH_KINDS = [
   'class_attendance',
   'learning_progress',
   'exam_results',
-  'media_subjects',
   'file_links',
   'alerts',
 ] as const;

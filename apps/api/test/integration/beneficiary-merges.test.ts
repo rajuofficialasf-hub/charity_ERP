@@ -126,7 +126,22 @@ async function belongings(beneficiaryId: string) {
     entity_id: beneficiaryId,
     slot: 'photo',
   });
-  return { family, call, followup, link };
+  // a media referral of the profile's application follows the profile
+  const app = (
+    await h.db.query('SELECT id, project_id FROM applications WHERE beneficiary_id = $1', [
+      beneficiaryId,
+    ])
+  ).rows[0] as { id: string; project_id: string };
+  const referral = await f.insert(h.db, 'media_referrals', {
+    id: randomUUID(),
+    application_id: app.id,
+    beneficiary_id: beneficiaryId,
+    project_id: app.project_id,
+    referred_by: world.users.rpmDhaka,
+    priority: 'normal',
+    note: 'নোট',
+  });
+  return { family, call, followup, link, referral };
 }
 const linkOwner = async (id: string) =>
   (await h.db.query('SELECT entity_id FROM file_links WHERE id = $1', [id])).rows[0]
@@ -158,6 +173,7 @@ describe('a merge proposed by an RPM and carried out by the PM', () => {
     expect(await ownerOf('call_logs', things.call)).toBe(kept);
     expect(await ownerOf('followup_evaluations', things.followup)).toBe(kept);
     expect(await linkOwner(things.link)).toBe(kept);
+    expect(await ownerOf('media_referrals', things.referral)).toBe(kept);
     expect((await pointer(retired)).merged_into_id).toBe(kept);
     const live = await h.container.prisma.$transaction((tx) =>
       h.container.beneficiaryIdentity.liveOf(tx, retired),
@@ -472,6 +488,7 @@ describe('the revert', () => {
     expect(await ownerOf('call_logs', things.call)).toBe(retired);
     expect(await ownerOf('beneficiary_family_members', things.family)).toBe(retired);
     expect(await linkOwner(things.link)).toBe(retired);
+    expect(await ownerOf('media_referrals', things.referral)).toBe(retired);
     expect(await ownerOf('call_logs', later)).toBe(kept);
     expect((await pointer(retired)).merged_into_id).toBeNull();
     const audit = await h.db.query(

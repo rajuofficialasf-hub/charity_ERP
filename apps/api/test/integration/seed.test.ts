@@ -164,9 +164,38 @@ describe('base set', () => {
       gender: 2,
       issue_type_default: 6,
       marital_status: 6,
+      media_platform: 4,
+      media_role: 6,
+      media_stage: 13,
       payment_method: 4,
       relationship: 17,
     });
+    // the media stages the rules need are system entries; each platform names its consent channel
+    const media = (
+      await db.query<{
+        list_key: string;
+        code: string;
+        is_system: boolean;
+        channel: string | null;
+      }>(
+        `SELECT list_key, code, is_system, attributes ->> 'consent_channel' AS channel FROM reference_lists
+          WHERE list_key IN ('media_stage', 'media_platform') AND (is_system OR list_key = 'media_platform')
+          ORDER BY list_key, code`,
+      )
+    ).rows;
+    expect(media.map((m) => [m.list_key, m.code, m.is_system, m.channel])).toEqual([
+      ['media_platform', 'ahmadullah_facebook', false, 'facebook'],
+      ['media_platform', 'ahmadullah_youtube', false, 'video'],
+      ['media_platform', 'asf_facebook', false, 'facebook'],
+      ['media_platform', 'asf_youtube', false, 'video'],
+      ['media_stage', 'accepted', true, null],
+      ['media_stage', 'cancelled', true, null],
+      ['media_stage', 'done', true, null],
+      ['media_stage', 'in_review', true, null],
+      ['media_stage', 'on_hold', true, null],
+      ['media_stage', 'published', true, null],
+      ['media_stage', 'ready_to_publish', true, null],
+    ]);
     const notif = (
       await db.query(
         `SELECT count(DISTINCT key)::int AS keys, count(*) FILTER (WHERE locale = 'bn')::int AS bn, count(*) FILTER (WHERE locale = 'en')::int AS en FROM notification_templates`,

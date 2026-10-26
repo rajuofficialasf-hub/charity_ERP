@@ -34,7 +34,7 @@ const MOVES = [
   { key: 'examResults', table: 'exam_results', column: 'beneficiary_id' },
   { key: 'callLogs', table: 'call_logs', column: 'beneficiary_id' },
   { key: 'followUps', table: 'followup_evaluations', column: 'beneficiary_id' },
-  { key: 'mediaSubjects', table: 'media_subjects', column: 'beneficiary_id' },
+  { key: 'mediaReferrals', table: 'media_referrals', column: 'beneficiary_id' },
   {
     key: 'fileLinks',
     table: 'file_links',
@@ -351,11 +351,6 @@ export class BeneficiaryMergesService {
         JOIN exam_results k ON k.exam_id = r.exam_id AND k.beneficiary_id = ${keptId}::uuid
          AND k.family_member_id IS NULL
         WHERE r.beneficiary_id = ${retiredId}::uuid AND r.family_member_id IS NULL
-      UNION ALL
-      SELECT 'media_subjects', coalesce(r.project_id::text, 'none') FROM media_subjects r
-        JOIN media_subjects k ON k.beneficiary_id = ${keptId}::uuid
-         AND k.project_id IS NOT DISTINCT FROM r.project_id
-        WHERE r.beneficiary_id = ${retiredId}::uuid
       UNION ALL
       SELECT 'file_links', r.file_id::text FROM file_links r
         JOIN file_links k ON k.entity_type = 'beneficiary' AND k.entity_id = ${keptId}::uuid

@@ -592,7 +592,6 @@
         "class_attendance": "Both profiles have attendance in the same class",
         "learning_progress": "Both profiles have progress on the same topic",
         "exam_results": "Both profiles have a result in the same exam",
-        "media_subjects": "Both profiles have media data for the same project",
         "file_links": "Both profiles have the same file",
         "alerts": "Both profiles have an open alert of the same kind",
         "other": "A record of the two profiles cannot be combined"

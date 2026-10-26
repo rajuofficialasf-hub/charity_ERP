@@ -1,10 +1,18 @@
-import { type SeedContext, seedId } from '../../context';
+import { json, type SeedContext, seedId } from '../../context';
 
 /**
  * System-wide reference lists (DATABASE_SCHEMA section 5.2) and the per-project list defaults
  * (section 5.3), with the labels decided in O-17, O-22, O-38, BD-14, O-14 and O-53.
  */
-type Entry = [code: string, bn: string, en: string];
+type Entry = [code: string, bn: string, en: string, extra?: EntryExtra];
+/** A system entry the rules need (kept active, never renamed), and a list's own attributes. */
+interface EntryExtra {
+  system?: boolean;
+  attributes?: Record<string, string>;
+}
+
+/** The media stages the rules need (D-101 (5)): the others are the owner's ordinary stages. */
+const SYSTEM: EntryExtra = { system: true };
 
 export const REFERENCE_LISTS: Record<string, Entry[]> = {
   payment_method: [
@@ -88,11 +96,61 @@ export const REFERENCE_LISTS: Record<string, Entry[]> = {
     ['weather', 'আবহাওয়া', 'Weather'],
     ['material_theft', 'মালামাল চুরি', 'Material theft'],
   ],
+  media_stage: [
+    ['accepted', 'গ্রহণ', 'Accepted', SYSTEM],
+    ['planning', 'পরিকল্পনা ও দল', 'Planning and assignment'],
+    ['script', 'স্ক্রিপ্ট', 'Script'],
+    ['shooting_preparation', 'শুটিং প্রস্তুতি', 'Shooting preparation'],
+    ['shooting_done', 'শুটিং সম্পন্ন', 'Shooting done'],
+    ['editing', 'সম্পাদনা', 'Editing'],
+    ['internal_review', 'অভ্যন্তরীণ পর্যালোচনা', 'Internal review'],
+    ['ready_to_publish', 'প্রকাশের জন্য প্রস্তুত', 'Ready to publish', SYSTEM],
+    ['published', 'প্রকাশিত', 'Published', SYSTEM],
+    ['done', 'সম্পন্ন', 'Done', SYSTEM],
+    ['in_review', 'সংশোধনে ফেরত', 'Sent back for changes', SYSTEM],
+    ['on_hold', 'স্থগিত', 'On hold', SYSTEM],
+    ['cancelled', 'বাতিল', 'Cancelled', SYSTEM],
+  ],
+  media_role: [
+    ['production_manager', 'প্রোডাকশন ম্যানেজার', 'Production Manager'],
+    ['director', 'পরিচালক', 'Director'],
+    ['scriptwriter', 'স্ক্রিপ্ট লেখা', 'Scriptwriter'],
+    ['cinematographer', 'ক্যামেরা', 'Cinematographer'],
+    ['video_editor', 'ভিডিও সম্পাদনা', 'Video Editor'],
+    ['production_assistant', 'প্রোডাকশন সহকারী', 'Production Assistant'],
+  ],
+  // each platform publishes on one consent channel (D-101 (7))
+  media_platform: [
+    [
+      'asf_facebook',
+      'As-Sunnah Foundation Facebook',
+      'As-Sunnah Foundation Facebook',
+      { attributes: { consent_channel: 'facebook' } },
+    ],
+    [
+      'ahmadullah_facebook',
+      'আহমাদুল্লাহ Facebook',
+      'Ahmadullah Facebook',
+      { attributes: { consent_channel: 'facebook' } },
+    ],
+    [
+      'asf_youtube',
+      'As-Sunnah Foundation YouTube',
+      'As-Sunnah Foundation YouTube',
+      { attributes: { consent_channel: 'video' } },
+    ],
+    [
+      'ahmadullah_youtube',
+      'আহমাদুল্লাহ YouTube',
+      'Ahmadullah YouTube',
+      { attributes: { consent_channel: 'video' } },
+    ],
+  ],
 };
 
 export async function seedReferenceLists(ctx: SeedContext): Promise<void> {
   for (const [listKey, entries] of Object.entries(REFERENCE_LISTS)) {
-    for (const [index, [code, bn, en]] of entries.entries()) {
+    for (const [index, [code, bn, en, extra]] of entries.entries()) {
       await ctx.upsert('reference_lists', {
         id: seedId(`reference:${listKey}:${code}`),
         list_key: listKey,
@@ -101,6 +159,8 @@ export async function seedReferenceLists(ctx: SeedContext): Promise<void> {
         label_en: en,
         active: true,
         sort_order: index + 1,
+        is_system: extra?.system ?? false,
+        attributes: json(extra?.attributes ?? {}),
         ...ctx.audit(),
       });
     }
