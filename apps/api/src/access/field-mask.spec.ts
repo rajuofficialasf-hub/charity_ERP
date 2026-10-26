@@ -81,10 +81,7 @@ describe('masking nested data', () => {
 
   it('removes official-only answers, scores and the NID for every Media Team role', () => {
     for (const role of ['media_team', 'media_director', 'media_assistant_director']) {
-      expect(
-        maskData(application, record, visibleFieldClasses(registry, [role])),
-        role,
-      ).toEqual({
+      expect(maskData(application, record, visibleFieldClasses(registry, [role])), role).toEqual({
         id: 'a1',
         beneficiary: { name: 'Name' },
         answers: [{ fieldKey: 'income', visibility: 'volunteer', value: 100 }],
