@@ -141,7 +141,13 @@ async function belongings(beneficiaryId: string) {
     priority: 'normal',
     note: 'নোট',
   });
-  return { family, call, followup, link, referral };
+  const consent = await f.insert(h.db, 'media_consents', {
+    id: randomUUID(),
+    beneficiary_id: beneficiaryId,
+    granted: true,
+    recorded_by: world.users.rpmDhaka,
+  });
+  return { family, call, followup, link, referral, consent };
 }
 const linkOwner = async (id: string) =>
   (await h.db.query('SELECT entity_id FROM file_links WHERE id = $1', [id])).rows[0]
@@ -174,6 +180,7 @@ describe('a merge proposed by an RPM and carried out by the PM', () => {
     expect(await ownerOf('followup_evaluations', things.followup)).toBe(kept);
     expect(await linkOwner(things.link)).toBe(kept);
     expect(await ownerOf('media_referrals', things.referral)).toBe(kept);
+    expect(await ownerOf('media_consents', things.consent)).toBe(kept);
     expect((await pointer(retired)).merged_into_id).toBe(kept);
     const live = await h.container.prisma.$transaction((tx) =>
       h.container.beneficiaryIdentity.liveOf(tx, retired),
@@ -260,6 +267,28 @@ describe('what stops a merge', () => {
     expect(await ownerOf('applications', rejected)).toBe(retired);
     await revert(await as(world.users.monitoring), res.body.data.id).expect(200);
     expect(await ownerOf('applications', rejected)).toBe(retired);
+  });
+
+  it('leaves the media referral of an application it leaves behind with that application', async () => {
+    const { kept, retired } = await duplicate();
+    const approved = await applyTo(world.a1, retired, 'approved');
+    const referral = await f.insert(h.db, 'media_referrals', {
+      id: randomUUID(),
+      application_id: approved,
+      beneficiary_id: retired,
+      project_id: world.a1.id,
+      referred_by: world.users.rpmDhaka,
+      priority: 'high',
+      note: 'নোট',
+    });
+    const res = await direct(await as(world.users.head), {
+      keptId: kept,
+      mergedId: retired,
+      reason: REASON,
+    });
+    expect(res.status).toBe(201);
+    expect(await ownerOf('applications', approved)).toBe(retired);
+    expect(await ownerOf('media_referrals', referral)).toBe(retired);
   });
 
   it('refuses a second carrying out, and a proposal whose profile was merged meanwhile', async () => {
@@ -489,6 +518,7 @@ describe('the revert', () => {
     expect(await ownerOf('beneficiary_family_members', things.family)).toBe(retired);
     expect(await linkOwner(things.link)).toBe(retired);
     expect(await ownerOf('media_referrals', things.referral)).toBe(retired);
+    expect(await ownerOf('media_consents', things.consent)).toBe(retired);
     expect(await ownerOf('call_logs', later)).toBe(kept);
     expect((await pointer(retired)).merged_into_id).toBeNull();
     const audit = await h.db.query(

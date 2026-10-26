@@ -1,4 +1,4 @@
--- The Media Team module (D-101, D-136): a referral of an approved application, its work with
+-- The Media Team module: a referral of an approved application, its work with
 -- stages, members, a script and publications, comments and a history. The two early media tables
 -- were never written by any service and are empty, so they are dropped here; down.sql recreates
 -- them as the init migration made them.
@@ -92,6 +92,20 @@ ALTER TABLE "media_referrals" ADD CONSTRAINT "media_referrals_created_by_fkey" F
 ALTER TABLE "media_referrals" ADD CONSTRAINT "media_referrals_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
 CREATE TRIGGER media_referrals_set_updated_at BEFORE UPDATE ON "media_referrals" FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- a referral names its application's own beneficiary and project; checked at commit, since a
+-- merge moves the application and its referral in one transaction
+CREATE FUNCTION check_media_referral_application() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM applications a
+     WHERE a.id = NEW.application_id AND a.beneficiary_id = NEW.beneficiary_id AND a.project_id = NEW.project_id
+  ) THEN
+    RAISE EXCEPTION 'media_referral_application_mismatch' USING ERRCODE = '23514';
+  END IF;
+  RETURN NULL;
+END $$;
+CREATE CONSTRAINT TRIGGER media_referrals_application AFTER INSERT OR UPDATE OF application_id, beneficiary_id, project_id ON "media_referrals" DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION check_media_referral_application();
+
 -- ---------------------------------------------------------------------------------------------
 -- media works: one per accepted referral
 -- ---------------------------------------------------------------------------------------------
@@ -117,7 +131,9 @@ CREATE TABLE "media_works" (
     CONSTRAINT "media_works_script_state_check" CHECK ("script_state" IN ('draft', 'in_review', 'final')),
     CONSTRAINT "media_works_review_check" CHECK (("review_approved_by" IS NULL) = ("review_approved_at" IS NULL)),
     -- only a work on hold remembers the stage it was held at
-    CONSTRAINT "media_works_held_check" CHECK (("stage_code" = 'on_hold') = ("held_stage_code" IS NOT NULL))
+    CONSTRAINT "media_works_held_check" CHECK (("stage_code" = 'on_hold') = ("held_stage_code" IS NOT NULL)),
+    -- nothing is published, or done, before the final review
+    CONSTRAINT "media_works_published_check" CHECK ("stage_code" NOT IN ('published', 'done') OR "review_approved_by" IS NOT NULL)
 );
 CREATE UNIQUE INDEX "media_works_referral_id_key" ON "media_works"("referral_id");
 CREATE INDEX "media_works_stage_code_idx" ON "media_works"("stage_code");
@@ -130,6 +146,26 @@ ALTER TABLE "media_works" ADD CONSTRAINT "media_works_review_approved_by_fkey" F
 ALTER TABLE "media_works" ADD CONSTRAINT "media_works_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
 ALTER TABLE "media_works" ADD CONSTRAINT "media_works_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
 CREATE TRIGGER media_works_set_updated_at BEFORE UPDATE ON "media_works" FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- no work enters production without an accepted referral, and an accepted referral with a work
+-- stays accepted
+CREATE FUNCTION check_media_work_referral() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM media_referrals r WHERE r.id = NEW.referral_id AND r.state = 'accepted') THEN
+    RAISE EXCEPTION 'media_work_referral_not_accepted' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER media_works_referral BEFORE INSERT OR UPDATE OF referral_id ON "media_works" FOR EACH ROW EXECUTE FUNCTION check_media_work_referral();
+CREATE FUNCTION keep_media_referral_accepted() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF OLD.state = 'accepted' AND NEW.state <> 'accepted'
+     AND EXISTS (SELECT 1 FROM media_works w WHERE w.referral_id = OLD.id) THEN
+    RAISE EXCEPTION 'media_referral_has_work' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER media_referrals_keep_accepted BEFORE UPDATE OF state ON "media_referrals" FOR EACH ROW EXECUTE FUNCTION keep_media_referral_accepted();
 
 -- ---------------------------------------------------------------------------------------------
 -- the members of a work, each with one or more production roles
@@ -191,7 +227,7 @@ CREATE TABLE "media_publications" (
     CONSTRAINT "media_publications_state_check" CHECK ("state" IN ('waiting', 'published', 'taken_down')),
     -- a published post has its link and its date
     CONSTRAINT "media_publications_published_check" CHECK ("state" = 'waiting' OR ("link" IS NOT NULL AND "published_on" IS NOT NULL)),
-    CONSTRAINT "media_publications_link_check" CHECK ("link" IS NULL OR "link" LIKE 'https://%')
+    CONSTRAINT "media_publications_link_check" CHECK ("link" IS NULL OR ("link" LIKE 'https://%' AND length("link") <= 500))
 );
 CREATE INDEX "media_publications_work_id_idx" ON "media_publications"("work_id");
 CREATE INDEX "media_publications_platform_code_idx" ON "media_publications"("platform_code");
@@ -219,6 +255,7 @@ CREATE INDEX "media_comments_work_id_created_at_idx" ON "media_comments"("work_i
 CREATE INDEX "media_comments_author_id_idx" ON "media_comments"("author_id");
 ALTER TABLE "media_comments" ADD CONSTRAINT "media_comments_work_id_fkey" FOREIGN KEY ("work_id") REFERENCES "media_works"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
 ALTER TABLE "media_comments" ADD CONSTRAINT "media_comments_author_id_fkey" FOREIGN KEY ("author_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
+CREATE TRIGGER media_comments_append_only BEFORE UPDATE OR DELETE ON "media_comments" FOR EACH ROW EXECUTE FUNCTION forbid_log_change();
 
 -- ---------------------------------------------------------------------------------------------
 -- the history of a referral and its work: every decision, stage, member, script and publication
@@ -243,3 +280,4 @@ CREATE INDEX "media_events_actor_id_idx" ON "media_events"("actor_id");
 ALTER TABLE "media_events" ADD CONSTRAINT "media_events_referral_id_fkey" FOREIGN KEY ("referral_id") REFERENCES "media_referrals"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
 ALTER TABLE "media_events" ADD CONSTRAINT "media_events_work_id_fkey" FOREIGN KEY ("work_id") REFERENCES "media_works"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
 ALTER TABLE "media_events" ADD CONSTRAINT "media_events_actor_id_fkey" FOREIGN KEY ("actor_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
+CREATE TRIGGER media_events_append_only BEFORE UPDATE OR DELETE ON "media_events" FOR EACH ROW EXECUTE FUNCTION forbid_log_change();

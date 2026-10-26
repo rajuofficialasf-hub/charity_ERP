@@ -16,6 +16,9 @@ DROP TABLE "media_work_members";
 DROP TABLE "media_works";
 DROP TABLE "media_referrals";
 DROP FUNCTION check_media_roles();
+DROP FUNCTION check_media_work_referral();
+DROP FUNCTION keep_media_referral_accepted();
+DROP FUNCTION check_media_referral_application();
 
 DROP TRIGGER reference_lists_media_platform ON "reference_lists";
 DROP FUNCTION check_media_platform_channel();

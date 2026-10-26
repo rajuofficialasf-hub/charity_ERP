@@ -266,11 +266,15 @@ export class BeneficiaryMergesService {
     };
     for (const move of MOVES) {
       const extra = 'where' in move ? Prisma.raw(` AND ${move.where}`) : Prisma.empty;
-      const skip =
-        // an application left on the retired profile keeps every pointer it has
-        move.table === 'applications' && leftBehind.length
+      // an application left on the retired profile keeps every pointer it has, and its media
+      // referral stays with it
+      const skip = !leftBehind.length
+        ? Prisma.empty
+        : move.table === 'applications'
           ? Prisma.sql` AND id <> ALL(${leftBehind}::uuid[])`
-          : Prisma.empty;
+          : move.table === 'media_referrals'
+            ? Prisma.sql` AND application_id <> ALL(${leftBehind}::uuid[])`
+            : Prisma.empty;
       const rows = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
         UPDATE ${Prisma.raw(move.table)} SET ${Prisma.raw(move.column)} = ${keptId}::uuid
         WHERE ${Prisma.raw(move.column)} = ${retiredId}::uuid${extra}${skip}

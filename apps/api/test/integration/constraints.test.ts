@@ -1298,6 +1298,12 @@ describe('the media referrals and works', () => {
     );
     return { id, applicationId, beneficiaryId, projectId: project.id, referrer };
   }
+  async function accept(r: { id: string; referrer: string }) {
+    await db.query(
+      `UPDATE media_referrals SET state = 'accepted', decided_by = $2, decided_at = now() WHERE id = $1`,
+      [r.id, r.referrer],
+    );
+  }
   async function work(referralId: string, stage = 'accepted') {
     await f.referenceCode(db, 'media_stage', stage);
     const id = randomUUID();
@@ -1344,10 +1350,36 @@ describe('the media referrals and works', () => {
     );
   });
 
-  it('takes only listed stages, production roles and platforms, one work per referral', async () => {
+  it('takes only listed stages, production roles and platforms, one work per accepted referral', async () => {
     const r = await referral();
-    await expectSqlError(work(randomUUID()), SQLSTATE.foreignKeyViolation);
+    // no work without an accepted referral
+    await expectSqlError(work(randomUUID()), SQLSTATE.checkViolation);
+    await expectSqlError(work(r.id), SQLSTATE.checkViolation);
+    await accept(r);
     const workId = await work(r.id);
+    // an accepted referral with a work stays accepted
+    await expectSqlError(
+      db.query(
+        `UPDATE media_referrals SET state = 'rejected', decision_comment = 'না' WHERE id = $1`,
+        [r.id],
+      ),
+      SQLSTATE.checkViolation,
+    );
+    // nothing is published or done before the final review
+    await f.referenceCode(db, 'media_stage', 'published');
+    await expectSqlError(
+      db.query(`UPDATE media_works SET stage_code = 'published' WHERE id = $1`, [workId]),
+      SQLSTATE.checkViolation,
+    );
+    for (const change of [
+      "content_type = 'audio'",
+      "script_state = 'lost'",
+      'review_approved_at = now()',
+    ])
+      await expectSqlError(
+        db.query(`UPDATE media_works SET ${change} WHERE id = $1`, [workId]),
+        SQLSTATE.checkViolation,
+      );
     await expectSqlError(work(r.id), SQLSTATE.uniqueViolation);
     await expectSqlError(
       db.query(`UPDATE media_works SET stage_code = 'nowhere' WHERE id = $1`, [workId]),
@@ -1375,9 +1407,14 @@ describe('the media referrals and works', () => {
       ),
       SQLSTATE.checkViolation,
     );
+    const memberRow = randomUUID();
     await db.query(
       `INSERT INTO media_work_members (id, work_id, user_id, roles) VALUES ($1, $2, $3, ARRAY['cinematographer'])`,
-      [randomUUID(), workId, member],
+      [memberRow, workId, member],
+    );
+    await expectSqlError(
+      db.query(`UPDATE media_work_members SET roles = ARRAY['juggler'] WHERE id = $1`, [memberRow]),
+      SQLSTATE.foreignKeyViolation,
     );
     await f.referenceCode(db, 'consent_channel', 'video');
     await platform('test_youtube', 'video');
@@ -1401,11 +1438,37 @@ describe('the media referrals and works', () => {
        VALUES ($1, $2, 'test_youtube', 'published', 'https://youtu.be/dQw4w9WgXcQ', '2026-10-26')`,
       [randomUUID(), workId],
     );
+    // a link is at most 500 characters
+    await expectSqlError(
+      db.query(
+        `INSERT INTO media_publications (id, work_id, platform_code, link) VALUES ($1, $2, 'test_youtube', $3)`,
+        [randomUUID(), workId, `https://youtu.be/${'a'.repeat(500)}`],
+      ),
+      SQLSTATE.checkViolation,
+    );
+    // comments and the history are never changed or removed
+    const comment = randomUUID();
+    await db.query(
+      `INSERT INTO media_comments (id, work_id, author_id, body) VALUES ($1, $2, $3, 'ভালো')`,
+      [comment, workId, member],
+    );
+    await expect(
+      db.query(`UPDATE media_comments SET body = 'বদল' WHERE id = $1`, [comment]),
+    ).rejects.toThrow();
+    await expect(db.query(`DELETE FROM media_comments WHERE id = $1`, [comment])).rejects.toThrow();
   });
 
   it('gives a platform a known consent channel, and keeps a system entry active and named', async () => {
     await expectSqlError(platform('test_nowhere', 'smoke_signal'), SQLSTATE.foreignKeyViolation);
     await expectSqlError(platform('test_none', null), SQLSTATE.foreignKeyViolation);
+    await f.referenceCode(db, 'consent_channel', 'facebook');
+    await platform('test_facebook', 'facebook');
+    await expectSqlError(
+      db.query(
+        `UPDATE reference_lists SET attributes = '{"consent_channel": "smoke_signal"}' WHERE list_key = 'media_platform' AND code = 'test_facebook'`,
+      ),
+      SQLSTATE.foreignKeyViolation,
+    );
     const id = randomUUID();
     await db.query(
       `INSERT INTO reference_lists (id, list_key, code, label_bn, label_en, is_system) VALUES ($1, 'media_stage', 'test_system', 'ক', 'A', true)`,
@@ -1424,8 +1487,21 @@ describe('the media referrals and works', () => {
     );
   });
 
-  it('records a history step only for a known kind, and the migration back refuses while a referral exists', async () => {
+  it('ties a referral to its application, keeps the history, and the migration back refuses while a referral exists', async () => {
     const r = await referral();
+    // the beneficiary and the project are the application's own, checked at commit
+    const other = await f.beneficiary(db, loc);
+    await db.query('BEGIN');
+    await db.query(`UPDATE media_referrals SET beneficiary_id = $2 WHERE id = $1`, [r.id, other]);
+    await expectSqlError(db.query('COMMIT'), SQLSTATE.checkViolation);
+    const step = randomUUID();
+    await db.query(
+      `INSERT INTO media_events (id, referral_id, kind, actor_id) VALUES ($1, $2, 'referred', $3)`,
+      [step, r.id, r.referrer],
+    );
+    await expect(
+      db.query(`UPDATE media_events SET kind = 'accepted' WHERE id = $1`, [step]),
+    ).rejects.toThrow();
     await expectSqlError(
       db.query(
         `INSERT INTO media_events (id, referral_id, kind, actor_id) VALUES ($1, $2, 'teleported', $3)`,

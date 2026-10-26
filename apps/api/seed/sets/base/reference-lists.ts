@@ -11,7 +11,7 @@ interface EntryExtra {
   attributes?: Record<string, string>;
 }
 
-/** The media stages the rules need (D-101 (5)): the others are the owner's ordinary stages. */
+/** The media stages the rules need; the others are the owner's ordinary stages. */
 const SYSTEM: EntryExtra = { system: true };
 
 export const REFERENCE_LISTS: Record<string, Entry[]> = {
@@ -119,7 +119,7 @@ export const REFERENCE_LISTS: Record<string, Entry[]> = {
     ['video_editor', 'ভিডিও সম্পাদনা', 'Video Editor'],
     ['production_assistant', 'প্রোডাকশন সহকারী', 'Production Assistant'],
   ],
-  // each platform publishes on one consent channel (D-101 (7))
+  // each platform publishes on one consent channel
   media_platform: [
     [
       'asf_facebook',
