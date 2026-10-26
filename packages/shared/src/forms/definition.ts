@@ -383,7 +383,11 @@ export function checkDefinition(
       issues.push({ code: 'form.repeat_reference', path, params: { reference: key } });
       return null;
     }
-    const seenByOthers = from.section !== undefined && from.section.visibility !== 'official_only';
+    // checked at publish only, so a draft keeps saving while the builder works on it
+    const seenByOthers =
+      options.publishing === true &&
+      from.section !== undefined &&
+      from.section.visibility !== 'official_only';
     if (seenByOthers && target.section.visibility === 'official_only') {
       const who = from.field?.fieldKey ?? `section:${from.section!.key}`;
       if (!hiddenReported.has(who)) {

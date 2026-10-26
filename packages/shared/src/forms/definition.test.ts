@@ -507,7 +507,7 @@ describe('conditional values, comparisons and row counts', () => {
     ]);
   });
 
-  it('refuses a volunteer question that reads an official-only answer, and allows the reverse', () => {
+  it('refuses at publish a volunteer question that reads an official-only answer, and allows the reverse', () => {
     const official = section(
       'office',
       [
@@ -529,11 +529,31 @@ describe('conditional values, comparisons and row counts', () => {
       ],
       [official],
     );
-    expect(codesOf(definition)).toEqual([
+    // a draft keeps saving while the builder works; the publish refuses it
+    expect(codesOf(definition)).toEqual([]);
+    expect(
+      checkDefinition(definition, { publishing: true }).map((i) => [i.code, i.params?.fieldKey]),
+    ).toEqual([
       ['form.reference_hidden', 'shown'],
       ['form.reference_hidden', 'compared'],
       ['form.reference_hidden', 'leak'],
     ]);
+  });
+
+  it('refuses a comparison value that is neither a fixed value nor exactly another answer', () => {
+    const condition = (value: unknown) =>
+      schemaCodes(
+        definitionWith([
+          field('a', 'money'),
+          field('b', 'money', {
+            logic: { show_if: { field: 'a', op: 'gt', value: value as never } },
+          }),
+        ]),
+      ).length;
+    expect(condition({ field: 'a' })).toBe(0);
+    expect(condition(5)).toBe(0);
+    expect(condition({ field: 'a', extra: 1 })).toBeGreaterThan(0);
+    expect(condition({ other: 'a' })).toBeGreaterThan(0);
   });
 
   it('refuses an expression deeper than 20 levels or larger than 500 parts', () => {
@@ -542,10 +562,34 @@ describe('conditional values, comparisons and row counts', () => {
     const wide = { op: 'add', args: Array.from({ length: 500 }, () => 1) };
     let fine: unknown = 1;
     for (let i = 0; i < 19; i += 1) fine = { op: 'add', args: [fine, 1] };
-    const definition = definitionWith([calc('deep', deep), calc('wide', wide), calc('fine', fine)]);
+    // a comparison with another answer reads two answers and counts as two parts
+    const compared = {
+      if: [
+        {
+          when: {
+            any: Array.from({ length: 300 }, () => ({
+              field: 'a',
+              op: 'gt',
+              value: { field: 'b' },
+            })),
+          },
+          then: 1,
+        },
+      ],
+      else: 0,
+    };
+    const definition = definitionWith([
+      field('a', 'money'),
+      field('b', 'money'),
+      calc('deep', deep),
+      calc('wide', wide),
+      calc('fine', fine),
+      calc('compared', compared),
+    ]);
     expect(codesOf(definition)).toEqual([
       ['form.expression_too_large', 'deep'],
       ['form.expression_too_large', 'wide'],
+      ['form.expression_too_large', 'compared'],
     ]);
   });
 });

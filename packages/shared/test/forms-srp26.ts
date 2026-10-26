@@ -2,7 +2,7 @@ import type { Condition, Expr, FormField } from '../src/forms/index.js';
 import { definitionWith, field, option, T } from './forms-fixture.js';
 
 /**
- * The household calculations of the department's self-reliance Kobo form (SRP-26) as one form
+ * The household calculations of the department's 2026 self-reliance Kobo form as one form
  * definition: the gold and silver price by karat, total assets and liabilities, net wealth and the
  * zakat status, the family income by day and year, the equivalent adults and the national and
  * international poverty status. The numbers are the ones the Kobo form uses.

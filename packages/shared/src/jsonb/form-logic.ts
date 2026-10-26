@@ -18,7 +18,18 @@ export const conditionSchema: z.ZodType<Condition> = z.lazy(() =>
     z.strictObject({
       field: snakeKey,
       op: z.enum(['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'not_in', 'is_empty', 'not_empty']),
-      value: z.unknown().optional(),
+      // a fixed value, or exactly `{ field }` naming the answer to compare with
+      value: z
+        .unknown()
+        .optional()
+        .refine(
+          (value) =>
+            typeof value !== 'object' ||
+            value === null ||
+            Array.isArray(value) ||
+            z.strictObject({ field: snakeKey }).safeParse(value).success,
+          { message: 'form.unknown_reference' },
+        ),
     }),
     z.strictObject({ all: z.array(conditionSchema).min(1) }),
     z.strictObject({ any: z.array(conditionSchema).min(1) }),
@@ -97,7 +108,8 @@ export function logicSize(node: Expr | Condition): { depth: number; parts: numbe
     else if ('count_rows' in node && node.count_rows.where) children = [node.count_rows.where];
   }
   let depth = 0;
-  let parts = 1;
+  // a comparison with another answer reads two answers
+  let parts = typeof node === 'object' && 'value' in node && isFieldRef(node.value) ? 2 : 1;
   for (const child of children) {
     const size = logicSize(child);
     depth = Math.max(depth, size.depth);

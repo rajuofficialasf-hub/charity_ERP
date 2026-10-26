@@ -123,9 +123,11 @@ export function ageFromDob(dob: string, today: string): number | null {
   return years;
 }
 
+/** A number rounded to `places` decimals, a half away from zero as money is. */
 const roundTo = (value: number, places: number) => {
   const factor = 10 ** places;
-  return Math.round(value * factor) / factor;
+  const rounded = (Math.sign(value) * Math.round(Math.abs(value) * factor)) / factor;
+  return rounded === 0 ? 0 : rounded;
 };
 /** Paisa rounded to `places` decimals of the Taka (2 or more leaves it unchanged). */
 const roundPaisa = (paisa: bigint, places: number) => {
@@ -503,6 +505,15 @@ function equals(left: Plain, right: unknown, type: string | undefined): boolean 
   return String(left) === String(right);
 }
 
+/** An amount with an optional minus sign (a calculation may go below zero) as paisa. */
+function signedPaisa(amount: string): bigint | null {
+  const text = amount.trim();
+  const negative = text.startsWith('-');
+  const digits = negative ? text.slice(1) : text;
+  if (!isAmount(digits)) return null;
+  return negative ? -toPaisa(digits) : toPaisa(digits);
+}
+
 /**
  * The order of an answered value against a literal: money as paisa, numbers as numbers, dates
  * and texts as strings; null when the two cannot be compared.
@@ -510,12 +521,12 @@ function equals(left: Plain, right: unknown, type: string | undefined): boolean 
 function compare(left: Plain, right: unknown, type: string | undefined): number | null {
   if (left === null || Array.isArray(left)) return null;
   if (type !== undefined && MONEY_TYPES.has(type)) {
-    const a = typeof left === 'string' && isAmount(left) ? toPaisa(left) : null;
+    const a = typeof left === 'string' ? signedPaisa(left) : null;
     const b =
       typeof right === 'number'
         ? paisaOfNumber(right)
-        : typeof right === 'string' && isAmount(right)
-          ? toPaisa(right)
+        : typeof right === 'string'
+          ? signedPaisa(right)
           : null;
     if (a === null || b === null) return null;
     return a === b ? 0 : a < b ? -1 : 1;

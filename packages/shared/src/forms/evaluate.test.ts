@@ -449,6 +449,50 @@ describe('conditional values, row counts and comparisons', () => {
     expect(visible('16.00')).toBe(false);
   });
 
+  it('compares a negative calculated amount, alone and against another answer', () => {
+    const fields = [
+      field('assets', 'money'),
+      field('debts', 'money'),
+      field('income', 'money'),
+      calc('net', { op: 'sub', args: [{ field: 'assets' }, { field: 'debts' }] }),
+      field('in_debt', 'short_text', { logic: { show_if: { field: 'net', op: 'lt', value: 0 } } }),
+      field('above', 'short_text', {
+        logic: { show_if: { field: 'income', op: 'gt', value: { field: 'net' } } },
+      }),
+    ];
+    const state = evaluate(
+      definitionWith(fields),
+      [
+        answer('assets', { t: 'money', v: '1000.00' }),
+        answer('debts', { t: 'money', v: '1500.50' }),
+        answer('income', { t: 'money', v: '10.00' }),
+      ],
+      { today: TODAY },
+    );
+    expect(state.computed.net).toBe('-500.50');
+    expect(state.fields.in_debt!.visible).toBe(true);
+    expect(state.fields.above!.visible).toBe(true);
+  });
+
+  it('rounds a negative half away from zero for a number as for money', () => {
+    const fields = [
+      field('a', 'decimal'),
+      field('m', 'money'),
+      field('number_half', 'calculation', {
+        calculation: { expr: { op: 'sub', args: [0, { field: 'a' }] }, round: 0 },
+      }),
+      field('money_half', 'calculation', {
+        calculation: { expr: { op: 'sub', args: [0, { field: 'm' }] }, round: 0 },
+      }),
+    ];
+    const computed = run(fields, [
+      answer('a', { t: 'decimal', v: 2.5 }),
+      answer('m', { t: 'money', v: '2.50' }),
+    ]);
+    expect(computed.number_half).toBe(-3);
+    expect(computed.money_half).toBe('-3.00');
+  });
+
   it('counts the rows of a group that meet a condition, and every row without one', () => {
     const fields = [
       field('members', 'repeat_group'),
