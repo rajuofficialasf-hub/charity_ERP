@@ -701,6 +701,24 @@ Load the two current forms from appendix খ (seeded in T1.3) through the engine
 Implement the form builder for PMs (key screen: section library on the left, live preview on the right, field settings panel, add by drag or tick, no-code logic editor, calculation editor, version list with a change summary, publish) and the runtime form renderer used by web and mobile (cascading address, repeat groups, live calculations, conditional logic, bilingual, official-only sections hidden from volunteers, photo and file fields using the T2.1 upload component, GPS field, draft autosave, validation messages localized). Mobile-first for the renderer; verify at 360×640 and keyboard-only. Match the approved mockups in docs/ui/mockups/ for the screens that exist. Tests with RTL for renderer behaviours; Playwright: PM builds a form from sections, publishes, edits → v2, old application keeps v1.
 ```
 
+#### T2.4b 🛠 ফর্ম বিল্ডারের নতুন নকশা `[D-122]` — ✅ সম্পন্ন (২২ অক্টোবর ২০২৬)
+- কম প্রযুক্তি-জ্ঞানের মানুষও যেন ফর্ম বানাতে পারেন, সেভাবে বিল্ডার নতুন করে সাজানো: তিন প্যানেল, ধরন দেখে প্রশ্ন যোগ, টেনে সাজানো (কীবোর্ডের বিকল্পসহ), শর্ত ও হিসাব বাক্যে পড়া যায়। প্ল্যান: `docs/plans/2026-10-22-2300-feat-form-builder-redesign-plan.md`।
+
+#### T2.4c 🛠 রেডি ফর্ম, প্রশ্ন লাইব্রেরি ও পরিচয়ের চিহ্ন `[D-125, D-126, D-127]` — ✅ সম্পন্ন (২৪ অক্টোবর ২০২৬)
+- মনিটরিং টিম ও বিভাগীয় প্রধান প্রকল্পের বাইরে রেডি ফর্ম আর প্রশ্ন লাইব্রেরি বানান; PM ফর্মটি প্রকল্পে বসান এবং নতুন সংস্করণ এলে নেন; সিস্টেম নিজে কোনো প্রশ্ন বসায় না। প্ল্যান: `docs/plans/2026-10-24-0930-feat-ready-forms-library-plan.md`।
+
+#### T2.4d 🛠 Kobo-র মতো ফর্ম লজিক `[D-128]`
+- শেষে দেখে নিন: ক্যারেট অনুযায়ী সোনার দাম আর মোট সম্পদের সূত্র বিল্ডারে বাক্য হিসেবে পড়া যায়, আর সার্ভার ও ফোনে একই ফল দেয়; আজকের তারিখ নিজে থেকে বসে; দায়িত্বপ্রাপ্তদের নাম ও মোবাইল সিস্টেম বসায়, কেউ বদলাতে পারেন না।
+
+```text
+Extend the form engine and the builder per DECISION_LOG D-128, with the owner's Kobo XLSForm (SRP-26) as the reference case:
+(1) calculations with conditions (if … then … else …, nested; e.g. the gold price by karat, the poverty class), rounding, and free formulas of several terms with + − × ÷ and brackets (e.g. total assets = cash + bank + gold weight × price …), evaluated exactly by the one evaluator in @css/shared/forms on server and client, and shown and edited in the builder as sentences (sentences.ts, CalculationEditor), never as raw code;
+(2) a default value per question (today's date, a fixed text such as a number's prefix, a number) and read-only questions whose value only a calculation or the system sets;
+(3) the names and mobile numbers of the people assigned to the project and the application's area (local dawah representative, implementing officer, dawah representative, approving scholar) placed by the system from the assignments at application time, read-only, never typed (BD-28; in place of Kobo's pulldata from a sheet; BD-15 keeps the community code out), each audience seeing only what the visibility rules allow.
+Not in scope (D-128): an own regular expression or error message per question, images in a note, an "English only" text check, and a group's row count from another answer (D-124 (3) stays proposed).
+Published versions stay immutable; the new settings apply to drafts and old versions evaluate as before. Tests: evaluator cases (nesting, rounding, empty inputs, division by zero), the SRP-26 calculations reproduced, a read-only value the client sends never kept, the assignment names by area and their masking, builder component tests; Playwright: the Monitoring Team builds the gold and total-assets calculations as sentences and publishes, and a volunteer at 360 px sees the computed values, today's date and the assigned names. Update the form definition JSON Schemas, openapi.yaml where the definition changes, BUSINESS_RULES, SCREENS SCR-061 and STATUS.
+```
+
 #### T2.5 🛠 ওয়ার্কফ্লো ইঞ্জিন ও আবেদনের কোর চক্র `[P6.6-এর অংশ ১ + P2.4 কোড]`
 - শেষে দেখে নিন: প্রতিটি ট্রানজিশনের positive/negative টেস্ট (ভূমিকা অনুযায়ী); রিভিউ পর্দায় timeline ও change log; মোবাইলে নতুন আবেদন NID lookup-সহ।
 
