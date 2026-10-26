@@ -652,6 +652,11 @@ describe('the form logic on the page', () => {
       }),
     ]);
 
+  it('leaves the defaults out of a stored form, where an empty answer stays empty', () => {
+    open([logic()], { fillDefaults: false, initialAnswers: [] });
+    expect(screen.getByRole('textbox', { name: /^নম্বর/ })).toHaveValue('');
+  });
+
   it('fills a date with today and sends it, and shows a read-only number that cannot be typed into', async () => {
     const user = userEvent.setup();
     const { submitted } = open([logic()]);
@@ -729,6 +734,63 @@ describe('rows that follow a count', () => {
     expect(screen.queryByRole('button', { name: /মুছুন$/ })).not.toBeInTheDocument();
   });
 
+  it('shows the count again when a number typed straight over it is cancelled', async () => {
+    const user = userEvent.setup();
+    open([counted()]);
+    const count = screen.getByRole('textbox', { name: /^পরিবারের সদস্য সংখ্যা/ });
+    await user.type(count, '3');
+    await user.type(names()[2]!, 'রহিমা');
+    await user.tripleClick(count);
+    await user.keyboard('2');
+    await user.click(
+      within(
+        await screen.findByRole('alertdialog', {
+          name: 'বাড়তি সারির উত্তর মুছে যাবে। তবু কমাবেন?',
+        }),
+      ).getByRole('button', { name: 'বাতিল' }),
+    );
+    await waitFor(() => expect(names()).toHaveLength(3));
+    expect(screen.getByRole('textbox', { name: /^পরিবারের সদস্য সংখ্যা/ })).toHaveValue('3');
+  });
+
+  it('trims every group that follows the same count', async () => {
+    const user = userEvent.setup();
+    open([
+      section('two_lists', [
+        bilingual('q_family', 'পরিবারের সদস্য সংখ্যা', 'Family members', 'number', {
+          settings: { validation: { min: 0, max: 10 } },
+        }),
+        bilingual('members', 'সদস্য', 'Member', 'repeat_group', {
+          settings: { repeat: { count_from: 'q_family' } },
+        }),
+        bilingual('member_name', 'সদস্যের নাম', "Member's name", 'short_text', {
+          settings: { repeat: { group: 'members' } },
+        }),
+        bilingual('health', 'স্বাস্থ্য', 'Health', 'repeat_group', {
+          settings: { repeat: { count_from: 'q_family' } },
+        }),
+        bilingual('health_note', 'স্বাস্থ্যের কথা', 'Health note', 'short_text', {
+          settings: { repeat: { group: 'health' } },
+        }),
+      ]),
+    ]);
+    const count = screen.getByRole('textbox', { name: /^পরিবারের সদস্য সংখ্যা/ });
+    await user.type(count, '3');
+    const notes = () => screen.queryAllByRole('textbox', { name: /^স্বাস্থ্যের কথা/ });
+    // only the second list holds an answer in its last row, and it still asks
+    await user.type(notes()[2]!, 'ভালো');
+    await user.type(count, '{backspace}2');
+    await user.click(
+      within(
+        await screen.findByRole('alertdialog', {
+          name: 'বাড়তি সারির উত্তর মুছে যাবে। তবু কমাবেন?',
+        }),
+      ).getByRole('button', { name: 'কমান' }),
+    );
+    await waitFor(() => expect(notes()).toHaveLength(2));
+    expect(names()).toHaveLength(2);
+  });
+
   it('asks before a lower count drops answered rows, and keeps them on বাতিল', async () => {
     const user = userEvent.setup();
     open([counted()]);
@@ -742,8 +804,10 @@ describe('rows that follow a count', () => {
     await user.click(within(ask).getByRole('button', { name: 'বাতিল' }));
     // the page is read again once the dialog has closed
     await waitFor(() => expect(names()).toHaveLength(3));
-    expect(count).toHaveValue('3');
-    await user.type(count, '{backspace}2');
+    // the count's box is drawn afresh with the count it holds again
+    const again = screen.getByRole('textbox', { name: /^পরিবারের সদস্য সংখ্যা/ });
+    expect(again).toHaveValue('3');
+    await user.type(again, '{backspace}2');
     await user.click(
       within(
         await screen.findByRole('alertdialog', {
@@ -752,6 +816,6 @@ describe('rows that follow a count', () => {
       ).getByRole('button', { name: 'কমান' }),
     );
     await waitFor(() => expect(names()).toHaveLength(2));
-    expect(count).toHaveValue('2');
+    expect(again).toHaveValue('2');
   });
 });

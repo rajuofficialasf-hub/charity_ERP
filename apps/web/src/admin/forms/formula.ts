@@ -68,10 +68,14 @@ class Stop extends Error {
 function tokens(text: string): Token[] {
   const out: Token[] = [];
   let i = 0;
+  // Bengali digits read as English ones, outside quotes only (a quoted text stays as written)
+  let quote: string | null = null;
   const source = [...text]
     .map((ch) => {
+      if (quote === null && (ch === "'" || ch === '"')) quote = ch;
+      else if (ch === quote) quote = null;
       const digit = ch.charCodeAt(0) - BENGALI_ZERO;
-      return digit >= 0 && digit <= 9 ? String(digit) : ch;
+      return quote === null && digit >= 0 && digit <= 9 ? String(digit) : ch;
     })
     .join('');
   while (i < source.length) {

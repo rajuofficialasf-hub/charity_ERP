@@ -95,6 +95,10 @@ describe('a typed formula', () => {
       if: [{ when: { field: 'expense', op: 'gt', value: { field: 'income' } } }],
     });
     expect(read('cash * ২')).toEqual({ op: 'mul', args: [{ field: 'cash' }, 2] });
+    // a quoted text keeps its own digits
+    expect(read("if(gold_karat = '২৪', 1, 0)")).toMatchObject({
+      if: [{ when: { value: '২৪' } }],
+    });
   });
 
   it('says where an unknown question, a missing bracket or an unlisted result is', () => {

@@ -58,6 +58,11 @@ export interface RendererProps {
   /** Questions the person may read but not change (a known person's identity). */
   lockedKeys?: ReadonlySet<string>;
   /**
+   * Fills each question's default into its empty answer when the form opens: true for a new form,
+   * false for a stored one, where an answer left empty on purpose stays empty.
+   */
+  fillDefaults?: boolean;
+  /**
    * Runs when a part of the form is complete, before the next one shows (a screen saves the
    * draft here); when it throws, the person stays on the part and the error's message is shown.
    */
@@ -105,6 +110,7 @@ export function FormRenderer({
   initialAnswers,
   lockedKeys,
   onPartDone,
+  fillDefaults = true,
 }: RendererProps) {
   const t = useTranslations('forms.renderer');
   const te = useTranslations('errors');
@@ -125,9 +131,10 @@ export function FormRenderer({
       if (f.type === 'repeat_group') rows[f.fieldKey] = f.settings?.repeat?.min_rows ?? 0;
     return rows;
   }, [form]);
-  // a question's default fills its empty answer once, when the form opens
+  // a question's default fills its empty answer once, when a new form opens
   const startAnswers = useMemo(() => {
     const given = initialAnswers ?? [];
+    if (!fillDefaults) return given;
     const filled = [...given];
     for (const f of form.sections.flatMap((s) => s.fields)) {
       if (f.settings?.repeat?.group || given.some((a) => a.fieldKey === f.fieldKey)) continue;
@@ -135,21 +142,25 @@ export function FormRenderer({
       if (value) filled.push({ fieldKey: f.fieldKey, value });
     }
     return filled;
-  }, [form, initialAnswers, today]);
+  }, [form, initialAnswers, today, fillDefaults]);
   const { state, setState, clear } = useFormAnswers(storageKey, initialRows, startAnswers);
-  // the groups whose rows follow a count question, by that question's key
+  // the groups whose rows follow a count question, by that question's key (one count may give
+  // rows to several groups)
   const countedGroups = useMemo(() => {
-    const groups = new Map<string, { group: string; members: string[] }>();
+    const groups = new Map<string, { group: string; members: string[] }[]>();
     const fields = form.sections.flatMap((s) => s.fields);
     for (const f of fields) {
       const from = f.settings?.repeat?.count_from;
       if (f.type === 'repeat_group' && from)
-        groups.set(from, {
-          group: f.fieldKey,
-          members: fields
-            .filter((m) => m.settings?.repeat?.group === f.fieldKey)
-            .map((m) => m.fieldKey),
-        });
+        groups.set(from, [
+          ...(groups.get(from) ?? []),
+          {
+            group: f.fieldKey,
+            members: fields
+              .filter((m) => m.settings?.repeat?.group === f.fieldKey)
+              .map((m) => m.fieldKey),
+          },
+        ]);
     }
     return groups;
   }, [form]);
@@ -158,9 +169,13 @@ export function FormRenderer({
     field: FormField;
     value: AnswerValue;
     count: number;
-    group: string;
-    members: string[];
+    groups: { group: string; members: string[] }[];
   } | null>(null);
+  /** Draws a question afresh, so its box shows the stored answer again (after a cancelled change). */
+  const [redraws, setRedraws] = useState<Record<string, number>>({});
+  const redraw = (key: string) => setRedraws((r) => ({ ...r, [key]: (r[key] ?? 0) + 1 }));
+  const heldRows = (s: typeof state, groups: { members: string[] }[]) =>
+    Math.max(0, ...groups.map((g) => answeredRows(s, g.members)));
   // each file goes up as part of this application, named by its client id
   const fieldUpload = useMemo(
     () =>
@@ -213,8 +228,8 @@ export function FormRenderer({
   const change = (field: FormField, row: number, inGroup: boolean, value: AnswerValue | null) => {
     // a count lowered below the rows that hold answers asks first
     const counted = countedGroups.get(field.fieldKey);
-    if (counted && value?.t === 'number' && answeredRows(state, counted.members) > value.v) {
-      setLowering({ field, value, count: Math.max(0, Math.floor(value.v)), ...counted });
+    if (counted && value?.t === 'number' && heldRows(state, counted) > value.v) {
+      setLowering({ field, value, count: Math.max(0, Math.floor(value.v)), groups: counted });
       return;
     }
     setState((s) => setAnswer(s, field.fieldKey, row, inGroup, value));
@@ -293,7 +308,7 @@ export function FormRenderer({
     if (!fieldState.visible) return null;
     return (
       <FieldInput
-        key={`${path}:${state.generation}`}
+        key={`${path}:${state.generation}:${redraws[field.fieldKey] ?? 0}`}
         id={`field-${path}`}
         field={field}
         state={fieldState}
@@ -401,24 +416,24 @@ export function FormRenderer({
         onConfirm={() => {
           if (!lowering) return;
           setState((s) =>
-            trimRows(
+            lowering.groups.reduce(
+              (next, g) => trimRows(next, g.group, g.members, lowering.count),
               setAnswer(s, lowering.field.fieldKey, 0, false, lowering.value),
-              lowering.group,
-              lowering.members,
-              lowering.count,
             ),
           );
           setLowering(null);
         }}
         onCancel={() => {
-          // the count goes back to the rows that hold answers, which stay
-          if (lowering)
+          // the count goes back to the rows that hold answers, which stay, and its box shows it
+          if (lowering) {
             setState((s) =>
               setAnswer(s, lowering.field.fieldKey, 0, false, {
                 t: 'number',
-                v: answeredRows(s, lowering.members),
+                v: heldRows(s, lowering.groups),
               }),
             );
+            redraw(lowering.field.fieldKey);
+          }
           setLowering(null);
         }}
       />

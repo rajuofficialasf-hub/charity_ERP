@@ -460,7 +460,8 @@
       "syntax": "There is a mistake in the formula (position {column})",
       "bracket": "A bracket does not match (position {column})",
       "empty": "Write the formula"
-    }
+    },
+    "calc_formula_kept": "The formula has a mistake, so the last calculation stays. Open “Type a formula” again to correct it."
   },
   "types": {
     "short_text": "Short text",

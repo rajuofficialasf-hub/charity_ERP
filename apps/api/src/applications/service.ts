@@ -423,7 +423,9 @@ export class ApplicationsService {
     const previous = await readAnswers(
       this.prisma,
       applicationId,
-      await readDefinition(this.prisma, row.formVersionId, 'official'),
+      audience === 'official'
+        ? definition
+        : await readDefinition(this.prisma, row.formVersionId, 'official'),
     );
     const { checked, chain } = await this.checked(
       definition,

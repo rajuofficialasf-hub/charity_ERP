@@ -309,6 +309,7 @@ function Review() {
             audience="official"
             today={isoDateInDhaka(new Date())}
             initialAnswers={a.answers}
+            fillDefaults={false}
             layout="page"
             submitLabel={tc('action.save')}
             onSubmit={save}

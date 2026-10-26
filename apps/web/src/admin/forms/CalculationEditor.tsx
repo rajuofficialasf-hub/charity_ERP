@@ -8,6 +8,7 @@ import {
   MATH_OPS,
   type MathOp,
   PART_KINDS,
+  type PartKind,
   type PartStarts,
   partKindOf,
   startCondition,
@@ -73,6 +74,8 @@ export function CalculationEditor({
 }) {
   const t = useTranslations('forms.builder');
   const [mode, setMode] = useState<'click' | 'type'>('click');
+  /** The typed formula; kept here so a formula with a mistake survives a switch to clicking. */
+  const [typed, setTyped] = useState<string | null>(null);
   const { fields, sums } = termCandidates(definition, asker);
   const all = definition.sections.flatMap((s) => s.fields);
   const groups = asker.group === null ? all.filter((f) => f.type === 'repeat_group') : [];
@@ -82,6 +85,8 @@ export function CalculationEditor({
   const conditions = conditionCandidates(definition, asker);
   const results = field.settings?.results ?? [];
   const firstTable = tables[0];
+  const dates = dateCandidates(definition, asker);
+  const nets = netCandidates(definition, asker);
   const ctx: Context = {
     definition,
     field,
@@ -91,8 +96,8 @@ export function CalculationEditor({
       sums,
       groups,
       tables,
-      dates: dateCandidates(definition, asker),
-      nets: netCandidates(definition, asker),
+      dates,
+      nets,
     },
     starts: {
       field: fields[0]?.fieldKey,
@@ -107,8 +112,8 @@ export function CalculationEditor({
             }
           : undefined,
       result: results[0]?.code,
-      date: dateCandidates(definition, asker)[0]?.fieldKey,
-      net: netCandidates(definition, asker)[0]?.fieldKey,
+      date: dates[0]?.fieldKey,
+      net: nets[0]?.fieldKey,
       // a new branch starts with the question just before this one, the likeliest to compare
       condition: (
         conditions
@@ -138,12 +143,21 @@ export function CalculationEditor({
         ]}
       />
       {mode === 'type' ? (
-        <FormulaInput ctx={ctx} expr={expr} onChange={write} />
+        <FormulaInput
+          ctx={ctx}
+          text={typed ?? (expr === undefined ? '' : printFormula(expr))}
+          onText={setTyped}
+          onChange={write}
+        />
       ) : (
         <PartEditor ctx={ctx} label={t('calc_root')} expr={expr} depth={0} onChange={write} />
       )}
+      {mode === 'click' && typed !== null && !formulaReads(ctx, typed) ? (
+        <Alert tone="warning">{t('calc_formula_kept')}</Alert>
+      ) : null}
       <Select
         label={t('calc_round')}
+        disabled={!field.calculation}
         value={field.calculation?.round === undefined ? 'none' : String(field.calculation.round)}
         onChange={(id) => {
           if (!field.calculation) return;
@@ -178,12 +192,9 @@ function PartEditor({
   const locale = useLocale();
   const kind = expr === undefined ? null : partKindOf(expr);
   // a kind is offered only when the form has something it can read, and nesting stays shallow
+  const nests = (k: PartKind) => k === 'math' || k === 'if';
   const kinds = PART_KINDS.filter(
-    (k) =>
-      k === kind ||
-      ((k !== 'math' && k !== 'if') || depth < MAX_DEPTH
-        ? startPart(k, ctx.starts) !== null
-        : false),
+    (k) => k === kind || ((!nests(k) || depth < MAX_DEPTH) && startPart(k, ctx.starts) !== null),
   );
   const { offers } = ctx;
   const labelOf = (f: FormField) => f.label[locale];
@@ -521,19 +532,9 @@ function CellPart({
   );
 }
 
-/** The calculation typed as a formula; a valid one is written at once, a mistake is named. */
-function FormulaInput({
-  ctx,
-  expr,
-  onChange,
-}: {
-  ctx: Context;
-  expr: Expr | undefined;
-  onChange: (next: Expr) => void;
-}) {
-  const t = useTranslations('forms.builder');
-  const [text, setText] = useState(() => (expr === undefined ? '' : printFormula(expr)));
-  const names: FormulaNames = {
+/** What a typed formula may name, from what the question reaches. */
+function formulaNames(ctx: Context): FormulaNames {
+  return {
     fields: new Set(
       [...ctx.offers.fields, ...conditionCandidates(ctx.definition, ctx.asker)].map(
         (f) => f.fieldKey,
@@ -561,6 +562,30 @@ function FormulaInput({
     ),
     results: new Set((ctx.field.settings?.results ?? []).map((r) => r.code)),
   };
+}
+
+/** Whether a typed text is empty or reads as a formula. */
+function formulaReads(ctx: Context, text: string): boolean {
+  return text.trim() === '' || parseFormula(text, formulaNames(ctx)).ok;
+}
+
+/**
+ * The calculation typed as a formula: a valid one is written at once, an emptied one removes the
+ * calculation, and a mistake is named while the last valid calculation stays.
+ */
+function FormulaInput({
+  ctx,
+  text,
+  onText,
+  onChange,
+}: {
+  ctx: Context;
+  text: string;
+  onText: (text: string) => void;
+  onChange: (next: Expr | undefined) => void;
+}) {
+  const t = useTranslations('forms.builder');
+  const names = formulaNames(ctx);
   const reading = text.trim() === '' ? null : parseFormula(text, names);
   return (
     <Stack gap={2}>
@@ -577,9 +602,10 @@ function FormulaInput({
             : undefined
         }
         onChange={(next) => {
-          setText(next);
-          const read = next.trim() === '' ? null : parseFormula(next, names);
-          if (read?.ok) onChange(read.expr);
+          onText(next);
+          if (next.trim() === '') return onChange(undefined);
+          const read = parseFormula(next, names);
+          if (read.ok) onChange(read.expr);
         }}
       />
     </Stack>

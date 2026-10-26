@@ -367,6 +367,23 @@ describe('the calculation', () => {
     expect(fieldOf(latest, 'total').calculation).toMatchObject({ round: 2 });
   }, 20_000);
 
+  it('removes the calculation when the formula is emptied, and keeps a mistaken one with a note', async () => {
+    const user = userEvent.setup();
+    open(income(), { section: 'income', field: 'total' });
+    const calc = await openRules(user, /^হিসাব (ঠিক করুন|বদলান)$/, 'হিসাবের নিয়ম');
+    await user.click(calc.getByRole('radio', { name: 'সূত্র লিখুন' }));
+    const formula = calc.getByRole('textbox', { name: /^সূত্র/ });
+    await user.type(formula, 'a + b');
+    expect(fieldOf(latest, 'total').calculation).toBeDefined();
+    await user.clear(formula);
+    expect(fieldOf(latest, 'total').calculation).toBeUndefined();
+    await user.type(formula, 'a + b +');
+    await user.click(calc.getByRole('radio', { name: 'ক্লিক করে' }));
+    expect(calc.getByText(/সূত্রে ভুল আছে, তাই আগের হিসাবই রাখা আছে/)).toBeInTheDocument();
+    await user.click(calc.getByRole('radio', { name: 'সূত্র লিখুন' }));
+    expect(calc.getByRole('textbox', { name: /^সূত্র/ })).toHaveValue('a + b +');
+  }, 20_000);
+
   it('keeps the text results of a calculation with the question', async () => {
     const user = userEvent.setup();
     open(income(), { section: 'income', field: 'total' });
