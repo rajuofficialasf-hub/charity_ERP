@@ -38,6 +38,11 @@ export interface ScopeInstances {
    * applications they created stay theirs only while the owner is still their lead there.
    */
   teamLeads?: TeamLead[];
+  /**
+   * An ASSIGNED grant: the caller reaches the records they are assigned to by name, which each
+   * entity's own filter resolves (a media work through its member rows).
+   */
+  assigned?: boolean;
 }
 
 /** A team member's place: the project and the lead volunteer they work under. */
@@ -286,6 +291,7 @@ export async function resolveInstances(
         else regionProjects.add(g.projectId);
         break;
       case 'ASSIGNED':
+        inst.assigned = true;
         break;
     }
   }
@@ -604,4 +610,17 @@ export function applicationWhere(scope: Scope): Prisma.ApplicationWhereInput {
   if (i.projectIds.length) or.push({ projectId: { in: i.projectIds } });
   if (!or.length) return { id: { in: [] } };
   return { AND: [{ OR: or }, notRevoked] };
+}
+
+/**
+ * The media referrals a scope reaches: those of the applications it reaches, and for an ASSIGNED
+ * grant those whose work the caller is a member of (a Media Team member sees only their own
+ * works). No instance means no referral.
+ */
+export function mediaReferralWhere(scope: Scope): Prisma.MediaReferralWhereInput {
+  const byApplication: Prisma.MediaReferralWhereInput = { application: applicationWhere(scope) };
+  if (!scope.instances.assigned) return byApplication;
+  return {
+    OR: [byApplication, { work: { members: { some: { userId: scope.actorId } } } }],
+  };
 }

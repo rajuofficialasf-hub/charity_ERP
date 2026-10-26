@@ -46,6 +46,8 @@ tags:
     description: Public application form without login (A8.5, O-08)
   - name: applications
     description: Applications, workflow actions, scores, quotas, field unlock, transfers (A7, WORKFLOW_ENGINE.md)
+  - name: media
+    description: The Media Team's referrals, works, publications and portfolios (D-101, D-136, D-137)
   - name: activities
     description: Activities and bulk-update screens (B5, WORKFLOW_ENGINE.md section 8)
   - name: files
@@ -3134,6 +3136,12 @@ components:
               description: The unlocks of the application waiting for a step, as the caller may see them (a volunteer never sees the office's reasons nor an answer of the official section)
               items: { $ref: '#/components/schemas/ApplicationUnlock' }
             mayUnlock: { type: boolean, description: Whether the caller may open an answer of this application for correction now }
+            media:
+              description: Its referral to the Media Team (D-136), for the referrer's program or region and the directors; null otherwise. It never moves the workflow state.
+              oneOf:
+                - $ref: '#/components/schemas/ApplicationMedia'
+                - type: 'null'
+            mayReferToMedia: { type: boolean, description: 'Whether the caller may refer it to the Media Team now, or send a returned referral again' }
             form: { $ref: '#/components/schemas/FormVersion', description: The form version the answers belong to, as the caller's audience sees it }
     ApplicationResponse:
       type: object
@@ -3147,6 +3155,141 @@ components:
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/ApplicationSummary' } }
         meta: { $ref: '#/components/schemas/ListMeta' }
+    MediaPerson:
+      type: object
+      required: [id, name]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string }
+    MediaPlace:
+      type: object
+      required: [program, project]
+      properties:
+        program:
+          type: object
+          required: [id, name]
+          properties:
+            id: { $ref: '#/components/schemas/Uuid' }
+            name: { $ref: '#/components/schemas/Bilingual' }
+        project:
+          type: object
+          required: [id, name, year]
+          properties:
+            id: { $ref: '#/components/schemas/Uuid' }
+            name: { $ref: '#/components/schemas/Bilingual' }
+            year: { type: integer }
+    MediaReferralSummary:
+      allOf:
+        - $ref: '#/components/schemas/MediaPlace'
+        - type: object
+          required: [id, applicationId, appNo, state, priority, beneficiaryName, referredBy, referredAt, decidedAt]
+          properties:
+            id: { $ref: '#/components/schemas/Uuid' }
+            applicationId: { $ref: '#/components/schemas/Uuid' }
+            appNo: { type: [string, 'null'] }
+            state: { type: string, enum: [pending, accepted, sent_back, rejected] }
+            priority: { type: string, enum: [high, normal, low] }
+            beneficiaryName: { type: string }
+            referredBy: { $ref: '#/components/schemas/MediaPerson' }
+            referredAt: { type: string, format: date-time }
+            decidedAt: { type: [string, 'null'], format: date-time }
+    MediaEvent:
+      type: object
+      required: [id, kind, fromValue, toValue, comment, actor, at]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        kind: { type: string, description: 'referred, resent, accepted, sent_back, rejected, or a step of the work' }
+        fromValue: { type: [string, 'null'] }
+        toValue: { type: [string, 'null'] }
+        comment: { type: [string, 'null'] }
+        actor: { $ref: '#/components/schemas/MediaPerson' }
+        at: { type: string, format: date-time }
+    MediaBeneficiary:
+      type: object
+      description: What the Media Team may know of the person (BR-265); never the identity numbers, ratings, categories or scores
+      required: [name, fatherOrHusbandName, ageYears, mobile, address, occupation, monthlyIncome]
+      properties:
+        name: { type: string }
+        fatherOrHusbandName: { type: string }
+        ageYears: { type: [integer, 'null'] }
+        mobile: { type: string }
+        address:
+          type: object
+          required: [divisionId, districtId, upazilaId, unionId, village, postOffice]
+          properties:
+            divisionId: { $ref: '#/components/schemas/Uuid' }
+            districtId: { $ref: '#/components/schemas/Uuid' }
+            upazilaId: { $ref: '#/components/schemas/Uuid' }
+            unionId: { $ref: '#/components/schemas/Uuid' }
+            village: { type: string }
+            postOffice: { type: [string, 'null'] }
+        occupation:
+          oneOf:
+            - $ref: '#/components/schemas/Bilingual'
+            - type: 'null'
+        monthlyIncome: { type: [string, 'null'], description: Taka with two decimals }
+    MediaReferral:
+      allOf:
+        - $ref: '#/components/schemas/MediaReferralSummary'
+        - type: object
+          required: [note, story, decidedBy, decisionComment, beneficiary, officialComment, work, history, mayDecide, mayResend]
+          properties:
+            note: { type: string }
+            story: { type: [string, 'null'] }
+            decidedBy:
+              oneOf:
+                - $ref: '#/components/schemas/MediaPerson'
+                - type: 'null'
+            decisionComment: { type: [string, 'null'], description: The comment of a send-back or the reason of a rejection }
+            beneficiary: { $ref: '#/components/schemas/MediaBeneficiary' }
+            officialComment: { type: [string, 'null'], description: "The official's comment on the application; nothing else of the official section" }
+            work:
+              type: [object, 'null']
+              required: [id, title, stageCode]
+              properties:
+                id: { $ref: '#/components/schemas/Uuid' }
+                title: { type: string }
+                stageCode: { type: string }
+            history: { type: array, items: { $ref: '#/components/schemas/MediaEvent' } }
+            mayDecide: { type: boolean }
+            mayResend: { type: boolean }
+    MediaReferralResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/MediaReferral' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    MediaReferralList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/MediaReferralSummary' } }
+        meta: { $ref: '#/components/schemas/ListMeta' }
+    MediaReferralRequest:
+      type: object
+      additionalProperties: false
+      required: [priority, note]
+      properties:
+        priority: { type: string, enum: [high, normal, low] }
+        note: { type: string, minLength: 1, maxLength: 2000 }
+        story: { type: string, minLength: 1, maxLength: 10000, description: The story or first text the referrer writes (BR-284) }
+    MediaReferralDecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [accept, send_back, reject] }
+        comment: { type: string, minLength: 1, maxLength: 2000, description: Required to send back or reject }
+    ApplicationMedia:
+      type: object
+      required: [referralId, state, priority, decisionComment, decidedAt, workStageCode]
+      properties:
+        referralId: { $ref: '#/components/schemas/Uuid' }
+        state: { type: string, enum: [pending, accepted, sent_back, rejected] }
+        priority: { type: string, enum: [high, normal, low] }
+        decisionComment: { type: [string, 'null'] }
+        decidedAt: { type: [string, 'null'], format: date-time }
+        workStageCode: { type: [string, 'null'] }
     ApplicationActionRequest:
       type: object
       properties:
@@ -8535,6 +8678,143 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/TransferList' }
         '404': { $ref: '#/components/responses/NotFound' }
+
+  # ======================= media =======================
+  /applications/{applicationId}/media-referral:
+    parameters:
+      - $ref: '#/components/parameters/ApplicationId'
+    post:
+      tags: [media]
+      operationId: media.referral.create
+      summary: Refer an approved application to the Media Team with a priority, a note and an optional story, or send a referral that was sent back or rejected again
+      description: >-
+        D-101, D-136, D-137, BR-283, BR-284. A PM of the program or an RPM of the region refers an
+        application that is approved or past approval (implementation, completed, closed); any
+        other state gets 409 media.referral_not_referable. An application has one referral: while it
+        waits or after it was accepted a second one gets 409 media.referral_open; one sent back or
+        rejected is corrected and sent again through the same call. No consent is asked (D-137).
+        The application's workflow state never moves. The Media Director and the Assistant
+        Director are told in the app.
+      x-permission: media.referral.create
+      x-scope: application
+      x-audit: media.referral_created
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MediaReferralRequest' }
+      responses:
+        '201':
+          description: Referred, or sent again
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaReferralResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /media-referrals:
+    get:
+      tags: [media]
+      operationId: media.referral.list
+      summary: "The decider's queue: the referrals waiting for a decision by default, oldest first"
+      description: >-
+        D-101. For the Media Director and the Assistant Director (and the two global roles).
+        `state` takes a comma list of pending, accepted, sent_back and rejected (422 for anything
+        else).
+      x-permission: media.referral.decide
+      x-scope: application
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string, maxLength: 1024 }
+        - $ref: '#/components/parameters/IncludeTotal'
+        - name: sort
+          in: query
+          required: false
+          description: createdAt, leading minus for descending
+          schema: { type: string, maxLength: 200 }
+        - name: state
+          in: query
+          required: false
+          schema: { type: string, maxLength: 100 }
+      responses:
+        '200':
+          description: Referrals
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaReferralList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /media-referrals/{referralId}:
+    parameters:
+      - name: referralId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    get:
+      tags: [media]
+      operationId: media.referral.get
+      summary: "A referral with the person's allowed details, the official's comment, its decision, its work and its history"
+      description: >-
+        D-101 (3), D-136, BR-265. For the directors, the members of its work and the referrers of
+        the program or region; 404 for anyone else. The person's details are only those BR-265
+        allows; the identity numbers, ratings, categories and scores never appear, and of the
+        official section only the official's comment.
+      x-permission: media.work.view
+      x-scope: application
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: The referral
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaReferralResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /media-referrals/{referralId}/decision:
+    parameters:
+      - name: referralId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    post:
+      tags: [media]
+      operationId: media.referral.decide
+      summary: Accept a waiting referral (its work starts), send it back with a comment, or reject it with a reason
+      description: >-
+        D-101, BR-267. Only a waiting referral is decided (409 media.referral_not_pending). Sending
+        back and rejecting need the comment (422). Accepting creates its work at the stage
+        "accepted", named after the application. The referrer is told in the app; the
+        application's workflow state never moves.
+      x-permission: media.referral.decide
+      x-scope: application
+      x-audit: media.referral_decided
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MediaReferralDecisionRequest' }
+      responses:
+        '200':
+          description: Decided
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaReferralResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
 
   # ======================= activities =======================
   /applications/{applicationId}/activities:

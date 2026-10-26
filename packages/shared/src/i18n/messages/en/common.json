@@ -52,6 +52,9 @@
     "consent_declined": "declined",
     "unknown_device": "an unnamed device",
     "fallback_title": "Notification",
-    "fallback_body": "This notification cannot be shown. Open the related page to see what happened."
+    "fallback_body": "This notification cannot be shown. Open the related page to see what happened.",
+    "media_accepted": "accepted",
+    "media_sent_back": "sent back for correction",
+    "media_rejected": "rejected"
   }
 }

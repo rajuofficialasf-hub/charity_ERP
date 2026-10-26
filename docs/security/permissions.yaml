@@ -1276,7 +1276,7 @@ permissions:
       - { role: volunteer_both, scope: SELF }
       - { role: volunteer_paid, scope: ASSIGNED }
   - name: media.referral.create
-    description: Refer an approved application of the caller's scope to the Media Team as publishable, with a priority and a note; refused without the beneficiary's recorded media consent (D-101)
+    description: Refer an approved application of the caller's scope to the Media Team as publishable, with a priority, a note and an optional story; no consent is asked (D-101, D-137)
     module: M18
     sensitive: false
     default:
@@ -1330,7 +1330,7 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: media_director, scope: GLOBAL }
       - { role: media_assistant_director, scope: GLOBAL }
-      - { role: media_team, scope: GLOBAL }
+      - { role: media_team, scope: ASSIGNED }
 
   # ---- M19 Locations -------------------------------------------------------------------------------
   - name: location.manage

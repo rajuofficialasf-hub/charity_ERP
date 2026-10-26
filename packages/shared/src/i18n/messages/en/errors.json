@@ -336,5 +336,10 @@
     "verify_identity_exists": "A profile with this number already exists. Link to it instead of creating a new one.",
     "verify_owner_unfit": "The chosen volunteer is not active on this project or is blocklisted.",
     "verify_owner_full": "The chosen volunteer has reached the application limit. Choose someone else or keep the application with the office."
+  },
+  "media": {
+    "referral_not_referable": "Only an approved application, or one past approval, can be sent to the Media Team.",
+    "referral_open": "This application is already with the Media Team. Wait for its decision.",
+    "referral_not_pending": "This referral has already been decided."
   }
 }

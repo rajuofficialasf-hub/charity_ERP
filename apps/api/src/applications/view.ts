@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { sensitive } from '../access/field-mask';
 import { versionView } from '../routes/forms';
 import type { FormVersionView } from '../services/forms';
+import { applicationMediaView } from '../services/media-referrals';
 
 /** The class of the official section and of the office's own texts (permissions.yaml). */
 export const OFFICIAL_SECTION = 'application.official_section';
@@ -92,6 +93,10 @@ export const applicationView = applicationSummary.extend({
   unlocks: z.array(unlockView),
   /** Whether the caller may open an answer of this application for correction now. */
   mayUnlock: z.boolean(),
+  /** Its referral to the Media Team, for the referrer's scope and the directors; never moves the state. */
+  media: applicationMediaView.nullable(),
+  /** Whether the caller may refer it to the Media Team now (or send a returned referral again). */
+  mayReferToMedia: z.boolean(),
   /** The form version the answers belong to, as the caller's audience sees it. */
   form: versionView,
 });

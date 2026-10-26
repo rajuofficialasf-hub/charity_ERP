@@ -53,6 +53,7 @@ import { isAddressChain } from '../services/locations';
 import type { NisabService } from '../services/nisab';
 import { assertReachesApplication, isBlockedVolunteer } from './callers';
 import { liveApplicationCounts } from './limit';
+import type { MediaReferralsService } from '../services/media-referrals';
 import type { UnlocksService } from './unlocks';
 import type { ScoringService } from './scoring';
 import { type CommentReason, commentReasons } from './decision-rules';
@@ -269,6 +270,7 @@ export class ApplicationsService {
     private readonly submission: SubmissionWriter,
     private readonly scoring: ScoringService,
     private readonly unlocks: UnlocksService,
+    private readonly media: MediaReferralsService,
   ) {}
 
   async create(
@@ -1251,6 +1253,11 @@ export class ApplicationsService {
           applicationId,
           audience === 'official',
         )),
+        ...(await this.media.forRecord(viewer.principal, access, {
+          id: applicationId,
+          status: row.status,
+          beneficiaryId: row.beneficiaryId,
+        })),
         form: versionView(version, definition),
       },
       updatedAt: row.updatedAt,

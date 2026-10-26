@@ -59,6 +59,7 @@ import { ScoringService } from './applications/scoring';
 import { WorkflowSideEffects } from './applications/side-effects';
 import { TransfersService } from './applications/transfers';
 import { UnlocksService } from './applications/unlocks';
+import { MediaReferralsService } from './services/media-referrals';
 import { WaitlistService } from './applications/waitlist';
 import { ProgramsService } from './services/programs';
 import { ReferenceListsService } from './services/reference-lists';
@@ -75,6 +76,7 @@ import { TemplatesService } from './services/templates';
 import { FormLibraryService } from './services/form-library';
 import { FormsService, readDefinition } from './services/forms';
 import { ApplicationEvents } from './notifications/application-events';
+import { MediaEvents } from './notifications/media-events';
 import { BulkReviewService } from './applications/bulk';
 import { ApplicationsService } from './applications/service';
 import { SubmissionWriter } from './applications/submission';
@@ -162,6 +164,8 @@ export interface Container {
   bulkReview: BulkReviewService;
   waitlist: WaitlistService;
   unlocks: UnlocksService;
+  mediaReferrals: MediaReferralsService;
+  mediaEvents: MediaEvents;
   transfers: TransfersService;
   applicationEvents: ApplicationEvents;
   readyForms: ReadyFormsService;
@@ -300,6 +304,10 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const unlocks =
     o.unlocks ??
     new UnlocksService(prisma, access, audit, clock, nisab, beneficiaryContact, applicationEvents);
+  // the Media Team's referrals; the application's record shows its media state
+  const mediaEvents = o.mediaEvents ?? new MediaEvents(notifications);
+  const mediaReferrals =
+    o.mediaReferrals ?? new MediaReferralsService(env, prisma, access, audit, clock, mediaEvents);
   const publicPhotos =
     o.publicPhotos ?? new PublicPhotosService(prisma, storage, audit, jobs, logger, clock);
   const built = {
@@ -428,11 +436,14 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         new SubmissionWriter(access, beneficiaryIdentity, beneficiaryContact, audit),
         scoring,
         unlocks,
+        mediaReferrals,
       ),
     bulkReview:
       o.bulkReview ?? new BulkReviewService(prisma, access, audit, idempotency, workflow, logger),
     waitlist: o.waitlist ?? new WaitlistService(prisma, access, idempotency, workflow),
     unlocks,
+    mediaEvents,
+    mediaReferrals,
     readyForms: o.readyForms ?? new ReadyFormsService(prisma, audit, projects, forms),
     publicLink: o.publicLink ?? new PublicLinkService(env, prisma, audit, projects),
     publicPhotos,
