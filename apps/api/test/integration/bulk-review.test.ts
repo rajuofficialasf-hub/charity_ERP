@@ -285,19 +285,23 @@ describe('the review screen in bulk', () => {
     expect(list.body.data).toEqual([]);
     const kinds = ['visit', 'distribution', 'visit'] as const;
     const made: string[] = [];
-    for (const type of kinds)
+    // One second apart, oldest first: ids made in the same millisecond order by their random bits.
+    const base = Date.now();
+    for (const [i, type] of kinds.entries()) {
+      const at = base - (kinds.length - 1 - i) * 1000;
       made.push(
         await insert(h.db, 'activities', {
-          id: uuidv7(),
+          id: uuidv7(at),
           project_id: project,
           application_id: id,
           type,
           status: 'done',
           done_by: world.users.rpmDhaka,
-          done_at: new Date(),
+          done_at: new Date(at),
           comment: `${type} নোট`,
         }),
       );
+    }
     const all = await at(rpm, 'get', `/applications/${id}/activities?limit=2`);
     expect(all.body.data.map((a: { id: string }) => a.id)).toEqual([made[2], made[1]]);
     expect(all.body.data[0]).toMatchObject({
