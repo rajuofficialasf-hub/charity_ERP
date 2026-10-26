@@ -158,8 +158,8 @@ export const fieldSettingsSchema = z.strictObject({
   read_only: z.boolean().optional(),
   table: z
     .looseObject({
-      rows: z.array(z.looseObject({ key: snakeKey, label: looseLabel })),
-      cols: z.array(z.looseObject({ key: snakeKey, label: looseLabel })),
+      rows: z.array(z.looseObject({ key: snakeKey, label: looseLabel })).max(200),
+      cols: z.array(z.looseObject({ key: snakeKey, label: looseLabel })).max(200),
     })
     .optional(),
   /** The text results a calculation may give, each a code with its label in both languages. */

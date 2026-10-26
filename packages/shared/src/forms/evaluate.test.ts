@@ -620,4 +620,39 @@ describe('the cells of a number table', () => {
     expect(state.computed.cows).toBe(2);
     expect(state.fields.probe!.visible).toBe(true);
   });
+
+  it('reads a hidden table, a missing one and a table of zeros as the conditions expect', () => {
+    const fields = [
+      field('keeps_animals', 'radio', { options: [option('yes'), option('no')] }),
+      field('livestock', 'number_table', {
+        settings: {
+          table: {
+            rows: [{ key: 'cow', label: T('cow') }],
+            cols: [{ key: 'own', label: T('own') }],
+          },
+        },
+        logic: { show_if: { field: 'keeps_animals', op: 'eq', value: 'yes' } },
+      }),
+      field('cows', 'calculation', {
+        calculation: {
+          expr: { op: 'add', args: [{ cell: { field: 'livestock', row: 'cow', col: 'own' } }, 1] },
+        },
+      }),
+      field('none_given', 'short_text', {
+        logic: { show_if: { field: 'livestock', op: 'is_empty' } },
+      }),
+    ];
+    const run = (answers: Answer[]) => evaluate(definitionWith(fields), answers, { today: TODAY });
+    const yes = answer('keeps_animals', { t: 'radio', v: 'yes' });
+    const no = answer('keeps_animals', { t: 'radio', v: 'no' });
+    const cows = (n: number) =>
+      answer('livestock', { t: 'number_table', v: { cow: { own: n } } } as never);
+    // hidden: the cell counts as nothing, so the sum is the 1 alone
+    expect(run([no, cows(5)]).computed.cows).toBe(1);
+    // missing
+    expect(run([yes]).computed.cows).toBe(1);
+    expect(run([yes]).fields.none_given!.visible).toBe(true);
+    // a table of zeros is an answer, not an empty one
+    expect(run([yes, cows(0)]).fields.none_given!.visible).toBe(false);
+  });
 });

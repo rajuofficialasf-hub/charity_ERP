@@ -47,8 +47,8 @@ const bdAddress = z.strictObject({
   village: z.string().max(200).optional(),
 });
 /**
- * A number table: whole numbers by row and column key. The keys and the numbers are checked against
- * the question's own rows and columns by the validator, which keeps only those.
+ * A number table: whole numbers by row and column key. The validator refuses any row, column or
+ * number outside the question's own rows and columns and the whole numbers from 0 to 1,000,000.
  */
 const numberTable = z.strictObject({
   t: z.literal('number_table'),

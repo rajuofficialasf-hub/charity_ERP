@@ -598,18 +598,18 @@ describe('a number table', () => {
   });
   const table = (v: unknown) => answer('livestock', { t: 'number_table', v } as never);
 
-  it('takes whole numbers in its own rows and columns and keeps nothing else', () => {
+  it('takes whole numbers in its own rows and columns, up to 1,000,000', () => {
     expect(
       errorsOf([livestock], [table({ cow: { own: 2, shared: 1 }, goat: { own: 0 } })]),
     ).toEqual([]);
     const result = validate(
       definitionWith([livestock]),
-      [...coreAnswers(), table({ cow: { own: 2 } })],
+      [...coreAnswers(), table({ cow: { own: 1_000_000 } })],
       official,
     );
     expect(result.ok && result.answers.find((a) => a.fieldKey === 'livestock')!.value).toEqual({
       t: 'number_table',
-      v: { cow: { own: 2 } },
+      v: { cow: { own: 1_000_000 } },
     });
   });
 
@@ -627,9 +627,11 @@ describe('a number table', () => {
       ]);
   });
 
-  it('asks a required table to hold at least one number', () => {
+  it('asks a required table to hold at least one number, and takes a table of zeros as answered', () => {
     expect(errorsOf([{ ...livestock, required: true }], [table({})])).toEqual([
       ['livestock', 'validation.required'],
     ]);
+    // "no cows" is an answer
+    expect(errorsOf([{ ...livestock, required: true }], [table({ cow: { own: 0 } })])).toEqual([]);
   });
 });

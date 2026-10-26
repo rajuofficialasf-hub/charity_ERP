@@ -334,7 +334,7 @@
         "t",
         "v"
       ],
-      "description": "whole numbers by row and column key; the validator keeps only the question's own rows and columns",
+      "description": "whole numbers by row and column key; the validator refuses any row, column or number outside the question's own rows and columns and the whole numbers from 0 to 1,000,000",
       "properties": {
         "t": {
           "const": "number_table"

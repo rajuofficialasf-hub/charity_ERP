@@ -696,6 +696,13 @@ describe('a number table', () => {
     const many = Array.from({ length: 21 }, (_, i) => `r${i}`);
     const definition = definitionWith([
       field('fine', 'number_table', { settings: table(['cow'], ['own']) }),
+      field('largest', 'number_table', {
+        settings: table(
+          Array.from({ length: 20 }, (_, i) => `r${i}`),
+          ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'],
+        ),
+      }),
+      field('no_cols', 'number_table', { settings: table(['cow'], []) }),
       field('bare', 'number_table'),
       field('twice', 'number_table', { settings: table(['cow', 'cow'], ['own']) }),
       field('sneaky', 'number_table', { settings: table(['constructor'], ['own']) }),
@@ -709,6 +716,7 @@ describe('a number table', () => {
       }),
     ]);
     expect(codesOf(definition)).toEqual([
+      ['form.table_invalid', 'no_cols'],
       ['form.table_invalid', 'bare'],
       ['form.table_invalid', 'twice'],
       ['form.table_invalid', 'sneaky'],
