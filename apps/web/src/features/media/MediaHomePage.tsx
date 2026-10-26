@@ -61,7 +61,7 @@ export function MediaHomePage() {
   return (
     <Grid gap={4}>
       <DocumentTitle title={t('home.title')} />
-      <h1 className="admin-title">{t('home.title')}</h1>
+      <h1 className="media-title">{t('home.title')}</h1>
       <AttentionList kinds={MEDIA_ATTENTION} />
       <Card
         title={t('home.counts')}
@@ -85,6 +85,7 @@ export function MediaHomePage() {
         ) : (
           <div className="media-counts">
             {COUNTS.map((key) => (
+              // eslint-disable-next-line security/detect-object-injection -- a typed count key
               <StatCard key={key} label={t(`home.count.${key}`)} value={counts[key]} />
             ))}
           </div>
