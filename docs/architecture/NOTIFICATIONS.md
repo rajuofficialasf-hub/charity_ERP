@@ -72,8 +72,8 @@ Channels: **A** in-app · **E** email · **S** SMS · **P** optional Web Push (i
 
 | Event | Recipients | Channels | Template key | Phase |
 |---|---|---|---|---|
-| Project activated | rpm(all areas), assigned staff, assigned volunteers | A | `project_activated` | 1 |
-| Volunteer assigned to a project (consent pending) | the volunteer | A | `project_assignment` | 1 |
+| Project activated | rpm(all areas), assigned staff (its volunteers get `project_assignment` instead, D-135) | A | `project_activated` | 1 |
+| Volunteer assigned to a project (consent pending) | the volunteer: at the assignment on a running project, at the activation for one assigned to the draft (D-135) | A | `project_assignment` | 1 |
 | Consent accepted / rejected | rpm(region) | A | `project_consent_result` | 1 |
 | Team member added to a project team | the team member | A | `team_member_added` | 1 |
 | Application deadline extended | assigned volunteers, rpm(all areas) | A | `deadline_extended` | 1 |

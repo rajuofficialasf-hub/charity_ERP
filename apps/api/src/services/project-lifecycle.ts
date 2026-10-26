@@ -132,7 +132,7 @@ export class ProjectLifecycleService {
         old: { status: from },
         new: { status: to, workflowVersion: project.workflowVersion },
       });
-      await this.events.lifecycle(tx, 'project_activated', projectId, actor);
+      await this.events.activated(tx, projectId, actor);
       return result;
     });
   }

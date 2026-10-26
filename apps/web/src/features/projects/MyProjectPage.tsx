@@ -36,11 +36,16 @@ function ProjectView() {
     return (
       <>
         {back}
-        <ErrorState
-          title={tc('state.error.text')}
-          requestId={one.error instanceof ApiFailure ? one.error.requestId : undefined}
-          onRetry={() => void one.refetch()}
-        />
+        {/* a draft, a closed project or an ended assignment is not the volunteer's to see */}
+        {one.error instanceof ApiFailure && one.error.status === 404 ? (
+          <p>{t('mine.not_found')}</p>
+        ) : (
+          <ErrorState
+            title={tc('state.error.text')}
+            requestId={one.error instanceof ApiFailure ? one.error.requestId : undefined}
+            onRetry={() => void one.refetch()}
+          />
+        )}
       </>
     );
   const p = one.data;

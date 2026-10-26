@@ -109,6 +109,38 @@ describe('my projects', () => {
   });
 });
 
+describe('a project that is not available', () => {
+  it('says so plainly, with the way back to the list, instead of the general error', async () => {
+    server.use(
+      http.get(`*/api/v1/me/projects/${ID}`, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'permission.not_found',
+              messageKey: 'errors.permission.not_found',
+              message: 'পাওয়া যায়নি',
+              requestId: 'req_x',
+            },
+          },
+          { status: 404 },
+        ),
+      ),
+    );
+    const { container } = openProject();
+    expect(
+      await screen.findByText(
+        'এই প্রকল্পটি এখন দেখা যাচ্ছে না। প্রকল্পটি চালু হলে বা আবার আপনাকে যুক্ত করা হলে এখানে দেখা যাবে।',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /আমার প্রকল্প/ })).toHaveAttribute(
+      'href',
+      '/my-projects',
+    );
+    await expectNoAxeViolations(container);
+  });
+});
+
 describe('the consent to the rules', () => {
   it('walks every part, then accepts with the version and the parts, and opens the project', async () => {
     serve();
