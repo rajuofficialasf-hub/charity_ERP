@@ -9034,7 +9034,8 @@ paths:
         media.platform_unknown); the link is https on the host of the platform's kind, with no user
         info and no port (422 media.link_invalid or media.link_host). A published post needs its link
         and date (422) and the final review (409 media.publish_before_review); the first one makes the
-        work published and tells the referrer.
+        work published and tells the referrer. The last published post of a published work stays
+        published (409 media.publication_last).
       x-permission: media.work.manage
       x-scope: application
       x-audit: media.publication_added
@@ -9101,12 +9102,17 @@ paths:
       summary: "The final review of a work ready to publish: approve it, or send it back to the team with a comment"
       description: >-
         D-101 (9), BR-267. Only at ready_to_publish (409 media.review_not_ready); sending back needs the
-        comment (422) and moves the work to in_review. By default the Media Director's alone.
+        comment (422) and moves the work to in_review. By default the Media Director's alone. It
+        carries the work's version in If-Match (412 when the work changed since it was read); a
+        later change of the script, title or content type at ready_to_publish withdraws the
+        approval, a hold and a cancel keep it.
       x-permission: media.publication.review
       x-scope: application
       x-audit: media.review_decided
       x-idempotency: none
       x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
       requestBody:
         required: true
         content:
@@ -9122,6 +9128,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
   /media-works/{workId}/comments:
     parameters:
       - name: workId

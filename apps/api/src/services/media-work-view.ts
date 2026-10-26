@@ -161,57 +161,56 @@ export async function readWork(
   workId: string,
   rights: WorkRights,
 ): Promise<MediaWorkView> {
-  const [work, ordinary] = await Promise.all([
-    db.mediaWork.findUniqueOrThrow({
-      where: { id: workId },
-      select: {
-        id: true,
-        title: true,
-        stageCode: true,
-        heldStageCode: true,
-        contentType: true,
-        script: true,
-        scriptState: true,
-        reviewApprovedAt: true,
-        reviewApprovedByRef: { select: { id: true, displayName: true } },
-        updatedAt: true,
-        members: {
-          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-          select: { userId: true, roles: true, user: { select: { displayName: true } } },
-        },
-        publications: {
-          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-          select: {
-            id: true,
-            platformCode: true,
-            state: true,
-            publishedOn: true,
-            link: true,
-            note: true,
-          },
-        },
-        comments: {
-          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-          select: {
-            id: true,
-            body: true,
-            createdAt: true,
-            author: { select: { id: true, displayName: true } },
-          },
+  const work = await db.mediaWork.findUniqueOrThrow({
+    where: { id: workId },
+    select: {
+      id: true,
+      title: true,
+      stageCode: true,
+      heldStageCode: true,
+      contentType: true,
+      script: true,
+      scriptState: true,
+      reviewApprovedAt: true,
+      reviewApprovedByRef: { select: { id: true, displayName: true } },
+      updatedAt: true,
+      members: {
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        select: { userId: true, roles: true, user: { select: { displayName: true } } },
+      },
+      publications: {
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        select: {
+          id: true,
+          platformCode: true,
+          state: true,
+          publishedOn: true,
+          link: true,
+          note: true,
         },
       },
-    }),
-    ordinaryStages(db),
-  ]);
+      comments: {
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        select: {
+          id: true,
+          body: true,
+          createdAt: true,
+          author: { select: { id: true, displayName: true } },
+        },
+      },
+    },
+  });
   const closed = isClosedStage(work.stageCode);
+  // only a manager of an open work moves it
+  const ordinary = rights.manage && !closed ? await ordinaryStages(db) : [];
   return {
     id: work.id,
     title: work.title,
     stageCode: work.stageCode,
     heldStageCode: work.heldStageCode,
-    contentType: work.contentType as MediaWorkView['contentType'],
+    contentType: z.enum(CONTENT_TYPES).parse(work.contentType),
     script: rights.storyView ? mediaScriptSchema.parse(work.script) : null,
-    scriptState: work.scriptState as MediaWorkView['scriptState'],
+    scriptState: z.enum(SCRIPT_STATES).parse(work.scriptState),
     reviewApprovedBy: work.reviewApprovedByRef
       ? { id: work.reviewApprovedByRef.id, name: work.reviewApprovedByRef.displayName }
       : null,
@@ -225,7 +224,7 @@ export async function readWork(
     publications: work.publications.map((p) => ({
       id: p.id,
       platformCode: p.platformCode,
-      state: p.state as MediaWorkView['publications'][number]['state'],
+      state: z.enum(PUBLICATION_STATES).parse(p.state),
       publishedOn: p.publishedOn?.toISOString().slice(0, 10) ?? null,
       link: p.link,
       note: p.note,

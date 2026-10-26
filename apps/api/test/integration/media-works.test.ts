@@ -26,8 +26,17 @@ const setMembers = (s: Session, workId: string, members: object[]) =>
   m.at(s, 'put', `/media-works/${workId}/members`).send({ members });
 const addPublication = (s: Session, workId: string, body: object) =>
   m.at(s, 'post', `/media-works/${workId}/publications`).send(body);
-const review = (s: Session, workId: string, body: object) =>
-  m.at(s, 'post', `/media-works/${workId}/final-review`).send(body);
+/** The final review, with the version of the work as it stands. */
+const review = async (s: Session, workId: string, body: object) => {
+  const { rows } = await m.h.db.query<{ referral_id: string }>(
+    'SELECT referral_id FROM media_works WHERE id = $1',
+    [workId],
+  );
+  return m
+    .at(s, 'post', `/media-works/${workId}/final-review`)
+    .set('If-Match', await versionOf(rows[0]!.referral_id))
+    .send(body);
+};
 const YOUTUBE = 'https://youtu.be/dQw4w9WgXcQ';
 
 /** A work with the member on it as cinematographer and video editor. */
@@ -284,6 +293,50 @@ describe('the final review and the publication', () => {
       (await patch(member, referralId, readyWork, { stageCode: 'ready_to_publish' })).status,
     ).toBe(409);
     expect((await patch(member, referralId, readyWork, { stageCode: 'editing' })).status).toBe(200);
+  });
+
+  it('keeps the approval through a hold, and withdraws it when the script changes before publication', async () => {
+    const { referralId, workId } = await ready();
+    const director = await as(m.media.director);
+    const stale = await versionOf(referralId);
+    await patch(await as(m.media.member), referralId, workId, { contentType: 'both' });
+    const late = await m
+      .at(director, 'post', `/media-works/${workId}/final-review`)
+      .set('If-Match', stale)
+      .send({ decision: 'approve' });
+    expect(late.status).toBe(412);
+    expect((await review(director, workId, { decision: 'approve' })).status).toBe(200);
+    const held = await patch(director, referralId, workId, { stageCode: 'on_hold' });
+    expect(held.body.data.work.reviewApprovedBy?.id).toBe(m.media.director);
+    const resumed = await patch(director, referralId, workId, { stageCode: 'ready_to_publish' });
+    expect(resumed.body.data.work).toMatchObject({ stageCode: 'ready_to_publish' });
+    expect(resumed.body.data.work.reviewApprovedBy?.id).toBe(m.media.director);
+    const edited = await patch(await as(m.media.member), referralId, workId, {
+      script: { summary: 'নতুন সারসংক্ষেপ' },
+    });
+    expect(edited.body.data.work.reviewApprovedBy).toBeNull();
+  });
+
+  it('keeps the last published post of a published work, and logs a cancel of a held work as a cancel', async () => {
+    const { workId } = await ready();
+    const director = await as(m.media.director);
+    await review(director, workId, { decision: 'approve' });
+    const posted = await addPublication(director, workId, {
+      platformCode: 'asf_facebook',
+      state: 'published',
+      link: 'https://fb.watch/abc123/',
+      publishedOn: '2026-10-27',
+    });
+    const publicationId = posted.body.data.work.publications[0].id as string;
+    const withdrawn = await m
+      .at(director, 'patch', `/media-publications/${publicationId}`)
+      .send({ state: 'taken_down' });
+    expect(withdrawn.status).toBe(409);
+    expect(withdrawn.body.error.code).toBe('media.publication_last');
+    const other = await staffed();
+    await patch(director, other.referralId, other.workId, { stageCode: 'on_hold' });
+    await patch(director, other.referralId, other.workId, { stageCode: 'cancelled' });
+    expect((await workEvents(other.workId)).at(-1)).toBe('cancelled');
   });
 
   it('checks a link against its platform, and a published post for its link and date', async () => {

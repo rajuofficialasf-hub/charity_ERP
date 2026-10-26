@@ -194,10 +194,11 @@ export function mediaRouter(
     scope: 'application',
     audit: 'media.review_decided',
     params: work,
+    headers: [{ name: 'If-Match', required: true }],
     body: reviewSchema,
-    responses: answers,
+    responses: { ...answers, 412: null },
     handler: async ({ params, body, req }) =>
-      ok(await c.mediaWorks.review(principalOf(req), params.workId, body)),
+      ok(await c.mediaWorks.review(principalOf(req), params.workId, body, req.get('if-match'))),
   });
 
   defineRoute<{ body: string }, unknown, { workId: string }>(router, deps, {

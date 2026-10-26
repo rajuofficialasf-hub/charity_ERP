@@ -97,7 +97,9 @@ describe('the stages of a work', () => {
     expect(mayReview('ready_to_publish')).toBe(true);
     expect(mayReview('editing')).toBe(false);
     expect(clearsReview('editing')).toBe(true);
-    expect(clearsReview('on_hold')).toBe(true);
+    expect(clearsReview('in_review')).toBe(true);
+    expect(clearsReview('on_hold')).toBe(false);
+    expect(clearsReview('cancelled')).toBe(false);
     expect(clearsReview('published')).toBe(false);
     expect(clearsReview('done')).toBe(false);
   });

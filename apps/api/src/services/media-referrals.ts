@@ -48,7 +48,6 @@ import {
 const REFER_PERMISSION = 'media.referral.create';
 /** Decides on a referral (the Media Director and the Assistant Director). */
 const DECIDE_PERMISSION = 'media.referral.decide';
-/** Reads a referral and its work: the directors, the members of its work and the referrers. */
 
 /** The library question whose answer is the official's comment on the application. */
 const OFFICIAL_COMMENT = 'official_comment';

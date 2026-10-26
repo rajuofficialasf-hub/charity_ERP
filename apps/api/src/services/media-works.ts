@@ -52,10 +52,13 @@ interface LockedWork {
   updated_at: Date;
 }
 
-/** The kind of an active platform of the list, or null for an unknown or inactive one. */
-async function platformKind(tx: Tx, code: string): Promise<string | null> {
+/**
+ * The kind of a platform of the list, or null for an unknown one; a new publication also needs it
+ * active, while an existing one keeps the kind of the platform it was made on.
+ */
+async function platformKind(tx: Tx, code: string, activeOnly = true): Promise<string | null> {
   const row = await tx.referenceList.findFirst({
-    where: { listKey: 'media_platform', code, active: true },
+    where: { listKey: 'media_platform', code, ...(activeOnly ? { active: true } : {}) },
     select: { attributes: true },
   });
   if (!row) return null;
@@ -116,6 +119,7 @@ export class MediaWorksService {
         });
       }
       let readyForReview = false;
+      let withdrawn = false;
       if (body.stageCode !== undefined) {
         const to = body.stageCode;
         const allowed = stagesFor(
@@ -127,7 +131,7 @@ export class MediaWorksService {
         data.stageCode = to;
         if (work.stage_code === 'on_hold') {
           data.heldStageCode = null;
-          steps.push({ kind: 'resumed', from: 'on_hold', to });
+          steps.push({ kind: to === 'cancelled' ? 'cancelled' : 'resumed', from: 'on_hold', to });
         } else if (to === 'on_hold') {
           data.heldStageCode = work.stage_code;
           steps.push({ kind: 'held', from: work.stage_code, to });
@@ -138,12 +142,20 @@ export class MediaWorksService {
             to,
           });
         // a work sent back to the team needs the final review again
-        if (clearsReview(to) && work.review_approved_by) {
-          data.reviewApprovedBy = null;
-          data.reviewApprovedAt = null;
-        }
+        if (clearsReview(to)) withdrawn = true;
         readyForReview = to === 'ready_to_publish';
       }
+      // what the director approved is what goes out: a later change of the content asks again
+      if (
+        work.stage_code === 'ready_to_publish' &&
+        (scriptChange || data.contentType !== undefined || data.title !== undefined)
+      )
+        withdrawn = true;
+      if (withdrawn && work.review_approved_by) {
+        data.reviewApprovedBy = null;
+        data.reviewApprovedAt = null;
+      }
+      const approvalKept = work.review_approved_by !== null && !withdrawn;
       if (!steps.length) throw new ApiError('media.unchanged', 422);
       await tx.mediaWork.update({ where: { id: workId }, data });
       for (const step of steps) await this.event(tx, principal, work, step);
@@ -154,7 +166,8 @@ export class MediaWorksService {
         old: { stage: work.stage_code, contentType: work.content_type },
         new: { changes: steps.map((s) => s.kind), stage: data.stageCode ?? work.stage_code },
       });
-      if (readyForReview) await this.events.reviewWaiting(tx, workId, principal.userId);
+      if (readyForReview && !approvalKept)
+        await this.events.reviewWaiting(tx, workId, principal.userId);
     });
     return this.referrals.readAs(principal, access, referralId);
   }
@@ -188,14 +201,15 @@ export class MediaWorksService {
         select: { code: true },
       });
       const known = new Set(roles.map((r) => r.code));
-      for (const [i, m] of body.members.entries())
-        if (m.roles.some((r) => !known.has(r)))
-          throw invalid(`members.${i}.roles`, 'media.role_unknown');
       const before = await tx.mediaWorkMember.findMany({
         where: { workId },
         select: { userId: true, roles: true },
       });
       const was = new Map(before.map((m) => [m.userId, m.roles]));
+      // a role taken out of the list stays with a member who already holds it here
+      for (const [i, m] of body.members.entries())
+        if (m.roles.some((r) => !known.has(r) && !(was.get(m.userId) ?? []).includes(r)))
+          throw invalid(`members.${i}.roles`, 'media.role_unknown');
       const same =
         before.length === body.members.length &&
         body.members.every(
@@ -291,8 +305,18 @@ export class MediaWorksService {
       };
       if (!publishedHasLink(merged)) throw invalid('link', 'validation.required');
       if (body.link !== undefined)
-        this.assertLink(body.link, (await platformKind(tx, stored.platformCode)) ?? 'other');
+        this.assertLink(body.link, (await platformKind(tx, stored.platformCode, false)) ?? 'other');
       const nowPublished = merged.state === 'published' && stored.state !== 'published';
+      if (
+        stored.state === 'published' &&
+        merged.state !== 'published' &&
+        work.stage_code !== 'ready_to_publish'
+      ) {
+        const others = await tx.mediaPublication.count({
+          where: { workId: work.id, state: 'published', id: { not: publicationId } },
+        });
+        if (!others) throw new ApiError('media.publication_last', 409);
+      }
       if (nowPublished) this.assertPublishable(work);
       await tx.mediaPublication.update({
         where: { id: publicationId },
@@ -322,10 +346,17 @@ export class MediaWorksService {
   }
 
   /** The final review at "ready to publish": approved, or sent back to "in review" with a comment. */
-  async review(principal: Principal, workId: string, body: ReviewBody): Promise<MediaReferralView> {
+  async review(
+    principal: Principal,
+    workId: string,
+    body: ReviewBody,
+    ifMatch: string | undefined,
+  ): Promise<MediaReferralView> {
     const { access, referralId } = await this.reach(principal, workId, REVIEW_PERMISSION);
     await this.prisma.$transaction(async (tx) => {
       const work = await this.locked(tx, workId);
+      // the approval is of the version the director read
+      assertIfMatch(ifMatch, work.updated_at);
       if (!mayReview(work.stage_code) || (body.decision === 'approve' && work.review_approved_by))
         throw new ApiError('media.review_not_ready', 409);
       const approve = body.decision === 'approve';

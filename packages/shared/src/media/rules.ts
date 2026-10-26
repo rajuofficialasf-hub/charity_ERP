@@ -90,8 +90,12 @@ export const mayMoveStage = (
 /** The final review is given, or a work sent back, only while it is ready to publish. */
 export const mayReview = (stage: string) => stage === 'ready_to_publish';
 
-/** A move away from "ready to publish" (back to the team) withdraws an approval already given. */
-export const clearsReview = (to: string) => !['ready_to_publish', 'published', 'done'].includes(to);
+/**
+ * A move back to the team withdraws an approval already given; a hold keeps it for the resume, and
+ * a cancel keeps the record of who approved.
+ */
+export const clearsReview = (to: string) =>
+  !['ready_to_publish', 'published', 'done', 'on_hold', 'cancelled'].includes(to);
 
 /**
  * A publication may be marked published only after the final review, while the work is ready to
