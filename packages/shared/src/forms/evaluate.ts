@@ -2,6 +2,7 @@ import type { AnswerValue } from '../jsonb/answer-value.js';
 import { isFieldRef, withinLimits } from '../jsonb/form-logic.js';
 import { fromPaisa, isAmount, toPaisa } from '../projects/budget.js';
 import {
+  COUNTED_ROWS_MAX,
   indexFields,
   resultLabelOf,
   type Condition,
@@ -172,8 +173,26 @@ class Engine {
     return `${key}#${row}`;
   }
 
+  /**
+   * The rows a group holds: the rows its answers fill, and for a group that follows a count at
+   * least that count (blank rows included), so the phone and the server see the same rows.
+   */
   rowCount(group: string): number {
-    return this.rowCounts.get(group) ?? 0;
+    const answered = this.rowCounts.get(group) ?? 0;
+    const countFrom = this.fields.get(group)?.field.settings?.repeat?.count_from;
+    if (countFrom === undefined) return answered;
+    return Math.max(answered, this.countedRows(group, countFrom));
+  }
+
+  /** The rows a counted group asks for: the count's whole number, from 0 to the cap. */
+  private countedRows(group: string, countFrom: string): number {
+    const slot = `rows:${group}`;
+    if (this.open.has(slot)) return 0;
+    this.open.add(slot);
+    const count = this.plain(countFrom, 0);
+    this.open.delete(slot);
+    if (typeof count !== 'number' || !Number.isFinite(count)) return 0;
+    return Math.min(Math.max(Math.floor(count), 0), COUNTED_ROWS_MAX);
   }
 
   /** The row a reference from row `row` reads the field at: its own row inside a group, else 0. */

@@ -3,6 +3,7 @@ import { answerValueSchema, type AnswerValue } from '../jsonb/answer-value.js';
 import { snakeKey } from '../jsonb/common.js';
 import { isAmount, toPaisa } from '../projects/budget.js';
 import {
+  COUNTED_ROWS_MAX,
   indexFields,
   validationOf,
   type FieldDefault,
@@ -37,6 +38,8 @@ export interface ValidateOptions extends EvaluationContext {
   audience: Audience;
   /** A draft may leave required questions unanswered; every answer given is still checked. */
   draft?: boolean;
+  /** The answers stored before this save: a read-only answer keeps the value it was first given. */
+  previous?: readonly Answer[];
 }
 
 export interface ValidationError {
@@ -218,17 +221,39 @@ class Validator {
     }
   }
 
-  /** Writes the default of every read-only question outside a group, whatever the client sent. */
+  /**
+   * Writes the default of every read-only question outside a group, whatever the client sent: the
+   * value it was first given when one is stored, else the default; an office-only one only for an
+   * official.
+   */
   applyReadOnlyDefaults() {
     for (const located of this.fields.values()) {
       const { field } = located;
       const start = field.settings?.default;
       if (field.settings?.read_only !== true || start === undefined || located.group !== null)
         continue;
+      if (located.section.visibility === 'official_only' && this.options.audience !== 'official')
+        continue;
       const value = defaultValue(field, start, this.options.today);
-      if (value)
-        this.kept.set(`${field.fieldKey}#0`, { fieldKey: field.fieldKey, repeatIndex: 0, value });
+      if (!value) continue;
+      const stored = this.options.previous?.find(
+        (a) => a.fieldKey === field.fieldKey && (a.repeatIndex ?? 0) === 0,
+      );
+      this.kept.set(`${field.fieldKey}#0`, {
+        fieldKey: field.fieldKey,
+        repeatIndex: 0,
+        value: stored && stored.value.t === value.t ? stored.value : value,
+      });
     }
+  }
+
+  /** The rows a group's answers fill: its highest answered row plus one. */
+  private answeredRows(group: string): number {
+    let rows = 0;
+    for (const answer of this.kept.values())
+      if (this.fields.get(answer.fieldKey)?.group === group)
+        rows = Math.max(rows, (answer.repeatIndex ?? 0) + 1);
+    return rows;
   }
 
   /** The rules of every visible field, per row inside a group. */
@@ -270,15 +295,23 @@ class Validator {
     if (!state.visible) return;
     const { field } = located;
     const repeat = field.settings?.repeat ?? {};
-    // rows that follow a count: a draft may hold any number, the submission exactly the count
+    // rows that follow a count: never more than the cap; a draft may differ from the count, the
+    // submission holds the count's rows (a blank one too) and nothing beyond them
     if (repeat.count_from !== undefined) {
+      const answered = this.answeredRows(field.fieldKey);
+      const cap = Math.min(repeat.max_rows ?? COUNTED_ROWS_MAX, COUNTED_ROWS_MAX);
+      if (answered > cap) {
+        this.fail(field.fieldKey, 'validation.rows_too_many', { max: cap });
+        return;
+      }
       if (this.options.draft) return;
       const source = this.kept.get(`${repeat.count_from}#0`);
-      const expected =
+      const given =
         this.states.get(repeat.count_from)?.visible && source?.value.t === 'number'
           ? source.value.v
           : 0;
-      if (count !== expected)
+      const expected = Math.min(Math.max(Math.floor(given), 0), cap);
+      if (answered > expected)
         this.fail(field.fieldKey, 'validation.repeat_rows_mismatch', { expected });
       return;
     }

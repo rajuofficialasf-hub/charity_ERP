@@ -493,6 +493,26 @@ describe('conditional values, row counts and comparisons', () => {
     expect(computed.money_half).toBe('-3.00');
   });
 
+  it('gives a group that follows a count as many rows as the count, blank ones included', () => {
+    const fields = [
+      field('family_count', 'number', { settings: { validation: { min: 0, max: 20 } } }),
+      field('members', 'repeat_group', { settings: { repeat: { count_from: 'family_count' } } }),
+      field('m_name', 'short_text', { settings: { repeat: { group: 'members' } } }),
+    ];
+    const rowsOf = (answers: Answer[]) =>
+      evaluate(definitionWith(fields), answers, { today: TODAY }).rows.members;
+    expect(rowsOf([answer('family_count', { t: 'number', v: 3 })])).toBe(3);
+    expect(
+      rowsOf([
+        answer('family_count', { t: 'number', v: 1 }),
+        answer('m_name', { t: 'short_text', v: 'a' }, 0),
+        answer('m_name', { t: 'short_text', v: 'b' }, 1),
+      ]),
+    ).toBe(2);
+    expect(rowsOf([answer('family_count', { t: 'number', v: -2 })])).toBe(0);
+    expect(rowsOf([answer('family_count', { t: 'number', v: 900 })])).toBe(50);
+  });
+
   it('counts the rows of a group that meet a condition, and every row without one', () => {
     const fields = [
       field('members', 'repeat_group'),

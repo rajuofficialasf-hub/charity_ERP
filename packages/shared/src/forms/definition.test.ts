@@ -601,17 +601,32 @@ describe('defaults, read-only questions, rows from a count and piping', () => {
       field('when', 'date', { settings: { default: { text: 'today' } } }),
       field('prefix', 'short_text', { settings: { default: { text: 'ASF-' }, read_only: true } }),
       field('day', 'date', { settings: { default: { today: true } } }),
+      field('half', 'number', { settings: { default: { number: 2.5 } } }),
+      field('over', 'number', { settings: { default: { number: 5 }, validation: { max: 3 } } }),
+      field('owed', 'money', { settings: { default: { number: -1 } } }),
+      field('cell', 'phone', { settings: { default: { text: 'ASF-' } } }),
+      field('long_prefix', 'short_text', {
+        settings: { default: { text: 'abcdef' }, validation: { max_length: 3 } },
+      }),
+      field('amount', 'money', { settings: { default: { number: 500.5 } } }),
     ]);
     expect(codesOf(definition)).toEqual([
       ['form.read_only_invalid', 'free'],
       ['form.default_misplaced', 'when'],
+      ['form.default_misplaced', 'half'],
+      ['form.default_misplaced', 'over'],
+      ['form.default_misplaced', 'owed'],
+      ['form.default_misplaced', 'cell'],
+      ['form.default_misplaced', 'long_prefix'],
     ]);
   });
 
   it('takes a row count only from an earlier whole-number question with a cap within the rows', () => {
     const group = (countFrom: string) =>
       field('members', 'repeat_group', { settings: { repeat: { count_from: countFrom } } });
-    const capped = field('family_count', 'number', { settings: { validation: { max: 20 } } });
+    const capped = field('family_count', 'number', {
+      settings: { validation: { min: 0, max: 20 } },
+    });
     expect(codesOf(definitionWith([capped, group('family_count')]))).toEqual([]);
     expect(
       codesOf(definitionWith([field('label_text', 'short_text'), group('label_text')])),
@@ -626,7 +641,16 @@ describe('defaults, read-only questions, rows from a count and piping', () => {
     expect(
       codesOf(
         definitionWith([
-          field('family_count', 'number', { settings: { validation: { max: 60 } } }),
+          field('family_count', 'number', { settings: { validation: { min: 0, max: 60 } } }),
+          group('family_count'),
+        ]),
+      ),
+    ).toEqual([['form.repeat_count_invalid', 'members']]);
+    // a count that may go below 0 asks for rows that cannot exist
+    expect(
+      codesOf(
+        definitionWith([
+          field('family_count', 'number', { settings: { validation: { max: 20 } } }),
           group('family_count'),
         ]),
       ),

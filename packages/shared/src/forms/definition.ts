@@ -25,7 +25,7 @@ import {
   type FieldType,
   type SectionVisibility,
 } from './library.js';
-import { PATTERN_KEYS, TEXT_MAX_LENGTH } from './patterns.js';
+import { matchesPattern, PATTERN_KEYS, TEXT_MAX_LENGTH } from './patterns.js';
 import { pipeKeys } from './pipe.js';
 import { MAX_SCORE, maxScoreOf, scoreKindOf } from './score.js';
 
@@ -326,6 +326,29 @@ export function validationOf(field: FormField): FieldValidation {
   return { ...field.logic?.validation, ...field.settings?.validation };
 }
 
+/**
+ * Whether a default suits its question and keeps the question's own rules, so a read-only answer
+ * the filler cannot change never fails its own check: today's date on a date, a text on a plain
+ * text question within its length and pattern, a whole number on a number, an amount of at most
+ * two decimals and not below 0 on money, a number within the question's least and most.
+ */
+function defaultFits(field: FormField, start: FieldDefault): boolean {
+  const rules = validationOf(field);
+  if ('today' in start) return field.type === 'date';
+  if ('text' in start) {
+    if (field.type !== 'short_text' && field.type !== 'long_text') return false;
+    const max = rules.max_length ?? TEXT_MAX_LENGTH;
+    if (start.text.length > max) return false;
+    return rules.pattern === undefined || matchesPattern(rules.pattern, start.text, max);
+  }
+  const n = start.number;
+  if (field.type === 'number' && !Number.isInteger(n)) return false;
+  if (field.type === 'money' && (n < 0 || Math.round(n * 100) !== n * 100)) return false;
+  if (field.type !== 'number' && field.type !== 'decimal' && field.type !== 'money') return false;
+  if (rules.min !== undefined && n < rules.min) return false;
+  return rules.max === undefined || n <= rules.max;
+}
+
 /** Whether one field comes before another in the form's order. */
 const before = (a: LocatedField, b: LocatedField) =>
   a.sectionIndex < b.sectionIndex ||
@@ -525,13 +548,7 @@ export function checkDefinition(
     // a default of the question's kind; a read-only question takes its value from somewhere
     const start = field.settings?.default;
     if (start !== undefined) {
-      const fits =
-        'today' in start
-          ? field.type === 'date'
-          : 'text' in start
-            ? isTextType(field.type)
-            : field.type === 'number' || field.type === 'decimal' || field.type === 'money';
-      if (!fits)
+      if (!defaultFits(field, start))
         issues.push({
           code: 'form.default_misplaced',
           path: fieldPath(located, 'settings', 'default'),
@@ -555,7 +572,7 @@ export function checkDefinition(
       const path = fieldPath(located, 'settings', 'repeat', 'count_from');
       const source = checkReference(located, countFrom, path);
       if (source) {
-        const cap = validationOf(source.field).max;
+        const { min, max } = validationOf(source.field);
         const rowsMax = Math.min(
           field.settings?.repeat?.max_rows ?? COUNTED_ROWS_MAX,
           COUNTED_ROWS_MAX,
@@ -564,8 +581,10 @@ export function checkDefinition(
           source.field.type === 'number' &&
           source.group === null &&
           before(source, located) &&
-          cap !== undefined &&
-          cap <= rowsMax;
+          min !== undefined &&
+          min >= 0 &&
+          max !== undefined &&
+          max <= rowsMax;
         if (!valid)
           issues.push({
             code: 'form.repeat_count_invalid',

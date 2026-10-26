@@ -467,6 +467,50 @@ describe('defaults and read-only questions', () => {
     expect(values.fixed_amount).toEqual({ t: 'money', v: '500.00' });
   });
 
+  it('keeps the date a read-only default was first given, on every later save', () => {
+    const fields = [
+      field('entry_date', 'date', { settings: { default: { today: true }, read_only: true } }),
+    ];
+    const definition = definitionWith(fields);
+    const first = validate(definition, coreAnswers(), { ...official, today: '2026-10-01' });
+    if (!first.ok) throw new Error('first save refused');
+    const again = validate(definition, coreAnswers(), {
+      ...official,
+      today: '2026-10-26',
+      previous: first.answers,
+    });
+    if (!again.ok) throw new Error('second save refused');
+    expect(again.answers.find((a) => a.fieldKey === 'entry_date')!.value).toEqual({
+      t: 'date',
+      v: '2026-10-01',
+    });
+  });
+
+  it('writes an office-only read-only default only for an official', () => {
+    const definition = definitionWith(
+      [],
+      [
+        section(
+          'office',
+          [
+            field('approved_on', 'date', {
+              settings: { default: { today: true }, read_only: true },
+            }),
+          ],
+          { visibility: 'official_only' },
+        ),
+      ],
+    );
+    const by = (audience: ValidateOptions['audience']) => {
+      const result = validate(definition, coreAnswers(), { ...official, audience });
+      if (!result.ok) throw new Error(audience);
+      return result.answers.some((a) => a.fieldKey === 'approved_on');
+    };
+    expect(by('volunteer')).toBe(false);
+    expect(by('public')).toBe(false);
+    expect(by('official')).toBe(true);
+  });
+
   it('keeps an editable default as the filler sent it, and a cleared one cleared', () => {
     const fields = [field('visit_date', 'date', { settings: { default: { today: true } } })];
     expect(
@@ -506,25 +550,33 @@ describe('defaults and read-only questions', () => {
 
 describe('rows that follow a count', () => {
   const fields = [
-    field('family_count', 'number', { settings: { validation: { max: 20 } } }),
+    field('family_count', 'number', { settings: { validation: { min: 0, max: 20 } } }),
     field('members', 'repeat_group', { settings: { repeat: { count_from: 'family_count' } } }),
-    field('member_name', 'short_text', { settings: { repeat: { group: 'members' } } }),
+    field('member_name', 'short_text', {
+      required: true,
+      settings: { repeat: { group: 'members' } },
+    }),
+    field('member_income', 'money', { settings: { repeat: { group: 'members' } } }),
   ];
   const rows = (n: number) =>
     Array.from({ length: n }, (_, i) => answer('member_name', { t: 'short_text', v: `m${i}` }, i));
   const count = (n: number) => answer('family_count', { t: 'number', v: n });
 
-  it('passes rows equal to the count and refuses one more or one fewer at submission', () => {
+  it('holds as many rows as the count, asks each row’s required answers, and refuses one more', () => {
     expect(errorsOf(fields, [count(3), ...rows(3)])).toEqual([]);
+    // a row left blank is still a row: its required name is asked for
     expect(errorsOf(fields, [count(3), ...rows(2)])).toEqual([
-      ['members', 'validation.repeat_rows_mismatch'],
+      ['member_name[2]', 'validation.required'],
     ]);
     expect(errorsOf(fields, [count(3), ...rows(4)])).toEqual([
       ['members', 'validation.repeat_rows_mismatch'],
     ]);
   });
 
-  it('lets a draft hold any number of rows', () => {
+  it('lets a draft hold rows that do not match the count, never more than the cap', () => {
     expect(errorsOf(fields, [count(5), ...rows(4)], { ...official, draft: true })).toEqual([]);
+    expect(errorsOf(fields, [count(2), ...rows(51)], { ...official, draft: true })).toEqual([
+      ['members', 'validation.rows_too_many'],
+    ]);
   });
 });

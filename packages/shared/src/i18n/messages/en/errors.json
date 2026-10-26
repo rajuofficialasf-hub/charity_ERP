@@ -262,7 +262,7 @@
     "expression_too_large": "This rule is too long. Keep it within 20 levels and 500 parts.",
     "read_only_invalid": "A read-only question needs a calculation or a default to take its value from.",
     "default_misplaced": "This default does not fit the question: today's date goes on a date, a text on a text question, a number on a number or an amount.",
-    "repeat_count_invalid": "The number of rows can follow only an earlier whole-number question with a highest value of 50 or less.",
+    "repeat_count_invalid": "The number of rows can follow only an earlier whole-number question whose lowest value is 0 or more and highest value 50 or less.",
     "pipe_order": "The text repeats the answer of a question that comes later. Use an earlier question."
   },
   "public": {
