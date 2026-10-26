@@ -8,7 +8,8 @@
     "accepted": "Active",
     "read_rules": "Read the rules",
     "open_project": "Open the project",
-    "back": "Back to my projects"
+    "back": "Back to my projects",
+    "not_found": "This project is not available to you now. It will show here once it is running and you are on it."
   },
   "detail": {
     "window": "Application window",

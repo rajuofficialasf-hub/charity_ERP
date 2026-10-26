@@ -162,13 +162,12 @@ describe('assigning', () => {
       isPaid: true,
     });
     expect(await audit(world.a1.id, 'volunteer.assigned')).not.toHaveLength(0);
-    // each volunteer is told in the app; volunteers never get an email
+    // the project is still a draft the volunteers cannot see: the activation tells them
     const { rows: users } = await h.db.query<{ user_id: string }>(
       'SELECT user_id FROM volunteers WHERE id = $1',
       [general.volunteerId],
     );
-    const told = await notificationsOf(h.db, 'project_assignment', users[0]!.user_id);
-    expect(told.map((n) => n.params.projectId)).toContain(world.a1.id);
+    expect(await notificationsOf(h.db, 'project_assignment', users[0]!.user_id)).toHaveLength(0);
     const emails = await h.db.query(
       `SELECT 1 FROM outbound_messages WHERE recipient_user_id = $1`,
       [users[0]!.user_id],
@@ -374,6 +373,19 @@ describe('changing and ending an assignment', () => {
 });
 
 describe('more of the rules', () => {
+  it('tells a volunteer assigned to a running project at once, in the app only', async () => {
+    // the project was made active by the test before
+    const rpm = await as(world.users.rpmDhaka);
+    const v = await someone(world.dhaka);
+    expect((await assign(rpm, world.a1.id, [{ volunteerId: v.volunteerId }])).status).toBe(201);
+    const told = await notificationsOf(h.db, 'project_assignment', v.userId);
+    expect(told.map((n) => n.params.projectId)).toEqual([world.a1.id]);
+    const emails = await h.db.query(
+      `SELECT 1 FROM outbound_messages WHERE recipient_user_id = $1`,
+      [v.userId],
+    );
+    expect(emails.rowCount).toBe(0);
+  });
   it('lists the assignments of the caller areas only, and never for a volunteer', async () => {
     const rpm = await as(world.users.rpmDhaka);
     const v = await someone(world.dhaka);

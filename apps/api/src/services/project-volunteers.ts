@@ -342,12 +342,14 @@ export class ProjectVolunteersService {
             })),
           },
         });
-        await this.events.assigned(
-          tx,
-          projectId,
-          rows.map((r) => r.volunteerId),
-          actor,
-        );
+        // a volunteer never sees a draft: the activation tells them instead
+        if (project.status !== 'draft')
+          await this.events.assigned(
+            tx,
+            projectId,
+            rows.map((r) => r.volunteerId),
+            actor,
+          );
         const created = await tx.projectVolunteer.findMany({
           where: { id: { in: rows.map((r) => r.id) } },
           select: ASSIGNMENT,

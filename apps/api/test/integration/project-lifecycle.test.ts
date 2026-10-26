@@ -14,6 +14,7 @@ import {
   login,
   type Session,
 } from './support/auth-app';
+import { volunteer } from './support/fixtures';
 import { publishedForm, publishedReadyForm } from './support/forms';
 import { notificationsOf } from './support/notifications';
 
@@ -272,6 +273,39 @@ describe('activation', () => {
     const id = await draft(true);
     const res = await at(pm, `/projects/${id}/activate`).set('If-Match', '"stale"');
     expect(res.status).toBe(412);
+  });
+});
+
+describe('the volunteers of a draft', () => {
+  it('hear of their assignment only when the project is activated, asked for their consent', async () => {
+    const id = await draft(true);
+    const a = await account(h.db, { kind: 'volunteer', role: 'volunteer_general' });
+    accounts.set(a.id, a);
+    const volunteerId = await volunteer(h.db, world.dhaka, a.id);
+    const rpm = await as(world.users.rpmDhaka);
+    const assigned = await at(rpm, `/projects/${id}/volunteers`).send({
+      volunteers: [{ volunteerId }],
+    });
+    expect(assigned.status).toBe(201);
+    // the draft is not theirs to see, so nothing points them to it yet
+    expect(await notificationsOf(h.db, 'project_assignment', a.id)).toHaveLength(0);
+    const own = () => api().get(`/api/v1/me/projects/${id}`);
+    expect((await own().set(bearer(await as(a.id)))).status).toBe(404);
+    const pm = await as(world.users.pm);
+    const res = await at(pm, `/projects/${id}/activate`).set('If-Match', await etag(pm, id));
+    expect(res.status).toBe(200);
+    const told = await notificationsOf(h.db, 'project_assignment', a.id);
+    expect(told.map((n) => n.params.projectId)).toEqual([id]);
+    // one notice asks for the consent; the activation's own notice is for the officials
+    expect(await notificationsOf(h.db, 'project_activated', a.id)).toHaveLength(0);
+    expect(
+      (await notificationsOf(h.db, 'project_activated', world.users.rpmDhaka)).map(
+        (n) => n.params.projectId,
+      ),
+    ).toContain(id);
+    const opened = await own().set(bearer(await as(a.id)));
+    expect(opened.status).toBe(200);
+    expect(opened.body.data).toMatchObject({ consentStatus: 'pending' });
   });
 });
 
