@@ -1,3 +1,4 @@
+import type { MediaPriority, ReferralState } from '@css/shared/media';
 import type { Answer } from '@css/shared/forms';
 import { api, ApiFailure } from '../../lib/api';
 import { listQuery } from '../list-query';
@@ -30,6 +31,17 @@ export interface OfficeApplication extends VolunteerView {
   /** The comments each decision would ask for now, by action. */
   decisionHints: Partial<Record<OfficeAction, CommentReason[]>>;
   zakat?: { nisabValue: string; decision: 'eligible' | 'not_eligible' | null } | null;
+  /** Its referral to the Media Team, for the referrer's scope and the directors. */
+  media?: {
+    referralId: string;
+    state: ReferralState;
+    priority: MediaPriority;
+    decisionComment: string | null;
+    decidedAt: string | null;
+    workStageCode: string | null;
+  } | null;
+  /** Whether the caller may send it to the Media Team now, or a returned referral again. */
+  mayReferToMedia?: boolean;
   familyDuplicateWarnings: {
     beneficiaryId: string;
     benNo: string;

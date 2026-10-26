@@ -42,6 +42,8 @@ import {
   saveAnswers,
 } from './applications-api';
 import { ChangeLog } from './ChangeLog';
+import { MediaBadge } from './MediaBadge';
+import { ReferralDialog } from './ReferralDialog';
 import { DecisionDialog, type DecisionTexts } from './DecisionDialog';
 import { UnlockReview } from './UnlockReview';
 import { VerifyDialog } from './VerifyDialog';
@@ -90,8 +92,10 @@ function Review() {
   const { me } = useAuth();
   const t = useTranslations('applications.office');
   const tu = useTranslations('applications.unlock');
+  const tm = useTranslations('media');
   const [opening, setOpening] = useState<FormField | null>(null);
   const [verifying, setVerifying] = useState(false);
+  const [referring, setReferring] = useState(false);
   const ts = useTranslations('applications.status');
   const tc = useTranslations('common');
   const locale = useLocale() as Locale;
@@ -260,6 +264,11 @@ function Review() {
                 {t(`action.${action}`)}
               </Button>
             ))}
+            {a.mayReferToMedia ? (
+              <Button variant="secondary" size="sm" onPress={() => setReferring(true)}>
+                {a.media ? tm('referral.resend') : tm('referral.action')}
+              </Button>
+            ) : null}
             {a.status === 'under_review' && !editing ? (
               <Button variant="ghost" size="sm" onPress={() => setEditing(true)}>
                 {t('edit_answers')}
@@ -273,8 +282,21 @@ function Review() {
           items={[
             {
               label: t('column.status'),
-              value: <Badge tone={toneOf(a.status)} label={stateLabel(a.status)} />,
+              value: (
+                <Stack direction="row" gap={2} wrap>
+                  <Badge tone={toneOf(a.status)} label={stateLabel(a.status)} />
+                  {a.media ? <MediaBadge media={a.media} /> : null}
+                </Stack>
+              ),
             },
+            ...(a.media?.state === 'sent_back' || a.media?.state === 'rejected'
+              ? [
+                  {
+                    label: tm('title'),
+                    value: tm('referral.returned', { comment: a.media.decisionComment ?? '' }),
+                  },
+                ]
+              : []),
             ...(a.submittedAt
               ? [{ label: t('column.submitted'), value: formatDateTime(a.submittedAt, locale) }]
               : []),
@@ -350,6 +372,18 @@ function Review() {
           onClose={() => {
             act.reset();
             setAsking(null);
+          }}
+        />
+      ) : null}
+      {referring ? (
+        <ReferralDialog
+          applicationId={applicationId}
+          resend={Boolean(a.media)}
+          onClose={() => setReferring(false)}
+          onDone={async () => {
+            setReferring(false);
+            setNotice({ tone: 'success', text: tm('referral.sent') });
+            await refresh();
           }}
         />
       ) : null}
