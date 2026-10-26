@@ -461,7 +461,37 @@
       "bracket": "A bracket does not match (position {column})",
       "empty": "Write the formula"
     },
-    "calc_formula_kept": "The formula has a mistake, so the last calculation stays. Open “Type a formula” again to correct it."
+    "calc_formula_kept": "The formula has a mistake, so the last calculation stays. Open “Type a formula” again to correct it.",
+    "group_default": "Default value",
+    "default": "Default value",
+    "default_text": "Default text",
+    "default_number": "Default number",
+    "group_table": "Rows and columns",
+    "table_rows": "Rows",
+    "table_cols": "Columns",
+    "table_row": "Row {n}",
+    "table_col": "Column {n}",
+    "table_label_bn": "{name}: Bangla",
+    "table_label_en": "{name}: English",
+    "table_remove": "Remove {name}",
+    "table_add_row": "Add a row",
+    "table_add_col": "Add a column",
+    "count_from": "Number of rows from the question",
+    "count_from_hint": "For example, with “Family members” the form gives that many rows by itself. The question then takes a value from 0 to 50.",
+    "count_from_none": "The applicant adds the rows",
+    "cond_against": "Condition {n}: compare with",
+    "cond_against_value": "A value",
+    "cond_against_answer": "Another question's answer",
+    "cond_other": "Condition {n}: which question's answer",
+    "pipe": "Put in an answer",
+    "pipe_hint": "An earlier question's answer shows inside this question's text, for example “How many cows do you want to keep?”.",
+    "defaults": {
+      "none": "None",
+      "today": "Today's date",
+      "text": "A text",
+      "number": "A number"
+    },
+    "read_only_answer": "Shown only, cannot be changed"
   },
   "types": {
     "short_text": "Short text",

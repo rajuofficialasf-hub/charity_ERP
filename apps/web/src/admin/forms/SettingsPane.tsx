@@ -29,6 +29,8 @@ import { OptionsEditor } from './OptionsEditor';
 import { ScoreSettings } from './ScoreSettings';
 import { parentCandidates } from './candidates';
 import { LimitPair, RepeatSettings } from './RepeatSettings';
+import { DefaultSettings, takesDefault } from './DefaultSettings';
+import { TableSettings } from './TableSettings';
 import { CalcGroup, ConditionGroup } from './RuleGroups';
 
 const NONE = '-';
@@ -143,6 +145,39 @@ function SectionSettings({
   );
 }
 
+/** The earlier whole-number questions outside any group a group's rows may follow. */
+function countCandidates(definition: FormDefinition, groupKey: string): FormField[] {
+  const all = definition.sections.flatMap((s) => s.fields);
+  const at = all.findIndex((f) => f.fieldKey === groupKey);
+  return all.filter(
+    (f, i) => i < at && f.type === 'number' && f.settings?.repeat?.group === undefined,
+  );
+}
+
+/** The earlier answers with a text of their own a question may repeat: plain or of its own rows. */
+function pipeCandidates(definition: FormDefinition, field: FormField): FormField[] {
+  const all = definition.sections.flatMap((s) => s.fields);
+  const at = all.findIndex((f) => f.fieldKey === field.fieldKey);
+  const group = field.settings?.repeat?.group;
+  const piped = new Set<FormField['type']>([
+    'short_text',
+    'long_text',
+    'number',
+    'decimal',
+    'money',
+    'date',
+    'single_select',
+    'radio',
+    'multi_select',
+    'checkbox',
+    'calculation',
+  ]);
+  return all.filter((f, i) => {
+    const inGroup = f.settings?.repeat?.group;
+    return i < at && piped.has(f.type) && (inGroup === undefined || inGroup === group);
+  });
+}
+
 function FieldSettingsView({
   definition,
   section,
@@ -178,6 +213,8 @@ function FieldSettingsView({
   const parents = choice ? parentCandidates(definition, section.key, field.fieldKey) : [];
   const parent = parents.find((p) => p.fieldKey === field.logic?.options_depend_on) ?? null;
   const answers = field.type !== 'note' && field.type !== 'calculation';
+  // the earlier answers the question's text may repeat
+  const pipeSources = pipeCandidates(definition, field);
 
   if (mode === 'texts')
     return (
@@ -198,6 +235,19 @@ function FieldSettingsView({
       <Disclosure title={t('group_basics')} headingLevel={2} defaultOpen>
         <Stack gap={3}>
           <Texts value={field.label} onChange={(label) => patch({ label })} />
+          {pipeSources.length > 0 ? (
+            <Select
+              label={t('pipe')}
+              helper={t('pipe_hint')}
+              value={null}
+              onChange={(id) => {
+                if (!id) return;
+                const token = ` {{${id}}}`;
+                patch({ label: { bn: field.label.bn + token, en: field.label.en + token } });
+              }}
+              options={pipeSources.map((f) => ({ id: f.fieldKey, label: f.label[locale] }))}
+            />
+          ) : null}
           <TextField
             label={t('help_bn')}
             helper={t('help_hint')}
@@ -316,6 +366,19 @@ function FieldSettingsView({
           />
         </Disclosure>
       ) : null}
+      {takesDefault(field) && group === null ? (
+        <Disclosure title={t('group_default')} hint={t('optional')} headingLevel={2}>
+          <DefaultSettings field={field} onChange={(next) => setSettings(next)} />
+        </Disclosure>
+      ) : null}
+      {field.type === 'number_table' && field.settings?.table ? (
+        <Disclosure title={t('group_table')} headingLevel={2} defaultOpen>
+          <TableSettings
+            table={field.settings.table}
+            onChange={(table) => setSettings({ table })}
+          />
+        </Disclosure>
+      ) : null}
       {field.type === 'repeat_group' ? (
         <Disclosure title={t('group_rows')} headingLevel={2} defaultOpen>
           <RepeatSettings
@@ -326,6 +389,33 @@ function FieldSettingsView({
                 repeat: compact({ ...field.settings?.repeat, min_rows: min, max_rows: max }),
               })
             }
+            counts={countCandidates(definition, field.fieldKey)}
+            onCountFrom={(key) => {
+              let next = updateField(definition, field.fieldKey, {
+                settings:
+                  compact({
+                    ...field.settings,
+                    repeat: compact({ ...field.settings?.repeat, count_from: key ?? undefined }),
+                  }) ?? {},
+              });
+              // the count question takes a range the rows can hold: 0 to 50 unless set within it
+              const source = key
+                ? definition.sections.flatMap((s) => s.fields).find((f) => f.fieldKey === key)
+                : undefined;
+              if (source) {
+                const rules = source.settings?.validation ?? {};
+                const min = rules.min !== undefined && rules.min >= 0 ? rules.min : 0;
+                const max = rules.max !== undefined && rules.max <= 50 ? rules.max : 50;
+                next = updateField(next, source.fieldKey, {
+                  settings:
+                    compact({
+                      ...source.settings,
+                      validation: compact({ ...rules, min, max }),
+                    }) ?? {},
+                });
+              }
+              onChange(next);
+            }}
           />
         </Disclosure>
       ) : null}

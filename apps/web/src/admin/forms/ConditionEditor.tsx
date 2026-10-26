@@ -1,4 +1,4 @@
-import type { Condition, ConditionOp } from '@css/shared';
+import { type Condition, type ConditionOp, isFieldRef } from '@css/shared';
 import type { FormDefinition, FormField } from '@css/shared/forms';
 import {
   Alert,
@@ -61,6 +61,9 @@ export function ConditionEditor({
     onChange(conditionFromRows({ join: nextJoin, rows: next }));
   const setRow = (index: number, row: ConditionRow) =>
     write(rows.map((r, i) => (i === index ? row : r)));
+  // the answers a row may compare with: another question whose answer is of the same kind
+  const others = (key: string, field: FormField) =>
+    candidates.filter((f) => f.fieldKey !== key && opKindOf(f) === opKindOf(field));
   const fresh = (field: FormField): ConditionRow => ({
     field: field.fieldKey,
     op: OPS[opKindOf(field)][0]!,
@@ -116,7 +119,38 @@ export function ConditionEditor({
               }}
               options={ops.map((op) => ({ id: op, label: t(`ops.${op}`) }))}
             />
-            {field ? (
+            {field && COMPARABLE.has(row.op) && others(row.field, field).length > 0 ? (
+              <SegmentedControl
+                label={t('cond_against', { n })}
+                value={isFieldRef(row.value) ? 'answer' : 'value'}
+                onChange={(id) =>
+                  setRow(i, {
+                    field: row.field,
+                    op: row.op,
+                    ...(id === 'answer'
+                      ? { value: { field: others(row.field, field)[0]!.fieldKey } }
+                      : {}),
+                  })
+                }
+                options={[
+                  { id: 'value', label: t('cond_against_value') },
+                  { id: 'answer', label: t('cond_against_answer') },
+                ]}
+              />
+            ) : null}
+            {field && isFieldRef(row.value) ? (
+              <Select
+                label={t('cond_other', { n })}
+                value={row.value.field}
+                onChange={(id) =>
+                  id && setRow(i, { field: row.field, op: row.op, value: { field: id } })
+                }
+                options={others(row.field, field).map((f) => ({
+                  id: f.fieldKey,
+                  label: f.label[locale],
+                }))}
+              />
+            ) : field ? (
               <ValueInput
                 label={t('cond_value', { n })}
                 field={field}
@@ -152,6 +186,9 @@ export function ConditionEditor({
     </Stack>
   );
 }
+
+/** The comparisons that may compare one answer with another. */
+const COMPARABLE: ReadonlySet<ConditionOp> = new Set(['eq', 'neq', 'gt', 'gte', 'lt', 'lte']);
 
 /** The value a row compares with, in the shape the question's answer has. */
 function ValueInput({

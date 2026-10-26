@@ -398,6 +398,140 @@ describe('the calculation', () => {
   });
 });
 
+describe('defaults, read-only, counted rows, comparisons and earlier answers', () => {
+  it('starts a date with today, and makes it read-only only once it has a default', async () => {
+    const user = userEvent.setup();
+    open(definition(section('x', [field('visit', 'date', { label: T('পরিদর্শনের তারিখ') })])), {
+      section: 'x',
+      field: 'visit',
+    });
+    await user.click(await screen.findByRole('button', { name: /^ডিফল্ট মান/ }));
+    const readOnly = screen.getByRole('switch', { name: 'শুধু দেখা যাবে, বদলানো যাবে না' });
+    expect(readOnly).toBeDisabled();
+    await choose(user, /নেই ডিফল্ট মান$/, 'আজকের তারিখ');
+    expect(fieldOf(latest, 'visit').settings).toEqual({ default: { today: true } });
+    await user.click(screen.getByRole('switch', { name: 'শুধু দেখা যাবে, বদলানো যাবে না' }));
+    expect(fieldOf(latest, 'visit').settings).toEqual({
+      default: { today: true },
+      read_only: true,
+    });
+  });
+
+  it('starts a text question with a fixed text', async () => {
+    const user = userEvent.setup();
+    open(definition(section('x', [field('number_prefix', 'short_text')])), {
+      section: 'x',
+      field: 'number_prefix',
+    });
+    await user.click(await screen.findByRole('button', { name: /^ডিফল্ট মান/ }));
+    await choose(user, /নেই ডিফল্ট মান$/, 'লেখা');
+    await user.type(screen.getByRole('textbox', { name: 'ডিফল্ট লেখা' }), 'ASF-');
+    expect(fieldOf(latest, 'number_prefix').settings).toEqual({ default: { text: 'ASF-' } });
+  });
+
+  it('lets a group’s rows follow only an earlier whole number, which then takes a range', async () => {
+    const user = userEvent.setup();
+    open(
+      definition(
+        section('family', [
+          field('q_label', 'short_text', { label: T('পরিবারের নাম') }),
+          field('q_family', 'number', { label: T('পরিবারের সদস্য সংখ্যা') }),
+          field('members', 'repeat_group', { label: T('সদস্য') }),
+          field('m_name', 'short_text', { settings: { repeat: { group: 'members' } } }),
+          field('q_later', 'number', { label: T('পরের সংখ্যা') }),
+        ]),
+      ),
+      { section: 'family', field: 'members' },
+    );
+    await user.click(await screen.findByRole('button', { name: /সারির সংখ্যা যে প্রশ্ন থেকে$/ }));
+    expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual([
+      'আবেদনকারী নিজে সারি যোগ করবেন',
+      'পরিবারের সদস্য সংখ্যা',
+    ]);
+    await user.click(screen.getByRole('option', { name: 'পরিবারের সদস্য সংখ্যা' }));
+    expect(fieldOf(latest, 'members').settings?.repeat).toEqual({ count_from: 'q_family' });
+    expect(fieldOf(latest, 'q_family').settings?.validation).toEqual({ min: 0, max: 50 });
+  });
+
+  it('compares a condition with another answer, read as a sentence', async () => {
+    const user = userEvent.setup();
+    open(
+      definition(
+        section('money', [
+          field('income', 'money', { label: T('মোট আয়') }),
+          field('expense', 'money', { label: T('মাসিক ব্যয়') }),
+          field('why', 'long_text', { label: T('কারণ') }),
+        ]),
+      ),
+      { section: 'money', field: 'why' },
+    );
+    const show = await openRules(user, /^শর্ত (ঠিক করুন|বদলান)$/, 'কখন দেখাবে');
+    await user.click(show.getByRole('button', { name: 'শর্ত যোগ করুন' }));
+    await choose(user, /শর্ত 1: প্রশ্ন/, 'মাসিক ব্যয়', show);
+    await choose(user, /শর্ত 1: তুলনা/, 'বেশি', show);
+    await user.click(show.getByRole('radio', { name: 'অন্য প্রশ্নের উত্তর' }));
+    await choose(user, /শর্ত 1: কোন প্রশ্নের উত্তর/, 'মোট আয়', show);
+    expect(fieldOf(latest, 'why').logic).toEqual({
+      show_if: { field: 'expense', op: 'gt', value: { field: 'income' } },
+    });
+    await user.keyboard('{Escape}');
+    expect(await screen.findByText(/“মাসিক ব্যয়” “মোট আয়”-এর বেশি/)).toBeInTheDocument();
+  }, 20_000);
+
+  it('puts an earlier answer into the question’s text', async () => {
+    const user = userEvent.setup();
+    open(
+      definition(
+        section('farm', [
+          field('q_farm', 'radio', { label: T('খামারের ধরন'), options: [option('cow')] }),
+          field('q_count', 'number', { label: T('কতটি পালন করতে চান?') }),
+        ]),
+      ),
+      { section: 'farm', field: 'q_count' },
+    );
+    await choose(user, /উত্তর বসান$/, 'খামারের ধরন');
+    expect(fieldOf(latest, 'q_count').label).toEqual({
+      bn: 'কতটি পালন করতে চান? {{q_farm}}',
+      en: 'কতটি পালন করতে চান? {{q_farm}}',
+    });
+  });
+
+  it('edits the rows and columns of a number table', async () => {
+    const user = userEvent.setup();
+    open(
+      definition(
+        section('farm', [
+          field('livestock', 'number_table', {
+            label: T('গবাদি পশু'),
+            settings: {
+              table: {
+                rows: [{ key: 'r1', label: T('সারি 1') }],
+                cols: [{ key: 'c1', label: T('কলাম 1') }],
+              },
+            },
+          }),
+        ]),
+      ),
+      { section: 'farm', field: 'livestock' },
+    );
+    const bn = await screen.findByRole('textbox', { name: 'সারি 1: বাংলা' });
+    await user.clear(bn);
+    await user.type(bn, 'গরু');
+    await user.click(screen.getByRole('button', { name: 'সারি যোগ করুন' }));
+    await user.click(screen.getByRole('button', { name: 'কলাম যোগ করুন' }));
+    expect(fieldOf(latest, 'livestock').settings?.table).toEqual({
+      rows: [
+        { key: 'r1', label: { bn: 'গরু', en: 'সারি 1' } },
+        { key: 'r2', label: { bn: 'সারি 2', en: 'সারি 2' } },
+      ],
+      cols: [
+        { key: 'c1', label: { bn: 'কলাম 1', en: 'কলাম 1' } },
+        { key: 'c2', label: { bn: 'কলাম 2', en: 'কলাম 2' } },
+      ],
+    });
+  });
+});
+
 it('has no axe violation', async () => {
   const { container } = open(
     definition(
