@@ -20,7 +20,7 @@
           "properties": {
             "field": { "$ref": "#/$defs/fieldKey" },
             "op": { "enum": ["eq", "neq", "gt", "gte", "lt", "lte", "in", "not_in", "is_empty", "not_empty"] },
-            "value": {}
+            "value": { "description": "a fixed value, or { \"field\": <field_key> } to compare with another answer (D-133)" }
           }
         },
         {
@@ -53,6 +53,24 @@
         {
           "type": "object", "additionalProperties": false, "required": ["op", "args"],
           "properties": { "op": { "enum": ["add", "sub", "mul", "div", "min", "max", "age_from_dob", "compare_gte"] }, "args": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/expr" } } }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["if", "else"],
+          "description": "the first branch whose condition holds, else the last value (D-133)",
+          "properties": {
+            "if": {
+              "type": "array", "minItems": 1, "maxItems": 20,
+              "items": { "type": "object", "additionalProperties": false, "required": ["when", "then"], "properties": { "when": { "$ref": "#/$defs/condition" }, "then": { "$ref": "#/$defs/expr" } } }
+            },
+            "else": { "$ref": "#/$defs/expr" }
+          }
+        },
+        { "type": "object", "additionalProperties": false, "required": ["result"], "description": "a text result named by one of the question's settings.results codes", "properties": { "result": { "type": "string", "pattern": "^[a-z0-9_]{1,64}$" } } },
+        {
+          "type": "object", "additionalProperties": false, "required": ["count_rows"],
+          "properties": {
+            "count_rows": { "type": "object", "additionalProperties": false, "required": ["group"], "properties": { "group": { "$ref": "#/$defs/fieldKey" }, "where": { "$ref": "#/$defs/condition" } } }
+          }
         }
       ]
     },
@@ -71,6 +89,11 @@
         "placeholder": { "type": "object", "properties": { "bn": { "type": "string" }, "en": { "type": "string" } } },
         "help": { "type": "object", "properties": { "bn": { "type": "string" }, "en": { "type": "string" } } },
         "default": {},
+        "results": {
+          "type": "array", "maxItems": 50,
+          "description": "the text results a calculation may give (D-133)",
+          "items": { "type": "object", "required": ["code", "label"], "properties": { "code": { "type": "string", "pattern": "^[a-z0-9_]{1,64}$" }, "label": { "type": "object", "properties": { "bn": { "type": "string" }, "en": { "type": "string" } } } } }
+        },
         "validation": { "$ref": "#/$defs/validation" },
         "repeat": { "type": "object", "properties": { "min_rows": { "type": "integer", "minimum": 0 }, "max_rows": { "type": "integer", "minimum": 1 } } },
         "score": {

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { definitionWith, field, option, section, TODAY, yesNo } from '../../test/forms-fixture.js';
+import {
+  definitionWith,
+  field,
+  option,
+  section,
+  T,
+  TODAY,
+  yesNo,
+} from '../../test/forms-fixture.js';
 import { evaluate, type Answer, type Condition, type FormField } from './index.js';
 
 // The one evaluator: visibility, requirement, options and calculated values from the answers.
@@ -366,5 +374,139 @@ describe('calculations', () => {
       calc('b', { op: 'add', args: [{ field: 'a' }, 1] }),
     ];
     expect(compute(fields, [])).toEqual({});
+  });
+});
+
+describe('conditional values, row counts and comparisons', () => {
+  const calc = (key: string, expr: unknown, extra: Partial<FormField> = {}): FormField =>
+    field(key, 'calculation', { calculation: { expr: expr as never }, ...extra });
+  const karat = field('karat', 'single_select', {
+    options: [option('24'), option('22'), option('18')],
+  });
+  const price = calc('price', {
+    if: [{ when: { field: 'karat', op: 'eq', value: '24' }, then: 16236 }],
+    else: {
+      if: [{ when: { field: 'karat', op: 'eq', value: '22' }, then: 14883 }],
+      else: 0,
+    },
+  });
+  const run = (fields: FormField[], answers: Answer[]) =>
+    evaluate(definitionWith(fields), answers, { today: TODAY }).computed;
+
+  it('takes the first branch whose condition holds, nested, and the last else otherwise', () => {
+    const pick = (code: string | null) =>
+      run([karat, price], code ? [answer('karat', { t: 'single_select', v: code })] : []).price;
+    expect(pick('24')).toBe(16236);
+    expect(pick('22')).toBe(14883);
+    expect(pick('18')).toBe(0);
+    expect(pick(null)).toBe(0);
+  });
+
+  it('gives a text result as its code, which a condition can then test', () => {
+    const fields = [
+      field('income', 'money'),
+      calc(
+        'band',
+        {
+          if: [{ when: { field: 'income', op: 'lt', value: 5000 }, then: { result: 'low' } }],
+          else: { result: 'high' },
+        },
+        {
+          settings: {
+            results: [
+              { code: 'low', label: T('low') },
+              { code: 'high', label: T('high') },
+            ],
+          },
+        },
+      ),
+      field('probe', 'short_text', {
+        logic: { show_if: { field: 'band', op: 'eq', value: 'low' } },
+      }),
+    ];
+    const result = evaluate(
+      definitionWith(fields),
+      [answer('income', { t: 'money', v: '3000.00' })],
+      {
+        today: TODAY,
+      },
+    );
+    expect(result.computed.band).toBe('low');
+    expect(result.fields.probe!.visible).toBe(true);
+  });
+
+  it('compares a calculated amount above 1 as a number, not as text', () => {
+    const fields = [
+      field('a', 'money'),
+      calc('ratio', { op: 'div', args: [{ field: 'a' }, 4] }),
+      field('probe', 'short_text', { logic: { show_if: { field: 'ratio', op: 'gte', value: 5 } } }),
+    ];
+    const visible = (v: string) =>
+      evaluate(definitionWith(fields), [answer('a', { t: 'money', v })], { today: TODAY }).fields
+        .probe!.visible;
+    // 42 ÷ 4 = 10.50, which is more than 5 although the text "10.50" sorts before "5"
+    expect(visible('42.00')).toBe(true);
+    expect(visible('16.00')).toBe(false);
+  });
+
+  it('counts the rows of a group that meet a condition, and every row without one', () => {
+    const fields = [
+      field('members', 'repeat_group'),
+      field('m_income', 'money', { settings: { repeat: { group: 'members' } } }),
+      calc('earners', {
+        count_rows: { group: 'members', where: { field: 'm_income', op: 'gt', value: 0 } },
+      }),
+      calc('people', { count_rows: { group: 'members' } }),
+    ];
+    const answers = [
+      answer('m_income', { t: 'money', v: '3000.00' }, 0),
+      answer('m_income', { t: 'money', v: '' }, 1),
+      answer('m_income', { t: 'money', v: '1500.00' }, 2),
+    ];
+    expect(run(fields, answers)).toMatchObject({ earners: 2, people: 3 });
+    expect(run(fields, [])).toMatchObject({ earners: 0, people: 0 });
+  });
+
+  it('compares an answer with another answer or a calculation', () => {
+    const fields = [
+      field('income', 'money'),
+      field('expense', 'money'),
+      calc('total', { op: 'add', args: [{ field: 'income' }, 1000] }),
+      field('why', 'long_text', {
+        logic: { show_if: { field: 'expense', op: 'gt', value: { field: 'total' } } },
+      }),
+      field('same', 'short_text', {
+        logic: { show_if: { field: 'expense', op: 'eq', value: { field: 'income' } } },
+      }),
+    ];
+    const state = (income: string, expense: string) =>
+      evaluate(
+        definitionWith(fields),
+        [
+          answer('income', { t: 'money', v: income }),
+          answer('expense', { t: 'money', v: expense }),
+        ],
+        { today: TODAY },
+      ).fields;
+    expect(state('5000.00', '7000.00').why!.visible).toBe(true);
+    expect(state('5000.00', '6000.00').why!.visible).toBe(false);
+    expect(state('5000.00', '5000.00').same!.visible).toBe(true);
+    // an empty answer on the right is never equal to nor less than anything
+    expect(
+      evaluate(definitionWith(fields), [answer('expense', { t: 'money', v: '10.00' })], {
+        today: TODAY,
+      }).fields.same!.visible,
+    ).toBe(false);
+  });
+
+  it('gives nothing, without throwing, for a stored expression past the size limits', () => {
+    let deep: unknown = 1;
+    for (let i = 0; i < 25; i += 1) deep = { op: 'add', args: [deep, 1] };
+    const wide = { op: 'add', args: Array.from({ length: 600 }, () => 1) };
+    const computed = run(
+      [calc('deep', deep), calc('wide', wide), calc('fine', { op: 'add', args: [1, 2] })],
+      [],
+    );
+    expect(computed).toEqual({ fine: 3 });
   });
 });

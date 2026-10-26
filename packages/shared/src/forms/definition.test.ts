@@ -9,7 +9,12 @@ import {
   T,
   yesNo,
 } from '../../test/forms-fixture.js';
-import { checkDefinition, formDefinitionSchema, type FormDefinition } from './index.js';
+import {
+  checkDefinition,
+  formDefinitionSchema,
+  type FormDefinition,
+  type FormField,
+} from './index.js';
 
 const codesOf = (definition: FormDefinition) =>
   checkDefinition(definition).map((issue) => [
@@ -427,5 +432,120 @@ describe('the size of a definition', () => {
     expect(checkDefinition(definitionWith([field('g', 'repeat_group'), ...members(50)]))).toEqual(
       [],
     );
+  });
+});
+
+describe('conditional values, comparisons and row counts', () => {
+  const calc = (key: string, expr: unknown, extra: Partial<FormField> = {}) =>
+    field(key, 'calculation', { calculation: { expr: expr as never }, ...extra });
+  const results = { results: [{ code: 'low', label: T('low') }] };
+
+  it('refuses a text result the question does not list, and results on any other question', () => {
+    const definition = definitionWith([
+      field('income', 'money'),
+      calc(
+        'band',
+        {
+          if: [{ when: { field: 'income', op: 'lt', value: 5 }, then: { result: 'low' } }],
+          else: { result: 'medium' },
+        },
+        { settings: results },
+      ),
+      field('note', 'short_text', { settings: results }),
+    ]);
+    expect(codesOf(definition)).toEqual([
+      ['form.result_unknown', 'band'],
+      ['form.result_misplaced', 'note'],
+    ]);
+  });
+
+  it('follows the conditions of a branch as references and finds a cycle through them', () => {
+    const definition = definitionWith([
+      calc('a', { if: [{ when: { field: 'b', op: 'gt', value: 0 }, then: 1 }], else: 0 }),
+      calc('b', { op: 'add', args: [{ field: 'a' }, 1] }),
+      calc('c', { if: [{ when: { field: 'gone', op: 'gt', value: 0 }, then: 1 }], else: 0 }),
+    ]);
+    const codes = codesOf(definition).map(([code]) => code);
+    expect(codes).toContain('form.calculation_cycle');
+    expect(codesOf(definition)).toContainEqual(['form.unknown_reference', 'gone']);
+  });
+
+  it('checks the answer a comparison names, and refuses comparing a text with a number', () => {
+    const definition = definitionWith([
+      field('income', 'money'),
+      field('name_again', 'short_text'),
+      field('why', 'long_text', {
+        logic: { show_if: { field: 'income', op: 'gt', value: { field: 'name_again' } } },
+      }),
+      field('lost', 'long_text', {
+        logic: { show_if: { field: 'income', op: 'gt', value: { field: 'missing' } } },
+      }),
+    ]);
+    expect(codesOf(definition)).toEqual([
+      ['form.comparison_type', 'why'],
+      ['form.unknown_reference', 'missing'],
+    ]);
+  });
+
+  it('counts rows only of a repeat group, with a condition on its own rows', () => {
+    const definition = definitionWith([
+      field('members', 'repeat_group'),
+      field('m_income', 'money', { settings: { repeat: { group: 'members' } } }),
+      field('other', 'repeat_group'),
+      field('o_income', 'money', { settings: { repeat: { group: 'other' } } }),
+      calc('ok', {
+        count_rows: { group: 'members', where: { field: 'm_income', op: 'gt', value: 0 } },
+      }),
+      calc('not_group', { count_rows: { group: 'ok' } }),
+      calc('cross', {
+        count_rows: { group: 'members', where: { field: 'o_income', op: 'gt', value: 0 } },
+      }),
+    ]);
+    expect(codesOf(definition)).toEqual([
+      ['form.unknown_reference', 'ok'],
+      ['form.repeat_reference', 'o_income'],
+    ]);
+  });
+
+  it('refuses a volunteer question that reads an official-only answer, and allows the reverse', () => {
+    const official = section(
+      'office',
+      [
+        field('assessed', 'money'),
+        calc('office_total', { op: 'add', args: [{ field: 'income' }, 1] }),
+      ],
+      { visibility: 'official_only' },
+    );
+    const definition = definitionWith(
+      [
+        field('income', 'money'),
+        field('shown', 'short_text', {
+          logic: { show_if: { field: 'assessed', op: 'gt', value: 0 } },
+        }),
+        field('compared', 'short_text', {
+          logic: { show_if: { field: 'income', op: 'gt', value: { field: 'assessed' } } },
+        }),
+        calc('leak', { op: 'add', args: [{ field: 'assessed' }, 1] }),
+      ],
+      [official],
+    );
+    expect(codesOf(definition)).toEqual([
+      ['form.reference_hidden', 'shown'],
+      ['form.reference_hidden', 'compared'],
+      ['form.reference_hidden', 'leak'],
+    ]);
+  });
+
+  it('refuses an expression deeper than 20 levels or larger than 500 parts', () => {
+    let deep: unknown = 1;
+    for (let i = 0; i < 20; i += 1) deep = { op: 'add', args: [deep, 1] };
+    const wide = { op: 'add', args: Array.from({ length: 500 }, () => 1) };
+    let fine: unknown = 1;
+    for (let i = 0; i < 19; i += 1) fine = { op: 'add', args: [fine, 1] };
+    const definition = definitionWith([calc('deep', deep), calc('wide', wide), calc('fine', fine)]);
+    expect(codesOf(definition)).toEqual([
+      ['form.expression_too_large', 'deep'],
+      ['form.expression_too_large', 'wide'],
+    ]);
   });
 });

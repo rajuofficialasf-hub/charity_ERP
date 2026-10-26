@@ -253,7 +253,12 @@
     "repeat_group_too_large": "A list has too many questions.",
     "not_of_project": "This form belongs to another project.",
     "no_newer_version": "This form has no newer version to take.",
-    "placed_copy": "A form placed from a ready form is not changed here; take the ready form's newer version."
+    "placed_copy": "A form placed from a ready form is not changed here; take the ready form's newer version.",
+    "result_unknown": "The calculation gives a text result this question does not list. Add it to the results or change the step.",
+    "result_misplaced": "Only a calculated question can have text results.",
+    "comparison_type": "This rule compares a number with a text. Compare answers of the same kind.",
+    "reference_hidden": "This is shown to volunteers or the public but reads an answer of the official part. Use an answer they can see.",
+    "expression_too_large": "This rule is too long. Keep it within 20 levels and 500 parts."
   },
   "public": {
     "link_closed": "This link is not open for applications.",

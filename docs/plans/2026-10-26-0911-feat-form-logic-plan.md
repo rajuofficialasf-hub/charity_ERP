@@ -118,7 +118,7 @@ Today the engine has conditions against a fixed value, sums and simple arithmeti
 - **Depends on:** U1
 - **Size:** L
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U3. The engine: defaults, read-only, rows from a count and piping
 - **Goal:** the intake applies defaults and read-only values, keeps a group's rows equal to its count, and texts can repeat an earlier answer.
@@ -332,8 +332,8 @@ Today the engine has conditions against a fixed value, sums and simple arithmeti
 
 ## Progress
 - **Branch:** `feat/form-logic` (from `docs/plan-form-tasks` at 3a64c1c, PR #29, which merges into `main` first)
-- **Updated:** 2026-10-26 10:00
-- **Next:** U2 the engine: tests first in `evaluate.test.ts`, `definition.test.ts` and the SRP-26 fixture
+- **Updated:** 2026-10-26 11:10
+- **Next:** C1 (test and review of `f0b6327..HEAD`), then U3 defaults, read-only, rows from a count and piping
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** the owner chose at the brainstorm and the doc review: D-128 item 3 withdrawn; the demo's extras (rows from a count, row counts by condition, comparing two answers, piping, the number table) joined; click-and-type editor; no mockup; prices stay in the formula; all four security points of the plan security review; a draft may hold rows that do not match the count, the submission refuses the mismatch. U1: D-133 also notes on BR-082 that the officials are read from the steps and the audit; the new rules are BR-273 to BR-280 (module M07 only, so the Phase 1 documents check stays green).
+- **Notes:** the owner chose at the brainstorm and the doc review: D-128 item 3 withdrawn; the demo's extras (rows from a count, row counts by condition, comparing two answers, piping, the number table) joined; click-and-type editor; no mockup; prices stay in the formula; all four security points of the plan security review; a draft may hold rows that do not match the count, the submission refuses the mismatch. U1: D-133 also notes on BR-082 that the officials are read from the steps and the audit; the new rules are BR-273 to BR-280 (module M07 only, so the Phase 1 documents check stays green). U2 found and fixed: a condition on a calculation compared its value as text (the field's type was `calculation`), so `10.50 > 5` was false; it now compares by what the calculation gave (`comparedType` in `evaluate.ts`). The size limits live in `jsonb/form-logic.ts` (`EXPRESSION_LIMITS`, `logicSize`, `withinLimits`); the audience check is part of `checkReference` in `definition.ts` and reports once per referring question.

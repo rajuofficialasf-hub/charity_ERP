@@ -1,4 +1,5 @@
 import type { AnswerValue } from '../jsonb/answer-value.js';
+import { isFieldRef, withinLimits } from '../jsonb/form-logic.js';
 import { fromPaisa, isAmount, toPaisa } from '../projects/budget.js';
 import {
   indexFields,
@@ -142,6 +143,7 @@ class Engine {
   private readonly sectionMemo = new Map<string, boolean>();
   private readonly visibleMemo = new Map<string, boolean>();
   private readonly computedMemo = new Map<string, Result>();
+  private readonly boundedMemo = new Map<string, boolean>();
   private readonly open = new Set<string>();
 
   constructor(
@@ -251,40 +253,49 @@ class Engine {
     );
   }
 
+  /**
+   * The type a field's value compares as: a calculation by what it gave (money as money, a number
+   * as a number), any other field by its own type.
+   */
+  private comparedType(key: string, row: number): string | undefined {
+    const located = this.fields.get(key);
+    if (!located) return undefined;
+    if (located.field.type !== 'calculation') return located.field.type;
+    const result = this.computed(key, row);
+    if (result === null || result === 'empty') return undefined;
+    return result.kind === 'money' ? 'money' : result.kind === 'number' ? 'number' : undefined;
+  }
+
   condition(condition: Condition, row: number): boolean {
     if ('all' in condition) return condition.all.every((c) => this.condition(c, row));
     if ('any' in condition) return condition.any.some((c) => this.condition(c, row));
     if ('not' in condition) return !this.condition(condition.not, row);
     const left = this.plain(condition.field, row);
-    const type = this.fields.get(condition.field)?.field.type;
+    const type = this.comparedType(condition.field, row);
     const isEmpty = left === null;
+    if (condition.op === 'is_empty') return isEmpty;
+    if (condition.op === 'not_empty') return !isEmpty;
+    // the other side is a fixed value, or the answer of another question at the same row
+    const value: unknown = condition.value;
+    const reference = isFieldRef(value);
+    const right = reference ? this.plain(value.field, row) : value;
+    // an empty answer on the other side matches nothing, not even an inequality
+    if (reference && right === null) return false;
     switch (condition.op) {
-      case 'is_empty':
-        return isEmpty;
-      case 'not_empty':
-        return !isEmpty;
       case 'eq':
-        return !isEmpty && equals(left, condition.value, type);
+        return !isEmpty && equals(left, right, type);
       case 'neq':
-        return !isEmpty && !equals(left, condition.value, type);
+        return !isEmpty && !equals(left, right, type);
       case 'in':
-        return (
-          !isEmpty &&
-          Array.isArray(condition.value) &&
-          condition.value.some((v) => equals(left, v, type))
-        );
+        return !isEmpty && Array.isArray(right) && right.some((v) => equals(left, v, type));
       case 'not_in':
-        return (
-          !isEmpty &&
-          Array.isArray(condition.value) &&
-          !condition.value.some((v) => equals(left, v, type))
-        );
+        return !isEmpty && Array.isArray(right) && !right.some((v) => equals(left, v, type));
       case 'gt':
       case 'gte':
       case 'lt':
       case 'lte': {
         if (isEmpty) return false;
-        const order = compare(left, condition.value, type);
+        const order = compare(left, right, type);
         if (order === null) return false;
         if (condition.op === 'gt') return order > 0;
         if (condition.op === 'gte') return order >= 0;
@@ -303,6 +314,16 @@ class Engine {
     const memo = this.computedMemo.get(slot);
     if (memo !== undefined) return memo;
     if (this.open.has(`computed:${slot}`)) return null;
+    // a stored expression past the size limits gives nothing rather than run unbounded
+    let bounded = this.boundedMemo.get(key);
+    if (bounded === undefined) {
+      bounded = withinLimits(located.field.calculation.expr);
+      this.boundedMemo.set(key, bounded);
+    }
+    if (!bounded) {
+      this.computedMemo.set(slot, null);
+      return null;
+    }
     this.open.add(`computed:${slot}`);
     let result = this.visible(key, row) ? this.expr(located.field.calculation.expr, row) : 'empty';
     const places = located.field.calculation.round;
@@ -357,10 +378,27 @@ class Engine {
     return fold('add', values);
   }
 
+  /** The rows of a group, or only those where the condition holds; nothing while it is hidden. */
+  private countRows(group: string, where: Condition | undefined): Result {
+    const located = this.fields.get(group);
+    if (!located || located.field.type !== 'repeat_group') return null;
+    if (!this.visible(group, 0)) return 'empty';
+    let count = 0;
+    for (let row = 0; row < this.rowCount(group); row += 1)
+      if (where === undefined || this.condition(where, row)) count += 1;
+    return { kind: 'number', value: count };
+  }
+
   expr(expr: Expr, row: number): Result {
     if (typeof expr === 'number') return { kind: 'number', value: expr };
     if ('field' in expr) return this.fieldValue(expr.field, row);
     if ('sum_repeat' in expr) return this.sumRepeat(expr.sum_repeat.group, expr.sum_repeat.field);
+    if ('result' in expr) return { kind: 'text', value: expr.result };
+    if ('count_rows' in expr) return this.countRows(expr.count_rows.group, expr.count_rows.where);
+    if ('if' in expr) {
+      const branch = expr.if.find((b) => this.condition(b.when, row));
+      return this.expr(branch ? branch.then : expr.else, row);
+    }
     if ('setting' in expr) {
       const nisab = this.context.nisabValue;
       return nisab !== undefined && isAmount(nisab)
