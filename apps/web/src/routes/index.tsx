@@ -141,6 +141,12 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
               }),
             },
             {
+              path: '/media/members/:userId',
+              lazy: async () => ({
+                Component: (await import('../features/media/MemberPage')).MemberPage,
+              }),
+            },
+            {
               // The admin area is its own chunk: the other screens never load it.
               path: '/admin',
               lazy: async () => ({ Component: (await import('../admin/AdminLayout')).AdminLayout }),
