@@ -220,7 +220,7 @@ describe('the logic', () => {
     expect(total()).toHaveAttribute('readonly');
   });
 
-  it('shows amounts in taka and a number with its decimals', async () => {
+  it('shows amounts in taka and a number with the decimals its calculation rounds to', async () => {
     const user = userEvent.setup();
     open([
       section('money', [
@@ -235,6 +235,12 @@ describe('the logic', () => {
         }),
         bilingual('pairs', 'জোড়া', 'Pairs', 'calculation', {
           calculation: { expr: { op: 'div', args: [{ field: 'people' }, 2] } },
+        }),
+        bilingual('thirds', 'তিন ভাগের এক', 'A third', 'calculation', {
+          calculation: { expr: { op: 'div', args: [{ field: 'people' }, 3] } },
+        }),
+        bilingual('fine', 'সূক্ষ্ম ভাগ', 'Fine share', 'calculation', {
+          calculation: { expr: { op: 'div', args: [{ field: 'people' }, 3] }, round: 4 },
         }),
       ]),
     ]);
@@ -258,6 +264,8 @@ describe('the logic', () => {
       expect(screen.getByRole('textbox', { name: /^জনপ্রতি/ })).toHaveValue('৳ 2,142.86'),
     );
     expect(screen.getByRole('textbox', { name: /^জোড়া/ })).toHaveValue('3.5');
+    expect(screen.getByRole('textbox', { name: /^তিন ভাগের এক/ })).toHaveValue('2.33');
+    expect(screen.getByRole('textbox', { name: /^সূক্ষ্ম ভাগ/ })).toHaveValue('2.3333');
   });
 
   it('offers the options that follow the earlier answer, and "other" opens its text box', async () => {

@@ -491,7 +491,8 @@
       "text": "A text",
       "number": "A number"
     },
-    "read_only_answer": "Shown only, cannot be changed"
+    "read_only_answer": "Shown only, cannot be changed",
+    "table_full": "A table holds at most {max} boxes."
   },
   "types": {
     "short_text": "Short text",

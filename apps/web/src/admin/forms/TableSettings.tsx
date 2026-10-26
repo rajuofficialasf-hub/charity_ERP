@@ -1,4 +1,4 @@
-import type { NumberTable } from '@css/shared/forms';
+import { type NumberTable, TABLE_CELLS_MAX } from '@css/shared/forms';
 import { Button, Stack, Text, TextField } from '@css/ui';
 import { Plus } from 'lucide-react';
 import { useTranslations } from 'use-intl';
@@ -23,6 +23,11 @@ export function TableSettings({
     const lines = table[which];
     const prefix = which === 'rows' ? 'r' : 'c';
     const set = (next: Line[]) => onChange({ ...table, [which]: next });
+    // one line more must stay within the cells a table may hold
+    const full =
+      (table.rows.length + (which === 'rows' ? 1 : 0)) *
+        (table.cols.length + (which === 'cols' ? 1 : 0)) >
+      TABLE_CELLS_MAX;
     const freeKey = () => {
       const used = new Set(lines.map((l) => l.key));
       let n = lines.length + 1;
@@ -68,6 +73,7 @@ export function TableSettings({
             size="sm"
             variant="secondary"
             icon={Plus}
+            disabled={full}
             onPress={() => {
               const n = String(lines.length + 1);
               const name = t(which === 'rows' ? 'table_row' : 'table_col', { n });
@@ -77,6 +83,7 @@ export function TableSettings({
             {t(which === 'rows' ? 'table_add_row' : 'table_add_col')}
           </Button>
         </div>
+        {full ? <Text tone="muted">{t('table_full', { max: TABLE_CELLS_MAX })}</Text> : null}
       </Stack>
     );
   };

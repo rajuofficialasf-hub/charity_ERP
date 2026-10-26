@@ -453,6 +453,78 @@ describe('defaults, read-only, counted rows, comparisons and earlier answers', (
     expect(fieldOf(latest, 'q_family').settings?.validation).toEqual({ min: 0, max: 50 });
   });
 
+  it('keeps a count range within the rows, and narrows it when the rows shrink', async () => {
+    const user = userEvent.setup();
+    open(
+      definition(
+        section('family', [
+          field('q_family', 'number', {
+            label: T('পরিবারের সদস্য সংখ্যা'),
+            settings: { validation: { min: 2, max: 80 } },
+          }),
+          field('members', 'repeat_group', {
+            label: T('সদস্য'),
+            settings: { repeat: { max_rows: 20 } },
+          }),
+          field('m_name', 'short_text', { settings: { repeat: { group: 'members' } } }),
+        ]),
+      ),
+      { section: 'family', field: 'members' },
+    );
+    await choose(user, /সারির সংখ্যা যে প্রশ্ন থেকে$/, 'পরিবারের সদস্য সংখ্যা');
+    expect(fieldOf(latest, 'q_family').settings?.validation).toEqual({ min: 2, max: 20 });
+    const most = screen.getByRole('textbox', { name: /^সবচেয়ে বেশি সারি/ });
+    await user.clear(most);
+    await user.type(most, '1');
+    expect(fieldOf(latest, 'members').settings?.repeat).toMatchObject({
+      count_from: 'q_family',
+      max_rows: 1,
+    });
+    // the least above the most starts again at 0
+    expect(fieldOf(latest, 'q_family').settings?.validation).toEqual({ min: 0, max: 1 });
+  });
+
+  it('offers an earlier answer of the form or of the question’s own rows, never a later one', async () => {
+    const user = userEvent.setup();
+    open(
+      definition(
+        section('farm', [
+          field('q_farm', 'radio', { label: T('খামারের ধরন'), options: [option('cow')] }),
+          field('earners', 'repeat_group', { label: T('উপার্জনকারী') }),
+          field('e_name', 'short_text', {
+            label: T('উপার্জনকারীর নাম'),
+            settings: { repeat: { group: 'earners' } },
+          }),
+          field('q_count', 'number', { label: T('কতটি পালন করতে চান?') }),
+          field('q_later', 'short_text', { label: T('পরের প্রশ্ন') }),
+        ]),
+      ),
+      { section: 'farm', field: 'q_count' },
+    );
+    await user.click(await screen.findByRole('button', { name: /উত্তর বসান$/ }));
+    const offered = (await screen.findAllByRole('option')).map((o) => o.textContent);
+    expect(offered).toContain('খামারের ধরন');
+    // another group's row answer and a later question are not offered
+    expect(offered).not.toContain('উপার্জনকারীর নাম');
+    expect(offered).not.toContain('পরের প্রশ্ন');
+    expect(offered).not.toContain('কতটি পালন করতে চান?');
+  });
+
+  it('starts a default number within the question’s limits', async () => {
+    const user = userEvent.setup();
+    open(
+      definition(
+        section('x', [
+          field('q_rooms', 'number', { settings: { validation: { min: 1, max: 9 } } }),
+        ]),
+      ),
+      { section: 'x', field: 'q_rooms' },
+    );
+    await user.click(await screen.findByRole('button', { name: /^ডিফল্ট মান/ }));
+    await choose(user, /নেই ডিফল্ট মান$/, 'সংখ্যা');
+    expect(fieldOf(latest, 'q_rooms').settings?.default).toEqual({ number: 1 });
+  });
+
   it('compares a condition with another answer, read as a sentence', async () => {
     const user = userEvent.setup();
     open(
@@ -495,6 +567,43 @@ describe('defaults, read-only, counted rows, comparisons and earlier answers', (
       en: 'কতটি পালন করতে চান? {{q_farm}}',
     });
   });
+
+  it('keeps one row and one column, and stops adding at 200 boxes', async () => {
+    const user = userEvent.setup();
+    const line = (prefix: string, n: number) => ({
+      key: `${prefix}${n}`,
+      label: T(`${prefix}${n}`),
+    });
+    open(
+      definition(
+        section('farm', [
+          field('livestock', 'number_table', {
+            label: T('গবাদি পশু'),
+            settings: {
+              table: {
+                rows: Array.from({ length: 20 }, (_, i) => line('r', i + 1)),
+                cols: [line('c', 1)],
+              },
+            },
+          }),
+        ]),
+      ),
+      { section: 'farm', field: 'livestock' },
+    );
+    // one column: it has no remove button
+    expect(await screen.findByRole('textbox', { name: 'কলাম 1: বাংলা' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'কলাম 1 সরান' })).not.toBeInTheDocument();
+    for (let i = 0; i < 9; i += 1)
+      await user.click(screen.getByRole('button', { name: 'কলাম যোগ করুন' }));
+    expect(fieldOf(latest, 'livestock').settings?.table?.cols).toHaveLength(10);
+    // 20 × 10 is the most a table holds
+    expect(screen.getByRole('button', { name: 'কলাম যোগ করুন' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'সারি যোগ করুন' })).toBeDisabled();
+    expect(screen.getAllByText('একটি ছকে সবচেয়ে বেশি 200টি ঘর রাখা যায়।')).toHaveLength(2);
+    await user.click(screen.getByRole('button', { name: 'কলাম 10 সরান' }));
+    expect(fieldOf(latest, 'livestock').settings?.table?.cols).toHaveLength(9);
+    expect(screen.getByRole('button', { name: 'কলাম যোগ করুন' })).toBeEnabled();
+  }, 30_000);
 
   it('edits the rows and columns of a number table', async () => {
     const user = userEvent.setup();

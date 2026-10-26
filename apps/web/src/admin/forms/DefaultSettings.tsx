@@ -1,4 +1,4 @@
-import type { FieldDefault, FormField } from '@css/shared/forms';
+import { type FieldDefault, type FormField, validationOf } from '@css/shared/forms';
 import { Select, Stack, Switch, TextField } from '@css/ui';
 import { useTranslations } from 'use-intl';
 import { NumberText } from './NumberText';
@@ -33,6 +33,9 @@ export function DefaultSettings({
   const kind: DefaultKind =
     start === undefined ? 'none' : 'today' in start ? 'today' : 'text' in start ? 'text' : 'number';
   const readOnly = field.settings?.read_only === true;
+  // a number starts within the question's own limits
+  const { min, max } = validationOf(field);
+  const firstNumber = Math.min(Math.max(0, min ?? 0), max ?? Number.POSITIVE_INFINITY);
   const set = (next: FieldDefault | undefined) =>
     // without a default nothing can be read-only
     onChange(
@@ -48,7 +51,7 @@ export function DefaultSettings({
         onChange={(id) => {
           if (id === 'today') set({ today: true });
           else if (id === 'text') set({ text: '' });
-          else if (id === 'number') set({ number: 0 });
+          else if (id === 'number') set({ number: firstNumber });
           else set(undefined);
         }}
         options={kindsOf(field).map((k) => ({ id: k, label: t(`defaults.${k}`) }))}
@@ -65,7 +68,8 @@ export function DefaultSettings({
           label={t('default_number')}
           integer={field.type === 'number'}
           value={start.number}
-          onChange={(n) => set({ number: n ?? 0 })}
+          // an emptied box keeps the number until another is typed; "নেই" removes the default
+          onChange={(n) => (n === undefined ? undefined : set({ number: n }))}
         />
       ) : null}
       <Switch

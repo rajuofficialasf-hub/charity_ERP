@@ -48,7 +48,6 @@ export async function publish(page: Page, versionNo: number) {
   await expect(confirm).toContainText('আগে জমা পড়া আবেদনগুলো তাদের নিজের সংস্করণেই থাকবে।');
   await confirm.getByRole('button', { name: 'সংস্করণ প্রকাশ করুন' }).click();
   await expect(confirm).toHaveCount(0);
-  return confirm;
 }
 
 /** Asks to publish, confirms, and expects the refusal to keep the draft open. */

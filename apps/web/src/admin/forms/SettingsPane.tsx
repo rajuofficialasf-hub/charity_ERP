@@ -1,4 +1,5 @@
 import {
+  COUNTED_ROWS_MAX,
   type FieldSettings,
   type FieldValidation,
   type FormDefinition,
@@ -154,6 +155,25 @@ function countCandidates(definition: FormDefinition, groupKey: string): FormFiel
   );
 }
 
+/**
+ * The definition with the count question of a group set to a range its rows can hold: from 0 to
+ * the group's maximum rows (50 at most), keeping a range already set within it.
+ */
+function withCountRange(definition: FormDefinition, group: FormField): FormDefinition {
+  const key = group.settings?.repeat?.count_from;
+  const source = key
+    ? definition.sections.flatMap((s) => s.fields).find((f) => f.fieldKey === key)
+    : undefined;
+  if (!source) return definition;
+  const rowsMax = Math.min(group.settings?.repeat?.max_rows ?? COUNTED_ROWS_MAX, COUNTED_ROWS_MAX);
+  const rules = source.settings?.validation ?? {};
+  const max = rules.max !== undefined && rules.max <= rowsMax ? rules.max : rowsMax;
+  const min = rules.min !== undefined && rules.min >= 0 && rules.min <= max ? rules.min : 0;
+  return updateField(definition, source.fieldKey, {
+    settings: compact({ ...source.settings, validation: compact({ ...rules, min, max }) }) ?? {},
+  });
+}
+
 /** The earlier answers with a text of their own a question may repeat: plain or of its own rows. */
 function pipeCandidates(definition: FormDefinition, field: FormField): FormField[] {
   const all = definition.sections.flatMap((s) => s.fields);
@@ -204,6 +224,21 @@ function FieldSettingsView({
     onChange(updateField(definition, field.fieldKey, next));
   const setSettings = (next: Partial<FieldSettings>) =>
     patch({ settings: compact({ ...field.settings, ...next }) ?? {} });
+  // a group's rows and their count source change together: the count question keeps a range
+  // the rows can hold
+  const setRepeat = (next: Partial<NonNullable<FieldSettings['repeat']>>) => {
+    const settings = compact({
+      ...field.settings,
+      repeat: compact({ ...field.settings?.repeat, ...next }),
+    });
+    const updated = { ...field, settings: settings ?? {} };
+    onChange(
+      withCountRange(
+        updateField(definition, field.fieldKey, { settings: settings ?? {} }),
+        updated,
+      ),
+    );
+  };
   const setValidation = (next: Partial<FieldValidation>) =>
     setSettings({ validation: compact({ ...field.settings?.validation, ...next }) });
   const setLogic = (next: Partial<NonNullable<FormField['logic']>>) =>
@@ -384,38 +419,9 @@ function FieldSettingsView({
           <RepeatSettings
             definition={definition}
             field={field}
-            onRows={(min, max) =>
-              setSettings({
-                repeat: compact({ ...field.settings?.repeat, min_rows: min, max_rows: max }),
-              })
-            }
+            onRows={(min, max) => setRepeat({ min_rows: min, max_rows: max })}
             counts={countCandidates(definition, field.fieldKey)}
-            onCountFrom={(key) => {
-              let next = updateField(definition, field.fieldKey, {
-                settings:
-                  compact({
-                    ...field.settings,
-                    repeat: compact({ ...field.settings?.repeat, count_from: key ?? undefined }),
-                  }) ?? {},
-              });
-              // the count question takes a range the rows can hold: 0 to 50 unless set within it
-              const source = key
-                ? definition.sections.flatMap((s) => s.fields).find((f) => f.fieldKey === key)
-                : undefined;
-              if (source) {
-                const rules = source.settings?.validation ?? {};
-                const min = rules.min !== undefined && rules.min >= 0 ? rules.min : 0;
-                const max = rules.max !== undefined && rules.max <= 50 ? rules.max : 50;
-                next = updateField(next, source.fieldKey, {
-                  settings:
-                    compact({
-                      ...source.settings,
-                      validation: compact({ ...rules, min, max }),
-                    }) ?? {},
-                });
-              }
-              onChange(next);
-            }}
+            onCountFrom={(key) => setRepeat({ count_from: key ?? undefined })}
           />
         </Disclosure>
       ) : null}

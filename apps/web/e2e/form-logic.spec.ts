@@ -37,11 +37,12 @@ async function nameLine(page: Page, line: string, bn: string, en: string) {
   await main.getByRole('textbox', { name: `${line}: English`, exact: true }).fill(en);
 }
 
-/** Today as the date field shows it. */
+/** Today in Dhaka, the day the form fills in, as the date field shows it. */
 function todayShown(): string {
-  const d = new Date();
-  const two = (n: number) => String(n).padStart(2, '0');
-  return `${two(d.getDate())}-${two(d.getMonth() + 1)}-${d.getFullYear()}`;
+  const [y, m, d] = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' })
+    .format(new Date())
+    .split('-');
+  return `${d}-${m}-${y}`;
 }
 
 test('the demo form: a price by condition, a typed formula, a number table and counted rows, filled on a phone', async ({
@@ -92,10 +93,10 @@ test('the demo form: a price by condition, a typed formula, a number table and c
   await nameLine(page, 'কলাম 2', 'বর্গা', 'Sharecropped');
 
   // the family's rows follow the number of members
-  // the group's row holds its members' rows; its own head is at the top
-  await page
-    .getByRole('button', { name: 'পরিবারের সদস্য বদলান', exact: true })
-    .click({ position: { x: 24, y: 12 } });
+  // the group's row holds its members' rows, which cover the middle of its own button; the
+  // keyboard chooses it as a person using the keyboard would
+  await page.getByRole('button', { name: 'পরিবারের সদস্য বদলান', exact: true }).focus();
+  await page.keyboard.press('Enter');
   await chooseIn(
     page,
     page.locator('main'),

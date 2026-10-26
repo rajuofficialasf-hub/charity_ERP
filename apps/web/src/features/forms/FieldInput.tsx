@@ -253,8 +253,8 @@ function shown(
 ): string {
   if (value === undefined || value === null) return '';
   if (typeof value === 'boolean') return value ? t('yes') : t('no');
-  // a number keeps up to two decimals, as a calculation may round to them
-  if (typeof value === 'number') return formatDecimal(value, 2, locale);
+  // a number keeps the decimals its calculation rounds to, two when it sets none
+  if (typeof value === 'number') return formatDecimal(value, field.calculation?.round ?? 2, locale);
   // a text result shows by its label in the reader's language
   const result = resultLabelOf(field, value);
   if (result) return locale === 'bn' ? result.bn : result.en;
