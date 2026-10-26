@@ -57,6 +57,11 @@ export const NOTIFICATION_CATALOGUE: Readonly<Record<string, CatalogueEntry>> = 
   application_transferred: entry('work'),
   application_transferred_away: entry('info'),
   application_reopened: entry('info'),
+  media_referral_new: entry('work'),
+  media_referral_decided: entry('info'),
+  media_member_added: entry('work'),
+  media_review_waiting: entry('work'),
+  media_published: entry('info'),
   ops_alert: { ...entry('alert'), countsEvents: true },
 };
 

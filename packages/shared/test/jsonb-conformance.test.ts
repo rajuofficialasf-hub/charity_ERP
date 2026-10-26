@@ -158,9 +158,9 @@ conform('media-work-script', '', mediaScriptSchema, [
 ]);
 
 conform('reference-list-attributes', '', referenceListAttributesSchema, [
-  ['a platform', { consent_channel: 'facebook' }, true],
+  ['a platform', { kind: 'youtube' }, true],
   ['none', {}, true],
-  ['a bad code', { consent_channel: 'Face Book' }, false],
+  ['an unknown kind', { kind: 'tiktok' }, false],
   ['unknown key', { colour: 'green' }, false],
 ]);
 

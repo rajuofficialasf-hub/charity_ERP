@@ -589,7 +589,7 @@ model ReferenceList {
   sortOrder                                Int                       @default(0) @map("sort_order")
   /// a system entry the rules need: kept active, never renamed or deleted
   isSystem                                 Boolean                   @default(false) @map("is_system")
-  /// per list: a media platform's consent channel
+  /// per list: a media platform's kind (youtube, facebook, other)
   attributes                               Json                      @default("{}")
   createdAt                                DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy                                String?                   @map("created_by") @db.Uuid
@@ -3186,8 +3186,6 @@ model MediaPublication {
   publishedOn        DateTime?      @map("published_on") @db.Date
   link               String?
   note               String?
-  /// set when the beneficiary withdraws the consent of this platform's channel after publishing
-  consentWithdrawnAt DateTime?      @map("consent_withdrawn_at") @db.Timestamptz(6)
   createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy          String?        @map("created_by") @db.Uuid
   updatedAt          DateTime       @default(now()) @map("updated_at") @db.Timestamptz(6)

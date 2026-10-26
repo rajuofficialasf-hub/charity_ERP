@@ -10,23 +10,15 @@ doc_review: 2026-10-26
 # The Media Team module (T2.8b)
 
 ## Goal
-A PM or an RPM can refer an approved application, whose beneficiary has given media consent, to the Media Team. The Media Director or Assistant Director accepts the referral and runs it as a work, step by step, with members, a script and publications. A published work then shows on the beneficiary's 360° profile and in every member's portfolio. Throughout, the team never changes application or beneficiary data and never sees NID, ratings, categories or donor data.
+A PM or an RPM can refer an approved application to the Media Team. The Media Director or Assistant Director accepts the referral and runs it as a work, step by step, with members, a script and publications. A published work then shows on the beneficiary's 360° profile and in every member's portfolio. Throughout, the team never changes application or beneficiary data and never sees NID, ratings, categories or donor data.
 
 ## Problem
 D-101 (2026-10-18) replaced the earlier media design: the team no longer picks beneficiaries from the nationwide list, and work starts only with a referral. The roles and permission names have been in `permissions.yaml` since Phase 1. The old `media_subjects` and `media_stories` tables are empty and unused, and `media_consents` has a table but no API or screen. The Media Team's home is still the Phase 1 placeholder (SCR-019). The owner moved this task ahead of T2.7 and T2.8 (D-134).
 
 ## Requirements
 
-### Media consent (on the beneficiary profile)
-- **R1** An official with `beneficiary.consent.record` records a beneficiary's media consent on the 360° profile:
-  - given or not given;
-  - the allowed channels, from the editable consent-channel list: website, Facebook, print, video, donor report;
-  - the date;
-  - who recorded it, filled by the system;
-  - an optional signed form or photo.
-  Every change is audited (BD-38, O-17, BR-022).
-- **R2** Consent can be withdrawn in whole or for some channels. From then on, no new publication is allowed on a withdrawn channel. A work already published there gets a warning, "সম্মতি ফেরত নেওয়া হয়েছে, পোস্ট সরিয়ে নিন", and the Media Director is notified. A member marks the publication "সরানো হয়েছে" once the post is taken down. Owner decision 2026-10-26.
-- **R3** Anyone with `beneficiary.consent.view` sees the consent status and channels, including the Media Team.
+### Media consent (dropped, D-137)
+- ~~R1~~ ~~R2~~ ~~R3~~ (dropped 2026-10-26: the owner withdrew every beneficiary consent, D-137)
 
 ### Referral and decision
 - **R4** A PM (own program) or an RPM (own region) refers an approved application to the Media Team. The referral carries:
@@ -34,7 +26,7 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
   - a note;
   - an optional story or initial text, written at referral time (owner decision 2026-10-26).
 
-  The referral is refused when the beneficiary has no recorded media consent (BR-264). Only an application that is approved, or past approval (in implementation, completed or closed), may be referred; a draft, pending, rejected or withdrawn one may not.
+  No consent is asked (D-137). Only an application that is approved, or past approval (in implementation, completed or closed), may be referred; a draft, pending, rejected or withdrawn one may not.
 - **R5** An application has at most one open referral. A referral that was sent back or rejected can be corrected and sent again.
 - **R6** The Media Director or the Media Assistant Director decides on a referral:
   - accept;
@@ -78,7 +70,7 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
   - As-Sunnah Foundation YouTube;
   - Ahmadullah YouTube.
 
-  Each publication has a state (waiting, published, taken down), a date, a link and a note. Each platform maps to one consent channel: Facebook pages to `facebook`, YouTube channels to `video`. A publication is refused while the beneficiary has no consent for that channel.
+  Each publication has a state (waiting, published, taken down), a date, a link and a note. A platform has a kind (YouTube, Facebook or other) so that its links are checked against its own host (D-137).
 - **R15** A work moves to "published" only after the final review (`media.publication.review`, the director by default).
 - **R16** Every work has comments and a history of decisions, stage changes, member changes, publications and notes, with who and when. Each is audited.
 
@@ -104,7 +96,7 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
   - counts of their works;
   - a portfolio of the published works they took part in, with their production roles.
   A work with several members appears on each member's profile.
-- **R20** The beneficiary's 360° profile has a media section. It shows the consent (R1–R3), and for each published or done work: the title, program, date, links by platform, content type, summary, state, and the members with their roles.
+- **R20** The beneficiary's 360° profile has a media section. For each published or done work it shows: the title, program, date, links by platform, content type, summary, state, and the members with their roles.
 - **R21** Video links open on YouTube or Facebook; there is no embedded player.
   - A YouTube link shows YouTube's own thumbnail image, taken from the link; the browser loads it from YouTube.
   - A Facebook link shows a card with the platform's icon, the title and the date.
@@ -115,7 +107,7 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
 - **R23** Three lists are reference lists in admin settings under `settings.manage`, each edit audited (BR-268):
   - the media stages;
   - the production roles;
-  - the publication platforms, each with its consent channel.
+  - the publication platforms, each with its kind (YouTube, Facebook, other).
   The fixed system stages cannot be removed.
 - **R24** In-app notices at five moments (owner decision 2026-10-26):
   - a new referral, to the Media Director and the Assistant Director;
@@ -123,7 +115,7 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
   - added to a work, to that member;
   - waiting for the final review, to the Media Director;
   - published, to the referrer.
-  Consent withdrawn on a published work (R2) also notifies the Media Director. Email follows the existing staff-digest rules.
+  Email follows the existing staff-digest rules.
 - **R25** The Media Team cannot change project, application or beneficiary data. Volunteers and the Finance Team reach no media screen or route. The authorization matrix covers every new endpoint.
 - **R26** The old `media_subjects` and `media_stories` tables are replaced by:
   - media referrals;
@@ -135,7 +127,6 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
 
 ## Scope
 - **In:**
-  - media consent on the profile;
   - referral and decision;
   - works with stages, members, script, content type, publications, final review, comments and history;
   - the three reference lists;
@@ -154,7 +145,7 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
 
 ## Key decisions
 - **A mockup first:** clickable HTML mockups of the Media Team home and the work page, built on the brand tokens like `docs/ui/mockups/`, come before any code. Code starts only after the owner approves them (owner, 2026-10-26). Governs R17, R18.
-- **Consent withdrawal:** it blocks new publications on the withdrawn channels and puts a take-down warning on published ones, with a notice to the director; nothing is deleted (owner, 2026-10-26). Governs R2, R14.
+- **No consent (D-137):** the owner withdrew every beneficiary consent on 2026-10-26; R1 to R3 and U5 are dropped, a referral and a publication ask none. This supersedes the consent-withdrawal decision of the brainstorm.
 - **Video thumbnails:** a YouTube link uses YouTube's own thumbnail; other links show an icon card. No media files are kept (owner, 2026-10-26). Governs R21.
 - **Notices:** in the app at five moments (owner, 2026-10-26). Governs R24.
 - **The story:** it is an optional field the referrer writes on the referral; the official's comment on the application is shown beside it (owner, 2026-10-26). Governs R4, R8.
@@ -165,7 +156,6 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
   - the application's workflow left alone;
   - editable stages, roles and platforms;
   - the script states;
-  - platforms mapped to consent channels;
   - portfolio and profile display;
   - the director's final review.
 - **Order:** this task comes before T2.7 and T2.8 (D-134).
@@ -175,10 +165,8 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
 
 ## Success criteria
 - Each of the following is shown by an integration test:
-  - a referral without consent is refused;
   - a PM or RPM outside their program or region cannot refer or see the referral;
   - a decision never moves the application's workflow state;
-  - a publication without consent for its channel is refused;
   - no work is published before the final review.
 - The authorization matrix test shows:
   - the Media Team cannot write application or beneficiary data;
@@ -197,18 +185,15 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
   - Every step writes a `media_events` history row and an audit entry in the same transaction (DB-TX-01).
   - This follows the state-column pattern of field unlocks (`apps/api/src/applications/unlocks.ts`) and change requests (`services/change-requests.ts`), not the application workflow engine, so the application's state cannot move (BR-266).
   - The work's writes use If-Match/ETag through `assertIfMatch`, as in `services/project-setup.ts`.
-- **Consent records:** each recording inserts a new `media_consents` row and the latest is the current one. A whole withdrawal sets `granted = false` and `revoked_at`; a partial one is a new row with fewer channels. The ETag is the current row's id. A merge moves the rows with the beneficiary.
-- **Consent at publication:** the consent check runs on every move of a publication into `published` and at the final review, in the same transaction, after `SELECT … FOR UPDATE` on the beneficiary's current consent row. A withdrawal racing a publish therefore waits for it or refuses it.
-- **The evidence file:** only holders of `beneficiary.consent.record` in scope may download it (`files/records.ts` ownership check, the T2.1 limits: a photo or PDF up to the document size). The media roles see the status and the channels only.
 - **What the notices carry:** the work's number, the program and the project, never the beneficiary's name, mobile or address. The audit entries and logs never carry the story text or the contact details.
 - **Tables:**
   - The script is a JSONB column on the work, checked by a zod schema in `packages/shared/src/jsonb/`, with a separate `script_state` column.
   - Members: `media_work_members (work_id, user_id, roles text[])`, unique per work and user.
-  - Publications: `media_publications`, with a `consent_withdrawn_at` warning column and the states `waiting`, `published`, `taken_down`.
+  - Publications: `media_publications`, with the states `waiting`, `published`, `taken_down`.
   - Comments: `media_comments`. History: `media_events`.
 - **Reference lists gain two columns**, so the three new lists fit the existing editor (BR-268):
   - `is_system boolean default false`: a system entry cannot be deactivated or deleted.
-  - `attributes jsonb default '{}'`: a `media_platform` row holds `{ consent_channel }`, checked by a trigger against the `consent_channel` list, like `check_consent_channels` in the init migration.
+  - `attributes jsonb default '{}'`: a `media_platform` row holds its `kind` (youtube, facebook, other), checked by the JSON Schema and the service (D-137 dropped the consent channel).
 
   The lists `media_stage`, `media_role` and `media_platform` are seeded in `apps/api/seed/sets/base/reference-lists.ts`.
 - **Dropping the old tables** (DB-MIG-03, DB-MIG-05):
@@ -221,7 +206,7 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
   - This applies an approved decision; it is recorded under D-136 with this task's owner answers.
 - **The beneficiary details of a referral** (BR-265): they are composed on the server in the work read, for callers with `media.work.view` on that work (the director and the assistant director GLOBAL, a member ASSIGNED, a referrer PROGRAM or REGION). They are never returned by opening the beneficiary or the application. BR-253 stays the mask everywhere else.
 - **Notices:**
-  - Six new keys in `notifications/catalogue.ts`: the five of R24 and the consent-withdrawn notice of R2.
+  - Five new keys in `notifications/catalogue.ts`, those of R24 (the consent-withdrawn notice left with D-137).
   - They are emitted from a new `MediaEvents` class modelled on `notifications/project-events.ts`, with recipients by permission holder (`recipients.ts`).
   - The templates come through `notifications:sync`.
 - **Tests per layer** (TS-10…TS-13):
@@ -239,8 +224,8 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
 - **Files:** `docs/ui/mockups/15-media-home.html` (new), `docs/ui/mockups/16-media-work.html` (new), `docs/ui/mockups/index.html` (links), `docs/ui/mockups/README.md`
 - **Approach:** follow `docs/ui/mockups/13b-form-builder-v2.html`: the brand tokens from `tokens.css` and `components.css`, Bangla copy written with `ae-bangla-copy`, preview frames at 360, 768 and 1280 px, and fake data only.
   - **Home:** needs-attention, counts by program, the works list with filters.
-  - **Work page:** the referral and the beneficiary details, the decision, a stage stepper, members with roles, the script, the content type, publications with their consent state and a YouTube thumbnail or icon card, comments and history.
-  - **Dialogs:** the referral dialog on an application and the consent dialog on a profile.
+  - **Work page:** the referral and the beneficiary details, the decision, a stage stepper, members with roles, the script, the content type, publications with a YouTube thumbnail or icon card, comments and history.
+  - **Dialogs:** the referral dialog on an application.
 - **Tests:** none (a static mockup). The owner reviews it in the `mockups` preview of `.claude/launch.json`.
 - **Done when:** the owner says the mockups are approved; their labels feed the e2e lines of U15.
 - **Depends on:** none
@@ -253,7 +238,7 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
 - **Requirements:** R2, R4, R8, R21, R24
 - **Files:**
   - `docs/DECISION_LOG.md`: D-136 (the owner's four answers of 2026-10-26, the official-section correction, the reference-list columns).
-  - `docs/BUSINESS_RULES.md`: BR-282 consent withdrawal, BR-283 one open referral per application, BR-284 the referral's story, BR-285 links and thumbnails, BR-286 the media notices.
+  - `docs/BUSINESS_RULES.md`: BR-282 consent withdrawal (superseded by D-137), BR-283 one open referral per application, BR-284 the referral's story, BR-285 links and thumbnails, BR-286 the media notices.
   - `docs/security/permissions.yaml`: the media roles leave `application.view` and `application.official_section`; `media.work.view` for `media_team` becomes ASSIGNED.
   - `docs/security/SECURITY_POLICY.md`: the web CSP's `img-src` gains `https://i.ytimg.com` (the policy is documented there; the web serves no CSP of its own yet).
   - `docs/security/RBAC.md` §5.2.
@@ -285,11 +270,11 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
     - `media_referrals`: application, beneficiary, project, referrer, priority, note, story, state, decided by and at, decision comment; unique application.
     - `media_works`: unique referral, title (from the referral, editable by the directors), stage code, content type, script jsonb, script state, final review by and at.
     - `media_work_members`.
-    - `media_publications`: platform code, state, date, link, note, `consent_withdrawn_at`.
+    - `media_publications`: platform code, state, date, link, note.
     - `media_comments`.
     - `media_events`: work or referral, kind, from, to, comment, actor, at.
   - Each table gets FKs and indexes (DB-MIG-07) and audit columns.
-  - **Triggers:** a stage, role or platform code must be an active list code; a platform's `attributes.consent_channel` must be a consent-channel code.
+  - **Triggers:** a stage, role or platform code must be an active list code.
   - The merge: the `media_subjects` entries and their conflict SQL leave `beneficiary-merges.ts`, `media_referrals.beneficiary_id` follows the merge like `applications.beneficiary_id`, and `media_consents` rows move with the beneficiary.
   - The relation fields of the two old models leave `User`, `Project`, `Beneficiary` and `ReferenceList` in `schema.prisma`.
   - **New pattern:** `reference_lists.is_system` and `attributes` have no example yet.
@@ -297,7 +282,6 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
   - integration (constraints):
     - a referral per application is unique;
     - an unknown stage, role or platform code is refused;
-    - a platform without a valid consent channel is refused;
     - a system list entry cannot be deactivated (trigger);
     - the migration back refuses while a media row exists.
   - existing: `seed.test.ts` (table list, list counts) updated. `beneficiary-merges.test.ts` covers the merge's table list; characterize the media referral move first.
@@ -316,7 +300,6 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
   - the fixed system stages;
   - `mayPublish(stage, reviewed)`;
   - `channelOf(platform)`;
-  - `consentAllows(consent, channel)`;
   - `parsePlatformLink(platform, url)`, giving the host check and the YouTube id;
   - `nextStages(current, role)`: the stage rules of R10 as one table;
   - the request schemas.
@@ -324,7 +307,6 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
   - unit:
     - each referral transition, allowed and refused; sending again only from sent back or rejected;
     - no publish before the final review;
-    - consent with and without the channel, and after withdrawal;
     - link parsing: `youtu.be/ID`, `youtube.com/watch?v=ID`, `youtube.com/shorts/ID` and a Facebook link;
     - links refused: the wrong platform, an `http:` link, a `javascript:` link, `facebook.com.evil.com`, `evilfacebook.com`, `https://youtube.com@evil.com/`, a port, and a YouTube id of the wrong shape;
     - the stage rules: forward and back among ordinary stages; "accepted" only by acceptance; "published" never set by hand; "done", "on hold" and "cancelled" only for the directors; "in review" only from "ready to publish";
@@ -335,37 +317,11 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
 - **Risk area:** none
 - **Status:** done
 
-### U5. Media consent API
-- **Goal:** officials record, change and withdraw consent; the profile reads it.
-- **Requirements:** R1, R2, R3
-- **Files:**
-  - `apps/api/src/services/beneficiary-consent.ts` (new)
-  - `apps/api/src/routes/beneficiaries.ts`
-  - `apps/api/src/notifications/media-events.ts` (new): the consent-withdrawn notice.
-  - `apps/api/src/notifications/catalogue.ts`: all six media keys and their templates are added here, so `notifications:sync` holds them before U6 and U7 emit them.
-  - `docs/api/openapi.yaml`: the existing `beneficiaries.consent.*` contract, completed.
-  - `apps/api/test/integration/beneficiary-consent.test.ts` (new)
-- **Approach:** follow `services/beneficiary-contact.ts`:
-  - If-Match and the change log;
-  - `requireAccess` with `beneficiary.consent.record` on the beneficiary's scope;
-  - an audit `media_consent` with old and new;
-  - the optional evidence file through the T2.1 upload record link (`files/records.ts`).
-
-  A withdrawal (granted false, or a channel removed) sets `consent_withdrawn_at` on that beneficiary's published publications of the affected channels and notifies the Media Director.
-- **Tests:**
-  - integration:
-    - a PM in program, an RPM in region and a Project Executive record consent with channels; it is audited;
-    - an RPM of another region gets 404; a volunteer gets 403;
-    - an unknown channel gets 422; a stale If-Match gets 412;
-    - the media roles read consent but cannot record it;
-    - withdrawing `video` flags a published YouTube publication and notifies the director, and leaves a Facebook one alone;
-    - each change inserts a row and the read gives the latest;
-    - the evidence file downloads for a PM in program and is refused (404) for the media roles.
-- **Done when:** the routes pass, drift and contract coverage included.
-- **Depends on:** U3, U4
-- **Size:** M
-- **Risk area:** personal data
-- **Status:** todo
+### U5. ~~Media consent API~~ (dropped, D-137)
+- **Status:** dropped (the owner withdrew every beneficiary consent on 2026-10-26)
+- **Depends on:** none
+- **Size:** S
+- **Risk area:** none
 
 ### U6. Referral and decision API, and the media badge on the application
 - **Goal:** PMs and RPMs refer, directors decide, and the application shows its media state but never moves.
@@ -389,7 +345,6 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
   - integration:
     - an RPM refers an approved application of the region with priority, note and story; the directors are notified;
     - refused cases:
-      - a beneficiary without consent: 409 `media.consent_missing`;
       - a submitted application: 409;
       - an RPM of another region or a PM of another program: 404;
       - a volunteer and the Finance Team: 403;
@@ -436,7 +391,7 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
     - a member moves the stage of a work they are on, and gets 404 on another;
     - a member edits the script with If-Match; a stale one gets 412;
     - a publication with a Facebook link on a YouTube platform: 422;
-    - a publication without consent for its channel: 409 `media.consent_missing`; consent withdrawn, then a waiting publication patched to published: 409;
+    - a waiting publication patched to published without its link or date: 422;
     - another work's member gets 404 on every route (stage, script, publication by its id, comments, read); a member gets 403 on the members route;
     - "published" before the final review: 409;
     - only the director gives the final review; the assistant director gets 403 by default;
@@ -459,7 +414,7 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
     - `GET /media/summary`: counts by program and overall;
     - `GET /media-works`: the list, with filters on program, stage, priority, decision and member, keyset-paged as in `services/volunteer-list.ts`;
     - `GET /media/members/{userId}`: 404 unless the user holds a media role; it returns only name, designation, mobile, email, skills where the official's registration has them, counts, and the portfolio by production role. Callers: the media roles and the referrers.
-  - **The profile's `media` section** joins the sections of `beneficiaries.ts`: the consent and the published or done works.
+  - **The profile's `media` section** joins the sections of `beneficiaries.ts`: the published or done works.
   - **Attention items:**
     - new referrals, for the deciders;
     - works in review and works ready to publish, for the director;
@@ -485,7 +440,7 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
 - **Goal:** an admin edits the stages, production roles and platforms; the system stages stay.
 - **Requirements:** R23
 - **Files:** `packages/shared/src/settings/index.ts` (`EDITABLE_LISTS` and a schema for a platform's `attributes`) with its test, `apps/api/src/services/reference-lists.ts`, `apps/api/src/routes/settings.ts`, `apps/web/src/admin/settings/ListsPanel.tsx`, i18n `settings.json` bn and en, `apps/api/test/integration/settings.test.ts`, `apps/web/src/admin/settings/settings.test.tsx`
-- **Approach:** the editable lists of T1.13 (expense categories, issue types) gain the three keys. A system entry shows locked. A platform row has a consent-channel select.
+- **Approach:** the editable lists of T1.13 (expense categories, issue types) gain the three keys. A system entry shows locked. A platform row has a kind-channel select.
 - **Tests:**
   - integration:
     - add, rename and deactivate a stage, each audited;
@@ -500,12 +455,11 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
 - **Risk area:** none
 - **Status:** todo
 
-### U10. The profile's consent and media sections
-- **Goal:** officials record consent on the 360° profile, and everyone with the profile sees the published works.
+### U10. The profile's media section
+- **Goal:** everyone with the profile sees the published works.
 - **Requirements:** R1, R2, R3, R20, R21
 - **Files:**
   - `apps/web/src/admin/beneficiaries/BeneficiaryProfilePage.tsx`
-  - `ConsentDialog.tsx` (new)
   - `MediaWorksSection.tsx` (new; reused by U14)
   - `apps/web/src/features/media/WorkLinkCard.tsx` (new): the YouTube thumbnail or the icon card.
   - i18n `beneficiaries.json` and a new `media.json`, bn and en
@@ -516,10 +470,9 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
     - recording sends the channels and shows "সম্মতি আছে: Facebook, ভিডিও";
     - withdrawing shows the warning on a published work;
     - a YouTube link shows its thumbnail, with the work's title as text; a Facebook link shows the icon card;
-    - a reader without `beneficiary.consent.record` sees no record button;
     - axe in bn and en.
 - **Done when:** the profile shows both sections at 360 px and on desktop.
-- **Depends on:** U5, U8
+- **Depends on:** U8
 - **Size:** M
 - **Risk area:** none
 - **Status:** todo
@@ -532,7 +485,6 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
 - **Tests:**
   - component:
     - the referral sends priority, note and story;
-    - a 409 `media.consent_missing` shows "উপকারভোগীর মিডিয়া সম্মতি নেই";
     - the badge reads the media state;
     - a sent-back referral shows its comment and can be sent again;
     - axe.
@@ -580,7 +532,6 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
     - the stage moves list the active stages;
     - a member can hold several roles;
     - the script saves with If-Match and tells of a stale save;
-    - a publication refused for consent shows the reason;
     - publish is disabled before the final review;
     - a member sees no decision or final-review buttons;
     - the BR-265 details show, and no NID field exists;
@@ -649,7 +600,7 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
 - **C2** after U2: foundation for U3 and U4, and a permission change
 - **C3** after U3: foundation, and a migration
 - **C4** after U4: foundation for U5 and U6
-- **C5** after U5: personal data (consent)
+- ~~C5~~ after U5: dropped with U5 (D-137)
 - **C6** after U6: foundation for U7 and U11, and authorization
 - **C7** after U7: foundation for U8 and U13, authorization, and a new pattern (ASSIGNED scope)
 - **C8** after U8: foundation for U10, U12 and U14, and personal data
@@ -678,8 +629,8 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
 
 ## Progress
 - **Branch:** `feat/media-team`
-- **Updated:** 2026-10-26 18:10
-- **Next:** U5 the consent API: `services/beneficiary-consent.ts`, the routes in `routes/beneficiaries.ts`, the six media notice keys in `notifications/catalogue.ts`, `media-events.ts`, the integration test
+- **Updated:** 2026-10-26 19:00
+- **Next:** U6 the referral and decision API (U5 dropped with D-137); first strip the consent parts from the migration, the seed, the shared rules and the notices, and record that in a commit
 - **Uncommitted:** none
 - **Reviewed through:** C4 at 30e1be5 (C3: logic, security and standards reviewers on the migration, fixes in a487122, the whole database project 86 of 86 files with 910 passed and the 32 skipped by a lost worker passing alone; C4: logic and standards reviewers on the shared rules, fixes in 30e1be5)
-- **Notes:** the owner answered in chat on 2026-10-26: mockups first; consent withdrawal blocks new publications and warns on published ones; YouTube thumbnails with an icon card otherwise; five notices; the story written at referral; the media roles lose application access outside referrals; members see only their own works; stages move forward and back with the R10 rules. The owner approved the mockups on 2026-10-26 (C1). U2 also changed `apps/api/test/integration/files.test.ts`: without `application.view` the Media Team gets 404 on an application's files and their metadata, as D-136 (6) intends; the authorization matrix was regenerated. `pnpm docs:check` reads a rule's module list for its phase: a media rule names only M18, or it is counted as Phase 1. U3: the media lists are seeded after `consent_channel` (a platform's channel must exist first); the stage codes are accepted, planning, script, shooting_preparation, shooting_done, editing, internal_review, ready_to_publish, published, done, in_review (labelled "সংশোধনে ফেরত"), on_hold, cancelled; a work on hold keeps `held_stage_code`. `prisma migrate diff --from-config-datasource --to-schema` against a scratch database migrated with `prisma migrate deploy` gave an empty diff, and down.sql then the migration again both ran there. The `file_links.entity_type` check still allows `media_subject` and `media_story`; nothing writes them, and narrowing a check list is left for a later clean-up. C3 (logic, security, standards reviewers) added in the same, unshared migration: a work needs an accepted referral and an accepted referral with a work stays accepted (triggers); published or done needs the final review (check); comments and the history are append-only (`forbid_log_change`); a referral's beneficiary and project must be its application's own (deferred constraint trigger, since a merge moves both in one transaction); links at most 500 characters; a merge leaves a left-behind application's referral with it. The host of a link is still checked by the service (U4, U7), and adding a platform needs the service to pass `attributes` (U9). U4: `@css/shared/media` (rules, links, requests) and the JSONB schemas `media_works.script` and `reference_lists.attributes` with their JSON Schema files in `docs/database/json-schemas/` and conformance cases; a channel without known hosts (website) takes any https host. C4: `publishedHasLink` is exported for the services to check the stored row with a change applied; the unused exports (`REFERABLE_APPLICATION_STATES`, `SYSTEM_STAGES`, `isSystemStage`) are kept for U5 to U8.
+- **Notes:** the owner answered in chat on 2026-10-26: mockups first; consent withdrawal blocks new publications and warns on published ones; YouTube thumbnails with an icon card otherwise; five notices; the story written at referral; the media roles lose application access outside referrals; members see only their own works; stages move forward and back with the R10 rules. The owner approved the mockups on 2026-10-26 (C1). U2 also changed `apps/api/test/integration/files.test.ts`: without `application.view` the Media Team gets 404 on an application's files and their metadata, as D-136 (6) intends; the authorization matrix was regenerated. `pnpm docs:check` reads a rule's module list for its phase: a media rule names only M18, or it is counted as Phase 1. U3: the media lists are seeded after `consent_channel` (a platform's channel must exist first); the stage codes are accepted, planning, script, shooting_preparation, shooting_done, editing, internal_review, ready_to_publish, published, done, in_review (labelled "সংশোধনে ফেরত"), on_hold, cancelled; a work on hold keeps `held_stage_code`. `prisma migrate diff --from-config-datasource --to-schema` against a scratch database migrated with `prisma migrate deploy` gave an empty diff, and down.sql then the migration again both ran there. The `file_links.entity_type` check still allows `media_subject` and `media_story`; nothing writes them, and narrowing a check list is left for a later clean-up. C3 (logic, security, standards reviewers) added in the same, unshared migration: a work needs an accepted referral and an accepted referral with a work stays accepted (triggers); published or done needs the final review (check); comments and the history are append-only (`forbid_log_change`); a referral's beneficiary and project must be its application's own (deferred constraint trigger, since a merge moves both in one transaction); links at most 500 characters; a merge leaves a left-behind application's referral with it. The host of a link is still checked by the service (U4, U7), and adding a platform needs the service to pass `attributes` (U9). U4: `@css/shared/media` (rules, links, requests) and the JSONB schemas `media_works.script` and `reference_lists.attributes` with their JSON Schema files in `docs/database/json-schemas/` and conformance cases; a channel without known hosts (website) takes any https host. C4: `publishedHasLink` is exported for the services to check the stored row with a change applied; the unused exports (`REFERABLE_APPLICATION_STATES`, `SYSTEM_STAGES`, `isSystemStage`) are kept for U5 to U8. D-137 (owner, 2026-10-26, during U5): no beneficiary consent anywhere; U5 and R1 to R3 dropped, the consent answers above withdrawn; the migration lost the platform consent-channel trigger and `consent_withdrawn_at`, a platform's `attributes` now holds its `kind` (youtube, facebook, other) for the link check; the six notices became five; `media_consents`, the `consent_channel` list and the two consent permissions stay untouched and unused.

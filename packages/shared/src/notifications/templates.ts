@@ -689,6 +689,77 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
       },
     ),
   },
+  // ---- 4.7 Media Team (D-101): the work by its title and project, never the beneficiary ----
+  {
+    key: 'media_referral_new',
+    variables: ['project_name'],
+    channels: inApp(
+      {
+        title: 'নতুন মিডিয়া রেফারেল',
+        body: '"{{project_name}}" প্রকল্প থেকে একটি আবেদন মিডিয়া টিমে পাঠানো হয়েছে। খুলে দেখে সিদ্ধান্ত দিন।',
+      },
+      {
+        title: 'A new media referral',
+        body: 'An application of the project "{{project_name}}" was referred to the Media Team. Open it and decide.',
+      },
+    ),
+  },
+  {
+    key: 'media_referral_decided',
+    variables: ['project_name', 'result'],
+    channels: inApp(
+      {
+        title: 'মিডিয়া টিমের সিদ্ধান্ত',
+        body: '"{{project_name}}" প্রকল্পের যে আবেদন আপনি মিডিয়া টিমে পাঠিয়েছিলেন, তার সিদ্ধান্ত: {{result}}।',
+      },
+      {
+        title: "The Media Team's decision",
+        body: 'The application of the project "{{project_name}}" you referred to the Media Team: {{result}}.',
+      },
+    ),
+  },
+  {
+    key: 'media_member_added',
+    variables: ['work_title', 'project_name'],
+    channels: inApp(
+      {
+        title: 'নতুন মিডিয়া কাজে যুক্ত হয়েছেন',
+        body: '"{{project_name}}" প্রকল্পের "{{work_title}}" কাজে আপনাকে যুক্ত করা হয়েছে। আপনার ভূমিকা দেখে কাজ শুরু করুন।',
+      },
+      {
+        title: 'You were added to a media work',
+        body: 'You were added to the work "{{work_title}}" of the project "{{project_name}}". See your role and start.',
+      },
+    ),
+  },
+  {
+    key: 'media_review_waiting',
+    variables: ['work_title', 'project_name'],
+    channels: inApp(
+      {
+        title: 'চূড়ান্ত পর্যালোচনার অপেক্ষায়',
+        body: '"{{project_name}}" প্রকল্পের "{{work_title}}" কাজটি প্রকাশের জন্য প্রস্তুত। চূড়ান্ত পর্যালোচনা দিন।',
+      },
+      {
+        title: 'Waiting for the final review',
+        body: 'The work "{{work_title}}" of the project "{{project_name}}" is ready to publish. Give the final review.',
+      },
+    ),
+  },
+  {
+    key: 'media_published',
+    variables: ['work_title', 'project_name'],
+    channels: inApp(
+      {
+        title: 'মিডিয়া কাজ প্রকাশিত হয়েছে',
+        body: '"{{project_name}}" প্রকল্প থেকে আপনার পাঠানো আবেদনের মিডিয়া কাজ "{{work_title}}" প্রকাশিত হয়েছে।',
+      },
+      {
+        title: 'A media work was published',
+        body: 'The media work "{{work_title}}" of the application you referred from the project "{{project_name}}" was published.',
+      },
+    ),
+  },
 ];
 
 /** Variables that name a person; an in-app text never uses them (only emails to officials may). */
@@ -731,6 +802,7 @@ export const TEMPLATE_SAMPLES: Record<string, string | number | { bn: string; en
   message: 'এবার সম্ভব হলো না',
   result: { bn: 'সম্মতি দিয়েছেন', en: 'accepted' },
   new_date: '31-12-2026',
+  work_title: 'সেলাই মেশিনে ঘুরে দাঁড়ানো',
 };
 
 /** A {{name}} placeholder; the renderer and the editor's check read the same pattern. */
@@ -762,6 +834,8 @@ export const IN_APP_PARAMS: readonly string[] = [
   'userId',
   'projectId',
   'applicationId',
+  'work_title',
+  'referralId',
 ];
 
 export function inAppParams<T>(params: Record<string, T>): Record<string, T> {

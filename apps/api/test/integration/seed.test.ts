@@ -170,7 +170,7 @@ describe('base set', () => {
       payment_method: 4,
       relationship: 17,
     });
-    // the media stages the rules need are system entries; each platform names its consent channel
+    // the media stages the rules need are system entries; each platform names its kind
     const media = (
       await db.query<{
         list_key: string;
@@ -178,16 +178,16 @@ describe('base set', () => {
         is_system: boolean;
         channel: string | null;
       }>(
-        `SELECT list_key, code, is_system, attributes ->> 'consent_channel' AS channel FROM reference_lists
+        `SELECT list_key, code, is_system, attributes ->> 'kind' AS channel FROM reference_lists
           WHERE list_key IN ('media_stage', 'media_platform') AND (is_system OR list_key = 'media_platform')
           ORDER BY list_key, code`,
       )
     ).rows;
     expect(media.map((m) => [m.list_key, m.code, m.is_system, m.channel])).toEqual([
       ['media_platform', 'ahmadullah_facebook', false, 'facebook'],
-      ['media_platform', 'ahmadullah_youtube', false, 'video'],
+      ['media_platform', 'ahmadullah_youtube', false, 'youtube'],
       ['media_platform', 'asf_facebook', false, 'facebook'],
-      ['media_platform', 'asf_youtube', false, 'video'],
+      ['media_platform', 'asf_youtube', false, 'youtube'],
       ['media_stage', 'accepted', true, null],
       ['media_stage', 'cancelled', true, null],
       ['media_stage', 'done', true, null],

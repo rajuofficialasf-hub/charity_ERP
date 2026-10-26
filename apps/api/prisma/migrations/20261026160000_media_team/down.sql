@@ -20,8 +20,6 @@ DROP FUNCTION check_media_work_referral();
 DROP FUNCTION keep_media_referral_accepted();
 DROP FUNCTION check_media_referral_application();
 
-DROP TRIGGER reference_lists_media_platform ON "reference_lists";
-DROP FUNCTION check_media_platform_channel();
 DROP TRIGGER reference_lists_keep_system ON "reference_lists";
 DROP FUNCTION keep_system_list_entries();
 DELETE FROM "reference_lists" WHERE "list_key" IN ('media_stage', 'media_role', 'media_platform');

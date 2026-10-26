@@ -94,3 +94,5 @@ Approved by the owner on 2026-10-10 (DECISION_LOG O-41). Items 1 and 3 above wer
 ## The Media Team screens (T2.8b, 2026-10-26)
 
 `15-media-home.html` (SCR-019) and `16-media-work.html` (SCR-108) show the Media Team module of D-101 for the owner's approval before any code. The bar at the top of each switches the viewer (the director or a member, who sees only their own works) and, on the work page, the state (a new referral waiting for the decision, or a running work); `16-media-work.html#new` opens on the decision. The work page also holds the parts that sit on other screens: the referral dialog of the application page and the consent dialog of the beneficiary profile. The YouTube thumbnails are coloured boxes here; the app shows YouTube's own image. `mockup.js` gains the `media` shell. Checked at 375 and 1280 px: no horizontal scroll, every icon present, no Bengali digits, no console error.
+
+After the approval the owner withdrew every beneficiary consent (DECISION_LOG D-137, 2026-10-26): the consent dialog, the consent line of the publications and the take-down warning in `16-media-work.html` are not built.

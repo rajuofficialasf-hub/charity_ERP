@@ -1313,11 +1313,11 @@ describe('the media referrals and works', () => {
     );
     return id;
   }
-  async function platform(code: string, channel: string | null) {
+  async function platform(code: string) {
     await db.query(
       `INSERT INTO reference_lists (id, list_key, code, label_bn, label_en, attributes)
-       VALUES ($1, 'media_platform', $2, $2, $2, $3::jsonb) ON CONFLICT (list_key, code) DO NOTHING`,
-      [randomUUID(), code, JSON.stringify(channel ? { consent_channel: channel } : {})],
+       VALUES ($1, 'media_platform', $2, $2, $2, '{"kind": "youtube"}'::jsonb) ON CONFLICT (list_key, code) DO NOTHING`,
+      [randomUUID(), code],
     );
   }
 
@@ -1416,8 +1416,7 @@ describe('the media referrals and works', () => {
       db.query(`UPDATE media_work_members SET roles = ARRAY['juggler'] WHERE id = $1`, [memberRow]),
       SQLSTATE.foreignKeyViolation,
     );
-    await f.referenceCode(db, 'consent_channel', 'video');
-    await platform('test_youtube', 'video');
+    await platform('test_youtube');
     // a published post has its https link and its date
     await expectSqlError(
       db.query(
@@ -1458,17 +1457,7 @@ describe('the media referrals and works', () => {
     await expect(db.query(`DELETE FROM media_comments WHERE id = $1`, [comment])).rejects.toThrow();
   });
 
-  it('gives a platform a known consent channel, and keeps a system entry active and named', async () => {
-    await expectSqlError(platform('test_nowhere', 'smoke_signal'), SQLSTATE.foreignKeyViolation);
-    await expectSqlError(platform('test_none', null), SQLSTATE.foreignKeyViolation);
-    await f.referenceCode(db, 'consent_channel', 'facebook');
-    await platform('test_facebook', 'facebook');
-    await expectSqlError(
-      db.query(
-        `UPDATE reference_lists SET attributes = '{"consent_channel": "smoke_signal"}' WHERE list_key = 'media_platform' AND code = 'test_facebook'`,
-      ),
-      SQLSTATE.foreignKeyViolation,
-    );
+  it('keeps a system entry active and named', async () => {
     const id = randomUUID();
     await db.query(
       `INSERT INTO reference_lists (id, list_key, code, label_bn, label_en, is_system) VALUES ($1, 'media_stage', 'test_system', 'ক', 'A', true)`,

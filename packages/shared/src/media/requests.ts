@@ -9,7 +9,7 @@ import {
 } from './rules.js';
 import { LINK_MAX } from './links.js';
 
-/** A code of a reference list (a stage, a production role, a platform, a consent channel). */
+/** A code of a reference list (a stage, a production role, a platform). */
 const listCode = z.string().regex(LIST_CODE);
 const text = (max: number) => z.string().trim().min(1).max(max);
 const day = z.iso.date();
@@ -18,14 +18,6 @@ const day = z.iso.date();
 const commentUnless = (agree: string) => (d: { decision: string; comment?: string }) =>
   d.decision === agree || d.comment !== undefined;
 const commentRequired = { path: ['comment'], message: 'required' };
-
-/** The media consent recorded on a beneficiary's profile; every change is a new record. */
-export const consentRecordSchema = z.strictObject({
-  granted: z.boolean(),
-  channels: z.array(listCode).max(20),
-  evidenceFileId: z.uuid().optional(),
-});
-export type ConsentRecord = z.infer<typeof consentRecordSchema>;
 
 /** A referral of an approved application, or the same referral sent again after a correction. */
 export const referralCreateSchema = z.strictObject({

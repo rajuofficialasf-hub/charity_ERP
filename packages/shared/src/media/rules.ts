@@ -99,20 +99,3 @@ export const clearsReview = (to: string) => !['ready_to_publish', 'published', '
  */
 export const mayPublish = (stage: string, reviewed: boolean) =>
   reviewed && (stage === 'ready_to_publish' || stage === 'published');
-
-/** The media consent as the rules read it: the current row, or none recorded. */
-export interface ConsentView {
-  granted: boolean;
-  channels: readonly string[];
-}
-
-/** Whether the consent allows publishing on a channel. */
-export const consentAllows = (consent: ConsentView | null, channel: string) =>
-  consent !== null && consent.granted && consent.channels.includes(channel);
-
-/** The channels a new consent takes away from the one before it (all of them when withdrawn). */
-export function withdrawnChannels(before: ConsentView | null, after: ConsentView): string[] {
-  if (!before?.granted) return [];
-  if (!after.granted) return [...before.channels];
-  return before.channels.filter((c) => !after.channels.includes(c));
-}

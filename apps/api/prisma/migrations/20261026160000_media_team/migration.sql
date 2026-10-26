@@ -4,7 +4,7 @@
 -- them as the init migration made them.
 
 -- ---------------------------------------------------------------------------------------------
--- reference lists: system entries the rules need, and attributes (a platform's consent channel)
+-- reference lists: system entries the rules need, and attributes (a platform's kind)
 -- ---------------------------------------------------------------------------------------------
 ALTER TABLE "reference_lists" ADD COLUMN "is_system" BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE "reference_lists" ADD COLUMN "attributes" JSONB NOT NULL DEFAULT '{}';
@@ -24,19 +24,6 @@ BEGIN
   RETURN NEW;
 END $$;
 CREATE TRIGGER reference_lists_keep_system BEFORE UPDATE OR DELETE ON "reference_lists" FOR EACH ROW EXECUTE FUNCTION keep_system_list_entries();
-
--- a publication platform names the consent channel it publishes on
-CREATE FUNCTION check_media_platform_channel() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-  IF NEW.list_key = 'media_platform' AND NOT EXISTS (
-    SELECT 1 FROM reference_lists r
-     WHERE r.list_key = 'consent_channel' AND r.code = NEW.attributes ->> 'consent_channel'
-  ) THEN
-    RAISE EXCEPTION 'unknown_consent_channel: %', coalesce(NEW.attributes ->> 'consent_channel', '-') USING ERRCODE = '23503';
-  END IF;
-  RETURN NEW;
-END $$;
-CREATE TRIGGER reference_lists_media_platform BEFORE INSERT OR UPDATE OF list_key, attributes ON "reference_lists" FOR EACH ROW EXECUTE FUNCTION check_media_platform_channel();
 
 -- ---------------------------------------------------------------------------------------------
 -- the early media tables, never used
@@ -218,7 +205,6 @@ CREATE TABLE "media_publications" (
     "published_on" DATE,
     "link" TEXT,
     "note" TEXT,
-    "consent_withdrawn_at" TIMESTAMPTZ(6),
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "created_by" UUID,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,

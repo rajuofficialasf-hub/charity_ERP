@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   clearsReview,
-  consentAllows,
   decisionState,
   isSystemStage,
   mayDecide,
@@ -10,7 +9,6 @@ import {
   mayResend,
   mayReview,
   nextStages,
-  withdrawnChannels,
 } from './rules';
 
 const ORDINARY = [
@@ -109,28 +107,5 @@ describe('the stages of a work', () => {
     expect(mayPublish('ready_to_publish', true)).toBe(true);
     expect(mayPublish('published', true)).toBe(true);
     expect(mayPublish('editing', true)).toBe(false);
-  });
-});
-
-describe('the media consent', () => {
-  const given = { granted: true, channels: ['facebook', 'video'] };
-
-  it('allows a channel only while consent is given for it', () => {
-    expect(consentAllows(given, 'video')).toBe(true);
-    expect(consentAllows(given, 'print')).toBe(false);
-    expect(consentAllows(null, 'video')).toBe(false);
-    expect(consentAllows({ granted: false, channels: ['video'] }, 'video')).toBe(false);
-  });
-
-  it('names the channels a change withdraws, all of them when consent is taken back', () => {
-    expect(withdrawnChannels(given, { granted: true, channels: ['facebook'] })).toEqual(['video']);
-    expect(withdrawnChannels(given, { granted: false, channels: [] })).toEqual([
-      'facebook',
-      'video',
-    ]);
-    expect(withdrawnChannels(null, { granted: true, channels: [] })).toEqual([]);
-    expect(
-      withdrawnChannels(given, { granted: true, channels: ['facebook', 'video', 'print'] }),
-    ).toEqual([]);
   });
 });

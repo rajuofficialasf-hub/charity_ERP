@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-/** A code of a reference list: a stage, a production role, a platform, a consent channel. */
+/** A code of a reference list: a stage, a production role, a platform. */
 export const LIST_CODE = /^[a-z][a-z0-9_]{0,49}$/;
 
 /**
@@ -23,9 +23,12 @@ export type MediaScript = z.infer<typeof mediaScriptSchema>;
 
 /**
  * `reference_lists.attributes` (docs/database/json-schemas/reference-list-attributes.schema.json):
- * per list, what an entry carries beyond its labels; a media platform names its consent channel.
+ * per list, what an entry carries beyond its labels; a media platform names its kind, which decides
+ * the host its links must have.
  */
+export const PLATFORM_KINDS = ['youtube', 'facebook', 'other'] as const;
+export type PlatformKind = (typeof PLATFORM_KINDS)[number];
 export const referenceListAttributesSchema = z.strictObject({
-  consent_channel: z.string().regex(LIST_CODE).optional(),
+  kind: z.enum(PLATFORM_KINDS).optional(),
 });
 export type ReferenceListAttributes = z.infer<typeof referenceListAttributesSchema>;

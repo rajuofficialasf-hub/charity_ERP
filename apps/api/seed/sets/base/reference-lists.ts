@@ -119,31 +119,31 @@ export const REFERENCE_LISTS: Record<string, Entry[]> = {
     ['video_editor', 'ভিডিও সম্পাদনা', 'Video Editor'],
     ['production_assistant', 'প্রোডাকশন সহকারী', 'Production Assistant'],
   ],
-  // each platform publishes on one consent channel
+  // a platform's kind decides the host its links must have
   media_platform: [
     [
       'asf_facebook',
       'As-Sunnah Foundation Facebook',
       'As-Sunnah Foundation Facebook',
-      { attributes: { consent_channel: 'facebook' } },
+      { attributes: { kind: 'facebook' } },
     ],
     [
       'ahmadullah_facebook',
       'আহমাদুল্লাহ Facebook',
       'Ahmadullah Facebook',
-      { attributes: { consent_channel: 'facebook' } },
+      { attributes: { kind: 'facebook' } },
     ],
     [
       'asf_youtube',
       'As-Sunnah Foundation YouTube',
       'As-Sunnah Foundation YouTube',
-      { attributes: { consent_channel: 'video' } },
+      { attributes: { kind: 'youtube' } },
     ],
     [
       'ahmadullah_youtube',
       'আহমাদুল্লাহ YouTube',
       'Ahmadullah YouTube',
-      { attributes: { consent_channel: 'video' } },
+      { attributes: { kind: 'youtube' } },
     ],
   ],
 };

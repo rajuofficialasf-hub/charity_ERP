@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   commentSchema,
-  consentRecordSchema,
   membersSchema,
   publicationCreateSchema,
   publicationUpdateSchema,
@@ -97,14 +96,5 @@ describe('the media request bodies', () => {
     expect(commentSchema.safeParse({ body: 'শুটিং 2 নভেম্বর' }).success).toBe(true);
     expect(commentSchema.safeParse({ body: ' ' }).success).toBe(false);
     expect(commentSchema.safeParse({ body: 'ক'.repeat(4001) }).success).toBe(false);
-  });
-
-  it('take consent with its channels', () => {
-    expect(consentRecordSchema.safeParse({ granted: true, channels: ['video'] }).success).toBe(
-      true,
-    );
-    expect(consentRecordSchema.safeParse({ granted: true, channels: ['Video!'] }).success).toBe(
-      false,
-    );
   });
 });

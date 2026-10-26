@@ -198,7 +198,7 @@ Cardinality notation below: `1 — n` one to many, `1 — 0..1` optional one, `n
 | media_referrals | id; application_id (unique); beneficiary_id; project_id; referred_by; priority; note; story; state; decided_by/at; decision_comment | applications 1 — 0..1; beneficiaries 1 — n; 1 — 0..1 media_works; 1 — n media_events | D-101; D-136; BR-264, BR-283 |
 | media_works | id; referral_id (unique); title; stage (list media_stage); held_stage_code; content_type; script (JSONB); script_state; review_approved_by/at | 1 — n media_work_members, media_publications, media_comments, media_events | D-101; D-136; BR-266 to BR-268 |
 | media_work_members | id; work_id; user_id; roles (codes of media_role) | media_works 1 — n; users 1 — n | D-101 (2), (8) |
-| media_publications | id; work_id; platform (list media_platform); state; published_on; link; note; consent_withdrawn_at | media_works 1 — n | D-101 (7); BR-267, BR-282, BR-285 |
+| media_publications | id; work_id; platform (list media_platform, its kind in attributes); state; published_on; link; note | media_works 1 — n | D-101 (7); D-137; BR-267, BR-285 |
 | media_comments | id; work_id; author_id; body | media_works 1 — n; append-only | D-101 (8) |
 | media_events | id; referral_id; work_id; kind; from/to; comment; actor_id | media_referrals 1 — n; append-only | D-101 (8); D-136 |
 

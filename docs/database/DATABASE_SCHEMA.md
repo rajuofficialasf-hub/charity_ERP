@@ -1535,7 +1535,6 @@ Constraints: a pending referral has no decider; a decided one has its decider an
 | published_on | date | yes | — | required unless waiting |
 | link | text | yes | — | https only; required unless waiting (BR-285) |
 | note | text | yes | — | — |
-| consent_withdrawn_at | timestamptz | yes | — | the take-down warning (BR-282) |
 | [A] | | | | |
 
 ### media_comments

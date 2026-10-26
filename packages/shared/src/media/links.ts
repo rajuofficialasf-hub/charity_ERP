@@ -4,10 +4,10 @@
  * YouTube link gives its video id, from which alone the thumbnail address is built.
  */
 
-/** The hosts a platform's consent channel publishes on; a channel not listed takes any host. */
+/** The hosts of a platform kind; a kind not listed (other) takes any https host. */
 const HOSTS = new Map<string, readonly string[]>([
   ['facebook', ['facebook.com', 'fb.watch', 'fb.com']],
-  ['video', ['youtube.com', 'youtu.be']],
+  ['youtube', ['youtube.com', 'youtu.be']],
 ]);
 
 export const LINK_MAX = 500;
@@ -18,8 +18,8 @@ const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
 const onHost = (hostname: string, host: string) =>
   hostname === host || hostname.endsWith(`.${host}`);
 
-/** Why a link is refused, or null when it may be stored for a platform of this channel. */
-export function linkProblem(link: string, channel: string): 'link_invalid' | 'link_host' | null {
+/** Why a link is refused, or null when it may be stored for a platform of this kind. */
+export function linkProblem(link: string, kind: string): 'link_invalid' | 'link_host' | null {
   if (link.length > LINK_MAX) return 'link_invalid';
   let url: URL;
   try {
@@ -28,7 +28,7 @@ export function linkProblem(link: string, channel: string): 'link_invalid' | 'li
     return 'link_invalid';
   }
   if (url.protocol !== 'https:' || url.username || url.password || url.port) return 'link_invalid';
-  const hosts = HOSTS.get(channel);
+  const hosts = HOSTS.get(kind);
   if (hosts && !hosts.some((h) => onHost(url.hostname.toLowerCase(), h))) return 'link_host';
   return null;
 }

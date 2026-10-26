@@ -106,7 +106,7 @@ Channels: **A** in-app · **E** email · **S** SMS · **P** optional Web Push (i
 
 ### 4.7 Media Team (T2.8b, D-101, D-136)
 
-In the app only; a notice names the work, the program and the project, never the beneficiary's name or contacts (BR-286).
+In the app only; a notice names the work, the program and the project, never the beneficiary's name or contacts (BR-286). No consent notice: D-137 withdrew the media consent.
 
 | Event | Recipients | Channels | Template key | Phase |
 |---|---|---|---|---|
@@ -115,7 +115,6 @@ In the app only; a notice names the work, the program and the project, never the
 | Added to a media work | the member | A | `media_member_added` | 2 |
 | A work waits for the final review | media director | A | `media_review_waiting` | 2 |
 | A work is published | the referrer | A | `media_published` | 2 |
-| Consent withdrawn on a published work | media director | A | `media_consent_withdrawn` | 2 |
 
 ### 4.4 Field activities, money and stock (Phases 3–4)
 
