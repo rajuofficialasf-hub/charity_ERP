@@ -17,6 +17,8 @@ import {
   followupAnswersSchema,
   handoverScopeSchema,
   jsonbSchemas,
+  mediaScriptSchema,
+  referenceListAttributesSchema,
   ratingScoresSchema,
   scoreCriteriaSchema,
   userPreferencesSchema,
@@ -139,6 +141,24 @@ conform('followup-answers', '', followupAnswersSchema, [
   ],
   ['bad key', { 'Bad Key': true }, false],
   ['object value', { profit: { amount: 1 } }, false],
+]);
+
+conform('media-work-script', '', mediaScriptSchema, [
+  [
+    'the parts',
+    { summary: 'একজন মায়ের গল্প', questions: 'কীভাবে শুরু করলেন?', voiceOver: '' },
+    true,
+  ],
+  ['empty', {}, true],
+  ['unknown part', { title: 'x' }, false],
+  ['not text', { scenes: ['one'] }, false],
+]);
+
+conform('reference-list-attributes', '', referenceListAttributesSchema, [
+  ['a platform', { consent_channel: 'facebook' }, true],
+  ['none', {}, true],
+  ['a bad code', { consent_channel: 'Face Book' }, false],
+  ['unknown key', { colour: 'green' }, false],
 ]);
 
 conform('handover-scope', '', handoverScopeSchema, [
@@ -434,6 +454,8 @@ it('jsonbSchemas covers every JSONB column of DATABASE_SCHEMA section 20 that ha
       'projects.workflow_snapshot',
       'volunteer_ratings.proposed_scores',
       'volunteer_ratings.final_scores',
+      'media_works.script',
+      'reference_lists.attributes',
     ]),
   );
 });

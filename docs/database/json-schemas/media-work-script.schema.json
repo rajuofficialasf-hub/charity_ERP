@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://css-erp.assunnahfoundation.org/schemas/media-work-script.json",
+  "title": "media_works.script",
+  "description": "The optional parts of a media work's script, each free text (D-101 (6), T2.8b).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "summary": {
+      "type": "string",
+      "maxLength": 20000
+    },
+    "questions": {
+      "type": "string",
+      "maxLength": 20000
+    },
+    "scenes": {
+      "type": "string",
+      "maxLength": 20000
+    },
+    "voiceOver": {
+      "type": "string",
+      "maxLength": 20000
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 20000
+    }
+  }
+}

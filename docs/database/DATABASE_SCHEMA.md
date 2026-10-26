@@ -1832,6 +1832,8 @@ Machine-readable schemas live in `docs/database/json-schemas/` (JSON Schema 2020
 | distributions.items | `distribution-items.schema.json` |
 | volunteer_ratings.proposed_scores, final_scores | `rating-scores.schema.json` |
 | followup_evaluations.answers | `followup-answers.schema.json` |
+| media_works.script | `media-work-script.schema.json` |
+| reference_lists.attributes | `reference-list-attributes.schema.json` |
 | projects.rules, project_templates.definition, profile_merges.snapshot, document_templates.rows, settings.value, notifications.params, outbound_messages.params, sync_batches.results, alerts.details, export_jobs.filters, upload_sessions.declared, field_changes values, audit_log old/new | defined as zod schemas in T1.2/T2.x next to their modules (small, module-internal shapes); audit_log old/new are free-form snapshots |
 
 ## 21. Soft delete policy
