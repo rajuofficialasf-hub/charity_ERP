@@ -39,6 +39,7 @@ describe('a YouTube video id', () => {
       'https://m.youtube.com/watch?v=dQw4w9WgXcQ',
       'https://youtube.com/shorts/dQw4w9WgXcQ',
       'https://www.youtube.com/embed/dQw4w9WgXcQ',
+      'https://www.youtube.com/live/dQw4w9WgXcQ',
     ])
       expect(youtubeId(link), link).toBe('dQw4w9WgXcQ');
   });

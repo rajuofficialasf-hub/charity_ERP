@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { mediaScriptSchema } from '../jsonb/media.js';
+import { LIST_CODE, mediaScriptSchema } from '../jsonb/media.js';
 import {
   CONTENT_TYPES,
   MEDIA_PRIORITIES,
@@ -10,9 +10,14 @@ import {
 import { LINK_MAX } from './links.js';
 
 /** A code of a reference list (a stage, a production role, a platform, a consent channel). */
-const listCode = z.string().regex(/^[a-z][a-z0-9_]{0,49}$/);
+const listCode = z.string().regex(LIST_CODE);
 const text = (max: number) => z.string().trim().min(1).max(max);
 const day = z.iso.date();
+
+/** Every decision but the agreeing one carries its comment or reason. */
+const commentUnless = (agree: string) => (d: { decision: string; comment?: string }) =>
+  d.decision === agree || d.comment !== undefined;
+const commentRequired = { path: ['comment'], message: 'required' };
 
 /** The media consent recorded on a beneficiary's profile; every change is a new record. */
 export const consentRecordSchema = z.strictObject({
@@ -36,10 +41,7 @@ export const referralDecisionSchema = z
     decision: z.enum(REFERRAL_DECISIONS),
     comment: text(2000).optional(),
   })
-  .refine((d) => d.decision === 'accept' || d.comment !== undefined, {
-    path: ['comment'],
-    message: 'required',
-  });
+  .refine(commentUnless('accept'), commentRequired);
 export type ReferralDecisionBody = z.infer<typeof referralDecisionSchema>;
 
 /** A change to a work: its title, stage, content type or script. */
@@ -74,21 +76,34 @@ const publicationFields = {
   link: z.string().trim().min(1).max(LINK_MAX).optional(),
   note: text(2000).optional(),
 };
-/** A published post needs its link and its date. */
-const publishedHasLink = (p: { state?: string; link?: string; publishedOn?: string }) =>
-  p.state !== 'published' || (p.link !== undefined && p.publishedOn !== undefined);
+/**
+ * A published post needs its link and its date. A change is checked on the stored row with the
+ * change applied, so a waiting post cannot become published without them.
+ */
+export const publishedHasLink = (p: {
+  state?: string;
+  link?: string | null;
+  publishedOn?: string | null;
+}) =>
+  p.state !== 'published' ||
+  (p.link !== undefined &&
+    p.link !== null &&
+    p.publishedOn !== undefined &&
+    p.publishedOn !== null);
 
 export const publicationCreateSchema = z
   .strictObject({ platformCode: listCode, ...publicationFields })
   .refine(publishedHasLink, { path: ['link'], message: 'required' });
 export type PublicationCreate = z.infer<typeof publicationCreateSchema>;
 
-export const publicationUpdateSchema = z.strictObject({
-  state: publicationFields.state.optional(),
-  publishedOn: publicationFields.publishedOn,
-  link: publicationFields.link,
-  note: publicationFields.note,
-});
+export const publicationUpdateSchema = z
+  .strictObject({
+    state: publicationFields.state.optional(),
+    publishedOn: publicationFields.publishedOn,
+    link: publicationFields.link,
+    note: publicationFields.note,
+  })
+  .refine((p) => Object.keys(p).length > 0, { message: 'empty' });
 export type PublicationUpdate = z.infer<typeof publicationUpdateSchema>;
 
 /** The final review: approve, or send the work back with a comment. */
@@ -97,10 +112,7 @@ export const reviewSchema = z
     decision: z.enum(['approve', 'send_back']),
     comment: text(2000).optional(),
   })
-  .refine((r) => r.decision === 'approve' || r.comment !== undefined, {
-    path: ['comment'],
-    message: 'required',
-  });
+  .refine(commentUnless('approve'), commentRequired);
 export type ReviewBody = z.infer<typeof reviewSchema>;
 
 export const commentSchema = z.strictObject({ body: text(4000) });

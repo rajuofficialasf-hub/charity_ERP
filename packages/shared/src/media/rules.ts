@@ -72,7 +72,10 @@ export function nextStages(
 ): string[] {
   if (FINAL.includes(current) || current === 'on_hold') return director ? ['cancelled'] : [];
   if (current === 'published') return director ? ['done', 'cancelled'] : [];
-  const team = [...ordinary, 'ready_to_publish'].filter((s) => s !== current);
+  // a work sent back goes to an ordinary stage first, never straight back to the review
+  const team = [...ordinary, ...(current === 'in_review' ? [] : ['ready_to_publish'])].filter(
+    (s) => s !== current,
+  );
   return director ? [...team, 'on_hold', 'cancelled'] : team;
 }
 

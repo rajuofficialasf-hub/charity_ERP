@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://css-erp.assunnahfoundation.org/schemas/reference-list-attributes.json",
   "title": "reference_lists.attributes",
-  "description": "What a reference-list entry carries beyond its labels: a media platform names the consent channel it publishes on (D-101 (7), T2.8b).",
+  "description": "What a reference-list entry carries beyond its labels: a media platform names the consent channel it publishes on.",
   "type": "object",
   "additionalProperties": false,
   "properties": {

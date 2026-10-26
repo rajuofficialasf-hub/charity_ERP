@@ -3,6 +3,7 @@ import {
   clearsReview,
   consentAllows,
   decisionState,
+  isSystemStage,
   mayDecide,
   mayMoveStage,
   mayPublish,
@@ -53,6 +54,8 @@ describe('the stages of a work', () => {
     // from the first stage and back from a send-back or ready to publish
     expect(mayMoveStage('accepted', 'planning', ORDINARY, false)).toBe(true);
     expect(mayMoveStage('in_review', 'editing', ORDINARY, false)).toBe(true);
+    // a work sent back is reworked before it is ready again
+    expect(mayMoveStage('in_review', 'ready_to_publish', ORDINARY, false)).toBe(false);
     expect(mayMoveStage('ready_to_publish', 'editing', ORDINARY, false)).toBe(true);
   });
 
@@ -76,6 +79,20 @@ describe('the stages of a work', () => {
     expect(nextStages('cancelled', ORDINARY, false)).toEqual([]);
     expect(nextStages('on_hold', ORDINARY, false)).toEqual([]);
     expect(nextStages('on_hold', ORDINARY, true)).toEqual(['cancelled']);
+  });
+
+  it('tells the stages the rules need from the ordinary ones', () => {
+    for (const s of [
+      'accepted',
+      'ready_to_publish',
+      'published',
+      'done',
+      'in_review',
+      'on_hold',
+      'cancelled',
+    ])
+      expect(isSystemStage(s), s).toBe(true);
+    expect(isSystemStage('editing')).toBe(false);
   });
 
   it('reviews only a work ready to publish, and a move back to the team withdraws the approval', () => {

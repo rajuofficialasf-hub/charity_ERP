@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  commentSchema,
   consentRecordSchema,
   membersSchema,
   publicationCreateSchema,
+  publicationUpdateSchema,
+  publishedHasLink,
   referralCreateSchema,
   referralDecisionSchema,
   reviewSchema,
@@ -73,6 +76,27 @@ describe('the media request bodies', () => {
         publishedOn: '2026-10-26',
       }).success,
     ).toBe(true);
+  });
+
+  it('refuse an empty change to a publication, and check a change on the stored row', () => {
+    expect(publicationUpdateSchema.safeParse({}).success).toBe(false);
+    expect(publicationUpdateSchema.safeParse({ state: 'published' }).success).toBe(true);
+    const stored = { state: 'waiting', link: null, publishedOn: null };
+    expect(publishedHasLink({ ...stored, state: 'published' })).toBe(false);
+    expect(
+      publishedHasLink({
+        ...stored,
+        state: 'published',
+        link: 'https://youtu.be/dQw4w9WgXcQ',
+        publishedOn: '2026-10-26',
+      }),
+    ).toBe(true);
+  });
+
+  it('take a comment of at most 4000 characters', () => {
+    expect(commentSchema.safeParse({ body: 'শুটিং 2 নভেম্বর' }).success).toBe(true);
+    expect(commentSchema.safeParse({ body: ' ' }).success).toBe(false);
+    expect(commentSchema.safeParse({ body: 'ক'.repeat(4001) }).success).toBe(false);
   });
 
   it('take consent with its channels', () => {

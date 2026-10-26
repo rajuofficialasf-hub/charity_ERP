@@ -152,6 +152,9 @@ conform('media-work-script', '', mediaScriptSchema, [
   ['empty', {}, true],
   ['unknown part', { title: 'x' }, false],
   ['not text', { scenes: ['one'] }, false],
+  // characters, not UTF-16 units: 15,000 emoji are within the limit, 20,001 letters are not
+  ['emoji within the limit', { summary: '\u{1F3A5}'.repeat(15000) }, true],
+  ['too long', { notes: 'a'.repeat(20001) }, false],
 ]);
 
 conform('reference-list-attributes', '', referenceListAttributesSchema, [

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://css-erp.assunnahfoundation.org/schemas/media-work-script.json",
   "title": "media_works.script",
-  "description": "The optional parts of a media work's script, each free text (D-101 (6), T2.8b).",
+  "description": "The optional parts of a media work's script, each free text.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
