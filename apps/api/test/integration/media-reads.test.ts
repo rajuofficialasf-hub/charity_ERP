@@ -68,7 +68,17 @@ describe('the home’s counts', () => {
     expect(res.body.data.programs).toEqual([
       expect.objectContaining({
         program: expect.objectContaining({ id: m.world.a1.program }),
-        counts: res.body.data.overall,
+        counts: {
+          referrals: 3,
+          new: 1,
+          inReview: 0,
+          inProgress: 1,
+          waitingForShooting: 0,
+          inEditing: 0,
+          published: 1,
+          done: 0,
+          rejected: 0,
+        },
       }),
     ]);
   });
@@ -119,6 +129,7 @@ describe('the works list', () => {
       published.referralId,
     ]);
     expect((await get(m.media.director, '/media-works?priority=urgent')).status).toBe(422);
+    expect((await get(m.media.director, '/media-works?state=lost')).status).toBe(422);
   });
 
   it('holds only a member’s own works, and the referrer’s region for an RPM', async () => {
@@ -137,6 +148,10 @@ describe('a member’s profile', () => {
   it('shows the contact, the counts and the published works with the member’s roles', async () => {
     const res = await get(m.world.users.pm, `/media/members/${second}`);
     expect(res.status, JSON.stringify(res.body)).toBe(200);
+    // the contact is for the team; a referrer sees the portfolio only
+    expect(res.body.data).toMatchObject({ mobile: null, email: null });
+    const team = await get(m.media.director, `/media/members/${second}`);
+    expect(team.body.data.mobile).toEqual(expect.any(String));
     expect(res.body.data).toMatchObject({
       id: second,
       roles: ['media_team'],
@@ -198,10 +213,35 @@ describe('the person’s profile', () => {
 });
 
 describe('needs your attention', () => {
-  it('counts the referrals to decide for the directors, and a member’s works on hold', async () => {
+  it('counts the referrals to decide, the reviews waiting and the works sent back, each for whoever acts', async () => {
     expect((await attention(m.media.director)).media_referrals_new).toBe(1);
     expect((await attention(m.media.assistant)).media_referrals_new).toBe(1);
     expect((await attention(m.media.member)).media_referrals_new).toBeUndefined();
+    const director = await as(m.media.director);
+    const version = async () =>
+      (await m.at(director, 'get', `/media-referrals/${memberWork.referralId}`)).body.data.work
+        .version as string;
+    const move = async (stageCode: string) => {
+      const res = await m
+        .at(director, 'patch', `/media-works/${memberWork.workId}`)
+        .set('If-Match', await version())
+        .send({ stageCode });
+      expect(res.status, stageCode).toBe(200);
+    };
+    await move('ready_to_publish');
+    expect((await attention(m.media.director)).media_review_waiting).toBe(1);
+    expect((await attention(m.media.assistant)).media_review_waiting).toBeUndefined();
+    const back = await m
+      .at(director, 'post', `/media-works/${memberWork.workId}/final-review`)
+      .set('If-Match', await version())
+      .send({ decision: 'send_back', comment: 'আবার দেখুন' });
+    expect(back.status).toBe(200);
+    expect((await attention(m.media.member)).media_sent_back).toBe(1);
+    expect((await attention(second)).media_sent_back).toBeUndefined();
+    expect((await attention(m.world.users.rpmDhaka)).media_sent_back).toBeUndefined();
+  });
+
+  it('counts a member’s own works on hold', async () => {
     const director = await as(m.media.director);
     const version = (await m.at(director, 'get', `/media-referrals/${memberWork.referralId}`)).body
       .data.work.version as string;

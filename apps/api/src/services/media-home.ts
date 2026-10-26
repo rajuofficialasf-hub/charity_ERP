@@ -9,7 +9,8 @@ import {
 } from '@css/shared/media';
 import { mediaScriptSchema } from '@css/shared';
 import { z } from 'zod';
-import { mediaReferralWhere, type Scope } from '../access/scope';
+import { holdsPermission, mediaReferralWhere, type Scope } from '../access/scope';
+import type { AccessService } from '../access/service';
 import type { Principal } from '../auth/principal';
 import type { Env } from '../config/env';
 import {
@@ -22,6 +23,7 @@ import {
   parseSort,
 } from '../core/pagination';
 import type { PrismaService, Tx } from '../core/prisma.service';
+import { MANAGE_PERMISSION } from './media-work-view';
 import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 
@@ -35,7 +37,7 @@ const place = {
   project: z.object({ id: uuid, name: bilingual, year: z.number().int() }),
 };
 
-/** The home's counts (the media plan's dashboard): referrals by decision, works by stage group. */
+/** The home's counts: the referrals by their decision, the works by their stage group. */
 const countsView = z.object({
   referrals: z.number().int(),
   new: z.number().int(),
@@ -179,6 +181,8 @@ type PublishedRow = Prisma.MediaWorkGetPayload<{ select: typeof PUBLISHED_SELECT
 
 /** The stages after which a work shows on a profile and in a portfolio. */
 const SHOWN_STAGES = ['published', 'done'];
+/** The most recent works a profile or a portfolio shows. */
+const SHOWN_MAX = 100;
 
 function publishedView(w: PublishedRow): PublishedWork {
   const publications = w.publications.flatMap((p) =>
@@ -200,7 +204,8 @@ function publishedView(w: PublishedRow): PublishedWork {
     ...placeOf(w.referral.project),
     stageCode: w.stageCode,
     contentType: w.contentType as PublishedWork['contentType'],
-    summary: mediaScriptSchema.parse(w.script).summary ?? null,
+    // a stored script the schema no longer reads leaves the summary out, never the page
+    summary: mediaScriptSchema.safeParse(w.script).data?.summary ?? null,
     publishedOn: publications[0]?.publishedOn ?? null,
     publications,
     members: w.members.map((m) => ({ userId: m.userId, name: m.user.displayName, roles: m.roles })),
@@ -217,6 +222,7 @@ export class MediaHomeService {
   constructor(
     private readonly env: Env,
     private readonly prisma: PrismaService,
+    private readonly access: AccessService,
   ) {}
 
   async summary(scope: Scope): Promise<z.infer<typeof mediaSummaryView>> {
@@ -355,7 +361,7 @@ export class MediaHomeService {
    * A media member's profile: 404 unless the person holds a media role. Open to whoever reads media
    * works, since a portfolio of published works is public to the team and the referrers.
    */
-  async member(userId: string): Promise<z.infer<typeof mediaMemberView>> {
+  async member(principal: Principal, userId: string): Promise<z.infer<typeof mediaMemberView>> {
     const user = await this.prisma.user.findFirst({
       where: {
         id: userId,
@@ -375,11 +381,16 @@ export class MediaHomeService {
       },
     });
     if (!user) throw new ApiError('permission.not_found', 404);
+    // the contact is for the team that works with the member; the portfolio is for everyone
+    const team =
+      principal.userId === userId ||
+      holdsPermission(MANAGE_PERMISSION, (await this.access.load(principal.userId)).grants);
     const [works, shown] = await Promise.all([
       this.prisma.mediaWorkMember.count({ where: { userId } }),
       this.prisma.mediaWork.findMany({
         where: { stageCode: { in: SHOWN_STAGES }, members: { some: { userId } } },
         orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+        take: SHOWN_MAX,
         select: PUBLISHED_SELECT,
       }),
     ]);
@@ -387,8 +398,8 @@ export class MediaHomeService {
       id: user.id,
       name: user.displayName,
       designation: user.designation,
-      mobile: user.mobile,
-      email: user.email,
+      mobile: team ? user.mobile : null,
+      email: team ? user.email : null,
       roles: user.userRolesUser.map((r) => r.roleKey),
       counts: { works, published: shown.length },
       portfolio: shown.map((w) => ({
@@ -407,6 +418,7 @@ export async function publishedWorksOf(
   const works = await db.mediaWork.findMany({
     where: { stageCode: { in: SHOWN_STAGES }, referral: { beneficiaryId } },
     orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+    take: SHOWN_MAX,
     select: PUBLISHED_SELECT,
   });
   return works.map(publishedView);

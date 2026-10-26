@@ -269,7 +269,8 @@ export function mediaRouter(
     audit: 'none',
     params: { userId: uuid },
     responses: { 200: mediaMemberView, 404: null },
-    handler: async ({ params }) => ok(await c.mediaHome.member(params.userId)),
+    handler: async ({ params, req }) =>
+      ok(await c.mediaHome.member(principalOf(req), params.userId)),
   });
 
   return router;
