@@ -14,12 +14,15 @@ export function RepeatGroup({
   renderRow,
   onAdd,
   onRemove,
+  counted = false,
 }: {
   group: FormField;
   rows: number;
   renderRow: (row: number) => ReactNode;
   onAdd: () => void;
   onRemove: (row: number) => void;
+  /** The rows follow a count question, so they are neither added nor removed here. */
+  counted?: boolean;
 }) {
   const t = useTranslations('forms.renderer');
   const locale = useLocale();
@@ -34,7 +37,7 @@ export function RepeatGroup({
         <Stack key={row} gap={2}>
           <Text weight="bold">{t('row_title', { label, n: formatCount(row + 1, locale) })}</Text>
           {renderRow(row)}
-          {rows > min ? (
+          {!counted && rows > min ? (
             <div>
               <Button variant="ghost" size="sm" onPress={() => onRemove(row)}>
                 {t('remove_row', { label, n: formatCount(row + 1, locale) })}
@@ -43,12 +46,14 @@ export function RepeatGroup({
           ) : null}
         </Stack>
       ))}
-      <div>
-        <Button variant="secondary" onPress={onAdd} disabled={max !== undefined && rows >= max}>
-          {t('add_row')}
-        </Button>
-      </div>
-      {max !== undefined ? (
+      {counted ? null : (
+        <div>
+          <Button variant="secondary" onPress={onAdd} disabled={max !== undefined && rows >= max}>
+            {t('add_row')}
+          </Button>
+        </div>
+      )}
+      {!counted && max !== undefined ? (
         <Text tone="muted">{t('rows_limit', { max: formatCount(max, locale) })}</Text>
       ) : null}
     </Stack>

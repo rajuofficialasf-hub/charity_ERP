@@ -1,19 +1,22 @@
 import {
   type Answer,
+  answerTexts,
+  defaultAnswerOf,
   evaluate,
   type FieldState,
   fieldPath,
   type FormDefinition,
   type FormField,
   type FormSection,
+  pipeText,
   validate,
 } from '@css/shared/forms';
 import type { AnswerValue } from '@css/shared';
 import { formatCount } from '@css/shared/format';
-import { Alert, Button, Stack, Stepper, Text } from '@css/ui';
+import { Alert, Button, ConfirmDialog, Stack, Stepper, Text } from '@css/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
-import { removeRow, setAnswer, answerOf } from './answers';
+import { answeredRows, removeRow, setAnswer, answerOf, trimRows } from './answers';
 import { FieldInput } from './FieldInput';
 import { RepeatGroup } from './RepeatGroup';
 import type { UploadAdapter } from './upload-adapter';
@@ -122,7 +125,42 @@ export function FormRenderer({
       if (f.type === 'repeat_group') rows[f.fieldKey] = f.settings?.repeat?.min_rows ?? 0;
     return rows;
   }, [form]);
-  const { state, setState, clear } = useFormAnswers(storageKey, initialRows, initialAnswers);
+  // a question's default fills its empty answer once, when the form opens
+  const startAnswers = useMemo(() => {
+    const given = initialAnswers ?? [];
+    const filled = [...given];
+    for (const f of form.sections.flatMap((s) => s.fields)) {
+      if (f.settings?.repeat?.group || given.some((a) => a.fieldKey === f.fieldKey)) continue;
+      const value = defaultAnswerOf(f, today);
+      if (value) filled.push({ fieldKey: f.fieldKey, value });
+    }
+    return filled;
+  }, [form, initialAnswers, today]);
+  const { state, setState, clear } = useFormAnswers(storageKey, initialRows, startAnswers);
+  // the groups whose rows follow a count question, by that question's key
+  const countedGroups = useMemo(() => {
+    const groups = new Map<string, { group: string; members: string[] }>();
+    const fields = form.sections.flatMap((s) => s.fields);
+    for (const f of fields) {
+      const from = f.settings?.repeat?.count_from;
+      if (f.type === 'repeat_group' && from)
+        groups.set(from, {
+          group: f.fieldKey,
+          members: fields
+            .filter((m) => m.settings?.repeat?.group === f.fieldKey)
+            .map((m) => m.fieldKey),
+        });
+    }
+    return groups;
+  }, [form]);
+  /** A lower count that would drop answered rows, waiting for the person to confirm it. */
+  const [lowering, setLowering] = useState<{
+    field: FormField;
+    value: AnswerValue;
+    count: number;
+    group: string;
+    members: string[];
+  } | null>(null);
   // each file goes up as part of this application, named by its client id
   const fieldUpload = useMemo(
     () =>
@@ -173,6 +211,12 @@ export function FormRenderer({
   };
 
   const change = (field: FormField, row: number, inGroup: boolean, value: AnswerValue | null) => {
+    // a count lowered below the rows that hold answers asks first
+    const counted = countedGroups.get(field.fieldKey);
+    if (counted && value?.t === 'number' && answeredRows(state, counted.members) > value.v) {
+      setLowering({ field, value, count: Math.max(0, Math.floor(value.v)), ...counted });
+      return;
+    }
     setState((s) => setAnswer(s, field.fieldKey, row, inGroup, value));
     const path = fieldPath(field.fieldKey, row, inGroup);
     if (errors[path]) setErrors(({ [path]: _gone, ...rest }) => rest);
@@ -235,8 +279,11 @@ export function FormRenderer({
     }
   };
 
+  // the earlier answers a question's text may repeat, read at the question's row
+  const textsAt = (row: number) => answerTexts(form, state.answers, evaluation, locale, row);
   const renderField = (field: FormField, row: number, inGroup: boolean) => {
     const path = fieldPath(field.fieldKey, row, inGroup);
+    const texts = textsAt(row);
     const fallback: FieldState = {
       visible: true,
       required: field.required,
@@ -254,6 +301,7 @@ export function FormRenderer({
         computed={evaluation.computed[path]}
         error={allErrors[path]}
         locked={lockedKeys?.has(field.fieldKey) === true}
+        pipe={(text) => pipeText(text, texts)}
         onChange={(value) => change(field, row, inGroup, value)}
         upload={fieldUpload}
         onUploading={(busy) =>
@@ -285,15 +333,17 @@ export function FormRenderer({
           if (field.type !== 'repeat_group') return renderField(field, 0, false);
           if (evaluation.fields[field.fieldKey]?.visible === false) return null;
           const members = groups.get(field.fieldKey) ?? [];
-          const rows = Math.max(
-            state.rows[field.fieldKey] ?? 0,
-            evaluation.rows[field.fieldKey] ?? 0,
-          );
+          // a counted group has the engine's rows: the count, or the answered rows while more
+          const counted = field.settings?.repeat?.count_from !== undefined;
+          const rows = counted
+            ? (evaluation.rows[field.fieldKey] ?? 0)
+            : Math.max(state.rows[field.fieldKey] ?? 0, evaluation.rows[field.fieldKey] ?? 0);
           return (
             <Stack key={field.fieldKey} gap={1}>
               <RepeatGroup
                 group={field}
                 rows={rows}
+                counted={counted}
                 renderRow={(row) => members.map((m) => renderField(m, row, true))}
                 onAdd={() =>
                   setState((s) => ({ ...s, rows: { ...s.rows, [field.fieldKey]: rows + 1 } }))
@@ -343,6 +393,35 @@ export function FormRenderer({
         </Alert>
       ) : null}
       {shown.map(renderSection)}
+      <ConfirmDialog
+        isOpen={lowering !== null}
+        title={t('trim_rows_title')}
+        confirmLabel={t('trim_rows_confirm')}
+        tone="danger"
+        onConfirm={() => {
+          if (!lowering) return;
+          setState((s) =>
+            trimRows(
+              setAnswer(s, lowering.field.fieldKey, 0, false, lowering.value),
+              lowering.group,
+              lowering.members,
+              lowering.count,
+            ),
+          );
+          setLowering(null);
+        }}
+        onCancel={() => {
+          // the count goes back to the rows that hold answers, which stay
+          if (lowering)
+            setState((s) =>
+              setAnswer(s, lowering.field.fieldKey, 0, false, {
+                t: 'number',
+                v: answeredRows(s, lowering.members),
+              }),
+            );
+          setLowering(null);
+        }}
+      />
       <Stack direction="row" gap={2} justify="between" wrap>
         {phone && step > 0 ? (
           <Button variant="secondary" onPress={previous}>

@@ -90,8 +90,14 @@ function tableCells(
   return cells;
 }
 
-/** The answer a default gives a question of its type, or null for a default that does not fit. */
-function defaultValue(field: FormField, start: FieldDefault, today: string): AnswerValue | null {
+/**
+ * The answer a question's default gives (today's date, a fixed text, a number), or null without a
+ * default or for one that does not fit its type. The server writes it for a read-only question;
+ * the form fills an editable one once when it opens.
+ */
+export function defaultAnswerOf(field: FormField, today: string): AnswerValue | null {
+  const start: FieldDefault | undefined = field.settings?.default;
+  if (start === undefined) return null;
   if ('today' in start) return field.type === 'date' ? { t: 'date', v: today } : null;
   if ('text' in start)
     return isTextType(field.type) ? ({ t: field.type, v: start.text } as AnswerValue) : null;
@@ -270,7 +276,7 @@ class Validator {
         continue;
       if (located.section.visibility === 'official_only' && this.options.audience !== 'official')
         continue;
-      const value = defaultValue(field, start, this.options.today);
+      const value = defaultAnswerOf(field, this.options.today);
       if (!value) continue;
       const stored = this.options.previous?.find(
         (a) => a.fieldKey === field.fieldKey && (a.repeatIndex ?? 0) === 0,
