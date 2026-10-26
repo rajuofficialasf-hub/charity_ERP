@@ -39,6 +39,9 @@
     },
     {
       "$ref": "#/$defs/calculated"
+    },
+    {
+      "$ref": "#/$defs/numberTable"
     }
   ],
   "$defs": {
@@ -321,6 +324,29 @@
         "computed_at": {
           "type": "string",
           "format": "date-time"
+        }
+      }
+    },
+    "numberTable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "t",
+        "v"
+      ],
+      "description": "whole numbers by row and column key; the validator keeps only the question's own rows and columns",
+      "properties": {
+        "t": {
+          "const": "number_table"
+        },
+        "v": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
+          }
         }
       }
     }

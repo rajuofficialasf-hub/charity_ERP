@@ -61,6 +61,8 @@ function conform(schemaName: string, fragment: string, zodSchema: z.ZodType, cas
 
 conform('application-answer-value', '', answerValueSchema, [
   ['short text', { t: 'short_text', v: 'রহিমা খাতুন' }, true],
+  ['number table', { t: 'number_table', v: { cow: { own: 2, shared: 1 } } }, true],
+  ['number table with a text cell', { t: 'number_table', v: { cow: { own: 'two' } } }, false],
   ['number', { t: 'number', v: 5 }, true],
   ['money as decimal string', { t: 'money', v: '1500.50' }, true],
   ['money with three decimals', { t: 'money', v: '1.505' }, false],
