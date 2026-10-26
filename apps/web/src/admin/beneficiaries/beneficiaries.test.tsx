@@ -361,6 +361,111 @@ describe('the 360° profile', () => {
     expect(screen.getByText('আপনার জন্য দেখানো হয় না')).toBeInTheDocument();
   });
 
+  it('shows the published media works with YouTube’s own image and a card for Facebook', async () => {
+    refreshAs(HEAD);
+    serve(
+      fullRow,
+      {},
+      {
+        ...empty360,
+        media: [
+          {
+            referralId: '01900000-0000-7000-8000-0000000000a1',
+            workId: '01900000-0000-7000-8000-0000000000a2',
+            title: 'সেলাই মেশিনে ঘুরে দাঁড়ানো',
+            program: { id: PROJECT, name: { bn: 'স্বাবলম্বী প্রোগ্রাম', en: 'Self-reliance' } },
+            project: {
+              id: PROJECT,
+              name: { bn: 'স্বাবলম্বী 2026', en: 'Self-reliance 2026' },
+              year: 2026,
+            },
+            stageCode: 'published',
+            contentType: 'video',
+            summary: 'তিন মাসে নিজের দোকান দিয়েছেন।',
+            publishedOn: '2026-10-12',
+            publications: [
+              {
+                platformCode: 'asf_youtube',
+                link: 'https://youtu.be/dQw4w9WgXcQ',
+                publishedOn: '2026-10-12',
+                youtubeId: 'dQw4w9WgXcQ',
+              },
+              {
+                platformCode: 'asf_facebook',
+                link: 'https://www.facebook.com/AsSunnahFoundation/videos/1',
+                publishedOn: '2026-10-13',
+                youtubeId: null,
+              },
+            ],
+            members: [
+              {
+                userId: '01900000-0000-7000-8000-0000000000a3',
+                name: 'রুবেল আহমেদ',
+                roles: ['cinematographer'],
+              },
+            ],
+          },
+        ],
+      },
+    );
+    server.use(
+      http.get('*/api/v1/reference-lists/:list', ({ params }) =>
+        HttpResponse.json({
+          data:
+            params.list === 'media_platform'
+              ? [
+                  {
+                    code: 'asf_youtube',
+                    label: { bn: 'আস-সুন্নাহ ইউটিউব', en: 'ASF YouTube' },
+                    active: true,
+                    sortOrder: 1,
+                    system: false,
+                    kind: 'youtube',
+                  },
+                  {
+                    code: 'asf_facebook',
+                    label: { bn: 'আস-সুন্নাহ ফেসবুক', en: 'ASF Facebook' },
+                    active: true,
+                    sortOrder: 2,
+                    system: false,
+                    kind: 'facebook',
+                  },
+                ]
+              : params.list === 'media_role'
+                ? [
+                    {
+                      code: 'cinematographer',
+                      label: { bn: 'ক্যামেরা', en: 'Camera' },
+                      active: true,
+                      sortOrder: 1,
+                      system: false,
+                      kind: null,
+                    },
+                  ]
+                : [],
+          meta: {},
+        }),
+      ),
+    );
+    const { container } = openProfile();
+    const section = (await screen.findByRole('heading', { level: 2, name: 'মিডিয়া' })).closest(
+      'section',
+    ) as HTMLElement;
+    expect(within(section).getByText('তিন মাসে নিজের দোকান দিয়েছেন।')).toBeInTheDocument();
+    const youtube = await within(section).findByRole('link', { name: 'আস-সুন্নাহ ইউটিউব-এ দেখুন' });
+    expect(youtube).toHaveAttribute('href', 'https://youtu.be/dQw4w9WgXcQ');
+    expect(youtube).toHaveAttribute('target', '_blank');
+    const images = section.querySelectorAll('img');
+    expect(images).toHaveLength(1);
+    expect(images[0]).toHaveAttribute('src', 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg');
+    expect(images[0]).toHaveAttribute('referrerpolicy', 'no-referrer');
+    expect(
+      within(section).getByRole('link', { name: 'আস-সুন্নাহ ফেসবুক-এ দেখুন' }),
+    ).toBeInTheDocument();
+    expect(within(section).getAllByText('রুবেল আহমেদ (ক্যামেরা)')).toHaveLength(2);
+    await expectNoAxeViolations(container);
+  });
+
   it('shows the Media Team only the sections the server sent', async () => {
     refreshAs(MEDIA);
     serve(

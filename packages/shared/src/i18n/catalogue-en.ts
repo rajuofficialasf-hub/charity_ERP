@@ -9,6 +9,7 @@ import en_errors from './messages/en/errors.json' with { type: 'json' };
 import en_forms from './messages/en/forms.json' with { type: 'json' };
 import en_gallery from './messages/en/gallery.json' with { type: 'json' };
 import en_home from './messages/en/home.json' with { type: 'json' };
+import en_media from './messages/en/media.json' with { type: 'json' };
 import en_nav from './messages/en/nav.json' with { type: 'json' };
 import en_notifications from './messages/en/notifications.json' with { type: 'json' };
 import en_projects from './messages/en/projects.json' with { type: 'json' };
@@ -26,6 +27,7 @@ export const en: Messages = {
   forms: en_forms,
   gallery: en_gallery,
   home: en_home,
+  media: en_media,
   nav: en_nav,
   notifications: en_notifications,
   projects: en_projects,

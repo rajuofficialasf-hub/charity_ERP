@@ -1,3 +1,4 @@
+import type { PublishedWork } from '../../features/media/media-api';
 import type {
   BeneficiaryFilter,
   BeneficiaryRow,
@@ -173,6 +174,8 @@ export interface BeneficiaryProfile {
     throughMerge?: boolean;
   }[];
   distributions: { id: string; projectId: string; status: string; doneAt: string }[];
+  /** The published and done media works about the person. */
+  media?: PublishedWork[];
   dawah?: {
     attendance: (Dated & { present: boolean })[];
     progress: (Dated & { status: string })[];

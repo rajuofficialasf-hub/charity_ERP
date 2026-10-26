@@ -26,6 +26,7 @@ import {
   BookOpen,
   Briefcase,
   CalendarDays,
+  Clapperboard,
   ClipboardList,
   FileText,
   GitMerge,
@@ -65,6 +66,7 @@ import { ContactDialog } from './ContactDialog';
 import { CorrectionDialog } from './CorrectionDialog';
 import { RevertMergeAction } from './duplicates/RevertMergeAction';
 import { ContactLog, Corrections, useFileKind } from './ProfileHistory';
+import { MediaWorksSection } from '../../features/media/MediaWorksSection';
 
 /**
  * The 360° profile of one beneficiary in the one profile layout: the header card with the key facts,
@@ -118,6 +120,7 @@ export function BeneficiaryProfilePage() {
 function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: string }) {
   const t = useTranslations('admin.beneficiaries');
   const tp = useTranslations('admin.beneficiaries.profile');
+  const tm = useTranslations('media.section');
   const tf = useTranslations('registration');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
@@ -369,6 +372,12 @@ function Profile({ profile: p, etag }: { profile: BeneficiaryProfile; etag: stri
               </Grid>
             )}
           </ProfileSection>
+
+          {p.media && (
+            <ProfileSection title={tm('title')} icon={Clapperboard}>
+              <MediaWorksSection works={p.media} emptyText={tm('empty')} />
+            </ProfileSection>
+          )}
 
           {p.dawah && (
             <ProfileSection title={tp('sections.dawah')} icon={BookOpen}>
