@@ -94,6 +94,7 @@ export class GuardContext {
     return validate(definition, answers, {
       audience,
       today: isoDateInDhaka(this.clock.now()),
+      previous: answers,
     });
   }
 }
