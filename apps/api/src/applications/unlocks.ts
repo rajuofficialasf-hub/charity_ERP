@@ -553,6 +553,7 @@ export class UnlocksService {
     const options = {
       audience: 'official' as const,
       today,
+      previous: stored,
       ...(await nisabOption(this.nisab, today)),
     };
     let result = validate(definition, answers, { ...options, draft: false });

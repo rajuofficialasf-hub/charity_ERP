@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { parentCandidates } from './candidates';
 import type { OwnQuestion } from './draft';
+import { startTable } from './TableSettings';
 import { emptyOption, OptionsEditor } from './OptionsEditor';
 
 const NONE = '-';
@@ -77,7 +78,11 @@ export function OwnQuestionDialog({
             }
           : {}),
         ...(parent ? { dependsOn: parent.fieldKey } : {}),
-        ...(group && type !== 'repeat_group' ? { group } : {}),
+        // a table never sits in a group's rows, and starts with one row and one column
+        ...(group && type !== 'repeat_group' && type !== 'number_table' ? { group } : {}),
+        ...(type === 'number_table'
+          ? { table: startTable(t('table_row', { n: '1' }), t('table_col', { n: '1' })) }
+          : {}),
       },
       sectionKey,
     );

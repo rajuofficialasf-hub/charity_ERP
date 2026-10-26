@@ -13,6 +13,14 @@ const words: RuleWords = {
   age: (q) => `age from ${q}`,
   nisab: (q) => `${q} against the nisab`,
   groupSum: (group, f) => `sum of ${f} over ${group}`,
+  ifThen: (c, v) => `if ${c} then ${v}`,
+  otherwise: (v) => `otherwise ${v}`,
+  countRows: (group) => `rows of ${group}`,
+  countRowsWhere: (group, c) => `rows of ${group} where ${c}`,
+  cell: (table, row, col) => `${row} ${col} of ${table}`,
+  smallest: (parts) => `smallest of ${parts}`,
+  largest: (parts) => `largest of ${parts}`,
+  not: (c) => `not (${c})`,
 };
 
 const def = definition(
@@ -51,11 +59,27 @@ describe('a condition read as a sentence', () => {
     ).toEqual({ kind: 'rules', text: 'ঋণ আছে? in হ্যাঁ, no' });
   });
 
-  it('says none for no condition and complex for one the rows cannot show', () => {
+  it('says none for no condition, and reads one the rows cannot show as a sentence too', () => {
     expect(conditionRules(def, undefined, 'en', words)).toEqual({ kind: 'none' });
     expect(
-      conditionRules(def, { any: [{ all: [{ field: 'income', op: 'is_empty' }] }] }, 'en', words),
-    ).toEqual({ kind: 'complex' });
+      conditionRules(
+        def,
+        {
+          any: [
+            { all: [{ field: 'income', op: 'is_empty' }] },
+            { not: { field: 'has_loan', op: 'eq', value: 'yes' } },
+          ],
+        },
+        'en',
+        words,
+      ),
+    ).toEqual({ kind: 'rules', text: '(Income is_empty ) or not (Loan? eq Yes)' });
+  });
+
+  it('names another answer a condition compares with by its question', () => {
+    expect(
+      conditionRules(def, { field: 'income', op: 'gt', value: { field: 'income' } }, 'en', words),
+    ).toEqual({ kind: 'rules', text: 'Income gt “Income”' });
   });
 });
 
@@ -88,6 +112,38 @@ describe('a calculation read as a sentence', () => {
       kind: 'rules',
       text: '“Income” × 12',
     });
+  });
+
+  it('reads a step, a bracket, the rows of a group and a text result', () => {
+    expect(
+      calculationRules(
+        def,
+        field('band', 'calculation', {
+          calculation: {
+            expr: {
+              if: [
+                {
+                  when: { field: 'income', op: 'lt', value: 5000 },
+                  then: { op: 'mul', args: [{ op: 'add', args: [{ field: 'income' }, 1] }, 2] },
+                },
+              ],
+              else: { result: 'high' },
+            },
+          },
+          settings: { results: [{ code: 'high', label: { bn: 'বেশি', en: 'High' } }] },
+        }),
+        'en',
+        words,
+      ),
+    ).toEqual({
+      kind: 'rules',
+      text: 'if Income lt 5000 then (“Income” + 1) × 2, otherwise “High”',
+    });
+    expect(
+      calc({
+        count_rows: { group: 'members', where: { field: 'member_income', op: 'gt', value: 0 } },
+      }),
+    ).toEqual({ kind: 'rules', text: "rows of Members where Member's income gt 0" });
   });
 
   it('reads the age and the nisab rules, and says none without a rule', () => {

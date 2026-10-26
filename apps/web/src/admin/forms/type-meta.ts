@@ -4,6 +4,7 @@ import {
   AlignLeft,
   Banknote,
   Calculator,
+  Table,
   CalendarClock,
   CalendarDays,
   CircleDot,
@@ -58,6 +59,7 @@ export const TYPE_META: Readonly<Record<FieldType, { icon: IconComponent; group:
   bd_address: { icon: MapPinned, group: 'special' },
   repeat_group: { icon: ListPlus, group: 'special' },
   calculation: { icon: Calculator, group: 'special' },
+  number_table: { icon: Table, group: 'number' },
   note: { icon: Text, group: 'special' },
 };
 

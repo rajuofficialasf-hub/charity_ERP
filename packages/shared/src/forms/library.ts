@@ -32,6 +32,7 @@ export const FIELD_TYPES = [
   'repeat_group',
   'calculation',
   'note',
+  'number_table',
 ] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
 

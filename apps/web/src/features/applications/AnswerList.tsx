@@ -1,7 +1,7 @@
 import type { AnswerValue } from '@css/shared';
 import { formatDate } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
-import type { Answer, FormDefinition, FormField } from '@css/shared/forms';
+import { type Answer, type FormDefinition, type FormField, resultLabelOf } from '@css/shared/forms';
 import { DescriptionList, Stack, Text } from '@css/ui';
 import type { ReactNode } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
@@ -33,8 +33,25 @@ export function answerText(
     case 'number':
     case 'decimal':
       return String(value.v);
-    case 'calculation':
-      return typeof value.v === 'boolean' ? (value.v ? yes : no) : String(value.v);
+    case 'calculation': {
+      if (typeof value.v === 'boolean') return value.v ? yes : no;
+      const result = typeof value.v === 'string' ? resultLabelOf(field, value.v) : null;
+      return result ? result[locale] : String(value.v);
+    }
+    case 'number_table': {
+      // one line per row: the row, then each column's number
+      const cells = new Map(Object.entries(value.v));
+      return (field.settings?.table?.rows ?? [])
+        .flatMap((row) => {
+          const line = new Map(Object.entries(cells.get(row.key) ?? {}));
+          const parts = (field.settings?.table?.cols ?? []).flatMap((col) => {
+            const n = line.get(col.key);
+            return n === undefined ? [] : [`${col.label[locale]} ${n}`];
+          });
+          return parts.length ? [`${row.label[locale]}: ${parts.join(', ')}`] : [];
+        })
+        .join('; ');
+    }
     case 'gps':
       return `${value.lat}, ${value.lng}`;
     case 'bd_address':

@@ -1,4 +1,5 @@
 import {
+  COUNTED_ROWS_MAX,
   type FieldSettings,
   type FieldValidation,
   type FormDefinition,
@@ -29,6 +30,8 @@ import { OptionsEditor } from './OptionsEditor';
 import { ScoreSettings } from './ScoreSettings';
 import { parentCandidates } from './candidates';
 import { LimitPair, RepeatSettings } from './RepeatSettings';
+import { DefaultSettings, takesDefault } from './DefaultSettings';
+import { TableSettings } from './TableSettings';
 import { CalcGroup, ConditionGroup } from './RuleGroups';
 
 const NONE = '-';
@@ -143,6 +146,58 @@ function SectionSettings({
   );
 }
 
+/** The earlier whole-number questions outside any group a group's rows may follow. */
+function countCandidates(definition: FormDefinition, groupKey: string): FormField[] {
+  const all = definition.sections.flatMap((s) => s.fields);
+  const at = all.findIndex((f) => f.fieldKey === groupKey);
+  return all.filter(
+    (f, i) => i < at && f.type === 'number' && f.settings?.repeat?.group === undefined,
+  );
+}
+
+/**
+ * The definition with the count question of a group set to a range its rows can hold: from 0 to
+ * the group's maximum rows (50 at most), keeping a range already set within it.
+ */
+function withCountRange(definition: FormDefinition, group: FormField): FormDefinition {
+  const key = group.settings?.repeat?.count_from;
+  const source = key
+    ? definition.sections.flatMap((s) => s.fields).find((f) => f.fieldKey === key)
+    : undefined;
+  if (!source) return definition;
+  const rowsMax = Math.min(group.settings?.repeat?.max_rows ?? COUNTED_ROWS_MAX, COUNTED_ROWS_MAX);
+  const rules = source.settings?.validation ?? {};
+  const max = rules.max !== undefined && rules.max <= rowsMax ? rules.max : rowsMax;
+  const min = rules.min !== undefined && rules.min >= 0 && rules.min <= max ? rules.min : 0;
+  return updateField(definition, source.fieldKey, {
+    settings: compact({ ...source.settings, validation: compact({ ...rules, min, max }) }) ?? {},
+  });
+}
+
+/** The earlier answers with a text of their own a question may repeat: plain or of its own rows. */
+function pipeCandidates(definition: FormDefinition, field: FormField): FormField[] {
+  const all = definition.sections.flatMap((s) => s.fields);
+  const at = all.findIndex((f) => f.fieldKey === field.fieldKey);
+  const group = field.settings?.repeat?.group;
+  const piped = new Set<FormField['type']>([
+    'short_text',
+    'long_text',
+    'number',
+    'decimal',
+    'money',
+    'date',
+    'single_select',
+    'radio',
+    'multi_select',
+    'checkbox',
+    'calculation',
+  ]);
+  return all.filter((f, i) => {
+    const inGroup = f.settings?.repeat?.group;
+    return i < at && piped.has(f.type) && (inGroup === undefined || inGroup === group);
+  });
+}
+
 function FieldSettingsView({
   definition,
   section,
@@ -169,6 +224,21 @@ function FieldSettingsView({
     onChange(updateField(definition, field.fieldKey, next));
   const setSettings = (next: Partial<FieldSettings>) =>
     patch({ settings: compact({ ...field.settings, ...next }) ?? {} });
+  // a group's rows and their count source change together: the count question keeps a range
+  // the rows can hold
+  const setRepeat = (next: Partial<NonNullable<FieldSettings['repeat']>>) => {
+    const settings = compact({
+      ...field.settings,
+      repeat: compact({ ...field.settings?.repeat, ...next }),
+    });
+    const updated = { ...field, settings: settings ?? {} };
+    onChange(
+      withCountRange(
+        updateField(definition, field.fieldKey, { settings: settings ?? {} }),
+        updated,
+      ),
+    );
+  };
   const setValidation = (next: Partial<FieldValidation>) =>
     setSettings({ validation: compact({ ...field.settings?.validation, ...next }) });
   const setLogic = (next: Partial<NonNullable<FormField['logic']>>) =>
@@ -178,6 +248,8 @@ function FieldSettingsView({
   const parents = choice ? parentCandidates(definition, section.key, field.fieldKey) : [];
   const parent = parents.find((p) => p.fieldKey === field.logic?.options_depend_on) ?? null;
   const answers = field.type !== 'note' && field.type !== 'calculation';
+  // the earlier answers the question's text may repeat
+  const pipeSources = pipeCandidates(definition, field);
 
   if (mode === 'texts')
     return (
@@ -198,6 +270,19 @@ function FieldSettingsView({
       <Disclosure title={t('group_basics')} headingLevel={2} defaultOpen>
         <Stack gap={3}>
           <Texts value={field.label} onChange={(label) => patch({ label })} />
+          {pipeSources.length > 0 ? (
+            <Select
+              label={t('pipe')}
+              helper={t('pipe_hint')}
+              value={null}
+              onChange={(id) => {
+                if (!id) return;
+                const token = ` {{${id}}}`;
+                patch({ label: { bn: field.label.bn + token, en: field.label.en + token } });
+              }}
+              options={pipeSources.map((f) => ({ id: f.fieldKey, label: f.label[locale] }))}
+            />
+          ) : null}
           <TextField
             label={t('help_bn')}
             helper={t('help_hint')}
@@ -316,16 +401,27 @@ function FieldSettingsView({
           />
         </Disclosure>
       ) : null}
+      {takesDefault(field) && group === null ? (
+        <Disclosure title={t('group_default')} hint={t('optional')} headingLevel={2}>
+          <DefaultSettings field={field} onChange={(next) => setSettings(next)} />
+        </Disclosure>
+      ) : null}
+      {field.type === 'number_table' && field.settings?.table ? (
+        <Disclosure title={t('group_table')} headingLevel={2} defaultOpen>
+          <TableSettings
+            table={field.settings.table}
+            onChange={(table) => setSettings({ table })}
+          />
+        </Disclosure>
+      ) : null}
       {field.type === 'repeat_group' ? (
         <Disclosure title={t('group_rows')} headingLevel={2} defaultOpen>
           <RepeatSettings
             definition={definition}
             field={field}
-            onRows={(min, max) =>
-              setSettings({
-                repeat: compact({ ...field.settings?.repeat, min_rows: min, max_rows: max }),
-              })
-            }
+            onRows={(min, max) => setRepeat({ min_rows: min, max_rows: max })}
+            counts={countCandidates(definition, field.fieldKey)}
+            onCountFrom={(key) => setRepeat({ count_from: key ?? undefined })}
           />
         </Disclosure>
       ) : null}
@@ -339,6 +435,7 @@ function FieldSettingsView({
           field={field}
           asker={asker}
           onChange={(calculation) => patch({ calculation })}
+          onResults={(results) => setSettings({ results })}
         />
       ) : null}
       {locks.condition ? (

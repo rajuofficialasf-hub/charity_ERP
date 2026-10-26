@@ -220,6 +220,54 @@ describe('the logic', () => {
     expect(total()).toHaveAttribute('readonly');
   });
 
+  it('shows amounts in taka and a number with the decimals its calculation rounds to', async () => {
+    const user = userEvent.setup();
+    open([
+      section('money', [
+        bilingual('cash', 'নগদ', 'Cash', 'money'),
+        bilingual('bank', 'ব্যাংকে', 'In the bank', 'money'),
+        bilingual('assets', 'মোট সম্পদ', 'Total assets', 'calculation', {
+          calculation: { expr: { op: 'add', args: [{ field: 'cash' }, { field: 'bank' }] } },
+        }),
+        bilingual('people', 'সদস্য', 'Members', 'number'),
+        bilingual('share', 'জনপ্রতি', 'Per person', 'calculation', {
+          calculation: { expr: { op: 'div', args: [{ field: 'cash' }, { field: 'people' }] } },
+        }),
+        bilingual('pairs', 'জোড়া', 'Pairs', 'calculation', {
+          calculation: { expr: { op: 'div', args: [{ field: 'people' }, 2] } },
+        }),
+        bilingual('thirds', 'তিন ভাগের এক', 'A third', 'calculation', {
+          calculation: { expr: { op: 'div', args: [{ field: 'people' }, 3] } },
+        }),
+        bilingual('fine', 'সূক্ষ্ম ভাগ', 'Fine share', 'calculation', {
+          calculation: { expr: { op: 'div', args: [{ field: 'people' }, 3] }, round: 4 },
+        }),
+      ]),
+    ]);
+    await user.type(screen.getByRole('textbox', { name: /^নগদ/ }), '15000');
+    await user.type(screen.getByRole('textbox', { name: /^ব্যাংকে/ }), '250.50');
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: /^মোট সম্পদ/ })).toHaveValue('৳ 15,250.50'),
+    );
+    await user.type(screen.getByRole('textbox', { name: /^সদস্য/ }), '4');
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: /^জনপ্রতি/ })).toHaveValue('৳ 3,750'),
+    );
+    await user.clear(screen.getByRole('textbox', { name: /^সদস্য/ }));
+    await user.type(screen.getByRole('textbox', { name: /^সদস্য/ }), '8');
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: /^জনপ্রতি/ })).toHaveValue('৳ 1,875'),
+    );
+    await user.clear(screen.getByRole('textbox', { name: /^সদস্য/ }));
+    await user.type(screen.getByRole('textbox', { name: /^সদস্য/ }), '7');
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: /^জনপ্রতি/ })).toHaveValue('৳ 2,142.86'),
+    );
+    expect(screen.getByRole('textbox', { name: /^জোড়া/ })).toHaveValue('3.5');
+    expect(screen.getByRole('textbox', { name: /^তিন ভাগের এক/ })).toHaveValue('2.33');
+    expect(screen.getByRole('textbox', { name: /^সূক্ষ্ম ভাগ/ })).toHaveValue('2.3333');
+  });
+
   it('offers the options that follow the earlier answer, and "other" opens its text box', async () => {
     const user = userEvent.setup();
     open([
@@ -580,5 +628,242 @@ describe('accessibility', () => {
       await expectNoAxeViolations(container);
       unmount();
     }
+  });
+});
+
+describe('the form logic on the page', () => {
+  const table = {
+    table: {
+      rows: [
+        { key: 'cow', label: T('গরু', 'Cow') },
+        { key: 'goat', label: T('ছাগল', 'Goat') },
+      ],
+      cols: [
+        { key: 'own', label: T('নিজের', 'Own') },
+        { key: 'shared', label: T('বর্গা', 'Sharecropped') },
+      ],
+    },
+  };
+  const logic = () =>
+    section('logic_part', [
+      bilingual('q_visit', 'পরিদর্শনের তারিখ', 'Visit date', 'date', {
+        settings: { default: { today: true } },
+      }),
+      bilingual('q_prefix', 'নম্বর', 'Number', 'short_text', {
+        settings: { default: { text: 'ASF-CBSRP-' }, read_only: true },
+      }),
+      bilingual('q_farm', 'খামারের ধরন', 'Kind of farm', 'radio', {
+        options: [
+          option('cow', { label: T('গরু', 'Cow') }),
+          option('goat', { label: T('ছাগল', 'Goat') }),
+        ],
+      }),
+      field('q_animals', 'number', {
+        label: T('কতটি {{q_farm|পশু}} পালন করতে চান?', 'How many {{q_farm|animals}}?'),
+      }),
+      bilingual('q_income', 'মাসিক আয়', 'Monthly income', 'money'),
+      bilingual('q_expense', 'মাসিক ব্যয়', 'Monthly spending', 'money'),
+      bilingual(
+        'q_why',
+        'আয়ের চেয়ে ব্যয় বেশি হওয়ার কারণ',
+        'Why spending is above income',
+        'long_text',
+        {
+          logic: { show_if: { field: 'q_expense', op: 'gt', value: { field: 'q_income' } } },
+        },
+      ),
+      bilingual('q_band', 'আয়ের ধরন', 'Income band', 'calculation', {
+        calculation: {
+          expr: {
+            if: [{ when: { field: 'q_income', op: 'lt', value: 5000 }, then: { result: 'low' } }],
+            else: { result: 'high' },
+          },
+        },
+        settings: {
+          results: [
+            { code: 'low', label: T('কম', 'Low') },
+            { code: 'high', label: T('বেশি', 'High') },
+          ],
+        },
+      }),
+      bilingual('q_livestock', 'গবাদি পশু', 'Livestock', 'number_table', { settings: table }),
+      bilingual('q_cows', 'মোট গরু', 'Cows in all', 'calculation', {
+        calculation: {
+          expr: {
+            op: 'add',
+            args: [
+              { cell: { field: 'q_livestock', row: 'cow', col: 'own' } },
+              { cell: { field: 'q_livestock', row: 'cow', col: 'shared' } },
+            ],
+          },
+        },
+      }),
+    ]);
+
+  it('leaves the defaults out of a stored form, where an empty answer stays empty', () => {
+    open([logic()], { fillDefaults: false, initialAnswers: [] });
+    expect(screen.getByRole('textbox', { name: /^নম্বর/ })).toHaveValue('');
+  });
+
+  it('fills a date with today and sends it, and shows a read-only number that cannot be typed into', async () => {
+    const user = userEvent.setup();
+    const { submitted } = open([logic()]);
+    const prefix = screen.getByRole('textbox', { name: /^নম্বর/ });
+    expect(prefix).toHaveValue('ASF-CBSRP-');
+    expect(prefix).toHaveAttribute('readonly');
+    await fillCore(user);
+    await user.click(screen.getByRole('button', { name: 'পাঠান' }));
+    await waitFor(() => expect(submitted).toHaveLength(1));
+    expect(submitted[0]!.answers).toContainEqual(
+      expect.objectContaining({ fieldKey: 'q_visit', value: { t: 'date', v: TODAY } }),
+    );
+  }, 20_000);
+
+  it('repeats an earlier answer in a question’s text, in the reader’s language', async () => {
+    const user = userEvent.setup();
+    open([logic()]);
+    expect(screen.getByRole('textbox', { name: /^কতটি পশু পালন করতে চান\?/ })).toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: 'গরু' }));
+    expect(screen.getByRole('textbox', { name: /^কতটি গরু পালন করতে চান\?/ })).toBeInTheDocument();
+  });
+
+  it('shows a calculated text by its label, and a question when spending is above income', async () => {
+    const user = userEvent.setup();
+    open([logic()]);
+    await user.type(screen.getByRole('textbox', { name: /^মাসিক আয়/ }), '3000');
+    expect(screen.getByRole('textbox', { name: /^আয়ের ধরন/ })).toHaveValue('কম');
+    expect(
+      screen.queryByRole('textbox', { name: /^আয়ের চেয়ে ব্যয় বেশি/ }),
+    ).not.toBeInTheDocument();
+    await user.type(screen.getByRole('textbox', { name: /^মাসিক ব্যয়/ }), '4000');
+    expect(screen.getByRole('textbox', { name: /^আয়ের চেয়ে ব্যয় বেশি/ })).toBeInTheDocument();
+  });
+
+  it('takes whole numbers in a table and shows the total a calculation reads from it', async () => {
+    const user = userEvent.setup();
+    open([logic()]);
+    const table = screen.getByRole('group', { name: 'গবাদি পশু' });
+    await user.type(within(table).getByRole('textbox', { name: 'গরু: নিজের' }), '2');
+    await user.type(within(table).getByRole('textbox', { name: 'গরু: বর্গা' }), '1');
+    expect(screen.getByRole('textbox', { name: /^মোট গরু/ })).toHaveValue('3');
+  });
+
+  it('has no accessibility violations in Bangla and English', async () => {
+    const bn = open([logic()]);
+    await expectNoAxeViolations(bn.container);
+    bn.unmount();
+    const en = open([logic()], {}, 'en');
+    await expectNoAxeViolations(en.container);
+  });
+});
+
+describe('rows that follow a count', () => {
+  const counted = () =>
+    section('family_part', [
+      bilingual('q_family', 'পরিবারের সদস্য সংখ্যা', 'Family members', 'number', {
+        settings: { validation: { min: 0, max: 10 } },
+      }),
+      bilingual('members', 'সদস্য', 'Member', 'repeat_group', {
+        settings: { repeat: { count_from: 'q_family' } },
+      }),
+      bilingual('member_name', 'সদস্যের নাম', "Member's name", 'short_text', {
+        settings: { repeat: { group: 'members' } },
+      }),
+    ]);
+  const names = () => screen.queryAllByRole('textbox', { name: /^সদস্যের নাম/ });
+
+  it('draws as many rows as the count, with no add or remove button', async () => {
+    const user = userEvent.setup();
+    open([counted()]);
+    expect(names()).toHaveLength(0);
+    await user.type(screen.getByRole('textbox', { name: /^পরিবারের সদস্য সংখ্যা/ }), '3');
+    expect(names()).toHaveLength(3);
+    expect(screen.queryByRole('button', { name: 'আরেকটি যোগ করুন' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /মুছুন$/ })).not.toBeInTheDocument();
+  });
+
+  it('shows the count again when a number typed straight over it is cancelled', async () => {
+    const user = userEvent.setup();
+    open([counted()]);
+    const count = screen.getByRole('textbox', { name: /^পরিবারের সদস্য সংখ্যা/ });
+    await user.type(count, '3');
+    await user.type(names()[2]!, 'রহিমা');
+    await user.tripleClick(count);
+    await user.keyboard('2');
+    await user.click(
+      within(
+        await screen.findByRole('alertdialog', {
+          name: 'বাড়তি সারির উত্তর মুছে যাবে। তবু কমাবেন?',
+        }),
+      ).getByRole('button', { name: 'বাতিল' }),
+    );
+    await waitFor(() => expect(names()).toHaveLength(3));
+    expect(screen.getByRole('textbox', { name: /^পরিবারের সদস্য সংখ্যা/ })).toHaveValue('3');
+  });
+
+  it('trims every group that follows the same count', async () => {
+    const user = userEvent.setup();
+    open([
+      section('two_lists', [
+        bilingual('q_family', 'পরিবারের সদস্য সংখ্যা', 'Family members', 'number', {
+          settings: { validation: { min: 0, max: 10 } },
+        }),
+        bilingual('members', 'সদস্য', 'Member', 'repeat_group', {
+          settings: { repeat: { count_from: 'q_family' } },
+        }),
+        bilingual('member_name', 'সদস্যের নাম', "Member's name", 'short_text', {
+          settings: { repeat: { group: 'members' } },
+        }),
+        bilingual('health', 'স্বাস্থ্য', 'Health', 'repeat_group', {
+          settings: { repeat: { count_from: 'q_family' } },
+        }),
+        bilingual('health_note', 'স্বাস্থ্যের কথা', 'Health note', 'short_text', {
+          settings: { repeat: { group: 'health' } },
+        }),
+      ]),
+    ]);
+    const count = screen.getByRole('textbox', { name: /^পরিবারের সদস্য সংখ্যা/ });
+    await user.type(count, '3');
+    const notes = () => screen.queryAllByRole('textbox', { name: /^স্বাস্থ্যের কথা/ });
+    // only the second list holds an answer in its last row, and it still asks
+    await user.type(notes()[2]!, 'ভালো');
+    await user.type(count, '{backspace}2');
+    await user.click(
+      within(
+        await screen.findByRole('alertdialog', {
+          name: 'বাড়তি সারির উত্তর মুছে যাবে। তবু কমাবেন?',
+        }),
+      ).getByRole('button', { name: 'কমান' }),
+    );
+    await waitFor(() => expect(notes()).toHaveLength(2));
+    expect(names()).toHaveLength(2);
+  });
+
+  it('asks before a lower count drops answered rows, and keeps them on বাতিল', async () => {
+    const user = userEvent.setup();
+    open([counted()]);
+    const count = screen.getByRole('textbox', { name: /^পরিবারের সদস্য সংখ্যা/ });
+    await user.type(count, '3');
+    await user.type(names()[2]!, 'রহিমা');
+    await user.type(count, '{backspace}2');
+    const ask = await screen.findByRole('alertdialog', {
+      name: 'বাড়তি সারির উত্তর মুছে যাবে। তবু কমাবেন?',
+    });
+    await user.click(within(ask).getByRole('button', { name: 'বাতিল' }));
+    // the page is read again once the dialog has closed
+    await waitFor(() => expect(names()).toHaveLength(3));
+    // the count's box is drawn afresh with the count it holds again
+    const again = screen.getByRole('textbox', { name: /^পরিবারের সদস্য সংখ্যা/ });
+    expect(again).toHaveValue('3');
+    await user.type(again, '{backspace}2');
+    await user.click(
+      within(
+        await screen.findByRole('alertdialog', {
+          name: 'বাড়তি সারির উত্তর মুছে যাবে। তবু কমাবেন?',
+        }),
+      ).getByRole('button', { name: 'কমান' }),
+    );
+    await waitFor(() => expect(names()).toHaveLength(2));
+    expect(again).toHaveValue('2');
   });
 });

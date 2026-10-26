@@ -9,7 +9,12 @@ import {
   T,
   yesNo,
 } from '../../test/forms-fixture.js';
-import { checkDefinition, formDefinitionSchema, type FormDefinition } from './index.js';
+import {
+  checkDefinition,
+  formDefinitionSchema,
+  type FormDefinition,
+  type FormField,
+} from './index.js';
 
 const codesOf = (definition: FormDefinition) =>
   checkDefinition(definition).map((issue) => [
@@ -427,5 +432,315 @@ describe('the size of a definition', () => {
     expect(checkDefinition(definitionWith([field('g', 'repeat_group'), ...members(50)]))).toEqual(
       [],
     );
+  });
+});
+
+describe('conditional values, comparisons and row counts', () => {
+  const calc = (key: string, expr: unknown, extra: Partial<FormField> = {}) =>
+    field(key, 'calculation', { calculation: { expr: expr as never }, ...extra });
+  const results = { results: [{ code: 'low', label: T('low') }] };
+
+  it('refuses a text result the question does not list, and results on any other question', () => {
+    const definition = definitionWith([
+      field('income', 'money'),
+      calc(
+        'band',
+        {
+          if: [{ when: { field: 'income', op: 'lt', value: 5 }, then: { result: 'low' } }],
+          else: { result: 'medium' },
+        },
+        { settings: results },
+      ),
+      field('note', 'short_text', { settings: results }),
+    ]);
+    expect(codesOf(definition)).toEqual([
+      ['form.result_unknown', 'band'],
+      ['form.result_misplaced', 'note'],
+    ]);
+  });
+
+  it('follows the conditions of a branch as references and finds a cycle through them', () => {
+    const definition = definitionWith([
+      calc('a', { if: [{ when: { field: 'b', op: 'gt', value: 0 }, then: 1 }], else: 0 }),
+      calc('b', { op: 'add', args: [{ field: 'a' }, 1] }),
+      calc('c', { if: [{ when: { field: 'gone', op: 'gt', value: 0 }, then: 1 }], else: 0 }),
+    ]);
+    const codes = codesOf(definition).map(([code]) => code);
+    expect(codes).toContain('form.calculation_cycle');
+    expect(codesOf(definition)).toContainEqual(['form.unknown_reference', 'gone']);
+  });
+
+  it('checks the answer a comparison names, and refuses comparing a text with a number', () => {
+    const definition = definitionWith([
+      field('income', 'money'),
+      field('name_again', 'short_text'),
+      field('why', 'long_text', {
+        logic: { show_if: { field: 'income', op: 'gt', value: { field: 'name_again' } } },
+      }),
+      field('lost', 'long_text', {
+        logic: { show_if: { field: 'income', op: 'gt', value: { field: 'missing' } } },
+      }),
+    ]);
+    expect(codesOf(definition)).toEqual([
+      ['form.comparison_type', 'why'],
+      ['form.unknown_reference', 'missing'],
+    ]);
+  });
+
+  it('counts rows only of a repeat group, with a condition on its own rows', () => {
+    const definition = definitionWith([
+      field('members', 'repeat_group'),
+      field('m_income', 'money', { settings: { repeat: { group: 'members' } } }),
+      field('other', 'repeat_group'),
+      field('o_income', 'money', { settings: { repeat: { group: 'other' } } }),
+      calc('ok', {
+        count_rows: { group: 'members', where: { field: 'm_income', op: 'gt', value: 0 } },
+      }),
+      calc('not_group', { count_rows: { group: 'ok' } }),
+      calc('cross', {
+        count_rows: { group: 'members', where: { field: 'o_income', op: 'gt', value: 0 } },
+      }),
+    ]);
+    expect(codesOf(definition)).toEqual([
+      ['form.unknown_reference', 'ok'],
+      ['form.repeat_reference', 'o_income'],
+    ]);
+  });
+
+  it('refuses at publish a volunteer question that reads an official-only answer, and allows the reverse', () => {
+    const official = section(
+      'office',
+      [
+        field('assessed', 'money'),
+        calc('office_total', { op: 'add', args: [{ field: 'income' }, 1] }),
+      ],
+      { visibility: 'official_only' },
+    );
+    const definition = definitionWith(
+      [
+        field('income', 'money'),
+        field('shown', 'short_text', {
+          logic: { show_if: { field: 'assessed', op: 'gt', value: 0 } },
+        }),
+        field('compared', 'short_text', {
+          logic: { show_if: { field: 'income', op: 'gt', value: { field: 'assessed' } } },
+        }),
+        calc('leak', { op: 'add', args: [{ field: 'assessed' }, 1] }),
+      ],
+      [official],
+    );
+    // a draft keeps saving while the builder works; the publish refuses it
+    expect(codesOf(definition)).toEqual([]);
+    expect(
+      checkDefinition(definition, { publishing: true }).map((i) => [i.code, i.params?.fieldKey]),
+    ).toEqual([
+      ['form.reference_hidden', 'shown'],
+      ['form.reference_hidden', 'compared'],
+      ['form.reference_hidden', 'leak'],
+    ]);
+  });
+
+  it('refuses a comparison value that is neither a fixed value nor exactly another answer', () => {
+    const condition = (value: unknown) =>
+      schemaCodes(
+        definitionWith([
+          field('a', 'money'),
+          field('b', 'money', {
+            logic: { show_if: { field: 'a', op: 'gt', value: value as never } },
+          }),
+        ]),
+      ).length;
+    expect(condition({ field: 'a' })).toBe(0);
+    expect(condition(5)).toBe(0);
+    expect(condition({ field: 'a', extra: 1 })).toBeGreaterThan(0);
+    expect(condition({ other: 'a' })).toBeGreaterThan(0);
+  });
+
+  it('refuses an expression deeper than 20 levels or larger than 500 parts', () => {
+    let deep: unknown = 1;
+    for (let i = 0; i < 20; i += 1) deep = { op: 'add', args: [deep, 1] };
+    const wide = { op: 'add', args: Array.from({ length: 500 }, () => 1) };
+    let fine: unknown = 1;
+    for (let i = 0; i < 19; i += 1) fine = { op: 'add', args: [fine, 1] };
+    // a comparison with another answer reads two answers and counts as two parts
+    const compared = {
+      if: [
+        {
+          when: {
+            any: Array.from({ length: 300 }, () => ({
+              field: 'a',
+              op: 'gt',
+              value: { field: 'b' },
+            })),
+          },
+          then: 1,
+        },
+      ],
+      else: 0,
+    };
+    const definition = definitionWith([
+      field('a', 'money'),
+      field('b', 'money'),
+      calc('deep', deep),
+      calc('wide', wide),
+      calc('fine', fine),
+      calc('compared', compared),
+    ]);
+    expect(codesOf(definition)).toEqual([
+      ['form.expression_too_large', 'deep'],
+      ['form.expression_too_large', 'wide'],
+      ['form.expression_too_large', 'compared'],
+    ]);
+  });
+});
+
+describe('defaults, read-only questions, rows from a count and piping', () => {
+  it('refuses a read-only question with neither a calculation nor a default, and a default of the wrong kind', () => {
+    const definition = definitionWith([
+      field('free', 'short_text', { settings: { read_only: true } }),
+      field('when', 'date', { settings: { default: { text: 'today' } } }),
+      field('prefix', 'short_text', { settings: { default: { text: 'ASF-' }, read_only: true } }),
+      field('day', 'date', { settings: { default: { today: true } } }),
+      field('half', 'number', { settings: { default: { number: 2.5 } } }),
+      field('over', 'number', { settings: { default: { number: 5 }, validation: { max: 3 } } }),
+      field('owed', 'money', { settings: { default: { number: -1 } } }),
+      field('cell', 'phone', { settings: { default: { text: 'ASF-' } } }),
+      field('long_prefix', 'short_text', {
+        settings: { default: { text: 'abcdef' }, validation: { max_length: 3 } },
+      }),
+      field('amount', 'money', { settings: { default: { number: 500.5 } } }),
+    ]);
+    expect(codesOf(definition)).toEqual([
+      ['form.read_only_invalid', 'free'],
+      ['form.default_misplaced', 'when'],
+      ['form.default_misplaced', 'half'],
+      ['form.default_misplaced', 'over'],
+      ['form.default_misplaced', 'owed'],
+      ['form.default_misplaced', 'cell'],
+      ['form.default_misplaced', 'long_prefix'],
+    ]);
+  });
+
+  it('takes a row count only from an earlier whole-number question with a cap within the rows', () => {
+    const group = (countFrom: string) =>
+      field('members', 'repeat_group', { settings: { repeat: { count_from: countFrom } } });
+    const capped = field('family_count', 'number', {
+      settings: { validation: { min: 0, max: 20 } },
+    });
+    expect(codesOf(definitionWith([capped, group('family_count')]))).toEqual([]);
+    expect(
+      codesOf(definitionWith([field('label_text', 'short_text'), group('label_text')])),
+    ).toEqual([['form.repeat_count_invalid', 'members']]);
+    expect(codesOf(definitionWith([group('family_count'), capped]))).toEqual([
+      ['form.repeat_count_invalid', 'members'],
+    ]);
+    // no cap, or one above the 50 rows a group may hold
+    expect(
+      codesOf(definitionWith([field('family_count', 'number'), group('family_count')])),
+    ).toEqual([['form.repeat_count_invalid', 'members']]);
+    expect(
+      codesOf(
+        definitionWith([
+          field('family_count', 'number', { settings: { validation: { min: 0, max: 60 } } }),
+          group('family_count'),
+        ]),
+      ),
+    ).toEqual([['form.repeat_count_invalid', 'members']]);
+    // a count that may go below 0 asks for rows that cannot exist
+    expect(
+      codesOf(
+        definitionWith([
+          field('family_count', 'number', { settings: { validation: { max: 20 } } }),
+          group('family_count'),
+        ]),
+      ),
+    ).toEqual([['form.repeat_count_invalid', 'members']]);
+  });
+
+  it('pipes only an earlier answer that exists, and at publish only one its readers see', () => {
+    const definition = definitionWith(
+      [
+        field('q_farm', 'single_select', { options: [option('cow')] }),
+        field('q_count', 'number', {
+          label: { bn: 'কতটি {{q_farm}}?', en: 'How many {{q_farm}}?' },
+        }),
+        field('q_early', 'number', { label: { bn: '{{q_late}}', en: '{{q_late}}' } }),
+        field('q_late', 'short_text'),
+        field('q_gone', 'number', { settings: { help: { bn: '{{nope}}', en: 'x' } } }),
+        field('q_secret', 'short_text', { label: { bn: '{{assessed}}', en: '{{assessed}}' } }),
+      ],
+      [section('office', [field('assessed', 'money')], { visibility: 'official_only' })],
+    );
+    expect(codesOf(definition)).toEqual([
+      ['form.pipe_order', 'q_early'],
+      ['form.unknown_reference', 'nope'],
+      ['form.pipe_order', 'q_secret'],
+    ]);
+    expect(
+      checkDefinition(definition, { publishing: true })
+        .filter((i) => i.code === 'form.reference_hidden')
+        .map((i) => i.params?.fieldKey),
+    ).toEqual(['q_secret']);
+  });
+});
+
+describe('a number table', () => {
+  const table = (rows: string[], cols: string[]) => ({
+    table: {
+      rows: rows.map((key) => ({ key, label: T(key) })),
+      cols: cols.map((key) => ({ key, label: T(key) })),
+    },
+  });
+
+  it('needs its rows and columns, unique keys of its own, at most 200 cells, outside any group', () => {
+    const many = Array.from({ length: 21 }, (_, i) => `r${i}`);
+    const definition = definitionWith([
+      field('fine', 'number_table', { settings: table(['cow'], ['own']) }),
+      field('largest', 'number_table', {
+        settings: table(
+          Array.from({ length: 20 }, (_, i) => `r${i}`),
+          ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'],
+        ),
+      }),
+      field('no_cols', 'number_table', { settings: table(['cow'], []) }),
+      field('bare', 'number_table'),
+      field('twice', 'number_table', { settings: table(['cow', 'cow'], ['own']) }),
+      field('sneaky', 'number_table', { settings: table(['constructor'], ['own']) }),
+      field('huge', 'number_table', {
+        settings: table(many, ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']),
+      }),
+      field('misplaced', 'short_text', { settings: table(['cow'], ['own']) }),
+      field('people', 'repeat_group'),
+      field('grouped', 'number_table', {
+        settings: { ...table(['cow'], ['own']), repeat: { group: 'people' } },
+      }),
+    ]);
+    expect(codesOf(definition)).toEqual([
+      ['form.table_invalid', 'no_cols'],
+      ['form.table_invalid', 'bare'],
+      ['form.table_invalid', 'twice'],
+      ['form.table_invalid', 'sneaky'],
+      ['form.table_invalid', 'huge'],
+      ['form.table_invalid', 'misplaced'],
+      ['form.table_invalid', 'grouped'],
+    ]);
+  });
+
+  it('refuses a cell of an unknown table, row or column', () => {
+    const cell = (fieldName: string, row: string, col: string) =>
+      field(`c_${fieldName}_${row}_${col}`, 'calculation', {
+        calculation: { expr: { cell: { field: fieldName, row, col } } },
+      });
+    const definition = definitionWith([
+      field('livestock', 'number_table', { settings: table(['cow'], ['own']) }),
+      field('label_text', 'short_text'),
+      cell('livestock', 'cow', 'own'),
+      cell('livestock', 'horse', 'own'),
+      cell('label_text', 'cow', 'own'),
+    ]);
+    expect(codesOf(definition)).toEqual([
+      ['form.unknown_reference', 'livestock.horse.own'],
+      ['form.unknown_reference', 'label_text.cow.own'],
+    ]);
   });
 });

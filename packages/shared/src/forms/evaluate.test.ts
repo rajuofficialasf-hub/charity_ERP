@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { definitionWith, field, option, section, TODAY, yesNo } from '../../test/forms-fixture.js';
+import {
+  definitionWith,
+  field,
+  option,
+  section,
+  T,
+  TODAY,
+  yesNo,
+} from '../../test/forms-fixture.js';
 import { evaluate, type Answer, type Condition, type FormField } from './index.js';
 
 // The one evaluator: visibility, requirement, options and calculated values from the answers.
@@ -366,5 +374,285 @@ describe('calculations', () => {
       calc('b', { op: 'add', args: [{ field: 'a' }, 1] }),
     ];
     expect(compute(fields, [])).toEqual({});
+  });
+});
+
+describe('conditional values, row counts and comparisons', () => {
+  const calc = (key: string, expr: unknown, extra: Partial<FormField> = {}): FormField =>
+    field(key, 'calculation', { calculation: { expr: expr as never }, ...extra });
+  const karat = field('karat', 'single_select', {
+    options: [option('24'), option('22'), option('18')],
+  });
+  const price = calc('price', {
+    if: [{ when: { field: 'karat', op: 'eq', value: '24' }, then: 16236 }],
+    else: {
+      if: [{ when: { field: 'karat', op: 'eq', value: '22' }, then: 14883 }],
+      else: 0,
+    },
+  });
+  const run = (fields: FormField[], answers: Answer[]) =>
+    evaluate(definitionWith(fields), answers, { today: TODAY }).computed;
+
+  it('takes the first branch whose condition holds, nested, and the last else otherwise', () => {
+    const pick = (code: string | null) =>
+      run([karat, price], code ? [answer('karat', { t: 'single_select', v: code })] : []).price;
+    expect(pick('24')).toBe(16236);
+    expect(pick('22')).toBe(14883);
+    expect(pick('18')).toBe(0);
+    expect(pick(null)).toBe(0);
+  });
+
+  it('gives a text result as its code, which a condition can then test', () => {
+    const fields = [
+      field('income', 'money'),
+      calc(
+        'band',
+        {
+          if: [{ when: { field: 'income', op: 'lt', value: 5000 }, then: { result: 'low' } }],
+          else: { result: 'high' },
+        },
+        {
+          settings: {
+            results: [
+              { code: 'low', label: T('low') },
+              { code: 'high', label: T('high') },
+            ],
+          },
+        },
+      ),
+      field('probe', 'short_text', {
+        logic: { show_if: { field: 'band', op: 'eq', value: 'low' } },
+      }),
+    ];
+    const result = evaluate(
+      definitionWith(fields),
+      [answer('income', { t: 'money', v: '3000.00' })],
+      {
+        today: TODAY,
+      },
+    );
+    expect(result.computed.band).toBe('low');
+    expect(result.fields.probe!.visible).toBe(true);
+  });
+
+  it('compares a calculated amount above 1 as a number, not as text', () => {
+    const fields = [
+      field('a', 'money'),
+      calc('ratio', { op: 'div', args: [{ field: 'a' }, 4] }),
+      field('probe', 'short_text', { logic: { show_if: { field: 'ratio', op: 'gte', value: 5 } } }),
+    ];
+    const visible = (v: string) =>
+      evaluate(definitionWith(fields), [answer('a', { t: 'money', v })], { today: TODAY }).fields
+        .probe!.visible;
+    // 42 ÷ 4 = 10.50, which is more than 5 although the text "10.50" sorts before "5"
+    expect(visible('42.00')).toBe(true);
+    expect(visible('16.00')).toBe(false);
+  });
+
+  it('compares a negative calculated amount, alone and against another answer', () => {
+    const fields = [
+      field('assets', 'money'),
+      field('debts', 'money'),
+      field('income', 'money'),
+      calc('net', { op: 'sub', args: [{ field: 'assets' }, { field: 'debts' }] }),
+      field('in_debt', 'short_text', { logic: { show_if: { field: 'net', op: 'lt', value: 0 } } }),
+      field('above', 'short_text', {
+        logic: { show_if: { field: 'income', op: 'gt', value: { field: 'net' } } },
+      }),
+    ];
+    const state = evaluate(
+      definitionWith(fields),
+      [
+        answer('assets', { t: 'money', v: '1000.00' }),
+        answer('debts', { t: 'money', v: '1500.50' }),
+        answer('income', { t: 'money', v: '10.00' }),
+      ],
+      { today: TODAY },
+    );
+    expect(state.computed.net).toBe('-500.50');
+    expect(state.fields.in_debt!.visible).toBe(true);
+    expect(state.fields.above!.visible).toBe(true);
+  });
+
+  it('rounds a negative half away from zero for a number as for money', () => {
+    const fields = [
+      field('a', 'decimal'),
+      field('m', 'money'),
+      field('number_half', 'calculation', {
+        calculation: { expr: { op: 'sub', args: [0, { field: 'a' }] }, round: 0 },
+      }),
+      field('money_half', 'calculation', {
+        calculation: { expr: { op: 'sub', args: [0, { field: 'm' }] }, round: 0 },
+      }),
+    ];
+    const computed = run(fields, [
+      answer('a', { t: 'decimal', v: 2.5 }),
+      answer('m', { t: 'money', v: '2.50' }),
+    ]);
+    expect(computed.number_half).toBe(-3);
+    expect(computed.money_half).toBe('-3.00');
+  });
+
+  it('gives a group that follows a count as many rows as the count, blank ones included', () => {
+    const fields = [
+      field('family_count', 'number', { settings: { validation: { min: 0, max: 20 } } }),
+      field('members', 'repeat_group', { settings: { repeat: { count_from: 'family_count' } } }),
+      field('m_name', 'short_text', { settings: { repeat: { group: 'members' } } }),
+    ];
+    const rowsOf = (answers: Answer[]) =>
+      evaluate(definitionWith(fields), answers, { today: TODAY }).rows.members;
+    expect(rowsOf([answer('family_count', { t: 'number', v: 3 })])).toBe(3);
+    expect(
+      rowsOf([
+        answer('family_count', { t: 'number', v: 1 }),
+        answer('m_name', { t: 'short_text', v: 'a' }, 0),
+        answer('m_name', { t: 'short_text', v: 'b' }, 1),
+      ]),
+    ).toBe(2);
+    expect(rowsOf([answer('family_count', { t: 'number', v: -2 })])).toBe(0);
+    expect(rowsOf([answer('family_count', { t: 'number', v: 900 })])).toBe(50);
+  });
+
+  it('counts the rows of a group that meet a condition, and every row without one', () => {
+    const fields = [
+      field('members', 'repeat_group'),
+      field('m_income', 'money', { settings: { repeat: { group: 'members' } } }),
+      calc('earners', {
+        count_rows: { group: 'members', where: { field: 'm_income', op: 'gt', value: 0 } },
+      }),
+      calc('people', { count_rows: { group: 'members' } }),
+    ];
+    const answers = [
+      answer('m_income', { t: 'money', v: '3000.00' }, 0),
+      answer('m_income', { t: 'money', v: '' }, 1),
+      answer('m_income', { t: 'money', v: '1500.00' }, 2),
+    ];
+    expect(run(fields, answers)).toMatchObject({ earners: 2, people: 3 });
+    expect(run(fields, [])).toMatchObject({ earners: 0, people: 0 });
+  });
+
+  it('compares an answer with another answer or a calculation', () => {
+    const fields = [
+      field('income', 'money'),
+      field('expense', 'money'),
+      calc('total', { op: 'add', args: [{ field: 'income' }, 1000] }),
+      field('why', 'long_text', {
+        logic: { show_if: { field: 'expense', op: 'gt', value: { field: 'total' } } },
+      }),
+      field('same', 'short_text', {
+        logic: { show_if: { field: 'expense', op: 'eq', value: { field: 'income' } } },
+      }),
+    ];
+    const state = (income: string, expense: string) =>
+      evaluate(
+        definitionWith(fields),
+        [
+          answer('income', { t: 'money', v: income }),
+          answer('expense', { t: 'money', v: expense }),
+        ],
+        { today: TODAY },
+      ).fields;
+    expect(state('5000.00', '7000.00').why!.visible).toBe(true);
+    expect(state('5000.00', '6000.00').why!.visible).toBe(false);
+    expect(state('5000.00', '5000.00').same!.visible).toBe(true);
+    // an empty answer on the right is never equal to nor less than anything
+    expect(
+      evaluate(definitionWith(fields), [answer('expense', { t: 'money', v: '10.00' })], {
+        today: TODAY,
+      }).fields.same!.visible,
+    ).toBe(false);
+  });
+
+  it('gives nothing, without throwing, for a stored expression past the size limits', () => {
+    let deep: unknown = 1;
+    for (let i = 0; i < 25; i += 1) deep = { op: 'add', args: [deep, 1] };
+    const wide = { op: 'add', args: Array.from({ length: 600 }, () => 1) };
+    const computed = run(
+      [calc('deep', deep), calc('wide', wide), calc('fine', { op: 'add', args: [1, 2] })],
+      [],
+    );
+    expect(computed).toEqual({ fine: 3 });
+  });
+});
+
+describe('the cells of a number table', () => {
+  it('reads a cell, counts an empty one as 0, and reads the table as its total in a condition', () => {
+    const fields = [
+      field('livestock', 'number_table', {
+        settings: {
+          table: {
+            rows: [
+              { key: 'cow', label: { bn: 'গরু', en: 'Cow' } },
+              { key: 'goat', label: { bn: 'ছাগল', en: 'Goat' } },
+            ],
+            cols: [
+              { key: 'own', label: { bn: 'নিজের', en: 'Own' } },
+              { key: 'shared', label: { bn: 'বর্গা', en: 'Sharecropped' } },
+            ],
+          },
+        },
+      }),
+      field('cows', 'calculation', {
+        calculation: {
+          expr: {
+            op: 'add',
+            args: [
+              { cell: { field: 'livestock', row: 'cow', col: 'own' } },
+              { cell: { field: 'livestock', row: 'cow', col: 'shared' } },
+            ],
+          },
+        },
+      }),
+      field('probe', 'short_text', {
+        logic: { show_if: { field: 'livestock', op: 'gt', value: 2 } },
+      }),
+    ];
+    const state = evaluate(
+      definitionWith(fields),
+      [
+        answer('livestock', {
+          t: 'number_table',
+          v: { cow: { own: 2 }, goat: { own: 1 } },
+        } as never),
+      ],
+      { today: TODAY },
+    );
+    expect(state.computed.cows).toBe(2);
+    expect(state.fields.probe!.visible).toBe(true);
+  });
+
+  it('reads a hidden table, a missing one and a table of zeros as the conditions expect', () => {
+    const fields = [
+      field('keeps_animals', 'radio', { options: [option('yes'), option('no')] }),
+      field('livestock', 'number_table', {
+        settings: {
+          table: {
+            rows: [{ key: 'cow', label: T('cow') }],
+            cols: [{ key: 'own', label: T('own') }],
+          },
+        },
+        logic: { show_if: { field: 'keeps_animals', op: 'eq', value: 'yes' } },
+      }),
+      field('cows', 'calculation', {
+        calculation: {
+          expr: { op: 'add', args: [{ cell: { field: 'livestock', row: 'cow', col: 'own' } }, 1] },
+        },
+      }),
+      field('none_given', 'short_text', {
+        logic: { show_if: { field: 'livestock', op: 'is_empty' } },
+      }),
+    ];
+    const run = (answers: Answer[]) => evaluate(definitionWith(fields), answers, { today: TODAY });
+    const yes = answer('keeps_animals', { t: 'radio', v: 'yes' });
+    const no = answer('keeps_animals', { t: 'radio', v: 'no' });
+    const cows = (n: number) =>
+      answer('livestock', { t: 'number_table', v: { cow: { own: n } } } as never);
+    // hidden: the cell counts as nothing, so the sum is the 1 alone
+    expect(run([no, cows(5)]).computed.cows).toBe(1);
+    // missing
+    expect(run([yes]).computed.cows).toBe(1);
+    expect(run([yes]).fields.none_given!.visible).toBe(true);
+    // a table of zeros is an answer, not an empty one
+    expect(run([yes, cows(0)]).fields.none_given!.visible).toBe(false);
   });
 });

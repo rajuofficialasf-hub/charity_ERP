@@ -52,7 +52,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 | SCR-020 | My Work: Finance Team (derived) | parity | finance_team | 3 · T3.2 (placeholder in T1.15) |
 | SCR-021 | My Work: Procurement Team (derived) | parity | procurement_team | 4 · T4.1 (placeholder in T1.15) |
 | SCR-030 | My projects and project rules consent | phone-first | volunteers | 1 · T1.12 |
-| SCR-031 | New application with NID lookup | phone-first | volunteers, team members, RPM, Executive | 2 · T2.2, T2.4, T2.5 |
+| SCR-031 | New application with NID lookup | phone-first | volunteers, team members, RPM, Executive | 2 · T2.2, T2.4, T2.5, T2.4d |
 | SCR-032 | My applications and application detail | phone-first | volunteers, team members | 2 · T2.5 |
 | SCR-033 | Today's distribution (bulk) | phone-first | volunteers, RPM, Executive | 3 · T3.1 |
 | SCR-034 | Today's class (bulk) | phone-first | Local দায়ী | 5 · T5.1 |
@@ -68,7 +68,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 | SCR-050 | Project dashboard | parity | PM, RPM, Executive, Head, Monitoring, Finance | 3 · T3.3 |
 | SCR-051 | Admin area shell (`/admin`) with the dashboard placeholder | parity (notice on phones) | Head, Monitoring, PM | 1 · T1.7d (UX-15); pages in T1.13, T3.3, T6.1 |
 | SCR-060 | Project setup with component toggles | desktop-first | PM | 1 · T1.11, T1.12 |
-| SCR-061 | Form builder | desktop-first | Head, Monitoring (build); PM (place, read) | 2 · T2.4, T2.4b, T2.4c |
+| SCR-061 | Form builder | desktop-first | Head, Monitoring (build); PM (place, read) | 2 · T2.4, T2.4b, T2.4c, T2.4d |
 | SCR-113 | Ready forms (`/admin/ready-forms`) and the question library (`/admin/question-library`) | desktop-first | Head, Monitoring | 2 · T2.4c |
 | SCR-062 | Permission panel | desktop-first | Head, Monitoring | 1 · T1.8 |
 | SCR-063 | Officials: department staff, other departments, partners; new official, link, profile | parity | Head, Monitoring (writes); PM, RPM (read) | 1 · D-097 |
@@ -583,7 +583,8 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
   - Desktop: all sections on one page with a section index on the left. Officials entering from the office use this layout.
 - **Built in T2.5** at `/my-projects/:projectId/apply` (`features/applications/ApplicationFormPage`): the lookup with the auto-fill and the locked identity of a known person, the form of the project's published version for the volunteer audience, the draft saved when the first part is done (photos join after that), the send with the number, the limit and the closing date, the team member's draft without a send. Offline comes with T2.7.
 - **Built in T2.6.** The server refuses a new application beyond the volunteer's limit, outside the window (until the PM extends it with a reason), from a blocked volunteer, for a blocked person and for a second application of the same person in the project, and the page shows its message; the project's "applications left" reads the live count the limit itself uses.
-- **Phase · task.** 2 · T2.2 (lookup), T2.4 (renderer), T2.5 (create, submit), T2.7 (offline). **API.** tags beneficiaries, applications, files, sync.
+- **Built in T2.4d (D-133).** The form fills its defaults when it opens (a new form only, never a stored one), shows a read-only answer locked, works out conditional values and formulas as the answers change (a number with up to two decimals, an amount in taka, a text result by its label), gives a counted group as many rows as its number (a lower number asks before it removes filled rows), takes a number table one whole number per box (each box named by its row and column), and repeats an earlier answer in a question's text in the reader's language. The server writes the read-only answers itself and refuses rows that do not match their count at submission.
+- **Phase · task.** 2 · T2.2 (lookup), T2.4 (renderer), T2.5 (create, submit), T2.4d (form logic), T2.7 (offline). **API.** tags beneficiaries, applications, files, sync.
 
 ### SCR-032 My applications and application detail
 
@@ -1235,7 +1236,8 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
   - Tablet: the panes stacked.
   - Phone: read-mostly.
 - **Built in T2.6.** The settings pane has a "নম্বর" group for a choice question (points per option) and a number question (ranges with their points), outside a repeat group (`ScoreSettings.tsx`); the header's "স্কোর" button opens "অগ্রাধিকার স্কোর" (`ScoringDialog.tsx`: the points of "আগে সহায়তা পাননি" and the highest total, warning above 100). Scoring is optional; the points are never shown to a volunteer or a public-link visitor; the version summary names a points change.
-- **Phase · task.** 2 · T2.4, T2.4b, T2.4c. **API.** tag forms.
+- **Built in T2.4d (D-133).** The calculation dialog builds a value by clicking parts that read as a sentence (`CalculationEditor.tsx`): an answer, a number, "হিসাব (+ − × ÷)" with its parts and brackets, "যদি … তবে" with a condition per branch and "নইলে", a text result, a group's sum or counted rows, a table cell, the age and the nisab rules; "সূত্র লিখুন" takes the same as a typed formula with the questions' names (`formula.ts`), naming a mistake and its place, and "দশমিকের পর ঘর" rounds it; the text results are kept with the question. A question may start with a default ("ডিফল্ট মান": today's date, a text or a number) and be read-only (`DefaultSettings.tsx`); a "সংখ্যার ছক" question has rows and columns named in both languages (`TableSettings.tsx`); a repeat group's rows may follow an earlier number ("সারির সংখ্যা যে প্রশ্ন থেকে", which gives that number a range of 0 to 50); a condition compares with a value or with another answer ("একটি মান / অন্য প্রশ্নের উত্তর"); "উত্তর বসান" puts an earlier answer into the question's text.
+- **Phase · task.** 2 · T2.4, T2.4b, T2.4c, T2.4d. **API.** tag forms.
 
 ### SCR-113 Ready forms and the question library
 

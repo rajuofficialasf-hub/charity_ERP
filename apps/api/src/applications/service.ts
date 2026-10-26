@@ -420,11 +420,19 @@ export class ApplicationsService {
       definitionKeys(await readDefinition(this.prisma, row.formVersionId, audience)),
     );
     const definition = await readDefinition(this.prisma, row.formVersionId, audience);
+    const previous = await readAnswers(
+      this.prisma,
+      applicationId,
+      audience === 'official'
+        ? definition
+        : await readDefinition(this.prisma, row.formVersionId, 'official'),
+    );
     const { checked, chain } = await this.checked(
       definition,
       body.answers,
       audience,
       row.status === 'draft',
+      previous,
     );
     if (!row.beneficiaryId)
       await this.gateLookup(viewer.principal, access, row.projectId, definition, checked.answers);
@@ -799,12 +807,15 @@ export class ApplicationsService {
     raw: readonly unknown[],
     audience: Audience,
     draft: boolean,
+    previous: readonly Answer[] = [],
   ) {
     const today = isoDateInDhaka(this.clock.now());
+    // a read-only answer keeps the value it was first given (a date stays the day it was set)
     const checked = checkAnswers(definition, raw, {
       audience,
       today,
       draft,
+      previous,
       ...(await nisabOption(this.nisab, today)),
     });
     const chain = addressOf(checked.standard);

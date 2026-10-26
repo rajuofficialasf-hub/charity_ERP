@@ -84,3 +84,27 @@ export function storedAnswersOf(raw: unknown): FormAnswers | null {
   const { generation = 0, answers, ...rest } = parsed.data;
   return { ...rest, generation, answers: answers as Answer[] };
 }
+
+/** Drops the rows of a group from `count` on: their answers go, and the group keeps `count` rows. */
+export function trimRows(
+  state: FormAnswers,
+  group: string,
+  members: readonly string[],
+  count: number,
+): FormAnswers {
+  const keys = new Set(members);
+  return {
+    ...state,
+    answers: state.answers.filter((a) => !keys.has(a.fieldKey) || (a.repeatIndex ?? 0) < count),
+    rows: { ...state.rows, [group]: count },
+  };
+}
+
+/** The rows of a group its answers fill: the highest answered row plus one. */
+export function answeredRows(state: FormAnswers, members: readonly string[]): number {
+  const keys = new Set(members);
+  return state.answers.reduce(
+    (rows, a) => (keys.has(a.fieldKey) ? Math.max(rows, (a.repeatIndex ?? 0) + 1) : rows),
+    0,
+  );
+}

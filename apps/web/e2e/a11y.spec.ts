@@ -6,7 +6,9 @@ import {
   type Page,
   test,
 } from '@playwright/test';
-import { apiAs, openTab, PASSWORD, scan, signIn, switchLanguage } from './support/admin';
+import { apiAs, isPhone, openTab, PASSWORD, scan, signIn, switchLanguage } from './support/admin';
+import { DEMO_FINISHED, demoReadyForm } from './support/demo-form';
+import { settled } from './support/forms';
 import { activeProject, code, ERR } from './support/projects';
 
 // axe on every built Phase 1 screen in Bengali and in English, on the phone and the desktop
@@ -205,6 +207,34 @@ test.describe('accessibility of the Phase 1 screens', () => {
         document.getAnimations().every((a) => a.playState !== 'running'),
       );
       expect((await scan(page)).violations, `the placement dialog (${lang})`).toEqual([]);
+      // the builder with a number table chosen, then a calculation's formula in its editor; on a
+      // phone the builder edits only texts, so its settings are a computer's
+      if (isPhone(test.info())) return;
+      const demo = await demoReadyForm(page, HEAD, `ডেমো ${code()}`, DEMO_FINISHED);
+      await page.goto(`/admin/ready-forms/${demo}`);
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+      const bn = lang === 'bn';
+      await page
+        .getByRole('button', { name: bn ? 'গবাদি পশু বদলান' : 'Change Livestock', exact: true })
+        .click();
+      await expect(
+        page.getByRole('button', { name: bn ? 'সারি যোগ করুন' : /^Add a row/ }),
+      ).toBeVisible();
+      await settled(page);
+      expect((await scan(page)).violations, `the builder with a table (${lang})`).toEqual([]);
+      await page
+        .getByRole('button', { name: bn ? 'মোট সম্পদ বদলান' : 'Change Total assets', exact: true })
+        .click();
+      await page
+        .getByRole('button', { name: bn ? 'হিসাব বদলান' : 'Change the calculation' })
+        .click();
+      const calc = page.getByRole('dialog');
+      await calc.getByText(bn ? 'সূত্র লিখুন' : 'Type a formula', { exact: true }).click();
+      await expect(calc.getByRole('textbox', { name: bn ? /^সূত্র/ : /^Formula/ })).toHaveValue(
+        'q_gold_anas * q_gold_price + q_cash',
+      );
+      await settled(page);
+      expect((await scan(page)).violations, `the formula editor (${lang})`).toEqual([]);
     });
   }
 });

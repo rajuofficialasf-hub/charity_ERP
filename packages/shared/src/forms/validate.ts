@@ -3,13 +3,16 @@ import { answerValueSchema, type AnswerValue } from '../jsonb/answer-value.js';
 import { snakeKey } from '../jsonb/common.js';
 import { isAmount, toPaisa } from '../projects/budget.js';
 import {
+  COUNTED_ROWS_MAX,
   indexFields,
   validationOf,
+  type FieldDefault,
   type FormDefinition,
   type FormField,
   type LocatedField,
 } from './definition.js';
 import {
+  amountOf,
   evaluate,
   fieldPath,
   plainOf,
@@ -35,6 +38,8 @@ export interface ValidateOptions extends EvaluationContext {
   audience: Audience;
   /** A draft may leave required questions unanswered; every answer given is still checked. */
   draft?: boolean;
+  /** The answers stored before this save: a read-only answer keeps the value it was first given. */
+  previous?: readonly Answer[];
 }
 
 export interface ValidationError {
@@ -56,6 +61,52 @@ export type ValidationResult =
       custom: Answer[];
     }
   | { ok: false; errors: ValidationError[] };
+
+/** The highest number a cell of a number table may hold. */
+export const TABLE_CELL_MAX = 1_000_000;
+
+/**
+ * The cells of a table answer rebuilt from the question's own rows and columns: every sent key
+ * must be one of them (read as an own key, never through the prototype) and every number a whole
+ * number from 0 to the cap; null when anything else was sent.
+ */
+function tableCells(
+  field: FormField,
+  sent: Record<string, Record<string, number>>,
+): Record<string, Record<string, number>> | null {
+  const rows = new Set((field.settings?.table?.rows ?? []).map((r) => r.key));
+  const cols = new Set((field.settings?.table?.cols ?? []).map((c) => c.key));
+  const cells: Record<string, Record<string, number>> = {};
+  for (const [rowKey, row] of Object.entries(sent)) {
+    if (!rows.has(rowKey)) return null;
+    const kept: Record<string, number> = {};
+    for (const [colKey, n] of Object.entries(row)) {
+      if (!cols.has(colKey) || !Number.isInteger(n) || n < 0 || n > TABLE_CELL_MAX) return null;
+      Object.defineProperty(kept, colKey, { value: n, enumerable: true, writable: true });
+    }
+    if (Object.keys(kept).length)
+      Object.defineProperty(cells, rowKey, { value: kept, enumerable: true, writable: true });
+  }
+  return cells;
+}
+
+/**
+ * The answer a question's default gives (today's date, a fixed text, a number), or null without a
+ * default or for one that does not fit its type. The server writes it for a read-only question;
+ * the form fills an editable one once when it opens.
+ */
+export function defaultAnswerOf(field: FormField, today: string): AnswerValue | null {
+  const start: FieldDefault | undefined = field.settings?.default;
+  if (start === undefined) return null;
+  if ('today' in start) return field.type === 'date' ? { t: 'date', v: today } : null;
+  if ('text' in start)
+    return isTextType(field.type) ? ({ t: field.type, v: start.text } as AnswerValue) : null;
+  if (field.type === 'money')
+    return { t: 'money', v: amountOf(BigInt(Math.round(start.number * 100))) };
+  if (field.type === 'number' || field.type === 'decimal')
+    return { t: field.type, v: start.number };
+  return null;
+}
 
 /** The public never sends more rows than this, whatever the definition allows. */
 export const PUBLIC_MAX_ROWS = 50;
@@ -132,8 +183,9 @@ class Validator {
         this.fail(path, 'form.unexpected_answer');
         continue;
       }
-      // a calculated value is never trusted: the engine recomputes it below
-      if (type === 'calculation') continue;
+      // a calculated or read-only value is never trusted: the engine recomputes it, or the default
+      // is written below
+      if (type === 'calculation' || located.field.settings?.read_only === true) continue;
       const slot = `${fieldKey}#${row}`;
       if (this.kept.has(slot)) {
         this.fail(path, 'form.duplicate_answer');
@@ -186,6 +238,14 @@ class Validator {
       this.fail(path, 'validation.value_shape', { type });
       return null;
     }
+    if (parsed.data.t === 'number_table') {
+      const cells = tableCells(located.field, parsed.data.v);
+      if (cells === null) {
+        this.fail(path, 'validation.table_cell');
+        return null;
+      }
+      return { t: 'number_table', v: cells };
+    }
     const shaped = parsed.data;
     switch (shaped.t) {
       case 'short_text':
@@ -203,10 +263,46 @@ class Validator {
     }
   }
 
+  /**
+   * Writes the default of every read-only question outside a group, whatever the client sent: the
+   * value it was first given when one is stored, else the default; an office-only one only for an
+   * official.
+   */
+  applyReadOnlyDefaults() {
+    for (const located of this.fields.values()) {
+      const { field } = located;
+      const start = field.settings?.default;
+      if (field.settings?.read_only !== true || start === undefined || located.group !== null)
+        continue;
+      if (located.section.visibility === 'official_only' && this.options.audience !== 'official')
+        continue;
+      const value = defaultAnswerOf(field, this.options.today);
+      if (!value) continue;
+      const stored = this.options.previous?.find(
+        (a) => a.fieldKey === field.fieldKey && (a.repeatIndex ?? 0) === 0,
+      );
+      this.kept.set(`${field.fieldKey}#0`, {
+        fieldKey: field.fieldKey,
+        repeatIndex: 0,
+        value: stored && stored.value.t === value.t ? stored.value : value,
+      });
+    }
+  }
+
+  /** The rows a group's answers fill: its highest answered row plus one. */
+  private answeredRows(group: string): number {
+    let rows = 0;
+    for (const answer of this.kept.values())
+      if (this.fields.get(answer.fieldKey)?.group === group)
+        rows = Math.max(rows, (answer.repeatIndex ?? 0) + 1);
+    return rows;
+  }
+
   /** The rules of every visible field, per row inside a group. */
   check() {
     const evaluation = evaluate(this.definition, [...this.kept.values()], this.options);
     const states = new Map(Object.entries(evaluation.fields));
+    this.states = states;
     const rows = new Map(Object.entries(evaluation.rows));
     for (const located of this.fields.values()) {
       const { field } = located;
@@ -235,10 +331,32 @@ class Validator {
     return evaluation;
   }
 
+  private states = new Map<string, FieldState>();
+
   private checkRows(located: LocatedField, state: FieldState, count: number) {
     if (!state.visible) return;
     const { field } = located;
     const repeat = field.settings?.repeat ?? {};
+    // rows that follow a count: never more than the cap; a draft may differ from the count, the
+    // submission holds the count's rows (a blank one too) and nothing beyond them
+    if (repeat.count_from !== undefined) {
+      const answered = this.answeredRows(field.fieldKey);
+      const cap = Math.min(repeat.max_rows ?? COUNTED_ROWS_MAX, COUNTED_ROWS_MAX);
+      if (answered > cap) {
+        this.fail(field.fieldKey, 'validation.rows_too_many', { max: cap });
+        return;
+      }
+      if (this.options.draft) return;
+      const source = this.kept.get(`${repeat.count_from}#0`);
+      const given =
+        this.states.get(repeat.count_from)?.visible && source?.value.t === 'number'
+          ? source.value.v
+          : 0;
+      const expected = Math.min(Math.max(Math.floor(given), 0), cap);
+      if (answered > expected)
+        this.fail(field.fieldKey, 'validation.repeat_rows_mismatch', { expected });
+      return;
+    }
     const min = repeat.min_rows ?? (state.required ? 1 : 0);
     const definedMax = repeat.max_rows;
     const max =
@@ -357,6 +475,7 @@ export function validate(
 ): ValidationResult {
   const validator = new Validator(definition, options);
   validator.intake(answers);
+  validator.applyReadOnlyDefaults();
   const evaluation = validator.check();
   if (validator.errors.length) return { ok: false, errors: validator.errors };
   const kept = [...validator.kept.values()];

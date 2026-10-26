@@ -540,6 +540,36 @@ describe('the own question', () => {
     });
   }, 20_000);
 
+  it('adds a number table from its type, with one row and one column to start', async () => {
+    const user = userEvent.setup();
+    api({
+      sections: [
+        ...titled({ sections: coreSections() }).sections,
+        section('project', [], { title: T('প্রকল্পের প্রশ্ন', 'Project') }),
+      ],
+    });
+    open();
+    await user.click(await screen.findByRole('button', { name: 'প্রকল্পের প্রশ্ন' }));
+    await user.click(screen.getByRole('button', { name: 'সংখ্যার ছক প্রশ্ন যোগ করুন' }));
+    const dialog = await screen.findByRole('dialog', { name: 'নতুন প্রশ্ন' });
+    await user.type(within(dialog).getByRole('textbox', { name: /^লেবেল \(বাংলা\)/ }), 'গবাদি পশু');
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /^লেবেল \(ইংরেজি\)/ }),
+      'Livestock',
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'প্রশ্ন যোগ করুন' }));
+    await waitFor(() => expect(saves.length).toBeGreaterThan(0), { timeout: 4000 });
+    expect(savedField('q_livestock')).toMatchObject({
+      type: 'number_table',
+      settings: {
+        table: {
+          rows: [{ key: 'r1', label: { bn: 'সারি 1', en: 'সারি 1' } }],
+          cols: [{ key: 'c1', label: { bn: 'কলাম 1', en: 'কলাম 1' } }],
+        },
+      },
+    });
+  }, 20_000);
+
   it('goes to the section picked in the dialog and names the earlier answer a branching option follows', async () => {
     const user = userEvent.setup();
     api({

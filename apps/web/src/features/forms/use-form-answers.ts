@@ -22,12 +22,12 @@ export function useFormAnswers(
     if (!storageKey) return;
     try {
       // an untouched form leaves nothing behind: emptied again, or just sent
-      if (untouched(state, initialRows)) sessionStorage.removeItem(storageKey);
+      if (untouched(state, initialRows, initialAnswers)) sessionStorage.removeItem(storageKey);
       else sessionStorage.setItem(storageKey, JSON.stringify(state));
     } catch {
       // a full or blocked storage only loses the reload copy; the form keeps working
     }
-  }, [storageKey, state, initialRows]);
+  }, [storageKey, state, initialRows, initialAnswers]);
 
   /** Clears the stored copy and starts again with a new client id. */
   const clear = useCallback(() => {
@@ -37,8 +37,8 @@ export function useFormAnswers(
       } catch {
         // nothing stored, nothing to clear
       }
-    setState((s) => ({ ...fresh(initialRows), generation: s.generation + 1 }));
-  }, [storageKey, initialRows]);
+    setState((s) => ({ ...fresh(initialRows, initialAnswers), generation: s.generation + 1 }));
+  }, [storageKey, initialRows, initialAnswers]);
 
   return { state, setState, clear };
 }
@@ -48,8 +48,9 @@ function fresh(rows: Record<string, number>, answers: Answer[] = []): FormAnswer
   return { clientUuid: uuidv7(), answers: [...answers], rows: { ...rows }, step: 0, generation: 0 };
 }
 
-const untouched = (state: FormAnswers, rows: Record<string, number>) =>
-  state.answers.length === 0 &&
+/** Nothing changed since the form opened: the starting answers (defaults included) as they were. */
+const untouched = (state: FormAnswers, rows: Record<string, number>, start: Answer[]) =>
+  JSON.stringify(state.answers) === JSON.stringify(start) &&
   state.step === 0 &&
   Object.entries(state.rows).every(([group, n]) => n === (rows[group] ?? 0));
 

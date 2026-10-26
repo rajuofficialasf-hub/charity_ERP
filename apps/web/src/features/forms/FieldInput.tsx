@@ -1,6 +1,11 @@
 import type { AnswerValue } from '@css/shared';
-import type { ComputedValue, FieldState, FormField } from '@css/shared/forms';
-import { formatCount } from '@css/shared/format';
+import {
+  type ComputedValue,
+  type FieldState,
+  type FormField,
+  resultLabelOf,
+} from '@css/shared/forms';
+import { formatDecimal, formatTaka } from '@css/shared/format';
 import {
   CheckboxGroup,
   DateField,
@@ -17,6 +22,7 @@ import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { type Address, AddressFields, EMPTY_ADDRESS } from '../registration/AddressFields';
 import { GpsField } from './GpsField';
+import { NumberTableInput } from './NumberTableInput';
 import type { FieldUpload } from './upload-adapter';
 import { UploadField } from './UploadField';
 
@@ -36,6 +42,8 @@ export interface FieldInputProps {
   nisabKnown: boolean;
   /** The person reads the answer but cannot change it (a known person's identity). */
   locked?: boolean;
+  /** Puts earlier answers into the question's text and help; plain text in, plain text out. */
+  pipe?: (text: string) => string;
 }
 
 const choice = (value: AnswerValue | undefined) =>
@@ -58,12 +66,16 @@ export function FieldInput({
   upload,
   onUploading,
   nisabKnown,
-  locked = false,
+  locked: lockedByScreen = false,
+  pipe = (text) => text,
 }: FieldInputProps) {
   const t = useTranslations('forms.renderer');
   const locale = useLocale();
-  const label = field.label[locale];
-  const help = field.settings?.help?.[locale];
+  const label = pipe(field.label[locale]);
+  const helpText = field.settings?.help?.[locale];
+  const help = helpText === undefined ? undefined : pipe(helpText);
+  // a read-only answer comes from its default or calculation, never from the person
+  const locked = lockedByScreen || field.settings?.read_only === true;
   const common = { label, name: id, required: state.required, error, helper: help, locked };
   const options = state.options.map((o) => ({ id: o.code, label: o.label[locale] }));
   const otherId = state.options.find((o) => o.allowsOtherText)?.code;
@@ -207,7 +219,21 @@ export function FieldInput({
             help ??
             (computedNeedsNisab(field) && !nisabKnown ? t('office_works_out') : t('calculated'))
           }
-          value={shown(computed, locale, t)}
+          value={shown(field, computed, locale, t)}
+        />
+      );
+    case 'number_table':
+      return (
+        <NumberTableInput
+          field={field}
+          name={id}
+          label={label}
+          help={help}
+          required={state.required}
+          error={error}
+          locked={locked}
+          value={value}
+          onChange={onChange}
         />
       );
     case 'repeat_group':
@@ -220,14 +246,21 @@ const computedNeedsNisab = (field: FormField) =>
   JSON.stringify(field.calculation?.expr ?? null).includes('nisab_value');
 
 function shown(
+  field: FormField,
   value: ComputedValue | undefined,
   locale: 'bn' | 'en',
   t: (key: 'yes' | 'no') => string,
 ): string {
   if (value === undefined || value === null) return '';
   if (typeof value === 'boolean') return value ? t('yes') : t('no');
-  if (typeof value === 'number') return formatCount(value, locale);
-  return value;
+  // a number keeps the decimals its calculation rounds to, two when it sets none
+  if (typeof value === 'number') return formatDecimal(value, field.calculation?.round ?? 2, locale);
+  // a text result shows by its label in the reader's language
+  const result = resultLabelOf(field, value);
+  if (result) return locale === 'bn' ? result.bn : result.en;
+  // an amount comes as its decimal text, shown in taka
+  const amount = Number(value);
+  return value.trim() !== '' && Number.isFinite(amount) ? formatTaka(amount, locale) : value;
 }
 
 /**

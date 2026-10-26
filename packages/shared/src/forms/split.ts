@@ -75,6 +75,7 @@ function columnsOf(standardColumn: string, value: AnswerValue): [string, unknown
     case 'checkbox':
       return [[standardColumn, value.v]];
     case 'calculation':
+    case 'number_table':
       return [];
     case 'short_text':
     case 'long_text':

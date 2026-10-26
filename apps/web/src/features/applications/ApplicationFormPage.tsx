@@ -196,6 +196,7 @@ function EditDraft({ me, applicationId }: { me: Me; applicationId: string }) {
         projectId={record.projectId}
         form={record.form}
         initialAnswers={record.answers}
+        fillDefaults={false}
         lockedKeys={record.beneficiaryId ? lockedKeysOf(record.form) : new Set()}
         storageKey={`apply:${record.projectId}:${record.form.id}:${applicationId}`}
         draft={{ id: applicationId, etag: one.data.meta.etag ?? '' }}
@@ -210,6 +211,7 @@ function ApplicationForm({
   projectId,
   form,
   initialAnswers,
+  fillDefaults = true,
   lockedKeys,
   storageKey,
   draft: existing,
@@ -218,6 +220,8 @@ function ApplicationForm({
   projectId: string;
   form: Application['form'];
   initialAnswers: Answer[];
+  /** A stored draft keeps the answers it holds; a new application starts with the defaults. */
+  fillDefaults?: boolean;
   lockedKeys: ReadonlySet<string>;
   storageKey: string;
   draft?: { id: string; etag: string };
@@ -341,6 +345,7 @@ function ApplicationForm({
         today={isoDateInDhaka(new Date())}
         storageKey={storageKey}
         initialAnswers={initialAnswers}
+        fillDefaults={fillDefaults}
         lockedKeys={lockedKeys}
         upload={upload}
         layout="auto"

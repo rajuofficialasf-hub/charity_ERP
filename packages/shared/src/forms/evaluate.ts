@@ -1,7 +1,10 @@
 import type { AnswerValue } from '../jsonb/answer-value.js';
+import { isFieldRef, withinLimits } from '../jsonb/form-logic.js';
 import { fromPaisa, isAmount, toPaisa } from '../projects/budget.js';
 import {
+  COUNTED_ROWS_MAX,
   indexFields,
+  resultLabelOf,
   type Condition,
   type Expr,
   type FieldOption,
@@ -90,7 +93,17 @@ export function plainOf(value: AnswerValue): Plain {
       return value.union_id;
     case 'calculation':
       return null;
+    case 'number_table':
+      return tableTotal(value.v);
   }
+}
+
+/** The total of a number table's cells, or null while it holds none. */
+export function tableTotal(cells: Record<string, Record<string, number>>): number | null {
+  let total: number | null = null;
+  for (const row of Object.values(cells))
+    for (const n of Object.values(row)) if (Number.isFinite(n)) total = (total ?? 0) + n;
+  return total;
 }
 
 /** A numeric value in a calculation. Money is whole paisa so sums are exact. */
@@ -122,9 +135,11 @@ export function ageFromDob(dob: string, today: string): number | null {
   return years;
 }
 
+/** A number rounded to `places` decimals, a half away from zero as money is. */
 const roundTo = (value: number, places: number) => {
   const factor = 10 ** places;
-  return Math.round(value * factor) / factor;
+  const rounded = (Math.sign(value) * Math.round(Math.abs(value) * factor)) / factor;
+  return rounded === 0 ? 0 : rounded;
 };
 /** Paisa rounded to `places` decimals of the Taka (2 or more leaves it unchanged). */
 const roundPaisa = (paisa: bigint, places: number) => {
@@ -142,6 +157,7 @@ class Engine {
   private readonly sectionMemo = new Map<string, boolean>();
   private readonly visibleMemo = new Map<string, boolean>();
   private readonly computedMemo = new Map<string, Result>();
+  private readonly boundedMemo = new Map<string, boolean>();
   private readonly open = new Set<string>();
 
   constructor(
@@ -167,8 +183,26 @@ class Engine {
     return `${key}#${row}`;
   }
 
+  /**
+   * The rows a group holds: the rows its answers fill, and for a group that follows a count at
+   * least that count (blank rows included), so the phone and the server see the same rows.
+   */
   rowCount(group: string): number {
-    return this.rowCounts.get(group) ?? 0;
+    const answered = this.rowCounts.get(group) ?? 0;
+    const countFrom = this.fields.get(group)?.field.settings?.repeat?.count_from;
+    if (countFrom === undefined) return answered;
+    return Math.max(answered, this.countedRows(group, countFrom));
+  }
+
+  /** The rows a counted group asks for: the count's whole number, from 0 to the cap. */
+  private countedRows(group: string, countFrom: string): number {
+    const slot = `rows:${group}`;
+    if (this.open.has(slot)) return 0;
+    this.open.add(slot);
+    const count = this.plain(countFrom, 0);
+    this.open.delete(slot);
+    if (typeof count !== 'number' || !Number.isFinite(count)) return 0;
+    return Math.min(Math.max(Math.floor(count), 0), COUNTED_ROWS_MAX);
   }
 
   /** The row a reference from row `row` reads the field at: its own row inside a group, else 0. */
@@ -251,40 +285,49 @@ class Engine {
     );
   }
 
+  /**
+   * The type a field's value compares as: a calculation by what it gave (money as money, a number
+   * as a number), any other field by its own type.
+   */
+  private comparedType(key: string, row: number): string | undefined {
+    const located = this.fields.get(key);
+    if (!located) return undefined;
+    if (located.field.type !== 'calculation') return located.field.type;
+    const result = this.computed(key, row);
+    if (result === null || result === 'empty') return undefined;
+    return result.kind === 'money' ? 'money' : result.kind === 'number' ? 'number' : undefined;
+  }
+
   condition(condition: Condition, row: number): boolean {
     if ('all' in condition) return condition.all.every((c) => this.condition(c, row));
     if ('any' in condition) return condition.any.some((c) => this.condition(c, row));
     if ('not' in condition) return !this.condition(condition.not, row);
     const left = this.plain(condition.field, row);
-    const type = this.fields.get(condition.field)?.field.type;
+    const type = this.comparedType(condition.field, row);
     const isEmpty = left === null;
+    if (condition.op === 'is_empty') return isEmpty;
+    if (condition.op === 'not_empty') return !isEmpty;
+    // the other side is a fixed value, or the answer of another question at the same row
+    const value: unknown = condition.value;
+    const reference = isFieldRef(value);
+    const right = reference ? this.plain(value.field, row) : value;
+    // an empty answer on the other side matches nothing, not even an inequality
+    if (reference && right === null) return false;
     switch (condition.op) {
-      case 'is_empty':
-        return isEmpty;
-      case 'not_empty':
-        return !isEmpty;
       case 'eq':
-        return !isEmpty && equals(left, condition.value, type);
+        return !isEmpty && equals(left, right, type);
       case 'neq':
-        return !isEmpty && !equals(left, condition.value, type);
+        return !isEmpty && !equals(left, right, type);
       case 'in':
-        return (
-          !isEmpty &&
-          Array.isArray(condition.value) &&
-          condition.value.some((v) => equals(left, v, type))
-        );
+        return !isEmpty && Array.isArray(right) && right.some((v) => equals(left, v, type));
       case 'not_in':
-        return (
-          !isEmpty &&
-          Array.isArray(condition.value) &&
-          !condition.value.some((v) => equals(left, v, type))
-        );
+        return !isEmpty && Array.isArray(right) && !right.some((v) => equals(left, v, type));
       case 'gt':
       case 'gte':
       case 'lt':
       case 'lte': {
         if (isEmpty) return false;
-        const order = compare(left, condition.value, type);
+        const order = compare(left, right, type);
         if (order === null) return false;
         if (condition.op === 'gt') return order > 0;
         if (condition.op === 'gte') return order >= 0;
@@ -303,6 +346,16 @@ class Engine {
     const memo = this.computedMemo.get(slot);
     if (memo !== undefined) return memo;
     if (this.open.has(`computed:${slot}`)) return null;
+    // a stored expression past the size limits gives nothing rather than run unbounded
+    let bounded = this.boundedMemo.get(key);
+    if (bounded === undefined) {
+      bounded = withinLimits(located.field.calculation.expr);
+      this.boundedMemo.set(key, bounded);
+    }
+    if (!bounded) {
+      this.computedMemo.set(slot, null);
+      return null;
+    }
     this.open.add(`computed:${slot}`);
     let result = this.visible(key, row) ? this.expr(located.field.calculation.expr, row) : 'empty';
     const places = located.field.calculation.round;
@@ -357,10 +410,41 @@ class Engine {
     return fold('add', values);
   }
 
+  /** One cell of a visible number table; an empty cell counts as nothing (zero in arithmetic). */
+  private cellValue(key: string, row: string, col: string): Result {
+    const located = this.fields.get(key);
+    if (!located || located.field.type !== 'number_table') return null;
+    if (!this.visible(key, 0)) return 'empty';
+    const value = this.answer(key, 0);
+    if (value?.t !== 'number_table') return 'empty';
+    // read as own entries only, never through the prototype
+    const cells = new Map(Object.entries(value.v)).get(row);
+    const n = cells ? new Map(Object.entries(cells)).get(col) : undefined;
+    return n === undefined || !Number.isFinite(n) ? 'empty' : { kind: 'number', value: n };
+  }
+
+  /** The rows of a group, or only those where the condition holds; nothing while it is hidden. */
+  private countRows(group: string, where: Condition | undefined): Result {
+    const located = this.fields.get(group);
+    if (!located || located.field.type !== 'repeat_group') return null;
+    if (!this.visible(group, 0)) return 'empty';
+    let count = 0;
+    for (let row = 0; row < this.rowCount(group); row += 1)
+      if (where === undefined || this.condition(where, row)) count += 1;
+    return { kind: 'number', value: count };
+  }
+
   expr(expr: Expr, row: number): Result {
     if (typeof expr === 'number') return { kind: 'number', value: expr };
     if ('field' in expr) return this.fieldValue(expr.field, row);
     if ('sum_repeat' in expr) return this.sumRepeat(expr.sum_repeat.group, expr.sum_repeat.field);
+    if ('result' in expr) return { kind: 'text', value: expr.result };
+    if ('cell' in expr) return this.cellValue(expr.cell.field, expr.cell.row, expr.cell.col);
+    if ('count_rows' in expr) return this.countRows(expr.count_rows.group, expr.count_rows.where);
+    if ('if' in expr) {
+      const branch = expr.if.find((b) => this.condition(b.when, row));
+      return this.expr(branch ? branch.then : expr.else, row);
+    }
     if ('setting' in expr) {
       const nisab = this.context.nisabValue;
       return nisab !== undefined && isAmount(nisab)
@@ -465,6 +549,15 @@ function equals(left: Plain, right: unknown, type: string | undefined): boolean 
   return String(left) === String(right);
 }
 
+/** An amount with an optional minus sign (a calculation may go below zero) as paisa. */
+function signedPaisa(amount: string): bigint | null {
+  const text = amount.trim();
+  const negative = text.startsWith('-');
+  const digits = negative ? text.slice(1) : text;
+  if (!isAmount(digits)) return null;
+  return negative ? -toPaisa(digits) : toPaisa(digits);
+}
+
 /**
  * The order of an answered value against a literal: money as paisa, numbers as numbers, dates
  * and texts as strings; null when the two cannot be compared.
@@ -472,12 +565,12 @@ function equals(left: Plain, right: unknown, type: string | undefined): boolean 
 function compare(left: Plain, right: unknown, type: string | undefined): number | null {
   if (left === null || Array.isArray(left)) return null;
   if (type !== undefined && MONEY_TYPES.has(type)) {
-    const a = typeof left === 'string' && isAmount(left) ? toPaisa(left) : null;
+    const a = typeof left === 'string' ? signedPaisa(left) : null;
     const b =
       typeof right === 'number'
         ? paisaOfNumber(right)
-        : typeof right === 'string' && isAmount(right)
-          ? toPaisa(right)
+        : typeof right === 'string'
+          ? signedPaisa(right)
           : null;
     if (a === null || b === null) return null;
     return a === b ? 0 : a < b ? -1 : 1;
@@ -544,5 +637,67 @@ export function evaluate(
     fields: Object.fromEntries(fields),
     computed: Object.fromEntries(computed),
     rows: Object.fromEntries(rows),
+  };
+}
+
+/**
+ * The text of each answer as a piped text reads it, in the reader's language: a choice by its
+ * label, a text result by its label, a number or an amount as written; null while it is empty or
+ * hidden, and for answers with no text (a place, a photo).
+ */
+export function answerTexts(
+  definition: FormDefinition,
+  answers: readonly Answer[],
+  evaluation: Evaluation,
+  locale: 'bn' | 'en',
+  row = 0,
+): (key: string) => string | null {
+  const fields = indexFields(definition);
+  const states = new Map(Object.entries(evaluation.fields));
+  const computed = new Map(Object.entries(evaluation.computed));
+  const inLocale = (text: { bn: string; en: string }) => (locale === 'bn' ? text.bn : text.en);
+  return (key) => {
+    const located = fields.get(key);
+    if (!located) return null;
+    const at = located.group === null ? 0 : row;
+    const path = fieldPath(key, at, located.group !== null);
+    if (states.get(path)?.visible === false) return null;
+    const { field } = located;
+    if (field.type === 'calculation') {
+      const value = computed.get(path);
+      if (value === undefined || value === null) return null;
+      if (typeof value !== 'string') return String(value);
+      const result = resultLabelOf(field, value);
+      return result ? inLocale(result) : value;
+    }
+    const answer = answers.find((a) => a.fieldKey === key && (a.repeatIndex ?? 0) === at);
+    if (!answer) return null;
+    const label = (code: string) => {
+      const option = field.options?.find((o) => o.code === code);
+      return option ? inLocale(option.label) : code;
+    };
+    const value = answer.value;
+    switch (value.t) {
+      case 'single_select':
+      case 'radio':
+        return value.v === '' ? null : label(value.v);
+      case 'multi_select':
+      case 'checkbox':
+        return value.v.length ? value.v.map(label).join(', ') : null;
+      case 'number':
+      case 'decimal':
+        return String(value.v);
+      case 'short_text':
+      case 'long_text':
+      case 'phone':
+      case 'email':
+      case 'money':
+      case 'date':
+      case 'time':
+      case 'datetime':
+        return value.v.trim() === '' ? null : value.v;
+      default:
+        return null;
+    }
   };
 }

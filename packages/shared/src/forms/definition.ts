@@ -3,7 +3,9 @@ import { code64, snakeKey } from '../jsonb/common.js';
 import {
   calculationSchema,
   conditionSchema,
+  isFieldRef,
   validationSchema,
+  withinLimits,
   type Condition,
   type Expr,
 } from '../jsonb/form-logic.js';
@@ -18,11 +20,13 @@ import {
 import {
   FIELD_TYPES,
   isChoiceType,
+  isTextType,
   SECTION_VISIBILITIES,
   type FieldType,
   type SectionVisibility,
 } from './library.js';
-import { PATTERN_KEYS, TEXT_MAX_LENGTH } from './patterns.js';
+import { matchesPattern, PATTERN_KEYS, TEXT_MAX_LENGTH } from './patterns.js';
+import { pipeKeys } from './pipe.js';
 import { MAX_SCORE, maxScoreOf, scoreKindOf } from './score.js';
 
 /**
@@ -70,7 +74,32 @@ export const repeatSettingsSchema = z.strictObject({
   earner: z.boolean().optional(),
   /** Set on a field inside a repeat group: the key of its group, in the same section. */
   group: snakeKey.optional(),
+  /** On a repeat group: the earlier whole-number question whose answer gives its number of rows. */
+  count_from: snakeKey.optional(),
 });
+
+/** The most rows a group's count may ask for, as the public intake caps the rows. */
+export const COUNTED_ROWS_MAX = 50;
+
+/** The most cells a number table may hold. */
+export const TABLE_CELLS_MAX = 200;
+/** Keys a table may never use, since they name an object's own machinery. */
+const RESERVED_KEYS = new Set(['constructor', 'prototype', '__proto__']);
+
+/** The rows and columns of a number table, each a key and its label in both languages. */
+export const numberTableSchema = z.strictObject({
+  rows: z.array(z.strictObject({ key: snakeKey, label: label(200) })).max(TABLE_CELLS_MAX),
+  cols: z.array(z.strictObject({ key: snakeKey, label: label(200) })).max(TABLE_CELLS_MAX),
+});
+export type NumberTable = z.infer<typeof numberTableSchema>;
+
+/** The value a question starts with: today's date, a fixed text or a number. */
+export const fieldDefaultSchema = z.union([
+  z.strictObject({ today: z.literal(true) }),
+  z.strictObject({ text: z.string().max(500) }),
+  z.strictObject({ number: z.number() }),
+]);
+export type FieldDefault = z.infer<typeof fieldDefaultSchema>;
 
 /** Points from 0 to 100 in whole numbers, as the priority score counts them. */
 const points = z.int().min(0).max(100);
@@ -100,10 +129,19 @@ export const formScoringSchema = z.strictObject({
 });
 export type FormScoring = z.infer<typeof formScoringSchema>;
 
+/** A text result a calculation may give: a code and its label in both languages. */
+export const calculationResultSchema = z.strictObject({ code: code64, label: label(200) });
+export type CalculationResult = z.infer<typeof calculationResultSchema>;
+
 export const fieldSettingsSchema = z.strictObject({
   placeholder: label(200).optional(),
   help: label(500).optional(),
-  default: z.unknown().optional(),
+  default: fieldDefaultSchema.optional(),
+  /** The answer comes only from the calculation or the default; nobody types it. */
+  read_only: z.boolean().optional(),
+  /** On a number table: its rows and columns. */
+  table: numberTableSchema.optional(),
+  results: z.array(calculationResultSchema).max(50).optional(),
   validation: fieldValidationSchema.optional(),
   repeat: repeatSettingsSchema.optional(),
   score: fieldScoreSchema.optional(),
@@ -178,6 +216,16 @@ export const DEFINITION_ISSUE_CODES = [
   'form.score_option_unknown',
   'form.score_over_max',
   'form.score_range_invalid',
+  'form.result_unknown',
+  'form.result_misplaced',
+  'form.comparison_type',
+  'form.reference_hidden',
+  'form.expression_too_large',
+  'form.read_only_invalid',
+  'form.default_misplaced',
+  'form.repeat_count_invalid',
+  'form.pipe_order',
+  'form.table_invalid',
 ] as const;
 export type DefinitionIssueCode = (typeof DEFINITION_ISSUE_CODES)[number];
 
@@ -188,25 +236,87 @@ export interface DefinitionIssue {
   params?: Record<string, string>;
 }
 
-/** The field keys a condition reads. */
+/** The field keys a condition reads, the answers it compares with included. */
 export function conditionFields(condition: Condition): string[] {
   if ('all' in condition) return condition.all.flatMap(conditionFields);
   if ('any' in condition) return condition.any.flatMap(conditionFields);
   if ('not' in condition) return conditionFields(condition.not);
-  return [condition.field];
+  return isFieldRef(condition.value) ? [condition.field, condition.value.field] : [condition.field];
 }
 
-/** The field keys an expression reads, and the repeat groups it sums over. */
-export function exprReferences(expr: Expr): {
+/** The simple conditions inside a condition, each comparing one answer. */
+function simpleConditions(condition: Condition): Extract<Condition, { field: string }>[] {
+  if ('all' in condition) return condition.all.flatMap(simpleConditions);
+  if ('any' in condition) return condition.any.flatMap(simpleConditions);
+  if ('not' in condition) return simpleConditions(condition.not);
+  return [condition];
+}
+
+export interface ExprReferences {
+  /** The number-table cells read, by table, row and column. */
+  cells: { field: string; row: string; col: string }[];
+  /** The fields read at the calculation's own row (its branches' conditions included). */
   fields: string[];
+  /** The repeat-group fields summed over every row. */
   sums: { group: string; field: string }[];
-} {
-  if (typeof expr === 'number') return { fields: [], sums: [] };
-  if ('field' in expr) return { fields: [expr.field], sums: [] };
-  if ('sum_repeat' in expr) return { fields: [], sums: [expr.sum_repeat] };
-  if ('setting' in expr) return { fields: [], sums: [] };
-  const parts = expr.args.map(exprReferences);
-  return { fields: parts.flatMap((p) => p.fields), sums: parts.flatMap((p) => p.sums) };
+  /** The repeat groups whose rows are counted, with the condition read inside each row. */
+  counts: { group: string; where?: Condition }[];
+  /** The text results the expression gives. */
+  results: string[];
+  /** Every condition of the branches, for the comparison checks. */
+  conditions: Condition[];
+}
+
+/** What an expression reads and gives. */
+export function exprReferences(expr: Expr): ExprReferences {
+  const none: ExprReferences = {
+    fields: [],
+    sums: [],
+    counts: [],
+    results: [],
+    conditions: [],
+    cells: [],
+  };
+  if (typeof expr === 'number') return none;
+  if ('field' in expr) return { ...none, fields: [expr.field] };
+  if ('sum_repeat' in expr) return { ...none, sums: [expr.sum_repeat] };
+  if ('setting' in expr) return none;
+  if ('result' in expr) return { ...none, results: [expr.result] };
+  if ('count_rows' in expr) return { ...none, counts: [expr.count_rows] };
+  if ('cell' in expr) return { ...none, fields: [expr.cell.field], cells: [expr.cell] };
+  const parts =
+    'if' in expr
+      ? [
+          ...expr.if.flatMap((branch) => [
+            { ...none, fields: conditionFields(branch.when), conditions: [branch.when] },
+            exprReferences(branch.then),
+          ]),
+          exprReferences(expr.else),
+        ]
+      : expr.args.map(exprReferences);
+  return {
+    fields: parts.flatMap((p) => p.fields),
+    sums: parts.flatMap((p) => p.sums),
+    counts: parts.flatMap((p) => p.counts),
+    results: parts.flatMap((p) => p.results),
+    conditions: parts.flatMap((p) => p.conditions),
+    cells: parts.flatMap((p) => p.cells),
+  };
+}
+
+/** The label of a calculation's text result, by its code; null for a code it does not list. */
+export function resultLabelOf(field: FormField, code: string): CalculationResult['label'] | null {
+  return field.settings?.results?.find((r) => r.code === code)?.label ?? null;
+}
+
+/** What a question's answer is, as a comparison sees it. */
+function comparedKind(field: FormField): 'number' | 'text' | 'date' | null {
+  if (field.type === 'number' || field.type === 'decimal' || field.type === 'money')
+    return 'number';
+  if (field.type === 'calculation') return field.settings?.results?.length ? 'text' : 'number';
+  if (field.type === 'date' || field.type === 'time' || field.type === 'datetime') return 'date';
+  if (isTextType(field.type) || isChoiceType(field.type)) return 'text';
+  return null;
 }
 
 /** A field with its place in the definition. */
@@ -241,6 +351,34 @@ export function indexFields(definition: FormDefinition): Map<string, LocatedFiel
 export function validationOf(field: FormField): FieldValidation {
   return { ...field.logic?.validation, ...field.settings?.validation };
 }
+
+/**
+ * Whether a default suits its question and keeps the question's own rules, so a read-only answer
+ * the filler cannot change never fails its own check: today's date on a date, a text on a plain
+ * text question within its length and pattern, a whole number on a number, an amount of at most
+ * two decimals and not below 0 on money, a number within the question's least and most.
+ */
+function defaultFits(field: FormField, start: FieldDefault): boolean {
+  const rules = validationOf(field);
+  if ('today' in start) return field.type === 'date';
+  if ('text' in start) {
+    if (field.type !== 'short_text' && field.type !== 'long_text') return false;
+    const max = rules.max_length ?? TEXT_MAX_LENGTH;
+    if (start.text.length > max) return false;
+    return rules.pattern === undefined || matchesPattern(rules.pattern, start.text, max);
+  }
+  const n = start.number;
+  if (field.type === 'number' && !Number.isInteger(n)) return false;
+  if (field.type === 'money' && (n < 0 || Math.round(n * 100) !== n * 100)) return false;
+  if (field.type !== 'number' && field.type !== 'decimal' && field.type !== 'money') return false;
+  if (rules.min !== undefined && n < rules.min) return false;
+  return rules.max === undefined || n <= rules.max;
+}
+
+/** Whether one field comes before another in the form's order. */
+const before = (a: LocatedField, b: LocatedField) =>
+  a.sectionIndex < b.sectionIndex ||
+  (a.sectionIndex === b.sectionIndex && a.fieldIndex < b.fieldIndex);
 
 const fieldPath = (f: LocatedField, ...rest: (string | number)[]) => [
   'sections',
@@ -301,10 +439,12 @@ export function checkDefinition(
     });
   });
 
-  // a reference from `from` to the field `key`: it must exist, and a field inside a repeat group
-  // is only reachable from inside the same group
+  // a reference from `from` to the field `key`: it must exist, a field inside a repeat group is
+  // only reachable from inside the same group, and what a volunteer or a public visitor sees never
+  // reads an office-only answer (once per referring question)
+  const hiddenReported = new Set<string>();
   const checkReference = (
-    from: { group: string | null },
+    from: { group: string | null; section?: FormSection; field?: FormField; path?: unknown },
     key: string,
     path: (string | number)[],
   ): LocatedField | null => {
@@ -317,7 +457,43 @@ export function checkDefinition(
       issues.push({ code: 'form.repeat_reference', path, params: { reference: key } });
       return null;
     }
+    // checked at publish only, so a draft keeps saving while the builder works on it
+    const seenByOthers =
+      options.publishing === true &&
+      from.section !== undefined &&
+      from.section.visibility !== 'official_only';
+    if (seenByOthers && target.section.visibility === 'official_only') {
+      const who = from.field?.fieldKey ?? `section:${from.section!.key}`;
+      if (!hiddenReported.has(who)) {
+        hiddenReported.add(who);
+        issues.push({
+          code: 'form.reference_hidden',
+          path,
+          params: { fieldKey: from.field?.fieldKey ?? from.section!.key, reference: key },
+        });
+      }
+    }
     return target;
+  };
+
+  // a comparison of two answers: both must be of one kind (numbers with numbers, texts with texts)
+  const checkComparisons = (condition: Condition, fieldKey: string, path: (string | number)[]) => {
+    for (const simple of simpleConditions(condition)) {
+      if (!isFieldRef(simple.value)) continue;
+      const left = fields.get(simple.field);
+      const right = fields.get(simple.value.field);
+      if (!left || !right) continue;
+      const a = comparedKind(left.field);
+      const b = comparedKind(right.field);
+      if (a !== null && b !== null && a !== b)
+        issues.push({ code: 'form.comparison_type', path, params: { fieldKey } });
+    }
+  };
+  // an expression or a condition stays inside the size limits
+  const checkSize = (node: Expr | Condition, fieldKey: string, path: (string | number)[]) => {
+    if (withinLimits(node)) return true;
+    issues.push({ code: 'form.expression_too_large', path, params: { fieldKey } });
+    return false;
   };
 
   // the edges along which one field's value or visibility needs another's: a show-if, the
@@ -332,10 +508,12 @@ export function checkDefinition(
   definition.sections.forEach((section, si) => {
     if (section.condition) {
       const path = ['sections', si, 'condition'];
+      if (!checkSize(section.condition, section.key, path)) return;
       for (const key of conditionFields(section.condition)) {
-        if (checkReference({ group: null }, key, path))
+        if (checkReference({ group: null, section }, key, path))
           for (const field of section.fields) edge(field.fieldKey, key);
       }
+      checkComparisons(section.condition, section.key, path);
     }
   });
 
@@ -373,14 +551,130 @@ export function checkDefinition(
         path: fieldPath(located, 'options'),
         params: { fieldKey: field.fieldKey },
       });
+    const results = field.settings?.results;
+    if (results !== undefined && results.length > 0) {
+      if (field.type !== 'calculation')
+        issues.push({
+          code: 'form.result_misplaced',
+          path: fieldPath(located, 'settings', 'results'),
+          params: { fieldKey: field.fieldKey },
+        });
+      const resultCodes = new Set<string>();
+      results.forEach((result, ri) => {
+        if (resultCodes.has(result.code))
+          issues.push({
+            code: 'form.duplicate_key',
+            path: fieldPath(located, 'settings', 'results', ri, 'code'),
+            params: { key: result.code },
+          });
+        resultCodes.add(result.code);
+      });
+    }
 
-    if (field.logic?.show_if)
-      for (const key of conditionFields(field.logic.show_if))
-        if (checkReference(located, key, fieldPath(located, 'logic', 'show_if')))
-          edge(field.fieldKey, key);
-    if (field.logic?.required_if)
-      for (const key of conditionFields(field.logic.required_if))
-        checkReference(located, key, fieldPath(located, 'logic', 'required_if'));
+    // a number table holds its own rows and columns, unique and few enough, outside any group
+    const table = field.settings?.table;
+    if (field.type === 'number_table' || table !== undefined) {
+      const keys = (list: { key: string }[]) => list.map((item) => item.key);
+      const unique = (list: string[]) => new Set(list).size === list.length;
+      const valid =
+        field.type === 'number_table' &&
+        table !== undefined &&
+        located.group === null &&
+        table.rows.length > 0 &&
+        table.cols.length > 0 &&
+        unique(keys(table.rows)) &&
+        unique(keys(table.cols)) &&
+        ![...keys(table.rows), ...keys(table.cols)].some((k) => RESERVED_KEYS.has(k)) &&
+        table.rows.length * table.cols.length <= TABLE_CELLS_MAX;
+      if (!valid)
+        issues.push({
+          code: 'form.table_invalid',
+          path: fieldPath(located, 'settings', 'table'),
+          params: { fieldKey: field.fieldKey },
+        });
+    }
+
+    // a default of the question's kind; a read-only question takes its value from somewhere
+    const start = field.settings?.default;
+    if (start !== undefined) {
+      if (!defaultFits(field, start))
+        issues.push({
+          code: 'form.default_misplaced',
+          path: fieldPath(located, 'settings', 'default'),
+          params: { fieldKey: field.fieldKey },
+        });
+    }
+    if (
+      field.settings?.read_only === true &&
+      field.type !== 'calculation' &&
+      (start === undefined || located.group !== null)
+    )
+      issues.push({
+        code: 'form.read_only_invalid',
+        path: fieldPath(located, 'settings', 'read_only'),
+        params: { fieldKey: field.fieldKey },
+      });
+
+    // a group's rows may follow an earlier whole-number question, capped within the rows
+    const countFrom = field.settings?.repeat?.count_from;
+    if (countFrom !== undefined && field.type === 'repeat_group') {
+      const path = fieldPath(located, 'settings', 'repeat', 'count_from');
+      const source = checkReference(located, countFrom, path);
+      if (source) {
+        const { min, max } = validationOf(source.field);
+        const rowsMax = Math.min(
+          field.settings?.repeat?.max_rows ?? COUNTED_ROWS_MAX,
+          COUNTED_ROWS_MAX,
+        );
+        const valid =
+          source.field.type === 'number' &&
+          source.group === null &&
+          before(source, located) &&
+          min !== undefined &&
+          min >= 0 &&
+          max !== undefined &&
+          max <= rowsMax;
+        if (!valid)
+          issues.push({
+            code: 'form.repeat_count_invalid',
+            path,
+            params: { fieldKey: field.fieldKey },
+          });
+      }
+    }
+
+    // a piped text names an earlier answer
+    const texts = [
+      field.label.bn,
+      field.label.en,
+      field.settings?.help?.bn ?? '',
+      field.settings?.help?.en ?? '',
+    ];
+    const piped = [...new Set(texts.flatMap(pipeKeys))];
+    let outOfOrder = false;
+    for (const key of piped) {
+      const source = checkReference(located, key, fieldPath(located, 'label'));
+      if (source && !before(source, located)) outOfOrder = true;
+    }
+    if (outOfOrder)
+      issues.push({
+        code: 'form.pipe_order',
+        path: fieldPath(located, 'label'),
+        params: { fieldKey: field.fieldKey },
+      });
+
+    const logicConditions = [
+      ['show_if', field.logic?.show_if],
+      ['required_if', field.logic?.required_if],
+    ] as const;
+    for (const [kind, condition] of logicConditions) {
+      if (!condition) continue;
+      const path = fieldPath(located, 'logic', kind);
+      if (!checkSize(condition, field.fieldKey, path)) continue;
+      for (const key of conditionFields(condition))
+        if (checkReference(located, key, path) && kind === 'show_if') edge(field.fieldKey, key);
+      checkComparisons(condition, field.fieldKey, path);
+    }
 
     const dependsOn = field.logic?.options_depend_on;
     if (dependsOn !== undefined) {
@@ -422,11 +716,45 @@ export function checkDefinition(
           });
       });
 
-    if (field.calculation) {
+    if (
+      field.calculation &&
+      checkSize(field.calculation.expr, field.fieldKey, fieldPath(located, 'calculation', 'expr'))
+    ) {
       const path = fieldPath(located, 'calculation', 'expr');
       const refs = exprReferences(field.calculation.expr);
       for (const key of refs.fields)
         if (checkReference(located, key, path)) edge(field.fieldKey, key);
+      for (const condition of refs.conditions) checkComparisons(condition, field.fieldKey, path);
+      for (const cell of refs.cells) {
+        const table = fields.get(cell.field)?.field;
+        const known =
+          table?.type === 'number_table' &&
+          (table.settings?.table?.rows ?? []).some((r) => r.key === cell.row) &&
+          (table.settings?.table?.cols ?? []).some((c) => c.key === cell.col);
+        if (table && !known)
+          issues.push({
+            code: 'form.unknown_reference',
+            path,
+            params: { reference: `${cell.field}.${cell.row}.${cell.col}` },
+          });
+      }
+      const listed = new Set((field.settings?.results ?? []).map((r) => r.code));
+      if (refs.results.some((code) => !listed.has(code)))
+        issues.push({ code: 'form.result_unknown', path, params: { fieldKey: field.fieldKey } });
+      for (const count of refs.counts) {
+        const group = fields.get(count.group);
+        if (!group || group.field.type !== 'repeat_group') {
+          issues.push({ code: 'form.unknown_reference', path, params: { reference: count.group } });
+          continue;
+        }
+        checkReference(located, count.group, path);
+        edge(field.fieldKey, count.group);
+        if (!count.where) continue;
+        for (const key of conditionFields(count.where))
+          if (checkReference({ ...located, group: count.group }, key, path))
+            edge(field.fieldKey, key);
+        checkComparisons(count.where, field.fieldKey, path);
+      }
       for (const sum of refs.sums) {
         const group = fields.get(sum.group);
         if (!group || group.field.type !== 'repeat_group') {
@@ -442,6 +770,7 @@ export function checkDefinition(
           issues.push({ code: 'form.repeat_reference', path, params: { reference: sum.field } });
           continue;
         }
+        checkReference(located, sum.group, path);
         edge(field.fieldKey, sum.field);
         edge(field.fieldKey, sum.group);
       }

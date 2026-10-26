@@ -7,6 +7,7 @@ import {
   type FormDefinition,
   type FormField,
   type FormSection,
+  type NumberTable,
   emptySection,
   identityRoleOf,
   isChoiceType,
@@ -114,6 +115,8 @@ export interface OwnQuestion {
   dependsOn?: string;
   /** The repeat group of the section the question joins, as one of its row's fields. */
   group?: string;
+  /** A number table's starting rows and columns. */
+  table?: NumberTable;
 }
 
 /**
@@ -161,7 +164,11 @@ export function addOwnQuestion(
     label: question.label,
     required: false,
     standardColumn: null,
-    settings: group ? { repeat: { group: group.fieldKey } } : {},
+    settings: group
+      ? { repeat: { group: group.fieldKey } }
+      : question.table
+        ? { table: question.table }
+        : {},
     options: question.options ?? [],
     ...(question.dependsOn ? { logic: { options_depend_on: question.dependsOn } } : {}),
   };

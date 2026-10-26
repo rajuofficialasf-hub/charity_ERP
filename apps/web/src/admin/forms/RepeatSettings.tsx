@@ -1,5 +1,5 @@
 import type { FormDefinition, FormField } from '@css/shared/forms';
-import { Stack, Text } from '@css/ui';
+import { Select, Stack, Text } from '@css/ui';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { NumberText } from './NumberText';
@@ -57,18 +57,34 @@ export function RepeatSettings({
   definition,
   field,
   onRows,
+  counts,
+  onCountFrom,
 }: {
   definition: FormDefinition;
   field: FormField;
   onRows: (min: number | undefined, max: number | undefined) => void;
+  /** The earlier whole-number questions the rows may follow. */
+  counts: FormField[];
+  onCountFrom: (key: string | null) => void;
 }) {
   const t = useTranslations('forms.builder');
   const locale = useLocale();
   const members = definition.sections
     .flatMap((s) => s.fields)
     .filter((f) => f.settings?.repeat?.group === field.fieldKey);
+  const countFrom = field.settings?.repeat?.count_from ?? null;
   return (
     <Stack gap={2}>
+      <Select
+        label={t('count_from')}
+        helper={t('count_from_hint')}
+        value={countFrom ?? 'none'}
+        onChange={(id) => onCountFrom(id && id !== 'none' ? id : null)}
+        options={[
+          { id: 'none', label: t('count_from_none') },
+          ...counts.map((f) => ({ id: f.fieldKey, label: f.label[locale] })),
+        ]}
+      />
       <LimitPair
         minLabel={t('min_rows')}
         maxLabel={t('max_rows')}

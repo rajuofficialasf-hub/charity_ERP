@@ -6,6 +6,7 @@ export * from './definition.js';
 export * from './evaluate.js';
 export * from './library.js';
 export * from './patterns.js';
+export * from './pipe.js';
 export * from './requests.js';
 export * from './score.js';
 export * from './split.js';

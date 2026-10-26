@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { cloneTemplate } from './support/db';
@@ -1250,5 +1252,29 @@ describe('upload sessions of the chunked upload', () => {
     await expectSqlError(insert(client, 'photos', 1), SQLSTATE.uniqueViolation);
     await expectSqlError(insert(randomUUID(), 'photos', 81), SQLSTATE.checkViolation);
     await expectSqlError(insert(randomUUID(), 'uploads', 1), SQLSTATE.checkViolation);
+  });
+});
+
+describe('the number table question type', () => {
+  it('is a type a form field may have, and the migration back refuses while a form uses it', async () => {
+    const { rows } = await db.query<{ def: string }>(
+      `SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname IN ('form_fields_type_check', 'form_library_fields_type_check')`,
+    );
+    expect(rows).toHaveLength(2);
+    for (const row of rows) expect(row.def).toContain("'number_table'");
+    const down = readFileSync(
+      join(__dirname, '../../prisma/migrations/20261026120000_number_table/down.sql'),
+      'utf8',
+    );
+    await db.query('BEGIN');
+    try {
+      await db.query(
+        `INSERT INTO form_library_fields (id, key, type, label_bn, label_en) VALUES ($1, $2, 'number_table', 'গবাদি পশু', 'Livestock')`,
+        [randomUUID(), `livestock_${Date.now()}`],
+      );
+      await expect(db.query(down)).rejects.toThrow(/number_table down/);
+    } finally {
+      await db.query('ROLLBACK');
+    }
   });
 });

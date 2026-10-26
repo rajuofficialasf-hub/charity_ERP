@@ -442,3 +442,196 @@ describe('what the client may send', () => {
     }
   });
 });
+
+describe('defaults and read-only questions', () => {
+  const stored = (fields: FormField[], answers: Answer[], options: ValidateOptions = official) => {
+    const result = validate(definitionWith(fields), [...coreAnswers(), ...answers], options);
+    if (!result.ok) throw new Error(JSON.stringify(result.errors));
+    return Object.fromEntries(result.answers.map((a) => [a.fieldKey, a.value]));
+  };
+
+  it('writes a read-only default itself, whatever the client sent', () => {
+    const fields = [
+      field('number_prefix', 'short_text', {
+        settings: { default: { text: 'ASF-CBSRP-' }, read_only: true },
+      }),
+      field('approval_date', 'date', { settings: { default: { today: true }, read_only: true } }),
+      field('fixed_amount', 'money', { settings: { default: { number: 500 }, read_only: true } }),
+    ];
+    const values = stored(fields, [
+      answer('number_prefix', { t: 'short_text', v: 'changed' }),
+      answer('approval_date', { t: 'date', v: '2020-01-01' }),
+    ]);
+    expect(values.number_prefix).toEqual({ t: 'short_text', v: 'ASF-CBSRP-' });
+    expect(values.approval_date).toEqual({ t: 'date', v: TODAY });
+    expect(values.fixed_amount).toEqual({ t: 'money', v: '500.00' });
+  });
+
+  it('keeps the date a read-only default was first given, on every later save', () => {
+    const fields = [
+      field('entry_date', 'date', { settings: { default: { today: true }, read_only: true } }),
+    ];
+    const definition = definitionWith(fields);
+    const first = validate(definition, coreAnswers(), { ...official, today: '2026-10-01' });
+    if (!first.ok) throw new Error('first save refused');
+    const again = validate(definition, coreAnswers(), {
+      ...official,
+      today: '2026-10-26',
+      previous: first.answers,
+    });
+    if (!again.ok) throw new Error('second save refused');
+    expect(again.answers.find((a) => a.fieldKey === 'entry_date')!.value).toEqual({
+      t: 'date',
+      v: '2026-10-01',
+    });
+  });
+
+  it('writes an office-only read-only default only for an official', () => {
+    const definition = definitionWith(
+      [],
+      [
+        section(
+          'office',
+          [
+            field('approved_on', 'date', {
+              settings: { default: { today: true }, read_only: true },
+            }),
+          ],
+          { visibility: 'official_only' },
+        ),
+      ],
+    );
+    const by = (audience: ValidateOptions['audience']) => {
+      const result = validate(definition, coreAnswers(), { ...official, audience });
+      if (!result.ok) throw new Error(audience);
+      return result.answers.some((a) => a.fieldKey === 'approved_on');
+    };
+    expect(by('volunteer')).toBe(false);
+    expect(by('public')).toBe(false);
+    expect(by('official')).toBe(true);
+  });
+
+  it('keeps an editable default as the filler sent it, and a cleared one cleared', () => {
+    const fields = [field('visit_date', 'date', { settings: { default: { today: true } } })];
+    expect(
+      stored(fields, [answer('visit_date', { t: 'date', v: '2026-10-01' })]).visit_date,
+    ).toEqual({
+      t: 'date',
+      v: '2026-10-01',
+    });
+    expect(stored(fields, []).visit_date).toBeUndefined();
+  });
+
+  it('never takes a read-only calculation from the client', () => {
+    const fields = [
+      field('a', 'number'),
+      field('double', 'calculation', {
+        calculation: { expr: { op: 'mul', args: [{ field: 'a' }, 2] } },
+        settings: { read_only: true },
+      }),
+    ];
+    const values = stored(fields, [
+      answer('a', { t: 'number', v: 4 }),
+      answer('double', { t: 'calculation', v: 999 }),
+    ]);
+    expect(values.double).toEqual({ t: 'calculation', v: 8 });
+  });
+
+  it('validates and stores an unchanged older definition as before', () => {
+    const fields = [field('note_text', 'short_text'), field('count', 'number')];
+    expect(
+      stored(fields, [
+        answer('note_text', { t: 'short_text', v: 'a' }),
+        answer('count', { t: 'number', v: 2 }),
+      ]),
+    ).toMatchObject({ note_text: { t: 'short_text', v: 'a' }, count: { t: 'number', v: 2 } });
+  });
+});
+
+describe('rows that follow a count', () => {
+  const fields = [
+    field('family_count', 'number', { settings: { validation: { min: 0, max: 20 } } }),
+    field('members', 'repeat_group', { settings: { repeat: { count_from: 'family_count' } } }),
+    field('member_name', 'short_text', {
+      required: true,
+      settings: { repeat: { group: 'members' } },
+    }),
+    field('member_income', 'money', { settings: { repeat: { group: 'members' } } }),
+  ];
+  const rows = (n: number) =>
+    Array.from({ length: n }, (_, i) => answer('member_name', { t: 'short_text', v: `m${i}` }, i));
+  const count = (n: number) => answer('family_count', { t: 'number', v: n });
+
+  it('holds as many rows as the count, asks each row’s required answers, and refuses one more', () => {
+    expect(errorsOf(fields, [count(3), ...rows(3)])).toEqual([]);
+    // a row left blank is still a row: its required name is asked for
+    expect(errorsOf(fields, [count(3), ...rows(2)])).toEqual([
+      ['member_name[2]', 'validation.required'],
+    ]);
+    expect(errorsOf(fields, [count(3), ...rows(4)])).toEqual([
+      ['members', 'validation.repeat_rows_mismatch'],
+    ]);
+  });
+
+  it('lets a draft hold rows that do not match the count, never more than the cap', () => {
+    expect(errorsOf(fields, [count(5), ...rows(4)], { ...official, draft: true })).toEqual([]);
+    expect(errorsOf(fields, [count(2), ...rows(51)], { ...official, draft: true })).toEqual([
+      ['members', 'validation.rows_too_many'],
+    ]);
+  });
+});
+
+describe('a number table', () => {
+  const livestock = field('livestock', 'number_table', {
+    settings: {
+      table: {
+        rows: [
+          { key: 'cow', label: { bn: 'গরু', en: 'Cow' } },
+          { key: 'goat', label: { bn: 'ছাগল', en: 'Goat' } },
+        ],
+        cols: [
+          { key: 'own', label: { bn: 'নিজের', en: 'Own' } },
+          { key: 'shared', label: { bn: 'বর্গা', en: 'Sharecropped' } },
+        ],
+      },
+    },
+  });
+  const table = (v: unknown) => answer('livestock', { t: 'number_table', v } as never);
+
+  it('takes whole numbers in its own rows and columns, up to 1,000,000', () => {
+    expect(
+      errorsOf([livestock], [table({ cow: { own: 2, shared: 1 }, goat: { own: 0 } })]),
+    ).toEqual([]);
+    const result = validate(
+      definitionWith([livestock]),
+      [...coreAnswers(), table({ cow: { own: 1_000_000 } })],
+      official,
+    );
+    expect(result.ok && result.answers.find((a) => a.fieldKey === 'livestock')!.value).toEqual({
+      t: 'number_table',
+      v: { cow: { own: 1_000_000 } },
+    });
+  });
+
+  it('refuses a negative, a fraction, a cell above 1,000,000 and an unknown row or column', () => {
+    for (const v of [
+      { cow: { own: -1 } },
+      { cow: { own: 1.5 } },
+      { cow: { own: 1_000_001 } },
+      { horse: { own: 1 } },
+      { cow: { borrowed: 1 } },
+      { constructor: { own: 1 } },
+    ])
+      expect(errorsOf([livestock], [table(v)]), JSON.stringify(v)).toEqual([
+        ['livestock', 'validation.table_cell'],
+      ]);
+  });
+
+  it('asks a required table to hold at least one number, and takes a table of zeros as answered', () => {
+    expect(errorsOf([{ ...livestock, required: true }], [table({})])).toEqual([
+      ['livestock', 'validation.required'],
+    ]);
+    // "no cows" is an answer
+    expect(errorsOf([{ ...livestock, required: true }], [table({ cow: { own: 0 } })])).toEqual([]);
+  });
+});
