@@ -5,7 +5,7 @@ import {
   type FormField,
   resultLabelOf,
 } from '@css/shared/forms';
-import { formatCount } from '@css/shared/format';
+import { formatDecimal, formatTaka } from '@css/shared/format';
 import {
   CheckboxGroup,
   DateField,
@@ -253,10 +253,14 @@ function shown(
 ): string {
   if (value === undefined || value === null) return '';
   if (typeof value === 'boolean') return value ? t('yes') : t('no');
-  if (typeof value === 'number') return formatCount(value, locale);
+  // a number keeps up to two decimals, as a calculation may round to them
+  if (typeof value === 'number') return formatDecimal(value, 2, locale);
   // a text result shows by its label in the reader's language
   const result = resultLabelOf(field, value);
-  return result ? (locale === 'bn' ? result.bn : result.en) : value;
+  if (result) return locale === 'bn' ? result.bn : result.en;
+  // an amount comes as its decimal text, shown in taka
+  const amount = Number(value);
+  return value.trim() !== '' && Number.isFinite(amount) ? formatTaka(amount, locale) : value;
 }
 
 /**

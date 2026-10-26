@@ -220,6 +220,46 @@ describe('the logic', () => {
     expect(total()).toHaveAttribute('readonly');
   });
 
+  it('shows amounts in taka and a number with its decimals', async () => {
+    const user = userEvent.setup();
+    open([
+      section('money', [
+        bilingual('cash', 'নগদ', 'Cash', 'money'),
+        bilingual('bank', 'ব্যাংকে', 'In the bank', 'money'),
+        bilingual('assets', 'মোট সম্পদ', 'Total assets', 'calculation', {
+          calculation: { expr: { op: 'add', args: [{ field: 'cash' }, { field: 'bank' }] } },
+        }),
+        bilingual('people', 'সদস্য', 'Members', 'number'),
+        bilingual('share', 'জনপ্রতি', 'Per person', 'calculation', {
+          calculation: { expr: { op: 'div', args: [{ field: 'cash' }, { field: 'people' }] } },
+        }),
+        bilingual('pairs', 'জোড়া', 'Pairs', 'calculation', {
+          calculation: { expr: { op: 'div', args: [{ field: 'people' }, 2] } },
+        }),
+      ]),
+    ]);
+    await user.type(screen.getByRole('textbox', { name: /^নগদ/ }), '15000');
+    await user.type(screen.getByRole('textbox', { name: /^ব্যাংকে/ }), '250.50');
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: /^মোট সম্পদ/ })).toHaveValue('৳ 15,250.50'),
+    );
+    await user.type(screen.getByRole('textbox', { name: /^সদস্য/ }), '4');
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: /^জনপ্রতি/ })).toHaveValue('৳ 3,750'),
+    );
+    await user.clear(screen.getByRole('textbox', { name: /^সদস্য/ }));
+    await user.type(screen.getByRole('textbox', { name: /^সদস্য/ }), '8');
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: /^জনপ্রতি/ })).toHaveValue('৳ 1,875'),
+    );
+    await user.clear(screen.getByRole('textbox', { name: /^সদস্য/ }));
+    await user.type(screen.getByRole('textbox', { name: /^সদস্য/ }), '7');
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: /^জনপ্রতি/ })).toHaveValue('৳ 2,142.86'),
+    );
+    expect(screen.getByRole('textbox', { name: /^জোড়া/ })).toHaveValue('3.5');
+  });
+
   it('offers the options that follow the earlier answer, and "other" opens its text box', async () => {
     const user = userEvent.setup();
     open([
