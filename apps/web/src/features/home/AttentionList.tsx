@@ -8,11 +8,13 @@ import {
   Bell,
   CalendarClock,
   CircleCheck,
+  Clapperboard,
   FilePenLine,
   FileText,
   FolderPen,
   ListChecks,
   LockOpen,
+  PauseCircle,
   UserCheck,
   UserRoundCheck,
 } from 'lucide-react';
@@ -34,6 +36,10 @@ const LOOK: Record<AttentionKind, { icon: IconComponent; tone: 'info' | 'warning
   unlocks_to_fill: { icon: LockOpen, tone: 'warning' },
   unlocks_to_verify: { icon: LockOpen, tone: 'info' },
   verifications_pending: { icon: UserCheck, tone: 'info' },
+  media_referrals_new: { icon: Clapperboard, tone: 'info' },
+  media_review_waiting: { icon: Clapperboard, tone: 'info' },
+  media_sent_back: { icon: Clapperboard, tone: 'warning' },
+  media_on_hold: { icon: PauseCircle, tone: 'warning' },
 };
 
 /**

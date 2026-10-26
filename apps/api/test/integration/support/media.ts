@@ -181,3 +181,49 @@ export async function mediaWork(m: MediaWorld) {
   expect(res.status, JSON.stringify(res.body)).toBe(200);
   return { applicationId, referralId, workId: res.body.data.work.id as string };
 }
+
+/** The work's version as the director reads it, for If-Match. */
+export async function workVersion(m: MediaWorld, referralId: string): Promise<string> {
+  const res = await m.at(await m.as(m.media.director), 'get', `/media-referrals/${referralId}`);
+  return res.body.data.work.version as string;
+}
+
+/**
+ * A work run to the end by the API: the members with their roles, the director's moves to ready to
+ * publish, the final review and a YouTube publication; answers the ids.
+ */
+export async function publishedWork(m: MediaWorld, members: { userId: string; roles: string[] }[]) {
+  const ids = await mediaWork(m);
+  const director = await m.as(m.media.director);
+  const ok = (res: { status: number; body: unknown }, what: string) =>
+    expect(res.status, `${what}: ${JSON.stringify(res.body)}`).toBeLessThan(300);
+  ok(
+    await m.at(director, 'put', `/media-works/${ids.workId}/members`).send({ members }),
+    'members',
+  );
+  for (const stageCode of ['editing', 'ready_to_publish'])
+    ok(
+      await m
+        .at(director, 'patch', `/media-works/${ids.workId}`)
+        .set('If-Match', await workVersion(m, ids.referralId))
+        .send({ stageCode }),
+      stageCode,
+    );
+  ok(
+    await m
+      .at(director, 'post', `/media-works/${ids.workId}/final-review`)
+      .set('If-Match', await workVersion(m, ids.referralId))
+      .send({ decision: 'approve' }),
+    'review',
+  );
+  ok(
+    await m.at(director, 'post', `/media-works/${ids.workId}/publications`).send({
+      platformCode: 'asf_youtube',
+      state: 'published',
+      link: 'https://youtu.be/dQw4w9WgXcQ',
+      publishedOn: '2026-10-27',
+    }),
+    'publication',
+  );
+  return ids;
+}

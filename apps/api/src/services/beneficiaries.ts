@@ -20,6 +20,7 @@ import {
 import type { PrismaService, Tx } from '../core/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
+import { publishedWorksOf } from './media-home';
 import type { BeneficiaryIdentityService } from './beneficiary-identity';
 
 /** Newest first by id (UUID v7 follows the time of creation and pages without gaps). */
@@ -236,13 +237,14 @@ export class BeneficiariesService {
         ...read,
         seesNid,
         history: await this.history(tx, viewer, access, read.b.id, seesNid),
+        media: await publishedWorksOf(tx, read.b.id),
       };
     });
     if (!found) {
       this.access.denied(viewer.principal.userId, viewer.scope.permission, 'beneficiary');
       throw new ApiError('permission.not_found', 404);
     }
-    const { b, applications, activities, distributions, seesNid, history } = found;
+    const { b, applications, activities, distributions, seesNid, history, media } = found;
     const years = new Map<number, { year: number; projects: Map<string, ProjectOfYear> }>();
     for (const a of applications) {
       const year = years.get(a.project.year) ?? { year: a.project.year, projects: new Map() };
@@ -349,6 +351,8 @@ export class BeneficiariesService {
         status: a.status,
         doneAt: a.doneAt.toISOString(),
       })),
+      // the published works about the person, for everyone who reads the profile
+      media,
     };
   }
 

@@ -18,6 +18,7 @@ import {
 import { type ReasonRequest, reasonRequestSchema } from '@css/shared/auth';
 import { type DecisionRequest, decisionRequestSchema } from '@css/shared/registration';
 import { Router } from 'express';
+import { publishedWorkView } from '../services/media-home';
 import { z, type ZodType } from 'zod';
 import { sensitive } from '../access/field-mask';
 import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal';
@@ -240,6 +241,8 @@ const beneficiaryProfile = z.object({
       }),
     ),
   ),
+  /** The published and done media works about the person. */
+  media: z.array(publishedWorkView),
 });
 
 /**

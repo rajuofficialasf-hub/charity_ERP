@@ -23,6 +23,11 @@ export const ATTENTION_ROUTES = {
   unlocks_to_verify: '/admin/projects',
   // the item opens the entry that has waited longest; this is the place when none is named
   verifications_pending: '/admin/projects',
+  // the Media Team's home, filtered to what waits
+  media_referrals_new: '/media?state=pending',
+  media_review_waiting: '/media?stage=ready_to_publish',
+  media_sent_back: '/media?stage=in_review',
+  media_on_hold: '/media?stage=on_hold',
 } as const;
 
 export type AttentionKind = keyof typeof ATTENTION_ROUTES;

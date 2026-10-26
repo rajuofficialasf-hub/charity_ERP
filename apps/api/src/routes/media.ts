@@ -23,6 +23,13 @@ import { type PageQuery, pageQuery } from '../core/pagination';
 import { ok, page } from '../http/send';
 import { defineRoute, type RouteDeps } from '../openapi/define-route';
 import {
+  mediaMemberView,
+  mediaSummaryView,
+  type MediaWorkQuery,
+  mediaWorkQuerySchema,
+  mediaWorkRow,
+} from '../services/media-home';
+import {
   mediaReferralSummary,
   mediaReferralView,
   type ReferralQuery,
@@ -38,7 +45,7 @@ const uuid = z.uuid();
  */
 export function mediaRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'mediaReferrals' | 'mediaWorks'>,
+  c: Pick<Container, 'mediaHome' | 'mediaReferrals' | 'mediaWorks'>,
 ): Router {
   const router = Router();
   const op = { tag: 'media', idempotency: 'none' as const, rateLimit: 'default' as const };
@@ -216,6 +223,53 @@ export function mediaRouter(
     responses: { 201: mediaReferralView, 403: null, 404: null, 422: null },
     handler: async ({ params, body, req }) =>
       ok(await c.mediaWorks.comment(principalOf(req), params.workId, body.body)),
+  });
+
+  defineRoute(router, deps, {
+    ...op,
+    method: 'get',
+    path: '/media/summary',
+    operationId: 'media.summary.get',
+    summary:
+      "The Media Team home's counts, overall and by program, over the referrals and works the caller reaches",
+    permission: 'media.work.view',
+    scope: 'application',
+    audit: 'none',
+    responses: { 200: mediaSummaryView, 403: null },
+    handler: async ({ req }) => ok(await c.mediaHome.summary(scopeOf(req))),
+  });
+
+  defineRoute<unknown, MediaWorkQuery & PageQuery>(router, deps, {
+    ...op,
+    method: 'get',
+    path: '/media-works',
+    operationId: 'media.work.list',
+    summary:
+      'The referrals and their works the caller reaches, newest first, with filters on program, stage, priority, decision and member',
+    permission: 'media.work.view',
+    scope: 'application',
+    audit: 'none',
+    query: pageQuery.extend(mediaWorkQuerySchema.shape),
+    responses: { 200: z.array(mediaWorkRow), 400: null, 422: null },
+    handler: async ({ query, req }) => {
+      const { rows, meta } = await c.mediaHome.list(principalOf(req), scopeOf(req), query);
+      return page(rows, meta);
+    },
+  });
+
+  defineRoute<unknown, unknown, { userId: string }>(router, deps, {
+    ...op,
+    method: 'get',
+    path: '/media/members/:userId',
+    operationId: 'media.member.get',
+    summary:
+      "A Media Team member's profile: contact, designation, counts and the portfolio of published works with their production roles",
+    permission: 'media.work.view',
+    scope: 'application',
+    audit: 'none',
+    params: { userId: uuid },
+    responses: { 200: mediaMemberView, 404: null },
+    handler: async ({ params }) => ok(await c.mediaHome.member(params.userId)),
   });
 
   return router;

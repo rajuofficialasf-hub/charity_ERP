@@ -61,6 +61,7 @@ import { TransfersService } from './applications/transfers';
 import { UnlocksService } from './applications/unlocks';
 import { MediaReferralsService } from './services/media-referrals';
 import { MediaWorksService } from './services/media-works';
+import { MediaHomeService } from './services/media-home';
 import { WaitlistService } from './applications/waitlist';
 import { ProgramsService } from './services/programs';
 import { ReferenceListsService } from './services/reference-lists';
@@ -167,6 +168,7 @@ export interface Container {
   unlocks: UnlocksService;
   mediaReferrals: MediaReferralsService;
   mediaWorks: MediaWorksService;
+  mediaHome: MediaHomeService;
   mediaEvents: MediaEvents;
   transfers: TransfersService;
   applicationEvents: ApplicationEvents;
@@ -450,6 +452,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     mediaEvents,
     mediaReferrals,
     mediaWorks,
+    mediaHome: o.mediaHome ?? new MediaHomeService(env, prisma),
     readyForms: o.readyForms ?? new ReadyFormsService(prisma, audit, projects, forms),
     publicLink: o.publicLink ?? new PublicLinkService(env, prisma, audit, projects),
     publicPhotos,

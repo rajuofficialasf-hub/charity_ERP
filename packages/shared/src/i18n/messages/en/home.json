@@ -15,7 +15,11 @@
       "handovers_open": "{n, plural, one {{count} handover not completed} other {{count} handovers not completed}}",
       "unlocks_to_fill": "{n, plural, one {{count} answer of your applications is open for correction} other {{count} answers of your applications are open for correction}}",
       "unlocks_to_verify": "{n, plural, one {{count} corrected answer awaits verification} other {{count} corrected answers await verification}}",
-      "verifications_pending": "{n, plural, one {{count} entry awaits verification} other {{count} entries await verification}}"
+      "verifications_pending": "{n, plural, one {{count} entry awaits verification} other {{count} entries await verification}}",
+      "media_referrals_new": "{n, plural, one {{count} new media referral waits for a decision} other {{count} new media referrals wait for a decision}}",
+      "media_review_waiting": "{n, plural, one {{count} media work waits for the final review} other {{count} media works wait for the final review}}",
+      "media_sent_back": "{n, plural, one {{count} media work was sent back for correction} other {{count} media works were sent back for correction}}",
+      "media_on_hold": "{n, plural, one {{count} of your media works is on hold} other {{count} of your media works are on hold}}"
     }
   },
   "widget": {
