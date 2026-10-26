@@ -339,6 +339,7 @@ function FieldSettingsView({
           field={field}
           asker={asker}
           onChange={(calculation) => patch({ calculation })}
+          onResults={(results) => setSettings({ results })}
         />
       ) : null}
       {locks.condition ? (

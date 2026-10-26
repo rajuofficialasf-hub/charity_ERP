@@ -1,5 +1,5 @@
 import type { Condition } from '@css/shared';
-import type { Calculation, FormDefinition, FormField } from '@css/shared/forms';
+import type { Calculation, CalculationResult, FormDefinition, FormField } from '@css/shared/forms';
 import { Button, Disclosure, Modal, Stack } from '@css/ui';
 import { Pencil } from 'lucide-react';
 import { type ReactNode, useMemo, useState } from 'react';
@@ -24,6 +24,14 @@ function useRuleWords(): RuleWords {
       age: (q) => t('sentence.age', { q }),
       nisab: (q) => t('sentence.nisab', { q }),
       groupSum: (group, field) => t('term_group_sum', { group, field }),
+      ifThen: (c, v) => t('sentence.if_then', { c, v }),
+      otherwise: (v) => t('sentence.otherwise', { v }),
+      countRows: (group) => t('sentence.count_rows', { group }),
+      countRowsWhere: (group, c) => t('sentence.count_rows_where', { group, c }),
+      cell: (table, row, col) => t('sentence.cell', { table, row, col }),
+      smallest: (parts) => t('sentence.smallest', { parts }),
+      largest: (parts) => t('sentence.largest', { parts }),
+      not: (c) => t('sentence.not', { c }),
     }),
     [t],
   );
@@ -149,11 +157,13 @@ export function CalcGroup({
   field,
   asker,
   onChange,
+  onResults,
 }: {
   definition: FormDefinition;
   field: FormField;
   asker: Asker;
-  onChange: (calculation: Calculation) => void;
+  onChange: (calculation: Calculation | undefined) => void;
+  onResults: (results: CalculationResult[] | undefined) => void;
 }) {
   const t = useTranslations('forms.builder');
   const locale = useLocale();
@@ -179,6 +189,7 @@ export function CalcGroup({
         field={field}
         asker={asker}
         onChange={onChange}
+        onResults={onResults}
       />
     </RuleCard>
   );

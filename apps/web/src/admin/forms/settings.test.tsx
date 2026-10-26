@@ -223,29 +223,41 @@ describe('the condition rows', () => {
   });
 });
 
-describe('the calculation terms', () => {
-  it('builds a total of three numbers and saves it', async () => {
-    const user = userEvent.setup();
-    open(
-      definition(
-        section('income', [
-          field('a', 'money', { label: T('কৃষি আয়') }),
-          field('b', 'money', { label: T('ব্যবসার আয়') }),
-          field('c', 'money', { label: T('অন্য আয়') }),
-          field('total', 'calculation', { label: T('মোট আয়') }),
-        ]),
-      ),
-      { section: 'income', field: 'total' },
+describe('the calculation', () => {
+  const income = () =>
+    definition(
+      section('income', [
+        field('a', 'money', { label: T('কৃষি আয়') }),
+        field('b', 'money', { label: T('ব্যবসার আয়') }),
+        field('c', 'money', { label: T('অন্য আয়') }),
+        field('total', 'calculation', { label: T('মোট আয়') }),
+      ]),
     );
+
+  it('builds a total of three answers by clicking and saves it', async () => {
+    const user = userEvent.setup();
+    open(income(), { section: 'income', field: 'total' });
     const calc = await openRules(user, /^হিসাব (ঠিক করুন|বদলান)$/, 'হিসাবের নিয়ম');
-    for (let i = 0; i < 3; i += 1)
-      await user.click(calc.getByRole('button', { name: 'পদ যোগ করুন' }));
-    await choose(user, /(^|\s)পদ 2$/, 'ব্যবসার আয়', calc);
-    await choose(user, /(^|\s)পদ 3$/, 'অন্য আয়', calc);
+    await choose(user, /হিসাব: ধরন$/, 'হিসাব (+ − × ÷)', calc);
+    await user.click(calc.getByRole('button', { name: 'অংশ যোগ করুন' }));
+    await user.click(calc.getByRole('button', { name: 'অংশ যোগ করুন' }));
+    for (const [n, label] of [
+      ['1', 'কৃষি আয়'],
+      ['2', 'ব্যবসার আয়'],
+      ['3', 'অন্য আয়'],
+    ] as const) {
+      await choose(user, new RegExp(`হিসাব › অংশ ${n}: ধরন$`), 'একটি প্রশ্নের উত্তর', calc);
+      await choose(user, new RegExp(`হিসাব › অংশ ${n}: প্রশ্ন$`), label, calc);
+    }
     expect(fieldOf(latest, 'total').calculation).toEqual({
       expr: { op: 'add', args: [{ field: 'a' }, { field: 'b' }, { field: 'c' }] },
     });
-  }, 20_000);
+    // a bracket is a part of its own inside the sum
+    await user.click(calc.getByRole('button', { name: 'বন্ধনী' }));
+    expect(fieldOf(latest, 'total').calculation!.expr).toMatchObject({
+      args: [{ field: 'a' }, { field: 'b' }, { field: 'c' }, { op: 'add', args: [0] }],
+    });
+  }, 30_000);
 
   it('adds up a group question over its rows', async () => {
     const user = userEvent.setup();
@@ -263,8 +275,7 @@ describe('the calculation terms', () => {
       { section: 'family', field: 'family_income' },
     );
     const calc = await openRules(user, /^হিসাব (ঠিক করুন|বদলান)$/, 'হিসাবের নিয়ম');
-    await user.click(calc.getByRole('button', { name: 'পদ যোগ করুন' }));
-    await choose(user, /(^|\s)পদ 1$/, '“উপার্জনকারী”-এর সব সারির “মাসিক আয়”-এর যোগফল', calc);
+    await choose(user, /হিসাব: ধরন$/, 'তালিকার সব সারির যোগফল', calc);
     expect(fieldOf(latest, 'family_income').calculation).toEqual({
       expr: { sum_repeat: { group: 'earners', field: 'earner_income' } },
     });
@@ -277,11 +288,12 @@ describe('the calculation terms', () => {
       { section: 'x', field: 'calc' },
     );
     let calc = await openRules(user, /^হিসাব (ঠিক করুন|বদলান)$/, 'হিসাবের নিয়ম');
-    await user.click(calc.getByRole('button', { name: /হিসাবের ধরন/ }));
+    await user.click(calc.getByRole('button', { name: /হিসাব: ধরন$/ }));
     expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual([
-      'যোগ-বিয়োগ',
-      'গুণ',
-      'ভাগ',
+      'একটি প্রশ্নের উত্তর',
+      'একটি সংখ্যা',
+      'হিসাব (+ − × ÷)',
+      'যদি … তবে',
     ]);
     await user.keyboard('{Escape}');
     view.unmount();
@@ -296,15 +308,77 @@ describe('the calculation terms', () => {
       { section: 'x', field: 'age' },
     );
     calc = await openRules(user, /^হিসাব (ঠিক করুন|বদলান)$/, 'হিসাবের নিয়ম');
-    await choose(user, /হিসাবের ধরন/, 'জন্মতারিখ থেকে বয়স', calc);
+    await choose(user, /হিসাব: ধরন$/, 'জন্মতারিখ থেকে বয়স', calc);
     expect(fieldOf(latest, 'age').calculation).toEqual({
       expr: { op: 'age_from_dob', args: [{ field: 'dob' }] },
     });
-    await choose(user, /হিসাবের ধরন/, 'নিট সম্পদ বনাম নিসাব', calc);
+    await choose(user, /হিসাব: ধরন$/, 'নিট সম্পদ বনাম নিসাব', calc);
     expect(fieldOf(latest, 'age').calculation).toEqual({
       expr: { op: 'compare_gte', args: [{ field: 'net' }, { setting: 'nisab_value' }] },
     });
   }, 20_000);
+
+  it('builds a value by condition, which reads as a sentence', async () => {
+    const user = userEvent.setup();
+    open(
+      definition(
+        section('gold', [
+          field('gold_karat', 'radio', {
+            label: T('সোনার ক্যারেট'),
+            options: [option('24'), option('22')],
+          }),
+          field('price', 'calculation', { label: T('প্রতি আনার দাম') }),
+        ]),
+      ),
+      { section: 'gold', field: 'price' },
+    );
+    const calc = await openRules(user, /^হিসাব (ঠিক করুন|বদলান)$/, 'হিসাবের নিয়ম');
+    await choose(user, /হিসাব: ধরন$/, 'যদি … তবে', calc);
+    await user.clear(calc.getByRole('textbox', { name: 'তবে 1: সংখ্যা' }));
+    await user.type(calc.getByRole('textbox', { name: 'তবে 1: সংখ্যা' }), '16236');
+    expect(fieldOf(latest, 'price').calculation).toEqual({
+      expr: {
+        if: [{ when: { field: 'gold_karat', op: 'not_empty' }, then: 16236 }],
+        else: 0,
+      },
+    });
+    await user.keyboard('{Escape}');
+    expect(
+      await screen.findByText(
+        'প্রতি আনার দাম = যদি “সোনার ক্যারেট” ফাঁকা নয় হয় তবে 16236, নইলে 0',
+      ),
+    ).toBeInTheDocument();
+  }, 20_000);
+
+  it('takes a typed formula, names a mistake and where it is, and rounds the result', async () => {
+    const user = userEvent.setup();
+    open(income(), { section: 'income', field: 'total' });
+    const calc = await openRules(user, /^হিসাব (ঠিক করুন|বদলান)$/, 'হিসাবের নিয়ম');
+    await user.click(calc.getByRole('radio', { name: 'সূত্র লিখুন' }));
+    const formula = calc.getByRole('textbox', { name: /^সূত্র/ });
+    await user.type(formula, 'a + bb');
+    expect(calc.getByText('অজানা প্রশ্ন: bb (ঘর 5)')).toBeInTheDocument();
+    await user.clear(formula);
+    await user.type(formula, '(a + b) / 3');
+    expect(fieldOf(latest, 'total').calculation).toEqual({
+      expr: { op: 'div', args: [{ op: 'add', args: [{ field: 'a' }, { field: 'b' }] }, 3] },
+    });
+    await choose(user, /দশমিকের পর ঘর$/, '2', calc);
+    expect(fieldOf(latest, 'total').calculation).toMatchObject({ round: 2 });
+  }, 20_000);
+
+  it('keeps the text results of a calculation with the question', async () => {
+    const user = userEvent.setup();
+    open(income(), { section: 'income', field: 'total' });
+    const calc = await openRules(user, /^হিসাব (ঠিক করুন|বদলান)$/, 'হিসাবের নিয়ম');
+    await user.click(calc.getByRole('button', { name: 'লেখা-ফল যোগ করুন' }));
+    const bn = calc.getByRole('textbox', { name: 'ফল 1: বাংলা' });
+    await user.clear(bn);
+    await user.type(bn, 'কম');
+    expect(fieldOf(latest, 'total').settings?.results).toEqual([
+      { code: 'r1', label: { bn: 'কম', en: 'নতুন ফল' } },
+    ]);
+  });
 });
 
 it('has no axe violation', async () => {
@@ -325,6 +399,35 @@ it('has no axe violation', async () => {
   await openRules(userEvent.setup(), /^শর্ত ঠিক করুন$/, 'কখন দেখাবে');
   await expectNoAxeViolations(document.body);
 });
+
+it('has no axe violation in the calculation dialog with a step and a bracket', async () => {
+  const user = userEvent.setup();
+  open(
+    definition(
+      section('gold', [
+        field('gold_karat', 'radio', { label: T('সোনার ক্যারেট'), options: [option('24')] }),
+        field('price', 'calculation', {
+          label: T('দাম'),
+          calculation: {
+            expr: {
+              op: 'add',
+              args: [
+                {
+                  if: [{ when: { field: 'gold_karat', op: 'eq', value: '24' }, then: 1 }],
+                  else: 0,
+                },
+                { op: 'mul', args: [2, 3] },
+              ],
+            },
+          },
+        }),
+      ]),
+    ),
+    { section: 'gold', field: 'price' },
+  );
+  await openRules(user, /^হিসাব (ঠিক করুন|বদলান)$/, 'হিসাবের নিয়ম');
+  await expectNoAxeViolations(document.body);
+}, 20_000);
 
 describe('the identity mark', () => {
   const own = () =>
