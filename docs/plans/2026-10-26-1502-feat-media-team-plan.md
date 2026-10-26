@@ -678,8 +678,8 @@ D-101 (2026-10-18) replaced the earlier media design: the team no longer picks b
 
 ## Progress
 - **Branch:** `feat/media-team`
-- **Updated:** 2026-10-26 15:40
-- **Next:** checkpoint C2 (U2: the permission narrowing), then U3 the migration
+- **Updated:** 2026-10-26 16:10
+- **Next:** U3 the migration: schema.prisma, the migration with down.sql, the three lists in the base seed, the merge, the constraint tests
 - **Uncommitted:** none
-- **Reviewed through:** none
+- **Reviewed through:** C2 at e62e6b2 (C1: the owner approved the mockups; C2: T0 review of the permission narrowing, clean; access unit 95 of 95, the touched integration files and the matrix test green)
 - **Notes:** the owner answered in chat on 2026-10-26: mockups first; consent withdrawal blocks new publications and warns on published ones; YouTube thumbnails with an icon card otherwise; five notices; the story written at referral; the media roles lose application access outside referrals; members see only their own works; stages move forward and back with the R10 rules. The owner approved the mockups on 2026-10-26 (C1). U2 also changed `apps/api/test/integration/files.test.ts`: without `application.view` the Media Team gets 404 on an application's files and their metadata, as D-136 (6) intends; the authorization matrix was regenerated. `pnpm docs:check` reads a rule's module list for its phase: a media rule names only M18, or it is counted as Phase 1.
