@@ -67,7 +67,9 @@ export type Expr =
   /** A text result: one of the question's own results, by code. */
   | { result: string }
   /** The rows of a repeat group, or only those meeting the condition read inside each row. */
-  | { count_rows: { group: string; where?: Condition } };
+  | { count_rows: { group: string; where?: Condition } }
+  /** One cell of a number table, by its row and column keys. */
+  | { cell: { field: string; row: string; col: string } };
 
 /** How large an expression may grow, conditions inside it included. */
 export const EXPRESSION_LIMITS = { depth: 20, parts: 500 } as const;
@@ -93,6 +95,7 @@ export const exprSchema: z.ZodType<Expr> = z.lazy(() =>
     z.strictObject({
       count_rows: z.strictObject({ group: snakeKey, where: conditionSchema.optional() }),
     }),
+    z.strictObject({ cell: z.strictObject({ field: snakeKey, row: snakeKey, col: snakeKey }) }),
   ]),
 );
 
@@ -153,6 +156,12 @@ export const fieldSettingsSchema = z.strictObject({
   help: looseLabel.optional(),
   default: z.unknown().optional(),
   read_only: z.boolean().optional(),
+  table: z
+    .looseObject({
+      rows: z.array(z.looseObject({ key: snakeKey, label: looseLabel })),
+      cols: z.array(z.looseObject({ key: snakeKey, label: looseLabel })),
+    })
+    .optional(),
   /** The text results a calculation may give, each a code with its label in both languages. */
   results: z
     .array(z.looseObject({ code: code64, label: looseLabel }))

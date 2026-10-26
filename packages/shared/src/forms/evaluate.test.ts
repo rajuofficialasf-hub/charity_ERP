@@ -574,3 +574,50 @@ describe('conditional values, row counts and comparisons', () => {
     expect(computed).toEqual({ fine: 3 });
   });
 });
+
+describe('the cells of a number table', () => {
+  it('reads a cell, counts an empty one as 0, and reads the table as its total in a condition', () => {
+    const fields = [
+      field('livestock', 'number_table', {
+        settings: {
+          table: {
+            rows: [
+              { key: 'cow', label: { bn: 'গরু', en: 'Cow' } },
+              { key: 'goat', label: { bn: 'ছাগল', en: 'Goat' } },
+            ],
+            cols: [
+              { key: 'own', label: { bn: 'নিজের', en: 'Own' } },
+              { key: 'shared', label: { bn: 'বর্গা', en: 'Sharecropped' } },
+            ],
+          },
+        },
+      }),
+      field('cows', 'calculation', {
+        calculation: {
+          expr: {
+            op: 'add',
+            args: [
+              { cell: { field: 'livestock', row: 'cow', col: 'own' } },
+              { cell: { field: 'livestock', row: 'cow', col: 'shared' } },
+            ],
+          },
+        },
+      }),
+      field('probe', 'short_text', {
+        logic: { show_if: { field: 'livestock', op: 'gt', value: 2 } },
+      }),
+    ];
+    const state = evaluate(
+      definitionWith(fields),
+      [
+        answer('livestock', {
+          t: 'number_table',
+          v: { cow: { own: 2 }, goat: { own: 1 } },
+        } as never),
+      ],
+      { today: TODAY },
+    );
+    expect(state.computed.cows).toBe(2);
+    expect(state.fields.probe!.visible).toBe(true);
+  });
+});

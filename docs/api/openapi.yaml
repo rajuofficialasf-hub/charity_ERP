@@ -2875,7 +2875,7 @@ components:
       properties:
         fieldKey: { type: string, pattern: '^[a-z][a-z0-9_]*$' }
         libraryFieldKey: { type: [string, 'null'] }
-        type: { type: string, enum: [short_text, long_text, number, decimal, money, phone, email, date, time, datetime, single_select, multi_select, radio, checkbox, photo, file, signature, gps, bd_address, repeat_group, calculation, note] }
+        type: { type: string, enum: [short_text, long_text, number, decimal, money, phone, email, date, time, datetime, single_select, multi_select, radio, checkbox, photo, file, signature, gps, bd_address, repeat_group, calculation, note, number_table] }
         label: { $ref: '#/components/schemas/Bilingual' }
         required: { type: boolean }
         standardColumn: { type: [string, 'null'] }

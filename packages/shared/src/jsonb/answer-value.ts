@@ -46,6 +46,14 @@ const bdAddress = z.strictObject({
   union_id: z.uuid(),
   village: z.string().max(200).optional(),
 });
+/**
+ * A number table: whole numbers by row and column key. The keys and the numbers are checked against
+ * the question's own rows and columns by the validator, which keeps only those.
+ */
+const numberTable = z.strictObject({
+  t: z.literal('number_table'),
+  v: z.record(z.string(), z.record(z.string(), z.number())),
+});
 const calculated = z.strictObject({
   t: z.literal('calculation'),
   v: z.union([z.number(), z.string(), z.boolean()]),
@@ -65,5 +73,6 @@ export const answerValueSchema = z.union([
   gps,
   bdAddress,
   calculated,
+  numberTable,
 ]);
 export type AnswerValue = z.infer<typeof answerValueSchema>;

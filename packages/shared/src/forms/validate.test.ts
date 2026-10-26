@@ -580,3 +580,56 @@ describe('rows that follow a count', () => {
     ]);
   });
 });
+
+describe('a number table', () => {
+  const livestock = field('livestock', 'number_table', {
+    settings: {
+      table: {
+        rows: [
+          { key: 'cow', label: { bn: 'গরু', en: 'Cow' } },
+          { key: 'goat', label: { bn: 'ছাগল', en: 'Goat' } },
+        ],
+        cols: [
+          { key: 'own', label: { bn: 'নিজের', en: 'Own' } },
+          { key: 'shared', label: { bn: 'বর্গা', en: 'Sharecropped' } },
+        ],
+      },
+    },
+  });
+  const table = (v: unknown) => answer('livestock', { t: 'number_table', v } as never);
+
+  it('takes whole numbers in its own rows and columns and keeps nothing else', () => {
+    expect(
+      errorsOf([livestock], [table({ cow: { own: 2, shared: 1 }, goat: { own: 0 } })]),
+    ).toEqual([]);
+    const result = validate(
+      definitionWith([livestock]),
+      [...coreAnswers(), table({ cow: { own: 2 } })],
+      official,
+    );
+    expect(result.ok && result.answers.find((a) => a.fieldKey === 'livestock')!.value).toEqual({
+      t: 'number_table',
+      v: { cow: { own: 2 } },
+    });
+  });
+
+  it('refuses a negative, a fraction, a cell above 1,000,000 and an unknown row or column', () => {
+    for (const v of [
+      { cow: { own: -1 } },
+      { cow: { own: 1.5 } },
+      { cow: { own: 1_000_001 } },
+      { horse: { own: 1 } },
+      { cow: { borrowed: 1 } },
+      { constructor: { own: 1 } },
+    ])
+      expect(errorsOf([livestock], [table(v)]), JSON.stringify(v)).toEqual([
+        ['livestock', 'validation.table_cell'],
+      ]);
+  });
+
+  it('asks a required table to hold at least one number', () => {
+    expect(errorsOf([{ ...livestock, required: true }], [table({})])).toEqual([
+      ['livestock', 'validation.required'],
+    ]);
+  });
+});

@@ -81,6 +81,18 @@ export const repeatSettingsSchema = z.strictObject({
 /** The most rows a group's count may ask for, as the public intake caps the rows. */
 export const COUNTED_ROWS_MAX = 50;
 
+/** The most cells a number table may hold. */
+export const TABLE_CELLS_MAX = 200;
+/** Keys a table may never use, since they name an object's own machinery. */
+const RESERVED_KEYS = new Set(['constructor', 'prototype', '__proto__']);
+
+/** The rows and columns of a number table, each a key and its label in both languages. */
+export const numberTableSchema = z.strictObject({
+  rows: z.array(z.strictObject({ key: snakeKey, label: label(200) })).max(TABLE_CELLS_MAX),
+  cols: z.array(z.strictObject({ key: snakeKey, label: label(200) })).max(TABLE_CELLS_MAX),
+});
+export type NumberTable = z.infer<typeof numberTableSchema>;
+
 /** The value a question starts with: today's date, a fixed text or a number. */
 export const fieldDefaultSchema = z.union([
   z.strictObject({ today: z.literal(true) }),
@@ -127,6 +139,8 @@ export const fieldSettingsSchema = z.strictObject({
   default: fieldDefaultSchema.optional(),
   /** The answer comes only from the calculation or the default; nobody types it. */
   read_only: z.boolean().optional(),
+  /** On a number table: its rows and columns. */
+  table: numberTableSchema.optional(),
   results: z.array(calculationResultSchema).max(50).optional(),
   validation: fieldValidationSchema.optional(),
   repeat: repeatSettingsSchema.optional(),
@@ -211,6 +225,7 @@ export const DEFINITION_ISSUE_CODES = [
   'form.default_misplaced',
   'form.repeat_count_invalid',
   'form.pipe_order',
+  'form.table_invalid',
 ] as const;
 export type DefinitionIssueCode = (typeof DEFINITION_ISSUE_CODES)[number];
 
@@ -238,6 +253,8 @@ function simpleConditions(condition: Condition): Extract<Condition, { field: str
 }
 
 export interface ExprReferences {
+  /** The number-table cells read, by table, row and column. */
+  cells: { field: string; row: string; col: string }[];
   /** The fields read at the calculation's own row (its branches' conditions included). */
   fields: string[];
   /** The repeat-group fields summed over every row. */
@@ -252,13 +269,21 @@ export interface ExprReferences {
 
 /** What an expression reads and gives. */
 export function exprReferences(expr: Expr): ExprReferences {
-  const none: ExprReferences = { fields: [], sums: [], counts: [], results: [], conditions: [] };
+  const none: ExprReferences = {
+    fields: [],
+    sums: [],
+    counts: [],
+    results: [],
+    conditions: [],
+    cells: [],
+  };
   if (typeof expr === 'number') return none;
   if ('field' in expr) return { ...none, fields: [expr.field] };
   if ('sum_repeat' in expr) return { ...none, sums: [expr.sum_repeat] };
   if ('setting' in expr) return none;
   if ('result' in expr) return { ...none, results: [expr.result] };
   if ('count_rows' in expr) return { ...none, counts: [expr.count_rows] };
+  if ('cell' in expr) return { ...none, fields: [expr.cell.field], cells: [expr.cell] };
   const parts =
     'if' in expr
       ? [
@@ -275,6 +300,7 @@ export function exprReferences(expr: Expr): ExprReferences {
     counts: parts.flatMap((p) => p.counts),
     results: parts.flatMap((p) => p.results),
     conditions: parts.flatMap((p) => p.conditions),
+    cells: parts.flatMap((p) => p.cells),
   };
 }
 
@@ -545,6 +571,29 @@ export function checkDefinition(
       });
     }
 
+    // a number table holds its own rows and columns, unique and few enough, outside any group
+    const table = field.settings?.table;
+    if (field.type === 'number_table' || table !== undefined) {
+      const keys = (list: { key: string }[]) => list.map((item) => item.key);
+      const unique = (list: string[]) => new Set(list).size === list.length;
+      const valid =
+        field.type === 'number_table' &&
+        table !== undefined &&
+        located.group === null &&
+        table.rows.length > 0 &&
+        table.cols.length > 0 &&
+        unique(keys(table.rows)) &&
+        unique(keys(table.cols)) &&
+        ![...keys(table.rows), ...keys(table.cols)].some((k) => RESERVED_KEYS.has(k)) &&
+        table.rows.length * table.cols.length <= TABLE_CELLS_MAX;
+      if (!valid)
+        issues.push({
+          code: 'form.table_invalid',
+          path: fieldPath(located, 'settings', 'table'),
+          params: { fieldKey: field.fieldKey },
+        });
+    }
+
     // a default of the question's kind; a read-only question takes its value from somewhere
     const start = field.settings?.default;
     if (start !== undefined) {
@@ -676,6 +725,19 @@ export function checkDefinition(
       for (const key of refs.fields)
         if (checkReference(located, key, path)) edge(field.fieldKey, key);
       for (const condition of refs.conditions) checkComparisons(condition, field.fieldKey, path);
+      for (const cell of refs.cells) {
+        const table = fields.get(cell.field)?.field;
+        const known =
+          table?.type === 'number_table' &&
+          (table.settings?.table?.rows ?? []).some((r) => r.key === cell.row) &&
+          (table.settings?.table?.cols ?? []).some((c) => c.key === cell.col);
+        if (table && !known)
+          issues.push({
+            code: 'form.unknown_reference',
+            path,
+            params: { reference: `${cell.field}.${cell.row}.${cell.col}` },
+          });
+      }
       const listed = new Set((field.settings?.results ?? []).map((r) => r.code));
       if (refs.results.some((code) => !listed.has(code)))
         issues.push({ code: 'form.result_unknown', path, params: { fieldKey: field.fieldKey } });

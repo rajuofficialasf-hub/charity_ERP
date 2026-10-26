@@ -493,6 +493,49 @@ describe('drafts, publishing and the field map', () => {
     expect((await auditRows(versionId, 'form.draft_changed')).length).toBe(1);
   });
 
+  it('saves and publishes a number table with a calculation over its cells, and reads it back', async () => {
+    const pm = await as(world.users.monitoring);
+    const { versionId } = await distributionDraft();
+    const { etag, sections } = await current(pm, versionId);
+    const label = (bn: string, en: string) => ({ bn, en });
+    const next = [
+      ...sections,
+      customSection([
+        textField('livestock', {
+          type: 'number_table',
+          settings: {
+            table: {
+              rows: [{ key: 'cow', label: label('গরু', 'Cow') }],
+              cols: [
+                { key: 'own', label: label('নিজের', 'Own') },
+                { key: 'shared', label: label('বর্গা', 'Sharecropped') },
+              ],
+            },
+          },
+        }),
+        textField('cows', {
+          type: 'calculation',
+          calculation: {
+            expr: {
+              op: 'add',
+              args: [
+                { cell: { field: 'livestock', row: 'cow', col: 'own' } },
+                { cell: { field: 'livestock', row: 'cow', col: 'shared' } },
+              ],
+            },
+          },
+        }),
+      ]),
+    ];
+    const saved = await update(pm, versionId, etag, next);
+    expect(saved.status, JSON.stringify(saved.body)).toBe(200);
+    expect(saved.body.data.sections).toEqual(next);
+    const published = await publish(pm, versionId, saved.headers.etag as string);
+    expect(published.status, JSON.stringify(published.body)).toBe(200);
+    const read = await current(pm, versionId);
+    expect(read.sections).toEqual(next);
+  });
+
   it('keeps a calculated question without its rule in a draft, and refuses to publish it naming the question', async () => {
     const pm = await as(world.users.monitoring);
     const { versionId } = await distributionDraft();

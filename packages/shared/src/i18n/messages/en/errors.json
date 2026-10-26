@@ -61,7 +61,8 @@
     "rows_too_few": "Too few rows were given.",
     "rows_too_many": "Too many rows were given.",
     "address_incomplete": "Choose the division, district, upazila and union.",
-    "repeat_rows_mismatch": "The number of rows does not match the number given ({expected})."
+    "repeat_rows_mismatch": "The number of rows does not match the number given ({expected}).",
+    "table_cell": "Each box of the table takes a whole number from 0 to 1000000."
   },
   "beneficiary": {
     "identity_missing": "Enter the NID or the birth registration number.",
@@ -263,7 +264,8 @@
     "read_only_invalid": "A read-only question needs a calculation or a default to take its value from.",
     "default_misplaced": "This default does not fit the question: today's date goes on a date, a text on a text question, a number on a number or an amount.",
     "repeat_count_invalid": "The number of rows can follow only an earlier whole-number question whose lowest value is 0 or more and highest value 50 or less.",
-    "pipe_order": "The text repeats the answer of a question that comes later. Use an earlier question."
+    "pipe_order": "The text repeats the answer of a question that comes later. Use an earlier question.",
+    "table_invalid": "A number table needs at least one row and one column, each key once, at most 200 cells, and cannot sit inside a list."
   },
   "public": {
     "link_closed": "This link is not open for applications.",

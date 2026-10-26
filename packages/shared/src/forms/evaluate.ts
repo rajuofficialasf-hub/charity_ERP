@@ -93,7 +93,17 @@ export function plainOf(value: AnswerValue): Plain {
       return value.union_id;
     case 'calculation':
       return null;
+    case 'number_table':
+      return tableTotal(value.v);
   }
+}
+
+/** The total of a number table's cells, or null while it holds none. */
+export function tableTotal(cells: Record<string, Record<string, number>>): number | null {
+  let total: number | null = null;
+  for (const row of Object.values(cells))
+    for (const n of Object.values(row)) if (Number.isFinite(n)) total = (total ?? 0) + n;
+  return total;
 }
 
 /** A numeric value in a calculation. Money is whole paisa so sums are exact. */
@@ -400,6 +410,19 @@ class Engine {
     return fold('add', values);
   }
 
+  /** One cell of a visible number table; an empty cell counts as nothing (zero in arithmetic). */
+  private cellValue(key: string, row: string, col: string): Result {
+    const located = this.fields.get(key);
+    if (!located || located.field.type !== 'number_table') return null;
+    if (!this.visible(key, 0)) return 'empty';
+    const value = this.answer(key, 0);
+    if (value?.t !== 'number_table') return 'empty';
+    // read as own entries only, never through the prototype
+    const cells = new Map(Object.entries(value.v)).get(row);
+    const n = cells ? new Map(Object.entries(cells)).get(col) : undefined;
+    return n === undefined || !Number.isFinite(n) ? 'empty' : { kind: 'number', value: n };
+  }
+
   /** The rows of a group, or only those where the condition holds; nothing while it is hidden. */
   private countRows(group: string, where: Condition | undefined): Result {
     const located = this.fields.get(group);
@@ -416,6 +439,7 @@ class Engine {
     if ('field' in expr) return this.fieldValue(expr.field, row);
     if ('sum_repeat' in expr) return this.sumRepeat(expr.sum_repeat.group, expr.sum_repeat.field);
     if ('result' in expr) return { kind: 'text', value: expr.result };
+    if ('cell' in expr) return this.cellValue(expr.cell.field, expr.cell.row, expr.cell.col);
     if ('count_rows' in expr) return this.countRows(expr.count_rows.group, expr.count_rows.where);
     if ('if' in expr) {
       const branch = expr.if.find((b) => this.condition(b.when, row));

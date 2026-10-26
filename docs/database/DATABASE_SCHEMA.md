@@ -85,7 +85,7 @@ Technical table added in T0.16 for O-03 (ERD.md §20).
 | L-fund-source | zakat, sadaqah, general, donor | fund_sources.source |
 | L-form-version-status | draft, published, retired | form_versions.status |
 | L-visibility | volunteer, official_only | form_sections.visibility |
-| L-field-type | short_text, long_text, number, decimal, money, phone, email, date, time, datetime, single_select, multi_select, radio, checkbox, photo, file, signature, gps, bd_address, repeat_group, calculation, note | form_fields.type, form_library_fields.type |
+| L-field-type | short_text, long_text, number, decimal, money, phone, email, date, time, datetime, single_select, multi_select, radio, checkbox, photo, file, signature, gps, bd_address, repeat_group, calculation, note, number_table (D-133) | form_fields.type, form_library_fields.type |
 | L-beneficiary-status | active, deceased, relocated | beneficiaries.status (O-18) |
 | L-volunteer-type | general, local_daee, both, team_member, paid | volunteers.type |
 | L-category | A, B, C, D | volunteers.category, volunteer_categories_log |

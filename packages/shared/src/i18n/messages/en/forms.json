@@ -303,7 +303,8 @@
       "bd_address": "division down to union",
       "repeat_group": "e.g. the members of a family",
       "calculation": "e.g. all members",
-      "note": "no answer, guidance only"
+      "note": "no answer, guidance only",
+      "number_table": "e.g. cows and goats, own and sharecropped"
     },
     "search_none": "No question has that name.",
     "add_section": "Add the whole section",
@@ -429,7 +430,8 @@
     "bd_address": "Address",
     "repeat_group": "A list of several people",
     "calculation": "Calculated by itself",
-    "note": "Text to show only"
+    "note": "Text to show only",
+    "number_table": "Table of numbers"
   },
   "apply": {
     "title": "Application",

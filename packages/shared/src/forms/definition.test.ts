@@ -683,3 +683,56 @@ describe('defaults, read-only questions, rows from a count and piping', () => {
     ).toEqual(['q_secret']);
   });
 });
+
+describe('a number table', () => {
+  const table = (rows: string[], cols: string[]) => ({
+    table: {
+      rows: rows.map((key) => ({ key, label: T(key) })),
+      cols: cols.map((key) => ({ key, label: T(key) })),
+    },
+  });
+
+  it('needs its rows and columns, unique keys of its own, at most 200 cells, outside any group', () => {
+    const many = Array.from({ length: 21 }, (_, i) => `r${i}`);
+    const definition = definitionWith([
+      field('fine', 'number_table', { settings: table(['cow'], ['own']) }),
+      field('bare', 'number_table'),
+      field('twice', 'number_table', { settings: table(['cow', 'cow'], ['own']) }),
+      field('sneaky', 'number_table', { settings: table(['constructor'], ['own']) }),
+      field('huge', 'number_table', {
+        settings: table(many, ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']),
+      }),
+      field('misplaced', 'short_text', { settings: table(['cow'], ['own']) }),
+      field('people', 'repeat_group'),
+      field('grouped', 'number_table', {
+        settings: { ...table(['cow'], ['own']), repeat: { group: 'people' } },
+      }),
+    ]);
+    expect(codesOf(definition)).toEqual([
+      ['form.table_invalid', 'bare'],
+      ['form.table_invalid', 'twice'],
+      ['form.table_invalid', 'sneaky'],
+      ['form.table_invalid', 'huge'],
+      ['form.table_invalid', 'misplaced'],
+      ['form.table_invalid', 'grouped'],
+    ]);
+  });
+
+  it('refuses a cell of an unknown table, row or column', () => {
+    const cell = (fieldName: string, row: string, col: string) =>
+      field(`c_${fieldName}_${row}_${col}`, 'calculation', {
+        calculation: { expr: { cell: { field: fieldName, row, col } } },
+      });
+    const definition = definitionWith([
+      field('livestock', 'number_table', { settings: table(['cow'], ['own']) }),
+      field('label_text', 'short_text'),
+      cell('livestock', 'cow', 'own'),
+      cell('livestock', 'horse', 'own'),
+      cell('label_text', 'cow', 'own'),
+    ]);
+    expect(codesOf(definition)).toEqual([
+      ['form.unknown_reference', 'livestock.horse.own'],
+      ['form.unknown_reference', 'label_text.cow.own'],
+    ]);
+  });
+});

@@ -66,6 +66,7 @@
           }
         },
         { "type": "object", "additionalProperties": false, "required": ["result"], "description": "a text result named by one of the question's settings.results codes", "properties": { "result": { "type": "string", "pattern": "^[a-z0-9_]{1,64}$" } } },
+        { "type": "object", "additionalProperties": false, "required": ["cell"], "description": "one cell of a number table", "properties": { "cell": { "type": "object", "additionalProperties": false, "required": ["field", "row", "col"], "properties": { "field": { "$ref": "#/$defs/fieldKey" }, "row": { "$ref": "#/$defs/fieldKey" }, "col": { "$ref": "#/$defs/fieldKey" } } } } },
         {
           "type": "object", "additionalProperties": false, "required": ["count_rows"],
           "properties": {
@@ -89,6 +90,13 @@
         "placeholder": { "type": "object", "properties": { "bn": { "type": "string" }, "en": { "type": "string" } } },
         "help": { "type": "object", "properties": { "bn": { "type": "string" }, "en": { "type": "string" } } },
         "default": { "description": "{ today: true }, { text } or { number } (D-133)" },
+        "table": {
+          "type": "object", "description": "the rows and columns of a number table",
+          "properties": {
+            "rows": { "type": "array", "items": { "type": "object", "required": ["key", "label"], "properties": { "key": { "$ref": "#/$defs/fieldKey" }, "label": { "type": "object" } } } },
+            "cols": { "type": "array", "items": { "type": "object", "required": ["key", "label"], "properties": { "key": { "$ref": "#/$defs/fieldKey" }, "label": { "type": "object" } } } }
+          }
+        },
         "read_only": { "type": "boolean", "description": "the answer comes only from the calculation or the default (D-133)" },
         "results": {
           "type": "array", "maxItems": 50,

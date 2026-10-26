@@ -62,6 +62,34 @@ export type ValidationResult =
     }
   | { ok: false; errors: ValidationError[] };
 
+/** The highest number a cell of a number table may hold. */
+export const TABLE_CELL_MAX = 1_000_000;
+
+/**
+ * The cells of a table answer rebuilt from the question's own rows and columns: every sent key
+ * must be one of them (read as an own key, never through the prototype) and every number a whole
+ * number from 0 to the cap; null when anything else was sent.
+ */
+function tableCells(
+  field: FormField,
+  sent: Record<string, Record<string, number>>,
+): Record<string, Record<string, number>> | null {
+  const rows = new Set((field.settings?.table?.rows ?? []).map((r) => r.key));
+  const cols = new Set((field.settings?.table?.cols ?? []).map((c) => c.key));
+  const cells: Record<string, Record<string, number>> = {};
+  for (const [rowKey, row] of Object.entries(sent)) {
+    if (!rows.has(rowKey)) return null;
+    const kept: Record<string, number> = {};
+    for (const [colKey, n] of Object.entries(row)) {
+      if (!cols.has(colKey) || !Number.isInteger(n) || n < 0 || n > TABLE_CELL_MAX) return null;
+      Object.defineProperty(kept, colKey, { value: n, enumerable: true, writable: true });
+    }
+    if (Object.keys(kept).length)
+      Object.defineProperty(cells, rowKey, { value: kept, enumerable: true, writable: true });
+  }
+  return cells;
+}
+
 /** The answer a default gives a question of its type, or null for a default that does not fit. */
 function defaultValue(field: FormField, start: FieldDefault, today: string): AnswerValue | null {
   if ('today' in start) return field.type === 'date' ? { t: 'date', v: today } : null;
@@ -203,6 +231,14 @@ class Validator {
     if (!parsed.success || parsed.data.t !== type) {
       this.fail(path, 'validation.value_shape', { type });
       return null;
+    }
+    if (parsed.data.t === 'number_table') {
+      const cells = tableCells(located.field, parsed.data.v);
+      if (cells === null) {
+        this.fail(path, 'validation.table_cell');
+        return null;
+      }
+      return { t: 'number_table', v: cells };
     }
     const shaped = parsed.data;
     switch (shaped.t) {
