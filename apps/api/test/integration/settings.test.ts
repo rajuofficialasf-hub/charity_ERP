@@ -190,6 +190,8 @@ describe('the expense category and issue type lists', () => {
       label: { bn: 'ব্যানার ছাপা', en: 'Banner printing' },
       active: true,
       sortOrder: 4,
+      system: false,
+      kind: null,
     });
     const item = `${list}/items/banner_print`;
     const relabelled = await api()
@@ -258,5 +260,106 @@ describe('the expense category and issue type lists', () => {
         .send({ code: 'flood', label: { bn: 'বন্যা', en: 'Flood' } });
       expect(res.status).toBe(403);
     }
+  });
+});
+
+describe('the media lists', () => {
+  const stages = '/api/v1/reference-lists/media_stage';
+  const platforms = '/api/v1/reference-lists/media_platform';
+  const label = (en: string) => ({ bn: en, en });
+  // a system stage and a platform as the base seed writes them
+  beforeAll(async () => {
+    await h.db.query(
+      `INSERT INTO reference_lists (id, list_key, code, label_bn, label_en, is_system) VALUES (gen_random_uuid(), 'media_stage', 'published', 'প্রকাশিত', 'Published', true) ON CONFLICT DO NOTHING`,
+    );
+    await h.db.query(
+      `INSERT INTO reference_lists (id, list_key, code, label_bn, label_en, attributes) VALUES (gen_random_uuid(), 'media_platform', 'asf_youtube', 'YouTube', 'YouTube', '{"kind": "youtube"}') ON CONFLICT DO NOTHING`,
+    );
+  });
+
+  it('add, rename and deactivate an ordinary stage, each audited, and keep a system stage active', async () => {
+    const head = await as(world.users.head);
+    const added = await api()
+      .post(stages)
+      .set(bearer(head))
+      .send({ code: 'color_grading', label: label('Colour grading') });
+    expect(added.status, JSON.stringify(added.body)).toBe(201);
+    expect(added.body.data).toMatchObject({ system: false, kind: null });
+    const renamed = await api()
+      .patch(`${stages}/items/color_grading`)
+      .set(bearer(head))
+      .send({ label: label('Grading'), active: false });
+    expect(renamed.body.data).toMatchObject({ active: false, label: { en: 'Grading' } });
+    const audited = (await audits('settings.change', 'reference_list')).filter(
+      (a) => a.new.code === 'color_grading',
+    );
+    expect(audited).toHaveLength(2);
+    const list = await api().get(stages).set(bearer(head));
+    expect(
+      (list.body.data as { code: string; system: boolean }[]).find((i) => i.code === 'published'),
+    ).toMatchObject({ system: true });
+    const system = await api()
+      .patch(`${stages}/items/published`)
+      .set(bearer(head))
+      .send({ active: false });
+    expect(system.status).toBe(409);
+    expect(system.body.error.code).toBe('reference.system_entry');
+    // a system stage may still be relabelled
+    expect(
+      (
+        await api()
+          .patch(`${stages}/items/published`)
+          .set(bearer(head))
+          .send({ label: label('Published') })
+      ).status,
+    ).toBe(200);
+  });
+
+  it('give a platform its kind, required there and refused on the other lists', async () => {
+    const head = await as(world.users.head);
+    const noKind = await api()
+      .post(platforms)
+      .set(bearer(head))
+      .send({ code: 'asf_website', label: label('Website') });
+    expect(noKind.status).toBe(422);
+    expect(noKind.body.error.details[0]).toMatchObject({
+      path: 'kind',
+      code: 'validation.required',
+    });
+    expect(
+      (
+        await api()
+          .post(platforms)
+          .set(bearer(head))
+          .send({ code: 'asf_tiktok', label: label('TikTok'), kind: 'tiktok' })
+      ).status,
+    ).toBe(422);
+    const added = await api()
+      .post(platforms)
+      .set(bearer(head))
+      .send({ code: 'asf_website', label: label('Website'), kind: 'other' });
+    expect(added.status, JSON.stringify(added.body)).toBe(201);
+    expect(added.body.data.kind).toBe('other');
+    const changed = await api()
+      .patch(`${platforms}/items/asf_website`)
+      .set(bearer(head))
+      .send({ kind: 'youtube' });
+    expect(changed.body.data.kind).toBe('youtube');
+    expect(
+      (
+        await api()
+          .post('/api/v1/reference-lists/media_role')
+          .set(bearer(head))
+          .send({ code: 'drone_pilot', label: label('Drone pilot'), kind: 'other' })
+      ).status,
+    ).toBe(422);
+  });
+
+  it('refuse a PM changing a media list', async () => {
+    const res = await api()
+      .post('/api/v1/reference-lists/media_role')
+      .set(bearer(await as(world.users.pm)))
+      .send({ code: 'drone_pilot', label: label('Drone pilot') });
+    expect(res.status).toBe(403);
   });
 });

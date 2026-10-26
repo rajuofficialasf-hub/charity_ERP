@@ -1,6 +1,7 @@
-import { uuidv7 } from '@css/shared';
+import { type PlatformKind, referenceListAttributesSchema, uuidv7 } from '@css/shared';
 import {
   isEditableList,
+  LISTS_WITH_KIND,
   type ReferenceItemCreate,
   type ReferenceItemUpdate,
 } from '@css/shared/settings';
@@ -17,6 +18,8 @@ const SELECT = {
   labelEn: true,
   active: true,
   sortOrder: true,
+  isSystem: true,
+  attributes: true,
 } satisfies Prisma.ReferenceListSelect;
 
 type Row = Prisma.ReferenceListGetPayload<{ select: typeof SELECT }>;
@@ -26,6 +29,10 @@ export interface ReferenceItemView {
   label: { bn: string; en: string };
   active: boolean;
   sortOrder: number;
+  /** An entry the rules need: kept active, its code fixed. */
+  system: boolean;
+  /** A media platform's kind; null on the other lists. */
+  kind: PlatformKind | null;
 }
 
 const view = (r: Row): ReferenceItemView => ({
@@ -33,7 +40,18 @@ const view = (r: Row): ReferenceItemView => ({
   label: { bn: r.labelBn, en: r.labelEn },
   active: r.active,
   sortOrder: r.sortOrder,
+  system: r.isSystem,
+  kind: referenceListAttributesSchema.parse(r.attributes).kind ?? null,
 });
+
+/** A kind is given exactly on the lists whose items carry one (on a new item; a change may omit it). */
+function assertKind(listKey: string, kind: string | undefined, creating: boolean): void {
+  const carries = LISTS_WITH_KIND.includes(listKey);
+  if ((carries && creating && kind === undefined) || (!carries && kind !== undefined))
+    throw new ApiError('validation.failed', 422, undefined, [
+      { path: 'kind', code: carries ? 'validation.required' : 'validation.unknown_parameter' },
+    ]);
+}
 
 const isUniqueViolation = (error: unknown) =>
   error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
@@ -67,6 +85,7 @@ export class ReferenceListsService {
     body: ReferenceItemCreate,
   ): Promise<ReferenceItemView> {
     if (!isEditableList(listKey)) throw new ApiError('permission.not_found', 404);
+    assertKind(listKey, body.kind, true);
     try {
       return await this.prisma.$transaction(async (tx) => {
         await this.lockList(tx, listKey);
@@ -90,6 +109,7 @@ export class ReferenceListsService {
             labelEn: body.label.en,
             active: body.active ?? true,
             sortOrder: body.sortOrder ?? (last._max.sortOrder ?? 0) + 1,
+            ...(body.kind ? { attributes: { kind: body.kind } } : {}),
             createdBy: actor.userId,
             updatedBy: actor.userId,
           },
@@ -117,11 +137,15 @@ export class ReferenceListsService {
     body: ReferenceItemUpdate,
   ): Promise<ReferenceItemView> {
     if (!isEditableList(listKey)) throw new ApiError('permission.not_found', 404);
+    assertKind(listKey, body.kind, false);
     return this.prisma.$transaction(async (tx) => {
       // lock before reading, so the audit's old value is the one this change replaces
       await this.lockList(tx, listKey);
       const before = await tx.referenceList.findFirst({ where: { listKey, code }, select: SELECT });
       if (!before) throw new ApiError('permission.not_found', 404);
+      // an entry the rules need stays active
+      if (before.isSystem && body.active === false)
+        throw new ApiError('reference.system_entry', 409);
       const row = await tx.referenceList.update({
         where: { id: before.id },
         // Prisma leaves out the undefined fields
@@ -130,6 +154,7 @@ export class ReferenceListsService {
           labelEn: body.label?.en,
           active: body.active,
           sortOrder: body.sortOrder,
+          ...(body.kind ? { attributes: { kind: body.kind } } : {}),
           updatedBy: actor.userId,
         },
         select: SELECT,

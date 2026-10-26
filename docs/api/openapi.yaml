@@ -3999,12 +3999,14 @@ components:
         meta: { $ref: '#/components/schemas/ListMeta' }
     ReferenceItem:
       type: object
-      required: [code, label, active, sortOrder]
+      required: [code, label, active, sortOrder, system, kind]
       properties:
         code: { type: string, pattern: '^[a-z0-9_]{1,64}$' }
         label: { $ref: '#/components/schemas/Bilingual' }
         active: { type: boolean }
         sortOrder: { type: integer }
+        system: { type: boolean, description: 'An entry the rules need (a media stage): it stays active and its code is fixed' }
+        kind: { type: [string, 'null'], enum: [youtube, facebook, other, null], description: "A media platform's kind, which decides the host of its links; null on the other lists" }
     ReferenceItemCreate:
       description: >-
         A new item of an editable list (DECISION_LOG D-098). The code is small English letters,
@@ -4017,14 +4019,16 @@ components:
         label: { $ref: '#/components/schemas/BilingualInput' }
         active: { type: boolean }
         sortOrder: { type: integer, minimum: 0, maximum: 10000 }
+        kind: { type: string, enum: [youtube, facebook, other], description: 'Required on the media platforms, refused on the other lists (422)' }
     ReferenceItemUpdate:
-      description: At least one of label, active and sortOrder.
+      description: At least one of label, active, sortOrder and kind. A system entry cannot be deactivated (409 reference.system_entry).
       type: object
       additionalProperties: false
       properties:
         label: { $ref: '#/components/schemas/BilingualInput' }
         active: { type: boolean }
         sortOrder: { type: integer, minimum: 0, maximum: 10000 }
+        kind: { type: string, enum: [youtube, facebook, other] }
     BilingualInput:
       description: A configuration text in both languages, both required (BR-245).
       type: object
@@ -9154,8 +9158,8 @@ paths:
                       id: { $ref: '#/components/schemas/Uuid' }
                       name: { type: string }
                       designation: { type: [string, 'null'] }
-                      mobile: { type: [string, 'null'] }
-                      email: { type: [string, 'null'] }
+                      mobile: { type: [string, 'null'], description: 'For the member and the holders of media.work.manage only; null otherwise' }
+                      email: { type: [string, 'null'], description: 'As the mobile' }
                       roles: { type: array, items: { type: string } }
                       counts:
                         type: object
@@ -10376,6 +10380,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /settings:
     get:
