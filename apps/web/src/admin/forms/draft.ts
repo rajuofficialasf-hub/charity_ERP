@@ -510,3 +510,12 @@ function dropConditions(field: FormField): void {
   if (Object.keys(logic).length) field.logic = logic;
   else delete field.logic;
 }
+
+/**
+ * Sets the points of "not previously assisted"; an emptied value takes them away, and a form
+ * without any form-level points holds no `scoring` at all.
+ */
+export function setFormScoring(def: FormDefinition, points: number | undefined): FormDefinition {
+  const { scoring: _old, ...rest } = def;
+  return points === undefined ? rest : { ...rest, scoring: { not_previously_assisted: points } };
+}

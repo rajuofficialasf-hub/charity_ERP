@@ -606,6 +606,76 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplateSeed[] = [
     ),
   },
   {
+    key: 'application_waitlisted',
+    variables: ['project_name'],
+    channels: inApp(
+      {
+        title: 'আবেদন অপেক্ষমাণ তালিকায়',
+        body: '"{{project_name}}" প্রকল্পে আপনার আবেদনটি এখন অপেক্ষমাণ তালিকায় আছে। সুযোগ এলে অফিস অনুমোদন দেবে, তখন জানানো হবে।',
+      },
+      {
+        title: 'Application on the waitlist',
+        body: 'Your application in the project "{{project_name}}" is now on the waitlist. When a place opens, the office will approve it and you will be told.',
+      },
+    ),
+  },
+  {
+    key: 'application_transferred',
+    variables: ['project_name', 'count'],
+    channels: inApp(
+      {
+        title: 'আবেদন আপনার দায়িত্বে এসেছে',
+        body: '"{{project_name}}" প্রকল্পের {{count}}টি আবেদন এখন আপনার দায়িত্বে। "আমার আবেদন"-এ দেখুন।',
+      },
+      {
+        title: 'Applications handed to you',
+        body: '{{count}} applications of the project "{{project_name}}" are now yours. See them in "My applications".',
+      },
+    ),
+  },
+  {
+    key: 'application_transferred_away',
+    variables: ['project_name', 'count'],
+    channels: inApp(
+      {
+        title: 'আবেদন অন্য স্বেচ্ছাসেবকের দায়িত্বে',
+        body: '"{{project_name}}" প্রকল্পে আপনার {{count}}টি আবেদন অফিস অন্য একজন স্বেচ্ছাসেবকের দায়িত্বে দিয়েছে।',
+      },
+      {
+        title: 'Applications handed to another volunteer',
+        body: 'The office handed {{count}} of your applications in the project "{{project_name}}" to another volunteer.',
+      },
+    ),
+  },
+  {
+    key: 'field_unlocked',
+    variables: ['project_name', 'field_name'],
+    channels: inApp(
+      {
+        title: 'উত্তর সংশোধনের জন্য খোলা হয়েছে',
+        body: '"{{project_name}}" প্রকল্পে আপনার একটি আবেদনের "{{field_name}}" উত্তরটি সংশোধনের জন্য খোলা হয়েছে। আবেদনটি খুলে নতুন উত্তর দিন।',
+      },
+      {
+        title: 'An answer is open for correction',
+        body: 'The answer "{{field_name}}" of one of your applications in the project "{{project_name}}" is open for correction. Open the application and give the new answer.',
+      },
+    ),
+  },
+  {
+    key: 'field_updated',
+    variables: ['project_name', 'field_name'],
+    channels: inApp(
+      {
+        title: 'নতুন উত্তর যাচাইয়ের অপেক্ষায়',
+        body: '"{{project_name}}" প্রকল্পে আপনার খোলা "{{field_name}}" উত্তরের নতুন মান এসেছে। যাচাই করে গ্রহণ করুন বা ফেরত দিন।',
+      },
+      {
+        title: 'A new answer awaits verification',
+        body: 'A new value came for the answer "{{field_name}}" you opened in the project "{{project_name}}". Verify it and accept it or send it back.',
+      },
+    ),
+  },
+  {
     key: 'application_reopened',
     variables: ['project_name'],
     channels: inApp(

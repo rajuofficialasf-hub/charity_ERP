@@ -37,7 +37,7 @@ export function useDraftSave({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [refused, setRefused] = useState(false);
   const [stale, setStale] = useState(false);
-  const queued = useRef<FormDefinition['sections'] | null>(null);
+  const queued = useRef<FormDefinition | null>(null);
   const running = useRef(false);
   // read inside the save, which outlives the render that started it
   const refusedNow = useRef(false);
@@ -50,14 +50,14 @@ export function useDraftSave({
 
   const flush = async () => {
     if (running.current || !queued.current || !version || !tag.current) return;
-    const sections = queued.current;
+    const definition = queued.current;
     queued.current = null;
     running.current = true;
     setState('saving');
     // only a change made while this save ran goes next; a failed one waits for the next edit
     let again = false;
     try {
-      const saved = await saveDraft(version.id, tag.current, sections);
+      const saved = await saveDraft(version.id, tag.current, definition);
       tag.current = saved.meta.etag;
       setErrors({});
       setStale(false);
@@ -78,7 +78,7 @@ export function useDraftSave({
       } else {
         if (error instanceof ApiFailure && error.status === 422) setErrors(detailsOf(error));
         // keep the change for the next try, unless a newer one is waiting
-        queued.current ??= sections;
+        queued.current ??= definition;
         setState('failed');
       }
     } finally {
@@ -88,9 +88,9 @@ export function useDraftSave({
   };
 
   /** Asks for the draft to be saved a little later. */
-  const schedule = (sections: FormDefinition['sections']) => {
+  const schedule = (definition: FormDefinition) => {
     if (refusedNow.current) return;
-    queued.current = sections;
+    queued.current = definition;
     setStale(false);
     setState('pending');
     clearTimeout(timer.current);

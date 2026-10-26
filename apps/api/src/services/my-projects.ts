@@ -13,6 +13,7 @@ import type { Clock } from '../core/clock';
 import type { PrismaService, Tx } from '../core/prisma.service';
 import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
+import { liveApplicationCounts } from '../applications/limit';
 import { storedRules } from './project-rules';
 import type { ProjectEvents } from '../notifications/project-events';
 
@@ -111,7 +112,6 @@ export class MyProjectsService {
           consentStatus: true,
           permissionSet: true,
           isPaid: true,
-          applicationsCounted: true,
           project: { select: PROJECT },
         },
       }),
@@ -136,9 +136,15 @@ export class MyProjectsService {
               volunteerId: m.leadVolunteerId,
             })),
           },
-          select: { projectId: true, volunteerId: true, applicationsCounted: true },
+          select: { projectId: true, volunteerId: true },
         })
       : [];
+    // the limit counts the main volunteer's live applications, the team members' drafts included
+    const owners = [
+      ...assignments.map((a) => ({ projectId: a.project.id, ownerVolunteerId: volunteerId })),
+      ...leads.map((l) => ({ projectId: l.projectId, ownerVolunteerId: l.volunteerId })),
+    ];
+    const counted = await liveApplicationCounts(db, owners);
     const rows: { project: ProjectRow; link: Link }[] = assignments.map((a) => ({
       project: a.project,
       link: {
@@ -147,7 +153,7 @@ export class MyProjectsService {
         consentStatus: a.consentStatus,
         permissionSet: a.permissionSet,
         isPaid: a.isPaid,
-        applicationsCounted: a.applicationsCounted,
+        applicationsCounted: counted(a.project.id, volunteerId),
       },
     }));
     for (const m of memberships) {
@@ -161,7 +167,7 @@ export class MyProjectsService {
             via: 'team',
             id: m.id,
             consentStatus: m.consentStatus,
-            applicationsCounted: lead.applicationsCounted,
+            applicationsCounted: counted(m.projectId, lead.volunteerId),
           },
         });
     }

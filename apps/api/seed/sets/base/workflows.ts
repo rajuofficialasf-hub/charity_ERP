@@ -53,6 +53,13 @@ export function deriveTransitions(def: WorkflowDefinition): TransitionRow[] {
   ];
 }
 
+/** The version the seed stores for a template, so a project of the demo binds the current one. */
+export function workflowVersionOf(key: string): number {
+  const template = readWorkflowTemplates().find((t) => t.template === key);
+  if (!template) throw new Error(`unknown workflow template ${key}`);
+  return template.version;
+}
+
 export async function seedWorkflows(ctx: SeedContext): Promise<void> {
   const templates = readWorkflowTemplates();
   const definitions = templates.map((t) => mergeWorkflowTemplates(t.template, templates));

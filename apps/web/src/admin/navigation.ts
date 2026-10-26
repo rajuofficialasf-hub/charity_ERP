@@ -172,8 +172,9 @@ export function sidebarFor(me: Pick<Me, 'roles'>) {
 }
 
 /**
- * The phone tabs (and the rail) before "more": a volunteer's home, projects and notifications; an
- * official's home, people, projects and notifications, a tab they may not use left out.
+ * The phone tabs (and the rail) before "more": a volunteer's home, projects, applications and
+ * notifications; an official's home, people, projects and notifications, a tab they may not use
+ * left out.
  */
 export function tabsFor(me: Pick<Me, 'kind' | 'roles'>): NavDestination[] {
   if (me.kind === 'volunteer')

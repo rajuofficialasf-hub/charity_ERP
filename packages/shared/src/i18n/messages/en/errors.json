@@ -90,7 +90,7 @@
   "workflow": {
     "transition_not_allowed": "This action is not possible in the current state.",
     "reason_required": "Write a reason.",
-    "comment_required": "Write a comment for a decision against the score order.",
+    "comment_required": "Write a comment for this decision: it goes against the score order, or the area's quota is full.",
     "guard": {
       "project_active": "The project is not active.",
       "project_not_closed": "The project is closed.",
@@ -104,6 +104,7 @@
       "volunteer_not_blocked": "The volunteer is blocklisted.",
       "consent_accepted": "The project rules have not been accepted.",
       "score_comment_if_against_order": "A decision against the score order needs a comment.",
+      "quota_comment_if_full": "An approval in an area whose quota is full needs a comment.",
       "zakat_eligible_if_zakat_fund": "Zakat eligibility is not confirmed for the zakat fund.",
       "receipt_confirmed": "The volunteer has not confirmed receipt of the goods.",
       "photos_required_per_rule": "The photos required by the project rule are missing.",
@@ -126,7 +127,8 @@
     "action_not_built": "This action is not available yet.",
     "effect_not_built": "A result of this step is not built yet, so the step cannot run now.",
     "guard_not_built": "A condition of this step is not built yet, so the step cannot run now.",
-    "message_required": "Write the message for the volunteer."
+    "message_required": "Write the message for the volunteer.",
+    "waitlist_empty": "Nobody is on this area's waitlist now."
   },
   "conflict": {
     "stale_version": "Someone else changed this record. Reload to see the latest version.",
@@ -244,6 +246,10 @@
     "official_only_field": "This question is for officials only.",
     "unexpected_answer": "This question takes no answer.",
     "duplicate_answer": "This question was answered twice.",
+    "score_range_invalid": "A points range starts above where it ends. Correct the range.",
+    "score_misplaced": "This question cannot carry points. Give points only to a choice or a number question, outside a list.",
+    "score_option_unknown": "Points are set for an option this question does not have.",
+    "score_over_max": "The form's points cannot add up to more than 100. Lower some of them.",
     "repeat_group_too_large": "A list has too many questions.",
     "not_of_project": "This form belongs to another project.",
     "no_newer_version": "This form has no newer version to take.",
@@ -297,6 +303,26 @@
     "team_lead_missing": "You have no lead volunteer on this project.",
     "number_in_project": "An application with this number already exists in this project.",
     "upload_not_own": "This file is not your upload.",
-    "not_editable": "The application cannot be edited in its current state."
+    "not_editable": "The application cannot be edited in its current state.",
+    "not_unlockable": "Only an answer of an approved application can be opened for correction.",
+    "unlock_identity": "The NID or birth registration, the name and the father's or husband's name cannot be opened this way. Send a profile correction request.",
+    "unlock_type": "A photo, file or calculated answer cannot be opened for correction.",
+    "unlock_open": "This answer is already open for correction.",
+    "unlock_not_open": "This unlock is no longer open for this step.",
+    "unlock_own_entry": "The person who entered the new answer cannot verify it.",
+    "unlock_stale": "The answer changed after the unlock was opened. Cancel the unlock and open it again.",
+    "unlock_unchanged": "The new answer is the same as the old one.",
+    "unlock_cleared": "This answer is also on the beneficiary's profile, so it cannot be left empty. Give the correct answer.",
+    "transfer_same": "Applications cannot be handed to the same volunteer.",
+    "transfer_target_unfit": "The new volunteer is not active or is blocklisted.",
+    "transfer_target_not_assigned": "The new volunteer is not on this project. Assign them first, or with the transfer.",
+    "transfer_not_owned": "The chosen applications are not this volunteer's, or there is nothing to hand over.",
+    "transfer_too_many": "More than 500 applications cannot move at once. Choose the applications and hand them over in steps.",
+    "transfer_team_partial": "The team moves only when every application of this volunteer is handed over.",
+    "verify_no_profile": "No profile holds this number. Create a new profile.",
+    "verify_other_person": "This entry's number belongs to another profile. Link it to the profile of its own number.",
+    "verify_identity_exists": "A profile with this number already exists. Link to it instead of creating a new one.",
+    "verify_owner_unfit": "The chosen volunteer is not active on this project or is blocklisted.",
+    "verify_owner_full": "The chosen volunteer has reached the application limit. Choose someone else or keep the application with the office."
   }
 }

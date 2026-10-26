@@ -186,6 +186,8 @@ model User {
   fieldChangesRequestedBy              FieldChange[]              @relation("field_changes_requested_by")
   fieldChangesApprovedBy               FieldChange[]              @relation("field_changes_approved_by")
   fieldChangesCreatedBy                FieldChange[]              @relation("field_changes_created_by")
+  fieldChangesEnteredBy                FieldChange[]              @relation("field_changes_entered_by")
+  fieldChangesDecidedBy                FieldChange[]              @relation("field_changes_decided_by")
   applicationTransfersApprovedBy       ApplicationTransfer[]      @relation("application_transfers_approved_by")
   applicationTransfersCreatedBy        ApplicationTransfer[]      @relation("application_transfers_created_by")
   workflowDefinitionsCreatedBy         WorkflowDefinition[]       @relation("workflow_definitions_created_by")
@@ -951,6 +953,7 @@ model FormVersion {
   status                  String        @default("draft")
   publishedAt             DateTime?     @map("published_at") @db.Timestamptz(6)
   publishedBy             String?       @map("published_by") @db.Uuid
+  scoring                 Json?
   createdAt               DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy               String?       @map("created_by") @db.Uuid
   updatedAt               DateTime      @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -1715,6 +1718,8 @@ model Application {
   stage                           String?
   outcome                         String?
   flags                           String[]              @default([])
+  totalScore                      Decimal?              @map("total_score") @db.Decimal(5, 2)
+  waitlistedAt                    DateTime?             @map("waitlisted_at") @db.Timestamptz(6)
   regionLocationId                String                @map("region_location_id") @db.Uuid
   districtId                      String                @map("district_id") @db.Uuid
   unionId                         String                @map("union_id") @db.Uuid
@@ -1794,6 +1799,8 @@ model Application {
   @@index([zakatDecidedBy], map: "applications_zakat_decided_by_idx")
   @@index([createdBy], map: "applications_created_by_idx")
   @@index([updatedBy], map: "applications_updated_by_idx")
+  @@index([projectId, totalScore(sort: Desc), id(sort: Desc)], map: "applications_project_id_total_score_id_idx")
+  @@index([projectId, waitlistedAt], map: "applications_project_id_waitlisted_at_idx", where: raw("status = 'waitlisted'"))
   @@map("applications")
 }
 
@@ -1841,28 +1848,39 @@ model ApplicationScore {
 }
 
 model FieldChange {
-  id             String   @id @db.Uuid
-  entityType     String   @map("entity_type")
-  entityId       String   @map("entity_id") @db.Uuid
+  id             String    @id @db.Uuid
+  entityType     String    @map("entity_type")
+  entityId       String    @map("entity_id") @db.Uuid
   field          String
-  oldValue       Json?    @map("old_value")
-  newValue       Json?    @map("new_value")
+  oldValue       Json?     @map("old_value")
+  newValue       Json?     @map("new_value")
   kind           String
-  unlockState    String?  @map("unlock_state")
-  requestedBy    String?  @map("requested_by") @db.Uuid
-  approvedBy     String?  @map("approved_by") @db.Uuid
+  unlockState    String?   @map("unlock_state")
+  requestedBy    String?   @map("requested_by") @db.Uuid
+  approvedBy     String?   @map("approved_by") @db.Uuid
   reason         String?
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy      String?  @map("created_by") @db.Uuid
-  requestedByRef User?    @relation("field_changes_requested_by", fields: [requestedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  approvedByRef  User?    @relation("field_changes_approved_by", fields: [approvedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  createdByRef   User?    @relation("field_changes_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy      String?   @map("created_by") @db.Uuid
+  enteredBy      String?   @map("entered_by") @db.Uuid
+  enteredAt      DateTime? @map("entered_at") @db.Timestamptz(6)
+  decidedBy      String?   @map("decided_by") @db.Uuid
+  decidedAt      DateTime? @map("decided_at") @db.Timestamptz(6)
+  decision       String?
+  decisionReason String?   @map("decision_reason")
+  requestedByRef User?     @relation("field_changes_requested_by", fields: [requestedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  enteredByRef   User?     @relation("field_changes_entered_by", fields: [enteredBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  decidedByRef   User?     @relation("field_changes_decided_by", fields: [decidedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  approvedByRef  User?     @relation("field_changes_approved_by", fields: [approvedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef   User?     @relation("field_changes_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
+  @@unique([entityId, field], where: raw("kind = 'unlock' AND decided_at IS NULL"), map: "field_changes_open_unlock_key")
   @@index([entityType, entityId, createdAt(sort: Desc)], map: "field_changes_entity_type_entity_id_created_at_idx")
   @@index([kind, unlockState], where: raw("unlock_state = 'open'"), map: "field_changes_kind_unlock_state_idx")
   @@index([requestedBy], map: "field_changes_requested_by_idx")
   @@index([approvedBy], map: "field_changes_approved_by_idx")
   @@index([createdBy], map: "field_changes_created_by_idx")
+  @@index([enteredBy], map: "field_changes_entered_by_idx")
+  @@index([decidedBy], map: "field_changes_decided_by_idx")
   @@map("field_changes")
 }
 

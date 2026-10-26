@@ -384,3 +384,60 @@ describe('a stale identity mark', () => {
     expect(fieldOf(latest, 'name').standardColumn).toBeNull();
   });
 });
+
+describe('the points of the priority score', () => {
+  const kind = field('kind', 'radio', {
+    label: T('ধরন', 'Kind'),
+    options: [
+      option('widow', { label: T('বিধবা', 'Widow') }),
+      option('elderly', { label: T('বৃদ্ধ', 'Elderly') }),
+    ],
+  });
+
+  it('gives each option of a choice its points, and an emptied box takes them away', async () => {
+    const user = userEvent.setup();
+    const view = open(definition(section('more', [kind])), { section: 'more', field: 'kind' });
+    await user.click(await screen.findByRole('button', { name: /নম্বর/ }));
+    const widow = await screen.findByRole('textbox', { name: 'বিধবা: নম্বর' });
+    await user.type(widow, '20');
+    await user.type(screen.getByRole('textbox', { name: 'বৃদ্ধ: নম্বর' }), '15');
+    expect(fieldOf(latest, 'kind').settings?.score).toEqual({
+      options: { widow: 20, elderly: 15 },
+    });
+    await user.clear(widow);
+    expect(fieldOf(latest, 'kind').settings?.score).toEqual({ options: { elderly: 15 } });
+    await user.clear(screen.getByRole('textbox', { name: 'বৃদ্ধ: নম্বর' }));
+    expect(fieldOf(latest, 'kind').settings?.score).toBeUndefined();
+    await expectNoAxeViolations(view.container);
+  });
+
+  it('gives a number its points by ranges, added and removed', async () => {
+    const user = userEvent.setup();
+    open(
+      definition(section('more', [field('members', 'number', { label: T('সদস্য', 'Members') })])),
+      {
+        section: 'more',
+        field: 'members',
+      },
+    );
+    await user.click(await screen.findByRole('button', { name: /নম্বর/ }));
+    await user.click(await screen.findByRole('button', { name: 'সীমা যোগ করুন' }));
+    const rows = screen.getByRole('list', { name: 'নম্বরের সীমা' });
+    await user.type(within(rows).getByRole('textbox', { name: /থেকে/ }), '6');
+    await user.type(within(rows).getByRole('textbox', { name: /^নম্বর/ }), '20');
+    expect(fieldOf(latest, 'members').settings?.score).toEqual({
+      ranges: [{ min: 6, points: 20 }],
+    });
+    await user.click(within(rows).getByRole('button', { name: 'সীমাটি সরান' }));
+    expect(fieldOf(latest, 'members').settings?.score).toBeUndefined();
+  });
+
+  it('offers no points on a text question', async () => {
+    open(definition(section('more', [field('note', 'short_text', { label: T('নোট', 'Note') })])), {
+      section: 'more',
+      field: 'note',
+    });
+    await screen.findByRole('button', { name: /মূল তথ্য/ });
+    expect(screen.queryByRole('button', { name: /নম্বর/ })).not.toBeInTheDocument();
+  });
+});

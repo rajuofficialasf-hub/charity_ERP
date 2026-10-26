@@ -317,7 +317,8 @@
         "approved": "Registration approved",
         "blocked": "Put on the blocklist"
       },
-      "photo_failed": "Could not load"
+      "photo_failed": "Could not load",
+      "transfer": "Hand over applications"
     },
     "none": "None",
     "summary": "Showing {from}–{to} of {total} volunteers",
@@ -731,7 +732,8 @@
         "staff": "Staff access",
         "syllabus": "Dawah syllabus",
         "review": "Review",
-        "rules": "Rules"
+        "rules": "Rules",
+        "quotas": "Quotas"
       },
       "saved": "Saved.",
       "stale": "Someone changed this part meanwhile. The latest version is shown now; save again.",
@@ -766,7 +768,8 @@
       "no_areas": "No area yet.",
       "level": {
         "division": "Division",
-        "district": "District"
+        "district": "District",
+        "union": "Union"
       },
       "remove_area": "Remove the area {name}",
       "add_area": "Add an area",
@@ -868,7 +871,16 @@
           "dedup_identical": "Warn on identical photos"
         }
       },
-      "open_forms": "Open the form builder"
+      "open_forms": "Open the form builder",
+      "quotas_hint": "How many people to help in each district or union. The review screen shows each area's target, what came and what was approved. A full quota never stops an approval, but asks for a comment.",
+      "no_quotas": "No quotas yet.",
+      "add_quota": "Add a quota",
+      "quota_target": "Target",
+      "quota_target_of": "{name}: target",
+      "remove_quota": "Remove the quota of {name}",
+      "save_quotas": "Save the quotas",
+      "quota_incomplete": "Give every quota a target of at least 1.",
+      "quota_progress": "Target {target} · came {received} · approved {approved}"
     },
     "picker_failed": "The projects could not be loaded.",
     "picker_chosen": "The chosen project",
@@ -1006,7 +1018,35 @@
         "label": "{name}: may assign volunteers",
         "reason_title": "Reason for the change of permission",
         "confirm": "Save"
-      }
+      },
+      "transfer": "Hand over applications: {name}"
+    },
+    "transfer": {
+      "title": "Hand over applications: {name}",
+      "back": "Back to the project's volunteers",
+      "help": "Hand one volunteer's applications to another. The new volunteer carries on the work; the previous volunteer no longer sees these applications.",
+      "from_title": "Whose applications",
+      "from": "Current volunteer",
+      "applications_title": "Which applications",
+      "select_all": "Select all",
+      "no_applications": "This volunteer has no application to hand over.",
+      "pick_from": "Choose the current volunteer first.",
+      "unnamed": "No name",
+      "no_number": "No number",
+      "to_title": "To whom",
+      "to": "New volunteer",
+      "to_new": "Add to the project and hand over",
+      "to_new_help": "Choosing someone not yet on this project adds them to it with the handover.",
+      "move_team": "The team moves under the new volunteer too",
+      "move_team_help": "The team moves only when every application of this volunteer is handed over.",
+      "over_limit": "After the handover the new volunteer will hold {after} applications against the project's limit of {limit}. The handover is allowed, but they cannot start a new application until back under the limit.",
+      "reason": "Reason for the handover",
+      "reason_help": "The reason stays on the application's steps and in the audit log, read by the officials only.",
+      "submit": "Hand over",
+      "selected": "{count} selected",
+      "done": "{count} applications are handed over.",
+      "done_team": "{count} applications are handed over, and {team} team members moved under the new volunteer.",
+      "done_over_limit": "The new volunteer is now over the project's application limit."
     }
   },
   "templates": {

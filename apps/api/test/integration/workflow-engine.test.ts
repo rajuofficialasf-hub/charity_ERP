@@ -212,11 +212,13 @@ describe('a move through the cycle', () => {
       'application.implementation_started',
     ]);
     const approval = (await auditOf(id))[3]!.new as { locked?: boolean; effectsPending?: string[] };
-    // the approved answers are locked; the score, quota and ledger modules are not built yet
+    // the approved answers are locked; the score freezes with the move, the quota and ledger
+    // modules are not built yet
     expect(approval.locked).toBe(true);
     expect(approval.effectsPending).toEqual(
-      expect.arrayContaining(['score.snapshot', 'quota.increment', 'ledger.post:approved']),
+      expect.arrayContaining(['quota.increment', 'ledger.post:approved']),
     );
+    expect(approval.effectsPending).not.toContain('score.snapshot');
   });
 
   it('rejects with the office reason and the volunteer message, and returns the rejection with a reason', async () => {
@@ -268,15 +270,21 @@ describe('a move through the cycle', () => {
     expect((await auditOf(id)).at(-1)).toMatchObject({ action: 'application.reopened' });
   });
 
-  it('refuses the later actions until their task builds them', async () => {
+  it('waitlists a reviewed application only with a reason, and stamps when it began to wait', async () => {
     const id = await draft();
     await run(world.users.general, id, 'submit');
     await run(world.users.executive, id, 'review');
     await run(world.users.executive, id, 'send_for_approval');
-    expect(await refused(run(world.users.rpmDhaka, id, 'waitlist', { reason: 'x' }))).toEqual({
-      code: 'workflow.action_not_built',
-      status: 409,
+    expect(await refused(run(world.users.rpmDhaka, id, 'waitlist'))).toEqual({
+      code: 'workflow.reason_required',
+      status: 422,
     });
+    await run(world.users.rpmDhaka, id, 'waitlist', { reason: 'কোটা পূর্ণ' });
+    const row = await h.db.query<{ status: string; waited: boolean }>(
+      'SELECT status, waitlisted_at IS NOT NULL AS waited FROM applications WHERE id = $1',
+      [id],
+    );
+    expect(row.rows[0]).toEqual({ status: 'waitlisted', waited: true });
   });
 });
 

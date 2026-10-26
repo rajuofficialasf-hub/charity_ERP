@@ -410,6 +410,80 @@ describe('one application', () => {
     await expectNoAxeViolations(view.container);
   });
 
+  it('gives the new answer of an answer the office opened, then waits for the verification', async () => {
+    const user = userEvent.setup();
+    refreshAs(VOLUNTEER);
+    serve();
+    const unlock = {
+      id: '01900000-0000-7000-8000-0000000000f1',
+      applicationId: APP,
+      fieldKey: 'note',
+      repeatIndex: 0,
+      state: 'open',
+      oldValue: { t: 'long_text', v: 'পুরনো মন্তব্য' },
+      newValue: null,
+      reason: null,
+      openedBy: null,
+      openedAt: '2026-11-04T10:00:00Z',
+      enteredBy: null,
+      enteredAt: null,
+      decidedBy: null,
+      decidedAt: null,
+      decision: null,
+      decisionReason: null,
+      mayFill: true,
+      mayDecide: false,
+      mayCancel: false,
+    };
+    let sent: unknown = null;
+    server.use(
+      http.get(`*/api/v1/applications/${APP}`, () =>
+        envelope(
+          record({
+            status: 'implementation',
+            appNo: 'WC-2026-00012',
+            availableActions: [],
+            answers: [
+              { fieldKey: 'note', repeatIndex: 0, value: { t: 'long_text', v: 'পুরনো মন্তব্য' } },
+            ],
+            unlocks: [
+              sent
+                ? {
+                    ...unlock,
+                    state: 'updated',
+                    newValue: sent,
+                    mayFill: false,
+                  }
+                : unlock,
+            ],
+          }),
+        ),
+      ),
+      http.get(`*/api/v1/applications/${APP}/timeline`, () => envelope([])),
+      http.put(`*/api/v1/application-unlocks/${unlock.id}/value`, async ({ request }) => {
+        sent = ((await request.json()) as { value: unknown }).value;
+        return envelope({ ...unlock, state: 'updated', newValue: sent, mayFill: false });
+      }),
+    );
+    const view = renderApp(<ApplicationDetailPage />, 'bn', {
+      path: '/my-applications/:applicationId',
+      initialPath: `/my-applications/${APP}`,
+    });
+    expect(await screen.findByText('নতুন উত্তর দিন')).toBeInTheDocument();
+    await expectNoAxeViolations(view.container);
+    const send = screen.getByRole('button', { name: 'পাঠান' });
+    expect(send).toBeDisabled();
+    const box = screen.getByRole('textbox', { name: /মন্তব্য/ });
+    await user.clear(box);
+    await user.type(box, 'নতুন মন্তব্য');
+    await user.click(send);
+    expect(
+      await screen.findByText('নতুন উত্তর পাঠানো হয়েছে, এখন যাচাইয়ের অপেক্ষায়।'),
+    ).toBeInTheDocument();
+    expect(sent).toEqual({ t: 'long_text', v: 'নতুন মন্তব্য' });
+    expect(await screen.findByText('যাচাইয়ের অপেক্ষায়')).toBeInTheDocument();
+  });
+
   it('sends a draft from its page and tells of a stale version', async () => {
     const user = userEvent.setup();
     refreshAs(VOLUNTEER);

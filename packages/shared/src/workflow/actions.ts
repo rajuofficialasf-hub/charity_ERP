@@ -36,10 +36,12 @@ export const APPLICATION_ACTIONS = {
   send_for_approval: { from: ['under_review'], to: 'reviewed', texts: 'none' },
   approve: { from: ['reviewed'], to: 'approved', texts: 'none' },
   reject: { from: ['reviewed', 'waitlisted'], to: 'rejected', texts: 'reason_and_message' },
-  waitlist: { from: ['reviewed'], to: 'waitlisted', texts: 'reason', later: true },
-  pull_from_waitlist: { from: ['waitlisted'], to: 'approved', texts: 'none', later: true },
+  waitlist: { from: ['reviewed'], to: 'waitlisted', texts: 'reason' },
+  pull_from_waitlist: { from: ['waitlisted'], to: 'approved', texts: 'none' },
   delete: { from: ['draft', 'submitted'], to: 'deleted', texts: 'none' },
-  verify_link: { from: ['needs_verification'], to: 'submitted', texts: 'none', later: true },
+  // both verifications make the same move; the service binds the existing profile or creates one
+  verify_link: { from: ['needs_verification'], to: 'submitted', texts: 'none' },
+  verify_create: { from: ['needs_verification'], to: 'submitted', texts: 'none' },
   reject_unverified: { from: ['needs_verification'], to: 'rejected', texts: 'reason' },
   return_to_review: { from: ['rejected'], to: 'reviewed', texts: 'reason' },
 } as const satisfies Record<string, ApplicationActionSpec>;

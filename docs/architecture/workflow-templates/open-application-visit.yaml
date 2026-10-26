@@ -1,7 +1,7 @@
 # open-application-visit.yaml - tree planting (blueprint A8.5, B5; Q-10, O-08).
 # Status: written in task T0.11 (2026-10-10). Validated by schema.json.
 template: open_application_visit
-version: 2
+version: 3
 title_en: Open application + visit
 title_bn: ওপেন আবেদন + ভিজিট
 extends: _common

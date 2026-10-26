@@ -12,7 +12,7 @@ import {
   type TableColumn,
 } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, UserMinus, UserPlus, Users } from 'lucide-react';
+import { ArrowRightLeft, Pencil, UserMinus, UserPlus, Users } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
@@ -20,7 +20,13 @@ import { DocumentTitle } from '../../../components/DocumentTitle';
 import { ApiFailure } from '../../../lib/api';
 import { useAuth } from '../../../lib/auth';
 import { ForbiddenContent } from '../../AdminLayout';
-import { canAssignVolunteers, canGrantOnProject, canMarkPaid, canSeeProjects } from '../../roles';
+import {
+  canAssignVolunteers,
+  canGrantOnProject,
+  canMarkPaid,
+  canSeeProjects,
+  canTransferApplications,
+} from '../../roles';
 import { project as projectOf, PROJECTS_KEY } from '../projects-api';
 import { ReasonDialog } from '../ReasonDialog';
 import { staff, type StaffAccess, setupKey } from '../setup/setup-api';
@@ -135,8 +141,20 @@ export function ProjectVolunteersPage() {
     },
     { id: 'consent', header: t('column.consent'), cell: consent },
   ];
+  const transfers = canTransferApplications(me);
   const actions = (a: Assignment) => (
     <span>
+      {transfers ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={ArrowRightLeft}
+          iconOnly
+          href={`/admin/projects/${projectId}/transfer?from=${a.volunteerId}`}
+        >
+          {t('transfer', { name: a.displayName })}
+        </Button>
+      ) : null}
       <Button variant="ghost" size="sm" icon={Pencil} iconOnly onPress={() => setChanging(a)}>
         {t('change', { name: a.displayName })}
       </Button>

@@ -245,10 +245,6 @@ describe('the review and the decision', () => {
       status: 404,
       code: 'permission.not_found',
     });
-    expect(await refused(rpm, id, 'waitlist', { reason: 'x' })).toEqual({
-      status: 409,
-      code: 'workflow.action_not_built',
-    });
     const approved = await moved(rpm, id, 'approve');
     expect(approved.body.data.status).toBe('implementation');
     expect(await auditActions(id)).toEqual([

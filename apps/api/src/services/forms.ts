@@ -4,11 +4,14 @@ import {
   definitionFromTemplate,
   type FieldOption,
   fieldLogicSchema,
+  type FieldSettings,
   fieldSettingsSchema,
   FORM_KINDS,
   type FormCreate,
   type FormDefinition,
   type FormKind,
+  type FormScoring,
+  formScoringSchema,
   type FormFieldDefinition,
   formDefinitionSchema,
   type FormSectionDefinition,
@@ -22,7 +25,7 @@ import type { AccessService } from '../access/service';
 import type { AuditWriter } from '../audit/audit-writer';
 import { assertIfMatch } from '../core/etag';
 import type { PrismaService, Tx } from '../core/prisma.service';
-import type { Prisma } from '../generated/prisma/client';
+import { Prisma } from '../generated/prisma/client';
 import { isUniqueViolation } from '../core/db-errors';
 import { ApiError, type ApiErrorDetail } from '../i18n/api-error';
 import { fieldTypeOf, type FormLibraryService, visibilityOf } from './form-library';
@@ -267,7 +270,7 @@ export class FormsService {
   async updateDraft(
     viewer: ProjectViewer,
     versionId: string,
-    body: { sections: unknown },
+    body: { sections: unknown; scoring?: unknown },
     ifMatch: string | undefined,
   ): Promise<{ version: FormVersionView; updatedAt: Date }> {
     const actor = viewer.principal.userId;
@@ -279,7 +282,14 @@ export class FormsService {
         throw new ApiError('permission.denied', 403);
       }
       assertIfMatch(ifMatch, row.updatedAt);
-      const definition = parseDefinition(body);
+      // a save that leaves the form-level points out keeps them; an explicit null clears them
+      const stored = 'scoring' in body ? {} : await scoringOf(tx, versionId);
+      const definition = parseDefinition({
+        sections: body.sections,
+        ...(body.scoring === null || body.scoring === undefined
+          ? stored
+          : { scoring: body.scoring }),
+      });
       const kept = new Map(
         (
           await tx.formField.findMany({
@@ -308,6 +318,17 @@ export class FormsService {
             key: s.key,
             fields: s.fields.map((x) => x.fieldKey),
           })),
+          // the points decide the order of the review queue, so every change of them is traced
+          points: {
+            scoring: definition.scoring ?? null,
+            questions: Object.fromEntries(
+              definition.sections.flatMap((s) =>
+                s.fields
+                  .filter((x) => x.settings?.score)
+                  .map((x) => [x.fieldKey, x.settings!.score]),
+              ),
+            ),
+          },
         },
       });
       return {
@@ -622,8 +643,18 @@ export class FormsService {
 }
 
 /**
+ * A question's settings for an audience: the points of the priority score are the office's, so a
+ * volunteer or a public-link visitor never learns which answer raises the score.
+ */
+function settingsFor(settings: FieldSettings, audience: FormAudience): FieldSettings {
+  if (audience === 'official' || settings.score === undefined) return settings;
+  const { score: _score, ...rest } = settings;
+  return rest;
+}
+
+/**
  * The definition of a version in the shared shape: every section for an official, the
- * volunteer-visible ones for everyone else.
+ * volunteer-visible ones for everyone else, without the points of the score.
  */
 export async function readDefinition(
   db: Tx,
@@ -684,7 +715,7 @@ export async function readDefinition(
         label: { bn: x.labelBn, en: x.labelEn },
         required: x.required,
         standardColumn: x.standardColumn,
-        settings: fieldSettingsSchema.parse(x.settings ?? {}),
+        settings: settingsFor(fieldSettingsSchema.parse(x.settings ?? {}), audience),
         ...(x.logic === null ? {} : { logic: fieldLogicSchema.parse(x.logic) }),
         ...(x.calculation === null ? {} : { calculation: calculationSchema.parse(x.calculation) }),
         options: x.fieldOptionsFormField.map((o): FieldOption => ({
@@ -695,7 +726,18 @@ export async function readDefinition(
         })),
       })),
     })),
+    ...(audience === 'official' ? await scoringOf(db, versionId) : {}),
   };
+}
+
+/** The form-level points of a version, when it has any. */
+async function scoringOf(db: Tx, versionId: string): Promise<{ scoring?: FormScoring }> {
+  const row = await db.formVersion.findUnique({
+    where: { id: versionId },
+    select: { scoring: true },
+  });
+  if (row?.scoring === null || row?.scoring === undefined) return {};
+  return { scoring: formScoringSchema.parse(row.scoring) };
 }
 
 /** Writes a definition's sections, fields and options as the rows of a draft version. */
@@ -710,6 +752,11 @@ export async function writeDefinitionRows(
     libraryIds(tx, 'section'),
     libraryIds(tx, 'field'),
   ]);
+  // the form-level points travel with the questions, through every copy of a definition
+  await tx.formVersion.update({
+    where: { id: versionId },
+    data: { scoring: definition.scoring ? json(definition.scoring) : Prisma.DbNull },
+  });
   let sectionOrder = 0;
   for (const section of definition.sections) {
     sectionOrder += 1;

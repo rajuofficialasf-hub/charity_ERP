@@ -2,6 +2,7 @@ import {
   APPLICATION_ACTIONS,
   APPLICATION_STATES,
   type ApplicationAction,
+  scoreCriteriaSchema,
   uuidv7,
   type WorkflowDefinition,
   workflowDefinitionSchema,
@@ -10,7 +11,14 @@ import { type Answer, type Audience, type FormDefinition, identityColumn } from 
 import { isoDateInDhaka } from '@css/shared/format';
 import { z } from 'zod';
 import { type EffectiveAccess, WORKING_ASSIGNMENT, workingTeamProjects } from '../access/effective';
-import { applicationWhere, holdsPermission, projectWhere, type Scope } from '../access/scope';
+import {
+  applicationWhere,
+  holdsPermission,
+  ownApplicationsWhere,
+  projectWhere,
+  type Scope,
+  teamLeadsOf,
+} from '../access/scope';
 import type { AccessService } from '../access/service';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Principal } from '../auth/principal';
@@ -25,6 +33,7 @@ import {
 import { assertIfMatch, etagOf } from '../core/etag';
 import {
   buildPage,
+  type CursorBody,
   decodeCursor,
   keysetWhere,
   orderBy,
@@ -42,6 +51,11 @@ import type { BeneficiaryIdentityService } from '../services/beneficiary-identit
 import { type FormAudience, readDefinition, versionView } from '../services/forms';
 import { isAddressChain } from '../services/locations';
 import type { NisabService } from '../services/nisab';
+import { assertReachesApplication, isBlockedVolunteer } from './callers';
+import { liveApplicationCounts } from './limit';
+import type { UnlocksService } from './unlocks';
+import type { ScoringService } from './scoring';
+import { type CommentReason, commentReasons } from './decision-rules';
 import type { Replayable } from '../services/uploads';
 import type { WorkflowEngine } from '../workflow/engine';
 import { type EngineApplication, GuardContext, GUARDS } from '../workflow/guards';
@@ -109,8 +123,64 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** Newest first by id (UUID v7 follows the time of creation and pages without gaps; a submission time can be null). */
 const LIST_SORT_FIELDS = ['id'];
 const DEFAULT_SORT = [{ field: 'id', direction: 'desc' as const }];
+/** The office's review queue: the highest score first, unscored last, then the newest. */
+const SCORE_SORT = [
+  { field: 'totalScore', direction: 'desc' as const },
+  { field: 'id', direction: 'desc' as const },
+];
+/** The decisions whose comment the review screen asks for before it sends. */
+const DECISIONS = ['approve', 'waitlist', 'reject', 'pull_from_waitlist'] as const;
+/** The states whose answers can still change the score; a decision freezes it. */
+const SCORED_WHILE = ['submitted', 'under_review'];
 /** The states a list leaves out unless asked for by name. */
 const HIDDEN_STATES = ['deleted'];
+
+/** The values a cursor of the score order carries: the score (or none) and the id. */
+const SCORE_CURSOR = z.tuple([z.number().nullable(), z.uuid()]);
+
+/**
+ * The order of the review queue as Prisma reads it: the score high to low with the unscored last,
+ * then the newest; reversed for a backward page.
+ */
+function scoreOrder(direction: 'next' | 'prev'): Prisma.ApplicationOrderByWithRelationInput[] {
+  return direction === 'next'
+    ? [{ totalScore: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }]
+    : [{ totalScore: { sort: 'asc', nulls: 'first' } }, { id: 'asc' }];
+}
+
+/** The rows after a cursor in the score order, where an unscored row comes after every score. */
+function scoreKeyset(cursor: CursorBody): Prisma.ApplicationWhereInput {
+  const parsed = SCORE_CURSOR.safeParse(cursor.v);
+  if (!parsed.success)
+    throw new ApiError('validation.failed', 422, undefined, [
+      { path: 'cursor', code: 'validation.failed' },
+    ]);
+  const [score, id] = parsed.data;
+  if (cursor.d === 'next')
+    return score === null
+      ? { totalScore: null, id: { lt: id } }
+      : {
+          OR: [
+            { totalScore: { lt: score } },
+            { totalScore: score, id: { lt: id } },
+            { totalScore: null },
+          ],
+        };
+  return score === null
+    ? { OR: [{ totalScore: null, id: { gt: id } }, { totalScore: { not: null } }] }
+    : { OR: [{ totalScore: { gt: score } }, { totalScore: score, id: { gt: id } }] };
+}
+
+/** The stored breakdown of a score, as the record shows it to the office. */
+function scoreItemsOf(criteria: unknown) {
+  return scoreCriteriaSchema.parse(criteria).items.map((item) => ({
+    key: item.key,
+    ...(item.label?.bn && item.label.en ? { label: { bn: item.label.bn, en: item.label.en } } : {}),
+    input: item.input ?? null,
+    max_points: item.max_points,
+    points: item.points,
+  }));
+}
 
 const VERSION_SELECT = {
   id: true,
@@ -156,6 +226,8 @@ const ROW_SELECT = {
   identityKind: true,
   nisabValue: true,
   zakatDecision: true,
+  totalScore: true,
+  applicationScoresApplication: { select: { criteria: true } },
   updatedAt: true,
   project: { select: PROJECT_SELECT },
 } satisfies Prisma.ApplicationSelect;
@@ -195,6 +267,8 @@ export class ApplicationsService {
     private readonly nisab: NisabService,
     private readonly workflow: WorkflowEngine,
     private readonly submission: SubmissionWriter,
+    private readonly scoring: ScoringService,
+    private readonly unlocks: UnlocksService,
   ) {}
 
   async create(
@@ -405,6 +479,7 @@ export class ApplicationsService {
             updatedBy: actor,
           },
         });
+        if (SCORED_WHILE.includes(row.status)) await this.scoring.compute(tx, applicationId, actor);
         const changes = changedAnswers(before, person.answers);
         if (row.status === 'under_review' && changes.length)
           await tx.fieldChange.createMany({
@@ -452,12 +527,21 @@ export class ApplicationsService {
   ): Promise<ApplicationRead> {
     if (await this.blockedCaller(this.prisma, viewer.principal))
       throw new ApiError('permission.not_found', 404);
-    // the zakat decision and the link of a public entry come with their own steps; a value nothing
-    // records is refused rather than dropped
-    if (body.zakatDecision !== undefined || body.linkBeneficiaryId !== undefined)
-      throw new ApiError('workflow.action_not_built', 409);
+    // the zakat decision comes with its own step; a value nothing records is refused, not dropped
+    if (body.zakatDecision !== undefined) throw new ApiError('workflow.action_not_built', 409);
+    const verifying = action === 'verify_link' || action === 'verify_create';
+    const misplaced = (path: string) =>
+      new ApiError('validation.failed', 422, undefined, [{ path, code: 'validation.failed' }]);
+    if (body.linkBeneficiaryId !== undefined && action !== 'verify_link')
+      throw misplaced('linkBeneficiaryId');
+    if (body.ownerVolunteerId !== undefined && !verifying) throw misplaced('ownerVolunteerId');
+    if (action === 'verify_link' && !body.linkBeneficiaryId)
+      throw new ApiError('validation.failed', 422, undefined, [
+        { path: 'linkBeneficiaryId', code: 'validation.required' },
+      ]);
     // a submission binds the person with the move (a submitted application always has one) and
-    // takes its number after it
+    // takes its number after it; a verification does the same once its own checks pass, and a
+    // public entry never rewrites a known person's contact data
     const submit = action === 'submit';
     try {
       await this.prisma.$transaction(async (tx) => {
@@ -472,9 +556,22 @@ export class ApplicationsService {
           ifMatch ?? '',
           submit
             ? { beforeApply: (t, app) => this.submission.bindPerson(t, viewer.principal, app.id) }
-            : {},
+            : verifying
+              ? {
+                  beforeApply: async (t, app) => {
+                    const owner = await this.verified(t, viewer.principal, app.id, action, body);
+                    return {
+                      ...(owner ? { ownerVolunteerId: owner.volunteerId } : {}),
+                      ...(await this.submission.bindPerson(t, viewer.principal, app.id, {
+                        writeContact: false,
+                        ownerUserId: owner?.userId,
+                      })),
+                    };
+                  },
+                }
+              : {},
         );
-        if (submit) await this.submission.number(tx, viewer.principal, applicationId);
+        if (submit || verifying) await this.submission.number(tx, viewer.principal, applicationId);
       });
     } catch (error) {
       // the database's own refusals at commit: the volunteer's own mobile as the person's, and
@@ -483,6 +580,9 @@ export class ApplicationsService {
         throw new ApiError('beneficiary.mobile_is_volunteer_mobile', 409);
       if (isUniqueViolationOf(error, 'applications_project_id_beneficiary_id_key'))
         throw new ApiError('beneficiary.already_applied', 409);
+      // two verifications made a profile for one new number at once: the later one links instead
+      if (verifying && isUniqueViolation(error))
+        throw new ApiError('application.verify_identity_exists', 409);
       throw error;
     }
     const access = await this.access.load(viewer.principal.userId);
@@ -573,7 +673,8 @@ export class ApplicationsService {
 
   /**
    * The caller's own applications across their projects (a volunteer's "my applications"): the
-   * ones their volunteer owns and the ones they created, whatever else their scope reaches.
+   * ones their volunteer owns and the ones they created while the owner is still their team lead
+   * there, whatever else their scope reaches.
    */
   async listMine(
     viewer: ApplicationViewer,
@@ -583,7 +684,7 @@ export class ApplicationsService {
     return this.page(
       viewer,
       `applications.mine|${userId}`,
-      { OR: [{ ownerVolunteer: { userId } }, { createdByUserId: userId }] },
+      { OR: ownApplicationsWhere(userId, await teamLeadsOf(this.prisma, userId)) },
       query,
     );
   }
@@ -594,17 +695,20 @@ export class ApplicationsService {
     base: Prisma.ApplicationWhereInput,
     query: ApplicationFilter & PageQuery & PageNumberQuery,
   ) {
+    // the score is the office's: a volunteer can neither read it nor learn its order
+    const byScore = query.sort === '-score';
+    // a cursor belongs to the order it was made in, so one order never reads another's cursor
+    const sortBinding = `${binding}|${byScore ? 'score' : (query.sort ?? 'id')}`;
     const cursor = query.cursor
-      ? decodeCursor(this.env.CURSOR_SECRET, binding, query.cursor)
+      ? decodeCursor(this.env.CURSOR_SECRET, sortBinding, query.cursor)
       : undefined;
     const direction = cursor?.d ?? 'next';
     const offset = pageOffset(query);
-    // the queue is in the order of arrival; a sort by score reads the same while no score exists
-    const sort = parseSort(
-      query.sort === '-score' ? undefined : query.sort,
-      LIST_SORT_FIELDS,
-      DEFAULT_SORT,
-    );
+    if (byScore && this.audienceOf(viewer) !== 'official')
+      throw new ApiError('validation.failed', 422, undefined, [
+        { path: 'sort', code: 'validation.option_unknown' },
+      ]);
+    const sort = byScore ? SCORE_SORT : parseSort(query.sort, LIST_SORT_FIELDS, DEFAULT_SORT);
     const blocked = await this.blockedCaller(this.prisma, viewer.principal);
     const filter: Prisma.ApplicationWhereInput = blocked
       ? { id: { in: [] } }
@@ -612,8 +716,10 @@ export class ApplicationsService {
     const now = this.clock.now();
     const { fetched, total } = await boundedRead(this.prisma, async (tx) => ({
       fetched: await tx.application.findMany({
-        where: cursor ? { AND: [filter, keysetWhere(sort, cursor)] } : filter,
-        orderBy: orderBy(sort, direction),
+        where: cursor
+          ? { AND: [filter, byScore ? scoreKeyset(cursor) : keysetWhere(sort, cursor)] }
+          : filter,
+        orderBy: byScore ? scoreOrder(direction) : orderBy(sort, direction),
         skip: offset,
         take: query.limit + 1,
         select: ROW_SELECT,
@@ -628,7 +734,7 @@ export class ApplicationsService {
         direction,
         hadCursor: Boolean(cursor) || Boolean(offset),
         secret: this.env.CURSOR_SECRET,
-        binding,
+        binding: sortBinding,
         total,
       },
     );
@@ -675,7 +781,7 @@ export class ApplicationsService {
       stage: r.stage,
       outcome: r.outcome,
       flags: r.flags,
-      totalScore: null,
+      totalScore: r.totalScore === null ? null : Number(r.totalScore),
       districtId: r.districtId,
       unionId: r.unionId,
       submittedAt: iso(r.submittedAt),
@@ -724,7 +830,18 @@ export class ApplicationsService {
       throw new ApiError('validation.failed', 422, undefined, [
         { path: 'clientUuid', code: 'validation.failed' },
       ]);
-    const access = await this.access.load(viewer.principal.userId);
+    // a create replayed after the application moved to another volunteer reads nothing
+    const userId = viewer.principal.userId;
+    const own = await this.prisma.application.count({
+      where: {
+        AND: [
+          { id: row.id },
+          { OR: ownApplicationsWhere(userId, await teamLeadsOf(this.prisma, userId)) },
+        ],
+      },
+    });
+    if (!own) throw new ApiError('permission.not_found', 404);
+    const access = await this.access.load(userId);
     return this.read(viewer, access, row.id);
   }
 
@@ -923,9 +1040,10 @@ export class ApplicationsService {
       { userId: principal.userId, kind: principal.kind, access },
       {},
       this.clock,
+      'draft',
     );
     for (const name of CREATE_GUARDS)
-      if (!(await GUARDS[name](ctx)))
+      if ((await GUARDS[name](ctx)) !== true)
         throw new ApiError(`workflow.guard.${name.replace(/\./g, '_')}`, 409);
   }
 
@@ -964,16 +1082,7 @@ export class ApplicationsService {
 
   /** A volunteer on the blocklist reaches no application. */
   private async blockedCaller(db: Tx | PrismaService, principal: Principal): Promise<boolean> {
-    if (principal.kind !== 'volunteer') return false;
-    const own = await db.volunteer.findUnique({
-      where: { userId: principal.userId },
-      select: { id: true },
-    });
-    if (!own) return false;
-    const blocked = await db.blocklist.count({
-      where: { subjectType: 'volunteer', subjectId: own.id, active: true },
-    });
-    return blocked > 0;
+    return principal.kind === 'volunteer' && isBlockedVolunteer(db, principal.userId);
   }
 
   /** The row the caller's scope reaches by id or number, or not-found. */
@@ -1015,13 +1124,66 @@ export class ApplicationsService {
     permission: string,
     applicationId: string,
   ): Promise<void> {
-    if (!holdsPermission(permission, access.grants)) {
-      this.access.denied(principal.userId, permission, 'application');
-      throw new ApiError('permission.denied', 403);
+    await assertReachesApplication(this.access, principal, access, permission, applicationId);
+  }
+
+  /**
+   * The checks of a verification, run once the engine has checked the caller: a link names the
+   * live profile behind the entry's identity number, one the caller's identity scope reaches; a
+   * new profile is made only when no profile holds the number; a chosen owner is an active,
+   * unblocked volunteer of the project who accepted its rules and is under its limit (the limit
+   * guard of the move ran before the owner was known), else the application stays the office's.
+   */
+  private async verified(
+    tx: Tx,
+    principal: Principal,
+    applicationId: string,
+    action: 'verify_link' | 'verify_create',
+    body: ApplicationActionBody,
+  ): Promise<{ volunteerId: string; userId: string } | null> {
+    const holder = await this.submission.identityHolder(tx, applicationId);
+    if (action === 'verify_link') {
+      if (!holder)
+        throw new ApiError('validation.failed', 422, undefined, [
+          { path: 'linkBeneficiaryId', code: 'application.verify_no_profile' },
+        ]);
+      if (!(await this.identity.seesHolder(tx, principal, holder)))
+        throw new ApiError('permission.not_found', 404);
+      if ((await this.identity.liveOf(tx, body.linkBeneficiaryId!)) !== holder)
+        throw new ApiError('validation.failed', 422, undefined, [
+          { path: 'linkBeneficiaryId', code: 'application.verify_other_person' },
+        ]);
+    } else if (holder) throw new ApiError('application.verify_identity_exists', 409);
+    if (!body.ownerVolunteerId) return null;
+    const { projectId, project } = await tx.application.findUniqueOrThrow({
+      where: { id: applicationId },
+      select: { projectId: true, project: { select: { perVolunteerLimit: true } } },
+    });
+    const [assignment, blocked] = await Promise.all([
+      tx.projectVolunteer.findFirst({
+        where: {
+          ...WORKING_ASSIGNMENT,
+          projectId,
+          volunteerId: body.ownerVolunteerId,
+          volunteer: { user: { state: 'active' } },
+        },
+        select: { volunteer: { select: { userId: true } } },
+      }),
+      tx.blocklist.count({
+        where: { subjectType: 'volunteer', subjectId: body.ownerVolunteerId, active: true },
+      }),
+    ]);
+    const unfit = (code: string) =>
+      new ApiError('validation.failed', 422, undefined, [{ path: 'ownerVolunteerId', code }]);
+    if (!assignment || blocked) throw unfit('application.verify_owner_unfit');
+    if (project.perVolunteerLimit !== null) {
+      const counts = await liveApplicationCounts(tx, [
+        { projectId, ownerVolunteerId: body.ownerVolunteerId },
+      ]);
+      if (counts(projectId, body.ownerVolunteerId) >= project.perVolunteerLimit)
+        throw unfit('application.verify_owner_full');
     }
-    const scope = await this.access.scopeFor(principal, access, permission, 'application');
-    if (!(await this.access.reaches(scope, { applicationId })))
-      throw new ApiError('permission.not_found', 404);
+    return { volunteerId: body.ownerVolunteerId, userId: assignment.volunteer.userId };
   }
 
   /** The record as the caller sees it. */
@@ -1059,6 +1221,9 @@ export class ApplicationsService {
         reviewedAt: iso(row.reviewedAt),
         approvedAt: iso(row.approvedAt),
         decisionComment: row.decisionComment,
+        scoreItems: row.applicationScoresApplication
+          ? scoreItemsOf(row.applicationScoresApplication.criteria)
+          : null,
         zakat: row.nisabValue
           ? {
               nisabValue: row.nisabValue.toFixed(2),
@@ -1067,10 +1232,39 @@ export class ApplicationsService {
           : null,
         familyDuplicateWarnings: warnings,
         availableActions,
+        decisionHints:
+          audience === 'official' ? await this.decisionHints(applicationId, availableActions) : {},
+        ...(await this.unlocks.forRecord(
+          viewer.principal,
+          access,
+          applicationId,
+          audience === 'official',
+        )),
         form: versionView(version, definition),
       },
       updatedAt: row.updatedAt,
     };
+  }
+
+  /**
+   * The comments each decision the caller may take now would ask for (a decision against the
+   * score order, an approval in a full quota area), so the review screen asks before it sends.
+   */
+  private async decisionHints(
+    applicationId: string,
+    actions: readonly string[],
+  ): Promise<Record<string, CommentReason[]>> {
+    const hints: Record<string, CommentReason[]> = {};
+    for (const action of DECISIONS)
+      if (actions.includes(action)) {
+        const reasons = await commentReasons(
+          this.prisma,
+          applicationId,
+          APPLICATION_ACTIONS[action].to,
+        );
+        if (reasons.length) hints[action] = reasons;
+      }
+    return hints;
   }
 
   /**

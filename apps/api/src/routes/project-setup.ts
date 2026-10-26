@@ -14,6 +14,8 @@ import {
   staffCreateSchema,
   type Syllabus,
   syllabusSchema,
+  type QuotaTargets,
+  quotaTargetsSchema,
 } from '@css/shared/projects';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -66,6 +68,16 @@ const candidateView = z.object({
   designation: z.string().nullable(),
 });
 
+const quotaView = z.object({
+  level: z.enum(['district', 'union']),
+  locationId: uuid,
+  locationName: bilingual,
+  target: z.number().int(),
+  received: z.number().int(),
+  approved: z.number().int(),
+  full: z.boolean(),
+});
+
 const viewerOf = (req: AuthedRequest) => ({ principal: principalOf(req), scope: scopeOf(req) });
 const projectParams = { projectId: uuid };
 
@@ -75,7 +87,7 @@ const projectParams = { projectId: uuid };
  */
 export function projectSetupRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'projectSetup' | 'projectRules'>,
+  c: Pick<Container, 'projectSetup' | 'projectRules' | 'projectQuotas'>,
 ): Router {
   const router = Router();
   const op = {
@@ -127,6 +139,40 @@ export function projectSetupRouter(
           req.get('if-match'),
         ),
       ),
+  });
+
+  defineRoute<unknown, unknown, { projectId: string }>(router, deps, {
+    ...read,
+    method: 'get',
+    path: '/projects/:projectId/quotas',
+    operationId: 'projects.quota.list',
+    summary:
+      'District and union quotas with the applications received and approved in each (officials only)',
+    responses: { 200: z.array(quotaView), 401: null, 403: null, 404: null },
+    handler: async ({ params, req }) =>
+      ok(await c.projectQuotas.list(viewerOf(req), params.projectId)),
+  });
+
+  defineRoute<QuotaTargets, unknown, { projectId: string }>(router, deps, {
+    ...op,
+    method: 'patch',
+    path: '/projects/:projectId/quotas',
+    operationId: 'projects.quota.replace',
+    summary: 'Replace the district and union quota targets of a project',
+    permission: 'project.quota.manage',
+    audit: 'project.quota_change',
+    params: projectParams,
+    body: quotaTargetsSchema,
+    responses: {
+      200: z.array(quotaView),
+      401: null,
+      403: null,
+      404: null,
+      409: null,
+      422: null,
+    },
+    handler: async ({ body, params, req }) =>
+      ok(await c.projectQuotas.replace(viewerOf(req), params.projectId, body)),
   });
 
   defineRoute<unknown, unknown, { projectId: string }>(router, deps, {

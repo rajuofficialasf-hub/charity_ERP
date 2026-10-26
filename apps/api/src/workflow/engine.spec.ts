@@ -10,6 +10,20 @@ const definitions = mergedWorkflowDefinitions();
 const common = definitions.find((d) => d.template === '_common')!;
 const froms = (from: string | string[]) => (Array.isArray(from) ? from : [from]);
 
+describe('the pull from the waitlist', () => {
+  it('is held to the permission and every guard of an approval, in each template', () => {
+    for (const d of definitions) {
+      const into = (from: string) =>
+        (d.transitions ?? []).find((t) => t.to === 'approved' && froms(t.from).includes(from));
+      const approve = into('reviewed');
+      const pull = into('waitlisted');
+      if (!approve || !pull) continue;
+      expect(pull.permission, d.template).toBe(approve.permission);
+      expect(pull.guards ?? [], d.template).toEqual(expect.arrayContaining(approve.guards ?? []));
+    }
+  });
+});
+
 describe('the action table', () => {
   it('maps every action to exactly one transition of the common cycle, per state it leaves', () => {
     for (const action of APPLICATION_ACTION_NAMES) {
@@ -24,21 +38,32 @@ describe('the action table', () => {
     }
   });
 
-  it('holds the return of a rejected application and marks the later actions', () => {
+  it('holds the return of a rejected application, the waitlist, the pull and both verifications', () => {
     expect(APPLICATION_ACTIONS.return_to_review).toMatchObject({
       from: ['rejected'],
       to: 'reviewed',
     });
-    expect(APPLICATION_ACTIONS.waitlist.later).toBe(true);
-    expect(APPLICATION_ACTIONS.pull_from_waitlist.later).toBe(true);
-    expect(APPLICATION_ACTIONS.verify_link.later).toBe(true);
+    expect(APPLICATION_ACTIONS.waitlist).toEqual({
+      from: ['reviewed'],
+      to: 'waitlisted',
+      texts: 'reason',
+    });
+    expect(APPLICATION_ACTIONS.pull_from_waitlist).toEqual({
+      from: ['waitlisted'],
+      to: 'approved',
+      texts: 'none',
+    });
+    // both verifications make the same move; the service tells a link from a new profile
+    expect(APPLICATION_ACTIONS.verify_link.to).toBe('submitted');
+    expect(APPLICATION_ACTIONS.verify_create.to).toBe('submitted');
+    expect(Object.values(APPLICATION_ACTIONS).some((a) => 'later' in a)).toBe(false);
     expect(APPLICATION_ACTIONS.reject.texts).toBe('reason_and_message');
   });
 });
 
-describe('the templates at version 2', () => {
-  it('are all at version 2 and name only built or declared guards, effects and permissions', () => {
-    for (const d of definitions) expect(d.version, d.template).toBe(2);
+describe('the templates at version 3', () => {
+  it('are all at version 3 and name only built or declared guards, effects and permissions', () => {
+    for (const d of definitions) expect(d.version, d.template).toBe(3);
     const permissions = loadAccessRegistry();
     expect(() =>
       assertWorkflowNamesKnown(definitions, permissions.isKnownPermission),
@@ -60,8 +85,16 @@ describe('the templates at version 2', () => {
     }
   });
 
-  it('name no transition of this task that reaches a declared guard', () => {
-    const inScope = ['submitted', 'under_review', 'reviewed', 'approved', 'rejected', 'deleted'];
+  it('name no transition of the review cycle that reaches a declared guard', () => {
+    const inScope = [
+      'submitted',
+      'under_review',
+      'reviewed',
+      'waitlisted',
+      'approved',
+      'rejected',
+      'deleted',
+    ];
     for (const t of common.transitions ?? []) {
       if (!inScope.includes(t.to) || t.auto) continue;
       for (const g of t.guards ?? []) expect(isBuiltGuard(g), `${t.to}: ${g}`).toBe(true);

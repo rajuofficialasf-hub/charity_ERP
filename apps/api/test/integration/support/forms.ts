@@ -4,7 +4,7 @@ import { expect } from 'vitest';
 import type { AuthHarness, Session } from './auth-app';
 import { bearer } from './auth-app';
 
-const option = (code: string) => ({
+export const option = (code: string) => ({
   code,
   label: { bn: code, en: code },
   dependsOnOptionCode: null,
@@ -56,15 +56,22 @@ export const section = (
   fields,
 });
 
+/** What a test adds to the fixture's form: more questions in the first section, the form-level points. */
+export interface FormExtras {
+  fields?: unknown[];
+  scoring?: { not_previously_assisted?: number };
+}
+
 /**
  * A ready form, published: the identity questions, a note and an optional photo for an
  * application form, with an official-only section of one question; the note alone for a form of
- * another kind. Answers the ready form's id.
+ * another kind; plus the questions and the points a test adds. Answers the ready form's id.
  */
 export async function publishedReadyForm(
   h: AuthHarness,
   builder: Session,
   kind: 'beneficiary_application' | 'other' = 'beneficiary_application',
+  extras: FormExtras = {},
 ): Promise<string> {
   const api = () => request(h.server());
   const made = await api()
@@ -85,6 +92,7 @@ export async function publishedReadyForm(
     ...(kind === 'beneficiary_application' ? IDENTITY : []),
     question('q_note', 'long_text'),
     ...(kind === 'beneficiary_application' ? [question('q_photo', 'photo')] : []),
+    ...(extras.fields ?? []),
   ];
   const sections = [
     section(fields),
@@ -96,7 +104,7 @@ export async function publishedReadyForm(
     .patch(`/api/v1/form-versions/${draftId}`)
     .set(bearer(builder))
     .set('If-Match', await etag())
-    .send({ sections });
+    .send({ sections, ...(extras.scoring ? { scoring: extras.scoring } : {}) });
   expect(saved.status, JSON.stringify(saved.body)).toBe(200);
   const published = await api()
     .post(`/api/v1/form-versions/${draftId}/publish`)
@@ -116,9 +124,10 @@ export async function publishedForm(
   h: AuthHarness,
   builder: Session,
   projectId: string,
+  extras: FormExtras = {},
 ): Promise<{ formId: string; versionId: string }> {
   const api = () => request(h.server());
-  const readyFormId = await publishedReadyForm(h, builder);
+  const readyFormId = await publishedReadyForm(h, builder, 'beneficiary_application', extras);
   const placed = await api()
     .post(`/api/v1/projects/${projectId}/forms/place`)
     .set(bearer(builder))

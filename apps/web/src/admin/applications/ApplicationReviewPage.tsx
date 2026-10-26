@@ -12,10 +12,13 @@ import {
   Stack,
   Timeline,
   type TimelineStep,
+  VisuallyHidden,
 } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
+import { unlockRefusal, type FormField } from '@css/shared/forms';
+import { LockOpen } from 'lucide-react';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { AnswerList } from '../../features/applications/AnswerList';
@@ -28,15 +31,21 @@ import { canSeeApplications } from '../roles';
 import {
   applicationKey,
   APPLICATIONS_KEY,
+  askedComments,
   changeLog,
+  type CommentReason,
   type OfficeAction,
   officeAct,
   officeApplication,
   officeTimeline,
+  openUnlock,
   saveAnswers,
 } from './applications-api';
 import { ChangeLog } from './ChangeLog';
-import { DecisionDialog } from './DecisionDialog';
+import { DecisionDialog, type DecisionTexts } from './DecisionDialog';
+import { UnlockReview } from './UnlockReview';
+import { VerifyDialog } from './VerifyDialog';
+import { ScoreBreakdown } from './ScoreBreakdown';
 import { Signals } from './Signals';
 import './applications.css';
 
@@ -45,13 +54,24 @@ const ACTIONS: OfficeAction[] = [
   'review',
   'send_for_approval',
   'approve',
+  'pull_from_waitlist',
+  'waitlist',
   'reject',
   'return_to_review',
   'reject_unverified',
   'delete',
 ];
+/** The verifications: one button, whose dialog chooses the link or the new profile by a lookup. */
+const VERIFY: OfficeAction[] = ['verify_link', 'verify_create'];
 /** The actions that ask for the office's reason, and the one that asks for the volunteer's message too. */
-const WITH_REASON: OfficeAction[] = ['reject', 'return_to_review', 'reject_unverified'];
+const WITH_REASON: OfficeAction[] = ['reject', 'return_to_review', 'reject_unverified', 'waitlist'];
+/** The decisions that end an application's hopes in this project, drawn in the danger tone. */
+const DANGER: OfficeAction[] = ['reject', 'reject_unverified', 'delete'];
+/** The action awaiting its texts, with the comments it asks for. */
+interface Asking {
+  action: OfficeAction;
+  reasons: CommentReason[];
+}
 
 /**
  * One application for the office (docs/ui/SCREENS.md, "Application review list and detail"): the
@@ -67,13 +87,17 @@ export function ApplicationReviewPage() {
 
 function Review() {
   const { applicationId = '' } = useParams();
+  const { me } = useAuth();
   const t = useTranslations('applications.office');
+  const tu = useTranslations('applications.unlock');
+  const [opening, setOpening] = useState<FormField | null>(null);
+  const [verifying, setVerifying] = useState(false);
   const ts = useTranslations('applications.status');
   const tc = useTranslations('common');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [asking, setAsking] = useState<OfficeAction | null>(null);
+  const [asking, setAsking] = useState<Asking | null>(null);
   const [editing, setEditing] = useState(false);
   const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
   const one = useQuery({
@@ -91,10 +115,11 @@ function Review() {
   // the record's key starts with the list's, so one invalidation reads both again
   const refresh = () => queryClient.invalidateQueries({ queryKey: APPLICATIONS_KEY });
   const act = useMutation({
-    mutationFn: (input: { action: OfficeAction; reason?: string; message?: string }) =>
+    mutationFn: (input: { action: OfficeAction } & DecisionTexts) =>
       officeAct(applicationId, one.data?.meta.etag ?? '', input.action, {
         reason: input.reason,
         message: input.message,
+        comment: input.comment,
       }),
     onSuccess: async (result, input) => {
       setAsking(null);
@@ -107,13 +132,30 @@ function Review() {
       }
       setNotice({ tone: 'success', text: t(`done.${input.action}`) });
     },
-    onError: async (error) => {
+    onError: async (error, input) => {
       // a changed version is read again, so the next try carries the version the record has now
       if (error instanceof ApiFailure && error.status === 412) await one.refetch();
+      // the server asked for a comment the screen did not know of (another decision came first):
+      // the dialog opens with the reasons it named
+      const reasons = askedComments(error);
+      if (reasons?.length) {
+        act.reset();
+        setAsking({ action: input.action, reasons });
+        return;
+      }
       // the decision dialog shows its own failure and keeps the texts typed
-      if (asking && asking !== 'delete') return;
+      if (asking && asking.action !== 'delete') return;
       setAsking(null);
       setNotice({ tone: 'danger', text: failureText(error) });
+    },
+  });
+  const open = useMutation({
+    mutationFn: ({ field, reason }: { field: FormField; reason: string }) =>
+      openUnlock(applicationId, field.fieldKey, reason),
+    onSuccess: async () => {
+      setOpening(null);
+      setNotice({ tone: 'success', text: tu('opened') });
+      await refresh();
     },
   });
   const failureText = (error: unknown) =>
@@ -144,6 +186,13 @@ function Review() {
   const a = one.data.data;
   const etag = one.data.meta.etag ?? '';
   const may = (action: OfficeAction) => a.availableActions.includes(action);
+  // the entry is checked against the profiles now, so a profile made after the entry still links
+  const verifiable = VERIFY.some(may);
+  const hinted = (action: OfficeAction) => a.decisionHints[action] ?? [];
+  const start = (action: OfficeAction) =>
+    WITH_REASON.includes(action) || action === 'delete' || hinted(action).length
+      ? setAsking({ action, reasons: hinted(action) })
+      : act.mutate({ action });
   const stateLabel = (status: string) => labelOf(ts, status);
   const timeline: TimelineStep[] = (steps.data ?? []).map((e, i, all) => ({
     id: e.id,
@@ -153,6 +202,17 @@ function Review() {
     comment: [e.reason, e.comment, e.message].filter(Boolean).join(' · ') || undefined,
     status: e.to === 'rejected' ? 'rejected' : i === all.length - 1 ? 'current' : 'done',
   }));
+  // an answer that can open, and has no unlock waiting, offers it on an approved record
+  const waiting = new Set((a.unlocks ?? []).map((u) => u.fieldKey));
+  const unlockAction = a.mayUnlock
+    ? (field: FormField) =>
+        unlockRefusal(field) === null && !waiting.has(field.fieldKey) ? (
+          <Button variant="ghost" size="sm" icon={LockOpen} onPress={() => setOpening(field)}>
+            {tu('open')}
+            <VisuallyHidden>: {field.label[locale]}</VisuallyHidden>
+          </Button>
+        ) : null
+    : undefined;
   const save = async ({ answers }: Submission) => {
     try {
       await saveAnswers(applicationId, etag, answers);
@@ -178,23 +238,24 @@ function Review() {
         headingLevel={2}
         actions={
           <Stack direction="row" gap={2} wrap>
+            {verifiable ? (
+              <Button variant="primary" size="sm" onPress={() => setVerifying(true)}>
+                {t('action.verify')}
+              </Button>
+            ) : null}
             {ACTIONS.filter(may).map((action) => (
               <Button
                 key={action}
                 variant={
-                  action === 'approve'
+                  action === 'approve' || action === 'pull_from_waitlist'
                     ? 'primary'
-                    : action === 'reject' || action === 'reject_unverified' || action === 'delete'
+                    : DANGER.includes(action)
                       ? 'danger'
                       : 'secondary'
                 }
                 size="sm"
                 loading={act.isPending && !asking}
-                onPress={() =>
-                  WITH_REASON.includes(action) || action === 'delete'
-                    ? setAsking(action)
-                    : act.mutate({ action })
-                }
+                onPress={() => start(action)}
               >
                 {t(`action.${action}`)}
               </Button>
@@ -227,6 +288,20 @@ function Review() {
         />
       </Card>
       <Signals application={a} />
+      {a.unlocks?.length ? (
+        <UnlockReview
+          form={a.form}
+          unlocks={a.unlocks}
+          meId={me?.id ?? ''}
+          onChanged={async (text) => {
+            setNotice({ tone: 'success', text });
+            await refresh();
+          }}
+        />
+      ) : null}
+      {typeof a.totalScore === 'number' && a.scoreItems ? (
+        <ScoreBreakdown total={a.totalScore} items={a.scoreItems} />
+      ) : null}
       <Card title={t('answers')} headingLevel={2}>
         {editing && a.status === 'under_review' ? (
           <FormRenderer
@@ -239,7 +314,7 @@ function Review() {
             onSubmit={save}
           />
         ) : (
-          <AnswerList form={a.form} answers={a.answers} />
+          <AnswerList form={a.form} answers={a.answers} action={unlockAction} />
         )}
       </Card>
       <Card title={t('timeline')} headingLevel={2}>
@@ -260,23 +335,50 @@ function Review() {
           <Skeleton shape="text" />
         )}
       </Card>
-      {asking && asking !== 'delete' ? (
+      {asking && asking.action !== 'delete' ? (
         <DecisionDialog
-          title={t(`dialog.${asking as 'reject'}`)}
-          confirm={t(`action.${asking}`)}
-          withMessage={asking === 'reject'}
-          danger={asking !== 'return_to_review'}
+          title={t(`dialog.${asking.action as 'reject'}`)}
+          confirm={t(`action.${asking.action}`)}
+          withReason={WITH_REASON.includes(asking.action)}
+          withMessage={asking.action === 'reject'}
+          comments={asking.reasons}
+          danger={DANGER.includes(asking.action)}
           pending={act.isPending}
           error={act.error ? failureText(act.error) : null}
-          onConfirm={(input) => act.mutate({ action: asking, ...input })}
+          onConfirm={(input) => act.mutate({ action: asking.action, ...input })}
           onClose={() => {
             act.reset();
             setAsking(null);
           }}
         />
       ) : null}
+      {verifying ? (
+        <VerifyDialog
+          application={a}
+          etag={etag}
+          onClose={() => setVerifying(false)}
+          onDone={async (done) => {
+            setNotice({ tone: 'success', text: t(`done.${done}`) });
+            setVerifying(false);
+            await refresh();
+          }}
+        />
+      ) : null}
+      {opening ? (
+        <DecisionDialog
+          title={tu('open_title', { name: opening.label[locale] })}
+          confirm={tu('open_confirm')}
+          pending={open.isPending}
+          error={open.error ? failureText(open.error) : null}
+          onConfirm={({ reason }) => open.mutate({ field: opening, reason: reason ?? '' })}
+          onClose={() => {
+            open.reset();
+            setOpening(null);
+          }}
+        />
+      ) : null}
       <ConfirmDialog
-        isOpen={asking === 'delete'}
+        isOpen={asking?.action === 'delete'}
         tone="danger"
         title={t('dialog.delete')}
         confirmLabel={t('action.delete')}

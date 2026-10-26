@@ -1,3 +1,4 @@
+import { unlockView } from './unlocks';
 import { answerValueSchema } from '@css/shared';
 import { APPLICATION_STATES } from '@css/shared';
 import { z } from 'zod';
@@ -62,6 +63,21 @@ export const applicationView = applicationSummary.extend({
   reviewedAt: z.string().nullable(),
   approvedAt: z.string().nullable(),
   decisionComment: sensitive(z.string().nullable(), OFFICIAL_SECTION),
+  /** The priority score's breakdown, frozen with the score at the decision. */
+  scoreItems: sensitive(
+    z
+      .array(
+        z.object({
+          key: z.string(),
+          label: z.object({ bn: z.string(), en: z.string() }).optional(),
+          input: z.unknown(),
+          max_points: z.number(),
+          points: z.number(),
+        }),
+      )
+      .nullable(),
+    OFFICIAL_SECTION,
+  ),
   zakat: sensitive(
     z
       .object({ nisabValue: z.string(), decision: z.enum(['eligible', 'not_eligible']).nullable() })
@@ -70,6 +86,12 @@ export const applicationView = applicationSummary.extend({
   ),
   familyDuplicateWarnings: z.array(familyWarning),
   availableActions: z.array(z.string()),
+  /** The comments the office's decisions would ask for now, by action; empty for a volunteer. */
+  decisionHints: z.record(z.string(), z.array(z.enum(['against_score', 'quota_full']))),
+  /** The unlocks of the application waiting for a step, as the caller may see them. */
+  unlocks: z.array(unlockView),
+  /** Whether the caller may open an answer of this application for correction now. */
+  mayUnlock: z.boolean(),
   /** The form version the answers belong to, as the caller's audience sees it. */
   form: versionView,
 });
@@ -103,6 +125,8 @@ export const applicationActionSchema = z.object({
   message: z.string().max(2000).optional(),
   comment: z.string().max(2000).optional(),
   linkBeneficiaryId: uuid.optional(),
+  /** At a verification: the project's volunteer who owns the application from then on. */
+  ownerVolunteerId: uuid.optional(),
   zakatDecision: z.enum(['eligible', 'not_eligible']).optional(),
 });
 export type ApplicationActionBody = z.infer<typeof applicationActionSchema>;

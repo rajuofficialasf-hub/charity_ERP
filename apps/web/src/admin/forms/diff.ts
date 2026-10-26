@@ -10,10 +10,11 @@ import type { FormDefinition, FormField, FormSection } from '@css/shared/forms';
 type Text = { bn: string; en: string };
 
 export type FieldAspect =
-  'label' | 'type' | 'required' | 'condition' | 'calculation' | 'settings' | 'options';
+  'label' | 'type' | 'required' | 'condition' | 'calculation' | 'settings' | 'points' | 'options';
 export type SectionAspect = 'title' | 'visibility' | 'condition';
 
 export type Change =
+  | { kind: 'scoring_changed' }
   | { kind: 'section_added' | 'section_removed' | 'section_moved'; section: string; title: Text }
   | { kind: 'section_changed'; section: string; title: Text; what: SectionAspect[] }
   | {
@@ -78,7 +79,10 @@ function fieldAspects(a: FormField, b: FormField): FieldAspect[] {
   if (!same(a.calculation, b.calculation)) what.push('calculation');
   const { show_if: _a1, required_if: _a2, ...restA } = a.logic ?? {};
   const { show_if: _b1, required_if: _b2, ...restB } = b.logic ?? {};
-  if (!same(a.settings, b.settings) || !same(restA, restB)) what.push('settings');
+  const { score: scoreA, ...settingsA } = a.settings ?? {};
+  const { score: scoreB, ...settingsB } = b.settings ?? {};
+  if (!same(settingsA, settingsB) || !same(restA, restB)) what.push('settings');
+  if (!same(scoreA, scoreB)) what.push('points');
   // the options both versions hold: their texts, flags and order (added and removed ones are
   // named on their own)
   const codesA = new Set((a.options ?? []).map((o) => o.code));
@@ -102,6 +106,7 @@ const fieldsWithSection = (def: FormDefinition) =>
 
 export function diffDefinitions(before: FormDefinition, after: FormDefinition): Change[] {
   const changes: Change[] = [];
+  if (!same(before.scoring, after.scoring)) changes.push({ kind: 'scoring_changed' });
   const beforeSections = new Map(before.sections.map((s) => [s.key, s]));
   const afterSections = new Map(after.sections.map((s) => [s.key, s]));
   const movedSections = moved(

@@ -23,6 +23,7 @@ import {
   type SectionVisibility,
 } from './library.js';
 import { PATTERN_KEYS, TEXT_MAX_LENGTH } from './patterns.js';
+import { MAX_SCORE, maxScoreOf, scoreKindOf } from './score.js';
 
 /**
  * A form version definition in the shape the API answers and the draft update sends: sections,
@@ -71,12 +72,41 @@ export const repeatSettingsSchema = z.strictObject({
   group: snakeKey.optional(),
 });
 
+/** Points from 0 to 100 in whole numbers, as the priority score counts them. */
+const points = z.int().min(0).max(100);
+
+/**
+ * The points a question gives toward the priority score: per option code of a choice question,
+ * or per range of a number (the first range the value falls in counts; an open end has no bound).
+ */
+export const fieldScoreSchema = z.strictObject({
+  options: z.record(code64, points).optional(),
+  ranges: z
+    .array(
+      z.strictObject({
+        min: z.number().optional(),
+        max: z.number().optional(),
+        points,
+      }),
+    )
+    .max(20)
+    .optional(),
+});
+export type FieldScore = z.infer<typeof fieldScoreSchema>;
+
+/** The form-level criteria of the score: the points of "not previously assisted". */
+export const formScoringSchema = z.strictObject({
+  not_previously_assisted: points.optional(),
+});
+export type FormScoring = z.infer<typeof formScoringSchema>;
+
 export const fieldSettingsSchema = z.strictObject({
   placeholder: label(200).optional(),
   help: label(500).optional(),
   default: z.unknown().optional(),
   validation: fieldValidationSchema.optional(),
   repeat: repeatSettingsSchema.optional(),
+  score: fieldScoreSchema.optional(),
 });
 export type FieldSettings = z.infer<typeof fieldSettingsSchema>;
 
@@ -116,6 +146,8 @@ export type FormSection = z.infer<typeof formSectionSchema>;
 
 export interface FormDefinition {
   sections: FormSection[];
+  /** The form-level points of the priority score; a form without any points gives no score. */
+  scoring?: FormScoring;
 }
 
 /** The same shapes under the names the API service reads them by. */
@@ -142,6 +174,10 @@ export const DEFINITION_ISSUE_CODES = [
   'form.standard_column_unknown',
   'form.standard_column_duplicate',
   'form.repeat_group_too_large',
+  'form.score_misplaced',
+  'form.score_option_unknown',
+  'form.score_over_max',
+  'form.score_range_invalid',
 ] as const;
 export type DefinitionIssueCode = (typeof DEFINITION_ISSUE_CODES)[number];
 
@@ -485,6 +521,49 @@ export function checkDefinition(
       });
   }
 
+  // the points of the priority score at publish: on choices and numbers outside repeat groups,
+  // on options the question has, and never more than 100 in all
+  if (options.publishing) {
+    for (const located of fields.values()) {
+      const { field } = located;
+      const score = field.settings?.score;
+      if (!score) continue;
+      const kind = scoreKindOf(field.type);
+      const misplaced =
+        kind === null ||
+        located.group !== null ||
+        (kind === 'options' && score.ranges !== undefined) ||
+        (kind === 'ranges' && score.options !== undefined);
+      if (misplaced) {
+        issues.push({
+          code: 'form.score_misplaced',
+          path: fieldPath(located, 'settings', 'score'),
+          params: { fieldKey: field.fieldKey },
+        });
+        continue;
+      }
+      if (
+        (score.ranges ?? []).some(
+          (r) => r.min !== undefined && r.max !== undefined && r.min > r.max,
+        )
+      )
+        issues.push({
+          code: 'form.score_range_invalid',
+          path: fieldPath(located, 'settings', 'score', 'ranges'),
+          params: { fieldKey: field.fieldKey },
+        });
+      const known = new Set((field.options ?? []).map((o) => o.code));
+      if (Object.keys(score.options ?? {}).some((code) => !known.has(code)))
+        issues.push({
+          code: 'form.score_option_unknown',
+          path: fieldPath(located, 'settings', 'score', 'options'),
+          params: { fieldKey: field.fieldKey },
+        });
+    }
+    if (maxScoreOf(definition) > MAX_SCORE)
+      issues.push({ code: 'form.score_over_max', path: ['scoring'], params: { max: '100' } });
+  }
+
   // the identity of an application form at publish: each role marked once, by the question's
   // column under any key, of the role's type, required and seen by everyone
   if (!options.publishing || options.kind !== 'beneficiary_application') return issues;
@@ -536,6 +615,7 @@ const definitionSchema = (publishing: boolean, kind?: FormKind): z.ZodType<FormD
   z
     .strictObject({
       sections: z.array(formSectionSchema).min(1).max(DEFINITION_LIMITS.sections),
+      scoring: formScoringSchema.optional(),
     })
     .superRefine((definition, ctx) => {
       for (const issue of checkDefinition(definition, { publishing, ...(kind ? { kind } : {}) }))

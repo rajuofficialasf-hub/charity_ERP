@@ -385,6 +385,28 @@ describe('more of the rules', () => {
       ).map((r) => r.volunteerId);
     expect(await ids(rpm)).toContain(v.volunteerId);
     expect(await ids(await as(world.users.rpmRangpur))).not.toContain(v.volunteerId);
+    // the count is the volunteer's live applications: two drafts count, a rejected one does not
+    const { rows: versions } = await h.db.query<{ id: string }>(
+      'SELECT v.id FROM form_versions v JOIN forms f ON f.id = v.form_id WHERE f.project_id = $1 LIMIT 1',
+      [world.a1.id],
+    );
+    for (const status of ['draft', 'draft', 'rejected'])
+      await f.insert(h.db, 'applications', {
+        id: randomUUID(),
+        project_id: world.a1.id,
+        form_version_id: versions[0]!.id,
+        owner_volunteer_id: v.volunteerId,
+        region_location_id: world.dhaka.division,
+        district_id: world.dhaka.district,
+        union_id: world.dhaka.union,
+        status,
+      });
+    const listed = await at(rpm, 'get', `/projects/${world.a1.id}/volunteers`).query({
+      limit: 100,
+    });
+    expect(
+      listed.body.data.find((r: { volunteerId: string }) => r.volunteerId === v.volunteerId),
+    ).toMatchObject({ applicationsCounted: 2 });
     expect(
       (await at(await as(v.userId), 'get', `/projects/${world.a1.id}/volunteers`)).status,
     ).toBe(403);

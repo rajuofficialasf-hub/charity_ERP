@@ -434,3 +434,18 @@
   margin: 0;
   padding-left: var(--space-4);
 }
+
+/* the ranges of a number question's points: bounds, points and the remove button on one row */
+.fb-score-ranges {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fb-score-range {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  align-items: end;
+  gap: var(--space-2);
+}

@@ -14,6 +14,8 @@ export function useChangeSentences() {
     what.map((w) => t(`aspects.${w}`)).join(', ');
   const sentence = (c: Change): string => {
     switch (c.kind) {
+      case 'scoring_changed':
+        return t('scoring_changed');
       case 'section_added':
       case 'section_removed':
       case 'section_moved':

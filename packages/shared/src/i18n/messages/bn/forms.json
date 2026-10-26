@@ -214,8 +214,10 @@
         "settings": "সেটিং",
         "options": "অপশন",
         "title": "নাম",
-        "visibility": "কারা দেখবেন"
-      }
+        "visibility": "কারা দেখবেন",
+        "points": "নম্বর"
+      },
+      "scoring_changed": "“আগে সহায়তা পাননি”-এর নম্বর বদলেছে"
     },
     "preview_pane": {
       "title": "প্রিভিউ",
@@ -385,7 +387,25 @@
     },
     "new_section": "নতুন অংশ",
     "section_n_bn": "অংশ {n}",
-    "section_n_en": "Section {n}"
+    "section_n_en": "Section {n}",
+    "score_group": "নম্বর",
+    "score_hint": "অগ্রাধিকার স্কোরে এই উত্তরের নম্বর। দরকার না হলে ফাঁকা রাখুন।",
+    "score_option": "{option}: নম্বর",
+    "score_ranges_hint": "উত্তরের সংখ্যা যে সীমায় পড়বে, সেই সীমার নম্বর পাবে। একাধিক সীমায় পড়লে প্রথমটি গোনা হবে।",
+    "score_ranges": "নম্বরের সীমা",
+    "score_range_min": "থেকে",
+    "score_range_max": "পর্যন্ত",
+    "score_range_points": "নম্বর",
+    "score_range_add": "সীমা যোগ করুন",
+    "score_range_remove": "সীমাটি সরান",
+    "scoring_button": "স্কোর",
+    "scoring_title": "অগ্রাধিকার স্কোর",
+    "scoring_intro": "স্কোর ঐচ্ছিক। প্রশ্নে নম্বর দিলে অফিসের তালিকা স্কোর অনুযায়ী সাজানো হবে। স্বেচ্ছাসেবক বা আবেদনকারী নম্বর দেখেন না।",
+    "scoring_not_assisted": "“আগে সহায়তা পাননি”-এর নম্বর",
+    "scoring_not_assisted_hint": "এই প্রোগ্রামের আগের কোনো প্রকল্পে যাঁর আবেদন অনুমোদিত হয়নি, তিনি এই নম্বর পাবেন।",
+    "scoring_max": "সর্বোচ্চ মোট: {max} / 100",
+    "scoring_over": "মোট নম্বর 100-এর বেশি। প্রকাশের আগে কিছু নম্বর কমান।",
+    "scoring_done": "ঠিক আছে"
   },
   "types": {
     "short_text": "ছোট লেখা",

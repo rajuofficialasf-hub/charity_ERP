@@ -46,3 +46,11 @@
 .my-application-facts dd {
   margin: 0;
 }
+
+/* An answer with a control beside it (the office's "সংশোধনের জন্য খুলুন"). */
+.answer-with-action {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}

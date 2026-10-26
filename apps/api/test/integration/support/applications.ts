@@ -7,7 +7,7 @@ import type { AuthHarness, Session } from './auth-app';
 import { beneficiary, insert, type locationTree } from './fixtures';
 
 type Loc = Awaited<ReturnType<typeof locationTree>>;
-import { publishedForm } from './forms';
+import { type FormExtras, publishedForm } from './forms';
 
 /** The principal of a user as the access middleware would build it, for calls into a service. */
 export async function principalOf(db: Client, userId: string): Promise<Principal> {
@@ -41,9 +41,14 @@ export async function applicationProject(
   h: AuthHarness,
   builder: Session,
   projectId: string,
-  options: { limit?: number; workflow?: string; window?: [string, string] } = {},
+  options: {
+    limit?: number;
+    workflow?: string;
+    window?: [string, string];
+    form?: FormExtras;
+  } = {},
 ) {
-  const form = await publishedForm(h, builder, projectId);
+  const form = await publishedForm(h, builder, projectId, options.form);
   const key = options.workflow ?? 'distribution';
   const snapshot = mergedWorkflowDefinitions().find((d) => d.template === key);
   expect(snapshot, `the template ${key}`).toBeDefined();

@@ -28,6 +28,7 @@ import {
   timeline,
 } from './applications-api';
 import { toneOf } from './status';
+import { UnlockedAnswer } from './UnlockedAnswer';
 import './applications.css';
 
 /**
@@ -142,6 +143,31 @@ function Detail() {
       {a.rejectionMessage ? (
         <Card title={t('detail.message')} headingLevel={2}>
           <Text>{a.rejectionMessage}</Text>
+        </Card>
+      ) : null}
+      {a.unlocks?.length ? (
+        <Card title={t('unlock.volunteer_title')} headingLevel={2}>
+          <Stack gap={3}>
+            <Text tone="muted">{t('unlock.volunteer_help')}</Text>
+            {a.unlocks.map((unlock) => {
+              const field = a.form.sections
+                .flatMap((s) => s.fields)
+                .find((f) => f.fieldKey === unlock.fieldKey);
+              return field ? (
+                <UnlockedAnswer
+                  key={unlock.id}
+                  unlock={unlock}
+                  field={field}
+                  onSent={async () => {
+                    setNotice(t('unlock.sent'));
+                    await queryClient.invalidateQueries({
+                      queryKey: applicationKey(applicationId),
+                    });
+                  }}
+                />
+              ) : null;
+            })}
+          </Stack>
         </Card>
       ) : null}
       <Card title={t('detail.answers')} headingLevel={2}>

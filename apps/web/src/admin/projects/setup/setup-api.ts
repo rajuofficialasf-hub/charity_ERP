@@ -4,6 +4,7 @@ import type {
   FundSources,
   ProjectRules,
   ProjectUpdate,
+  QuotaTargets,
   StaffCreate,
   Syllabus,
 } from '@css/shared/projects';
@@ -72,6 +73,19 @@ export interface Area {
 export const areas = (projectId: string) => api<Area[]>(`/projects/${projectId}/areas`);
 export const addArea = (projectId: string, body: AreaCreate) =>
   api<Area[]>(`/projects/${projectId}/areas`, { method: 'POST', body });
+/** A quota with what came and what was approved in its place. */
+export interface Quota {
+  level: 'district' | 'union';
+  locationId: string;
+  locationName: { bn: string; en: string };
+  target: number;
+  received: number;
+  approved: number;
+  full: boolean;
+}
+export const quotas = (projectId: string) => api<Quota[]>(`/projects/${projectId}/quotas`);
+export const saveQuotas = (projectId: string, body: QuotaTargets) =>
+  api<Quota[]>(`/projects/${projectId}/quotas`, { method: 'PATCH', body });
 export const removeArea = (areaId: string) =>
   api<void>(`/project-areas/${areaId}/remove`, { method: 'POST', body: {} });
 

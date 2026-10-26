@@ -226,6 +226,13 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                   }),
                 },
                 {
+                  path: 'projects/:projectId/transfer',
+                  lazy: async () => ({
+                    Component: (await import('../admin/projects/volunteers/TransferPage'))
+                      .TransferPage,
+                  }),
+                },
+                {
                   path: 'volunteers',
                   lazy: async () => ({
                     Component: (await import('../admin/volunteers/VolunteersPage')).VolunteersPage,

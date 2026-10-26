@@ -52,7 +52,7 @@ permission: { name, description, module, sensitive, default: [ { role, scope, co
 | REGION | Own region (division) inside assigned projects | `project_areas` rows where the user is RPM; staff under an RPM inherit the RPM's region through `project_staff`; Official দায়ী and Implementer through their project assignment |
 | DISTRICT / UPAZILA / UNION | When the PM split districts among RPMs, or by assignment | `project_areas.location_id` (district rows when the PM split districts) for the RPM; Local দায়ী and Paid Volunteer assignments carry location ids |
 | ASSIGNED | Only own assigned beneficiaries or applications | `work_assignments` (Local দায়ী), paid-volunteer assignments, site-verification assignments, Official দায়ী's area |
-| SELF | Own created applications, own profile, own sessions | `applications.owner_volunteer_id`, `applications.created_by_user_id` (team members, `own_created`), `users.id` |
+| SELF | Own created applications, own profile, own sessions | `applications.owner_volunteer_id`, `applications.created_by_user_id` (team members, `own_created`), `users.id`. Creator rule (T2.6): a creator reaches an application only while its owner is their own volunteer, or their active team lead on that project, or nobody owns it; an application transfer moves the owner, so the old volunteer and their team (unless it moves too) lose it without the creator being rewritten (`ownApplicationsWhere` in `apps/api/src/access/scope.ts`, used by the scope filter, the own list, the replay of a create and the owner notifications) |
 
 Resolution rules:
 
@@ -340,7 +340,7 @@ Generated on 2026-10-18 from `permissions.yaml` (last regenerated for D-101); re
 | `application.review` | M08 | no | Take an application under review and edit the whole form | regional_program_manager@REGION; project_executive@REGION; implementer@REGION (safe_water_only) |
 | `application.approve` | M08 | no | Approve a reviewed application | program_manager@PROGRAM (house_construction_only); regional_program_manager@REGION; project_executive@REGION (if_rpm_grants); official_daee@REGION (if_rpm_grants) |
 | `application.reject` | M08 | no | Reject a reviewed application with reason | program_manager@PROGRAM (house_construction_only); regional_program_manager@REGION; project_executive@REGION (if_rpm_grants); official_daee@REGION (if_rpm_grants) |
-| `application.waitlist` | M08 | no | Put a reviewed application on the waitlist or pull it from the waitlist | program_manager@PROGRAM (house_construction_only); regional_program_manager@REGION; project_executive@REGION (if_rpm_grants); official_daee@REGION (if_rpm_grants) |
+| `application.waitlist` | M08 | no | Put a reviewed application on the waitlist or pull it from the waitlist (the pull is an approval and also needs application.approve) | program_manager@PROGRAM (house_construction_only); regional_program_manager@REGION; project_executive@REGION (if_rpm_grants); official_daee@REGION (if_rpm_grants) |
 | `application.unlock_field` | M08 | no | Unlock one field of an approved application and approve the update | regional_program_manager@REGION; project_executive@REGION |
 | `application.update_unlocked_field` | M08 | no | Update a field the official unlocked | volunteer_general@SELF; volunteer_both@SELF |
 | `application.verify_needs_verification` | M08 | no | Resolve a 'needs verification' record (NID collision at sync, public form) by linking or rejecting | regional_program_manager@REGION; project_executive@REGION |

@@ -64,7 +64,7 @@ export function Reseed({
 
 /** The save of the step on screen: true lets the wizard move on, false keeps the step open. */
 type StepSave = () => Promise<boolean>;
-const StepSaveContext = createContext<(save: StepSave | null) => void>(() => {});
+const StepSaveContext = createContext<(save: StepSave) => () => void>(() => () => {});
 export const StepSaveProvider = StepSaveContext.Provider;
 
 /**
@@ -85,24 +85,25 @@ export function useStepSave(step: {
   useEffect(() => {
     latest.current = step;
   });
-  useEffect(() => {
-    register(async () => {
-      const current = latest.current;
-      if (!current.changed) return true;
-      if (current.invalid) {
-        setProblem(current.invalid);
-        return false;
-      }
-      setProblem(undefined);
-      try {
-        await current.save();
-        return true;
-      } catch {
-        return false;
-      }
-    });
-    return () => register(null);
-  }, [register]);
+  useEffect(
+    () =>
+      register(async () => {
+        const current = latest.current;
+        if (!current.changed) return true;
+        if (current.invalid) {
+          setProblem(current.invalid);
+          return false;
+        }
+        setProblem(undefined);
+        try {
+          await current.save();
+          return true;
+        } catch {
+          return false;
+        }
+      }),
+    [register],
+  );
   // a problem fixed meanwhile is no longer shown; a different one is shown as it is now
   return problem && step.invalid ? step.invalid : undefined;
 }

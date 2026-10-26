@@ -8,6 +8,7 @@ import {
 } from '@css/shared';
 import { hash } from '@node-rs/argon2';
 import { json, SEED_AT, type SeedContext, seedId } from '../../context';
+import { workflowVersionOf } from '../base/workflows';
 import { inTransaction } from '../util';
 
 /**
@@ -457,8 +458,8 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
       name_en: 'Winter Clothing 2026',
       description: demoName('খসড়া প্রকল্প, ডেমো ডেটা'),
       status: 'draft',
-      workflow_definition_id: seedId('workflow:distribution:2'),
-      workflow_version: 2,
+      workflow_definition_id: seedId(`workflow:distribution:${workflowVersionOf('distribution')}`),
+      workflow_version: workflowVersionOf('distribution'),
       per_volunteer_limit: 50,
       cost_per_beneficiary: '1500.00',
       target_beneficiaries: 2000,

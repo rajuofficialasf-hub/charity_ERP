@@ -18,6 +18,15 @@ const PROGRAM = '01900000-0000-7000-8000-0000000000b1';
 
 let project: Record<string, unknown>;
 let writes: { path: string; body: unknown }[];
+let quotaRows: {
+  level: string;
+  locationId: string;
+  locationName?: { bn: string; en: string };
+  target: number;
+  received?: number;
+  approved?: number;
+  full?: boolean;
+}[];
 let patchStatus: number;
 let componentAnswer: { status: number; body: Record<string, unknown> } | null;
 let staffRows: Record<string, unknown>[];
@@ -57,6 +66,7 @@ function serve(status = 'draft') {
     budgetPlanned: null,
   };
   writes = [];
+  quotaRows = [];
   patchStatus = 200;
   componentAnswer = null;
   staffRows = [];
@@ -124,6 +134,21 @@ function serve(status = 'draft') {
       }),
     ),
     http.get(`*/api/v1/projects/${ID}/areas`, () => HttpResponse.json({ data: [], meta: {} })),
+    http.get(`*/api/v1/projects/${ID}/quotas`, () =>
+      HttpResponse.json({ data: quotaRows, meta: {} }),
+    ),
+    http.patch(`*/api/v1/projects/${ID}/quotas`, async ({ request }) => {
+      const body = (await request.json()) as { quotas: typeof quotaRows };
+      writes.push({ path: 'quotas', body });
+      quotaRows = body.quotas.map((q) => ({
+        ...q,
+        locationName: { bn: 'সাভার', en: 'Savar' },
+        received: 0,
+        approved: 0,
+        full: false,
+      }));
+      return HttpResponse.json({ data: quotaRows, meta: {} });
+    }),
     http.get(`*/api/v1/projects/${ID}/staff`, () =>
       HttpResponse.json({ data: staffRows, meta: {} }),
     ),
@@ -621,6 +646,41 @@ describe('a half-filled form', () => {
       await within(areas).findByText('এলাকা যোগ করতে বিভাগ বা জেলা আর আরপিএম দুটোই দিন।'),
     ).toBeInTheDocument();
     expect(router.state.location.search).toBe('?step=areas');
+  });
+});
+
+describe('the quotas', () => {
+  const UNION = '01900000-0000-7000-8000-0000000000d4';
+  it('change a target and take a quota away, saved as one list', async () => {
+    serve();
+    quotaRows = [
+      {
+        level: 'union',
+        locationId: UNION,
+        locationName: { bn: 'সাভার', en: 'Savar' },
+        target: 50,
+        received: 72,
+        approved: 40,
+        full: false,
+      },
+    ];
+    const user = userEvent.setup();
+    const view = open('areas');
+    const quotas = await section('কোটা');
+    expect(within(quotas).getByText('লক্ষ্য 50 · এসেছে 72 · অনুমোদিত 40')).toBeInTheDocument();
+    const target = within(quotas).getByRole('textbox', { name: 'সাভার: লক্ষ্য' });
+    await user.clear(target);
+    await user.type(target, '45');
+    await user.click(within(quotas).getByRole('button', { name: 'কোটা সংরক্ষণ করুন' }));
+    await waitFor(() => expect(writes.filter((w) => w.path === 'quotas')).toHaveLength(1));
+    expect(writes.at(-1)!.body).toEqual({
+      quotas: [{ level: 'union', locationId: UNION, target: 45 }],
+    });
+    await user.click(within(quotas).getByRole('button', { name: 'সাভার-এর কোটা সরান' }));
+    await user.click(within(quotas).getByRole('button', { name: 'কোটা সংরক্ষণ করুন' }));
+    await waitFor(() => expect(writes.filter((w) => w.path === 'quotas')).toHaveLength(2));
+    expect(writes.at(-1)!.body).toEqual({ quotas: [] });
+    await expectNoAxeViolations(view.container);
   });
 });
 

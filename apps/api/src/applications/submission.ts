@@ -54,6 +54,7 @@ export class SubmissionWriter {
     tx: Tx,
     actor: Principal,
     applicationId: string,
+    options: { writeContact?: boolean; ownerUserId?: string } = {},
   ): Promise<Prisma.ApplicationUncheckedUpdateInput> {
     const row = await tx.application.findUniqueOrThrow({
       where: { id: applicationId },
@@ -89,9 +90,13 @@ export class SubmissionWriter {
       const nid = text(standard, 'nid');
       const birthReg = text(standard, 'birth_reg');
       const mobile = text(standard, 'mobile') ?? '';
-      // the creating team member's own mobile is refused as the person's, like the owner's
-      if (row.createdByUserId && mobile)
-        await this.identity.assertNotVolunteerMobile(tx, mobile, [row.createdByUserId]);
+      // the creating team member's own mobile is refused as the person's, like the owner's (one
+      // chosen at a verification too, which the row does not hold yet)
+      const volunteers = [row.createdByUserId, options.ownerUserId].filter((id): id is string =>
+        Boolean(id),
+      );
+      if (volunteers.length && mobile)
+        await this.identity.assertNotVolunteerMobile(tx, mobile, volunteers);
       const dob = text(standard, 'dob');
       const profile = await this.createProfile(tx, actor, {
         ...(nid ? { nid } : {}),
@@ -111,7 +116,7 @@ export class SubmissionWriter {
         postOffice: text(standard, 'post_office'),
         postCode: text(standard, 'post_code'),
         landmark: text(standard, 'landmark'),
-        ownerUserId: row.ownerVolunteer?.userId,
+        ownerUserId: options.ownerUserId ?? row.ownerVolunteer?.userId,
       } satisfies NewProfile);
       beneficiaryId = profile.id;
       identityKind = nid ? 'nid' : 'birth_reg';
@@ -122,7 +127,10 @@ export class SubmissionWriter {
         entityId: profile.id,
         new: { benNo: profile.benNo, applicationId },
       });
-    } else if (await this.mayEditContact(tx, actor, beneficiaryId)) {
+    } else if (
+      options.writeContact !== false &&
+      (await this.mayEditContact(tx, actor, beneficiaryId))
+    ) {
       const before = await this.contact.locked(tx, beneficiaryId);
       const body: Record<string, unknown> = {};
       for (const [column, field] of Object.entries(CONTACT_COLUMNS)) {
@@ -140,6 +148,18 @@ export class SubmissionWriter {
     });
     // written with the new state by the engine, in one statement
     return { beneficiaryId, identityKind };
+  }
+
+  /** The live profile behind the identity number of the application's answers, or null. */
+  async identityHolder(tx: Tx, applicationId: string): Promise<string | null> {
+    const row = await tx.application.findUniqueOrThrow({
+      where: { id: applicationId },
+      select: { formVersionId: true },
+    });
+    const definition = await readDefinition(tx, row.formVersionId, 'official');
+    const { standard } = split(definition, await readAnswers(tx, applicationId, definition));
+    const number = text(standard, 'nid') ?? text(standard, 'birth_reg');
+    return number ? this.liveProfile(tx, number) : null;
   }
 
   /** The live profile holding the number, through a retired profile's chain, or null. */

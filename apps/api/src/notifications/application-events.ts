@@ -16,7 +16,12 @@ export interface ApplicationEventTarget {
 }
 
 /** The keys whose readers are the people who brought the application, not the office. */
-const OWNER_KEYS = ['application_approved', 'application_rejected', 'application_reopened'];
+const OWNER_KEYS = [
+  'application_approved',
+  'application_rejected',
+  'application_reopened',
+  'application_waitlisted',
+];
 
 /**
  * The application events of the notification matrix (docs/architecture/NOTIFICATIONS.md,
@@ -40,6 +45,79 @@ export class ApplicationEvents {
     return Object.hasOwn(NOTIFICATION_CATALOGUE, key);
   }
 
+  /**
+   * A step of a field unlock, to one person: the owner volunteer hears that a question opened for
+   * a new answer (never the office's reason), and the official who opened it hears that the new
+   * value came. The entry names the question and leads to the application.
+   */
+  async publishUnlock(
+    tx: Tx,
+    key: 'field_unlocked' | 'field_updated',
+    input: {
+      application: { id: string; projectId: string };
+      question: { bn: string; en?: string };
+      to: string;
+      actorId: string;
+    },
+  ): Promise<void> {
+    const project = await tx.project.findUniqueOrThrow({
+      where: { id: input.application.projectId },
+      select: { nameBn: true, nameEn: true },
+    });
+    await this.notifications.publish(tx, {
+      key,
+      recipients: [{ user: input.to }],
+      params: {
+        project_name: { bn: project.nameBn, en: project.nameEn },
+        field_name: { bn: input.question.bn, en: input.question.en ?? input.question.bn },
+        projectId: input.application.projectId,
+        applicationId: input.application.id,
+      },
+      about: input.application.id,
+      actorId: input.actorId,
+    });
+  }
+
+  /**
+   * A transfer, to its two volunteers: the new one hears how many applications came to them, the
+   * old one only how many went (never which).
+   */
+  async publishTransfer(
+    tx: Tx,
+    input: {
+      projectId: string;
+      count: number;
+      toUserId: string;
+      fromUserId: string;
+      batchId: string;
+      actorId: string;
+    },
+  ): Promise<void> {
+    const project = await tx.project.findUniqueOrThrow({
+      where: { id: input.projectId },
+      select: { nameBn: true, nameEn: true },
+    });
+    const params = {
+      project_name: { bn: project.nameBn, en: project.nameEn },
+      count: input.count,
+      projectId: input.projectId,
+    };
+    await this.notifications.publish(tx, {
+      key: 'application_transferred',
+      recipients: [{ user: input.toUserId }],
+      params,
+      about: input.batchId,
+      actorId: input.actorId,
+    });
+    await this.notifications.publish(tx, {
+      key: 'application_transferred_away',
+      recipients: [{ user: input.fromUserId }],
+      params,
+      about: input.batchId,
+      actorId: input.actorId,
+    });
+  }
+
   async publish(
     tx: Tx,
     key: string,
@@ -60,12 +138,23 @@ export class ApplicationEvents {
           })
         : null,
     ]);
+    // the team member who created it hears too, while the owner is still their lead there
+    const creatorOnTeam =
+      target.createdByUserId &&
+      target.createdByUserId !== owner?.userId &&
+      (!target.ownerVolunteerId ||
+        (await tx.volunteerTeam.count({
+          where: {
+            projectId: target.projectId,
+            leadVolunteerId: target.ownerVolunteerId,
+            removedAt: null,
+            memberVolunteer: { userId: target.createdByUserId },
+          },
+        })) > 0);
     const recipients: RecipientRule[] = OWNER_KEYS.includes(key)
       ? [
           ...(owner ? [{ user: owner.userId }] : []),
-          ...(target.createdByUserId && target.createdByUserId !== owner?.userId
-            ? [{ user: target.createdByUserId }]
-            : []),
+          ...(creatorOnTeam && target.createdByUserId ? [{ user: target.createdByUserId }] : []),
         ]
       : [
           {

@@ -1,3 +1,4 @@
+import { UNLOCK_DECISIONS, UNLOCK_STATES } from '@css/shared/forms';
 import { z } from 'zod';
 import { sensitive } from '../access/field-mask';
 import type { Tx } from '../core/prisma.service';
@@ -26,13 +27,20 @@ export const fieldChangeView = z.object({
   id: uuid,
   field: z.string(),
   kind: z.enum(['unlock', 'contact_update', 'correction', 'sync_conflict', 'review_edit']),
-  unlockState: z.enum(['open', 'updated', 'relocked']).nullable(),
+  unlockState: z.enum(UNLOCK_STATES).nullable(),
   oldValue: z.unknown(),
   newValue: z.unknown(),
   reason: z.string().nullable(),
   requestedBy: uuid.nullable(),
   approvedBy: uuid.nullable(),
   createdAt: z.string(),
+  /** The steps of an unlock: who entered the new value, who decided, how and why. */
+  enteredBy: uuid.nullable(),
+  enteredAt: z.string().nullable(),
+  decidedBy: uuid.nullable(),
+  decidedAt: z.string().nullable(),
+  decision: z.enum(UNLOCK_DECISIONS).nullable(),
+  decisionReason: z.string().nullable(),
 });
 export type FieldChangeView = z.infer<typeof fieldChangeView>;
 
@@ -77,8 +85,13 @@ export async function readTimeline(
     const details = stepDetails.safeParse(r.new);
     if (!details.success) return [];
     const from = stateChange.safeParse(r.old);
-    // an entry that keeps the state (an edit) is not a step
-    if (from.success && from.data.status === details.data.status) return [];
+    // an entry that keeps the state (an edit) is not a step; a transfer is one
+    if (
+      from.success &&
+      from.data.status === details.data.status &&
+      r.action !== 'application.transferred'
+    )
+      return [];
     return [
       {
         id: r.id,
@@ -123,5 +136,11 @@ export async function readChanges(
     requestedBy: r.requestedBy,
     approvedBy: r.approvedBy,
     createdAt: r.createdAt.toISOString(),
+    enteredBy: r.enteredBy,
+    enteredAt: r.enteredAt ? r.enteredAt.toISOString() : null,
+    decidedBy: r.decidedBy,
+    decidedAt: r.decidedAt ? r.decidedAt.toISOString() : null,
+    decision: fieldChangeView.shape.decision.parse(r.decision),
+    decisionReason: r.decisionReason,
   }));
 }

@@ -20,6 +20,7 @@ export const BUILT_GUARDS = [
   'actor.not_creator',
   'approver.has_permission',
   'score.comment_if_against_order',
+  'quota.comment_if_full',
   'zakat.eligible_if_zakat_fund',
 ] as const;
 export type BuiltGuard = (typeof BUILT_GUARDS)[number];
@@ -50,15 +51,15 @@ export const BUILT_EFFECTS = [
   'notify',
   'score.compute',
   'score.snapshot',
+  'waitlist.enqueue',
+  'waitlist.dequeue',
+  'needs_verification.link',
   'quota.increment',
   'lock:fields',
   'ledger.post:approved',
 ] as const;
 
 export const DECLARED_EFFECTS = [
-  'waitlist.enqueue',
-  'waitlist.dequeue',
-  'needs_verification.link',
   'unlock',
   'lock:photos',
   'lock:vouchers',

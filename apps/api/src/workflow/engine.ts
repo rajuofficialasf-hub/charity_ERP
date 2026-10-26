@@ -15,7 +15,7 @@ import type { Prisma } from '../generated/prisma/client';
 import { ApiError } from '../i18n/api-error';
 import type { ApplicationEvents } from '../notifications/application-events';
 import { z } from 'zod';
-import { readEffects } from './effects';
+import { readEffects, type SideEffect, type SideEffectRunner } from './effects';
 import { type EngineApplication, GuardContext, type GuardInput, GUARDS } from './guards';
 import { isBuiltEffect, isBuiltGuard } from './registry';
 
@@ -93,6 +93,7 @@ export class WorkflowEngine {
     private readonly audit: AuditWriter,
     private readonly clock: Clock,
     private readonly events: ApplicationEvents,
+    private readonly sideEffects: SideEffectRunner,
   ) {}
 
   async transition(
@@ -163,6 +164,7 @@ export class WorkflowEngine {
       { userId: principal.userId, kind: principal.kind, access },
       input,
       this.clock,
+      transition.to,
     );
     await this.runGuards(transition, ctx);
     const auditId = await this.apply(tx, principal, application, transition, action, input, hooks);
@@ -170,15 +172,35 @@ export class WorkflowEngine {
     return { id: applicationId, from: application.status, to: transition.to, auditId };
   }
 
+  /** The effects that write their own rows, inside the move's transaction. */
+  private async runSideEffects(
+    tx: Tx,
+    effects: readonly SideEffect[],
+    applicationId: string,
+    actor: string,
+  ): Promise<void> {
+    for (const effect of effects) await this.sideEffects.run(tx, effect, applicationId, actor);
+  }
+
   private async runGuards(transition: Transition, ctx: GuardContext): Promise<void> {
     const guards = [...(transition.guards ?? [])];
     if (ctx.application.project.approval && !guards.includes(APPROVER_GUARD))
       guards.push(APPROVER_GUARD);
+    const asked: string[] = [];
     for (const name of guards) {
       if (!isBuiltGuard(name)) throw new ApiError('workflow.guard_not_built', 409);
-      if (!(await GUARDS[name](ctx)))
-        throw new ApiError(`workflow.guard.${name.replace(/\./g, '_')}`, 409);
+      const result = await GUARDS[name](ctx);
+      if (result === false) throw new ApiError(`workflow.guard.${name.replace(/\./g, '_')}`, 409);
+      if (result !== true) asked.push(result.comment);
     }
+    // a decision that asks for a comment goes on with one, and names why it asks without
+    if (asked.length && !ctx.input.comment?.trim())
+      throw new ApiError(
+        'workflow.comment_required',
+        422,
+        undefined,
+        asked.map((reason) => ({ path: reason, code: 'workflow.comment_required' })),
+      );
   }
 
   /** Writes the new state with its stamps and texts, then the audit entry, then the messages. */
@@ -220,7 +242,9 @@ export class WorkflowEngine {
       Object.assign(stamps, { decisionComment: reason, rejectionMessage: message });
     else if (application.status === 'rejected')
       Object.assign(stamps, { decisionComment: reason, rejectionMessage: null });
-    else if (reason || comment) Object.assign(stamps, { decisionComment: comment ?? reason });
+    // the decision's own reason stays on the row; a comment asked by a guard goes beside it into
+    // the audit entry, and becomes the row's note only when the decision has no reason
+    else if (reason || comment) Object.assign(stamps, { decisionComment: reason ?? comment });
     if (transition.to === 'deleted') Object.assign(stamps, { deletedAt: now });
     await tx.application.update({
       where: { id: application.id },
@@ -232,6 +256,7 @@ export class WorkflowEngine {
         ...stamps,
       },
     });
+    await this.runSideEffects(tx, outcome.run, application.id, actor);
     const auditId = await this.audit.record(tx, {
       action: outcome.auditAction ?? `application.${action}`,
       entityType: 'application',
@@ -277,6 +302,7 @@ export class WorkflowEngine {
         where: { id: application.id },
         data: { status: auto.to, updatedBy: principal.userId, updatedAt: now },
       });
+      await this.runSideEffects(tx, outcome.run, application.id, principal.userId);
       await this.audit.record(tx, {
         action: outcome.auditAction ?? `application.${auto.to}`,
         entityType: 'application',

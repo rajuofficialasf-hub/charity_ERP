@@ -13,6 +13,7 @@ import { canCreateProjects, canSeeProjects } from '../../roles';
 import { ProjectStatusBadge } from '../ProjectStatusBadge';
 import { moveProject, type Project, PROJECTS_KEY } from '../projects-api';
 import { AreasSection } from './AreasSection';
+import { QuotasSection } from './QuotasSection';
 import { BasicsSection } from './BasicsSection';
 import { BudgetSection } from './BudgetSection';
 import { ComponentsSection } from './ComponentsSection';
@@ -29,6 +30,7 @@ import {
   setupKey,
   staff,
   syllabus,
+  quotas,
 } from './setup-api';
 import { SetupProvider, StepSaveProvider } from './setup-context';
 import { StaffSection } from './StaffSection';
@@ -65,20 +67,25 @@ function useSetupPart<T>(projectId: string, name: string, fn: () => Promise<T>, 
 }
 
 /**
- * The step on screen hands its save to the wizard (`useStepSave`); a move first runs that save
- * and goes on only when it succeeded, so nothing typed is lost and a refusal stays visible.
+ * The parts of the step on screen hand their saves to the wizard (`useStepSave`); a move first
+ * runs them in order and goes on only when each succeeded, so nothing typed is lost and a
+ * refusal stays visible. A step may hold more than one part (the areas and their quotas).
  */
 function useStepRunner() {
-  const save = useRef<(() => Promise<boolean>) | null>(null);
-  const register = useCallback((next: (() => Promise<boolean>) | null) => {
-    save.current = next;
+  const saves = useRef(new Set<() => Promise<boolean>>());
+  const register = useCallback((next: () => Promise<boolean>) => {
+    saves.current.add(next);
+    return () => {
+      saves.current.delete(next);
+    };
   }, []);
   const [busy, setBusy] = useState(false);
   const run = async (then: () => void | Promise<void>) => {
     if (busy) return;
     setBusy(true);
     try {
-      if (!save.current || (await save.current())) await then();
+      for (const save of saves.current) if (!(await save())) return;
+      await then();
     } finally {
       setBusy(false);
     }
@@ -210,6 +217,7 @@ function ProjectWizard({ projectId }: { projectId: string }) {
   const one = useSetupPart(projectId, 'project', () => projectWithEtag(projectId), true);
   const parts = useSetupPart(projectId, 'components', () => components(projectId), true);
   const areaList = useSetupPart(projectId, 'areas', () => areas(projectId), true);
+  const quotaList = useSetupPart(projectId, 'quotas', () => quotas(projectId), true);
   const staffList = useSetupPart(projectId, 'staff', () => staff(projectId), true);
   // fund sources are budget data, read only at program level
   const funds = useSetupPart(projectId, 'fund-sources', () => fundSources(projectId), configure);
@@ -329,7 +337,17 @@ function ProjectWizard({ projectId }: { projectId: string }) {
     ],
     ['budget', failed(funds) ?? (funds.data && <BudgetSection sources={funds.data} />)],
     ['window', <WindowSection key="window" />],
-    ['areas', failed(areaList) ?? (areaList.data && <AreasSection areas={areaList.data} />)],
+    [
+      'areas',
+      failed(areaList) ??
+        (areaList.data && (
+          <>
+            <AreasSection areas={areaList.data} />
+            {failed(quotaList) ??
+              (quotaList.data && <QuotasSection quotas={quotaList.data} manage={configure} />)}
+          </>
+        )),
+    ],
     [
       'staff',
       failed(staffList) ??

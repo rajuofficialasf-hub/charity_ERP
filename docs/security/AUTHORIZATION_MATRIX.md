@@ -95,7 +95,14 @@ allowed endpoint is decided by the data scope and is tested separately (scope an
 | POST /applications/:applicationId/actions/:action | workflow | application | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | GET /applications/:applicationId/timeline | application.view | application | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ |
 | GET /applications/:applicationId/changes | application.view_official_section | application | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| POST /applications/:applicationId/unlocks | application.unlock_field | application | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| PUT /application-unlocks/:unlockId/value | workflow | application | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| POST /application-unlocks/:unlockId/decision | application.unlock_field | application | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| POST /application-unlocks/:unlockId/cancel | application.unlock_field | application | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| GET /projects/:projectId/volunteers/:volunteerId/applications | application.transfer | application | ✗ | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| POST /projects/:projectId/transfers | application.transfer | application | ✗ | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | POST /projects/:projectId/bulk/review | workflow | application | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| POST /projects/:projectId/waitlist/pull-next | application.waitlist | application | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /applications/:applicationId/activities | application.view | application | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ |
 | GET /programs | program.view | program | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | POST /programs | program.create | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
@@ -114,6 +121,8 @@ allowed endpoint is decided by the data scope and is tested separately (scope an
 | POST /projects/:projectId/reopen | project.reopen | project | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /projects/:projectId/components | project.view | project | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | PATCH /projects/:projectId/components/:componentKey | project.configure | project | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| GET /projects/:projectId/quotas | project.view | project | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| PATCH /projects/:projectId/quotas | project.quota.manage | project | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /projects/:projectId/fund-sources | project.view | project | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | PATCH /projects/:projectId/fund-sources | fund_source.manage | project | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /projects/:projectId/areas | project.view | project | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
@@ -198,7 +207,7 @@ allowed endpoint is decided by the data scope and is tested separately (scope an
 | PUT /admin/notification-templates/:key/:channel | notification.template.manage | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | GET /admin/deliveries | notification.delivery.view | global | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 
-## Permissions no endpoint uses yet (89, D-077)
+## Permissions no endpoint uses yet (85, D-077)
 
 They belong to features of later tasks; the matrix covers them when their endpoints exist.
 
@@ -213,11 +222,8 @@ They belong to features of later tasks; the matrix covers them when their endpoi
 - `application.reject`
 - `application.review`
 - `application.submit`
-- `application.transfer`
-- `application.unlock_field`
 - `application.update_unlocked_field`
 - `application.verify_needs_verification`
-- `application.waitlist`
 - `audit.export`
 - `beneficiary.consent.record`
 - `beneficiary.consent.view`
@@ -268,7 +274,6 @@ They belong to features of later tasks; the matrix covers them when their endpoi
 - `monitoring.view`
 - `payment.record`
 - `progress.update`
-- `project.quota.manage`
 - `report.beneficiary_journey`
 - `site_verification.decide`
 - `site_verification.record`

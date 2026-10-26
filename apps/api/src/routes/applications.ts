@@ -30,6 +30,24 @@ import { ok, page } from '../http/send';
 import { defineRoute, type RouteDeps } from '../openapi/define-route';
 import type { Replayable } from '../services/uploads';
 import { versionView } from './forms';
+import { type PullNext, pullNextSchema } from '../applications/waitlist';
+import {
+  type TransferRequest,
+  transferCandidate,
+  transferResult,
+  transferSchema,
+} from '../applications/transfers';
+import { unlockView } from '../applications/unlocks';
+import {
+  type UnlockCancel,
+  unlockCancelSchema,
+  type UnlockDecisionRequest,
+  unlockDecisionSchema,
+  type UnlockOpen,
+  unlockOpenSchema,
+  type UnlockValue,
+  unlockValueSchema,
+} from '@css/shared/forms';
 
 const uuid = z.uuid();
 const ifMatch = [{ name: 'If-Match', required: true }];
@@ -49,7 +67,10 @@ const viewerOf = (req: AuthedRequest) => ({
  */
 export function applicationsRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'applications' | 'bulkReview' | 'idempotency'>,
+  c: Pick<
+    Container,
+    'applications' | 'bulkReview' | 'idempotency' | 'transfers' | 'unlocks' | 'waitlist'
+  >,
 ): Router {
   const router = Router();
   const op = { tag: 'applications', idempotency: 'none' as const, rateLimit: 'default' as const };
@@ -278,6 +299,119 @@ export function applicationsRouter(
     },
   );
 
+  defineRoute<UnlockOpen, unknown, { applicationId: string }>(router, deps, {
+    ...op,
+    method: 'post',
+    path: '/applications/:applicationId/unlocks',
+    status: 201,
+    operationId: 'applications.unlock.open',
+    summary:
+      'Open one answer of an approved application for correction, with a reason; the identity, photos, files and calculated answers never open, and one unlock per answer waits at a time',
+    permission: 'application.unlock_field',
+    scope: 'application',
+    audit: 'application.unlock_opened',
+    params: { applicationId: uuid },
+    body: unlockOpenSchema,
+    responses: { 201: unlockView, 403: null, 404: null, 409: null, 422: null },
+    handler: async ({ params, body, req }) =>
+      ok(await c.unlocks.open(principalOf(req), params.applicationId, body)),
+  });
+
+  defineRoute<UnlockValue, unknown, { unlockId: string }>(router, deps, {
+    ...op,
+    method: 'put',
+    path: '/application-unlocks/:unlockId/value',
+    operationId: 'applications.unlock.fill',
+    summary:
+      "Enter the new value of an open answer: the owner volunteer (application.update_unlocked_field), or an official of the unlock scope (application.unlock_field) when the application has no volunteer or the answer is the official section's",
+    permission: 'workflow',
+    scope: 'application',
+    audit: 'application.unlock_entered',
+    workflow: { scope: 'field_unlock', action: 'fill' },
+    params: { unlockId: uuid },
+    body: unlockValueSchema,
+    responses: { 200: unlockView, 403: null, 404: null, 409: null, 422: null },
+    handler: async ({ params, body, req }) =>
+      ok(await c.unlocks.fill(principalOf(req), params.unlockId, body)),
+  });
+
+  defineRoute<UnlockDecisionRequest, unknown, { unlockId: string }>(router, deps, {
+    ...op,
+    method: 'post',
+    path: '/application-unlocks/:unlockId/decision',
+    operationId: 'applications.unlock.decide',
+    summary:
+      'Accept the entered value (the answer changes and locks again) or refuse it with a reason (the old value stays); never by the person who entered it',
+    permission: 'application.unlock_field',
+    scope: 'application',
+    audit: 'application.unlock_decided',
+    params: { unlockId: uuid },
+    body: unlockDecisionSchema,
+    responses: { 200: unlockView, 403: null, 404: null, 409: null, 422: null },
+    handler: async ({ params, body, req }) =>
+      ok(await c.unlocks.decide(principalOf(req), params.unlockId, body)),
+  });
+
+  defineRoute<UnlockCancel, unknown, { unlockId: string }>(router, deps, {
+    ...op,
+    method: 'post',
+    path: '/application-unlocks/:unlockId/cancel',
+    operationId: 'applications.unlock.cancel',
+    summary: 'Cancel an unlock that waits for a step, with a reason; the old value stays',
+    permission: 'application.unlock_field',
+    scope: 'application',
+    audit: 'application.unlock_cancelled',
+    params: { unlockId: uuid },
+    body: unlockCancelSchema,
+    responses: { 200: unlockView, 403: null, 404: null, 409: null, 422: null },
+    handler: async ({ params, body, req }) =>
+      ok(await c.unlocks.cancel(principalOf(req), params.unlockId, body)),
+  });
+
+  defineRoute<unknown, unknown, { projectId: string; volunteerId: string }>(router, deps, {
+    ...op,
+    method: 'get',
+    path: '/projects/:projectId/volunteers/:volunteerId/applications',
+    operationId: 'applications.transfer.candidates',
+    summary:
+      "A volunteer's applications on the project that the caller may hand to another volunteer (the transfer's picker)",
+    permission: 'application.transfer',
+    scope: 'application',
+    audit: 'none',
+    params: { projectId: uuid, volunteerId: uuid },
+    responses: { 200: z.array(transferCandidate), 403: null },
+    handler: async ({ params, req }) =>
+      ok(await c.transfers.candidates(principalOf(req), params.projectId, params.volunteerId)),
+  });
+
+  defineRoute<TransferRequest, unknown, { projectId: string }>(router, deps, {
+    ...op,
+    method: 'post',
+    path: '/projects/:projectId/transfers',
+    operationId: 'applications.transfer.create',
+    summary:
+      "Hand all or chosen applications of one volunteer to another on an active project, with a reason; optionally move the old volunteer's team and assign the new volunteer in the same request",
+    permission: 'application.transfer',
+    scope: 'application',
+    audit: 'application.transfer',
+    idempotency: 'header',
+    rateLimit: 'sync',
+    headers: [{ name: 'Idempotency-Key', required: true }],
+    params: { projectId: uuid },
+    body: transferSchema,
+    responses: { 200: transferResult, 403: null, 404: null, 409: null, 422: null },
+    handler: async ({ params, body, req, res }) => {
+      const outcome = await c.transfers.transfer(
+        principalOf(req),
+        params.projectId,
+        req.get('idempotency-key'),
+        body,
+      );
+      if (outcome.replay) c.idempotency.markReplay(res);
+      return ok(outcome.result);
+    },
+  });
+
   defineRoute<BulkReview, unknown, { projectId: string }>(router, deps, {
     ...op,
     method: 'post',
@@ -304,6 +438,40 @@ export function applicationsRouter(
       );
       if (outcome.replay) c.idempotency.markReplay(res);
       return ok({ results: outcome.results });
+    },
+  });
+
+  defineRoute<PullNext, unknown, { projectId: string }>(router, deps, {
+    ...op,
+    method: 'post',
+    path: '/projects/:projectId/waitlist/pull-next',
+    operationId: 'applications.waitlist.pullNext',
+    summary:
+      'Pull the next waitlisted application of a quota area into approved: the highest score, then the earliest waitlisted',
+    permission: 'application.waitlist',
+    scope: 'application',
+    audit: 'application.pull_from_waitlist',
+    idempotency: 'header',
+    rateLimit: 'sync',
+    headers: [{ name: 'Idempotency-Key', required: true }],
+    params: { projectId: uuid },
+    body: pullNextSchema,
+    responses: {
+      200: z.object({ id: uuid, appNo: z.string().nullable() }),
+      403: null,
+      404: null,
+      409: null,
+      422: null,
+    },
+    handler: async ({ params, body, req, res }) => {
+      const outcome = await c.waitlist.pullNext(
+        principalOf(req),
+        params.projectId,
+        req.get('idempotency-key'),
+        body,
+      );
+      if (outcome.replay) c.idempotency.markReplay(res);
+      return ok(outcome.pulled);
     },
   });
 

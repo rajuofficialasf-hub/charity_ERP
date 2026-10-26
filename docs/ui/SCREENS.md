@@ -582,6 +582,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
   - Tablet: the same in a 720 px column.
   - Desktop: all sections on one page with a section index on the left. Officials entering from the office use this layout.
 - **Built in T2.5** at `/my-projects/:projectId/apply` (`features/applications/ApplicationFormPage`): the lookup with the auto-fill and the locked identity of a known person, the form of the project's published version for the volunteer audience, the draft saved when the first part is done (photos join after that), the send with the number, the limit and the closing date, the team member's draft without a send. Offline comes with T2.7.
+- **Built in T2.6.** The server refuses a new application beyond the volunteer's limit, outside the window (until the PM extends it with a reason), from a blocked volunteer, for a blocked person and for a second application of the same person in the project, and the page shows its message; the project's "applications left" reads the live count the limit itself uses.
 - **Phase · task.** 2 · T2.2 (lookup), T2.4 (renderer), T2.5 (create, submit), T2.7 (offline). **API.** tags beneficiaries, applications, files, sync.
 
 ### SCR-032 My applications and application detail
@@ -624,6 +625,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
   - Tablet: a list with a drawer.
   - Desktop: the list and the record as two pages (built in T2.5; a split view may follow).
 - **Built in T2.5** at `/my-applications` and `/my-applications/:applicationId` (`features/applications/{MyApplicationsPage,ApplicationDetailPage}`): the tabs by state with counts, the record with the answers without the official sections, the steps without the officials' names, the office's message of a rejection, the send and the edit of a draft. The sync badge comes with T2.7, the correction requests with T2.6.
+- **Built in T2.6.** An answer the office opened for correction shows "নতুন উত্তর দিন" on the record (`features/applications/UnlockedAnswer.tsx`: the question through `FieldInput`, starting from the previous answer) with "পাঠান"; the home counts it (`unlocks_to_fill`); a sent value waits for the office's check. After a transfer the application leaves the old volunteer's list, who gets a message with the count only, and the new volunteer finds it with its whole history.
 - **Phase · task.** 2 · T2.5. **API.** tag applications.
 
 ### SCR-033 Today's distribution (bulk)
@@ -804,7 +806,11 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
   - Tablet: a compact table with the detail in a drawer.
   - Desktop: a split view with the list on the left and the detail on the right; keyboard selection (T2.5 built the list and the record as two pages).
 - **Built in T2.5** at `/admin/projects/:projectId/applications` and `/admin/applications/:applicationId` (`admin/applications/{ApplicationsPage,ApplicationReviewPage}`): the list with the search, the status, area and flag filters in the address, the page numbers, the waiting time, and the bulk review start and approval of the ticked rows (one request, a result per row); the record with the signals (public entry, existing or repeated identity, the family duplicates), the answers including the official sections, the full-form edit under review, the steps with their actors and texts, the change log, and the moves of `availableActions`: review, send for approval, approve, reject (the office's reason and the volunteer's message), return from rejection, refuse a public entry, delete. The score, the quota bars, the waitlist, the field unlock, the transfer and the export come with T2.6.
-- **Phase · task.** 2 · T2.5 (workflow), T2.6 (score, quota, waitlist, unlock). **API.** tags applications, activities.
+- **Built in T2.6 (score, quotas, waitlist).** The list shows a "স্কোর" column and offers the order "স্কোর বেশি আগে" (kept in the address as `sort=-score`) once a score exists; a form without points shows neither. Above the list, "এলাকার কোটা" shows each district or union quota with "লক্ষ্য · এসেছে · অনুমোদিত", a bar of the approvals against the target and "কোটা পূর্ণ" in the warning tone when full; each area the project weighs by has "পরেরজনকে আনুন (area)", an area without its own target once the list is filtered to it, and a project without quotas one "পরেরজনকে আনুন" (one request under an idempotency key; the notice names the application number pulled). The record shows the score breakdown (each part with its points and the total against the most it could reach, the score never deciding by itself) and the moves "অপেক্ষমাণ তালিকায় রাখুন" (with the office's reason) and "অপেক্ষমাণ তালিকা থেকে অনুমোদন"; a decision the record's `decisionHints` mark asks the comment before it is sent ("কেন স্কোরের ক্রম ভেঙে সিদ্ধান্ত নিচ্ছেন?", "এই এলাকার কোটা পূর্ণ। তবু কেন অনুমোদন দিচ্ছেন?"), and a 422 `workflow.comment_required` the screen did not foresee opens the same box with the reasons the server named.
+- **Built in T2.6 (field unlock).** On an approved record each answer that can open (text, number, choice, date, address; never the identity number, the name, the father's or husband's name, photos or files) has "সংশোধনের জন্য খুলুন", which asks the office's reason. "সংশোধনের জন্য খোলা উত্তর" lists the waiting unlocks with the reason, the previous and the new answer, "গ্রহণ করুন" and "ফেরত দিন" (with a reason) for an official who did not give the new answer (the one who did reads that another official verifies it), "আনলক বাতিল করুন" (with a reason), and the answer itself when the office gives it (no volunteer, or the official section). On the volunteer's application page (SCR-032) the open answers come first with "নতুন উত্তর দিন", the question drawn as in the form and "পাঠান", then "যাচাইয়ের অপেক্ষায়".
+- **Built in T2.6 (application transfer).** `/admin/projects/:projectId/transfer?from=<volunteer>` (`admin/projects/volunteers/TransferPage.tsx`), opened by "আবেদন হস্তান্তর" beside each volunteer of the project (SCR-043b) and beside each project on the volunteer's profile (SCR-043): the current volunteer, the applications with "সব বাছুন" and a tick each, the new volunteer from the project's volunteers or one added to the project with the handover ("প্রকল্পে নতুন যুক্ত করে দিন"), "টিমও নতুন স্বেচ্ছাসেবকের অধীনে যাবে" for those who may move teams, the warning before confirming when the new volunteer goes over the project's limit, the required reason and "হস্তান্তর করুন"; the answer names how many moved and warns when the limit is passed.
+- **Built in T2.6 (verification queue).** The list's "সব আবেদন / যাচাইয়ের অপেক্ষায়" switch keeps `status=needs_verification` in the address; the office's home counts the waiting entries and opens the oldest. On an entry the record offers "যাচাই করুন": the dialog looks the entry's number up now (so a profile made after the entry still links) and either links it to the profile it finds, shown with the lookup's BEN number, name and father's or husband's name and never the whole profile, or makes a new profile; it names a blocked person, who can only be refused, and shows a failed lookup as an error to retry; an optional "দায়িত্বপ্রাপ্ত স্বেচ্ছাসেবক" must have accepted the project's rules and be under its limit. "এন্ট্রি বাতিল করুন" stays.
+- **Phase · task.** 2 · T2.5 (workflow), T2.6 (score, quota, waitlist, unlock, transfer, verification). **API.** tags applications, activities.
 
 ### SCR-042 Volunteer tab
 
@@ -846,6 +852,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 ### SCR-043b Volunteers of a project (assignment)
 
 - **Built (T1.12).** `/admin/projects/:projectId/volunteers` ("স্বেচ্ছাসেবক" on the project page): the assignments in the caller's areas with permission set, paid flag and consent state; "স্বেচ্ছাসেবক অ্যাসাইন করুন" for the RPM, the executive with the RPM's grant and the global roles (approved, not blocked volunteers of the caller's areas, filtered by area and searched by name or mobile, several at once, one set by type or a chosen one, the paid flag for the RPM); change the set (only the sets of the type) or the paid flag; end with a reason; the RPM's switch per executive "স্বেচ্ছাসেবক অ্যাসাইন করতে পারবেন" with a reason. Works at 360 px.
+- **Built in T2.6.** Each volunteer of the project has "আবেদন হস্তান্তর" for the roles that may transfer (`canTransferApplications` in `admin/roles.ts`), opening the transfer page of SCR-041 at `/admin/projects/:projectId/transfer?from=<volunteer>`.
 
 ### SCR-043 Volunteer profile
 
@@ -887,6 +894,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
   - Phone: a header card, then scrollable tabs, with actions in a "more" sheet.
   - Tablet: tabs in full width.
   - Desktop: a header with actions, tabs, and two-column content.
+- **Built in T2.6.** Each project of the volunteer's work tab has the same transfer entry, for the same roles.
 - **Phase · task.** 1 · T1.10, T1.12; work summary and ratings 5 · T5.3; animals 4 · T4.4. **API.** tags volunteers, access.
 
 ### SCR-044 Beneficiary tab
@@ -1181,6 +1189,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
   - Desktop: the section index on the left and the editor in the centre, with a summary of the selected components on the right.
   - Tablet: one column with the summary in a drawer.
   - Phone: read-mostly sections.
+- **Built in T2.6.** The areas step holds "কোটা" under the areas (`admin/projects/setup/QuotasSection.tsx`): a district or union of the project's areas with its target (one or more), editable while draft or active, every change audited; the received and approved counts are read live (`GET` and `PATCH /projects/:projectId/quotas`).
 - **Phase · task.** 1 · T1.11 (core), T1.12 (templates, consent, assignment). **API.** tags programs, projects, templates.
 
 ### SCR-061 Form builder
@@ -1225,6 +1234,7 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
   - Desktop: three panes (add, canvas, settings) from 1024 px, the side panes in view while the form scrolls; the preview in a dialog.
   - Tablet: the panes stacked.
   - Phone: read-mostly.
+- **Built in T2.6.** The settings pane has a "নম্বর" group for a choice question (points per option) and a number question (ranges with their points), outside a repeat group (`ScoreSettings.tsx`); the header's "স্কোর" button opens "অগ্রাধিকার স্কোর" (`ScoringDialog.tsx`: the points of "আগে সহায়তা পাননি" and the highest total, warning above 100). Scoring is optional; the points are never shown to a volunteer or a public-link visitor; the version summary names a points change.
 - **Phase · task.** 2 · T2.4, T2.4b, T2.4c. **API.** tag forms.
 
 ### SCR-113 Ready forms and the question library

@@ -54,6 +54,12 @@ import { RecipientResolver } from './notifications/recipients';
 import { AuditLogService } from './services/audit-log';
 import { ChannelsService } from './services/channels';
 import { NisabService } from './services/nisab';
+import { ProjectQuotasService } from './services/project-quotas';
+import { ScoringService } from './applications/scoring';
+import { WorkflowSideEffects } from './applications/side-effects';
+import { TransfersService } from './applications/transfers';
+import { UnlocksService } from './applications/unlocks';
+import { WaitlistService } from './applications/waitlist';
 import { ProgramsService } from './services/programs';
 import { ReferenceListsService } from './services/reference-lists';
 import { SessionMonitorService } from './services/session-monitor';
@@ -151,8 +157,12 @@ export interface Container {
   formLibrary: FormLibraryService;
   forms: FormsService;
   workflow: WorkflowEngine;
+  scoring: ScoringService;
   applications: ApplicationsService;
   bulkReview: BulkReviewService;
+  waitlist: WaitlistService;
+  unlocks: UnlocksService;
+  transfers: TransfersService;
   applicationEvents: ApplicationEvents;
   readyForms: ReadyFormsService;
   publicLink: PublicLinkService;
@@ -171,6 +181,7 @@ export interface Container {
   systemHealth: SystemHealthService;
   projects: ProjectsService;
   projectSetup: ProjectSetupService;
+  projectQuotas: ProjectQuotasService;
   projectLifecycle: ProjectLifecycleService;
   projectRules: ProjectRulesService;
   myProjects: MyProjectsService;
@@ -254,7 +265,17 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const formLibrary =
     o.formLibrary ?? new FormLibraryService(prisma, referenceLists, readDefinition);
   const forms = o.forms ?? new FormsService(prisma, audit, access, projects, formLibrary);
-  const workflow = o.workflow ?? new WorkflowEngine(access, audit, clock, applicationEvents);
+  const nisab = o.nisab ?? new NisabService(prisma, audit, clock);
+  const scoring = o.scoring ?? new ScoringService(clock, nisab);
+  const workflow =
+    o.workflow ??
+    new WorkflowEngine(
+      access,
+      audit,
+      clock,
+      applicationEvents,
+      new WorkflowSideEffects(scoring, clock),
+    );
   const settings = o.settings ?? new SettingsService(prisma, audit);
   const registration =
     o.registration ??
@@ -275,7 +296,10 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       beneficiaryIdentity,
       beneficiaryMergeCandidates,
     );
-  const nisab = o.nisab ?? new NisabService(prisma, audit, clock);
+  // the field unlock of approved applications; the record lists its waiting steps
+  const unlocks =
+    o.unlocks ??
+    new UnlocksService(prisma, access, audit, clock, nisab, beneficiaryContact, applicationEvents);
   const publicPhotos =
     o.publicPhotos ?? new PublicPhotosService(prisma, storage, audit, jobs, logger, clock);
   const built = {
@@ -387,6 +411,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     formLibrary,
     forms,
     workflow,
+    scoring,
     applicationEvents,
     applications:
       o.applications ??
@@ -401,9 +426,13 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         nisab,
         workflow,
         new SubmissionWriter(access, beneficiaryIdentity, beneficiaryContact, audit),
+        scoring,
+        unlocks,
       ),
     bulkReview:
       o.bulkReview ?? new BulkReviewService(prisma, access, audit, idempotency, workflow, logger),
+    waitlist: o.waitlist ?? new WaitlistService(prisma, access, idempotency, workflow),
+    unlocks,
     readyForms: o.readyForms ?? new ReadyFormsService(prisma, audit, projects, forms),
     publicLink: o.publicLink ?? new PublicLinkService(env, prisma, audit, projects),
     publicPhotos,
@@ -436,6 +465,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     projectSetup:
       o.projectSetup ??
       new ProjectSetupService(prisma, audit, access, projects, permissionVersions),
+    projectQuotas: o.projectQuotas ?? new ProjectQuotasService(prisma, audit, access, projects),
     projectLifecycle:
       o.projectLifecycle ??
       new ProjectLifecycleService(prisma, audit, projects, clock, projectEvents),
@@ -486,6 +516,18 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   };
   return {
     ...built,
+    // the transfer assigns the new volunteer through the assignments above
+    transfers:
+      o.transfers ??
+      new TransfersService(
+        prisma,
+        access,
+        audit,
+        clock,
+        idempotency,
+        applicationEvents,
+        built.projectVolunteers,
+      ),
     // the My Work home's attention list reads the services above
     attention:
       o.attention ??
@@ -498,6 +540,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         built.registrations,
         built.changeRequests,
         built.projects,
+        built.unlocks,
       ),
   };
 }
