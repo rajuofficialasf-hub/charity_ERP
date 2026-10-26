@@ -8739,7 +8739,7 @@ paths:
         - name: sort
           in: query
           required: false
-          description: createdAt, leading minus for descending
+          description: 'updatedAt (the last send, or the decision), leading minus for descending'
           schema: { type: string, maxLength: 200 }
         - name: state
           in: query

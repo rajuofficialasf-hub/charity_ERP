@@ -38,11 +38,11 @@ import type { MediaEvents } from '../notifications/media-events';
 import { readDefinition } from './forms';
 
 /** Refers an application of the caller's program or region (a PM, an RPM). */
-export const REFER_PERMISSION = 'media.referral.create';
+const REFER_PERMISSION = 'media.referral.create';
 /** Decides on a referral (the Media Director and the Assistant Director). */
-export const DECIDE_PERMISSION = 'media.referral.decide';
+const DECIDE_PERMISSION = 'media.referral.decide';
 /** Reads a referral and its work: the directors, the members of its work and the referrers. */
-export const VIEW_PERMISSION = 'media.work.view';
+const VIEW_PERMISSION = 'media.work.view';
 
 /** The library question whose answer is the official's comment on the application. */
 const OFFICIAL_COMMENT = 'official_comment';
@@ -52,7 +52,7 @@ const bilingual = z.object({ bn: z.string(), en: z.string() });
 const person = z.object({ id: uuid, name: z.string() });
 
 /** One step of a referral's and its work's history. */
-export const mediaEventView = z.object({
+const mediaEventView = z.object({
   id: uuid,
   kind: z.string(),
   fromValue: z.string().nullable(),
@@ -63,10 +63,11 @@ export const mediaEventView = z.object({
 });
 
 /**
- * What the Media Team may know of the person (BR-265): the names, age, mobile, address,
- * occupation and income; never the identity numbers, ratings, categories or scores.
+ * What the Media Team may know of the person (docs/BUSINESS_RULES.md, the media team's data): the
+ * names, age, mobile, address, occupation and income; never the identity numbers, ratings,
+ * categories or scores.
  */
-export const mediaBeneficiaryView = z.object({
+const mediaBeneficiaryView = z.object({
   name: z.string(),
   fatherOrHusbandName: z.string(),
   ageYears: z.number().int().nullable(),
@@ -142,9 +143,16 @@ const SUMMARY_SELECT = {
   applicationId: true,
   state: true,
   priority: true,
-  createdAt: true,
+  updatedAt: true,
   decidedAt: true,
   application: { select: { appNo: true } },
+  // the last send, the first one or a send after a correction
+  events: {
+    where: { kind: { in: ['referred', 'resent'] } },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    take: 1,
+    select: { createdAt: true },
+  },
   beneficiary: { select: { name: true } },
   project: {
     select: {
@@ -263,6 +271,8 @@ export class MediaReferralsService {
           data: {
             ...content,
             state: 'pending',
+            // whoever sends it again hears the decision
+            referredBy: principal.userId,
             decidedBy: null,
             decidedAt: null,
             decisionComment: null,
@@ -397,10 +407,11 @@ export class MediaReferralsService {
       throw new ApiError('validation.failed', 422, undefined, [
         { path: 'state', code: 'validation.option_unknown' },
       ]);
+    // a waiting referral last changed when it was sent; a decided one when it was decided
     const sort = parseSort(
       query.sort,
-      ['createdAt', 'id'],
-      [{ field: 'createdAt', direction: 'asc' }],
+      ['updatedAt', 'id'],
+      [{ field: 'updatedAt', direction: 'asc' }],
     );
     const binding = `media-referrals.list|${principal.userId}|${states.join(',')}`;
     const cursor = query.cursor
@@ -599,10 +610,8 @@ export class MediaReferralsService {
       };
 
     const income = valueOf(marked('monthly_income'))?.v;
-    const amount =
-      typeof income === 'number' || typeof income === 'string'
-        ? Number(income)
-        : row.beneficiary.monthlyIncome?.toNumber();
+    const answered = typeof income === 'number' || (typeof income === 'string' && income.trim());
+    const amount = answered ? Number(income) : row.beneficiary.monthlyIncome?.toNumber();
     const monthlyIncome = amount === undefined || Number.isNaN(amount) ? null : amount.toFixed(2);
     return { officialComment, occupation, monthlyIncome };
   }
@@ -618,7 +627,7 @@ export class MediaReferralsService {
       program: { id: r.project.program.id, name: name(r.project.program) },
       project: { id: r.project.id, name: name(r.project), year: r.project.year },
       referredBy: { id: r.referredByRef.id, name: r.referredByRef.displayName },
-      referredAt: r.createdAt.toISOString(),
+      referredAt: (r.events[0]?.createdAt ?? r.updatedAt).toISOString(),
       decidedAt: iso(r.decidedAt),
     };
   }

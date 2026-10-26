@@ -5,7 +5,7 @@ import { bilingualText } from './account-events';
 import type { NotificationService } from './service';
 
 /** The two roles that decide on referrals and run the works. */
-export const MEDIA_DIRECTORS = ['media_director', 'media_assistant_director'] as const;
+const MEDIA_DIRECTORS = ['media_director', 'media_assistant_director'] as const;
 
 const DECISION_TEXT = new Map<ReferralDecision, MessageKey>([
   ['accept', 'common.notification.media_accepted'],

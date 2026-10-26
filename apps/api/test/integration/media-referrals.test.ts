@@ -443,6 +443,42 @@ describe('reading a referral', () => {
     }
   });
 
+  it('opens to a Media Team member once they are on its work, and to no other member', async () => {
+    const id = await application();
+    const referralId = await referred(id);
+    const accepted = await decide(await as(media.director), referralId, { decision: 'accept' });
+    const workId = accepted.body.data.work.id as string;
+    const other = await account(h.db, { role: 'media_team' });
+    accounts.set(other.id, other);
+    await h.db.query(
+      `INSERT INTO media_work_members (id, work_id, user_id, roles, created_by) VALUES ($1, $2, $3, $4, $5)`,
+      [randomUUID(), workId, media.member, ['cinematographer'], media.director],
+    );
+    const mine = await at(await as(media.member), 'get', `/media-referrals/${referralId}`);
+    expect(mine.status, JSON.stringify(mine.body)).toBe(200);
+    expect(mine.body.data).toMatchObject({ mayDecide: false, mayResend: false });
+    expect((await at(await as(other.id), 'get', `/media-referrals/${referralId}`)).status).toBe(
+      404,
+    );
+  });
+
+  it('shows who sent it last and when, after it was sent back and sent again by someone else', async () => {
+    const id = await application();
+    const referralId = await referred(id, world.users.pm);
+    await decide(await as(media.director), referralId, {
+      decision: 'send_back',
+      comment: 'আরও লিখুন',
+    });
+    const again = await refer(await as(world.users.rpmDhaka), id);
+    expect(again.status).toBe(201);
+    expect(again.body.data.referredBy.id).toBe(world.users.rpmDhaka);
+    await decide(await as(media.director), referralId, { decision: 'accept' });
+    const told = (await notificationsOf(h.db, 'media_referral_decided', world.users.rpmDhaka)).some(
+      (n) => n.params.referralId === referralId,
+    );
+    expect(told).toBe(true);
+  });
+
   it('lists the waiting referrals for the directors, and the decided ones by state', async () => {
     const id = await application();
     const referralId = await referred(id);

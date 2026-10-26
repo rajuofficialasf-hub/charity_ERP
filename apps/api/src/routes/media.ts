@@ -6,7 +6,7 @@ import {
 } from '@css/shared/media';
 import { Router } from 'express';
 import { z } from 'zod';
-import { type AuthedRequest, principalOf, scopeOf } from '../auth/principal';
+import { principalOf, scopeOf } from '../auth/principal';
 import type { Container } from '../container';
 import { type PageQuery, pageQuery } from '../core/pagination';
 import { ok, page } from '../http/send';
@@ -59,11 +59,7 @@ export function mediaRouter(deps: RouteDeps, c: Pick<Container, 'mediaReferrals'
     query: pageQuery.extend(referralQuerySchema.shape),
     responses: { 200: z.array(mediaReferralSummary), 400: null, 422: null },
     handler: async ({ query, req }) => {
-      const { rows, meta } = await c.mediaReferrals.list(
-        principalOf(req),
-        scopeOf(req as AuthedRequest),
-        query,
-      );
+      const { rows, meta } = await c.mediaReferrals.list(principalOf(req), scopeOf(req), query);
       return page(rows, meta);
     },
   });
