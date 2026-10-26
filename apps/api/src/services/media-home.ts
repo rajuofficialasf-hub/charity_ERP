@@ -385,10 +385,12 @@ export class MediaHomeService {
     const team =
       principal.userId === userId ||
       holdsPermission(MANAGE_PERMISSION, (await this.access.load(principal.userId)).grants);
-    const [works, shown] = await Promise.all([
+    const shownWhere = { stageCode: { in: SHOWN_STAGES }, members: { some: { userId } } };
+    const [works, published, shown] = await Promise.all([
       this.prisma.mediaWorkMember.count({ where: { userId } }),
+      this.prisma.mediaWork.count({ where: shownWhere }),
       this.prisma.mediaWork.findMany({
-        where: { stageCode: { in: SHOWN_STAGES }, members: { some: { userId } } },
+        where: shownWhere,
         orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
         take: SHOWN_MAX,
         select: PUBLISHED_SELECT,
@@ -401,7 +403,7 @@ export class MediaHomeService {
       mobile: team ? user.mobile : null,
       email: team ? user.email : null,
       roles: user.userRolesUser.map((r) => r.roleKey),
-      counts: { works, published: shown.length },
+      counts: { works, published },
       portfolio: shown.map((w) => ({
         ...publishedView(w),
         ownRoles: w.members.find((m) => m.userId === userId)?.roles ?? [],

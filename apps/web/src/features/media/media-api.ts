@@ -7,6 +7,7 @@ import type {
   ReferralState,
   ScriptState,
 } from '@css/shared/media';
+import type { ReferenceItem } from '../../admin/settings/settings-api';
 import { api } from '../../lib/api';
 
 export interface MediaPerson {
@@ -158,14 +159,7 @@ export interface MediaMember {
 }
 
 /** An item of one of the media reference lists (stages, production roles, platforms). */
-export interface MediaListItem {
-  code: string;
-  label: Bilingual;
-  active: boolean;
-  sortOrder: number;
-  system: boolean;
-  kind: 'youtube' | 'facebook' | 'other' | null;
-}
+export type MediaListItem = ReferenceItem;
 
 interface Page<T> {
   data: T[];

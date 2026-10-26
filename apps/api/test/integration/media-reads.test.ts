@@ -152,6 +152,8 @@ describe('a member’s profile', () => {
     expect(res.body.data).toMatchObject({ mobile: null, email: null });
     const team = await get(m.media.director, `/media/members/${second}`);
     expect(team.body.data.mobile).toEqual(expect.any(String));
+    const own = await get(second, `/media/members/${second}`);
+    expect(own.body.data.email).toEqual(expect.any(String));
     expect(res.body.data).toMatchObject({
       id: second,
       roles: ['media_team'],
@@ -252,6 +254,20 @@ describe('needs your attention', () => {
     expect(held.status).toBe(200);
     expect((await attention(m.media.member)).media_on_hold).toBe(1);
     expect((await attention(second)).media_on_hold).toBeUndefined();
+  });
+});
+
+describe('the platform list', () => {
+  it('keeps the kind of a platform that already has links', async () => {
+    const res = await m
+      .at(
+        await as(m.world.users.head),
+        'patch',
+        '/reference-lists/media_platform/items/asf_youtube',
+      )
+      .send({ kind: 'other' });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('reference.kind_in_use');
   });
 });
 

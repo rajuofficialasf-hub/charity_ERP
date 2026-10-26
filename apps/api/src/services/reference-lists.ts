@@ -41,7 +41,8 @@ const view = (r: Row): ReferenceItemView => ({
   active: r.active,
   sortOrder: r.sortOrder,
   system: r.isSystem,
-  kind: referenceListAttributesSchema.parse(r.attributes).kind ?? null,
+  // a stored value the schema cannot read shows no kind, never fails the list
+  kind: referenceListAttributesSchema.safeParse(r.attributes).data?.kind ?? null,
 });
 
 /** A kind is given exactly on the lists whose items carry one (on a new item; a change may omit it). */
@@ -146,6 +147,11 @@ export class ReferenceListsService {
       // an entry the rules need stays active
       if (before.isSystem && body.active === false)
         throw new ApiError('reference.system_entry', 409);
+      // the kind decided the host of the links already given; it stays while any exists
+      if (body.kind && body.kind !== view(before).kind && listKey === 'media_platform') {
+        const used = await tx.mediaPublication.count({ where: { platformCode: code } });
+        if (used) throw new ApiError('reference.kind_in_use', 409);
+      }
       const row = await tx.referenceList.update({
         where: { id: before.id },
         // Prisma leaves out the undefined fields
