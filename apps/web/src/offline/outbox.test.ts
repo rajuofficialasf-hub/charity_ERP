@@ -231,6 +231,7 @@ describe('the outbox', () => {
       attempts: 0,
       nextRetryAt: null,
       failureCode: null,
+      fileId: null,
       createdAt: T0,
       iv: new Uint8Array(12),
       data: new ArrayBuffer(0),
@@ -244,7 +245,21 @@ describe('the outbox', () => {
       now: at(3),
     });
     await db.meta.put({ key: META.since, value: 'x' });
+    // the purged record's photos go with it; a record with a photo still waiting stays whole
+    const { add } = await import('./photo-queue');
+    await add({
+      clientUuid: old.clientUuid,
+      slot: 'q_photo',
+      blob: new Blob([new Uint8Array(10)]),
+      facts: { name: 'old.jpg', mime: 'image/jpeg', source: 'camera' },
+    });
+    await db.photos.update(
+      (await db.photos.where('clientUuid').equals(old.clientUuid).first())!.id,
+      { state: 'uploaded', fileId: SERVER_ID },
+    );
     expect(await purge(at(7 * 86_400 + 10))).toBe(1);
+    expect(await db.photos.where('clientUuid').equals(old.clientUuid).count()).toBe(0);
+    expect(await db.photos.where('clientUuid').equals(withPhoto.clientUuid).count()).toBe(1);
     const left = (await db.outbox.toArray()).map((r) => r.clientUuid).sort();
     expect(left).not.toContain(old.clientUuid);
     expect(left).toEqual(

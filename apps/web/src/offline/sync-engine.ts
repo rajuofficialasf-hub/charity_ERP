@@ -239,6 +239,7 @@ export class SyncEngine {
     try {
       const inflight = await this.inFlight();
       await recoverInterrupted(this.deps.now(), new Set(inflight?.uuids ?? []));
+      await photoQueue.recoverInterrupted();
       let open = true;
       if (inflight && (await this.inFlightDue(inflight))) open = await this.send(inflight);
       if (open) for (const batch of await this.batches()) if (!(await this.send(batch))) break;

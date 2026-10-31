@@ -106,6 +106,94 @@ describe('the photo queue', () => {
     expect(marked[2]).toMatchObject({ value: { t: 'photo' } });
   });
 
+  it('names the server’s file for an uploaded photo and leaves other files alone', async () => {
+    const id = await add({
+      clientUuid: RECORD,
+      slot: 'house_photo',
+      blob: new Blob([JPEG], { type: 'image/jpeg' }),
+      facts,
+    });
+    await offlineDb().photos.update(id, {
+      state: 'uploaded',
+      fileId: '01900000-0000-7000-8000-0000000000f9',
+    });
+    const marked = await markPending([
+      { fieldKey: 'house_photo', repeatIndex: 0, value: { t: 'photo', v: [id] } },
+    ]);
+    expect(marked[0]).toEqual({
+      fieldKey: 'house_photo',
+      repeatIndex: 0,
+      value: { t: 'photo', v: ['01900000-0000-7000-8000-0000000000f9'] },
+    });
+  });
+
+  it('lets a photo left on its way by a closed app wait again', async () => {
+    const id = await add({ clientUuid: RECORD, slot: 'a', blob: new Blob([JPEG]), facts });
+    await offlineDb().photos.update(id, { state: 'uploading' });
+    const { recoverInterrupted } = await import('./photo-queue');
+    await recoverInterrupted();
+    expect((await offlineDb().photos.get(id))?.state).toBe('pending');
+  });
+
+  it('climbs the retry ladder on a failure on the way, fails for good on a refusal, and gives up after seven days', async () => {
+    const { http, HttpResponse } = await import('msw');
+    const { server } = await import('../../test/msw/server');
+    const { apiError, ME, pair, sessionToken } = await import('../../test/auth');
+    const { login, resetClientForTests } = await import('../lib/api');
+    const { uploadDue } = await import('./photo-queue');
+    resetClientForTests();
+    document.cookie = 'css_csrf=nonce.mac; path=/';
+    server.use(
+      http.post('*/api/v1/auth/login', () =>
+        HttpResponse.json({ data: pair({ ...ME, kind: 'volunteer' }, sessionToken()), meta: {} }),
+      ),
+    );
+    await login('a', 'b');
+    const T0 = new Date('2026-10-31T10:00:00Z');
+    let now = T0;
+    const record = await enqueue({
+      clientUuid: RECORD,
+      kind: 'application_draft',
+      projectId: 'p',
+      formVersionId: 'v',
+      payload: { answers: [] },
+      now: T0,
+    });
+    await offlineDb().outbox.update(record.clientUuid, { state: 'synced', serverId: RECORD });
+    const id = await add({ clientUuid: RECORD, slot: 'a', blob: new Blob([JPEG]), facts });
+    server.use(
+      http.post('*/api/v1/upload-sessions', () =>
+        apiError(503, 'server.busy', 'busy', { 'Retry-After': '120' }),
+      ),
+    );
+    await uploadDue(() => now, { sleep: async () => undefined, random: () => 0.5 });
+    expect(await offlineDb().photos.get(id)).toMatchObject({
+      state: 'pending',
+      attempts: 1,
+      nextRetryAt: new Date(T0.getTime() + 120_000),
+    });
+    now = new Date(T0.getTime() + 121_000);
+    server.use(
+      http.post('*/api/v1/upload-sessions', () => apiError(422, 'file.type_not_allowed', 'no')),
+    );
+    await uploadDue(() => now, { sleep: async () => undefined });
+    expect(await offlineDb().photos.get(id)).toMatchObject({
+      state: 'failed',
+      failureCode: 'file.type_not_allowed',
+    });
+    // eight days later the person retries, the network fails again: the photo gives up
+    const { retryNow } = await import('./photo-queue');
+    await retryNow(id);
+    now = new Date(T0.getTime() + 8 * 86_400_000);
+    server.use(http.post('*/api/v1/upload-sessions', () => HttpResponse.error()));
+    await uploadDue(() => now, { sleep: async () => undefined });
+    expect(await offlineDb().photos.get(id)).toMatchObject({
+      state: 'failed',
+      failureCode: 'retry_exhausted',
+    });
+    document.cookie = 'css_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+  }, 20_000);
+
   it('goes with the record it belongs to when the record is removed', async () => {
     await enqueue({
       clientUuid: RECORD,

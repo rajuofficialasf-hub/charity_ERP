@@ -264,9 +264,10 @@ export async function queuePhoto(input: {
   slot: string;
   blob: Blob;
   facts: photoQueue.PhotoFacts;
-}): Promise<{ id: string; previewUrl: string | null }> {
+}): Promise<{ id: string; previewUrl: string }> {
   const id = await photoQueue.add(input);
-  return { id, previewUrl: await photoQueue.previewUrl(id) };
+  // the preview from the bytes in hand; the field revokes it when the photo leaves the screen
+  return { id, previewUrl: URL.createObjectURL(input.blob) };
 }
 
 /** What the photo queue holds against its budget. */

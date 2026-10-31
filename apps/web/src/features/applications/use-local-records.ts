@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { PHOTO_BUDGET_BYTES } from '@css/shared/sync';
+import { deviceInfo } from '../../lib/api';
 import { orCached } from '../../lib/or-cached';
 import type { OwnRecord, SyncInfo } from '../../offline/applications-store';
 import { application, type ApplicationSummary } from './applications-api';
@@ -18,6 +20,17 @@ export function storeMessage(
   if (error.message === 'offline.store_unavailable') return ts('store_unavailable');
   if (error.message === 'offline.record_on_its_way') return ts('record_on_its_way');
   return null;
+}
+
+/** The words of a photo the queue refused, or null for any other error. */
+export function photoMessage(
+  error: unknown,
+  tq: (key: 'photo.budget_full', values: { budget: number }) => string,
+): string | null {
+  if (!(error instanceof Error) || error.message !== 'offline.photo_budget_full') return null;
+  const budget =
+    deviceInfo().platform === 'ios' ? PHOTO_BUDGET_BYTES.ios : PHOTO_BUDGET_BYTES.android;
+  return tq('photo.budget_full', { budget: Math.round(budget / (1024 * 1024)) });
 }
 
 /**

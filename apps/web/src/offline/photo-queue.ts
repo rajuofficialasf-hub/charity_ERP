@@ -11,7 +11,7 @@ import {
   retryExhausted,
 } from '@css/shared/sync';
 import { ApiFailure, deviceInfo } from '../lib/api';
-import { uploadFile, type UploadOptions } from '../lib/uploads';
+import { uploadFile, type UploadOptions, type UploadTarget } from '../lib/uploads';
 import { open, seal } from './crypto';
 import { offlineDb, type PhotoRow } from './db';
 import { requireDataKey } from './keys';
@@ -44,6 +44,36 @@ export interface QueueUsage {
 export const PHOTO_BUDGET_FULL = 'offline.photo_budget_full';
 
 const WAITING_STATES = ['pending', 'uploading', 'failed'] as const;
+
+/**
+ * Changes a photo row by reading and writing it whole, as the outbox does: an in-place update
+ * would clone the sealed bytes again on their way back, and a clone across realms (the test
+ * runner's browser) loses their type.
+ */
+async function patch(id: string, change: Partial<PhotoRow>): Promise<void> {
+  const db = offlineDb();
+  const row = await db.photos.get(id);
+  if (row) await db.photos.put({ ...row, ...change });
+}
+
+/** Where a photo of an application goes and what the phone knows of it. */
+export function photoTarget(
+  entityId: string,
+  slot: string,
+  facts: Pick<PhotoFacts, 'source' | 'capturedAt' | 'gps'>,
+  recordCreatedAt?: Date,
+): UploadTarget {
+  return {
+    kind: 'form_photo',
+    entityType: 'application',
+    entityId,
+    slot,
+    source: facts.source,
+    ...(recordCreatedAt ? { recordCreatedAt: recordCreatedAt.toISOString() } : {}),
+    ...(facts.capturedAt ? { capturedAt: facts.capturedAt } : {}),
+    ...(facts.gps ? { gps: facts.gps } : {}),
+  };
+}
 
 /** The budget of this phone: iPhones hold less (the system may clear site data sooner). */
 export function budgetBytes(): number {
@@ -85,8 +115,6 @@ export async function add(input: {
   facts: PhotoFacts;
   budget?: number;
 }): Promise<string> {
-  const { usedBytes, budgetBytes: budget } = await usage(input.budget);
-  if (usedBytes + input.blob.size > budget) throw new Error(PHOTO_BUDGET_FULL);
   const key = requireDataKey();
   const bytes = new Uint8Array(await input.blob.arrayBuffer());
   const sealed = await seal(key, pack(input.facts, bytes));
@@ -99,11 +127,19 @@ export async function add(input: {
     attempts: 0,
     nextRetryAt: null,
     failureCode: null,
+    fileId: null,
     createdAt: new Date(),
     iv: sealed.iv,
     data: sealed.data,
   };
-  await offlineDb().photos.put(row);
+  const db = offlineDb();
+  // the check and the write in one transaction, so two photos chosen together cannot both slip in
+  await db.transaction('rw', db.photos, async () => {
+    const budget = input.budget ?? budgetBytes();
+    const used = (await db.photos.toArray()).reduce((sum, r) => sum + r.size, 0);
+    if (used + row.size > budget) throw new Error(PHOTO_BUDGET_FULL);
+    await db.photos.put(row);
+  });
   return row.id;
 }
 
@@ -113,12 +149,6 @@ export async function read(id: string): Promise<{ blob: Blob; facts: PhotoFacts 
   if (!row || row.data.byteLength === 0) return null;
   const { facts, bytes } = unpack(await open(requireDataKey(), { iv: row.iv, data: row.data }));
   return { blob: new Blob([new Uint8Array(bytes)], { type: facts.mime }), facts };
-}
-
-/** A preview of a queued photo, as an object URL the caller revokes when done. */
-export async function previewUrl(id: string): Promise<string | null> {
-  const photo = await read(id);
-  return photo ? URL.createObjectURL(photo.blob) : null;
 }
 
 /** The ids of the photos not yet uploaded, as the answers may name them. */
@@ -146,15 +176,30 @@ export async function waitingByRecord(): Promise<Map<string, number>> {
  * keeps the slot open for the upload instead of a file id it cannot know.
  */
 export async function markPending(answers: Answer[]): Promise<Answer[]> {
-  const waiting = await waitingIds();
-  if (!waiting.size) return answers;
+  const rows = await offlineDb().photos.toArray();
+  if (!rows.length) return answers;
+  const byId = new Map(rows.map((r) => [r.id, r]));
   return answers.map((a) => {
     const value = a.value as { t?: string; v?: unknown };
     const ids = Array.isArray(value?.v) ? (value.v as unknown[]) : [];
     if (!['photo', 'file', 'signature'].includes(value?.t ?? '')) return a;
-    if (!ids.some((id) => typeof id === 'string' && waiting.has(id))) return a;
-    return pendingPhotoAnswer(a.fieldKey, a.repeatIndex ?? 0) as unknown as Answer;
+    const queued = ids.filter((id): id is string => typeof id === 'string' && byId.has(id));
+    if (!queued.length) return a;
+    // a photo still on its way keeps the slot open; one the server holds is named by its file
+    if (queued.some((id) => byId.get(id)!.state !== 'uploaded' || !byId.get(id)!.fileId))
+      return pendingPhotoAnswer(a.fieldKey, a.repeatIndex ?? 0) as unknown as Answer;
+    const named = ids.map((id) =>
+      typeof id === 'string' && byId.has(id) ? byId.get(id)!.fileId! : id,
+    );
+    return { ...a, value: { ...value, v: named } } as Answer;
   });
+}
+
+/** Photos left on their way by a closed app wait again; the upload resumes under the same id. */
+export async function recoverInterrupted(): Promise<void> {
+  const db = offlineDb();
+  const stuck = await db.photos.where('state').equals('uploading').toArray();
+  for (const row of stuck) await patch(row.id, { state: 'pending' });
 }
 
 /** The queued photos ready to go now, oldest first. */
@@ -165,11 +210,23 @@ export async function due(now: Date): Promise<PhotoRow[]> {
     .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 }
 
-/** The earliest time a waiting photo wants to try again, or null. */
+/** The server's id of the record a photo belongs to, or null while the server does not know it. */
+async function serverIdFor(clientUuid: string): Promise<string | null> {
+  const record = await offlineDb().outbox.get(clientUuid);
+  // a photo keyed by a server id straight away has no record row of its own
+  return record ? (record.serverId ?? null) : clientUuid;
+}
+
+/**
+ * The earliest time a photo that can go wants to try again, or null: a photo whose record the
+ * server does not know yet waits for the record, not for a timer.
+ */
 export async function nextDue(): Promise<Date | null> {
   const rows = await offlineDb().photos.where('state').equals('pending').toArray();
-  if (rows.some((r) => r.nextRetryAt === null)) return new Date(0);
-  const times = rows.map((r) => r.nextRetryAt!.getTime());
+  const ready: PhotoRow[] = [];
+  for (const row of rows) if (await serverIdFor(row.clientUuid)) ready.push(row);
+  if (ready.some((r) => r.nextRetryAt === null)) return new Date(0);
+  const times = ready.map((r) => r.nextRetryAt!.getTime());
   return times.length ? new Date(Math.min(...times)) : null;
 }
 
@@ -186,33 +243,34 @@ export async function uploadDue(
   let uploaded = 0;
   for (const row of await due(now())) {
     const record = await db.outbox.get(row.clientUuid);
-    const serverId = record?.serverId;
+    const serverId = await serverIdFor(row.clientUuid);
     if (!serverId) continue;
     const photo = await read(row.id);
     if (!photo) continue;
-    await db.photos.update(row.id, { state: 'uploading', attempts: row.attempts + 1 });
+    await patch(row.id, { state: 'uploading', attempts: row.attempts + 1 });
     try {
-      await uploadFile(
+      const stored = await uploadFile(
         photo.blob,
-        {
-          kind: 'form_photo',
-          entityType: 'application',
-          entityId: serverId,
-          slot: row.slot,
-          source: photo.facts.source,
-          recordCreatedAt: record.createdAt.toISOString(),
-          ...(photo.facts.capturedAt ? { capturedAt: photo.facts.capturedAt } : {}),
-          ...(photo.facts.gps ? { gps: photo.facts.gps } : {}),
-        },
+        photoTarget(serverId, row.slot, photo.facts, record?.createdAt),
         { clientUuid: row.id, ...(options.sleep ? { sleep: options.sleep } : {}) },
       );
-      await db.photos.update(row.id, { state: 'uploaded', nextRetryAt: null, failureCode: null });
+      await patch(row.id, {
+        state: 'uploaded',
+        nextRetryAt: null,
+        failureCode: null,
+        fileId: stored.id,
+      });
       uploaded += 1;
     } catch (error) {
       const at = now();
+      if (error instanceof ApiFailure && [401, 403, 426].includes(error.status)) {
+        // the session, the person's right or the app's age: the engine says what to do; the photo waits
+        await patch(row.id, { state: 'pending' });
+        throw error;
+      }
       const transient = !(error instanceof ApiFailure) || isTransientStatus(error.status);
       if (!transient) {
-        await db.photos.update(row.id, {
+        await patch(row.id, {
           state: 'failed',
           failureCode: error instanceof ApiFailure ? error.code : 'failed',
           nextRetryAt: null,
@@ -220,14 +278,14 @@ export async function uploadDue(
         continue;
       }
       if (retryExhausted(row.createdAt, at)) {
-        await db.photos.update(row.id, {
+        await patch(row.id, {
           state: 'failed',
           failureCode: RETRY_EXHAUSTED,
           nextRetryAt: null,
         });
         continue;
       }
-      await db.photos.update(row.id, {
+      await patch(row.id, {
         state: 'pending',
         nextRetryAt: nextRetryAt(
           row.attempts + 1,
@@ -250,5 +308,5 @@ export async function freeSpace(): Promise<number> {
 
 /** The person asks a failed photo to go again. */
 export async function retryNow(id: string): Promise<void> {
-  await offlineDb().photos.update(id, { state: 'pending', nextRetryAt: null, failureCode: null });
+  await patch(id, { state: 'pending', nextRetryAt: null, failureCode: null });
 }

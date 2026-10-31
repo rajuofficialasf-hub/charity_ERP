@@ -493,6 +493,13 @@ describe('applications without network', () => {
     await waitFor(() => expect(view.router.state.location.pathname).toBe('/my-applications'));
   });
 
+  it('tells the budget of this phone when a photo cannot be kept', async () => {
+    const { photoMessage } = await import('./use-local-records');
+    const tq = (key: string, values: { budget: number }) => `${key}:${values.budget}`;
+    expect(photoMessage(new Error('offline.photo_budget_full'), tq)).toBe('photo.budget_full:200');
+    expect(photoMessage(new Error('something else'), tq)).toBeNull();
+  });
+
   it('goes straight to the server when the store is closed and there is network', async () => {
     refreshAs(VOLUNTEER);
     const store = await import('../../offline/applications-store');

@@ -9,10 +9,11 @@ const SHRINK = 0.8;
 
 /**
  * Makes a photo smaller on the phone before the upload (NFR-12: 2G and 3G links): JPEG at most
- * 1600 px on the longest side, aiming at the target size of the offline design with lower
- * qualities and then a smaller side; the smallest result wins when none reaches it. Drawing on
- * a canvas also drops the metadata; the API strips it again in any case. Where the browser
- * cannot decode images (tests, very old browsers) the file goes as it is.
+ * 1600 px on the longest side, aiming at the target size of docs/architecture/OFFLINE_SYNC.md
+ * (photo queue and resumable upload) with lower qualities and then a smaller side; the smallest
+ * result wins when none reaches it. Drawing on a canvas also drops the metadata; the API strips
+ * it again in any case. Where the browser cannot decode images (tests, very old browsers) the
+ * file goes as it is.
  */
 export async function compressImage(file: File, target = PHOTO_TARGET_BYTES): Promise<Blob> {
   if (typeof createImageBitmap !== 'function' || typeof document === 'undefined') return file;

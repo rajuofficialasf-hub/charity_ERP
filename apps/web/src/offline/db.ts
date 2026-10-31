@@ -57,6 +57,8 @@ export interface PhotoRow extends SealedRow {
   nextRetryAt: Date | null;
   /** The server's code when the photo was refused for good. */
   failureCode: string | null;
+  /** The file the server holds once the photo went up; the answers name it from then on. */
+  fileId: string | null;
   createdAt: Date;
 }
 

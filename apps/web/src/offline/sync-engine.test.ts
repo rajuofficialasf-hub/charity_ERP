@@ -506,6 +506,32 @@ describe('the sync engine', () => {
     // the dropped part went again, the rest followed, and the upload finished
     expect(fake.parts).toEqual([1, 2, 2, 3]);
     expect(fake.finalized).toBe(1);
-    expect(await offlineDb().photos.get(photoId)).toMatchObject({ state: 'uploaded' });
+    expect(await offlineDb().photos.get(photoId)).toMatchObject({
+      state: 'uploaded',
+      fileId: expect.any(String),
+    });
+  });
+
+  it('hands a lost session during a photo upload to the engine and keeps the photo waiting', async () => {
+    server.use(
+      acceptAll([], () => ({ serverId: APP })),
+      http.post('*/api/v1/upload-sessions', () => apiError(401, 'auth.token_expired', 'expired')),
+      http.post('*/api/v1/auth/refresh', () => apiError(401, 'auth.refresh_invalid', 'again')),
+    );
+    const world = fakeDeps();
+    const engine = new SyncEngine({ ...world.deps, sleep: async () => undefined });
+    const statuses: SyncStatus[] = [];
+    engine.subscribe((s) => statuses.push(s));
+    const record = await draft(T0);
+    const { add } = await import('./photo-queue');
+    const photoId = await add({
+      clientUuid: record.clientUuid,
+      slot: 'house_photo',
+      blob: new Blob([new Uint8Array(100)], { type: 'image/jpeg' }),
+      facts: { name: 'h.jpg', mime: 'image/jpeg', source: 'camera' },
+    });
+    await engine.flush('manual');
+    expect(statuses.at(-1)?.state).toBe('signed_out');
+    expect(await offlineDb().photos.get(photoId)).toMatchObject({ state: 'pending' });
   });
 });

@@ -1,9 +1,13 @@
 import { FileUpload, Stack, Text, type UploadItem } from '@css/ui';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'use-intl';
 import type { FieldUpload } from './upload-adapter';
 
 const MB = 1024 * 1024;
+
+function revokePreview(item: UploadItem): void {
+  if (item.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl);
+}
 
 /**
  * A photo, file or signature question: each file goes up through the screen's adapter as it is
@@ -38,6 +42,13 @@ export function UploadField({
     fileIds.map((id, i) => ({ id, name: `${label} ${i + 1}`, state: 'ready', removable: true })),
   );
   const current = useRef(items);
+  // a preview of a photo kept on the phone is an object URL: it goes with the field
+  useEffect(
+    () => () => {
+      for (const item of current.current) revokePreview(item);
+    },
+    [],
+  );
   if (!adapter)
     return (
       <Stack gap={1}>
@@ -120,7 +131,13 @@ export function UploadField({
           },
         ])
       }
-      onRemove={(id) => update((list) => list.filter((i) => i.id !== id))}
+      onRemove={(id) =>
+        update((list) => {
+          const gone = list.find((i) => i.id === id);
+          if (gone) revokePreview(gone);
+          return list.filter((i) => i.id !== id);
+        })
+      }
     />
   );
 }

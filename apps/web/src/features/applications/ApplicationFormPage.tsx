@@ -13,7 +13,7 @@ import type { LookupResult } from '../../admin/beneficiaries/beneficiaries-api';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../lib/api';
-import { orCached } from '../../lib/or-cached';
+import { failedOnTheWay, orCached } from '../../lib/or-cached';
 import { compressImage } from '../../lib/compress';
 import { readPhotoMeta } from '../../lib/photo-meta';
 import { uploadFile } from '../../lib/uploads';
@@ -29,7 +29,7 @@ import {
   MY_APPLICATIONS_KEY,
 } from './applications-api';
 import { answersOfNumber, answersOfProfile, lockedKeysOf } from './identity-answers';
-import { loadStore, recordOf, storeMessage } from './use-local-records';
+import { loadStore, photoMessage, recordOf, storeMessage } from './use-local-records';
 import './applications.css';
 
 const PHOTO_TYPES = ['image/jpeg', 'image/png'];
@@ -364,48 +364,48 @@ function ApplicationForm({
       maxSize: PHOTO_MAX_BYTES,
       upload: async (file, fieldKey) => {
         const { serverId, clientUuid: recordId } = draft.current;
-        if (serverId) {
-          // the record is the server's: the photo goes up now
+        if (!serverId && !recordId) throw new Error(t('save_first'));
+        const meta = await readPhotoMeta(file);
+        const blob = await compressImage(file);
+        const facts = {
+          name: file.name,
+          mime: blob.type || file.type,
+          source: 'gallery' as const,
+          ...meta,
+        };
+        if (serverId && navigator.onLine) {
+          // the record is the server's and there is network: the photo goes up now
           const key = `${fieldKey}:${file.name}:${file.size}:${file.lastModified}`;
           const clientUuid = uploadIds.current.get(key) ?? uuidv7();
           uploadIds.current.set(key, clientUuid);
-          const stored = await uploadFile(
-            await compressImage(file),
-            {
-              kind: 'form_photo',
-              entityType: 'application',
-              entityId: serverId,
-              slot: fieldKey,
-              source: 'gallery',
-            },
-            { clientUuid },
-          );
-          return { fileId: stored.id };
+          const { photoTarget } = await import('../../offline/photo-queue');
+          try {
+            const stored = await uploadFile(blob, photoTarget(serverId, fieldKey, facts), {
+              clientUuid,
+            });
+            return { fileId: stored.id };
+          } catch (error) {
+            // a refusal is the server's word; a lost network sends the photo to the queue below
+            if (!failedOnTheWay(error)) throw error;
+          }
         }
-        // the server does not know the record yet: the photo waits on the phone and goes after it
-        if (!recordId) throw new Error(t('save_first'));
-        const meta = await readPhotoMeta(file);
-        const blob = await compressImage(file);
+        // the photo waits on the phone, under the record's own id or the server's, and goes after it
         const store = await loadStore();
         const queued = await store.queuePhoto({
-          clientUuid: recordId,
+          clientUuid: recordId ?? serverId!,
           slot: fieldKey,
           blob,
-          facts: { name: file.name, mime: blob.type || file.type, source: 'gallery', ...meta },
+          facts,
         });
-        return {
-          fileId: queued.id,
-          ...(queued.previewUrl ? { previewUrl: queued.previewUrl } : {}),
-        };
+        return { fileId: queued.id, previewUrl: queued.previewUrl };
       },
       reasonOf: (error) =>
-        error instanceof Error && error.message === 'offline.photo_budget_full'
-          ? tq('photo.budget_full')
-          : error instanceof ApiFailure
+        photoMessage(error, tq) ??
+        (error instanceof ApiFailure
+          ? error.message
+          : error instanceof Error
             ? error.message
-            : error instanceof Error
-              ? error.message
-              : t('upload_failed'),
+            : t('upload_failed')),
     }),
     [t, tq],
   );
