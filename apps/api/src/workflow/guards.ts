@@ -1,4 +1,5 @@
 import { answerValueSchema } from '@css/shared';
+import { pendingSlotsOf } from '../applications/pending-photos';
 import { type Answer, type FormDefinition, validate } from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
 import type { EffectiveAccess } from '../access/effective';
@@ -22,6 +23,8 @@ export interface EngineApplication {
   status: string;
   zakatDecision: string | null;
   updatedAt: Date;
+  /** The photo slots an offline record still waits for; each counts as answered. */
+  pendingPhotos?: unknown;
   project: {
     status: string;
     applyFrom: Date | null;
@@ -84,18 +87,25 @@ export class GuardContext {
    * section neither fail nor count for them.
    */
   async validation() {
-    const audience = this.actor.kind === 'volunteer' ? 'volunteer' : 'official';
+    const audience =
+      this.actor.kind === 'volunteer' ? ('volunteer' as const) : ('official' as const);
     const definition =
       audience === 'official'
         ? await this.definition()
         : await readDefinition(this.tx, this.application.formVersionId, audience);
     const keys = new Set(definition.sections.flatMap((s) => s.fields.map((f) => f.fieldKey)));
     const answers = (await this.answers()).filter((a) => keys.has(a.fieldKey));
-    return validate(definition, answers, {
-      audience,
-      today: isoDateInDhaka(this.clock.now()),
-      previous: answers,
-    });
+    const options = { audience, today: isoDateInDhaka(this.clock.now()), previous: answers };
+    const result = validate(definition, answers, options);
+    // a photo still on the phone is on its way: its slot is not a missing answer
+    const pending = new Set(pendingSlotsOf(this.application.pendingPhotos));
+    if (result.ok || pending.size === 0) return result;
+    const errors = result.errors.filter(
+      (e) => !(e.code === 'validation.required' && pending.has(e.path)),
+    );
+    if (errors.length) return { ok: false, errors };
+    // only the waiting photos were missing: the answers pass as a draft's do, with the computed values
+    return validate(definition, answers, { ...options, draft: true });
   }
 }
 

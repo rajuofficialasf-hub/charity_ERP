@@ -1,4 +1,5 @@
 import express, { type Express, Router } from 'express';
+import { BATCH_ENVELOPE_BYTES, BATCH_MAX_BYTES } from '@css/shared/sync';
 import type { DestinationStream } from 'pino';
 import { requireAccess } from './auth/require-access';
 import type { Container } from './container';
@@ -41,6 +42,8 @@ export const API_PREFIX = 'api/v1';
 
 /** Bodies above this size are refused (NE-REQ-02); the sync batch route sets its own limit. */
 export const JSON_BODY_LIMIT = '100kb';
+/** The offline batch: the records' limit plus the margin for the envelope around them. */
+export const SYNC_BODY_LIMIT = BATCH_MAX_BYTES + BATCH_ENVELOPE_BYTES;
 
 export interface AppOptions {
   /** Test hook: where log lines go (default stdout). */
@@ -67,6 +70,9 @@ export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
   app.use(requestLogging(c.env, options.logStream));
   app.use(securityHeaders());
   app.use(corsAllowlist(c.env.CORS_ORIGINS));
+  // the offline batch alone may carry a megabyte of records (and its envelope); the parser skips a
+  // body already read, so the general limit below leaves it alone
+  app.use('/api/v1/sync/batch', express.json({ limit: SYNC_BODY_LIMIT }));
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
   // The request context opens after the body is read: body-parser continues from the socket's
   // events, which would leave an AsyncLocalStorage context opened earlier behind. Body-parser

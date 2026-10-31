@@ -60,6 +60,7 @@ import { type CommentReason, commentReasons } from './decision-rules';
 import type { Replayable } from '../services/uploads';
 import type { WorkflowEngine } from '../workflow/engine';
 import { type EngineApplication, GuardContext, GUARDS } from '../workflow/guards';
+import { pendingSlotsOf } from './pending-photos';
 import type { BuiltGuard } from '../workflow/registry';
 import { readActivities } from './activities';
 import { readChanges, readTimeline } from './history';
@@ -91,6 +92,11 @@ export interface ApplicationViewer {
   /** The route's scope: the applications the caller reaches, or the projects for a create. */
   scope: Scope;
   fieldClasses: ReadonlySet<string>;
+}
+
+/** What an offline record adds to a write: the photo slots the phone still holds. */
+export interface WriteOptions {
+  pendingPhotos?: string[];
 }
 
 /** What a read answers, with the version the next write carries back in If-Match. */
@@ -217,6 +223,7 @@ const ROW_SELECT = {
   stage: true,
   outcome: true,
   flags: true,
+  pendingPhotos: true,
   districtId: true,
   unionId: true,
   submittedAt: true,
@@ -280,6 +287,7 @@ export class ApplicationsService {
     viewer: ApplicationViewer,
     projectId: string,
     body: ApplicationCreate,
+    options: WriteOptions = {},
   ): Promise<Replayable<ApplicationRead>> {
     if (body.projectId !== projectId)
       throw new ApiError('validation.failed', 422, undefined, [
@@ -327,6 +335,7 @@ export class ApplicationsService {
           status: 'draft',
           zakatDecision: null,
           updatedAt: this.clock.now(),
+          pendingPhotos: options.pendingPhotos ?? [],
           project: { ...project, approval: null },
         });
         await assertUploadsOwn(tx, actor, null, person.answers);
@@ -346,6 +355,7 @@ export class ApplicationsService {
             unionId,
             clientUuid: body.clientUuid,
             clientCreatedAt: body.clientCreatedAt ? new Date(body.clientCreatedAt) : null,
+            pendingPhotos: options.pendingPhotos ?? [],
             createdBy: actor,
             updatedBy: actor,
           },
@@ -412,6 +422,7 @@ export class ApplicationsService {
     applicationId: string,
     body: ApplicationUpdate,
     ifMatch: string | undefined,
+    options: WriteOptions = {},
   ): Promise<ApplicationRead> {
     const actor = viewer.principal.userId;
     const access = await this.access.load(actor);
@@ -488,6 +499,7 @@ export class ApplicationsService {
             regionLocationId,
             districtId,
             unionId,
+            ...(options.pendingPhotos ? { pendingPhotos: options.pendingPhotos } : {}),
             updatedAt: now,
             updatedBy: actor,
           },
@@ -848,6 +860,7 @@ export class ApplicationsService {
       unionId: r.unionId,
       submittedAt: iso(r.submittedAt),
       waitingDays: Math.max(0, Math.floor((now.getTime() - r.updatedAt.getTime()) / DAY_MS)),
+      pendingPhotos: pendingSlotsOf(r.pendingPhotos).length,
       etag: etagOf(r.updatedAt),
     };
   }

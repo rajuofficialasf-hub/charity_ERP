@@ -137,6 +137,9 @@
     "locked_on_server": "The record is locked or approved on the server; the server value was kept."
   },
   "sync": {
+    "batch_in_progress": "This batch is still being processed. It will be tried again shortly.",
+    "dependency_failed": "An earlier record this one depends on failed.",
+    "target_unknown": "The record this change belongs to was not found on the server.",
     "batch_too_large": "Too much data was sent at once.",
     "deadline_passed": "The project deadline has passed.",
     "limit_exceeded": "Your application limit has been reached.",

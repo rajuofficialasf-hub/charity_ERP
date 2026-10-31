@@ -287,6 +287,14 @@ export class SessionService {
     throw new ApiError('auth.refresh_reused', 401);
   }
 
+  /** What the device still holds after a batch, for the sessions screens. */
+  async reportPending(tx: Tx, sessionId: string, count: number, now: Date): Promise<void> {
+    await tx.deviceSession.updateMany({
+      where: { id: sessionId, revokedAt: null },
+      data: { pendingCount: count, pendingReportedAt: now },
+    });
+  }
+
   /** Revokes one session (idempotent) and evicts it from the cache. */
   async revoke(tx: Tx, sessionId: string, by: RevokeBy): Promise<boolean> {
     // the device key goes with the session: a revoked phone recovers nothing

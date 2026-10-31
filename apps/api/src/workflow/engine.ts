@@ -33,6 +33,7 @@ const APPLICATION_SELECT = {
   status: true,
   zakatDecision: true,
   updatedAt: true,
+  pendingPhotos: true,
   project: {
     select: {
       status: true,

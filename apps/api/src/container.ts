@@ -27,6 +27,7 @@ import { AuthService } from './services/auth';
 import { RegistrationCleanup } from './jobs/registration-cleanup';
 import { LocalKeyCleanup } from './jobs/local-key-cleanup';
 import { SnapshotService } from './sync/snapshot';
+import { SyncService } from './sync/sync.service';
 import { UploadSweep } from './jobs/upload-sweep';
 import { StorageStats } from './jobs/storage-stats';
 import { FileProcessor } from './jobs/file-process';
@@ -197,6 +198,7 @@ export interface Container {
   projectRules: ProjectRulesService;
   myProjects: MyProjectsService;
   snapshot: SnapshotService;
+  sync: SyncService;
   projectVolunteers: ProjectVolunteersService;
   volunteerTeams: VolunteerTeamsService;
   templates: TemplatesService;
@@ -504,6 +506,19 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     myProjects,
     snapshot:
       o.snapshot ?? new SnapshotService(prisma, access, myProjects, applications, locations),
+    sync:
+      o.sync ??
+      new SyncService(
+        prisma,
+        access,
+        applications,
+        unlocks,
+        sessions,
+        idempotency,
+        audit,
+        clock,
+        logger,
+      ),
     projectVolunteers:
       o.projectVolunteers ??
       new ProjectVolunteersService(env, prisma, audit, access, projects, clock, projectEvents),

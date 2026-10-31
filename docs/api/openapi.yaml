@@ -3063,6 +3063,7 @@ components:
         unionId: { $ref: '#/components/schemas/Uuid' }
         submittedAt: { type: [string, 'null'], format: date-time }
         waitingDays: { type: [integer, 'null'], description: Days in the current state (UX-07 stuck approvals) }
+        pendingPhotos: { type: integer, minimum: 0, description: Photo slots an offline record still waits for; the office sees the record without them }
         etag: { type: string, description: "The version of the row, carried back by a bulk action's row as its If-Match" }
     Answer:
       type: object
@@ -3748,6 +3749,15 @@ components:
         serverId: { type: [string, 'null'], format: uuid }
         status: { type: [string, 'null'] }
         stage: { type: [string, 'null'] }
+        pendingPhotos: { type: integer, minimum: 0, description: Photo slots the server still waits for after this record (sync) }
+        conflict:
+          type: object
+          additionalProperties: false
+          required: [kept]
+          description: What the server kept when the record met a change made elsewhere (sync)
+          properties:
+            kept: { type: string, enum: [server, client] }
+            serverValue: { description: "The server's value of a locked field, only when the caller may see that field" }
     BulkResponse:
       type: object
       required: [data, meta]
@@ -4342,24 +4352,40 @@ components:
     # ---------------- sync ----------------
     SyncRecord:
       type: object
-      required: [clientUuid, kind, payload, clientCreatedAt]
+      additionalProperties: false
+      required: [clientUuid, kind, projectId, formVersionId, payload, clientCreatedAt, clientUpdatedAt]
+      description: "One offline write; the kinds of the other modules (activities, stock, expenses, vouchers, consent, edit requests, contact updates) join with those modules"
       properties:
         clientUuid: { $ref: '#/components/schemas/Uuid' }
-        kind: { type: string, enum: [application_draft, application_submit, application_update, field_update, activity, stock_receive, stock_reconcile, expense_claim, voucher_submit, consent_accept, edit_request, profile_contact_update] }
-        target: { type: [string, 'null'], format: uuid }
+        kind: { type: string, enum: [application_draft, application_update, application_submit, field_update] }
+        target:
+          anyOf:
+            - { type: string, format: uuid }
+            - { type: 'null' }
+          description: "The application or unlock the record acts on; absent for a new draft, which the dependency names"
         projectId: { $ref: '#/components/schemas/Uuid' }
         formVersionId: { $ref: '#/components/schemas/Uuid' }
-        templateVersion: { type: integer }
-        payload: { type: object, description: Validated with the shared schema of the record kind }
+        baseVersion:
+          anyOf:
+            - { type: string, maxLength: 64 }
+            - { type: 'null' }
+          description: "The ETag the edit started from; the current one is taken when absent"
+        payload:
+          type: object
+          propertyNames: { type: string }
+          additionalProperties: {}
+          description: "Validated by the service of the record kind: { answers } for a draft and an update (a photo still on the phone travels as { pendingPhoto: true, slot }), {} for a submit, { unlockId, value } for a field update"
         clientCreatedAt: { type: string, format: date-time }
         clientUpdatedAt: { type: string, format: date-time }
-        dependencies: { type: array, items: { $ref: '#/components/schemas/Uuid' } }
+        dependencies: { type: array, maxItems: 50, items: { $ref: '#/components/schemas/Uuid' }, description: "Client ids this record needs synced first; a failed one fails this record" }
     SyncBatchRequest:
       type: object
+      additionalProperties: false
       required: [deviceTime, records]
       properties:
-        deviceTime: { type: string, format: date-time }
+        deviceTime: { type: string, format: date-time, description: "The phone's clock, so the server can move the records' times onto its own" }
         records: { type: array, minItems: 1, maxItems: 50, items: { $ref: '#/components/schemas/SyncRecord' } }
+        pendingAfter: { type: integer, minimum: 0, maximum: 100000, description: "Records still waiting on the device after this batch, shown on the sessions screens" }
     SyncBatchResponse:
       type: object
       required: [data, meta]
@@ -10750,9 +10776,7 @@ paths:
     post:
       tags: [sync]
       operationId: sync.batch.submit
-      summary: >-
-        Submit up to 50 offline text records; each is processed through its normal service with the
-        originating user as actor; per-record results (OFFLINE_SYNC section 4)
+      summary: Submit up to 50 offline text records; each is processed through its normal service with the originating user as actor; per-record results
       x-permission: sync.batch
       x-scope: self
       x-audit: sync.batch
@@ -10775,10 +10799,12 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/SyncBatchResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
         '426': { $ref: '#/components/responses/UpgradeRequired' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
-        '503': { $ref: '#/components/responses/ServerError' }
   /locations/all:
     get:
       tags: [reference]

@@ -56,6 +56,11 @@ const envSchema = z
     FILE_SCANNER: z.enum(['skip']).default('skip'),
     /** The release shown on the system health page. */
     APP_VERSION: z.string().max(64).default('0.0.0-dev'),
+    /** The oldest PWA build the sync routes still accept; an older one is answered 426 (API_STANDARDS.md "Versioning"). */
+    MIN_CLIENT_VERSION: z
+      .string()
+      .regex(/^\d+\.\d+\.\d+$/)
+      .default('0.0.0'),
     /** Signs access tokens (D-070); JWT_PREVIOUS_SECRET is still accepted during a rotation. */
     JWT_SECRET: z.string().min(32),
     JWT_PREVIOUS_SECRET: z.string().min(32).optional(),

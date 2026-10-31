@@ -1744,6 +1744,8 @@ model Application {
   regionLocationId                String                @map("region_location_id") @db.Uuid
   districtId                      String                @map("district_id") @db.Uuid
   unionId                         String                @map("union_id") @db.Uuid
+  /// the photo slots an offline record still waits for; the upload for a slot fills the answer
+  pendingPhotos                   Json                  @default("[]") @map("pending_photos")
   clientUuid                      String?               @map("client_uuid") @db.Uuid
   clientCreatedAt                 DateTime?             @map("client_created_at") @db.Timestamptz(6)
   submittedAt                     DateTime?             @map("submitted_at") @db.Timestamptz(6)
