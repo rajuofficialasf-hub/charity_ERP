@@ -9,10 +9,11 @@ import {
 import { clearOfflineTables, type KeysRow, offlineDb } from './db';
 
 /**
- * The key ring of the phone's store (docs/architecture/OFFLINE_SYNC.md 7, D-139). The data key
- * opens every sealed row. It is kept wrapped under the session's device key (from the server,
- * memory only) and under the device-bound key of this browser, so the store opens on a cold
- * start too. The open data key lives in this module for the page's lifetime.
+ * The key ring of the phone's store (docs/architecture/OFFLINE_SYNC.md, local storage security).
+ * The data key opens every sealed row. It is kept wrapped under the session's device key (from
+ * the server, memory only) and under the device-bound key of this browser, so the store opens on
+ * a cold start too. The open data key lives in this module for the page's lifetime, and only one
+ * opener runs at a time, so two openers never make two rings.
  */
 
 /** What the sign-in brings for the store. */
@@ -40,15 +41,23 @@ const ROW_ID = 'current';
 
 let held: { sessionId: string; userId: string; dataKey: CryptoKey } | null = null;
 let notice: OfflineNotice | null = null;
+let opening: Promise<unknown> | null = null;
+
+/** Runs one opener after the one before it, whatever that one's outcome. */
+function oneAtATime<T>(work: () => Promise<T>): Promise<T> {
+  const next = (opening ?? Promise.resolve())
+    .catch(() => undefined)
+    .then(work)
+    .finally(() => {
+      if (opening === next) opening = null;
+    });
+  opening = next;
+  return next;
+}
 
 /** The open data key of this page, or null before a sign-in or a cold-start open. */
 export function currentDataKey(): CryptoKey | null {
   return held?.dataKey ?? null;
-}
-
-/** The user whose store is open, or null. */
-export function heldSession(): { sessionId: string; userId: string } | null {
-  return held ? { sessionId: held.sessionId, userId: held.userId } : null;
 }
 
 /** Forgets the open key; the wrapped copies stay in the store. */
@@ -69,8 +78,8 @@ export async function storedSessionId(): Promise<string | null> {
   return row?.sessionId ?? null;
 }
 
-/** Records not yet accepted by the server: what a wipe would lose. */
-export async function pendingCount(): Promise<number> {
+/** Records not yet accepted by the server: what a clear would lose. */
+async function pendingCount(): Promise<number> {
   return offlineDb().outbox.where('state').anyOf(['pending', 'syncing', 'failed']).count();
 }
 
@@ -115,18 +124,23 @@ export async function requestPersistence(): Promise<boolean> {
 
 async function newRing(session: SignedInSession): Promise<CryptoKey> {
   const raw = newKeyBytes();
-  const deviceBoundKey = await newDeviceBoundKey();
-  const serverKey = await importDeviceKey(session.deviceKey);
-  const row: KeysRow = {
+  const [deviceBoundKey, serverKey] = await Promise.all([
+    newDeviceBoundKey(),
+    importDeviceKey(session.deviceKey),
+  ]);
+  const [wrappedByServer, wrappedByDevice] = await Promise.all([
+    wrapKey(serverKey, raw),
+    wrapKey(deviceBoundKey, raw),
+  ]);
+  await offlineDb().keys.put({
     id: ROW_ID,
     sessionId: session.sessionId,
     userId: session.userId,
-    wrappedByServer: await wrapKey(serverKey, raw),
-    wrappedByDevice: await wrapKey(deviceBoundKey, raw),
+    wrappedByServer,
+    wrappedByDevice,
     deviceBoundKey,
     createdAt: new Date(),
-  };
-  await offlineDb().keys.put(row);
+  });
   const dataKey = await importDataKey(raw);
   held = { sessionId: session.sessionId, userId: session.userId, dataKey };
   return dataKey;
@@ -142,10 +156,9 @@ async function unwrapWith(
     attempts.push(async () =>
       unwrapKey(await importDeviceKey(session.deviceKey), row.wrappedByServer),
     );
-  if (session.previousDeviceKey)
-    attempts.push(async () =>
-      unwrapKey(await importDeviceKey(session.previousDeviceKey!), row.wrappedByServer),
-    );
+  const previous = session.previousDeviceKey;
+  if (previous)
+    attempts.push(async () => unwrapKey(await importDeviceKey(previous), row.wrappedByServer));
   attempts.push(() => unwrapKey(row.deviceBoundKey, row.wrappedByDevice));
   for (const attempt of attempts) {
     try {
@@ -157,54 +170,65 @@ async function unwrapWith(
   return null;
 }
 
+/** Notes what a clear loses, so the next login tells the server, then empties every table. */
+async function clearAfterCounting(): Promise<number> {
+  const count = await pendingCount();
+  if (count > 0) noteLostPending({ count, reason: 'unrecoverable' });
+  await clearOfflineTables();
+  return count;
+}
+
 /**
  * Opens the store's keys after a sign-in: a fresh ring on a clean device; the existing ring
  * re-wrapped under the new session's key when the session changed; another user's ring, or one
  * nothing opens, is cleared after its pending count is noted.
  */
-export async function afterSignIn(session: SignedInSession): Promise<CryptoKey> {
-  const db = offlineDb();
-  const row = await db.keys.get(ROW_ID);
-  if (!row) return newRing(session);
-  if (row.userId !== session.userId) {
-    await clearOfflineTables();
-    notice = { kind: 'cleared' };
-    return newRing(session);
-  }
-  const raw = await unwrapWith(row, session);
-  if (!raw) {
-    const count = await pendingCount();
-    if (count > 0) noteLostPending({ count, reason: 'unrecoverable' });
-    await clearOfflineTables();
-    notice = { kind: 'unrecoverable', count };
-    return newRing(session);
-  }
-  if (row.sessionId !== session.sessionId) {
-    const serverKey = await importDeviceKey(session.deviceKey);
-    await db.keys.update(ROW_ID, {
-      sessionId: session.sessionId,
-      wrappedByServer: await wrapKey(serverKey, raw),
-    });
-    const count = await pendingCount();
-    if (count > 0) notice = { kind: 'recovered', count };
-  }
-  const dataKey = await importDataKey(raw);
-  held = { sessionId: session.sessionId, userId: session.userId, dataKey };
-  return dataKey;
+export function afterSignIn(session: SignedInSession): Promise<CryptoKey> {
+  return oneAtATime(async () => {
+    const db = offlineDb();
+    const row = await db.keys.get(ROW_ID);
+    if (!row) return newRing(session);
+    if (row.userId !== session.userId) {
+      await clearAfterCounting();
+      notice = { kind: 'cleared' };
+      return newRing(session);
+    }
+    const raw = await unwrapWith(row, session);
+    if (!raw) {
+      const count = await clearAfterCounting();
+      notice = { kind: 'unrecoverable', count };
+      return newRing(session);
+    }
+    if (row.sessionId !== session.sessionId) {
+      const serverKey = await importDeviceKey(session.deviceKey);
+      await db.keys.update(ROW_ID, {
+        sessionId: session.sessionId,
+        wrappedByServer: await wrapKey(serverKey, raw),
+      });
+      const count = await pendingCount();
+      if (count > 0) notice = { kind: 'recovered', count };
+    }
+    const dataKey = await importDataKey(raw);
+    held = { sessionId: session.sessionId, userId: session.userId, dataKey };
+    return dataKey;
+  });
 }
 
 /**
  * Opens the store without the server, on a cold start offline: the device-bound key unwraps the
  * data key and the row says whose store it is. Null when this browser holds no ring.
  */
-export async function openOffline(): Promise<{ sessionId: string; userId: string } | null> {
-  const row = await offlineDb().keys.get(ROW_ID);
-  if (!row) return null;
-  try {
-    const raw = await unwrapKey(row.deviceBoundKey, row.wrappedByDevice);
-    held = { sessionId: row.sessionId, userId: row.userId, dataKey: await importDataKey(raw) };
-    return { sessionId: row.sessionId, userId: row.userId };
-  } catch {
-    return null;
-  }
+export function openOffline(): Promise<{ sessionId: string; userId: string } | null> {
+  return oneAtATime(async () => {
+    if (held) return { sessionId: held.sessionId, userId: held.userId };
+    const row = await offlineDb().keys.get(ROW_ID);
+    if (!row) return null;
+    try {
+      const raw = await unwrapKey(row.deviceBoundKey, row.wrappedByDevice);
+      held = { sessionId: row.sessionId, userId: row.userId, dataKey: await importDataKey(raw) };
+      return { sessionId: row.sessionId, userId: row.userId };
+    } catch {
+      return null;
+    }
+  });
 }

@@ -1,5 +1,6 @@
 /**
- * The cryptography of the phone's store (docs/architecture/OFFLINE_SYNC.md 7, D-139): AES-GCM
+ * The cryptography of the phone's store (docs/architecture/OFFLINE_SYNC.md, local storage
+ * security): AES-GCM
  * through WebCrypto. One data key seals every secret field with its own IV; the data key's raw
  * bytes are wrapped under the device key the server issues for the session and under a
  * device-bound key the browser holds, so the store opens with either. Nothing here touches

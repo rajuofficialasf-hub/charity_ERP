@@ -1,14 +1,7 @@
-import type { Bilingual } from '@css/shared/i18n';
+import type { LocationView } from '@css/shared';
 import type { PrismaService, Tx } from '../core/prisma.service';
 
-export interface LocationView {
-  id: string;
-  parentId: string | null;
-  level: string;
-  code: string;
-  name: Bilingual;
-  active: boolean;
-}
+export type { LocationView };
 
 const VIEW = {
   id: true,

@@ -173,18 +173,57 @@ describe('API client', () => {
     expect(currentDataKey()).toBeNull();
   });
 
-  it('keeps local data when the refresh token only expired (O-29)', async () => {
+  it('keeps local data, but forgets the open key, when the refresh token only expired (O-29)', async () => {
     const events: (string | undefined)[] = [];
+    server.use(
+      http.post('*/api/v1/auth/login', () =>
+        HttpResponse.json({ data: pair(ME, tokenOf(SESSION_A)), meta: {} }),
+      ),
+      http.post('*/api/v1/auth/refresh', () => apiError(401, 'auth.refresh_invalid', 'again')),
+    );
+    await login('a', 'b');
+    expect(currentDataKey()).not.toBeNull();
     onSessionChange((me, ended) => events.push(me ? 'in' : ended));
     window.sessionStorage.setItem('draft', 'x');
     await offlineDb().meta.put({ key: 'since', value: 'x' });
-    server.use(
-      http.post('*/api/v1/auth/refresh', () => apiError(401, 'auth.refresh_invalid', 'again')),
-    );
     expect(await refreshSession()).toBeNull();
     expect(window.sessionStorage.getItem('draft')).toBe('x');
     expect(await offlineDb().meta.get('since')).toEqual({ key: 'since', value: 'x' });
+    expect(currentDataKey()).toBeNull();
     expect(events).toEqual(['expired']);
+  });
+
+  it('opens the store keys on a refresh before it publishes the session', async () => {
+    let keyWhenPublished: CryptoKey | null | undefined;
+    onSessionChange((me) => {
+      if (me) keyWhenPublished = currentDataKey();
+    });
+    server.use(
+      http.post('*/api/v1/auth/refresh', () =>
+        HttpResponse.json({ data: pair(ME, tokenOf(SESSION_A)), meta: {} }),
+      ),
+    );
+    expect(await refreshSession()).not.toBeNull();
+    expect(keyWhenPublished).not.toBeNull();
+    expect(keyWhenPublished).toBeDefined();
+    expect(await storedSessionId()).toBe(SESSION_A);
+  });
+
+  it('signs in even when the store will not open', async () => {
+    const table = offlineDb().keys;
+    const broken = vi.spyOn(table, 'get').mockRejectedValue(new Error('store closed'));
+    try {
+      server.use(
+        http.post('*/api/v1/auth/login', () =>
+          HttpResponse.json({ data: pair(ME, tokenOf(SESSION_A)), meta: {} }),
+        ),
+      );
+      expect(await login('a', 'b')).toEqual(ME);
+      expect(currentMe()).toEqual(ME);
+      expect(currentDataKey()).toBeNull();
+    } finally {
+      broken.mockRestore();
+    }
   });
 
   it('sends the pending count with a logout that leaves records on the phone', async () => {

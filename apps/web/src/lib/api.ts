@@ -1,4 +1,6 @@
 import type { Me, TokenPair } from '@css/shared/auth';
+import { z } from 'zod';
+import { fromBase64Url } from '../offline/crypto';
 import { wipeLocalData } from './wipe';
 
 /**
@@ -83,15 +85,15 @@ function accept(pair: TokenPair): TokenPair {
   return pair;
 }
 
+const tokenClaims = z.object({ sid: z.string().optional() });
+
 /** The session id claim of the access token; null for a token this server did not sign. */
 function sessionIdOf(token: string): string | null {
   const part = token.split('.')[1];
   if (!part) return null;
   try {
-    const claims = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/'))) as {
-      sid?: unknown;
-    };
-    return typeof claims.sid === 'string' ? claims.sid : null;
+    const claims = tokenClaims.safeParse(JSON.parse(new TextDecoder().decode(fromBase64Url(part))));
+    return claims.success ? (claims.data.sid ?? null) : null;
   } catch {
     return null;
   }
@@ -100,9 +102,19 @@ function sessionIdOf(token: string): string | null {
 /** The phone's store, loaded only when a session needs it, so the login chunk stays small. */
 const offlineKeys = () => import('../offline/keys');
 
+/** A store that does not answer in time is treated as absent, so a sign-in never hangs on it. */
+const STORE_WAIT_MS = 2_000;
+function withinStoreWait<T>(work: Promise<T>): Promise<T | null> {
+  return Promise.race([
+    work,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), STORE_WAIT_MS)),
+  ]).catch(() => null);
+}
+
 /**
- * Opens the store's keys for the signed-in session (OFFLINE_SYNC.md 7). A store that will not
- * open never blocks the sign-in: the next flush reports what it cannot read.
+ * Opens the store's keys for the signed-in session (docs/architecture/OFFLINE_SYNC.md, local
+ * storage security). A store that will not open never blocks the sign-in: the next flush reports
+ * what it cannot read.
  */
 async function openStoreKeys(pair: TokenPair): Promise<void> {
   const sessionId = sessionIdOf(pair.accessToken);
@@ -193,9 +205,15 @@ async function refreshOnce(): Promise<TokenPair | null> {
     const { data } = (await res.json()) as { data: TokenPair };
     // A login or logout happened meanwhile; this token belongs to the session before it.
     if (state.generation !== started) return null;
-    accept(data);
-    void openStoreKeys(data);
-    return data;
+    // the ring opens before the session is published, so a flush that follows finds the key
+    await openStoreKeys(data);
+    if (state.generation !== started) {
+      await offlineKeys()
+        .then((keys) => keys.forgetKeys())
+        .catch(() => undefined);
+      return null;
+    }
+    return accept(data);
   }
   const error = await failure(res);
   // Same for a failure: it is about the session before the login or logout.
@@ -282,11 +300,12 @@ export async function api<T>(path: string, options: RequestOptions = {}, retry =
 /**
  * Logs in; the refresh and CSRF cookies are set by the response. The phone names the session its
  * store was keyed under, so the server can hand that key back, and tells of records it lost
- * before this login (OFFLINE_SYNC.md 7); the store's keys open once the sign-in is accepted.
+ * before this login (docs/architecture/OFFLINE_SYNC.md, local storage security); the store's
+ * keys open before the sign-in is published.
  */
 export async function login(loginId: string, password: string): Promise<Me> {
-  const keys = await offlineKeys().catch(() => null);
-  const recoverSessionId = (await keys?.storedSessionId().catch(() => null)) ?? undefined;
+  const keys = await withinStoreWait(offlineKeys());
+  const recoverSessionId = keys ? await withinStoreWait(keys.storedSessionId()) : null;
   const lostPending = keys?.peekLostPending();
   const pair = await api<TokenPair>(
     '/auth/login',
@@ -303,9 +322,9 @@ export async function login(loginId: string, password: string): Promise<Me> {
     false,
   );
   state.generation += 1;
-  accept(pair);
   keys?.clearLostPending();
   await openStoreKeys(pair);
+  accept(pair);
   void keys?.requestPersistence();
   return pair.me;
 }

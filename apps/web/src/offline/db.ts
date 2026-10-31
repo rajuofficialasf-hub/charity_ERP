@@ -1,9 +1,11 @@
 import Dexie, { type EntityTable } from 'dexie';
-import type { OutboxTracking } from '@css/shared/sync';
+import type { LocationView } from '@css/shared';
+import { type OutboxTracking, type SyncRecordKind } from '@css/shared/sync';
 import { openJson, type Sealed, sealJson } from './crypto';
 
 /**
- * The phone's store (docs/architecture/OFFLINE_SYNC.md 2 and 7, D-139): one IndexedDB database
+ * The phone's store (docs/architecture/OFFLINE_SYNC.md, what is cached on the device, and local
+ * storage security): one IndexedDB database
  * through Dexie. Every table that holds business data keeps its indexable columns in the clear
  * (ids, states, times, the project) and everything else sealed under the data key as one
  * `{ iv, data }` pair per row (`sealRow` and `openRow`). Locations, projects and the meta rows
@@ -15,9 +17,8 @@ export const OFFLINE_DB_NAME = 'css-offline';
 /** A row whose business fields are sealed: only its index columns are in the clear. */
 export type SealedRow = Sealed;
 
-/** The kinds of record the outbox carries, as `@css/shared/sync` names them. */
-export type OutboxKind =
-  'application_draft' | 'application_update' | 'application_submit' | 'field_update';
+/** The kinds of record the outbox carries, as the shared sync records name them. */
+export type OutboxKind = SyncRecordKind;
 
 /** One offline record: what the sync engine reads in the clear; the payload is sealed. */
 export interface OutboxRow extends SealedRow, OutboxTracking {
@@ -70,14 +71,7 @@ export interface FormRow extends SealedRow {
 }
 
 /** One row of the locations master, as `GET /locations/all` answers it. */
-export interface LocationRow {
-  id: string;
-  parentId: string | null;
-  level: string;
-  code: string;
-  name: { bn: string; en: string };
-  active: boolean;
-}
+export type LocationRow = LocationView;
 
 /** A named value of the store: the snapshot cursor, the locations version, the cached `me`. */
 export interface MetaRow {
@@ -134,6 +128,23 @@ export function offlineDb(): OfflineDb {
 export function closeOfflineDb(): void {
   instance?.close();
   instance = null;
+}
+
+const DELETE_WAIT_MS = 3_000;
+
+/**
+ * Deletes the database by its name after closing it. Another tab may still hold it open and
+ * block the delete; then the tables are emptied instead, so nothing sealed stays behind.
+ */
+export async function deleteOfflineDb(): Promise<void> {
+  closeOfflineDb();
+  const deleted = await Promise.race([
+    Dexie.delete(OFFLINE_DB_NAME).then(() => true),
+    new Promise<false>((resolve) => setTimeout(() => resolve(false), DELETE_WAIT_MS)),
+  ]).catch(() => false);
+  if (deleted) return;
+  await clearOfflineTables();
+  closeOfflineDb();
 }
 
 /** Empties every table, the keys included; the database itself stays for the next session. */

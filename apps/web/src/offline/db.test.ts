@@ -3,7 +3,15 @@ import 'fake-indexeddb/auto';
 import Dexie from 'dexie';
 import { afterEach, describe, expect, it } from 'vitest';
 import { importDataKey, newKeyBytes } from './crypto';
-import { closeOfflineDb, OFFLINE_DB_NAME, offlineDb, openRow, type OutboxRow, sealRow } from './db';
+import {
+  closeOfflineDb,
+  deleteOfflineDb,
+  OFFLINE_DB_NAME,
+  offlineDb,
+  openRow,
+  type OutboxRow,
+  sealRow,
+} from './db';
 
 afterEach(async () => {
   closeOfflineDb();
@@ -63,5 +71,11 @@ describe('the phone store', () => {
     expect(await offlineDb().meta.count()).toBe(0);
     expect(await offlineDb().locations.count()).toBe(0);
     expect(await Dexie.exists(OFFLINE_DB_NAME)).toBe(true);
+  });
+
+  it('deletes the database by its name, leaving nothing behind', async () => {
+    await offlineDb().meta.put({ key: 'since', value: '2026-10-31' });
+    await deleteOfflineDb();
+    expect(await Dexie.exists(OFFLINE_DB_NAME)).toBe(false);
   });
 });

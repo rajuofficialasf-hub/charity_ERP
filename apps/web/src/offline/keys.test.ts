@@ -22,6 +22,7 @@ const SESSION_A = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4b01';
 const SESSION_B = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4b02';
 const KEY_A = 'a'.repeat(43);
 const KEY_B = 'b'.repeat(43);
+const ANSWERS = { answers: [{ fieldKey: 'q_id', value: { t: 'short_text', v: '1234567890' } }] };
 
 const storage = new Map<string, string>();
 beforeEach(() => {
@@ -65,7 +66,7 @@ async function pendingRow(key: CryptoKey, clientUuid: string): Promise<OutboxRow
       createdAt: now,
       updatedAt: now,
     },
-    { answers: [{ fieldKey: 'q_id', value: { t: 'short_text', v: '1234567890' } }] },
+    ANSWERS,
   );
 }
 
@@ -88,7 +89,7 @@ describe('the key ring', () => {
     expect(await openOffline()).toEqual({ sessionId: SESSION_A, userId: USER });
     const reopened = currentDataKey()!;
     const stored = (await offlineDb().outbox.get('r1'))!;
-    expect(await openRow(reopened, stored)).toMatchObject({ answers: expect.any(Array) });
+    expect(await openRow(reopened, stored)).toEqual(ANSWERS);
   });
 
   it('re-keys the ring under a new session with the previous device key, and the rows still open', async () => {
@@ -106,14 +107,14 @@ describe('the key ring', () => {
       previousDeviceKey: KEY_A,
     });
     expect(await storedSessionId()).toBe(SESSION_B);
-    expect(await openRow(again, (await offlineDb().outbox.get('r1'))!)).toMatchObject({
-      answers: expect.any(Array),
-    });
+    expect(await openRow(again, (await offlineDb().outbox.get('r1'))!)).toEqual(ANSWERS);
     expect(takeOfflineNotice()).toEqual({ kind: 'recovered', count: 1 });
     // the next sign-in of the same session opens with its own key alone
     forgetKeys();
     await afterSignIn({ sessionId: SESSION_B, userId: USER, deviceKey: KEY_B });
-    expect(await openRow(currentDataKey()!, (await offlineDb().outbox.get('r1'))!)).toBeTruthy();
+    expect(await openRow(currentDataKey()!, (await offlineDb().outbox.get('r1'))!)).toEqual(
+      ANSWERS,
+    );
   });
 
   it('notes the lost records and clears the ring when nothing opens it', async () => {
@@ -131,15 +132,31 @@ describe('the key ring', () => {
     expect(await storedSessionId()).toBe(SESSION_B);
   });
 
-  it('clears another user’s ring and tables and says only that, without a count', async () => {
+  it('clears another user’s ring and tables, notes what they lose, and tells the next person only that', async () => {
     const key = await afterSignIn({ sessionId: SESSION_A, userId: OTHER_USER, deviceKey: KEY_A });
     await offlineDb().outbox.put(await pendingRow(key, 'r1'));
     forgetKeys();
     await afterSignIn({ sessionId: SESSION_B, userId: USER, deviceKey: KEY_B });
     expect(takeOfflineNotice()).toEqual({ kind: 'cleared' });
-    expect(peekLostPending()).toBeUndefined();
+    expect(peekLostPending()).toEqual({ count: 1, reason: 'unrecoverable' });
     expect(await offlineDb().outbox.count()).toBe(0);
     expect((await offlineDb().keys.get('current'))?.userId).toBe(USER);
+  });
+
+  it('lets two openers at once share one ring', async () => {
+    const [key, offline] = await Promise.all([
+      afterSignIn({ sessionId: SESSION_A, userId: USER, deviceKey: KEY_A }),
+      openOffline(),
+    ]);
+    expect(offline).toEqual({ sessionId: SESSION_A, userId: USER });
+    expect(await offlineDb().keys.count()).toBe(1);
+    const row = (await offlineDb().keys.get('current'))!;
+    await offlineDb().outbox.put(await pendingRow(key, 'r1'));
+    forgetKeys();
+    expect(await openOffline()).toEqual({ sessionId: row.sessionId, userId: USER });
+    expect(await openRow(currentDataKey()!, (await offlineDb().outbox.get('r1'))!)).toEqual(
+      ANSWERS,
+    );
   });
 
   it('keeps a lost-pending note until it is cleared, and ignores a broken one', () => {
