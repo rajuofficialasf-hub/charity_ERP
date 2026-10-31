@@ -1,5 +1,4 @@
 import type { Me, TokenPair } from '@css/shared/auth';
-import { z } from 'zod';
 import { fromBase64Url } from '../offline/crypto';
 import { wipeLocalData } from './wipe';
 
@@ -85,15 +84,15 @@ function accept(pair: TokenPair): TokenPair {
   return pair;
 }
 
-const tokenClaims = z.object({ sid: z.string().optional() });
-
 /** The session id claim of the access token; null for a token this server did not sign. */
 function sessionIdOf(token: string): string | null {
   const part = token.split('.')[1];
   if (!part) return null;
   try {
-    const claims = tokenClaims.safeParse(JSON.parse(new TextDecoder().decode(fromBase64Url(part))));
-    return claims.success ? (claims.data.sid ?? null) : null;
+    // read by hand: a schema library here would land in the login chunk for one field
+    const claims: unknown = JSON.parse(new TextDecoder().decode(fromBase64Url(part)));
+    if (typeof claims !== 'object' || claims === null || !('sid' in claims)) return null;
+    return typeof claims.sid === 'string' ? claims.sid : null;
   } catch {
     return null;
   }
