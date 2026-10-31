@@ -19,9 +19,10 @@ void loadMessages(readLocale()).then(render, render);
 // the browser's install prompt fires early; it is kept for the moment the person asks
 watchInstall();
 
-// The service worker precaches the build and the fonts (ADR-013, OFFLINE_SYNC.md). Registered in
-// production builds only, so development always serves fresh files. A new version waits until
-// the person asks for the reload (UpdateReady), so a form in progress is never swapped out.
+// The service worker precaches the build and the fonts (docs/architecture/OFFLINE_SYNC.md, the
+// app shell and the service worker). Registered in production builds only, so development
+// always serves fresh files. A new version waits until the person asks for the reload
+// (UpdateReady), so a form in progress is never swapped out.
 if (import.meta.env.PROD) {
   void import('virtual:serwist').then(async ({ getSerwist }) => {
     const serwist = await getSerwist();

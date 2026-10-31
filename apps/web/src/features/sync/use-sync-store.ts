@@ -123,9 +123,10 @@ export function useSyncReminder(): {
             const now = new Date();
             const due = await reminders.dueReminder(now);
             if (!due || !alive) return;
-            await reminders.markReminderShown(now);
             const days = Math.max(1, Math.floor((now.getTime() - due.oldestAt.getTime()) / DAY_MS));
-            if (alive) setReminder({ ...due, days });
+            setReminder({ ...due, days });
+            // counted as shown only once it is on the screen
+            await reminders.markReminderShown(now);
           } catch {
             // the store is not open for this session
           }

@@ -192,7 +192,8 @@ describe('the sync centre', () => {
     await user.click(within(failed).getByRole('button', { name: 'আবার পাঠান' }));
     await waitFor(() => expect(posted).toContain(FAILED), { timeout: 5000 });
     await waitFor(() => expect(screen.queryByRole('region', { name: /পাঠানো যায়নি/ })).toBeNull());
-    expect((await offlineDb().outbox.get(FAILED))?.state).toBe('synced');
+    // the record leaves the refused group as soon as it is on its way; the answer follows
+    await waitFor(async () => expect((await offlineDb().outbox.get(FAILED))?.state).toBe('synced'));
   });
 
   it('asks before dropping a draft of the phone’s own, then removes it with its photos', async () => {

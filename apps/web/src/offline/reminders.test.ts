@@ -5,7 +5,7 @@ import Dexie from 'dexie';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { closeOfflineDb, OFFLINE_DB_NAME } from './db';
 import { afterSignIn, forgetKeys } from './keys';
-import { apply, enqueue } from './outbox';
+import { apply, applyResult, enqueue } from './outbox';
 import { dueReminder, markReminderShown } from './reminders';
 
 if (!globalThis.crypto?.subtle)
@@ -56,7 +56,6 @@ describe('the pending reminder', () => {
   it('stops when the record went', async () => {
     const row = await draft(T0);
     await apply([row.clientUuid], { type: 'flush', at: at(1) });
-    const { applyResult } = await import('./outbox');
     await applyResult({ clientUuid: row.clientUuid, result: 'synced', serverId: 'srv' }, at(1));
     expect(await dueReminder(at(30))).toBeNull();
   });

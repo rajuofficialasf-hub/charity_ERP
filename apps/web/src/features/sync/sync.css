@@ -1,4 +1,4 @@
-/* The sync chip of the app bar and the sync centre (docs/ui/SCREENS.md, SCR-005). Tokens only. */
+/* The sync chip of the app bar and the sync centre (docs/ui/SCREENS.md, "Sync status and outbox"). Tokens only. */
 .sync-chip {
   position: relative;
   display: inline-flex;

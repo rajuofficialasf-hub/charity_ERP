@@ -271,19 +271,21 @@ export class SyncEngine {
       );
     } finally {
       await this.scheduleRetry();
-      await this.askBackgroundSync();
+      // not awaited: the flush must end whatever the worker's state
+      void this.askBackgroundSync();
     }
   }
 
   /**
    * Asks the browser for a one-shot sync while records wait, where it offers one (Android
    * Chrome); the worker then wakes an open window to flush. Elsewhere, and always on an iPhone,
-   * the foreground triggers are the whole mechanism.
+   * the foreground triggers are the whole mechanism. The registration is read, never awaited
+   * through `ready`, which settles only once a worker is active (never in a development build).
    */
   private async askBackgroundSync(): Promise<void> {
     try {
       if (!currentDataKey() || (await waitingCount()) === 0) return;
-      const registration = await navigator.serviceWorker?.ready;
+      const registration = await navigator.serviceWorker?.getRegistration();
       const sync = (registration as { sync?: { register(tag: string): Promise<void> } } | undefined)
         ?.sync;
       await sync?.register(BACKGROUND_SYNC_TAG);

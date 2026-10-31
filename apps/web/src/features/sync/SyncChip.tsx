@@ -8,7 +8,7 @@ import { useOffline } from '../../offline/OfflineProvider';
 import './sync.css';
 
 /**
- * The sync chip of the app bar (docs/ui/SCREENS.md, SCR-005): a volunteer's count of records
+ * The sync chip of the app bar (docs/ui/SCREENS.md, "Sync status and outbox"): a volunteer's count of records
  * still on this phone, red when some could not be sent; a tap opens the sync centre. Officials
  * keep nothing on the phone and see no chip.
  */

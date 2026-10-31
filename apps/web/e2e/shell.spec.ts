@@ -63,17 +63,20 @@ test.describe('app shell', () => {
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
     await context.setOffline(true);
-    await page.reload();
-    await expect(page.getByRole('heading', { level: 1, name: /^স্বাগতম, / })).toBeVisible({
-      timeout: 15_000,
-    });
-    await expect(page.getByText(/আপনি অফলাইনে আছেন/)).toBeVisible();
-    expect(
-      await page.evaluate(
-        () => document.fonts.check('16px UbuntuSans') && document.fonts.check('16px Bornomala'),
-      ),
-    ).toBe(true);
-    await context.setOffline(false);
+    try {
+      await page.reload();
+      await expect(page.getByRole('heading', { level: 1, name: /^স্বাগতম, / })).toBeVisible({
+        timeout: 15_000,
+      });
+      await expect(page.getByText(/আপনি অফলাইনে আছেন/)).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => document.fonts.check('16px UbuntuSans') && document.fonts.check('16px Bornomala'),
+        ),
+      ).toBe(true);
+    } finally {
+      await context.setOffline(false);
+    }
   });
 
   test('the offline banner shows while the browser has no connection', async ({

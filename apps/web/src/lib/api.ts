@@ -197,6 +197,67 @@ async function signInOffline(): Promise<boolean> {
   return true;
 }
 
+/** The note of a logout the server never heard of (the network was away): finished at the next refresh. */
+const LOGOUT_PENDING_KEY = 'css_logout_pending';
+
+function noteLogoutPending(pendingCount: number | undefined): void {
+  try {
+    window.localStorage.setItem(LOGOUT_PENDING_KEY, JSON.stringify({ pendingCount }));
+  } catch {
+    // storage may be unavailable in a private window; the refresh cookie then lives on until it expires
+  }
+}
+
+function pendingLogout(): { pendingCount?: number } | null {
+  try {
+    const raw = window.localStorage.getItem(LOGOUT_PENDING_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { pendingCount?: unknown };
+    return typeof parsed.pendingCount === 'number' ? { pendingCount: parsed.pendingCount } : {};
+  } catch {
+    return null;
+  }
+}
+
+function clearLogoutPending(): void {
+  try {
+    window.localStorage.removeItem(LOGOUT_PENDING_KEY);
+  } catch {
+    // nothing to clear
+  }
+}
+
+/**
+ * Finishes a logout the network cut short (AUTH.md 8): the device was wiped, but the server
+ * session and the refresh cookie lived on, and a refresh would have signed the next person in.
+ * The cookie buys one token, which revokes the session; the person stays signed out either way.
+ */
+async function finishLogout(
+  attempt: () => Promise<Response>,
+  note: { pendingCount?: number },
+): Promise<void> {
+  const res = await attempt();
+  if (res.status >= 400 && res.status < 500) {
+    // the session is gone or the cookie no longer opens it: nothing left to revoke
+    clearLogoutPending();
+    return;
+  }
+  if (!res.ok) return;
+  const { data } = (await res.json()) as { data: TokenPair };
+  const done = await fetch(`${BASE}/auth/logout`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      Authorization: `Bearer ${data.accessToken}`,
+      'Content-Type': 'application/json',
+      'X-Client-Version': APP_VERSION,
+      'Accept-Language': language(),
+    },
+    body: JSON.stringify(note.pendingCount === undefined ? {} : note),
+  });
+  if (done.ok || done.status === 401) clearLogoutPending();
+}
+
 async function refreshOnce(): Promise<TokenPair | null> {
   // Without the CSRF cookie there is no session on this device: nothing to ask the server.
   if (!readCookie('css_csrf')) return null;
@@ -211,6 +272,11 @@ async function refreshOnce(): Promise<TokenPair | null> {
         'Accept-Language': language(),
       },
     });
+  const unfinished = pendingLogout();
+  if (unfinished) {
+    await finishLogout(attempt, unfinished);
+    return null;
+  }
   let res: Response;
   try {
     res = await attempt();
@@ -370,6 +436,10 @@ export async function logout(pendingCount?: number): Promise<void> {
       method: 'POST',
       ...(pendingCount === undefined ? {} : { body: { pendingCount } }),
     });
+  } catch (error) {
+    // the server never heard of the logout: the next refresh finishes it instead of signing in
+    noteLogoutPending(pendingCount);
+    throw error;
   } finally {
     state.generation += 1;
     await endSession('logout');
@@ -413,6 +483,7 @@ export function deviceInfo(): {
 
 /** Test hook: forget the in-memory session. */
 export function resetClientForTests(): void {
+  clearLogoutPending();
   state.accessToken = null;
   state.deviceKey = null;
   state.me = null;

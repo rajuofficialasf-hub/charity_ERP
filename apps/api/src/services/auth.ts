@@ -337,6 +337,9 @@ export class AuthService {
   /** Ends the session; a logout that leaves records unsent on the device is on record too. */
   async logout(principal: Principal, pendingCount = 0): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
+      // what the device leaves behind, on the row the device lists show; before the revocation
+      if (pendingCount > 0)
+        await this.sessions.reportPending(tx, principal.sessionId, pendingCount, this.clock.now());
       await this.sessions.revoke(tx, principal.sessionId, {
         by: principal.userId,
         reason: 'logout',

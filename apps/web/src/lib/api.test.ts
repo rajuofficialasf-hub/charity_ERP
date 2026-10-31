@@ -259,6 +259,35 @@ describe('API client', () => {
     expect(refreshes).toBe(1);
   });
 
+  it('finishes a logout the network cut short at the next refresh, instead of signing in again', async () => {
+    server.use(
+      http.post('*/api/v1/auth/login', () => HttpResponse.json({ data: pair(), meta: {} })),
+      http.post('*/api/v1/auth/logout', () => HttpResponse.error()),
+    );
+    await login('a', 'b');
+    await expect(logout(3)).rejects.toThrow();
+    expect(currentMe()).toBeNull();
+    // the network is back: the refresh cookie buys one token, which revokes the session
+    let logoutBody: unknown = null;
+    let refreshes = 0;
+    server.use(
+      http.post('*/api/v1/auth/refresh', () => {
+        refreshes += 1;
+        return HttpResponse.json({ data: pair(), meta: {} });
+      }),
+      http.post('*/api/v1/auth/logout', async ({ request }) => {
+        logoutBody = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    expect(await refreshSession()).toBeNull();
+    expect(currentMe()).toBeNull();
+    expect(logoutBody).toEqual({ pendingCount: 3 });
+    // once finished, a later refresh is an ordinary one again
+    expect(await refreshSession()).not.toBeNull();
+    expect(refreshes).toBe(2);
+  });
+
   it('stays signed out without network when this device holds no store', async () => {
     server.use(http.post('*/api/v1/auth/refresh', () => HttpResponse.error()));
     await expect(refreshSession()).rejects.toThrow();

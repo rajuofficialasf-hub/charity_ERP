@@ -634,6 +634,12 @@ describe('the device key of a session', () => {
     const volunteer = await account(h.db, { kind: 'volunteer' });
     const s = await login(h, volunteer);
     await post('/auth/logout').set(bearer(s)).send({ pendingCount: 2 }).expect(204);
+    const row = await h.db.query<{ pending_count: number | null; revoked_at: Date | null }>(
+      'SELECT pending_count, revoked_at FROM device_sessions WHERE user_id = $1',
+      [volunteer.id],
+    );
+    expect(row.rows[0]).toMatchObject({ pending_count: 2 });
+    expect(row.rows[0]!.revoked_at).not.toBeNull();
     await post('/auth/login')
       .send({
         loginId: volunteer.mobile,

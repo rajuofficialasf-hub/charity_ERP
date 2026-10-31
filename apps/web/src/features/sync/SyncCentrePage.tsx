@@ -31,7 +31,7 @@ function groupOf(record: OverviewRecord): Group | null {
 const GROUPS: Group[] = ['failed', 'waiting', 'verifying', 'photos'];
 
 /**
- * The sync centre at `/sync` (docs/ui/SCREENS.md, SCR-005): what waits on this phone, what the
+ * The sync centre at `/sync` (docs/ui/SCREENS.md, "Sync status and outbox"): what waits on this phone, what the
  * office refused and why, the photos and their room, the last sync, and the actions on each
  * record; an empty state when everything has gone.
  */

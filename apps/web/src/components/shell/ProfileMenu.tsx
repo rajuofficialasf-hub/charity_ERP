@@ -33,14 +33,15 @@ export function ProfileMenu({ me, withLanguage }: { me: Me; withLanguage: boolea
   const { locale, choose } = useChooseLanguage();
   const other = locale === 'bn' ? 'en' : 'bn';
   const [warning, setWarning] = useState<number | null>(null);
-  /** Ends the session; offline, the records lost are noted for the next login to report. */
+  /** Ends the session; when the server could not be told, the records lost are noted for the next login to report. */
   const finish = async (count?: number) => {
-    if (count && !navigator.onLine)
-      await import('../../offline/keys')
-        .then((keys) => keys.noteLostPending({ count, reason: 'logout' }))
-        .catch(() => undefined);
     // the device is wiped even when the server cannot be told (logout rethrows then)
-    await logout(count).catch(() => undefined);
+    await logout(count).catch(async () => {
+      if (count)
+        await import('../../offline/keys')
+          .then((keys) => keys.noteLostPending({ count, reason: 'logout' }))
+          .catch(() => undefined);
+    });
     await navigate('/login?ended=logout', { replace: true });
   };
   const items: MenuAction[] = [

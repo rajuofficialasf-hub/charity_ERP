@@ -2,6 +2,7 @@ import { uuidv7 } from '@css/shared';
 import Dexie from 'dexie';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { BACKGROUND_SYNC_TAG } from '@css/shared/sync';
 import { apiError, ME, pair } from '../../test/auth';
 import { EMPTY_SNAPSHOT } from '../../test/msw/handlers';
 import { server } from '../../test/msw/server';
@@ -246,7 +247,11 @@ describe('the sync engine', () => {
   it('asks the browser for a background sync while a record waits, and not once all went', async () => {
     const register = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'serviceWorker', {
-      value: { ready: Promise.resolve({ sync: { register } }) },
+      // `ready` never settles without an active worker (a development build): the flush must not wait on it
+      value: {
+        ready: new Promise(() => undefined),
+        getRegistration: () => Promise.resolve({ sync: { register } }),
+      },
       configurable: true,
     });
     try {
@@ -255,7 +260,7 @@ describe('the sync engine', () => {
       const engine = new SyncEngine(world.deps);
       await draft(T0);
       await engine.flush('manual');
-      expect(register).toHaveBeenCalledWith('outbox');
+      await vi.waitFor(() => expect(register).toHaveBeenCalledWith(BACKGROUND_SYNC_TAG));
       register.mockClear();
       // past its retry wait the record goes; with nothing left waiting no sync is asked for
       server.use(acceptAll([]));

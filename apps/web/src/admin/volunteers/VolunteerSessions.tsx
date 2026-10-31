@@ -68,7 +68,7 @@ export function VolunteerSessions({ userId, canRevoke }: { userId: string; canRe
               <span className="admin-muted">
                 {t('last_seen', { date: formatDateTime(s.lastSeenAt, locale) })}
               </span>
-              {pendingOf(s, 'pending') && (
+              {pendingOf(s, 'pending') !== null && (
                 <span className="admin-muted">{pendingOf(s, 'pending')}</span>
               )}
               {canRevoke && (

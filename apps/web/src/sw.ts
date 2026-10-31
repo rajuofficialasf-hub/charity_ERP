@@ -9,8 +9,8 @@ import {
 } from 'serwist';
 
 /**
- * The service worker (docs/architecture/OFFLINE_SYNC.md, the app shell and the service worker;
- * ADR-013): the build output and the fonts are precached, so the installed app opens without
+ * The service worker (docs/architecture/OFFLINE_SYNC.md, the app shell and the service worker):
+ * the build output and the fonts are precached, so the installed app opens without
  * network at any of its addresses; the API is never cached (the outbox is the offline write
  * path, and private data stays on the server); a new version waits until the person asks for
  * the reload; a Background Sync wakes an open window, since the worker holds no key.
