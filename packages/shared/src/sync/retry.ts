@@ -20,7 +20,8 @@ export function nextRetryAt(
 ): Date {
   if (retryAfterSeconds !== undefined) return new Date(now.getTime() + retryAfterSeconds * 1_000);
   const index = Math.min(Math.max(attempt, 1), RETRY_DELAYS_MS.length) - 1;
-  const base = RETRY_DELAYS_MS.at(index) ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
+  // the ladder is a fixed tuple, so its last step is always there
+  const base = RETRY_DELAYS_MS.at(index) ?? RETRY_DELAYS_MS[3];
   const spread = base * RETRY_JITTER * (random() * 2 - 1);
   return new Date(now.getTime() + Math.round(base + spread));
 }
