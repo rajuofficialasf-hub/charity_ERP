@@ -1,6 +1,6 @@
 /**
- * The values of offline synchronisation the owner decided (docs/DECISION_LOG.md, the offline
- * synchronisation and mobile storage decision of 2026-10-10, and docs/architecture/OFFLINE_SYNC.md
+ * The values of offline synchronisation the owner decided (docs/DECISION_LOG.md, the row
+ * "Offline synchronization and mobile storage" of 2026-10-10, and docs/architecture/OFFLINE_SYNC.md
  * "Values decided"). Changing one is a decision, not a setting: nothing here is editable in the app.
  */
 

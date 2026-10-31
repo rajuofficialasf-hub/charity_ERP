@@ -1,4 +1,5 @@
 import { toEnglishDigits } from '../digits.js';
+import { normalizeText } from '../i18n/bilingual.js';
 
 /** Punctuation and symbols a typed name may carry that the profile's spelling does not. */
 const PUNCTUATION = /[\p{P}\p{S}]+/gu;
@@ -8,7 +9,7 @@ const PUNCTUATION = /[\p{P}\p{S}]+/gu;
  * Unicode-composed, lower-cased, English digits, punctuation dropped, one space between words.
  */
 export function normalizeName(value: string): string {
-  return toEnglishDigits(value.normalize('NFC'))
+  return toEnglishDigits(normalizeText(value))
     .toLowerCase()
     .replace(PUNCTUATION, ' ')
     .replace(/\s+/gu, ' ')

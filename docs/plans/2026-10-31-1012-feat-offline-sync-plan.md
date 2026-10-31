@@ -338,8 +338,8 @@ None blocking. R47 depends on the owner's phones; the checklist is written in th
 
 ## Progress
 - **Branch:** `feat/offline-sync`
-- **Updated:** 2026-10-31 10:45
-- **Next:** checkpoint C1 on U1, then U2 (the device key): write the auth integration tests first
+- **Updated:** 2026-10-31 11:05
+- **Next:** U2 (the device key): write the auth integration tests first
 - **Uncommitted:** none
-- **Reviewed through:** none yet
-- **Notes:** D-139 must be appended to `docs/DECISION_LOG.md` in U1 before any code; CI runs only on pull requests and `main` (D-138), so every unit's tests run locally.
+- **Reviewed through:** C1 at the commit after U1 (see git log, `fix(sync): the review of the shared sync module`)
+- **Notes:** CI runs only on pull requests and `main` (D-138), so every unit's tests run locally. C1 taught: the state machine needs an `interrupted` event (a killed app leaves rows in `syncing`), `retry_now` after `retry_exhausted` restarts the seven days, a 409 `sync.batch_in_progress` is transient by code (`isTransientResponse`), and the pending-photo count is its own result field (`pendingPhotos`) beside the result, not a result value; Retry-After is followed only when finite, non-negative and at most an hour. The row result schema in `openapi.yaml` must carry `pendingPhotos` and `conflict` (U4).

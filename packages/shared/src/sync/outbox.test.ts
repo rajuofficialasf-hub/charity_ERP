@@ -54,15 +54,34 @@ describe('an outbox record', () => {
     expect(next.verificationReason).toBe('existing_identity');
   });
 
-  it('keeps a record with photos still to upload as synced and remembers that', () => {
-    const next = transition(record('syncing'), {
+  it('remembers the photos still to upload beside any result', () => {
+    const synced = transition(record('syncing'), {
       type: 'result',
       at: NOW,
-      result: 'pending_photos',
+      result: 'synced',
       serverId: 'app-3',
+      pendingPhotos: 2,
     });
-    expect(next.state).toBe('synced');
-    expect(next.photosPending).toBe(true);
+    expect(synced.state).toBe('synced');
+    expect(synced.photosPending).toBe(true);
+    const verifying = transition(record('syncing'), {
+      type: 'result',
+      at: NOW,
+      result: 'needs_verification',
+      serverId: 'app-4',
+      code: 'existing_identity',
+      pendingPhotos: 1,
+    });
+    expect(verifying.photosPending).toBe(true);
+    expect(verifying.verificationReason).toBe('existing_identity');
+  });
+
+  it('waits again, with its attempts kept, when the app closed while it was on its way', () => {
+    const inFlight = transition(record('pending', { attempts: 2 }), { type: 'flush', at: NOW });
+    const next = transition(inFlight, { type: 'interrupted', at: NOW });
+    expect(next.state).toBe('pending');
+    expect(next.attempts).toBe(3);
+    expect(next.nextRetryAt).toBeNull();
   });
 
   it('fails for good on a permanent refusal and sets no retry', () => {
@@ -125,12 +144,25 @@ describe('an outbox record', () => {
   });
 
   it('lets the person retry a failed record at once', () => {
-    const next = transition(record('failed', { failureCode: 'retry_exhausted' }), {
+    const next = transition(record('failed', { failureCode: 'limit_exceeded', attempts: 2 }), {
       type: 'retry_now',
       at: NOW,
     });
     expect(next.state).toBe('pending');
     expect(next.nextRetryAt).toBeNull();
+    expect(next.attempts).toBe(2);
+  });
+
+  it('starts the seven days again when the person retries a record that gave up', () => {
+    const longAgo = new Date(NOW.getTime() - 9 * DAY);
+    const retried = transition(
+      record('failed', { failureCode: 'retry_exhausted', attempts: 40, firstAttemptAt: longAgo }),
+      { type: 'retry_now', at: NOW },
+    );
+    const sent = transition(retried, { type: 'flush', at: NOW });
+    const hiccup = transition(sent, { type: 'transient', at: NOW, status: 503, random: () => 0.5 });
+    expect(hiccup.state).toBe('pending');
+    expect(hiccup.nextRetryAt).toEqual(new Date(NOW.getTime() + 30_000));
   });
 
   it('refuses a result for a record that is not syncing', () => {

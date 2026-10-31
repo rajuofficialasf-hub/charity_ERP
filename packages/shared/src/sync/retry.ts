@@ -2,10 +2,21 @@ import { RETRY_DELAYS_MS, RETRY_GIVE_UP_DAYS, RETRY_JITTER } from './constants.j
 
 const DAY_MS = 24 * 60 * 60_000;
 
+/** The server is still working on a batch the phone sent before; it says when to ask again. */
+export const BATCH_IN_PROGRESS = 'sync.batch_in_progress';
+
 /** A status worth sending again: no answer at all, a timeout, a busy or a failing server. */
 export function isTransientStatus(status: number): boolean {
   return status === 0 || status === 408 || status === 429 || status >= 500;
 }
+
+/** A transient answer by status and code: a batch still in progress is one too. */
+export function isTransientResponse(status: number, code?: string | null): boolean {
+  return isTransientStatus(status) || (status === 409 && code === BATCH_IN_PROGRESS);
+}
+
+/** The longest a server's Retry-After is followed; beyond it the ladder decides. */
+export const RETRY_AFTER_MAX_SECONDS = 3_600;
 
 /**
  * When to try again after the given attempt (1 for the first retry). The server's `Retry-After`
@@ -18,7 +29,13 @@ export function nextRetryAt(
   retryAfterSeconds?: number,
   random: () => number = Math.random,
 ): Date {
-  if (retryAfterSeconds !== undefined) return new Date(now.getTime() + retryAfterSeconds * 1_000);
+  if (
+    retryAfterSeconds !== undefined &&
+    Number.isFinite(retryAfterSeconds) &&
+    retryAfterSeconds >= 0 &&
+    retryAfterSeconds <= RETRY_AFTER_MAX_SECONDS
+  )
+    return new Date(now.getTime() + retryAfterSeconds * 1_000);
   const index = Math.min(Math.max(attempt, 1), RETRY_DELAYS_MS.length) - 1;
   // the ladder is a fixed tuple, so its last step is always there
   const base = RETRY_DELAYS_MS.at(index) ?? RETRY_DELAYS_MS[3];

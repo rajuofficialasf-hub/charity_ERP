@@ -4,9 +4,9 @@ import { BATCH_MAX_RECORDS } from './constants.js';
 import { SYNC_RESULTS } from './outbox.js';
 
 /**
- * The records a phone sends in a batch and what the server answers for each
- * (docs/architecture/OFFLINE_SYNC.md "Batch sync endpoint"). This task carries the application's
- * work only; the other kinds of the design join with the modules that need them.
+ * The kinds a phone may send in a batch and the answer for each
+ * (docs/architecture/OFFLINE_SYNC.md "Batch sync endpoint"); each kind's payload is checked by
+ * the service that handles it.
  */
 export const SYNC_RECORD_KINDS = [
   'application_draft',
@@ -56,6 +56,8 @@ export const rowResultSchema = z.strictObject({
   code: z.string().nullable().optional(),
   serverId: z.uuid().nullable().optional(),
   status: z.string().nullable().optional(),
+  /** Photo slots the server still waits for after this record. */
+  pendingPhotos: z.number().int().min(0).optional(),
   conflict: syncConflictSchema.optional(),
 });
 export type RowResult = z.infer<typeof rowResultSchema>;

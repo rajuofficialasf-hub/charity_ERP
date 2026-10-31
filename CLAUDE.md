@@ -36,7 +36,9 @@ ERP for the Charity & Social Service Department of As-Sunnah Foundation. The pro
 
 (ST-40…ST-45 of the organization's standard; one line per piece with its reason. Changing a line is a decision: DECISION_LOG first.)
 
-- Frontend: React 19 + Vite 8 single-page PWA, React Router 8, TanStack Query 5, use-intl, Serwist (ST-01; D-073, ADR-013); Dexie 4 (Apache-2.0) for the phone's IndexedDB tables of the offline store (outbox, photo queue, cached data set; constitution §9, D-052, D-139) with fake-indexeddb as its test double (dev only) — officials and volunteers on phones and desktop, offline-first (constitution §9). Drag and drop: `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities` (MIT), only in the form builder's lazy chunk, always with a keyboard alternative (D-122).
+- Frontend: React 19 + Vite 8 single-page PWA, React Router 8, TanStack Query 5, use-intl, Serwist (ST-01; D-073, ADR-013) — officials and volunteers on phones and desktop, offline-first (constitution §9). Drag and drop: `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities` (MIT), only in the form builder's lazy chunk, always with a keyboard alternative (D-122).
+- Offline store: Dexie 4 (Apache-2.0) for the phone's IndexedDB tables (outbox, photo queue, cached data set), named by the constitution §9 and D-052, decided in D-139 — typed, versioned schemas over IndexedDB without hand-written request plumbing.
+- Offline store tests: fake-indexeddb (dev only, D-139) — Vitest has no IndexedDB of its own.
 - Backend: Node.js 24 LTS + Express 5 + TypeScript, plain modules wired by `createContainer`, `defineRoute` registry with the OpenAPI drift test (ST-02; D-074, ADR-014) — the organization's standard; the contract and audit enforcement of the constitution are kept.
 - Database: PostgreSQL 17 through Prisma 7, every migration with a hand-written `down.sql` (ST-03; ADR-003; this file wins over the standard's DB-MIG-05 per constitution §9).
 - Authentication: own implementation of AUTH.md (Argon2id, JWT access token in memory, rotating refresh cookie, device sessions, OTP, lockout); auth-core later when its login pack and source exist (ST-04 deviation recorded in D-074 §4).

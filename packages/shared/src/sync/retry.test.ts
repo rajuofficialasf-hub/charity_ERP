@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { RETRY_DELAYS_MS, RETRY_GIVE_UP_DAYS, RETRY_JITTER } from './constants';
 import {
+  BATCH_IN_PROGRESS,
   clockOffsetMs,
   correctedTime,
+  isTransientResponse,
   isTransientStatus,
   nextRetryAt,
   retryExhausted,
@@ -37,6 +39,14 @@ describe('the retry ladder', () => {
     expect(at.getTime() - NOW.getTime()).toBe(900_000);
   });
 
+  it('ignores a Retry-After that is not a number, negative or longer than an hour', () => {
+    for (const bad of [Number.NaN, -5, 7 * 3_600]) {
+      const at = nextRetryAt(1, NOW, bad, () => 0.5);
+      expect(at.getTime() - NOW.getTime()).toBe(30_000);
+    }
+    expect(nextRetryAt(1, NOW, 0, () => 0.5).getTime()).toBe(NOW.getTime());
+  });
+
   it('gives up after seven days of trying, counted from the first attempt', () => {
     const first = NOW;
     const sixDays = new Date(NOW.getTime() + 6 * 24 * HOUR);
@@ -51,6 +61,12 @@ describe('the retry ladder', () => {
       expect(isTransientStatus(status), String(status)).toBe(true);
     for (const status of [400, 401, 403, 404, 409, 413, 422, 426])
       expect(isTransientStatus(status), String(status)).toBe(false);
+  });
+
+  it('treats a batch the server is still working on as transient, other conflicts as final', () => {
+    expect(isTransientResponse(409, BATCH_IN_PROGRESS)).toBe(true);
+    expect(isTransientResponse(409, 'application.not_editable')).toBe(false);
+    expect(isTransientResponse(503, null)).toBe(true);
   });
 });
 

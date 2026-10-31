@@ -3,8 +3,10 @@ import { BATCH_MAX_RECORDS } from './constants';
 import {
   isPendingPhoto,
   pendingPhotoAnswer,
+  photoSlot,
   rowResultSchema,
   syncBatchRequestSchema,
+  syncBatchResponseSchema,
   syncRecordSchema,
 } from './records';
 
@@ -20,7 +22,7 @@ const base = {
 };
 
 describe('a sync record', () => {
-  it('takes the four kinds of this task and refuses an unknown one', () => {
+  it('accepts the application kinds and refuses an unknown one', () => {
     for (const kind of [
       'application_draft',
       'application_update',
@@ -104,13 +106,34 @@ describe('a row result', () => {
     });
     expect(parsed.conflict?.kept).toBe('server');
     expect(rowResultSchema.safeParse({ clientUuid: UUID, result: 'done' }).success).toBe(false);
+    expect(
+      rowResultSchema.parse({ clientUuid: UUID, result: 'synced', pendingPhotos: 2 }).pendingPhotos,
+    ).toBe(2);
+  });
+});
+
+describe('a batch answer', () => {
+  it('holds the server time and one result per record, and refuses an unknown outcome', () => {
+    const parsed = syncBatchResponseSchema.parse({
+      serverTime: base.clientCreatedAt,
+      results: [{ clientUuid: UUID, result: 'synced', serverId: UUID }],
+    });
+    expect(parsed.results).toHaveLength(1);
+    expect(
+      syncBatchResponseSchema.safeParse({
+        serverTime: base.clientCreatedAt,
+        results: [{ clientUuid: UUID, result: 'done' }],
+      }).success,
+    ).toBe(false);
   });
 });
 
 describe('a photo that waits on the phone', () => {
-  it('is a marked answer the server recognises', () => {
+  it('is a marked answer the server recognises, keyed by its field and row', () => {
     const answer = pendingPhotoAnswer('house_photo', 0);
     expect(isPendingPhoto(answer.value)).toBe(true);
+    expect(photoSlot('house_photo', 2)).toBe('house_photo#2');
+    expect(pendingPhotoAnswer('house_photo', 2).value.slot).toBe('house_photo#2');
     expect(isPendingPhoto('file-id')).toBe(false);
     expect(isPendingPhoto({ pendingPhoto: false })).toBe(false);
   });

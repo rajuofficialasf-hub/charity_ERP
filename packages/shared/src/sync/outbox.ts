@@ -7,8 +7,8 @@ const DAY_MS = 24 * 60 * 60_000;
 export const OUTBOX_STATES = ['pending', 'syncing', 'synced', 'failed'] as const;
 export type OutboxState = (typeof OUTBOX_STATES)[number];
 
-/** What the server answers for one record. */
-export const SYNC_RESULTS = ['synced', 'needs_verification', 'pending_photos', 'failed'] as const;
+/** What the server answers for one record; photos still to come are a count beside it. */
+export const SYNC_RESULTS = ['synced', 'needs_verification', 'failed'] as const;
 export type SyncResult = (typeof SYNC_RESULTS)[number];
 
 /** The reason of a record that gave up retrying. */
@@ -35,7 +35,10 @@ export type OutboxEvent =
       result: SyncResult;
       serverId?: string | null;
       code?: string | null;
+      /** Photo slots of the record the server still waits for. */
+      pendingPhotos?: number;
     }
+  | { type: 'interrupted'; at: Date }
   | {
       type: 'transient';
       at: Date;
@@ -78,9 +81,13 @@ export function transition<T extends OutboxTracking>(record: T, event: OutboxEve
         serverId: event.serverId ?? record.serverId ?? null,
         syncedAt: event.at,
         verificationReason: event.result === 'needs_verification' ? (event.code ?? null) : null,
-        photosPending: event.result === 'pending_photos',
+        photosPending: (event.pendingPhotos ?? 0) > 0,
       };
     }
+    case 'interrupted':
+      // the app closed with the batch in flight: the record waits again, its attempts kept
+      expectState(record, event, ['syncing']);
+      return { ...record, state: 'pending', nextRetryAt: null };
     case 'transient': {
       expectState(record, event, ['syncing']);
       const first = record.firstAttemptAt ?? event.at;
@@ -104,9 +111,19 @@ export function transition<T extends OutboxTracking>(record: T, event: OutboxEve
         nextRetryAt: null,
         failureCode: null,
       };
-    case 'retry_now':
+    case 'retry_now': {
       expectState(record, event, ['pending', 'failed']);
-      return { ...record, state: 'pending', nextRetryAt: null, failureCode: null };
+      // a person's retry after the seven days starts the window again
+      const exhausted = record.failureCode === RETRY_EXHAUSTED;
+      return {
+        ...record,
+        state: 'pending',
+        nextRetryAt: null,
+        failureCode: null,
+        attempts: exhausted ? 0 : record.attempts,
+        firstAttemptAt: exhausted ? null : record.firstAttemptAt,
+      };
+    }
   }
 }
 
