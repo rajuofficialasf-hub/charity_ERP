@@ -66,6 +66,6 @@ Tests name the rule they prove: `it('BR-097 score recomputed on answer change', 
 
 ## Pushing
 
-Claude pushes finished work on its task branch (never with force) and, when the GitHub Actions run of that push is green, fast-forwards the branch into `main` and pushes `main` (O-60); a red run stops the merge. CI (`.github/workflows/ci.yml`) runs lint, typecheck, document checks, tests, build, the dependency audit and the secret scan on every push, and E2E on `main`. Phase gates are tagged `gate-phase-N` after the owner's sign-off.
+Claude pushes finished work on its task branch (never with force) and, when the GitHub Actions run of that push is green, fast-forwards the branch into `main` and pushes `main` (O-60); a red run stops the merge. CI (`.github/workflows/ci.yml`) runs lint, typecheck, document checks, tests, build, the dependency audit and the secret scan on every pull request and every push to `main`, and E2E on `main`; a push to another branch runs nothing (D-138). When GitHub Actions cannot start a job for the account (the free minutes are used up or billing blocks it), the same checks run on the owner's machine, their results go into a comment on the pull request, and the merge follows only if they all pass (D-138). Phase gates are tagged `gate-phase-N` after the owner's sign-off.
 
 The endpoint recipe above was written with the API backbone in task T1.6, rewritten for the Express port in task T1.7d (ADR-014) and extended with scopes and the field mask in task T1.8.

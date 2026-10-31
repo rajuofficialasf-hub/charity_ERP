@@ -1,13 +1,15 @@
 # CI for the CSS ERP on GitHub Actions (O-51; stages from TEST_STRATEGY section 6).
-# Every push and pull request: install, lint, typecheck, document checks, unit and API tests
-# against PostgreSQL 17, build, dependency audit and secret scan. Pushes to main also run E2E.
+# Every pull request and every push to main: install, lint, typecheck, document checks, unit and
+# API tests against PostgreSQL 17, build, dependency audit and secret scan. Pushes to main also run
+# E2E. A push to any other branch runs nothing, so a branch with a pull request runs once per push
+# and the free monthly minutes of a private repository last (D-138).
 # Nightly runs (full E2E on WebKit, visual regression) are added when those suites exist.
 
 name: CI
 
 on:
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
 
 permissions:

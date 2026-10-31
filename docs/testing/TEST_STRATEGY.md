@@ -186,7 +186,7 @@ CI runs on GitHub Actions (O-51), in `.github/workflows/ci.yml`. The pipeline fa
 
 | When | Stages, in order |
 |---|---|
-| Every push and pull request | 1. Install with the frozen lockfile. 2. Lint (including the i18n literal-text rule) and typecheck. 3. i18n catalogue check (I18N §4). 4. Unit and component tests with axe. 5. Integration and API tests, including the authorization matrix, every response validated by the contract recorder. 6. Contract: drift test, Redocly lint, and `contract:coverage --no-run` (every registered operation answered its success status in a test). 7. Migrations up, down, up. 8. Build. 9. E2E smoke subset with axe. 10. `pnpm audit` and gitleaks |
+| Every pull request and every push to `main` (D-138; a push to another branch runs nothing; when Actions cannot start a job, the same stages run on the owner's machine before the merge) | 1. Install with the frozen lockfile. 2. Lint (including the i18n literal-text rule) and typecheck. 3. i18n catalogue check (I18N §4). 4. Unit and component tests with axe. 5. Integration and API tests, including the authorization matrix, every response validated by the contract recorder. 6. Contract: drift test, Redocly lint, and `contract:coverage --no-run` (every registered operation answered its success status in a test). 7. Migrations up, down, up. 8. Build. 9. E2E smoke subset with axe. 10. `pnpm audit` and gitleaks |
 | Nightly and before every gate | Full E2E on Chromium and WebKit, visual regression, full axe in both languages, bundle-size check against NFR-15, OWASP ZAP baseline against staging (from Phase 3) |
 | Before a field rollout | k6 load test (§3.5) |
 | After every deployment | Smoke tests (§3.12) |
