@@ -65,7 +65,8 @@ export const pair = (me: Me = ME, accessToken = 'access-1'): TokenPair => ({
   accessToken,
   expiresAt: '2026-10-11T10:15:00.000Z',
   me,
-  deviceKey: 'dGVzdC1kZXZpY2Uta2V5LXRlc3QtZGV2aWNlLWtleS0x',
+  // a stand-in of the right length, never a real key
+  deviceKey: 'k'.repeat(43),
 });
 
 /** API error body as the server sends it. */

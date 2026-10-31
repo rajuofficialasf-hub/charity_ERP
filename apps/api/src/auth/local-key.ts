@@ -32,7 +32,9 @@ export function sealLocalKey(
   secret: string,
 ): Uint8Array<ArrayBuffer> {
   const iv = randomBytes(IV_BYTES);
-  const cipher = createCipheriv('aes-256-gcm', sealingKey(secret), iv);
+  const cipher = createCipheriv('aes-256-gcm', sealingKey(secret), iv, {
+    authTagLength: TAG_BYTES,
+  });
   cipher.setAAD(Buffer.from(sessionId));
   const sealed = Buffer.concat([cipher.update(key), cipher.final()]);
   const out = new Uint8Array(new ArrayBuffer(IV_BYTES + TAG_BYTES + sealed.length));
@@ -58,7 +60,9 @@ export function openLocalKey(
   const body = sealed.subarray(IV_BYTES + TAG_BYTES);
   for (const secret of secrets) {
     try {
-      const decipher = createDecipheriv('aes-256-gcm', sealingKey(secret), iv);
+      const decipher = createDecipheriv('aes-256-gcm', sealingKey(secret), iv, {
+        authTagLength: TAG_BYTES,
+      });
       decipher.setAAD(Buffer.from(sessionId));
       decipher.setAuthTag(tag);
       return Buffer.concat([decipher.update(body), decipher.final()]);

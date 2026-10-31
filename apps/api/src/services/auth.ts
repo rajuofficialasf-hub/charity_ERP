@@ -176,6 +176,8 @@ export class AuthService {
         ? await this.hasher.hash(input.password)
         : undefined;
     const session = await this.prisma.$transaction(async (tx) => {
+      // before the new session, so the device limit never evicts the one being recovered
+      const previousKey = await this.recoverOutbox(tx, user.id, input);
       await tx.user.update({
         where: { id: user.id },
         data: {
@@ -203,7 +205,6 @@ export class AuthService {
           appVersion: input.device?.appVersion ?? null,
         },
       });
-      const previousKey = await this.recoverOutbox(tx, user.id, input);
       return { ...created, previousKey };
     });
     return this.issue(
@@ -217,9 +218,10 @@ export class AuthService {
   }
 
   /**
-   * The outbox the phone kept under an earlier session (OFFLINE_SYNC.md "Local storage security"):
-   * its key comes back once when that session merely ended; otherwise, and when the phone says
-   * what it lost, the count is audited so the loss is on record, never silent.
+   * The outbox the phone kept under an earlier session (docs/architecture/OFFLINE_SYNC.md "Local
+   * storage security"): its key comes back when that session merely ended, and the phone's report
+   * of what it lost is audited so the loss is on record, never silent. The counts are the phone's
+   * own claim; a session id the caller does not own is never written as the audit's entity.
    */
   private async recoverOutbox(
     tx: Tx,
@@ -227,34 +229,45 @@ export class AuthService {
     input: LoginRequest,
   ): Promise<string | undefined> {
     const { recoverSessionId, lostPending } = input;
+    const recovered = recoverSessionId
+      ? await this.sessions.recoverKey(tx, recoverSessionId, userId)
+      : null;
+    const own =
+      recovered && recovered.key === null && ['unknown', 'foreign'].includes(recovered.reason)
+        ? null
+        : (recoverSessionId ?? null);
     if (lostPending?.reason === 'logout')
       await this.audit.record(tx, {
         action: 'auth.logout_with_pending',
         entityType: 'device_session',
-        entityId: recoverSessionId ?? null,
+        entityId: own,
         actorUserId: userId,
-        new: { count: lostPending.count },
+        new: { count: lostPending.count, claimed: true },
       });
-    if (!recoverSessionId && lostPending?.reason !== 'unrecoverable') return undefined;
-    const key = recoverSessionId
-      ? await this.sessions.recoverKey(tx, recoverSessionId, userId)
-      : null;
-    if (key) {
+    if (recovered?.key) {
       await this.audit.record(tx, {
         action: 'auth.outbox_recovered',
         entityType: 'device_session',
-        entityId: recoverSessionId ?? null,
+        entityId: own,
         actorUserId: userId,
       });
-      return key;
+      return recovered.key;
     }
-    if (lostPending?.reason !== 'logout')
+    const lostOnServer =
+      recovered !== null &&
+      recovered.key === null &&
+      ['gone', 'unopenable', 'revoked'].includes(recovered.reason);
+    if (lostPending?.reason === 'unrecoverable' || lostOnServer)
       await this.audit.record(tx, {
         action: 'sync.outbox_unrecoverable',
         entityType: 'device_session',
-        entityId: recoverSessionId ?? null,
+        entityId: own,
         actorUserId: userId,
-        new: { count: lostPending?.count ?? 0 },
+        new: {
+          count: lostPending?.count ?? 0,
+          claimed: true,
+          ...(recovered && recovered.key === null ? { reason: recovered.reason } : {}),
+        },
       });
     return undefined;
   }

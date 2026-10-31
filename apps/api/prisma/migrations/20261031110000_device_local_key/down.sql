@@ -8,4 +8,5 @@ CREATE TRIGGER device_sessions_status_log BEFORE UPDATE OR DELETE ON "device_ses
 ALTER TABLE "device_sessions" DROP CONSTRAINT IF EXISTS "device_sessions_pending_count_check";
 ALTER TABLE "device_sessions" DROP COLUMN IF EXISTS "pending_reported_at";
 ALTER TABLE "device_sessions" DROP COLUMN IF EXISTS "pending_count";
+ALTER TABLE "device_sessions" DROP COLUMN IF EXISTS "local_key_recovered_at";
 ALTER TABLE "device_sessions" DROP COLUMN IF EXISTS "local_key";

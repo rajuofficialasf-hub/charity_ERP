@@ -473,9 +473,11 @@ describe('the device key of a session', () => {
     expect(Buffer.from(row.rows[0].local_key).toString('base64url')).not.toContain(deviceKey);
   });
 
-  it('is handed back once after the session expired, to the same user on the same device', async () => {
+  it('is handed back after the session expired, to the same user, and again for a short while', async () => {
     const volunteer = await account(h.db, { kind: 'volunteer' });
+    // the oldest of five sessions: the sixth login would evict it, which must not cost the key
     const old = await login(h, volunteer);
+    for (let i = 0; i < 4; i += 1) await login(h, volunteer);
     const oldKey = old.body.deviceKey as string;
     const oldSession = sessionIdOf(old);
     h.clock.advance(31 * 24 * 3_600_000);
@@ -487,7 +489,14 @@ describe('the device key of a session', () => {
     expect(await auditRows(h.db, 'auth.outbox_recovered')).toEqual(
       expect.arrayContaining([expect.objectContaining({ entity_id: oldSession })]),
     );
-    const twice = await post('/auth/login')
+    // the answer was lost on the network: the same ask within the grace is answered again
+    h.clock.advance(5 * 60_000);
+    const lost = await post('/auth/login')
+      .send({ loginId: volunteer.mobile, password: PASSWORD, recoverSessionId: oldSession })
+      .expect(200);
+    expect(lost.body.data.previousDeviceKey).toBe(oldKey);
+    h.clock.advance(20 * 60_000);
+    const late = await post('/auth/login')
       .send({
         loginId: volunteer.mobile,
         password: PASSWORD,
@@ -495,15 +504,84 @@ describe('the device key of a session', () => {
         lostPending: { count: 3, reason: 'unrecoverable' },
       })
       .expect(200);
-    expect(twice.body.data.previousDeviceKey).toBeUndefined();
+    expect(late.body.data.previousDeviceKey).toBeUndefined();
     expect(await auditRows(h.db, 'sync.outbox_unrecoverable')).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           entity_id: oldSession,
-          new: expect.objectContaining({ count: 3 }),
+          new: expect.objectContaining({ count: 3, reason: 'gone' }),
         }),
       ]),
     );
+  });
+
+  it('keeps the key of an ended session for thirty days, then the nightly cleanup drops it', async () => {
+    const volunteer = await account(h.db, { kind: 'volunteer' });
+    const kept = await login(h, volunteer);
+    h.clock.advance(2 * 24 * 3_600_000);
+    const dropped = await login(h, volunteer);
+    // the first session ended 31 days after its last refresh, the second 29 days after
+    h.clock.advance(59 * 24 * 3_600_000);
+    await h.container.localKeyCleanup.run();
+    const keyOf = async (s: Session) =>
+      (await h.db.query('SELECT local_key FROM device_sessions WHERE id = $1', [sessionIdOf(s)]))
+        .rows[0].local_key as Buffer | null;
+    expect(await keyOf(kept)).toBeNull();
+    expect(await keyOf(dropped)).not.toBeNull();
+    const late = await post('/auth/login')
+      .send({ loginId: volunteer.mobile, password: PASSWORD, recoverSessionId: sessionIdOf(kept) })
+      .expect(200);
+    expect(late.body.data.previousDeviceKey).toBeUndefined();
+    const inTime = await post('/auth/login')
+      .send({
+        loginId: volunteer.mobile,
+        password: PASSWORD,
+        recoverSessionId: sessionIdOf(dropped),
+      })
+      .expect(200);
+    expect(inTime.body.data.previousDeviceKey).toBe(dropped.body.deviceKey);
+    // a key handed back is dropped a day later
+    h.clock.advance(25 * 3_600_000);
+    await h.container.localKeyCleanup.run();
+    expect(await keyOf(dropped)).toBeNull();
+  });
+
+  it('replaces a sealed key no secret opens at the next refresh, and puts the loss on record', async () => {
+    const volunteer = await account(h.db, { kind: 'volunteer' });
+    const s = await login(h, volunteer);
+    const sid = sessionIdOf(s);
+    await h.db.query('UPDATE device_sessions SET local_key = $1 WHERE id = $2', [
+      Buffer.alloc(60, 7),
+      sid,
+    ]);
+    const refreshed = await post('/auth/refresh')
+      .set('Cookie', s.cookieHeader)
+      .set('X-CSRF-Token', s.csrf)
+      .expect(200);
+    expect(refreshed.body.data.deviceKey).not.toBe(s.body.deviceKey);
+    expect(await auditRows(h.db, 'sync.outbox_unrecoverable')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          entity_id: sid,
+          new: expect.objectContaining({ reason: 'seal_unopenable' }),
+        }),
+      ]),
+    );
+  });
+
+  it('refuses malformed recovery and pending fields with 422', async () => {
+    const volunteer = await account(h.db, { kind: 'volunteer' });
+    for (const body of [
+      { recoverSessionId: 'not-a-uuid' },
+      { lostPending: { count: 100_001, reason: 'logout' } },
+      { lostPending: { count: 1, reason: 'stolen' } },
+    ])
+      await post('/auth/login')
+        .send({ loginId: volunteer.mobile, password: PASSWORD, ...body })
+        .expect(422);
+    const s = await login(h, volunteer);
+    await post('/auth/logout').set(bearer(s)).send({ pendingCount: 100_001 }).expect(422);
+    await post('/auth/logout').set(bearer(s)).send({ pendingCount: 'two' }).expect(422);
   });
 
   it('is never handed back for a live, a revoked, another user’s or a long-expired session', async () => {
@@ -529,9 +607,15 @@ describe('the device key of a session', () => {
         loginId: volunteer.mobile,
         password: PASSWORD,
         recoverSessionId: sessionIdOf(strangers),
+        lostPending: { count: 9, reason: 'unrecoverable' },
       })
       .expect(200);
     expect(theft.body.data.previousDeviceKey).toBeUndefined();
+    const unrecoverable = await auditRows(h.db, 'sync.outbox_unrecoverable');
+    // a stranger's session id never becomes the entity of the caller's audit rows, and a live
+    // session's key stays, so nothing is recorded as lost for it
+    expect(unrecoverable.filter((r) => r.entity_id === sessionIdOf(strangers))).toEqual([]);
+    expect(unrecoverable.filter((r) => r.entity_id === sessionIdOf(live))).toEqual([]);
 
     const forgotten = await login(h, volunteer);
     h.clock.advance(61 * 24 * 3_600_000);

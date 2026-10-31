@@ -430,6 +430,8 @@ model DeviceSession {
   idleTimeout                    Boolean            @default(false) @map("idle_timeout")
   /// the device key sealed under the server's secret; dropped on logout, revocation and after thirty days
   localKey                       Bytes?             @map("local_key")
+  /// when the key was first handed back after the session ended; asked again only for a short while
+  localKeyRecoveredAt            DateTime?          @map("local_key_recovered_at") @db.Timestamptz(6)
   /// records the device reported as still waiting, and when
   pendingCount                   Int?               @map("pending_count")
   pendingReportedAt              DateTime?          @map("pending_reported_at") @db.Timestamptz(6)

@@ -64,7 +64,8 @@ const envSchema = z
     /** HMAC key of OTP code and address hashes (AUTH.md 2, D-070). */
     OTP_SECRET: z.string().min(32),
     /**
-     * Seals the device keys of sessions in the database (AUTH.md 5); LOCAL_KEY_PREVIOUS_SECRET is
+     * Seals the device keys of sessions in the database (docs/architecture/AUTH.md "Tokens and
+     * device sessions"); LOCAL_KEY_PREVIOUS_SECRET is
      * still accepted during a rotation, and a row is re-sealed under the current one at its next
      * refresh.
      */
