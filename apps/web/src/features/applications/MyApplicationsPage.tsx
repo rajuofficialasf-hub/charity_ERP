@@ -66,7 +66,13 @@ function Lists() {
         onChange={(id) => setParams({ tab: id })}
         items={lists.map(({ id, query }) => {
           const own = id === 'draft' ? local.drafts : [];
-          const rows = query.data ? [...own, ...query.data.data] : undefined;
+          // the phone's own drafts show even when the server's list could not be read and the
+          // phone holds no data set yet (a first application taken offline)
+          const rows = query.data
+            ? [...own, ...query.data.data]
+            : query.error && own.length
+              ? own
+              : undefined;
           const total = query.data?.meta.total;
           return {
             id,
@@ -76,7 +82,7 @@ function Lists() {
               <List
                 rows={rows}
                 pending={query.isPending}
-                error={query.error}
+                error={rows ? undefined : query.error}
                 retry={() => void query.refetch()}
                 nameOf={(projectId) => names.get(projectId) ?? null}
                 syncOf={(row) => ('sync' in row ? row.sync : local.syncOf.get(row.id))}

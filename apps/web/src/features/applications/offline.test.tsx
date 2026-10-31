@@ -291,6 +291,41 @@ describe('applications without network', () => {
     expect(within(list).getByText('নমুনা উপকারভোগী')).toBeInTheDocument();
   });
 
+  it('lists the phone’s drafts when the server cannot be read and the phone holds no data set yet', async () => {
+    refreshAs(VOLUNTEER);
+    await afterSignIn({ sessionId: TEST_SESSION_ID, userId: ME.id, deviceKey: 'k'.repeat(43) });
+    // the first sign-in's data set carried the project and the form, no application yet
+    await applySnapshot({ ...view, applications: [], applicationIds: [] }, new Date());
+    onLine = false;
+    const store = await import('../../offline/applications-store');
+    // with a photo still on the phone, whose answer is the pending slot
+    const photoId = await (
+      await import('../../offline/photo-queue')
+    ).add({
+      clientUuid: LOCAL,
+      slot: 'house_photo',
+      blob: new Blob([new Uint8Array(64)], { type: 'image/jpeg' }),
+      facts: { name: 'h.jpg', mime: 'image/jpeg', source: 'camera' },
+    });
+    await store.saveDraft({
+      projectId: PROJECT,
+      formVersionId: VERSION,
+      clientUuid: LOCAL,
+      answers: [
+        ...answers('প্রথম খসড়া', ''),
+        { fieldKey: 'house_photo', repeatIndex: 0, value: { t: 'photo', v: [photoId] } },
+      ],
+    });
+    renderApp(<MyApplicationsPage />, 'bn', {
+      path: '/my-applications',
+      initialPath: '/my-applications?tab=draft',
+    });
+    const list = await screen.findByRole('list', {}, { timeout: 5000 });
+    expect(await within(list).findByText('প্রথম খসড়া', {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(within(list).getByText('পাঠানোর অপেক্ষায়')).toBeInTheDocument();
+    expect(screen.queryByText('আবেদনের তালিকা আনা যায়নি। আবার চেষ্টা করুন।')).toBeNull();
+  });
+
   it('opens a record the phone holds and takes a correction into the outbox offline', async () => {
     const user = userEvent.setup();
     refreshAs(VOLUNTEER);

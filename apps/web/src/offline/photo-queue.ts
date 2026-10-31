@@ -195,6 +195,30 @@ export async function markPending(answers: Answer[]): Promise<Answer[]> {
   });
 }
 
+/** Once a record's last photo went up, the record no longer waits for photos (its badge goes). */
+async function settleRecord(clientUuid: string): Promise<void> {
+  const db = offlineDb();
+  const waiting = await db.photos
+    .where('clientUuid')
+    .equals(clientUuid)
+    .filter((p) => p.state !== 'uploaded')
+    .count();
+  if (waiting) return;
+  const record = await db.outbox.get(clientUuid);
+  const serverId = record?.serverId ?? clientUuid;
+  // the record's own row and the rows aimed at the same application (its send, its edits);
+  // each written whole, as every sealed row is
+  const related = (await db.outbox.toArray()).filter(
+    (r) =>
+      r.photosPending &&
+      (r.clientUuid === clientUuid ||
+        r.serverId === serverId ||
+        r.target === serverId ||
+        r.target === clientUuid),
+  );
+  for (const r of related) await db.outbox.put({ ...r, photosPending: false });
+}
+
 /** Photos left on their way by a closed app wait again; the upload resumes under the same id. */
 export async function recoverInterrupted(): Promise<void> {
   const db = offlineDb();
@@ -260,6 +284,7 @@ export async function uploadDue(
         failureCode: null,
         fileId: stored.id,
       });
+      await settleRecord(row.clientUuid);
       uploaded += 1;
     } catch (error) {
       const at = now();

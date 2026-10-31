@@ -8,6 +8,8 @@ import { useLocale, useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../lib/api';
+import { orCached } from '../../lib/or-cached';
+import { loadStore } from '../applications/use-local-records';
 import { consent, MY_PROJECTS_KEY, myProject, type MyProjectDetail } from './my-projects-api';
 import './projects.css';
 
@@ -17,7 +19,9 @@ const detailKey = (projectId: string) => [...MY_PROJECTS_KEY, projectId] as cons
  * One of the volunteer's projects. While the consent waits, the rules are read part by part (the
  * Local দায়ী part only while dawah is on), each confirmed, then the final "আমি রাজি এবং এই
  * প্রকল্পে কাজ করতে আগ্রহী"; refusing keeps the project waiting (BR-039, DECISION_LOG D-096).
- * After the consent the project's work facts show, with the team for a main volunteer.
+ * After the consent the project's work facts show, with the team for a main volunteer. Without
+ * network the phone's copy of the project opens; the rules themselves are read online only, so a
+ * consent still waiting says it needs the connection.
  */
 export function MyProjectPage() {
   const t = useTranslations('projects.mine');
@@ -29,7 +33,14 @@ function ProjectView() {
   const t = useTranslations('projects');
   const tc = useTranslations('common');
   const locale = useLocale() as Locale;
-  const one = useQuery({ queryKey: detailKey(projectId), queryFn: () => myProject(projectId) });
+  const one = useQuery({
+    queryKey: detailKey(projectId),
+    queryFn: () =>
+      orCached(
+        () => myProject(projectId),
+        async () => (await loadStore()).cachedProject(projectId),
+      ),
+  });
   const back = <Link to="/my-projects">{t('mine.back')}</Link>;
   if (one.isPending) return <Skeleton shape="card" />;
   if (one.error)
@@ -53,7 +64,10 @@ function ProjectView() {
     <>
       <DocumentTitle title={localized(p.name, locale)} />
       {back}
-      {p.consentStatus === 'pending' ? (
+      {p.consentStatus === 'pending' && p.rules.parts.length === 0 ? (
+        // the phone's copy carries no rules: the consent waits for the network
+        <Alert tone="info">{t('mine.consent_needs_network')}</Alert>
+      ) : p.consentStatus === 'pending' ? (
         <ConsentFlow key={p.rulesVersion} project={p} />
       ) : (
         <ProjectFacts project={p} />

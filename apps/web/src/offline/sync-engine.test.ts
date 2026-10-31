@@ -502,10 +502,19 @@ describe('the sync engine', () => {
   it('uploads a queued photo after its record has its server id, resuming a dropped part', async () => {
     const fake = fakeUploadServer();
     fake.dropOnce.add(2);
-    server.use(acceptAll([], () => ({ serverId: APP })));
+    // the server waits for one photo slot until the upload lands
+    server.use(acceptAll([], () => ({ serverId: APP, pendingPhotos: 1 })));
     const world = fakeDeps();
     const engine = new SyncEngine({ ...world.deps, sleep: async () => undefined });
     const record = await draft(T0);
+    const submit = await enqueue({
+      kind: 'application_submit',
+      projectId: PROJECT,
+      formVersionId: VERSION,
+      dependencies: [record.clientUuid],
+      payload: {},
+      now: T0,
+    });
     const { add } = await import('./photo-queue');
     const photoId = await add({
       clientUuid: record.clientUuid,
@@ -539,6 +548,9 @@ describe('the sync engine', () => {
       state: 'uploaded',
       fileId: expect.any(String),
     });
+    // the record no longer waits for a photo once its last one went up, nor does its send
+    expect(await row(record.clientUuid)).toMatchObject({ photosPending: false });
+    expect(await row(submit.clientUuid)).toMatchObject({ state: 'synced', photosPending: false });
   });
 
   it('hands a lost session during a photo upload to the engine and keeps the photo waiting', async () => {

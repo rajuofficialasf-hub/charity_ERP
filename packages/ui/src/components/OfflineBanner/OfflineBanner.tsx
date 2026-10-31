@@ -58,8 +58,13 @@ export function OfflineBanner({
   }[state];
   /* eslint-enable security/detect-object-injection */
 
+  // a named landmark of its own, so the count and the button sit inside one (the status text
+  // is a live region, not a landmark)
   return (
-    <div className={cx('ui-offline', `t-${tone}`, className)}>
+    <aside
+      className={cx('ui-offline', `t-${tone}`, className)}
+      aria-label={messages.offline.banner}
+    >
       <Icon icon={icon} className={state === 'syncing' ? 'ui-offline-spin' : undefined} />
       {/* Only the state text is live, so count changes are not announced (DESIGN_SYSTEM 5.16). */}
       <p className="ui-offline-text" role="status">
@@ -75,6 +80,6 @@ export function OfflineBanner({
           {messages.offline.openOutbox}
         </Button>
       )}
-    </div>
+    </aside>
   );
 }

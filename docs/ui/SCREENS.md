@@ -259,6 +259,7 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
   - Token expired: the outbox is kept and the user is asked to sign in again (O-29).
   - Storage nearly full: a warning Alert.
 - **Components.** Card/Stat, Progress bar, Table (card list), Badge (sync), Alert, Confirm dialog.
+- **Built (T2.7).** `/sync` (`apps/web/src/features/sync/SyncCentrePage.tsx` with `RecordRow`, `PhotoSection`, `SyncReminder`): the last sync and "এখনই সিঙ্ক করুন" first, then the records grouped as "পাঠানো যায়নি" (with the reason in the request language and "আবার পাঠান" per record and for all), "পাঠানোর অপেক্ষায়", "অফিস যাচাই করছে" and "ছবি বাকি", each a card with the person, the kind, the project, the badge and "সম্পাদনা" or "খুলুন" (and "মুছুন" for a draft of the phone's own, behind a confirm); the photo section with the waiting and sent photos, the budget bar and "জায়গা খালি করুন"; the iPhone notice; the empty state "সব পাঠানো হয়েছে". The chip of the app bar (`SyncChip`) opens it and counts what waits; "more" lists it for a volunteer. The volunteer's lists and detail carry the sync badges (`SyncBadge`); the home's attention lists the device's own items and the day-old reminder; the install hint and the update banner are described in OFFLINE_SYNC.md §9.
 - **Layouts.**
   - Phone: a full page reached from the sync indicator.
   - Tablet and desktop: a drawer.

@@ -137,9 +137,10 @@ test.describe('accessibility of the Phase 1 screens', () => {
       await sweep(page, `/my-projects/${projectId}`, lang);
       await expect(page.getByRole('link', { name: /^(আমার টিম|My team)$/ })).toBeVisible();
       await sweep(page, `/my-projects/${projectId}/team`, lang);
-      // the own applications and the new application with its lookup
+      // the own applications, the new application with its lookup, and the sync centre
       await sweep(page, '/my-applications', lang);
       await sweep(page, `/my-projects/${projectId}/apply`, lang);
+      await sweep(page, '/sync', lang);
     });
 
     test(`the Department Head, in ${lang}`, async ({ browser, page, request }) => {

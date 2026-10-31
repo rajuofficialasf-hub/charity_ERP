@@ -1,6 +1,6 @@
 import { answerValueSchema } from '@css/shared';
 import type { Answer, FormDefinition } from '@css/shared/forms';
-import type { OutboxState } from '@css/shared/sync';
+import { type OutboxState, pendingPhotoValueSchema } from '@css/shared/sync';
 import { z } from 'zod';
 import {
   actOn,
@@ -36,6 +36,17 @@ import { syncEngine, type SyncStatus } from './sync-engine';
  * the server while there is network, and say plainly that nothing can be kept without it.
  */
 
+/**
+ * A record the office holds for verification counts as such until the phone's data set shows
+ * the office decided; the outbox row itself never learns of the decision.
+ */
+async function stillVerifying(row: OutboxRow): Promise<boolean> {
+  if (!row.verificationReason) return false;
+  const id = row.serverId ?? row.target;
+  const cached = id ? await cachedApplication(id) : null;
+  return !cached || cached.summary.status === 'needs_verification';
+}
+
 /** Where a record stands on its way to the server, for the badges and the messages. */
 export interface SyncInfo {
   clientUuid: string;
@@ -65,10 +76,11 @@ export const STORE_UNAVAILABLE = 'offline.store_unavailable';
 /** The message key of a record that cannot be dropped while its batch is on its way. */
 export const RECORD_ON_ITS_WAY = 'offline.record_on_its_way';
 
+// a photo still on the phone stands in its answer as the pending slot the server will fill
 const answerSchema = z.object({
   fieldKey: z.string(),
   repeatIndex: z.number().int().min(0).optional(),
-  value: answerValueSchema,
+  value: z.union([answerValueSchema, pendingPhotoValueSchema]),
 });
 const answersSchema = z.array(answerSchema);
 
@@ -316,11 +328,16 @@ export async function overview(): Promise<Overview> {
     photoRows.filter((p) => p.state !== 'uploaded').map((p) => p.clientUuid),
   );
   const projects = new Map((await cachedProjects()).map((p) => [p.projectId, p.name]));
+  const verifying = new Set(
+    (
+      await Promise.all(rows.map(async (r) => ((await stillVerifying(r)) ? r.clientUuid : null)))
+    ).filter((id): id is string => id !== null),
+  );
   const shown = rows
     .filter(
       (r) =>
         (WAITING_STATES as readonly string[]).includes(r.state) ||
-        r.verificationReason ||
+        verifying.has(r.clientUuid) ||
         r.photosPending ||
         waitingPhotos.has(r.clientUuid),
     )
@@ -336,6 +353,7 @@ export async function overview(): Promise<Overview> {
         kind: row.kind,
         sync: {
           ...infoOf(row),
+          verificationReason: verifying.has(row.clientUuid) ? row.verificationReason! : null,
           photosPending: Boolean(row.photosPending) || waitingPhotos.has(row.clientUuid),
         },
         href: serverId ? `/my-applications/${serverId}` : `/my-applications/${row.clientUuid}`,
@@ -422,15 +440,22 @@ export async function serverIdOf(id: string): Promise<string> {
 
 /** The sync state of the server's records that still have a record on its way, by server id. */
 export async function syncOfServerRecords(): Promise<Map<string, SyncInfo>> {
-  const rows = (await offlineDb().outbox.toArray())
+  const all = await offlineDb().outbox.toArray();
+  const rows = all
     .filter((r) => r.state !== 'synced' || r.photosPending)
     .sort((a, b) => a.updatedAt.getTime() - b.updatedAt.getTime());
   const photos = await photoQueue.waitingByRecord();
   const map = new Map<string, SyncInfo>();
   for (const row of rows) {
     const id = row.serverId ?? row.target;
-    if (id) map.set(id, infoOf(row));
+    if (id) map.set(id, { ...infoOf(row), verificationReason: null });
   }
+  // a record the office is still verifying carries that as its badge
+  for (const row of all)
+    if (row.state === 'synced' && (await stillVerifying(row))) {
+      const id = row.serverId ?? row.target;
+      if (id && !map.has(id)) map.set(id, infoOf(row));
+    }
   // a synced record whose photos still wait shows that too
   for (const row of await offlineDb().outbox.toArray())
     if (row.serverId && photos.has(row.clientUuid) && !map.has(row.serverId))

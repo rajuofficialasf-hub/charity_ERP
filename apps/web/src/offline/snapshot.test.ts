@@ -6,12 +6,14 @@ import { closeOfflineDb, OFFLINE_DB_NAME, offlineDb, openRow } from './db';
 import { afterSignIn, forgetKeys } from './keys';
 import {
   applySnapshot,
+  cachedApplication,
   cachedApplications,
   cachedProjects,
   cursor,
   META,
   metaString,
   replaceLocations,
+  storeDetail,
 } from './snapshot';
 import type { SnapshotView } from './sync-api';
 
@@ -132,6 +134,32 @@ describe('the cached data set', () => {
     expect((await db.forms.toArray()).map((f) => f.id)).toEqual(['v1']);
     expect((await db.applications.toArray()).map((a) => a.id)).toEqual([A1]);
     expect(await cursor()).toEqual({ since: '2026-10-31T10:10:00.000Z', afterId: A1 });
+  });
+
+  it('keeps a record’s answers across a pull while the record did not change, and drops them when it did', async () => {
+    await applySnapshot(view(), new Date());
+    const detail = {
+      ...application(A1, P1),
+      formVersionId: 'v1',
+      createdByUserId: null,
+      identityKind: null,
+      rejectionMessage: null,
+      answers: [{ fieldKey: 'name', repeatIndex: 0, value: { t: 'short_text', v: 'নাম' } }],
+      reviewedAt: null,
+      approvedAt: null,
+      familyDuplicateWarnings: [],
+      availableActions: [],
+    } as unknown as Parameters<typeof storeDetail>[0];
+    await storeDetail(detail, '"1"');
+    // the same record comes again in the next window: the answers stay
+    await applySnapshot(view(), new Date());
+    expect((await cachedApplication(A1))?.detail?.answers).toHaveLength(1);
+    // the record changed on the server: the answers are to be pulled again
+    await applySnapshot(
+      view({ applications: [{ ...application(A1, P1), etag: '"2"' }, application(A2, P2)] }),
+      new Date(),
+    );
+    expect((await cachedApplication(A1))?.detail).toBeNull();
   });
 
   it('keeps the signed-in person sealed for the open without network', async () => {

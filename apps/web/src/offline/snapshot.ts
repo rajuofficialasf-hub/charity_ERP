@@ -50,15 +50,25 @@ export async function applySnapshot(view: SnapshotView, at: Date): Promise<void>
       .filter((v) => projectIds.has(v.projectId))
       .map((v) => sealRow(key, { id: v.id, formId: v.formId, projectId: v.projectId }, v)),
   );
-  // a changed application comes as its summary; its answers are pulled again after
+  // an application comes as its summary; the answers the phone already holds stay while the
+  // record did not change (the window starts a minute early, so an unchanged record comes
+  // again), and a changed record's answers are pulled again after
+  const held = new Map(
+    (await db.applications.bulkGet(view.applications.map((a) => a.id)))
+      .filter((r): r is ApplicationRow => r !== undefined)
+      .map((r) => [r.id, r]),
+  );
   const applicationRows: ApplicationRow[] = await Promise.all(
-    view.applications.map((a) =>
-      sealRow(
+    view.applications.map(async (a) => {
+      const prior = held.get(a.id);
+      const opened = prior ? await openRow<CachedApplication>(key, prior).catch(() => null) : null;
+      const detail = opened?.detail && opened.detail.etag === a.etag ? opened.detail : null;
+      return sealRow(
         key,
         { id: a.id, projectId: a.projectId, status: a.status, updatedAt: view.serverTime },
-        { summary: a, detail: null } satisfies CachedApplication,
-      ),
-    ),
+        { summary: a, detail } satisfies CachedApplication,
+      );
+    }),
   );
   const keep = new Set(view.applicationIds);
   await db.transaction('rw', [db.projects, db.forms, db.applications, db.meta], async () => {

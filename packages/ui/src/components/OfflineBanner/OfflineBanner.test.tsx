@@ -15,6 +15,10 @@ describe('Offline banner (DESIGN_SYSTEM 5.16)', () => {
     );
     const status = screen.getByRole('status');
     expect(status).toHaveTextContent('আপনি অফলাইনে আছেন');
+    // the whole banner is one landmark, so nothing in it stands outside the page's regions
+    expect(screen.getByRole('complementary', { name: 'সংযোগ ও সিঙ্কের অবস্থা' })).toContainElement(
+      status,
+    );
     expect(status).not.toHaveTextContent('3');
     expect(screen.getByText('3টি সিঙ্কের অপেক্ষায়')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'বিস্তারিত দেখুন' }));
