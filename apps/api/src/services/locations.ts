@@ -54,14 +54,16 @@ export class LocationsService {
       .sort((a, b) => rank(a.level) - rank(b.level) || a.code.localeCompare(b.code));
   }
 
-  /** Changes with any row: the active count and the latest change, so a phone pulls only what moved. */
+  /**
+   * Changes with any change of any row: the loader bumps a row's version on every rename, move,
+   * deactivation or return, so the count of rows and the sum of their versions move with it.
+   */
   async version(): Promise<string> {
-    const [count, latest] = await Promise.all([
-      this.prisma.location.count({ where: { active: true } }),
-      this.prisma.location.aggregate({ _max: { updatedAt: true } }),
-    ]);
-    const at = latest._max.updatedAt?.getTime() ?? 0;
-    return `${count}.${at.toString(36)}`;
+    const totals = await this.prisma.location.aggregate({
+      _count: { id: true },
+      _sum: { version: true },
+    });
+    return `${totals._count.id}.${(totals._sum.version ?? 0).toString(36)}`;
   }
 
   /** Active children of `parentId`, or the active divisions; ordered by code (BBS order). */

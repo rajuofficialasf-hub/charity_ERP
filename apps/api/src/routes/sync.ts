@@ -7,7 +7,10 @@ import { ok, send } from '../http/send';
 import { defineRoute, type RouteDeps } from '../openapi/define-route';
 import { snapshotEtag, snapshotView } from '../sync/snapshot';
 
-const snapshotQuery = z.strictObject({ since: z.iso.datetime({ offset: true }).optional() });
+const snapshotQuery = z.strictObject({
+  since: z.iso.datetime({ offset: true }).optional(),
+  afterId: z.uuid().optional(),
+});
 
 /** Offline synchronisation (openapi tag sync): the data set a phone pulls. */
 export function syncRouter(deps: RouteDeps, c: Pick<Container, 'snapshot'>): Router {
@@ -20,7 +23,7 @@ export function syncRouter(deps: RouteDeps, c: Pick<Container, 'snapshot'>): Rou
     method: 'get',
     path: '/sync/snapshot',
     operationId: 'sync.snapshot.get',
-    summary: 'Offline data set deltas since a timestamp, masked like every other read (O-07)',
+    summary: 'Offline data set deltas since a timestamp, masked like every other read',
     permission: 'sync.batch',
     scope: 'self',
     audit: 'none',
@@ -31,20 +34,19 @@ export function syncRouter(deps: RouteDeps, c: Pick<Container, 'snapshot'>): Rou
     streams: true,
     responses: { 200: null, 304: null, 401: null, 422: null, 426: null, 429: null },
     handler: async ({ query, req, res }) => {
-      const view = await c.snapshot.read(
-        principalOf(req),
-        (req as AuthedRequest).fieldClasses ?? new Set<string>(),
-        query.since ? new Date(query.since) : undefined,
-      );
-      const etag = snapshotEtag(view);
+      const visible = (req as AuthedRequest).fieldClasses ?? new Set<string>();
+      const view = await c.snapshot.read(principalOf(req), visible, {
+        since: query.since ? new Date(query.since) : undefined,
+        afterId: query.afterId,
+      });
+      const masked = maskData(snapshotView, JSON.parse(JSON.stringify(view)), visible);
+      const etag = snapshotEtag(masked);
       res.setHeader('ETag', etag);
       const given = req.get('If-None-Match')?.trim().replace(/^W\//, '');
       if (given && given === etag) {
         res.status(304).end();
         return;
       }
-      const visible = (req as AuthedRequest).fieldClasses ?? new Set<string>();
-      const masked = maskData(snapshotView, JSON.parse(JSON.stringify(view)), visible);
       send(res, ok(masked, { etag }), 200);
     },
   });

@@ -5,7 +5,7 @@ import { SeedContext } from '../../seed/context';
 import { seedReferenceLists } from '../../seed/sets/base/reference-lists';
 import { seedWorkflows } from '../../seed/sets/base/workflows';
 import { accessWorld } from './support/access-fixtures';
-import { applicationProject, applicationRow } from './support/applications';
+import { applicationProject, applicationRow, principalOf } from './support/applications';
 import {
   account,
   type Account,
@@ -144,6 +144,11 @@ describe('GET /sync/snapshot', () => {
     const fresh = await row(generalVolunteer, world.users.general);
     const delta = await snapshot(s, `?since=${encodeURIComponent(sinceBefore)}`).expect(200);
     expect(delta.body.data.applications.map((a: { id: string }) => a.id)).toEqual([fresh]);
+    expect(delta.body.data.hasMore).toBe(false);
+    // the next ask starts a little before now, so a write that commits late is not missed
+    expect(new Date(delta.body.data.nextSince).getTime()).toBeLessThan(
+      new Date(delta.body.data.serverTime).getTime(),
+    );
     // the id list is always whole
     expect(delta.body.data.applicationIds.length).toBeGreaterThan(1);
     const unchanged = await snapshot(s, `?since=${encodeURIComponent(sinceBefore)}`, {
@@ -151,6 +156,53 @@ describe('GET /sync/snapshot', () => {
     });
     expect(unchanged.status).toBe(304);
     await snapshot(s, '?since=yesterday').expect(422);
+  });
+
+  it('pages the changed applications oldest first, and a later ask carries on from the last one', async () => {
+    const principal = await principalOf(h.db, world.users.general);
+    const access = await h.container.access.load(principal.userId);
+    const viewer = {
+      principal,
+      scope: await h.container.access.scopeFor(
+        principal,
+        access,
+        'application.view',
+        'application',
+      ),
+      fieldClasses: new Set<string>(),
+    };
+    for (let i = 0; i < 3; i += 1) await row(generalVolunteer, world.users.general);
+    // rows changed in the same moment page through as well
+    await h.db.query('UPDATE applications SET updated_by = $2 WHERE owner_volunteer_id = $1', [
+      generalVolunteer,
+      world.users.general,
+    ]);
+    const first = await h.container.snapshot.read(principal, new Set(), {}, 1);
+    expect(first.hasMore).toBe(true);
+    expect(first.applications).toHaveLength(1);
+    expect(first.nextAfterId).toBe(first.applications[0]!.id);
+    const second = await h.container.snapshot.read(
+      principal,
+      new Set(),
+      { since: new Date(first.nextSince), afterId: first.nextAfterId! },
+      1,
+    );
+    expect(second.applications[0]!.id).not.toBe(first.applications[0]!.id);
+    // every own application comes once the pages are walked
+    const seen = new Set<string>();
+    let window: { since?: Date; afterId?: string } = {};
+    for (let page = 0; page < 50; page += 1) {
+      const view = await h.container.snapshot.read(principal, new Set(), window, 1);
+      for (const a of view.applications) seen.add(a.id);
+      if (!view.hasMore) {
+        expect(view.nextAfterId).toBeNull();
+        break;
+      }
+      window = { since: new Date(view.nextSince), afterId: view.nextAfterId! };
+    }
+    const all = await h.container.applications.listMineSince(viewer, {}, 100);
+    expect(all.ids.length).toBeGreaterThan(1);
+    for (const id of all.ids) expect(seen).toContain(id);
   });
 
   it('drops a project whose consent was reset and an application that left the volunteer', async () => {
@@ -167,13 +219,71 @@ describe('GET /sync/snapshot', () => {
       `UPDATE project_volunteers SET consent_status = 'pending' WHERE project_id = $1 AND volunteer_id = $2`,
       [project, generalVolunteer],
     );
-    const reset = await snapshot(s).expect(200);
-    expect(reset.body.data.projects).toEqual([]);
-    expect(reset.body.data.formVersions).toEqual([]);
+    try {
+      const reset = await snapshot(s).expect(200);
+      expect(reset.body.data.projects).toEqual([]);
+      expect(reset.body.data.formVersions).toEqual([]);
+    } finally {
+      await h.db.query(
+        `UPDATE project_volunteers SET consent_status = 'accepted' WHERE project_id = $1 AND volunteer_id = $2`,
+        [project, generalVolunteer],
+      );
+    }
+  });
+
+  it('keeps a consented project without a published form out of the forms, the rest unchanged', async () => {
+    const made = await api()
+      .post('/api/v1/projects')
+      .set(bearer(await as(world.users.pm)))
+      .send({
+        programId: world.a1.program,
+        code: 'NOFORM',
+        year: 2026,
+        name: { bn: 'ফর্ম ছাড়া', en: 'No form' },
+        source: { kind: 'workflow', workflowKey: 'distribution' },
+      });
+    expect(made.status).toBe(201);
+    const bare = made.body.data.id as string;
+    await h.db.query(`UPDATE projects SET status = 'active' WHERE id = $1`, [bare]);
+    const assignment = randomUUID();
     await h.db.query(
-      `UPDATE project_volunteers SET consent_status = 'accepted' WHERE project_id = $1 AND volunteer_id = $2`,
-      [project, generalVolunteer],
+      `INSERT INTO project_volunteers (id, project_id, volunteer_id, region_location_id, permission_set, extra_permissions, assigned_by, consent_status)
+       VALUES ($1, $2, $3, $4, 'application_distribution', '{}', $5, 'accepted')`,
+      [assignment, bare, generalVolunteer, world.dhaka.division, world.users.rpmDhaka],
     );
+    try {
+      const res = await snapshot(await as(world.users.general)).expect(200);
+      expect(res.body.data.projects.map((p: { projectId: string }) => p.projectId).sort()).toEqual(
+        [bare, project].sort(),
+      );
+      expect(res.body.data.formVersions.map((f: { id: string }) => f.id)).toEqual([versionId]);
+    } finally {
+      await h.db.query(`UPDATE project_volunteers SET ended_at = now() WHERE id = $1`, [
+        assignment,
+      ]);
+    }
+  });
+
+  it('gives a blocked volunteer nothing, and refuses a request without a token', async () => {
+    const principal = await principalOf(h.db, world.users.rangpurVolunteer);
+    const block = randomUUID();
+    await h.db.query(
+      `INSERT INTO blocklist (id, subject_type, subject_id, reason, blocked_by) VALUES ($1, 'volunteer', $2, 'test', $3)`,
+      [block, rangpurVolunteer, world.users.rpmDhaka],
+    );
+    try {
+      const view = await h.container.snapshot.read(principal, new Set());
+      expect(view).toMatchObject({
+        projects: [],
+        formVersions: [],
+        applications: [],
+        applicationIds: [],
+      });
+    } finally {
+      await h.db.query(`DELETE FROM blocklist WHERE id = $1`, [block]);
+    }
+    const anonymous = await api().get('/api/v1/sync/snapshot').expect(401);
+    expect(anonymous.body.error.code).toBe('auth.token_missing');
   });
 
   it('gives a team member the lead’s project and the drafts they made', async () => {

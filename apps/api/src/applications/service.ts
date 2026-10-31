@@ -235,6 +235,9 @@ const ROW_SELECT = {
 
 type Row = Prisma.ApplicationGetPayload<{ select: typeof ROW_SELECT }>;
 
+/** More own applications than a volunteer can have: a safety cap on the id list of a snapshot. */
+const OWN_IDS_MAX = 10_000;
+
 type Person = {
   beneficiaryId: string | null;
   identityKind: 'nid' | 'birth_reg' | null;
@@ -700,17 +703,21 @@ export class ApplicationsService {
   }
 
   /**
-   * The caller's own applications changed since a time (all of them without one), newest change
-   * first and at most `limit`, with the ids of every own application the server still lists, so
-   * the phone's copy drops what left (a transfer, a deletion). A blocked volunteer has none.
+   * The caller's own applications changed at or after a time (all of them without one), oldest
+   * change first and at most `limit`; `afterId` names the last row of the page before, and the
+   * database positions the next page after it by its own stamp and id, so rows changed in the
+   * same moment (a bulk review) page through too. With them come the ids of every own application
+   * the server still lists, so the phone's copy drops what left (a transfer, a deletion). Both
+   * reads see one snapshot of the database. A blocked volunteer has none.
    */
   async listMineSince(
     viewer: ApplicationViewer,
-    since: Date | undefined,
+    window: { since?: Date; afterId?: string },
     limit: number,
-  ): Promise<{ changed: ApplicationSummary[]; ids: string[] }> {
+  ): Promise<{ changed: ApplicationSummary[]; ids: string[]; hasMore: boolean }> {
     const userId = viewer.principal.userId;
-    if (await this.blockedCaller(this.prisma, viewer.principal)) return { changed: [], ids: [] };
+    if (await this.blockedCaller(this.prisma, viewer.principal))
+      return { changed: [], ids: [], hasMore: false };
     const own: Prisma.ApplicationWhereInput = {
       AND: [
         { OR: ownApplicationsWhere(userId, await teamLeadsOf(this.prisma, userId)) },
@@ -719,16 +726,29 @@ export class ApplicationsService {
       ],
     };
     const now = this.clock.now();
-    const [rows, ids] = await Promise.all([
+    const [rows, ids] = await this.prisma.$transaction([
       this.prisma.application.findMany({
-        where: since ? { AND: [own, { updatedAt: { gt: since } }] } : own,
-        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
-        take: limit,
+        // at or after: the phone's time has milliseconds, the rows microseconds, so the first row
+        // of a window may come again, never go missing
+        where: window.since ? { AND: [own, { updatedAt: { gte: window.since } }] } : own,
+        orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+        ...(window.afterId ? { cursor: { id: window.afterId }, skip: 1 } : {}),
+        take: limit + 1,
         select: ROW_SELECT,
       }),
-      this.prisma.application.findMany({ where: own, select: { id: true } }),
+      this.prisma.application.findMany({
+        where: own,
+        select: { id: true },
+        orderBy: { id: 'asc' },
+        take: OWN_IDS_MAX,
+      }),
     ]);
-    return { changed: rows.map((r) => this.summaryOf(r, now)), ids: ids.map((r) => r.id) };
+    const hasMore = rows.length > limit;
+    return {
+      changed: rows.slice(0, limit).map((r) => this.summaryOf(r, now)),
+      ids: ids.map((r) => r.id),
+      hasMore,
+    };
   }
 
   private async page(
@@ -1126,6 +1146,11 @@ export class ApplicationsService {
   }
 
   /** A volunteer on the blocklist reaches no application. */
+  /** Whether the caller is a volunteer on the blocklist, who no longer sees their applications. */
+  isBlocked(principal: Principal): Promise<boolean> {
+    return this.blockedCaller(this.prisma, principal);
+  }
+
   private async blockedCaller(db: Tx | PrismaService, principal: Principal): Promise<boolean> {
     return principal.kind === 'volunteer' && isBlockedVolunteer(db, principal.userId);
   }

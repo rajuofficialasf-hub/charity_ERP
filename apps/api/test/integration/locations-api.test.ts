@@ -80,7 +80,16 @@ describe('GET /locations without a login', () => {
     await f.locationTree(h.db);
     const changed = await fetch(`${base}/locations/all`, { headers: { 'If-None-Match': etag! } });
     expect(changed.status).toBe(200);
-    expect(changed.headers.get('etag')).not.toBe(etag);
+    const grown = changed.headers.get('etag');
+    expect(grown).not.toBe(etag);
+    // a rename moves the version too, as the loader bumps the row's version
+    await h.db.query(
+      `UPDATE locations SET name_en = 'Renamed', version = version + 1 WHERE id = $1`,
+      [tree.union],
+    );
+    const renamed = await fetch(`${base}/locations/all`, { headers: { 'If-None-Match': grown! } });
+    expect(renamed.status).toBe(200);
+    expect(renamed.headers.get('etag')).not.toBe(grown);
   });
 
   it('leaves inactive locations out', async () => {

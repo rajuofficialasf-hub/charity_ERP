@@ -39,7 +39,7 @@ export function locationsRouter(deps: RouteDeps, c: Pick<Container, 'locations'>
     path: '/locations/all',
     operationId: 'reference.location.listAll',
     summary:
-      "Every active location of the four levels in one answer, with an ETag, for the phone's offline copy (O-07)",
+      "Every active location of the four levels in one answer, with an ETag, for the phone's offline copy",
     permission: 'public',
     scope: 'system',
     audit: 'none',

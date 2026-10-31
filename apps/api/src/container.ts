@@ -502,7 +502,8 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       new ProjectLifecycleService(prisma, audit, projects, clock, projectEvents),
     projectRules: o.projectRules ?? new ProjectRulesService(prisma, audit, access, projects),
     myProjects,
-    snapshot: o.snapshot ?? new SnapshotService(access, myProjects, applications, locations, clock),
+    snapshot:
+      o.snapshot ?? new SnapshotService(prisma, access, myProjects, applications, locations),
     projectVolunteers:
       o.projectVolunteers ??
       new ProjectVolunteersService(env, prisma, audit, access, projects, clock, projectEvents),
