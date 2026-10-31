@@ -465,6 +465,32 @@ describe('the review page', () => {
     await expectNoAxeViolations(view.container);
   });
 
+  it('tells why a record from a phone waits, with the time it was taken', async () => {
+    refreshAs(EXECUTIVE);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            flags: ['late_sync', 'stale_form_version'],
+            status: 'needs_verification',
+            clientCreatedAt: '2026-10-30T08:15:00.000Z',
+            availableActions: ['verify_create'],
+          }),
+        ),
+      ),
+    );
+    openReview();
+    await screen.findByRole('heading', { level: 1, name: 'নমুনা উপকারভোগী' });
+    expect(
+      screen.getByText('শেষ তারিখের আগে ফোনে নেওয়া, পরে পাঠানো হয়েছে; দেখে যাচাই করুন।'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('ফর্মের পুরোনো সংস্করণে ফোনে নেওয়া; নতুন প্রশ্নগুলো দরকার কি না দেখুন।'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('ফোনে নেওয়া হয়েছে', { selector: 'dt' })).toBeInTheDocument();
+  });
+
   it('asks both texts for a rejection, tells of a stale version, and starts a review', async () => {
     const user = userEvent.setup();
     refreshAs(EXECUTIVE);

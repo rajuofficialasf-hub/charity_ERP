@@ -60,6 +60,8 @@ export const applicationView = applicationSummary.extend({
   formVersionId: uuid,
   candidateBeneficiaryId: nullableUuid,
   createdByUserId: nullableUuid,
+  /** The device time the record was made, when it came from a phone; its late or stale flags say why it waits. */
+  clientCreatedAt: z.string().nullable(),
   identityKind: z.enum(['nid', 'birth_reg']).nullable(),
   rejectionMessage: z.string().nullable(),
   answers: z.array(answerView),

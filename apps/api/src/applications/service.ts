@@ -61,6 +61,8 @@ import type { Replayable } from '../services/uploads';
 import type { WorkflowEngine } from '../workflow/engine';
 import { type EngineApplication, GuardContext, GUARDS } from '../workflow/guards';
 import { pendingSlotsOf, slotParts } from './pending-photos';
+import { lateSync, staleVersion } from '../sync/rules';
+import { namesMatch } from '@css/shared/sync';
 import type { BuiltGuard } from '../workflow/registry';
 import { readActivities } from './activities';
 import { readChanges, readTimeline } from './history';
@@ -94,9 +96,15 @@ export interface ApplicationViewer {
   fieldClasses: ReadonlySet<string>;
 }
 
-/** What an offline record adds to a write: the photo slots the phone still holds. */
+/** What an offline record adds to a write: the photo slots the phone still holds, and the sync rules. */
 export interface WriteOptions {
   pendingPhotos?: string[];
+  /**
+   * The record came through the offline sync (docs/architecture/OFFLINE_SYNC.md "Conflict rules at
+   * sync"): the device time of its making, moved onto the server's clock, decides a late or a
+   * stale record, and a known number under another name waits for the office instead of linking.
+   */
+  sync?: { createdAt: Date };
 }
 
 /** What a read answers, with the version the next write carries back in If-Match. */
@@ -224,6 +232,7 @@ const ROW_SELECT = {
   outcome: true,
   flags: true,
   pendingPhotos: true,
+  clientCreatedAt: true,
   districtId: true,
   unionId: true,
   submittedAt: true,
@@ -250,6 +259,8 @@ type Person = {
   identityKind: 'nid' | 'birth_reg' | null;
   number: string | null;
   answers: Answer[];
+  /** The profile the number belongs to when the typed names did not match it (a sync record). */
+  candidate?: string | null;
 };
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -299,15 +310,11 @@ export class ApplicationsService {
     const project = await this.reachedProject(viewer.principal, viewer.scope, projectId);
     const earlier = await this.earlier(viewer, projectId, body.clientUuid);
     if (earlier) return { replay: true, value: earlier };
-    const version = await this.prisma.formVersion.findFirst({
-      where: {
-        id: body.formVersionId,
-        status: 'published',
-        form: { projectId, kind: 'beneficiary_application' },
-      },
-      select: { id: true },
-    });
-    if (!version) throw new ApiError('application.form_not_published', 422);
+    const held: string[] = [];
+    const version = await this.versionFor(projectId, body.formVersionId, options.sync, held);
+    // a record made while the window was open and synced after it closed waits for the office
+    if (options.sync && lateSync(options.sync.createdAt, this.clock.now(), project.applyTo))
+      held.push('late_sync');
     const audience = this.audienceOf(viewer);
     const definition = await readDefinition(this.prisma, version.id, audience);
     const { checked, chain } = await this.checked(definition, body.answers, audience, true);
@@ -319,7 +326,10 @@ export class ApplicationsService {
         // one draft of an owner at a time, so parallel creates cannot pass the limit together
         if (owner.ownerVolunteerId)
           await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`application-owner:${projectId}:${owner.ownerVolunteerId}`}))`;
-        const person = await this.resolvePerson(tx, definition, checked.answers);
+        const person = await this.resolvePerson(tx, definition, checked.answers, null, {
+          nameMatch: options.sync !== undefined,
+        });
+        if (person.candidate) held.push('existing_identity');
         await this.assertOnePerProject(tx, projectId, person, null);
         await this.assertMobile(tx, actor, checked.standard, owner.ownerUserId);
         const id = uuidv7();
@@ -336,8 +346,11 @@ export class ApplicationsService {
           zakatDecision: null,
           updatedAt: this.clock.now(),
           pendingPhotos: options.pendingPhotos ?? [],
+          flags: held,
+          clientCreatedAt: options.sync?.createdAt ?? null,
           project: { ...project, approval: null },
         });
+        const status = held.length ? 'needs_verification' : 'draft';
         await assertUploadsOwn(tx, actor, null, person.answers);
         const [regionLocationId, districtId, , unionId] = chain;
         await tx.application.create({
@@ -346,10 +359,13 @@ export class ApplicationsService {
             projectId,
             formVersionId: version.id,
             beneficiaryId: person.beneficiaryId,
+            candidateBeneficiaryId: person.candidate ?? null,
             identityKind: person.identityKind,
             ownerVolunteerId: owner.ownerVolunteerId,
             createdByUserId: actor,
-            status: 'draft',
+            status,
+            flags: held,
+            ...(held.length ? { submittedAt: this.clock.now() } : {}),
             regionLocationId,
             districtId,
             unionId,
@@ -368,8 +384,10 @@ export class ApplicationsService {
           clientUuid: body.clientUuid,
           new: {
             projectId,
-            status: 'draft',
+            status,
+            flags: held,
             beneficiaryId: person.beneficiaryId,
+            candidateBeneficiaryId: person.candidate ?? null,
             ownerVolunteerId: owner.ownerVolunteerId,
           },
         });
@@ -548,6 +566,46 @@ export class ApplicationsService {
       if (isUniqueViolation(error)) throw new ApiError('beneficiary.already_applied', 409);
       throw error;
     }
+    return this.read(viewer, access, applicationId);
+  }
+
+  /**
+   * Holds a draft for the office instead of submitting it: a send made while the window was open
+   * that arrives after it closed (docs/architecture/OFFLINE_SYNC.md "Conflict rules at sync").
+   * The owner's edit permission on a draft is the permission to send it this way.
+   */
+  async holdForVerification(
+    viewer: ApplicationViewer,
+    applicationId: string,
+    ifMatch: string | undefined,
+    flags: readonly string[],
+  ): Promise<ApplicationRead> {
+    const actor = viewer.principal.userId;
+    const access = await this.access.load(actor);
+    const row = await this.reachedRow(viewer.principal, access, applicationId, 'application.view');
+    if (row.status !== 'draft') throw new ApiError('application.not_editable', 409);
+    await this.assertMay(viewer.principal, access, EDIT_PERMISSION.draft!, applicationId);
+    assertIfMatch(ifMatch, row.updatedAt);
+    const now = this.clock.now();
+    await this.prisma.$transaction(async (tx) => {
+      await tx.application.update({
+        where: { id: applicationId },
+        data: {
+          status: 'needs_verification',
+          flags: [...new Set([...row.flags, ...flags])],
+          submittedAt: now,
+          updatedAt: now,
+          updatedBy: actor,
+        },
+      });
+      await this.audit.record(tx, {
+        action: 'application.held_for_verification',
+        entityType: 'application',
+        entityId: applicationId,
+        old: { status: row.status },
+        new: { status: 'needs_verification', flags },
+      });
+    });
     return this.read(viewer, access, applicationId);
   }
 
@@ -961,6 +1019,34 @@ export class ApplicationsService {
     if (found.found && found.blocked) throw new ApiError('beneficiary.blocked', 409);
   }
 
+  /**
+   * The version a new record is written under: the published one; through sync also a retired one
+   * the phone still had, kept as the record's own version, and flagged for the office when the
+   * record was made after the newer version came.
+   */
+  private async versionFor(
+    projectId: string,
+    formVersionId: string,
+    sync: WriteOptions['sync'],
+    held: string[],
+  ): Promise<{ id: string }> {
+    const version = await this.prisma.formVersion.findFirst({
+      where: { id: formVersionId, form: { projectId, kind: 'beneficiary_application' } },
+      select: { id: true, status: true, formId: true },
+    });
+    if (!version) throw new ApiError('application.form_not_published', 422);
+    if (version.status === 'published') return { id: version.id };
+    if (!sync || version.status !== 'retired')
+      throw new ApiError('application.form_not_published', 422);
+    const successor = await this.prisma.formVersion.findFirst({
+      where: { formId: version.formId, status: 'published' },
+      select: { publishedAt: true },
+    });
+    if (staleVersion(sync.createdAt, successor?.publishedAt ?? null))
+      held.push('stale_form_version');
+    return { id: version.id };
+  }
+
   /** Whose application a draft is: the volunteer's own, a team member's lead's, nobody's for an official. */
   private async ownerFor(
     tx: Tx,
@@ -1005,6 +1091,7 @@ export class ApplicationsService {
     definition: FormDefinition,
     answers: Answer[],
     boundTo: string | null = null,
+    options: { nameMatch?: boolean } = {},
   ): Promise<Person> {
     const field = fieldByColumn(definition, IDENTITY_COLUMN);
     const number = field ? textOf(answers, field.fieldKey) : null;
@@ -1037,6 +1124,18 @@ export class ApplicationsService {
       where: { id: live },
       select: { nid: true, birthReg: true, name: true, fatherOrHusbandName: true },
     });
+    // a record typed by hand offline: the names must be the profile's, else the office looks
+    if (options.nameMatch && !boundTo) {
+      const typed = (column: string) => {
+        const f = fieldByColumn(definition, column);
+        return f ? textOf(answers, f.fieldKey) : null;
+      };
+      if (
+        !namesMatch(typed('name'), profile.name) ||
+        !namesMatch(typed('father_or_husband_name'), profile.fatherOrHusbandName)
+      )
+        return { beneficiaryId: null, identityKind: kind, number, answers, candidate: live };
+    }
     const values: Record<(typeof LOCKED_COLUMNS)[number], string> = {
       [IDENTITY_COLUMN]: profile.nid ?? profile.birthReg ?? number,
       name: profile.name,
@@ -1307,6 +1406,7 @@ export class ApplicationsService {
         formVersionId: row.formVersionId,
         candidateBeneficiaryId: row.candidateBeneficiaryId,
         createdByUserId: row.createdByUserId,
+        clientCreatedAt: iso(row.clientCreatedAt),
         identityKind: identityKindSchema.parse(row.identityKind),
         rejectionMessage: row.rejectionMessage,
         answers: answers.map((a) => ({ ...a, repeatIndex: a.repeatIndex ?? 0 })),

@@ -34,6 +34,8 @@ const APPLICATION_SELECT = {
   zakatDecision: true,
   updatedAt: true,
   pendingPhotos: true,
+  flags: true,
+  clientCreatedAt: true,
   project: {
     select: {
       status: true,

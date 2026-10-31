@@ -30,6 +30,10 @@ export interface EngineApplication {
   updatedAt: Date;
   /** The photo slots an offline record still waits for; each counts as answered. */
   pendingPhotos?: unknown;
+  /** The record's flags; a late sync is judged against the window at the time it was made. */
+  flags?: readonly string[];
+  /** The device time an offline record was made, moved onto the server's clock. */
+  clientCreatedAt?: Date | null;
   project: {
     status: string;
     applyFrom: Date | null;
@@ -159,9 +163,13 @@ export const GUARDS: Record<BuiltGuard, Guard> = {
   'project.active': async (ctx) => ctx.application.project.status === 'active',
   'project.not_closed': async (ctx) =>
     !['closed', 'cancelled'].includes(ctx.application.project.status),
-  // an unset date leaves that side open, as the public link reads the window
+  // an unset date leaves that side open, as the public link reads the window; a record held as
+  // a late sync was made inside the window on the phone, and the office's verification keeps it
   'deadline.open': async (ctx) => {
-    const today = isoDateInDhaka(ctx.clock.now());
+    const { flags, clientCreatedAt } = ctx.application;
+    const madeAt =
+      flags?.includes('late_sync') && clientCreatedAt ? clientCreatedAt : ctx.clock.now();
+    const today = isoDateInDhaka(madeAt);
     const from = day(ctx.application.project.applyFrom);
     const to = day(ctx.application.project.applyTo);
     return (from === null || from <= today) && (to === null || today <= to);

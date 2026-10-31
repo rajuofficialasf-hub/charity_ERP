@@ -3109,6 +3109,7 @@ components:
           properties:
             formVersionId: { $ref: '#/components/schemas/Uuid' }
             candidateBeneficiaryId: { type: [string, 'null'], format: uuid }
+            clientCreatedAt: { type: [string, 'null'], format: date-time, description: "The device time the record was made, when it came from a phone; its late_sync, stale_form_version or existing_identity flag says why it waits" }
             createdByUserId: { type: [string, 'null'], format: uuid, description: The account that created it (a team member's own records) }
             identityKind: { type: [string, 'null'], enum: [nid, birth_reg, null], description: Which number identifies the person }
             rejectionMessage: { type: [string, 'null'], description: The words written for the volunteer at a rejection; the office's reason stays in decisionComment }

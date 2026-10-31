@@ -25,6 +25,11 @@ import type { PrismaService } from '../core/prisma.service';
 import type { IdempotencyService } from '../idempotency/idempotency.service';
 import { ApiError } from '../i18n/api-error';
 import { readDefinition } from '../services/forms';
+import { correctedDeviceTime, lateSync, verificationReason } from './rules';
+import type { Prisma } from '../generated/prisma/client';
+
+/** The losing side of a conflict as the audit row keeps it. */
+const json = (value: unknown) => value as Prisma.InputJsonValue;
 
 const answersPayload = z.strictObject({ answers: z.array(z.unknown()).max(2000) });
 const emptyPayload = z.strictObject({});
@@ -174,9 +179,9 @@ export class SyncService {
         case 'application_draft':
           return this.done(record, await this.draft(context, record, offsetMs));
         case 'application_update':
-          return this.done(record, await this.update(context, record, serverIds));
+          return await this.update(context, record, offsetMs, serverIds);
         case 'application_submit':
-          return this.done(record, await this.send(context, record, serverIds));
+          return this.done(record, await this.send(context, record, offsetMs, serverIds));
         case 'field_update':
           return await this.fill(context, record);
       }
@@ -193,9 +198,12 @@ export class SyncService {
 
   private done(record: SyncRecord, read: ApplicationRead): RowResult {
     const { application } = read;
+    const held = application.status === 'needs_verification';
     return {
       clientUuid: record.clientUuid,
-      result: application.status === 'needs_verification' ? 'needs_verification' : 'synced',
+      result: held ? 'needs_verification' : 'synced',
+      // the reason the office looks at it, for the phone to say
+      ...(held ? { code: verificationReason(application.flags) } : {}),
       serverId: application.id,
       status: application.status,
       pendingPhotos: application.pendingPhotos,
@@ -210,48 +218,121 @@ export class SyncService {
     const payload = parsed(answersPayload, record.payload);
     const { answers, pending } = splitPendingPhotos(payload.answers);
     await this.assertPhotoSlots(pending, record.formVersionId);
+    // the device time moved onto the server's clock, so the deadline is judged fairly
+    const createdAt = correctedDeviceTime(record.clientCreatedAt, offsetMs);
     const created = await this.applications.create(
       context.create,
       record.projectId,
       {
         clientUuid: record.clientUuid,
-        // the device time moved onto the server's clock, so the deadline is judged fairly
-        clientCreatedAt: new Date(
-          new Date(record.clientCreatedAt).getTime() + offsetMs,
-        ).toISOString(),
+        clientCreatedAt: createdAt.toISOString(),
         projectId: record.projectId,
         formVersionId: record.formVersionId,
         answers,
       },
-      { pendingPhotos: pending },
+      { pendingPhotos: pending, sync: { createdAt } },
     );
     return created.value;
   }
 
+  /**
+   * An edit from the phone against the record as it is now: a locked record keeps the server's
+   * word; a draft changed on both sides goes to the later change, and the losing one is on record
+   * (docs/architecture/OFFLINE_SYNC.md "Conflict rules at sync").
+   */
   private async update(
     context: SyncContext,
     record: SyncRecord,
+    offsetMs: number,
     serverIds: ReadonlyMap<string, string>,
-  ): Promise<ApplicationRead> {
+  ): Promise<RowResult> {
     const id = await this.targetOf(record, serverIds);
     const payload = parsed(answersPayload, record.payload);
     const { answers, pending } = splitPendingPhotos(payload.answers);
     await this.assertPhotoSlots(pending, record.formVersionId);
-    const ifMatch = record.baseVersion ?? (await this.currentVersion(context, id));
-    return this.applications.update(context.view, id, { answers }, ifMatch, {
-      pendingPhotos: pending,
-    });
+    const current = await this.applications.get(context.view, id);
+    const currentEtag = etagOf(current.updatedAt);
+    const base = record.baseVersion ?? currentEtag;
+    if (base !== currentEtag) {
+      const clientAt = correctedDeviceTime(record.clientUpdatedAt, offsetMs);
+      const kept = clientAt.getTime() > current.updatedAt.getTime() ? 'client' : 'server';
+      await this.onRecord('sync.conflict_last_write', context.principal, id, {
+        kept,
+        clientUpdatedAt: clientAt.toISOString(),
+        serverUpdatedAt: current.updatedAt.toISOString(),
+        ...(kept === 'client'
+          ? { serverAnswers: json(current.application.answers) }
+          : { clientAnswers: json(answers) }),
+      });
+      if (kept === 'server') return { ...this.done(record, current), conflict: { kept: 'server' } };
+    }
+    try {
+      const read = await this.applications.update(context.view, id, { answers }, currentEtag, {
+        pendingPhotos: pending,
+      });
+      return this.done(record, read);
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.code !== 'application.not_editable') throw error;
+      // the office decided meanwhile: the server's word stands, the attempt is on record
+      await this.onRecord('sync.conflict_server_won', context.principal, id, {
+        status: current.application.status,
+        clientAnswers: json(answers),
+      });
+      return {
+        clientUuid: record.clientUuid,
+        result: 'failed',
+        code: 'conflict.locked_on_server',
+        serverId: id,
+        status: current.application.status,
+        conflict: { kept: 'server' },
+      };
+    }
   }
 
+  /**
+   * A send from the phone: a record already waiting for the office stays so; one sent while the
+   * window was open that arrives after it closed is held for the office; the rest goes through
+   * the engine as online.
+   */
   private async send(
     context: SyncContext,
     record: SyncRecord,
+    offsetMs: number,
     serverIds: ReadonlyMap<string, string>,
   ): Promise<ApplicationRead> {
     const id = await this.targetOf(record, serverIds);
     parsed(emptyPayload, record.payload);
-    const ifMatch = record.baseVersion ?? (await this.currentVersion(context, id));
+    const current = await this.applications.get(context.view, id);
+    if (current.application.status === 'needs_verification') return current;
+    const ifMatch = record.baseVersion ?? etagOf(current.updatedAt);
+    const project = await this.prisma.project.findUnique({
+      where: { id: current.application.projectId },
+      select: { applyTo: true },
+    });
+    const sentAt = correctedDeviceTime(record.clientCreatedAt, offsetMs);
+    if (project && lateSync(sentAt, this.clock.now(), project.applyTo))
+      return this.applications.holdForVerification(context.view, id, ifMatch, ['late_sync']);
     return this.applications.act(context.view, id, 'submit', {}, ifMatch);
+  }
+
+  /** An outcome of the sync rules on record, with the actor, in its own transaction. */
+  private onRecord(
+    action: string,
+    principal: Principal,
+    applicationId: string,
+    facts: Prisma.InputJsonObject,
+  ): Promise<void> {
+    return this.prisma
+      .$transaction((tx) =>
+        this.audit.record(tx, {
+          action,
+          entityType: 'application',
+          entityId: applicationId,
+          actorUserId: principal.userId,
+          new: facts,
+        }),
+      )
+      .then(() => undefined);
   }
 
   private async fill(context: SyncContext, record: SyncRecord): Promise<RowResult> {
@@ -279,12 +360,6 @@ export class SyncService {
       throw new ApiError('validation.failed', 422, undefined, [
         { path: wrong, code: 'application.photo_slot_invalid' },
       ]);
-  }
-
-  /** The version the phone last saw, when it kept none: the current one, read as the volunteer. */
-  private async currentVersion(context: SyncContext, applicationId: string): Promise<string> {
-    const read = await this.applications.get(context.view, applicationId);
-    return etagOf(read.updatedAt);
   }
 
   /**

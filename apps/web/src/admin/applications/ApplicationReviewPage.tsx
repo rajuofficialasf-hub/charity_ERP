@@ -300,6 +300,14 @@ function Review() {
             ...(a.submittedAt
               ? [{ label: t('column.submitted'), value: formatDateTime(a.submittedAt, locale) }]
               : []),
+            ...(a.clientCreatedAt
+              ? [
+                  {
+                    label: t('column.device_time'),
+                    value: formatDateTime(a.clientCreatedAt, locale),
+                  },
+                ]
+              : []),
             ...(a.decisionComment
               ? [{ label: t('decision.reason'), value: a.decisionComment }]
               : []),

@@ -95,6 +95,7 @@
     "waiting": "{days} days",
     "summary": "Showing {from}–{to} · {total} applications in all",
     "column": {
+      "device_time": "Taken on the phone at",
       "person": "Beneficiary",
       "area": "Area",
       "status": "Status",
@@ -166,6 +167,8 @@
       "flag": {
         "public_entry": "An entry from the public link; verify it and link it to a profile, or refuse it.",
         "public_entry_short": "Public entry",
+        "late_sync": "Taken on a phone before the deadline and sent after it; check it and verify.",
+        "stale_form_version": "Taken on a phone with an older version of the form; check whether the new questions matter.",
         "existing_identity": "A profile with this number already exists.",
         "identity_blocked": "The profile with this number is blocklisted.",
         "identity_repeated": "The same number or mobile came through this link again within a day."

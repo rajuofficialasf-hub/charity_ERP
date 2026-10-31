@@ -13,6 +13,8 @@ export interface ApplicationSummary {
   stage: string | null;
   outcome: string | null;
   flags: string[];
+  /** The device time the record was made, when it came from a phone offline. */
+  clientCreatedAt?: string | null;
   districtId: string;
   unionId: string;
   submittedAt: string | null;
