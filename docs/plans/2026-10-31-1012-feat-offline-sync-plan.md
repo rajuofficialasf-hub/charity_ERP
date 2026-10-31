@@ -137,7 +137,7 @@ None blocking. R47 depends on the owner's phones; the checklist is written in th
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U2. The device key on login and refresh, with recovery after expiry
 - **Goal:** Every device session carries a server-held key that the phone receives at login and refresh and can recover once after an expiry.
@@ -338,8 +338,8 @@ None blocking. R47 depends on the owner's phones; the checklist is written in th
 
 ## Progress
 - **Branch:** `feat/offline-sync`
-- **Updated:** 2026-10-31 10:40
-- **Next:** U1, the shared sync module: write `packages/shared/src/sync/*.test.ts` first
+- **Updated:** 2026-10-31 10:45
+- **Next:** checkpoint C1 on U1, then U2 (the device key): write the auth integration tests first
 - **Uncommitted:** none
 - **Reviewed through:** none yet
 - **Notes:** D-139 must be appended to `docs/DECISION_LOG.md` in U1 before any code; CI runs only on pull requests and `main` (D-138), so every unit's tests run locally.
