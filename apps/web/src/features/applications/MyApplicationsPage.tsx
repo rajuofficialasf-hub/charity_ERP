@@ -8,6 +8,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../lib/api';
+import { orCached } from '../../lib/or-cached';
 import type { SyncInfo } from '../../offline/applications-store';
 import { MY_PROJECTS_KEY, myProjects } from '../projects/my-projects-api';
 import { type ApplicationSummary, MY_APPLICATIONS_KEY, myApplications } from './applications-api';
@@ -31,20 +32,15 @@ export function MyApplicationsPage() {
 
 /** The server's list, or the phone's when the network is away. */
 const listOf = (tab: Tab) =>
-  myApplications(TABS[tab].join(',')).catch(async (error: unknown) => {
-    const store = await loadStore();
-    const cached = await store.cachedList(TABS[tab]).catch(() => null);
-    if (cached) return { data: cached, meta: { total: cached.length } };
-    throw error;
-  });
+  orCached(
+    () => myApplications(TABS[tab].join(',')),
+    async () => {
+      const cached = await (await loadStore()).cachedList(TABS[tab]);
+      return cached ? { data: cached, meta: { total: cached.length } } : null;
+    },
+  );
 
-const projectsOf = () =>
-  myProjects().catch(async (error: unknown) => {
-    const store = await loadStore();
-    const cached = await store.cachedProjects().catch(() => null);
-    if (cached) return cached;
-    throw error;
-  });
+const projectsOf = () => orCached(myProjects, async () => (await loadStore()).cachedProjects());
 
 function Lists() {
   const t = useTranslations('applications.list');

@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../lib/api';
+import { orCached } from '../../lib/or-cached';
 import { MY_PROJECTS_KEY, myProjects, type MyProject } from './my-projects-api';
 
 /**
@@ -30,12 +31,7 @@ export function MyProjectsPage() {
 
 /** The server's list, or the phone's when the network is away. */
 const projectsOf = () =>
-  myProjects().catch(async (error: unknown) => {
-    const store = await import('../../offline/applications-store');
-    const cached = await store.cachedProjects().catch(() => null);
-    if (cached) return cached;
-    throw error;
-  });
+  orCached(myProjects, async () => (await import('../../offline/snapshot')).cachedProjects());
 
 function ProjectList() {
   const t = useTranslations('projects.mine');

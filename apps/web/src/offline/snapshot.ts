@@ -142,15 +142,18 @@ export async function cachedApplication(id: string): Promise<CachedApplication |
   return row ? openRow<CachedApplication>(requireDataKey(), row) : null;
 }
 
-/** The cached drafts whose answers the phone does not hold yet. */
-export async function draftsWithoutDetail(limit: number): Promise<string[]> {
+/** The cached applications whose answers the phone does not hold yet, oldest change first. */
+export async function recordsWithoutDetail(limit: number): Promise<string[]> {
   const key = requireDataKey();
-  const rows = await offlineDb().applications.where('status').equals('draft').toArray();
+  const rows = (await offlineDb().applications.toArray()).sort((a, b) =>
+    a.updatedAt.localeCompare(b.updatedAt),
+  );
   const ids: string[] = [];
   for (const row of rows) {
     if (ids.length >= limit) break;
-    const cached = await openRow<CachedApplication>(key, row);
-    if (!cached.detail) ids.push(row.id);
+    // a row another writer shaped wrongly is left alone; the next data set replaces it
+    const cached = await openRow<CachedApplication>(key, row).catch(() => null);
+    if (cached && !cached.detail) ids.push(row.id);
   }
   return ids;
 }

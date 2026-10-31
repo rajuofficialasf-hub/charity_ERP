@@ -18,20 +18,13 @@ import { useLocale, useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../lib/api';
-import type { OwnRecord } from '../../offline/applications-store';
 import { AnswerList } from './AnswerList';
 import { ApplicationTimeline } from './ApplicationTimeline';
-import {
-  actOn,
-  application,
-  applicationKey,
-  MY_APPLICATIONS_KEY,
-  timeline,
-} from './applications-api';
+import { actOn, applicationKey, MY_APPLICATIONS_KEY, timeline } from './applications-api';
 import { toneOf } from './status';
 import { SyncBadge } from './SyncBadge';
 import { UnlockedAnswer } from './UnlockedAnswer';
-import { loadStore } from './use-local-records';
+import { loadStore, recordOf, storeMessage } from './use-local-records';
 import './applications.css';
 
 /**
@@ -45,17 +38,6 @@ export function ApplicationDetailPage() {
   const t = useTranslations('applications.detail');
   return <AccountPage title={() => t('title')}>{() => <Detail />}</AccountPage>;
 }
-
-/** The server's record, or the one the phone holds when the network is away or the draft is the phone's own. */
-const recordOf = (applicationId: string) =>
-  application(applicationId)
-    .then((r) => ({ data: r.data as OwnRecord, meta: r.meta }))
-    .catch(async (error: unknown) => {
-      const store = await loadStore();
-      const cached = await store.cachedRecord(applicationId).catch(() => null);
-      if (cached) return { data: cached, meta: { etag: cached.etag } };
-      throw error;
-    });
 
 function Detail() {
   const { applicationId = '' } = useParams();
@@ -77,6 +59,10 @@ function Detail() {
   });
   const reasonOf = (code: string | null) =>
     code && te.has(code as never) ? te(code as never) : t('detail.action_failed');
+  const tSync = (key: 'store_unavailable' | 'record_on_its_way') => t(`sync.${key}`);
+  const wordsOf = (error: unknown) =>
+    storeMessage(error, tSync) ??
+    (error instanceof Error ? error.message : t('detail.action_failed'));
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: applicationKey(applicationId) });
     await queryClient.invalidateQueries({ queryKey: MY_APPLICATIONS_KEY });
@@ -101,8 +87,7 @@ function Detail() {
       setNotice(outcome === 'sent' ? t('detail.sent') : t('sync.saved_on_phone'));
       await refresh();
     },
-    onError: (error) =>
-      setNotice(error instanceof Error ? error.message : t('detail.action_failed')),
+    onError: (error) => setNotice(wordsOf(error)),
   });
   /** A draft of the phone's own is dropped there; the server's goes through its action. */
   const remove = useMutation({
@@ -117,14 +102,19 @@ function Detail() {
     },
     onSuccess: async () => {
       setNotice(t('detail.deleted'));
+      if (one.data?.data.local) {
+        // the phone's draft is gone with its address: back to the drafts
+        void navigate('/my-applications?tab=draft', { replace: true });
+        await queryClient.invalidateQueries({ queryKey: MY_APPLICATIONS_KEY });
+        return;
+      }
       await refresh();
-      if (one.data?.data.local) void navigate('/my-applications?tab=draft');
     },
     onError: async (error) => {
       if (error instanceof ApiFailure && error.status === 412) {
         setNotice(t('detail.stale'));
         await one.refetch();
-      } else setNotice(error instanceof ApiFailure ? error.message : t('detail.action_failed'));
+      } else setNotice(wordsOf(error));
     },
   });
   const back = <Link to="/my-applications">{t('detail.back')}</Link>;
@@ -162,7 +152,7 @@ function Detail() {
                 {t('detail.edit')}
               </Button>
             ) : null}
-            {may('submit') ? (
+            {may('submit') && a.sync?.state !== 'pending' && a.sync?.state !== 'syncing' ? (
               <Button
                 variant="primary"
                 size="sm"

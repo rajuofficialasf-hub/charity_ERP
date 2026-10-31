@@ -167,8 +167,8 @@ async function seedPhone() {
   );
 }
 
-/** The batch endpoint accepting every record as the one application. */
-function serveBatch(posted: string[]) {
+/** The batch endpoint accepting every record as the one application, or refusing the given kinds. */
+function serveBatch(posted: string[], refuse: Record<string, string> = {}) {
   server.use(
     http.post('*/api/v1/sync/batch', async ({ request }) => {
       const body = (await request.json()) as { records: { clientUuid: string; kind: string }[] };
@@ -176,12 +176,16 @@ function serveBatch(posted: string[]) {
       return HttpResponse.json({
         data: {
           serverTime: new Date().toISOString(),
-          results: body.records.map((r) => ({
-            clientUuid: r.clientUuid,
-            result: 'synced',
-            serverId: APP,
-            status: r.kind === 'application_submit' ? 'submitted' : 'draft',
-          })),
+          results: body.records.map((r) =>
+            refuse[r.kind]
+              ? { clientUuid: r.clientUuid, result: 'failed', code: refuse[r.kind] }
+              : {
+                  clientUuid: r.clientUuid,
+                  result: 'synced',
+                  serverId: APP,
+                  status: r.kind === 'application_submit' ? 'submitted' : 'draft',
+                },
+          ),
         },
         meta: {},
       });
@@ -366,5 +370,158 @@ describe('applications without network', () => {
       { timeout: 5000 },
     );
     expect(await screen.findByText('ফোনে জমা আছে')).toBeInTheDocument();
+  });
+
+  it('tells the server’s reason when a record is refused online, and keeps the record as failed', async () => {
+    const user = userEvent.setup();
+    refreshAs(VOLUNTEER);
+    await seedPhone();
+    const store = await import('../../offline/applications-store');
+    await store.saveDraft({
+      projectId: PROJECT,
+      formVersionId: VERSION,
+      clientUuid: LOCAL,
+      answers: answers('অফলাইন উপকারভোগী', 'প্রথম মন্তব্য'),
+    });
+    serveBatch([], { application_draft: 'beneficiary.already_applied' });
+    renderApp(<ApplicationFormPage />, 'bn', {
+      path: '/my-applications/:applicationId/edit',
+      initialPath: `/my-applications/${LOCAL}/edit`,
+    });
+    const note = await screen.findByRole('textbox', { name: /মন্তব্য/ }, { timeout: 5000 });
+    await user.clear(note);
+    await user.type(note, 'আবার');
+    await user.click(screen.getByRole('button', { name: 'অফিসে পাঠান' }));
+    expect(
+      await screen.findByText('এই প্রকল্পে এই উপকারভোগীর আবেদন আগেই আছে।', {}, { timeout: 5000 }),
+    ).toBeInTheDocument();
+    expect(await offlineDb().outbox.get(LOCAL)).toMatchObject({
+      state: 'failed',
+      failureCode: 'beneficiary.already_applied',
+    });
+    expect(screen.queryByText('ফোনে জমা আছে')).not.toBeInTheDocument();
+  });
+
+  it('shows the refusal of a correction sent online', async () => {
+    const user = userEvent.setup();
+    refreshAs(VOLUNTEER);
+    await seedPhone();
+    const withUnlock = {
+      ...detail,
+      status: 'implementation',
+      appNo: 'WC-2026-00012',
+      availableActions: [],
+      unlocks: [
+        {
+          id: UNLOCK,
+          applicationId: APP,
+          fieldKey: 'note',
+          repeatIndex: 0,
+          state: 'open',
+          oldValue: { t: 'long_text', v: 'পুরনো মন্তব্য' },
+          newValue: null,
+          reason: null,
+          openedBy: null,
+          openedAt: '2026-11-04T10:00:00Z',
+          enteredBy: null,
+          enteredAt: null,
+          decidedBy: null,
+          decidedAt: null,
+          decision: null,
+          decisionReason: null,
+          mayFill: true,
+          mayDecide: false,
+          mayCancel: false,
+        },
+      ],
+      form,
+    };
+    server.use(
+      http.get(`*/api/v1/applications/${APP}`, () =>
+        HttpResponse.json({ data: withUnlock, meta: { etag: '"v1"' } }),
+      ),
+      http.get(`*/api/v1/applications/${APP}/timeline`, () =>
+        HttpResponse.json({ data: [], meta: {} }),
+      ),
+    );
+    serveBatch([], { field_update: 'validation.failed' });
+    renderApp(<ApplicationDetailPage />, 'bn', {
+      path: '/my-applications/:applicationId',
+      initialPath: `/my-applications/${APP}`,
+    });
+    const box = await screen.findByRole('textbox', { name: /মন্তব্য/ }, { timeout: 5000 });
+    await user.clear(box);
+    await user.type(box, 'নতুন মন্তব্য');
+    await user.click(screen.getByRole('button', { name: 'পাঠান' }));
+    expect(
+      await screen.findByText('কিছু তথ্য সঠিক নয়।', {}, { timeout: 5000 }),
+    ).toBeInTheDocument();
+    // the record read online is now held on the phone too
+    expect(await offlineDb().applications.get(APP)).toBeDefined();
+  });
+
+  it('drops a draft the server never knew, with the send that waited for it', async () => {
+    const user = userEvent.setup();
+    refreshAs(VOLUNTEER);
+    await seedPhone();
+    const store = await import('../../offline/applications-store');
+    onLine = false;
+    await store.saveDraft({
+      projectId: PROJECT,
+      formVersionId: VERSION,
+      clientUuid: LOCAL,
+      answers: answers('ফোনের খসড়া', ''),
+    });
+    await store.sendToOffice({
+      projectId: PROJECT,
+      formVersionId: VERSION,
+      draftClientUuid: LOCAL,
+      serverId: null,
+    });
+    const view = renderApp(<ApplicationDetailPage />, 'bn', {
+      path: '/my-applications/:applicationId',
+      initialPath: `/my-applications/${LOCAL}`,
+    });
+    await user.click(await screen.findByRole('button', { name: 'মুছে ফেলুন' }, { timeout: 5000 }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'মুছে ফেলুন' }));
+    await waitFor(async () => expect(await offlineDb().outbox.count()).toBe(0));
+    await waitFor(() => expect(view.router.state.location.pathname).toBe('/my-applications'));
+  });
+
+  it('goes straight to the server when the store is closed and there is network', async () => {
+    refreshAs(VOLUNTEER);
+    const store = await import('../../offline/applications-store');
+    const { forgetKeys } = await import('../../offline/keys');
+    forgetKeys();
+    const created: unknown[] = [];
+    server.use(
+      http.post(`*/api/v1/projects/${PROJECT}/applications`, async ({ request }) => {
+        created.push(await request.json());
+        return HttpResponse.json(
+          { data: { ...detail, id: APP }, meta: { etag: '"v1"' } },
+          { status: 201 },
+        );
+      }),
+    );
+    const saved = await store.saveDraft({
+      projectId: PROJECT,
+      formVersionId: VERSION,
+      clientUuid: LOCAL,
+      answers: answers('সরাসরি', ''),
+    });
+    expect(saved.serverId).toBe(APP);
+    expect(created).toHaveLength(1);
+    expect(await store.settle(LOCAL)).toMatchObject({ state: 'synced', serverId: APP });
+    // without network as well there is nowhere to keep it
+    onLine = false;
+    await expect(
+      store.saveDraft({
+        projectId: PROJECT,
+        formVersionId: VERSION,
+        clientUuid: '01900000-0000-7000-8000-0000000000e2',
+        answers: answers('কোথাও না', ''),
+      }),
+    ).rejects.toThrow('offline.store_unavailable');
   });
 });

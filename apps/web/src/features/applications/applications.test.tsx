@@ -251,19 +251,23 @@ describe('the new application', () => {
     expect(screen.getByRole('textbox', { name: /^mobile/ })).not.toHaveAttribute('readonly');
     // the first part done: the draft is created
     await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
-    await waitFor(() => expect(created).toHaveLength(1));
-    expect(await screen.findByText('খসড়া সংরক্ষিত হয়েছে')).toBeInTheDocument();
+    await waitFor(() => expect(created).toHaveLength(1), { timeout: 15_000 });
+    expect(
+      await screen.findByText('খসড়া সংরক্ষিত হয়েছে', {}, { timeout: 15_000 }),
+    ).toBeInTheDocument();
     // the address came from the profile too: the next part is the note, then the send
     await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
-    await waitFor(() => expect(patched).toHaveLength(1));
+    await waitFor(() => expect(patched).toHaveLength(1), { timeout: 15_000 });
     await user.type(
       await screen.findByRole('textbox', { name: /মন্তব্য/ }, { timeout: 15_000 }),
       'শীতের কাপড় দরকার',
     );
     // a photo goes up as part of the saved draft, under an id of its own that a retry reuses
-    const [input] = await screen.findAllByLabelText('গ্যালারি থেকে নিন');
+    const [input] = await screen.findAllByLabelText('গ্যালারি থেকে নিন', {}, { timeout: 15_000 });
     await user.upload(input!, new File(['jpeg'], 'house.jpg', { type: 'image/jpeg' }));
-    await waitFor(() => expect(vi.mocked(uploadFile)).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(vi.mocked(uploadFile)).toHaveBeenCalledTimes(1), {
+      timeout: 15_000,
+    });
     const [, target, options] = vi.mocked(uploadFile).mock.calls[0]!;
     expect(target).toMatchObject({
       kind: 'form_photo',

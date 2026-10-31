@@ -276,6 +276,8 @@
     "verifying": "The office is checking it",
     "photos_pending": "Photos still to go",
     "saved_on_phone": "Saved on this phone. It will go to the office when there is network.",
-    "queued_title": "Saved on this phone"
+    "queued_title": "Saved on this phone",
+    "store_unavailable": "Nothing can be kept on this phone right now, and there is no network. Try again when there is network.",
+    "record_on_its_way": "This record is on its way to the office; it can be removed once the office has answered."
   }
 }

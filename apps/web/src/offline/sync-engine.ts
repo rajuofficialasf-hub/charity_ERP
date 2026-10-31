@@ -31,7 +31,7 @@ import { application } from '../features/applications/applications-api';
 import {
   applySnapshot,
   cursor,
-  draftsWithoutDetail,
+  recordsWithoutDetail,
   META,
   metaString,
   openValue,
@@ -240,7 +240,7 @@ export class SyncEngine {
       if (inflight && (await this.inFlightDue(inflight))) open = await this.send(inflight);
       if (open) for (const batch of await this.batches()) if (!(await this.send(batch))) break;
       await this.snapshotIfDue(options.snapshot === true || reason === 'manual');
-      await this.hydrateDrafts();
+      await this.hydrateRecords();
       await purge(this.deps.now());
       await this.publish({ state: 'idle', lastSyncAt: this.deps.now() }, true);
     } catch (error) {
@@ -429,9 +429,9 @@ export class SyncEngine {
       await replaceLocations(await locationsAll(), view.locationsVersion);
   }
 
-  /** The answers of the cached drafts, pulled a few at a time, so they open and edit without network. */
-  private async hydrateDrafts(): Promise<void> {
-    for (const id of await draftsWithoutDetail(HYDRATE_PER_FLUSH)) {
+  /** The answers of the cached records, pulled a few at a time, so they open and edit without network. */
+  private async hydrateRecords(): Promise<void> {
+    for (const id of await recordsWithoutDetail(HYDRATE_PER_FLUSH)) {
       // a record the server no longer gives stays as its summary; the next data set settles it
       const record = await application(id).catch(() => null);
       if (!record) continue;

@@ -2,6 +2,7 @@ import type { Locale } from '@css/shared/i18n';
 import { useLocale } from 'use-intl';
 import { useQuery } from '@tanstack/react-query';
 import { locations } from '../features/registration/registration-api';
+import { orCached } from '../lib/or-cached';
 
 export interface AddressIds {
   divisionId: string | null;
@@ -31,12 +32,10 @@ export function AddressNames({ address }: { address: AddressIds }) {
 
 /** The children of a location from the server, or from the phone's locations master when the network is away. */
 const childrenOf = (parentId: string | undefined) =>
-  locations(parentId).catch(async (error: unknown) => {
-    const { cachedChildren } = await import('../offline/snapshot');
-    const cached = await cachedChildren(parentId ?? null).catch(() => null);
-    if (cached) return cached;
-    throw error;
-  });
+  orCached(
+    () => locations(parentId),
+    async () => (await import('../offline/snapshot')).cachedChildren(parentId ?? null),
+  );
 
 /**
  * The name of one location, read from its parent's public list (the cache the address cascade

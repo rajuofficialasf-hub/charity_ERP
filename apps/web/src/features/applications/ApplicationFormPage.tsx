@@ -13,6 +13,7 @@ import type { LookupResult } from '../../admin/beneficiaries/beneficiaries-api';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../lib/api';
+import { orCached } from '../../lib/or-cached';
 import { compressImage } from '../../lib/compress';
 import { uploadFile } from '../../lib/uploads';
 import { LookupField } from '../beneficiaries/LookupField';
@@ -27,7 +28,7 @@ import {
   MY_APPLICATIONS_KEY,
 } from './applications-api';
 import { answersOfNumber, answersOfProfile, lockedKeysOf } from './identity-answers';
-import { loadStore } from './use-local-records';
+import { loadStore, recordOf, storeMessage } from './use-local-records';
 import './applications.css';
 
 const PHOTO_TYPES = ['image/jpeg', 'image/png'];
@@ -65,20 +66,16 @@ export function ApplicationFormPage() {
 
 /** The project's form from the server, or the cached one when the network is away. */
 const formOf = (projectId: string) =>
-  applicationForm(projectId).catch(async (error: unknown) => {
-    const store = await loadStore();
-    const cached = await store.cachedProjectForm(projectId).catch(() => null);
-    if (cached) return cached;
-    throw error;
-  });
+  orCached(
+    () => applicationForm(projectId),
+    async () => (await loadStore()).cachedProjectForm(projectId),
+  );
 
 const projectOf = (projectId: string) =>
-  myProject(projectId).catch(async (error: unknown) => {
-    const store = await loadStore();
-    const cached = await store.cachedProject(projectId).catch(() => null);
-    if (cached) return cached;
-    throw error;
-  });
+  orCached(
+    () => myProject(projectId),
+    async () => (await loadStore()).cachedProject(projectId),
+  );
 
 function NewApplication({ me }: { me: Me }) {
   const { projectId = '' } = useParams();
@@ -190,14 +187,7 @@ function EditDraft({ me, applicationId }: { me: Me; applicationId: string }) {
   const t = useTranslations('applications.detail');
   const one = useQuery({
     queryKey: applicationKey(applicationId),
-    queryFn: () =>
-      application(applicationId).catch(async (error: unknown) => {
-        // the record the phone holds: a draft of its own, or the server's pulled earlier
-        const store = await loadStore();
-        const cached = await store.cachedRecord(applicationId).catch(() => null);
-        if (cached) return { data: cached, meta: { etag: cached.etag } };
-        throw error;
-      }),
+    queryFn: () => recordOf(applicationId),
   });
   const back = <Link to={`/my-applications/${applicationId}`}>{t('back')}</Link>;
   if (one.isPending) return <Skeleton shape="card" />;
@@ -208,7 +198,7 @@ function EditDraft({ me, applicationId }: { me: Me; applicationId: string }) {
         <ErrorState title={t('load_failed')} onRetry={() => void one.refetch()} />
       </Stack>
     );
-  const record = one.data.data as Application & { local?: boolean };
+  const record = one.data.data;
   return (
     <Stack gap={3}>
       {back}
@@ -280,6 +270,14 @@ function ApplicationForm({
   /** The server's refusal of a record, in the reader's words. */
   const reasonOf = (code: string | null) =>
     code && te.has(code as never) ? te(code as never) : t('save_failed');
+  /** A failure of the store itself (no store and no network) in the reader's words, else the error as it came. */
+  const worded = (error: unknown): Error =>
+    new Error(
+      storeMessage(error, ts) ?? (error instanceof Error ? error.message : t('save_failed')),
+      {
+        cause: error,
+      },
+    );
 
   /**
    * Writes the draft to the outbox and, with network, waits for the server's answer: the record
@@ -289,15 +287,18 @@ function ApplicationForm({
   const save = async ({ answers, clientUuid }: Submission) => {
     const store = await loadStore();
     const current = draft.current;
-    const saved = await store.saveDraft({
-      projectId,
-      formVersionId: form.id,
-      clientUuid: current.clientUuid ?? clientUuid,
-      answers,
-      server: current.serverId ? { id: current.serverId, etag: current.etag } : null,
-    });
+    const saved = await store
+      .saveDraft({
+        projectId,
+        formVersionId: form.id,
+        clientUuid: current.clientUuid ?? clientUuid,
+        answers,
+        server: current.serverId ? { id: current.serverId, etag: current.etag } : null,
+      })
+      .catch((error: unknown) => {
+        throw worded(error);
+      });
     if (!current.serverId) current.clientUuid = saved.clientUuid;
-    setSaved(true);
     if (navigator.onLine) {
       const state = await store.settle(saved.clientUuid);
       if (state?.state === 'failed') throw new Error(reasonOf(state.failureCode));
@@ -310,6 +311,8 @@ function ApplicationForm({
           .catch(() => current.etag);
       }
     }
+    // said once the record is where it will stay: on the server, or on the phone without network
+    setSaved(true);
     await queryClient.invalidateQueries({ queryKey: MY_APPLICATIONS_KEY });
   };
 
@@ -320,12 +323,16 @@ function ApplicationForm({
       return;
     }
     const store = await loadStore();
-    const id = await store.sendToOffice({
-      projectId,
-      formVersionId: form.id,
-      draftClientUuid: draft.current.clientUuid,
-      serverId: draft.current.serverId,
-    });
+    const id = await store
+      .sendToOffice({
+        projectId,
+        formVersionId: form.id,
+        draftClientUuid: draft.current.clientUuid,
+        serverId: draft.current.serverId,
+      })
+      .catch((error: unknown) => {
+        throw worded(error);
+      });
     try {
       if (!navigator.onLine) {
         setSent({ kind: 'queued' });

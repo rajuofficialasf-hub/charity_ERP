@@ -1,9 +1,48 @@
 import { useEffect, useState } from 'react';
-import type { SyncInfo } from '../../offline/applications-store';
-import type { ApplicationSummary } from './applications-api';
+import { orCached } from '../../lib/or-cached';
+import type { OwnRecord, SyncInfo } from '../../offline/applications-store';
+import { application, type ApplicationSummary } from './applications-api';
 
 /** The store and the engine, loaded only when a screen needs what the phone holds. */
 export const loadStore = () => import('../../offline/applications-store');
+
+/**
+ * The words of a failure the store itself raised, or null for any other error. The keys are
+ * named here so the login chunk never loads the store for them.
+ */
+export function storeMessage(
+  error: unknown,
+  ts: (key: 'store_unavailable' | 'record_on_its_way') => string,
+): string | null {
+  if (!(error instanceof Error)) return null;
+  if (error.message === 'offline.store_unavailable') return ts('store_unavailable');
+  if (error.message === 'offline.record_on_its_way') return ts('record_on_its_way');
+  return null;
+}
+
+/**
+ * The record a volunteer's screen shows, by the id the address carries: a draft of the phone's
+ * own while the server does not know it; else the server's record (through the phone's draft
+ * row when the address still names the draft), kept on the phone for the open without network;
+ * the phone's copy when the network is away. An edit waiting in the outbox overlays the answers.
+ */
+export async function recordOf(id: string): Promise<{ data: OwnRecord; meta: { etag?: string } }> {
+  const store = await loadStore();
+  const own = await store.localRecord(id).catch(() => null);
+  if (own) return { data: own, meta: { etag: '' } };
+  const serverId = await store.serverIdOf(id).catch(() => id);
+  return orCached(
+    async () => {
+      const r = await application(serverId);
+      await store.rememberRecord(r.data, r.meta.etag ?? '').catch(() => undefined);
+      return { data: await store.withPendingEdit(r.data), meta: r.meta };
+    },
+    async () => {
+      const cached = await store.cachedRecord(serverId);
+      return cached ? { data: cached, meta: { etag: cached.etag } } : null;
+    },
+  );
+}
 
 export interface LocalRecords {
   /** The drafts the server does not know yet, as list rows. */
