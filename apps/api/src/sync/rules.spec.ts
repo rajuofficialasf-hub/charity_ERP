@@ -1,18 +1,37 @@
 import { describe, expect, it } from 'vitest';
-import { correctedDeviceTime, lateSync, staleVersion, verificationReason } from './rules';
+import {
+  CLOCK_OFFSET_MAX_MS,
+  clampedOffset,
+  correctedDeviceTime,
+  lateSync,
+  staleVersion,
+  verificationReason,
+} from './rules';
 
-// Dhaka is UTC+6: 2026-03-10 18:30 UTC is already 11 March there
+// Dhaka is UTC+6: 2026-03-10 18:00 UTC is already midnight of 11 March there
 const dhakaMidnight = new Date('2026-03-10T18:00:00Z');
 const applyTo = new Date('2026-03-10T00:00:00Z');
 
 describe('the device time on the server clock', () => {
+  const now = new Date('2026-03-10T12:30:00Z');
+
   it('moves the device time by the offset learned from the batch', () => {
-    expect(correctedDeviceTime('2026-03-10T10:00:00Z', 2 * 3_600_000).toISOString()).toBe(
+    expect(correctedDeviceTime('2026-03-10T10:00:00Z', 2 * 3_600_000, now).toISOString()).toBe(
       '2026-03-10T12:00:00.000Z',
     );
-    expect(correctedDeviceTime('2026-03-10T10:00:00Z', -60_000).toISOString()).toBe(
+    expect(correctedDeviceTime('2026-03-10T10:00:00Z', -60_000, now).toISOString()).toBe(
       '2026-03-10T09:59:00.000Z',
     );
+  });
+
+  it('never dates a record after now', () => {
+    expect(correctedDeviceTime('2026-03-10T12:00:00Z', 3_600_000, now)).toEqual(now);
+  });
+
+  it('believes a device clock at most a day off', () => {
+    expect(clampedOffset(5_000)).toBe(5_000);
+    expect(clampedOffset(3 * CLOCK_OFFSET_MAX_MS)).toBe(CLOCK_OFFSET_MAX_MS);
+    expect(clampedOffset(-3 * CLOCK_OFFSET_MAX_MS)).toBe(-CLOCK_OFFSET_MAX_MS);
   });
 });
 

@@ -63,7 +63,7 @@ import { type EngineApplication, GuardContext, GUARDS } from '../workflow/guards
 import { pendingSlotsOf, slotParts } from './pending-photos';
 import { lateSync, staleVersion } from '../sync/rules';
 import { namesMatch } from '@css/shared/sync';
-import type { BuiltGuard } from '../workflow/registry';
+import { type BuiltGuard, isBuiltGuard } from '../workflow/registry';
 import { readActivities } from './activities';
 import { readChanges, readTimeline } from './history';
 import type { SubmissionWriter } from './submission';
@@ -105,6 +105,14 @@ export interface WriteOptions {
    * stale record, and a known number under another name waits for the office instead of linking.
    */
   sync?: { createdAt: Date };
+  /** The phone's edit won over a later server edit of the draft: what lost goes on record with the write. */
+  conflict?: LastWriteConflict;
+}
+
+export interface LastWriteConflict {
+  clientUpdatedAt: string;
+  serverUpdatedAt: string;
+  serverAnswers: Prisma.InputJsonValue;
 }
 
 /** What a read answers, with the version the next write carries back in If-Match. */
@@ -310,8 +318,8 @@ export class ApplicationsService {
     const project = await this.reachedProject(viewer.principal, viewer.scope, projectId);
     const earlier = await this.earlier(viewer, projectId, body.clientUuid);
     if (earlier) return { replay: true, value: earlier };
-    const held: string[] = [];
-    const version = await this.versionFor(projectId, body.formVersionId, options.sync, held);
+    const version = await this.versionFor(projectId, body.formVersionId, options.sync);
+    const held: string[] = [...version.flags];
     // a record made while the window was open and synced after it closed waits for the office
     if (options.sync && lateSync(options.sync.createdAt, this.clock.now(), project.applyTo))
       held.push('late_sync');
@@ -546,6 +554,13 @@ export class ApplicationsService {
               createdBy: actor,
             })),
           });
+        if (options.conflict)
+          await this.audit.record(tx, {
+            action: 'sync.conflict_last_write',
+            entityType: 'application',
+            entityId: applicationId,
+            new: { kept: 'client', ...options.conflict },
+          });
         await this.audit.record(tx, {
           action: 'application.update',
           entityType: 'application',
@@ -572,27 +587,68 @@ export class ApplicationsService {
   /**
    * Holds a draft for the office instead of submitting it: a send made while the window was open
    * that arrives after it closed (docs/architecture/OFFLINE_SYNC.md "Conflict rules at sync").
-   * The owner's edit permission on a draft is the permission to send it this way.
+   * The send's permission and every guard of the submit move but the window run first, so only a
+   * record that could have gone in time waits; the window is then judged at the send's device time.
    */
   async holdForVerification(
     viewer: ApplicationViewer,
     applicationId: string,
     ifMatch: string | undefined,
     flags: readonly string[],
+    sentAt: Date,
   ): Promise<ApplicationRead> {
     const actor = viewer.principal.userId;
     const access = await this.access.load(actor);
     const row = await this.reachedRow(viewer.principal, access, applicationId, 'application.view');
     if (row.status !== 'draft') throw new ApiError('application.not_editable', 409);
-    await this.assertMay(viewer.principal, access, EDIT_PERMISSION.draft!, applicationId);
+    const project = await this.prisma.project.findUniqueOrThrow({
+      where: { id: row.projectId },
+      select: PROJECT_SELECT,
+    });
+    const definition = workflowDefinitionSchema.parse(
+      project.workflowSnapshot ?? project.workflowDefinition.definition,
+    );
+    const submit = (definition.transitions ?? []).find(
+      (t) => t.from === 'draft' && t.to === 'submitted',
+    );
+    if (!submit?.permission) throw new ApiError('workflow.transition_not_allowed', 409);
+    await this.assertMay(viewer.principal, access, submit.permission, applicationId);
     assertIfMatch(ifMatch, row.updatedAt);
     const now = this.clock.now();
+    // a draft made online carries no device time: the send's stands for it
+    const madeAt = row.clientCreatedAt ?? sentAt;
+    const held = [...new Set([...row.flags, ...flags])];
     await this.prisma.$transaction(async (tx) => {
+      await this.runGuards(
+        tx,
+        viewer.principal,
+        access,
+        {
+          id: row.id,
+          projectId: row.projectId,
+          formVersionId: row.formVersionId,
+          beneficiaryId: row.beneficiaryId,
+          ownerVolunteerId: row.ownerVolunteerId,
+          createdByUserId: row.createdByUserId,
+          createdBy: row.createdBy,
+          submittedBy: row.submittedBy,
+          status: row.status,
+          zakatDecision: row.zakatDecision,
+          updatedAt: row.updatedAt,
+          pendingPhotos: row.pendingPhotos,
+          flags: held,
+          clientCreatedAt: madeAt,
+          project: { ...project, approval: null },
+        },
+        (submit.guards ?? []).filter(isBuiltGuard).filter((g) => g !== 'deadline.open'),
+        'submitted',
+      );
       await tx.application.update({
         where: { id: applicationId },
         data: {
           status: 'needs_verification',
-          flags: [...new Set([...row.flags, ...flags])],
+          flags: held,
+          clientCreatedAt: madeAt,
           submittedAt: now,
           updatedAt: now,
           updatedBy: actor,
@@ -603,7 +659,7 @@ export class ApplicationsService {
         entityType: 'application',
         entityId: applicationId,
         old: { status: row.status },
-        new: { status: 'needs_verification', flags },
+        new: { status: 'needs_verification', flags: held, sentAt: sentAt.toISOString() },
       });
     });
     return this.read(viewer, access, applicationId);
@@ -1028,23 +1084,21 @@ export class ApplicationsService {
     projectId: string,
     formVersionId: string,
     sync: WriteOptions['sync'],
-    held: string[],
-  ): Promise<{ id: string }> {
+  ): Promise<{ id: string; flags: string[] }> {
     const version = await this.prisma.formVersion.findFirst({
       where: { id: formVersionId, form: { projectId, kind: 'beneficiary_application' } },
       select: { id: true, status: true, formId: true },
     });
     if (!version) throw new ApiError('application.form_not_published', 422);
-    if (version.status === 'published') return { id: version.id };
+    if (version.status === 'published') return { id: version.id, flags: [] };
     if (!sync || version.status !== 'retired')
       throw new ApiError('application.form_not_published', 422);
     const successor = await this.prisma.formVersion.findFirst({
       where: { formId: version.formId, status: 'published' },
       select: { publishedAt: true },
     });
-    if (staleVersion(sync.createdAt, successor?.publishedAt ?? null))
-      held.push('stale_form_version');
-    return { id: version.id };
+    const stale = staleVersion(sync.createdAt, successor?.publishedAt ?? null);
+    return { id: version.id, flags: stale ? ['stale_form_version'] : [] };
   }
 
   /** Whose application a draft is: the volunteer's own, a team member's lead's, nobody's for an official. */
@@ -1220,17 +1274,51 @@ export class ApplicationsService {
     access: EffectiveAccess,
     application: EngineApplication,
   ): Promise<void> {
+    await this.runGuards(tx, principal, access, application, CREATE_GUARDS, 'draft');
+  }
+
+  /** The named built guards against the application, as the engine runs them for a move to `to`. */
+  private async runGuards(
+    tx: Tx,
+    principal: Principal,
+    access: EffectiveAccess,
+    application: EngineApplication,
+    names: readonly BuiltGuard[],
+    to: string,
+  ): Promise<void> {
     const ctx = new GuardContext(
       tx,
       application,
       { userId: principal.userId, kind: principal.kind, access },
       {},
       this.clock,
-      'draft',
+      to,
     );
-    for (const name of CREATE_GUARDS)
+    for (const name of names)
       if ((await GUARDS[name](ctx)) !== true)
         throw new ApiError(`workflow.guard.${name.replace(/\./g, '_')}`, 409);
+  }
+
+  /**
+   * Whether the caller may edit the record in its state: the state's permission within the
+   * caller's reach, and never for a blocked caller.
+   */
+  async mayEdit(
+    viewer: ApplicationViewer,
+    applicationId: string,
+    status: string,
+  ): Promise<boolean> {
+    const permission = EDIT_PERMISSION[status];
+    if (!permission) return false;
+    if (await this.blockedCaller(this.prisma, viewer.principal)) return false;
+    const access = await this.access.load(viewer.principal.userId);
+    try {
+      await this.assertMay(viewer.principal, access, permission, applicationId);
+      return true;
+    } catch (error) {
+      if (error instanceof ApiError && (error.status === 403 || error.status === 404)) return false;
+      throw error;
+    }
   }
 
   /**

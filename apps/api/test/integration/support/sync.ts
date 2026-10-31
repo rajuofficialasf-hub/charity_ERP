@@ -34,7 +34,7 @@ export interface SyncOutcome {
   serverId: string;
   status: string;
   pendingPhotos: number;
-  conflict?: { kept: 'server' | 'client' };
+  conflict?: { kept: 'server' | 'client'; serverValue?: unknown };
 }
 
 /**

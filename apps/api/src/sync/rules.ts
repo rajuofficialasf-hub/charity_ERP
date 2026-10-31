@@ -7,9 +7,20 @@ import { isoDateInDhaka } from '@css/shared/format';
  * form version a newer one replaced meanwhile.
  */
 
-/** A device time moved onto the server's clock by the offset learned from the batch. */
-export function correctedDeviceTime(iso: string, offsetMs: number): Date {
-  return new Date(new Date(iso).getTime() + offsetMs);
+/** How far a device clock may be off before the server stops believing it: the offset is capped at a day. */
+export const CLOCK_OFFSET_MAX_MS = 24 * 3_600_000;
+
+/** The offset the server works with: the learned one, within a day either way. */
+export function clampedOffset(offsetMs: number): number {
+  return Math.max(-CLOCK_OFFSET_MAX_MS, Math.min(CLOCK_OFFSET_MAX_MS, offsetMs));
+}
+
+/**
+ * A device time moved onto the server's clock by the offset learned from the batch, and never
+ * after now: the phone cannot date a record into the future.
+ */
+export function correctedDeviceTime(iso: string, offsetMs: number, now: Date): Date {
+  return new Date(Math.min(new Date(iso).getTime() + offsetMs, now.getTime()));
 }
 
 /** The day (in Dhaka) of a date-only window end, as the deadline guard reads it. */

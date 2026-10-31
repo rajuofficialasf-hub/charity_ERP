@@ -145,6 +145,7 @@
     "limit_exceeded": "Your application limit has been reached.",
     "project_closed": "The project is closed.",
     "not_permitted": "You no longer have permission for this action.",
+    "held_for_verification": "The office is checking this record; it cannot change until the office has decided.",
     "retry_exhausted": "Sync failed after many attempts. See the details."
   },
   "file": {

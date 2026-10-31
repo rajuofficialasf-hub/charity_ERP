@@ -80,7 +80,7 @@ describe('a record that arrives after the deadline', () => {
       const ahead = new Date(h.clock.now().getTime() + 2 * HOUR);
       const justNowOnDevice = w.draft(w.identity(), { clientCreatedAt: ahead.toISOString() });
       const lastNightOnDevice = w.draft(w.identity(), {
-        clientCreatedAt: new Date(yesterday.getTime() - 2 * HOUR + 2 * HOUR).toISOString(),
+        clientCreatedAt: yesterday.toISOString(),
       });
       const corrected = await w
         .batch(s, [justNowOnDevice, lastNightOnDevice], { deviceTime: ahead.toISOString() })
@@ -91,7 +91,7 @@ describe('a record that arrives after the deadline', () => {
       const rpm = await w.as(w.world.users.rpmDhaka);
       const verified = await w.act(
         rpm,
-        held ? w.resultOf(res, early.clientUuid).serverId : '',
+        w.resultOf(res, early.clientUuid).serverId,
         'verify_create',
         {
           ownerVolunteerId: w.generalVolunteer,
@@ -138,6 +138,71 @@ describe('a record that arrives after the deadline', () => {
         code: 'late_sync',
       });
       expect((await row(id)).status).toBe('needs_verification');
+    } finally {
+      await h.db.query('UPDATE projects SET apply_to = $2 WHERE id = $1', [
+        w.project,
+        '2099-12-31',
+      ]);
+    }
+  });
+
+  it('holds a draft made online that is sent late, lets the office verify it, and refuses an incomplete one', async () => {
+    const s = await w.as(w.world.users.general);
+    const online = await w.at(s, 'post', `/projects/${w.project}/applications`).send({
+      clientUuid: randomUUID(),
+      projectId: w.project,
+      formVersionId: w.versionId,
+      answers: w.identity(),
+    });
+    expect(online.status, JSON.stringify(online.body)).toBe(201);
+    const id = online.body.data.id as string;
+    const incomplete = w.draft(w.identity().filter((a) => a.fieldKey !== 'q_village'));
+    const madeIncomplete = await w.batch(s, [incomplete]).expect(200);
+    const incompleteId = w.resultOf(madeIncomplete, incomplete.clientUuid).serverId;
+    const yesterday = new Date(h.clock.now().getTime() - DAY);
+    await h.db.query('UPDATE projects SET apply_to = $2 WHERE id = $1', [
+      w.project,
+      dhakaDay(yesterday),
+    ]);
+    try {
+      const inTime = (target: string) =>
+        w.record({
+          kind: 'application_submit',
+          target,
+          payload: {},
+          clientCreatedAt: new Date(yesterday.getTime() - HOUR).toISOString(),
+        });
+      const sendOnline = inTime(id);
+      const sendIncomplete = inTime(incompleteId);
+      const res = await w.batch(s, [sendOnline, sendIncomplete]).expect(200);
+      expect(w.resultOf(res, sendOnline.clientUuid)).toMatchObject({
+        result: 'needs_verification',
+        code: 'late_sync',
+      });
+      expect((await row(id)).client_created_at).not.toBeNull();
+      // the send runs every check of a submit but the window: a missing answer refuses it
+      expect(w.resultOf(res, sendIncomplete.clientUuid)).toMatchObject({
+        result: 'failed',
+        code: 'workflow.guard.mandatory_fields_present',
+      });
+      expect((await row(incompleteId)).status).toBe('draft');
+      // an edit of the held record from the phone is told the office holds it
+      const edit = w.record({
+        kind: 'application_update',
+        target: id,
+        payload: { answers: w.identity() },
+      });
+      const edited = await w.batch(s, [edit]).expect(200);
+      expect(w.resultOf(edited, edit.clientUuid)).toMatchObject({
+        result: 'failed',
+        code: 'sync.held_for_verification',
+      });
+      const rpm = await w.as(w.world.users.rpmDhaka);
+      const verified = await w.act(rpm, id, 'verify_create', {
+        ownerVolunteerId: w.generalVolunteer,
+      });
+      expect(verified.status, JSON.stringify(verified.body)).toBe(200);
+      expect(verified.body.data.status).toBe('submitted');
     } finally {
       await h.db.query('UPDATE projects SET apply_to = $2 WHERE id = $1', [
         w.project,
@@ -222,6 +287,7 @@ describe('a change that meets another change', () => {
     });
     const made = await w.batch(s, [first, send]).expect(200);
     const id = w.resultOf(made, first.clientUuid).serverId;
+    const base = (await w.at(s, 'get', `/applications/${id}`)).headers.etag as string;
     const rpm = await w.as(w.world.users.rpmDhaka);
     for (const step of ['review', 'send_for_approval', 'approve'])
       expect((await w.act(rpm, id, step)).status, step).toBe(200);
@@ -244,6 +310,40 @@ describe('a change that meets another change', () => {
     expect(await auditRows(h.db, 'sync.conflict_server_won')).toEqual(
       expect.arrayContaining([expect.objectContaining({ entity_id: id })]),
     );
+    // the phone edited before the office approved and sends the base it saw: locked all the same
+    const beforeApproval = w.record({
+      kind: 'application_update',
+      target: id,
+      baseVersion: base,
+      clientUpdatedAt: w.minutesAgo(20),
+      payload: {
+        answers: [
+          ...w.identity(),
+          { fieldKey: 'q_landmark', value: { t: 'short_text', v: 'আগে' } },
+        ],
+      },
+    });
+    const stale = await w.batch(s, [beforeApproval]).expect(200);
+    const outcome = w.resultOf(stale, beforeApproval.clientUuid);
+    expect(outcome).toMatchObject({
+      result: 'failed',
+      code: 'conflict.locked_on_server',
+      conflict: { kept: 'server' },
+    });
+    expect(outcome.conflict?.serverValue).toEqual(expect.any(Array));
+    const won = (await auditRows(h.db, 'sync.conflict_server_won')).filter(
+      (r) => r.entity_id === id,
+    );
+    expect(won).toHaveLength(2);
+    // the distribution workflow moves an approved application on to implementation by itself
+    expect(won[1]?.new).toMatchObject({
+      status: 'implementation',
+      serverAnswers: expect.any(Array),
+      clientAnswers: expect.any(Array),
+    });
+    expect(
+      (await auditRows(h.db, 'sync.conflict_last_write')).filter((r) => r.entity_id === id),
+    ).toEqual([]);
   });
 
   it('lets the later write win on a draft edited on both sides, and keeps the losing one on record', async () => {
