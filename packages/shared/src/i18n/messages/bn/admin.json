@@ -318,7 +318,9 @@
         "blocked": "ব্লকলিস্টে দেওয়া হয়েছে"
       },
       "photo_failed": "ছবি খোলা যায়নি",
-      "transfer": "আবেদন হস্তান্তর"
+      "transfer": "আবেদন হস্তান্তর",
+      "pending": "{n, plural, other {না পাঠানো {count}টি রেকর্ড ({time} অনুযায়ী)}}",
+      "revoke_pending": "{n, plural, other {এই ডিভাইসের না পাঠানো {count}টি রেকর্ড মুছে যাবে।}}"
     },
     "none": "নেই",
     "summary": "{from}–{to} দেখানো হচ্ছে · মোট {total} জন",

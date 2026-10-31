@@ -6,6 +6,7 @@ import {
   Bell,
   Clapperboard,
   ClipboardList,
+  CloudUpload,
   FolderKanban,
   HandHeart,
   House,
@@ -69,7 +70,8 @@ export interface NavDestination {
     | 'notification_templates'
     | 'deliveries'
     | 'profile'
-    | 'devices';
+    | 'devices'
+    | 'sync';
   href: string;
   icon: IconComponent;
   /** Only these roles see it (the server checks the permission anyway); everyone when absent. */
@@ -159,6 +161,8 @@ export const SIDEBAR: readonly { group: NavGroup; items: readonly NavDestination
 
 const HOME: NavDestination = { key: 'home', href: '/', icon: House };
 const NOTIFICATIONS: NavDestination = { key: 'notifications', href: '/notifications', icon: Bell };
+/** A volunteer's sync centre: what waits on the phone (the chip of the app bar opens it too). */
+const SYNC: NavDestination = { key: 'sync', href: '/sync', icon: CloudUpload };
 /** The account pages close the "more" sheet for everyone. */
 const ACCOUNT: readonly NavDestination[] = [
   { key: 'profile', href: '/account/profile', icon: UserRound },
@@ -223,7 +227,7 @@ export function moreFor(me: Pick<Me, 'kind' | 'roles'>): NavDestination[] {
   const covered = new Set(tabs.map((t) => t.href));
   const rest =
     me.kind === 'volunteer'
-      ? []
+      ? [SYNC]
       : sidebarFor(me)
           .flatMap((g) => g.items)
           .filter((item) => !covered.has(item.href));

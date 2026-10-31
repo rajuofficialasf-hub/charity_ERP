@@ -110,4 +110,7 @@ export interface DeviceSession {
   lastSeenAt: string;
   current: boolean;
   revokedAt: string | null;
+  /** Records the device last reported as still waiting on it, and when; null before any report. */
+  pendingCount: number | null;
+  pendingReportedAt: string | null;
 }

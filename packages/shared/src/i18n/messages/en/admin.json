@@ -318,7 +318,9 @@
         "blocked": "Put on the blocklist"
       },
       "photo_failed": "Could not load",
-      "transfer": "Hand over applications"
+      "transfer": "Hand over applications",
+      "pending": "{n, plural, one {{count} record not yet sent (as of {time})} other {{count} records not yet sent (as of {time})}}",
+      "revoke_pending": "{n, plural, one {The {count} record not yet sent from this device will be lost.} other {The {count} records not yet sent from this device will be lost.}}"
     },
     "none": "None",
     "summary": "Showing {from}–{to} of {total} volunteers",

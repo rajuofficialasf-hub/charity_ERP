@@ -2,6 +2,7 @@ import { Alert } from '@css/ui';
 import { useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
+import { SyncReminder } from '../sync/SyncReminder';
 import { AttentionList } from './AttentionList';
 import { ComingLater, LiveWidgetCard } from './HomeWidgets';
 import './home.css';
@@ -21,6 +22,7 @@ export function MyWorkPage() {
         <>
           <DocumentTitle title={tc('name')} />
           {me.state === 'pending' && <Alert tone="info">{t('account.pending')}</Alert>}
+          <SyncReminder withLink />
           <div className="my-work">
             <AttentionList />
             {widgetsFor(me).map((widget) =>

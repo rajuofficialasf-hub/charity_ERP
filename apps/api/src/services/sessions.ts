@@ -20,6 +20,9 @@ function view(row: SessionRow, currentId: string | null): DeviceSession {
     lastSeenAt: row.lastSeenAt.toISOString(),
     current: row.id === currentId,
     revokedAt: row.revokedAt?.toISOString() ?? null,
+    // what the device last reported as still waiting on it (a sync batch, a logout)
+    pendingCount: row.pendingCount ?? null,
+    pendingReportedAt: row.pendingReportedAt?.toISOString() ?? null,
   };
 }
 

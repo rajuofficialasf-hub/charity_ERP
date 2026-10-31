@@ -13,9 +13,9 @@ import {
   updateApplication,
 } from '../features/applications/applications-api';
 import type { MyProject, MyProjectDetail } from '../features/projects/my-projects-api';
-import { offlineDb, type OutboxRow } from './db';
+import { offlineDb, type OutboxKind, type OutboxRow } from './db';
 import { currentDataKey } from './keys';
-import { enqueue, readSecret, remove } from './outbox';
+import { enqueue, readSecret, remove, retryNow, WAITING_STATES, waitingCount } from './outbox';
 import * as photoQueue from './photo-queue';
 import {
   cachedApplication,
@@ -274,6 +274,114 @@ export async function queuePhoto(input: {
 export const photoUsage = () => photoQueue.usage();
 /** Drops the photos the server holds already. */
 export const freePhotoSpace = () => photoQueue.freeSpace();
+/** Records the server has not accepted yet: what a logout or a revoked session would lose. */
+export { waitingCount };
+
+/** A record as the sync centre lists it. */
+export interface OverviewRecord {
+  clientUuid: string;
+  kind: OutboxKind;
+  sync: SyncInfo;
+  /** The screen of the record: the phone's own draft, or the server's record. */
+  href: string;
+  /** A draft the server never knew: the person may drop it here. */
+  ownDraft: boolean;
+  projectId: string;
+  projectName: { bn: string; en: string } | null;
+  beneficiaryName: string | null;
+  createdAt: Date;
+}
+
+/** What the sync centre shows: every record still of interest, and the photo queue. */
+export interface Overview {
+  records: OverviewRecord[];
+  photos: {
+    waitingCount: number;
+    waitingBytes: number;
+    uploadedCount: number;
+    uploadedBytes: number;
+    usage: photoQueue.QueueUsage;
+  };
+}
+
+/**
+ * The records the person may still want to see: waiting, refused, under the office's
+ * verification, or with photos still to go; a record accepted and done with stays out.
+ */
+export async function overview(): Promise<Overview> {
+  const db = offlineDb();
+  const rows = await db.outbox.toArray();
+  const photoRows = await db.photos.toArray();
+  const waitingPhotos = new Set(
+    photoRows.filter((p) => p.state !== 'uploaded').map((p) => p.clientUuid),
+  );
+  const projects = new Map((await cachedProjects()).map((p) => [p.projectId, p.name]));
+  const shown = rows
+    .filter(
+      (r) =>
+        (WAITING_STATES as readonly string[]).includes(r.state) ||
+        r.verificationReason ||
+        r.photosPending ||
+        waitingPhotos.has(r.clientUuid),
+    )
+    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  const records = await Promise.all(
+    shown.map(async (row): Promise<OverviewRecord> => {
+      const draft = await draftOf(row);
+      const serverId = row.serverId ?? (row.kind === 'application_draft' ? null : row.target);
+      const cached = serverId ? await cachedApplication(serverId) : null;
+      const form = draft ? await cachedForm(draft.formVersionId) : null;
+      return {
+        clientUuid: row.clientUuid,
+        kind: row.kind,
+        sync: {
+          ...infoOf(row),
+          photosPending: Boolean(row.photosPending) || waitingPhotos.has(row.clientUuid),
+        },
+        href: serverId ? `/my-applications/${serverId}` : `/my-applications/${row.clientUuid}`,
+        ownDraft: draft !== null,
+        projectId: row.projectId,
+        projectName: projects.get(row.projectId) ?? null,
+        beneficiaryName:
+          cached?.summary.beneficiaryName ?? (draft && form ? nameFrom(draft.answers, form) : null),
+        createdAt: row.createdAt,
+      };
+    }),
+  );
+  const waiting = photoRows.filter((p) => p.state !== 'uploaded');
+  const uploaded = photoRows.filter((p) => p.state === 'uploaded');
+  return {
+    records,
+    photos: {
+      waitingCount: waiting.length,
+      waitingBytes: waiting.reduce((sum, p) => sum + p.size, 0),
+      uploadedCount: uploaded.length,
+      uploadedBytes: uploaded.reduce((sum, p) => sum + p.size, 0),
+      usage: await photoQueue.usage(),
+    },
+  };
+}
+
+/** The person asks one record, with its refused photos, to go now; a flush follows. */
+export async function retryRecord(clientUuid: string): Promise<void> {
+  const db = offlineDb();
+  const row = await db.outbox.get(clientUuid);
+  if (row && (row.state === 'pending' || row.state === 'failed'))
+    await retryNow(clientUuid, new Date());
+  const photos = await db.photos.where('clientUuid').equals(clientUuid).toArray();
+  for (const photo of photos) if (photo.state === 'failed') await photoQueue.retryNow(photo.id);
+  await syncEngine.flush('manual');
+}
+
+/** The person asks everything refused to go again; a flush follows. */
+export async function retryAll(): Promise<void> {
+  const db = offlineDb();
+  const failed = await db.outbox.where('state').equals('failed').toArray();
+  for (const row of failed) await retryNow(row.clientUuid, new Date());
+  const photos = await db.photos.where('state').equals('failed').toArray();
+  for (const photo of photos) await photoQueue.retryNow(photo.id);
+  await syncEngine.flush('manual');
+}
 
 /** The engine's status as it changes, for the screens that show the badges. */
 export function subscribe(listener: (status: SyncStatus) => void): () => void {

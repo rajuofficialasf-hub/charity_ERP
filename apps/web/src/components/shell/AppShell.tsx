@@ -1,10 +1,12 @@
 import type { Me } from '@css/shared/auth';
-import { OfflineBanner } from '@css/ui';
+import { OfflineBanner, type OfflineBannerProps } from '@css/ui';
 import { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { useTranslations } from 'use-intl';
 import { sidebarFor } from '../../admin/navigation';
 import { RequireAuth } from '../../lib/auth';
+import { useOffline } from '../../offline/OfflineProvider';
+import type { SyncStatus } from '../../offline/sync-engine';
 import { AppProviders } from '../AppProviders';
 import { AppBar } from './AppBar';
 import { BottomTabs } from './BottomTabs';
@@ -28,6 +30,8 @@ function Shell({ me }: { me: Me }) {
   const { pathname } = useLocation();
   const width = useShellWidth();
   const online = useOnline();
+  const { status } = useOffline();
+  const banner = useBanner(online, status, me.kind === 'volunteer');
   const [moreOpen, setMoreOpen] = useState(false);
   // any change of page (a destination of the sheet, the back button) closes the sheet
   const [shownPath, setShownPath] = useState(pathname);
@@ -52,7 +56,16 @@ function Shell({ me }: { me: Me }) {
           />
         )}
         <div className="app-main">
-          {!online && <OfflineBanner state="offline" />}
+          {banner && (
+            <OfflineBanner
+              {...banner}
+              onOpenOutbox={
+                me.kind === 'volunteer' && banner.state !== 'syncing'
+                  ? () => void navigate('/sync')
+                  : undefined
+              }
+            />
+          )}
           <main id="main" className="app-content">
             <Outlet />
           </main>
@@ -61,6 +74,32 @@ function Shell({ me }: { me: Me }) {
       </div>
     </AppProviders>
   );
+}
+
+type Banner = Pick<OfflineBannerProps, 'state' | 'pendingCount' | 'onHidden'>;
+
+/**
+ * The banner under the app bar (docs/ui/DESIGN_SYSTEM.md, "OfflineBanner"): offline for
+ * everyone; for a volunteer also the sync on its way, a sync that failed, and "back online" for
+ * a moment after the connection returned. The counts are the engine's; an official's are zero.
+ */
+function useBanner(online: boolean, status: SyncStatus, volunteer: boolean): Banner | null {
+  const [back, setBack] = useState(false);
+  // the moment the connection returns is read from the change itself, during the render
+  const [seenOnline, setSeenOnline] = useState(online);
+  if (seenOnline !== online) {
+    setSeenOnline(online);
+    setBack(online);
+  }
+  const waiting = status.pending + status.syncing + status.failed;
+  const count = volunteer && waiting > 0 ? { pendingCount: waiting } : {};
+  if (!online) return { state: 'offline', ...count };
+  if (back) return { state: 'back_online', onHidden: () => setBack(false) };
+  if (!volunteer) return null;
+  if (status.state === 'syncing') return { state: 'syncing', ...count };
+  if (status.failed > 0 || (status.lastError && status.state === 'idle'))
+    return { state: 'sync_failed', ...count };
+  return null;
 }
 
 function Sidebar({ me }: { me: Me }) {

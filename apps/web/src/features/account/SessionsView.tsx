@@ -1,5 +1,5 @@
 import type { DeviceSession } from '@css/shared/auth';
-import { formatDateTime } from '@css/shared/format';
+import { formatCount, formatDateTime } from '@css/shared/format';
 import type { Locale } from '@css/shared/i18n';
 import { Alert, Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -57,6 +57,15 @@ function SessionList() {
   };
   const failure = [sessions.error, revoke.error].find((e) => e instanceof ApiFailure);
   const rows = sessions.data;
+  /** What the device last said it still holds, or null when it never said. */
+  const pendingOf = (session: DeviceSession, key: 'pending' | 'revoke_pending') =>
+    session.pendingCount && session.pendingReportedAt
+      ? t(key, {
+          n: session.pendingCount,
+          count: formatCount(session.pendingCount, locale),
+          time: formatDateTime(session.pendingReportedAt, locale),
+        })
+      : null;
 
   return (
     <>
@@ -105,6 +114,7 @@ function SessionList() {
                 <div className="session-row">
                   <p>{t('last_seen', { time: formatDateTime(session.lastSeenAt, locale) })}</p>
                   <p>{t('created', { date: formatDateTime(session.createdAt, locale) })}</p>
+                  {pendingOf(session, 'pending') && <p>{pendingOf(session, 'pending')}</p>}
                 </div>
               </Card>
             </li>
@@ -114,7 +124,14 @@ function SessionList() {
       <ConfirmDialog
         isOpen={target !== null}
         title={t('revoke_title')}
-        message={t('revoke_body')}
+        message={
+          <>
+            <p>{t('revoke_body')}</p>
+            {target && pendingOf(target, 'revoke_pending') && (
+              <p>{pendingOf(target, 'revoke_pending')}</p>
+            )}
+          </>
+        }
         tone="danger"
         confirmLabel={t('revoke_confirm')}
         pending={revoke.isPending}

@@ -34,5 +34,6 @@
   "health": "System health",
   "notification_templates": "Notification texts",
   "deliveries": "Deliveries",
-  "media": "Media work"
+  "media": "Media work",
+  "sync": "Sync"
 }

@@ -19,7 +19,10 @@
       "media_referrals_new": "{n, plural, one {{count} new media referral waits for a decision} other {{count} new media referrals wait for a decision}}",
       "media_review_waiting": "{n, plural, one {{count} media work waits for the final review} other {{count} media works wait for the final review}}",
       "media_sent_back": "{n, plural, one {{count} media work was sent back for correction} other {{count} media works were sent back for correction}}",
-      "media_on_hold": "{n, plural, one {{count} of your media works is on hold} other {{count} of your media works are on hold}}"
+      "media_on_hold": "{n, plural, one {{count} of your media works is on hold} other {{count} of your media works are on hold}}",
+      "sync_failed": "{n, plural, one {{count} record could not be sent} other {{count} records could not be sent}}",
+      "sync_verifying": "{n, plural, one {The office is checking {count} application} other {The office is checking {count} applications}}",
+      "photos_pending": "{n, plural, one {{count} photo still to go} other {{count} photos still to go}}"
     }
   },
   "widget": {
