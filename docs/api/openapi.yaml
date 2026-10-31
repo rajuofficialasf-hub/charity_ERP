@@ -46,6 +46,8 @@ tags:
     description: Public application form without login (A8.5, O-08)
   - name: applications
     description: Applications, workflow actions, scores, quotas, field unlock, transfers (A7, WORKFLOW_ENGINE.md)
+  - name: media
+    description: The Media Team's referrals, works, publications and portfolios (D-101, D-136, D-137)
   - name: activities
     description: Activities and bulk-update screens (B5, WORKFLOW_ENGINE.md section 8)
   - name: files
@@ -2007,6 +2009,10 @@ components:
           x-sensitive-class: beneficiary.care
           description: Activity history, latest 20
           items: { type: object }
+        media:
+          type: array
+          description: The published and done media works about the person (D-101 (8)), for everyone who reads the profile
+          items: { $ref: '#/components/schemas/MediaPublishedWork' }
     BeneficiaryResponse:
       type: object
       required: [data, meta]
@@ -3134,6 +3140,12 @@ components:
               description: The unlocks of the application waiting for a step, as the caller may see them (a volunteer never sees the office's reasons nor an answer of the official section)
               items: { $ref: '#/components/schemas/ApplicationUnlock' }
             mayUnlock: { type: boolean, description: Whether the caller may open an answer of this application for correction now }
+            media:
+              description: Its referral to the Media Team (D-136), for the referrer's program or region and the directors; null otherwise. It never moves the workflow state.
+              oneOf:
+                - $ref: '#/components/schemas/ApplicationMedia'
+                - type: 'null'
+            mayReferToMedia: { type: boolean, description: 'Whether the caller may refer it to the Media Team now, or send a returned referral again' }
             form: { $ref: '#/components/schemas/FormVersion', description: The form version the answers belong to, as the caller's audience sees it }
     ApplicationResponse:
       type: object
@@ -3147,6 +3159,350 @@ components:
       properties:
         data: { type: array, items: { $ref: '#/components/schemas/ApplicationSummary' } }
         meta: { $ref: '#/components/schemas/ListMeta' }
+    MediaPerson:
+      type: object
+      required: [id, name]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string }
+    MediaPlace:
+      type: object
+      required: [program, project]
+      properties:
+        program:
+          type: object
+          required: [id, name]
+          properties:
+            id: { $ref: '#/components/schemas/Uuid' }
+            name: { $ref: '#/components/schemas/Bilingual' }
+        project:
+          type: object
+          required: [id, name, year]
+          properties:
+            id: { $ref: '#/components/schemas/Uuid' }
+            name: { $ref: '#/components/schemas/Bilingual' }
+            year: { type: integer }
+    MediaReferralSummary:
+      allOf:
+        - $ref: '#/components/schemas/MediaPlace'
+        - type: object
+          required: [id, applicationId, appNo, state, priority, beneficiaryName, referredBy, referredAt, decidedAt]
+          properties:
+            id: { $ref: '#/components/schemas/Uuid' }
+            applicationId: { $ref: '#/components/schemas/Uuid' }
+            appNo: { type: [string, 'null'] }
+            state: { type: string, enum: [pending, accepted, sent_back, rejected] }
+            priority: { type: string, enum: [high, normal, low] }
+            beneficiaryName: { type: string }
+            referredBy: { $ref: '#/components/schemas/MediaPerson' }
+            referredAt: { type: string, format: date-time }
+            decidedAt: { type: [string, 'null'], format: date-time }
+    MediaEvent:
+      type: object
+      required: [id, kind, fromValue, toValue, comment, actor, at]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        kind: { type: string, description: 'referred, resent, accepted, sent_back, rejected, or a step of the work' }
+        fromValue: { type: [string, 'null'] }
+        toValue: { type: [string, 'null'] }
+        comment: { type: [string, 'null'] }
+        actor: { $ref: '#/components/schemas/MediaPerson' }
+        at: { type: string, format: date-time }
+    MediaBeneficiary:
+      type: object
+      description: What the Media Team may know of the person (BR-265); never the identity numbers, ratings, categories or scores
+      required: [name, fatherOrHusbandName, ageYears, mobile, address, occupation, monthlyIncome]
+      properties:
+        name: { type: string }
+        fatherOrHusbandName: { type: string }
+        ageYears: { type: [integer, 'null'] }
+        mobile: { type: string }
+        address:
+          type: object
+          required: [divisionId, districtId, upazilaId, unionId, village, postOffice]
+          properties:
+            divisionId: { $ref: '#/components/schemas/Uuid' }
+            districtId: { $ref: '#/components/schemas/Uuid' }
+            upazilaId: { $ref: '#/components/schemas/Uuid' }
+            unionId: { $ref: '#/components/schemas/Uuid' }
+            village: { type: string }
+            postOffice: { type: [string, 'null'] }
+        occupation:
+          oneOf:
+            - $ref: '#/components/schemas/Bilingual'
+            - type: 'null'
+        monthlyIncome: { type: [string, 'null'], description: Taka with two decimals }
+    MediaReferral:
+      allOf:
+        - $ref: '#/components/schemas/MediaReferralSummary'
+        - type: object
+          required: [note, story, decidedBy, decisionComment, beneficiary, officialComment, work, history, mayDecide, mayResend]
+          properties:
+            note: { type: string }
+            story: { type: [string, 'null'] }
+            decidedBy:
+              oneOf:
+                - $ref: '#/components/schemas/MediaPerson'
+                - type: 'null'
+            decisionComment: { type: [string, 'null'], description: The comment of a send-back or the reason of a rejection }
+            beneficiary: { $ref: '#/components/schemas/MediaBeneficiary' }
+            officialComment: { type: [string, 'null'], description: "The official's comment on the application; nothing else of the official section" }
+            work:
+              oneOf:
+                - $ref: '#/components/schemas/MediaWork'
+                - type: 'null'
+            history: { type: array, items: { $ref: '#/components/schemas/MediaEvent' } }
+            mayDecide: { type: boolean }
+            mayResend: { type: boolean }
+    MediaWork:
+      type: object
+      required: [id, title, stageCode, heldStageCode, contentType, script, scriptState, reviewApprovedBy, reviewApprovedAt, version, members, publications, comments, nextStages, mayManage, mayEditScript, mayDirect, mayReview]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string }
+        stageCode: { type: string }
+        heldStageCode: { type: [string, 'null'], description: The stage a work on hold returns to }
+        contentType: { type: string, enum: [video, photo, both] }
+        script:
+          description: Null for a caller without story.view or story.manage on the work
+          oneOf:
+            - $ref: '#/components/schemas/MediaScript'
+            - type: 'null'
+        scriptState: { type: string, enum: [draft, in_review, final] }
+        reviewApprovedBy:
+          oneOf:
+            - $ref: '#/components/schemas/MediaPerson'
+            - type: 'null'
+        reviewApprovedAt: { type: [string, 'null'], format: date-time }
+        version: { type: string, description: The ETag the next change of the work carries in If-Match }
+        members:
+          type: array
+          items:
+            type: object
+            required: [userId, name, roles]
+            properties:
+              userId: { $ref: '#/components/schemas/Uuid' }
+              name: { type: string }
+              roles: { type: array, items: { type: string } }
+        publications:
+          type: array
+          items:
+            type: object
+            required: [id, platformCode, state, publishedOn, link, note, youtubeId]
+            properties:
+              id: { $ref: '#/components/schemas/Uuid' }
+              platformCode: { type: string }
+              state: { type: string, enum: [waiting, published, taken_down] }
+              publishedOn: { type: [string, 'null'], format: date }
+              link: { type: [string, 'null'] }
+              note: { type: [string, 'null'] }
+              youtubeId: { type: [string, 'null'], description: 'The video id of a YouTube link, from which alone the thumbnail is built' }
+        comments:
+          type: array
+          items:
+            type: object
+            required: [id, author, body, at]
+            properties:
+              id: { $ref: '#/components/schemas/Uuid' }
+              author: { $ref: '#/components/schemas/MediaPerson' }
+              body: { type: string }
+              at: { type: string, format: date-time }
+        nextStages: { type: array, items: { type: string }, description: The stages the caller may move it to now }
+        mayManage: { type: boolean }
+        mayEditScript: { type: boolean }
+        mayDirect: { type: boolean, description: 'Members, title, hold and close: the directors' }
+        mayReview: { type: boolean }
+    MediaScript:
+      type: object
+      additionalProperties: false
+      description: The parts of a work's script, each at most 20000 characters
+      properties:
+        summary: { type: string }
+        questions: { type: string }
+        scenes: { type: string }
+        voiceOver: { type: string }
+        notes: { type: string }
+    MediaWorkUpdateRequest:
+      type: object
+      additionalProperties: false
+      description: At least one field
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        stageCode: { type: string, pattern: '^[a-z][a-z0-9_]{0,49}$' }
+        contentType: { type: string, enum: [video, photo, both] }
+        script: { $ref: '#/components/schemas/MediaScript' }
+        scriptState: { type: string, enum: [draft, in_review, final] }
+    MediaMembersRequest:
+      type: object
+      additionalProperties: false
+      required: [members]
+      properties:
+        members:
+          type: array
+          maxItems: 50
+          description: Each person at most once
+          items:
+            type: object
+            additionalProperties: false
+            required: [userId, roles]
+            properties:
+              userId: { $ref: '#/components/schemas/Uuid' }
+              roles:
+                type: array
+                minItems: 1
+                maxItems: 10
+                items: { type: string, pattern: '^[a-z][a-z0-9_]{0,49}$' }
+    MediaPublicationRequest:
+      type: object
+      additionalProperties: false
+      required: [platformCode, state]
+      properties:
+        platformCode: { type: string, pattern: '^[a-z][a-z0-9_]{0,49}$' }
+        state: { type: string, enum: [waiting, published, taken_down] }
+        publishedOn: { type: string, format: date, description: Required when published }
+        link: { type: string, minLength: 1, maxLength: 500, description: Required when published }
+        note: { type: string, minLength: 1, maxLength: 2000 }
+    MediaPublicationUpdateRequest:
+      type: object
+      additionalProperties: false
+      description: At least one field
+      properties:
+        state: { type: string, enum: [waiting, published, taken_down] }
+        publishedOn: { type: string, format: date }
+        link:
+          description: Null clears the link of a post that is not published
+          anyOf:
+            - { type: string, minLength: 1, maxLength: 500 }
+            - { type: 'null' }
+        note:
+          description: Null clears the note
+          anyOf:
+            - { type: string, minLength: 1, maxLength: 2000 }
+            - { type: 'null' }
+    MediaReviewRequest:
+      type: object
+      additionalProperties: false
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [approve, send_back] }
+        comment: { type: string, minLength: 1, maxLength: 2000, description: Required to send back }
+    MediaCommentRequest:
+      type: object
+      additionalProperties: false
+      required: [body]
+      properties:
+        body: { type: string, minLength: 1, maxLength: 4000 }
+    MediaCounts:
+      type: object
+      description: >-
+        The home's counts (D-101 (8)): every referral; new (waiting for a decision); in review (works
+        in review and referrals sent back); in progress (accepted, planning, script, internal review
+        and any stage added in settings); waiting for shooting; in editing (shooting done, editing);
+        published (ready to publish, published); done; rejected
+      required: [referrals, new, inReview, inProgress, waitingForShooting, inEditing, published, done, rejected]
+      properties:
+        referrals: { type: integer }
+        new: { type: integer }
+        inReview: { type: integer }
+        inProgress: { type: integer }
+        waitingForShooting: { type: integer }
+        inEditing: { type: integer }
+        published: { type: integer }
+        done: { type: integer }
+        rejected: { type: integer }
+    MediaWorkRow:
+      allOf:
+        - $ref: '#/components/schemas/MediaPlace'
+        - type: object
+          required: [referralId, workId, title, beneficiaryName, members, state, stageCode, priority, referredAt, updatedAt]
+          properties:
+            referralId: { $ref: '#/components/schemas/Uuid' }
+            workId: { type: [string, 'null'], format: uuid }
+            title: { type: [string, 'null'] }
+            beneficiaryName: { type: string }
+            members:
+              type: array
+              items:
+                type: object
+                required: [userId, name]
+                properties:
+                  userId: { $ref: '#/components/schemas/Uuid' }
+                  name: { type: string }
+            state: { type: string, enum: [pending, accepted, sent_back, rejected] }
+            stageCode: { type: [string, 'null'] }
+            priority: { type: string, enum: [high, normal, low] }
+            referredAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    MediaPublishedWork:
+      allOf:
+        - $ref: '#/components/schemas/MediaPlace'
+        - type: object
+          required: [referralId, workId, title, stageCode, contentType, summary, publishedOn, publications, members]
+          properties:
+            referralId: { $ref: '#/components/schemas/Uuid' }
+            workId: { $ref: '#/components/schemas/Uuid' }
+            title: { type: string }
+            stageCode: { type: string, enum: [published, done] }
+            contentType: { type: string, enum: [video, photo, both] }
+            summary: { type: [string, 'null'], description: "The script's summary" }
+            publishedOn: { type: [string, 'null'], format: date, description: The date of the first publication }
+            publications:
+              type: array
+              description: The published posts only
+              items:
+                type: object
+                required: [platformCode, link, publishedOn, youtubeId]
+                properties:
+                  platformCode: { type: string }
+                  link: { type: string }
+                  publishedOn: { type: [string, 'null'], format: date }
+                  youtubeId: { type: [string, 'null'] }
+            members:
+              type: array
+              items:
+                type: object
+                required: [userId, name, roles]
+                properties:
+                  userId: { $ref: '#/components/schemas/Uuid' }
+                  name: { type: string }
+                  roles: { type: array, items: { type: string } }
+    MediaReferralResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/MediaReferral' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    MediaReferralList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/MediaReferralSummary' } }
+        meta: { $ref: '#/components/schemas/ListMeta' }
+    MediaReferralRequest:
+      type: object
+      additionalProperties: false
+      required: [priority, note]
+      properties:
+        priority: { type: string, enum: [high, normal, low] }
+        note: { type: string, minLength: 1, maxLength: 2000 }
+        story: { type: string, minLength: 1, maxLength: 10000, description: The story or first text the referrer writes (BR-284) }
+    MediaReferralDecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [accept, send_back, reject] }
+        comment: { type: string, minLength: 1, maxLength: 2000, description: Required to send back or reject }
+    ApplicationMedia:
+      type: object
+      required: [referralId, state, priority, decisionComment, decidedAt, workStageCode]
+      properties:
+        referralId: { $ref: '#/components/schemas/Uuid' }
+        state: { type: string, enum: [pending, accepted, sent_back, rejected] }
+        priority: { type: string, enum: [high, normal, low] }
+        decisionComment: { type: [string, 'null'] }
+        decidedAt: { type: [string, 'null'], format: date-time }
+        workStageCode: { type: [string, 'null'] }
     ApplicationActionRequest:
       type: object
       properties:
@@ -3651,12 +4007,14 @@ components:
         meta: { $ref: '#/components/schemas/ListMeta' }
     ReferenceItem:
       type: object
-      required: [code, label, active, sortOrder]
+      required: [code, label, active, sortOrder, system, kind]
       properties:
         code: { type: string, pattern: '^[a-z0-9_]{1,64}$' }
         label: { $ref: '#/components/schemas/Bilingual' }
         active: { type: boolean }
         sortOrder: { type: integer }
+        system: { type: boolean, description: 'An entry the rules need (a media stage): it stays active and its code is fixed' }
+        kind: { type: [string, 'null'], enum: [youtube, facebook, other, null], description: "A media platform's kind, which decides the host of its links; null on the other lists" }
     ReferenceItemCreate:
       description: >-
         A new item of an editable list (DECISION_LOG D-098). The code is small English letters,
@@ -3669,14 +4027,16 @@ components:
         label: { $ref: '#/components/schemas/BilingualInput' }
         active: { type: boolean }
         sortOrder: { type: integer, minimum: 0, maximum: 10000 }
+        kind: { type: string, enum: [youtube, facebook, other], description: 'Required on the media platforms, refused on the other lists (422)' }
     ReferenceItemUpdate:
-      description: At least one of label, active and sortOrder.
+      description: At least one of label, active, sortOrder and kind. A system entry cannot be deactivated (409 reference.system_entry).
       type: object
       additionalProperties: false
       properties:
         label: { $ref: '#/components/schemas/BilingualInput' }
         active: { type: boolean }
         sortOrder: { type: integer, minimum: 0, maximum: 10000 }
+        kind: { type: string, enum: [youtube, facebook, other] }
     BilingualInput:
       description: A configuration text in both languages, both required (BR-245).
       type: object
@@ -8536,6 +8896,555 @@ paths:
               schema: { $ref: '#/components/schemas/TransferList' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  # ======================= media =======================
+  /applications/{applicationId}/media-referral:
+    parameters:
+      - $ref: '#/components/parameters/ApplicationId'
+    post:
+      tags: [media]
+      operationId: media.referral.create
+      summary: Refer an approved application to the Media Team with a priority, a note and an optional story, or send a referral that was sent back or rejected again
+      description: >-
+        D-101, D-136, D-137, BR-283, BR-284. A PM of the program or an RPM of the region refers an
+        application that is approved or past approval (implementation, completed, closed); any
+        other state gets 409 media.referral_not_referable. An application has one referral: while it
+        waits or after it was accepted a second one gets 409 media.referral_open; one sent back or
+        rejected is corrected and sent again through the same call. No consent is asked (D-137).
+        The application's workflow state never moves. The Media Director and the Assistant
+        Director are told in the app.
+      x-permission: media.referral.create
+      x-scope: application
+      x-audit: media.referral_created
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MediaReferralRequest' }
+      responses:
+        '201':
+          description: Referred, or sent again
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaReferralResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /media-referrals:
+    get:
+      tags: [media]
+      operationId: media.referral.list
+      summary: "The decider's queue: the referrals waiting for a decision by default, oldest first"
+      description: >-
+        D-101. For the Media Director and the Assistant Director (and the two global roles).
+        `state` takes a comma list of pending, accepted, sent_back and rejected (422 for anything
+        else).
+      x-permission: media.referral.decide
+      x-scope: application
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string, maxLength: 1024 }
+        - $ref: '#/components/parameters/IncludeTotal'
+        - name: sort
+          in: query
+          required: false
+          description: 'updatedAt (the last send, or the decision), leading minus for descending'
+          schema: { type: string, maxLength: 200 }
+        - name: state
+          in: query
+          required: false
+          schema: { type: string, maxLength: 100 }
+      responses:
+        '200':
+          description: Referrals
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaReferralList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /media-referrals/{referralId}:
+    parameters:
+      - name: referralId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    get:
+      tags: [media]
+      operationId: media.referral.get
+      summary: "A referral with the person's allowed details, the official's comment, its decision, its work and its history"
+      description: >-
+        D-101 (3), D-136, BR-265. For the directors, the members of its work and the referrers of
+        the program or region; 404 for anyone else. The person's details are only those BR-265
+        allows; the identity numbers, ratings, categories and scores never appear, and of the
+        official section only the official's comment.
+      x-permission: media.work.view
+      x-scope: application
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: The referral
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaReferralResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /media-referrals/{referralId}/decision:
+    parameters:
+      - name: referralId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    post:
+      tags: [media]
+      operationId: media.referral.decide
+      summary: Accept a waiting referral (its work starts), send it back with a comment, or reject it with a reason
+      description: >-
+        D-101, BR-267. Only a waiting referral is decided (409 media.referral_not_pending). Sending
+        back and rejecting need the comment (422). Accepting creates its work at the stage
+        "accepted", named after the application. The referrer is told in the app; the
+        application's workflow state never moves.
+      x-permission: media.referral.decide
+      x-scope: application
+      x-audit: media.referral_decided
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MediaReferralDecisionRequest' }
+      responses:
+        '200':
+          description: Decided
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaReferralResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /media/summary:
+    get:
+      tags: [media]
+      operationId: media.summary.get
+      summary: "The Media Team home's counts, overall and by program, over the referrals and works the caller reaches"
+      description: >-
+        D-101 (8). A member counts only the works they are on; the directors and the global roles count
+        everything, a referrer their program or region.
+      x-permission: media.work.view
+      x-scope: application
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: Counts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: object
+                    required: [overall, programs]
+                    properties:
+                      overall: { $ref: '#/components/schemas/MediaCounts' }
+                      programs:
+                        type: array
+                        items:
+                          type: object
+                          required: [program, counts]
+                          properties:
+                            program:
+                              type: object
+                              required: [id, name]
+                              properties:
+                                id: { $ref: '#/components/schemas/Uuid' }
+                                name: { $ref: '#/components/schemas/Bilingual' }
+                            counts: { $ref: '#/components/schemas/MediaCounts' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /media-works:
+    get:
+      tags: [media]
+      operationId: media.work.list
+      summary: The referrals and their works the caller reaches, newest first, with filters on program, stage, priority, decision and member
+      description: >-
+        D-101 (8). `stage`, `priority` and `state` take comma lists (422 for an unknown priority or
+        state). A member sees only the works they are on.
+      x-permission: media.work.view
+      x-scope: application
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string, maxLength: 1024 }
+        - $ref: '#/components/parameters/IncludeTotal'
+        - name: sort
+          in: query
+          required: false
+          description: createdAt, leading minus for descending (the default)
+          schema: { type: string, maxLength: 200 }
+        - name: programId
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/Uuid' }
+        - name: stage
+          in: query
+          required: false
+          schema: { type: string, maxLength: 400 }
+        - name: priority
+          in: query
+          required: false
+          schema: { type: string, maxLength: 50 }
+        - name: state
+          in: query
+          required: false
+          schema: { type: string, maxLength: 100 }
+        - name: memberId
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/Uuid' }
+      responses:
+        '200':
+          description: Works
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/MediaWorkRow' } }
+                  meta: { $ref: '#/components/schemas/ListMeta' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /media/members:
+    get:
+      tags: [media]
+      operationId: media.member.list
+      summary: The active members of the Media Team, by name, for the team of a work
+      description: >-
+        D-101 (2). For the holders of media.work.manage; the directors choose a work's team from it.
+        At most 500 people.
+      x-permission: media.work.manage
+      x-scope: application
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: Members
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, designation, roles]
+                      properties:
+                        id: { $ref: '#/components/schemas/Uuid' }
+                        name: { type: string }
+                        designation: { type: [string, 'null'] }
+                        roles: { type: array, items: { type: string } }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /media/members/{userId}:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    get:
+      tags: [media]
+      operationId: media.member.get
+      summary: "A Media Team member's profile: contact, designation, counts and the portfolio of published works with their production roles"
+      description: >-
+        D-101 (8). 404 unless the person holds a media role. A portfolio is open to whoever reads media
+        works; a work of several members appears on each one's profile.
+      x-permission: media.work.view
+      x-scope: application
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: The member
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: object
+                    required: [id, name, designation, mobile, email, roles, counts, portfolio]
+                    properties:
+                      id: { $ref: '#/components/schemas/Uuid' }
+                      name: { type: string }
+                      designation: { type: [string, 'null'] }
+                      mobile: { type: [string, 'null'], description: 'For the member and the holders of media.work.manage only; null otherwise' }
+                      email: { type: [string, 'null'], description: 'As the mobile' }
+                      roles: { type: array, items: { type: string } }
+                      counts:
+                        type: object
+                        required: [works, published]
+                        properties:
+                          works: { type: integer }
+                          published: { type: integer }
+                      portfolio:
+                        type: array
+                        items:
+                          allOf:
+                            - $ref: '#/components/schemas/MediaPublishedWork'
+                            - type: object
+                              required: [ownRoles]
+                              properties:
+                                ownRoles: { type: array, items: { type: string } }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /media-works/{workId}:
+    parameters:
+      - name: workId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    patch:
+      tags: [media]
+      operationId: media.work.update
+      summary: Move a work to another stage, or change its title, content type or script; the stage rules decide who may move it where
+      description: >-
+        D-101 (5, 6), D-136, BR-267. The team moves a work among the active ordinary stages and to
+        ready_to_publish (never straight from in_review); the directors also hold it (on_hold, back
+        to the stage it left), cancel it and mark a published work done; accepted is set only by the
+        acceptance and published only by the first publication after the final review. Any other
+        move gets 409 media.stage_not_allowed; a done or cancelled work 409 media.work_closed. The
+        title is the directors' (403 for a member); the script needs story.manage. Moving back from
+        ready_to_publish withdraws the final review. Moving to ready_to_publish tells the Media
+        Director. A member reaches only the works they are on (404 otherwise).
+      x-permission: media.work.manage
+      x-scope: application
+      x-audit: media.work_changed
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MediaWorkUpdateRequest' }
+      responses:
+        '200':
+          description: The referral with its work
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaReferralResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+  /media-works/{workId}/members:
+    parameters:
+      - name: workId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    put:
+      tags: [media]
+      operationId: media.work.members
+      summary: Set the whole team of a work, each member with one or more production roles; the directors only
+      description: >-
+        D-101 (2, 5), BR-286. Only a holder of media.work.manage at GLOBAL (the Media Director and the
+        Assistant Director) sets the team; a member gets 403. Every member holds a media role and is
+        active (422 media.member_not_media), every role is an active production role (422
+        media.role_unknown). Each member added hears it in the app. The whole team is saved against the
+        work's version in If-Match (412 when the work changed since it was read), and a team change
+        moves that version.
+      x-permission: media.work.manage
+      x-scope: application
+      x-audit: media.members_changed
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MediaMembersRequest' }
+      responses:
+        '200':
+          description: The referral with its work
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaReferralResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+  /media-works/{workId}/publications:
+    parameters:
+      - name: workId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    post:
+      tags: [media]
+      operationId: media.publication.create
+      summary: Add a publication of a work on a platform; its link must be on the platform's own host, and published only after the final review
+      description: >-
+        D-101 (7), D-137, BR-285. The platform is an active entry of the platform list (422
+        media.platform_unknown); the link is https on the host of the platform's kind, with no user
+        info and no port (422 media.link_invalid or media.link_host). A published post needs its link
+        and date (422) and the final review (409 media.publish_before_review); the first one makes the
+        work published and tells the referrer. The last published post of a published work stays
+        published (409 media.publication_last).
+      x-permission: media.work.manage
+      x-scope: application
+      x-audit: media.publication_added
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MediaPublicationRequest' }
+      responses:
+        '201':
+          description: Added
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaReferralResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /media-publications/{publicationId}:
+    parameters:
+      - name: publicationId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    patch:
+      tags: [media]
+      operationId: media.publication.update
+      summary: Change a publication's state, date, link or note
+      description: >-
+        D-101 (7), BR-285. The work is found through the publication before its scope is checked. The
+        stored row with the change applied must keep a published post's link and date (422); the
+        rules of the publication's creation apply.
+      x-permission: media.work.manage
+      x-scope: application
+      x-audit: media.publication_changed
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MediaPublicationUpdateRequest' }
+      responses:
+        '200':
+          description: The referral with its work
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaReferralResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /media-works/{workId}/final-review:
+    parameters:
+      - name: workId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    post:
+      tags: [media]
+      operationId: media.work.review
+      summary: "The final review of a work ready to publish: approve it, or send it back to the team with a comment"
+      description: >-
+        D-101 (9), BR-267. Only at ready_to_publish (409 media.review_not_ready); sending back needs the
+        comment (422) and moves the work to in_review. By default the Media Director's alone. It
+        carries the work's version in If-Match (412 when the work changed since it was read); a
+        later change of the script, title or content type at ready_to_publish withdraws the
+        approval, a hold and a cancel keep it.
+      x-permission: media.publication.review
+      x-scope: application
+      x-audit: media.review_decided
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MediaReviewRequest' }
+      responses:
+        '200':
+          description: The referral with its work
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaReferralResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+  /media-works/{workId}/comments:
+    parameters:
+      - name: workId
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/Uuid' }
+    post:
+      tags: [media]
+      operationId: media.work.comment
+      summary: Add a comment to a work, for everyone who reads it
+      description: >-
+        D-101 (8). Whoever reads the work may comment, also on a done or cancelled work; comments are
+        kept for good.
+      x-permission: media.work.view
+      x-scope: application
+      x-audit: media.comment_added
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MediaCommentRequest' }
+      responses:
+        '201':
+          description: Added
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaReferralResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
   # ======================= activities =======================
   /applications/{applicationId}/activities:
     parameters:
@@ -9103,7 +10012,7 @@ paths:
                       properties:
                         kind:
                           type: string
-                          enum: [unread_notifications, consent_pending, corrections, edit_answered, registrations_pending, staff_registrations_pending, edit_requests_pending, projects_draft, deadlines_soon, handovers_open, unlocks_to_fill, unlocks_to_verify, verifications_pending]
+                          enum: [unread_notifications, consent_pending, corrections, edit_answered, registrations_pending, staff_registrations_pending, edit_requests_pending, projects_draft, deadlines_soon, handovers_open, unlocks_to_fill, unlocks_to_verify, verifications_pending, media_referrals_new, media_review_waiting, media_sent_back, media_on_hold]
                         count: { type: integer, minimum: 1 }
                         href: { type: string, description: A fixed route of the PWA }
                   meta: { $ref: '#/components/schemas/Meta' }
@@ -9518,6 +10427,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
   /settings:
     get:

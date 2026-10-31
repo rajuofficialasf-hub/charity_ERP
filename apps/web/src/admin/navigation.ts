@@ -4,6 +4,7 @@ import {
   ArrowRightLeft,
   Activity,
   Bell,
+  Clapperboard,
   ClipboardList,
   FolderKanban,
   HandHeart,
@@ -31,6 +32,8 @@ import {
   PROJECT_ROLES,
   EDIT_REQUEST_ROLES,
   FORM_BUILDER_ROLES,
+  MEDIA_ROLES,
+  MEDIA_WORK_ROLES,
   STAFF_DIRECTORY_ROLES,
   NISAB_ROLES,
   STAFF_APPROVER_ROLES,
@@ -51,6 +54,7 @@ export interface NavDestination {
     | 'programs'
     | 'templates'
     | 'ready_forms'
+    | 'media'
     | 'volunteers'
     | 'beneficiaries'
     | 'registrations'
@@ -100,6 +104,7 @@ export const SIDEBAR: readonly { group: NavGroup; items: readonly NavDestination
         roles: FORM_BUILDER_ROLES,
         also: ['/admin/question-library'],
       },
+      { key: 'media', href: '/media', icon: Clapperboard, roles: MEDIA_WORK_ROLES },
     ],
   },
   {
@@ -205,6 +210,8 @@ export function tabsFor(me: Pick<Me, 'kind' | 'roles'>): NavDestination[] {
     ...(holds(PROJECT_ROLES)
       ? [{ key: 'projects' as const, href: '/admin/projects', icon: FolderKanban }]
       : []),
+    // the Media Team's own work is a tab of its own
+    ...(holds(MEDIA_ROLES) ? [{ key: 'media' as const, href: '/media', icon: Clapperboard }] : []),
     NOTIFICATIONS,
   ];
 }

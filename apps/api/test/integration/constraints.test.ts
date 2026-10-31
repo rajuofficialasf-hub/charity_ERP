@@ -1278,3 +1278,235 @@ describe('the number table question type', () => {
     }
   });
 });
+
+describe('the media referrals and works', () => {
+  /** An approved application with its beneficiary, and a referral of it by a fresh official. */
+  async function referral(over: Record<string, unknown> = {}) {
+    const project = await f.project(db);
+    const beneficiaryId = await f.beneficiary(db, loc);
+    const applicationId = await f.application(
+      db,
+      { project, loc },
+      { status: 'approved', beneficiary_id: beneficiaryId },
+    );
+    const referrer = await f.user(db);
+    const id = randomUUID();
+    await db.query(
+      `INSERT INTO media_referrals (id, application_id, beneficiary_id, project_id, referred_by, priority, note)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [id, applicationId, beneficiaryId, project.id, referrer, over.priority ?? 'high', 'নোট'],
+    );
+    return { id, applicationId, beneficiaryId, projectId: project.id, referrer };
+  }
+  async function accept(r: { id: string; referrer: string }) {
+    await db.query(
+      `UPDATE media_referrals SET state = 'accepted', decided_by = $2, decided_at = now() WHERE id = $1`,
+      [r.id, r.referrer],
+    );
+  }
+  async function work(referralId: string, stage = 'accepted') {
+    await f.referenceCode(db, 'media_stage', stage);
+    const id = randomUUID();
+    await db.query(
+      `INSERT INTO media_works (id, referral_id, title, stage_code) VALUES ($1, $2, 'কাজ', $3)`,
+      [id, referralId, stage],
+    );
+    return id;
+  }
+  async function platform(code: string) {
+    await db.query(
+      `INSERT INTO reference_lists (id, list_key, code, label_bn, label_en, attributes)
+       VALUES ($1, 'media_platform', $2, $2, $2, '{"kind": "youtube"}'::jsonb) ON CONFLICT (list_key, code) DO NOTHING`,
+      [randomUUID(), code],
+    );
+  }
+
+  it('keeps one referral per application, a known priority and a reason with each refusal', async () => {
+    const r = await referral();
+    await expectSqlError(
+      db.query(
+        `INSERT INTO media_referrals (id, application_id, beneficiary_id, project_id, referred_by, priority, note)
+         VALUES ($1, $2, $3, $4, $5, 'normal', 'আবার')`,
+        [randomUUID(), r.applicationId, r.beneficiaryId, r.projectId, r.referrer],
+      ),
+      SQLSTATE.uniqueViolation,
+    );
+    await expectSqlError(referral({ priority: 'urgent' }), SQLSTATE.checkViolation);
+    // a refusal names its decider and its reason
+    await expectSqlError(
+      db.query(`UPDATE media_referrals SET state = 'rejected' WHERE id = $1`, [r.id]),
+      SQLSTATE.checkViolation,
+    );
+    await expectSqlError(
+      db.query(
+        `UPDATE media_referrals SET state = 'sent_back', decided_by = $2, decided_at = now(), decision_comment = ' ' WHERE id = $1`,
+        [r.id, r.referrer],
+      ),
+      SQLSTATE.checkViolation,
+    );
+    await db.query(
+      `UPDATE media_referrals SET state = 'accepted', decided_by = $2, decided_at = now() WHERE id = $1`,
+      [r.id, r.referrer],
+    );
+  });
+
+  it('takes only listed stages, production roles and platforms, one work per accepted referral', async () => {
+    const r = await referral();
+    // no work without an accepted referral
+    await expectSqlError(work(randomUUID()), SQLSTATE.checkViolation);
+    await expectSqlError(work(r.id), SQLSTATE.checkViolation);
+    await accept(r);
+    const workId = await work(r.id);
+    // an accepted referral with a work stays accepted
+    await expectSqlError(
+      db.query(
+        `UPDATE media_referrals SET state = 'rejected', decision_comment = 'না' WHERE id = $1`,
+        [r.id],
+      ),
+      SQLSTATE.checkViolation,
+    );
+    // nothing is published or done before the final review
+    await f.referenceCode(db, 'media_stage', 'published');
+    await expectSqlError(
+      db.query(`UPDATE media_works SET stage_code = 'published' WHERE id = $1`, [workId]),
+      SQLSTATE.checkViolation,
+    );
+    for (const change of [
+      "content_type = 'audio'",
+      "script_state = 'lost'",
+      'review_approved_at = now()',
+    ])
+      await expectSqlError(
+        db.query(`UPDATE media_works SET ${change} WHERE id = $1`, [workId]),
+        SQLSTATE.checkViolation,
+      );
+    await expectSqlError(work(r.id), SQLSTATE.uniqueViolation);
+    await expectSqlError(
+      db.query(`UPDATE media_works SET stage_code = 'nowhere' WHERE id = $1`, [workId]),
+      SQLSTATE.foreignKeyViolation,
+    );
+    // a work on hold remembers the stage it was held at, and only then
+    await f.referenceCode(db, 'media_stage', 'on_hold');
+    await expectSqlError(
+      db.query(`UPDATE media_works SET stage_code = 'on_hold' WHERE id = $1`, [workId]),
+      SQLSTATE.checkViolation,
+    );
+    await f.referenceCode(db, 'media_role', 'cinematographer');
+    const member = await f.user(db);
+    await expectSqlError(
+      db.query(
+        `INSERT INTO media_work_members (id, work_id, user_id, roles) VALUES ($1, $2, $3, ARRAY['juggler'])`,
+        [randomUUID(), workId, member],
+      ),
+      SQLSTATE.foreignKeyViolation,
+    );
+    await expectSqlError(
+      db.query(
+        `INSERT INTO media_work_members (id, work_id, user_id, roles) VALUES ($1, $2, $3, ARRAY[]::text[])`,
+        [randomUUID(), workId, member],
+      ),
+      SQLSTATE.checkViolation,
+    );
+    const memberRow = randomUUID();
+    await db.query(
+      `INSERT INTO media_work_members (id, work_id, user_id, roles) VALUES ($1, $2, $3, ARRAY['cinematographer'])`,
+      [memberRow, workId, member],
+    );
+    await expectSqlError(
+      db.query(`UPDATE media_work_members SET roles = ARRAY['juggler'] WHERE id = $1`, [memberRow]),
+      SQLSTATE.foreignKeyViolation,
+    );
+    await platform('test_youtube');
+    // a published post has its https link and its date
+    await expectSqlError(
+      db.query(
+        `INSERT INTO media_publications (id, work_id, platform_code, state) VALUES ($1, $2, 'test_youtube', 'published')`,
+        [randomUUID(), workId],
+      ),
+      SQLSTATE.checkViolation,
+    );
+    await expectSqlError(
+      db.query(
+        `INSERT INTO media_publications (id, work_id, platform_code, link) VALUES ($1, $2, 'test_youtube', 'javascript:alert(1)')`,
+        [randomUUID(), workId],
+      ),
+      SQLSTATE.checkViolation,
+    );
+    await db.query(
+      `INSERT INTO media_publications (id, work_id, platform_code, state, link, published_on)
+       VALUES ($1, $2, 'test_youtube', 'published', 'https://youtu.be/dQw4w9WgXcQ', '2026-10-26')`,
+      [randomUUID(), workId],
+    );
+    // a link is at most 500 characters
+    await expectSqlError(
+      db.query(
+        `INSERT INTO media_publications (id, work_id, platform_code, link) VALUES ($1, $2, 'test_youtube', $3)`,
+        [randomUUID(), workId, `https://youtu.be/${'a'.repeat(500)}`],
+      ),
+      SQLSTATE.checkViolation,
+    );
+    // comments and the history are never changed or removed
+    const comment = randomUUID();
+    await db.query(
+      `INSERT INTO media_comments (id, work_id, author_id, body) VALUES ($1, $2, $3, 'ভালো')`,
+      [comment, workId, member],
+    );
+    await expect(
+      db.query(`UPDATE media_comments SET body = 'বদল' WHERE id = $1`, [comment]),
+    ).rejects.toThrow();
+    await expect(db.query(`DELETE FROM media_comments WHERE id = $1`, [comment])).rejects.toThrow();
+  });
+
+  it('keeps a system entry active and named', async () => {
+    const id = randomUUID();
+    await db.query(
+      `INSERT INTO reference_lists (id, list_key, code, label_bn, label_en, is_system) VALUES ($1, 'media_stage', 'test_system', 'ক', 'A', true)`,
+      [id],
+    );
+    // the labels change; the entry stays
+    await db.query(`UPDATE reference_lists SET label_bn = 'খ' WHERE id = $1`, [id]);
+    for (const change of ['active = false', "code = 'renamed'", 'is_system = false'])
+      await expectSqlError(
+        db.query(`UPDATE reference_lists SET ${change} WHERE id = $1`, [id]),
+        SQLSTATE.checkViolation,
+      );
+    await expectSqlError(
+      db.query(`DELETE FROM reference_lists WHERE id = $1`, [id]),
+      SQLSTATE.checkViolation,
+    );
+  });
+
+  it('ties a referral to its application, keeps the history, and the migration back refuses while a referral exists', async () => {
+    const r = await referral();
+    // the beneficiary and the project are the application's own, checked at commit
+    const other = await f.beneficiary(db, loc);
+    await db.query('BEGIN');
+    await db.query(`UPDATE media_referrals SET beneficiary_id = $2 WHERE id = $1`, [r.id, other]);
+    await expectSqlError(db.query('COMMIT'), SQLSTATE.checkViolation);
+    const step = randomUUID();
+    await db.query(
+      `INSERT INTO media_events (id, referral_id, kind, actor_id) VALUES ($1, $2, 'referred', $3)`,
+      [step, r.id, r.referrer],
+    );
+    await expect(
+      db.query(`UPDATE media_events SET kind = 'accepted' WHERE id = $1`, [step]),
+    ).rejects.toThrow();
+    await expectSqlError(
+      db.query(
+        `INSERT INTO media_events (id, referral_id, kind, actor_id) VALUES ($1, $2, 'teleported', $3)`,
+        [randomUUID(), r.id, r.referrer],
+      ),
+      SQLSTATE.checkViolation,
+    );
+    const down = readFileSync(
+      join(__dirname, '../../prisma/migrations/20261026160000_media_team/down.sql'),
+      'utf8',
+    );
+    await db.query('BEGIN');
+    try {
+      await expect(db.query(down)).rejects.toThrow(/media_team down/);
+    } finally {
+      await db.query('ROLLBACK');
+    }
+  });
+});

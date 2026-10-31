@@ -7,6 +7,7 @@ import {
   beneficiaryWhere,
   holdsPermission,
   makeScope,
+  mediaReferralWhere,
   NO_INSTANCES,
   programWhere,
   projectWhere,
@@ -424,6 +425,30 @@ describe('beneficiaryWhere and the rows inside a profile', () => {
     ).toBeNull();
     expect(beneficiaryRowsProjectWhere(scope({ projectIds: [P1] }))).toEqual({
       OR: [{ id: { in: [P1] } }],
+    });
+  });
+});
+
+describe('the media referral filter', () => {
+  const where = (i: Partial<ScopeInstances>) =>
+    mediaReferralWhere(
+      makeScope('actor', 'media.work.view', 'application', { ...NO_INSTANCES, ...i }),
+    );
+
+  it('reaches the referrals of the applications the scope reaches', () => {
+    expect(where({ global: true })).toEqual({ application: {} });
+    expect(where({ programIds: [P1] })).toEqual({
+      application: { AND: [{ OR: [{ project: { programId: { in: [P1] } } }] }, {}] },
+    });
+    expect(where({})).toEqual({ application: { id: { in: [] } } });
+  });
+
+  it('adds the works the caller is a member of for an ASSIGNED grant', () => {
+    expect(where({ assigned: true })).toEqual({
+      OR: [
+        { application: { id: { in: [] } } },
+        { work: { members: { some: { userId: 'actor' } } } },
+      ],
     });
   });
 });

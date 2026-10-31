@@ -220,7 +220,7 @@ describe('streaming a file linked to a record', () => {
 });
 
 describe('the metadata of a file', () => {
-  it('shows the position to the uploader and an official with the class, never to the Media Team', async () => {
+  it('shows the position to the uploader and an official with the class, and nothing to the Media Team', async () => {
     const id = await upload('general', await picture({ variant: 4 }), {
       capturedAt: new Date(h.clock.now().getTime() - 60_000).toISOString(),
       gps: { lat: 23.81, lng: 90.41, accuracyM: 12 },
@@ -234,10 +234,8 @@ describe('the metadata of a file', () => {
       lng: 90.41,
       accuracyM: 12,
     });
-    const media = await info('media', id);
-    expect(media.status).toBe(200);
-    expect(media.body.data).not.toHaveProperty('gps');
-    expect(media.body.data.capturedAt).not.toBeNull();
+    // the Media Team reads an application only through the work of its referral
+    expect((await info('media', id)).status).toBe(404);
   });
 
   it('names a near duplicate only to a caller who reaches it', async () => {
@@ -325,11 +323,8 @@ describe('the files of a record', () => {
     expect(next.body.data[0].id).toBe(photo);
   });
 
-  it('masks the position and the money papers from the Media Team, and shows the position to the uploader', async () => {
-    const res = await list('media', {});
-    expect(res.status).toBe(200);
-    expect(res.body.data.map((r: { id: string }) => r.id)).toEqual([photo]);
-    expect(res.body.data[0].gps).toBeNull();
+  it('lists nothing to the Media Team, and shows the position to the uploader', async () => {
+    expect((await list('media', {})).status).toBe(404);
     const own = await list('general', {});
     expect(own.body.data.find((r: { id: string }) => r.id === photo).gps).toEqual({
       lat: 23.75,
@@ -361,13 +356,12 @@ describe('the files of a record', () => {
       new RegExp(`^${photo},distribution_proof,distribution_proof,image/jpeg,`),
     );
     expect(lines[2]).toMatch(/,23\.75,90\.39$/);
-    const media = await list('media', { format: 'csv' });
-    expect(media.text.trim().split('\r\n')[1]).toMatch(/,,$/);
+    expect((await list('media', { format: 'csv' })).status).toBe(404);
     const audits = await h.db.query(
       `SELECT new FROM audit_log WHERE action = 'file.list_exported' AND entity_id = $1 ORDER BY created_at, id`,
       [listApplication],
     );
-    expect(audits.rows).toHaveLength(2);
+    expect(audits.rows).toHaveLength(1);
     expect(audits.rows[0].new).toMatchObject({ rows: 2, format: 'csv' });
   });
 

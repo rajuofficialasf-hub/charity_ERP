@@ -24,6 +24,18 @@ const ROLES: { role: string; loginId: string; page: string; api: string }[] = [
     api: '/volunteers',
   },
   {
+    role: 'a General Volunteer',
+    loginId: '01700000103',
+    page: '/media',
+    api: '/media/summary',
+  },
+  {
+    role: 'the Finance Team',
+    loginId: 'finance@example.org',
+    page: '/media',
+    api: '/media-works',
+  },
+  {
     role: 'the Media Team',
     loginId: 'media@example.org',
     page: '/admin/settings',

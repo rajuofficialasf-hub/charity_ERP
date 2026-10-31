@@ -104,6 +104,18 @@ Channels: **A** in-app · **E** email · **S** SMS · **P** optional Web Push (i
 | Approval pending too long (5 days, O-04) | approvers(region); monitoring | A, E | `alert_approval_pending` | 5 |
 | Review pending too long (7 days, O-04) | reviewers(region); monitoring | A, E | `alert_review_pending` | 5 |
 
+### 4.7 Media Team (T2.8b, D-101, D-136)
+
+In the app only; a notice names the work, the program and the project, never the beneficiary's name or contacts (BR-286). No consent notice: D-137 withdrew the media consent.
+
+| Event | Recipients | Channels | Template key | Phase |
+|---|---|---|---|---|
+| A new media referral | media director, media assistant director | A | `media_referral_new` | 2 |
+| A decision on a referral (accepted, sent back, rejected) | the referrer | A | `media_referral_decided` | 2 |
+| Added to a media work | the member | A | `media_member_added` | 2 |
+| A work waits for the final review | media director | A | `media_review_waiting` | 2 |
+| A work is published | the referrer | A | `media_published` | 2 |
+
 ### 4.4 Field activities, money and stock (Phases 3–4)
 
 | Event | Recipients | Channels | Template key | Phase |

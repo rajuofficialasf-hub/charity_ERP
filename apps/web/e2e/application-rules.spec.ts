@@ -1,12 +1,6 @@
-import {
-  type APIRequestContext,
-  type Browser,
-  devices,
-  expect,
-  type Page,
-  test,
-} from '@playwright/test';
+import { type APIRequestContext, type Browser, expect, type Page, test } from '@playwright/test';
 import { apiAs, scan, signIn } from './support/admin';
+import { act, consent, onDesk, savar, volunteerId } from './support/applications';
 import { activeProject, choice, code, ERR, question } from './support/projects';
 
 // The application rules end to end (docs/plans/2026-10-25-1156-feat-application-rules-plan.md,
@@ -21,8 +15,6 @@ const EXECUTIVE = 'executive@example.org';
 const RPM = 'rpm.dhaka@example.org';
 const VOLUNTEER = '01700000115';
 const OTHER_VOLUNTEER = '01700000103';
-
-type Api = Awaited<ReturnType<typeof apiAs>>;
 
 const digits = (n: number) =>
   Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join('');
@@ -99,60 +91,8 @@ const FORM = [
   },
 ];
 
-/** A desktop page of its own for an official, closed whatever happens on it. */
-async function onDesk<T>(browser: Browser, work: (desk: Page) => Promise<T>): Promise<T> {
-  const context = await browser.newContext({ ...devices['Desktop Chrome'] });
-  try {
-    return await work(await context.newPage());
-  } finally {
-    await context.close();
-  }
-}
-
 const noViolations = async (page: Page, where: string) =>
   expect((await scan(page)).violations, where).toEqual([]);
-
-/** The Savar union of Dhaka with its places above, as the address answer names them. */
-async function savar(api: Api) {
-  const child = async (parentId: string | null, name: string) => {
-    const res = await api.get(`/locations${parentId ? `?parentId=${parentId}` : ''}`);
-    expect(res.ok()).toBe(true);
-    const rows = ((await res.json()) as { data: { id: string; name: { bn: string } }[] }).data;
-    const found = rows.find((r) => r.name.bn === name);
-    expect(found, name).toBeDefined();
-    return found!.id;
-  };
-  const division = await child(null, 'ঢাকা');
-  const district = await child(division, 'ঢাকা');
-  const upazila = await child(district, 'সাভার');
-  const union = await child(upazila, 'সাভার');
-  return { division, district, upazila, union };
-}
-
-/** The volunteer's id, by the mobile they sign in with. */
-async function volunteerId(head: Api, mobile: string) {
-  const res = await head.get(`/volunteers?q=${mobile}`);
-  expect(res.ok()).toBe(true);
-  const [found] = ((await res.json()) as { data: { id: string }[] }).data;
-  expect(found, mobile).toBeDefined();
-  return found!.id;
-}
-
-/** The volunteer accepts the project's rules through the API, as the consent screen would. */
-async function consent(request: APIRequestContext, mobile: string, projectId: string) {
-  const me = await apiAs(request, mobile);
-  const detail = await me.get(`/me/projects/${projectId}`);
-  expect(detail.ok()).toBe(true);
-  const { data } = (await detail.json()) as {
-    data: { rules: { version: number; parts: { part: string }[] } };
-  };
-  const res = await me.post(`/me/projects/${projectId}/consent`, {
-    rulesVersion: data.rules.version,
-    decision: 'accepted',
-    parts: data.rules.parts.map((p) => p.part),
-  });
-  expect(res.ok(), 'the consent').toBe(true);
-}
 
 /**
  * An active ERR project of this run with the scored form, volunteers 15 and 3 assigned and
@@ -189,15 +129,6 @@ async function rulesProject(browser: Browser, request: APIRequestContext) {
   await consent(request, VOLUNTEER, projectId);
   await consent(request, OTHER_VOLUNTEER, projectId);
   return { projectId, first, second, places: await savar(head) };
-}
-
-/** Moves an application with the version it has now. */
-async function act(api: Api, id: string, action: string, body: Record<string, unknown> = {}) {
-  const read = await api.get(`/applications/${id}`);
-  const res = await api.post(`/applications/${id}/actions/${action}`, body, {
-    'If-Match': read.headers()['etag'] ?? '',
-  });
-  expect(res.ok(), `${action}: ${await res.text()}`).toBe(true);
 }
 
 /** Volunteer 15's application of this kind, sent and, when asked, reviewed by the RPM. */

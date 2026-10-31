@@ -178,8 +178,13 @@ test.describe('accessibility of the Phase 1 screens', () => {
         '/admin/notification-templates',
         '/admin/deliveries',
         '/admin/permissions',
+        // the Media Team's home; its work page is checked by the media journey
+        '/media',
       ])
         await sweep(page, path, lang);
+      const media = await (await apiAs(request, HEAD)).get('/users?q=media%40example.org');
+      const [member] = ((await media.json()) as { data: { id: string }[] }).data;
+      await sweep(page, `/media/members/${member!.id}`, lang);
       // the record pages: the first row of each list
       for (const list of ['/admin/volunteers', '/admin/beneficiaries']) {
         await page.goto(list);

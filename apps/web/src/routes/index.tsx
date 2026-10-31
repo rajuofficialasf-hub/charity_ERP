@@ -127,6 +127,25 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
                   .ApplicationFormPage,
               }),
             },
+            // the Media Team's screens are their own chunks, like the volunteer's pages
+            {
+              path: '/media',
+              lazy: async () => ({
+                Component: (await import('../features/media/MediaHomePage')).MediaHomePage,
+              }),
+            },
+            {
+              path: '/media/referrals/:referralId',
+              lazy: async () => ({
+                Component: (await import('../features/media/WorkPage')).WorkPage,
+              }),
+            },
+            {
+              path: '/media/members/:userId',
+              lazy: async () => ({
+                Component: (await import('../features/media/MemberPage')).MemberPage,
+              }),
+            },
             {
               // The admin area is its own chunk: the other screens never load it.
               path: '/admin',

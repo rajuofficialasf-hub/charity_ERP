@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import { answerValueSchema } from './answer-value.js';
+import { mediaScriptSchema, referenceListAttributesSchema } from './media.js';
 import {
   calculationSchema,
   conditionSchema,
@@ -19,6 +20,7 @@ import { workflowDefinitionSchema } from './workflow-definition.js';
 export * from './answer-value.js';
 export * from './component-settings.js';
 export * from './form-logic.js';
+export * from './media.js';
 export * from './small.js';
 export * from './workflow-definition.js';
 
@@ -43,6 +45,8 @@ export const jsonbSchemas = {
   'form_sections.condition': conditionSchema,
   'workflow_definitions.definition': workflowDefinitionSchema,
   'projects.workflow_snapshot': workflowDefinitionSchema,
+  'media_works.script': mediaScriptSchema,
+  'reference_lists.attributes': referenceListAttributesSchema,
 } as const satisfies Record<string, z.ZodType>;
 
 export type JsonbColumn = keyof typeof jsonbSchemas;

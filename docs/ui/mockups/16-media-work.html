@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>মিডিয়ার কাজ · মকআপ</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<style>
+  .work-head { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: flex-start; }
+  .work-head h1 { margin: 0; font-size: var(--text-display); }
+  .work-head .actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  .stages { overflow-x: auto; padding-bottom: var(--space-1); }
+  .stages .steps-h { min-width: 720px; margin-bottom: var(--space-2); }
+  .stages .steps-h li { font-size: var(--text-label); }
+  .stage-row { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: end; }
+  .stage-row .field { margin: 0; min-width: 200px; flex: 1 1 200px; }
+  .decision { border: 2px solid var(--color-brand-primary); border-radius: var(--radius-lg); }
+  .script details { border: 1px solid var(--color-border-default); border-radius: var(--radius-md); margin-bottom: var(--space-2); }
+  .script summary { padding: 10px var(--space-3); cursor: pointer; font-weight: var(--font-weight-bold); list-style: none; display: flex; align-items: center; gap: var(--space-2); }
+  .script summary::-webkit-details-marker { display: none; }
+  .script details[open] summary { border-bottom: 1px solid var(--color-border-default); }
+  .script .body { padding: var(--space-3); }
+  .member { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) 0; border-bottom: 1px solid var(--color-border-default); }
+  .member:last-child { border-bottom: 0; }
+  .member .roles { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+  .link-card { display: flex; gap: var(--space-3); align-items: stretch; border: 1px solid var(--color-border-default); border-radius: var(--radius-md); padding: var(--space-2); }
+  .thumb { flex: none; width: 112px; aspect-ratio: 16 / 9; border-radius: var(--radius-sm); display: grid; place-items: center; background: linear-gradient(135deg, var(--color-brand-ink), var(--color-brand-primary-dark)); color: var(--color-text-on-brand); }
+  .thumb.fb { background: var(--color-bg-muted); color: var(--color-brand-primary-dark); }
+  .link-card .meta { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  .comment { padding: var(--space-2) 0; border-bottom: 1px solid var(--color-border-default); }
+  .comment:last-of-type { border-bottom: 0; }
+  .lead-only[hidden], .member-only[hidden], .state-new[hidden], .state-running[hidden] { display: none !important; }
+  .mock-bar { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; margin-bottom: var(--space-3); }
+</style>
+</head>
+<body data-shell="media" data-active="works">
+<main id="main">
+  <div class="mock-bar mock-note">
+    <span class="caption">মকআপে দেখুন:</span>
+    <div class="segmented" role="group" aria-label="কাজের অবস্থা"><button type="button" aria-pressed="false" data-state="new">নতুন রেফারেল</button><button type="button" aria-pressed="true" data-state="running">চলমান কাজ</button></div>
+    <div class="segmented" role="group" aria-label="কার চোখে দেখবেন"><button type="button" aria-pressed="true" data-view="lead">ডিরেক্টর</button><button type="button" aria-pressed="false" data-view="member">সদস্য</button></div>
+  </div>
+
+  <nav class="breadcrumb" aria-label="অবস্থান"><ol><li><a href="15-media-home.html#works">মিডিয়ার কাজ</a></li><li aria-current="page">সেলাই মেশিনে ঘুরে দাঁড়ানো</li></ol></nav>
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="work-head">
+      <div class="grow">
+        <h1 id="title">সেলাই মেশিনে ঘুরে দাঁড়ানো</h1>
+        <div class="caption muted tnum">কাজ MW-2026-0014 · স্বাবলম্বী 2026 · স্বাবলম্বী প্রোগ্রাম</div>
+        <div class="cluster" style="margin-top:6px">
+          <span class="badge state-running"><i data-icon="camera"></i>শুটিং প্রস্তুতি</span>
+          <span class="badge t-info state-new" hidden><i data-icon="inbox"></i>নতুন রেফারেল</span>
+          <span class="badge t-danger"><i data-icon="arrow-up"></i>উচ্চ অগ্রাধিকার</span>
+          <span class="badge state-running"><i data-icon="image"></i>ভিডিও</span>
+        </div>
+      </div>
+      <div class="actions lead-only state-running">
+        <button class="btn btn-secondary btn-sm" type="button" data-toast="কাজটি স্থগিত হলো; আগের ধাপে ফেরাতে আবার চালু করুন (মকআপ)"><i data-icon="circle-pause"></i>স্থগিত</button>
+        <button class="btn btn-ghost btn-sm" type="button" data-open="cancel-work"><i data-icon="circle-x"></i>বাতিল</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- the decision on a new referral: only the director and the assistant director -->
+  <section class="card decision state-new lead-only" id="new" aria-labelledby="dec-title" hidden style="margin-bottom:16px">
+    <h2 id="dec-title" class="card-title">রেফারেল সিদ্ধান্তের অপেক্ষায়</h2>
+    <p class="mt-0">RPM রাশেদ কবির (নমুনা) 26-10-2026-এ পাঠিয়েছেন। উপকারভোগীর মিডিয়া সম্মতি আছে: Facebook, ভিডিও।</p>
+    <div class="cluster">
+      <button class="btn btn-primary" type="button" data-toast="রেফারেল গ্রহণ করা হলো; কাজ শুরু হলো (মকআপ)"><i data-icon="circle-check"></i>গ্রহণ করুন</button>
+      <button class="btn btn-secondary" type="button" data-open="send-back"><i data-icon="arrow-left"></i>সংশোধনের জন্য ফেরত দিন</button>
+      <button class="btn btn-ghost" type="button" data-open="reject"><i data-icon="circle-x"></i>বাতিল করুন</button>
+    </div>
+  </section>
+
+  <section class="card state-running" aria-labelledby="stage-title" style="margin-bottom:16px">
+    <h2 id="stage-title" class="card-title">ধাপ</h2>
+    <div class="stages"><ol class="steps-h">
+      <li class="is-done">গ্রহণ</li><li class="is-done">পরিকল্পনা ও দল</li><li class="is-done">স্ক্রিপ্ট</li><li class="is-current" aria-current="step">শুটিং প্রস্তুতি</li><li>শুটিং সম্পন্ন</li><li>সম্পাদনা</li><li>অভ্যন্তরীণ পর্যালোচনা</li><li>প্রকাশের জন্য প্রস্তুত</li><li>প্রকাশিত</li><li>সম্পন্ন</li>
+    </ol></div>
+    <div class="stage-row">
+      <div class="field"><label class="field-label" for="stage">ধাপ বদলান</label><select class="select" id="stage"><option>পরিকল্পনা ও দল</option><option>স্ক্রিপ্ট</option><option selected>শুটিং প্রস্তুতি</option><option>শুটিং সম্পন্ন</option><option>সম্পাদনা</option><option>অভ্যন্তরীণ পর্যালোচনা</option><option>প্রকাশের জন্য প্রস্তুত</option></select></div>
+      <button class="btn btn-secondary" type="button" data-toast="ধাপ বদলানো হলো, ইতিহাসে লেখা থাকল (মকআপ)">ধাপ বদলান</button>
+    </div>
+    <p class="caption muted" style="margin-bottom:0">সামনে বা পেছনে যেকোনো ধাপে যাওয়া যায়। “প্রকাশের জন্য প্রস্তুত” হলে ডিরেক্টর চূড়ান্ত পর্যালোচনার নোটিফিকেশন পান। প্রথম প্রকাশ হলেই কাজ নিজে থেকে “প্রকাশিত” হয়।</p>
+  </section>
+
+  <div class="grid grid-main-side">
+    <div class="stack">
+      <section class="card" aria-labelledby="ref-title">
+        <h2 id="ref-title" class="card-title">রেফারেল</h2>
+        <dl class="kv">
+          <dt>পাঠিয়েছেন</dt><dd>রাশেদ কবির (নমুনা), RPM · ঢাকা</dd>
+          <dt>তারিখ</dt><dd class="tnum">26-10-2026</dd>
+          <dt>অগ্রাধিকার</dt><dd>উচ্চ</dd>
+          <dt>নোট</dt><dd>সেলাই মেশিন পেয়ে তিন মাসে নিজের দোকান দিয়েছেন। ঈদের আগে শুটিং হলে ভালো।</dd>
+          <dt>গল্প</dt><dd>স্বামী মারা যাওয়ার পর দুই সন্তান নিয়ে অন্যের বাড়িতে কাজ করতেন। স্বাবলম্বী প্রকল্পে সেলাই মেশিন আর প্রশিক্ষণ পেয়ে এখন মাসে প্রায় 9,000 টাকা আয় করেন।</dd>
+          <dt>সিদ্ধান্ত</dt><dd class="state-running">গৃহীত · নাসির উদ্দিন (নমুনা), 26-10-2026</dd><dd class="state-new" hidden>অপেক্ষায়</dd>
+        </dl>
+      </section>
+
+      <section class="card" aria-labelledby="ben-title">
+        <h2 id="ben-title" class="card-title">উপকারভোগী</h2>
+        <dl class="kv">
+          <dt>নাম</dt><dd>আমেনা খাতুন (নমুনা)</dd>
+          <dt>পিতা/স্বামী</dt><dd>মৃত আব্দুল হক (নমুনা)</dd>
+          <dt>বয়স</dt><dd class="tnum">38</dd>
+          <dt>মোবাইল</dt><dd class="tnum">01700000123</dd>
+          <dt>ঠিকানা</dt><dd>পূর্বপাড়া, বনগাঁও ইউনিয়ন, সাভার, ঢাকা</dd>
+          <dt>পেশা</dt><dd>দর্জি</dd>
+          <dt>মাসিক আয়</dt><dd class="tnum">৳ 9,000</dd>
+          <dt>প্রকল্প</dt><dd class="tnum">স্বাবলম্বী 2026 (স্বাবলম্বী প্রোগ্রাম)</dd>
+          <dt>কর্মকর্তার মন্তব্য</dt><dd>পরিবারটি কাজের প্রতি খুব আন্তরিক; সাক্ষাৎকারে রাজি।</dd>
+        </dl>
+        <p class="caption muted" style="margin-bottom:0"><i data-icon="lock" data-class="icon-sm"></i> NID, রেটিং, ক্যাটাগরি ও দাতার তথ্য মিডিয়া টিম দেখে না।</p>
+      </section>
+
+      <section class="card script state-running" aria-labelledby="script-title">
+        <h2 id="script-title" class="card-title">স্ক্রিপ্ট <span class="badge t-warning" style="margin-left:8px">খসড়া</span></h2>
+        <details open><summary><i data-icon="file-text"></i>সারসংক্ষেপ</summary><div class="body"><textarea class="textarea" aria-label="সারসংক্ষেপ" rows="3">একজন বিধবা মা কীভাবে সেলাইয়ের কাজ দিয়ে সংসার চালাচ্ছেন।</textarea></div></details>
+        <details><summary><i data-icon="message-square-text"></i>সাক্ষাৎকারের প্রশ্ন</summary><div class="body"><textarea class="textarea" aria-label="সাক্ষাৎকারের প্রশ্ন" rows="3"></textarea></div></details>
+        <details><summary><i data-icon="camera"></i>দৃশ্য</summary><div class="body"><textarea class="textarea" aria-label="দৃশ্য" rows="3"></textarea></div></details>
+        <details><summary><i data-icon="languages"></i>ভয়েস-ওভার</summary><div class="body"><textarea class="textarea" aria-label="ভয়েস-ওভার" rows="3"></textarea></div></details>
+        <details><summary><i data-icon="pencil-line"></i>নোট</summary><div class="body"><textarea class="textarea" aria-label="নোট" rows="2"></textarea></div></details>
+        <div class="cluster">
+          <div class="field" style="margin:0"><label class="field-label" for="script-state">স্ক্রিপ্টের অবস্থা</label><select class="select" id="script-state"><option selected>খসড়া</option><option>পর্যালোচনায়</option><option>চূড়ান্ত</option></select></div>
+          <button class="btn btn-primary" type="button" data-toast="স্ক্রিপ্ট সংরক্ষিত (মকআপ)" style="align-self:end"><i data-icon="save"></i>সংরক্ষণ</button>
+        </div>
+      </section>
+
+      <section class="card state-running" aria-labelledby="pub-title">
+        <h2 id="pub-title" class="card-title">প্রকাশ</h2>
+        <div class="alert t-info" role="note" style="margin-bottom:12px"><i data-icon="shield-check"></i><div>উপকারভোগীর মিডিয়া সম্মতি: Facebook, ভিডিও। সম্মতি নেই এমন প্ল্যাটফর্মে প্রকাশ করা যায় না।</div></div>
+        <div class="stack-sm">
+          <div class="link-card"><span class="thumb" aria-hidden="true"><i data-icon="external-link"></i></span><span class="meta"><span class="strong">As-Sunnah Foundation YouTube</span><span class="badge" style="align-self:flex-start"><i data-icon="clock"></i>অপেক্ষায়</span><span class="caption muted">লিংক এখনো দেওয়া হয়নি</span></span></div>
+          <div class="link-card"><span class="thumb fb" aria-hidden="true"><i data-icon="message-square-text"></i></span><span class="meta"><span class="strong">As-Sunnah Foundation Facebook</span><span class="badge t-danger" style="align-self:flex-start;white-space:normal;height:auto"><i data-icon="triangle-alert"></i>সম্মতি ফেরত নেওয়া হয়েছে, পোস্ট সরিয়ে নিন</span><span class="caption muted tnum">প্রকাশ 12-10-2026 · facebook.com/…</span><button class="btn btn-secondary btn-sm" type="button" style="align-self:flex-start" data-toast="প্রকাশটি “সরানো হয়েছে” চিহ্নিত হলো (মকআপ)">সরানো হয়েছে</button></span></div>
+        </div>
+        <div class="cluster" style="margin-top:12px">
+          <button class="btn btn-secondary" type="button" data-open="add-pub"><i data-icon="plus"></i>প্রকাশ যোগ করুন</button>
+        </div>
+        <div class="lead-only" style="margin-top:16px;padding-top:12px;border-top:1px solid var(--color-border-default)">
+          <h3 class="strong" style="margin:0 0 4px">চূড়ান্ত পর্যালোচনা</h3>
+          <p class="caption muted mt-0">কাজ “প্রকাশের জন্য প্রস্তুত” হলে ডিরেক্টর অনুমোদন দেন। অনুমোদনের আগে কোনো প্রকাশ “প্রকাশিত” করা যায় না।</p>
+          <div class="cluster">
+            <button class="btn btn-primary" type="button" disabled title="কাজটি এখনো প্রকাশের জন্য প্রস্তুত নয়"><i data-icon="shield-check"></i>চূড়ান্ত পর্যালোচনা অনুমোদন</button>
+            <button class="btn btn-secondary" type="button" disabled>সংশোধনে ফেরত দিন</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="com-title">
+        <h2 id="com-title" class="card-title">মন্তব্য</h2>
+        <div class="comment"><div class="strong">সুমাইয়া আক্তার (নমুনা) <span class="caption muted tnum">· 27-10-2026 সকাল 11:05</span></div><div>শুটিংয়ের দিন ঠিক হয়েছে 2 নভেম্বর, সকাল 9টা।</div></div>
+        <div class="comment"><div class="strong">নাসির উদ্দিন (নমুনা) <span class="caption muted tnum">· 26-10-2026 বিকাল 4:30</span></div><div>দোকানের সামনে আর ঘরে কাজের দৃশ্য নেবেন।</div></div>
+        <div class="field" style="margin-top:12px"><label class="field-label" for="new-comment">নতুন মন্তব্য</label><textarea class="textarea" id="new-comment" rows="2"></textarea></div>
+        <button class="btn btn-secondary btn-sm" type="button" data-toast="মন্তব্য যোগ হলো (মকআপ)"><i data-icon="send"></i>পাঠান</button>
+      </section>
+    </div>
+
+    <div class="stack">
+      <section class="card state-running" aria-labelledby="team-title">
+        <h2 id="team-title" class="card-title">দল</h2>
+        <div class="member"><span class="avatar avatar-sm" aria-hidden="true">রু</span><div class="grow"><a href="#" data-toast="সদস্যের প্রোফাইল ও পোর্টফোলিও (মকআপ)">রুবেল আহমেদ (নমুনা)</a><div class="roles"><span class="badge">ক্যামেরা</span><span class="badge">ভিডিও সম্পাদনা</span></div></div></div>
+        <div class="member"><span class="avatar avatar-sm" aria-hidden="true">সু</span><div class="grow"><a href="#" data-toast="সদস্যের প্রোফাইল ও পোর্টফোলিও (মকআপ)">সুমাইয়া আক্তার (নমুনা)</a><div class="roles"><span class="badge">প্রোডাকশন ম্যানেজার</span><span class="badge">স্ক্রিপ্ট লেখা</span></div></div></div>
+        <button class="btn btn-secondary btn-sm lead-only" type="button" data-open="add-member" style="margin-top:12px"><i data-icon="user-plus"></i>সদস্য যোগ করুন</button>
+      </section>
+
+      <section class="card state-running" aria-labelledby="type-title">
+        <h2 id="type-title" class="card-title">কনটেন্টের ধরন</h2>
+        <div class="segmented" role="group" aria-label="কনটেন্টের ধরন"><button type="button" aria-pressed="true">ভিডিও</button><button type="button" aria-pressed="false">ছবি</button><button type="button" aria-pressed="false">দুটোই</button></div>
+        <p class="caption muted" style="margin-bottom:0">ছবি বা ভিডিওর ফাইল অ্যাপে রাখা হয় না, শুধু প্রকাশের লিংক।</p>
+      </section>
+
+      <section class="card" aria-labelledby="hist-title">
+        <h2 id="hist-title" class="card-title">ইতিহাস</h2>
+        <ol class="timeline">
+          <li class="is-current state-running"><span class="dot"></span><div class="step-title">ধাপ: শুটিং প্রস্তুতি</div><div class="step-meta tnum">সুমাইয়া আক্তার (নমুনা) · 27-10-2026</div></li>
+          <li class="is-done state-running"><span class="dot"><i data-icon="check"></i></span><div class="step-title">স্ক্রিপ্ট: খসড়া</div><div class="step-meta tnum">সুমাইয়া আক্তার (নমুনা) · 27-10-2026</div></li>
+          <li class="is-done state-running"><span class="dot"><i data-icon="check"></i></span><div class="step-title">দলে যোগ: রুবেল আহমেদ, সুমাইয়া আক্তার</div><div class="step-meta tnum">নাসির উদ্দিন (নমুনা) · 26-10-2026</div></li>
+          <li class="is-done state-running"><span class="dot"><i data-icon="check"></i></span><div class="step-title">রেফারেল গৃহীত</div><div class="step-meta tnum">নাসির উদ্দিন (নমুনা) · 26-10-2026</div></li>
+          <li class="is-done"><span class="dot"><i data-icon="check"></i></span><div class="step-title">মিডিয়া টিমে পাঠানো হলো</div><div class="step-meta tnum">রাশেদ কবির (নমুনা), RPM · 26-10-2026</div></li>
+        </ol>
+      </section>
+    </div>
+  </div>
+
+  <section class="card" aria-labelledby="other-title" style="margin-top:24px">
+    <h2 id="other-title" class="card-title">অন্য পর্দার অংশ (মকআপ)</h2>
+    <p class="caption muted mt-0">এগুলো আবেদনের পাতায় (PM, RPM) আর উপকারভোগীর প্রোফাইলে বসবে।</p>
+    <div class="cluster">
+      <button class="btn btn-primary" type="button" data-open="refer"><i data-icon="send"></i>মিডিয়া টিমে পাঠান</button>
+      <button class="btn btn-secondary" type="button" data-open="consent"><i data-icon="shield-check"></i>মিডিয়া সম্মতি</button>
+      <span class="badge t-info"><i data-icon="camera"></i>মিডিয়া: শুটিং প্রস্তুতি</span>
+    </div>
+  </section>
+</main>
+
+<dialog class="modal" id="refer" aria-labelledby="refer-title">
+  <div class="sheet-handle"></div>
+  <div class="modal-head"><h2 id="refer-title">মিডিয়া টিমে পাঠান</h2><button class="icon-btn" type="button" data-close><i data-icon="x"></i><span class="sr-only">বন্ধ করুন</span></button></div>
+  <div class="modal-body">
+    <p class="mt-0">আমেনা খাতুন (নমুনা) · <span class="tnum">UCD-2026-00301</span></p>
+    <div class="field"><span class="field-label" id="pr-label">অগ্রাধিকার</span><div class="segmented" role="group" aria-labelledby="pr-label"><button type="button" aria-pressed="true">উচ্চ</button><button type="button" aria-pressed="false">সাধারণ</button><button type="button" aria-pressed="false">নিম্ন</button></div></div>
+    <div class="field"><label class="field-label" for="r-note">নোট <span class="req" aria-hidden="true">*</span></label><textarea class="textarea" id="r-note" rows="2"></textarea></div>
+    <div class="field"><label class="field-label" for="r-story">গল্প (ঐচ্ছিক)</label><textarea class="textarea" id="r-story" rows="4"></textarea><div class="helper">মিডিয়া টিম এই গল্প আর আবেদনে কর্মকর্তার মন্তব্য দেখবে।</div></div>
+    <div class="alert t-warning" role="note"><i data-icon="triangle-alert"></i><div>উপকারভোগীর মিডিয়া সম্মতি না থাকলে পাঠানো যায় না। আগে প্রোফাইলে সম্মতি লিখুন।</div></div>
+  </div>
+  <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>বাতিল</button><button class="btn btn-primary" type="button" data-close data-toast="মিডিয়া টিমে পাঠানো হলো (মকআপ)"><i data-icon="send"></i>পাঠান</button></div>
+</dialog>
+
+<dialog class="modal" id="consent" aria-labelledby="consent-title">
+  <div class="sheet-handle"></div>
+  <div class="modal-head"><h2 id="consent-title">মিডিয়া সম্মতি</h2><button class="icon-btn" type="button" data-close><i data-icon="x"></i><span class="sr-only">বন্ধ করুন</span></button></div>
+  <div class="modal-body">
+    <fieldset class="field" style="border:0;padding:0;margin:0 0 12px"><legend class="field-label">সম্মতি</legend>
+      <label class="choice"><input type="radio" name="given" checked> সম্মতি আছে</label>
+      <label class="choice"><input type="radio" name="given"> সম্মতি নেই বা ফেরত নিয়েছেন</label>
+    </fieldset>
+    <fieldset class="field" style="border:0;padding:0;margin:0 0 12px"><legend class="field-label">কোথায় প্রকাশ করা যাবে</legend>
+      <label class="choice"><input type="checkbox"> ওয়েবসাইট</label>
+      <label class="choice"><input type="checkbox" checked> Facebook</label>
+      <label class="choice"><input type="checkbox"> ছাপা মাধ্যম</label>
+      <label class="choice"><input type="checkbox" checked> ভিডিও</label>
+      <label class="choice"><input type="checkbox"> দাতার রিপোর্ট</label>
+    </fieldset>
+    <div class="field"><label class="field-label" for="c-date">তারিখ</label><input class="input tnum" id="c-date" value="26-10-2026"></div>
+    <div class="field"><label class="field-label" for="c-file">স্বাক্ষর করা ফর্ম বা ছবি (ঐচ্ছিক)</label><input class="input" id="c-file" type="file"><div class="helper">এই ফাইল শুধু সম্মতি লেখার অনুমতি থাকা কর্মকর্তারা দেখেন, মিডিয়া টিম নয়।</div></div>
+  </div>
+  <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>বাতিল</button><button class="btn btn-primary" type="button" data-close data-toast="সম্মতি লেখা হলো (মকআপ)"><i data-icon="save"></i>সংরক্ষণ</button></div>
+</dialog>
+
+<dialog class="modal modal-sm" id="send-back" aria-labelledby="sb-title">
+  <div class="modal-head"><h2 id="sb-title">সংশোধনের জন্য ফেরত দিন</h2><button class="icon-btn" type="button" data-close><i data-icon="x"></i><span class="sr-only">বন্ধ করুন</span></button></div>
+  <div class="modal-body"><div class="field"><label class="field-label" for="sb-c">কী ঠিক করতে হবে <span class="req" aria-hidden="true">*</span></label><textarea class="textarea" id="sb-c" rows="3"></textarea></div></div>
+  <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>বাতিল</button><button class="btn btn-primary" type="button" data-close data-toast="রেফারেল ফেরত দেওয়া হলো (মকআপ)">ফেরত দিন</button></div>
+</dialog>
+
+<dialog class="modal modal-sm" id="reject" aria-labelledby="rj-title">
+  <div class="modal-head"><h2 id="rj-title">রেফারেল বাতিল করুন</h2><button class="icon-btn" type="button" data-close><i data-icon="x"></i><span class="sr-only">বন্ধ করুন</span></button></div>
+  <div class="modal-body"><div class="field"><label class="field-label" for="rj-c">কারণ <span class="req" aria-hidden="true">*</span></label><textarea class="textarea" id="rj-c" rows="3"></textarea></div></div>
+  <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>ফিরে যান</button><button class="btn btn-danger" type="button" data-close data-toast="রেফারেল বাতিল হলো (মকআপ)">বাতিল করুন</button></div>
+</dialog>
+
+<dialog class="modal modal-sm" id="cancel-work" aria-labelledby="cw-title">
+  <div class="modal-head"><h2 id="cw-title">কাজটি বাতিল করবেন?</h2><button class="icon-btn" type="button" data-close><i data-icon="x"></i><span class="sr-only">বন্ধ করুন</span></button></div>
+  <div class="modal-body"><p class="mt-0">বাতিল কাজ আর চালু করা যায় না।</p><div class="field"><label class="field-label" for="cw-c">কারণ <span class="req" aria-hidden="true">*</span></label><textarea class="textarea" id="cw-c" rows="2"></textarea></div></div>
+  <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>ফিরে যান</button><button class="btn btn-danger" type="button" data-close data-toast="কাজটি বাতিল হলো (মকআপ)">কাজ বাতিল করুন</button></div>
+</dialog>
+
+<dialog class="modal" id="add-member" aria-labelledby="am-title">
+  <div class="sheet-handle"></div>
+  <div class="modal-head"><h2 id="am-title">সদস্য যোগ করুন</h2><button class="icon-btn" type="button" data-close><i data-icon="x"></i><span class="sr-only">বন্ধ করুন</span></button></div>
+  <div class="modal-body">
+    <div class="field"><label class="field-label" for="am-who">সদস্য</label><select class="select" id="am-who"><option>রুবেল আহমেদ (নমুনা)</option><option>সুমাইয়া আক্তার (নমুনা)</option><option>তানজিম হোসেন (নমুনা)</option></select></div>
+    <fieldset class="field" style="border:0;padding:0;margin:0"><legend class="field-label">ভূমিকা (একাধিক বাছতে পারেন)</legend>
+      <label class="choice"><input type="checkbox"> প্রোডাকশন ম্যানেজার</label>
+      <label class="choice"><input type="checkbox"> পরিচালক</label>
+      <label class="choice"><input type="checkbox"> স্ক্রিপ্ট লেখা</label>
+      <label class="choice"><input type="checkbox" checked> ক্যামেরা</label>
+      <label class="choice"><input type="checkbox" checked> ভিডিও সম্পাদনা</label>
+      <label class="choice"><input type="checkbox"> প্রোডাকশন সহকারী</label>
+    </fieldset>
+  </div>
+  <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>বাতিল</button><button class="btn btn-primary" type="button" data-close data-toast="সদস্য যোগ হলো; তিনি নোটিফিকেশন পাবেন (মকআপ)"><i data-icon="user-plus"></i>যোগ করুন</button></div>
+</dialog>
+
+<dialog class="modal" id="add-pub" aria-labelledby="ap-title">
+  <div class="sheet-handle"></div>
+  <div class="modal-head"><h2 id="ap-title">প্রকাশ যোগ করুন</h2><button class="icon-btn" type="button" data-close><i data-icon="x"></i><span class="sr-only">বন্ধ করুন</span></button></div>
+  <div class="modal-body">
+    <div class="field"><label class="field-label" for="ap-pl">প্ল্যাটফর্ম</label><select class="select" id="ap-pl"><option>As-Sunnah Foundation YouTube</option><option>আহমাদুল্লাহ YouTube</option><option>As-Sunnah Foundation Facebook</option><option>আহমাদুল্লাহ Facebook</option></select><div class="helper">শুধু উপকারভোগীর সম্মতি থাকা প্ল্যাটফর্মে প্রকাশ করা যায়।</div></div>
+    <div class="field"><label class="field-label" for="ap-link">লিংক</label><input class="input" id="ap-link" inputmode="url" placeholder="https://youtu.be/…"><div class="helper">প্ল্যাটফর্মের নিজের লিংক দিন, যেমন youtube.com বা facebook.com।</div></div>
+    <div class="field"><label class="field-label" for="ap-date">প্রকাশের তারিখ</label><input class="input tnum" id="ap-date" placeholder="দিন-মাস-বছর"></div>
+    <fieldset class="field" style="border:0;padding:0;margin:0 0 12px"><legend class="field-label">অবস্থা</legend>
+      <label class="choice"><input type="radio" name="pubstate" checked> অপেক্ষায়</label>
+      <label class="choice"><input type="radio" name="pubstate"> প্রকাশিত</label>
+    </fieldset>
+    <div class="field"><label class="field-label" for="ap-note">নোট</label><textarea class="textarea" id="ap-note" rows="2"></textarea></div>
+  </div>
+  <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>বাতিল</button><button class="btn btn-primary" type="button" data-close data-toast="প্রকাশ যোগ হলো (মকআপ)"><i data-icon="plus"></i>যোগ করুন</button></div>
+</dialog>
+
+<script src="icons.js"></script>
+<script src="mockup.js"></script>
+<script>
+(function () {
+  'use strict';
+  var state = location.hash === '#new' ? 'new' : 'running';
+  var view = 'lead';
+  function apply() {
+    document.querySelectorAll('.state-new').forEach(function (e) { e.hidden = state !== 'new' || (e.classList.contains('lead-only') && view !== 'lead'); });
+    document.querySelectorAll('.state-running').forEach(function (e) { e.hidden = state !== 'running' || (e.classList.contains('lead-only') && view !== 'lead'); });
+    document.querySelectorAll('.lead-only:not(.state-new):not(.state-running)').forEach(function (e) { e.hidden = view !== 'lead'; });
+    document.querySelectorAll('[data-state]').forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-state') === state ? 'true' : 'false'); });
+  }
+  document.querySelectorAll('[data-state]').forEach(function (b) { b.addEventListener('click', function () { state = b.getAttribute('data-state'); apply(); }); });
+  document.querySelectorAll('[data-view]').forEach(function (b) { b.addEventListener('click', function () { view = b.getAttribute('data-view'); apply(); }); });
+  window.addEventListener('hashchange', function () { state = location.hash === '#new' ? 'new' : 'running'; apply(); });
+  apply();
+})();
+</script>
+</body>
+</html>

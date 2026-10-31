@@ -56,6 +56,11 @@
       "types": "./dist/volunteers/index.d.ts",
       "default": "./dist/volunteers/index.js"
     },
+    "./media": {
+      "@css/source": "./src/media/index.ts",
+      "types": "./dist/media/index.d.ts",
+      "default": "./dist/media/index.js"
+    },
     "./beneficiaries": {
       "@css/source": "./src/beneficiaries/index.ts",
       "types": "./dist/beneficiaries/index.d.ts",

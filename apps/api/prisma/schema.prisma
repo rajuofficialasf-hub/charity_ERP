@@ -26,6 +26,20 @@ model IdSequence {
 
 model User {
   id                                   String                     @id @db.Uuid
+  mediaReferralsReferredBy             MediaReferral[]            @relation("media_referrals_referred_by")
+  mediaReferralsDecidedBy              MediaReferral[]            @relation("media_referrals_decided_by")
+  mediaReferralsCreatedBy              MediaReferral[]            @relation("media_referrals_created_by")
+  mediaReferralsUpdatedBy              MediaReferral[]            @relation("media_referrals_updated_by")
+  mediaWorksReviewApprovedBy           MediaWork[]                @relation("media_works_review_approved_by")
+  mediaWorksCreatedBy                  MediaWork[]                @relation("media_works_created_by")
+  mediaWorksUpdatedBy                  MediaWork[]                @relation("media_works_updated_by")
+  mediaWorkMembersUser                 MediaWorkMember[]          @relation("media_work_members_user_id")
+  mediaWorkMembersCreatedBy            MediaWorkMember[]          @relation("media_work_members_created_by")
+  mediaWorkMembersUpdatedBy            MediaWorkMember[]          @relation("media_work_members_updated_by")
+  mediaPublicationsCreatedBy           MediaPublication[]         @relation("media_publications_created_by")
+  mediaPublicationsUpdatedBy           MediaPublication[]         @relation("media_publications_updated_by")
+  mediaCommentsAuthor                  MediaComment[]             @relation("media_comments_author_id")
+  mediaEventsActor                     MediaEvent[]               @relation("media_events_actor_id")
   kind                                 String
   mobile                               String?
   email                                String?
@@ -266,12 +280,6 @@ model User {
   deficiencyReportsDecidedBy           DeficiencyReport[]         @relation("deficiency_reports_decided_by")
   deficiencyReportsCreatedBy           DeficiencyReport[]         @relation("deficiency_reports_created_by")
   deficiencyReportsUpdatedBy           DeficiencyReport[]         @relation("deficiency_reports_updated_by")
-  mediaSubjectsAddedBy                 MediaSubject[]             @relation("media_subjects_added_by")
-  mediaSubjectsCreatedBy               MediaSubject[]             @relation("media_subjects_created_by")
-  mediaSubjectsUpdatedBy               MediaSubject[]             @relation("media_subjects_updated_by")
-  mediaStoriesAuthor                   MediaStory[]               @relation("media_stories_author_id")
-  mediaStoriesCreatedBy                MediaStory[]               @relation("media_stories_created_by")
-  mediaStoriesUpdatedBy                MediaStory[]               @relation("media_stories_updated_by")
   filesUploadedBy                      File[]                     @relation("files_uploaded_by")
   filesCreatedBy                       File[]                     @relation("files_created_by")
   filesUpdatedBy                       File[]                     @relation("files_updated_by")
@@ -571,12 +579,18 @@ model Location {
 
 model ReferenceList {
   id                                       String                    @id @db.Uuid
+  mediaWorksStageCode                      MediaWork[]               @relation("media_works_stage_code")
+  mediaPublicationsPlatformCode            MediaPublication[]        @relation("media_publications_platform_code")
   listKey                                  String                    @map("list_key")
   code                                     String
   labelBn                                  String                    @map("label_bn")
   labelEn                                  String                    @map("label_en")
   active                                   Boolean                   @default(true)
   sortOrder                                Int                       @default(0) @map("sort_order")
+  /// a system entry the rules need: kept active, never renamed or deleted
+  isSystem                                 Boolean                   @default(false) @map("is_system")
+  /// per list: a media platform's kind (youtube, facebook, other)
+  attributes                               Json                      @default("{}")
   createdAt                                DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy                                String?                   @map("created_by") @db.Uuid
   updatedAt                                DateTime                  @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -590,7 +604,6 @@ model ReferenceList {
   beneficiaryFamilyMembersGenderCode       BeneficiaryFamilyMember[] @relation("beneficiary_family_members_gender_code")
   workAssignmentsGenderScope               WorkAssignment[]          @relation("work_assignments_gender_scope")
   paymentsMethodCode                       Payment[]                 @relation("payments_method_code")
-  mediaStoriesChannelCode                  MediaStory[]              @relation("media_stories_channel_code")
 
   @@unique([listKey, code], map: "reference_lists_list_key_code_key")
   @@index([createdBy], map: "reference_lists_created_by_idx")
@@ -678,6 +691,7 @@ model Program {
 
 model Project {
   id                            String                @id @db.Uuid
+  mediaReferralsProject         MediaReferral[]       @relation("media_referrals_project_id")
   programId                     String                @map("program_id") @db.Uuid
   code                          String
   year                          Int                   @db.SmallInt
@@ -745,7 +759,6 @@ model Project {
   followupEvaluationsProject    FollowupEvaluation[]  @relation("followup_evaluations_project_id")
   documentsProject              Document[]            @relation("documents_project_id")
   deficiencyReportsProject      DeficiencyReport[]    @relation("deficiency_reports_project_id")
-  mediaSubjectsProject          MediaSubject[]        @relation("media_subjects_project_id")
   filesProject                  File[]                @relation("files_project_id")
   alertsProject                 Alert[]               @relation("alerts_project_id")
   storageStatsProject           StorageStat[]         @relation("storage_stats_project_id")
@@ -1112,6 +1125,7 @@ model FormLibraryField {
 
 model Beneficiary {
   id                                   String                     @id @db.Uuid
+  mediaReferralsBeneficiary            MediaReferral[]            @relation("media_referrals_beneficiary_id")
   /// the short BEN number officials read out (BEN-0000123); given once, never changed
   benNo                                Int                        @unique(map: "beneficiaries_ben_no_key") @default(autoincrement()) @map("ben_no")
   nid                                  String?
@@ -1181,7 +1195,6 @@ model Beneficiary {
   examResultsBeneficiary               ExamResult[]               @relation("exam_results_beneficiary_id")
   callLogsBeneficiary                  CallLog[]                  @relation("call_logs_beneficiary_id")
   followupEvaluationsBeneficiary       FollowupEvaluation[]       @relation("followup_evaluations_beneficiary_id")
-  mediaSubjectsBeneficiary             MediaSubject[]             @relation("media_subjects_beneficiary_id")
   mergeDismissalsLow                   MergeDismissal[]           @relation("beneficiary_merge_dismissals_low_id")
   mergeDismissalsHigh                  MergeDismissal[]           @relation("beneficiary_merge_dismissals_high_id")
   mergeCandidatesLow                   MergeCandidate[]           @relation("beneficiary_merge_candidates_low_id")
@@ -1707,6 +1720,7 @@ model WorkAssignment {
 
 model Application {
   id                              String                @id @db.Uuid
+  mediaReferral                   MediaReferral?        @relation("media_referrals_application_id")
   appNo                           String?               @map("app_no")
   projectId                       String                @map("project_id") @db.Uuid
   formVersionId                   String                @map("form_version_id") @db.Uuid
@@ -2752,61 +2766,6 @@ model DeficiencyReport {
   @@map("deficiency_reports")
 }
 
-model MediaSubject {
-  id                       String       @id @db.Uuid
-  beneficiaryId            String       @map("beneficiary_id") @db.Uuid
-  projectId                String?      @map("project_id") @db.Uuid
-  addedBy                  String       @map("added_by") @db.Uuid
-  mediaStatus              String       @default("planned") @map("media_status")
-  notes                    String?
-  createdAt                DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy                String?      @map("created_by") @db.Uuid
-  updatedAt                DateTime     @default(now()) @map("updated_at") @db.Timestamptz(6)
-  updatedBy                String?      @map("updated_by") @db.Uuid
-  beneficiary              Beneficiary  @relation("media_subjects_beneficiary_id", fields: [beneficiaryId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  project                  Project?     @relation("media_subjects_project_id", fields: [projectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  addedByRef               User         @relation("media_subjects_added_by", fields: [addedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  createdByRef             User?        @relation("media_subjects_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  updatedByRef             User?        @relation("media_subjects_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  mediaStoriesMediaSubject MediaStory[] @relation("media_stories_media_subject_id")
-
-  @@unique([beneficiaryId], where: raw("project_id IS NULL"), map: "media_subjects_beneficiary_id_key")
-  @@unique([beneficiaryId, projectId], where: raw("project_id IS NOT NULL"), map: "media_subjects_beneficiary_id_project_id_key")
-  @@index([projectId], map: "media_subjects_project_id_idx")
-  @@index([addedBy], map: "media_subjects_added_by_idx")
-  @@index([createdBy], map: "media_subjects_created_by_idx")
-  @@index([updatedBy], map: "media_subjects_updated_by_idx")
-  @@map("media_subjects")
-}
-
-model MediaStory {
-  id             String         @id @db.Uuid
-  mediaSubjectId String         @map("media_subject_id") @db.Uuid
-  title          String
-  body           String?
-  authorId       String         @map("author_id") @db.Uuid
-  status         String         @default("planned")
-  channelCode    String?        @map("channel_code")
-  publishedAt    DateTime?      @map("published_at") @db.Timestamptz(6)
-  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdBy      String?        @map("created_by") @db.Uuid
-  updatedAt      DateTime       @default(now()) @map("updated_at") @db.Timestamptz(6)
-  updatedBy      String?        @map("updated_by") @db.Uuid
-  channelList    String?        @default("consent_channel") @map("channel_list")
-  mediaSubject   MediaSubject   @relation("media_stories_media_subject_id", fields: [mediaSubjectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  author         User           @relation("media_stories_author_id", fields: [authorId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  channel        ReferenceList? @relation("media_stories_channel_code", fields: [channelList, channelCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
-  createdByRef   User?          @relation("media_stories_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  updatedByRef   User?          @relation("media_stories_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
-
-  @@index([mediaSubjectId], map: "media_stories_media_subject_id_idx")
-  @@index([authorId], map: "media_stories_author_id_idx")
-  @@index([channelCode], map: "media_stories_channel_code_idx")
-  @@index([createdBy], map: "media_stories_created_by_idx")
-  @@index([updatedBy], map: "media_stories_updated_by_idx")
-  @@map("media_stories")
-}
-
 model File {
   id                                 String              @id @db.Uuid
   bucket                             String
@@ -3119,4 +3078,162 @@ model StorageStat {
   @@index([capturedAt, bucket], map: "storage_stats_captured_at_bucket_idx")
   @@index([projectId], map: "storage_stats_project_id_idx")
   @@map("storage_stats")
+}
+
+/// A media referral (D-101, D-136): one per application, its state cycling with each decision and
+/// send-again; accepting it creates the work.
+model MediaReferral {
+  id              String       @id @db.Uuid
+  applicationId   String       @unique(map: "media_referrals_application_id_key") @map("application_id") @db.Uuid
+  beneficiaryId   String       @map("beneficiary_id") @db.Uuid
+  projectId       String       @map("project_id") @db.Uuid
+  referredBy      String       @map("referred_by") @db.Uuid
+  priority        String
+  note            String
+  story           String?
+  state           String       @default("pending")
+  decidedBy       String?      @map("decided_by") @db.Uuid
+  decidedAt       DateTime?    @map("decided_at") @db.Timestamptz(6)
+  decisionComment String?      @map("decision_comment")
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy       String?      @map("created_by") @db.Uuid
+  updatedAt       DateTime     @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy       String?      @map("updated_by") @db.Uuid
+  application     Application  @relation("media_referrals_application_id", fields: [applicationId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  beneficiary     Beneficiary  @relation("media_referrals_beneficiary_id", fields: [beneficiaryId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  project         Project      @relation("media_referrals_project_id", fields: [projectId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  referredByRef   User         @relation("media_referrals_referred_by", fields: [referredBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  decidedByRef    User?        @relation("media_referrals_decided_by", fields: [decidedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef    User?        @relation("media_referrals_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef    User?        @relation("media_referrals_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  work            MediaWork?   @relation("media_works_referral_id")
+  events          MediaEvent[] @relation("media_events_referral_id")
+
+  @@index([beneficiaryId], map: "media_referrals_beneficiary_id_idx")
+  @@index([projectId], map: "media_referrals_project_id_idx")
+  @@index([referredBy], map: "media_referrals_referred_by_idx")
+  @@index([state, createdAt], map: "media_referrals_state_created_at_idx")
+  @@index([decidedBy], map: "media_referrals_decided_by_idx")
+  @@index([createdBy], map: "media_referrals_created_by_idx")
+  @@index([updatedBy], map: "media_referrals_updated_by_idx")
+  @@map("media_referrals")
+}
+
+/// The work of an accepted referral: its stage, members, script, publications, comments, history.
+model MediaWork {
+  id                  String             @id @db.Uuid
+  referralId          String             @unique(map: "media_works_referral_id_key") @map("referral_id") @db.Uuid
+  title               String
+  stageList           String?            @default("media_stage") @map("stage_list")
+  stageCode           String             @map("stage_code")
+  /// the stage a work on hold returns to
+  heldStageCode       String?            @map("held_stage_code")
+  contentType         String             @default("video") @map("content_type")
+  script              Json               @default("{}")
+  scriptState         String             @default("draft") @map("script_state")
+  reviewApprovedBy    String?            @map("review_approved_by") @db.Uuid
+  reviewApprovedAt    DateTime?          @map("review_approved_at") @db.Timestamptz(6)
+  createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy           String?            @map("created_by") @db.Uuid
+  updatedAt           DateTime           @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy           String?            @map("updated_by") @db.Uuid
+  referral            MediaReferral      @relation("media_works_referral_id", fields: [referralId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  stage               ReferenceList?     @relation("media_works_stage_code", fields: [stageList, stageCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
+  reviewApprovedByRef User?              @relation("media_works_review_approved_by", fields: [reviewApprovedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef        User?              @relation("media_works_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef        User?              @relation("media_works_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  members             MediaWorkMember[]  @relation("media_work_members_work_id")
+  publications        MediaPublication[] @relation("media_publications_work_id")
+  comments            MediaComment[]     @relation("media_comments_work_id")
+  events              MediaEvent[]       @relation("media_events_work_id")
+
+  @@index([stageCode], map: "media_works_stage_code_idx")
+  @@index([reviewApprovedBy], map: "media_works_review_approved_by_idx")
+  @@index([createdBy], map: "media_works_created_by_idx")
+  @@index([updatedBy], map: "media_works_updated_by_idx")
+  @@map("media_works")
+}
+
+/// A member of a work with one or more production roles (codes of the list media_role).
+model MediaWorkMember {
+  id           String    @id @db.Uuid
+  workId       String    @map("work_id") @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  roles        String[]
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy    String?   @map("created_by") @db.Uuid
+  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy    String?   @map("updated_by") @db.Uuid
+  work         MediaWork @relation("media_work_members_work_id", fields: [workId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  user         User      @relation("media_work_members_user_id", fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef User?     @relation("media_work_members_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef User?     @relation("media_work_members_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([workId, userId], map: "media_work_members_work_id_user_id_key")
+  @@index([userId], map: "media_work_members_user_id_idx")
+  @@index([createdBy], map: "media_work_members_created_by_idx")
+  @@index([updatedBy], map: "media_work_members_updated_by_idx")
+  @@map("media_work_members")
+}
+
+/// A publication of a work on one platform (a code of the list media_platform).
+model MediaPublication {
+  id                 String         @id @db.Uuid
+  workId             String         @map("work_id") @db.Uuid
+  platformList       String?        @default("media_platform") @map("platform_list")
+  platformCode       String         @map("platform_code")
+  state              String         @default("waiting")
+  publishedOn        DateTime?      @map("published_on") @db.Date
+  link               String?
+  note               String?
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy          String?        @map("created_by") @db.Uuid
+  updatedAt          DateTime       @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedBy          String?        @map("updated_by") @db.Uuid
+  work               MediaWork      @relation("media_publications_work_id", fields: [workId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  platform           ReferenceList? @relation("media_publications_platform_code", fields: [platformList, platformCode], references: [listKey, code], onDelete: Restrict, onUpdate: NoAction)
+  createdByRef       User?          @relation("media_publications_created_by", fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  updatedByRef       User?          @relation("media_publications_updated_by", fields: [updatedBy], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([workId], map: "media_publications_work_id_idx")
+  @@index([platformCode], map: "media_publications_platform_code_idx")
+  @@index([createdBy], map: "media_publications_created_by_idx")
+  @@index([updatedBy], map: "media_publications_updated_by_idx")
+  @@map("media_publications")
+}
+
+/// A comment on a work.
+model MediaComment {
+  id        String    @id @db.Uuid
+  workId    String    @map("work_id") @db.Uuid
+  authorId  String    @map("author_id") @db.Uuid
+  body      String
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  work      MediaWork @relation("media_comments_work_id", fields: [workId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  author    User      @relation("media_comments_author_id", fields: [authorId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([workId, createdAt], map: "media_comments_work_id_created_at_idx")
+  @@index([authorId], map: "media_comments_author_id_idx")
+  @@map("media_comments")
+}
+
+/// One step in the history of a referral and its work, with who and when.
+model MediaEvent {
+  id         String        @id @db.Uuid
+  referralId String        @map("referral_id") @db.Uuid
+  workId     String?       @map("work_id") @db.Uuid
+  kind       String
+  fromValue  String?       @map("from_value")
+  toValue    String?       @map("to_value")
+  comment    String?
+  actorId    String        @map("actor_id") @db.Uuid
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  referral   MediaReferral @relation("media_events_referral_id", fields: [referralId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  work       MediaWork?    @relation("media_events_work_id", fields: [workId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  actor      User          @relation("media_events_actor_id", fields: [actorId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([referralId, createdAt], map: "media_events_referral_id_created_at_idx")
+  @@index([workId], map: "media_events_work_id_idx")
+  @@index([actorId], map: "media_events_actor_id_idx")
+  @@map("media_events")
 }

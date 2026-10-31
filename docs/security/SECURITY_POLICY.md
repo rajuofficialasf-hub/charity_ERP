@@ -83,7 +83,7 @@ OWASP ASVS level 2 is the checklist of the security audit before go-live (T6.3).
 | Area | Rule |
 |---|---|
 | TLS | Caddy with automatic certificates; HTTP redirects to HTTPS; HSTS (D-056) |
-| Headers | `Content-Security-Policy: default-src 'self'; img-src 'self' blob: data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`; `X-Content-Type-Options: nosniff`; `Referrer-Policy: strict-origin-when-cross-origin`; `Permissions-Policy: camera=(self), geolocation=(self), microphone=()` |
+| Headers | `Content-Security-Policy: default-src 'self'; img-src 'self' blob: data: https://i.ytimg.com; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`; `X-Content-Type-Options: nosniff`; `Referrer-Policy: strict-origin-when-cross-origin`; `Permissions-Policy: camera=(self), geolocation=(self), microphone=()` |
 | CORS | Same origin only; no wildcard |
 | CSRF | The access token travels in the `Authorization` header (not a cookie); the refresh cookie requires the `X-CSRF-Token` header and SameSite=Strict |
 | Network | Only ports 80 and 443 public; PostgreSQL, the MinIO admin API, the worker and the metrics endpoint are reachable only on the internal Docker network or with authentication (D-056, D-057, NFR-61) |

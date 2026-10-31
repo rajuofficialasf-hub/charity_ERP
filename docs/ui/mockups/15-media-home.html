@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>মিডিয়া টিম: আমার কাজ · মকআপ</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<style>
+  /* the counts: nine small cards, three across on a phone */
+  .counts { display: grid; gap: var(--space-2); grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  @media (min-width: 768px) { .counts { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+  @media (min-width: 1280px) { .counts { grid-template-columns: repeat(9, minmax(0, 1fr)); } }
+  .counts .card { padding: var(--space-3); }
+  .counts .stat-value { font-size: 22px; }
+  .counts .stat-label { font-size: var(--text-label); }
+  .view-switch { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+  .filters { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: end; margin-bottom: var(--space-3); }
+  .filters .field { margin: 0; min-width: 150px; flex: 1 1 150px; }
+  .prio { display: inline-flex; align-items: center; gap: 4px; font-weight: var(--font-weight-bold); font-size: var(--text-label); }
+  .prio.high { color: var(--color-status-danger); }
+  .prio.normal { color: var(--color-text-secondary); }
+  .prio.low { color: var(--color-text-secondary); font-weight: var(--font-weight-regular); }
+  .team { display: flex; gap: 2px; }
+  .team .avatar-sm { margin-left: -6px; border: 2px solid var(--color-bg-surface); }
+  .team .avatar-sm:first-child { margin-left: 0; }
+  .portfolio { display: grid; gap: var(--space-3); grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 768px) { .portfolio { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (min-width: 1280px) { .portfolio { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .link-card { display: flex; gap: var(--space-3); align-items: stretch; border: 1px solid var(--color-border-default); border-radius: var(--radius-md); padding: var(--space-2); background: var(--color-bg-surface); color: inherit; text-decoration: none; }
+  .link-card:hover, .link-card:focus-visible { border-color: var(--color-brand-primary); }
+  .thumb { flex: none; width: 112px; aspect-ratio: 16 / 9; border-radius: var(--radius-sm); display: grid; place-items: center; background: linear-gradient(135deg, var(--color-brand-ink), var(--color-brand-primary-dark)); color: var(--color-text-on-brand); }
+  .thumb.fb { background: var(--color-bg-muted); color: var(--color-brand-primary-dark); }
+  .link-card .meta { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .member-only[hidden], .lead-only[hidden] { display: none !important; }
+</style>
+</head>
+<body data-shell="media" data-active="home">
+<main id="main">
+  <div class="page-head hero">
+    <div class="page-title"><h1>আমার কাজ</h1><p class="page-sub" id="who">মিডিয়া ডিরেক্টর · সব কাজ</p></div>
+    <div class="view-switch">
+      <span class="caption muted">মকআপে দেখুন:</span>
+      <div class="segmented" role="group" aria-label="কার চোখে দেখবেন"><button type="button" aria-pressed="true" data-view="lead">ডিরেক্টর</button><button type="button" aria-pressed="false" data-view="member">সদস্য</button></div>
+    </div>
+  </div>
+
+  <section aria-labelledby="count-title" style="margin-bottom:24px">
+    <h2 id="count-title" class="section-title">সংখ্যায় <span class="caption muted" id="count-scope">সব প্রোগ্রাম</span>
+      <select class="select" style="width:auto;margin-left:auto" aria-label="প্রোগ্রাম" id="prog">
+        <option value="all">সব প্রোগ্রাম</option><option value="ucd">স্বাবলম্বী</option><option value="hum">মানবিক সহায়তা</option><option value="err">জরুরি সাড়া ও পুনর্বাসন</option>
+      </select>
+    </h2>
+    <div class="counts" id="counts"></div>
+  </section>
+
+  <div class="grid grid-main-side">
+    <div class="stack">
+      <section id="works" aria-labelledby="works-title">
+        <h2 id="works-title" class="section-title">মিডিয়ার কাজ <span class="caption muted lead-only">রেফারেল ও চলমান কাজ</span><span class="caption muted member-only" hidden>শুধু আপনার কাজ</span></h2>
+        <div class="filters">
+          <div class="field"><label class="field-label" for="f-stage">ধাপ</label><select class="select" id="f-stage"><option>সব</option><option>নতুন রেফারেল</option><option>শুটিং প্রস্তুতি</option><option>সম্পাদনা</option><option>প্রকাশের জন্য প্রস্তুত</option><option>প্রকাশিত</option></select></div>
+          <div class="field"><label class="field-label" for="f-prio">অগ্রাধিকার</label><select class="select" id="f-prio"><option>সব</option><option>উচ্চ</option><option>সাধারণ</option><option>নিম্ন</option></select></div>
+          <div class="field lead-only"><label class="field-label" for="f-member">সদস্য</label><select class="select" id="f-member"><option>সব</option><option>রুবেল আহমেদ (নমুনা)</option><option>সুমাইয়া আক্তার (নমুনা)</option></select></div>
+        </div>
+        <div class="table-wrap"><table class="table">
+          <thead><tr><th scope="col">উপকারভোগী</th><th scope="col">প্রোগ্রাম ও প্রকল্প</th><th scope="col">দল</th><th scope="col">ধাপ</th><th scope="col">শেষ আপডেট</th><th scope="col">অগ্রাধিকার</th><th scope="col">সিদ্ধান্ত</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table></div>
+      </section>
+
+      <section id="portfolio" aria-labelledby="pf-title">
+        <h2 id="pf-title" class="section-title">আমার পোর্টফোলিও <span class="caption muted">প্রকাশিত কাজ, আমার ভূমিকাসহ</span></h2>
+        <div class="portfolio">
+          <a class="link-card" href="16-media-work.html"><span class="thumb" aria-hidden="true"><i data-icon="external-link"></i></span><span class="meta"><span class="strong clamp-2">সেলাই মেশিনে ঘুরে দাঁড়ানো</span><span class="caption muted">YouTube · As-Sunnah Foundation</span><span class="caption muted tnum">প্রকাশ 12-10-2026</span><span class="caption">ভূমিকা: ক্যামেরা, ভিডিও সম্পাদনা</span></span></a>
+          <a class="link-card" href="16-media-work.html"><span class="thumb fb" aria-hidden="true"><i data-icon="message-square-text"></i></span><span class="meta"><span class="strong clamp-2">শীতের রাতে একটি কম্বল</span><span class="caption muted">Facebook · As-Sunnah Foundation</span><span class="caption muted tnum">প্রকাশ 03-01-2026</span><span class="caption">ভূমিকা: স্ক্রিপ্ট লেখা</span></span></a>
+          <a class="link-card" href="16-media-work.html"><span class="thumb" aria-hidden="true"><i data-icon="external-link"></i></span><span class="meta"><span class="strong clamp-2">নতুন ঘরে প্রথম ঈদ</span><span class="caption muted">YouTube · আহমাদুল্লাহ</span><span class="caption muted tnum">প্রকাশ 18-06-2025</span><span class="caption">ভূমিকা: প্রোডাকশন ম্যানেজার</span></span></a>
+        </div>
+        <p class="caption muted" style="margin-top:8px">ভিডিও অ্যাপে চলে না, লিংকে YouTube বা Facebook-এ খোলে। আসল অ্যাপে YouTube লিংকে YouTube-এর নিজের ছবি দেখাবে; এই মকআপে তার জায়গায় রঙিন ঘর।</p>
+      </section>
+    </div>
+
+    <div class="stack">
+      <section aria-labelledby="att-title">
+        <h2 id="att-title" class="section-title">আপনার মনোযোগ দরকার</h2>
+        <div class="stack-sm lead-only">
+          <a class="attention" href="16-media-work.html#new"><i data-icon="inbox"></i><div class="grow"><div class="attention-title">2টি নতুন রেফারেল সিদ্ধান্তের অপেক্ষায়</div><div class="attention-meta">1টি উচ্চ অগ্রাধিকার · সবচেয়ে পুরনো 3 দিন</div></div></a>
+          <a class="attention t-warning" href="16-media-work.html"><i data-icon="clipboard-check"></i><div class="grow"><div class="attention-title">1টি কাজ চূড়ান্ত পর্যালোচনার অপেক্ষায়</div><div class="attention-meta">প্রকাশের জন্য প্রস্তুত</div></div></a>
+          <a class="attention t-danger" href="16-media-work.html"><i data-icon="triangle-alert"></i><div class="grow"><div class="attention-title">সম্মতি ফেরত নেওয়া হয়েছে, পোস্ট সরিয়ে নিন</div><div class="attention-meta">1টি প্রকাশ · Facebook</div></div></a>
+        </div>
+        <div class="stack-sm member-only" hidden>
+          <a class="attention" href="16-media-work.html"><i data-icon="user-plus"></i><div class="grow"><div class="attention-title">আপনাকে 1টি নতুন কাজে যোগ করা হয়েছে</div><div class="attention-meta">ভূমিকা: ক্যামেরা</div></div></a>
+          <a class="attention t-warning" href="16-media-work.html"><i data-icon="circle-pause"></i><div class="grow"><div class="attention-title">আপনার 1টি কাজ স্থগিত</div><div class="attention-meta">ডিরেক্টরের নোট দেখুন</div></div></a>
+        </div>
+      </section>
+      <section class="card" aria-labelledby="note-title">
+        <h2 id="note-title" class="card-title">কাজ কীভাবে আসে</h2>
+        <ol class="timeline">
+          <li class="is-done"><span class="dot"><i data-icon="check"></i></span><div class="step-title">PM বা RPM অনুমোদিত আবেদন পাঠান</div><div class="step-meta">উপকারভোগীর মিডিয়া সম্মতি থাকলেই পাঠানো যায়</div></li>
+          <li class="is-done"><span class="dot"><i data-icon="check"></i></span><div class="step-title">ডিরেক্টর গ্রহণ, ফেরত বা বাতিল করেন</div><div class="step-meta">গ্রহণ করলেই কাজ শুরু</div></li>
+          <li class="is-current"><span class="dot"></span><div class="step-title">দল ধাপে ধাপে কাজ এগোয়</div><div class="step-meta">প্রকাশের আগে ডিরেক্টরের চূড়ান্ত পর্যালোচনা</div></li>
+        </ol>
+      </section>
+    </div>
+  </div>
+</main>
+<script src="icons.js"></script>
+<script src="mockup.js"></script>
+<script>
+(function () {
+  'use strict';
+  var I = window.mockIcon;
+  var COUNTS = [
+    ['রেফারেল', 48, 'all'], ['নতুন', 2, 'all'], ['পর্যালোচনায়', 3, 'all'], ['চলমান', 9, 'all'], ['শুটিংয়ের অপেক্ষায়', 4, 'all'],
+    ['সম্পাদনায়', 5, 'all'], ['প্রকাশিত', 17, 'all'], ['সম্পন্ন', 6, 'all'], ['বাতিল', 2, 'all']
+  ];
+  var MINE = [0, 0, 1, 1, 1, 1, 4, 2, 0];
+  var WORKS = [
+    { name: 'রহিমা বেগম (নমুনা)', prog: 'স্বাবলম্বী', proj: 'স্বাবলম্বী 2026', team: [], stage: ['নতুন রেফারেল', 't-info', 'inbox'], when: 'আজ 10:12', prio: 'high', decision: 'অপেক্ষায়', mine: false },
+    { name: 'আমেনা খাতুন (নমুনা)', prog: 'স্বাবলম্বী', proj: 'স্বাবলম্বী 2026', team: ['রু', 'সু'], stage: ['শুটিং প্রস্তুতি', '', 'camera'], when: 'গতকাল', prio: 'high', decision: 'গৃহীত', mine: true },
+    { name: 'করিম মিয়া (নমুনা)', prog: 'জরুরি সাড়া ও পুনর্বাসন', proj: 'ঘর নির্মাণ 2026', team: ['রু'], stage: ['প্রকাশের জন্য প্রস্তুত', 't-warning', 'clipboard-check'], when: '24-10-2026', prio: 'normal', decision: 'গৃহীত', mine: true },
+    { name: 'জোবেদা খাতুন (নমুনা)', prog: 'মানবিক সহায়তা', proj: 'শীতবস্ত্র 2026', team: [], stage: ['নতুন রেফারেল', 't-info', 'inbox'], when: '23-10-2026', prio: 'low', decision: 'অপেক্ষায়', mine: false },
+    { name: 'হাসান আলী (নমুনা)', prog: 'স্বাবলম্বী', proj: 'স্বাবলম্বী 2025', team: ['সু'], stage: ['প্রকাশিত', 't-success', 'circle-check'], when: '12-10-2026', prio: 'normal', decision: 'গৃহীত', mine: false },
+    { name: 'ফাতেমা (নমুনা)', prog: 'মানবিক সহায়তা', proj: 'ইফতার 2026', team: [], stage: ['সংশোধনে ফেরত', 't-warning', 'arrow-left'], when: '20-10-2026', prio: 'normal', decision: 'ফেরত দেওয়া', mine: false }
+  ];
+  var PRIO = { high: ['high', 'উচ্চ', 'arrow-up'], normal: ['normal', 'সাধারণ', ''], low: ['low', 'নিম্ন', 'arrow-down'] };
+  var view = 'lead';
+
+  function counts() {
+    document.getElementById('counts').innerHTML = COUNTS.map(function (c, i) {
+      var n = view === 'lead' ? c[1] : MINE[i];
+      return '<div class="card"><div class="stat-label">' + c[0] + '</div><div class="stat-value tnum">' + n + '</div></div>';
+    }).join('');
+  }
+  function rows() {
+    document.getElementById('rows').innerHTML = WORKS.filter(function (w) { return view === 'lead' || w.mine; }).map(function (w) {
+      var p = PRIO[w.prio];
+      var team = w.team.length ? '<span class="team">' + w.team.map(function (t) { return '<span class="avatar avatar-sm" aria-hidden="true">' + t + '</span>'; }).join('') + '<span class="sr-only">' + w.team.length + ' জন</span></span>' : '<span class="caption muted">এখনো নেই</span>';
+      return '<tr>' +
+        '<td class="cell-title" data-label="উপকারভোগী"><a href="16-media-work.html' + (w.decision === 'অপেক্ষায়' ? '#new' : '') + '">' + w.name + '</a></td>' +
+        '<td data-label="প্রোগ্রাম ও প্রকল্প">' + w.prog + '<div class="caption muted">' + w.proj + '</div></td>' +
+        '<td data-label="দল">' + team + '</td>' +
+        '<td data-label="ধাপ"><span class="badge ' + w.stage[1] + '">' + I(w.stage[2]) + w.stage[0] + '</span></td>' +
+        '<td data-label="শেষ আপডেট" class="tnum nowrap">' + w.when + '</td>' +
+        '<td data-label="অগ্রাধিকার"><span class="prio ' + p[0] + '">' + (p[2] ? I(p[2], 'icon-sm') : '') + p[1] + '</span></td>' +
+        '<td data-label="সিদ্ধান্ত">' + w.decision + '</td></tr>';
+    }).join('');
+  }
+  function apply() {
+    document.getElementById('who').textContent = view === 'lead' ? 'মিডিয়া ডিরেক্টর · সব কাজ' : 'মিডিয়া টিমের সদস্য · শুধু আপনার কাজ';
+    document.querySelectorAll('.lead-only').forEach(function (e) { e.hidden = view !== 'lead'; });
+    document.querySelectorAll('.member-only').forEach(function (e) { e.hidden = view !== 'member'; });
+    counts(); rows();
+  }
+  document.querySelectorAll('[data-view]').forEach(function (b) {
+    b.addEventListener('click', function () { view = b.getAttribute('data-view'); apply(); });
+  });
+  document.getElementById('prog').addEventListener('change', function (e) {
+    document.getElementById('count-scope').textContent = e.target.selectedOptions[0].textContent;
+  });
+  apply();
+})();
+</script>
+</body>
+</html>

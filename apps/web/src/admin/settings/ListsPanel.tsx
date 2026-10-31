@@ -1,5 +1,11 @@
+import { PLATFORM_KINDS, type PlatformKind } from '@css/shared';
 import { type Locale, localized } from '@css/shared/i18n';
-import { EDITABLE_LISTS, type EditableList, listCodeSchema } from '@css/shared/settings';
+import {
+  EDITABLE_LISTS,
+  type EditableList,
+  LISTS_WITH_KIND,
+  listCodeSchema,
+} from '@css/shared/settings';
 import {
   Alert,
   Badge,
@@ -9,19 +15,23 @@ import {
   ErrorState,
   Grid,
   Modal,
+  Select,
   Switch,
   Table,
   type TableColumn,
   TextField,
 } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ListChecks, Pencil } from 'lucide-react';
+import { ListChecks, Lock, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { ApiFailure } from '../../lib/api';
 import { addItem, listKey, type ReferenceItem, referenceItems, updateItem } from './settings-api';
 
-/** Adds an item (code and labels) or edits one (labels, order, on or off); the code never changes. */
+/**
+ * Adds an item (code and labels, and a platform's kind) or edits one (labels, order, on or off,
+ * kind); the code never changes, and an entry the rules need stays on.
+ */
 function ItemDialog({
   list,
   item,
@@ -42,18 +52,20 @@ function ItemDialog({
   const [en, setEn] = useState(item?.label.en ?? '');
   const [order, setOrder] = useState(item ? String(item.sortOrder) : '');
   const [active, setActive] = useState(item?.active ?? true);
+  const withKind = LISTS_WITH_KIND.includes(list);
+  const [kind, setKind] = useState<PlatformKind | null>(item?.kind ?? null);
   const queryClient = useQueryClient();
   const save = useMutation({
     mutationFn: () => {
       const label = { bn: bn.trim(), en: en.trim() };
       const sortOrder = order.trim() === '' ? undefined : Number(order);
+      const extra = {
+        ...(sortOrder === undefined ? {} : { sortOrder }),
+        ...(withKind && kind ? { kind } : {}),
+      };
       return item
-        ? updateItem(list, item.code, {
-            label,
-            active,
-            ...(sortOrder === undefined ? {} : { sortOrder }),
-          })
-        : addItem(list, { code, label, ...(sortOrder === undefined ? {} : { sortOrder }) });
+        ? updateItem(list, item.code, { label, ...(item.system ? {} : { active }), ...extra })
+        : addItem(list, { code, label, ...extra });
     },
     onSuccess: onDone,
     onSettled: () => queryClient.invalidateQueries({ queryKey: listKey(list) }),
@@ -86,7 +98,7 @@ function ItemDialog({
       primaryAction={
         <Button
           onPress={submit}
-          disabled={!bn.trim() || !en.trim() || (!item && !code)}
+          disabled={!bn.trim() || !en.trim() || (!item && !code) || (withKind && !kind)}
           loading={save.isPending}
         >
           {tc('save')}
@@ -135,12 +147,41 @@ function ItemDialog({
         onChange={(v) => setOrder(v.replace(/[^0-9]/g, ''))}
         error={detail('sortOrder')}
       />
-      {item && (
+      {withKind && (
+        <Select
+          label={t('dialog.kind')}
+          helper={t('dialog.kind_hint')}
+          required
+          value={kind}
+          options={PLATFORM_KINDS.map((k) => ({ id: k, label: t(`kind.${k}`) }))}
+          onChange={(id) => setKind((id as PlatformKind | null) ?? null)}
+          error={detail('kind')}
+        />
+      )}
+      {item && !item.system && (
         <Switch isSelected={active} onChange={setActive}>
           {t('dialog.active')}
         </Switch>
       )}
+      {item?.system && (
+        <Alert tone="info" title={t('dialog.system')}>
+          {t('dialog.system_hint')}
+        </Alert>
+      )}
     </Modal>
+  );
+}
+
+/** On or off, and a lock on an entry the rules need. */
+function ItemState({ item }: { item: ReferenceItem }) {
+  const t = useTranslations('admin.settings.lists');
+  return item.system ? (
+    <Badge tone="info" icon={Lock} label={t('state.system')} />
+  ) : (
+    <Badge
+      tone={item.active ? 'success' : 'neutral'}
+      label={item.active ? t('state.active') : t('state.inactive')}
+    />
   );
 }
 
@@ -161,16 +202,17 @@ function ListCard({ list, onNotice }: { list: EditableList; onNotice: (text: str
       priority: 2,
     },
     { id: 'order', header: t('column.order'), cell: (i) => i.sortOrder, priority: 3 },
-    {
-      id: 'state',
-      header: t('column.state'),
-      cell: (i) => (
-        <Badge
-          tone={i.active ? 'success' : 'neutral'}
-          label={i.active ? t('state.active') : t('state.inactive')}
-        />
-      ),
-    },
+    ...(LISTS_WITH_KIND.includes(list)
+      ? [
+          {
+            id: 'kind',
+            header: t('column.kind'),
+            cell: (i: ReferenceItem) => (i.kind ? t(`kind.${i.kind}`) : null),
+            priority: 2,
+          } satisfies TableColumn<ReferenceItem>,
+        ]
+      : []),
+    { id: 'state', header: t('column.state'), cell: (i) => <ItemState item={i} /> },
   ];
   const edit = (i: ReferenceItem) => (
     <Button variant="ghost" size="sm" icon={Pencil} iconOnly onPress={() => setDialog({ item: i })}>
@@ -209,10 +251,7 @@ function ListCard({ list, onNotice }: { list: EditableList; onNotice: (text: str
           <div className="admin-permission-card">
             <strong>{name(i)}</strong>
             <span lang="en">{i.code}</span>
-            <Badge
-              tone={i.active ? 'success' : 'neutral'}
-              label={i.active ? t('state.active') : t('state.inactive')}
-            />
+            <ItemState item={i} />
             <Button variant="secondary" size="sm" onPress={() => setDialog({ item: i })}>
               {tc('action.edit')}
             </Button>
@@ -235,7 +274,10 @@ function ListCard({ list, onNotice }: { list: EditableList; onNotice: (text: str
   );
 }
 
-/** The expense categories and the issue types; nothing is deleted, an item is switched off instead. */
+/**
+ * The expense categories, the issue types and the Media Team's stages, production roles and
+ * platforms; nothing is deleted, an item is switched off instead.
+ */
 export function ListsPanel({ onNotice }: { onNotice: (text: string) => void }) {
   const t = useTranslations('admin.settings.lists');
   return (

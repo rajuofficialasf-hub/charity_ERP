@@ -5,12 +5,18 @@ import {
   EDIT_ANSWERED_DAYS,
 } from '@css/shared';
 import type { ProjectFilter } from '@css/shared/projects';
-import { applicationWhere, holdsPermission, projectWhere } from '../access/scope';
+import {
+  applicationWhere,
+  holdsPermission,
+  mediaReferralWhere,
+  projectWhere,
+} from '../access/scope';
 import type { AccessService } from '../access/service';
 import type { Principal } from '../auth/principal';
 import type { UnlocksService } from '../applications/unlocks';
 import type { Clock } from '../core/clock';
 import type { PrismaService } from '../core/prisma.service';
+import type { Prisma } from '../generated/prisma/client';
 import type { ChangeRequestsService } from './change-requests';
 import type { InboxService } from './inbox';
 import type { MyProjectsService } from './my-projects';
@@ -129,6 +135,7 @@ export class AttentionService {
           return count;
         }),
       ],
+      ...this.mediaCounts(principal),
       [
         'unlocks_to_verify',
         toDecide.then(({ count, first }) => {
@@ -172,6 +179,40 @@ export class AttentionService {
       }),
     ]);
     return { count, first: first?.id ?? null };
+  }
+
+  /**
+   * The Media Team's waiting work, each counted inside the scope of the permission that acts on
+   * it: the referrals to decide, the works waiting for the final review, the works sent back to
+   * the team, and the caller's own works on hold.
+   */
+  private mediaCounts(principal: Principal): [AttentionKind, Promise<number>][] {
+    if (principal.kind === 'volunteer') return [];
+    const access = this.access.load(principal.userId);
+    const reached = async (permission: string, where: Prisma.MediaReferralWhereInput) => {
+      const effective = await access;
+      if (!holdsPermission(permission, effective.grants)) return 0;
+      const scope = await this.access.scopeFor(principal, effective, permission, 'application');
+      return this.prisma.mediaReferral.count({
+        where: { AND: [mediaReferralWhere(scope), where] },
+      });
+    };
+    return [
+      ['media_referrals_new', reached('media.referral.decide', { state: 'pending' })],
+      [
+        'media_review_waiting',
+        reached('media.publication.review', {
+          work: { stageCode: 'ready_to_publish', reviewApprovedBy: null },
+        }),
+      ],
+      ['media_sent_back', reached('media.work.manage', { work: { stageCode: 'in_review' } })],
+      [
+        'media_on_hold',
+        this.prisma.mediaWork.count({
+          where: { stageCode: 'on_hold', members: { some: { userId: principal.userId } } },
+        }),
+      ],
+    ];
   }
 
   /** Projects the volunteer was assigned to whose rules wait for their answer. */

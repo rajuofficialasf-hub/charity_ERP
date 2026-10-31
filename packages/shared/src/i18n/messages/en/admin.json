@@ -592,7 +592,6 @@
         "class_attendance": "Both profiles have attendance in the same class",
         "learning_progress": "Both profiles have progress on the same topic",
         "exam_results": "Both profiles have a result in the same exam",
-        "media_subjects": "Both profiles have media data for the same project",
         "file_links": "Both profiles have the same file",
         "alerts": "Both profiles have an open alert of the same kind",
         "other": "A record of the two profiles cannot be combined"
@@ -1292,11 +1291,13 @@
         "label": "Name",
         "code": "Code",
         "order": "Order",
-        "state": "State"
+        "state": "State",
+        "kind": "Kind"
       },
       "state": {
         "active": "On",
-        "inactive": "Off"
+        "inactive": "Off",
+        "system": "Needed by the system"
       },
       "dialog": {
         "create_title": "New item: {list}",
@@ -1308,7 +1309,19 @@
         "label_en": "Name (English)",
         "order": "Order",
         "order_hint": "Left empty, the item goes to the end",
-        "active": "On"
+        "active": "On",
+        "kind": "Kind",
+        "kind_hint": "Decides which links are accepted for this platform",
+        "system": "Needed by the system",
+        "system_hint": "The media rules use this stage, so it stays on. Its name can be changed."
+      },
+      "media_stage": "Media stages",
+      "media_role": "Production roles",
+      "media_platform": "Publication platforms",
+      "kind": {
+        "youtube": "YouTube",
+        "facebook": "Facebook",
+        "other": "Other website"
       }
     },
     "channels": {

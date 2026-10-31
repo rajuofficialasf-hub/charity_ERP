@@ -15,7 +15,11 @@
       "handovers_open": "{n, plural, other {{count}টি হ্যান্ডওভার শেষ হয়নি}}",
       "unlocks_to_fill": "{n, plural, other {আপনার আবেদনে {count}টি উত্তর সংশোধনের জন্য খোলা}}",
       "unlocks_to_verify": "{n, plural, other {{count}টি সংশোধিত উত্তর যাচাইয়ের অপেক্ষায়}}",
-      "verifications_pending": "{n, plural, other {{count}টি এন্ট্রি যাচাইয়ের অপেক্ষায়}}"
+      "verifications_pending": "{n, plural, other {{count}টি এন্ট্রি যাচাইয়ের অপেক্ষায়}}",
+      "media_referrals_new": "{n, plural, other {{count}টি নতুন মিডিয়া রেফারেল সিদ্ধান্তের অপেক্ষায়}}",
+      "media_review_waiting": "{n, plural, other {{count}টি মিডিয়া কাজ চূড়ান্ত পর্যালোচনার অপেক্ষায়}}",
+      "media_sent_back": "{n, plural, other {{count}টি মিডিয়া কাজ সংশোধনের জন্য ফেরত এসেছে}}",
+      "media_on_hold": "{n, plural, other {আপনার {count}টি মিডিয়া কাজ স্থগিত আছে}}"
     }
   },
   "widget": {
@@ -36,7 +40,10 @@
     "permission_panel": "পারমিশন প্যানেল",
     "notifications": "সাম্প্রতিক নোটিফিকেশন",
     "notifications_empty": "কোনো নোটিফিকেশন নেই",
-    "all_notifications": "সব নোটিফিকেশন"
+    "all_notifications": "সব নোটিফিকেশন",
+    "media_work": "মিডিয়ার কাজ",
+    "open_media": "মিডিয়ার কাজ দেখুন",
+    "media_counts": "{new} নতুন · {progress} চলমান · {published} প্রকাশিত"
   },
   "later": {
     "badge": "শিগগিরই আসছে",
@@ -83,10 +90,6 @@
     "safe_water": {
       "title": "নিরাপদ পানির প্রকল্প",
       "text": "প্রতিটি সাইটের অগ্রগতি এখানে দেখা যাবে।"
-    },
-    "media_work": {
-      "title": "মিডিয়ার কাজের তালিকা",
-      "text": "বাছাই করা উপকারভোগী আর তাঁদের গল্প এখানে দেখা যাবে।"
     },
     "finance_overview": {
       "title": "বাজেট ও পেমেন্ট",

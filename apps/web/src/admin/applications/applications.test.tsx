@@ -924,3 +924,84 @@ describe('the review page', () => {
     await expectNoAxeViolations(view.container);
   });
 });
+
+describe('the referral to the Media Team', () => {
+  it('sends an approved application with its priority, note and story', async () => {
+    const user = userEvent.setup();
+    refreshAs(EXECUTIVE);
+    serve();
+    const sent: unknown[] = [];
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({ status: 'approved', availableActions: [], mayReferToMedia: true, media: null }),
+        ),
+      ),
+      http.post(`*/api/v1/applications/${A1}/media-referral`, async ({ request }) => {
+        sent.push(await request.json());
+        return HttpResponse.json({ data: {}, meta: {} }, { status: 201 });
+      }),
+    );
+    const view = openReview();
+    await user.click(await screen.findByRole('button', { name: 'মিডিয়া টিমে পাঠান' }));
+    const dialog = await screen.findByRole('dialog', { name: 'মিডিয়া টিমে পাঠান' });
+    expect(within(dialog).getByRole('button', { name: 'পাঠান' })).toBeDisabled();
+    await user.click(within(dialog).getByRole('radio', { name: 'উচ্চ' }));
+    await user.type(within(dialog).getByRole('textbox', { name: /^নোট/ }), 'ভালো গল্প');
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /^গল্প \(ঐচ্ছিক\)/ }),
+      'একাই সংসার চালান',
+    );
+    await expectNoAxeViolations(view.container);
+    await user.click(within(dialog).getByRole('button', { name: 'পাঠান' }));
+    await waitFor(() =>
+      expect(sent).toEqual([{ priority: 'high', note: 'ভালো গল্প', story: 'একাই সংসার চালান' }]),
+    );
+    expect(await screen.findByText('মিডিয়া টিমে পাঠানো হলো')).toBeInTheDocument();
+  });
+
+  it('shows the media badge beside the state, and a returned referral with its comment to send again', async () => {
+    refreshAs(EXECUTIVE);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({
+            status: 'approved',
+            availableActions: [],
+            mayReferToMedia: true,
+            media: {
+              referralId: 'r1',
+              state: 'sent_back',
+              priority: 'normal',
+              decisionComment: 'পরিবারের ছবি তোলা যাবে কি না লিখুন',
+              decidedAt: '2026-11-04T10:00:00Z',
+              workStageCode: null,
+            },
+          }),
+        ),
+      ),
+    );
+    openReview();
+    expect(await screen.findByText('মিডিয়া: সংশোধনে ফেরত')).toBeInTheDocument();
+    expect(screen.getByText('ফেরতের কারণ: পরিবারের ছবি তোলা যাবে কি না লিখুন')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'আবার পাঠান' })).toBeInTheDocument();
+  });
+
+  it('offers nothing to send when the record does not allow it', async () => {
+    refreshAs(EXECUTIVE);
+    serve();
+    server.use(
+      http.get(`*/api/v1/applications/${A1}`, () =>
+        envelope(
+          record({ status: 'reviewed', availableActions: ['approve'], mayReferToMedia: false }),
+        ),
+      ),
+    );
+    openReview();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'নমুনা উপকারভোগী' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'মিডিয়া টিমে পাঠান' })).not.toBeInTheDocument();
+  });
+});

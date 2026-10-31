@@ -37,6 +37,19 @@
           { key: 'permissions', label: 'পারমিশন প্যানেল', icon: 'shield', href: '14-permission-panel.html' }
         ] }
       ]
+    },
+    // the Media Team (D-101): the director, the assistant director and the members
+    media: {
+      home: '15-media-home.html',
+      user: { initials: 'না', name: 'নাসির উদ্দিন (নমুনা)', role: 'মিডিয়া ডিরেক্টর' },
+      groups: [
+        { label: 'কাজ', items: [
+          { key: 'home', label: 'আমার কাজ', icon: 'house', href: '15-media-home.html', tab: true },
+          { key: 'works', label: 'মিডিয়ার কাজ', icon: 'folder-kanban', href: '15-media-home.html#works', tab: true, count: 2 },
+          { key: 'portfolio', label: 'আমার পোর্টফোলিও', icon: 'award', href: '15-media-home.html#portfolio', tab: true, tabLabel: 'পোর্টফোলিও' },
+          { key: 'notif', label: 'নোটিফিকেশন', icon: 'bell', href: '06-notifications.html', tab: true, count: 3 }
+        ] }
+      ]
     }
   };
 

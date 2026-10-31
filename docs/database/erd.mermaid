@@ -531,15 +531,35 @@ erDiagram
     uuid document_id FK
     uuid responsible_user_id FK
   }
-  media_subjects {
+  media_referrals {
     uuid id PK
+    uuid application_id FK
     uuid beneficiary_id FK
-    text media_status
+    text state
   }
-  media_stories {
+  media_works {
     uuid id PK
-    uuid media_subject_id FK
-    text status
+    uuid referral_id FK
+    text stage_code
+  }
+  media_work_members {
+    uuid id PK
+    uuid work_id FK
+    uuid user_id FK
+  }
+  media_publications {
+    uuid id PK
+    uuid work_id FK
+    text platform_code
+  }
+  media_comments {
+    uuid id PK
+    uuid work_id FK
+  }
+  media_events {
+    uuid id PK
+    uuid referral_id FK
+    uuid work_id FK
   }
 
   %% ---------------- Files, notifications, sync, audit, operations ----------------
@@ -742,8 +762,13 @@ erDiagram
   projects ||--o{ documents : requires
   documents ||--o{ document_events : history
   documents ||--o{ deficiency_reports : "deficiency of"
-  beneficiaries ||--o{ media_subjects : "media subject"
-  media_subjects ||--o{ media_stories : stories
+  applications ||--o| media_referrals : "media referral"
+  beneficiaries ||--o{ media_referrals : "referred"
+  media_referrals ||--o| media_works : work
+  media_works ||--o{ media_work_members : members
+  media_works ||--o{ media_publications : publications
+  media_works ||--o{ media_comments : comments
+  media_referrals ||--o{ media_events : history
 
   files ||--o{ file_links : "linked as"
   files ||--o{ animal_photos : "image of"

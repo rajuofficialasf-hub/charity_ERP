@@ -19,6 +19,7 @@ import { filesRouter } from './routes/files';
 import { uploadsRouter } from './routes/uploads';
 import { volunteersRouter } from './routes/volunteers';
 import { applicationsRouter } from './routes/applications';
+import { mediaRouter } from './routes/media';
 import { beneficiariesRouter } from './routes/beneficiaries';
 import { programsRouter } from './routes/programs';
 import { settingsRouter } from './routes/settings';
@@ -100,6 +101,7 @@ export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
   api.use(volunteersRouter(deps, c));
   api.use(beneficiariesRouter(deps, c));
   api.use(applicationsRouter(deps, c));
+  api.use(mediaRouter(deps, c));
   api.use(programsRouter(deps, c));
   api.use(projectsRouter(deps, c));
   api.use(projectSetupRouter(deps, c));

@@ -4,6 +4,7 @@ import { toEnglishDigits } from '../digits.js';
 import { bilingualText } from '../i18n/bilingual.js';
 import { SUPPORTED_LOCALES } from '../i18n/locales.js';
 import { isAmount, toPaisa } from '../projects/budget.js';
+import { PLATFORM_KINDS } from '../jsonb/media.js';
 
 /**
  * The system settings kept in the `settings` table (DATABASE_SCHEMA 7, MASTER_SPEC A21): one
@@ -200,7 +201,16 @@ export const settingUpdateSchema = z.strictObject({ value: z.unknown() });
 // ---- Reference lists kept on the settings page ---------------------------------------------------
 
 /** The lists the settings page keeps; the other reference lists are fixed by decisions. */
-export const EDITABLE_LISTS = ['expense_category_default', 'issue_type_default'] as const;
+export const EDITABLE_LISTS = [
+  'expense_category_default',
+  'issue_type_default',
+  'media_stage',
+  'media_role',
+  'media_platform',
+] as const;
+
+/** The lists whose items carry a kind: a media platform's kind decides the host of its links. */
+export const LISTS_WITH_KIND: readonly string[] = ['media_platform'];
 export type EditableList = (typeof EDITABLE_LISTS)[number];
 
 export function isEditableList(key: string): key is EditableList {
@@ -214,11 +224,15 @@ export const listCodeSchema = z
 
 const sortOrder = intInRange(0, 10_000).optional();
 
+const kind = z.enum(PLATFORM_KINDS).optional();
+
 export const referenceItemCreateSchema = z.strictObject({
   code: listCodeSchema,
   label: bilingual(200),
   active: z.boolean().optional(),
   sortOrder,
+  /** A media platform's kind; required there, refused on the other lists. */
+  kind,
 });
 export type ReferenceItemCreate = z.infer<typeof referenceItemCreateSchema>;
 
@@ -227,10 +241,16 @@ export const referenceItemUpdateSchema = z
     label: bilingual(200).optional(),
     active: z.boolean().optional(),
     sortOrder,
+    kind,
   })
-  .refine((v) => v.label !== undefined || v.active !== undefined || v.sortOrder !== undefined, {
-    message: 'validation.required',
-  });
+  .refine(
+    (v) =>
+      v.label !== undefined ||
+      v.active !== undefined ||
+      v.sortOrder !== undefined ||
+      v.kind !== undefined,
+    { message: 'validation.required' },
+  );
 export type ReferenceItemUpdate = z.infer<typeof referenceItemUpdateSchema>;
 
 // ---- Nisab --------------------------------------------------------------------------------------

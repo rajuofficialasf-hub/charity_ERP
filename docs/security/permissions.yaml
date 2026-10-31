@@ -136,8 +136,8 @@ sensitive_fields:
     source: "A4 second table, B8"
   - key: application.official_section
     fields: [form sections with visibility official_only, application_scores.*]
-    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee, procurement_team, media_team, media_director, media_assistant_director]
-    source: "B3, B4: never returned to volunteers; Procurement and Media read applications (A4)"
+    visible_to: [program_manager, regional_program_manager, project_executive, implementer, official_daee, procurement_team]
+    source: "B3, B4: never returned to volunteers; Procurement reads applications (A4); the Media Team reads only the official comment of a referred application, through its work (D-101 (3), D-136)"
   - key: blocklist.reason
     fields: [blocklist.reason, blocklist.blocked_by]
     visible_to: [program_manager, regional_program_manager, project_executive, official_daee]
@@ -716,9 +716,6 @@ permissions:
       - { role: implementer, scope: REGION, condition: safe_water_only }
       - { role: official_daee, scope: ASSIGNED }
       - { role: procurement_team, scope: PROJECT, condition: house_construction_project }
-      - { role: media_team, scope: GLOBAL }
-      - { role: media_director, scope: GLOBAL }
-      - { role: media_assistant_director, scope: GLOBAL }
       - { role: volunteer_general, scope: SELF }
       - { role: volunteer_both, scope: SELF }
       - { role: volunteer_team_member, scope: SELF, condition: own_created }
@@ -735,9 +732,6 @@ permissions:
       - { role: implementer, scope: REGION, condition: safe_water_only }
       - { role: official_daee, scope: ASSIGNED }
       - { role: procurement_team, scope: PROJECT, condition: house_construction_project }
-      - { role: media_team, scope: GLOBAL }
-      - { role: media_director, scope: GLOBAL }
-      - { role: media_assistant_director, scope: GLOBAL }
   - name: application.review
     description: Take an application under review and edit the whole form
     module: M08
@@ -1282,7 +1276,7 @@ permissions:
       - { role: volunteer_both, scope: SELF }
       - { role: volunteer_paid, scope: ASSIGNED }
   - name: media.referral.create
-    description: Refer an approved application of the caller's scope to the Media Team as publishable, with a priority and a note; refused without the beneficiary's recorded media consent (D-101)
+    description: Refer an approved application of the caller's scope to the Media Team as publishable, with a priority, a note and an optional story; no consent is asked (D-101, D-137)
     module: M18
     sensitive: false
     default:
@@ -1302,7 +1296,7 @@ permissions:
     default:
       - { role: media_director, scope: GLOBAL }
       - { role: media_assistant_director, scope: GLOBAL }
-      - { role: media_team, scope: GLOBAL }
+      - { role: media_team, scope: ASSIGNED }
       - { role: program_manager, scope: PROGRAM }
       - { role: regional_program_manager, scope: REGION }
   - name: media.work.manage
@@ -1336,7 +1330,7 @@ permissions:
       - { role: regional_program_manager, scope: REGION }
       - { role: media_director, scope: GLOBAL }
       - { role: media_assistant_director, scope: GLOBAL }
-      - { role: media_team, scope: GLOBAL }
+      - { role: media_team, scope: ASSIGNED }
 
   # ---- M19 Locations -------------------------------------------------------------------------------
   - name: location.manage

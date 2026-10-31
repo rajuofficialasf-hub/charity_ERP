@@ -36,9 +36,9 @@ permission: { name, description, module, sensitive, default: [ { role, scope, co
 | implementer | official | no | SOP role for safe water: Project Executive-level rights limited by `safe_water_only`, plus document ownership (interpretation, section 11) |
 | official_daee | official | no | REGION scope: exams, zakat decision, call log, tracking, follow-up; reads the volunteer and beneficiary tabs (A5) |
 | procurement_team | official | no | House-construction projects only: view applications, raise issues, resolve own or paid-volunteer issues (Q-46) |
-| media_director | official | no | Head of the Media Team at the PM's level (D-101): decides on referrals, runs the works, final review before publication; GLOBAL read of applications and beneficiaries |
-| media_assistant_director | official | no | Decides on referrals and runs the works with the director (D-101); GLOBAL read of applications and beneficiaries |
-| media_team | official | no | Member of the Media Team: works assigned to them, scripts and publications (D-101); GLOBAL read of applications and beneficiaries |
+| media_director | official | no | Head of the Media Team at the PM's level (D-101): decides on referrals, runs the works, final review before publication; reads applications only through the works of their referrals (D-136) and the beneficiary tab within BR-253 |
+| media_assistant_director | official | no | Decides on referrals and runs the works with the director (D-101); reads applications only through the works of their referrals (D-136) and the beneficiary tab within BR-253 |
+| media_team | official | no | Member of the Media Team: sees and works on only the works assigned to them, scripts and publications (D-101, D-136); the beneficiary tab within BR-253 |
 | finance_team | official | no | GLOBAL viewer of budgets, ledger, dashboards; exports; no entry (BD-31, O-24) |
 | volunteer_general, volunteer_local_daee, volunteer_both, volunteer_team_member, volunteer_paid | volunteer | no | Permissions through project permission sets (section 6); SELF or ASSIGNED scope |
 
@@ -151,8 +151,9 @@ Rows of the blueprint's first table and the permissions that implement them: row
 
 | Permission | Media Team (director, assistant director, members) | Finance Team | Procurement Team |
 |---|---|---|---|
-| application.view, beneficiary.view_all | ✓ [GLOBAL] | — | ✓ [PROJECT, house construction] |
-| application.view_official_section | ✓ [GLOBAL] | — | ✓ [PROJECT, house construction] |
+| application.view | — (a referred application only through its work, D-136) | — | ✓ [PROJECT, house construction] |
+| beneficiary.view_all | ✓ [GLOBAL, BR-253 limits] | — | ✓ [PROJECT, house construction] |
+| application.view_official_section | — (the official comment of a referred application only, through its work, D-136) | — | ✓ [PROJECT, house construction] |
 | application.create, application.edit_draft, application.edit_pending, application.delete_pending, any beneficiary or project write | — | — | — |
 | media.referral.decide, media.publication.review (the director; the assistant director decides too), media.work.view, media.work.manage, story.manage, story.view (D-101; members at ASSIGNED on their works) | ✓ | — | — |
 | media.referral.create (a PM in own program, an RPM in own region refer an approved application; D-101) | — (referrers only) | — | — |
@@ -252,7 +253,7 @@ As built in T1.8 (Express, ADR-014; the decorator names below are the design's, 
 
 1. **Implementer** (SOP role, safe water): modelled as Project Executive-level rights restricted to safe-water projects (`safe_water_only`) plus document register rights. Confirmed (O-26).
 2. **Official দায়ী**: exams, zakat decision (Q-30), call log, tracking view, follow-up, Local দায়ী assignment, GLOBAL read of the volunteer and beneficiary tabs (A5), application view at ASSIGNED (own area's beneficiaries). Not a reviewer or approver by default; **the RPM may grant application approval (approve, reject, waitlist) per project** like the Executive's "if RPM grants" extras, and the grant extends application view to REGION on that project (O-27).
-3. **Media Team**: O-28's Media tab is replaced by D-101 (2026-10-18): a PM or an RPM refers an approved application as publishable (`media.referral.create`, consent required); the Media Director or the Media Assistant Director accepts, returns or rejects it (`media.referral.decide`); the team runs the work through editable stages with production roles, scripts and publications on the platforms (`media.work.manage`, `story.manage`), the director reviews before publication (`media.publication.review`); referrers follow the media status (`media.work.view`). On a referred application the team sees the beneficiary's details: father's or husband's name, age, mobile, full address, occupation, monthly income, project and year, and of the official section only the comment (BR-265); NID, ratings, categories and donor data stay hidden.
+3. **Media Team**: O-28's Media tab is replaced by D-101 (2026-10-18): a PM or an RPM refers an approved application as publishable (`media.referral.create`, no consent asked since D-137); the Media Director or the Media Assistant Director accepts, returns or rejects it (`media.referral.decide`); the team runs the work through editable stages with production roles, scripts and publications on the platforms (`media.work.manage`, `story.manage`), the director reviews before publication (`media.publication.review`); referrers follow the media status (`media.work.view`). On a referred application the team sees the beneficiary's details: father's or husband's name, age, mobile, full address, occupation, monthly income, project and year, and of the official section only the comment (BR-265); NID, ratings, categories and donor data stay hidden.
 4. **`nisab.set`** given to the PM at GLOBAL (Q-29 "PM or above"); the nisab is one global table (O-15). Confirmed (O-26).
 5. **Stock reconciliation** (`stock.reconcile`) entered by the volunteer and verified by RPM/Executive, both under the same permission name with different scopes. Confirmed (O-26).
 6. **`beneficiary.merge`** at PROGRAM for the PM (BD-05 names PM, Monitoring Team, Department Head); RPM proposes only. Confirmed (O-26).
@@ -401,13 +402,13 @@ Generated on 2026-10-18 from `permissions.yaml` (last regenerated for D-101); re
 | `notification.template.manage` | M17 | no | Edit notification templates | — |
 | `notification.delivery.view` | M17 | no | See the delivery state of outbound emails and SMS (addresses partly hidden; never an OTP) | — |
 | `file.upload` | M18 | no | Upload photos, vouchers and documents within the user's permitted actions | program_manager@PROGRAM; regional_program_manager@REGION; project_executive@REGION; implementer@REGION; official_daee@REGION; media_team@GLOBAL (own_part); media_director@GLOBAL (own_part); media_assistant_director@GLOBAL (own_part); procurement_team@PROJECT (own_part); volunteer_general@SELF; volunteer_local_daee@ASSIGNED; volunteer_both@SELF; volunteer_paid@ASSIGNED |
-| `media.referral.create` | M18 | no | Refer an approved application of the caller's scope to the Media Team as publishable, with a priority and a note; refused without the beneficiary's recorded media consent (D-101) | program_manager@PROGRAM; regional_program_manager@REGION |
+| `media.referral.create` | M18 | no | Refer an approved application of the caller's scope to the Media Team as publishable, with a priority, a note and an optional story; no consent is asked (D-101, D-137) | program_manager@PROGRAM; regional_program_manager@REGION |
 | `media.referral.decide` | M18 | no | Accept a media referral, send it back for review with a comment, or reject it with a reason (D-101) | media_director@GLOBAL; media_assistant_director@GLOBAL |
 | `media.work.view` | M18 | no | See media works with their stage, team, publications, comments and history; a referrer sees the media status of own referrals (D-101) | media_director@GLOBAL; media_assistant_director@GLOBAL; media_team@GLOBAL; program_manager@PROGRAM; regional_program_manager@REGION |
 | `media.work.manage` | M18 | no | Run a media work: stage, members and their production roles, content type, publications on the platforms and notes; members on the works assigned to them (D-101) | media_director@GLOBAL; media_assistant_director@GLOBAL; media_team@ASSIGNED |
 | `media.publication.review` | M18 | no | Final review of a media work before it may be published (D-101) | media_director@GLOBAL |
 | `story.manage` | M18 | no | Write and edit the script or story of a media work (summary, interview questions, scenes, voice-over, notes) with its state draft, in review or final; members on the works assigned to them (D-101) | media_director@GLOBAL; media_assistant_director@GLOBAL; media_team@ASSIGNED |
-| `story.view` | M18 | no | Read the script or story of a media work | program_manager@PROGRAM; regional_program_manager@REGION; media_director@GLOBAL; media_assistant_director@GLOBAL; media_team@GLOBAL |
+| `story.view` | M18 | no | Read the script or story of a media work | program_manager@PROGRAM; regional_program_manager@REGION; media_director@GLOBAL; media_assistant_director@GLOBAL; media_team@ASSIGNED |
 | `location.manage` | M19 | no | Add, rename and deactivate divisions, districts, upazilas and unions | — |
 | `settings.manage` | M21 | no | Edit system settings (thresholds, photo defaults, payment methods, expense categories) | — |
 | `nisab.set` | M21 | no | Add a nisab version | program_manager@GLOBAL |

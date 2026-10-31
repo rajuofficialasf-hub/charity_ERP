@@ -125,8 +125,11 @@ Technical table added in T0.16 for O-03 (ERD.md §20).
 | L-doc-requirement | required, if_needed, optional | documents.requirement |
 | L-doc-status | pending, collected, verified, approved, archived | documents.status (SOP chain, BD-35) |
 | L-doc-event | created, submitted, verified, approved, archived, deadline_extended, warning_sent, non_compliance, reopened | document_events.event |
-| L-media-status | planned, in_progress, published | media_subjects.media_status |
-| L-story-status | planned, in_progress, done, published | media_stories.status |
+| L-media-referral-state | pending, accepted, sent_back, rejected | media_referrals.state |
+| L-media-priority | high, normal, low | media_referrals.priority |
+| L-media-content | video, photo, both | media_works.content_type |
+| L-script-state | draft, in_review, final | media_works.script_state |
+| L-publication-state | waiting, published, taken_down | media_publications.state |
 | L-file-kind | distribution_proof, construction_proof, evidence, voucher, payment_copy, document, animal_photo, profile_photo, nid_photo, media_asset, export, issue_photo, form_photo | files.kind |
 | L-file-source | camera, gallery, scan, system | files.source |
 | L-file-flag | no_capture_time, no_gps, gallery_under_camera_only, stale_capture, duplicate_suspect | files.flags (data-quality flags, O-30) |
@@ -1479,31 +1482,83 @@ Index: (document_id, created_at).
 
 The 11 SOP 7.4 fields are provisional until the SOP text is reviewed (O-30 item 5, O-34). Index: (responsible_user_id, event_date).
 
-### media_subjects
+### media_referrals (T2.8b, D-101, D-136)
 | Column | Type | Null | Default | Comment |
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
-| beneficiary_id | uuid | no | — | FK beneficiaries |
-| project_id | uuid | yes | — | FK projects |
-| added_by | uuid | no | — | FK users (Media Team) |
-| media_status | text | no | 'planned' | L-media-status |
-| notes | text | yes | — | — |
+| application_id | uuid | no | — | FK applications; unique (one referral per application, BR-283) |
+| beneficiary_id | uuid | no | — | FK beneficiaries; follows a profile merge |
+| project_id | uuid | no | — | FK projects |
+| referred_by | uuid | no | — | FK users (the PM or RPM) |
+| priority | text | no | — | high, normal, low |
+| note | text | no | — | not blank |
+| story | text | yes | — | the referrer's story (BR-284) |
+| state | text | no | 'pending' | pending, accepted, sent_back, rejected |
+| decided_by | uuid | yes | — | FK users; set with every decision |
+| decided_at | timestamptz | yes | — | — |
+| decision_comment | text | yes | — | required when sent back or rejected |
 | [A] | | | | |
 
-Constraints: one subject per beneficiary and project, and one per beneficiary without a project (two partial unique indexes, T1.2).
+Constraints: a pending referral has no decider; a decided one has its decider and time, and a send-back or a rejection its comment. Indexes: beneficiary, project, referrer, (state, created_at), decider.
 
-### media_stories
+### media_works
 | Column | Type | Null | Default | Comment |
 |---|---|---|---|---|
 | id | uuid | no | — | PK |
-| media_subject_id | uuid | no | — | FK media_subjects |
-| title | text | no | — | — |
-| body | text | yes | — | writing area (O-28) |
+| referral_id | uuid | no | — | FK media_referrals; unique (one work per accepted referral) |
+| title | text | no | — | from the referral, editable by the directors |
+| stage_list / stage_code | text | no | 'media_stage' (generated) | reference list `media_stage` |
+| held_stage_code | text | yes | — | the stage a work on hold returns to; set exactly while on hold |
+| content_type | text | no | 'video' | video, photo, both |
+| script | jsonb | no | '{}' | summary, interview questions, scenes, voice-over, notes |
+| script_state | text | no | 'draft' | draft, in_review, final |
+| review_approved_by | uuid | yes | — | FK users; the final review |
+| review_approved_at | timestamptz | yes | — | set with review_approved_by |
+| [A] | | | | |
+
+### media_work_members
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK |
+| work_id | uuid | no | — | FK media_works |
+| user_id | uuid | no | — | FK users; unique per work |
+| roles | text[] | no | — | at least one code of the list `media_role` (trigger) |
+| [A] | | | | |
+
+### media_publications
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK |
+| work_id | uuid | no | — | FK media_works |
+| platform_list / platform_code | text | no | 'media_platform' (generated) | reference list `media_platform` |
+| state | text | no | 'waiting' | waiting, published, taken_down |
+| published_on | date | yes | — | required unless waiting |
+| link | text | yes | — | https only; required unless waiting (BR-285) |
+| note | text | yes | — | — |
+| [A] | | | | |
+
+### media_comments
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK |
+| work_id | uuid | no | — | FK media_works |
 | author_id | uuid | no | — | FK users |
-| status | text | no | 'planned' | L-story-status |
-| channel_code | text | yes | — | reference list `consent_channel` |
-| published_at | timestamptz | yes | — | — |
-| [A] | | | | |
+| body | text | no | — | not blank |
+| created_at | timestamptz | no | now() | append-only |
+
+### media_events
+| Column | Type | Null | Default | Comment |
+|---|---|---|---|---|
+| id | uuid | no | — | PK |
+| referral_id | uuid | no | — | FK media_referrals |
+| work_id | uuid | yes | — | FK media_works |
+| kind | text | no | — | referred, resent, accepted, sent_back, rejected, title_changed, stage_changed, held, resumed, cancelled, members_changed, content_type_changed, script_changed, publication_added, publication_changed, review_approved, review_sent_back |
+| from_value / to_value | text | yes | — | the change |
+| comment | text | yes | — | — |
+| actor_id | uuid | no | — | FK users |
+| created_at | timestamptz | no | now() | append-only |
+
+The early `media_subjects` and `media_stories` were never written and are dropped by `20261026160000_media_team` (its down.sql recreates them).
 
 ## 17. Files, notifications, sync, audit and operations
 
@@ -1776,6 +1831,8 @@ Machine-readable schemas live in `docs/database/json-schemas/` (JSON Schema 2020
 | distributions.items | `distribution-items.schema.json` |
 | volunteer_ratings.proposed_scores, final_scores | `rating-scores.schema.json` |
 | followup_evaluations.answers | `followup-answers.schema.json` |
+| media_works.script | `media-work-script.schema.json` |
+| reference_lists.attributes | `reference-list-attributes.schema.json` |
 | projects.rules, project_templates.definition, profile_merges.snapshot, document_templates.rows, settings.value, notifications.params, outbound_messages.params, sync_batches.results, alerts.details, export_jobs.filters, upload_sessions.declared, field_changes values, audit_log old/new | defined as zod schemas in T1.2/T2.x next to their modules (small, module-internal shapes); audit_log old/new are free-form snapshots |
 
 ## 21. Soft delete policy

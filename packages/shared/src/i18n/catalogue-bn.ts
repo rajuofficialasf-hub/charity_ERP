@@ -9,6 +9,7 @@ import bn_errors from './messages/bn/errors.json' with { type: 'json' };
 import bn_forms from './messages/bn/forms.json' with { type: 'json' };
 import bn_gallery from './messages/bn/gallery.json' with { type: 'json' };
 import bn_home from './messages/bn/home.json' with { type: 'json' };
+import bn_media from './messages/bn/media.json' with { type: 'json' };
 import bn_nav from './messages/bn/nav.json' with { type: 'json' };
 import bn_notifications from './messages/bn/notifications.json' with { type: 'json' };
 import bn_projects from './messages/bn/projects.json' with { type: 'json' };
@@ -26,6 +27,7 @@ export const bn = {
   forms: bn_forms,
   gallery: bn_gallery,
   home: bn_home,
+  media: bn_media,
   nav: bn_nav,
   notifications: bn_notifications,
   projects: bn_projects,
