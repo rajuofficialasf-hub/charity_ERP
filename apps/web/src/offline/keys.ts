@@ -60,6 +60,13 @@ export function currentDataKey(): CryptoKey | null {
   return held?.dataKey ?? null;
 }
 
+/** The open data key, or an error for a caller that cannot work without it. */
+export function requireDataKey(): CryptoKey {
+  const key = currentDataKey();
+  if (!key) throw new Error('offline store: the key ring is not open');
+  return key;
+}
+
 /** Forgets the open key; the wrapped copies stay in the store. */
 export function forgetKeys(): void {
   held = null;

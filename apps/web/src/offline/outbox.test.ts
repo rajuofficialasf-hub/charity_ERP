@@ -9,6 +9,7 @@ import {
   due,
   enqueue,
   markFailed,
+  nextDue,
   purge,
   readSecret,
   remove,
@@ -140,6 +141,56 @@ describe('the outbox', () => {
     });
     expect(await due(at(10))).toEqual([]);
     expect((await due(at(6 + 31))).map((r) => r.clientUuid)).toEqual([later.clientUuid]);
+  });
+
+  it('names the parent’s retry time as the next due time while its dependant waits for it', async () => {
+    const parent = await draft({ now: at(0) });
+    await enqueue({
+      kind: 'application_submit',
+      projectId: PROJECT,
+      formVersionId: VERSION,
+      payload: {},
+      dependencies: [parent.clientUuid],
+      now: at(1),
+    });
+    await apply([parent.clientUuid], { type: 'flush', at: at(2) });
+    await apply([parent.clientUuid], {
+      type: 'transient',
+      at: at(3),
+      status: 503,
+      retryAfterSeconds: 30,
+      random: () => 0.5,
+    });
+    expect(await nextDue()).toEqual(at(33));
+  });
+
+  it('lets a correction edited on its way go again as a correction', async () => {
+    const fill = await enqueue({
+      kind: 'field_update',
+      projectId: PROJECT,
+      formVersionId: VERSION,
+      target: SERVER_ID,
+      payload: { unlockId: SERVER_ID, value: { t: 'short_text', v: 'এক' } },
+      now: at(0),
+    });
+    await apply([fill.clientUuid], { type: 'flush', at: at(1) });
+    await enqueue({
+      clientUuid: fill.clientUuid,
+      kind: 'field_update',
+      projectId: PROJECT,
+      formVersionId: VERSION,
+      target: SERVER_ID,
+      payload: { unlockId: SERVER_ID, value: { t: 'short_text', v: 'দুই' } },
+      now: at(2),
+    });
+    await applyResult({ clientUuid: fill.clientUuid, result: 'synced', status: 'approved' }, at(3));
+    const follow = (await offlineDb().outbox.toArray()).find(
+      (r) => r.clientUuid !== fill.clientUuid,
+    )!;
+    expect(follow).toMatchObject({ kind: 'field_update', target: SERVER_ID, state: 'pending' });
+    expect(await readSecret(follow)).toMatchObject({
+      payload: { unlockId: SERVER_ID, value: { t: 'short_text', v: 'দুই' } },
+    });
   });
 
   it('purges a confirmed record after seven days, but not one with a photo or a dependant waiting', async () => {

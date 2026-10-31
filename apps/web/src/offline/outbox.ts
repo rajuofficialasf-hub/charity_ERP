@@ -1,4 +1,5 @@
 import { uuidv7 } from '@css/shared';
+import { z } from 'zod';
 import {
   mayPurge,
   type OutboxEvent,
@@ -7,10 +8,11 @@ import {
   transition,
 } from '@css/shared/sync';
 import { offlineDb, openRow, type OutboxKind, type OutboxRow, sealRow } from './db';
-import { currentDataKey } from './keys';
+import { requireDataKey } from './keys';
 
 /**
- * The outbox: every offline write as one record that waits for the server (BR-194, BR-195). The
+ * The outbox: every offline write as one record that waits for the server
+ * (docs/architecture/OFFLINE_SYNC.md, outbox pattern and record lifecycle). The
  * clear columns carry the state machine of `@css/shared/sync`; the payload and the version the
  * edit started from are sealed. A record edited while its batch is on its way keeps the edit as
  * its next version, sent after the result arrives, so a replayed batch keeps its exact bytes.
@@ -44,17 +46,11 @@ export const TOO_LARGE = 'sync.batch_too_large';
 /** The code of a record whose dependency failed for good. */
 export const DEPENDENCY_FAILED = 'sync.dependency_failed';
 
-function dataKey(): CryptoKey {
-  const key = currentDataKey();
-  if (!key) throw new Error('outbox: the store is not open');
-  return key;
-}
-
 /** The client ids of the batch on its way, if any: their rows are frozen until its result. */
 async function inFlightIds(): Promise<Set<string>> {
   const row = await offlineDb().meta.get('inflight');
-  const value = row?.value as { uuids?: string[] } | undefined;
-  return new Set(value?.uuids ?? []);
+  const parsed = z.object({ uuids: z.array(z.string()) }).safeParse(row?.value);
+  return new Set(parsed.success ? parsed.data.uuids : []);
 }
 
 /**
@@ -64,7 +60,7 @@ async function inFlightIds(): Promise<Set<string>> {
  */
 export async function enqueue(input: NewRecord): Promise<OutboxRow> {
   const db = offlineDb();
-  const key = dataKey();
+  const key = requireDataKey();
   const now = input.now ?? new Date();
   const id = input.clientUuid ?? uuidv7();
   const secret: OutboxSecret = { payload: input.payload, baseVersion: input.baseVersion ?? null };
@@ -97,7 +93,11 @@ export async function enqueue(input: NewRecord): Promise<OutboxRow> {
     return row;
   }
   if (existing.state === 'synced') throw new Error('outbox: a synced record takes no new version');
-  if (existing.state === 'syncing' || (await inFlightIds()).has(id)) {
+  // a record on its way, or one waiting for the replay of its batch, keeps the edit for after
+  if (
+    existing.state === 'syncing' ||
+    (existing.state === 'pending' && (await inFlightIds()).has(id))
+  ) {
     const current = await openRow<OutboxSecret>(key, existing);
     const row = await sealRow(
       key,
@@ -124,7 +124,7 @@ export async function enqueue(input: NewRecord): Promise<OutboxRow> {
 }
 
 export function readSecret(row: OutboxRow): Promise<OutboxSecret> {
-  return openRow<OutboxSecret>(dataKey(), row);
+  return openRow<OutboxSecret>(requireDataKey(), row);
 }
 
 export async function counts(): Promise<{ pending: number; syncing: number; failed: number }> {
@@ -218,9 +218,25 @@ export async function apply(clientUuids: readonly string[], event: OutboxEvent):
 
 /** The earliest time a pending record wants to try again, or null when none waits for a time. */
 export async function nextDue(): Promise<Date | null> {
-  const pending = await offlineDb().outbox.where('state').equals('pending').toArray();
+  const db = offlineDb();
+  const pending = await db.outbox.where('state').equals('pending').toArray();
+  const pendingIds = new Set(pending.map((r) => r.clientUuid));
+  const parents = new Map(
+    (await db.outbox.bulkGet(pending.flatMap((r) => r.dependencies)))
+      .filter((r): r is OutboxRow => r !== undefined)
+      .map((r) => [r.clientUuid, r]),
+  );
+  // a dependant whose parent still waits goes when the parent does: the parent's time counts
+  const free = pending.filter((r) =>
+    r.dependencies.every((d) => {
+      const parent = parents.get(d);
+      return (
+        !parent || parent.state === 'synced' || (pendingIds.has(d) && parent.nextRetryAt === null)
+      );
+    }),
+  );
+  if (free.some((r) => r.nextRetryAt === null)) return new Date(0);
   const times = pending.map((r) => r.nextRetryAt).filter((t): t is Date => t !== null);
-  if (pending.some((r) => r.nextRetryAt === null)) return new Date(0);
   return times.length ? new Date(Math.min(...times.map((t) => t.getTime()))) : null;
 }
 
@@ -232,7 +248,7 @@ export async function applyResult(result: RowResult, at: Date): Promise<void> {
   const db = offlineDb();
   const row = await db.outbox.get(result.clientUuid);
   if (!row || row.state !== 'syncing') return;
-  const key = dataKey();
+  const key = requireDataKey();
   const secret = await openRow<OutboxSecret>(key, row);
   const tracked = transition(row, {
     type: 'result',
@@ -257,13 +273,14 @@ export async function applyResult(result: RowResult, at: Date): Promise<void> {
     return;
   }
   await db.outbox.put(await sealRow(key, tracked, rest));
-  if (row.kind === 'application_submit' || row.kind === 'field_update') return;
+  // a submit carries nothing to edit; an answer's correction goes again as a correction
+  if (row.kind === 'application_submit') return;
   await enqueue({
-    kind: 'application_update',
+    kind: row.kind === 'field_update' ? 'field_update' : 'application_update',
     projectId: row.projectId,
     formVersionId: row.formVersionId,
-    target: tracked.serverId ?? row.target ?? null,
-    dependencies: tracked.serverId ? [] : [row.clientUuid],
+    target: row.kind === 'field_update' ? row.target : (tracked.serverId ?? row.target ?? null),
+    dependencies: row.kind !== 'field_update' && !tracked.serverId ? [row.clientUuid] : [],
     payload: next.payload,
     baseVersion: next.baseVersion,
     now: new Date(next.updatedAt),
@@ -315,12 +332,21 @@ export async function purge(now: Date): Promise<number> {
     .where('state')
     .anyOf([...WAITING_STATES])
     .toArray();
+  const serverIds = synced.map((r) => r.serverId).filter((id): id is string => Boolean(id));
+  const listed = new Set(
+    (await db.applications.bulkGet(serverIds)).flatMap((a) => (a ? [a.id] : [])),
+  );
+  const photos = await db.photos
+    .where('clientUuid')
+    .anyOf(synced.map((r) => r.clientUuid))
+    .toArray();
   let removed = 0;
   for (const row of synced) {
-    const serverId = row.serverId ?? null;
-    const confirmed = serverId !== null && (await db.applications.get(serverId)) !== undefined;
-    const photos = await db.photos.where('clientUuid').equals(row.clientUuid).toArray();
-    const photosPending = photos.some((p) => p.state !== 'uploaded');
+    const confirmed =
+      row.serverId !== null && row.serverId !== undefined && listed.has(row.serverId);
+    const photosPending = photos.some(
+      (p) => p.clientUuid === row.clientUuid && p.state !== 'uploaded',
+    );
     const dependantsPending = waiting.some((r) => r.dependencies.includes(row.clientUuid));
     if (
       mayPurge(

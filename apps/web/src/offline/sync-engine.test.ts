@@ -160,8 +160,12 @@ describe('the sync engine', () => {
       state: 'pending',
       nextRetryAt: new Date(T0.getTime() + 30_000),
     });
-    // the batch stays in the store for the replay
-    expect(await offlineDb().meta.get(META.inflight)).toBeDefined();
+    // the batch stays in the store for the replay, its body sealed
+    const kept = await offlineDb().meta.get(META.inflight);
+    expect(kept).toBeDefined();
+    expect(
+      JSON.stringify(kept, (_k, v: unknown) => (v instanceof ArrayBuffer ? '<bytes>' : v)),
+    ).not.toContain('answers');
     await vi.waitFor(() =>
       expect(world.timers.some((t) => t.at === T0.getTime() + 30_000)).toBe(true),
     );
@@ -360,6 +364,89 @@ describe('the sync engine', () => {
     world.advance(8 * 86_400_000);
     await engine.flush('manual');
     expect(await offlineDb().outbox.get(record.clientUuid)).toBeUndefined();
+  });
+
+  it('keeps a request for the data set made while a flush runs', async () => {
+    let pulls = 0;
+    let release: () => void = () => {};
+    server.use(
+      http.post('*/api/v1/sync/batch', async ({ request }) => {
+        await new Promise<void>((r) => (release = r));
+        const body = (await request.json()) as Post['body'];
+        return HttpResponse.json({
+          data: {
+            serverTime: T0.toISOString(),
+            results: body.records.map((r) => ({
+              clientUuid: r.clientUuid,
+              result: 'synced',
+              serverId: uuidv7(),
+              status: 'draft',
+            })),
+          },
+          meta: {},
+        });
+      }),
+      http.get('*/api/v1/sync/snapshot', () => {
+        pulls += 1;
+        return HttpResponse.json({ data: EMPTY_SNAPSHOT, meta: {} });
+      }),
+    );
+    const world = fakeDeps();
+    const engine = new SyncEngine(world.deps);
+    await offlineDb().meta.put({ key: META.pulledAt, value: T0.toISOString() });
+    await draft(T0);
+    const first = engine.flush('write');
+    await new Promise((r) => setTimeout(r, 20));
+    const asked = engine.flush('manual', { snapshot: true });
+    expect(asked).toBe(first);
+    release();
+    await first;
+    await vi.waitFor(() => expect(pulls).toBe(1));
+  });
+
+  it('leaves the records waiting when the app is out of date or the person may not act now', async () => {
+    server.use(
+      http.post('*/api/v1/sync/batch', () => apiError(426, 'client.upgrade_required', 'old')),
+    );
+    const world = fakeDeps();
+    const engine = new SyncEngine(world.deps);
+    const statuses: SyncStatus[] = [];
+    engine.subscribe((s) => statuses.push(s));
+    const record = await draft(T0);
+    await engine.flush('manual');
+    expect(statuses.at(-1)).toMatchObject({ state: 'idle', lastError: 'client.upgrade_required' });
+    expect(await offlineDb().outbox.get(record.clientUuid)).toMatchObject({ state: 'pending' });
+  });
+
+  it('does not call the session lost when the refresh itself failed on the way', async () => {
+    resetClientForTests();
+    server.use(http.post('*/api/v1/auth/refresh', () => HttpResponse.error()));
+    const world = fakeDeps();
+    const engine = new SyncEngine(world.deps);
+    const statuses: SyncStatus[] = [];
+    engine.subscribe((s) => statuses.push(s));
+    await engine.flush('manual');
+    expect(statuses.at(-1)).toMatchObject({ state: 'idle', lastError: 'network' });
+  });
+
+  it('sends no later batch after one failed on the way, so a dependant never meets a missing parent', async () => {
+    const posts: Post[] = [];
+    server.use(
+      http.post('*/api/v1/sync/batch', async ({ request }) => {
+        posts.push({
+          key: request.headers.get('idempotency-key'),
+          body: (await request.json()) as Post['body'],
+        });
+        return HttpResponse.error();
+      }),
+    );
+    const world = fakeDeps();
+    const engine = new SyncEngine(world.deps);
+    for (let i = 0; i < 51; i += 1) await draft(new Date(T0.getTime() + i));
+    await engine.flush('manual');
+    expect(posts).toHaveLength(1);
+    expect(posts[0]!.body.records).toHaveLength(50);
+    expect((posts[0]!.body as { pendingAfter?: number }).pendingAfter).toBe(1);
   });
 
   it('stops when the session has expired and leaves the outbox waiting', async () => {

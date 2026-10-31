@@ -9,7 +9,7 @@
 
 const ALGORITHM = 'AES-GCM';
 const KEY_BITS = 256;
-const IV_BYTES = 12;
+export const IV_BYTES = 12;
 
 /** A sealed value: the IV it was sealed with and the ciphertext with its tag. */
 export interface Sealed {

@@ -133,6 +133,25 @@ describe('the cached data set', () => {
     expect(await cursor()).toEqual({ since: '2026-10-31T10:10:00.000Z', afterId: A1 });
   });
 
+  it('keeps the signed-in person sealed for the open without network', async () => {
+    const { rememberMe, cachedMe } = await import('./snapshot');
+    const me = {
+      id: USER,
+      displayName: 'নমুনা স্বেচ্ছাসেবক',
+      kind: 'volunteer' as const,
+      state: 'active' as const,
+      roles: ['volunteer'],
+      language: 'bn' as const,
+      permissionVersion: 1,
+    };
+    await rememberMe(me);
+    const row = await offlineDb().meta.get(META.me);
+    expect(
+      JSON.stringify(row, (_k, v: unknown) => (v instanceof ArrayBuffer ? '<bytes>' : v)),
+    ).not.toContain('নমুনা স্বেচ্ছাসেবক');
+    expect(await cachedMe()).toEqual(me);
+  });
+
   it('replaces the locations master with its version', async () => {
     await replaceLocations(
       [

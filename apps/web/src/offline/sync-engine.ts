@@ -9,8 +9,9 @@ import {
   type SyncBatchRequest,
 } from '@css/shared/sync';
 import { uuidv7 } from '@css/shared';
+import { z } from 'zod';
 import { ApiFailure, currentMe, refreshSession } from '../lib/api';
-import { offlineDb, type OutboxRow } from './db';
+import { offlineDb, type OutboxRow, sealedSchema } from './db';
 import { currentDataKey } from './keys';
 import {
   apply,
@@ -26,7 +27,16 @@ import {
   toSyncRecord,
   waitingCount,
 } from './outbox';
-import { applySnapshot, cursor, META, metaString, replaceLocations } from './snapshot';
+import {
+  applySnapshot,
+  cursor,
+  META,
+  metaString,
+  openValue,
+  replaceLocations,
+  sealValue,
+} from './snapshot';
+import type { Sealed } from './crypto';
 import { locationsAll, postBatch, pullSnapshot } from './sync-api';
 
 /**
@@ -68,6 +78,17 @@ interface InFlight {
   uuids: string[];
 }
 
+/** The batch on its way as the store keeps it: the body sealed, the key and the ids readable. */
+const storedInFlight = z.object({
+  key: z.string(),
+  uuids: z.array(z.string()),
+  body: sealedSchema,
+});
+type StoredInFlight = z.infer<typeof storedInFlight>;
+
+/** The service worker's word that a sync may run now. */
+const flushMessage = z.object({ type: z.literal('flush') });
+
 const DEFAULT_DEPS: EngineDeps = {
   now: () => new Date(),
   setTimer: (run, ms) => setTimeout(run, ms),
@@ -89,7 +110,8 @@ export class SyncEngine {
   status: SyncStatus = INITIAL;
   private readonly listeners = new Set<(status: SyncStatus) => void>();
   private flushing: Promise<void> | null = null;
-  private again = false;
+  /** A flush asked while one ran: its request is kept and runs right after. */
+  private again: { reason: FlushReason; snapshot: boolean } | null = null;
   private retryTimer: unknown = null;
   private intervalTimer: unknown = null;
   private cleanups: (() => void)[] = [];
@@ -112,8 +134,7 @@ export class SyncEngine {
       if (document.visibilityState === 'visible') void this.flush('foreground');
     };
     const message = (event: MessageEvent) => {
-      if ((event.data as { type?: unknown } | null)?.type === 'flush')
-        void this.flush('service_worker');
+      if (flushMessage.safeParse(event.data).success) void this.flush('service_worker');
     };
     window.addEventListener('online', online);
     document.addEventListener('visibilitychange', visible);
@@ -144,29 +165,44 @@ export class SyncEngine {
    */
   flush(reason: FlushReason, options: { snapshot?: boolean } = {}): Promise<void> {
     if (this.flushing) {
-      this.again = true;
+      this.again = {
+        reason: reason === 'manual' || this.again?.reason === 'manual' ? 'manual' : reason,
+        snapshot: Boolean(options.snapshot) || Boolean(this.again?.snapshot),
+      };
       return this.flushing;
     }
     this.flushing = this.run(reason, options).finally(() => {
       this.flushing = null;
-      if (this.again) {
-        this.again = false;
-        void this.flush('write');
-      }
+      const next = this.again;
+      this.again = null;
+      if (next) void this.flush(next.reason, { snapshot: next.snapshot });
     });
     return this.flushing;
   }
 
   private async run(reason: FlushReason, options: { snapshot?: boolean }): Promise<void> {
     if (!this.deps.online()) {
-      await this.publish({ state: 'offline' });
+      await this.publish({ state: 'offline' }, true);
       return;
     }
-    // every flush starts from a live session: a cold start refreshes first
+    // every flush starts from a live session: a cold start refreshes first; only a refresh the
+    // server refused means the session is gone, a refresh that failed on the way is tried later
     if (!currentMe()) {
-      const pair = await refreshSession().catch(() => null);
+      let pair;
+      try {
+        pair = await refreshSession();
+      } catch (error) {
+        await this.publish(
+          {
+            state: this.deps.online() ? 'idle' : 'offline',
+            lastError: error instanceof ApiFailure ? error.code : 'network',
+          },
+          true,
+        );
+        return;
+      }
       if (!pair) {
-        await this.publish({ state: 'signed_out' });
+        await this.publish({ state: 'signed_out' }, true);
         return;
       }
     }
@@ -175,20 +211,28 @@ export class SyncEngine {
     try {
       const inflight = await this.inFlight();
       await recoverInterrupted(this.deps.now(), new Set(inflight?.uuids ?? []));
-      if (inflight && (await this.inFlightDue(inflight))) await this.send(inflight);
-      for (const batch of await this.batches()) await this.send(batch);
+      let open = true;
+      if (inflight && (await this.inFlightDue(inflight))) open = await this.send(inflight);
+      if (open) for (const batch of await this.batches()) if (!(await this.send(batch))) break;
       await this.snapshotIfDue(options.snapshot === true || reason === 'manual');
       await purge(this.deps.now());
-      await this.publish({ state: 'idle', lastSyncAt: this.deps.now() });
+      await this.publish({ state: 'idle', lastSyncAt: this.deps.now() }, true);
     } catch (error) {
       if (error instanceof ApiFailure && error.status === 401) {
-        await this.publish({ state: 'signed_out', lastError: error.code });
+        await this.publish({ state: 'signed_out', lastError: error.code }, true);
         return;
       }
-      await this.publish({
-        state: this.deps.online() ? 'idle' : 'offline',
-        lastError: error instanceof ApiFailure ? error.code : 'network',
-      });
+      if (error instanceof ApiFailure && [403, 426].includes(error.status)) {
+        await this.publish({ state: 'idle', lastError: error.code }, true);
+        return;
+      }
+      await this.publish(
+        {
+          state: this.deps.online() ? 'idle' : 'offline',
+          lastError: error instanceof ApiFailure ? error.code : 'network',
+        },
+        true,
+      );
     } finally {
       await this.scheduleRetry();
     }
@@ -196,7 +240,23 @@ export class SyncEngine {
 
   private async inFlight(): Promise<InFlight | null> {
     const row = await offlineDb().meta.get(META.inflight);
-    return (row?.value as InFlight | undefined) ?? null;
+    const stored = storedInFlight.safeParse(row?.value);
+    if (!stored.success) return null;
+    return {
+      key: stored.data.key,
+      uuids: stored.data.uuids,
+      body: await openValue(stored.data.body as Sealed),
+    };
+  }
+
+  /** Writes the batch on its way with its body sealed; the same JSON comes back for the replay. */
+  private async keepInFlight(batch: InFlight): Promise<void> {
+    const stored: StoredInFlight = {
+      key: batch.key,
+      uuids: batch.uuids,
+      body: await sealValue(batch.body),
+    };
+    await offlineDb().meta.put({ key: META.inflight, value: stored });
   }
 
   /**
@@ -209,6 +269,11 @@ export class SyncEngine {
       (r): r is OutboxRow => r !== undefined,
     );
     if (!rows.length) {
+      await db.meta.delete(META.inflight);
+      return false;
+    }
+    if (!rows.some((r) => r.state === 'syncing' || r.state === 'pending')) {
+      // every record of it failed for good or was removed: an edit of one goes as a new version
       await db.meta.delete(META.inflight);
       return false;
     }
@@ -226,13 +291,21 @@ export class SyncEngine {
     const result: InFlight[] = [];
     let current: { records: SyncBatchRequest['records']; uuids: string[]; bytes: number } | null =
       null;
+    const waiting = await waitingCount();
+    let placed = 0;
     const close = () => {
-      if (current && current.records.length)
+      if (current && current.records.length) {
+        placed += current.records.length;
         result.push({
           key: uuidv7(),
           uuids: current.uuids,
-          body: { deviceTime: this.deps.now().toISOString(), records: current.records },
+          body: {
+            deviceTime: this.deps.now().toISOString(),
+            records: current.records,
+            pendingAfter: Math.max(0, waiting - placed),
+          },
         });
+      }
       current = null;
     };
     for (const row of rows) {
@@ -260,12 +333,12 @@ export class SyncEngine {
   /**
    * Sends one batch. The batch is written to the store first, so a crash or a timeout replays
    * the same bytes under the same key; its records are on their way until the result or a
-   * final refusal.
+   * final refusal. False when the batch ended in a transient failure, so nothing follows it.
    */
-  private async send(batch: InFlight): Promise<void> {
+  private async send(batch: InFlight): Promise<boolean> {
     const db = offlineDb();
     const now = this.deps.now();
-    await db.meta.put({ key: META.inflight, value: batch });
+    await this.keepInFlight(batch);
     const pendingRows = (await db.outbox.bulkGet(batch.uuids)).filter(
       (r): r is OutboxRow => r !== undefined && r.state === 'pending',
     );
@@ -274,12 +347,8 @@ export class SyncEngine {
       { type: 'flush', at: now },
     );
     await this.publish({ state: 'syncing' });
-    const body: SyncBatchRequest = {
-      ...batch.body,
-      pendingAfter: Math.max(0, (await waitingCount()) - batch.uuids.length),
-    };
     try {
-      const response = await postBatch(body, batch.key);
+      const response = await postBatch(batch.body, batch.key);
       const at = this.deps.now();
       await db.meta.put({
         key: META.clockOffsetMs,
@@ -287,10 +356,12 @@ export class SyncEngine {
       });
       for (const result of response.results) await applyResult(result, at);
       await db.meta.delete(META.inflight);
+      return true;
     } catch (error) {
       const at = this.deps.now();
-      if (error instanceof ApiFailure && error.status === 401) {
-        // the session is gone: the records wait again for the next sign-in
+      if (error instanceof ApiFailure && [401, 403, 426].includes(error.status)) {
+        // the session is gone, the person may not act now, or the app is out of date: nothing
+        // is wrong with the records, so they wait again and the flush stops with the reason
         await apply(batch.uuids, { type: 'interrupted', at });
         throw error;
       }
@@ -303,10 +374,11 @@ export class SyncEngine {
           retryAfterSeconds: error instanceof ApiFailure ? error.retryAfter : undefined,
           random: this.deps.random,
         });
-        return;
+        return false;
       }
       await markFailed(batch.uuids, error.code, at);
       await db.meta.delete(META.inflight);
+      return true;
     }
   }
 
@@ -355,8 +427,8 @@ export class SyncEngine {
     }, FLUSH_INTERVAL_MS);
   }
 
-  private async publish(patch: Partial<SyncStatus>): Promise<void> {
-    const tallies = currentDataKey() ? await counts().catch(() => null) : null;
+  private async publish(patch: Partial<SyncStatus>, tally = false): Promise<void> {
+    const tallies = tally && currentDataKey() ? await counts().catch(() => null) : null;
     this.status = { ...this.status, ...(tallies ?? {}), ...patch };
     for (const listener of this.listeners) listener(this.status);
   }

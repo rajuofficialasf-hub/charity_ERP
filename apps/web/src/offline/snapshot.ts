@@ -1,8 +1,10 @@
 import type { LocationView } from '@css/shared';
 import type { ApplicationSummary } from '../features/applications/applications-api';
 import type { MyProject } from '../features/projects/my-projects-api';
+import type { Me } from '@css/shared/auth';
 import { type ApplicationRow, type FormRow, offlineDb, openRow, sealRow } from './db';
-import { currentDataKey } from './keys';
+import { openJson, type Sealed, sealJson } from './crypto';
+import { requireDataKey } from './keys';
 import type { SnapshotView } from './sync-api';
 
 /**
@@ -24,12 +26,6 @@ export const META = {
   me: 'me',
 } as const;
 
-function dataKey(): CryptoKey {
-  const key = currentDataKey();
-  if (!key) throw new Error('snapshot: the store is not open');
-  return key;
-}
-
 /** The cursor the next pull asks with. */
 export async function cursor(): Promise<{ since?: string; afterId?: string | null }> {
   const db = offlineDb();
@@ -41,7 +37,7 @@ export async function cursor(): Promise<{ since?: string; afterId?: string | nul
 }
 
 export async function applySnapshot(view: SnapshotView, at: Date): Promise<void> {
-  const key = dataKey();
+  const key = requireDataKey();
   const db = offlineDb();
   const projectIds = new Set(view.projects.map((p) => p.projectId));
   const formRows: FormRow[] = await Promise.all(
@@ -98,9 +94,30 @@ export async function cachedProjects(): Promise<MyProject[]> {
   return (await offlineDb().projects.toArray()).map((p) => p.data as MyProject);
 }
 
+/** The signed-in person of the last sign-in, sealed, for the open without network. */
+export async function rememberMe(me: Me): Promise<void> {
+  const sealed = await sealJson(requireDataKey(), me);
+  await offlineDb().meta.put({ key: META.me, value: sealed });
+}
+
+export async function cachedMe(): Promise<Me | null> {
+  const row = await offlineDb().meta.get(META.me);
+  if (!row) return null;
+  return openJson<Me>(requireDataKey(), row.value as Sealed);
+}
+
+/** A value sealed under the data key, for a meta row that must not be readable. */
+export function sealValue(value: unknown): Promise<Sealed> {
+  return sealJson(requireDataKey(), value);
+}
+
+export function openValue<T>(sealed: Sealed): Promise<T> {
+  return openJson<T>(requireDataKey(), sealed);
+}
+
 /** The cached own applications, opened with the data key. */
 export async function cachedApplications(): Promise<ApplicationSummary[]> {
-  const key = dataKey();
+  const key = requireDataKey();
   const rows = await offlineDb().applications.toArray();
   return Promise.all(rows.map((r) => openRow<ApplicationSummary>(key, r)));
 }

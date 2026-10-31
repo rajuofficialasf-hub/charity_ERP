@@ -1,7 +1,8 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type { LocationView } from '@css/shared';
 import { type OutboxTracking, type SyncRecordKind } from '@css/shared/sync';
-import { openJson, type Sealed, sealJson } from './crypto';
+import { z } from 'zod';
+import { IV_BYTES, openJson, type Sealed, sealJson } from './crypto';
 
 /**
  * The phone's store (docs/architecture/OFFLINE_SYNC.md, what is cached on the device, and local
@@ -16,6 +17,15 @@ export const OFFLINE_DB_NAME = 'css-offline';
 
 /** A row whose business fields are sealed: only its index columns are in the clear. */
 export type SealedRow = Sealed;
+
+/**
+ * A sealed value read back from the store. The checks look at the shape, not the class: a value
+ * that crossed IndexedDB may belong to another realm, where `instanceof` says no.
+ */
+export const sealedSchema = z.object({
+  iv: z.custom<Uint8Array<ArrayBuffer>>((v) => ArrayBuffer.isView(v) && v.byteLength === IV_BYTES),
+  data: z.custom<ArrayBuffer>((v) => Object.prototype.toString.call(v) === '[object ArrayBuffer]'),
+});
 
 /** The kinds of record the outbox carries, as the shared sync records name them. */
 export type OutboxKind = SyncRecordKind;

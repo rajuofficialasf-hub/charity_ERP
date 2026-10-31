@@ -65,13 +65,9 @@ export function OfflineProvider({
       if (stopped) return;
       engineRef.current = engine;
       const unsubscribe = engine.subscribe(setStatus);
-      const { offlineDb } = await import('./db');
       const { currentDataKey } = await import('./keys');
-      const { META } = await import('./snapshot');
-      if (!stopped && currentDataKey())
-        await offlineDb()
-          .meta.put({ key: META.me, value: me })
-          .catch(() => undefined);
+      const { rememberMe } = await import('./snapshot');
+      if (!stopped && currentDataKey()) await rememberMe(me).catch(() => undefined);
       if (stopped) {
         unsubscribe();
         return;
