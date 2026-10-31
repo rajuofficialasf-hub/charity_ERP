@@ -61,6 +61,28 @@ describe('GET /locations without a login', () => {
     expect((await fetch(`${base}/locations?parentId=dhaka`)).status).toBe(422);
   });
 
+  it('gives the whole master in one answer with an ETag, and 304 for the same version', async () => {
+    const first = await fetch(`${base}/locations/all`);
+    expect(first.status).toBe(200);
+    const etag = first.headers.get('etag');
+    expect(etag).toMatch(/^"\d+\.[0-9a-z]+"$/);
+    const body = (await first.json()) as { data: { id: string; level: string; active: boolean }[] };
+    const ids = body.data.map((l) => l.id);
+    for (const id of [tree.division, tree.district, tree.upazila, tree.union])
+      expect(ids).toContain(id);
+    expect(body.data.every((l) => l.active)).toBe(true);
+    // top level first, so a phone can build the tree in one pass
+    const levels = body.data.map((l) => l.level);
+    expect(levels.indexOf('district')).toBeGreaterThan(levels.lastIndexOf('division'));
+    expect(levels.indexOf('union')).toBeGreaterThan(levels.lastIndexOf('upazila'));
+    const same = await fetch(`${base}/locations/all`, { headers: { 'If-None-Match': etag! } });
+    expect(same.status).toBe(304);
+    await f.locationTree(h.db);
+    const changed = await fetch(`${base}/locations/all`, { headers: { 'If-None-Match': etag! } });
+    expect(changed.status).toBe(200);
+    expect(changed.headers.get('etag')).not.toBe(etag);
+  });
+
   it('leaves inactive locations out', async () => {
     await h.db.query('UPDATE locations SET active = false WHERE id = $1', [tree.union]);
     expect((await list(tree.upazila)).body.data).toEqual([]);

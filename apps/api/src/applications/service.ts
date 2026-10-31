@@ -699,6 +699,38 @@ export class ApplicationsService {
     );
   }
 
+  /**
+   * The caller's own applications changed since a time (all of them without one), newest change
+   * first and at most `limit`, with the ids of every own application the server still lists, so
+   * the phone's copy drops what left (a transfer, a deletion). A blocked volunteer has none.
+   */
+  async listMineSince(
+    viewer: ApplicationViewer,
+    since: Date | undefined,
+    limit: number,
+  ): Promise<{ changed: ApplicationSummary[]; ids: string[] }> {
+    const userId = viewer.principal.userId;
+    if (await this.blockedCaller(this.prisma, viewer.principal)) return { changed: [], ids: [] };
+    const own: Prisma.ApplicationWhereInput = {
+      AND: [
+        { OR: ownApplicationsWhere(userId, await teamLeadsOf(this.prisma, userId)) },
+        applicationWhere(viewer.scope),
+        { status: { not: 'deleted' } },
+      ],
+    };
+    const now = this.clock.now();
+    const [rows, ids] = await Promise.all([
+      this.prisma.application.findMany({
+        where: since ? { AND: [own, { updatedAt: { gt: since } }] } : own,
+        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+        take: limit,
+        select: ROW_SELECT,
+      }),
+      this.prisma.application.findMany({ where: own, select: { id: true } }),
+    ]);
+    return { changed: rows.map((r) => this.summaryOf(r, now)), ids: ids.map((r) => r.id) };
+  }
+
   private async page(
     viewer: ApplicationViewer,
     binding: string,

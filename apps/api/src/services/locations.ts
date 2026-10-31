@@ -10,33 +10,68 @@ export interface LocationView {
   active: boolean;
 }
 
+const VIEW = {
+  id: true,
+  parentId: true,
+  level: true,
+  code: true,
+  nameBn: true,
+  nameEn: true,
+  active: true,
+} as const;
+
+const toView = (r: {
+  id: string;
+  parentId: string | null;
+  level: string;
+  code: string;
+  nameBn: string;
+  nameEn: string;
+  active: boolean;
+}): LocationView => ({
+  id: r.id,
+  parentId: r.parentId,
+  level: r.level,
+  code: r.code,
+  name: { bn: r.nameBn, en: r.nameEn },
+  active: r.active,
+});
+
 /** The locations master as reference data (O-09; public list of DECISION_LOG D-083). */
 export class LocationsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /** Every active row, top level first and by code within a level, for the phone's offline copy. */
+  async all(): Promise<LocationView[]> {
+    const rows = await this.prisma.location.findMany({
+      where: { active: true },
+      select: VIEW,
+    });
+    const rank = (level: string) =>
+      ADDRESS_LEVELS.indexOf(level as (typeof ADDRESS_LEVELS)[number]);
+    return rows
+      .map(toView)
+      .sort((a, b) => rank(a.level) - rank(b.level) || a.code.localeCompare(b.code));
+  }
+
+  /** Changes with any row: the active count and the latest change, so a phone pulls only what moved. */
+  async version(): Promise<string> {
+    const [count, latest] = await Promise.all([
+      this.prisma.location.count({ where: { active: true } }),
+      this.prisma.location.aggregate({ _max: { updatedAt: true } }),
+    ]);
+    const at = latest._max.updatedAt?.getTime() ?? 0;
+    return `${count}.${at.toString(36)}`;
+  }
 
   /** Active children of `parentId`, or the active divisions; ordered by code (BBS order). */
   async children(parentId: string | undefined): Promise<LocationView[]> {
     const rows = await this.prisma.location.findMany({
       where: { parentId: parentId ?? null, active: true },
       orderBy: { code: 'asc' },
-      select: {
-        id: true,
-        parentId: true,
-        level: true,
-        code: true,
-        nameBn: true,
-        nameEn: true,
-        active: true,
-      },
+      select: VIEW,
     });
-    return rows.map((r) => ({
-      id: r.id,
-      parentId: r.parentId,
-      level: r.level,
-      code: r.code,
-      name: { bn: r.nameBn, en: r.nameEn },
-      active: r.active,
-    }));
+    return rows.map(toView);
   }
 }
 

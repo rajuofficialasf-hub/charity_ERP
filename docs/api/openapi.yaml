@@ -4377,15 +4377,14 @@ components:
       properties:
         data:
           type: object
-          required: [serverTime]
+          required: [serverTime, projects, formVersions, applications, applicationIds, locationsVersion]
           properties:
             serverTime: { type: string, format: date-time }
-            projects: { type: array, items: { $ref: '#/components/schemas/Project' } }
-            formVersions: { type: array, items: { $ref: '#/components/schemas/FormVersion' } }
-            applications: { type: array, items: { $ref: '#/components/schemas/ApplicationSummary' } }
-            beneficiaries: { type: array, items: { $ref: '#/components/schemas/BeneficiarySummary' } }
-            locationsVersion: { type: integer }
-            removedIds: { type: array, items: { $ref: '#/components/schemas/Uuid' }, description: Records no longer in the caller's scope }
+            projects: { type: array, items: { $ref: '#/components/schemas/MyProject' }, description: "The volunteer's consented projects; empty for an official" }
+            formVersions: { type: array, items: { $ref: '#/components/schemas/FormVersion' }, description: "The published application form of each project, as the caller's audience sees it" }
+            applications: { type: array, items: { $ref: '#/components/schemas/ApplicationSummary' }, description: "The own applications changed since the given time (at most 500, newest change first)" }
+            applicationIds: { type: array, items: { $ref: '#/components/schemas/Uuid' }, description: "Every own application the server still lists; the phone drops what is missing" }
+            locationsVersion: { type: string, description: "Changes with any location row; the phone pulls /locations/all again when it differs" }
         meta: { $ref: '#/components/schemas/Meta' }
 
 paths:
@@ -10777,6 +10776,28 @@ paths:
         '426': { $ref: '#/components/responses/UpgradeRequired' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '503': { $ref: '#/components/responses/ServerError' }
+  /locations/all:
+    get:
+      tags: [reference]
+      operationId: reference.location.listAll
+      summary: Every active location of the four levels in one answer, with an ETag, for the phone's offline copy (O-07)
+      security: []
+      x-permission: public
+      x-scope: system
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: reference-read
+      responses:
+        '200':
+          description: Every active location
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LocationList' }
+        '304':
+          description: Not modified
+        '429': { $ref: '#/components/responses/TooManyRequests' }
   /sync/snapshot:
     get:
       tags: [sync]
@@ -10792,9 +10813,6 @@ paths:
         - name: since
           in: query
           schema: { type: string, format: date-time }
-        - name: projectId
-          in: query
-          schema: { type: string, format: uuid }
       responses:
         '200':
           description: Snapshot delta
@@ -10806,4 +10824,6 @@ paths:
         '304':
           description: Not modified
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
         '426': { $ref: '#/components/responses/UpgradeRequired' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }

@@ -26,6 +26,7 @@ import {
 import { AuthService } from './services/auth';
 import { RegistrationCleanup } from './jobs/registration-cleanup';
 import { LocalKeyCleanup } from './jobs/local-key-cleanup';
+import { SnapshotService } from './sync/snapshot';
 import { UploadSweep } from './jobs/upload-sweep';
 import { StorageStats } from './jobs/storage-stats';
 import { FileProcessor } from './jobs/file-process';
@@ -195,6 +196,7 @@ export interface Container {
   projectLifecycle: ProjectLifecycleService;
   projectRules: ProjectRulesService;
   myProjects: MyProjectsService;
+  snapshot: SnapshotService;
   projectVolunteers: ProjectVolunteersService;
   volunteerTeams: VolunteerTeamsService;
   templates: TemplatesService;
@@ -323,6 +325,25 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     new MediaWorksService(prisma, access, audit, clock, mediaEvents, mediaReferrals);
   const publicPhotos =
     o.publicPhotos ?? new PublicPhotosService(prisma, storage, audit, jobs, logger, clock);
+  const locations = o.locations ?? new LocationsService(prisma);
+  const myProjects = o.myProjects ?? new MyProjectsService(prisma, audit, clock, projectEvents);
+  const applications =
+    o.applications ??
+    new ApplicationsService(
+      prisma,
+      env,
+      clock,
+      access,
+      audit,
+      beneficiaryIdentity,
+      beneficiaryFamily,
+      nisab,
+      workflow,
+      new SubmissionWriter(access, beneficiaryIdentity, beneficiaryContact, audit),
+      scoring,
+      unlocks,
+      mediaReferrals,
+    );
   const built = {
     env,
     logger,
@@ -388,7 +409,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         accountEvents,
         projectEvents,
       ),
-    locations: o.locations ?? new LocationsService(prisma),
+    locations,
     accountEvents,
     projectEvents,
     registration,
@@ -434,23 +455,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     workflow,
     scoring,
     applicationEvents,
-    applications:
-      o.applications ??
-      new ApplicationsService(
-        prisma,
-        env,
-        clock,
-        access,
-        audit,
-        beneficiaryIdentity,
-        beneficiaryFamily,
-        nisab,
-        workflow,
-        new SubmissionWriter(access, beneficiaryIdentity, beneficiaryContact, audit),
-        scoring,
-        unlocks,
-        mediaReferrals,
-      ),
+    applications,
     bulkReview:
       o.bulkReview ?? new BulkReviewService(prisma, access, audit, idempotency, workflow, logger),
     waitlist: o.waitlist ?? new WaitlistService(prisma, access, idempotency, workflow),
@@ -496,7 +501,8 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       o.projectLifecycle ??
       new ProjectLifecycleService(prisma, audit, projects, clock, projectEvents),
     projectRules: o.projectRules ?? new ProjectRulesService(prisma, audit, access, projects),
-    myProjects: o.myProjects ?? new MyProjectsService(prisma, audit, clock, projectEvents),
+    myProjects,
+    snapshot: o.snapshot ?? new SnapshotService(access, myProjects, applications, locations, clock),
     projectVolunteers:
       o.projectVolunteers ??
       new ProjectVolunteersService(env, prisma, audit, access, projects, clock, projectEvents),
