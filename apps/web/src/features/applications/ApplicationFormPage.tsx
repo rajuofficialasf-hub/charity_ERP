@@ -15,6 +15,7 @@ import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../lib/api';
 import { orCached } from '../../lib/or-cached';
 import { compressImage } from '../../lib/compress';
+import { readPhotoMeta } from '../../lib/photo-meta';
 import { uploadFile } from '../../lib/uploads';
 import { LookupField } from '../beneficiaries/LookupField';
 import { FormRenderer, type Submission } from '../forms/FormRenderer';
@@ -252,6 +253,7 @@ function ApplicationForm({
 }) {
   const t = useTranslations('applications.new');
   const ts = useTranslations('applications.sync');
+  const tq = useTranslations('sync');
   const te = useTranslations('errors');
   const queryClient = useQueryClient();
   const [sent, setSent] = useState<Sent | null>(null);
@@ -361,33 +363,51 @@ function ApplicationForm({
       accept: PHOTO_TYPES,
       maxSize: PHOTO_MAX_BYTES,
       upload: async (file, fieldKey) => {
-        // a photo joins the record the server knows; the queue of photos taken offline follows
-        if (!draft.current.serverId)
-          throw new Error(navigator.onLine ? t('save_first') : t('photos_need_network'));
-        const key = `${fieldKey}:${file.name}:${file.size}:${file.lastModified}`;
-        const clientUuid = uploadIds.current.get(key) ?? uuidv7();
-        uploadIds.current.set(key, clientUuid);
-        const stored = await uploadFile(
-          await compressImage(file),
-          {
-            kind: 'form_photo',
-            entityType: 'application',
-            entityId: draft.current.serverId,
-            slot: fieldKey,
-            source: 'gallery',
-          },
-          { clientUuid },
-        );
-        return { fileId: stored.id };
+        const { serverId, clientUuid: recordId } = draft.current;
+        if (serverId) {
+          // the record is the server's: the photo goes up now
+          const key = `${fieldKey}:${file.name}:${file.size}:${file.lastModified}`;
+          const clientUuid = uploadIds.current.get(key) ?? uuidv7();
+          uploadIds.current.set(key, clientUuid);
+          const stored = await uploadFile(
+            await compressImage(file),
+            {
+              kind: 'form_photo',
+              entityType: 'application',
+              entityId: serverId,
+              slot: fieldKey,
+              source: 'gallery',
+            },
+            { clientUuid },
+          );
+          return { fileId: stored.id };
+        }
+        // the server does not know the record yet: the photo waits on the phone and goes after it
+        if (!recordId) throw new Error(t('save_first'));
+        const meta = await readPhotoMeta(file);
+        const blob = await compressImage(file);
+        const store = await loadStore();
+        const queued = await store.queuePhoto({
+          clientUuid: recordId,
+          slot: fieldKey,
+          blob,
+          facts: { name: file.name, mime: blob.type || file.type, source: 'gallery', ...meta },
+        });
+        return {
+          fileId: queued.id,
+          ...(queued.previewUrl ? { previewUrl: queued.previewUrl } : {}),
+        };
       },
       reasonOf: (error) =>
-        error instanceof ApiFailure
-          ? error.message
-          : error instanceof Error
+        error instanceof Error && error.message === 'offline.photo_budget_full'
+          ? tq('photo.budget_full')
+          : error instanceof ApiFailure
             ? error.message
-            : t('upload_failed'),
+            : error instanceof Error
+              ? error.message
+              : t('upload_failed'),
     }),
-    [t],
+    [t, tq],
   );
 
   if (sent)

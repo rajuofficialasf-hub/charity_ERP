@@ -14,6 +14,7 @@ import bn_nav from './messages/bn/nav.json' with { type: 'json' };
 import bn_notifications from './messages/bn/notifications.json' with { type: 'json' };
 import bn_projects from './messages/bn/projects.json' with { type: 'json' };
 import bn_registration from './messages/bn/registration.json' with { type: 'json' };
+import bn_sync from './messages/bn/sync.json' with { type: 'json' };
 import bn_ui from './messages/bn/ui.json' with { type: 'json' };
 
 /** The bn catalogue is the source language; its shape types every key (I18N 3.4). */
@@ -32,6 +33,7 @@ export const bn = {
   notifications: bn_notifications,
   projects: bn_projects,
   registration: bn_registration,
+  sync: bn_sync,
   ui: bn_ui,
 };
 

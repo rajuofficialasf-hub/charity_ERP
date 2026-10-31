@@ -230,6 +230,7 @@ describe('the outbox', () => {
       size: 10,
       attempts: 0,
       nextRetryAt: null,
+      failureCode: null,
       createdAt: T0,
       iv: new Uint8Array(12),
       data: new ArrayBuffer(0),

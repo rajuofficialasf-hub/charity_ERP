@@ -63,10 +63,18 @@ export function UploadField({
         { id: temp, name: file.name, state: 'uploading', removable: false },
       ]);
       adapter.upload(file, fieldKey).then(
-        ({ fileId }) =>
+        ({ fileId, previewUrl }) =>
           update((list) =>
             list.map((i) =>
-              i.id === temp ? { ...i, id: fileId, state: 'ready' as const, removable: true } : i,
+              i.id === temp
+                ? {
+                    ...i,
+                    id: fileId,
+                    state: 'ready' as const,
+                    removable: true,
+                    ...(previewUrl ? { previewUrl } : {}),
+                  }
+                : i,
             ),
           ),
         (reason: unknown) =>

@@ -1,0 +1,8 @@
+{
+  "photo": {
+    "queued": "The photo is kept on this phone; it goes once the application has reached the office.",
+    "budget_warn": "Photos waiting on this phone take {used} MB of {budget} MB. Sync now.",
+    "budget_full": "No room left for photos on this phone ({budget} MB). Free the space of the photos already sent, or sync first.",
+    "free_space": "Free space"
+  }
+}

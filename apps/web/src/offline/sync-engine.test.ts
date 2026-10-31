@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiError, ME, pair } from '../../test/auth';
 import { EMPTY_SNAPSHOT } from '../../test/msw/handlers';
 import { server } from '../../test/msw/server';
+import { fakeUploadServer } from '../../test/upload-server';
 import { login, resetClientForTests } from '../lib/api';
 import { closeOfflineDb, OFFLINE_DB_NAME, offlineDb, type OutboxRow } from './db';
 import { currentDataKey, forgetKeys } from './keys';
@@ -15,6 +16,7 @@ import { type EngineDeps, SyncEngine, type SyncStatus } from './sync-engine';
 const SESSION = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4b01';
 const PROJECT = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4c01';
 const VERSION = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4d01';
+const APP = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4e01';
 const T0 = new Date('2026-10-31T10:00:00Z');
 const tokenOf = (sid: string) => `h.${btoa(JSON.stringify({ sid }))}.s`;
 const volunteer = { ...ME, kind: 'volunteer' as const };
@@ -466,5 +468,44 @@ describe('the sync engine', () => {
     expect(statuses.at(-1)?.state).toBe('signed_out');
     expect(await offlineDb().outbox.get(record.clientUuid)).toMatchObject({ state: 'pending' });
     expect(await offlineDb().meta.get(META.inflight)).toBeDefined();
+  });
+
+  it('uploads a queued photo after its record has its server id, resuming a dropped part', async () => {
+    const fake = fakeUploadServer();
+    fake.dropOnce.add(2);
+    server.use(acceptAll([], () => ({ serverId: APP })));
+    const world = fakeDeps();
+    const engine = new SyncEngine({ ...world.deps, sleep: async () => undefined });
+    const record = await draft(T0);
+    const { add } = await import('./photo-queue');
+    const photoId = await add({
+      clientUuid: record.clientUuid,
+      slot: 'house_photo',
+      blob: new Blob([new Uint8Array(262_144 * 2 + 100)], { type: 'image/jpeg' }),
+      facts: {
+        name: 'house.jpg',
+        mime: 'image/jpeg',
+        source: 'camera',
+        capturedAt: '2026-10-31T09:00:00.000Z',
+      },
+    });
+    // nothing goes before the record: the photo waits for the server id
+    expect(fake.creates).toHaveLength(0);
+    await engine.flush('manual');
+    expect(await row(record.clientUuid)).toMatchObject({ state: 'synced', serverId: APP });
+    expect(fake.creates[0]).toMatchObject({
+      clientUuid: photoId,
+      kind: 'form_photo',
+      entityType: 'application',
+      entityId: APP,
+      slot: 'house_photo',
+      source: 'camera',
+      capturedAt: '2026-10-31T09:00:00.000Z',
+      recordCreatedAt: T0.toISOString(),
+    });
+    // the dropped part went again, the rest followed, and the upload finished
+    expect(fake.parts).toEqual([1, 2, 2, 3]);
+    expect(fake.finalized).toBe(1);
+    expect(await offlineDb().photos.get(photoId)).toMatchObject({ state: 'uploaded' });
   });
 });

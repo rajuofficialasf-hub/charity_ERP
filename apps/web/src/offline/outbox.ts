@@ -360,6 +360,7 @@ export async function purge(now: Date): Promise<number> {
         now,
       )
     ) {
+      await db.photos.where('clientUuid').equals(row.clientUuid).delete();
       await db.outbox.delete(row.clientUuid);
       removed += 1;
     }

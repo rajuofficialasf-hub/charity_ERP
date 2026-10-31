@@ -16,6 +16,7 @@ import type { MyProject, MyProjectDetail } from '../features/projects/my-project
 import { offlineDb, type OutboxRow } from './db';
 import { currentDataKey } from './keys';
 import { enqueue, readSecret, remove } from './outbox';
+import * as photoQueue from './photo-queue';
 import {
   cachedApplication,
   cachedApplications,
@@ -144,6 +145,8 @@ export async function saveDraft(input: {
   const server =
     input.server ??
     (own?.state === 'synced' && own.serverId ? { id: own.serverId, etag: null } : null);
+  // a photo still on the phone is a pending slot for the server, never a file id it cannot know
+  const answers = await photoQueue.markPending(input.answers);
   if (server) {
     // one update record per server draft: a second save while it waits is its new version
     const open = await openUpdateOf(server.id);
@@ -154,7 +157,7 @@ export async function saveDraft(input: {
       formVersionId: input.formVersionId,
       target: server.id,
       baseVersion: server.etag,
-      payload: { answers: input.answers },
+      payload: { answers },
     });
     flushSoon();
     return { clientUuid: row.clientUuid, serverId: server.id };
@@ -165,7 +168,7 @@ export async function saveDraft(input: {
     projectId: input.projectId,
     formVersionId: input.formVersionId,
     target: null,
-    payload: { answers: input.answers },
+    payload: { answers },
   });
   flushSoon();
   return { clientUuid: row.clientUuid, serverId: null };
@@ -255,6 +258,22 @@ export async function settle(clientUuid: string): Promise<SyncInfo | null> {
   return row ? infoOf(row) : null;
 }
 
+/** Keeps a photo on the phone for a record the server does not know yet, and gives its preview. */
+export async function queuePhoto(input: {
+  clientUuid: string;
+  slot: string;
+  blob: Blob;
+  facts: photoQueue.PhotoFacts;
+}): Promise<{ id: string; previewUrl: string | null }> {
+  const id = await photoQueue.add(input);
+  return { id, previewUrl: await photoQueue.previewUrl(id) };
+}
+
+/** What the photo queue holds against its budget. */
+export const photoUsage = () => photoQueue.usage();
+/** Drops the photos the server holds already. */
+export const freePhotoSpace = () => photoQueue.freeSpace();
+
 /** The engine's status as it changes, for the screens that show the badges. */
 export function subscribe(listener: (status: SyncStatus) => void): () => void {
   return syncEngine.subscribe(listener);
@@ -277,7 +296,13 @@ async function draftOf(row: OutboxRow | undefined): Promise<LocalDraft | null> {
 async function localDrafts(): Promise<LocalDraft[]> {
   const rows = await offlineDb().outbox.toArray();
   const drafts = await Promise.all(rows.map(draftOf));
-  return drafts.filter((d): d is LocalDraft => d !== null);
+  const photos = await photoQueue.waitingByRecord();
+  return drafts
+    .filter((d): d is LocalDraft => d !== null)
+    .map((d) => ({
+      ...d,
+      sync: { ...d.sync, photosPending: d.sync.photosPending || photos.has(d.clientUuid) },
+    }));
 }
 
 /** The server's id behind an address that still names the phone's draft; any other id as it is. */
@@ -291,11 +316,16 @@ export async function syncOfServerRecords(): Promise<Map<string, SyncInfo>> {
   const rows = (await offlineDb().outbox.toArray())
     .filter((r) => r.state !== 'synced' || r.photosPending)
     .sort((a, b) => a.updatedAt.getTime() - b.updatedAt.getTime());
+  const photos = await photoQueue.waitingByRecord();
   const map = new Map<string, SyncInfo>();
   for (const row of rows) {
     const id = row.serverId ?? row.target;
     if (id) map.set(id, infoOf(row));
   }
+  // a synced record whose photos still wait shows that too
+  for (const row of await offlineDb().outbox.toArray())
+    if (row.serverId && photos.has(row.clientUuid) && !map.has(row.serverId))
+      map.set(row.serverId, { ...infoOf(row), photosPending: true });
   return map;
 }
 

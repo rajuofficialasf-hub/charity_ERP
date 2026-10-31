@@ -40,6 +40,7 @@ import {
   storeDetail,
 } from './snapshot';
 import type { Sealed } from './crypto';
+import * as photoQueue from './photo-queue';
 import { locationsAll, postBatch, pullSnapshot } from './sync-api';
 
 /**
@@ -70,6 +71,8 @@ export interface EngineDeps {
   clearTimer: (handle: unknown) => void;
   random: () => number;
   online: () => boolean;
+  /** The pause between the retries of an upload's part; the tests give none. */
+  sleep?: (ms: number) => Promise<void>;
 }
 
 export type FlushReason =
@@ -239,6 +242,11 @@ export class SyncEngine {
       let open = true;
       if (inflight && (await this.inFlightDue(inflight))) open = await this.send(inflight);
       if (open) for (const batch of await this.batches()) if (!(await this.send(batch))) break;
+      // the text first, then the photos of the records the server knows
+      await photoQueue.uploadDue(this.deps.now, {
+        random: this.deps.random,
+        ...(this.deps.sleep ? { sleep: this.deps.sleep } : {}),
+      });
       await this.snapshotIfDue(options.snapshot === true || reason === 'manual');
       await this.hydrateRecords();
       await purge(this.deps.now());
@@ -445,7 +453,10 @@ export class SyncEngine {
     if (this.retryTimer !== null) this.deps.clearTimer(this.retryTimer);
     this.retryTimer = null;
     if (!this.started) return;
-    const at = await nextDue();
+    const texts = await nextDue();
+    const photos = await photoQueue.nextDue();
+    const at =
+      texts && photos ? new Date(Math.min(texts.getTime(), photos.getTime())) : (texts ?? photos);
     if (!at) return;
     const wait = Math.max(0, at.getTime() - this.deps.now().getTime());
     // a record due now without a timer waits for the next trigger: the flush just ran

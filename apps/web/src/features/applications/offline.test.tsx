@@ -58,7 +58,10 @@ const form = {
   status: 'published',
   publishedAt: '2026-10-01T00:00:00Z',
   ...definition(
-    section('note', [field('note', 'long_text', { label: { bn: 'মন্তব্য', en: 'Note' } })]),
+    section('note', [
+      field('note', 'long_text', { label: { bn: 'মন্তব্য', en: 'Note' } }),
+      field('house_photo', 'photo', { label: { bn: 'ঘরের ছবি', en: 'House photo' } }),
+    ]),
   ),
 };
 /** A complete set of answers, as a draft the volunteer finished holds. */
@@ -281,7 +284,8 @@ describe('applications without network', () => {
       initialPath: '/my-applications?tab=draft',
     });
     const list = await screen.findByRole('list', {}, { timeout: 5000 });
-    expect(within(list).getByText('ফোনের খসড়া')).toBeInTheDocument();
+    // what the phone holds arrives beside the list once the store has answered
+    expect(await within(list).findByText('ফোনের খসড়া', {}, { timeout: 5000 })).toBeInTheDocument();
     expect(within(list).getByText('পাঠানোর অপেক্ষায়')).toBeInTheDocument();
     // the server's own draft comes from the phone's data set
     expect(within(list).getByText('নমুনা উপকারভোগী')).toBeInTheDocument();
@@ -524,4 +528,43 @@ describe('applications without network', () => {
       }),
     ).rejects.toThrow('offline.store_unavailable');
   });
+
+  it('keeps a photo taken offline on the phone, shows its preview, and marks its slot as pending', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview');
+    refreshAs(VOLUNTEER);
+    await seedPhone();
+    const store = await import('../../offline/applications-store');
+    onLine = false;
+    await store.saveDraft({
+      projectId: PROJECT,
+      formVersionId: VERSION,
+      clientUuid: LOCAL,
+      answers: answers('অফলাইন উপকারভোগী', 'প্রথম মন্তব্য'),
+    });
+    renderApp(<ApplicationFormPage />, 'bn', {
+      path: '/my-applications/:applicationId/edit',
+      initialPath: `/my-applications/${LOCAL}/edit`,
+    });
+    const [input] = await screen.findAllByLabelText('গ্যালারি থেকে নিন', {}, { timeout: 5000 });
+    await user.upload(input!, new File(['jpeg'], 'house.jpg', { type: 'image/jpeg' }));
+    await waitFor(async () => expect(await offlineDb().photos.count()).toBe(1));
+    const photo = (await offlineDb().photos.toArray())[0]!;
+    expect(photo).toMatchObject({ clientUuid: LOCAL, slot: 'house_photo', state: 'pending' });
+    // the preview is decoration beside the file's name, so it carries no name of its own
+    await waitFor(() => expect(document.querySelector('img[src="blob:preview"]')).not.toBeNull());
+    await user.click(screen.getByRole('button', { name: 'অফিসে পাঠান' }));
+    expect(await screen.findByText('ফোনে জমা আছে', {}, { timeout: 5000 })).toBeInTheDocument();
+    const draft = (await offlineDb().outbox.get(LOCAL))!;
+    expect(await readSecret(draft)).toMatchObject({
+      payload: {
+        answers: expect.arrayContaining([
+          expect.objectContaining({
+            fieldKey: 'house_photo',
+            value: { pendingPhoto: true, slot: 'house_photo' },
+          }),
+        ]),
+      },
+    });
+  }, 20_000);
 });
