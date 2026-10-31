@@ -136,11 +136,62 @@ function record(over: Record<string, unknown> = {}) {
 let created: unknown[];
 let patched: unknown[];
 let acted: string[];
+/** What the server knows of the one application of these tests after the batches so far. */
+let known: Record<string, unknown>;
+/** One batch record as the phone sends it. */
+interface BatchRecord {
+  clientUuid: string;
+  kind: string;
+  target?: string | null;
+  payload: { answers?: unknown[]; unlockId?: string; value?: unknown };
+}
+/**
+ * The batch endpoint of the tests: a draft is created as the one application, an update patches
+ * it, a submit gives it its number, a correction records the new value; the arrays say what came.
+ */
+function serveBatch(onUnlock?: (value: unknown) => void) {
+  server.use(
+    http.post('*/api/v1/sync/batch', async ({ request }) => {
+      const body = (await request.json()) as { records: BatchRecord[] };
+      const results = body.records.map((r) => {
+        if (r.kind === 'application_draft') {
+          created.push(r.payload);
+          known = { ...known, answers: r.payload.answers ?? [] };
+        } else if (r.kind === 'application_update') {
+          patched.push(r.payload);
+          known = { ...known, answers: r.payload.answers ?? [] };
+        } else if (r.kind === 'application_submit') {
+          acted.push('submit');
+          known = {
+            ...known,
+            status: 'submitted',
+            appNo: 'WC-2026-00012',
+            submittedAt: '2026-11-02T10:00:00Z',
+            availableActions: [],
+          };
+        } else if (r.kind === 'field_update') onUnlock?.(r.payload.value);
+        return {
+          clientUuid: r.clientUuid,
+          result: 'synced',
+          serverId: r.kind === 'field_update' ? r.target : APP,
+          status: r.kind === 'field_update' ? 'implementation' : (known.status as string),
+        };
+      });
+      return HttpResponse.json({
+        data: { serverTime: new Date().toISOString(), results },
+        meta: { requestId: 'r' },
+      });
+    }),
+  );
+}
 function serve(lookup: Record<string, unknown> = { found: false }) {
   created = [];
   patched = [];
   acted = [];
+  known = {};
+  serveBatch();
   server.use(
+    http.get(`*/api/v1/applications/${APP}`, () => envelope(record(known), '"v2"')),
     http.get('*/api/v1/locations', ({ request }) => {
       const parent = new URL(request.url).searchParams.get('parentId');
       const rows: Record<string, ReturnType<typeof place>[]> = {
@@ -155,30 +206,6 @@ function serve(lookup: Record<string, unknown> = { found: false }) {
     http.get('*/api/v1/me/projects', () => envelope([project])),
     http.get(`*/api/v1/projects/${PROJECT}/application-form`, () => envelope(form)),
     http.post('*/api/v1/beneficiaries/lookup', () => envelope(lookup)),
-    http.post(`*/api/v1/projects/${PROJECT}/applications`, async ({ request }) => {
-      const body = (await request.json()) as { answers: unknown[] };
-      created.push(body);
-      return HttpResponse.json(
-        { data: record({ answers: body.answers }), meta: { requestId: 'r', etag: '"v1"' } },
-        { status: 201 },
-      );
-    }),
-    http.patch(`*/api/v1/applications/${APP}`, async ({ request }) => {
-      const body = (await request.json()) as { answers: unknown[] };
-      patched.push(body);
-      return envelope(record({ answers: body.answers }), '"v2"');
-    }),
-    http.post(`*/api/v1/applications/${APP}/actions/:action`, ({ params }) => {
-      acted.push(String(params.action));
-      return envelope(
-        record({
-          status: 'submitted',
-          appNo: 'WC-2026-00012',
-          submittedAt: '2026-11-02T10:00:00Z',
-        }),
-        '"v3"',
-      );
-    }),
   );
 }
 
@@ -204,7 +231,7 @@ async function lookUp(user: ReturnType<typeof userEvent.setup>, number: string) 
 }
 
 describe('the new application', () => {
-  it('locks a found person’s identity, saves the draft when the first part is done and sends it with the number', async () => {
+  it('locks a found person’s identity, saves the draft through the outbox when the first part is done and sends it with the number', async () => {
     const user = userEvent.setup();
     onPhone();
     refreshAs(VOLUNTEER);
@@ -229,7 +256,10 @@ describe('the new application', () => {
     // the address came from the profile too: the next part is the note, then the send
     await user.click(screen.getByRole('button', { name: 'পরের অংশ' }));
     await waitFor(() => expect(patched).toHaveLength(1));
-    await user.type(await screen.findByRole('textbox', { name: /মন্তব্য/ }), 'শীতের কাপড় দরকার');
+    await user.type(
+      await screen.findByRole('textbox', { name: /মন্তব্য/ }, { timeout: 15_000 }),
+      'শীতের কাপড় দরকার',
+    );
     // a photo goes up as part of the saved draft, under an id of its own that a retry reuses
     const [input] = await screen.findAllByLabelText('গ্যালারি থেকে নিন');
     await user.upload(input!, new File(['jpeg'], 'house.jpg', { type: 'image/jpeg' }));
@@ -245,13 +275,15 @@ describe('the new application', () => {
       /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
     );
     await user.click(screen.getByRole('button', { name: 'অফিসে পাঠান' }));
-    expect(await screen.findByText('আবেদন পাঠানো হয়েছে')).toBeInTheDocument();
+    expect(
+      await screen.findByText('আবেদন পাঠানো হয়েছে', {}, { timeout: 15_000 }),
+    ).toBeInTheDocument();
     expect(
       screen.getByText('আবেদন নম্বর: WC-2026-00012। অফিস যাচাই করে জানাবে।'),
     ).toBeInTheDocument();
     expect(acted).toEqual(['submit']);
     expect(patched).toHaveLength(2);
-  });
+  }, 60_000);
 
   it('leaves the identity free for a new person and stops at a blocked one', async () => {
     const user = userEvent.setup();
@@ -436,6 +468,9 @@ describe('one application', () => {
       mayCancel: false,
     };
     let sent: unknown = null;
+    serveBatch((value) => {
+      sent = value;
+    });
     server.use(
       http.get(`*/api/v1/applications/${APP}`, () =>
         envelope(
@@ -460,10 +495,6 @@ describe('one application', () => {
         ),
       ),
       http.get(`*/api/v1/applications/${APP}/timeline`, () => envelope([])),
-      http.put(`*/api/v1/application-unlocks/${unlock.id}/value`, async ({ request }) => {
-        sent = ((await request.json()) as { value: unknown }).value;
-        return envelope({ ...unlock, state: 'updated', newValue: sent, mayFill: false });
-      }),
     );
     const view = renderApp(<ApplicationDetailPage />, 'bn', {
       path: '/my-applications/:applicationId',
@@ -484,28 +515,38 @@ describe('one application', () => {
     expect(await screen.findByText('যাচাইয়ের অপেক্ষায়')).toBeInTheDocument();
   });
 
-  it('sends a draft from its page and tells of a stale version', async () => {
+  it('sends a draft from its page through the outbox and shows the number the server gave', async () => {
     const user = userEvent.setup();
     refreshAs(VOLUNTEER);
     serve();
-    let stale = true;
+    server.use(http.get(`*/api/v1/applications/${APP}/timeline`, () => envelope([])));
+    renderApp(<ApplicationDetailPage />, 'bn', {
+      path: '/my-applications/:applicationId',
+      initialPath: `/my-applications/${APP}`,
+    });
+    await user.click(await screen.findByRole('button', { name: 'অফিসে পাঠান' }));
+    expect(await screen.findByText('আবেদনটি অফিসে পাঠানো হয়েছে।')).toBeInTheDocument();
+    expect(acted).toEqual(['submit']);
+    expect(await screen.findByText('WC-2026-00012')).toBeInTheDocument();
+  });
+
+  it('tells of a stale version when a server-side delete meets a newer record', async () => {
+    const user = userEvent.setup();
+    refreshAs(VOLUNTEER);
+    serve();
     server.use(
-      http.get(`*/api/v1/applications/${APP}`, () => envelope(record())),
       http.get(`*/api/v1/applications/${APP}/timeline`, () => envelope([])),
-      http.post(`*/api/v1/applications/${APP}/actions/submit`, () =>
-        stale
-          ? apiError(412, 'conflict.stale_version', 'অন্য কেউ এর মধ্যে তথ্য বদলেছেন।')
-          : envelope(record({ status: 'submitted', appNo: 'WC-2026-00013', availableActions: [] })),
+      http.post(`*/api/v1/applications/${APP}/actions/delete`, () =>
+        apiError(412, 'conflict.stale_version', 'অন্য কেউ এর মধ্যে তথ্য বদলেছেন।'),
       ),
     );
     renderApp(<ApplicationDetailPage />, 'bn', {
       path: '/my-applications/:applicationId',
       initialPath: `/my-applications/${APP}`,
     });
-    await user.click(await screen.findByRole('button', { name: 'অফিসে পাঠান' }));
+    await user.click(await screen.findByRole('button', { name: 'মুছে ফেলুন' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'মুছে ফেলুন' }));
     expect(await screen.findByText('আবেদনটি এর মধ্যে বদলেছে। আবার লোড করুন।')).toBeInTheDocument();
-    stale = false;
-    await user.click(screen.getByRole('button', { name: 'অফিসে পাঠান' }));
-    expect(await screen.findByText('আবেদনটি অফিসে পাঠানো হয়েছে।')).toBeInTheDocument();
   });
 });

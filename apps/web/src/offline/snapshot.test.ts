@@ -103,10 +103,11 @@ describe('the cached data set', () => {
     const stored = (await db.applications.get(A1))!;
     expect(JSON.stringify({ ...stored, data: undefined })).not.toContain(NID);
     expect(
-      await openRow<ApplicationSummary>((await import('./keys')).currentDataKey()!, stored),
-    ).toMatchObject({
-      beneficiaryName: `নাম ${NID}`,
-    });
+      await openRow<{ summary: ApplicationSummary }>(
+        (await import('./keys')).currentDataKey()!,
+        stored,
+      ),
+    ).toMatchObject({ summary: { beneficiaryName: `নাম ${NID}` }, detail: null });
     expect((await cachedApplications()).map((a) => a.id).sort()).toEqual([A1, A2]);
     expect(await cursor()).toEqual({ since: '2026-10-31T09:59:00.000Z', afterId: null });
     expect(await metaString(META.pulledAt)).toBe('2026-10-31T10:00:05.000Z');

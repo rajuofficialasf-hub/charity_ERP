@@ -29,6 +29,15 @@ export function AddressNames({ address }: { address: AddressIds }) {
   );
 }
 
+/** The children of a location from the server, or from the phone's locations master when the network is away. */
+const childrenOf = (parentId: string | undefined) =>
+  locations(parentId).catch(async (error: unknown) => {
+    const { cachedChildren } = await import('../offline/snapshot');
+    const cached = await cachedChildren(parentId ?? null).catch(() => null);
+    if (cached) return cached;
+    throw error;
+  });
+
 /**
  * The name of one location, read from its parent's public list (the cache the address cascade
  * of the registration form uses); `parentId` undefined means the divisions.
@@ -37,7 +46,7 @@ export function useLocationName(parentId: string | null | undefined, id: string 
   const enabled = parentId !== null && id !== null;
   const list = useQuery({
     queryKey: ['locations', parentId ?? 'divisions'],
-    queryFn: () => locations(parentId ?? undefined),
+    queryFn: () => childrenOf(parentId ?? undefined),
     enabled,
     staleTime: 60 * 60_000,
   });

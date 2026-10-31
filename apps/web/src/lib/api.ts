@@ -116,6 +116,8 @@ function withinStoreWait<T>(work: Promise<T>): Promise<T | null> {
  * what it cannot read.
  */
 async function openStoreKeys(pair: TokenPair): Promise<void> {
+  // the store is the volunteer's: an official works online and keeps nothing on the device
+  if (pair.me.kind !== 'volunteer') return;
   const sessionId = sessionIdOf(pair.accessToken);
   if (!sessionId) return;
   try {

@@ -13,11 +13,12 @@ import {
 } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../lib/api';
+import type { OwnRecord } from '../../offline/applications-store';
 import { AnswerList } from './AnswerList';
 import { ApplicationTimeline } from './ApplicationTimeline';
 import {
@@ -28,42 +29,96 @@ import {
   timeline,
 } from './applications-api';
 import { toneOf } from './status';
+import { SyncBadge } from './SyncBadge';
 import { UnlockedAnswer } from './UnlockedAnswer';
+import { loadStore } from './use-local-records';
 import './applications.css';
 
 /**
  * One of the volunteer's applications (docs/ui/SCREENS.md, "My applications and application detail"): the number and the state,
  * the answers without the office's section, the photos, the steps without the office's names,
  * the message the office wrote at a rejection, and what the person may do now: edit or send a
- * draft, delete one not yet reviewed.
+ * draft, delete one not yet reviewed. The record comes from the server while there is network
+ * and from the phone otherwise; a send or a correction goes through the outbox either way.
  */
 export function ApplicationDetailPage() {
   const t = useTranslations('applications.detail');
   return <AccountPage title={() => t('title')}>{() => <Detail />}</AccountPage>;
 }
 
+/** The server's record, or the one the phone holds when the network is away or the draft is the phone's own. */
+const recordOf = (applicationId: string) =>
+  application(applicationId)
+    .then((r) => ({ data: r.data as OwnRecord, meta: r.meta }))
+    .catch(async (error: unknown) => {
+      const store = await loadStore();
+      const cached = await store.cachedRecord(applicationId).catch(() => null);
+      if (cached) return { data: cached, meta: { etag: cached.etag } };
+      throw error;
+    });
+
 function Detail() {
   const { applicationId = '' } = useParams();
   const t = useTranslations('applications');
+  const te = useTranslations('errors');
   const locale = useLocale() as Locale;
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const one = useQuery({
     queryKey: applicationKey(applicationId),
-    queryFn: () => application(applicationId),
+    queryFn: () => recordOf(applicationId),
   });
   const steps = useQuery({
     queryKey: [...applicationKey(applicationId), 'timeline'],
     queryFn: () => timeline(applicationId),
+    enabled: one.data?.data.local !== true,
   });
-  const act = useMutation({
-    mutationFn: (action: 'submit' | 'delete') =>
-      actOn(applicationId, one.data?.meta.etag ?? '', action),
-    onSuccess: async (_, action) => {
-      setNotice(action === 'submit' ? t('detail.sent') : t('detail.deleted'));
-      await queryClient.invalidateQueries({ queryKey: applicationKey(applicationId) });
-      await queryClient.invalidateQueries({ queryKey: MY_APPLICATIONS_KEY });
+  const reasonOf = (code: string | null) =>
+    code && te.has(code as never) ? te(code as never) : t('detail.action_failed');
+  const refresh = async () => {
+    await queryClient.invalidateQueries({ queryKey: applicationKey(applicationId) });
+    await queryClient.invalidateQueries({ queryKey: MY_APPLICATIONS_KEY });
+  };
+  /** The send goes through the outbox; with network the answer comes back at once. */
+  const submit = useMutation({
+    mutationFn: async () => {
+      const a = one.data!.data;
+      const store = await loadStore();
+      const id = await store.sendToOffice({
+        projectId: a.projectId,
+        formVersionId: a.formVersionId,
+        draftClientUuid: a.local ? a.id : null,
+        serverId: a.local ? null : a.id,
+      });
+      if (!navigator.onLine) return 'queued' as const;
+      const state = await store.settle(id);
+      if (state?.state === 'failed') throw new Error(reasonOf(state.failureCode));
+      return state?.state === 'synced' ? ('sent' as const) : ('queued' as const);
+    },
+    onSuccess: async (outcome) => {
+      setNotice(outcome === 'sent' ? t('detail.sent') : t('sync.saved_on_phone'));
+      await refresh();
+    },
+    onError: (error) =>
+      setNotice(error instanceof Error ? error.message : t('detail.action_failed')),
+  });
+  /** A draft of the phone's own is dropped there; the server's goes through its action. */
+  const remove = useMutation({
+    mutationFn: async () => {
+      const a = one.data!.data;
+      if (a.local) {
+        const store = await loadStore();
+        await store.removeLocal(a.id);
+        return;
+      }
+      await actOn(applicationId, one.data?.meta.etag ?? '', 'delete');
+    },
+    onSuccess: async () => {
+      setNotice(t('detail.deleted'));
+      await refresh();
+      if (one.data?.data.local) void navigate('/my-applications?tab=draft');
     },
     onError: async (error) => {
       if (error instanceof ApiFailure && error.status === 412) {
@@ -111,13 +166,13 @@ function Detail() {
               <Button
                 variant="primary"
                 size="sm"
-                onPress={() => act.mutate('submit')}
-                loading={act.isPending}
+                onPress={() => submit.mutate()}
+                loading={submit.isPending}
               >
                 {t('detail.submit')}
               </Button>
             ) : null}
-            {may('delete') ? (
+            {may('delete') || a.local ? (
               <Button variant="danger" size="sm" onPress={() => setConfirmDelete(true)}>
                 {t('detail.delete')}
               </Button>
@@ -130,7 +185,10 @@ function Detail() {
           <dd>{a.appNo ?? t('list.no_number')}</dd>
           <dt>{t('detail.status')}</dt>
           <dd>
-            <Badge tone={toneOf(a.status)} label={status} />
+            <Stack direction="row" gap={1} wrap>
+              <Badge tone={toneOf(a.status)} label={status} />
+              <SyncBadge sync={a.sync} />
+            </Stack>
           </dd>
           {a.submittedAt ? (
             <>
@@ -158,8 +216,21 @@ function Detail() {
                   key={unlock.id}
                   unlock={unlock}
                   field={field}
+                  fill={async (value) => {
+                    const store = await loadStore();
+                    const id = await store.fillUnlock({
+                      projectId: a.projectId,
+                      formVersionId: a.formVersionId,
+                      unlockId: unlock.id,
+                      value,
+                    });
+                    if (!navigator.onLine) return 'queued';
+                    const state = await store.settle(id);
+                    if (state?.state === 'failed') throw new Error(reasonOf(state.failureCode));
+                    return state?.state === 'synced' ? 'sent' : 'queued';
+                  }}
                   onSent={async () => {
-                    setNotice(t('unlock.sent'));
+                    setNotice(navigator.onLine ? t('unlock.sent') : t('sync.saved_on_phone'));
                     await queryClient.invalidateQueries({
                       queryKey: applicationKey(applicationId),
                     });
@@ -173,15 +244,17 @@ function Detail() {
       <Card title={t('detail.answers')} headingLevel={2}>
         <AnswerList form={a.form} answers={a.answers} />
       </Card>
-      <Card title={t('detail.timeline')} headingLevel={2}>
-        {steps.data ? (
-          <ApplicationTimeline entries={steps.data} />
-        ) : steps.error ? (
-          <ErrorState title={t('detail.load_failed')} onRetry={() => void steps.refetch()} />
-        ) : (
-          <Skeleton shape="text" />
-        )}
-      </Card>
+      {a.local ? null : (
+        <Card title={t('detail.timeline')} headingLevel={2}>
+          {steps.data ? (
+            <ApplicationTimeline entries={steps.data} />
+          ) : steps.error ? (
+            <ErrorState title={t('detail.load_failed')} onRetry={() => void steps.refetch()} />
+          ) : (
+            <Skeleton shape="text" />
+          )}
+        </Card>
+      )}
       <ConfirmDialog
         isOpen={confirmDelete}
         tone="danger"
@@ -189,7 +262,7 @@ function Detail() {
         confirmLabel={t('detail.delete')}
         onConfirm={() => {
           setConfirmDelete(false);
-          act.mutate('delete');
+          remove.mutate();
         }}
         onCancel={() => setConfirmDelete(false)}
       />

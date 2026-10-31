@@ -2,7 +2,10 @@ import '@testing-library/jest-dom/vitest';
 import 'fake-indexeddb/auto';
 import { webcrypto } from 'node:crypto';
 import { cleanup } from '@testing-library/react';
+import Dexie from 'dexie';
 import { afterAll, afterEach, beforeAll } from 'vitest';
+import { closeOfflineDb, OFFLINE_DB_NAME } from '../src/offline/db';
+import { forgetKeys } from '../src/offline/keys';
 import { bn, en } from '@css/shared/i18n';
 import { primeMessages } from '../src/i18n/locale';
 import { server } from './msw/server';
@@ -18,8 +21,12 @@ if (!globalThis.crypto?.subtle)
 
 // Every network call in a component test must hit an MSW handler; anything else fails the test.
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
-afterEach(() => {
+afterEach(async () => {
   cleanup();
   server.resetHandlers();
+  // the phone's store of one test never reaches the next
+  forgetKeys();
+  closeOfflineDb();
+  await Dexie.delete(OFFLINE_DB_NAME);
 });
 afterAll(() => server.close());

@@ -59,6 +59,8 @@ export function LookupField({
   const [error, setError] = useState<string | undefined>();
   const [mobile, setMobile] = useState('');
   const [asked, setAsked] = useState<Asked | null>(null);
+  // without network the number is taken as a new person's; the office matches it when it arrives
+  const [offline, setOffline] = useState(false);
   // the question in force, read by a response that may arrive after it changed
   const current = useRef<Asked | null>(null);
   const search = useMutation({
@@ -78,6 +80,7 @@ export function LookupField({
 
   const reset = () => {
     setError(undefined);
+    setOffline(false);
     if (!current.current) return;
     current.current = null;
     setAsked(null);
@@ -96,6 +99,12 @@ export function LookupField({
     current.current = q;
     setTyped(number);
     setAsked(q);
+    if (!navigator.onLine) {
+      setOffline(true);
+      search.reset();
+      onResult?.({ found: false }, null, number);
+      return;
+    }
     search.mutate(q);
   };
 
@@ -145,7 +154,12 @@ export function LookupField({
           {failure.message}
         </Alert>
       )}
-      {result && asked && (
+      {offline && asked && (
+        <Alert tone="info" live="status">
+          {t('offline_note')}
+        </Alert>
+      )}
+      {result && asked && !offline && (
         <Answer
           result={result}
           number={asked.number}

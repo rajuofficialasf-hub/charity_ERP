@@ -1,5 +1,10 @@
 import type { LocationView } from '@css/shared';
-import type { ApplicationSummary } from '../features/applications/applications-api';
+import type {
+  Application,
+  ApplicationForm,
+  ApplicationSummary,
+} from '../features/applications/applications-api';
+import type { Location } from '../features/registration/registration-api';
 import type { MyProject } from '../features/projects/my-projects-api';
 import type { Me } from '@css/shared/auth';
 import { type ApplicationRow, type FormRow, offlineDb, openRow, sealRow } from './db';
@@ -45,12 +50,13 @@ export async function applySnapshot(view: SnapshotView, at: Date): Promise<void>
       .filter((v) => projectIds.has(v.projectId))
       .map((v) => sealRow(key, { id: v.id, formId: v.formId, projectId: v.projectId }, v)),
   );
+  // a changed application comes as its summary; its answers are pulled again after
   const applicationRows: ApplicationRow[] = await Promise.all(
     view.applications.map((a) =>
       sealRow(
         key,
         { id: a.id, projectId: a.projectId, status: a.status, updatedAt: view.serverTime },
-        a,
+        { summary: a, detail: null } satisfies CachedApplication,
       ),
     ),
   );
@@ -115,9 +121,99 @@ export function openValue<T>(sealed: Sealed): Promise<T> {
   return openJson<T>(requireDataKey(), sealed);
 }
 
+/** What the sealed part of a cached application holds: the summary, and the record once pulled. */
+export interface CachedApplication {
+  summary: ApplicationSummary;
+  /** The record without its form (the form is in its own table), with the version it was read at. */
+  detail: (Omit<Application, 'form'> & { etag: string }) | null;
+}
+
 /** The cached own applications, opened with the data key. */
 export async function cachedApplications(): Promise<ApplicationSummary[]> {
   const key = requireDataKey();
   const rows = await offlineDb().applications.toArray();
-  return Promise.all(rows.map((r) => openRow<ApplicationSummary>(key, r)));
+  return (await Promise.all(rows.map((r) => openRow<CachedApplication>(key, r)))).map(
+    (c) => c.summary,
+  );
+}
+
+export async function cachedApplication(id: string): Promise<CachedApplication | null> {
+  const row = await offlineDb().applications.get(id);
+  return row ? openRow<CachedApplication>(requireDataKey(), row) : null;
+}
+
+/** The cached drafts whose answers the phone does not hold yet. */
+export async function draftsWithoutDetail(limit: number): Promise<string[]> {
+  const key = requireDataKey();
+  const rows = await offlineDb().applications.where('status').equals('draft').toArray();
+  const ids: string[] = [];
+  for (const row of rows) {
+    if (ids.length >= limit) break;
+    const cached = await openRow<CachedApplication>(key, row);
+    if (!cached.detail) ids.push(row.id);
+  }
+  return ids;
+}
+
+/** Keeps the record's answers beside its summary, for the open and the edit without network. */
+export async function storeDetail(detail: Omit<Application, 'form'>, etag: string): Promise<void> {
+  const db = offlineDb();
+  const key = requireDataKey();
+  const row = await db.applications.get(detail.id);
+  const summary: ApplicationSummary = row
+    ? (await openRow<CachedApplication>(key, row)).summary
+    : summaryOf(detail);
+  await db.applications.put(
+    await sealRow(
+      key,
+      {
+        id: detail.id,
+        projectId: detail.projectId,
+        status: detail.status,
+        updatedAt: row?.updatedAt ?? new Date().toISOString(),
+      },
+      { summary, detail: { ...detail, etag } } satisfies CachedApplication,
+    ),
+  );
+}
+
+function summaryOf(detail: Omit<Application, 'form'>): ApplicationSummary {
+  const { answers, form, unlocks, mayUnlock, ...rest } = detail as Omit<Application, 'form'> & {
+    form?: unknown;
+  };
+  void answers;
+  void form;
+  void unlocks;
+  void mayUnlock;
+  return rest as ApplicationSummary;
+}
+
+/** A cached form version with the project it belongs to, opened with the data key. */
+export async function cachedForm(
+  versionId: string,
+): Promise<(ApplicationForm & { projectId: string }) | null> {
+  const row = await offlineDb().forms.get(versionId);
+  return row ? openRow<ApplicationForm & { projectId: string }>(requireDataKey(), row) : null;
+}
+
+/** The cached form of a project, when one is held. */
+export async function cachedProjectForm(
+  projectId: string,
+): Promise<(ApplicationForm & { projectId: string }) | null> {
+  const row = await offlineDb().forms.where('projectId').equals(projectId).first();
+  return row ? openRow<ApplicationForm & { projectId: string }>(requireDataKey(), row) : null;
+}
+
+/** The cached children of a location (the divisions for null), as the address cascade reads them. */
+export async function cachedChildren(parentId: string | null): Promise<Location[] | null> {
+  const db = offlineDb();
+  if ((await db.locations.count()) === 0) return null;
+  const rows =
+    parentId === null
+      ? await db.locations.filter((l) => l.parentId === null).toArray()
+      : await db.locations.where('parentId').equals(parentId).toArray();
+  return rows
+    .filter((l) => l.active)
+    .sort((a, b) => a.code.localeCompare(b.code))
+    .map((l) => ({ id: l.id, name: l.name }));
 }

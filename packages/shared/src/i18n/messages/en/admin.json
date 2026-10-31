@@ -514,7 +514,8 @@
       "age": "Age",
       "village": "Village",
       "area": "Area",
-      "profile": "View profile"
+      "profile": "View profile",
+      "offline_note": "No network, so the check will happen later. The number is taken as a new person's; the office will match it when the application arrives."
     },
     "contact": {
       "title": "Edit contact details",

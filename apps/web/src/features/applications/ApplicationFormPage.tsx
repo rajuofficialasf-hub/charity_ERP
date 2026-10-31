@@ -20,25 +20,19 @@ import { FormRenderer, type Submission } from '../forms/FormRenderer';
 import type { UploadAdapter } from '../forms/upload-adapter';
 import { MY_PROJECTS_KEY, myProject } from '../projects/my-projects-api';
 import {
-  actOn,
   type Application,
   application,
   applicationForm,
   applicationKey,
-  createApplication,
   MY_APPLICATIONS_KEY,
-  updateApplication,
 } from './applications-api';
 import { answersOfNumber, answersOfProfile, lockedKeysOf } from './identity-answers';
+import { loadStore } from './use-local-records';
 import './applications.css';
 
 const PHOTO_TYPES = ['image/jpeg', 'image/png'];
 const PHOTO_MAX_BYTES = maxSizeOf('form_photo', 'image/jpeg') ?? 0;
 const TEAM_MEMBER = 'volunteer_team_member';
-
-/** The messages of a refused save by the question they name. */
-const namedOf = (error: ApiFailure): Record<string, string> =>
-  Object.fromEntries(error.details.filter((d) => d.path).map((d) => [d.path!, d.message] as const));
 
 /** The person the identity step settled on. */
 type Person =
@@ -49,6 +43,9 @@ type Person =
  * registration; a known person's identity fills in and locks; then the project's form part by
  * part, the draft saved as each part is done (so photos can join it), and "অফিসে পাঠান" at the
  * end, which answers with the number. A team member keeps the draft for the main volunteer.
+ * Every save goes through the phone's outbox, with or without network (docs/architecture/OFFLINE_SYNC.md,
+ * outbox pattern and record lifecycle): online the screen waits for the server's answer, offline it
+ * says the work is on the phone.
  */
 export function ApplicationFormPage() {
   const t = useTranslations('applications.new');
@@ -66,6 +63,23 @@ export function ApplicationFormPage() {
   );
 }
 
+/** The project's form from the server, or the cached one when the network is away. */
+const formOf = (projectId: string) =>
+  applicationForm(projectId).catch(async (error: unknown) => {
+    const store = await loadStore();
+    const cached = await store.cachedProjectForm(projectId).catch(() => null);
+    if (cached) return cached;
+    throw error;
+  });
+
+const projectOf = (projectId: string) =>
+  myProject(projectId).catch(async (error: unknown) => {
+    const store = await loadStore();
+    const cached = await store.cachedProject(projectId).catch(() => null);
+    if (cached) return cached;
+    throw error;
+  });
+
 function NewApplication({ me }: { me: Me }) {
   const { projectId = '' } = useParams();
   const t = useTranslations('applications.new');
@@ -73,11 +87,11 @@ function NewApplication({ me }: { me: Me }) {
   const locale = useLocale() as Locale;
   const project = useQuery({
     queryKey: [...MY_PROJECTS_KEY, projectId],
-    queryFn: () => myProject(projectId),
+    queryFn: () => projectOf(projectId),
   });
   const form = useQuery({
     queryKey: ['projects', projectId, 'application-form'],
-    queryFn: () => applicationForm(projectId),
+    queryFn: () => formOf(projectId),
     retry: false,
   });
   const [person, setPerson] = useState<Person | null>(null);
@@ -176,7 +190,14 @@ function EditDraft({ me, applicationId }: { me: Me; applicationId: string }) {
   const t = useTranslations('applications.detail');
   const one = useQuery({
     queryKey: applicationKey(applicationId),
-    queryFn: () => application(applicationId),
+    queryFn: () =>
+      application(applicationId).catch(async (error: unknown) => {
+        // the record the phone holds: a draft of its own, or the server's pulled earlier
+        const store = await loadStore();
+        const cached = await store.cachedRecord(applicationId).catch(() => null);
+        if (cached) return { data: cached, meta: { etag: cached.etag } };
+        throw error;
+      }),
   });
   const back = <Link to={`/my-applications/${applicationId}`}>{t('back')}</Link>;
   if (one.isPending) return <Skeleton shape="card" />;
@@ -187,7 +208,7 @@ function EditDraft({ me, applicationId }: { me: Me; applicationId: string }) {
         <ErrorState title={t('load_failed')} onRetry={() => void one.refetch()} />
       </Stack>
     );
-  const record = one.data.data;
+  const record = one.data.data as Application & { local?: boolean };
   return (
     <Stack gap={3}>
       {back}
@@ -199,11 +220,24 @@ function EditDraft({ me, applicationId }: { me: Me; applicationId: string }) {
         fillDefaults={false}
         lockedKeys={record.beneficiaryId ? lockedKeysOf(record.form) : new Set()}
         storageKey={`apply:${record.projectId}:${record.form.id}:${applicationId}`}
-        draft={{ id: applicationId, etag: one.data.meta.etag ?? '' }}
+        draft={{ id: applicationId, etag: one.data.meta.etag ?? '', local: record.local === true }}
       />
     </Stack>
   );
 }
+
+/** The draft as the screen tracks it: the phone's record, the server's id once known, and its version. */
+interface Draft {
+  clientUuid: string | null;
+  serverId: string | null;
+  etag: string | null;
+}
+
+/** What the end of the form shows: the record the office has, the draft kept for the lead, or the work waiting on the phone. */
+type Sent =
+  | { kind: 'sent'; record: Application | null; verification: string | null }
+  | { kind: 'kept' }
+  | { kind: 'queued' };
 
 /** The form itself, with the draft saved as each part is done and sent at the end. */
 function ApplicationForm({
@@ -224,60 +258,92 @@ function ApplicationForm({
   fillDefaults?: boolean;
   lockedKeys: ReadonlySet<string>;
   storageKey: string;
-  draft?: { id: string; etag: string };
+  draft?: { id: string; etag: string; local: boolean };
 }) {
   const t = useTranslations('applications.new');
+  const ts = useTranslations('applications.sync');
+  const te = useTranslations('errors');
   const queryClient = useQueryClient();
-  const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
-  const [sent, setSent] = useState<Application | null>(null);
+  const [sent, setSent] = useState<Sent | null>(null);
   const [saved, setSaved] = useState(false);
-  // the draft on the server, once the first part is done; the version for the next write
-  const draft = useRef<{ id: string; etag: string } | null>(existing ?? null);
+  const draft = useRef<Draft>(
+    existing
+      ? existing.local
+        ? { clientUuid: existing.id, serverId: null, etag: null }
+        : { clientUuid: null, serverId: existing.id, etag: existing.etag }
+      : { clientUuid: null, serverId: null, etag: null },
+  );
   // one upload id per question's file, kept across a retry so the same session resumes
   const uploadIds = useRef(new Map<string, string>());
   const teamMember = me.roles.includes(TEAM_MEMBER);
 
-  /** Creates the draft the first time, patches it after; answers the record and its version. */
+  /** The server's refusal of a record, in the reader's words. */
+  const reasonOf = (code: string | null) =>
+    code && te.has(code as never) ? te(code as never) : t('save_failed');
+
+  /**
+   * Writes the draft to the outbox and, with network, waits for the server's answer: the record
+   * failed for good throws its reason; the accepted one gives the id and the version for the
+   * next part. Without network the draft stays on the phone and the form goes on.
+   */
   const save = async ({ answers, clientUuid }: Submission) => {
-    try {
-      const result = draft.current
-        ? await updateApplication(draft.current.id, draft.current.etag, answers)
-        : await createApplication(projectId, { clientUuid, formVersionId: form.id, answers });
-      draft.current = { id: result.data.id, etag: result.meta.etag ?? '' };
-      setServerErrors({});
-      setSaved(true);
-      await queryClient.invalidateQueries({ queryKey: MY_APPLICATIONS_KEY });
-      return result.data;
-    } catch (error) {
-      if (error instanceof ApiFailure && error.status === 422 && error.details.length) {
-        setServerErrors(namedOf(error));
-        throw new Error(t('fix_named'), { cause: error });
+    const store = await loadStore();
+    const current = draft.current;
+    const saved = await store.saveDraft({
+      projectId,
+      formVersionId: form.id,
+      clientUuid: current.clientUuid ?? clientUuid,
+      answers,
+      server: current.serverId ? { id: current.serverId, etag: current.etag } : null,
+    });
+    if (!current.serverId) current.clientUuid = saved.clientUuid;
+    setSaved(true);
+    if (navigator.onLine) {
+      const state = await store.settle(saved.clientUuid);
+      if (state?.state === 'failed') throw new Error(reasonOf(state.failureCode));
+      const serverId = state?.serverId ?? current.serverId;
+      if (serverId) {
+        current.serverId = serverId;
+        // the version the next edit starts from; without it the server settles the edit by time
+        current.etag = await application(serverId)
+          .then((r) => r.meta.etag ?? null)
+          .catch(() => current.etag);
       }
-      if (error instanceof ApiFailure && error.code === 'beneficiary.mobile_is_volunteer_mobile')
-        throw new Error(t('own_mobile'), { cause: error });
-      if (error instanceof ApiFailure && error.code === 'beneficiary.already_applied')
-        throw new Error(t('already_applied'), { cause: error });
-      if (error instanceof ApiFailure && error.code === 'beneficiary.blocked')
-        throw new Error(t('blocked'), { cause: error });
-      throw new Error(error instanceof ApiFailure ? error.message : t('save_failed'), {
-        cause: error,
-      });
     }
+    await queryClient.invalidateQueries({ queryKey: MY_APPLICATIONS_KEY });
   };
 
   const send = async (submission: Submission) => {
-    const record = await save(submission);
+    await save(submission);
     if (teamMember) {
-      setSent(record);
+      setSent({ kind: 'kept' });
       return;
     }
+    const store = await loadStore();
+    const id = await store.sendToOffice({
+      projectId,
+      formVersionId: form.id,
+      draftClientUuid: draft.current.clientUuid,
+      serverId: draft.current.serverId,
+    });
     try {
-      const done = await actOn(record.id, draft.current!.etag, 'submit');
-      setSent(done.data);
-    } catch (error) {
-      throw new Error(error instanceof ApiFailure ? error.message : t('send_failed'), {
-        cause: error,
-      });
+      if (!navigator.onLine) {
+        setSent({ kind: 'queued' });
+        return;
+      }
+      const state = await store.settle(id);
+      if (state?.state === 'failed') throw new Error(reasonOf(state.failureCode));
+      if (!state || state.state !== 'synced') {
+        setSent({ kind: 'queued' });
+        return;
+      }
+      const serverId = state.serverId ?? draft.current.serverId;
+      const record = serverId
+        ? await application(serverId)
+            .then((r) => r.data)
+            .catch(() => null)
+        : null;
+      setSent({ kind: 'sent', record, verification: state.verificationReason });
     } finally {
       await queryClient.invalidateQueries({ queryKey: MY_APPLICATIONS_KEY });
     }
@@ -288,7 +354,9 @@ function ApplicationForm({
       accept: PHOTO_TYPES,
       maxSize: PHOTO_MAX_BYTES,
       upload: async (file, fieldKey) => {
-        if (!draft.current) throw new Error(t('save_first'));
+        // a photo joins the record the server knows; the queue of photos taken offline follows
+        if (!draft.current.serverId)
+          throw new Error(navigator.onLine ? t('save_first') : t('photos_need_network'));
         const key = `${fieldKey}:${file.name}:${file.size}:${file.lastModified}`;
         const clientUuid = uploadIds.current.get(key) ?? uuidv7();
         uploadIds.current.set(key, clientUuid);
@@ -297,7 +365,7 @@ function ApplicationForm({
           {
             kind: 'form_photo',
             entityType: 'application',
-            entityId: draft.current.id,
+            entityId: draft.current.serverId,
             slot: fieldKey,
             source: 'gallery',
           },
@@ -317,9 +385,15 @@ function ApplicationForm({
 
   if (sent)
     return (
-      <Card title={t('sent_title')} headingLevel={2}>
+      <Card title={sent.kind === 'queued' ? ts('queued_title') : t('sent_title')} headingLevel={2}>
         <Stack gap={2}>
-          <Text>{sent.appNo ? t('sent', { appNo: sent.appNo }) : t('sent_no_number')}</Text>
+          <Text role="status">
+            {sent.kind === 'queued'
+              ? ts('saved_on_phone')
+              : sent.kind === 'sent' && sent.record?.appNo
+                ? t('sent', { appNo: sent.record.appNo })
+                : t('sent_no_number')}
+          </Text>
           <Stack direction="row" gap={2} wrap>
             <Button variant="primary" href="/my-applications">
               {t('see_mine')}
@@ -336,7 +410,7 @@ function ApplicationForm({
       <h2>{t('form_title')}</h2>
       {saved ? (
         <Text tone="muted" role="status">
-          {t('saved')}
+          {navigator.onLine ? t('saved') : ts('saved_on_phone')}
         </Text>
       ) : null}
       <FormRenderer
@@ -350,11 +424,8 @@ function ApplicationForm({
         upload={upload}
         layout="auto"
         submitLabel={teamMember ? t('saved') : t('submit')}
-        onPartDone={async (s) => {
-          await save(s);
-        }}
+        onPartDone={save}
         onSubmit={send}
-        serverErrors={serverErrors}
       />
     </Stack>
   );

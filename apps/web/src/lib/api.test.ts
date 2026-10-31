@@ -35,6 +35,8 @@ afterEach(async () => {
   await Dexie.delete(OFFLINE_DB_NAME);
 });
 
+/** The store opens for a volunteer's session only; an official keeps nothing on the device. */
+const VOLUNTEER = { ...ME, kind: 'volunteer' as const };
 const SESSION_A = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4b01';
 const SESSION_B = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4b02';
 /** A token shaped like the server's, carrying only the session claim. */
@@ -118,7 +120,7 @@ describe('API client', () => {
     window.sessionStorage.setItem('draft', 'x');
     server.use(
       http.post('*/api/v1/auth/login', () =>
-        HttpResponse.json({ data: pair(ME, tokenOf(SESSION_A)), meta: {} }),
+        HttpResponse.json({ data: pair(VOLUNTEER, tokenOf(SESSION_A)), meta: {} }),
       ),
       http.get('*/api/v1/auth/me', () => apiError(401, 'auth.session_revoked', 'revoked')),
     );
@@ -141,7 +143,7 @@ describe('API client', () => {
         bodies.push(body);
         return HttpResponse.json({
           data: {
-            ...pair(ME, tokenOf(bodies.length === 1 ? SESSION_A : SESSION_B)),
+            ...pair(VOLUNTEER, tokenOf(bodies.length === 1 ? SESSION_A : SESSION_B)),
             ...(body.recoverSessionId ? { previousDeviceKey: 'k'.repeat(43) } : {}),
           },
           meta: {},
@@ -177,7 +179,7 @@ describe('API client', () => {
     const events: (string | undefined)[] = [];
     server.use(
       http.post('*/api/v1/auth/login', () =>
-        HttpResponse.json({ data: pair(ME, tokenOf(SESSION_A)), meta: {} }),
+        HttpResponse.json({ data: pair(VOLUNTEER, tokenOf(SESSION_A)), meta: {} }),
       ),
       http.post('*/api/v1/auth/refresh', () => apiError(401, 'auth.refresh_invalid', 'again')),
     );
@@ -200,7 +202,7 @@ describe('API client', () => {
     });
     server.use(
       http.post('*/api/v1/auth/refresh', () =>
-        HttpResponse.json({ data: pair(ME, tokenOf(SESSION_A)), meta: {} }),
+        HttpResponse.json({ data: pair(VOLUNTEER, tokenOf(SESSION_A)), meta: {} }),
       ),
     );
     expect(await refreshSession()).not.toBeNull();
@@ -215,11 +217,11 @@ describe('API client', () => {
     try {
       server.use(
         http.post('*/api/v1/auth/login', () =>
-          HttpResponse.json({ data: pair(ME, tokenOf(SESSION_A)), meta: {} }),
+          HttpResponse.json({ data: pair(VOLUNTEER, tokenOf(SESSION_A)), meta: {} }),
         ),
       );
-      expect(await login('a', 'b')).toEqual(ME);
-      expect(currentMe()).toEqual(ME);
+      expect(await login('a', 'b')).toEqual(VOLUNTEER);
+      expect(currentMe()).toEqual(VOLUNTEER);
       expect(currentDataKey()).toBeNull();
     } finally {
       broken.mockRestore();

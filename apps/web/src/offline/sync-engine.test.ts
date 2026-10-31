@@ -353,10 +353,11 @@ describe('the sync engine', () => {
       { clientUuid: record.clientUuid, result: 'synced', serverId, status: 'draft' },
       T0,
     );
+    // the server's record as the data set lists it (a sent one: nothing to pull for it)
     await offlineDb().applications.put({
       id: serverId,
       projectId: PROJECT,
-      status: 'draft',
+      status: 'submitted',
       updatedAt: T0.toISOString(),
       iv: new Uint8Array(12),
       data: new ArrayBuffer(0),
@@ -398,10 +399,12 @@ describe('the sync engine', () => {
     const first = engine.flush('write');
     await new Promise((r) => setTimeout(r, 20));
     const asked = engine.flush('manual', { snapshot: true });
-    expect(asked).toBe(first);
     release();
     await first;
-    await vi.waitFor(() => expect(pulls).toBe(1));
+    expect(pulls).toBe(0);
+    // the request made during the run settles when its own run, right after, has pulled
+    await asked;
+    expect(pulls).toBe(1);
   });
 
   it('leaves the records waiting when the app is out of date or the person may not act now', async () => {

@@ -28,7 +28,8 @@
     "fix_named": "Some answers need fixing; the reason is under each question.",
     "upload_failed": "The photo could not be sent. Try again.",
     "team_note": "As a team member you can keep a draft; the main volunteer sends it to the office.",
-    "edit_title": "Edit the draft"
+    "edit_title": "Edit the draft",
+    "photos_need_network": "Adding photos needs network. The draft stays on this phone; add the photos when there is network."
   },
   "list": {
     "title": "My applications",
@@ -267,5 +268,14 @@
     "office_fills": "The office gives this answer.",
     "volunteer_fills": "The volunteer gives the new answer.",
     "empty": "No answer"
+  },
+  "sync": {
+    "pending": "Waiting to be sent",
+    "syncing": "Being sent",
+    "failed": "Could not be sent",
+    "verifying": "The office is checking it",
+    "photos_pending": "Photos still to go",
+    "saved_on_phone": "Saved on this phone. It will go to the office when there is network.",
+    "queued_title": "Saved on this phone"
   }
 }

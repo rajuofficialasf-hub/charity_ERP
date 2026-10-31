@@ -80,6 +80,12 @@ export const apiError = (status: number, code: string, message: string, headers 
  * The refresh endpoint answers with a session (signed in) or 401 (signed out). A signed-in device
  * has the readable css_csrf cookie; without it the client does not ask the server at all.
  */
+/** The device session of the component tests, as the access token names it. */
+export const TEST_SESSION_ID = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4b01';
+/** A token shaped like the server's, carrying only the session claim, so the store opens. */
+export const sessionToken = (sessionId = TEST_SESSION_ID) =>
+  `h.${btoa(JSON.stringify({ sid: sessionId }))}.s`;
+
 export function refreshAs(me: Me | null) {
   document.cookie = me
     ? 'css_csrf=nonce.mac; path=/'
@@ -87,7 +93,10 @@ export function refreshAs(me: Me | null) {
   server.use(
     http.post('*/api/v1/auth/refresh', () =>
       me
-        ? HttpResponse.json({ data: pair(me), meta: { requestId: 'req_test' } })
+        ? HttpResponse.json({
+            data: pair(me, sessionToken()),
+            meta: { requestId: 'req_test' },
+          })
         : apiError(401, 'auth.refresh_invalid', 'Log in again.'),
     ),
   );

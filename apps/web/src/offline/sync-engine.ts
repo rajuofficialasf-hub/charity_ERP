@@ -27,14 +27,17 @@ import {
   toSyncRecord,
   waitingCount,
 } from './outbox';
+import { application } from '../features/applications/applications-api';
 import {
   applySnapshot,
   cursor,
+  draftsWithoutDetail,
   META,
   metaString,
   openValue,
   replaceLocations,
   sealValue,
+  storeDetail,
 } from './snapshot';
 import type { Sealed } from './crypto';
 import { locationsAll, postBatch, pullSnapshot } from './sync-api';
@@ -97,6 +100,9 @@ const DEFAULT_DEPS: EngineDeps = {
   online: () => navigator.onLine,
 };
 
+/** How many cached drafts get their answers pulled in one flush. */
+const HYDRATE_PER_FLUSH = 20;
+
 const INITIAL: SyncStatus = {
   state: 'idle',
   pending: 0,
@@ -109,9 +115,14 @@ const INITIAL: SyncStatus = {
 export class SyncEngine {
   status: SyncStatus = INITIAL;
   private readonly listeners = new Set<(status: SyncStatus) => void>();
-  private flushing: Promise<void> | null = null;
-  /** A flush asked while one ran: its request is kept and runs right after. */
-  private again: { reason: FlushReason; snapshot: boolean } | null = null;
+  private current: Promise<void> | null = null;
+  /** A flush asked while one runs: it starts right after, so a record written meanwhile goes too. */
+  private queued: {
+    reason: FlushReason;
+    snapshot: boolean;
+    promise: Promise<void>;
+    start: () => void;
+  } | null = null;
   private retryTimer: unknown = null;
   private intervalTimer: unknown = null;
   private cleanups: (() => void)[] = [];
@@ -160,24 +171,38 @@ export class SyncEngine {
   }
 
   /**
-   * One flush; a flush asked while one runs makes the running one go round once more. With
-   * `snapshot` the data set is pulled even before its interval is up.
+   * One flush at a time. A flush asked while one runs starts right after it, so what was written
+   * meanwhile goes as well, and its promise settles when that later run ends; several asks
+   * during one run fold into one, the strongest request kept. With `snapshot` the data set is
+   * pulled even before its interval is up.
    */
   flush(reason: FlushReason, options: { snapshot?: boolean } = {}): Promise<void> {
-    if (this.flushing) {
-      this.again = {
-        reason: reason === 'manual' || this.again?.reason === 'manual' ? 'manual' : reason,
-        snapshot: Boolean(options.snapshot) || Boolean(this.again?.snapshot),
-      };
-      return this.flushing;
+    const snapshot = options.snapshot === true;
+    if (!this.current) return this.begin(reason, snapshot);
+    if (this.queued) {
+      if (reason === 'manual') this.queued.reason = 'manual';
+      this.queued.snapshot ||= snapshot;
+      return this.queued.promise;
     }
-    this.flushing = this.run(reason, options).finally(() => {
-      this.flushing = null;
-      const next = this.again;
-      this.again = null;
-      if (next) void this.flush(next.reason, { snapshot: next.snapshot });
+    let start = () => undefined as void;
+    const promise = new Promise<void>((resolve) => {
+      start = () => {
+        const q = this.queued;
+        this.queued = null;
+        void this.begin(q?.reason ?? reason, q?.snapshot ?? snapshot).then(resolve, resolve);
+      };
     });
-    return this.flushing;
+    this.queued = { reason, snapshot, promise, start };
+    return promise;
+  }
+
+  private begin(reason: FlushReason, snapshot: boolean): Promise<void> {
+    const run = this.run(reason, { snapshot }).finally(() => {
+      this.current = null;
+      this.queued?.start();
+    });
+    this.current = run;
+    return run;
   }
 
   private async run(reason: FlushReason, options: { snapshot?: boolean }): Promise<void> {
@@ -215,6 +240,7 @@ export class SyncEngine {
       if (inflight && (await this.inFlightDue(inflight))) open = await this.send(inflight);
       if (open) for (const batch of await this.batches()) if (!(await this.send(batch))) break;
       await this.snapshotIfDue(options.snapshot === true || reason === 'manual');
+      await this.hydrateDrafts();
       await purge(this.deps.now());
       await this.publish({ state: 'idle', lastSyncAt: this.deps.now() }, true);
     } catch (error) {
@@ -401,6 +427,18 @@ export class SyncEngine {
     }
     if ((await metaString(META.locationsVersion)) !== view.locationsVersion)
       await replaceLocations(await locationsAll(), view.locationsVersion);
+  }
+
+  /** The answers of the cached drafts, pulled a few at a time, so they open and edit without network. */
+  private async hydrateDrafts(): Promise<void> {
+    for (const id of await draftsWithoutDetail(HYDRATE_PER_FLUSH)) {
+      // a record the server no longer gives stays as its summary; the next data set settles it
+      const record = await application(id).catch(() => null);
+      if (!record) continue;
+      const { form, ...detail } = record.data;
+      void form;
+      await storeDetail(detail, record.meta.etag ?? '');
+    }
   }
 
   private async scheduleRetry(): Promise<void> {
