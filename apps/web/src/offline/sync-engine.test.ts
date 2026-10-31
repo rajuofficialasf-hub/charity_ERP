@@ -243,6 +243,30 @@ describe('the sync engine', () => {
     engine.stop();
   });
 
+  it('asks the browser for a background sync while a record waits, and not once all went', async () => {
+    const register = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'serviceWorker', {
+      value: { ready: Promise.resolve({ sync: { register } }) },
+      configurable: true,
+    });
+    try {
+      server.use(http.post('*/api/v1/sync/batch', () => apiError(503, 'server.busy', 'later')));
+      const world = fakeDeps();
+      const engine = new SyncEngine(world.deps);
+      await draft(T0);
+      await engine.flush('manual');
+      expect(register).toHaveBeenCalledWith('outbox');
+      register.mockClear();
+      // past its retry wait the record goes; with nothing left waiting no sync is asked for
+      server.use(acceptAll([]));
+      world.advance(60_000);
+      await engine.flush('manual');
+      expect(register).not.toHaveBeenCalled();
+    } finally {
+      Reflect.deleteProperty(navigator, 'serviceWorker');
+    }
+  });
+
   it('fails a record for good on a permanent refusal and sets no timer', async () => {
     server.use(http.post('*/api/v1/sync/batch', () => apiError(422, 'validation.failed', 'bad')));
     const world = fakeDeps();

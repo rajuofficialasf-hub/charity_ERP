@@ -179,6 +179,24 @@ async function failure(res: Response): Promise<ApiFailure> {
 const REVOKING = new Set(['auth.session_revoked', 'auth.refresh_reused']);
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * Signs in from the phone's own store when the server cannot be reached
+ * (docs/architecture/OFFLINE_SYNC.md, offline cold start): the device-bound key opens the store
+ * and the cached `me` of the last sign-in says who. There is no token yet; the first request
+ * with network refreshes first. An official keeps nothing on the device and stays signed out.
+ */
+async function signInOffline(): Promise<boolean> {
+  if (state.me) return true;
+  const keys = await withinStoreWait(offlineKeys());
+  const opened = keys ? await withinStoreWait(keys.openOffline()) : null;
+  if (!opened) return false;
+  const me = await withinStoreWait(import('../offline/snapshot').then((s) => s.cachedMe()));
+  if (!me || me.id !== opened.userId) return false;
+  state.me = me;
+  publish();
+  return true;
+}
+
 async function refreshOnce(): Promise<TokenPair | null> {
   // Without the CSRF cookie there is no session on this device: nothing to ask the server.
   if (!readCookie('css_csrf')) return null;
@@ -193,7 +211,15 @@ async function refreshOnce(): Promise<TokenPair | null> {
         'Accept-Language': language(),
       },
     });
-  let res = await attempt();
+  let res: Response;
+  try {
+    res = await attempt();
+  } catch (error) {
+    // no answer from the network at all: the session is not gone, and a volunteer's phone
+    // opens from its own store meanwhile
+    await signInOffline();
+    throw error;
+  }
   // Another tab may have rotated the token a moment ago; its new cookie is already here.
   if (res.status === 401) {
     const first = await failure(res.clone());
@@ -258,6 +284,9 @@ export interface RequestOptions {
  * retried; a revoked session wipes local data; any other failure is thrown as ApiFailure.
  */
 export async function api<T>(path: string, options: RequestOptions = {}, retry = true): Promise<T> {
+  // a session opened from the phone's store has no token: the first request with network
+  // refreshes first, and one still without network fails on the way as every request does
+  if (retry && state.me && !state.accessToken) await refreshSession().catch(() => undefined);
   const res = await fetch(`${BASE}${path}`, {
     method: options.method ?? 'GET',
     credentials: 'same-origin',

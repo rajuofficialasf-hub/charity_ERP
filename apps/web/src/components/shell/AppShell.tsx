@@ -13,6 +13,7 @@ import { BottomTabs } from './BottomTabs';
 import { MoreSheet } from './MoreSheet';
 import { NavLinks } from './NavLinks';
 import './shell.css';
+import { UpdateReady } from './UpdateReady';
 import { useOnline, useShellWidth } from './use-online';
 
 /**
@@ -56,6 +57,7 @@ function Shell({ me }: { me: Me }) {
           />
         )}
         <div className="app-main">
+          <UpdateReady />
           {banner && (
             <OfflineBanner
               {...banner}
@@ -97,7 +99,9 @@ function useBanner(online: boolean, status: SyncStatus, volunteer: boolean): Ban
   if (back) return { state: 'back_online', onHidden: () => setBack(false) };
   if (!volunteer) return null;
   if (status.state === 'syncing') return { state: 'syncing', ...count };
-  if (status.failed > 0 || (status.lastError && status.state === 'idle'))
+  // a failed flush matters only while something waits: a volunteer without a project has
+  // nothing to sync and is not told of a refused pull
+  if (status.failed > 0 || (status.lastError && status.state === 'idle' && waiting > 0))
     return { state: 'sync_failed', ...count };
   return null;
 }

@@ -66,5 +66,16 @@
     "title_final": "Really log out?",
     "body_final": "{n, plural, one {{count} record will be lost for good. This cannot be undone.} other {{count} records will be lost for good. This cannot be undone.}}",
     "confirm_final": "Yes, delete and log out"
+  },
+  "install": {
+    "title": "Install the app on your phone",
+    "body": "Installed, the app opens without network and keeps your saved work safe.",
+    "button": "Install",
+    "ios_steps": "On an iPhone, tap Safari’s Share button, then choose “Add to Home Screen”. Offline work is safe only in the installed app.",
+    "menu": "Install the app"
+  },
+  "update": {
+    "ready": "A new version of the app is here.",
+    "reload": "Reload"
   }
 }

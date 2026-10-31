@@ -39,3 +39,5 @@ export const REMINDER_AFTER_HOURS = 24;
 export const SNAPSHOT_MIN_INTERVAL_MS = 15 * MINUTE;
 /** The outbox flushes on this timer while the app is open and online. */
 export const FLUSH_INTERVAL_MS = 15 * MINUTE;
+/** The tag of the one-shot Background Sync the page asks for while records wait (Android Chrome). */
+export const BACKGROUND_SYNC_TAG = 'outbox';

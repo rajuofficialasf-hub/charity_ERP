@@ -5,12 +5,14 @@ import { apiError, ME, pair } from '../../test/auth';
 import { server } from '../../test/msw/server';
 import { closeOfflineDb, OFFLINE_DB_NAME, offlineDb } from '../offline/db';
 import {
+  afterSignIn,
   clearLostPending,
   currentDataKey,
   forgetKeys,
   noteLostPending,
   storedSessionId,
 } from '../offline/keys';
+import { rememberMe } from '../offline/snapshot';
 import {
   api,
   ApiFailure,
@@ -226,6 +228,41 @@ describe('API client', () => {
     } finally {
       broken.mockRestore();
     }
+  });
+
+  it('opens a volunteer’s session from the phone’s store when the server cannot be reached', async () => {
+    // the last sign-in left the ring and the cached me; the app was closed since (no key in memory)
+    await afterSignIn({ sessionId: SESSION_A, userId: VOLUNTEER.id, deviceKey: 'k'.repeat(43) });
+    await rememberMe(VOLUNTEER);
+    forgetKeys();
+    server.use(http.post('*/api/v1/auth/refresh', () => HttpResponse.error()));
+    const seen: unknown[] = [];
+    onSessionChange((me) => seen.push(me));
+    await expect(refreshSession()).rejects.toThrow();
+    expect(currentMe()).toEqual(VOLUNTEER);
+    expect(seen).toEqual([VOLUNTEER]);
+    expect(currentDataKey()).not.toBeNull();
+    // the first request with network refreshes first, then goes with the new token
+    let refreshes = 0;
+    server.use(
+      http.post('*/api/v1/auth/refresh', () => {
+        refreshes += 1;
+        return HttpResponse.json({ data: pair(VOLUNTEER, tokenOf(SESSION_A)), meta: {} });
+      }),
+      http.get('*/api/v1/ping-sample', ({ request }) =>
+        request.headers.get('authorization') === `Bearer ${tokenOf(SESSION_A)}`
+          ? HttpResponse.json({ data: { pong: true }, meta: {} })
+          : apiError(401, 'auth.token_missing', 'login'),
+      ),
+    );
+    expect(await api('/ping-sample')).toEqual({ pong: true });
+    expect(refreshes).toBe(1);
+  });
+
+  it('stays signed out without network when this device holds no store', async () => {
+    server.use(http.post('*/api/v1/auth/refresh', () => HttpResponse.error()));
+    await expect(refreshSession()).rejects.toThrow();
+    expect(currentMe()).toBeNull();
   });
 
   it('sends the pending count with a logout that leaves records on the phone', async () => {

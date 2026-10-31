@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ME, pair, refreshAs, renderApp, TEST_SESSION_ID } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { login, resetClientForTests } from '../../lib/api';
+import { announceUpdate, resetUpdateForTests } from '../../lib/app-update';
 import { afterSignIn } from '../../offline/keys';
 import { OfflineProvider } from '../../offline/OfflineProvider';
 import { enqueue } from '../../offline/outbox';
@@ -87,6 +88,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  resetUpdateForTests();
 });
 
 describe('app shell', () => {
@@ -398,6 +400,21 @@ describe('app shell', () => {
     await user.click(within(second).getByRole('button', { name: 'হ্যাঁ, মুছে লগআউট করুন' }));
     expect(await screen.findByTestId('location')).toHaveTextContent('/login?ended=logout');
     expect(body).toEqual({ pendingCount: 2 });
+  });
+
+  it('offers the reload once a new version waits, and only the tap takes it', async () => {
+    atWidth(1280);
+    refreshAs(PM);
+    const user = userEvent.setup();
+    renderShell();
+    await mainMenu();
+    expect(screen.queryByText('অ্যাপের নতুন সংস্করণ এসেছে।')).toBeNull();
+    const reload = vi.fn();
+    act(() => announceUpdate(reload));
+    expect(await screen.findByText('অ্যাপের নতুন সংস্করণ এসেছে।')).toBeInTheDocument();
+    expect(reload).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'রিলোড করুন' }));
+    expect(reload).toHaveBeenCalledOnce();
   });
 
   it('is accessible in English', async () => {

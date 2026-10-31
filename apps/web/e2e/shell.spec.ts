@@ -49,6 +49,33 @@ test.describe('app shell', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'আমার ডিভাইস' })).toBeVisible();
   });
 
+  test('the installed app opens offline from its own cache, with the fonts and the banner', async ({
+    page,
+    context,
+  }, info) => {
+    test.skip(!isPhone(info), 'the offline open is for the phones');
+    const snapshot = page.waitForResponse((r) => r.url().includes('/api/v1/sync/snapshot'), {
+      timeout: 30_000,
+    });
+    await signIn(page, VOLUNTEER);
+    // the phone has its data set, and the worker has precached the shell and the fonts
+    await snapshot;
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
+    await context.setOffline(true);
+    await page.reload();
+    await expect(page.getByRole('heading', { level: 1, name: /^স্বাগতম, / })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByText(/আপনি অফলাইনে আছেন/)).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.fonts.check('16px UbuntuSans') && document.fonts.check('16px Bornomala'),
+      ),
+    ).toBe(true);
+    await context.setOffline(false);
+  });
+
   test('the offline banner shows while the browser has no connection', async ({
     page,
     context,

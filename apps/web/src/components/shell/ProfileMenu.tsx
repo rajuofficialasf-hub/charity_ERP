@@ -2,6 +2,7 @@ import type { Me } from '@css/shared/auth';
 import { type MenuAction, MenuButton } from '@css/ui';
 import {
   CircleUser,
+  Download,
   KeyRound,
   Languages,
   LogOut,
@@ -12,6 +13,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslations } from 'use-intl';
 import { loadStore } from '../../features/applications/use-local-records';
+import { promptInstall, showHintAgain, useInstall } from '../../features/sync/install';
 import { LogoutWarning } from '../../features/sync/LogoutWarning';
 import { logout } from '../../lib/api';
 import { useChooseLanguage } from '../LanguageSwitch';
@@ -25,7 +27,9 @@ export function ProfileMenu({ me, withLanguage }: { me: Me; withLanguage: boolea
   const t = useTranslations('nav');
   const ta = useTranslations('auth.account');
   const tl = useTranslations('common.language');
+  const ti = useTranslations('sync.install');
   const navigate = useNavigate();
+  const { way: installWay } = useInstall();
   const { locale, choose } = useChooseLanguage();
   const other = locale === 'bn' ? 'en' : 'bn';
   const [warning, setWarning] = useState<number | null>(null);
@@ -45,6 +49,21 @@ export function ProfileMenu({ me, withLanguage }: { me: Me; withLanguage: boolea
     { id: 'password', label: ta('change_password'), icon: KeyRound, href: '/account/password' },
     ...(withLanguage
       ? [{ id: 'language', label: tl(other), icon: Languages, onAction: () => choose(other) }]
+      : []),
+    // where the app can be installed from the page: the browser's prompt, or the hint on the home
+    ...(installWay !== 'none'
+      ? [
+          {
+            id: 'install',
+            label: ti('menu'),
+            icon: Download,
+            onAction: () => {
+              showHintAgain();
+              if (installWay === 'prompt') void promptInstall();
+              else void navigate('/');
+            },
+          },
+        ]
       : []),
     {
       id: 'logout',
