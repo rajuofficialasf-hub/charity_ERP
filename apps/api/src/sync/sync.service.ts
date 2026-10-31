@@ -1,6 +1,6 @@
 import {
-  BATCH_IN_PROGRESS,
   type RowResult,
+  rowResultSchema,
   type SyncBatchRequest,
   type SyncBatchResponse,
   type SyncRecord,
@@ -9,7 +9,7 @@ import { createHash } from 'node:crypto';
 import type { Logger } from 'pino';
 import { z } from 'zod';
 import type { AccessService } from '../access/service';
-import { splitPendingPhotos } from '../applications/pending-photos';
+import { splitPendingPhotos, wrongSlot } from '../applications/pending-photos';
 import type {
   ApplicationRead,
   ApplicationsService,
@@ -24,6 +24,7 @@ import { etagOf } from '../core/etag';
 import type { PrismaService } from '../core/prisma.service';
 import type { IdempotencyService } from '../idempotency/idempotency.service';
 import { ApiError } from '../i18n/api-error';
+import { readDefinition } from '../services/forms';
 
 const answersPayload = z.strictObject({ answers: z.array(z.unknown()).max(2000) });
 const emptyPayload = z.strictObject({});
@@ -55,8 +56,6 @@ interface SyncContext {
   view: ApplicationViewer;
 }
 
-export { BATCH_IN_PROGRESS };
-
 /**
  * The batch a phone sends when the network returns (docs/architecture/OFFLINE_SYNC.md "Batch sync
  * endpoint"): each record goes through the ordinary application service with the volunteer as
@@ -85,44 +84,55 @@ export class SyncService {
     body: SyncBatchRequest,
   ): Promise<{ replay: boolean; response: SyncBatchResponse }> {
     const owner = { userId: principal.userId, deviceSessionId: principal.sessionId };
+    const now = this.clock.now();
     const reserved = await this.idempotency.reserveKey(
       key,
       owner,
       body.records.length,
       requestHashOf(body),
+      now,
     );
-    const now = this.clock.now();
     if (reserved.replay)
       return {
         replay: true,
-        response: { serverTime: now.toISOString(), results: reserved.results as RowResult[] },
+        response: {
+          serverTime: now.toISOString(),
+          results: z.array(rowResultSchema).parse(reserved.results),
+        },
       };
     const offsetMs = now.getTime() - new Date(body.deviceTime).getTime();
-    const context = await this.context(principal, fieldClasses);
     const results: RowResult[] = [];
-    const serverIds = new Map<string, string>();
-    const failed = new Set<string>();
-    for (const record of body.records) {
-      const result = await this.one(context, record, offsetMs, serverIds, failed);
-      results.push(result);
-      if (result.result === 'failed') failed.add(record.clientUuid);
-      else if (result.serverId) serverIds.set(record.clientUuid, result.serverId);
-    }
-    await this.prisma.$transaction(async (tx) => {
-      await this.idempotency.storeResults(tx, reserved.batchId, results);
-      if (body.pendingAfter !== undefined)
-        await this.sessions.reportPending(tx, principal.sessionId, body.pendingAfter, now);
-      await this.audit.record(tx, {
-        action: 'sync.batch',
-        entityType: 'device_session',
-        entityId: principal.sessionId,
-        new: {
-          records: results.length,
-          failed: results.filter((r) => r.result === 'failed').length,
-          pendingAfter: body.pendingAfter ?? null,
-        },
+    try {
+      const context = await this.context(principal, fieldClasses);
+      const serverIds = new Map<string, string>();
+      const failed = new Set<string>();
+      for (const record of body.records) {
+        const result = await this.one(context, record, offsetMs, serverIds, failed);
+        results.push(result);
+        if (result.result === 'failed') failed.add(record.clientUuid);
+        else if (result.serverId) serverIds.set(record.clientUuid, result.serverId);
+      }
+      await this.prisma.$transaction(async (tx) => {
+        await this.idempotency.storeResults(tx, reserved.batchId, results);
+        if (body.pendingAfter !== undefined)
+          await this.sessions.reportPending(tx, principal.sessionId, body.pendingAfter, now);
+        await this.audit.record(tx, {
+          action: 'sync.batch',
+          entityType: 'device_session',
+          entityId: principal.sessionId,
+          new: {
+            records: results.length,
+            failed: results.filter((r) => r.result === 'failed').length,
+            pendingAfter: body.pendingAfter ?? null,
+          },
+        });
       });
-    });
+    } catch (error) {
+      // the batch itself broke: the key is given back, so the phone's retry runs it again (every
+      // record is idempotent by its client id) instead of waiting on a batch that never ends
+      await this.idempotency.releaseKey(reserved.batchId);
+      throw error;
+    }
     return { replay: false, response: { serverTime: now.toISOString(), results } };
   }
 
@@ -199,6 +209,7 @@ export class SyncService {
   ): Promise<ApplicationRead> {
     const payload = parsed(answersPayload, record.payload);
     const { answers, pending } = splitPendingPhotos(payload.answers);
+    await this.assertPhotoSlots(pending, record.formVersionId);
     const created = await this.applications.create(
       context.create,
       record.projectId,
@@ -225,6 +236,7 @@ export class SyncService {
     const id = await this.targetOf(record, serverIds);
     const payload = parsed(answersPayload, record.payload);
     const { answers, pending } = splitPendingPhotos(payload.answers);
+    await this.assertPhotoSlots(pending, record.formVersionId);
     const ifMatch = record.baseVersion ?? (await this.currentVersion(context, id));
     return this.applications.update(context.view, id, { answers }, ifMatch, {
       pendingPhotos: pending,
@@ -253,6 +265,20 @@ export class SyncService {
       serverId: view.applicationId,
       status: null,
     };
+  }
+
+  /**
+   * A photo still on the phone may only stand for a photo question the volunteer sees: a slot that
+   * names anything else (a required text, an official question) is the record's own mistake.
+   */
+  private async assertPhotoSlots(slots: readonly string[], formVersionId: string): Promise<void> {
+    if (!slots.length) return;
+    const definition = await readDefinition(this.prisma, formVersionId, 'volunteer');
+    const wrong = wrongSlot(slots, definition);
+    if (wrong)
+      throw new ApiError('validation.failed', 422, undefined, [
+        { path: wrong, code: 'application.photo_slot_invalid' },
+      ]);
   }
 
   /** The version the phone last saw, when it kept none: the current one, read as the volunteer. */

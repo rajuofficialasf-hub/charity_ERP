@@ -1,8 +1,9 @@
 import { syncBatchRequestSchema, type SyncBatchRequest } from '@css/shared/sync';
-import { Router } from 'express';
+import express, { Router } from 'express';
 import { z } from 'zod';
 import { maskData } from '../access/field-mask';
 import { type AuthedRequest, principalOf } from '../auth/principal';
+import { SYNC_BODY_LIMIT } from '../app';
 import type { Container } from '../container';
 import { clientVersionGate } from '../http/client-version';
 import { ok, send } from '../http/send';
@@ -38,7 +39,8 @@ export function syncRouter(
       { name: 'Idempotency-Key', required: true },
       { name: 'X-Client-Version', required: false },
     ],
-    before: [versionGate],
+    // the body is read here, after the caller and the rate limit passed, with the batch's own limit
+    before: [versionGate, express.json({ limit: SYNC_BODY_LIMIT })],
     body: syncBatchRequestSchema,
     responses: {
       200: null,

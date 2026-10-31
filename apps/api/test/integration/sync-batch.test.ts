@@ -9,12 +9,7 @@ import { seedWorkflows } from '../../seed/sets/base/workflows';
 import { jpeg } from '../support/images';
 import { requestHashOf } from '../../src/sync/sync.service';
 import { accessWorld } from './support/access-fixtures';
-import {
-  applicationProject,
-  IDENTITY_ANSWERS,
-  principalOf,
-  statusOf,
-} from './support/applications';
+import { applicationProject, IDENTITY_ANSWERS, principalOf } from './support/applications';
 import {
   account,
   type Account,
@@ -454,8 +449,79 @@ describe('POST /sync/batch', () => {
       [made.serverId],
     );
     const late = await upload(s, made.serverId, 'q_proof', {}, photo(4));
-    expect(late.status).toBe(409);
-    expect(late.body.error.code).toBe('conflict.locked_on_server');
+    // the file is kept, the slot stays, and the record says why the answer was not filled
+    expect(late.status, JSON.stringify(late.body)).toBe(201);
+    expect((await at(s, 'get', `/applications/${made.serverId}`)).body.data.pendingPhotos).toBe(1);
+    expect(await auditRows(h.db, 'application.photo_not_attached')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          entity_id: made.serverId,
+          new: expect.objectContaining({ reason: 'locked_on_server' }),
+        }),
+      ]),
+    );
+  });
+
+  it('refuses a photo slot that is not a photo question the volunteer sees', async () => {
+    const s = await as(world.users.general);
+    const text = draft([
+      ...identity().filter((a) => a.fieldKey !== 'q_landmark'),
+      { fieldKey: 'q_landmark', value: { pendingPhoto: true, slot: 'q_landmark' } },
+    ]);
+    const official = draft([
+      ...identity(),
+      { fieldKey: 'q_official', value: { pendingPhoto: true, slot: 'q_official' } },
+    ]);
+    const res = await batch(s, [text, official]).expect(200);
+    for (const r of [text, official])
+      expect(resultOf(res, r.clientUuid)).toMatchObject({
+        result: 'failed',
+        code: 'validation.failed',
+      });
+  });
+
+  it('keeps an earlier photo slot through an edit that does not answer it', async () => {
+    const s = await as(world.users.general);
+    const first = draft();
+    const made = await batch(s, [first]).expect(200);
+    const id = resultOf(made, first.clientUuid).serverId;
+    expect(resultOf(made, first.clientUuid).pendingPhotos).toBe(1);
+    const edit = record({
+      kind: 'application_update',
+      target: id,
+      payload: {
+        answers: [
+          ...identity().filter((a) => a.fieldKey !== 'q_proof'),
+          { fieldKey: 'q_landmark', value: { t: 'short_text', v: 'নদীর ধারে' } },
+        ],
+      },
+    });
+    const edited = await batch(s, [edit]).expect(200);
+    expect(resultOf(edited, edit.clientUuid)).toMatchObject({ result: 'synced', pendingPhotos: 1 });
+  });
+
+  it('takes over a batch whose earlier run died, after its lease', async () => {
+    const s = await as(world.users.general);
+    const key = randomUUID();
+    const first = draft();
+    const body = { deviceTime: h.clock.now().toISOString(), records: [first] };
+    await h.db.query(
+      `INSERT INTO sync_batches (id, user_id, device_session_id, idempotency_key, record_count, results, request_hash, received_at)
+       VALUES ($1, $2, $3, $4, 1, 'null'::jsonb, $5, $6)`,
+      [
+        randomUUID(),
+        world.users.general,
+        sessionIdOf(s),
+        key,
+        requestHashOf(body),
+        new Date(h.clock.now().getTime() - 3 * 60_000),
+      ],
+    );
+    const res = await at(s, 'post', '/sync/batch')
+      .set('Idempotency-Key', key)
+      .send(body)
+      .expect(200);
+    expect(resultOf(res, first.clientUuid)).toMatchObject({ result: 'synced' });
   });
 
   it('fills an answer the office opened through a field update', async () => {
@@ -558,8 +624,15 @@ describe('POST /sync/batch', () => {
     } finally {
       await h.db.query(`DELETE FROM blocklist WHERE id = $1`, [block]);
     }
-    expect(
-      await statusOf(h.db, (await h.db.query('SELECT id FROM applications LIMIT 1')).rows[0].id),
-    ).toEqual(expect.any(String));
+  });
+
+  it('fails an update that names no record it could act on', async () => {
+    const s = await as(world.users.general);
+    const orphan = record({ kind: 'application_update', payload: { answers: identity() } });
+    const res = await batch(s, [orphan]).expect(200);
+    expect(resultOf(res, orphan.clientUuid)).toMatchObject({
+      result: 'failed',
+      code: 'sync.target_unknown',
+    });
   });
 });

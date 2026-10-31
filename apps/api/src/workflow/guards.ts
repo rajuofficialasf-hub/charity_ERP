@@ -1,5 +1,10 @@
 import { answerValueSchema } from '@css/shared';
-import { pendingSlotsOf } from '../applications/pending-photos';
+import {
+  pendingSlotsOf,
+  photoFieldKeys,
+  slotParts,
+  slotPath,
+} from '../applications/pending-photos';
 import { type Answer, type FormDefinition, validate } from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
 import type { EffectiveAccess } from '../access/effective';
@@ -97,8 +102,19 @@ export class GuardContext {
     const answers = (await this.answers()).filter((a) => keys.has(a.fieldKey));
     const options = { audience, today: isoDateInDhaka(this.clock.now()), previous: answers };
     const result = validate(definition, answers, options);
-    // a photo still on the phone is on its way: its slot is not a missing answer
-    const pending = new Set(pendingSlotsOf(this.application.pendingPhotos));
+    // a photo still on the phone is on its way: its slot is not a missing answer; only a photo
+    // question of this form may be such a slot, in the path the validator reports it by
+    const photos = photoFieldKeys(definition);
+    const grouped = new Set(
+      definition.sections.flatMap((s) =>
+        s.fields.filter((f) => f.settings?.repeat?.group).map((f) => f.fieldKey),
+      ),
+    );
+    const pending = new Set(
+      pendingSlotsOf(this.application.pendingPhotos)
+        .filter((slot) => photos.has(slotParts(slot).fieldKey))
+        .map((slot) => slotPath(slot, grouped.has(slotParts(slot).fieldKey))),
+    );
     if (result.ok || pending.size === 0) return result;
     const errors = result.errors.filter(
       (e) => !(e.code === 'validation.required' && pending.has(e.path)),

@@ -56,7 +56,7 @@ const envSchema = z
     FILE_SCANNER: z.enum(['skip']).default('skip'),
     /** The release shown on the system health page. */
     APP_VERSION: z.string().max(64).default('0.0.0-dev'),
-    /** The oldest PWA build the sync routes still accept; an older one is answered 426 (API_STANDARDS.md "Versioning"). */
+    /** The oldest PWA build the sync routes still accept; an older one is answered 426 (docs/api/API_STANDARDS.md "Versioning and client compatibility"). */
     MIN_CLIENT_VERSION: z
       .string()
       .regex(/^\d+\.\d+\.\d+$/)

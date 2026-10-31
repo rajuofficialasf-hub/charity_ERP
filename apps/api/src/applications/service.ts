@@ -60,7 +60,7 @@ import { type CommentReason, commentReasons } from './decision-rules';
 import type { Replayable } from '../services/uploads';
 import type { WorkflowEngine } from '../workflow/engine';
 import { type EngineApplication, GuardContext, GUARDS } from '../workflow/guards';
-import { pendingSlotsOf } from './pending-photos';
+import { pendingSlotsOf, slotParts } from './pending-photos';
 import type { BuiltGuard } from '../workflow/registry';
 import { readActivities } from './activities';
 import { readChanges, readTimeline } from './history';
@@ -499,7 +499,16 @@ export class ApplicationsService {
             regionLocationId,
             districtId,
             unionId,
-            ...(options.pendingPhotos ? { pendingPhotos: options.pendingPhotos } : {}),
+            ...(options.pendingPhotos
+              ? {
+                  pendingPhotos: await mergedSlots(
+                    tx,
+                    applicationId,
+                    options.pendingPhotos,
+                    person.answers,
+                  ),
+                }
+              : {}),
             updatedAt: now,
             updatedBy: actor,
           },
@@ -1395,4 +1404,34 @@ export class ApplicationsService {
     }
     return actions;
   }
+}
+
+/**
+ * The slots an edited record still waits for: the ones it names now, plus the earlier ones whose
+ * question the edit did not answer with a real photo; a slot goes only when its photo arrives or
+ * its question is answered.
+ */
+async function mergedSlots(
+  tx: Tx,
+  applicationId: string,
+  named: readonly string[],
+  answers: readonly Answer[],
+): Promise<string[]> {
+  const row = await tx.application.findUnique({
+    where: { id: applicationId },
+    select: { pendingPhotos: true },
+  });
+  const answered = new Set(
+    answers
+      .filter((a) => {
+        const v = a.value as { t?: unknown; v?: unknown };
+        return v && v.t === 'photo' && Array.isArray(v.v) && v.v.length > 0;
+      })
+      .map((a) => `${a.fieldKey}${a.repeatIndex ? `#${a.repeatIndex}` : ''}`),
+  );
+  const kept = pendingSlotsOf(row?.pendingPhotos).filter((slot) => {
+    const { fieldKey, repeatIndex } = slotParts(slot);
+    return !answered.has(`${fieldKey}${repeatIndex ? `#${repeatIndex}` : ''}`);
+  });
+  return [...new Set([...kept, ...named])];
 }

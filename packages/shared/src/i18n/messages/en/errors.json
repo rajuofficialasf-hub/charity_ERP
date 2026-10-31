@@ -319,6 +319,7 @@
     "form_not_published": "The project's application form is not published.",
     "team_lead_missing": "You have no lead volunteer on this project.",
     "number_in_project": "An application with this number already exists in this project.",
+    "photo_slot_invalid": "A photo still on the phone can only stand for a photo question of the form.",
     "upload_not_own": "This file is not your upload.",
     "not_editable": "The application cannot be edited in its current state.",
     "not_unlockable": "Only an answer of an approved application can be opened for correction.",

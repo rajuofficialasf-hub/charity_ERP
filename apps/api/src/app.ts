@@ -44,6 +44,8 @@ export const API_PREFIX = 'api/v1';
 export const JSON_BODY_LIMIT = '100kb';
 /** The offline batch: the records' limit plus the margin for the envelope around them. */
 export const SYNC_BODY_LIMIT = BATCH_MAX_BYTES + BATCH_ENVELOPE_BYTES;
+/** The routes that read their own, larger body after the access check. */
+const LARGE_BODY_PATHS = new Set(['/api/v1/sync/batch']);
 
 export interface AppOptions {
   /** Test hook: where log lines go (default stdout). */
@@ -70,10 +72,12 @@ export function createApp(c: Container, options: AppOptions = {}): BuiltApp {
   app.use(requestLogging(c.env, options.logStream));
   app.use(securityHeaders());
   app.use(corsAllowlist(c.env.CORS_ORIGINS));
-  // the offline batch alone may carry a megabyte of records (and its envelope); the parser skips a
-  // body already read, so the general limit below leaves it alone
-  app.use('/api/v1/sync/batch', express.json({ limit: SYNC_BODY_LIMIT }));
-  app.use(express.json({ limit: JSON_BODY_LIMIT }));
+  // the offline batch alone may carry a megabyte of records (and its envelope), parsed by its own
+  // route once the caller and the rate limit have passed; every other body is read here
+  const generalJson = express.json({ limit: JSON_BODY_LIMIT });
+  app.use((req, res, next) =>
+    LARGE_BODY_PATHS.has(req.path) ? next() : generalJson(req, res, next),
+  );
   // The request context opens after the body is read: body-parser continues from the socket's
   // events, which would leave an AsyncLocalStorage context opened earlier behind. Body-parser
   // errors render with the X-Request-Id header instead of the context.

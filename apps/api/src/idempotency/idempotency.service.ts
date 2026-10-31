@@ -97,10 +97,16 @@ export class IdempotencyService {
     owner: { userId: string; deviceSessionId: string },
     recordCount: number,
     requestHash: string,
+    now: Date,
   ): Promise<{ replay: true; results: unknown } | { replay: false; batchId: string }> {
     assertKey(key);
     const stored = await this.prisma.syncBatche.findUnique({ where: { idempotencyKey: key } });
-    if (stored) return this.storedBatch(stored, owner.userId, requestHash);
+    if (stored) {
+      const same = stored.userId === owner.userId && stored.requestHash === requestHash;
+      if (same && stored.results === null && (await this.takeOver(stored.id, now)))
+        return { replay: false, batchId: stored.id };
+      return this.storedBatch(stored, owner.userId, requestHash);
+    }
     try {
       const row = await this.prisma.syncBatche.create({
         data: {
@@ -111,6 +117,7 @@ export class IdempotencyService {
           recordCount,
           results: Prisma.JsonNull,
           requestHash,
+          receivedAt: now,
         },
         select: { id: true },
       });
@@ -146,7 +153,29 @@ export class IdempotencyService {
       throw new ApiError(BATCH_IN_PROGRESS, 409, undefined, undefined, BATCH_RETRY_SECONDS);
     return { replay: true, results: stored.results };
   }
+
+  /**
+   * A reservation whose batch died before its results came (a crash, a lost process) is taken
+   * over after its lease: the same owner with the same request runs the batch again, which every
+   * record survives through its client id. Answers whether this caller now holds it.
+   */
+  private async takeOver(batchId: string, now: Date): Promise<boolean> {
+    const stale = new Date(now.getTime() - BATCH_LEASE_MS);
+    const taken = await this.prisma.$executeRaw`
+      UPDATE sync_batches SET received_at = ${now}
+      WHERE id = ${batchId}::uuid AND results = 'null'::jsonb AND received_at < ${stale}`;
+    return taken === 1;
+  }
+
+  /** Gives a reserved key back when its batch broke before any result could be stored. */
+  async releaseKey(batchId: string): Promise<void> {
+    await this.prisma.$executeRaw`
+      DELETE FROM sync_batches WHERE id = ${batchId}::uuid AND results = 'null'::jsonb`;
+  }
 }
+
+/** How long a reserved batch may run before a retry of the same key takes it over. */
+export const BATCH_LEASE_MS = 2 * 60_000;
 
 /** How soon a phone asks again for a batch the server is still working on. */
 const BATCH_RETRY_SECONDS = 5;
