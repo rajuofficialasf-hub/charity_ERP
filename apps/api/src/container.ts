@@ -25,6 +25,7 @@ import {
 } from './notifications/adapters';
 import { AuthService } from './services/auth';
 import { RegistrationCleanup } from './jobs/registration-cleanup';
+import { LocalKeyCleanup } from './jobs/local-key-cleanup';
 import { UploadSweep } from './jobs/upload-sweep';
 import { StorageStats } from './jobs/storage-stats';
 import { FileProcessor } from './jobs/file-process';
@@ -140,6 +141,7 @@ export interface Container {
   registration: RegistrationService;
   registrationCleanup: RegistrationCleanup;
   uploadSweep: UploadSweep;
+  localKeyCleanup: LocalKeyCleanup;
   storageStats: StorageStats;
   fileProcessor: FileProcessor;
   uploads: UploadsService;
@@ -264,7 +266,11 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   // the E2E run signs in with the same few demo accounts in parallel
   const deviceLimit = SESSION_RULES.deviceLimit * (env.SESSION_DEVICE_LIMIT_RELAXED ? 100 : 1);
   const sessions =
-    o.sessions ?? new SessionService(prisma, tokens, audit, clock, accountEvents, deviceLimit);
+    o.sessions ??
+    new SessionService(prisma, tokens, audit, clock, accountEvents, deviceLimit, [
+      env.LOCAL_KEY_SECRET,
+      ...(env.LOCAL_KEY_PREVIOUS_SECRET ? [env.LOCAL_KEY_PREVIOUS_SECRET] : []),
+    ]);
   const permissionVersions = o.permissionVersions ?? new PermissionVersionService(audit, sessions);
   const otpDelivery = o.otpDelivery ?? new OtpDeliveryService(env, sms, email, logger);
   const otp = o.otp ?? new OtpService(env, prisma, clock, otpDelivery);
@@ -530,6 +536,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
       ),
     registrationCleanup: o.registrationCleanup ?? new RegistrationCleanup(prisma, storage, logger),
     uploadSweep: o.uploadSweep ?? new UploadSweep(prisma, storage, logger),
+    localKeyCleanup: o.localKeyCleanup ?? new LocalKeyCleanup(prisma, clock, logger),
     storageStats: o.storageStats ?? new StorageStats(prisma, clock, logger),
     fileProcessor:
       o.fileProcessor ?? new FileProcessor(prisma, storage, createScanner(env), logger),

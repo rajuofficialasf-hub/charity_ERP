@@ -104,7 +104,8 @@ Login does not require an OTP (O-05). Multi-factor login for GLOBAL-scope offici
 |---|---|---|
 | Access token | JWT, 15 minutes, signed with a server key (key id in the header; previous key accepted during rotation) | Memory in the PWA; `Authorization: Bearer` |
 | Refresh token | Opaque random 256-bit value, 30 days, bound to one `device_sessions` row, revocable, rotated on every refresh | Stored hashed on the server; on the device in an HttpOnly, Secure, SameSite=Strict cookie scoped to `/api/v1/auth/refresh` (PWA on the same origin) |
-| Device session | One row per login on a device: user, device name and platform, app version, created at, last seen, last IP, refresh-token hash, revoked at, revoked by, reason | `device_sessions` |
+| Device session | One row per login on a device: user, device name and platform, app version, created at, last seen, last IP, refresh-token hash, revoked at, revoked by, reason; since T2.7 the sealed device key and the pending count the device last reported | `device_sessions` |
+| Device key (T2.7, D-139) | 32 random bytes per device session; returned in the body of login and of every refresh (never a cookie) and kept in memory on the phone, where it wraps the key of the encrypted offline store (OFFLINE_SYNC.md §7). The row holds it sealed with AES-256-GCM under `LOCAL_KEY_SECRET` (HKDF; `LOCAL_KEY_PREVIOUS_SECRET` accepted during a rotation, the row re-sealed at its next refresh), bound to the session id. Dropped on logout, on revocation and, by a nightly job, 30 days after the session expired or left its refresh window. A session that merely ended hands its key back once to the same user on a new login (`recoverSessionId`; audit `auth.outbox_recovered`), so the phone re-keys the outbox it kept; otherwise the phone reports what it lost (`lostPending`; audit `sync.outbox_unrecoverable`, or `auth.logout_with_pending` for an offline logout; an online logout audits its `pendingCount` itself) | `device_sessions.local_key`, `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout` |
 
 Rules:
 
@@ -143,7 +144,7 @@ Lifting a block or reactivating never restores revoked device sessions; the user
 - Every user sees own devices (name, platform, last seen, created) on the profile screen and can revoke any of them except the current one (which uses logout).
 - Officials with the permission `session.revoke_user` (default: Department Head, Monitoring Team; RPM for volunteers in own region, O-25) see a user's devices and revoke one or all, with a reason; used when a phone is lost or stolen. Audit event `auth.session_revoked_by_official`.
 - Effect on the device: the next request fails with 401 `session_revoked`; the PWA then (1) stops sync, (2) wipes the encrypted local store (Dexie databases, photo queue, cached forms, service-worker runtime caches for API data), (3) discards tokens, (4) shows the login screen with the message. The wipe also runs on logout. A refresh token that is only expired (not revoked) does not wipe: the encrypted outbox is kept and the user signs in again before sync continues (O-29, OFFLINE_SYNC §7, API_STANDARDS `auth.refresh_invalid`).
-- Pending offline records on a revoked device are lost by design (the data stayed on an untrusted device); the official who revoked is told so in the confirmation dialog, and the volunteer is told at next login. A later decision may add server-side recovery for already-synced drafts; nothing further now.
+- Pending offline records on a revoked device are lost by design (the data stayed on an untrusted device): the revocation also drops the session's device key, so the encrypted tables cannot be opened again; the official who revoked is told the device's last reported pending count in the confirmation dialog, and the volunteer is told at next login. A later decision may add server-side recovery for already-synced drafts; nothing further now.
 - A revoked session cannot be un-revoked; the user logs in again and a new session row is created.
 
 ## 9. Role or permission change forces a session refresh (O-05)
@@ -191,6 +192,8 @@ Every event below is written to `audit_log` (BR-179) with actor, target user, de
 | auth.approved / rejected / correction_requested | Registration review |
 | auth.login / login_failed / locked / lock_cleared | Login and lockout |
 | auth.logout | User logout |
+| auth.logout_with_pending | A logout that left records unsent on the device (count only), at the logout or at the next login (T2.7) |
+| auth.outbox_recovered / sync.outbox_unrecoverable | The device key of an ended session handed back once, or the phone's report of records it could not open (count) (T2.7) |
 | auth.refresh_reuse_detected | Refresh-token reuse |
 | auth.session_revoked / session_revoked_by_official | Device revocation |
 | auth.password_changed / password_reset_started / password_reset_completed | Password flows |

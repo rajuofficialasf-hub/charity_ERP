@@ -723,6 +723,23 @@ components:
               enum: [android, ios, desktop, other]
               description: Staff sessions on desktop get the 12-hour idle timeout (O-25, D-070)
             appVersion: { type: string, maxLength: 32 }
+        recoverSessionId:
+          type: string
+          format: uuid
+          description: The ended device session whose key the phone asks back once, to re-key the encrypted outbox it kept (OFFLINE_SYNC.md, local storage security)
+        lostPending:
+          type: object
+          additionalProperties: false
+          required: [count, reason]
+          description: Records the phone lost before this login; audited as auth.logout_with_pending or sync.outbox_unrecoverable
+          properties:
+            count: { type: integer, minimum: 0, maximum: 100000 }
+            reason: { type: string, enum: [logout, unrecoverable] }
+    LogoutRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        pendingCount: { type: integer, minimum: 0, maximum: 100000, description: Records left unsent on the device; audited as auth.logout_with_pending when above zero }
     Me:
       type: object
       required: [id, displayName, kind, state, roles, language, permissionVersion]
@@ -741,11 +758,19 @@ components:
         volunteerId: { type: [string, 'null'], format: uuid }
     TokenPair:
       type: object
-      required: [accessToken, expiresAt, me]
+      required: [accessToken, expiresAt, me, deviceKey]
       properties:
         accessToken: { type: string }
         expiresAt: { type: string, format: date-time }
         me: { $ref: '#/components/schemas/Me' }
+        deviceKey:
+          type: string
+          pattern: '^[A-Za-z0-9_-]{43}$'
+          description: The session's device key (32 bytes, base64url) that wraps the phone's offline store key; kept in memory only, returned by login and by every refresh (AUTH.md 5)
+        previousDeviceKey:
+          type: string
+          pattern: '^[A-Za-z0-9_-]{43}$'
+          description: The key of the ended session named by recoverSessionId, handed back once so the phone can re-key its outbox
     TokenResponse:
       type: object
       required: [data, meta]
@@ -4634,9 +4659,15 @@ paths:
       x-audit: auth.logout
       x-idempotency: none
       x-rate-limit: default
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LogoutRequest' }
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /auth/me:
     get:
       tags: [auth]

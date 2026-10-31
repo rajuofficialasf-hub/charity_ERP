@@ -20,6 +20,7 @@ async function main(): Promise<void> {
     JWT_SECRET: 'openapi-generation-only-jwt-0123456789',
     AUTH_CSRF_SECRET: 'openapi-generation-only-csrf-012345678',
     OTP_SECRET: 'openapi-generation-only-otp-0123456789',
+    LOCAL_KEY_SECRET: 'openapi-generation-only-local-key-0123456789',
   });
   const container = createContainer(env);
   const { registry } = createApp(container);

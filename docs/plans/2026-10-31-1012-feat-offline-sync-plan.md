@@ -152,7 +152,7 @@ None blocking. R47 depends on the owner's phones; the checklist is written in th
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** auth, migration
-- **Status:** todo
+- **Status:** done
 
 ### U3. The snapshot and the full locations list
 - **Goal:** A volunteer's phone can pull everything section B names, masked, by delta.
@@ -338,8 +338,8 @@ None blocking. R47 depends on the owner's phones; the checklist is written in th
 
 ## Progress
 - **Branch:** `feat/offline-sync`
-- **Updated:** 2026-10-31 11:05
-- **Next:** U2 (the device key): write the auth integration tests first
+- **Updated:** 2026-10-31 11:10
+- **Next:** checkpoint C2 on U2, then U3 (the snapshot and `/locations/all`): write `test/integration/sync-snapshot.test.ts` first
 - **Uncommitted:** none
 - **Reviewed through:** C1 at the commit after U1 (see git log, `fix(sync): the review of the shared sync module`)
-- **Notes:** CI runs only on pull requests and `main` (D-138), so every unit's tests run locally. C1 taught: the state machine needs an `interrupted` event (a killed app leaves rows in `syncing`), `retry_now` after `retry_exhausted` restarts the seven days, a 409 `sync.batch_in_progress` is transient by code (`isTransientResponse`), and the pending-photo count is its own result field (`pendingPhotos`) beside the result, not a result value; Retry-After is followed only when finite, non-negative and at most an hour. The row result schema in `openapi.yaml` must carry `pendingPhotos` and `conflict` (U4).
+- **Notes:** CI runs only on pull requests and `main` (D-138), so every unit's tests run locally. C1 taught: the state machine needs an `interrupted` event (a killed app leaves rows in `syncing`), `retry_now` after `retry_exhausted` restarts the seven days, a 409 `sync.batch_in_progress` is transient by code (`isTransientResponse`), and the pending-photo count is its own result field (`pendingPhotos`) beside the result, not a result value; Retry-After is followed only when finite, non-negative and at most an hour. The row result schema in `openapi.yaml` must carry `pendingPhotos` and `conflict` (U4). U2 taught: Prisma `Bytes` wants a `Uint8Array<ArrayBuffer>`, not a Node `Buffer`; a broken `$ref` in `openapi.yaml` makes the contract recorder answer 500 to every request of the api-db tests (fix the document, not the code); the secret rotation of the device keys follows the JWT pattern (`LOCAL_KEY_PREVIOUS_SECRET`, re-sealed at the next refresh) instead of a re-seal script; the login's `lostPending` field carries both the offline-logout count and the unrecoverable count, told apart by its `reason`; the local `apps/api/.env` got the placeholder `LOCAL_KEY_SECRET`.

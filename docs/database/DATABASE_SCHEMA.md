@@ -277,9 +277,12 @@ Indexes: (user_id) WHERE revoked_at IS NULL; (permission_name, scope_type, scope
 | revoked_at | timestamptz | yes | — | — |
 | revoked_by | uuid | yes | — | FK users |
 | revoke_reason | text | yes | — | — |
+| local_key | bytea | yes | — | the device key sealed under `LOCAL_KEY_SECRET` and bound to the id (AUTH.md §5, T2.7); null after logout, revocation or the nightly cleanup |
+| pending_count | integer | yes | — | records the device reported as still waiting (≥ 0), with pending_reported_at (T2.7) |
+| pending_reported_at | timestamptz | yes | — | — |
 | [L] | | | | |
 
-Indexes: (user_id) WHERE revoked_at IS NULL; UNIQUE (refresh_token_hash).
+Indexes: (user_id) WHERE revoked_at IS NULL; UNIQUE (refresh_token_hash). The status-log guard also lets local_key, pending_count and pending_reported_at change.
 
 ### otp_codes
 | Column | Type | Null | Default | Comment |

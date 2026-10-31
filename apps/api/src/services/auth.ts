@@ -203,9 +203,60 @@ export class AuthService {
           appVersion: input.device?.appVersion ?? null,
         },
       });
-      return created;
+      const previousKey = await this.recoverOutbox(tx, user.id, input);
+      return { ...created, previousKey };
     });
-    return this.issue(user.id, session.id, session.refreshToken, session.expiresAt);
+    return this.issue(
+      user.id,
+      session.id,
+      session.refreshToken,
+      session.expiresAt,
+      session.localKey,
+      session.previousKey,
+    );
+  }
+
+  /**
+   * The outbox the phone kept under an earlier session (OFFLINE_SYNC.md "Local storage security"):
+   * its key comes back once when that session merely ended; otherwise, and when the phone says
+   * what it lost, the count is audited so the loss is on record, never silent.
+   */
+  private async recoverOutbox(
+    tx: Tx,
+    userId: string,
+    input: LoginRequest,
+  ): Promise<string | undefined> {
+    const { recoverSessionId, lostPending } = input;
+    if (lostPending?.reason === 'logout')
+      await this.audit.record(tx, {
+        action: 'auth.logout_with_pending',
+        entityType: 'device_session',
+        entityId: recoverSessionId ?? null,
+        actorUserId: userId,
+        new: { count: lostPending.count },
+      });
+    if (!recoverSessionId && lostPending?.reason !== 'unrecoverable') return undefined;
+    const key = recoverSessionId
+      ? await this.sessions.recoverKey(tx, recoverSessionId, userId)
+      : null;
+    if (key) {
+      await this.audit.record(tx, {
+        action: 'auth.outbox_recovered',
+        entityType: 'device_session',
+        entityId: recoverSessionId ?? null,
+        actorUserId: userId,
+      });
+      return key;
+    }
+    if (lostPending?.reason !== 'logout')
+      await this.audit.record(tx, {
+        action: 'sync.outbox_unrecoverable',
+        entityType: 'device_session',
+        entityId: recoverSessionId ?? null,
+        actorUserId: userId,
+        new: { count: lostPending?.count ?? 0 },
+      });
+    return undefined;
   }
 
   private lockedError(until: Date, now: Date): ApiError {
@@ -224,6 +275,8 @@ export class AuthService {
     sessionId: string,
     refreshToken: string,
     refreshExpiresAt: Date,
+    deviceKey: string,
+    previousDeviceKey?: string,
   ): Promise<IssuedSession> {
     const me = await this.me(userId);
     const access = await this.tokens.signAccess({
@@ -233,7 +286,13 @@ export class AuthService {
       pv: me.permissionVersion,
     });
     return {
-      pair: { accessToken: access.token, expiresAt: access.expiresAt.toISOString(), me },
+      pair: {
+        accessToken: access.token,
+        expiresAt: access.expiresAt.toISOString(),
+        me,
+        deviceKey,
+        ...(previousDeviceKey ? { previousDeviceKey } : {}),
+      },
       refreshToken,
       csrfToken: this.tokens.csrfToken(sessionId),
       refreshExpiresAt,
@@ -253,10 +312,17 @@ export class AuthService {
     });
     if (user.state === 'deactivated') throw new ApiError('auth.session_revoked', 401);
     if (user.state === 'blocked') throw new ApiError('auth.account_blocked', 403);
-    return this.issue(rotated.userId, rotated.sessionId, rotated.refreshToken, rotated.expiresAt);
+    return this.issue(
+      rotated.userId,
+      rotated.sessionId,
+      rotated.refreshToken,
+      rotated.expiresAt,
+      rotated.localKey,
+    );
   }
 
-  async logout(principal: Principal): Promise<void> {
+  /** Ends the session; a logout that leaves records unsent on the device is on record too. */
+  async logout(principal: Principal, pendingCount = 0): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       await this.sessions.revoke(tx, principal.sessionId, {
         by: principal.userId,
@@ -267,6 +333,13 @@ export class AuthService {
         entityType: 'device_session',
         entityId: principal.sessionId,
       });
+      if (pendingCount > 0)
+        await this.audit.record(tx, {
+          action: 'auth.logout_with_pending',
+          entityType: 'device_session',
+          entityId: principal.sessionId,
+          new: { count: pendingCount },
+        });
     });
   }
 

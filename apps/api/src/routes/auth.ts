@@ -8,6 +8,8 @@ import {
   type PasswordChangeRequest,
   passwordResetCompleteRequestSchema,
   type PasswordResetCompleteRequest,
+  type LogoutRequest,
+  logoutRequestSchema,
   passwordResetStartRequestSchema,
   type PasswordResetStartRequest,
   USER_STATES,
@@ -127,7 +129,7 @@ export function authRouter(
     },
   });
 
-  defineRoute(router, deps, {
+  defineRoute<LogoutRequest | undefined>(router, deps, {
     ...authOp,
     method: 'post',
     path: '/auth/logout',
@@ -139,9 +141,10 @@ export function authRouter(
     allowPasswordChange: true,
     audit: 'auth.logout',
     rateLimit: 'default',
-    responses: { 204: null, 401: null },
-    handler: async ({ req, res }) => {
-      await c.auth.logout(principalOf(req));
+    body: logoutRequestSchema.optional(),
+    responses: { 204: null, 401: null, 422: null },
+    handler: async ({ body, req, res }) => {
+      await c.auth.logout(principalOf(req), body?.pendingCount);
       clearSessionCookies(res, c.env);
     },
   });

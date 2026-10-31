@@ -428,6 +428,11 @@ model DeviceSession {
   lastSeenAt                     DateTime           @default(now()) @map("last_seen_at") @db.Timestamptz(6)
   lastIp                         String?            @map("last_ip") @db.Inet
   idleTimeout                    Boolean            @default(false) @map("idle_timeout")
+  /// the device key sealed under the server's secret; dropped on logout, revocation and after thirty days
+  localKey                       Bytes?             @map("local_key")
+  /// records the device reported as still waiting, and when
+  pendingCount                   Int?               @map("pending_count")
+  pendingReportedAt              DateTime?          @map("pending_reported_at") @db.Timestamptz(6)
   expiresAt                      DateTime           @map("expires_at") @db.Timestamptz(6)
   revokedAt                      DateTime?          @map("revoked_at") @db.Timestamptz(6)
   revokedBy                      String?            @map("revoked_by") @db.Uuid

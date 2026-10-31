@@ -63,6 +63,13 @@ const envSchema = z
     AUTH_CSRF_SECRET: z.string().min(32),
     /** HMAC key of OTP code and address hashes (AUTH.md 2, D-070). */
     OTP_SECRET: z.string().min(32),
+    /**
+     * Seals the device keys of sessions in the database (AUTH.md 5); LOCAL_KEY_PREVIOUS_SECRET is
+     * still accepted during a rotation, and a row is re-sealed under the current one at its next
+     * refresh.
+     */
+    LOCAL_KEY_SECRET: z.string().min(32),
+    LOCAL_KEY_PREVIOUS_SECRET: z.string().min(32).optional(),
     /** Fixed OTP code instead of SMS and email; development and test only (BD-44, BD-49). */
     OTP_DUMMY_ENABLED: flag,
     OTP_DUMMY_CODE: z
@@ -140,6 +147,12 @@ const envSchema = z
         code: 'custom',
         path: ['APP_ORIGIN'],
         message: 'must be an https origin in production (links sent by email)',
+      });
+    if (env.NODE_ENV === 'production' && env.LOCAL_KEY_SECRET.startsWith('change-me'))
+      ctx.addIssue({
+        code: 'custom',
+        path: ['LOCAL_KEY_SECRET'],
+        message: 'the example value of .env.example is refused in production',
       });
     if (env.NODE_ENV === 'production' && env.FILE_SCANNER === 'skip')
       ctx.addIssue({

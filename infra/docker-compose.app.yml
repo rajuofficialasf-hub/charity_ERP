@@ -34,6 +34,7 @@ x-api-env: &api-env
   JWT_SECRET: dev-only-jwt-secret-0123456789abcdef0123
   AUTH_CSRF_SECRET: dev-only-csrf-secret-0123456789abcdef01
   OTP_SECRET: dev-only-otp-secret-0123456789abcdef0123
+  LOCAL_KEY_SECRET: dev-only-local-key-secret-0123456789abcdef
   OTP_DUMMY_ENABLED: 'true'
   OTP_DUMMY_CODE: '123456'
   AUTH_COOKIE_SECURE: 'false'

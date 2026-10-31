@@ -17,6 +17,7 @@ export function testEnv(overrides: Record<string, string> = {}): Env {
     JWT_SECRET: 'test-only-jwt-secret-0123456789abcdef0123',
     AUTH_CSRF_SECRET: 'test-only-csrf-secret-0123456789abcdef01',
     OTP_SECRET: 'test-only-otp-secret-0123456789abcdef012',
+    LOCAL_KEY_SECRET: 'test-only-local-key-secret-0123456789abcdef',
     OTP_DUMMY_ENABLED: 'true',
     OTP_DUMMY_CODE: '246810',
     AUTH_COOKIE_SECURE: 'false',
