@@ -326,6 +326,44 @@ describe('applications without network', () => {
     expect(screen.queryByText('আবেদনের তালিকা আনা যায়নি। আবার চেষ্টা করুন।')).toBeNull();
   });
 
+  it('keeps the verifying badge on a held record whose photo still waits', async () => {
+    refreshAs(VOLUNTEER);
+    await seedPhone();
+    const { apply, applyResult, enqueue } = await import('../../offline/outbox');
+    const { add } = await import('../../offline/photo-queue');
+    const store = await import('../../offline/applications-store');
+    const row = await enqueue({
+      clientUuid: LOCAL,
+      kind: 'application_draft',
+      projectId: PROJECT,
+      formVersionId: VERSION,
+      payload: { answers: [] },
+    });
+    await add({
+      clientUuid: LOCAL,
+      slot: 'house_photo',
+      blob: new Blob([new Uint8Array(64)], { type: 'image/jpeg' }),
+      facts: { name: 'h.jpg', mime: 'image/jpeg', source: 'camera' },
+    });
+    await apply([row.clientUuid], { type: 'flush', at: new Date() });
+    await applyResult(
+      {
+        clientUuid: LOCAL,
+        result: 'needs_verification',
+        serverId: APP,
+        code: 'existing_identity',
+        pendingPhotos: 1,
+      },
+      new Date(),
+    );
+    await applySnapshot(
+      { ...view, applications: [{ ...summary, status: 'needs_verification' }] },
+      new Date(),
+    );
+    const sync = (await store.syncOfServerRecords()).get(APP);
+    expect(sync).toMatchObject({ verificationReason: 'existing_identity', photosPending: true });
+  });
+
   it('opens a record the phone holds and takes a correction into the outbox offline', async () => {
     const user = userEvent.setup();
     refreshAs(VOLUNTEER);

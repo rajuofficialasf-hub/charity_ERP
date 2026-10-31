@@ -16,6 +16,7 @@ import {
   throttle3g,
   TINY_PNG,
 } from './support/offline';
+import { digits } from './support/forms';
 import { activeProject, choice, code, ERR, question } from './support/projects';
 
 // The offline journeys of a volunteer's phone (docs/architecture/OFFLINE_SYNC.md, the test
@@ -32,8 +33,6 @@ const VOLUNTEER = '01700000111';
 /** The first demo beneficiary (a woman of Dhaka): her number is known, her name is not the typed one. */
 const KNOWN_NID = '1000001000';
 
-const digits = (n: number) =>
-  Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join('');
 const ddmmyyyy = (d: Date) =>
   `${String(d.getDate()).padStart(2, '0')}${String(d.getMonth() + 1).padStart(2, '0')}${d.getFullYear()}`;
 const windowAroundToday = () => {
@@ -175,8 +174,8 @@ let places: Awaited<ReturnType<typeof savar>>;
 test.describe.configure({ mode: 'serial' });
 
 test.describe('the offline journeys', () => {
-  test.beforeEach(({ page }, info: TestInfo) => {
-    void page;
+  // Playwright wants the first argument destructured, so one fixture is named and left alone
+  test.beforeEach(({ page: _page }, info: TestInfo) => {
     test.skip(!isPhone(info), 'the offline work is the phone’s');
   });
 
@@ -325,10 +324,13 @@ test.describe('the offline journeys', () => {
     );
     await page.getByRole('button', { name: 'এখনই সিঙ্ক করুন' }).click();
     await pulled;
-    await page.goto('/my-applications?tab=pending');
-    const row = page.getByRole('listitem').filter({ has: page.locator(`a[href="${href}"]`) });
-    await expect(row).toContainText('অফিসে পাঠানো হয়েছে', { timeout: 30_000 });
-    await expect(row).not.toContainText('অফিস যাচাই করছে');
+    // the record's own page shows the office's state, and no longer the verifying badge
+    await page.goto(`/my-applications/${id}`);
+    await expect(page.getByRole('list', { name: 'আবেদনের ধাপ' })).toContainText(
+      'অফিসে পাঠানো হয়েছে',
+      { timeout: 30_000 },
+    );
+    await expect(page.getByText('অফিস যাচাই করছে')).toHaveCount(0);
   });
 
   test('a draft edited on both sides keeps the later edit, the phone’s', async ({
@@ -433,10 +435,11 @@ test.describe('the offline journeys', () => {
     // still signed in, the draft still on the phone
     await page.goto('/my-applications?tab=draft');
     await expect(rowOf(page, name)).toContainText('পাঠানোর অপেক্ষায়');
-    await goOnline(context);
-    await page.waitForResponse((r) => r.url().includes('/api/v1/sync/batch'), {
+    const batch = page.waitForResponse((r) => r.url().includes('/api/v1/sync/batch'), {
       timeout: 60_000,
     });
+    await goOnline(context);
+    await batch;
   });
 
   test('a device the office signs out wipes the phone at its next step', async ({

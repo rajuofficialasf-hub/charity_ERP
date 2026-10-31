@@ -448,7 +448,10 @@ export async function syncOfServerRecords(): Promise<Map<string, SyncInfo>> {
   const map = new Map<string, SyncInfo>();
   for (const row of rows) {
     const id = row.serverId ?? row.target;
-    if (id) map.set(id, { ...infoOf(row), verificationReason: null });
+    if (!id) continue;
+    // a held record with photos still to go is both: the office's check comes first
+    const verifying = row.state === 'synced' && (await stillVerifying(row));
+    map.set(id, { ...infoOf(row), verificationReason: verifying ? row.verificationReason! : null });
   }
   // a record the office is still verifying carries that as its badge
   for (const row of all)
