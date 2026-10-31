@@ -110,6 +110,7 @@ describe('GET /sync/snapshot', () => {
     expect(data.projects[0]).toMatchObject({ consentStatus: 'accepted', via: 'assignment' });
     expect(data.formVersions).toHaveLength(1);
     expect(data.formVersions[0].id).toBe(versionId);
+    expect(data.formVersions[0].projectId).toBe(project);
     // the volunteer's definition: no official-only section, and no points
     const sections = data.formVersions[0].sections as { visibility?: string; fields: unknown[] }[];
     expect(sections.some((sec) => sec.visibility === 'official')).toBe(false);

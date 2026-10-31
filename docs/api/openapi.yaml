@@ -4411,7 +4411,16 @@ components:
             nextAfterId: { type: [string, 'null'], format: uuid, description: "While more wait, the last row of this page, carried as afterId by the next ask" }
             hasMore: { type: boolean, description: More changed applications wait beyond this page }
             projects: { type: array, items: { $ref: '#/components/schemas/MyProject' }, description: "The volunteer's consented projects; empty for an official" }
-            formVersions: { type: array, items: { $ref: '#/components/schemas/FormVersion' }, description: "The published application form of each project, as the caller's audience sees it" }
+            formVersions:
+              type: array
+              description: "The published application form of each project, as the caller's audience sees it, each with the project it belongs to"
+              items:
+                allOf:
+                  - $ref: '#/components/schemas/FormVersion'
+                  - type: object
+                    required: [projectId]
+                    properties:
+                      projectId: { $ref: '#/components/schemas/Uuid' }
             applications: { type: array, items: { $ref: '#/components/schemas/ApplicationSummary' }, description: "The own applications changed at or after the given time, oldest change first, at most 500 per page" }
             applicationIds: { type: array, items: { $ref: '#/components/schemas/Uuid' }, description: "Every own application the server still lists; the phone drops what is missing" }
             locationsVersion: { type: string, description: "Changes with any location row; the phone pulls /locations/all again when it differs" }

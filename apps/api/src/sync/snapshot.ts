@@ -42,7 +42,7 @@ export const snapshotView = z.object({
   nextAfterId: uuid.nullable(),
   hasMore: z.boolean(),
   projects: z.array(myProjectView),
-  formVersions: z.array(versionView),
+  formVersions: z.array(versionView.extend({ projectId: uuid })),
   applications: z.array(applicationSummary),
   /** Every own application the server still lists: the phone drops what is missing here. */
   applicationIds: z.array(uuid),
@@ -50,6 +50,7 @@ export const snapshotView = z.object({
 });
 
 type MyProjectItem = Awaited<ReturnType<MyProjectsService['list']>>[number];
+type SnapshotForm = FormVersionView & { projectId: string };
 
 export interface SnapshotView {
   /** The database's clock when the answer was built. */
@@ -61,7 +62,8 @@ export interface SnapshotView {
   /** More changed applications wait beyond this page: the phone asks again with `nextSince` and `nextAfterId`. */
   hasMore: boolean;
   projects: MyProjectItem[];
-  formVersions: FormVersionView[];
+  /** The published application form of each project, each with the project it belongs to. */
+  formVersions: SnapshotForm[];
   applications: ApplicationSummary[];
   applicationIds: string[];
   locationsVersion: string;
@@ -135,15 +137,18 @@ export class SnapshotService {
     const formViewer: ApplicationViewer = { principal, scope: formScope, fieldClasses };
     const forms = await Promise.all(
       projects.map((p) =>
-        this.applications.applicationForm(formViewer, p.projectId).catch((error: unknown) => {
-          // a project without a published form, or one the volunteer may not apply on, has no form to keep
-          if (
-            error instanceof ApiError &&
-            ['application.form_not_published', 'permission.not_found'].includes(error.code)
-          )
-            return null;
-          throw error;
-        }),
+        this.applications
+          .applicationForm(formViewer, p.projectId)
+          .then((form): SnapshotForm => ({ ...form, projectId: p.projectId }))
+          .catch((error: unknown) => {
+            // a project without a published form, or one the volunteer may not apply on, has no form to keep
+            if (
+              error instanceof ApiError &&
+              ['application.form_not_published', 'permission.not_found'].includes(error.code)
+            )
+              return null;
+            throw error;
+          }),
       ),
     );
     const listViewer: ApplicationViewer = { principal, scope: listScope, fieldClasses };
@@ -157,7 +162,7 @@ export class SnapshotService {
       nextAfterId: more ? last.id : null,
       hasMore: more,
       projects,
-      formVersions: forms.filter((f): f is FormVersionView => f !== null),
+      formVersions: forms.filter((f): f is SnapshotForm => f !== null),
       applications: own.changed,
       applicationIds: own.ids,
       locationsVersion,
