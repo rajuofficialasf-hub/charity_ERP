@@ -38,6 +38,8 @@ export type SessionEnd = 'revoked' | 'expired' | 'logout';
 
 interface State {
   accessToken: string | null;
+  /** The session's device key that wraps the phone's store key; memory only, like the token. */
+  deviceKey: string | null;
   me: Me | null;
   refreshing: Promise<TokenPair | null> | null;
   listeners: Set<(me: Me | null, end?: SessionEnd) => void>;
@@ -52,6 +54,7 @@ const holder = globalThis as typeof globalThis & { [STATE_KEY]?: State };
 // eslint-disable-next-line security/detect-object-injection -- a fixed registered symbol, not input
 const state: State = (holder[STATE_KEY] ??= {
   accessToken: null,
+  deviceKey: null,
   me: null,
   refreshing: null,
   listeners: new Set(),
@@ -74,16 +77,59 @@ export function currentMe(): Me | null {
 
 function accept(pair: TokenPair): TokenPair {
   state.accessToken = pair.accessToken;
+  state.deviceKey = pair.deviceKey;
   state.me = pair.me;
   publish();
   return pair;
 }
 
+/** The session id claim of the access token; null for a token this server did not sign. */
+function sessionIdOf(token: string): string | null {
+  const part = token.split('.')[1];
+  if (!part) return null;
+  try {
+    const claims = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/'))) as {
+      sid?: unknown;
+    };
+    return typeof claims.sid === 'string' ? claims.sid : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The phone's store, loaded only when a session needs it, so the login chunk stays small. */
+const offlineKeys = () => import('../offline/keys');
+
+/**
+ * Opens the store's keys for the signed-in session (OFFLINE_SYNC.md 7). A store that will not
+ * open never blocks the sign-in: the next flush reports what it cannot read.
+ */
+async function openStoreKeys(pair: TokenPair): Promise<void> {
+  const sessionId = sessionIdOf(pair.accessToken);
+  if (!sessionId) return;
+  try {
+    const keys = await offlineKeys();
+    await keys.afterSignIn({
+      sessionId,
+      userId: pair.me.id,
+      deviceKey: pair.deviceKey,
+      previousDeviceKey: pair.previousDeviceKey,
+    });
+  } catch {
+    // the store is optional for the session; its own screens say when it is unavailable
+  }
+}
+
 /** Ends the session on this device; a revoked session also wipes the local data (AUTH.md 8). */
 async function endSession(end: SessionEnd): Promise<void> {
   state.accessToken = null;
+  state.deviceKey = null;
   state.me = null;
   if (end !== 'expired') await wipeLocalData();
+  else
+    await offlineKeys()
+      .then((keys) => keys.forgetKeys())
+      .catch(() => undefined);
   publish(end);
 }
 
@@ -146,7 +192,10 @@ async function refreshOnce(): Promise<TokenPair | null> {
   if (res.ok) {
     const { data } = (await res.json()) as { data: TokenPair };
     // A login or logout happened meanwhile; this token belongs to the session before it.
-    return state.generation === started ? accept(data) : null;
+    if (state.generation !== started) return null;
+    accept(data);
+    void openStoreKeys(data);
+    return data;
   }
   const error = await failure(res);
   // Same for a failure: it is about the session before the login or logout.
@@ -230,18 +279,35 @@ export async function api<T>(path: string, options: RequestOptions = {}, retry =
   throw error;
 }
 
-/** Logs in; the refresh and CSRF cookies are set by the response. */
+/**
+ * Logs in; the refresh and CSRF cookies are set by the response. The phone names the session its
+ * store was keyed under, so the server can hand that key back, and tells of records it lost
+ * before this login (OFFLINE_SYNC.md 7); the store's keys open once the sign-in is accepted.
+ */
 export async function login(loginId: string, password: string): Promise<Me> {
+  const keys = await offlineKeys().catch(() => null);
+  const recoverSessionId = (await keys?.storedSessionId().catch(() => null)) ?? undefined;
+  const lostPending = keys?.peekLostPending();
   const pair = await api<TokenPair>(
     '/auth/login',
     {
       method: 'POST',
-      body: { loginId, password, device: deviceInfo() },
+      body: {
+        loginId,
+        password,
+        device: deviceInfo(),
+        ...(recoverSessionId ? { recoverSessionId } : {}),
+        ...(lostPending ? { lostPending } : {}),
+      },
     },
     false,
   );
   state.generation += 1;
-  return accept(pair).me;
+  accept(pair);
+  keys?.clearLostPending();
+  await openStoreKeys(pair);
+  void keys?.requestPersistence();
+  return pair.me;
 }
 
 /**
@@ -249,9 +315,12 @@ export async function login(loginId: string, password: string): Promise<Me> {
  * expired access token is refreshed once first: without it the server session, and with it the
  * refresh cookie, would survive and the next page load would sign the user in again.
  */
-export async function logout(): Promise<void> {
+export async function logout(pendingCount?: number): Promise<void> {
   try {
-    await api<void>('/auth/logout', { method: 'POST' });
+    await api<void>('/auth/logout', {
+      method: 'POST',
+      ...(pendingCount === undefined ? {} : { body: { pendingCount } }),
+    });
   } finally {
     state.generation += 1;
     await endSession('logout');
@@ -296,6 +365,7 @@ export function deviceInfo(): {
 /** Test hook: forget the in-memory session. */
 export function resetClientForTests(): void {
   state.accessToken = null;
+  state.deviceKey = null;
   state.me = null;
   state.refreshing = null;
   state.listeners.clear();

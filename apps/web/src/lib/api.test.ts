@@ -1,7 +1,16 @@
+import Dexie from 'dexie';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiError, ME, pair } from '../../test/auth';
 import { server } from '../../test/msw/server';
+import { closeOfflineDb, OFFLINE_DB_NAME, offlineDb } from '../offline/db';
+import {
+  clearLostPending,
+  currentDataKey,
+  forgetKeys,
+  noteLostPending,
+  storedSessionId,
+} from '../offline/keys';
 import {
   api,
   ApiFailure,
@@ -18,9 +27,18 @@ beforeEach(() => {
   resetClientForTests();
   document.cookie = 'css_csrf=nonce.mac; path=/';
 });
-afterEach(() => {
+afterEach(async () => {
   document.cookie = 'css_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+  forgetKeys();
+  clearLostPending();
+  closeOfflineDb();
+  await Dexie.delete(OFFLINE_DB_NAME);
 });
+
+const SESSION_A = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4b01';
+const SESSION_B = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4b02';
+/** A token shaped like the server's, carrying only the session claim. */
+const tokenOf = (sessionId: string) => `h.${btoa(JSON.stringify({ sid: sessionId }))}.s`;
 
 describe('API client', () => {
   it('logs in, keeps the token in memory and sends it with the language and version', async () => {
@@ -99,26 +117,86 @@ describe('API client', () => {
     onSessionChange((me, ended) => events.push(me ? 'in' : ended));
     window.sessionStorage.setItem('draft', 'x');
     server.use(
-      http.post('*/api/v1/auth/login', () => HttpResponse.json({ data: pair(), meta: {} })),
+      http.post('*/api/v1/auth/login', () =>
+        HttpResponse.json({ data: pair(ME, tokenOf(SESSION_A)), meta: {} }),
+      ),
       http.get('*/api/v1/auth/me', () => apiError(401, 'auth.session_revoked', 'revoked')),
     );
     await login('a', 'b');
+    expect(currentDataKey()).not.toBeNull();
+    await offlineDb().meta.put({ key: 'since', value: 'x' });
     await expect(api('/auth/me')).rejects.toBeInstanceOf(ApiFailure);
     expect(currentMe()).toBeNull();
     expect(window.sessionStorage.getItem('draft')).toBeNull();
+    expect(currentDataKey()).toBeNull();
+    expect(await Dexie.exists(OFFLINE_DB_NAME)).toBe(false);
     expect(events).toEqual(['in', 'revoked']);
+  });
+
+  it('opens the store keys for the session, asks the earlier session’s key back and reports lost records', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    server.use(
+      http.post('*/api/v1/auth/login', async ({ request }) => {
+        const body = (await request.json()) as Record<string, unknown>;
+        bodies.push(body);
+        return HttpResponse.json({
+          data: {
+            ...pair(ME, tokenOf(bodies.length === 1 ? SESSION_A : SESSION_B)),
+            ...(body.recoverSessionId ? { previousDeviceKey: 'k'.repeat(43) } : {}),
+          },
+          meta: {},
+        });
+      }),
+    );
+    await login('a', 'b');
+    expect(bodies[0]).not.toHaveProperty('recoverSessionId');
+    expect(await storedSessionId()).toBe(SESSION_A);
+    // the session expired, the app was reopened, and records were lost at an offline logout
+    resetClientForTests();
+    forgetKeys();
+    noteLostPending({ count: 2, reason: 'logout' });
+    await login('a', 'b');
+    expect(bodies[1]).toMatchObject({
+      recoverSessionId: SESSION_A,
+      lostPending: { count: 2, reason: 'logout' },
+    });
+    expect(await storedSessionId()).toBe(SESSION_B);
+    expect(currentDataKey()).not.toBeNull();
+    expect(window.localStorage.getItem('css_lost_pending')).toBeNull();
+  });
+
+  it('keeps the store keys closed for a token without a session claim', async () => {
+    server.use(
+      http.post('*/api/v1/auth/login', () => HttpResponse.json({ data: pair(), meta: {} })),
+    );
+    await login('a', 'b');
+    expect(currentDataKey()).toBeNull();
   });
 
   it('keeps local data when the refresh token only expired (O-29)', async () => {
     const events: (string | undefined)[] = [];
     onSessionChange((me, ended) => events.push(me ? 'in' : ended));
     window.sessionStorage.setItem('draft', 'x');
+    await offlineDb().meta.put({ key: 'since', value: 'x' });
     server.use(
       http.post('*/api/v1/auth/refresh', () => apiError(401, 'auth.refresh_invalid', 'again')),
     );
     expect(await refreshSession()).toBeNull();
     expect(window.sessionStorage.getItem('draft')).toBe('x');
+    expect(await offlineDb().meta.get('since')).toEqual({ key: 'since', value: 'x' });
     expect(events).toEqual(['expired']);
+  });
+
+  it('sends the pending count with a logout that leaves records on the phone', async () => {
+    let body: unknown;
+    server.use(
+      http.post('*/api/v1/auth/logout', async ({ request }) => {
+        body = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await logout(4);
+    expect(body).toEqual({ pendingCount: 4 });
   });
 
   it('does not ask the server without the CSRF cookie (no session on this device)', async () => {
