@@ -526,11 +526,13 @@ export async function seedDemo(ctx: SeedContext): Promise<void> {
     // the duplicate pairs: a draft form version of WNT for their applications, the four
     // profiles, one application each (under review, so a merge leaves the retired one's in place),
     // and the pair as the duplicate search keeps it
+    // its own key, so a form a person makes in WNT on a dev database (the app's usual first key is
+    // default) never collides with the seed's
     const formId = seedId('form:WNT:default');
     await ctx.upsert('forms', {
       id: formId,
       project_id: projectId,
-      key: 'default',
+      key: 'duplicate_pairs',
       title_bn: 'আবেদন ফর্ম',
       title_en: 'Application form',
       ...ctx.audit(),
