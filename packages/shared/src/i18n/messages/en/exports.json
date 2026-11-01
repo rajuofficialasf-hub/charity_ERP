@@ -51,5 +51,15 @@
       "volunteer": "Volunteer",
       "union": "Union"
     }
+  },
+  "file": {
+    "code": "{header} (code)",
+    "yes": "Yes",
+    "no": "No",
+    "rows_sheet": "List",
+    "repeats_sheet": "Repeated answers",
+    "app_no": "Application number",
+    "group": "Group",
+    "row_no": "Row"
   }
 }

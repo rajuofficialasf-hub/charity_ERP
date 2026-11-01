@@ -1,6 +1,21 @@
 import type { ExportList } from './constants.js';
 
 /**
+ * How a column's values are written: text; a number or an amount; a calendar date or a moment;
+ * a coded value, written as its words beside a column of its code; a yes or no.
+ */
+export const COLUMN_KINDS = [
+  'text',
+  'number',
+  'money',
+  'date',
+  'datetime',
+  'coded',
+  'flag',
+] as const;
+export type ColumnKind = (typeof COLUMN_KINDS)[number];
+
+/**
  * One column a list can export. `list` columns are the ones the list's page knows (the on-screen
  * ones among them ticked first); `detail` columns are further facts of the record. `cls` is the
  * protected class of `docs/security/permissions.yaml` (`sensitive_fields`) the column belongs
@@ -13,7 +28,28 @@ export interface ExportColumn {
   group: 'list' | 'detail';
   cls: string | null;
   onScreen: boolean;
+  kind: ColumnKind;
 }
+
+/** The columns whose values are not plain text; every other column is text. */
+const KINDS: Readonly<Record<ExportList, Readonly<Record<string, ColumnKind>>>> = {
+  volunteers: {
+    state: 'coded',
+    inactive: 'flag',
+    type: 'coded',
+    blocked: 'flag',
+    date_of_birth: 'date',
+  },
+  beneficiaries: {
+    ben_no: 'number',
+    status: 'coded',
+    class: 'coded',
+    gender: 'coded',
+    age: 'number',
+    blocked: 'flag',
+  },
+  applications: { score: 'number', status: 'coded', submitted: 'datetime', waiting: 'number' },
+};
 
 const column = (
   list: ExportList,
@@ -21,7 +57,15 @@ const column = (
   group: ExportColumn['group'],
   cls: string | null = null,
   onScreen = false,
-): ExportColumn => ({ id, header: `exports.column.${list}.${id}`, group, cls, onScreen });
+): ExportColumn => ({
+  id,
+  header: `exports.column.${list}.${id}`,
+  group,
+  cls,
+  onScreen,
+  // eslint-disable-next-line security/detect-object-injection -- typed union key and a catalogue id
+  kind: KINDS[list][id] ?? 'text',
+});
 
 const VOLUNTEER_IDENTITY = 'volunteer.identity';
 const VOLUNTEER_BANK = 'volunteer.bank';

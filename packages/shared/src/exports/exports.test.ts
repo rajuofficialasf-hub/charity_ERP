@@ -103,6 +103,19 @@ describe('the column catalogues', () => {
   });
 });
 
+describe('the kind of a column', () => {
+  it('writes codes, dates, numbers and yes-or-no as such, and the rest as text', () => {
+    const kindOf = (kind: Parameters<typeof columnsOf>[0], id: string) =>
+      columnsOf(kind).find((c) => c.id === id)?.kind;
+    expect(kindOf('volunteers', 'state')).toBe('coded');
+    expect(kindOf('volunteers', 'date_of_birth')).toBe('date');
+    expect(kindOf('volunteers', 'blocked')).toBe('flag');
+    expect(kindOf('beneficiaries', 'age')).toBe('number');
+    expect(kindOf('applications', 'submitted')).toBe('datetime');
+    expect(kindOf('applications', 'person')).toBe('text');
+  });
+});
+
 describe('the column order of a file', () => {
   it('puts the list’s columns first, then the details, then the questions in the form’s order', () => {
     const chosen = ['q:income', 'mobile', 'status', 'q:family_size', 'person', 'stage', 'app_no'];
