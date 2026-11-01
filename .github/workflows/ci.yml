@@ -143,6 +143,9 @@ jobs:
       # Chromium runs every spec as a phone and a desktop; WebKit runs the sign-in, registration and
       # home specs as an iPhone (the `iphone` project of apps/web/playwright.config.ts)
       - run: pnpm --filter @css/web exec playwright install --with-deps chromium webkit
+      # the export journey prints a PDF through Chromium inside its sandbox (see the checks job)
+      - name: Allow the Chromium sandbox
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - run: pnpm e2e
       - if: failure()
         uses: actions/upload-artifact@v7

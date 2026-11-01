@@ -181,3 +181,24 @@ Lighthouse 12 on the mobile profile against the production build (`vite preview`
 Paint 3.7 s, Largest Contentful Paint 4.0 s, Total Blocking Time 100 ms, Cumulative Layout Shift
 0.002, total transfer 430 KiB (fonts and styles included). axe runs on every screen of the E2E
 suite on the mobile and the desktop profile.
+
+## Exports (T2.8)
+
+`pnpm --filter @css/api perf:exports` on css_erp_perf (after `perf:seed`, which also applies new
+migrations to an existing data set): as the Department Head it asks for the beneficiaries of the
+Dhaka division (more than the 100,000 rows a file holds) with eight columns, the NID among them,
+and runs the job in the same process with the real batches of 1,000 rows, the writers and the
+filesystem storage driver until the job stops at 100,000 rows; once as CSV, once as Excel. The
+memory is the process's peak resident set, sampled every 100 ms, against its baseline before the
+job (the Node process with Prisma and the container).
+
+| Measured 2026-11-01 on the owner's machine | Rows | Time | File | Peak above baseline |
+|---|---|---|---|---|
+| CSV | 100,000 | 5.8 s | 22.6 MB | 187 MB |
+| Excel | 100,000 | 6.9 s | 6.4 MB | 326 MB |
+
+The baseline was 399 MB. Excel holds its compressed sheets until the end (the streaming writer of
+`exceljs` commits the zip only once), which is the larger share; three running exports per person
+cap what one person can ask of the worker at once. A worker host should allow about 1 GB for the
+process with one large Excel export running.
+

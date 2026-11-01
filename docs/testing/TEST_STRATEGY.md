@@ -243,6 +243,7 @@ What the Phase 1 gate (T1.17) can rely on, from the runs on the final state of b
 | `npx playwright test e2e/registration.spec.ts e2e/roles.spec.ts e2e/admin-permissions.spec.ts --repeat-each 3 --workers 1` | `81 passed, 9 skipped` |
 | `npx playwright test --project iphone --repeat-each 3 --workers 1` | `57 passed, 12 skipped` |
 | `npx playwright test e2e/a11y.spec.ts` | `12 passed` (every listed screen, both languages, both Chromium projects, no page skipped) |
+| `pnpm --filter @css/web exec playwright test e2e/exports.spec.ts --repeat-each 3 --workers 1` (T2.8; the E2E API starts an export worker of its own) | `18 passed` |
 
 Coverage per layer:
 

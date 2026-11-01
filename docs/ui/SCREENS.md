@@ -70,6 +70,8 @@ Status: complete for Phase 0, written in task T0.19 (2026-10-10). Mockups of the
 | SCR-060 | Project setup with component toggles | desktop-first | PM | 1 · T1.11, T1.12 |
 | SCR-061 | Form builder | desktop-first | Head, Monitoring (build); PM (place, read) | 2 · T2.4, T2.4b, T2.4c, T2.4d |
 | SCR-113 | Ready forms (`/admin/ready-forms`) and the question library (`/admin/question-library`) | desktop-first | Head, Monitoring | 2 · T2.4c |
+| SCR-114 | The export dialog of a list, and the PDF of a profile or an application | parity | the export roles (no volunteer) | 2 · T2.8 |
+| SCR-115 | My exports (`/account/exports`) | parity | the export roles | 2 · T2.8 |
 | SCR-062 | Permission panel | desktop-first | Head, Monitoring | 1 · T1.8 |
 | SCR-063 | Officials: department staff, other departments, partners; new official, link, profile | parity | Head, Monitoring (writes); PM, RPM (read) | 1 · D-097 |
 | SCR-064 | Organogram | parity | Head, Monitoring, PM, RPM | 1 · D-097 |
@@ -1258,6 +1260,36 @@ This home is derived from blueprint A4 and Q-46. The team works only on house-co
 - **States.** Empty ("এখনো কোনো তৈরি ফর্ম নেই।"); loading; error with retry.
 - **Components.** Button, Badge, Modal, TextField, RadioGroup, Select, EmptyState.
 - **Phase · task.** 2 · T2.4c. **API.** `GET /ready-forms`, `POST /ready-forms`, `GET /ready-forms/{formId}/published`, `POST /projects/{projectId}/forms/place`, `POST /forms/{formId}/take-version`, `GET /form-library`; tag forms.
+
+### SCR-114 The export dialog and the record PDFs
+
+- **Purpose.** An official takes a list away as Excel, CSV or PDF with the columns they choose, or prints a beneficiary's 360° profile or one application (D-143).
+- **Built (T2.8).** "এক্সপোর্ট" above the table of the volunteer, beneficiary and application lists (`apps/web/src/features/exports/ExportButton.tsx`, inside each list so it sends the list's filters and search) opens `ExportDialog.tsx` in its own chunk: the file type, then the columns in groups (the list's own, the further details, and on an application list the form questions by section with "পুরো অংশ বাছুন" and a search), the on-screen columns ticked the first time and the last choice per list on the device after that, "সব বাছুন" and "কোনোটিই না". Once started, `ExportProgress.tsx` shows waiting, the rows written of the total, then "ডাউনলোড করুন"; a failure says why and offers to try again; closing leaves the job running. "PDF নামান" on the beneficiary's profile (the journey report's roles) and on an application's review page (the export roles) starts the record's PDF and follows it in the same progress (`RecordPdfButton.tsx`).
+- **Roles.** The roles whose defaults hold `export.list` (PM, RPM, Project Executive, Implementer, Official দায়ী, Finance, Media, Procurement) and the two global roles; never a volunteer. The server checks the permission, its scope and every protected column again.
+- **Priority.** parity; the dialog is a full-screen sheet on a phone and fits 360 px.
+- **Actions.**
+
+| Action | Permission |
+|---|---|
+| Export a list | `export.list` and the list's own read permission |
+| Add identity or bank columns | `export.beneficiaries`, `export.volunteers` |
+| Add the official section's answers or the score | `export.forms` |
+| Print a beneficiary's profile | `report.beneficiary_journey` |
+| Print one application | `export.list` |
+
+- **States.** Columns loading; columns not loaded with a message; nothing ticked (the start stays disabled); a refusal over the row limit with the narrowing message; waiting; running with its progress; done with the download; failed with its reason; a job that cannot be read with a retry.
+- **Components.** Button, Modal, RadioGroup, CheckboxGroup, Checkbox, TextField, ProgressBar, Alert, Skeleton.
+- **Phase · task.** 2 · T2.8. **API.** `GET /exports/columns`, `POST /exports`, `GET /exports/{jobId}`, `POST /beneficiaries/{beneficiaryId}/pdf`, `POST /applications/{applicationId}/pdf`, `GET /files/{fileId}/content`
+
+### SCR-115 My exports
+
+- **Purpose.** A person finds their exports again and downloads them while the files are kept (30 days).
+- **Built (T2.8).** `/account/exports` (`apps/web/src/features/exports/MyExportsPage.tsx`), linked from the profile menu as "আমার এক্সপোর্ট" for the export roles: each export of the last 30 days with its list, file type, time, row count and state (অপেক্ষায়, তৈরি হচ্ছে with its progress, তৈরি with "ডাউনলোড করুন", হয়নি with its reason, মেয়াদ শেষ once the file is deleted); asked again every 3 seconds while one waits or runs.
+- **Roles.** Anyone signed in sees their own exports only; the download checks the person again (SCR-114).
+- **Priority.** parity.
+- **States.** Empty ("এখনও কোনো এক্সপোর্ট নেই।" with where to start); loading; error with retry.
+- **Components.** Card, Badge, ProgressBar, Button, EmptyState, ErrorState.
+- **Phase · task.** 2 · T2.8. **API.** `GET /exports`, `GET /files/{fileId}/content`
 
 ### SCR-062 Permission panel
 
