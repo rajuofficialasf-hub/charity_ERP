@@ -1,8 +1,9 @@
 -- What an export job needs beyond its first outline (docs/api/API_STANDARDS.md, "Export job
--- pattern"; docs/DECISION_LOG.md D-143): the list or record it exports (the existing kind, now
--- checked), the format, the columns the person chose, the access the request froze, the progress
--- and the reason of a failure. No job row exists yet, so the new not-null columns take their
--- defaults; the format's default only serves that step and is dropped again.
+-- pattern"; docs/DECISION_LOG.md, the export service decision): the list or record it exports
+-- (the existing kind, now checked), the format, the columns the person chose, the access the
+-- request froze, the progress and the reason of a failure. No job row exists yet, so the new
+-- columns that every job must state take a default only for this step, and lose it again: a job
+-- written without its format, columns or access is refused rather than stored with an empty one.
 ALTER TABLE "export_jobs"
   ADD COLUMN "format" TEXT NOT NULL DEFAULT 'csv',
   ADD COLUMN "columns" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
@@ -11,12 +12,18 @@ ALTER TABLE "export_jobs"
   ADD COLUMN "rows_total" INTEGER,
   ADD COLUMN "error_code" TEXT,
   ADD COLUMN "finished_at" TIMESTAMPTZ(6);
-ALTER TABLE "export_jobs" ALTER COLUMN "format" DROP DEFAULT;
+ALTER TABLE "export_jobs"
+  ALTER COLUMN "format" DROP DEFAULT,
+  ALTER COLUMN "columns" DROP DEFAULT,
+  ALTER COLUMN "access" DROP DEFAULT;
 
 ALTER TABLE "export_jobs" ADD CONSTRAINT "export_jobs_kind_check"
   CHECK ("kind" IN ('volunteers', 'beneficiaries', 'applications', 'beneficiary_profile', 'application'));
 ALTER TABLE "export_jobs" ADD CONSTRAINT "export_jobs_format_check"
   CHECK ("format" IN ('csv', 'xlsx', 'pdf'));
+-- a list is exported with the columns the person chose; a record prints whole
+ALTER TABLE "export_jobs" ADD CONSTRAINT "export_jobs_columns_check"
+  CHECK ("kind" IN ('beneficiary_profile', 'application') OR cardinality("columns") > 0);
 ALTER TABLE "export_jobs" ADD CONSTRAINT "export_jobs_progress_check"
   CHECK ("rows_done" >= 0 AND ("rows_total" IS NULL OR "rows_total" >= 0));
 -- a finished job always has its file, and a failed one always says why

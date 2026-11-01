@@ -6,6 +6,7 @@ DROP INDEX IF EXISTS "export_jobs_status_created_at_idx";
 ALTER TABLE "export_jobs" DROP CONSTRAINT IF EXISTS "export_jobs_failed_reason_check";
 ALTER TABLE "export_jobs" DROP CONSTRAINT IF EXISTS "export_jobs_done_file_check";
 ALTER TABLE "export_jobs" DROP CONSTRAINT IF EXISTS "export_jobs_progress_check";
+ALTER TABLE "export_jobs" DROP CONSTRAINT IF EXISTS "export_jobs_columns_check";
 ALTER TABLE "export_jobs" DROP CONSTRAINT IF EXISTS "export_jobs_format_check";
 ALTER TABLE "export_jobs" DROP CONSTRAINT IF EXISTS "export_jobs_kind_check";
 ALTER TABLE "export_jobs"

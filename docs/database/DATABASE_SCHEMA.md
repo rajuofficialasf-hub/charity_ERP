@@ -1756,8 +1756,8 @@ Constraints: partial UNIQUE (kind, subject_type, subject_id) WHERE status <> 're
 | file_id | uuid | yes | — | FK files (kind `export`, bucket `exports`) |
 | row_count | integer | yes | — | rows counted at the request |
 | format | text | no | — | csv, xlsx, pdf |
-| columns | text[] | no | '{}' | the column ids the person chose, in the file's order |
-| access | jsonb | no | '{}' | the scope instances and field classes frozen at the request; the job never reads live access (D-143) |
+| columns | text[] | no | — | the column ids the person chose, in the file's order; at least one for a list, empty for a record's PDF |
+| access | jsonb | no | — | the scope instances and field classes frozen at the request; the job never reads live access (D-143) |
 | rows_done | integer | no | 0 | progress, ≥ 0 |
 | rows_total | integer | yes | — | the rows the job will write, ≥ 0 |
 | error_code | text | yes | — | why a job failed (`export.timed_out` for a job the sweep stopped) |

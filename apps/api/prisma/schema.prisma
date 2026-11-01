@@ -3063,10 +3063,10 @@ model ExportJob {
   rowCount       Int?     @map("row_count")
   /// csv, xlsx or pdf
   format         String
-  /// the column ids the person chose, in the file's order
-  columns        String[] @default([])
+  /// the column ids the person chose, in the file's order; empty only for a record's PDF
+  columns        String[]
   /// the scope instances and field classes the request froze; the job never reads live access
-  access         Json     @default("{}")
+  access         Json
   rowsDone       Int      @default(0) @map("rows_done")
   rowsTotal      Int?     @map("rows_total")
   errorCode      String?  @map("error_code")
