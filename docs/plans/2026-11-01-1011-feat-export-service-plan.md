@@ -101,7 +101,7 @@ Every list of the ERP is filtered and paged on screen only, while the department
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** migration
-- **Status:** todo
+- **Status:** done
 
 ### U2. The shared export rules and column catalogues
 - **Goal:** one place for the export kinds, formats, limits, request schema and the columns of each list.
@@ -291,8 +291,8 @@ Every list of the ERP is filtered and paged on screen only, while the department
 
 ## Progress
 - **Branch:** `feat/export-service` (cut from `feat/offline-sync` while PR #34 waited for CI; merge `main` in once PR #34 is merged)
-- **Updated:** 2026-11-01 11:00
-- **Next:** U1, the first step: write D-143 in docs/DECISION_LOG.md, then the `export_jobs` migration pair
+- **Updated:** 2026-11-01 10:54
+- **Next:** checkpoint C1 (U1), then U2: the shared export rules in packages/shared/src/exports
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** the owner said "শুরু কর" while PR #34's CI was still running, so the branch starts from `feat/offline-sync` instead of `main`.
+- **Notes:** the owner said "শুরু কর" while PR #34's CI was still running, so the branch starts from `feat/offline-sync` instead of `main`. U1: the migrations test round-trips every down.sql on a seeded database, so a new migration needs no test of its own for that; the fixtures' user() returns the id, not the row.

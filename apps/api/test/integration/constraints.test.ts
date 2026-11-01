@@ -1510,3 +1510,61 @@ describe('the media referrals and works', () => {
     }
   });
 });
+
+describe('export jobs', () => {
+  /** A job row of the given shape, by a fresh official. */
+  const job = async (over: Record<string, unknown> = {}) => {
+    const requester = await f.user(db);
+    const row = {
+      id: randomUUID(),
+      requested_by: requester,
+      kind: 'beneficiaries',
+      format: 'csv',
+      columns: ['name', 'mobile'],
+      access: JSON.stringify({ actorId: requester, classes: ['beneficiary.contact'] }),
+      ...over,
+    };
+    const keys = Object.keys(row);
+    return db.query(
+      `INSERT INTO export_jobs (${keys.join(', ')}) VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING *`,
+      Object.values(row),
+    );
+  };
+
+  it('keeps the chosen columns and the access the request froze', async () => {
+    const { rows } = await job();
+    expect(rows[0]).toMatchObject({
+      kind: 'beneficiaries',
+      format: 'csv',
+      columns: ['name', 'mobile'],
+      rows_done: 0,
+      rows_total: null,
+      error_code: null,
+      finished_at: null,
+    });
+    expect(rows[0].access).toMatchObject({ classes: ['beneficiary.contact'] });
+  });
+
+  it('takes the three lists and the two records as kinds, and the three formats', async () => {
+    for (const kind of [
+      'volunteers',
+      'beneficiaries',
+      'applications',
+      'beneficiary_profile',
+      'application',
+    ])
+      await job({ kind });
+    for (const format of ['csv', 'xlsx', 'pdf']) await job({ format });
+    await expectSqlError(job({ kind: 'donors' }), SQLSTATE.checkViolation);
+    await expectSqlError(job({ format: 'docx' }), SQLSTATE.checkViolation);
+  });
+
+  it('refuses a negative progress, a finished job without its file, and a failed one without its reason', async () => {
+    await expectSqlError(job({ rows_done: -1 }), SQLSTATE.checkViolation);
+    await expectSqlError(job({ rows_total: -1 }), SQLSTATE.checkViolation);
+    await expectSqlError(job({ status: 'done' }), SQLSTATE.checkViolation);
+    await expectSqlError(job({ status: 'failed' }), SQLSTATE.checkViolation);
+    const { rows } = await job({ status: 'failed', error_code: 'export.timed_out' });
+    expect(rows[0].status).toBe('failed');
+  });
+});
