@@ -102,8 +102,7 @@ Outlines (headings plus one line per section; completed in the task named in eac
 - docs/ops/DEPLOYMENT.md and RUNBOOK.md (T3.0, T6.5)
 
 ## Open decisions waiting on the owner
-- T2.8: "My exports" lists the last 30 days (R15) and a file expires 30 days after its job ended, so an expired row shows only near the end of that window; widening the list (for example to 60 days) would show more expired rows. Kept as written until the owner says otherwise.
-- T2.8: the production worker host must allow Chromium's sandbox for the PDFs (non-root, unprivileged user namespaces; docs/ops/DEPLOYMENT.md section 4); without it PDFs answer `export.pdf_unavailable`. For the IT team with O-34.
+- T2.8's two points were decided on 2026-11-01 (D-144): the worker host gives Chromium its sandbox through `infra/apparmor/css-erp-chromium` (the steps for the IT team are in docs/ops/DEPLOYMENT.md §4, applied when the server's details arrive, O-34), and "My exports" keeps 30 days.
 - T1.12: plan requirement R19 says the PM may assign volunteers in any area of a project, but permissions.yaml gives `volunteer.assign_project` only to the RPM (and the executive with the RPM's grant; the global roles hold everything). The code follows permissions.yaml; adding `program_manager` at PROGRAM scope is a one-line change once the owner decides.
 - D-072 (T1.7): confirm the trusted-proxy rule (`TRUST_PROXY`, default loopback; the production value is Caddy's address or network, set in T3.0) and the E2E-only `RATE_LIMITS_RELAXED`.
 - None open. D-059 and E-001 were approved with conditions on 2026-10-11; their outstanding conditions are tracked below.
