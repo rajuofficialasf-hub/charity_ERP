@@ -112,12 +112,12 @@ function withinStoreWait<T>(work: Promise<T>): Promise<T | null> {
 
 /**
  * Opens the store's keys for the signed-in session (docs/architecture/OFFLINE_SYNC.md, local
- * storage security). A store that will not open never blocks the sign-in: the next flush reports
- * what it cannot read.
+ * storage security) and keeps the person's own profile there, so the installed app opens without
+ * network. A volunteer's store goes on to hold the data set and the outbox; an official's holds
+ * the profile alone (docs/DECISION_LOG.md D-142). A store that will not open never blocks the
+ * sign-in: the next flush reports what it cannot read.
  */
 async function openStoreKeys(pair: TokenPair): Promise<void> {
-  // the store is the volunteer's: an official works online and keeps nothing on the device
-  if (pair.me.kind !== 'volunteer') return;
   const sessionId = sessionIdOf(pair.accessToken);
   if (!sessionId) return;
   try {
@@ -128,6 +128,8 @@ async function openStoreKeys(pair: TokenPair): Promise<void> {
       deviceKey: pair.deviceKey,
       previousDeviceKey: pair.previousDeviceKey,
     });
+    const { rememberMe } = await import('../offline/snapshot');
+    await rememberMe(pair.me);
   } catch {
     // the store is optional for the session; its own screens say when it is unavailable
   }
@@ -183,7 +185,8 @@ const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
  * Signs in from the phone's own store when the server cannot be reached
  * (docs/architecture/OFFLINE_SYNC.md, offline cold start): the device-bound key opens the store
  * and the cached `me` of the last sign-in says who. There is no token yet; the first request
- * with network refreshes first. An official keeps nothing on the device and stays signed out.
+ * with network refreshes first. An official opens the same way, to the shell and the banner:
+ * their store holds the profile alone, so every read says it needs the connection.
  */
 async function signInOffline(): Promise<boolean> {
   if (state.me) return true;

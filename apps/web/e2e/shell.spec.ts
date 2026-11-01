@@ -79,6 +79,60 @@ test.describe('app shell', () => {
     }
   });
 
+  test('an official’s installed app opens offline to the home and the banner, and its data says it needs the connection', async ({
+    page,
+    context,
+  }, info) => {
+    test.skip(!isPhone(info), 'the offline open is for the phones');
+    await signIn(page, 'head@example.org');
+    await expect(page.getByRole('heading', { level: 1, name: /^স্বাগতম, / })).toBeVisible();
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
+    await context.setOffline(true);
+    try {
+      await page.reload();
+      await expect(page.getByRole('heading', { level: 1, name: /^স্বাগতম, / })).toBeVisible({
+        timeout: 15_000,
+      });
+      // the banner by its landmark name: the loading blocks of the home are status regions too
+      await expect(
+        page.getByRole('complementary', { name: 'সংযোগ ও সিঙ্কের অবস্থা' }),
+      ).toContainText('তালিকা, পর্যালোচনা ও অনুমোদনের জন্য নেট লাগবে');
+      // the home's own data could not be read: it says why, not "something went wrong"
+      await expect(
+        page.getByRole('main').getByText('নেট নেই। এই তথ্য দেখতে সংযোগ লাগবে।').first(),
+      ).toBeVisible();
+      // nothing of the office's work is on the device: the store holds the keys and the profile only
+      expect(
+        await page.evaluate(async () => {
+          const open = indexedDB.open('css-offline');
+          const db = await new Promise<IDBDatabase>((resolve, reject) => {
+            open.onsuccess = () => resolve(open.result);
+            open.onerror = () => reject(open.error);
+          });
+          const names = Array.from(db.objectStoreNames);
+          const counts: Record<string, number> = {};
+          await Promise.all(
+            names.map(
+              (name) =>
+                new Promise<void>((resolve) => {
+                  const req = db.transaction(name).objectStore(name).count();
+                  req.onsuccess = () => {
+                    counts[name] = req.result;
+                    resolve();
+                  };
+                }),
+            ),
+          );
+          db.close();
+          return counts;
+        }),
+      ).toMatchObject({ outbox: 0, applications: 0 });
+    } finally {
+      await context.setOffline(false);
+    }
+  });
+
   test('the offline banner shows while the browser has no connection', async ({
     page,
     context,

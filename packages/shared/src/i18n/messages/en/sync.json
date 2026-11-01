@@ -53,6 +53,9 @@
     "freed": "{size} freed.",
     "sent": "Sent."
   },
+  "banner": {
+    "official_offline": "You are offline. Lists, review and approval need a connection."
+  },
   "reminder": {
     "title": "Saved work still to send",
     "body": "{n, plural, one {{count} record has waited {days} days on this phone. Sync now while there is network.} other {{count} records have waited {days} days on this phone. Sync now while there is network.}}",

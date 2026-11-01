@@ -17,6 +17,8 @@ export interface OfflineBannerProps {
   onOpenOutbox?: () => void;
   /** Called when "back online" hides itself after 4 seconds. */
   onHidden?: () => void;
+  /** A text in place of the state's own, for a person the default words do not fit. */
+  text?: string;
   className?: string;
 }
 
@@ -33,6 +35,7 @@ export function OfflineBanner({
   pendingCount,
   onOpenOutbox,
   onHidden,
+  text: givenText,
   className,
 }: OfflineBannerProps) {
   const { messages, formatNumber } = useUi();
@@ -50,12 +53,14 @@ export function OfflineBanner({
   if (hiddenFor === state) return null;
   /* eslint-disable security/detect-object-injection -- typed union key into constant tables */
   const { tone, icon } = LOOK[state];
-  const text = {
-    offline: messages.offline.offline,
-    back_online: messages.offline.backOnline,
-    syncing: messages.offline.syncing,
-    sync_failed: messages.offline.syncFailed,
-  }[state];
+  const text =
+    givenText ??
+    {
+      offline: messages.offline.offline,
+      back_online: messages.offline.backOnline,
+      syncing: messages.offline.syncing,
+      sync_failed: messages.offline.syncFailed,
+    }[state];
   /* eslint-enable security/detect-object-injection */
 
   // a named landmark of its own, so the count and the button sit inside one (the status text

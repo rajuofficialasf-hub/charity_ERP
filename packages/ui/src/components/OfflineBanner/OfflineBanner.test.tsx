@@ -28,6 +28,13 @@ describe('Offline banner (DESIGN_SYSTEM 5.16)', () => {
     expect(screen.getByRole('status')).toHaveTextContent('সিঙ্ক হয়নি');
   });
 
+  it('says the words it is given in place of the state’s own', () => {
+    renderWithUi(<OfflineBanner state="offline" text="নেট লাগবে" />, { locale: 'bn' });
+    const status = screen.getByRole('status');
+    expect(status).toHaveTextContent('নেট লাগবে');
+    expect(status).not.toHaveTextContent('সংরক্ষিত');
+  });
+
   it('hides "back online" after 4 seconds', () => {
     vi.useFakeTimers();
     const onHidden = vi.fn();

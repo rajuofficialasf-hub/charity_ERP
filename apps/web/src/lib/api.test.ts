@@ -12,7 +12,7 @@ import {
   noteLostPending,
   storedSessionId,
 } from '../offline/keys';
-import { rememberMe } from '../offline/snapshot';
+import { cachedMe, rememberMe } from '../offline/snapshot';
 import {
   api,
   ApiFailure,
@@ -257,6 +257,28 @@ describe('API client', () => {
     );
     expect(await api('/ping-sample')).toEqual({ pong: true });
     expect(refreshes).toBe(1);
+  });
+
+  it('opens the store keys for an official too, with the profile alone kept on the device', async () => {
+    server.use(
+      http.post('*/api/v1/auth/login', () =>
+        HttpResponse.json({ data: pair(ME, tokenOf(SESSION_A)), meta: {} }),
+      ),
+    );
+    await login('head@example.org', 'secret 123');
+    expect(await storedSessionId()).toBe(SESSION_A);
+    expect(currentDataKey()).not.toBeNull();
+    expect(await cachedMe()).toEqual(ME);
+  });
+
+  it('opens an official’s session from the phone’s store when the server cannot be reached', async () => {
+    await afterSignIn({ sessionId: SESSION_A, userId: ME.id, deviceKey: 'k'.repeat(43) });
+    await rememberMe(ME);
+    forgetKeys();
+    server.use(http.post('*/api/v1/auth/refresh', () => HttpResponse.error()));
+    await expect(refreshSession()).rejects.toThrow();
+    expect(currentMe()).toEqual(ME);
+    expect(currentDataKey()).not.toBeNull();
   });
 
   it('finishes a logout the network cut short at the next refresh, instead of signing in again', async () => {

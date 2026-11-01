@@ -32,6 +32,7 @@ function Shell({ me }: { me: Me }) {
   const width = useShellWidth();
   const online = useOnline();
   const { status } = useOffline();
+  const ts = useTranslations('sync');
   const banner = useBanner(online, status, me.kind === 'volunteer');
   const [moreOpen, setMoreOpen] = useState(false);
   // any change of page (a destination of the sheet, the back button) closes the sheet
@@ -61,6 +62,12 @@ function Shell({ me }: { me: Me }) {
           {banner && (
             <OfflineBanner
               {...banner}
+              // an official keeps no work on the device: the banner says what needs the connection
+              text={
+                me.kind !== 'volunteer' && banner.state === 'offline'
+                  ? ts('banner.official_offline')
+                  : undefined
+              }
               onOpenOutbox={
                 me.kind === 'volunteer' && banner.state !== 'syncing'
                   ? () => void navigate('/sync')
@@ -82,8 +89,9 @@ type Banner = Pick<OfflineBannerProps, 'state' | 'pendingCount' | 'onHidden'>;
 
 /**
  * The banner under the app bar (docs/ui/DESIGN_SYSTEM.md, "OfflineBanner"): offline for
- * everyone; for a volunteer also the sync on its way, a sync that failed, and "back online" for
- * a moment after the connection returned. The counts are the engine's; an official's are zero.
+ * everyone (an official's says that the lists, the review and the approvals need the
+ * connection); for a volunteer also the sync on its way, a sync that failed, and "back online"
+ * for a moment after the connection returned. The counts are the engine's; an official's are zero.
  */
 function useBanner(online: boolean, status: SyncStatus, volunteer: boolean): Banner | null {
   const [back, setBack] = useState(false);

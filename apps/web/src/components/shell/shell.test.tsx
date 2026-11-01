@@ -318,7 +318,10 @@ describe('app shell', () => {
       vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
       window.dispatchEvent(new Event('offline'));
     });
-    expect(await screen.findByRole('status')).toHaveTextContent(/অফলাইন/);
+    const status = await screen.findByRole('status');
+    expect(status).toHaveTextContent(/অফলাইন/);
+    // an official keeps no work on the device: the banner says what needs the connection
+    expect(status).toHaveTextContent('তালিকা, পর্যালোচনা ও অনুমোদনের জন্য নেট লাগবে');
     act(() => {
       window.dispatchEvent(new Event('online'));
     });

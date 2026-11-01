@@ -39,8 +39,8 @@ const loadEngine = () => import('./sync-engine');
 
 /**
  * Runs the sync engine for a signed-in volunteer and hands its status to the screens. The
- * engine starts when the volunteer is known and stops when they are not; the cached `me` of the
- * last sign-in is kept for the open without network.
+ * engine starts when the volunteer is known and stops when they are not. An official gets no
+ * engine: their store holds only the profile the sign-in cached for the open without network.
  */
 export function OfflineProvider({
   children,
@@ -65,9 +65,6 @@ export function OfflineProvider({
       if (stopped) return;
       engineRef.current = engine;
       const unsubscribe = engine.subscribe(setStatus);
-      const { currentDataKey } = await import('./keys');
-      const { rememberMe } = await import('./snapshot');
-      if (!stopped && currentDataKey()) await rememberMe(me).catch(() => undefined);
       if (stopped) {
         unsubscribe();
         return;
