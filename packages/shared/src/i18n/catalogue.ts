@@ -12,6 +12,7 @@ export const NAMESPACES = [
   'codes',
   'common',
   'errors',
+  'exports',
   'forms',
   'gallery',
   'home',

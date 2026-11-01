@@ -1,0 +1,55 @@
+{
+  "column": {
+    "volunteers": {
+      "name": "নাম",
+      "area": "এলাকা",
+      "projects": "প্রজেক্ট",
+      "state": "অবস্থা",
+      "category": "ক্যাটাগরি",
+      "inactive": "নিষ্ক্রিয়",
+      "type": "ধরন",
+      "mobile": "মোবাইল",
+      "email": "ইমেইল",
+      "blocked": "ব্লক করা",
+      "nid": "NID নম্বর",
+      "date_of_birth": "জন্মতারিখ",
+      "blood_group": "রক্তের গ্রুপ",
+      "bank_name": "ব্যাংকের নাম",
+      "bank_account_name": "অ্যাকাউন্টের নাম",
+      "bank_account_number": "অ্যাকাউন্ট নম্বর",
+      "bank_branch_name": "শাখা",
+      "bank_routing_number": "রাউটিং নম্বর"
+    },
+    "beneficiaries": {
+      "name": "নাম",
+      "ben_no": "BEN নম্বর",
+      "father": "পিতা বা স্বামীর নাম",
+      "area": "এলাকা",
+      "status": "অবস্থা",
+      "class": "উপকারভোগীর ধরন",
+      "gender": "লিঙ্গ",
+      "age": "বয়স",
+      "mother": "মায়ের নাম",
+      "mobile": "মোবাইল",
+      "union": "ইউনিয়ন",
+      "village": "গ্রাম",
+      "blocked": "ব্লক করা",
+      "nid": "NID নম্বর",
+      "birth_reg": "জন্মনিবন্ধন নম্বর"
+    },
+    "applications": {
+      "app_no": "আবেদন নম্বর",
+      "person": "উপকারভোগী",
+      "score": "স্কোর",
+      "area": "এলাকা",
+      "status": "অবস্থা",
+      "submitted": "পাঠানোর তারিখ",
+      "waiting": "অপেক্ষা (দিন)",
+      "stage": "ধাপ",
+      "outcome": "ফলাফল",
+      "flags": "চিহ্ন",
+      "volunteer": "স্বেচ্ছাসেবক",
+      "union": "ইউনিয়ন"
+    }
+  }
+}

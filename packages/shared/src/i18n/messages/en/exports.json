@@ -1,0 +1,55 @@
+{
+  "column": {
+    "volunteers": {
+      "name": "Name",
+      "area": "Area",
+      "projects": "Projects",
+      "state": "State",
+      "category": "Category",
+      "inactive": "Inactive",
+      "type": "Type",
+      "mobile": "Mobile",
+      "email": "Email",
+      "blocked": "Blocked",
+      "nid": "NID number",
+      "date_of_birth": "Date of birth",
+      "blood_group": "Blood group",
+      "bank_name": "Bank name",
+      "bank_account_name": "Account name",
+      "bank_account_number": "Account number",
+      "bank_branch_name": "Branch",
+      "bank_routing_number": "Routing number"
+    },
+    "beneficiaries": {
+      "name": "Name",
+      "ben_no": "BEN number",
+      "father": "Father's or husband's name",
+      "area": "Area",
+      "status": "Status",
+      "class": "Beneficiary type",
+      "gender": "Gender",
+      "age": "Age",
+      "mother": "Mother's name",
+      "mobile": "Mobile",
+      "union": "Union",
+      "village": "Village",
+      "blocked": "Blocked",
+      "nid": "NID number",
+      "birth_reg": "Birth registration number"
+    },
+    "applications": {
+      "app_no": "Application number",
+      "person": "Beneficiary",
+      "score": "Score",
+      "area": "Area",
+      "status": "Status",
+      "submitted": "Sent on",
+      "waiting": "Waiting (days)",
+      "stage": "Stage",
+      "outcome": "Outcome",
+      "flags": "Flags",
+      "volunteer": "Volunteer",
+      "union": "Union"
+    }
+  }
+}
