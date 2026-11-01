@@ -68,6 +68,21 @@
       "volunteers": "স্বেচ্ছাসেবকের তালিকা",
       "beneficiaries": "উপকারভোগীর তালিকা",
       "applications": "আবেদনের তালিকা"
+    },
+    "filter": {
+      "q": "খোঁজা",
+      "year": "বছর",
+      "type": "ধরন",
+      "state": "অবস্থা",
+      "category": "ক্যাটাগরি",
+      "blocked": "ব্লক করা",
+      "status": "অবস্থা",
+      "stage": "ধাপ",
+      "flag": "চিহ্ন",
+      "submitted_from": "পাঠানো শুরু",
+      "submitted_to": "পাঠানো শেষ",
+      "volunteer": "স্বেচ্ছাসেবক",
+      "project": "প্রজেক্ট"
     }
   }
 }

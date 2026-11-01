@@ -418,6 +418,11 @@ export class FilesService {
    * registration photo, which the NID audit names.
    */
   private async viewer(principal: Principal, file: StoredFile): Promise<string | null> {
+    // an export file belongs to its job, whose own checks decide its download
+    if (file.kind === 'export') {
+      this.access.denied(principal.userId, 'entity', 'file');
+      throw new ApiError('permission.not_found', 404);
+    }
     // a photo on an application (a beneficiary's NID photo, say) follows the application, never
     // the registration rule of a volunteer's own photos
     const onApplication =

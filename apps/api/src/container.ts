@@ -621,7 +621,11 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
 
 /** Closes what the container opened (Prisma, pg-boss); used by server.ts and the tests. */
 export async function closeContainer(c: Container): Promise<void> {
-  await c.jobs.stop();
-  await c.pdf.close();
-  await c.prisma.$disconnect();
+  try {
+    await c.jobs.stop();
+    // a browser that will not close never keeps the database connections open
+    await c.pdf.close().catch((error: unknown) => c.logger.error({ err: error }, 'pdf browser'));
+  } finally {
+    await c.prisma.$disconnect();
+  }
 }

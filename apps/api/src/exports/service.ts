@@ -1,8 +1,10 @@
 import { uuidv7 } from '@css/shared';
+import { z } from 'zod';
 import {
   type ColumnKind,
   columnsOf,
   EXPORT_LIMITS,
+  EXPORT_LISTS,
   EXPORT_PERMISSION_OF_CLASS,
   type ExportList,
   type ExportRequest,
@@ -11,6 +13,7 @@ import {
   unknownColumns,
 } from '@css/shared/exports';
 import { formatCount } from '@css/shared/format';
+import { FIELD_TYPES } from '@css/shared/forms';
 import type { Bilingual, MessageKey } from '@css/shared/i18n';
 import { translate } from '@css/shared/i18n';
 import type { AuditWriter } from '../audit/audit-writer';
@@ -40,6 +43,44 @@ export interface FrozenExport {
   list: FrozenList;
   questions: QuestionColumn[];
   projectId: string | null;
+}
+
+const bilingualSchema = z.object({ bn: z.string(), en: z.string() });
+
+/**
+ * The stored shape of a job's frozen export, checked when the worker reads it back; the list's
+ * Prisma filters stay as stored, since only the request that froze them wrote them.
+ */
+const frozenExportSchema = z.object({
+  list: z.object({
+    kind: z.enum(EXPORT_LISTS),
+    filters: z.record(z.string(), z.unknown()),
+    where: z.unknown(),
+    byScore: z.boolean(),
+    classes: z.array(z.string()),
+    reach: z.array(z.object({ classes: z.array(z.string()), where: z.unknown() })),
+    locale: z.enum(['bn', 'en']),
+  }),
+  questions: z.array(
+    z.object({
+      fieldKey: z.string(),
+      id: z.string(),
+      label: bilingualSchema,
+      sectionKey: z.string(),
+      sectionTitle: bilingualSchema,
+      cls: z.string().nullable(),
+      group: z.string().nullable(),
+      type: z.enum(FIELD_TYPES),
+      options: z.record(z.string(), bilingualSchema),
+    }),
+  ),
+  projectId: z.string().nullable(),
+});
+
+/** A job's frozen export as stored, or null when the row does not hold one. */
+export function readFrozenExport(stored: unknown): FrozenExport | null {
+  const parsed = frozenExportSchema.safeParse(stored);
+  return parsed.success ? (parsed.data as FrozenExport) : null;
 }
 
 /** One column the export dialog offers, with its words in both languages. */
@@ -89,7 +130,10 @@ const JOB_SELECT = {
 const MINUTE_MS = 60 * 1000;
 const DAY_MS = 24 * 60 * MINUTE_MS;
 
-/** The classes whose columns make an export sensitive: audited, and checked again at download. */
+/**
+ * The classes whose columns make an export sensitive: the request's audit entry says so, and the
+ * download of such a file needs these classes' export permissions again.
+ */
 const SENSITIVE = new Set(Object.keys(EXPORT_PERMISSION_OF_CLASS));
 
 const both = (key: string): Bilingual => ({
@@ -114,11 +158,7 @@ export class ExportsService {
     private readonly questions: ExportQuestions,
     limits: Partial<ExportLimits> = {},
   ) {
-    this.limits = {
-      maxRows: limits.maxRows ?? EXPORT_LIMITS.maxRows,
-      maxPdfRows: limits.maxPdfRows ?? EXPORT_LIMITS.maxPdfRows,
-      maxRunning: limits.maxRunning ?? EXPORT_LIMITS.maxRunning,
-    };
+    this.limits = { ...EXPORT_LIMITS, ...limits };
   }
 
   /**
@@ -193,7 +233,10 @@ export class ExportsService {
         'validation.failed',
         422,
         undefined,
-        unknown.map(() => ({ path: 'columns', code: 'validation.failed' })),
+        unknown.map((id) => ({
+          path: `columns.${input.columns.indexOf(id)}`,
+          code: 'validation.failed',
+        })),
       );
     // a column of a class the person may not export is refused, never quietly dropped
     const allowedKeys = new Set(allowed.map((q) => q.fieldKey));
@@ -250,7 +293,7 @@ export class ExportsService {
           requestedBy: principal.userId,
           kind: input.kind,
           locale,
-          filters: input.filters as object,
+          filters: frozen.filters as Prisma.InputJsonObject,
           sensitive,
           status: 'queued',
           format: input.format,
@@ -269,7 +312,7 @@ export class ExportsService {
           kind: input.kind,
           format: input.format,
           columns: ordered,
-          filters: input.filters as Prisma.InputJsonObject,
+          filters: frozen.filters as Prisma.InputJsonObject,
           ...(input.projectId ? { projectId: input.projectId } : {}),
           sensitive,
           rowCount: total,

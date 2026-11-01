@@ -9,12 +9,12 @@ import type { Clock } from '../core/clock';
 import type { PrismaService } from '../core/prisma.service';
 import { CsvFile } from '../exports/csv';
 import { type FileColumn, fileWords, headersOf, textsOf } from '../exports/file';
-import { placeNames } from '../exports/places';
+import { filterHeading } from '../exports/heading';
 import { listTableHtml } from '../exports/pdf/list-table';
 import type { PdfRenderer } from '../exports/pdf/renderer';
 import type { ExportQuestions, QuestionColumn, QuestionValues } from '../exports/questions';
 import type { BatchCursor, Cell, ExportRow, ExportRows } from '../exports/rows';
-import { type FrozenExport, questionKind } from '../exports/service';
+import { type FrozenExport, questionKind, readFrozenExport } from '../exports/service';
 import { XlsxFile } from '../exports/xlsx';
 import { ApiError } from '../i18n/api-error';
 import type { StorageDriver } from '../storage/types';
@@ -97,39 +97,45 @@ export class ExportRunner {
     };
   }
 
-  /** Runs the job; `attempt` is how many times pg-boss has retried it already. */
-  async run(jobId: string, attempt: number): Promise<void> {
+  /**
+   * Runs the job; `attempt` is how many times pg-boss has retried it already, and `signal` ends
+   * an attempt the queue gave up on (it stops at its next batch).
+   */
+  async run(jobId: string, attempt: number, signal?: AbortSignal): Promise<void> {
     const job = await this.prisma.exportJob.findUnique({ where: { id: jobId } });
     if (!job || job.status === 'done' || job.status === 'failed') return;
-    const frozen = job.access as unknown as FrozenExport;
-    const locale = job.locale === 'en' ? 'en' : 'bn';
-    const key = objectKey(job.id, job.kind, job.format, job.createdAt);
-    await this.prisma.exportJob.update({
-      where: { id: job.id },
+    const frozen = readFrozenExport(job.access);
+    if (!frozen) {
+      // a row that does not hold its export can never succeed: no retry
+      this.logger?.error({ jobId }, 'export job holds no readable export');
+      await this.fail(job.id, 'export.failed');
+      return;
+    }
+    const locale = frozen.list.locale;
+    // each attempt writes its own object, so an attempt still running never loses its file
+    const key = objectKey(job.id, attempt, job.kind, job.format, job.createdAt);
+    const claimed = await this.prisma.exportJob.updateMany({
+      where: { id: job.id, status: { in: ['queued', 'running'] } },
       data: { status: 'running', rowsDone: 0, updatedAt: this.clock.now() },
     });
+    if (claimed.count === 0) return;
     try {
-      // whatever an earlier attempt of this job left in storage goes first
-      await this.storage.remove('exports', key);
       const measure = new Measure();
       const stored = this.storage
-        .put('exports', key, measure, {
-          contentType: mimeOf(job.format),
-        })
+        .put('exports', key, measure, { contentType: mimeOf(job.format) })
         .catch((error: unknown) => {
           // the writer stops at its next row instead of filling a stream nobody reads
           measure.destroy();
           throw error;
         });
-      const filters = (job.filters ?? {}) as Record<string, unknown>;
       const written = this.write(
         job.id,
         job.format,
         job.columns,
         frozen,
-        filters,
         locale,
         measure,
+        signal,
       ).catch((error: unknown) => {
         measure.destroy(error as Error);
         throw error;
@@ -137,27 +143,57 @@ export class ExportRunner {
       const [put, rows] = await Promise.allSettled([stored, written]);
       if (rows.status === 'rejected') throw rows.reason;
       if (put.status === 'rejected') throw put.reason;
-      await this.finish(job.id, job.requestedBy, job.format, key, measure, rows.value);
+      const recorded = await this.finish(
+        job.id,
+        job.requestedBy,
+        job.format,
+        key,
+        measure,
+        rows.value,
+      );
+      if (!recorded) {
+        // another attempt of the job finished first and holds the file
+        await this.storage.remove('exports', key).catch(() => undefined);
+        return;
+      }
+      // what earlier attempts left behind, if they ended without removing it
+      await this.removeOtherAttempts(job, attempt);
     } catch (error) {
       await this.storage.remove('exports', key).catch(() => undefined);
       const last = attempt >= QUEUES.exports.retryLimit;
       this.logger?.error({ err: error, jobId, attempt, last }, 'export job failed');
       if (!last) throw error;
-      const code =
-        error instanceof ApiError && KEPT_CODES.has(error.code) ? error.code : 'export.failed';
-      await this.prisma.exportJob.update({
-        where: { id: job.id },
-        data: {
-          status: 'failed',
-          errorCode: code,
-          finishedAt: this.clock.now(),
-          updatedAt: this.clock.now(),
-        },
-      });
+      await this.fail(
+        job.id,
+        error instanceof ApiError && KEPT_CODES.has(error.code) ? error.code : 'export.failed',
+      );
     }
   }
 
-  /** The file row, then the job's end, in one transaction once the object is stored. */
+  /** Marks a job that has not finished as failed with a fixed code. */
+  private async fail(jobId: string, code: string): Promise<void> {
+    const now = this.clock.now();
+    await this.prisma.exportJob.updateMany({
+      where: { id: jobId, status: { in: ['queued', 'running'] } },
+      data: { status: 'failed', errorCode: code, finishedAt: now, updatedAt: now },
+    });
+  }
+
+  private async removeOtherAttempts(
+    job: { id: string; kind: string; format: string; createdAt: Date },
+    attempt: number,
+  ): Promise<void> {
+    for (let other = 0; other <= QUEUES.exports.retryLimit; other += 1)
+      if (other !== attempt)
+        await this.storage
+          .remove('exports', objectKey(job.id, other, job.kind, job.format, job.createdAt))
+          .catch(() => undefined);
+  }
+
+  /**
+   * The file row, then the job's end, in one transaction once the object is stored; false when
+   * the job is no longer running (another attempt ended it), and nothing is written then.
+   */
   private async finish(
     jobId: string,
     requestedBy: string,
@@ -165,39 +201,46 @@ export class ExportRunner {
     key: string,
     measure: Measure,
     rowCount: number,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const fileId = uuidv7();
     const now = this.clock.now();
-    await this.prisma.$transaction(async (tx) => {
-      // the server made the file from its own data, so there is nothing to scan
-      await tx.file.create({
-        data: {
-          id: fileId,
-          bucket: 'exports',
-          objectKey: key,
-          kind: 'export',
-          mime: mimeOf(format),
-          sizeBytes: BigInt(measure.size),
-          sha256: measure.hash.digest('hex'),
-          uploadedBy: requestedBy,
-          source: 'system',
-          virusScan: 'clean',
-          createdBy: requestedBy,
-          updatedBy: requestedBy,
-        },
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        // the server made the file from its own data, so there is nothing to scan
+        await tx.file.create({
+          data: {
+            id: fileId,
+            bucket: 'exports',
+            objectKey: key,
+            kind: 'export',
+            mime: mimeOf(format),
+            sizeBytes: BigInt(measure.size),
+            sha256: measure.hash.digest('hex'),
+            uploadedBy: requestedBy,
+            source: 'system',
+            virusScan: 'clean',
+            createdBy: requestedBy,
+            updatedBy: requestedBy,
+          },
+        });
+        const ended = await tx.exportJob.updateMany({
+          where: { id: jobId, status: 'running' },
+          data: {
+            status: 'done',
+            fileId,
+            rowCount,
+            rowsDone: rowCount,
+            finishedAt: now,
+            updatedAt: now,
+          },
+        });
+        if (ended.count === 0) throw new Superseded();
       });
-      await tx.exportJob.update({
-        where: { id: jobId },
-        data: {
-          status: 'done',
-          fileId,
-          rowCount,
-          rowsDone: rowCount,
-          finishedAt: now,
-          updatedAt: now,
-        },
-      });
-    });
+      return true;
+    } catch (error) {
+      if (error instanceof Superseded) return false;
+      throw error;
+    }
   }
 
   /** Writes every row into the stream and answers how many were written. */
@@ -206,9 +249,9 @@ export class ExportRunner {
     format: string,
     columnIds: readonly string[],
     frozen: FrozenExport,
-    filters: Record<string, unknown>,
     locale: 'bn' | 'en',
     out: Measure,
+    signal: AbortSignal | undefined,
   ): Promise<number> {
     const list = frozen.list.kind;
     const questions = frozen.questions;
@@ -219,7 +262,7 @@ export class ExportRunner {
         ? csvSink(out, columns, locale)
         : format === 'xlsx'
           ? xlsxSink(out, columns, questions, locale)
-          : this.pdfSink(out, columns, frozen, filters, locale);
+          : this.pdfSink(out, columns, frozen, locale);
     await sink.start();
     // in the score order a row scored again during the job may come round twice
     const written = new Set<string>();
@@ -228,6 +271,7 @@ export class ExportRunner {
       // each batch asks for no more than the rows still allowed, even when rows were added
       const size = Math.min(this.limits.batchRows, limit - written.size);
       if (size <= 0) break;
+      signal?.throwIfAborted();
       const batch = await this.rows.batch(frozen.list, cursor, size);
       const fresh = batch.rows.filter((r) => !written.has(r.id));
       const answers =
@@ -269,7 +313,6 @@ export class ExportRunner {
     out: Measure,
     columns: readonly FileColumn[],
     frozen: FrozenExport,
-    filters: Record<string, unknown>,
     locale: 'bn' | 'en',
   ): RowSink {
     const words = fileWords(locale);
@@ -285,7 +328,13 @@ export class ExportRunner {
         const page = listTableHtml({
           locale,
           title: translate(locale, PDF_TITLES[frozen.list.kind]),
-          filters: await this.filterText(frozen, filters, locale),
+          filters: await filterHeading(this.prisma, {
+            list: frozen.list.kind,
+            filters: frozen.list.filters,
+            projectId: frozen.projectId,
+            rowCount: lines.length,
+            locale,
+          }),
           date: formatDate(this.clock.now()),
           rowCount: lines.length,
           headers: headersOf(columns, words),
@@ -299,41 +348,23 @@ export class ExportRunner {
       },
     };
   }
-
-  /** The places and the project the list was filtered by, as their names. */
-  private async filterText(
-    frozen: FrozenExport,
-    values: Record<string, unknown>,
-    locale: 'bn' | 'en',
-  ): Promise<string> {
-    const placeIds = ['divisionId', 'districtId', 'upazilaId', 'unionId']
-      // eslint-disable-next-line security/detect-object-injection -- fixed filter names of this list
-      .map((k) => (Object.hasOwn(values, k) ? values[k] : undefined))
-      .filter((v): v is string => typeof v === 'string');
-    const names = await placeNames(this.prisma, placeIds, locale);
-    const projectId =
-      frozen.projectId ?? (typeof values.projectId === 'string' ? values.projectId : null);
-    const project = projectId
-      ? await this.prisma.project.findUnique({
-          where: { id: projectId },
-          select: { nameBn: true, nameEn: true },
-        })
-      : null;
-    return [
-      project ? (locale === 'en' ? project.nameEn : project.nameBn) : null,
-      ...placeIds.map((id) => names.get(id) ?? null),
-    ]
-      .filter(Boolean)
-      .join(', ');
-  }
 }
 
-/** Where a job's file lives: by its month, then its job, one name per job. */
-function objectKey(jobId: string, kind: string, format: string, createdAt: Date): string {
+/** Where an attempt of a job writes its file: by the job's month, then the job and the attempt. */
+function objectKey(
+  jobId: string,
+  attempt: number,
+  kind: string,
+  format: string,
+  createdAt: Date,
+): string {
   const yyyy = String(createdAt.getUTCFullYear());
   const mm = String(createdAt.getUTCMonth() + 1).padStart(2, '0');
-  return `${yyyy}/${mm}/${jobId}/${kind}.${format}`;
+  return `${yyyy}/${mm}/${jobId}/${attempt}/${kind}.${format}`;
 }
+
+/** Another attempt of the job ended it first. */
+class Superseded extends Error {}
 
 /** The file's columns: the list's chosen ones in the job's language, then the questions. */
 function fileColumns(

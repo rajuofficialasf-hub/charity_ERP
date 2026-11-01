@@ -3,6 +3,7 @@ import type { Readable } from 'node:stream';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ExportRunner } from '../../src/jobs/export-run';
+import { filterHeading } from '../../src/exports/heading';
 import { ExportsService } from '../../src/exports/service';
 import type { BatchCursor, ExportRows, FrozenList } from '../../src/exports/rows';
 import type { StorageDriver } from '../../src/storage/types';
@@ -475,5 +476,122 @@ describe('the rows of an export job', () => {
     expect(written).toMatchObject({ status: 'done', rowCount: 3, columns: ['app_no', 'status'] });
     // a workbook is a zip
     expect((await contentOf(written.fileId)).subarray(0, 2).toString('latin1')).toBe('PK');
+  });
+});
+
+describe('what an export keeps to itself', () => {
+  it('is not served by the file route, whose checks are not the export’s', async () => {
+    const s = await as(world.users.rpmDhaka);
+    const made = await at(s, 'post', '/exports').send({
+      kind: 'beneficiaries',
+      format: 'csv',
+      columns: ['name'],
+      filters: {},
+    });
+    await runner().run(made.body.data.id, 0);
+    const done = (await at(s, 'get', `/exports/${made.body.data.id}`)).body.data;
+    expect(done.status).toBe('done');
+    expect((await at(s, 'get', `/files/${done.fileId}/content`)).status).toBe(404);
+  });
+
+  it('writes the rows and columns frozen at the request, though the person lost the permission since', async () => {
+    const official = await account(h.db, { role: 'regional_program_manager' });
+    accounts.set(official.id, official);
+    // the region the official holds: Dhaka, through an area of a project
+    await h.db.query(
+      `INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)`,
+      [randomUUID(), world.a2.id, world.dhaka.division, official.id],
+    );
+    const s = await login(h, official);
+    const made = await at(s, 'post', '/exports').send({
+      kind: 'beneficiaries',
+      format: 'csv',
+      columns: ['name', 'nid'],
+      filters: { divisionId: world.dhaka.division },
+    });
+    expect(made.status, JSON.stringify(made.body)).toBe(202);
+    // every role taken away before the job runs
+    await h.db.query('DELETE FROM user_roles WHERE user_id = $1', [official.id]);
+    await runner().run(made.body.data.id, 0);
+    const done = (await at(s, 'get', `/exports/${made.body.data.id}`)).body.data;
+    expect(done.status).toBe('done');
+    const lines = (await contentOf(done.fileId))
+      .subarray(3)
+      .toString('utf8')
+      .trimEnd()
+      .split('\r\n');
+    expect(lines[0]).toBe('নাম,NID নম্বর');
+    const nids = await h.db.query<{ nid: string }>(
+      `SELECT nid FROM beneficiaries WHERE division_id = $1 AND nid IS NOT NULL`,
+      [world.dhaka.division],
+    );
+    expect(
+      lines
+        .slice(1)
+        .map((l) => l.split(',')[1])
+        .sort(),
+    ).toEqual(nids.rows.map((n) => n.nid).sort());
+  });
+
+  it('keeps one file when two attempts of a job run at once', async () => {
+    const s = await as(world.users.rpmDhaka);
+    const made = await at(s, 'post', '/exports').send({
+      kind: 'beneficiaries',
+      format: 'csv',
+      columns: ['name'],
+      filters: {},
+    });
+    await Promise.all([runner().run(made.body.data.id, 0), runner().run(made.body.data.id, 1)]);
+    const done = (await at(s, 'get', `/exports/${made.body.data.id}`)).body.data;
+    expect(done.status).toBe('done');
+    const files = await h.db.query<{ id: string }>(
+      `SELECT id FROM files WHERE kind = 'export' AND object_key LIKE $1`,
+      [`%${made.body.data.id}%`],
+    );
+    expect(files.rows.map((r) => r.id)).toEqual([done.fileId]);
+    expect((await contentOf(done.fileId)).length).toBeGreaterThan(3);
+  });
+
+  it('fails at once, without retries, a job whose stored export cannot be read', async () => {
+    const s = await as(world.users.rpmDhaka);
+    const made = await at(s, 'post', '/exports').send({
+      kind: 'beneficiaries',
+      format: 'csv',
+      columns: ['name'],
+      filters: {},
+    });
+    await h.db.query(`UPDATE export_jobs SET access = '{"list":{}}' WHERE id = $1`, [
+      made.body.data.id,
+    ]);
+    await runner().run(made.body.data.id, 0);
+    expect((await at(s, 'get', `/exports/${made.body.data.id}`)).body.data).toMatchObject({
+      status: 'failed',
+      errorCode: 'export.failed',
+    });
+  });
+
+  it('prints every filter in the PDF heading, and a project by name only where it reached rows', async () => {
+    const project = await h.db.query<{ name_bn: string }>(
+      'SELECT name_bn FROM projects WHERE id = $1',
+      [world.b1.id],
+    );
+    const heading = (
+      rowCount: number,
+      projectId: string | null,
+      filters: Record<string, unknown>,
+    ) =>
+      filterHeading(h.container.prisma, {
+        list: 'beneficiaries',
+        filters,
+        projectId,
+        rowCount,
+        locale: 'bn',
+      });
+    const outside = await heading(0, null, { projectId: world.b1.id, year: 2026, blocked: 'true' });
+    expect(outside).not.toContain(project.rows[0]!.name_bn);
+    expect(outside).toContain('বছর: 2026');
+    expect(outside).toContain('ব্লক করা: হ্যাঁ');
+    expect(await heading(2, null, { projectId: world.b1.id })).toContain(project.rows[0]!.name_bn);
+    expect(await heading(0, world.b1.id, {})).toContain(project.rows[0]!.name_bn);
   });
 });

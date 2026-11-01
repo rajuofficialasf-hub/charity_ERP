@@ -68,6 +68,21 @@
       "volunteers": "Volunteer list",
       "beneficiaries": "Beneficiary list",
       "applications": "Application list"
+    },
+    "filter": {
+      "q": "Search",
+      "year": "Year",
+      "type": "Type",
+      "state": "State",
+      "category": "Category",
+      "blocked": "Blocked",
+      "status": "Status",
+      "stage": "Stage",
+      "flag": "Flag",
+      "submitted_from": "Submitted from",
+      "submitted_to": "Submitted to",
+      "volunteer": "Volunteer",
+      "project": "Project"
     }
   }
 }

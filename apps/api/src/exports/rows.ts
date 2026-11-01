@@ -56,6 +56,8 @@ export interface ExportRow {
  */
 export interface FrozenList {
   kind: ExportList;
+  /** The list's filters as its own schema read them (unknown keys dropped), as JSON. */
+  filters: Record<string, unknown>;
   /** The list's Prisma filter, as JSON. */
   where: unknown;
   /** The office's score order of the application list, else the newest first. */
@@ -184,26 +186,24 @@ export class ExportRows {
       }
     const fieldClasses = access.fieldClasses;
     let where: unknown;
+    let filters: object;
     let byScore = false;
     if (input.kind === 'volunteers') {
-      where = await this.volunteers.where(parsed(volunteerFilterSchema, input.filters), {
-        principal,
-        fieldClasses,
-      });
+      filters = parsed(volunteerFilterSchema, input.filters);
+      where = await this.volunteers.where(filters, { principal, fieldClasses });
     } else if (input.kind === 'beneficiaries') {
       const scope = await this.access.scopeFor(principal, access, permission, 'beneficiary');
-      where = await this.beneficiaries.where(parsed(beneficiaryFilterSchema, input.filters), {
-        principal,
-        scope,
-        fieldClasses,
-      });
+      filters = parsed(beneficiaryFilterSchema, input.filters);
+      where = await this.beneficiaries.where(filters, { principal, scope, fieldClasses });
     } else {
       if (!input.projectId) throw new ApiError('validation.failed', 422);
       const scope = await this.access.scopeFor(principal, access, permission, 'application');
+      const filter = parsed(applicationExportFilter, input.filters);
+      filters = filter;
       const query = await this.applications.listQuery(
         { principal, scope, fieldClasses },
         input.projectId,
-        parsed(applicationExportFilter, input.filters),
+        filter,
         access,
       );
       where = query.where;
@@ -212,6 +212,7 @@ export class ExportRows {
     const classes = exportClasses(access);
     return {
       kind: input.kind,
+      filters: asJson(filters) as Record<string, unknown>,
       // through JSON once, as the job will read it back from its row
       where: asJson(where),
       byScore,

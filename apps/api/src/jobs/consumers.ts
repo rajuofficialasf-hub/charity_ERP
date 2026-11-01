@@ -91,7 +91,7 @@ export class JobConsumers {
     const { exportRunner } = this.services;
     if (exportRunner)
       await this.jobs.work<ExportJobData>(EXPORT_QUEUE, (job) =>
-        exportRunner.run(job.data.jobId, job.retryCount),
+        exportRunner.run(job.data.jobId, job.retryCount, job.signal),
       );
     if (this.services.registrationCleanup)
       await this.jobs.schedule(
