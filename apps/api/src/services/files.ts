@@ -220,6 +220,14 @@ export class FilesService {
   ): Promise<void> {
     if (variant) throw new ApiError('permission.not_found', 404);
     const { file, job } = exported;
+    let body;
+    try {
+      body = await this.storage.get(knownBucket(file.bucket), file.objectKey);
+    } catch (error) {
+      if (error instanceof NotFoundError) throw new ApiError('permission.not_found', 404);
+      throw error;
+    }
+    // the trace of a download that is about to happen, never of one that could not
     if (job.sensitive)
       await this.prisma.$transaction((tx) =>
         this.audit.record(tx, {
@@ -229,13 +237,6 @@ export class FilesService {
           new: { jobId: job.id, kind: job.kind, format: job.format, rowCount: job.rowCount },
         }),
       );
-    let body;
-    try {
-      body = await this.storage.get(knownBucket(file.bucket), file.objectKey);
-    } catch (error) {
-      if (error instanceof NotFoundError) throw new ApiError('permission.not_found', 404);
-      throw error;
-    }
     res.status(200);
     res.setHeader('Content-Type', file.mime);
     res.setHeader('Content-Length', String(Number(file.sizeBytes)));

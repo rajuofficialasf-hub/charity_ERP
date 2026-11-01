@@ -68,12 +68,11 @@ export async function exportDownload(
     },
   });
   if (!job) throw refused();
-  const user = await prisma.user.findUnique({
-    where: { id: principal.userId },
-    select: { state: true },
-  });
+  const [user, live] = await Promise.all([
+    prisma.user.findUnique({ where: { id: principal.userId }, select: { state: true } }),
+    access.load(principal.userId),
+  ]);
   if (user?.state !== 'active') throw refused();
-  const live = await access.load(principal.userId);
   const needed = new Set(['export.list']);
   if (job.sensitive) {
     const frozen = readFrozenExport(job.access);
@@ -105,9 +104,16 @@ export async function exportDownload(
   };
 }
 
-/** The name a downloaded export is saved under: the list, the day it was asked for, the format. */
+/** Dhaka is six hours ahead of UTC all year. */
+const DHAKA_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * The name a downloaded export is saved under: the list, the day it was asked for in Dhaka, the
+ * format.
+ */
 export function exportFileName(
   job: Pick<ExportDownload['job'], 'kind' | 'format' | 'createdAt'>,
 ): string {
-  return `${job.kind}-${job.createdAt.toISOString().slice(0, 10)}.${job.format}`;
+  const day = new Date(job.createdAt.getTime() + DHAKA_MS).toISOString().slice(0, 10);
+  return `${job.kind}-${day}.${job.format}`;
 }

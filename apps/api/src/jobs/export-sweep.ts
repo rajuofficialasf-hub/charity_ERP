@@ -44,39 +44,46 @@ export class ExportSweep {
   private async failStuck(): Promise<number> {
     const cutoff = new Date(this.clock.now().getTime() - EXPORT_LIMITS.stuckMinutes * MINUTE_MS);
     let failed = 0;
+    // a job that could not be ended today is left for tomorrow, never in the way of the others
+    const skipped: string[] = [];
     for (;;) {
       const stuck = await this.prisma.exportJob.findMany({
-        where: { status: { in: ['queued', 'running'] }, createdAt: { lt: cutoff } },
+        where: {
+          status: { in: ['queued', 'running'] },
+          createdAt: { lt: cutoff },
+          ...(skipped.length > 0 ? { id: { notIn: skipped } } : {}),
+        },
         orderBy: { createdAt: 'asc' },
         take: BATCH,
         select: { id: true, kind: true, format: true, requestedBy: true, createdAt: true },
       });
       for (const job of stuck) {
-        for (let attempt = 0; attempt <= QUEUES.exports.retryLimit; attempt += 1)
-          await this.storage
-            .remove(
+        try {
+          for (let attempt = 0; attempt <= QUEUES.exports.retryLimit; attempt += 1)
+            await this.storage.remove(
               'exports',
               exportObjectKey(job.id, attempt, job.kind, job.format, job.createdAt),
-            )
-            .catch((error: unknown) =>
-              this.logger.error({ err: error, jobId: job.id }, 'export sweep: object not removed'),
             );
-        const now = this.clock.now();
-        await this.prisma.$transaction(async (tx) => {
-          const ended = await tx.exportJob.updateMany({
-            where: { id: job.id, status: { in: ['queued', 'running'] } },
-            data: {
-              status: 'failed',
-              errorCode: 'export.timed_out',
-              finishedAt: now,
-              updatedAt: now,
-            },
+          const now = this.clock.now();
+          await this.prisma.$transaction(async (tx) => {
+            const ended = await tx.exportJob.updateMany({
+              where: { id: job.id, status: { in: ['queued', 'running'] } },
+              data: {
+                status: 'failed',
+                errorCode: 'export.timed_out',
+                finishedAt: now,
+                updatedAt: now,
+              },
+            });
+            if (ended.count > 0) {
+              failed += 1;
+              await this.events?.failed(tx, job);
+            }
           });
-          if (ended.count > 0) {
-            failed += 1;
-            await this.events?.failed(tx, job);
-          }
-        });
+        } catch (error) {
+          this.logger.error({ err: error, jobId: job.id }, 'export sweep: job not ended');
+          skipped.push(job.id);
+        }
       }
       if (stuck.length < BATCH) return failed;
     }
@@ -85,20 +92,30 @@ export class ExportSweep {
   private async expireFiles(): Promise<number> {
     const cutoff = new Date(this.clock.now().getTime() - EXPORT_LIMITS.keepDays * DAY_MS);
     let expired = 0;
+    // a file whose object could not be removed today is left for tomorrow, never in the way of
+    // the files after it
+    const skipped: string[] = [];
     for (;;) {
       const files = await this.prisma.file.findMany({
         where: {
           kind: 'export',
           deletedAt: null,
           exportJobsFile: { some: { finishedAt: { lt: cutoff } } },
+          ...(skipped.length > 0 ? { id: { notIn: skipped } } : {}),
         },
         orderBy: { id: 'asc' },
         take: BATCH,
         select: { id: true, bucket: true, objectKey: true },
       });
       for (const file of files) {
-        // the object goes first; a file row marked deleted never points at a kept object
-        await this.storage.remove(knownBucket(file.bucket), file.objectKey);
+        try {
+          // the object goes first; a file row marked deleted never points at a kept object
+          await this.storage.remove(knownBucket(file.bucket), file.objectKey);
+        } catch (error) {
+          this.logger.error({ err: error, fileId: file.id }, 'export sweep: file not removed');
+          skipped.push(file.id);
+          continue;
+        }
         const now = this.clock.now();
         await this.prisma.file.updateMany({
           where: { id: file.id, deletedAt: null },

@@ -17,7 +17,7 @@ import type { BatchCursor, Cell, ExportRow, ExportRows } from '../exports/rows';
 import { type FrozenExport, questionKind, readFrozenExport } from '../exports/service';
 import { XlsxFile } from '../exports/xlsx';
 import { ApiError } from '../i18n/api-error';
-import type { ExportEvents } from '../notifications/export-events';
+import type { EndedJob, ExportEvents } from '../notifications/export-events';
 import type { StorageDriver } from '../storage/types';
 import { QUEUES } from './queues';
 
@@ -352,13 +352,6 @@ export class ExportRunner {
       },
     };
   }
-}
-
-/** A job as its end needs it: who to tell and what about. */
-interface EndedJob {
-  id: string;
-  kind: string;
-  requestedBy: string;
 }
 
 /** Where an attempt of a job writes its file: by the job's month, then the job and the attempt. */

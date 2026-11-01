@@ -644,11 +644,24 @@ describe('the download of an export', () => {
       me.id,
     ]);
     const again = await at(me.s, 'get', `/files/${job.fileId}/content`);
-    expect(again.status).not.toBe(200);
+    expect(again.status).toBe(404);
     const principal = await principalOf(h.db, me.id);
     await expect(
       exportDownload(h.container.prisma, h.container.access, principal, job.fileId),
     ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('has no thumbnail, and answers 404 without a trace when its object is missing', async () => {
+    const me = await official();
+    const job = await finished(me.s, ['name', 'nid']);
+    expect((await at(me.s, 'get', `/files/${job.fileId}/content?variant=small`)).status).toBe(404);
+    const file = await h.db.query<{ object_key: string }>(
+      'SELECT object_key FROM files WHERE id = $1',
+      [job.fileId],
+    );
+    await h.container.storage.remove('exports', file.rows[0]!.object_key);
+    expect((await at(me.s, 'get', `/files/${job.fileId}/content`)).status).toBe(404);
+    expect(await audits('file.download_sensitive', job.fileId)).toBe(0);
   });
 
   it('is refused to a requester whose account is no longer active', async () => {
@@ -739,5 +752,47 @@ describe('the daily export sweep', () => {
       (await at(await as(world.users.head), 'get', `/files/${done.fileId}/content`)).status,
     ).toBe(404);
     expect(await sweepAt(31).run()).toMatchObject({ expired: 0 });
+  });
+
+  it('carries on past a file whose object cannot be removed, and leaves that file for the next day', async () => {
+    const s = await as(world.users.rpmDhaka);
+    const ids: string[] = [];
+    for (let i = 0; i < 2; i += 1) {
+      const made = await at(s, 'post', '/exports').send({
+        kind: 'beneficiaries',
+        format: 'csv',
+        columns: ['name'],
+        filters: {},
+      });
+      await runner().run(made.body.data.id, 0);
+      ids.push((await at(s, 'get', `/exports/${made.body.data.id}`)).body.data.fileId as string);
+    }
+    const keys = await h.db.query<{ id: string; object_key: string }>(
+      'SELECT id, object_key FROM files WHERE id = ANY($1)',
+      [ids],
+    );
+    const stuckKey = keys.rows.find((k) => k.id === ids[0])!.object_key;
+    const storage: StorageDriver = {
+      ...h.container.storage,
+      name: h.container.storage.name,
+      remove: async (bucket, key) => {
+        if (key === stuckKey) throw new Error('access denied');
+        return h.container.storage.remove(bucket, key);
+      },
+    };
+    const sweep = new ExportSweep(
+      h.container.prisma,
+      storage,
+      { now: () => new Date(Date.now() + 31 * 24 * 60 * 60 * 1000) },
+      h.container.logger,
+    );
+    expect((await sweep.run()).expired).toBeGreaterThanOrEqual(1);
+    const left = await h.db.query<{ id: string; deleted_at: Date | null }>(
+      'SELECT id, deleted_at FROM files WHERE id = ANY($1)',
+      [ids],
+    );
+    const byId = new Map(left.rows.map((row) => [row.id, row.deleted_at]));
+    expect(byId.get(ids[0]!)).toBeNull();
+    expect(byId.get(ids[1]!)).not.toBeNull();
   });
 });

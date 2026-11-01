@@ -1,6 +1,13 @@
 import type { MessageKey } from '@css/shared/i18n';
 import type { Tx } from '../core/prisma.service';
 import { bilingualText } from './account-events';
+
+/** An export job as its notice needs it: whom to tell and about which list. */
+export interface EndedJob {
+  id: string;
+  kind: string;
+  requestedBy: string;
+}
 import type { NotificationService } from './service';
 
 /** The name of each export kind in the notice. */
@@ -18,19 +25,15 @@ const LIST_NAMES = new Map<string, MessageKey>([
 export class ExportEvents {
   constructor(private readonly notifications: NotificationService) {}
 
-  ready(tx: Tx, job: { id: string; kind: string; requestedBy: string }): Promise<unknown> {
+  ready(tx: Tx, job: EndedJob): Promise<unknown> {
     return this.publish(tx, 'export_ready', job);
   }
 
-  failed(tx: Tx, job: { id: string; kind: string; requestedBy: string }): Promise<unknown> {
+  failed(tx: Tx, job: EndedJob): Promise<unknown> {
     return this.publish(tx, 'export_failed', job);
   }
 
-  private publish(
-    tx: Tx,
-    key: 'export_ready' | 'export_failed',
-    job: { id: string; kind: string; requestedBy: string },
-  ): Promise<unknown> {
+  private publish(tx: Tx, key: 'export_ready' | 'export_failed', job: EndedJob): Promise<unknown> {
     const name = LIST_NAMES.get(job.kind);
     return this.notifications.publish(tx, {
       key,
