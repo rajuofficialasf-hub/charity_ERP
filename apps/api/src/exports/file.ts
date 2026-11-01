@@ -1,3 +1,5 @@
+import { once } from 'node:events';
+import type { Writable } from 'node:stream';
 import type { ColumnKind } from '@css/shared/exports';
 import { formatDate, formatDateTime } from '@css/shared/format';
 import { bn, en, type MessageKey, translate } from '@css/shared/i18n';
@@ -105,4 +107,36 @@ export function textsOf(
  */
 export function guardFormula(text: string): string {
   return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+}
+
+/**
+ * Watches the stream a file is written to: an error or an early close is kept and thrown at the
+ * next write or at the end, and a wait for the stream to drain ends with it, so a job never
+ * hangs on a stream that will not take more.
+ */
+export class OutputGuard {
+  private failure: Error | null = null;
+  private readonly closed: Promise<never>;
+
+  constructor(private readonly out: Writable) {
+    out.on('error', (error: Error) => {
+      this.failure ??= error;
+    });
+    this.closed = once(out, 'close').then(() => {
+      throw this.failure ?? new Error('export output closed');
+    });
+    // a write that never waits must not leave the close unheard
+    this.closed.catch(() => undefined);
+  }
+
+  /** Throws the stream's error, or that it closed, once either happened. */
+  check(): void {
+    if (this.failure) throw this.failure;
+    if (this.out.destroyed) throw new Error('export output closed');
+  }
+
+  /** A drain, or the stream's end with its error, whichever comes first. */
+  async drained(drain: Promise<unknown>): Promise<void> {
+    await Promise.race([drain, this.closed]);
+  }
 }

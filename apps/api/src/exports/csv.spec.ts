@@ -1,4 +1,5 @@
-import { PassThrough } from 'node:stream';
+import { PassThrough, Writable } from 'node:stream';
+import { bn } from '@css/shared/i18n';
 import { describe, expect, it } from 'vitest';
 import { CsvFile } from './csv';
 import type { FileColumn } from './file';
@@ -61,8 +62,8 @@ describe('a CSV export', () => {
       .toString('utf8')
       .split('\r\n');
     expect(out[0]).toBe('অবস্থা,অবস্থা (কোড)');
-    expect(out[1]).toMatch(/^[^,]+,submitted$/);
-    expect(out[1]).not.toMatch(/^submitted,/);
+    expect(out[1]).toBe(`${bn.applications.status.submitted},submitted`);
+    expect(bn.applications.status.submitted).not.toBe('submitted');
   });
 
   it('writes dates as dd-mm-yyyy, numbers as plain digits, yes or no in words, and lists joined', async () => {
@@ -90,5 +91,35 @@ describe('a CSV export', () => {
       .toString('utf8')
       .split('\r\n');
     expect(out[1]).toBe('05-03-1990,1234567,Yes,"শীতবস্ত্র, ইফতার",');
+  });
+
+  it('writes a negative number as a number, and guards only the text', async () => {
+    const out = (
+      await written(
+        [
+          { id: 'n', header: 'n', kind: 'number' },
+          { id: 'note', header: 'note', kind: 'text' },
+        ],
+        [{ n: -500, note: '-500' }],
+      )
+    )
+      .subarray(3)
+      .toString('utf8')
+      .split('\r\n');
+    expect(out[1]).toBe("-500,'-500");
+  });
+
+  it('fails a row instead of waiting forever when its stream has broken', async () => {
+    const broken = new Writable({
+      highWaterMark: 1,
+      write(_chunk, _encoding, done) {
+        setImmediate(() => done());
+      },
+    });
+    const file = new CsvFile(broken, [text('a')], 'bn');
+    await file.start();
+    broken.destroy(new Error('disk full'));
+    await new Promise((r) => setImmediate(r));
+    await expect(file.row({ a: 'x' })).rejects.toThrow('disk full');
   });
 });

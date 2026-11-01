@@ -8,6 +8,7 @@ import {
   headersOf,
   isCoded,
   labelOf,
+  OutputGuard,
   textsOf,
 } from './file';
 import type { RepeatRow } from './questions';
@@ -15,6 +16,9 @@ import type { Cell } from './rows';
 
 /** Dhaka is six hours ahead of UTC all year; a spreadsheet shows a moment as it was read there. */
 const DHAKA_MS = 6 * 60 * 60 * 1000;
+
+/** The most characters an Excel cell holds; a longer text is cut there with an ellipsis. */
+const CELL_MAX = 32_767;
 
 /** Amounts grouped by lakh and crore, as the department writes them. */
 const MONEY_FORMAT = '[>=10000000]##\\,##\\,##\\,##0;[>=100000]##\\,##\\,##0;##,##0';
@@ -35,17 +39,18 @@ export interface RepeatSet {
  */
 export class XlsxFile {
   private readonly words: FileWords;
+  private readonly guard: OutputGuard;
   private readonly book: ExcelJS.stream.xlsx.WorkbookWriter;
   private readonly rows: ExcelJS.Worksheet;
   private readonly repeats: ExcelJS.Worksheet | null;
 
   constructor(
-    out: Writable,
+    private readonly out: Writable,
     private readonly columns: readonly FileColumn[],
     private readonly locale: 'bn' | 'en',
     private readonly repeatColumns: readonly FileColumn[] = [],
   ) {
-    this.out = out;
+    this.guard = new OutputGuard(out);
     this.words = fileWords(locale);
     this.book = new ExcelJS.stream.xlsx.WorkbookWriter({
       stream: out,
@@ -66,17 +71,18 @@ export class XlsxFile {
       .commit();
   }
 
-  private readonly out: Writable;
-
-  async row(cells: Readonly<Record<string, Cell>>, repeats?: RepeatSet): Promise<void> {
+  row(cells: Readonly<Record<string, Cell>>, repeats?: RepeatSet): Promise<void> {
+    this.guard.check();
     this.put(this.rows, [], this.columns, cells);
     if (this.repeats && repeats)
       for (const r of repeats.rows)
         this.put(this.repeats, [repeats.appNo, r.group, r.index + 1], this.repeatColumns, r.cells);
-    await Promise.resolve();
+    // the workbook writer keeps its parts until the end, so nothing waits here per row
+    return Promise.resolve();
   }
 
   async end(): Promise<void> {
+    this.guard.check();
     this.rows.commit();
     this.repeats?.commit();
     await this.book.commit();
@@ -123,6 +129,7 @@ export class XlsxFile {
     if (typeof cell === 'number')
       return [[cell, column.kind === 'money' ? MONEY_FORMAT : undefined]];
     // every other value is text: a plain string cell, which a spreadsheet never runs
-    return [[textsOf(cell, column, this.locale, this.words)[0] ?? '', undefined]];
+    const text = textsOf(cell, column, this.locale, this.words)[0] ?? '';
+    return [[text.length > CELL_MAX ? `${text.slice(0, CELL_MAX - 1)}…` : text, undefined]];
   }
 }

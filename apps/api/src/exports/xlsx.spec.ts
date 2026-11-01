@@ -1,4 +1,5 @@
 import { PassThrough } from 'node:stream';
+import { bn } from '@css/shared/i18n';
 import ExcelJS from 'exceljs';
 import { describe, expect, it } from 'vitest';
 import type { FileColumn } from './file';
@@ -56,7 +57,7 @@ describe('an Excel export', () => {
     expect(born).toBeInstanceOf(Date);
     expect((born as Date).toISOString().slice(0, 10)).toBe('1990-03-05');
     expect(sheet.getRow(2).getCell(3).numFmt).toBe('dd-mm-yyyy');
-    expect(typeof label).toBe('string');
+    expect(label).toBe(bn.admin.beneficiaries.status.active);
     expect(code).toBe('active');
   });
 
@@ -110,5 +111,32 @@ describe('an Excel export', () => {
     const sheet = book.worksheets[0]!;
     expect(sheet.rowCount).toBe(20_001);
     expect(values(sheet, 20_001)).toEqual([19_999, 'নাম 19999']);
+  });
+
+  it('shows a moment at its Dhaka time, groups an amount by lakh, and cuts a text past Excel’s limit', async () => {
+    const book = await written(
+      [
+        { id: 'at', header: 'at', kind: 'datetime' },
+        { id: 'amount', header: 'amount', kind: 'money' },
+        { id: 'long', header: 'long', kind: 'text' },
+      ],
+      [
+        {
+          cells: {
+            at: new Date('2026-10-31T04:30:00.000Z'),
+            amount: 1260000,
+            long: 'ক'.repeat(40_000),
+          },
+        },
+      ],
+    );
+    const row = book.worksheets[0]!.getRow(2);
+    expect((row.getCell(1).value as Date).toISOString()).toBe('2026-10-31T10:30:00.000Z');
+    expect(row.getCell(1).numFmt).toBe('dd-mm-yyyy hh:mm');
+    expect(row.getCell(2).value).toBe(1260000);
+    // grouped by lakh above a lakh and by crore above a crore
+    expect(row.getCell(2).numFmt).toContain('[>=100000]');
+    expect(row.getCell(2).numFmt).toContain('[>=10000000]');
+    expect((row.getCell(3).value as string).length).toBe(32_767);
   });
 });
