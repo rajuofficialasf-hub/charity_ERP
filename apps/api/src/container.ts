@@ -10,6 +10,7 @@ import { PermissionVersionService } from './auth/permission-version.service';
 import { SESSION_RULES, SessionService } from './auth/session.service';
 import { TokenService } from './auth/token.service';
 import type { Env } from './config/env';
+import { ExportQuestions } from './exports/questions';
 import { ExportRows } from './exports/rows';
 import { type Clock, systemClock } from './core/clock';
 import { REDACT_PATHS } from './core/logging';
@@ -169,6 +170,7 @@ export interface Container {
   scoring: ScoringService;
   applications: ApplicationsService;
   exportRows: ExportRows;
+  exportQuestions: ExportQuestions;
   bulkReview: BulkReviewService;
   waitlist: WaitlistService;
   unlocks: UnlocksService;
@@ -597,6 +599,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     exportRows:
       o.exportRows ??
       new ExportRows(prisma, clock, access, built.volunteerList, built.beneficiaries, applications),
+    exportQuestions: o.exportQuestions ?? new ExportQuestions(prisma),
   };
 }
 
