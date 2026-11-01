@@ -23,7 +23,8 @@ jobs:
   checks:
     name: Lint, typecheck, test, build
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # the unit, component and database tests alone take about 17 minutes on the hosted runner
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:17

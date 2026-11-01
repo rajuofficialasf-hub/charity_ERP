@@ -111,16 +111,23 @@ function withinStoreWait<T>(work: Promise<T>): Promise<T | null> {
 }
 
 /**
+ * The store work a sign-in left running in the background; a session's end waits for it, so a
+ * profile written late can never outlive the wipe.
+ */
+let storeWork: Promise<void> = Promise.resolve();
+
+/**
  * Opens the store's keys for the signed-in session (docs/architecture/OFFLINE_SYNC.md, local
  * storage security) and keeps the person's own profile there, so the installed app opens without
- * network. A volunteer's store goes on to hold the data set and the outbox; an official's holds
- * the profile alone (docs/DECISION_LOG.md D-142). A store that will not open never blocks the
- * sign-in: the next flush reports what it cannot read.
+ * network. A volunteer's store goes on to hold the data set and the outbox, so their sign-in waits
+ * for the key; an official's holds the profile alone (docs/DECISION_LOG.md D-142), which matters
+ * only at the next open without network, so their sign-in does not wait for it. A store that will
+ * not open never blocks the sign-in: the next flush reports what it cannot read.
  */
 async function openStoreKeys(pair: TokenPair): Promise<void> {
   const sessionId = sessionIdOf(pair.accessToken);
   if (!sessionId) return;
-  try {
+  const open = async () => {
     const keys = await offlineKeys();
     await keys.afterSignIn({
       sessionId,
@@ -128,11 +135,28 @@ async function openStoreKeys(pair: TokenPair): Promise<void> {
       deviceKey: pair.deviceKey,
       previousDeviceKey: pair.previousDeviceKey,
     });
+  };
+  const remember = async () => {
     const { rememberMe } = await import('../offline/snapshot');
     await rememberMe(pair.me);
-  } catch {
-    // the store is optional for the session; its own screens say when it is unavailable
-  }
+  };
+  // the store is optional for the session; its own screens say when it is unavailable
+  if (pair.me.kind === 'volunteer') {
+    try {
+      await open();
+    } catch {
+      return;
+    }
+    storeWork = remember().catch(() => undefined);
+  } else
+    storeWork = open()
+      .then(remember)
+      .catch(() => undefined);
+}
+
+/** Resolves once the store work a sign-in started in the background has finished. */
+export function storeSettled(): Promise<void> {
+  return storeWork;
 }
 
 /** Ends the session on this device; a revoked session also wipes the local data (AUTH.md 8). */
@@ -140,6 +164,8 @@ async function endSession(end: SessionEnd): Promise<void> {
   state.accessToken = null;
   state.deviceKey = null;
   state.me = null;
+  // a profile still being written must land before the wipe, never after it
+  await storeWork;
   if (end !== 'expired') await wipeLocalData();
   else
     await offlineKeys()
@@ -493,4 +519,5 @@ export function resetClientForTests(): void {
   state.refreshing = null;
   state.listeners.clear();
   state.generation = 0;
+  storeWork = Promise.resolve();
 }

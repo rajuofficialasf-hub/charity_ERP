@@ -22,6 +22,7 @@ import {
   onSessionChange,
   refreshSession,
   resetClientForTests,
+  storeSettled,
 } from './api';
 
 // The PWA's API client (API_STANDARDS 11, AUTH.md 5 and 8).
@@ -265,10 +266,27 @@ describe('API client', () => {
         HttpResponse.json({ data: pair(ME, tokenOf(SESSION_A)), meta: {} }),
       ),
     );
+    // the official's sign-in does not wait for the store: the profile is there once it settles
     await login('head@example.org', 'secret 123');
+    expect(currentMe()).toEqual(ME);
+    await storeSettled();
     expect(await storedSessionId()).toBe(SESSION_A);
     expect(currentDataKey()).not.toBeNull();
     expect(await cachedMe()).toEqual(ME);
+  });
+
+  it('wipes an official’s profile even when the logout comes before the store has settled', async () => {
+    server.use(
+      http.post('*/api/v1/auth/login', () =>
+        HttpResponse.json({ data: pair(ME, tokenOf(SESSION_A)), meta: {} }),
+      ),
+      http.post('*/api/v1/auth/logout', () => new HttpResponse(null, { status: 204 })),
+    );
+    await login('head@example.org', 'secret 123');
+    await logout();
+    expect(currentMe()).toBeNull();
+    expect(await cachedMe()).toBeNull();
+    expect(currentDataKey()).toBeNull();
   });
 
   it('opens an official’s session from the phone’s store when the server cannot be reached', async () => {
