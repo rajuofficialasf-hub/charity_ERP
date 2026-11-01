@@ -61,5 +61,8 @@
     "app_no": "Application number",
     "group": "Group",
     "row_no": "Row"
+  },
+  "pdf": {
+    "rows": "{count} rows"
   }
 }

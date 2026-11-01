@@ -271,6 +271,9 @@ importers:
       pino-http:
         specifier: 11.0.0
         version: 11.0.0
+      playwright-core:
+        specifier: 1.64.0
+        version: 1.64.0
       sharp:
         specifier: 0.35.5
         version: 0.35.5(@types/node@24.19.2)

@@ -168,7 +168,8 @@
   },
   "export": {
     "not_ready": "The export is still being prepared.",
-    "expired": "The export file has expired."
+    "expired": "The export file has expired.",
+    "pdf_unavailable": "PDFs cannot be made on this server right now. Download Excel or CSV instead."
   },
   "client": {
     "upgrade_required": "Update the app. Pending work is synced first."
