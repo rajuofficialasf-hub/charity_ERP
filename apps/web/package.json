@@ -11,7 +11,8 @@
     "bundle:report": "node scripts/bundle-report.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "icons": "node scripts/icons.mjs"
   },
   "dependencies": {
     "@css/shared": "workspace:*",
@@ -48,6 +49,7 @@
     "fake-indexeddb": "6.2.7",
     "jsdom": "30.1.2",
     "msw": "2.15.0",
+    "sharp": "0.35.5",
     "typescript": "6.0.3",
     "vite": "8.3.4"
   }

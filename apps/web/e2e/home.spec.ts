@@ -32,6 +32,30 @@ test.describe('home page', () => {
     });
   });
 
+  test('serves the install icons the phones read (192 and 512 px PNG, a maskable one, the Apple icon)', async ({
+    request,
+  }) => {
+    const manifest = await (await request.get('/manifest.webmanifest')).json();
+    const icons = manifest.icons as { src: string; sizes: string; type: string; purpose: string }[];
+    expect(icons).toEqual(
+      expect.arrayContaining([
+        { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+        { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+        {
+          src: '/icons/icon-maskable-512.png',
+          sizes: '512x512',
+          type: 'image/png',
+          purpose: 'maskable',
+        },
+      ]),
+    );
+    for (const src of [...icons.map((i) => i.src), '/icons/apple-touch-icon.png']) {
+      const res = await request.get(src);
+      expect(res.ok(), src).toBe(true);
+      expect(res.headers()['content-type'], src).toMatch(/image\/(png|svg\+xml)/);
+    }
+  });
+
   test('serves the service worker script at the root scope', async ({ request }) => {
     const res = await request.get('/sw.js');
     expect(res.ok()).toBe(true);
