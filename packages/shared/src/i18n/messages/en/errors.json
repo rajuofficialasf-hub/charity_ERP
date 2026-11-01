@@ -170,7 +170,11 @@
     "not_ready": "The export is still being prepared.",
     "expired": "The export file has expired.",
     "pdf_unavailable": "PDFs cannot be made on this server right now. Download Excel or CSV instead.",
-    "pdf_failed": "The PDF could not be made. Try again, or download Excel or CSV instead."
+    "pdf_failed": "The PDF could not be made. Try again, or download Excel or CSV instead.",
+    "too_many_rows": "An export holds at most {limit} rows. Narrow the list by year, district or project and try again.",
+    "pdf_too_many_rows": "A PDF holds at most {limit} rows. Choose Excel or CSV for more.",
+    "running_limit": "At most {limit} exports can run at a time. Try again when one finishes.",
+    "failed": "The export could not be made. Try again."
   },
   "client": {
     "upgrade_required": "Update the app. Pending work is synced first."

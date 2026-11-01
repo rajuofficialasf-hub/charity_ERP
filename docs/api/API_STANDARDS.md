@@ -277,6 +277,7 @@ Implementation (T1.6, O-57): `IdempotencyService` in apps/api: `replayByClientUu
 | sync | 60 batches per minute per device session (PROPOSAL) | device session |
 | upload | 600 parts per hour per user (a photo of 1.6 MB is 7 parts; D-108) | user |
 | lookup | the beneficiary lookup by NID or birth registration: 60 per minute and 600 per day per user, and 120 per minute per address; every lookup is audited without the number (D-114) | user, IP |
+| export | 30 export requests per hour per user; each reads up to 100,000 rows in the worker (D-143) | user |
 
 Responses include `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`; a 429 carries `Retry-After`, which the PWA honours (O-29). Limits are enforced in the API (not only in Caddy) so they apply per account.
 
@@ -315,11 +316,19 @@ Idempotency-Key: <uuid>
 ## 14. Export job pattern
 
 ```
-POST /api/v1/exports            { "kind": "applications", "filters": { … }, "format": "xlsx" | "csv" | "pdf" }
-202 { "data": { "jobId": "…", "status": "queued" } }
-GET  /api/v1/exports/{jobId}    → { status: queued | running | done | failed, rowCount, fileId }
+GET  /api/v1/exports/columns?list=applications&projectId=…  → the columns the caller may export
+POST /api/v1/exports            { "kind": "applications", "format": "xlsx" | "csv" | "pdf",
+                                  "columns": ["app_no", "status", "q:monthly_income"],
+                                  "filters": { … }, "projectId": "…" }
+202 { "data": { "id": "…", "status": "queued", "rowsTotal": 1200, "rowsDone": 0, … } }
+GET  /api/v1/exports            → the caller's own jobs of the last 30 days
+GET  /api/v1/exports/{jobId}    → { status: queued | running | done | failed, rowsDone, rowsTotal, rowCount, fileId, errorCode }
 GET  /api/v1/files/{fileId}/content → the file, streamed after the checks (D-074)
 ```
+
+- The request needs `export.list` and the list's own read permission. It freezes the list's query (the list service's own `where` and order, inside the caller's scope of that moment) with the field classes the export may carry; the job replays exactly that query and never reads the caller's access again (D-143).
+- Refused before any job exists: an unknown column (422), a column of a class the caller may not export (403), a project out of the caller's reach (404), more than 100,000 rows or, for a PDF, 1,000 rows (422 `export.too_many_rows`, `export.pdf_too_many_rows`), and a fourth waiting or running export of the caller (409 `export.running_limit`; a job older than 30 minutes no longer counts).
+- The job writes in batches of 1,000 rows, never more than the limit even when rows were added after the count, and updates `rowsDone` after each batch. It streams the file into the `exports` bucket, then writes the `files` row (kind `export`, source `system`, scan `clean`) and `done` in one transaction. A failed attempt removes its partial object and is retried; only the last attempt writes `failed` with a fixed code (`export.failed`, `export.pdf_unavailable`, `export.pdf_failed`).
 
 - The export runs in the worker (ADR-004) with the requester's permissions, scope and field masks frozen at request time (RBAC.md §8).
 - Kinds that include identity, bank, donor or official-section fields require the matching `export.*` permission, set `sensitive = true` and write an audit entry with filters and row count (BR-224, BR-179).

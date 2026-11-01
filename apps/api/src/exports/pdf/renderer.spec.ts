@@ -8,6 +8,8 @@ import { launchOptions, PdfRenderer } from './renderer';
 
 // The PDFs of the exports: HTML built on the server with every value escaped, printed by a
 // sandboxed Chromium with the two fonts embedded, no script and no network.
+// starting Chromium takes seconds when the whole suite runs at once
+const BROWSER_TIMEOUT = { timeout: 30_000 };
 const renderer = new PdfRenderer();
 afterAll(async () => renderer.close());
 
@@ -24,7 +26,7 @@ const SAMPLE = listTableHtml({
   ],
 });
 
-describe('the HTML of a PDF', () => {
+describe('the HTML of a PDF', BROWSER_TIMEOUT, () => {
   it('prints every value as text, never as markup', () => {
     const out = html`<p title="${'"x"'}">${'<script>alert(1)</script>'}</p>`;
     expect(out.value).toBe('<p title="&quot;x&quot;">&lt;script&gt;alert(1)&lt;/script&gt;</p>');
@@ -58,7 +60,7 @@ describe('the HTML of a PDF', () => {
   });
 });
 
-describe('the PDF renderer', () => {
+describe('the PDF renderer', BROWSER_TIMEOUT, () => {
   it('prints a list table into a PDF that embeds both fonts', async () => {
     const pdf = await renderer.render(SAMPLE);
     expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-');

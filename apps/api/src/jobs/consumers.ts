@@ -10,6 +10,7 @@ import { STORAGE_STATS_CRON, STORAGE_STATS_QUEUE, type StorageStats } from './st
 import { UPLOAD_SWEEP_CRON, type UploadSweep } from './upload-sweep';
 import { LOCAL_KEY_CLEANUP_CRON, type LocalKeyCleanup } from './local-key-cleanup';
 import { FILE_PROCESS_QUEUE, type FileProcessJob, type FileProcessor } from './file-process';
+import { EXPORT_QUEUE, type ExportJobData, type ExportRunner } from './export-run';
 
 /** The sample heartbeat job: proves enqueue, consume and scheduling end to end (ADR-004). */
 export const HEARTBEAT_QUEUE = 'maintenance' as const;
@@ -47,6 +48,7 @@ export interface ConsumerServices {
   mergeCandidates?: Pick<BeneficiaryMergeCandidatesService, 'refreshAll'>;
   fileProcessor?: FileProcessor;
   delivery?: NotificationDelivery;
+  exportRunner?: Pick<ExportRunner, 'run'>;
 }
 
 /** Registers the consumers and schedules; runs in the worker, or in the api with JOBS_INLINE. */
@@ -84,6 +86,12 @@ export class JobConsumers {
     if (fileProcessor)
       await this.jobs.work<FileProcessJob>(FILE_PROCESS_QUEUE, (job) =>
         fileProcessor.process(job.data.fileId),
+      );
+    // the export files, one job at a time; the attempt decides whether a failure is the last
+    const { exportRunner } = this.services;
+    if (exportRunner)
+      await this.jobs.work<ExportJobData>(EXPORT_QUEUE, (job) =>
+        exportRunner.run(job.data.jobId, job.retryCount),
       );
     if (this.services.registrationCleanup)
       await this.jobs.schedule(

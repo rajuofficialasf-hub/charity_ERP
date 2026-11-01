@@ -378,7 +378,7 @@ components:
         beneficiary.correction_pending, beneficiary.correction_stale, beneficiary.merge_conflict,
         beneficiary.merge_revert_order, beneficiary.merge_stale, beneficiary.dismissed,
         payment.transaction_id_exists, payment.claim_already_paid,
-        animal.already_allocated, file.duplicate, export.not_ready, session.use_logout,
+        animal.already_allocated, file.duplicate, export.not_ready, export.running_limit, session.use_logout,
         user.system_owner_protected, user.handover_required, user.transition_not_allowed, user.not_locked.
       content:
         application/json:
@@ -407,7 +407,8 @@ components:
       description: >-
         validation.failed with field details; business rules such as beneficiary.identity_missing,
         beneficiary.mobile_is_volunteer_mobile, beneficiary.blocked, beneficiary.locked_field,
-        workflow.reason_required, workflow.comment_required, otp.invalid, otp.expired, file.source_not_allowed;
+        workflow.reason_required, workflow.comment_required, otp.invalid, otp.expired, file.source_not_allowed,
+        export.too_many_rows, export.pdf_too_many_rows;
         password details validation.password_too_short, validation.password_uppercase_digit,
         auth.current_password_invalid.
       content:
@@ -3988,27 +3989,79 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     ExportCreate:
       type: object
-      required: [kind, format]
+      additionalProperties: false
+      description: >-
+        A list's export: the columns chosen (the list's column ids, and on a project's application
+        list `q:` and a question's field key) and the list's own filters as its page sends them; an
+        application list names its project, the other lists name none.
+      required: [kind, format, columns, filters]
       properties:
-        kind: { type: string, enum: [applications, beneficiaries, volunteers, form_data, work_summary, audit] }
-        format: { type: string, enum: [csv, xlsx, pdf] }
-        filters: { type: object }
+        kind: { type: string, enum: [volunteers, beneficiaries, applications] }
+        format: { type: string, enum: [xlsx, csv, pdf] }
+        columns:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: { type: string, minLength: 1, maxLength: 120 }
+          description: Each id once; the file orders them itself (the list's columns, the details, then the questions)
+        filters: { type: object, propertyNames: { type: string }, additionalProperties: {}, description: "The list's filters, checked with that list's own filter schema" }
+        projectId: { type: string, format: uuid }
     ExportJob:
       type: object
-      required: [id, kind, status]
+      required: [id, kind, format, status, columns, rowsDone, rowsTotal, rowCount, fileId, sensitive, errorCode, createdAt, finishedAt]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
-        kind: { type: string }
+        kind: { type: string, enum: [volunteers, beneficiaries, applications, beneficiary_profile, application] }
+        format: { type: string, enum: [xlsx, csv, pdf] }
         status: { type: string, enum: [queued, running, done, failed] }
-        rowCount: { type: [integer, 'null'] }
-        fileId: { type: [string, 'null'], format: uuid }
-        sensitive: { type: boolean }
+        columns: { type: array, items: { type: string } }
+        rowsDone: { type: integer, minimum: 0, description: The rows written so far }
+        rowsTotal: { type: [integer, 'null'], minimum: 0, description: The rows the list held at the request }
+        rowCount: { type: [integer, 'null'], minimum: 0, description: The rows the finished file holds }
+        fileId: { type: [string, 'null'], format: uuid, description: 'Set when done; the file streams from GET /files/{fileId}/content to its requester only' }
+        sensitive: { type: boolean, description: 'The file holds identity numbers, bank details or the official section' }
+        errorCode: { type: [string, 'null'], description: 'Why a failed job failed: export.failed, export.pdf_unavailable, export.pdf_failed or export.timed_out' }
         createdAt: { type: string, format: date-time }
+        finishedAt: { type: [string, 'null'], format: date-time }
     ExportJobResponse:
       type: object
       required: [data, meta]
       properties:
         data: { $ref: '#/components/schemas/ExportJob' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    ExportJobListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/ExportJob' } }
+        meta: { $ref: '#/components/schemas/Meta' }
+    ExportColumn:
+      type: object
+      required: [id, label, group, protected, onScreen, kind, section]
+      properties:
+        id: { type: string }
+        label: { $ref: '#/components/schemas/Bilingual' }
+        group: { type: string, enum: [list, detail, question], description: "The list's own columns, further facts of the record, or a form question" }
+        protected: { type: boolean, description: 'An identity number, a bank detail or an official-section answer' }
+        onScreen: { type: boolean, description: 'The list shows it, so the dialog ticks it first' }
+        kind: { type: string, description: 'text, number, money, date, datetime, coded or flag' }
+        section:
+          oneOf:
+            - type: object
+              required: [key, title]
+              properties:
+                key: { type: string }
+                title: { $ref: '#/components/schemas/Bilingual' }
+            - type: 'null'
+    ExportColumnsResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [columns]
+          properties:
+            columns: { type: array, items: { $ref: '#/components/schemas/ExportColumn' } }
         meta: { $ref: '#/components/schemas/Meta' }
 
     # ---------------- reference data ----------------
@@ -10279,18 +10332,48 @@ paths:
         '422': { $ref: '#/components/responses/Unprocessable' }
 
   # ======================= exports =======================
+  /exports/columns:
+    get:
+      tags: [exports]
+      operationId: exports.column.list
+      summary: >-
+        The columns of a list the caller may export, in the file's order; a project's application
+        list adds its form questions by section (a project out of the caller's reach answers 404)
+      x-permission: export.list
+      x-scope: self
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - { name: list, in: query, required: true, schema: { type: string, enum: [volunteers, beneficiaries, applications] } }
+        - { name: projectId, in: query, required: false, schema: { type: string, format: uuid }, description: Required for the application list only }
+      responses:
+        '200':
+          description: The columns
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExportColumnsResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /exports:
     post:
       tags: [exports]
       operationId: exports.job.create
       summary: >-
-        Start an export job with the caller's scope and masks frozen; kinds with identity, bank or
-        official-section fields additionally need export.beneficiaries, export.volunteers or export.forms
+        Start an export job with the list's rows, the caller's scope and field masks frozen;
+        protected columns need export.beneficiaries, export.volunteers or export.forms
+      description: >-
+        Needs the list's own read permission beside export.list. A column the caller may not
+        export answers 403; over 100,000 rows, or 1,000 for a PDF, answers 422 before any job
+        exists; a fourth waiting or running export of the caller answers 409 (a job older than 30
+        minutes no longer counts). Every request writes export.requested with the list, filters,
+        columns, format, row count and whether the file is sensitive.
       x-permission: export.list
-      x-scope: project
+      x-scope: self
       x-audit: export.requested
       x-idempotency: none
-      x-rate-limit: default
+      x-rate-limit: export
       requestBody:
         required: true
         content:
@@ -10303,15 +10386,34 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ExportJobResponse' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+    get:
+      tags: [exports]
+      operationId: exports.job.list
+      summary: "The caller's own export jobs of the last 30 days, the newest first"
+      x-permission: authenticated
+      x-scope: self
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: Jobs
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExportJobListResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
   /exports/{jobId}:
     parameters:
       - $ref: '#/components/parameters/JobId'
     get:
       tags: [exports]
       operationId: exports.job.get
-      summary: Export job status; when done, fileId is used with POST /files/{fileId}/url
-      x-permission: export.list
+      summary: "One of the caller's own export jobs with its progress; anyone else's answers 404"
+      x-permission: authenticated
       x-scope: self
       x-audit: none
       x-idempotency: none
@@ -10323,7 +10425,6 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ExportJobResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
-        '410': { $ref: '#/components/responses/Gone' }
 
   # ======================= reference =======================
   /locations:
