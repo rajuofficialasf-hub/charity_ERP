@@ -26,7 +26,7 @@ const FORMAT_LABELS = new Map<ExportFormat, string>([
 ]);
 
 /**
- * The export of a list (SCR export dialog): the file type and the columns, the on-screen ones
+ * The export dialog of a list: the file type and the columns, the on-screen ones
  * ticked the first time and the person's last choice after that; once started, the job's
  * progress and its download. The rows are the list's as the page shows them now.
  */

@@ -41,6 +41,7 @@ import {
   type ApplicationSummary,
   type BulkRowResult,
   bulkReview,
+  applicationListFilters,
   FILTER_KEYS,
 } from './applications-api';
 import { QuotaBars } from './QuotaBars';
@@ -285,7 +286,11 @@ function ApplicationTab({ projectId }: { projectId: string }) {
         projectId={projectId}
         area={{ unionId: filters.unionId, districtId: filters.districtId }}
       />
-      <ExportButton list="applications" projectId={projectId} filters={{ ...filters, q }} />
+      <ExportButton
+        list="applications"
+        projectId={projectId}
+        filters={{ ...applicationListFilters(filters), q }}
+      />
       <Table
         layout="panel"
         label={t('table')}

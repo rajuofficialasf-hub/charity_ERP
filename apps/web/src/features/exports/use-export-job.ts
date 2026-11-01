@@ -11,6 +11,8 @@ export function useExportJob(id: string | null) {
     queryFn: () => exportJob(id!),
     enabled: id !== null,
     refetchInterval: (query) => {
+      // a job that cannot be read is not asked again until the person retries
+      if (query.state.status === 'error') return false;
       const status = (query.state.data as ExportJob | undefined)?.status;
       return status === 'done' || status === 'failed' ? false : POLL_MS;
     },

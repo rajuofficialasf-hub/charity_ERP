@@ -134,6 +134,7 @@ describe('the beneficiary tab', () => {
     // the BEN number's column is the page's "ben"
     await expectOnScreenColumns(
       user,
+      'beneficiaries',
       (id) => `admin.beneficiaries.column.${id === 'ben_no' ? 'ben' : id}` as MessageKey,
     );
   });

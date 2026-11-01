@@ -130,7 +130,11 @@ describe('the volunteer tab', () => {
     serveExports('volunteers');
     const user = userEvent.setup();
     open();
-    await expectOnScreenColumns(user, (id) => `admin.volunteers.column.${id}` as MessageKey);
+    await expectOnScreenColumns(
+      user,
+      'volunteers',
+      (id) => `admin.volunteers.column.${id}` as MessageKey,
+    );
   });
 
   it('offers no export to a volunteer', async () => {

@@ -32,14 +32,17 @@ export function ColumnPicker({ columns, value, onChange }: ColumnPickerProps) {
   const group = (kind: 'list' | 'detail') => columns.filter((c) => c.group === kind);
   const sections = useMemo(() => {
     const found = new Map<string, { title: string; columns: ExportColumnView[] }>();
-    for (const c of columns.filter((col) => col.group === 'question' && col.section)) {
-      const key = c.section!.key;
-      const entry = found.get(key) ?? { title: localized(c.section!.title, locale), columns: [] };
+    for (const c of columns.filter((col) => col.group === 'question')) {
+      const key = c.section?.key ?? '';
+      const entry = found.get(key) ?? {
+        title: c.section ? localized(c.section.title, locale) : t('group_questions'),
+        columns: [],
+      };
       entry.columns.push(c);
       found.set(key, entry);
     }
     return [...found.entries()];
-  }, [columns, locale]);
+  }, [columns, locale, t]);
   const term = search.trim().toLowerCase();
   const matches = (c: ExportColumnView) =>
     !term || localized(c.label, locale).toLowerCase().includes(term);

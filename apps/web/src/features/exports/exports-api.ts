@@ -65,10 +65,10 @@ export function myExports(): Promise<ExportJob[]> {
   return api<ExportJob[]>('/exports');
 }
 
-/** The name a file is saved under: the list, the day it was asked for, the format. */
 /** Dhaka is six hours ahead of UTC all year; the day of a file is Dhaka's, as the server names it. */
 const DHAKA_MS = 6 * 60 * 60 * 1000;
 
+/** The name a file is saved under: the list, the day it was asked for, the format. */
 export function exportFileName(job: Pick<ExportJob, 'kind' | 'format' | 'createdAt'>): string {
   const day = new Date(Date.parse(job.createdAt) + DHAKA_MS).toISOString().slice(0, 10);
   return `${job.kind}-${day}.${job.format}`;
@@ -79,7 +79,7 @@ export function exportFileName(job: Pick<ExportJob, 'kind' | 'format' | 'created
  * keeps it under its name. No link that works on its own ever leaves the page.
  */
 export async function downloadExport(job: ExportJob): Promise<void> {
-  if (!job.fileId) return;
+  if (!job.fileId) throw new Error('export file missing');
   const blob = await api<Blob>(`/files/${job.fileId}/content`, { blob: true });
   const url = URL.createObjectURL(blob);
   try {

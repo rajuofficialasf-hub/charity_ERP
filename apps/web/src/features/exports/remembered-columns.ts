@@ -25,7 +25,8 @@ export function rememberedColumns(
     Array.isArray(saved) && saved.every((id) => typeof id === 'string')
       ? new Set(saved as string[])
       : null;
-  return available.filter((c) => (chosen ? chosen.has(c.id) : c.onScreen)).map((c) => c.id);
+  const kept = chosen ? available.filter((c) => chosen.has(c.id)) : [];
+  return (kept.length > 0 ? kept : available.filter((c) => c.onScreen)).map((c) => c.id);
 }
 
 /** Keeps the person's choice for the next time on this device; a full storage just forgets. */

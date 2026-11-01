@@ -5,6 +5,17 @@ import { useTranslations } from 'use-intl';
 import { downloadExport, type ExportJob } from './exports-api';
 import { useExportJob } from './use-export-job';
 
+/** The reasons a job may fail with; any other code reads as a plain failure. */
+const FAILURES = [
+  'export.failed',
+  'export.pdf_unavailable',
+  'export.pdf_failed',
+  'export.timed_out',
+] as const;
+
+const failureKey = (code: string | null): (typeof FAILURES)[number] =>
+  FAILURES.find((known) => known === code) ?? 'export.failed';
+
 interface ExportProgressProps {
   jobId: string;
   /** Back to the choice, to start the export again after a failure. */
@@ -35,6 +46,16 @@ export function ExportProgress({ jobId, onRetry }: ExportProgressProps) {
     }
   };
 
+  if (!data && job.isError)
+    return (
+      <Stack gap={2}>
+        <Alert tone="danger">{t('unreadable')}</Alert>
+        <Button variant="secondary" icon={RotateCcw} onPress={() => void job.refetch()}>
+          {t('retry')}
+        </Button>
+      </Stack>
+    );
+
   return (
     <Stack gap={3}>
       {!data || data.status === 'queued' ? (
@@ -55,15 +76,17 @@ export function ExportProgress({ jobId, onRetry }: ExportProgressProps) {
             {t('done')}
           </Alert>
           {data.sensitive && <Text tone="muted">{t('sensitive_note')}</Text>}
-          <Button icon={Download} loading={saving} onPress={() => void save(data)}>
-            {t('download')}
-          </Button>
+          {data.fileId && (
+            <Button icon={Download} loading={saving} onPress={() => void save(data)}>
+              {t('download')}
+            </Button>
+          )}
           {saveFailed && <Alert tone="danger">{t('download_failed')}</Alert>}
         </Stack>
       ) : (
         <Stack gap={2}>
           <Alert tone="danger" title={t('failed')}>
-            {te((data.errorCode ?? 'export.failed') as 'export.failed')}
+            {te(failureKey(data.errorCode))}
           </Alert>
           {onRetry && (
             <Button variant="secondary" icon={RotateCcw} onPress={onRetry}>

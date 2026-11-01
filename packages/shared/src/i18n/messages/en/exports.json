@@ -138,6 +138,7 @@
     "download_failed": "The file could not be downloaded. Try again.",
     "failed": "The export failed.",
     "retry": "Try again",
-    "sensitive_note": "This file holds protected data. The export and each download are logged."
+    "sensitive_note": "This file holds protected data. The export and each download are logged.",
+    "unreadable": "The export's state cannot be read now. Try again shortly, or look in \"My exports\"."
   }
 }

@@ -88,12 +88,19 @@ export const tickedColumns = (dialog: HTMLElement): string[] =>
  */
 export async function expectOnScreenColumns(
   user: { click: (element: Element) => Promise<void> },
+  list: ExportList,
   headerOf: (id: string) => MessageKey,
 ): Promise<void> {
   const headers = (await screen.findAllByRole('columnheader')).map((h) => h.textContent?.trim());
   await user.click(await screen.findByRole('button', { name: 'এক্সপোর্ট' }));
   const dialog = await screen.findByRole('dialog');
-  await waitFor(() => expect(tickedColumns(dialog).length).toBeGreaterThan(0));
+  await waitFor(() =>
+    expect(tickedColumns(dialog)).toEqual(
+      catalogueColumns(list)
+        .filter((c) => c.onScreen)
+        .map((c) => c.id),
+    ),
+  );
   const expected = [...new Set(tickedColumns(dialog).map((id) => translate('bn', headerOf(id))))];
   expect(headers.filter((h) => h && expected.includes(h))).toEqual(expected);
 }
