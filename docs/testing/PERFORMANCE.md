@@ -163,6 +163,7 @@ signed-in person adds when it is not cached yet, without failing on it.
 | 2026-10-20: Tailwind removed, the final state of the MUI work | 212.1 KB | 18 |
 | 2026-10-22 (T2.4): after T2.2 to T2.4; the Bengali catalogue at start is 35.8 KB with the form screens' texts | 222.2 KB | 19 |
 | 2026-10-22 (T2.4b): after the builder redesign; the builder's new texts (types, groups, sentences) sit in the catalogue the first route carries, `@dnd-kit` stays in the builder's lazy chunk | 223.7 KB | 19 |
+| 2026-11-01 (T2.8): after T2.5 to T2.8b and the export dialog; the dialog and its column picker load in their own lazy chunk when someone opens them, and the export words add 1.9 KB to the catalogue the first route carries | 243.2 KB | 23 |
 
 What a signed-in page adds on top of the first route when it is not yet cached (static import
 closure of its chunks, gzip): the home with the shell 76.0 KB, my projects with the shell 72.1 KB,

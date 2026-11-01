@@ -45,6 +45,7 @@ import {
 } from './applications-api';
 import { QuotaBars } from './QuotaBars';
 import './applications.css';
+import { ExportButton } from '../../features/exports/ExportButton';
 
 /** The states the status filter offers, in the order of the cycle. */
 const STATES = [
@@ -284,6 +285,7 @@ function ApplicationTab({ projectId }: { projectId: string }) {
         projectId={projectId}
         area={{ unionId: filters.unionId, districtId: filters.districtId }}
       />
+      <ExportButton list="applications" projectId={projectId} filters={{ ...filters, q }} />
       <Table
         layout="panel"
         label={t('table')}

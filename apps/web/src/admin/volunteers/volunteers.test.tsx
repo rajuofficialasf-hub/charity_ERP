@@ -8,6 +8,8 @@ import { ME, refreshAs, renderApp } from '../../../test/auth';
 import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
 import { VolunteersPage } from './VolunteersPage';
+import type { MessageKey } from '@css/shared/i18n';
+import { expectOnScreenColumns, serveExports } from '../../../test/msw/exports';
 
 // The volunteer tab: counts that filter, search, filters that
 // open in place with their chips, the row menu, numbered pages; the filters in the URL and the
@@ -121,6 +123,24 @@ beforeEach(() => {
 });
 
 describe('the volunteer tab', () => {
+  it('offers the export, with the table’s own columns ticked first, in its order', async () => {
+    refreshAs(HEAD);
+    // the head sees the category, so the page shows its column
+    serve([row({ category: 'A', inactiveFlag: false })]);
+    serveExports('volunteers');
+    const user = userEvent.setup();
+    open();
+    await expectOnScreenColumns(user, (id) => `admin.volunteers.column.${id}` as MessageKey);
+  });
+
+  it('offers no export to a volunteer', async () => {
+    refreshAs(VOLUNTEER);
+    serve();
+    serveExports('volunteers');
+    open();
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'এক্সপোর্ট' })).toBeNull());
+  });
+
   it('shows the counts and the rows, in English digits, without accessibility violations', async () => {
     refreshAs(HEAD);
     serve();

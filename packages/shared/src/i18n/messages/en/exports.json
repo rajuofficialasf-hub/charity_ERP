@@ -101,5 +101,43 @@
       "application": "Application details",
       "comment": "Decision comment"
     }
+  },
+  "dialog": {
+    "open": "Export",
+    "title": "Export: {list}",
+    "list": {
+      "volunteers": "Volunteer list",
+      "beneficiaries": "Beneficiary list",
+      "applications": "Application list"
+    },
+    "filters_note": "The file holds exactly the rows the list shows now, with its filters and search.",
+    "format": "File type",
+    "format_pdf_hint": "A PDF holds at most 1,000 rows. For more, choose Excel or CSV.",
+    "columns": "Columns",
+    "select_all": "Select all",
+    "select_none": "Select none",
+    "group_list": "List columns",
+    "group_detail": "More details",
+    "group_questions": "Form questions",
+    "whole_section": "Select the whole section: {section}",
+    "search_questions": "Search questions",
+    "no_question_found": "No question has that name.",
+    "protected": "Protected",
+    "chosen": "{count} columns chosen",
+    "none_chosen": "Choose at least one column.",
+    "loading": "Loading the columns…",
+    "load_failed": "The columns could not be loaded. Try again.",
+    "start": "Start export",
+    "starting": "Starting…",
+    "close": "Close",
+    "background_note": "The export keeps running if you close this dialog. You get a notification when it is ready, and the file stays in \"My exports\".",
+    "queued": "Waiting to start…",
+    "running": "Being made",
+    "done": "The export is ready. The file is kept for 30 days.",
+    "download": "Download",
+    "download_failed": "The file could not be downloaded. Try again.",
+    "failed": "The export failed.",
+    "retry": "Try again",
+    "sensitive_note": "This file holds protected data. The export and each download are logged."
   }
 }

@@ -10,6 +10,8 @@ import { server } from '../../../test/msw/server';
 import { resetClientForTests } from '../../lib/api';
 import { ApplicationReviewPage } from './ApplicationReviewPage';
 import { ApplicationsPage } from './ApplicationsPage';
+import type { MessageKey } from '@css/shared/i18n';
+import { expectOnScreenColumns, serveExports } from '../../../test/msw/exports';
 
 // The office's application screens: the list with its filters in the address and the bulk
 // actions, and the review page with the signals, the answers, the steps with their actors, the
@@ -266,6 +268,21 @@ const openReview = (locale: 'bn' | 'en' = 'bn') =>
   });
 
 describe('the list', () => {
+  it('offers the export, with the table’s own columns ticked first, in its order', async () => {
+    refreshAs(EXECUTIVE);
+    // an official sees the score, so the page shows its column
+    serve([row(A1, { totalScore: 42 })]);
+    const { columnUrls } = serveExports('applications');
+    const user = userEvent.setup();
+    openList();
+    // the application number sits in the person's cell
+    await expectOnScreenColumns(
+      user,
+      (id) => `applications.office.column.${id === 'app_no' ? 'person' : id}` as MessageKey,
+    );
+    expect(columnUrls[0]?.searchParams.get('projectId')).toBe(PROJECT);
+  });
+
   it('keeps the filters in the address, lists the rows and starts the review of the ticked ones in one request', async () => {
     const user = userEvent.setup();
     refreshAs(EXECUTIVE);
