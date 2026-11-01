@@ -52,6 +52,8 @@ const ROUTES: Record<string, (p: Record<string, unknown>) => string | null> = {
   media_member_added: (p) => withId(p, 'referralId', '/media/referrals'),
   media_review_waiting: (p) => withId(p, 'referralId', '/media/referrals'),
   media_published: (p) => withId(p, 'referralId', '/media/referrals'),
+  export_ready: () => '/account/exports',
+  export_failed: () => '/account/exports',
 };
 
 /** Project events lead officials to the project page and volunteers to their own project page. */

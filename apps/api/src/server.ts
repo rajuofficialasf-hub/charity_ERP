@@ -29,6 +29,7 @@ void startInlineConsumers(env, container.jobs, logger, {
   fileProcessor: container.fileProcessor,
   delivery: container.delivery,
   exportRunner: container.exportRunner,
+  exportSweep: container.exportSweep,
 });
 
 const server = createServer(app);

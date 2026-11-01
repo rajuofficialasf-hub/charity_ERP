@@ -264,7 +264,7 @@ export class ExportsService {
       throw new ApiError('export.pdf_too_many_rows', 422, {
         limit: formatCount(this.limits.maxPdfRows, locale),
       });
-    const sensitive = isSensitive(input.kind, ordered, questions, classes);
+    const sensitive = sensitiveClasses(input.kind, ordered, questions, classes).length > 0;
     const access: FrozenExport = {
       list: frozen,
       questions,
@@ -379,20 +379,25 @@ export function questionKind(q: Pick<QuestionColumn, 'type'>): ColumnKind {
 }
 
 /**
- * Whether an export holds a protected class: a chosen column of one, or form answers while the
- * export carries the official section or the identity number (a question's class can differ
- * between the versions the applications were made with, so the answers are counted as possibly
- * protected).
+ * The protected classes an export holds: those of its chosen columns, and for form answers the
+ * official section and the identity number whenever the export carries them (a question's class
+ * can differ between the versions the applications were made with, so the answers are counted as
+ * possibly protected). The request marks the job sensitive by them, and its download needs their
+ * export permissions again.
  */
-function isSensitive(
+export function sensitiveClasses(
   list: ExportList,
   ordered: readonly string[],
-  questions: readonly QuestionColumn[],
+  questions: readonly Pick<QuestionColumn, 'id'>[],
   classes: ReadonlySet<string>,
-): boolean {
+): string[] {
   const catalogue = new Map(columnsOf(list).map((c) => [c.id, c.cls]));
-  if (ordered.some((id) => SENSITIVE.has(catalogue.get(id) ?? ''))) return true;
-  return (
-    questions.length > 0 && [OFFICIAL_SECTION, IDENTITY_NUMBER].some((cls) => classes.has(cls))
-  );
+  const held = new Set<string>();
+  for (const id of ordered) {
+    const cls = catalogue.get(id);
+    if (cls && SENSITIVE.has(cls)) held.add(cls);
+  }
+  if (questions.length > 0)
+    for (const cls of [OFFICIAL_SECTION, IDENTITY_NUMBER]) if (classes.has(cls)) held.add(cls);
+  return [...held].sort();
 }

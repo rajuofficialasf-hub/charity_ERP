@@ -16,6 +16,7 @@ async function main(): Promise<void> {
     fileProcessor: container.fileProcessor,
     delivery: container.delivery,
     exportRunner: container.exportRunner,
+    exportSweep: container.exportSweep,
   }).register();
   logger.info('worker started');
 

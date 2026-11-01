@@ -17,6 +17,7 @@ import type { BatchCursor, Cell, ExportRow, ExportRows } from '../exports/rows';
 import { type FrozenExport, questionKind, readFrozenExport } from '../exports/service';
 import { XlsxFile } from '../exports/xlsx';
 import { ApiError } from '../i18n/api-error';
+import type { ExportEvents } from '../notifications/export-events';
 import type { StorageDriver } from '../storage/types';
 import { QUEUES } from './queues';
 
@@ -70,15 +71,25 @@ export interface ExportRunnerLimits {
   batchRows: number;
 }
 
+export interface ExportRunnerOptions {
+  logger?: Pick<Logger, 'error' | 'warn'>;
+  /** The requester's notice that the file is ready or failed. */
+  events?: Pick<ExportEvents, 'ready' | 'failed'>;
+  /** The tests pass smaller limits. */
+  limits?: Partial<ExportRunnerLimits>;
+}
+
 /**
  * Runs one export job (docs/api/API_STANDARDS.md, "Export job pattern"): replays the list query
  * the request froze in batches, writes the chosen columns in the job's language as CSV, Excel or
  * a PDF table, streams the file into the `exports` bucket and only then writes its `files` row
- * and the job's end. Safe to run again: a finished or failed job is left alone, and an attempt
- * first removes what an earlier one left. Only the last attempt marks the job failed.
+ * and the job's end, with the requester's notice. Safe to run again: a finished or failed job is
+ * left alone, and each attempt writes its own object. Only the last attempt marks the job failed.
  */
 export class ExportRunner {
   private readonly limits: ExportRunnerLimits;
+  private readonly logger: Pick<Logger, 'error' | 'warn'> | undefined;
+  private readonly events: Pick<ExportEvents, 'ready' | 'failed'> | undefined;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -87,14 +98,11 @@ export class ExportRunner {
     private readonly rows: ExportRows,
     private readonly questions: ExportQuestions,
     private readonly pdf: Pick<PdfRenderer, 'render'>,
-    private readonly logger?: Pick<Logger, 'error' | 'warn'>,
-    limits: Partial<ExportRunnerLimits> = {},
+    options: ExportRunnerOptions = {},
   ) {
-    this.limits = {
-      maxRows: limits.maxRows ?? EXPORT_LIMITS.maxRows,
-      maxPdfRows: limits.maxPdfRows ?? EXPORT_LIMITS.maxPdfRows,
-      batchRows: limits.batchRows ?? EXPORT_LIMITS.batchRows,
-    };
+    this.limits = { ...EXPORT_LIMITS, ...options.limits };
+    this.logger = options.logger;
+    this.events = options.events;
   }
 
   /**
@@ -108,12 +116,12 @@ export class ExportRunner {
     if (!frozen) {
       // a row that does not hold its export can never succeed: no retry
       this.logger?.error({ jobId }, 'export job holds no readable export');
-      await this.fail(job.id, 'export.failed');
+      await this.fail(job, 'export.failed');
       return;
     }
     const locale = frozen.list.locale;
     // each attempt writes its own object, so an attempt still running never loses its file
-    const key = objectKey(job.id, attempt, job.kind, job.format, job.createdAt);
+    const key = exportObjectKey(job.id, attempt, job.kind, job.format, job.createdAt);
     const claimed = await this.prisma.exportJob.updateMany({
       where: { id: job.id, status: { in: ['queued', 'running'] } },
       data: { status: 'running', rowsDone: 0, updatedAt: this.clock.now() },
@@ -143,14 +151,7 @@ export class ExportRunner {
       const [put, rows] = await Promise.allSettled([stored, written]);
       if (rows.status === 'rejected') throw rows.reason;
       if (put.status === 'rejected') throw put.reason;
-      const recorded = await this.finish(
-        job.id,
-        job.requestedBy,
-        job.format,
-        key,
-        measure,
-        rows.value,
-      );
+      const recorded = await this.finish(job, job.format, key, measure, rows.value);
       if (!recorded) {
         // another attempt of the job finished first and holds the file
         await this.storage.remove('exports', key).catch(() => undefined);
@@ -164,18 +165,21 @@ export class ExportRunner {
       this.logger?.error({ err: error, jobId, attempt, last }, 'export job failed');
       if (!last) throw error;
       await this.fail(
-        job.id,
+        job,
         error instanceof ApiError && KEPT_CODES.has(error.code) ? error.code : 'export.failed',
       );
     }
   }
 
-  /** Marks a job that has not finished as failed with a fixed code. */
-  private async fail(jobId: string, code: string): Promise<void> {
+  /** Marks a job that has not finished as failed with a fixed code, and tells its requester. */
+  private async fail(job: EndedJob, code: string): Promise<void> {
     const now = this.clock.now();
-    await this.prisma.exportJob.updateMany({
-      where: { id: jobId, status: { in: ['queued', 'running'] } },
-      data: { status: 'failed', errorCode: code, finishedAt: now, updatedAt: now },
+    await this.prisma.$transaction(async (tx) => {
+      const ended = await tx.exportJob.updateMany({
+        where: { id: job.id, status: { in: ['queued', 'running'] } },
+        data: { status: 'failed', errorCode: code, finishedAt: now, updatedAt: now },
+      });
+      if (ended.count > 0) await this.events?.failed(tx, job);
     });
   }
 
@@ -186,7 +190,7 @@ export class ExportRunner {
     for (let other = 0; other <= QUEUES.exports.retryLimit; other += 1)
       if (other !== attempt)
         await this.storage
-          .remove('exports', objectKey(job.id, other, job.kind, job.format, job.createdAt))
+          .remove('exports', exportObjectKey(job.id, other, job.kind, job.format, job.createdAt))
           .catch(() => undefined);
   }
 
@@ -195,8 +199,7 @@ export class ExportRunner {
    * the job is no longer running (another attempt ended it), and nothing is written then.
    */
   private async finish(
-    jobId: string,
-    requestedBy: string,
+    job: EndedJob,
     format: string,
     key: string,
     measure: Measure,
@@ -216,15 +219,15 @@ export class ExportRunner {
             mime: mimeOf(format),
             sizeBytes: BigInt(measure.size),
             sha256: measure.hash.digest('hex'),
-            uploadedBy: requestedBy,
+            uploadedBy: job.requestedBy,
             source: 'system',
             virusScan: 'clean',
-            createdBy: requestedBy,
-            updatedBy: requestedBy,
+            createdBy: job.requestedBy,
+            updatedBy: job.requestedBy,
           },
         });
         const ended = await tx.exportJob.updateMany({
-          where: { id: jobId, status: 'running' },
+          where: { id: job.id, status: 'running' },
           data: {
             status: 'done',
             fileId,
@@ -235,6 +238,7 @@ export class ExportRunner {
           },
         });
         if (ended.count === 0) throw new Superseded();
+        await this.events?.ready(tx, job);
       });
       return true;
     } catch (error) {
@@ -350,8 +354,15 @@ export class ExportRunner {
   }
 }
 
+/** A job as its end needs it: who to tell and what about. */
+interface EndedJob {
+  id: string;
+  kind: string;
+  requestedBy: string;
+}
+
 /** Where an attempt of a job writes its file: by the job's month, then the job and the attempt. */
-function objectKey(
+export function exportObjectKey(
   jobId: string,
   attempt: number,
   kind: string,

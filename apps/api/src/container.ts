@@ -15,6 +15,8 @@ import { ExportRows } from './exports/rows';
 import { PdfRenderer } from './exports/pdf/renderer';
 import { ExportsService } from './exports/service';
 import { ExportRunner } from './jobs/export-run';
+import { ExportSweep } from './jobs/export-sweep';
+import { ExportEvents } from './notifications/export-events';
 import { type Clock, systemClock } from './core/clock';
 import { REDACT_PATHS } from './core/logging';
 import { PrismaService } from './core/prisma.service';
@@ -177,6 +179,8 @@ export interface Container {
   pdf: PdfRenderer;
   exports: ExportsService;
   exportRunner: ExportRunner;
+  exportEvents: ExportEvents;
+  exportSweep: ExportSweep;
   bulkReview: BulkReviewService;
   waitlist: WaitlistService;
   unlocks: UnlocksService;
@@ -580,6 +584,7 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const exportQuestions = o.exportQuestions ?? new ExportQuestions(prisma);
   // one browser per process, started on the first PDF
   const pdf = o.pdf ?? new PdfRenderer({ logger });
+  const exportEvents = o.exportEvents ?? new ExportEvents(notifications);
   return {
     ...built,
     // the transfer assigns the new volunteer through the assignments above
@@ -613,9 +618,14 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     pdf,
     exports:
       o.exports ?? new ExportsService(prisma, audit, jobs, clock, exportRows, exportQuestions),
+    exportEvents,
     exportRunner:
       o.exportRunner ??
-      new ExportRunner(prisma, storage, clock, exportRows, exportQuestions, pdf, logger),
+      new ExportRunner(prisma, storage, clock, exportRows, exportQuestions, pdf, {
+        logger,
+        events: exportEvents,
+      }),
+    exportSweep: o.exportSweep ?? new ExportSweep(prisma, storage, clock, logger, exportEvents),
   };
 }
 

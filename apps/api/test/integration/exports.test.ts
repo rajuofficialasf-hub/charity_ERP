@@ -3,7 +3,9 @@ import type { Readable } from 'node:stream';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ExportRunner } from '../../src/jobs/export-run';
+import { exportDownload } from '../../src/exports/download';
 import { filterHeading } from '../../src/exports/heading';
+import { ExportSweep } from '../../src/jobs/export-sweep';
 import { ExportsService } from '../../src/exports/service';
 import type { BatchCursor, ExportRows, FrozenList } from '../../src/exports/rows';
 import type { StorageDriver } from '../../src/storage/types';
@@ -375,8 +377,7 @@ describe('the rows of an export job', () => {
       rows,
       h.container.exportQuestions,
       h.container.pdf,
-      undefined,
-      limits,
+      { limits },
     );
 
   it('writes the progress after each batch and stops at the row limit even when rows were added later', async () => {
@@ -480,20 +481,6 @@ describe('the rows of an export job', () => {
 });
 
 describe('what an export keeps to itself', () => {
-  it('is not served by the file route, whose checks are not the export’s', async () => {
-    const s = await as(world.users.rpmDhaka);
-    const made = await at(s, 'post', '/exports').send({
-      kind: 'beneficiaries',
-      format: 'csv',
-      columns: ['name'],
-      filters: {},
-    });
-    await runner().run(made.body.data.id, 0);
-    const done = (await at(s, 'get', `/exports/${made.body.data.id}`)).body.data;
-    expect(done.status).toBe('done');
-    expect((await at(s, 'get', `/files/${done.fileId}/content`)).status).toBe(404);
-  });
-
   it('writes the rows and columns frozen at the request, though the person lost the permission since', async () => {
     const official = await account(h.db, { role: 'regional_program_manager' });
     accounts.set(official.id, official);
@@ -593,5 +580,164 @@ describe('what an export keeps to itself', () => {
     expect(outside).toContain('ব্লক করা: হ্যাঁ');
     expect(await heading(2, null, { projectId: world.b1.id })).toContain(project.rows[0]!.name_bn);
     expect(await heading(0, world.b1.id, {})).toContain(project.rows[0]!.name_bn);
+  });
+});
+
+describe('the download of an export', () => {
+  /** A fresh RPM of Dhaka, so a change to their account touches no other test. */
+  async function official(): Promise<{ id: string; s: Session }> {
+    const a = await account(h.db, { role: 'regional_program_manager' });
+    accounts.set(a.id, a);
+    await h.db.query(
+      `INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)`,
+      [randomUUID(), world.a2.id, world.dhaka.division, a.id],
+    );
+    return { id: a.id, s: await login(h, a) };
+  }
+  /** A finished export of the Dhaka beneficiaries with the given columns. */
+  async function finished(s: Session, columns: string[]): Promise<{ id: string; fileId: string }> {
+    const made = await at(s, 'post', '/exports').send({
+      kind: 'beneficiaries',
+      format: 'csv',
+      columns,
+      filters: { divisionId: world.dhaka.division },
+    });
+    expect(made.status, JSON.stringify(made.body)).toBe(202);
+    await runner().run(made.body.data.id, 0);
+    const done = (await at(s, 'get', `/exports/${made.body.data.id}`)).body.data;
+    expect(done.status).toBe('done');
+    return { id: done.id, fileId: done.fileId };
+  }
+  const audits = async (action: string, fileId: string) =>
+    (
+      await h.db.query('SELECT 1 FROM audit_log WHERE action = $1 AND entity_id = $2', [
+        action,
+        fileId,
+      ])
+    ).rowCount;
+
+  it('streams the file to its requester alone, as an attachment named by the list and the day', async () => {
+    const me = await official();
+    const job = await finished(me.s, ['name']);
+    const got = await at(me.s, 'get', `/files/${job.fileId}/content`);
+    expect(got.status).toBe(200);
+    expect(got.headers['content-disposition']).toMatch(
+      /^attachment; filename="beneficiaries-\d{4}-\d{2}-\d{2}\.csv"$/,
+    );
+    // the text after the byte-order mark
+    expect(got.text.slice(1).split('\r\n')[0]).toBe('নাম');
+    // a plain file's download leaves no trace of its own
+    expect(await audits('file.download_sensitive', job.fileId)).toBe(0);
+    // the Department Head holds every permission, and still reads only their own exports
+    expect(
+      (await at(await as(world.users.head), 'get', `/files/${job.fileId}/content`)).status,
+    ).toBe(404);
+  });
+
+  it('audits each download of a file with protected fields, and refuses it once the permission is gone', async () => {
+    const me = await official();
+    const job = await finished(me.s, ['name', 'nid']);
+    expect((await at(me.s, 'get', `/files/${job.fileId}/content`)).status).toBe(200);
+    expect(await audits('file.download_sensitive', job.fileId)).toBe(1);
+    // an executive keeps the list's export but not the identity numbers'
+    await h.db.query(`UPDATE user_roles SET role_key = 'project_executive' WHERE user_id = $1`, [
+      me.id,
+    ]);
+    const again = await at(me.s, 'get', `/files/${job.fileId}/content`);
+    expect(again.status).not.toBe(200);
+    const principal = await principalOf(h.db, me.id);
+    await expect(
+      exportDownload(h.container.prisma, h.container.access, principal, job.fileId),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('is refused to a requester whose account is no longer active', async () => {
+    const me = await official();
+    const job = await finished(me.s, ['name']);
+    await h.db.query(`UPDATE users SET state = 'blocked' WHERE id = $1`, [me.id]);
+    const principal = await principalOf(h.db, me.id);
+    await expect(
+      exportDownload(h.container.prisma, h.container.access, principal, job.fileId),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('tells the requester, in their inbox, that the file is ready or that it failed', async () => {
+    const me = await official();
+    const job = await finished(me.s, ['name']);
+    const notices = await h.db.query<{ template_key: string; params: Record<string, unknown> }>(
+      `SELECT template_key, params FROM notifications WHERE user_id = $1 AND template_key LIKE 'export%'`,
+      [me.id],
+    );
+    expect(notices.rows).toHaveLength(1);
+    expect(notices.rows[0]).toMatchObject({
+      template_key: 'export_ready',
+      params: { jobId: job.id },
+    });
+    const inbox = await at(me.s, 'get', '/notifications');
+    expect(JSON.stringify(inbox.body)).toContain('/account/exports');
+  });
+});
+
+describe('the daily export sweep', () => {
+  const sweepAt = (days: number) =>
+    new ExportSweep(
+      h.container.prisma,
+      h.container.storage,
+      { now: () => new Date(Date.now() + days * 24 * 60 * 60 * 1000) },
+      h.container.logger,
+      h.container.exportEvents,
+    );
+
+  it('fails a job stuck past its time, tells its requester, and changes nothing more when run again', async () => {
+    const official = await account(h.db, { role: 'regional_program_manager' });
+    accounts.set(official.id, official);
+    const s = await login(h, official);
+    const made = await at(s, 'post', '/exports').send({
+      kind: 'beneficiaries',
+      format: 'csv',
+      columns: ['name'],
+      filters: {},
+    });
+    await h.db.query(
+      `UPDATE export_jobs SET status = 'running', created_at = now() - interval '31 minutes' WHERE id = $1`,
+      [made.body.data.id],
+    );
+    expect((await sweepAt(0).run()).timedOut).toBeGreaterThanOrEqual(1);
+    expect((await at(s, 'get', `/exports/${made.body.data.id}`)).body.data).toMatchObject({
+      status: 'failed',
+      errorCode: 'export.timed_out',
+    });
+    const notices = await h.db.query(
+      'SELECT 1 FROM notifications WHERE user_id = $1 AND template_key = $2',
+      [official.id, 'export_failed'],
+    );
+    expect(notices.rowCount).toBe(1);
+    expect(await sweepAt(0).run()).toMatchObject({ timedOut: 0 });
+  });
+
+  it('deletes a file past its keep time, keeps the job, and answers its requester 410 and anyone else 404', async () => {
+    const s = await as(world.users.rpmDhaka);
+    const made = await at(s, 'post', '/exports').send({
+      kind: 'beneficiaries',
+      format: 'csv',
+      columns: ['name'],
+      filters: {},
+    });
+    await runner().run(made.body.data.id, 0);
+    const done = (await at(s, 'get', `/exports/${made.body.data.id}`)).body.data;
+    const file = await h.db.query<{ object_key: string }>(
+      'SELECT object_key FROM files WHERE id = $1',
+      [done.fileId],
+    );
+    expect((await sweepAt(31).run()).expired).toBeGreaterThanOrEqual(1);
+    expect(await h.container.storage.stat('exports', file.rows[0]!.object_key)).toBeNull();
+    expect((await at(s, 'get', `/exports/${done.id}`)).body.data.status).toBe('done');
+    const gone = await at(s, 'get', `/files/${done.fileId}/content`);
+    expect(gone.status).toBe(410);
+    expect(gone.body.error.code).toBe('export.expired');
+    expect(
+      (await at(await as(world.users.head), 'get', `/files/${done.fileId}/content`)).status,
+    ).toBe(404);
+    expect(await sweepAt(31).run()).toMatchObject({ expired: 0 });
   });
 });

@@ -332,8 +332,9 @@ GET  /api/v1/files/{fileId}/content → the file, streamed after the checks (D-0
 
 - The export runs in the worker (ADR-004) with the requester's permissions, scope and field masks frozen at request time (RBAC.md §8).
 - Kinds that include identity, bank, donor or official-section fields require the matching `export.*` permission, set `sensitive = true` and write an audit entry with filters and row count (BR-224, BR-179).
-- Files are deleted after 30 days; the job row and the audit entry remain (O-30); `GET` on an expired job returns 410 `export.expired`.
-- The requester gets an in-app notification when the job is done.
+- The file streams from `GET /files/{fileId}/content` to its requester alone, as an attachment, and only while their account is active and their live access still holds `export.list` and, for a sensitive file, the export permissions of its protected classes; anyone else gets 404. Each download of a sensitive file writes `file.download_sensitive`.
+- A daily sweep on the `exports` queue deletes files after 30 days (the object first, then the file row marked deleted); the job row and the audit entry remain (O-30), and the requester's download of an expired file answers 410 `export.expired`. The same sweep fails a job waiting or running for more than 30 minutes with `export.timed_out` and removes what its attempts left.
+- The requester gets an in-app notification when the job is done (`export_ready`) or failed (`export_failed`).
 
 ## 15. Audit requirements per endpoint
 
