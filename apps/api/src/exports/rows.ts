@@ -3,8 +3,14 @@ import { columnsOf, type ExportList } from '@css/shared/exports';
 import { volunteerFilterSchema } from '@css/shared/volunteers';
 import { z, type ZodType } from 'zod';
 import { maskData, sensitive } from '../access/field-mask';
-import { holdsPermission } from '../access/scope';
-import type { AccessService } from '../access/service';
+import {
+  applicationWhere,
+  beneficiaryWhere,
+  holdsPermission,
+  type Scope,
+  volunteerWhere,
+} from '../access/scope';
+import type { AccessService, RequestAccess } from '../access/service';
 import type { ApplicationsService } from '../applications/service';
 import { applicationFilterSchema } from '../applications/view';
 import type { Principal } from '../auth/principal';
@@ -16,11 +22,19 @@ import type { BeneficiariesService } from '../services/beneficiaries';
 import type { VolunteerListService } from '../services/volunteer-list';
 import { exportClasses } from './access';
 
+/** Where the label of a coded value comes from: a message family or a reference list. */
+export type CodedSource =
+  | 'user.state'
+  | 'volunteer.type'
+  | 'beneficiary.status'
+  | 'reference.beneficiary_class'
+  | 'reference.gender'
+  | 'application.status';
+
 /** A value of the code lists a writer turns into the label of the file's language. */
 export interface CodedCell {
   code: string;
-  /** Where the label comes from: a message family or a reference list. */
-  source: string;
+  source: CodedSource;
 }
 
 /** One value of an exported row. */
@@ -45,6 +59,12 @@ export interface FrozenList {
   byScore: boolean;
   /** The protected field classes the file may carry. */
   classes: string[];
+  /**
+   * The rows on which some of those classes may show, as the screens show them: an identity
+   * number or a bank detail only on a record the person's sensitive scope reaches, and only where
+   * their export permission's scope reaches it too. A row outside loses those fields.
+   */
+  reach: { classes: string[]; where: unknown }[];
   locale: 'bn' | 'en';
 }
 
@@ -88,7 +108,48 @@ const MASKS = new Map<ExportList, ZodType>(
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const coded = (code: string | null, source: string): CodedCell | null =>
+/**
+ * The classes a row carries only inside a scope, by list: the permission that shows them on
+ * screen, and the export permission that lets them leave in a file.
+ */
+const REACHED: Readonly<
+  Record<ExportList, { classes: string[]; view: string | null; exported: string }[]>
+> = {
+  volunteers: [
+    {
+      classes: ['volunteer.identity', 'volunteer.bank'],
+      view: 'volunteer.view_sensitive',
+      exported: 'export.volunteers',
+    },
+  ],
+  beneficiaries: [
+    {
+      classes: ['beneficiary.nid'],
+      view: 'beneficiary.view_nid',
+      exported: 'export.beneficiaries',
+    },
+  ],
+  // the official section shows on every row the list reaches; leaving in a file needs the scope
+  // of the forms' export
+  applications: [
+    { classes: ['application.official_section'], view: null, exported: 'export.forms' },
+  ],
+};
+
+const ENTITY: Readonly<Record<ExportList, 'volunteer' | 'beneficiary' | 'application'>> = {
+  volunteers: 'volunteer',
+  beneficiaries: 'beneficiary',
+  applications: 'application',
+};
+
+/** The records of a list a scope reaches, as a filter of that list. */
+function whereOf(list: ExportList, scope: Scope): unknown {
+  if (list === 'volunteers') return volunteerWhere(scope);
+  if (list === 'beneficiaries') return beneficiaryWhere(scope);
+  return applicationWhere(scope);
+}
+
+const coded = (code: string | null, source: CodedSource): CodedCell | null =>
   code === null ? null : { code, source };
 
 /**
@@ -110,10 +171,12 @@ export class ExportRows {
   async freeze(principal: Principal, input: FreezeInput, locale: 'bn' | 'en'): Promise<FrozenList> {
     const access = await this.access.load(principal.userId);
     const permission = READ_PERMISSION[input.kind];
-    if (!holdsPermission(permission, access.grants)) {
-      this.access.denied(principal.userId, permission, input.kind);
-      throw new ApiError('permission.denied', 403);
-    }
+    // an export needs its own permission beside the list's
+    for (const needed of ['export.list', permission])
+      if (!holdsPermission(needed, access.grants)) {
+        this.access.denied(principal.userId, needed, input.kind);
+        throw new ApiError('permission.denied', 403);
+      }
     const fieldClasses = access.fieldClasses;
     let where: unknown;
     let byScore = false;
@@ -136,18 +199,53 @@ export class ExportRows {
         { principal, scope, fieldClasses },
         input.projectId,
         parsed(applicationExportFilter, input.filters),
+        access,
       );
       where = query.where;
       byScore = query.byScore;
     }
+    const classes = exportClasses(access);
     return {
       kind: input.kind,
       // through JSON once, as the job will read it back from its row
-      where: JSON.parse(JSON.stringify(where)) as unknown,
+      where: asJson(where),
       byScore,
-      classes: [...exportClasses(access)].sort(),
+      classes: [...classes].sort(),
+      reach: await this.reachOf(principal, access, input.kind, classes),
       locale,
     };
+  }
+
+  /**
+   * For each class a list shows only inside a scope, the records both the sensitive scope and the
+   * export permission's scope reach; a class the export does not carry needs no reach.
+   */
+  private async reachOf(
+    principal: Principal,
+    access: RequestAccess,
+    list: ExportList,
+    classes: ReadonlySet<string>,
+  ): Promise<FrozenList['reach']> {
+    const reach: FrozenList['reach'] = [];
+    // eslint-disable-next-line security/detect-object-injection -- typed union key into a constant table
+    for (const rule of REACHED[list]) {
+      const carried = rule.classes.filter((c) => classes.has(c));
+      if (carried.length === 0) continue;
+      // eslint-disable-next-line security/detect-object-injection -- typed union key into a constant table
+      const entity = ENTITY[list];
+      const wheres: unknown[] = [];
+      for (const permission of [rule.view, rule.exported]) {
+        if (permission === null) continue;
+        // without the permission no record is reached
+        wheres.push(
+          holdsPermission(permission, access.grants)
+            ? whereOf(list, await this.access.scopeFor(principal, access, permission, entity))
+            : { id: { in: [] } },
+        );
+      }
+      reach.push({ classes: carried, where: asJson({ AND: wheres }) });
+    }
+    return reach;
   }
 
   /** How many rows the frozen query selects now. */
@@ -174,12 +272,47 @@ export class ExportRows {
           ? await this.beneficiaryRows(frozen, after, size)
           : await this.applicationRows(frozen, after, size);
     const mask = MASKS.get(frozen.kind)!;
-    const visible = new Set(frozen.classes);
-    const rows = read.rows.map((r) => ({
-      id: r.id,
-      cells: maskData(mask, r.cells, visible) as Record<string, Cell>,
-    }));
+    const outside = await this.outsideReach(
+      frozen,
+      read.rows.map((r) => r.id),
+    );
+    const rows = read.rows.map((r) => {
+      const visible = new Set(frozen.classes);
+      for (const cls of outside.get(r.id) ?? []) visible.delete(cls);
+      return { id: r.id, cells: maskData(mask, r.cells, visible) as Record<string, Cell> };
+    });
     return { rows, next: read.rows.length === size ? read.last : null };
+  }
+
+  /** The classes each row of a batch may not carry, being outside the frozen reach of those classes. */
+  private async outsideReach(frozen: FrozenList, ids: string[]): Promise<Map<string, string[]>> {
+    const outside = new Map<string, string[]>();
+    for (const rule of frozen.reach) {
+      const inside = new Set(await this.idsWithin(frozen.kind, ids, rule.where));
+      for (const id of ids)
+        if (!inside.has(id)) outside.set(id, [...(outside.get(id) ?? []), ...rule.classes]);
+    }
+    return outside;
+  }
+
+  private async idsWithin(list: ExportList, ids: string[], where: unknown): Promise<string[]> {
+    const select = { id: true } as const;
+    const rows =
+      list === 'volunteers'
+        ? await this.prisma.volunteer.findMany({
+            where: { AND: [{ id: { in: ids } }, where as Prisma.VolunteerWhereInput] },
+            select,
+          })
+        : list === 'beneficiaries'
+          ? await this.prisma.beneficiary.findMany({
+              where: { AND: [{ id: { in: ids } }, where as Prisma.BeneficiaryWhereInput] },
+              select,
+            })
+          : await this.prisma.application.findMany({
+              where: { AND: [{ id: { in: ids } }, where as Prisma.ApplicationWhereInput] },
+              select,
+            });
+    return rows.map((r) => r.id);
   }
 
   private async volunteerRows(frozen: FrozenList, after: BatchCursor | null, size: number) {
@@ -212,22 +345,21 @@ export class ExportRows {
         },
       },
     });
-    const names = await this.areaNames(
-      found.flatMap((v) => [v.upazilaId, v.districtId]),
-      frozen.locale,
-    );
-    const blocked = new Set(
-      (
-        await this.prisma.blocklist.findMany({
-          where: {
-            subjectType: 'volunteer',
-            active: true,
-            subjectId: { in: found.map((v) => v.id) },
-          },
-          select: { subjectId: true },
-        })
-      ).map((b) => b.subjectId),
-    );
+    const [names, blockedRows] = await Promise.all([
+      this.areaNames(
+        found.flatMap((v) => [v.upazilaId, v.districtId]),
+        frozen.locale,
+      ),
+      this.prisma.blocklist.findMany({
+        where: {
+          subjectType: 'volunteer',
+          active: true,
+          subjectId: { in: found.map((v) => v.id) },
+        },
+        select: { subjectId: true },
+      }),
+    ]);
+    const blocked = new Set(blockedRows.map((b) => b.subjectId));
     const en = frozen.locale === 'en';
     const rows = found.map((v) => ({
       id: v.id,
@@ -411,4 +543,12 @@ function parsed<T>(schema: z.ZodType<T>, filters: Record<string, unknown>): T {
       })),
     );
   return result.data;
+}
+
+/**
+ * A server-built Prisma filter as it is stored on the job and read back: through JSON once (dates
+ * become ISO text, which Prisma reads back as dates), so the replay reads exactly what was stored.
+ */
+function asJson(where: unknown): unknown {
+  return JSON.parse(JSON.stringify(where)) as unknown;
 }

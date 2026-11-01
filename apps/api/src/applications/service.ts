@@ -25,7 +25,7 @@ import {
   type Scope,
   teamLeadsOf,
 } from '../access/scope';
-import type { AccessService } from '../access/service';
+import type { AccessService, RequestAccess } from '../access/service';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Principal } from '../auth/principal';
 import type { Env } from '../config/env';
@@ -842,8 +842,10 @@ export class ApplicationsService {
     viewer: ApplicationViewer,
     projectId: string,
     query: ApplicationFilter & { sort?: string },
+    loaded?: RequestAccess,
   ): Promise<{ where: Prisma.ApplicationWhereInput; byScore: boolean }> {
-    const access = await this.access.load(viewer.principal.userId);
+    // the caller's access of the same moment as its other checks, when it has it already
+    const access = loaded ?? (await this.access.load(viewer.principal.userId));
     const projectScope = await this.access.scopeFor(
       viewer.principal,
       access,

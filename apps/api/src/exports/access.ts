@@ -1,4 +1,4 @@
-import { columnsOf, EXPORT_PERMISSION_OF_CLASS, type ExportList } from '@css/shared/exports';
+import { EXPORT_PERMISSION_OF_CLASS } from '@css/shared/exports';
 import { holdsPermission } from '../access/scope';
 import type { RequestAccess } from '../access/service';
 
@@ -18,11 +18,4 @@ export function exportClasses(access: RequestAccess): Set<string> {
     if (!needs || holdsPermission(needs, access.grants)) classes.add(cls);
   }
   return classes;
-}
-
-/** The columns of a list this person may export: every column without a class, and those of theirs. */
-export function exportableColumns(list: ExportList, classes: ReadonlySet<string>): string[] {
-  return columnsOf(list)
-    .filter((c) => c.cls === null || classes.has(c.cls))
-    .map((c) => c.id);
 }
