@@ -71,6 +71,15 @@ export function fieldByColumn(definition: FormDefinition, column: string): Field
 }
 
 /** The text an answer of a short question holds, trimmed, or null. */
+/**
+ * The name typed on an application, from its standard columns: kept on an entry that waits for
+ * verification so the lists can name it before a profile exists; null when none was given.
+ */
+export function typedName(standard: Record<string, unknown>): string | null {
+  const value = standard.name;
+  return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+}
+
 export function textOf(answers: readonly Answer[], fieldKey: string): string | null {
   const answer = answers.find((a) => a.fieldKey === fieldKey && (a.repeatIndex ?? 0) === 0);
   const value = answer ? (answer.value as { v?: unknown }).v : undefined;

@@ -1,7 +1,7 @@
 import { uuidv7 } from '@css/shared';
 import { type PublicApplicationCreate, validate } from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
-import { addressOf, nisabOption, photoAnswers } from '../applications/answers';
+import { addressOf, nisabOption, photoAnswers, typedName } from '../applications/answers';
 import type { AuditWriter } from '../audit/audit-writer';
 import type { Clock } from '../core/clock';
 import { isUniqueViolation } from '../core/db-errors';
@@ -118,6 +118,8 @@ export class PublicFormsService {
             districtId,
             unionId,
             status: NEEDS_VERIFICATION,
+            // the lists name the entry by the typed name until the office links it
+            applicantName: typedName(checked.standard),
             flags,
             clientUuid: body.clientUuid,
             clientCreatedAt: body.clientCreatedAt ? new Date(body.clientCreatedAt) : null,

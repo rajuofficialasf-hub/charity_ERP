@@ -44,8 +44,9 @@ const row = async (id: string) =>
       beneficiary_id: string | null;
       candidate_beneficiary_id: string | null;
       client_created_at: Date | null;
+      applicant_name: string | null;
     }>(
-      'SELECT status, flags, beneficiary_id, candidate_beneficiary_id, client_created_at FROM applications WHERE id = $1',
+      'SELECT status, flags, beneficiary_id, candidate_beneficiary_id, client_created_at, applicant_name FROM applications WHERE id = $1',
       [id],
     )
   ).rows[0]!;
@@ -137,7 +138,11 @@ describe('a record that arrives after the deadline', () => {
         result: 'needs_verification',
         code: 'late_sync',
       });
-      expect((await row(id)).status).toBe('needs_verification');
+      // held at its send: the lists name it by the typed name until the office links it
+      expect(await row(id)).toMatchObject({
+        status: 'needs_verification',
+        applicant_name: 'নমুনা আবেদনকারী',
+      });
     } finally {
       await h.db.query('UPDATE projects SET apply_to = $2 WHERE id = $1', [
         w.project,
@@ -256,10 +261,15 @@ describe('a record whose number already has a profile', () => {
     expect(waiting.beneficiary_id).toBeNull();
     expect(waiting.candidate_beneficiary_id).toBe(another);
     expect(waiting.flags).toContain('existing_identity');
-    const typed = (
+    const record = (
       await w.at(s, 'get', `/applications/${w.resultOf(held, mismatch.clientUuid).serverId}`)
-    ).body.data.answers as { fieldKey: string; value: { v: string } }[];
-    expect(typed.find((a) => a.fieldKey === 'q_name')?.value.v).toBe('আব্দুল রহিম');
+    ).body.data as {
+      beneficiaryName: string | null;
+      answers: { fieldKey: string; value: { v: string } }[];
+    };
+    expect(record.answers.find((a) => a.fieldKey === 'q_name')?.value.v).toBe('আব্দুল রহিম');
+    // the record is named by the typed name while it waits
+    expect(record.beneficiaryName).toBe('আব্দুল রহিম');
     // the office links it to the profile, and the application goes on as a submitted one
     const rpm = await w.as(w.world.users.rpmDhaka);
     const verified = await w.act(
@@ -273,6 +283,8 @@ describe('a record whose number already has a profile', () => {
     );
     expect(verified.status, JSON.stringify(verified.body)).toBe(200);
     expect(verified.body.data.status).toBe('submitted');
+    // once linked, the profile's name stands
+    expect(verified.body.data.beneficiaryName).toBe('আব্দুল করিম');
   });
 });
 

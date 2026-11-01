@@ -957,6 +957,7 @@ Indexes: (assignee_user_id, project_id) WHERE active_to IS NULL; (target_type, t
 | union_id | uuid | no | — | FK locations (union quotas) |
 | client_uuid | uuid | yes | — | UNIQUE (offline records) |
 | pending_photos | jsonb | no | '[]' | the photo slots an offline record still waits for; the upload for a slot fills the answer and removes it (OFFLINE_SYNC §5, T2.7) |
+| applicant_name | text | yes | — | the name typed on an entry that waits for verification (a public entry, or an offline entry whose number belongs to a profile with other names); every list and the record show it in the profile's place until the office links the entry; null on rows that never waited (D-141) |
 | client_created_at | timestamptz | yes | — | device time, offset-corrected |
 | submitted_at, reviewed_at, approved_at, completed_at | timestamptz | yes | — | — |
 | submitted_by, reviewed_by, approved_by, completed_by | uuid | yes | — | FK users; written by the workflow `actor_recorded_as` setting (WORKFLOW_ENGINE §5) |

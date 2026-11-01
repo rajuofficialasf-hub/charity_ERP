@@ -1831,7 +1831,9 @@ components:
             properties:
               id: { $ref: '#/components/schemas/Uuid' }
               appNo: { type: [string, 'null'] }
-              beneficiaryName: { type: [string, 'null'] }
+              beneficiaryName:
+                type: [string, 'null']
+                description: The profile's name; while the entry waits for verification, the name typed on the application.
               status: { type: string }
         meta: { $ref: '#/components/schemas/Meta' }
 
@@ -3054,7 +3056,9 @@ components:
         appNo: { type: [string, 'null'] }
         projectId: { $ref: '#/components/schemas/Uuid' }
         beneficiaryId: { type: [string, 'null'], format: uuid }
-        beneficiaryName: { type: [string, 'null'] }
+        beneficiaryName:
+          type: [string, 'null']
+          description: The profile's name; while the entry waits for verification, the name typed on the application.
         ownerVolunteerId: { type: [string, 'null'], format: uuid }
         status: { type: string, enum: [draft, needs_verification, submitted, under_review, reviewed, waitlisted, approved, rejected, implementation, completed, closed, deleted] }
         stage: { type: [string, 'null'] }

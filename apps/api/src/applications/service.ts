@@ -7,7 +7,13 @@ import {
   type WorkflowDefinition,
   workflowDefinitionSchema,
 } from '@css/shared';
-import { type Answer, type Audience, type FormDefinition, identityColumn } from '@css/shared/forms';
+import {
+  type Answer,
+  type Audience,
+  type FormDefinition,
+  identityColumn,
+  split,
+} from '@css/shared/forms';
 import { isoDateInDhaka } from '@css/shared/format';
 import { z } from 'zod';
 import { type EffectiveAccess, WORKING_ASSIGNMENT, workingTeamProjects } from '../access/effective';
@@ -77,6 +83,7 @@ import {
   nisabOption,
   readAnswers,
   textOf,
+  typedName,
   writeAnswers,
 } from './answers';
 import {
@@ -230,6 +237,7 @@ const ROW_SELECT = {
   formVersionId: true,
   beneficiaryId: true,
   beneficiary: { select: { name: true } },
+  applicantName: true,
   candidateBeneficiaryId: true,
   ownerVolunteerId: true,
   createdByUserId: true,
@@ -368,6 +376,8 @@ export class ApplicationsService {
             formVersionId: version.id,
             beneficiaryId: person.beneficiaryId,
             candidateBeneficiaryId: person.candidate ?? null,
+            // an entry held at its creation is named by what was typed until the office links it
+            applicantName: held.length ? typedName(checked.standard) : null,
             identityKind: person.identityKind,
             ownerVolunteerId: owner.ownerVolunteerId,
             createdByUserId: actor,
@@ -643,10 +653,14 @@ export class ApplicationsService {
         (submit.guards ?? []).filter(isBuiltGuard).filter((g) => g !== 'deadline.open'),
         'submitted',
       );
+      // the entry waits without a profile: the lists name it by the typed name meanwhile
+      const form = await readDefinition(tx, row.formVersionId, 'official');
+      const { standard } = split(form, await readAnswers(tx, applicationId, form));
       await tx.application.update({
         where: { id: applicationId },
         data: {
           status: 'needs_verification',
+          applicantName: typedName(standard),
           flags: held,
           clientCreatedAt: madeAt,
           submittedAt: now,
@@ -972,7 +986,7 @@ export class ApplicationsService {
       appNo: r.appNo,
       projectId: r.projectId,
       beneficiaryId: r.beneficiaryId,
-      beneficiaryName: r.beneficiary?.name ?? null,
+      beneficiaryName: r.beneficiary?.name ?? r.applicantName ?? null,
       ownerVolunteerId: r.ownerVolunteerId,
       status: statusSchema.parse(r.status),
       stage: r.stage,

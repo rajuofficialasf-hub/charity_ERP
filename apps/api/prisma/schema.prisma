@@ -1746,6 +1746,8 @@ model Application {
   unionId                         String                @map("union_id") @db.Uuid
   /// the photo slots an offline record still waits for; the upload for a slot fills the answer
   pendingPhotos                   Json                  @default("[]") @map("pending_photos")
+  /// the name typed on an entry that waits for verification; the lists show it until the entry links to a profile
+  applicantName                   String?               @map("applicant_name")
   clientUuid                      String?               @map("client_uuid") @db.Uuid
   clientCreatedAt                 DateTime?             @map("client_created_at") @db.Timestamptz(6)
   submittedAt                     DateTime?             @map("submitted_at") @db.Timestamptz(6)
