@@ -292,7 +292,7 @@ Every list of the ERP is filtered and paged on screen only, while the department
 ## Progress
 - **Branch:** `feat/export-service` (cut from `feat/offline-sync` while PR #34 waited for CI; merge `main` in once PR #34 is merged)
 - **Updated:** 2026-11-01 10:54
-- **Next:** checkpoint C1 (U1), then U2: the shared export rules in packages/shared/src/exports
-- **Reviewed through:** none
+- **Next:** U2, the shared export rules in packages/shared/src/exports (the list filters stay validated in the API, where their schemas live)
+- **Reviewed through:** C1 at d45f983a
 - **Uncommitted:** none
-- **Notes:** the owner said "শুরু কর" while PR #34's CI was still running, so the branch starts from `feat/offline-sync` instead of `main`. U1: the migrations test round-trips every down.sql on a seeded database, so a new migration needs no test of its own for that; the fixtures' user() returns the id, not the row.
+- **Notes:** the owner said "শুরু কর" while PR #34's CI was still running, so the branch starts from `feat/offline-sync` instead of `main`. U1: the migrations test round-trips every down.sql on a seeded database, so a new migration needs no test of its own for that; the fixtures' user() returns the id, not the row. C1: a migration's defaults that only serve the step of adding the column are dropped in the same migration, so a later insert cannot store an empty snapshot; refusal tests name their constraint. The dev database had the first version of the migration: reversed with its down.sql and the history row removed, then deployed again (never on a shared database).
