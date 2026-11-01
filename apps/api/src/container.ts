@@ -10,6 +10,7 @@ import { PermissionVersionService } from './auth/permission-version.service';
 import { SESSION_RULES, SessionService } from './auth/session.service';
 import { TokenService } from './auth/token.service';
 import type { Env } from './config/env';
+import { ExportRows } from './exports/rows';
 import { type Clock, systemClock } from './core/clock';
 import { REDACT_PATHS } from './core/logging';
 import { PrismaService } from './core/prisma.service';
@@ -167,6 +168,7 @@ export interface Container {
   workflow: WorkflowEngine;
   scoring: ScoringService;
   applications: ApplicationsService;
+  exportRows: ExportRows;
   bulkReview: BulkReviewService;
   waitlist: WaitlistService;
   unlocks: UnlocksService;
@@ -591,6 +593,10 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         built.projects,
         built.unlocks,
       ),
+    // an export reads exactly the rows its list shows, through the lists' own filters
+    exportRows:
+      o.exportRows ??
+      new ExportRows(prisma, clock, access, built.volunteerList, built.beneficiaries, applications),
   };
 }
 
