@@ -39,6 +39,7 @@ afterEach(async () => {
   closeOfflineDb();
   await Dexie.delete(OFFLINE_DB_NAME);
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 describe('the photo queue', () => {
@@ -150,6 +151,9 @@ describe('the photo queue', () => {
     );
     await login('a', 'b');
     const T0 = new Date('2026-10-31T10:00:00Z');
+    // the photo takes its start from the clock, so the clock stands at the test's own start
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(T0);
     let now = T0;
     const record = await enqueue({
       clientUuid: RECORD,
