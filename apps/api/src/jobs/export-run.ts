@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Transform, type TransformCallback } from 'node:stream';
 import { uuidv7 } from '@css/shared';
-import { columnsOf, EXPORT_LIMITS, type ExportList, EXPORT_RECORDS } from '@css/shared/exports';
+import { columnsOf, EXPORT_LIMITS, type ExportList, isExportRecord } from '@css/shared/exports';
 import { formatDate } from '@css/shared/format';
 import { type MessageKey, translate } from '@css/shared/i18n';
 import type { Logger } from 'pino';
@@ -117,7 +117,7 @@ export class ExportRunner {
   async run(jobId: string, attempt: number, signal?: AbortSignal): Promise<void> {
     const job = await this.prisma.exportJob.findUnique({ where: { id: jobId } });
     if (!job || job.status === 'done' || job.status === 'failed') return;
-    const record = RECORD_KINDS.has(job.kind) ? readFrozenRecord(job.access) : null;
+    const record = isExportRecord(job.kind) ? readFrozenRecord(job.access) : null;
     const frozen = record ? null : readFrozenExport(job.access);
     if (!frozen && !record?.view) {
       // a row that does not hold its export can never succeed: no retry
@@ -435,14 +435,11 @@ export function exportObjectKey(
 /** Another attempt of the job ended it first. */
 class Superseded extends Error {}
 
-/** The kinds that print one record. */
-const RECORD_KINDS = new Set<string>(EXPORT_RECORDS);
-
 /**
  * What a record job's row keeps once it ended: the record's kind and protected classes, which the
  * download checks, without the record itself.
  */
-function clearedOf(record: FrozenRecord | null): Prisma.InputJsonObject | undefined {
+export function clearedOf(record: FrozenRecord | null): Prisma.InputJsonObject | undefined {
   return record
     ? ({ record: { ...record, view: null } } as unknown as Prisma.InputJsonObject)
     : undefined;

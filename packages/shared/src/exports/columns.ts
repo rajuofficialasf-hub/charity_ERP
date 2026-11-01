@@ -4,7 +4,15 @@ import type { ExportList } from './constants.js';
  * How a column's values are written: text; a number or an amount; a calendar date or a moment;
  * a coded value, written as its words beside a column of its code; a yes or no.
  */
-const COLUMN_KINDS = ['text', 'number', 'money', 'date', 'datetime', 'coded', 'flag'] as const;
+export const COLUMN_KINDS = [
+  'text',
+  'number',
+  'money',
+  'date',
+  'datetime',
+  'coded',
+  'flag',
+] as const;
 export type ColumnKind = (typeof COLUMN_KINDS)[number];
 
 /**

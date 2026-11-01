@@ -12,6 +12,11 @@ export type ExportList = (typeof EXPORT_LISTS)[number];
 export const EXPORT_RECORDS = ['beneficiary_profile', 'application'] as const;
 export type ExportRecord = (typeof EXPORT_RECORDS)[number];
 
+/** Whether an export kind prints one record. */
+export function isExportRecord(kind: string): kind is ExportRecord {
+  return (EXPORT_RECORDS as readonly string[]).includes(kind);
+}
+
 /** Every kind of export job: a list or a record. */
 export const EXPORT_KINDS = [...EXPORT_LISTS, ...EXPORT_RECORDS] as const;
 export type ExportKind = (typeof EXPORT_KINDS)[number];

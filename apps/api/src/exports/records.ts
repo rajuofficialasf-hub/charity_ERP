@@ -165,12 +165,19 @@ export class ExportRecords {
       select: { projectId: true },
     });
     if (!found) throw new ApiError('permission.not_found', 404);
-    const list = await this.rows.freeze(
-      principal,
-      { kind: 'applications', filters: {}, projectId: found.projectId },
-      locale,
-      RECORD_PERMISSION.application,
-    );
+    // an application the person may not read answers as a missing one, so its id tells nothing
+    const list = await this.rows
+      .freeze(
+        principal,
+        { kind: 'applications', filters: {}, projectId: found.projectId },
+        locale,
+        RECORD_PERMISSION.application,
+      )
+      .catch((error: unknown) => {
+        if (error instanceof ApiError && error.status === 403)
+          throw new ApiError('permission.not_found', 404);
+        throw error;
+      });
     const access = await this.access.load(principal.userId);
     const scope = await this.access.scopeFor(principal, access, 'application.view', 'application');
     const read = await this.applications.get(

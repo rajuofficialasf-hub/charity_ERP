@@ -158,7 +158,7 @@ export class ExportsService {
     private readonly clock: Clock,
     private readonly rows: ExportRows,
     private readonly questions: ExportQuestions,
-    private readonly records: ExportRecords | null = null,
+    private readonly records: ExportRecords,
     limits: Partial<ExportLimits> = {},
   ) {
     this.limits = { ...EXPORT_LIMITS, ...limits };
@@ -308,7 +308,6 @@ export class ExportsService {
     recordId: string,
     locale: 'bn' | 'en',
   ): Promise<ExportJobView> {
-    if (!this.records) throw new Error('record exports not configured');
     const record = await this.records.snapshot(principal, kind, recordId, locale);
     const sensitive = record.classes.length > 0;
     const id = await this.queue(

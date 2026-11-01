@@ -1,4 +1,4 @@
-import { EXPORT_PERMISSION_OF_CLASS, EXPORT_RECORDS } from '@css/shared/exports';
+import { EXPORT_PERMISSION_OF_CLASS, isExportRecord } from '@css/shared/exports';
 import { holdsPermission } from '../access/scope';
 import type { AccessService } from '../access/service';
 import type { Principal } from '../auth/principal';
@@ -76,10 +76,8 @@ export async function exportDownload(
   if (user?.state !== 'active') throw refused();
   const classes = heldClasses(job);
   if (!classes) throw refused();
-  const record = EXPORT_RECORDS.find((kind) => kind === job.kind);
   // a record's PDF needs its own export permission, a list's export.list
-  // eslint-disable-next-line security/detect-object-injection -- a record kind found in the constant list
-  const needed = new Set([record ? RECORD_PERMISSION[record] : 'export.list']);
+  const needed = new Set([isExportRecord(job.kind) ? RECORD_PERMISSION[job.kind] : 'export.list']);
   if (job.sensitive) {
     for (const cls of classes)
       if (Object.hasOwn(EXPORT_PERMISSION_OF_CLASS, cls))
@@ -109,8 +107,7 @@ function heldClasses(job: {
   columns: string[];
   access: unknown;
 }): string[] | null {
-  if (EXPORT_RECORDS.some((kind) => kind === job.kind))
-    return readFrozenRecord(job.access)?.classes ?? null;
+  if (isExportRecord(job.kind)) return readFrozenRecord(job.access)?.classes ?? null;
   if (!job.sensitive) return [];
   const frozen = readFrozenExport(job.access);
   if (!frozen) return null;

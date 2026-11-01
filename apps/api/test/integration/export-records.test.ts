@@ -179,6 +179,27 @@ describe('the 360° profile as a PDF', () => {
   });
 });
 
+describe('a record job the sweep ends', () => {
+  it('keeps no copy of the record once the sweep fails it', async () => {
+    const s = await as(world.users.rpmDhaka);
+    const made = await at(s, 'post', `/beneficiaries/${person.id}/pdf`);
+    expect(made.status).toBe(202);
+    await h.db.query(
+      `UPDATE export_jobs SET created_at = now() - interval '31 minutes' WHERE id = $1`,
+      [made.body.data.id],
+    );
+    await h.container.exportSweep.run();
+    const stored = await h.db.query<{
+      status: string;
+      access: { record: Record<string, unknown> };
+    }>('SELECT status, access FROM export_jobs WHERE id = $1', [made.body.data.id]);
+    expect(stored.rows[0]).toMatchObject({
+      status: 'failed',
+      access: { record: { kind: 'beneficiary_profile', view: null, classes: ['beneficiary.nid'] } },
+    });
+  });
+});
+
 describe('one application as a PDF', () => {
   it('prints its number, project and answers by section, the official section with the forms export', async () => {
     const { job, page } = await printed(world.users.rpmDhaka, `/applications/${firstApp}/pdf`);
@@ -214,5 +235,53 @@ describe('who may print a record', () => {
       world.users.rpmRangpur,
     ]);
     expect(jobs.rowCount).toBe(0);
+  });
+});
+
+describe('the download of a record PDF', () => {
+  /** A fresh RPM of Dhaka, so a change to their account touches no other test. */
+  async function official(): Promise<string> {
+    const a = await account(h.db, { role: 'regional_program_manager' });
+    accounts.set(a.id, a);
+    await h.db.query(
+      `INSERT INTO project_areas (id, project_id, location_id, rpm_user_id) VALUES ($1, $2, $3, $4)`,
+      [randomUUID(), world.a2.id, world.dhaka.division, a.id],
+    );
+    return a.id;
+  }
+  const downloads = async (fileId: string) =>
+    (
+      await h.db.query(
+        `SELECT 1 FROM audit_log WHERE action = 'file.download_sensitive' AND entity_id = $1`,
+        [fileId],
+      )
+    ).rowCount;
+
+  it('audits each download of a profile holding the NID, refuses everyone else, and the requester who lost a permission', async () => {
+    const me = await official();
+    const { job, s } = await printed(me, `/beneficiaries/${person.id}/pdf`);
+    const fileId = job.fileId as string;
+    expect(job.sensitive).toBe(true);
+    expect((await at(s, 'get', `/files/${fileId}/content`)).status).toBe(200);
+    expect(await downloads(fileId)).toBe(1);
+    expect((await at(await as(world.users.head), 'get', `/files/${fileId}/content`)).status).toBe(
+      404,
+    );
+    // an executive keeps the journey report but not the identity numbers' export
+    await h.db.query(`UPDATE user_roles SET role_key = 'project_executive' WHERE user_id = $1`, [
+      me,
+    ]);
+    expect((await at(s, 'get', `/files/${fileId}/content`)).status).toBe(404);
+    // without any role the journey report is gone too
+    await h.db.query('DELETE FROM user_roles WHERE user_id = $1', [me]);
+    expect((await at(s, 'get', `/files/${fileId}/content`)).status).toBe(404);
+    expect(await downloads(fileId)).toBe(1);
+  });
+
+  it('downloads a record PDF without protected fields with no trace of its own', async () => {
+    const { job, s } = await printed(world.users.executive, `/applications/${firstApp}/pdf`);
+    expect(job.sensitive).toBe(false);
+    expect((await at(s, 'get', `/files/${job.fileId as string}/content`)).status).toBe(200);
+    expect(await downloads(job.fileId as string)).toBe(0);
   });
 });

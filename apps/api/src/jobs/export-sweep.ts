@@ -4,7 +4,8 @@ import type { Clock } from '../core/clock';
 import type { PrismaService } from '../core/prisma.service';
 import type { ExportEvents } from '../notifications/export-events';
 import { knownBucket, type StorageDriver } from '../storage/types';
-import { exportObjectKey } from './export-run';
+import { readFrozenRecord } from '../exports/records';
+import { clearedOf, exportObjectKey } from './export-run';
 import { QUEUES } from './queues';
 
 /** Daily at 03:30 Dhaka time, after the night's other housekeeping. */
@@ -55,9 +56,18 @@ export class ExportSweep {
         },
         orderBy: { createdAt: 'asc' },
         take: BATCH,
-        select: { id: true, kind: true, format: true, requestedBy: true, createdAt: true },
+        select: {
+          id: true,
+          kind: true,
+          format: true,
+          requestedBy: true,
+          createdAt: true,
+          access: true,
+        },
       });
       for (const job of stuck) {
+        // a record job keeps no copy of its record once it ends, however it ends
+        const cleared = clearedOf(readFrozenRecord(job.access));
         try {
           for (let attempt = 0; attempt <= QUEUES.exports.retryLimit; attempt += 1)
             await this.storage.remove(
@@ -73,6 +83,7 @@ export class ExportSweep {
                 errorCode: 'export.timed_out',
                 finishedAt: now,
                 updatedAt: now,
+                ...(cleared ? { access: cleared } : {}),
               },
             });
             if (ended.count > 0) {
