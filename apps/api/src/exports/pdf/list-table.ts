@@ -1,5 +1,5 @@
 import { formatCount } from '@css/shared/format';
-import { type MessageKey, translate } from '@css/shared/i18n';
+import { translate } from '@css/shared/i18n';
 import { documentHtml, html } from './html';
 
 /**
@@ -15,7 +15,7 @@ export function listTableHtml(input: {
   headers: readonly string[];
   rows: readonly (readonly string[])[];
 }): string {
-  const rows = translate(input.locale, 'exports.pdf.rows' as MessageKey, {
+  const rows = translate(input.locale, 'exports.pdf.rows', {
     count: formatCount(input.rowCount, input.locale),
   });
   const meta = [input.filters, input.date, rows].filter(Boolean).join(' · ');

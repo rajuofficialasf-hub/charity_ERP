@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { chromium } from 'playwright-core';
+import { type Browser, chromium } from 'playwright-core';
 import { afterAll, describe, expect, it } from 'vitest';
 import { documentHtml, html, raw } from './html';
 import { listTableHtml } from './list-table';
@@ -60,7 +60,7 @@ describe('the HTML of a PDF', () => {
 
 describe('the PDF renderer', () => {
   it('prints a list table into a PDF that embeds both fonts', async () => {
-    const pdf = await renderer.render(SAMPLE, { landscape: true });
+    const pdf = await renderer.render(SAMPLE);
     expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-');
     const text = pdf.toString('latin1');
     expect(text).toMatch(/Bornomala/);
@@ -84,7 +84,7 @@ describe('the PDF renderer', () => {
           `<img src="http://127.0.0.1:${port}/a.png"><link rel="stylesheet" href="http://127.0.0.1:${port}/b.css"><iframe src="http://127.0.0.1:${port}/c"></iframe>`,
         ),
       });
-      const pdf = await renderer.render(page, { landscape: false });
+      const pdf = await renderer.render(page);
       expect(pdf.length).toBeGreaterThan(0);
       expect(hits).toBe(0);
     } finally {
@@ -100,9 +100,29 @@ describe('the PDF renderer', () => {
 
   it('says a PDF is unavailable when the browser cannot start, instead of falling back', async () => {
     const broken = new PdfRenderer({ executablePath: 'D:/no/such/chromium.exe' });
-    await expect(broken.render(SAMPLE, { landscape: true })).rejects.toMatchObject({
+    await expect(broken.render(SAMPLE)).rejects.toMatchObject({
       code: 'export.pdf_unavailable',
     });
     await broken.close();
+  });
+
+  it('starts a new browser after the one it had crashed', async () => {
+    const launched: Browser[] = [];
+    const recovering = new PdfRenderer({
+      launch: async () => {
+        const browser = await chromium.launch(launchOptions());
+        launched.push(browser);
+        return browser;
+      },
+    });
+    try {
+      await recovering.render(SAMPLE);
+      await launched[0]!.close();
+      const pdf = await recovering.render(SAMPLE);
+      expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+      expect(launched).toHaveLength(2);
+    } finally {
+      await recovering.close();
+    }
   });
 });
