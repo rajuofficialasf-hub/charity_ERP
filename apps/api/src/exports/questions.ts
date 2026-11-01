@@ -1,10 +1,17 @@
+import { type AnswerValue, answerValueSchema } from '@css/shared';
 import { questionColumnId } from '@css/shared/exports';
 import type { FieldType, FormDefinition } from '@css/shared/forms';
 import type { Bilingual } from '@css/shared/i18n';
-import { type AnswerValue, answerValueSchema } from '@css/shared';
+import { IDENTITY_COLUMN } from '../applications/answers';
 import type { PrismaService } from '../core/prisma.service';
 import { readDefinition } from '../services/forms';
+import { placeNames } from './places';
 import type { Cell } from './rows';
+
+/** The protected class of an official-only section's answers. */
+export const OFFICIAL_SECTION = 'application.official_section';
+/** The protected class of the identity number answer. */
+export const IDENTITY_NUMBER = 'beneficiary.nid';
 
 /** One form question as an export column, keyed by its field key across the project's versions. */
 export interface QuestionColumn {
@@ -15,8 +22,8 @@ export interface QuestionColumn {
   label: Bilingual;
   sectionKey: string;
   sectionTitle: Bilingual;
-  /** In an official-only section: carried only by an export that carries the official section. */
-  official: boolean;
+  /** The protected class of the question in the newest version that has it, for the dialog. */
+  cls: string | null;
   /** The repeat group the question belongs to, or null for a question asked once. */
   group: string | null;
   type: FieldType;
@@ -37,20 +44,37 @@ export interface QuestionValues {
   repeats: RepeatRow[];
 }
 
+/** Whether an application's row may carry a protected class (the export's frozen reach). */
+export type RowAllows = (applicationId: string, cls: string) => boolean;
+
 /** Questions that hold no value of their own, or only files, which an export never carries. */
 const NO_VALUE = new Set<FieldType>(['repeat_group', 'note', 'photo', 'file', 'signature']);
+
+/** The protected class of a question, from its section and its standard column. */
+function classOf(
+  sectionVisibility: string,
+  standardColumn: string | null | undefined,
+): string | null {
+  if (sectionVisibility === 'official_only') return OFFICIAL_SECTION;
+  if (standardColumn === IDENTITY_COLUMN) return IDENTITY_NUMBER;
+  return null;
+}
 
 /**
  * The form questions of a project's application list as export columns (the export service
  * decision in docs/DECISION_LOG.md): every question once across the versions of the project's
  * application forms, under the newest version's words and in its order, the questions only older
- * versions had after them; each application is filled from its own version's answers.
+ * versions had after them. Whether a protected answer may leave is decided per answer, from the
+ * section and column the question had in that application's own version.
  */
 export class ExportQuestions {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** The question columns of a project; the official ones only when the export carries them. */
-  async catalogue(projectId: string, includeOfficial: boolean): Promise<QuestionColumn[]> {
+  /**
+   * The question columns of a project. A question that is protected in any version and whose
+   * class the export does not carry is left out of every version.
+   */
+  async catalogue(projectId: string, classes: ReadonlySet<string>): Promise<QuestionColumn[]> {
     const versions = await this.prisma.formVersion.findMany({
       where: {
         status: { in: ['published', 'retired'] },
@@ -59,43 +83,51 @@ export class ExportQuestions {
       orderBy: [{ publishedAt: 'desc' }, { versionNo: 'desc' }],
       select: { id: true },
     });
-    const columns = new Map<string, QuestionColumn>();
-    for (const version of versions) {
-      const definition: FormDefinition = await readDefinition(this.prisma, version.id, 'official');
-      for (const section of definition.sections) {
-        const official = section.visibility === 'official_only';
-        if (official && !includeOfficial) continue;
+    const definitions: FormDefinition[] = [];
+    for (const version of versions)
+      definitions.push(await readDefinition(this.prisma, version.id, 'official'));
+    const withheld = new Set<string>();
+    for (const definition of definitions)
+      for (const section of definition.sections)
         for (const field of section.fields) {
-          if (NO_VALUE.has(field.type) || columns.has(field.fieldKey)) continue;
-          columns.set(field.fieldKey, {
-            fieldKey: field.fieldKey,
-            id: questionColumnId(field.fieldKey),
+          const cls = classOf(section.visibility, field.standardColumn);
+          if (cls && !classes.has(cls)) withheld.add(field.fieldKey);
+        }
+    const columns = new Map<string, QuestionColumn>();
+    for (const definition of definitions)
+      for (const section of definition.sections)
+        for (const field of section.fields) {
+          const key = field.fieldKey;
+          if (NO_VALUE.has(field.type) || withheld.has(key) || columns.has(key)) continue;
+          columns.set(key, {
+            fieldKey: key,
+            id: questionColumnId(key),
             label: field.label,
             sectionKey: section.key,
             sectionTitle: section.title,
-            official,
+            cls: classOf(section.visibility, field.standardColumn),
             group: field.settings?.repeat?.group ?? null,
             type: field.type,
             options: Object.fromEntries((field.options ?? []).map((o) => [o.code, o.label])),
           });
         }
-      }
-    }
     return [...columns.values()];
   }
 
   /**
-   * The answers of the applications as cells of the given columns, in the file's language. An
-   * official question's answer is left out of an application outside `officialFor`, the
-   * applications the export's reach of the official section covers.
+   * The answers of the applications as cells of the given columns, in the file's language. A
+   * protected answer is left out unless the application's row may carry its class, judged by the
+   * question as that application's own version had it. The ids must be rows the export's frozen
+   * list query read, and `allows` must come from its frozen reach.
    */
   async values(
     applicationIds: readonly string[],
     columns: readonly QuestionColumn[],
     locale: 'bn' | 'en',
-    officialFor: ReadonlySet<string>,
+    allows: RowAllows,
   ): Promise<Map<string, QuestionValues>> {
     const byKey = new Map(columns.map((c) => [c.fieldKey, c]));
+    const words = new Map(columns.map((c) => [c.fieldKey, new Map(Object.entries(c.options))]));
     const answers = await this.prisma.applicationAnswer.findMany({
       where: {
         applicationId: { in: [...applicationIds] },
@@ -106,51 +138,64 @@ export class ExportQuestions {
         applicationId: true,
         repeatIndex: true,
         value: true,
-        field: { select: { fieldKey: true } },
+        field: {
+          select: {
+            fieldKey: true,
+            standardColumn: true,
+            formSection: { select: { visibility: true } },
+          },
+        },
       },
     });
-    const parsed = answers.flatMap((a) => {
+    const kept = answers.flatMap((a) => {
+      const cls = classOf(a.field.formSection.visibility, a.field.standardColumn);
+      if (cls && !allows(a.applicationId, cls)) return [];
+      // an answer that no longer reads as an answer leaves its cell empty
       const value = answerValueSchema.safeParse(a.value);
       return value.success ? [{ ...a, value: value.data }] : [];
     });
-    const places = await this.placeNames(
-      parsed.map((a) => a.value),
+    const places = await placeNames(
+      this.prisma,
+      kept.flatMap((a) =>
+        a.value.t === 'bd_address'
+          ? [a.value.union_id, a.value.upazila_id, a.value.district_id]
+          : [],
+      ),
       locale,
     );
     const result = new Map<string, QuestionValues>(
       applicationIds.map((id) => [id, { cells: {}, repeats: [] }]),
     );
-    const repeated = new Map<string, Map<string, Map<number, Cell>>>();
-    for (const answer of parsed) {
+    /** The repeated answers of each application, by column, then by row. */
+    const repeated = new Map<string, Map<QuestionColumn, Map<number, Cell>>>();
+    for (const answer of kept) {
       const column = byKey.get(answer.field.fieldKey);
       const into = result.get(answer.applicationId);
       if (!column || !into) continue;
-      if (column.official && !officialFor.has(answer.applicationId)) continue;
-      const cell = cellOf(answer.value, column, locale, places);
+      const cell = cellOf(answer.value, words.get(column.fieldKey)!, locale, places);
       if (column.group === null) {
         into.cells[column.id] = cell;
         continue;
       }
-      const ofApp = repeated.get(answer.applicationId) ?? new Map<string, Map<number, Cell>>();
-      const ofColumn = ofApp.get(column.id) ?? new Map<number, Cell>();
+      const ofApp =
+        repeated.get(answer.applicationId) ?? new Map<QuestionColumn, Map<number, Cell>>();
+      const ofColumn = ofApp.get(column) ?? new Map<number, Cell>();
       ofColumn.set(answer.repeatIndex, cell);
-      ofApp.set(column.id, ofColumn);
+      ofApp.set(column, ofColumn);
       repeated.set(answer.applicationId, ofApp);
     }
     for (const [applicationId, ofApp] of repeated) {
       const into = result.get(applicationId)!;
       const rows = new Map<string, RepeatRow>();
-      for (const [columnId, ofColumn] of ofApp) {
-        const group = columns.find((c) => c.id === columnId)!.group!;
+      for (const [column, ofColumn] of ofApp) {
         const indices = [...ofColumn.keys()].sort((a, b) => a - b);
-        // column ids are the definitions' own snake-case field keys, never input
-        // eslint-disable-next-line security/detect-object-injection
-        into.cells[columnId] = indices.map((i) => textOf(ofColumn.get(i) ?? null)).join('; ');
+        into.cells[column.id] = indices
+          .map((i) => textOf(ofColumn.get(i) ?? null, column.type))
+          .join('; ');
         for (const index of indices) {
-          const key = `${group}#${index}`;
-          const row = rows.get(key) ?? { group, index, cells: {} };
-          // eslint-disable-next-line security/detect-object-injection -- a definition's own field key
-          row.cells[columnId] = ofColumn.get(index) ?? null;
+          const key = `${column.group}#${index}`;
+          const row = rows.get(key) ?? { group: column.group!, index, cells: {} };
+          row.cells[column.id] = ofColumn.get(index) ?? null;
           rows.set(key, row);
         }
       }
@@ -160,30 +205,17 @@ export class ExportQuestions {
     }
     return result;
   }
-
-  /** The names of the places the address answers name, in the file's language. */
-  private async placeNames(values: AnswerValue[], locale: 'bn' | 'en') {
-    const ids = values.flatMap((v) =>
-      v.t === 'bd_address' ? [v.union_id, v.upazila_id, v.district_id] : [],
-    );
-    if (ids.length === 0) return new Map<string, string>();
-    const rows = await this.prisma.location.findMany({
-      where: { id: { in: [...new Set(ids)] } },
-      select: { id: true, nameBn: true, nameEn: true },
-    });
-    return new Map(rows.map((l) => [l.id, locale === 'en' ? l.nameEn : l.nameBn]));
-  }
 }
 
 /** An answer as the value of its cell: numbers stay numbers, dates dates, a choice its words. */
 function cellOf(
   value: AnswerValue,
-  column: QuestionColumn,
+  options: ReadonlyMap<string, Bilingual>,
   locale: 'bn' | 'en',
   places: ReadonlyMap<string, string>,
 ): Cell {
-  const options = new Map(Object.entries(column.options));
-  const words = (code: string) => options.get(code)?.[locale === 'en' ? 'en' : 'bn'] ?? code;
+  // eslint-disable-next-line security/detect-object-injection -- the locale is one of two literals
+  const words = (code: string) => options.get(code)?.[locale] ?? code;
   switch (value.t) {
     case 'number':
     case 'decimal':
@@ -232,10 +264,9 @@ function cellOf(
 }
 
 /** A cell as text, for the one cell that joins a repeated question's rows. */
-function textOf(cell: Cell): string {
+function textOf(cell: Cell, type: FieldType): string {
   if (cell === null) return '';
-  if (cell instanceof Date) return cell.toISOString().slice(0, 10);
-  if (Array.isArray(cell)) return cell.join(', ');
-  if (typeof cell === 'object') return cell.code;
+  if (cell instanceof Date)
+    return type === 'datetime' ? cell.toISOString() : cell.toISOString().slice(0, 10);
   return String(cell);
 }

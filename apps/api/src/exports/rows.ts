@@ -21,6 +21,7 @@ import { ApiError } from '../i18n/api-error';
 import type { BeneficiariesService } from '../services/beneficiaries';
 import type { VolunteerListService } from '../services/volunteer-list';
 import { exportClasses } from './access';
+import { placeNames } from './places';
 
 /** Where the label of a coded value comes from: a message family or a reference list. */
 export type CodedSource =
@@ -44,6 +45,8 @@ export interface ExportRow {
   id: string;
   /** The row's values by column id, the protected ones only where the export may carry them. */
   cells: Record<string, Cell>;
+  /** The protected classes this row may carry, for the form answers read beside it. */
+  classes: string[];
 }
 
 /**
@@ -133,6 +136,8 @@ const REACHED: Readonly<
   // of the forms' export
   applications: [
     { classes: ['application.official_section'], view: null, exported: 'export.forms' },
+    // the identity answer of the form leaves only with the beneficiaries' export
+    { classes: ['beneficiary.nid'], view: null, exported: 'export.beneficiaries' },
   ],
 };
 
@@ -279,7 +284,11 @@ export class ExportRows {
     const rows = read.rows.map((r) => {
       const visible = new Set(frozen.classes);
       for (const cls of outside.get(r.id) ?? []) visible.delete(cls);
-      return { id: r.id, cells: maskData(mask, r.cells, visible) as Record<string, Cell> };
+      return {
+        id: r.id,
+        cells: maskData(mask, r.cells, visible) as Record<string, Cell>,
+        classes: [...visible].sort(),
+      };
     });
     return { rows, next: read.rows.length === size ? read.last : null };
   }
@@ -346,7 +355,8 @@ export class ExportRows {
       },
     });
     const [names, blockedRows] = await Promise.all([
-      this.areaNames(
+      placeNames(
+        this.prisma,
         found.flatMap((v) => [v.upazilaId, v.districtId]),
         frozen.locale,
       ),
@@ -416,7 +426,8 @@ export class ExportRows {
         birthReg: true,
       },
     });
-    const names = await this.areaNames(
+    const names = await placeNames(
+      this.prisma,
       found.flatMap((b) => [b.upazilaId, b.districtId, b.unionId]),
       frozen.locale,
     );
@@ -469,7 +480,8 @@ export class ExportRows {
         ownerVolunteer: { select: { user: { select: { displayName: true } } } },
       },
     });
-    const names = await this.areaNames(
+    const names = await placeNames(
+      this.prisma,
       found.flatMap((a) => [a.unionId, a.districtId]),
       frozen.locale,
     );
@@ -512,15 +524,6 @@ export class ExportRows {
         { totalScore: null },
       ],
     };
-  }
-
-  /** The names of the locations of a batch in the file's language. */
-  private async areaNames(ids: string[], locale: 'bn' | 'en'): Promise<Map<string, string>> {
-    const rows = await this.prisma.location.findMany({
-      where: { id: { in: [...new Set(ids)] } },
-      select: { id: true, nameBn: true, nameEn: true },
-    });
-    return new Map(rows.map((l) => [l.id, locale === 'en' ? l.nameEn : l.nameBn]));
   }
 }
 
