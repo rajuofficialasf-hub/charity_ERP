@@ -13,6 +13,7 @@ import type { Env } from './config/env';
 import { ExportQuestions } from './exports/questions';
 import { ExportRows } from './exports/rows';
 import { PdfRenderer } from './exports/pdf/renderer';
+import { ExportRecords } from './exports/records';
 import { ExportsService } from './exports/service';
 import { ExportRunner } from './jobs/export-run';
 import { ExportSweep } from './jobs/export-sweep';
@@ -178,6 +179,7 @@ export interface Container {
   exportQuestions: ExportQuestions;
   pdf: PdfRenderer;
   exports: ExportsService;
+  exportRecords: ExportRecords;
   exportRunner: ExportRunner;
   exportEvents: ExportEvents;
   exportSweep: ExportSweep;
@@ -584,6 +586,10 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
   const exportQuestions = o.exportQuestions ?? new ExportQuestions(prisma);
   // one browser per process, started on the first PDF
   const pdf = o.pdf ?? new PdfRenderer({ logger });
+  // a record's PDF reads the record through the same services as its page
+  const exportRecords =
+    o.exportRecords ??
+    new ExportRecords(prisma, access, exportRows, built.beneficiaries, applications);
   const exportEvents = o.exportEvents ?? new ExportEvents(notifications);
   return {
     ...built,
@@ -616,8 +622,10 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
     exportRows,
     exportQuestions,
     pdf,
+    exportRecords,
     exports:
-      o.exports ?? new ExportsService(prisma, audit, jobs, clock, exportRows, exportQuestions),
+      o.exports ??
+      new ExportsService(prisma, audit, jobs, clock, exportRows, exportQuestions, exportRecords),
     exportEvents,
     exportRunner:
       o.exportRunner ??

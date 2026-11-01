@@ -174,12 +174,19 @@ export class ExportRows {
     private readonly applications: ApplicationsService,
   ) {}
 
-  /** The list's query as this person reads it now; refuses a list they may not read. */
-  async freeze(principal: Principal, input: FreezeInput, locale: 'bn' | 'en'): Promise<FrozenList> {
+  /**
+   * The list's query as this person reads it now; refuses a list they may not read. An export
+   * needs its own permission beside the list's: `export.list`, or the one a record's PDF names.
+   */
+  async freeze(
+    principal: Principal,
+    input: FreezeInput,
+    locale: 'bn' | 'en',
+    exportPermission = 'export.list',
+  ): Promise<FrozenList> {
     const access = await this.access.load(principal.userId);
     const permission = READ_PERMISSION[input.kind];
-    // an export needs its own permission beside the list's
-    for (const needed of ['export.list', permission])
+    for (const needed of [exportPermission, permission])
       if (!holdsPermission(needed, access.grants)) {
         this.access.denied(principal.userId, needed, input.kind);
         throw new ApiError('permission.denied', 403);
@@ -292,6 +299,12 @@ export class ExportRows {
       };
     });
     return { rows, next: read.rows.length === size ? read.last : null };
+  }
+
+  /** The protected classes one record of the frozen list may carry, as a batch would mask it. */
+  async classesOf(frozen: FrozenList, id: string): Promise<string[]> {
+    const outside = new Set((await this.outsideReach(frozen, [id])).get(id) ?? []);
+    return frozen.classes.filter((cls) => !outside.has(cls));
   }
 
   /** The classes each row of a batch may not carry, being outside the frozen reach of those classes. */

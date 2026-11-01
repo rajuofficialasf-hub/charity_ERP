@@ -15,6 +15,8 @@ const LIST_NAMES = new Map<string, MessageKey>([
   ['volunteers', 'exports.pdf.title.volunteers'],
   ['beneficiaries', 'exports.pdf.title.beneficiaries'],
   ['applications', 'exports.pdf.title.applications'],
+  ['beneficiary_profile', 'exports.pdf.title.beneficiary_profile'],
+  ['application', 'exports.pdf.title.application'],
 ]);
 
 /**

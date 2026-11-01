@@ -254,6 +254,7 @@ describe('the limits of an export', () => {
       h.container.clock,
       h.container.exportRows,
       h.container.exportQuestions,
+      h.container.exportRecords,
       { maxRows: 4, maxPdfRows: 2, maxRunning: 50 },
     );
 

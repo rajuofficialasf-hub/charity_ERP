@@ -1,9 +1,10 @@
-import { EXPORT_PERMISSION_OF_CLASS } from '@css/shared/exports';
+import { EXPORT_PERMISSION_OF_CLASS, EXPORT_RECORDS } from '@css/shared/exports';
 import { holdsPermission } from '../access/scope';
 import type { AccessService } from '../access/service';
 import type { Principal } from '../auth/principal';
 import type { PrismaService } from '../core/prisma.service';
 import { ApiError } from '../i18n/api-error';
+import { readFrozenRecord, RECORD_PERMISSION } from './records';
 import { readFrozenExport, sensitiveClasses } from './service';
 
 export interface ExportDownload {
@@ -27,8 +28,8 @@ export interface ExportDownload {
 /**
  * Whether the caller may download an export file, checked again at every download (docs/api/
  * API_STANDARDS.md, "Export job pattern"): only the job's requester, only while their account is
- * active and their live access still holds `export.list` and, for a file with protected fields,
- * the export permissions of those fields. Anyone else, and the requester who lost one of them, gets
+ * active and their live access still holds `export.list` (a record's PDF: its own export
+ * permission) and, for a file with protected fields, the export permissions of those fields. Anyone else, and the requester who lost one of them, gets
  * 404; the requester gets 410 once the file has expired. Null for a file that is not an export.
  */
 export async function exportDownload(
@@ -73,16 +74,13 @@ export async function exportDownload(
     access.load(principal.userId),
   ]);
   if (user?.state !== 'active') throw refused();
-  const needed = new Set(['export.list']);
+  const classes = heldClasses(job);
+  if (!classes) throw refused();
+  const record = EXPORT_RECORDS.find((kind) => kind === job.kind);
+  // a record's PDF needs its own export permission, a list's export.list
+  // eslint-disable-next-line security/detect-object-injection -- a record kind found in the constant list
+  const needed = new Set([record ? RECORD_PERMISSION[record] : 'export.list']);
   if (job.sensitive) {
-    const frozen = readFrozenExport(job.access);
-    if (!frozen) throw refused();
-    const classes = sensitiveClasses(
-      frozen.list.kind,
-      job.columns,
-      frozen.questions,
-      new Set(frozen.list.classes),
-    );
     for (const cls of classes)
       if (Object.hasOwn(EXPORT_PERMISSION_OF_CLASS, cls))
         // an own key of the constant table, checked on the line above
@@ -102,6 +100,26 @@ export async function exportDownload(
       createdAt: job.createdAt,
     },
   };
+}
+
+/** The protected classes a job's file holds, or null when its row does not say. */
+function heldClasses(job: {
+  kind: string;
+  sensitive: boolean;
+  columns: string[];
+  access: unknown;
+}): string[] | null {
+  if (EXPORT_RECORDS.some((kind) => kind === job.kind))
+    return readFrozenRecord(job.access)?.classes ?? null;
+  if (!job.sensitive) return [];
+  const frozen = readFrozenExport(job.access);
+  if (!frozen) return null;
+  return sensitiveClasses(
+    frozen.list.kind,
+    job.columns,
+    frozen.questions,
+    new Set(frozen.list.classes),
+  );
 }
 
 /** Dhaka is six hours ahead of UTC all year. */

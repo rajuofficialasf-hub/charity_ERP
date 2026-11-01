@@ -67,7 +67,9 @@
     "title": {
       "volunteers": "Volunteer list",
       "beneficiaries": "Beneficiary list",
-      "applications": "Application list"
+      "applications": "Application list",
+      "beneficiary_profile": "Beneficiary profile",
+      "application": "Application"
     },
     "filter": {
       "q": "Search",
@@ -83,6 +85,21 @@
       "submitted_to": "Submitted to",
       "volunteer": "Volunteer",
       "project": "Project"
+    },
+    "record": {
+      "identity": "Identity",
+      "contact": "Contact and address",
+      "address": "Address",
+      "post_office": "Post office",
+      "post_code": "Post code",
+      "family": "Family members",
+      "relationship": "Relationship",
+      "applications": "Applications",
+      "project": "Project",
+      "approved": "Approved on",
+      "reviewed": "Reviewed on",
+      "application": "Application details",
+      "comment": "Decision comment"
     }
   }
 }

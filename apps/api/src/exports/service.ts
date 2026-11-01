@@ -5,6 +5,7 @@ import {
   columnsOf,
   EXPORT_LIMITS,
   EXPORT_LISTS,
+  type ExportRecord,
   EXPORT_PERMISSION_OF_CLASS,
   type ExportList,
   type ExportRequest,
@@ -29,6 +30,7 @@ import {
   type ExportQuestions,
   type QuestionColumn,
 } from './questions';
+import type { ExportRecords } from './records';
 import type { ExportRows, FrozenList } from './rows';
 
 /** The limits a request is checked against; the tests pass smaller ones. */
@@ -156,6 +158,7 @@ export class ExportsService {
     private readonly clock: Clock,
     private readonly rows: ExportRows,
     private readonly questions: ExportQuestions,
+    private readonly records: ExportRecords | null = null,
     limits: Partial<ExportLimits> = {},
   ) {
     this.limits = { ...EXPORT_LIMITS, ...limits };
@@ -270,6 +273,79 @@ export class ExportsService {
       questions,
       projectId: input.projectId ?? null,
     };
+    const id = await this.queue(
+      principal,
+      {
+        kind: input.kind,
+        locale,
+        filters: frozen.filters as Prisma.InputJsonObject,
+        sensitive,
+        format: input.format,
+        columns: ordered,
+        access: access as unknown as Prisma.InputJsonObject,
+        rowsTotal: total,
+      },
+      {
+        kind: input.kind,
+        format: input.format,
+        columns: ordered,
+        filters: frozen.filters as Prisma.InputJsonObject,
+        ...(input.projectId ? { projectId: input.projectId } : {}),
+        sensitive,
+        rowCount: total,
+      },
+    );
+    return this.get(principal, id);
+  }
+
+  /**
+   * A record printed whole as a PDF: the record is read and masked now, as the person may read
+   * and export it, and the job prints exactly that.
+   */
+  async requestRecord(
+    principal: Principal,
+    kind: ExportRecord,
+    recordId: string,
+    locale: 'bn' | 'en',
+  ): Promise<ExportJobView> {
+    if (!this.records) throw new Error('record exports not configured');
+    const record = await this.records.snapshot(principal, kind, recordId, locale);
+    const sensitive = record.classes.length > 0;
+    const id = await this.queue(
+      principal,
+      {
+        kind,
+        locale,
+        filters: { recordId },
+        sensitive,
+        format: 'pdf',
+        columns: [],
+        access: { record } as unknown as Prisma.InputJsonObject,
+        rowsTotal: 1,
+      },
+      { kind, format: 'pdf', recordId, sensitive, classes: record.classes, rowCount: 1 },
+    );
+    return this.get(principal, id);
+  }
+
+  /**
+   * Writes the job, its audit entry and its queue entry in one transaction, once the person's
+   * running exports leave room for it.
+   */
+  private async queue(
+    principal: Principal,
+    job: {
+      kind: string;
+      locale: 'bn' | 'en';
+      filters: Prisma.InputJsonObject;
+      sensitive: boolean;
+      format: string;
+      columns: string[];
+      access: Prisma.InputJsonObject;
+      rowsTotal: number;
+    },
+    audited: Prisma.InputJsonObject,
+  ): Promise<string> {
     const id = uuidv7();
     const now = this.clock.now();
     await this.prisma.$transaction(async (tx) => {
@@ -285,21 +361,14 @@ export class ExportsService {
       });
       if (running >= this.limits.maxRunning)
         throw new ApiError('export.running_limit', 409, {
-          limit: formatCount(this.limits.maxRunning, locale),
+          limit: formatCount(this.limits.maxRunning, job.locale),
         });
       await tx.exportJob.create({
         data: {
           id,
           requestedBy: principal.userId,
-          kind: input.kind,
-          locale,
-          filters: frozen.filters as Prisma.InputJsonObject,
-          sensitive,
+          ...job,
           status: 'queued',
-          format: input.format,
-          columns: ordered,
-          access: access as unknown as object,
-          rowsTotal: total,
           createdBy: principal.userId,
           updatedBy: principal.userId,
         },
@@ -308,19 +377,11 @@ export class ExportsService {
         action: 'export.requested',
         entityType: 'export_job',
         entityId: id,
-        new: {
-          kind: input.kind,
-          format: input.format,
-          columns: ordered,
-          filters: frozen.filters as Prisma.InputJsonObject,
-          ...(input.projectId ? { projectId: input.projectId } : {}),
-          sensitive,
-          rowCount: total,
-        },
+        new: audited,
       });
       await this.jobs.enqueue('exports', { jobId: id }, { tx });
     });
-    return this.get(principal, id);
+    return id;
   }
 
   /** The person's own exports of the files' keep time, the newest first. */

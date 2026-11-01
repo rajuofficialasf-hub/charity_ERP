@@ -51,7 +51,7 @@ export type RowAllows = (applicationId: string, cls: string) => boolean;
 const NO_VALUE = new Set<FieldType>(['repeat_group', 'note', 'photo', 'file', 'signature']);
 
 /** The protected class of a question, from its section and its standard column. */
-function classOf(
+export function classOf(
   sectionVisibility: string,
   standardColumn: string | null | undefined,
 ): string | null {
@@ -208,7 +208,7 @@ export class ExportQuestions {
 }
 
 /** An answer as the value of its cell: numbers stay numbers, dates dates, a choice its words. */
-function cellOf(
+export function cellOf(
   value: AnswerValue,
   options: ReadonlyMap<string, Bilingual>,
   locale: 'bn' | 'en',

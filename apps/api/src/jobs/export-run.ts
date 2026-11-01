@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Transform, type TransformCallback } from 'node:stream';
 import { uuidv7 } from '@css/shared';
-import { columnsOf, EXPORT_LIMITS, type ExportList } from '@css/shared/exports';
+import { columnsOf, EXPORT_LIMITS, type ExportList, EXPORT_RECORDS } from '@css/shared/exports';
 import { formatDate } from '@css/shared/format';
 import { type MessageKey, translate } from '@css/shared/i18n';
 import type { Logger } from 'pino';
@@ -10,7 +10,12 @@ import type { PrismaService } from '../core/prisma.service';
 import { CsvFile } from '../exports/csv';
 import { type FileColumn, fileWords, headersOf, textsOf } from '../exports/file';
 import { filterHeading } from '../exports/heading';
+import { type ApplicationForPdf, applicationHtml } from '../exports/pdf/application';
 import { listTableHtml } from '../exports/pdf/list-table';
+import { type ProfileForPdf, profileHtml } from '../exports/pdf/profile';
+import { placeNames } from '../exports/places';
+import { type FrozenRecord, readFrozenRecord } from '../exports/records';
+import type { Prisma } from '../generated/prisma/client';
 import type { PdfRenderer } from '../exports/pdf/renderer';
 import type { ExportQuestions, QuestionColumn, QuestionValues } from '../exports/questions';
 import type { BatchCursor, Cell, ExportRow, ExportRows } from '../exports/rows';
@@ -112,14 +117,14 @@ export class ExportRunner {
   async run(jobId: string, attempt: number, signal?: AbortSignal): Promise<void> {
     const job = await this.prisma.exportJob.findUnique({ where: { id: jobId } });
     if (!job || job.status === 'done' || job.status === 'failed') return;
-    const frozen = readFrozenExport(job.access);
-    if (!frozen) {
+    const record = RECORD_KINDS.has(job.kind) ? readFrozenRecord(job.access) : null;
+    const frozen = record ? null : readFrozenExport(job.access);
+    if (!frozen && !record?.view) {
       // a row that does not hold its export can never succeed: no retry
       this.logger?.error({ jobId }, 'export job holds no readable export');
-      await this.fail(job, 'export.failed');
+      await this.fail(job, 'export.failed', clearedOf(record));
       return;
     }
-    const locale = frozen.list.locale;
     // each attempt writes its own object, so an attempt still running never loses its file
     const key = exportObjectKey(job.id, attempt, job.kind, job.format, job.createdAt);
     const claimed = await this.prisma.exportJob.updateMany({
@@ -136,14 +141,10 @@ export class ExportRunner {
           measure.destroy();
           throw error;
         });
-      const written = this.write(
-        job.id,
-        job.format,
-        job.columns,
-        frozen,
-        locale,
-        measure,
-        signal,
+      const written = (
+        frozen
+          ? this.write(job.id, job.format, job.columns, frozen, frozen.list.locale, measure, signal)
+          : this.printRecord(record!, measure)
       ).catch((error: unknown) => {
         measure.destroy(error as Error);
         throw error;
@@ -151,7 +152,14 @@ export class ExportRunner {
       const [put, rows] = await Promise.allSettled([stored, written]);
       if (rows.status === 'rejected') throw rows.reason;
       if (put.status === 'rejected') throw put.reason;
-      const recorded = await this.finish(job, job.format, key, measure, rows.value);
+      const recorded = await this.finish(
+        job,
+        job.format,
+        key,
+        measure,
+        rows.value,
+        clearedOf(record),
+      );
       if (!recorded) {
         // another attempt of the job finished first and holds the file
         await this.storage.remove('exports', key).catch(() => undefined);
@@ -167,17 +175,24 @@ export class ExportRunner {
       await this.fail(
         job,
         error instanceof ApiError && KEPT_CODES.has(error.code) ? error.code : 'export.failed',
+        clearedOf(record),
       );
     }
   }
 
   /** Marks a job that has not finished as failed with a fixed code, and tells its requester. */
-  private async fail(job: EndedJob, code: string): Promise<void> {
+  private async fail(job: EndedJob, code: string, cleared?: Prisma.InputJsonObject): Promise<void> {
     const now = this.clock.now();
     await this.prisma.$transaction(async (tx) => {
       const ended = await tx.exportJob.updateMany({
         where: { id: job.id, status: { in: ['queued', 'running'] } },
-        data: { status: 'failed', errorCode: code, finishedAt: now, updatedAt: now },
+        data: {
+          status: 'failed',
+          errorCode: code,
+          finishedAt: now,
+          updatedAt: now,
+          ...(cleared ? { access: cleared } : {}),
+        },
       });
       if (ended.count > 0) await this.events?.failed(tx, job);
     });
@@ -204,6 +219,7 @@ export class ExportRunner {
     key: string,
     measure: Measure,
     rowCount: number,
+    cleared?: Prisma.InputJsonObject,
   ): Promise<boolean> {
     const fileId = uuidv7();
     const now = this.clock.now();
@@ -235,6 +251,7 @@ export class ExportRunner {
             rowsDone: rowCount,
             finishedAt: now,
             updatedAt: now,
+            ...(cleared ? { access: cleared } : {}),
           },
         });
         if (ended.count === 0) throw new Superseded();
@@ -245,6 +262,54 @@ export class ExportRunner {
       if (error instanceof Superseded) return false;
       throw error;
     }
+  }
+
+  /** Prints a frozen record into the stream; a record is one row. */
+  private async printRecord(record: FrozenRecord, out: Measure): Promise<number> {
+    const { locale } = record;
+    const page =
+      record.kind === 'beneficiary_profile'
+        ? await this.profilePage(record.view as ProfileForPdf, locale)
+        : await this.applicationPage(record.view as ApplicationForPdf, locale);
+    const pdf = await this.pdf.render(page);
+    await new Promise<void>((resolve, reject) => {
+      out.once('error', reject);
+      out.end(pdf, () => resolve());
+    });
+    return 1;
+  }
+
+  private async profilePage(profile: ProfileForPdf, locale: 'bn' | 'en'): Promise<string> {
+    const places = await placeNames(
+      this.prisma,
+      [profile.divisionId, profile.districtId, profile.upazilaId, profile.unionId].filter(
+        (id): id is string => typeof id === 'string',
+      ),
+      locale,
+    );
+    return profileHtml({ locale, profile, places, date: this.clock.now() });
+  }
+
+  private async applicationPage(
+    application: ApplicationForPdf,
+    locale: 'bn' | 'en',
+  ): Promise<string> {
+    const placeIds = application.answers.flatMap((a) =>
+      a.value.t === 'bd_address' ? [a.value.union_id, a.value.upazila_id, a.value.district_id] : [],
+    );
+    const [places, project] = await Promise.all([
+      placeNames(this.prisma, placeIds, locale),
+      this.prisma.project.findUnique({
+        where: { id: application.projectId },
+        select: { nameBn: true, nameEn: true },
+      }),
+    ]);
+    return applicationHtml({
+      locale,
+      application,
+      projectName: { bn: project?.nameBn ?? '', en: project?.nameEn ?? '' },
+      places,
+    });
   }
 
   /** Writes every row into the stream and answers how many were written. */
@@ -369,6 +434,19 @@ export function exportObjectKey(
 
 /** Another attempt of the job ended it first. */
 class Superseded extends Error {}
+
+/** The kinds that print one record. */
+const RECORD_KINDS = new Set<string>(EXPORT_RECORDS);
+
+/**
+ * What a record job's row keeps once it ended: the record's kind and protected classes, which the
+ * download checks, without the record itself.
+ */
+function clearedOf(record: FrozenRecord | null): Prisma.InputJsonObject | undefined {
+  return record
+    ? ({ record: { ...record, view: null } } as unknown as Prisma.InputJsonObject)
+    : undefined;
+}
 
 /** The file's columns: the list's chosen ones in the job's language, then the questions. */
 function fileColumns(

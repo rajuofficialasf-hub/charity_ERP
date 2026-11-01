@@ -138,5 +138,50 @@ export function exportsRouter(deps: RouteDeps, c: Pick<Container, 'exports'>): R
     handler: ({ params, req }) => c.exports.get(principalOf(req), params.jobId),
   });
 
+  // a record printed whole: the profile with the journey report's permission, one application
+  // with the lists' export permission; the service also checks the record's own read
+  defineRoute<unknown, unknown, { beneficiaryId: string }>(router, deps, {
+    tag: 'exports',
+    method: 'post',
+    path: '/beneficiaries/:beneficiaryId/pdf',
+    status: 202,
+    operationId: 'exports.beneficiaryProfile.create',
+    summary:
+      "Start the PDF of a beneficiary's 360° profile as the caller may read it; the NID only with export.beneficiaries",
+    permission: 'report.beneficiary_journey',
+    scope: 'beneficiary',
+    audit: 'export.requested',
+    idempotency: 'none',
+    rateLimit: 'export',
+    params: { beneficiaryId: z.uuid() },
+    responses: { 202: z.object({ data: jobSchema }), 403: null, 404: null, 409: null, 429: null },
+    handler: ({ params, req }) =>
+      c.exports.requestRecord(
+        principalOf(req),
+        'beneficiary_profile',
+        params.beneficiaryId,
+        locale(),
+      ),
+  });
+
+  defineRoute<unknown, unknown, { applicationId: string }>(router, deps, {
+    tag: 'exports',
+    method: 'post',
+    path: '/applications/:applicationId/pdf',
+    status: 202,
+    operationId: 'exports.application.create',
+    summary:
+      'Start the PDF of one application as the caller may read it; the official section only with export.forms',
+    permission: 'export.list',
+    scope: 'application',
+    audit: 'export.requested',
+    idempotency: 'none',
+    rateLimit: 'export',
+    params: { applicationId: z.uuid() },
+    responses: { 202: z.object({ data: jobSchema }), 403: null, 404: null, 409: null, 429: null },
+    handler: ({ params, req }) =>
+      c.exports.requestRecord(principalOf(req), 'application', params.applicationId, locale()),
+  });
+
   return router;
 }
