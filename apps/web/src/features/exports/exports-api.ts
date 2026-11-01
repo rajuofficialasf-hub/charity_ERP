@@ -34,6 +34,18 @@ export interface ExportJob {
 
 export const EXPORTS_KEY = ['exports'] as const;
 
+/** The reasons a job may fail with; any other code reads as a plain failure. */
+const FAILURES = [
+  'export.failed',
+  'export.pdf_unavailable',
+  'export.pdf_failed',
+  'export.timed_out',
+] as const;
+
+/** The message key of a failed job's reason. */
+export const failureKey = (code: string | null): (typeof FAILURES)[number] =>
+  FAILURES.find((known) => known === code) ?? 'export.failed';
+
 /** The columns of a list this person may export; the application list names its project. */
 export async function exportColumns(
   list: ExportList,

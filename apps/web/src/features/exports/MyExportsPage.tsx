@@ -14,12 +14,12 @@ import {
 } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import { CircleCheck, CircleX, Clock, Download, FileDown, Hourglass } from 'lucide-react';
-import { useState } from 'react';
 import { useLocale, useTranslations } from 'use-intl';
 import { AccountPage } from '../../components/AccountPage';
 import { DocumentTitle } from '../../components/DocumentTitle';
 import { ApiFailure } from '../../lib/api';
-import { downloadExport, EXPORTS_KEY, type ExportJob, myExports } from './exports-api';
+import { EXPORTS_KEY, type ExportJob, failureKey, myExports } from './exports-api';
+import { useDownload } from './use-download';
 
 /** How often the list is asked again while one of its exports waits or runs. */
 const POLL_MS = 3000;
@@ -45,9 +45,7 @@ function ExportList() {
     queryKey: [...EXPORTS_KEY, 'mine'],
     queryFn: myExports,
     refetchInterval: (query) =>
-      (query.state.data as ExportJob[] | undefined)?.some(
-        (j) => j.status === 'queued' || j.status === 'running',
-      )
+      query.state.data?.some((j) => j.status === 'queued' || j.status === 'running')
         ? POLL_MS
         : false,
   });
@@ -83,8 +81,7 @@ function ExportRow({ job }: { job: ExportJob }) {
   const td = useTranslations('exports.dialog');
   const te = useTranslations('errors');
   const locale = useLocale() as Locale;
-  const [saving, setSaving] = useState(false);
-  const [saveFailed, setSaveFailed] = useState(false);
+  const { save, saving, saveFailed } = useDownload();
   const state = job.expired ? 'expired' : job.status;
   const badge = {
     queued: { tone: 'info' as const, icon: Clock },
@@ -93,17 +90,6 @@ function ExportRow({ job }: { job: ExportJob }) {
     failed: { tone: 'danger' as const, icon: CircleX },
     expired: { tone: 'neutral' as const, icon: Clock },
   }[state];
-  const save = async () => {
-    setSaving(true);
-    setSaveFailed(false);
-    try {
-      await downloadExport(job);
-    } catch {
-      setSaveFailed(true);
-    } finally {
-      setSaving(false);
-    }
-  };
   const facts = [
     job.format.toUpperCase(),
     formatDateTime(new Date(job.createdAt), locale),
@@ -127,20 +113,7 @@ function ExportRow({ job }: { job: ExportJob }) {
             size="sm"
           />
         )}
-        {job.status === 'failed' && (
-          <Text tone="muted">
-            {te(
-              (
-                [
-                  'export.failed',
-                  'export.pdf_unavailable',
-                  'export.pdf_failed',
-                  'export.timed_out',
-                ] as const
-              ).find((code) => code === job.errorCode) ?? 'export.failed',
-            )}
-          </Text>
-        )}
+        {job.status === 'failed' && <Text tone="muted">{te(failureKey(job.errorCode))}</Text>}
         {job.expired && <Text tone="muted">{t('expired_note')}</Text>}
         {job.status === 'done' && !job.expired && job.fileId && (
           <Stack direction="row">
@@ -149,7 +122,7 @@ function ExportRow({ job }: { job: ExportJob }) {
               size="sm"
               icon={Download}
               loading={saving}
-              onPress={() => void save()}
+              onPress={() => void save(job)}
             >
               {td('download')}
             </Button>

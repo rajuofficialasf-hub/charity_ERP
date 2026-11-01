@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { EXPORTS_KEY, exportJob, type ExportJob } from './exports-api';
+import { EXPORTS_KEY, exportJob } from './exports-api';
 
 /** How often a waiting or running job is asked again. */
 const POLL_MS = 2000;
@@ -13,7 +13,7 @@ export function useExportJob(id: string | null) {
     refetchInterval: (query) => {
       // a job that cannot be read is not asked again until the person retries
       if (query.state.status === 'error') return false;
-      const status = (query.state.data as ExportJob | undefined)?.status;
+      const status = query.state.data?.status;
       return status === 'done' || status === 'failed' ? false : POLL_MS;
     },
   });

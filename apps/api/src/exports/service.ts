@@ -139,7 +139,7 @@ function viewOf(
   } & Omit<ExportJobView, 'expired'>,
 ): ExportJobView {
   const { file, ...job } = row;
-  return { ...job, expired: file?.deletedAt != null };
+  return { ...job, expired: (file?.deletedAt ?? null) !== null };
 }
 
 const MINUTE_MS = 60 * 1000;

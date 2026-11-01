@@ -29,6 +29,11 @@ export function RecordPdfButton({ kind, id }: RecordPdfButtonProps) {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: EXPORTS_KEY }),
   });
   const allowed = me && (kind === 'beneficiary_profile' ? canPrintProfile(me) : canExport(me));
+  // a request still on its way is kept: forgetting it would let a second press start another job
+  const close = () => {
+    setOpen(false);
+    if (!start.isPending) start.reset();
+  };
   if (!allowed) return null;
   const failure = start.error instanceof ApiFailure ? start.error : null;
   return (
@@ -40,7 +45,8 @@ export function RecordPdfButton({ kind, id }: RecordPdfButtonProps) {
         loading={start.isPending}
         onPress={() => {
           setOpen(true);
-          start.mutate();
+          // a job already started is followed again rather than started twice
+          if (!start.isPending && !start.data) start.mutate();
         }}
       >
         {t('pdf')}
@@ -49,18 +55,9 @@ export function RecordPdfButton({ kind, id }: RecordPdfButtonProps) {
         <Modal
           title={t('pdf_title', { list: t(`list.${kind}`) })}
           isOpen
-          onClose={() => {
-            setOpen(false);
-            start.reset();
-          }}
+          onClose={close}
           secondaryAction={
-            <Button
-              variant="secondary"
-              onPress={() => {
-                setOpen(false);
-                start.reset();
-              }}
-            >
+            <Button variant="secondary" onPress={close}>
               {t('close')}
             </Button>
           }

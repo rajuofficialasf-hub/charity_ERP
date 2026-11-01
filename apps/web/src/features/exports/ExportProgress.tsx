@@ -1,20 +1,9 @@
 import { Alert, Button, ProgressBar, Spinner, Stack, Text } from '@css/ui';
 import { Download, RotateCcw } from 'lucide-react';
-import { useState } from 'react';
 import { useTranslations } from 'use-intl';
-import { downloadExport, type ExportJob } from './exports-api';
+import { failureKey } from './exports-api';
+import { useDownload } from './use-download';
 import { useExportJob } from './use-export-job';
-
-/** The reasons a job may fail with; any other code reads as a plain failure. */
-const FAILURES = [
-  'export.failed',
-  'export.pdf_unavailable',
-  'export.pdf_failed',
-  'export.timed_out',
-] as const;
-
-const failureKey = (code: string | null): (typeof FAILURES)[number] =>
-  FAILURES.find((known) => known === code) ?? 'export.failed';
 
 interface ExportProgressProps {
   jobId: string;
@@ -30,21 +19,8 @@ export function ExportProgress({ jobId, onRetry }: ExportProgressProps) {
   const t = useTranslations('exports.dialog');
   const te = useTranslations('errors');
   const job = useExportJob(jobId);
-  const [saving, setSaving] = useState(false);
-  const [saveFailed, setSaveFailed] = useState(false);
+  const { save, saving, saveFailed } = useDownload();
   const data = job.data;
-
-  const save = async (done: ExportJob) => {
-    setSaving(true);
-    setSaveFailed(false);
-    try {
-      await downloadExport(done);
-    } catch {
-      setSaveFailed(true);
-    } finally {
-      setSaving(false);
-    }
-  };
 
   if (!data && job.isError)
     return (

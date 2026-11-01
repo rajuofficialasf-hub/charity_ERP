@@ -77,17 +77,27 @@ async function main(): Promise<void> {
   const api = spawn(process.execPath, ['dist/server.js'], { cwd: root, env, stdio: 'inherit' });
   // the export journeys need their jobs run; nothing else of the run consumes a queue
   const exportWorker = spawn(
-    'pnpm',
-    ['exec', 'tsx', '--conditions=@css/source', 'scripts/e2e-export-worker.ts'],
-    { cwd: root, env, stdio: 'inherit', shell: process.platform === 'win32' },
+    process.execPath,
+    ['--import', 'tsx', '--conditions=@css/source', 'scripts/e2e-export-worker.ts'],
+    { cwd: root, env, stdio: 'inherit' },
   );
   const stop = () => {
     exportWorker.kill('SIGTERM');
     api.kill('SIGTERM');
   };
+  // a worker that dies stops the run at once rather than leaving the export journeys to time out
+  exportWorker.on('exit', (code) => {
+    if (code) {
+      api.kill('SIGTERM');
+      process.exit(code);
+    }
+  });
   process.on('SIGTERM', stop);
   process.on('SIGINT', stop);
-  api.on('exit', (code) => process.exit(code ?? 0));
+  api.on('exit', (code) => {
+    exportWorker.kill('SIGTERM');
+    process.exit(code ?? 0);
+  });
 }
 
 void main().catch((error: unknown) => {
