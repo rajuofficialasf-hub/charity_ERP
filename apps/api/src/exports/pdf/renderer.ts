@@ -42,7 +42,12 @@ export class PdfRenderer {
 
   /** The PDF of a page; refuses with `export.pdf_unavailable` when Chromium cannot start here. */
   async render(page: string): Promise<Buffer> {
-    const browser = await this.started();
+    let browser = await this.started();
+    // a browser that closed before its disconnect was heard is started again, not printed on
+    if (!browser.isConnected()) {
+      this.browser = null;
+      browser = await this.started();
+    }
     try {
       const context = await browser.newContext({ javaScriptEnabled: false });
       try {
