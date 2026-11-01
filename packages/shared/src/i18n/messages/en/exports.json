@@ -108,7 +108,9 @@
     "list": {
       "volunteers": "Volunteer list",
       "beneficiaries": "Beneficiary list",
-      "applications": "Application list"
+      "applications": "Application list",
+      "beneficiary_profile": "Beneficiary profile",
+      "application": "Application"
     },
     "filters_note": "The file holds exactly the rows the list shows now, with its filters and search.",
     "format": "File type",
@@ -139,6 +141,25 @@
     "failed": "The export failed.",
     "retry": "Try again",
     "sensitive_note": "This file holds protected data. The export and each download are logged.",
-    "unreadable": "The export's state cannot be read now. Try again shortly, or look in \"My exports\"."
+    "unreadable": "The export's state cannot be read now. Try again shortly, or look in \"My exports\".",
+    "pdf": "Download PDF",
+    "pdf_title": "PDF: {list}",
+    "pdf_failed": "The PDF could not be started."
+  },
+  "mine": {
+    "title": "My exports",
+    "intro": "What you exported in the last 30 days. A file is deleted 30 days after it was made; its row stays in the list.",
+    "empty": "No exports yet.",
+    "empty_hint": "Press \"Export\" on the volunteer, beneficiary or application list.",
+    "rows": "{count} rows",
+    "state": {
+      "queued": "Waiting",
+      "running": "Being made",
+      "done": "Ready",
+      "failed": "Failed",
+      "expired": "Expired"
+    },
+    "expired_note": "The file has expired and was deleted. Export again if you need it.",
+    "load_failed": "The list could not be loaded. Try again."
   }
 }

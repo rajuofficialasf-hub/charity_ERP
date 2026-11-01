@@ -39,6 +39,7 @@ export const job = (over: Partial<ExportJob> = {}): ExportJob => ({
   errorCode: null,
   createdAt: '2026-11-01T04:00:00.000Z',
   finishedAt: null,
+  expired: false,
   ...over,
 });
 

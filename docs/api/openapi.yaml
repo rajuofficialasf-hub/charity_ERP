@@ -4008,7 +4008,8 @@ components:
         projectId: { type: string, format: uuid }
     ExportJob:
       type: object
-      required: [id, kind, format, status, columns, rowsDone, rowsTotal, rowCount, fileId, sensitive, errorCode, createdAt, finishedAt]
+      required:
+        [id, kind, format, status, columns, rowsDone, rowsTotal, rowCount, fileId, sensitive, errorCode, createdAt, finishedAt, expired]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         kind: { type: string, enum: [volunteers, beneficiaries, applications, beneficiary_profile, application] }
@@ -4023,6 +4024,7 @@ components:
         errorCode: { type: [string, 'null'], description: 'Why a failed job failed: export.failed, export.pdf_unavailable, export.pdf_failed or export.timed_out' }
         createdAt: { type: string, format: date-time }
         finishedAt: { type: [string, 'null'], format: date-time }
+        expired: { type: boolean, description: 'The file was deleted after its 30 days; the job stays' }
     ExportJobResponse:
       type: object
       required: [data, meta]

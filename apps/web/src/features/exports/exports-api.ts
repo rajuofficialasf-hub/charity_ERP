@@ -28,6 +28,8 @@ export interface ExportJob {
   errorCode: string | null;
   createdAt: string;
   finishedAt: string | null;
+  /** The file was deleted after its keep time; the job stays. */
+  expired: boolean;
 }
 
 export const EXPORTS_KEY = ['exports'] as const;

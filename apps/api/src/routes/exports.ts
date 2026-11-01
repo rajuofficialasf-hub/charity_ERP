@@ -30,6 +30,7 @@ const jobSchema = z.object({
   errorCode: z.string().nullable(),
   createdAt: z.string(),
   finishedAt: z.string().nullable(),
+  expired: z.boolean(),
 });
 
 const columnsSchema = z.object({

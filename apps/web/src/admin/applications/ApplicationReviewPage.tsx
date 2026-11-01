@@ -50,6 +50,7 @@ import { VerifyDialog } from './VerifyDialog';
 import { ScoreBreakdown } from './ScoreBreakdown';
 import { Signals } from './Signals';
 import './applications.css';
+import { RecordPdfButton } from '../../features/exports/RecordPdfButton';
 
 /** The actions an official takes from the record, in the order of the cycle. */
 const ACTIONS: OfficeAction[] = [
@@ -242,6 +243,7 @@ function Review() {
         headingLevel={2}
         actions={
           <Stack direction="row" gap={2} wrap>
+            <RecordPdfButton kind="application" id={a.id} />
             {verifiable ? (
               <Button variant="primary" size="sm" onPress={() => setVerifying(true)}>
                 {t('action.verify')}

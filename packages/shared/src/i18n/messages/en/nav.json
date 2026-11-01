@@ -35,5 +35,6 @@
   "notification_templates": "Notification texts",
   "deliveries": "Deliveries",
   "media": "Media work",
-  "sync": "Sync"
+  "sync": "Sync",
+  "exports": "My exports"
 }

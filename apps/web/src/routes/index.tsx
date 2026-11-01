@@ -67,6 +67,12 @@ export function routes(options: { gallery?: boolean } = {}): RouteObject[] {
               }),
             },
             {
+              path: '/account/exports',
+              lazy: async () => ({
+                Component: (await import('../features/exports/MyExportsPage')).MyExportsPage,
+              }),
+            },
+            {
               path: '/account/password',
               lazy: async () => ({
                 Component: (await import('../features/account/ChangePasswordView'))

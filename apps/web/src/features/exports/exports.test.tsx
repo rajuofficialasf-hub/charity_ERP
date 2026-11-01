@@ -13,6 +13,7 @@ import {
   tickedColumns,
 } from '../../../test/msw/exports';
 import { server } from '../../../test/msw/server';
+import { SignedIn } from '../../../test/signed-in';
 import { resetClientForTests } from '../../lib/api';
 import { ExportButton } from './ExportButton';
 import { rememberColumns, rememberedColumns } from './remembered-columns';
@@ -232,8 +233,14 @@ describe('the export dialog', () => {
   it('is not offered to a volunteer', async () => {
     refreshAs(VOLUNTEER);
     serveExports('beneficiaries');
-    open();
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'এক্সপোর্ট' })).toBeNull());
+    renderApp(
+      <>
+        <SignedIn />
+        <ExportButton list="beneficiaries" filters={{}} />
+      </>,
+    );
+    await screen.findByText('signed-in');
+    expect(screen.queryByRole('button', { name: 'এক্সপোর্ট' })).toBeNull();
   });
 
   it.each(['bn', 'en'] as const)('has no accessibility violations (%s)', async (locale) => {

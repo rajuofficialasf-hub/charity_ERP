@@ -135,6 +135,7 @@ describe('an export', () => {
       rowCount: 3,
       rowsDone: 3,
       sensitive: true,
+      expired: false,
     });
     const text = (await contentOf(done.body.data.fileId))
       .subarray(3)
@@ -745,7 +746,10 @@ describe('the daily export sweep', () => {
     );
     expect((await sweepAt(31).run()).expired).toBeGreaterThanOrEqual(1);
     expect(await h.container.storage.stat('exports', file.rows[0]!.object_key)).toBeNull();
-    expect((await at(s, 'get', `/exports/${done.id}`)).body.data.status).toBe('done');
+    expect((await at(s, 'get', `/exports/${done.id}`)).body.data).toMatchObject({
+      status: 'done',
+      expired: true,
+    });
     const gone = await at(s, 'get', `/files/${done.fileId}/content`);
     expect(gone.status).toBe(410);
     expect(gone.body.error.code).toBe('export.expired');

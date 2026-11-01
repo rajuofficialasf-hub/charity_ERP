@@ -3,6 +3,7 @@ import { type MenuAction, MenuButton } from '@css/ui';
 import {
   CircleUser,
   Download,
+  FileDown,
   KeyRound,
   Languages,
   LogOut,
@@ -16,6 +17,7 @@ import { loadStore } from '../../features/applications/use-local-records';
 import { promptInstall, showHintAgain, useInstall } from '../../features/sync/install';
 import { LogoutWarning } from '../../features/sync/LogoutWarning';
 import { logout } from '../../lib/api';
+import { canExport } from '../../admin/roles';
 import { useChooseLanguage } from '../LanguageSwitch';
 
 /**
@@ -48,6 +50,10 @@ export function ProfileMenu({ me, withLanguage }: { me: Me; withLanguage: boolea
     { id: 'profile', label: t('profile'), icon: UserRound, href: '/account/profile' },
     { id: 'devices', label: ta('devices'), icon: MonitorSmartphone, href: '/account/sessions' },
     { id: 'password', label: ta('change_password'), icon: KeyRound, href: '/account/password' },
+    // an official's own exports; a volunteer never exports
+    ...(canExport(me)
+      ? [{ id: 'exports', label: t('exports'), icon: FileDown, href: '/account/exports' }]
+      : []),
     ...(withLanguage
       ? [{ id: 'language', label: tl(other), icon: Languages, onAction: () => choose(other) }]
       : []),

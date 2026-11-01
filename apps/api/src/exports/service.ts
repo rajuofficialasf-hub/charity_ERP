@@ -111,6 +111,8 @@ export interface ExportJobView {
   errorCode: string | null;
   createdAt: Date;
   finishedAt: Date | null;
+  /** The file was deleted after its keep time; the job stays. */
+  expired: boolean;
 }
 
 const JOB_SELECT = {
@@ -127,7 +129,18 @@ const JOB_SELECT = {
   errorCode: true,
   createdAt: true,
   finishedAt: true,
+  file: { select: { deletedAt: true } },
 } as const;
+
+/** A job row as its requester sees it. */
+function viewOf(
+  row: {
+    file: { deletedAt: Date | null } | null;
+  } & Omit<ExportJobView, 'expired'>,
+): ExportJobView {
+  const { file, ...job } = row;
+  return { ...job, expired: file?.deletedAt != null };
+}
 
 const MINUTE_MS = 60 * 1000;
 const DAY_MS = 24 * 60 * MINUTE_MS;
@@ -386,12 +399,13 @@ export class ExportsService {
   /** The person's own exports of the files' keep time, the newest first. */
   async list(principal: Principal): Promise<ExportJobView[]> {
     const since = new Date(this.clock.now().getTime() - EXPORT_LIMITS.keepDays * DAY_MS);
-    return this.prisma.exportJob.findMany({
+    const rows = await this.prisma.exportJob.findMany({
       where: { requestedBy: principal.userId, createdAt: { gte: since } },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: 100,
       select: JOB_SELECT,
     });
+    return rows.map(viewOf);
   }
 
   /** One of the person's own exports; anyone else's answers as missing. */
@@ -401,7 +415,7 @@ export class ExportsService {
       select: JOB_SELECT,
     });
     if (!job) throw new ApiError('permission.not_found', 404);
-    return job;
+    return viewOf(job);
   }
 
   /**
