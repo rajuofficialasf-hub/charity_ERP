@@ -114,12 +114,13 @@ The owner finds the current app unpolished and disordered ("কোন প্র�
     - 5.3, Card and Stat with the icon square;
     - a new 5.x, Page header.
 - **Approach:** one D-row in the format of the existing rows of `docs/DECISION_LOG.md`, numbered D-145 (the next free number). The UX-14 refresh (`docs/STATUS.md`, O-54; DESIGN_SYSTEM "Premium finish") is the precedent for the design-document changes. Contrast is measured as in colors.md §3.
-- **Tests:** `pnpm docs:check`.
+- **Tests:** `pnpm docs:check`; `packages/ui` `styles.test.ts` (the token block, `tokens.css` and `tokens.ts` stay equal).
+- **Also:** the new tokens went into `packages/ui/src/styles/tokens.css`, `packages/ui/src/tokens.ts` and DESIGN_SYSTEM §2.9 here, not in U2, because `styles.test.ts` keeps the three equal in every commit.
 - **Done when:** the documents name every token U2 adds, with its value and contrast, and D-145 is recorded.
 - **Depends on:** none
 - **Size:** M
 - **Risk area:** none
-- **Status:** todo
+- **Status:** done
 
 ### U2. The tokens and the set's components
 - **Goal:** every component of `packages/ui` has the new look, so any page built from the set changes.
@@ -385,8 +386,8 @@ The owner finds the current app unpolished and disordered ("কোন প্র�
 
 ## Progress
 - **Branch:** `feat/visual-redesign` (from `main` after PRs #34, #35 and #36 were merged)
-- **Updated:** 2026-11-02
-- **Next:** U1: D-145 in DECISION_LOG, UX-25 in DESIGN_BRIEF, the derived tints with their contrast in colors.md, the DESIGN_SYSTEM sections
+- **Updated:** 2026-11-02 (U1 done)
+- **Next:** U2: the set's components on the new tokens (Card head, StatCard and StatFilterBar icon and tone, the Badge pill, the table's list card and `PersonCell`, the Breadcrumb), then the gallery
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** the owner said on 2026-11-02 "ধাপে ধাপে অল্প অল্প করে কর। যেন খুবই প্রিমিয়াম ফিল হয়। আর কোন ভুল ও না হয়": small steps, a report after each unit, and the shell's screenshots shown after U4 before any page is restyled.
+- **Notes:** U1: the prototype's 7 to 11 px text is not used (DESIGN_SYSTEM §2.4 stays, R14); the prototype's status dot is the badge's icon (a status keeps its icon and ink label); the sidebar's active item must be white on #007B3E (its grey text is 3.44:1). The owner said on 2026-11-02 "ধাপে ধাপে অল্প অল্প করে কর। যেন খুবই প্রিমিয়াম ফিল হয়। আর কোন ভুল ও না হয়": small steps, a report after each unit, and the shell's screenshots shown after U4 before any page is restyled.
