@@ -111,7 +111,8 @@ describe('the active sessions', () => {
     const { container } = renderApp(<SessionsPage />, 'bn', { path: '/admin/sessions' });
     const table = await screen.findByRole('grid', { name: 'সক্রিয় সেশন' });
     expect(screen.getByText('নিরাপত্তা')).toBeInTheDocument();
-    expect(within(table).getAllByText('মেইন অ্যাডমিন').length).toBeGreaterThan(0);
+    // the kind of each person, and the main admin marked beside it
+    expect(within(table).getAllByText('অফিসিয়াল · মেইন অ্যাডমিন').length).toBeGreaterThan(0);
     await expectNoAxeViolations(container);
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'স্বেচ্ছাসেবক' }));

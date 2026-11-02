@@ -70,7 +70,9 @@ export function SessionsPage() {
   const person = (s: ActiveSession) => (
     <PersonCell
       name={s.person.name}
-      secondary={s.person.systemOwner ? t('main_admin') : t(`kind.${s.person.kind}`)}
+      secondary={[t(`kind.${s.person.kind}`), s.person.systemOwner && t('main_admin')]
+        .filter(Boolean)
+        .join(' · ')}
     />
   );
   const columns: TableColumn<ActiveSession>[] = [

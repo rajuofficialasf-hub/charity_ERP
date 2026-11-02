@@ -1544,7 +1544,6 @@
     "ended": "The session of {name} has been ended.",
     "column": {
       "person": "Person",
-      "kind": "Account",
       "device": "Device",
       "version": "App version",
       "last_seen": "Last seen",
@@ -1567,7 +1566,6 @@
     },
     "up": "Up",
     "down": "Down",
-    "version": "Version",
     "environment": "Environment",
     "audit_partitions": "Audit log partitions reach the month",
     "unknown": "Not known",

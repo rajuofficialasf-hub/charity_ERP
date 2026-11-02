@@ -109,9 +109,11 @@ describe('the nisab page', () => {
     expect(screen.getByText('নীতিমালা ও সীমা')).toBeInTheDocument();
     const counts = within(screen.getByRole('region', { name: 'নিসাবের হিসাব' }));
     expect(counts.getByText('আজ কার্যকর নিসাব')).toBeInTheDocument();
-    expect(counts.getByText('সংরক্ষিত ভার্সন').closest('.ui-card')).toHaveTextContent(
-      String(within(table).getAllByRole('row').length - 1),
-    );
+    expect(counts.getByText('সংরক্ষিত ভার্সন')).toBeInTheDocument();
+    // the versions kept: every row of the table but its header
+    expect(
+      counts.getByText(String(within(table).getAllByRole('row').length - 1), { exact: true }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { level: 2, name: 'পরিবর্তনের ইতিহাস' }),
     ).toBeInTheDocument();
