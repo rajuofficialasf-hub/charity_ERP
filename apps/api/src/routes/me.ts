@@ -8,7 +8,7 @@ import { defineRoute, type RouteDeps } from '../openapi/define-route';
 /** The signed-in user's own settings (openapi tag auth, `/me/...`). */
 export function meRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'auth' | 'attention' | 'ownProfile'>,
+  c: Pick<Container, 'auth' | 'attention' | 'ownProfile' | 'projectsWork'>,
 ): Router {
   const router = Router();
 
@@ -65,6 +65,21 @@ export function meRouter(
     rateLimit: 'default',
     responses: { 200: null, 401: null, 404: null },
     handler: async ({ req }) => ok(await c.ownProfile.read(principalOf(req))),
+  });
+
+  defineRoute(router, deps, {
+    method: 'get',
+    path: '/me/projects-work',
+    operationId: 'auth.me.projectsWork',
+    tag: 'auth',
+    summary: "An official's own projects by year with the figures of their work there",
+    permission: 'authenticated',
+    scope: 'self',
+    audit: 'none',
+    idempotency: 'none',
+    rateLimit: 'default',
+    responses: { 200: null, 401: null, 404: null, 503: null },
+    handler: async ({ req }) => ok(await c.projectsWork.own(principalOf(req))),
   });
 
   return router;

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { toEnglishDigits } from '../digits.js';
+import type { ProjectStatus } from '../projects/lifecycle.js';
 import { PASSWORD_MAX_LENGTH } from './password.js';
 
 /**
@@ -142,4 +143,53 @@ export interface OwnStaffProfile {
   state: 'pending' | 'active' | 'blocked' | 'deactivated';
   lastLoginAt: string | null;
   photoFileId: string | null;
+}
+
+/** The figures of an official's work on one project (docs/BUSINESS_RULES.md, the work figures). */
+export interface ProjectWorkFigures {
+  /** In the official's area: the whole project for its PM or an access without an area. */
+  area: {
+    received: number;
+    waiting: number;
+    approved: number;
+    rejected: number;
+    waitlisted: number;
+    volunteers: number;
+  };
+  /** By the official, anywhere on the project. */
+  mine: {
+    reviewed: number;
+    approved: number;
+    rejected: number;
+    waitlisted: number;
+    /** The median days from submission to their first decision on an application; null without one. */
+    medianDays: number | null;
+  };
+}
+
+/** A project an official works on, with their roles and areas there and their figures. */
+export interface ProjectWork {
+  id: string;
+  code: string;
+  name: { bn: string; en: string };
+  year: number;
+  status: ProjectStatus;
+  program: Named;
+  applyFrom: string | null;
+  applyTo: string | null;
+  /** program_manager through the program, regional_program_manager through an area, or the access row's role. */
+  roles: string[];
+  /** The official's areas there; empty with `wholeProject`. */
+  areas: Named[];
+  wholeProject: boolean;
+  figures: ProjectWorkFigures;
+}
+
+/**
+ * An official's projects by year, newest first (`GET /me/projects-work`,
+ * `GET /users/{userId}/projects-work`). A person whom every project is open to gets no list.
+ */
+export interface ProjectsWork {
+  everyProject: boolean;
+  years: { year: number; projects: ProjectWork[] }[];
 }

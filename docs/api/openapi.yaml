@@ -892,6 +892,75 @@ components:
         state: { type: string, enum: [pending, active, blocked, deactivated] }
         lastLoginAt: { type: [string, 'null'], format: date-time }
         photoFileId: { type: [string, 'null'], format: uuid }
+    ProjectsWork:
+      type: object
+      required: [everyProject, years]
+      description: >-
+        An official's projects by year, newest first, each with their roles and areas there and the
+        figures of their work (D-147, BR-291 to BR-293). A person whom every project is open to
+        (everyProject) gets no list.
+      properties:
+        everyProject: { type: boolean }
+        years:
+          type: array
+          items:
+            type: object
+            required: [year, projects]
+            properties:
+              year: { type: integer }
+              projects: { type: array, items: { $ref: '#/components/schemas/ProjectWork' } }
+    ProjectWork:
+      type: object
+      required: [id, code, name, year, status, program, applyFrom, applyTo, roles, areas, wholeProject, figures]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        code: { type: string }
+        name: { $ref: '#/components/schemas/Bilingual' }
+        year: { type: integer }
+        status: { type: string, enum: [draft, active, closing, closed, cancelled] }
+        program:
+          type: object
+          required: [id, name]
+          properties:
+            id: { $ref: '#/components/schemas/Uuid' }
+            name: { $ref: '#/components/schemas/Bilingual' }
+        applyFrom: { type: [string, 'null'], format: date }
+        applyTo: { type: [string, 'null'], format: date }
+        roles: { type: array, items: { type: string } }
+        areas:
+          type: array
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id: { $ref: '#/components/schemas/Uuid' }
+              name: { $ref: '#/components/schemas/Bilingual' }
+        wholeProject: { type: boolean }
+        figures:
+          type: object
+          required: [area, mine]
+          properties:
+            area:
+              type: object
+              description: In the official's areas, or the whole project for its PM or an access without an area
+              required: [received, waiting, approved, rejected, waitlisted, volunteers]
+              properties:
+                received: { type: integer, minimum: 0 }
+                waiting: { type: integer, minimum: 0 }
+                approved: { type: integer, minimum: 0 }
+                rejected: { type: integer, minimum: 0 }
+                waitlisted: { type: integer, minimum: 0 }
+                volunteers: { type: integer, minimum: 0 }
+            mine:
+              type: object
+              description: The official's own decisions on the project
+              required: [reviewed, approved, rejected, waitlisted, medianDays]
+              properties:
+                reviewed: { type: integer, minimum: 0 }
+                approved: { type: integer, minimum: 0 }
+                rejected: { type: integer, minimum: 0 }
+                waitlisted: { type: integer, minimum: 0 }
+                medianDays: { type: [number, 'null'], minimum: 0 }
     User:
       allOf:
         - $ref: '#/components/schemas/UserSummary'
@@ -5140,6 +5209,37 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /users/{userId}/projects-work:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [users]
+      operationId: users.user.projectsWork
+      summary: "An official's projects by year with the figures of their work there"
+      description: >-
+        Another official's projects and figures (D-147, BR-293): every project for the Department
+        Head and the Monitoring Team, the projects of the caller's own programs for a Program
+        Manager; an official outside the caller's programs is not found.
+      x-permission: staff.work.view
+      x-scope: user
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: The official's projects and figures
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { $ref: '#/components/schemas/ProjectsWork' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/ServerError' }
   /users/{userId}/profile:
     parameters:
       - $ref: '#/components/parameters/UserId'
@@ -10234,6 +10334,35 @@ paths:
                   meta: { $ref: '#/components/schemas/Meta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /me/projects-work:
+    get:
+      tags: [auth]
+      operationId: auth.me.projectsWork
+      summary: "An official's own projects by year with the figures of their work there"
+      description: >-
+        The projects the caller works on as an official (a PM through the program, an RPM through
+        the areas, any other official through an active project access), cancelled ones left out,
+        with the applications in their area and their own decisions (D-147, BR-291, BR-292). A
+        volunteer gets 404.
+      x-permission: authenticated
+      x-scope: self
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      responses:
+        '200':
+          description: The official's projects and figures
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { $ref: '#/components/schemas/ProjectsWork' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/ServerError' }
   /me/preferences:
     get:
       tags: [notifications]
