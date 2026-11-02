@@ -12,6 +12,8 @@ import {
   registrationCorrectionCreateSchema,
   type StaffDecision,
   staffDecisionSchema,
+  type StaffEditRequestCreate,
+  staffEditRequestCreateSchema,
   VOLUNTEER_TYPES,
 } from '@css/shared/registration';
 import { Router } from 'express';
@@ -48,7 +50,10 @@ const pendingRegistration = z.object({
 
 const changeRequest = z.object({
   id: uuid,
-  volunteerId: uuid,
+  /** The person the request is about: a volunteer's user or an official. */
+  userId: uuid,
+  /** Null on an official's own request. */
+  volunteerId: uuid.nullable(),
   kind: z.enum(['registration_correction', 'profile_edit']),
   field: z.string(),
   // an object or a text; the service shows NID and bank values only to a caller with the field
@@ -59,6 +64,15 @@ const changeRequest = z.object({
   contactVerified: z.boolean().optional(),
   decidedAt: z.string().nullable(),
   volunteerName: z.string().optional(),
+});
+
+/** An official's waiting request as its deciders see it: the person and their current value. */
+const staffChangeRequest = changeRequest.extend({
+  personName: z.string(),
+  personJobId: z.string().nullable(),
+  currentValue: z.unknown(),
+  /** The names of the program, division or supervisor the two values name, by id. */
+  names: z.record(z.string(), z.object({ bn: z.string(), en: z.string() })),
 });
 
 const volunteerSummary = z.object({
@@ -153,7 +167,7 @@ const listMeta = (rows: unknown[]) => ({ limit: rows.length, nextCursor: null, p
  */
 export function registrationsRouter(
   deps: RouteDeps,
-  c: Pick<Container, 'registrations' | 'users' | 'changeRequests'>,
+  c: Pick<Container, 'registrations' | 'users' | 'changeRequests' | 'staffChangeRequests'>,
 ): Router {
   const router = Router();
 
@@ -399,6 +413,104 @@ export function registrationsRouter(
         body,
         (req as { fieldClasses?: ReadonlySet<string> }).fieldClasses ?? new Set<string>(),
       ),
+  });
+
+  // An official's own requests (DECISION_LOG D-147): the same codes and photo upload, and
+  // deciders of their own, the Department Head and the Monitoring Team
+  const staffEditOp = {
+    tag: 'registration',
+    scope: 'self',
+    permission: 'staff_edit_request.submit',
+    idempotency: 'none' as const,
+  };
+
+  defineRoute<StaffEditRequestCreate>(router, deps, {
+    ...staffEditOp,
+    method: 'post',
+    path: '/me/staff-change-requests',
+    status: 201,
+    operationId: 'registration.staffEditRequest.submit',
+    summary:
+      "Ask for a change of an official's own name, designation, contact, photo or workplace (D-147)",
+    audit: 'auth.edit_requested',
+    rateLimit: 'default',
+    body: staffEditRequestCreateSchema,
+    responses: { 201: changeRequest, 401: null, 403: null, 404: null, 409: null, 422: null },
+    handler: ({ body, req }) => c.staffChangeRequests.create(principalOf(req), body),
+  });
+
+  defineRoute<unknown, unknown, { requestId: string }>(router, deps, {
+    ...staffEditOp,
+    method: 'post',
+    path: '/me/staff-change-requests/:requestId/otp',
+    status: 204,
+    operationId: 'registration.staffContactChange.sendOtp',
+    summary: "Send a code to the new mobile or email of an official's own contact request",
+    audit: 'auth.otp_sent',
+    rateLimit: 'otp-request',
+    params: { requestId: uuid },
+    responses: { 204: null, 401: null, 403: null, 404: null, 409: null, 429: null },
+    handler: ({ params, req }) =>
+      c.changeRequests.sendCode(
+        principalOf(req),
+        params.requestId,
+        currentContext()?.locale ?? 'bn',
+      ),
+  });
+
+  defineRoute<OtpCodeRequest, unknown, { requestId: string }>(router, deps, {
+    ...staffEditOp,
+    method: 'post',
+    path: '/me/staff-change-requests/:requestId/otp/verify',
+    status: 204,
+    operationId: 'registration.staffContactChange.verifyOtp',
+    summary:
+      "Verify the code of an official's own contact request; only then does it reach the deciders",
+    audit: 'auth.otp_verified',
+    rateLimit: 'otp-verify',
+    params: { requestId: uuid },
+    body: otpCodeRequestSchema,
+    responses: { 204: null, 401: null, 403: null, 404: null, 409: null, 422: null, 429: null },
+    handler: ({ body, params, req }) =>
+      c.changeRequests.verifyCode(principalOf(req), params.requestId, body.code),
+  });
+
+  defineRoute<unknown, Omit<PageQuery, 'sort'>>(router, deps, {
+    tag: 'registration',
+    scope: 'global',
+    idempotency: 'none',
+    rateLimit: 'default',
+    method: 'get',
+    path: '/staff-edit-requests',
+    operationId: 'registration.staffEditRequest.list',
+    summary: "Officials' own change requests waiting for a decision",
+    permission: 'staff_edit_request.approve',
+    audit: 'none',
+    query: pageQuery.omit({ sort: true, include: true }),
+    responses: { 200: z.array(staffChangeRequest), 401: null, 403: null, 422: null },
+    handler: async ({ query, req }) => {
+      const { rows, meta } = await c.staffChangeRequests.list(query, principalOf(req));
+      return page(rows, meta);
+    },
+  });
+
+  defineRoute<DecisionRequest, unknown, { requestId: string }>(router, deps, {
+    tag: 'registration',
+    scope: 'global',
+    idempotency: 'none',
+    rateLimit: 'default',
+    method: 'post',
+    path: '/staff-edit-requests/:requestId/decision',
+    operationId: 'registration.staffEditRequest.decide',
+    summary:
+      "Approve (the change applies at once) or reject with a reason an official's own request; never one's own",
+    permission: 'staff_edit_request.approve',
+    audit: 'auth.edit_request_decided',
+    params: { requestId: uuid },
+    body: decisionRequestSchema,
+    responses: { 200: changeRequest, 401: null, 403: null, 404: null, 409: null, 422: null },
+    handler: ({ body, params, req }) =>
+      c.staffChangeRequests.decide(principalOf(req), params.requestId, body),
   });
 
   defineRoute(router, deps, {

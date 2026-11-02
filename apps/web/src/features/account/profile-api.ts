@@ -1,4 +1,9 @@
-import { type PhotoSlot, REQUEST_FIELD_LABEL } from '@css/shared/registration';
+import {
+  type EditField,
+  type PhotoSlot,
+  REQUEST_FIELD_LABEL,
+  type StaffEditField,
+} from '@css/shared/registration';
 import { api } from '../../lib/api';
 
 /** The own volunteer profile as GET /volunteers/me answers (DECISION_LOG D-081). */
@@ -89,4 +94,8 @@ export const uploadOwnPhoto = async (requestId: string, slot: PhotoSlot, photo: 
 
 /** The catalogue label key of each field a request may name (registration namespace). */
 export const FIELD_LABEL = REQUEST_FIELD_LABEL;
-export type RequestField = keyof typeof FIELD_LABEL;
+/** A field of a volunteer's request; an official's own fields are their profile's. */
+export type RequestField = Exclude<
+  keyof typeof FIELD_LABEL,
+  Exclude<StaffEditField, EditField | PhotoSlot>
+>;

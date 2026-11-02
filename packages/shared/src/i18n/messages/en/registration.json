@@ -117,7 +117,10 @@
     "edu_status": "Status",
     "emergency_full_time": "Can you give full time in an emergency?",
     "emergency_full_time_short": "Full time in an emergency",
-    "permanent_suffix": "(permanent)"
+    "permanent_suffix": "(permanent)",
+    "workplace": "Workplace",
+    "home_program": "Program",
+    "supervisor": "Reports to"
   },
   "done": {
     "title": "Registration submitted",

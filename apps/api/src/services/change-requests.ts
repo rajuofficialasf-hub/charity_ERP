@@ -45,6 +45,17 @@ const waitingWhere = (scope: Scope) =>
     volunteerId: { not: null },
     volunteer: volunteerWhere(scope),
   }) as const;
+/** A new mobile or email is refused while another account holds it. */
+export async function assertContactFree(db: Tx, field: string, value: string, userId: string) {
+  const taken = await db.user.count({
+    where: {
+      ...(field === 'mobile' ? { mobile: value } : { email: value }),
+      NOT: { id: userId },
+    },
+  });
+  if (taken) throw new ApiError('registration.account_exists', 409);
+}
+
 /** Contact-change codes one account may send per hour, across all its requests. */
 const CODES_PER_ACCOUNT_HOUR = 5;
 const isContact = (field: string): field is (typeof CONTACT_FIELDS)[number] =>
@@ -181,24 +192,17 @@ export class ChangeRequestsService {
     return value;
   }
 
-  private async assertContactFree(db: Tx, field: string, value: string, userId: string) {
-    const taken = await db.user.count({
-      where: {
-        ...(field === 'mobile' ? { mobile: value } : { email: value }),
-        NOT: { id: userId },
-      },
-    });
-    if (taken) throw new ApiError('registration.account_exists', 409);
-  }
-
-  /** An own contact edit that still waits for its code; 404 for anyone else's (no leak). */
+  /**
+   * An own contact edit that still waits for its code, a volunteer's or an official's; 404 for
+   * anyone else's (no leak).
+   */
   private async ownOpenContact(principal: Principal, requestId: string) {
     const row = await this.prisma.volunteerChangeRequest.findFirst({
       where: {
         id: requestId,
         kind: EDIT,
         field: { in: [...CONTACT_FIELDS] },
-        volunteer: { userId: principal.userId },
+        userId: principal.userId,
       },
     });
     if (!row || !row.newValue) throw new ApiError('permission.not_found', 404);
@@ -253,7 +257,7 @@ export class ChangeRequestsService {
     await this.prisma.$transaction(async (tx) => {
       if (!(await this.otp.consume(tx, otpId))) throw new ApiError('otp.invalid', 422);
       // the caller now owns the new contact: only now may the answer say it is taken
-      await this.assertContactFree(tx, row.field, row.newValue, principal.userId);
+      await assertContactFree(tx, row.field, row.newValue, principal.userId);
       const moved = await tx.volunteerChangeRequest.updateMany({
         where: { id: row.id, status: 'open' },
         data: { status: 'submitted' },
@@ -384,7 +388,7 @@ export class ChangeRequestsService {
   ) {
     if (stored === null) throw new ApiError('user.transition_not_allowed', 409);
     if (isContact(field)) {
-      await this.assertContactFree(tx, field, stored, userId);
+      await assertContactFree(tx, field, stored, userId);
       await tx.user.update({
         where: { id: userId },
         data: field === 'mobile' ? { mobile: stored } : { email: stored },

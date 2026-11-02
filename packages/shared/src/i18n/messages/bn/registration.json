@@ -117,7 +117,10 @@
     "edu_status": "অবস্থা",
     "emergency_full_time": "জরুরি কাজে পূর্ণ সময় দিতে পারবেন কি?",
     "emergency_full_time_short": "জরুরি কাজে পূর্ণ সময়",
-    "permanent_suffix": "(স্থায়ী)"
+    "permanent_suffix": "(স্থায়ী)",
+    "workplace": "কর্মস্থল",
+    "home_program": "প্রোগ্রাম",
+    "supervisor": "কার অধীনে"
   },
   "done": {
     "title": "নিবন্ধন জমা হয়েছে",

@@ -70,6 +70,15 @@ const unitRule = {
   message: 'validation.affiliation_unit',
 };
 
+/** Where an official works: the affiliation and, outside the department, its unit. */
+export const staffWorkplaceSchema = z
+  .strictObject({
+    affiliation: profileShape.affiliation,
+    affiliationUnit: profileShape.affiliationUnit,
+  })
+  .refine(unitMatches, unitRule);
+export type StaffWorkplace = z.infer<typeof staffWorkplaceSchema>;
+
 /** POST /users: a new official with one role; the set-password link goes to the email. */
 export const staffCreateRequestSchema = z
   .strictObject({

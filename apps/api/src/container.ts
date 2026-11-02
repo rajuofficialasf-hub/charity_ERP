@@ -105,6 +105,7 @@ import { PublicPhotosService } from './services/public-photos';
 import { ProjectSetupService } from './services/project-setup';
 import { RegistrationsService } from './services/registrations';
 import { ChangeRequestsService } from './services/change-requests';
+import { StaffChangeRequestsService } from './services/staff-change-requests';
 import { BlocklistService } from './services/blocklist';
 import { HandoverService } from './services/handover';
 import { RegistrationService } from './services/registration';
@@ -224,6 +225,7 @@ export interface Container {
   templates: TemplatesService;
   registrations: RegistrationsService;
   changeRequests: ChangeRequestsService;
+  staffChangeRequests: StaffChangeRequestsService;
   blocklist: BlocklistService;
   handover: HandoverService;
 }
@@ -574,6 +576,17 @@ export function createContainer(env: Env, options: ContainerOptions = {}): Conta
         audit,
         otp,
         access,
+        permissionVersions,
+        sessions,
+        accountEvents,
+      ),
+    staffChangeRequests:
+      o.staffChangeRequests ??
+      new StaffChangeRequestsService(
+        env,
+        prisma,
+        clock,
+        audit,
         permissionVersions,
         sessions,
         accountEvents,

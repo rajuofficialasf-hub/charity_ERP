@@ -74,7 +74,7 @@ export class StaffAccountsService {
     let issued: { token: string; invitationId: string; expiresAt: Date };
     try {
       issued = await this.prisma.$transaction(async (tx) => {
-        await this.assertRefs(tx, body, null);
+        await assertStaffRefs(tx, body, null);
         const taken = await this.taken(tx, body);
         if (taken) throw taken;
         await tx.user.create({
@@ -260,7 +260,7 @@ export class StaffAccountsService {
         );
         assertIfMatch(ifMatch, user.updatedAt);
         if (user.kind !== 'staff') throw new ApiError('user.not_staff', 409);
-        await this.assertRefs(tx, body, userId, user.supervisorUserId);
+        await assertStaffRefs(tx, body, userId, user.supervisorUserId);
         if (body.jobId !== user.jobId) {
           const taken = await tx.user.count({
             where: { jobId: body.jobId, NOT: { id: userId } },
@@ -416,51 +416,51 @@ export class StaffAccountsService {
       return new ApiError('registration.account_exists', 409);
     return null;
   }
+}
 
-  /**
-   * The program and the division exist; the supervisor is an active department official, never
-   * the official themself, and the line above them never comes back to this official.
-   */
-  private async assertRefs(
-    tx: Tx,
-    refs: ProfileRefs,
-    userId: string | null,
-    currentSupervisor: string | null = null,
-  ): Promise<void> {
-    if (refs.homeProgramId && !(await tx.program.count({ where: { id: refs.homeProgramId } })))
-      throw invalid('homeProgramId', 'validation.option_unknown');
-    if (
-      refs.homeDivisionId &&
-      !(await tx.location.count({ where: { id: refs.homeDivisionId, level: 'division' } }))
-    )
-      throw invalid('homeDivisionId', 'validation.option_unknown');
-    if (!refs.supervisorUserId) return;
-    if (refs.supervisorUserId === userId)
-      throw invalid('supervisorUserId', 'user.supervisor_invalid');
-    // an unchanged supervisor stays even when they left the department or were deactivated since
-    if (userId && refs.supervisorUserId === currentSupervisor) return;
-    // one supervisor change at a time, so two edits cannot close a loop between them
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('users.supervisor_user_id'))`;
-    const supervisor = await tx.user.findFirst({
-      where: {
-        id: refs.supervisorUserId,
-        kind: 'staff',
-        state: 'active',
-        affiliation: 'department',
-      },
-      select: { id: true },
+/**
+ * The program and the division exist; the supervisor is an active department official, never
+ * the official themself, and the line above them never comes back to this official.
+ */
+export async function assertStaffRefs(
+  tx: Tx,
+  refs: ProfileRefs,
+  userId: string | null,
+  currentSupervisor: string | null = null,
+): Promise<void> {
+  if (refs.homeProgramId && !(await tx.program.count({ where: { id: refs.homeProgramId } })))
+    throw invalid('homeProgramId', 'validation.option_unknown');
+  if (
+    refs.homeDivisionId &&
+    !(await tx.location.count({ where: { id: refs.homeDivisionId, level: 'division' } }))
+  )
+    throw invalid('homeDivisionId', 'validation.option_unknown');
+  if (!refs.supervisorUserId) return;
+  if (refs.supervisorUserId === userId)
+    throw invalid('supervisorUserId', 'user.supervisor_invalid');
+  // an unchanged supervisor stays even when they left the department or were deactivated since
+  if (userId && refs.supervisorUserId === currentSupervisor) return;
+  // one supervisor change at a time, so two edits cannot close a loop between them
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('users.supervisor_user_id'))`;
+  const supervisor = await tx.user.findFirst({
+    where: {
+      id: refs.supervisorUserId,
+      kind: 'staff',
+      state: 'active',
+      affiliation: 'department',
+    },
+    select: { id: true },
+  });
+  if (!supervisor) throw invalid('supervisorUserId', 'user.supervisor_invalid');
+  if (!userId) return;
+  let next: string | null = refs.supervisorUserId;
+  for (let step = 0; next && step < MAX_CHAIN; step += 1) {
+    if (next === userId) throw invalid('supervisorUserId', 'user.supervisor_invalid');
+    const row: { supervisorUserId: string | null } | null = await tx.user.findUnique({
+      where: { id: next },
+      select: { supervisorUserId: true },
     });
-    if (!supervisor) throw invalid('supervisorUserId', 'user.supervisor_invalid');
-    if (!userId) return;
-    let next: string | null = refs.supervisorUserId;
-    for (let step = 0; next && step < MAX_CHAIN; step += 1) {
-      if (next === userId) throw invalid('supervisorUserId', 'user.supervisor_invalid');
-      const row: { supervisorUserId: string | null } | null = await tx.user.findUnique({
-        where: { id: next },
-        select: { supervisorUserId: true },
-      });
-      next = row?.supervisorUserId ?? null;
-    }
-    if (next) throw invalid('supervisorUserId', 'user.supervisor_invalid');
+    next = row?.supervisorUserId ?? null;
   }
+  if (next) throw invalid('supervisorUserId', 'user.supervisor_invalid');
 }

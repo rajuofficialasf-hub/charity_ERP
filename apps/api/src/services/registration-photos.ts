@@ -92,7 +92,7 @@ export class RegistrationPhotosService {
     const where = {
       id: input.requestId,
       field: input.slot,
-      volunteer: { userId: principal.userId },
+      userId: principal.userId,
       OR: [
         { kind: 'registration_correction', status: 'open' },
         { kind: 'profile_edit', status: { in: ['open', 'submitted'] } },

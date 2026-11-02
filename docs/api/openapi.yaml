@@ -1494,6 +1494,41 @@ components:
         field: { type: string, enum: [name, fatherName, motherName, nid, whatsapp, address, addressLine, education, experience, workDescription, previousProjects, facebookId, bloodGroup, dateOfBirth, tshirtSize, volunteeringArea, profession, skills, educationDetails, permanentAddress, bank, photo, nid_photo, nid_photo_back, mobile, email] }
         newValue: { $ref: '#/components/schemas/ChangeValue' }
         note: { type: string, maxLength: 1000 }
+    StaffEditRequestCreate:
+      type: object
+      additionalProperties: false
+      required: [field]
+      description: >-
+        An official's own change (D-147, BR-289). The new value is required except for the photo,
+        which the own photo upload fills; the workplace is an object with the affiliation and its
+        unit; a program, division or supervisor of null asks to clear it.
+      properties:
+        field: { type: string, enum: [displayName, designation, mobile, email, workplace, homeProgramId, homeDivisionId, supervisorUserId, photo] }
+        newValue:
+          anyOf:
+            - { type: string, maxLength: 2000 }
+            - { type: object, propertyNames: { type: string }, additionalProperties: {} }
+            - { type: 'null' }
+        note: { type: string, maxLength: 1000 }
+    StaffChangeRequest:
+      allOf:
+        - $ref: '#/components/schemas/ChangeRequest'
+        - type: object
+          required: [personName, personJobId, currentValue, names]
+          properties:
+            personName: { type: string }
+            personJobId: { type: [string, 'null'] }
+            currentValue: { description: "The person's value of the field now, in the shape of newValue" }
+            names:
+              type: object
+              description: The names of the program, division or supervisor the two values name, by id
+              additionalProperties: { $ref: '#/components/schemas/Bilingual' }
+    StaffChangeRequestList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/StaffChangeRequest' } }
+        meta: { $ref: '#/components/schemas/ListMeta' }
     ChangeRequestAnswer:
       type: object
       additionalProperties: false
@@ -1508,10 +1543,11 @@ components:
         code: { type: string, pattern: '^[0-9]{6}$' }
     ChangeRequest:
       type: object
-      required: [id, volunteerId, kind, field, status]
+      required: [id, userId, volunteerId, kind, field, status]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
-        volunteerId: { $ref: '#/components/schemas/Uuid' }
+        userId: { $ref: '#/components/schemas/Uuid' }
+        volunteerId: { type: [string, 'null'], format: uuid, description: 'Null on an official''s own request (D-147)' }
         kind: { type: string, enum: [registration_correction, profile_edit] }
         field: { type: string }
         newValue: { description: 'Absent for NID, bank, mobile and email values towards anyone but the owner and allowed officials' }
@@ -5873,6 +5909,136 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
+  /me/staff-change-requests:
+    post:
+      tags: [registration]
+      operationId: registration.staffEditRequest.submit
+      summary: "Ask for a change of an official's own name, designation, contact, photo or workplace (D-147)"
+      description: >-
+        A text, workplace or reference reaches the Department Head and the Monitoring Team at once;
+        a new mobile or email only after the code to it, a photo after the own upload
+        (POST /me/photos/photo?requestId=). A volunteer holds no grant (403).
+      x-permission: staff_edit_request.submit
+      x-scope: self
+      x-audit: auth.edit_requested
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StaffEditRequestCreate' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChangeRequestResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /me/staff-change-requests/{requestId}/otp:
+    parameters:
+      - $ref: '#/components/parameters/RequestId'
+    post:
+      tags: [registration]
+      operationId: registration.staffContactChange.sendOtp
+      summary: "Send a code to the new mobile or email of an official's own contact request"
+      x-permission: staff_edit_request.submit
+      x-scope: self
+      x-audit: auth.otp_sent
+      x-idempotency: none
+      x-rate-limit: otp-request
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /me/staff-change-requests/{requestId}/otp/verify:
+    parameters:
+      - $ref: '#/components/parameters/RequestId'
+    post:
+      tags: [registration]
+      operationId: registration.staffContactChange.verifyOtp
+      summary: "Verify the code of an official's own contact request; only then does it reach the deciders"
+      x-permission: staff_edit_request.submit
+      x-scope: self
+      x-audit: auth.otp_verified
+      x-idempotency: none
+      x-rate-limit: otp-verify
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OtpCodeRequest' }
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /staff-edit-requests:
+    get:
+      tags: [registration]
+      operationId: registration.staffEditRequest.list
+      summary: "Officials' own change requests waiting for a decision"
+      description: >-
+        For the Department Head and the Monitoring Team (D-147, BR-289): each request with the
+        person, their current value and the names of the program, division or supervisor named.
+      x-permission: staff_edit_request.approve
+      x-scope: global
+      x-audit: none
+      x-idempotency: none
+      x-rate-limit: default
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Waiting requests
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StaffChangeRequestList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /staff-edit-requests/{requestId}/decision:
+    parameters:
+      - $ref: '#/components/parameters/RequestId'
+    post:
+      tags: [registration]
+      operationId: registration.staffEditRequest.decide
+      summary: "Approve (the change applies at once) or reject with a reason an official's own request; never one's own"
+      description: >-
+        An approval writes the change: a new contact ends the person's sessions, a new program or
+        division moves their permission version on (D-147, BR-289). The person who asked gets 403.
+      x-permission: staff_edit_request.approve
+      x-scope: global
+      x-audit: auth.edit_request_decided
+      x-idempotency: none
+      x-rate-limit: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DecisionRequest' }
+      responses:
+        '200':
+          description: Decision recorded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChangeRequestResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
   /edit-requests:
     get:
       tags: [registration]

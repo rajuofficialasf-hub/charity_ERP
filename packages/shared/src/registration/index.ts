@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '../auth/password.js';
 import { otpCodeSchema } from '../auth/schemas.js';
+import { staffWorkplaceSchema } from '../auth/staff.js';
 import {
   bloodGroupSchema,
   dateOfBirthSchema,
@@ -308,6 +309,43 @@ export const PHOTO_FIELDS = PHOTO_SLOTS;
  * The catalogue label key of each field a correction or edit request may name (registration
  * namespace): the screens and the notifications name a field the same way.
  */
+/**
+ * The details an official may ask to change about themself (DECISION_LOG D-147): the name, the
+ * designation, the contacts (a code to the new value first), the photo (the own upload fills it)
+ * and the workplace; the Department Head or the Monitoring Team decides. A program, division or
+ * supervisor of null asks to clear it.
+ */
+export const STAFF_EDIT_FIELD_VALUES = {
+  displayName: z.string().trim().min(1, { message: 'validation.required' }).max(200),
+  designation: z.string().trim().min(1, { message: 'validation.required' }).max(200),
+  mobile: EDIT_FIELD_VALUES.mobile,
+  email: EDIT_FIELD_VALUES.email,
+  workplace: staffWorkplaceSchema,
+  homeProgramId: z.uuid().nullable(),
+  homeDivisionId: z.uuid().nullable(),
+  supervisorUserId: z.uuid().nullable(),
+} as const;
+export type StaffValueField = keyof typeof STAFF_EDIT_FIELD_VALUES;
+export const STAFF_EDIT_FIELDS = [
+  ...(Object.keys(STAFF_EDIT_FIELD_VALUES) as StaffValueField[]),
+  'photo',
+] as const;
+export type StaffEditField = (typeof STAFF_EDIT_FIELDS)[number];
+
+export const staffEditRequestCreateSchema = z
+  .strictObject({
+    field: z.enum(STAFF_EDIT_FIELDS),
+    newValue: z
+      .union([z.string().max(2000), z.record(z.string(), z.unknown()), z.null()])
+      .optional(),
+    note: z.string().trim().max(1000).optional(),
+  })
+  .refine((v) => v.field === 'photo' || v.newValue !== undefined, {
+    path: ['newValue'],
+    message: 'validation.required',
+  });
+export type StaffEditRequestCreate = z.infer<typeof staffEditRequestCreateSchema>;
+
 export const REQUEST_FIELD_LABEL = {
   name: 'form.name',
   fatherName: 'form.father_name',
@@ -335,6 +373,12 @@ export const REQUEST_FIELD_LABEL = {
   nid_photo_back: 'form.nid_photo_back',
   mobile: 'form.mobile',
   email: 'form.email',
+  displayName: 'form.name',
+  designation: 'form.designation',
+  workplace: 'form.workplace',
+  homeProgramId: 'form.home_program',
+  homeDivisionId: 'form.division',
+  supervisorUserId: 'form.supervisor',
 } as const;
 
 export const editRequestCreateSchema = z

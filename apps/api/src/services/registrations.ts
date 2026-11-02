@@ -108,6 +108,7 @@ function pendingView(u: PendingRow) {
 
 type ChangeRow = {
   id: string;
+  userId: string;
   volunteerId: string | null;
   kind: string;
   field: string;
@@ -121,6 +122,7 @@ type ChangeRow = {
 export function changeView(row: ChangeRow, withValue: boolean) {
   return {
     id: row.id,
+    userId: row.userId,
     volunteerId: row.volunteerId,
     kind: row.kind,
     field: row.field,
@@ -133,7 +135,10 @@ export function changeView(row: ChangeRow, withValue: boolean) {
   };
 }
 
-/** The address and the bank details are stored as JSON text; every other field as the text. */
+/**
+ * The address, the bank details and the other objects of a volunteer, and an official's workplace
+ * and references (a reference may be null), are stored as JSON text; every other field as the text.
+ */
 export const OBJECT_FIELDS = new Set([
   'address',
   'bank',
@@ -141,6 +146,10 @@ export const OBJECT_FIELDS = new Set([
   'skills',
   'educationDetails',
   'permanentAddress',
+  'workplace',
+  'homeProgramId',
+  'homeDivisionId',
+  'supervisorUserId',
 ]);
 function storedValue(field: string, text: string): unknown {
   if (!OBJECT_FIELDS.has(field)) return text;
@@ -595,7 +604,7 @@ export class RegistrationsService {
   /** The caller's own open correction and edit requests, with their values (own data, D-081). */
   async ownRequests(principal: Principal) {
     const rows = await this.prisma.volunteerChangeRequest.findMany({
-      where: { volunteer: { userId: principal.userId }, status: { in: UNFINISHED } },
+      where: { userId: principal.userId, status: { in: UNFINISHED } },
       orderBy: { createdAt: 'asc' },
     });
     return rows.map((r) => changeView(r, true));

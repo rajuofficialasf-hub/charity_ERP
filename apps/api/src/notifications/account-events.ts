@@ -127,19 +127,22 @@ export class AccountEvents {
       where: { id: requestId },
       select: { field: true, volunteerId: true, userId: true },
     });
-    // an official's request is not announced here; its notice comes with its own decision path
-    if (!request?.volunteerId) return;
+    if (!request) return;
+    // a volunteer's request reaches its approvers in scope; an official's, those who decide it
+    const holders = request.volunteerId
+      ? {
+          permission: 'edit_request.approve',
+          entity: 'volunteer' as const,
+          target: { volunteerId: request.volunteerId },
+        }
+      : {
+          permission: 'staff_edit_request.approve',
+          entity: 'user' as const,
+          target: { userId: request.userId },
+        };
     await this.notifications.publish(tx, {
       key: 'edit_request_submitted',
-      recipients: [
-        {
-          holders: {
-            permission: 'edit_request.approve',
-            entity: 'volunteer',
-            target: { volunteerId: request.volunteerId },
-          },
-        },
-      ],
+      recipients: [{ holders }],
       params: { field_name: fieldName([request.field]) },
       about: requestId,
       actorId: request.userId,
