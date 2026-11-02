@@ -1,5 +1,5 @@
--- An official asks for a change of their own details like a volunteer does (docs/DECISION_LOG.md
--- D-147): the requests table serves both. user_id names the person the request is about; a
+-- An official asks for a change of their own details like a volunteer does, so the requests
+-- table serves both. user_id names the person the request is about; a
 -- volunteer's request also names the volunteer, an official's does not. A registration
 -- correction is always a volunteer's.
 ALTER TABLE "volunteer_change_requests" ADD COLUMN "user_id" UUID;

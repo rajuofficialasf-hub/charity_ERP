@@ -127,7 +127,7 @@ export class AccountEvents {
       where: { id: requestId },
       select: { field: true, volunteerId: true, userId: true },
     });
-    // an official's request reaches its own approvers, not a volunteer's
+    // an official's request is not announced here; its notice comes with its own decision path
     if (!request?.volunteerId) return;
     await this.notifications.publish(tx, {
       key: 'edit_request_submitted',

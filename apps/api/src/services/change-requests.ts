@@ -36,8 +36,15 @@ import { applyField, changeView, OBJECT_FIELDS } from './registrations';
 const EDIT = 'profile_edit';
 
 /** The edit requests waiting for a decision in a scope: the approvers' list and its count. */
+// a volunteer's requests only: an official's has no volunteer, and an empty scope filter (a
+// global role's) would not keep it out
 const waitingWhere = (scope: Scope) =>
-  ({ kind: EDIT, status: 'submitted', volunteer: volunteerWhere(scope) }) as const;
+  ({
+    kind: EDIT,
+    status: 'submitted',
+    volunteerId: { not: null },
+    volunteer: volunteerWhere(scope),
+  }) as const;
 /** Contact-change codes one account may send per hour, across all its requests. */
 const CODES_PER_ACCOUNT_HOUR = 5;
 const isContact = (field: string): field is (typeof CONTACT_FIELDS)[number] =>
@@ -320,7 +327,12 @@ export class ChangeRequestsService {
     const row = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM volunteer_change_requests WHERE id = ${requestId}::uuid FOR UPDATE`;
       const found = await tx.volunteerChangeRequest.findFirst({
-        where: { id: requestId, kind: EDIT, volunteer: volunteerWhere(scope) },
+        where: {
+          id: requestId,
+          kind: EDIT,
+          volunteerId: { not: null },
+          volunteer: volunteerWhere(scope),
+        },
       });
       // a request with no volunteer is an official's, which this volunteer path never decides
       if (!found?.volunteerId) {

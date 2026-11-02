@@ -1669,7 +1669,7 @@ model Blocklist {
 
 model VolunteerChangeRequest {
   id             String    @id @db.Uuid
-  /// the person the request is about (D-147): a volunteer's user or an official
+  /// the person the request is about: a volunteer's user or an official
   userId         String    @map("user_id") @db.Uuid
   /// set for a volunteer's request, null for an official's
   volunteerId    String?   @map("volunteer_id") @db.Uuid

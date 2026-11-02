@@ -96,6 +96,34 @@ describe('edit requests', () => {
     expect(told[0]!.params.field_name).toMatchObject({ en: expect.any(String) });
   });
 
+  it('an official’s waiting request stays out of the volunteer requests, even for the Department Head', async () => {
+    const head = await as(world.users.head);
+    const pendingCount = async () =>
+      (
+        (await api().get('/api/v1/me/attention').set(bearer(head))).body.data as {
+          kind: string;
+          count: number;
+        }[]
+      ).find((i) => i.kind === 'edit_requests_pending')?.count ?? 0;
+    const before = await pendingCount();
+    const official = await f.user(h.db);
+    const id = randomUUID();
+    await h.db.query(
+      `INSERT INTO volunteer_change_requests (id, user_id, kind, field, new_value, requested_by, status)
+       VALUES ($1, $2, 'profile_edit', 'designation', 'সিনিয়র অফিসার', $2, 'submitted')`,
+      [id, official],
+    );
+    const listed = await api().get('/api/v1/edit-requests').set(bearer(head));
+    expect(listed.status).toBe(200);
+    expect(listed.body.data.map((r: { id: string }) => r.id)).not.toContain(id);
+    expect(await pendingCount()).toBe(before);
+    expect((await decide(head, id, { decision: 'approve' })).status).toBe(404);
+    const kept = await h.db.query('SELECT status FROM volunteer_change_requests WHERE id = $1', [
+      id,
+    ]);
+    expect(kept.rows[0].status).toBe('submitted');
+  });
+
   it('a refusal needs a reason and changes nothing', async () => {
     const v = await approvedVolunteer();
     const created = await ask(v.session, { field: 'education', newValue: 'স্নাতক' });
