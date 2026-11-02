@@ -118,10 +118,14 @@ export function StaffPage() {
       <StatisticsBar
         label={t('stats.label')}
         loading={counts.some((c) => c.isPending)}
-        items={AFFILIATIONS.map((a, i) => ({
+        // a count that could not be read is left out, never shown as zero
+        items={AFFILIATIONS.flatMap((a, i) => {
+          const count = counts.at(i);
+          return count?.error ? [] : [{ a, value: count?.data ?? 0 }];
+        }).map(({ a, value }) => ({
           key: a,
           label: t(`tabs.${a}`),
-          value: counts.at(i)?.data ?? 0,
+          value,
           // eslint-disable-next-line security/detect-object-injection -- an affiliation of a constant table
           ...AFFILIATION_LOOK[a],
         }))}

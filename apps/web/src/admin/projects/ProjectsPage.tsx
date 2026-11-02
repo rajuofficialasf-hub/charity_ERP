@@ -14,7 +14,7 @@ import {
   TableToolbar,
 } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
-import { Ban, CirclePlay, FilePen, FolderKanban, Hourglass, Lock, Plus } from 'lucide-react';
+import { FolderKanban, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useLocale, useTranslations } from 'use-intl';
 import { DocumentTitle } from '../../components/DocumentTitle';
@@ -26,26 +26,16 @@ import { canCreateProjects, canSeePrograms, canSeeProjects } from '../roles';
 import { useTabView } from '../use-tab-view';
 import { ProjectStatusBadge } from './ProjectStatusBadge';
 import {
-  type CountKey,
   FILTER_KEYS,
   type Project,
   projectCounts,
   projectPage,
   PROJECTS_KEY,
 } from './projects-api';
+import { PROJECT_COUNT_LOOK } from './state-look';
 
 /** The years a project list filters by: from the first year a project may have to next year. */
 const FIRST_YEAR = 2020;
-
-/** The look of each count card: every project, then one card per state. */
-const COUNT_LOOK: Record<CountKey, Pick<StatFilterItem, 'icon' | 'tone'>> = {
-  all: { icon: FolderKanban, tone: 'brand' },
-  draft: { icon: FilePen, tone: 'neutral' },
-  active: { icon: CirclePlay, tone: 'success' },
-  closing: { icon: Hourglass, tone: 'warning' },
-  closed: { icon: Lock, tone: 'neutral' },
-  cancelled: { icon: Ban, tone: 'neutral' },
-};
 
 /**
  * The projects in the caller's scope: a count card per state that is also the state filter, then
@@ -131,7 +121,7 @@ function ProjectList({ programNames }: { programNames: boolean }) {
     label: key === 'all' ? t('stats.all') : t(`status.${key}`),
     value: total,
     // eslint-disable-next-line security/detect-object-injection -- a state key of a constant table
-    ...COUNT_LOOK[key],
+    ...PROJECT_COUNT_LOOK[key],
   }));
   const thisYear = new Date().getFullYear();
   const years = Array.from({ length: thisYear + 2 - FIRST_YEAR }, (_, i) => String(FIRST_YEAR + i));

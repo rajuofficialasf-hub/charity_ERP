@@ -134,6 +134,34 @@ describe('the project list', () => {
     expect(counts.every((u) => u.searchParams.get('year') === '2026')).toBe(true);
   });
 
+  it('shows the error of the counts with a retry, and the list still loads', async () => {
+    refreshAs(PM);
+    serve();
+    let failing = true;
+    server.use(
+      http.get('*/api/v1/projects', ({ request }) => {
+        const url = new URL(request.url);
+        if (url.searchParams.get('limit') !== '1' || !failing) return undefined;
+        return HttpResponse.json(
+          { error: { code: 'rate_limited', message: 'অনেক অনুরোধ', requestId: 'req_c' } },
+          { status: 429 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    open();
+    expect((await screen.findAllByText('শীতবস্ত্র বিতরণ')).length).toBeGreaterThan(0);
+    const retry = await screen.findByRole('button', { name: 'আবার চেষ্টা করুন' });
+    expect(
+      screen.queryByRole('group', { name: 'অবস্থা অনুযায়ী প্রকল্প' }),
+    ).not.toBeInTheDocument();
+    failing = false;
+    await user.click(retry);
+    expect(
+      await screen.findByRole('group', { name: 'অবস্থা অনুযায়ী প্রকল্প' }),
+    ).toBeInTheDocument();
+  });
+
   it('asks for the windows ending soon when the link of the home carries that filter', async () => {
     refreshAs(PM);
     serve();

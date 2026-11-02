@@ -1,29 +1,15 @@
 import type { Me } from '@css/shared/auth';
 import { formatCount, formatDate, formatDateTime } from '@css/shared/format';
 import { type Locale, localized } from '@css/shared/i18n';
-import {
-  Badge,
-  Button,
-  Card,
-  ErrorState,
-  Icon,
-  type IconComponent,
-  type IconTileTone,
-  StatCard,
-  Text,
-} from '@css/ui';
+import { Badge, Button, Card, ErrorState, Icon, type IconComponent, StatCard, Text } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import {
   Bell,
   CircleAlert,
-  CirclePlay,
   Clock,
   Dot,
-  FilePen,
-  Hourglass,
   IdCard,
   KeyRound,
-  Lock,
   ScrollText,
   Settings,
 } from 'lucide-react';
@@ -34,6 +20,7 @@ import {
   STAFF_DIRECTORY_ROLES,
   SYSTEM_ADMIN_ROLES,
 } from '../../admin/roles';
+import { PROJECT_COUNT_LOOK } from '../../admin/projects/state-look';
 import { TEMPLATES_KEY, templates } from '../../admin/templates/templates-api';
 import { MEDIA_KEY, mediaSummary } from '../media/media-api';
 import { MY_PROJECTS_KEY, myProjects } from '../projects/my-projects-api';
@@ -145,14 +132,6 @@ function OfficialProjects() {
   );
 }
 
-/** The icon and tone of each project state's card. */
-const STATE_LOOK: Record<HomeProjectState, { icon: IconComponent; tone: IconTileTone }> = {
-  draft: { icon: FilePen, tone: 'neutral' },
-  active: { icon: CirclePlay, tone: 'brand' },
-  closing: { icon: Hourglass, tone: 'warning' },
-  closed: { icon: Lock, tone: 'neutral' },
-};
-
 /** One count per project state, each opening the list of that state. */
 function StateCount({ status }: { status: HomeProjectState }) {
   const t = useTranslations('admin.projects.status');
@@ -169,7 +148,7 @@ function StateCount({ status }: { status: HomeProjectState }) {
       loading={count.isPending}
       href={`/admin/projects?status=${status}`}
       // eslint-disable-next-line security/detect-object-injection -- a state key of a constant table
-      {...STATE_LOOK[status]}
+      {...PROJECT_COUNT_LOOK[status]}
     />
   );
 }

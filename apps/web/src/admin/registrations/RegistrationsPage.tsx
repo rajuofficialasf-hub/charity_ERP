@@ -109,7 +109,8 @@ function WaitingCounts({ staff, edits }: { staff: boolean; edits: boolean }) {
       label={t('stats.label')}
       loading={(staff && pending.isPending) || (edits && requests.isPending)}
       items={[
-        ...(staff
+        // a list that could not be read shows its error below, never a count of zero
+        ...(staff && !pending.error
           ? [
               {
                 key: 'pending',
@@ -120,7 +121,7 @@ function WaitingCounts({ staff, edits }: { staff: boolean; edits: boolean }) {
               },
             ]
           : []),
-        ...(edits
+        ...(edits && !requests.error
           ? [
               {
                 key: 'edits',
