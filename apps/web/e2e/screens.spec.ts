@@ -3,8 +3,9 @@ import { signIn } from './support/admin';
 
 // Screenshots of every page the owner's prototype designs, at a computer's, a tablet's and a
 // phone's width, for the owner to set beside the prototype (docs/ui/SCREENS.md). The Department
-// Head opens each one; the spec asserts only that the page loaded with its heading, since the
-// journeys and the accessibility sweep prove what the pages do. The files land in
+// Head opens each one. The spec asserts that the page loaded with its heading and that nothing
+// pushes it wider than a phone; the look itself is checked by the owner against the prototype,
+// and the journeys and the accessibility sweep prove what the pages do. The files land in
 // test-results/screens/<width>/.
 const HEAD = 'head@example.org';
 const WIDTHS = [1280, 768, 360] as const;
@@ -49,6 +50,11 @@ async function shoot(page: Page, name: string, path: string): Promise<void> {
     await page.goto(path);
     await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
     await page.waitForLoadState('networkidle');
+    if (width === 360) {
+      // a row that does not wrap widens the whole page on a phone
+      const wide = await page.evaluate(() => document.documentElement.scrollWidth);
+      expect(wide, `${name} at 360 px`).toBeLessThanOrEqual(360);
+    }
     await page.screenshot({ path: `test-results/screens/${width}/${name}.png`, fullPage: true });
   }
 }

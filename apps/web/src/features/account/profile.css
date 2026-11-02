@@ -1,6 +1,7 @@
 /*
- * The own profile (SCR-006, UX-18, T1.9d): the set's banner with the person, the sections as a navigation
- * (a column from 768 px, a scrolling row of chips on phones) and one section's details in a card;
+ * The own profile (docs/ui/SCREENS.md, "My profile, edit request, device sessions, language"):
+ * the set's banner with the person, the sections as a navigation (a column from 768 px, a
+ * scrolling row of chips on phones) and one section's details in a card;
  * the edit mode of a section lists its details with a checkbox each. Tokens only.
  */
 .profile {
