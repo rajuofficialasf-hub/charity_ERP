@@ -43,14 +43,14 @@
 .notification-item {
   display: grid;
   gap: var(--space-1);
-  padding: var(--space-3);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
   background: var(--color-bg-surface);
 }
 .notification-item[data-unread='true'] {
   border-inline-start: 4px solid var(--color-brand-primary);
-  background: var(--color-bg-brand-soft);
+  background: var(--color-bg-brand-tint);
 }
 .notification-item h3 {
   margin: 0;
@@ -74,6 +74,7 @@
   flex-wrap: wrap;
   gap: var(--space-2);
 }
-.notification-email {
-  margin-block-start: var(--space-5);
+/* a first day heading sits close under the tabs */
+.notification-inbox section:first-of-type .notification-day {
+  margin-block-start: var(--space-2);
 }

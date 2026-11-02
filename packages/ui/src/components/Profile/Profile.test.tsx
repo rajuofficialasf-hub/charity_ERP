@@ -38,6 +38,18 @@ describe('the profile pieces', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('names the person at the second level under a page title of its own', () => {
+    renderWithUi(
+      <ProfileHeader
+        name="Sample Volunteer"
+        headingLevel={2}
+        avatar={<Avatar name="Sample Volunteer" size="lg" letters={1} />}
+      />,
+    );
+    expect(screen.getByRole('heading', { level: 2, name: 'Sample Volunteer' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
+  });
+
   it('copies a value and says so', async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);

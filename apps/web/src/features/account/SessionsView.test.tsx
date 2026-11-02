@@ -49,6 +49,10 @@ describe('SessionsView', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'My devices' }),
     ).toBeInTheDocument();
+    expect(screen.getByText('My account')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: "If you see a device you don't know" }),
+    ).toBeInTheDocument();
     const current = (await screen.findByRole('heading', { name: 'Edge · Windows' })).closest(
       'section, article, div',
     )!;

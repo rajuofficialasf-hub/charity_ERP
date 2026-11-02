@@ -143,8 +143,8 @@ export function HealthPage() {
           </span>
         </li>
       </ul>
-      <div className="admin-split">
-        <div className="admin-split-main">
+      <div className="page-split">
+        <div className="page-split-main">
           {h.storage ? (
             <>
               <Card title={t('storage')} subtitle={figure(h.storage.total)} headingLevel={2}>
@@ -203,7 +203,7 @@ export function HealthPage() {
             </Card>
           )}
         </div>
-        <aside className="admin-split-side" aria-label={t('audit_partitions')}>
+        <aside className="page-split-side" aria-label={t('audit_partitions')}>
           <Card accent title={t('audit_partitions')} headingLevel={2}>
             <Text>{h.auditPartitionsUntil ?? t('unknown')}</Text>
           </Card>

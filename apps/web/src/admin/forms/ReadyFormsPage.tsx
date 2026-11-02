@@ -100,8 +100,8 @@ function ReadyFormsList() {
           </Stack>
         }
       />
-      <div className="admin-split">
-        <div className="admin-split-main">
+      <div className="page-split">
+        <div className="page-split-main">
           <Table
             layout="panel"
             label={tr('table')}
@@ -125,7 +125,7 @@ function ReadyFormsList() {
             )}
           />
         </div>
-        <aside className="admin-split-side" aria-label={tr('steps.title')}>
+        <aside className="page-split-side" aria-label={tr('steps.title')}>
           <Card accent title={tr('steps.title')} headingLevel={2}>
             <Text tone="muted">{tr('steps.body')}</Text>
           </Card>

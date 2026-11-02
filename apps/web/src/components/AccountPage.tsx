@@ -21,7 +21,7 @@ export function AccountPage({
   /** One line under the title: what the page is for. */
   description?: string;
   children: (me: Me) => ReactNode;
-  /** A page with a side navigation (the profile) gets a wider frame. */
+  /** The full frame of the admin pages, for a page with a side column (the profile, the home). */
   wide?: boolean;
 }) {
   return (

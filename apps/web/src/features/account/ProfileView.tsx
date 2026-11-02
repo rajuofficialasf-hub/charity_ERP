@@ -68,7 +68,12 @@ const SECTIONS = [
 export function ProfileView() {
   const t = useTranslations('registration.profile');
   return (
-    <AccountPage title={() => t('title')} wide>
+    <AccountPage
+      title={() => t('title')}
+      eyebrow={t('eyebrow')}
+      description={t('description')}
+      wide
+    >
       {() => (
         <>
           <DocumentTitle title={t('title')} />

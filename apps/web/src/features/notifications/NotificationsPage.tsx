@@ -39,21 +39,32 @@ export function NotificationsPage() {
   const t = useTranslations('notifications');
   const [tab, setTab] = useState('all');
   return (
-    <AccountPage title={() => t('title')}>
+    <AccountPage
+      title={() => t('title')}
+      eyebrow={t('eyebrow')}
+      description={t('description')}
+      wide
+    >
       {(me) => (
-        <>
+        <div className={me.kind === 'staff' ? 'page-split' : undefined}>
           <DocumentTitle title={t('title')} />
-          <Tabs
-            label={t('tab.label')}
-            selectedId={tab}
-            onChange={setTab}
-            items={[
-              { id: 'all', label: t('tab.all'), content: <Inbox unread={false} /> },
-              { id: 'unread', label: t('tab.unread'), content: <Inbox unread /> },
-            ]}
-          />
-          {me.kind === 'staff' && <EmailPreference />}
-        </>
+          <Card className="notification-inbox">
+            <Tabs
+              label={t('tab.label')}
+              selectedId={tab}
+              onChange={setTab}
+              items={[
+                { id: 'all', label: t('tab.all'), content: <Inbox unread={false} /> },
+                { id: 'unread', label: t('tab.unread'), content: <Inbox unread /> },
+              ]}
+            />
+          </Card>
+          {me.kind === 'staff' && (
+            <aside className="page-split-side" aria-label={t('email.title')}>
+              <EmailPreference />
+            </aside>
+          )}
+        </div>
       )}
     </AccountPage>
   );
@@ -204,7 +215,7 @@ function EmailPreference() {
     onSuccess: (saved) => queryClient.setQueryData(PREFERENCES_KEY, saved),
   });
   return (
-    <Card title={t('title')} headingLevel={2} className="notification-email">
+    <Card title={t('title')} headingLevel={2}>
       {current.isPending ? (
         <Skeleton shape="text" />
       ) : current.isError ? (

@@ -1,5 +1,5 @@
 import { minPasswordLength } from '@css/shared/auth';
-import { Alert, Button, Form, PasswordField } from '@css/ui';
+import { Alert, Button, Card, Form, PasswordField, Text } from '@css/ui';
 import { useTranslations } from 'use-intl';
 import { type FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -62,69 +62,89 @@ export function ChangePasswordView() {
   };
 
   return (
-    <AccountPage title={() => t('title')}>
+    <AccountPage
+      title={() => t('title')}
+      eyebrow={t('eyebrow')}
+      description={t('description')}
+      wide
+    >
       {(me) => (
-        <Form
-          onSubmit={(event) => submit(event, me.passwordChangeRequired === true)}
-          aria-label={t('title')}
-        >
-          <DocumentTitle title={t('title')} />
-          <div className="auth-shell-stack">
-            {me.passwordChangeRequired && !done && (
-              <Alert tone="info" live="status">
-                {t('required_notice')}
-              </Alert>
-            )}
-            {done && (
-              <Alert tone="success" live="status">
-                {t('done')}
-              </Alert>
-            )}
-            <PasswordField
-              label={t('current')}
-              name="currentPassword"
-              value={current}
-              onChange={setCurrent}
-              autoComplete="current-password"
-              required
-              error={errors.currentPassword}
-            />
-            <PasswordField
-              label={t('new')}
-              name="newPassword"
-              value={next}
-              onChange={setNext}
-              autoComplete="new-password"
-              required
-              error={errors.newPassword}
-            />
-            <PasswordRules
-              password={next}
-              id="change-rules"
-              minLength={minPasswordLength(
-                me.passwordChangeRequired === true ||
-                  me.roles.some((r) => PERMISSION_PANEL_ROLES.includes(r)),
+        <div className="page-split">
+          <Card>
+            <Form
+              onSubmit={(event) => submit(event, me.passwordChangeRequired === true)}
+              aria-label={t('title')}
+            >
+              <DocumentTitle title={t('title')} />
+              <div className="auth-shell-stack">
+                {me.passwordChangeRequired && !done && (
+                  <Alert tone="info" live="status">
+                    {t('required_notice')}
+                  </Alert>
+                )}
+                {done && (
+                  <Alert tone="success" live="status">
+                    {t('done')}
+                  </Alert>
+                )}
+                <PasswordField
+                  label={t('current')}
+                  name="currentPassword"
+                  value={current}
+                  onChange={setCurrent}
+                  autoComplete="current-password"
+                  required
+                  error={errors.currentPassword}
+                />
+                <PasswordField
+                  label={t('new')}
+                  name="newPassword"
+                  value={next}
+                  onChange={setNext}
+                  autoComplete="new-password"
+                  required
+                  error={errors.newPassword}
+                />
+                <PasswordRules
+                  password={next}
+                  id="change-rules"
+                  minLength={minPasswordLength(
+                    me.passwordChangeRequired === true ||
+                      me.roles.some((r) => PERMISSION_PANEL_ROLES.includes(r)),
+                  )}
+                />
+                <PasswordField
+                  label={t('confirm')}
+                  name="confirm"
+                  value={confirm}
+                  onChange={setConfirm}
+                  autoComplete="new-password"
+                  required
+                  error={errors.confirm}
+                />
+                {error && (
+                  <Alert tone="danger" live="alert">
+                    {error}
+                  </Alert>
+                )}
+                <Button type="submit" loading={pending}>
+                  {t('submit')}
+                </Button>
+              </div>
+            </Form>
+          </Card>
+          <aside className="page-split-side" aria-label={t('tip.title')}>
+            <Card accent title={t('tip.title')} headingLevel={2}>
+              <Text tone="muted">{t('tip.body')}</Text>
+              {/* while a new password is required, no other page opens yet */}
+              {!me.passwordChangeRequired && (
+                <Button variant="ghost" size="sm" href="/account/sessions">
+                  {t('tip.devices')}
+                </Button>
               )}
-            />
-            <PasswordField
-              label={t('confirm')}
-              name="confirm"
-              value={confirm}
-              onChange={setConfirm}
-              autoComplete="new-password"
-              required
-              error={errors.confirm}
-            />
-            {error && (
-              <Alert tone="danger" live="alert">
-                {error}
-              </Alert>
-            )}
-            <Button type="submit" loading={pending}>
-              {t('submit')}
-            </Button>
-          </div>
-        </Form>
+            </Card>
+          </aside>
+        </div>
       )}
     </AccountPage>
   );

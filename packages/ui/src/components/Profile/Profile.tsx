@@ -60,8 +60,10 @@ export interface ProfileFact {
 }
 
 export interface ProfileHeaderProps {
-  /** The person's name, the page's level-1 heading. */
+  /** The person's name, the page's level-1 heading unless `headingLevel` says otherwise. */
   name: string;
+  /** 2 when the page has its own title above the banner (the own profile). */
+  headingLevel?: 1 | 2;
   /** The photo or the initial avatar. */
   avatar: ReactNode;
   /** The state badges beside the name. */
@@ -86,15 +88,17 @@ export function ProfileHeader({
   facts = [],
   actions,
   actionsLabel,
+  headingLevel = 1,
   className,
 }: ProfileHeaderProps) {
+  const Heading = headingLevel === 1 ? 'h1' : 'h2';
   return (
     <div className={cx('ui-profile-head', actions ? 'has-actions' : undefined, className)}>
       <div className="ui-profile-who">
         <div className="ui-profile-avatar">{avatar}</div>
         <div className="ui-profile-main">
           <div className="ui-profile-title">
-            <h1>{name}</h1>
+            <Heading className="ui-profile-name">{name}</Heading>
             {status}
           </div>
           {facts.length > 0 && (

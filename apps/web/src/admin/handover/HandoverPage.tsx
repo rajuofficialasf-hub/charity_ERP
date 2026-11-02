@@ -69,8 +69,8 @@ export function HandoverPage() {
     <>
       <DocumentTitle title={t('title')} />
       <PageHeader eyebrow={t('eyebrow')} title={t('title')} description={t('description')} />
-      <div className="admin-split">
-        <div className="admin-split-main">
+      <div className="page-split">
+        <div className="page-split-main">
           <Card>
             <div className="admin-panel-section">
               <UserSearch
@@ -95,7 +95,7 @@ export function HandoverPage() {
             </Card>
           )}
         </div>
-        <aside className="admin-split-side" aria-label={t('steps.title')}>
+        <aside className="page-split-side" aria-label={t('steps.title')}>
           <Card accent title={t('rule.title')} headingLevel={2}>
             <Text tone="muted">{t('rule.body')}</Text>
           </Card>
