@@ -169,6 +169,30 @@ describe('app shell', () => {
     expect(within(nav).getByRole('link', { name: 'আমার কাজ' })).not.toHaveAttribute('aria-current');
   });
 
+  it('counts what waits beside its destination in the sidebar', async () => {
+    atWidth(1280);
+    refreshAs(HEAD);
+    server.use(
+      http.get('*/api/v1/me/attention', () =>
+        HttpResponse.json({
+          data: [
+            { kind: 'registrations_pending', count: 3, href: '/admin/volunteers?state=pending' },
+            { kind: 'staff_registrations_pending', count: 2, href: '/admin/registrations' },
+            { kind: 'edit_requests_pending', count: 1, href: '/admin/registrations?tab=edits' },
+          ],
+          meta: { requestId: 'test' },
+        }),
+      ),
+    );
+    renderShell('/admin/audit');
+    const nav = await mainMenu();
+    expect(
+      await within(nav).findByRole('link', { name: 'স্বেচ্ছাসেবক, 3টি অপেক্ষমাণ' }),
+    ).toHaveAttribute('href', '/admin/volunteers');
+    expect(within(nav).getByRole('link', { name: 'নিবন্ধন, 3টি অপেক্ষমাণ' })).toBeInTheDocument();
+    expect(within(nav).getByRole('link', { name: 'অডিট লগ' })).toBeInTheDocument();
+  });
+
   it('names the group and the page in the app bar on a desktop', async () => {
     atWidth(1280);
     refreshAs(HEAD);

@@ -1,9 +1,11 @@
 import type { Me } from '@css/shared/auth';
 import { type BreadcrumbItem, IconTile, OfflineBanner, type OfflineBannerProps } from '@css/ui';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { useTranslations } from 'use-intl';
-import { placeOf, sidebarFor } from '../../admin/navigation';
+import { attentionCounts, placeOf, sidebarFor } from '../../admin/navigation';
+import { ATTENTION_KEY, attention } from '../../features/home/home-api';
 import { RequireAuth } from '../../lib/auth';
 import { useOffline } from '../../offline/OfflineProvider';
 import type { SyncStatus } from '../../offline/sync-engine';
@@ -146,6 +148,9 @@ function useBanner(online: boolean, status: SyncStatus, volunteer: boolean): Ban
 function Sidebar({ me }: { me: Me }) {
   const t = useTranslations('nav');
   const ta = useTranslations('common.app');
+  // the same counted list as the home's, read from its cache when the home already loaded it
+  const waiting = useQuery({ queryKey: ATTENTION_KEY, queryFn: attention });
+  const counts = attentionCounts(me, waiting.data ?? []);
   return (
     <div className="app-sidebar" data-testid="sidebar">
       <a href="/" className="app-sidebar-brand">
@@ -168,7 +173,7 @@ function Sidebar({ me }: { me: Me }) {
             <span id={`nav-group-${group}`} className="app-nav-group-title">
               {t(`group.${group}`)}
             </span>
-            <NavLinks items={items} surface="dark" />
+            <NavLinks items={items} surface="dark" counts={counts} />
           </div>
         ))}
       </nav>
