@@ -30,6 +30,7 @@ import {
   Globe,
   GraduationCap,
   Hash,
+  Images,
   Landmark,
   Mail,
   MapPin,
@@ -214,31 +215,6 @@ function Profile({
     ...(p.mobile
       ? [{ id: 'mobile', label: tf('form.mobile'), value: p.mobile, icon: Phone, copy: true }]
       : []),
-    ...(p.email
-      ? [{ id: 'email', label: tf('form.email'), value: p.email, icon: Mail, copy: true }]
-      : []),
-    ...(p.dateOfBirth
-      ? [
-          {
-            id: 'dob',
-            label: tf('form.date_of_birth'),
-            value: formatDate(p.dateOfBirth),
-            icon: CalendarDays,
-            showLabel: true,
-          },
-        ]
-      : []),
-    ...(p.bloodGroup
-      ? [
-          {
-            id: 'blood',
-            label: tf('form.blood_group'),
-            value: p.bloodGroup,
-            icon: Droplet,
-            showLabel: true,
-          },
-        ]
-      : []),
   ];
 
   const status = (
@@ -330,7 +306,6 @@ function Profile({
         avatar={<HeaderAvatar name={p.displayName} fileId={p.photoFileId} />}
         status={status}
         facts={facts}
-        aside={<DocumentStrip view={p} />}
         actions={hasActions ? actions : undefined}
         actionsLabel={t('actions_label')}
       />
@@ -393,14 +368,13 @@ function useDocumentSlots(view: View): DocumentSlot[] {
   ];
 }
 
-/** The documents beside the header: a thumbnail each, opened larger in a dialog. */
+/** The documents at the top of the profile's side: a thumbnail each, opened larger in a dialog. */
 function DocumentStrip({ view }: { view: View }) {
   const t = useTranslations('admin.volunteers.profile');
   const [open, setOpen] = useState<{ label: string; fileId: string } | null>(null);
   const slots = useDocumentSlots(view).filter((slot) => slot.visible);
   return (
-    <div className="admin-docs">
-      <p className="admin-docs-title">{t('documents_title', { count: slots.length })}</p>
+    <ProfileSection title={t('documents_title', { count: slots.length })} icon={Images}>
       <ul className="admin-docs-list">
         {slots.map((slot) => (
           <li key={slot.id}>
@@ -425,7 +399,7 @@ function DocumentStrip({ view }: { view: View }) {
       >
         {open && <FileImage fileId={open.fileId} alt={open.label} />}
       </Modal>
-    </div>
+    </ProfileSection>
   );
 }
 
@@ -456,7 +430,8 @@ function Thumb({
 function InfoTab({ view: p, registration }: { view: View; registration?: RegistrationDetailView }) {
   const t = useTranslations('admin.volunteers.profile');
   const tf = useTranslations('registration');
-  const empty = tf('profile.empty');
+  // a missing answer reads quieter than a given one
+  const empty = <span className="admin-blank">{tf('profile.empty')}</span>;
   const hidden = t('hidden');
   const items = (rows: [string, ReactNode, typeof User?][]) =>
     rows.map(([label, value, icon]) => ({ label, value, icon }));
@@ -633,6 +608,7 @@ function InfoTab({ view: p, registration }: { view: View; registration?: Registr
         </ProfileSection>
       </Grid>
       <Grid gap={3} as="aside">
+        <DocumentStrip view={p} />
         <ProfileSection title={t('contact')} icon={Phone}>
           {contacts.length > 0 ? <ContactList items={contacts} /> : <Text>{empty}</Text>}
         </ProfileSection>

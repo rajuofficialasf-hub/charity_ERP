@@ -197,10 +197,11 @@ describe('the volunteer profile for officials', () => {
     open();
     expect(await screen.findByText('1000000000501')).toBeInTheDocument();
     expect(screen.getByText('17-05-1990')).toBeInTheDocument();
-    // the header shows the visible key facts with a copy button
+    // the banner shows the NID and the mobile with a copy button; the rest is in the facts below
     expect(screen.getByText('NID নম্বর: 1000000000501')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'NID নম্বর কপি করুন' })).toBeInTheDocument();
-    expect(screen.getByText('রক্তের গ্রুপ: O+')).toBeInTheDocument();
+    expect(screen.queryByText('রক্তের গ্রুপ: O+')).toBeNull();
+    expect(screen.getByText('O+')).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'কাজ ও প্রজেক্ট' }));
     expect(await screen.findByText('শীতবস্ত্র 2026')).toBeInTheDocument();
     expect(screen.getByText('পেইড ভলান্টিয়ার')).toBeInTheDocument();
