@@ -296,6 +296,8 @@
 /* A profile's details beside its contact and history column (UX-22). */
 .admin-profile-grid {
   display: grid;
+  /* one column on a phone that never grows past the screen */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
   align-items: start;
 }

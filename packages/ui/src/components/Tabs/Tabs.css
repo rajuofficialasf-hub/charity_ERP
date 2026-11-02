@@ -1,5 +1,9 @@
 /* Tabs (DESIGN_SYSTEM 5.13): 3 px brand-gradient underline (UX-14); segmented track variant. */
 @layer components {
+  /* the tabs may be narrower than their row of tabs: the row then scrolls inside, the page does not */
+  .ui-tabs {
+    min-width: 0;
+  }
   .ui-tablist {
     min-height: 0;
     margin-bottom: var(--space-4);
