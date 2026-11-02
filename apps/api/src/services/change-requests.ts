@@ -123,6 +123,7 @@ export class ChangeRequestsService {
       const created = await tx.volunteerChangeRequest.create({
         data: {
           id: uuidv7(),
+          userId: principal.userId,
           volunteerId: volunteer.id,
           kind: EDIT,
           field: body.field,
@@ -283,7 +284,7 @@ export class ChangeRequestsService {
       where: cursor ? { AND: [filter, keysetWhere(sort, cursor)] } : filter,
       orderBy: orderBy(sort, direction),
       take: query.limit + 1,
-      include: { volunteer: { select: { user: { select: { displayName: true } } } } },
+      include: { user: { select: { displayName: true } } },
     });
     const { rows, meta } = buildPage(fetched, {
       limit: query.limit,
@@ -297,7 +298,7 @@ export class ChangeRequestsService {
       // the approver sees who asked
       rows: rows.map((r) => ({
         ...editView(r, visible(r.field, classes)),
-        volunteerName: r.volunteer.user.displayName,
+        volunteerName: r.user.displayName,
       })),
       meta,
     };
@@ -320,14 +321,14 @@ export class ChangeRequestsService {
       await tx.$queryRaw`SELECT id FROM volunteer_change_requests WHERE id = ${requestId}::uuid FOR UPDATE`;
       const found = await tx.volunteerChangeRequest.findFirst({
         where: { id: requestId, kind: EDIT, volunteer: volunteerWhere(scope) },
-        include: { volunteer: { select: { userId: true } } },
       });
-      if (!found) {
+      // a request with no volunteer is an official's, which this volunteer path never decides
+      if (!found?.volunteerId) {
         this.access.denied(actor.userId, scope.permission, scope.entity);
         throw new ApiError('permission.not_found', 404);
       }
       if (found.status !== 'submitted') throw new ApiError('user.transition_not_allowed', 409);
-      const owner = found.volunteer.userId;
+      const owner = found.userId;
       const field = editField.parse(found.field);
       if (body.decision === 'approve')
         await this.apply(tx, owner, found.volunteerId, field, found.newValue);

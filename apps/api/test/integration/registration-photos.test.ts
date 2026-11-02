@@ -328,6 +328,7 @@ describe('POST /me/photos/{slot}', () => {
     const volunteerId = await f.volunteer(h.db, loc, user.id);
     const requestId = await f.insert(h.db, 'volunteer_change_requests', {
       id: randomUUID(),
+      user_id: user.id,
       volunteer_id: volunteerId,
       kind: 'registration_correction',
       field,

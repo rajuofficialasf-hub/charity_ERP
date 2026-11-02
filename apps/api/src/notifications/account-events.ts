@@ -125,9 +125,10 @@ export class AccountEvents {
   async editRequestSubmitted(tx: Tx, requestId: string): Promise<void> {
     const request = await tx.volunteerChangeRequest.findUnique({
       where: { id: requestId },
-      select: { field: true, volunteerId: true, volunteer: { select: { userId: true } } },
+      select: { field: true, volunteerId: true, userId: true },
     });
-    if (!request) return;
+    // an official's request reaches its own approvers, not a volunteer's
+    if (!request?.volunteerId) return;
     await this.notifications.publish(tx, {
       key: 'edit_request_submitted',
       recipients: [
@@ -141,7 +142,7 @@ export class AccountEvents {
       ],
       params: { field_name: fieldName([request.field]) },
       about: requestId,
-      actorId: request.volunteer.userId,
+      actorId: request.userId,
     });
   }
 

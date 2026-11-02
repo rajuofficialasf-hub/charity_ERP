@@ -108,7 +108,7 @@ function pendingView(u: PendingRow) {
 
 type ChangeRow = {
   id: string;
-  volunteerId: string;
+  volunteerId: string | null;
   kind: string;
   field: string;
   newValue: string | null;
@@ -518,6 +518,7 @@ export class RegistrationsService {
           await tx.volunteerChangeRequest.create({
             data: {
               id: uuidv7(),
+              userId,
               volunteerId: volunteer.id,
               kind: CORRECTION,
               field,
@@ -641,7 +642,9 @@ export class RegistrationsService {
         volunteer: { userId: principal.userId, user: { state: 'pending' } },
       },
     });
-    if (!row) throw new ApiError('permission.not_found', 404);
+    // a correction always names its volunteer (the table's person check)
+    if (!row?.volunteerId) throw new ApiError('permission.not_found', 404);
+    const volunteerId = row.volunteerId;
     const field = row.field as CorrectionField;
     const schema = CORRECTION_FIELD_VALUES[field];
     const parsed = schema?.safeParse(body.newValue);
@@ -668,11 +671,11 @@ export class RegistrationsService {
     const updated = await this.prisma.$transaction(async (tx) => {
       if (field === 'nid') {
         const taken = await tx.volunteer.count({
-          where: { nid: value as string, NOT: { id: row.volunteerId } },
+          where: { nid: value as string, NOT: { id: volunteerId } },
         });
         if (taken) throw new ApiError('registration.nid_exists', 409);
       }
-      await applyField(tx, principal.userId, row.volunteerId, field, value);
+      await applyField(tx, principal.userId, volunteerId, field, value);
       const saved = await tx.volunteerChangeRequest.update({
         where: { id: row.id },
         data: {

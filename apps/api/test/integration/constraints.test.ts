@@ -18,6 +18,23 @@ beforeAll(async () => {
 });
 afterAll(async () => drop());
 
+describe('change requests of volunteers and officials', () => {
+  it('an official asks without a volunteer; a registration correction always names one', async () => {
+    const official = await f.user(db);
+    await db.query(
+      `INSERT INTO volunteer_change_requests (id, user_id, kind, field, requested_by) VALUES ($1, $2, 'profile_edit', 'designation', $2)`,
+      [randomUUID(), official],
+    );
+    await expectSqlError(
+      db.query(
+        `INSERT INTO volunteer_change_requests (id, user_id, kind, field, requested_by) VALUES ($1, $2, 'registration_correction', 'name', $2)`,
+        [randomUUID(), official],
+      ),
+      SQLSTATE.checkViolation,
+    );
+  });
+});
+
 describe('beneficiary identity (BR-001, BR-002, BR-003)', () => {
   it('BR-003 NID is unique', async () => {
     const nid = f.fakeNid();

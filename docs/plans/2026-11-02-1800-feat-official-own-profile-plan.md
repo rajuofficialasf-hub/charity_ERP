@@ -49,7 +49,7 @@ An official opens "আমার প্রোফাইল" and sees who they are,
 ### U2. The shared change-request table
 - **Files:** `apps/api/prisma/schema.prisma`, a migration with `down.sql`, `apps/api/src/services/change-requests.ts` and `registrations.ts` (write `user_id`), their tests.
 - **Tests:** integration: the migration's up and down keep every existing request with its person; a volunteer's request flow unchanged (the existing tests); the check refuses a volunteer kind without a volunteer.
-- **Depends on:** U1 · **Size:** M · **Risk area:** migration · **Status:** todo
+- **Depends on:** U1 · **Size:** M · **Risk area:** migration · **Status:** done
 
 ### U3. The own profile read and the photos out
 - **Files:** `apps/api/src/services/users.ts` (or a new `own-profile.ts`), `routes/me.ts`, `services/auth.ts` (`Me.photoFileId`), `services/files.ts` (an official's photo readable by those who see the staff list), the staff list and detail, the beneficiary list row, `@css/shared/auth`, `docs/api/openapi.yaml`.
@@ -106,7 +106,7 @@ An official opens "আমার প্রোফাইল" and sees who they are,
 ## Progress
 - **Branch:** `feat/official-own-profile` (from `main` after PR #37)
 - **Updated:** 2026-11-02
-- **Next:** U2: the shared change-request table (migration with `down.sql`)
+- **Next:** checkpoint C1 (`ae-review` over U1 and U2), then U3: the own profile read and the photos out
 - **Reviewed through:** none
 - **Uncommitted:** none
-- **Notes:** the owner's answers of 2026-11-02 are in the Goal and the Key decisions. U1: the work summary is T5.2 in PLAN.md (not T5.3); `work_summary.view` (T5.2) also grants an RPM in their own region, which the owner did not choose for these figures, so `staff.work.view` is its own permission. The seed test compared the permission names in two orders (Postgres vs `localeCompare`); `staff.` and `staff_` exposed it, and both sides now sort by code point.
+- **Notes:** the owner's answers of 2026-11-02 are in the Goal and the Key decisions. U1: the work summary is T5.2 in PLAN.md (not T5.3); `work_summary.view` (T5.2) also grants an RPM in their own region, which the owner did not choose for these figures, so `staff.work.view` is its own permission. The seed test compared the permission names in two orders (Postgres vs `localeCompare`); `staff.` and `staff_` exposed it, and both sides now sort by code point. U2: `volunteer_change_requests.user_id` (backfilled from the volunteer) and a nullable `volunteer_id` with the person check; every volunteer path keeps working on volunteer requests only (a request without a volunteer is an official's and is not found there; its notice is skipped) until U5 gives officials their own path. The database tests ran 96 of 96 with `--maxWorkers=2`; the default run lost one worker to the machine's Node crash.

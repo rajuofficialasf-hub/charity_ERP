@@ -69,6 +69,12 @@ describe('edit requests', () => {
       field: 'address',
       status: 'submitted',
     });
+    // the request names the person it is about as well as the volunteer
+    const stored = await h.db.query(
+      'SELECT user_id, volunteer_id FROM volunteer_change_requests WHERE id = $1',
+      [created.body.data.id],
+    );
+    expect(stored.rows[0]).toEqual({ user_id: v.account.id, volunteer_id: v.volunteerId });
     const rpm = await as(world.users.rpmDhaka);
     const pending = await api().get('/api/v1/edit-requests').set(bearer(rpm));
     expect(pending.body.data.map((r: { id: string }) => r.id)).toContain(created.body.data.id);
