@@ -13,7 +13,7 @@ const ACCOUNTS = {
 } as const;
 const accounts = (project: string) => ACCOUNTS[project === 'mobile' ? 'mobile' : 'desktop'];
 
-/** Signs in and returns the display name from the home heading ("স্বাগতম, <name>"). */
+/** Signs in and returns the display name from the profile chip of the app bar. */
 async function signIn(page: Page, loginId: string): Promise<string> {
   await page.goto('/login');
   await expect(page.getByRole('button', { name: 'লগইন', exact: true })).toBeEnabled();
@@ -24,9 +24,9 @@ async function signIn(page: Page, loginId: string): Promise<string> {
     .fill(PASSWORD);
   await page.getByRole('button', { name: 'লগইন', exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
-  const heading = page.getByRole('heading', { level: 1, name: /^স্বাগতম, / });
-  await expect(heading).toBeVisible();
-  return ((await heading.textContent()) ?? '').replace(/^স্বাগতম, /, '');
+  await expect(page.getByRole('heading', { level: 1, name: 'আমার কাজ' })).toBeVisible();
+  // the chip's name is in the page on a phone too, where only its letter shows
+  return (await page.locator('.app-user-name').textContent()) ?? '';
 }
 
 const mainMenu = (page: Page) => page.getByRole('navigation', { name: 'প্রধান মেনু' });

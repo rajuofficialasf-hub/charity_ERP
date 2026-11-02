@@ -19,10 +19,12 @@ import { isLater, widgetsFor } from './widgets';
 export function MyWorkPage() {
   const t = useTranslations('auth');
   const th = useTranslations('home.page');
+  const tn = useTranslations('nav');
   const tc = useTranslations('common.app');
   return (
     <AccountPage
-      title={(me) => t('home.welcome', { name: me.displayName })}
+      // the page is named for what it holds; it greets no one
+      title={() => tn('my_work')}
       eyebrow={th('eyebrow')}
       description={th('description')}
       wide

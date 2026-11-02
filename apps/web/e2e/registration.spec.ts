@@ -213,7 +213,7 @@ async function signIn(page: Page, loginId: string, password: string) {
     .first()
     .fill(password);
   await page.getByRole('button', { name: 'লগইন', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: /^স্বাগতম, / })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'আমার কাজ' })).toBeVisible();
 }
 
 test.describe('registration on a phone', () => {
@@ -287,7 +287,7 @@ test.describe('registration approval', () => {
 
     // the volunteer's home no longer shows the pending message
     await mobile.goto('/');
-    await expect(mobile.getByRole('heading', { level: 1, name: /^স্বাগতম, / })).toBeVisible();
+    await expect(mobile.getByRole('heading', { level: 1, name: 'আমার কাজ' })).toBeVisible();
     await expect(
       mobile.getByText('আপনার নিবন্ধন অনুমোদনের অপেক্ষায়', { exact: false }),
     ).toHaveCount(0);

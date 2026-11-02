@@ -61,7 +61,8 @@ describe('My Work home', () => {
     server.use(http.get('*/api/v1/me/projects', () => ok([PROJECT])));
     const { container } = openHome(VOLUNTEER);
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'স্বাগতম, স্বেচ্ছাসেবক (নমুনা)' }),
+      // the page is named for what it holds, without a greeting (owner, 2026-11-02)
+      await screen.findByRole('heading', { level: 1, name: 'আমার কাজ' }),
     ).toBeInTheDocument();
     const attention = screen.getByRole('region', { name: 'এখন আপনার কাজ' });
     expect(
