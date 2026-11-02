@@ -1,7 +1,6 @@
 import type { Me } from '@css/shared/auth';
-import { type MenuAction, MenuButton } from '@css/ui';
+import { IconTile, type MenuAction, MenuButton } from '@css/ui';
 import {
-  CircleUser,
   Download,
   FileDown,
   KeyRound,
@@ -92,8 +91,12 @@ export function ProfileMenu({ me, withLanguage }: { me: Me; withLanguage: boolea
   ];
   return (
     <>
-      <MenuButton label={t('profile_menu')} icon={CircleUser} items={items}>
-        <span className="app-user-name">{me.displayName}</span>
+      <MenuButton label={t('profile_menu')} items={items} className="app-profile-chip">
+        <IconTile name={me.displayName} size="sm" />
+        <span className="app-user-text">
+          <span className="app-user-name">{me.displayName}</span>
+          <span className="app-user-kind">{t(`kind.${me.kind}`)}</span>
+        </span>
       </MenuButton>
       {warning !== null && (
         <LogoutWarning
