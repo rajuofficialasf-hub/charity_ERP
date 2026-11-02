@@ -24,6 +24,20 @@ describe('NavItem', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('draws itself for the dark sidebar and keeps its count in the name', async () => {
+    const { container } = renderWithUi(
+      <nav aria-label="Main" style={{ background: '#0f2920' }}>
+        <NavItem icon={Bell} label="Registrations" href="/r" surface="dark" active badge={4} />
+        <NavItem icon={Bell} label="Projects" href="/p" surface="dark" />
+      </nav>,
+    );
+    const current = screen.getByRole('link', { name: /Registrations/ });
+    expect(current).toHaveClass('ui-nav-dark');
+    expect(current.getAttribute('aria-label')).toMatch(/4/);
+    expect(screen.getByRole('link', { name: 'Projects' })).toHaveClass('ui-nav-dark');
+    await expectNoAxeViolations(container);
+  });
+
   it('goes to its page through the app router, without a page load', async () => {
     const navigate = vi.fn();
     const user = userEvent.setup();

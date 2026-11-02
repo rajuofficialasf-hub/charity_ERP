@@ -1,5 +1,5 @@
 import type { Me } from '@css/shared/auth';
-import { OfflineBanner, type OfflineBannerProps } from '@css/ui';
+import { IconTile, OfflineBanner, type OfflineBannerProps } from '@css/ui';
 import { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { useTranslations } from 'use-intl';
@@ -47,7 +47,7 @@ function Shell({ me }: { me: Me }) {
       <div
         className={`app-shell app-shell-${sidebar ? 'sidebar' : width === 'phone' ? 'tabs' : 'rail'}`}
       >
-        <AppBar me={me} phone={width === 'phone'} />
+        <AppBar me={me} phone={width === 'phone'} withBrand={!sidebar} />
         {sidebar ? (
           <Sidebar me={me} />
         ) : (
@@ -114,23 +114,52 @@ function useBanner(online: boolean, status: SyncStatus, volunteer: boolean): Ban
   return null;
 }
 
+/**
+ * The official's sidebar on a desktop, on the brand ink: the Foundation's mark and name, the
+ * destinations by group, a help card and the signed-in person at the bottom.
+ */
 function Sidebar({ me }: { me: Me }) {
   const t = useTranslations('nav');
+  const ta = useTranslations('common.app');
   return (
-    <nav className="app-sidebar" aria-label={t('label')}>
-      {sidebarFor(me).map(({ group, items }) => (
-        <div
-          key={group}
-          role="group"
-          aria-labelledby={`nav-group-${group}`}
-          className="app-nav-group"
-        >
-          <span id={`nav-group-${group}`} className="app-nav-group-title">
-            {t(`group.${group}`)}
-          </span>
-          <NavLinks items={items} />
+    <div className="app-sidebar" data-testid="sidebar">
+      <a href="/" className="app-sidebar-brand">
+        <span className="app-sidebar-mark">
+          <img src="/brand/logo.svg" alt="" width={30} height={19} />
+        </span>
+        <span className="app-sidebar-names">
+          <strong>{ta('organization')}</strong>
+          <small>{ta('name')}</small>
+        </span>
+      </a>
+      <nav className="app-sidebar-nav" aria-label={t('label')}>
+        {sidebarFor(me).map(({ group, items }) => (
+          <div
+            key={group}
+            role="group"
+            aria-labelledby={`nav-group-${group}`}
+            className="app-nav-group"
+          >
+            <span id={`nav-group-${group}`} className="app-nav-group-title">
+              {t(`group.${group}`)}
+            </span>
+            <NavLinks items={items} surface="dark" />
+          </div>
+        ))}
+      </nav>
+      <div className="app-sidebar-foot">
+        <div className="app-help">
+          <p className="app-help-title">{t('help.title')}</p>
+          <p>{t('help.text')}</p>
         </div>
-      ))}
-    </nav>
+        <div className="app-sidebar-person">
+          <IconTile name={me.displayName} size="sm" />
+          <span className="app-sidebar-person-text">
+            <span className="app-sidebar-person-name">{me.displayName}</span>
+            <span className="app-sidebar-person-kind">{t(`kind.${me.kind}`)}</span>
+          </span>
+        </div>
+      </div>
+    </div>
   );
 }

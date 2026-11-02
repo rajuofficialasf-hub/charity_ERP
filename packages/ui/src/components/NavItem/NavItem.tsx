@@ -16,6 +16,8 @@ export interface NavItemProps {
   /** Unread or pending count; "99+" above 99; part of the accessible name. */
   badge?: number;
   variant?: 'sidebar' | 'rail' | 'tab-bar' | 'sheet';
+  /** dark for the desktop sidebar on the brand ink (DESIGN_SYSTEM 4.1). */
+  surface?: 'light' | 'dark';
   className?: string;
 }
 
@@ -27,6 +29,7 @@ export function NavItem({
   active = false,
   badge,
   variant = 'sidebar',
+  surface = 'light',
   className,
 }: NavItemProps) {
   const { messages, formatNumber } = useUi();
@@ -39,7 +42,12 @@ export function NavItem({
   return (
     <UiLink
       href={href}
-      className={cx('ui-nav-item', `ui-nav-${variant}`, className)}
+      className={cx(
+        'ui-nav-item',
+        `ui-nav-${variant}`,
+        surface === 'dark' && 'ui-nav-dark',
+        className,
+      )}
       aria-current={active ? 'page' : undefined}
       aria-label={count ? fill(messages.common.countName, { label, count }) : undefined}
     >

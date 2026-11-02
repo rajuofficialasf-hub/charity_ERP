@@ -107,13 +107,19 @@ describe('app shell', () => {
       'href',
       '/admin/audit',
     );
-    // the app bar: the logo with the system name, the bell, the language and the profile menu
+    // the dark sidebar carries the Foundation's mark and name, a help card and the person
+    const sidebar = screen.getByTestId('sidebar');
+    expect(
+      within(sidebar).getByRole('link', {
+        name: /আস-সুন্নাহ ফাউন্ডেশন.*চ্যারিটি ও সোশ্যাল সার্ভিস/,
+      }),
+    ).toHaveAttribute('href', '/');
+    expect(within(sidebar).getByText('সহায়তা প্রয়োজন?')).toBeInTheDocument();
+    expect(within(sidebar).getByText('ডিপার্টমেন্ট হেড (নমুনা)')).toBeInTheDocument();
+    expect(within(sidebar).getByText('কর্মকর্তা')).toBeInTheDocument();
+    // the app bar beside it: the bell, the language and the profile menu, no second logo
     const bar = screen.getByRole('banner');
-    expect(within(bar).getByRole('link', { name: /চ্যারিটি ও সোশ্যাল সার্ভিস/ })).toHaveAttribute(
-      'href',
-      '/',
-    );
-    expect(within(bar).getByRole('img', { name: 'আস-সুন্নাহ ফাউন্ডেশন' })).toBeInTheDocument();
+    expect(within(bar).queryByRole('img', { name: 'আস-সুন্নাহ ফাউন্ডেশন' })).toBeNull();
     expect(within(bar).getByRole('link', { name: 'নোটিফিকেশন' })).toBeInTheDocument();
     // an official keeps nothing on the device: no sync chip
     expect(within(bar).queryByRole('link', { name: /সিঙ্কের অবস্থা/ })).toBeNull();
