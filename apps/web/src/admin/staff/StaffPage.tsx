@@ -12,6 +12,7 @@ import {
   type TableColumn,
   TableToolbar,
   Tabs,
+  PageHeader,
 } from '@css/ui';
 import { keepPreviousData, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CircleCheck, Clock, IdCard, Link2, Pencil, UserPlus } from 'lucide-react';
@@ -80,17 +81,19 @@ export function StaffPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <div className="admin-title-row">
-        <h1 className="admin-title">{t('title')}</h1>
-        <div className="admin-title-actions">
-          <StaffViewSwitch value="list" />
-          {manage && (
-            <Button icon={UserPlus} onPress={() => setCreating(true)}>
-              {t('new')}
-            </Button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title={t('title')}
+        actions={
+          <>
+            <StaffViewSwitch value="list" />
+            {manage && (
+              <Button icon={UserPlus} onPress={() => setCreating(true)}>
+                {t('new')}
+              </Button>
+            )}
+          </>
+        }
+      />
       <StatisticsBar
         label={t('stats.label')}
         loading={counts.some((c) => c.isPending)}

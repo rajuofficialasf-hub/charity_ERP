@@ -12,6 +12,7 @@ import {
   Skeleton,
   Stack,
   Text,
+  PageHeader,
 } from '@css/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, UserCheck } from 'lucide-react';
@@ -142,14 +143,18 @@ export function RegistrationReview({
   return (
     <>
       <DocumentTitle title={r.displayName} />
-      <h1 className="admin-title">{r.displayName}</h1>
-      <Stack direction="row" wrap gap={2}>
-        <Badge label={r.kind === 'staff' ? t('kind.staff') : t('kind.volunteer')} />
-        <Badge
-          tone={r.status === 'in_correction' ? 'warning' : 'info'}
-          label={t(`status.${r.status}`)}
-        />
-      </Stack>
+      <PageHeader
+        title={r.displayName}
+        meta={
+          <>
+            <Badge label={r.kind === 'staff' ? t('kind.staff') : t('kind.volunteer')} />
+            <Badge
+              tone={r.status === 'in_correction' ? 'warning' : 'info'}
+              label={t(`status.${r.status}`)}
+            />
+          </>
+        }
+      />
       {notice && (
         <Alert tone="success" live="status" onDismiss={() => setNotice(null)}>
           {notice}

@@ -9,6 +9,7 @@ import {
   ErrorState,
   Select,
   Skeleton,
+  PageHeader,
 } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -241,7 +242,7 @@ export function OrganogramPage() {
               ...programs.map((p) => ({ id: p.programId, label: localized(p.name, locale) })),
             ]}
           />
-          <div className="admin-title-actions">
+          <div className="org-actions">
             <span className="org-zoom" role="group" aria-label={t('zoom')}>
               <Button
                 variant="ghost"
@@ -367,10 +368,7 @@ export function OrganogramPage() {
           { id: 'chart', label: t('title') },
         ]}
       />
-      <div className="admin-title-row">
-        <h1 className="admin-title">{t('title')}</h1>
-        <StaffViewSwitch value="chart" />
-      </div>
+      <PageHeader title={t('title')} actions={<StaffViewSwitch value="chart" />} />
       {content()}
     </>
   );

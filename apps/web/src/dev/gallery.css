@@ -9,19 +9,8 @@
     padding: var(--space-5);
   }
 }
-.gallery-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--space-4);
-  margin-bottom: var(--space-5);
-}
 .gallery-section-title {
   margin-bottom: var(--space-3);
-}
-.gallery-muted {
-  color: var(--color-text-secondary);
 }
 
 /* the type scale, one sample per step */

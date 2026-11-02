@@ -10,6 +10,7 @@ import {
   Switch,
   Table,
   type TableColumn,
+  PageHeader,
 } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRightLeft, Pencil, UserMinus, UserPlus, Users } from 'lucide-react';
@@ -169,14 +170,16 @@ export function ProjectVolunteersPage() {
     <>
       <DocumentTitle title={t('title', { name })} />
       <Link to={`/admin/projects/${projectId}`}>{t('back')}</Link>
-      <div className="admin-title-row">
-        <h1 className="admin-title">{t('title', { name })}</h1>
-        {assigns && (
-          <Button icon={UserPlus} onPress={() => setAssigning(true)}>
-            {t('assign')}
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        title={t('title', { name })}
+        actions={
+          assigns && (
+            <Button icon={UserPlus} onPress={() => setAssigning(true)}>
+              {t('assign')}
+            </Button>
+          )
+        }
+      />
       {notice && (
         <Alert tone="success" live="status" onDismiss={() => setNotice(undefined)}>
           {notice}

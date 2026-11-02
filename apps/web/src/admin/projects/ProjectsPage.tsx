@@ -8,6 +8,7 @@ import {
   Table,
   type TableColumn,
   TableToolbar,
+  PageHeader,
 } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import { FolderKanban } from 'lucide-react';
@@ -40,12 +41,14 @@ export function ProjectsPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <div className="admin-title-row">
-        <h1 className="admin-title">{t('title')}</h1>
-        {canCreateProjects(me) && (
-          <Button onPress={() => void navigate('/admin/projects/new')}>{t('new')}</Button>
-        )}
-      </div>
+      <PageHeader
+        title={t('title')}
+        actions={
+          canCreateProjects(me) && (
+            <Button onPress={() => void navigate('/admin/projects/new')}>{t('new')}</Button>
+          )
+        }
+      />
       <ProjectList programNames={canSeePrograms(me)} />
     </>
   );

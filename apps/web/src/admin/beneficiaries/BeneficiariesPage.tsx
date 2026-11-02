@@ -18,6 +18,7 @@ import {
   Table,
   type TableColumn,
   TableToolbar,
+  PageHeader,
 } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import { Ban, Copy, EllipsisVertical, HandHeart, Search, User, Users } from 'lucide-react';
@@ -75,23 +76,25 @@ export function BeneficiariesPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <div className="admin-title-row">
-        <h1 className="admin-title">{t('title')}</h1>
-        {(canLookUpBeneficiaries(me) || canReviewDuplicates(me)) && (
-          <Stack direction="row" wrap gap={2}>
-            {canReviewDuplicates(me) && (
-              <Button variant="secondary" icon={Copy} href={DUPLICATES_PATH}>
-                {t('duplicates.title')}
-              </Button>
-            )}
-            {canLookUpBeneficiaries(me) && (
-              <Button variant="secondary" icon={Search} onPress={() => setLookup(true)}>
-                {t('lookup.open')}
-              </Button>
-            )}
-          </Stack>
-        )}
-      </div>
+      <PageHeader
+        title={t('title')}
+        actions={
+          (canLookUpBeneficiaries(me) || canReviewDuplicates(me)) && (
+            <Stack direction="row" wrap gap={2}>
+              {canReviewDuplicates(me) && (
+                <Button variant="secondary" icon={Copy} href={DUPLICATES_PATH}>
+                  {t('duplicates.title')}
+                </Button>
+              )}
+              {canLookUpBeneficiaries(me) && (
+                <Button variant="secondary" icon={Search} onPress={() => setLookup(true)}>
+                  {t('lookup.open')}
+                </Button>
+              )}
+            </Stack>
+          )
+        }
+      />
       {lookup && <LookupDialog onClose={() => setLookup(false)} />}
       <BeneficiaryTab details={canSeeBeneficiaryDetails(me)} union={canSeeBeneficiaryAddress(me)} />
     </>

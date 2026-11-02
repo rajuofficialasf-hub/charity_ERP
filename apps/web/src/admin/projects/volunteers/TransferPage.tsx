@@ -14,6 +14,7 @@ import {
   Switch,
   Text,
   TextArea,
+  PageHeader,
 } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ClipboardList } from 'lucide-react';
@@ -166,8 +167,7 @@ function Transfer({ assigns, movesTeams }: { assigns: boolean; movesTeams: boole
     <Stack gap={3}>
       <DocumentTitle title={t('title', { name })} />
       <Link to={`/admin/projects/${projectId}/volunteers`}>{t('back')}</Link>
-      <h1 className="admin-title">{t('title', { name })}</h1>
-      <Text tone="muted">{t('help')}</Text>
+      <PageHeader title={t('title', { name })} description={t('help')} />
       {result ? (
         <Alert tone="success" live="status" onDismiss={() => setResult(null)}>
           {result.teamMoved

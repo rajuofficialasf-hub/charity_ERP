@@ -10,6 +10,7 @@ import {
   Skeleton,
   Stack,
   Text,
+  PageHeader,
 } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRightLeft, CheckCheck, UserX } from 'lucide-react';
@@ -65,7 +66,7 @@ export function HandoverPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <h1 className="admin-title">{t('title')}</h1>
+      <PageHeader title={t('title')} />
       <UserSearch
         label={t('search')}
         helper={t('search_hint')}

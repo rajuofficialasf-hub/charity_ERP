@@ -14,6 +14,7 @@ import {
   Avatar,
   Badge,
   IconTile,
+  PageHeader,
   PersonCell,
   Breadcrumb,
   BulkList,
@@ -267,13 +268,12 @@ function GalleryBody() {
 
   return (
     <main className="gallery">
-      <header className="gallery-head">
-        <div>
-          <h1>{t('title')}</h1>
-          <p className="gallery-muted">{t('intro')}</p>
-        </div>
-        <LanguageSwitch />
-      </header>
+      <PageHeader
+        eyebrow={t('eyebrow')}
+        title={t('title')}
+        description={t('intro')}
+        actions={<LanguageSwitch />}
+      />
 
       <Stack gap={6}>
         <Section id="type" title={t('sections.type')}>

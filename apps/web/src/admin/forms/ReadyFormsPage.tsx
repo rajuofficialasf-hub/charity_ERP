@@ -1,5 +1,5 @@
 import { localized, type Locale } from '@css/shared/i18n';
-import { Badge, Button, EmptyState, ErrorState, Skeleton, Stack, Text } from '@css/ui';
+import { Badge, Button, EmptyState, ErrorState, Skeleton, Stack, Text, PageHeader } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
@@ -36,15 +36,17 @@ function ReadyFormsList() {
   return (
     <>
       <DocumentTitle title={tr('title')} />
-      <div className="admin-title-row">
-        <h1 className="admin-title">{tr('title')}</h1>
-        <Stack direction="row" gap={2} wrap>
-          <Button variant="secondary" onPress={() => void navigate('/admin/question-library')}>
-            {tr('edit_library')}
-          </Button>
-          <Button onPress={() => setCreating(true)}>{tr('new')}</Button>
-        </Stack>
-      </div>
+      <PageHeader
+        title={tr('title')}
+        actions={
+          <Stack direction="row" gap={2} wrap>
+            <Button variant="secondary" onPress={() => void navigate('/admin/question-library')}>
+              {tr('edit_library')}
+            </Button>
+            <Button onPress={() => setCreating(true)}>{tr('new')}</Button>
+          </Stack>
+        }
+      />
       <Text tone="muted">{tr('intro')}</Text>
       {list.data.length === 0 ? (
         <EmptyState title={tr('none')} message={tr('none_hint')} />

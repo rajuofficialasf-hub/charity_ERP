@@ -18,6 +18,7 @@ import {
   Table,
   type TableColumn,
   TableToolbar,
+  PageHeader,
 } from '@css/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -83,7 +84,7 @@ export function VolunteersPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <h1 className="admin-title">{t('title')}</h1>
+      <PageHeader title={t('title')} />
       {notice && (
         <Alert
           tone="success"

@@ -1,5 +1,5 @@
 import { localized, type Locale } from '@css/shared/i18n';
-import { Alert, ErrorState, Skeleton, Stepper, type StepMark } from '@css/ui';
+import { Alert, ErrorState, Skeleton, Stepper, type StepMark, PageHeader } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, Rocket } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
@@ -131,10 +131,7 @@ function WizardHead({
   return (
     <header className="admin-wizard-head">
       {back}
-      <div className="admin-title-row">
-        <h1 className="admin-title">{title}</h1>
-        {badge}
-      </div>
+      <PageHeader title={title} meta={badge} />
       <Stepper
         label={t('steps')}
         steps={steps.map((s) => ts(s))}

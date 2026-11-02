@@ -11,6 +11,7 @@
 @import '../components/Avatar/Avatar.css';
 @import '../components/IconTile/IconTile.css';
 @import '../components/PersonCell/PersonCell.css';
+@import '../components/PageHeader/PageHeader.css';
 @import '../components/ProgressBar/ProgressBar.css';
 @import '../components/Skeleton/Skeleton.css';
 @import '../components/Card/Card.css';

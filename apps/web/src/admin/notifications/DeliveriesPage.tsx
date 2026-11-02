@@ -11,6 +11,7 @@ import {
   Table,
   type TableColumn,
   TableToolbar,
+  PageHeader,
 } from '@css/ui';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Send } from 'lucide-react';
@@ -116,8 +117,7 @@ export function DeliveriesPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <h1 className="admin-title">{t('title')}</h1>
-      <p className="admin-muted">{t('intro')}</p>
+      <PageHeader title={t('title')} description={t('intro')} />
       <Table
         label={t('table')}
         columns={columns}

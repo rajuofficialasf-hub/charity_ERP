@@ -9,6 +9,7 @@ import {
   Switch,
   Table,
   type TableColumn,
+  PageHeader,
 } from '@css/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { LayoutTemplate, Pencil } from 'lucide-react';
@@ -73,12 +74,14 @@ export function TemplatesPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <div className="admin-title-row">
-        <h1 className="admin-title">{t('title')}</h1>
-        <Switch isSelected={inactive} onChange={setInactive}>
-          {t('show_inactive')}
-        </Switch>
-      </div>
+      <PageHeader
+        title={t('title')}
+        actions={
+          <Switch isSelected={inactive} onChange={setInactive}>
+            {t('show_inactive')}
+          </Switch>
+        }
+      />
       {notice && (
         <Alert tone="success" live="status" onDismiss={() => setNotice(undefined)}>
           {notice}

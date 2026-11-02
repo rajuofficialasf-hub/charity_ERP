@@ -6,6 +6,7 @@ import { ForbiddenContent } from '../AdminLayout';
 import { canManagePermissions } from '../roles';
 import { type PanelUser, UserSearch } from '../UserSearch';
 import { EffectivePermissions } from './EffectivePermissions';
+import { PageHeader } from '@css/ui';
 
 /**
  * The permission panel (SCR-062, RBAC.md 7): the Department Head and the Monitoring Team find a
@@ -22,7 +23,7 @@ export function PermissionsPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <h1 className="admin-title">{t('title')}</h1>
+      <PageHeader title={t('title')} />
       <UserSearch
         label={t('search')}
         helper={t('search_hint')}

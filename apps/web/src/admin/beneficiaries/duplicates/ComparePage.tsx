@@ -13,6 +13,7 @@ import {
   RadioGroup,
   Skeleton,
   Stack,
+  PageHeader,
 } from '@css/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { GitMerge, UserX } from 'lucide-react';
@@ -90,7 +91,7 @@ function Compare({ a, b, proposalId }: { a: string; b: string; proposalId: strin
     <>
       <DocumentTitle title={tm('title')} />
       {crumbs}
-      <h1 className="admin-title">{tm('title')}</h1>
+      <PageHeader title={tm('title')} />
     </>
   );
   const failed = [first, second].find((q) => q.error);

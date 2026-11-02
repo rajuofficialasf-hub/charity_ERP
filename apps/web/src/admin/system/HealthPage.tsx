@@ -11,6 +11,7 @@ import {
   Table,
   type TableColumn,
   Text,
+  PageHeader,
 } from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useLocale, useTranslations } from 'use-intl';
@@ -50,7 +51,7 @@ export function HealthPage() {
   const title = (
     <>
       <DocumentTitle title={t('title')} />
-      <h1 className="admin-title">{t('title')}</h1>
+      <PageHeader title={t('title')} />
     </>
   );
   if (health.isPending)

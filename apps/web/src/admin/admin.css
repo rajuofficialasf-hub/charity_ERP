@@ -10,26 +10,6 @@
   max-width: var(--content-max);
   padding: var(--space-4);
 }
-.admin-title {
-  font-size: var(--text-display);
-  font-weight: var(--font-weight-bold);
-  line-height: var(--leading-heading);
-  margin: 0;
-}
-/* a page title with its main action beside it; the action wraps below on a phone */
-.admin-title-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-/* several actions beside a title wrap among themselves instead of widening the page */
-.admin-title-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
 .admin-muted {
   margin: var(--space-2) 0 0;
   color: var(--color-text-secondary);

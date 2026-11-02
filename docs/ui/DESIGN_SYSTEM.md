@@ -531,11 +531,12 @@ Supporting pieces used by several components: **Icon** (Lucide, 20 px default, 1
 | --- | --- |
 | `eyebrow` | the area label, short text |
 | `title` | the page title, the page's only `h1` |
+| `meta` | a badge or a status beside the title |
 | `description` | one line: what the page is for, or its context |
 | `actions` | the page's buttons |
 
 - Look: the eyebrow in Label, `--color-brand-primary-dark`, after a 6 px brand dot with a 3 px brand-tint halo; the title in Display; the description in Body, secondary. The actions sit on the right, aligned to the title's baseline, and wrap under the title below 768 px.
-- A page the owner has not designed yet keeps its title and actions and has no eyebrow or description until its mockup (D-145).
+- A page the owner has not designed yet keeps its title and actions and has no eyebrow or description until its mockup (D-145); an intro line it already had becomes its description.
 - The public pages keep `PageBand` (UX-16), the visitor's centred title band.
 - Accessibility: the title is the page's only `h1`; the eyebrow and the description are plain text read in order.
 

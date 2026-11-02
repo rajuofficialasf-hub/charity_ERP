@@ -1,5 +1,14 @@
 import { type Locale, localized } from '@css/shared/i18n';
-import { Alert, Badge, Button, EmptyState, ErrorState, Table, type TableColumn } from '@css/ui';
+import {
+  Alert,
+  Badge,
+  Button,
+  EmptyState,
+  ErrorState,
+  Table,
+  type TableColumn,
+  PageHeader,
+} from '@css/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Layers, Pencil } from 'lucide-react';
 import { useState } from 'react';
@@ -63,10 +72,10 @@ export function ProgramsPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <div className="admin-title-row">
-        <h1 className="admin-title">{t('title')}</h1>
-        {manage && <Button onPress={() => setDialog({})}>{t('new')}</Button>}
-      </div>
+      <PageHeader
+        title={t('title')}
+        actions={manage && <Button onPress={() => setDialog({})}>{t('new')}</Button>}
+      />
       {notice && (
         <Alert tone="success" live="status" onDismiss={() => setNotice(undefined)}>
           {notice}

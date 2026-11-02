@@ -1,6 +1,15 @@
 import type { Locale } from '@css/shared/i18n';
 import { formatDateTime } from '@css/shared/format';
-import { Alert, Badge, EmptyState, ErrorState, Table, Tabs, type TableColumn } from '@css/ui';
+import {
+  Alert,
+  Badge,
+  EmptyState,
+  ErrorState,
+  Table,
+  Tabs,
+  type TableColumn,
+  PageHeader,
+} from '@css/ui';
 import { useQuery } from '@tanstack/react-query';
 import { UserCheck } from 'lucide-react';
 import { useState } from 'react';
@@ -46,7 +55,7 @@ export function RegistrationsPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <h1 className="admin-title">{t('title')}</h1>
+      <PageHeader title={t('title')} />
       {notice && (
         <Alert
           tone="success"

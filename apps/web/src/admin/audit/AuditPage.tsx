@@ -10,6 +10,7 @@ import {
   type TableColumn,
   TableToolbar,
   TextField,
+  PageHeader,
 } from '@css/ui';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Eye, ScrollText } from 'lucide-react';
@@ -135,12 +136,10 @@ export function AuditPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <h1 className="admin-title">{t('title')}</h1>
-      {meta && (
-        <p className="admin-muted">
-          {t('range', { from: formatDate(meta.from), to: formatDate(meta.to) })}
-        </p>
-      )}
+      <PageHeader
+        title={t('title')}
+        description={meta && t('range', { from: formatDate(meta.from), to: formatDate(meta.to) })}
+      />
       {filters.entityId && (
         <Alert
           tone="info"

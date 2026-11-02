@@ -13,6 +13,7 @@ import {
   Stack,
   Tabs,
   Text,
+  PageHeader,
 } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Calculator, Eye, History, Link2 } from 'lucide-react';
@@ -442,53 +443,59 @@ export function FormBuilderPage({ scope = 'project' }: { scope?: BuilderScope })
   return (
     <>
       <DocumentTitle title={title} />
-      <div className="fb-head" data-testid="form-head">
-        <h1 className="admin-title">{title}</h1>
-        <div className="fb-head-meta">
-          {form ? <Badge label={t(`kind.${form.kind}`)} /> : null}
-          <Badge label={versionLabel} />
-          <Text tone="muted">
-            {t('count_line', {
-              sections: String(draft.sections.length),
-              questions: String(draft.sections.reduce((n, s) => n + s.fields.length, 0)),
-            })}
-          </Text>
-          {isDraft && mode !== 'read' ? (
-            <Text tone="muted" aria-live="polite">
-              {saveLabel}
-            </Text>
-          ) : null}
-        </div>
-        <div className="fb-head-actions">
-          {viewing ? (
-            <Button variant="secondary" onPress={() => setViewing(null)}>
-              {t('back_to_current')}
-            </Button>
-          ) : null}
-          <Button variant="secondary" icon={Eye} onPress={() => setPreviewing(true)}>
-            {t('preview')}
-          </Button>
-          <Button variant="secondary" icon={Calculator} onPress={() => setScoring(true)}>
-            {t('scoring_button')}
-          </Button>
-          {canStartNext ? (
-            <Button onPress={() => next.mutate()} loading={next.isPending}>
-              {t('new_version')}
-            </Button>
-          ) : null}
-          {canPublish ? (
-            <Button
-              onPress={() => {
-                publish.reset();
-                setPublishing(true);
-              }}
-              // the confirmation lists what changed, so it waits for the versions too
-              disabled={save.state !== 'saved' || !etag || !versions.isSuccess}
-            >
-              {t('publish')}
-            </Button>
-          ) : null}
-        </div>
+      <div data-testid="form-head">
+        <PageHeader
+          title={title}
+          description={
+            <div className="fb-head-meta">
+              {form ? <Badge label={t(`kind.${form.kind}`)} /> : null}
+              <Badge label={versionLabel} />
+              <Text tone="muted">
+                {t('count_line', {
+                  sections: String(draft.sections.length),
+                  questions: String(draft.sections.reduce((n, s) => n + s.fields.length, 0)),
+                })}
+              </Text>
+              {isDraft && mode !== 'read' ? (
+                <Text tone="muted" aria-live="polite">
+                  {saveLabel}
+                </Text>
+              ) : null}
+            </div>
+          }
+          actions={
+            <>
+              {viewing ? (
+                <Button variant="secondary" onPress={() => setViewing(null)}>
+                  {t('back_to_current')}
+                </Button>
+              ) : null}
+              <Button variant="secondary" icon={Eye} onPress={() => setPreviewing(true)}>
+                {t('preview')}
+              </Button>
+              <Button variant="secondary" icon={Calculator} onPress={() => setScoring(true)}>
+                {t('scoring_button')}
+              </Button>
+              {canStartNext ? (
+                <Button onPress={() => next.mutate()} loading={next.isPending}>
+                  {t('new_version')}
+                </Button>
+              ) : null}
+              {canPublish ? (
+                <Button
+                  onPress={() => {
+                    publish.reset();
+                    setPublishing(true);
+                  }}
+                  // the confirmation lists what changed, so it waits for the versions too
+                  disabled={save.state !== 'saved' || !etag || !versions.isSuccess}
+                >
+                  {t('publish')}
+                </Button>
+              ) : null}
+            </>
+          }
+        />
       </div>
       {failure ? (
         <Alert tone="danger" live="alert">

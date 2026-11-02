@@ -10,6 +10,7 @@ import {
   Table,
   type TableColumn,
   Tabs,
+  PageHeader,
 } from '@css/ui';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { GitCompare, GitMerge, Users, UserX } from 'lucide-react';
@@ -54,7 +55,7 @@ export function DuplicatesPage() {
           { id: 'duplicates', label: t('duplicates.title') },
         ]}
       />
-      <h1 className="admin-title">{t('duplicates.title')}</h1>
+      <PageHeader title={t('duplicates.title')} />
       {notice && (
         <Alert tone="success" live="status" onDismiss={dismiss}>
           {notice}

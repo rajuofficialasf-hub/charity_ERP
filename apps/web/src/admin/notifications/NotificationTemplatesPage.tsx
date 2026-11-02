@@ -18,6 +18,7 @@ import {
   Text,
   TextArea,
   TextField,
+  PageHeader,
 } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MessageSquareText, Pencil } from 'lucide-react';
@@ -92,8 +93,7 @@ export function NotificationTemplatesPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <h1 className="admin-title">{t('title')}</h1>
-      <p className="admin-muted">{t('intro')}</p>
+      <PageHeader title={t('title')} description={t('intro')} />
       {notice && (
         <Alert tone="success" live="status" onDismiss={() => setNotice(undefined)}>
           {notice}

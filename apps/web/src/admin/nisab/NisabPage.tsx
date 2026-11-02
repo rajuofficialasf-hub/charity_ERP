@@ -12,6 +12,7 @@ import {
   Table,
   type TableColumn,
   Text,
+  PageHeader,
 } from '@css/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Scale, Undo2 } from 'lucide-react';
@@ -105,10 +106,10 @@ export function NisabPage() {
   return (
     <>
       <DocumentTitle title={t('title')} />
-      <div className="admin-title-row">
-        <h1 className="admin-title">{t('title')}</h1>
-        <Button onPress={() => setAdding(true)}>{t('new')}</Button>
-      </div>
+      <PageHeader
+        title={t('title')}
+        actions={<Button onPress={() => setAdding(true)}>{t('new')}</Button>}
+      />
       {notice && (
         <Alert tone="success" live="status" onDismiss={() => setNotice(undefined)}>
           {notice}

@@ -1,0 +1,65 @@
+/* Page header (DESIGN_SYSTEM 5.3a): area label, the title, one line of purpose, actions on the right. */
+@layer components {
+  .ui-page-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+  .ui-page-header-text {
+    flex: 1 1 20rem;
+    min-width: 0;
+  }
+  .ui-page-header-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0 0 var(--space-1);
+    color: var(--color-brand-primary-dark);
+    font-size: var(--text-label);
+    font-weight: var(--font-weight-bold);
+  }
+  /* the brand dot with its soft halo before the area label */
+  .ui-page-header-eyebrow::before {
+    content: '';
+    flex: none;
+    width: 6px;
+    height: 6px;
+    border-radius: var(--radius-full);
+    background: var(--color-brand-primary);
+    box-shadow: 0 0 0 3px var(--color-bg-brand-tint);
+  }
+  .ui-page-header-title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+  }
+  .ui-page-header-title {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--text-display);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--leading-heading);
+  }
+  .ui-page-header-description {
+    margin-top: var(--space-1);
+    color: var(--color-text-secondary);
+  }
+  .ui-page-header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  @media (min-width: 1024px) {
+    .ui-page-header {
+      margin-bottom: var(--space-5);
+    }
+    .ui-page-header-title {
+      font-size: 24px;
+    }
+  }
+}
