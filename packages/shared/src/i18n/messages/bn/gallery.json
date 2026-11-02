@@ -334,5 +334,10 @@
     "groupRules": "উত্তরের নিয়ম",
     "groupRulesHint": "ঐচ্ছিক",
     "inside": "এই গ্রুপের সেটিং এখানে থাকে।"
+  },
+  "offline_examples": {
+    "offline": "অফলাইনের উদাহরণ",
+    "syncing": "সিঙ্ক হওয়ার উদাহরণ",
+    "sync_failed": "সিঙ্ক না হওয়ার উদাহরণ"
   }
 }

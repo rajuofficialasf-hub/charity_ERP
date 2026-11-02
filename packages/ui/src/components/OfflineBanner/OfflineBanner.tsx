@@ -19,6 +19,8 @@ export interface OfflineBannerProps {
   onHidden?: () => void;
   /** A text in place of the state's own, for a person the default words do not fit. */
   text?: string;
+  /** The landmark's name in place of the usual one, for a page that shows several banners. */
+  label?: string;
   className?: string;
 }
 
@@ -36,6 +38,7 @@ export function OfflineBanner({
   onOpenOutbox,
   onHidden,
   text: givenText,
+  label,
   className,
 }: OfflineBannerProps) {
   const { messages, formatNumber } = useUi();
@@ -68,7 +71,7 @@ export function OfflineBanner({
   return (
     <aside
       className={cx('ui-offline', `t-${tone}`, className)}
-      aria-label={messages.offline.banner}
+      aria-label={label ?? messages.offline.banner}
     >
       <Icon icon={icon} className={state === 'syncing' ? 'ui-offline-spin' : undefined} />
       {/* Only the state text is live, so count changes are not announced (DESIGN_SYSTEM 5.16). */}

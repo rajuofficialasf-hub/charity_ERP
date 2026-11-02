@@ -898,9 +898,20 @@ function GalleryBody() {
         </Section>
 
         <Section id="offline" title={t('sections.offline')}>
-          <OfflineBanner state="offline" pendingCount={7} onOpenOutbox={() => {}} />
-          <OfflineBanner state="syncing" pendingCount={3} />
-          <OfflineBanner state="sync_failed" pendingCount={2} onOpenOutbox={() => {}} />
+          {/* each example names its landmark, as one page holds only one of a name */}
+          <OfflineBanner
+            state="offline"
+            pendingCount={7}
+            onOpenOutbox={() => {}}
+            label={t('offline_examples.offline')}
+          />
+          <OfflineBanner state="syncing" pendingCount={3} label={t('offline_examples.syncing')} />
+          <OfflineBanner
+            state="sync_failed"
+            pendingCount={2}
+            onOpenOutbox={() => {}}
+            label={t('offline_examples.sync_failed')}
+          />
         </Section>
 
         <Section id="bulk" title={t('sections.bulk')}>

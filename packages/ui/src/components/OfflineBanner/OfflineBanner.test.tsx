@@ -35,6 +35,18 @@ describe('Offline banner (DESIGN_SYSTEM 5.16)', () => {
     expect(status).not.toHaveTextContent('সংরক্ষিত');
   });
 
+  it('takes a name of its own, so several banners on one page stay apart', async () => {
+    const { container } = renderWithUi(
+      <>
+        <OfflineBanner state="offline" label="Offline example" />
+        <OfflineBanner state="syncing" label="Syncing example" />
+      </>,
+    );
+    expect(screen.getByRole('complementary', { name: 'Offline example' })).toBeInTheDocument();
+    expect(screen.getByRole('complementary', { name: 'Syncing example' })).toBeInTheDocument();
+    await expectNoAxeViolations(container);
+  });
+
   it('hides "back online" after 4 seconds', () => {
     vi.useFakeTimers();
     const onHidden = vi.fn();

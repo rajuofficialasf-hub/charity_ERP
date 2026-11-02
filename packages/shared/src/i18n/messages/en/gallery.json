@@ -334,5 +334,10 @@
     "groupRules": "Answer rules",
     "groupRulesHint": "optional",
     "inside": "The settings of this group sit here."
+  },
+  "offline_examples": {
+    "offline": "Offline example",
+    "syncing": "Syncing example",
+    "sync_failed": "Sync failed example"
   }
 }
